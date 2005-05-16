@@ -152,6 +152,7 @@ extern mach_port_t				gMachAPISet;
 extern mach_port_t				gServerMachPort;
 extern map<mach_port_t, pid_t>	gPIDMachMap;
 
+extern void mig_spawnonceifnecessary( void );
 
 // ---------------------------------------------------------------------------
 //	* MIG routines
@@ -163,18 +164,31 @@ static boolean_t dsmig_demux_notify( mach_msg_header_t *request, mach_msg_header
 {
 	if( request->msgh_id == MACH_NOTIFY_NO_SENDERS )
 	{
+		// let's spawn another thread to handle requests while this is working, since we do not know how long this will go
+		gMachThreadLock->Wait();
+		gActiveLongRequests++;
+		gMachThreadLock->Signal();
+		
+		// we should spawn the thread after we've incremented the number of requests active, otherwise thread will spawn and exit too soon
+		mig_spawnonceifnecessary();
+		
 		gMachThreadLock->Wait();
 		pid_t aPID = gPIDMachMap[request->msgh_local_port];
 		gPIDMachMap.erase( request->msgh_local_port );
 		gMachThreadLock->Signal();
-		
-		// don't use timeout, just clean up cause it is gone
-				DBGLOG1( kLogHandler, "dsmig_demux_notify:: Client PID: %d has exited or closed all tDirReferences", aPID );
 
-			CRefTable::CleanClientRefs( gDaemonIPAddress, aPID );
-			
-			mach_port_mod_refs( mach_task_self(), request->msgh_local_port, MACH_PORT_RIGHT_RECEIVE, -1 );
-		}
+		// don't use timeout, just clean up cause it is gone
+		DBGLOG1( kLogHandler, "dsmig_demux_notify:: Client PID: %d has exited", aPID );
+				
+		CRefTable::CleanClientRefs( gDaemonIPAddress, aPID );
+		
+		gMachThreadLock->Wait();
+		gActiveLongRequests--;
+		gMachThreadLock->Signal();
+		
+		// clean up the mach message port
+		mach_port_mod_refs( mach_task_self(), request->msgh_local_port, MACH_PORT_RIGHT_RECEIVE, -1 );
+	}
 	// if not our local server port or if it is our server port and not an API request
 	else if( request->msgh_local_port != gServerMachPort 
 			 || (request->msgh_id != 40002 && request->msgh_local_port == gServerMachPort) )

@@ -1,4 +1,4 @@
-# Mac OS X 10.4
+# Mac OS X 10.4.1
 Apple16X50Serial	16
 Apple3Com3C90x	10
 AppleAC97Audio	5
@@ -63,7 +63,7 @@ AppleVIAATA	6
 BerkeleyDB	12
 BootCache	25
 BootX	74.1
-CF	368
+CF	368.1
 CFNetwork	128
 CMD646ATA	107.3.1
 ChatServer	37.1
@@ -71,13 +71,13 @@ Chess	103.0.3
 CommonCrypto	7
 CoreOSMakefiles	30
 Csu	57
-CyrusIMAP	156
+CyrusIMAP	156.3
 DSAgent	37
 DSNISPlugin	17
 DSNSLPlugins	112
 DSPasswordServerPlugin	113
 DSTools	60
-DirectoryService	346
+DirectoryService	349
 DiskArbitration	156
 DynamicPowerStep	1.3.0
 FirewallTool	15
@@ -118,7 +118,7 @@ Libc	391
 Libcpp_kext	3
 Libinfo	221
 Libkvm	24
-Libm	92
+Libm	93
 Libnotify	18
 Librpcsvc	13
 Libstreams	24.1
@@ -142,7 +142,7 @@ SquirrelMail	18
 SystemStubs	5
 Tokend	11
 UserNotification	17.1
-WebCore	413
+WebCore	415.5
 X11	0.40
 adv_cmds	79.1
 apache	683
@@ -165,15 +165,15 @@ bc	18
 bind9	11
 bison	6
 bless	24
-blojsom	47.2
+blojsom	48
 boot	122
-bootp	133
+bootp	133.3
 bootstrap_cmds	49
 bsdmake	16
 bsdmanpages	56
 bsm	8
 bzip2	9
-cctools	576
+cctools	576.2
 cddafs	220.2.3
 configd	130
 cron	12.2
@@ -338,7 +338,7 @@ volfs	25
 webdavfs	214
 wxWidgets	2
 xinetd	34
-xnu	792
+xnu	792.1.5
 yacc	8
 zip	6
 zlib	15

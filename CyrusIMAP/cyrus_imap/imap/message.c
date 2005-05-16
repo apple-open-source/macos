@@ -41,7 +41,7 @@
  */
 
 /*
- * $Id: message.c,v 1.8 2005/03/05 00:36:59 dasenbro Exp $
+ * $Id: message.c,v 1.9 2005/05/12 16:57:46 dasenbro Exp $
  */
 
 #include <config.h>
@@ -378,12 +378,16 @@ struct index_record *message_index;
 	{
 		if ( body.received )
 		{
-			char *p = strstr( body.received, "; " );
+			char *p = strstr( body.received, ";" );
 			if ( p != NULL )
 			{
 				message_index->internaldate = message_parse_date( p+1, 1 );
 			}
 		}
+	}
+	if ( message_index->internaldate == 0 )
+	{
+		message_index->internaldate = message_index->sentdate;
 	}
 
     n = message_write_cache(mailbox->cache_fd, &body);

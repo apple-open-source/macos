@@ -848,7 +848,7 @@ double trunc ( double x )
        
        if (likely( xhi < 0x43300000u )) 
 /*******************************************************************************
-*     Is |x| < 2.0^53?                                                         *
+*     Is |x| < 2.0^52?                                                         *
 *******************************************************************************/
        {
               if ( xhi < 0x3ff00000u ) 
@@ -979,28 +979,26 @@ float truncf ( float x )
 *                                                                              *
 *******************************************************************************/
 
-static const double twoTo53 = 0x1.0p+53; // HEXDOUBLE(0x43300000, 0x00000000);
-
 double modf ( double x, double *iptr )
 {
       register double OldEnvironment, xtrunc;
       hexdouble argument;
       
-      register double FPR_negZero, FPR_zero, FPR_one, FPR_Two52, FPR_Two53, FPR_TowardZero, FPR_absx;
+      register double FPR_negZero, FPR_zero, FPR_one, FPR_Two52, FPR_TowardZero, FPR_absx;
       
-      FPR_absx = __FABS( x );						FPR_Two53 = twoTo53;
+      FPR_absx = __FABS( x );						FPR_Two52 = twoTo52;
       FPR_one = 1.0;								argument.d = x;
 
-      FPR_TowardZero = TOWARDZERO.d;				FPR_Two52 = twoTo52;	
+      FPR_TowardZero = TOWARDZERO.d;				FPR_zero = 0.0;	
       
-      FPR_negZero = -0.0;							FPR_zero = 0.0;
+      FPR_negZero = -0.0;							__NOOP;
       
-      __ENSURE(FPR_zero, FPR_TowardZero, FPR_Two53); __ENSURE(FPR_zero, FPR_Two52, FPR_one);
+      __ENSURE(FPR_zero, FPR_TowardZero, FPR_Two52); __ENSURE(FPR_zero, FPR_Two52, FPR_one);
             
 /*******************************************************************************
-*     Is |x| < 2.0^53?                                                         *
+*     Is |x| < 2.0^52?                                                         *
 *******************************************************************************/
-       if (likely( FPR_absx < FPR_Two53 )) 
+       if (likely( FPR_absx < FPR_Two52 )) 
        {
 /*******************************************************************************
 *     Is |x| < 1.0?                                                            *

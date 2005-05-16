@@ -195,10 +195,14 @@ CFStringRef PeriodicTaskCopyStringCallback( const void *item )
 #pragma mark -
 #pragma mark MIG Support Routines
 
-static void mig_spawnonceifnecessary( void )
+void mig_spawnonceifnecessary( void )
 {
-	// if this is a long request and we have no more than the maximum active threads
-	if( gActiveMachThreads < gMaxHandlerThreadCount )
+	// need to lock while checking cause we could get a race condition
+	gMachThreadLock->Wait();
+	bool bSpawnThread = (gActiveMachThreads < gMaxHandlerThreadCount);// check if we haven't reached out limit of threads
+	gMachThreadLock->Signal();
+
+	if( bSpawnThread )
 	{
 		CMigHandlerThread* aMigHandlerThread = new CMigHandlerThread(DSCThread::kTSMigHandlerThread, true);
 		if (aMigHandlerThread != NULL)
@@ -219,12 +223,13 @@ kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 	CRequestHandler handler;
 	char *debugDataTag = NULL;
 	
-	mig_spawnonceifnecessary();
-
 	gMachThreadLock->Wait();
 	gActiveLongRequests++;
 	gMachThreadLock->Signal();
-	
+
+	// we should spawn the thread after we've incremented the number of requests active, otherwise thread will spawn and exit too soon
+	mig_spawnonceifnecessary();
+
 	if ( (gDebugLogging) || (gLogAPICalls) )
 	{
 		pid_t	aPID;

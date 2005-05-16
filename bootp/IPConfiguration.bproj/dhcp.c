@@ -1467,6 +1467,9 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 			     service_p, (void *)IFEventID_start_e, NULL);
 	  break;
       }
+      case IFEventID_network_changed_e:
+	  /* switched networks, remove the IP address to avoid IP collisions */
+	  (void)service_remove_address(service_p);
       case IFEventID_renew_e:
       case IFEventID_media_e: {
 	  struct in_addr	our_ip;
@@ -1512,11 +1515,6 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 				     service_p, NULL, NULL);
 	      }
 	  }
-	  break;
-      }
-      case IFEventID_network_changed_e: {
-	  /* switched networks, remove the IP address to avoid IP collisions */
-	  (void)service_remove_address(service_p);
 	  break;
       }
       case IFEventID_power_off_e:

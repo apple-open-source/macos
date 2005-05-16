@@ -91,6 +91,7 @@
 #import <malloc/malloc.h>
 #import <sys/types.h>
 #import <sys/stat.h>
+#import <mach-o/stab.h>
 #import <mach-o/loader.h>
 #import <mach-o/reloc.h>
 #import <mach-o/hppa/reloc.h>
@@ -2280,8 +2281,10 @@ enum bool has_resource_fork)
 	     * For now, prebinding of 64-bit Mach-O is not supported. 
 	     * So continue and leave the file unchanged.
 	     */
-	    if(arch->object->mh == NULL)
+	    if(arch->object->mh == NULL){
+		arch->dont_update_LC_ID_DYLIB_timestamp = TRUE;
 		continue;
+	    }
 
 	    /*
 	     * The statically linked executable case.
@@ -5259,8 +5262,12 @@ build_new_symbol_table(
 unsigned long vmslide,
 enum bool missing_arch)
 {
-    unsigned long i, sym_info_size, ihint, isub_image, itoc;
-    char *symbol_name;
+    unsigned long i, j, sym_info_size, ihint, isub_image, itoc, objc_slide;
+    unsigned long lowest_objc_module_info_addr;
+    struct load_command *lc;
+    struct segment_command *sg;
+    struct section *s, *s_objc;
+    char *symbol_name, *dot;
     struct nlist *new_symbols;
     struct nlist_64 *new_symbols64;
     struct nlist *symbol;
@@ -5357,12 +5364,63 @@ enum bool missing_arch)
 
 	/*
 	 * Update the objc_module_info_addr fields if this is slid.
+	 *
+	 * The FCS Tiger dyld does not update these fields when prebinding.
+	 * So in order to get them correct when unprebinding we base the
+	 * adjustment value on the difference between the the address of the
+	 * (__OBJC,__module_info) section and the module table entry with the
+	 * lowest objc_module_info_addr value.
 	 */
+	objc_slide = 0;
 	if(vmslide != 0){
 	    if(arch->object->mh != NULL){
+		if(unprebinding && arch_nmodtab != 0){
+		    lowest_objc_module_info_addr = ULONG_MAX;
+		    for(i = 0; i < arch_nmodtab; i++){
+			if(arch_mods[i].objc_module_info_size != 0){
+			    if(arch_mods[i].objc_module_info_addr <
+			       lowest_objc_module_info_addr){
+				lowest_objc_module_info_addr =
+				    arch_mods[i].objc_module_info_addr;
+			    }
+			}
+		    }
+		    s_objc = NULL;
+		    lc = arch->object->load_commands;
+		    for(i = 0;
+			i < arch->object->mh->ncmds && s_objc == NULL;
+			i++){
+			if(lc->cmd == LC_SEGMENT){
+			    sg = (struct segment_command *)lc;
+			    if(strcmp(sg->segname, SEG_OBJC) == 0){
+				s = (struct section *)((char *)sg +
+					sizeof(struct segment_command));
+				for(j = 0 ; j < sg->nsects; j++){
+				    if(strcmp(s[j].sectname,
+					      SECT_OBJC_MODULES) == 0){
+					s_objc = s + j;
+					break;
+				    }
+				}
+			    }
+			}
+			lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		    }
+		    if(lowest_objc_module_info_addr != ULONG_MAX &&
+		       s_objc != NULL){
+			objc_slide = s_objc->addr -
+				     lowest_objc_module_info_addr;
+		    }
+		    else{
+			objc_slide = vmslide;
+		    }
+		}
+		else{
+		    objc_slide = vmslide;
+		}
 		for(i = 0; i < arch_nmodtab; i++){
 		    if(arch_mods[i].objc_module_info_size != 0)
-			arch_mods[i].objc_module_info_addr += vmslide;
+			arch_mods[i].objc_module_info_addr += objc_slide;
 		}
 	    }
 	    else{
@@ -5454,6 +5512,58 @@ enum bool missing_arch)
 		else{
 		    if(arch_symbols64[i].n_sect != NO_SECT)
 			new_symbols64[i].n_value += vmslide;
+		}
+	    }
+	}
+	/*
+	 * The FCS Tiger dyld had a bug, rdar://4108674, which incorrectly slid
+	 * absolute symbols.  We should set them back to there correct values
+	 * but that information has been lost.  So here we fix up what we know
+	 * we can do safely and correctly.  Which is setting the compiler
+	 * generated global absolute symbols that start with ".objc" and end
+	 * with ".eh" to zero.
+	 */
+	if(unprebinding){
+           for(i = arch->object->dyst->iextdefsym;
+               i < arch->object->dyst->iextdefsym +
+                   arch->object->dyst->nextdefsym;
+               i++){
+		/* this fix up is only done for 32-bit Mach-O files */
+		if(arch->object->mh != NULL){
+		    if((arch_symbols[i].n_type & N_TYPE) == N_ABS){
+			symbol_name = arch_strings +
+				      arch_symbols[i].n_un.n_strx;
+			dot = rindex(symbol_name, '.');
+			if(strncmp(symbol_name, ".objc",
+			   sizeof(".objc") - 1) == 0 ||
+			   (dot != NULL && dot[1] == 'e' &&
+			    dot[2] == 'h' && dot[3] == '\0') )
+			new_symbols[i].n_value = 0;
+		    }
+		}
+	    }
+	}
+	/*
+	 * Update the STSYM and SO stabs if this is slid.
+	 *
+	 * The FCS Tiger dyld does not update these stabs when prebinding.
+	 * If this is an objective-c dylib, we can correct when unprebinding
+	 * by the same adjustment used for objc_module_info_addr.
+	 *
+	 * This fix up is only done for 32-bit Mach-O files when unprebinding 
+	 */
+	if(arch->object->mh != NULL && unprebinding == TRUE){
+	    if(vmslide != 0 && objc_slide != vmslide){
+		for(i = arch->object->dyst->ilocalsym;
+		    i < arch->object->dyst->ilocalsym +
+			arch->object->dyst->nlocalsym;
+		    i++){
+		    if((new_symbols[i].n_type & N_STAB) != 0){
+			if(new_symbols[i].n_type == N_STSYM ||
+			   new_symbols[i].n_type == N_SO){
+			    new_symbols[i].n_value += objc_slide - vmslide;
+			}
+		    }
 		}
 	    }
 	}

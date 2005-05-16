@@ -78,7 +78,8 @@ using namespace std;
 // --------------------------------------------------------------------------------
 //	Globals
 CLDAPNode			CLDAPv3Plugin::fLDAPSessionMgr;
-bool				CLDAPv3Plugin::fHandlingNetworkTransition;
+bool				CLDAPv3Plugin::fHandlingNetworkTransition = false;
+CFRunLoopTimerRef	CLDAPv3Plugin::fTimerRef	= NULL;
 
 CLDAPv3Configs	   *gpConfigFromXML		= NULL;
 extern	bool		gServerOS;
@@ -1099,7 +1100,6 @@ CLDAPv3Plugin::CLDAPv3Plugin ( FourCharCode inSig, const char *inName ) : CServe
 	fDHCPLDAPServersString		= NULL;
 	fPrevDHCPLDAPServersString	= NULL;
 	fServerRunLoop			= nil;  //could be obtained directly now since a module not plugin
-	fTimeToHandleNetworkTransition = 0;
 	fHandlingNetworkTransition = false;
 	fInitFlag				= false;
     
@@ -16834,25 +16834,35 @@ void CLDAPv3Plugin::HandleMultipleNetworkTransitionsForLDAP ( void )
 	//since we don't want to re-init multiple times during this wait period
 	//however we do go ahead and fire off timers each time
 	//each call in here we update the delay time by 5 seconds
-	fTimeToHandleNetworkTransition = dsTimestamp() + USEC_PER_SEC*5;
-	DBGLOG1( kLogPlugin, "T[%X] CLDAPv3Plugin::HandleMultipleNetworkTransitionsForLDAP, setting fHandlingNetworkTransition to true", pthread_self() );
-	fHandlingNetworkTransition = true;
 	
 	if (fServerRunLoop != nil)
 	{
+		// invalidate any existing timer and free it, as we will add it again below
+		// this routine is called on main RunLoop so there is no need to mutex protect this variable
+		if( fTimerRef != NULL )
+		{
+			DBGLOG1( kLogPlugin, "T[%X] CLDAPv3Plugin::HandleMultipleNetworkTransitionsForLDAP invalidating previous timer", pthread_self() );
+
+			CFRunLoopTimerInvalidate( fTimerRef );
+			CFRelease( fTimerRef );
+			fTimerRef = NULL;
+		}
+		
+		DBGLOG1( kLogPlugin, "T[%X] CLDAPv3Plugin::HandleMultipleNetworkTransitionsForLDAP, setting fHandlingNetworkTransition to true", pthread_self() );
+		fHandlingNetworkTransition = true;
+
 		ptInfo = (void *)this;
 		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, NetworkChangeLDAPPICopyStringCallback};
 	
-		CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
-														CFAbsoluteTimeGetCurrent() + 5,
-														0,
-														0,
-														0,
-														DoLDAPPINetworkChange,
-														(CFRunLoopTimerContext*)&c);
+		fTimerRef = CFRunLoopTimerCreate(	NULL,
+										CFAbsoluteTimeGetCurrent() + 5.0,
+										0,
+										0,
+										0,
+										DoLDAPPINetworkChange,
+										(CFRunLoopTimerContext*)&c);
 	
-		CFRunLoopAddTimer(fServerRunLoop, timer, kCFRunLoopDefaultMode);
-		if (timer) CFRelease(timer);
+		CFRunLoopAddTimer(fServerRunLoop, fTimerRef, kCFRunLoopDefaultMode);
 	}
 } // HandleMultipleNetworkTransitionsForLDAP
 
@@ -16863,14 +16873,13 @@ void CLDAPv3Plugin::HandleMultipleNetworkTransitionsForLDAP ( void )
 
 void CLDAPv3Plugin::ReInitForNetworkTransition ( void )
 {
-	if ( dsTimestamp() >= fTimeToHandleNetworkTransition && fHandlingNetworkTransition )
+	if ( fHandlingNetworkTransition )
 	{
 		Initialize();
 		//NetTransistion is already called within Initialize so no need to call it here
 		//fLDAPSessionMgr.NetTransition();
 		DBGLOG1( kLogPlugin, "T[%X] CLDAPv3Plugin::ReInitForNetworkTransition, setting fHandlingNetworkTransition to false", pthread_self() );
 		fHandlingNetworkTransition = false;
-		
 	}
 
 }// ReInitForNetworkTransition
@@ -16884,7 +16893,7 @@ void CLDAPv3Plugin::WaitForNetworkTransitionToFinishWithFunctionName( const char
 	if ( fHandlingNetworkTransition )
 	{
 		DSSemaphore				timedWait;
-		double					waitTime	= dsTimestamp() + USEC_PER_SEC*30;
+		double					waitTime	= dsTimestamp() + USEC_PER_SEC*10;
 
 		DBGLOG2( kLogPlugin, "T[%X] %s called, waiting for WaitForNetworkTransitionToFinish", pthread_self(), callerFunction );
 		while( fHandlingNetworkTransition )

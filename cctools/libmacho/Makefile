@@ -16,7 +16,9 @@ ifeq "macos" "$(RC_OS)"
 	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
   CC := $(shell if [ "$(RC_RELEASE)" == "Tiger" ] || \
-		   [ "$(RC_RELEASE)" == "Gordian" ]; then \
+		   [ "$(RC_RELEASE)" == "Gordian" ] || \
+		   [ "$(RC_RELEASE)" == "Saffron" ] || \
+		   [ "$(RC_USE_GCC35_FOR_PPC64)" == "YES" ]; then \
 		     echo gcc-3.5 ; \
 		else \
 		     echo "$(CC)" ; \

@@ -36,7 +36,7 @@
 #include "DSSemaphore.h"
 #include "SharedConsts.h"
 
-const uInt32 kMaxHandlerThreads			= 4; // this is used for both mach and TCP handler thread max
+const uInt32 kMaxHandlerThreads			= 8; // this is used for both mach and TCP handler thread max
 const uInt32 kMaxCheckpwHandlerThreads	= 1; // single thread is enough since we now have direct dispatch
 const uInt32 kMaxInternalHandlerThreads	= kMaxHandlerThreads + 64 + 1;	// make sure this is one more than ALL external threads
 																		// usual handler threads, max TCP connection threads, extra one
