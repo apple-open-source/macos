@@ -1,4 +1,4 @@
-# Mac OS X 10.4 8A428
+# Mac OS X 10.4.1 8B15
 Apple16X50Serial	16	Other
 Apple3Com3C90x	10	Other
 AppleAC97Audio	5	Other
@@ -63,7 +63,7 @@ AppleVIAATA	6	Other
 BerkeleyDB	12	Other
 BootCache	25	Other
 BootX	74.1	Other
-CF	368	Other
+CF	368.1	Other
 CFNetwork	128	Other
 CMD646ATA	107.3.1	Other
 ChatServer	37.1	Other
@@ -71,13 +71,13 @@ Chess	103.0.3	Other
 CommonCrypto	7	Other
 CoreOSMakefiles	30	Other
 Csu	57	Other
-CyrusIMAP	156	Other
+CyrusIMAP	156.3	Other
 DSAgent	37	Other
 DSNISPlugin	17	Other
 DSNSLPlugins	112	Other
 DSPasswordServerPlugin	113	Other
 DSTools	60	Other
-DirectoryService	346	Other
+DirectoryService	349	Other
 DiskArbitration	156	Other
 DynamicPowerStep	1.3.0	Other
 FirewallTool	15	Other
@@ -118,7 +118,7 @@ Libc	391	Other
 Libcpp_kext	3	Other
 Libinfo	221	Other
 Libkvm	24	Other
-Libm	92	Other
+Libm	93	Other
 Libnotify	18	Other
 Librpcsvc	13	Other
 Libstreams	24.1	Other
@@ -144,7 +144,7 @@ SquirrelMail	18	Other
 SystemStubs	5	Other
 Tokend	11	Other
 UserNotification	17.1	Other
-WebCore	413	Other
+WebCore	415.5	Other
 X11	0.40	Other
 adv_cmds	79.1	Other
 apache	683	Other
@@ -167,15 +167,15 @@ bc	18	Other
 bind9	11	Other
 bison	6	Other
 bless	24	Other
-blojsom	47.2	Other
+blojsom	48	Other
 boot	122	Other
-bootp	133	Other
+bootp	133.3	Other
 bootstrap_cmds	49	Other
 bsdmake	16	Other
 bsdmanpages	56	Other
 bsm	8	Other
 bzip2	9	Other
-cctools	576	Other
+cctools	576.2	Other
 cddafs	220.2.3	Other
 configd	130	Other
 cron	12.2	Other
@@ -340,7 +340,7 @@ volfs	25	Other
 webdavfs	214	Other
 wxWidgets	2	Other
 xinetd	34	Other
-xnu	792	Other
+xnu	792.1.5	Other
 yacc	8	Other
 zip	6	Other
 zlib	15	Other

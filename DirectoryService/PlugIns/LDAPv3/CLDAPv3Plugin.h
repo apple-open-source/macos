@@ -451,7 +451,7 @@ private:
 	uInt32				fState;
 	CFRunLoopRef		fServerRunLoop;
 	static bool			fHandlingNetworkTransition;
-	double				fTimeToHandleNetworkTransition;
+	static CFRunLoopTimerRef	fTimerRef;
 	DSMutexSemaphore	fCheckInitFlag;
 	bool				fInitFlag;
 

@@ -1,3 +1,9 @@
+Changes picke up for the SUTiAtlanta release (the cctools-576.1 release):
+- Changed the Makefile to set CC to gcc-3.5 when RC_USE_GCC35_FOR_PPC64 is YES.
+  Radar bug #4066237.
+- Changed the Makefile to set CC to gcc-3.5 when RC_RELEASE is Saffron.
+  Radar bug #4064324.
+
 Changes for the 5.17 release (the cctools-574 release):
 - Changed the routine NXCombineCpuSubtypes() in arch.c to combine any i386
   subtype to the ALL subtype.  Radar 4002756.

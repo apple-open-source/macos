@@ -447,10 +447,7 @@ static bool initializedKJS = FALSE;
 
 - (BOOL)scrollOverflowWithScrollWheelEvent:(NSEvent *)event
 {
-    if (_part == NULL) {
-        return NO;
-    }    
-    return _part->scrollOverflowWithScrollWheelEvent(event);
+    return _part ? _part->wheelEvent(event) : NO;
 }
 
 - (BOOL)saveDocumentToPageCache

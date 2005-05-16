@@ -245,6 +245,7 @@ typedef dynarray_t	IFStateList_t;
 #define DHCP_ROUTER_ARP_AT_RETRY_COUNT		6
 #define DHCP_FAILURE_CONFIGURES_LINKLOCAL	TRUE
 #define DHCP_SUCCESS_DECONFIGURES_LINKLOCAL	TRUE
+#define DHCP_LOCAL_HOSTNAME_LENGTH_MAX		15
 
 #define USER_ERROR			1
 #define UNEXPECTED_ERROR 		2
@@ -343,6 +344,8 @@ static struct timeval		S_arp_retry = {
   ARP_RETRY_SECS,
   ARP_RETRY_USECS
 };
+static int S_dhcp_local_hostname_length_max = DHCP_LOCAL_HOSTNAME_LENGTH_MAX;
+
 static FILE *	S_IPConfiguration_log_file;
 
 static struct in_addr		S_netboot_ip;
@@ -547,6 +550,24 @@ my_SCDynamicStoreCopyValue(SCDynamicStoreRef session, CFStringRef key)
     return (dict);
 }
 
+static Boolean
+my_CFEqual(CFTypeRef val1, CFTypeRef val2)
+{
+    if (val1 == NULL) {
+	if (val2 == NULL) {
+	    return (TRUE);
+	}
+	return (FALSE);
+    }
+    if (val2 == NULL) {
+	return (FALSE);
+    }
+    if (CFGetTypeID(val1) != CFGetTypeID(val2)) {
+	return (FALSE);
+    }
+    return (CFEqual(val1, val2));
+}
+
 static struct in_addr
 cfstring_to_ip(CFStringRef str)
 {
@@ -641,6 +662,10 @@ computer_name_update(SCDynamicStoreRef session)
 	    goto done;
 	}
 	if (_SC_CFStringIsValidDNSName(name) == FALSE) {
+	    goto done;
+	}
+	if (CFStringGetLength(name) > S_dhcp_local_hostname_length_max) {
+	    /* don't exceed the maximum */
 	    goto done;
 	}
     }
@@ -1266,9 +1291,8 @@ IFState_init(interface_t * if_p)
     }
     bzero(ifstate, sizeof(*ifstate));
     ifstate->if_p = if_dup(if_p);
-    ifstate->ifname 
-	= (void *) CFStringCreateWithCString(NULL, if_name(if_p),
-					     kCFStringEncodingMacRoman);
+    ifstate->ifname = CFStringCreateWithCString(NULL, if_name(if_p),
+						kCFStringEncodingMacRoman);
     IFState_update_media_status(ifstate);
     dynarray_init(&ifstate->services, Service_free, NULL);
     return (ifstate);
@@ -1961,8 +1985,10 @@ service_publish_success2(Service_t * service_p, void * pkt, int pkt_size,
 				      host_name_len,
 				      kCFStringEncodingMacRoman, 
 				      FALSE);
-	CFDictionarySetValue(ipv4_dict, CFSTR("Hostname"), str);
-	CFRelease(str);
+	if (str != NULL) {
+	    CFDictionarySetValue(ipv4_dict, CFSTR("Hostname"), str);
+	    CFRelease(str);
+	}
     }
 
     /* set the DNS */
@@ -1999,8 +2025,10 @@ service_publish_success2(Service_t * service_p, void * pkt, int pkt_size,
 
 		str = CFStringCreateWithBytes(NULL, dns_domain, valid_count,
 					      kCFStringEncodingUTF8, FALSE);
-		CFDictionarySetValue(dns_dict, kSCPropNetDNSDomainName, str);
-		CFRelease(str);
+		if (str != NULL) {
+		    CFDictionarySetValue(dns_dict, kSCPropNetDNSDomainName, str);
+		    CFRelease(str);
+		}
 	    }
 	}
     }
@@ -2032,12 +2060,14 @@ service_publish_success2(Service_t * service_p, void * pkt, int pkt_size,
 	array = CFArrayCreateMutable(NULL, n, &kCFTypeArrayCallBacks);
 	str = CFStringCreateWithBytes(NULL, netinfo_tag, netinfo_tag_len, 
 				      kCFStringEncodingMacRoman, FALSE);
-	for (i = 0; i < n; i++) {
-	    CFArrayAppendValue(array, str);
+	if (str != NULL) {
+	    for (i = 0; i < n; i++) {
+		CFArrayAppendValue(array, str);
+	    }
+	    CFRelease(str);
+	    CFDictionarySetValue(netinfo_dict, 
+				 kSCPropNetNetInfoServerTags, array);
 	}
-	CFRelease(str);
-	CFDictionarySetValue(netinfo_dict, 
-			     kSCPropNetNetInfoServerTags, array);
 	CFRelease(array);
 
     }
@@ -4548,10 +4578,10 @@ static void
 airport_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 {
     CFDictionaryRef		dict = NULL;
-    static const struct ether_addr ether_zeroes = { { 0, 0, 0, 0, 0, 0 } };
     CFStringRef			ifn_cf = NULL;
     char			ifn[IFNAMSIZ + 1];
     IFState_t *   		ifstate;
+    CFTypeRef			ssid = NULL;
     int 			j;
 
     ifn_cf = parse_component(cache_key, S_state_interface_prefix);
@@ -4564,39 +4594,20 @@ airport_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 	goto done;
     }
     dict = my_SCDynamicStoreCopyValue(session, cache_key);
-    if (dict == NULL) {
-	if (bcmp(&ifstate->bssid, &ether_zeroes, sizeof(ether_zeroes)) == 0) {
-	    goto done;
-	}
-	bzero(&ifstate->bssid, sizeof(ifstate->bssid));
+    if (dict != NULL) {
+	ssid = CFDictionaryGetValue(dict, CFSTR("SSID"));
     }
-    else {
-	struct ether_addr		bssid;
-	CFDataRef			bssid_cf;
+    if (my_CFEqual(ssid, ifstate->ssid)) {
+	goto done;
+    }
+    my_CFRelease(&ifstate->ssid);
+    if (ssid != NULL) {
+	ifstate->ssid = CFRetain(ssid);
+    }
+    my_log(LOG_DEBUG, "%s: SSID changed", ifn);
 
-	bssid_cf = CFDictionaryGetValue(dict, CFSTR("BSSID"));
-	bssid_cf = isA_CFData(bssid_cf);
-	if (bssid_cf == NULL) {
-	    if (bcmp(&ifstate->bssid, &ether_zeroes, 
-		     sizeof(ether_zeroes)) == 0) {
-		goto done;
-	    }
-	    bzero(&ifstate->bssid, sizeof(ifstate->bssid));
-	}
-	else if (CFDataGetLength(bssid_cf) < sizeof(bssid)) {
-	    goto done;
-	}
-	else {
-	    CFDataGetBytes(bssid_cf, CFRangeMake(0, sizeof(bssid)),
-			   (void *)&bssid);
-	    if (bcmp(&ifstate->bssid, &bssid, sizeof(bssid)) == 0) {
-		goto done;
-	    }
-	    my_log(LOG_DEBUG, "%s: bssid changed to " EA_FORMAT, ifn,
-		   EA_LIST(&bssid));
-	    ifstate->bssid = bssid;
-	}
-    }
+    IFState_update_media_status(ifstate);
+
     for (j = 0; j < dynarray_count(&ifstate->services); j++) {
 	Service_t *	service_p = dynarray_element(&ifstate->services, j);
 
@@ -5281,6 +5292,9 @@ S_set_globals(const char * bundleDir)
 	dhcp_set_default_parameters(dhcp_params, n_dhcp_params);
 	G_router_arp
 	    = S_get_plist_boolean(plist, CFSTR("RouterARPEnabled"), TRUE);
+	S_dhcp_local_hostname_length_max
+	    = S_get_plist_int(plist, CFSTR("DHCPLocalHostNameLengthMax"),
+			      DHCP_LOCAL_HOSTNAME_LENGTH_MAX);
     }
     my_CFRelease(&plist);
 }

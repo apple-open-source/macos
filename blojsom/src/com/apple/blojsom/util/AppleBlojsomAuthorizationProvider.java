@@ -24,6 +24,8 @@ import javax.servlet.ServletConfig;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.util.Map;
 import java.util.Properties;
@@ -43,6 +45,7 @@ public class AppleBlojsomAuthorizationProvider implements AuthorizationProvider,
 
     private ServletConfig _servletConfig;
     private String _baseConfigurationDirectory;
+	private String _installationDirectory;
 
     /**
      * Default constructor
@@ -63,7 +66,7 @@ public class AppleBlojsomAuthorizationProvider implements AuthorizationProvider,
     {
         _servletConfig = servletConfig;
         _baseConfigurationDirectory = blojsomConfiguration.getBaseConfigurationDirectory();
-
+		_installationDirectory = blojsomConfiguration.getInstallationDirectory();
         _logger.debug("Initialized apple directory services authorization provider");
     }
 	
@@ -157,8 +160,22 @@ public class AppleBlojsomAuthorizationProvider implements AuthorizationProvider,
 				if (resultCode == 0) 
 				{
 					result = true;
-					// mark this user's blog as existing...
-					blogUser.getBlog().setBlogProperty(BLOG_EXISTS, "true");
+					if (!blogUser.getBlog().getBlogProperty(BLOG_EXISTS).equals("true")) {
+						// mark this user's blog as existing...
+						blogUser.getBlog().setBlogProperty(BLOG_EXISTS, "true");
+						
+						// Write out new blog properties
+						Properties blogProperties = BlojsomUtils.mapToProperties(blogUser.getBlog().getBlogProperties(), UTF8);
+						File propertiesFile = new File(_installationDirectory 
+								+ BlojsomUtils.removeInitialSlash(_baseConfigurationDirectory) +
+								"/" + blogUser.getId() + "/" + BlojsomConstants.BLOG_DEFAULT_PROPERTIES);
+
+						_logger.debug("Writing blog properties to: " + propertiesFile.toString());
+					
+						FileOutputStream fos = new FileOutputStream(propertiesFile);
+						blogProperties.store(fos, null);
+						fos.close();
+					}
 				}
 			} catch (java.io.IOException e) 
 			{

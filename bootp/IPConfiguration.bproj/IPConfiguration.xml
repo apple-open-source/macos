@@ -1,21 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
+	<key>ARPGratuitousCount</key>
+	<integer>1</integer>
+	<key>ARPProbeCount</key>
+	<integer>4</integer>
+	<key>ARPRetryTimeSeconds</key>
+	<real>0.29999999999999999</real>
 	<key>DHCPAcceptsBOOTP</key>
 	<false/>
-	<key>DHCPInitRebootRetryCount</key>
-	<integer>2</integer>
-	<key>DHCPSelectRetryCount</key>
-	<integer>3</integer>
 	<key>DHCPAllocateLinkLocalAtRetryCount</key>
 	<integer>2</integer>
-	<key>DHCPRouterARPAtRetryCount</key>
-	<integer>6</integer>
 	<key>DHCPFailureConfiguresLinkLocal</key>
 	<true/>
-	<key>DHCPSuccessDeconfiguresLinkLocal</key>
-	<true/>
+	<key>DHCPInitRebootRetryCount</key>
+	<integer>2</integer>
+	<key>DHCPLocalHostNameLengthMax</key>
+	<integer>15</integer>
 	<key>DHCPRequestedParameterList</key>
 	<array>
 		<integer>1</integer>
@@ -29,26 +31,26 @@
 		<integer>95</integer>
 		<integer>252</integer>
 	</array>
+	<key>DHCPRouterARPAtRetryCount</key>
+	<integer>6</integer>
+	<key>DHCPSelectRetryCount</key>
+	<integer>3</integer>
+	<key>DHCPSuccessDeconfiguresLinkLocal</key>
+	<true/>
 	<key>GatherTimeSeconds</key>
+	<integer>1</integer>
+	<key>InitialRetryTimeSeconds</key>
 	<integer>1</integer>
 	<key>LinkInactiveWaitTimeSeconds</key>
 	<integer>4</integer>
-	<key>RetryCount</key>
-	<integer>9</integer>
-	<key>InitialRetryTimeSeconds</key>
-	<integer>1</integer>
 	<key>MaximumRetryTimeSeconds</key>
 	<integer>8</integer>
-	<key>ARPProbeCount</key>
-	<integer>4</integer>
-	<key>ARPGratuitousCount</key>
-	<integer>1</integer>
-	<key>ARPRetryTimeSeconds</key>
-	<real>0.3</real>
-	<key>RouterARPEnabled</key>
-	<true/>
 	<key>MustBroadcast</key>
 	<false/>
+	<key>RetryCount</key>
+	<integer>9</integer>
+	<key>RouterARPEnabled</key>
+	<true/>
 	<key>Verbose</key>
 	<false/>
 </dict>

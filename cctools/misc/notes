@@ -10,6 +10,34 @@ To Do:
 - Maybe add fat support for segedit(1)
 
 
+Changes for the SUTiAtlanta release (the cctools-576.2 release):
+- Added more code in build_new_symbol_table() in redo_prebinding.c for fix up
+  the FCS Tiger dyld prebinding problem with stabs that are in the AppKit well
+  enough to allow the Software Update patching that uses the undo prebinding 
+  operation to work. Radar bug #4113681.
+  - If the module table gets updated when unprebinding with the change below and
+    that adjustment is not the same as the vmslide then the N_STSYM and N_SO
+    stabs are corrected.
+  - Also fixed a problem the change below where the objc_slide was calculated
+    wrong.  The correct exprestion is:
+	objc_slide = s_objc->addr - lowest_objc_module_info_addr;
+    and that was incorrectly done as:
+	objc_slide = lowest_objc_module_info_addr - s_objc->addr;
+
+Changes for the SUTiAtlanta release (the cctools-576.1 release):
+- Added code build_new_symbol_table() in redo_prebinding.c to fix up the FCS
+  Tiger dyld prebinding problems well enough to allow the Software Update
+  patching that uses the undo prebinding operation to work.  Radar bug #4108651.
+  - When updating the module table when unprebinding code was added to calculate
+    the value to adjust the objc_module_info_addr entries from the difference
+    between the the address of the (__OBJC,__module_info) section and the module
+    table entry with the lowest objc_module_info_addr value.
+  - Code was added at the end of the routine to set the n_value of absolute
+    global symbols that start with ".objc" or end with ".eh" to zero.
+- Changed process_archs() in redo_prebinding.c to set 
+  arch->dont_update_LC_ID_DYLIB_timestamp to TRUE for 64-bit archs so their
+  time stamps don't get changed.  Radar bug #4105452.
+
 Changes for the 5.17 release (the cctools-572 release):
 - Changed nm(1) when the -P option is used to print a 0 for the size.  Radar
   bug #3652346.

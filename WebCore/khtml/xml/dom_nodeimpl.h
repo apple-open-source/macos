@@ -42,6 +42,7 @@ class QMouseEvent;
 class QKeyEvent;
 class QTextStream;
 class QStringList;
+class QWheelEvent;
 
 namespace khtml {
     class RenderObject;
@@ -295,6 +296,7 @@ public:
     bool dispatchUIEvent(int _id, int detail = 0);
     bool dispatchSubtreeModifiedEvent(bool childrenChanged = true);
     bool dispatchKeyEvent(QKeyEvent *key);
+    void dispatchWheelEvent(QWheelEvent *);
 
     void handleLocalEvents(EventImpl *evt, bool useCapture);
 

@@ -1933,6 +1933,7 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct, bool bForceBind,
 					if (bForceBind)
 					{
 						inLDAPNodeStruct->fConnectionStatus = kConnectionUnsafe;
+						DBGLOG( kLogPlugin, "CLDAPNode: BindProc SETTING kConnectionUnsafe 1" );
 					}
 					else
 					{
@@ -1990,6 +1991,7 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct, bool bForceBind,
 						if( inLDAPNodeStruct->bAuthCallActive == false )
 						{
 							inLDAPNodeStruct->fConnectionStatus = kConnectionUnsafe;
+							DBGLOG( kLogPlugin, "CLDAPNode: BindProc SETTING kConnectionUnsafe 2" );
 							inLDAPNodeStruct->fDelayedBindTime = time( nil ) + 3600;
 
 							syslog(LOG_ALERT,"DSLDAPv3PlugIn: Policy Violation.  Disabled future attempts to bind to [%s] for 1 hour.", inLDAPNodeStruct->fLDAPServer );
@@ -2017,7 +2019,10 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct, bool bForceBind,
 						}
 
 						if (bForceBind)
+						{
 							inLDAPNodeStruct->fConnectionStatus = kConnectionUnsafe;
+							DBGLOG( kLogPlugin, "CLDAPNode: BindProc SETTING kConnectionUnsafe 3" );
+						}
 						else
 							inLDAPNodeStruct->fConnectionStatus = kConnectionUnknown;
 
@@ -2088,6 +2093,7 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct, bool bForceBind,
 							if (bForceBind)
 							{
 								inLDAPNodeStruct->fConnectionStatus = kConnectionUnsafe;
+								DBGLOG( kLogPlugin, "CLDAPNode: BindProc SETTING kConnectionUnsafe 4" );
 								if( DSIsStringEmpty(inLDAPNodeStruct->fLDAPUserName) || inLDAPNodeStruct->fLDAPCredentialsLen == 0 )
 								{
 									DBGLOG1( kLogPlugin, "CLDAPNode: Anonymous Bind Unsuccessful - Retry in %d seconds", inLDAPNodeStruct->fDelayRebindTry );
@@ -2125,6 +2131,7 @@ sInt32 CLDAPNode::BindProc ( sLDAPNodeStruct *inLDAPNodeStruct, bool bForceBind,
 					if( !bCheckPasswordOnly )
 					{
 						inLDAPNodeStruct->fConnectionStatus = kConnectionUnsafe;
+						DBGLOG( kLogPlugin, "CLDAPNode: BindProc SETTING kConnectionUnsafe 5" );
 						inLDAPNodeStruct->fDelayedBindTime = time( nil ) + (inLDAPNodeStruct->fDelayRebindTry ? inLDAPNodeStruct->fDelayRebindTry : kLDAPDefaultRebindTryTimeoutInSeconds);
 					}
 					
@@ -2867,6 +2874,7 @@ void CLDAPNode::SystemGoingToSleep( void )
 			// on system wake, we will get a network transition that will set all the
 			// connection statuses to unknown
 			pLDAPNodeStruct->fConnectionStatus = kConnectionUnsafe;
+			DBGLOG( kLogPlugin, "CLDAPNode: SystemGoingToSleep SETTING kConnectionUnsafe 1" );
 			pLDAPNodeStruct->fDelayedBindTime = 0;
 			
 			pLDAPNodeStruct->SessionMutexWait();
@@ -3002,7 +3010,46 @@ LDAP* CLDAPNode::InitLDAPConnection( sLDAPNodeStruct *inLDAPNodeStruct, sLDAPCon
 			}
 		}
 		
-		inConfig->bBuildReplicaList = false;
+		if ( inOutList == NULL )
+		{
+			inConfig->bBuildReplicaList = true;
+			if (inConfig->fReplicaHosts != NULL)
+			{
+                DSDelete( inConfig->fReplicaHosts );
+				inConfig->fReplicaHosts = NULL;
+			}
+		}
+		else if (inOutList->fAddrInfo == NULL)
+		{
+			sReplicaInfo *aPtr = inOutList->fNext;
+			bool bAtLeastOneAddr = false;
+			while (aPtr != NULL)
+			{
+				if (aPtr->fAddrInfo != NULL)
+				{
+					bAtLeastOneAddr = true;
+					break;
+				}
+				aPtr = aPtr->fNext;
+			}
+			if (bAtLeastOneAddr)
+			{
+				inConfig->bBuildReplicaList = false;
+			}
+			else
+			{
+				inConfig->bBuildReplicaList = true;
+				if (inConfig->fReplicaHosts != NULL)
+				{
+					DSDelete( inConfig->fReplicaHosts );
+					inConfig->fReplicaHosts = NULL;
+				}
+			}
+		}
+		else
+		{
+			inConfig->bBuildReplicaList = false;
+		}
 		
 		//here we need to save the hostnames of the replica list in the config file
 		gpConfigFromXML->UpdateReplicaList(inConfig->fNodeName, inConfig->fReplicaHostnames, inConfig->fWriteableHostnames);

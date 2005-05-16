@@ -117,13 +117,13 @@ struct ServiceState {
 
 struct IFState {
     interface_t *		if_p;
-    void *			ifname;
+    CFStringRef			ifname;
     link_status_t		link;
     dynarray_t			services;
     boolean_t			startup_ready;
     boolean_t			free_in_progress;
     boolean_t			netboot;
-    struct ether_addr		bssid;
+    CFTypeRef			ssid;
 };
 
 struct saved_pkt {
