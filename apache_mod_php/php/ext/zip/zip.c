@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: zip.c,v 1.33.2.2 2003/03/07 13:42:21 ddhill Exp $ */
+/* $Id: zip.c,v 1.33.2.3 2004/12/31 02:57:08 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -29,7 +29,12 @@
 #if HAVE_ZZIPLIB
 
 #include "ext/standard/info.h"
+
+#ifdef HAVE_NEW_ZZIPLIB
+#include <zzip/zzip.h>
+#else
 #include <zziplib.h>
+#endif
 
 #ifndef O_BINARY
 #define O_BINARY 0

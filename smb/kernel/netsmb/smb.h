@@ -35,7 +35,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb.h,v 1.36 2005/02/16 00:27:47 lindak Exp $
+ * $Id: smb.h,v 1.36.90.1 2005/05/27 02:35:29 lindak Exp $
  */
 
 /*
@@ -116,6 +116,11 @@ enum smb_dialects {
 #define	SMB_SM_ENCRYPT		0x02	/* use challenge/responce */
 #define	SMB_SM_SIGS		0x04
 #define	SMB_SM_SIGS_REQUIRE	0x08
+
+/*
+ * Action bits in session setup reply
+ */
+#define SMB_ACT_GUEST		0x01
 
 /*
  * NTLM capabilities

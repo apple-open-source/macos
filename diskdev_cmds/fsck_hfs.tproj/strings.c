@@ -26,6 +26,7 @@ char * stat_msg[] =
 	"Cannot repair volume when it is mounted with write access.",
 	"Detected a case-sensitive catalog.",
 	"The volume %s could not be repaired after 3 attempts.",
+	"Look for links to corrupt files in DamagedFiles directory."
 };
 
 
@@ -116,8 +117,9 @@ char * err_msg[] =
 	"Orphaned indirect node %s",
 	"Invalid BSD file type",
 
-	/* 570 - 572 */
+	/* 570 - 573 */
 	"Invalid BSD User ID",
 	"Illegal name",
 	"Incorrect number of thread records",
+	"Cannot create links to all corrupt files",
 };

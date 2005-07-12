@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.c,v 1.68.2.18 2004/10/05 23:55:21 iliaa Exp $ */
+/* $Id: ftp.c,v 1.68.2.22 2005/03/17 17:16:53 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -705,7 +705,9 @@ ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, 
 		}
 
 		if (type == FTPTYPE_ASCII) {
+#ifndef PHP_WIN32
 			char *s;
+#endif
 			char *ptr = data->buf;
 			char *e = ptr + rcvd;
 			/* logic depends on the OS EOL
@@ -713,19 +715,8 @@ ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, 
 			 * Everything Else \n
 			 */
 #ifdef PHP_WIN32
-			while ((s = strpbrk(ptr, "\r\n"))) {
-				if (*s == '\n') {
-					php_stream_putc(outstream, '\r');
-				} else if (*s == '\r' && *(s + 1) == '\n') {
-					s++;
-				}
-				s++;
-				php_stream_write(outstream, ptr, (s - ptr));
-				if (*(s - 1) == '\r') {
-					php_stream_putc(outstream, '\n');
-				}
-				ptr = s;
-			}
+			php_stream_write(outstream, ptr, (e - ptr));
+			ptr = e;
 #else 
 			while (e > ptr && (s = memchr(ptr, '\r', (e - ptr)))) {
 				php_stream_write(outstream, ptr, (s - ptr));

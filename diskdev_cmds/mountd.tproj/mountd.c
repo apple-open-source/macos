@@ -998,6 +998,8 @@ clean_white_space(char *line)
 		return NULL;
 	len = strlen(line);
 	s = malloc(len + 1);
+	if (s == NULL)
+		return NULL;
 
 	len = 0;
 	esc = 0;
@@ -1237,14 +1239,15 @@ add_uuid_to_list(const struct statfs *fsb, u_char *dauuid, u_char *uuid)
 	u_int32_t xfsid;
 
 	ulpnew = malloc(sizeof(struct uuidlist));
-	if (!ulpnew)
-		out_of_mem("add_uuid_to_list");
+	if (!ulpnew) {
+		log(LOG_ERR, "add_uuid_to_list: out of memory");
+		return (NULL);
+	}
+	bzero(ulpnew, sizeof(*ulpnew));
+	LIST_INIT(&ulpnew->ul_exportids);
 	if (dauuid) {
 		bcopy(dauuid, ulpnew->ul_dauuid, sizeof(ulpnew->ul_dauuid));
 		ulpnew->ul_davalid = 1;
-	} else {
-		bzero(ulpnew->ul_dauuid, sizeof(ulpnew->ul_dauuid));
-		ulpnew->ul_davalid = 0;
 	}
 	bcopy(uuid, ulpnew->ul_uuid, sizeof(ulpnew->ul_uuid));
 	strcpy(ulpnew->ul_mntfromname, fsb->f_mntfromname);
@@ -1511,9 +1514,10 @@ uuidlist_restore(void)
 				out_of_mem("uuidlist_restore");
 			cp = str + 4;
 			slen -= 4;
-			if (sscanf(cp, "0x%i", &xid->xid_id) != 1) {
+			if (sscanf(cp, "%i", &xid->xid_id) != 1) {
 				log(LOG_ERR, "invalid export ID at line %d of %s",
 					linenum, _PATH_MOUNTEXPLIST);
+				free(xid);
 				continue;
 			}
 			while (*cp && (*cp != ' ')) {
@@ -1525,6 +1529,7 @@ uuidlist_restore(void)
 			if (slen >= sizeof(xid->xid_path)) {
 				log(LOG_ERR, "export ID path too long at line %d of %s",
 					linenum, _PATH_MOUNTEXPLIST);
+				free(xid);
 				continue;
 			}
 			if ((cp[0] == '.') && (cp[1] == '\0'))
@@ -1537,6 +1542,8 @@ uuidlist_restore(void)
 		ulp = malloc(sizeof(*ulp));
 		if (ulp == NULL)
 			out_of_mem("uuidlist_restore");
+		bzero(ulp, sizeof(*ulp));
+		LIST_INIT(&ulp->ul_exportids);
 		cp = str;
 		if (*cp == '-') {
 			/* DiskArb UUID not present */
@@ -1683,8 +1690,11 @@ get_export_id(struct uuidlist *ulp, u_char *path)
 		return (xid);
 	/* add it */
 	xid = malloc(sizeof(*xid));
-	if (!xid)
-		out_of_mem("get_export_id");
+	if (!xid) {
+		log(LOG_ERR, "get_export_id: out of memory");
+		return (NULL);
+	}
+	bzero(xid, sizeof(*xid));
 	strcpy(xid->xid_path, path);
 	xid->xid_id = maxid + 1;
 	while (find_export_id(ulp, xid->xid_id)) {
@@ -1862,8 +1872,11 @@ get_exportlist(void)
 			    log(LOG_DEBUG, "processing pathname: %.*s", endcp-cp, cp);
 			    word = clean_white_space(cp);
 			    log(LOG_DEBUG, "   cleaned pathname: %s", word);
-			    if (word == NULL)
+			    if (word == NULL) {
+				    log(LOG_ERR, "error processing pathname (out of memory)");
+				    getexp_err(xf, tgrp);
 				    goto nextline;
+			    }
 			    if (strlen(word) > RPCMNT_NAMELEN) {
 				    log(LOG_ERR, "pathname too long (%d > %d): %s",
 				    	strlen(word), RPCMNT_NAMELEN, word);
@@ -2220,6 +2233,7 @@ get_expfs(void)
 	if (xf == NULL)
 		return (NULL);
 	memset(xf, 0, sizeof(*xf));
+	TAILQ_INIT(&xf->xf_dirl);
 	return (xf);
 }
 
@@ -2232,6 +2246,7 @@ get_expdir(void)
 	if (xd == NULL)
 		return (NULL);
 	memset(xd, 0, sizeof(*xd));
+	TAILQ_INIT(&xd->xd_mountdirs);
 	return (xd);
 }
 
@@ -2712,7 +2727,7 @@ do_opt( char **cpp,
 				return (1);
 			}
 			grp->gr_type = GT_NET;
-			*hostcountp++;
+			*hostcountp = *hostcountp + 1;
 			usedarg++;
 			*opt_flagsp |= OP_NET;
 		} else if (!strcmp(cpopt, "alldirs")) {
@@ -2723,7 +2738,7 @@ do_opt( char **cpp,
 				log(LOG_ERR, "Bad iso addr: %s", cpoptarg);
 				return (1);
 			}
-			*hostcountp++;
+			*hostcountp = *hostcountp + 1;
 			usedarg++;
 			*opt_flagsp |= OP_ISO;
 #endif /* ISO */

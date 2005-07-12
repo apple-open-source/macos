@@ -201,7 +201,7 @@ OSErr DeviceRead(int device, int drive, void* buffer, SInt64 offset, UInt32 reqB
 	if (nbytes == -1)
 		return (errno);
 	if (nbytes == 0) {
-		printf("CANNOT READ: BLK %ld", (long)offset/512);
+		printf("CANNOT READ: BLK %ld\n", (long)offset/512);
 		return (5);
 	}
 
@@ -254,7 +254,7 @@ OSErr DeviceWrite(int device, int drive, void* buffer, SInt64 offset, UInt32 req
 		return (errno);
 	}
 	if (nbytes == 0) {
-		printf("CANNOT WRITE: BLK %ld", (long)offset/512);
+		printf("CANNOT WRITE: BLK %ld\n", (long)offset/512);
 		return (5);
 	}
 

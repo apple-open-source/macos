@@ -20,6 +20,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/* Summary for in-memory volume bitmap:
+ * A binary search tree is used to store bitmap segments that are
+ * partially full.  If a segment does not exist in the tree, it
+ * can be assumed to be in the following state:
+ *	1. Full if the coresponding segment map bit is set
+ *	2. Empty (implied)
+ */
+
 #include "Scavenger.h"
 
 #include <bitstring.h>
@@ -102,8 +110,7 @@ static void       BMS_MaxDepth(BMS_Node * root, int depth, int *maxdepth);
 /*
  * Initialize our volume bitmap data structures
  */
-int
-BitMapCheckBegin(SGlobPtr g)
+int BitMapCheckBegin(SGlobPtr g)
 {
 	Boolean				isHFSPlus;
 
@@ -162,8 +169,7 @@ BitMapCheckBegin(SGlobPtr g)
 int gFullSegments = 0;
 int gSegmentNodes = 0;
 
-int
-BitMapCheckEnd(void)
+int BitMapCheckEnd(void)
 {
 	if (gBitMapInited) {
 #if _VBC_DEBUG_
@@ -188,9 +194,35 @@ BitMapCheckEnd(void)
 	return (0);
 }
 
-
-static int
-GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int bitOperation)
+/* Function: GetSegmentBitmap
+ *
+ * Description: Return bitmap segment corresponding to given startBit.
+ * 
+ *	1. Calculate the segment number for given bit.
+ *	2. If the segment exists in full segment list,
+ *			If bitOperation is to clear bits, 
+ *			a. Remove segment from full segment list.
+ *			b. Insert a full segment in the bitmap tree.
+ *			Else return pointer to dummy full segment
+ *	3. If segment found in tree, it is partially full.  Return it.
+ *	4. If (2) and (3) are not true, it is a empty segment.
+ *			If bitOperation is to set bits,
+ *			a. Insert empty segment in the bitmap tree.
+ *			Else return pointer to dummy empty segment.
+ *
+ * Input:	
+ *	1. startBit - bit number (block number) to lookup
+ *	2. buffer - pointer to return pointer to bitmap segment
+ *	3. bitOperation - intent for new segment
+ *		kSettingBits	- caller wants to set bits
+ *		kClearingBits	- caller wants to clear bits
+ *		kTestingBits	- caller wants to test bits.
+ *
+ * Output:
+ *	1. buffer - pointer to desired segment 
+ *	returns zero on success, -1 on failure.
+ */
+static int GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int bitOperation)
 {
 	UInt32 segment;
 	BMS_Node *segNode = NULL;
@@ -254,9 +286,22 @@ GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int bitOperation)
 	return (0);
 }
 
-
-void
-TestSegmentBitmap(UInt32 startBit)
+/* Function: TestSegmentBitmap
+ *
+ * Description:  Test if the current bitmap segment is a full
+ * segment or empty segment. 
+ * If full segment, delete the segment, set corresponding full segment
+ * bit in gFullSegmentList, and update counters.
+ * If empty list, delete the segment from list.  Note that we update 
+ * the counter only for debugging purposes.
+ *
+ * Input: 
+ *	startBit - startBit of segment to test
+ *
+ * Output:
+ *	nothing (void).
+ */
+void TestSegmentBitmap(UInt32 startBit)
 {
 	UInt32 segment;
 	BMS_Node *segNode = NULL;
@@ -295,12 +340,32 @@ TestSegmentBitmap(UInt32 startBit)
 	}
 }
 
-
-/*
- * Mark off bits in the segmented bitmaps
+/* Function: CaptureBitmapBits
+ *
+ * Description: Set bits in the segmented bitmap from startBit upto 
+ * bitCount bits.  
+ *
+ * Note: This function is independent of the previous state of the bit
+ * to be set.  Therefore single bit can be set multiple times.  Setting a 
+ * bit multiple times might result in incorrect total number of blocks used 
+ * (which can be corrected using UpdateFreeBlockCount function).
+ *
+ * 1. Increment gBitsMarked with bitCount.
+ * 2. If first bit does not start on word boundary, special case it.
+ * 3. Set all whole words. 
+ * 4. If not all bits in last word need to be set, special case it.
+ * 5. For 2, 3, and 4, call TestSegmentBitmap after writing one segment or 
+ * setting all bits to optimize full and empty segment list.
+ * 
+ * Input:
+ *	startBit - bit number in segment bitmap to start set operation.
+ *  bitCount - total number of bits to set.
+ *
+ * Output:
+ *	zero on success, non-zero on failure.
+ *	This function also returns E_OvlExt if any overlapping extent is found.
  */
-int
-CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
+int CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 {
 	Boolean overlap;
 	OSErr   err;
@@ -428,12 +493,32 @@ Exit:
 	return (overlap ? E_OvlExt : err);
 }
 
-
-/*
- * Clear bits in the segmented bitmaps
+/* Function: ReleaseBitMapBits
+ *
+ * Description: Clear bits in the segmented bitmap from startBit upto 
+ * bitCount bits.  
+ *
+ * Note: This function is independent of the previous state of the bit
+ * to clear.  Therefore single bit can be cleared multiple times.  Clearing a 
+ * bit multiple times might result in incorrect total number of blocks used 
+ * (which can be corrected using UpdateFreeBlockCount function).
+ *
+ * 1. Decrement gBitsMarked with bitCount.
+ * 2. If first bit does not start on word boundary, special case it.
+ * 3. Clear all whole words. 
+ * 4. If partial bits in last word needs to be cleared, special case it.
+ * 5. For 2, 3, and 4, call TestSegmentBitmap after writing one segment or 
+ * clearing all bits to optimize full and empty segment list.
+ * 
+ * Input:
+ *	startBit - bit number in segment bitmap to start clear operation.
+ *  bitCount - total number of bits to clear.
+ *
+ * Output:
+ *	zero on success, non-zero on failure.
+ *	This function also returns E_OvlExt if any overlapping extent is found.
  */
-int
-ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
+int ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 {
 	Boolean overlap;
 	OSErr   err;
@@ -561,14 +646,22 @@ Exit:
 	return (overlap ? E_OvlExt : err);
 }
 
-
-/*
- * CheckBitMap
+/* Function: CheckVolumeBitMap
  *
- * Compares the in-memory VBM with the on-disk VBM.
+ * Description: Compares the in-memory volume bitmap with the on-disk
+ * volume bitmap. 
+ * If repair is true, update the on-disk bitmap with the in-memory bitmap.
+ * If repair is false and the bitmaps don't match, an error message is 
+ * printed and check stops.
+ *
+ * Input:
+ *	1. g - global scavenger structure
+ *	2. repair - indicate if a repair operation is requested or not.
+ *
+ * Output:
+ *	zero on success, non-zero on failure.
  */
-int
-CheckVolumeBitMap(SGlobPtr g, Boolean repair)
+int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 {
 	UInt8 *vbmBlockP;
 	UInt32 *buffer;
@@ -671,6 +764,68 @@ CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 	}
 
 	return (0);
+}
+
+/* Function: UpdateFreeBlockCount
+ *
+ * Description: Re-calculate the total bits marked in in-memory bitmap 
+ * by traversing the entire bitmap.  Update the total number of bits set in 
+ * the in-memory volume bitmap and the volume free block count.
+ *
+ * Input:
+ * 	g - global scavenger structure pointer.
+ *
+ * Output:
+ *	nothing (void)
+ */
+void UpdateFreeBlockCount(SGlobPtr g)
+{
+	int i;
+	UInt32 newBitsMarked = 0;
+	UInt32 bit;
+	UInt32 *buffer;
+	UInt32 curWord;
+	SVCB * vcb = g->calculatedVCB;
+	
+	/* Loop through all the bitmap segments */
+	for (bit = 0; bit < gTotalBits; bit += kBitsPerSegment) {
+		(void) GetSegmentBitmap(bit, &buffer, kTestingBits);
+
+		/* All bits in segment are set */
+		if (buffer == gFullBitmapSegment) {
+			newBitsMarked += kBitsPerSegment;
+			continue;
+		}
+
+		/* All bits in segment are clear */
+		if (buffer == gEmptyBitmapSegment) {
+			continue;
+		}
+
+		/* Segment is partially full */
+		for (i = 0; i < kWordsPerSegment; i++) {
+			if (buffer[i] == kAllBitsSetInWord) {
+				newBitsMarked += kBitsPerWord;
+			} else {
+				curWord = buffer[i];
+				while (curWord) {
+					newBitsMarked += curWord & 1;
+					curWord >>= 1;
+				}
+			}
+		} 
+	} 
+	
+	/* Update total bits marked count for in-memory bitmap */
+	if (gBitsMarked != newBitsMarked) {
+		gBitsMarked = newBitsMarked;
+	}
+
+	/* Update volume free block count */
+	if (vcb->vcbFreeBlocks != (vcb->vcbTotalBlocks - gBitsMarked)) {
+		vcb->vcbFreeBlocks = vcb->vcbTotalBlocks - gBitsMarked;
+		MarkVCBDirty(vcb);
+	}
 }
 
 

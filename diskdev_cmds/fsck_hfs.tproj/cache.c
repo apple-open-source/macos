@@ -747,6 +747,75 @@ CacheFlush( Cache_t *cache )
 
 
 /*
+ * RangeIntersect
+ *
+ * Return true if the two given ranges intersect.
+ *
+ */
+static int
+RangeIntersect(uint64_t start1, uint64_t len1, uint64_t start2, uint64_t len2)
+{
+	uint64_t end1 = start1 + len1 - 1;
+	uint64_t end2 = start2 + len2 - 1;
+	
+	if (end1 < start2 || start1 > end2)
+		return 0;
+	else
+		return 1;
+}
+
+
+/*
+ * CacheFlushRange
+ *
+ * Flush, and optionally remove, all cache blocks that intersect
+ * a given range.
+ */
+int
+CacheFlushRange( Cache_t *cache, uint64_t start, uint64_t len, int remove)
+{
+	int error;
+	int i;
+	Tag_t *currentTag, *nextTag;
+	
+	for ( i = 0; i < cache->HashSize; i++ )
+	{
+		currentTag = cache->Hash[ i ];
+		
+		while ( NULL != currentTag )
+		{
+			/* Keep track of the next block, in case we remove the current block */
+			nextTag = currentTag->Next;
+
+			if ( currentTag->Flags & kLazyWrite &&
+				 RangeIntersect(currentTag->Offset, cache->BlockSize, start, len))
+			{
+				error = CacheRawWrite( cache,
+									   currentTag->Offset,
+									   cache->BlockSize,
+									   currentTag->Buffer );
+				if ( EOK != error )
+				{
+#if CACHE_DEBUG
+					printf( "%s - CacheRawWrite failed with error %d \n", __FUNCTION__, error );
+#endif 
+					return error;
+				}
+				currentTag->Flags &= ~kLazyWrite;
+
+				if ( remove )
+					CacheRemove( cache, currentTag );
+			}
+			
+			currentTag = nextTag;
+		} /* while */
+	} /* for */
+	
+	return EOK;
+} /* CacheFlushRange */
+
+
+/*
  * CacheLookup
  *
  *  Obtain a cache block. If one already exists, it is returned. Otherwise a

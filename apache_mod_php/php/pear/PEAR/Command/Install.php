@@ -1,7 +1,7 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP Version 4                                                        |
+// | PHP Version 5                                                        |
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
 // | Author: Stig Sæther Bakken <ssb@php.net>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: Install.php,v 1.38.2.14 2004/01/25 23:19:59 pajoye Exp $
+// $Id: Install.php,v 1.38.2.15 2005/03/28 16:57:00 cellog Exp $
 
 require_once "PEAR/Command/Common.php";
 require_once "PEAR/Installer.php";
@@ -303,8 +303,13 @@ package if needed.
         $downloaded = $this->downloader->getDownloadedPackages();
         $this->installer->sortPkgDeps($downloaded);
         foreach ($downloaded as $pkg) {
-            $bn = basename($pkg['file']);
+            PEAR::pushErrorHandling(PEAR_ERROR_RETURN);
             $info = $this->installer->install($pkg['file'], $options, $this->config);
+            PEAR::popErrorHandling();
+            if (PEAR::isError($info)) {
+                $this->ui->outputData('ERROR: ' .$info->getMessage());
+                continue;
+            }
             if (is_array($info)) {
                 if ($this->config->get('verbose') > 0) {
                     $label = "$info[package] $info[version]";

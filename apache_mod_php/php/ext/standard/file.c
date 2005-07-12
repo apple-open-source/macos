@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.279.2.67 2004/12/08 21:15:02 iliaa Exp $ */
+/* $Id: file.c,v 1.279.2.70 2005/03/27 15:53:59 iliaa Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -2427,9 +2427,6 @@ enclosure:
 		if ((p = memchr(p2, delimiter, (e - p2)))) {
 			p2 = s;
 			s = p + 1;
-			if (*p2 == enclosure) {
-				p2++;
-			}
 
 			/* copy data to buffer */
 			buf2 = erealloc(buf2, buf2_len + (p - p2) + 1);

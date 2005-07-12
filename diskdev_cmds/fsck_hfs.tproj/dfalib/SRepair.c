@@ -35,6 +35,8 @@
 #include "Scavenger.h"
 #include <unistd.h>
 #include <sys/stat.h>
+#include <stdlib.h>
+#include "../cache.h"
 
 enum {
 	clearBlocks,
@@ -68,24 +70,37 @@ static	OSErr	FixOrphanedExtent( SGlobPtr GPtr );
 static 	OSErr	FixFileSize(SGlobPtr GPtr, RepairOrderPtr p);
 static  OSErr 	VolumeObjectFixVHBorMDB( Boolean * fixedIt );
 static 	OSErr 	VolumeObjectRestoreWrapper( void );
-
-extern	OSErr	FindExtentRecord( const SVCB *vcb, UInt8 forkType, UInt32 fileID, UInt32 startBlock, Boolean allowPrevious, HFSPlusExtentKey *foundKey, HFSPlusExtentRecord foundData, UInt32 *foundHint);
-extern	OSErr	DeleteExtentRecord( const SVCB *vcb, UInt8 forkType, UInt32 fileID, UInt32 startBlock );
-OSErr	GetFCBExtentRecord( const SVCB *vcb, const SFCB *fcb, HFSPlusExtentRecord extents );
-static	OSErr	FixOverlappingExtents( SGlobPtr GPtr );
-OSErr	CopyDiskBlocks( SGlobPtr GPtr, UInt32 startAllocationBlock, UInt32 blockCount, UInt32 newStartAllocationBlock );
 static	OSErr	FixBloatedThreadRecords( SGlob *GPtr );
 static	OSErr	FixMissingThreadRecords( SGlob *GPtr );
 static	OSErr	FixEmbededVolDescription( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixWrapperExtents( SGlobPtr GPtr, RepairOrderPtr p );
 static  OSErr	FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr );
 static HFSCatalogNodeID GetObjectID( CatalogRecord * theRecPtr );
-static UInt32	CreateLostAndFoundDir( SGlob *GPtr );
-static int		BuildThreadRec( CatalogKey * theKeyPtr, CatalogRecord * theRecPtr, 
-								Boolean isHFSPlus, Boolean isDirectory );
-static int		BuildFolderRec( u_int16_t theMode, UInt32 theObjID, Boolean isHFSPlus, 
-								CatalogRecord * theRecPtr );
-static OSErr	FixMissingDirectory( SGlob *GPtr, UInt32 theObjID, UInt32 theParID );
+static 	OSErr	FixMissingDirectory( SGlob *GPtr, UInt32 theObjID, UInt32 theParID );
+
+/* Functions to fix overlapping extents */
+static	OSErr	FixOverlappingExtents(SGlobPtr GPtr);
+static 	int 	CompareExtentBlockCount(const void *first, const void *second);
+static 	OSErr 	MoveExtent(SGlobPtr GPtr, ExtentInfo *extentInfo);
+static 	OSErr 	CreateCorruptFileSymlink(SGlobPtr GPtr, UInt32 parentID, ExtentInfo *extentInfo);
+static 	OSErr 	SearchExtentInVH(SGlobPtr GPtr, ExtentInfo *extentInfo, UInt32 *foundExtentIndex, Boolean *noMoreExtents);
+static 	OSErr 	UpdateExtentInVH (SGlobPtr GPtr, ExtentInfo *extentInfo, UInt32 foundExtentIndex);
+static 	OSErr 	SearchExtentInCatalogBT(SGlobPtr GPtr, ExtentInfo *extentInfo, CatalogKey *catKey, CatalogRecord *catRecord, UInt16 *recordSize, UInt32 *foundExtentIndex, Boolean *noMoreExtents);
+static 	OSErr 	UpdateExtentInCatalogBT (SGlobPtr GPtr, ExtentInfo *extentInfo, CatalogKey *catKey, CatalogRecord *catRecord, UInt16 *recordSize, UInt32 foundExtentIndex);
+static 	OSErr 	SearchExtentInExtentBT(SGlobPtr GPtr, ExtentInfo *extentInfo, HFSPlusExtentKey *extentKey, HFSPlusExtentRecord *extentRecord, UInt16 *recordSize, UInt32 *foundExtentIndex);
+static 	OSErr 	FindExtentInExtentRec (Boolean isHFSPlus, UInt32 startBlock, UInt32 blockCount, const HFSPlusExtentRecord extentData, UInt32 *foundExtentIndex, Boolean *noMoreExtents);
+
+/* Functions to copy disk blocks or data buffer to disk */
+static 	OSErr 	CopyDiskBlocks(SGlobPtr GPtr, const UInt32 startAllocationBlock, const UInt32 blockCount, const UInt32 newStartAllocationBlock );
+static 	OSErr 	WriteDiskBlocks(SGlobPtr GPtr, UInt32 startBlock, UInt32 blockCount, u_char *buffer, int buflen);
+
+/* Functions to create file and directory by name */
+static 	OSErr 	CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *fileName, unsigned int filenameLen, u_char *data, unsigned int dataLen);
+static 	UInt32 	CreateDirByName(SGlob *GPtr , const u_char *dirName, const UInt32 parentID);
+
+static 	int		BuildFolderRec( u_int16_t theMode, UInt32 theObjID, Boolean isHFSPlus, CatalogRecord * theRecPtr );
+static 	int		BuildThreadRec( CatalogKey * theKeyPtr, CatalogRecord * theRecPtr, Boolean isHFSPlus, Boolean isDirectory );
+static 	int 	BuildFileRec(UInt16 fileType, UInt16 fileMode, UInt32 fileID, Boolean isHFSPlus, CatalogRecord *catRecord);
 
 
 OSErr	RepairVolume( SGlobPtr GPtr )
@@ -2398,93 +2413,6 @@ out:
 	return err;
 }
 
-OSErr	ProcessFileExtents( SGlobPtr GPtr, SFCB *fcb, UInt8 forkType, UInt16 flags, Boolean isExtentsBTree, Boolean *hasOverflowExtents, UInt32 *blocksUsed  )
-{
-	OSErr				err					= noErr;
-#if 0
-	UInt32				extentBlockCount;
-	UInt32				extentStartBlock;
-	UInt32				hint;
-	SInt16				i;
-	HFSPlusExtentKey	key;
-	HFSPlusExtentRecord	extents;
-	Boolean				done				= false;
-	SVCB			*vcb				= GPtr->calculatedVCB;
-	UInt32				fileNumber			= fcb->fcbFileID;
-	UInt32				blockCount			= 0;
-	OSErr				err					= noErr;
-
-	
-	*hasOverflowExtents = false;
-	extentBlockCount = 0;							//	default
-	
-	err = GetFCBExtentRecord( vcb, fcb, extents );			//	Gets extents in a HFSPlusExtentRecord
-
-	while ( (done == false) && (err == noErr) )
-	{
-//		err = ChkExtRec( GPtr, extents );					//	checkout the extent record first
-//		if ( err != noErr )		break;
-
-		for ( i=0 ; i<GPtr->numExtents ; i++ )				//	now checkout the extents
-		{
-			extentBlockCount = extents[i].blockCount;
-			extentStartBlock = extents[i].startBlock;
-		
-			if ( extentBlockCount == 0 )
-				break;
-			
-	
-			if ( flags == addBitmapBit )
-			{
-				err = AllocExt( GPtr, extentStartBlock, extentBlockCount );
-				if ( err != noErr )
-				{
-					M_DebugStr("\p Problem Allocating Extents");
-					break;
-				}
-			}
-	
-			blockCount += extentBlockCount;
-		}
-		
-		
-		if ( (err != noErr) || isExtentsBTree )				//	Extents file has no extents
-			break;
-
-
-		err = FindExtentRecord( vcb, forkType, fileNumber, blockCount, false, &key, extents, &hint );
-		if ( err == noErr )
-		{
-			*hasOverflowExtents	= true;
-		}
-		else if ( err == btNotFound )
-		{
-			err		= noErr;								//	 no more extent records
-			done	= true;
-			break;
-		}
-		else if ( err != noErr )
-		{
-			err = IntError( GPtr, err );
-			break;
-		}
-		
-		if ( flags == deleteExtents )
-		{
-			err = DeleteExtentRecord( vcb, forkType, fileNumber, blockCount );
-			if ( err != noErr ) break;
-			
-			vcb->vcbFreeBlocks += extentBlockCount;
-			MarkVCBDirty( vcb );
-		}
-	}
-	
-	*blocksUsed = blockCount;
-#endif	
-	return( err );
-}
-
-
 /*------------------------------------------------------------------------------
 
 Function:	cmpLongs
@@ -2504,59 +2432,1362 @@ int cmpLongs ( const void *a, const void *b )
 	return( *(long*)a - *(long*)b );
 }
 
-
-//
-//	Isolate and fix Overlapping Extents
-//
-static	OSErr	FixOverlappingExtents( SGlobPtr GPtr )
+/* Function: FixOverlappingExtents
+ *
+ * Description: Fix overlapping extents problem.  The implementation copies all
+ * the extents existing in overlapping extents to a new location and updates the
+ * extent record to point to the new extent.  At the end of repair, symlinks are
+ * created with name "fileID filename" to point to the file involved in
+ * overlapping extents problem.  Note that currently only HFS Plus volumes are 
+ * repaired.
+ *
+ * PARTIAL SUCCESS: This function handles partial success in the following
+ * two ways:
+ *		a. The function pre-allocates space for the all the extents.  If the
+ *		allocation fails, it proceeds to allocate space for other extents
+ *		instead of returning error.  
+ *		b. If moving an extent succeeds and symlink creation fails, the function
+ *		proceeds to another extent.
+ * If the repair encounters either a or b condition, appropriate message is
+ * printed at the end of the function.  
+ * If even a single repair operation succeeds (moving of extent), the function 
+ * returns zero.
+ *
+ * Current limitations:
+ *	1. A regular file instead of symlink is created under following conditions:
+ *		a. The volume is plain HFS volume.  HFS does not support symlink
+ *		creation.
+ *		b. The path the new symlink points to is greater than PATH_MAX bytes.
+ *		c. The path the new symlink points has some intermediate component
+ *		greater than NAME_MAX bytes.
+ *	2. Contiguous disk space for every new extent is expected.  The extent is
+ *	not broken into multiple extents if contiguous space is not available on the
+ *	disk.
+ *	3. The current fix for overlapping extent only works for HFS Plus volumes. 
+ *  Plain HFS volumes have problem in accessing the catalog record by fileID.
+ *	4. Plain HFS volumes might have encoding issues with the newly created
+ *	symlink and its data.
+ *
+ * Input:
+ *	GPtr - global scavenger pointer
+ *
+ * Output:
+ *	returns zero on success/partial success (moving of one extent succeeds),
+ *			non-zero on failure.
+ */
+static OSErr FixOverlappingExtents(SGlobPtr GPtr)
 {
-	OSErr			err = R_RFail;
-#if 0
-	UInt32			i;
-	UInt32			numInitialExtents;
-	ExtentInfo		*extentInfo;
-	ExtentsTable	**extentsTableH		= GPtr->overlappedExtents;
-	
-	if ( extentsTableH == nil )
-		return( -1 );
-	
-	numInitialExtents	= (**extentsTableH).count;
-	InvalidateCalculatedVolumeBitMap( GPtr );
-	err = UpdateVolumeBitMap( GPtr, true );							//	Update VolumeBitMap, while first allocating the known overlapped extents
-	
-	//	Preflight to make sure none of the HFS files are being overlapped
-	for ( i = 0 ; i < (**extentsTableH).count; i++ )
-	{
-		if ( (**extentsTableH).extentInfo[i].fileNumber < kHFSFirstUserCatalogNodeID )
-		{
-			char fileNum[32];
+	OSErr err = noErr;
+	Boolean isHFSPlus;
+	unsigned int i;
+	unsigned int numOverlapExtents = 0;
+	UInt32 newBlockCount;
+	UInt32 damagedDirID = 0;
+	ExtentInfo *extentInfo;
+	ExtentsTable **extentsTableH = GPtr->overlappedExtents;
 
-			GPtr->TarBlock	= (**extentsTableH).extentInfo[i].fileNumber;
-			
-			sprintf(fileNum, "%ld", GPtr->TarBlock);
-			PrintError(GPtr, E_InternalFileOverlap, 1, fileNum);
-			return( E_InternalFileOverlap );
+	unsigned int status = 0;
+#define S_DISKFULL			0x01	/* error due to disk full */
+#define S_SYMCREATE			0x02	/* error in creating symlinks/damaged files dir */
+#define S_LOOKDAMAGEDDIR	0x04	/* look for links to file in damamged dir */
+#define	S_MOVEEXTENT		0x08	/* moving extent succeeded */
+
+	isHFSPlus = VolumeObjectIsHFSPlus();
+	if (isHFSPlus == false) {
+		/* Do not repair plain HFS volumes */
+		err = R_RFail;
+		goto out;
+	}
+
+	if (extentsTableH == NULL) {
+		/* No overlapping extents exist */
+		goto out;
+	}
+
+	numOverlapExtents = (**extentsTableH).count;
+
+	/* Optimization - sort the overlap extent list based on blockCount to 
+	 * start allocating contiguous space for largest number of blocks first
+	 */
+	qsort((**extentsTableH).extentInfo, numOverlapExtents, sizeof(ExtentInfo), 
+		  CompareExtentBlockCount);
+
+#if DEBUG_OVERLAP
+	/* Print all overlapping extents structure */
+	for (i=0; i<numOverlapExtents; i++) {
+		extentInfo	= &((**extentsTableH).extentInfo[i]);
+		printf ("%d: fileID = %d, startBlock = %d, blockCount = %d\n", i, extentInfo->fileID, extentInfo->startBlock, extentInfo->blockCount);
+	}
+#endif
+
+	/* Update the on-disk volume bitmap with in-memory volume bitmap */
+	err = UpdateVolumeBitMap(GPtr, false);
+	if (err != noErr) {
+#if DEBUG_OVERLAP
+		printf ("%s: Error in updating on-disk bitmap\n", __FUNCTION__);
+#endif
+		goto out;
+	}
+
+	/* Pre-allocate free space for all overlapping extents */
+	for (i=0; i<numOverlapExtents; i++) {
+		extentInfo	= &((**extentsTableH).extentInfo[i]);
+		err = BlockAllocate(GPtr->calculatedVCB, 0, extentInfo->blockCount, 
+							extentInfo->blockCount, true, 
+							&(extentInfo->newStartBlock), &newBlockCount);
+		if ((err != noErr) && (newBlockCount != extentInfo->blockCount)) {
+			/* Not enough disk space */
+			status |= S_DISKFULL;
+#if DEBUG_OVERLAP
+			printf ("%s: Not enough disk space to allocate extent for fileID = %d (start=%d, count=%d)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->blockCount);
+#endif
 		}
 	}
-		
-	//	We now have a complete list off all the overlapping extents
-	//	Duplicate numInitialExtents extents, and change its extent info to point to the copy.
 
-	for ( i = 0 ; (i < numInitialExtents) && (err == noErr) ; i++ )
-	{
+	/* Lookup or create damagedFiles directory */
+	damagedDirID = CreateDirByName(GPtr, (u_char *)"DamagedFiles", kHFSRootFolderID);
+	if (damagedDirID == 0) {
+		status |= S_SYMCREATE;
+#if DEBUG_OVERLAP
+		printf ("%s: Error in create/lookup for Damaged Files directory\n", __FUNCTION__);
+#endif
+	}
+
+	/* For every extent info, copy the extent into new location and create symlink */
+	for (i=0; i<numOverlapExtents; i++) {
 		extentInfo	= &((**extentsTableH).extentInfo[i]);
-		
-		err	= MoveExtent( GPtr, extentInfo );
+
+		/* Do not repair this extent as no new extent was allocated */
+		if (extentInfo->newStartBlock == 0) {
+			continue;
+		}
+
+		/* Move extent data to new location */
+		err	= MoveExtent(GPtr, extentInfo);
+		if (err != noErr) {
+			extentInfo->hasRepair = false;
+#if DEBUG_OVERLAP
+			printf ("%s: Extent move failed for extent for fileID = %d (old=%d, new=%d, count=%d) (err=%d)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->newStartBlock, extentInfo->blockCount, err);
+#endif
+		} else {
+			/* Mark the overlapping extent as repaired */
+			extentInfo->hasRepair = true;
+			status |= S_MOVEEXTENT;
+#if DEBUG_OVERLAP
+			printf ("%s: Extent move success for extent for fileID = %d (old=%d, new=%d, count=%d)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->newStartBlock, extentInfo->blockCount);
+#endif
+		}
+
+		/* Create symlink for the corrupt file */
+		if (damagedDirID != 0) {
+			err = CreateCorruptFileSymlink(GPtr, damagedDirID, extentInfo);
+			if (err != noErr) {
+				status |= S_SYMCREATE;
+#if DEBUG_OVERLAP
+				printf ("%s: Error in creating symlink for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+#endif
+			} else {
+				status |= S_LOOKDAMAGEDDIR;	
+#if DEBUG_OVERLAP
+				printf ("%s: Created symlink for fileID = %d (old=%d, new=%d, count=%d)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->newStartBlock, extentInfo->blockCount);
+#endif
+			}
+		}
+	}
+
+out:
+	/* Release all blocks used by overlap extents that are repaired */
+	for (i=0; i<numOverlapExtents; i++) {
+		extentInfo	= &((**extentsTableH).extentInfo[i]);
+		if (extentInfo->hasRepair == true) {
+			ReleaseBitmapBits (extentInfo->startBlock, extentInfo->blockCount);
+		}
+	}
+
+	/* For all un-repaired extents, 
+	 *	1. Release all blocks allocated for new extent.
+	 *	2. Mark all blocks used for the old extent (since the overlapping region
+	 *	have been marked free in the for loop above.
+	 */
+	for (i=0; i<numOverlapExtents; i++) {
+		extentInfo	= &((**extentsTableH).extentInfo[i]);
+		if (extentInfo->hasRepair == false) {
+			CaptureBitmapBits (extentInfo->startBlock, extentInfo->blockCount);
+
+			if (extentInfo->newStartBlock != 0) {
+				ReleaseBitmapBits (extentInfo->newStartBlock, extentInfo->blockCount);
+			}
+		}
+	}
+
+	/* Update the volume free count since the release and alloc above might 
+	 * have worked on single bit multiple times 
+	 */
+	UpdateFreeBlockCount (GPtr);
+	
+	/* Print correct status messages */
+	if (status & S_DISKFULL) {
+		PrintError (GPtr, E_DiskFull, 0);
+	} 
+	if (status & S_SYMCREATE) {
+		PrintError (GPtr, E_SymlinkCreate, 0);
+	}
+	if (status & S_LOOKDAMAGEDDIR) {
+		PrintStatus (GPtr, M_LookDamagedDir, 0);
+	}
+
+	/* If moving of even one extent succeeds, return success */
+	if (status & S_MOVEEXTENT) {
+		err = noErr;
+	}
+
+	return err;
+} /* FixOverlappingExtents */
+
+/* Function: CompareExtentBlockCount
+ *
+ * Description: Compares the blockCount from two ExtentInfo and return the
+ * comparison result. (since we have to arrange in descending order)
+ *
+ * Input:
+ *	first and second - void pointers to ExtentInfo structure.
+ *
+ * Output:
+ *	<0 if first > second
+ * 	=0 if first == second
+ *	>0 if first < second
+ */
+static int CompareExtentBlockCount(const void *first, const void *second)
+{
+	return (((ExtentInfo *)second)->blockCount - 
+			((ExtentInfo *)first)->blockCount);
+} /* CompareExtentBlockCount */
+
+/* Function: MoveExtent
+ *
+ * Description: Move data from old extent to new extent and update corresponding
+ * records.
+ * 1. Search the extent record for the overlapping extent.
+ *		If the fileID < kHFSFirstUserCatalogNodeID, 
+ *			Ignore repair for BadBlock, RepairCatalog, BogusExtent files.
+ *			Search for extent record in volume header. 
+ *		Else, 
+ *			Search for extent record in catalog BTree.  If the extent list does
+ *			not end in catalog record and extent record not found in catalog
+ *			record, search in extents BTree.
+ * 2. If found, copy disk blocks from old extent to new extent.  
+ * 3. If it succeeds, update extent record with new start block and write back
+ *    to disk.
+ * This function does not take care to deallocate blocks from old start block.
+ *
+ * Input: 
+ *	GPtr - Global Scavenger structure pointer
+ *  extentInfo - Current overlapping extent details.
+ *
+ * Output:
+ * 	err: zero on success, non-zero on failure
+ *		paramErr - Invalid paramter, ex. file ID is less than
+ *		kHFSFirstUserCatalogNodeID.  
+ */
+static OSErr MoveExtent(SGlobPtr GPtr, ExtentInfo *extentInfo)
+{
+	OSErr err = noErr;
+	Boolean isHFSPlus;
+
+	CatalogRecord catRecord;
+	CatalogKey catKey;
+	HFSPlusExtentKey extentKey;
+	HFSPlusExtentRecord extentData;
+	UInt16 recordSize;
+
+	UInt16 foundLocation;
+#define CATALOG_BTREE	1
+#define VOLUMEHEADER	2
+#define	EXTENTS_BTREE	3
+
+	UInt32 foundExtentIndex;
+	Boolean noMoreExtents;
+	
+	isHFSPlus = VolumeObjectIsHFSPlus();
+
+	/* Find correct location of this overlapping extent */
+	if (extentInfo->fileID < kHFSFirstUserCatalogNodeID) {
+		/* Ignore these fileIDs */
+		if ((extentInfo->fileID == kHFSBadBlockFileID) ||
+			(extentInfo->fileID == kHFSRepairCatalogFileID) ||
+			(extentInfo->fileID == kHFSBogusExtentFileID)) {
+#if DEBUG_OVERLAP
+			printf ("%s: Ignoring repair for fileID = %d\n",	__FUNCTION__, extentInfo->fileID);
+#endif
+			err = paramErr;
+			goto out;
+		}
+
+		/* Search for extent record in the volume header */
+		err = SearchExtentInVH (GPtr, extentInfo, &foundExtentIndex, &noMoreExtents);
+		foundLocation = VOLUMEHEADER;
+	} else {
+		/* Search the extent record from the catalog btree */
+		err = SearchExtentInCatalogBT (GPtr, extentInfo, &catKey, &catRecord, 
+									  &recordSize, &foundExtentIndex, &noMoreExtents);
+		foundLocation = CATALOG_BTREE;
+	}
+	if (err != noErr) {
+		if (noMoreExtents == false) { 
+			/* search extent in extents overflow btree */
+			err = SearchExtentInExtentBT (GPtr, extentInfo, &extentKey, 
+										  &extentData, &recordSize, &foundExtentIndex);
+			foundLocation = EXTENTS_BTREE;
+			if (err != noErr) {
+#if DEBUG_OVERLAP
+				printf ("%s: No matching extent record found in extents btree for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+#endif
+				goto out;
+			}
+		} else {
+			/* No more extents exist for this file */
+#if DEBUG_OVERLAP
+			printf ("%s: No matching extent record found for fileID = %d (err=%d)\n",	__FUNCTION__, extentInfo->fileID, err);
+#endif
+			goto out;
+		}
+	}
+
+	/* Copy disk blocks from old extent to new extent */
+	err = CopyDiskBlocks(GPtr, extentInfo->startBlock, extentInfo->blockCount, 
+						 extentInfo->newStartBlock);
+	if (err != noErr) {
+#if DEBUG_OVERLAP
+		printf ("%s: Error in copying disk blocks for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+#endif
+		goto out;
 	}
 	
-	InvalidateCalculatedVolumeBitMap( GPtr );					//	Invalidate our BitMap, since we modified it
-	
-	if ( err == noErr )
-		err = CreateFileIdentifiers( GPtr );
+	/* Replace the old start block in extent record with new start block */
+	if (foundLocation == CATALOG_BTREE) {
+		err = UpdateExtentInCatalogBT(GPtr, extentInfo, &catKey, &catRecord, 
+									  &recordSize, foundExtentIndex);
+	} else if (foundLocation == VOLUMEHEADER) {
+		err = UpdateExtentInVH(GPtr, extentInfo, foundExtentIndex);
+	} else if (foundLocation == EXTENTS_BTREE) {
+		extentData[foundExtentIndex].startBlock = extentInfo->newStartBlock;
+		err = UpdateExtentRecord(GPtr->calculatedVCB, NULL, &extentKey, extentData, kNoHint);
+	}
+	if (err != noErr) {
+#if DEBUG_OVERLAP
+		printf ("%s: Error in updating extent record (err=%d)\n", __FUNCTION__, err);
 #endif
-	return( err );
+		goto out;
+	}
+
+out:
+	return err;
+} /* MoveExtent */
+
+/* Function: CreateCorruptFileSymlink
+ *
+ * Description: Create symlink to point to the corrupt files that had
+ * overlapping extents.
+ * 
+ * If fileID >= kHFSFirstUserCatalogNodeID,
+ *	Lookup the filename and path to the file based on file ID.  Create the
+ *	new file name as "fileID filename" and data as the relative path of the file
+ *	from the root of the volume.
+ *	If either
+ *		the volume is plain HFS, or
+ *		the length of the path pointed by data is greater than PATH_MAX, or
+ *		the length of any intermediate path component is greater than NAME_MAX,
+ *		Create a plain file with given data.
+ *	Else
+ *		Create a symlink.
+ * Else	
+ *	Find the name of file based on ID (ie. Catalog BTree, etc), and create plain
+ *	regular file with name "fileID filename" and data as "System File:
+ *	filename".
+ *
+ * Input:
+ *	1. GPtr - global scavenger structure pointer.
+ *	2. targetParentID - parent directory where symlink should be created.
+ * 	3. extentInfo - details about overlapping extent for creating symlink
+ *
+ * Output:
+ * 	returns zero on success, non-zero on failure.
+ *		memFullErr - Not enough memory
+ */
+static OSErr CreateCorruptFileSymlink(SGlobPtr GPtr, UInt32 targetParentID, ExtentInfo *extentInfo)
+{
+	OSErr err = noErr;
+	Boolean isHFSPlus;
+	char *filename = NULL;
+	unsigned int filenamelen; 
+	char *data = NULL;
+	unsigned int datalen;
+	unsigned int filenameoffset;
+	unsigned int dataoffset;
+	UInt16 status;
+	UInt16 fileType;
+	
+	isHFSPlus = VolumeObjectIsHFSPlus();
+
+	/* Allocate (kHFSPlusMaxFileNameChars * 4) for unicode - utf8 conversion */
+	filenamelen = kHFSPlusMaxFileNameChars * 4;
+	filename = malloc(filenamelen);
+	if (!filename) {
+		err = memFullErr;
+		goto out;
+	}
+
+	/* Allocate (PATH_MAX * 4) instead of PATH_MAX for unicode - utf8 conversion */
+	datalen = PATH_MAX * 4;
+	data = malloc(datalen);
+	if (!data) {
+		err = memFullErr;
+		goto out;
+	}
+
+	/* Find filename, path for fileID >= 16 and determine new fileType */
+	if (extentInfo->fileID >= kHFSFirstUserCatalogNodeID) {
+		char *name;
+		char *path;
+
+		/* construct symlink data with .. prefix */
+		dataoffset = sprintf (data, "..");
+		path = data + dataoffset;
+		datalen -= dataoffset;
+
+		/* construct new filename prefix with fileID<space> */
+		filenameoffset = sprintf (filename, "%08x ", extentInfo->fileID);
+		name = filename + filenameoffset;
+		filenamelen -= filenameoffset;
+
+		/* find file name and path (data for symlink) for fileID */
+		err = GetFileNamePathByID(GPtr, extentInfo->fileID, path, &datalen, 
+								  name, &filenamelen, &status);
+		if (err != noErr) {
+#if DEBUG_OVERLAP
+			printf ("%s: Error in getting name/path for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+#endif
+			goto out;
+		}
+
+		/* update length of path and filename */
+		filenamelen += filenameoffset;
+		datalen += dataoffset;
+
+		/* If 
+		 * (1) the volume is plain HFS volume, or
+		 * (2) any intermediate component in path was more than NAME_MAX bytes, or
+		 * (3) the entire path was greater than PATH_MAX bytes 
+		 * then create regular file
+		 * else create symlink.
+		 */
+		if (!isHFSPlus || (status & FPATH_BIGNAME) || (datalen > PATH_MAX)) {
+			/* create file */
+			fileType = S_IFREG;
+		} else {
+			/* create symlink */
+			fileType = S_IFLNK;
+		}
+	} else {
+		/* for fileID < 16, create regular file */
+		fileType = S_IFREG;
+
+		/* construct the name of the file */
+		filenameoffset = sprintf (filename, "%08x ", extentInfo->fileID);
+		filenamelen -= filenameoffset;
+		err = GetSystemFileName (extentInfo->fileID, (filename + filenameoffset), &filenamelen);
+		filenamelen += filenameoffset;
+		
+		/* construct the data of the file */
+		dataoffset = sprintf (data, "System File: ");
+		datalen -= dataoffset;
+		err = GetSystemFileName (extentInfo->fileID, (data + dataoffset), &datalen);
+		datalen += dataoffset;
+	}
+
+	/* Create new file */
+	err = CreateFileByName (GPtr, targetParentID, fileType, (u_char *)filename, 
+							filenamelen, (u_char *)data, datalen);
+	/* Mask error if file already exists */
+	if (err == EEXIST) {
+		err = noErr;
+	}
+	if (err != noErr) {
+#if DEBUG_OVERLAP
+		printf ("%s: Error in creating fileType = %d for fileID = %d (err=%d)\n", __FUNCTION__, fileType, extentInfo->fileID, err);	
+#endif
+		goto out;
+	}
+
+out:
+	if (data) {
+		free (data);
+	}
+	if (filename) {
+		free (filename);
+	}
+
+	return err;
+} /* CreateCorruptFileSymlink */
+
+/* Function: SearchExtentInVH
+ *	
+ * Description: Search extent with given information (fileID, startBlock,
+ * blockCount) in volume header.  
+ *
+ * Input:
+ *	1. GPtr - global scavenger structure pointer.
+ *	2. extentInfo - Information about extent to be searched.
+ *
+ * Output:
+ *	Returns zero on success, fnfErr on failure.
+ *	1. *foundExtentIndex - Index in extent record which matches the input data. 
+ *	2. *noMoreExtents - Indicates that no more extents will exist for this
+ *	fileID in extents BTree.
+ */
+static OSErr SearchExtentInVH(SGlobPtr GPtr, ExtentInfo *extentInfo, UInt32 *foundExtentIndex, Boolean *noMoreExtents)
+{
+	OSErr err = fnfErr;
+	Boolean isHFSPlus;
+	SFCB *fcb = NULL;
+
+	isHFSPlus = VolumeObjectIsHFSPlus();
+	*noMoreExtents = true;
+	
+	/* Find correct FCB structure */
+	switch (extentInfo->fileID) {
+		case kHFSExtentsFileID:
+			fcb = GPtr->calculatedVCB->vcbExtentsFile;
+			break;
+
+		case kHFSCatalogFileID:
+			fcb = GPtr->calculatedVCB->vcbCatalogFile;
+			break;
+
+		case kHFSAllocationFileID:
+			fcb = GPtr->calculatedVCB->vcbAllocationFile;
+			break;
+
+		case kHFSStartupFileID:
+			fcb = GPtr->calculatedVCB->vcbStartupFile;
+			break;
+			
+		case kHFSAttributesFileID:
+			fcb = GPtr->calculatedVCB->vcbAttributesFile;
+			break;
+	};
+
+	/* If extent found, find correct extent index */
+	if (fcb != NULL) {
+		if (isHFSPlus) {
+			err = FindExtentInExtentRec(isHFSPlus, extentInfo->startBlock, 
+										extentInfo->blockCount, fcb->fcbExtents32, 
+										foundExtentIndex, noMoreExtents);
+		} else {
+			err = FindExtentInExtentRec(isHFSPlus, extentInfo->startBlock, 
+										extentInfo->blockCount, 
+										(*(HFSPlusExtentRecord *)fcb->fcbExtents16),
+										foundExtentIndex, noMoreExtents);
+		}
+	}
+	return err;
+} /* SearchExtentInVH */
+
+/* Function: UpdateExtentInVH
+ *
+ * Description:	Update the extent record for given fileID and index in the
+ * volume header with new start block.  
+ *
+ * Input:
+ *	1. GPtr - global scavenger structure pointer.
+ *	2. extentInfo - Information about extent to be searched.
+ *	3. foundExtentIndex - Index in extent record to update.
+ *
+ * Output:
+ *	Returns zero on success, fnfErr on failure.  This function will fail an
+ *	incorrect fileID is passed.
+ */
+static OSErr UpdateExtentInVH (SGlobPtr GPtr, ExtentInfo *extentInfo, UInt32 foundExtentIndex)
+{
+	OSErr err = fnfErr;
+	Boolean isHFSPlus;
+	SFCB *fcb = NULL;
+
+	isHFSPlus = VolumeObjectIsHFSPlus();
+	
+	/* Find correct FCB structure */
+	switch (extentInfo->fileID) {
+		case kHFSExtentsFileID:
+			fcb = GPtr->calculatedVCB->vcbExtentsFile;
+			break;
+
+		case kHFSCatalogFileID:
+			fcb = GPtr->calculatedVCB->vcbCatalogFile;
+			break;
+
+		case kHFSAllocationFileID:
+			fcb = GPtr->calculatedVCB->vcbAllocationFile;
+			break;
+
+		case kHFSStartupFileID:
+			fcb = GPtr->calculatedVCB->vcbStartupFile;
+			break;
+			
+		case kHFSAttributesFileID:
+			fcb = GPtr->calculatedVCB->vcbAttributesFile;
+			break;
+	};
+
+	/* If extent found, find correct extent index */
+	if (fcb != NULL) {
+		if (isHFSPlus) {
+			fcb->fcbExtents32[foundExtentIndex].startBlock = extentInfo->newStartBlock;
+		} else {
+			fcb->fcbExtents16[foundExtentIndex].startBlock = extentInfo->newStartBlock;
+		}
+		MarkVCBDirty(GPtr->calculatedVCB);
+		err = noErr;
+	}
+	return err;
+} /* UpdateExtentInVH */
+
+/* Function: SearchExtentInCatalogBT
+ *	
+ * Description: Search extent with given information (fileID, startBlock,
+ * blockCount) in catalog BTree.
+ *
+ * Input:
+ *	1. GPtr - global scavenger structure pointer.
+ *	2. extentInfo - Information about extent to be searched.
+ *
+ * Output:
+ *	Returns zero on success, non-zero on failure.
+ *	1. *catKey - Catalog key for given fileID, if found.
+ *	2. *catRecord - Catalog record for given fileID, if found.
+ *	3. *recordSize - Size of the record being returned.
+ *	4. *foundExtentIndex - Index in extent record which matches the input data. 
+ *	5. *noMoreExtents - Indicates that no more extents will exist for this
+ *	fileID in extents BTree.
+ */
+static OSErr SearchExtentInCatalogBT(SGlobPtr GPtr, ExtentInfo *extentInfo, CatalogKey *catKey, CatalogRecord *catRecord, UInt16 *recordSize, UInt32 *foundExtentIndex, Boolean *noMoreExtents)
+{							 
+	OSErr err;
+	Boolean isHFSPlus;
+	
+	isHFSPlus = VolumeObjectIsHFSPlus();
+
+	/* Search catalog btree for this file ID */
+	err = GetCatalogRecord(GPtr, extentInfo->fileID, isHFSPlus, catKey, catRecord, 
+						   recordSize);
+	if (err != noErr) {
+#if DEBUG_OVERLAP
+		printf ("%s: No matching catalog record found for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+#endif
+		goto out;
+	}
+
+	if (isHFSPlus) {
+		/* HFS Plus */
+		if (extentInfo->forkType == kDataFork) {	
+			/* data fork */
+			err = FindExtentInExtentRec(isHFSPlus, extentInfo->startBlock, 
+										extentInfo->blockCount, 
+										catRecord->hfsPlusFile.dataFork.extents, 
+										foundExtentIndex, noMoreExtents);
+		} else { 
+			/* resource fork */
+			err = FindExtentInExtentRec(isHFSPlus, extentInfo->startBlock, 
+										extentInfo->blockCount, 
+										catRecord->hfsPlusFile.resourceFork.extents, 
+										foundExtentIndex, noMoreExtents);
+		}
+	} else {
+		/* HFS */
+		if (extentInfo->forkType == kDataFork) {	
+			/* data fork */
+			err = FindExtentInExtentRec(isHFSPlus, extentInfo->startBlock, 
+										extentInfo->blockCount, 
+										(*(HFSPlusExtentRecord *)catRecord->hfsFile.dataExtents),
+										foundExtentIndex, noMoreExtents);
+		} else { 
+			/* resource fork */
+			err = FindExtentInExtentRec(isHFSPlus, extentInfo->startBlock, 
+										extentInfo->blockCount, 
+										(*(HFSPlusExtentRecord *)catRecord->hfsFile.rsrcExtents),
+										foundExtentIndex, noMoreExtents);
+		}
+	}
+
+out:
+	return err;
+} /* SearchExtentInCatalogBT */
+
+/* Function: UpdateExtentInCatalogBT
+ *	
+ * Description: Update extent record with given information (fileID, startBlock,
+ * blockCount) in catalog BTree.
+ *
+ * Input:
+ *	1. GPtr - global scavenger structure pointer.
+ *	2. extentInfo - Information about extent to be searched.
+ *	3. *catKey - Catalog key for record to update.
+ *	4. *catRecord - Catalog record to update.
+ *	5. *recordSize - Size of the record.
+ *	6. foundExtentIndex - Index in extent record to update.
+ *
+ * Output:
+ *	Returns zero on success, non-zero on failure.
+ */
+static OSErr UpdateExtentInCatalogBT (SGlobPtr GPtr, ExtentInfo *extentInfo, CatalogKey *catKey, CatalogRecord *catRecord, UInt16 *recordSize, UInt32 foundInExtentIndex)
+{
+	OSErr err;
+	Boolean isHFSPlus;
+	UInt32 foundHint;
+	
+	isHFSPlus = VolumeObjectIsHFSPlus();
+
+	/* Modify the catalog record */
+	if (isHFSPlus) {
+		if (extentInfo->forkType == kDataFork) {
+			catRecord->hfsPlusFile.dataFork.extents[foundInExtentIndex].startBlock = extentInfo->newStartBlock;
+		} else {
+			catRecord->hfsPlusFile.resourceFork.extents[foundInExtentIndex].startBlock = extentInfo->newStartBlock;
+		}
+	} else {
+		if (extentInfo->forkType == kDataFork) {
+			catRecord->hfsFile.dataExtents[foundInExtentIndex].startBlock = extentInfo->newStartBlock;
+		} else {
+			catRecord->hfsFile.rsrcExtents[foundInExtentIndex].startBlock = extentInfo->newStartBlock;
+		}
+	}
+
+	/* Replace the catalog record */
+	err = ReplaceBTreeRecord (GPtr->calculatedCatalogFCB, catKey, kNoHint, 
+							  catRecord, *recordSize, &foundHint);
+	if (err != noErr) {
+#if DEBUG_OVERLAP
+		printf ("%s: Error in replacing catalog record for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+#endif
+	}
+	return err;
+} /* UpdateExtentInCatalogBT */
+
+/* Function: SearchExtentInExtentBT
+ *	
+ * Description: Search extent with given information (fileID, startBlock,
+ * blockCount) in Extent BTree.
+ *
+ * Input:
+ *	1. GPtr - global scavenger structure pointer.
+ *	2. extentInfo - Information about extent to be searched.
+ *
+ * Output:
+ *	Returns zero on success, non-zero on failure.
+ *		fnfErr - desired extent record was not found.
+ *	1. *extentKey - Extent key, if found.
+ *	2. *extentRecord - Extent record, if found.
+ *	3. *recordSize - Size of the record being returned.
+ *	4. *foundExtentIndex - Index in extent record which matches the input data. 
+ */
+static OSErr SearchExtentInExtentBT(SGlobPtr GPtr, ExtentInfo *extentInfo, HFSPlusExtentKey *extentKey, HFSPlusExtentRecord *extentRecord, UInt16 *recordSize, UInt32 *foundExtentIndex) 
+{
+	OSErr err = noErr;
+	Boolean isHFSPlus;
+	Boolean noMoreExtents;
+	UInt32 hint;
+
+	isHFSPlus = VolumeObjectIsHFSPlus();
+
+	/* set up extent key */
+	BuildExtentKey (isHFSPlus, extentInfo->forkType, extentInfo->fileID, 0, extentKey);
+	err = SearchBTreeRecord (GPtr->calculatedExtentsFCB, extentKey, kNoHint, 
+							 extentKey, extentRecord, recordSize, &hint);
+	if ((err != noErr) && (err != btNotFound)) {
+#if DEBUG_OVERLAP
+		printf ("%s: Error on searching first record for fileID = %d in Extents Btree (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+#endif
+		goto out;
+	}
+	
+	if (err == btNotFound)
+	{
+		/* Position to the first record for the given fileID */
+		err = GetBTreeRecord (GPtr->calculatedExtentsFCB, 1, extentKey, 
+							  extentRecord, recordSize, &hint);
+	}
+	
+	while (err == noErr)
+	{
+		/* Break out if we see different fileID, forkType in the BTree */
+		if (isHFSPlus) {
+			if ((extentKey->fileID != extentInfo->fileID) || 
+				(extentKey->forkType != extentInfo->forkType)) {
+				err = fnfErr;
+				break;
+			}
+		} else {
+			if ((((HFSExtentKey *)extentKey)->fileID != extentInfo->fileID) || 
+				(((HFSExtentKey *)extentKey)->forkType != extentInfo->forkType)) {
+				err = fnfErr;
+				break;
+			}
+		}
+
+		/* Check the extents record for corresponding startBlock, blockCount */
+		err = FindExtentInExtentRec(isHFSPlus, extentInfo->startBlock, 
+									extentInfo->blockCount, *extentRecord,
+									foundExtentIndex, &noMoreExtents);
+		if (err == noErr) {
+			break;
+		}
+		if (noMoreExtents == true) {
+			err = fnfErr;
+			break;
+		}
+
+		/* Try next record for this fileID and forkType */
+		err = GetBTreeRecord (GPtr->calculatedExtentsFCB, 1, extentKey, 
+							  extentRecord, recordSize, &hint);
+	}
+	
+out:
+	return err;
+} /* SearchExtentInExtentBT */
+
+/* Function: FindExtentInExtentRec
+ *
+ * Description: Traverse the given extent record (size based on if the volume is
+ * HFS or HFSPlus volume) and find the index location if the given startBlock
+ * and blockCount match.
+ *
+ * Input:
+ *	1. isHFSPlus - If the volume is plain HFS or HFS Plus.
+ *	2. startBlock - startBlock to be searched in extent record.
+ *	3. blockCount - blockCount to be searched in extent record.
+ *	4. extentData - Extent Record to be searched.
+ * 
+ * Output:
+ *	Returns zero if the match is found, else fnfErr on failure.
+ *	1. *foundExtentIndex - Index in extent record which matches the input data. 
+ *	2. *noMoreExtents - Indicates that no more extents exist after this extent
+ *	record.
+ */
+static OSErr FindExtentInExtentRec (Boolean isHFSPlus, UInt32 startBlock, UInt32 blockCount, const HFSPlusExtentRecord extentData, UInt32 *foundExtentIndex, Boolean *noMoreExtents)
+{
+	OSErr err = noErr;
+	UInt32 numOfExtents;
+	Boolean foundExtent;
+	int i;
+
+	foundExtent = false;
+	*noMoreExtents = false;
+	*foundExtentIndex = 0;
+
+	if (isHFSPlus) {
+		numOfExtents = kHFSPlusExtentDensity;
+	} else {
+		numOfExtents = kHFSExtentDensity;
+	}
+	
+	for (i=0; i<numOfExtents; i++) {
+		if (extentData[i].blockCount == 0) {
+			/* no more extents left to check */
+			*noMoreExtents = true;
+			break;
+		}
+		if ((startBlock == extentData[i].startBlock) &&
+			(blockCount == extentData[i].blockCount)) {
+			foundExtent = true;
+			*foundExtentIndex = i;
+			break;
+		}
+	}
+
+	if (foundExtent == false) {
+		err = fnfErr;
+	}
+
+	return err;
+} /* FindExtentInExtentRec */
+
+/* Function: GetSystemFileName
+ *
+ * Description: Return the name of the system file based on fileID
+ *
+ * Input:
+ *	1. fileID - fileID whose name is to be returned.
+ *	2. *filenamelen - length of filename buffer.
+ *
+ * Output:
+ *	1. *filename - filename, is limited by the length of filename buffer passed
+ *	in *filenamelen.
+ *	2. *filenamelen - length of the filename
+ *	Always returns zero.
+ */
+OSErr GetSystemFileName(UInt32 fileID, char *filename, unsigned int *filenamelen)
+{
+	OSErr err = noErr;
+	unsigned int len;
+
+	if (filename) {
+		len = *filenamelen - 1;
+		switch (fileID) {
+			case kHFSExtentsFileID:
+				strncpy (filename, "Extents Overflow BTree", len);
+				break;
+
+			case kHFSCatalogFileID:
+				strncpy (filename, "Catalog BTree", len); 
+				break;
+
+			case kHFSAllocationFileID:
+				strncpy (filename, "Allocation File", len); 
+				break;
+
+			case kHFSStartupFileID:
+				strncpy (filename, "Startup File", len); 
+				break;
+			
+			case kHFSAttributesFileID:
+				strncpy (filename, "Attributes BTree", len); 
+				break;
+
+			case kHFSBadBlockFileID:
+				strncpy (filename, "Bad Allocation File", len); 
+				break;
+
+			case kHFSRepairCatalogFileID:
+				strncpy (filename, "Repair Catalog File", len); 
+				break;
+
+			case kHFSBogusExtentFileID:
+				strncpy (filename, "Bogus Extents File", len); 
+				break;
+
+			default:
+				strncpy (filename, "Unknown File", len); 
+				break;
+		};
+		filename[len] = '\0';
+		*filenamelen = strlen (filename);
+	}
+	return err;
 }
 
+/* structure to store the intermediate path components during BTree traversal.
+ * This is used as a LIFO linked list 
+ */
+struct fsPathString
+{
+	char *name;
+	unsigned int namelen;
+	struct fsPathString *childPtr;
+};
+
+/* Function: GetFileNamePathByID 
+ *
+ * Description: Return the file/directory name and/or full path by ID.  The
+ * length of the strings returned is limited by string lengths passed as
+ * parameters. 
+ * The function lookups catalog thread record for given fileID and its parents
+ * until it reaches the Root Folder.
+ *
+ * Note:
+ * 	1. The path returned currently does not return mangled names. 
+ *	2. Either one or both of fullPath and fileName can be NULL.  
+ *	3. fullPath and fileName are returned as NULL-terminated UTF8 strings. 
+ *	4. Returns error if fileID < kHFSFirstUserCatalogID.
+ *
+ * Input:
+ *	1. GPtr - global scavenger structure pointer
+ *	2. fileID - fileID for the target file/directory for finding the path
+ *	3. fullPathLen - size of array to return full path
+ *	4. fileNameLen - size of array to return file name
+ *
+ * Output:
+ *	Return value: zero on success, non-zero on failure
+ *		memFullErr - Not enough memory
+ *		paramErr - Invalid paramter
+ *
+ *	The data in *fileNameLen and *fullPathLen is undefined on error.
+ *
+ *	1. fullPath - If fullPath is non-NULL, full path of file/directory is
+ *	returned (size limited by fullPathLen)
+ *	2. *fullPathLen - length of fullPath returned.
+ *	3. fileName - If fileName is non-NULL, file name of fileID is returned (size
+ *	limited by fileNameLen).
+ *	4. *fileNameLen - length of fileName returned.
+ *	5. *status - status of operation, any of the following bits can be set
+ *	(defined in dfalib/Scavenger.h).
+ *		FNAME_BUF2SMALL	- filename buffer is too small.
+ *		FNAME_BIGNAME	- filename is more than NAME_MAX bytes.
+ *		FPATH_BUF2SMALL	- path buffer is too small.
+ *		FPATH_BIGNAME	- one or more intermediate path component is greater
+ *						  than NAME_MAX bytes.
+ *		F_RESERVE_FILEID- fileID is less than kHFSFirstUserCatalogNodeID.
+ */
+OSErr GetFileNamePathByID(SGlobPtr GPtr, UInt32 fileID, char *fullPath, unsigned int *fullPathLen, char *fileName, unsigned int *fileNameLen, u_int16_t *status)
+{
+	OSErr err = noErr;
+	Boolean isHFSPlus;
+	UInt16 recordSize;
+	UInt16 curStatus = 0;
+	UInt32 hint;
+	CatalogKey catKey;
+	CatalogRecord catRecord;
+	struct fsPathString *listHeadPtr = NULL;
+	struct fsPathString *listTailPtr = NULL;
+	struct fsPathString *curPtr = NULL;
+	u_char *filename = NULL;
+	size_t namelen;
+
+	if (!fullPath && !fileName) {
+		goto out;
+	}
+
+	if (fileID < kHFSFirstUserCatalogNodeID) {
+		curStatus = F_RESERVE_FILEID;
+		err = paramErr;
+		goto out;
+	}
+
+	isHFSPlus = VolumeObjectIsHFSPlus();
+
+	if (isHFSPlus) {
+		filename = malloc(kHFSPlusMaxFileNameChars * 3 + 1);
+	} else {
+		filename = malloc(kHFSMaxFileNameChars + 1);
+	}
+	if (!filename) {
+		err = memFullErr;
+#if DEBUG_OVERLAP
+		printf ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
+#endif
+		goto out;
+	}
+
+	while (fileID != kHFSRootFolderID) {
+		/* lookup for thread record for this fileID */
+		BuildCatalogKey(fileID, NULL, isHFSPlus, &catKey);
+		err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, &catKey, kNoHint,
+								&catKey, &catRecord, &recordSize, &hint);
+		if (err) {
+#if DEBUG_OVERLAP
+			printf ("%s: Error finding thread record for fileID = %d (err=%d)\n", __FUNCTION__, fileID, err);
+#endif
+			goto out;
+		}
+
+		/* Check if this is indeed a thread record */
+		if ((catRecord.hfsPlusThread.recordType != kHFSPlusFileThreadRecord) &&
+			(catRecord.hfsPlusThread.recordType != kHFSPlusFolderThreadRecord) &&
+		    (catRecord.hfsThread.recordType != kHFSFileThreadRecord) &&
+		    (catRecord.hfsThread.recordType != kHFSFolderThreadRecord)) {
+			err = paramErr;
+#if DEBUG_OVERLAP
+			printf ("%s: Error finding valid thread record for fileID = %d\n", __FUNCTION__, fileID);
+#endif
+			goto out;
+		}
+								
+		/* Convert the name string to utf8 */
+		if (isHFSPlus) {
+			(void) utf_encodestr(catRecord.hfsPlusThread.nodeName.unicode, 
+								 catRecord.hfsPlusThread.nodeName.length * 2,
+								 filename, &namelen);
+		} else {
+			namelen = catRecord.hfsThread.nodeName[0];
+			memcpy (filename, catKey.hfs.nodeName, namelen);
+		}
+
+		/* Store the path name in LIFO linked list */
+		curPtr = malloc(sizeof(struct fsPathString));
+		if (!curPtr) {
+			err = memFullErr;
+#if DEBUG_OVERLAP
+			printf ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
+#endif
+			goto out;
+		}
+
+		/* Do not NULL terminate the string */
+		curPtr->namelen = namelen;
+		curPtr->name = malloc(namelen);
+		if (!curPtr->name) {
+			err = memFullErr;
+#if DEBUG_OVERLAP
+			printf ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
+#endif
+		}
+		memcpy (curPtr->name, filename, namelen); 
+		curPtr->childPtr = listHeadPtr;
+		listHeadPtr = curPtr;
+		if (listTailPtr == NULL) {
+			listTailPtr = curPtr;
+		}
+		
+		/* lookup for parentID */
+		if (isHFSPlus) {
+			fileID = catRecord.hfsPlusThread.parentID;
+		} else {
+			fileID = catRecord.hfsThread.parentID;
+		}
+	
+		/* no need to find entire path, bail out */
+		if (fullPath == NULL) {
+			break;
+		}
+	}
+
+	/* return the name of the file/directory */
+	if (fileName) {
+		/* Do not overflow the buffer length passed */
+		if (*fileNameLen < (listTailPtr->namelen + 1)) {
+			*fileNameLen = *fileNameLen - 1;
+			curStatus |= FNAME_BUF2SMALL;
+		} else {
+			*fileNameLen = listTailPtr->namelen;
+		}
+		if (*fileNameLen > NAME_MAX) {
+			curStatus |= FNAME_BIGNAME;
+		}
+		memcpy (fileName, listTailPtr->name, *fileNameLen);
+		fileName[*fileNameLen] = '\0';
+	}
+
+	/* return the full path of the file/directory */
+	if (fullPath) {
+		/* Do not overflow the buffer length passed and reserve last byte for NULL termination */
+		unsigned int bytesRemain = *fullPathLen - 1;
+
+		*fullPathLen = 0;
+		while (listHeadPtr != NULL) {
+			if (bytesRemain == 0) {
+				break;
+			}
+			memcpy ((fullPath + *fullPathLen), "/", 1);
+			*fullPathLen += 1;
+			bytesRemain--; 
+
+			if (bytesRemain == 0) {
+				break;
+			}
+			if (bytesRemain < listHeadPtr->namelen) {
+				namelen = bytesRemain;
+				curStatus |= FPATH_BUF2SMALL;
+			} else {
+				namelen = listHeadPtr->namelen;
+			}
+			if (namelen > NAME_MAX) {
+				curStatus |= FPATH_BIGNAME;
+			}
+			memcpy ((fullPath + *fullPathLen), listHeadPtr->name, namelen);
+			*fullPathLen += namelen;
+			bytesRemain -= namelen;
+
+			curPtr = listHeadPtr;
+			listHeadPtr = listHeadPtr->childPtr;
+			free(curPtr->name);
+			free(curPtr);
+		}
+
+		fullPath[*fullPathLen] = '\0';
+	}
+
+	err = noErr;
+
+out:
+	if (status) {
+		*status = curStatus;
+	}
+
+	/* free any remaining allocated memory */
+	while (listHeadPtr != NULL) {
+		curPtr = listHeadPtr;
+		listHeadPtr = listHeadPtr->childPtr;
+		if (curPtr->name) {
+			free (curPtr->name);
+		}
+		free (curPtr);
+	}
+	if (filename) {
+		free (filename);
+	}
+	
+	return err;
+} /* GetFileNamePathByID */
+
+/* Function: CopyDiskBlocks
+ *
+ * Description: Copy data from source extent to destination extent 
+ * for blockCount on the disk.
+ *
+ * Input: 
+ *	1. GPtr - pointer to global scavenger structure.
+ * 	2. startAllocationBlock - startBlock for old extent
+ * 	3. blockCount - total blocks to copy
+ * 	4. newStartAllocationBlock - startBlock for new extent
+ *
+ * Output:
+ * 	err, zero on success, non-zero on failure.
+ *		memFullErr - Not enough memory
+ */
+OSErr CopyDiskBlocks(SGlobPtr GPtr, const UInt32 startAllocationBlock, const UInt32 blockCount, const UInt32 newStartAllocationBlock )
+{
+	OSErr err = noErr;
+	int i;
+	int drive;
+	char *tmpBuffer = NULL;
+	SVCB *vcb;
+	UInt32 sectorsPerBlock;
+	UInt32 sectorsInBuffer;
+	UInt32 ioReqCount;
+	UInt32 oldDiskBlock;
+	UInt32 newDiskBlock;
+	UInt32 actBytes;
+	UInt32 numberOfBuffersToWrite;
+
+	tmpBuffer = malloc(DISK_IOSIZE);
+	if (!tmpBuffer) {
+		err = memFullErr;
+#if DEBUG_OVERLAP
+		printf ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
+#endif
+		goto out;
+	}
+	
+	vcb = GPtr->calculatedVCB;
+	drive = vcb->vcbDriveNumber;
+	sectorsPerBlock = vcb->vcbBlockSize / Blk_Size;
+	ioReqCount = DISK_IOSIZE;
+	sectorsInBuffer = DISK_IOSIZE / Blk_Size;
+	numberOfBuffersToWrite = ((blockCount * sectorsPerBlock) + sectorsInBuffer - 1) / sectorsInBuffer; 
+
+	/*
+	 * Make sure all changes to the source blocks have been flushed to disk
+	 * so that we end up copying current content.  And we might as well
+	 * remove the old blocks since we'll never refer to them again.
+	 */
+	CacheFlushRange(vcb->vcbBlockCache,
+					startAllocationBlock * vcb->vcbBlockSize,
+					blockCount * vcb->vcbBlockSize,
+					true);
+
+
+	for (i=0; i<numberOfBuffersToWrite; i++) {
+		if (i == (numberOfBuffersToWrite - 1)) {
+			/* last buffer */	
+			ioReqCount = ((blockCount * sectorsPerBlock) - (i * sectorsInBuffer)) * Blk_Size;
+		}
+		
+		/* Calculate the old disk block offset */
+		oldDiskBlock = vcb->vcbAlBlSt + (sectorsPerBlock * startAllocationBlock) + (i * sectorsInBuffer);
+
+		/* Read up to one buffer full */
+		err = DeviceRead(vcb->vcbDriverReadRef, drive, tmpBuffer, 
+						 (SInt64)((UInt64)oldDiskBlock << Log2BlkLo), ioReqCount, &actBytes);
+		if (err != noErr) {
+			goto out;
+		}
+		
+		/* Calculate the new disk block offset */
+		newDiskBlock = vcb->vcbAlBlSt + (sectorsPerBlock * newStartAllocationBlock) + (i * sectorsInBuffer);
+
+		/* Write up to one buffer full */
+		err = DeviceWrite(vcb->vcbDriverWriteRef, drive, tmpBuffer, 
+						  (SInt64)((UInt64)newDiskBlock << Log2BlkLo), ioReqCount, &actBytes);
+		if (err != noErr) {
+			goto out;
+		}
+#if 0 // DEBUG_OVERLAP
+		printf ("%s: Moved %d bytes of data from block %d to %d\n", __FUNCTION__, ioReqCount, oldDiskBlock, newDiskBlock);
+#endif
+	}
+
+out:
+	if (tmpBuffer) {
+		free (tmpBuffer);
+	}
+	return err;
+} /* CopyDiskBlocks */
+
+/* Function: WriteDiskBlocks
+ * 
+ * Description: Write given buffer data to disk blocks.
+ *
+ * Input:
+ *	1. GPtr - global scavenger structure pointer
+ *	2. startBlock - starting block number for writing data.
+ *	3. blockCount - total number of contiguous blocks to be written
+ *	4. buffer - data buffer to be written to disk
+ *	5. bufLen - length of data buffer to be written to disk.
+ *
+ * Output:
+ * 	returns zero on success, non-zero on failure.
+ *		memFullErr - Not enough memory
+ */
+OSErr WriteDiskBlocks(SGlobPtr GPtr, UInt32 startBlock, UInt32 blockCount, u_char *buffer, int bufLen) 
+{
+	OSErr err = noErr;
+	int i;
+	SVCB *vcb;
+	int drive;
+	u_char *dataBuffer;
+	UInt32 sectorsPerBlock;
+	UInt32 sectorsInBuffer;
+	UInt32 ioReqCount;
+	UInt32 diskBlock;
+	UInt32 actBytes;
+	UInt32 numberOfBuffersToWrite;
+	UInt32 bufOffset = 0;
+
+	dataBuffer = buffer;
+	vcb = GPtr->calculatedVCB;
+	drive = vcb->vcbDriveNumber;
+	sectorsPerBlock = vcb->vcbBlockSize / Blk_Size;
+	ioReqCount = DISK_IOSIZE;
+	sectorsInBuffer = DISK_IOSIZE / Blk_Size;
+	numberOfBuffersToWrite = ((blockCount * sectorsPerBlock) + sectorsInBuffer - 1) / sectorsInBuffer; 
+
+	for (i=0; i<numberOfBuffersToWrite; i++) {
+		if (i == (numberOfBuffersToWrite - 1)) {
+			/* last buffer - should be Blk_Size multiple */	
+			ioReqCount = bufLen - bufOffset;
+			if (ioReqCount % Blk_Size) {
+				ioReqCount = ((ioReqCount / Blk_Size) + 1) * Blk_Size;
+			} else {
+				ioReqCount = (ioReqCount / Blk_Size) * Blk_Size;
+			}
+			
+			dataBuffer = calloc (1, ioReqCount);
+			if (!dataBuffer) {
+				err = memFullErr;
+				goto out;
+			}
+
+			memcpy (dataBuffer, buffer + bufOffset, (bufLen - bufOffset));
+			bufOffset = 0;
+		}
+		
+		/* Calculate the new disk block offset */
+		diskBlock = vcb->vcbAlBlSt + (sectorsPerBlock * startBlock) + (i * sectorsInBuffer);
+		
+		/* Write up to one buffer full */
+		err = DeviceWrite(vcb->vcbDriverWriteRef, drive, dataBuffer + bufOffset, 
+						 (SInt64)((UInt64)diskBlock << Log2BlkLo), ioReqCount, &actBytes);
+		if (err != noErr) {
+			goto out;
+		}
+
+		bufOffset += ioReqCount;
+	}
+
+out:
+	if (dataBuffer != buffer) {
+		free (dataBuffer);
+	}
+	return err;
+} /* WriteDiskBlocks */
 
 //	2210409, in System 8.1, moving file or folder would cause HFS+ thread records to be
 //	520 bytes in size.  We only shrink the threads if other repairs are needed.
@@ -2622,7 +3853,7 @@ FixMissingThreadRecords( SGlob *GPtr )
 		if ( mtp->thread.parentID == 0 ) {
 			char 	myString[32];
 			if ( lostAndFoundDirID == 0 )
-				lostAndFoundDirID = CreateLostAndFoundDir( GPtr );
+				lostAndFoundDirID = CreateDirByName( GPtr , (u_char *)"lost+found", kHFSRootFolderID);
 			if ( lostAndFoundDirID == 0 ) {
 				if ( GPtr->logLevel >= kDebugLog )
 					printf( "\tCould not create lost+found directory \n" );
@@ -2634,6 +3865,7 @@ FixMissingThreadRecords( SGlob *GPtr )
 			if ( result != 0 ) {
 				if ( GPtr->logLevel >= kDebugLog )
 					printf( "\tCould not recreate a missing directory \n" );
+					printf ("result = %d\n", (int) result);
 				return( R_RFail );
 			}
 			else
@@ -2721,12 +3953,13 @@ FixMissingDirectory( SGlob *GPtr, UInt32 theObjID, UInt32 theParID )
 		result = GetBTreeRecord( GPtr->calculatedCatalogFCB, 1, &foundKey, &catRec, &recSize, &hint );
 		if ( result != noErr )
 			break;
-		if ( isHFSPlus )
+		if ( isHFSPlus ) {
 			if ( foundKey.hfsPlus.parentID != theObjID )
 				break;
-		else
+		} else {
 			if ( foundKey.hfs.parentID != theObjID )
 				break;
+		}
 		if ( catRec.recordType == kHFSPlusFolderRecord || catRec.recordType == kHFSPlusFileRecord ||
 			 catRec.recordType == kHFSFolderRecord || catRec.recordType == kHFSFileRecord ) {
 			myItemsCount++;
@@ -2781,15 +4014,265 @@ GetObjectID( CatalogRecord * theRecPtr )
     
 } /* GetObjectID */
 
-
-/*
- *	Create a lost and found directory at the root of the volume we are checking.
+/* Function: CreateFileByName
  *
- *  Returns directory ID of the new (or existing) lost+found directory or 0 on error.
+ * Description: Create a file with given fileName of type fileType containing
+ * data of length dataLen.  This function assumes that the name of symlink
+ * to be created is passed as UTF8
+ *
+ * Input:
+ *	1. GPtr - pointer to global scavenger structure
+ *	2. parentID - ID of parent directory to create the new file.
+ *	3. fileName - name of the file to create in UTF8 format.  
+ *	4. fileNameLen - length of the filename to be created.  
+ *			If the volume is HFS Plus, the filename is delimited to
+ *			kHFSPlusMaxFileNameChars characters.
+ *			If the volume is plain HFS, the filename is delimited to
+ *			kHFSMaxFileNameChars characters.
+ *	5. fileType - file type (currently supported S_IFREG, S_IFLNK).
+ *	6. data - data content of first data fork of the file
+ *	7. dataLen - length of data to be written
+ *
+ * Output:
+ *	returns zero on success, non-zero on failure.
+ *		memFullErr - Not enough memory
+ *		paramErr - Invalid paramter
  */
+OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *fileName, unsigned int filenameLen, u_char *data, unsigned int dataLen)
+{	
+	OSErr err = noErr;
+	Boolean isHFSPlus;
+	Boolean isCatUpdated = false;
 
-static UInt32
-CreateLostAndFoundDir( SGlob *GPtr )
+	CatalogName fName;
+	CatalogRecord catRecord;
+	CatalogKey catKey;
+	CatalogKey threadKey;
+	UInt32 hint;
+	UInt16 recordSize;
+
+	UInt32 totalBlocks = 0;
+	UInt32 startBlock = 0;
+	UInt32 blockCount = 0;
+	UInt32 nextCNID;
+
+	isHFSPlus = VolumeObjectIsHFSPlus();
+
+	/* Construct unicode name for file name to construct catalog key */
+	if (isHFSPlus) {
+		/* Convert utf8 filename to Unicode filename */
+		size_t namelen;
+
+		if (filenameLen < kHFSPlusMaxFileNameChars) {
+			(void) utf_decodestr (fileName, filenameLen, fName.ustr.unicode, &namelen);
+			namelen /= 2;
+			fName.ustr.length = namelen;
+		} else {
+			/* The resulting may result in more than kHFSPlusMaxFileNameChars chars */
+			UInt16 *unicodename;
+
+			/* Allocate a large array to convert the utf-8 to utf-16 */
+			unicodename = malloc (filenameLen * 4);
+			if (unicodename == NULL) {
+				err = memFullErr;
+				goto out;
+			}
+
+			(void) utf_decodestr (fileName, filenameLen, unicodename, &namelen);
+			namelen /= 2;
+
+			/* Chopping unicode string based on length might affect unicode 
+			 * chars that take more than one UInt16 - very rare possiblity.
+			 */
+			if (namelen > kHFSPlusMaxFileNameChars) {
+				namelen = kHFSPlusMaxFileNameChars;
+			}
+
+			memcpy (fName.ustr.unicode, unicodename, (namelen * 2));
+			free (unicodename);
+			fName.ustr.length = namelen;
+		}
+	} else {
+		if (filenameLen > kHFSMaxFileNameChars) {
+			filenameLen = kHFSMaxFileNameChars;
+		}
+		fName.pstr[0] = filenameLen;
+		memcpy(&fName.pstr[1], fileName, filenameLen);
+	}
+
+	/* Make sure that a file with same name does not exist in parent dir */
+	BuildCatalogKey(parentID, &fName, isHFSPlus, &catKey);
+	err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, &catKey, kNoHint, NULL, 
+							&catRecord, &recordSize, &hint);
+	if (err != fsBTRecordNotFoundErr) {
+#if DEBUG_OVERLAP
+		printf ("%s: %s probably exists in dirID = %d (err=%d)\n", __FUNCTION__, fileName, parentID, err);
+#endif
+		err = EEXIST;
+		goto out;
+	}
+
+	if (data) {
+		/* Calculate correct number of blocks required for data */
+		if (dataLen % (GPtr->calculatedVCB->vcbBlockSize)) {
+			totalBlocks = (dataLen / (GPtr->calculatedVCB->vcbBlockSize)) + 1;
+		} else {
+			totalBlocks = dataLen / (GPtr->calculatedVCB->vcbBlockSize);
+		}
+	
+		if (totalBlocks) {
+			/* Allocate disk space for the data */
+			err = BlockAllocate(GPtr->calculatedVCB, 0, totalBlocks, totalBlocks, 
+								true, &startBlock, &blockCount);
+			if (err != noErr) {
+#if DEBUG_OVERLAP
+				printf ("%s: Not enough disk space (err=%d)\n", __FUNCTION__, err);
+#endif
+				goto out;
+			}
+
+			/* Write the data to the blocks */
+			err = WriteDiskBlocks(GPtr, startBlock, blockCount, data, dataLen);
+			if (err != noErr) {
+#if DEBUG_OVERLAP
+				printf ("%s: Error in writing data of %s to disk (err=%d)\n", __FUNCTION__, fileName, err);
+#endif
+				goto out;
+			}
+		}
+	}
+
+	/* Build and insert thread record */
+	nextCNID = GPtr->calculatedVCB->vcbNextCatalogID;
+	if (!isHFSPlus && nextCNID == 0xffffFFFF) {
+		goto out;
+	}
+	recordSize = BuildThreadRec(&catKey, &catRecord, isHFSPlus, false);
+	for (;;) {
+		BuildCatalogKey(nextCNID, NULL, isHFSPlus, &threadKey);
+		err	= InsertBTreeRecord(GPtr->calculatedCatalogFCB, &threadKey, &catRecord,
+								recordSize, &hint );
+		if (err == fsBTDuplicateRecordErr && isHFSPlus) {
+			/* Allow CNIDs on HFS Plus volumes to wrap around */
+			++nextCNID;
+			if (nextCNID < kHFSFirstUserCatalogNodeID) {
+				GPtr->calculatedVCB->vcbAttributes |= kHFSCatalogNodeIDsReusedMask;
+				MarkVCBDirty(GPtr->calculatedVCB);
+				nextCNID = kHFSFirstUserCatalogNodeID;
+			}
+			continue;
+		}
+		break;
+	}
+	if (err != noErr) {
+#if DEBUG_OVERLAP
+		printf ("%s: Error inserting thread record for file = %s (err=%d)\n", __FUNCTION__, fileName, err);
+#endif
+		goto out;
+	}
+
+	/* Build file record */
+	recordSize = BuildFileRec(fileType, 0666, nextCNID, isHFSPlus, &catRecord);
+	if (recordSize == 0) {
+#if DEBUG_OVERLAP
+		printf ("%s: Incorrect fileType\n", __FUNCTION__);
+#endif
+
+		/* Remove the thread record inserted above */
+		err = DeleteBTreeRecord (GPtr->calculatedCatalogFCB, &threadKey);
+		if (err != noErr) {
+#if DEBUG_OVERLAP
+			printf ("%s: Error in removing thread record\n", __FUNCTION__);
+#endif
+		}
+		err = paramErr;
+		goto out;
+	}
+
+	/* Update startBlock, blockCount, etc */
+	if (isHFSPlus) {
+		catRecord.hfsPlusFile.dataFork.logicalSize = dataLen; 
+		catRecord.hfsPlusFile.dataFork.totalBlocks = totalBlocks;
+		catRecord.hfsPlusFile.dataFork.extents[0].startBlock = startBlock;
+		catRecord.hfsPlusFile.dataFork.extents[0].blockCount = blockCount;
+	} else {
+		catRecord.hfsFile.dataLogicalSize = dataLen;
+		catRecord.hfsFile.dataPhysicalSize = totalBlocks * GPtr->calculatedVCB->vcbBlockSize;
+		catRecord.hfsFile.dataExtents[0].startBlock = startBlock;
+		catRecord.hfsFile.dataExtents[0].blockCount = blockCount;
+	}
+
+	/* Insert catalog file record */
+    err	= InsertBTreeRecord(GPtr->calculatedCatalogFCB, &catKey, &catRecord, recordSize, &hint );
+	if (err == noErr) {
+		isCatUpdated = true;
+
+#if DEBUG_OVERLAP
+	printf ("Created \"%s\" with ID = %d startBlock = %d, blockCount = %d, dataLen = %d\n", fileName, nextCNID, startBlock, blockCount, dataLen);
+#endif
+	} else {
+#if DEBUG_OVERLAP
+		printf ("%s: Error in inserting file record for file = %s (err=%d)\n", __FUNCTION__, fileName, err);
+#endif
+
+		/* remove the thread record inserted above */
+		err = DeleteBTreeRecord (GPtr->calculatedCatalogFCB, &threadKey);
+		if (err != noErr) {
+#if DEBUG_OVERLAP
+			printf ("%s: Error in removing thread record\n", __FUNCTION__);
+#endif
+		}
+		err = paramErr;
+		goto out;
+	}
+
+	/* Update volume header */
+	GPtr->calculatedVCB->vcbNextCatalogID = nextCNID + 1;
+	if (GPtr->calculatedVCB->vcbNextCatalogID < kHFSFirstUserCatalogNodeID) {
+		GPtr->calculatedVCB->vcbAttributes |= kHFSCatalogNodeIDsReusedMask;
+		GPtr->calculatedVCB->vcbNextCatalogID = kHFSFirstUserCatalogNodeID;
+	}
+	MarkVCBDirty( GPtr->calculatedVCB );
+	
+	/* update our header node on disk from our BTreeControlBlock */
+	UpdateBTreeHeader(GPtr->calculatedCatalogFCB);
+
+	/* update parent directory to reflect addition of new file */
+	err = UpdateFolderCount(GPtr->calculatedVCB, parentID, NULL, kHFSPlusFileRecord, kNoHint, 1);
+	if (err != noErr) {
+#if DEBUG_OVERLAP
+		printf ("%s: Error in updating parent folder count (err=%d)\n", __FUNCTION__, err);
+#endif
+		goto out;
+	}
+
+out:
+	/* On error, if catalog record was not inserted and disk block were allocated,
+	 * deallocate the blocks 
+	 */
+	if (err && (isCatUpdated == false) && startBlock) {
+		ReleaseBitmapBits (startBlock, blockCount);
+	}
+
+	return err;
+} /* CreateFileByName */
+
+/* Function: CreateDirByName
+ *
+ * Description: Create directory with name dirName in a directory with ID as
+ * parentID.  The function assumes that the dirName passed is ASCII.
+ *
+ * Input: 
+ *	GPtr - global scavenger structure pointer
+ * 	dirName - name of directory to be created
+ *	parentID - dirID of the parent directory for new directory
+ *
+ * Output:
+ * 	on success, ID of the new directory created.
+ * 	on failure, zero.
+ *  
+ */
+UInt32 CreateDirByName(SGlob *GPtr , const u_char *dirName, const UInt32 parentID)
 {
 	Boolean				isHFSPlus;
 	UInt16				recSize;
@@ -2799,30 +4282,29 @@ CreateLostAndFoundDir( SGlob *GPtr )
 	UInt32				hint;		
 	UInt32				nextCNID;		
 	SFCB *				fcbPtr;
-	u_char				lostAndFoundDirName[] = "lost+found";
 	CatalogKey			myKey;
 	CatalogName			myName;
 	CatalogRecord		catRec;
 	
 	isHFSPlus = VolumeObjectIsHFSPlus( );
   	fcbPtr = GPtr->calculatedCatalogFCB;
-	nameLen = strlen( lostAndFoundDirName );
+	nameLen = strlen( (char *)dirName );
 
     if ( isHFSPlus )
     {
         int		i;
         myName.ustr.length = nameLen;
         for ( i = 0; i < myName.ustr.length; i++ )
-            myName.ustr.unicode[ i ] = (u_int16_t) lostAndFoundDirName[ i ];
+            myName.ustr.unicode[ i ] = (u_int16_t) dirName[ i ];
     }
     else
     {
         myName.pstr[0] = nameLen;
-        memcpy( &myName.pstr[1], &lostAndFoundDirName[0], nameLen );
+        memcpy( &myName.pstr[1], &dirName[0], nameLen );
     }
 
 	// see if we already have a lost and found directory
-	BuildCatalogKey( kHFSRootFolderID, &myName, isHFSPlus, &myKey );
+	BuildCatalogKey( parentID, &myName, isHFSPlus, &myKey );
 	result = SearchBTreeRecord( fcbPtr, &myKey, kNoHint, NULL, &catRec, &recSize, &hint );
 	if ( result == noErr ) {
 		if ( isHFSPlus ) {
@@ -2877,15 +4359,14 @@ CreateLostAndFoundDir( SGlob *GPtr )
 	MarkVCBDirty( GPtr->calculatedVCB );
 	
 	/* update parent directory to reflect addition of new directory */
-	result = UpdateFolderCount( GPtr->calculatedVCB, kHFSRootFolderID, NULL, kHFSPlusFolderRecord, kNoHint, 1 );
+	result = UpdateFolderCount( GPtr->calculatedVCB, parentID, NULL, kHFSPlusFolderRecord, kNoHint, 1 );
 
 	/* update our header node on disk from our BTreeControlBlock */
 	UpdateBTreeHeader( GPtr->calculatedCatalogFCB );
 
 	return( nextCNID );
 
-} /* CreateLostAndFoundDir */
-
+} /* CreateDirByName */
 
 /*
  * Build a catalog node folder record with the given input.
@@ -2905,7 +4386,6 @@ BuildFolderRec( u_int16_t theMode, UInt32 theObjID, Boolean isHFSPlus, CatalogRe
 		theRecPtr->hfsPlusFolder.createDate = createTime;
 		theRecPtr->hfsPlusFolder.contentModDate = createTime;
 		theRecPtr->hfsPlusFolder.attributeModDate = createTime;
-		theRecPtr->hfsPlusFolder.backupDate = createTime;
 		theRecPtr->hfsPlusFolder.bsdInfo.ownerID = getuid( );
 		theRecPtr->hfsPlusFolder.bsdInfo.groupID = getgid( );
 		theRecPtr->hfsPlusFolder.bsdInfo.fileMode = S_IFDIR;
@@ -2918,7 +4398,6 @@ BuildFolderRec( u_int16_t theMode, UInt32 theObjID, Boolean isHFSPlus, CatalogRe
 		theRecPtr->hfsFolder.folderID = theObjID;
 		theRecPtr->hfsFolder.createDate = createTime;
 		theRecPtr->hfsFolder.modifyDate = createTime;
-		theRecPtr->hfsFolder.backupDate = createTime;
 		recSize= sizeof(HFSCatalogFolder);
 	}
 
@@ -2972,4 +4451,72 @@ BuildThreadRec( CatalogKey * theKeyPtr, CatalogRecord * theRecPtr,
 	return (size);
 	
 } /* BuildThreadRec */
+
+/* Function: BuildFileRec
+ *
+ * Description: Build a catalog file record with given fileID, fileType 
+ * and fileMode.
+ *
+ * Input:
+ *	1. fileType - currently supports S_IFREG, S_IFLNK
+ *	2. fileMode - file mode desired.
+ *	3. fileID - file ID
+ *	4. isHFSPlus - indicates whether the record is being created for 
+ *	HFSPlus volume or plain HFS volume.
+ *	5. catRecord - pointer to catalog record
+ *
+ * Output:
+ *	returns size of the catalog record.
+ *	on success, non-zero value; on failure, zero.
+ */
+static int BuildFileRec(UInt16 fileType, UInt16 fileMode, UInt32 fileID, Boolean isHFSPlus, CatalogRecord *catRecord)
+{
+	UInt16 recordSize = 0;
+	UInt32 createTime;
+	
+	/* We only support creating S_IFREG and S_IFLNK and S_IFLNK is not supported
+	 * on plain HFS 
+	 */
+	if (((fileType != S_IFREG) && (fileType != S_IFLNK)) || 
+	 	((isHFSPlus == false) && (fileType == S_IFLNK))) {
+		goto out;
+	}
+
+	ClearMemory((Ptr)catRecord, sizeof(*catRecord));
+	
+	if ( isHFSPlus ) {
+		createTime = GetTimeUTC();
+		catRecord->hfsPlusFile.recordType = kHFSPlusFileRecord;
+		catRecord->hfsPlusFile.fileID = fileID;
+		catRecord->hfsPlusFile.createDate = createTime;
+		catRecord->hfsPlusFile.contentModDate = createTime;
+		catRecord->hfsPlusFile.attributeModDate = createTime;
+		catRecord->hfsPlusFile.bsdInfo.ownerID = getuid();
+		catRecord->hfsPlusFile.bsdInfo.groupID = getgid();
+		catRecord->hfsPlusFile.bsdInfo.fileMode = fileType;
+		catRecord->hfsPlusFile.bsdInfo.fileMode |= fileMode;
+		if (fileType == S_IFLNK) {
+			catRecord->hfsPlusFile.userInfo.fdType = kSymLinkFileType;
+			catRecord->hfsPlusFile.userInfo.fdCreator = kSymLinkCreator;
+		} else {
+			catRecord->hfsPlusFile.userInfo.fdType = kTextFileType;
+			catRecord->hfsPlusFile.userInfo.fdCreator = kTextFileCreator;
+		}
+		recordSize= sizeof(HFSPlusCatalogFile);
+	}
+	else {
+		createTime = GetTimeLocal(true);
+		catRecord->hfsFile.recordType = kHFSFileRecord;
+		catRecord->hfsFile.fileID = fileID;
+		catRecord->hfsFile.createDate = createTime;
+		catRecord->hfsFile.modifyDate = createTime;
+		catRecord->hfsFile.userInfo.fdType = kTextFileType;
+		catRecord->hfsFile.userInfo.fdCreator = kTextFileCreator;
+		recordSize= sizeof(HFSCatalogFile);
+	}
+
+out:
+	return(recordSize);
+} /* BuildFileRec */
+
 

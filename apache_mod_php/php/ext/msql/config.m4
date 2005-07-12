@@ -1,11 +1,11 @@
 dnl
-dnl $Id: config.m4,v 1.12 2002/03/12 16:25:28 sas Exp $
+dnl $Id: config.m4,v 1.12.4.1 2004/12/30 07:02:17 sniper Exp $
 dnl
 
 dnl
 dnl Test mSQL version by checking if msql.h has "IDX_TYPE" defined.
 dnl
-AC_DEFUN(PHP_MSQL_VERSION,[
+AC_DEFUN([PHP_MSQL_VERSION],[
   AC_MSG_CHECKING([mSQL version])
   ac_php_oldcppflags=$CPPFLAGS
   CPPFLAGS="$INCLUDES $CPPFLAGS"

@@ -693,16 +693,17 @@ Boolean		InsertKeyRecord		(BTreeControlBlockPtr	 btreePtr,
 
 	if ( btreePtr->attributes & kBTBigKeysMask )
 	{
-		*((UInt16*) dst)++ = keyLength;		// use keyLength rather than key.length
+		*((UInt16 *)dst) = keyLength;					// use keyLength rather than key.length
 		rawKeyLength = keyPtr->length16;
 		sizeOfLength = 2;
 	}
 	else
 	{
-		*dst++ = keyLength;					// use keyLength rather than key.length
+		*dst = keyLength;					// use keyLength rather than key.length
 		rawKeyLength = keyPtr->length8;
 		sizeOfLength = 1;
 	}
+	dst += sizeOfLength;
 	
 	MoveRecordsLeft ( ((UInt8 *) keyPtr) + sizeOfLength, dst, rawKeyLength);	// copy key
 

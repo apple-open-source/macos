@@ -838,7 +838,7 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 61;
+				CURRENT_PROJECT_VERSION = 67;
 				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Frameworks /usr/local/SecurityPieces/Components/securityd $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INSTALL_PATH = /usr/sbin;
 				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines -fcoalesce-templates";

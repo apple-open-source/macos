@@ -4,13 +4,13 @@ pspell basic tests (warning: may fail with pspell/aspell < GNU Aspell 0.50.3)
 <?php 
 	if (!extension_loaded("pspell")) print "skip"; 
 	if (!@pspell_new ("en", "", "", "", (PSPELL_FAST|PSPELL_RUN_TOGETHER))) {
-		die("skip English dictionary is not avaliable");
+		die("skip English dictionary is not available");
 	}
 ?>
 --POST--
 --GET--
 --FILE--
-<?php // $Id: 01pspell_basic.phpt,v 1.2.2.2 2003/08/09 18:40:53 iliaa Exp $
+<?php // $Id: 01pspell_basic.phpt,v 1.2.2.3 2004/12/16 12:36:42 sniper Exp $
 
 error_reporting(E_ALL);
 $string = "";

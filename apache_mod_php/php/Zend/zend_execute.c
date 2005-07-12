@@ -336,6 +336,9 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 						AI_USE_PTR(Ts[result->u.var].var);
 					}
 
+					if(type == IS_TMP_VAR) {
+						value->refcount = value->is_ref = 0;
+					}
 					set_overloaded_property(&Ts[op1->u.var], value TSRMLS_CC);
 
 					if (!return_value_used && type == IS_TMP_VAR) {
@@ -733,11 +736,15 @@ static void fetch_overloaded_element(znode *result, znode *op1, znode *op2, temp
 		return;
 	}
 
-	overloaded_element.element = *get_zval_ptr(op2, Ts, &EG(free_op2), type);
+	if(op2->op_type == IS_UNUSED && overloaded_element_type == OE_IS_ARRAY) {
+		ZVAL_NULL(&overloaded_element.element);
+	} else {
+		overloaded_element.element = *get_zval_ptr(op2, Ts, &EG(free_op2), type);
+		if (!EG(free_op2)) {
+			zval_copy_ctor(&overloaded_element.element);
+		}
+	} 
 	overloaded_element.type = overloaded_element_type;
-	if (!EG(free_op2)) {
-		zval_copy_ctor(&overloaded_element.element);
-	}
 
 	Ts[result->u.var].EA = Ts[op1->u.var].EA;
 	zend_llist_add_element(Ts[result->u.var].EA.data.overloaded_element.elements_list, &overloaded_element);
@@ -753,7 +760,6 @@ static void zend_fetch_dimension_address(znode *result, znode *op1, znode *op2, 
 	zval **container_ptr = get_zval_ptr_ptr(op1, Ts, type);
 	zval *container;
 	zval ***retval = &Ts[result->u.var].var.ptr_ptr;
-
 
 	if (container_ptr == NULL) {
 		fetch_overloaded_element(result, op1, op2, Ts, type, retval, OE_IS_ARRAY TSRMLS_CC);
@@ -1576,7 +1582,13 @@ binary_assign_op_addr: {
 									EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.type = BP_VAR_NA;
 									EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.elements_list = (zend_llist *) emalloc(sizeof(zend_llist));
 									zend_llist_init(EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.elements_list, sizeof(zend_overloaded_element), NULL, 0);
-									EX(object).ptr->refcount++;
+								}
+								if(EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.object) {
+									EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.object->refcount++;
+									/* is-ref needed so that assign to this in call won't separate it */
+									if(EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.object->refcount > 1) {
+										EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.object->is_ref = 1;
+									}
 								}
 								zend_llist_add_element(EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.elements_list, &overloaded_element);
 								EX(fbc) = (zend_function *) emalloc(sizeof(zend_function));
@@ -2347,7 +2359,9 @@ send_by_ref:
 						/* probably redundant */
 						zend_hash_internal_pointer_reset(fe_ht);
 					} else {
-						/* JMP to the end of foreach - TBD */
+						/* JMP to the end of foreach */
+						EX(opline) = op_array->opcodes+EX(opline)[1].op2.u.opline_num;
+						continue;
 					}
 				}
 				NEXT_OPCODE();

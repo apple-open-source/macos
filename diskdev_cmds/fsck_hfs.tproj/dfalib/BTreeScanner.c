@@ -158,7 +158,7 @@ static int FindNextLeafNode(	BTScanState *scanState )
 			if ( scanState->nodeNum >= scanState->btcb->totalNodes )
 				return fsEndOfIterationErr;
 
-			(u_int8_t *) scanState->currentNodePtr += scanState->btcb->nodeSize;
+			scanState->currentNodePtr = (BTNodeDescriptor *)((UInt8 *)scanState->currentNodePtr + scanState->btcb->nodeSize);
 		}
 		
 #if BYTE_ORDER == LITTLE_ENDIAN

@@ -1,9 +1,6 @@
 dnl
-dnl $Id: config.m4,v 1.34 2002/06/26 13:07:40 derick Exp $
+dnl $Id: config.m4,v 1.34.4.1 2004/12/30 07:02:18 sniper Exp $
 dnl
-
-AC_DEFUN(PHP_PGSQL_CHECK_FUNCTIONS,[
-])
 
 PHP_ARG_WITH(pgsql,for PostgreSQL support,
 [  --with-pgsql[=DIR]      Include PostgreSQL support.  DIR is the PostgreSQL

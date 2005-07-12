@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vfsops.c,v 1.73 2005/03/09 16:52:00 lindak Exp $
+ * $Id: smbfs_vfsops.c,v 1.73.64.1 2005/05/27 02:35:28 lindak Exp $
  */
 
 #include <sys/param.h>
@@ -262,7 +262,7 @@ smbfs_aclsflunksniff(struct smbmount *smp, struct smb_cred *scrp)
 		goto out;
 	}
 	if (IS_MEMBERD_TEMPUUID(&guid)) {
-		SMBERROR("user sid %s didnt map\n", smb_sid2str(usidp));
+		SMBERROR("(fyi) user sid %s didnt map\n", smb_sid2str(usidp));
 		goto err;
 	}
 	gsidp = sdgroup(w_secp);

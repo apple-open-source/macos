@@ -46,7 +46,6 @@ namespace KJS {
    */
   class DOMObject : public ObjectImp {
   public:
-    DOMObject(const Object &proto) : ObjectImp(proto) {}
     DOMObject() : ObjectImp() {}
     virtual Value get(ExecState *exec, const Identifier &propertyName) const;
     virtual Value tryGet(ExecState *exec, const Identifier &propertyName) const
@@ -83,6 +82,8 @@ namespace KJS {
     virtual UString toString(ExecState *) const { return UString("[function]"); }
   };
 
+  class DOMNode;
+
   /**
    * We inherit from Interpreter, to save a pointer to the HTML part
    * that the interpreter runs for.
@@ -104,17 +105,15 @@ namespace KJS {
       return domObjects().remove( objectHandle );
     }
 
-    static DOMObject* getDOMObjectForDocument( DOM::DocumentImpl* documentHandle, void *objectHandle );
-    static void putDOMObjectForDocument( DOM::DocumentImpl* documentHandle, void *objectHandle, DOMObject *obj );
-    static bool deleteDOMObjectsForDocument( DOM::DocumentImpl* documentHandle );
-
-    /**
-     * Static method. Makes all interpreters forget about the object
-     */
     static void forgetDOMObject( void* objectHandle );
-    static void forgetDOMObjectsForDocument( DOM::DocumentImpl* documentHandle );
 
-    static void updateDOMObjectDocument(void *objectHandle, DOM::DocumentImpl *oldDoc, DOM::DocumentImpl *newDoc);
+
+    static DOMNode *getDOMNodeForDocument(DOM::DocumentImpl *document, DOM::NodeImpl *node);
+    static void putDOMNodeForDocument(DOM::DocumentImpl *document, DOM::NodeImpl *nodeHandle, DOMNode *nodeWrapper);
+    static void forgetDOMNodeForDocument(DOM::DocumentImpl *document, DOM::NodeImpl *node);
+    static void forgetAllDOMNodesForDocument(DOM::DocumentImpl *document);
+    static void updateDOMNodeDocument(DOM::NodeImpl *nodeHandle, DOM::DocumentImpl *oldDoc, DOM::DocumentImpl *newDoc);
+
 
 
     KHTMLPart* part() const { return m_part; }
@@ -148,7 +147,7 @@ namespace KJS {
     KHTMLPart* m_part;
 
     static QPtrDict<DOMObject> &domObjects();
-    static QPtrDict<QPtrDict<DOMObject> > &domObjectsPerDocument();
+    static QPtrDict<QPtrDict<DOMNode> > &domNodesPerDocument();
 
     DOM::Event *m_evt;
     bool m_inlineCode;

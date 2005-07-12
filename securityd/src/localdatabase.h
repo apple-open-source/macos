@@ -35,6 +35,17 @@
 
 class LocalKey;
 
+class LocalDbCommon : public DbCommon {
+public:
+	LocalDbCommon(Session &ssn) : DbCommon(ssn) { }
+	
+	Mutex &uiLock()  { return mUILock; }
+	
+private:
+	// Contract: callers shall not simultaneously hold mUILock and the 
+	// DbCommon lock.  StSyncLock coordinates them to uphold the contract.  
+	Mutex mUILock;				// serializes user interaction
+};
 
 //
 // A Database object represents an Apple CSP/DL open database (DL/DB) object.

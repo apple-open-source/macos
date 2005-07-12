@@ -294,6 +294,22 @@ static const uint8  OID_NetscapeCertSequence[]  =  { NETSCAPE_BASE_OID, 2, 5 };
 const CSSM_OID CSSMOID_NetscapeCertSequence		=
 	{ NETSCAPE_BASE_OID_LEN + 2, (uint8 *)OID_NetscapeCertSequence };
  
+/* 
+ * Netscape version of ServerGatedCrypto ExtendedKeyUse.
+ * OID { 2 16 840 1 113730 4 1 }
+ */
+static const uint8 OID_Netscape_SGC[] = {NETSCAPE_CERT_POLICY, 1};
+const CSSM_OID CSSMOID_NetscapeSGC 	= 
+	{NETSCAPE_CERT_POLICY_LENGTH + 1, (uint8 *)OID_Netscape_SGC};
+
+/* 
+ * Microsoft version of ServerGatedCrypto ExtendedKeyUse.
+ * OID { 1 3 6 1 4 1 311 10 3 3 }
+ */
+static const uint8 OID_Microsoft_SGC[] = {0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x0A, 0x03, 0x03};
+const CSSM_OID CSSMOID_MicrosoftSGC 	= 
+	{10, (uint8 *)OID_Microsoft_SGC};
+	
 /*
  * .mac Certificate Extended Key Use values.
  */

@@ -357,9 +357,9 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 222;
+				CURRENT_PROJECT_VERSION = 223;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 222;
+				DYLIB_CURRENT_VERSION = 223;
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
 				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Components/Security /usr/local/SecurityPieces/Frameworks";
 				FRAMEWORK_VERSION = A;
@@ -403,7 +403,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Security</string>
 	<key>CFBundleGetInfoString</key>
-	<string>4.0,  Copyright © 2000-2004 Apple Computer Inc., All Rights Reserved</string>
+	<string>4.0.1,  Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -413,11 +413,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.0</string>
+	<string>4.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>221</string>
+	<string>223</string>
 </dict>
 </plist>
 ";

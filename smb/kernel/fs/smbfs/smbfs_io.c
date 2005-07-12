@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_io.c,v 1.41 2005/03/18 02:09:17 lindak Exp $
+ * $Id: smbfs_io.c,v 1.41.38.1 2005/05/27 02:35:28 lindak Exp $
  *
  */
 #include <sys/param.h>
@@ -92,9 +92,16 @@ smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 	long offset, limit;
 
 	if (uio_resid(uio) < DE_SIZE || uio_offset(uio) < 0)
-		return EINVAL;
+		return (EINVAL);
 
 	np = VTOSMB(vp);
+	/*
+	 * This cache_purge ensures that name cache for this dir will be
+	 * current - it'll only have the items for which the smbfs_nget
+	 * MAKEENTRY happened.
+	 */
+	if (smbfs_fastlookup)
+		cache_purge(vp);
 	SMBVDEBUG("dirname='%s'\n", np->n_name);
 	smb_scred_init(&scred, vfsctx);
 	// LP64todo - should change to handle 64-bit values
@@ -119,7 +126,7 @@ smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 		offset++;
 	}
 	if (limit == 0)
-		return 0;
+		return (0);
 	if (offset != np->n_dirofs || np->n_dirseq == NULL) {
 		SMBVDEBUG("Reopening search %ld:%ld\n", offset, np->n_dirofs);
 		if (np->n_dirseq) {
@@ -142,7 +149,7 @@ smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 		if (error) {
 			smbfs_smb_findclose(np->n_dirseq, &scred);
 			np->n_dirseq = NULL;
-			return error == ENOENT ? 0 : error;
+			return (error == ENOENT ? 0 : error);
 		}
 	}
 	error = 0;
@@ -175,11 +182,11 @@ smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 }
 
 int
-smbfs_readvnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx)
+smbfs_readvnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx,
+		struct vnode_attr *vap)
 {
 	struct smbmount *smp = VFSTOSMBFS(vnode_mount(vp));
 	struct smbnode *np = VTOSMB(vp);
-	struct vnode_attr vattr;
 	struct smb_cred scred;
 	int error;
 	int requestsize;
@@ -190,42 +197,22 @@ smbfs_readvnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx)
 
 	if (vtype != VREG && vtype != VDIR && vtype != VLNK) {
 		SMBFSERR("smbfs_readvnode only supports VREG/VDIR/VLNK!\n");
-		return EIO;
+		return (EIO);
 	}
 	if (uio_resid(uiop) == 0)
-		return 0;
+		return (0);
 	if (uio_offset(uiop) < 0)
-		return EINVAL;
+		return (EINVAL);
 /*	if (uio_offset(uiop) + uio_resid(uiop) > smp->nm_maxfilesize)
 		return EFBIG;*/
 	if (vtype == VDIR)
 		return (smbfs_readvdir(vp, uiop, vfsctx));
 
 /*	biosize = SSTOCN(smp->sm_share)->sc_txmax;*/
-	VATTR_INIT(&vattr);
-	VATTR_WANTED(&vattr, va_modify_time);
-	VATTR_WANTED(&vattr, va_data_size);
-	if (np->n_flag & NMODIFIED) {
-		smbfs_attr_cacheremove(np);
-		error = smbi_getattr(vp, &vattr, vfsctx);
-		if (error)
-			return error;
-		np->n_mtime.tv_sec = vattr.va_modify_time.tv_sec;
-	} else {
-		error = smbi_getattr(vp, &vattr, vfsctx);
-		if (error)
-			return error;
-		if (np->n_mtime.tv_sec != vattr.va_modify_time.tv_sec) {
-			error = smbfs_vinvalbuf(vp, V_SAVE, vfsctx, 1);
-			if (error)
-				return error;
-			np->n_mtime.tv_sec = vattr.va_modify_time.tv_sec;
-		}
-	}
 	smb_scred_init(&scred, vfsctx);
 	(void) smbfs_smb_flush(np, &scred);
 	
-	if (uio_offset(uiop) >= (off_t)vattr.va_data_size) {
+	if (uio_offset(uiop) >= (off_t)vap->va_data_size) {
 		/* if offset is beyond EOF, read nothing */
 		error = 0;
 		goto exit;
@@ -233,7 +220,7 @@ smbfs_readvnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx)
 	
 	/* pin requestsize to EOF */
 	requestsize = MIN(uio_resid(uiop),
-			  (off_t)(vattr.va_data_size - uio_offset(uiop)));
+			  (off_t)(vap->va_data_size - uio_offset(uiop)));
 	
 	/* subtract requestSize from uio_resid and save remainder */
 	remainder = uio_resid(uiop) - requestsize;
@@ -299,11 +286,11 @@ smbfs_writevnode(vnode_t vp, uio_t uiop,
 
 	if (!vnode_isreg(vp)) {
 		SMBERROR("vn types other than VREG unsupported !\n");
-		return EIO;
+		return (EIO);
 	}
 	SMBVDEBUG("ofs=%d,resid=%d\n",(int)uio_offset(uiop), uio_resid(uiop));
 	if (uio_offset(uiop) < 0)
-		return EINVAL;
+		return (EINVAL);
 /*	if (uio_offset(uiop) + uio_resid(uiop) > smp->nm_maxfilesize)
 		return (EFBIG);*/
 	if (ioflag & (IO_APPEND | IO_SYNC)) {
@@ -330,7 +317,7 @@ smbfs_writevnode(vnode_t vp, uio_t uiop,
 		}
 	}
 	if (uio_resid(uiop) == 0)
-		return 0;
+		return (0);
 
 	smb_scred_init(&scred, vfsctx);
 	if (uio_offset(uiop) > (off_t)np->n_size) {
@@ -377,6 +364,7 @@ smbfs_vinvalbuf(vp, flags, vfsctx, intrflg)
 {
 	struct smbnode *np = VTOSMB(vp);
 	int error = 0, slpflag, slptimeo;
+	int lasterror = ENXIO;
 	struct timespec ts;
 
 	if (intrflg) {
@@ -393,19 +381,20 @@ smbfs_vinvalbuf(vp, flags, vfsctx, intrflg)
 		error = msleep((caddr_t)&np->n_flag, 0, PRIBIO + 2, "smfsvinv", slptimeo? &ts:0);
 		error = smb_sigintr(vfsctx);
 		if (error == EINTR && intrflg)
-			return EINTR;
+			return (EINTR);
 	}
 	np->n_flag |= NFLUSHINPROG;
 	error = smbfs_vinvalbuf_internal(vp, flags, vfsctx, slpflag);
-	while (error && error != ENXIO) {
+	while (error && error != lasterror) {
 		if (intrflg && (error == ERESTART || error == EINTR)) {
 			np->n_flag &= ~NFLUSHINPROG;
 			if (np->n_flag & NFLUSHWANT) {
 				np->n_flag &= ~NFLUSHWANT;
 				wakeup((caddr_t)&np->n_flag);
 			}
-			return EINTR;
+			return (EINTR);
 		}
+		lasterror = error;
 		/* Avoid potential CPU loop by yielding for at least 0.1 sec */
 		ts.tv_sec= 0;
 		ts.tv_nsec = 100 *1000 *1000;
@@ -418,7 +407,8 @@ smbfs_vinvalbuf(vp, flags, vfsctx, intrflg)
 		wakeup((caddr_t)&np->n_flag);
 	}
 	/* get the pages out of vm also */
-	(void) ubc_sync_range(vp, (off_t)0, smb_ubc_getsize(vp),
-			      UBC_PUSHALL | UBC_INVALIDATE);
+	if (!ubc_sync_range(vp, (off_t)0, smb_ubc_getsize(vp),
+			    UBC_PUSHALL | UBC_INVALIDATE))
+		SMBERROR("ubc_sync_range failure");
 	return (error);
 }

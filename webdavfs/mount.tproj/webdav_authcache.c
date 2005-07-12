@@ -55,7 +55,7 @@ enum
 	/* No flags */
 	kAuthNone					= 0x00000000,
 	
-	/* The credentials came from one of these sources */
+	/* The credentials came from one of these sources -- only one bit will be set at any time */
 	kCredentialsFromMount		= 0x00000001,	/* Credentials passed at mount time */
 	kCredentialsFromKeychain	= 0x00000002,	/* Credentials retrieved from keychain */
 	kCredentialsFromUI			= 0x00000004,	/* Credentials retrieved from UI */
@@ -66,6 +66,7 @@ enum
 	kNoMountCredentials			= 0x00000008,
 	/* Set if keychain credentials should not be used (they were tried and didn't work) */
 	kNoKeychainCredentials		= 0x00000010,
+	
 	/* Set once the credentials are successfully used for a transaction */
 	kCredentialsValid			= 0x00000020,
 	
@@ -99,6 +100,7 @@ void LoginFailedWarning(void)
 {
 	SInt32 error;
 	CFURLRef localizationPath;
+	CFURLRef iconPath;
 	CFOptionFlags responseFlags;
 	CFMutableDictionaryRef dictionary;
 	CFUserNotificationRef userNotification;
@@ -109,10 +111,16 @@ void LoginFailedWarning(void)
 
 	localizationPath = CFURLCreateWithFileSystemPath(NULL, CFSTR(WEBDAV_LOCALIZATION_BUNDLE),
 		kCFURLPOSIXPathStyle, TRUE);
-	require(localizationPath != NULL, CFURLCreateWithFileSystemPath);
+	require(localizationPath != NULL, CFURLCreateWithFileSystemPath_localization);
 
 	CFDictionaryAddValue(dictionary, kCFUserNotificationLocalizationURLKey, localizationPath);
 	
+	iconPath = CFURLCreateWithFileSystemPath(NULL, CFSTR(WEBDAV_SERVER_ICON_PATH),
+		kCFURLPOSIXPathStyle, TRUE);
+	require(iconPath != NULL, CFURLCreateWithFileSystemPath_Icon);
+	
+	CFDictionaryAddValue(dictionary, kCFUserNotificationIconURLKey, iconPath);
+
 	CFDictionaryAddValue(dictionary, kCFUserNotificationAlertHeaderKey, CFSTR("WEBDAV_LOGIN_FAILED_HEADER_KEY"));
 	CFDictionaryAddValue(dictionary, kCFUserNotificationAlertMessageKey, CFSTR("WEBDAV_LOGIN_FAILED_MSG_KEY"));
 	CFDictionaryAddValue(dictionary, kCFUserNotificationDefaultButtonTitleKey, CFSTR("WEBDAV_LOGIN_FAILED_OK_KEY"));
@@ -126,8 +134,10 @@ void LoginFailedWarning(void)
 
 	CFRelease(userNotification);
 CFUserNotificationCreate:
+	CFRelease(iconPath);
+CFURLCreateWithFileSystemPath_Icon:
 	CFRelease(localizationPath);
-CFURLCreateWithFileSystemPath:
+CFURLCreateWithFileSystemPath_localization:
 	CFRelease(dictionary);
 CFDictionaryCreateMutable:
 
@@ -141,6 +151,7 @@ int CopyCredentialsFromUserNotification(
 	CFHTTPAuthenticationRef auth,	/* -> the authentication to get credentials for */
 	CFHTTPMessageRef request,		/* -> the request message that was challenged */
 	int badlogin,					/* -> if TRUE, the previous credentials retrieved from the user were not valid */
+	int isProxy,					/* -> TRUE if getting proxy credentials */
 	CFStringRef *username,			/* <-> input: the previous username entered, or NULL; output: the username */
 	CFStringRef *password,			/* <-> input: the previous password entered, or NULL; output: the password */
 	CFStringRef *domain,			/* <-> input: the previous domain entered, or NULL; output: the domain, or NULL if authentication doesn't use domains */
@@ -195,11 +206,43 @@ int CopyCredentialsFromUserNotification(
 	}
 	
 	/* get the url and realm strings */
-	url = CFHTTPMessageCopyRequestURL(request);
-	require(url != NULL, CFHTTPMessageCopyRequestURL);
-
-	urlString = CFURLGetString(url);
-	require(urlString != NULL, CFURLGetString);
+	if ( isProxy )
+	{
+		int httpProxyEnabled;
+		char *httpProxyServer;
+		int httpProxyPort;
+		int httpsProxyEnabled;
+		char *httpsProxyServer;
+		int httpsProxyPort;
+		
+		url = NULL;
+		
+		result = network_get_proxy_settings(&httpProxyEnabled, &httpProxyServer, &httpProxyPort,
+			&httpsProxyEnabled, &httpsProxyServer, &httpsProxyPort);
+		require_noerr_quiet(result, network_get_proxy_settings);
+		
+		if ( gSecureConnection )
+		{
+			urlString = CFStringCreateWithCString(kCFAllocatorDefault, httpsProxyServer, kCFStringEncodingUTF8);
+		}
+		else
+		{
+			urlString = CFStringCreateWithCString(kCFAllocatorDefault, httpProxyServer, kCFStringEncodingUTF8);
+		}
+		
+		free(httpProxyServer);
+		free(httpsProxyServer);
+		
+		require(urlString != NULL, CFStringCreateWithCString);
+	}
+	else
+	{
+		url = CFHTTPMessageCopyRequestURL(request);
+		require(url != NULL, CFHTTPMessageCopyRequestURL);
+		
+		urlString = CFURLGetString(url);
+		require(urlString != NULL, CFURLGetString);
+	}
 
 	realmString = CFHTTPAuthenticationCopyRealm(auth);
 
@@ -314,8 +357,13 @@ CFDictionaryCreateMutable:
 		CFRelease(realmString);
 	}
 CFURLGetString:
-	CFRelease(url);
+	if ( url != NULL )
+	{
+		CFRelease(url);
+	}
+CFStringCreateWithCString:
 CFHTTPMessageCopyRequestURL:
+network_get_proxy_settings:
 	
 	return ( result );
 }
@@ -492,6 +540,55 @@ int CopyMountCredentials(
 /*****************************************************************************/
 
 static
+char *CopyComponentPathToCString(CFURLRef url)
+{
+	char *result;
+	CFRange range;
+	
+	CFIndex bufferLength;
+	UInt8 *buffer;
+	
+	result = NULL;
+	buffer = NULL;
+	
+	/* get the buffer length */
+	bufferLength = CFURLGetBytes(url, NULL, 0);
+	require(bufferLength != 0, CFURLGetBytes_length);
+	
+	/* allocate a buffer for the URL's bytes */
+	buffer = malloc(bufferLength);
+	require(buffer != NULL, malloc_buffer);
+	
+	/* get the bytes */
+	require(CFURLGetBytes(url, buffer, bufferLength) == bufferLength, CFURLGetBytes);
+	
+	/* get the range of kCFURLComponentPath */
+	range = CFURLGetByteRangeForComponent(url, kCFURLComponentPath, NULL);
+	require(range.location != kCFNotFound, CFURLGetByteRangeForComponent);
+	
+	/* allocate result buffer */
+	result = malloc(range.length + 1);
+	require(result != NULL, malloc_result);
+	
+	/* copy the component path string */
+	strncpy(result, &buffer[range.location], range.length);
+	result[range.length] = '\0';
+
+malloc_result:
+CFURLGetByteRangeForComponent:
+CFURLGetBytes:
+
+	free (buffer);
+
+malloc_buffer:
+CFURLGetBytes_length:
+
+	return ( result );
+}
+
+/*****************************************************************************/
+
+static
 int CopyCredentialsFromKeychain(
 	CFHTTPAuthenticationRef auth,
 	CFHTTPMessageRef request,
@@ -509,31 +606,71 @@ int CopyCredentialsFromKeychain(
 	int portNumber;
 	char *serverName;
 	char *realmStr;
+	char *path;
 	
+	result = 0;
 	serverName = NULL;
 	realmStr = NULL;
+	path = NULL;
 	
 	/* get the URL */
 	messageURL = CFHTTPMessageCopyRequestURL(request);
+	require_action(messageURL != NULL, CFHTTPMessageCopyRequestURL, result = 1);
 	
 	/* get the protocol type */
 	theString = CFURLCopyScheme(messageURL);
 	if ( CFEqual(theString, CFSTR("http")) )
 	{
-		protocol = kSecProtocolTypeHTTP;
+		if ( isProxy )
+		{
+			protocol = kSecProtocolTypeHTTPProxy;
+		}
+		else
+		{
+			protocol = kSecProtocolTypeHTTP;
+		}
 	}
 	else if ( CFEqual(theString, CFSTR("https")) )
 	{
-		protocol = kSecProtocolTypeHTTPS;
+		if ( isProxy )
+		{
+			protocol = kSecProtocolTypeHTTPSProxy;
+		}
+		else
+		{
+			protocol = kSecProtocolTypeHTTPS;
+		}
 	}
 	else
 	{
 		protocol = 0;
 	}
 	CFRelease(theString);
+	require_action(protocol != 0, unknown_protocol, result = 1);
+	
+	/* get the authentication method */
+	theString = CFHTTPAuthenticationCopyMethod(auth);
+	if ( CFEqual(theString, CFSTR("Basic")) )
+	{
+		authenticationType = kSecAuthenticationTypeHTTPBasic;
+	}
+	else if ( CFEqual(theString, CFSTR("Digest")) )
+	{
+		authenticationType = kSecAuthenticationTypeHTTPDigest;
+	}
+	else if ( CFEqual(theString, CFSTR("NTLM")) )
+	{
+		authenticationType = kSecAuthenticationTypeNTLM;
+	}
+	else
+	{
+		authenticationType = kSecAuthenticationTypeDefault;
+	}
+	CFRelease(theString);
 	
 	if ( isProxy )
 	{
+		/* Proxy: Get the serverName and portNumber */
 		int httpProxyEnabled;
 		char *httpProxyServer;
 		int httpProxyPort;
@@ -541,52 +678,55 @@ int CopyCredentialsFromKeychain(
 		char *httpsProxyServer;
 		int httpsProxyPort;
 		
-		authenticationType = 0;
-		
-		/* get the server name and port number for the proxy */
-		require_action(protocol != 0, unknown_proxy_type, result = 1);
-		
 		result = network_get_proxy_settings(&httpProxyEnabled, &httpProxyServer, &httpProxyPort,
 			&httpsProxyEnabled, &httpsProxyServer, &httpsProxyPort);
 		require_noerr_quiet(result, network_get_proxy_settings);
 		
-		if ( protocol == kSecProtocolTypeHTTP )
+		if ( protocol == kSecProtocolTypeHTTPProxy )
 		{
+			free(httpsProxyServer);
 			serverName = httpProxyServer;
 			portNumber = httpProxyPort;
 		}
 		else
 		{
+			free(httpProxyServer);
 			serverName = httpsProxyServer;
 			portNumber = httpsProxyPort;
 		}
+		result = SecKeychainFindInternetPassword(NULL,	/* default keychain */
+			strlen(serverName), serverName,				/* serverName */
+			0, NULL,									/* no securityDomain */
+			0, NULL,									/* no accountName */
+			0, NULL,									/* no path */
+			portNumber,									/* port */
+			protocol,									/* protocol */
+			0,											/* no authenticationType */
+			0, NULL,									/* no password */
+			&itemRef);
 	}
 	else
 	{
-		/* get the authentication method */
-		theString = CFHTTPAuthenticationCopyMethod(auth);
-		if ( CFEqual(theString, CFSTR("Basic")) )
-		{
-			authenticationType = kSecAuthenticationTypeHTTPBasic;
-		}
-		else if ( CFEqual(theString, CFSTR("Digest")) )
-		{
-			authenticationType = kSecAuthenticationTypeHTTPDigest;
-		}
-		else if ( CFEqual(theString, CFSTR("NTLM")) )
-		{
-			authenticationType = kSecAuthenticationTypeNTLM;
-		}
-		else
-		{
-			authenticationType = kSecAuthenticationTypeDefault;
-		}
-		CFRelease(theString);
+		/* Server: Get the path, serverName, portNumber, and realmStr */
+		
+		/* get the path of the base URL (used because it needs to be unique for a mount point) */
+		path = CopyComponentPathToCString(gBaseURL);
 		
 		/* get the server name and port number for the server */
 		theString = CFURLCopyHostName(messageURL);
+		require(theString != NULL, CFURLCopyHostName);
+		
 		serverName = CopyCFStringToCString(theString);
 		CFRelease(theString);
+		require(serverName != NULL, CopyCFStringToCString);
+		
+		/* get the realm (securityDomain) */
+		theString = CFHTTPAuthenticationCopyRealm(auth);
+		if ( theString != NULL )
+		{
+			realmStr = CopyCFStringToCString(theString);
+			CFRelease(theString);
+		}
 		
 		portNumber = CFURLGetPortNumber(messageURL);
 		if ( portNumber == -1 )
@@ -600,26 +740,19 @@ int CopyCredentialsFromKeychain(
 				portNumber = kHttpsDefaultPort;
 			}
 		}
-	
-		/* get the realm */
-		theString = CFHTTPAuthenticationCopyRealm(auth);
-		if ( theString != NULL )
-		{
-			realmStr = CopyCFStringToCString(theString);
-			CFRelease(theString);
-		}
+		
+		result = SecKeychainFindInternetPassword(NULL,
+			strlen(serverName), serverName,						/* serverName */
+			(realmStr != NULL) ? strlen(realmStr) : 0, realmStr, /* securityDomain */
+			0, NULL,											/* no accountName */
+			(path != NULL) ? strlen(path) : 0, path,			/* path */
+			portNumber,											/* port */
+			protocol,											/* protocol */
+			authenticationType,									/* authenticationType */
+			0, NULL,											/* no password */
+			&itemRef);
 	}
-	
-	result = SecKeychainFindInternetPassword(NULL,
-		strlen(serverName), serverName,				/* serverName */
-		(realmStr != NULL) ? strlen(realmStr) : 0, realmStr, /* securityDomain */
-		0, NULL,									/* no accountName */
-		0, NULL,									/* path */
-		portNumber,									/* port */
-		protocol,									/* protocol */
-		authenticationType,							/* authType */
-		0, NULL,									/* no password */
-		&itemRef);
+		
 	if ( result == noErr )
 	{
 		result = KeychainItemCopyAccountPassword(itemRef, username, password, domain);
@@ -627,7 +760,10 @@ int CopyCredentialsFromKeychain(
 	}
 
 network_get_proxy_settings:
-unknown_proxy_type:
+CopyCFStringToCString:
+CFURLCopyHostName:
+unknown_protocol:
+CFHTTPMessageCopyRequestURL:
 
 	if ( serverName != NULL )
 	{
@@ -637,7 +773,15 @@ unknown_proxy_type:
 	{
 		free(realmStr);
 	}
-
+	if ( path != NULL )
+	{
+		free(path);
+	}
+	if ( messageURL != NULL )
+	{
+		CFRelease(messageURL);
+	}
+	
 	return ( result );
 }
 
@@ -660,34 +804,112 @@ int SaveCredentialsToKeychain(
 	char *realmStr;
 	char *username;
 	char *password;
+	char *path;
 
-	
 	serverName = NULL;
 	realmStr = NULL;
 	username = NULL;
 	password = NULL;
+	path = NULL;
 	
 	/* get the URL */
 	messageURL = CFHTTPMessageCopyRequestURL(request);
+	require_action(messageURL != NULL, CFHTTPMessageCopyRequestURL, result = 1);
+	
+	/* get the realm (securityDomain) */
+	theString = CFHTTPAuthenticationCopyRealm(entry_ptr->auth);
+	if ( theString != NULL )
+	{
+		realmStr = CopyCFStringToCString(theString);
+		CFRelease(theString);
+	}
+	
+	/* get the accountName */
+	username = CopyCFStringToCString(entry_ptr->username);
+	require_action(username != NULL, CopyCFStringToCString, result = 1);
+	
+	/*
+	 * If there's a domain and it isn't an empty string, then we have to combine
+	 * the domain and username into a single string in the format:
+	 *        domain "\" username
+	 */
+	if ( (entry_ptr->domain != NULL) && (CFStringGetLength(entry_ptr->domain) != 0) )
+	{
+		char *domain;
+		char *temp;
+		
+		domain = CopyCFStringToCString(entry_ptr->domain);
+		require_action(domain != NULL, CopyCFStringToCString, result = 1);
+		
+		temp = malloc(strlen(domain) + strlen(username) + 2);
+		require_action(temp != NULL, malloc, result = 1);
+		
+		strcpy(temp, domain);
+		free(domain);
+		strcat(temp, "\\");
+		strcat(temp, username);
+		free(username);
+		username = temp;
+	}
 	
 	/* get the protocol type */
 	theString = CFURLCopyScheme(messageURL);
 	if ( CFEqual(theString, CFSTR("http")) )
 	{
-		protocol = kSecProtocolTypeHTTP;
+		if ( isProxy )
+		{
+			protocol = kSecProtocolTypeHTTPProxy;
+		}
+		else
+		{
+			protocol = kSecProtocolTypeHTTP;
+		}
 	}
 	else if ( CFEqual(theString, CFSTR("https")) )
 	{
-		protocol = kSecProtocolTypeHTTPS;
+		if ( isProxy )
+		{
+			protocol = kSecProtocolTypeHTTPSProxy;
+		}
+		else
+		{
+			protocol = kSecProtocolTypeHTTPS;
+		}
 	}
 	else
 	{
 		protocol = 0;
 	}
 	CFRelease(theString);
+	require_action(protocol != 0, unknown_protocol, result = 1);
+	
+	/* get the authentication method */
+	theString = CFHTTPAuthenticationCopyMethod(entry_ptr->auth);
+	if ( CFEqual(theString, CFSTR("Basic")) )
+	{
+		authenticationType = kSecAuthenticationTypeHTTPBasic;
+	}
+	else if ( CFEqual(theString, CFSTR("Digest")) )
+	{
+		authenticationType = kSecAuthenticationTypeHTTPDigest;
+	}
+	else if ( CFEqual(theString, CFSTR("NTLM")) )
+	{
+		authenticationType = kSecAuthenticationTypeNTLM;
+	}
+	else
+	{
+		authenticationType = kSecAuthenticationTypeDefault;
+	}
+	CFRelease(theString);
+	
+	/* get the password */
+	password = CopyCFStringToCString(entry_ptr->password);
+	require_action(username != NULL, CopyCFStringToCString, result = 1);
 	
 	if ( isProxy )
 	{
+		/* Proxy: Get the serverName and portNumber */
 		int httpProxyEnabled;
 		char *httpProxyServer;
 		int httpProxyPort;
@@ -695,50 +917,46 @@ int SaveCredentialsToKeychain(
 		char *httpsProxyServer;
 		int httpsProxyPort;
 		
-		authenticationType = 0;
-		
-		/* get the server name and port number for the proxy */
-		require_action(protocol != 0, unknown_proxy_type, result = 1);
-		
 		result = network_get_proxy_settings(&httpProxyEnabled, &httpProxyServer, &httpProxyPort,
 			&httpsProxyEnabled, &httpsProxyServer, &httpsProxyPort);
-		require_noerr_quiet(result, network_get_proxy_settings);
+		require_noerr_action_quiet(result, network_get_proxy_settings, result = 1);
 		
-		if ( protocol == kSecProtocolTypeHTTP )
+		if ( protocol == kSecProtocolTypeHTTPProxy )
 		{
+			free(httpsProxyServer);
 			serverName = httpProxyServer;
 			portNumber = httpProxyPort;
 		}
 		else
 		{
+			free(httpProxyServer);
 			serverName = httpsProxyServer;
 			portNumber = httpsProxyPort;
 		}
+		
+		/* find existing keychain item (if any) */
+		result = SecKeychainFindInternetPassword(NULL,	/* default keychain */
+			strlen(serverName), serverName,				/* serverName */
+			0, NULL,									/* no securityDomain */
+			0, NULL,									/* no accountName */
+			0, NULL,									/* no path */
+			portNumber,									/* port */
+			protocol,									/* protocol */
+			0,											/* no authenticationType */
+			0, NULL,									/* no password */
+			&itemRef);
 	}
 	else
 	{
-		/* get the authentication method */
-		theString = CFHTTPAuthenticationCopyMethod(entry_ptr->auth);
-		if ( CFEqual(theString, CFSTR("Basic")) )
-		{
-			authenticationType = kSecAuthenticationTypeHTTPBasic;
-		}
-		else if ( CFEqual(theString, CFSTR("Digest")) )
-		{
-			authenticationType = kSecAuthenticationTypeHTTPDigest;
-		}
-		else if ( CFEqual(theString, CFSTR("NTLM")) )
-		{
-			authenticationType = kSecAuthenticationTypeNTLM;
-		}
-		else
-		{
-			authenticationType = kSecAuthenticationTypeDefault;
-		}
-		CFRelease(theString);
+		/* Server: Get the path, serverName, and portNumber */
+		
+		/* get the path of the base URL (used because it needs to be unique for a mount point) */
+		path = CopyComponentPathToCString(gBaseURL);
 		
 		/* get the server name and port number for the server */
 		theString = CFURLCopyHostName(messageURL);
+		require_action(theString != NULL, CFURLCopyHostName, result = 1);
+		
 		serverName = CopyCFStringToCString(theString);
 		CFRelease(theString);
 		
@@ -755,49 +973,22 @@ int SaveCredentialsToKeychain(
 			}
 		}
 		
-		/* get the realm */
-		theString = CFHTTPAuthenticationCopyRealm(entry_ptr->auth);
-		if ( theString != NULL )
-		{
-			realmStr = CopyCFStringToCString(theString);
-			CFRelease(theString);
-		}
+		/* find existing keychain item (if any) */
+		result = SecKeychainFindInternetPassword(NULL,	/* default keychain */
+			strlen(serverName), serverName,				/* serverName */
+			(realmStr != NULL) ? strlen(realmStr) : 0, realmStr,	/* securityDomain */
+			strlen(username), username,					/* update the correct accountName */
+			(path != NULL) ? strlen(path) : 0, path,	/* path */
+			portNumber,									/* port */
+			protocol,									/* protocol */
+			authenticationType,							/* authenticationType */
+			0, NULL,									/* no password */
+			&itemRef);
 	}
 	
-	username = CopyCFStringToCString(entry_ptr->username);
-	password = CopyCFStringToCString(entry_ptr->password);
-	if ( entry_ptr->domain != NULL )
-	{
-		/*
-		 * If there's a domain, then we have to combine the domain and username into a single string in the format:
-		 *    domain "\" username
-		 */
-		char *domain;
-		char *temp;
-		
-		domain = CopyCFStringToCString(entry_ptr->domain);
-		temp = malloc(strlen(domain) + strlen(username) + 2);
-		strcpy(temp, domain);
-		free(domain);
-		strcat(temp, "\\");
-		strcat(temp, username);
-		free(username);
-		username = temp;
-	}
-	
-	result = SecKeychainFindInternetPassword(NULL,
-		strlen(serverName), serverName,				/* serverName */
-		(realmStr != NULL) ? strlen(realmStr) : 0, realmStr, /* securityDomain */
-		0, NULL,									/* no accountName */
-		0, NULL,									/* path */
-		portNumber,									/* port */
-		protocol,									/* protocol */
-		authenticationType,							/* authenticationType */
-		0, NULL,									/* no password */
-		&itemRef);
 	if ( result == noErr )
 	{
-		/* update the current item */
+		/* update the existing item's accountName and password */
 		SecKeychainAttribute attr;
 		SecKeychainAttributeList attrList;
 		
@@ -816,12 +1007,12 @@ int SaveCredentialsToKeychain(
 	}
 	else
 	{
-		/* otherwise, add new InternetPassword */
+		/* otherwise, add new InternetPassword item */
 		result = SecKeychainAddInternetPassword(NULL,
 			strlen(serverName), serverName,			/* serverName */
 			(realmStr != NULL) ? strlen(realmStr) : 0, realmStr, /* securityDomain */
 			strlen(username), username,				/* accountName */
-			0, NULL,								/* path */
+			(path != NULL) ? strlen(path) : 0, path, /* path */
 			portNumber,								/* port */
 			protocol,								/* protocol */
 			authenticationType,						/* authenticationType */
@@ -834,12 +1025,17 @@ int SaveCredentialsToKeychain(
 	
 	/* if it's now in the keychain, then future retrieves need to indicate that */
 	/* indicate where the authentication came from */
-	entry_ptr->authflags = kCredentialsFromKeychain;
+	entry_ptr->authflags &= ~kAuthHasCredentials;
+	entry_ptr->authflags |= kCredentialsFromKeychain;
 
 SecKeychainAddInternetPassword:
 SecKeychainItemModifyContent:
 network_get_proxy_settings:
-unknown_proxy_type:
+CopyCFStringToCString:
+malloc:
+CFURLCopyHostName:
+unknown_protocol:
+CFHTTPMessageCopyRequestURL:
 
 	if ( serverName != NULL )
 	{
@@ -856,6 +1052,14 @@ unknown_proxy_type:
 	if ( password != NULL )
 	{
 		free(password);
+	}
+	if ( path != NULL )
+	{
+		free(path);
+	}
+	if ( messageURL != NULL )
+	{
+		CFRelease(messageURL);
 	}
 
 	return ( result );
@@ -877,6 +1081,7 @@ int AddServerCredentials(
 	if ( CFHTTPAuthenticationRequiresUserNameAndPassword(entry_ptr->auth) )
 	{
 		username = password = domain = NULL;
+		result = EACCES;
 		
 		/* invalidate credential sources already tried */
 		if (entry_ptr->authflags & kCredentialsFromMount)
@@ -887,25 +1092,47 @@ int AddServerCredentials(
 		{
 			entry_ptr->authflags |= kNoKeychainCredentials;
 		}
-		entry_ptr->authflags &= ~kAuthHasCredentials;
 		
-		if ( !(entry_ptr->authflags & kNoMountCredentials) &&
-			(CopyMountCredentials(&username, &password, &domain) == 0) )
+		/* if we haven't tried the mount credentials, try them now */
+		if ( (entry_ptr->authflags & kNoMountCredentials) == 0 )
 		{
-			ReleaseCredentials(entry_ptr);
-			SetCredentials(entry_ptr, username, password, domain);
-			entry_ptr->authflags |= kCredentialsFromMount;
-			result = 0;
+			if ( CopyMountCredentials(&username, &password, &domain) == 0 )
+			{
+				ReleaseCredentials(entry_ptr);
+				SetCredentials(entry_ptr, username, password, domain);
+				entry_ptr->authflags &= ~kAuthHasCredentials;
+				entry_ptr->authflags |= kCredentialsFromMount;
+				result = 0;
+			}
+			else
+			{
+				/* there are no mount credentials */
+				entry_ptr->authflags |= kNoMountCredentials;
+				result = EACCES;
+			}
 		}
-		else if ( !(entry_ptr->authflags & kNoKeychainCredentials) &&
-			(CopyCredentialsFromKeychain(entry_ptr->auth, request, &username, &password, &domain, FALSE) == 0) ) 
+		
+		/* if we don't have credentials and haven't tried the keychain credentials, try them now */
+		if ( ( result != 0) && ((entry_ptr->authflags & kNoKeychainCredentials) == 0) )
 		{
-			ReleaseCredentials(entry_ptr);
-			SetCredentials(entry_ptr, username, password, domain);
-			entry_ptr->authflags |= kCredentialsFromKeychain;
-			result = 0;
+			if ( CopyCredentialsFromKeychain(entry_ptr->auth, request, &username, &password, &domain, FALSE) == 0 )
+			{
+				ReleaseCredentials(entry_ptr);
+				SetCredentials(entry_ptr, username, password, domain);
+				entry_ptr->authflags &= ~kAuthHasCredentials;
+				entry_ptr->authflags |= kCredentialsFromKeychain;
+				result = 0;
+			}
+			else
+			{
+				/* there are no keychain credentials */
+				entry_ptr->authflags |= kNoKeychainCredentials;
+				result = EACCES;
+			}
 		}
-		else
+		
+		/* if we don't have credentials, try asking the user for them */
+		if ( result != 0 )
 		{
 			int addtokeychain;
 			
@@ -914,11 +1141,12 @@ int AddServerCredentials(
 			password = entry_ptr->password;
 			domain = entry_ptr->domain;
 			if ( CopyCredentialsFromUserNotification(entry_ptr->auth, request,
-				((entry_ptr->authflags & kCredentialsFromUI) != 0),
+				((entry_ptr->authflags & kCredentialsFromUI) != 0), FALSE,
 				&username, &password, &domain, &addtokeychain) == 0 )
 			{
 				ReleaseCredentials(entry_ptr);
 				SetCredentials(entry_ptr, username, password, domain);
+				entry_ptr->authflags &= ~kAuthHasCredentials;
 				entry_ptr->authflags |= kCredentialsFromUI;
 				if ( addtokeychain )
 				{
@@ -957,23 +1185,35 @@ int AddProxyCredentials(
 	if ( CFHTTPAuthenticationRequiresUserNameAndPassword(entry_ptr->auth) )
 	{
 		username = password = domain = NULL;
+		result = EACCES;
 		
 		/* invalidate credential sources already tried */
 		if (entry_ptr->authflags & kCredentialsFromKeychain)
 		{
 			entry_ptr->authflags |= kNoKeychainCredentials;
 		}
-		entry_ptr->authflags &= ~kAuthHasCredentials;
 		
-		if ( !(entry_ptr->authflags & kNoKeychainCredentials) &&
-			(CopyCredentialsFromKeychain(entry_ptr->auth, request, &username, &password, &domain, TRUE) == 0) ) 
+		/* if we haven't tried the keychain credentials, try them now */
+		if ( (entry_ptr->authflags & kNoKeychainCredentials) == 0 )
 		{
-			ReleaseCredentials(entry_ptr);
-			SetCredentials(entry_ptr, username, password, domain);
-			entry_ptr->authflags |= kCredentialsFromKeychain;
-			result = 0;
+			if ( CopyCredentialsFromKeychain(entry_ptr->auth, request, &username, &password, &domain, TRUE) == 0 ) 
+			{
+				ReleaseCredentials(entry_ptr);
+				SetCredentials(entry_ptr, username, password, domain);
+				entry_ptr->authflags &= ~kAuthHasCredentials;
+				entry_ptr->authflags |= kCredentialsFromKeychain;
+				result = 0;
+			}
+			else
+			{
+				/* there are no keychain credentials */
+				entry_ptr->authflags |= kNoKeychainCredentials;
+				result = EACCES;
+			}
 		}
-		else
+		
+		/* if we don't have credentials, try asking the user for them */
+		if ( result != 0 )
 		{
 			int addtokeychain;
 			
@@ -982,11 +1222,12 @@ int AddProxyCredentials(
 			password = entry_ptr->password;
 			domain = entry_ptr->domain;
 			if ( CopyCredentialsFromUserNotification(entry_ptr->auth, request,
-				((entry_ptr->authflags & kCredentialsFromUI) != 0),
+				((entry_ptr->authflags & kCredentialsFromUI) != 0), TRUE,
 				&username, &password, &domain, &addtokeychain) == 0 )
 			{
 				ReleaseCredentials(entry_ptr);
 				SetCredentials(entry_ptr, username, password, domain);
+				entry_ptr->authflags &= ~kAuthHasCredentials;
 				entry_ptr->authflags |= kCredentialsFromUI;
 				if ( addtokeychain )
 				{
@@ -1188,6 +1429,11 @@ int AddExistingAuthentications(
 
 /*****************************************************************************/
 
+/*
+ * AddServerAuthentication
+ *
+ * Add a new authcache_entry, or update an exiting authcache_entry for a server.
+ */
 static
 int AddServerAuthentication(
 	uid_t uid,							/* -> uid of the user making the request */
@@ -1231,15 +1477,6 @@ int AddServerAuthentication(
 				result = EACCES;
 			}
 		}
-		
-		if ( result == 0 )
-		{
-			if ( !ApplyCredentialsToRequest(entry_ptr, request) )
-			{
-				result = EACCES;
-			}
-		}
-		
 		if ( result != 0 )
 		{
 			RemoveAuthentication(entry_ptr);
@@ -1251,15 +1488,7 @@ int AddServerAuthentication(
 		entry_ptr = CreateAuthenticationFromResponse(uid, request, response, FALSE);
 		if ( entry_ptr != NULL )
 		{
-			if ( ApplyCredentialsToRequest(entry_ptr, request) )
-			{
-				result = 0;
-			}
-			else
-			{
-				RemoveAuthentication(entry_ptr);
-				result = EACCES;
-			}
+			result = 0;
 		}
 		else
 		{
@@ -1272,6 +1501,11 @@ int AddServerAuthentication(
 
 /*****************************************************************************/
 
+/*
+ * AddProxyAuthentication
+ *
+ * Add a new authcache_entry, or update an exiting authcache_entry for a proxy.
+ */
 static
 int AddProxyAuthentication(
 	uid_t uid,							/* -> uid of the user making the request */
@@ -1311,15 +1545,6 @@ int AddProxyAuthentication(
 				result = EACCES;
 			}
 		}
-		
-		if ( result == 0 )
-		{
-			if ( !ApplyCredentialsToRequest(authcache_proxy_entry, request) )
-			{
-				result = EACCES;
-			}
-		}
-		
 		if ( result != 0 )
 		{
 			RemoveAuthentication(authcache_proxy_entry);
@@ -1331,15 +1556,7 @@ int AddProxyAuthentication(
 		authcache_proxy_entry = CreateAuthenticationFromResponse(uid, request, response, TRUE);
 		if ( authcache_proxy_entry != NULL )
 		{
-			if ( ApplyCredentialsToRequest(authcache_proxy_entry, request) )
-			{
-				result = 0;
-			}
-			else
-			{
-				RemoveAuthentication(authcache_proxy_entry);
-				result = EACCES;
-			}
+			result = 0;
 		}
 		else
 		{
@@ -1368,17 +1585,8 @@ int authcache_apply(
 	switch (statusCode)
 	{
 	case 0:
-		/* no challenge -- add existing authentications */
-		
-		/* only apply existing authentications if the uid is the mount's user or root user */
-		if ( (gProcessUID == uid) || (0 == uid) )
-		{
-			result = AddExistingAuthentications(uid, request);
-		}
-		else
-		{
-			result = 0;
-		}
+		/* no challenge */
+		result = 0;
 		break;
 		
 	case 401:
@@ -1413,6 +1621,12 @@ int authcache_apply(
 		/* should never happen */
 		result = EACCES;
 		break;
+	}
+	
+	/* only apply existing authentications if the uid is the mount's user or root user */
+	if ( (result == 0) && ((gProcessUID == uid) || (0 == uid)) )
+	{
+		result = AddExistingAuthentications(uid, request);
 	}
 	
 	/* return the current authcache_generation */

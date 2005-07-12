@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dbase.c,v 1.60.2.3 2003/11/04 06:09:19 sniper Exp $ */
+/* $Id: dbase.c,v 1.60.2.4 2005/02/04 14:29:20 derick Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -129,6 +129,11 @@ PHP_FUNCTION(dbase_open)
 	convert_to_string(dbf_name);
 	convert_to_long(options);
 
+	if (Z_LVAL_P(options) == 1) {
+		php_error(E_WARNING, "Cannot open %s in write-only mode", Z_STRVAL_P(dbf_name));
+		RETURN_FALSE;
+	}
+	
 	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_P(dbf_name), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		RETURN_FALSE;
 	}

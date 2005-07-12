@@ -60,7 +60,6 @@ struct HeaderFieldValue
 
 /******************************************************************************/
 
-static CFURLRef baseURL = NULL;			/* the base URL for this mount */
 static CFStringRef userAgentHeaderValue = NULL;	/* The User-Agent request-header value */
 static CFIndex first_read_len = 4096;	/* bytes.  Amount to download at open so first read at offset 0 doesn't stall */
 static CFStringRef X_Source_Id_HeaderValue = NULL;	/* the X-Source-Id header value, or NULL if not iDisk */
@@ -693,7 +692,7 @@ static void InitXSourceIdHeaderValue(void)
 	X_Source_Id_HeaderValue = NULL;
 	
 	/* get the host name */
-	hostName = CFURLCopyHostName(baseURL);
+	hostName = CFURLCopyHostName(gBaseURL);
 	require_quiet(hostName != NULL, CFURLCopyHostName);
 	
 	/* is it "idisk.mac.com" - if not, we don't want it */
@@ -757,9 +756,9 @@ int network_init(const UInt8 *uri, CFIndex uriLength, int *store_notify_fd, int 
 	error = network_update_proxy(NULL);
 	require_noerr_quiet(error, network_update_proxy);
 
-	/* create baseURL */
-	baseURL = CFURLCreateAbsoluteURLWithBytes(kCFAllocatorDefault, uri, uriLength, kCFStringEncodingUTF8, NULL, FALSE);
-	require_action_string(baseURL != NULL, CFURLCreateAbsoluteURLWithBytes, error = ENOMEM, "name was not legal UTF8");
+	/* create gBaseURL */
+	gBaseURL = CFURLCreateAbsoluteURLWithBytes(kCFAllocatorDefault, uri, uriLength, kCFStringEncodingUTF8, NULL, FALSE);
+	require_action_string(gBaseURL != NULL, CFURLCreateAbsoluteURLWithBytes, error = ENOMEM, "name was not legal UTF8");
 
 	/* initialize first_read_len variable */
 	get_first_read_len();
@@ -850,7 +849,7 @@ static CFURLRef create_cfurl_from_node(
 		require(escapedPathRef != NULL, CFURLCreateStringByAddingPercentEscapes);
 		
 		/* create the relative URL */
-		urlRef = CFURLCreateWithString(kCFAllocatorDefault, escapedPathRef, baseURL);
+		urlRef = CFURLCreateWithString(kCFAllocatorDefault, escapedPathRef, gBaseURL);
 		require(urlRef != NULL, CFURLCreateWithString);
 		
 		/* and then make an absolute copy of it */
@@ -868,8 +867,8 @@ CFStringCreateWithCString:
 	else
 	{
 		/* no relative path -- use the base URL */
-		CFRetain(baseURL);
-		urlRef = baseURL;
+		CFRetain(gBaseURL);
+		urlRef = gBaseURL;
 	}
 
 	free(node_path);
@@ -1158,7 +1157,7 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error)
 	CFRelease(error_number);
 	
 	/* get the host name from the base URL and add it with the kSSLClientPropTLSServerHostName key */
-	host_name = CFURLCopyHostName(baseURL);
+	host_name = CFURLCopyHostName(gBaseURL);
 	require(host_name != NULL, CFURLCopyHostName);
 	
 	CFDictionaryAddValue(dict, kSSLClientPropTLSServerHostName, host_name);
@@ -2673,7 +2672,7 @@ int network_mount(
 	int dav_level;
 	struct stat statbuf;
 	
-	urlRef = baseURL;
+	urlRef = gBaseURL;
 	
 	error = network_getDAVLevel(uid, urlRef, &dav_level);
 	if ( error == 0 )
@@ -3362,8 +3361,9 @@ CFHTTPMessageCreateRequest:
 		CFRelease(responseRef);
 	}
 	
-	if ( (file_last_modified == -1) && (file_entity_tag == NULL) )
+	if ( (error == 0) && (file_last_modified == -1) && (file_entity_tag == NULL) )
 	{
+		int propError;
 		UInt8 *responseBuffer;
 		CFIndex count;
 		CFDataRef bodyData;
@@ -3384,20 +3384,20 @@ CFHTTPMessageCreateRequest:
 			{ CFSTR("Depth"), CFSTR("0") }
 		};
 
-		error = 0;
+		propError = 0;
 		responseBuffer = NULL;
 
 		/* create the message body with the xml */
 		bodyData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, xmlString, strlen(xmlString), kCFAllocatorNull);
-		require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, error = EIO);
+		require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, propError = EIO);
 		
 		/* send request to the server and get the response */
-		error = send_transaction(uid, urlRef, CFSTR("PROPFIND"), bodyData,
+		propError = send_transaction(uid, urlRef, CFSTR("PROPFIND"), bodyData,
 			headerCount, headers, TRUE, &responseBuffer, &count, NULL);
-		if ( !error )
+		if ( propError == 0 )
 		{
 			/* parse responseBuffer to get file_last_modified and/or file_entity_tag */
-			error = parse_cachevalidators((char *)responseBuffer, count, &file_last_modified, &file_entity_tag);
+			propError = parse_cachevalidators((char *)responseBuffer, count, &file_last_modified, &file_entity_tag);
 			/* free the response buffer */
 			free(responseBuffer);
 		}

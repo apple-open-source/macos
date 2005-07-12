@@ -83,7 +83,7 @@
  *
  * Size in megabytes.
  */
-static int BC_minimum_mem_size = 128;
+static int BC_minimum_mem_size = 256;
 
 /*
  * Number of seconds to wait in BC_strategy for readahead to catch up
@@ -642,7 +642,7 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 			 * page.  Only *really* free the page if we can be
 			 * certain we'll never try to touch it again.
 			 */
-			if ((CB_PAGE_PRESENT(BC_cache, i)) && CB_PAGE_VACANT(BC_cache, page)) {
+			if ((CB_PAGE_PRESENT(BC_cache, page)) && CB_PAGE_VACANT(BC_cache, page)) {
 				CB_MARK_PAGE_VACANT(BC_cache, page);
 
 				BC_free_page(page);

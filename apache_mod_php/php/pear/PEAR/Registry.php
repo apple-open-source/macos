@@ -1,7 +1,7 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP Version 4                                                        |
+// | PHP Version 5                                                        |
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
@@ -18,7 +18,7 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: Registry.php,v 1.35.2.17 2004/01/26 01:26:46 pajoye Exp $
+// $Id: Registry.php,v 1.35.2.18 2005/03/28 16:56:59 cellog Exp $
 
 /*
 TODO:
@@ -286,7 +286,9 @@ class PEAR_Registry extends PEAR
                 $open_mode = 'r';
             }
 
-            $this->lock_fp = @fopen($this->lockfile, $open_mode);
+            if (!is_resource($this->lock_fp)) {
+                $this->lock_fp = @fopen($this->lockfile, $open_mode);
+            }
 
             if (!is_resource($this->lock_fp)) {
                 return $this->raiseError("could not create lock file" .
@@ -312,6 +314,9 @@ class PEAR_Registry extends PEAR
     function _unlock()
     {
         $ret = $this->_lock(LOCK_UN);
+        if (is_resource($this->lock_fp)) {
+            fclose($this->lock_fp);
+        }
         $this->lock_fp = null;
         return $ret;
     }

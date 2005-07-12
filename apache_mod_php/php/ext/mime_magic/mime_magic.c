@@ -15,7 +15,7 @@
   | Author: Hartmut Holzgraefe  <hholzgra@php.net>                       |
   +----------------------------------------------------------------------+
 
-  $Id: mime_magic.c,v 1.13.2.12 2004/01/15 06:09:43 sniper Exp $ 
+  $Id: mime_magic.c,v 1.13.2.13 2004/12/16 12:36:42 sniper Exp $ 
 
   This module contains a lot of stuff taken from Apache mod_mime_magic,
   so the license section is a little bit longer than usual:
@@ -314,7 +314,7 @@ PHP_FUNCTION(mime_content_type)
 	}
 
 	if (conf->magic == (struct magic *)-1) {
-		php_error(E_ERROR, MODNAME " could not be initialized, magic file %s is not avaliable",  conf->magicfile);
+		php_error(E_ERROR, MODNAME " could not be initialized, magic file %s is not available",  conf->magicfile);
 		RETURN_FALSE;
 	} 
 

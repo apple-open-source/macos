@@ -46,6 +46,7 @@
 #include <errno.h>
 #include <mach/boolean.h>
 #include <unistd.h>
+#include <CoreFoundation/CFURL.h>
 
 /* Global Defines */
 
@@ -95,6 +96,7 @@ extern uid_t gProcessUID;				/* the daemon's UID */
 extern int gSuppressAllUI;				/* if TRUE, the mount requested that all UI be supressed */
 extern char gWebdavCachePath[MAXPATHLEN + 1]; /* the current path to the cache directory */
 extern int gSecureConnection;			/* if TRUE, the connection is secure */
+extern CFURLRef gBaseURL;				/* the base URL for this mount */
 
 /*
  * filesystem functions

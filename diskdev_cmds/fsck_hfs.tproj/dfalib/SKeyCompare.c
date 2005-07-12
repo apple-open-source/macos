@@ -470,8 +470,8 @@ CompareAttributeKeys(const AttributeKey *searchKey, const AttributeKey *trialKey
 	} else if (searchFileID < trialFileID) {
 		--result;
 	} else {
-		UInt16 * str1 = &searchKey->attrName[0];
-		UInt16 * str2 = &trialKey->attrName[0];
+		UInt16 * str1 = searchKey->attrName;
+		UInt16 * str2 = trialKey->attrName;
 		int length1 = searchKey->attrNameLen;
 		int length2 = trialKey->attrNameLen;
 		UInt16 c1, c2;

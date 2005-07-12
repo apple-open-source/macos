@@ -540,7 +540,11 @@ bool KeychainDatabase::decode()
 //
 // Given an AccessCredentials for this database, wring out the existing primary
 // database secret by whatever means necessary.
-// On entry, caller must hold the database common lock. It will be held throughout.
+// On entry, caller must hold the database common lock. It will be held
+// throughout except when user interaction is required. User interaction 
+// requires relinquishing the database common lock and taking the UI lock. On
+// return from user interaction, the UI lock is relinquished and the database
+// common lock must be reacquired. At no time may the caller hold both locks.
 // On exit, the crypto core has its master secret. If things go wrong,
 // we will throw a suitable exception. Note that encountering any malformed
 // credential sample will throw, but this is not guaranteed -- don't assume
@@ -564,13 +568,15 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 			switch (sample.type()) {
 			// interactively prompt the user - no additional data
 			case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
-				{
+			{
 				secdebug("KCdb", "%p attempting interactive unlock", this);
+				// Holding DB common lock during UI will deadlock securityd
+				StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 				QueryUnlock query(*this);
 				query.inferHints(Server::process());
 				if (query() == SecurityAgent::noReason)
 					return;
-				}
+			}
 				break;
 			// try to use an explicitly given passphrase - Data:passphrase
 			case CSSM_SAMPLE_TYPE_PASSWORD:
@@ -617,6 +623,7 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 		}
 		
 		// attempt interactive unlock
+		StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 		QueryUnlock query(*this);
 		query.inferHints(Server::process());
 		if (query() == SecurityAgent::noReason)
@@ -643,6 +650,7 @@ void KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 			case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
 				{
 				secdebug("KCdb", "%p specified interactive passphrase", this);
+				StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 				QueryNewPassphrase query(*this, reason);
 				query.inferHints(Server::process());
 				CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
@@ -682,6 +690,7 @@ void KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 		}
 	} else {
 		// default action -- interactive (only)
+		StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 		QueryNewPassphrase query(*this, reason);
         query.inferHints(Server::process());
 		CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
@@ -920,7 +929,7 @@ void KeychainDatabase::dumpNode()
 // DbCommon basic features
 //
 KeychainDbCommon::KeychainDbCommon(Session &ssn, const DbIdentifier &id)
-	: DbCommon(ssn), sequence(0), version(1), mIdentifier(id),
+	: LocalDbCommon(ssn), sequence(0), version(1), mIdentifier(id),
       mIsLocked(true), mValidParams(false)
 {
     // match existing DbGlobal or create a new one

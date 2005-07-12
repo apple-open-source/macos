@@ -195,7 +195,7 @@ smb_get_authentication(char *wrkgrp, size_t wrkgrplen,
 					     kats };
 	char *wgptr;
 	
-	if (ctx->ct_flags & SMBCF_KCFOUND) {
+	if (ctx->ct_flags & SMBCF_KCFOUND || ctx->ct_flags & SMBCF_KCBAD) {
 		ctx->ct_flags &= ~SMBCF_KCFOUND;
 	} else {
 		ctx->ct_flags &= ~SMBCF_KCFOUND;

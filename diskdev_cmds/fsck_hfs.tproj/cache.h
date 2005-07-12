@@ -200,5 +200,14 @@ int CacheEvict (Cache_t *cache, Tag_t *tag);
 int 
 CacheFlush( Cache_t *cache );
 
+/*
+ * CacheFlushRange
+ *
+ * Flush, and optionally remove, all cache blocks that intersect
+ * a given range.
+ */
+int
+CacheFlushRange( Cache_t *cache, uint64_t start, uint64_t len, int remove);
+
 #endif
 

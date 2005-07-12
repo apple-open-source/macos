@@ -1,10 +1,10 @@
 dnl
-dnl $Id: Zend.m4,v 1.35.2.7 2004/11/15 13:40:30 derick Exp $
+dnl $Id: Zend.m4,v 1.35.2.10 2005/02/17 04:45:22 sniper Exp $
 dnl
 dnl This file contains Zend specific autoconf functions.
 dnl
 
-AC_DEFUN(LIBZEND_BISON_CHECK,[
+AC_DEFUN([LIBZEND_BISON_CHECK],[
 
 if test "$YACC" != "bison -y"; then
     AC_MSG_WARN(You will need bison if you want to regenerate the Zend parser.)
@@ -19,7 +19,29 @@ fi
 
 ])
 
-AC_DEFUN(LIBZEND_BASIC_CHECKS,[
+AC_DEFUN([LIBZEND_CHECK_INT_TYPE],[
+AC_MSG_CHECKING(for $1)
+AC_TRY_COMPILE([
+#if HAVE_SYS_TYPES_H  
+#include <sys/types.h>
+#endif
+#if HAVE_INTTYPES_H  
+#include <inttypes.h>
+#elif HAVE_STDINT_H
+#include <stdint.h>
+#endif],
+[if (($1 *) 0)
+  return 0;
+if (sizeof ($1))
+  return 0;
+],[
+  AC_DEFINE_UNQUOTED([HAVE_]translit($1,a-z_-,A-Z__), 1,[Define if $1 type is present. ])
+  AC_MSG_RESULT(yes)
+], AC_MSG_RESULT(no)
+)dnl
+])
+
+AC_DEFUN([LIBZEND_BASIC_CHECKS],[
 
 AC_REQUIRE([AC_PROG_YACC])
 AC_REQUIRE([AC_PROG_CC])
@@ -41,6 +63,8 @@ if test "$ac_cv_prog_gcc" = "yes" -a "`uname -s`" = "Darwin"; then
 fi
 
 AC_CHECK_HEADERS(
+inttypes.h \
+stdint.h \
 limits.h \
 malloc.h \
 string.h \
@@ -60,6 +84,9 @@ dnl This is required for QNX and may be some BSD derived systems
 AC_CHECK_TYPE( uint, unsigned int )
 AC_CHECK_TYPE( ulong, unsigned long )
 
+dnl Check if int32_t and uint32_t are defined
+LIBZEND_CHECK_INT_TYPE(int32_t)
+LIBZEND_CHECK_INT_TYPE(uint32_t)
 
 dnl Checks for library functions.
 AC_FUNC_VPRINTF
@@ -74,12 +101,12 @@ ZEND_FP_EXCEPT
 	
 ])
 
-AC_DEFUN(LIBZEND_LIBDL_CHECKS,[
+AC_DEFUN([LIBZEND_LIBDL_CHECKS],[
 AC_CHECK_LIB(dl, dlopen, [LIBS="-ldl $LIBS"])
 AC_CHECK_FUNC(dlopen,[AC_DEFINE(HAVE_LIBDL, 1,[ ])])
 ])
 
-AC_DEFUN(LIBZEND_DLSYM_CHECK,[
+AC_DEFUN([LIBZEND_DLSYM_CHECK],[
 dnl
 dnl Ugly hack to check if dlsym() requires a leading underscore in symbol name.
 dnl
@@ -96,7 +123,7 @@ _LT_AC_TRY_DLOPEN_SELF([
 
 
 
-AC_DEFUN(LIBZEND_ENABLE_DEBUG,[
+AC_DEFUN([LIBZEND_ENABLE_DEBUG],[
 
 AC_ARG_ENABLE(debug,
 [  --enable-debug         Compile with debugging symbols],[
@@ -118,7 +145,7 @@ AC_ARG_ENABLE(debug,
 
 
 
-AC_DEFUN(LIBZEND_OTHER_CHECKS,[
+AC_DEFUN([LIBZEND_OTHER_CHECKS],[
 
 AC_ARG_ENABLE(experimental-zts,
 [  --enable-experimental-zts   
@@ -210,6 +237,6 @@ AC_SUBST(INLINE_CFLAGS)
 ])
 
 
-AC_DEFUN(LIBZEND_CPLUSPLUS_CHECKS,[
+AC_DEFUN([LIBZEND_CPLUSPLUS_CHECKS],[
 
 ])

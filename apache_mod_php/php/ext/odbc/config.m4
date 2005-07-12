@@ -1,11 +1,11 @@
 dnl
-dnl $Id: config.m4,v 1.55.2.8 2003/11/25 08:08:30 sniper Exp $
+dnl $Id: config.m4,v 1.55.2.10 2005/01/18 21:21:16 tony2001 Exp $
 dnl
 
 dnl
 dnl Figure out which library file to link with for the Solid support.
 dnl
-AC_DEFUN(AC_FIND_SOLID_LIBS,[
+AC_DEFUN([AC_FIND_SOLID_LIBS],[
   AC_MSG_CHECKING([Solid library file])  
   ac_solid_uname_r=`uname -r 2>/dev/null`
   ac_solid_uname_s=`uname -s 2>/dev/null`
@@ -71,7 +71,7 @@ fi
 dnl
 dnl Figure out which library file to link with for the Empress support.
 dnl
-AC_DEFUN(AC_FIND_EMPRESS_LIBS,[
+AC_DEFUN([AC_FIND_EMPRESS_LIBS],[
   AC_MSG_CHECKING([Empress library file])
   ODBC_LIBS=`echo $1/libempodbccl.so | cut -d' ' -f1`
   if test ! -f $ODBC_LIBS; then
@@ -80,7 +80,7 @@ AC_DEFUN(AC_FIND_EMPRESS_LIBS,[
   AC_MSG_RESULT(`echo $ODBC_LIBS | sed -e 's!.*/!!'`)
 ])
 
-AC_DEFUN(AC_FIND_EMPRESS_BCS_LIBS,[
+AC_DEFUN([AC_FIND_EMPRESS_BCS_LIBS],[
   AC_MSG_CHECKING([Empress local access library file])
   ODBCBCS_LIBS=`echo $1/libempodbcbcs.a | cut -d' ' -f1`
   if test ! -f $ODBCBCS_LIBS; then
@@ -194,6 +194,15 @@ AC_ARG_WITH(ibm-db2,
       ODBC_INCDIR=$withval/include
       ODBC_LIBDIR=$withval/lib
     fi
+	
+    if ! test -f "$ODBC_INCDIR/sqlcli1.h"; then
+      AC_MSG_ERROR([IBM DB2 header files not found])
+    fi
+
+    if ! test -f "$ODBC_LIBDIR/libdb2.so"; then
+      AC_MSG_ERROR([IBM DB2 required libraries not found])
+    fi
+	
     ODBC_INCLUDE=-I$ODBC_INCDIR
     ODBC_LFLAGS=-L$ODBC_LIBDIR
     ODBC_TYPE=db2

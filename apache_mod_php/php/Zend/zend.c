@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend.c,v 1.162.2.23 2005/01/22 20:36:34 sniper Exp $ */
 
 #include "zend.h"
 #include "zend_extensions.h"
@@ -35,7 +36,6 @@
 #else
 #	define GLOBAL_FUNCTION_TABLE	CG(function_table)
 #	define GLOBAL_CLASS_TABLE		CG(class_table)
-#	define GLOBAL_CONSTANTS_TABLE	CG(zend_constants)
 #	define GLOBAL_AUTO_GLOBALS_TABLE	CG(auto_globals)
 #endif
 
@@ -277,7 +277,7 @@ static FILE *zend_fopen_wrapper(const char *filename, char **opened_path)
 }
 
 
-static void register_standard_class(void)
+static void register_standard_class(TSRMLS_D)
 {
 	zend_standard_class_def.type = ZEND_INTERNAL_CLASS;
 	zend_standard_class_def.name_length = sizeof("stdClass") - 1;
@@ -290,7 +290,7 @@ static void register_standard_class(void)
 	zend_standard_class_def.handle_property_set = NULL;
 	zend_standard_class_def.refcount = (int *) malloc(sizeof(int));
 	*zend_standard_class_def.refcount = 1;
-	zend_hash_add(GLOBAL_CLASS_TABLE, "stdclass", sizeof("stdclass"), &zend_standard_class_def, sizeof(zend_class_entry), NULL);
+	zend_hash_add(CG(class_table), "stdclass", sizeof("stdclass"), &zend_standard_class_def, sizeof(zend_class_entry), NULL);
 }
 
 
@@ -332,15 +332,15 @@ static void compiler_globals_ctor(zend_compiler_globals *compiler_globals TSRMLS
 
 static void compiler_globals_dtor(zend_compiler_globals *compiler_globals TSRMLS_DC)
 {
-	if (compiler_globals->function_table != global_function_table) {
+	if (compiler_globals->function_table != GLOBAL_FUNCTION_TABLE) {
 		zend_hash_destroy(compiler_globals->function_table);
 		free(compiler_globals->function_table);
 	}
-	if (compiler_globals->class_table != global_class_table) {
+	if (compiler_globals->class_table != GLOBAL_CLASS_TABLE) {
 		zend_hash_destroy(compiler_globals->class_table);
 		free(compiler_globals->class_table);
 	}
-	if (compiler_globals->auto_globals != global_auto_globals_table) {
+	if (compiler_globals->auto_globals != GLOBAL_AUTO_GLOBALS_TABLE) {
 		zend_hash_destroy(compiler_globals->auto_globals);
 		free(compiler_globals->auto_globals);
 	}
@@ -349,10 +349,8 @@ static void compiler_globals_dtor(zend_compiler_globals *compiler_globals TSRMLS
 
 static void executor_globals_ctor(zend_executor_globals *executor_globals TSRMLS_DC)
 {
-	if (global_constants_table) {
-		zend_startup_constants(TSRMLS_C);
-		zend_copy_constants(EG(zend_constants), global_constants_table);
-	}
+	zend_startup_constants(TSRMLS_C);
+	zend_copy_constants(EG(zend_constants), GLOBAL_CONSTANTS_TABLE);
 	zend_init_rsrc_plist(TSRMLS_C);
 	EG(lambda_count)=0;
 	EG(user_error_handler) = NULL;
@@ -363,8 +361,6 @@ static void executor_globals_ctor(zend_executor_globals *executor_globals TSRMLS
 
 static void executor_globals_dtor(zend_executor_globals *executor_globals TSRMLS_DC)
 {
-	zend_shutdown_constants(TSRMLS_C);
-	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
 	zend_ini_shutdown(TSRMLS_C);
 }
 
@@ -380,8 +376,8 @@ static void alloc_globals_dtor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
 {
 	shutdown_memory_manager(0, 1 TSRMLS_CC);
 }
-
 #endif
+
 
 static void alloc_globals_ctor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
 {
@@ -467,10 +463,13 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	GLOBAL_FUNCTION_TABLE = (HashTable *) malloc(sizeof(HashTable));
 	GLOBAL_CLASS_TABLE = (HashTable *) malloc(sizeof(HashTable));
 	GLOBAL_AUTO_GLOBALS_TABLE = (HashTable *) malloc(sizeof(HashTable));
+#ifdef ZTS
+	GLOBAL_CONSTANTS_TABLE = (HashTable *) malloc(sizeof(HashTable));
+#endif 
 	zend_hash_init_ex(GLOBAL_FUNCTION_TABLE, 100, NULL, ZEND_FUNCTION_DTOR, 1, 0);
 	zend_hash_init_ex(GLOBAL_CLASS_TABLE, 10, NULL, ZEND_CLASS_DTOR, 1, 0);
 	zend_hash_init_ex(GLOBAL_AUTO_GLOBALS_TABLE, 8, NULL, NULL, 1, 0);
-	register_standard_class();
+
 	zend_hash_init_ex(&module_registry, 50, NULL, ZEND_MODULE_DTOR, 1, 0);
 	zend_init_rsrc_list_dtors();
 
@@ -480,7 +479,7 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zval_used_for_init.type = IS_NULL;
 
 #ifdef ZTS
-	global_constants_table = NULL;
+	zend_hash_init_ex(GLOBAL_CONSTANTS_TABLE, 20, NULL, ZEND_CONSTANT_DTOR, 1, 0);
 	ts_allocate_id(&compiler_globals_id, sizeof(zend_compiler_globals), (ts_allocate_ctor) compiler_globals_ctor, (ts_allocate_dtor) compiler_globals_dtor);
 	ts_allocate_id(&executor_globals_id, sizeof(zend_executor_globals), (ts_allocate_ctor) executor_globals_ctor, (ts_allocate_dtor) executor_globals_dtor);
 	ts_allocate_id(&language_scanner_globals_id, sizeof(zend_scanner_globals), (ts_allocate_ctor) scanner_globals_ctor, NULL);
@@ -488,19 +487,26 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	compiler_globals = ts_resource(compiler_globals_id);
 	executor_globals = ts_resource(executor_globals_id);
 	tsrm_ls = ts_resource_ex(0, NULL);
-	compiler_globals_dtor(compiler_globals, tsrm_ls);
-	compiler_globals->function_table = GLOBAL_FUNCTION_TABLE;
-	compiler_globals->class_table = GLOBAL_CLASS_TABLE;
+	
+	compiler_globals_dtor(compiler_globals TSRMLS_CC);
+	compiler_globals->in_compilation = 0;
+	compiler_globals->function_table = (HashTable *) malloc(sizeof(HashTable));
+	compiler_globals->class_table = (HashTable *) malloc(sizeof(HashTable));
+
+	*compiler_globals->function_table = *GLOBAL_FUNCTION_TABLE;
+	*compiler_globals->class_table = *GLOBAL_CLASS_TABLE;
 	compiler_globals->auto_globals = GLOBAL_AUTO_GLOBALS_TABLE;
-	zend_startup_constants(tsrm_ls);
-	GLOBAL_CONSTANTS_TABLE = EG(zend_constants);
+	zend_hash_destroy(executor_globals->zend_constants);
+	*executor_globals->zend_constants = *GLOBAL_CONSTANTS_TABLE;
 #else
 	scanner_globals_ctor(&ini_scanner_globals TSRMLS_CC);
 	scanner_globals_ctor(&language_scanner_globals TSRMLS_CC);
 	zend_startup_constants();
 	zend_set_default_compile_time_values(TSRMLS_C);
-	EG(user_error_handler) = NULL;
 #endif
+	EG(user_error_handler) = NULL;
+
+	register_standard_class(TSRMLS_C);
 	zend_register_standard_constants(TSRMLS_C);
 
 #ifndef ZTS
@@ -536,10 +542,18 @@ void zend_register_standard_ini_entries(TSRMLS_D)
 void zend_post_startup(TSRMLS_D)
 {
 	zend_compiler_globals *compiler_globals = ts_resource(compiler_globals_id);
+	zend_executor_globals *executor_globals = ts_resource(executor_globals_id);
+	
+	*GLOBAL_FUNCTION_TABLE = *compiler_globals->function_table;
+	*GLOBAL_CLASS_TABLE = *compiler_globals->class_table;
+	*GLOBAL_CONSTANTS_TABLE = *executor_globals->zend_constants;
 
+	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
+	free(compiler_globals->function_table);
+	free(compiler_globals->class_table);
 	compiler_globals_ctor(compiler_globals, tsrm_ls);
-	zend_startup_constants(TSRMLS_C);
-	zend_copy_constants(EG(zend_constants), global_constants_table);
+	free(EG(zend_constants));
+	executor_globals_ctor(executor_globals, tsrm_ls);
 	zend_new_thread_end_handler(tsrm_thread_id() TSRMLS_CC);
 }
 #endif
@@ -554,19 +568,31 @@ void zend_shutdown(TSRMLS_D)
 	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
 #endif	
 	zend_hash_graceful_reverse_destroy(&module_registry);
-	zend_hash_destroy(GLOBAL_FUNCTION_TABLE);
-	free(GLOBAL_FUNCTION_TABLE);
-	zend_hash_destroy(GLOBAL_CLASS_TABLE);
-	free(GLOBAL_CLASS_TABLE);
-	zend_hash_destroy(GLOBAL_AUTO_GLOBALS_TABLE);
-	free(GLOBAL_AUTO_GLOBALS_TABLE);
+
 	zend_shutdown_extensions(TSRMLS_C);
 	free(zend_version_info);
-#ifndef ZTS
-	zend_shutdown_constants();
-#else
+
+	zend_hash_destroy(GLOBAL_FUNCTION_TABLE);
+	free(GLOBAL_FUNCTION_TABLE);
+
+	zend_hash_destroy(GLOBAL_CLASS_TABLE);
+	free(GLOBAL_CLASS_TABLE);
+
+	zend_hash_destroy(GLOBAL_AUTO_GLOBALS_TABLE);
+	free(GLOBAL_AUTO_GLOBALS_TABLE);
+
+	zend_shutdown_constants(TSRMLS_C);
+
+#ifdef ZTS
+	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
+
 	zend_hash_destroy(GLOBAL_CONSTANTS_TABLE);
 	free(GLOBAL_CONSTANTS_TABLE);
+
+	GLOBAL_CONSTANTS_TABLE = NULL;
+	GLOBAL_FUNCTION_TABLE = NULL;
+	GLOBAL_CLASS_TABLE = NULL;
+	GLOBAL_AUTO_GLOBALS_TABLE = NULL;
 #endif
 	zend_destroy_rsrc_list_dtors();
 }
@@ -945,3 +971,12 @@ void free_estring(char **str_p)
 {
 	efree(*str_p);
 }
+
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

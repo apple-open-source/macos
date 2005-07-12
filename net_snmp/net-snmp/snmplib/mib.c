@@ -1,7 +1,7 @@
 /*
  * mib.c
  *
- * $Id: mib.c,v 5.77 2004/10/13 00:04:27 rstory Exp $
+ * $Id: mib.c,v 5.77.2.1 2004/12/29 20:21:27 dts12 Exp $
  *
  * Update: 1998-07-17 <jhy@gsu.edu>
  * Added print_oid_report* functions.
@@ -239,7 +239,7 @@ uptimeString(u_long timeticks, char *buf)
 static void
 sprint_char(char *buf, const u_char ch)
 {
-    if (isprint(ch)) {
+    if (isprint(ch) || isspace(ch)) {
         sprintf(buf, "%c", (int) ch);
     } else {
         sprintf(buf, ".");
@@ -370,7 +370,7 @@ sprint_realloc_asciistring(u_char ** buf, size_t * buf_len,
     int             i;
 
     for (i = 0; i < (int) len; i++) {
-        if (isprint(*cp)) {
+        if (isprint(*cp) || isspace(*cp)) {
             if (*cp == '\\' || *cp == '"') {
                 if ((*out_len >= *buf_len) &&
                     !(allow_realloc && snmp_realloc(buf, buf_len))) {

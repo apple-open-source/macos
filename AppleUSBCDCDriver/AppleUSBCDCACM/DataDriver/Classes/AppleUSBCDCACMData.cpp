@@ -1033,6 +1033,7 @@ bool AppleUSBCDCACMData::start(IOService *provider)
     
     fSessions = 0;
     fTerminate = false;
+	fSuppressWarning = false;
     fStopping = false;
 	fControlDriver = NULL;
 	fWorkLoop = NULL;
@@ -1193,6 +1194,17 @@ bool AppleUSBCDCACMData::start(IOService *provider)
         XTRACE(this, 0, 0, "start - Reset on close is on");
     } else {
 		fResetOnClose = FALSE;
+	}
+	
+		// Check Suppress warning
+	
+	OSBoolean *boolObj1 = OSDynamicCast(OSBoolean, provider->getProperty("SuppressWarning"));
+    if (boolObj1 && boolObj1->isTrue())
+    {
+		fSuppressWarning = TRUE;
+        XTRACE(this, 0, 0, "start - Suppress warning is on");
+    } else {
+		fSuppressWarning = FALSE;
 	}
 	
     if (!createSerialStream())					// Publish SerialStream services
@@ -3673,23 +3685,26 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
 			if (fPort.OutPipe)
 				fPort.OutPipe->Abort();
 			
-            if (fSessions)
-            {
-                if (!fTerminate)		// Check if we're already being terminated
-                { 
-		    // NOTE! This call below depends on the hard coded path of this KEXT. Make sure
-		    // that if the KEXT moves, this path is changed!
-		    KUNCUserNotificationDisplayNotice(
-			10,		// Timeout in seconds
-			0,		// Flags (for later usage)
-			"",		// iconPath (not supported yet)
-			"",		// soundPath (not supported yet)
-			"/System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCACMData.kext",		// localizationPath
-			"Unplug Header",		// the header
-			"Unplug Notice",		// the notice - look in Localizable.strings
-			"OK"); 
-                }
-            }
+			if (!fSuppressWarning)
+			{
+				if (fSessions)
+				{
+					if (!fTerminate)		// Check if we're already being terminated
+					{ 
+				// NOTE! This call below depends on the hard coded path of this KEXT. Make sure
+				// that if the KEXT moves, this path is changed!
+				KUNCUserNotificationDisplayNotice(
+				10,		// Timeout in seconds
+				0,		// Flags (for later usage)
+				"",		// iconPath (not supported yet)
+				"",		// soundPath (not supported yet)
+				"/System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCACMData.kext",		// localizationPath
+				"Unplug Header",		// the header
+				"Unplug Notice",		// the notice - look in Localizable.strings
+				"OK"); 
+					}
+				}
+			}
             			
             fTerminate = true;		// We're being terminated (unplugged)
             releaseResources();

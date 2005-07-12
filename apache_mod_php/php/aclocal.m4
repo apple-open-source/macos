@@ -1,4 +1,4 @@
-dnl $Id: acinclude.m4,v 1.218.2.39 2004/12/11 11:17:21 derick Exp $ -*- autoconf -*-
+dnl $Id: acinclude.m4,v 1.218.2.48 2005/01/25 13:03:06 sniper Exp $ -*- autoconf -*-
 dnl
 dnl This file contains local autoconf functions.
 
@@ -16,7 +16,7 @@ AC_DEFUN([PHP_ADD_MAKEFILE_FRAGMENT],[
   sed -e "s#\$(srcdir)#$ac_srcdir#g" -e "s#\$(builddir)#$ac_builddir#g" $src  >> Makefile.fragments
 ])
 
-AC_DEFUN(PHP_PROG_RE2C,[
+AC_DEFUN([PHP_PROG_RE2C],[
   AC_CHECK_PROG(RE2C, re2c, re2c, [exit 0;])
 ])
 
@@ -28,9 +28,23 @@ AC_DEFUN([PHP_DEFINE],[
   [echo "#define ]$1[]ifelse([$2],,[ 1],[ $2])[" > ]ifelse([$3],,[include],[$3])[/php_]translit($1,A-Z,a-z)[.h]
 ])
 
+dnl PHP_CANONICAL_HOST
+dnl
+AC_DEFUN([PHP_CANONICAL_HOST],[
+  AC_REQUIRE([AC_CANONICAL_HOST])dnl
+  dnl Make sure we do not continue if host_alias is empty.
+  if test -z "$host_alias" && test -n "$host"; then
+    host_alias=$host
+  fi
+  if test -z "$host_alias"; then
+    AC_MSG_ERROR([host_alias is not set!])
+  fi
+])
+
 dnl PHP_INIT_BUILD_SYSTEM
 dnl
 AC_DEFUN([PHP_INIT_BUILD_SYSTEM],[
+AC_REQUIRE([PHP_CANONICAL_HOST])dnl
 test -d include || mkdir include
 > Makefile.objects
 > Makefile.fragments
@@ -277,6 +291,7 @@ int readdir_r(DIR *, struct dirent *);
 ])
 
 AC_DEFUN([PHP_SHLIB_SUFFIX_NAME],[
+  AC_REQUIRE([PHP_CANONICAL_HOST])dnl
   PHP_SUBST(SHLIB_SUFFIX_NAME)
   SHLIB_SUFFIX_NAME=so
   case $host_alias in
@@ -775,12 +790,17 @@ AC_DEFUN([PHP_BUILD_PROGRAM],[
   php_cxx_meta='$(COMMON_FLAGS) $(CXXFLAGS_CLEAN) $(EXTRA_CXXFLAGS)'
   php_cxx_post=' && echo > $[@]'
   php_lo=o
-  
+
+  case $with_pic in
+    yes) pic_setting='-prefer-pic';;
+    no)  pic_setting='-prefer-non-pic';;
+  esac
+
   shared_c_pre='$(LIBTOOL) --mode=compile $(CC)'
-  shared_c_meta='$(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) -prefer-pic'
+  shared_c_meta='$(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) '$pic_setting
   shared_c_post=
   shared_cxx_pre='$(LIBTOOL) --mode=compile $(CXX)'
-  shared_cxx_meta='$(COMMON_FLAGS) $(CXXFLAGS_CLEAN) $(EXTRA_CXXFLAGS) -prefer-pic'
+  shared_cxx_meta='$(COMMON_FLAGS) $(CXXFLAGS_CLEAN) $(EXTRA_CXXFLAGS) '$pic_setting
   shared_cxx_post=
   shared_lo=lo
 
@@ -1160,14 +1180,26 @@ dnl from object_var in build-dir.
 dnl
 AC_DEFUN([PHP_SHARED_MODULE],[
   install_modules="install-modules"
-  PHP_MODULES="$PHP_MODULES \$(phplibdir)/$1.la"
+
+  case $host_alias in
+    *darwin*[)]
+      suffix=so
+      link_cmd='ifelse($4,,[$(CC)],[$(CXX)]) -dynamic -flat_namespace -bundle -undefined suppress $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) $(LDFLAGS) -o [$]@ $(EXTRA_LDFLAGS) $($2) $(translit($1,a-z_-,A-Z__)_SHARED_LIBADD)'
+      ;;
+    *[)]
+      suffix=la
+      link_cmd='$(LIBTOOL) --mode=link ifelse($4,,[$(CC)],[$(CXX)]) $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) $(LDFLAGS) -o [$]@ -export-dynamic -avoid-version -prefer-pic -module -rpath $(phplibdir) $(EXTRA_LDFLAGS) $($2) $(translit($1,a-z_-,A-Z__)_SHARED_LIBADD)'
+      ;;
+  esac
+
+  PHP_MODULES="$PHP_MODULES \$(phplibdir)/$1.$suffix"
   PHP_SUBST($2)
   cat >>Makefile.objects<<EOF
-\$(phplibdir)/$1.la: $3/$1.la
-	\$(LIBTOOL) --mode=install cp $3/$1.la \$(phplibdir)
+\$(phplibdir)/$1.$suffix: $3/$1.$suffix
+	\$(LIBTOOL) --mode=install cp $3/$1.$suffix \$(phplibdir)
 
-$3/$1.la: \$($2) \$(translit($1,a-z_-,A-Z__)_SHARED_DEPENDENCIES)
-	\$(LIBTOOL) --mode=link ifelse($4,,[\$(CC)],[\$(CXX)]) \$(COMMON_FLAGS) \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(LDFLAGS) -o \[$]@ -export-dynamic -avoid-version -prefer-pic -module -rpath \$(phplibdir) \$(EXTRA_LDFLAGS) \$($2) \$(translit($1,a-z_-,A-Z__)_SHARED_LIBADD)
+$3/$1.$suffix: \$($2) \$(translit($1,a-z_-,A-Z__)_SHARED_DEPENDENCIES)
+	$link_cmd
 
 EOF
 ])
@@ -1559,7 +1591,7 @@ AC_DEFUN([PHP_CHECK_LIBRARY], [
   ],[
     LDFLAGS=$save_old_LDFLAGS
     ext_shared=$save_ext_shared
-    unset ac_cv_func_$1
+    unset ac_cv_lib_$1[]_$2
     $4
   ])dnl
 ])
@@ -1584,6 +1616,64 @@ AC_DEFUN([PHP_CHECK_FRAMEWORK], [
   ])
 ])
 
+dnl
+dnl PHP_SETUP_KERBEROS(shared-add [, action-found [, action-not-found]])
+dnl
+dnl Common setup macro for kerberos
+dnl
+AC_DEFUN([PHP_SETUP_KERBEROS],[
+  found_kerberos=no
+  unset KERBEROS_CFLAGS
+  unset KERBEROS_LIBS
+
+  dnl First try to find krb5-config
+  if test -z "$KRB5_CONFIG"; then
+    AC_PATH_PROG(KRB5_CONFIG, krb5-config, no, [$PATH:/usr/kerberos/bin:/usr/local/bin])
+  fi
+
+  dnl If krb5-config is found try using it
+  if test "$PHP_KERBEROS" = "yes" && test -x "$KRB5_CONFIG"; then
+    KERBEROS_LIBS=`$KRB5_CONFIG --libs gssapi`
+    KERBEROS_CFLAGS=`$KRB5_CONFIG --cflags gssapi`
+
+    if test -n "$KERBEROS_LIBS" && test -n "$KERBEROS_CFLAGS"; then
+      found_kerberos=yes
+      PHP_EVAL_LIBLINE($KERBEROS_LIBS, $1)
+      PHP_EVAL_INCLINE($KERBEROS_CFLAGS)
+    fi
+  fi
+
+  dnl If still not found use old skool method
+  if test "$found_kerberos" = "no"; then
+
+    if test "$PHP_KERBEROS" = "yes"; then
+      PHP_KERBEROS="/usr/kerberos /usr/local /usr"
+    fi
+
+    for i in $PHP_KERBEROS; do
+      if test -f $i/lib/libkrb5.a || test -f $i/lib/libkrb5.$SHLIB_SUFFIX_NAME; then
+        PHP_KERBEROS_DIR=$i
+        break
+      fi
+    done
+
+    if test "$PHP_KERBEROS_DIR"; then
+      found_kerberos=yes
+      PHP_ADD_LIBPATH($PHP_KERBEROS_DIR/lib, $1)
+      PHP_ADD_LIBRARY(gssapi_krb5, 1, $1)
+      PHP_ADD_LIBRARY(krb5, 1, $1)
+      PHP_ADD_LIBRARY(k5crypto, 1, $1)
+      PHP_ADD_LIBRARY(com_err,  1, $1)
+      PHP_ADD_INCLUDE($PHP_KERBEROS_DIR/include)
+    fi
+  fi
+
+  if test "$found_kerberos" = "yes"; then
+ifelse([$2],[],:,[$2])
+ifelse([$3],[],,[else $3])
+  fi
+])
+
 dnl 
 dnl PHP_SETUP_OPENSSL(shared-add [, action-found [, action-not-found]])
 dnl
@@ -1594,13 +1684,20 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
   unset OPENSSL_INCDIR
   unset OPENSSL_LIBDIR
 
+  dnl Fallbacks for different configure options
+  if test "$PHP_OPENSSL" != "no"; then
+    PHP_OPENSSL_DIR=$PHP_OPENSSL
+  elif test "$PHP_IMAP_SSL" != "no"; then
+    PHP_OPENSSL_DIR=$PHP_IMAP_SSL
+  fi
+
   dnl First try to find pkg-config
   if test -z "$PKG_CONFIG"; then
     AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
   fi
 
   dnl If pkg-config is found try using it
-  if test "$PHP_OPENSSL" = "yes" && test -x "$PKG_CONFIG" && $PKG_CONFIG --exists openssl; then
+  if test "$PHP_OPENSSL_DIR" = "yes" && test -x "$PKG_CONFIG" && $PKG_CONFIG --exists openssl; then
     if $PKG_CONFIG --atleast-version=0.9.6 openssl; then
       found_openssl=yes
       OPENSSL_LIBS=`$PKG_CONFIG --libs openssl`
@@ -1614,15 +1711,16 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
       PHP_EVAL_LIBLINE($OPENSSL_LIBS, $1)
       PHP_EVAL_INCLINE($OPENSSL_INCS)
     fi
+  fi
 
-  else 
-
-    dnl If pkg-config fails for some reason, revert to the old method
-    if test "$PHP_OPENSSL" = "yes"; then
-      PHP_OPENSSL="/usr/local/ssl /usr/local /usr /usr/local/openssl"
+  dnl If pkg-config fails for some reason, revert to the old method
+  if test "$found_openssl" = "no"; then
+  
+    if test "$PHP_OPENSSL_DIR" = "yes"; then
+      PHP_OPENSSL_DIR="/usr/local/ssl /usr/local /usr /usr/local/openssl"
     fi
 
-    for i in $PHP_OPENSSL; do
+    for i in $PHP_OPENSSL_DIR; do
       if test -r $i/include/openssl/evp.h; then
         OPENSSL_INCDIR=$i/include
       fi
@@ -1680,11 +1778,11 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
     PHP_ADD_LIBPATH($OPENSSL_LIBDIR, $1)
   fi
 
+  if test "$found_openssl" = "yes"; then
   dnl For apache 1.3.x static build
   OPENSSL_INCDIR_OPT=-I$OPENSSL_INCDIR
   AC_SUBST(OPENSSL_INCDIR_OPT)
 
-  if test "$found_openssl" = "yes"; then
 ifelse([$2],[],:,[$2])
 ifelse([$3],[],,[else $3])
   fi
@@ -1862,6 +1960,33 @@ IFS="- /.
   APACHE_VERSION=`expr [$]4 \* 1000000 + [$]5 \* 1000 + [$]6`
 ])
 
+dnl
+dnl PHP_C_BIGENDIAN
+dnl Replacement macro for AC_C_BIGENDIAN
+dnl
+AC_DEFUN([PHP_C_BIGENDIAN],
+[AC_CACHE_CHECK([whether byte ordering is bigendian], ac_cv_c_bigendian_php,
+ [
+  ac_cv_c_bigendian_php=unknown
+  AC_TRY_RUN(
+  [
+int main(void)
+{
+	short one = 1;
+	char *cp = (char *)&one;
+
+	if (*cp == 0) {
+		return(0);
+	} else {
+		return(1);
+	}
+}
+  ], [ac_cv_c_bigendian_php=yes], [ac_cv_c_bigendian_php=no], [ac_cv_c_bigendian_php=unknown])
+ ])
+ if test $ac_cv_c_bigendian_php = yes; then
+   AC_DEFINE(WORDS_BIGENDIAN, [], [Define if processor uses big-endian word])
+ fi
+])
 # libtool.m4 - Configure libtool for the host system. -*-Shell-script-*-
 ## Copyright 1996, 1997, 1998, 1999, 2000, 2001
 ## Free Software Foundation, Inc.
@@ -4042,6 +4167,26 @@ linux-gnu*)
   # people can always --disable-shared, the test was removed, and we
   # assume the GNU/Linux dynamic linker is in use.
   dynamic_linker='GNU/Linux ld.so'
+
+  # Find out which ABI we are using (multilib Linux x86_64 hack).
+  libsuff=
+  case "$host_cpu" in
+  x86_64*|s390x*)
+    echo '[#]line __oline__ "configure"' > conftest.$ac_ext
+    if AC_TRY_EVAL(ac_compile); then
+      case `/usr/bin/file conftest.$ac_objext` in
+      *64-bit*)
+        libsuff=64
+        ;;
+      esac
+    fi
+    rm -rf conftest*
+    ;;
+  *)
+    ;;
+  esac
+  sys_lib_dlsearch_path_spec="/lib${libsuff} /usr/lib${libsuff}"
+  sys_lib_search_path_spec="/lib${libsuff} /usr/lib${libsuff} /usr/local/lib${libsuff}"
   ;;
 
 netbsd*)
@@ -5257,7 +5402,7 @@ irix5* | irix6* | nonstopux*)
 # This must be Linux ELF.
 linux-gnu*)
   case $host_cpu in
-  alpha* | hppa* | i*86 | mips | mipsel | powerpc* | sparc* | ia64*)
+  alpha* | hppa* | i*86 | mips | mipsel | powerpc* | sparc* | ia64* | s390* | x86_64*)
     lt_cv_deplibs_check_method=pass_all ;;
   *)
     # glibc up to 2.1.1 does not perform some relocations on ARM

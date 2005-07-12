@@ -139,7 +139,7 @@
 			buildPhases = (
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 17;
 				PRODUCT_NAME = security_certificates;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -787,6 +787,7 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Keychains/Certificates";
 			dstSubfolderSpec = 0;
 			files = (
+				5298925F084E36DF0049FF6A,
 				523B509807BC3E92004F47BA,
 				523B509907BC3E92004F47BA,
 				4CFDFD6D06309B8800519F96,
@@ -851,6 +852,7 @@
 		};
 		4CFDFC2C06309AFB00519F96 = {
 			children = (
+				5298925D084E357C0049FF6A,
 				523B509407BC3E3D004F47BA,
 				523B509507BC3E3D004F47BA,
 				05440F25072D600D002245F3,
@@ -1099,6 +1101,7 @@
 		};
 		4CFDFC4E06309AFB00519F96 = {
 			children = (
+				5298925B084E35670049FF6A,
 				52D8CBCD07C51BF60074667F,
 				52D8CBCE07C51BF60074667F,
 				52D8CBCF07C51BF60074667F,
@@ -1675,6 +1678,7 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Keychains/Anchors";
 			dstSubfolderSpec = 0;
 			files = (
+				5298925C084E35670049FF6A,
 				52D8CBD407C51BF60074667F,
 				52D8CBD507C51BF60074667F,
 				52D8CBD607C51BF60074667F,
@@ -2044,6 +2048,32 @@
 		};
 		52731500074EC762000B4997 = {
 			fileRef = 527314FE074EC762000B4997;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5298925B084E35670049FF6A = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = wf_root.crt;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5298925C084E35670049FF6A = {
+			fileRef = 5298925B084E35670049FF6A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5298925D084E357C0049FF6A = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = wf_ext_01.crt;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5298925F084E36DF0049FF6A = {
+			fileRef = 5298925D084E357C0049FF6A;
 			isa = PBXBuildFile;
 			settings = {
 			};

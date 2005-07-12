@@ -1,7 +1,7 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP Version 4                                                        |
+// | PHP Version 5                                                        |
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
 // |          Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: Packager.php,v 1.43.2.12 2004/01/26 01:26:46 pajoye Exp $
+// $Id: Packager.php,v 1.43.2.13 2005/03/28 16:56:59 cellog Exp $
 
 require_once 'PEAR/Common.php';
 require_once 'System.php';
@@ -94,7 +94,7 @@ class PEAR_Packager extends PEAR_Common
                 $filelist[$i++] = $file;
                 if (empty($pkginfo['filelist'][$fname]['md5sum'])) {
                     $md5sum = md5_file($file);
-                    $tpkginfo['filelist'][$fname]['md5sum'] = $md5sum;
+                    $pkginfo['filelist'][$fname]['md5sum'] = $md5sum;
                 }
                 $this->log(2, "Adding file $fname");
             }

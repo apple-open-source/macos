@@ -941,8 +941,10 @@ _RegisterReply(DNSServiceRef sdRef, DNSServiceFlags flags, DNSServiceErrorType e
 		if (errorCode) {
 			
 			/* Save the error */
-			error.error = errorCode;
-			error.domain = kCFStreamErrorDomainNetServices;
+			service->_error.error = errorCode;
+			service->_error.domain = kCFStreamErrorDomainNetServices;
+
+
 		}
 		
 		/* Save the registered values */

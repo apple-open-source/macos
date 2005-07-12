@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs.h,v 1.30 2005/02/11 01:44:16 lindak Exp $
+ * $Id: smbfs.h,v 1.30.100.1 2005/05/27 02:35:28 lindak Exp $
  */
 #ifndef _SMBFS_SMBFS_H_
 #define _SMBFS_SMBFS_H_
@@ -37,7 +37,7 @@
 #define VT_SMBFS	VT_OTHER
 
 #define SMBFS_VERMAJ	1
-#define SMBFS_VERMIN	1012
+#define SMBFS_VERMIN	3100
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
 

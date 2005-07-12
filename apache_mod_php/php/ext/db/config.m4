@@ -1,10 +1,10 @@
 dnl
-dnl $Id: config.m4,v 1.14.4.2 2003/08/15 18:42:11 sniper Exp $
+dnl $Id: config.m4,v 1.14.4.3 2004/12/30 07:02:16 sniper Exp $
 dnl 
 
 # Checks for libraries.
 # Prefer gdbm, Berkeley DB and ndbm/dbm, in that order
-AC_DEFUN(AC_PREFERRED_DB_LIB,[
+AC_DEFUN([AC_PREFERRED_DB_LIB],[
   AC_CHECK_LIB(gdbm, gdbm_open,[AC_DEFINE(GDBM,1, [Whether you have GDBM]) DBM_TYPE=gdbm; DBM_LIB=-lgdbm],
   [AC_CHECK_LIB(c, dbm_open,[AC_DEFINE(NDBM,1,[ ]) DBM_TYPE=ndbm; DBM_LIB=],
    [AC_CHECK_LIB(dbm, dbm_open,[AC_DEFINE(NDBM,1,[ ]) DBM_TYPE=ndbm; DBM_LIB=-ldbm],

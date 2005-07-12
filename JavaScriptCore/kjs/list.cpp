@@ -352,4 +352,15 @@ const List &List::empty()
     return emptyList;
 }
 
+List &List::operator=(const List &b)
+{
+    ListImpBase *bImpBase = b._impBase;
+    ++bImpBase->refCount;
+    if (!_needsMarking)
+        ++bImpBase->valueRefCount;
+    deref();
+    _impBase = bImpBase;
+    return *this;
+}
+
 } // namespace KJS

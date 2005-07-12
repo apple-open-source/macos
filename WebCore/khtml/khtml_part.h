@@ -217,6 +217,7 @@ public:
   /**
    * Stops loading the document and kill all data requests (for images, etc.)
    */
+  void stopLoading(bool sendUnload = false);
   virtual bool closeURL();
 
 #if !APPLE_CHANGES

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.c,v 1.54 2005/03/09 16:51:59 lindak Exp $
+ * $Id: smbfs_node.c,v 1.54.52.1 2005/05/27 02:35:28 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -209,27 +209,31 @@ smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
 		error = vnode_get(vp);
 		if (error == 0)
 			*vpp = vp;
-		return error;
+		return (error);
 	} else if (nmlen == 1 && name[0] == '.') {
 		SMBERROR("do not call me with dot!\n");
-		return EINVAL;
+		return (EINVAL);
 	}
 	dnp = dvp ? VTOSMB(dvp) : NULL;
 	if (dnp == NULL && dvp != NULL) {
 		SMBERROR("dead parent vnode\n");
-		return EINVAL;
+		return (EINVAL);
 	}
-	namep = smbfs_name_alloc(name, nmlen);
+	if (makeentry) {
+		bzero(&cn, sizeof(cn));
+		cn.cn_nameptr = (char *)name;
+		cn.cn_namelen = nmlen;
+	}
 	MALLOC(np, struct smbnode *, sizeof *np, M_SMBNODE, M_WAITOK);
-	hashval = smbfs_hash(name, nmlen);
-	if ((*vpp = smb_hashget(smp, dnp, hashval, name, nmlen)) != NULL) {
-		smbfs_name_free(namep);
+	hashval = smbfs_hash((u_char *)name, nmlen);
+	if ((*vpp = smb_hashget(smp, dnp, hashval, (u_char *)name, nmlen)) != NULL) {
 		FREE(np, M_SMBNODE);
 		vp = *vpp;
 		/* update the attr_cache info if the file is clean */
 		if (fap && !(VTOSMB(vp)->n_flag & NFLUSHWIRE))
 			smbfs_attr_cacheenter(vp, fap);
-		/* XXX nfs (only) does cache_enter here if dnp && makeentry */
+		if (dvp && makeentry)
+			cache_enter(dvp, vp, &cn);
 		return (0);
 	}
 	/*
@@ -237,7 +241,6 @@ smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
 	 * for an existing vnode.
 	 */
 	if (fap == NULL) {
-		smbfs_name_free(namep);
 		FREE(np, M_SMBNODE);
 		return (ENOENT);
 	}
@@ -246,7 +249,8 @@ smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
 	np->n_mount = smp;
 	np->n_size = fap->fa_size;
 	np->n_ino = fap->fa_ino;
-	np->n_name = namep;
+	namep = (char *)smbfs_name_alloc((u_char *)name, nmlen);
+	np->n_name = (u_char *)namep;
 	np->n_nmlen = nmlen;
 	np->n_uid = KAUTH_UID_NONE;
 	np->n_gid = KAUTH_GID_NONE;
@@ -263,12 +267,6 @@ smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
 			vnode_put(dvp);
 			np->n_flag |= NREFPARENT;
 		}
-	}
-	if (makeentry) {
-		cn.cn_flags = 0;
-		cn.cn_nameptr = namep;
-		cn.cn_namelen = nmlen;
-		cn.cn_hash = 0;
 	}
 
 	vfsp.vnfs_mp = mp;
@@ -492,7 +490,7 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap)
 			if (old > newround) {
 				if (!ubc_sync_range(vp, newround, old,
 						    UBC_INVALIDATE))
-					panic("smbfs_attr_cacheenter: UBC_INVALIDATE");
+					SMBERROR("ubc_sync_range failed");
 			}
 			smbfs_setsize(vp, fap->fa_size);
 		}
@@ -664,7 +662,7 @@ smbfs_setsize(vnode_t vp, off_t size)
 	 * changed before we call setsize
 	 */
 	np->n_size = size;
-	vnode_pager_setsize(vp, size);
+	ubc_setsize(vp, size);
 	/*
 	 * this lets us avoid a race with readdir which resulted in
 	 * a stale n_size, which in the worst case yielded data corruption.

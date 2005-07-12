@@ -440,7 +440,9 @@ EAPOLSocket_receive(void * arg1, void * arg2)
 	    }
 	    eh_p = (struct ether_header *)buf;
 	    if (sock->is_wireless) {
-		if (sock->source_address_valid == FALSE) {
+		if (sock->source_address_valid == FALSE
+		    || bcmp(eh_p->ether_shost, sock->source_address.sdl_data,
+			    sizeof(eh_p->ether_shost)) != 0) {
 		    EAPOLSocket_link_update(sock);
 		}
 	    }

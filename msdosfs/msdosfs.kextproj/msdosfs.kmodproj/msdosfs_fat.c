@@ -1220,6 +1220,7 @@ extendfile(dep, count, context)
         /* we expect it to return E2BIG */
         if (error != E2BIG)
             goto exit;
+		error = 0;
     }
 
     reqcnt = count;

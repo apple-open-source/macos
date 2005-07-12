@@ -3016,7 +3016,6 @@ LDAP* CLDAPNode::InitLDAPConnection( sLDAPNodeStruct *inLDAPNodeStruct, sLDAPCon
 			if (inConfig->fReplicaHosts != NULL)
 			{
                 DSDelete( inConfig->fReplicaHosts );
-				inConfig->fReplicaHosts = NULL;
 			}
 		}
 		else if (inOutList->fAddrInfo == NULL)
@@ -3041,8 +3040,12 @@ LDAP* CLDAPNode::InitLDAPConnection( sLDAPNodeStruct *inLDAPNodeStruct, sLDAPCon
 				inConfig->bBuildReplicaList = true;
 				if (inConfig->fReplicaHosts != NULL)
 				{
+					// if our replica list is the same as the inOutList, then we need to NULL the pointer
+					// since we are freeing the replicalist
+					if( inConfig->fReplicaHosts == inOutList ) {
+						inOutList = NULL;
+					}
 					DSDelete( inConfig->fReplicaHosts );
-					inConfig->fReplicaHosts = NULL;
 				}
 			}
 		}

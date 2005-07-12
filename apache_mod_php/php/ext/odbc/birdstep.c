@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: birdstep.c,v 1.3.4.2 2003/07/14 16:13:30 sniper Exp $ */
+/* $Id: birdstep.c,v 1.3.4.3 2005/01/09 21:05:31 sniper Exp $ */
 
 /*
  * TODO:
@@ -39,7 +39,7 @@
 #  define PHPAPI __declspec(dllimport) 
 # endif
 #else
-# include "php_config.h"
+# include <php_config.h>
 # define PHPAPI
 # define THREAD_LS
 #endif

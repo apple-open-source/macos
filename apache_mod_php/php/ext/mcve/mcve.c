@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: mcve.c,v 1.14.2.10 2004/12/08 03:11:31 bradmssw Exp $ */
+/* $Id: mcve.c,v 1.14.2.11 2005/01/09 21:05:31 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -30,7 +30,7 @@
 #elif defined NETWARE
 #include "config.nw.h"
 #else
-#include "php_config.h"
+#include <php_config.h>
 #endif
 
 #if HAVE_MCVE

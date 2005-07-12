@@ -936,7 +936,7 @@ mssql.min_message_severity = 10
 ; Compatability mode with old versions of PHP 3.0.
 mssql.compatability_mode = Off
 
-; Connec timeout
+; Connect timeout
 ;mssql.connect_timeout = 5
 
 ; Query timeout
@@ -1019,10 +1019,6 @@ pfpro.defaulttimeout = 30
 
 ; Default proxy password.
 ;pfpro.proxypassword =
-
-[Sockets]
-; Use the system read() function instead of the php_read() wrapper.
-sockets.use_system_read = On
 
 [com]
 ; path to a file containing GUIDs, IIDs or filenames of files with TypeLibs

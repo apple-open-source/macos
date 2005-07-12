@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: microtime.c,v 1.39.2.1 2002/12/31 16:35:32 sebastian Exp $ */
+/* $Id: microtime.c,v 1.39.2.2 2005/03/01 21:34:30 iliaa Exp $ */
 
 #include "php.h"
 
@@ -141,6 +141,7 @@ PHP_FUNCTION(getrusage)
 	PHP_RUSAGE_PARA(ru_nsignals);
 	PHP_RUSAGE_PARA(ru_nvcsw);
 	PHP_RUSAGE_PARA(ru_nivcsw);
+	PHP_RUSAGE_PARA(ru_nswap);
 #endif /*_OSD_POSIX*/
 	PHP_RUSAGE_PARA(ru_utime.tv_usec);
 	PHP_RUSAGE_PARA(ru_utime.tv_sec);

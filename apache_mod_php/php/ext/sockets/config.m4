@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.11.2.1 2003/04/04 18:40:38 moriyoshi Exp $
+dnl $Id: config.m4,v 1.11.2.2 2005/02/12 18:16:04 sniper Exp $
 dnl
 
 PHP_ARG_ENABLE(sockets, whether to enable sockets support,
@@ -18,7 +18,7 @@ if test "$PHP_SOCKETS" != "no"; then
     AC_DEFINE(HAVE_CMSGHDR,1,[Whether you have struct cmsghdr])
   fi 
 
-  AC_CHECK_FUNCS([hstrerror])
+  AC_CHECK_FUNCS([hstrerror set_h_errno])
   AC_CHECK_HEADERS([netdb.h netinet/tcp.h sys/un.h errno.h])
   AC_TRY_COMPILE([
 #include <sys/types.h>

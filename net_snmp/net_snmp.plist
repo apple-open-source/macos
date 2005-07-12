@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2004-09-12</string>
+	<string>2005-06-05</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
@@ -16,11 +16,11 @@
 	<key>OpenSourceProject</key>
 	<string>net-snmp</string>
 	<key>OpenSourceSHA1</key>
-	<string>3e1d3a662af0c9948bf5245c3d4501ebce8e0373</string>
+	<string>f8ec23b4d2706bef50cbc2d37ad9d292e107b0fb</string>
 	<key>OpenSourceURL</key>
-	<string>http://unc.dl.sourceforge.net/sourceforge/net-snmp/net-snmp-5.2.tar.gz</string>
+	<string>http://unc.dl.sourceforge.net/sourceforge/net-snmp/net-snmp-5.2.1.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>5.2</string>
+	<string>5.2.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://net-snmp.sourceforge.net/</string>
 </dict>

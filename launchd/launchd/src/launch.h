@@ -98,8 +98,7 @@
 #define LAUNCH_JOBSOCKETKEY_SERVICENAME		"SockServiceName"
 #define LAUNCH_JOBSOCKETKEY_FAMILY		"SockFamily"
 #define LAUNCH_JOBSOCKETKEY_PROTOCOL		"SockProtocol"
-#define LAUNCH_JOBSOCKETKEY_FD			"SockFD"
-#define LAUNCH_JOBSOCKETKEY_ADDRINFORESULTS	"AddrinfoResults"
+#define LAUNCH_JOBSOCKETKEY_MULTICASTGROUP	"MulticastGroup"
 
 typedef struct _launch_data *launch_data_t;
 

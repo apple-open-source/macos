@@ -69,6 +69,12 @@ Public (Exported) Routines:
 					This is a queued HFSDispatch call that does the equivalent of
 					MapFileBlockC, using a parameter block.
 
+	UpdateExtentRecord
+					If the extent record came from the extents file, write out
+					the updated record; otherwise, copy the updated record into
+					the FCB resident extent record.  If the record has no extents,
+					and was in the extents file, then delete the record instead.
+
 ============================================================
 Internal Routines:
 ============================================================
@@ -90,11 +96,6 @@ Internal Routines:
 					for the file.
 	DeallocateFork
 					Deallocate all allocation blocks belonging to a given fork.
-	UpdateExtentRecord
-					If the extent record came from the extents file, write out
-					the updated record; otherwise, copy the updated record into
-					the FCB resident extent record.  If the record has no extents,
-					and was in the extents file, then delete the record instead.
 */
 
 enum
@@ -185,13 +186,6 @@ static OSErr TruncateExtents(
 	UInt32				startBlock,
 	Boolean *			recordDeleted);
 #endif
-
-static OSErr UpdateExtentRecord (
-	const SVCB		*vcb,
-	SFCB					*fcb,
-	const HFSPlusExtentKey	*extentFileKey,
-	HFSPlusExtentRecord		extentData,
-	UInt32					extentBTreeHint);
 
 static OSErr MapFileBlockFromFCB(
 	const SVCB		*vcb,
@@ -445,10 +439,10 @@ OSErr MapFileBlockC (
 	HFSPlusExtentRecord	foundData;
 	UInt32				foundIndex;
 	UInt32				hint;
-	UInt32				firstFABN;				// file allocation block of first block in found extent
+	UInt32				firstFABN = 0;				// file allocation block of first block in found extent
 	UInt32				nextFABN;				// file allocation block of block after end of found extent
 	UInt32				dataEnd;				// (offset) end of range that is contiguous (in sectors)
-	UInt32				startBlock;				// volume allocation block corresponding to firstFABN
+	UInt32				startBlock = 0;			// volume allocation block corresponding to firstFABN
 	UInt64				temp;
 	
 	
@@ -1444,7 +1438,7 @@ Exit:
 //				(other) = error from BTree
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-static OSErr UpdateExtentRecord (
+OSErr UpdateExtentRecord (
 	const SVCB		*vcb,
 	SFCB					*fcb,
 	const HFSPlusExtentKey	*extentFileKey,

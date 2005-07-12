@@ -32,13 +32,13 @@
 #endif
 
 #include "mbfilter.h"
-#include <string.h>
+#include "html_entities.h"
 
-const mbfl_html_entity mbfl_html_entity_list[] = { /*
-  {"quot",       34},  DO NOT CONVERT THESE AUTOMATICALLY
+const mbfl_html_entity_entry mbfl_html_entity_list[] = {
+  {"quot",       34},
   {"amp",        38},
   {"lt",         60},
-  {"gt",         62},  */
+  {"gt",         62},
   {"nbsp",      160},
   {"iexcl",     161},
   {"cent",      162},
@@ -167,6 +167,7 @@ const mbfl_html_entity mbfl_html_entity_list[] = { /*
   {"Chi",       935},
   {"Psi",       936},
   {"Omega",     937},
+  {"alpha",     945},
   {"beta",      946},
   {"gamma",     947},
   {"delta",     948},

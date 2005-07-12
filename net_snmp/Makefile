@@ -6,7 +6,7 @@ Project               = net-snmp
 UserType              = Administration
 ToolType              = Commands
 GnuAfterInstall       = do-fixups install-startup install-plist
-Extra_Configure_Flags = --with-libwrap --with-defaults --prefix=/usr --with-persistent-directory=/var/db/net-snmp --with-mib-modules=host CPPFLAGS=-I/System/Library/Frameworks/System.framework/PrivateHeaders 
+Extra_Configure_Flags = --with-libwrap --with-defaults --prefix=/usr --with-persistent-directory=/var/db/net-snmp --with-mib-modules=host CPPFLAGS=-I/System/Library/Frameworks/System.framework/PrivateHeaders --sysconfdir=/etc
 Extra_Environment     = AR="$(SRCROOT)/ar.sh"
 
 # It's a GNU Source project
@@ -16,11 +16,11 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 5.2
+AEP_Version    = 5.2.1
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = NLS_TigerBuild.patch BO_darwin_snmp.patch NLS_PR-3962010.patch NLS_PR-4059242.patch
+AEP_Patches    = NLS_TigerBuild.patch BO_darwin_snmp.patch NLS_PR-3962010.patch NLS_PR-4059242.patch NLS_wrap.patch NLS_PR-4133730.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -67,10 +67,10 @@ do-fixups:
 	for foo in libnetsnmp libnetsnmpagent libnetsnmphelpers \
 libnetsnmpmibs; \
 	do \
-		strip -x $(DSTROOT)/usr/lib/$${foo}.5.2.0.dylib; \
+		strip -x $(DSTROOT)/usr/lib/$${foo}.$(AEP_Version).dylib; \
 		rm -f $(DSTROOT)/usr/lib/$${foo}.5.dylib; \
-		mv $(DSTROOT)/usr/lib/$${foo}.5.2.0.dylib $(DSTROOT)/usr/lib/$${foo}.5.dylib; \
-		ln -s $${foo}.5.dylib $(DSTROOT)/usr/lib/$${foo}.5.2.0.dylib; \
+		mv $(DSTROOT)/usr/lib/$${foo}.$(AEP_Version).dylib $(DSTROOT)/usr/lib/$${foo}.5.dylib; \
+		ln -s $${foo}.5.dylib $(DSTROOT)/usr/lib/$${foo}.$(AEP_Version).dylib; \
 	done
 	find  $(DSTROOT)/usr/include/net-snmp -type f | xargs chmod 644
 	find  $(DSTROOT)/usr/share/snmp -type f| xargs chmod 644

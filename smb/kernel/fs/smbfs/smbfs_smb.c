@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_smb.c,v 1.73 2005/03/18 02:11:03 lindak Exp $
+ * $Id: smbfs_smb.c,v 1.73.38.1 2005/05/27 02:35:28 lindak Exp $
  */
 #include <stdint.h>
 #include <sys/param.h>
@@ -447,8 +447,7 @@ smbfs_smb_qfsattr(struct smb_share *ssp, u_int32_t *attrp,
 	u_int32_t nlen;
 	int error;
 	u_int8_t *fs_name;	/* will malloc whatever the size is */
-	u_int8_t UCfat_name[6] = {'F', 0, 'A', 0, 'T', 0};	/* unicode */
-	u_int8_t ASCfat_name[3] = {'F', 'A', 'T'};		/* ascii */
+	struct smbfs_fctx	ctx;
 
 	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_QUERY_FS_INFORMATION,
 			     scrp, &t2p);
@@ -466,23 +465,30 @@ smbfs_smb_qfsattr(struct smb_share *ssp, u_int32_t *attrp,
 	}
 	mdp = &t2p->t2_rdata;
 	md_get_uint32le(mdp, attrp);
-	md_get_uint32le(mdp, NULL); /* max filename length */
+	md_get_uint32le(mdp, &ssp->ss_maxfilenamelen);
 	md_get_uint32le(mdp, &nlen);	/* fs name length */
-	fs_name = malloc(nlen, M_SMBFSDATA, M_WAITOK);
-	md_get_mem(mdp, fs_name, nlen, MB_MSYSTEM); /* fs name, w/o null */
-	/* 
-         * If fs_name starts with FAT they probably require resume keys.
-         * This is another example of the client trying to fix a server
-         * bug. This change (PR-4051871) is using the logic created by
-	 * PR-3983209. See the long block comment in 
-	 * smbfs_smb_findnextLM2.  
-	 */
-	if ((nlen >= 6 && !bcmp(fs_name, UCfat_name, 6)) ||
-	    (nlen >= 3 && !bcmp(fs_name, ASCfat_name, 3))) {
-		ssp->ss_flags |= SMBS_RESUMEKEYS;
-		SMBERROR("FAT share; using resume keys\n");
-	}		
-	free(fs_name, M_SMBFSDATA);
+	if (ssp->ss_fsname == NULL && nlen) {
+		ctx.f_ssp = ssp;
+		ctx.f_name = malloc(nlen, M_SMBFSDATA, M_WAITOK);
+		md_get_mem(mdp, ctx.f_name, nlen, MB_MSYSTEM);
+		ctx.f_nmlen = nlen;
+		smbfs_fname_tolocal(&ctx);
+		fs_name = malloc(ctx.f_nmlen+1, M_SMBSTR, M_WAITOK);
+		bcopy(ctx.f_name, fs_name, ctx.f_nmlen);
+		fs_name[ctx.f_nmlen] = '\0';
+		ssp->ss_fsname = fs_name;
+		free(ctx.f_name, M_SMBFSDATA);
+		/* 
+		 * If fs_name isn't NTFS they probably require resume keys.
+		 * This is another example of the client trying to fix a server
+		 * bug. This code uses the logic created by PR-3983209. See
+		 * long block comment in smbfs_smb_findnextLM2. 
+		 */
+		if (strcmp(fs_name, "NTFS"))
+			ssp->ss_flags |= SMBS_RESUMEKEYS;
+		SMBERROR("(fyi) share '%s', attr 0x%x, maxfilename %d\n",
+			 ssp->ss_fsname, *attrp, ssp->ss_maxfilenamelen);
+	}
 	smb_t2_done(t2p);
 	return 0;
 }
@@ -1024,7 +1030,7 @@ smbfs_smb_setpattrNT(struct smbnode *np, u_int32_t attr, struct timespec *mtime,
 	 * FAT drive that doesn't accept dates earlier
 	 * than 1980, so adjust dates and retry. If the
 	 * 1980 flag is on we fell thru the if {} above
-         */
+	 */
 	if ((ssp->ss_flags & SMBS_1980) || (error == EINVAL)) { 
 		mbp = &t2p->t2_tdata;
 		mb_init(mbp);

@@ -47,7 +47,7 @@
 #include <errno.h>
 #include "zend.h"
 #include "zend_alloc.h"
-#include "zend_language_parser.h"
+#include <zend_language_parser.h>
 #include "zend_compile.h"
 #include "zend_language_scanner.h"
 #include "zend_highlight.h"
@@ -133,11 +133,16 @@ void startup_scanner(TSRMLS_D)
 	CG(heredoc_len)=0;
 	SCNG(yy_start_stack_ptr) = 0;
 	SCNG(yy_start_stack_depth) = 0;
+	SCNG(current_buffer) = NULL;
 #ifdef ZEND_MULTIBYTE
 	SCNG(code) = NULL;
 	SCNG(code_size) = 0;
 	SCNG(current_code) = NULL;
 	SCNG(current_code_size) = 0;
+	SCNG(input_filter) = NULL;
+	SCNG(output_filter) = NULL;
+	SCNG(script_encoding) = NULL;
+	SCNG(internal_encoding) = NULL;
 #endif /* ZEND_MULTIBYTE */
 }
 
@@ -148,6 +153,10 @@ void shutdown_scanner(TSRMLS_D)
 		efree(CG(heredoc));
 		CG(heredoc_len)=0;
 	}
+	if (SCNG(yy_start_stack)) {
+		yy_flex_free(SCNG(yy_start_stack));
+		SCNG(yy_start_stack) = NULL;
+	}
 #ifdef ZEND_MULTIBYTE
 	if (SCNG(code)) {
 		efree(SCNG(code));
@@ -157,6 +166,12 @@ void shutdown_scanner(TSRMLS_D)
 		efree(SCNG(current_code));
 		SCNG(current_code) = NULL;
 	}
+	SCNG(code_size) = 0;
+	SCNG(current_code_size) = 0;
+	SCNG(input_filter) = NULL;
+	SCNG(output_filter) = NULL;
+	SCNG(script_encoding) = NULL;
+	SCNG(internal_encoding) = NULL;
 #endif /* ZEND_MULTIBYTE */
 }
 END_EXTERN_C()

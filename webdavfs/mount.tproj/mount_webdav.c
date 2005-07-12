@@ -69,6 +69,7 @@ uid_t gProcessUID = -1;			/* the daemon's UID */
 int gSuppressAllUI = FALSE;		/* if TRUE, the mount requested that all UI be supressed */
 char gWebdavCachePath[MAXPATHLEN + 1] = ""; /* the current path to the cache directory */
 int gSecureConnection = FALSE;	/* if TRUE, the connection is secure */
+CFURLRef gBaseURL = NULL;		/* the base URL for this mount */
 
 /*
  * mount_webdav.c file globals
