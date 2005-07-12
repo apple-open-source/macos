@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: interbase.c,v 1.91.2.33 2004/06/28 11:24:55 abies Exp $ */
+/* $Id: interbase.c,v 1.91.2.34 2005/01/13 21:22:13 abies Exp $ */
 
 
 /* TODO: Arrays, roles?
@@ -643,7 +643,7 @@ PHP_MINFO_FUNCTION(ibase)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Interbase Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.91.2.33 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.91.2.34 $");
 #ifdef COMPILE_DL_INTERBASE
 	php_info_print_table_row(2, "Dynamic Module", "yes");
 #endif
@@ -1802,9 +1802,9 @@ static int _php_ibase_var_zval(zval *val, void *data, int type, int len, int sca
 				short j;
 				long n, f = 1;
 				if ( (type & ~1) == SQL_SHORT) {
-					n = (long) *(short *) (data);
+					n = *(short *) data;
 				}else {	
-					n = (long) *(long *) (data);
+					n = *(ISC_LONG *) data;
 				}
 				for (j = 0; j < -scale; j++) {
 					f *= 10;
@@ -1821,9 +1821,9 @@ static int _php_ibase_var_zval(zval *val, void *data, int type, int len, int sca
 			} else {
 				Z_TYPE_P(val) = IS_LONG;
 				if ( (type & ~1) == SQL_SHORT) {
-					Z_LVAL_P(val) = *(short *) (data);
+					Z_LVAL_P(val) = *(short *) data;
 				}else{
-					Z_LVAL_P(val) = *(long *) (data);
+					Z_LVAL_P(val) = *(ISC_LONG *) data;
 				}
 			}
 			break;

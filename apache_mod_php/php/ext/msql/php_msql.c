@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_msql.c,v 1.49.4.1 2002/12/31 16:34:57 sebastian Exp $ */
+/* $Id: php_msql.c,v 1.49.4.2 2005/02/17 20:13:52 andi Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -960,9 +960,14 @@ static void php_msql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 				add_assoc_stringl(return_value, msql_field->name, data, data_len, should_copy);
 			}
 		} else {
-			/*
-			add_get_index_stringl(return_value, i, empty_string, 0, (void **) &pval_ptr, 1);
-			*/
+			/* NULL value. */
+			if (result_type & MSQL_NUM) {
+				add_index_null(return_value, i);
+			}
+
+			if (result_type & MSQL_ASSOC) {
+				add_assoc_null(return_value, msql_field->name);
+			}
 		}
 	}
 }

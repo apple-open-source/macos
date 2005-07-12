@@ -437,6 +437,7 @@ void SLPDALocator::DoLookup( void )
 #endif
 }
 
+static bool				gThreadAttrsSet = false;
 static pthread_attr_t	_DefaultAttrs;
 static pthread_key_t	_NameKey;
 static pthread_key_t	_ObjectKey;
@@ -457,11 +458,15 @@ void StartDALocator(CFRunLoopTimerRef timer, void *info)
 		
     ::pthread_mutex_unlock( &gTheSLPDALLock );
 
-	::pthread_attr_init( &_DefaultAttrs );
-	::pthread_key_create(&_NameKey, NULL);
-	::pthread_key_create(&_ObjectKey, NULL);
-	::pthread_attr_setdetachstate( &_DefaultAttrs, PTHREAD_CREATE_DETACHED);
-
+	if ( !gThreadAttrsSet )
+	{
+		gThreadAttrsSet = true;
+		::pthread_attr_init( &_DefaultAttrs );
+		::pthread_key_create(&_NameKey, NULL);
+		::pthread_key_create(&_ObjectKey, NULL);
+		::pthread_attr_setdetachstate( &_DefaultAttrs, PTHREAD_CREATE_DETACHED);
+	}
+	
 	// Currently detaching so threads don't stick around.
 	pthread_t	tNew = NULL;
 

@@ -2785,6 +2785,11 @@ void)
 	 * their corresponding local relocation entries.
 	 */
 	reset_symbol_pointers(dylib_vmslide);
+
+	/*
+	 * set the (__DATA,__dyld) section contents to a canonical value.
+	 */
+	update_dyld_section();
 	
 	arch_processed = TRUE;
 
@@ -7820,7 +7825,7 @@ unsigned long vmslide)
     struct nlist *arch_symbol;
     char *p;
     struct scattered_relocation_info *sreloc;
-    uint32_t ncmds;
+    uint32_t ncmds, mh_flags;
     
 	/*
 	 * For each symbol pointer section update the symbol pointers by
@@ -7829,10 +7834,14 @@ unsigned long vmslide)
 	 * will be set to zero, except those that are absolute or local
 	 */
 	lc = arch->object->load_commands;
-        if(arch->object->mh != NULL)
+        if(arch->object->mh != NULL){
             ncmds = arch->object->mh->ncmds;
-        else
+            mh_flags = arch->object->mh->flags;
+	}
+        else{
             ncmds = arch->object->mh64->ncmds;
+            mh_flags = arch->object->mh64->flags;
+	}
 	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
@@ -7895,17 +7904,33 @@ unsigned long vmslide)
 			    }
 			
 			    /*
-			     * If the symbol this indirect symbol table entry is
-			     * refering to is not a prebound undefined symbol
-			     * then if this indirect symbol table entry is for a
-			     * symbol in a section slide it.
-			     */ 
-			    arch_symbol = arch_symbols +
-				     arch_indirect_symtab[s->reserved1 + k];
-			    if((arch_symbol->n_type & N_TYPE) != N_PBUD){
-				if(arch_symbol->n_sect != NO_SECT)
-				    set_arch_long(p, symbol_pointer + vmslide);
-				continue;
+			     * The Tiger dyld will for images containing the
+			     * flags MH_WEAK_DEFINES or MH_BINDS_TO_WEAK can
+			     * cause symbol pointers for indirect symbols
+			     * defined in the image not to be used and prebound
+			     * to addresses in other images.  So in this case
+			     * they can't be assumed to be values from this
+			     * image and slid.  So we let them fall through and
+			     * get set to zero or what they be when lazily
+			     * bound.
+			     */
+			    if((mh_flags & MH_WEAK_DEFINES) == 0 &&
+			       (mh_flags & MH_BINDS_TO_WEAK) == 0){
+				/*
+				 * If the symbol this indirect symbol table
+				 * entry is refering to is not a prebound
+				 * undefined symbol then if this indirect
+				 * symbol table entry is for a symbol in a
+				 * section slide it.
+				 */ 
+				arch_symbol = arch_symbols +
+					 arch_indirect_symtab[s->reserved1 + k];
+				if((arch_symbol->n_type & N_TYPE) != N_PBUD){
+				    if(arch_symbol->n_sect != NO_SECT)
+					set_arch_long(p, symbol_pointer +
+							 vmslide);
+				    continue;
+				}
 			    }
 		
 			    if(section_type == S_NON_LAZY_SYMBOL_POINTERS){

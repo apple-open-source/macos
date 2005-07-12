@@ -44,7 +44,7 @@ static	OSErr	RcdMDBEmbededVolDescriptionErr( SGlobPtr GPtr, OSErr type, HFSMaste
 
 static	OSErr	CheckNodesFirstOffset( SGlobPtr GPtr, BTreeControlBlock *btcb );
 
-static	Boolean	ExtentInfoExists( ExtentsTable **extentsTableH, ExtentInfo *extentInfo );
+static	Boolean	ExtentInfoExists( ExtentsTable **extentsTableH, ExtentInfo *extentInfo, Boolean *doesFileExist );
 
 static OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt32 *volumeType );
 static OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt64 startSector, UInt32 numSectors, UInt64 *vHSector );
@@ -1226,7 +1226,7 @@ OSErr	CreateExtendedAllocationsFCB( SGlobPtr GPtr )
 		// The definition of CACHE_IOSIZE below matches the definition in fsck_hfs.c.
 		// If you change it here, then change it there, too.  Or else put it in some
 		// common header file.
-		#define CACHE_IOSIZE 32768
+		#define CACHE_IOSIZE	32768
 		if (vcb->vcbBlockSize < CACHE_IOSIZE)
 			(void) SetFileBlockSize (fcb, vcb->vcbBlockSize);
 		else
@@ -1591,7 +1591,7 @@ resumeAtParent:
 			valence = isHFSPlus == true ? record2.hfsPlusFolder.valence : (UInt32)record2.hfsFolder.valence;
 
 			if ( valence != dprP->offspringIndex -1 ) 				/* check its valence */
-				if ( result = RcdValErr( GPtr, E_DirVal, dprP->offspringIndex -1, valence, dprP->parentDirID ) )
+				if ( ( result = RcdValErr( GPtr, E_DirVal, dprP->offspringIndex -1, valence, dprP->parentDirID ) ) )
 					return( result );
 
 			GPtr->DirLevel--;										/* move up a level */			
@@ -1610,19 +1610,19 @@ resumeAtParent:
 	//	verify directory and file counts (all nonfatal, repairable errors)
 	//
 	if (!isHFSPlus && (rtdirCnt != calculatedVCB->vcbNmRtDirs)) /* check count of dirs in root */
-		if ( result = RcdValErr(GPtr,E_RtDirCnt,rtdirCnt,calculatedVCB->vcbNmRtDirs,0) )
+		if ( ( result = RcdValErr(GPtr,E_RtDirCnt,rtdirCnt,calculatedVCB->vcbNmRtDirs,0) ) )
 			return( result );
 
 	if (!isHFSPlus && (rtfilCnt != calculatedVCB->vcbNmFls)) /* check count of files in root */
-		if ( result = RcdValErr(GPtr,E_RtFilCnt,rtfilCnt,calculatedVCB->vcbNmFls,0) )
+		if ( ( result = RcdValErr(GPtr,E_RtFilCnt,rtfilCnt,calculatedVCB->vcbNmFls,0) ) )
 			return( result );
 
 	if (dirCnt != calculatedVCB->vcbFolderCount) /* check count of dirs in volume */
-		if ( result = RcdValErr(GPtr,E_DirCnt,dirCnt,calculatedVCB->vcbFolderCount,0) )
+		if ( ( result = RcdValErr(GPtr,E_DirCnt,dirCnt,calculatedVCB->vcbFolderCount,0) ) )
 			return( result );
 		
 	if (filCnt != calculatedVCB->vcbFileCount) /* check count of files in volume */
-		if ( result = RcdValErr(GPtr,E_FilCnt,filCnt,calculatedVCB->vcbFileCount,0) )
+		if ( ( result = RcdValErr(GPtr,E_FilCnt,filCnt,calculatedVCB->vcbFileCount,0) ) )
 			return( result );
 
 	return( noErr );
@@ -2742,13 +2742,10 @@ OSErr	AddExtentToOverlapList( SGlobPtr GPtr, HFSCatalogNodeID fileNumber, UInt32
 	UInt32			newHandleSize;
 	ExtentInfo		extentInfo;
 	ExtentsTable	**extentsTableH;
-	char fileno[32];
+	Boolean doesFileExist = false;
 	
-	sprintf(fileno, "%ud", fileNumber);
-	PrintError(GPtr, E_OvlExt, 1, fileno);
-	GPtr->VIStat |= S_OverlappingExtents;
-	
-	extentInfo.fileNumber	= fileNumber;
+	ClearMemory(&extentInfo, sizeof(extentInfo));
+	extentInfo.fileID		= fileNumber;
 	extentInfo.startBlock	= extentStartBlock;
 	extentInfo.blockCount	= extentBlockCount;
 	extentInfo.forkType		= forkType;
@@ -2763,7 +2760,7 @@ OSErr	AddExtentToOverlapList( SGlobPtr GPtr, HFSCatalogNodeID fileNumber, UInt32
 	{
 		extentsTableH	= GPtr->overlappedExtents;
 
-		if ( ExtentInfoExists( extentsTableH, &extentInfo ) == true )
+		if ( ExtentInfoExists( extentsTableH, &extentInfo, &doesFileExist ) == true )
 			return( noErr );
 
 		//	Grow the Extents table for a new entry.
@@ -2771,9 +2768,16 @@ OSErr	AddExtentToOverlapList( SGlobPtr GPtr, HFSCatalogNodeID fileNumber, UInt32
 		SetHandleSize( (Handle)extentsTableH, newHandleSize );
 	}
 
+	/* Print the list of overlapping extents after catalog BTree check to
+	 * avoid deadlocks from cache read
+	 */
+	
 	//	Copy the new extents into the end of the table
 	CopyMemory( &extentInfo, &((**extentsTableH).extentInfo[(**extentsTableH).count]), sizeof(ExtentInfo) );
 	
+	// 	Update the overlap extent bit
+	GPtr->VIStat |= S_OverlappingExtents;
+
 	//	Update the extent table count
 	(**extentsTableH).count++;
 	
@@ -2781,17 +2785,21 @@ OSErr	AddExtentToOverlapList( SGlobPtr GPtr, HFSCatalogNodeID fileNumber, UInt32
 }
 
 
-static	Boolean	ExtentInfoExists( ExtentsTable **extentsTableH, ExtentInfo *extentInfo )
+static	Boolean	ExtentInfoExists( ExtentsTable **extentsTableH, ExtentInfo *extentInfo, Boolean *doesFileExist )
 {
 	UInt32		i;
 	ExtentInfo	*aryExtentInfo;
 	
+	*doesFileExist = false;
+
 	for ( i = 0 ; i < (**extentsTableH).count ; i++ )
 	{
 		aryExtentInfo	= &((**extentsTableH).extentInfo[i]);
 		
-		if ( extentInfo->fileNumber == aryExtentInfo->fileNumber )
+		if ( extentInfo->fileID == aryExtentInfo->fileID )
 		{
+			*doesFileExist = true;
+
 			if (	(extentInfo->startBlock == aryExtentInfo->startBlock)	&& 
 					(extentInfo->blockCount == aryExtentInfo->blockCount)	&&
 					(extentInfo->forkType	== aryExtentInfo->forkType)		)

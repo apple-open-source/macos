@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.1.2.36 2004/12/06 18:55:16 stas Exp $ */
+/* $Id: sapi_apache2.c,v 1.1.2.39 2005/03/10 11:39:04 jorton Exp $ */
 
 #include <fcntl.h>
 
@@ -119,8 +119,16 @@ static int
 php_apache_sapi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
 	php_struct *ctx = SG(server_context);
+	const char *sline = SG(sapi_headers).http_status_line;
 
 	ctx->r->status = SG(sapi_headers).http_response_code;
+
+	/* httpd requires that r->status_line is set to the first digit of
+	 * the status-code: */
+	if (sline && strlen(sline) > 12 && strncmp(sline, "HTTP/1.", 7) == 0 
+		&& sline[8] == ' ') {
+		ctx->r->status_line = apr_pstrdup(ctx->r->pool, sline + 9);
+	}
 
 	return SAPI_HEADER_SENT_SUCCESSFULLY;
 }
@@ -140,7 +148,7 @@ php_apache_sapi_read_post(char *buf, uint count_bytes TSRMLS_DC)
 	/*
 	 * This loop is needed because ap_get_brigade() can return us partial data
 	 * which would cause premature termination of request read. Therefor we
-	 * need to make sure that if data is avaliable we fill the buffer completely.
+	 * need to make sure that if data is available we fill the buffer completely.
 	 */
 
 	while (ap_get_brigade(r->input_filters, brigade, AP_MODE_READBYTES, APR_BLOCK_READ, len) == APR_SUCCESS) {
@@ -461,6 +469,16 @@ static int php_handler(request_rec *r)
 			} zend_end_try();
 			return DECLINED;
 		}
+	}
+
+	/* Give a 404 if PATH_INFO is used but is explicitly disabled in
+	 * the configuration; default behaviour is to accept. */ 
+	if (r->used_path_info == AP_REQ_REJECT_PATH_INFO
+		&& r->path_info && r->path_info[0]) {
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
+		return HTTP_NOT_FOUND;
 	}
 
 	/* handle situations where user turns the engine off */

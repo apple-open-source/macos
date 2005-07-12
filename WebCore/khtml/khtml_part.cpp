@@ -66,6 +66,7 @@ using namespace DOM;
 #include "khtmlview.h"
 #include <kparts/partmanager.h>
 #include "ecma/kjs_proxy.h"
+#include "ecma/xmlhttprequest.h"
 #include "khtml_settings.h"
 
 #include <sys/types.h>
@@ -111,6 +112,7 @@ using khtml::ApplyStyleCommand;
 using khtml::CHARACTER;
 using khtml::ChildFrame;
 using khtml::Decoder;
+using khtml::DocLoader;
 using khtml::EAffinity;
 using khtml::EditAction;
 using khtml::EditCommandPtr;
@@ -581,7 +583,7 @@ void KHTMLPart::didExplicitOpen()
 }
 
 
-bool KHTMLPart::closeURL()
+void KHTMLPart::stopLoading(bool sendUnload)
 {    
     if (d->m_doc && d->m_doc->tokenizer()) {
         d->m_doc->tokenizer()->stopParsing();
@@ -594,17 +596,22 @@ bool KHTMLPart::closeURL()
     d->m_job = 0;
   }
 
-  if ( d->m_doc && d->m_doc->isHTMLDocument() ) {
-    HTMLDocumentImpl* hdoc = static_cast<HTMLDocumentImpl*>( d->m_doc );
-
-    if ( hdoc->body() && d->m_bLoadEventEmitted && !d->m_bUnloadEventEmitted ) {
-      hdoc->body()->dispatchWindowEvent( EventImpl::UNLOAD_EVENT, false, false );
-      if ( d->m_doc )
-        d->m_doc->updateRendering();
-      d->m_bUnloadEventEmitted = true;
+  if (sendUnload) {
+    if ( d->m_doc && d->m_doc->isHTMLDocument() ) {
+      HTMLDocumentImpl* hdoc = static_cast<HTMLDocumentImpl*>( d->m_doc );
+      
+      if ( hdoc->body() && d->m_bLoadEventEmitted && !d->m_bUnloadEventEmitted ) {
+        hdoc->body()->dispatchWindowEvent( EventImpl::UNLOAD_EVENT, false, false );
+        if ( d->m_doc )
+          d->m_doc->updateRendering();
+        d->m_bUnloadEventEmitted = true;
+      }
     }
-  }
     
+    if (d->m_doc && !d->m_doc->inPageCache())
+      d->m_doc->removeAllEventListenersFromAllNodes();
+  }
+
   d->m_bComplete = true; // to avoid emitting completed() in slotFinishedParsing() (David)
   d->m_bLoadingMainResource = false;
   d->m_bLoadEventEmitted = true; // don't want that one either
@@ -627,15 +634,26 @@ bool KHTMLPart::closeURL()
 
   d->m_workingURL = KURL();
 
-  if ( d->m_doc && d->m_doc->docLoader() )
-    khtml::Cache::loader()->cancelRequests( d->m_doc->docLoader() );
+  if (DocumentImpl *doc = d->m_doc) {
+    if (DocLoader *docLoader = doc->docLoader())
+      khtml::Cache::loader()->cancelRequests(docLoader);
+    KJS::XMLHttpRequest::cancelRequests(doc);
+  }
 
   // tell all subframes to stop as well
   ConstFrameIt it = d->m_frames.begin();
   ConstFrameIt end = d->m_frames.end();
-  for (; it != end; ++it )
-    if ( !( *it ).m_part.isNull() )
-      ( *it ).m_part->closeURL();
+  for (; it != end; ++it ) {
+      KParts::ReadOnlyPart *part = (*it).m_part;
+      if (part) {
+          KHTMLPart *khtml_part = static_cast<KHTMLPart *>(part);
+
+          if (khtml_part->inherits("KHTMLPart"))
+              khtml_part->stopLoading(sendUnload);
+          else
+              part->closeURL();
+      }
+  }
 
   d->m_bPendingChildRedirection = false;
 
@@ -645,7 +663,6 @@ bool KHTMLPart::closeURL()
   // null node activated.
   emit nodeActivated(Node());
 
-  return true;
 }
 
 DOM::HTMLDocument KHTMLPart::htmlDocument() const
@@ -707,6 +724,13 @@ bool KHTMLPart::metaRefreshEnabled() const
 #ifdef DIRECT_LINKAGE_TO_ECMA
 extern "C" { KJSProxy *kjs_html_init(KHTMLPart *khtmlpart); }
 #endif
+
+bool KHTMLPart::closeURL()
+{    
+  stopLoading(true);
+
+  return true;
+}
 
 KJSProxy *KHTMLPart::jScript()
 {

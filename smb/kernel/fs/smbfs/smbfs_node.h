@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.h,v 1.31 2005/03/09 16:51:59 lindak Exp $
+ * $Id: smbfs_node.h,v 1.31.52.1 2005/05/27 02:35:28 lindak Exp $
  */
 #ifndef _FS_SMBFS_NODE_H_
 #define _FS_SMBFS_NODE_H_
@@ -107,7 +107,8 @@ u_int32_t smbfs_hash(const u_char *name, int nmlen);
 
 int  smbfs_getpages(struct vnop_getpages_args *);
 int  smbfs_putpages(struct vnop_putpages_args *);
-int  smbfs_readvnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx);
+int  smbfs_readvnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx,
+	struct vnode_attr *vap);
 int  smbfs_writevnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx, int ioflag, int timo);
 void smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap);
 int  smbfs_attr_cachelookup(vnode_t, struct vnode_attr *, struct smb_cred *);

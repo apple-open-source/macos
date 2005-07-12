@@ -756,7 +756,7 @@ Boolean _CFHTTPAuthenticationParseHeader(CFStringRef headerValue, Boolean isInfo
             // the "=" to make our guess.
             if (*buffer != '=') {
                 if (!isInfoHeader) {
-                    if (*buffer) buffer++;
+                    //if (*buffer) buffer++;
                     current_scheme = NULL;	// treat it like a new scheme
                 } else {
                     // Auth-Info headers can't have schemes, just key=value's
@@ -790,9 +790,15 @@ Boolean _CFHTTPAuthenticationParseHeader(CFStringRef headerValue, Boolean isInfo
                 key = CFRetain(value);
                 buffer++;
             } else {
-                CFRelease(value);
-                parseError = TRUE;
-                break;
+				// Appears to be a new scheme; or at least that's what it is now
+				CFStringRef canonName = _canonicalSchemeName(value);
+				current_scheme = CFDictionaryCreateMutable(alloc, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+				CFDictionarySetValue(schemes, canonName, current_scheme);
+				CFRelease(canonName);
+				CFRelease(current_scheme);
+				CFDictionarySetValue(current_scheme, kCFHTTPAuthenticationPropertyMethod, canonName);
+				expectingBase64 = (canonName == kCFHTTPAuthenticationSchemeNegotiate)
+					|| (canonName == kCFHTTPAuthenticationSchemeNTLM);
             }
         }
         
@@ -819,6 +825,7 @@ Boolean _CFHTTPAuthenticationParseHeader(CFStringRef headerValue, Boolean isInfo
                 if (expectingBase64) {
                     // Base64-style schemes must be followed by another scheme
                     current_scheme = NULL;
+					expectingBase64 = FALSE;  // Since the next is a scheme, no need to expect this.
                 } else {
                     // might get another key=value, might get another scheme
                     lookAheadForSchemeOrKey = TRUE;

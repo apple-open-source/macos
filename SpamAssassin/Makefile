@@ -18,10 +18,10 @@ CFLAGS=-Os $(RC_CFLAGS)
 #
 
 PROJECT_NAME=SpamAssassin
-CLAMAV_NAME=clamav-0.81.tar.gz
+CLAMAV_NAME=clamav-0.85.1.tar.gz
 
 AMAVIS_DIR=/private/var/amavis
-CLAMAV_BUILD_DIR=/clamav/clamav-0.81
+CLAMAV_BUILD_DIR=/clamav/clamav-0.85.1
 VIRUS_MAILS_DIR=/private/var/virusmails
 ETCDIR=/private/etc
 ETC_SPAMA_DIR=/private/etc/mail/spamassassin
@@ -70,7 +70,7 @@ CLAMAV_CONFIG= \
 include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
-default:: make_sa make_clamav
+default:: make_clamav
 
 install :: make_sa_install make_clamav_install make_amavisd_install
 

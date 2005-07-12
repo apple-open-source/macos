@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: mount_smbfs.c,v 1.28 2005/03/25 21:39:34 lindak Exp $
+ * $Id: mount_smbfs.c,v 1.28.44.2 2005/06/02 00:55:41 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -82,7 +82,7 @@ main(int argc, char *argv[])
 	char *next;
 	int opt, error, mntflags, caseopt;
 
-        
+
 	dropsuid();
 	if (argc == 2) {
 		if (strcmp(argv[1], "-h") == 0) {
@@ -296,19 +296,20 @@ reauth:
 		exit(error);
 	if (!(ctx->ct_flags & SMBCF_XXX)) {
 again:
-                error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
-                if (error == ENOENT && ctx->ct_origshare) {
-                        strcpy(ctx->ct_sh.ioc_share, ctx->ct_origshare);
-                        free(ctx->ct_origshare);
-                        ctx->ct_origshare = NULL;
-                        goto again; /* try again using share name as given */
-                }
-
-                if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
-                        ctx->ct_ssn.ioc_password[0] = '\0';
-                        goto reauth;
-                }
-        }
+		error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
+		if (error == ENOENT && ctx->ct_origshare) {
+			strcpy(ctx->ct_sh.ioc_share, ctx->ct_origshare);
+			free(ctx->ct_origshare);
+			ctx->ct_origshare = NULL;
+			goto again; /* try again using share name as given */
+		}
+		if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
+			ctx->ct_ssn.ioc_password[0] = '\0';
+			smb_error("main(lookup): bad keychain entry", 0);
+			ctx->ct_flags |= SMBCF_KCBAD;
+			goto reauth;
+		}
+	}
 	if (error)
 		exit(error);
 	strcpy(mdata.mount_point, mount_point);
@@ -345,13 +346,13 @@ again:
 lookup:
 			error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
 			if (error) {
-                                smb_error("x lookup error: %s", error,
+				smb_error("x lookup error: %s", error,
 					  mdata.mount_point);
-                                if (error == ENOENT && ctx->ct_origshare) {
+				if (error == ENOENT && ctx->ct_origshare) {
 					strcpy(ctx->ct_sh.ioc_share, ctx->ct_origshare);
-                                        free(ctx->ct_origshare);
-                                        ctx->ct_origshare = NULL;
-                                       
+					free(ctx->ct_origshare);
+					ctx->ct_origshare = NULL;
+				       
 					goto lookup; /* retry with share name as given */
 				}
 
@@ -394,6 +395,8 @@ lookup:
 		      (void*)&mdata);
 	if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
 		ctx->ct_ssn.ioc_password[0] = '\0';
+		smb_error("main(mount): bad keychain entry", 0);
+		ctx->ct_flags |= SMBCF_KCBAD;
 		goto reauth;
 	}
 	if (!error)
@@ -411,16 +414,14 @@ usage(void)
 {
 	fprintf(stderr, "%s\n",
 	"usage: mount_smbfs [-Nh]"
-		"  [-I host]"
-		"\n"
+	"  [-I host]\n"
 	"                   [-M cmode[/smode]] [-O cuid[:cgid]/suid[:sgid]]\n"
 	"                   [-R retrycount] [-T timeout]\n"
-	"                   [-U user] [-W workgroup]"
-		"\n"
+	"                   [-U user] [-W workgroup]\n"
 	"                   [-d mode] [-f mode] [-g gid] [-n long] [-u uid]\n"
 	"                   //"
-		"[workgroup;][user[:password]@]server[/share]"
-		" path");
+	"[workgroup;][user[:password]@]server[/share]"
+	" path");
 
 	exit (EX_USAGE);
 }

@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: cgi_main.c,v 1.190.2.62 2004/07/14 22:38:18 edink Exp $ */
+/* $Id: cgi_main.c,v 1.190.2.66 2005/02/11 02:12:30 sniper Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -481,6 +481,15 @@ static void sapi_cgi_register_variables(zval *track_vars_array TSRMLS_DC)
 
 static void sapi_cgi_log_message(char *message)
 {
+#if PHP_FASTCGI
+	TSRMLS_FETCH();
+
+	if (!FCGX_IsCGI()) {
+		FCGX_Request *request = (FCGX_Request *)SG(server_context);
+		FCGX_FPrintF( request->err, "%s\n", message );
+		/* ignore return code */
+	} else
+#endif /* PHP_FASTCGI */
 	fprintf(stderr, "%s\n", message);
 }
 

@@ -17,6 +17,8 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_ini_scanner.l,v 1.26.2.10 2005/02/06 23:50:47 zeev Exp $ */
+
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
 #define yytext_ptr SCNG(yy_text)
@@ -30,7 +32,7 @@
 #include <errno.h>
 #include "zend.h"
 #include "zend_globals.h"
-#include "zend_ini_parser.h"
+#include <zend_ini_parser.h>
 #include "zend_ini_scanner.h"
 
 #ifdef HAVE_UNISTD_H
@@ -58,13 +60,13 @@ static char *ini_filename;
 
 void init_ini_scanner(TSRMLS_D)
 {
-       SCNG(lineno)=1;
+	SCNG(lineno)=1;
 }
 
 
 int zend_ini_scanner_get_lineno(TSRMLS_D)
 {
-       return SCNG(lineno);
+	return SCNG(lineno);
 }
 
 
@@ -95,20 +97,20 @@ int zend_ini_open_file_for_scanning(zend_file_handle *fh TSRMLS_DC)
 
 void zend_ini_close_file(zend_file_handle *fh TSRMLS_DC)
 {
-    switch (fh->type) {
-        case ZEND_HANDLE_SOCKET_FD:
+	switch (fh->type) {
+		case ZEND_HANDLE_SOCKET_FD:
 #ifdef ZEND_WIN32
-            closesocket(fh->handle.fd);
-            break;
+			closesocket(fh->handle.fd);
+			break;
 #endif
-        /* fall-through */
-        case ZEND_HANDLE_FD:
-            close(fh->handle.fd);
-            break;
-        case ZEND_HANDLE_FP:
-            fclose(fh->handle.fp);
-            break;
-    }
+		/* fall-through */
+		case ZEND_HANDLE_FD:
+			close(fh->handle.fd);
+			break;
+		case ZEND_HANDLE_FP:
+			fclose(fh->handle.fp);
+			break;
+	}
 }
 
 
@@ -137,7 +139,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	return CFG_FALSE;
 }
 
-<INITIAL>[[][^[]+[\]][ ]*{NEWLINE}? {
+<INITIAL>[[][^\]\n]+[\]][ ]*{NEWLINE}? {
 	/* SECTION */
 
 	/* eat trailing ] and spaces */
@@ -164,7 +166,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 
 	/* eat trailing " */
 	yytext[yyleng-1]=0;
-	
+
 	/* eat leading " */
 	yytext++;
 
@@ -210,8 +212,6 @@ NEWLINE ("\r"|"\n"|"\r\n")
 		/* whitespace */
 	}
 }
-
-
 
 <INITIAL>[=\n] {
 	if (yytext[0] == '\n') {

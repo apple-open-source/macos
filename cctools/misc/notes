@@ -9,6 +9,18 @@ To Do:
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
 
+Changes for the SUTiCambridge release (the cctools-576.3 release):
+- Added a call to update_dyld_section() in unprebind_arch() in
+  redo_prebinding.c to set the (__DATA,__dyld) section contents to a
+  canonical value.  Radar bug #4126660.
+- In reset_symbol_pointers() in redo_prebinding.c added a conditional resetting
+  symbol pointers defined in the image.  The conditional is if either the
+  MH_WEAK_DEFINES or MH_BINDS_TO_WEAK flags are present then the symbol pointer
+  is set back to zero or to the value for lazy binding and assumed that if
+  the symbol is defined it is being used from the image.  This is because the
+  Tiger dyld when prebinding may set the symbol pointer to an address in another
+  image even if the symbol is defined in the image being prebound.  Radar bug
+  #4126666.
 
 Changes for the SUTiAtlanta release (the cctools-576.2 release):
 - Added more code in build_new_symbol_table() in redo_prebinding.c for fix up

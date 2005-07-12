@@ -802,7 +802,8 @@ peap_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 	    context->eap.require_props 
 		= eap_client_require_properties(context);
 	    save_last_packet(context, (EAPPacketRef)in_pkt_p);
-	    *client_status = context->eap.last_status;
+	    *client_status = context->last_client_status =
+		context->eap.last_status;
 	}
 	break;
     case kEAPClientStateSuccess:

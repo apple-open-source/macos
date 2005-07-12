@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: filepro.c,v 1.47.2.2 2003/08/28 20:01:26 iliaa Exp $ */
+/* $Id: filepro.c,v 1.47.2.3 2005/02/07 13:33:04 tony2001 Exp $ */
 
 /*
   filePro 4.x support developed by Chad Robinson, chadr@brttech.com
@@ -98,11 +98,43 @@ PHP_MINIT_FUNCTION(filepro)
 	fp_globals = (fp_global_struct *) LocalAlloc(LPTR, sizeof(fp_global_struct)); 
 	TlsSetValue(FPTls, (void *) fp_globals);
 #endif
+
+	return SUCCESS;
+}
+/* }}} */
+
+/* {{{ PHP_RINIT_FUNCTION
+ */
+PHP_RINIT_FUNCTION(filepro)
+{
 	FP_GLOBAL(fp_database)=NULL;
 	FP_GLOBAL(fp_fcount)=-1;
 	FP_GLOBAL(fp_keysize)=-1;
 	FP_GLOBAL(fp_fieldlist)=NULL;
+ 
+	return SUCCESS;
+}
+/* }}} */
 
+/* {{{ PHP_RSHUTDOWN_FUNCTION
+ */
+PHP_RSHUTDOWN_FUNCTION(filepro)
+{
+	FP_FIELD *tmp, *next;
+
+	if (FP_GLOBAL(fp_database)) {
+		efree(FP_GLOBAL(fp_database));
+	}
+	
+	if (FP_GLOBAL(fp_fieldlist)) {
+		for (tmp = FP_GLOBAL(fp_fieldlist); tmp;) {
+			efree(tmp->name);
+			efree(tmp->format);
+			next = tmp->next;
+			efree(tmp);
+			tmp=next;
+		}	
+	}
 	return SUCCESS;
 }
 /* }}} */
@@ -145,7 +177,15 @@ function_entry filepro_functions[] = {
 
 zend_module_entry filepro_module_entry = {
 	STANDARD_MODULE_HEADER,
-	"filepro", filepro_functions, PHP_MINIT(filepro), PHP_MSHUTDOWN(filepro), NULL, NULL, NULL, NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
+	"filepro", 
+	filepro_functions, 
+	PHP_MINIT(filepro), 
+	PHP_MSHUTDOWN(filepro), 
+	PHP_RINIT(filepro),
+	PHP_RSHUTDOWN(filepro), 
+	NULL, 
+	NO_VERSION_YET, 
+	STANDARD_MODULE_PROPERTIES
 };
 
 
@@ -216,6 +256,8 @@ PHP_FUNCTION(filepro)
 	tmp = FP_GLOBAL(fp_fieldlist);
 	while (tmp != NULL) {
 		next = tmp->next;
+		efree(tmp->name);
+		efree(tmp->format);
 		efree(tmp);
 		tmp = next;
 	} 

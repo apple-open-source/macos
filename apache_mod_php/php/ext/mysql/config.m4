@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.54.2.2 2003/12/31 11:28:38 derick Exp $
+dnl $Id: config.m4,v 1.54.2.3 2004/12/30 07:02:17 sniper Exp $
 dnl
 
 sinclude(ext/mysql/libmysql/acinclude.m4)
@@ -7,7 +7,7 @@ sinclude(ext/mysql/libmysql/mysql.m4)
 sinclude(libmysql/acinclude.m4)
 sinclude(libmysql/mysql.m4)
 
-AC_DEFUN(MYSQL_LIB_CHK, [
+AC_DEFUN([MYSQL_LIB_CHK], [
   str="$MYSQL_DIR/$1/libmysqlclient.*"
   for j in `echo $str`; do
     if test -r $j; then
@@ -17,7 +17,7 @@ AC_DEFUN(MYSQL_LIB_CHK, [
   done
 ])
 
-AC_DEFUN(PHP_MYSQL_SOCKET_SEARCH, [
+AC_DEFUN([PHP_MYSQL_SOCKET_SEARCH], [
   for i in  \
     /var/run/mysqld/mysqld.sock \
     /var/tmp/mysql.sock \

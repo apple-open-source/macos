@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.333.2.46 2004/11/03 23:36:02 derick Exp $ */
+/* $Id: string.c,v 1.333.2.48 2005/01/20 17:57:41 iliaa Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -1085,7 +1085,7 @@ PHPAPI char *php_basename(char *s, size_t len, char *suffix, size_t sufflen)
 #endif
 		)
 		c--;
-	if (c < s+len-1) {
+	if (c+1 >= s && c < s+len-1) {
 		buf = *(c + 1);  /* Save overwritten char */
 		*(c + 1) = '\0'; /* overwrite char */
 		p = c + 1;       /* Save pointer to overwritten char */
@@ -1573,6 +1573,10 @@ PHP_FUNCTION(chunk_split)
 	if (chunklen <= 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Chunk length should be greater than zero.");
 		RETURN_FALSE;
+	}
+
+	if (chunklen > Z_STRLEN_PP(p_str)) {
+		RETURN_STRINGL(Z_STRVAL_PP(p_str), Z_STRLEN_PP(p_str), 1);	
 	}
 
 	if (!Z_STRLEN_PP(p_str)) {

@@ -11,6 +11,7 @@ root:*:0:0::0:0:System Administrator:/var/root:/bin/sh
 daemon:*:1:1::0:0:System Services:/var/root:/usr/bin/false
 unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false
 lp:*:26:26::0:0:Printing Services:/var/spool/cups:/usr/bin/false
+uucp:*:4:4::0:0:Unix to Unix Copy Protocol:/var/spool/uucp:/usr/sbin/uucico
 postfix:*:27:27::0:0:Postfix User:/var/spool/postfix:/usr/bin/false
 www:*:70:70::0:0:World Wide Web Server:/Library/WebServer:/usr/bin/false
 eppc:*:71:71::0:0:Apple Events User:/var/empty:/usr/bin/false

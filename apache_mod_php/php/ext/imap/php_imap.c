@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.142.2.28 2004/08/12 19:32:59 chagenbu Exp $ */
+/* $Id: php_imap.c,v 1.142.2.42 2005/01/25 14:23:37 tony2001 Exp $ */
 
 #define IMAP41
 
@@ -57,7 +57,8 @@
 MAILSTREAM DEFAULTPROTO;
 #endif
 
-#define CRLF	"\015\012"
+#define CRLF	 "\015\012"
+#define CRLF_LEN sizeof("\015\012") - 1
 #define PHP_EXPUNGE 32768
 #define PHP_IMAP_ADDRESS_SIZE_BUF 10
 
@@ -680,7 +681,9 @@ PHP_RSHUTDOWN_FUNCTION(imap)
 PHP_MINFO_FUNCTION(imap)
 {
 	php_info_print_table_start();
-#if HAVE_IMAP2001
+#if HAVE_IMAP2004
+	php_info_print_table_row(2, "IMAP c-Client Version", "2004");
+#elif HAVE_IMAP2001
 	php_info_print_table_row(2, "IMAP c-Client Version", "2001");
 #elif HAVE_IMAP2000
 	php_info_print_table_row(2, "IMAP c-Client Version", "2000");
@@ -692,7 +695,7 @@ PHP_MINFO_FUNCTION(imap)
 #if HAVE_IMAP_SSL
 	php_info_print_table_row(2, "SSL Support", "enabled");
 #endif
-#if HAVE_IMAP_KRB
+#if HAVE_IMAP_KRB && HAVE_IMAP_AUTH_GSS
 	php_info_print_table_row(2, "Kerberos Support", "enabled");
 #endif
 	php_info_print_table_end();
@@ -1479,11 +1482,19 @@ PHP_FUNCTION(imap_headerinfo)
 	convert_to_long_ex(msgno);
 	if (myargc >= 3) {
 		convert_to_long_ex(fromlength); 
+		if (Z_LVAL_PP(fromlength) < 0) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "From length has to be greater than or equal to 0");
+			RETURN_FALSE;
+		}
 	} else {
 		fromlength = 0x00;
 	}
 	if (myargc >= 4) {
 		convert_to_long_ex(subjectlength);
+		if (Z_LVAL_PP(subjectlength) < 0) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Subject length has to be greater than or equal to 0");
+			RETURN_FALSE;
+		}
 	} else {
 		subjectlength = 0x00;
 	}
@@ -1754,7 +1765,7 @@ PHP_FUNCTION(imap_fetchstructure)
 }
 /* }}} */
 
-/* {{{ proto string imap_fetchbody(resource stream_id, int msg_no, int section [, int options])
+/* {{{ proto string imap_fetchbody(resource stream_id, int msg_no, string section [, int options])
    Get a specific body section */
 PHP_FUNCTION(imap_fetchbody)
 {
@@ -2423,8 +2434,13 @@ PHP_FUNCTION(imap_sort)
 	}
 	if (myargc >= 4) {
 		convert_to_long_ex(flags);
+		if (Z_LVAL_PP(flags) < 0) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Search options parameter has to be greater than or equal to 0");
+			RETURN_FALSE;
+		}
 	}
 	if (myargc >= 5) {
+		convert_to_string_ex(criteria);
 		search_criteria = estrndup(Z_STRVAL_PP(criteria), Z_STRLEN_PP(criteria));
 		spg = mail_criteria(search_criteria);
 		efree(search_criteria);
@@ -2578,7 +2594,7 @@ PHP_FUNCTION(imap_status)
 }
 /* }}} */
 
-/* {{{ proto object imap_bodystruct(resource stream_id, int msg_no, int section)
+/* {{{ proto object imap_bodystruct(resource stream_id, int msg_no, string section)
    Read the structure of a specified body section of a specific message */
 PHP_FUNCTION(imap_bodystruct)
 {
@@ -2607,6 +2623,10 @@ PHP_FUNCTION(imap_bodystruct)
 	}
 	
 	body=mail_body(imap_le_struct->imap_stream, Z_LVAL_PP(msg), Z_STRVAL_PP(section));
+	if (body == NULL) {
+		zval_dtor(return_value);
+		RETURN_FALSE;
+	}
 	if (body->type <= TYPEMAX) {
 		add_property_long(return_value, "type", body->type);
 	}
@@ -2949,6 +2969,10 @@ PHP_FUNCTION(imap_mail_compose)
 			bod->contents.text.data = (char *) fs_get(Z_STRLEN_PP(pvalue) + 1);
 			memcpy(bod->contents.text.data, Z_STRVAL_PP(pvalue), Z_STRLEN_PP(pvalue)+1);
 			bod->contents.text.size = Z_STRLEN_PP(pvalue);
+		} else {
+			bod->contents.text.data = (char *) fs_get(1);
+			memcpy(bod->contents.text.data, "", 1);
+			bod->contents.text.size = 0;
 		}
 		if (zend_hash_find(Z_ARRVAL_PP(data), "lines", sizeof("lines"), (void **) &pvalue)== SUCCESS) {
 			convert_to_long_ex(pvalue);
@@ -3052,6 +3076,10 @@ PHP_FUNCTION(imap_mail_compose)
 				bod->contents.text.data = (char *) fs_get(Z_STRLEN_PP(pvalue) + 1);
 				memcpy(bod->contents.text.data, Z_STRVAL_PP(pvalue), Z_STRLEN_PP(pvalue) + 1);
 				bod->contents.text.size = Z_STRLEN_PP(pvalue);
+			} else {
+				bod->contents.text.data = (char *) fs_get(1);
+				memcpy(bod->contents.text.data, "", 1);
+				bod->contents.text.size = 0;
 			}
 			if (zend_hash_find(Z_ARRVAL_PP(data), "lines", sizeof("lines"), (void **) &pvalue)== SUCCESS) {
 				convert_to_long_ex(pvalue);
@@ -3065,9 +3093,14 @@ PHP_FUNCTION(imap_mail_compose)
 				convert_to_string_ex(pvalue);
 				bod->md5 = cpystr(Z_STRVAL_PP(pvalue));
 			}
-
-			zend_hash_move_forward(Z_ARRVAL_PP(body));
 		}
+		zend_hash_move_forward(Z_ARRVAL_PP(body));
+	}
+
+	if (bod && bod->type == TYPEMULTIPART && (!bod->nested.part || !bod->nested.part->next)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot generate multipart e-mail without components.");
+		RETVAL_FALSE;
+		goto done;
 	}
 
 	rfc822_encode_body_7bit(env, topbod); 
@@ -3075,17 +3108,29 @@ PHP_FUNCTION(imap_mail_compose)
 
 	/* add custom envelope headers */
 	if (custom_headers_param) {
+		int l = strlen(tmp) - 2, l2;
+		PARAMETER *tp = custom_headers_param;
+
 		/* remove last CRLF from tmp */
-		tmp[strlen(tmp) - 2] = '\0';
-		tempstring = emalloc(strlen(tmp) + 1);
-		strcpy(tempstring, tmp);
+		tmp[l] = '\0';
+		tempstring = emalloc(l);
+		memcpy(tempstring, tmp, l);
+		
 		do {
-			tempstring = erealloc(tempstring, strlen(tempstring) + strlen(custom_headers_param->value) + strlen(CRLF) + 1);
-			sprintf(tempstring, "%s%s%s", tempstring, custom_headers_param->value, CRLF);
+			l2 = strlen(custom_headers_param->value);
+			tempstring = erealloc(tempstring, l + l2 + CRLF_LEN + 1);
+			memcpy(tempstring + l, custom_headers_param->value, l2);
+			memcpy(tempstring + l + l2, CRLF, CRLF_LEN);
+			l += l2 + CRLF_LEN;
 		} while ((custom_headers_param = custom_headers_param->next));
 
-		mystring = emalloc(strlen(tempstring) + strlen(CRLF) + 1);
-		sprintf(mystring, "%s%s", tempstring, CRLF);
+		mail_free_body_parameter(&tp);		
+
+		mystring = emalloc(l + CRLF_LEN + 1);
+		memcpy(mystring, tempstring, l);
+		memcpy(mystring + l , CRLF, CRLF_LEN);
+		mystring[l + CRLF_LEN] = '\0';
+
 		efree(tempstring);
 	} else {
 		mystring = emalloc(strlen(tmp) + 1);
@@ -3132,36 +3177,32 @@ PHP_FUNCTION(imap_mail_compose)
 				bod=&part->body;
 
 				tempstring=emalloc(strlen(bod->contents.text.data)+strlen(CRLF)+strlen(mystring)+1);
-				strcpy(tempstring, mystring);
+				sprintf(tempstring, "%s%s%s", mystring, bod->contents.text.data, CRLF);
 				efree(mystring);
 				mystring=tempstring;
-				sprintf(mystring, "%s%s%s", mystring, bod->contents.text.data, CRLF);
-
 			} while ((part = part->next)); /* until done */
 
 			/* output trailing cookie */
 			sprintf(tmp, "--%s--", cookie);
 			tempstring=emalloc(strlen(tmp)+strlen(CRLF)+strlen(mystring)+1);
-			strcpy(tempstring, mystring);
+			sprintf(tempstring, "%s%s%s", mystring, tmp, CRLF);
 			efree(mystring);
 			mystring=tempstring;
-			sprintf(mystring, "%s%s%s", mystring, tmp, CRLF);
-
 	} else if (bod) {
-
-			tempstring=emalloc(strlen(bod->contents.text.data)+strlen(CRLF)+strlen(mystring)+1);
-			strcpy(tempstring, mystring);
+			tempstring = emalloc(strlen(bod->contents.text.data)+strlen(CRLF)+strlen(mystring)+1);
+			sprintf(tempstring, "%s%s%s", mystring, bod->contents.text.data, CRLF);
 			efree(mystring);
 			mystring=tempstring;
-			sprintf(mystring, "%s%s%s", mystring, bod->contents.text.data, CRLF);
-
 	} else {
 		efree(mystring);
-		RETURN_FALSE;
+		RETVAL_FALSE;
+		goto done;
 	}
 
-	RETVAL_STRINGL(mystring, strlen(mystring), 1);  
-	efree(tempstring);
+	RETVAL_STRING(tempstring, 0);
+done:
+	mail_free_body(&topbod);
+	mail_free_envelope(&env);
 }
 /* }}} */
 

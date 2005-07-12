@@ -420,7 +420,7 @@
 		};
 		D2277A1607417BF9002AF184 = {
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			name = "AppleUSBCDC-Info.plist";
 			path = "Plists/AppleUSBCDC-Info.plist";
 			refType = 4;
@@ -558,7 +558,7 @@
 		};
 		D2277A2507417BF9002AF184 = {
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			name = "AppleUSBCDCACMControl-Info.plist";
 			path = "Plists/AppleUSBCDCACMControl-Info.plist";
 			refType = 4;
@@ -696,7 +696,7 @@
 		};
 		D2277A3407417BF9002AF184 = {
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			name = "AppleUSBCDCACMData-Info.plist";
 			path = "Plists/AppleUSBCDCACMData-Info.plist";
 			refType = 4;
@@ -827,7 +827,7 @@
 		};
 		D2277A4207417BF9002AF184 = {
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			name = "AppleUSBCDCWCM-Info.plist";
 			path = "Plists/AppleUSBCDCWCM-Info.plist";
 			refType = 4;
@@ -965,7 +965,7 @@
 		};
 		D2277A5107417BFA002AF184 = {
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			name = "AppleUSBCDCECMControl-Info.plist";
 			path = "Plists/AppleUSBCDCECMControl-Info.plist";
 			refType = 4;
@@ -1103,7 +1103,7 @@
 		};
 		D2277A6007417BFA002AF184 = {
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			name = "AppleUSBCDCECMData-Info.plist";
 			path = "Plists/AppleUSBCDCECMData-Info.plist";
 			refType = 4;
@@ -1226,7 +1226,7 @@
 		};
 		D2277A6C07417BFA002AF184 = {
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			name = "AppleUSBCDCDMM-Info.plist";
 			path = "Plists/AppleUSBCDCDMM-Info.plist";
 			refType = 4;
@@ -1528,7 +1528,7 @@
 		D283B3800741889D0038DF03 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
-			lastKnownFileType = text.plist.xml;
+			lastKnownFileType = text.xml;
 			name = "AppleUSBCDCEEM-Info.plist";
 			path = "Plists/AppleUSBCDCEEM-Info.plist";
 			refType = 4;

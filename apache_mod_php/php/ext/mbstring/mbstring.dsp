@@ -38,7 +38,7 @@ RSC=rc.exe
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
-# PROP Output_Dir "Release_TS"
+# PROP Output_Dir "../../Release_TS"
 # PROP Intermediate_Dir "Release_TS"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
@@ -240,6 +240,10 @@ SOURCE=.\libmbfl\filters\mbfilter_iso8859_14.c
 # Begin Source File
 
 SOURCE=.\libmbfl\filters\mbfilter_iso8859_15.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\libmbfl\filters\mbfilter_iso8859_16.c
 # End Source File
 # Begin Source File
 
@@ -753,6 +757,10 @@ SOURCE=.\libmbfl\filters\unicode_table_iso8859_14.h
 # Begin Source File
 
 SOURCE=.\libmbfl\filters\unicode_table_iso8859_15.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\libmbfl\filters\unicode_table_iso8859_16.h
 # End Source File
 # Begin Source File
 

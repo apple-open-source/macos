@@ -1,0 +1,12 @@
+diff -Naur ./agent/Makefile.in /tmp/net_snmp.roots/net_snmp/net-snmp/agent/Makefile.in
+--- ./agent/Makefile.in	2005-05-19 10:59:19.000000000 -0700
++++ /tmp/net_snmp.roots/net_snmp/net-snmp/agent/Makefile.in	2004-10-05 17:38:38.000000000 -0700
+@@ -129,7 +129,7 @@
+ 
+ 
+ libnetsnmpagent.$(LIB_EXTENSION)$(LIB_VERSION):    ${LLIBAGENTOBJS} libnetsnmpmibs.$(LIB_EXTENSION)$(LIB_VERSION)
+-	$(LIB_LD_CMD) libnetsnmpagent.$(LIB_EXTENSION)$(LIB_VERSION) ${LLIBAGENTOBJS}  $(LIB_LD_LIBS)
++	$(LIB_LD_CMD) libnetsnmpagent.$(LIB_EXTENSION)$(LIB_VERSION) ${LLIBAGENTOBJS} -lwrap  $(LIB_LD_LIBS)
+ 	$(RANLIB) libnetsnmpagent.$(LIB_EXTENSION)$(LIB_VERSION)
+ 
+ libnetsnmpmibs.$(LIB_EXTENSION)$(LIB_VERSION):    ${LMIBOBJS}

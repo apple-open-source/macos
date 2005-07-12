@@ -380,7 +380,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			}
 			if ( nodeDescP->kind == kBTIndexNode )
  			{
-				if ( result = CheckForStop( GPtr ) )
+				if ( ( result = CheckForStop( GPtr ) ) )
 					goto exit;
 			}
 			
@@ -786,7 +786,7 @@ int CmpBTM( SGlobPtr GPtr, short fileRefNum )
 	NodeRec			node;
 	NodeDescPtr		nodeDescP;
 	BTreeControlBlock	*calculatedBTCB;
-	SInt16			*statP;
+	UInt16			*statP;
 
 	result = noErr;
 	calculatedBTCB	= GetBTreeControlBlock( fileRefNum );

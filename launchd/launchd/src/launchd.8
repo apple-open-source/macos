@@ -6,6 +6,7 @@
 .Nd System wide and per-user daemon/agent manager
 .Sh SYNOPSIS
 .Nm
+.Op Fl d
 .Op Fl v
 .Op Fl s
 .Op Fl x
@@ -31,6 +32,8 @@ During boot
 is invoked by the kernel to run as the first process on the system and to further bootstrap the rest of the system.
 .Sh OPTIONS WHEN RUN AS PID 1
 .Bl -tag -width -indent
+.It Fl d
+Daemonize. Useful when passing a command to launchd on the command line.
 .It Fl v
 Verbose boot.
 .It Fl s
@@ -39,6 +42,11 @@ Single user mode. Instructs
 to give a shell prompt before booting the system.
 .It Fl x
 Safe mode boot. Instructs the system to boot conservatively.
+.El
+.Sh ENVIRONMENTAL VARIABLES
+.Bl -tag -width -indent
+.It Pa LAUNCHD_SOCKET
+This variable is exported when invoking a command via the launchd command line. It informs launchctl how to find the correct launchd to talk to.
 .El
 .Sh NOTES
 In Darwin it is preferable to have your daemon launch via launchd instead of modifying

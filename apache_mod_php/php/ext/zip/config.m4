@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.5.2.1 2002/12/09 18:28:03 wez Exp $
+dnl $Id: config.m4,v 1.5.2.2 2004/12/31 02:57:08 iliaa Exp $
 dnl 
 
 PHP_ARG_WITH(zip,for ZIP support, 
@@ -18,6 +18,10 @@ if test "$PHP_ZIP" != "no"; then
 
   if test -z "$ZZIPLIB_DIR"; then
     AC_MSG_ERROR(Cannot find libzzip)
+  fi
+
+  if test -f $ZZIPLIB_INCDIR/zzip/zzip.h; then
+  	AC_DEFINE(HAVE_NEW_ZZIPLIB,1,[ ])	
   fi
 
   ZZIPLIB_LIBDIR=$ZZIPLIB_DIR/lib

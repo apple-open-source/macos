@@ -1,5 +1,5 @@
 /*
- "$Id: usb-darwin.c,v 1.13 2005/02/24 20:48:54 jlovell Exp $"
+ "$Id: usb-darwin.c,v 1.13.2.1 2005/05/27 06:58:42 jlovell Exp $"
 
 © Copyright 2005 Apple Computer, Inc. All rights reserved.
 
@@ -59,6 +59,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <IOKit/IOCFPlugIn.h>
 #include <mach/mach.h>	
 #include <mach/mach_error.h>
+#include <mach/mach_time.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -581,9 +582,26 @@ readthread( void *reference )
 	kern_return_t			readstatus;
 	USBPrinterClassContext	**classdriver = (USBPrinterClassContext	**) reference;
 
-	
+
+	struct mach_timebase_info	timeBaseInfo;
+	uint64_t					start,
+								delay;
+
+   /*
+	* Calculate what 250 milliSeconds are in mach absolute time...
+	*/
+
+	mach_timebase_info(&timeBaseInfo);
+	delay = ((uint64_t)250000000 * (uint64_t)timeBaseInfo.denom) / (uint64_t)timeBaseInfo.numer;
+
 	do
 	{
+	   /*
+		* Remember when we started so we can throttle the loop after the read call...
+		*/
+
+		start = mach_absolute_time();
+
 		rbytes = sizeof(readbuffer) - 1;
 		readstatus = (*classdriver)->ReadPipe( classdriver, readbuffer, &rbytes );
 		if ( kIOReturnSuccess == readstatus && rbytes > 0 )
@@ -600,6 +618,14 @@ readthread( void *reference )
 			parsePSError(readbuffer, rbytes);
 #endif
 		}
+
+	   /*
+		* Make sure this loop executes no more than once every 250 miliseconds...
+		*/
+
+		if ((readstatus != kIOReturnSuccess || rbytes == 0) && (gWaitEOF || !done))
+			mach_wait_until(start + delay);
+
 	} while ( gWaitEOF || !done );	// Abort from main thread tests error here
 
 	/* Let the other thread (main thread) know that we have

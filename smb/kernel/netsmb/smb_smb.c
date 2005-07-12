@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_smb.c,v 1.35 2005/01/28 23:54:13 lindak Exp $
+ * $Id: smb_smb.c,v 1.35.100.2 2005/06/02 00:55:39 lindak Exp $
  */
 /*
  * various SMB requests. Most of the routines merely packs data into mbufs.
@@ -133,8 +133,7 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 	if (smb_smb_nomux(vcp, scred, __FUNCTION__) != 0)
 		return EINVAL;
 	vcp->vc_hflags = SMB_FLAGS_CASELESS;
-	/* Disable Unicode for SMB_COM_NEGOTIATE requests */ 
-	vcp->vc_hflags &= ~SMB_FLAGS2_UNICODE;
+	/* Leave SMB_FLAGS2_UNICODE "off" - no need to do anything */ 
 	vcp->vc_hflags2 |= SMB_FLAGS2_ERR_STATUS;
 	vcp->obj.co_flags &= ~(SMBV_ENCRYPT);
 	sp = &vcp->vc_sopt;
@@ -530,6 +529,15 @@ uppercasify_string(struct smb_vc *vcp, const char *string)
 }
 
 /*
+ * See radar 4134676.  This define helps us avoid how a certain old server
+ * grants limited Guest access when we try NTLMv2, but works fine with NTLM.
+ * The fingerprint we are looking for here is DOS error codes and no-Unicode.
+ * Note XP grants Guest access but uses Unicode and NT error codes.
+ */
+#define smb_antique(rqp) (!((rqp)->sr_rpflags2 & SMB_FLAGS2_ERR_STATUS) && \
+			  !((rqp)->sr_rpflags2 & SMB_FLAGS2_UNICODE))
+
+/*
  * When not doing Kerberos, we can try, in order:
  *
  *	NTLMv2
@@ -560,7 +568,7 @@ smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred)
 	char *pp = NULL, *up, *ucup, *ucdp;
 	char *pbuf = NULL;
 	char *encpass = NULL;
-	int error, ulen;
+	int error = 0, ulen;
 	size_t plen = 0, uniplen = 0;
 	int state;
 	size_t ntlmv2_bloblen;
@@ -569,18 +577,31 @@ smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred)
 	u_int32_t caps = 0;
 	u_int16_t bl; /* BLOB length */
 	u_int16_t stringlen;
+	u_short	saveflags2 = vcp->vc_hflags2;
+	void *	savetoserver = vcp->vc_toserver;
+	u_int16_t action;
+	int declinedguest = 0;
 
 	caps |= SMB_CAP_LARGE_FILES;
-	if (vcp->obj.co_flags & SMBV_UNICODE)
+
+	if (vcp->obj.co_flags & SMBV_UNICODE) 
 		caps |= SMB_CAP_UNICODE;
+	/* No unicode unless server supports and encryption on */
+	if (!((vcp->vc_sopt.sv_sm & SMB_SM_ENCRYPT) && (vcp->obj.co_flags & SMBV_UNICODE))) {
+		vcp->vc_hflags2 &= 0xffff - SMB_FLAGS2_UNICODE;
+		vcp->vc_toserver = 0;
+	}
+
         if (vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS)
                 caps |= SMB_CAP_NT_SMBS; /* we do if they do */
 	minauth = vcp->obj.co_flags & SMBV_MINAUTH;
 	if (vcp->vc_intok) {
 		if (vcp->vc_intoklen > 65536 ||
 		    !(vcp->vc_hflags2 & SMB_FLAGS2_EXT_SEC) ||
-		    SMB_DIALECT(vcp) < SMB_DIALECT_NTLM0_12)
-			return EINVAL;
+		    SMB_DIALECT(vcp) < SMB_DIALECT_NTLM0_12) {
+			error = EINVAL;
+			goto ssn_exit;
+		}
 		vcp->vc_smbuid = 0;
 	}
 	if (vcp->vc_hflags2 & SMB_FLAGS2_ERR_STATUS)
@@ -594,8 +615,10 @@ again:
 	if (!vcp->vc_intok)
 		vcp->vc_smbuid = SMB_UID_UNKNOWN;
 
-	if (smb_smb_nomux(vcp, scred, __FUNCTION__) != 0)
-		return EINVAL;
+	if (smb_smb_nomux(vcp, scred, __FUNCTION__) != 0) {
+		error = EINVAL;
+		goto ssn_exit;
+	}
 
 	if (!vcp->vc_intok) {
 		/*
@@ -604,8 +627,10 @@ again:
 		 * Fail if the minimum authentication level is
 		 * Kerberos.
 		 */
-		if (minauth >= SMBV_MINAUTH_KERBEROS)
-			return EAUTH;
+		if (minauth >= SMBV_MINAUTH_KERBEROS) {
+			error = EAUTH;
+			goto ssn_exit;
+		}
 		if (vcp->vc_sopt.sv_sm & SMB_SM_ENCRYPT) {
 			/*
 			 * Encrypted passwords.
@@ -613,8 +638,10 @@ again:
 			 * authentication level is NTLMv2 or better.
 			 */
 			if (state > STATE_NTLMV2) {
-				if (minauth >= SMBV_MINAUTH_NTLMV2)
-					return EAUTH;
+				if (minauth >= SMBV_MINAUTH_NTLMV2) {
+					error =  EAUTH;
+					goto ssn_exit;
+				}
 			}
 		} else {
 			/*
@@ -622,15 +649,17 @@ again:
 			 * Fail if the minimum authentication level is
 			 * LM or better.
 			 */
-			if (minauth >= SMBV_MINAUTH_LM)
-				return EAUTH;
+			if (minauth >= SMBV_MINAUTH_LM) {
+				error =  EAUTH;
+				goto ssn_exit;
+			}
 		}
 	}
 
 	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_SESSION_SETUP_ANDX,
 			     scred, &rqp);
 	if (error)
-		return error;
+		goto ssn_exit;
 	/*
 	 * Domain name must be upper-case, as that's what's used
 	 * when computing LMv2 and NTLMv2 responses - and, for NTLMv2,
@@ -769,7 +798,8 @@ again:
 			pp = pbuf;
 			uniplen = plen * 2;
 			ntencpass = malloc(uniplen, M_SMBTEMP, M_WAITOK);
-			(void)smb_strtouni(ntencpass, smb_vc_getpass(vcp), 0, UTF_PRECOMPOSED);
+			(void)smb_strtouni(ntencpass, smb_vc_getpass(vcp), 0,
+					   UTF_PRECOMPOSED);
 			plen--;
 			/*
 			 * The uniplen is zeroed because Samba cannot deal
@@ -859,7 +889,7 @@ again:
 		md_get_uint8(mdp, NULL);	/* secondary cmd */
 		md_get_uint8(mdp, NULL);	/* mbz */
 		md_get_uint16le(mdp, NULL);	/* andxoffset */
-		md_get_uint16le(mdp, NULL);	/* action */
+		md_get_uint16le(mdp, &action);	/* action */
 		if (vcp->vc_intok)
 			md_get_uint16le(mdp, &bl);	/* ext security */
 		md_get_uint16le(mdp, NULL); /* byte count */
@@ -882,23 +912,40 @@ bad:
 		free(pbuf, M_SMBTEMP);
 		pbuf = NULL;
 	}
-	smb_rq_done(rqp);
-	if (error && (vcp->vc_sopt.sv_sm & SMB_SM_USER) && !(vcp->vc_intok)) {
+	if (vcp->vc_sopt.sv_sm & SMB_SM_USER && !vcp->vc_intok &&
+	    (error || (*up != '\0' && action & SMB_ACT_GUEST &&
+		       state == STATE_NTLMV2 && smb_antique(rqp)))) {
 		/*
 		 * We're doing user-level authentication (so we are actually
 		 * sending authentication stuff over the wire), and we're
-		 * not doing extended security), and the stuff we tried
-		 * failed.  Should we try the next type of authentication?
+		 * not doing extended security, and the stuff we tried
+		 * failed (or we we're trying to login a real user but
+		 * got granted guest access instead.)
+		 */
+		if (!error)
+			declinedguest = 1;
+		/*
+		 * Should we try the next type of authentication?
 		 */
 		if (state < STATE_UCPW) {
 			/*
 			 * Yes, we still have more to try.
 			 */
 			state++;
+			smb_rq_done(rqp);
 			goto again;
 		}
 	}
-	return error;
+	smb_rq_done(rqp);
+
+ssn_exit:
+	if (error && declinedguest)
+		SMBERROR("we declined ntlmv2 guest access. errno will be %d\n",
+			 error);
+	/* Restore things we changed and return */
+	vcp->vc_hflags2 = saveflags2;
+	vcp->vc_toserver = savetoserver;
+	return (error);
 }
 
 int

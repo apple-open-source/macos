@@ -100,7 +100,7 @@ main(argc, argv)
 	extern int optind;
 	extern char *optarg;
 
-	if (progname = strrchr(*argv, '/'))
+	if ((progname = strrchr(*argv, '/')))
 		++progname;
 	else
 		progname = *argv;

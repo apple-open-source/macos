@@ -58,8 +58,8 @@ HFSPlusCatalogKey gMetaDataDirKey = {
 
 /* private local routines */
 static int  GetPrivateDir(SGlobPtr gp, CatalogRecord *rec);
-static int  RecordOrphanINode(SGlobPtr gp, UInt32 parID, char * filename);
-static int  RecordBadLinkCount(SGlobPtr gp, UInt32 parID, char * filename,
+static int  RecordOrphanINode(SGlobPtr gp, UInt32 parID, unsigned char * filename);
+static int  RecordBadLinkCount(SGlobPtr gp, UInt32 parID, unsigned char * filename,
                                 int badcnt, int goodcnt);
 static void hash_insert(UInt32 linkID, int m, int n, struct IndirectLinkInfo *linkInfo);
 static struct IndirectLinkInfo * hash_search(UInt32 linkID, int m, int n, struct IndirectLinkInfo *linkInfo);
@@ -198,7 +198,7 @@ CheckHardLinks(void *cookie)
 	int prefixlen;
 	int result;
 	struct IndirectLinkInfo * linkInfo;
-	char filename[64];
+	unsigned char filename[64];
 
 	/* All done if no hard links exist. */
 	if (info == NULL || (info->privDirID == 0 && info->slotsUsed == 0))
@@ -252,16 +252,16 @@ CheckHardLinks(void *cookie)
 		 * 1. Volume was unmounted cleanly.
 		 * 2. fsck is being run in debug mode.
 		 */
-		if ((strstr(filename, HFS_DELETE_PREFIX) == filename) &&
+		if ((strstr((char *)filename, HFS_DELETE_PREFIX) == (char *)filename) &&
 			(gp->logLevel == kDebugLog)) {
 			RecordOrphanINode(gp, folderID, filename);
 			continue;		
 		}
 				
-		if (strstr(filename, HFS_INODE_PREFIX) != filename)
+		if (strstr((char *)filename, HFS_INODE_PREFIX) != (char *)filename)
 			continue;
 		
-		linkID = atol(&filename[prefixlen]);
+		linkID = atol((char *)&filename[prefixlen]);
 		linkCount = rec.hfsPlusFile.bsdInfo.special.linkCount;
 		linkInfo = hash_search(linkID, info->linkSlots, info->slotsUsed, info->linkInfo);
 		if (linkInfo) {
@@ -340,14 +340,14 @@ GetPrivateDir(SGlobPtr gp, CatalogRecord * rec)
  * Record a repair to delete an orphaned indirect node.
  */
 static int
-RecordOrphanINode(SGlobPtr gp, UInt32 parID, char* filename)
+RecordOrphanINode(SGlobPtr gp, UInt32 parID, unsigned char* filename)
 {
 	RepairOrderPtr p;
 	int n;
 	
 	PrintError(gp, E_UnlinkedFile, 1, filename);
 	
-	n = strlen(filename);
+	n = strlen((char *)filename);
 	p = AllocMinorRepairOrder(gp, n + 1);
 	if (p == NULL)
 		return (R_NoMem);
@@ -371,7 +371,7 @@ RecordOrphanINode(SGlobPtr gp, UInt32 parID, char* filename)
  * Record a repair to adjust an indirect node's link count.
  */
 static int
-RecordBadLinkCount(SGlobPtr gp, UInt32 parID, char * filename,
+RecordBadLinkCount(SGlobPtr gp, UInt32 parID, unsigned char * filename,
                    int badcnt, int goodcnt)
 {
 	RepairOrderPtr p;
@@ -384,7 +384,7 @@ RecordBadLinkCount(SGlobPtr gp, UInt32 parID, char * filename,
 	sprintf(badstr, "%d", badcnt);
 	PrintError(gp, E_BadValue, 2, goodstr, badstr);
 
-	n = strlen(filename);
+	n = strlen((char *)filename);
 	p = AllocMinorRepairOrder(gp, n + 1);
 	if (p == NULL)
 		return (R_NoMem);

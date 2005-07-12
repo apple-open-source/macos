@@ -38,6 +38,8 @@
 #include <sys/xattr.h>
 #include <sys/acl.h>
 #include <sys/kauth.h>
+#include <sys/errno.h>
+#include <sys/syslimits.h>
 
 #ifdef __cplusplus
 extern	"C" {
@@ -59,6 +61,9 @@ enum {
 //
 // Misc constants
 //
+
+/* IO size for reading or writing disk blocks */
+#define DISK_IOSIZE	32768
 
 #define kMaxReScan	3	/* max times to re-scan volume on repair success */
 
@@ -91,6 +96,21 @@ enum {
 #define	VAtrb_Cons	0x0100			/* volume consistency flag */
 #define kHFSCatalogNodeIDsReused 0x1000		
 
+/*
+ *	File type and creator for symbolic links (from xnu/bsd/hfs/hfs.h)
+ */
+enum {
+	kSymLinkFileType  = 0x736C6E6B,	/* 'slnk' */
+	kSymLinkCreator   = 0x72686170	/* 'rhap' */
+};
+
+/*
+ *	File type and creator for TextEdit documents
+ */
+enum {
+	kTextFileType		= 0x54455854,	/* 'TEXT' */
+	kTextFileCreator	= 0x74747874,	/* 'ttxt' */
+};
 
 /*------------------------------------------------------------------------------
  BTree data structures
@@ -143,9 +163,6 @@ typedef	STPR SBTPT[BTMaxDepth]; 		/* BTree path table */
 #define CMMaxDepth	100				/* max catalog depth (Same as Finder 7.0) */
 
 #define fNameLocked 4096
-
-#define kDataFork	0
-#define kRsrcFork	(-1)
 
 union CatalogName {
 	Str31 							pstr;
@@ -325,7 +342,7 @@ enum {
 	UInt32		maskBit;	/* incorrect bit */
 	UInt32		hint;		/* B-tree node hint */
 	UInt32		parid;		/* parent ID */
-	unsigned char	name[1];	/* dir or file name */
+	unsigned char name[1];	/* dir or file name */
  } RepairOrder, *RepairOrderPtr;
 
 
@@ -365,15 +382,17 @@ typedef struct MissingThread
 	HFSPlusCatalogThread  thread;
 } MissingThread;
 
-
+#define kDataFork	0
+#define kRsrcFork	(-1)
 
 struct ExtentInfo {
-	HFSCatalogNodeID 				fileNumber;
-	UInt32 							startBlock;
-	UInt32 							blockCount;
-	UInt8							forkType;
-	Boolean							hasThread;
-	UInt16							reservedWord;
+	HFSCatalogNodeID fileID;
+	UInt32	startBlock;
+	UInt32 	blockCount;
+	UInt32	newStartBlock;
+	UInt8	forkType;
+	Boolean	hasThread;
+	Boolean hasRepair;
 };
 typedef struct ExtentInfo ExtentInfo;
 
@@ -717,7 +736,7 @@ typedef struct SGlob {
 	int				lostAndFoundMode;  // used when creating lost+found directory
 	BTScanState		scanState;
 
-	char			volumeName[256]; /* volume name in ASCII or UTF-8 */
+	unsigned char	volumeName[256]; /* volume name in ASCII or UTF-8 */
 
 	PrimeBuckets 	CBTAttrBucket;		/* prime number buckets for Attribute bit in Catalog btree */
 	PrimeBuckets 	CBTSecurityBucket;	/* prime number buckets for Security bit in Catalog btree */
@@ -843,8 +862,9 @@ enum {
 	M_OtherWriters		       	= 22,
 	M_CaseSensitive		       	= 23,
 	M_ReRepairFailed			= 24,			
+	M_LookDamagedDir			= 25,
 
-	M_LastMessage               = 24
+	M_LastMessage               = 25
 };
 
 /*------------------------------------------------------------------------------
@@ -872,7 +892,7 @@ enum {
 	E_ABlkSt		= -509,	/* Invalid allocation block start */
 
 	E_ExtEnt		= -510,	/* Invalid extent entry */
-	E_OvlExt		= -511,	/* overlapped extent allocation */
+	E_OvlExt		=  511,	/* overlapped extent allocation */
 	E_LenBTH		= -512,	/* Invalid BTH length */
 	E_ShortBTM		= -513,	/* BT map too short to repair */
 	E_BTRoot		= -514,	/* Invalid root node number */
@@ -943,8 +963,9 @@ enum {
 	/* Init the next two errors to pre-existing messages.  Fix them in 3964748 */
 	E_IncorrectAttrCount	=  547,	/* Incorrect attributes in attr btree with attr bits in catalog btree */
 	E_IncorrectSecurityCount=  547, /* Incorrect security attributes in attr btree with security bits in catalog btree */
+	E_SymlinkCreate		=  573,
 
-	E_LastError		=  572
+	E_LastError		=  573
 };
 
 
@@ -1019,6 +1040,15 @@ extern	int		MRepair( SGlobPtr GPtr );
 extern	int		FixDFCorruption( const SGlobPtr GPtr, RepairOrderPtr DFOrderP );
 
 extern	OSErr	ProcessFileExtents( SGlobPtr GPtr, SFCB *fcb, UInt8 forkType, UInt16 flags, Boolean isExtentsBTree, Boolean *hasOverflowExtents, UInt32 *blocksUsed  );
+
+/* Function to get return file path/name given an ID */
+extern 	OSErr 	GetSystemFileName(UInt32 fileID, char *filename, unsigned int *filenamelen);
+extern 	OSErr 	GetFileNamePathByID(SGlobPtr GPtr, UInt32 fileID, char *fullPath, unsigned int *fullPathLen, char *fileName, unsigned int *fileNameLen, u_int16_t *status);
+#define FNAME_BUF2SMALL	0x001	/* filename buffer was too small */
+#define FNAME_BIGNAME	0x002	/* filename is greater than NAME_MAX bytes */
+#define FPATH_BUF2SMALL	0x010	/* path buffer was too small */
+#define	FPATH_BIGNAME	0x020	/* intermediate component in path is greater than NAME_MAX bytes */
+#define	F_RESERVE_FILEID 0x100	/* file ID was less than kHFSFirstUserCatalogNodeID */
 
 /* ------------------------------- From SUtils.c --------------------------------- */
 
@@ -1158,6 +1188,12 @@ void ExtDataRecToExtents(
 	const HFSExtentRecord	oldExtents,
 	HFSPlusExtentRecord	newExtents);
 
+OSErr UpdateExtentRecord (
+	const SVCB		*vcb,
+	SFCB					*fcb,
+	const HFSPlusExtentKey	*extentFileKey,
+	HFSPlusExtentRecord		extentData,
+	UInt32					extentBTreeHint);
 
 OSErr	CheckFileExtents( SGlobPtr GPtr, UInt32 fileNumber, UInt8 forkType,
                           const void *extents, UInt32 *blocksUsed );
@@ -1372,8 +1408,8 @@ Ptr	GetFCBSPtr( void );
 /* 
  * UTF-8 conversion routines
  */
-extern int utf_decodestr(const u_int8_t *, size_t, u_int16_t *, size_t *);
-extern int utf_encodestr(const u_int16_t *, size_t, u_int8_t *, size_t *);
+extern int utf_decodestr(const unsigned char *, size_t, u_int16_t *, size_t *);
+extern int utf_encodestr(const u_int16_t *, size_t, unsigned char *, size_t *);
 
 /* 
  * HardLink checking routines
@@ -1391,7 +1427,7 @@ extern int  BitMapCheckEnd(void);
 extern int  CaptureBitmapBits(UInt32 startBit, UInt32 bitCount);
 extern int  ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount);
 extern int  CheckVolumeBitMap(SGlobPtr g, Boolean repair);
-
+extern void UpdateFreeBlockCount(SGlobPtr g);
 
 #ifdef __cplusplus
 };

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.19.2.5 2004/12/06 20:37:56 derick Exp $
+dnl $Id: config.m4,v 1.19.2.6 2005/01/10 21:38:56 tony2001 Exp $
 dnl
 
 PHP_ARG_WITH(iconv, for iconv support,
@@ -44,7 +44,7 @@ if test "$PHP_ICONV" != "no"; then
     else
       case "$iconv_lib_name" in
         iconv [)]
-          AC_MSG_CHECKING([if iconv is Konstantin Chugeuv's])
+          AC_MSG_CHECKING([if iconv is Konstantin Chuguev's])
           AC_TRY_LINK([#include <iconv.h>],[iconv_ccs_init(NULL, NULL);],
           [
             AC_MSG_RESULT(yes)
@@ -76,7 +76,7 @@ if test "$PHP_ICONV" != "no"; then
 
       bsd [)]
         PHP_DEFINE([HAVE_BSD_ICONV],1,[ext/iconv])
-        AC_DEFINE([HAVE_BSD_ICONV],1,[Konstantin Chugeuv's iconv implementation])
+        AC_DEFINE([HAVE_BSD_ICONV],1,[Konstantin Chuguev's iconv implementation])
         PHP_DEFINE([PHP_ICONV_IMPL],[\"BSD iconv\"],[ext/iconv])
         AC_DEFINE([PHP_ICONV_IMPL],["BSD iconv"],[Which iconv implementation to use])
         ;;

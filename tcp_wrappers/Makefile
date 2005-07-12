@@ -1,8 +1,11 @@
 ##
 # Makefile for tcp_wrappers
 ##
+MAJOR=7
+MINOR=6
 
 # Project info
+
 Project             = tcp_wrappers
 UserType            = Developer
 ToolType            = Commands
@@ -14,7 +17,9 @@ Extra_Environment   = REAL_DAEMON_DIR=/usr/libexec	\
 		      DENY_SEVERITY=LOG_WARNING		\
 		      PARANOID=				\
 		      HOSTNAME=				\
-		      BUGS=
+		      BUGS=				\
+		      MAJOR=$(MAJOR)			\
+		      MINOR=$(MINOR)
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
@@ -34,6 +39,10 @@ install::
 	$(INSTALL_FILE)     $(BuildDirectory)/$(Project)/libwrap.a   $(DSTROOT)/usr/lib
 	ranlib $(DSTROOT)/usr/lib/libwrap.a
 	strip -S $(DSTROOT)/usr/lib/libwrap.a
+	$(INSTALL_FILE)     $(BuildDirectory)/$(Project)/libwrap.$(MAJOR).dylib   $(DSTROOT)/usr/lib
+	strip -x $(DSTROOT)/usr/lib/libwrap.$(MAJOR).dylib
+	ln -fs libwrap.$(MAJOR).dylib $(DSTROOT)/usr/lib/libwrap.$(MAJOR).$(MINOR).dylib
+	ln -fs libwrap.$(MAJOR).dylib $(DSTROOT)/usr/lib/libwrap.dylib
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/tcpd.h          $(DSTROOT)/usr/include
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/hosts_access.3  $(DSTROOT)/usr/share/man/man3
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/hosts_access.5  $(DSTROOT)$(MANDIR)/man5

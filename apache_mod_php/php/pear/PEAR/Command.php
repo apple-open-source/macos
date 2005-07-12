@@ -1,7 +1,7 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP Version 4                                                        |
+// | PHP Version 5                                                        |
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
 // | Author: Stig Bakken <ssb@php.net>                                    |
 // +----------------------------------------------------------------------+
 //
-// $Id: Command.php,v 1.16.4.12 2004/02/27 02:24:16 cellog Exp $
+// $Id: Command.php,v 1.16.4.13 2005/03/28 16:56:58 cellog Exp $
 
 
 require_once "PEAR.php";
@@ -280,6 +280,7 @@ class PEAR_Command
                 $GLOBALS['_PEAR_Command_shortcuts'][$shortcut] = $command;
             }
         }
+        @closedir($dp);
         return true;
     }
 

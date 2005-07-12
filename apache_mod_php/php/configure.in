@@ -1,4 +1,4 @@
-dnl ## $Id: configure.in,v 1.396.2.140 2004/12/14 16:07:49 iliaa Exp $ -*- sh -*-
+dnl ## $Id: configure.in,v 1.396.2.160 2005/03/30 14:18:36 iliaa Exp $ -*- sh -*-
 dnl ## Process this file with autoconf to produce a configure script.
 
 divert(1)
@@ -35,20 +35,20 @@ for arg in $0 "$@"; do
   CONFIGURE_COMMAND="$CONFIGURE_COMMAND '$arg'"
 done
 
-AC_CANONICAL_HOST
+PHP_CANONICAL_HOST
 AC_CONFIG_HEADER(main/php_config.h)
 
 MAJOR_VERSION=4
 MINOR_VERSION=3
-RELEASE_VERSION=10
+RELEASE_VERSION=11
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
 dnl Define where extension directories are located in the configure context
-AC_DEFUN(PHP_EXT_BUILDDIR,[ext/$1])dnl
-AC_DEFUN(PHP_EXT_DIR,[ext/$1])dnl
-AC_DEFUN(PHP_EXT_SRCDIR,[$abs_srcdir/ext/$1])dnl
-AC_DEFUN(PHP_ALWAYS_SHARED,[])dnl
+AC_DEFUN([PHP_EXT_BUILDDIR],[ext/$1])dnl
+AC_DEFUN([PHP_EXT_DIR],[ext/$1])dnl
+AC_DEFUN([PHP_EXT_SRCDIR],[$abs_srcdir/ext/$1])dnl
+AC_DEFUN([PHP_ALWAYS_SHARED],[])dnl
 
 dnl Setting up the PHP version based on the information above.
 dnl -------------------------------------------------------------------------
@@ -79,6 +79,10 @@ fi
 
 if test -n "$with_apache" && test -n "$with_apxs"; then
   AC_MSG_ERROR([--with-apache and --with-apxs cannot be used together])
+fi
+
+if test -n "$with_apxs2filter" && test -n "$with_apxs2"; then
+  AC_MSG_ERROR([--with-apxs2filter and --with-apxs2 cannot be used together])
 fi
 
 
@@ -128,7 +132,6 @@ dnl check for -R, etc. switch
 PHP_RUNPATH_SWITCH
 
 PHP_PROG_RE2C
-AC_PROG_RANLIB
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_YACC
@@ -170,13 +173,12 @@ else
 	AC_MSG_WARN(You will need flex 2.5.4 or later if you want to regenerate Zend/PHP lexical parsers.)
 fi
 
+dnl Check whether byte ordering is bigendian
+PHP_C_BIGENDIAN
+
+
 dnl Platform-specific compile settings.
 dnl -------------------------------------------------------------------------
-
-dnl if host_alias is empty, ac_cv_host_alias may still have the info
-if test -z "$host_alias"; then
-    host_alias=$ac_cv_host_alias
-fi
 
 case $host_alias in
 *solaris*)
@@ -195,6 +197,26 @@ case $host_alias in
     LIBS="$LIBS -lbe -lroot";;
 *mips*)
     CPPFLAGS="$CPPFLAGS -D_XPG_IV";;
+*hpux*)
+    if test "$GCC" = "yes"; then
+      CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE_EXTENDED"  
+    fi  
+    ;;
+esac
+
+# Disable PIC mode by default where it is known to be safe to do so,
+# to avoid the performance hit from the lost register
+AC_MSG_CHECKING([whether to force non-PIC code in shared modules])
+case $host_alias in
+i?86-*-linux*|i?86-*-freebsd*)
+    if test "${with_pic+set}" != "set" || test "$with_pic" = "no"; then
+      with_pic=no
+      AC_MSG_RESULT(yes)
+    else
+      AC_MSG_RESULT(no)
+    fi
+    ;;
+*) AC_MSG_RESULT(no) ;;
 esac
 
 
@@ -277,7 +299,6 @@ if test -d /usr/pkg/include -a -d /usr/pkg/lib ; then
        CPPFLAGS="$CPPFLAGS -I/usr/pkg/include"
        LDFLAGS="$LDFLAGS -L/usr/pkg/lib"
 fi
-INCLUDES="$INCLUDES -I\$(top_builddir)/Zend"
 test -d /usr/ucblib && PHP_ADD_LIBPATH(/usr/ucblib)
 
 
@@ -322,6 +343,8 @@ AC_HEADER_DIRENT
 PHP_MISSING_FCLOSE_DECL
 dnl QNX requires unix.h to allow functions in libunix to work properly
 AC_CHECK_HEADERS([ \
+inttypes.h \
+stdint.h \
 dirent.h \
 ApplicationServices/ApplicationServices.h \
 sys/param.h \
@@ -350,7 +373,6 @@ stdlib.h \
 string.h \
 syslog.h \
 sysexits.h \
-sys/bitypes.h \
 sys/file.h \
 sys/mman.h \
 sys/mount.h \
@@ -812,7 +834,6 @@ fi
 
 enable_shared=yes
 enable_static=yes
-unset with_pic
 
 case $php_build_target in
 program|static)
@@ -823,7 +844,10 @@ program|static)
 ;;
 shared)
     enable_static=no
-    standard_libtool_flag=-prefer-pic
+    case $with_pic in
+      yes) standard_libtool_flag='-prefer-pic';;
+      no)  standard_libtool_flag='-prefer-non-pic';;
+    esac
     EXTRA_LDFLAGS="$EXTRA_LDFLAGS -avoid-version -module"
 ;;
 esac
@@ -849,6 +873,11 @@ if test -z "$with_pear" && test "$enable_pear" = "no"; then
   with_pear=no
 fi
 
+# If CLI is disabled -> disable PEAR
+if test "$PHP_SAPI_CLI" = "no"; then
+  with_pear=no
+fi
+
 PHP_ARG_WITH(pear, [whether to install PEAR],
 [  --with-pear=DIR         Install PEAR in DIR (default PREFIX/lib/php)
   --without-pear          Do not install PEAR], DEFAULT, yes)
@@ -858,17 +887,13 @@ if test "$PHP_PEAR" != "no"; then
   dnl
   dnl PEAR dependancies
   dnl
-  if test "$PHP_SAPI_CLI" = "no"; then
-    pear_error_msg="$pear_error_msg 
-                    PEAR requires CLI to be enabled.     Add --enable-cli to the configure line. (or --disable-pear)"
-  fi
   if test "$PHP_PCRE_REGEX" = "no"; then
     pear_error_msg="$pear_error_msg 
-                    PEAR requires PCRE to be enabled.    Add --with-pcre-regex to the configure line. (or --disable-pear)"
+                    PEAR requires PCRE to be enabled.    Add --with-pcre-regex to the configure line. (or --without-pear)"
   fi
   if test "$PHP_XML" = "no"; then
     pear_error_msg="$pear_error_msg 
-                    PEAR requires XML to be enabled.     Add --enable-xml to the configure line. (or --disable-pear)"
+                    PEAR requires XML to be enabled.     Add --enable-xml to the configure line. (or --without-pear)"
   fi
 
 dnl
@@ -876,7 +901,7 @@ dnl ext/xmlrpc is not really there yet to be a requirement..
 dnl
 dnl  if test "$PHP_XMLRPC" = "no"; then
 dnl    pear_error_msg="$pear_error_msg 
-dnl                    PEAR requires XML-RPC to be enabled. Add --with-xmlrpc to the configure line. (or --disable-pear)"
+dnl                    PEAR requires XML-RPC to be enabled. Add --with-xmlrpc to the configure line. (or --without-pear)"
 dnl fi
 dnl
 
@@ -893,6 +918,8 @@ dnl
       *)   PEAR_INSTALLDIR=$libdir/php;;
     esac
   fi
+
+  PHP_ADD_MAKEFILE_FRAGMENT($abs_srcdir/pear/Makefile.frag,$abs_srcdir/pear,pear)
 fi
 
 
@@ -906,16 +933,15 @@ LIBZEND_BASIC_CHECKS
 LIBZEND_DLSYM_CHECK
 LIBZEND_OTHER_CHECKS
 
-TSRM_LIB='TSRM/libtsrm.la'
-TSRM_DIR=TSRM
-CPPFLAGS="$CPPFLAGS -I\$(top_builddir)/TSRM"
-
 if test "$ZEND_EXPERIMENTAL_ZTS" = "yes"; then
   AC_DEFINE(ZTS,1,[ ])
   PHP_THREAD_SAFETY=yes
 else
   PHP_THREAD_SAFETY=no
 fi
+
+INCLUDES="$INCLUDES -I\$(top_builddir)/TSRM"
+INCLUDES="$INCLUDES -I\$(top_builddir)/Zend"
 
 if test "$abs_srcdir" != "$abs_builddir"; then
   INCLUDES="$INCLUDES -I\$(top_srcdir)/main -I\$(top_srcdir)/Zend"
@@ -1089,7 +1115,6 @@ PHP_SUBST(CXXFLAGS)
 PHP_SUBST(CXXFLAGS_CLEAN)
 PHP_SUBST(CXX_PHP_COMPILE)
 PHP_SUBST_OLD(DEBUG_CFLAGS)
-PHP_SUBST(DEFS)
 PHP_SUBST_OLD(EXTENSION_DIR)
 PHP_SUBST_OLD(EXTRA_LDFLAGS)
 PHP_SUBST_OLD(EXTRA_LDFLAGS_PROGRAM)
@@ -1118,8 +1143,6 @@ PHP_SUBST(PROG_SENDMAIL)
 PHP_SUBST(RE2C)
 PHP_SUBST(SHELL)
 PHP_SUBST(SHARED_LIBTOOL)
-PHP_SUBST(TSRM_DIR)
-PHP_SUBST(TSRM_LIB)
 PHP_SUBST(WARNING_LEVEL)
 PHP_SUBST(PHP_FRAMEWORKS)
 PHP_SUBST(PHP_FRAMEWORKPATH)
@@ -1236,7 +1259,6 @@ PHP_ADD_BUILD_DIR(TSRM)
 PHP_ADD_BUILD_DIR(Zend)
 
 PHP_ADD_MAKEFILE_FRAGMENT($abs_srcdir/scripts/Makefile.frag,$abs_srcdir/scripts,scripts)
-PHP_ADD_MAKEFILE_FRAGMENT($abs_srcdir/pear/Makefile.frag,$abs_srcdir/pear,pear)
 PHP_ADD_MAKEFILE_FRAGMENT($abs_srcdir/Makefile.frag,$abs_srcdir/Zend,Zend)
 
 PHP_GEN_BUILD_DIRS
@@ -1262,12 +1284,12 @@ fi
 #
 
 test -d TSRM || $php_shtool mkdir TSRM
-echo '#include "../main/php_config.h"' > TSRM/tsrm_config.h
+echo '#include <../main/php_config.h>' > TSRM/tsrm_config.h
 
 test -d Zend || $php_shtool mkdir Zend
 
 cat >Zend/zend_config.h <<FEO
-#include "../main/php_config.h"
+#include <../main/php_config.h>
 #if defined(APACHE) && defined(PHP_API_VERSION)
 #undef HAVE_DLFCN_H
 #endif

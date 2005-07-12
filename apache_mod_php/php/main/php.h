@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.178.2.10 2004/11/28 12:44:56 sesser Exp $ */
+/* $Id: php.h,v 1.178.2.13 2005/03/08 21:45:51 sniper Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -101,7 +101,7 @@
 #endif
 
 #if HAVE_BUILD_DEFS_H
-#include "build-defs.h"
+#include <build-defs.h>
 #endif
 
 /*
@@ -299,7 +299,7 @@ PHPAPI void php_verror(const char *docref, const char *params, int type, const c
 #endif
 
 /* PHPAPI void php_error(int type, const char *format, ...); */
-PHPAPI void php_error_docref0(const char *docref TSRMLS_DC, int type, const char *format, ...) 
+PHPAPI void php_error_docref0(const char *docref TSRMLS_DC, int type, const char *format, ...)
 	PHP_ATTRIBUTE_FORMAT(printf, PHP_ATTR_FMT_OFFSET + 3, PHP_ATTR_FMT_OFFSET + 4);
 PHPAPI void php_error_docref1(const char *docref TSRMLS_DC, const char *param1, int type, const char *format, ...) 
 	PHP_ATTRIBUTE_FORMAT(printf, PHP_ATTR_FMT_OFFSET + 4, PHP_ATTR_FMT_OFFSET + 5);

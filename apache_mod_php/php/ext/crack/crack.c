@@ -15,7 +15,7 @@
    | Authors: Alexander Feldman                                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: crack.c,v 1.18.8.3 2004/01/04 20:01:07 iliaa Exp $ */
+/* $Id: crack.c,v 1.18.8.4 2004/12/31 03:16:50 iliaa Exp $ */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -230,6 +230,7 @@ ZEND_FUNCTION(crack_check)
 			if (zend_get_parameters_ex(2, &dictionary, &password) == FAILURE) {
 				RETURN_FALSE;
 			}
+			id = Z_LVAL_PP(dictionary);
 			break;
 		default:
 			WRONG_PARAM_COUNT;

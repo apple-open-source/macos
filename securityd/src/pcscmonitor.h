@@ -56,9 +56,9 @@ public:
 	enum ServiceLevel {
 		forcedOff,					// no service under any circumstances
 		conservative,				// launch pcscd for certain smartcard devices
-		aggressive,					// launch pcscd for possible smartcard devices
+		aggressive,					// launch pcscd for possible (and certain) smartcard devices
 		forcedOn,					// keep pcscd running at all times
-		externalDaemon				// use externally launched daemon
+		externalDaemon				// use externally launched daemon if present (do not manage pcscd)
 	};
 
 	PCSCMonitor(Server &server, TokenCache &cache, ServiceLevel level = conservative);

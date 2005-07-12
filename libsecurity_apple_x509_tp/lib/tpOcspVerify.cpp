@@ -26,8 +26,8 @@
  */
  
 #include "tpOcspVerify.h"
-#include "tpDebugging.h"
-#include "OCSPRequest.h"
+#include "tpdebugging.h"
+#include "ocspRequest.h"
 #include "tpOcspCache.h"
 #include "tpOcspCertVfy.h"
 #include <security_ocspd/ocspResponse.h>

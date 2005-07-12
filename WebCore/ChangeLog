@@ -1,3 +1,328 @@
+=== WebCore-415.11 ===
+
+2005-06-13  Adele Peterson  <adele@apple.com>
+
+        Merged new fix for <rdar://problem/4142247> from TOT to Safari-2-0-branch.
+
+    2005-06-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Chris Blumenberg and Adele.
+
+	- better fix for <rdar://problem/4142247> REGRESSION: List to browse widgets at Apple website failed. Closing tab afterwards caused Safari crash
+	http://bugzilla.opendarwin.org/show_bug.cgi?id=3445
+
+	With this change and the matching WebKit change we'll still stop loading the moment you click
+	a download link, but the unload event and detaching of event handlers will not happen early any more.
+	
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::stopLoading): Factored out from closeURL, make firing of unload
+	and detaching of event handlers optional.
+        (KHTMLPart::closeURL): call stopLoading(true)
+        * khtml/khtml_part.h:
+        * kwq/WebCoreBridge.h:
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge stopLoading]): Call stopLoading(false).
+
+
+=== WebCore-415.10 ===
+
+2005-06-07  Adele Peterson  <adele@apple.com>
+
+        Merged fix for <rdar://problem/4139800> from TOT to Safari-2-0-branch
+
+    2005-06-07  Adele Peterson  <adele@apple.com>
+
+        Change by Darin, reviewed by Maciej and me.
+
+        - fixed <rdar://problem/4139800> REGRESSION: Safari crashes at bebe.com
+
+        There were cases where the DOMNode mark function would end up not even
+        marking the node that it was called on. The old code tried to skip any
+        subtrees that were already marked, but that code was wrong.
+
+        * khtml/ecma/kjs_dom.cpp: (KJS::DOMNode::mark): Changed three things:
+          1) Instead of a boolean, keep a set of trees that we are marking, that
+             prevents problems if we mark things that have references between
+             separate trees of DOM nodes.
+          2) Don't do the "outermost node with a wrapper" check, just start marking
+             at the root of the entire tree, because there's no way to have an
+             unreachable node pointing to a reachable node.
+          3) Handle the unusual case where the document's wrapper dictionary is
+             gone by marking just this node explicitly.
+        This passes the layout tests, still fixes the Dashboard memory leak from
+        bug 4125222, and makes bebe.com work again.
+
+=== WebCore-415.9 ===
+
+2005-06-03  Adele Peterson  <adele@apple.com>
+
+        Merged fix for <rdar://problem/4109667> from TOT for SUTiCambridge.  
+        Our fix for the Cingular bug (<rdar://problem/4121747>)relies on this.
+
+    2005-05-05  David Hyatt  <hyatt@apple.com>
+
+	Fix for 4109667, sIFR flash replacement technique often malfunctions.  This bug occurs when the plugin
+	widget update causes the onload for the document to fire.  Because you can be in the middle of a style
+	recalc when doing an attach (in response to a stylesheet load), the onload fires in the middle of the attach
+	process when the tree is in a bogus state.
+
+	The fix is to add a bit to the document that tells style recalc that the implicitClose() method was invoked
+	during the style recalc process and the code has been patched so that when this situation occurs, the close is
+	deferred until after the style recalc has finished.
+	
+        Reviewed by John Sullivan
+
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::DocumentImpl):
+        (DocumentImpl::recalcStyle):
+        (DocumentImpl::implicitClose):
+        * khtml/xml/dom_docimpl.h:
+
+=== WebCore-415.8 ===
+
+2005-06-01  Adele Peterson  <adele@apple.com>
+
+        Re-adding fix for <rdar://problem/4067761>, including fix for <rdar://problem/4135705>
+
+    2005-06-01  Adele Peterson  <adele@apple.com>
+
+        fix for <rdar://problem/4135705> REGRESSION (412-TOT) crash in TV Tracker widget - KJS::XMLHttpRequest::removeFromRequestsByDocument()
+
+        Reviewed by Darin.
+
+        Synchronous loads don't get added to our requestsByDocument dictionary, so we should try to remove the request in this case. 
+
+        * khtml/ecma/xmlhttprequest.cpp: (KJS::XMLHttpRequest::removeFromRequestsByDocument): added checks to make sure request exists before trying to remove it.
+
+=== WebCore-415.7 ===
+
+2005-06-01  Chris Petersen  <cpetersen@apple.com>
+
+       Backing out fix for <rdar://problem/4067761> because it caused 
+       <rdar://problem/4135705> REGRESSION (412-TOT) crash in TV Tracker widget - KJS::XMLHttpRequest::removeFromRequestsByDocument()
+
+2005-05-31  Chris Petersen  <cpetersen@apple.com>
+
+        Change by Adele, Reviewed by Maciej.
+
+        * khtml/ecma/kjs_binding.cpp: (ScriptInterpreter::mark): added nil check.
+        * khtml/ecma/kjs_dom.cpp: (DOMNode::mark): added nil check.
+
+2005-05-31  Chris Petersen  <cpetersen@apple.com>
+
+        Change by Adele, Reviewed by Maciej.
+
+        * khtml/ecma/kjs_dom.cpp: (DOMNode::~DOMNode): Added nil check.  On the branch, its possible to create a node with no impl.
+
+2005-05-31  Chris Petersen  <cpetersen@apple.com>
+
+       Merged fix for 4125222 from TOT for SUTiCambridge
+
+    2005-05-30  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	- fixed <rdar://problem/4125222> Dashboard heap size grows over time (leak caused by JavaScript DOM node wrappers?)
+
+	- changed per-document DOMObject caching to work with DOMNodes, since that is all it was used for anyway.
+
+        * khtml/ecma/kjs_binding.cpp:
+        (KJS::ScriptInterpreter::forgetDOMObjectForDocument): New function - allows nodes
+	that get removed from the document to go away from the cache if not referenced.
+        (KJS::ScriptInterpreter::mark): Don't mark nodes that aren't in the document,
+	they can stay in the cache but only if they have another source of life.
+        (KJS::ScriptInterpreter::domNodesPerDocument): Renamed and changed parameter types.
+        (KJS::ScriptInterpreter::getDOMNodeForDocument): Renamed and changed parameter types.
+        (KJS::ScriptInterpreter::forgetDOMNodeForDocument): Renamed and changed parameter types.
+        (KJS::ScriptInterpreter::putDOMNodeForDocument): Renamed and changed parameter types.
+        (KJS::ScriptInterpreter::forgetAllDOMNodesForDocument): Renamed and changed parameter types.
+        (KJS::ScriptInterpreter::updateDOMNodeDocument): Renamed and changed parameter types.
+        * khtml/ecma/kjs_binding.h:
+        * khtml/ecma/kjs_dom.cpp: 
+        (KJS::DOMNode::~DOMNode): call forgetDOMObjectForDocument.
+        (KJS::DOMNode::mark): If the node is not in the document, make sure to mark
+	all wrappers in its detached piece of the tree.
+        (KJS::getDOMNode): Updated for renames
+        * khtml/ecma/kjs_dom.h:
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::~DocumentImpl): Updated for renames.
+        * khtml/xml/dom_nodeimpl.cpp:
+        (NodeImpl::checkAddChild): Updated for renames.
+
+2005-05-31  Chris Petersen  <cpetersen@apple.com>
+
+        Merged fix for <rdar://problem/4067761> from TOT to SUTiCambridge.
+
+    2005-05-27  Adele Peterson  <adele@apple.com>
+
+        Change by Darin, reviewed by me.
+
+        fix for <rdar://problem/4067761> 8A425: reload stock widget over and over and crash in XMLHttpRequest::changeState
+
+        * khtml/khtml_part.cpp: (KHTMLPart::closeURL): now cancels XMLHttpRequests
+        * khtml/ecma/xmlhttprequest.h: Added cancelRequests, addToRequestsByDocument, and RemoveFromRequestsByDocument methods. Added requestsByDocument dictionary.
+        * khtml/ecma/xmlhttprequest.cpp:
+        (KJS::XMLHttpRequest::send): calls addToRequestsByDocument
+        (KJS::XMLHttpRequest::abort): calls removeFromRequestsByDocument
+        (KJS::XMLHttpRequest::slotFinished): calls removeFromRequestsByDocument
+        (KJS::XMLHttpRequest::requestsByDocument):  creates dictionary to manage requests.
+        (KJS::XMLHttpRequest::addToRequestsByDocument): adds this request to dict.
+        (KJS::XMLHttpRequest::removeFromRequestsByDocument): removes this request from dict.
+        (KJS::XMLHttpRequest::cancelRequests): goes and cancels requests in the doc
+
+
+
+2005-05-31  Chris Petersen  <cpetersen@apple.com>
+
+        Merged fix  for <rdar://problem/4121747> from TOT for SUTiCambridge.
+
+    2005-05-27  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Darin.
+
+        fix for <rdar://problem/4121747> Cannot log into Cingular.com account page (load event delivered while still processing incoming data)
+       
+        * khtml/misc/loader.cpp:
+        (DocLoader::DocLoader): Initialized m_loadInProgress to false.
+        (DocLoader::setLoadInProgress): Added.
+        (Loader::slotFinished): sets the m_loadInProgress flag to reflect the fact that we're not really done loading this request until we emit the signal with the request status.
+        (Loader::numRequests): If there's a load in progress, we increment the number of requests so it doesn't seem like the load is done.
+        * khtml/misc/loader.h: (khtml::DocLoader::loadInProgress): Added.
+
+=== WebCore-415.6 ===
+
+2005-05-24  Adele Peterson  <adele@apple.com>
+
+        Merged fix for <rdar://problem/3598589> from TOT for SUTiCambridge
+
+    2005-05-24  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	- fixed <rdar://problem/3598589> onunload handler doesn't fire when a window is closed
+
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::detach): Don't remove all event handlers from the document here...
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::closeURL): ...instead do it here, after firing the unload event, but only
+	if the document is not in the back/forward cache...
+        * kwq/KWQPageState.mm:
+        (-[KWQPageState finalize]): ...and take care of the back/forward cache case here.
+
+
+2005-05-24  Chris Petersen  <cpetersen@apple.com>
+
+        Merged fix for <rdar://problem/4058167> from TOT to SUTiCambridge
+
+    2005-05-05  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	<rdar://problem/4058167> Unit Converter and Weather widgets crashed in KJS::Collector::markCurrentThreadConservatively
+        
+	Avoid possibly allocating new prototype objects as parameters to
+	superclass constructors - there may be an allocated but
+	uninitilized object so this is a bad time to allocate. Instead,
+	set the prototype in the constructor body, since the object is
+	happily allocated by then.
+
+	* khtml/ecma/kjs_binding.h:
+        * khtml/ecma/kjs_css.cpp:
+        (DOMCSSStyleDeclaration::DOMCSSStyleDeclaration):
+        (DOMMediaList::DOMMediaList):
+        (DOMCSSStyleSheet::DOMCSSStyleSheet):
+        (DOMCSSPrimitiveValue::DOMCSSPrimitiveValue):
+        (DOMCSSValueList::DOMCSSValueList):
+        * khtml/ecma/kjs_css.h:
+        (KJS::DOMStyleSheet::DOMStyleSheet):
+        (KJS::DOMCSSValue::DOMCSSValue):
+        * khtml/ecma/kjs_dom.cpp:
+        (DOMNode::DOMNode):
+        (DOMDocument::DOMDocument):
+        (DOMElement::DOMElement):
+        (DOMDOMImplementation::DOMDOMImplementation):
+        (DOMNamedNodeMap::DOMNamedNodeMap):
+        (DOMNamedNodesCollection::DOMNamedNodesCollection):
+        (DOMCharacterData::DOMCharacterData):
+        (DOMText::DOMText):
+        * khtml/ecma/kjs_dom.h:
+        (KJS::NodeConstructor::NodeConstructor):
+        (KJS::DOMExceptionConstructor::DOMExceptionConstructor):
+        * khtml/ecma/kjs_events.cpp:
+        (DOMEvent::DOMEvent):
+        (Clipboard::Clipboard):
+        * khtml/ecma/kjs_html.cpp:
+        (HTMLCollection::HTMLCollection):
+        * khtml/ecma/kjs_range.cpp:
+        (DOMRange::DOMRange):
+        * khtml/ecma/kjs_traversal.cpp:
+        (DOMNodeIterator::DOMNodeIterator):
+        (DOMNodeFilter::DOMNodeFilter):
+        (DOMTreeWalker::DOMTreeWalker):
+        * khtml/ecma/xmlhttprequest.cpp:
+        (KJS::XMLHttpRequest::XMLHttpRequest):
+        * khtml/ecma/xmlserializer.cpp:
+        (KJS::XMLSerializer::XMLSerializer):
+
+
+2005-05-23  Chris Petersen <cpetersen@apple.com>
+
+        Merged fix for 4077106 from TOT to SUTiCambridge
+
+    2005-04-05  David Hyatt  <hyatt@apple.com>
+
+	Fix for 4077106, make sure that mouse wheeling in overflow sections uses 40 rather than 10 as the base line
+	step.
+	
+        Reviewed by darin
+
+        * khtml/rendering/render_layer.cpp:
+        (RenderLayer::positionScrollbars):
+        * kwq/KWQScrollBar.mm:
+        (QScrollBar::scroll):
+
+
+2005-05-23  Chris Petersen  <cpetersen@apple.com>
+
+        Reviewed by Adele.
+
+        * khtml/ecma/kjs_window.cpp: (Window::get): Merged final change
+        for frameElement from TOT.
+
+2005-05-23  Chris Petersen  <cpetersen@apple.com>
+
+        Merged fix for <rdar://problem/4091956> from TOT to SUTiCambridge
+
+     2005-04-25  Darin Adler  <darin@apple.com>
+
+        Reviewed by John.
+
+        - fixed <rdar://problem/4091956> JavaScript drop handlers don't receive more than one dropped item
+
+        * kwq/KWQClipboard.mm:
+        (cocoaTypeFromMIMEType): Remove some use of compare -- less efficient than a simpler "==" check.
+        Fixed non-GC-safe code to use KWQCFAutorelease instead.
+        (MIMETypeFromCocoaType): Use fromCFString instead of fromNSString to avoid a cast.
+        (KWQClipboard::getData): Rearrange so that we'll use filenames if both filenames and a URL are present, since
+        filenames can accomodate multiple items. Fix bug where we'd return multiple filenames when the type requested
+        is "URL". Fixed loop that computed the count over and over again for the loop termination condition. Check
+        that the data for NSFilenamesPboardType is an NSArray instead of assuming it is.
+        (KWQClipboard::setData): Use isEqualToString: instead of == when comparing types.
+
+2005-05-23  Chris Petersen <cpetersen@apple.com>
+
+        Merged fix for <rdar://problem/4091082>  from TOT for SUTiCambridge
+
+    2005-04-22  Darin Adler  <darin@apple.com>
+
+        Reviewed by John.
+
+        - fixed <rdar://problem/4091082> Google Suggest no longer works due to lack of "frameElement"
+
+        * khtml/ecma/kjs_window.h: Added FrameElement.
+        * khtml/ecma/kjs_window.cpp: (Window::get): Added "frameElement".
+        * khtml/ecma/kjs_window.lut.h: Regenerated.
+
 === WebCore-415.5 ===
 
 2005-05-07  Adele Peterson  <adele@apple.com>

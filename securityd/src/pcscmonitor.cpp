@@ -151,7 +151,7 @@ void PCSCMonitor::launchPcscd()
 	Child::fork();
 
 	// if pcscd doesn't report a reader found soon, we'll kill it off
-	server.setTimer(this, PCSCD_IDLE_SHUTDOWN);
+	scheduleTimer(true);
 }
 
 
@@ -252,7 +252,7 @@ void PCSCMonitor::scheduleTimer(bool enable)
 //
 // Perform the initial PCSC subsystem initialization.
 // This runs (shortly) after securityd is fully functional and the
-// server loop as started.
+// server loop has started.
 //
 void PCSCMonitor::initialSetup()
 {
@@ -285,6 +285,12 @@ void PCSCMonitor::initialSetup()
 		IOKit::DeviceMatch pcCardSelector("IOPCCard16Device");
 		mIOKitNotifier.add(usbSelector, *this);	// this will scan existing USB devices
 		mIOKitNotifier.add(pcCardSelector, *this);	// ditto for PC Card devices
+		if (mServiceLevel == aggressive) {
+			// catch custom non-composite USB devices - they don't have IOServices attached
+			IOKit::DeviceMatch customUsbSelector(::IOServiceMatching("IOUSBDevice"));
+			mIOKitNotifier.add(customUsbSelector, *this);	// ditto for custom USB devices
+		}
+		break;
 	}
 	
 	// we are NOT scanning for PCSC devices here. Pcscd will send us a notification when it's up
@@ -345,22 +351,24 @@ PCSCMonitor::DeviceSupport PCSCMonitor::deviceSupport(const IOKit::Device &dev)
 {
 	try {
 		secdebug("scsel", "%s", dev.path().c_str());
-		CFRef<CFNumberRef> cfClass(dev.property<CFNumberRef>("bInterfaceClass"));
-		if (!cfClass) {
-			secdebug("scsel", "  device without device class (ignored)");
-			return impossible;
-		}
-		switch (IFDEBUG(uint32 clas =) cfNumber(cfClass)) {
-		case kUSBChipSmartCardInterfaceClass:		// CCID smartcard reader - go
-			secdebug("scsel", "  CCID smartcard reader recognized");
-			return definite;
-		case kUSBVendorSpecificInterfaceClass:
-			secdebug("scsel", "  Vendor-specific device - possible match");
-			return possible;
-		default:
-			secdebug("scsel", "  class %ld is not a smartcard device", clas);
-			return impossible;
-		}
+		if (CFRef<CFNumberRef> cfInterface = dev.property<CFNumberRef>("bInterfaceClass"))
+			switch (IFDEBUG(uint32 clas =) cfNumber(cfInterface)) {
+			case kUSBChipSmartCardInterfaceClass:		// CCID smartcard reader - go
+				secdebug("scsel", "  CCID smartcard reader recognized");
+				return definite;
+			case kUSBVendorSpecificInterfaceClass:
+				secdebug("scsel", "  Vendor-specific interface - possible match");
+				return possible;
+			default:
+				secdebug("scsel", "  interface class %ld is not a smartcard device", clas);
+				return impossible;
+			}
+		if (CFRef<CFNumberRef> cfDevice = dev.property<CFNumberRef>("bDeviceClass"))
+			if (cfNumber(cfDevice) == kUSBVendorSpecificClass) {
+				secdebug("scsel", "  Vendor-specific device - possible match");
+				return possible;
+			}
+		return impossible;
 	} catch (...) {
 		secdebug("scsel", "  exception while examining device - ignoring it");
 		return impossible;

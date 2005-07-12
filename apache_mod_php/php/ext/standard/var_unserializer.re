@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: var_unserializer.re,v 1.11.4.8 2004/12/03 16:09:19 sesser Exp $ */
+/* $Id: var_unserializer.re,v 1.11.4.16 2005/03/10 02:00:17 helly Exp $ */
 
 #include "php.h"
 #include "ext/standard/php_var.h"
@@ -27,7 +27,7 @@
 
 typedef struct {
 	zval *data[VAR_ENTRIES_MAX];
-	int used_slots;
+	long used_slots;
 	void *next;
 } var_entries;
 
@@ -54,9 +54,33 @@ static inline void var_push(php_unserialize_data_t *var_hashx, zval **rval)
 	var_hash->data[var_hash->used_slots++] = *rval;
 }
 
+static inline void var_push_dtor(php_unserialize_data_t *var_hashx, zval **rval)
+{
+	var_entries *var_hash = var_hashx->first_dtor, *prev = NULL;
+
+	while (var_hash && var_hash->used_slots == VAR_ENTRIES_MAX) {
+		prev = var_hash;
+		var_hash = var_hash->next;
+	}
+
+	if (!var_hash) {
+		var_hash = emalloc(sizeof(var_entries));
+		var_hash->used_slots = 0;
+		var_hash->next = 0;
+
+		if (!var_hashx->first_dtor)
+			var_hashx->first_dtor = var_hash;
+		else
+			prev->next = var_hash;
+	}
+
+	(*rval)->refcount++;
+	var_hash->data[var_hash->used_slots++] = *rval;
+}
+
 PHPAPI void var_replace(php_unserialize_data_t *var_hashx, zval *ozval, zval **nzval)
 {
-	int i;
+	long i;
 	var_entries *var_hash = var_hashx->first;
 	
 	while (var_hash) {
@@ -70,7 +94,7 @@ PHPAPI void var_replace(php_unserialize_data_t *var_hashx, zval *ozval, zval **n
 	}
 }
 
-static int var_access(php_unserialize_data_t *var_hashx, int id, zval ***store)
+static int var_access(php_unserialize_data_t *var_hashx, long id, zval ***store)
 {
 	var_entries *var_hash = var_hashx->first;
 	
@@ -91,9 +115,21 @@ static int var_access(php_unserialize_data_t *var_hashx, int id, zval ***store)
 PHPAPI void var_destroy(php_unserialize_data_t *var_hashx)
 {
 	void *next;
+	long i;
 	var_entries *var_hash = var_hashx->first;
 	
 	while (var_hash) {
+		next = var_hash->next;
+		efree(var_hash);
+		var_hash = next;
+	}
+	
+	var_hash = var_hashx->first_dtor;
+	
+	while (var_hash) {
+		for (i = 0; i < var_hash->used_slots; i++) {
+			zval_ptr_dtor(&var_hash->data[i]);
+		}
 		next = var_hash->next;
 		efree(var_hash);
 		var_hash = next;
@@ -119,10 +155,10 @@ any = [\000-\277];
 
 
 
-static inline int parse_iv2(const unsigned char *p, const unsigned char **q)
+static inline long parse_iv2(const unsigned char *p, const unsigned char **q)
 {
 	char cursor;
-	int result = 0;
+	long result = 0;
 	int neg = 0;
 
 	switch (*p) {
@@ -147,7 +183,7 @@ static inline int parse_iv2(const unsigned char *p, const unsigned char **q)
 	return result;
 }
 
-static inline int parse_iv(const unsigned char *p)
+static inline long parse_iv(const unsigned char *p)
 {
 	return parse_iv2(p, NULL);
 }
@@ -177,10 +213,10 @@ static inline size_t parse_uiv(const unsigned char *p)
 #define UNSERIALIZE_PARAMETER zval **rval, const unsigned char **p, const unsigned char *max, php_unserialize_data_t *var_hash TSRMLS_DC
 #define UNSERIALIZE_PASSTHRU rval, p, max, var_hash TSRMLS_CC
 
-static inline int process_nested_data(UNSERIALIZE_PARAMETER, HashTable *ht, int elements)
+static inline int process_nested_data(UNSERIALIZE_PARAMETER, HashTable *ht, long elements)
 {
 	while (elements-- > 0) {
-		zval *key, *data, *old_data;
+		zval *key, *data, **old_data;
 
 		ALLOC_INIT_ZVAL(key);
 
@@ -208,14 +244,14 @@ static inline int process_nested_data(UNSERIALIZE_PARAMETER, HashTable *ht, int 
 
 		switch (Z_TYPE_P(key)) {
 			case IS_LONG:
-				if (zend_hash_index_find(ht, Z_LVAL_P(key), (void **)&old_data)) {
-					var_replace(var_hash, old_data, rval);
+				if (zend_hash_index_find(ht, Z_LVAL_P(key), (void **)&old_data)==SUCCESS) {
+					var_push_dtor(var_hash, old_data);
 				}
 				zend_hash_index_update(ht, Z_LVAL_P(key), &data, sizeof(data), NULL);
 				break;
 			case IS_STRING:
-				if (zend_hash_find(ht, Z_STRVAL_P(key), Z_STRLEN_P(key) + 1, (void **)&old_data)) {
-					var_replace(var_hash, old_data, rval);
+				if (zend_hash_find(ht, Z_STRVAL_P(key), Z_STRLEN_P(key) + 1, (void **)&old_data)==SUCCESS) {
+					var_push_dtor(var_hash, old_data);
 				}
 				zend_hash_update(ht, Z_STRVAL_P(key), Z_STRLEN_P(key) + 1, &data, sizeof(data), NULL);
 				break;
@@ -246,7 +282,7 @@ static inline int finish_nested_data(UNSERIALIZE_PARAMETER)
 
 static inline int object_common1(UNSERIALIZE_PARAMETER, zend_class_entry *ce)
 {
-	int elements;
+	long elements;
 
 	elements = parse_iv2((*p) + 2, p);
 
@@ -256,7 +292,7 @@ static inline int object_common1(UNSERIALIZE_PARAMETER, zend_class_entry *ce)
 	return elements;
 }
 
-static inline int object_common2(UNSERIALIZE_PARAMETER, int elements)
+static inline int object_common2(UNSERIALIZE_PARAMETER, long elements)
 {
 	zval *retval_ptr = NULL;
 	zval fname;
@@ -308,7 +344,7 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 /*!re2c
 
 "R:" iv ";"		{
-	int id;
+	long id;
 
  	*p = YYCURSOR;
 	if (!var_hash) return 0;
@@ -329,7 +365,7 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 }
 
 "r:" iv ";"		{
-	int id;
+	long id;
 
  	*p = YYCURSOR;
 	if (!var_hash) return 0;
@@ -375,9 +411,7 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 "d:" ("NAN" | "-"? "INF") ";"	{
 	*p = YYCURSOR;
 	INIT_PZVAL(*rval);
-#if defined(HAVE_ATOF_ACCEPTS_NAN) && defined(HAVE_ATOF_ACCEPTS_INF)
-	ZVAL_DOUBLE(*rval, atof(start + 2));
-#else
+
 	if (!strncmp(start + 2, "NAN", 3)) {
 		ZVAL_DOUBLE(*rval, php_get_nan());
 	} else if (!strncmp(start + 2, "INF", 3)) {
@@ -385,14 +419,14 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 	} else if (!strncmp(start + 2, "-INF", 4)) {
 		ZVAL_DOUBLE(*rval, -php_get_inf());
 	}
-#endif
+
 	return 1;
 }
 
 "d:" (iv | nv | nvexp) ";"	{
 	*p = YYCURSOR;
 	INIT_PZVAL(*rval);
-	ZVAL_DOUBLE(*rval, atof(start + 2));
+	ZVAL_DOUBLE(*rval, zend_strtod((const char *)start + 2, NULL));
 	return 1;
 }
 
@@ -425,9 +459,17 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 }
 
 "a:" uiv ":" "{" {
-	int elements = parse_iv(start + 2);
-
+	long elements = parse_iv(start + 2);
+	/* use iv() not uiv() in order to check data range */
 	*p = YYCURSOR;
+
+	if (elements < 0) {
+		return 0;
+	}
+
+	if (elements < 0) {
+		return 0;
+	}
 
 	INIT_PZVAL(*rval);
 	Z_TYPE_PP(rval) = IS_ARRAY;
@@ -451,8 +493,8 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 }
 
 "O:" uiv ":" ["]	{
-	size_t len, len2, maxlen;
-	int elements;
+	size_t len, len2, len3, maxlen;
+	long elements;
 	char *class_name;
 	zend_class_entry *ce;
 	int incomplete_class = 0;
@@ -486,6 +528,14 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 	class_name = str_tolower_copy((char *)emalloc(len+1), class_name, len);
 	class_name[len] = '\0';
 	
+	len3 = strspn(class_name, "0123456789_abcdefghijklmnopqrstuvwxyz");
+	if (len3 != len)
+	{
+		*p = YYCURSOR + len3 - len;
+		efree(class_name);
+		return 0;
+	}
+
 	if (zend_hash_find(CG(class_table), class_name, len + 1, (void **) &ce) != SUCCESS) {
 		if ((PG(unserialize_callback_func) == NULL) || (PG(unserialize_callback_func)[0] == '\0')) {
 			incomplete_class = 1;

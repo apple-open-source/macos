@@ -16,7 +16,7 @@
    | Streams work by Wez Furlong <wez@thebrainroom.com>                   |
    +----------------------------------------------------------------------+
  */
-/* $Id: network.c,v 1.83.2.26 2004/07/02 17:23:07 wez Exp $ */
+/* $Id: network.c,v 1.83.2.27 2005/01/04 10:35:56 sniper Exp $ */
 
 /*#define DEBUG_MAIN_NETWORK 1*/
 
@@ -430,7 +430,7 @@ PHPAPI int php_connect_nonb_win32(SOCKET sockfd,
  * port, returns the created socket on success, else returns -1.
  * timeout gives timeout in seconds, 0 means blocking mode.
  */
-int php_hostconnect(const char *host, unsigned short port, int socktype, struct timeval *timeout TSRMLS_DC)
+PHPAPI int php_hostconnect(const char *host, unsigned short port, int socktype, struct timeval *timeout TSRMLS_DC)
 {	
 	int n, repeatto, s;
 	struct sockaddr **sal, **psal;

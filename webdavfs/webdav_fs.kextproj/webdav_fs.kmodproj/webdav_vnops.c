@@ -542,7 +542,7 @@ int webdav_get(
 		new_pt->pt_ctime = obj_ctime;
 		new_pt->pt_filesize = obj_filesize;
 		SET(new_pt->pt_status, WEBDAV_INIT);
-		new_pt->pt_diropencount = 0;
+		new_pt->pt_opencount = 0;
 		webdav_hashins(new_pt);
 		
 		/* Create the vnode */
@@ -841,6 +841,14 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 	 */
 	if (pt->pt_cache_vnode)
 	{
+		/* increment the open count */
+		++pt->pt_opencount;
+		if ( pt->pt_opencount == 0 )
+		{
+			/* don't wrap -- return an error */
+			--pt->pt_opencount;
+			return ( ENFILE );
+		}
 		/* Set the "dir not loaded" bit if this is a directory, that way
 		 * readdir will know that it needs to force a directory download
 		 * even if the first call turns out not to be in the middle of the
@@ -849,14 +857,6 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 		if (vnode_vtype(vp) == VDIR)
 		{
 			pt->pt_status |= WEBDAV_DIR_NOT_LOADED;
-			/* increment the directory's open count */
-			++pt->pt_diropencount;
-			if ( pt->pt_diropencount == 0 )
-			{
-				/* don't wrap -- return an error */
-				--pt->pt_diropencount;
-				return ( ENFILE );
-			}
 		}
 		return (0);
 	}
@@ -905,6 +905,9 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 		}
 		pt->pt_cache_vnode = associatecachefile.cachevp;
 
+		/* set the open count */
+		pt->pt_opencount = 1;
+		
 		/* Set the "dir not loaded" bit if this is a directory, that way
 		 * readdir will know that it needs to force a directory download
 		 * even if the first call turns out not to be in the middle of the
@@ -915,8 +918,6 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 			pt->pt_status |= WEBDAV_DIR_NOT_LOADED;
 			/* default to not ask for and to not cache additional directory information */
 			vnode_setnocache(vp);
-			/* set the directory's open count */
-			pt->pt_diropencount = 1;
 		}
 	}
 
@@ -1175,7 +1176,7 @@ int webdav_close_mnomap(vnode_t vp, vfs_context_t context, int force_fsync)
 		 * and when the file is not open (at last close, and from mnomap after
 		 * last close).
 		 */
-		if ( vnode_isreg(vp) && (force_fsync || !vnode_isinuse(vp, 1)) )
+		if ( vnode_isreg(vp) && (force_fsync || (pt->pt_opencount == 0)) )
 		{
 			struct vnop_fsync_args fsync_args;
 			
@@ -1190,13 +1191,8 @@ int webdav_close_mnomap(vnode_t vp, vfs_context_t context, int force_fsync)
 		 * mean the data was not correctly written in userland.
 		 */
 		 
-		if ( vnode_isdir(vp) )
-		{
-			--pt->pt_diropencount;
-		}
-		
 		/* If this the last close and we're not mapped, tell mount_webdav */
-		if ( !vnode_isinuse(vp, 1) || (vnode_isdir(vp) && (pt->pt_diropencount == 0)) )
+		if ( (pt->pt_opencount == 0) && !(pt->pt_status & WEBDAV_ISMAPPED) )
 		{
 			struct webdav_request_close request_close;
 			vnode_t temp;
@@ -1267,6 +1263,9 @@ static int webdav_vnop_close(struct vnop_close_args *ap)
 	 */
 	force_fsync = (((ap->a_fflag & FWRITE) != 0) && vnode_isreg(ap->a_vp));
 	
+	/* decrement the open count */
+	--pt->pt_opencount;
+	
 	RET_ERR("webdav_vnop_close", webdav_close_mnomap(ap->a_vp, ap->a_context, force_fsync));
 }
 
@@ -1285,7 +1284,7 @@ static int webdav_vnop_mmap(struct vnop_mmap_args *ap)
 	/* mark this file as mapped */
 	START_MARKER("webdav_vnop_mmap");
 
-	VTOWEBDAV(ap->a_vp)->pt_status |= WEBDAV_WASMAPPED;
+	VTOWEBDAV(ap->a_vp)->pt_status |= (WEBDAV_ISMAPPED | WEBDAV_WASMAPPED);
 	
 	RET_ERR("webdav_vnop_mmap", 0);
 }
@@ -1302,6 +1301,9 @@ static int webdav_vnop_mnomap(struct vnop_mnomap_args *ap)
 */
 {
 	START_MARKER("webdav_vnop_mnomap");
+	
+	/* mark this file as unmapped */
+	VTOWEBDAV(ap->a_vp)->pt_status &= ~WEBDAV_ISMAPPED;
 	
 	/* if the file is not open, this will fsync it and close it in user-land */
 	RET_ERR("webdav_vnop_mnomap", webdav_close_mnomap(ap->a_vp, ap->a_context, FALSE));

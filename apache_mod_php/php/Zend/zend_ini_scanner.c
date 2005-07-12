@@ -392,19 +392,19 @@ static yyconst int yy_ec[256] =
 
 static yyconst int yy_meta[23] =
     {   0,
-        1,    2,    3,    3,    1,    2,    2,    2,    2,    4,
+        1,    2,    3,    4,    1,    2,    2,    2,    2,    1,
         1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
         1,    1
     } ;
 
 static yyconst short int yy_base[59] =
     {   0,
-        0,    0,  114,    0,  115,  115,  110,   18,  115,  105,
-       21,  115,   39,   99,   93,   12,   91,   95,    0,  115,
-        0,   95,   89,   13,   87,   91,   96,  115,   27,  115,
-       87,   48,   75,   70,   28,   68,   76,   59,   60,   57,
-       60,   59,   68,   59,   65,   48,   26,   26,   63,   64,
-       72,   23,  115,   83,   87,   91,   95,   99
+        0,    0,  104,    0,  105,  105,  100,   18,  105,   95,
+       21,  105,   39,   89,   83,   12,   81,   85,    0,  105,
+        0,   85,   79,   13,   77,   81,   86,  105,   27,  105,
+       89,   49,   80,   75,   28,   75,   83,   66,   66,   58,
+       61,   62,   54,   41,   47,   44,   29,  105,   36,   64,
+       67,   24,  105,   35,   72,   74,   78,   82
     } ;
 
 static yyconst short int yy_def[59] =
@@ -412,44 +412,42 @@ static yyconst short int yy_def[59] =
        53,    1,   53,   54,   53,   53,   53,   54,   53,   55,
        56,   53,   57,   54,   54,   54,   54,   54,   54,   53,
         8,   54,   54,   54,   54,   54,   55,   53,   56,   53,
-       53,   57,   58,   54,   54,   54,   54,   54,   54,   32,
-       58,   54,   54,   54,   54,   54,   54,   58,   58,   32,
-       58,   54,    0,   53,   53,   53,   53,   53
+       53,   57,   58,   54,   54,   54,   54,   54,   54,   54,
+       53,   54,   54,   54,   54,   54,   54,   53,   53,   54,
+       53,   54,    0,   53,   53,   53,   53,   53
     } ;
 
-static yyconst short int yy_nxt[138] =
+static yyconst short int yy_nxt[128] =
     {   0,
         4,    5,    6,    7,    8,    9,   10,   11,   12,   13,
         4,    4,    4,   14,    4,   15,   16,    4,    4,   17,
         4,   18,   21,   30,   31,   36,   36,   37,   37,   30,
-       31,   22,   43,   23,   24,   45,   41,   25,   37,   26,
-       33,   33,   33,   44,   33,   33,   33,   33,   19,   33,
-       33,   33,   46,   33,   33,   33,   33,   19,   40,   48,
-       49,   50,   48,   49,   51,   48,   48,   49,   50,   43,
-       41,   45,   43,   41,   48,   49,   51,   52,   37,   47,
-       46,   45,   41,   19,   42,   41,   19,   27,   27,   30,
-       27,   29,   29,   29,   29,   32,   32,   32,   32,   33,
+       31,   22,   43,   23,   24,   19,   45,   25,   48,   26,
+       33,   37,   33,   44,   33,   33,   33,   33,   46,   19,
+       33,   43,   33,   45,   33,   33,   33,   33,   43,   40,
+       48,   49,   50,   48,   49,   51,   48,   49,   50,   48,
+       49,   51,   27,   27,   29,   29,   29,   29,   32,   32,
+       52,   32,   33,   33,   37,   33,   47,   46,   45,   42,
+       41,   30,   28,   39,   38,   35,   34,   39,   38,   35,
 
-       33,   33,   28,   39,   38,   35,   34,   39,   38,   35,
        34,   28,   20,   53,    3,   53,   53,   53,   53,   53,
        53,   53,   53,   53,   53,   53,   53,   53,   53,   53,
        53,   53,   53,   53,   53,   53,   53
     } ;
 
-static yyconst short int yy_chk[138] =
+static yyconst short int yy_chk[128] =
     {   0,
         1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
         1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
         1,    1,    8,   11,   11,   16,   24,   16,   24,   29,
-       29,    8,   35,    8,    8,   52,   48,    8,   47,    8,
-       13,   13,   13,   35,   13,   13,   13,   13,   13,   32,
-       32,   32,   46,   32,   32,   32,   32,   32,   32,   40,
-       40,   40,   41,   41,   41,   49,   50,   50,   50,   45,
-       41,   44,   43,   49,   51,   51,   51,   42,   39,   38,
-       37,   36,   51,   54,   34,   33,   54,   55,   55,   31,
-       55,   56,   56,   56,   56,   57,   57,   57,   57,   58,
+       29,    8,   35,    8,    8,   54,   52,    8,   49,    8,
+       13,   47,   13,   35,   13,   13,   13,   13,   46,   13,
+       32,   45,   32,   44,   32,   32,   32,   32,   43,   32,
+       40,   40,   40,   41,   41,   41,   50,   50,   50,   51,
+       51,   51,   55,   55,   56,   56,   56,   56,   57,   57,
+       42,   57,   58,   58,   39,   58,   38,   37,   36,   34,
+       33,   31,   27,   26,   25,   23,   22,   18,   17,   15,
 
-       58,   58,   27,   26,   25,   23,   22,   18,   17,   15,
        14,   10,    7,    3,   53,   53,   53,   53,   53,   53,
        53,   53,   53,   53,   53,   53,   53,   53,   53,   53,
        53,   53,   53,   53,   53,   53,   53
@@ -485,6 +483,8 @@ char *yytext;
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_ini_scanner.l,v 1.26.2.10 2005/02/06 23:50:47 zeev Exp $ */
+
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
 #define yytext_ptr SCNG(yy_text)
@@ -498,7 +498,7 @@ char *yytext;
 #include <errno.h>
 #include "zend.h"
 #include "zend_globals.h"
-#include "zend_ini_parser.h"
+#include <zend_ini_parser.h>
 #include "zend_ini_scanner.h"
 
 #ifdef HAVE_UNISTD_H
@@ -526,13 +526,13 @@ static char *ini_filename;
 
 void init_ini_scanner(TSRMLS_D)
 {
-       SCNG(lineno)=1;
+	SCNG(lineno)=1;
 }
 
 
 int zend_ini_scanner_get_lineno(TSRMLS_D)
 {
-       return SCNG(lineno);
+	return SCNG(lineno);
 }
 
 
@@ -563,20 +563,20 @@ int zend_ini_open_file_for_scanning(zend_file_handle *fh TSRMLS_DC)
 
 void zend_ini_close_file(zend_file_handle *fh TSRMLS_DC)
 {
-    switch (fh->type) {
-        case ZEND_HANDLE_SOCKET_FD:
+	switch (fh->type) {
+		case ZEND_HANDLE_SOCKET_FD:
 #ifdef ZEND_WIN32
-            closesocket(fh->handle.fd);
-            break;
+			closesocket(fh->handle.fd);
+			break;
 #endif
-        /* fall-through */
-        case ZEND_HANDLE_FD:
-            close(fh->handle.fd);
-            break;
-        case ZEND_HANDLE_FP:
-            fclose(fh->handle.fp);
-            break;
-    }
+		/* fall-through */
+		case ZEND_HANDLE_FD:
+			close(fh->handle.fd);
+			break;
+		case ZEND_HANDLE_FP:
+			fclose(fh->handle.fp);
+			break;
+	}
 }
 
 
@@ -819,7 +819,7 @@ yy_match:
 			yy_current_state = yy_nxt[yy_base[yy_current_state] + (unsigned int) yy_c];
 			++yy_cp;
 			}
-		while ( yy_base[yy_current_state] != 115 );
+		while ( yy_base[yy_current_state] != 105 );
 
 yy_find_action:
 		yy_act = yy_accept[yy_current_state];
@@ -893,7 +893,7 @@ YY_RULE_SETUP
 
 	/* eat trailing " */
 	yytext[yyleng-1]=0;
-	
+
 	/* eat leading " */
 	yytext++;
 

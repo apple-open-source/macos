@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sockets_win.h,v 1.5.8.2 2003/07/20 10:54:03 sniper Exp $ */
+/* $Id: php_sockets_win.h,v 1.5.8.3 2005/02/12 18:16:04 sniper Exp $ */
 
 
 #ifdef PHP_WIN32
@@ -41,7 +41,7 @@
 #define errno WSAGetLastError()
 #define h_errno WSAGetLastError()
 #define set_errno(a) WSASetLastError(a)
-#define set_h_errno(a) WSASetLastError(a)
+#define SET_H_ERRNO(a) WSASetLastError(a)
 #define close(a) closesocket(a)
 #define CMSG_DATA(cmsg) ((cmsg)->cmsg_data)
 

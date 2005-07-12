@@ -27,7 +27,7 @@
  
 #include "ocspRequest.h"
 #include "certGroupUtils.h"
-#include "tpDebugging.h"
+#include "tpdebugging.h"
 #include <security_ocspd/ocspResponse.h>
 #include <security_ocspd/ocspExtensions.h>
 #include <security_ocspd/ocspdUtils.h>

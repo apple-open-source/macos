@@ -157,7 +157,10 @@ extern const CSSM_OID
  */
 extern const CSSM_OID	
 	CSSMOID_NetscapeCertType,
-	CSSMOID_NetscapeCertSequence;
+	CSSMOID_NetscapeCertSequence,
+	CSSMOID_NetscapeSGC;
+
+extern const CSSM_OID CSSMOID_MicrosoftSGC;
 
 /*
  * Field values for CSSMOID_NetscapeCertType, a bit string.

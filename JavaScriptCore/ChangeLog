@@ -1,3 +1,72 @@
+=== JavaScriptCore-412.3 ===
+
+2005-05-26  Chris Petersen  <cpetersen@apple.com>
+
+        Merged fix for <rdar://problem/4086570> from TOT to SUTiCambridge.
+
+    2005-05-04  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	<rdar://problem/4086570> Crash in JavaScriptCore with RSS Visualizer
+	
+        * kjs/internal.cpp:
+        (InterpreterImp::mark): mark staticNaN, it is usually protected by the Number
+	prototype but there is a small window where it can get collected.
+
+=== JavaScriptCore-412.2 ===
+
+2005-05-24  Chris Petersen  <cpetersen@apple.com>
+
+        Merged addition fix for <rdar://problem/4058167> from TOT to SUTiCambridge
+
+       2005-05-18  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fix a failure seen in the Mozilla JavaScript tests where a live object was garbage-collected
+          when the only reference to it was in an argList on the stack
+
+        * kjs/list.h: Moved the operator= function into the .cpp file since it's too big to be
+        a good choice to inline.
+        * kjs/list.cpp: (KJS::List::operator=): Moved this formerly-inline function into a separate
+        file and added missing code to update valueRefCount. It's the latter that fixes the bug.
+
+2005-05-23  Chris Petersen  <cpetersen@apple.com>
+
+        Merging fix for <rdar://problem/4098713>  from TOT to SUTiCambridge
+
+    2005-04-26  Richard Williamson   <rjw@apple.com>
+
+	Fixed <rdar://problem/4098713> Scripting API is incompatible with Mozilla
+	
+	We were incompatible with Mozilla's implementation of the scripting APIs in
+	two ways:
+
+	Their NPN_SetException has the following signature:
+
+            void NPN_SetException(NPObject *npobj, const NPUTF8 *message);
+
+	ours has:
+
+            void NPN_SetException (NPObject * npobj, const NPString *message);
+
+	Also, they expect the string returned from NPN_UTF8FromIdentifier() to be freed by caller.
+	We do not.
+
+	I changed both behaviors to match Mozilla.
+
+        Reviewed by Chris.
+
+        * bindings/NP_jsobject.cpp:
+        (_NPN_SetException):
+        * bindings/npruntime.cpp:
+        (_NPN_UTF8FromIdentifier):
+        (_NPN_IntFromIdentifier):
+        (_NPN_SetExceptionWithUTF8):
+        * bindings/npruntime.h:
+        * bindings/npruntime_impl.h:
+
 === Safari-412 ===
 
 === Safari-411 ===

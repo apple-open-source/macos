@@ -911,11 +911,12 @@ static CSSM_RETURN tp_verifySslOpts(
 	/*
 	 * Ensure that, if an extendedKeyUsage extension is present in the 
 	 * leaf, that either anyExtendedKeyUsage or the appropriate 
-	 * CSSMOID_{Server,Client}Auth usage is present.
+	 * CSSMOID_{Server,Client}Auth, or a SeverGatedCrypto usage is present.
 	 */
 	const iSignExtenInfo &ekuInfo = leafCertInfo.extendKeyUsage;
 	if(ekuInfo.present) {
 		bool foundGoodEku = false;
+		bool isServer = true;
 		CE_ExtendedKeyUsage *eku = (CE_ExtendedKeyUsage *)ekuInfo.extnData;
 		assert(eku != NULL);
 
@@ -927,17 +928,30 @@ static CSSM_RETURN tp_verifySslOpts(
 		   (sslOpts->Version > 0) &&		/* this was added in struct version 1 */
 		   (sslOpts->Flags & CSSM_APPLE_TP_SSL_CLIENT)) {
 		   extUse = &CSSMOID_ClientAuth;
+		   isServer = false;
 		}
 
 		/* search for that one or for "any" indicator */
 		for(unsigned i=0; i<eku->numPurposes; i++) {
-			if(tpCompareOids(&eku->purposes[i], extUse)) {
+			const CSSM_OID *purpose = &eku->purposes[i];
+			if(tpCompareOids(purpose, extUse)) {
 				foundGoodEku = true;
 				break;
 			}
-			if(tpCompareOids(&eku->purposes[i], &CSSMOID_ExtendedKeyUsageAny)) {
+			if(tpCompareOids(purpose, &CSSMOID_ExtendedKeyUsageAny)) {
 				foundGoodEku = true;
 				break;
+			}
+			if(isServer) {
+				/* server gated crypto: server side only */
+				if(tpCompareOids(purpose, &CSSMOID_NetscapeSGC)) {
+					foundGoodEku = true;
+					break;
+				}
+				if(tpCompareOids(purpose, &CSSMOID_MicrosoftSGC)) {
+					foundGoodEku = true;
+					break;
+				}
 			}
 		}
 		if(!foundGoodEku) {

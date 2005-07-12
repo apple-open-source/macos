@@ -92,10 +92,6 @@
 /* Define to `int' if <sys/types.h> doesn't define.  */
 #undef uid_t
 
-/* Define if your processor stores words with the most significant
-   byte first (like Motorola and SPARC, unlike Intel and VAX).  */
-#undef WORDS_BIGENDIAN
-
 /* Define if lex declares yytext as a char * by default, not a char[].  */
 #undef YYTEXT_POINTER
 
@@ -429,6 +425,9 @@
 /* Define if you have the scandir function.  */
 #undef HAVE_SCANDIR
 
+/* Define if you have the set_h_errno function.  */
+#undef HAVE_SET_H_ERRNO
+
 /* Define if you have the setegid function.  */
 #undef HAVE_SETEGID
 
@@ -633,6 +632,9 @@
 /* Define if you have the <ieeefp.h> header file.  */
 #undef HAVE_IEEEFP_H
 
+/* Define if you have the <inttypes.h> header file.  */
+#undef HAVE_INTTYPES_H
+
 /* Define if you have the <langinfo.h> header file.  */
 #undef HAVE_LANGINFO_H
 
@@ -696,6 +698,9 @@
 /* Define if you have the <stddef.h> header file.  */
 #undef HAVE_STDDEF_H
 
+/* Define if you have the <stdint.h> header file.  */
+#undef HAVE_STDINT_H
+
 /* Define if you have the <stdlib.h> header file.  */
 #undef HAVE_STDLIB_H
 
@@ -707,9 +712,6 @@
 
 /* Define if you have the <synch.h> header file.  */
 #undef HAVE_SYNCH_H
-
-/* Define if you have the <sys/bitypes.h> header file.  */
-#undef HAVE_SYS_BITYPES_H
 
 /* Define if you have the <sys/dir.h> header file.  */
 #undef HAVE_SYS_DIR_H
@@ -831,6 +833,9 @@
 /* Define if you have the sqlcli library (-lsqlcli).  */
 #undef HAVE_LIBSQLCLI
 
+/* Define if processor uses big-endian word */
+#undef WORDS_BIGENDIAN
+
 /* Enabling BIND8 compatibility for Panther */
 #undef BIND_8_COMPAT
 
@@ -880,10 +885,10 @@
 #undef HAVE_OLD_COMPAT_H
 
 /*   */
-#undef PHP_APACHE_HAVE_CLIENT_FD
+#undef USE_TRANSFER_TABLES
 
 /*   */
-#undef USE_TRANSFER_TABLES
+#undef PHP_APACHE_HAVE_CLIENT_FD
 
 /* Whether to compile with Caudium support */
 #undef HAVE_CAUDIUM
@@ -1475,6 +1480,9 @@
 #undef HAVE_GD_IMAGEELLIPSE
 
 /*   */
+#undef HAVE_GD_FONTCACHESHUTDOWN
+
+/*   */
 #undef HAVE_GD_DYNAMIC_CTX_EX
 
 /*   */
@@ -1571,7 +1579,10 @@
 #undef HAVE_GD_CACHE_CREATE
 
 /*   */
-#undef HAVE_GD_THREAD_SAFE
+#undef HAVE_GD_FONTCACHESHUTDOWN
+
+/*   */
+#undef HAVE_GD_FREEFONTCACHE
 
 /*   */
 #undef HAVE_GD_DYNAMIC_CTX_EX
@@ -1633,7 +1644,7 @@
 /* Which iconv implementation to use */
 #undef PHP_ICONV_IMPL
 
-/* Konstantin Chugeuv's iconv implementation */
+/* Konstantin Chuguev's iconv implementation */
 #undef HAVE_BSD_ICONV
 
 /* Which iconv implementation to use */
@@ -1680,6 +1691,9 @@
 
 /*   */
 #undef HAVE_IMAP2000
+
+/*   */
+#undef HAVE_IMAP2004
 
 /*   */
 #undef HAVE_IMAP2001
@@ -2003,7 +2017,37 @@
 #undef HAVE_OCI8_TEMP_LOB
 
 /*   */
+#undef PHP_OCI8_HAVE_COLLECTIONS
+
+/*   */
 #undef HAVE_OCI8_TEMP_LOB
+
+/*   */
+#undef HAVE_OCI8_TEMP_LOB
+
+/*   */
+#undef PHP_OCI8_HAVE_COLLECTIONS
+
+/* Whether to build oci8 as dynamic module */
+#undef COMPILE_DL_OCI8
+
+/*   */
+#undef HAVE_OCI8
+
+/*   */
+#undef HAVE_OCI8_ATTR_STATEMENT
+
+/*   */
+#undef HAVE_OCI_9_2
+
+/*   */
+#undef HAVE_OCI8_TEMP_LOB
+
+/*   */
+#undef PHP_OCI8_HAVE_COLLECTIONS
+
+/*   */
+#undef HAVE_OCI_INSTANT_CLIENT
 
 /* Whether to build oci8 as dynamic module */
 #undef COMPILE_DL_OCI8
@@ -2368,6 +2412,9 @@
 /* Whether to build wddx as dynamic module */
 #undef COMPILE_DL_WDDX
 
+/* Define if processor uses big-endian word */
+#undef WORDS_BIGENDIAN
+
 /*   */
 #undef HAVE_LIBEXPAT
 
@@ -2450,10 +2497,19 @@
 #undef SOLARIS_YP
 
 /*   */
+#undef HAVE_NEW_ZZIPLIB
+
+/*   */
 #undef HAVE_ZZIPLIB
 
 /* Whether to build zip as dynamic module */
 #undef COMPILE_DL_ZIP
+
+/* Define if int32_t type is present.  */
+#undef HAVE_INT32_T
+
+/* Define if uint32_t type is present.  */
+#undef HAVE_UINT32_T
 
 /* whether floatingpoint.h defines fp_except */
 #undef HAVE_FP_EXCEPT

@@ -1,4 +1,4 @@
-/* $Source: /repository/php-src/ext/mnogosearch/php_mnogo.h,v $ */
+/* $Source: /repository/php-src/ext/mnogosearch/Attic/php_mnogo.h,v $ */
 /* $Id: php_mnogo.h,v 1.19.4.6 2004/11/28 20:33:09 gluke Exp $ */
 
 /* 

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.h,v 1.25.2.8 2003/09/20 02:08:12 iliaa Exp $ */
+/* $Id: tsrm_virtual_cwd.h,v 1.25.2.10 2005/02/11 03:34:04 sniper Exp $ */
 
 #ifndef VIRTUAL_CWD_H
 #define VIRTUAL_CWD_H

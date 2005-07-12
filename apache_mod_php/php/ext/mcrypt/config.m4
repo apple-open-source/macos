@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.24.4.3 2003/10/01 02:54:00 sniper Exp $
+dnl $Id: config.m4,v 1.24.4.4 2005/01/22 01:37:12 sniper Exp $
 dnl 
 
 PHP_ARG_WITH(mcrypt, for mcrypt support,
@@ -23,12 +23,10 @@ if test "$PHP_MCRYPT" != "no"; then
     [
       AC_DEFINE(HAVE_MCRYPT_GENERIC_DEINIT,1,[ ])
     ],[],[
-      -L$MCRYPT_DIR/lib
+      -L$MCRYPT_DIR/lib -lltdl
     ])
 
   ],[
-    unset found
-    unset ac_cv_lib_mcrypt_mcrypt_module_open
     PHP_CHECK_LIBRARY(mcrypt, mcrypt_module_open,
     [
       AC_DEFINE(HAVE_LIBMCRYPT24,1,[ ])
@@ -48,7 +46,9 @@ if test "$PHP_MCRYPT" != "no"; then
       ],[
         -L$MCRYPT_DIR/lib
       ])
-    ],[])
+    ],[
+      -L$MCRYPT_DIR/lib
+    ])
   ],[
     -L$MCRYPT_DIR/lib -lltdl
   ])

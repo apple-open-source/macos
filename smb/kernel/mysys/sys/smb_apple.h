@@ -20,9 +20,6 @@
 #undef KASSERT
 #define KASSERT(exp,msg)	do { if (!(exp)) panic msg; } while (0)
 
-#define curproc current_proc()
-#define vnode_pager_setsize ubc_setsize /* works since n_size is quad */
-
 #define VFS_SET(a, b, c)
 #define vnop_defaultop vn_default_error
 #define VNODEOP_SET(a)

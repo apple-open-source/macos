@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_lib.h,v 1.21 2005/02/24 02:04:37 lindak Exp $
+ * $Id: smb_lib.h,v 1.21.82.2 2005/06/02 00:55:39 lindak Exp $
  */
 #ifndef _NETSMB_SMB_LIB_H_
 #define _NETSMB_SMB_LIB_H_
@@ -105,7 +105,7 @@ struct smb_ctx {
 	int		ct_parsedlevel;
 	int		ct_minlevel;
 	int		ct_maxlevel;
-	char *		ct_fullsrvaddr; /* full [DNS or NetBIOS] server name */
+	char *		ct_fullserver; /* original server name from cmd line */
 	char *		ct_srvaddr;	/* hostname or IP address of server */
 	struct sockaddr_in ct_srvinaddr;/* IP address of server */
 	char		ct_locname[SMB_MAXUSERNAMELEN + 1];
@@ -123,12 +123,15 @@ struct smb_ctx {
 #define	SMBCF_SRIGHTS		0x0002	/* share access rights was supplied */
 #define	SMBCF_LOCALE		0x0004	/* use current locale */
 #define	SMBCF_RESOLVED		0x8000	/* structure has been verified */
+#define	SMBCF_KCBAD		0x00080000 /* keychain password failed */
 #define	SMBCF_KCFOUND		0x00100000 /* password is from keychain */
 #define	SMBCF_BROWSEOK		0x00200000 /* browser dialogue may be used */
 #define	SMBCF_AUTHREQ		0x00400000 /* authentication dialog requested */
 #define	SMBCF_KCSAVE		0x00800000 /* add to keychain requested */
 #define	SMBCF_XXX		0x01000000 /* mount-all, a very bad thing */
 #define SMBCF_SSNACTIVE		0x02000000 /* session setup succeeded */
+#define SMBCF_WGFROMUSR		0x04000000 /* user defined workgroup */
+#define SMBCF_NONEGDOM		0x08000000 /* Don't use domain field in negprot respose */
 
 /*
  * request handling structures
@@ -187,12 +190,15 @@ int  smb_ctx_init(struct smb_ctx *, int, char *[], int, int, int);
 void smb_ctx_done(struct smb_ctx *);
 int  smb_ctx_parseunc(struct smb_ctx *, const char *, int, const char **);
 int  smb_ctx_setcharset(struct smb_ctx *, const char *);
-int  smb_ctx_setfullsrvraddr(struct smb_ctx *, const char *);
-int  smb_ctx_setserver(struct smb_ctx *, const char *);
+int  smb_ctx_setfullserver(struct smb_ctx *, const char *);
+void  smb_ctx_setserver(struct smb_ctx *, const char *);
 int  smb_ctx_setuser(struct smb_ctx *, const char *);
 int  smb_ctx_setshare(struct smb_ctx *, const char *, int);
 int  smb_ctx_setscope(struct smb_ctx *, const char *);
-int  smb_ctx_setworkgroup(struct smb_ctx *, const char *);
+/* Defines for wgfromuser argument below */
+#define SETWG_NOT_FROMUSER 0
+#define SETWG_FROMUSER     1
+int  smb_ctx_setworkgroup(struct smb_ctx *, const char *, u_int32_t wgfromuser);
 int  smb_ctx_setpassword(struct smb_ctx *, const char *);
 int  smb_ctx_setsrvaddr(struct smb_ctx *, const char *);
 int  smb_ctx_opt(struct smb_ctx *, int, const char *);

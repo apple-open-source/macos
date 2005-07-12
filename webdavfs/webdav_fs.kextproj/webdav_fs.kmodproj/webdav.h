@@ -482,7 +482,7 @@ struct webdavnode
 	struct timespec pt_ctime;					/* time of last file status change */
 	off_t pt_filesize;							/* what we think the filesize is */
 	u_int32_t pt_status;						/* WEBDAV_DIRTY, etc */
-	u_int32_t pt_diropencount;					/* reference count of opens on directory */
+	u_int32_t pt_opencount;						/* reference count of opens */
 };
 
 struct open_associatecachefile
@@ -500,7 +500,8 @@ struct open_associatecachefile
 #define WEBDAV_DIR_NOT_LOADED   0x00000010		/* Indicates that an open directory is empty and needs to be populated from the server */
 #define WEBDAV_INIT				0x00000020		/* Indicates that the webdavnode is in the process of being initialized */
 #define WEBDAV_WAITINIT			0x00000040		/* Indicates that someone is sleeping (on webdavnode) waiting for initialization to finish */
-#define WEBDAV_WASMAPPED		0x00000080		/* Indicates that the file is or was mapped */
+#define WEBDAV_ISMAPPED			0x00000080		/* Indicates that the file is mapped */
+#define WEBDAV_WASMAPPED		0x00000100		/* Indicates that the file is or was mapped */
 
 /* Defines for webdavmount pm_status field */
 

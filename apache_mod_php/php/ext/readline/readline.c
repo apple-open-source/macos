@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: readline.c,v 1.31.2.1 2002/12/31 16:35:15 sebastian Exp $ */
+/* $Id: readline.c,v 1.31.2.3 2005/02/04 00:22:03 iliaa Exp $ */
 
 /* {{{ includes & prototypes */
 
@@ -393,7 +393,13 @@ static char **_readline_completion_cb(char *text, int start, int end)
 
 	if (call_user_function(CG(function_table), NULL, params[0], &_readline_array, 3, params+1 TSRMLS_CC) == SUCCESS) {
 		if (Z_TYPE(_readline_array) == IS_ARRAY) {
-			matches = completion_matches(text,_readline_command_generator);
+			if (zend_hash_num_elements(Z_ARRVAL(_readline_array))) {
+				matches = completion_matches(text,_readline_command_generator);
+			} else {
+				matches = malloc(sizeof(char *) * 2);
+				matches[0] = strdup("");
+				matches[1] = '\0';
+			}
 		}
 	}
 	

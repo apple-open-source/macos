@@ -177,6 +177,7 @@ static void unsetup_job_env(launch_data_t obj, const char *key, void *context);
 
 static size_t total_children = 0;
 static pid_t readcfg_pid = 0;
+static pid_t launchd_proper_pid = 0;
 static bool launchd_inited = false;
 static bool shutdown_in_progress = false;
 static pthread_t mach_server_loop_thread;
@@ -421,6 +422,9 @@ static char *sockpath = NULL;
 
 static void launchd_clean_up(void)
 {
+	if (launchd_proper_pid != getpid())
+		return;
+
 	seteuid(0);
 	setegid(0);
 
@@ -489,8 +493,12 @@ static void launchd_server_init(bool create_session)
 			goto out_bad;
 		}
 	}
+
 	if (chown(ourdir, getuid(), getgid()) == -1)
 		syslog(LOG_WARNING, "chown(\"%s\"): %m", ourdir);
+
+	setegid(getgid());
+	seteuid(getuid());
 
 	ourdirfd = _fd(open(ourdir, O_RDONLY));
 	if (ourdirfd == -1) {
@@ -524,8 +532,6 @@ static void launchd_server_init(bool create_session)
 			syslog(LOG_ERR, "bind(\"thesocket\"): %m");
 		goto out_bad;
 	}
-	if (chown(sun.sun_path, getuid(), getgid()) == -1)
-		syslog(LOG_WARNING, "chown(\"thesocket\"): %m");
 
 	if (listen(fd, SOMAXCONN) == -1) {
 		syslog(LOG_ERR, "listen(\"thesocket\"): %m");
@@ -542,6 +548,7 @@ static void launchd_server_init(bool create_session)
 	sockdir = strdup(ourdir);
 	sockpath = strdup(sun.sun_path);
 
+	launchd_proper_pid = getpid();
 	atexit(launchd_clean_up);
 
 out_bad:
@@ -807,7 +814,7 @@ static void job_watch(struct jobcb *j)
 
 		if (-1 == (dcc_r = dir_has_files(thepath))) {
 			job_log_error(j, LOG_ERR, "dir_has_files(\"%s\", ...)", thepath);
-		} else if (dcc_r > 0) {
+		} else if (dcc_r > 0 && !shutdown_in_progress) {
 			job_start(j);
 			break;
 		}
@@ -1065,7 +1072,7 @@ static launch_data_t load_job(launch_data_t pload)
 	launch_data_t tmp, resp;
 	const char *label;
 	struct jobcb *j;
-	bool startnow;
+	bool startnow, hasprog = false, hasprogargs = false;
 
 	if ((label = job_get_string(pload, LAUNCH_JOBKEY_LABEL))) {
 		TAILQ_FOREACH(j, &jobs, tqe) {
@@ -1078,7 +1085,13 @@ static launch_data_t load_job(launch_data_t pload)
 		resp = launch_data_new_errno(EINVAL);
 		goto out;
 	}
-	if (launch_data_dict_lookup(pload, LAUNCH_JOBKEY_PROGRAMARGUMENTS) == NULL) {
+
+	if (launch_data_dict_lookup(pload, LAUNCH_JOBKEY_PROGRAM))
+		hasprog = true;
+	if (launch_data_dict_lookup(pload, LAUNCH_JOBKEY_PROGRAMARGUMENTS))
+		hasprogargs = true;
+
+	if (!hasprog && !hasprogargs) {
 		resp = launch_data_new_errno(EINVAL);
 		goto out;
 	}
@@ -1133,6 +1146,11 @@ static launch_data_t load_job(launch_data_t pload)
 		launch_data_t tmp_k;
 
 		j->start_cal_interval = calloc(1, sizeof(struct tm));
+		j->start_cal_interval->tm_min = -1;
+		j->start_cal_interval->tm_hour = -1;
+		j->start_cal_interval->tm_mday = -1;
+		j->start_cal_interval->tm_wday = -1;
+		j->start_cal_interval->tm_mon = -1;
 
 		if (LAUNCH_DATA_DICTIONARY == launch_data_get_type(tmp)) {
 			if ((tmp_k = launch_data_dict_lookup(tmp, LAUNCH_JOBKEY_CAL_MINUTE)))
@@ -1141,11 +1159,8 @@ static launch_data_t load_job(launch_data_t pload)
 				j->start_cal_interval->tm_hour = launch_data_get_integer(tmp_k);
 			if ((tmp_k = launch_data_dict_lookup(tmp, LAUNCH_JOBKEY_CAL_DAY)))
 				j->start_cal_interval->tm_mday = launch_data_get_integer(tmp_k);
-			if ((tmp_k = launch_data_dict_lookup(tmp, LAUNCH_JOBKEY_CAL_WEEKDAY))) {
+			if ((tmp_k = launch_data_dict_lookup(tmp, LAUNCH_JOBKEY_CAL_WEEKDAY)))
 				j->start_cal_interval->tm_wday = launch_data_get_integer(tmp_k);
-				if (j->start_cal_interval->tm_wday == 0)
-					j->start_cal_interval->tm_wday = 7;
-			}
 			if ((tmp_k = launch_data_dict_lookup(tmp, LAUNCH_JOBKEY_CAL_MONTH)))
 				j->start_cal_interval->tm_mon = launch_data_get_integer(tmp_k);
 		}
@@ -1425,14 +1440,14 @@ static bool job_restart_fitness_test(struct jobcb *j)
 		job_log(j, LOG_WARNING, "failed to checkin");
 		job_remove(j);
 		return false;
+	} else if (j->failed_exits >= LAUNCHD_FAILED_EXITS_THRESHOLD) {
+		job_log(j, LOG_WARNING, "too many failures in succession");
+		job_remove(j);
+		return false;
 	} else if (od || shutdown_in_progress) {
 		if (!od && shutdown_in_progress)
 			job_log(j, LOG_NOTICE, "exited while shutdown is in progress, will not restart unless demand requires it");
 		job_watch(j);
-		return false;
-	} else if (j->failed_exits >= LAUNCHD_FAILED_EXITS_THRESHOLD) {
-		job_log(j, LOG_WARNING, "too many failures in a row for a job that should be alive all the time");
-		job_remove(j);
 		return false;
 	}
 
@@ -1466,8 +1481,8 @@ static void job_callback(void *obj, struct kevent *kev)
 				startnow = false;
 			}
 		}
-	} else if (kev->filter == EVFILT_TIMER && kev->fflags & NOTE_ABSOLUTE) {
-			job_set_alarm(j);
+	} else if (kev->filter == EVFILT_TIMER && (void *)kev->ident == j->start_cal_interval) {
+		job_set_alarm(j);
 	} else if (kev->filter == EVFILT_VNODE) {
 		size_t i;
 		const char *thepath = NULL;
@@ -1624,14 +1639,25 @@ static void job_start_child(struct jobcb *j, int execfd)
 	bool inetcompat = job_get_bool(j->ldj, LAUNCH_JOBKEY_INETDCOMPATIBILITY);
 	size_t i, argv_cnt;
 	const char **argv, *file2exec = "/usr/libexec/launchproxy";
+	int r;
+	bool hasprog = false;
 
 	job_setup_attributes(j);
 
-	argv_cnt = launch_data_array_get_count(ldpa);
-	argv = alloca((argv_cnt + 2) * sizeof(char *));
-	for (i = 0; i < argv_cnt; i++)
-		argv[i + 1] = launch_data_get_string(launch_data_array_get_index(ldpa, i));
-	argv[argv_cnt + 1] = NULL;
+	if (ldpa) {
+		argv_cnt = launch_data_array_get_count(ldpa);
+		argv = alloca((argv_cnt + 2) * sizeof(char *));
+		for (i = 0; i < argv_cnt; i++)
+			argv[i + 1] = launch_data_get_string(launch_data_array_get_index(ldpa, i));
+		argv[argv_cnt + 1] = NULL;
+	} else {
+		argv = alloca(3 * sizeof(char *));
+		argv[1] = job_get_string(j->ldj, LAUNCH_JOBKEY_PROGRAM);
+		argv[2] = NULL;
+	}
+
+	if (job_get_string(j->ldj, LAUNCH_JOBKEY_PROGRAM))
+		hasprog = true;
 
 	if (inetcompat) {
 		argv[0] = file2exec;
@@ -1640,12 +1666,17 @@ static void job_start_child(struct jobcb *j, int execfd)
 		file2exec = job_get_file2exec(j->ldj);
 	}
 
-	if (-1 == execvp(file2exec, (char *const*)argv)) {
-		int e = errno; /* errno is a macro that expands, best not to take the address of it */
-		write(execfd, &e, sizeof(e));
-		job_log_error(j, LOG_ERR, "execvp(\"%s\", ...)", file2exec);
+	if (hasprog) {
+		r = execv(file2exec, (char *const*)argv);
+	} else {
+		r = execvp(file2exec, (char *const*)argv);
 	}
-	_exit(EXIT_FAILURE);
+
+	if (-1 == r) {
+		write(execfd, &errno, sizeof(errno));
+		job_log_error(j, LOG_ERR, "execv%s(\"%s\", ...)", hasprog ? "" : "p", file2exec);
+	}
+	exit(EXIT_FAILURE);
 }
 
 static void job_setup_attributes(struct jobcb *j)
@@ -1714,11 +1745,11 @@ static void job_setup_attributes(struct jobcb *j)
 			gre_g = gre->gr_gid;
 			if (-1 == setgid(gre_g)) {
 				job_log_error(j, LOG_ERR, "setgid(%d)", gre_g);
-				_exit(EXIT_FAILURE);
+				exit(EXIT_FAILURE);
 			}
 		} else {
 			job_log(j, LOG_ERR, "getgrnam(\"%s\") failed", tmpstr);
-			_exit(EXIT_FAILURE);
+			exit(EXIT_FAILURE);
 		}
 	}
 	if ((tmpstr = job_get_string(j->ldj, LAUNCH_JOBKEY_USERNAME))) {
@@ -1729,27 +1760,27 @@ static void job_setup_attributes(struct jobcb *j)
 
 			if (pwe->pw_expire && time(NULL) >= pwe->pw_expire) {
 				job_log(j, LOG_ERR, "expired account: %s", tmpstr);
-				_exit(EXIT_FAILURE);
+				exit(EXIT_FAILURE);
 			}
 			if (job_get_bool(j->ldj, LAUNCH_JOBKEY_INITGROUPS)) {
 				if (-1 == initgroups(tmpstr, gre ? gre_g : pwe_g)) {
 					job_log_error(j, LOG_ERR, "initgroups()");
-					_exit(EXIT_FAILURE);
+					exit(EXIT_FAILURE);
 				}
 			}
 			if (!gre) {
 				if (-1 == setgid(pwe_g)) {
 					job_log_error(j, LOG_ERR, "setgid(%d)", pwe_g);
-					_exit(EXIT_FAILURE);
+					exit(EXIT_FAILURE);
 				}
 			}
 			if (-1 == setuid(pwe_u)) {
 				job_log_error(j, LOG_ERR, "setuid(%d)", pwe_u);
-				_exit(EXIT_FAILURE);
+				exit(EXIT_FAILURE);
 			}
 		} else {
 			job_log(j, LOG_WARNING, "getpwnam(\"%s\") failed", tmpstr);
-			_exit(EXIT_FAILURE);
+			exit(EXIT_FAILURE);
 		}
 	}
 	if ((tmpstr = job_get_string(j->ldj, LAUNCH_JOBKEY_WORKINGDIRECTORY)))
@@ -2001,13 +2032,13 @@ static void reload_launchd_config(void)
 			int fd = open(ldconf, O_RDONLY);
 			if (fd == -1) {
 				syslog(LOG_ERR, "open(\"%s\"): %m", ldconf);
-				_exit(EXIT_FAILURE);
+				exit(EXIT_FAILURE);
 			}
 			dup2(fd, STDIN_FILENO);
 			close(fd);
 			execl(LAUNCHCTL_PATH, LAUNCHCTL_PATH, NULL);
 			syslog(LOG_ERR, "execl(\"%s\", ...): %m", LAUNCHCTL_PATH);
-			_exit(EXIT_FAILURE);
+			exit(EXIT_FAILURE);
 		} else if (readcfg_pid == -1) {
 			close(spair[0]);
 			close(spair[1]);
@@ -2256,20 +2287,20 @@ static void job_set_alarm(struct jobcb *j)
 	latertm.tm_isdst = -1;
 
 
-	if (j->start_cal_interval->tm_min)
+	if (-1 != j->start_cal_interval->tm_min)
 		latertm.tm_min = j->start_cal_interval->tm_min;
-	if (j->start_cal_interval->tm_hour)
+	if (-1 != j->start_cal_interval->tm_hour)
 		latertm.tm_hour = j->start_cal_interval->tm_hour;
 
 	otherlatertm = latertm;
 
-	if (j->start_cal_interval->tm_mday)
+	if (-1 != j->start_cal_interval->tm_mday)
 		latertm.tm_mday = j->start_cal_interval->tm_mday;
-	if (j->start_cal_interval->tm_mon)
+	if (-1 != j->start_cal_interval->tm_mon)
 		latertm.tm_mon = j->start_cal_interval->tm_mon;
 
 	/* cron semantics are fun */
-	if (j->start_cal_interval->tm_wday) {
+	if (-1 != j->start_cal_interval->tm_wday) {
 		int delta, realwday = j->start_cal_interval->tm_wday;
 
 		if (realwday == 7)
@@ -2287,9 +2318,9 @@ static void job_set_alarm(struct jobcb *j)
 			otherlatertm.tm_mday += delta;
 		else if (delta < 0)
 			otherlatertm.tm_mday += 7 + delta;
-		else if (otherlatertm.tm_hour < nowtm->tm_hour)
+		else if (-1 != j->start_cal_interval->tm_hour && otherlatertm.tm_hour <= nowtm->tm_hour)
 			otherlatertm.tm_mday += 7;
-		else if (otherlatertm.tm_min < nowtm->tm_min)
+		else if (-1 != j->start_cal_interval->tm_min && otherlatertm.tm_min <= nowtm->tm_min)
 			otherlatertm.tm_hour++;
 		else
 			otherlatertm.tm_min++;
@@ -2297,13 +2328,13 @@ static void job_set_alarm(struct jobcb *j)
 		otherlater = mktime(&otherlatertm);
 	}
 
-	if (latertm.tm_mon < nowtm->tm_mon) {
+	if (-1 != j->start_cal_interval->tm_mon && latertm.tm_mon <= nowtm->tm_mon) {
 		latertm.tm_year++;
-	} else if (latertm.tm_mday < nowtm->tm_mday) {
+	} else if (-1 != j->start_cal_interval->tm_mday && latertm.tm_mday <= nowtm->tm_mday) {
 		latertm.tm_mon++;
-	} else if (latertm.tm_hour < nowtm->tm_hour) {
+	} else if (-1 != j->start_cal_interval->tm_hour && latertm.tm_hour <= nowtm->tm_hour) {
 		latertm.tm_mday++;
-	} else if (latertm.tm_min < nowtm->tm_min) {
+	} else if (-1 != j->start_cal_interval->tm_min && latertm.tm_min <= nowtm->tm_min) {
 		latertm.tm_hour++;
 	} else {
 		latertm.tm_min++;
@@ -2312,7 +2343,7 @@ static void job_set_alarm(struct jobcb *j)
 	later = mktime(&latertm);
 
 	if (otherlater) {
-		if (j->start_cal_interval->tm_mday)
+		if (-1 != j->start_cal_interval->tm_mday)
 			later = later < otherlater ? later : otherlater;
 		else
 			later = otherlater;

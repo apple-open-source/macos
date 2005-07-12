@@ -230,6 +230,32 @@ protected:
 	bool mActive;
 };
 
+template <class TakeLock, class ReleaseLock,
+	void (TakeLock::*_lock)() = &TakeLock::lock,
+	void (TakeLock::*_unlock)() = &TakeLock::unlock,
+	void (ReleaseLock::*_rlock)() = &ReleaseLock::lock,
+	void (ReleaseLock::*_runlock)() = &ReleaseLock::unlock>
+class StSyncLock {
+public:
+    StSyncLock(TakeLock &tlck, ReleaseLock &rlck) : taken(tlck), released(rlck) { 
+		(released.*_unlock)(); 
+		(taken.*_lock)(); 
+		mActive = true; 
+	}
+    StSyncLock(TakeLock &tlck, ReleaseLock &rlck, bool option) : taken(tlck), released(rlck), mActive(option) { }
+    ~StSyncLock()						{ if (mActive) { (taken.*_unlock)(); (released.*_rlock)(); }}
+	
+	bool isActive() const				{ return mActive; }
+	void lock()							{ if(!mActive) { (released.*_runlock)(); (taken.*_lock)(); mActive = true; }}
+	void unlock()						{ if(mActive) { (taken.*_unlock)(); (released.*_rlock)(); mActive = false; }}
+	void release()						{ assert(mActive); mActive = false; }
+	
+protected:
+    TakeLock &taken;
+    ReleaseLock &released;
+    bool mActive;
+};
+
 
 //
 // Atomic increment/decrement operations.

@@ -18,6 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_API.c,v 1.113.2.6 2005/01/17 00:57:29 sniper Exp $ */
 
 #include "zend.h"
 #include "zend_execute.h"
@@ -1129,9 +1130,9 @@ void module_destructor(zend_module_entry *module)
 		zend_unregister_functions(module->functions, -1, NULL TSRMLS_CC);
 	}
 
-#if HAVE_LIBDL
+#if HAVE_LIBDL || defined(HAVE_MACH_O_DYLD_H)
 	if (module->handle) {
-		dlclose(module->handle);
+		DL_UNLOAD(module->handle);
 	}
 #endif
 }
@@ -1419,3 +1420,11 @@ ZEND_API char *zend_get_module_version(char *module_name)
 	}
     return module->version;
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

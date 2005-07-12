@@ -89,7 +89,7 @@ private:
 //
 // KeychainDatabase DbCommons
 //
-class KeychainDbCommon : public DbCommon,
+class KeychainDbCommon : public LocalDbCommon, 
 	public DatabaseCryptoCore, public MachServer::Timer {
 public:
 	KeychainDbCommon(Session &ssn, const DbIdentifier &id);

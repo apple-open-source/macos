@@ -7366,7 +7366,16 @@ sInt32 CNiPlugIn::LocalCachedUserReachable(	tDirNodeReference inNodeRef,
 				if ( inContext->fLocalCacheNetNode == nil ) throw( (sInt32)eMemoryError );
 				dataBuffer = ::dsDataBufferAllocate( inContext->fLocalCacheRef, 1024 );
 				if ( dataBuffer == nil ) throw( (sInt32)eMemoryError );
-	
+
+				// if this is the Active Directory plugin we will make an exception because the plugin always allows
+				// itself to be opened and does not always register all of it's nodes
+				if ( strncmp("/Active Directory/", networkNodename, sizeof("/Active Directory/")-1) == 0 )
+				{
+					*inOutNodeReachable = true;
+					siResult = eDSNoErr;
+					throw( siResult );
+				}
+								
 				result = dsFindDirNodes( inContext->fLocalCacheRef, dataBuffer, inContext->fLocalCacheNetNode, eDSiExact, &nodeCount, nil );
 				if ( (result == eDSNoErr) && (nodeCount == 1) )
 				{
@@ -7673,6 +7682,12 @@ sInt32 CNiPlugIn::DoLocalCachedUserAuthPhase2	( tDirNodeReference inNodeRef,
 										tmpContext = nil;
 									}
 								}
+								else if (siResult == eDSCannotAccessSession)
+								{
+									// if got a session error, the node must not be available so we should auth locally
+									DBGLOG( kLogPlugin, "DoLocalCachedUserAuth::Original node failed with eDSCannotAccessSession, authenticate locally" );
+									bAuthLocally = true;
+								}								
 							}
 							else
 							{

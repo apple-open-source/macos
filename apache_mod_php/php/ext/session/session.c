@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.47 2004/12/09 17:16:57 tony2001 Exp $ */
+/* $Id: session.c,v 1.336.2.50 2005/02/13 17:51:32 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -75,6 +75,7 @@ function_entry session_functions[] = {
 	PHP_FE(session_set_cookie_params, NULL)
 	PHP_FE(session_get_cookie_params, NULL)
 	PHP_FE(session_write_close,       NULL)
+	PHP_FALIAS(session_commit, session_write_close, NULL)
 	{NULL, NULL, NULL} 
 };
 /* }}} */
@@ -84,12 +85,16 @@ PHPAPI ZEND_DECLARE_MODULE_GLOBALS(ps);
 static ps_module *_php_find_ps_module(char *name TSRMLS_DC);
 static const ps_serializer *_php_find_ps_serializer(char *name TSRMLS_DC);
 
+#define SESSION_CHECK_ACTIVE_STATE	\
+	if (PS(session_status) == php_session_active) { \
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "A session is active. You cannot change the session module's ini settings at this time."); \
+		return FAILURE; \
+	}
+
 static PHP_INI_MH(OnUpdateSaveHandler)
 {
-	if (PS(session_status) == php_session_active) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "A session is active. You cannot change the session module's ini settings at this time.");
-		return FAILURE;
-	}
+	SESSION_CHECK_ACTIVE_STATE;
+
 	PS(mod) = _php_find_ps_module(new_value TSRMLS_CC);
 
 	if (PG(modules_activated) && !PS(mod)) {
@@ -101,10 +106,8 @@ static PHP_INI_MH(OnUpdateSaveHandler)
 
 static PHP_INI_MH(OnUpdateSerializer)
 {
-	if (PS(session_status) == php_session_active) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "A session is active. You cannot change the session module's ini settings at this time.");
-		return FAILURE;
-	}
+	SESSION_CHECK_ACTIVE_STATE;
+
 	PS(serializer) = _php_find_ps_serializer(new_value TSRMLS_CC);
 
 	if (PG(modules_activated) && !PS(serializer)) {
@@ -408,7 +411,7 @@ PS_SERIALIZER_DECODE_FUNC(php_binary)
 		p += namelen + 1;
 		
 		if (has_value) {
-			MAKE_STD_ZVAL(current);
+			ALLOC_INIT_ZVAL(current);
 			if (php_var_unserialize(&current, (const unsigned char **)&p, endptr, &var_hash TSRMLS_CC)) {
 				php_set_session_var(name, namelen, current, &var_hash  TSRMLS_CC);
 			}
@@ -488,7 +491,7 @@ PS_SERIALIZER_DECODE_FUNC(php)
 		q++;
 		
 		if (has_value) {
-			MAKE_STD_ZVAL(current);
+			ALLOC_INIT_ZVAL(current);
 			if (php_var_unserialize(&current, (const unsigned char **)&q, endptr, &var_hash TSRMLS_CC)) {
 				php_set_session_var(name, namelen, current, &var_hash TSRMLS_CC);
 			}
@@ -511,8 +514,7 @@ static void php_session_track_init(TSRMLS_D)
 	zval *session_vars = NULL;
 	
 	/* Unconditionally destroy existing arrays -- possible dirty data */
-	zend_hash_del(&EG(symbol_table), "HTTP_SESSION_VARS", 
-			sizeof("HTTP_SESSION_VARS"));
+	zend_hash_del(&EG(symbol_table), "HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"));
 	zend_hash_del(&EG(symbol_table), "_SESSION", sizeof("_SESSION"));
 
 	MAKE_STD_ZVAL(session_vars);
@@ -1246,13 +1248,23 @@ PHP_FUNCTION(session_set_save_handler)
 	zval **args[6];
 	int i;
 	ps_user *mdata;
+	char *name;
 
 	if (ZEND_NUM_ARGS() != 6 || zend_get_parameters_array_ex(6, args) == FAILURE)
 		WRONG_PARAM_COUNT;
 	
 	if (PS(session_status) != php_session_none) 
 		RETURN_FALSE;
-	
+
+	for (i = 0; i < 6; i++) {
+		if (!zend_is_callable(*args[i], 0, &name)) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Argument %d is not a valid callback", i+1);
+			efree(name);
+			RETURN_FALSE;
+		}
+		efree(name);
+	}
+
 	zend_alter_ini_entry("session.save_handler", sizeof("session.save_handler"), "user", sizeof("user")-1, PHP_INI_USER, PHP_INI_STAGE_RUNTIME);
 
 	mdata = emalloc(sizeof(*mdata));

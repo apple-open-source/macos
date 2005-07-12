@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.c,v 1.74.2.14 2003/11/04 20:56:56 iliaa Exp $ */
+/* $Id: php_ftp.c,v 1.74.2.15 2005/03/10 23:38:18 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -601,6 +601,10 @@ PHP_FUNCTION(ftp_get)
 	if (php_check_open_basedir(local TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
+
+#ifdef PHP_WIN32
+	mode = FTPTYPE_IMAGE;
+#endif
 
 	if (ftp->autoseek && resumepos) {
 		if (PG(safe_mode) && (!php_checkuid(local, mode == FTPTYPE_ASCII ? "rt+" : "rb+", CHECKUID_CHECK_MODE_PARAM))) {

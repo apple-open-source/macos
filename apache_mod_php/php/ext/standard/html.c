@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.c,v 1.63.2.19 2004/07/13 17:15:13 wez Exp $ */
+/* $Id: html.c,v 1.63.2.23 2005/03/09 10:11:15 derick Exp $ */
 
 /*
  * HTML entity resources:
@@ -27,13 +27,15 @@
  * http://msdn.microsoft.com/workshop/author/dhtml/reference/charsets/charset3.asp
  * http://www.unicode.org/Public/MAPPINGS/OBSOLETE/UNI2SGML.TXT
  *
+ * http://www.w3.org/TR/2002/REC-xhtml1-20020801/dtds.html#h-A2
+ *
  */
 
 #include "php.h"
 #if PHP_WIN32
 #include "config.w32.h"
 #else
-#include "php_config.h"
+#include <php_config.h>
 #endif
 #include "reg.h"
 #include "html.h"
@@ -109,16 +111,17 @@ static entity_table_t ent_uni_338_402[] = {
 	NULL, NULL, NULL, NULL,
 	/* 352 */
 	"Scaron", "scaron",
-	/* 354 - 375 */
+	/* 354  */
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	/* 376 */
 	"Yuml",
-	/* 377 - 401 */
+	/* 377  */
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	NULL,
 	/* 402 */
 	"fnof"
 };
@@ -126,11 +129,11 @@ static entity_table_t ent_uni_338_402[] = {
 static entity_table_t ent_uni_spacing[] = {
 	/* 710 */
 	"circ",
-	/* 711 - 731 */
+	/* 711 - 730 */
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	/* 732 */
-	"tilde",
+	/* 731 - 732 */
+	NULL, "tilde"
 };
 
 static entity_table_t ent_uni_greek[] = {
@@ -145,9 +148,9 @@ static entity_table_t ent_uni_greek[] = {
 	"sigmaf", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega",
 	/* 970 - 976 are not mapped */
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	"thetasym", "ups1h",
+	"thetasym", "upsih",
 	NULL, NULL, NULL,
-	"p1v" 
+	"piv" 
 };
 
 static entity_table_t ent_uni_punct[] = {
@@ -155,7 +158,7 @@ static entity_table_t ent_uni_punct[] = {
 	"ensp", "emsp", NULL, NULL, NULL, NULL, NULL,
 	"thinsp", NULL, NULL, "zwnj", "zwj", "lrm", "rlm",
 	NULL, NULL, NULL, "ndash", "mdash", NULL, NULL, NULL,
-	"lsquo", "rsquo", "sbquo", NULL, "ldquo", "rdquo", "bdquo",
+	"lsquo", "rsquo", "sbquo", NULL, "ldquo", "rdquo", "bdquo", NULL,
 	"dagger", "Dagger",	"bull", NULL, NULL, NULL, "hellip",
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "permil", NULL,
 	"prime", "Prime", NULL, NULL, NULL, NULL, NULL, "lsaquo", "rsaquo",
@@ -189,7 +192,7 @@ static entity_table_t ent_uni_8592_9002[] = {
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	/* 8624 (0x21b0) */
-	NULL, NULL, NULL, NULL, "crarr", NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL, NULL, "crarr", NULL, NULL,
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	/* 8640 (0x21c0) */
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
@@ -204,9 +207,9 @@ static entity_table_t ent_uni_8592_9002[] = {
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	/* 8704 (0x2200) */
 	"forall", "comp", "part", "exist", "nexist", "empty", NULL, "nabla",
-	"isin", "notin", "epsis", NULL, "ni", "bepsi", NULL, "prod",
+	"isin", "notin", "epsis", "ni", "notni", "bepsi", NULL, "prod",
 	/* 8720 (0x2210) */
-	"coprod", "sum", "minus", "mnplus", "plusdo", NULL, "setmn", NULL,
+	"coprod", "sum", "minus", "mnplus", "plusdo", NULL, "setmn", "lowast",
 	"compfn", NULL, "radic", NULL, NULL, "prop", "infin", "ang90",
 	/* 8736 (0x2220) */
 	"ang", "angmsd", "angsph", "mid", "nmid", "par", "npar", "and",
@@ -216,7 +219,7 @@ static entity_table_t ent_uni_8592_9002[] = {
 	NULL, NULL, NULL, NULL, "sim", "bsim", NULL, NULL,
 	/* 8768 (0x2240) */
 	"wreath", "nsim", NULL, "sime", "nsime", "cong", NULL, "ncong",
-	"ap", "nap", "ape", NULL, "bcong", "asymp", "bump", "bumpe",
+	"asymp", "nap", "ape", NULL, "bcong", "asymp", "bump", "bumpe",
 	/* 8784 (0x2250) */
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
@@ -228,38 +231,37 @@ static entity_table_t ent_uni_8592_9002[] = {
 	NULL, NULL, "pr", "sc", "cupre", "sscue", "prsim", "scsim",
 	/* 8832 (0x2280) */
 	"npr", "nsc", "sub", "sup", "nsub", "nsup", "sube", "supe",
-	/* 8840 - 8852 */
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	/* 8853 */
-	"oplus", NULL, "otimes",
-	/* 8856 - 8868 */
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	/* 8869 */
-	"perp",
-	/* 8870 - 8901 */
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL,
-	/* 8901 */
-	"sdot",
-	/* 8902 - 8967 */
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL,
-	/* 8968 */
-	"lceil", "rceil", "lfloor", "rfloor",
-	/* 8969 - 9000 */
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL,
-	/* 9001 */
-	"lang", "rang",
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 8848 (0x2290) */
+	NULL, NULL, NULL, NULL, NULL, "oplus", NULL, "otimes",
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 8864 (0x22a0) */
+	NULL, NULL, NULL, NULL, NULL, "perp", NULL, NULL,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 8880 (0x22b0) */
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 8896 (0x22c0) */
+	NULL, NULL, NULL, NULL, NULL, "sdot", NULL, NULL,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 8912 (0x22d0) */
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 8928 (0x22e0) */
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 8944 (0x22f0) */
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 8960 (0x2300) */
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	"lceil", "rceil", "lfloor", "rfloor", NULL, NULL, NULL, NULL,
+	/* 8976 (0x2310) */
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	/* 8992 (0x2320) */
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	NULL, "lang", "rang"
 };
 
 static entity_table_t ent_uni_9674[] = {

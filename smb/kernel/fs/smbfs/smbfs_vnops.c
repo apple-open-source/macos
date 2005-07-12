@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vnops.c,v 1.128 2005/03/23 17:55:34 lindak Exp $
+ * $Id: smbfs_vnops.c,v 1.128.36.1 2005/05/27 02:35:28 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -1119,8 +1119,11 @@ smbfs_setattr(ap)
 		newround = round_page_64((off_t)vap->va_data_size);
 		if ((off_t)tsize > newround) {
 			if (!ubc_sync_range(vp, newround, (off_t)tsize,
-					    UBC_INVALIDATE))
-				panic("smbfs_setattr: UBC_INVALIDATE");
+					    UBC_INVALIDATE)) {
+				SMBERROR("ubc_sync_range failure\n");
+				error = EIO;
+				goto out;
+			}
 		}
 		/*
 		 * XXX VM coherence on extends -  consider delaying
@@ -1245,13 +1248,19 @@ static int
 smb_flushvp(vnode_t  vp, vfs_context_t vfsctx, int inval)
 {
 	struct smb_cred scred;
+	int error = 0, error2;
 
-	/* XXX log ubc errors and provide nowait option */
-	(void) ubc_sync_range(vp, (off_t)0, smb_ubc_getsize(vp),
-			      UBC_PUSHALL | UBC_SYNC | (inval ? UBC_INVALIDATE
-							      : 0));
+	/* XXX provide nowait option? */
+	if (inval)
+		inval = UBC_INVALIDATE;
+	if (!ubc_sync_range(vp, (off_t)0, smb_ubc_getsize(vp),
+			    UBC_PUSHALL | UBC_SYNC | inval)) {
+		SMBERROR("ubc_sync_range failure\n");
+		error = EIO;
+	}
 	smb_scred_init(&scred, vfsctx);
-	return (smbfs_smb_flush(VTOSMB(vp), &scred));
+	error2 = smbfs_smb_flush(VTOSMB(vp), &scred);
+	return (error2 ? error2 : error);
 }
 
 
@@ -1262,8 +1271,10 @@ smb_flushrange(vnode_t  vp, uio_t uio)
 
 	soff = trunc_page_64(uio_offset(uio));
 	eoff = round_page_64(uio_offset(uio) + uio_resid(uio));
-	if (!ubc_sync_range(vp, soff, eoff, UBC_PUSHDIRTY|UBC_INVALIDATE))
-		return (EINVAL);
+	if (!ubc_sync_range(vp, soff, eoff, UBC_PUSHDIRTY|UBC_INVALIDATE)) {
+		SMBERROR("ubc_sync_range failure\n");
+		return (EIO);
+	}
 	return (0);
 }
 
@@ -1289,6 +1300,7 @@ smbfs_read(ap)
 	struct smbnode *np = VTOSMB(vp);
 	struct smb_cred scred;
 	int vtype;
+	struct vnode_attr vattr;
 
 	vtype = vnode_vtype(vp);
 
@@ -1321,6 +1333,28 @@ smbfs_read(ap)
 	error = smb_flushrange(vp, uio);
  	if (error)
  		return (error);
+
+	VATTR_INIT(&vattr);
+	VATTR_WANTED(&vattr, va_modify_time);
+	VATTR_WANTED(&vattr, va_data_size);
+	if (np->n_flag & NMODIFIED) {
+		smbfs_attr_cacheremove(np);
+		error = smbi_getattr(vp, &vattr, ap->a_context);
+		if (error)
+			return (error);
+		np->n_mtime.tv_sec = vattr.va_modify_time.tv_sec;
+	} else {
+		error = smbi_getattr(vp, &vattr, ap->a_context);
+		if (error)
+			return (error);
+		if (np->n_mtime.tv_sec != vattr.va_modify_time.tv_sec) {
+			error = smbfs_vinvalbuf(vp, V_SAVE, ap->a_context, 1);
+			if (error)
+				return (error);
+			np->n_mtime.tv_sec = vattr.va_modify_time.tv_sec;
+		}
+	}
+
 	smb_scred_init(&scred, ap->a_context);
 	error = smbfs_smb_flush(np, &scred);
  	if (error)
@@ -1346,7 +1380,7 @@ smbfs_read(ap)
 			break;
 		uio_setresid(uio, xfersize);
 		/* do the wire transaction */
-		error = smbfs_readvnode(vp, uio, ap->a_context);
+		error = smbfs_readvnode(vp, uio, ap->a_context, &vattr);
 		/* dump the pages */
 		if (ubc_upl_abort(upl, UPL_ABORT_DUMP_PAGES))
 			panic("smbfs_read: ubc_upl_abort");
@@ -1384,6 +1418,7 @@ smbfs_write(ap)
 	 * all pages across the whole vop.
 	 */
 	error = smb_flushrange(vp, uio);
+
 	/*
 	 * Note that since our lower layers take the uio directly,
 	 * we don't copy it into these pages; we're going to 
@@ -1825,8 +1860,11 @@ smbfs_remove(ap)
 		goto out;
 	}
 	if (vnode_vtype(vp) == VREG && np->n_size &&
-	    !ubc_sync_range(vp, (off_t)0, (off_t)np->n_size, UBC_INVALIDATE))
-		SMBERROR("UBC_INVALIDATE failure\n");
+	    !ubc_sync_range(vp, (off_t)0, (off_t)np->n_size, UBC_INVALIDATE)) {
+		SMBERROR("ubc_sync_range failure\n");
+		error = EIO;
+		goto out;
+	}
 	smbfs_setsize(vp, (off_t)0);
 	smb_scred_init(&scred, ap->a_context);
 	if (np->n_fidrefs) {
@@ -2348,7 +2386,7 @@ smbfs_readdir(ap)
 		return (ENOTSUP);
 	}
 #endif
-	error = smbfs_readvnode(vp, uio, ap->a_context);
+	error = smbfs_readvnode(vp, uio, ap->a_context, NULL);
 	return (error);
 }
 
@@ -2789,10 +2827,10 @@ smbfs_lookup(ap)
 	supplen = (SMB_DIALECT(vcp) >= SMB_DIALECT_LANMAN2_0) ? 255 : 12;
 	
 	if (cnp->cn_namelen > supplen)
-			return (ENAMETOOLONG);
+		return (ENAMETOOLONG);
 	if (!vnode_isdir(dvp))
 		return (ENOTDIR);
-	if ((flags & ISDOTDOT) && (vnode_isvroot(dvp))) {
+	if ((flags & ISDOTDOT) && vnode_isvroot(dvp)) {
 		SMBFSERR("invalid '..'\n");
 		return (EIO);
 	}
@@ -2800,15 +2838,32 @@ smbfs_lookup(ap)
 	if (islastcn && vfs_isrdonly(mp) && nameiop != LOOKUP)
 		return (EROFS);
 	wantparent = flags & (LOCKPARENT|WANTPARENT);
-	dnp = VTOSMB(dvp);
-	isdot = (nmlen == 1 && name[0] == '.');
 
+	*vpp = NULLVP;
 	error = cache_lookup(dvp, vpp, cnp);
-	if (error) {		/* ENOENT id negative entry found */
-		if (error < 1) {
-			error = 0; /* found positive entry */
-			/* XXX is it stale? */
+	switch (error) {
+	case ENOENT:	/* negative cache entry - treat as cache miss */
+		error = 0;
+		/* FALLTHROUGH */
+	case 0:		/* cache miss */
+		break;
+	case -1:	/* cache hit */
+		/*
+		 * On CREATE we can't trust a cache hit as if it is stale
+		 * and the object doesn't exist on the server returning zero
+		 * here would cause the vfs layer to, for instance, EEXIST
+		 * the mkdir.
+		 */
+		if (nameiop != CREATE)
+			return (0);
+		if (*vpp) {
+			cache_purge(*vpp);
+			vnode_put(*vpp);
+			*vpp = NULLVP;
 		}
+		break;
+	default:	/* unknown & unexpected! */
+		log(LOG_WARNING, "smbfs_lookup: cache_enter error=%d\n", error);
 		return (error);
 	}
 	/* 
@@ -2824,12 +2879,12 @@ smbfs_lookup(ap)
 
 		SMBERROR("warning: pid %d(%.*s) bad filename(%.*s)\n",
 		 		proc_pid(p), 32 , &errbuf[0], nmlen, name);
-	}
-	if (error)
 		return (ENAMETOOLONG);
+	}
 
+	dnp = VTOSMB(dvp);
+	isdot = (nmlen == 1 && name[0] == '.');
 	error = 0;
-	*vpp = NULLVP;
 	smb_scred_init(&scred, ap->a_context);
 	fap = &fattr;
 	/* this can allocate a new "name" so use "out" from here on */
@@ -2839,60 +2894,49 @@ smbfs_lookup(ap)
 		error = smbfs_smb_lookup(dnp, &name, &nmlen, fap, &scred);
 	if (error) {
 		/*
-		 * Handle RENAME or CREATE case...
+		 * note the EJUSTRETURN code in lookup()
 		 */
-		if (error == ENOENT &&
-		    (nameiop == CREATE || nameiop == RENAME) &&
-		    islastcn) /* no wantparent, ref nfs & ufs */
+		if ((nameiop == CREATE || nameiop == RENAME) &&
+		    error == ENOENT && islastcn)
 			error = EJUSTRETURN;
-		goto out;
-	}
-	/*
-	 * handle DELETE case ...
-	 */
-	if (nameiop == DELETE && islastcn) { 	/* delete last component */
-		if (isdot) {
-			vnode_get(dvp);
-			*vpp = dvp;
-			goto out;
-		}
-		error = smbfs_nget(mp, dvp, name, nmlen, fap, &vp,
-				   !MAKEENTRY, 0);
-		if (error)
-			goto out;
-		*vpp = vp;
-		goto out;
-	}
-	if (nameiop == RENAME && islastcn && wantparent) {
+	} else if (nameiop == RENAME && islastcn && wantparent) {
 		if (isdot) {
 			error = EISDIR;
-			goto out;
+		} else {
+			error = smbfs_nget(mp, dvp, name, nmlen, fap, &vp,
+					   !MAKEENTRY, 0);
+			if (!error)
+				*vpp = vp;
 		}
-		error = smbfs_nget(mp, dvp, name, nmlen, fap, &vp,
-				   !MAKEENTRY, 0);
-		if (error)
-			goto out;
-		*vpp = vp;
-		goto out;
-	}
-	if (flags & ISDOTDOT) {
+	} else if (nameiop == DELETE && islastcn) {
+		if (isdot) {
+			error = vnode_get(dvp);
+			if (!error)
+				*vpp = dvp;
+		} else {
+			error = smbfs_nget(mp, dvp, name, nmlen, fap, &vp,
+					   !MAKEENTRY, 0);
+			if (!error)
+				*vpp = vp;
+		}
+	} else if (flags & ISDOTDOT) {
 		error = smbfs_nget(mp, dvp, name, nmlen, NULL, &vp,
 				   !MAKEENTRY, 0);
-		if (error)
-			goto out;
-		*vpp = vp;
+		if (!error)
+			*vpp = vp;
 	} else if (isdot) {
-		vnode_get(dvp);
-		*vpp = dvp;
+		error = vnode_get(dvp);
+		if (!error)
+			*vpp = dvp;
 	} else {
 		error = smbfs_nget(mp, dvp, name, nmlen, fap, &vp,
 				   cnp->cn_flags & MAKEENTRY, 0);
-		if (error)
-			goto out;
-		*vpp = vp;
+		if (!error)
+			*vpp = vp;
 	}
-	error = 0;
+#if notyetneeded
 out:
+#endif
 	if (name != cnp->cn_nameptr)
 		smbfs_name_free(name);
 	return (error);

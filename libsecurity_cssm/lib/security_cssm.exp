@@ -131,6 +131,9 @@ _CSSMOID_MessageDigest
 _CSSMOID_Name
 _CSSMOID_NameConstraints
 _CSSMOID_NetscapeCertType
+_CSSMOID_NetscapeCertSequence
+_CSSMOID_NetscapeSGC
+_CSSMOID_MicrosoftSGC
 _CSSMOID_OCSPSigning
 _CSSMOID_ObjectClass
 _CSSMOID_OrganizationName

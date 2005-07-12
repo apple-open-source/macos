@@ -1,7 +1,7 @@
 /*
  * MIBs For Dummies header
  *
- * $Id: mfd.h,v 1.3 2004/10/15 00:51:51 rstory Exp $
+ * $Id: mfd.h,v 1.3.2.1 2004/12/10 14:50:38 rstory Exp $
  */
 #ifndef NETSNMP_MFD_H
 #define NETSNMP_MFD_H
@@ -75,6 +75,7 @@
  */
 #define MFD_ROW_CREATED                0x80000000 /* newly created row */
 #define MFD_ROW_DATA_FROM_USER         0x40000000 /* we didn't allocate data */
+#define MFD_ROW_DELETED                0x20000000 /* deleted row */
 
 
 #endif                          /* NETSNMP_MFD_H */

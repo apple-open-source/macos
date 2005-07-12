@@ -187,7 +187,7 @@ int process_prefs(struct vpn_params *params)
     }
     params->serverRef = CFDictionaryGetValue(servers_list, params->serverIDRef);
     if (params->serverRef == NULL || isDictionary(params->serverRef) == 0) {
-        sprintf(text, "Server ID '%s' invalid\n", params->server_id);
+        snprintf(text, sizeof(text), "Server ID '%.64s' invalid\n", params->server_id);
         params->serverRef = 0;
         goto fail;
     }

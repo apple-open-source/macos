@@ -2,11 +2,11 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2004 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -16,8 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-
-#include <stdlib.h>
+/* $Id: zend_ini.c,v 1.23.2.6 2005/01/09 17:00:16 sniper Exp $ */
 
 #include "zend.h"
 #include "zend_qsort.h"
@@ -80,7 +79,14 @@ ZEND_API int zend_ini_shutdown(TSRMLS_D)
 {
 	zend_hash_destroy(EG(ini_directives));
 	free(EG(ini_directives));
-	
+	return SUCCESS;
+}
+
+
+ZEND_API int zend_ini_global_shutdown(TSRMLS_D)
+{
+	zend_hash_destroy(registered_zend_ini_directives);
+	free(registered_zend_ini_directives);
 	return SUCCESS;
 }
 
@@ -333,7 +339,7 @@ static void zend_ini_displayer_cb(zend_ini_entry *ini_entry, int type)
 				display_string = ini_entry->orig_value;
 				display_string_length = ini_entry->orig_value_length;
 			} else {
-				if(zend_uv.html_errors) {
+				if (zend_uv.html_errors) {
 					display_string = NO_VALUE_HTML;
 					display_string_length = sizeof(NO_VALUE_HTML)-1;
 				} else {
@@ -345,7 +351,7 @@ static void zend_ini_displayer_cb(zend_ini_entry *ini_entry, int type)
 			display_string = ini_entry->value;
 			display_string_length = ini_entry->value_length;
 		} else {
-			if(zend_uv.html_errors) {
+			if (zend_uv.html_errors) {
 				display_string = NO_VALUE_HTML;
 				display_string_length = sizeof(NO_VALUE_HTML)-1;
 			} else {
@@ -525,10 +531,10 @@ ZEND_API ZEND_INI_MH(OnUpdateStringUnempty)
 	return SUCCESS;
 }
 
-
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
+ * indent-tabs-mode: t
  * End:
  */

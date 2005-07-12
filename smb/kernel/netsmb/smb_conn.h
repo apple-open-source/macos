@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_conn.h,v 1.32 2005/03/17 01:23:41 lindak Exp $
+ * $Id: smb_conn.h,v 1.32.42.1 2005/05/27 02:35:29 lindak Exp $
  */
 #ifndef _NETINET_IN_H_
 #include <sys/socket.h>
@@ -335,6 +335,8 @@ struct smb_share {
 	char *		ss_pass;	/* password to a share, can be null */
 	smb_slock ss_stlock;
 	struct smb_cred *ss_cred;	/* used in reconnect procedure */
+	u_int32_t	ss_maxfilenamelen;
+	char *		ss_fsname;
 };
 
 #define	ss_flags	obj.co_flags

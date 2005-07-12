@@ -311,11 +311,11 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 		{
 			int clean;
 
-			if ( result = ScavSetUp( GPtr ) )			//	set up BEFORE CheckForStop
+			if ( ( result = ScavSetUp( GPtr ) ) )			//	set up BEFORE CheckForStop
 				break;
 			if ( IsBlueBoxSharedDrive( GPtr->DrvPtr ) )
 				break;
-			if ( result = CheckForStop( GPtr ) )		//	in order to initialize wrCnt
+			if ( ( result = CheckForStop( GPtr ) ) )		//	in order to initialize wrCnt
 				break;
 		
 			/* Call for all chkLevel options and check return value only 
@@ -381,20 +381,20 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 
 			if ( IsBlueBoxSharedDrive( GPtr->DrvPtr ) )
 				break;
-			if ( result = CheckForStop( GPtr ) )
+			if ( ( result = CheckForStop( GPtr ) ) )
 				break;
 
 #if SHOW_ELAPSED_TIMES
 			gettimeofday( &myStartTime, &zone );
 #endif
 
-			if ( result = CreateExtentsBTreeControlBlock( GPtr ) )	//	Create the calculated BTree structures
+			if ( ( result = CreateExtentsBTreeControlBlock( GPtr ) ) )	//	Create the calculated BTree structures
 				break;
-			if ( result = CreateCatalogBTreeControlBlock( GPtr ) )
+			if ( ( result = CreateCatalogBTreeControlBlock( GPtr ) ) )
 				break;
-			if ( result = CreateAttributesBTreeControlBlock( GPtr ) )
+			if ( ( result = CreateAttributesBTreeControlBlock( GPtr ) ) )
 				break;
-			if ( result = CreateExtendedAllocationsFCB( GPtr ) )
+			if ( ( result = CreateExtendedAllocationsFCB( GPtr ) ) )
 				break;
 
 #if SHOW_ELAPSED_TIMES
@@ -409,7 +409,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			CalculateItemCount( GPtr, &GPtr->itemsToProcess, &GPtr->onePercent );
 			GPtr->itemsProcessed += GPtr->onePercent;	// We do this 4 times as set up in CalculateItemCount() to smooth the scroll
 			
-			if ( result = VLockedChk( GPtr ) )
+			if ( ( result = VLockedChk( GPtr ) ) )
 				break;
 
 			GPtr->itemsProcessed += GPtr->onePercent;	// We do this 4 times as set up in CalculateItemCount() to smooth the scroll
@@ -419,7 +419,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			gettimeofday( &myStartTime, &zone );
 #endif
 				
-			if (result = ExtBTChk(GPtr))
+			if ((result = ExtBTChk(GPtr)))
 				break;
 
 #if SHOW_ELAPSED_TIMES
@@ -430,14 +430,14 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
 #endif
 				
-			if (result = CheckForStop(GPtr))
+			if ((result = CheckForStop(GPtr)))
 				break;
 			
 			GPtr->itemsProcessed += GPtr->onePercent;	// We do this 4 times as set up in CalculateItemCount() to smooth the scroll
 
-			if (result = ExtFlChk(GPtr))
+			if ((result = ExtFlChk(GPtr)))
 				break;
-			if (result = CheckForStop(GPtr))
+			if ((result = CheckForStop(GPtr)))
 				break;
 			
 			GPtr->itemsProcessed += GPtr->onePercent;	// We do this 4 times as set up in CalculateItemCount() to smooth the scroll
@@ -458,7 +458,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				break;
 			}
 			
-			if (result = CheckCatalogBTree(GPtr))
+			if ((result = CheckCatalogBTree(GPtr)))
 				break;
 
 #if SHOW_ELAPSED_TIMES
@@ -469,7 +469,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
 #endif
 
-			if (result = CheckForStop(GPtr))
+			if ((result = CheckForStop(GPtr)))
 				break;
 
 			WriteMsg( GPtr, M_CatHChk, kStatusMessage );
@@ -478,7 +478,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			gettimeofday( &myStartTime, &zone );
 #endif
 				
-			if (result = CatHChk(GPtr))
+			if ((result = CatHChk(GPtr)))
 				break;
 
 #if SHOW_ELAPSED_TIMES
@@ -489,11 +489,11 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
 #endif
 
-			if (result = CheckForStop(GPtr))
+			if ((result = CheckForStop(GPtr)))
 				break;
-			if (result = AttrBTChk(GPtr))
+			if ((result = AttrBTChk(GPtr)))
 				break;
-			if (result = CheckForStop(GPtr))
+			if ((result = CheckForStop(GPtr)))
 				break;
 
 			WriteMsg( GPtr, M_VolumeBitMapChk, kStatusMessage );
@@ -502,7 +502,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			gettimeofday( &myStartTime, &zone );
 #endif
 				
-			if (result = CheckVolumeBitMap(GPtr, false))
+			if ((result = CheckVolumeBitMap(GPtr, false)))
 				break;
 
 #if SHOW_ELAPSED_TIMES
@@ -513,7 +513,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
 #endif 
 
-			if (result = CheckForStop(GPtr))
+			if ((result = CheckForStop(GPtr)))
 				break;
 
 			WriteMsg( GPtr, M_VInfoChk, kStatusMessage );
@@ -522,7 +522,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			gettimeofday( &myStartTime, &zone );
 #endif
 				
-			if (result = VInfoChk(GPtr))
+			if ((result = VInfoChk(GPtr)))
 				break;
 
 #if SHOW_ELAPSED_TIMES
@@ -563,7 +563,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 		{
 			if ( IsBlueBoxSharedDrive( GPtr->DrvPtr ) )
 				break;
-			if ( result = CheckForStop(GPtr) )
+			if ( ( result = CheckForStop(GPtr) ) )
 				break;
 			if ( GPtr->CBTStat & S_RebuildBTree )
 				WriteMsg( GPtr, M_RebuildingCatalogBTree, kTitleMessage );
@@ -916,7 +916,7 @@ static int ScavSetUp( SGlob *GPtr)
 	// Convert the security attribute name from utf8 to utf16.  This will
 	// avoid repeated conversion of all extended attributes to compare with
 	// security attribute name
-	(void) utf_decodestr(KAUTH_FILESEC_XATTR, strlen(KAUTH_FILESEC_XATTR), GPtr->securityAttrName, &GPtr->securityAttrLen);
+	(void) utf_decodestr((unsigned char *)KAUTH_FILESEC_XATTR, strlen(KAUTH_FILESEC_XATTR), GPtr->securityAttrName, &GPtr->securityAttrLen);
 
 	return( noErr );
 

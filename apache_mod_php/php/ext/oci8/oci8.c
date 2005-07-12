@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.183.2.16 2004/11/03 13:35:56 tony2001 Exp $ */
+/* $Id: oci8.c,v 1.183.2.17 2005/01/20 18:44:10 tony2001 Exp $ */
 
 /* TODO list:
  *
@@ -641,7 +641,7 @@ PHP_MINFO_FUNCTION(oci)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "OCI8 Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.183.2.16 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.183.2.17 $");
 #ifndef PHP_WIN32
 	php_info_print_table_row(2, "Oracle Version", PHP_OCI8_VERSION );
 	php_info_print_table_row(2, "Compile-time ORACLE_HOME", PHP_OCI8_DIR );
@@ -2351,7 +2351,12 @@ static oci_session *_oci_open_session(oci_server* server,char *username,char *pa
 
 	if (OCI(error) != OCI_SUCCESS) {
 		oci_error(OCI(pError), "OCISessionBegin", OCI(error));
-		goto CLEANUP;
+		/* OCISessionBegin returns OCI_SUCCESS_WITH_INFO when
+		 * user's password has expired, but is still usable.
+		 * */
+		if (OCI(error) != OCI_SUCCESS_WITH_INFO) {
+			goto CLEANUP;
+		}
 	}
 
 	/* Free Temporary Service Context */

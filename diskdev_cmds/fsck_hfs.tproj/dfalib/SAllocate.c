@@ -42,13 +42,13 @@ Public routines:
 	BlockDeallocate
 					Deallocate a contiguous run of allocation blocks.
 
+Internal routines:
 	BlockAllocateAny
 					Find and allocate a contiguous range of blocks up to a given size.  The
 					first range of contiguous free blocks found are allocated, even if there
 					are fewer blocks than requested (and even if a contiguous range of blocks
 					of the given size exists elsewhere).
 
-Internal routines:
 	BlockMarkFree
 					Mark a contiguous range of blocks as free.  The corresponding
 					bits in the volume bitmap will be cleared.
@@ -137,7 +137,7 @@ static OSErr BlockMarkFree(
 /*
 ;________________________________________________________________________________
 ;
-; Routine:	   BlkAlloc
+; Routine:	   BlockAllocate
 ;
 ; Function:    Allocate space on a volume.	If contiguous allocation is requested,
 ;			   at least the requested number of bytes will be allocated or an
@@ -150,6 +150,10 @@ static OSErr BlockMarkFree(
 ;			   If the requested starting block is 0 (for new file allocations),
 ;			   the volume's allocation block pointer will be used as a starting
 ;			   point.
+;
+;				The function uses on-disk volume bitmap for allocation
+;				and updates it with newly allocated blocks.  It also 
+;				updates the in-memory volume bitmap.
 ;
 ; Input Arguments:
 ;	 vcb			 - Pointer to SVCB for the volume to allocate space on
@@ -265,9 +269,11 @@ Exit:
 /*
 ;________________________________________________________________________________
 ;
-; Routine:	   BlkDealloc
+; Routine:	   BlockDeallocate
 ;
 ; Function:    Update the bitmap to deallocate a run of disk allocation blocks
+;	 The on-disk volume bitmap is read and updated; the in-memory volume bitmap 
+;	 is also updated.
 ;
 ; Input Arguments:
 ;	 vcb		- Pointer to SVCB for the volume to free space on
@@ -278,7 +284,8 @@ Exit:
 ;	 (result)	- Result code
 ;
 ; Side effects:
-;	 The volume bitmap is read and updated; the volume bitmap cache may be changed.
+;	 The on-disk volume bitmap is read and updated; the in-memory volume bitmap 
+;	 is also changed.
 ;
 ; Modification history:
 ;
@@ -422,6 +429,10 @@ Function:	Allocate a contiguous group of allocation blocks.  The
 			there are enough free blocks (though they may not be
 			contiguous, in which case this call will fail).
 
+			The function uses on-disk volume bitmap for allocation
+			and updates it with newly allocated blocks.  It also 
+			updates the in-memory volume bitmap.
+
 Inputs:
 	vcb				Pointer to volume where space is to be allocated
 	startingBlock	Preferred first block for allocation
@@ -483,6 +494,10 @@ Function:	Allocate one or more allocation blocks.  If there are fewer
 			free blocks than requested, all free blocks will be
 			allocated.  The caller guarantees that there is at least
 			one free block.
+
+			The function uses on-disk volume bitmap for allocation
+			and updates it with newly allocated blocks.  It also 
+			updates the in-memory volume bitmap.
 
 Inputs:
 	vcb				Pointer to volume where space is to be allocated
@@ -628,10 +643,13 @@ static OSErr BlockAllocateAny(
 		}
 	}
 	*buffer = SWAP_BE32(currentWord);	// update the last change
-
+	
 Exit:
 	if (err == noErr) {
 		*actualNumBlocks = block - *actualStartBlock;
+		
+		/* Update the in-memory copy of bitmap */
+		(void) CaptureBitmapBits (*actualStartBlock, *actualNumBlocks);
 	}
 	else {
 		*actualStartBlock = 0;
@@ -652,8 +670,12 @@ _______________________________________________________________________
 Routine:	BlockMarkAllocated
 
 Function:	Mark a contiguous group of blocks as allocated (set in the
-			bitmap).  It assumes those bits are currently marked
-			deallocated (clear in the bitmap).
+			bitmap).  The function sets the bit independent of the 
+			previous state (set/clear) of the bit.
+
+			The function uses on-disk volume bitmap for allocation
+			and updates it with newly allocated blocks.  It also 
+			updates the in-memory volume bitmap.
 
 Inputs:
 	vcb				Pointer to volume where space is to be allocated
@@ -675,6 +697,9 @@ static OSErr BlockMarkAllocated(
 	UInt32			*buffer;
 	BlockDescriptor bd = {0};
 	OptionBits  relOpt = kReleaseBlock;
+
+	UInt32 saveNumBlocks = numBlocks;
+	UInt32 saveStartingBlock = startingBlock;
 
 	//
 	//	Pre-read the bitmap block containing the first word of allocation
@@ -796,6 +821,9 @@ static OSErr BlockMarkAllocated(
 		//	No need to update currentWord or wordsLeft
 	}
 
+	/* Update the in-memory copy of the volume bitmap */
+	(void) CaptureBitmapBits(saveStartingBlock, saveNumBlocks);
+
 Exit:
 	if (bd.buffer != NULL)
 		(void) ReleaseBitmapBlock(vcb, relOpt, &bd);
@@ -811,8 +839,11 @@ _______________________________________________________________________
 Routine:	BlockMarkFree
 
 Function:	Mark a contiguous group of blocks as free (clear in the
-			bitmap).  It assumes those bits are currently marked
-			allocated (set in the bitmap).
+			bitmap).  The function clears the bit independent of the 
+			previous state (set/clear) of the bit.
+
+			This function uses the on-disk bitmap and also updates 
+			the in-memory bitmap with the deallocated blocks
 
 Inputs:
 	vcb				Pointer to volume where space is to be freed
@@ -834,6 +865,9 @@ static OSErr BlockMarkFree(
 	UInt32			*buffer;
 	BlockDescriptor bd = {0};
 	OptionBits  relOpt = kReleaseBlock;
+
+	UInt32 saveNumBlocks = numBlocks;
+	UInt32 saveStartingBlock = startingBlock;
 
 	//
 	//	Pre-read the bitmap block containing the first word of allocation
@@ -953,6 +987,9 @@ static OSErr BlockMarkFree(
 
 		//	No need to update currentWord or wordsLeft
 	}
+	
+	/* Update the in-memory copy of the volume bitmap */
+	(void) ReleaseBitmapBits(saveStartingBlock, saveNumBlocks);
 
 Exit:
 	if (bd.buffer != NULL)

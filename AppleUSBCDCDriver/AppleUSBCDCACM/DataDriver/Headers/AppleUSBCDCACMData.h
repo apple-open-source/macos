@@ -211,6 +211,7 @@ private:
 	AppleUSBCDCACMControl   *fControlDriver;			// Our Control Driver
     UInt16			fSessions;				// Number of active sessions
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
+	bool			fSuppressWarning;		// Are we supressing the warning
     bool			fStopping;				// Are we being "stopped"
 	bool			fResetOnClose;			// Do we need to reset the device on closing
     UInt8			fProductName[productNameLength];	// Product String from the Device

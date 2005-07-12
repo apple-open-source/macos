@@ -58,11 +58,12 @@ static launch_data_t CF2launch_data(CFTypeRef);
 static launch_data_t read_plist_file(const char *file, bool editondisk, bool load);
 static CFPropertyListRef CreateMyPropertyListFromFile(const char *);
 static void WriteMyPropertyListToFile(CFPropertyListRef, const char *);
-static void readpath(const char *, launch_data_t, launch_data_t, bool editondisk, bool load);
+static void readpath(const char *, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
 static int _fd(int);
 static int demux_cmd(int argc, char *const argv[]);
 static launch_data_t do_rendezvous_magic(const struct addrinfo *res, const char *serv);
 static void submit_job_pass(launch_data_t jobs);
+static void do_mgroup_join(int fd, int family, int socktype, int protocol, const char *mgroup);
 
 static int load_and_unload_cmd(int argc, char *const argv[]);
 //static int reload_cmd(int argc, char *const argv[]);
@@ -347,7 +348,7 @@ static bool delay_to_second_pass(launch_data_t o)
 	return res;
 }
 
-static void readfile(const char *what, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load)
+static void readfile(const char *what, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load, bool forceload)
 {
 	launch_data_t tmpd, thejob;
 	bool job_disabled = false;
@@ -357,8 +358,17 @@ static void readfile(const char *what, launch_data_t pass1, launch_data_t pass2,
 		return;
 	}
 
+	if (NULL == launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LABEL)) {
+		fprintf(stderr, "%s: missing the Label key: %s\n", getprogname(), what);
+		launch_data_free(thejob);
+		return;
+	}
+
 	if ((tmpd = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_DISABLED)))
 		job_disabled = launch_data_get_bool(tmpd);
+
+	if (forceload)
+		job_disabled = false;
 
 	if (job_disabled && load) {
 		launch_data_free(thejob);
@@ -371,7 +381,7 @@ static void readfile(const char *what, launch_data_t pass1, launch_data_t pass2,
 		launch_data_array_append(pass1, thejob);
 }
 
-static void readpath(const char *what, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load)
+static void readpath(const char *what, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load, bool forceload)
 {
 	char buf[MAXPATHLEN];
 	struct stat sb;
@@ -382,7 +392,7 @@ static void readpath(const char *what, launch_data_t pass1, launch_data_t pass2,
 		return;
 
 	if (S_ISREG(sb.st_mode) && !(sb.st_mode & S_IWOTH)) {
-		readfile(what, pass1, pass2, editondisk, load);
+		readfile(what, pass1, pass2, editondisk, load, forceload);
 	} else {
 		if ((d = opendir(what)) == NULL) {
 			fprintf(stderr, "%s: opendir() failed to open the directory\n", getprogname());
@@ -394,7 +404,7 @@ static void readpath(const char *what, launch_data_t pass1, launch_data_t pass2,
 				continue;
 			snprintf(buf, sizeof(buf), "%s/%s", what, de->d_name);
 
-			readfile(buf, pass1, pass2, editondisk, load);
+			readfile(buf, pass1, pass2, editondisk, load, forceload);
 		}
 		closedir(d);
 	}
@@ -510,7 +520,7 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 		launch_data_array_append(fdarray, val);
 	} else {
 		launch_data_t rnames = NULL;
-		const char *node = NULL, *serv = NULL;
+		const char *node = NULL, *serv = NULL, *mgroup = NULL;
 		char servnbuf[50];
 		struct addrinfo hints, *res0, *res;
 		int gerr, sock_opt = 1;
@@ -524,6 +534,8 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 
 		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_NODENAME)))
 			node = launch_data_get_string(val);
+		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_MULTICASTGROUP)))
+			mgroup = launch_data_get_string(val);
 		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_SERVICENAME))) {
 			if (LAUNCH_DATA_INTEGER == launch_data_get_type(val)) {
 				sprintf(servnbuf, "%lld", launch_data_get_integer(val));
@@ -567,13 +579,24 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 					fprintf(stderr, "setsockopt(IPV6_V6ONLY): %m");
 					return;
 				}
-				if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt, sizeof(sock_opt)) == -1) {
-					fprintf(stderr, "socket(): %s\n", strerror(errno));
-					return;
+				if (mgroup) {
+					if (setsockopt(sfd, SOL_SOCKET, SO_REUSEPORT, (void *)&sock_opt, sizeof(sock_opt)) == -1) {
+						fprintf(stderr, "setsockopt(SO_REUSEPORT): %s\n", strerror(errno));
+						return;
+					}
+				} else {
+					if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt, sizeof(sock_opt)) == -1) {
+						fprintf(stderr, "setsockopt(SO_REUSEADDR): %s\n", strerror(errno));
+						return;
+					}
 				}
 				if (bind(sfd, res->ai_addr, res->ai_addrlen) == -1) {
 					fprintf(stderr, "bind(): %s\n", strerror(errno));
 					return;
+				}
+
+				if (mgroup) {
+					do_mgroup_join(sfd, res->ai_family, res->ai_socktype, res->ai_protocol, mgroup);
 				}
 				if ((res->ai_socktype == SOCK_STREAM || res->ai_socktype == SOCK_SEQPACKET)
 						&& listen(sfd, SOMAXCONN) == -1) {
@@ -623,6 +646,52 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 		}
 	}
 }
+
+static void do_mgroup_join(int fd, int family, int socktype, int protocol, const char *mgroup)
+{
+	struct addrinfo hints, *res0, *res;
+	struct ip_mreq mreq;
+	struct ipv6_mreq m6req;
+	int gerr;
+
+	memset(&hints, 0, sizeof(hints));
+
+	hints.ai_flags |= AI_PASSIVE;
+	hints.ai_family = family;
+	hints.ai_socktype = socktype;
+	hints.ai_protocol = protocol;
+
+	if ((gerr = getaddrinfo(mgroup, NULL, &hints, &res0)) != 0) {
+		fprintf(stderr, "getaddrinfo(): %s\n", gai_strerror(gerr));
+		return;
+	}
+
+	for (res = res0; res; res = res->ai_next) {
+		if (AF_INET == family) {
+			memset(&mreq, 0, sizeof(mreq));
+			mreq.imr_multiaddr = ((struct sockaddr_in *)res->ai_addr)->sin_addr;
+			if (setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1) {
+				fprintf(stderr, "setsockopt(IP_ADD_MEMBERSHIP): %s\n", strerror(errno));
+				continue;
+			}
+			break;
+		} else if (AF_INET6 == family) {
+			memset(&m6req, 0, sizeof(m6req));
+			m6req.ipv6mr_multiaddr = ((struct sockaddr_in6 *)res->ai_addr)->sin6_addr;
+			if (setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &m6req, sizeof(m6req)) == -1) {
+				fprintf(stderr, "setsockopt(IPV6_JOIN_GROUP): %s\n", strerror(errno));
+				continue;
+			}
+			break;
+		} else {
+			fprintf(stderr, "unknown family during multicast group bind!\n");
+			break;
+		}
+	}
+
+	freeaddrinfo(res0);
+}
+
 
 static launch_data_t do_rendezvous_magic(const struct addrinfo *res, const char *serv)
 {
@@ -801,17 +870,17 @@ static int load_and_unload_cmd(int argc, char *const argv[])
 	int i, ch;
 	bool wflag = false;
 	bool lflag = false;
+	bool Fflag = false;
 
 	if (!strcmp(argv[0], "load"))
 		lflag = true;
 
-	while ((ch = getopt(argc, argv, "w")) != -1) {
+	while ((ch = getopt(argc, argv, "wF")) != -1) {
 		switch (ch) {
-		case 'w':
-			wflag = true;
-			break;
+		case 'w': wflag = true; break;
+		case 'F': Fflag = true; break;
 		default:
-			fprintf(stderr, "usage: %s load [-w] paths...\n", getprogname());
+			fprintf(stderr, "usage: %s load [-wF] paths...\n", getprogname());
 			return 1;
 		}
 	}
@@ -835,7 +904,7 @@ static int load_and_unload_cmd(int argc, char *const argv[])
 	pass2 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 
 	for (i = 0; i < argc; i++)
-		readpath(argv[i], pass1, pass2, wflag, lflag);
+		readpath(argv[i], pass1, pass2, wflag, lflag, Fflag);
 
 	if (0 == launch_data_array_get_count(pass1) && 0 == launch_data_array_get_count(pass2)) {
 		fprintf(stderr, "nothing found to %s\n", lflag ? "load" : "unload");

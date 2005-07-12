@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_conn.c,v 1.27 2004/12/13 00:25:18 lindak Exp $
+ * $Id: smb_conn.c,v 1.27.166.1 2005/05/27 02:35:29 lindak Exp $
  */
 
 /*
@@ -96,7 +96,7 @@ smb_dup_sockaddr(struct sockaddr *sa, int canwait)
 int
 smb_sm_init(void)
 {
-	smb_co_init(&smb_vclist, SMBL_SM, "smbsm", curproc);
+	smb_co_init(&smb_vclist, SMBL_SM, "smbsm", current_proc());
 	smb_co_unlock(&smb_vclist);
 	return (0);
 }
@@ -804,6 +804,7 @@ smb_share_create(struct smb_vc *vcp, struct smb_sharespec *shspec,
 	ssp->ss_uid = uid;
 	ssp->ss_grp = gid;
 	ssp->ss_mode = shspec->rights & SMBM_MASK;
+	ssp->ss_fsname = NULL;
 	smb_co_addchild(VCTOCP(vcp), SSTOCP(ssp));
 	*sspp = ssp;
 	return (0);
@@ -816,6 +817,7 @@ smb_share_free(struct smb_connobj *cp)
 
 	SMB_STRFREE(ssp->ss_name);
 	SMB_STRFREE(ssp->ss_pass);
+	SMB_STRFREE(ssp->ss_fsname);
 	smb_sl_destroy(&ssp->ss_stlock, ssst_lck_group);
 	smb_co_done(SSTOCP(ssp));
 	free(ssp, M_SMBCONN);

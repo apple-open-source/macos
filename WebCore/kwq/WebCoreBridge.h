@@ -203,6 +203,7 @@ typedef enum {
 - (void)setEncoding:(NSString *)encoding userChosen:(BOOL)userChosen;
 - (void)addData:(NSData *)data;
 - (void)closeURL;
+- (void)stopLoading;
 
 - (void)didNotOpenURL:(NSURL *)URL pageCache:(NSDictionary *)pageCache;
 

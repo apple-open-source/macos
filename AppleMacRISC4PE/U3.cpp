@@ -739,18 +739,26 @@ void AppleU3::sHandleChipFault( void * vSelf, void * vRefCon, void * /* NULL */,
 	// Catch DART exceptions
 	if (apiexcp & kU3API_DARTExcp)
 	{
-		char errstr[128];
 		UInt32 dartexcp = me->safeReadRegUInt32( kU3DARTExceptionRegister );
+		
+		// [4020166] Only panic on the DART exception if it is on a write
+		if ( dartexcp & kU3DARTExcpRQOPMask ) {
+			char errstr[128];
 
-		sprintf( errstr, "DART %s%s%s %s logical page 0x%05lX\n",
-			( dartexcp & kU3DARTExcpXBEMask ) ? "out-of-bounds exception: " : "",
-			( dartexcp & kU3DARTExcpXEEMask ) ? "entry exception: " : "",
-			( dartexcp & kU3DARTExcpRQSRCMask ) ? "HyperTransport" : "PCI0",
-			( dartexcp & kU3DARTExcpRQOPMask ) ? "write" : "read",
-			( dartexcp & kU3DARTExcpLogAdrsMask ) >> kU3DARTExcpLogAdrsShift );
+			sprintf( errstr, "DART %s%s%s %s logical page 0x%05lX\n",
+				( dartexcp & kU3DARTExcpXBEMask ) ? "out-of-bounds exception: " : "",
+				( dartexcp & kU3DARTExcpXEEMask ) ? "entry exception: " : "",
+				( dartexcp & kU3DARTExcpRQSRCMask ) ? "HyperTransport" : "PCI0",
+				( dartexcp & kU3DARTExcpRQOPMask ) ? "write" : "read",
+				( dartexcp & kU3DARTExcpLogAdrsMask ) >> kU3DARTExcpLogAdrsShift );
+	
+			// kaboom!
+			panic( errstr );
+		}
 
-		// kaboom!
-		panic( errstr );
+		// Read exceptions are usually the result of prefetch running off the 
+		// end of a buffer, so for now, ignore the exception
+		return;
 	}
 
 	// if this is U3 Heavy, Check for ECC error

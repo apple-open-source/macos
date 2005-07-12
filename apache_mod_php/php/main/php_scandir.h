@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_scandir.h,v 1.2.2.5 2003/09/08 13:15:44 sniper Exp $ */
+/* $Id: php_scandir.h,v 1.2.2.6 2005/01/09 21:05:31 sniper Exp $ */
 
 #ifndef PHP_SCANDIR_H
 #define PHP_SCANDIR_H
@@ -32,7 +32,7 @@
 #include "config.w32.h"
 #include "win32/readdir.h"
 #else
-#include "php_config.h"
+#include <php_config.h>
 #endif
 
 #ifdef HAVE_DIRENT_H

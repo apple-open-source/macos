@@ -359,7 +359,7 @@ static OSErr CreateNewCatalogBTree( SGlobPtr theSGlobPtr )
 	BTreeControlBlock *		myBTreeCBPtr;
 	SVCB *					myVCBPtr;
 	SFCB *					myFCBPtr;
-	UInt32 					myBytesUsed;
+	UInt32 					myBytesUsed = 0;
 	UInt32 					myMapNodeCount;
 	FSSize					myNewEOF;
 	BTHeaderRec				myHeaderRec;

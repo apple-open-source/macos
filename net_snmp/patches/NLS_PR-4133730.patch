@@ -1,0 +1,48 @@
+diff -Naur /tmp/net_snmp.roots/net_snmp/net-snmp/configure ./configure
+--- /tmp/net_snmp.roots/net_snmp/net-snmp/configure	2005-06-08 15:56:25.000000000 -0700
++++ ./configure	2005-06-08 16:10:42.000000000 -0700
+@@ -10187,7 +10187,7 @@
+ fi
+ 
+ SNMPCONFPATH=""
+-tmpset="$sysconfdir/snmp"
++tmpset="$sysconfdir"
+ while test "x$tmpset" != "x$SNMPCONFPATH"; do
+   SNMPCONFPATH="$tmpset"
+   eval tmpset="$tmpset"
+diff -Naur /tmp/net_snmp.roots/net_snmp/net-snmp/configure.in ./configure.in
+--- /tmp/net_snmp.roots/net_snmp/net-snmp/configure.in	2005-06-08 15:56:25.000000000 -0700
++++ ./configure.in	2005-06-08 16:10:08.000000000 -0700
+@@ -1135,7 +1135,7 @@
+ fi
+ 
+ SNMPCONFPATH=""
+-tmpset="$sysconfdir/snmp"
++tmpset="$sysconfdir"
+ while test "x$tmpset" != "x$SNMPCONFPATH"; do
+   SNMPCONFPATH="$tmpset"
+   eval tmpset="$tmpset"
+diff -Naur /tmp/net_snmp.roots/net_snmp/net-snmp/snmplib/snmpUDPDomain.c ./snmplib/snmpUDPDomain.c
+--- /tmp/net_snmp.roots/net_snmp/net-snmp/snmplib/snmpUDPDomain.c	2004-10-20 16:52:36.000000000 -0700
++++ ./snmplib/snmpUDPDomain.c	2005-06-08 15:59:20.000000000 -0700
+@@ -88,7 +88,7 @@
+     } else {
+ 	char tmp[64];
+ 
+-        sprintf(tmp, "UDP: [%s]:%hd",
++        sprintf(tmp, "UDP: [%s]:%hu",
+                 inet_ntoa(to->sin_addr), ntohs(to->sin_port));
+         return strdup(tmp);
+     }
+diff -Naur /tmp/net_snmp.roots/net_snmp/net-snmp/snmplib/snmp_logging.c ./snmplib/snmp_logging.c
+--- /tmp/net_snmp.roots/net_snmp/net-snmp/snmplib/snmp_logging.c	2004-10-13 19:21:41.000000000 -0700
++++ ./snmplib/snmp_logging.c	2005-06-08 16:00:58.000000000 -0700
+@@ -672,7 +672,7 @@
+         logh = netsnmp_find_loghandler( logfilename );
+         if (!logh) {
+             logh = netsnmp_register_loghandler(NETSNMP_LOGHANDLER_FILE,
+-                                               LOG_DEBUG );
++                                               LOG_NOTICE );
+             if (logh)
+                 logh->token = strdup(logfilename);
+ 	}

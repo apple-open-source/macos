@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sockets.c,v 1.125.2.24 2004/06/07 04:42:40 pollita Exp $ */
+/* $Id: sockets.c,v 1.125.2.28 2005/02/14 23:46:07 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -57,7 +57,11 @@
 # include <sys/uio.h>
 # define IS_INVALID_SOCKET(a)	(a->bsd_socket < 0)
 # define set_errno(a) (errno = a)
-# define set_h_errno(a) (h_errno = a)
+# ifdef HAVE_SET_H_ERRNO
+#  define SET_H_ERRNO(newval) set_h_errno(newval)
+# else
+#  define SET_H_ERRNO(newval) h_errno = (newval)
+# endif
 #else /* windows */
 # include "php_sockets.h"
 # include "php_sockets_win.h"
@@ -640,6 +644,8 @@ PHP_FUNCTION(socket_create_listen)
 		RETURN_FALSE;
 	}
 
+	php_sock->error = 0;
+
 	ZEND_REGISTER_RESOURCE(return_value, php_sock, le_socket);
 }
 /* }}} */
@@ -658,10 +664,10 @@ PHP_FUNCTION(socket_accept)
 	ZEND_FETCH_RESOURCE(php_sock, php_socket *, &arg1, -1, le_socket_name, le_socket);
 	
 	if (!php_accept_connect(php_sock, &new_sock, (struct sockaddr *) &sa TSRMLS_CC)) {
-		php_error(E_WARNING, "%s() unable to accept socket connection [%d]: %s",
-				  get_active_function_name(TSRMLS_C), errno, php_strerror(errno TSRMLS_CC));
 		RETURN_FALSE;
 	}
+
+	new_sock->error = 0;
 	
 	ZEND_REGISTER_RESOURCE(return_value, new_sock, le_socket);
 }
@@ -983,6 +989,8 @@ PHP_FUNCTION(socket_create)
 		efree(php_sock);
 		RETURN_FALSE;
 	}
+
+	php_sock->error = 0;
 
 	ZEND_REGISTER_RESOURCE(return_value, php_sock, le_socket);
 }
@@ -1762,7 +1770,7 @@ PHP_FUNCTION(socket_sendmsg)
 				struct msghdr hdr;
 				struct sockaddr_in *sin = (struct sockaddr_in *) &sa;
 				
-				set_h_errno(0);
+				SET_H_ERRNO(0);
 				set_errno(0);
 				
 				memset(&hdr, 0, sizeof(hdr));
@@ -2025,6 +2033,8 @@ PHP_FUNCTION(socket_create_pair)
 	php_sock[1]->bsd_socket = fds_array[1];
 	php_sock[0]->type		= domain;
 	php_sock[1]->type		= domain;
+	php_sock[0]->error		= 0;
+	php_sock[1]->error		= 0;
 
 	ZEND_REGISTER_RESOURCE(retval[0], php_sock[0], le_socket);
 	ZEND_REGISTER_RESOURCE(retval[1], php_sock[1], le_socket);

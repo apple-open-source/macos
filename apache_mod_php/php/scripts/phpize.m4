@@ -2,11 +2,9 @@ dnl This file becomes configure.in for self-contained extensions.
 
 AC_INIT(config.m4)
 
-AC_CANONICAL_HOST
-
 PHP_INIT_BUILD_SYSTEM
 
-AC_DEFUN(PHP_WITH_PHP_CONFIG,[
+AC_DEFUN([PHP_WITH_PHP_CONFIG],[
   AC_ARG_WITH(php-config,
 [  --with-php-config=PATH],[
   PHP_CONFIG=$withval
@@ -29,10 +27,10 @@ AC_DEFUN(PHP_WITH_PHP_CONFIG,[
   AC_MSG_RESULT($EXTENSION_DIR)
 ])
 dnl
-AC_DEFUN(PHP_EXT_BUILDDIR,[.])dnl
-AC_DEFUN(PHP_EXT_DIR,[""])dnl
-AC_DEFUN(PHP_EXT_SRCDIR,[$abs_srcdir])dnl
-AC_DEFUN(PHP_ALWAYS_SHARED,[
+AC_DEFUN([PHP_EXT_BUILDDIR],[.])dnl
+AC_DEFUN([PHP_EXT_DIR],[""])dnl
+AC_DEFUN([PHP_EXT_SRCDIR],[$abs_srcdir])dnl
+AC_DEFUN([PHP_ALWAYS_SHARED],[
   ext_output="yes, shared"
   ext_shared=yes
   test "[$]$1" = "no" && $1=yes
@@ -90,7 +88,7 @@ PHP_SUBST(CFLAGS_CLEAN)
 PHP_SUBST(CPP)
 PHP_SUBST(CPPFLAGS)
 PHP_SUBST(CXX)
-PHP_SUBST(DEFS)
+PHP_SUBST(CXXFLAGS)
 PHP_SUBST(EXTENSION_DIR)
 PHP_SUBST(EXTRA_LDFLAGS)
 PHP_SUBST(EXTRA_LIBS)

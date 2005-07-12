@@ -53,10 +53,10 @@ static OSErr 	VolumeObjectFixPrimaryBlock( void );
 int utf_encodestr(ucsp, ucslen, utf8p, utf8len)
 	const u_int16_t * ucsp;
 	size_t ucslen;
-	u_int8_t * utf8p;
+	unsigned char * utf8p;
 	size_t * utf8len;
 {
-	u_int8_t * bufstart;
+	unsigned char * bufstart;
 	u_int16_t ucs_ch;
 	int charcnt;
 	
@@ -94,7 +94,7 @@ int utf_encodestr(ucsp, ucslen, utf8p, utf8len)
  */
 int
 utf_decodestr(utf8p, utf8len, ucsp, ucslen)
-	const u_int8_t* utf8p;
+	const unsigned char * utf8p;
 	size_t utf8len;
 	u_int16_t* ucsp;
 	size_t *ucslen;
@@ -251,7 +251,7 @@ int AllocBTN( SGlobPtr GPtr, SInt16 fileRefNum, UInt32 nodeNumber )
 	BTreeControlBlock	*calculatedBTCB	= GetBTreeControlBlock( fileRefNum );
 
 	//	Allocate the node 
-	if ( calculatedBTCB->refCon == NULL )
+	if ( calculatedBTCB->refCon == 0)
 		return( noErr );
 		
 	byteP = ( (BTreeExtensionsRec*)calculatedBTCB->refCon)->BTCBMPtr + (nodeNumber / 8 );	//	ptr to starting byte

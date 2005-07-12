@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config9.m4,v 1.1.2.12 2003/12/01 16:12:38 sniper Exp $
+dnl $Id: config9.m4,v 1.1.2.13 2004/12/30 07:02:18 sniper Exp $
 dnl
 
 AC_ARG_ENABLE(cgi,
@@ -51,7 +51,7 @@ AC_ARG_ENABLE(path-info-check,
   PHP_ENABLE_PATHINFO_CHECK=yes
 ])
 
-AC_DEFUN(PHP_TEST_WRITE_STDOUT,[
+AC_DEFUN([PHP_TEST_WRITE_STDOUT],[
   AC_CACHE_CHECK(whether writing to stdout works,ac_cv_write_stdout,[
     AC_TRY_RUN([
 #ifdef HAVE_UNISTD_H

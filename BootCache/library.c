@@ -377,7 +377,7 @@ BC_convert_history(const struct BC_history_entry *he, struct BC_playlist_entry *
 		nentries++;
 	}
 
-	if (have_prefetch != NULL)
+	if (have_prefetch != 0)
 		nentries--;
 	*ppc = pc;
 	*pnentries = nentries;

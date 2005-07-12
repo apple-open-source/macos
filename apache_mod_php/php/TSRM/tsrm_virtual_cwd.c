@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.41.2.8 2004/12/02 01:04:46 sesser Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.41.2.11 2005/02/11 03:34:04 sniper Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -852,7 +852,7 @@ CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
 	dir_length = CWDG(cwd).cwd_length;
 	dir = CWDG(cwd).cwd;
 
-	ptr = command_line = (char *) malloc(command_length + sizeof("cd '' ; ") + dir_length +1+1);
+	ptr = command_line = (char *) malloc(command_length + sizeof("cd '' ; ") + dir_length +extra+1+1);
 	if (!command_line) {
 		return NULL;
 	}
