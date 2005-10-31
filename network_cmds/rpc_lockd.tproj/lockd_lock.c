@@ -125,7 +125,8 @@ struct host {
 	int refcnt;
 	time_t lastuse;
 	struct sockaddr addr;
-	char name[SM_MAXSTRLEN]; /* name is really variable length and must be last! */
+	char *name;	/* host name provided by client via caller_name */
+	char *revname;	/* host name mapped from addr */
 };
 /* list of hosts we monitor */
 TAILQ_HEAD(hostlst_head, host);
@@ -1521,7 +1522,7 @@ lock_partialfilelock(struct file_lock *fl)
 				retval = PFL_GRANTED;
 			}
 			if (fl->flags & LOCK_MON)
-				monitor_lock_host_by_name(fl->client_name);
+				monitor_lock_host_by_name(fl->client_name, fl->addr);
 			break;
 		case HW_RESERR:
 			debuglog("HW RESERR\n");
@@ -1660,7 +1661,7 @@ unlock_partialfilelock(const struct file_lock *fl)
 				debuglog("HW duplicate lock failure for left split\n");
 			}
 			if (lfl->flags & LOCK_MON)
-				monitor_lock_host_by_name(lfl->client_name);
+				monitor_lock_host_by_name(lfl->client_name, lfl->addr);
 		}
 
 		if (rfl != NULL) {
@@ -1670,7 +1671,7 @@ unlock_partialfilelock(const struct file_lock *fl)
 				debuglog("HW duplicate lock failure for right split\n");
 			}
 			if (rfl->flags & LOCK_MON)
-				monitor_lock_host_by_name(rfl->client_name);
+				monitor_lock_host_by_name(rfl->client_name, rfl->addr);
 		}
 
 		switch (unlstatus) {
@@ -1775,6 +1776,24 @@ clear_partialfilelock(const char *hostname)
 {
 	struct file_lock *ifl, *nfl;
 	enum partialfilelock_status pfsret;
+	struct host *ihp;
+
+	/*
+	 * Check if the name we got from statd is
+	 * actually one reverse-mapped from the client's
+	 * address.  If so, use the name provided as
+	 * the caller_name in lock requests instead so that
+	 * we can correctly identify the client's locks.
+	 */
+	TAILQ_FOREACH(ihp, &hostlst_head, hostlst) {
+		if (ihp->revname && strncmp(hostname, ihp->revname,
+			SM_MAXSTRLEN) == 0) {
+			hostname = ihp->name;
+			debuglog("Clearing locks for %s (%s)\n",
+				hostname, ihp->revname);
+			break;
+		}
+	}
 
 	/* Clear blocking file lock list */
 	clear_blockingfilelock(hostname);
@@ -2324,7 +2343,7 @@ get_lock_host(struct hostlst_head *hd, const char *hostname, const struct sockad
  * inform statd
  */
 void
-monitor_lock_host_by_name(const char *hostname)
+monitor_lock_host_by_name(const char *hostname, const struct sockaddr *saddr)
 {
 	struct host *ihp;
 
@@ -2333,11 +2352,15 @@ monitor_lock_host_by_name(const char *hostname)
 	if (ihp == NULL)
 		ihp = get_lock_host(&hostlst_unref, hostname, NULL);
 	if (ihp != NULL) {
-		debuglog("Monitor_lock_host: %s (cached)\n", hostname);
+		if (ihp->revname)
+			debuglog("Monitor_lock_host: %s - %s (cached)\n",
+				ihp->name, ihp->revname);
+		else
+			debuglog("Monitor_lock_host: %s (cached)\n", ihp->name);
 		return;
 	}
 
-	monitor_lock_host(hostname, NULL);
+	monitor_lock_host(hostname, saddr);
 }
 
 void
@@ -2375,13 +2398,15 @@ static void
 monitor_lock_host(const char *hostname, const struct sockaddr *saddr)
 {
 	struct host *nhp;
+	struct hostent *hp = NULL;
 	struct mon smon;
 	struct sm_stat_res sres;
-	int rpcret, statflag;
+	int rpcret;
+	int retrying = 0;
 	size_t n;
+	struct sockaddr_in *sin = (struct sockaddr_in *) saddr;
 
 	rpcret = 0;
-	statflag = 0;
 
 	/* Host is not yet monitored, add it */
 	debuglog("Monitor_lock_host: %s (creating)\n", hostname);
@@ -2390,15 +2415,20 @@ monitor_lock_host(const char *hostname, const struct sockaddr *saddr)
 		debuglog("monitor_lock_host: hostname too long\n");
 		return;
 	}
-	nhp = malloc(sizeof(*nhp) - sizeof(nhp->name) + n + 1);
+	nhp = (struct host *) malloc(sizeof(struct host));
 	if (nhp == NULL) {
 		debuglog("Unable to allocate entry for statd mon\n");
 		return;
 	}
 
 	/* Allocated new host entry, now fill the fields */
-	memcpy(nhp->name, hostname, n);
-	nhp->name[n] = 0;
+	nhp->name = strdup(hostname);
+	if (nhp->name == NULL) {
+		debuglog("Unable to allocate entry name for statd mon\n");
+		free(nhp);
+		return;
+	}
+	nhp->revname = NULL;
 	nhp->refcnt = 1;
 	nhp->lastuse = currsec;
 	if (saddr) {
@@ -2419,27 +2449,51 @@ monitor_lock_host(const char *hostname, const struct sockaddr *saddr)
 	smon.mon_id.my_id.my_vers = NLM_SM;
 	smon.mon_id.my_id.my_proc = NLM_SM_NOTIFY;
 
+retry:
 	rpcret = callrpc("localhost", SM_PROG, SM_VERS, SM_MON, xdr_mon,
 	    &smon, xdr_sm_stat_res, &sres);
 
 	if (rpcret == 0) {
-		if (sres.res_stat == stat_fail) {
+		if (sres.res_stat == stat_fail && !retrying) {
 			debuglog("Statd call failed\n");
-			statflag = 0;
-		} else {
-			statflag = 1;
+			/*
+			 * It's possible that the hostname provided
+			 * by the client isn't valid. Retry with a
+			 * a hostname reverse-mapped from the client's
+			 * address (if provided) and stash this name
+			 * in the host entry so that we can identify it
+			 * with this name later when we ask statd to
+			 * unmonitor it.
+			 */
+			if (saddr)
+				hp = gethostbyaddr((char *) &sin->sin_addr,
+					sizeof(sin->sin_addr), AF_INET);
+			if (hp != NULL && strcmp(nhp->name, hp->h_name) != 0) {
+				debuglog("Statd retry with '%s'\n", hp->h_name);
+				smon.mon_id.mon_name = hp->h_name;
+				nhp->revname = strdup(hp->h_name);
+				if (nhp->revname == NULL) {
+					debuglog("No memory for revname\n");
+					free(nhp->name);
+					free(nhp);
+					return;
+				}
+				retrying = 1;
+				goto retry;
+			}
 		}
 	} else {
 		debuglog("Rpc call to statd failed with return value: %d\n",
 		    rpcret);
-		statflag = 0;
 	}
 
-	if (statflag == 1) {
-		TAILQ_INSERT_HEAD(&hostlst_head, nhp, hostlst);
-	} else {
-		free(nhp);
-	}
+	/*
+	 * Insert host in the monitor list, even if statd
+	 * doesn't like it.  If the name is unacceptable
+	 * to statd, at least we'll avoid subsequent rejection
+	 * on every lock request.
+	 */
+	TAILQ_INSERT_HEAD(&hostlst_head, nhp, hostlst);
 }
 
 /*
@@ -2483,12 +2537,18 @@ destroy_lock_host(struct host *ihp)
 	struct mon_id smon_id;
 	struct sm_stat smstat;
 	int rpcret;
+	char *name;
 
-	debuglog("Attempting to unmonitor host %16s\n", ihp->name);
+	/*
+	 * If the client was monitored with a hostname obtained from
+	 * its address, then use that instead of the possibly invalid
+	 * hostname provided in caller_name.
+	 */
+	name = ihp->revname ? ihp->revname : ihp->name;
+	debuglog("Attempting to unmonitor host %16s\n", name);
 
 	bzero(&smon_id,sizeof(smon_id));
-
-	smon_id.mon_name = (char *)ihp->name;
+	smon_id.mon_name = name;
 	smon_id.my_id.my_name = "localhost";
 	smon_id.my_id.my_prog = NLM_PROG;
 	smon_id.my_id.my_vers = NLM_SM;
@@ -2505,6 +2565,10 @@ destroy_lock_host(struct host *ihp)
 	}
 
 	TAILQ_REMOVE(&hostlst_unref, ihp, hostlst);
+	if (ihp->name)
+		free(ihp->name);
+	if (ihp->revname)
+		free(ihp->revname);
 	free(ihp);
 }
 

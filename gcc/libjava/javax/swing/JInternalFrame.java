@@ -1,5 +1,5 @@
-/* JInternalFrame.java -- 
-   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+/* JInternalFrame.java --
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,9 +35,9 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Graphics;
@@ -45,6 +45,7 @@ import java.awt.KeyboardFocusManager;
 import java.awt.LayoutManager;
 import java.awt.Rectangle;
 import java.beans.PropertyVetoException;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
@@ -53,7 +54,6 @@ import javax.swing.event.InternalFrameEvent;
 import javax.swing.event.InternalFrameListener;
 import javax.swing.plaf.DesktopIconUI;
 import javax.swing.plaf.InternalFrameUI;
-
 
 /**
  * This class implements a Swing widget that looks and acts like a native
@@ -341,67 +341,67 @@ public class JInternalFrame extends JComponent implements Accessible,
    * The property fired in a PropertyChangeEvent when the contentPane property
    * changes.
    */
-  public static String CONTENT_PANE_PROPERTY = "contentPane";
+  public static final String CONTENT_PANE_PROPERTY = "contentPane";
 
   /**
    * The property fired in a PropertyChangeEvent when the frameIcon property
    * changes.
    */
-  public static String FRAME_ICON_PROPERTY = "frameIcon";
+  public static final String FRAME_ICON_PROPERTY = "frameIcon";
 
   /**
    * The property fired in a PropertyChangeEvent when the glassPane property
    * changes.
    */
-  public static String GLASS_PANE_PROPERTY = "glassPane";
+  public static final String GLASS_PANE_PROPERTY = "glassPane";
 
   /**
    * The property fired in a PropertyChangeEvent when the closed property
    * changes.
    */
-  public static String IS_CLOSED_PROPERTY = "closed";
+  public static final String IS_CLOSED_PROPERTY = "closed";
 
   /**
    * The property fired in a PropertyChangeEvent when the icon property
    * changes.
    */
-  public static String IS_ICON_PROPERTY = "icon";
+  public static final String IS_ICON_PROPERTY = "icon";
 
   /**
    * The property fired in a PropertyChangeEvent when the maximum property
    * changes.
    */
-  public static String IS_MAXIMUM_PROPERTY = "maximum";
+  public static final String IS_MAXIMUM_PROPERTY = "maximum";
 
   /**
    * The property fired in a PropertyChangeEvent when the selected property
    * changes.
    */
-  public static String IS_SELECTED_PROPERTY = "selected";
+  public static final String IS_SELECTED_PROPERTY = "selected";
 
   /**
    * The property fired in a PropertyChangeEvent when the layeredPane property
    * changes.
    */
-  public static String LAYERED_PANE_PROPERTY = "layeredPane";
+  public static final String LAYERED_PANE_PROPERTY = "layeredPane";
 
   /**
    * The property fired in a PropertyChangeEvent when the jMenuBar property
    * changes.
    */
-  public static String MENU_BAR_PROPERTY = "jMenuBar";
+  public static final String MENU_BAR_PROPERTY = "JMenuBar";
 
   /**
    * The property fired in a PropertyChangeEvent when the rootPane property
    * changes.
    */
-  public static String ROOT_PANE_PROPERTY = "rootPane";
+  public static final String ROOT_PANE_PROPERTY = "rootPane";
 
   /**
    * The property fired in a PropertyChangeEvent when the title property
    * changes.
    */
-  public static String TITLE_PROPERTY = "title";
+  public static final String TITLE_PROPERTY = "title";
 
   /** Whether the JInternalFrame is closable. */
   protected boolean closable;
@@ -780,9 +780,11 @@ public class JInternalFrame extends JComponent implements Accessible,
    * This method returns null because this must always be the root of a focus
    * traversal.
    *
-   * @return null.
+   * @return always null
+   *
+   * @since 1.4
    */
-  public Container getFocusCycleRootAncestor()
+  public final Container getFocusCycleRootAncestor()
   {
     // as defined.
     return null;
@@ -860,7 +862,7 @@ public class JInternalFrame extends JComponent implements Accessible,
   {
     JDesktopPane pane = getDesktopPane();
     if (pane != null)
-      return pane.getLayer(this).intValue();
+      return pane.getLayer(this);
     return -1;
   }
 
@@ -879,6 +881,8 @@ public class JInternalFrame extends JComponent implements Accessible,
    * JInternalFrame.
    *
    * @return The JMenuBar for this JInternalFrame.
+   *
+   * @deprecated 1.0.3
    */
   public JMenuBar getMenuBar()
   {
@@ -966,7 +970,7 @@ public class JInternalFrame extends JComponent implements Accessible,
    *
    * @return null.
    */
-  public String getWarningString()
+  public final String getWarningString()
   {
     // as defined.
     return null;
@@ -1017,9 +1021,11 @@ public class JInternalFrame extends JComponent implements Accessible,
   /**
    * This must always return true.
    *
-   * @return True
+   * @return always true
+   *
+   * @since 1.4
    */
-  public boolean isFocusCycleRoot()
+  public final boolean isFocusCycleRoot()
   {
     return true;
   }
@@ -1270,8 +1276,9 @@ public class JInternalFrame extends JComponent implements Accessible,
    */
   public void setDefaultCloseOperation(int operation)
   {
-    if (operation != DO_NOTHING_ON_CLOSE || operation != HIDE_ON_CLOSE
-        || operation != DISPOSE_ON_CLOSE)
+    if (operation != DO_NOTHING_ON_CLOSE
+	&& operation != HIDE_ON_CLOSE
+        && operation != DISPOSE_ON_CLOSE)
       throw new Error("Close operation must be one of DO_NOTHING_ON_CLOSE, HIDE_ON_CLOSE, or DISPOSE_ON_CLOSE");
     defaultCloseOperation = operation;
   }
@@ -1482,6 +1489,8 @@ public class JInternalFrame extends JComponent implements Accessible,
    * JInternalFrame.
    *
    * @param m The JMenuBar to use with this JInternalFrame.
+   *
+   * @deprecated 1.0.3
    */
   public void setMenuBar(JMenuBar m)
   {
@@ -1702,6 +1711,6 @@ public class JInternalFrame extends JComponent implements Accessible,
                                   boolean newValue)
                            throws PropertyVetoException
   {
-    super.fireVetoableChange(name, new Boolean(oldValue), new Boolean(newValue));
+    super.fireVetoableChange(name, Boolean.valueOf(oldValue), Boolean.valueOf(newValue));
   }
-} // class JInternalFrame
+}

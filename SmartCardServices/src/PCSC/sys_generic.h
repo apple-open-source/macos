@@ -26,7 +26,7 @@
 		<corcoran@linuxnet.com>
 	Purpose: This handles abstract system level calls. 
 
-$Id: sys_generic.h,v 1.2 2003/02/13 20:06:29 ghoo Exp $
+$Id: sys_generic.h,v 1.2.80.1 2005/06/17 22:40:12 mb Exp $
 
 ********************************************************************/
 
@@ -91,6 +91,8 @@ extern "C"
 	void *SYS_PublicMemoryMap(int, int, int);
 
 	int SYS_MMapSynchronize(void *, int);
+
+	int SYS_MUnmap(void *begin, int length);
 
 	int SYS_Fork();
 

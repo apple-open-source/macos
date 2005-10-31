@@ -127,7 +127,7 @@ CrlDatabase::CrlDatabase()
 CrlDatabase::~CrlDatabase()
 {
 	if(mDlHand != 0) {
-		detachCommon(&gGuidAppleFileDL, mDlHand);
+		detachCommon(&gGuidAppleCSPDL, mDlHand);
 	}
 	if(mClHand != 0) {
 		detachCommon(&gGuidAppleX509CL, mClHand);

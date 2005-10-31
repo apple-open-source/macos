@@ -1,5 +1,5 @@
 /* Definitions for 64-bit SPARC running Linux-based GNU systems with ELF.
-   Copyright 1996, 1997, 1998, 2000, 2002, 2003, 2004
+   Copyright 1996, 1997, 1998, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by David S. Miller (davem@caip.rutgers.edu)
 
@@ -30,6 +30,11 @@ Boston, MA 02111-1307, USA.  */
 	builtin_assert ("system=linux");	\
 	builtin_assert ("system=unix");		\
 	builtin_assert ("system=posix");	\
+	if (flag_pic)				\
+	  {					\
+		builtin_define ("__PIC__");	\
+		builtin_define ("__pic__");	\
+	  }					\
     }						\
   while (0)
 
@@ -127,7 +132,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC "\
-%{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} \
 %{posix:-D_POSIX_SOURCE} \
 %{pthread:-D_REENTRANT} \
 "
@@ -285,9 +289,6 @@ Boston, MA 02111-1307, USA.  */
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
-#define DWARF2_DEBUGGING_INFO 1
-#define DBX_DEBUGGING_INFO 1
-
 #undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
 do {									\
@@ -302,13 +303,6 @@ do {									\
 
 #undef  LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX  "."
-
-/* This is how to output a reference to an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef  ASM_OUTPUT_INTERNAL_LABELREF
-#define ASM_OUTPUT_INTERNAL_LABELREF(FILE,PREFIX,NUM)	\
-  fprintf (FILE, ".L%s%d", PREFIX, NUM)
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
@@ -349,8 +343,6 @@ do {									\
 #undef CTORS_SECTION_ASM_OP
 #undef DTORS_SECTION_ASM_OP
 
-#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
-
 /* Determine whether the the entire c99 runtime is present in the
    runtime library.  */
 #define TARGET_C99_FUNCTIONS 1
@@ -367,3 +359,12 @@ do {									\
 #endif
 
 #define MD_UNWIND_SUPPORT "config/sparc/linux-unwind.h"
+
+/* Linux currently uses RMO in uniprocessor mode, which is equivalent to
+   TMO, and TMO in multiprocessor mode.  But they reserve the right to
+   change their minds.  */
+#undef SPARC_RELAXED_ORDERING
+#define SPARC_RELAXED_ORDERING true
+
+#undef NEED_INDICATE_EXEC_STACK
+#define NEED_INDICATE_EXEC_STACK 1

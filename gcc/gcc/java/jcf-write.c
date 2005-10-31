@@ -1,5 +1,5 @@
 /* Write out a Java(TM) class file.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1898,8 +1898,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
     case EXIT_BLOCK_EXPR:
       {
 	struct jcf_block *label = state->labeled_blocks;
-	if (TREE_OPERAND (exp, 1) != NULL) goto notimpl;
-	while (label->u.labeled_block != TREE_OPERAND (exp, 0))
+	while (label->u.labeled_block != EXIT_BLOCK_LABELED_BLOCK (exp))
 	  label = label->next;
 	call_cleanups (label, state);
 	emit_goto (label, state);
@@ -2147,7 +2146,9 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       jopcode = OPCODE_irem;
       goto binop;
     case LSHIFT_EXPR:   jopcode = OPCODE_ishl;   goto binop;
-    case RSHIFT_EXPR:   jopcode = OPCODE_ishr;   goto binop;
+    case RSHIFT_EXPR:
+      jopcode = TYPE_UNSIGNED (type) ? OPCODE_iushr : OPCODE_ishr;
+      goto binop;
     case URSHIFT_EXPR:  jopcode = OPCODE_iushr;  goto binop;
     case TRUTH_AND_EXPR:
     case BIT_AND_EXPR:  jopcode = OPCODE_iand;   goto binop;
@@ -2261,40 +2262,48 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	  }
 	else /* Convert numeric types. */
 	  {
-	    int wide_src = TYPE_PRECISION (src_type) > 32;
-	    int wide_dst = TYPE_PRECISION (dst_type) > 32;
-	    NOTE_POP (1 + wide_src);
-	    RESERVE (1);
+	    int src_prec = TYPE_PRECISION (src_type);
+	    int dst_prec = TYPE_PRECISION (dst_type);
+	    int wide_src = src_prec > 32;
+	    int wide_dst = dst_prec > 32;
 	    if (TREE_CODE (dst_type) == REAL_TYPE)
 	      {
+		NOTE_POP (1 + wide_src);
+		RESERVE (1);
 		if (TREE_CODE (src_type) == REAL_TYPE)
 		  OP1 (wide_dst ? OPCODE_f2d : OPCODE_d2f);
-		else if (TYPE_PRECISION (src_type) == 64)
+		else if (src_prec == 64)
 		  OP1 (OPCODE_l2f + wide_dst);
 		else
 		  OP1 (OPCODE_i2f + wide_dst);
+		NOTE_PUSH (1 + wide_dst);
 	      }
-	    else /* Convert to integral type. */
+	    /* Convert to integral type (but ignore non-widening
+	       and non-narrowing integer type conversions).  */
+	    else if (TREE_CODE (src_type) == REAL_TYPE
+		     || src_prec != dst_prec)
 	      {
+		NOTE_POP (1 + wide_src);
+		RESERVE (1);
 		if (TREE_CODE (src_type) == REAL_TYPE)
 		  OP1 (OPCODE_f2i + wide_dst + 3 * wide_src);
 		else if (wide_dst)
 		  OP1 (OPCODE_i2l);
 		else if (wide_src)
 		  OP1 (OPCODE_l2i);
-		if (TYPE_PRECISION (dst_type) < 32)
+		if (dst_prec < 32)
 		  {
 		    RESERVE (1);
 		    /* Already converted to int, if needed. */
-		    if (TYPE_PRECISION (dst_type) <= 8)
+		    if (dst_prec <= 8)
 		      OP1 (OPCODE_i2b);
 		    else if (TYPE_UNSIGNED (dst_type))
 		      OP1 (OPCODE_i2c);
 		    else
 		      OP1 (OPCODE_i2s);
 		  }
+		NOTE_PUSH (1 + wide_dst);
 	      }
-	    NOTE_PUSH (1 + wide_dst);
 	  }
       }
       break;
@@ -2563,6 +2572,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	    OP1 (OPCODE_multianewarray);
 	    OP2 (index);
 	    OP1 (ndims);
+	    NOTE_POP (ndims - 1);
 	    break;
 	  }
 	else if (f == soft_anewarray_node)
@@ -2653,7 +2663,6 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	  }
       }
       /* fall through */
-    notimpl:
     default:
       error("internal error in generate_bytecode_insn - tree code not implemented: %s",
 	    tree_code_name [(int) TREE_CODE (exp)]);
@@ -2796,7 +2805,9 @@ perform_relocations (struct jcf_partial *state)
 	  int n = (old_ptr - old_buffer) - start;
 	  new_ptr -= n;
 	  old_ptr -= n;
-	  if (n > 0)
+	  /* Don't "copy" bytes in place, this causes valgrind
+	     warnings.  */
+	  if (n > 0 && new_ptr != old_ptr)
 	    memcpy (new_ptr, old_ptr, n);
 	  if (old_ptr == old_buffer)
 	    break;

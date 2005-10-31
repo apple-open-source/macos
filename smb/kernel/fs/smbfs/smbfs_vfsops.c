@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vfsops.c,v 1.73.64.1 2005/05/27 02:35:28 lindak Exp $
+ * $Id: smbfs_vfsops.c,v 1.73.64.2 2005/08/12 23:18:35 lindak Exp $
  */
 
 #include <sys/param.h>
@@ -336,6 +336,8 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	int error;
 	char *pc, *pe;
 	struct smbmnt_carg carg;
+	u_int redo_mntfromname = 0;
+	u_int namelen = 0;
 
 	if (data == USER_ADDR_NULL) {
 		printf("missing data argument\n");
@@ -387,20 +389,73 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	smp->sm_args.file_mode = smp->sm_args.file_mode & ACCESSPERMS;
 	smp->sm_args.dir_mode  = smp->sm_args.dir_mode & ACCESSPERMS;
 
+smbfs_make_mntfromname:
+
 	pc = vfs_statfs(mp)->f_mntfromname;
-	pe = pc + sizeof(vfs_statfs(mp)->f_mntfromname);
+	/* 
+	 * XXX In the future we could use the whole buffer
+         * if they change the design to allow a bigger string
+	 */
+	pe = pc + MNAMELEN;
+
 	bzero(pc, MNAMELEN);
 	*pc++ = '/';
 	*pc++ = '/';
-	pc=index(strncpy(pc, vcp->vc_username, pe - pc - 2), 0);
-	if (pc < pe-1) {
-		*(pc++) = '@';
-		pc = index(strncpy(pc, vcp->vc_srvname, pe - pc - 2), 0);
-		if (pc < pe - 1) {
-			*(pc++) = '/';
-			strncpy(pc, ssp->ss_name, pe - pc - 2);
+	if (vcp->vc_domain) {
+		namelen = strlen(vcp->vc_domain);
+		if (pc + namelen > pe- 2) {
+			/* Log warning but don't return error */ 
+			SMBERROR("smbfs_mount: domain won't fit in buffer\n");
+			goto smbfs_quit_mntfromname;
 		}
+		strncpy(pc, vcp->vc_domain, namelen);
+		pc += namelen;
+		*(pc++) = ';';
 	}
+	if (vcp->vc_username) {
+		namelen = strlen(vcp->vc_username);
+		if (pc + namelen > pe - 2) {
+			/* Log warning but don't return error */ 
+			SMBERROR("smbfs_mount: username won't fit in buffer\n");
+			goto smbfs_quit_mntfromname;
+		}
+		strncpy(pc, vcp->vc_username, namelen);
+		pc += namelen;
+		*(pc++) = '@';
+	}
+
+ 	/* If possible store original server component for reconnect */
+    	if ((args.utf8_servname[0]) && !(redo_mntfromname)) {
+        	namelen = strlen(args.utf8_servname);
+        	/* Leave space for "/", share, null */
+        	if (pc + namelen + strlen(ssp->ss_name) + 2 > pe) { /* Can retry with NB name */
+            		redo_mntfromname = 1;
+            		SMBERROR("smbfs_mount: warning: server/share name too big\n");
+            		goto smbfs_make_mntfromname; /* Try with NB name */
+        	}
+		/* Since server, "/", and share fit, we know the server does */
+        	strncpy(pc, args.utf8_servname, namelen);
+        	pc += namelen;
+    	} else { /* Use NB name */
+        	namelen = strlen(vcp->vc_srvname);
+        	if (pc + namelen + 2 > pe) {
+            	/* Log warning but don't return error */
+            	SMBERROR("smbfs_mount: server won't fit in buffer\n");
+            	goto smbfs_quit_mntfromname;
+        	}
+        	strncpy(pc, vcp->vc_srvname, namelen);
+        	pc += namelen;
+        	if (pc + strlen(ssp->ss_name) + 2 > pe) {
+            		/* Log warning but don't return error */
+            		SMBERROR("smbfs_mount: server/share won't fit in buffer\n");
+            		goto smbfs_quit_mntfromname;
+        	}
+    	}
+    	*(pc++) = '/';
+    	strcpy(pc, ssp->ss_name);
+
+smbfs_quit_mntfromname:
+
 	/*
 	 * XXX
 	 * This circumvents the "unique disk id" design flaw by disallowing
@@ -410,7 +465,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	 * given mount.  (Another flaw added is to require that that field
 	 * have sufficient information to remount.  That is not solved here.)
 	 * This is XXX because it cripples multiple mounting, a traditional
-	 * unix feature useful in multiuser and chroot-ed environments.  This
+         * unix feature useful in multiuser and chroot-ed environments.  This
 	 * limitation can often be (manually) avoided by altering the remote
 	 * login name - even a difference in case is sufficient, and
 	 * should authenticate as if there were no difference.

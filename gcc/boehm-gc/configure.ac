@@ -39,7 +39,6 @@ AC_SUBST(mkinstalldirs)
 AM_INIT_AUTOMAKE(gc, 6.3, no-define)
 
 # The autoconf 2.5x version of the no-executables hack.
-sinclude(../config/no-executables.m4)
 GCC_NO_EXECUTABLES
 
 # Yak.  We must force CC and CXX to /not/ be precious variables; otherwise
@@ -121,7 +120,7 @@ case "$THREADS" in
  no | none | single)
     THREADS=none
     ;;
- posix | pthreads)
+ posix | posix95 | pthreads)
     THREADS=posix
     THREADLIBS=-lpthread
     case "$host" in
@@ -337,7 +336,7 @@ case "$host" in
     machdep="sparc_mach_dep.lo"
     AC_DEFINE(SUNOS53_SHARED_LIB,1,[Avoid Solaris 5.3 dynamic library bug])
     ;;
- sparc-sun-solaris2.*)
+ sparc*-sun-solaris2.*)
     machdep="sparc_mach_dep.lo"
     ;;
  ia64-*-*)
@@ -379,10 +378,10 @@ fi
 
 dnl As of 4.13a2, the collector will not properly work on Solaris when
 dnl built with gcc and -O.  So we remove -O in the appropriate case.
-dnl
+dnl Not needed anymore on Solaris.
 AC_MSG_CHECKING(whether Solaris gcc optimization fix is necessary)
 case "$host" in
- sparc-sun-solaris2*|*aix*)
+ *aix*)
     if test "$GCC" = yes; then
        AC_MSG_RESULT(yes)
        new_CFLAGS=
@@ -447,6 +446,10 @@ AC_ARG_ENABLE(gc-debug,
     esac 
   fi])
 
+if test "${gc_use_mmap}" = "yes"; then
+  AC_DEFINE(USE_MMAP, 1, [use MMAP instead of sbrk to get new memory])
+fi
+
 if test -n "$with_cross_host" &&
    test x"$with_cross_host" != x"no"; then
   toolexecdir='$(exec_prefix)/$(target_noncanonical)'
@@ -469,7 +472,7 @@ else
   multilib_arg=
 fi
 
-AC_CONFIG_HEADERS([include/gc_config.h])
+AC_CONFIG_HEADERS([include/gc_config.h include/gc_ext_config.h])
 
 AC_CONFIG_FILES(Makefile include/Makefile)
 AC_OUTPUT

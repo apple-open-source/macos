@@ -1,6 +1,6 @@
 KERBEROSVERSION = "$(SRCROOT)/../Scripts/KerberosVersion.pl" ;
-APPLEVERSION = "5.5.19" ;
-KFMVERSION = "5.5" ;
+BUILDVERSION = "5.5.20" ;
+KFMVERSION = "5.5.1" ;
 
 # KerberosVersion <target> : <searchdir>
 rule KerberosVersion
@@ -11,7 +11,7 @@ rule KerberosVersion
 }
 actions KerberosVersion
 {
-    /usr/bin/perl "$(KERBEROSVERSION)" --version $(APPLEVERSION) --versionString $(KFMVERSION) "$(2)"
+    /usr/bin/perl "$(KERBEROSVERSION)" --build $(BUILDVERSION) --version $(KFMVERSION) "$(2)"
 }
 
 KerberosVersion install : "$(DSTROOT)" ;

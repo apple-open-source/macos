@@ -1579,7 +1579,7 @@ BOOL api_rpcTNP(pipes_struct *p, const char *rpc_name,
 
 	/* Check for buffer underflow in rpc parsing */
 
-	if ((DEBUGLEVEL >= 10) && 
+	if ((SAMBA_DEBUGLEVEL >= 10) && 
 	    (prs_offset(&p->in_data.data) != prs_data_size(&p->in_data.data))) {
 		size_t data_len = prs_data_size(&p->in_data.data) - prs_offset(&p->in_data.data);
 		char *data = SMB_MALLOC(data_len);

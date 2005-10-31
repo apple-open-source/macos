@@ -233,7 +233,7 @@ static BOOL open_file(files_struct *fsp,connection_struct *conn,
 	if (lp_BRLM())
 	{
 		map_open_mode_to_brlm_permissions(fsp, local_flags); 
-		brlm_status = BRLMPosixOpen(fname, kBRLMDataFork, fsp->brlm_deny_mode | fsp->brlm_open_mode, local_flags & ~O_ACCMODE/* creatPermissions */, mode, &brlm_ref, 0 /* sessionID */);
+		brlm_status = BRLMPosixOpen(fname, kBRLMDataFork, fsp->brlm_deny_mode | fsp->brlm_open_mode, local_flags & ~O_ACCMODE/* creatPermissions */, mode, &brlm_ref, 0 /* sessionID */, 0 /* options */);
 		fsp->brlm_ref = brlm_ref;
 		if (BRLMNoErr == brlm_status) {
 			fsp->fd = BRLMGetDescriptor(brlm_ref);

@@ -518,13 +518,12 @@ void KHTMLView::adjustViewSize()
     }
 }
 
-void KHTMLView::applyBodyScrollQuirk(khtml::RenderObject* o, ScrollBarMode& hMode, ScrollBarMode& vMode)
+void KHTMLView::applyOverflowToViewport(khtml::RenderObject* o, ScrollBarMode& hMode, ScrollBarMode& vMode)
 {
-    // Handle the overflow:hidden/scroll quirk for the body elements.  WinIE treats
+    // Handle the overflow:hidden/scroll case for the body/html elements.  WinIE treats
     // overflow:hidden and overflow:scroll on <body> as applying to the document's
-    // scrollbars.  The CSS2.1 draft has even added a sentence, "HTML UAs may apply overflow
-    // specified on the body or HTML elements to the viewport."  Since WinIE and Mozilla both
-    // do it, we will do it too for <body> elements.
+    // scrollbars.  The CSS2.1 draft states that HTML UAs should use the <html> or <body> element and XML/XHTML UAs should
+    // use the root element.
     switch(o->style()->overflow()) {
         case OHIDDEN:
             hMode = vMode = AlwaysOff;
@@ -571,7 +570,6 @@ void KHTMLView::layout()
     if (d->layoutSuppressed)
         return;
     
-    d->layoutSchedulingEnabled=false;
     killTimer(d->layoutTimerId);
     d->layoutTimerId = 0;
     d->delayedLayout = false;
@@ -590,6 +588,8 @@ void KHTMLView::layout()
         return;
     }
 
+    d->layoutSchedulingEnabled = false;
+
     // Always ensure our style info is up-to-date.  This can happen in situations where
     // the layout beats any sort of style recalc update that needs to occur.
     if (document->hasChangedChild())
@@ -598,12 +598,14 @@ void KHTMLView::layout()
     khtml::RenderCanvas* root = static_cast<khtml::RenderCanvas*>(document->renderer());
     if (!root) {
         // FIXME: Do we need to set _width or _height here?
+        d->layoutSchedulingEnabled = true;
         return;
     }
 
     ScrollBarMode hMode = d->hmode;
     ScrollBarMode vMode = d->vmode;
     
+    RenderObject* rootRenderer = document->documentElement() ? document->documentElement()->renderer() : 0;
     if (document->isHTMLDocument()) {
         NodeImpl *body = static_cast<HTMLDocumentImpl*>(document)->body();
         if (body && body->renderer()) {
@@ -612,10 +614,14 @@ void KHTMLView::layout()
                 vMode = AlwaysOff;
                 hMode = AlwaysOff;
             }
-            else if (body->id() == ID_BODY)
-                applyBodyScrollQuirk(body->renderer(), hMode, vMode); // Only applies to HTML UAs, not to XML/XHTML UAs
+            else if (body->id() == ID_BODY) {
+                RenderObject* o = (rootRenderer->style()->overflow() == OVISIBLE) ? body->renderer() : rootRenderer;
+                applyOverflowToViewport(o, hMode, vMode); // Only applies to HTML UAs, not to XML/XHTML UAs
+            }
         }
     }
+    else if (rootRenderer)
+        applyOverflowToViewport(rootRenderer, hMode, vMode); // XML/XHTML UAs use the root element.
 
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
     if (d->firstLayout && !document->ownerElement())
@@ -1787,6 +1793,9 @@ bool KHTMLView::dispatchMouseEvent(int eventId, DOM::NodeImpl *targetNode, bool 
 				   int detail,QMouseEvent *_mouse, bool setUnder,
 				   int mouseEventType)
 {
+    // if the target node is a text node, dispatch on the parent node - rdar://4196646
+    if (targetNode && targetNode->isTextNode())
+        targetNode = targetNode->parentNode();
     if (d->underMouse)
 	d->underMouse->deref();
     d->underMouse = targetNode;

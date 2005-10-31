@@ -1,2 +1,0 @@
->>> Specify conflicting properties
-<<< done.

@@ -1,4 +1,4 @@
-$Header: /cvs/repository/devenv/pbxdev/distcc/README.packaging,v 1.3 2003/04/05 00:46:24 rwill Exp $  -*- indented-text -*-
+$Header: /cvs/karma/distcc/README.packaging,v 1.1.1.1 2005/05/06 05:09:42 deatley Exp $  -*- indented-text -*-
 
 Please read this file if you distribute packages of distcc and
 consider these requests.

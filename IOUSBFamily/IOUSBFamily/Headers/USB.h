@@ -363,6 +363,7 @@ typedef struct IOUSBLowLatencyIsocCompletion {
 #define kIOUSBLowLatencyFrameListNotPreviouslyAllocated     iokit_usb_err(76)  // 0xe000404c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the frame list) first
 #define kIOUSBHighSpeedSplitError     iokit_usb_err(75) // 0xe000404b Error to hub on high speed bus trying to do split transaction
 #define kIOUSBSyncRequestOnWLThread	iokit_usb_err(74)	// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
+#define kIOUSBDeviceNotHighSpeed	iokit_usb_err(73)	// 0xe0004049  The device is not a high speed device, so the EHCI driver returns an error
 
 /*!
 @defined IOUSBFamily hardware error codes
@@ -406,7 +407,8 @@ Completion Code         Error Returned              Description
 #define kIOUSBMessagePortHasBeenResumed     iokit_usb_msg(11)  // 0xe0000400b  Message sent to a device indicating that the port it is attached to has been resumed
 #define kIOUSBMessageHubPortClearTT         iokit_usb_msg(12)  // 0xe0000400c  Message sent to a hub to clear the transaction translator
 #define kIOUSBMessagePortHasBeenSuspended   iokit_usb_msg(13)  // 0xe0000400d  Message sent to a device indicating that the port it is attached to has been suspended
-#define kIOUSBMessageFromThirdParty         iokit_usb_msg(14)  // 0xe0000400d  Message send from a third party.  Uses IOUSBThirdPartyParam to encode the sender's ID
+#define kIOUSBMessageFromThirdParty         iokit_usb_msg(14)  // 0xe0000400e  Message sent from a third party.  Uses IOUSBThirdPartyParam to encode the sender's ID
+#define kIOUSBMessagePortWasNotSuspended    iokit_usb_msg(15)  // 0xe0000400f  Message indicating that the hub driver received a resume request for a port that was not suspended
 
 // Obsolete
 //

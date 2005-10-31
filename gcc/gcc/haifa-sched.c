@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -132,7 +132,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -161,7 +160,8 @@ static int issue_rate;
    N=3: rtl at abort point, control-flow, regions info.
    N=5: dependences info.  */
 
-static int sched_verbose_param = 0;
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 int sched_verbose = 0;
 
 /* Debugging file.  All printouts are sent to dump, which is always set,
@@ -171,17 +171,8 @@ FILE *sched_dump = 0;
 /* Highest uid before scheduling.  */
 static int old_max_uid;
 
-/* fix_sched_param() is called from toplev.c upon detection
-   of the -fsched-verbose=N option.  */
-
-void
-fix_sched_param (const char *param, const char *val)
-{
-  if (!strcmp (param, "verbose"))
-    sched_verbose_param = atoi (val);
-  else
-    warning ("fix_sched_param: unknown param: %s", param);
-}
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 struct haifa_insn_data *h_i_d;
 
@@ -1649,11 +1640,6 @@ reemit_notes (rtx insn, rtx last)
 
 	  last = emit_note_before (note_type, last);
 	  remove_note (insn, note);
-	  note = XEXP (note, 1);
-	  if (note_type == NOTE_INSN_EH_REGION_BEG
-	      || note_type == NOTE_INSN_EH_REGION_END)
-	    NOTE_EH_HANDLER (last) = INTVAL (XEXP (note, 0));
-	  remove_note (insn, note);
 	}
     }
   return retval;
@@ -2058,6 +2044,12 @@ schedule_block (int b, int rgn_n_insns)
 	  if (cost >= 1)
 	    {
 	      queue_insn (insn, cost);
+ 	      if (SCHED_GROUP_P (insn))
+ 		{
+ 		  advance = cost;
+ 		  break;
+ 		}
+ 
 	      continue;
 	    }
 

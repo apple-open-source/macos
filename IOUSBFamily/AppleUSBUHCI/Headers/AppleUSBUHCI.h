@@ -24,6 +24,11 @@
 #ifndef _IOKIT_AppleUSBUHCI_H
 #define _IOKIT_AppleUSBUHCI_H
 
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+#define IOASSERT 1
+#include <IOKit/assert.h>
+#endif
+
 #include <libkern/OSByteOrder.h>
 
 extern "C" {
@@ -50,15 +55,17 @@ extern "C" {
 
 #if UHCI_USE_KPRINTF
 #undef USBLog
+#undef USBError
 void kprintf(const char *format, ...)
 __attribute__((format(printf, 1, 2)));
-#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 2) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 5) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
 #ifdef __ppc__
 #define IOSync eieio
 #else
-#define IOSync()
+#define IOSync() __asm__ __volatile__ ( "mfence" : : : "memory" )
 #endif
 
 /* Whether to use vertical TD queues, or fair queues. */
@@ -89,7 +96,8 @@ typedef struct AppleUHCIQH {
     IOPhysicalAddress   paddr;      /* Physical address of this structure. */
     int                 vframe;     /* Virtual frame location of this QH, if any. */
     struct AppleUHCIQH *hlink;
-    struct AppleUHCITD *elink;
+    struct AppleUHCITD *elink;      /* First TD */
+    struct AppleUHCIQH *qlink;      /* QH link */
 } QH;
 
 /* Software transaction descriptor structure.
@@ -199,10 +207,13 @@ typedef struct UHCIEndpoint {
     /* Support for isochronous endpoints. */
     TD **                               isoc_tds;
     
+    /* Interrupt chain used for interrupt endpoints. */
+    UInt32                              intr_queue;
+    
     TD *                                firstTD;      // Request queue.
     TD *                                lastTD;
     
-    queue_head_t                        pendingTransactions;
+    //queue_head_t                        pendingTransactions;
     queue_head_t                        activeTransactions; // Chain of active transactions
                                                       // for this endpoint.
 
@@ -340,6 +351,9 @@ protected:
     /* Copying buffers at interrupt time. */
     UHCIAlignmentBuffer * _interruptAlignmentBuffers;
 
+    /* Interrupt status bits. */
+    UInt32              _intrStatus;
+    
     /* Isochronous bandwidth management. */
     UInt32              _isocBandwidth;
 
@@ -359,20 +373,6 @@ protected:
     /* Interrupt queues. */
     QH * _intrQH[kUHCI_NINTR_QHS];
 
-    QH * FindPrevQH(QH *head, QH *qh);
-    
-    void QueueInterrupt(UHCITransaction *);
-    void RemoveInterrupt(UHCITransaction *);
-    
-    void QueueControl(UHCITransaction *);
-    void RemoveControl(UHCITransaction *);
-
-    void QueueBulk(UHCITransaction *);
-    void RemoveBulk(UHCITransaction *);
-    
-    void AddInterruptQH(QH *);
-    void RemoveInterruptQH(QH *);
-    
     /* Endpoint management. */
     queue_head_t _endpoints;
     
@@ -381,8 +381,9 @@ protected:
     queue_head_t _activeTransactions;
     
     void StartTransaction(UHCITransaction *tp);
-    void HWCompleteTransaction(UHCITransaction *tp);
+    void RemoveTransaction(UHCITransaction *tp);
     void CompleteTransaction(UHCITransaction *tp, IOReturn returnCode);
+    void FixEndpointDBits(UHCIEndpoint *ep);
 
     IOReturn TDToUSBError(UInt32 error);
     void CompleteIsoc(IOUSBIsocCompletion   completion,
@@ -424,6 +425,7 @@ protected:
     
     virtual IOReturn GetRootHubStringDescriptor(UInt8	index, OSData *desc);
 
+    void    StopEndpoint(UHCIEndpoint *ep);
     void    ReturnEndpointTransactions(UHCIEndpoint *ep, IOReturn status);
         
     /* UIM support. */
@@ -495,6 +497,7 @@ protected:
     void DumpQH(QH *, int level = 7);
     void DumpQHChain(QH *, int level = 7);
     void DumpFrame(UInt16 frame = 0, int level = 7);
+    void DumpEndpoint(UHCIEndpoint *ep, int level = 7);
     void SingleStep(int count, bool runAfter);
 
 
@@ -525,9 +528,13 @@ protected:
     UInt16 _saveFrameNumber;
     bool _remoteWakeupOccurred;
     int _powerLevel;
+    IONotifier *_powerDownNotifier;
+    
     virtual void initForPM (IOPCIDevice *provider);
     unsigned long maxCapabilityForDomainState ( IOPMPowerFlags domainState );
     unsigned long initialPowerStateForDomainState ( IOPMPowerFlags domainState );
+    static IOReturn 	PowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service,
+                                         void *messageArgument, vm_size_t argSize);
     
     virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService* whatDevice );
     
@@ -535,7 +542,7 @@ protected:
     void SuspendController(void);
     void StopController(void);
     void RestartController(void);
-    
+    void EnableUSBInterrupt(bool enableInterrupt);    
     
 public:
     virtual bool 	init(OSDictionary * propTable);

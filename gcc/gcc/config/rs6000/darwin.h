@@ -104,11 +104,13 @@ do {									\
 	while (base[-1] != 'm') base--;					\
 									\
 	if (*darwin_fix_and_continue_switch != '\0')			\
-	  error ("invalid option `%s'", base);				\
+	  error ("invalid option %qs", base);				\
 	darwin_fix_and_continue = (base[0] != 'n');			\
       }									\
+    /* APPLE LOCAL begin longcall */					\
     if (TARGET_64BIT)							\
       rs6000_longcall_switch = (char *)0;				\
+    /* APPLE LOCAL end longcall */					\
   }									\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
@@ -128,13 +130,13 @@ do {									\
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
-/* APPLE LOCAL ignore -msse and -msse2 and other x86 options */
 #define CC1_SPEC "\
+"/* APPLE LOCAL ignore -msse and -msse2 and other x86 options */"\
 %<msse  %<msse2 %<march=pentium4 %<mcpu=pentium4 \
 %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
-%{static: %{Zdynamic: %e conflicting code gen style switches are used}}"\
-/* APPLE LOCAL -fast and PIC code.  */\
-"%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
+%{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
+"/* APPLE LOCAL -fast and PIC code.  */"\
+%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
 
 #define DARWIN_SUBARCH_SPEC "			\
  %{m64: ppc64}					\
@@ -165,21 +167,19 @@ do {									\
 #define TARGET_ASM_FILE_START rs6000_darwin_file_start
 
 /* The "-faltivec" option should have been called "-maltivec" all
-   along.  -findirect-data is for compatibility
+   along.  -ffix-and-continue and -findirect-data is for compatibility
    for old compilers.  */
 
-/* APPLE LOCAL begin Altivec 3837840 */
-/* Supply -faltivec to compiler.  */
 #define SUBTARGET_OPTION_TRANSLATE_TABLE				\
+  { "-ffix-and-continue", "-mfix-and-continue" },			\
   { "-findirect-data", "-mfix-and-continue" },				\
   /* APPLE LOCAL AltiVec */						\
   { "-faltivec", "-faltivec -mpim-altivec" },				\
   { "-fno-altivec", "-mno-altivec" },					\
   { "-Waltivec-long-deprecated",	"-mwarn-altivec-long" },	\
   { "-Wno-altivec-long-deprecated", "-mno-warn-altivec-long" }
-/* APPLE LOCAL end Altivec 3837840 */
 
-/* Make both r2 and r3 available for allocation.  */
+/* Make both r2 and r13 available for allocation.  */
 #define FIXED_R2 0
 #define FIXED_R13 0
 
@@ -257,6 +257,10 @@ do {									\
    || TARGET_LONG_BRANCH)
 /* APPLE LOCAL end long-branch */
 
+/* Darwin uses a function call if everything needs to be saved/restored.  */
+#undef WORLD_SAVE_P
+#define WORLD_SAVE_P(INFO) ((INFO)->world_save_p)
+
 /* The assembler wants the alternate register names, but without
    leading percent sign.  */
 #undef REGISTER_NAMES
@@ -318,7 +322,8 @@ do {									\
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START ";"
 
-/* APPLE LOCAL don't define SAVE_FP_PREFIX and friends */
+/* APPLE LOCAL reduce code size */
+/* Don't define SAVE_FP_PREFIX and friends */
 
 /* This is how to output an assembler line that says to advance
    the location counter to a multiple of 2**LOG bytes using the
@@ -334,6 +339,22 @@ do {									\
       else /* nop == ori r0,r0,0 */                           \
         fprintf (FILE, "\t.align32 %d,0x60000000\n", (LOG));  \
     } while (0)
+
+
+/* APPLE LOCAL begin -falign-loops-max-skip mainline 2005-04-22  */
+#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+/* This is supported in cctools 465 and later.  The macro test
+   above prevents using it in earlier build environments.  */
+#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP)          \
+  if ((LOG) != 0)                                             \
+    {                                                         \
+      if ((MAX_SKIP) == 0)                                    \
+        fprintf ((FILE), "\t.p2align %d\n", (LOG));           \
+      else                                                    \
+        fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP)); \
+    }
+#endif
+/* APPLE LOCAL end -falign-loops-max-skip mainline 2005-04-22  */
 
 /* Generate insns to call the profiler.  */
 
@@ -358,6 +379,10 @@ do {									\
 #define TARGET_DEFAULT (MASK_POWERPC | MASK_MULTIPLE | MASK_NEW_MNEMONICS \
                       | MASK_PPC_GFXOPT)
 
+/* Darwin only runs on PowerPC, so short-circuit POWER patterns.  */
+#undef  TARGET_POWER
+#define TARGET_POWER 0
+
 /* Since Darwin doesn't do TOCs, stub this out.  */
 
 #define ASM_OUTPUT_SPECIAL_POOL_ENTRY_P(X, MODE)  0
@@ -381,8 +406,8 @@ do {									\
 
 #undef PREFERRED_RELOAD_CLASS
 #define PREFERRED_RELOAD_CLASS(X,CLASS)				\
-  ((CONSTANT_P (X)                                   		\
-      && reg_classes_intersect_p ((CLASS), FLOAT_REGS))        \
+  ((CONSTANT_P (X)						\
+    && reg_classes_intersect_p ((CLASS), FLOAT_REGS))		\
    ? NO_REGS							\
    : ((GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == HIGH)	\
       && reg_class_subset_p (BASE_REGS, (CLASS)))		\
@@ -392,9 +417,6 @@ do {									\
    ? GENERAL_REGS						\
    : (CLASS))
 
-/* MERGE FIXME - This needs resolution... */
-#if 1
-/* This is the old version, below is the new version, Fariborz needs to resolve this.  */
 /* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
 /* This now supports the Macintosh power, mac68k, and natural 
    alignment modes.  It now has one more parameter than the standard 
@@ -431,36 +453,10 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 /* Make sure local alignments come from the type node, not the mode;
    mode-based alignments are wrong for vectors.  */
 #undef LOCAL_ALIGNMENT
-#define LOCAL_ALIGNMENT(TYPE, ALIGN)	(MAX ((unsigned) ALIGN,	\
-					      TYPE_ALIGN (TYPE)))
+#define LOCAL_ALIGNMENT(TYPE, ALIGN)			\
+  (MIN (BIGGEST_ALIGNMENT,				\
+	MAX ((unsigned) ALIGN, TYPE_ALIGN (TYPE))))
 /* APPLE LOCAL end alignment */
-#else
-/* Fix for emit_group_load (): force large constants to be pushed via regs.  */
-#define ALWAYS_PUSH_CONSTS_USING_REGS_P		1
-
-/* This now supports a natural alignment mode */
-/* Darwin word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  (TARGET_ALIGN_NATURAL ? (COMPUTED) : \
-  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
-	      ? get_inner_array_type (FIELD) \
-	      : TREE_TYPE (FIELD)) == DFmode \
-   ? MIN ((COMPUTED), 32) : (COMPUTED)))
-
-/* Darwin increases natural record alignment to doubleword if the first
-   field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE					\
-    || TREE_CODE (STRUCT) == UNION_TYPE					\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				\
-   && TARGET_ALIGN_NATURAL == 0                         		\
-   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
-   : (TREE_CODE (STRUCT) == VECTOR_TYPE					\
-      && ALTIVEC_VECTOR_MODE (TYPE_MODE (STRUCT))) 			\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)          			 \
-   : MAX ((COMPUTED), (SPECIFIED)))
-#endif
-
 
 /* Specify padding for the last element of a block move between
    registers and memory.  FIRST is nonzero if this is the only
@@ -478,9 +474,10 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 #define BRANCH_COST	1
 /* APPLE LOCAL end branch cost */
 
-/* APPLE LOCAL indirect calls in R12 */
+/* APPLE LOCAL begin indirect calls in R12 */
 /* Address of indirect call must be computed here */
 #define MAGIC_INDIRECT_CALL_REG 12
+/* APPLE LOCAL end indirect calls in R12 */
 
 /* For binary compatibility with 2.95; Darwin C APIs use bool from
    stdbool.h, which was an int-sized enum in 2.95.  Users can explicitly
@@ -491,6 +488,17 @@ extern const char *darwin_one_byte_bool;
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
 
+/* APPLE LOCAL begin libgcc_static.a  */
+/* APPLE LOCAL begin mainline 2005-04-11 */
+#undef LIBGCC_SPEC
+#undef REAL_LIBGCC_SPEC
+#define REAL_LIBGCC_SPEC						\
+   "%{static:-lgcc_static;                                              \
+      :%{shared-libgcc|Zdynamiclib:%{m64:-lgcc_s_ppc64;:-lgcc_s} -lgcc;	\
+         :-lgcc -lgcc_eh}}"
+/* APPLE LOCAL end mainline 2005-04-11 */
+/* APPLE LOCAL end libgcc_static.a  */
+
 #ifdef IN_LIBGCC2
 #include <stdbool.h>
 #endif
@@ -499,10 +507,12 @@ extern const char *darwin_one_byte_bool;
 
 #define HAS_MD_FALLBACK_FRAME_STATE_FOR 1
 
+/* APPLE LOCAL begin mainline to be accessed, 5 nops */
 /* True, iff we're generating fast turn around debugging code.  When
-   true, we arrange for function prologues to start with 4 nops so
-   that gdb may insert code to redirect them, and for data to accessed
-   indirectly.  The runtime uses this indirection to forward
+   true, we arrange for function prologues to start with 5 nops so
+   that gdb may insert code to redirect them, and for data to be
+   accessed indirectly.  The runtime uses this indirection to forward
    references for data to the original instance of that data.  */
+/* APPLE LOCAL end mainline to be accessed, 5 nops */
 
 #define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)

@@ -70,6 +70,7 @@ struct QPainterPrivate {
     QColor focusRingColor;
 };
 
+static inline void _fillRectXX(float x, float y, float w, float h, const QColor& col);
 
 static CGColorRef CGColorFromNSColor(NSColor *color)
 {
@@ -202,7 +203,7 @@ void QPainter::drawRect(int x, int y, int w, int h)
         return;
         
     if (data->state.brush.style() != NoBrush)
-        _fillRect(x, y, w, h, data->state.brush.color());
+        _fillRectXX(x, y, w, h, data->state.brush.color());
 
     if (data->state.pen.style() != NoPen) {
         _setColorFromPen();
@@ -290,12 +291,12 @@ void QPainter::drawLine(int x1, int y1, int x2, int y2)
         // Do a rect fill of our endpoints.  This ensures we always have the
         // appearance of being a border.  We then draw the actual dotted/dashed line.
         if (x1 == x2) {
-            _fillRect(p1.x-width/2, p1.y-width, width, width, data->state.pen.color());
-            _fillRect(p2.x-width/2, p2.y, width, width, data->state.pen.color());
+            _fillRectXX(p1.x-width/2, p1.y-width, width, width, data->state.pen.color());
+            _fillRectXX(p2.x-width/2, p2.y, width, width, data->state.pen.color());
         }
         else {
-            _fillRect(p1.x-width, p1.y-width/2, width, width, data->state.pen.color());
-            _fillRect(p2.x, p2.y-width/2, width, width, data->state.pen.color());
+            _fillRectXX(p1.x-width, p1.y-width/2, width, width, data->state.pen.color());
+            _fillRectXX(p2.x, p2.y-width/2, width, width, data->state.pen.color());
         }
         
         // Example: 80 pixels with a width of 30 pixels.
@@ -435,7 +436,12 @@ void QPainter::_drawPoints (const QPointArray &_points, bool winding, int index,
 {
     if (data->state.paintingDisabled)
         return;
-        
+    
+       
+    NSGraphicsContext *graphicsContext = [NSGraphicsContext currentContext];
+    BOOL flag = [graphicsContext shouldAntialias];
+    [graphicsContext setShouldAntialias: NO];
+
     int npoints = _npoints != -1 ? _npoints : _points.size()-index;
     NSPoint points[npoints];
     for (int i = 0; i < npoints; i++) {
@@ -460,6 +466,8 @@ void QPainter::_drawPoints (const QPointArray &_points, bool winding, int index,
     }
     
     [path release];
+    
+    [graphicsContext setShouldAntialias: flag];
 }
 
 
@@ -579,7 +587,9 @@ void QPainter::drawTiledPixmap( int x, int y, int w, int h,
         return;
     
     KWQ_BLOCK_EXCEPTIONS;
-    [pixmap.imageRenderer tileInRect:NSMakeRect(x, y, w, h) fromPoint:NSMakePoint(sx, sy) context:context];
+    NSRect tempRect = { {x, y}, {w, h} }; // workaround for 4213314
+    NSPoint tempPoint = { sx, sy };
+    [pixmap.imageRenderer tileInRect:tempRect fromPoint:tempPoint context:context];
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
@@ -597,7 +607,7 @@ void QPainter::_updateRenderer()
     }
 }
     
-void QPainter::drawText(int x, int y, int, int, int alignmentFlags, const QString &qstring)
+void QPainter::drawText(int x, int y, int tabWidth, int xpos, int, int, int alignmentFlags, const QString &qstring)
 {
     if (data->state.paintingDisabled)
         return;
@@ -617,6 +627,8 @@ void QPainter::drawText(int x, int y, int, int, int alignmentFlags, const QStrin
     WebCoreInitializeEmptyTextStyle(&style);
     style.textColor = data->state.pen.color().getNSColor();
     style.families = families;
+    style.tabWidth = tabWidth;
+    style.xpos = xpos;
     
     if (alignmentFlags & Qt::AlignRight)
         x -= ROUND_TO_INT([data->textRenderer floatWidthForRun:&run style:&style widths:0]);
@@ -624,11 +636,10 @@ void QPainter::drawText(int x, int y, int, int, int alignmentFlags, const QStrin
     WebCoreTextGeometry geometry;
     WebCoreInitializeEmptyTextGeometry(&geometry);
     geometry.point = NSMakePoint(x, y);
-     
     [data->textRenderer drawRun:&run style:&style geometry:&geometry];
 }
 
-void QPainter::drawText(int x, int y, const QChar *str, int len, int from, int to, int toAdd, const QColor &backgroundColor, QPainter::TextDirection d, bool visuallyOrdered, int letterSpacing, int wordSpacing, bool smallCaps)
+void QPainter::drawText(int x, int y, int tabWidth, int xpos, const QChar *str, int len, int from, int to, int toAdd, const QColor &backgroundColor, QPainter::TextDirection d, bool visuallyOrdered, int letterSpacing, int wordSpacing, bool smallCaps)
 {
     if (data->state.paintingDisabled || len <= 0)
         return;
@@ -657,14 +668,15 @@ void QPainter::drawText(int x, int y, const QChar *str, int len, int from, int t
     style.smallCaps = smallCaps;
     style.families = families;
     style.padding = toAdd;
+    style.tabWidth = tabWidth;
+    style.xpos = xpos;
     WebCoreTextGeometry geometry;
     WebCoreInitializeEmptyTextGeometry(&geometry);
     geometry.point = NSMakePoint(x, y);
-    
     [data->textRenderer drawRun:&run style:&style geometry:&geometry];
 }
 
-void QPainter::drawHighlightForText(int x, int y, int h, 
+void QPainter::drawHighlightForText(int x, int y, int h, int tabWidth, int xpos,
     const QChar *str, int len, int from, int to, int toAdd, const QColor &backgroundColor, 
     QPainter::TextDirection d, bool visuallyOrdered, int letterSpacing, int wordSpacing, bool smallCaps)
 {
@@ -695,6 +707,8 @@ void QPainter::drawHighlightForText(int x, int y, int h,
     style.smallCaps = smallCaps;
     style.families = families;    
     style.padding = toAdd;
+    style.tabWidth = tabWidth;
+    style.xpos = xpos;
     WebCoreTextGeometry geometry;
     WebCoreInitializeEmptyTextGeometry(&geometry);
     geometry.point = NSMakePoint(x, y);
@@ -760,7 +774,7 @@ QColor QPainter::selectedTextBackgroundColor() const
 }
 
 // A fillRect designed to work around buggy behavior in NSRectFill.
-void QPainter::_fillRect(float x, float y, float w, float h, const QColor& col)
+static inline void _fillRectXX(float x, float y, float w, float h, const QColor& col)
 {
     [col.getNSColor() set];
     NSRectFillUsingOperation(NSMakeRect(x,y,w,h), NSCompositeSourceOver);
@@ -772,7 +786,7 @@ void QPainter::fillRect(int x, int y, int w, int h, const QBrush &brush)
         return;
 
     if (brush.style() == SolidPattern)
-        _fillRect(x, y, w, h, brush.color());
+        _fillRectXX(x, y, w, h, brush.color());
 }
 
 void QPainter::fillRect(const QRect &rect, const QBrush &brush)

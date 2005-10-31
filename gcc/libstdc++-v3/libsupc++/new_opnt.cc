@@ -1,5 +1,5 @@
 // Support routines for the -*- C++ -*- dynamic memory management.
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2004 Free Software Foundation
 //
 // This file is part of GCC.
 //
@@ -29,6 +29,7 @@
 
 #include "new"
 #include <exception_defines.h>
+#include <bits/c++config.h>
 
 /* APPLE LOCAL begin keymgr */
 #if defined APPLE_KEYMGR && ! defined(LIBCC_KEXT) && ! defined(APPLE_KERNEL_EXTENSION)
@@ -42,7 +43,7 @@ using std::bad_alloc;
 extern "C" void *malloc (std::size_t);
 extern new_handler __new_handler;
 
-__attribute__((weak)) void *
+_GLIBCXX_WEAK_DEFINITION void *
 operator new (std::size_t sz, const std::nothrow_t&) throw()
 {
   void *p;

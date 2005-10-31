@@ -48,80 +48,70 @@
 
 #define MAX_DEVICE_THRESHOLD        0x7fffffff
     
-#define SCROLL_DEFUALT_RESOLUTION   (7 << 16)
-#define SCROLL_CLEAR_THRESHOLD_MS   (500 << 16)
-#define SCROLL_EVENT_THRESHOLD_MS   (150 << 16)
-#define SCROLL_MULTIPLIER_RANGE     0x00030000
-#define SCROLL_MULTIPLIER_MULTIPLIER 0x0000008 /*IOFixedDivide(SCROLL_MULTIPLIER_RANGE, IOFixedSquared(SCROLL_EVENT_THRESHOLD_MS+(1<<16)))*/
+#define SCROLL_DEFAULT_RESOLUTION       0x00090000
+#define SCROLL_CONSUME_RESOLUTION       0x00640000
+#define SCROLL_CONSUME_COUNT_MULTIPLIER 3
+#define SCROLL_EVENT_THRESHOLD_MS       0x960000
+#define SCROLL_EVENT_THRESHOLD_MS_LL    150ULL
+#define SCROLL_CLEAR_THRESHOLD_MS_LL    500ULL
 
-#define SCROLL_POINTER_COALESCE_CLEAR_THRESHOLD         8
-#define SCROLL_POINTER_COALESCE_COUNTER_THRESHOLD       24
+#define SCROLL_MULTIPLIER_RANGE         0x00018000
+#define SCROLL_MULTIPLIER_A             0x00000002 /*IOFixedDivide(SCROLL_MULTIPLIER_RANGE,SCROLL_EVENT_THRESHOLD_MS*2)*/
+#define SCROLL_MULTIPLIER_B             0x000003bb /*IOFixedDivide(SCROLL_MULTIPLIER_RANGE*3,(SCROLL_EVENT_THRESHOLD_MS^2)*2)*/
+#define SCROLL_MULTIPLIER_C             0x00018041
 
-#define CONVERT_SCROLL_WHEEL_SCALE  IOFixedDivide(SCREEN_RESOLUTION, SCROLL_DEFUALT_RESOLUTION)
 
-#define CONVERT_SCROLL_FIXED_TO_COARSE(fixedAxis, coarse)   \
-        if((fixedAxis < 0) && (fixedAxis & 0xffff))         \
-            coarse = (fixedAxis >> 16) + 1;                 \
-        else                                                \
-            coarse = (fixedAxis >> 16);                     \
-        if (!coarse && (fixedAxis & 0xffff))                \
-            coarse = (fixedAxis < 0) ? -1 : 1;
-            
+#define SCROLL_WHEEL_TO_PIXEL_SCALE     0x000a0000/* IOFixedDivide(SCREEN_RESOLUTION, SCROLL_DEFAULT_RESOLUTION) */
+#define SCROLL_PIXEL_TO_WHEEL_SCALE     0x0000199a/* IOFixedDivide(SCREEN_RESOLUTION, SCROLL_DEFAULT_RESOLUTION) */
+
 #define CONVERT_SCROLL_FIXED_TO_FRACTION(fixed, fraction)   \
+{                                                           \
         if( fixed >= 0)                                     \
             fraction = fixed & 0xffff;                      \
         else                                                \
-            fraction = fixed | 0xffff0000;                  
+            fraction = fixed | 0xffff0000;                  \
+}
+
+#define CONVERT_SCROLL_FIXED_TO_INTEGER(fixedAxis, integer) \
+{                                                           \
+        SInt32 tempInt = 0;                                 \
+        if((fixedAxis < 0) && (fixedAxis & 0xffff))         \
+            tempInt = (fixedAxis >> 16) + 1;                \
+        else                                                \
+            tempInt = (fixedAxis >> 16);                    \
+        integer = tempInt;                                  \
+}
+
+#define CONVERT_SCROLL_FIXED_TO_COARSE(fixedAxis, coarse)   \
+{                                                           \
+        SInt32 tempCoarse = 0;                              \
+        CONVERT_SCROLL_FIXED_TO_INTEGER(fixedAxis, tempCoarse)  \
+        if (!tempCoarse && (fixedAxis & 0xffff))            \
+            tempCoarse = (fixedAxis < 0) ? -1 : 1;          \
+        coarse = tempCoarse;                                \
+}
 
 
-#define _scrollScaleSegments                _reserved->scrollScaleSegments
-#define _scrollScaleSegCount                _reserved->scrollScaleSegCount
-#define _scrollDeltaTime                    _reserved->scrollDeltaTime
-#define _scrollDeltaAxis                    _reserved->scrollDeltaAxis
-#define _scrollDeltaIndex                   _reserved->scrollDeltaIndex
-#define _scrollLastEventTime                _reserved->scrollLastEventTime
-#define _scrollPixelScaleSegments           _reserved->scrollPixelScaleSegments
-#define _scrollPixelScaleSegCount           _reserved->scrollPixelScaleSegCount
-#define _scrollPixelDeltaTime               _reserved->scrollPixelDeltaTime
-#define _scrollPixelDeltaAxis               _reserved->scrollPixelDeltaAxis
-#define _scrollPixelDeltaIndex              _reserved->scrollPixelDeltaIndex
-#define _scrollPixelLastEventTime           _reserved->scrollPixelLastEventTime
-#define _scrollPointerScaleSegments         _reserved->scrollPointerScaleSegments
-#define _scrollPointerScaleSegCount         _reserved->scrollPointerScaleSegCount
-#define _scrollPointerDeltaTime             _reserved->scrollPointerDeltaTime
-#define _scrollPointerDeltaAxis             _reserved->scrollPointerDeltaAxis
-#define _scrollPointerDeltaIndex            _reserved->scrollPointerDeltaIndex
-#define _scrollPointerLastEventTime         _reserved->scrollPointerLastEventTime
-#define _scrollPointerPixelScaleSegments    _reserved->scrollPointerPixelScaleSegments
-#define _scrollPointerPixelScaleSegCount    _reserved->scrollPointerPixelScaleSegCount
-#define _scrollPointerPixelDeltaTime        _reserved->scrollPointerPixelDeltaTime
-#define _scrollPointerPixelDeltaAxis        _reserved->scrollPointerPixelDeltaAxis
-#define _scrollPointerPixelDeltaIndex       _reserved->scrollPointerPixelDeltaIndex
-#define _scrollPointerPixelLastEventTime    _reserved->scrollPointerPixelLastEventTime
+#define _scrollButtonMask                   _reserved->scrollButtonMask
+#define _scrollType                         _reserved->scrollType
+
+#define _scrollWheelInfo                    _reserved->scrollWheelInfo
+#define _scrollPointerInfo                  _reserved->scrollPointerInfo
+
 #define _scrollFixedDeltaAxis1              _reserved->scrollFixedDeltaAxis1
 #define _scrollFixedDeltaAxis2              _reserved->scrollFixedDeltaAxis2
 #define _scrollFixedDeltaAxis3              _reserved->scrollFixedDeltaAxis3
 #define _scrollPointDeltaAxis1              _reserved->scrollPointDeltaAxis1
 #define _scrollPointDeltaAxis2              _reserved->scrollPointDeltaAxis2
 #define _scrollPointDeltaAxis3              _reserved->scrollPointDeltaAxis3
+
 #define _hidPointingNub                     _reserved->hidPointingNub
 #define _isSeized                           _reserved->isSeized
 #define _openClient                         _reserved->openClient
 #define _accelerateMode                     _reserved->accelerateMode
-#define _scrollButtonMask                   _reserved->scrollButtonMask
-#define _scrollPointerCoalesceXCount        _reserved->scrollPointerCoalesceXCount
-#define _scrollPointerCoalesceYCount        _reserved->scrollPointerCoalesceYCount
-#define _scrollPointerCoalesceLastDy        _reserved->scrollPointerCoalesceLastDy
-#define _scrollPointerCoalesceLastDx        _reserved->scrollPointerCoalesceLastDx
-#define _scrollPointerPixelFractionAxis1    _reserved->scrollPointerPixelFractionAxis1
-#define _scrollPointerPixelFractionAxis2    _reserved->scrollPointerPixelFractionAxis2
-#define _scrollPixelFraction1               _reserved->scrollPixelFraction1
-#define _scrollPixelFraction2               _reserved->scrollPixelFraction2
-#define _scrollPixelFraction3               _reserved->scrollPixelFraction3
-#define _scrollLastDA1                      _reserved->scrollLastDA1
-#define _scrollLastDA2                      _reserved->scrollLastDA2
-#define _scrollLastDA3                      _reserved->scrollLastDA3
-#define _scrollType                         _reserved->scrollType
+
+#define DEVICE_LOCK     IOLockLock( _deviceLock )
+#define DEVICE_UNLOCK   IOLockUnlock( _deviceLock )
 
 struct CursorDeviceSegment {
     SInt32	devUnits;
@@ -130,7 +120,53 @@ struct CursorDeviceSegment {
 };
 typedef struct CursorDeviceSegment CursorDeviceSegment;
 
-//static bool GetOSDataValue (OSData * data, UInt32 * value);
+#define SCROLL_TIME_DELTA_COUNT		8
+struct ScaleDataState
+{
+    UInt8           deltaIndex;
+    IOFixed         deltaTime[SCROLL_TIME_DELTA_COUNT];
+    IOFixed         deltaAxis[SCROLL_TIME_DELTA_COUNT];
+    IOFixed         fraction1;
+    IOFixed         fraction2;
+    IOFixed         fraction3;
+};
+typedef ScaleDataState ScaleDataState;
+
+struct ScaleConsumeState 
+{
+    UInt32      consumeAxis1Count;
+    UInt32      consumeAxis2Count;
+    UInt32      consumeAxis3Count;
+
+    IOFixed     consumeAxis1Accum;
+    IOFixed     consumeAxis2Accum;
+    IOFixed     consumeAxis3Accum;
+};
+typedef ScaleConsumeState ScaleConsumeState;
+
+
+struct ScrollAccelInfo 
+{
+    AbsoluteTime    lastEventTime;
+    void *          scaleSegments;
+    IOItemCount     scaleSegCount;
+    ScaleDataState  state;
+
+    SInt32      lastDA1;
+    SInt32      lastDA2;
+    SInt32      lastDA3;
+    
+    IOFixed     rateMultiplier;
+    
+    bool        isHighResScroll;
+    UInt32      consumeClearThreshold;
+    UInt32      consumeCountThreshold;
+    
+    ScaleConsumeState consumeState;
+};
+typedef ScrollAccelInfo ScrollAccelInfo;
+        
+
 static bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixed crsrScale, void ** scaleSegments, IOItemCount * scaleSegCount);
 static void ScaleAxes (void * scaleSegments, int * axis1p, IOFixed *axis1Fractp, int * axis2p, IOFixed *axis2Fractp);
 
@@ -173,8 +209,17 @@ bool IOHIPointing::init(OSDictionary * properties)
     // default to right mouse button generating unique events
     _buttonMode = NX_RightButton;
     
-    _deviceLock = IOLockAlloc();
+    _scrollWheelInfo = (ScrollAccelInfo *) IOMalloc(sizeof(ScrollAccelInfo));
+    if (!_scrollWheelInfo) return false;
     
+    bzero(_scrollWheelInfo, sizeof(ScrollAccelInfo));
+    
+    _scrollPointerInfo = (ScrollAccelInfo *) IOMalloc(sizeof(ScrollAccelInfo));
+    if (!_scrollPointerInfo) return false;
+
+    bzero(_scrollPointerInfo, sizeof(ScrollAccelInfo));
+    
+    _deviceLock = IOLockAlloc();
     if (!_deviceLock)  return false;
     
     return true;
@@ -273,17 +318,23 @@ void IOHIPointing::free()
     if(_scaleSegments && _scaleSegCount)
         IODelete( _scaleSegments, CursorDeviceSegment, _scaleSegCount );
 
-    if(_scrollScaleSegments && _scrollScaleSegCount)
-        IODelete( _scrollScaleSegments, CursorDeviceSegment, _scrollScaleSegCount );
+    if ( _scrollWheelInfo )
+    {
+        if(_scrollWheelInfo->scaleSegments && _scrollWheelInfo->scaleSegCount)
+            IODelete( _scrollWheelInfo->scaleSegments, CursorDeviceSegment, _scrollWheelInfo->scaleSegCount );
 
-    if(_scrollPixelScaleSegments && _scrollPixelScaleSegCount)
-        IODelete( _scrollPixelScaleSegments, CursorDeviceSegment, _scrollPixelScaleSegCount );
+        IOFree(_scrollWheelInfo, sizeof(ScrollAccelInfo));
+        _scrollWheelInfo = 0;
+    }
+    
+    if ( _scrollPointerInfo )
+    {
+        if(_scrollPointerInfo->scaleSegments && _scrollPointerInfo->scaleSegCount)
+            IODelete( _scrollPointerInfo->scaleSegments, CursorDeviceSegment, _scrollPointerInfo->scaleSegCount );
 
-    if(_scrollPointerScaleSegments && _scrollPointerScaleSegCount)
-        IODelete( _scrollPointerScaleSegments, CursorDeviceSegment, _scrollPointerScaleSegCount );
-
-    if(_scrollPointerPixelScaleSegments && _scrollPointerPixelScaleSegCount)
-        IODelete( _scrollPointerPixelScaleSegments, CursorDeviceSegment, _scrollPointerPixelScaleSegCount );
+        IOFree(_scrollPointerInfo, sizeof(ScrollAccelInfo));
+        _scrollPointerInfo = 0;
+    }
     
     if (_reserved) {
         IODelete(_reserved, ExpansionData, 1);
@@ -388,16 +439,12 @@ IOHIDKind IOHIPointing::hidKind()
   return kHIRelativePointingDevice;
 }
 
-static void AccelerateScrollAxis(   IOFixed * 		axis1p, 
-                                    IOFixed * 		axis2p,
-                                    IOFixed * 		axis3p,
-                                    IOFixed *       prevScrollDeltaAxis,
-                                    IOFixed *		prevScrollDeltaTime,
-                                    UInt8 *         prevScrollDeltaIndex,
-                                    AbsoluteTime 	*scrollLastEventTime,
-                                    void *          scaleSegments,
-                                    AbsoluteTime    timeStamp,
-                                    bool            directionChange = false)
+static void AccelerateScrollAxis(   IOFixed *           axis1p, 
+                                    IOFixed *           axis2p,
+                                    IOFixed *           axis3p,
+                                    ScrollAccelInfo *   scaleInfo,
+                                    AbsoluteTime        timeStamp,
+                                    bool                directionChange = false)
 {
     IOFixed absAxis1            = 0;
     IOFixed absAxis2            = 0;
@@ -408,36 +455,14 @@ static void AccelerateScrollAxis(   IOFixed * 		axis1p,
     IOFixed avgAxis             = 0;
     IOFixed	timeDeltaMS         = 0;
     IOFixed	avgTimeDeltaMS      = 0;
-    IOFixed highTime            = 0;
-    IOFixed lowTime             = 0;
-    IOFixed highAxis            = 0;
-    IOFixed lowAxis             = 0;
     IOFixed	scrollMultiplier    = 0;
-    UInt64	currentTimeNS       = 0;
-    UInt64	lastEventTimeNS     = 0;
+    UInt64	currentTimeNSLL     = 0;
+    UInt64	lastEventTimeNSLL   = 0;
+    UInt64  timeDeltaMSLL       = 0;
 
-    if (!scaleSegments)
+    if (!scaleInfo || !scaleInfo->scaleSegments)
         return;
-    
-    absolutetime_to_nanoseconds(timeStamp, &currentTimeNS);
-    absolutetime_to_nanoseconds(*scrollLastEventTime, &lastEventTimeNS);
-
-    *scrollLastEventTime = timeStamp;
-
-    timeDeltaMS = ((currentTimeNS - lastEventTimeNS) / 1000000) << 16;
-    
-    // RY: To compensate for non continual motion, we have added a second
-    // threshold.  This whill allow a user with a standard scroll wheel
-    // to continue with acceleration when lifting the finger within a 
-    // predetermined time.  We should also clear out the last time deltas
-    // if the direction has changed.
-    if ((timeDeltaMS > SCROLL_CLEAR_THRESHOLD_MS) || directionChange)
-    {
-        bzero(prevScrollDeltaTime, sizeof(prevScrollDeltaTime) * SCROLL_TIME_DELTA_COUNT);
-        bzero(prevScrollDeltaAxis, sizeof(prevScrollDeltaAxis) * SCROLL_TIME_DELTA_COUNT);
-        *prevScrollDeltaIndex = 0;
-    }
-
+        
     absAxis1 = abs(*axis1p);
     absAxis2 = abs(*axis2p);
     absAxis3 = abs(*axis3p);
@@ -454,100 +479,94 @@ static void AccelerateScrollAxis(   IOFixed * 		axis1p,
         
     if( mag == 0 )
         return;
+
+    absolutetime_to_nanoseconds(timeStamp, &currentTimeNSLL);
+    absolutetime_to_nanoseconds(scaleInfo->lastEventTime, &lastEventTimeNSLL);
+
+    scaleInfo->lastEventTime = timeStamp;
+
+    timeDeltaMSLL = (currentTimeNSLL - lastEventTimeNSLL) / 1000000;
     
-    timeDeltaMS = ((timeDeltaMS > SCROLL_EVENT_THRESHOLD_MS) || directionChange) ? 
-                    SCROLL_EVENT_THRESHOLD_MS : timeDeltaMS;
-    prevScrollDeltaTime[*prevScrollDeltaIndex] = timeDeltaMS;
-    prevScrollDeltaAxis[*prevScrollDeltaIndex] = mag;
+    // RY: To compensate for non continual motion, we have added a second
+    // threshold.  This whill allow a user with a standard scroll wheel
+    // to continue with acceleration when lifting the finger within a 
+    // predetermined time.  We should also clear out the last time deltas
+    // if the direction has changed.
+    if ((timeDeltaMSLL > SCROLL_CLEAR_THRESHOLD_MS_LL) || directionChange)
+    {
+        bzero(&(scaleInfo->state), sizeof(ScaleDataState));        
+    }
     
+    timeDeltaMSLL = ((timeDeltaMSLL > SCROLL_EVENT_THRESHOLD_MS_LL) || directionChange) ? 
+                    SCROLL_EVENT_THRESHOLD_MS_LL : timeDeltaMSLL;
+                    
+    timeDeltaMS = ((UInt32) timeDeltaMSLL) << 16;
+    
+    scaleInfo->state.deltaTime[scaleInfo->state.deltaIndex] = timeDeltaMS;
+    scaleInfo->state.deltaAxis[scaleInfo->state.deltaIndex] = mag;
+        
     // Bump the next index
-    *prevScrollDeltaIndex = (*prevScrollDeltaIndex + 1) % SCROLL_TIME_DELTA_COUNT;
+    scaleInfo->state.deltaIndex = (scaleInfo->state.deltaIndex + 1) % SCROLL_TIME_DELTA_COUNT;
 
     // RY: To eliminate jerkyness associated with the scroll acceleration,
     // we scroll based on the average of the last n events.  This has the
     // effect of make acceleration smoother with accel and decel.
-    lowAxis     = MAX_DEVICE_THRESHOLD;
-    highAxis    = 0;
-    lowTime     = SCROLL_EVENT_THRESHOLD_MS;
-    highTime    = 0;
-    
     for (avgIndex=0; avgIndex < SCROLL_TIME_DELTA_COUNT; avgIndex++) 
     {
-        if (prevScrollDeltaTime[avgIndex] == 0)
+        if (scaleInfo->state.deltaTime[avgIndex] == 0)
             continue;
             
-        mag             = abs(prevScrollDeltaAxis[avgIndex]);
-        avgAxis         += mag;
-        avgTimeDeltaMS  += prevScrollDeltaTime[avgIndex];
+        avgAxis         += abs(scaleInfo->state.deltaAxis[avgIndex]);
+        avgTimeDeltaMS  += scaleInfo->state.deltaTime[avgIndex];
         avgCount ++;
 
-    /*
-        if (mag > highAxis)
-            highAxis = mag;
-        if (mag < lowAxis)
-            lowAxis = mag;
-            
-        if (prevScrollDeltaTime[avgIndex] > highTime)
-            highTime = prevScrollDeltaTime[avgIndex];
-        if (prevScrollDeltaTime[avgIndex] < lowTime)
-            lowTime = prevScrollDeltaTime[avgIndex];
-    */
     }
     
-    // RY: Another step to minimize jumpiness is to
-    // remove both the high/low axis and time from
-    // the averages
-/*
-    if ( avgCount > 2 )
-    {
-        avgAxis         -= (highAxis+lowAxis);
-        avgTimeDeltaMS  -= (highTime+lowTime);
-        avgCount        -= 2;
-    
-    }
-*/    
     avgAxis         = IOFixedDivide(avgAxis, (avgCount<<16));
     avgTimeDeltaMS  = IOFixedDivide(avgTimeDeltaMS, (avgCount<<16));
+    avgTimeDeltaMS  = IOFixedMultiply(avgTimeDeltaMS, scaleInfo->rateMultiplier);
+    avgTimeDeltaMS  = (avgTimeDeltaMS > SCROLL_EVENT_THRESHOLD_MS) ? SCROLL_EVENT_THRESHOLD_MS : avgTimeDeltaMS;
 
           
     // RY: Since we want scroll acceleration to work with the
     // time delta and the accel curves, we have come up with
     // this approach:
     //
-    // scrollMultiplier = (SCROLL_MULTIPLIER_RANGE * (avgTimeDeltaMS - (SCROLL_EVENT_THRESHOLD_MS + (1<<16))^2) 
-    //                      / ((SCROLL_EVENT_THRESHOLD_MS+(1<<16))^2)
+    // scrollMultiplier = (SCROLL_MULTIPLIER_A * (avgTimeDeltaMS^2)) + 
+    //                      (SCROLL_MULTIPLIER_B * avgTimeDeltaMS) + 
+    //                          SCROLL_MULTIPLIER_C
     //
     // scrollMultiplier *= avgDeviceDelta
     //
-    // The boost curve follows a parabolic curve which results in
-    // a smoother boost.
+    // The boost curve follows a quadratic/parabolic curve which
+    // results in a smoother boost.
     //
     // The resulting multipler is applied to the average axis 
     // magnitude and then compared against the accleration curve.
     //
     // The value acquired from the graph will then be multiplied
     // to the current axis delta.    
-    scrollMultiplier    = IOFixedMultiply(SCROLL_MULTIPLIER_MULTIPLIER, IOFixedSquared(avgTimeDeltaMS - (SCROLL_EVENT_THRESHOLD_MS + (1<<16))));    
+    scrollMultiplier    = IOFixedMultiply(SCROLL_MULTIPLIER_A, IOFixedSquared(avgTimeDeltaMS)) - 
+                            IOFixedMultiply(SCROLL_MULTIPLIER_B, avgTimeDeltaMS) + 
+                                SCROLL_MULTIPLIER_C;
+    scrollMultiplier    = IOFixedMultiply(scrollMultiplier, scaleInfo->rateMultiplier);
     scrollMultiplier    = IOFixedMultiply(scrollMultiplier, avgAxis);
                            
     CursorDeviceSegment	*segment;
 
     // scale
     for(
-        segment = (CursorDeviceSegment *) scaleSegments;
+        segment = (CursorDeviceSegment *) scaleInfo->scaleSegments;
         scrollMultiplier > segment->devUnits;
         segment++)	{}
     
     scrollMultiplier = IOFixedDivide(
             segment->intercept + IOFixedMultiply( scrollMultiplier, segment->slope ),
-            scrollMultiplier );
-        
-    if (scaleSegments)
-    {
-        *axis1p = IOFixedMultiply(*axis1p, scrollMultiplier);
-        *axis2p = IOFixedMultiply(*axis2p, scrollMultiplier);
-        *axis3p = IOFixedMultiply(*axis3p, scrollMultiplier);
-    }
+            mag );
+
+    *axis1p = IOFixedMultiply(*axis1p, scrollMultiplier);
+    *axis2p = IOFixedMultiply(*axis2p, scrollMultiplier);
+    *axis3p = IOFixedMultiply(*axis3p, scrollMultiplier);
 }
 
 
@@ -622,96 +641,76 @@ void IOHIPointing::setupForAcceleration( IOFixed desired )
 void IOHIPointing::setupScrollForAcceleration( IOFixed desired )
 {
     IOFixed     resolution = scrollResolution();
+    IOFixed     reportRate = scrollReportRate();
     
     if ( resolution )
     {
         OSData *    accelTable = copyScrollAccelerationTable();
+        IOFixed     devScale, scrScale;
         
-        // Setup line scroll wheel acceleration table
-        IOFixed     devScale   = IOFixedDivide( resolution, FRAME_RATE );
-        IOFixed     scrScale   = IOFixedDivide( SCROLL_DEFUALT_RESOLUTION, FRAME_RATE );
-        
-        if (SetupAcceleration (accelTable, desired, devScale, scrScale, &_scrollScaleSegments, &_scrollScaleSegCount))
-        {
-            _scrollDeltaIndex	= 0;
-            
-            bzero(_scrollDeltaTime, sizeof(_scrollDeltaTime));
-            bzero(_scrollDeltaAxis, sizeof(_scrollDeltaAxis));
-            
-            clock_get_uptime(&_scrollLastEventTime);
-        }
-
         // Setup pixel scroll wheel acceleration table
-        devScale   = IOFixedDivide( resolution, FRAME_RATE );
-        scrScale   = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
+        devScale = IOFixedDivide( resolution, reportRate );
+        scrScale = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
         
-        if (SetupAcceleration (accelTable, desired, devScale, scrScale, &_scrollPixelScaleSegments, &_scrollPixelScaleSegCount))
+        if (SetupAcceleration (accelTable, desired, devScale, scrScale, &(_scrollWheelInfo->scaleSegments), &(_scrollWheelInfo->scaleSegCount)))
         {
-            _scrollPixelDeltaIndex	= 0;
-            
-            bzero(_scrollPixelDeltaTime, sizeof(_scrollPixelDeltaTime));
-            bzero(_scrollPixelDeltaAxis, sizeof(_scrollPixelDeltaAxis));
-            
-            clock_get_uptime(&_scrollPixelLastEventTime);
+            bzero(&(_scrollWheelInfo->state), sizeof(ScaleDataState));
+            clock_get_uptime(&(_scrollWheelInfo->lastEventTime));
         }
-
-        // Setup line pointer drag/scroll acceleration table
-        devScale   = IOFixedDivide( this->resolution(), FRAME_RATE );
-        scrScale   = IOFixedDivide( SCROLL_DEFUALT_RESOLUTION, FRAME_RATE );
-
-        if (accelTable) 
-            accelTable->retain();
-
-        if (SetupAcceleration (accelTable, desired, devScale, scrScale, &_scrollPointerScaleSegments, &_scrollPointerScaleSegCount))
-        {            
-            _scrollPointerDeltaIndex = 0;
-            
-            bzero(_scrollPointerDeltaTime, sizeof(_scrollPointerDeltaTime));
-            bzero(_scrollPointerDeltaAxis, sizeof(_scrollPointerDeltaAxis));
-            
-            clock_get_uptime(&_scrollPointerLastEventTime);
-        }
+        
+        _scrollWheelInfo->rateMultiplier        = IOFixedDivide(reportRate, FRAME_RATE);
+        _scrollWheelInfo->isHighResScroll       = resolution > (SCROLL_DEFAULT_RESOLUTION * 2);
+        _scrollWheelInfo->consumeClearThreshold = (IOFixedDivide(resolution, SCROLL_CONSUME_RESOLUTION) >> 16) * 2;
+        _scrollWheelInfo->consumeCountThreshold = _scrollWheelInfo->consumeClearThreshold * SCROLL_CONSUME_COUNT_MULTIPLIER;
+        
+        bzero(&(_scrollWheelInfo->consumeState), sizeof(ScaleConsumeState));
+        
+        // Grab the pointer resolution
+        resolution = this->resolution();
+        reportRate = FRAME_RATE;
         
         // Setup pixel pointer drag/scroll acceleration table
-        devScale   = IOFixedDivide( this->resolution(), FRAME_RATE );
-        scrScale   = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
+        devScale = IOFixedDivide( resolution, reportRate );
+        scrScale = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
 
-        if (SetupAcceleration (accelTable, desired, devScale, scrScale, &_scrollPointerPixelScaleSegments, &_scrollPointerPixelScaleSegCount))
+        if (SetupAcceleration (accelTable, desired, devScale, scrScale, &(_scrollPointerInfo->scaleSegments), &(_scrollPointerInfo->scaleSegCount)))
         {            
-            _scrollPointerPixelDeltaIndex = 0;
-            
-            bzero(_scrollPointerPixelDeltaTime, sizeof(_scrollPointerPixelDeltaTime));
-            bzero(_scrollPointerPixelDeltaAxis, sizeof(_scrollPointerPixelDeltaAxis));
-            
-            clock_get_uptime(&_scrollPointerPixelLastEventTime);
+            bzero(&(_scrollPointerInfo->state), sizeof(ScaleDataState));
+            clock_get_uptime(&(_scrollPointerInfo->lastEventTime));
         }
-        
+                
+        _scrollPointerInfo->rateMultiplier        = IOFixedDivide(reportRate, FRAME_RATE);
+        _scrollPointerInfo->isHighResScroll       = resolution > (SCROLL_DEFAULT_RESOLUTION * 2);
+        _scrollPointerInfo->consumeClearThreshold = (IOFixedDivide(resolution, SCROLL_CONSUME_RESOLUTION) >> 16) * 2;
+        _scrollPointerInfo->consumeCountThreshold = _scrollPointerInfo->consumeClearThreshold * SCROLL_CONSUME_COUNT_MULTIPLIER;
+
+        bzero(&(_scrollPointerInfo->consumeState), sizeof(ScaleConsumeState));
+
         if (accelTable)
             accelTable->release();
-
     }
 }
 
 
 bool IOHIPointing::resetPointer()
 {
-    IOLockLock( _deviceLock);
+    DEVICE_LOCK;
 
     _buttonMode = NX_RightButton;
     setupForAcceleration(0x8000);
     updateProperties();
 
-    IOLockUnlock( _deviceLock);
+    DEVICE_UNLOCK;
     return true;
 }
 
 bool IOHIPointing::resetScroll()
 {
-    IOLockLock( _deviceLock);
+    DEVICE_LOCK;
 
     setupScrollForAcceleration(0x8000);
 
-    IOLockUnlock( _deviceLock);
+    DEVICE_UNLOCK;
     return true;
 }
 
@@ -737,7 +736,7 @@ void IOHIPointing::dispatchAbsolutePointerEvent(Point *		newLoc,
     int buttons = 0;
     int dx, dy;
     
-    IOLockLock(_deviceLock);
+    DEVICE_LOCK;
 
     if( buttonState & 1)
         buttons |= EV_LB;
@@ -786,7 +785,7 @@ void IOHIPointing::dispatchAbsolutePointerEvent(Point *		newLoc,
         _previousLocation.y = newLoc->y;
     }
 
-    IOLockUnlock(_deviceLock);
+    DEVICE_UNLOCK;
 
     _hadContact = (pressure > pressureMin);
 
@@ -822,7 +821,7 @@ void IOHIPointing::dispatchRelativePointerEvent(int        dx,
 {
     int buttons;
 
-    IOLockLock( _deviceLock);
+    DEVICE_LOCK;
 
     // post the raw event to the IOHIDPointingDevice
     if (_hidPointingNub)
@@ -830,7 +829,7 @@ void IOHIPointing::dispatchRelativePointerEvent(int        dx,
         
     if (_isSeized)
     {
-        IOLockUnlock( _deviceLock);
+        DEVICE_UNLOCK;
         return;
     }
     
@@ -852,132 +851,10 @@ void IOHIPointing::dispatchRelativePointerEvent(int        dx,
 
     if ( _scrollButtonMask & buttonState )
     {
-        if ((dx == 0) && (dy == 0))
-        {
-            IOLockUnlock( _deviceLock );
-            return;
-        }
 
-        IOFixed     fixedDeltaAxis1 = 0;
-        IOFixed     fixedDeltaAxis2 = 0;
-        IOFixed     fixedDeltaAxis3 = 0;
-        bool        directionChange = false;
-        
-        fixedDeltaAxis1 = -(dy << 16);
-        fixedDeltaAxis2 = -(dx << 16);
+        DEVICE_UNLOCK;
 
-        directionChange = ((((_scrollPointerCoalesceLastDy < 0) && (fixedDeltaAxis1 >= 0)) || 
-                            ((_scrollPointerCoalesceLastDy >= 0) && (fixedDeltaAxis1 < 0)))
-                            || (((_scrollPointerCoalesceLastDx < 0) && (fixedDeltaAxis2 >= 0)) || 
-                            ((_scrollPointerCoalesceLastDx >= 0) && (fixedDeltaAxis2 < 0))));
-                                            
-        _scrollPointerCoalesceLastDy   = fixedDeltaAxis1;
-        _scrollPointerCoalesceLastDx   = fixedDeltaAxis2;
-
-        AccelerateScrollAxis(&fixedDeltaAxis1,
-                             &fixedDeltaAxis2,
-                             &fixedDeltaAxis3,
-                             _scrollPointerPixelDeltaAxis,
-                             _scrollPointerPixelDeltaTime,
-                             &_scrollPointerPixelDeltaIndex,
-                             &_scrollPointerPixelLastEventTime,
-                             _scrollPointerPixelScaleSegments,
-                             ts,
-                             directionChange);
-                             
-        fixedDeltaAxis1 += _scrollPointerPixelFractionAxis1;
-        fixedDeltaAxis2 += _scrollPointerPixelFractionAxis2;
-        
-        CONVERT_SCROLL_FIXED_TO_FRACTION(fixedDeltaAxis1, _scrollPointerPixelFractionAxis1);
-        CONVERT_SCROLL_FIXED_TO_FRACTION(fixedDeltaAxis2, _scrollPointerPixelFractionAxis2);
-                                         
-        _scrollPointDeltaAxis1 = fixedDeltaAxis1 / 65536;
-        _scrollPointDeltaAxis2 = fixedDeltaAxis2 / 65536;
-        _scrollPointDeltaAxis3 = 0;
-        
-        // RY: Begin conversion to from continous scroll to normal wheel event
-        _scrollFixedDeltaAxis1 = 0;
-        _scrollFixedDeltaAxis2 = 0;
-        _scrollFixedDeltaAxis3 = 0;
-
-        if ( directionChange )
-        {
-            _scrollPointerCoalesceYCount = _scrollPointerCoalesceXCount = 0;
-        }
-
-        _scrollPointerCoalesceYCount += abs(dy);
-        _scrollPointerCoalesceXCount += abs(dx);
-
-        // RY: Not enought movement to generate a scroll
-        if ( (_scrollPointDeltaAxis1 == 0) && (_scrollPointDeltaAxis2 == 0) )
-        {
-            IOLockUnlock( _deviceLock );
-            return;        
-        }
-        
-        // RY: throttle the conversion of dy to deltaAxis1
-        if ((abs(dy) > SCROLL_POINTER_COALESCE_CLEAR_THRESHOLD) || 
-            (_scrollPointerCoalesceYCount >= SCROLL_POINTER_COALESCE_COUNTER_THRESHOLD))
-        {                                        
-            _scrollFixedDeltaAxis1          = -(dy << 16);
-            _scrollPointerCoalesceYCount    = 0;
-        }
-        else if ( dy != 0)
-        {
-            
-            _scrollFixedDeltaAxis1 = 0;
-            dy = 0;            
-        }
-
-        // RY: throttle the conversion of dx to deltaAxis2
-        if ((abs(dx) > SCROLL_POINTER_COALESCE_CLEAR_THRESHOLD) || 
-            (_scrollPointerCoalesceXCount >= SCROLL_POINTER_COALESCE_COUNTER_THRESHOLD))
-        {                                        
-            _scrollFixedDeltaAxis2          = -(dx << 16);
-            _scrollPointerCoalesceXCount    = 0;
-        }
-        else if ( dx != 0 )
-        {
-            _scrollFixedDeltaAxis2 = 0;
-            dx = 0;            
-        }
-        
-        // RY: got passed the throttling
-        if ( dx || dy )
-        {
-            fixedDeltaAxis1 = -(dy << 16);
-            fixedDeltaAxis2 = -(dx << 16);
-            
-            AccelerateScrollAxis(&fixedDeltaAxis1,
-                                 &fixedDeltaAxis2,
-                                 &fixedDeltaAxis3,
-                                 _scrollPointerDeltaAxis,
-                                 _scrollPointerDeltaTime,
-                                 &_scrollPointerDeltaIndex,
-                                 &_scrollPointerLastEventTime,
-                                 _scrollPointerScaleSegments,
-                                 ts,
-                                 directionChange);
-            
-            // RY: convert only if the axis has not been zero'd out
-            if ( dy )
-            {
-                _scrollFixedDeltaAxis1 = fixedDeltaAxis1;
-                CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis1, dy);
-            }
-            
-            if ( dx )
-            {
-                _scrollFixedDeltaAxis2 = fixedDeltaAxis2;
-                CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis2, dx);
-            }
-        }
-
-        IOLockUnlock( _deviceLock );
-
-        _scrollType = 1;
-        _scrollWheelEvent( this, dy, dx, 0, ts);
-        _scrollType = 0;
+        dispatchScrollWheelEventWithAccelInfo(-dy, -dx, 0, _scrollPointerInfo, ts);
         
         return;
     }
@@ -1007,7 +884,7 @@ void IOHIPointing::dispatchRelativePointerEvent(int        dx,
 	// Swap Left and Right, preserve everything else
 	buttons = (buttons & ~(EV_LB|EV_RB)) | temp;
     }
-    IOLockUnlock( _deviceLock);
+    DEVICE_UNLOCK;
 
     _relativePointerEvent(this,
             /* buttons */ buttons,
@@ -1021,8 +898,18 @@ void IOHIPointing::dispatchScrollWheelEvent(short deltaAxis1,
                                             short deltaAxis3,
                                             AbsoluteTime ts)
 {
+    dispatchScrollWheelEventWithAccelInfo(deltaAxis1, deltaAxis2, deltaAxis3, _scrollWheelInfo, ts);
+}
     
-    IOLockLock( _deviceLock);
+void IOHIPointing::dispatchScrollWheelEventWithAccelInfo(
+                                SInt32              deltaAxis1,
+                                SInt32              deltaAxis2,
+                                SInt32              deltaAxis3,
+                                ScrollAccelInfo *   info,
+                                AbsoluteTime        ts)
+{
+
+    DEVICE_LOCK;
      
     // Change the report descriptor for the IOHIDPointingDevice
     // to include a scroll whell
@@ -1041,87 +928,160 @@ void IOHIPointing::dispatchScrollWheelEvent(short deltaAxis1,
         
     if (_isSeized)
     {
-        IOLockUnlock( _deviceLock);
+        DEVICE_UNLOCK;
         return;
     }
-        
+
     _scrollFixedDeltaAxis1 = deltaAxis1 << 16;
     _scrollFixedDeltaAxis2 = deltaAxis2 << 16;
     _scrollFixedDeltaAxis3 = deltaAxis3 << 16;
 
-    _scrollPointDeltaAxis1 = IOFixedMultiply(_scrollFixedDeltaAxis1, CONVERT_SCROLL_WHEEL_SCALE) / 65536;
-    _scrollPointDeltaAxis2 = IOFixedMultiply(_scrollFixedDeltaAxis2, CONVERT_SCROLL_WHEEL_SCALE) / 65536;
-    _scrollPointDeltaAxis3 = IOFixedMultiply(_scrollFixedDeltaAxis3, CONVERT_SCROLL_WHEEL_SCALE) / 65536;
+    CONVERT_SCROLL_FIXED_TO_COARSE(IOFixedMultiply(_scrollFixedDeltaAxis1, SCROLL_WHEEL_TO_PIXEL_SCALE), _scrollPointDeltaAxis1);
+    CONVERT_SCROLL_FIXED_TO_COARSE(IOFixedMultiply(_scrollFixedDeltaAxis2, SCROLL_WHEEL_TO_PIXEL_SCALE), _scrollPointDeltaAxis2);
+    CONVERT_SCROLL_FIXED_TO_COARSE(IOFixedMultiply(_scrollFixedDeltaAxis3, SCROLL_WHEEL_TO_PIXEL_SCALE), _scrollPointDeltaAxis3);
     
     // Perform pointer acceleration computations
     if ( _accelerateMode & kAccelScroll )
     {
-        bool directionChange = ((((_scrollLastDA1 < 0) && (deltaAxis1 >= 0)) || 
-                                ((_scrollLastDA1 >= 0) && (deltaAxis1 < 0)))
-                                || (((_scrollLastDA2 < 0) && (deltaAxis2 >= 0)) || 
-                                ((_scrollLastDA2 >= 0) && (deltaAxis2 < 0)))
-                                || (((_scrollLastDA3 < 0) && (deltaAxis3 >= 0)) || 
-                                ((_scrollLastDA3 >= 0) && (deltaAxis3 < 0))));
+        bool directionChange = false;
+        
+        if ((abs(deltaAxis1) >= abs(deltaAxis2)) && (abs(deltaAxis1) >= abs(deltaAxis3)))
+            directionChange = (((info->lastDA1 < 0) && (deltaAxis1 >= 0)) || 
+                                ((info->lastDA1 >= 0) && (deltaAxis1 < 0)));
+        else if ((abs(deltaAxis2) >= abs(deltaAxis1)) && (abs(deltaAxis2) >= abs(deltaAxis3)))
+            directionChange = (((info->lastDA2 < 0) && (deltaAxis2 >= 0)) || 
+                                ((info->lastDA2 >= 0) && (deltaAxis2 < 0)));
+        else
+            directionChange = (((info->lastDA3 < 0) && (deltaAxis3 >= 0)) || 
+                                ((info->lastDA3 >= 0) && (deltaAxis3 < 0)));
+            
+        info->lastDA1 = deltaAxis1;
+        info->lastDA2 = deltaAxis2;
+        info->lastDA3 = deltaAxis3;
                                 
-        _scrollLastDA1 = deltaAxis1;
-        _scrollLastDA2 = deltaAxis2;
-        _scrollLastDA3 = deltaAxis3;
-
-        // RY: Generate fixed point and course scroll deltas.
-        AccelerateScrollAxis(&_scrollFixedDeltaAxis1,
-                             &_scrollFixedDeltaAxis2,
-                             &_scrollFixedDeltaAxis3,
-                             _scrollDeltaAxis,
-                             _scrollDeltaTime,
-                             &_scrollDeltaIndex,
-                             &_scrollLastEventTime,
-                             _scrollScaleSegments,
-                             ts,
-                             directionChange);
-
-        CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis1, deltaAxis1);
-        CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis2, deltaAxis2);
-        CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis3, deltaAxis3);
-                                     
-        if ( _scrollPixelScaleSegments )
+        if ( info->scaleSegments )
         {
-            _scrollPointDeltaAxis1 = _scrollLastDA1 << 16;
-            _scrollPointDeltaAxis2 = _scrollLastDA2 << 16;
-            _scrollPointDeltaAxis3 = _scrollLastDA3 << 16;
-
+            _scrollPointDeltaAxis1 = info->lastDA1 << 16;
+            _scrollPointDeltaAxis2 = info->lastDA2 << 16;
+            _scrollPointDeltaAxis3 = info->lastDA3 << 16;
+                        
             // RY: Convert scroll wheel value to pixel movement.
             AccelerateScrollAxis(&_scrollPointDeltaAxis1,
                                  &_scrollPointDeltaAxis2,
                                  &_scrollPointDeltaAxis3,
-                                 _scrollPixelDeltaAxis,
-                                 _scrollPixelDeltaTime,
-                                 &_scrollPixelDeltaIndex,
-                                 &_scrollPixelLastEventTime,
-                                 _scrollPixelScaleSegments,
+                                 info,
                                  ts,
                                  directionChange);
-                                 
-            _scrollPointDeltaAxis1 += _scrollPixelFraction1;
-            _scrollPointDeltaAxis2 += _scrollPixelFraction2;
-            _scrollPointDeltaAxis3 += _scrollPixelFraction3;
+                                                         
+            if ( info->consumeCountThreshold )
+            {
+                _scrollPointDeltaAxis1 += info->state.fraction1;
+                _scrollPointDeltaAxis2 += info->state.fraction2;
+                _scrollPointDeltaAxis3 += info->state.fraction3;
+                
+                CONVERT_SCROLL_FIXED_TO_FRACTION(_scrollPointDeltaAxis1, info->state.fraction1);
+                CONVERT_SCROLL_FIXED_TO_FRACTION(_scrollPointDeltaAxis2, info->state.fraction2);
+                CONVERT_SCROLL_FIXED_TO_FRACTION(_scrollPointDeltaAxis3, info->state.fraction3);
+
+                _scrollPointDeltaAxis1 /= 65536;
+                _scrollPointDeltaAxis2 /= 65536;
+                _scrollPointDeltaAxis3 /= 65536;
+            }
+            else
+            {
+                CONVERT_SCROLL_FIXED_TO_COARSE(_scrollPointDeltaAxis1, _scrollPointDeltaAxis1);
+                CONVERT_SCROLL_FIXED_TO_COARSE(_scrollPointDeltaAxis2, _scrollPointDeltaAxis2);
+                CONVERT_SCROLL_FIXED_TO_COARSE(_scrollPointDeltaAxis3, _scrollPointDeltaAxis3);
+            }
+
+            // RY: Convert pixel value to points
+            _scrollFixedDeltaAxis1 = _scrollPointDeltaAxis1 << 16;
+            _scrollFixedDeltaAxis2 = _scrollPointDeltaAxis2 << 16;
+            _scrollFixedDeltaAxis3 = _scrollPointDeltaAxis3 << 16;
             
-            CONVERT_SCROLL_FIXED_TO_FRACTION(_scrollPointDeltaAxis1, _scrollPixelFraction1);
-            CONVERT_SCROLL_FIXED_TO_FRACTION(_scrollPointDeltaAxis2, _scrollPixelFraction2);
-            CONVERT_SCROLL_FIXED_TO_FRACTION(_scrollPointDeltaAxis3, _scrollPixelFraction3);
+            if ( directionChange )
+            {
+                bzero(&(info->consumeState), sizeof(ScaleConsumeState));
+            }
+
+            // RY: throttle the tranlation of scroll based on the resolution threshold.
+            // This allows us to not generated traditional scroll whell (line) events 
+            // for high res devices at really low (fine granularity) speeds.  This
+            // prevents a succession of single scroll events that can make scrolling
+            // slowly actually seem faster.
+            if ( info->consumeCountThreshold ) 
+            {
+                info->consumeState.consumeAxis1Accum += _scrollFixedDeltaAxis1 + ((_scrollFixedDeltaAxis1) ? info->state.fraction1 : 0);
+                info->consumeState.consumeAxis2Accum += _scrollFixedDeltaAxis2 + ((_scrollFixedDeltaAxis1) ? info->state.fraction2 : 0);
+                info->consumeState.consumeAxis3Accum += _scrollFixedDeltaAxis3 + ((_scrollFixedDeltaAxis1) ? info->state.fraction3 : 0);
+
+                info->consumeState.consumeAxis1Count += abs(info->lastDA1);
+                info->consumeState.consumeAxis2Count += abs(info->lastDA2);
+                info->consumeState.consumeAxis3Count += abs(info->lastDA3);
+
+                if (_scrollFixedDeltaAxis1 &&
+                   ((abs(info->lastDA1) >= info->consumeClearThreshold) ||
+                    (info->consumeState.consumeAxis1Count >= info->consumeCountThreshold)))
+                {                                        
+                    _scrollFixedDeltaAxis1 = info->consumeState.consumeAxis1Accum;
+                    info->consumeState.consumeAxis1Accum = 0;
+                    info->consumeState.consumeAxis1Count = 0;
+                }
+                else
+                {
+                    _scrollFixedDeltaAxis1 = 0;            
+                }
+
+                // Axis 2
+                if (_scrollFixedDeltaAxis2 &&
+                   ((abs(info->lastDA2) >= info->consumeClearThreshold) ||
+                    (info->consumeState.consumeAxis2Count >= info->consumeCountThreshold)))
+                {                                        
+                    _scrollFixedDeltaAxis2 = info->consumeState.consumeAxis2Accum;
+                    info->consumeState.consumeAxis2Accum = 0;
+                    info->consumeState.consumeAxis2Count = 0;
+                }
+                else
+                {
+                    _scrollFixedDeltaAxis2 = 0;            
+                }
+
+                // Axis 3
+                if (_scrollFixedDeltaAxis3 &&
+                   ((abs(info->lastDA3) >= info->consumeClearThreshold) ||
+                    (info->consumeState.consumeAxis3Count >= info->consumeCountThreshold)))
+                {                                        
+                    _scrollFixedDeltaAxis3 = info->consumeState.consumeAxis3Accum;
+                    info->consumeState.consumeAxis3Accum = 0;
+                    info->consumeState.consumeAxis3Count = 0;
+                }
+                else
+                {
+                    _scrollFixedDeltaAxis3 = 0;            
+                }
+            }
             
-            _scrollPointDeltaAxis1 /= 65536;
-            _scrollPointDeltaAxis2 /= 65536;
-            _scrollPointDeltaAxis3 /= 65536;
+            _scrollFixedDeltaAxis1 = IOFixedMultiply(_scrollFixedDeltaAxis1, SCROLL_PIXEL_TO_WHEEL_SCALE);
+            _scrollFixedDeltaAxis2 = IOFixedMultiply(_scrollFixedDeltaAxis2, SCROLL_PIXEL_TO_WHEEL_SCALE);
+            _scrollFixedDeltaAxis3 = IOFixedMultiply(_scrollFixedDeltaAxis3, SCROLL_PIXEL_TO_WHEEL_SCALE);
+
+            // RY: Generate fixed point and course scroll deltas.
+            CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis1, deltaAxis1);
+            CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis2, deltaAxis2);
+            CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis3, deltaAxis3);
         }
+
     }
     
-    IOLockUnlock( _deviceLock);
+    DEVICE_UNLOCK;
     
+    _scrollType = (info->isHighResScroll) ? 1:0;
     _scrollWheelEvent(	this,
                         deltaAxis1,
                         deltaAxis2,
                         deltaAxis3,
                         ts);
+    _scrollType = 0;
 }
 
 bool IOHIPointing::updateProperties( void )
@@ -1154,7 +1114,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
     pointerAccelKey = OSDynamicCast( OSString, getProperty(kIOHIDPointerAccelerationTypeKey));
     scrollAccelKey = OSDynamicCast( OSString, getProperty(kIOHIDScrollAccelerationTypeKey));
 
-    IOLockLock( _deviceLock);
+    DEVICE_LOCK;
     
     if( pointerAccelKey && 
         ((number = OSDynamicCast( OSNumber, dict->getObject(pointerAccelKey))) || 
@@ -1228,7 +1188,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 
     }
 
-    IOLockUnlock( _deviceLock);
+    DEVICE_UNLOCK;
 
     if ((number = OSDynamicCast(OSNumber,
                               dict->getObject(kIOHIDPointerConvertAbsoluteKey))) ||
@@ -1320,6 +1280,17 @@ IOFixed	IOHIPointing::scrollResolution()
         
     return( resolution );
 }
+
+// RY: Added this method to obtain the report rate
+// of the scroll wheel.  The default value is 67 << 16.
+IOFixed	IOHIPointing::scrollReportRate()
+{
+    OSNumber * 	number = OSDynamicCast( OSNumber,
+                getProperty( kIOHIDScrollReportRateKey ));
+                        
+    return number ? number->unsigned32BitValue() : FRAME_RATE;
+}
+
 
 OSData * IOHIPointing::copyAccelerationTable()
 {

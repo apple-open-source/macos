@@ -129,8 +129,8 @@ convert (tree type, tree expr)
     return error_mark_node;
   if (code == VOID_TYPE)
     return build1 (CONVERT_EXPR, type, expr);
-  if (code == BOOLEAN_TYPE)
-    return fold (convert_to_boolean (type, expr));
+  if (code == BOOLEAN_TYPE || code ==  CHAR_TYPE)
+    return fold_convert (type, expr);
   if (code == INTEGER_TYPE)
     {
       if ((really_constant_p (expr)
@@ -151,26 +151,12 @@ convert (tree type, tree expr)
     }	  
   if (code == REAL_TYPE)
     return fold (convert_to_real (type, expr));
-  if (code == CHAR_TYPE)
-    return fold (convert_to_char (type, expr));
   if (code == POINTER_TYPE)
     return fold (convert_to_pointer (type, expr));
   error ("conversion to non-scalar type requested");
   return error_mark_node;
 }
 
-
-tree
-convert_to_char (tree type, tree expr)
-{
-  return build1 (NOP_EXPR, type, expr);
-}
-
-tree
-convert_to_boolean (tree type, tree expr)
-{
-  return build1 (NOP_EXPR, type, expr);
-}
 
 /* Return a data type that has machine mode MODE.
    If the mode is an integer,
@@ -743,7 +729,7 @@ lookup_java_method (tree searched_class, tree method_name,
 		    method_signature, build_java_signature);
 }
 
-/* Return true iff CLASS (or its ancestors) has a method METHOD_NAME.  */
+/* Return true iff CLASS (or its ancestors) has a method METHOD_NAME.  */
 int
 has_method (tree class, tree method_name)
 {

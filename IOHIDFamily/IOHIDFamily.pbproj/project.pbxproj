@@ -44,7 +44,6 @@
 				F7B97B520647058E00C8D434,
 				014D176CFFE1C65511CA2CF6,
 				014D176DFFE1C65511CA2CF6,
-				014D176EFFE1C65511CA2CF6,
 				F7B621A306811D1B00F98773,
 				F72B60C0048FC76D00302827,
 				0A308BA3FFFA5B7A11CA29FD,
@@ -79,14 +78,6 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			path = IOHIDLibUserClient.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		014D176EFFE1C65511CA2CF6 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			path = IOHIDLibUserClientIniter.cpp;
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -184,14 +175,6 @@
 		};
 		014D177DFFE1C65511CA2CF6 = {
 			fileRef = 014D176CFFE1C65511CA2CF6;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		014D177EFFE1C65511CA2CF6 = {
-			fileRef = 014D176EFFE1C65511CA2CF6;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -541,6 +524,7 @@
 				F5AB668F02ADD3B101FF6135,
 				09CF03A9FFC4B24911CA285C,
 				F7E9C4E906F653BC0056A9ED,
+				84AAE9910826DBC1009125BC,
 				019D7CB3FFE829CD11CA2CF6,
 			);
 		};
@@ -579,7 +563,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDFamily;
-				MODULE_VERSION = 1.4;
+				MODULE_VERSION = 1.4.4;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -591,6 +575,7 @@
 			dependencies = (
 				019D7CB2FFE829CD11CA2CF6,
 				F59AD16902ADDC1B0193FF54,
+				84AAE99F0826E135009125BC,
 				09CF03BDFFC4B63911CA285C,
 				F7ABC032065EDE56008AC341,
 				84218A2A06B0A72F009DEEDE,
@@ -607,7 +592,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOHIDFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.4, Copyright Apple Computer, Inc. 2000-2005</string>
+	<string>1.4.4, Copyright Apple Computer, Inc. 2000-2005</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -619,11 +604,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4</string>
+	<string>1.4.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4</string>
+	<string>1.4.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOBSDConsole</key>
@@ -638,59 +623,6 @@
 			<string>IOResources</string>
 			<key>IOResourceMatch</key>
 			<string>IOBSD</string>
-		</dict>
-		<key>IOHIDLibUPSUserClient</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>DeviceUsagePairs</key>
-			<array>
-				<dict>
-					<key>DeviceUsagePage</key>
-					<integer>132</integer>
-				</dict>
-				<dict>
-					<key>DeviceUsagePage</key>
-					<integer>133</integer>
-				</dict>
-			</array>
-			<key>IOClass</key>
-			<string>IOHIDLibUserClientIniter</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>IOCFPlugInTypes</key>
-				<dict>
-					<key>40A57A4E-26A0-11D8-9295-000A958A2C78</key>
-					<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
-					<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>
-					<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
-				</dict>
-				<key>IOUserClientClass</key>
-				<string>IOHIDLibUserClient</string>
-				<key>UPSDevice</key>
-				<true/>
-			</dict>
-		</dict>
-		<key>IOHIDLibUserClient</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDLibUserClientIniter</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>IOCFPlugInTypes</key>
-				<dict>
-					<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>
-					<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
-				</dict>
-				<key>IOUserClientClass</key>
-				<string>IOHIDLibUserClient</string>
-			</dict>
 		</dict>
 		<key>IOHIDSystem</key>
 		<dict>
@@ -781,7 +713,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				014D177DFFE1C65511CA2CF6,
-				014D177EFFE1C65511CA2CF6,
 				019150F4FFE6F74111CA29FD,
 				0A308BA6FFFA5B7A11CA29FD,
 				F5AB66DA02ADD67601FF6135,
@@ -928,11 +859,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.4.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0</string>
+	<string>1.4.4</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -1022,6 +953,7 @@
 			files = (
 				09CF03BFFFC4B63911CA285C,
 				580E4B6B03CF74B404CA2A11,
+				84AAE9990826E0D6009125BC,
 				F7ABC02E065EDE43008AC341,
 				84218A3806B0B3B0009DEEDE,
 			);
@@ -1110,6 +1042,7 @@
 				F75C557E065EDC03000AFDB4,
 				84002F5106B0A21D00A38E03,
 				F7E9C4EA06F653BC0056A9ED,
+				84AAE9920826DBC1009125BC,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -1299,7 +1232,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventDriverSafeBoot;
-				MODULE_VERSION = 1.4;
+				MODULE_VERSION = 1.4.4;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1334,11 +1267,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4</string>
+	<string>1.4.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4</string>
+	<string>1.4.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>HID Pointing/Consumer/System Control Driver</key>
@@ -1427,6 +1360,43 @@
 			</array>
 			<key>HIDDefaultBehavior</key>
 			<string></string>
+			<key>HIDPointerAccelerationTable</key>
+			<data>
+			AACAAFVTQioABwAAAAAAAQABAAAAAQAAAAAgAAAQAABxOwAATOMA
+			BE7FAA03BAAFRAAAFIAAAAcsAAAj4AAACQAAADSwAAAK2AAARfAA
+			AA0IAABXkAAAD2AAAGkAAAASEAAAeoAAABUAAACJAAAAF8AAAJEA
+			AAAawAAAlrAAAB2QAACZsAAAIKAAAJswAAAj8AAAnDAAACewAACc
+			MAAAAIAAABIAAHE7AABWfwAESgAADqAAAAY6AAAfQAAABygAACkA
+			AAAI2AAAPGAAAAm4AABHQAAACrAAAFMwAAALwAAAYDAAAAzAAABs
+			IAAADuAAAIQgAAARYAAAnSAAABQAAAC0AAAAFsAAAMcAAAAZoAAA
+			1AAAABzgAADbAAAAIIAAAOAAAAAkQAAA4wAAACegAADjAAAAALAA
+			ABQAAHE7AABhTgAESgAAD2AAAAUyAAAXYAAABjIAACCgAAAHLAAA
+			LCAAAAgIAAA3oAAACOQAAENAAAAJwAAAUIAAAAqgAABfIgAAC5AA
+			AG1wAAAMcAAAewAAAA6AAACYoAAAEMAAALYAAAATQAAA0gAAABZg
+			AADpAAAAGiAAAPoAAAAdoAABAwAAACEgAAEHAAAAJIAAAQoAAAAn
+			oAABDAAAAADgAAARAABxOwAAbXcABBoAABHwAAAFGgAAG/AAAAXw
+			AAAmYAAABvwAADQAAAAITAAAT+AAAAlsAABt4AAACngAAI3AAAAL
+			sAAAtkAAAA1QAADZgAAAEQAAAPeAAAAVwAABEQAAABlgAAEgAAAA
+			HUAAASgAAAAhAAABLgAAACSAAAEyAAAAJ4AAATUAAAAAUAAAEgAA
+			cTsAAEuwAARMAAAOAAAABUAAABVQAAAHJAAAJiAAAAi0AAA1wAAA
+			CpAAAEmAAAAL6AAAVoAAAA0gAABiAAAADhgAAGrQAAAPGAAAdAAA
+			ABGQAACHgAAAFFAAAJoAAAAXYAAAqYAAABpgAAC0AAAAHVAAALkA
+			AAAg0AAAvIAAACQgAAC9gAAAJ7AAAL6AAAABAAAAEAAAcTsAAFZ/
+			AAO4AAASoAAABSAAACVAAAAGCAAAN4AAAAbwAABfAAAAB/AAAIoA
+			AAAJKAAAyyAAAArwAAD3gAAADSAAARyAAAAQAAABOAAAABRAAAFK
+			AAAAGQAAAVMAAAAc0AABVwAAACDgAAFbgAAAJCAAAV2AAAAnoAAB
+			XgAAAFJwAAAJlNEAWTAAAAoSaQBf8AAACpAAAGawAAAA4AAAHAAB
+			GFUAATAAAAGyKAAC8AAAAlNpAAagAAADb0oAENAAAAOteAAUWAAA
+			A+ulABfgAAAEKdMAG2gAAARoAAAe8AAABKIBACKYAAAE2VYAJiAA
+			AAUUqwApaAAABVAAACywAAAFgAEAMcgAAAW1VgA2QAAABeqrADq4
+			AAAGIAAAPzAAAAZiAABD3AAABp6rAEh4AAAG21YATRQAAAcYAABR
+			sAAAB3oBAFbcAAAH2VYAW/gAAAg4qwBhFAAACJgAAGYwAAAJFgEA
+			bAAAAAmRVgBx0AAACgyrAHegAAAKiAAAfXAAAAEAAAATAAEYVQAB
+			MAAAAbIoAAMQAAACU2kABxAAAAMvSgARgAAAA6z7AByIAAAEOqsA
+			KOAAAASBVgAwiAAABMgAADgwAAAFDVYAQJgAAAVQAABI8AAABcar
+			AFKwAAAGOAAAXHAAAAbxVgBnwAAAB0yrAG1YAAAHqAAAcvAAAAhM
+			AAB5BAAACPAAAH8YAAAJlAAAhSwAAAo4AACLQAA=
+			</data>
 			<key>IOClass</key>
 			<string>IOHIDEventRepairDriver</string>
 			<key>IOProviderClass</key>
@@ -1636,6 +1606,156 @@
 			name = IOHIDEventRepairDriver;
 			refType = 4;
 			sourceTree = "<group>";
+		};
+		84AAE98D0826DBC1009125BC = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84AAE9910826DBC1009125BC = {
+			buildPhases = (
+				84AAE98D0826DBC1009125BC,
+			);
+			buildSettings = {
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOHIDUserClient;
+				MODULE_VERSION = 1.4.4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOHIDUserClient;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOHIDUserClient;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOHIDUserClient;
+			productReference = 84AAE9920826DBC1009125BC;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string>1.4.4, Copyright Apple Computer, Inc. 2000-2005</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOHIDUserClient</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOHIDUserClient</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.4</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.4</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOHIDLibUPSUserClient</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBUserClient</string>
+			<key>DeviceUsagePairs</key>
+			<array>
+				<dict>
+					<key>DeviceUsagePage</key>
+					<integer>132</integer>
+				</dict>
+				<dict>
+					<key>DeviceUsagePage</key>
+					<string>133</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>IOUSBUserClientInit</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>IOCFPlugInTypes</key>
+				<dict>
+					<key>40A57A4E-26A0-11D8-9295-000A958A2C78</key>
+					<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
+					<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>
+					<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
+				</dict>
+				<key>IOUserClientClass</key>
+				<string>IOHIDLibUserClient</string>
+				<key>UPSDevice</key>
+				<true/>
+			</dict>
+		</dict>
+		<key>IOHIDLibUserClient</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBUserClient</string>
+			<key>IOClass</key>
+			<string>IOUSBUserClientInit</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>IOCFPlugInTypes</key>
+				<dict>
+					<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>
+					<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
+				</dict>
+				<key>IOUserClientClass</key>
+				<string>IOHIDLibUserClient</string>
+			</dict>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOUSBUserClient</key>
+		<string>2.2.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+		84AAE9920826DBC1009125BC = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = IOHIDUserClient.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		84AAE9990826E0D6009125BC = {
+			fileRef = 84AAE9920826DBC1009125BC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84AAE99E0826E135009125BC = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 84AAE9910826DBC1009125BC;
+			remoteInfo = IOHIDUserClient;
+		};
+		84AAE99F0826E135009125BC = {
+			isa = PBXTargetDependency;
+			target = 84AAE9910826DBC1009125BC;
+			targetProxy = 84AAE99E0826E135009125BC;
 		};
 		84DA3BF6066ACEBF007AC073 = {
 			children = (
@@ -2022,7 +2142,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDSystem;
-				MODULE_VERSION = 1.4;
+				MODULE_VERSION = 1.4.4;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2044,7 +2164,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.4, Copyright Apple Computer, Inc. 2000-2005</string>
+	<string>1.4.4, Copyright Apple Computer, Inc. 2000-2005</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2056,11 +2176,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4</string>
+	<string>1.4.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4</string>
+	<string>1.4.4</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
@@ -3356,7 +3476,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventDriver;
-				MODULE_VERSION = 1.4;
+				MODULE_VERSION = 1.4.4;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -3391,11 +3511,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4</string>
+	<string>1.4.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4</string>
+	<string>1.4.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>HID Keyboard Driver</key>

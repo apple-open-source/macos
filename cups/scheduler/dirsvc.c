@@ -1,5 +1,5 @@
 /*
- * "$Id: dirsvc.c,v 1.39 2005/02/16 17:58:01 jlovell Exp $"
+ * "$Id: dirsvc.c,v 1.39.2.2 2005/07/27 21:58:45 jlovell Exp $"
  *
  *   Directory services routines for the Common UNIX Printing System (CUPS).
  *
@@ -614,9 +614,10 @@ ProcessBrowseData(const char   *uri,		/* I - URI of printer/class */
 void
 SendBrowseList(void)
 {
-  int			count;		/* Number of dests to update */
+  int			count,		/* Number of dests to update */
+			num_printers;	/* Number of printers */
   printer_t		*p,		/* Current printer */
-			*np;		/* Next printer */
+			*next;		/* Next printer */
   time_t		ut,		/* Minimum update time */
 			to;		/* Timeout time */
 
@@ -701,13 +702,9 @@ SendBrowseList(void)
   * Loop through all of the printers and send local updates as needed...
   */
 
-  for (p = Printers; p != NULL; p = np)
+  for (p = Printers; p != NULL; p = next)
   {
-   /*
-    * Save the next printer pointer...
-    */
-
-    np = p->next;
+    next = p->next;
 
    /*
     * If this is a remote queue, see if it needs to be timed out...
@@ -719,7 +716,19 @@ SendBrowseList(void)
       {
         LogMessage(L_INFO, "Remote destination \"%s\" has timed out; deleting it...",
 	           p->name);
+
+       /*
+	* Deleting a printer that is part of an implicit class can also cause 
+	* a following class to be deleted (which our 'next' may be pointing at). 
+	* In this case reset 'next' to the head of the list...
+	*/
+  
+	num_printers = NumPrinters;
+  
         DeletePrinter(p, 1);
+
+	if (NumPrinters != num_printers - 1)
+	  next = Printers;
       }
     }
   }
@@ -1251,6 +1260,7 @@ StopBrowsing(void)
       LogMessage(L_DEBUG2, "StopBrowsing: Removing fd %d from InputSet...",
         	 BrowseSocket);
 
+      FD_CLR(BrowseSocket, InputFds);
       FD_CLR(BrowseSocket, InputSet);
       BrowseSocket = -1;
     }
@@ -1281,6 +1291,7 @@ StopBrowsing(void)
       LogMessage(L_DEBUG2, "StopBrowsing: Removing fd %d from InputSet...",
         	 BrowseDNSSDfd);
 
+      FD_CLR(BrowseDNSSDfd, InputFds);
       FD_CLR(BrowseDNSSDfd, InputSet);
       DNSServiceRefDeallocate(BrowseDNSSDRef);
       BrowseDNSSDRef = NULL;
@@ -1315,6 +1326,7 @@ StopPolling(void)
 
     LogMessage(L_DEBUG2, "StopPolling: removing fd %d from InputSet.",
                PollPipe);
+    FD_CLR(PollPipe, InputFds);
     FD_CLR(PollPipe, InputSet);
 
     PollPipe = -1;
@@ -2426,6 +2438,7 @@ static void dnssdDeregisterPrinter(printer_t *p)
     LogMessage(L_DEBUG2, "dnssdDeregisterPrinter: Removing fd %d from InputSet...",
 	       p->dnssd_ipp_fd);
 
+    FD_CLR(p->dnssd_ipp_fd, InputFds);
     FD_CLR(p->dnssd_ipp_fd, InputSet);
     DNSServiceRefDeallocate(p->dnssd_ipp_ref);
     p->dnssd_ipp_ref = NULL;
@@ -2437,6 +2450,7 @@ static void dnssdDeregisterPrinter(printer_t *p)
     LogMessage(L_DEBUG2, "dnssdDeregisterPrinter: Removing fd %d from InputSet...",
 	       p->dnssd_query_fd);
 
+    FD_CLR(p->dnssd_query_fd, InputFds);
     FD_CLR(p->dnssd_query_fd, InputSet);
     DNSServiceRefDeallocate(p->dnssd_query_ref);
     p->dnssd_query_ref = NULL;
@@ -2587,6 +2601,7 @@ static void dnssdBrowseCallback(
 	  LogMessage(L_DEBUG2, "dnssdBrowseCallback: Removing fd %d from InputSet...",
 		     dnssd_resolve->fd);
 
+	  FD_CLR(dnssd_resolve->fd, InputFds);
 	  FD_CLR(dnssd_resolve->fd, InputSet);
 	  DNSServiceRefDeallocate(dnssd_resolve->sdRef);
 
@@ -2657,6 +2672,7 @@ static void dnssdResolveCallback(
   LogMessage(L_DEBUG2, "dnssdResolveCallback: Removing fd %d from InputSet...",
 	     dnssd_resolve->fd);
 
+  FD_CLR(dnssd_resolve->fd, InputFds);
   FD_CLR(dnssd_resolve->fd, InputSet);
   DNSServiceRefDeallocate(dnssd_resolve->sdRef);
 
@@ -3037,5 +3053,5 @@ static int dnssdFindAttr(const unsigned char *txtRecord,	/* I - TXT record to se
 #endif /* HAVE_DNSSD */
 
 /*
- * End of "$Id: dirsvc.c,v 1.39 2005/02/16 17:58:01 jlovell Exp $".
+ * End of "$Id: dirsvc.c,v 1.39.2.2 2005/07/27 21:58:45 jlovell Exp $".
  */

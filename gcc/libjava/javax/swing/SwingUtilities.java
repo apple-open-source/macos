@@ -1,5 +1,5 @@
 /* SwingUtilities.java --
-   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,30 +35,32 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.applet.Applet;
 import java.awt.Component;
 import java.awt.ComponentOrientation;
 import java.awt.Container;
-import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.Insets;
+import java.awt.KeyboardFocusManager;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Shape;
-import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.lang.reflect.InvocationTargetException;
+
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleStateSet;
 import javax.swing.plaf.ActionMapUIResource;
 import javax.swing.plaf.InputMapUIResource;
-
 
 /**
  * This class contains a number of static utility functions which are
@@ -66,8 +68,10 @@ import javax.swing.plaf.InputMapUIResource;
  * regions which need painting.
  *
  * @author Graydon Hoare (graydon@redhat.com)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  */
-public class SwingUtilities implements SwingConstants
+public class SwingUtilities
+  implements SwingConstants
 {
   /** 
    * This frame should be used as parent for JWindow or JDialog 
@@ -75,6 +79,11 @@ public class SwingUtilities implements SwingConstants
    */
   private static OwnerFrame ownerFrame;
 
+  private SwingUtilities()
+  {
+    // Do nothing.
+  }
+  
   /**
    * Calculates the portion of the base rectangle which is inside the
    * insets.
@@ -123,6 +132,152 @@ public class SwingUtilities implements SwingConstants
   }
 
   /**
+   * Returns the focus owner or <code>null</code> if <code>comp</code> is not
+   * the focus owner or a parent of it.
+   * 
+   * @param comp the focus owner or a parent of it
+   * 
+   * @return the focus owner, or <code>null</code>
+   * 
+   * @deprecated 1.4 Replaced by
+   * <code>KeyboardFocusManager.getFocusOwner()</code>.
+   */
+  public static Component findFocusOwner(Component comp)
+  {
+    // Get real focus owner.
+    Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+					       .getFocusOwner();
+
+    // Check if comp is the focus owner or a parent of it.
+    Component tmp = focusOwner;
+    
+    while (tmp != null)
+      {
+	if (tmp == comp)
+	  return focusOwner;
+
+	tmp = tmp.getParent();
+      }
+    
+    return null;
+  }
+  
+  /**
+   * Returns the <code>Accessible</code> child of the specified component
+   * which appears at the supplied <code>Point</code>.  If there is no
+   * child located at that particular pair of co-ordinates, null is returned
+   * instead.
+   *
+   * @param c the component whose children may be found at the specified
+   *          point.
+   * @param p the point at which to look for the existence of children
+   *          of the specified component.
+   * @return the <code>Accessible</code> child at the point, <code>p</code>,
+   *         or null if there is no child at this point.
+   * @see javax.accessibility.AccessibleComponent#getAccessibleAt
+   */
+  public static Accessible getAccessibleAt(Component c, Point p)
+  {
+    return c.getAccessibleContext().getAccessibleComponent().getAccessibleAt(p);
+  }
+
+  /**
+   * <p>
+   * Returns the <code>Accessible</code> child of the specified component
+   * that has the supplied index within the parent component.  The indexing
+   * of the children is zero-based, making the first child have an index of
+   * 0.
+   * </p>
+   * <p>
+   * Caution is advised when using this method, as its operation relies
+   * on the behaviour of varying implementations of an abstract method.
+   * For greater surety, direct use of the AWT component implementation
+   * of this method is advised.
+   * </p>
+   *
+   * @param c the component whose child should be returned.
+   * @param i the index of the child within the parent component.
+   * @return the <code>Accessible</code> child at index <code>i</code>
+   *         in the component, <code>c</code>.
+   * @see javax.accessibility.AccessibleContext#getAccessibleChild
+   * @see java.awt.Component.AccessibleAWTComponent#getAccessibleChild
+   */
+  public static Accessible getAccessibleChild(Component c, int i)
+  {
+    return c.getAccessibleContext().getAccessibleChild(i);
+  }
+
+  /**
+   * <p>
+   * Returns the number of <code>Accessible</code> children within
+   * the supplied component.
+   * </p>
+   * <p>
+   * Caution is advised when using this method, as its operation relies
+   * on the behaviour of varying implementations of an abstract method.
+   * For greater surety, direct use of the AWT component implementation
+   * of this method is advised.
+   * </p>
+   *
+   * @param c the component whose children should be counted.
+   * @return the number of children belonging to the component,
+   *         <code>c</code>.
+   * @see javax.accessibility.AccessibleContext#getAccessibleChildrenCount
+   * @see java.awt.Component.AccessibleAWTComponent#getAccessibleChildrenCount
+   */
+  public static int getAccessibleChildrenCount(Component c)
+  {
+    return c.getAccessibleContext().getAccessibleChildrenCount();
+  }
+
+  /**
+   * <p>
+   * Returns the zero-based index of the specified component
+   * within its parent.  If the component doesn't have a parent,
+   * -1 is returned.
+   * </p>
+   * <p>
+   * Caution is advised when using this method, as its operation relies
+   * on the behaviour of varying implementations of an abstract method.
+   * For greater surety, direct use of the AWT component implementation
+   * of this method is advised.
+   * </p>
+   *
+   * @param c the component whose parental index should be found.
+   * @return the index of the component within its parent, or -1
+   *         if the component doesn't have a parent.
+   * @see javax.accessibility.AccessibleContext#getAccessibleIndexInParent
+   * @see java.awt.Component.AccessibleAWTComponent#getAccessibleIndexInParent
+   */
+  public static int getAccessibleIndexInParent(Component c)
+  {
+    return c.getAccessibleContext().getAccessibleIndexInParent();
+  }
+
+  /**
+   * <p>
+   * Returns a set of <code>AccessibleState</code>s, which represent
+   * the state of the supplied component.
+   * </p>
+   * <p>
+   * Caution is advised when using this method, as its operation relies
+   * on the behaviour of varying implementations of an abstract method.
+   * For greater surety, direct use of the AWT component implementation
+   * of this method is advised.
+   * </p>
+   *
+   * @param c the component whose accessible state should be retrieved.
+   * @return a set of <code>AccessibleState</code> objects, which represent
+   *         the state of the supplied component.
+   * @see javax.accessibility.AccessibleContext#getAccessibleStateSet
+   * @see java.awt.Component.AccessibleAWTComponent#getAccessibleStateSet
+   */
+  public static AccessibleStateSet getAccessibleStateSet(Component c)
+  {
+    return c.getAccessibleContext().getAccessibleStateSet();
+  }
+
+  /**
    * Calculates the bounds of a component in the component's own coordinate
    * space. The result has the same height and width as the component's
    * bounds, but its location is set to (0,0).
@@ -135,22 +290,6 @@ public class SwingUtilities implements SwingConstants
   {
     Rectangle bounds = aComponent.getBounds();
     return new Rectangle(0, 0, bounds.width, bounds.height);
-  }
-
-  /**
-   * Returns the font metrics object for a given font. The metrics can be
-   * used to calculate crude bounding boxes and positioning information,
-   * for laying out components with textual elements.
-   *
-   * @param font The font to get metrics for
-   *
-   * @return The font's metrics
-   *
-   * @see java.awt.font.GlyphMetrics
-   */
-  public static FontMetrics getFontMetrics(Font font)
-  {
-    return Toolkit.getDefaultToolkit().getFontMetrics(font);
   }
 
   /**
@@ -1013,5 +1152,171 @@ public class SwingUtilities implements SwingConstants
         if (child != null)
           child.setParent(uiInputMap);
       }
+  }
+
+  /**
+   * Subtracts a rectangle from another and return the area as an array
+   * of rectangles.
+   * Returns the areas of rectA which are not covered by rectB.
+   * If the rectangles do not overlap, or if either parameter is
+   * <code>null</code>, a zero-size array is returned.
+   * @param rectA The first rectangle
+   * @param rectB The rectangle to subtract from the first
+   * @return An array of rectangles representing the area in rectA
+   * not overlapped by rectB
+   */
+  public static Rectangle[] computeDifference(Rectangle rectA, Rectangle rectB)
+  {
+    if (rectA == null || rectB == null)
+      return new Rectangle[0];
+
+    Rectangle[] r = new Rectangle[4];
+    int x1 = rectA.x;
+    int y1 = rectA.y;
+    int w1 = rectA.width;
+    int h1 = rectA.height;
+    int x2 = rectB.x;
+    int y2 = rectB.y;
+    int w2 = rectB.width;
+    int h2 = rectB.height;
+
+    // (outer box = rectA)
+    // ------------- 
+    // |_____0_____|
+    // |  |rectB|  |
+    // |_1|_____|_2|
+    // |     3     |
+    // -------------
+    int H0 = (y2 > y1) ? y2 - y1 : 0; // height of box 0
+    int H3 = (y2 + h2 < y1 + h1) ? y1 + h1 - y2 - h2 : 0; // height box 3
+    int W1 = (x2 > x1) ? x2 - x1 : 0; // width box 1
+    int W2 = (x1 + w1 > x2 + w2) ? x1 + w1 - x2 - w2 : 0; // w. box 2
+    int H12 = (H0 + H3 < h1) ? h1 - H0 - H3 : 0; // height box 1 & 2
+
+    if (H0 > 0)
+      r[0] = new Rectangle(x1, y1, w1, H0);
+    else
+      r[0] = null;
+
+    if (W1 > 0 && H12 > 0)
+      r[1] = new Rectangle(x1, y1 + H0, W1, H12);
+    else
+      r[1] = null;
+
+    if (W2 > 0 && H12 > 0)
+      r[2] = new Rectangle(x2 + w2, y1 + H0, W2, H12);
+    else
+      r[2] = null;
+
+    if (H3 > 0)
+      r[3] = new Rectangle(x1, y1 + H0 + H12, w1, H3);
+    else
+      r[3] = null;
+
+    // sort out null objects
+    int n = 0;
+    for (int i = 0; i < 4; i++)
+      if (r[i] != null)
+	n++;
+    Rectangle[] out = new Rectangle[n];
+    for (int i = 3; i >= 0; i--)
+      if (r[i] != null)
+	out[--n] = r[i];
+
+    return out;
+  }
+
+  /**
+   * Calculates the intersection of two rectangles.
+   *
+   * @param x upper-left x coodinate of first rectangle
+   * @param x upper-left y coodinate of first rectangle
+   * @param w width of first rectangle
+   * @param h height of first rectangle
+   * @param rect a Rectangle object of the second rectangle
+   * @throws a NullPointerException if rect is null.
+   *
+   * @return a rectangle corresponding to the intersection of the
+   * two rectangles. A zero rectangle is returned if the rectangles
+   * do not overlap.
+   */
+  public static Rectangle computeIntersection(int x, int y, int w, int h,
+                                              Rectangle rect)
+  {
+    int x2 = (int) rect.getX();
+    int y2 = (int) rect.getY();
+    int w2 = (int) rect.getWidth();
+    int h2 = (int) rect.getHeight();
+
+    int dx = (x > x2) ? x : x2;
+    int dy = (y > y2) ? y : y2;
+    int dw = (x + w < x2 + w2) ? (x + w - dx) : (x2 + w2 - dx);
+    int dh = (y + h < y2 + h2) ? (y + h - dy) : (y2 + h2 - dy);
+
+    if (dw >= 0 && dh >= 0)
+      return new Rectangle(dx, dy, dw, dh);
+
+    return new Rectangle(0, 0, 0, 0);
+  }
+  
+  /**
+   * Calculates the width of a given string.
+   *
+   * @param fm the <code>FontMetrics</code> object to use
+   * @param str the string
+   * 
+   * @return the width of the the string.
+   */
+  public static int computeStringWidth(FontMetrics fm, String str)
+  {
+    return fm.stringWidth(str);
+  }
+
+  /**
+   * Calculates the union of two rectangles.
+   *
+   * @param x upper-left x coodinate of first rectangle
+   * @param x upper-left y coodinate of first rectangle
+   * @param w width of first rectangle
+   * @param h height of first rectangle
+   * @param rect a Rectangle object of the second rectangle
+   * @throws a NullPointerException if rect is null.
+   *
+   * @return a rectangle corresponding to the union of the
+   * two rectangles. A rectangle encompassing both is returned if the
+   * rectangles do not overlap.
+   */
+  public static Rectangle computeUnion(int x, int y, int w, int h,
+                                       Rectangle rect)
+  {
+    int x2 = (int) rect.getX();
+    int y2 = (int) rect.getY();
+    int w2 = (int) rect.getWidth();
+    int h2 = (int) rect.getHeight();
+
+    int dx = (x < x2) ? x : x2;
+    int dy = (y < y2) ? y : y2;
+    int dw = (x + w > x2 + w2) ? (x + w - dx) : (x2 + w2 - dx);
+    int dh = (y + h > y2 + h2) ? (y + h - dy) : (y2 + h2 - dy);
+
+    if (dw >= 0 && dh >= 0)
+      return new Rectangle(dx, dy, dw, dh);
+
+    return new Rectangle(0, 0, 0, 0);
+  }
+
+  /**
+   * Tests if a rectangle contains another.
+   * @param a first rectangle
+   * @param b second rectangle
+   * @return true if a contains b, false otherwise
+   * @throws NullPointerException
+   */
+  public static boolean isRectangleContainingRectangle(Rectangle a, Rectangle b)
+  {
+    // Note: zero-size rects inclusive, differs from Rectangle.contains()
+    return b.width >= 0 && b.height >= 0 && b.width >= 0 && b.height >= 0
+           && b.x >= a.x && b.x + b.width <= a.x + a.width && b.y >= a.y
+           && b.y + b.height <= a.y + a.height;
   }
 }

@@ -126,6 +126,7 @@ public:
     IOUSBIsocFrame				*	_pFrames;
     IOUSBIsocCompletion				_completion;
     Boolean							_lowLatency;
+	UInt8							_framesInTD;			// used for HS Isoch only
     UInt64							_frameNumber;			// frame number for scheduling purposes
     UInt32							_frameIndex;			// index into the myFrames array
     AppleEHCIIsochListElement *		_doneQueueLink;			// linkage used by done queue processing

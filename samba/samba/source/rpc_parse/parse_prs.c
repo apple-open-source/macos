@@ -52,7 +52,7 @@ void prs_dump_region(char *name, int v, prs_struct *ps,
 {
 	int fd, i;
 	pstring fname;
-	if (DEBUGLEVEL < 50) return;
+	if (SAMBA_DEBUGLEVEL < 50) return;
 	for (i=1;i<100;i++) {
 		if (v != -1) {
 			slprintf(fname,sizeof(fname)-1, "/tmp/%s_%d.%d.prs", name, v, i);

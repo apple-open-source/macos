@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_name.c,v 1.11 2004/12/11 05:23:59 lindak Exp $
+ * $Id: nb_name.c,v 1.11.168.1 2005/07/20 05:27:02 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -173,7 +173,7 @@ nb_name_encode(struct nb_name *np, u_char *dst, u_int8_t UCflag)
 	name = np->nn_name;
 	if (name[0] == '*' && name[1] == 0) {
 		*(u_short*)cp = NBENCODE('*');
-		memsetw(cp + 2, NB_NAMELEN - 1, NBENCODE((char)0));
+		memsetw((char *)cp + 2, NB_NAMELEN - 1, NBENCODE((char)0));
 		cp += NB_ENCNAMELEN;
 	} else {
 		/* freebsd bug: system names must be truncated to 15 chars not 16 */
@@ -187,7 +187,7 @@ nb_name_encode(struct nb_name *np, u_char *dst, u_int8_t UCflag)
 
 		i = NB_NAMELEN - i - 1;
 		if (i > 0) {
-			memsetw(cp, i, NBENCODE(' '));
+			memsetw((char *)cp, i, NBENCODE(' '));
 			cp += i * 2;
 		}
 		*(u_short*)cp = NBENCODE(np->nn_type);
@@ -195,7 +195,7 @@ nb_name_encode(struct nb_name *np, u_char *dst, u_int8_t UCflag)
 	}
 	*cp = 0;
 	if (np->nn_scope == NULL)
-		return nb_encname_len(dst);
+		return nb_encname_len((char *)dst);
 	plen = cp++;
 	lblen = 0;
 	for (name = np->nn_scope; ; name++) {
@@ -212,6 +212,6 @@ nb_name_encode(struct nb_name *np, u_char *dst, u_int8_t UCflag)
 			}
 		}
 	}
-	return nb_encname_len(dst);
+	return nb_encname_len((char *)dst);
 }
 

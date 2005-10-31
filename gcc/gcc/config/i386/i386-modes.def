@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,6 +29,8 @@ FLOAT_MODE (TF, 16, ieee_quad_format);
    In LP64 mode, XFmode has size and alignment 16.  */
 ADJUST_FLOAT_FORMAT (XF, (TARGET_128BIT_LONG_DOUBLE
 			  ? &ieee_extended_intel_128_format
+			  : TARGET_96_ROUND_53_LONG_DOUBLE
+			  ? &ieee_extended_intel_96_round_53_format
 			  : &ieee_extended_intel_96_format));
 ADJUST_BYTESIZE  (XF, TARGET_128BIT_LONG_DOUBLE ? 16 : 12);
 ADJUST_ALIGNMENT (XF, TARGET_128BIT_LONG_DOUBLE ? 16 : 4);
@@ -68,6 +70,10 @@ VECTOR_MODES (FLOAT, 8);      /*            V4HF V2SF */
 VECTOR_MODES (FLOAT, 16);     /*       V8HF V4SF V2DF */
 VECTOR_MODE (INT, DI, 4);     /*                 V4DI */
 VECTOR_MODE (INT, SI, 8);     /*                 V8SI */
+VECTOR_MODE (INT, HI, 16);    /*                V16HI */
+VECTOR_MODE (INT, QI, 32);    /*                V32QI */
+VECTOR_MODE (FLOAT, DF, 4);   /*                 V4DF */
+VECTOR_MODE (FLOAT, SF, 8);   /*                 V8SF */
 
 /* The symbol Pmode stands for one of the above machine modes (usually SImode).
    The tm.h file specifies which one.  It is not a distinct mode.  */

@@ -369,10 +369,19 @@ Xwrite(cmd, disk, mbr, tt, offset)
 	int offset;
 {
 	int fd;
+	int shared = 0;
+
+	fd = DISK_openshared(disk->name, O_RDWR, &shared);
+	if(shared) {
+	  if(!ask_yn("Device could not be accessed exclusively.\nA reboot will be needed for changes to take effect. OK?", 0)) {
+	    close(fd);
+	    printf("MBR unchanged\n");
+	    return (CMD_CONT);
+	  }
+	}
 
 	printf("Writing MBR at offset %d.\n", offset);
 
-	fd = DISK_open(disk->name, O_RDWR);
 	MBR_make(mbr);
 	MBR_write(fd, mbr);
 	close(fd);

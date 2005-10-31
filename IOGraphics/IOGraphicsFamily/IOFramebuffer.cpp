@@ -44,6 +44,7 @@
 #include "IOFramebufferReallyPrivate.h"
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>
+#include <IOKit/IOHibernatePrivate.h>
 
 #include <string.h>
 #include <IOKit/assert.h>
@@ -56,6 +57,12 @@
 #define DOANIO	      0
 #define VRAM_SAVE     1
 #define VRAM_COMPRESS 1
+
+#ifdef __i386__
+enum { kIOFBMapCacheMode = kIOMapWriteCombineCache };
+#else
+enum { kIOFBMapCacheMode = kIOMapInhibitCache };
+#endif
 
 #if VRAM_COMPRESS
 #include "bmcompress.h"
@@ -2365,9 +2372,6 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
                 deliverFramebufferNotification( kIOFBNotifyWillSleep, info );
             }
 
-#ifndef __ppc__
-	    bzero_nc((void *)frameBuffer, __private->framebufferHeight * rowBytes);
-#endif
             ret = deliverFramebufferNotification( event, info );
             configPending = true;
             break;
@@ -2431,7 +2435,8 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
                 if (__private->saveLength)
                 {
                     if (!suspended
-		    )
+                    && ((this != gIOFBConsoleFramebuffer)
+                            || (kOSBooleanTrue != getPMRootDomain()->getProperty(kIOHibernatePreviewBufferKey))))
                     {
 #if VRAM_COMPRESS
                         DecompressData( (UInt8 *) __private->saveFramebuffer, (UInt8 *) frameBuffer,
@@ -2442,6 +2447,8 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
                         DEBG(thisIndex, " screen drawn\n");
                     }
 
+                    if (this == gIOFBConsoleFramebuffer)
+                        getPMRootDomain()->removeProperty(kIOHibernatePreviewBufferKey);
                     IOFreePageable( __private->saveFramebuffer, __private->saveLength );
                     __private->saveFramebuffer = 0;
                     __private->saveLength      = 0;
@@ -2683,6 +2690,16 @@ IOOptionBits IOFramebuffer::checkPowerWork( void )
 				     VM_PROT_READ | VM_PROT_WRITE, FALSE );
                         DEBG(thisIndex, " vm_map_wire(%x)\n", kr);
 
+                        if (this == gIOFBConsoleFramebuffer)
+                        {
+                            OSData * previewBuffer = OSData::withBytesNoCopy(
+                                    __private->saveFramebuffer, __private->saveLength);
+                            if (previewBuffer)
+                            {
+                                getPMRootDomain()->setProperty(kIOHibernatePreviewBufferKey, previewBuffer);
+                                previewBuffer->release();
+                            }
+                        }
                     }
                 }
                 else
@@ -3818,7 +3835,7 @@ IOReturn IOFramebuffer::doSetup( bool full )
 
         if (vramMap)
             vramMap->release();
-        vramMap = fbRange->map( kIOMapInhibitCache );
+        vramMap = fbRange->map( kIOFBMapCacheMode );
         assert( vramMap );
         if (vramMap)
             base = vramMap->getVirtualAddress();

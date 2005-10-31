@@ -1633,20 +1633,17 @@ d_call_offset (di, c)
      struct d_info *di;
      int c;
 {
-  long offset;
-  long virtual_offset;
-
   if (c == '\0')
     c = d_next_char (di);
 
   if (c == 'h')
-    offset = d_number (di);
+    d_number (di);
   else if (c == 'v')
     {
-      offset = d_number (di);
+      d_number (di);
       if (d_next_char (di) != '_')
 	return 0;
-      virtual_offset = d_number (di);
+      d_number (di);
     }
   else
     return 0;
@@ -4047,21 +4044,6 @@ __cxa_demangle (mangled_name, output_buffer, length, status)
     {
       if (status != NULL)
 	*status = -3;
-      return NULL;
-    }
-
-  /* The specification for __cxa_demangle() is that if the mangled
-     name could be either an extern "C" identifier, or an internal
-     built-in type name, then we resolve it as the identifier.  All
-     internal built-in type names are a single lower case character.
-     Frankly, this simplistic disambiguation doesn't make sense to me,
-     but it is documented, so we implement it here.  */
-  if (IS_LOWER (mangled_name[0])
-      && mangled_name[1] == '\0'
-      && cplus_demangle_builtin_types[mangled_name[0] - 'a'].name != NULL)
-    {
-      if (status != NULL)
-	*status = -2;
       return NULL;
     }
 

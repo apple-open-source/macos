@@ -2,20 +2,29 @@
    Copyright 2002 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
-This file is part of the GNU Fortran 95 runtime library (libgfor).
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -26,8 +35,12 @@ Boston, MA 02111-1307, USA.  */
 #include <limits.h>
 #include "libgfortran.h"
 
+
+extern void minloc1_8_r8 (gfc_array_i8 *, gfc_array_r8 *, index_type *);
+export_proto(minloc1_8_r8);
+
 void
-__minloc1_8_r8 (gfc_array_i8 * retarray, gfc_array_r8 *array, index_type *pdim)
+minloc1_8_r8 (gfc_array_i8 *retarray, gfc_array_r8 *array, index_type *pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
@@ -77,8 +90,10 @@ __minloc1_8_r8 (gfc_array_i8 * retarray, gfc_array_r8 *array, index_type *pdim)
             retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
         }
 
-      retarray->data = internal_malloc (sizeof (GFC_INTEGER_8) * 
-                                        (retarray->dim[rank-1].stride * extent[rank-1]));
+      retarray->data
+	 = internal_malloc_size (sizeof (GFC_INTEGER_8)
+		 		 * retarray->dim[rank-1].stride
+				 * extent[rank-1]);
       retarray->base = 0;
     }
           
@@ -150,8 +165,14 @@ __minloc1_8_r8 (gfc_array_i8 * retarray, gfc_array_r8 *array, index_type *pdim)
     }
 }
 
+
+extern void mminloc1_8_r8 (gfc_array_i8 *, gfc_array_r8 *, index_type *,
+					       gfc_array_l4 *);
+export_proto(mminloc1_8_r8);
+
 void
-__mminloc1_8_r8 (gfc_array_i8 * retarray, gfc_array_r8 * array, index_type *pdim, gfc_array_l4 * mask)
+mminloc1_8_r8 (gfc_array_i8 * retarray, gfc_array_r8 * array,
+				  index_type *pdim, gfc_array_l4 * mask)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];

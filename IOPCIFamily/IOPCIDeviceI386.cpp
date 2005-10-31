@@ -34,11 +34,11 @@
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
-
 #include <libkern/c++/OSContainers.h>
 
 //#include <architecture/i386/pio.h>
 #warning Should be including these definitions from the Kernel.framework
+
 #ifndef I386_PIO_H
 #define I386_PIO_H
 //#include <cpus.h>
@@ -160,7 +160,11 @@ UInt32 IOPCIDevice::ioRead32( UInt16 offset, IOMemoryMap * map )
     if (0 == map)
         map = ioMap;
 
-    value = inl( map->getPhysicalAddress() + offset );
+    /*
+     * getPhysicalAddress() can block on a mutex. Since I/O memory
+     * ranges behaves identity mapped, switch to getVirtualAddress().
+     */
+    value = inl( map->getVirtualAddress() + offset );
 
     return (value);
 }
@@ -172,7 +176,7 @@ UInt16 IOPCIDevice::ioRead16( UInt16 offset, IOMemoryMap * map )
     if (0 == map)
         map = ioMap;
 
-    value = inw( map->getPhysicalAddress() + offset );
+    value = inw( map->getVirtualAddress() + offset );
 
     return (value);
 }
@@ -184,7 +188,7 @@ UInt8 IOPCIDevice::ioRead8( UInt16 offset, IOMemoryMap * map )
     if (0 == map)
         map = ioMap;
 
-    value = inb( map->getPhysicalAddress() + offset );
+    value = inb( map->getVirtualAddress() + offset );
 
     return (value);
 }
@@ -195,7 +199,7 @@ void IOPCIDevice::ioWrite32( UInt16 offset, UInt32 value,
     if (0 == map)
         map = ioMap;
 
-    outl( map->getPhysicalAddress() + offset, value );
+    outl( map->getVirtualAddress() + offset, value );
 }
 
 void IOPCIDevice::ioWrite16( UInt16 offset, UInt16 value,
@@ -204,7 +208,7 @@ void IOPCIDevice::ioWrite16( UInt16 offset, UInt16 value,
     if (0 == map)
         map = ioMap;
 
-    outw( map->getPhysicalAddress() + offset, value );
+    outw( map->getVirtualAddress() + offset, value );
 }
 
 void IOPCIDevice::ioWrite8( UInt16 offset, UInt8 value,
@@ -213,7 +217,7 @@ void IOPCIDevice::ioWrite8( UInt16 offset, UInt8 value,
     if (0 == map)
         map = ioMap;
 
-    outb( map->getPhysicalAddress() + offset, value );
+    outb( map->getVirtualAddress() + offset, value );
 }
 
 

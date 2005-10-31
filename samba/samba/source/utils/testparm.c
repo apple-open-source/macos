@@ -243,7 +243,7 @@ via the %%o substitution. With encrypted passwords this is not possible.\n", lp_
 	}
 
 	dbf = x_stderr;
-	DEBUGLEVEL = 2;
+	SAMBA_DEBUGLEVEL = 2;
 	AllowDebugChange = False;
 
 	fprintf(stderr,"Load smb config files from %s\n",config_file);

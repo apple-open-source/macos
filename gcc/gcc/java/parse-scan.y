@@ -1,5 +1,5 @@
 /* Parser grammar for quick source code scan of Java(TM) language programs.
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -42,15 +42,12 @@ definitions and other extensions.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "obstack.h"
 #include "toplev.h"
 
 extern FILE *finput, *out;
  
-/* Current position in real source file.  */
-
-location_t input_location;
+ const char *main_input_filename;
 
 /* Obstack for the lexer.  */
 struct obstack temporary_obstack;
@@ -515,10 +512,10 @@ formal_parameter:
 		  if (bracket_count)
 		    {
 		      int i;
-		      char *n = xmalloc (bracket_count + 1 + strlen ($$));
+		      char *n = xmalloc (bracket_count + 1 + strlen ($2));
 		      for (i = 0; i < bracket_count; ++i)
 			n[i] = '[';
-		      strcpy (n + bracket_count, $$);
+		      strcpy (n + bracket_count, $2);
 		      $$ = n;
 		    }
 		  else
@@ -1295,7 +1292,7 @@ report_class_declaration (const char * name)
       if (!previous_output)
 	{
 	  if (flag_list_filename)
-	    fprintf (out, "%s: ", input_filename);
+	    fprintf (out, "%s: ", main_input_filename);
 	  previous_output = 1;
 	}
 
@@ -1340,7 +1337,7 @@ report (void)
 {
   extern int flag_complexity;
   if (flag_complexity)
-    fprintf (out, "%s %d\n", input_filename, complexity);
+    fprintf (out, "%s %d\n", main_input_filename, complexity);
 }
 
 /* Reset global status used by the report functions.  */
@@ -1357,7 +1354,7 @@ reset_report (void)
 void
 yyerror (const char *msg ATTRIBUTE_UNUSED)
 {
-  fprintf (stderr, "%s: %d: %s\n", input_filename, input_line, msg);
+  fprintf (stderr, "%s: %s\n", main_input_filename, msg);
   exit (1);
 }
 

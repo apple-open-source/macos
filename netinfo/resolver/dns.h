@@ -136,4 +136,4 @@ extern int32_t dns_search(dns_handle_t dns, const char *name, uint32_t dnsclass,
 
 __END_DECLS
 
-#endif __DNS_H__
+#endif /* __DNS_H__ */

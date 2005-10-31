@@ -644,5 +644,5 @@ AppleUSBEHCIHubInfo::ReallocateIsochBandwidth(AppleEHCIIsochEndpointPtr pEP, UIn
 	if (res)
 		USBLog(3, "AppleUSBEHCIHubInfo[%p]::ReallocateIsochBandwidth: reallocation failed, result=0x%x", this, res);
 
-	return kIOReturnSuccess;
+	return res;
 }

@@ -118,7 +118,7 @@ void
 catch_sighup(void)
 {
 	system_log(LOG_DEBUG, "Caught SIGHUP - unbinding");
-	set_binding_status(NI_FAILED);
+	set_binding_status(NI_FAILED, 1);
 }
 
 int
@@ -202,6 +202,9 @@ main(int argc, char *argv[])
 
 	system_log(LOG_DEBUG, "version %s (pid %d) - starting",
 		_PROJECT_VERSION_, getpid());
+
+	/* Needed here to initialize notifications */
+	set_binding_status(NI_FAILED, 0);
 
 	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
 	setrlimit(RLIMIT_CORE, &rlim);
@@ -472,8 +475,7 @@ ni_register(ni_name tag, unsigned udp_port, unsigned tcp_port)
 	reg.addrs.udp_port = udp_port;
 	reg.addrs.tcp_port = tcp_port;
 	tv.tv_sec = NIBIND_TIMEOUT;
-	if (clnt_call(cl, NIBIND_REGISTER, xdr_nibind_registration,
-		  &reg, xdr_ni_status, &status, tv) != RPC_SUCCESS)
+	if (clnt_call(cl, NIBIND_REGISTER, (void *)xdr_nibind_registration, &reg, (void *)xdr_ni_status, &status, tv) != RPC_SUCCESS)
 	{
 		clnt_destroy(cl);
 		socket_close(sock);

@@ -58,6 +58,8 @@ bool AppleRAIDStripeSet::init()
 
     setProperty(kAppleRAIDLevelNameKey, kAppleRAIDLevelNameStripe);
 
+    arAllocateRequestMethod = OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::allocateRAIDRequest);
+    
     return true;
 }
 
@@ -105,7 +107,7 @@ bool AppleRAIDStripeSet::startSet(void)
         
     AppleRAIDMember * anyMember = NULL;
     for (UInt32 memberIndex = 0; memberIndex < arMemberCount; memberIndex++) {
-	if (anyMember = arMembers[memberIndex]) break;
+	if ((anyMember = arMembers[memberIndex])) break;
     }
     if (!anyMember) return false;
 

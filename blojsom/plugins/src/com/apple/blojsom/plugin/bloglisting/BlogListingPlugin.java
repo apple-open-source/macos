@@ -1,15 +1,16 @@
 /**
  * Contains:   Default page (blog listing) plug-in for blojsom.
  * Written by: John Anderson (for addtl writers check CVS comments).
- * Copyright:  © 2004 Apple Computer, Inc., all rights reserved.
+ * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: BlogListingPlugin.java,v 1.6 2005/03/02 01:20:44 whitmore Exp $
+ * $Id: BlogListingPlugin.java,v 1.6.2.3 2005/08/18 14:46:49 johnan Exp $
  */ 
 package com.apple.blojsom.plugin.bloglisting;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.blojsom.BlojsomException;
 import org.blojsom.blog.*;
 import org.blojsom.plugin.BlojsomPlugin;
 import org.blojsom.plugin.BlojsomPluginException;
@@ -17,6 +18,8 @@ import org.blojsom.util.BlojsomUtils;
 import org.blojsom.util.BlojsomConstants;
 import org.blojsom.fetcher.BlojsomFetcher;
 import org.blojsom.fetcher.BlojsomFetcherException;
+
+import com.apple.blojsom.util.BlojsomAppleUtils;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
@@ -27,7 +30,7 @@ import java.util.*;
  * Convert Line Breaks plug-in
  *
  * @author John Anderson
- * @version $Id: BlogListingPlugin.java,v 1.6 2005/03/02 01:20:44 whitmore Exp $
+ * @version $Id: BlogListingPlugin.java,v 1.6.2.3 2005/08/18 14:46:49 johnan Exp $
  */
 
 public class BlogListingPlugin implements BlojsomPlugin, BlojsomConstants {
@@ -89,26 +92,68 @@ public class BlogListingPlugin implements BlojsomPlugin, BlojsomConstants {
      * @throws org.blojsom.plugin.BlojsomPluginException If there is an error processing the blog entries
      */
     public BlogEntry[] process(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, BlogUser user, Map context, BlogEntry[] entries) throws BlojsomPluginException {
+    	// if a user is present, try to create a blog for that user
+		_logger.debug("getting user from path: " + httpServletRequest.getPathInfo());
+		String userFromPath = BlojsomUtils.getUserFromPath(httpServletRequest.getPathInfo());
+		String defaultUser = (String)_blojsomConfiguration.getBlojsomProperty(BLOJSOM_DEFAULT_USER_IP);
+		if (userFromPath != null && !userFromPath.equals(defaultUser)) {
+			_logger.debug("userFromPath = " + userFromPath);
+			String resolvedUserFromPath = BlojsomAppleUtils.validateShortNameAndResolveAliases(userFromPath, "/Search");
+			// if this resolves to a different username, try to redirect to it
+			if (resolvedUserFromPath != null && userFromPath != null && !userFromPath.equals(resolvedUserFromPath)) {
+				_logger.debug("userFromPath resolves to " + resolvedUserFromPath);
+				try {
+					String redirectURL = _blojsomConfiguration.loadBlog(resolvedUserFromPath).getBlog().getBlogURL();
+					_logger.debug("redirecting to " + redirectURL);
+					httpServletResponse.sendRedirect(redirectURL);
+					return entries;
+				} catch (BlojsomException e) { // aliased user doesn't exist
+					userFromPath = resolvedUserFromPath;
+				} catch (java.io.IOException e) {
+					_logger.error(e);
+				}
+			}
+			if (BlojsomAppleUtils.attemptUserBlogCreation(_blojsomConfiguration, _servletConfig, userFromPath)) {
+				// created a new blog... redirect to it
+				try {
+					_logger.debug("attempting to load blog");
+					String redirectURL = _blojsomConfiguration.loadBlog(userFromPath).getBlog().getBlogURL();
+					//String redirectURL = httpServletRequest.getServletPath() + httpServletRequest.getPathInfo();
+					_logger.debug("redirecting to " + redirectURL);
+					httpServletResponse.sendRedirect(redirectURL);
+					return entries;
+				} catch (BlojsomException e) {
+					_logger.error(e);
+				} catch (java.io.IOException e) {
+					_logger.error(e);
+				}
+			}
+			context.put("BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT", " message.loginfailed");
+		}
+    
         BlojsomUtils.setNoCacheControlHeaders(httpServletResponse);
 		Blog blog = user.getBlog();
-		Map blogUserMap = _blojsomConfiguration.getBlogUsers();
-		Set blogUserKeySet = blogUserMap.keySet();
-		Iterator keyIterator = blogUserKeySet.iterator();
-		BlogUser [] blogUsers = new BlogUser[blogUserKeySet.size()-1];
+		String [] blogUserIDs = _blojsomConfiguration.getBlojsomUsers();
+		BlogUser [] blogUsers = new BlogUser[blogUserIDs.length-1];
 		int i = 0;
+		int j = 0;
 		
-		while (keyIterator.hasNext()) {
-			Object currentKey = keyIterator.next();
-			BlogUser currentBlogUser = (BlogUser)blogUserMap.get(currentKey);
-			String blogExistsString = currentBlogUser.getBlog().getBlogProperty(BLOG_EXISTS);
-			boolean blogExists = false;
-			if (blogExistsString != null)
-			{
-				blogExists = blogExistsString.equals("true");
-			}
-				
-			if (blogExists && (!"default".equals(currentKey))) {
-				blogUsers[i++] = currentBlogUser;
+		for (j = 0; j < blogUserIDs.length; j++) {
+			String currentKey = blogUserIDs[j];
+			try {
+				BlogUser currentBlogUser = _blojsomConfiguration.loadBlog(currentKey);
+				String blogExistsString = currentBlogUser.getBlog().getBlogProperty(BLOG_EXISTS);
+				boolean blogExists = false;
+				if (blogExistsString != null)
+				{
+					blogExists = blogExistsString.equals("true");
+				}
+					
+				if (blogExists && (!"default".equals(currentKey))) {
+					blogUsers[i++] = currentBlogUser;
+				}
+			} catch (BlojsomException e) {
+				_logger.error(e);
 			}
 		}
 		

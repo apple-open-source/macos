@@ -1,9 +1,12 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: IOI2CMaxim6690.cpp,v 1.3 2004/12/15 04:44:51 jlehrer Exp $
+ *  File: $Id: IOI2CMaxim6690.cpp,v 1.4 2005/04/11 23:39:59 dirty Exp $
  *
  *		$Log: IOI2CMaxim6690.cpp,v $
+ *		Revision 1.4  2005/04/11 23:39:59  dirty
+ *		[4078743] Properly handle negative temperatures.
+ *		
  *		Revision 1.3  2004/12/15 04:44:51  jlehrer
  *		[3867728] Support for failed hardware.
  *		
@@ -316,7 +319,7 @@ IOReturn IOI2CMaxim6690::getInternalTemp( SInt32 * temp )
 	if (kIOReturnSuccess != status)	// Set default return value upon error.
 		*temp = -1;
 	else	// format the 16.16 fixed point temperature and return it
-		*temp = ((integer << 16) & 0x00FF0000) | ((fraction << 8) & 0x0000E000);
+		*temp = ( ( ( ( SInt8 ) integer ) << 16 ) | ( ( fraction & 0xE0 ) << 8) );
 
 	return status;
 }
@@ -341,7 +344,7 @@ IOReturn IOI2CMaxim6690::getExternalTemp( SInt32 * temp )
 	if (kIOReturnSuccess != status)	// Set default return value upon error.
 		*temp = -1;
 	else	// format the 16.16 fixed point temperature and return it
-		*temp = ((integer << 16) & 0x00FF0000) | ((fraction << 8) & 0x0000E000);
+		*temp = ( ( ( ( SInt8 ) integer ) << 16 ) | ( ( fraction & 0xE0 ) << 8) );
 
 	return status;
 }

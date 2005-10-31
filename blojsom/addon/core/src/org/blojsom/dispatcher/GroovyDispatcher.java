@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -61,7 +61,7 @@ import java.util.Map;
  *
  * @author David Czarnecki
  * @since blojsom 2.13
- * @version $Id: GroovyDispatcher.java,v 1.1 2004/11/18 22:22:34 johnan Exp $
+ * @version $Id: GroovyDispatcher.java,v 1.1.2.1 2005/07/21 04:30:21 johnan Exp $
  */
 public class GroovyDispatcher implements BlojsomDispatcher {
 
@@ -117,8 +117,10 @@ public class GroovyDispatcher implements BlojsomDispatcher {
         }
 
         String flavorTemplateForPage = null;
-        if (BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest) != null) {
-            flavorTemplateForPage = BlojsomUtils.getTemplateForPage(flavorTemplate, BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest));
+        String pageParameter = BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest, true);
+
+        if (pageParameter != null) {
+            flavorTemplateForPage = BlojsomUtils.getTemplateForPage(flavorTemplate, pageParameter);
             _logger.debug("Retrieved template for page: " + flavorTemplateForPage);
         }
 

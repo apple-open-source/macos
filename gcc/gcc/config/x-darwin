@@ -1,0 +1,5 @@
+ # APPLE LOCAL begin mainline 2005-04-06 4071679
+host-darwin.o : $(srcdir)/config/host-darwin.c $(CONFIG_H) $(SYSTEM_H) \
+  coretypes.h toplev.h config/host-darwin.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $<
+ # APPLE LOCAL end mainline 2005-04-06 4071679

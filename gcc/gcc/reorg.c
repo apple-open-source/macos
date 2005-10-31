@@ -1,6 +1,6 @@
 /* Perform instruction reorganizations for delay slot filling.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu).
    Hacked by Michael Tiemann (tiemann@cygnus.com).
 
@@ -420,7 +420,12 @@ find_end_label (void)
 	     if needed.  */
 	  emit_label (end_of_function_label);
 #ifdef HAVE_return
-	  if (HAVE_return)
+	  /* We don't bother trying to create a return insn if the
+	     epilogue has filled delay-slots; we would have to try and
+	     move the delay-slot fillers to the delay-slots for the new
+	     return insn or in front of the new return insn.  */
+	  if (current_function_epilogue_delay_list == NULL
+	      && HAVE_return)
 	    {
 	      /* The return we make may have delay slots too.  */
 	      rtx insn = gen_return ();

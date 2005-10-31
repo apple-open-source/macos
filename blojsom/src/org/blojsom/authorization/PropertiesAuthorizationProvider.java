@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,7 @@ import org.blojsom.blog.BlogUser;
 import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.blog.BlojsomConfigurationException;
 import org.blojsom.util.BlojsomConstants;
+import org.blojsom.util.BlojsomProperties;
 import org.blojsom.util.BlojsomUtils;
 
 import javax.servlet.ServletConfig;
@@ -48,20 +49,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Properties;
+import java.util.List;
 
 /**
  * PropertiesAuthorizationProvider
  *
  * @author David Czarnecki
- * @version $Id: PropertiesAuthorizationProvider.java,v 1.2 2005/01/15 20:39:08 johnan Exp $
+ * @version $Id: PropertiesAuthorizationProvider.java,v 1.2.2.1 2005/07/21 14:11:01 johnan Exp $
  * @since blojsom 2.16
  */
 public class PropertiesAuthorizationProvider implements AuthorizationProvider, BlojsomConstants {
 
     private Log _logger = LogFactory.getLog(PropertiesAuthorizationProvider.class);
 
-    private ServletConfig _servletConfig;
-    private String _baseConfigurationDirectory;
+    protected ServletConfig _servletConfig;
+    protected String _baseConfigurationDirectory;
 
     /**
      * Default constructor
@@ -99,17 +101,16 @@ public class PropertiesAuthorizationProvider implements AuthorizationProvider, B
 
         Properties authorizationProperties;
         InputStream is = _servletConfig.getServletContext().getResourceAsStream(_baseConfigurationDirectory + blogUser.getId() + '/' + authorizationConfiguration);
-        authorizationProperties = new Properties();
+        authorizationProperties = new BlojsomProperties();
         try {
             authorizationProperties.load(is);
-            Map authorizationMap = BlojsomUtils.propertiesToMap(authorizationProperties);
             is.close();
+            Map authorizationMap = BlojsomUtils.propertiesToMap(authorizationProperties);
             blogUser.getBlog().setAuthorization(authorizationMap);
         } catch (IOException e) {
             _logger.error(e);
             throw new BlojsomException(e);
         }
-
     }
 
     /**
@@ -128,7 +129,12 @@ public class PropertiesAuthorizationProvider implements AuthorizationProvider, B
 
         if (authorizationMap != null) {
             if (authorizationMap.containsKey(username)) {
-                String parsedPassword = BlojsomUtils.parseCommaList((String) authorizationMap.get(username))[0];
+                String parsedPassword = BlojsomUtils.parseLastComma((String) authorizationMap.get(username))[0];
+
+                if (blogUser.getBlog().getUseEncryptedPasswords().booleanValue()) {
+                    password = BlojsomUtils.digestString(password, blogUser.getBlog().getDigestAlgorithm());
+                }
+
                 if (password.equals(parsedPassword)) {
                     result = true;
                 }
@@ -137,6 +143,71 @@ public class PropertiesAuthorizationProvider implements AuthorizationProvider, B
 
         if (!result) {
             throw new BlojsomException("Authorization failed for blog user: " + blogUser.getId() + " for username: " + username);
+        }
+    }
+
+    /**
+     * Check a permission for the given {@link org.blojsom.blog.BlogUser}
+     *
+     * @param blogUser          {@link org.blojsom.blog.BlogUser}
+     * @param permissionContext {@link java.util.Map} to be used to provide other information for permission check. This will
+     *                          change depending on the authorization provider.
+     * @param username          Username
+     * @param permission        Permission
+     * @throws org.blojsom.BlojsomException If there is an error checking the permission for the username and permission
+     */
+    public void checkPermission(BlogUser blogUser, Map permissionContext, String username, String permission) throws BlojsomException {
+        if (username == null) {
+            throw new BlojsomException("No username provided to check permission");
+        }
+
+        if (permission == null) {
+            throw new BlojsomException("Cannot check null permission");
+        }
+
+        String permissionsConfiguration = _servletConfig.getInitParameter(BLOG_PERMISSIONS_IP);
+        if (BlojsomUtils.checkNullOrBlank(permissionsConfiguration)) {
+            _logger.warn("No permissions configuration file specified. Using default: " + DEFAULT_PERMISSIONS_CONFIGURATION_FILE);
+            permissionsConfiguration = DEFAULT_PERMISSIONS_CONFIGURATION_FILE;
+        }
+
+        Properties permissionsProperties;
+        InputStream is = _servletConfig.getServletContext().getResourceAsStream(_baseConfigurationDirectory + blogUser.getId() + '/' + permissionsConfiguration);
+        permissionsProperties = new BlojsomProperties(true);
+        if (is == null) {
+            throw new BlojsomException("No permissions configuration file found");
+        }
+
+        try {
+            permissionsProperties.load(is);
+            is.close();
+
+            Object permissionsForUser = permissionsProperties.get(username);
+            if (permissionsForUser == null) {
+                throw new BlojsomException("Permission: " + permission + " not found for username: " + username);
+            }
+
+            // Check where user has multiple permissions
+            if (permissionsForUser instanceof List) {
+                Map permissions = BlojsomUtils.listToMap((List) permissionsForUser);
+                // Check global (all) permissions first
+                if (!permissions.containsKey("*")) {
+                    if (!permissions.containsKey(permission)) {
+                        throw new BlojsomException("Permission: " + permission + " not found for username: " + username);
+                    }
+                }
+            // Check where user has only a single permission
+            } else {
+                // Check global (all) permissions first
+                if (!"*".equals(permissionsForUser)) {
+                    if (!permissionsForUser.equals(permission)) {
+                        throw new BlojsomException("Permission: " + permission + " not found for username: " + username);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            _logger.error(e);
+            throw new BlojsomException(e);
         }
     }
 }

@@ -1,11 +1,38 @@
 /*
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDevice.h,v 1.3 2004/12/15 00:50:07 jlehrer Exp $
+ *	File: $Id: IOI2CDevice.h,v 1.5 2005/07/01 16:09:52 bwpang Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2CDevice.h,v $
+ *		Revision 1.5  2005/07/01 16:09:52  bwpang
+ *		[4086434] added APSL headers
+ *		
+ *		Revision 1.4  2005/02/08 20:53:16  jlehrer
+ *		Added debug flags.
+ *		
  *		Revision 1.3  2004/12/15 00:50:07  jlehrer
  *		[3867728] Added kStateFlags_TEARDOWN to assist terminating gracefully with bad hardware.
  *		[3905559] Added kStateFlags_DISABLE_PM to disable power management for AOA.
@@ -110,15 +137,18 @@ private:
 	bool			fDeviceOffline;			// Flag to indicate this device is offline.
 	UInt32			fStateFlags;			// Flags bitfield for driver state.
 
+protected:
 	// fStateFlags bitfield definitions...
 	enum
 	{
 		kStateFlags_STARTUP			= (1 << 31),	// indicates the first power state ON transition is processed as a STARTUP event.
 		kStateFlags_TEARDOWN		= (1 << 30),	// indicates freeI2CResources has been called and the driver is preparing for teardown.
 		kStateFlags_DISABLE_PM		= (1 << 28),	// indicates power management is disabled.
+		kStateFlags_IOLog			= (1 << 27),	// Enables IOLog for every read/write transaction
+		kStateFlags_kprintf			= (1 << 26),	// Enables kprintf for every read/write transaction
+		kStateFlags_PMInit			= (1 << 25),	// True if PMInit was called, False if not or PMStop was called.
 	};
 
-protected:
 	// Subclass client I2C API's...
 
 	/*!

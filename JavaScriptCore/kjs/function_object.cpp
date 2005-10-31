@@ -34,6 +34,7 @@
 #include <string.h>
 
 using namespace KJS;
+using namespace kxmlcore;
 
 // ------------------------------ FunctionPrototypeImp -------------------------
 
@@ -212,12 +213,13 @@ Object FunctionObjectImp::construct(ExecState *exec, const List &args, const USt
   int sid;
   int errLine;
   UString errMsg;
-  ProgramNode *progNode = Parser::parse(sourceURL, lineNumber, body.data(),body.size(),&sid,&errLine,&errMsg);
+  SharedPtr<ProgramNode> progNode = Parser::parse(sourceURL, lineNumber, body.data(),body.size(),&sid,&errLine,&errMsg);
 
   // notify debugger that source has been parsed
   Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
   if (dbg) {
-    bool cont = dbg->sourceParsed(exec,sid,body,errLine);
+    // send empty sourceURL to indicate constructed code
+    bool cont = dbg->sourceParsed(exec,sid,UString(),body,errLine);
     if (!cont) {
       dbg->imp()->abort();
       return Object(new ObjectImp());
@@ -235,7 +237,7 @@ Object FunctionObjectImp::construct(ExecState *exec, const List &args, const USt
 
   ScopeChain scopeChain;
   scopeChain.push(exec->dynamicInterpreter()->globalObject().imp());
-  FunctionBodyNode *bodyNode = progNode;
+  FunctionBodyNode *bodyNode = progNode.get();
 
   FunctionImp *fimp = new DeclaredFunctionImp(exec, Identifier::null(), bodyNode,
 					      scopeChain);

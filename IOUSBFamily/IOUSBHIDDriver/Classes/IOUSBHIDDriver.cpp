@@ -929,10 +929,10 @@ IOUSBHIDDriver::InterruptReadHandlerWithTimeStampEntry(OSObject *target, void *p
 void 
 IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining, AbsoluteTime timeStamp)
 {
-    bool		queueAnother = true;
+    bool			queueAnother = false;					// make the default to not queue another - since the callout threads usually do
     IOReturn		err = kIOReturnSuccess;
-    UInt64		timeElapsed;
-    AbsoluteTime        timeStop;
+    UInt64			timeElapsed;
+    AbsoluteTime	timeStop;
     
     // Calculate the # of milliseconds since we woke up.  If this is <= the amount specified in _msToIgnoreTransactionsAfterWake, then
     // we will ignore the transaction.
@@ -952,40 +952,32 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             // data but first we need to clear the stall and reset the data toggle on the device. We then just 
             // fall through to the kIOReturnSuccess case.
             // 01-18-02 JRH If we are inactive, then ignore this
-	    if (!isInactive())
+			if (!isInactive())
             {
                 //
                 // First, clear the halted bit in the controller
                 //
                 _interruptPipe->ClearStall();
-
+				
                 // And call the device to reset the endpoint as well
                 //
                 IncrementOutstandingIO();
                 thread_call_enter(_clearFeatureEndpointHaltThread);
             }
-                
-            queueAnother = false;
-            
             // Fall through to process the data.
             
         case kIOReturnSuccess:
             // Reset the retry count, since we had a successful read
             //
             _retryCount = kHIDDriverRetryCount;
-
+			
             // Handle the data.  We do this on a callout thread so that we don't block all
             // of USB I/O if the HID system is blocked
             //
             IncrementOutstandingIO();
             thread_call_enter1(_handleReportThread, (thread_call_param_t) &timeStamp);
-            
-            // The callout thread will take care of rearming the read
-            //
-            queueAnother = false;
-
             break;
-
+			
         case kIOReturnNotResponding:
             USBLog(3, "%s[%p]::InterruptReadHandler kIOReturnNotResponding error", getName(), this);
             // If our device has been disconnected or we're already processing a
@@ -993,36 +985,28 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             // queue another read.  Otherwise, go check to see if the device is
             // around or not. 
             //
-            if ( _deviceHasBeenDisconnected || isInactive() )
-            {
-                  queueAnother = false;
-            }
-            else
-            {
-                USBLog(3, "%s[%p]::InterruptReadHandler Checking to see if HID device is still connected", getName(), this);
-                IncrementOutstandingIO();
-                thread_call_enter(_deviceDeadCheckThread );
-                
-                // Before requeueing, we need to clear the stall
-                //
-                _interruptPipe->ClearStall();
-            }
-                
-            break;
+            if ( !_deviceHasBeenDisconnected && !isInactive() )
+			{
+				USBLog(3, "%s[%p]::InterruptReadHandler Checking to see if HID device is still connected", getName(), this);
+				IncrementOutstandingIO();
+				thread_call_enter(_deviceDeadCheckThread );
+				
+				// Before requeueing, we need to clear the stall
+				//
+				_interruptPipe->ClearStall();
+				queueAnother = true;						// if the device is really dead, this request will get aborted
+			}
+			break;
             
-	case kIOReturnAborted:
-	    // This generally means that we are done, because we were unplugged, but not always
+		case kIOReturnAborted:
+			// This generally means that we are done, because we were unplugged, but not always
             //
-            if (isInactive() || _deviceIsDead )
-	    {
-                USBLog(3, "%s[%p]::InterruptReadHandler error kIOReturnAborted (expected)", getName(), this);
-		queueAnother = false;
-	    }
-	    else
+            if (!isInactive() && !_deviceIsDead )
             {
                 USBLog(3, "%s[%p]::InterruptReadHandler error kIOReturnAborted. Try again.", getName(), this);
+				queueAnother = true;
             }
-	    break;
+			break;
             
         case kIOReturnUnderrun:
         case kIOUSBPipeStalled:
@@ -1036,35 +1020,34 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
         case kIOUSBDataToggleErr:
         case kIOUSBBitstufErr:
         case kIOUSBCRCErr:
+		case kIOUSBHighSpeedSplitError:
             // These errors will halt the endpoint, so before we requeue the interrupt read, we have
             // to clear the stall at the controller and at the device.
             
             USBLog(3, "%s[%p]::InterruptReadHandler OHCI error (0x%x) reading interrupt pipe", getName(), this, status);
             // 01-18-02 JRH If we are inactive, then ignore this
-	    if (!isInactive())
+			if (!isInactive())
             {
                 // First, clear the halted bit in the controller
                 //
                 _interruptPipe->ClearStall();
-
+				
                 // And call the device to reset the endpoint as well
                 //
                 IncrementOutstandingIO();
-                thread_call_enter(_clearFeatureEndpointHaltThread);
+                thread_call_enter(_clearFeatureEndpointHaltThread);					// this will rearm the request when it is done
             }
-
-            // We  want to requeue the read here, AND we don't want to indicate that we are done
-            //
-            break;
-            
+			break;
+			
         default:
             // We should handle other errors more intelligently, but
             // for now just return and assume the error is recoverable.
-            USBLog(3, "%s[%p]::InterruptReadHandler error (0x%x) reading interrupt pipe", getName(), this, status);
-	    if (isInactive())
-		queueAnother = false;
-            
-            break;
+            USBLog(3, "%s[%p]::InterruptReadHandler Unknown error (0x%x) reading interrupt pipe", getName(), this, status);
+			if ( !isInactive() )
+                _interruptPipe->ClearStall();
+			queueAnother = true;													// no callout to go to - rearm it now
+			
+			break;
     }
 
     if ( queueAnother )

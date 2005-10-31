@@ -274,6 +274,8 @@ sInt32 SetShadowHashGlobalPolicies( sNIContextData *inContext, PWGlobalAccessFea
 	char				*nativeAttrType		= NULL;
 	void				*aNIDomain			= NULL;
 	
+	NI_INIT( &niValue );
+	
 	gNetInfoMutex->Wait();
 
 	try
@@ -815,7 +817,7 @@ void GenerateShadowHashes(
 		AES_KEY encryptAESKey;
 		
 		bzero( passCopy, sizeof(passCopy) );
-		memcpy( passCopy, inPassword, inPasswordLen );
+		memcpy( passCopy, inPassword, (inPasswordLen < kHashRecoverableLength) ? inPasswordLen : (kHashRecoverableLength - 1) );
 		
 		bzero( &encryptAESKey, sizeof(encryptAESKey) );
 		AES_set_encrypt_key( (const unsigned char *)"key4now-key4now-key4now", 128, &encryptAESKey );

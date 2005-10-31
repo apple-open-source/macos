@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -920,7 +920,9 @@ general_operand (rtx op, enum machine_mode mode)
 
 #ifdef INSN_SCHEDULING
       /* On machines that have insn scheduling, we want all memory
-	 reference to be explicit, so outlaw paradoxical SUBREGs.  */
+	 reference to be explicit, so outlaw paradoxical SUBREGs.
+	 However, we must allow them after reload so that they can
+	 get cleaned up by cleanup_subreg_operands.  */
       if (!reload_completed && MEM_P (sub)
 	  && GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (sub)))
 	return 0;
@@ -1350,12 +1352,16 @@ asm_noperands (rtx body)
 	  int i;
 	  int n_sets;
 
-	  /* Count backwards through CLOBBERs to determine number of SETs.  */
+	  /* APPLE LOCAL CW asm blocks. */
+	  /* Count backwards through CLOBBERs/USEs to determine number of SETs.  */
 	  for (i = XVECLEN (body, 0); i > 0; i--)
 	    {
 	      if (GET_CODE (XVECEXP (body, 0, i - 1)) == SET)
 		break;
-	      if (GET_CODE (XVECEXP (body, 0, i - 1)) != CLOBBER)
+	      /* APPLE LOCAL begin CW asm blocks. */
+	      if (GET_CODE (XVECEXP (body, 0, i - 1)) != CLOBBER
+		  && GET_CODE (XVECEXP (body, 0, i - 1)) != USE)
+	      /* APPLE LOCAL end CW asm blocks. */
 		return -1;
 	    }
 
@@ -1387,9 +1393,13 @@ asm_noperands (rtx body)
 	     body is [(asm_operands ...) (clobber (reg ...))...].  */
 	  int i;
 
-	  /* Make sure all the other parallel things really are clobbers.  */
+	  /* APPLE LOCAL CW asm blocks. */
+	  /* Make sure all the other parallel things really are clobbers or uses.  */
 	  for (i = XVECLEN (body, 0) - 1; i > 0; i--)
-	    if (GET_CODE (XVECEXP (body, 0, i)) != CLOBBER)
+	    /* APPLE LOCAL begin CW asm blocks. */
+	    if (GET_CODE (XVECEXP (body, 0, i)) != CLOBBER
+	        && GET_CODE (XVECEXP (body, 0, i)) != USE)
+	    /* APPLE LOCAL end CW asm blocks. */
 	      return -1;
 
 	  return ASM_OPERANDS_INPUT_LENGTH (XVECEXP (body, 0, 0));
@@ -1477,9 +1487,11 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	   && GET_CODE (SET_SRC (XVECEXP (body, 0, 0))) == ASM_OPERANDS)
     {
       rtx asmop = SET_SRC (XVECEXP (body, 0, 0));
-      int nparallel = XVECLEN (body, 0); /* Includes CLOBBERs.  */
+      /* APPLE LOCAL begin CW asm blocks. */
+      int nparallel = XVECLEN (body, 0); /* Includes CLOBBERs/USEs.  */
       int nin = ASM_OPERANDS_INPUT_LENGTH (asmop);
-      int nout = 0;		/* Does not include CLOBBERs.  */
+      int nout = 0;		/* Does not include CLOBBERs/USEs.  */
+      /* APPLE LOCAL end CW asm blocks. */
 
       /* At least one output, plus some CLOBBERs.  */
 
@@ -1487,7 +1499,10 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	 Their constraints are in the ASM_OPERANDS itself.  */
       for (i = 0; i < nparallel; i++)
 	{
-	  if (GET_CODE (XVECEXP (body, 0, i)) == CLOBBER)
+	  /* APPLE LOCAL begin CW asm blocks. */
+	  if (GET_CODE (XVECEXP (body, 0, i)) == CLOBBER
+	      || GET_CODE (XVECEXP (body, 0, i)) == USE)
+	  /* APPLE LOCAL end CW asm blocks. */
 	    break;		/* Past last SET */
 
 	  if (operands)
@@ -2231,6 +2246,7 @@ constrain_operands (int strict)
 
   do
     {
+      int seen_earlyclobber_at = -1;
       int opno;
       int lose = 0;
       funny_match_index = 0;
@@ -2293,6 +2309,8 @@ constrain_operands (int strict)
 
 	      case '&':
 		earlyclobber[opno] = 1;
+		if (seen_earlyclobber_at < 0)
+		  seen_earlyclobber_at = opno;
 		break;
 
 	      case '0':  case '1':  case '2':  case '3':  case '4':
@@ -2541,8 +2559,10 @@ constrain_operands (int strict)
 	  /* See if any earlyclobber operand conflicts with some other
 	     operand.  */
 
-	  if (strict > 0)
-	    for (eopno = 0; eopno < recog_data.n_operands; eopno++)
+	  if (strict > 0  && seen_earlyclobber_at >= 0)
+	    for (eopno = seen_earlyclobber_at;
+		 eopno < recog_data.n_operands;
+		 eopno++)
 	      /* Ignore earlyclobber operands now in memory,
 		 because we would often report failure when we have
 		 two memory operands, one of which was formerly a REG.  */
@@ -2957,7 +2977,6 @@ peep2_find_free_register (int from, int to, const char *class_str,
 void
 peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 {
-  regset_head rs_heads[MAX_INSNS_PER_PEEP2 + 2];
   rtx insn, prev;
   regset live;
   int i;
@@ -2972,8 +2991,8 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 
   /* Initialize the regsets we're going to use.  */
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
-    peep2_insn_data[i].live_before = INITIALIZE_REG_SET (rs_heads[i]);
-  live = INITIALIZE_REG_SET (rs_heads[i]);
+    peep2_insn_data[i].live_before = ALLOC_REG_SET (&reg_obstack);
+  live = ALLOC_REG_SET (&reg_obstack);
 
 #ifdef HAVE_conditional_execution
   blocks = sbitmap_alloc (last_basic_block);

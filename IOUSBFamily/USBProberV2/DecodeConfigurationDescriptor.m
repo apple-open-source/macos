@@ -28,7 +28,7 @@
 
 @implementation DecodeConfigurationDescriptor
 
-+ (void)decodeBytes:(IOUSBConfigurationDescHeader *)cfgHeader forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceInterface **)deviceIntf configNumber:(int)iconfig isOtherSpeedDesc:(BOOL)isOtherSpeedDesc {
++ (void)decodeBytes:(IOUSBConfigurationDescHeader *)cfgHeader forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf configNumber:(int)iconfig isOtherSpeedDesc:(BOOL)isOtherSpeedDesc {
     /*	struct IOUSBConfigurationDescriptor {
     UInt8 			bLength;
     UInt8 			bDescriptorType;
@@ -154,6 +154,9 @@
             p += descLen;
         }
     }
+	
+	// Release our malloc'd buffer
+    free(configBuf);
 }
 
 @end

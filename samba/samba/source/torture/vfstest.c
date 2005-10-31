@@ -189,10 +189,10 @@ static NTSTATUS cmd_debuglevel(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int a
 	}
 
 	if (argc == 2) {
-		DEBUGLEVEL = atoi(argv[1]);
+		SAMBA_DEBUGLEVEL = atoi(argv[1]);
 	}
 
-	printf("debuglevel is %d\n", DEBUGLEVEL);
+	printf("debuglevel is %d\n", SAMBA_DEBUGLEVEL);
 
 	return NT_STATUS_OK;
 }

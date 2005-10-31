@@ -24,7 +24,7 @@
 #  (412) 268-4387, fax: (412) 268-7395
 #  tech-transfer@andrew.cmu.edu
 # 
-# $Id: imap_err.et,v 1.5 2005/03/05 00:36:55 dasenbro Exp $
+# $Id: imap_err.et,v 1.6 2005/08/10 21:40:50 dasenbro Exp $
 
 error_table imap
 
@@ -144,6 +144,9 @@ ec IMAP_UNRECOGNIZED_CHARSET,
 
 ec IMAP_INVALID_USER,
    "Invalid user"
+
+ec IMAP_AUTO_FORWARD_USER,
+   "Auto-Forward user"
 
 ec IMAP_INVALID_LOGIN,
    "Login incorrect"

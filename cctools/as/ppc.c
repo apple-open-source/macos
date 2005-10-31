@@ -934,7 +934,6 @@ char *op)
 		       "allowed without -force_cpusubtype_ALL option)",
 		       format->name);
 	    }
-#endif /* !defined(ARCH64) */
 	    if((format->cpus & OPTIONAL) == OPTIONAL){
 		if((format->cpus & CPU970) == CPU970 &&
 		   archflag_cpusubtype != CPU_SUBTYPE_POWERPC_970)
@@ -942,7 +941,6 @@ char *op)
 			   "allowed without -force_cpusubtype_ALL option)",
 			   format->name);
 	    }
-#if !defined(ARCH64)
 	    if(format->cpus == VMX &&
 	       (archflag_cpusubtype != CPU_SUBTYPE_POWERPC_7400 &&
 	        archflag_cpusubtype != CPU_SUBTYPE_POWERPC_7450 &&

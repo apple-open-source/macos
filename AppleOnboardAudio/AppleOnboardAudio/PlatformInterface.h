@@ -26,7 +26,8 @@
 #include	"PlatformInterfaceI2C.h"
 #include	"PlatformInterfaceI2S.h"
 
-#define	kComboJackDelay		( NSEC_PER_SEC / 4 )
+#define	kComboJackDelay             ( NSEC_PER_SEC / 4 )
+#define kNewStyleComboJackDelay     ( NSEC_PER_SEC / 50 )
 
 //	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef enum PlatformInterfaceObjectType {
@@ -58,6 +59,7 @@ typedef enum {
 	gpioMessage_InternalSpeakerID_bitAddress,
 	gpioMessage_ComboInAssociation_bitAddress,
 	gpioMessage_ComboOutAssociation_bitAddress,
+	gpioMessage_InternalMicrophoneID_bitAddress
 } gpioMessages_bitAdddresses_bitAddresses;
 
 //	If this structure changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
@@ -154,7 +156,7 @@ typedef struct {
 	GpioAttributes			gpio_InternalSpeakerID;
 	GPIOSelector			gpio_ComboInAssociation;
 	GPIOSelector			gpio_ComboOutAssociation;
-	GpioAttributes			reserved_20;
+	GpioAttributes			gpio_InternalMicrophoneID;
 	GpioAttributes			reserved_21;
 	GpioAttributes			reserved_22;
 	GpioAttributes			reserved_23;
@@ -221,7 +223,7 @@ class PlatformInterface : public OSObject {
 
 public:	
 
-	virtual bool						init ( IOService* device, AppleOnboardAudio* provider, UInt32 inDBDMADeviceIndex, UInt32 supportSelectors );
+	virtual bool						init ( IOService* device, AppleOnboardAudio* provider, UInt32 inDBDMADeviceIndex, UInt32 supportSelectors, UInt32 irqEnableMask );
 	virtual void						free ( void );
 	
 	//
@@ -344,6 +346,7 @@ public:
 	virtual GpioAttributes				getHeadphoneConnected ();
 	virtual GpioAttributes 				getHeadphoneMuteState ();
 	virtual GpioAttributes				getInputDataMux ();
+	virtual GpioAttributes				getInternalMicrophoneID ();
 	virtual GpioAttributes				getInternalSpeakerID ();
 	virtual	GpioAttributes				getLineInConnected ();
 	virtual	GpioAttributes				getLineOutConnected ();
@@ -382,8 +385,10 @@ public:
 	UInt32								mComboOutInterruptsProduced;										//	[3787193]
 	UInt32								mComboOutInterruptsConsumed;										//	[3787193]
 
-	virtual	void						triggerComboOneShot ();												//	[3787193]
+	virtual	void						triggerComboOneShot (UInt64 delayInNanos);							//	[3787193], [4166340]
 
+    UInt32                              mIrqEnableMask;                                                     //  [4073140,4079688]
+    
 protected:
 
 	UInt32								mGpioMessageFlag;

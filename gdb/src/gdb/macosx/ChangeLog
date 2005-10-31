@@ -1,3 +1,176 @@
+2005-05-09  Ronnie Misra (rgmisra@apple.com)
+        Edited by Jason Molenda (jmolenda@apple.com)
+
+        * i386-macosx-tdep.c (i386_macosx_sigcontext_addr): Updated to find
+        sigcontext on newer kernels.
+
+2005-05-03  Ronnie Misra  (rgmisra@apple.com)
+	Edited by Jason Molenda (jmolenda@apple.com)
+
+	* macosx-nat-inferior.c (macosx_process_completer_quoted): See if
+	we can attach to a process before we list it in the tab completion
+	list of processes.
+	(macosx_child_attach): If we're attaching to a classic process,
+	set up a classic debug connection and skip out of this routine.
+
+	* macosx-nat.c (macosx_classic_unix_close, macosx_classic_unix_open,
+	macosx_classic_deliver_signal, macosx_classic_stop_inferior): New
+	functions that should probably be in serial.c but I'm putting here
+	for now.
+	(macosx_classic_create_inferior, classic_socket_exists_p,
+	is_pid_classic, can_attach, attaching_to_classic_process_p,
+	attach_to_classic_process: New functions for attaching to
+	classic processes.
+	(_initialize_macosx_nat): Register the socket style remote
+	protocol process support.
+
+	* macosx-nat.h: New file, prototypes for the global functions in
+	macosx-nat.c.
+
+2005-05-03  Klee Dienes  <kdienes@apple.com>
+
+        * macosx-nat-dyld-process.c (dyld_load_library): If we have
+        previously gotten an error trying to load the file because GDB was
+        unable to find it, continue to retry, but don't print any warning
+        messages.
+        (dyld_libraries_similar): Pass in a dyld_path_info, just like we
+        pass to dyld_libraries_compatible.  Pass the dyld_path_info to
+        dyld_entry_filename.
+        (dyld_merge_shlib): Update call to dyld_libraries_similar.
+        (dyld_prune_shlib): Pass in a dyld_path_info.  Pass the
+        dyld_path_info to dyld_libraries_similar.
+        (dyld_merge_shlibs): Update call to dyld_prune_shlib.
+        * macosx-nat-dyld-process.h (dyld_prune_shlib): Update prototype.
+        * macosx-nat-dyld.c (macosx_dyld_add_libraries): Update call to
+        dyld_prune_shlib.
+
+2005-04-29  Jim Ingham  <jingham@apple.com>
+
+	* macosx-nat-dyld-process.c (dyld_is_objfile_loaded): Consider
+	the main executable and the dyld shlib ALWAYS loaded.
+	
+2005-04-18  Klee Dienes  <kdienes@apple.com>
+
+	* macosx-nat-inferior.c (stack_flush_command, update_command):
+	Move to macosx-xdep.c.
+	(_initialize_macosx_xdep): Add commands for "flush", "flushstack",
+	and "update".
+	* macosx-xdep.c (stack_flush_command, update_command): Move from
+	macosx-nat-inferior.c.
+	(_initialize_macosx_inferior): Remove commands for "flush",
+	"flushstack", and "update".
+
+2005-04-18  Klee Dienes  <kdienes@apple.com>
+
+	* kdp-protocol.h (kdp_log_level): Add KDP_LOG_PACKET.
+	* kdp-udp.c (kdp_log_packetbuf): New function.
+	(kdp_transmit_fd, kdp_receive_fd): Use kdp_log_packetbuf to log
+	raw packets, if the debuglevel is KDP_LOG_PACKET.
+	* remote-kdp.c (kdp_connect): Set the endianness immediately after
+	creating the connection.
+	* remote-kdp.c (kdp_reattach): Set the
+	endianness immediately after creating the connection, not before.
+
+2005-04-06  Klee Dienes  <kdienes@apple.com>
+
+        * i386-macosx-tdep.c (i386_macosx_fetch_fp_registers): Update to
+        use i387_swap_fxsave.
+        (i386_macosx_store_fp_registers): Ditto.
+
+2005-03-31  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-macosx-tdep.c (i386_macosx_fetch_fp_registers): Fix FCW
+	constant so I'm not putting any values in reserved bit positions.
+
+2005-03-31  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-macosx-tdep.c (i386_macosx_sigcontext_addr): Rewrite to work.
+	(i386_macosx_sc_reg_offset): Define the offsets into the 
+	struct sigcontext for Mach.
+	(i386_macosx_init_abi): Register it with the tdep.
+
+2005-03-30  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-macosx-tdep.c (i386_macosx_fetch_fp_registers): Set the
+	FCW and MXCSR to mask off all exceptions if we didn't get a valid
+	fpu context for the inferior.  Avoids cases where we may push our
+	invalid context into the inferior's process control block.
+
+2005-03-30  Jim Ingham <jingham@apple.com>
+
+	* i386-macosx-tdep.c (mread, i386-_acosx_skip_trampoline_code,
+	i386_macosx_in_solib_return_trampoline, 
+	i386_macosx_in_solib_call_trampoline): Removed.
+	(i386_macosx_init_abi): Register the macosx generic versions of
+	the above for i386.
+	* macosx-tdep.c (macosx_skip_trampoline_code, macosx_dynamic_trampoline_nextpc,
+	macosx_in_solib_return_trampoline, macosx_in_solib_call_trampoline):
+	New functions, moved from ppc-macosx-tdep.c 'cause they are really
+	generic.
+	(info_trampoline_command): Use the generic functions.
+	* macosx-tdep.h: Define the trampoline functions above.
+	* ppc-macosx-tdep.c (ppc_gdbarch_init): Use the generic versions
+	of the trampoline functions.
+	(ppc_macosx_skip_trampoline_code, ppc_macosx_dynamic_trampoline_nextpc,
+	ppc_macosx_in_solib_return_trampoline, ppc_macosx_in_solib_call_trampoline):
+	remove.
+	* ppc-macosx-tdep.h: Ditto.
+	
+	* macosx-nat-inferior.c (macosx_check_safe_call): Add a newline 
+	to the console output.
+
+	* ppc-macosx-frameinfo.c (ppc_parse_instructions): Fix off by 4
+	error in handling saveFP builtin.
+
+	* ppc-macosx-tdep.c (ppc_frame_prev_register): Don't play the
+	might be 64 bits but only 32 bits saved game for FP & Vector
+	registers, it doesn't apply to them.
+
+	* ppc-macosx-tdep.c (ppc_fast_show_stack): Add a sanity check
+	to keep us from infinitely recursing.
+	
+2005-03-25  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-macosx-tdep.c (i386_macosx_fetch_fp_registers): Reset the
+	fp_initialized_p state var to 0 if we get an uninitialized regset,
+	e.g. on re-running or when we switch to a thread that doesn't have
+	the fpu used yet.
+
+2005-03-24  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-macosx-tdep.c (fpu_initialized_p): A static var to indicate
+	whether we've received valid data from the inferior's fpu.
+	(i386_macosx_fetch_fp_registers): Rewrite; set fpu_initialized_p.
+	(i386_macosx_store_fp_registers): Only get the fpu register contents
+	if fpu_initialized_p is set.  Return a 1 or a 0 to indicate whether
+	the buffer being returned has valid data in it or not.
+	* i386-macosx-tdep.h (i386_macosx_store_fp_registers): Prototype update.
+	* i386-macosx-thread-status.h: Add a couple comments about the
+	origins of a couple of constants.
+	* remote-kdp.c (kdp_store_registers_i386): Only send the FP regs
+	to the remote system if we got valid FP registers from the remote
+	system earlier on.
+	* i386-macosx-nat-exec.c (fetch_inferior_registers): Use the correct
+	constant to keep consistent.
+	(store_inferior_registers): Only push the FP regs to the inferior
+	process if we got valid FP registers from the inferior earlier on.
+
+	* i386-macosx-tdep.c (i386_integer_to_address):  New function.
+	(i386_macosx_init_abi): register it.
+
+2005-03-07  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-dyld.c (macosx_lookup_dyld_name): Lose unnecessary
+	unsigned.
+	(FETCH_ARGUMENT): Lose comment.
+	(macosx_dyld_add_libraries): No need to initialize pentry here.
+
+2005-03-07  Jason Molenda  (jmolenda@apple.com)
+	Bring over Klee's fix from tiger-banch to TOT:
+
+        * macosx-nat-dyld-path.c (get_framework_pathname): Make sure we
+        don't search for "Contents/MacOS/Foo" in a NULL string.
+
 2005-03-04  Jim Ingham <jingham@apple.com>
 
 	* macosx-nat-dyld.c (macosx_init_addresses): apply the dyld slide
@@ -7,107 +180,219 @@
 	
 2005-03-02  Klee Dienes  <kdienes@apple.com>
 
-        * macosx-nat-dyld-path.c (get_framework_pathname): Make sure we
-        don't search for "Contents/MacOS/Foo" in a NULL string.
+	* macosx-nat-dyld-path.c (get_framework_pathname): Make sure we
+	don't search for "Contents/MacOS/Foo" in a NULL string.
 
 2005-02-24  Jim Ingham  <jingham@apple.com>
 
 	* ppc-macosx-frameinfo.c (ppc_frame_function_properties): If you
 	can't get the frame bounds, don't set body_start.
 	
+2005-02-24  Klee Dienes  <kdienes@apple.com>
+
+	i386-macosx-nat-exec.c (fetch_inferior_registers): Enable SSE
+	support.  Add warning for requests to fetch unknown register
+	numbers.
+	(store_inferior_registers): Enable SSE support.
+	i386-macosx-tdep.c (i386_macosx_fetch_fp_registers): Enable SSE support.
+	(i386_macosx_store_fp_registers): Enable SSE support.
+	
+2005-02-23  Klee Dienes  <kdienes@apple.com>
+
+	* ppc-macosx-frameinfo.h (safe_read_memory_unsigned_integer): Remove.
+	* ppc-macosx-frameinfo.c (safe_read_memory_unsigned_integer): Remove.
+	(wrap_read_memory_unsigned_integer): Remove.
+	(read_memory_unsigned_int_args): Remove.
+
+2005-02-23  Klee Dienes  <kdienes@apple.com>
+
+	* macosx-nat-inferior-debug.c: Convert to use the 64-bit Mach VM
+	accessors.
+	* macosx-nat-inferior-debug.h: Ditto.
+	* macosx-nat-info.c: Ditto.
+	* macosx-nat-info.h: Ditto.
+	
 2005-02-10  Jim Ingham  <jingham@apple.com>
 
         * macosx-nat-infthread.c (get_application_thread_port): Check the
         return value of mach_port_names before using the names array.
-
+	
 2005-02-10  Jason Molenda  (jmolenda@apple.com)
 
-	* macosx-nat-inferior.c (macosx_child_attach): Fix spelling
-	mistake.
+	* macosx-nat-inferior.c (macosx_child_attach): Speling korrection.
+
+2005-01-21  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-dyld-path.c (dyld_library_basename): Look up the
+	user's DYLD_IMAGE_SUFFIX, if any, and strip it from and libraries
+	names we're returning.
+	(dyld_zero_path_info): Zero out the dyld_path_info pointers when we've
+	created a new macosx_status structure.
+	(dyld_init_paths): Free dyld_path_info members if we've previously
+	xstrdup'ed something into them.  Free the contents of home which
+	were previously being leaked.
+	* macosx-nat-dyld-path.h (dyld_zero_path_info): Prototype.
+
+	* macosx-nat-dyld-info.c (dyld_shlib_info_basename_length): Free
+	string returned from dyld_library_basename().
+	(dyld_print_entry_info): Ditto.
+	* macosx-nat-dyld-process.c (dyld_libraries_similar): Ditto.
+
+	* macosx-nat-dyld.c (macosx_dyld_thread_init): Zero out dyld_path_info
+	pointers.
+
+	* macosx-nat-inferior.c (macosx_child_create_inferior): Re-set the
+	dyld_path_info values when we're starting the inferior so we'll pick
+	up any DYLD_IMAGE_SUFFIX type settings that may have been made
+	between the time when the executable file was specified and the
+	file was actually run.
 
 2005-01-21  Jim Ingham  <jingham@apple.com>
 
 	* macosx-nat-dyld.c (macosx_dyld_add_libraries): When a library gets
 	loaded, call breakpoint_re_set to refresh it's breakpoints.
-	(macosx_solib_add): Call breakpoint_update after we have added the libraries.
+	(macosx_solib_add): Call breakpoint_update after we have added the 
+	libraries.
 	
+2005-01-18  Jim Ingham  (jingham@apple.com)
+
 	* macosx-nat-mutils.c (mach_xfer_memory): Use mach_vm_protect, not
 	vm_protect on Tiger.
 	* macosx-nat-watchpoint.c (write_protect_page): Ditto.
 	(unwrite_protect_page): Ditto.
-	
-2005-01-21  Jason Molenda  (jmolenda@apple.com)
-
-        * macosx-nat-dyld-path.c (dyld_library_basename): Look up the
-        user's DYLD_IMAGE_SUFFIX, if any, and strip it from and libraries
-        names we're returning.
-        (dyld_zero_path_info): Zero out the dyld_path_info pointers when we've
-        created a new macosx_status structure.
-        (dyld_init_paths): Free dyld_path_info members if we've previously
-        xstrdup'ed something into them.  Free the contents of home which
-        were previously being leaked.
-        * macosx-nat-dyld-path.h (dyld_zero_path_info): Prototype.
-
-        * macosx-nat-dyld-info.c (dyld_shlib_info_basename_length): Free
-        string returned from dyld_library_basename().
-        (dyld_print_entry_info): Ditto.
-        * macosx-nat-dyld-process.c (dyld_libraries_similar): Ditto.
-
-        * macosx-nat-dyld.c (macosx_dyld_thread_init): Zero out dyld_path_info
-        pointers.
-
-        * macosx-nat-inferior.c (macosx_child_create_inferior): Re-set the
-        dyld_path_info values when we're starting the inferior so we'll pick
-        up any DYLD_IMAGE_SUFFIX type settings that may have been made
-        between the time when the executable file was specified and the
-        file was actually run.
 
 2005-01-17  Jim Ingham  (jingham@apple.com)
- 
-        * macosx-nat-dyld.c (dyld_set_objfile_load_state): Revert the change
-        to this function from 2004-12-14.  It can cause 
-        re_enable_breakpoints_in_shlibs to get called recursively, which is a 
-        bad thing.
- 
+
+	* macosx-nat-dyld.c (dyld_set_objfile_load_state): Revert the change
+	to this function from 2004-12-14.  It can cause 
+	re_enable_breakpoints_in_shlibs to get called recursively, which is a 
+	bad thing.
+
+2005-01-13  Jason Molenda  (jmolenda@apple.com)
+
+	* cached-symfile.h: Include objfiles.h to flag any prototype
+	changes for allocate_objfile between the two.
+	* cached-symfile.c (allocate_objfile): Set syms_only_objfile flag
+	to default value when creating new objfiles.
+
+2005-01-13  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-dyld.c (dyld_generic_command_with_helper): Tiny whitespace
+	rearrange.
 
 2005-01-12  Jason Molenda  (jmolenda@apple.com)
 
-        * cached-symfile.h: Include objfiles.h to flag any prototype
-        changes for allocate_objfile between the two.
-        * cached-symfile.c (allocate_objfile): Set syms_only_objfile flag
-        to default value when creating new objfiles.
-        * macosx-nat-dyld-process.c (dyld_is_objfile_loaded): If this
-        objfile is a add-symbol-file'ed, it's shadowing a real objfile and 
-        we should insert any breakpoints associated with it.
+	* macosx-nat-dyld-process.c (dyld_is_objfile_loaded): If this
+	objfile is a add-symbol-file'ed, it's shadowing a real objfile and 
+	we should insert any breakpoints associated with it.
 
-2005-01-12  Jason Molenda  (jmolenda@apple.com)
+2005-01-11  Jason Molenda  (jmolenda@apple.com)
 
-	Merging approved patch from TOT.
+	* macosx-nat-dyld-process.c (dyld_find_dylib_name): Mark a bit of
+	code that is probably wrong for 64 bit.
 
-	* macosx-nat-dyld-info.c (dyld_entry_shlib_num): Fix off by one
-	error, use DYLD_ALL_OBJFILE_INFO_ENTRIES iterator macro.
+2005-01-11  Jason Molenda  (jmolenda@apple.com)
 
-2005-01-12  Jim Ingham  <jingham@apple.com>
+	* macosx-nat-dyld-process.c (dyld_find_dylib_name): Remove cast
+	which drops upper 32 bits of addresses.
 
-        Merging approved bugs from TOT.
+2005-01-10  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-dyld-info.h: Comment.
+
+2005-01-10  Jason Molenda  (jmolenda@apple.com)
+
+	* cached-symfile.c: Provide prototype for allocate_objfile.
+	* macosx-nat-dyld-info.c (dyld_entry_shlib_num): Fix calculation
+	of shlib entry index.  Use DYLD_ALL_OBJFILE_INFO_ENTRIES iterator.
+
+2005-01-07  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-tdep.c (BFD_GET32, BFD_GETL32, BFD_GET64, BFD_GETL64): Use
+	new-fangled casts to make the size explicit.
+
+2005-01-06  Jim Ingham  <jingham@apple.com>
+
+	* macosx-tdep.c (BFD_GETB64, BFD_GETL64): Don't cast this result
+	back to an unsigned long.
 	
-        * macosx-nat-dyld.c (dyld_set_load_state_command): Call
-        re_enable_breakpoints_in_shlibs to set any breakpoints that might
-        take with the new debug info.
-        (dyld_set_objfile_load_state): Ditto.
-	
-        * macosx-tdep.c (BFD_GET32, BFD_GETL32, BFD_GET64, BFD_GETL64): Use
-        new-fangled casts to make the size explicit.
+2005-01-04  Jason Molenda  (jmolenda@apple.com)
 
-        * macosx-tdep.c (BFD_GETB64, BFD_GETL64): Don't cast this result
-        back to an unsigned long.
+	* macosx-nat-dyld-process.c (dyld_is_objfile_loaded): When given
+	a NULL objfile pointer, always return 0 (objfile is not loaded).
+	* macosx-nat-dyld.c (macosx_set_start_breakpoint): Rewrite breakpoint
+	setting call to use the correct breakpoint.c function.
+	(macosx_dyld_mourn_inferior): Revert 2004-12-21 change and go back
+	to marking dyld_objfile_entries as not-loaded instead of zero'ing out
+	the whole array.
+
+2005-01-03  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-dyld-info.c (dyld_objfile_info_clear_objfiles, 
+        dyld_objfile_info_pack, dyld_objfile_info_compare, 
+        dyld_next_allocated_shlib): Unsigned cleanup.
+	(dyld_objfile_info_copy_entries, dyld_shlib_info_basename_length,
+	dyld_print_shlib_info): Use DYLD_ALL_OBJFILE_INFO_ENTRIES instead of 
+        doing it by hand.  Unsigned cleanup.
+	(dyld_entry_filename): Declare an enumerated type as such, not as int.
+	* macosx-nat-dyld-info.h: Update prototypes to match.
+	Fix definition of dyld_entry_filename_type enum; use it.
+	Add comment re. struct dyld_objfile_entry.
+
+	* macosx-nat-dyld-path.c (build_suffix_name): Don't use size_t's for
+	the length of filename strings.
+	(dyld_library_basename): Unsigned int cleanup.
+	* macosx-nat-dyld-path.h: Corresponding prototypes.
+
+	* macosx-nat-dyld-process.c (dyld_find_dylib_name): Unsigned cleanup.
+	No, there will never be more than 2 billion load commands.
+	(dyld_parse_load_level, dyld_purge_objfiles, 
+	dyld_objfile_move_load_data): Unsigned cleanup.
+	* macosx-nat-dyld-process.h: Corresponding prototypes.
 
 2004-12-22  Jim Ingham <jingham@apple.com>
 
-	* macosx-nat-inferior.c: The macosx child target
-	uses dyld_is_objfile_loaded for its to_check_is_objfile_loaded
-	method.
+	* macosx-nat-inferior.c: The macosx child target uses
+	dyld_is_objfile_loaded for its to_check_is_objfile_loaded method.
+
+2004-12-21  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-dyld.c (macosx_dyld_mourn_inferior): Instead of marking
+	d_o_e's as not-loaded, purge the lot of them when the inferior has
+	gone away.
+	(update_section_tables_dyld): Little cleanup.
+
+2004-12-16  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-dyld-info.h: Comment add.
+
+2004-12-16  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-dyld.c: Comment tweak.
+	* macosx-nat-dyld-process.c: Code rearrangement.  Suppress pointless
+	use of unsigned ints.  Use DYLD_ALL_OBJFILE_INFO_ENTRIES instead of
+	hand-written iterators.
+
+2004-12-14  Jim Ingham  <jingham@apple.com>
+
+	* macosx-nat-dyld.c (dyld_set_load_state_command): Call
+	re_enable_breakpoints_in_shlibs to set any breakpoints that might
+	take with the new debug info.
+	(dyld_set_objfile_load_state): Ditto.
 	
+2004-12-13  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-dyld-info.c (dyld_entry_filename): realpath the name 
+	before we return it.
+	* macosx-nat-dyld-info.h (struct dyld_objfile_entry): Document what a
+	text_name is.
+	* macosx-nat-dyld-io.c: Minor reformatting.
+	* macosx-nat-dyld-path.c: Ditto.
+	* macosx-nat-dyld-processs.c: Ditto.
+	* macosx-nat-dyld.c (macosx_init_dyld): Realpath the application
+	name before we save it away.  All dyld_objfile_entry names should
+	be realpathed as far as I can tell.
+
 2004-12-09  Jason Molenda  (jmolenda@apple.com)
 
 	* All files: Expand tabs, remote ws at end of lines.

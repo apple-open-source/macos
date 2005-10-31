@@ -30,6 +30,7 @@
 #import <sys/stat.h>
 #import <sys/syslog.h>
 #import <unistd.h>
+#import <libkern/OSByteOrder.h>
 
 #import <DirectoryService/DirServices.h>
 #import <DirectoryService/DirServicesConst.h>
@@ -61,6 +62,7 @@ tDirNodeReference gSearchNode = 0;
 int gMaxGUIDSInCache;
 int gDefaultExpiration;
 int gDefaultNegativeExpiration;
+int gLoginExpiration;
 
 UserGroup* gListHead;
 UserGroup* gListTail;
@@ -182,7 +184,7 @@ void OpenDirService()
 	dsDataBufferDeAllocate(gDirRef, nodeBuffer);
 }
 
-void InitializeUserGroup(int numToCache, int defaultExpiration, int defaultNegativeExpiration, int logSize)
+void InitializeUserGroup(int numToCache, int defaultExpiration, int defaultNegativeExpiration, int logSize, int loginExp)
 {
 	if (gDebug)
 	{
@@ -196,6 +198,7 @@ void InitializeUserGroup(int numToCache, int defaultExpiration, int defaultNegat
 	gLogSize = logSize;
 	gLog = (LogEntry*)malloc(gLogSize * sizeof(LogEntry));
 	memset(gLog, 0, gLogSize * sizeof(LogEntry));
+	gLoginExpiration = loginExp;
 
 	gListHead = NULL;
 	gListTail = NULL;
@@ -234,6 +237,7 @@ void ResetCache()
 	while (temp != NULL)
 	{
 		temp->fExpiration = 0;
+		temp->fLoginExpiration = 0;
 		temp = temp->fLink;
 	}
 	AddLogEntry(kCacheReset, NULL, NULL);
@@ -460,6 +464,8 @@ void DumpState(bool dumpLogOnly)
 
 int ItemOutdated(UserGroup* item)
 {
+	if ((GetThreadFlags() & kUseLoginTimeOutMask) != 0)
+		return (item->fLoginExpiration <= GetElapsedSeconds());
 	return (item->fExpiration <= GetElapsedSeconds());
 }
 
@@ -593,10 +599,10 @@ UserGroup* GetItem(int recordType, char* idType, void* guidData, ntsid_t* sid, i
 			memcpy(result->fSID, sid, sizeof(ntsid_t));
 			result->fID = GetTempIDForSID(sid);
 			long* temp = (long*)&result->fGUID;
-			temp[0] = 0xAAAABBBB;
-			temp[1] = 0xCCCCDDDD;
-			temp[2] = 0xEEEEFFFF;
-			temp[3] = result->fID;
+			temp[0] = htonl(0xAAAABBBB);
+			temp[1] = htonl(0xCCCCDDDD);
+			temp[2] = htonl(0xEEEEFFFF);
+			temp[3] = htonl(result->fID);
 			AddToHash(gGUIDHash, result);
 			AddToHash(gSIDHash, result);
 			AddToHash(gGIDHash, result);
@@ -634,10 +640,10 @@ UserGroup* GetItem(int recordType, char* idType, void* guidData, ntsid_t* sid, i
 				else
 				{
 					long* temp = (long*)&result->fGUID;
-					temp[0] = 0xAAAABBBB;
-					temp[1] = 0xCCCCDDDD;
-					temp[2] = 0xEEEEFFFF;
-					temp[3] = result->fID;
+					temp[0] = htonl(0xAAAABBBB);
+					temp[1] = htonl(0xCCCCDDDD);
+					temp[2] = htonl(0xEEEEFFFF);
+					temp[3] = htonl(result->fID);
 				} 
 				AddToHash(gGUIDHash, result);
 				
@@ -647,6 +653,7 @@ UserGroup* GetItem(int recordType, char* idType, void* guidData, ntsid_t* sid, i
 
 		result->fNotFound = 1;
 		result->fExpiration = GetElapsedSeconds() + gDefaultNegativeExpiration;
+		result->fLoginExpiration = GetElapsedSeconds() + gLoginExpiration;
 	}
 	
 	if (!result->fNotFound)
@@ -665,15 +672,15 @@ int IsCompatibilityGUID(guid_t* guid, int* isUser, uid_t* id)
 {
 	long* temp = (long*)guid;
 	int result = 0;
-	if ((temp[0] == 0xFFFFEEEE) && (temp[1] == 0xDDDDCCCC) && (temp[2] == 0xBBBBAAAA))
+	if ((temp[0] == htonl(0xFFFFEEEE)) && (temp[1] == htonl(0xDDDDCCCC)) && (temp[2] == htonl(0xBBBBAAAA)))
 	{
-		*id = temp[3];
+		*id = ntohl(temp[3]);
 		*isUser = 1;
 		result = 1;
 	}
-	else if ((temp[0] == 0xAAAABBBB) && (temp[1] == 0xCCCCDDDD) && (temp[2] == 0xEEEEFFFF))
+	else if ((temp[0] == htonl(0xAAAABBBB)) && (temp[1] == htonl(0xCCCCDDDD)) && (temp[2] == htonl(0xEEEEFFFF)))
 	{
-		*id = temp[3];
+		*id = ntohl(temp[3]);
 		*isUser = 0;
 		result = 1;
 	}
@@ -913,17 +920,17 @@ UserGroup* FindOrAddUG(UserGroup* template, int hasGUID, int hasID, int foundByI
 			long* temp = (long*)&template->fGUID;
 			if (template->fIsUser)
 			{
-				temp[0] = 0xFFFFEEEE;
-				temp[1] = 0xDDDDCCCC;
-				temp[2] = 0xBBBBAAAA;
-				temp[3] = template->fID;
+				temp[0] = htonl(0xFFFFEEEE);
+				temp[1] = htonl(0xDDDDCCCC);
+				temp[2] = htonl(0xBBBBAAAA);
+				temp[3] = htonl(template->fID);
 			}
 			else
 			{
-				temp[0] = 0xAAAABBBB;
-				temp[1] = 0xCCCCDDDD;
-				temp[2] = 0xEEEEFFFF;
-				temp[3] = template->fID;
+				temp[0] = htonl(0xAAAABBBB);
+				temp[1] = htonl(0xCCCCDDDD);
+				temp[2] = htonl(0xEEEEFFFF);
+				temp[3] = htonl(template->fID);
 			}
 		}
 	}
@@ -1009,7 +1016,8 @@ void ConvertSIDToString(char* string, ntsid_t* sid)
 	long long temp = 0;
 	int i;
 	
-	memcpy(((char*)&temp)+2, sid->sid_authority, 6);
+	for (i = 0; i < 6; i++)
+		temp = (temp << 8) | sid->sid_authority[i];
 	
 	sprintf(current,"S-%u-%llu", sid->sid_kind, temp);
 	
@@ -1033,6 +1041,8 @@ void ConvertSIDFromString(char* string, ntsid_t* sid)
 	if (*current == '\0') return;
 	current++;
 	temp = strtoll(current, &current, 10);
+	// convert to BigEndian before copying
+	temp = OSSwapHostToBigInt64(temp);
 	memcpy(sid->sid_authority, ((char*)&temp)+2, 6);
 	while (*current != '\0')
 	{
@@ -1223,6 +1233,7 @@ UserGroup* DoRecordSearch(int recordType, char* attribute, char* value, UserGrou
 				UserGroup template;
 				memset(&template, 0, sizeof(UserGroup));
 				template.fExpiration = GetElapsedSeconds() + gDefaultExpiration;
+				template.fLoginExpiration = GetElapsedSeconds() + gLoginExpiration;
 				
 				status = dsGetRecordTypeFromEntry( recordEntryPtr, &recTypeStr );
 				if (status == eDSNoErr && (strcmp(recTypeStr, kDSStdRecordTypeUsers) == 0))
@@ -1293,7 +1304,7 @@ UserGroup* DoRecordSearch(int recordType, char* attribute, char* value, UserGrou
 										break;
 								}
 								
-								template.fExpiration = num * multiplier;
+								template.fExpiration = GetElapsedSeconds() + num * multiplier;
 							}
 							else if (strcmp(attrName, kDS1AttrPrimaryGroupID) == 0)
 							{					 

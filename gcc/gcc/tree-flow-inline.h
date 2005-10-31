@@ -1,5 +1,5 @@
 /* Inline functions for tree-flow.h
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -131,6 +131,14 @@ get_filename (tree expr)
     return "???";
 }
 
+/* Return true if T is a noreturn call.  */
+static inline bool
+noreturn_call_p (tree t)
+{
+  tree call = get_call_expr_in (t);
+  return call != 0 && (call_expr_flags (call) & ECF_NORETURN) != 0;
+}
+
 /* Mark statement T as modified.  */
 static inline void
 modify_stmt (tree t)
@@ -138,6 +146,8 @@ modify_stmt (tree t)
   stmt_ann_t ann = stmt_ann (t);
   if (ann == NULL)
     ann = create_stmt_ann (t);
+  else if (noreturn_call_p (t))
+    VEC_safe_push (tree, modified_noreturn_calls, t);
   ann->modified = 1;
 }
 
@@ -389,21 +399,6 @@ set_phi_nodes (basic_block bb, tree l)
     set_bb_for_stmt (phi, bb);
 }
 
-/* Return the phi index number for an edge.  */
-static inline int
-phi_arg_from_edge (tree phi, edge e)
-{
-  int i;
-  gcc_assert (phi);
-  gcc_assert (TREE_CODE (phi) == PHI_NODE);
-
-  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-    if (PHI_ARG_EDGE (phi, i) == e)
-      return i;
-
-  return -1;
-}
-
 /* Mark VAR as used, so that it'll be preserved during rtl expansion.  */
 
 static inline void
@@ -627,6 +622,20 @@ mark_call_clobbered (tree var)
   if (ann->mem_tag_kind != NOT_A_TAG)
     DECL_EXTERNAL (var) = 1;
   bitmap_set_bit (call_clobbered_vars, ann->uid);
+  ssa_call_clobbered_cache_valid = false;
+  ssa_ro_call_cache_valid = false;
+}
+
+/* Clear the call-clobbered attribute from variable VAR.  */
+static inline void
+clear_call_clobbered (tree var)
+{
+  var_ann_t ann = var_ann (var);
+  if (ann->mem_tag_kind != NOT_A_TAG)
+    DECL_EXTERNAL (var) = 0;
+  bitmap_clear_bit (call_clobbered_vars, ann->uid);
+  ssa_call_clobbered_cache_valid = false;
+  ssa_ro_call_cache_valid = false;
 }
 
 /* Mark variable VAR as being non-addressable.  */
@@ -635,6 +644,8 @@ mark_non_addressable (tree var)
 {
   bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
   TREE_ADDRESSABLE (var) = 0;
+  ssa_call_clobbered_cache_valid = false;
+  ssa_ro_call_cache_valid = false;
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation
@@ -681,7 +692,7 @@ op_iter_next_use (ssa_op_iter *ptr)
   if (ptr->v_mayu_i < ptr->num_v_mayu)
     {
       return V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops,
-				       (ptr->v_mayu_i)++);
+			       (ptr->v_mayu_i)++);
     }
   if (ptr->v_mustu_i < ptr->num_v_mustu)
     {

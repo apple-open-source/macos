@@ -1,6 +1,6 @@
 // SGI's rope class -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,8 +42,7 @@
 
 /** @file ext/rope
  *  This file is a GNU extension to the Standard C++ Library (possibly
- *  containing extensions from the HP/SGI STL subset).  You should only
- *  include this header if you are using GCC 3 or later.
+ *  containing extensions from the HP/SGI STL subset). 
  */
 
 #ifndef _ROPE
@@ -186,7 +185,7 @@ namespace __gnu_cxx
       {
 	_M_prefix = __x._M_prefix;
 	_M_buf_count = __x._M_buf_count;
-	copy(__x._M_buffer, __x._M_buffer + __x._M_buf_count, _M_buffer);
+	std::copy(__x._M_buffer, __x._M_buffer + __x._M_buf_count, _M_buffer);
       }
       
       sequence_buffer(sequence_buffer& __x)
@@ -213,7 +212,7 @@ namespace __gnu_cxx
       {
 	_M_prefix = __x._M_prefix;
 	_M_buf_count = __x._M_buf_count;
-	copy(__x._M_buffer, __x._M_buffer + __x._M_buf_count, _M_buffer);
+	std::copy(__x._M_buffer, __x._M_buffer + __x._M_buf_count, _M_buffer);
 	return *this;
       }
       

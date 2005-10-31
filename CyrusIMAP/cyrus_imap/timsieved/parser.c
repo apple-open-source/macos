@@ -1,7 +1,7 @@
 /* parser.c -- parser used by timsieved
  * Tim Martin
  * 9/21/99
- * $Id: parser.c,v 1.5 2005/03/05 00:37:39 dasenbro Exp $
+ * $Id: parser.c,v 1.7 2005/07/28 16:53:33 dasenbro Exp $
  */
 /*
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -91,6 +91,7 @@ static SSL *tls_conn = NULL;
 /* from elsewhere */
 void fatal(const char *s, int code);
 extern int sieved_logfd;
+extern struct od_user_opts	*gUserOpts;
 
 /* forward declarations */
 static void cmd_logout(struct protstream *sieved_out,
@@ -790,7 +791,6 @@ static int cmd_od_authenticate ( struct protstream *sieved_out,
 	const char	*serverout		= NULL;
 	unsigned int serveroutlen;
 	const char	*errstr			= NULL;
-	const char	*canon_user;
 	char		*username;
 	int			 ret			= TRUE;
 
@@ -800,17 +800,75 @@ static int cmd_od_authenticate ( struct protstream *sieved_out,
 		chal = string_DATAPTR( initial_challenge );
 	}
 
+	if ( strcasecmp( mech, "CRAM-MD5" ) == 0 )
+	{
+		mech = "SIEVE-CRAM-MD5";
+	}
+	else if ( strcasecmp( mech, "LOGIN" ) == 0 )
+	{
+		mech = "SIEVE-LOGIN";
+	}
+	else if ( strcasecmp( mech, "PLAIN" ) == 0 )
+	{
+		mech = "SIEVE-PLAIN";
+	}
+
 	/* do open directory authentication */
-	r = odDoAuthenticate( mech, chal, "+ ", kXMLIMAP_Principal, sieved_in, sieved_out, (char **)&canon_user );
-	if ( r != ODA_NO_ERROR )
+	r = odDoAuthenticate( mech, chal, "+ ", kXMLIMAP_Principal, sieved_in, sieved_out, gUserOpts );
+	if ( r != eAODNoErr )
 	{
 		syslog( LOG_NOTICE, "badlogin: %s %s (%d)", sieved_clienthost, mech, r );
 
 		return( FALSE );
 	}
+	else if ( gUserOpts->fAuthIDNamePtr != NULL )
+	{
+		int			len		= 0;
+		int			isAdmin	= 0;
+		char		buf[ 1024 ];
+		const char *val = config_getstring( IMAPOPT_ADMINS );
+
+		/* Is the option defined? */
+		if ( !val )
+		{
+			return( FALSE );
+		}
+
+		while ( *val )
+		{
+			char *p	= NULL;
+			
+			for( p = (char *) val; *p && !isspace((int) *p); p++ );
+			len = p-val;
+			if( len >= sizeof( buf ) )
+			{
+				len = sizeof( buf ) - 1;
+			}
+			memcpy( buf, val, len );
+			buf[len] = '\0';
+
+			if ( strcmp( gUserOpts->fAuthIDNamePtr, buf ) == 0 )
+			{
+				isAdmin = 1;
+				break;
+			}
+
+			val = p;
+			while ( *val && isspace( (int)*val ) )
+			{
+				val++;
+			}
+		}
+
+		if ( !isAdmin )
+		{
+			syslog(LOG_ERR, "illegal authorization attempt: - %s - is not an admin user", gUserOpts->fAuthIDNamePtr );
+			return( FALSE );
+		}
+	}
 
 	/* duplicate the userid returned from open directory authentication */
-	username = xstrdup(canon_user);
+	username = xstrdup( gUserOpts->fRecNamePtr );
 
 	/* get verify only */
 	verify_only = !strcmp(username, "anonymous");
@@ -846,47 +904,9 @@ static int cmd_od_authenticate ( struct protstream *sieved_out,
 	  return FALSE;
 	  }
 
-/*
 	  if(type & MBTYPE_REMOTE) {
 	  // It's a remote mailbox, we want to set up a referral 
-	  if (sieved_domainfromip) {
-		  char *authname, *p;
-
-		  // get a new copy of the userid 
-		  free(username);
-		  username = xstrdup(canon_user);
-
-		  // get the authid from SASL 
-		  sasl_result=sasl_getprop(sieved_saslconn, SASL_AUTHUSER,
-					   (const void **) &canon_user);
-		  if (sasl_result!=SASL_OK)
-		  {
-			  *errmsg = "Internal SASL error";
-			  syslog(LOG_ERR, "SASL: sasl_getprop SASL_AUTHUSER: %s",
-				 sasl_errstring(sasl_result, NULL, NULL));
-
-			  if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-			  fatal("could not reset the sasl_conn_t after failure",
-				EC_TEMPFAIL);
-
-			  ret = FALSE;
-			  goto cleanup;
-		  }
-		  authname = xstrdup(canon_user);
-
-		  if ((p = strchr(authname, '@'))) *p = '%';
-		  if ((p = strchr(username, '@'))) *p = '%';
-
-		  referral_host =
-		  (char*) xmalloc(strlen(authname)+1+strlen(username)+1+
-				  strlen(server)+1);
-		  sprintf((char*) referral_host, "%s;%s@%s",
-			  authname, username, server);
-
-		  free(authname);
-	  }
-	  else
-		  referral_host = xstrdup(server);
+		  fatal("remote host not supported", EC_UNAVAILABLE);
 	  } else if (actions_setuser(username) != TIMSIEVE_OK) {
 	  *errmsg = "internal error";
 	  syslog(LOG_ERR, "error in actions_setuser()");
@@ -898,7 +918,6 @@ static int cmd_od_authenticate ( struct protstream *sieved_out,
 	  ret = FALSE;
 	  goto cleanup;
 	  }
-*/
 	}
 
 	/* Yay! authenticated */

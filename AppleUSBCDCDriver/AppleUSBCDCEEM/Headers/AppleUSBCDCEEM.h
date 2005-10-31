@@ -98,7 +98,7 @@ enum
 #define COMM_BUFF_SIZE		16
 
 #define nameLength		32				// Arbitrary length
-#define defaultName		"USB Ethernet"
+#define defaultName		"USB EEM"
 
 #define kFiltersSupportedMask	0xefff
 #define kPipeStalled		1
@@ -118,7 +118,7 @@ typedef struct
 {
     IOBufferMemoryDescriptor	*pipeOutMDP;
     UInt8			*pipeOutBuffer;
-    struct mbuf			*m;
+    mbuf_t			m;
     bool			avail;
     IOUSBCompletion		writeCompletionInfo;
 } pipeOutBuffers;
@@ -130,6 +130,31 @@ typedef struct
     bool			dead;
     IOUSBCompletion		readCompletionInfo;
 } pipeInBuffers;
+
+	// EEM bit definitions and masks
+	
+#define bmTypeData			0x0000
+#define bmTypeCommand		0x8000
+#define bmCRC				0x4000
+
+	// EEM Data packet masks
+
+#define bmCRCMask			0x7fff
+#define frameLenMask		0x3fff
+
+	// EEM Command packet masks
+	
+#define bmEEMCmdMask		0x3fff
+#define	bmEEMCmdParamMask	0x07ff
+
+	// EEM Commands
+	
+#define EEMEcho					0x00
+#define EEMEchoResponse			0x08
+#define EEMSuspendHint			0x10
+#define EEMResponseHint			0x18
+#define EEMResponseCompleteHint	0x20
+#define EEMTickle				0x28
 
 class AppleUSBCDC;
 
@@ -176,10 +201,13 @@ private:
     bool 			allocateResources(void);
     void			releaseResources(void);
     bool			createNetworkInterface(void);
-    UInt32			outputPacket(struct mbuf *pkt, void *param);
-    IOReturn		USBTransmitPacket(struct mbuf *packet);
+    UInt32			outputPacket(mbuf_t pkt, void *param);
+    IOReturn		USBTransmitPacket(mbuf_t packet);
+	bool			getOutputBuffer(UInt32 *bufIndx);
+	IOReturn		USBSendCommand(UInt16 command, UInt16 length, UInt8 *anyData);
     IOReturn		clearPipeStall(IOUSBPipe *thePipe);
     void			receivePacket(UInt8 *packet, UInt32 size);
+	void			processEEMCommand(UInt16 EEMHeader, UInt32 poolIndx, SInt16 dataIndx, SInt16 *len);
     
 public:
 

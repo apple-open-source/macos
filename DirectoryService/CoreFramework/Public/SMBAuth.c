@@ -292,7 +292,7 @@ int NTLMv2(unsigned char *V2, unsigned char *inNTHash,
 {
     HMAC_CTX ctx;
     char *upper;
-    int len;
+    unsigned int len;
 	char *buf;
 	unsigned buflen;
 	
@@ -313,7 +313,7 @@ int NTLMv2(unsigned char *V2, unsigned char *inNTHash,
 	strnupper(upper, len);
 	CStringToUnicode(upper, (u_int16_t *)buf);
 	
-	HMAC(EVP_md5(), inNTHash, MD4_DIGEST_LENGTH, buf, 2 * len, inNTHash, &len);
+	HMAC(EVP_md5(), inNTHash, MD4_DIGEST_LENGTH, (unsigned char*)buf, 2 * len, inNTHash, &len);
 	
 	/* V2 = HMAC-MD5(NTLMv2hash, challenge + blob) + blob */
 	HMAC_Init(&ctx, inNTHash, len, EVP_md5());

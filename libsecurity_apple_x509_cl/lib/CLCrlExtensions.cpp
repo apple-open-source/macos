@@ -136,7 +136,6 @@ void freeFieldOidOrData (
 			(CSSM_DATA *)cssmExt->value.parsedValue;
 	if(cdsaObj) {
 		alloc.free(cdsaObj->Data);
-		alloc.free(cdsaObj);
 	}
 	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue
 }

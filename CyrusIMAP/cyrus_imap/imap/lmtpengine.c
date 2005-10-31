@@ -1,5 +1,5 @@
 /* lmtpengine.c: LMTP protocol engine
- * $Id: lmtpengine.c,v 1.8 2005/03/23 00:39:22 dasenbro Exp $
+ * $Id: lmtpengine.c,v 1.12 2005/10/04 19:30:19 dasenbro Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -97,6 +97,7 @@ struct address_data {
     char *all;		/* storage for entire RCPT TO addr -- MUST be freed */
     char *rcpt;		/* storage for user[+mbox][@domain] -- MUST be freed */
     char *virt;		/* storage for virtual recipient addr -- MUST be freed */
+    char *afwd;		/* storage for auto-forward recipient addr -- MUST be freed */
     char *user;		/* pointer to user part of rcpt -- DO NOT be free */
     char *domain;	/* pointer to domain part of rcpt -- DO NOT be free */
     char *mailbox;	/* pointer to mailbox part of rcpt -- DO NOT be free */
@@ -125,6 +126,10 @@ struct clientdata {
 #endif /* HAVE_SSL */
     int starttls_done;
 };
+
+/* current user mail options */
+struct od_user_opts	*gUserOpts = NULL;
+char *gLUser_relay_str = NULL;
 
 /* defined in lmtpd.c or lmtpproxyd.c */
 extern int deliver_logfd;
@@ -320,6 +325,7 @@ void msg_free(message_data_t *m)
 	for (i = 0; i < m->rcpt_num; i++) {
 	    if (m->rcpt[i]->all) free(m->rcpt[i]->all);
 	    if (m->rcpt[i]->virt) free(m->rcpt[i]->virt);
+	    if (m->rcpt[i]->afwd) free(m->rcpt[i]->afwd);
 	    if (m->rcpt[i]->rcpt) free(m->rcpt[i]->rcpt);
 	    free(m->rcpt[i]);
 	}
@@ -330,6 +336,10 @@ void msg_free(message_data_t *m)
 	free(m->authuser);
 	if (m->authstate) auth_freestate(m->authstate);
     }
+
+	if (gUserOpts) {
+	odFreeUserOpts(gUserOpts, 0);
+	}
 
     spool_free_hdrcache(m->hdrcache);
 
@@ -354,12 +364,14 @@ int msg_getnumrcpt(message_data_t *m)
 }
 
 void msg_getrcpt(message_data_t *m, int rcpt_num,
-		 const char **user, const char **domain, const char **mailbox)
+		 const char **user, const char **domain, const char **mailbox,
+		 const char **auto_fwd)
 {
     assert(0 <= rcpt_num && rcpt_num < m->rcpt_num);
     if (user) *user =  m->rcpt[rcpt_num]->user;
     if (domain) *domain =  m->rcpt[rcpt_num]->domain;
     if (mailbox) *mailbox =  m->rcpt[rcpt_num]->mailbox;
+    if (auto_fwd) *auto_fwd =  m->rcpt[rcpt_num]->afwd;
 }
 
 const char *msg_getrcptall(message_data_t *m, int rcpt_num)
@@ -812,13 +824,12 @@ static int process_recipient(char *addr, struct namespace *namespace,
     char *dest;
     char *rcpt;
     const char *luser_relay = NULL;
-    char *luser_relay_str = NULL;
     int has_luser_relay = 0;
     int r, sl;
     address_data_t *ret = (address_data_t *) xmalloc(sizeof(address_data_t));
     int forcedowncase = config_getswitch(IMAPOPT_LMTP_DOWNCASE_RCPT);
     int quoted, detail;
-    struct od_user_opts	useropts;
+    struct od_user_opts	*pUserOpts = NULL;
 
     assert(addr != NULL && msg != NULL);
 
@@ -879,29 +890,69 @@ static int process_recipient(char *addr, struct namespace *namespace,
     luser_relay = config_getstring(IMAPOPT_LMTP_LUSER_RELAY);
     if ( luser_relay )
 	{
-		/* get record name for this user, could be an alias */
-		odGetUserOpts( luser_relay, &useropts );
-		if ( useropts.fRecName[ 0 ] != '\0' )
+		/* have already looked up the relay user */
+		if ( gLUser_relay_str == NULL )
 		{
-			/* verify that we can send mail to this user */
-			if( !verify_user( useropts.fRecName, NULL, "", ignorequota ? -1 : msg->size, msg->authstate) )
+			if ( pUserOpts == NULL )
 			{
-				has_luser_relay = 1;
-				luser_relay_str = xstrdup( useropts.fRecName );
+				pUserOpts = xzmalloc( sizeof(struct od_user_opts) );
 			}
+
+			/* get record name for this user, could be an alias */
+			odGetUserOpts( luser_relay, pUserOpts );
+			if ( pUserOpts->fRecNamePtr != NULL )
+			{
+				/* verify that we can send mail to this user */
+				if( !verify_user( pUserOpts->fRecNamePtr, NULL, "", ignorequota ? -1 : msg->size, msg->authstate) )
+				{
+					has_luser_relay = 1;
+					gLUser_relay_str = xstrdup( pUserOpts->fRecNamePtr );
+				}
+			}
+
+			odFreeUserOpts( pUserOpts, 1 );
+			free( pUserOpts );
+			pUserOpts = NULL;
 		}
     }
+	else
+	{
+		if ( gLUser_relay_str != NULL )
+		{
+			free( gLUser_relay_str );
+			gLUser_relay_str = NULL;
+		}
+	}
 
     /* make a working copy of rcpt */
     ret->user = ret->rcpt = xstrdup(rcpt);
 
     /* set virtual domain holder to NULL */
     ret->virt = NULL;
+	ret->afwd = NULL;
+
+	/* alloc global user opts struct if not already */
+	if ( gUserOpts == NULL )
+	{
+		gUserOpts = xzmalloc( sizeof(struct od_user_opts) );
+	}
 
     /* lookup user short name (could be an alias) */
-    odGetUserOpts( ret->user, &useropts );
-    if ( useropts.fRecName[ 0 ] != '\0' ) {
-	    ret->virt = xstrdup( useropts.fRecName );
+	char *p = NULL;
+	p = strchr( ret->user, '+' );
+	if ( p != NULL )
+	{
+		/* lookup just the user name */
+		*p = '\0';
+		odGetUserOpts( ret->user, gUserOpts );
+		*p = '+';
+	}
+	else
+	{
+		odGetUserOpts( ret->user, gUserOpts );
+	}
+    if ( gUserOpts->fRecNamePtr != NULL ) {
+	    ret->virt = xstrdup( gUserOpts->fRecNamePtr );
 	    ret->user = ret->virt;
     }
 
@@ -913,10 +964,10 @@ static int process_recipient(char *addr, struct namespace *namespace,
 	if (config_defdomain && !strcasecmp(config_defdomain, ret->domain))
 	    ret->domain = NULL;
     } else if ( strrchr(ret->all, '@') ) {
-	odGetUserOpts( ret->all, &useropts );
-	if ( useropts.fRecName[ 0 ] != '\0' ) {
+	odGetUserOpts( ret->all, gUserOpts );
+	if ( gUserOpts->fRecNamePtr != NULL ) {
 	    if (ret->virt) free(ret->virt);
-	    ret->virt = xstrdup( useropts.fRecName );
+	    ret->virt = xstrdup( gUserOpts->fRecNamePtr );
 	    ret->user = ret->virt;
 	}
     }
@@ -933,27 +984,33 @@ static int process_recipient(char *addr, struct namespace *namespace,
 
     r = verify_user(ret->user, ret->domain, ret->mailbox,
 		    ignorequota ? -1 : msg->size, msg->authstate);
-    if ( r == IMAP_MAILBOX_NONEXISTENT && has_luser_relay )
+    if ( r == IMAP_AUTO_FORWARD_USER )
+	{
+	    ret->afwd = xstrdup( gUserOpts->fAutoFwdPtr );
+	}
+    else if ( r == IMAP_MAILBOX_NONEXISTENT && has_luser_relay )
 	{
 		if (ret->virt) free(ret->virt);
-	    ret->virt = xstrdup( luser_relay_str );
+	    ret->virt = xstrdup( gLUser_relay_str );
 	    ret->user = ret->virt;
     }
-	else if( r == IMAP_MAILBOX_NONEXISTENT && !has_luser_relay )
+	else if ( r == IMAP_MAILBOX_NONEXISTENT && !has_luser_relay )
 	{
 	/* we lost */
-	if (luser_relay_str) free(luser_relay_str);
 	if (ret->all) free(ret->all);
 	if (ret->virt) free(ret->virt);
 	if (ret->rcpt) free(ret->rcpt);
 	if (ret) free(ret);
+	if (gUserOpts) {
+	odFreeUserOpts(gUserOpts, 1);
+	free(gUserOpts);
+	gUserOpts = NULL;
+	}
 	return r;
     }
     ret->ignorequota = ignorequota;
 
     msg->rcpt[msg->rcpt_num] = ret;
-
-	if (luser_relay_str) free(luser_relay_str);
 
     return 0;
 }

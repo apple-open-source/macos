@@ -20,9 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2004-2005 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: PowerMac8_1_ThermalProfile.cpp,v 1.5 2004/06/16 22:14:09 murph Exp $
+ *  File: $Id: PowerMac8_1_ThermalProfile.cpp,v 1.7 2005/09/11 22:40:11 raddog Exp $
  */
 
 
@@ -62,16 +62,18 @@ void PowerMac8_1_ThermalProfile::adjustThermalProfile( void )
 	// they correspond to.  Nothing will ever register with their sensor ID, so we have to
 	// manually add them to the registry so that they show up in PlatformConsole.
 
-	sensorInfoDicts = OSDynamicCast( OSArray, platformPlugin->getProperty( gIOPPluginSensorDataKey ) );
+	sensorInfoDicts = platformPlugin->getSensorInfoDicts();
 
 	sensorID = OSNumber::withNumber( kCPUPowerSensorID, 32 );
 
 	if ( ( powerSensor = platformPlugin->lookupSensorByID( sensorID ) ) != NULL )
 		{
 		sensorInfoDicts->setObject( powerSensor->getInfoDict() );
+
+		// Publish a copy of sensorInfoDicts in the registry
+		platformPlugin->setSensorInfoDicts (sensorInfoDicts);
 		}
 
 	sensorID->release();
 
-	sensorInfoDicts->release();
 	}

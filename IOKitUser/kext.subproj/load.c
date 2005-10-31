@@ -25,7 +25,6 @@
 #include <mach/mach_port.h>
 #include <mach-o/kld.h>
 #include <mach-o/arch.h>
-#include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <libkern/OSByteOrder.h>

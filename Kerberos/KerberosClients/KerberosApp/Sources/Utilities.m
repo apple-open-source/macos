@@ -1,7 +1,7 @@
 /*
  * Utilities.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Utilities.m,v 1.7 2004/10/14 02:43:49 lxs Exp $
+ * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Utilities.m,v 1.8 2005/03/22 18:29:34 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -134,7 +134,6 @@
     NSNumber *obliqueness = [NSNumber numberWithFloat: isItalic ? kItalicObliqueness : 0.0];
     
     return [NSDictionary dictionaryWithObjectsAndKeys: 
-        [NSColor blackColor], NSForegroundColorAttributeName,
         font, NSFontAttributeName, 
         obliqueness, NSObliquenessAttributeName, NULL];
 }

@@ -4829,7 +4829,9 @@ do_restore_lang_radix_cleanup (void *old)
   input_radix = p->radix;
 }
 
-/* Try and resolve a pending breakpoint.  */
+/* Try and resolve a pending breakpoint.  If the breakpoint is
+   successfully resolved, then the original pended breakpoint will
+   be deleted, and one or more new breakpoints will be created.  */
 static int
 resolve_pending_breakpoint (struct breakpoint *b)
 {
@@ -4838,7 +4840,8 @@ resolve_pending_breakpoint (struct breakpoint *b)
   int rc;
   struct lang_and_radix old_lr;
   struct cleanup *old_chain;
-  
+  int choices[1] = {-1};
+
   /* Set language, input-radix, then reissue breakpoint command. 
      Ensure the language and input-radix are restored afterwards.  */
   old_lr.lang = current_language->la_language;
@@ -4847,13 +4850,20 @@ resolve_pending_breakpoint (struct breakpoint *b)
   
   set_language (b->language);
   input_radix = b->input_radix;
+  /* APPLE LOCAL: Changed this to break_command_2, and now pass
+     a "choices" array to choose ALL matches if there are multiple
+     possibilities.  */
+
   rc = break_command_2 (b->addr_string, b->flag, b->from_tty, b,
-			b->requested_shlib, NULL, NULL);
+			b->requested_shlib, choices, NULL);
   
   if (rc == GDB_RC_OK)
-    /* Pending breakpoint has been resolved.  */
-    printf_filtered ("Pending breakpoint %d - \"%s\" resolved\n", b->number, b->addr_string);
-
+    {
+      /* Pending breakpoint has been resolved.  */
+      printf_filtered ("Pending breakpoint %d - \"%s\" resolved\n", b->number, b->addr_string);
+      delete_breakpoint(b);
+    }
+  
   do_cleanups (old_chain);
   return rc;
 }
@@ -4954,8 +4964,15 @@ re_enable_breakpoints_in_shlibs (int silent)
       }
     else if (b->pending && (b->enable_state == bp_enabled))
       {
-	if (resolve_pending_breakpoint (b) == GDB_RC_OK)
-	  delete_breakpoint (b);
+	/* APPLE LOCAL: We do this while we are parsing shlib load
+	   messages, so we better not let any uncaught errors
+	   propagate.  */
+	char *message = xstrprintf ("Error resolving pending breakpoint %d: ",
+					b->number);
+	struct cleanup *cleanups = make_cleanup (xfree, message);
+	catch_errors ((catch_errors_ftype *) resolve_pending_breakpoint, (void *) b, 
+		    message, RETURN_MASK_ALL);
+	do_cleanups (cleanups);
       }
   }
 }
@@ -5456,7 +5473,44 @@ create_breakpoints (struct symtabs_and_lines sals, char **addr_string,
 	   breakpoint, don't change its number.  That's just
 	   annoying.  */
 	if (sals.nelts == 1 && pending_bp != NULL)
-	  b->number = pending_bp->number;
+	  {
+	    struct breakpoint *bpt;
+
+	    /* Move the new breakpoint back into the position the pending
+	       breakpoint originally was so the list stays ordered.  */
+
+	    /* First remove the new breakpoint (set_raw_breakpoint sticks it
+	       at the end).  */
+	    ALL_BREAKPOINTS (bpt)
+	      {
+		if (bpt->next == b)
+		  {
+		    bpt->next = b->next;
+		    break;
+		  }
+	      }
+
+	    /* Now replace pending_bp with it.  */
+
+	    if (pending_bp == breakpoint_chain)
+	      {
+		b->next = pending_bp->next;
+		breakpoint_chain = b;
+	      }
+	    else
+	      {
+		ALL_BREAKPOINTS (bpt)
+		  {
+		    if (bpt->next == pending_bp) 
+		      {
+			bpt->next = b;
+			b->next = pending_bp->next;
+			break;
+		      }
+		  }
+	      }
+	    b->number = pending_bp->number;
+	  }
 	else
 	  {
 	    set_breakpoint_count (breakpoint_count + 1);
@@ -5483,11 +5537,34 @@ create_breakpoints (struct symtabs_and_lines sals, char **addr_string,
 	    char *arg;
 	    if (pending_bp->cond_string)
 	      {
+		/* APPLE LOCAL: I am turning the error's from parsing the expression,
+		   and the "junk at end of expression" case into warnings.  That
+		   will mean that we will allow the breakpoint and just ignore
+		   the condition.  If we error when resolving a pending breakpoint
+		   we aren't in a good state to figure out what happened above us,
+		   and for instance sometimes we think the breakpoint resolution
+		   failed, and shlib_disable the breakpoint, which is undesirable.  */
+		int parse_succeeded;
 		arg = pending_bp->cond_string;
 		b->cond_string = savestring (arg, strlen (arg));
-		b->cond = parse_exp_1 (&arg, block_for_pc (b->loc->address), 0);
-		if (*arg)
-		  error ("Junk at end of pending breakpoint condition expression");
+		parse_succeeded = gdb_parse_exp_1 (&arg, block_for_pc (b->loc->address), 0, &b->cond);
+		if (!parse_succeeded || *arg)
+		  {
+		    /* If the error handlers did their job they should
+		       have freed the cond before throwing an error, but
+		       just in case somebody messed up below us, we will 
+		       clean up here.  */
+		    if (b->cond != NULL)
+		      {
+			xfree (b->cond);
+			b->cond = NULL;
+		      }
+		    if (!parse_succeeded)
+		      warning ("Error parsing breakpoint condition expression");
+		    else if (*arg)
+		      warning ("Junk at end of pending breakpoint condition expression");
+		  }
+		/* END APPLE LOCAL */
 	      }
 	    /* If there are commands associated with the breakpoint, they should 
 	       be copied too.  */
@@ -8792,10 +8869,7 @@ do_enable_breakpoint (struct breakpoint *bpt, enum bpdisp disposition)
 	     after the breakpoint was disabled.  */
 	  breakpoints_changed ();
  	  if (resolve_pending_breakpoint (bpt) == GDB_RC_OK)
-	    {
-	      delete_breakpoint (bpt);
 	      return;
-	    }
 	  bpt->enable_state = bp_enabled;
 	  bpt->disposition = disposition;
 	}
@@ -9273,43 +9347,40 @@ tell_breakpoints_objfile_changed (struct objfile *objfile)
     {
       ALL_BREAKPOINTS_SAFE (b, tmp)
 	{
-	  if (b->bp_set_state != bp_state_unset)
+	  if (b->bp_objfile != NULL)
+	    {
+	      if (b->bp_objfile == objfile)
+		{
+		  /* Resetting these catch & throw breakpoints through
+		     the normal means works poorly.  That's hard to fix
+		     so better to just delete them & let create_exception_catchpoints
+		     recreate them correctly.  
+		     FIXME: This will probably not work right with the HP style
+		     catchpoints, but I will cross that bridge when this code
+		     makes it into the FSF gdb...  */
+		  if (b->type == bp_gnu_v3_catch_throw ||
+		      b->type == bp_gnu_v3_catch_catch)
+		    {
+		      delete_breakpoint (b);
+		    }
+		  else
+		    {
+		      b->bp_set_state = bp_state_unset;
+		      b->bp_objfile = NULL;
+		    }
+		}
+	    }
+	  else if (b->bp_set_state != bp_state_unset)
 	    {
 	      struct obj_section *osect;
 	      
-	      if (b->bp_objfile != NULL)
+	      ALL_OBJFILE_OSECTIONS (objfile, osect)
 		{
-		  if (b->bp_objfile == objfile)
+		  if ((osect->addr < b->loc->address) 
+		      && (b->loc->address < osect->endaddr))
 		    {
-		      /* Resetting these catch & throw breakpoints through
-			 the normal means works poorly.  That's hard to fix
-			 so better to just delete them & let create_exception_catchpoints
-			 recreate them correctly.  
-		         FIXME: This will probably not work right with the HP style
-		         catchpoints, but I will cross that bridge when this code
-		         makes it into the FSF gdb...  */
-		      if (b->type == bp_gnu_v3_catch_throw ||
-			  b->type == bp_gnu_v3_catch_catch)
-			{
-			  delete_breakpoint (b);
-			}
-		      else
-			{
-			  b->bp_set_state = bp_state_unset;
-			  b->bp_objfile = NULL;
-			}
-		    }
-		}
-	      else
-		{
-		  ALL_OBJFILE_OSECTIONS (objfile, osect)
-		    {
-		      if ((osect->addr < b->loc->address) 
-			  && (b->loc->address < osect->endaddr))
-			{
-			  b->bp_set_state = bp_state_unset;
-			  break;
-			}
+		      b->bp_set_state = bp_state_unset;
+		      break;
 		    }
 		}
 	    }

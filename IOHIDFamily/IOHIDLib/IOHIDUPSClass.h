@@ -45,6 +45,7 @@ struct UPSHIDElement {
     double		multiplier;
     IOHIDElementType	type;
     IOHIDElementCookie	cookie;
+    IOReturn    lastReturn;
 };
 
 #define kIOHIDUnitVolt		0xf0d121

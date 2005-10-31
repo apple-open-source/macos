@@ -34,11 +34,28 @@ class IOUSBRootHubDevice : public IOUSBDevice
 
     UInt16 	configuration;
 
-    struct ExpansionData { /* */ };
-    ExpansionData * _expansionData;
+    struct ExpansionData { 
+		IOCommandGate		*_commandGate;
+	  };
+    ExpansionData *_expansionData;
 
 public:
+	// static methods
     static IOUSBRootHubDevice *NewRootHubDevice(void);
+    static IOReturn 		GatedDeviceRequest (OSObject *	owner, 
+												void *		arg0, 
+												void *		arg1, 
+												void *		arg2, 
+												void *		arg3 );
+    
+	// IOKit methods
+    virtual bool 	init();
+	virtual bool 	start( IOService * provider );
+    virtual void 	stop( IOService *provider );
+    virtual void	free();
+
+	// a non static but non-virtual function
+	IOReturn DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion);
     
     virtual IOReturn DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *completion = 0);
 

@@ -88,6 +88,8 @@ static char *i386_mmx_names[] =
 
 static const int i386_num_mmx_regs = ARRAY_SIZE (i386_mmx_names);
 
+struct type *builtin_type_vec128i_big = NULL;
+
 static int
 i386_mmx_regnum_p (struct gdbarch *gdbarch, int regnum)
 {
@@ -286,9 +288,9 @@ i386_breakpoint_from_pc (CORE_ADDR *pc, int *len)
 struct i386_frame_cache
 {
   /* Base address.  */
-  CORE_ADDR base;
+  CORE_ADDR base;      /* The frame base, usually the contents of the EBP */
   CORE_ADDR sp_offset;
-  CORE_ADDR pc;
+  CORE_ADDR pc;        /* APPLE LOCAL: This is the function's start address */
 
   /* Saved registers.  */
   CORE_ADDR saved_regs[I386_NUM_SAVED_REGS];
@@ -374,6 +376,20 @@ i386_follow_jump (CORE_ADDR pc)
 
   return pc + delta;
 }
+
+/* APPLE LOCAL:  FIXME, this function doesn't make any sense.  This
+   would assume a calling convention where CALL isn't used by the
+   caller.  The caller would have to push the saved EIP, then push
+   the pointer to memory where the struct is returned, and then do
+   a jmp to the called function.  Look at what this code is doing
+   -- the it must occur before the function prologue setup is done.
+   It's easier to see the relationship if you look at the pre-2003
+   version of this file in i386_get_frame_setup.
+
+   Oh, and gcc doesn't work like this on x86.  The pointer to the memory
+   location where the return structure is written is the last thing put
+   on the stack -- first the arguments, then the return address location,
+   then the saved EIP by the call instruction.   jmolenda/2005-04-12 */
 
 /* Check whether PC points at a prologue for a function returning a
    structure or union.  If so, it updates CACHE and returns the
@@ -471,99 +487,309 @@ i386_skip_probe (CORE_ADDR pc)
   return pc;
 }
 
-/* Check whether PC points at a code that sets up a new stack frame.
-   If so, it updates CACHE and returns the address of the first
-   instruction after the sequence that sets removes the "hidden"
-   argument from the stack or CURRENT_PC, whichever is smaller.
-   Otherwise, return PC.  */
+/* Maximum instruction length we need to handle (includes operands).  */
+/* APPLE LOCAL: 7 -- I use this array for an instruction that takes 7 bytes. */
+#define I386_MAX_INSN_LEN	7
 
-static CORE_ADDR
-i386_analyze_frame_setup (CORE_ADDR pc, CORE_ADDR current_pc,
-			  struct i386_frame_cache *cache)
+/* Instruction description.  */
+struct i386_insn
 {
-  unsigned char op;
-  int skip = 0;
+  size_t len;
+  unsigned char insn[I386_MAX_INSN_LEN];
+  unsigned char mask[I386_MAX_INSN_LEN];
+};
 
-  if (current_pc <= pc)
-    return current_pc;
+/* Search for the instruction at PC in the list SKIP_INSNS.  Return
+   the first instruction description that matches.  Otherwise, return
+   NULL.  */
+
+/* APPLE LOCAL: AVOID_PROLOGUE_INSNS is a hack to skip over the byte 
+   combination for push %ebp and mov %esp,%ebp while still allowing 
+   all the other push r32 and mov r32, r32 opcodes.  */
+
+static struct i386_insn *
+i386_match_insn (CORE_ADDR pc, struct i386_insn *skip_insns, 
+                 int avoid_prologue_insns)
+{
+  struct i386_insn *insn;
+  unsigned char op;
 
   op = read_memory_unsigned_integer (pc, 1);
 
-  if (op == 0x55)		/* pushl %ebp */
+  if (avoid_prologue_insns && (op == 0x55 || op == 0x6a))
+    return NULL;
+
+  for (insn = skip_insns; insn->len > 0; insn++)
+    {
+      if ((op & insn->mask[0]) == insn->insn[0])
+	{
+	  unsigned char buf[I386_MAX_INSN_LEN - 1];
+	  size_t i;
+          int insn_matched;
+
+          /* APPLE LOCAL: We have some 1-byte opcodes we need to recognize.  */
+          if (insn->len == 1)
+            return insn;
+
+	  gdb_assert (insn->len > 1);
+	  gdb_assert (insn->len <= I386_MAX_INSN_LEN);
+
+	  read_memory (pc + 1, buf, insn->len - 1);
+
+          /* APPLE LOCAL: Don't match mov %esp, %ebp */
+          if (avoid_prologue_insns && insn->len == 2 
+              && (op == 0x89 && buf[0] == 0xe5))
+            continue;
+
+          insn_matched = 1;
+	  for (i = 1; i < insn->len; i++)
+	    {
+	      if ((buf[i - 1] & insn->mask[i]) != insn->insn[i])
+                {
+                  insn_matched = 0;
+		  break;
+                }
+	    }
+          /* APPLE LOCAL: In the FSF code this 'return insn' is in the
+             loop, which makes no sense - the code as it stands in the FSF
+             will never examine the 3rd byte of a 3+ byte opcode.  */
+          if (insn_matched)
+            return insn;
+	}
+    }
+
+  return NULL;
+}
+
+/* Some special instructions that might be migrated by GCC into the
+   part of the prologue that sets up the new stack frame.  Because the
+   stack frame hasn't been setup yet, no registers have been saved
+   yet, and only the scratch registers %eax, %ecx and %edx can be
+   touched.  */
+
+struct i386_insn i386_frame_setup_skip_insns[] =
+{
+  /* Check for `movb imm8, r' and `movl imm32, r'. 
+    
+     ??? Should we handle 16-bit operand-sizes here?  */
+
+  /* `movb imm8, %al' and `movb imm8, %ah' */
+  /* `movb imm8, %cl' and `movb imm8, %ch' */
+  { 2, { 0xb0, 0x00 }, { 0xfa, 0x00 } },
+  /* `movb imm8, %dl' and `movb imm8, %dh' */
+  { 2, { 0xb2, 0x00 }, { 0xfb, 0x00 } },
+  /* `movl imm32, %eax' and `movl imm32, %ecx' */
+  { 5, { 0xb8 }, { 0xfe } },
+  /* `movl imm32, %edx' */
+  { 5, { 0xba }, { 0xff } },
+
+  /* Check for `mov imm32, r32'.  Note that there is an alternative
+     encoding for `mov m32, %eax'.
+
+     ??? Should we handle SIB adressing here?
+     ??? Should we handle 16-bit operand-sizes here?  */
+
+  /* `movl m32, %eax' */
+  { 5, { 0xa1 }, { 0xff } },
+  /* `movl m32, %eax' and `movl m32, %ecx' */
+  { 6, { 0x89, 0x05 }, {0xff, 0xf7 } },
+  /* `movl m32, %edx' */
+  { 6, { 0x89, 0x15 }, {0xff, 0xff } },
+
+
+  /* APPLE LOCAL: "01 /r       ADD r/m32, r32" */
+  { 2, { 0x01, 0xd0 }, { 0xff, 0xd0 } },
+  /* APPLE LOCAL: "0F B6 /r    MOVZX r32, r/m8" (aka `movzbl %al, %eax') */
+  { 3, { 0x0f, 0xb6, 0xc0 }, { 0xff, 0xff, 0xc0 } },
+  /* APPLE LOCAL: "0F B7 /r    MOVZX r32, r/m16" (aka `movzwl r16, r32') */
+  { 3, { 0x0f, 0xb7, 0xc0 }, { 0xff, 0xff, 0xc0 } },
+  /* APPLE LOCAL: "25 id       AND EAX, imm32" */
+  { 5, { 0x25 }, { 0xff } },
+  /* APPLE LOCAL: "31 /r       XOR r/m32, r32" */
+  { 2, { 0x31, 0xc0 }, { 0xff, 0xc0 } },
+  /* APPLE LOCAL: "40+ rd      INC r32" */
+  { 1, { 0x40 }, { 0xf8 } },
+  /* APPLE LOCAL: "48+rw       DEC r32" */
+  { 1, { 0x48 }, { 0xf8 } },
+  /* APPLE LOCAL: "50+rd       PUSH r32" */
+  { 1, { 0x50 }, { 0xf8 } },
+  /* APPLE LOCAL: "58+ rd      POP r32" */
+  { 1, { 0x58 }, { 0xf8 } },
+  /* APPLE LOCAL: "B8+ rw      MOV r16, imm16" */
+  { 4, { 0x66, 0xb8 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "74 cb       JE rel8" */
+  { 2, { 0x74 }, { 0xff } },
+  /* APPLE LOCAL: "83 /7 ib    CMP r/m32, imm8" */
+  { 7, { 0x83, 0x3d }, { 0xff, 0xff } },
+  /* APPLE LOCAL: "83 /0 ib    ADD r/m32, imm8" */
+  { 3, { 0x83, 0xc0 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "83 /1 ib    OR r/m32, imm8" */
+  { 3, { 0x83, 0xc8 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "83 /4 ib    AND r/m32, imm8" */
+  { 3, { 0x83, 0xe0 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "83 /5 ib    SUB r/m32, imm8" */
+  { 3, { 0x83, 0xe8 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "83 /7 ib    CMP r/m32, imm8" */
+  { 3, { 0x83, 0xf8 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "85 /r       TEST r/m32, r32" */
+  { 2, { 0x85, 0xc0 }, { 0xff, 0xc0 } },
+  /* APPLE LOCAL: "89 /r       MOV r/m32, r32" */
+  { 2, { 0x89, 0xc0 }, { 0xff, 0xc0 } }, 
+  /* APPLE LOCAL: "8B /r       MOV r32, r/m32" */
+  { 6, { 0x8b, 0x80 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "90          NOP"  for Fix & Continue trampoline padding. */
+  { 1, { 0x90 }, { 0xff } },
+  /* APPLE LOCAL: "A9 id       TEST EAX, imm32" */
+  { 5, { 0xa9 }, { 0xff } },
+  /* APPLE LOCAL: "C1 /7 ib    SAR r/m32, imm8" */
+  { 3, { 0xc1, 0xf8 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "D9 EE       FLDZ" */
+  { 2, { 0xd9, 0xee }, { 0xff, 0xff } },
+  /* APPLE LOCAL: "E8 cd       CALL rel32" */
+  { 5, { 0xe8 }, { 0xff } },
+  /* APPLE LOCAL: "EB cb       JMP rel8" */
+  { 2, { 0xeb }, { 0xff } },
+  /* APPLE LOCAL: "F7 /6       DIV r/m32" */
+  { 2, { 0xf7, 0xf0 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "FC          CLD" */
+  { 1, { 0xfc }, { 0xff } },
+  /* APPLE LOCAL: "FF /6       PUSH r/m32" */
+  { 6, { 0xff, 0xb0 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "FF /4       JMP r/m32" */
+  { 2, { 0xff, 0xe0 }, { 0xff, 0xf8 } },
+
+
+  /* Check for `xorl r32, r32' and the equivalent `subl r32, r32'.
+     Because of the symmetry, there are actually two ways to encode
+     these instructions; opcode bytes 0x29 and 0x2b for `subl' and
+     opcode bytes 0x31 and 0x33 for `xorl'.  */
+
+  /* `subl %eax, %eax' */
+  { 2, { 0x29, 0xc0 }, { 0xfd, 0xff } },
+  /* `subl %ecx, %ecx' */
+  { 2, { 0x29, 0xc9 }, { 0xfd, 0xff } },
+  /* `subl %edx, %edx' */
+  { 2, { 0x29, 0xd2 }, { 0xfd, 0xff } },
+  /* `xorl %eax, %eax' */
+  { 2, { 0x31, 0xc0 }, { 0xfd, 0xff } },
+  /* `xorl %ecx, %ecx' */
+  { 2, { 0x31, 0xc9 }, { 0xfd, 0xff } },
+  /* `xorl %edx, %edx' */
+  { 2, { 0x31, 0xd2 }, { 0xfd, 0xff } },
+  { 0 }
+};
+
+/* Check whether PC points at a code that sets up a new stack frame.
+   If so, it updates CACHE and returns the address of the first
+   instruction after the sequence that sets up the frame or LIMIT,
+   whichever is smaller.  If we don't recognize the code, return PC.  */
+
+static CORE_ADDR
+i386_analyze_frame_setup (CORE_ADDR pc, CORE_ADDR limit,
+			  struct i386_frame_cache *cache)
+{
+  struct i386_insn *insn;
+  unsigned char op;
+  int skip = 0;
+
+  /* APPLE LOCAL: This function returns a CORE_ADDR which is the instruction
+     following the last frame-setup instruction we saw such that "frame-setup
+     instruction" is one of push %ebp, push $0x0, mov %esp, %ebp, 
+     sub $xxx, $esp, or enter.
+     Specifically, we may scan past some of these instructions but we don't
+     want to return the last address we scanned to -- we must return the 
+     address of the instruction after one of those frame setup insns so that
+     i386_analyze_register_saves () can look for register saves that may exist
+     after them.  
+     (and you can have register saves without any frame setup, e.g. in a 
+     frameless function.) 
+     I pedantically changed all returns to return end_of_frame_setup so it
+     is completely clear what is going on.  */
+ 
+  CORE_ADDR end_of_frame_setup = pc;
+
+  if (limit <= pc)
+    return limit;
+
+  /* APPLE LOCAL: Skip over non-prologue instructions until we hit
+       push %ebp [ 0x55 ]
+       push $0x0 [ 0x6a 0x00 ]
+     the latter instruction is the frame-setup insn in start ().  */
+
+  op = read_memory_unsigned_integer (pc + skip, 1);
+  while (op != 0x55 
+         && (op != 0x6a || read_memory_unsigned_integer (pc + skip + 1, 1) != 0)
+         && pc + skip <= limit)
+    {
+      insn = i386_match_insn (pc + skip, i386_frame_setup_skip_insns, 1);
+      if (insn)
+        {
+          skip += insn->len;
+          op = read_memory_unsigned_integer (pc + skip, 1);
+        }
+      else
+        break;
+    }
+  pc = pc + skip;
+  skip = 0;
+
+  /* APPLE LOCAL: If we're now at the limit, don't detect the push %ebp yet. */
+  if (limit <= pc)  
+    return end_of_frame_setup;
+
+  if (op == 0x55 || op == 0x6a)  /* pushl %ebp || push $0x0 */
     {
       /* Take into account that we've executed the `pushl %ebp' that
 	 starts this instruction sequence.  */
       cache->saved_regs[I386_EBP_REGNUM] = 0;
       cache->sp_offset += 4;
+      /* APPLE LOCAL: Skip imm8 operand if we're on `push $0x0' [0x6a 0x00]. */
+      if (op == 0x6a)
+        pc += 2;
+      else
+        pc++;
+      end_of_frame_setup = pc;
 
       /* If that's all, return now.  */
-      if (current_pc <= pc + 1)
-	return current_pc;
+      if (limit <= pc)
+	return end_of_frame_setup;
 
-      op = read_memory_unsigned_integer (pc + 1, 1);
-
-      /* Check for some special instructions that might be migrated
-	 by GCC into the prologue.  We check for
-
-	    xorl %ebx, %ebx
-	    xorl %ecx, %ecx
-	    xorl %edx, %edx
-	    xorl %eax, %eax
-
-	 and the equivalent
-
-	    subl %ebx, %ebx
-	    subl %ecx, %ecx
-	    subl %edx, %edx
-	    subl %eax, %eax
-
-	 Because of the symmetry, there are actually two ways to
-	 encode these instructions; with opcode bytes 0x29 and 0x2b
-	 for `subl' and opcode bytes 0x31 and 0x33 for `xorl'.
-	
-	We also check for
-	
-	    movl $XXX, reg
+      /* Check for some special instructions that might be migrated by
+	 GCC into the prologue and skip them.  At this point in the
+	 prologue, code should only touch the scratch registers %eax,
+	 %ecx and %edx, so while the number of posibilities is sheer,
+	 it is limited.
 
 	 Make sure we only skip these instructions if we later see the
 	 `movl %esp, %ebp' that actually sets up the frame.  */
-      while (op == 0x29 || op == 0x2b || op == 0x31 || op == 0x33 || op == 0xba)
+      while (pc + skip < limit)
 	{
-	  switch (op)
-	    {
-	    case 0xba:
-	      skip += 5;
-	      break;
-	    default:
-	      op = read_memory_unsigned_integer (pc + skip + 2, 1);
-	      switch (op)
-		{
-		case 0xdb:      /* %ebx */
-		case 0xc9:      /* %ecx */
-		case 0xd2:      /* %edx */
-		case 0xc0:      /* %eax */
-		  skip += 2;
-		  break;
-		default:
-		  return pc + 1;
-		}
-	    }
-	  op = read_memory_unsigned_integer (pc + skip + 1, 1);
+	  insn = i386_match_insn (pc + skip, i386_frame_setup_skip_insns, 1);
+	  if (insn == NULL)
+	    break;
+
+	  skip += insn->len;
 	}
+
+      /* If that's all, return now.  */
+      if (limit <= pc + skip)
+	return end_of_frame_setup;
+
+      op = read_memory_unsigned_integer (pc + skip, 1);
 
       /* Check for `movl %esp, %ebp' -- can be written in two ways.  */
       switch (op)
 	{
 	case 0x8b:
-	  if (read_memory_unsigned_integer (pc + skip + 2, 1) != 0xec)
-	    return pc + 1;
+	  if (read_memory_unsigned_integer (pc + skip + 1, 1) != 0xec)
+	    return end_of_frame_setup;
 	  break;
 	case 0x89:
-	  if (read_memory_unsigned_integer (pc + skip + 2, 1) != 0xe5)
-	    return pc + 1;
+	  if (read_memory_unsigned_integer (pc + skip + 1, 1) != 0xe5)
+	    return end_of_frame_setup;
 	  break;
 	default:
-	  return pc + 1;
+	  return end_of_frame_setup;
 	}
 
       /* OK, we actually have a frame.  We just don't know how large
@@ -571,55 +797,298 @@ i386_analyze_frame_setup (CORE_ADDR pc, CORE_ADDR current_pc,
 	 necessary.  We also now commit to skipping the special
 	 instructions mentioned before.  */
       cache->locals = 0;
-      pc += skip;
+      pc += (skip + 2);
+      end_of_frame_setup = pc;
 
       /* If that's all, return now.  */
-      if (current_pc <= pc + 3)
-	return current_pc;
+      if (limit <= pc)
+	return end_of_frame_setup;
 
       /* Check for stack adjustment 
 
 	    subl $XXX, %esp
 
-	 NOTE: You can't subtract a 16 bit immediate from a 32 bit
+	 NOTE: You can't subtract a 16-bit immediate from a 32-bit
 	 reg, so we don't have to worry about a data16 prefix.  */
-      op = read_memory_unsigned_integer (pc + 3, 1);
+      op = read_memory_unsigned_integer (pc, 1);
       if (op == 0x83)
 	{
-	  /* `subl' with 8 bit immediate.  */
-	  if (read_memory_unsigned_integer (pc + 4, 1) != 0xec)
+	  /* `subl' with 8-bit immediate.  */
+	  if (read_memory_unsigned_integer (pc + 1, 1) != 0xec)
 	    /* Some instruction starting with 0x83 other than `subl'.  */
-	    return pc + 3;
+	    return pc;
 
-	  /* `subl' with signed byte immediate (though it wouldn't make
-	     sense to be negative).  */
-	  cache->locals = read_memory_integer (pc + 5, 1);
-	  return pc + 6;
+	  /* `subl' with signed 8-bit immediate (though it wouldn't
+	     make sense to be negative).  */
+	  cache->locals = read_memory_integer (pc + 2, 1);
+          end_of_frame_setup = pc + 3;
+	  return end_of_frame_setup;
 	}
       else if (op == 0x81)
 	{
-	  /* Maybe it is `subl' with a 32 bit immedediate.  */
-	  if (read_memory_unsigned_integer (pc + 4, 1) != 0xec)
+	  /* Maybe it is `subl' with a 32-bit immediate.  */
+	  if (read_memory_unsigned_integer (pc + 1, 1) != 0xec)
 	    /* Some instruction starting with 0x81 other than `subl'.  */
-	    return pc + 3;
+	    return end_of_frame_setup;
 
-	  /* It is `subl' with a 32 bit immediate.  */
-	  cache->locals = read_memory_integer (pc + 5, 4);
-	  return pc + 9;
+	  /* It is `subl' with a 32-bit immediate.  */
+	  cache->locals = read_memory_integer (pc + 2, 4);
+          end_of_frame_setup = pc + 6;
+	  return end_of_frame_setup;
 	}
       else
 	{
 	  /* Some instruction other than `subl'.  */
-	  return pc + 3;
+	  return end_of_frame_setup;
 	}
     }
-  else if (op == 0xc8)		/* enter $XXX */
+  else if (op == 0xc8)		/* enter */
     {
       cache->locals = read_memory_unsigned_integer (pc + 1, 2);
-      return pc + 4;
+      end_of_frame_setup = pc + 4;
+      return end_of_frame_setup;
     }
 
-  return pc;
+  return end_of_frame_setup;
+}
+
+/* APPLE LOCAL: Instructions we're expecting to find in a prologue,
+   so we can skip over these and get to the PIC base setup instruction,
+   if it is done in this function.  */
+
+struct i386_insn i386_frame_setup_insns[] =
+{
+  /* Check for `push r' for any of the registers.  */
+  { 1, { 0x50 }, { 0xf8 } },
+  /* Check for `mov %esp,%ebp'.  */
+  { 2, { 0x89, 0xe5 }, { 0xff, 0xff } },
+  { 2, { 0x8b, 0xec }, { 0xff, 0xff } },
+  /* Check for `sub imm8, %esp'.  */
+  { 3, { 0x83, 0xec }, { 0xff, 0xff } },
+  /* Check for `sub imm32, %esp'.  */
+  { 6, { 0x81, 0xec }, { 0xff, 0xff } },
+  /* Check for `enter imm16, imm8'.  */
+  { 4, { 0xc8 }, { 0xff} },
+
+  { 0 }
+};
+
+/* APPLE LOCAL: Needed by Fix and Continue
+   Returns 1 if it found a pic base being set up, 0 if it did not. 
+   If PICBASE_ADDR is non-NULL, it will be set to the value of the 
+   picbase in this function.  If PICBASE_REG is non-NULL, it will 
+   be set to the register that contains the pic base. */
+
+int
+i386_find_picbase_setup (CORE_ADDR pc, CORE_ADDR *picbase_addr, 
+                         enum i386_regnum *picbase_reg)
+{
+  int limit = 32;  /* number made up by me; 32 bytes is enough for a prologue */
+  int skip = 0;
+  struct i386_insn *insn;
+  unsigned char op;
+
+  if (picbase_addr != NULL)
+    *picbase_addr = -1;
+  op = 0;
+
+  while (skip < limit)
+    {
+      insn = i386_match_insn (pc + skip, i386_frame_setup_insns, 0);
+      if (insn)
+        {
+          skip += insn->len;
+          continue;
+        }
+      insn = i386_match_insn (pc + skip, i386_frame_setup_skip_insns, 1);
+      if (insn)
+        {
+          /* Found a call rel32?  That's our picbase setup -- stop scanning.  */
+          if (insn->insn[0] == 0xe8 && insn->len == 5)
+            {
+              op = 0xe8;
+              break;
+            }
+          skip += insn->len;
+          continue;
+        }
+
+      /* It's not a prologue instruction, and it's not an instruction
+         that commonly gets scheduled into a prologue.  If it's not
+         the CALL instruction we're looking for, give up. */
+
+      /* Check for `call rel32', which may be our picbase setup.  */
+      op = read_memory_unsigned_integer (pc + skip, 1);
+      if (op == 0xe8)
+        break;
+      else
+        return 0;
+    }
+
+  /* We've hit our limit without finding a `call rel32' or we've hit
+     some unexpected instruction.  Give up the search.  */
+  if (op != 0xe8)
+    return 0;
+
+  /* pc + skip is now pointing at the start of a `call rel32' instruction
+     which may be setting up the picbase. */
+
+  uint32_t rel32 = read_memory_unsigned_integer (pc + skip + 1, 4);
+  uint32_t offset_from = pc + skip + 5;
+  struct minimal_symbol *dest;
+
+  /* Old-style picbase setup, jumping to the next instruction and popping
+     the value into the picbase reg.  */
+  if (rel32 == 0x0)
+    {
+      /* Check for `pop r' (opcode 0x58 + rd). */
+      op = read_memory_unsigned_integer (offset_from, 1);
+      if ((op & 0xf8) != 0x58)
+        return 0;
+
+      if (picbase_addr != NULL)
+        *picbase_addr = offset_from;
+      if (picbase_reg != NULL)
+        *picbase_reg = (enum i386_regnum) op | 0x7;
+      return 1;
+    }
+
+  dest = lookup_minimal_symbol_by_pc ((uint32_t) rel32 + offset_from);
+  if (dest == NULL || SYMBOL_LINKAGE_NAME (dest) == NULL)
+    return 0;
+
+  /* We're looking for a call to one of the __i686.get_pc_thunk.ax functions,
+     where "ax" indicates the addr will be in EAX.  These also are emitted for
+     EBX, ECX, and who knows, maybe even EDX.  */
+
+  /* NB: I originally wrote this with a single strcmp and a little character
+     peeking but this is not (currently) a performance-sensitive function and
+     checking for each variant is easier to read. */
+
+  if (strcmp (SYMBOL_LINKAGE_NAME (dest), "__i686.get_pc_thunk.ax") == 0)
+    {
+      if (picbase_addr != NULL)
+        *picbase_addr = offset_from;
+      if (picbase_reg != NULL)
+        *picbase_reg = I386_EAX_REGNUM;
+      return 1;
+    }
+  if (strcmp (SYMBOL_LINKAGE_NAME (dest), "__i686.get_pc_thunk.bx") == 0)
+    {
+      if (picbase_addr != NULL)
+        *picbase_addr = offset_from;
+      if (picbase_reg != NULL)
+        *picbase_reg = I386_EBX_REGNUM;
+      return 1;
+    }
+  if (strcmp (SYMBOL_LINKAGE_NAME (dest), "__i686.get_pc_thunk.cx") == 0)
+    {
+      if (picbase_addr != NULL)
+        *picbase_addr = offset_from;
+      if (picbase_reg != NULL)
+        *picbase_reg = I386_ECX_REGNUM;
+      return 1;
+    }
+  if (strcmp (SYMBOL_LINKAGE_NAME (dest), "__i686.get_pc_thunk.dx") == 0)
+    {
+      if (picbase_addr != NULL)
+        *picbase_addr = offset_from;
+      if (picbase_reg != NULL)
+        *picbase_reg = I386_EDX_REGNUM;
+      return 1;
+    }
+
+  /* Nope, it must have been a CALL to something else; give up. */
+  return 0;  
+}
+
+/* APPLE LOCAL: Find adjustments of the ESP so we can locate the
+   caller's saved EIP and backtrace out of a frameless function. 
+   PC is the start of the function.  CURRENT_PC is the current
+   instruction, or the last instruction of the function to limit this
+   search.  
+   Returns a signed offset of how much the ESP has moved since the
+   start of the function.  The return value should be a negative number
+   or 0.  */
+
+static int
+i386_find_esp_adjustments (CORE_ADDR pc, CORE_ADDR current_pc)
+{
+  unsigned char op, next_op;
+  int esp_change = 0;
+  struct i386_insn *insn;
+
+  if (pc == current_pc)
+    return esp_change;
+  
+  /* We're looking for PUSH r32, POP r32, SUB $x,ESP, ADD $x ESP. */
+ 
+  while (pc < current_pc)
+    {
+      op = read_memory_unsigned_integer (pc, 1);
+      next_op = read_memory_unsigned_integer (pc + 1, 1);
+      
+      /* `push %ebp'?  We shouldn't see that in here; give up. */
+      if (op == 0x55)
+        return esp_change;
+      /* `ret'? We're at the end of the func; stop parsing. */
+      if (op == 0xc3)
+        return esp_change;
+
+      /* 50+rd       PUSH r32 */
+      if ((op & 0xf8) == 0x50)
+        {
+          esp_change -= 4;
+          pc += 1;
+          continue;
+        }
+      /* 58+ rd      POP r32 */
+      if ((op & 0xf8) == 0x58)
+        {
+          esp_change += 4;
+          pc += 1;
+          continue;
+        }
+      /* 83 /5 ib    SUB r/m32, imm8 */
+      if (op == 0x83 && next_op == 0xec)
+        {
+          uint8_t imm8 = read_memory_integer (pc + 2, 1);
+          esp_change -= imm8;
+          pc += 3;
+          continue;
+        }
+      /* 81 /5 id    SUB r/m32, imm32 */
+      if (op == 0x81 && next_op == 0xec)
+        {
+          uint32_t imm32 = read_memory_integer (pc + 2, 4);
+          esp_change -= imm32;
+          pc += 6;
+          continue;
+        }
+      /* 83 /0 ib    ADD r/m32, imm8 */
+      if (op == 0x83 && next_op == 0xc4)
+        {
+          uint8_t imm8 = read_memory_integer (pc + 2, 1);
+          esp_change += imm8;
+          pc += 3;
+          continue;
+        }
+      /* 81 /0 id    ADD r/m32, imm8 */
+      if (op == 0x81 && next_op == 0xc4)
+        {
+          uint32_t imm32 = read_memory_integer (pc + 2, 4);
+          esp_change += imm32;
+          pc += 6;
+          continue;
+        }
+
+      insn = i386_match_insn (pc, i386_frame_setup_skip_insns, 1);
+      if (insn)
+        pc += insn->len;
+      else
+        return esp_change;  /* Hit an instruction we don't know; stop here. */
+    }
+  return esp_change;
 }
 
 /* Check whether PC points at code that saves registers on the stack.
@@ -847,7 +1316,29 @@ i386_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
 }
 
 
-/* Normal frames.  */
+/* Normal frames.
+   APPLE LOCAL: This function must handle the following possible function types:
+
+   0.  We're in a function we cannot know anything about - we have no 
+       symbol for it; we can't find the start address.
+
+   1.  The function is frameless.
+     a. The ESP hasn't reached its Final Resting Place for the body of
+        the function yet.
+     b. We've finished the prologue (wherein we move the ESP - SUBs to
+        make space for local storage, PUSHes to preserve saved regs.)
+
+   2.  The function sets up a frame and
+     a. We haven't executed any prologue instructions.
+     b. We've executed the initial push %ebp (this one is critical).
+     c. We've executed the mov %esp, %ebp
+     d. We've completed the entire prologue.
+     e. We're in the middle of a function which has a prologue, 
+        but we can't parse it (we hit an unknown instruction mid-prologue).
+
+   When reading i386_frame_cache, keep these three function types in mind
+   and the different stages for #1 and #2 - the behavior of this function
+   differs greatly depending on where you are.  */
 
 static struct i386_frame_cache *
 i386_frame_cache (struct frame_info *next_frame, void **this_cache)
@@ -855,6 +1346,31 @@ i386_frame_cache (struct frame_info *next_frame, void **this_cache)
   struct i386_frame_cache *cache;
   char buf[4];
   int i;
+  int potentially_frameless;
+  CORE_ADDR prologue_parsed_to = 0;
+  CORE_ADDR current_pc;
+
+  /* APPLE LOCAL:  If the frame we're examining is frame #0, we could 
+     be frameless.  Or if NEXT_FRAME is _sigtramp(), then we could be 
+     frameless.
+
+      Explanation:  If a frameless function is executing when a
+      signal is caught, the frameless function will have _sigtramp()
+      as its next_frame, followed by whatever signal handler is defined.
+      This is not as rare as you'd think, at least in a testsuite:
+      sleep() calls nanosleep() which calls mach_wait_until() which is
+      frameless.  If an alarm(1) is done before that sequence, you'll
+      get a frameless function in the middle of the stack.  
+
+     If potentially_frameless == 0, there's no way the function we're
+     examining is frameless; it has a stack frame set up with 
+     the saved-EBP/saved-EIP at the standard locations.  
+     (not entirely true -- if gcc's -fomit-frame-pointer is used you can
+     have a function that doesn't ever set up the EBP, but calls other
+     functions.  Handling that situation correctly is not easy.)  */
+
+  potentially_frameless = frame_relative_level (next_frame) == -1 
+                       || get_frame_type (next_frame) == SIGTRAMP_FRAME;
 
   if (*this_cache)
     return *this_cache;
@@ -862,36 +1378,67 @@ i386_frame_cache (struct frame_info *next_frame, void **this_cache)
   cache = i386_alloc_frame_cache ();
   *this_cache = cache;
 
-  /* In principle, for normal frames, %ebp holds the frame pointer,
-     which holds the base address for the current stack frame.
-     However, for functions that don't need it, the frame pointer is
-     optional.  For these "frameless" functions the frame pointer is
-     actually the frame pointer of the calling frame.  Signal
-     trampolines are just a special case of a "frameless" function.
-     They (usually) share their frame pointer with the frame that was
-     in progress when the signal occurred.  */
+  /* For normal frames, saved-%eip is stored at 4(%ebp). */
+  cache->saved_regs[I386_EIP_REGNUM] = 4;
+
+  /* For normal frames, saved-%ebp is stored at 0(%ebp). */
+  cache->saved_regs[I386_EBP_REGNUM] = 0;
 
   frame_unwind_register (next_frame, I386_EBP_REGNUM, buf);
   cache->base = extract_unsigned_integer (buf, 4);
   if (cache->base == 0)
     return cache;
 
-  /* For normal frames, %eip is stored at 4(%ebp).  */
-  cache->saved_regs[I386_EIP_REGNUM] = 4;
-
   cache->pc = frame_func_unwind (next_frame);
-  if (cache->pc != 0)
-    i386_analyze_prologue (cache->pc, frame_pc_unwind (next_frame), cache);
+  current_pc = frame_pc_unwind (next_frame);
 
-  if (cache->locals < 0)
+  /* Only do i386_analyze_prologue () if we found a debug symbol pointing to
+     the actual start of the function.  */
+  if (cache->pc != 0)
+    prologue_parsed_to = i386_analyze_prologue (cache->pc, current_pc, cache);
+
+  /* The prologue parser didn't find any prologue instructions.
+     And our current function has the potential to be frameless.  
+     Let's go frameless.  Assume EBP is unused, or not yet used.
+
+     We'll put ESP in the cache->base instead of EBP; for genuinely
+     frameless (e.g. -momit-leaf-frame-pointer) functions, the
+     the debug info for function args will be relative to ESP once its 
+     setup/adjustements in the prologue are complete, so cache->base has
+     to hold the stack pointer if we're to find them. */
+
+  if ((cache->pc != 0 || current_pc == 0)
+      /* We found a function-start address, or $pc is at 0x0 (someone jump thru a NULL ptr).  */
+      && prologue_parsed_to == cache->pc
+      /* The prologue parser didn't find any prologue instructions.  */
+      && potentially_frameless)
+      /* We have the potential to be frameless.  */
     {
-      /* We didn't find a valid frame, which means that CACHE->base
-	 currently holds the frame pointer for our calling frame.  If
-	 we're at the start of a function, or somewhere half-way its
-	 prologue, the function's frame probably hasn't been fully
-	 setup yet.  Try to reconstruct the base address for the stack
-	 frame by looking at the stack pointer.  For truly "frameless"
-	 functions this might work too.  */
+      int esp_offset;
+      CORE_ADDR actual_frame_base;
+      esp_offset = i386_find_esp_adjustments (cache->pc, current_pc);
+      frame_unwind_register (next_frame, I386_ESP_REGNUM, buf);
+      actual_frame_base = extract_unsigned_integer (buf, 4) - esp_offset;
+      cache->base = extract_unsigned_integer (buf, 4);
+      cache->saved_sp = actual_frame_base + 4;
+      cache->saved_regs[I386_EBP_REGNUM] = -1;
+      cache->saved_regs[I386_EIP_REGNUM] = 0;
+      /* NB: There's a good chance we didn't record register saves a la
+         i386_analyze_register_saves.  It'd be nice to fix this.   
+         For now we'll say "Debugging optimized code is an adventure!"
+         jmolenda/2005-04-27 */
+
+      for (i = 0; i < I386_NUM_SAVED_REGS; i++)
+        if (cache->saved_regs[i] != -1)
+          cache->saved_regs[i] += actual_frame_base;
+      return cache;
+    }
+
+  if (cache->locals < 0 && potentially_frameless)
+    {
+      /* We've seen PART of a frame setup, but not the whole deal.
+         We've probably executed just the `push %ebp'.
+	 Right now, ESP has our real frame base address in it.  */
 
       frame_unwind_register (next_frame, I386_ESP_REGNUM, buf);
       cache->base = extract_unsigned_integer (buf, 4) + cache->sp_offset;
@@ -918,7 +1465,23 @@ i386_frame_this_id (struct frame_info *next_frame, void **this_cache,
 
   /* This marks the outermost frame.  */
   if (cache->base == 0)
-    return;
+    {
+      *this_id = null_frame_id;
+      return;
+    }
+  else
+    {
+      ULONGEST prev_frame_addr = 0;
+      if (safe_read_memory_unsigned_integer
+          (cache->base, TARGET_PTR_BIT / 8, &prev_frame_addr))
+        {
+	  if (prev_frame_addr == 0)
+	    {
+	      *this_id = null_frame_id;
+	      return;
+	    }
+        }
+    }
 
   /* See the end of i386_push_dummy_call.  */
   (*this_id) = frame_id_build (cache->base + 8, cache->pc);
@@ -1441,6 +2004,68 @@ i386_return_value (struct gdbarch *gdbarch, struct type *type,
 }
 
 
+static struct type *
+init_vector_type (struct type *elt_type, int n)
+{
+  struct type *array_type;
+ 
+  array_type = create_array_type (0, elt_type,
+				  create_range_type (0, builtin_type_int,
+						     0, n-1));
+  TYPE_FLAGS (array_type) |= TYPE_FLAG_VECTOR;
+  return array_type;
+}
+
+static struct type *
+build_builtin_type_vec128i_big (void)
+{
+  /* 128-bit Intel SIMD registers */
+  struct type *t;
+
+  struct type *int16_big;
+  struct type *int32_big;
+  struct type *int64_big;
+  struct type *uint128_big;
+
+  struct type *v4_float_big;
+  struct type *v2_double_big;
+
+  struct type *v16_int8_big;
+  struct type *v8_int16_big;
+  struct type *v4_int32_big;
+  struct type *v2_int64_big;
+
+  int16_big = init_type (TYPE_CODE_INT, 16 / 8, 0, "int16_t", (struct objfile *) NULL);
+  TYPE_BYTE_ORDER (int16_big) = BFD_ENDIAN_BIG;
+  int32_big = init_type (TYPE_CODE_INT, 32 / 8, 0, "int32_t", (struct objfile *) NULL);
+  TYPE_BYTE_ORDER (int32_big) = BFD_ENDIAN_BIG;
+  int64_big = init_type (TYPE_CODE_INT, 64 / 8, 0, "int64_t", (struct objfile *) NULL);
+  TYPE_BYTE_ORDER (int64_big) = BFD_ENDIAN_BIG;
+  uint128_big = init_type (TYPE_CODE_INT, 128 / 8, TYPE_FLAG_UNSIGNED, "uint128_t", (struct objfile *) NULL);
+  TYPE_BYTE_ORDER (uint128_big) = BFD_ENDIAN_BIG;
+
+  v4_float_big = init_vector_type (builtin_type_ieee_single_big, 4);
+  v2_double_big = init_vector_type (builtin_type_ieee_double_big, 2);
+
+  v2_int64_big = init_vector_type (int64_big, 2);
+  v4_int32_big = init_vector_type (int32_big, 4);
+  v8_int16_big = init_vector_type (int16_big, 8);
+  v16_int8_big = init_vector_type (builtin_type_int8, 16);
+
+  t = init_composite_type ("__gdb_builtin_type_vec128i_big", TYPE_CODE_UNION);
+  append_composite_type_field (t, "v4_float", v4_float_big);
+  append_composite_type_field (t, "v2_double", v2_double_big);
+  append_composite_type_field (t, "v16_int8", v16_int8_big);
+  append_composite_type_field (t, "v8_int16", v8_int16_big);
+  append_composite_type_field (t, "v4_int32", v4_int32_big);
+  append_composite_type_field (t, "v2_int64", v2_int64_big);
+  append_composite_type_field (t, "uint128", uint128_big);
+
+  TYPE_FLAGS (t) |= TYPE_FLAG_VECTOR;
+  TYPE_NAME (t) = "builtin_type_vec128i_big";
+  return t;
+}
+
 /* Return the GDB type object for the "standard" data type of data in
    register REGNUM.  Perhaps %esi and %edi should go here, but
    potentially they could be used for things other than address.  */
@@ -1456,7 +2081,7 @@ i386_register_type (struct gdbarch *gdbarch, int regnum)
     return builtin_type_i387_ext;
 
   if (i386_sse_regnum_p (gdbarch, regnum))
-    return builtin_type_vec128i;
+    return builtin_type_vec128i_big;
 
   if (i386_mmx_regnum_p (gdbarch, regnum))
     return builtin_type_vec64i;
@@ -2152,6 +2777,104 @@ i386_nlm_osabi_sniffer (bfd *abfd)
   return GDB_OSABI_NETWARE;
 }
 
+/* APPLE LOCAL: a function for checking the prologue parser by hand. */
+
+static void
+maintenance_i386_prologue_parser (char *arg, int from_tty)
+{
+  char **argv;
+  CORE_ADDR start_address, end_address;
+  CORE_ADDR parsed_to;
+  int argc;
+  struct cleanup *cleanups;
+  struct i386_frame_cache *cache;
+  struct minimal_symbol *func;
+  int parse_failed = 0;
+
+  if (arg == NULL || arg[0] == '\0')
+    return;
+
+  argv = buildargv (arg);
+  if (argv == NULL)
+    return;
+  cleanups = make_cleanup_freeargv (argv);
+
+  for (argc = 0; argv[argc] != NULL && argv[argc][0] != '\0'; argc++)
+    ;
+
+  if (argc == 0)
+    {
+      do_cleanups (cleanups);
+      return;
+    }
+
+  start_address = parse_and_eval_address (argv[0]);
+  if (argc == 2)
+    end_address = strtoul (argv[1], NULL, 16);
+  else
+    end_address = start_address + 48; /* 48 bytes is enough for a prologue */
+
+  cache = i386_alloc_frame_cache ();
+
+  cache->saved_regs[I386_EBP_REGNUM] = -1;
+  cache->locals = -1;
+
+  parsed_to = i386_analyze_frame_setup (start_address, end_address + 1, cache);
+  
+  func = lookup_minimal_symbol_by_pc_section (start_address, NULL);
+  printf_filtered ("Analyzing the prologue of '%s' 0x%s.\n", 
+                   SYMBOL_LINKAGE_NAME (func), 
+                   paddr_nz (SYMBOL_VALUE_ADDRESS (func)));
+  if (func != lookup_minimal_symbol_by_pc_section (parsed_to, NULL))
+    {
+      printf_filtered ("Prologue scanner went to 0x%s (off the end of '%s')"
+                        " trying to\nfind a prologue.  %s is frameless?\n",
+                       paddr_nz (parsed_to),
+                       SYMBOL_LINKAGE_NAME (func), SYMBOL_LINKAGE_NAME (func));
+      parse_failed = 1;
+    }
+  else 
+    {
+      printf_filtered ("Prologue parser parsed to address 0x%s",
+                       paddr_nz (parsed_to));
+      if (parsed_to == end_address -1)
+        printf_filtered (" which is the entire length of the function\n");
+      else
+        {
+          printf_filtered (".\n");
+          if (cache->saved_regs[I386_EBP_REGNUM] == -1)
+            {
+              printf_filtered ("Didn't find push %%ebp and didn't parse the full range: prologue parse failed (frameless function?)\n");
+              parse_failed = 1;
+            }
+        }
+    }
+
+  printf_filtered ("\n");
+  if (cache->saved_regs[I386_EBP_REGNUM] == -1)
+    {
+      printf_filtered ("Did not find the push %%ebp\n");
+      parse_failed = 1;
+    }
+  else
+    printf_filtered ("Found push %%ebp\n");
+  if (cache->locals == -1)
+    {
+      printf_filtered ("Did not find mov %%esp, %%ebp\n");
+      parse_failed = 1;
+    }
+  if (cache->locals >= 0)
+    printf_filtered ("Found mov %%esp, %%ebp\n");
+  if (cache->locals > 0)
+      printf_filtered ("Found local storage setup\n");
+
+  if (parse_failed)
+    printf_filtered ("\nFAILED TO PARSE func %s startaddr 0x%s\n\n",
+                     SYMBOL_LINKAGE_NAME (func), paddr_nz (start_address));
+
+  do_cleanups (cleanups);
+}
+
 
 /* Provide a prototype to silence -Wmissing-prototypes.  */
 void _initialize_i386_tdep (void);
@@ -2160,6 +2883,8 @@ void
 _initialize_i386_tdep (void)
 {
   register_gdbarch_init (bfd_arch_i386, i386_gdbarch_init);
+
+  builtin_type_vec128i_big = build_builtin_type_vec128i_big ();
 
   /* Add the variable that controls the disassembly flavor.  */
   {
@@ -2188,6 +2913,15 @@ are \"default\", \"pcc\" and \"reg\", and the default value is \"default\".",
                                 &setlist);
     add_show_from_set (new_cmd, &showlist);
   }
+
+  /* APPLE LOCAL: maint i386-prologue-parser */
+  add_cmd ("i386-prologue-parser", class_maintenance, 
+           maintenance_i386_prologue_parser, 
+           "Run the i386 prologue analyzer on a function.\n"
+           "arg1 is start address of function\n"
+           "arg2 is optional end-address, defaulting to startaddr + 32 bytes.", 
+           &maintenancelist);
+
 
   gdbarch_register_osabi_sniffer (bfd_arch_i386, bfd_target_coff_flavour,
 				  i386_coff_osabi_sniffer);

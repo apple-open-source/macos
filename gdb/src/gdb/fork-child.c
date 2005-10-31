@@ -509,7 +509,7 @@ _initialize_fork_child (void)
 
   cmd = add_set_cmd ("exec-pathname", no_class, var_string,
 		    (char *) &exec_pathname,
-		    "Set the pathanme to be used to start the target executable.",
+		    "Set the pathname to be used to start the target executable.",
 		    &setlist);
   add_show_from_set (cmd, &showlist);
 

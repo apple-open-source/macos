@@ -193,15 +193,6 @@ void IOHIDDevice::free()
         _inputInterruptElementArray = 0;
     }
     
-    if ( _interfaceNub ) {
-    
-        _interfaceNub->stop(this);
-        _interfaceNub->detach(this);
-        
-        _interfaceNub->release();
-        _interfaceNub = 0;
-    }
-    
     if ( _reserved )
     {        
         IODelete( _reserved, ExpansionData, 1 );
@@ -210,6 +201,48 @@ void IOHIDDevice::free()
 
     return super::free();
 }
+
+static inline OSArray * CreateHierarchticalElementList(IOHIDElement * root)
+{
+    OSArray *       resultArray = 0;
+    OSArray *       subElements = 0;
+    OSArray *       elements    = 0;
+    IOHIDElement *  element     = 0;
+    IOItemCount     count;
+    
+    if ( !root ) return NULL;
+    
+    elements = root->getChildElements();
+    
+    if ( !elements ) return NULL;
+    
+    count = elements->getCount();
+    
+    resultArray = OSArray::withCapacity(count);
+    
+    if ( !resultArray ) return NULL;
+    
+    for ( UInt32 index=0; index < count; index++ )
+    {
+        element = OSDynamicCast(IOHIDElement, elements->getObject(index));
+        
+        if ( !element ) continue;
+        
+        resultArray->setObject(element);
+                
+        subElements = CreateHierarchticalElementList(element);
+        
+        if ( subElements )
+        {
+            resultArray->merge(subElements);
+            subElements->release();
+            subElements = 0;
+        }
+    }
+    
+    return resultArray;
+}
+
 
 //---------------------------------------------------------------------------
 // Start up the IOHIDDevice.
@@ -256,7 +289,11 @@ bool IOHIDDevice::start( IOService * provider )
     if ( ret != kIOReturnSuccess )
         return false;
 
-	_interfaceNub = IOHIDInterface::withElements( _elementArray );
+    OSArray * hierarchElements = CreateHierarchticalElementList((IOHIDElement *)_elementArray->getObject( 0 ));
+    
+	_interfaceNub = IOHIDInterface::withElements( hierarchElements );
+    
+    if ( hierarchElements ) hierarchElements->release();
 	
 	if ( _interfaceNub == NULL )
 		return false;
@@ -286,16 +323,30 @@ bool IOHIDDevice::start( IOService * provider )
     // *** END GAME DEVICE HACK ***
 
     // Publish ourself to the registry and trigger client matching.
-    registerService();
+    // Do it synchronously, so that the client initer has done its
+    // thing before the interface is registered.  This avoids a 
+    // nasty resource race condition.
 
-	if ((!(_interfaceNub)->attach(this) || 
-			!(_interfaceNub)->start(this))) 
-	{
-		(_interfaceNub)->release();
-		_interfaceNub = 0;
-		return false;
-	}
+    registerService(kIOServiceSynchronous);
+    
+    if ( _interfaceNub->attach(this) )
+    {
+        _interfaceNub->release();
 
+        if (!_interfaceNub->start(this))
+        {
+            _interfaceNub->detach(this);
+            _interfaceNub = NULL;
+            return false;
+        }
+    }
+    else 
+    {
+        _interfaceNub->release();
+        _interfaceNub = 0;
+        return false;
+    }
+    
     return true;
 }
 
@@ -324,15 +375,6 @@ void IOHIDDevice::stop(IOService * provider)
         _readyForInputReports = false;
         ELEMENT_UNLOCK;
     }
-    	
-    if ( _interfaceNub ) {
-    
-        _interfaceNub->stop(this);
-        _interfaceNub->detach(this);
-        
-        _interfaceNub->release();
-        _interfaceNub = 0;
-    }
 
     super::stop(provider);
 }
@@ -353,19 +395,27 @@ static bool CompareProperty( IOService * owner, OSDictionary * matching, const c
     // the property table, or if the prop isn't present
     //
     OSObject 	* value;
-    bool	matches;
+    OSObject    * property;
+    bool        matches = true;
     
     value = matching->getObject( key );
 
     if( value)
     {
-        matches = value->isEqualTo( owner->getProperty( key ));
+        property = owner->copyProperty( key );
         
-        if (matches && score) 
-            *score += increment;
+        if ( property )
+        {
+            matches = value->isEqualTo( property );
+            
+            if (matches && score) 
+                *score += increment;
+            
+            property->release();
+        }
+        else
+            matches = false;
     }
-    else
-        matches = true;
 
     return matches;
 }
@@ -384,36 +434,41 @@ static bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt
     
     usage = matching->getObject( kIOHIDDeviceUsageKey );
     usagePage = matching->getObject( kIOHIDDeviceUsagePageKey );
-    functions = OSDynamicCast(OSArray, owner->getProperty( kIOHIDDeviceUsagePairsKey ));
+    functions = OSDynamicCast(OSArray, owner->copyProperty( kIOHIDDeviceUsagePairsKey ));
     
-    if (functions && ( usagePage || usage ))
+    if ( functions )
     {
-        count = functions->getCount();
-        
-        for (int i=0; i<count; i++)
+        if ( usagePage || usage )
         {
-            if ( !(pair = (OSDictionary *)functions->getObject(i)) )
-                continue;
-        
-            if ( !usagePage || 
-                !(matches = usagePage->isEqualTo(pair->getObject(kIOHIDDeviceUsagePageKey))) )
-                continue;
-
-            if ( score && !usage ) 
+            count = functions->getCount();
+            
+            for (int i=0; i<count; i++)
             {
-                *score += increment / 2;
+                if ( !(pair = (OSDictionary *)functions->getObject(i)) )
+                    continue;
+            
+                if ( !usagePage || 
+                    !(matches = usagePage->isEqualTo(pair->getObject(kIOHIDDeviceUsagePageKey))) )
+                    continue;
+
+                if ( score && !usage ) 
+                {
+                    *score += increment / 2;
+                    break;
+                }
+                    
+                if ( !usage || 
+                    !(matches = usage->isEqualTo(pair->getObject(kIOHIDDeviceUsageKey))) )            
+                    continue;
+        
+                if ( score ) 
+                    *score += increment;
+                
                 break;
             }
-                
-            if ( !usage || 
-                !(matches = usage->isEqualTo(pair->getObject(kIOHIDDeviceUsageKey))) )            
-                continue;
-    
-            if ( score ) 
-                *score += increment;
-            
-            break;
         }
+        
+        functions->release();
     }
     
     return matches;
@@ -576,7 +631,7 @@ void IOHIDDevice::handleStop(IOService * provider)
 {
 }
 
-static inline bool ShouldPostDisplayActivityTickles(IOService *device, OSSet * clientSet)
+static inline bool ShouldPostDisplayActivityTickles(IOService *device, OSSet * clientSet, bool isSeized)
 {
     OSNumber *              primaryUsagePage;
 
@@ -594,7 +649,7 @@ static inline bool ShouldPostDisplayActivityTickles(IOService *device, OSSet * c
     OSObject *              object;
     bool                    returnValue = true;
 
-    if ( iterator = OSCollectionIterator::withCollection(clientSet) )
+    if ( !isSeized && (iterator = OSCollectionIterator::withCollection(clientSet)) )
     {
         while ( object = iterator->getNextObject() )
         {
@@ -656,7 +711,7 @@ bool IOHIDDevice::handleOpen(IOService *  client,
     }
     while (false);
 
-    _performTickle = (_seizedClient || ShouldPostDisplayActivityTickles(this, _clientSet));
+    _performTickle = ShouldPostDisplayActivityTickles(this, _clientSet, _seizedClient);
     
     // RY: Add a notification to get an instance of the Display
     // Manager.  This will allow us to tickle it upon receiveing
@@ -696,7 +751,7 @@ void IOHIDDevice::handleClose(IOService * client, IOOptionBits options)
                 pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)false);
         }
         
-        _performTickle = (_seizedClient || ShouldPostDisplayActivityTickles(this, _clientSet));
+        _performTickle = ShouldPostDisplayActivityTickles(this, _clientSet, _seizedClient);
     }
 }
 
@@ -1898,6 +1953,7 @@ IOReturn IOHIDDevice::handleReportWithTime(
     IOByteCount    segmentSize;
     IOReturn       ret = kIOReturnNotReady;
     bool           changed = false;
+    bool           shouldTickle = false;
 	UInt8          reportID = 0;
 
     // Only input reports are currently handled.
@@ -1943,6 +1999,7 @@ IOReturn IOHIDDevice::handleReportWithTime(
 
         while ( element )
         {
+            shouldTickle |= element->shouldTickleActivity();
             changed |= element->processReport( reportID,
                                     reportData,
                                     reportLength << 3,
@@ -1987,6 +2044,7 @@ IOReturn IOHIDDevice::handleReportWithTime(
     // event to prevent the system from sleeping.
     if (gDisplayManager 
         && changed 
+        && shouldTickle
         && _performTickle 
         && (CMP_ABSOLUTETIME(&timeStamp, &_eventDeadline) > 0))
     {		

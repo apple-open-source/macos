@@ -1,4 +1,3 @@
-/* APPLE LOCAL file put in 4.1 */
 /* { dg-do run { target powerpc*-*-darwin* powerpc*-*-aix* powerpc64-*-linux rs6000-*-* } } */
 /* { dg-options "-mlong-double-128" } */
 

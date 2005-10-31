@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -94,7 +94,6 @@ static bool gnat_post_options		(const char **);
 static HOST_WIDE_INT gnat_get_alias_set	(tree);
 static void gnat_print_decl		(FILE *, tree, int);
 static void gnat_print_type		(FILE *, tree, int);
-static int gnat_types_compatible_p	(tree, tree);
 static const char *gnat_printable_name	(tree, int);
 static tree gnat_eh_runtime_type	(tree);
 static int gnat_eh_type_covers		(tree, tree);
@@ -130,6 +129,8 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_PUSHDECL		lhd_return_tree
 #undef  LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL gnat_finish_incomplete_decl
+#undef	LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
+#define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef  LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
 #undef  LANG_HOOKS_EXPAND_EXPR
@@ -142,8 +143,6 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_PRINT_DECL		gnat_print_decl
 #undef  LANG_HOOKS_PRINT_TYPE
 #define LANG_HOOKS_PRINT_TYPE		gnat_print_type
-#undef  LANG_HOOKS_TYPES_COMPATIBLE_P
-#define LANG_HOOKS_TYPES_COMPATIBLE_P	gnat_types_compatible_p
 #undef  LANG_HOOKS_TYPE_MAX_SIZE
 #define LANG_HOOKS_TYPE_MAX_SIZE	gnat_type_max_size
 #undef  LANG_HOOKS_DECL_PRINTABLE_NAME
@@ -218,7 +217,7 @@ extern char **gnat_argv;
 
 
 /* Declare functions we use as part of startup.  */
-extern void __gnat_initialize	(void);
+extern void __gnat_initialize	(void *);
 extern void adainit		(void);
 extern void _ada_gnat1drv	(void);
 
@@ -228,7 +227,7 @@ static void
 gnat_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
   /* call the target specific initializations */
-  __gnat_initialize();
+  __gnat_initialize (NULL);
 
   /* Call the front-end elaboration procedures */
   adainit ();
@@ -290,13 +289,13 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argc++;
       break;
 
-    case OPT_fRTS:
+    case OPT_fRTS_:
       gnat_argv[gnat_argc] = xstrdup ("-fRTS");
       gnat_argc++;
       break;
 
     case OPT_gant:
-      warning ("`-gnat' misspelled as `-gant'");
+      warning ("%<-gnat%> misspelled as %<-gant%>");
 
       /* ... fall through ... */
 
@@ -323,11 +322,15 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
   return 1;
 }
 
+static bool tree_sra_requested = false;
+
 /* Initialize for option processing.  */
 
 static unsigned int
 gnat_init_options (unsigned int argc, const char **argv)
 {
+  int i;
+
   /* Initialize gnat_argv with save_argv size.  */
   gnat_argv = (char **) xmalloc ((argc + 1) * sizeof (argv[0]));
   gnat_argv[0] = xstrdup (argv[0]);     /* name of the command */
@@ -338,6 +341,16 @@ gnat_init_options (unsigned int argc, const char **argv)
 
   /* Uninitialized really means uninitialized in Ada.  */
   flag_zero_initialized_in_bss = 0;
+
+  /* Find last option mentioning Tree-SRA.  */
+  for (i = argc - 1; i > 0; i--)
+    if (strcmp(argv[i], "-ftree-sra") == 0)
+      {
+	tree_sra_requested = true;
+	break;
+      }
+    else if (strcmp(argv[i], "-fno-tree-sra") == 0)
+      break;
 
   return CL_Ada;
 }
@@ -352,10 +365,12 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (!flag_no_inline)
     flag_no_inline = 1;
   if (flag_inline_functions)
-    {
-      flag_inline_trees = 2;
-      flag_inline_functions = 0;
-    }
+    flag_inline_trees = 2;
+
+  /* Do not enable Tree-SRA unless specifically requested as it
+     is known to badly interact with some Ada constructs.  */
+  if (!tree_sra_requested)
+    flag_tree_sra = 0;
 
   return false;
 }
@@ -555,27 +570,6 @@ gnat_print_type (FILE *file, tree node, int indent)
     default:
       break;
     }
-}
-
-/* We consider two types compatible if they have the same main variant,
-   but we also consider two array types compatible if they have the same
-   component type and bounds.
-
-   ??? We may also want to generalize to considering lots of integer types
-   compatible, but we need to understand the effects of alias sets first.  */
-
-static int
-gnat_types_compatible_p (tree x, tree y)
-{
-  if (TREE_CODE (x) == ARRAY_TYPE && TREE_CODE (y) == ARRAY_TYPE
-      && gnat_types_compatible_p (TREE_TYPE (x), TREE_TYPE (y))
-      && operand_equal_p (TYPE_MIN_VALUE (TYPE_DOMAIN (x)),
-			  TYPE_MIN_VALUE (TYPE_DOMAIN (y)), 0)
-      && operand_equal_p (TYPE_MAX_VALUE (TYPE_DOMAIN (x)),
-			  TYPE_MAX_VALUE (TYPE_DOMAIN (y)), 0))
-    return 1;
-  else
-    return TYPE_MAIN_VARIANT (x) == TYPE_MAIN_VARIANT (y);
 }
 
 static const char *

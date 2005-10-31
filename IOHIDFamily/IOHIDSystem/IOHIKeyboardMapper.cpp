@@ -1662,10 +1662,10 @@ bool IOHIKeyboardMapper::createParamDicts ( void )
 // postKeyboardSpecialEvent
 // called to post special keyboard events
 // thru the event system to outside of kernel clients
-void	IOHIKeyboardMapper::postKeyboardSpecialEvent (unsigned subtype)
+void	IOHIKeyboardMapper::postKeyboardSpecialEvent (unsigned subtype, unsigned eventType)
 {
 	_delegate->keyboardSpecialEvent (
-				/* eventType */	NX_SYSDEFINED,
+				/* eventType */	eventType,
 				/* flags */     _delegate->eventFlags(),
 				/* keyCode */   NX_NOSPECIALKEY,
 				/* specialty */ subtype);
@@ -2288,7 +2288,7 @@ bool IOHIKeyboardMapper::f12EjectFilterKey (UInt8 key, bool keyDown, kbdBitVecto
 void IOHIKeyboardMapper::performF12Eject(IOHIKeyboardMapper *owner, IOTimerEventSource *sender) { 
    
     // Post the eject keydown event.
-    owner->postKeyboardSpecialEvent(NX_SUBTYPE_EJECT_KEY);
+    owner->postKeyboardSpecialEvent(NX_KEYTYPE_EJECT, NX_KEYDOWN);
     
     // Clear the state
     owner->_f12Eject_State &= ~kState_In_Progess_Flag;

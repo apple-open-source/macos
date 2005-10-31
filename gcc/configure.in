@@ -19,6 +19,8 @@
 ### WARNING: this file contains embedded tabs.  Do not run untabify on this file.
 
 sinclude(config/acx.m4)
+sinclude(config/gcc-version.m4)
+sinclude(config/gxx-include-dir.m4)
 
 AC_INIT(move-if-change)
 AC_PREREQ(2.13)
@@ -98,25 +100,21 @@ fi
 topsrcdir=$srcpwd
 
 extra_host_args=
+
 # Define the trigger file to make sure configure will re-run whenever
 # the gcc version number changes.
-if test "${with_gcc_version_trigger+set}" = set ; then
-  gcc_version_trigger="$with_gcc_version_trigger"
-  gcc_version=`grep version_string ${with_gcc_version_trigger} | sed -e 's/.*\"\([[^ \"]]*\)[[ \"]].*/\1/'`
+TL_AC_GCC_VERSION([$topsrcdir])
+if test -f $gcc_version_trigger ; then
+  case "$ac_configure_args" in
+    *--with-gcc-version-trigger=$gcc_version_trigger* )
+      ;;
+    * )
+      # Add to all subconfigure arguments: build, host, and target.
+      ac_configure_args="$ac_configure_args --with-gcc-version-trigger=$gcc_version_trigger"
+      ;;
+  esac
 else
-  # If gcc's sources are available, define the trigger file.
-  if test -f ${topsrcdir}/gcc/version.c ; then
-    gcc_version_trigger=${topsrcdir}/gcc/version.c
-    gcc_version=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([[^ \"]]*\)[[ \"]].*/\1/'`
-    case "$ac_configure_args" in
-      *--with-gcc-version-trigger=$gcc_version_trigger* )
-        ;;
-      * )
-        # Add to all subconfigure arguments: build, host, and target.
-        ac_configure_args="$ac_configure_args --with-gcc-version-trigger=$gcc_version_trigger"
-        ;;
-    esac
-  fi
+  gcc_version_trigger=
 fi
 
 ### To add a new directory to the tree, first choose whether it is a target
@@ -310,9 +308,6 @@ case "${host}" in
   powerpc-*-beos*)
     noconfigdirs="$noconfigdirs tk itcl libgui gdb dejagnu readline"
     ;;
-  *-*-darwin*)
-    noconfigdirs="$noconfigdirs tk itcl libgui"
-    ;;
 esac
 
 
@@ -369,7 +364,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
   powerpc-*-darwin*)
-    noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
+    noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof ${libgcj}"
     # APPLE LOCAL 64-bit bringup
     noconfigdirs="$noconfigdirs target-libobjc"
     ;;
@@ -470,6 +465,8 @@ case "${target}" in
   arc-*-*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
+  arm-semi-aof )
+    ;;
   arm-*-coff | strongarm-*-coff | xscale-*-coff)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
@@ -482,16 +479,10 @@ case "${target}" in
   arm-*-pe*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
-  arm-*-oabi*)
-    noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
-    ;;
   thumb-*-coff)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
   thumb-*-elf)
-    noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
-    ;;
-  thumb-*-oabi)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
   thumb-*-pe)
@@ -509,8 +500,13 @@ case "${target}" in
   c54x*-*-* | tic54x-*-*)
     noconfigdirs="$noconfigdirs target-libstdc++-v3 target-libgloss ${libgcj} gcc gdb newlib"
     ;;
-  cris-*-*)
-    noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss"
+  cris-*-* | crisv32-*-*)
+    case "${target}" in
+      *-*-elf | *-*-aout)
+	noconfigdirs="$noconfigdirs ${libgcj}";;
+      *)
+	noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss";;
+    esac
     ;;
   crx-*-*)
     noconfigdirs="$noconfigdirs target-libstdc++-v3 target-mudflap ${libgcj}"
@@ -533,19 +529,21 @@ case "${target}" in
   h8500-*-*)
     noconfigdirs="$noconfigdirs target-libstdc++-v3 target-libgloss ${libgcj}"
     ;;
+  hppa1.1-*-osf* | hppa1.1-*-bsd* )
+    ;;
   hppa*64*-*-linux* | parisc*64*-*-linux*)
     # In this case, it's because the hppa64-linux target is for
     # the kernel only at this point and has no libc, and thus no
     # headers, crt*.o, etc., all of which are needed by these.
     noconfigdirs="$noconfigdirs target-zlib"
     ;;
+  parisc*-*-linux* | hppa*-*-linux*)
+    ;;
   hppa*-*-*elf* | \
-  parisc*-*-linux* | hppa*-*-linux* | \
   hppa*-*-lites* | \
   hppa*-*-openbsd* | \
   hppa*64*-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
-    # Do configure ld/binutils/gas for this case.
     ;;
   hppa*-*-*)
     # According to Alexandre Oliva <aoliva@redhat.com>, libjava won't
@@ -562,6 +560,8 @@ case "${target}" in
   ia64*-**-hpux*)
     # No gdb or ld support yet.
     noconfigdirs="$noconfigdirs ${libgcj} readline mmalloc libgui itcl gdb ld"
+    ;;
+  i370-*-opened*)
     ;;
   i[[3456789]]86-*-coff | i[[3456789]]86-*-elf)
     noconfigdirs="$noconfigdirs ${libgcj}"
@@ -613,6 +613,9 @@ case "${target}" in
          ;;
     esac
     ;;    
+  i[[3456789]]86-moss-msdos | i[[3456789]]86-*-moss* | \
+  i[[3456789]]86-*-uwin* | i[[3456789]]86-*-interix* )
+    ;;
   i[[3456789]]86-*-pe)
     noconfigdirs="$noconfigdirs target-libstdc++-v3 target-libgloss ${libgcj}"
     ;;
@@ -651,7 +654,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-libstdc++-v3"
     ;;
   mmix-*-*)
-    noconfigdirs="$noconfigdirs ${libgcj} gdb libgloss"
+    noconfigdirs="$noconfigdirs ${libgcj} gdb libgloss target-libgfortran"
     ;;
   mn10200-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
@@ -678,6 +681,8 @@ case "${target}" in
     ;;
   powerpc-*-eabi)
     noconfigdirs="$noconfigdirs ${libgcj}"
+    ;;
+  powerpc-*-eabi* | powerpcle-*-eabi* | powerpc-*-rtems* )
     ;;
   rs6000-*-lynxos*)
     noconfigdirs="$noconfigdirs target-newlib gprof ${libgcj}"
@@ -722,16 +727,13 @@ case "${target}" in
   romp-*-*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes target-libgloss ${libgcj}"
     ;;
-  sh-*-*)
+  sh-*-* | sh64-*-*)
     case "${host}" in
       i[[3456789]]86-*-vsta) ;; # don't add gprof back in
       i[[3456789]]86-*-go32*) ;; # don't add gprof back in
       i[[3456789]]86-*-msdosdjgpp*) ;; # don't add gprof back in
       *) skipdirs=`echo " ${skipdirs} " | sed -e 's/ gprof / /'` ;;
     esac
-    noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
-    ;;
-  sh64-*-*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
   sparc-*-elf*)
@@ -750,6 +752,9 @@ case "${target}" in
     else
            use_gnu_ld=no
     fi
+    ;;
+  sparc-*-solaris2.[[0-6]] | sparc-*-solaris2.[[0-6]].*)
+    noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   sparc-*-solaris* | sparc64-*-solaris* | sparcv9-*-solaris*)
     ;;
@@ -939,6 +944,11 @@ case "${host}" in
   powerpc-*-darwin*)
     host_makefile_frag="config/mh-ppc-darwin"
     ;;
+  # APPLE LOCAL begin dynamic-no-pic
+  i[[3456789]]86-*-darwin*)
+    host_makefile_frag="config/mh-x86-darwin"
+    ;;
+  # APPLE LOCAL end dynamic-no-pic
   *-*-lynxos*)
     # /bin/cc is less than useful for our purposes.  Always use GCC
     tentative_cc="/bin/gcc"
@@ -1253,15 +1263,25 @@ The available languages are: ${potential_languages}])
   ac_configure_args=`echo " $ac_configure_args" | sed -e 's/ --enable-languages=[[^ ]]*//' -e 's/$/ --enable-languages='"$enable_languages"/ `
 fi
 
-# Remove the entries in $skipdirs and $noconfigdirs from $configdirs and
-# $target_configdirs.
+# Remove the entries in $skipdirs and $noconfigdirs from $configdirs,
+# $build_configdirs and $target_configdirs.
 # If we have the source for $noconfigdirs entries, add them to $notsupp.
 
 notsupp=""
 for dir in . $skipdirs $noconfigdirs ; do
-  dirname=`echo $dir | sed -e s/target-//g`
+  dirname=`echo $dir | sed -e s/target-//g -e s/build-//g`
   if test $dir != .  && echo " ${configdirs} " | grep " ${dir} " >/dev/null 2>&1; then
     configdirs=`echo " ${configdirs} " | sed -e "s/ ${dir} / /"`
+    if test -r $srcdir/$dirname/configure ; then
+      if echo " ${skipdirs} " | grep " ${dir} " >/dev/null 2>&1; then
+	true
+      else
+	notsupp="$notsupp $dir"
+      fi
+    fi
+  fi
+  if test $dir != .  && echo " ${build_configdirs} " | grep " ${dir} " >/dev/null 2>&1; then
+    build_configdirs=`echo " ${build_configdirs} " | sed -e "s/ ${dir} / /"`
     if test -r $srcdir/$dirname/configure ; then
       if echo " ${skipdirs} " | grep " ${dir} " >/dev/null 2>&1; then
 	true
@@ -1630,15 +1650,31 @@ case "${host}" in
   ;;
 esac
 
+# If no --enable-shared nor --disable-shared is specified, we set up
+# LD_LIBRARY_PATH when we build for gcc.
+case $enable_shared in
+"")
+  if test -d ${srcdir}/gcc; then
+    set_lib_path=yes
+  else 
+    set_lib_path=no
+  fi
+  ;;
+*)
+  set_lib_path=$enable_shared
+  ;;
+esac
+
 # If --enable-shared was set, we must set LD_LIBRARY_PATH so that the
 # binutils tools will find libbfd.so.
-case "${enable_shared}" in
-  no | "") SET_LIB_PATH= ;;
+case "${set_lib_path}" in
+  no) SET_LIB_PATH= ;;
   *) SET_LIB_PATH="\$(REALLY_SET_LIB_PATH)" ;;
 esac
 
 case "${host}" in
   *-*-hpux*) RPATH_ENVVAR=SHLIB_PATH ;;
+  *-*-darwin* | *-*-rhapsody* ) RPATH_ENVVAR=DYLD_LIBRARY_PATH ;;
   *) RPATH_ENVVAR=LD_LIBRARY_PATH ;;
 esac
 
@@ -1888,7 +1924,7 @@ baseargs="$baseargs --program-transform-name='${gcc_transform_name}'"
 # For the build-side libraries, we just need to pretend we're native,
 # and not use the same cache file.  Multilibs are neither needed nor
 # desired.
-build_configargs="--cache-file=../config.cache --build=${build_alias} --host=${build_alias} ${baseargs}"
+build_configargs="--cache-file=../config.cache --build=${build_alias} --host=${build_alias} --target=${target_alias} ${baseargs}"
 
 # For host modules, accept cache file option, or specification as blank.
 case "${cache_file}" in
@@ -1939,22 +1975,7 @@ fi
 target_configargs="--cache-file=./config.cache --host=${target_alias} --build=${build_alias} ${target_configargs}"
 
 # provide a proper gxx_include_dir.
-# Note, if you change the default, make sure to fix both here and in
-# the gcc and libstdc++-v3 subdirectories.
-# Check whether --with-gxx-include-dir or --without-gxx-include-dir was given.
-case "${with_gxx_include_dir}" in
-  yes)
-    AC_MSG_ERROR([--with-gxx-include-dir=[[dir]] requires a directory])
-    ;;
-  no | "")
-    case "${enable_version_specific_runtime_libs}" in
-      yes) gxx_include_dir='${libsubdir}/include/c++' ;;
-      *)
-        . ${srcdir}/config.if
-        gxx_include_dir='${prefix}/include/'${libstdcxx_incdir} ;;
-    esac ;;
-  *) gxx_include_dir=${with_gxx_include_dir} ;;
-esac
+TL_AC_GXX_INCLUDE_DIR
 
 FLAGS_FOR_TARGET=
 case " $target_configdirs " in
@@ -2127,13 +2148,9 @@ AC_SUBST(SET_LIB_PATH)
 AC_SUBST(RPATH_ENVVAR)
 AC_SUBST(BUILD_PREFIX)
 AC_SUBST(BUILD_PREFIX_1)
-AC_SUBST(gcc_version_trigger)
-AC_SUBST(gcc_version)
 AC_SUBST(tooldir)
 AC_SUBST(build_tooldir)
 AC_SUBST(GDB_TK)
-AC_SUBST(gxx_include_dir)
-AC_SUBST(libstdcxx_incdir)
 
 # Build module lists & subconfigure args.
 AC_SUBST(build_configargs)
@@ -2311,8 +2328,8 @@ AC_SUBST(stage2_werror_flag)
 # used.
 SET_GCC_LIB_PATH=
 if test -d ${srcdir}/gcc && test x${is_cross_compiler} = xno; then
-  case "${enable_shared}" in
-    no | "") ;;
+  case "${set_lib_path}" in
+    no) ;;
     *)
       eval "d=\$$RPATH_ENVVAR"
       if test x"$d" != x; then

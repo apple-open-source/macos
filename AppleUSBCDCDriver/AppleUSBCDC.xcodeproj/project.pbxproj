@@ -1,0 +1,2285 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		D2277A0007417BF9002AF184 /* Build All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 973C87FE0897FD9100B1007D /* Build configuration list for PBXAggregateTarget "Build All" */;
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Build All";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				D2277A8607417BFA002AF184 /* PBXTargetDependency */,
+				D2277A8807417BFA002AF184 /* PBXTargetDependency */,
+				D2277A8A07417BFA002AF184 /* PBXTargetDependency */,
+				D2277A8C07417BFA002AF184 /* PBXTargetDependency */,
+				D2277A8E07417BFA002AF184 /* PBXTargetDependency */,
+				D2277A9007417BFA002AF184 /* PBXTargetDependency */,
+				D2277A9207417BFA002AF184 /* PBXTargetDependency */,
+				D24A0FCE082BD87F0097BB0C /* PBXTargetDependency */,
+			);
+			name = "Build All";
+			productName = "Build All";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		D201012E076A326B0011028B /* AppleUSBCDCEEM.h in Headers */ = {isa = PBXBuildFile; fileRef = D201012D076A326B0011028B /* AppleUSBCDCEEM.h */; };
+		D2277A0D07417BF9002AF184 /* AppleUSBCDC.h in Headers */ = {isa = PBXBuildFile; fileRef = D280586B05DD92C40074F1E7 /* AppleUSBCDC.h */; };
+		D2277A0E07417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */; };
+		D2277A0F07417BF9002AF184 /* AppleUSBCDCPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = D29459980618E83F00449123 /* AppleUSBCDCPrivate.h */; };
+		D2277A1107417BF9002AF184 /* AppleUSBCDC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D280586D05DD92D80074F1E7 /* AppleUSBCDC.cpp */; };
+		D2277A1B07417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */; };
+		D2277A1C07417BF9002AF184 /* AppleUSBCDCACM.h in Headers */ = {isa = PBXBuildFile; fileRef = D223633C05EC2B9F00C17DDB /* AppleUSBCDCACM.h */; };
+		D2277A1D07417BF9002AF184 /* AppleUSBCDCACMControl.h in Headers */ = {isa = PBXBuildFile; fileRef = D223633F05EC2BD600C17DDB /* AppleUSBCDCACMControl.h */; };
+		D2277A2007417BF9002AF184 /* AppleUSBCDCACMControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D223634305EC333900C17DDB /* AppleUSBCDCACMControl.cpp */; };
+		D2277A2A07417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */; };
+		D2277A2B07417BF9002AF184 /* AppleUSBCDCACM.h in Headers */ = {isa = PBXBuildFile; fileRef = D223633C05EC2B9F00C17DDB /* AppleUSBCDCACM.h */; };
+		D2277A2C07417BF9002AF184 /* AppleUSBCDCACMData.h in Headers */ = {isa = PBXBuildFile; fileRef = D223634105EC2C0F00C17DDB /* AppleUSBCDCACMData.h */; };
+		D2277A2E07417BF9002AF184 /* AppleUSBCDCACMData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D223634505EC336D00C17DDB /* AppleUSBCDCACMData.cpp */; };
+		D2277A3007417BF9002AF184 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = D24E98F00680E7BD005360D4 /* Localizable.strings */; };
+		D2277A3907417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */; };
+		D2277A3A07417BF9002AF184 /* AppleUSBCDCWCM.h in Headers */ = {isa = PBXBuildFile; fileRef = D22324AC06E3DA1B008C18B9 /* AppleUSBCDCWCM.h */; };
+		D2277A3D07417BF9002AF184 /* AppleUSBCDCWCM.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D22324B006E3DA33008C18B9 /* AppleUSBCDCWCM.cpp */; };
+		D2277A4707417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */; };
+		D2277A4807417BF9002AF184 /* AppleUSBCDCECMControl.h in Headers */ = {isa = PBXBuildFile; fileRef = D2A076F005EC46BB00F5DA5F /* AppleUSBCDCECMControl.h */; };
+		D2277A4907417BF9002AF184 /* AppleUSBCDCECM.h in Headers */ = {isa = PBXBuildFile; fileRef = D2A076DA05EC45B700F5DA5F /* AppleUSBCDCECM.h */; };
+		D2277A4C07417BF9002AF184 /* AppleUSBCDCECMControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D2A076F205EC46FB00F5DA5F /* AppleUSBCDCECMControl.cpp */; };
+		D2277A5607417BFA002AF184 /* AppleUSBCDCCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */; };
+		D2277A5707417BFA002AF184 /* AppleUSBCDCECM.h in Headers */ = {isa = PBXBuildFile; fileRef = D2A076DA05EC45B700F5DA5F /* AppleUSBCDCECM.h */; };
+		D2277A5807417BFA002AF184 /* AppleUSBCDCECMData.h in Headers */ = {isa = PBXBuildFile; fileRef = D2A076DC05EC45E800F5DA5F /* AppleUSBCDCECMData.h */; };
+		D2277A5A07417BFA002AF184 /* AppleUSBCDCECMData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D2A076DE05EC460700F5DA5F /* AppleUSBCDCECMData.cpp */; };
+		D2277A5C07417BFA002AF184 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = D24E98F00680E7BD005360D4 /* Localizable.strings */; };
+		D2277A6507417BFA002AF184 /* AppleUSBCDCDMM.h in Headers */ = {isa = PBXBuildFile; fileRef = D2B61BFC06E40025007C9DDB /* AppleUSBCDCDMM.h */; };
+		D2277A6707417BFA002AF184 /* AppleUSBCDCDMM.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D2B61C0006E40040007C9DDB /* AppleUSBCDCDMM.cpp */; };
+		D2277A7C07417BFA002AF184 /* AppleUSBCDCCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */; };
+		D2277A8007417BFA002AF184 /* AppleUSBCDCEEM.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D2C2C6F4073FF18B00D906E1 /* AppleUSBCDCEEM.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		06AA1265FFB2107B11CA28AA /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXContainerItemProxy section */
+		D2277A8507417BFA002AF184 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2277A0A07417BF9002AF184;
+			remoteInfo = "AppleUSBCDC (Upgraded)";
+		};
+		D2277A8707417BFA002AF184 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2277A1807417BF9002AF184;
+			remoteInfo = "AppleUSBCDCACMControl (Upgraded)";
+		};
+		D2277A8907417BFA002AF184 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2277A2707417BF9002AF184;
+			remoteInfo = "AppleUSBCDCACMData (Upgraded)";
+		};
+		D2277A8B07417BFA002AF184 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2277A3607417BF9002AF184;
+			remoteInfo = "AppleUSBCDCWCM (Upgraded)";
+		};
+		D2277A8D07417BFA002AF184 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2277A4407417BF9002AF184;
+			remoteInfo = "AppleUSBCDCECMControl (Upgraded)";
+		};
+		D2277A8F07417BFA002AF184 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2277A5307417BFA002AF184;
+			remoteInfo = "AppleUSBCDCECMData (Upgraded)";
+		};
+		D2277A9107417BFA002AF184 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2277A6207417BFA002AF184;
+			remoteInfo = "AppleUSBCDCDMM (Upgraded)";
+		};
+		D24A0FCD082BD87F0097BB0C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2277A7907417BFA002AF184;
+			remoteInfo = AppleUSBCDCEEM;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		D201012D076A326B0011028B /* AppleUSBCDCEEM.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCEEM.h; path = AppleUSBCDCEEM/Headers/AppleUSBCDCEEM.h; sourceTree = "<group>"; };
+		D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCCommon.h; path = Common/AppleUSBCDCCommon.h; sourceTree = "<group>"; };
+		D22324AC06E3DA1B008C18B9 /* AppleUSBCDCWCM.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCWCM.h; path = AppleUSBCDCWCM/Headers/AppleUSBCDCWCM.h; sourceTree = "<group>"; };
+		D22324B006E3DA33008C18B9 /* AppleUSBCDCWCM.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBCDCWCM.cpp; path = AppleUSBCDCWCM/Classes/AppleUSBCDCWCM.cpp; sourceTree = "<group>"; };
+		D223633C05EC2B9F00C17DDB /* AppleUSBCDCACM.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCACM.h; path = AppleUSBCDCACM/Common/AppleUSBCDCACM.h; sourceTree = "<group>"; };
+		D223633F05EC2BD600C17DDB /* AppleUSBCDCACMControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCACMControl.h; path = AppleUSBCDCACM/ControlDriver/Headers/AppleUSBCDCACMControl.h; sourceTree = "<group>"; };
+		D223634105EC2C0F00C17DDB /* AppleUSBCDCACMData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCACMData.h; path = AppleUSBCDCACM/DataDriver/Headers/AppleUSBCDCACMData.h; sourceTree = "<group>"; };
+		D223634305EC333900C17DDB /* AppleUSBCDCACMControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBCDCACMControl.cpp; path = AppleUSBCDCACM/ControlDriver/Classes/AppleUSBCDCACMControl.cpp; sourceTree = "<group>"; };
+		D223634505EC336D00C17DDB /* AppleUSBCDCACMData.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBCDCACMData.cpp; path = AppleUSBCDCACM/DataDriver/Classes/AppleUSBCDCACMData.cpp; sourceTree = "<group>"; };
+		D2277A1607417BF9002AF184 /* AppleUSBCDC-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "AppleUSBCDC-Info.plist"; path = "Plists/AppleUSBCDC-Info.plist"; sourceTree = "<group>"; };
+		D2277A1707417BF9002AF184 /* AppleUSBCDC.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUSBCDC.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2277A2507417BF9002AF184 /* AppleUSBCDCACMControl-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "AppleUSBCDCACMControl-Info.plist"; path = "Plists/AppleUSBCDCACMControl-Info.plist"; sourceTree = "<group>"; };
+		D2277A2607417BF9002AF184 /* AppleUSBCDCACMControl.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUSBCDCACMControl.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2277A3407417BF9002AF184 /* AppleUSBCDCACMData-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "AppleUSBCDCACMData-Info.plist"; path = "Plists/AppleUSBCDCACMData-Info.plist"; sourceTree = "<group>"; };
+		D2277A3507417BF9002AF184 /* AppleUSBCDCACMData.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUSBCDCACMData.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2277A4207417BF9002AF184 /* AppleUSBCDCWCM-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "AppleUSBCDCWCM-Info.plist"; path = "Plists/AppleUSBCDCWCM-Info.plist"; sourceTree = "<group>"; };
+		D2277A4307417BF9002AF184 /* AppleUSBCDCWCM.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUSBCDCWCM.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2277A5107417BFA002AF184 /* AppleUSBCDCECMControl-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "AppleUSBCDCECMControl-Info.plist"; path = "Plists/AppleUSBCDCECMControl-Info.plist"; sourceTree = "<group>"; };
+		D2277A5207417BFA002AF184 /* AppleUSBCDCECMControl.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUSBCDCECMControl.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2277A6007417BFA002AF184 /* AppleUSBCDCECMData-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "AppleUSBCDCECMData-Info.plist"; path = "Plists/AppleUSBCDCECMData-Info.plist"; sourceTree = "<group>"; };
+		D2277A6107417BFA002AF184 /* AppleUSBCDCECMData.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUSBCDCECMData.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2277A6C07417BFA002AF184 /* AppleUSBCDCDMM-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "AppleUSBCDCDMM-Info.plist"; path = "Plists/AppleUSBCDCDMM-Info.plist"; sourceTree = "<group>"; };
+		D2277A6D07417BFA002AF184 /* AppleUSBCDCDMM.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUSBCDCDMM.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2277A8407417BFA002AF184 /* AppleUSBCDCEEM.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUSBCDCEEM.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D24E98F10680E7BD005360D4 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		D280586B05DD92C40074F1E7 /* AppleUSBCDC.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDC.h; path = AppleUSBCDC/Headers/AppleUSBCDC.h; sourceTree = "<group>"; };
+		D280586D05DD92D80074F1E7 /* AppleUSBCDC.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBCDC.cpp; path = AppleUSBCDC/Classes/AppleUSBCDC.cpp; sourceTree = "<group>"; };
+		D283B3800741889D0038DF03 /* AppleUSBCDCEEM-Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = "AppleUSBCDCEEM-Info.plist"; path = "Plists/AppleUSBCDCEEM-Info.plist"; sourceTree = "<group>"; };
+		D29459980618E83F00449123 /* AppleUSBCDCPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCPrivate.h; path = AppleUSBCDC/Headers/AppleUSBCDCPrivate.h; sourceTree = "<group>"; };
+		D2A076DA05EC45B700F5DA5F /* AppleUSBCDCECM.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCECM.h; path = AppleUSBCDCECM/Common/AppleUSBCDCECM.h; sourceTree = "<group>"; };
+		D2A076DC05EC45E800F5DA5F /* AppleUSBCDCECMData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCECMData.h; path = AppleUSBCDCECM/DataDriver/Headers/AppleUSBCDCECMData.h; sourceTree = "<group>"; };
+		D2A076DE05EC460700F5DA5F /* AppleUSBCDCECMData.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBCDCECMData.cpp; path = AppleUSBCDCECM/DataDriver/Classes/AppleUSBCDCECMData.cpp; sourceTree = "<group>"; };
+		D2A076F005EC46BB00F5DA5F /* AppleUSBCDCECMControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCECMControl.h; path = AppleUSBCDCECM/ControlDriver/Headers/AppleUSBCDCECMControl.h; sourceTree = "<group>"; };
+		D2A076F205EC46FB00F5DA5F /* AppleUSBCDCECMControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBCDCECMControl.cpp; path = AppleUSBCDCECM/ControlDriver/Classes/AppleUSBCDCECMControl.cpp; sourceTree = "<group>"; };
+		D2B61BFC06E40025007C9DDB /* AppleUSBCDCDMM.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleUSBCDCDMM.h; path = AppleUSBCDCDMM/Headers/AppleUSBCDCDMM.h; sourceTree = "<group>"; };
+		D2B61C0006E40040007C9DDB /* AppleUSBCDCDMM.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBCDCDMM.cpp; path = AppleUSBCDCDMM/Classes/AppleUSBCDCDMM.cpp; sourceTree = "<group>"; };
+		D2C2C6F4073FF18B00D906E1 /* AppleUSBCDCEEM.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBCDCEEM.cpp; path = AppleUSBCDCEEM/Classes/AppleUSBCDCEEM.cpp; sourceTree = "<group>"; };
+		F59C308D02C2AF4001000102 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D2277A1307417BF9002AF184 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A2107417BF9002AF184 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A3107417BF9002AF184 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A3E07417BF9002AF184 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A4D07417BF9002AF184 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A5D07417BFA002AF184 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A6907417BFA002AF184 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A8207417BFA002AF184 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* AppleUSBCDCEthernet */ = {
+			isa = PBXGroup;
+			children = (
+				D25CDCA105ACD2540030EA44 /* Common Headers */,
+				D2036B4E05E1948D0046B49D /* AppleUSBCDC */,
+				D2036B5405E194EC0046B49D /* AppleUSBCDCACM */,
+				D29D073305E2CC6400D5013D /* AppleUSBCDCWCM */,
+				D2A076D705EC452D00F5DA5F /* AppleUSBCDCECM */,
+				D2C2C6DB073FEFD400D906E1 /* AppleUSBCDCEEM */,
+				D2B61BD006E3FD9C007C9DDB /* AppleUSBCDCDMM */,
+				089C167CFE841241C02AAC07 /* Resources */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+				F59C308D02C2AF4001000102 /* Kernel.framework */,
+				D2277A1607417BF9002AF184 /* AppleUSBCDC-Info.plist */,
+				D2277A2507417BF9002AF184 /* AppleUSBCDCACMControl-Info.plist */,
+				D2277A3407417BF9002AF184 /* AppleUSBCDCACMData-Info.plist */,
+				D2277A4207417BF9002AF184 /* AppleUSBCDCWCM-Info.plist */,
+				D2277A5107417BFA002AF184 /* AppleUSBCDCECMControl-Info.plist */,
+				D2277A6007417BFA002AF184 /* AppleUSBCDCECMData-Info.plist */,
+				D2277A6C07417BFA002AF184 /* AppleUSBCDCDMM-Info.plist */,
+				D283B3800741889D0038DF03 /* AppleUSBCDCEEM-Info.plist */,
+			);
+			name = AppleUSBCDCEthernet;
+			sourceTree = "<group>";
+		};
+		089C167CFE841241C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D24E98F00680E7BD005360D4 /* Localizable.strings */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D2277A1707417BF9002AF184 /* AppleUSBCDC.kext */,
+				D2277A2607417BF9002AF184 /* AppleUSBCDCACMControl.kext */,
+				D2277A3507417BF9002AF184 /* AppleUSBCDCACMData.kext */,
+				D2277A4307417BF9002AF184 /* AppleUSBCDCWCM.kext */,
+				D2277A5207417BFA002AF184 /* AppleUSBCDCECMControl.kext */,
+				D2277A6107417BFA002AF184 /* AppleUSBCDCECMData.kext */,
+				D2277A6D07417BFA002AF184 /* AppleUSBCDCDMM.kext */,
+				D2277A8407417BFA002AF184 /* AppleUSBCDCEEM.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D2036B4E05E1948D0046B49D /* AppleUSBCDC */ = {
+			isa = PBXGroup;
+			children = (
+				D2036B4F05E194A00046B49D /* Headers */,
+				D2036B5005E194BE0046B49D /* Classes */,
+			);
+			name = AppleUSBCDC;
+			sourceTree = "<group>";
+		};
+		D2036B4F05E194A00046B49D /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				D280586B05DD92C40074F1E7 /* AppleUSBCDC.h */,
+				D29459980618E83F00449123 /* AppleUSBCDCPrivate.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
+		D2036B5005E194BE0046B49D /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				D280586D05DD92D80074F1E7 /* AppleUSBCDC.cpp */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		D2036B5405E194EC0046B49D /* AppleUSBCDCACM */ = {
+			isa = PBXGroup;
+			children = (
+				D2036B5505E1951D0046B49D /* Headers */,
+				D2036B5605E1952F0046B49D /* Classes */,
+			);
+			name = AppleUSBCDCACM;
+			sourceTree = "<group>";
+		};
+		D2036B5505E1951D0046B49D /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				D223633C05EC2B9F00C17DDB /* AppleUSBCDCACM.h */,
+				D223633F05EC2BD600C17DDB /* AppleUSBCDCACMControl.h */,
+				D223634105EC2C0F00C17DDB /* AppleUSBCDCACMData.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
+		D2036B5605E1952F0046B49D /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				D223634305EC333900C17DDB /* AppleUSBCDCACMControl.cpp */,
+				D223634505EC336D00C17DDB /* AppleUSBCDCACMData.cpp */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		D25CDCA105ACD2540030EA44 /* Common Headers */ = {
+			isa = PBXGroup;
+			children = (
+				D20F00F105DD9E7A00AA2BC5 /* AppleUSBCDCCommon.h */,
+			);
+			name = "Common Headers";
+			sourceTree = "<group>";
+		};
+		D29D073305E2CC6400D5013D /* AppleUSBCDCWCM */ = {
+			isa = PBXGroup;
+			children = (
+				D29D073705E2CCA600D5013D /* Headers */,
+				D29D073805E2CCB300D5013D /* Classes */,
+			);
+			name = AppleUSBCDCWCM;
+			sourceTree = "<group>";
+		};
+		D29D073705E2CCA600D5013D /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				D22324AC06E3DA1B008C18B9 /* AppleUSBCDCWCM.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
+		D29D073805E2CCB300D5013D /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				D22324B006E3DA33008C18B9 /* AppleUSBCDCWCM.cpp */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		D2A076D705EC452D00F5DA5F /* AppleUSBCDCECM */ = {
+			isa = PBXGroup;
+			children = (
+				D2A076D805EC455F00F5DA5F /* Headers */,
+				D2A076D905EC456A00F5DA5F /* Classes */,
+			);
+			name = AppleUSBCDCECM;
+			sourceTree = "<group>";
+		};
+		D2A076D805EC455F00F5DA5F /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				D2A076DA05EC45B700F5DA5F /* AppleUSBCDCECM.h */,
+				D2A076F005EC46BB00F5DA5F /* AppleUSBCDCECMControl.h */,
+				D2A076DC05EC45E800F5DA5F /* AppleUSBCDCECMData.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
+		D2A076D905EC456A00F5DA5F /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				D2A076F205EC46FB00F5DA5F /* AppleUSBCDCECMControl.cpp */,
+				D2A076DE05EC460700F5DA5F /* AppleUSBCDCECMData.cpp */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		D2B61BD006E3FD9C007C9DDB /* AppleUSBCDCDMM */ = {
+			isa = PBXGroup;
+			children = (
+				D2B61BD306E3FDE5007C9DDB /* Headers */,
+				D2B61BD606E3FDEB007C9DDB /* Classes */,
+			);
+			name = AppleUSBCDCDMM;
+			sourceTree = "<group>";
+		};
+		D2B61BD306E3FDE5007C9DDB /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				D2B61BFC06E40025007C9DDB /* AppleUSBCDCDMM.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
+		D2B61BD606E3FDEB007C9DDB /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				D2B61C0006E40040007C9DDB /* AppleUSBCDCDMM.cpp */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		D2C2C6DB073FEFD400D906E1 /* AppleUSBCDCEEM */ = {
+			isa = PBXGroup;
+			children = (
+				D2C2C6DE073FEFF900D906E1 /* Headers */,
+				D2C2C6E1073FF00400D906E1 /* Classes */,
+			);
+			name = AppleUSBCDCEEM;
+			sourceTree = "<group>";
+		};
+		D2C2C6DE073FEFF900D906E1 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				D201012D076A326B0011028B /* AppleUSBCDCEEM.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
+		D2C2C6E1073FF00400D906E1 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				D2C2C6F4073FF18B00D906E1 /* AppleUSBCDCEEM.cpp */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D2277A0C07417BF9002AF184 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A0D07417BF9002AF184 /* AppleUSBCDC.h in Headers */,
+				D2277A0E07417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */,
+				D2277A0F07417BF9002AF184 /* AppleUSBCDCPrivate.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A1A07417BF9002AF184 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A1B07417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */,
+				D2277A1C07417BF9002AF184 /* AppleUSBCDCACM.h in Headers */,
+				D2277A1D07417BF9002AF184 /* AppleUSBCDCACMControl.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A2907417BF9002AF184 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A2A07417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */,
+				D2277A2B07417BF9002AF184 /* AppleUSBCDCACM.h in Headers */,
+				D2277A2C07417BF9002AF184 /* AppleUSBCDCACMData.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A3807417BF9002AF184 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A3907417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */,
+				D2277A3A07417BF9002AF184 /* AppleUSBCDCWCM.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A4607417BF9002AF184 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A4707417BF9002AF184 /* AppleUSBCDCCommon.h in Headers */,
+				D2277A4807417BF9002AF184 /* AppleUSBCDCECMControl.h in Headers */,
+				D2277A4907417BF9002AF184 /* AppleUSBCDCECM.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A5507417BFA002AF184 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A5607417BFA002AF184 /* AppleUSBCDCCommon.h in Headers */,
+				D2277A5707417BFA002AF184 /* AppleUSBCDCECM.h in Headers */,
+				D2277A5807417BFA002AF184 /* AppleUSBCDCECMData.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A6407417BFA002AF184 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A6507417BFA002AF184 /* AppleUSBCDCDMM.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A7B07417BFA002AF184 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A7C07417BFA002AF184 /* AppleUSBCDCCommon.h in Headers */,
+				D201012E076A326B0011028B /* AppleUSBCDCEEM.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D2277A0A07417BF9002AF184 /* AppleUSBCDC */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 973C87DE0897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDC" */;
+			buildPhases = (
+				D2277A0B07417BF9002AF184 /* ShellScript */,
+				D2277A0C07417BF9002AF184 /* Headers */,
+				D2277A1007417BF9002AF184 /* Sources */,
+				D2277A1207417BF9002AF184 /* Resources */,
+				D2277A1307417BF9002AF184 /* Frameworks */,
+				D2277A1407417BF9002AF184 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				INFOPLIST_FILE = "Plists/AppleUSBCDC-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "a-w,u+w, a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDC;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDC;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = AppleUSBCDC;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+			productName = AppleUSBCDC;
+			productReference = D2277A1707417BF9002AF184 /* AppleUSBCDC.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		D2277A1807417BF9002AF184 /* AppleUSBCDCACMControl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 973C87E20897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCACMControl" */;
+			buildPhases = (
+				D2277A1907417BF9002AF184 /* ShellScript */,
+				D2277A1A07417BF9002AF184 /* Headers */,
+				D2277A1E07417BF9002AF184 /* Resources */,
+				D2277A1F07417BF9002AF184 /* Sources */,
+				D2277A2107417BF9002AF184 /* Frameworks */,
+				D2277A2207417BF9002AF184 /* Rez */,
+				D2277A2307417BF9002AF184 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCACMControl-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
+				MODULE_VERSION = 3.1.6;
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCACMControl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = AppleUSBCDCACMControl;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+			productName = AppleUSBCDCEthernet;
+			productReference = D2277A2607417BF9002AF184 /* AppleUSBCDCACMControl.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		D2277A2707417BF9002AF184 /* AppleUSBCDCACMData */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 973C87E60897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCACMData" */;
+			buildPhases = (
+				D2277A2807417BF9002AF184 /* ShellScript */,
+				D2277A2907417BF9002AF184 /* Headers */,
+				D2277A2D07417BF9002AF184 /* Sources */,
+				D2277A2F07417BF9002AF184 /* Resources */,
+				D2277A3107417BF9002AF184 /* Frameworks */,
+				D2277A3207417BF9002AF184 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCACMData-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCACMData;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = AppleUSBCDCACMData;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+			productName = USBCDCACMData;
+			productReference = D2277A3507417BF9002AF184 /* AppleUSBCDCACMData.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		D2277A3607417BF9002AF184 /* AppleUSBCDCWCM */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 973C87EA0897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCWCM" */;
+			buildPhases = (
+				D2277A3707417BF9002AF184 /* ShellScript */,
+				D2277A3807417BF9002AF184 /* Headers */,
+				D2277A3B07417BF9002AF184 /* Resources */,
+				D2277A3C07417BF9002AF184 /* Sources */,
+				D2277A3E07417BF9002AF184 /* Frameworks */,
+				D2277A3F07417BF9002AF184 /* Rez */,
+				D2277A4007417BF9002AF184 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCWCM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
+				MODULE_VERSION = 3.1.6;
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCWCM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = AppleUSBCDCWCM;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+			productName = AppleUSBCDCEthernet;
+			productReference = D2277A4307417BF9002AF184 /* AppleUSBCDCWCM.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		D2277A4407417BF9002AF184 /* AppleUSBCDCECMControl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 973C87EE0897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCECMControl" */;
+			buildPhases = (
+				D2277A4507417BF9002AF184 /* ShellScript */,
+				D2277A4607417BF9002AF184 /* Headers */,
+				D2277A4A07417BF9002AF184 /* Resources */,
+				D2277A4B07417BF9002AF184 /* Sources */,
+				D2277A4D07417BF9002AF184 /* Frameworks */,
+				D2277A4E07417BF9002AF184 /* Rez */,
+				D2277A4F07417BF9002AF184 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCECMControl-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
+				MODULE_VERSION = 3.1.6;
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCECMControl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = AppleUSBCDCECMControl;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+			productName = AppleUSBCDCEthernet;
+			productReference = D2277A5207417BFA002AF184 /* AppleUSBCDCECMControl.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		D2277A5307417BFA002AF184 /* AppleUSBCDCECMData */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 973C87F20897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCECMData" */;
+			buildPhases = (
+				D2277A5407417BFA002AF184 /* ShellScript */,
+				D2277A5507417BFA002AF184 /* Headers */,
+				D2277A5907417BFA002AF184 /* Sources */,
+				D2277A5B07417BFA002AF184 /* Resources */,
+				D2277A5D07417BFA002AF184 /* Frameworks */,
+				D2277A5E07417BFA002AF184 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCECMData-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCECMData;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = AppleUSBCDCECMData;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+			productName = USBCDCACMData;
+			productReference = D2277A6107417BFA002AF184 /* AppleUSBCDCECMData.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		D2277A6207417BFA002AF184 /* AppleUSBCDCDMM */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 973C87F60897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCDMM" */;
+			buildPhases = (
+				D2277A6307417BFA002AF184 /* ShellScript */,
+				D2277A6407417BFA002AF184 /* Headers */,
+				D2277A6607417BFA002AF184 /* Sources */,
+				D2277A6807417BFA002AF184 /* Resources */,
+				D2277A6907417BFA002AF184 /* Frameworks */,
+				D2277A6A07417BFA002AF184 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCDMM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
+				MODULE_VERSION = 3.1.6;
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCDMM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = AppleUSBCDCDMM;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleUSBCDCDMM;
+			productReference = D2277A6D07417BFA002AF184 /* AppleUSBCDCDMM.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		D2277A7907417BFA002AF184 /* AppleUSBCDCEEM */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 973C87FA0897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCEEM" */;
+			buildPhases = (
+				D2277A7A07417BFA002AF184 /* ShellScript */,
+				D2277A7B07417BFA002AF184 /* Headers */,
+				D2277A7F07417BFA002AF184 /* Sources */,
+				D2277A8107417BFA002AF184 /* Resources */,
+				D2277A8207417BFA002AF184 /* Frameworks */,
+				D2277A8307417BFA002AF184 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCEEM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCEEM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = AppleUSBCDCEEM;
+			productName = AppleUSBCDCEEMData;
+			productReference = D2277A8407417BFA002AF184 /* AppleUSBCDCEEM.kext */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleUSBCDCEEMData</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.MySoftwareCompany.iokit.AppleUSBCDCEEMData</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d1</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+	<key>OSBundleLibraries</key>
+	<dict/>
+</dict>
+</plist>
+";
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 973C88020897FD9100B1007D /* Build configuration list for PBXProject "AppleUSBCDC" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA /* Development */,
+				06AA1266FFB2107B11CA28AA /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* AppleUSBCDCEthernet */;
+			projectDirPath = "";
+			targets = (
+				D2277A0007417BF9002AF184 /* Build All */,
+				D2277A0A07417BF9002AF184 /* AppleUSBCDC */,
+				D2277A1807417BF9002AF184 /* AppleUSBCDCACMControl */,
+				D2277A2707417BF9002AF184 /* AppleUSBCDCACMData */,
+				D2277A3607417BF9002AF184 /* AppleUSBCDCWCM */,
+				D2277A4407417BF9002AF184 /* AppleUSBCDCECMControl */,
+				D2277A5307417BFA002AF184 /* AppleUSBCDCECMData */,
+				D2277A6207417BFA002AF184 /* AppleUSBCDCDMM */,
+				D2277A7907417BFA002AF184 /* AppleUSBCDCEEM */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D2277A1207417BF9002AF184 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A1E07417BF9002AF184 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A2F07417BF9002AF184 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A3007417BF9002AF184 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A3B07417BF9002AF184 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A4A07417BF9002AF184 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A5B07417BFA002AF184 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A5C07417BFA002AF184 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A6807417BFA002AF184 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A8107417BFA002AF184 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		D2277A2207417BF9002AF184 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A3F07417BF9002AF184 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A4E07417BF9002AF184 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D2277A0B07417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A1407417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A1907417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A2307417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A2807417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A3207417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A3707417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A4007417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A4507417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A4F07417BF9002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A5407417BFA002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A5E07417BFA002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A6307417BFA002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A6A07417BFA002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A7A07417BFA002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D2277A8307417BFA002AF184 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2277A1007417BF9002AF184 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A1107417BF9002AF184 /* AppleUSBCDC.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A1F07417BF9002AF184 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A2007417BF9002AF184 /* AppleUSBCDCACMControl.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A2D07417BF9002AF184 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A2E07417BF9002AF184 /* AppleUSBCDCACMData.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A3C07417BF9002AF184 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A3D07417BF9002AF184 /* AppleUSBCDCWCM.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A4B07417BF9002AF184 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A4C07417BF9002AF184 /* AppleUSBCDCECMControl.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A5907417BFA002AF184 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A5A07417BFA002AF184 /* AppleUSBCDCECMData.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A6607417BFA002AF184 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A6707417BFA002AF184 /* AppleUSBCDCDMM.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2277A7F07417BFA002AF184 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2277A8007417BFA002AF184 /* AppleUSBCDCEEM.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D2277A8607417BFA002AF184 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2277A0A07417BF9002AF184 /* AppleUSBCDC */;
+			targetProxy = D2277A8507417BFA002AF184 /* PBXContainerItemProxy */;
+		};
+		D2277A8807417BFA002AF184 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2277A1807417BF9002AF184 /* AppleUSBCDCACMControl */;
+			targetProxy = D2277A8707417BFA002AF184 /* PBXContainerItemProxy */;
+		};
+		D2277A8A07417BFA002AF184 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2277A2707417BF9002AF184 /* AppleUSBCDCACMData */;
+			targetProxy = D2277A8907417BFA002AF184 /* PBXContainerItemProxy */;
+		};
+		D2277A8C07417BFA002AF184 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2277A3607417BF9002AF184 /* AppleUSBCDCWCM */;
+			targetProxy = D2277A8B07417BFA002AF184 /* PBXContainerItemProxy */;
+		};
+		D2277A8E07417BFA002AF184 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2277A4407417BF9002AF184 /* AppleUSBCDCECMControl */;
+			targetProxy = D2277A8D07417BFA002AF184 /* PBXContainerItemProxy */;
+		};
+		D2277A9007417BFA002AF184 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2277A5307417BFA002AF184 /* AppleUSBCDCECMData */;
+			targetProxy = D2277A8F07417BFA002AF184 /* PBXContainerItemProxy */;
+		};
+		D2277A9207417BFA002AF184 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2277A6207417BFA002AF184 /* AppleUSBCDCDMM */;
+			targetProxy = D2277A9107417BFA002AF184 /* PBXContainerItemProxy */;
+		};
+		D24A0FCE082BD87F0097BB0C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2277A7907417BFA002AF184 /* AppleUSBCDCEEM */;
+			targetProxy = D24A0FCD082BD87F0097BB0C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		D24E98F00680E7BD005360D4 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D24E98F10680E7BD005360D4 /* English */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		973C87DF0897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "Plists/AppleUSBCDC-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "a-w,u+w, a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDC;
+				MODULE_VERSION = 3.1.6;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDC;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		973C87E00897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Plists/AppleUSBCDC-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "a-w,u+w, a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDC;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDC;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		973C87E10897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = "Plists/AppleUSBCDC-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "a-w,u+w, a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDC;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDC;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		973C87E30897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCACMControl-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
+				MODULE_VERSION = 3.1.6;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCACMControl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		973C87E40897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCACMControl-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCACMControl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		973C87E50897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCACMControl-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCACMControl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		973C87E70897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCACMData-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
+				MODULE_VERSION = 3.1.6;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCACMData;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		973C87E80897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCACMData-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCACMData;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		973C87E90897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCACMData-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCACMData;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		973C87EB0897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCWCM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
+				MODULE_VERSION = 3.1.6;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCWCM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		973C87EC0897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCWCM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCWCM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		973C87ED0897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCWCM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCWCM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		973C87EF0897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCECMControl-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
+				MODULE_VERSION = 3.1.6;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCECMControl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		973C87F00897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCECMControl-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCECMControl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		973C87F10897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCECMControl-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCECMControl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		973C87F30897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCECMData-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
+				MODULE_VERSION = 3.1.6;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCECMData;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		973C87F40897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCECMData-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCECMData;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		973C87F50897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCECMData-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCECMData;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		973C87F70897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCDMM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
+				MODULE_VERSION = 3.1.6;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCDMM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		973C87F80897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCDMM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCDMM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		973C87F90897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCDMM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCDMM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		973C87FB0897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCEEM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
+				MODULE_VERSION = 3.1.6;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCEEM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		973C87FC0897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCEEM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCEEM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		973C87FD0897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Plists/AppleUSBCDCEEM-Info.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBCDCEEM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		973C87FF0897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Build All";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		973C88000897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Build All";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		973C88010897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Build All";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		973C88030897FD9100B1007D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		973C88040897FD9100B1007D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		973C88050897FD9100B1007D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		973C87DE0897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C87DF0897FD9100B1007D /* Development */,
+				973C87E00897FD9100B1007D /* Deployment */,
+				973C87E10897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		973C87E20897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCACMControl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C87E30897FD9100B1007D /* Development */,
+				973C87E40897FD9100B1007D /* Deployment */,
+				973C87E50897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		973C87E60897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCACMData" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C87E70897FD9100B1007D /* Development */,
+				973C87E80897FD9100B1007D /* Deployment */,
+				973C87E90897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		973C87EA0897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCWCM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C87EB0897FD9100B1007D /* Development */,
+				973C87EC0897FD9100B1007D /* Deployment */,
+				973C87ED0897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		973C87EE0897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCECMControl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C87EF0897FD9100B1007D /* Development */,
+				973C87F00897FD9100B1007D /* Deployment */,
+				973C87F10897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		973C87F20897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCECMData" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C87F30897FD9100B1007D /* Development */,
+				973C87F40897FD9100B1007D /* Deployment */,
+				973C87F50897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		973C87F60897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCDMM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C87F70897FD9100B1007D /* Development */,
+				973C87F80897FD9100B1007D /* Deployment */,
+				973C87F90897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		973C87FA0897FD9100B1007D /* Build configuration list for PBXNativeTarget "AppleUSBCDCEEM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C87FB0897FD9100B1007D /* Development */,
+				973C87FC0897FD9100B1007D /* Deployment */,
+				973C87FD0897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		973C87FE0897FD9100B1007D /* Build configuration list for PBXAggregateTarget "Build All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C87FF0897FD9100B1007D /* Development */,
+				973C88000897FD9100B1007D /* Deployment */,
+				973C88010897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		973C88020897FD9100B1007D /* Build configuration list for PBXProject "AppleUSBCDC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				973C88030897FD9100B1007D /* Development */,
+				973C88040897FD9100B1007D /* Deployment */,
+				973C88050897FD9100B1007D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

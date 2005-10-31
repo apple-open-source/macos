@@ -1098,7 +1098,11 @@ branch_prob (void)
   if (profile_arc_flag
       && coverage_counter_alloc (GCOV_COUNTER_ARCS, num_instrumented))
     {
-      unsigned n_instrumented = instrument_edges (el);
+      unsigned n_instrumented;
+
+      profile_hooks->init_edge_profiler ();
+
+      n_instrumented = instrument_edges (el);
 
       if (n_instrumented != num_instrumented)
 	abort ();
@@ -1108,7 +1112,7 @@ branch_prob (void)
 
       /* Commit changes done by instrumentation.  */
       if (ir_type ())
-	bsi_commit_edge_inserts ((int *)NULL);
+	bsi_commit_edge_inserts ();
       else
 	{
           commit_edge_insertions_watch_calls ();

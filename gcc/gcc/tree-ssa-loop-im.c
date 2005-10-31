@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -37,6 +37,28 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "tree-pass.h"
 #include "flags.h"
+
+/* TODO:  Support for predicated code motion.  I.e.
+
+   while (1)
+     {
+       if (cond)
+	 {
+	   a = inv;
+	   something;
+	 }
+     }
+
+   Where COND and INV are is invariants, but evaluating INV may trap or be
+   invalid from some other reason if !COND.  This may be transformed to
+
+   if (cond)
+     a = inv;
+   while (1)
+     {
+       if (cond)
+	 something;
+     }  */
 
 /* A type for the list of statements that have to be moved in order to be able
    to hoist an invariant computation.  */
@@ -227,6 +249,28 @@ movement_possibility (tree stmt)
       || tree_could_trap_p (rhs))
     return MOVE_PRESERVE_EXECUTION;
 
+  if (get_call_expr_in (stmt))
+    {
+      /* While pure or const call is guaranteed to have no side effects, we
+	 cannot move it arbitrarily.  Consider code like
+
+	 char *s = something ();
+
+	 while (1)
+	   {
+	     if (s)
+	       t = strlen (s);
+	     else
+	       t = 0;
+	   }
+
+	 Here the strlen call cannot be moved out of the loop, even though
+	 s is invariant.  In addition to possibly creating a call with
+	 invalid arguments, moving out a function call that is not executed
+	 may cause performance regressions in case the call is costly and
+	 not executed at all.  */
+      return MOVE_PRESERVE_EXECUTION;
+    }
   return MOVE_POSSIBLE;
 }
 
@@ -283,7 +327,7 @@ outermost_invariant_loop_expr (tree expr, struct loop *loop)
       && class != tcc_comparison)
     return NULL;
 
-  nops = first_rtl_op (TREE_CODE (expr));
+  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < nops; i++)
     {
       aloop = outermost_invariant_loop_expr (TREE_OPERAND (expr, i), loop);
@@ -365,9 +409,7 @@ stmt_cost (tree stmt)
   rhs = TREE_OPERAND (stmt, 1);
 
   /* Hoisting memory references out should almost surely be a win.  */
-  if (!is_gimple_variable (lhs))
-    cost += 20;
-  if (is_gimple_addressable (rhs) && !is_gimple_variable (rhs))
+  if (stmt_references_memory_p (stmt))
     cost += 20;
 
   switch (TREE_CODE (rhs))
@@ -378,7 +420,7 @@ stmt_cost (tree stmt)
       /* Unless the call is a builtin_constant_p; this always folds to a
 	 constant, so moving it is useless.  */
       rhs = get_callee_fndecl (rhs);
-      if (DECL_BUILT_IN (rhs)
+      if (DECL_BUILT_IN_CLASS (rhs) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (rhs) == BUILT_IN_CONSTANT_P)
 	return 0;
 
@@ -598,7 +640,7 @@ loop_commit_inserts (void)
   basic_block bb;
 
   old_last_basic_block = last_basic_block;
-  bsi_commit_edge_inserts (NULL);
+  bsi_commit_edge_inserts ();
   for (i = old_last_basic_block; i < (unsigned) last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
@@ -679,7 +721,7 @@ move_computations (void)
 
   loop_commit_inserts ();
   rewrite_into_ssa (false);
-  if (bitmap_first_set_bit (vars_to_rename) >= 0)
+  if (!bitmap_empty_p (vars_to_rename))
     {
       /* The rewrite of ssa names may cause violation of loop closed ssa
 	 form invariants.  TODO -- avoid these rewrites completely.
@@ -745,7 +787,7 @@ force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
       && class != tcc_comparison)
     return;
 
-  nops = first_rtl_op (TREE_CODE (expr));
+  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < nops; i++)
     force_move_till_expr (TREE_OPERAND (expr, i), orig_loop, loop);
 }
@@ -1239,7 +1281,7 @@ determine_lsm_loop (struct loop *loop)
       return;
     }
 
-  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     determine_lsm_reg (loop, exits, n_exits, PHI_RESULT (phi));
 
   free (exits);
@@ -1253,6 +1295,9 @@ determine_lsm (struct loops *loops)
 {
   struct loop *loop;
   basic_block bb;
+
+  if (!loops->tree_root->inner)
+    return;
 
   /* Create a UID for each statement in the function.  Ordering of the
      UIDs is not important for this pass.  */

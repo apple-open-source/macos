@@ -29,17 +29,15 @@
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
 #include <IOKit/IOCFSerialize.h>
+#include <IOKit/IOHibernatePrivate.h>
 #include <servers/bootstrap.h>
 #include <sys/syslog.h>
 #include "IOPMLib.h"
 #include "IOPMLibPrivate.h"
 #include "powermanagement.h"
 
-#include <IOKit/network/IOEthernetController.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOBSD.h>
-#include <IOKit/network/IONetworkLib.h>
-#include <IOKit/network/IOEthernetInterface.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -116,6 +114,8 @@
 #define kUPSDisplaySleepUsesDim          kACDisplaySleepUsesDim
 #define kUPSMobileMotionModule           kACMobileMotionModule
 
+#define kIOHibernateDefaultFile		"/var/vm/sleepimage"
+enum { kIOHibernateMinFreeSpace 	= 750*1024ULL*1024ULL }; /* 750Mb */
 
 #define kIOPMNumPMFeatures		15
 
@@ -133,7 +133,8 @@ static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMWakeOnACChangeKey,
     kIOPMReduceBrightnessKey,
     kIOPMDisplaySleepUsesDimKey,
-    kIOPMMobileMotionModuleKey
+    kIOPMMobileMotionModuleKey,
+    kIOHibernateModeKey
 };
 
 static const unsigned int battery_defaults_array[] = {
@@ -150,7 +151,8 @@ static const unsigned int battery_defaults_array[] = {
     kBatteryWakeOnACChange,
     kBatteryReduceBrightness,
     kBatteryDisplaySleepUsesDim,
-    kBatteryMobileMotionModule
+    kBatteryMobileMotionModule,
+    kIOHibernateModeOn | kIOHibernateModeSleep  /* safe sleep mode */
 };
 
 static const unsigned int ac_defaults_array[] = {
@@ -167,7 +169,8 @@ static const unsigned int ac_defaults_array[] = {
     kACWakeOnACChange,
     kACReduceBrightness,
     kACDisplaySleepUsesDim,
-    kACMobileMotionModule
+    kACMobileMotionModule,
+    kIOHibernateModeOn | kIOHibernateModeSleep  /* safe sleep mode */
 };
 
 static const unsigned int ups_defaults_array[] = {
@@ -184,7 +187,8 @@ static const unsigned int ups_defaults_array[] = {
     kUPSWakeOnACChange,
     kUPSReduceBrightness,
     kUPSDisplaySleepUsesDim,
-    kUPSMobileMotionModule
+    kUPSMobileMotionModule,
+    kIOHibernateModeOn | kIOHibernateModeSleep  /* safe sleep mode */
 };
 
 
@@ -252,6 +256,7 @@ static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
             CFRelease(key);
             CFRelease(val);
         }
+        CFDictionaryAddValue(batt, CFSTR(kIOHibernateFileKey), CFSTR(kIOHibernateDefaultFile));
         CFDictionarySetValue(sys, CFSTR(kIOPMBatteryPowerKey), batt);
     }
 
@@ -268,6 +273,7 @@ static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
             CFRelease(key);
             CFRelease(val);
         }
+        CFDictionaryAddValue(ac, CFSTR(kIOHibernateFileKey), CFSTR(kIOHibernateDefaultFile));
         CFDictionarySetValue(sys, CFSTR(kIOPMACPowerKey), ac);
     }
     
@@ -283,6 +289,7 @@ static int getDefaultEnergySettings(CFMutableDictionaryRef sys)
             CFRelease(key);
             CFRelease(val);
         }
+        CFDictionaryAddValue(ups, CFSTR(kIOHibernateFileKey), CFSTR(kIOHibernateDefaultFile));
         CFDictionarySetValue(sys, CFSTR(kIOPMUPSPowerKey), ups);
     }
 
@@ -301,11 +308,188 @@ static io_registry_entry_t  getPMRootDomainRef(void)
     return registry_entry;    
 }
 
+static int 
+ProcessHibernateSettings(CFDictionaryRef dict, io_registry_entry_t rootDomain)
+{
+    IOReturn	ret;
+    CFTypeRef	obj;
+    CFURLRef	url;
+    Boolean	createFile = false;
+    Boolean	haveFile = false;
+    struct stat statBuf;
+    char	path[MAXPATHLEN];
+    int		fd;
+    long long	size;
+    size_t	len;
+    fstore_t	prealloc;
+    uint64_t	filesize;
 
-static int sendEnergySettingsToKernel(CFDictionaryRef System, CFStringRef prof, IOPMAggressivenessFactors *p)
+    if ((obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFileKey)))
+      && isA_CFString(obj))
+    do
+    {
+	url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
+	    obj, kCFURLPOSIXPathStyle, true);
+
+	if (!url || !CFURLGetFileSystemRepresentation(url, TRUE, path, MAXPATHLEN))
+	    break;
+
+	len = sizeof(size);
+	if (sysctlbyname("hw.memsize", &size, &len, NULL, 0))
+	    break;
+	filesize = size;
+
+	if (0 == stat(path, &statBuf))
+	{
+	    if ((S_IFBLK == (S_IFMT & statBuf.st_mode)) 
+                || (S_IFCHR == (S_IFMT & statBuf.st_mode)))
+	    {
+                haveFile = true;
+	    }
+	    else if (S_IFREG == (S_IFMT & statBuf.st_mode))
+            {
+                if (statBuf.st_size >= filesize)
+                    haveFile = true;
+                else
+                    createFile = true;
+            }
+	    else
+		break;
+	}
+	else
+	    createFile = true;
+
+	if (createFile)
+	{
+            do
+            {
+                char *    patchpath, save = 0;
+		struct    statfs sfs;
+                u_int64_t fsfree;
+
+                fd = -1;
+
+		/*
+		 * get rid of the filename at the end of the file specification
+		 * we only want the portion of the pathname that should already exist
+		 */
+		if ((patchpath = strrchr(path, '/')))
+                {
+                    save = *patchpath;
+                    *patchpath = 0;
+                }
+
+	        if (-1 == statfs(path, &sfs))
+                    break;
+
+                fsfree = ((u_int64_t)sfs.f_bfree * (u_int64_t)sfs.f_bsize);
+                if ((fsfree - filesize) < kIOHibernateMinFreeSpace)
+                    break;
+
+                if (patchpath)
+                    *patchpath = save;
+                fd = open(path, O_CREAT | O_TRUNC | O_RDWR);
+                if (-1 == fd)
+                    break;
+                if (-1 == fchmod(fd, 01600))
+                    break;
+        
+                prealloc.fst_flags = F_ALLOCATEALL; // F_ALLOCATECONTIG
+                prealloc.fst_posmode = F_PEOFPOSMODE;
+                prealloc.fst_offset = 0;
+                prealloc.fst_length = filesize;
+                if (((-1 == fcntl(fd, F_PREALLOCATE, (int) &prealloc))
+                    || (-1 == fcntl(fd, F_SETSIZE, &prealloc.fst_length)))
+                && (-1 == ftruncate(fd, prealloc.fst_length)))
+                    break;
+
+                haveFile = true;
+            }
+            while (false);
+            if (-1 != fd)
+            {
+                close(fd);
+                if (!haveFile)
+                    unlink(path);
+            }
+	}
+
+        if (!haveFile)
+            break;
+
+#define kBootXPath		"/System/Library/CoreServices/BootX"
+#define kBootXSignaturePath	"/System/Library/Caches/com.apple.bootxsignature"
+#define	kGenSignatureCommand	"/bin/cat " kBootXPath " | /usr/bin/openssl dgst -sha1 -hex -out " kBootXSignaturePath
+
+        struct stat bootx_stat_buf;
+        struct stat bootsignature_stat_buf;
+    
+        if (0 != stat(kBootXPath, &bootx_stat_buf))
+            break;
+
+        if ((0 != stat(kBootXSignaturePath, &bootsignature_stat_buf))
+         || (bootsignature_stat_buf.st_mtime != bootx_stat_buf.st_mtime))
+        {
+            // generate signature file
+            if (0 != system(kGenSignatureCommand))
+               break;
+
+            // set mod time to that of source
+            struct timeval fileTimes[2];
+	    TIMESPEC_TO_TIMEVAL(&fileTimes[0], &bootx_stat_buf.st_atimespec);
+	    TIMESPEC_TO_TIMEVAL(&fileTimes[1], &bootx_stat_buf.st_mtimespec);
+            if ((0 != utimes(kBootXSignaturePath, fileTimes)))
+                break;
+        }
+
+
+        // send signature to kernel
+	CFAllocatorRef alloc;
+        void *         sigBytes;
+        CFIndex        sigLen;
+
+	alloc = CFRetain(CFAllocatorGetDefault());
+        if (_IOReadBytesFromFile(alloc, kBootXSignaturePath, &sigBytes, &sigLen, 0))
+            ret = sysctlbyname("kern.bootsignature", NULL, NULL, sigBytes, sigLen);
+        else
+            ret = -1;
+        CFAllocatorDeallocate(alloc, sigBytes);
+	CFRelease(alloc);
+        if (0 != ret)
+            break;
+
+        ret = IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileKey), obj);
+    }
+    while (false);
+
+    if ((obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateModeKey)))
+      && isA_CFNumber(obj))
+    {
+	ret = IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateModeKey), obj);
+    }
+    if ((obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFreeRatioKey)))
+      && isA_CFNumber(obj))
+    {
+	ret = IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFreeRatioKey), obj);
+    }
+    if ((obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFreeTimeKey)))
+      && isA_CFNumber(obj))
+    {
+	ret = IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFreeTimeKey), obj);
+    }
+
+    return 0;
+}
+
+static int sendEnergySettingsToKernel(
+    CFDictionaryRef                 System, 
+    CFStringRef                     prof, 
+    IOPMAggressivenessFactors       *p)
 {
     io_registry_entry_t             PMRootDomain = MACH_PORT_NULL;
     io_connect_t        		    PM_connection = MACH_PORT_NULL;
+    CFTypeRef                       power_source_info = NULL;
+    CFStringRef                     providing_power = NULL;
     IOReturn    		            err;
     IOReturn                        ret;
     CFNumberRef                     number1;
@@ -325,6 +509,12 @@ static int sendEnergySettingsToKernel(CFDictionaryRef System, CFStringRef prof, 
     PM_connection = IOPMFindPowerManagement(0);
     if ( !PM_connection ) return -1;
 
+    // Determine type of power source
+    power_source_info = IOPSCopyPowerSourcesInfo();
+    if(power_source_info) {
+        providing_power = IOPSGetProvidingPowerSourceType(power_source_info);
+    }
+    
     type = kPMMinutesToDim;
     err = IOPMSetAggressiveness(PM_connection, type, p->fMinutesToDim);
 
@@ -334,12 +524,20 @@ static int sendEnergySettingsToKernel(CFDictionaryRef System, CFStringRef prof, 
     type = kPMMinutesToSleep;
     err = IOPMSetAggressiveness(PM_connection, type, p->fMinutesToSleep);
 
-    if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMWakeOnLANKey), NULL))
+    // Wake on LAN
+    if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMWakeOnLANKey), providing_power))
     {
         type = kPMEthernetWakeOnLANSettings;
         err = IOPMSetAggressiveness(PM_connection, type, p->fWakeOnLAN);
+    } else {
+        // Even if WakeOnLAN is reported as not supported, broadcast 0 as 
+        // value. We may be on a supported machine, just on battery power.
+        // Wake on LAN is not supported on battery power on PPC hardware.
+        type = kPMEthernetWakeOnLANSettings;
+        err = IOPMSetAggressiveness(PM_connection, type, 0);
     }
-
+    
+    // Display Sleep Uses Dim
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMDisplaySleepUsesDimKey), NULL))
     {
         type = kIODisplayDimAggressiveness;
@@ -395,6 +593,7 @@ static int sendEnergySettingsToKernel(CFDictionaryRef System, CFStringRef prof, 
     CFDictionaryRef dict = NULL;
     if((dict = CFDictionaryGetValue(System, prof)) )
     {
+	ProcessHibernateSettings(dict, PMRootDomain);
     }
 
     /* PowerStep and Reduce Processor Speed are handled by a separate configd plugin that's
@@ -408,6 +607,7 @@ static int sendEnergySettingsToKernel(CFDictionaryRef System, CFStringRef prof, 
     */
     CFRelease(number0);
     CFRelease(number1);
+    if(power_source_info) CFRelease(power_source_info);
     IOServiceClose(PM_connection);
     IOObjectRelease(PMRootDomain);
     return 0;
@@ -416,8 +616,9 @@ static int sendEnergySettingsToKernel(CFDictionaryRef System, CFStringRef prof, 
 static void GetAggressivenessValue(
     CFTypeRef           obj,
     CFNumberType        type,
-    int                 *ret)
+    unsigned int        *ret)
 {
+    *ret = 0;
     if (isA_CFNumber(obj))
     {            
         CFNumberGetValue(obj, type, ret);
@@ -431,7 +632,10 @@ static void GetAggressivenessValue(
 }
 
 /* For internal use only */
-static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringRef prof, IOPMAggressivenessFactors *agg)
+static int getAggressivenessFactorsFromProfile(
+    CFDictionaryRef System, 
+    CFStringRef prof, 
+    IOPMAggressivenessFactors *agg)
 {
     CFDictionaryRef p = NULL;
 
@@ -660,6 +864,17 @@ bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
         goto IOPMFeatureIsAvailable_exitpoint;
     }
 
+    if(CFEqual(f, CFSTR(kIOHibernateModeKey))
+     || CFEqual(f, CFSTR(kIOHibernateFreeRatioKey))
+     || CFEqual(f, CFSTR(kIOHibernateFreeTimeKey))
+     || CFEqual(f, CFSTR(kIOHibernateFileKey)))
+    {
+        if(!supportedFeatures) return false;
+        if(CFDictionaryGetValue(supportedFeatures, CFSTR(kIOHibernateFeatureKey)))
+            ret = true;
+        else ret = false;
+        goto IOPMFeatureIsAvailable_exitpoint;
+    }
 
     // Mobile Motion Module hard drive protector
     if(CFEqual(f, CFSTR(kIOPMMobileMotionModuleKey)))

@@ -1184,7 +1184,14 @@ for (;; ptr++)
         *errorptr = ERR6;
         goto FAILED;
         }
-
+#if PCRE_UTF16
+      if (c > 255)
+        {
+        *errorptr = ERR33;
+        goto FAILED;
+        }
+#endif
+          
       /* Handle POSIX class names. Perl allows a negation extension of the
       form [:^name]. A square bracket that doesn't match the syntax is
       treated as a literal. We also recognize the POSIX constructions
@@ -1320,7 +1327,14 @@ for (;; ptr++)
           *errorptr = ERR6;
           goto FAILED;
           }
-
+#if PCRE_UTF16
+        if (d > 255)
+          {
+          *errorptr = ERR33;
+          goto FAILED;
+          }
+#endif
+        
         /* The second part of a range can be a single-character escape, but
         not any of the other escapes. Perl 5.6 treats a hyphen as a literal
         in such circumstances. */
@@ -2610,6 +2624,7 @@ int bracount = 0;
 int top_backref = 0;
 int branch_extra = 0;
 int branch_newextra;
+int lastcharlength = 0;
 unsigned int brastackptr = 0;
 size_t size;
 uschar *code;
@@ -2718,7 +2733,8 @@ while ((c = *(++ptr)) != 0)
         }
       }
     length++;
-
+    lastcharlength = 1;
+        
     /* A back reference needs an additional 2 bytes, plus either one or 5
     bytes for a repeat. We also need to keep the value of the highest
     back reference. */
@@ -2748,6 +2764,7 @@ while ((c = *(++ptr)) != 0)
     case '+':     /* those are handled separately */
     case '?':
     length++;
+    lastcharlength = 1;
     continue;
 
     /* This covers the cases of repeats after a single char, metachar, class,
@@ -2762,9 +2779,12 @@ while ((c = *(++ptr)) != 0)
         length++;
     else
       {
-      length--;   /* Uncount the original char or metachar */
-      if (min == 1) length++; else if (min > 0) length += 4;
-      if (max > 0) length += 4; else length += 2;
+      if (min != 1)
+        {
+        length -= lastcharlength;   /* Uncount the original char or metachar */
+        if (min > 0) length += 3 + lastcharlength;
+        }
+        length += lastcharlength + ((max > 0 ? 3 : 1));
       }
     if (ptr[1] == '?') ptr++;
     continue;
@@ -3115,6 +3135,7 @@ while ((c = *(++ptr)) != 0)
     default:
     length += 2;
     runlength = 0;
+    lastcharlength = sizeof (ichar);
     do
       {
       if ((options & PCRE_EXTENDED) != 0)

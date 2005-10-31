@@ -58,11 +58,11 @@ button_to_awt_mods (int button)
   switch (button)
     {
     case 1:
-      return AWT_BUTTON1_DOWN_MASK;
+      return AWT_BUTTON1_MASK;
     case 2:
-      return AWT_BUTTON2_DOWN_MASK;
+      return AWT_BUTTON2_MASK;
     case 3:
-      return AWT_BUTTON3_DOWN_MASK;
+      return AWT_BUTTON3_MASK;
     }
 
   return 0;
@@ -827,14 +827,16 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
   static guint button_number = -1;
   static jint click_count = 1;
   static int hasBeenDragged;
+  union widget_union w;
 
   /* If it is not a focus change event, the widget must be realized already.
      If not, ignore the event (Gtk+ will do the same). */
   if (!(event->type == GDK_FOCUS_CHANGE || GTK_WIDGET_REALIZED(widget)))
     return FALSE;
-    
+
   /* Do not handle propagated events.  AWT has its own propagation rules */
-  gdk_window_get_user_data (event->any.window, (void **) &event_widget);
+  w.widget = &event_widget;
+  gdk_window_get_user_data (event->any.window, w.void_widget);
   if (event_widget != widget)
     return FALSE;
 
@@ -881,7 +883,8 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
   switch (event->type)
     {
     case GDK_BUTTON_PRESS:
-      (*gdk_env)->CallVoidMethod (gdk_env, peer,
+      gdk_threads_leave ();
+      (*gdk_env())->CallVoidMethod (gdk_env(), peer,
                                   postMouseEventID,
 				  AWT_MOUSE_PRESSED, 
 				  (jlong)event->button.time,
@@ -892,13 +895,15 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 				  click_count, 
 				  (event->button.button == 3) ? JNI_TRUE :
 				                                JNI_FALSE);
+      gdk_threads_enter ();
       hasBeenDragged = FALSE;
       break;
     case GDK_BUTTON_RELEASE:
       {
 	int width, height;
 
-	(*gdk_env)->CallVoidMethod (gdk_env, peer,
+	gdk_threads_leave ();
+	(*gdk_env())->CallVoidMethod (gdk_env(), peer,
 				    postMouseEventID,
 				    AWT_MOUSE_RELEASED, 
 				    (jlong)event->button.time,
@@ -908,6 +913,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 				    (jint)event->button.y, 
 				    click_count,
 				    JNI_FALSE);
+	gdk_threads_enter ();
 
 	/* Generate an AWT click event only if the release occured in the
 	   window it was pressed in, and the mouse has not been dragged since
@@ -919,7 +925,8 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 	    && event->button.x <= width 
 	    && event->button.y <= height)
           {
-	    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+	    gdk_threads_leave ();
+	    (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 				        postMouseEventID,
 				        AWT_MOUSE_CLICKED, 
 				        (jlong)event->button.time,
@@ -929,6 +936,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 				        (jint)event->button.y, 
 				        click_count,
 				        JNI_FALSE);
+	    gdk_threads_enter ();
           }
       }
       break;
@@ -939,7 +947,8 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 				 | GDK_BUTTON4_MASK
 				 | GDK_BUTTON5_MASK))
 	{
-	  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+	  gdk_threads_leave ();
+	  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 			              postMouseEventID,
 				      AWT_MOUSE_DRAGGED,
 				      (jlong)event->motion.time,
@@ -948,44 +957,58 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 				      (jint)event->motion.y,
 				      0,
 				      JNI_FALSE);
+	  gdk_threads_enter ();
 	  hasBeenDragged = TRUE;
 	}
       else
-        (*gdk_env)->CallVoidMethod (gdk_env, peer, postMouseEventID,
-				    AWT_MOUSE_MOVED,
-				    (jlong)event->motion.time,
-				    state_to_awt_mods (event->motion.state),
-				    (jint)event->motion.x,
-				    (jint)event->motion.y,
-				    0,
-				    JNI_FALSE);
+	{
+	  gdk_threads_leave ();
+	  (*gdk_env())->CallVoidMethod (gdk_env(), peer, postMouseEventID,
+					AWT_MOUSE_MOVED,
+					(jlong)event->motion.time,
+					state_to_awt_mods (event->motion.state),
+					(jint)event->motion.x,
+					(jint)event->motion.y,
+					0,
+					JNI_FALSE);
+	  gdk_threads_enter ();
+	}
+
       break;
     case GDK_ENTER_NOTIFY:
       /* We are not interested in enter events that are due to
          grab/ungrab and not to actually crossing boundaries */
       if (event->crossing.mode == GDK_CROSSING_NORMAL)
-        (*gdk_env)->CallVoidMethod (gdk_env, peer, postMouseEventID,
-				    AWT_MOUSE_ENTERED, 
-				    (jlong)event->crossing.time,
-				    state_to_awt_mods_with_button_states (event->crossing.state), 
-				    (jint)event->crossing.x,
-				    (jint)event->crossing.y, 
-				    0,
-				    JNI_FALSE);
+	{
+	  gdk_threads_leave ();	  
+	  (*gdk_env())->CallVoidMethod (gdk_env(), peer, postMouseEventID,
+					AWT_MOUSE_ENTERED, 
+					(jlong)event->crossing.time,
+					state_to_awt_mods_with_button_states (event->crossing.state), 
+					(jint)event->crossing.x,
+					(jint)event->crossing.y, 
+					0,
+					JNI_FALSE);
+	  gdk_threads_enter ();
+	}
       break;
     case GDK_LEAVE_NOTIFY:
       /* We are not interested in leave events that are due to
          grab/ungrab and not to actually crossing boundaries */
       if (event->crossing.mode == GDK_CROSSING_NORMAL)
-	(*gdk_env)->CallVoidMethod (gdk_env, peer,
-				    postMouseEventID,
-				    AWT_MOUSE_EXITED, 
-				    (jlong)event->crossing.time,
-				    state_to_awt_mods_with_button_states (event->crossing.state),
-				    (jint)event->crossing.x,
-				    (jint)event->crossing.y, 
-				    0,
-				    JNI_FALSE);
+	{
+	  gdk_threads_leave ();	  
+	  (*gdk_env())->CallVoidMethod (gdk_env(), peer,
+					postMouseEventID,
+					AWT_MOUSE_EXITED, 
+					(jlong)event->crossing.time,
+					state_to_awt_mods_with_button_states (event->crossing.state),
+					(jint)event->crossing.x,
+					(jint)event->crossing.y, 
+					0,
+					JNI_FALSE);
+	  gdk_threads_enter ();	  
+	}
       break;
     case GDK_CONFIGURE:
       {
@@ -999,7 +1022,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 	       returns. */
 	    gdk_threads_leave ();
 
- 	    (*gdk_env)->CallVoidMethod (gdk_env, peer,
+ 	    (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 					postConfigureEventID,
 					(jint) event->configure.x,
 					(jint) event->configure.y,
@@ -1010,31 +1033,24 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
       }
       break;
     case GDK_EXPOSE:
-      {
-        /* This filters out unwanted feedback expose events from gtk/X
-           when we explictly invalidate and update heavyweight components,
-           thus avoiding an infinite loop.
-           FIXME: I'm not quite sure why we're getting these expose events. 
-                  Maybe there is a way to avoid them? */
-        if((event->any.window == widget->window && event->any.send_event)
-           || GTK_IS_LAYOUT(widget))
-          {
-	    (*gdk_env)->CallVoidMethod (gdk_env, peer,
-				        postExposeEventID,
-				        (jint)event->expose.area.x,
-				        (jint)event->expose.area.y,
-				        (jint)event->expose.area.width,
-				        (jint)event->expose.area.height);
-          }
-      }
+      gdk_threads_leave ();
+      (*gdk_env())->CallVoidMethod (gdk_env(), peer,
+                                  postExposeEventID,
+                                  (jint)event->expose.area.x,
+                                  (jint)event->expose.area.y,
+                                  (jint)event->expose.area.width,
+                                  (jint)event->expose.area.height);
+      gdk_threads_enter ();
       break;
 
     case GDK_FOCUS_CHANGE:
-      (*gdk_env)->CallVoidMethod (gdk_env, peer,
+      gdk_threads_leave ();
+      (*gdk_env())->CallVoidMethod (gdk_env(), peer,
 				  postFocusEventID,
 				  (jint) (event->focus_change.in) ?
 				  AWT_FOCUS_GAINED : AWT_FOCUS_LOST,
 				  JNI_FALSE);
+      gdk_threads_enter ();
       break;
     case GDK_KEY_PRESS:
         if (GTK_IS_WINDOW (widget))
@@ -1042,7 +1058,8 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
             /*            GdkEventKey *keyevent = (GdkEventKey *) event; */
             /*            g_printerr ("key press event: sent: %d  time: %d  state: %d  keyval: %d  length: %d  string: %s  hardware_keycode: %d  group: %d\n", keyevent->send_event, keyevent->time, keyevent->state, keyevent->keyval, keyevent->length, keyevent->string, keyevent->hardware_keycode, keyevent->group); */
 
-            (*gdk_env)->CallVoidMethod (gdk_env, peer,
+	    gdk_threads_leave ();
+            (*gdk_env())->CallVoidMethod (gdk_env(), peer,
                                         postKeyEventID,
                                         (jint) AWT_KEY_PRESSED,
                                         (jlong) event->key.time,
@@ -1050,6 +1067,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
                                         keysym_to_awt_keycode (event),
                                         keyevent_to_awt_keychar (event),
                                         keysym_to_awt_keylocation (event));
+	    gdk_threads_enter ();
             /* FIXME: generation of key typed events needs to be moved
                to GtkComponentPeer.postKeyEvent.  If the key in a key
                press event is not an "action" key
@@ -1063,7 +1081,8 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
     case GDK_KEY_RELEASE:
       if (GTK_IS_WINDOW (widget))
         {
-            (*gdk_env)->CallVoidMethod (gdk_env, peer,
+	    gdk_threads_leave ();
+            (*gdk_env())->CallVoidMethod (gdk_env(), peer,
                                         postKeyEventID,
                                         (jint) AWT_KEY_RELEASED,
                                         (jlong) event->key.time,
@@ -1071,6 +1090,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
                                         keysym_to_awt_keycode (event),
                                         keyevent_to_awt_keychar (event),
                                         keysym_to_awt_keylocation (event));
+	    gdk_threads_enter ();
             return TRUE;
         }
       else
@@ -1133,3 +1153,24 @@ connect_awt_hook (JNIEnv *env, jobject peer_obj, int nwindows, ...)
   va_end (ap);
 }
 
+/*
+ * Attach a Java object that is backed by widget.  This callback is
+ * called after the widget's window has been realized.  That way, we
+ * can be sure that widget->window is non-NULL, and so can have data
+ * connected to it.
+ */
+void connect_awt_hook_cb (GtkWidget *widget __attribute__((unused)),
+			  jobject peer)
+{
+  void *ptr;
+
+  ptr = NSA_GET_PTR (gdk_env(), peer);
+
+  connect_awt_hook (gdk_env(), peer, 1, GTK_WIDGET (ptr)->window);
+
+  gdk_threads_leave ();
+
+  (*gdk_env())->CallVoidMethod (gdk_env(), peer, setCursorID);
+
+  gdk_threads_enter ();
+}

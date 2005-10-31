@@ -149,6 +149,7 @@ static ERR_STRING_DATA ERR_str_libraries[]=
 {ERR_PACK(ERR_LIB_DSO,0,0)		,"DSO support routines"},
 {ERR_PACK(ERR_LIB_ENGINE,0,0)		,"engine routines"},
 {ERR_PACK(ERR_LIB_OCSP,0,0)		,"OCSP routines"},
+{ERR_PACK(ERR_LIB_FIPS,0,0)		,"FIPS routines"},
 {0,NULL},
 	};
 
@@ -167,6 +168,7 @@ static ERR_STRING_DATA ERR_str_functs[]=
 #endif
 	{ERR_PACK(0,SYS_F_OPENDIR,0),		"opendir"},
 	{ERR_PACK(0,SYS_F_FREAD,0),		"fread"},
+	{ERR_PACK(0,SYS_F_GETADDRINFO,0),	"getaddrinfo"},
 	{0,NULL},
 	};
 
@@ -225,6 +227,7 @@ struct st_ERR_FNS
 	ERR_STRING_DATA *(*cb_err_del_item)(ERR_STRING_DATA *);
 	/* Works on the "thread_hash" error-state table */
 	LHASH *(*cb_thread_get)(int create);
+	void (*cb_thread_release)(LHASH **hash);
 	ERR_STATE *(*cb_thread_get_item)(const ERR_STATE *);
 	ERR_STATE *(*cb_thread_set_item)(ERR_STATE *);
 	void (*cb_thread_del_item)(const ERR_STATE *);
@@ -239,6 +242,7 @@ static ERR_STRING_DATA *int_err_get_item(const ERR_STRING_DATA *);
 static ERR_STRING_DATA *int_err_set_item(ERR_STRING_DATA *);
 static ERR_STRING_DATA *int_err_del_item(ERR_STRING_DATA *);
 static LHASH *int_thread_get(int create);
+static void int_thread_release(LHASH **hash);
 static ERR_STATE *int_thread_get_item(const ERR_STATE *);
 static ERR_STATE *int_thread_set_item(ERR_STATE *);
 static void int_thread_del_item(const ERR_STATE *);
@@ -252,6 +256,7 @@ static const ERR_FNS err_defaults =
 	int_err_set_item,
 	int_err_del_item,
 	int_thread_get,
+	int_thread_release,
 	int_thread_get_item,
 	int_thread_set_item,
 	int_thread_del_item,
@@ -271,6 +276,7 @@ static const ERR_FNS *err_fns = NULL;
  * and state in the loading application. */
 static LHASH *int_error_hash = NULL;
 static LHASH *int_thread_hash = NULL;
+static int int_thread_hash_references = 0;
 static int int_err_library_number= ERR_LIB_USER;
 
 /* Internal function that checks whether "err_fns" is set and if not, sets it to
@@ -417,9 +423,35 @@ static LHASH *int_thread_get(int create)
 		CRYPTO_pop_info();
 		}
 	if (int_thread_hash)
+		{
+		int_thread_hash_references++;
 		ret = int_thread_hash;
+		}
 	CRYPTO_w_unlock(CRYPTO_LOCK_ERR);
 	return ret;
+	}
+
+static void int_thread_release(LHASH **hash)
+	{
+	int i;
+
+	if (hash == NULL || *hash == NULL)
+		return;
+
+	i = CRYPTO_add(&int_thread_hash_references, -1, CRYPTO_LOCK_ERR);
+
+#ifdef REF_PRINT
+	fprintf(stderr,"%4d:%s\n",int_thread_hash_references,"ERR");
+#endif
+	if (i > 0) return;
+#ifdef REF_CHECK
+	if (i < 0)
+		{
+		fprintf(stderr,"int_thread_release, bad reference count\n");
+		abort(); /* ok */
+		}
+#endif
+	*hash = NULL;
 	}
 
 static ERR_STATE *int_thread_get_item(const ERR_STATE *d)
@@ -436,6 +468,7 @@ static ERR_STATE *int_thread_get_item(const ERR_STATE *d)
 	p = (ERR_STATE *)lh_retrieve(hash, d);
 	CRYPTO_r_unlock(CRYPTO_LOCK_ERR);
 
+	ERRFN(thread_release)(&hash);
 	return p;
 	}
 
@@ -453,6 +486,7 @@ static ERR_STATE *int_thread_set_item(ERR_STATE *d)
 	p = (ERR_STATE *)lh_insert(hash, d);
 	CRYPTO_w_unlock(CRYPTO_LOCK_ERR);
 
+	ERRFN(thread_release)(&hash);
 	return p;
 	}
 
@@ -469,13 +503,15 @@ static void int_thread_del_item(const ERR_STATE *d)
 	CRYPTO_w_lock(CRYPTO_LOCK_ERR);
 	p = (ERR_STATE *)lh_delete(hash, d);
 	/* make sure we don't leak memory */
-	if (int_thread_hash && (lh_num_items(int_thread_hash) == 0))
+	if (int_thread_hash_references == 1
+		&& int_thread_hash && (lh_num_items(int_thread_hash) == 0))
 		{
 		lh_free(int_thread_hash);
 		int_thread_hash = NULL;
 		}
 	CRYPTO_w_unlock(CRYPTO_LOCK_ERR);
 
+	ERRFN(thread_release)(&hash);
 	if (p)
 		ERR_STATE_free(p);
 	}
@@ -845,6 +881,12 @@ LHASH *ERR_get_err_state_table(void)
 	return ERRFN(thread_get)(0);
 	}
 
+void ERR_release_err_state_table(LHASH **hash)
+	{
+	err_fns_check();
+	ERRFN(thread_release)(hash);
+	}
+
 const char *ERR_lib_error_string(unsigned long e)
 	{
 	ERR_STRING_DATA d,*p;
@@ -1025,7 +1067,7 @@ void ERR_add_error_data(int num, ...)
 				else
 					str=p;
 				}
-			strcat(str,a);
+			BUF_strlcat(str,a,s+1);
 			}
 		}
 	ERR_set_error_data(str,ERR_TXT_MALLOCED|ERR_TXT_STRING);

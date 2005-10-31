@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -184,11 +183,9 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 	 it may guard the fallthrough block from using a value that has
 	 conditionally overwritten that of the main codepath.  So we
 	 consider that it restores the value of the main codepath.  */
-      bitmap_operation (set, e->dest->global_live_at_start, cond_set,
-			BITMAP_AND);
+      bitmap_and (set, e->dest->global_live_at_start, cond_set);
     else
-      bitmap_operation (used, used, e->dest->global_live_at_start,
-			BITMAP_IOR);
+      bitmap_ior_into (used, e->dest->global_live_at_start);
 }
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
@@ -528,11 +525,7 @@ schedule_ebb (rtx head, rtx tail)
 
       for (note = REG_NOTES (head); note; note = XEXP (note, 1))
 	if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
-	  {
-	    remove_note (head, note);
-	    note = XEXP (note, 1);
-	    remove_note (head, note);
-	  }
+	  remove_note (head, note);
     }
 
   /* Remove remaining note insns from the block, save them in

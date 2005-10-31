@@ -1,4 +1,3 @@
-/* $XdotOrg: pre-CVS proposed fix for CESA-2004-003 alanc 7/25/2004 $ */
 /*
  * Copyright (C) 1989-95 GROUPE BULL
  *
@@ -995,6 +994,15 @@ CreateXImage(display, visual, depth, format, width, height, image_return)
     if (!*image_return)
 	return (XpmNoMemory);
 
+    if ((*image_return)->bitmap_unit < 0 ||
+	(*image_return)->bitmap_unit > 32 ||
+	(*image_return)->depth < 0 || (*image_return)->depth > 32 ||
+	(*image_return)->bits_per_pixel < 0 ||
+	(*image_return)->bits_per_pixel > 32) {
+	XDestroyImage(*image_return);
+	return (XpmNoMemory);
+    }
+
 #if !defined(FOR_MSW) && !defined(AMIGA)
     if (height != 0 && (*image_return)->bytes_per_line >= INT_MAX / height) {
 	XDestroyImage(*image_return);
@@ -1215,7 +1223,8 @@ PutImagePixels(image, width, height, pixelindex, pixels)
     register char *src;
     register char *dst;
     register unsigned int *iptr;
-    register unsigned int x, y, i;
+    register unsigned int x, y;
+    int i;
     register char *data;
     Pixel pixel, px;
     int nbytes, depth, ibu, ibpp;

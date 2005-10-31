@@ -81,8 +81,8 @@ DSMutexSemaphore    *gKerberosMutex = NULL;
 mach_port_t			gServerMachPort = MACH_PORT_NULL;
 
 #warning VERIFY the version string before each distinct build submission
-const char* gStrDaemonAppleVersion = "2.0.1";
-const char* gStrDaemonBuildVersion = "350";
+const char* gStrDaemonAppleVersion = "2.1";
+const char* gStrDaemonBuildVersion = "351.13";
 
 enum
 {

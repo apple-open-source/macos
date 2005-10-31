@@ -77,4 +77,5 @@ ifeq ($(AEP),YES)
 	for patchfile in $(AEP_Patches); do \
 		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
 	done
+	cd $(SRCROOT)/$(Project) && patch -p1 < $(SRCROOT)/patches/ruby-1.8.2-xmlrpc-ipimethods-fix.diff
 endif

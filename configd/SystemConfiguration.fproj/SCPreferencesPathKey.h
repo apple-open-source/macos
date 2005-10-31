@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,15 +24,15 @@
 #ifndef _SCPREFERENCESPATHKEY_H
 #define _SCPREFERENCESPATHKEY_H
 
-#include <sys/cdefs.h>
 #include <AvailabilityMacros.h>
+#include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
 
 /*!
 	@header SCPreferencesPathKey
  */
-
 
 __BEGIN_DECLS
 
@@ -130,5 +130,7 @@ SCPreferencesPathKeyCreateSetNetworkServiceEntity(
 						 )				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 __END_DECLS
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
 
 #endif /* _SCPREFERENCESPATHKEY_H */

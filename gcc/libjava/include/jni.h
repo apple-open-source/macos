@@ -44,7 +44,9 @@ typedef struct _Jv_JavaVM JavaVM;
 # ifdef __GNUC__
 
 /* If we're using gcc, we can use a platform-independent scheme to get
-   the right integer types.  */
+   the right integer types.  FIXME: this is not always correct, for
+   instance on the c4x it will be wrong -- it depends on whether
+   QImode is 8 bits.  */
 typedef int    jbyte  __attribute__((__mode__(__QI__)));
 typedef int    jshort __attribute__((__mode__(__HI__)));
 typedef int    jint   __attribute__((__mode__(__SI__)));
@@ -555,7 +557,7 @@ struct JNINativeInterface
   const char * (JNICALL *GetStringUTFChars) (JNIEnv *, jstring, jboolean *);
   void     (JNICALL *ReleaseStringUTFChars) (JNIEnv *, jstring, const char *);
   jsize    (JNICALL *GetArrayLength)       (JNIEnv *, jarray);
-  jarray   (JNICALL *NewObjectArray)       (JNIEnv *, jsize, jclass, jobject);
+  jobjectArray (JNICALL *NewObjectArray)    (JNIEnv *, jsize, jclass, jobject);
   jobject  (JNICALL *GetObjectArrayElement) (JNIEnv *, jobjectArray, jsize);
   void     (JNICALL *SetObjectArrayElement) (JNIEnv *, jobjectArray, jsize,
 					     jobject);
@@ -690,6 +692,10 @@ private:
 
   /* The chain of local frames.  */
   struct _Jv_JNI_LocalFrame *locals;
+
+  /* The bottom-most element of the chain, initialized with the env and
+     reused between non-nesting JNI calls.  */
+  struct _Jv_JNI_LocalFrame *bottom_locals;
 
 public:
   jint GetVersion ()
@@ -1380,7 +1386,7 @@ public:
   jsize GetArrayLength (jarray val0)
   { return p->GetArrayLength (this, val0); }
 
-  jarray NewObjectArray (jsize val0, jclass cl1, jobject obj2)
+  jobjectArray NewObjectArray (jsize val0, jclass cl1, jobject obj2)
   { return p->NewObjectArray (this, val0, cl1, obj2); }
 
   jobject GetObjectArrayElement (jobjectArray val0, jsize val1)

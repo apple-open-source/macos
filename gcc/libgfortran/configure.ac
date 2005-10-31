@@ -68,11 +68,7 @@ else
   LIBGFOR_IS_NATIVE=true
 fi
 
-# Process the option "--enable-version-specific-runtime-libs"
-gcc_version_trigger=${srcdir}/../gcc/version.c
-gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([[^ \"]]*\)[[ \"]].*/\1/'`
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
-AC_SUBST(gcc_version)
+TL_AC_GCC_VERSION([$srcdir/..])
 
 # Calculate toolexeclibdir
 # Also toolexecdir, though it's only used in toolexeclibdir
@@ -138,11 +134,20 @@ AC_SUBST(enable_static)
 #AC_MSG_NOTICE([====== Finished libtool configuration]) ; sleep 10
 
 # We need gfortran to compile parts of the library
-# We can't use AC_PROG_F77 because it expects a fully working gfortran.
-#AC_PROG_F77(gfortran)
-F77="$GFORTRAN"
-AC_PROG_F77(gfortran)
-FFLAGS="$FFLAGS -Wall -fno-repack-arrays -fno-underscoring"
+# We can't use AC_PROG_FC because it expects a fully working gfortran.
+#AC_PROG_FC(gfortran)
+FC="$GFORTRAN"
+AC_PROG_FC(gfortran)
+FCFLAGS="$FCFLAGS -Wall -fno-repack-arrays -fno-underscoring"
+
+# extra LD Flags which are required for targets
+case "${host}" in
+  *-darwin*)
+    # Darwin needs -single_module when linking libgfortran
+    extra_ldflags_libgfortran=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libgfortran)
 
 AC_SYS_LARGEFILE
 AC_FUNC_MMAP
@@ -150,16 +155,22 @@ AC_TYPE_OFF_T
 
 # check header files
 AC_STDC_HEADERS
-AC_HAVE_HEADERS(stdlib.h stdio.h string.h stddef.h math.h unistd.h)
+AC_HAVE_HEADERS(stdlib.h stdio.h string.h stddef.h math.h unistd.h signal.h)
 AC_CHECK_HEADERS(time.h sys/params.h sys/time.h sys/times.h sys/resource.h)
-AC_CHECK_HEADERS(sys/mman.h)
+AC_CHECK_HEADERS(sys/mman.h sys/types.h sys/stat.h ieeefp.h)
 AC_CHECK_HEADER([complex.h],[AC_DEFINE([HAVE_COMPLEX_H], [1], [complex.h exists])])
+
+AC_CHECK_MEMBERS([struct stat.st_blksize])
+AC_CHECK_MEMBERS([struct stat.st_blocks])
+AC_CHECK_MEMBERS([struct stat.st_rdev])
 
 # Check for complex math functions
 AC_CHECK_LIB([m],[csin],[need_math="no"],[need_math="yes"])
 
 # Check for library functions.
-AC_CHECK_FUNCS(getrusage times)
+AC_CHECK_FUNCS(getrusage times mkstemp strtof snprintf)
+AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
+AC_CHECK_FUNCS(sleep time)
 
 # Check libc for getgid, getpid, getuid
 AC_CHECK_LIB([c],[getgid],[AC_DEFINE([HAVE_GETGID],[1],[libc includes getgid])])
@@ -177,6 +188,7 @@ AC_CHECK_LIB([m],[copysignf],[AC_DEFINE([HAVE_COPYSIGNF],[1],[libm includes copy
 AC_CHECK_LIB([m],[cosf],[AC_DEFINE([HAVE_COSF],[1],[libm includes cosf])])
 AC_CHECK_LIB([m],[coshf],[AC_DEFINE([HAVE_COSHF],[1],[libm includes coshf])])
 AC_CHECK_LIB([m],[expf],[AC_DEFINE([HAVE_EXPF],[1],[libm includes expf])])
+AC_CHECK_LIB([m],[fabsf],[AC_DEFINE([HAVE_FABSF],[1],[libm includes fabsf])])
 AC_CHECK_LIB([m],[floorf],[AC_DEFINE([HAVE_FLOORF],[1],[libm includes floorf])])
 AC_CHECK_LIB([m],[frexpf],[AC_DEFINE([HAVE_FREXPF],[1],[libm includes frexpf])])
 AC_CHECK_LIB([m],[hypotf],[AC_DEFINE([HAVE_HYPOTF],[1],[libm includes hypotf])])
@@ -210,6 +222,9 @@ AC_CHECK_LIB([m],[y1f],[AC_DEFINE([HAVE_Y1F],[1],[libm includes y1f])])
 AC_CHECK_LIB([m],[yn],[AC_DEFINE([HAVE_YN],[1],[libm includes yn])])
 AC_CHECK_LIB([m],[ynf],[AC_DEFINE([HAVE_YNF],[1],[libm includes ynf])])
 
+# Fallback in case isfinite is not available.
+AC_CHECK_LIB([m],[finite],[AC_DEFINE([HAVE_FINITE],[1],[libm includes finite])])
+
 # Let the user override this
 AC_ARG_ENABLE(cmath,
 	AC_HELP_STRING([--enable-cmath],[Include complex math functions]),
@@ -225,6 +240,15 @@ AC_SUBST([MATH_OBJ],["$extra_math_obj"])
 # for struct timezone, as you might think.  We also need to check how
 # to call gettimeofday if we have it.
 LIBGFOR_GETTIMEOFDAY
+
+# Attempt to assert that the target is of common type in case we don't
+# have C99 integer types at all.
+LIBGFOR_TARGET_ILP32
+
+# Check out attribute support.
+LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY
+LIBGFOR_CHECK_ATTRIBUTE_DLLEXPORT
+LIBGFOR_CHECK_ATTRIBUTE_ALIAS
 
 AC_CACHE_SAVE
 

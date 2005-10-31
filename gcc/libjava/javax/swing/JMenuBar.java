@@ -1,5 +1,5 @@
-/* JMenuBar.java -- 
-   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+/* JMenuBar.java --
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,38 +35,20 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
 import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.Insets;
-import java.awt.Point;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
-import javax.accessibility.AccessibleRole;
-import javax.accessibility.AccessibleSelection;
-import javax.accessibility.AccessibleStateSet;
-import javax.accessibility.AccessibleValue;
-import javax.swing.UIManager;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import javax.swing.event.MenuDragMouseEvent;
-import javax.swing.event.MenuDragMouseListener;
-import javax.swing.event.MenuKeyEvent;
-import javax.swing.event.MenuKeyListener;
 import javax.swing.plaf.MenuBarUI;
-import javax.swing.plaf.MenuItemUI;
-
 
 /**
- * <p>
  * JMenuBar is a container for menu's. For a menu bar to be seen on the
  * screen, at least one menu should be added to it. Just like adding
  * components to container, one can use add() to add menu's to the menu bar.
@@ -74,18 +56,9 @@ import javax.swing.plaf.MenuItemUI;
  * The JMenuBar uses selectionModel to keep track of selected menu index.
  * JMenuBar's selectionModel will fire ChangeEvents to its registered 
  * listeners when the selected index changes.
- * </p>
  */
 public class JMenuBar extends JComponent implements Accessible, MenuElement
 {
-  /** Fired in a PropertyChangeEvent when the "borderPainted" property changes. */
-  public static final String BORDER_PAINTED_CHANGED_PROPERTY = "borderPainted";
-
-  /** Fired in a PropertyChangeEvent when the "model" changes. */
-  public static final String MODEL_CHANGED_PROPERTY = "model";
-  
-  /** Fired in a PropertyChangeEvent when the "margin" changes. */
-  public static final String MARGIN_CHANGED_PROPERTY = "margin";
   private static final long serialVersionUID = -8191026883931977036L;
 
   /** JMenuBar's model. It keeps track of selected menu's index */
@@ -311,7 +284,7 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
    * This method does nothing by default. This method is need for the
    * MenuElement interface to be implemented.
    *
-   * @param isIncluded true if menuBar is included in the selection 
+   * @param isIncluded true if menuBar is included in the selection
    * and false otherwise
    */
   public void menuSelectionChanged(boolean isIncluded)
@@ -320,7 +293,7 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
   }
 
   /**
-   * Paints border of the menu bar, if its borderPainted property is set to 
+   * Paints border of the menu bar, if its borderPainted property is set to
    * true.
    *
    * @param g The graphics context with which to paint the border
@@ -340,7 +313,13 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
    */
   protected String paramString()
   {
-    return "JMenuBar";
+    StringBuffer sb = new StringBuffer();
+    sb.append(super.paramString());
+    sb.append(",margin=");
+    if (getMargin() != null)
+      sb.append(getMargin());
+    sb.append(",paintBorder=").append(isBorderPainted());
+    return sb.toString();
   }
 
   /**
@@ -391,11 +370,11 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
    */
   public void setBorderPainted(boolean b)
   {
-    boolean old = borderPainted;
-    borderPainted = b;
-    if (b != old)
+    if (b != borderPainted)
       {
-	firePropertyChange(BORDER_PAINTED_CHANGED_PROPERTY, old, b);
+	boolean old = borderPainted;
+	borderPainted = b;
+	firePropertyChange("borderPainted", old, b);
 	revalidate();
 	repaint();
       }
@@ -421,14 +400,12 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
    */
   public void setMargin(Insets m)
   {
-    if (m.equals(this.margin))
+    if (m != margin)
       {
-	Insets oldMargin = this.margin;
-	this.margin = m;
-	firePropertyChange(MARGIN_CHANGED_PROPERTY, oldMargin, margin);
+	Insets oldMargin = margin;
+	margin = m;
+	firePropertyChange("margin", oldMargin, margin);
       }
-
-    this.margin = m;
   }
 
   /**
@@ -451,15 +428,11 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
    */
   public void setSelectionModel(SingleSelectionModel model)
   {
-    selectionModel = model;
     if (selectionModel != model)
       {
 	SingleSelectionModel oldModel = selectionModel;
-
 	selectionModel = model;
-
-	firePropertyChange(MODEL_CHANGED_PROPERTY, oldModel,
-	                   this.selectionModel);
+	firePropertyChange("model", oldModel, selectionModel);
       }
   }
 
@@ -480,8 +453,7 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
    */
   public void updateUI()
   {
-    MenuBarUI ui = ((MenuBarUI) UIManager.getUI(this));
-    setUI(ui);
+    setUI((MenuBarUI) UIManager.getUI(this));
     invalidate();
   }
 }

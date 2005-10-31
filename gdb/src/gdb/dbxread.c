@@ -43,6 +43,7 @@
 #endif
 
 static int read_type_psym_p = 1;
+static int end_fun_absolute_p = 0;
 
 #include "gdb_obstack.h"
 #include "gdb_stat.h"
@@ -1869,8 +1870,12 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 	    /* It's value is the size (in bytes) of the function for
 	       function relative stabs, or the address of the function's
 	       end for old style stabs.  */
-	    valu = nlist.n_value + last_function_start;
-	    if (pst->texthigh == 0 || valu > pst->texthigh)
+	    if (processing_gcc_compilation || !end_fun_absolute_p)
+	      valu = nlist.n_value + last_function_start;
+	    else
+	      valu = nlist.n_value;
+
+	    if (valu > pst->texthigh)
 	      pst->texthigh = valu;
 	    break;
 	  }
@@ -2952,6 +2957,8 @@ process_one_symbol (int type, int desc, CORE_ADDR valu, char *name,
 
       if (*name == '\000')
 	{
+	  CORE_ADDR valu_abs;
+
 	  /* This N_FUN marks the end of a function.  This closes off the
 	     current block.  */
 
@@ -2974,7 +2981,6 @@ process_one_symbol (int type, int desc, CORE_ADDR valu, char *name,
 	    }
 	  else
 	    saw_fun_start = 0;
-
 	  /* APPLE LOCAL END */
 
 
@@ -2983,14 +2989,27 @@ process_one_symbol (int type, int desc, CORE_ADDR valu, char *name,
 	     which may have an N_FUN stabs at the end of the function, but
 	     no N_SLINE stabs.  */
 	  if (sline_found_in_function)
-	    record_line (current_subfile, 0, last_function_start + valu);
+	    if (processing_gcc_compilation || !end_fun_absolute_p)
+	      record_line (current_subfile, 0, last_function_start + valu);
+	    else
+	      record_line (current_subfile, 0, valu);
 
 	  within_function = 0;
 	  new = pop_context ();
+	  
+	  if (processing_gcc_compilation || !end_fun_absolute_p)
+	    valu_abs = new->start_addr + valu;
+	  else
+	    {
+	      /* Relocate for dynamic loading */
+	      valu_abs = valu;
+	      valu_abs += ANOFFSET (section_offsets, SECT_OFF_TEXT (objfile));
+	      valu_abs = SMASH_TEXT_ADDRESS (valu_abs);
+	    }
 
 	  /* Make a block for the local symbols within.  */
 	  finish_block (new->name, &local_symbols, new->old_blocks,
-			new->start_addr, new->start_addr + valu,
+			new->start_addr, valu_abs,
 			objfile);
 
 	  /* May be switching to an assembler file which may not be using
@@ -3888,6 +3907,12 @@ _initialize_dbxread (void)
   c = add_set_cmd ("read-type-psyms", class_obscure, var_boolean,
 		   (char *) &read_type_psym_p,
 		   "Set if we should create partial symbols for types.",
+		   &setlist);
+  add_show_from_set (c, &showlist);
+
+  c = add_set_cmd ("function-end-absolute", class_obscure, var_boolean,
+		   (char *) &end_fun_absolute_p,
+		   "Set if N_FUN end-of-function symbols use absolute addresses on non-GCC files.",
 		   &setlist);
   add_show_from_set (c, &showlist);
 

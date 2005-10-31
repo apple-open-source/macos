@@ -1,7 +1,23 @@
 /* { dg-do compile { target powerpc*-*-* } } */
-/* { dg-options "-maltivec" } */
+/* { dg-options "-maltivec -mcpu=G5 -O2" } */
 
-#define vector __attribute__((vector_size(16)))
+#include <altivec.h>
 
-vector long long vbl;	/* { dg-error "use of AltiVec with 64-bit element size is not allowed; use 'int'" } */
+void foo( float scalar)
+{
+    unsigned long width;
+    unsigned long x;
+    vector float vColor;
+    vector unsigned int selectMask;
+    vColor = vec_perm( vec_ld( 0, &scalar), vec_ld( 3, &scalar), vec_lvsl( 0, &scalar) );
 
+    float *destRow;
+    vector float store, load0;
+
+    for( ; x < width; x++)
+    {
+            load0 = vec_sel( vColor, load0, selectMask );
+            vec_st( store, 0, destRow );
+            store = load0;
+    }
+}

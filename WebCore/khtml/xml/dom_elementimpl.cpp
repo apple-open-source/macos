@@ -32,6 +32,7 @@
 #include "xml/dom_elementimpl.h"
 
 #include "khtml_part.h"
+#include "khtmlview.h"
 
 #include "html/dtd.h"
 #include "html/htmlparser.h"
@@ -258,6 +259,22 @@ const AtomicString& ElementImpl::getAttribute(NodeImpl::Id id) const
     return nullAtom;
 }
 
+void ElementImpl::scrollIntoView(bool alignToTop) 
+{
+    KHTMLView *v = getDocument()->view();
+    QRect bounds = this->getRect();
+    int x, y, xe, ye;
+    x = bounds.left();
+    y = bounds.top();
+    xe = bounds.right();
+    ye = bounds.bottom();
+    
+    if (alignToTop) 
+        v->setContentsPos(x, y);
+    else
+        v->ensureVisible(x, y, xe-x, ye-y);
+}
+
 const AtomicString& ElementImpl::getAttributeNS(const DOMString &namespaceURI,
                                                 const DOMString &localName) const
 {   
@@ -334,22 +351,6 @@ bool ElementImpl::hasAttributes() const
     updateStyleAttributeIfNeeded();
 
     return namedAttrMap && namedAttrMap->length() > 0;
-}
-
-NodeImpl *ElementImpl::cloneNode(bool deep)
-{
-    // ### we lose the namespace here ... FIXME
-    int exceptioncode;
-    ElementImpl *clone = getDocument()->createElement(tagName(), exceptioncode);
-    if (!clone) return 0;
-
-    // clone attributes
-    if (namedAttrMap)
-        *clone->attributes() = *namedAttrMap;
-
-    if (deep)
-        cloneChildNodes(clone);
-    return clone;
 }
 
 DOMString ElementImpl::nodeName() const
@@ -527,7 +528,7 @@ bool ElementImpl::childAllowed( NodeImpl *newChild )
 
     // For XML documents, we are non-validating and do not check against a DTD, even for HTML elements.
     if (getDocument()->isHTMLDocument())
-        return checkChild(id(), newChild->id());
+        return checkChild(id(), newChild->id(), !getDocument()->inCompatMode());
     return true;
 }
 
@@ -724,6 +725,10 @@ DOMString XMLElementImpl::localName() const
     return getDocument()->tagName(m_id);
 }
 
+DOMString XMLElementImpl::namespaceURI() const
+{
+    return getDocument()->namespaceURI(m_id);
+}
 
 NodeImpl *XMLElementImpl::cloneNode ( bool deep )
 {
@@ -746,9 +751,9 @@ NodeImpl *XMLElementImpl::cloneNode ( bool deep )
 
 NamedAttrMapImpl::NamedAttrMapImpl(ElementImpl *e)
     : element(e)
+    , attrs(0)
+    , len(0)
 {
-    attrs = 0;
-    len = 0;
 }
 
 NamedAttrMapImpl::~NamedAttrMapImpl()
@@ -898,7 +903,7 @@ void NamedAttrMapImpl::clearAttributes()
                 attrs[i]->_impl->m_element = 0;
             attrs[i]->deref();
         }
-        delete [] attrs;
+        main_thread_free(attrs);
         attrs = 0;
     }
     len = 0;
@@ -929,7 +934,7 @@ NamedAttrMapImpl& NamedAttrMapImpl::operator=(const NamedAttrMapImpl& other)
 
     clearAttributes();
     len = other.len;
-    attrs = new AttributeImpl* [len];
+    attrs = static_cast<AttributeImpl **>(main_thread_malloc(len * sizeof(AttributeImpl *)));
 
     // first initialize attrs vector, then call attributeChanged on it
     // this allows attributeChanged to use getAttribute
@@ -951,11 +956,11 @@ NamedAttrMapImpl& NamedAttrMapImpl::operator=(const NamedAttrMapImpl& other)
 void NamedAttrMapImpl::addAttribute(AttributeImpl *attr)
 {
     // Add the attribute to the list
-    AttributeImpl **newAttrs = new AttributeImpl* [len+1];
+    AttributeImpl **newAttrs = static_cast<AttributeImpl **>(main_thread_malloc((len + 1) * sizeof(AttributeImpl *)));
     if (attrs) {
       for (uint i = 0; i < len; i++)
         newAttrs[i] = attrs[i];
-      delete [] attrs;
+      main_thread_free(attrs);
     }
     attrs = newAttrs;
     attrs[len++] = attr;
@@ -990,19 +995,19 @@ void NamedAttrMapImpl::removeAttribute(NodeImpl::Id id)
     if (attrs[index]->_impl)
         attrs[index]->_impl->m_element = 0;
     if (len == 1) {
-        delete [] attrs;
+        main_thread_free(attrs);
         attrs = 0;
         len = 0;
     }
     else {
-        AttributeImpl **newAttrs = new AttributeImpl* [len-1];
+        AttributeImpl **newAttrs = static_cast<AttributeImpl **>(main_thread_malloc((len - 1) * sizeof(AttributeImpl *)));
         uint i;
         for (i = 0; i < uint(index); i++)
             newAttrs[i] = attrs[i];
         len--;
         for (; i < len; i++)
             newAttrs[i] = attrs[i+1];
-        delete [] attrs;
+        main_thread_free(attrs);
         attrs = newAttrs;
     }
 

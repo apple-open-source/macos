@@ -1,0 +1,9 @@
+$!MOBLOG_BODY_TEXT
+
+#foreach ($moblogImage in $!MOBLOG_IMAGES)
+<p><img src="$moblogImage.get('MOBLOG_IMAGE_URL')" border="0" alt="$moblogImage.get('MOBLOG_IMAGE')"/></p>
+#end
+
+#foreach ($moblogAttachment in $!MOBLOG_ATTACHMENTS)
+<p><a href="$moblogAttachment.get('MOBLOG_ATTACHMENT_URL')" title="$moblogAttachment.get('MOBLOG_ATTACHMENT')">Download file: $moblogAttachment.get('MOBLOG_ATTACHMENT')</a></p>
+#end

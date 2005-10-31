@@ -238,6 +238,79 @@ fatblock(pmp, ofs, bnp, sizep, bop)
 		*bop = ofs % pmp->pm_fatblocksize;
 }
 
+
+struct msdosfs_meta_flush_args {
+	int sync;
+	u_long fat_start;		/* Block number of start of active FAT */
+	u_long fat_end;			/* Block number past end of active FAT */
+	u_long meta_end;		/* Block number past end of all FATs */
+};
+
+int msdosfs_meta_flush_callback(buf_t bp, void *args_in)
+{
+	struct msdosfs_meta_flush_args *args = args_in;
+	daddr64_t bn = buf_blkno(bp);
+	errno_t err;
+
+	/*
+	 * If this block is metadata, but not part of the active
+	 * FAT, then ignore it.  This ends up skipping the boot
+	 * sector, FSInfo sector, other reserved sectors, and
+	 * non-active copies of the FAT.
+	 */
+	if (bn < args->meta_end &&
+		(bn < args->fat_start || bn >= args->fat_end))
+	{
+		return BUF_RETURNED;
+	}
+	
+	if (buf_flags(bp) & B_DELWRI)
+	{
+		if (args->sync)
+			err = buf_bwrite(bp);
+		else
+			err = buf_bawrite(bp);
+		
+		if (err)
+			printf("msdosfs_meta_flush: error %d block %lld\n", err, bn);
+	}
+	else
+	{
+		return BUF_RETURNED;
+	}
+	
+	return BUF_CLAIMED;
+}
+
+
+/*
+ * Flush the primary/active copy of the FAT, and all directory blocks.
+ * This skips the boot sector, FSInfo sector, and non-active copies
+ * of the FAT.
+ */
+__private_extern__ void
+msdosfs_meta_flush(struct msdosfsmount *pmp)
+{
+	struct msdosfs_meta_flush_args args;
+	
+	args.sync = (pmp->pm_flags & MSDOSFSMNT_WAITONFAT) != 0;
+	args.fat_start = pmp->pm_ResSectors + pmp->pm_curfat * pmp->pm_FATsecs;
+	args.fat_end = args.fat_start + pmp->pm_FATsecs;
+	
+	/*
+	 * NOTE: we want the root directory to be flushed.  So, on FAT12
+	 * and FAT16, meta_end is the start of the root directory.  On
+	 * FAT32, it is the start of the first cluster.
+	 */
+	if (FAT32(pmp))
+		args.meta_end = pmp->pm_firstcluster;
+	else
+		args.meta_end = pmp->pm_rootdirblk;
+
+	buf_iterate(pmp->pm_devvp, msdosfs_meta_flush_callback, 0, &args);
+}
+
+
 /*
  * Map the logical cluster number of a file into a physical disk sector
  * that is filesystem relative.
@@ -518,7 +591,7 @@ fc_purge(dep, frcn)
 }
 
 /*
- * Update the fat.
+ * Update a single block in the fat.
  * If mirroring the fat, update all copies, with the first copy as last.
  * Else update only the current fat (ignoring the others).
  *
@@ -562,7 +635,7 @@ updatefats(pmp, bp, fatbn, context)
 			if (pmp->pm_flags & MSDOSFSMNT_WAITONFAT)
 				(void)buf_bwrite(bpn);
 			else
-				buf_bawrite(bpn);
+				buf_bdwrite(bpn);
 		}
 	}
 
@@ -585,7 +658,7 @@ updatefats(pmp, bp, fatbn, context)
 			if (pmp->pm_flags & MSDOSFSMNT_WAITONFAT)
 				(void)buf_bwrite(bpn);
 			else
-				buf_bawrite(bpn);
+				buf_bdwrite(bpn);
 		}
 	}
 
@@ -595,10 +668,7 @@ updatefats(pmp, bp, fatbn, context)
 	if (pmp->pm_flags & MSDOSFSMNT_WAITONFAT)
 		(void)buf_bwrite(bp);
 	else
-		buf_bawrite(bp);
-	/*
-	 * Maybe update fsinfo sector here?
-	 */
+		buf_bdwrite(bp);
 }
 
 /*
@@ -1216,6 +1286,7 @@ extendfile(dep, count, context)
         dep->de_StartCluster != 0)
     {
         fc_lfcempty++;
+        /*ее Should that be 0x10000000 instead of 0xffff? (to force EOF on FAT32) */
         error = pcbmap_internal(dep, 0xffff, 1, NULL, &cn, NULL, context);
         /* we expect it to return E2BIG */
         if (error != E2BIG)
@@ -1227,7 +1298,7 @@ extendfile(dep, count, context)
     while (count > 0) {
         /*
          * Allocate a new cluster chain and cat onto the end of the
-         * file.  * If the file is empty we make de_StartCluster point
+         * file.  If the file is empty we make de_StartCluster point
          * to the new block.  Note that de_StartCluster being 0 is
          * sufficient to be sure the file is empty since we exclude
          * attempts to extend the root directory above, and the root
@@ -1275,7 +1346,7 @@ extendfile(dep, count, context)
                 bp = buf_getblk(pmp->pm_devvp, cntobn(pmp, cn++),
 					pmp->pm_bpcluster, 0, 0, BLK_META);
                 buf_clear(bp);
-				buf_bwrite(bp);
+				buf_bdwrite(bp);
             }
         }
 
@@ -1324,17 +1395,18 @@ __private_extern__ int markvoldirty(struct msdosfsmount *pmp, int dirty, vfs_con
         return EROFS;
 
 	lck_mtx_lock(pmp->pm_fat_lock);
-	
+
     /* Fetch the block containing the FAT entry */
     byteoffset = FATOFS(pmp, 1);	/* Find the location of cluster 1 */
     fatblock(pmp, byteoffset, &bn, &bsize, &bo);
-    error = (int)buf_meta_bread(pmp->pm_devvp, bn, bsize, vfs_context_ucred(context), &bp);
-    if (error) {
-            buf_brelse(bp);
-            goto exit;
-    }
-    bdata = (char *)buf_dataptr(bp);
-
+	error = buf_meta_bread(pmp->pm_devvp, bn, bsize, vfs_context_ucred(context), &bp);
+	if (error)
+	{
+		buf_brelse(bp);
+		goto exit;
+	}
+	bdata = (char *)buf_dataptr(bp);
+	
     /* Get the current value of the FAT entry and set/clear the high bit */
     if (FAT32(pmp)) {
         /* FAT32 uses bit 27 */

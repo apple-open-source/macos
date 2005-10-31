@@ -28,8 +28,8 @@
 
 @implementation DecodeDeviceDescriptor
 
-+ (void)decodeBytes:(IOUSBDeviceDescriptor *)dev forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceInterface **)deviceIntf {
-    NSString                *tempString1, *tempString2;
++ (void)decodeBytes:(IOUSBDeviceDescriptor *)dev forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf wasSuspended:(BOOL)wasSuspended {
+    NSString                *tempString1, *tempString2, *tempString3;
     BusProbeClass *         deviceClass;
     char                    *cstr1, *cstr2, *cstr3;
     
@@ -95,10 +95,15 @@
     tempString2 = [tempString1 stringByAppendingString:@" device: "];
     cstr2 = GetStringFromNumber(dev->idVendor, sizeof(dev->idVendor), kIntegerOutputStyle);
     
+	if ( wasSuspended )
+		tempString3 = [NSString stringWithFormat:@" (Suspended)"];
+	else
+		tempString3 = [NSString stringWithFormat:@""];
+
     if (strcmp(cstr1,"0x00") == 0) {
-        tempString2 = [NSString stringWithFormat:@"%@ device from %@", tempString1, VendorNameFromVendorID([NSString stringWithCString:cstr2])];
+        tempString2 = [NSString stringWithFormat:@"%@ device from %@%@", tempString1, VendorNameFromVendorID([NSString stringWithCString:cstr2]), tempString3];
     } else {
-        tempString2 = [NSString stringWithFormat:@"%@ device: %s", tempString1, cstr1];
+        tempString2 = [NSString stringWithFormat:@"%@ device: %s%@", tempString1, cstr1, tempString3];
     }
     
     FreeString(cstr1);

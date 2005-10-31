@@ -59,6 +59,7 @@
 #include "stuff/arch.h"
 #include "stuff/best_arch.h"
 #include "stuff/guess_short_name.h"
+#include "stuff/macosx_deployment_target.h"
 
 #include "ld.h"
 #include "pass1.h"
@@ -4164,7 +4165,9 @@ enum bool bundle_loader)
 	    swap_mach_header(mh, host_byte_sex);
 	}
 	if(mh->magic != MH_MAGIC){
-	    if(mh->magic != MH_MAGIC_64 || no_arch_warnings != TRUE)
+	    if((mh->magic != MH_MAGIC_64 &&
+	        mh->magic != SWAP_LONG(MH_MAGIC_64)) ||
+	       no_arch_warnings != TRUE)
 		error_with_cur_obj("bad magic number (not a Mach-O file)");
 	    return;
 	}
@@ -4364,6 +4367,14 @@ enum bool bundle_loader)
 			"get_arch_family_from_cputype() and get_byte_sex_"
 			"from_flag())", arch_flag.cputype,
 			family_arch_flag->name);
+#if !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__))
+		/*
+		 * Pick up the Mac OS X deployment target.
+		 */
+		get_macosx_deployment_target(&macosx_deployment_target,
+					     &macosx_deployment_target_name,
+					     arch_flag.cputype);
+#endif /* !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__)) */
 	    }
 	}
 	if(mh->sizeofcmds + sizeof(struct mach_header) > cur_obj->obj_size){

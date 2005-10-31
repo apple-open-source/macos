@@ -253,9 +253,9 @@ extern int target_flags;
     { "nobitfield", - MASK_BITFIELD,					\
       N_("Do not use the bit-field instructions") },			\
     { "short", MASK_SHORT,						\
-      N_("Consider type `int' to be 16 bits wide") },			\
+      N_("Consider type 'int' to be 16 bits wide") },			\
     { "noshort", - MASK_SHORT,						\
-      N_("Consider type `int' to be 32 bits wide") },			\
+      N_("Consider type 'int' to be 32 bits wide") },			\
     { "68881", MASK_68881, "" },					\
     { "soft-float", - MASK_68881,					\
       N_("Generate code with library calls for floating point") },	\
@@ -733,7 +733,6 @@ extern enum reg_class regno_reg_class[];
 
 /* On the m68k all args are always pushed.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) 0
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   asm_fprintf (FILE, "\tlea %LLP%d,%Ra0\n\tjsr mcount\n", (LABELNO))

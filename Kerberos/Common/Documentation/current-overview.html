@@ -1,143 +1,148 @@
-<!-- #bbinclude "header.html"
+<!-- #bbinclude "header.template"
   #PAGETITLE#="Kerberos for Macintosh Product Overview"
   #BASEHREF#="" 
 -->
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML> 
-<HEAD>  
-	<TITLE> Kerberos for Macintosh Product Overview </TITLE>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/Common/Documentation/current-overview.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Kerberos for Macintosh Product Overview</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../Common/Documentation/templates/site.css);
+	</STYLE>
 </HEAD>
-<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
-<CENTER>
-	<TABLE BORDER=0 CELLSPACING=8>
-		<TR> 
-			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
-			<TD><BR><H1>Macintosh Development</H1></TD> 
-		</TR>
-	</TABLE> <P>
-	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
-	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] <BR>
-	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">Kerberos for Macintosh</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
-</CENTER> <HR>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
 <!-- end bbinclude -->
-<TABLE BORDER=0 CELLSPACING=4>
-  <TR> 
-    <TD><IMG SRC="graphics/ThreeHeadsAndKey.gif"></TD>
-    <TD><B><FONT SIZE="+3">Kerberos for Macintosh Product Overview</FONT></B></TD>
-  </TR>
+
+<!-- #bbinclude "icon.template" #ICON#="graphics/ThreeHeadsAndKey.gif" #TEXT#="<H2>Kerberos for Macintosh Product Overview</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="graphics/ThreeHeadsAndKey.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Kerberos for Macintosh Product Overview</H2> </TD>
+   </TR>
 </TABLE>
-<BLOCKQUOTE>
-<P><B>Kerberos for Macintosh</B> (KfM) is <B>the</B> reference implementation of the Kerberos authentication system for Mac OS X. KfM provides support for both Kerberos protocol versions, all the major Kerberos APIs and wraps it all into a simple Macintosh package with support for Mac OS X, as well as legacy support for Mac OS 8 &amp; 9 and the Classic environment under Mac OS X.</P>
+<!-- end bbinclude -->
+
+<P>Kerberos for Macintosh (KfM) is the reference implementation of the Kerberos authentication system for Mac OS X. KfM provides support for both Kerberos protocol versions, all the major Kerberos APIs and wraps it all into a simple Macintosh package with support for Mac OS X, as well as legacy support for Mac OS 8 &amp; 9 and the Classic environment under Mac OS X.</P>
   
    
 <P>Under the hood, Kerberos for Macintosh provides Kerberos v5 and Kerberos v4 protocols, GSSAPI, an in-memory ticket cache, KClient compatibility and a graphical Login interface and accompanying API for acquiring Kerberos tickets.</P>
 
+<P>As result of a partnership between MIT and Apple, full Kerberos for Macintosh releases have been included in Mac OS X since 10.2 (Jaguar) which included KfM 4.5.1.  The current release is <A HREF="release-5.5.html">KfM 5.5</A> and ships with Mac OS X 10.4 (Tiger).  The previous release was <A HREF="release-5.0.html">KfM 5.0.1</A> and shipped with Mac OS X 10.3 (Panther). The last release of Mac OS X 10.1, Mac OS 8 &amp; 9 and the Classic environment of Mac OS X was  <A HREF="http://web.mit.edu/macdev/Development/MITKerberos/Common/Documentation/release-4.0.3.html">KfM 4.0.3</A>.</P>
 
-<P><B>The current release of Kerberos for Macintosh for Mac OS X 10.3 (Panther) is 5.0, included with Mac OS X 10.3.x.</B><BR>
-<B>The last release of Kerberos for Macintosh for Mac OS X 10.2 (Jaguar) was 4.5.1, included with Mac OS X 10.2.x.</B><BR>
-<B>The <A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A> for 10.2 and 10.3 are available from MIT.</B>
-<P>
-The last release of Kerberos for Macintosh supporting Mac OS X 10.1 was <a href="http://web.mit.edu/macdev/Development/MITKerberos/Common/Documentation/release-4.0.3.html">4.0.3</a>.<BR>
-The last release of Kerberos for Macintosh supporting Mac OS 8 &amp; 9 and the Classic environment of Mac OS X was version <a href="http://web.mit.edu/macdev/Development/MITKerberos/Common/Documentation/release-4.0.3.html">4.0.3</a>.</P>
-  
-<P>
-Click here for <a href="release-5.0.html">New Features and Changes in Kerberos for Macintosh 5.0</a>.
-
-<P>
-<B>Key Features of Kerberos for Macintosh 5.0</B>
-<P><I>General</I></P>
+<P>The <A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A> for 10.2 through 10.4 are available from MIT.</P>
+ 
+<H3>Key Features of Kerberos for Macintosh 5.5</H3>
 <UL>
-	<LI>Native Mac OS X-only implementation of KfM Kerberos libraries provided as a framework
-	<LI>Support for Unix applications via /usr/lib
-	<LI>CFM bridge libraries provide support to Carbon CFM applications (only available in <A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A>)
-	<LI>Support for Kerberos during remote connections
-	<LI>Basic command-line tools: kinit, kdestroy, klist, kpasswd, kswitch
-	<LI>Standard MIT KDC and related daemons ships with both Mac OS X Server and client
-	<LI>kadmin, ktutil tools included
-	<LI>Mach-O Kerberos management application with dynamic dock icon and pop-up menu for common Kerberos functions
-	<LI>KfM under Classic shares its ticket cache with the OS X ticket cache
-</UL>
-
-<P><I>Kerberos Application</I>
-<UL>
-	<LI>Native Mach-O version for Mac OS X
-  	<LI>User tool for acquiring, renewing and deleting both v4 and v5 tickets
-  	<LI>Allows multiple credentials including credentials from different realms
-  	<LI>Allows user to change the active credential
-  	<LI>Principals with both v4 and v5 tickets viewed as a single user
-  	<LI>Can auto-renew renewable tickets
-  	<LI>Configures defaults for Kerberos Login dialog
-  	<LI>Configures realms presented in Kerberos Login dialog
-  	<LI>Allows user to change their Kerberos password
-  	<LI>Information window for displaying the details of individual tickets
-  	<LI>Expanded Preferences dialog for changing extra UI elements and ticket lifetimes
-	<LI>Dock icon provides indication of ticket status and remaining lifetime
-	<LI>Pop-up menu from dock icon provides convenient acquisition, deletion and renewal of tickets, and allows easy switching between active users
-</UL>
-  
-<P><I>Kerberos v5 and GSS Support</I>
-<UL>
-    <LI>Includes the Kerberos v5 1.3.1 release and features
-    <LI>Credentials stored in memory
-	<LI>Integration with Kerberos Login to present login dialog automatically
-    <LI>Supports 3DES
-    <LI>krb524 support
-    <LI>Provides support for hardware preauthentication
-    <LI>Support for DNS lookups of KDC
-</UL>
-    
-<P><I>Kerberos v4 and KClient Support</I>
-<UL>
-	<LI>KClient 3.0 API maintains compatibility with existing KClient applications
-	<LI>KClient 3.0 API includes compatibility and revised developer libraries as part of the Kerberos framework
-	<LI>Kerberos v4 implementation now based on MIT's core v4 compatibility library
-	<LI>Credentials stored in memory
-</UL>
-  
-<P><I>Kerberos Login Dialog</I>
-<UL>
-	<LI>Provides a single UI for acquiring v4, v5 and simultaneous v4 and v5 tickets
-	<LI>Allows selection of realm per login, and entry of DNS realms
-	<LI>Allows change in length of credential life per login
-	<LI>Allows selection of Kerberos v5 ticket flags per login
-	<LI>Kerberos applications running in Classic present the OS X Kerberos Login dialog for better integration
+	<LI>General</LI>
+	<UL CLASS=small>
+		<LI>Native Mac OS X-only implementation of KfM Kerberos libraries provided as a framework</LI>
+		<LI>Support for Unix applications via /usr/lib</LI>
+		<LI>CFM bridge libraries provide support to Carbon CFM applications (only available in <A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A>)</LI>
+		<LI>Support for Kerberos during remote connections</LI>
+		<LI>Basic command-line tools: kinit, kdestroy, klist, kpasswd, kswitch</LI>
+		<LI>Standard MIT KDC and related daemons ships with both Mac OS X Server and client</LI>
+		<LI>kadmin, ktutil tools included</LI>
+	</UL>
+	
+	<LI>Kerberos Application</LI>
+	<UL CLASS=small>
+		<LI>Native Cocoa version for Mac OS X</LI>
+		<LI>User tool for acquiring, renewing and deleting both v4 and v5 tickets</LI>
+		<LI>Allows multiple credentials including credentials from different realms</LI>
+		<LI>Allows user to change the active credentials</LI>
+		<LI>Principals with both v4 and v5 tickets viewed as a single user</LI>
+		<LI>Can auto-renew renewable tickets</LI>
+		<LI>Configures defaults for Kerberos Login dialog</LI>
+		<LI>Configures realms presented in Kerberos Login dialog</LI>
+		<LI>Allows user to change their Kerberos password</LI>
+		<LI>Information window for displaying the details of individual tickets</LI>
+		<LI>Expanded Preferences dialog for changing extra UI elements and ticket lifetimes</LI>
+		<LI>Realms editor for changing the Kerberos realm configuration</LI>
+		<LI>Dock icon provides indication of ticket status and remaining lifetime</LI>
+		<LI>Pop-up menu from dock icon provides convenient acquisition, deletion and renewal of tickets, and allows easy switching between active users</LI>
+	</UL>
+	  
+	<LI>Kerberos v5 and GSS Support</LI>
+	<UL CLASS=small>
+		<LI>Includes <A HREF="http://web.mit.edu/kerberos/www/krb5-1.4/README-1.4.txt">MIT Kerberos v5 1.4</A></LI>
+		<LI>Library support for multithreaded applications</LI>
+		<LI>Credentials stored in memory</LI>
+		<LI>Integration with Kerberos Login Library (KLL) to present authentication dialog automatically</LI>
+		<LI>Supports 3DES</LI>
+		<LI>krb524 support</LI>
+		<LI>Provides support for hardware preauthentication</LI>
+		<LI>Support for DNS lookups of KDC</LI>
+	</UL>
+		
+	<LI>Kerberos v4 and KClient Support</LI>
+	<UL CLASS=small>
+		<LI>KClient 3.0 API maintains compatibility with existing KClient applications</LI>
+		<LI>KClient 3.0 API includes compatibility and revised developer libraries as part of the Kerberos framework</LI>
+		<LI>Kerberos v4 implementation now based on MIT's core v4 compatibility library</LI>
+		<LI>Credentials stored in memory</LI>
+	</UL>
+	  
+	<LI>Kerberos Authentication Dialog</LI>
+	<UL CLASS=small>
+		<LI>Dialog and icons designed by Apple</LI>
+		<LI>Provides a single UI for acquiring v4, v5 and simultaneous v4 and v5 tickets</LI>
+		<LI>Allows selection of realm per login, and entry of DNS realms</LI>
+		<LI>Allows change in length of credential life per login</LI>
+		<LI>Allows selection of Kerberos v5 ticket flags per login</LI>
+	</UL>
 </UL>
 
-<P><B>Minimum System Requirements for Kerberos for Macintosh 5.0</B>
+<H3>Minimum System Requirements for Kerberos for Macintosh 5.5</H3>
 <UL>
-	<LI>A PowerPC Macintosh
-	<LI>Mac OS X 10.3 or later (included with operating system)
+	<LI>A PowerPC Macintosh G3 or better</LI>
+	<LI>Mac OS X 10.4 (KfM is included with the operating system)</LI>
 	
 </UL>
 
 
-<P><B>Useful Webpages</B></P>
+<H3>Useful Webpages</H3>
 
 <UL>
-
-	<LI><A HREF="faq.html">Kerberos for Macintosh FAQs</A>
-	<LI><A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A>
-	<LI><A HREF="documentation.html">Kerberos for Macintosh Documentation</A> - information on using the KfM components and their features.
-
+	<LI><A HREF="release-5.5.html">Kerberos for Macintosh 5.5 Release Notes</A></LI>
+	<LI><A HREF="faq.html">Kerberos for Macintosh FAQs</A></LI>
+	<LI><A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A></LI>
+	<LI><A HREF="documentation.html">Kerberos for Macintosh Documentation</A> - information on using the KfM components and their features.</LI>
+	<LI><A HREF="developer.html">Kerberos for Macintosh Developer Documentation</A> - information on writing applications using the Kerberos framework.</LI>
 </UL>
 
-</BLOCKQUOTE>
-<!-- #bbinclude "footer.html" -->
-<HR> 
-<P> 
-	<FONT SIZE="+1"> <B> 
-		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
-	</B> </FONT> <BR>
-	Last updated on $Date: 2003/11/18 21:07:44 $ <BR> 
-	Last modified by $Author: smcguire $<BR>
-
-</P>
+<!-- #bbinclude "footer.template" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2005 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2005/05/04 18:24:14 $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
 <!-- Begin MIT-use only web reporting counter -->
 	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
 <!-- End MIT-use only web reporting counter -->
-</BODY> </HTML>
+</BODY></HTML>
 <!-- end bbinclude -->

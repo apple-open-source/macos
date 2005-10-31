@@ -1,0 +1,3156 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		526FEBEB070B1DA100B3BCAC /* all */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 528EBF8D088F07A30079F728 /* Build configuration list for PBXAggregateTarget "all" */;
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				526FEBED070B1DB300B3BCAC /* PBXTargetDependency */,
+				526FEBEF070B1DB700B3BCAC /* PBXTargetDependency */,
+			);
+			name = all;
+			productName = all;
+		};
+		845CB38C06482F4600D0A5CF /* blojsom-install */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 528EBF85088F07A30079F728 /* Build configuration list for PBXAggregateTarget "blojsom-install" */;
+			buildPhases = (
+				845CB38B06482F4600D0A5CF /* ShellScript */,
+				8488035A073AE65C0076AE14 /* CopyFiles */,
+				523CB14C07C3F7BD00C207CD /* CopyFiles */,
+				522D566E074BE4D10099CBC3 /* ShellScript */,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = chmod;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				8418EEDA0648309E00CBC13B /* PBXTargetDependency */,
+			);
+			name = "blojsom-install";
+			productName = chmod;
+		};
+		84D803B306484AD70089F1C8 /* prepare */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 528EBF7D088F07A30079F728 /* Build configuration list for PBXAggregateTarget "prepare" */;
+			buildPhases = (
+				84D803B206484AD70089F1C8 /* ShellScript */,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = prepare;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = prepare;
+			productName = prepare;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		523CB14E07C3F7DF00C207CD /* weblogsetup in CopyFiles */ = {isa = PBXBuildFile; fileRef = 523CB14A07C3F7A600C207CD /* weblogsetup */; };
+		84880363073AE6B20076AE14 /* migrate_workers_file in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84880362073AE6AE0076AE14 /* migrate_workers_file */; };
+		E7519C2906DD40C9004CF4F8 /* ismember_main.c in Sources */ = {isa = PBXBuildFile; fileRef = E7F76A9006DD13E40028BFA6 /* ismember_main.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		014CEA520018CE5811CA2923 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXContainerItemProxy section */
+		526FEBEC070B1DB300B3BCAC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 845CB38C06482F4600D0A5CF;
+			remoteInfo = "blojsom-install";
+		};
+		526FEBEE070B1DB700B3BCAC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E7519C2606DD406B004CF4F8;
+			remoteInfo = ismember_blojsom_helper;
+		};
+		8418EED90648309E00CBC13B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 84427BAD0625E2D100C1952B;
+			remoteInfo = blojsom;
+		};
+		84D803B406484AE00089F1C8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 84D803B306484AD70089F1C8;
+			remoteInfo = prepare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		523CB14C07C3F7BD00C207CD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/ServerSetup/SetupExtras;
+			dstSubfolderSpec = 0;
+			files = (
+				523CB14E07C3F7DF00C207CD /* weblogsetup in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		8488035A073AE65C0076AE14 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/ServerSetup/MigrationExtras;
+			dstSubfolderSpec = 0;
+			files = (
+				84880363073AE6B20076AE14 /* migrate_workers_file in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		522D566C074BE4970099CBC3 /* blojsom.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = blojsom.plist; sourceTree = "<group>"; };
+		522D566D074BE4970099CBC3 /* blojsom.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = blojsom.txt; sourceTree = "<group>"; };
+		523CB14A07C3F7A600C207CD /* weblogsetup */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = weblogsetup; sourceTree = "<group>"; };
+		527645D4089AA40500B4A8A4 /* atom.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = atom.vm; sourceTree = "<group>"; };
+		527645D5089AA40500B4A8A4 /* html-comments.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "html-comments.vm"; sourceTree = "<group>"; };
+		527645D6089AA40500B4A8A4 /* html-referers.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "html-referers.vm"; sourceTree = "<group>"; };
+		527645D7089AA40500B4A8A4 /* html-trackback.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "html-trackback.vm"; sourceTree = "<group>"; };
+		527645D8089AA40500B4A8A4 /* html.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = html.vm; sourceTree = "<group>"; };
+		527645D9089AA40500B4A8A4 /* rdf.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = rdf.vm; sourceTree = "<group>"; };
+		527645DA089AA40500B4A8A4 /* rsd.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = rsd.vm; sourceTree = "<group>"; };
+		527645DB089AA40500B4A8A4 /* rss-comments.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "rss-comments.vm"; sourceTree = "<group>"; };
+		527645DC089AA40500B4A8A4 /* rss.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = rss.vm; sourceTree = "<group>"; };
+		527645DD089AA40500B4A8A4 /* rss2-comments.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "rss2-comments.vm"; sourceTree = "<group>"; };
+		527645DE089AA40500B4A8A4 /* rss2.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = rss2.vm; sourceTree = "<group>"; };
+		527645DF089AA40500B4A8A4 /* text.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = text.vm; sourceTree = "<group>"; };
+		527645E0089AA40500B4A8A4 /* trackback-failure.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "trackback-failure.vm"; sourceTree = "<group>"; };
+		527645E1089AA40500B4A8A4 /* trackback-success.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "trackback-success.vm"; sourceTree = "<group>"; };
+		527645FE089AA63800B4A8A4 /* PodcastUploadPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = PodcastUploadPlugin.java; sourceTree = "<group>"; };
+		528EBF9D088F07AB0079F728 /* LDAPAuthorizationProvider.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = LDAPAuthorizationProvider.java; sourceTree = "<group>"; };
+		528EBFA0088F07AB0079F728 /* FreeMarkerDispatcher.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = FreeMarkerDispatcher.java; sourceTree = "<group>"; };
+		528EBFA1088F07AB0079F728 /* GroovyDispatcher.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = GroovyDispatcher.java; sourceTree = "<group>"; };
+		528EBFA4088F07AB0079F728 /* CachingFetcher.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = CachingFetcher.java; sourceTree = "<group>"; };
+		528EBFAD088F07AB0079F728 /* ArrayTool.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = ArrayTool.java; sourceTree = "<group>"; };
+		528EBFB1088F07AB0079F728 /* daily-posting-template.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "daily-posting-template.vm"; sourceTree = "<group>"; };
+		528EBFB2088F07AB0079F728 /* DailyPostingPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = DailyPostingPlugin.java; sourceTree = "<group>"; };
+		528EBFB4088F07AB0079F728 /* ExportBlogPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = ExportBlogPlugin.java; sourceTree = "<group>"; };
+		528EBFB7088F07AB0079F728 /* GroovyPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = GroovyPlugin.java; sourceTree = "<group>"; };
+		528EBFBA088F07AB0079F728 /* ArrayToolPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = ArrayToolPlugin.java; sourceTree = "<group>"; };
+		528EBFBB088F07AB0079F728 /* DateToolPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = DateToolPlugin.java; sourceTree = "<group>"; };
+		528EBFBC088F07AB0079F728 /* ImportToolPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = ImportToolPlugin.java; sourceTree = "<group>"; };
+		528EBFBD088F07AB0079F728 /* IteratorToolPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = IteratorToolPlugin.java; sourceTree = "<group>"; };
+		528EBFBE088F07AB0079F728 /* MathToolPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = MathToolPlugin.java; sourceTree = "<group>"; };
+		528EBFC0088F07AB0079F728 /* RenderToolPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = RenderToolPlugin.java; sourceTree = "<group>"; };
+		528EBFC3088F07AB0079F728 /* WikiPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = WikiPlugin.java; sourceTree = "<group>"; };
+		528EBFC5088F07AB0079F728 /* BlogEntryWrapper.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = BlogEntryWrapper.java; sourceTree = "<group>"; };
+		528EBFC7088F07AB0079F728 /* XPathPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = XPathPlugin.java; sourceTree = "<group>"; };
+		528EBFC8088F07AB0079F728 /* XPathSearchPlugin.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = XPathSearchPlugin.java; sourceTree = "<group>"; };
+		528EBFCF088F09050079F728 /* AtomAPIConstants.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = AtomAPIConstants.java; sourceTree = "<group>"; };
+		528EBFD0088F09050079F728 /* AtomAPIServlet.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = AtomAPIServlet.java; sourceTree = "<group>"; };
+		528EBFD1088F09050079F728 /* AtomUtils.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = AtomUtils.java; sourceTree = "<group>"; };
+		528EBFD4088F09050079F728 /* CommentAPIServlet.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = CommentAPIServlet.java; sourceTree = "<group>"; };
+		528EBFD7088F09060079F728 /* BlojsomXMLRPCConstants.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = BlojsomXMLRPCConstants.java; sourceTree = "<group>"; };
+		528EBFD8088F09060079F728 /* BlojsomXMLRPCServlet.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = BlojsomXMLRPCServlet.java; sourceTree = "<group>"; };
+		528EBFDA088F09060079F728 /* AbstractBlojsomAPIHandler.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = AbstractBlojsomAPIHandler.java; sourceTree = "<group>"; };
+		528EBFDB088F09060079F728 /* BloggerAPIHandler.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = BloggerAPIHandler.java; sourceTree = "<group>"; };
+		528EBFDC088F09060079F728 /* MetaWeblogAPIHandler.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = MetaWeblogAPIHandler.java; sourceTree = "<group>"; };
+		528EBFDD088F09060079F728 /* MovableTypeAPIHandler.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = MovableTypeAPIHandler.java; sourceTree = "<group>"; };
+		528EBFDF088F09060079F728 /* PingbackHandler.java */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.java; path = PingbackHandler.java; sourceTree = "<group>"; };
+		528EBFE8088F09220079F728 /* ACLPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ACLPlugin.java; sourceTree = "<group>"; };
+		528EBFE9088F09220079F728 /* HTTPACLPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = HTTPACLPlugin.java; sourceTree = "<group>"; };
+		528EBFEC088F09220079F728 /* ActivateURLsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ActivateURLsPlugin.java; sourceTree = "<group>"; };
+		528EBFEF088F09220079F728 /* AddHostPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AddHostPlugin.java; sourceTree = "<group>"; };
+		528EBFF2088F09220079F728 /* BlogListingPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlogListingPlugin.java; sourceTree = "<group>"; };
+		528EBFF5088F09220079F728 /* ConvertLineBreaksPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ConvertLineBreaksPlugin.java; sourceTree = "<group>"; };
+		528EBFFA088F09220079F728 /* EscapeTagsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EscapeTagsPlugin.java; sourceTree = "<group>"; };
+		528EBFFD088F09220079F728 /* InlineAdminPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = InlineAdminPlugin.java; sourceTree = "<group>"; };
+		528EC000088F09220079F728 /* messages.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = messages.properties; sourceTree = "<group>"; };
+		528EC002088F09220079F728 /* LocalizerPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = LocalizerPlugin.java; sourceTree = "<group>"; };
+		528EC006088F09220079F728 /* UserDataPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = UserDataPlugin.java; sourceTree = "<group>"; };
+		528EC00B088F09230079F728 /* BaseAdminPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BaseAdminPlugin.java; sourceTree = "<group>"; };
+		528EC00C088F09230079F728 /* BookmarkletPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BookmarkletPlugin.java; sourceTree = "<group>"; };
+		528EC00D088F09230079F728 /* EditBlogAuthorizationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditBlogAuthorizationPlugin.java; sourceTree = "<group>"; };
+		528EC00E088F09230079F728 /* EditBlogCategoriesPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditBlogCategoriesPlugin.java; sourceTree = "<group>"; };
+		528EC00F088F09230079F728 /* EditBlogEntriesPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditBlogEntriesPlugin.java; sourceTree = "<group>"; };
+		528EC010088F09230079F728 /* EditBlogFlavorsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditBlogFlavorsPlugin.java; sourceTree = "<group>"; };
+		528EC011088F09230079F728 /* EditBlogPermissionsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditBlogPermissionsPlugin.java; sourceTree = "<group>"; };
+		528EC012088F09230079F728 /* EditBlogPluginsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditBlogPluginsPlugin.java; sourceTree = "<group>"; };
+		528EC013088F09230079F728 /* EditBlogPropertiesPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditBlogPropertiesPlugin.java; sourceTree = "<group>"; };
+		528EC014088F09230079F728 /* EditBlogTemplatesPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditBlogTemplatesPlugin.java; sourceTree = "<group>"; };
+		528EC015088F09230079F728 /* EditBlogUsersPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditBlogUsersPlugin.java; sourceTree = "<group>"; };
+		528EC017088F09230079F728 /* AddBlogEntryEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AddBlogEntryEvent.java; sourceTree = "<group>"; };
+		528EC018088F09230079F728 /* BlogEntryEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlogEntryEvent.java; sourceTree = "<group>"; };
+		528EC019088F09230079F728 /* DeletedBlogEntryEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = DeletedBlogEntryEvent.java; sourceTree = "<group>"; };
+		528EC01B088F09230079F728 /* ProcessBlogEntryEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ProcessBlogEntryEvent.java; sourceTree = "<group>"; };
+		528EC01C088F09230079F728 /* UpdatedBlogEntryEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = UpdatedBlogEntryEvent.java; sourceTree = "<group>"; };
+		528EC01D088F09230079F728 /* FileUploadPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = FileUploadPlugin.java; sourceTree = "<group>"; };
+		528EC01E088F09230079F728 /* ForgottenPasswordPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ForgottenPasswordPlugin.java; sourceTree = "<group>"; };
+		528EC01F088F09230079F728 /* ListWebAdminPluginsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ListWebAdminPluginsPlugin.java; sourceTree = "<group>"; };
+		528EC021088F09230079F728 /* PermissionedPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = PermissionedPlugin.java; sourceTree = "<group>"; };
+		528EC022088F09230079F728 /* ReloadBlogPropertiesPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ReloadBlogPropertiesPlugin.java; sourceTree = "<group>"; };
+		528EC024088F09230079F728 /* messages.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = messages.properties; sourceTree = "<group>"; };
+		528EC025088F09230079F728 /* messages_de.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = messages_de.properties; sourceTree = "<group>"; };
+		528EC026088F09230079F728 /* messages_fr.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = messages_fr.properties; sourceTree = "<group>"; };
+		528EC027088F09230079F728 /* messages_ko.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = messages_ko.properties; sourceTree = "<group>"; };
+		528EC028088F09230079F728 /* messages_pt_BR.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = messages_pt_BR.properties; sourceTree = "<group>"; };
+		528EC029088F09230079F728 /* messages_sv.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = messages_sv.properties; sourceTree = "<group>"; };
+		528EC02C088F09230079F728 /* admin-add-blog-entry.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-add-blog-entry.vm"; sourceTree = "<group>"; };
+		528EC02D088F09230079F728 /* admin-bookmarklet-entry.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-bookmarklet-entry.vm"; sourceTree = "<group>"; };
+		528EC02E088F09230079F728 /* admin-bookmarklet-start.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-bookmarklet-start.vm"; sourceTree = "<group>"; };
+		528EC02F088F09230079F728 /* admin-edit-blog-authorization.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-authorization.vm"; sourceTree = "<group>"; };
+		528EC030088F09230079F728 /* admin-edit-blog-categories.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-categories.vm"; sourceTree = "<group>"; };
+		528EC031088F09230079F728 /* admin-edit-blog-category.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-category.vm"; sourceTree = "<group>"; };
+		528EC032088F09230079F728 /* admin-edit-blog-entries-list.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-entries-list.vm"; sourceTree = "<group>"; };
+		528EC033088F09230079F728 /* admin-edit-blog-entries.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-entries.vm"; sourceTree = "<group>"; };
+		528EC034088F09230079F728 /* admin-edit-blog-entry.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-entry.vm"; sourceTree = "<group>"; };
+		528EC035088F09230079F728 /* admin-edit-blog-flavors.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-flavors.vm"; sourceTree = "<group>"; };
+		528EC036088F09230079F728 /* admin-edit-blog-permissions.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-permissions.vm"; sourceTree = "<group>"; };
+		528EC037088F09230079F728 /* admin-edit-blog-plugins.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-plugins.vm"; sourceTree = "<group>"; };
+		528EC038088F09230079F728 /* admin-edit-blog-properties.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-properties.vm"; sourceTree = "<group>"; };
+		528EC039088F09230079F728 /* admin-edit-blog-template.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-template.vm"; sourceTree = "<group>"; };
+		528EC03A088F09230079F728 /* admin-edit-blog-templates.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-templates.vm"; sourceTree = "<group>"; };
+		528EC03B088F09230079F728 /* admin-edit-blog-users.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-blog-users.vm"; sourceTree = "<group>"; };
+		528EC03C088F09230079F728 /* admin-file-upload.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-file-upload.vm"; sourceTree = "<group>"; };
+		528EC03D088F09230079F728 /* admin-forgotten-password.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-forgotten-password.vm"; sourceTree = "<group>"; };
+		528EC03E088F09230079F728 /* admin-list-web-admin-plugins.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-list-web-admin-plugins.vm"; sourceTree = "<group>"; };
+		528EC03F088F09230079F728 /* admin-login.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-login.vm"; sourceTree = "<group>"; };
+		528EC040088F09230079F728 /* admin-macros.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-macros.vm"; sourceTree = "<group>"; };
+		528EC041088F09230079F728 /* admin-theme-switcher-settings.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-theme-switcher-settings.vm"; sourceTree = "<group>"; };
+		528EC042088F09230079F728 /* admin.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = admin.vm; sourceTree = "<group>"; };
+		528EC044088F09230079F728 /* ThemeSwitcherPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ThemeSwitcherPlugin.java; sourceTree = "<group>"; };
+		528EC045088F09230079F728 /* WebAdminPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = WebAdminPlugin.java; sourceTree = "<group>"; };
+		528EC047088F09230079F728 /* InternalAggregatorPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = InternalAggregatorPlugin.java; sourceTree = "<group>"; };
+		528EC04A088F09230079F728 /* AbstractCalendarPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AbstractCalendarPlugin.java; sourceTree = "<group>"; };
+		528EC04B088F09230079F728 /* AbstractVisualCalendarPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AbstractVisualCalendarPlugin.java; sourceTree = "<group>"; };
+		528EC04C088F09230079F728 /* BlogCalendar.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlogCalendar.java; sourceTree = "<group>"; };
+		528EC04D088F09230079F728 /* CalendarFilterPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CalendarFilterPlugin.java; sourceTree = "<group>"; };
+		528EC04F088F09230079F728 /* VelocityCalendarPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = VelocityCalendarPlugin.java; sourceTree = "<group>"; };
+		528EC050088F09230079F728 /* VelocityHelper.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = VelocityHelper.java; sourceTree = "<group>"; };
+		528EC052088F09230079F728 /* CategoryTemplatePlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CategoryTemplatePlugin.java; sourceTree = "<group>"; };
+		528EC055088F09230079F728 /* ChronoPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ChronoPlugin.java; sourceTree = "<group>"; };
+		528EC058088F09230079F728 /* comment-plugin-email-template.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "comment-plugin-email-template.vm"; sourceTree = "<group>"; };
+		528EC059088F09230079F728 /* CommentModerationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CommentModerationPlugin.java; sourceTree = "<group>"; };
+		528EC05A088F09230079F728 /* CommentPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CommentPlugin.java; sourceTree = "<group>"; };
+		528EC05B088F09230079F728 /* CommentUtils.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CommentUtils.java; sourceTree = "<group>"; };
+		528EC05D088F09230079F728 /* CommentAddedEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CommentAddedEvent.java; sourceTree = "<group>"; };
+		528EC05E088F09230079F728 /* CommentDeletedEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CommentDeletedEvent.java; sourceTree = "<group>"; };
+		528EC05F088F09230079F728 /* CommentEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CommentEvent.java; sourceTree = "<group>"; };
+		528EC060088F09230079F728 /* CommentResponseSubmissionEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CommentResponseSubmissionEvent.java; sourceTree = "<group>"; };
+		528EC062088F09230079F728 /* MathCommentAuthenticationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = MathCommentAuthenticationPlugin.java; sourceTree = "<group>"; };
+		528EC064088F09230079F728 /* RecentCommentsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = RecentCommentsPlugin.java; sourceTree = "<group>"; };
+		528EC066088F09230079F728 /* AllEntriesPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AllEntriesPlugin.java; sourceTree = "<group>"; };
+		528EC067088F09230079F728 /* ConvertLineBreaksPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ConvertLineBreaksPlugin.java; sourceTree = "<group>"; };
+		528EC068088F09230079F728 /* IPBanningPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = IPBanningPlugin.java; sourceTree = "<group>"; };
+		528EC06A088F09230079F728 /* RSSEnclosurePlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = RSSEnclosurePlugin.java; sourceTree = "<group>"; };
+		528EC06C088F09240079F728 /* admin-rss-enclosure-attachment.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-rss-enclosure-attachment.vm"; sourceTree = "<group>"; };
+		528EC06E088F09240079F728 /* VelocityPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = VelocityPlugin.java; sourceTree = "<group>"; };
+		528EC071088F09240079F728 /* Destination.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = Destination.java; sourceTree = "<group>"; };
+		528EC073088F09240079F728 /* CrosspostConstants.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CrosspostConstants.java; sourceTree = "<group>"; };
+		528EC074088F09240079F728 /* CrosspostPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CrosspostPlugin.java; sourceTree = "<group>"; };
+		528EC077088F09240079F728 /* DateFormatPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = DateFormatPlugin.java; sourceTree = "<group>"; };
+		528EC07A088F09240079F728 /* EditorLoginPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EditorLoginPlugin.java; sourceTree = "<group>"; };
+		528EC07D088F09240079F728 /* EmailConstants.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EmailConstants.java; sourceTree = "<group>"; };
+		528EC07E088F09240079F728 /* EmailMessage.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EmailMessage.java; sourceTree = "<group>"; };
+		528EC07F088F09240079F728 /* EmailUtils.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EmailUtils.java; sourceTree = "<group>"; };
+		528EC081088F09240079F728 /* SendEmailPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = SendEmailPlugin.java; sourceTree = "<group>"; };
+		528EC082088F09240079F728 /* SimpleAuthenticator.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = SimpleAuthenticator.java; sourceTree = "<group>"; };
+		528EC084088F09240079F728 /* EmoticonsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EmoticonsPlugin.java; sourceTree = "<group>"; };
+		528EC085088F09240079F728 /* EnhancedEmoticonsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EnhancedEmoticonsPlugin.java; sourceTree = "<group>"; };
+		528EC088088F09240079F728 /* ExcerptPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ExcerptPlugin.java; sourceTree = "<group>"; };
+		528EC08B088F09240079F728 /* FetcherHelperPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = FetcherHelperPlugin.java; sourceTree = "<group>"; };
+		528EC08F088F09240079F728 /* PluginHelperPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = PluginHelperPlugin.java; sourceTree = "<group>"; };
+		528EC091088F09240079F728 /* GoogleHighlightPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = GoogleHighlightPlugin.java; sourceTree = "<group>"; };
+		528EC094088F09240079F728 /* HyperlinkURLPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = HyperlinkURLPlugin.java; sourceTree = "<group>"; };
+		528EC097088F09240079F728 /* LanguageSelectionPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = LanguageSelectionPlugin.java; sourceTree = "<group>"; };
+		528EC09A088F09240079F728 /* admin-language-selection.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-language-selection.vm"; sourceTree = "<group>"; };
+		528EC09D088F09240079F728 /* ConditionalGetPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ConditionalGetPlugin.java; sourceTree = "<group>"; };
+		528EC09E088F09240079F728 /* EntriesLimiterPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EntriesLimiterPlugin.java; sourceTree = "<group>"; };
+		528EC0A0088F09240079F728 /* PreviewPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = PreviewPlugin.java; sourceTree = "<group>"; };
+		528EC0A3088F09240079F728 /* MacroExpansionAdminPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = MacroExpansionAdminPlugin.java; sourceTree = "<group>"; };
+		528EC0A6088F09240079F728 /* admin-edit-macro-expansion-settings.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-macro-expansion-settings.vm"; sourceTree = "<group>"; };
+		528EC0A7088F09240079F728 /* MacroExpansionPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = MacroExpansionPlugin.java; sourceTree = "<group>"; };
+		528EC0AA088F09240079F728 /* MarkdownPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = MarkdownPlugin.java; sourceTree = "<group>"; };
+		528EC0AD088F09240079F728 /* MarkupSelectionPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = MarkupSelectionPlugin.java; sourceTree = "<group>"; };
+		528EC0B0088F09240079F728 /* admin-markup-selection-attachment.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-markup-selection-attachment.vm"; sourceTree = "<group>"; };
+		528EC0B3088F09240079F728 /* AssociatedCategoriesPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AssociatedCategoriesPlugin.java; sourceTree = "<group>"; };
+		528EC0B4088F09240079F728 /* MetaPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = MetaPlugin.java; sourceTree = "<group>"; };
+		528EC0B8088F09240079F728 /* MoblogAdminPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = MoblogAdminPlugin.java; sourceTree = "<group>"; };
+		528EC0BB088F09240079F728 /* admin-edit-moblog-settings.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-moblog-settings.vm"; sourceTree = "<group>"; };
+		528EC0BC088F09240079F728 /* Mailbox.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = Mailbox.java; sourceTree = "<group>"; };
+		528EC0BD088F09240079F728 /* moblog-plugin-template.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "moblog-plugin-template.vm"; sourceTree = "<group>"; };
+		528EC0BE088F09240079F728 /* MoblogPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = MoblogPlugin.java; sourceTree = "<group>"; };
+		528EC0BF088F09240079F728 /* MoblogPluginUtils.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = MoblogPluginUtils.java; sourceTree = "<group>"; };
+		528EC0C3088F09240079F728 /* IPAddressModerationAdminPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = IPAddressModerationAdminPlugin.java; sourceTree = "<group>"; };
+		528EC0C5088F09240079F728 /* SpamPhraseModerationAdminPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = SpamPhraseModerationAdminPlugin.java; sourceTree = "<group>"; };
+		528EC0C7088F09240079F728 /* admin-edit-ip-moderation-settings.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-ip-moderation-settings.vm"; sourceTree = "<group>"; };
+		528EC0C8088F09240079F728 /* admin-edit-spam-phrase-moderation-settings.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-spam-phrase-moderation-settings.vm"; sourceTree = "<group>"; };
+		528EC0C9088F09240079F728 /* IPAddressModerationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = IPAddressModerationPlugin.java; sourceTree = "<group>"; };
+		528EC0CA088F09240079F728 /* LinkSpamModerationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = LinkSpamModerationPlugin.java; sourceTree = "<group>"; };
+		528EC0CB088F09240079F728 /* OpenProxyModerationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = OpenProxyModerationPlugin.java; sourceTree = "<group>"; };
+		528EC0CD088F09250079F728 /* SpamPhraseModerationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = SpamPhraseModerationPlugin.java; sourceTree = "<group>"; };
+		528EC0CF088F09250079F728 /* NoFollowPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = NoFollowPlugin.java; sourceTree = "<group>"; };
+		528EC0D3088F09250079F728 /* SimpleObfuscationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = SimpleObfuscationPlugin.java; sourceTree = "<group>"; };
+		528EC0D6088F09250079F728 /* PingbackPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = PingbackPlugin.java; sourceTree = "<group>"; };
+		528EC0D8088F09250079F728 /* BlogReferer.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlogReferer.java; sourceTree = "<group>"; };
+		528EC0D9088F09250079F728 /* BlogRefererGroup.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlogRefererGroup.java; sourceTree = "<group>"; };
+		528EC0DB088F09250079F728 /* RefererLogPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = RefererLogPlugin.java; sourceTree = "<group>"; };
+		528EC0DF088F09250079F728 /* ResponseSubmissionEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ResponseSubmissionEvent.java; sourceTree = "<group>"; };
+		528EC0E2088F09250079F728 /* SimpleSearchPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = SimpleSearchPlugin.java; sourceTree = "<group>"; };
+		528EC0E4088F09250079F728 /* BasicAuthenticationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BasicAuthenticationPlugin.java; sourceTree = "<group>"; };
+		528EC0E7088F09250079F728 /* failed-authorization.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "failed-authorization.vm"; sourceTree = "<group>"; };
+		528EC0EB088F09250079F728 /* ShowMeMoreAdminPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ShowMeMoreAdminPlugin.java; sourceTree = "<group>"; };
+		528EC0ED088F09250079F728 /* admin-edit-showmemore-settings.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-edit-showmemore-settings.vm"; sourceTree = "<group>"; };
+		528EC0EF088F09250079F728 /* ShowMeMoreConfiguration.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ShowMeMoreConfiguration.java; sourceTree = "<group>"; };
+		528EC0F0088F09250079F728 /* ShowMeMorePlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ShowMeMorePlugin.java; sourceTree = "<group>"; };
+		528EC0F1088F09250079F728 /* ShowMeMoreUtilities.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ShowMeMoreUtilities.java; sourceTree = "<group>"; };
+		528EC0F3088F09250079F728 /* DaysSincePostedPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = DaysSincePostedPlugin.java; sourceTree = "<group>"; };
+		528EC0F5088F09250079F728 /* WordCountPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = WordCountPlugin.java; sourceTree = "<group>"; };
+		528EC0F8088F09250079F728 /* TechnoratiTagsPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = TechnoratiTagsPlugin.java; sourceTree = "<group>"; };
+		528EC0FA088F09250079F728 /* admin-technorati-tags.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "admin-technorati-tags.vm"; sourceTree = "<group>"; };
+		528EC0FC088F09250079F728 /* technorati-tag-link.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "technorati-tag-link.vm"; sourceTree = "<group>"; };
+		528EC0FF088F09250079F728 /* TextilePlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = TextilePlugin.java; sourceTree = "<group>"; };
+		528EC101088F09250079F728 /* AutoTrackbackPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AutoTrackbackPlugin.java; sourceTree = "<group>"; };
+		528EC104088F09250079F728 /* TrackbackAddedEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = TrackbackAddedEvent.java; sourceTree = "<group>"; };
+		528EC105088F09250079F728 /* TrackbackDeletedEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = TrackbackDeletedEvent.java; sourceTree = "<group>"; };
+		528EC106088F09250079F728 /* TrackbackEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = TrackbackEvent.java; sourceTree = "<group>"; };
+		528EC107088F09250079F728 /* TrackbackResponseSubmissionEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = TrackbackResponseSubmissionEvent.java; sourceTree = "<group>"; };
+		528EC109088F09250079F728 /* trackback-plugin-email-template.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "trackback-plugin-email-template.vm"; sourceTree = "<group>"; };
+		528EC10A088F09250079F728 /* TrackbackModerationPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = TrackbackModerationPlugin.java; sourceTree = "<group>"; };
+		528EC10B088F09250079F728 /* TrackbackPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = TrackbackPlugin.java; sourceTree = "<group>"; };
+		528EC10E088F09250079F728 /* page-macros.vm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "page-macros.vm"; sourceTree = "<group>"; };
+		528EC10F088F09250079F728 /* StandaloneVelocityPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = StandaloneVelocityPlugin.java; sourceTree = "<group>"; };
+		528EC112088F09250079F728 /* NWSInformation.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = NWSInformation.java; sourceTree = "<group>"; };
+		528EC114088F09250079F728 /* WeatherInformation.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = WeatherInformation.java; sourceTree = "<group>"; };
+		528EC116088F09250079F728 /* Weather.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = Weather.java; sourceTree = "<group>"; };
+		528EC117088F09250079F728 /* WeatherConstants.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = WeatherConstants.java; sourceTree = "<group>"; };
+		528EC118088F09250079F728 /* WeatherFetcher.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = WeatherFetcher.java; sourceTree = "<group>"; };
+		528EC119088F09250079F728 /* WeatherPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = WeatherPlugin.java; sourceTree = "<group>"; };
+		528EC11A088F09250079F728 /* WeatherPluginUtils.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = WeatherPluginUtils.java; sourceTree = "<group>"; };
+		528EC11D088F09250079F728 /* WeblogsPingPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = WeblogsPingPlugin.java; sourceTree = "<group>"; };
+		528EC123088F093D0079F728 /* AppleBlojsomAuthorizationProvider.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AppleBlojsomAuthorizationProvider.java; sourceTree = "<group>"; };
+		528EC124088F093D0079F728 /* AppleBlojsomVersion.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AppleBlojsomVersion.java; sourceTree = "<group>"; };
+		528EC125088F093D0079F728 /* BlojsomAppleUtils.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomAppleUtils.java; sourceTree = "<group>"; };
+		528EC12A088F093D0079F728 /* AuthorizationProvider.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = AuthorizationProvider.java; sourceTree = "<group>"; };
+		528EC12C088F093D0079F728 /* PropertiesAuthorizationProvider.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = PropertiesAuthorizationProvider.java; sourceTree = "<group>"; };
+		528EC12E088F093D0079F728 /* Blog.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = Blog.java; sourceTree = "<group>"; };
+		528EC12F088F093D0079F728 /* BlogCategory.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlogCategory.java; sourceTree = "<group>"; };
+		528EC130088F093D0079F728 /* BlogComment.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlogComment.java; sourceTree = "<group>"; };
+		528EC131088F093D0079F728 /* BlogEntry.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlogEntry.java; sourceTree = "<group>"; };
+		528EC132088F093D0079F728 /* BlogUser.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlogUser.java; sourceTree = "<group>"; };
+		528EC133088F093D0079F728 /* BlojsomConfiguration.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomConfiguration.java; sourceTree = "<group>"; };
+		528EC134088F093D0079F728 /* BlojsomConfigurationException.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomConfigurationException.java; sourceTree = "<group>"; };
+		528EC135088F093D0079F728 /* FileBackedBlogCategory.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = FileBackedBlogCategory.java; sourceTree = "<group>"; };
+		528EC136088F093D0079F728 /* FileBackedBlogEntry.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = FileBackedBlogEntry.java; sourceTree = "<group>"; };
+		528EC138088F093D0079F728 /* Pingback.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = Pingback.java; sourceTree = "<group>"; };
+		528EC139088F093D0079F728 /* Trackback.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = Trackback.java; sourceTree = "<group>"; };
+		528EC13A088F093D0079F728 /* BlojsomException.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomException.java; sourceTree = "<group>"; };
+		528EC13C088F093D0079F728 /* BlojsomDispatcher.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomDispatcher.java; sourceTree = "<group>"; };
+		528EC13D088F093E0079F728 /* JSPDispatcher.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = JSPDispatcher.java; sourceTree = "<group>"; };
+		528EC13F088F093E0079F728 /* VelocityDispatcher.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = VelocityDispatcher.java; sourceTree = "<group>"; };
+		528EC141088F093E0079F728 /* BlojsomEvent.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomEvent.java; sourceTree = "<group>"; };
+		528EC142088F093E0079F728 /* BlojsomEventBroadcaster.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomEventBroadcaster.java; sourceTree = "<group>"; };
+		528EC143088F093E0079F728 /* BlojsomFilter.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomFilter.java; sourceTree = "<group>"; };
+		528EC144088F093E0079F728 /* BlojsomListener.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomListener.java; sourceTree = "<group>"; };
+		528EC146088F093E0079F728 /* SimpleBlojsomEventBroadcaster.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = SimpleBlojsomEventBroadcaster.java; sourceTree = "<group>"; };
+		528EC148088F093E0079F728 /* BlojsomFetcher.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomFetcher.java; sourceTree = "<group>"; };
+		528EC149088F093E0079F728 /* BlojsomFetcherException.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomFetcherException.java; sourceTree = "<group>"; };
+		528EC14B088F093E0079F728 /* StandardFetcher.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = StandardFetcher.java; sourceTree = "<group>"; };
+		528EC14D088F093E0079F728 /* CharArrayWrapper.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CharArrayWrapper.java; sourceTree = "<group>"; };
+		528EC14E088F093E0079F728 /* CompressionFilter.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CompressionFilter.java; sourceTree = "<group>"; };
+		528EC14F088F093E0079F728 /* GZIPResponseStream.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = GZIPResponseStream.java; sourceTree = "<group>"; };
+		528EC150088F093E0079F728 /* GZIPResponseWrapper.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = GZIPResponseWrapper.java; sourceTree = "<group>"; };
+		528EC152088F093E0079F728 /* PermalinkFilter.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = PermalinkFilter.java; sourceTree = "<group>"; };
+		528EC153088F093E0079F728 /* SimpleCompressionFilter.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = SimpleCompressionFilter.java; sourceTree = "<group>"; };
+		528EC156088F093E0079F728 /* BlojsomPlugin.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomPlugin.java; sourceTree = "<group>"; };
+		528EC157088F093E0079F728 /* BlojsomPluginException.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomPluginException.java; sourceTree = "<group>"; };
+		528EC15A088F093E0079F728 /* BlojsomBaseServlet.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomBaseServlet.java; sourceTree = "<group>"; };
+		528EC15B088F093E0079F728 /* BlojsomServlet.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomServlet.java; sourceTree = "<group>"; };
+		528EC15E088F093E0079F728 /* BlojsomConstants.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomConstants.java; sourceTree = "<group>"; };
+		528EC15F088F093E0079F728 /* BlojsomMetaDataConstants.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomMetaDataConstants.java; sourceTree = "<group>"; };
+		528EC160088F093E0079F728 /* BlojsomProperties.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomProperties.java; sourceTree = "<group>"; };
+		528EC161088F093E0079F728 /* BlojsomSimpleLog4JSystem.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomSimpleLog4JSystem.java; sourceTree = "<group>"; };
+		528EC162088F093E0079F728 /* BlojsomUtils.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = BlojsomUtils.java; sourceTree = "<group>"; };
+		528EC163088F093E0079F728 /* CookieUtils.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = CookieUtils.java; sourceTree = "<group>"; };
+		528EC166088F093E0079F728 /* EncryptedPasswordConversion.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = EncryptedPasswordConversion.java; sourceTree = "<group>"; };
+		528EC16A088F093E0079F728 /* ResourceBundleResourceManager.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ResourceBundleResourceManager.java; sourceTree = "<group>"; };
+		528EC16B088F093E0079F728 /* ResourceManager.java */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.java; path = ResourceManager.java; sourceTree = "<group>"; };
+		528EC16D088F094E0079F728 /* favicon.ico */ = {isa = PBXFileReference; lastKnownFileType = image.ico; path = favicon.ico; sourceTree = "<group>"; };
+		528EC16F088F094E0079F728 /* atom.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = atom.png; sourceTree = "<group>"; };
+		528EC170088F094E0079F728 /* blank.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = blank.gif; sourceTree = "<group>"; };
+		528EC171088F094E0079F728 /* box_background.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = box_background.png; sourceTree = "<group>"; };
+		528EC172088F094E0079F728 /* dialog_400_body.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dialog_400_body.png; sourceTree = "<group>"; };
+		528EC173088F094E0079F728 /* dialog_400_footer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dialog_400_footer.png; sourceTree = "<group>"; };
+		528EC174088F094E0079F728 /* dialog_400_header.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dialog_400_header.png; sourceTree = "<group>"; };
+		528EC175088F094E0079F728 /* dialog_500_body.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dialog_500_body.png; sourceTree = "<group>"; };
+		528EC176088F094E0079F728 /* dialog_500_footer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dialog_500_footer.png; sourceTree = "<group>"; };
+		528EC177088F094E0079F728 /* dialog_500_header.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dialog_500_header.png; sourceTree = "<group>"; };
+		528EC178088F094E0079F728 /* dialog_600_body.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dialog_600_body.png; sourceTree = "<group>"; };
+		528EC179088F094E0079F728 /* dialog_600_footer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dialog_600_footer.png; sourceTree = "<group>"; };
+		528EC17A088F094E0079F728 /* dialog_600_header.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dialog_600_header.png; sourceTree = "<group>"; };
+		528EC17B088F094E0079F728 /* grayx.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = grayx.jpg; sourceTree = "<group>"; };
+		528EC17C088F094E0079F728 /* main_box_body.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = main_box_body.png; sourceTree = "<group>"; };
+		528EC17D088F094E0079F728 /* main_box_footer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = main_box_footer.png; sourceTree = "<group>"; };
+		528EC17E088F094E0079F728 /* main_box_header.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = main_box_header.png; sourceTree = "<group>"; };
+		528EC17F088F094E0079F728 /* mandolux-piper-1600.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "mandolux-piper-1600.jpg"; sourceTree = "<group>"; };
+		528EC180088F094E0079F728 /* message_background.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = message_background.png; sourceTree = "<group>"; };
+		528EC181088F094E0079F728 /* powered-by-blojsom.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = "powered-by-blojsom.gif"; sourceTree = "<group>"; };
+		528EC182088F094E0079F728 /* rdf.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = rdf.gif; sourceTree = "<group>"; };
+		528EC183088F094E0079F728 /* rss.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = rss.gif; sourceTree = "<group>"; };
+		528EC184088F094E0079F728 /* search.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = search.gif; sourceTree = "<group>"; };
+		528EC185088F094E0079F728 /* side_box_body.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = side_box_body.png; sourceTree = "<group>"; };
+		528EC186088F094E0079F728 /* side_box_footer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = side_box_footer.png; sourceTree = "<group>"; };
+		528EC187088F094E0079F728 /* side_box_header.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = side_box_header.png; sourceTree = "<group>"; };
+		528EC188088F094E0079F728 /* span_body.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = span_body.png; sourceTree = "<group>"; };
+		528EC189088F094E0079F728 /* span_footer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = span_footer.png; sourceTree = "<group>"; };
+		528EC18A088F094E0079F728 /* span_header.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = span_header.png; sourceTree = "<group>"; };
+		528EC18B088F094E0079F728 /* striped_background.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = striped_background.gif; sourceTree = "<group>"; };
+		528EC18C088F094E0079F728 /* trackback.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = trackback.gif; sourceTree = "<group>"; };
+		528EC18D088F094E0079F728 /* v2_background_bottom.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v2_background_bottom.gif; sourceTree = "<group>"; };
+		528EC18E088F094E0079F728 /* v2_background_nav.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v2_background_nav.gif; sourceTree = "<group>"; };
+		528EC18F088F094E0079F728 /* v2_background_navhead.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v2_background_navhead.gif; sourceTree = "<group>"; };
+		528EC190088F094E0079F728 /* v2_background_stripes.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v2_background_stripes.gif; sourceTree = "<group>"; };
+		528EC191088F094E0079F728 /* v2_background_top.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v2_background_top.gif; sourceTree = "<group>"; };
+		528EC192088F094E0079F728 /* v2_logo_osx.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v2_logo_osx.gif; sourceTree = "<group>"; };
+		528EC193088F094E0079F728 /* v2_logo_osx.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = v2_logo_osx.jpg; sourceTree = "<group>"; };
+		528EC194088F094E0079F728 /* v4_background_linkhover.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v4_background_linkhover.gif; sourceTree = "<group>"; };
+		528EC195088F094E0079F728 /* v4_background_main.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v4_background_main.gif; sourceTree = "<group>"; };
+		528EC196088F094E0079F728 /* v4_background_side.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v4_background_side.gif; sourceTree = "<group>"; };
+		528EC197088F094E0079F728 /* v4_background_side_bottom.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v4_background_side_bottom.gif; sourceTree = "<group>"; };
+		528EC198088F094E0079F728 /* v4_background_side_top.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v4_background_side_top.gif; sourceTree = "<group>"; };
+		528EC199088F094E0079F728 /* v4_background_top.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = v4_background_top.gif; sourceTree = "<group>"; };
+		528EC19A088F094E0079F728 /* v5_background_link.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = v5_background_link.jpg; sourceTree = "<group>"; };
+		528EC19B088F094E0079F728 /* v5_background_linkhover.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = v5_background_linkhover.jpg; sourceTree = "<group>"; };
+		528EC19C088F094E0079F728 /* v5_background_main.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = v5_background_main.jpg; sourceTree = "<group>"; };
+		528EC19D088F094E0079F728 /* v5_background_top.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = v5_background_top.jpg; sourceTree = "<group>"; };
+		528EC19E088F094E0079F728 /* xml.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = xml.gif; sourceTree = "<group>"; };
+		528EC1A0088F094E0079F728 /* admin-basic.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "admin-basic.css"; sourceTree = "<group>"; };
+		528EC1A1088F094E0079F728 /* admin-tabs.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "admin-tabs.css"; sourceTree = "<group>"; };
+		528EC1A2088F094E0079F728 /* apple_stylesheet_overrides.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = apple_stylesheet_overrides.css; sourceTree = "<group>"; };
+		528EC1A3088F094E0079F728 /* atom.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = atom.css; sourceTree = "<group>"; };
+		528EC1A4088F094E0079F728 /* base_layout.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = base_layout.css; sourceTree = "<group>"; };
+		528EC1A5088F094E0079F728 /* base_scripts.js */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.javascript; path = base_scripts.js; sourceTree = "<group>"; };
+		528EC1A6088F094E0079F728 /* blojsom-admin.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "blojsom-admin.css"; sourceTree = "<group>"; };
+		528EC1A7088F094E0079F728 /* blojsom.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = blojsom.css; sourceTree = "<group>"; };
+		528EC1A8088F094E0079F728 /* emptyStartup.js */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.javascript; path = emptyStartup.js; sourceTree = "<group>"; };
+		528EC1A9088F094E0079F728 /* win32ImageWorkaround.js */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.javascript; path = win32ImageWorkaround.js; sourceTree = "<group>"; };
+		528EC1AA088F094E0079F728 /* index.html */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
+		528EC1AC088F094E0079F728 /* MANIFEST.MF */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = MANIFEST.MF; sourceTree = "<group>"; };
+		528EC1AE088F094E0079F728 /* de.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = de.properties; sourceTree = "<group>"; };
+		528EC1AF088F094E0079F728 /* en.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = en.properties; sourceTree = "<group>"; };
+		528EC1B0088F094E0079F728 /* fr.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fr.properties; sourceTree = "<group>"; };
+		528EC1B1088F094E0079F728 /* ja.properties */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ja.properties; sourceTree = "<group>"; };
+		528EC1B3088F094E0079F728 /* apple_layout.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = apple_layout.css; sourceTree = "<group>"; };
+		528EC1B4088F094E0079F728 /* apple_layout.js */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.javascript; path = apple_layout.js; sourceTree = "<group>"; };
+		528EC1B5088F094E0079F728 /* v2_layout.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = v2_layout.css; sourceTree = "<group>"; };
+		528EC1B6088F094E0079F728 /* v2_layout.js */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.javascript; path = v2_layout.js; sourceTree = "<group>"; };
+		528EC1B7088F094E0079F728 /* v4_layout.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = v4_layout.css; sourceTree = "<group>"; };
+		528EC1B8088F094E0079F728 /* v4_layout.js */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.javascript; path = v4_layout.js; sourceTree = "<group>"; };
+		528EC1B9088F094E0079F728 /* v5_layout.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = v5_layout.css; sourceTree = "<group>"; };
+		528EC1BA088F094E0079F728 /* v5_layout.js */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.javascript; path = v5_layout.js; sourceTree = "<group>"; };
+		528EC1CC088F094E0079F728 /* blojsom.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = blojsom.properties; sourceTree = "<group>"; };
+		528EC1CE088F094E0079F728 /* authorization.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = authorization.properties; sourceTree = "<group>"; };
+		528EC1CF088F094E0079F728 /* blacklist.filters */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = blacklist.filters; sourceTree = "<group>"; };
+		528EC1D0088F094E0079F728 /* blog.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = blog.properties; sourceTree = "<group>"; };
+		528EC1D1088F094E0079F728 /* contextloader.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = contextloader.properties; sourceTree = "<group>"; };
+		528EC1D2088F094E0079F728 /* emoticons.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = emoticons.properties; sourceTree = "<group>"; };
+		528EC1D3088F094E0079F728 /* flavor.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = flavor.properties; sourceTree = "<group>"; };
+		528EC1D4088F094E0079F728 /* macros.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = macros.properties; sourceTree = "<group>"; };
+		528EC1D5088F094E0079F728 /* plugin.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = plugin.properties; sourceTree = "<group>"; };
+		528EC1D6088F094E0079F728 /* referer.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = referer.properties; sourceTree = "<group>"; };
+		528EC1D7088F094E0079F728 /* showmemore.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = showmemore.properties; sourceTree = "<group>"; };
+		528EC1D9088F094E0079F728 /* log4j.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = log4j.properties; sourceTree = "<group>"; };
+		528EC1DA088F094E0079F728 /* oscache.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = oscache.properties; sourceTree = "<group>"; };
+		528EC1DC088F094E0079F728 /* authorization.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = authorization.properties; sourceTree = "<group>"; };
+		528EC1DD088F094E0079F728 /* blacklist.filters */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = blacklist.filters; sourceTree = "<group>"; };
+		528EC1DE088F094E0079F728 /* blog.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = blog.properties; sourceTree = "<group>"; };
+		528EC1DF088F094E0079F728 /* contextloader.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = contextloader.properties; sourceTree = "<group>"; };
+		528EC1E0088F094E0079F728 /* emoticons.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = emoticons.properties; sourceTree = "<group>"; };
+		528EC1E1088F094E0079F728 /* flavor.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = flavor.properties; sourceTree = "<group>"; };
+		528EC1E2088F094E0079F728 /* macros.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = macros.properties; sourceTree = "<group>"; };
+		528EC1E3088F094E0079F728 /* plugin.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = plugin.properties; sourceTree = "<group>"; };
+		528EC1E4088F094E0079F728 /* referer.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = referer.properties; sourceTree = "<group>"; };
+		528EC1E5088F094E0079F728 /* showmemore.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = showmemore.properties; sourceTree = "<group>"; };
+		528EC1E7088F094E0079F728 /* html.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = html.vm; sourceTree = "<group>"; };
+		528EC1E8088F094E0079F728 /* include.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = include.vm; sourceTree = "<group>"; };
+		528EC1E9088F094E0079F728 /* dispatcher.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = dispatcher.properties; sourceTree = "<group>"; };
+		528EC1EA088F094E0079F728 /* plugin-admin-edit-users.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "plugin-admin-edit-users.properties"; sourceTree = "<group>"; };
+		528EC1EB088F094E0079F728 /* plugin-admin-upload.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "plugin-admin-upload.properties"; sourceTree = "<group>"; };
+		528EC1EC088F094E0079F728 /* plugin.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = plugin.properties; sourceTree = "<group>"; };
+		528EC1ED088F094E0079F728 /* velocity.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = velocity.properties; sourceTree = "<group>"; };
+		528EC1EE088F094E0079F728 /* web.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = web.xml; sourceTree = "<group>"; };
+		528EC1EF088F094E0079F728 /* xmlrpc.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = xmlrpc.properties; sourceTree = "<group>"; };
+		8471067606545516000C180E /* catalina.policy */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = catalina.policy; sourceTree = "<group>"; };
+		8471067706545516000C180E /* jk2.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = jk2.properties; sourceTree = "<group>"; };
+		8471067806545516000C180E /* server-noexamples.xml.config */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "server-noexamples.xml.config"; sourceTree = "<group>"; };
+		8471067906545516000C180E /* server.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = server.xml; sourceTree = "<group>"; };
+		8471067A06545516000C180E /* tomcat-users.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "tomcat-users.xml"; sourceTree = "<group>"; };
+		8471067B06545516000C180E /* web.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = web.xml; sourceTree = "<group>"; };
+		84880362073AE6AE0076AE14 /* migrate_workers_file */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; path = migrate_workers_file; sourceTree = SOURCE_ROOT; };
+		84C8D2BE0625FF95001E4CD5 /* build.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = build.xml; sourceTree = "<group>"; };
+		84C8D2C30625FF95001E4CD5 /* mt2blojsom.pl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; path = mt2blojsom.pl; sourceTree = "<group>"; };
+		84C8D2C50625FF95001E4CD5 /* blojsom-calendar.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "blojsom-calendar.jpg"; sourceTree = "<group>"; };
+		84C8D2C60625FF95001E4CD5 /* blojsom-comment-form.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "blojsom-comment-form.jpg"; sourceTree = "<group>"; };
+		84C8D2C70625FF95001E4CD5 /* blojsom-comments-trackbacks.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "blojsom-comments-trackbacks.jpg"; sourceTree = "<group>"; };
+		84C8D2C80625FF95001E4CD5 /* blojsom-main.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "blojsom-main.jpg"; sourceTree = "<group>"; };
+		84C8D2C90625FF95001E4CD5 /* blojsom-referers.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "blojsom-referers.jpg"; sourceTree = "<group>"; };
+		84C8D2CA0625FF95001E4CD5 /* blojsom-screenshot.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "blojsom-screenshot.jpg"; sourceTree = "<group>"; };
+		84C8D2CB0625FF95001E4CD5 /* blojsom-search.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "blojsom-search.jpg"; sourceTree = "<group>"; };
+		84C8D2CE0625FF95001E4CD5 /* admin-blog-authorization.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "admin-blog-authorization.xml"; sourceTree = "<group>"; };
+		84C8D2CF0625FF95001E4CD5 /* admin-blog-categories.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "admin-blog-categories.xml"; sourceTree = "<group>"; };
+		84C8D2D00625FF95001E4CD5 /* admin-blog-entries.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "admin-blog-entries.xml"; sourceTree = "<group>"; };
+		84C8D2D10625FF95001E4CD5 /* admin-blog-flavors.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "admin-blog-flavors.xml"; sourceTree = "<group>"; };
+		84C8D2D20625FF95001E4CD5 /* admin-blog-plugins.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "admin-blog-plugins.xml"; sourceTree = "<group>"; };
+		84C8D2D30625FF95001E4CD5 /* admin-blog-properties.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "admin-blog-properties.xml"; sourceTree = "<group>"; };
+		84C8D2D40625FF95001E4CD5 /* admin-blog-templates.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "admin-blog-templates.xml"; sourceTree = "<group>"; };
+		84C8D2D50625FF95001E4CD5 /* admin-blog-users.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "admin-blog-users.xml"; sourceTree = "<group>"; };
+		84C8D2D60625FF95001E4CD5 /* admin-file-upload.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "admin-file-upload.xml"; sourceTree = "<group>"; };
+		84C8D2D70625FF95001E4CD5 /* book.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = book.xml; sourceTree = "<group>"; };
+		84C8D2D80625FF95001E4CD5 /* index.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = index.xml; sourceTree = "<group>"; };
+		84C8D2D90625FF95001E4CD5 /* comments.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = comments.xml; sourceTree = "<group>"; };
+		84C8D2DB0625FF95001E4CD5 /* index.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = index.xml; sourceTree = "<group>"; };
+		84C8D2DC0625FF95001E4CD5 /* custom.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = custom.xml; sourceTree = "<group>"; };
+		84C8D2DD0625FF95001E4CD5 /* faq.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = faq.xml; sourceTree = "<group>"; };
+		84C8D2DE0625FF95001E4CD5 /* index.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = index.xml; sourceTree = "<group>"; };
+		84C8D2DF0625FF95001E4CD5 /* install.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = install.xml; sourceTree = "<group>"; };
+		84C8D2E10625FF95001E4CD5 /* associated-categories.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "associated-categories.xml"; sourceTree = "<group>"; };
+		84C8D2E20625FF95001E4CD5 /* book.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = book.xml; sourceTree = "<group>"; };
+		84C8D2E30625FF95001E4CD5 /* calendar.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = calendar.xml; sourceTree = "<group>"; };
+		84C8D2E40625FF95001E4CD5 /* chronological.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = chronological.xml; sourceTree = "<group>"; };
+		84C8D2E50625FF95001E4CD5 /* conditional-get.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "conditional-get.xml"; sourceTree = "<group>"; };
+		84C8D2E60625FF95001E4CD5 /* date.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = date.xml; sourceTree = "<group>"; };
+		84C8D2E70625FF95001E4CD5 /* emoticons.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = emoticons.xml; sourceTree = "<group>"; };
+		84C8D2E80625FF95001E4CD5 /* entries-limiter.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "entries-limiter.xml"; sourceTree = "<group>"; };
+		84C8D2E90625FF95001E4CD5 /* google-highlight.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "google-highlight.xml"; sourceTree = "<group>"; };
+		84C8D2EA0625FF95001E4CD5 /* hyperlink-URL.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "hyperlink-URL.xml"; sourceTree = "<group>"; };
+		84C8D2EB0625FF95001E4CD5 /* index.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = index.xml; sourceTree = "<group>"; };
+		84C8D2EC0625FF95001E4CD5 /* macro-expansion.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "macro-expansion.xml"; sourceTree = "<group>"; };
+		84C8D2ED0625FF95001E4CD5 /* markdown.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = markdown.xml; sourceTree = "<group>"; };
+		84C8D2EE0625FF95001E4CD5 /* meta.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = meta.xml; sourceTree = "<group>"; };
+		84C8D2EF0625FF95001E4CD5 /* obfuscation.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = obfuscation.xml; sourceTree = "<group>"; };
+		84C8D2F00625FF95001E4CD5 /* preview.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = preview.xml; sourceTree = "<group>"; };
+		84C8D2F10625FF95001E4CD5 /* referer.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = referer.xml; sourceTree = "<group>"; };
+		84C8D2F20625FF95001E4CD5 /* send-email.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "send-email.xml"; sourceTree = "<group>"; };
+		84C8D2F30625FF95001E4CD5 /* show-me-more.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "show-me-more.xml"; sourceTree = "<group>"; };
+		84C8D2F40625FF95001E4CD5 /* simple-search.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "simple-search.xml"; sourceTree = "<group>"; };
+		84C8D2F50625FF95001E4CD5 /* textile.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = textile.xml; sourceTree = "<group>"; };
+		84C8D2F60625FF95001E4CD5 /* trackback-autodiscovery.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "trackback-autodiscovery.xml"; sourceTree = "<group>"; };
+		84C8D2F70625FF95001E4CD5 /* weblogs-ping.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "weblogs-ping.xml"; sourceTree = "<group>"; };
+		84C8D2F80625FF95001E4CD5 /* xpath.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = xpath.xml; sourceTree = "<group>"; };
+		84C8D2F90625FF95001E4CD5 /* screenshots.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = screenshots.xml; sourceTree = "<group>"; };
+		84C8D2FA0625FF95001E4CD5 /* site.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = site.xml; sourceTree = "<group>"; };
+		84C8D2FB0625FF95001E4CD5 /* tabs.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = tabs.xml; sourceTree = "<group>"; };
+		84C8D2FC0625FF95001E4CD5 /* themes.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = themes.xml; sourceTree = "<group>"; };
+		84C8D2FD0625FF95001E4CD5 /* trackbacks.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = trackbacks.xml; sourceTree = "<group>"; };
+		84C8D2FE0625FF95001E4CD5 /* upgrading.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = upgrading.xml; sourceTree = "<group>"; };
+		84C8D2FF0625FF95001E4CD5 /* xml-rpc.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "xml-rpc.xml"; sourceTree = "<group>"; };
+		84C8D3000625FF95001E4CD5 /* redirect.xmap */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = redirect.xmap; sourceTree = "<group>"; };
+		84C8D3030625FF95001E4CD5 /* blojsom-logo.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "blojsom-logo.jpg"; sourceTree = "<group>"; };
+		84C8D3050625FF95001E4CD5 /* happy.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = happy.gif; sourceTree = "<group>"; };
+		84C8D3060625FF95001E4CD5 /* wink.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = wink.gif; sourceTree = "<group>"; };
+		84C8D3070625FF95001E4CD5 /* favicon.ico */ = {isa = PBXFileReference; lastKnownFileType = image.ico; path = favicon.ico; sourceTree = "<group>"; };
+		84C8D3080625FF95001E4CD5 /* powered-by-blojsom.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = "powered-by-blojsom.gif"; sourceTree = "<group>"; };
+		84C8D3090625FF96001E4CD5 /* project.svg */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = project.svg; sourceTree = "<group>"; };
+		84C8D30A0625FF96001E4CD5 /* sflogo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = sflogo.png; sourceTree = "<group>"; };
+		84C8D30D0625FF96001E4CD5 /* libre-v01.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "libre-v01.dtd"; sourceTree = "<group>"; };
+		84C8D30F0625FF96001E4CD5 /* changes2document.xsl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = changes2document.xsl; sourceTree = "<group>"; };
+		84C8D3100625FF96001E4CD5 /* skinconf.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = skinconf.xml; sourceTree = "<group>"; };
+		84C8D3270625FF96001E4CD5 /* forrest-targets.ent */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "forrest-targets.ent"; sourceTree = "<group>"; };
+		84C8D3280625FF96001E4CD5 /* forrest.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = forrest.properties; sourceTree = "<group>"; };
+		84C8D3A10625FF96001E4CD5 /* log4j.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = log4j.properties; sourceTree = "<group>"; };
+		84C8D3A20625FF96001E4CD5 /* oscache.properties */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = oscache.properties; sourceTree = "<group>"; };
+		84C8D3A30625FF96001E4CD5 /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		84C8D3D70625FF96001E4CD5 /* status.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = status.xml; sourceTree = "<group>"; };
+		84C8D3DC0625FFF7001E4CD5 /* blojsom-cipher-background.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = "blojsom-cipher-background.gif"; sourceTree = "<group>"; };
+		84C8D3DD0625FFF7001E4CD5 /* blojsom-cipher.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "blojsom-cipher.css"; sourceTree = "<group>"; };
+		84C8D3DF0625FFF7001E4CD5 /* blojsom-eclipse.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "blojsom-eclipse.css"; sourceTree = "<group>"; };
+		84C8D3E00625FFF7001E4CD5 /* eclipse-comments.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "eclipse-comments.vm"; sourceTree = "<group>"; };
+		84C8D3E10625FFF7001E4CD5 /* eclipse-referers.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "eclipse-referers.vm"; sourceTree = "<group>"; };
+		84C8D3E20625FFF7001E4CD5 /* eclipse-trackback.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "eclipse-trackback.vm"; sourceTree = "<group>"; };
+		84C8D3E30625FFF7001E4CD5 /* eclipse.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = eclipse.vm; sourceTree = "<group>"; };
+		84C8D3E50625FFF7001E4CD5 /* blojsom-flex.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "blojsom-flex.css"; sourceTree = "<group>"; };
+		84C8D3E60625FFF7001E4CD5 /* flex-comments.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-comments.vm"; sourceTree = "<group>"; };
+		84C8D3E70625FFF7001E4CD5 /* flex-inc-entries.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-inc-entries.vm"; sourceTree = "<group>"; };
+		84C8D3E80625FFF7001E4CD5 /* flex-inc-main.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-inc-main.vm"; sourceTree = "<group>"; };
+		84C8D3E90625FFF7001E4CD5 /* flex-inc-post-entry-comments.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-inc-post-entry-comments.vm"; sourceTree = "<group>"; };
+		84C8D3EA0625FFF7001E4CD5 /* flex-inc-post-entry-summary.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-inc-post-entry-summary.vm"; sourceTree = "<group>"; };
+		84C8D3EB0625FFF7001E4CD5 /* flex-inc-post-entry-trackback.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-inc-post-entry-trackback.vm"; sourceTree = "<group>"; };
+		84C8D3EC0625FFF7001E4CD5 /* flex-inc-referers.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-inc-referers.vm"; sourceTree = "<group>"; };
+		84C8D3ED0625FFF7001E4CD5 /* flex-inc-trackback-auto-discovery.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-inc-trackback-auto-discovery.vm"; sourceTree = "<group>"; };
+		84C8D3EE0625FFF7001E4CD5 /* flex-referers.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-referers.vm"; sourceTree = "<group>"; };
+		84C8D3EF0625FFF7001E4CD5 /* flex-trackback-failure.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "flex-trackback-failure.vm"; sourceTree = "<group>"; };
+		84C8D3F00625FFF7001E4CD5 /* flex-trackback-success.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "flex-trackback-success.vm"; sourceTree = "<group>"; };
+		84C8D3F10625FFF7001E4CD5 /* flex-trackback.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "flex-trackback.vm"; sourceTree = "<group>"; };
+		84C8D3F20625FFF7001E4CD5 /* flex.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = flex.vm; sourceTree = "<group>"; };
+		84C8D3F40625FFF7001E4CD5 /* arrow.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = arrow.gif; sourceTree = "<group>"; };
+		84C8D3F50625FFF7001E4CD5 /* comment.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = comment.png; sourceTree = "<group>"; };
+		84C8D3F60625FFF7001E4CD5 /* fade.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = fade.gif; sourceTree = "<group>"; };
+		84C8D3F70625FFF7001E4CD5 /* header.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = header.png; sourceTree = "<group>"; };
+		84C8D3F80625FFF7001E4CD5 /* header2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = header2.png; sourceTree = "<group>"; };
+		84C8D3F90625FFF7001E4CD5 /* javablog.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = javablog.gif; sourceTree = "<group>"; };
+		84C8D3FA0625FFF7001E4CD5 /* permalink.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = permalink.png; sourceTree = "<group>"; };
+		84C8D3FB0625FFF7001E4CD5 /* rdf.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = rdf.gif; sourceTree = "<group>"; };
+		84C8D3FC0625FFF7001E4CD5 /* rss092.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = rss092.gif; sourceTree = "<group>"; };
+		84C8D3FD0625FFF7001E4CD5 /* rss2.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = rss2.gif; sourceTree = "<group>"; };
+		84C8D3FE0625FFF7001E4CD5 /* tagline.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = tagline.gif; sourceTree = "<group>"; };
+		84C8D3FF0625FFF7001E4CD5 /* top.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = top.gif; sourceTree = "<group>"; };
+		84C8D4000625FFF7001E4CD5 /* zen.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = zen.gif; sourceTree = "<group>"; };
+		84C8D4020625FFF7001E4CD5 /* blojsom.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = blojsom.css; sourceTree = "<group>"; };
+		84C8D4040625FFF7001E4CD5 /* blojsom-grid.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "blojsom-grid.css"; sourceTree = "<group>"; };
+		84C8D4050625FFF7001E4CD5 /* grid-comments.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "grid-comments.vm"; sourceTree = "<group>"; };
+		84C8D4060625FFF7001E4CD5 /* grid-referers.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "grid-referers.vm"; sourceTree = "<group>"; };
+		84C8D4070625FFF7001E4CD5 /* grid-trackback.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "grid-trackback.vm"; sourceTree = "<group>"; };
+		84C8D4080625FFF7001E4CD5 /* grid.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = grid.vm; sourceTree = "<group>"; };
+		84C8D40A0625FFF7001E4CD5 /* comment.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = comment.png; sourceTree = "<group>"; };
+		84C8D40B0625FFF7001E4CD5 /* small-grid.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = "small-grid.gif"; sourceTree = "<group>"; };
+		84C8D40D0625FFF7001E4CD5 /* pumpkin-comments.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "pumpkin-comments.vm"; sourceTree = "<group>"; };
+		84C8D40E0625FFF7001E4CD5 /* pumpkin-referers.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "pumpkin-referers.vm"; sourceTree = "<group>"; };
+		84C8D40F0625FFF7001E4CD5 /* pumpkin-trackback.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "pumpkin-trackback.vm"; sourceTree = "<group>"; };
+		84C8D4100625FFF7001E4CD5 /* pumpkin.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = pumpkin.css; sourceTree = "<group>"; };
+		84C8D4110625FFF7001E4CD5 /* pumpkin.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = pumpkin.vm; sourceTree = "<group>"; };
+		84C8D4130625FFF7001E4CD5 /* blojsom-secondwave.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "blojsom-secondwave.css"; sourceTree = "<group>"; };
+		84C8D4140625FFF7001E4CD5 /* secondwave-comments.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "secondwave-comments.vm"; sourceTree = "<group>"; };
+		84C8D4150625FFF7001E4CD5 /* secondwave-referers.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "secondwave-referers.vm"; sourceTree = "<group>"; };
+		84C8D4160625FFF7001E4CD5 /* secondwave-trackback.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "secondwave-trackback.vm"; sourceTree = "<group>"; };
+		84C8D4170625FFF7001E4CD5 /* secondwave.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = secondwave.vm; sourceTree = "<group>"; };
+		84C8D4190625FFF7001E4CD5 /* blojsom-shrubbery.css */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "blojsom-shrubbery.css"; sourceTree = "<group>"; };
+		84C8D41A0625FFF7001E4CD5 /* h.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = h.jpg; sourceTree = "<group>"; };
+		84C8D41B0625FFF7001E4CD5 /* pbb.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = pbb.gif; sourceTree = "<group>"; };
+		84C8D41C0625FFF7001E4CD5 /* shrubbery-calendar.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "shrubbery-calendar.vm"; sourceTree = "<group>"; };
+		84C8D41D0625FFF7001E4CD5 /* shrubbery-categories.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "shrubbery-categories.vm"; sourceTree = "<group>"; };
+		84C8D41E0625FFF7001E4CD5 /* shrubbery-comments.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "shrubbery-comments.vm"; sourceTree = "<group>"; };
+		84C8D41F0625FFF7001E4CD5 /* shrubbery-header.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "shrubbery-header.vm"; sourceTree = "<group>"; };
+		84C8D4200625FFF7001E4CD5 /* shrubbery-pbb.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "shrubbery-pbb.vm"; sourceTree = "<group>"; };
+		84C8D4210625FFF7001E4CD5 /* shrubbery-sidebars.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "shrubbery-sidebars.vm"; sourceTree = "<group>"; };
+		84C8D4220625FFF7001E4CD5 /* shrubbery-trackback.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "shrubbery-trackback.vm"; sourceTree = "<group>"; };
+		84C8D4230625FFF7001E4CD5 /* shrubbery.vm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = shrubbery.vm; sourceTree = "<group>"; };
+		84C8D4240625FFF7001E4CD5 /* tb.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = tb.gif; sourceTree = "<group>"; };
+		E7519C2706DD406B004CF4F8 /* ismember_blojsom_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ismember_blojsom_helper; sourceTree = BUILT_PRODUCTS_DIR; };
+		E7F76A9006DD13E40028BFA6 /* ismember_main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ismember_main.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E7519C2506DD406B004CF4F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* blojsom */ = {
+			isa = PBXGroup;
+			children = (
+				528EBF97088F07AB0079F728 /* addon */,
+				84C8D2BE0625FF95001E4CD5 /* build.xml */,
+				8471067406545516000C180E /* blojsom_root */,
+				84C8D2C00625FF95001E4CD5 /* docs */,
+				528EBFC9088F09050079F728 /* extensions */,
+				84C8D3270625FF96001E4CD5 /* forrest-targets.ent */,
+				84C8D3280625FF96001E4CD5 /* forrest.properties */,
+				E7F76A8F06DD13E40028BFA6 /* ismember */,
+				522D566B074BE4970099CBC3 /* license_info */,
+				84880362073AE6AE0076AE14 /* migrate_workers_file */,
+				528EBFE1088F09220079F728 /* plugins */,
+				84C8D3A00625FF96001E4CD5 /* properties */,
+				84C8D3A30625FF96001E4CD5 /* README */,
+				523CB14907C3F7A600C207CD /* SetupExtras */,
+				528EC11E088F093D0079F728 /* src */,
+				84C8D3D70625FF96001E4CD5 /* status.xml */,
+				84C8D3D80625FFF7001E4CD5 /* themes */,
+				528EC16C088F094E0079F728 /* war */,
+				84C8D42D06260355001E4CD5 /* Products */,
+			);
+			name = blojsom;
+			sourceTree = "<group>";
+		};
+		522D566B074BE4970099CBC3 /* license_info */ = {
+			isa = PBXGroup;
+			children = (
+				522D566C074BE4970099CBC3 /* blojsom.plist */,
+				522D566D074BE4970099CBC3 /* blojsom.txt */,
+			);
+			path = license_info;
+			sourceTree = "<group>";
+		};
+		523CB14907C3F7A600C207CD /* SetupExtras */ = {
+			isa = PBXGroup;
+			children = (
+				523CB14A07C3F7A600C207CD /* weblogsetup */,
+			);
+			path = SetupExtras;
+			sourceTree = "<group>";
+		};
+		527645D3089AA40500B4A8A4 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				527645D4089AA40500B4A8A4 /* atom.vm */,
+				527645D5089AA40500B4A8A4 /* html-comments.vm */,
+				527645D6089AA40500B4A8A4 /* html-referers.vm */,
+				527645D7089AA40500B4A8A4 /* html-trackback.vm */,
+				527645D8089AA40500B4A8A4 /* html.vm */,
+				527645D9089AA40500B4A8A4 /* rdf.vm */,
+				527645DA089AA40500B4A8A4 /* rsd.vm */,
+				527645DB089AA40500B4A8A4 /* rss-comments.vm */,
+				527645DC089AA40500B4A8A4 /* rss.vm */,
+				527645DD089AA40500B4A8A4 /* rss2-comments.vm */,
+				527645DE089AA40500B4A8A4 /* rss2.vm */,
+				527645DF089AA40500B4A8A4 /* text.vm */,
+				527645E0089AA40500B4A8A4 /* trackback-failure.vm */,
+				527645E1089AA40500B4A8A4 /* trackback-success.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		527645FC089AA63800B4A8A4 /* podcastupload */ = {
+			isa = PBXGroup;
+			children = (
+				527645FE089AA63800B4A8A4 /* PodcastUploadPlugin.java */,
+			);
+			path = podcastupload;
+			sourceTree = "<group>";
+		};
+		528EBF97088F07AB0079F728 /* addon */ = {
+			isa = PBXGroup;
+			children = (
+				528EBF98088F07AB0079F728 /* core */,
+				528EBFA6088F07AB0079F728 /* plugins */,
+			);
+			path = addon;
+			sourceTree = "<group>";
+		};
+		528EBF98088F07AB0079F728 /* core */ = {
+			isa = PBXGroup;
+			children = (
+				528EBF99088F07AB0079F728 /* src */,
+			);
+			path = core;
+			sourceTree = "<group>";
+		};
+		528EBF99088F07AB0079F728 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				528EBF9A088F07AB0079F728 /* org */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		528EBF9A088F07AB0079F728 /* org */ = {
+			isa = PBXGroup;
+			children = (
+				528EBF9B088F07AB0079F728 /* blojsom */,
+			);
+			path = org;
+			sourceTree = "<group>";
+		};
+		528EBF9B088F07AB0079F728 /* blojsom */ = {
+			isa = PBXGroup;
+			children = (
+				528EBF9C088F07AB0079F728 /* authorization */,
+				528EBF9F088F07AB0079F728 /* dispatcher */,
+				528EBFA3088F07AB0079F728 /* fetcher */,
+			);
+			path = blojsom;
+			sourceTree = "<group>";
+		};
+		528EBF9C088F07AB0079F728 /* authorization */ = {
+			isa = PBXGroup;
+			children = (
+				528EBF9D088F07AB0079F728 /* LDAPAuthorizationProvider.java */,
+			);
+			path = authorization;
+			sourceTree = "<group>";
+		};
+		528EBF9F088F07AB0079F728 /* dispatcher */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFA0088F07AB0079F728 /* FreeMarkerDispatcher.java */,
+				528EBFA1088F07AB0079F728 /* GroovyDispatcher.java */,
+			);
+			path = dispatcher;
+			sourceTree = "<group>";
+		};
+		528EBFA3088F07AB0079F728 /* fetcher */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFA4088F07AB0079F728 /* CachingFetcher.java */,
+			);
+			path = fetcher;
+			sourceTree = "<group>";
+		};
+		528EBFA6088F07AB0079F728 /* plugins */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFA7088F07AB0079F728 /* src */,
+			);
+			path = plugins;
+			sourceTree = "<group>";
+		};
+		528EBFA7088F07AB0079F728 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFA8088F07AB0079F728 /* org */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		528EBFA8088F07AB0079F728 /* org */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFA9088F07AB0079F728 /* apache */,
+				528EBFAE088F07AB0079F728 /* blojsom */,
+			);
+			path = org;
+			sourceTree = "<group>";
+		};
+		528EBFA9088F07AB0079F728 /* apache */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFAA088F07AB0079F728 /* velocity */,
+			);
+			path = apache;
+			sourceTree = "<group>";
+		};
+		528EBFAA088F07AB0079F728 /* velocity */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFAB088F07AB0079F728 /* tools */,
+			);
+			path = velocity;
+			sourceTree = "<group>";
+		};
+		528EBFAB088F07AB0079F728 /* tools */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFAC088F07AB0079F728 /* generic */,
+			);
+			path = tools;
+			sourceTree = "<group>";
+		};
+		528EBFAC088F07AB0079F728 /* generic */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFAD088F07AB0079F728 /* ArrayTool.java */,
+			);
+			path = generic;
+			sourceTree = "<group>";
+		};
+		528EBFAE088F07AB0079F728 /* blojsom */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFAF088F07AB0079F728 /* plugin */,
+			);
+			path = blojsom;
+			sourceTree = "<group>";
+		};
+		528EBFAF088F07AB0079F728 /* plugin */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFB0088F07AB0079F728 /* delicious */,
+				528EBFB3088F07AB0079F728 /* export */,
+				528EBFB6088F07AB0079F728 /* scripting */,
+				528EBFB9088F07AB0079F728 /* tools */,
+				528EBFC1088F07AB0079F728 /* wiki */,
+				528EBFC4088F07AB0079F728 /* xpath */,
+			);
+			path = plugin;
+			sourceTree = "<group>";
+		};
+		528EBFB0088F07AB0079F728 /* delicious */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFB1088F07AB0079F728 /* daily-posting-template.vm */,
+				528EBFB2088F07AB0079F728 /* DailyPostingPlugin.java */,
+			);
+			path = delicious;
+			sourceTree = "<group>";
+		};
+		528EBFB3088F07AB0079F728 /* export */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFB4088F07AB0079F728 /* ExportBlogPlugin.java */,
+			);
+			path = export;
+			sourceTree = "<group>";
+		};
+		528EBFB6088F07AB0079F728 /* scripting */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFB7088F07AB0079F728 /* GroovyPlugin.java */,
+			);
+			path = scripting;
+			sourceTree = "<group>";
+		};
+		528EBFB9088F07AB0079F728 /* tools */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFBA088F07AB0079F728 /* ArrayToolPlugin.java */,
+				528EBFBB088F07AB0079F728 /* DateToolPlugin.java */,
+				528EBFBC088F07AB0079F728 /* ImportToolPlugin.java */,
+				528EBFBD088F07AB0079F728 /* IteratorToolPlugin.java */,
+				528EBFBE088F07AB0079F728 /* MathToolPlugin.java */,
+				528EBFC0088F07AB0079F728 /* RenderToolPlugin.java */,
+			);
+			path = tools;
+			sourceTree = "<group>";
+		};
+		528EBFC1088F07AB0079F728 /* wiki */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFC3088F07AB0079F728 /* WikiPlugin.java */,
+			);
+			path = wiki;
+			sourceTree = "<group>";
+		};
+		528EBFC4088F07AB0079F728 /* xpath */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFC5088F07AB0079F728 /* BlogEntryWrapper.java */,
+				528EBFC7088F07AB0079F728 /* XPathPlugin.java */,
+				528EBFC8088F07AB0079F728 /* XPathSearchPlugin.java */,
+			);
+			path = xpath;
+			sourceTree = "<group>";
+		};
+		528EBFC9088F09050079F728 /* extensions */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFCA088F09050079F728 /* src */,
+			);
+			path = extensions;
+			sourceTree = "<group>";
+		};
+		528EBFCA088F09050079F728 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFCB088F09050079F728 /* org */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		528EBFCB088F09050079F728 /* org */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFCC088F09050079F728 /* blojsom */,
+			);
+			path = org;
+			sourceTree = "<group>";
+		};
+		528EBFCC088F09050079F728 /* blojsom */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFCD088F09050079F728 /* extension */,
+			);
+			path = blojsom;
+			sourceTree = "<group>";
+		};
+		528EBFCD088F09050079F728 /* extension */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFCE088F09050079F728 /* atomapi */,
+				528EBFD3088F09050079F728 /* comment */,
+				528EBFD6088F09060079F728 /* xmlrpc */,
+			);
+			path = extension;
+			sourceTree = "<group>";
+		};
+		528EBFCE088F09050079F728 /* atomapi */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFCF088F09050079F728 /* AtomAPIConstants.java */,
+				528EBFD0088F09050079F728 /* AtomAPIServlet.java */,
+				528EBFD1088F09050079F728 /* AtomUtils.java */,
+			);
+			path = atomapi;
+			sourceTree = "<group>";
+		};
+		528EBFD3088F09050079F728 /* comment */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFD4088F09050079F728 /* CommentAPIServlet.java */,
+			);
+			path = comment;
+			sourceTree = "<group>";
+		};
+		528EBFD6088F09060079F728 /* xmlrpc */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFD7088F09060079F728 /* BlojsomXMLRPCConstants.java */,
+				528EBFD8088F09060079F728 /* BlojsomXMLRPCServlet.java */,
+				528EBFD9088F09060079F728 /* handlers */,
+			);
+			path = xmlrpc;
+			sourceTree = "<group>";
+		};
+		528EBFD9088F09060079F728 /* handlers */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFDA088F09060079F728 /* AbstractBlojsomAPIHandler.java */,
+				528EBFDB088F09060079F728 /* BloggerAPIHandler.java */,
+				528EBFDC088F09060079F728 /* MetaWeblogAPIHandler.java */,
+				528EBFDD088F09060079F728 /* MovableTypeAPIHandler.java */,
+				528EBFDF088F09060079F728 /* PingbackHandler.java */,
+			);
+			path = handlers;
+			sourceTree = "<group>";
+		};
+		528EBFE1088F09220079F728 /* plugins */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFE2088F09220079F728 /* src */,
+			);
+			path = plugins;
+			sourceTree = "<group>";
+		};
+		528EBFE2088F09220079F728 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFE3088F09220079F728 /* com */,
+				528EC007088F09220079F728 /* org */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		528EBFE3088F09220079F728 /* com */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFE4088F09220079F728 /* apple */,
+			);
+			path = com;
+			sourceTree = "<group>";
+		};
+		528EBFE4088F09220079F728 /* apple */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFE5088F09220079F728 /* blojsom */,
+			);
+			path = apple;
+			sourceTree = "<group>";
+		};
+		528EBFE5088F09220079F728 /* blojsom */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFE6088F09220079F728 /* plugin */,
+			);
+			path = blojsom;
+			sourceTree = "<group>";
+		};
+		528EBFE6088F09220079F728 /* plugin */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFE7088F09220079F728 /* acl */,
+				528EBFEB088F09220079F728 /* activateurls */,
+				528EBFEE088F09220079F728 /* addhost */,
+				528EBFF1088F09220079F728 /* bloglisting */,
+				528EBFF4088F09220079F728 /* convertlinebreaks */,
+				528EBFF7088F09220079F728 /* entryuserdata */,
+				528EBFF9088F09220079F728 /* escapetags */,
+				528EBFFC088F09220079F728 /* inlineadmin */,
+				528EC001088F09220079F728 /* localizer */,
+				527645FC089AA63800B4A8A4 /* podcastupload */,
+				528EC004088F09220079F728 /* userdata */,
+			);
+			path = plugin;
+			sourceTree = "<group>";
+		};
+		528EBFE7088F09220079F728 /* acl */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFE8088F09220079F728 /* ACLPlugin.java */,
+				528EBFE9088F09220079F728 /* HTTPACLPlugin.java */,
+			);
+			path = acl;
+			sourceTree = "<group>";
+		};
+		528EBFEB088F09220079F728 /* activateurls */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFEC088F09220079F728 /* ActivateURLsPlugin.java */,
+			);
+			path = activateurls;
+			sourceTree = "<group>";
+		};
+		528EBFEE088F09220079F728 /* addhost */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFEF088F09220079F728 /* AddHostPlugin.java */,
+			);
+			path = addhost;
+			sourceTree = "<group>";
+		};
+		528EBFF1088F09220079F728 /* bloglisting */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFF2088F09220079F728 /* BlogListingPlugin.java */,
+			);
+			path = bloglisting;
+			sourceTree = "<group>";
+		};
+		528EBFF4088F09220079F728 /* convertlinebreaks */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFF5088F09220079F728 /* ConvertLineBreaksPlugin.java */,
+			);
+			path = convertlinebreaks;
+			sourceTree = "<group>";
+		};
+		528EBFF7088F09220079F728 /* entryuserdata */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = entryuserdata;
+			sourceTree = "<group>";
+		};
+		528EBFF9088F09220079F728 /* escapetags */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFFA088F09220079F728 /* EscapeTagsPlugin.java */,
+			);
+			path = escapetags;
+			sourceTree = "<group>";
+		};
+		528EBFFC088F09220079F728 /* inlineadmin */ = {
+			isa = PBXGroup;
+			children = (
+				528EBFFD088F09220079F728 /* InlineAdminPlugin.java */,
+				528EBFFF088F09220079F728 /* resources */,
+			);
+			path = inlineadmin;
+			sourceTree = "<group>";
+		};
+		528EBFFF088F09220079F728 /* resources */ = {
+			isa = PBXGroup;
+			children = (
+				528EC000088F09220079F728 /* messages.properties */,
+			);
+			path = resources;
+			sourceTree = "<group>";
+		};
+		528EC001088F09220079F728 /* localizer */ = {
+			isa = PBXGroup;
+			children = (
+				528EC002088F09220079F728 /* LocalizerPlugin.java */,
+			);
+			path = localizer;
+			sourceTree = "<group>";
+		};
+		528EC004088F09220079F728 /* userdata */ = {
+			isa = PBXGroup;
+			children = (
+				528EC006088F09220079F728 /* UserDataPlugin.java */,
+			);
+			path = userdata;
+			sourceTree = "<group>";
+		};
+		528EC007088F09220079F728 /* org */ = {
+			isa = PBXGroup;
+			children = (
+				528EC008088F09220079F728 /* blojsom */,
+			);
+			path = org;
+			sourceTree = "<group>";
+		};
+		528EC008088F09220079F728 /* blojsom */ = {
+			isa = PBXGroup;
+			children = (
+				528EC009088F09230079F728 /* plugin */,
+			);
+			path = blojsom;
+			sourceTree = "<group>";
+		};
+		528EC009088F09230079F728 /* plugin */ = {
+			isa = PBXGroup;
+			children = (
+				528EC00A088F09230079F728 /* admin */,
+				528EC046088F09230079F728 /* aggregator */,
+				528EC049088F09230079F728 /* calendar */,
+				528EC051088F09230079F728 /* categories */,
+				528EC054088F09230079F728 /* chrono */,
+				528EC057088F09230079F728 /* comment */,
+				528EC065088F09230079F728 /* common */,
+				528EC06F088F09240079F728 /* crosspost */,
+				528EC076088F09240079F728 /* date */,
+				528EC079088F09240079F728 /* editorlogin */,
+				528EC07C088F09240079F728 /* email */,
+				528EC083088F09240079F728 /* emoticons */,
+				528EC087088F09240079F728 /* excerpt */,
+				528EC08A088F09240079F728 /* fetcher */,
+				528EC08D088F09240079F728 /* helper */,
+				528EC090088F09240079F728 /* highlight */,
+				528EC093088F09240079F728 /* hyperlink */,
+				528EC096088F09240079F728 /* language */,
+				528EC09C088F09240079F728 /* limiter */,
+				528EC0A1088F09240079F728 /* macro */,
+				528EC0A9088F09240079F728 /* markdown */,
+				528EC0AC088F09240079F728 /* markup */,
+				528EC0B2088F09240079F728 /* meta */,
+				528EC0B6088F09240079F728 /* moblog */,
+				528EC0C1088F09240079F728 /* moderation */,
+				528EC0CE088F09250079F728 /* nofollow */,
+				528EC0D1088F09250079F728 /* obfuscation */,
+				528EC0D4088F09250079F728 /* pingback */,
+				528EC0D7088F09250079F728 /* referer */,
+				528EC0DC088F09250079F728 /* response */,
+				528EC0E0088F09250079F728 /* search */,
+				528EC0E3088F09250079F728 /* security */,
+				528EC0E8088F09250079F728 /* showmore */,
+				528EC0F2088F09250079F728 /* statistics */,
+				528EC0F6088F09250079F728 /* technorati */,
+				528EC0FD088F09250079F728 /* textile */,
+				528EC100088F09250079F728 /* trackback */,
+				528EC10C088F09250079F728 /* velocity */,
+				528EC110088F09250079F728 /* weather */,
+				528EC11B088F09250079F728 /* weblogsping */,
+			);
+			path = plugin;
+			sourceTree = "<group>";
+		};
+		528EC00A088F09230079F728 /* admin */ = {
+			isa = PBXGroup;
+			children = (
+				528EC00B088F09230079F728 /* BaseAdminPlugin.java */,
+				528EC00C088F09230079F728 /* BookmarkletPlugin.java */,
+				528EC00D088F09230079F728 /* EditBlogAuthorizationPlugin.java */,
+				528EC00E088F09230079F728 /* EditBlogCategoriesPlugin.java */,
+				528EC00F088F09230079F728 /* EditBlogEntriesPlugin.java */,
+				528EC010088F09230079F728 /* EditBlogFlavorsPlugin.java */,
+				528EC011088F09230079F728 /* EditBlogPermissionsPlugin.java */,
+				528EC012088F09230079F728 /* EditBlogPluginsPlugin.java */,
+				528EC013088F09230079F728 /* EditBlogPropertiesPlugin.java */,
+				528EC014088F09230079F728 /* EditBlogTemplatesPlugin.java */,
+				528EC015088F09230079F728 /* EditBlogUsersPlugin.java */,
+				528EC016088F09230079F728 /* event */,
+				528EC01D088F09230079F728 /* FileUploadPlugin.java */,
+				528EC01E088F09230079F728 /* ForgottenPasswordPlugin.java */,
+				528EC01F088F09230079F728 /* ListWebAdminPluginsPlugin.java */,
+				528EC021088F09230079F728 /* PermissionedPlugin.java */,
+				528EC022088F09230079F728 /* ReloadBlogPropertiesPlugin.java */,
+				528EC023088F09230079F728 /* resources */,
+				528EC02B088F09230079F728 /* templates */,
+				528EC044088F09230079F728 /* ThemeSwitcherPlugin.java */,
+				528EC045088F09230079F728 /* WebAdminPlugin.java */,
+			);
+			path = admin;
+			sourceTree = "<group>";
+		};
+		528EC016088F09230079F728 /* event */ = {
+			isa = PBXGroup;
+			children = (
+				528EC017088F09230079F728 /* AddBlogEntryEvent.java */,
+				528EC018088F09230079F728 /* BlogEntryEvent.java */,
+				528EC019088F09230079F728 /* DeletedBlogEntryEvent.java */,
+				528EC01B088F09230079F728 /* ProcessBlogEntryEvent.java */,
+				528EC01C088F09230079F728 /* UpdatedBlogEntryEvent.java */,
+			);
+			path = event;
+			sourceTree = "<group>";
+		};
+		528EC023088F09230079F728 /* resources */ = {
+			isa = PBXGroup;
+			children = (
+				528EC024088F09230079F728 /* messages.properties */,
+				528EC025088F09230079F728 /* messages_de.properties */,
+				528EC026088F09230079F728 /* messages_fr.properties */,
+				528EC027088F09230079F728 /* messages_ko.properties */,
+				528EC028088F09230079F728 /* messages_pt_BR.properties */,
+				528EC029088F09230079F728 /* messages_sv.properties */,
+			);
+			path = resources;
+			sourceTree = "<group>";
+		};
+		528EC02B088F09230079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC02C088F09230079F728 /* admin-add-blog-entry.vm */,
+				528EC02D088F09230079F728 /* admin-bookmarklet-entry.vm */,
+				528EC02E088F09230079F728 /* admin-bookmarklet-start.vm */,
+				528EC02F088F09230079F728 /* admin-edit-blog-authorization.vm */,
+				528EC030088F09230079F728 /* admin-edit-blog-categories.vm */,
+				528EC031088F09230079F728 /* admin-edit-blog-category.vm */,
+				528EC032088F09230079F728 /* admin-edit-blog-entries-list.vm */,
+				528EC033088F09230079F728 /* admin-edit-blog-entries.vm */,
+				528EC034088F09230079F728 /* admin-edit-blog-entry.vm */,
+				528EC035088F09230079F728 /* admin-edit-blog-flavors.vm */,
+				528EC036088F09230079F728 /* admin-edit-blog-permissions.vm */,
+				528EC037088F09230079F728 /* admin-edit-blog-plugins.vm */,
+				528EC038088F09230079F728 /* admin-edit-blog-properties.vm */,
+				528EC039088F09230079F728 /* admin-edit-blog-template.vm */,
+				528EC03A088F09230079F728 /* admin-edit-blog-templates.vm */,
+				528EC03B088F09230079F728 /* admin-edit-blog-users.vm */,
+				528EC03C088F09230079F728 /* admin-file-upload.vm */,
+				528EC03D088F09230079F728 /* admin-forgotten-password.vm */,
+				528EC03E088F09230079F728 /* admin-list-web-admin-plugins.vm */,
+				528EC03F088F09230079F728 /* admin-login.vm */,
+				528EC040088F09230079F728 /* admin-macros.vm */,
+				528EC041088F09230079F728 /* admin-theme-switcher-settings.vm */,
+				528EC042088F09230079F728 /* admin.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC046088F09230079F728 /* aggregator */ = {
+			isa = PBXGroup;
+			children = (
+				528EC047088F09230079F728 /* InternalAggregatorPlugin.java */,
+			);
+			path = aggregator;
+			sourceTree = "<group>";
+		};
+		528EC049088F09230079F728 /* calendar */ = {
+			isa = PBXGroup;
+			children = (
+				528EC04A088F09230079F728 /* AbstractCalendarPlugin.java */,
+				528EC04B088F09230079F728 /* AbstractVisualCalendarPlugin.java */,
+				528EC04C088F09230079F728 /* BlogCalendar.java */,
+				528EC04D088F09230079F728 /* CalendarFilterPlugin.java */,
+				528EC04F088F09230079F728 /* VelocityCalendarPlugin.java */,
+				528EC050088F09230079F728 /* VelocityHelper.java */,
+			);
+			path = calendar;
+			sourceTree = "<group>";
+		};
+		528EC051088F09230079F728 /* categories */ = {
+			isa = PBXGroup;
+			children = (
+				528EC052088F09230079F728 /* CategoryTemplatePlugin.java */,
+			);
+			path = categories;
+			sourceTree = "<group>";
+		};
+		528EC054088F09230079F728 /* chrono */ = {
+			isa = PBXGroup;
+			children = (
+				528EC055088F09230079F728 /* ChronoPlugin.java */,
+			);
+			path = chrono;
+			sourceTree = "<group>";
+		};
+		528EC057088F09230079F728 /* comment */ = {
+			isa = PBXGroup;
+			children = (
+				528EC058088F09230079F728 /* comment-plugin-email-template.vm */,
+				528EC059088F09230079F728 /* CommentModerationPlugin.java */,
+				528EC05A088F09230079F728 /* CommentPlugin.java */,
+				528EC05B088F09230079F728 /* CommentUtils.java */,
+				528EC05C088F09230079F728 /* event */,
+				528EC062088F09230079F728 /* MathCommentAuthenticationPlugin.java */,
+				528EC064088F09230079F728 /* RecentCommentsPlugin.java */,
+			);
+			path = comment;
+			sourceTree = "<group>";
+		};
+		528EC05C088F09230079F728 /* event */ = {
+			isa = PBXGroup;
+			children = (
+				528EC05D088F09230079F728 /* CommentAddedEvent.java */,
+				528EC05E088F09230079F728 /* CommentDeletedEvent.java */,
+				528EC05F088F09230079F728 /* CommentEvent.java */,
+				528EC060088F09230079F728 /* CommentResponseSubmissionEvent.java */,
+			);
+			path = event;
+			sourceTree = "<group>";
+		};
+		528EC065088F09230079F728 /* common */ = {
+			isa = PBXGroup;
+			children = (
+				528EC066088F09230079F728 /* AllEntriesPlugin.java */,
+				528EC067088F09230079F728 /* ConvertLineBreaksPlugin.java */,
+				528EC068088F09230079F728 /* IPBanningPlugin.java */,
+				528EC06A088F09230079F728 /* RSSEnclosurePlugin.java */,
+				528EC06B088F09240079F728 /* templates */,
+				528EC06E088F09240079F728 /* VelocityPlugin.java */,
+			);
+			path = common;
+			sourceTree = "<group>";
+		};
+		528EC06B088F09240079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC06C088F09240079F728 /* admin-rss-enclosure-attachment.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC06F088F09240079F728 /* crosspost */ = {
+			isa = PBXGroup;
+			children = (
+				528EC070088F09240079F728 /* beans */,
+				528EC073088F09240079F728 /* CrosspostConstants.java */,
+				528EC074088F09240079F728 /* CrosspostPlugin.java */,
+			);
+			path = crosspost;
+			sourceTree = "<group>";
+		};
+		528EC070088F09240079F728 /* beans */ = {
+			isa = PBXGroup;
+			children = (
+				528EC071088F09240079F728 /* Destination.java */,
+			);
+			path = beans;
+			sourceTree = "<group>";
+		};
+		528EC076088F09240079F728 /* date */ = {
+			isa = PBXGroup;
+			children = (
+				528EC077088F09240079F728 /* DateFormatPlugin.java */,
+			);
+			path = date;
+			sourceTree = "<group>";
+		};
+		528EC079088F09240079F728 /* editorlogin */ = {
+			isa = PBXGroup;
+			children = (
+				528EC07A088F09240079F728 /* EditorLoginPlugin.java */,
+			);
+			path = editorlogin;
+			sourceTree = "<group>";
+		};
+		528EC07C088F09240079F728 /* email */ = {
+			isa = PBXGroup;
+			children = (
+				528EC07D088F09240079F728 /* EmailConstants.java */,
+				528EC07E088F09240079F728 /* EmailMessage.java */,
+				528EC07F088F09240079F728 /* EmailUtils.java */,
+				528EC081088F09240079F728 /* SendEmailPlugin.java */,
+				528EC082088F09240079F728 /* SimpleAuthenticator.java */,
+			);
+			path = email;
+			sourceTree = "<group>";
+		};
+		528EC083088F09240079F728 /* emoticons */ = {
+			isa = PBXGroup;
+			children = (
+				528EC084088F09240079F728 /* EmoticonsPlugin.java */,
+				528EC085088F09240079F728 /* EnhancedEmoticonsPlugin.java */,
+			);
+			path = emoticons;
+			sourceTree = "<group>";
+		};
+		528EC087088F09240079F728 /* excerpt */ = {
+			isa = PBXGroup;
+			children = (
+				528EC088088F09240079F728 /* ExcerptPlugin.java */,
+			);
+			path = excerpt;
+			sourceTree = "<group>";
+		};
+		528EC08A088F09240079F728 /* fetcher */ = {
+			isa = PBXGroup;
+			children = (
+				528EC08B088F09240079F728 /* FetcherHelperPlugin.java */,
+			);
+			path = fetcher;
+			sourceTree = "<group>";
+		};
+		528EC08D088F09240079F728 /* helper */ = {
+			isa = PBXGroup;
+			children = (
+				528EC08F088F09240079F728 /* PluginHelperPlugin.java */,
+			);
+			path = helper;
+			sourceTree = "<group>";
+		};
+		528EC090088F09240079F728 /* highlight */ = {
+			isa = PBXGroup;
+			children = (
+				528EC091088F09240079F728 /* GoogleHighlightPlugin.java */,
+			);
+			path = highlight;
+			sourceTree = "<group>";
+		};
+		528EC093088F09240079F728 /* hyperlink */ = {
+			isa = PBXGroup;
+			children = (
+				528EC094088F09240079F728 /* HyperlinkURLPlugin.java */,
+			);
+			path = hyperlink;
+			sourceTree = "<group>";
+		};
+		528EC096088F09240079F728 /* language */ = {
+			isa = PBXGroup;
+			children = (
+				528EC097088F09240079F728 /* LanguageSelectionPlugin.java */,
+				528EC099088F09240079F728 /* templates */,
+			);
+			path = language;
+			sourceTree = "<group>";
+		};
+		528EC099088F09240079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC09A088F09240079F728 /* admin-language-selection.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC09C088F09240079F728 /* limiter */ = {
+			isa = PBXGroup;
+			children = (
+				528EC09D088F09240079F728 /* ConditionalGetPlugin.java */,
+				528EC09E088F09240079F728 /* EntriesLimiterPlugin.java */,
+				528EC0A0088F09240079F728 /* PreviewPlugin.java */,
+			);
+			path = limiter;
+			sourceTree = "<group>";
+		};
+		528EC0A1088F09240079F728 /* macro */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0A2088F09240079F728 /* admin */,
+				528EC0A7088F09240079F728 /* MacroExpansionPlugin.java */,
+			);
+			path = macro;
+			sourceTree = "<group>";
+		};
+		528EC0A2088F09240079F728 /* admin */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0A3088F09240079F728 /* MacroExpansionAdminPlugin.java */,
+				528EC0A5088F09240079F728 /* templates */,
+			);
+			path = admin;
+			sourceTree = "<group>";
+		};
+		528EC0A5088F09240079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0A6088F09240079F728 /* admin-edit-macro-expansion-settings.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC0A9088F09240079F728 /* markdown */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0AA088F09240079F728 /* MarkdownPlugin.java */,
+			);
+			path = markdown;
+			sourceTree = "<group>";
+		};
+		528EC0AC088F09240079F728 /* markup */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0AD088F09240079F728 /* MarkupSelectionPlugin.java */,
+				528EC0AF088F09240079F728 /* templates */,
+			);
+			path = markup;
+			sourceTree = "<group>";
+		};
+		528EC0AF088F09240079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0B0088F09240079F728 /* admin-markup-selection-attachment.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC0B2088F09240079F728 /* meta */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0B3088F09240079F728 /* AssociatedCategoriesPlugin.java */,
+				528EC0B4088F09240079F728 /* MetaPlugin.java */,
+			);
+			path = meta;
+			sourceTree = "<group>";
+		};
+		528EC0B6088F09240079F728 /* moblog */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0B7088F09240079F728 /* admin */,
+				528EC0BC088F09240079F728 /* Mailbox.java */,
+				528EC0BD088F09240079F728 /* moblog-plugin-template.vm */,
+				528EC0BE088F09240079F728 /* MoblogPlugin.java */,
+				528EC0BF088F09240079F728 /* MoblogPluginUtils.java */,
+			);
+			path = moblog;
+			sourceTree = "<group>";
+		};
+		528EC0B7088F09240079F728 /* admin */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0B8088F09240079F728 /* MoblogAdminPlugin.java */,
+				528EC0BA088F09240079F728 /* templates */,
+			);
+			path = admin;
+			sourceTree = "<group>";
+		};
+		528EC0BA088F09240079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0BB088F09240079F728 /* admin-edit-moblog-settings.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC0C1088F09240079F728 /* moderation */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0C2088F09240079F728 /* admin */,
+				528EC0C9088F09240079F728 /* IPAddressModerationPlugin.java */,
+				528EC0CA088F09240079F728 /* LinkSpamModerationPlugin.java */,
+				528EC0CB088F09240079F728 /* OpenProxyModerationPlugin.java */,
+				528EC0CD088F09250079F728 /* SpamPhraseModerationPlugin.java */,
+			);
+			path = moderation;
+			sourceTree = "<group>";
+		};
+		528EC0C2088F09240079F728 /* admin */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0C3088F09240079F728 /* IPAddressModerationAdminPlugin.java */,
+				528EC0C5088F09240079F728 /* SpamPhraseModerationAdminPlugin.java */,
+				528EC0C6088F09240079F728 /* templates */,
+			);
+			path = admin;
+			sourceTree = "<group>";
+		};
+		528EC0C6088F09240079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0C7088F09240079F728 /* admin-edit-ip-moderation-settings.vm */,
+				528EC0C8088F09240079F728 /* admin-edit-spam-phrase-moderation-settings.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC0CE088F09250079F728 /* nofollow */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0CF088F09250079F728 /* NoFollowPlugin.java */,
+			);
+			path = nofollow;
+			sourceTree = "<group>";
+		};
+		528EC0D1088F09250079F728 /* obfuscation */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0D3088F09250079F728 /* SimpleObfuscationPlugin.java */,
+			);
+			path = obfuscation;
+			sourceTree = "<group>";
+		};
+		528EC0D4088F09250079F728 /* pingback */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0D6088F09250079F728 /* PingbackPlugin.java */,
+			);
+			path = pingback;
+			sourceTree = "<group>";
+		};
+		528EC0D7088F09250079F728 /* referer */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0D8088F09250079F728 /* BlogReferer.java */,
+				528EC0D9088F09250079F728 /* BlogRefererGroup.java */,
+				528EC0DB088F09250079F728 /* RefererLogPlugin.java */,
+			);
+			path = referer;
+			sourceTree = "<group>";
+		};
+		528EC0DC088F09250079F728 /* response */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0DD088F09250079F728 /* event */,
+			);
+			path = response;
+			sourceTree = "<group>";
+		};
+		528EC0DD088F09250079F728 /* event */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0DF088F09250079F728 /* ResponseSubmissionEvent.java */,
+			);
+			path = event;
+			sourceTree = "<group>";
+		};
+		528EC0E0088F09250079F728 /* search */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0E2088F09250079F728 /* SimpleSearchPlugin.java */,
+			);
+			path = search;
+			sourceTree = "<group>";
+		};
+		528EC0E3088F09250079F728 /* security */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0E4088F09250079F728 /* BasicAuthenticationPlugin.java */,
+				528EC0E6088F09250079F728 /* templates */,
+			);
+			path = security;
+			sourceTree = "<group>";
+		};
+		528EC0E6088F09250079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0E7088F09250079F728 /* failed-authorization.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC0E8088F09250079F728 /* showmore */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0E9088F09250079F728 /* admin */,
+				528EC0EF088F09250079F728 /* ShowMeMoreConfiguration.java */,
+				528EC0F0088F09250079F728 /* ShowMeMorePlugin.java */,
+				528EC0F1088F09250079F728 /* ShowMeMoreUtilities.java */,
+			);
+			path = showmore;
+			sourceTree = "<group>";
+		};
+		528EC0E9088F09250079F728 /* admin */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0EB088F09250079F728 /* ShowMeMoreAdminPlugin.java */,
+				528EC0EC088F09250079F728 /* templates */,
+			);
+			path = admin;
+			sourceTree = "<group>";
+		};
+		528EC0EC088F09250079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0ED088F09250079F728 /* admin-edit-showmemore-settings.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC0F2088F09250079F728 /* statistics */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0F3088F09250079F728 /* DaysSincePostedPlugin.java */,
+				528EC0F5088F09250079F728 /* WordCountPlugin.java */,
+			);
+			path = statistics;
+			sourceTree = "<group>";
+		};
+		528EC0F6088F09250079F728 /* technorati */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0F8088F09250079F728 /* TechnoratiTagsPlugin.java */,
+				528EC0F9088F09250079F728 /* templates */,
+			);
+			path = technorati;
+			sourceTree = "<group>";
+		};
+		528EC0F9088F09250079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0FA088F09250079F728 /* admin-technorati-tags.vm */,
+				528EC0FC088F09250079F728 /* technorati-tag-link.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		528EC0FD088F09250079F728 /* textile */ = {
+			isa = PBXGroup;
+			children = (
+				528EC0FF088F09250079F728 /* TextilePlugin.java */,
+			);
+			path = textile;
+			sourceTree = "<group>";
+		};
+		528EC100088F09250079F728 /* trackback */ = {
+			isa = PBXGroup;
+			children = (
+				528EC101088F09250079F728 /* AutoTrackbackPlugin.java */,
+				528EC102088F09250079F728 /* event */,
+				528EC109088F09250079F728 /* trackback-plugin-email-template.vm */,
+				528EC10A088F09250079F728 /* TrackbackModerationPlugin.java */,
+				528EC10B088F09250079F728 /* TrackbackPlugin.java */,
+			);
+			path = trackback;
+			sourceTree = "<group>";
+		};
+		528EC102088F09250079F728 /* event */ = {
+			isa = PBXGroup;
+			children = (
+				528EC104088F09250079F728 /* TrackbackAddedEvent.java */,
+				528EC105088F09250079F728 /* TrackbackDeletedEvent.java */,
+				528EC106088F09250079F728 /* TrackbackEvent.java */,
+				528EC107088F09250079F728 /* TrackbackResponseSubmissionEvent.java */,
+			);
+			path = event;
+			sourceTree = "<group>";
+		};
+		528EC10C088F09250079F728 /* velocity */ = {
+			isa = PBXGroup;
+			children = (
+				528EC10E088F09250079F728 /* page-macros.vm */,
+				528EC10F088F09250079F728 /* StandaloneVelocityPlugin.java */,
+			);
+			path = velocity;
+			sourceTree = "<group>";
+		};
+		528EC110088F09250079F728 /* weather */ = {
+			isa = PBXGroup;
+			children = (
+				528EC111088F09250079F728 /* beans */,
+				528EC116088F09250079F728 /* Weather.java */,
+				528EC117088F09250079F728 /* WeatherConstants.java */,
+				528EC118088F09250079F728 /* WeatherFetcher.java */,
+				528EC119088F09250079F728 /* WeatherPlugin.java */,
+				528EC11A088F09250079F728 /* WeatherPluginUtils.java */,
+			);
+			path = weather;
+			sourceTree = "<group>";
+		};
+		528EC111088F09250079F728 /* beans */ = {
+			isa = PBXGroup;
+			children = (
+				528EC112088F09250079F728 /* NWSInformation.java */,
+				528EC114088F09250079F728 /* WeatherInformation.java */,
+			);
+			path = beans;
+			sourceTree = "<group>";
+		};
+		528EC11B088F09250079F728 /* weblogsping */ = {
+			isa = PBXGroup;
+			children = (
+				528EC11D088F09250079F728 /* WeblogsPingPlugin.java */,
+			);
+			path = weblogsping;
+			sourceTree = "<group>";
+		};
+		528EC11E088F093D0079F728 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				528EC11F088F093D0079F728 /* com */,
+				528EC127088F093D0079F728 /* org */,
+			);
+			fileEncoding = 4;
+			path = src;
+			sourceTree = "<group>";
+		};
+		528EC11F088F093D0079F728 /* com */ = {
+			isa = PBXGroup;
+			children = (
+				528EC120088F093D0079F728 /* apple */,
+			);
+			path = com;
+			sourceTree = "<group>";
+		};
+		528EC120088F093D0079F728 /* apple */ = {
+			isa = PBXGroup;
+			children = (
+				528EC121088F093D0079F728 /* blojsom */,
+			);
+			path = apple;
+			sourceTree = "<group>";
+		};
+		528EC121088F093D0079F728 /* blojsom */ = {
+			isa = PBXGroup;
+			children = (
+				528EC122088F093D0079F728 /* util */,
+			);
+			path = blojsom;
+			sourceTree = "<group>";
+		};
+		528EC122088F093D0079F728 /* util */ = {
+			isa = PBXGroup;
+			children = (
+				528EC123088F093D0079F728 /* AppleBlojsomAuthorizationProvider.java */,
+				528EC124088F093D0079F728 /* AppleBlojsomVersion.java */,
+				528EC125088F093D0079F728 /* BlojsomAppleUtils.java */,
+			);
+			path = util;
+			sourceTree = "<group>";
+		};
+		528EC127088F093D0079F728 /* org */ = {
+			isa = PBXGroup;
+			children = (
+				528EC128088F093D0079F728 /* blojsom */,
+			);
+			path = org;
+			sourceTree = "<group>";
+		};
+		528EC128088F093D0079F728 /* blojsom */ = {
+			isa = PBXGroup;
+			children = (
+				528EC129088F093D0079F728 /* authorization */,
+				528EC12D088F093D0079F728 /* blog */,
+				528EC13A088F093D0079F728 /* BlojsomException.java */,
+				528EC13B088F093D0079F728 /* dispatcher */,
+				528EC140088F093E0079F728 /* event */,
+				528EC147088F093E0079F728 /* fetcher */,
+				528EC14C088F093E0079F728 /* filter */,
+				528EC155088F093E0079F728 /* plugin */,
+				528EC159088F093E0079F728 /* servlet */,
+				528EC15D088F093E0079F728 /* util */,
+			);
+			path = blojsom;
+			sourceTree = "<group>";
+		};
+		528EC129088F093D0079F728 /* authorization */ = {
+			isa = PBXGroup;
+			children = (
+				528EC12A088F093D0079F728 /* AuthorizationProvider.java */,
+				528EC12C088F093D0079F728 /* PropertiesAuthorizationProvider.java */,
+			);
+			path = authorization;
+			sourceTree = "<group>";
+		};
+		528EC12D088F093D0079F728 /* blog */ = {
+			isa = PBXGroup;
+			children = (
+				528EC12E088F093D0079F728 /* Blog.java */,
+				528EC12F088F093D0079F728 /* BlogCategory.java */,
+				528EC130088F093D0079F728 /* BlogComment.java */,
+				528EC131088F093D0079F728 /* BlogEntry.java */,
+				528EC132088F093D0079F728 /* BlogUser.java */,
+				528EC133088F093D0079F728 /* BlojsomConfiguration.java */,
+				528EC134088F093D0079F728 /* BlojsomConfigurationException.java */,
+				528EC135088F093D0079F728 /* FileBackedBlogCategory.java */,
+				528EC136088F093D0079F728 /* FileBackedBlogEntry.java */,
+				528EC138088F093D0079F728 /* Pingback.java */,
+				528EC139088F093D0079F728 /* Trackback.java */,
+			);
+			path = blog;
+			sourceTree = "<group>";
+		};
+		528EC13B088F093D0079F728 /* dispatcher */ = {
+			isa = PBXGroup;
+			children = (
+				528EC13C088F093D0079F728 /* BlojsomDispatcher.java */,
+				528EC13D088F093E0079F728 /* JSPDispatcher.java */,
+				528EC13F088F093E0079F728 /* VelocityDispatcher.java */,
+			);
+			path = dispatcher;
+			sourceTree = "<group>";
+		};
+		528EC140088F093E0079F728 /* event */ = {
+			isa = PBXGroup;
+			children = (
+				528EC141088F093E0079F728 /* BlojsomEvent.java */,
+				528EC142088F093E0079F728 /* BlojsomEventBroadcaster.java */,
+				528EC143088F093E0079F728 /* BlojsomFilter.java */,
+				528EC144088F093E0079F728 /* BlojsomListener.java */,
+				528EC146088F093E0079F728 /* SimpleBlojsomEventBroadcaster.java */,
+			);
+			path = event;
+			sourceTree = "<group>";
+		};
+		528EC147088F093E0079F728 /* fetcher */ = {
+			isa = PBXGroup;
+			children = (
+				528EC148088F093E0079F728 /* BlojsomFetcher.java */,
+				528EC149088F093E0079F728 /* BlojsomFetcherException.java */,
+				528EC14B088F093E0079F728 /* StandardFetcher.java */,
+			);
+			path = fetcher;
+			sourceTree = "<group>";
+		};
+		528EC14C088F093E0079F728 /* filter */ = {
+			isa = PBXGroup;
+			children = (
+				528EC14D088F093E0079F728 /* CharArrayWrapper.java */,
+				528EC14E088F093E0079F728 /* CompressionFilter.java */,
+				528EC14F088F093E0079F728 /* GZIPResponseStream.java */,
+				528EC150088F093E0079F728 /* GZIPResponseWrapper.java */,
+				528EC152088F093E0079F728 /* PermalinkFilter.java */,
+				528EC153088F093E0079F728 /* SimpleCompressionFilter.java */,
+			);
+			path = filter;
+			sourceTree = "<group>";
+		};
+		528EC155088F093E0079F728 /* plugin */ = {
+			isa = PBXGroup;
+			children = (
+				528EC156088F093E0079F728 /* BlojsomPlugin.java */,
+				528EC157088F093E0079F728 /* BlojsomPluginException.java */,
+			);
+			path = plugin;
+			sourceTree = "<group>";
+		};
+		528EC159088F093E0079F728 /* servlet */ = {
+			isa = PBXGroup;
+			children = (
+				528EC15A088F093E0079F728 /* BlojsomBaseServlet.java */,
+				528EC15B088F093E0079F728 /* BlojsomServlet.java */,
+			);
+			path = servlet;
+			sourceTree = "<group>";
+		};
+		528EC15D088F093E0079F728 /* util */ = {
+			isa = PBXGroup;
+			children = (
+				528EC15E088F093E0079F728 /* BlojsomConstants.java */,
+				528EC15F088F093E0079F728 /* BlojsomMetaDataConstants.java */,
+				528EC160088F093E0079F728 /* BlojsomProperties.java */,
+				528EC161088F093E0079F728 /* BlojsomSimpleLog4JSystem.java */,
+				528EC162088F093E0079F728 /* BlojsomUtils.java */,
+				528EC163088F093E0079F728 /* CookieUtils.java */,
+				528EC165088F093E0079F728 /* password */,
+				528EC168088F093E0079F728 /* resources */,
+			);
+			path = util;
+			sourceTree = "<group>";
+		};
+		528EC165088F093E0079F728 /* password */ = {
+			isa = PBXGroup;
+			children = (
+				528EC166088F093E0079F728 /* EncryptedPasswordConversion.java */,
+			);
+			path = password;
+			sourceTree = "<group>";
+		};
+		528EC168088F093E0079F728 /* resources */ = {
+			isa = PBXGroup;
+			children = (
+				528EC16A088F093E0079F728 /* ResourceBundleResourceManager.java */,
+				528EC16B088F093E0079F728 /* ResourceManager.java */,
+			);
+			path = resources;
+			sourceTree = "<group>";
+		};
+		528EC16C088F094E0079F728 /* war */ = {
+			isa = PBXGroup;
+			children = (
+				528EC16D088F094E0079F728 /* favicon.ico */,
+				528EC16E088F094E0079F728 /* images */,
+				528EC19F088F094E0079F728 /* includes */,
+				528EC1AA088F094E0079F728 /* index.html */,
+				528EC1AB088F094E0079F728 /* META-INF */,
+				528EC1AD088F094E0079F728 /* strings */,
+				528EC1B2088F094E0079F728 /* stylesheets */,
+				528EC1CA088F094E0079F728 /* WEB-INF */,
+			);
+			path = war;
+			sourceTree = "<group>";
+		};
+		528EC16E088F094E0079F728 /* images */ = {
+			isa = PBXGroup;
+			children = (
+				528EC16F088F094E0079F728 /* atom.png */,
+				528EC170088F094E0079F728 /* blank.gif */,
+				528EC171088F094E0079F728 /* box_background.png */,
+				528EC172088F094E0079F728 /* dialog_400_body.png */,
+				528EC173088F094E0079F728 /* dialog_400_footer.png */,
+				528EC174088F094E0079F728 /* dialog_400_header.png */,
+				528EC175088F094E0079F728 /* dialog_500_body.png */,
+				528EC176088F094E0079F728 /* dialog_500_footer.png */,
+				528EC177088F094E0079F728 /* dialog_500_header.png */,
+				528EC178088F094E0079F728 /* dialog_600_body.png */,
+				528EC179088F094E0079F728 /* dialog_600_footer.png */,
+				528EC17A088F094E0079F728 /* dialog_600_header.png */,
+				528EC17B088F094E0079F728 /* grayx.jpg */,
+				528EC17C088F094E0079F728 /* main_box_body.png */,
+				528EC17D088F094E0079F728 /* main_box_footer.png */,
+				528EC17E088F094E0079F728 /* main_box_header.png */,
+				528EC17F088F094E0079F728 /* mandolux-piper-1600.jpg */,
+				528EC180088F094E0079F728 /* message_background.png */,
+				528EC181088F094E0079F728 /* powered-by-blojsom.gif */,
+				528EC182088F094E0079F728 /* rdf.gif */,
+				528EC183088F094E0079F728 /* rss.gif */,
+				528EC184088F094E0079F728 /* search.gif */,
+				528EC185088F094E0079F728 /* side_box_body.png */,
+				528EC186088F094E0079F728 /* side_box_footer.png */,
+				528EC187088F094E0079F728 /* side_box_header.png */,
+				528EC188088F094E0079F728 /* span_body.png */,
+				528EC189088F094E0079F728 /* span_footer.png */,
+				528EC18A088F094E0079F728 /* span_header.png */,
+				528EC18B088F094E0079F728 /* striped_background.gif */,
+				528EC18C088F094E0079F728 /* trackback.gif */,
+				528EC18D088F094E0079F728 /* v2_background_bottom.gif */,
+				528EC18E088F094E0079F728 /* v2_background_nav.gif */,
+				528EC18F088F094E0079F728 /* v2_background_navhead.gif */,
+				528EC190088F094E0079F728 /* v2_background_stripes.gif */,
+				528EC191088F094E0079F728 /* v2_background_top.gif */,
+				528EC192088F094E0079F728 /* v2_logo_osx.gif */,
+				528EC193088F094E0079F728 /* v2_logo_osx.jpg */,
+				528EC194088F094E0079F728 /* v4_background_linkhover.gif */,
+				528EC195088F094E0079F728 /* v4_background_main.gif */,
+				528EC196088F094E0079F728 /* v4_background_side.gif */,
+				528EC197088F094E0079F728 /* v4_background_side_bottom.gif */,
+				528EC198088F094E0079F728 /* v4_background_side_top.gif */,
+				528EC199088F094E0079F728 /* v4_background_top.gif */,
+				528EC19A088F094E0079F728 /* v5_background_link.jpg */,
+				528EC19B088F094E0079F728 /* v5_background_linkhover.jpg */,
+				528EC19C088F094E0079F728 /* v5_background_main.jpg */,
+				528EC19D088F094E0079F728 /* v5_background_top.jpg */,
+				528EC19E088F094E0079F728 /* xml.gif */,
+			);
+			path = images;
+			sourceTree = "<group>";
+		};
+		528EC19F088F094E0079F728 /* includes */ = {
+			isa = PBXGroup;
+			children = (
+				528EC1A0088F094E0079F728 /* admin-basic.css */,
+				528EC1A1088F094E0079F728 /* admin-tabs.css */,
+				528EC1A2088F094E0079F728 /* apple_stylesheet_overrides.css */,
+				528EC1A3088F094E0079F728 /* atom.css */,
+				528EC1A4088F094E0079F728 /* base_layout.css */,
+				528EC1A5088F094E0079F728 /* base_scripts.js */,
+				528EC1A6088F094E0079F728 /* blojsom-admin.css */,
+				528EC1A7088F094E0079F728 /* blojsom.css */,
+				528EC1A8088F094E0079F728 /* emptyStartup.js */,
+				528EC1A9088F094E0079F728 /* win32ImageWorkaround.js */,
+			);
+			path = includes;
+			sourceTree = "<group>";
+		};
+		528EC1AB088F094E0079F728 /* META-INF */ = {
+			isa = PBXGroup;
+			children = (
+				528EC1AC088F094E0079F728 /* MANIFEST.MF */,
+			);
+			path = "META-INF";
+			sourceTree = "<group>";
+		};
+		528EC1AD088F094E0079F728 /* strings */ = {
+			isa = PBXGroup;
+			children = (
+				528EC1AE088F094E0079F728 /* de.properties */,
+				528EC1AF088F094E0079F728 /* en.properties */,
+				528EC1B0088F094E0079F728 /* fr.properties */,
+				528EC1B1088F094E0079F728 /* ja.properties */,
+			);
+			path = strings;
+			sourceTree = "<group>";
+		};
+		528EC1B2088F094E0079F728 /* stylesheets */ = {
+			isa = PBXGroup;
+			children = (
+				528EC1B3088F094E0079F728 /* apple_layout.css */,
+				528EC1B4088F094E0079F728 /* apple_layout.js */,
+				528EC1B5088F094E0079F728 /* v2_layout.css */,
+				528EC1B6088F094E0079F728 /* v2_layout.js */,
+				528EC1B7088F094E0079F728 /* v4_layout.css */,
+				528EC1B8088F094E0079F728 /* v4_layout.js */,
+				528EC1B9088F094E0079F728 /* v5_layout.css */,
+				528EC1BA088F094E0079F728 /* v5_layout.js */,
+			);
+			path = stylesheets;
+			sourceTree = "<group>";
+		};
+		528EC1CA088F094E0079F728 /* WEB-INF */ = {
+			isa = PBXGroup;
+			children = (
+				528EC1CC088F094E0079F728 /* blojsom.properties */,
+				528EC1CD088F094E0079F728 /* bootstrap */,
+				528EC1D8088F094E0079F728 /* classes */,
+				528EC1DB088F094E0079F728 /* default */,
+				528EC1E9088F094E0079F728 /* dispatcher.properties */,
+				528EC1EA088F094E0079F728 /* plugin-admin-edit-users.properties */,
+				528EC1EB088F094E0079F728 /* plugin-admin-upload.properties */,
+				528EC1EC088F094E0079F728 /* plugin.properties */,
+				527645D3089AA40500B4A8A4 /* templates */,
+				528EC1ED088F094E0079F728 /* velocity.properties */,
+				528EC1EE088F094E0079F728 /* web.xml */,
+				528EC1EF088F094E0079F728 /* xmlrpc.properties */,
+			);
+			path = "WEB-INF";
+			sourceTree = "<group>";
+		};
+		528EC1CD088F094E0079F728 /* bootstrap */ = {
+			isa = PBXGroup;
+			children = (
+				528EC1CE088F094E0079F728 /* authorization.properties */,
+				528EC1CF088F094E0079F728 /* blacklist.filters */,
+				528EC1D0088F094E0079F728 /* blog.properties */,
+				528EC1D1088F094E0079F728 /* contextloader.properties */,
+				528EC1D2088F094E0079F728 /* emoticons.properties */,
+				528EC1D3088F094E0079F728 /* flavor.properties */,
+				528EC1D4088F094E0079F728 /* macros.properties */,
+				528EC1D5088F094E0079F728 /* plugin.properties */,
+				528EC1D6088F094E0079F728 /* referer.properties */,
+				528EC1D7088F094E0079F728 /* showmemore.properties */,
+			);
+			path = bootstrap;
+			sourceTree = "<group>";
+		};
+		528EC1D8088F094E0079F728 /* classes */ = {
+			isa = PBXGroup;
+			children = (
+				528EC1D9088F094E0079F728 /* log4j.properties */,
+				528EC1DA088F094E0079F728 /* oscache.properties */,
+			);
+			path = classes;
+			sourceTree = "<group>";
+		};
+		528EC1DB088F094E0079F728 /* default */ = {
+			isa = PBXGroup;
+			children = (
+				528EC1DC088F094E0079F728 /* authorization.properties */,
+				528EC1DD088F094E0079F728 /* blacklist.filters */,
+				528EC1DE088F094E0079F728 /* blog.properties */,
+				528EC1DF088F094E0079F728 /* contextloader.properties */,
+				528EC1E0088F094E0079F728 /* emoticons.properties */,
+				528EC1E1088F094E0079F728 /* flavor.properties */,
+				528EC1E2088F094E0079F728 /* macros.properties */,
+				528EC1E3088F094E0079F728 /* plugin.properties */,
+				528EC1E4088F094E0079F728 /* referer.properties */,
+				528EC1E5088F094E0079F728 /* showmemore.properties */,
+				528EC1E6088F094E0079F728 /* templates */,
+			);
+			path = default;
+			sourceTree = "<group>";
+		};
+		528EC1E6088F094E0079F728 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				528EC1E7088F094E0079F728 /* html.vm */,
+				528EC1E8088F094E0079F728 /* include.vm */,
+			);
+			path = templates;
+			sourceTree = "<group>";
+		};
+		8471067406545516000C180E /* blojsom_root */ = {
+			isa = PBXGroup;
+			children = (
+				8471067506545516000C180E /* conf */,
+			);
+			path = blojsom_root;
+			sourceTree = "<group>";
+		};
+		8471067506545516000C180E /* conf */ = {
+			isa = PBXGroup;
+			children = (
+				8471067606545516000C180E /* catalina.policy */,
+				8471067706545516000C180E /* jk2.properties */,
+				8471067806545516000C180E /* server-noexamples.xml.config */,
+				8471067906545516000C180E /* server.xml */,
+				8471067A06545516000C180E /* tomcat-users.xml */,
+				8471067B06545516000C180E /* web.xml */,
+			);
+			path = conf;
+			sourceTree = "<group>";
+		};
+		84C8D2C00625FF95001E4CD5 /* docs */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D2C10625FF95001E4CD5 /* content */,
+				84C8D3000625FF95001E4CD5 /* redirect.xmap */,
+				84C8D3010625FF95001E4CD5 /* resources */,
+				84C8D3100625FF96001E4CD5 /* skinconf.xml */,
+			);
+			path = docs;
+			sourceTree = "<group>";
+		};
+		84C8D2C10625FF95001E4CD5 /* content */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D2C30625FF95001E4CD5 /* mt2blojsom.pl */,
+				84C8D2C40625FF95001E4CD5 /* screenshots */,
+				84C8D2CC0625FF95001E4CD5 /* xdocs */,
+			);
+			path = content;
+			sourceTree = "<group>";
+		};
+		84C8D2C40625FF95001E4CD5 /* screenshots */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D2C50625FF95001E4CD5 /* blojsom-calendar.jpg */,
+				84C8D2C60625FF95001E4CD5 /* blojsom-comment-form.jpg */,
+				84C8D2C70625FF95001E4CD5 /* blojsom-comments-trackbacks.jpg */,
+				84C8D2C80625FF95001E4CD5 /* blojsom-main.jpg */,
+				84C8D2C90625FF95001E4CD5 /* blojsom-referers.jpg */,
+				84C8D2CA0625FF95001E4CD5 /* blojsom-screenshot.jpg */,
+				84C8D2CB0625FF95001E4CD5 /* blojsom-search.jpg */,
+			);
+			path = screenshots;
+			sourceTree = "<group>";
+		};
+		84C8D2CC0625FF95001E4CD5 /* xdocs */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D2CD0625FF95001E4CD5 /* administration */,
+				84C8D2D90625FF95001E4CD5 /* comments.xml */,
+				84C8D2DA0625FF95001E4CD5 /* contributed */,
+				84C8D2DC0625FF95001E4CD5 /* custom.xml */,
+				84C8D2DD0625FF95001E4CD5 /* faq.xml */,
+				84C8D2DE0625FF95001E4CD5 /* index.xml */,
+				84C8D2DF0625FF95001E4CD5 /* install.xml */,
+				84C8D2E00625FF95001E4CD5 /* plugins */,
+				84C8D2F90625FF95001E4CD5 /* screenshots.xml */,
+				84C8D2FA0625FF95001E4CD5 /* site.xml */,
+				84C8D2FB0625FF95001E4CD5 /* tabs.xml */,
+				84C8D2FC0625FF95001E4CD5 /* themes.xml */,
+				84C8D2FD0625FF95001E4CD5 /* trackbacks.xml */,
+				84C8D2FE0625FF95001E4CD5 /* upgrading.xml */,
+				84C8D2FF0625FF95001E4CD5 /* xml-rpc.xml */,
+			);
+			path = xdocs;
+			sourceTree = "<group>";
+		};
+		84C8D2CD0625FF95001E4CD5 /* administration */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D2CE0625FF95001E4CD5 /* admin-blog-authorization.xml */,
+				84C8D2CF0625FF95001E4CD5 /* admin-blog-categories.xml */,
+				84C8D2D00625FF95001E4CD5 /* admin-blog-entries.xml */,
+				84C8D2D10625FF95001E4CD5 /* admin-blog-flavors.xml */,
+				84C8D2D20625FF95001E4CD5 /* admin-blog-plugins.xml */,
+				84C8D2D30625FF95001E4CD5 /* admin-blog-properties.xml */,
+				84C8D2D40625FF95001E4CD5 /* admin-blog-templates.xml */,
+				84C8D2D50625FF95001E4CD5 /* admin-blog-users.xml */,
+				84C8D2D60625FF95001E4CD5 /* admin-file-upload.xml */,
+				84C8D2D70625FF95001E4CD5 /* book.xml */,
+				84C8D2D80625FF95001E4CD5 /* index.xml */,
+			);
+			path = administration;
+			sourceTree = "<group>";
+		};
+		84C8D2DA0625FF95001E4CD5 /* contributed */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D2DB0625FF95001E4CD5 /* index.xml */,
+			);
+			path = contributed;
+			sourceTree = "<group>";
+		};
+		84C8D2E00625FF95001E4CD5 /* plugins */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D2E10625FF95001E4CD5 /* associated-categories.xml */,
+				84C8D2E20625FF95001E4CD5 /* book.xml */,
+				84C8D2E30625FF95001E4CD5 /* calendar.xml */,
+				84C8D2E40625FF95001E4CD5 /* chronological.xml */,
+				84C8D2E50625FF95001E4CD5 /* conditional-get.xml */,
+				84C8D2E60625FF95001E4CD5 /* date.xml */,
+				84C8D2E70625FF95001E4CD5 /* emoticons.xml */,
+				84C8D2E80625FF95001E4CD5 /* entries-limiter.xml */,
+				84C8D2E90625FF95001E4CD5 /* google-highlight.xml */,
+				84C8D2EA0625FF95001E4CD5 /* hyperlink-URL.xml */,
+				84C8D2EB0625FF95001E4CD5 /* index.xml */,
+				84C8D2EC0625FF95001E4CD5 /* macro-expansion.xml */,
+				84C8D2ED0625FF95001E4CD5 /* markdown.xml */,
+				84C8D2EE0625FF95001E4CD5 /* meta.xml */,
+				84C8D2EF0625FF95001E4CD5 /* obfuscation.xml */,
+				84C8D2F00625FF95001E4CD5 /* preview.xml */,
+				84C8D2F10625FF95001E4CD5 /* referer.xml */,
+				84C8D2F20625FF95001E4CD5 /* send-email.xml */,
+				84C8D2F30625FF95001E4CD5 /* show-me-more.xml */,
+				84C8D2F40625FF95001E4CD5 /* simple-search.xml */,
+				84C8D2F50625FF95001E4CD5 /* textile.xml */,
+				84C8D2F60625FF95001E4CD5 /* trackback-autodiscovery.xml */,
+				84C8D2F70625FF95001E4CD5 /* weblogs-ping.xml */,
+				84C8D2F80625FF95001E4CD5 /* xpath.xml */,
+			);
+			path = plugins;
+			sourceTree = "<group>";
+		};
+		84C8D3010625FF95001E4CD5 /* resources */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D3020625FF95001E4CD5 /* images */,
+				84C8D30B0625FF96001E4CD5 /* schema */,
+				84C8D30E0625FF96001E4CD5 /* stylesheets */,
+			);
+			path = resources;
+			sourceTree = "<group>";
+		};
+		84C8D3020625FF95001E4CD5 /* images */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D3030625FF95001E4CD5 /* blojsom-logo.jpg */,
+				84C8D3040625FF95001E4CD5 /* emoticons */,
+				84C8D3070625FF95001E4CD5 /* favicon.ico */,
+				84C8D3080625FF95001E4CD5 /* powered-by-blojsom.gif */,
+				84C8D3090625FF96001E4CD5 /* project.svg */,
+				84C8D30A0625FF96001E4CD5 /* sflogo.png */,
+			);
+			path = images;
+			sourceTree = "<group>";
+		};
+		84C8D3040625FF95001E4CD5 /* emoticons */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D3050625FF95001E4CD5 /* happy.gif */,
+				84C8D3060625FF95001E4CD5 /* wink.gif */,
+			);
+			path = emoticons;
+			sourceTree = "<group>";
+		};
+		84C8D30B0625FF96001E4CD5 /* schema */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D30C0625FF96001E4CD5 /* dtd */,
+			);
+			path = schema;
+			sourceTree = "<group>";
+		};
+		84C8D30C0625FF96001E4CD5 /* dtd */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D30D0625FF96001E4CD5 /* libre-v01.dtd */,
+			);
+			path = dtd;
+			sourceTree = "<group>";
+		};
+		84C8D30E0625FF96001E4CD5 /* stylesheets */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D30F0625FF96001E4CD5 /* changes2document.xsl */,
+			);
+			path = stylesheets;
+			sourceTree = "<group>";
+		};
+		84C8D3A00625FF96001E4CD5 /* properties */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D3A10625FF96001E4CD5 /* log4j.properties */,
+				84C8D3A20625FF96001E4CD5 /* oscache.properties */,
+			);
+			path = properties;
+			sourceTree = "<group>";
+		};
+		84C8D3D80625FFF7001E4CD5 /* themes */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D3DB0625FFF7001E4CD5 /* cipher */,
+				84C8D3DE0625FFF7001E4CD5 /* eclipse */,
+				84C8D3E40625FFF7001E4CD5 /* flex */,
+				84C8D4010625FFF7001E4CD5 /* green-lantern */,
+				84C8D4030625FFF7001E4CD5 /* grid */,
+				84C8D40C0625FFF7001E4CD5 /* pumpkin */,
+				84C8D4120625FFF7001E4CD5 /* secondwave */,
+				84C8D4180625FFF7001E4CD5 /* shrubbery */,
+			);
+			path = themes;
+			sourceTree = "<group>";
+		};
+		84C8D3DB0625FFF7001E4CD5 /* cipher */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D3DC0625FFF7001E4CD5 /* blojsom-cipher-background.gif */,
+				84C8D3DD0625FFF7001E4CD5 /* blojsom-cipher.css */,
+			);
+			path = cipher;
+			sourceTree = "<group>";
+		};
+		84C8D3DE0625FFF7001E4CD5 /* eclipse */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D3DF0625FFF7001E4CD5 /* blojsom-eclipse.css */,
+				84C8D3E00625FFF7001E4CD5 /* eclipse-comments.vm */,
+				84C8D3E10625FFF7001E4CD5 /* eclipse-referers.vm */,
+				84C8D3E20625FFF7001E4CD5 /* eclipse-trackback.vm */,
+				84C8D3E30625FFF7001E4CD5 /* eclipse.vm */,
+			);
+			path = eclipse;
+			sourceTree = "<group>";
+		};
+		84C8D3E40625FFF7001E4CD5 /* flex */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D3E50625FFF7001E4CD5 /* blojsom-flex.css */,
+				84C8D3E60625FFF7001E4CD5 /* flex-comments.vm */,
+				84C8D3E70625FFF7001E4CD5 /* flex-inc-entries.vm */,
+				84C8D3E80625FFF7001E4CD5 /* flex-inc-main.vm */,
+				84C8D3E90625FFF7001E4CD5 /* flex-inc-post-entry-comments.vm */,
+				84C8D3EA0625FFF7001E4CD5 /* flex-inc-post-entry-summary.vm */,
+				84C8D3EB0625FFF7001E4CD5 /* flex-inc-post-entry-trackback.vm */,
+				84C8D3EC0625FFF7001E4CD5 /* flex-inc-referers.vm */,
+				84C8D3ED0625FFF7001E4CD5 /* flex-inc-trackback-auto-discovery.vm */,
+				84C8D3EE0625FFF7001E4CD5 /* flex-referers.vm */,
+				84C8D3EF0625FFF7001E4CD5 /* flex-trackback-failure.vm */,
+				84C8D3F00625FFF7001E4CD5 /* flex-trackback-success.vm */,
+				84C8D3F10625FFF7001E4CD5 /* flex-trackback.vm */,
+				84C8D3F20625FFF7001E4CD5 /* flex.vm */,
+				84C8D3F30625FFF7001E4CD5 /* images */,
+			);
+			path = flex;
+			sourceTree = "<group>";
+		};
+		84C8D3F30625FFF7001E4CD5 /* images */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D3F40625FFF7001E4CD5 /* arrow.gif */,
+				84C8D3F50625FFF7001E4CD5 /* comment.png */,
+				84C8D3F60625FFF7001E4CD5 /* fade.gif */,
+				84C8D3F70625FFF7001E4CD5 /* header.png */,
+				84C8D3F80625FFF7001E4CD5 /* header2.png */,
+				84C8D3F90625FFF7001E4CD5 /* javablog.gif */,
+				84C8D3FA0625FFF7001E4CD5 /* permalink.png */,
+				84C8D3FB0625FFF7001E4CD5 /* rdf.gif */,
+				84C8D3FC0625FFF7001E4CD5 /* rss092.gif */,
+				84C8D3FD0625FFF7001E4CD5 /* rss2.gif */,
+				84C8D3FE0625FFF7001E4CD5 /* tagline.gif */,
+				84C8D3FF0625FFF7001E4CD5 /* top.gif */,
+				84C8D4000625FFF7001E4CD5 /* zen.gif */,
+			);
+			path = images;
+			sourceTree = "<group>";
+		};
+		84C8D4010625FFF7001E4CD5 /* green-lantern */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D4020625FFF7001E4CD5 /* blojsom.css */,
+			);
+			path = "green-lantern";
+			sourceTree = "<group>";
+		};
+		84C8D4030625FFF7001E4CD5 /* grid */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D4040625FFF7001E4CD5 /* blojsom-grid.css */,
+				84C8D4050625FFF7001E4CD5 /* grid-comments.vm */,
+				84C8D4060625FFF7001E4CD5 /* grid-referers.vm */,
+				84C8D4070625FFF7001E4CD5 /* grid-trackback.vm */,
+				84C8D4080625FFF7001E4CD5 /* grid.vm */,
+				84C8D4090625FFF7001E4CD5 /* images */,
+			);
+			path = grid;
+			sourceTree = "<group>";
+		};
+		84C8D4090625FFF7001E4CD5 /* images */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D40A0625FFF7001E4CD5 /* comment.png */,
+				84C8D40B0625FFF7001E4CD5 /* small-grid.gif */,
+			);
+			path = images;
+			sourceTree = "<group>";
+		};
+		84C8D40C0625FFF7001E4CD5 /* pumpkin */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D40D0625FFF7001E4CD5 /* pumpkin-comments.vm */,
+				84C8D40E0625FFF7001E4CD5 /* pumpkin-referers.vm */,
+				84C8D40F0625FFF7001E4CD5 /* pumpkin-trackback.vm */,
+				84C8D4100625FFF7001E4CD5 /* pumpkin.css */,
+				84C8D4110625FFF7001E4CD5 /* pumpkin.vm */,
+			);
+			path = pumpkin;
+			sourceTree = "<group>";
+		};
+		84C8D4120625FFF7001E4CD5 /* secondwave */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D4130625FFF7001E4CD5 /* blojsom-secondwave.css */,
+				84C8D4140625FFF7001E4CD5 /* secondwave-comments.vm */,
+				84C8D4150625FFF7001E4CD5 /* secondwave-referers.vm */,
+				84C8D4160625FFF7001E4CD5 /* secondwave-trackback.vm */,
+				84C8D4170625FFF7001E4CD5 /* secondwave.vm */,
+			);
+			path = secondwave;
+			sourceTree = "<group>";
+		};
+		84C8D4180625FFF7001E4CD5 /* shrubbery */ = {
+			isa = PBXGroup;
+			children = (
+				84C8D4190625FFF7001E4CD5 /* blojsom-shrubbery.css */,
+				84C8D41A0625FFF7001E4CD5 /* h.jpg */,
+				84C8D41B0625FFF7001E4CD5 /* pbb.gif */,
+				84C8D41C0625FFF7001E4CD5 /* shrubbery-calendar.vm */,
+				84C8D41D0625FFF7001E4CD5 /* shrubbery-categories.vm */,
+				84C8D41E0625FFF7001E4CD5 /* shrubbery-comments.vm */,
+				84C8D41F0625FFF7001E4CD5 /* shrubbery-header.vm */,
+				84C8D4200625FFF7001E4CD5 /* shrubbery-pbb.vm */,
+				84C8D4210625FFF7001E4CD5 /* shrubbery-sidebars.vm */,
+				84C8D4220625FFF7001E4CD5 /* shrubbery-trackback.vm */,
+				84C8D4230625FFF7001E4CD5 /* shrubbery.vm */,
+				84C8D4240625FFF7001E4CD5 /* tb.gif */,
+			);
+			path = shrubbery;
+			sourceTree = "<group>";
+		};
+		84C8D42D06260355001E4CD5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E7519C2706DD406B004CF4F8 /* ismember_blojsom_helper */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E7F76A8F06DD13E40028BFA6 /* ismember */ = {
+			isa = PBXGroup;
+			children = (
+				E7F76A9006DD13E40028BFA6 /* ismember_main.c */,
+			);
+			path = ismember;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		84427BAD0625E2D100C1952B /* blojsom */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "-emacs \"-DDSTROOT=$DSTROOT\" \"-DOBJROOT=$OBJROOT\" \"-DPRODUCT_NAME=$PRODUCT_NAME\" $ACTION";
+			buildConfigurationList = 528EBF81088F07A30079F728 /* Build configuration list for PBXLegacyTarget "blojsom" */;
+			buildPhases = (
+			);
+			buildSettings = {
+				PRODUCT_NAME = blojsom;
+			};
+			buildToolPath = /Developer/Java/Ant/bin/ant;
+			buildWorkingDirectory = $SRCROOT;
+			dependencies = (
+				84D803B506484AE00089F1C8 /* PBXTargetDependency */,
+			);
+			name = blojsom;
+			passBuildSettingsInEnvironment = 1;
+			productName = blojsom;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXNativeTarget section */
+		E7519C2606DD406B004CF4F8 /* ismember_blojsom_helper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 528EBF89088F07A30079F728 /* Build configuration list for PBXNativeTarget "ismember_blojsom_helper" */;
+			buildPhases = (
+				E7519C2406DD406B004CF4F8 /* Sources */,
+				E7519C2506DD406B004CF4F8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_MODE_FLAG = "a-w,a+rx";
+				INSTALL_PATH = /usr/libexec/blojsom/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = ismember_blojsom_helper;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = ismember_blojsom_helper;
+			productName = ismember_blojsom_helper;
+			productReference = E7519C2706DD406B004CF4F8 /* ismember_blojsom_helper */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 528EBF91088F07A30079F728 /* Build configuration list for PBXProject "blojsom" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA520018CE5811CA2923 /* Development */,
+				014CEA530018CE5811CA2923 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* blojsom */;
+			productRefGroup = 84C8D42D06260355001E4CD5 /* Products */;
+			projectDirPath = "";
+			targets = (
+				526FEBEB070B1DA100B3BCAC /* all */,
+				845CB38C06482F4600D0A5CF /* blojsom-install */,
+				84427BAD0625E2D100C1952B /* blojsom */,
+				84D803B306484AD70089F1C8 /* prepare */,
+				E7519C2606DD406B004CF4F8 /* ismember_blojsom_helper */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		522D566E074BE4D10099CBC3 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/local/OpenSourceVersions\"\nmkdir -p \"${DSTROOT}/usr/local/OpenSourceLicenses\"\ncp \"${SRCROOT}/license_info/blojsom.plist\" \"${DSTROOT}/usr/local/OpenSourceVersions/\"\ncp \"${SRCROOT}/license_info/blojsom.txt\" \"${DSTROOT}/usr/local/OpenSourceLicenses/\"\nchmod a+x \"${DSTROOT}/System/Library/ServerSetup/SetupExtras/weblogsetup\"\n";
+		};
+		845CB38B06482F4600D0A5CF /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/blojsom_resources\"\n/bin/mv \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/images\" \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/blojsom_resources/\"\n/bin/mv \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/includes\" \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/blojsom_resources/\"\n/bin/mv \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/stylesheets\" \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/blojsom_resources/\"\n/bin/mv \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/administration\" \"$DSTROOT/Library/Tomcat/blojsom_root/webapps/ROOT/blojsom_resources/\"\n/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/logs\"\n/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/temp\"\n/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/work\"\n/bin/mkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root/shared/classes\"\n/bin/cp \"$OBJROOT/WEB-INF/classes/log4j.properties\" \"$DSTROOT/Library/Tomcat/blojsom_root/shared/classes/\"\n/bin/chmod -R g+w \"$DSTROOT/Library/Tomcat/blojsom_root\"\n";
+		};
+		84D803B206484AD70089F1C8 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 12;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "tar -C \"${OBJROOT}\" -xzf \"${SRCROOT}/addon-lib.tar.gz\"\nmkdir -p \"${OBJROOT}/WEB-INF\"\ntar -C \"${OBJROOT}/WEB-INF/\" -xzf \"${SRCROOT}/lib.tar.gz\"\nmkdir -p \"$DSTROOT/Library/Tomcat/blojsom_root\"\nchmod o+r \"$DSTROOT/Library/Tomcat/blojsom_root\"\nchmod g+w \"$DSTROOT/Library/Tomcat/blojsom_root\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E7519C2406DD406B004CF4F8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E7519C2906DD40C9004CF4F8 /* ismember_main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		526FEBED070B1DB300B3BCAC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 845CB38C06482F4600D0A5CF /* blojsom-install */;
+			targetProxy = 526FEBEC070B1DB300B3BCAC /* PBXContainerItemProxy */;
+		};
+		526FEBEF070B1DB700B3BCAC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E7519C2606DD406B004CF4F8 /* ismember_blojsom_helper */;
+			targetProxy = 526FEBEE070B1DB700B3BCAC /* PBXContainerItemProxy */;
+		};
+		8418EEDA0648309E00CBC13B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 84427BAD0625E2D100C1952B /* blojsom */;
+			targetProxy = 8418EED90648309E00CBC13B /* PBXContainerItemProxy */;
+		};
+		84D803B506484AE00089F1C8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 84D803B306484AD70089F1C8 /* prepare */;
+			targetProxy = 84D803B406484AE00089F1C8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		528EBF7E088F07A30079F728 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = prepare;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		528EBF7F088F07A30079F728 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = prepare;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		528EBF80088F07A30079F728 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = prepare;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		528EBF82088F07A30079F728 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				PRODUCT_NAME = blojsom;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		528EBF83088F07A30079F728 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = blojsom;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		528EBF84088F07A30079F728 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = blojsom;
+			};
+			name = Default;
+		};
+		528EBF86088F07A30079F728 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = chmod;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		528EBF87088F07A30079F728 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = chmod;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		528EBF88088F07A30079F728 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = chmod;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		528EBF8A088F07A30079F728 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_MODE_FLAG = "a-w,a+rx";
+				INSTALL_PATH = /usr/libexec/blojsom/bin;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = ismember_blojsom_helper;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		528EBF8B088F07A30079F728 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_MODE_FLAG = "a-w,a+rx";
+				INSTALL_PATH = /usr/libexec/blojsom/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = ismember_blojsom_helper;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		528EBF8C088F07A30079F728 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_MODE_FLAG = "a-w,a+rx";
+				INSTALL_PATH = /usr/libexec/blojsom/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = ismember_blojsom_helper;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		528EBF8E088F07A30079F728 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		528EBF8F088F07A30079F728 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		528EBF90088F07A30079F728 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		528EBF92088F07A30079F728 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		528EBF93088F07A30079F728 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		528EBF94088F07A30079F728 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		528EBF7D088F07A30079F728 /* Build configuration list for PBXAggregateTarget "prepare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				528EBF7E088F07A30079F728 /* Development */,
+				528EBF7F088F07A30079F728 /* Deployment */,
+				528EBF80088F07A30079F728 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		528EBF81088F07A30079F728 /* Build configuration list for PBXLegacyTarget "blojsom" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				528EBF82088F07A30079F728 /* Development */,
+				528EBF83088F07A30079F728 /* Deployment */,
+				528EBF84088F07A30079F728 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		528EBF85088F07A30079F728 /* Build configuration list for PBXAggregateTarget "blojsom-install" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				528EBF86088F07A30079F728 /* Development */,
+				528EBF87088F07A30079F728 /* Deployment */,
+				528EBF88088F07A30079F728 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		528EBF89088F07A30079F728 /* Build configuration list for PBXNativeTarget "ismember_blojsom_helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				528EBF8A088F07A30079F728 /* Development */,
+				528EBF8B088F07A30079F728 /* Deployment */,
+				528EBF8C088F07A30079F728 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		528EBF8D088F07A30079F728 /* Build configuration list for PBXAggregateTarget "all" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				528EBF8E088F07A30079F728 /* Development */,
+				528EBF8F088F07A30079F728 /* Deployment */,
+				528EBF90088F07A30079F728 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		528EBF91088F07A30079F728 /* Build configuration list for PBXProject "blojsom" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				528EBF92088F07A30079F728 /* Development */,
+				528EBF93088F07A30079F728 /* Deployment */,
+				528EBF94088F07A30079F728 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

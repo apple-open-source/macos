@@ -38,8 +38,9 @@ int varobjdebug = 0;
 static int varobj_use_dynamic_type = 1;
 
 /* String representations of gdb's format codes */
+/* APPLE LOCAL: add "unsigned" and "OSType" */
 char *varobj_format_string[] =
-  { "natural", "binary", "decimal", "hexadecimal", "octal" };
+  { "natural", "binary", "decimal", "hexadecimal", "octal", "unsigned", "OSType" };
 
 /* String representations of gdb's known languages */
 char *varobj_language_string[] = { "unknown", "C", "C++", "Java" };
@@ -436,7 +437,8 @@ static int cplus_real_type_index_for_fake_child_index (
 /* Private data */
 
 /* Mappings of varobj_display_formats enums to gdb's format codes */
-static int format_code[] = { 0, 't', 'd', 'x', 'o', 'u' };
+/* APPLE LOCAL: "u" (unsigned) and "T" (OSType) */
+static int format_code[] = { 0, 't', 'd', 'x', 'o', 'u', 'T' };
 
 /* Header of the list of root variable objects */
 static struct varobj_root *rootlist;
@@ -994,7 +996,10 @@ varobj_set_display_format (struct varobj *var,
     case FORMAT_DECIMAL:
     case FORMAT_HEXADECIMAL:
     case FORMAT_OCTAL:
+    /* APPLE LOCAL: formatting as unsigned */
     case FORMAT_UNSIGNED:
+    /* APPLE LOCAL: formatting as OSType */
+    case FORMAT_OSTYPE:
       var->format = format;
       break;
 

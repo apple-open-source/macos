@@ -416,6 +416,7 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
         fbmAttributes = cd->bmAttributes;
                                     
         registerService();			// Better register before we kick off the interface drivers
+		IOSleep(500);				// Let it happen...
         
         ior = fpDevice->SetConfiguration(this, fConfig);
         if (ior != kIOReturnSuccess)
@@ -492,7 +493,7 @@ bool AppleUSBCDC::checkACM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
         
     do
     {
-        (IOUSBDescriptorHeader*)funcDesc = Comm->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
+        funcDesc = (const FunctionalDescriptorHeader *)Comm->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
         if (!funcDesc)
         {
             gotDescriptors = true;				// We're done
@@ -500,14 +501,14 @@ bool AppleUSBCDC::checkACM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
             switch (funcDesc->bDescriptorSubtype)
             {
                 case CM_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)CMFDesc = funcDesc;
+                    CMFDesc = (CMFunctionalDescriptor *)funcDesc;
 					if (!descError)
 					{
 						acmDataInterfaceNumber = CMFDesc->bDataInterface;
 					}
                     break;
                 case Union_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)UNNFDesc = funcDesc;
+                    UNNFDesc = (UnionFunctionalDescriptor *)funcDesc;
                     if (UNNFDesc->bFunctionLength > sizeof(FunctionalDescriptorHeader))
                     {
 						XTRACE(this, cInterfaceNumber, UNNFDesc->bMasterInterface, "checkACM - Interfaces(Control, Master)");
@@ -587,14 +588,14 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
         
     do
     {
-        (IOUSBDescriptorHeader*)funcDesc = Comm->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
+        funcDesc = (const FunctionalDescriptorHeader *)Comm->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
         if (!funcDesc)
         {
             gotDescriptors = true;				// We're done
         } else {
             if (funcDesc->bDescriptorSubtype == Union_FunctionalDescriptor)
             {
-                (const FunctionalDescriptorHeader*)UNNFDesc = funcDesc;
+                UNNFDesc = (UnionFunctionalDescriptor *)funcDesc;
                 if (UNNFDesc->bFunctionLength > sizeof(FunctionalDescriptorHeader))
                 {
 					if (cInterfaceNumber == UNNFDesc->bMasterInterface)
@@ -605,7 +606,7 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
             } else {
                 if (funcDesc->bDescriptorSubtype == ECM_Functional_Descriptor)
                 {
-                    (const FunctionalDescriptorHeader*)ENETFDesc = funcDesc;
+                    ENETFDesc = (ECMFunctionalDescriptor *)funcDesc;
                 
                         // Cache the ethernet address in case it's needed early
                 
@@ -632,7 +633,7 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
         }
     } while(!gotDescriptors);
 
-    if (!ecmDataInterfaceNumber == dataInterfaceNum)
+    if (ecmDataInterfaceNumber != dataInterfaceNum)
     {
         XTRACE(this, ecmDataInterfaceNumber, dataInterfaceNum, "checkECM - No data interface found");
         configOK = false;

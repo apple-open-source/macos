@@ -57,6 +57,76 @@ function hideOrShowNewEntryDialog(whichOne)
 	}
 }
 
+function clickedAdvancedSettingsButton(theButton)
+{
+	var theTable = document.getElementById('entry_dialog_table');
+	
+	// if the button says "Advanced"...
+	if (theButton.value == theButton.form.new_entry_advanced_text.value)
+	{
+		// build the RSS enclosure row
+		var theRSSEnclosureRow = document.createElement('tr');
+		var theRSSEnclosureHeaderCell = document.createElement('th');
+		var theRSSEnclosureHeaderText = document.createTextNode(theButton.form.rss_enclosure_label_text.value);
+		var theRSSEnclosureFieldCell = document.createElement('td');
+		var theRSSEnclosureField = document.createElement('input');
+		theRSSEnclosureField.setAttribute('type', 'file');
+		theRSSEnclosureField.setAttribute('name', 'upload_enclosure');
+		theRSSEnclosureField.setAttribute('id', 'upload_enclosure');
+		theRSSEnclosureField.setAttribute('size', '30');
+		theRSSEnclosureFieldCell.appendChild(theRSSEnclosureField);
+		theRSSEnclosureHeaderCell.appendChild(theRSSEnclosureHeaderText);
+		theRSSEnclosureRow.appendChild(theRSSEnclosureHeaderCell);
+		theRSSEnclosureRow.appendChild(theRSSEnclosureFieldCell);
+	
+		// build the trackback field row
+		var theTrackbackRow = document.createElement('tr');
+		var theTrackbackHeaderCell = document.createElement('th');
+		var theTrackbackHeaderText = document.createTextNode(theButton.form.trackback_label_text.value);
+		var theTrackbackFieldCell = document.createElement('td');
+		var theTrackbackField = document.createElement('input');
+		theTrackbackField.setAttribute('type', 'text');
+		theTrackbackField.setAttribute('name', 'blog-trackback-urls');
+		theTrackbackField.setAttribute('id', 'blog-trackback-urls');
+		theTrackbackField.setAttribute('size', '50');
+		theTrackbackFieldCell.appendChild(theTrackbackField);
+		theTrackbackHeaderCell.appendChild(theTrackbackHeaderText);
+		theTrackbackRow.appendChild(theTrackbackHeaderCell);
+		theTrackbackRow.appendChild(theTrackbackFieldCell);
+		
+		// build the trackback explanation row
+		var theTrackbackExpRow = document.createElement('tr');
+		var theTrackbackExpText = document.createTextNode(theButton.form.trackback_description_text.value);
+		var theTrackbackExpCell = document.createElement('td');
+		theTrackbackExpCell.className = 'setting_label';
+		theTrackbackExpCell.appendChild(theTrackbackExpText);
+		theTrackbackExpRow.appendChild(document.createElement('td'));
+		theTrackbackExpRow.appendChild(theTrackbackExpCell);
+		
+		// add the rows to the table
+		var theButtonsRow = theTable.getElementsByTagName('tr').item(2);
+		theButtonsRow.parentNode.insertBefore(theRSSEnclosureRow, theButtonsRow);
+		theButtonsRow.parentNode.insertBefore(theTrackbackRow, theButtonsRow);
+		theButtonsRow.parentNode.insertBefore(theTrackbackExpRow, theButtonsRow);
+		
+		// switch the Advanced button to 'Simple'
+		theButton.value = theButton.form.new_entry_simple_text.value;
+	}
+	else if (theButton.value == theButton.form.new_entry_simple_text.value)
+	{
+		// remove the extra rows
+		var theTrackbackRow = theTable.getElementsByTagName('tr').item(2);
+		theTrackbackRow.parentNode.removeChild(theTrackbackRow);
+		theTrackbackRow = theTable.getElementsByTagName('tr').item(2);
+		theTrackbackRow.parentNode.removeChild(theTrackbackRow);
+		theTrackbackRow = theTable.getElementsByTagName('tr').item(2);
+		theTrackbackRow.parentNode.removeChild(theTrackbackRow);
+	
+		// switch the Simple button to 'Advanced'
+		theButton.value = theButton.form.new_entry_advanced_text.value;
+	}
+}
+
 function hideOrShowNewCategoryDialog(whichOne)
 {
 	hideSystemMessageIfNecessary();

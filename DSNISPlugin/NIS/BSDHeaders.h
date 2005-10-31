@@ -25,6 +25,8 @@
  *  @header CNSLHeaders
  */
 
+#include <unistd.h>
+
 #include <DirectoryService/DirServices.h>
 #include <DirectoryService/DirServicesUtils.h>
 #include <DirectoryService/DirServicesConst.h>

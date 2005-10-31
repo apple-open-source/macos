@@ -1,0 +1,3 @@
+# APPLE LOCAL file 4099000
+LIB1ASMSRC = i386/lib1funcs.asm
+LIB1ASMFUNCS = _get_pc_thunk_ax _get_pc_thunk_dx _get_pc_thunk_cx _get_pc_thunk_bx _get_pc_thunk_si _get_pc_thunk_di _get_pc_thunk_bp

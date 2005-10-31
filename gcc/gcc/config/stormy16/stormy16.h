@@ -58,6 +58,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_CPU_CPP_BUILTINS() do {	\
   builtin_define_std ("xstormy16");	\
   builtin_assert ("machine=xstormy16");	\
+  builtin_assert ("cpu=xstormy16");     \
 } while (0)
 
 /* This declaration should be present.  */
@@ -415,8 +416,6 @@ enum reg_class
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
 	xstormy16_function_arg (CUM, MODE, TYPE, NAMED)
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* For this platform, the value of CUMULATIVE_ARGS is the number of words
    of arguments that have been passed in registers so far.  */

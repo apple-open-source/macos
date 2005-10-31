@@ -146,7 +146,7 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDeviceID, UInt3
 
 	theEngine = AudioDriverPlugInGetEngineForDeviceID(inDeviceID);
 
-	FailIf (NULL == theEngine, Exit);
+	FailIf (nil == theEngine, Exit);
 
 	switch (inPropertyID) {
 		case kAOAPropertyPowerState:
@@ -232,8 +232,8 @@ OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDeviceID, UInt32 in
 	theEngine = AudioDriverPlugInGetEngineForDeviceID(inDeviceID);
 	theDevice = AudioDriverPlugInGetDeviceForDeviceID(inDeviceID);
 
-	FailIf (NULL == theEngine, Exit);
-	FailIf (NULL == theDevice, Exit);
+	FailIf (nil == theEngine, Exit);
+	FailIf (nil == theDevice, Exit);
 
 	switch (inPropertyID) {
 		case kAOAPropertyPowerState:
@@ -374,7 +374,7 @@ Exit:
 }
 
 io_object_t AudioDriverPlugInGetEngineForDeviceID (UInt32 inDeviceID) {
-	io_object_t theEngine = NULL;
+	io_object_t theEngine = 0;
 	PluginInfoPtr thePluginInfo = NULL;
 
 	thePluginInfo = AudioDriverPlugInGetPlugInInfoForDeviceID(inDeviceID);	
@@ -386,7 +386,7 @@ io_object_t AudioDriverPlugInGetEngineForDeviceID (UInt32 inDeviceID) {
 }
 
 io_object_t AudioDriverPlugInGetDeviceForDeviceID (UInt32 inDeviceID) {
-	io_object_t theDevice = NULL;
+	io_object_t theDevice = 0;
 	PluginInfoPtr thePluginInfo = NULL;
 
 	thePluginInfo = AudioDriverPlugInGetPlugInInfoForDeviceID(inDeviceID);

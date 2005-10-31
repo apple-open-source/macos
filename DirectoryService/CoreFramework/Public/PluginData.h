@@ -536,6 +536,7 @@ typedef struct {
 	unsigned long			fInRequestCode;
 	tDataBufferPtr			fInRequestData;
 	tDataBufferPtr			fOutRequestResponse;
+	tDirNodeReference		fInNodeRefMap; //used for endian byte swapping only 
 } sDoPlugInCustomCall;
 
 //-------------------------------------------------

@@ -1,5 +1,5 @@
 /* JComponent.java -- Every component in swing inherits from this class.
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.awt.AWTEvent;
@@ -49,6 +50,7 @@ import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.dnd.DropTarget;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ContainerEvent;
@@ -68,9 +70,10 @@ import java.io.Serializable;
 import java.util.EventListener;
 import java.util.Hashtable;
 import java.util.Locale;
-import java.util.Vector;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleKeyBinding;
 import javax.accessibility.AccessibleRole;
 import javax.accessibility.AccessibleStateSet;
 import javax.swing.border.Border;
@@ -78,7 +81,6 @@ import javax.swing.event.AncestorListener;
 import javax.swing.event.EventListenerList;
 import javax.swing.event.SwingPropertyChangeSupport;
 import javax.swing.plaf.ComponentUI;
-
 
 /**
  * Every component in swing inherits from this class (JLabel, JButton, etc).
@@ -133,6 +135,9 @@ public abstract class JComponent extends Container implements Serializable
     public String getAccessibleDescription() { return null; }
     public AccessibleRole getAccessibleRole() { return null; }
     protected String getBorderTitle(Border value0) { return null; }
+    public String getToolTipText() { return null; }
+    public String getTitledBorderText() { return null; }
+    public AccessibleKeyBinding getAccessibleKeyBinding() { return null; }
   }
 
   /** 
@@ -323,6 +328,11 @@ public abstract class JComponent extends Container implements Serializable
   private InputMap inputMap_whenAncestorOfFocused;
   private InputMap inputMap_whenInFocusedWindow;
   private ActionMap actionMap;
+  /** @since 1.3 */
+  private boolean verifyInputWhenFocusTarget;
+  private InputVerifier inputVerifier;
+
+  private TransferHandler transferHandler;
 
   /** 
    * A lock held during recursive painting; this is used to serialize
@@ -379,10 +389,14 @@ public abstract class JComponent extends Container implements Serializable
   public static final int WHEN_IN_FOCUSED_WINDOW = 2;
 
 
+  /**
+   * Creates a new <code>JComponent</code> instance.
+   */
   public JComponent()
   {
     super();
     super.setLayout(new FlowLayout());
+    setDropTarget(new DropTarget());
     defaultLocale = Locale.getDefault();
     debugGraphicsOptions = DebugGraphics.NONE_OPTION;
   }
@@ -415,7 +429,7 @@ public abstract class JComponent extends Container implements Serializable
    * @see #getClientProperties
    * @see #putClientProperty
    */
-  public Object getClientProperty(Object key)
+  public final Object getClientProperty(Object key)
   {
     return getClientProperties().get(key);
   }
@@ -432,7 +446,7 @@ public abstract class JComponent extends Container implements Serializable
    * @see #getClientProperties
    * @see #getClientProperty
    */
-  public void putClientProperty(Object key, Object value)
+  public final void putClientProperty(Object key, Object value)
   {
     getClientProperties().put(key, value);
   }
@@ -611,8 +625,8 @@ public abstract class JComponent extends Container implements Serializable
                                  boolean newValue)
   {
     if (changeSupport != null)
-      changeSupport.firePropertyChange(propertyName, new Boolean(oldValue),
-                                       new Boolean(newValue));
+      changeSupport.firePropertyChange(propertyName, Boolean.valueOf(oldValue),
+                                       Boolean.valueOf(newValue));
   }
 
   /**
@@ -796,13 +810,15 @@ public abstract class JComponent extends Container implements Serializable
    * Set the value of the {@link #border} property, revalidate
    * and repaint this component.
    *   
-   * @param border The new value of the property
+   * @param newBorder The new value of the property
    *
    * @see #getBorder
    */
-  public void setBorder(Border border)
+  public void setBorder(Border newBorder)
   {
-    this.border = border;
+    Border oldBorder = border;
+    border = newBorder;
+    firePropertyChange("border", oldBorder, newBorder);
     revalidate();
     repaint();
   }
@@ -856,9 +872,10 @@ public abstract class JComponent extends Container implements Serializable
    */
   protected Graphics getComponentGraphics(Graphics g)
   {    
-    g.setFont(this.getFont());
-    g.setColor(this.getForeground());
-    return g;
+    Graphics g2 = g.create();
+    g2.setFont(this.getFont());
+    g2.setColor(this.getForeground());
+    return g2;
   }
 
 
@@ -1017,12 +1034,51 @@ public abstract class JComponent extends Container implements Serializable
   }
 
   /**
-   * Return the value of the {@link #nextFocusableComponent} property.
+   * Checks if a maximum size was explicitely set on the component.
+   *
+   * @return <code>true</code> if a maximum size was set,
+   * <code>false</code> otherwise
    * 
-   * @deprecated See {@link java.awt.FocusTraversalPolicy}
+   * @since 1.3
+   */
+  public boolean isMaximumSizeSet()
+  {
+    return maximumSize != null;
+  }
+
+  /**
+   * Checks if a minimum size was explicitely set on the component.
+   *
+   * @return <code>true</code> if a minimum size was set,
+   * <code>false</code> otherwise
+   * 
+   * @since 1.3
+   */
+  public boolean isMinimumSizeSet()
+  {
+    return minimumSize != null;
+  }
+
+  /**
+   * Checks if a preferred size was explicitely set on the component.
+   *
+   * @return <code>true</code> if a preferred size was set,
+   * <code>false</code> otherwise
+   * 
+   * @since 1.3
+   */
+  public boolean isPreferredSizeSet()
+  {
+    return preferredSize != null;
+  }
+  
+  /**
+   * Return the value of the {@link #nextFocusableComponent} property.
    *
    * @return The current value of the property, or <code>null</code>
    * if none has been set.
+   * 
+   * @deprecated See {@link java.awt.FocusTraversalPolicy}
    */
   public Component getNextFocusableComponent()
   {
@@ -1247,7 +1303,7 @@ public abstract class JComponent extends Container implements Serializable
   }
 
   /**
-   * Return <code>true<code> if you wish this component to manage its own
+   * Return <code>true</code> if you wish this component to manage its own
    * focus. In particular: if you want this component to be sent
    * <code>TAB</code> and <code>SHIFT+TAB</code> key events, and to not
    * have its children considered as focus transfer targets. If
@@ -1257,7 +1313,7 @@ public abstract class JComponent extends Container implements Serializable
    * @return <code>true</code> if you want this component to manage its own
    * focus, otherwise (by default) <code>false</code>
    *
-   * @deprecated Use {@link Component.setFocusTraversalKeys(int,Set)} and
+   * @deprecated 1.4 Use {@link Component.setFocusTraversalKeys(int,Set)} and
    * {@link Container.setFocusCycleRoot(boolean)} instead
    */
   public boolean isManagingFocus()
@@ -1485,7 +1541,23 @@ public abstract class JComponent extends Container implements Serializable
    */
   protected String paramString()
   {
-    return "JComponent";
+    StringBuffer sb = new StringBuffer();
+    sb.append(super.paramString());
+    sb.append(",alignmentX=").append(getAlignmentX());
+    sb.append(",alignmentY=").append(getAlignmentY());
+    sb.append(",border=");
+    if (getBorder() != null)
+      sb.append(getBorder());
+    sb.append(",maximumSize=");
+    if (getMaximumSize() != null)
+      sb.append(getMaximumSize());
+    sb.append(",minimumSize=");
+    if (getMinimumSize() != null)
+      sb.append(getMinimumSize());
+    sb.append(",preferredSize=");
+    if (getPreferredSize() != null)
+      sb.append(getPreferredSize());
+    return sb.toString();
   }
 
   /**
@@ -1641,9 +1713,6 @@ public abstract class JComponent extends Container implements Serializable
   }
 
   /**
-   * @deprecated As of 1.3 KeyStrokes can be registered with multiple
-   * simultaneous conditions.
-   *
    * Return the condition that determines whether a registered action
    * occurs in response to the specified keystroke.
    *
@@ -1652,6 +1721,9 @@ public abstract class JComponent extends Container implements Serializable
    * @return One of the values {@link #UNDEFINED_CONDITION}, {@link
    * #WHEN_ANCESTOR_OF_FOCUSED_COMPONENT}, {@link #WHEN_FOCUSED}, or {@link
    * #WHEN_IN_FOCUSED_WINDOW}
+   *
+   * @deprecated As of 1.3 KeyStrokes can be registered with multiple
+   * simultaneous conditions.
    *
    * @see #registerKeyboardAction   
    * @see #unregisterKeyboardAction   
@@ -1673,14 +1745,14 @@ public abstract class JComponent extends Container implements Serializable
   }
 
   /**
-   * @deprecated Use {@link #getActionMap()}
-   *
    * Get the ActionListener (typically an {@link Action} object) which is
    * associated with a particular keystroke. 
    *
    * @param aKeyStroke The keystroke to retrieve the action of
    *
    * @return The action associated with the specified keystroke
+   *
+   * @deprecated Use {@link #getActionMap()}
    */
   public ActionListener getActionForKeyStroke(KeyStroke ks)
   {
@@ -1907,11 +1979,13 @@ public abstract class JComponent extends Container implements Serializable
    * Set the value of the {@link #enabled} property, revalidate
    * and repaint this component.
    *
-   * @param e The new value of the property
+   * @param enable The new value of the property
    */
-  public void setEnabled(boolean e)
+  public void setEnabled(boolean enable)
   {
-    super.setEnabled(e);
+    boolean oldEnabled = isEnabled();
+    super.setEnabled(enable);
+    firePropertyChange("enabeld", oldEnabled, enable);
     revalidate();
     repaint();
   }
@@ -1963,7 +2037,9 @@ public abstract class JComponent extends Container implements Serializable
    */
   public void setMaximumSize(Dimension max)
   {
+    Dimension oldMaximumSize = maximumSize;
     maximumSize = max;
+    firePropertyChange("maximumSize", oldMaximumSize, maximumSize);
     revalidate();
     repaint();
   }
@@ -1976,7 +2052,9 @@ public abstract class JComponent extends Container implements Serializable
    */
   public void setMinimumSize(Dimension min)
   {
+    Dimension oldMinimumSize = minimumSize;
     minimumSize = min;
+    firePropertyChange("minimumSize", oldMinimumSize, minimumSize);
     revalidate();
     repaint();
   }
@@ -1989,7 +2067,9 @@ public abstract class JComponent extends Container implements Serializable
    */
   public void setPreferredSize(Dimension pref)
   {
+    Dimension oldPreferredSize = preferredSize;
     preferredSize = pref;
+    firePropertyChange("preferredSize", oldPreferredSize, preferredSize);
   }
 
   /**
@@ -2016,6 +2096,37 @@ public abstract class JComponent extends Container implements Serializable
   }
 
   /**
+   * Get the value of the {@link #transferHandler} property.
+   *
+   * @return The current value of the property
+   *
+   * @see ComponentUI#setTransferHandler
+   */
+
+  public TransferHandler getTransferHandler()
+  {
+    return transferHandler;
+  }
+
+  /**
+   * Set the value of the {@link #transferHandler} property.
+   *
+   * @param newHandler The new value of the property
+   *
+   * @see ComponentUI#getTransferHandler
+   */
+
+  public void setTransferHandler(TransferHandler newHandler)
+  {
+    if (transferHandler == newHandler)
+      return;
+
+    TransferHandler oldHandler = transferHandler;
+    transferHandler = newHandler;
+    firePropertyChange("transferHandler", oldHandler, newHandler);
+  }
+
+  /**
    * Set the value of the {@link #opaque} property, revalidate and repaint
    * this component.
    *
@@ -2025,7 +2136,9 @@ public abstract class JComponent extends Container implements Serializable
    */
   public void setOpaque(boolean isOpaque)
   {
+    boolean oldOpaque = opaque;
     opaque = isOpaque;
+    firePropertyChange("opaque", oldOpaque, opaque);
     revalidate();
     repaint();
   }
@@ -2118,5 +2231,49 @@ public abstract class JComponent extends Container implements Serializable
   public static void setDefaultLocale(Locale l)
   {
     defaultLocale = l;
+  }
+  
+  /**
+   * Returns the currently set input verifier for this component.
+   *
+   * @return the input verifier, or <code>null</code> if none
+   */
+  public InputVerifier getInputVerifier()
+  {
+    return inputVerifier;
+  }
+
+  /**
+   * Sets the input verifier to use by this component.
+   *
+   * @param verifier the input verifier, or <code>null</code>
+   */
+  public void setInputVerifier(InputVerifier verifier)
+  {
+    InputVerifier oldVerifier = inputVerifier;
+    inputVerifier = verifier;
+    firePropertyChange("inputVerifier", oldVerifier, verifier);
+  }
+
+  /**
+   * @since 1.3
+   */
+  public boolean getVerifyInputWhenFocusTarget()
+  {
+    return verifyInputWhenFocusTarget;
+  }
+
+  /**
+   * @since 1.3
+   */
+  public void setVerifyInputWhenFocusTarget(boolean verifyInputWhenFocusTarget)
+  {
+    if (this.verifyInputWhenFocusTarget == verifyInputWhenFocusTarget)
+      return;
+
+    this.verifyInputWhenFocusTarget = verifyInputWhenFocusTarget;
+    firePropertyChange("verifyInputWhenFocusTarget",
+		       ! verifyInputWhenFocusTarget,
+		       verifyInputWhenFocusTarget);
   }
 }

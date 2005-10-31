@@ -79,11 +79,11 @@ doloop_condition_get (rtx pattern)
   /* The canonical doloop pattern we expect is:
 
      (parallel [(set (pc) (if_then_else (condition)
-					(label_ref (label))
-					(pc)))
-		(set (reg) (plus (reg) (const_int -1)))
-		(additional clobbers and uses)])
-     
+                                        (label_ref (label))
+                                        (pc)))
+                (set (reg) (plus (reg) (const_int -1)))
+                (additional clobbers and uses)])
+
      Some machines (IA-64) make the decrement conditional on
      the condition as well, so we don't bother verifying the
      actual decrement.  In summary, the branch must be the
@@ -105,8 +105,8 @@ doloop_condition_get (rtx pattern)
   reg = SET_DEST (inc);
 
   /* Check for (set (pc) (if_then_else (condition)
-				       (label_ref (label))
-				       (pc))).  */
+                                       (label_ref (label))
+                                       (pc))).  */
   if (GET_CODE (cmp) != SET
       || SET_DEST (cmp) != pc_rtx
       || GET_CODE (SET_SRC (cmp)) != IF_THEN_ELSE

@@ -167,17 +167,15 @@ $etBuffer = pop @errorTableSplit or die "$0: Expected error_table in '$etFile'\n
 #
 # Remove the first "end" and everything after it.
 #
-my @endSplit = split /\n\s*(end)\s*\n/, $etBuffer;
+my @endSplit = split /\s*(end)\s*\n/, $etBuffer;
 $etBuffer = shift @endSplit or die "$0: Unexpected end of file '$etFile'\n";
 
-# Convert runs of white space (including newlines) into single spaces
-$etBuffer = " " . $etBuffer . " ";  # prepare for \s+ in split below
-$etBuffer =~ tr! \t\n\r! !s;
+$etBuffer = "\n" . $etBuffer . " ";  # prepare for \n in split below
 
 #
 # Get the error codes:  
 #
-my @errorCodes = split /\s+(error_code|ec|index)\s+/, $etBuffer;
+my @errorCodes = split /\n\s*(error_code|ec|index)\s+/, $etBuffer;
 
 #
 # Create the output files:
@@ -223,6 +221,7 @@ for ($i = 0; $i < scalar(@errorCodes); $i++) {
     my $errorCode = $errorCodes[$i];
     if ($errorCode eq "error_code" || $errorCode eq "ec") {
         my $arguments = $errorCodes[$i+1];
+        $arguments =~ s/\s*\n\s*/ /g;  # get rid of newlines
         if ($arguments =~ /^\s*(\w+)\s*,\s*"([^"]*)"\s*$/) {
             my $errorNameString = $1;
             my $messageString = $2;
@@ -244,6 +243,7 @@ for ($i = 0; $i < scalar(@errorCodes); $i++) {
         }
     } elsif ($errorCode eq "index") {
         my $arguments = $errorCodes[$i+1];
+        $arguments =~ s/\s*\n\s*/ /g;  # get rid of newlines
         if ($arguments =~ /^\s*([0-9]+)\s*$/) {
             while ($errorCount < $1) {
                 # Skip these offsets in text structure:

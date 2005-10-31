@@ -41,7 +41,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\" 
-.\" $Id: imapd.conf.5,v 1.5 2004/12/17 22:14:18 dasenbro Exp $
+.\" $Id: imapd.conf.5,v 1.6 2005/06/17 20:16:29 dasenbro Exp $
 .SH NAME
 imapd.conf \- IMAP configuration file
 .SH DESCRIPTION
@@ -683,6 +683,37 @@ slow)
 Use the UNIX separator character '/' for delimiting levels of
 mailbox hierarchy.  The default is to use the netnews separator
 character '.'. 
+.IP "\fBapple_auth:\fR 1" 5
+Use apple authentication methods. 
+.IP "\fBpop_auth_clear:\fR 1" 5
+Allow POP3 clear text authentication. 
+.IP "\fBpop_auth_apop:\fR 0" 5
+Allow APOP authentication. 
+.IP "\fBpop_auth_gssapi:\fR 0" 5
+Allow APOP authentication. 
+.IP "\fBimap_auth_clear:\fR 1" 5
+Allow IMAP clear text authentication. 
+.IP "\fBimap_auth_plain:\fR 0" 5
+Allow IMAP PLAIN authentication. 
+.IP "\fBimap_auth_login:\fR 0" 5
+Allow IMAP LOGIN authentication. 
+.IP "\fBimap_auth_cram_md5:\fR 0" 5
+Allow IMAP CRAM-MD5 authentication. 
+.IP "\fBimap_auth_gssapi:\fR 0" 5
+Allow IMAP GSSAPI authentication. 
+.IP "\fBenable_quota_warnings:\fR 0" 5
+Allow for sending of over quota warnings. 
+.IP "\fBquota_custom_warning_path:\fR /etc/mail/quota_warning.txt" 5
+Use the text from this message as custom quota warning. 
+.IP "\fBquota_enforce_restrictions:\fR 0" 5
+Temporarily reject new mail delivery while user is over quota. 
+.IP "\fBquota_custom_error_path:\fR /etc/mail/quota_exceeded.txt" 5
+Use the text from this message as custom quota error. 
+.IP "\fBquot_max_custom_message_size:\fR 2048" 5
+Maximum custom message size. 
+.IP "\fBlmtp_luser_relay:\fR <none>" 5
+Send mail to mailboxes, which do not exists, to this user. NOTE: This must
+be an existing local mailbox name. NOT an email address! 
 .IP "\fBvirtdomains:\fR off" 5
 Enable virtual domain support.  If enabled, the user's domain will
 be determined by splitting a fully qualified userid at the last '@'

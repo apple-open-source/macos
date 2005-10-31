@@ -18,8 +18,8 @@ void macosx_debug_inferior_status (struct macosx_inferior_status *s);
 void macosx_debug_message (mach_msg_header_t * msg);
 void macosx_debug_notification_message (struct macosx_inferior_status *inferior,
                                         mach_msg_header_t * msg);
-void macosx_debug_region (task_t task, vm_address_t address);
-void macosx_debug_regions (task_t task, vm_address_t address, int max);
+void macosx_debug_region (task_t task, mach_vm_address_t address);
+void macosx_debug_regions (task_t task, mach_vm_address_t address, int max);
 
 const char *unparse_exception_type (unsigned int i);
 const char *unparse_protection (vm_prot_t p);

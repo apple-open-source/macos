@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,7 +57,7 @@ import java.util.Map;
  * <a href="http://daringfireball.net/projects/markdown/">John Gruber's Markdown site</a>.
  *
  * @author David Czarnecki
- * @version $Id: MarkdownPlugin.java,v 1.2 2004/08/27 01:06:38 whitmore Exp $
+ * @version $Id: MarkdownPlugin.java,v 1.2.2.1 2005/07/21 04:30:33 johnan Exp $
  * @since blojsom 2.14
  */
 public class MarkdownPlugin implements BlojsomPlugin, BlojsomConstants {
@@ -113,12 +113,11 @@ public class MarkdownPlugin implements BlojsomPlugin, BlojsomConstants {
         if (!BlojsomUtils.checkNullOrBlank(_markdownExecution)) {
             for (int i = 0; i < entries.length; i++) {
                 BlogEntry entry = entries[i];
-                String markdownExecution = user.getBlog().getBlogProperty(PLUGIN_MARKDOWN_EXECUTION_IP);
 
-                if ((entry.getPermalink().endsWith(MARKDOWN_EXTENSION) || BlojsomUtils.checkMapForKey(entry.getMetaData(), METADATA_RUN_MARKDOWN)) && !BlojsomUtils.checkNullOrBlank(markdownExecution)) {
+                if ((entry.getPermalink().endsWith(MARKDOWN_EXTENSION) || BlojsomUtils.checkMapForKey(entry.getMetaData(), METADATA_RUN_MARKDOWN))) {
                     _logger.debug("Markdown processing: " + entry.getTitle());
                     try {
-                        Process process = Runtime.getRuntime().exec(markdownExecution);
+                        Process process = Runtime.getRuntime().exec(_markdownExecution);
                         BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), UTF8));
                         BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream(), UTF8));
                         bw.write(entry.getDescription());

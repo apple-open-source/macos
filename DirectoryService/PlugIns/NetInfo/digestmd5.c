@@ -3,7 +3,7 @@
  * Rob Siemborski
  * Tim Martin
  * Alexey Melnikov 
- * $Id: digestmd5.c,v 1.3 2004/11/12 00:25:13 snsimon Exp $
+ * $Id: digestmd5.c,v 1.3.144.1 2005/08/19 17:58:33 kwitzke Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -50,7 +50,7 @@
 #include "digestmd5.h"
 
 #define bool int
-static const unsigned char *COLON = ":";
+static const unsigned char *COLON = (unsigned char*)":";
 #if 0
 static const char *SEALING_CLIENT_SERVER="Digest H(A1) to client-to-server sealing key magic constant";
 static const char *SEALING_SERVER_CLIENT="Digest H(A1) to server-to-client sealing key magic constant";
@@ -1003,7 +1003,7 @@ create_MD5_response(digest_context_t * text,
     if (qop == NULL)
 		qop = "auth";
     
-	CvtHex(Secret, SessionKey);
+	CvtHex((unsigned char*)Secret, SessionKey);
 	//utils->seterror(utils->conn, 0, "HA1 = %s", SessionKey);
 	
 	DigestCalcOldResponse(
@@ -1011,7 +1011,7 @@ create_MD5_response(digest_context_t * text,
 		       nonce,	/* nonce from server */
 		       cnonce,	/* client nonce */
 		       (unsigned char *) digesturi,	/* requested URL */
-		       (unsigned char *) method ? method : "GET",	/* OPTIONS, PROPFIND, GET */
+		       (unsigned char *) method ? (unsigned char *)method : (unsigned char *)"GET",	/* OPTIONS, PROPFIND, GET */
 		       HEntity,	/* H(entity body) if qop="auth-int" */
 		       Response	/* request-digest or response-digest */
     );
@@ -1076,7 +1076,7 @@ create_response(digest_context_t * text,
 		       (unsigned char *) qop,	/* qop-value: "", "auth",
 						 * "auth-int" */
 		       (unsigned char *) digesturi,	/* requested URL */
-		       (unsigned char *) method ? method : "AUTHENTICATE",
+		       (unsigned char *) method ? (unsigned char *)method : (unsigned char *)"AUTHENTICATE",
 		       HEntity,	/* H(entity body) if qop="auth-int" */
 		       Response	/* request-digest or response-digest */
 	);
@@ -1242,7 +1242,7 @@ digest_server_parse(
 		{
 			get_pair(&tptr, &name, &value);
 			if ( value != NULL ) {
-				outContext->global->nonce = strdup(value);
+				outContext->global->nonce = (unsigned char*)strdup(value);
 				outContext->global->nonce_count++;
 			}
 		}
@@ -1363,13 +1363,13 @@ digest_server_parse(
 		}
 		else if (strcasecmp(name, "cnonce") == 0)
 		{
-			if (outContext->global->cnonce && (strcmp(value, outContext->global->cnonce) != 0)) {
+			if (outContext->global->cnonce && (strcmp(value, (char *)outContext->global->cnonce) != 0)) {
 				//SETERROR(sparams->utils, "cnonce changed: authentication aborted");
 				result = SASL_FAIL;
 				break;
 			}
 			
-			outContext->cnonce = strdup(value);
+			outContext->cnonce = (unsigned char*)strdup(value);
 		}
 		else if (strcasecmp(name, "nc") == 0)
 		{
@@ -1579,7 +1579,7 @@ digest_verify(digest_context_t *inContext,
 	}
 	
 	sec->len = inPasswordLength;
-	strncpy(sec->data, inPassword, inPasswordLength + 1); 
+	strncpy((char *)sec->data, inPassword, inPasswordLength + 1); 
 	
 	/*
 	 * Verifying response obtained from client
@@ -1592,7 +1592,7 @@ digest_verify(digest_context_t *inContext,
 	{
 	    HASH HA1;
 	    
-	    DigestCalcSecret(inContext->username, inContext->global->realm, sec->data, sec->len, HA1);
+	    DigestCalcSecret((unsigned char *)inContext->username, (unsigned char *)inContext->global->realm, sec->data, sec->len, HA1);
 	    
 	    /*
 	     * A1 = { H( { username-value, ":", realm-value, ":", passwd } ),
@@ -1611,7 +1611,7 @@ digest_verify(digest_context_t *inContext,
 						inContext->cnonce,
 						inContext->qop,
 						inContext->digesturi,
-						A1,
+						(char *)A1,
 						inContext->authorization_id,
 						inContext->global->method,
 						&inContext->response_value);
@@ -1690,7 +1690,7 @@ digest_verify(digest_context_t *inContext,
 			free( inContext->out_buf );
 			inContext->out_buf = NULL;
 		}
-		inContext->out_buf = (unsigned char *) malloc( resplen );
+		inContext->out_buf = malloc( resplen );
 		if ( inContext->out_buf == NULL ) {
 			goto FreeAllMem;
 		}

@@ -1,2 +1,0 @@
->>> Groupby with selection
-<<< done.

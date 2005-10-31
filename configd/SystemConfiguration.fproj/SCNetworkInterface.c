@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -593,7 +593,9 @@ IOCopyCFStringValue(CFTypeRef ioVal)
 	}
 
 	if (isA_CFData(ioVal)) {
-		return CFStringCreateWithCString(NULL, CFDataGetBytePtr(ioVal), kCFStringEncodingUTF8);
+		return CFStringCreateWithCString(NULL,
+						 (const char *)CFDataGetBytePtr(ioVal),
+						 kCFStringEncodingUTF8);
 	}
 
 	return NULL;
@@ -733,7 +735,9 @@ pci_slot(io_registry_entry_t interface, CFTypeRef *pci_slot_name)
 					CFStringAppend(name, slot_name);
 				} else if (isA_CFData(slot_name)) {
 					if (pci_slot_name != NULL) *pci_slot_name = CFDataCreateCopy(NULL, slot_name);
-					CFStringAppendCString(name, CFDataGetBytePtr(slot_name), kCFStringEncodingUTF8);
+					CFStringAppendCString(name,
+							      (const char *)CFDataGetBytePtr(slot_name),
+							      kCFStringEncodingUTF8);
 				}
 
 				(void) CFStringFindAndReplace(name,

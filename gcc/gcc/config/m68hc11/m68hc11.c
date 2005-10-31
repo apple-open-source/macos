@@ -1,5 +1,5 @@
 /* Subroutines for code generation on Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
@@ -386,8 +386,6 @@ m68hc11_conditional_register_usage (void)
 
 
 /* Reload and register operations.  */
-
-static const char *const reg_class_names[] = REG_CLASS_NAMES;
 
 
 void
@@ -1311,7 +1309,7 @@ m68hc11_handle_page0_attribute (tree *node, tree name,
     }
   else
     {
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -1347,7 +1345,7 @@ m68hc11_handle_fntype_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -1432,13 +1430,13 @@ m68hc11_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
   trap_handler = lookup_attribute ("trap", func_attr) != NULL_TREE;
   if (trap_handler && is_far)
     {
-      warning ("`trap' and `far' attributes are not compatible, ignoring `far'");
+      warning ("%<trap%> and %<far%> attributes are not compatible, ignoring %<far%>");
       trap_handler = 0;
     }
   if (trap_handler)
     {
       if (trap_handler_symbol != 0)
-        warning ("`trap' attribute is already used");
+        warning ("%<trap%> attribute is already used");
       else
         trap_handler_symbol = XEXP (rtl, 0);
     }

@@ -30,6 +30,8 @@
 #include "macosx-nat-sigthread.h"
 #include "macosx-nat-threads.h"
 #include "macosx-xdep.h"
+/* classic-inferior-support */
+#include "macosx-nat.h"
 #include "macosx-nat-inferior-util.h"
 #include "macosx-nat-dyld-process.h"
 
@@ -104,7 +106,7 @@ int inferior_handle_all_events_flag = 1;
 struct target_ops macosx_child_ops;
 struct target_ops macosx_exec_ops;
 
-/* From inftarg.c */
+/* From inftarg.c, needed by classic-inferior-support */
 extern void init_child_ops (void);
 extern void init_exec_ops (void);
 
@@ -893,7 +895,7 @@ char **
 macosx_process_completer_quoted (char *text, char *word, int quote)
 {
   struct kinfo_proc *proc = NULL;
-  size_t count, i;
+  size_t count, i, found = 0;
 
   char **procnames = NULL;
   char **ret = NULL;
@@ -910,20 +912,23 @@ macosx_process_completer_quoted (char *text, char *word, int quote)
 
   for (i = 0; i < count; i++)
     {
+      /* classic-inferior-support */
+      if (!can_attach (proc[i].kp_proc.p_pid))
+        continue;
       char *temp =
         (char *) xmalloc (strlen (proc[i].kp_proc.p_comm) + 1 + 16);
       sprintf (temp, "%s.%d", proc[i].kp_proc.p_comm, proc[i].kp_proc.p_pid);
-      procnames[i] = (char *) xmalloc (strlen (temp) * 2 + 2 + 1);
+      procnames[found] = (char *) xmalloc (strlen (temp) * 2 + 2 + 1);
       if (quote)
         {
           if (quoted)
             {
-              sprintf (procnames[i], "\"%s\"", temp);
+              sprintf (procnames[found], "\"%s\"", temp);
             }
           else
             {
               char *s = temp;
-              char *t = procnames[i];
+              char *t = procnames[found];
               while (*s != '\0')
                 {
                   if (strchr ("\" ", *s) != NULL)
@@ -941,10 +946,11 @@ macosx_process_completer_quoted (char *text, char *word, int quote)
         }
       else
         {
-          sprintf (procnames[i], "%s", temp);
+          sprintf (procnames[found], "%s", temp);
         }
+      found++;
     }
-  procnames[i] = NULL;
+  procnames[found] = NULL;
 
   ret = complete_on_enum ((const char **) procnames, text, word);
 
@@ -1193,6 +1199,17 @@ macosx_child_attach (char *args, int from_tty)
     printf_filtered ("Attaching to %s.\n",
                      target_pid_to_str (pid_to_ptid (pid)));
 
+  /* classic-inferior-support
+     A bit of a hack:  Despite being in the middle of macosx_child_attach(), 
+     if we're about to attach to a classic process we're going to use an
+     entirely different attach procedure and skip out of here.  */
+
+  if (attaching_to_classic_process_p (pid))
+    {
+      attach_to_classic_process (pid);
+      return;
+    }
+  
   macosx_create_inferior_for_task (macosx_status, itask, pid);
 
   macosx_exception_thread_create (&macosx_status->exception_status,
@@ -1566,23 +1583,8 @@ macosx_child_thread_alive (ptid_t ptid)
 }
 
 void
-update_command (char *args, int from_tty)
-{
-  registers_changed ();
-  reinit_frame_cache ();
-}
-
-void
-stack_flush_command (char *args, int from_tty)
-{
-  reinit_frame_cache ();
-  if (from_tty)
-    printf_filtered ("Stack cache flushed.\n");
-}
-
-void
-  macosx_create_inferior_for_task
-  (struct macosx_inferior_status *inferior, task_t task, int pid)
+macosx_create_inferior_for_task (struct macosx_inferior_status *inferior, 
+                                 task_t task, int pid)
 {
   CHECK_FATAL (inferior != NULL);
 
@@ -2174,6 +2176,7 @@ macosx_check_safe_call ()
                   ui_out_text (uiout, "Unsafe to call functions: ");
                   ui_out_field_fmt (uiout, "reason", "function: %s on stack",
                                     unsafe_functions[i]);
+		  ui_out_text (uiout, "\n");
                   return 0;
                 }
             }
@@ -2316,12 +2319,4 @@ _initialize_macosx_inferior ()
                      &setlist);
   add_show_from_set (cmd, &showlist);
 #endif /* WITH_CFM */
-
-  add_com ("flushstack", class_maintenance, stack_flush_command,
-           "Force gdb to flush its stack-frame cache (maintainer command)");
-
-  add_com_alias ("flush", "flushregs", class_maintenance, 1);
-
-  add_com ("update", class_obscure, update_command,
-           "Re-read current state information from inferior.");
 }

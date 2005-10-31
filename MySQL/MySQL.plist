@@ -4,17 +4,15 @@
         <key>OpenSourceProject</key>
         <string>MySQL</string>
         <key>OpenSourceVersion</key>
-        <string>4.1.10a</string>
+        <string>4.1.13a</string>
         <key>OpenSourceURL</key>
-        <string>http://mysql.he.net/Downloads/MySQL-4.1/mysql-4.1.10a.tar.gz</string>
+        <string>http://mysql.he.net/Downloads/MySQL-4.1/mysql-4.1.13a.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>11537960595291bc4e7ccac5fabc9e4bebcd28da</string>
+        <string>77c5c5dd418235dc82a2e0c120dc695d97dc6a8e</string>
         <key>OpenSourceImportDate</key>
-        <string>2005-03-19</string>
+        <string>2005-08-15</string>
         <key>OpenSourceModifications</key>
-        <array>
-		<string>Patch config.h.in to force big-endian in fat build</string>
-	</array>
+        <array/>
         <key>OpenSourceLicense</key>
         <string>GPL</string>
         <key>OpenSourceLicenseFile</key>

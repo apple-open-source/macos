@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+
+# This file, along with the GNUmakefile, works around a verification
+# error caused by a UFS bug (stripping a multi-link file breaks the link, and
+# sometimes causes the wrong file to be stripped/unstripped).  By using this
+# "strip" perl script, it not only causes the correct file to be stripped, but
+# also preserves the link.
+
+use strict;
+use File::Basename ();
+use File::stat ();
+use File::Temp ();
+use Getopt::Long ();
+use POSIX ();
+
+my %argtype = (
+    A => '',
+    R => '=s',
+    S => '',
+    X => '',
+    c => '',
+    d => '=s',
+    i => '',
+    n => '',
+    o => '=s',
+    r => '',
+    s => '=s',
+    u => '',
+    x => '',
+);
+my $cp = 'cp';
+my $MyName = File::Basename::basename($0);
+my $strip = '/usr/bin/strip';
+
+my %args;
+Getopt::Long::Configure(qw(no_permute bundling_override no_ignore_case));
+Getopt::Long::GetOptions(\%args, map {"$_$argtype{$_}"} keys(%argtype));
+
+shift(@ARGV) if $ARGV[0] eq '-';
+exec($strip) unless scalar(@ARGV) > 0;
+
+my $st;
+foreach my $f (@ARGV) {
+    if(defined($st = File::stat::stat($f)) && POSIX::S_ISREG($st->mode)
+      && $st->nlink > 1) {
+	my $tmp = File::Temp->new(TEMPLATE => 'stripXXXXXX', DIR => '/var/tmp');
+	die "$MyName: Can't create temp file\n" unless defined($tmp);
+	system($cp, $f, $tmp->filename) == 0 or exit($?);
+	system($strip,
+	  (map {$argtype{$_} eq '' ? "-$_" : ("-$_", $args{$_})} keys(%args)),
+	  $tmp->filename
+	) == 0 or exit($?);
+	system($cp, $tmp->filename, $f) == 0 or exit($?);
+    } else {
+	system($strip,
+	  (map {$argtype{$_} eq '' ? "-$_" : ("-$_", $args{$_})} keys(%args)),
+	  $f
+	) == 0 or exit($?);
+    }
+}

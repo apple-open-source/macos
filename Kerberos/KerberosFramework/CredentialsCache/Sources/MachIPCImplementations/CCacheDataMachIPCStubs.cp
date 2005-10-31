@@ -1,7 +1,7 @@
 /*
  * CCICCacheDataMachIPCStubs.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CCacheDataMachIPCStubs.cp,v 1.14 2004/09/08 20:48:30 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CCacheDataMachIPCStubs.cp,v 1.15 2005/05/25 20:23:00 lxs Exp $
  */
 
 #include "FlattenCredentials.h"
@@ -91,17 +91,12 @@ CCICCacheDataMachIPCStub::StoreConvertedCredentials (
 	const cc_credentials_union*		inCredentials) {
 
         CCIResult			result;
-        security_token_t	token;
         std::strstream		flatCredentials;
         
         WriteCredentials (flatCredentials, *inCredentials);
         //dprintf ("%s(): sending buffer:", __FUNCTION__);
         //dprintmem (flatCredentials.str (), flatCredentials.pcount ());
-        kern_return_t err = CCacheIPC_StoreCredentials (GetPort (), GetCCacheID ().object, flatCredentials.str (), flatCredentials.pcount (), &result, &token);
-        if (!mach_client_allow_server (token)) {
-            /* Warning!  This server is not who we think it is! */
-            result = ccErrServerInsecure;
-        }
+        kern_return_t err = CCacheIPC_StoreCredentials (GetPort (), GetCCacheID ().object, flatCredentials.str (), flatCredentials.pcount (), &result);
         flatCredentials.freeze (false);	// Makes sure the buffer will be deallocated
         ThrowIfIPCError_ (err, result);
 }
@@ -111,16 +106,11 @@ CCICCacheDataMachIPCStub::StoreFlattenedCredentials (
 	std::strstream&		inCredentials) {
 
         CCIResult			result;
-        security_token_t	token;
         
         //dprintf ("%s(): sending buffer:", __FUNCTION__);
         //dprintmem (inCredentials.str (), inCredentials.pcount ());
         
-        kern_return_t err = CCacheIPC_StoreCredentials (GetPort (), GetCCacheID ().object, inCredentials.str (), inCredentials.pcount (), &result, &token);
-        if (!mach_client_allow_server (token)) {
-            /* Warning!  This server is not who we think it is! */
-            result = ccErrServerInsecure;
-        }
+        kern_return_t err = CCacheIPC_StoreCredentials (GetPort (), GetCCacheID ().object, inCredentials.str (), inCredentials.pcount (), &result);
         ThrowIfIPCError_ (err, result);
 }
 	
@@ -130,18 +120,13 @@ CCICCacheDataMachIPCStub::CompatStoreConvertedCredentials (
 	const cred_union&		inCredentials) {
 
         CCIResult			result;
-        security_token_t	token;
         std::strstream		flatCredentials;
 
         WriteCompatCredentials (flatCredentials, inCredentials);
         //dprintf ("%s(): sending buffer:", __FUNCTION__);
         //dprintmem (flatCredentials.str (), flatCredentials.pcount ());
 
-        kern_return_t err = CCacheIPC_StoreCredentials (GetPort (), GetCCacheID ().object, flatCredentials.str (), flatCredentials.pcount (), &result, &token);
-        if (!mach_client_allow_server (token)) {
-            /* Warning!  This server is not who we think it is! */
-            result = ccErrServerInsecure;
-        }
+        kern_return_t err = CCacheIPC_StoreCredentials (GetPort (), GetCCacheID ().object, flatCredentials.str (), flatCredentials.pcount (), &result);
         flatCredentials.freeze (false);	// Makes sure the buffer will be deallocated
         ThrowIfIPCError_ (err, result);
 }

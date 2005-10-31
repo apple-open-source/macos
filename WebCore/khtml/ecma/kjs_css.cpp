@@ -96,7 +96,7 @@ DOMCSSStyleDeclaration::~DOMCSSStyleDeclaration()
   ScriptInterpreter::forgetDOMObject(styleDecl.handle());
 }
 
-bool DOMCSSStyleDeclaration::hasProperty(ExecState *exec, const Identifier &p) const
+bool DOMCSSStyleDeclaration::hasOwnProperty(ExecState *exec, const Identifier &p) const
 {
   if (p == "cssText")
     return true;
@@ -105,7 +105,7 @@ bool DOMCSSStyleDeclaration::hasProperty(ExecState *exec, const Identifier &p) c
   if (DOM::getPropertyID(prop.ascii(), prop.length()))
       return true;
 
-  return ObjectImp::hasProperty(exec, p);
+  return ObjectImp::hasOwnProperty(exec, p);
 }
 
 Value DOMCSSStyleDeclaration::tryGet(ExecState *exec, const Identifier &propertyName) const
@@ -862,9 +862,13 @@ Value CSSRuleConstructor::getValueProperty(ExecState *, int token) const
   return Value();
 }
 
-Value KJS::getCSSRuleConstructor(ExecState *exec)
+namespace KJS {
+
+Value getCSSRuleConstructor(ExecState *exec)
 {
   return cacheGlobalObject<CSSRuleConstructor>( exec, "[[cssRule.constructor]]" );
+}
+
 }
 
 // -------------------------------------------------------------------------
@@ -950,7 +954,7 @@ Value CSSValueConstructor::getValueProperty(ExecState *, int token) const
   return Value();
 }
 
-Value KJS::getCSSValueConstructor(ExecState *exec)
+Value getCSSValueConstructor(ExecState *exec)
 {
   return cacheGlobalObject<CSSValueConstructor>( exec, "[[cssValue.constructor]]" );
 }
@@ -1065,7 +1069,7 @@ Value CSSPrimitiveValueConstructor::getValueProperty(ExecState *, int token) con
   return Number(token);
 }
 
-Value KJS::getCSSPrimitiveValueConstructor(ExecState *exec)
+Value getCSSPrimitiveValueConstructor(ExecState *exec)
 {
   return cacheGlobalObject<CSSPrimitiveValueConstructor>( exec, "[[cssPrimitiveValue.constructor]]" );
 }

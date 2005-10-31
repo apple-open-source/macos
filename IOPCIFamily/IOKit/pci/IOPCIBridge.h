@@ -51,14 +51,16 @@ private:
     static void initialize(void);
     IORegistryEntry * findMatching( OSIterator * in, IOPCIAddressSpace space );
     virtual bool isDTNub( IOPCIDevice * nub );
-    static void nvLocation( IORegistryEntry * entry,
-	UInt8 * busNum, UInt8 * deviceNum, UInt8 * functionNum );
     bool checkProperties( IOPCIDevice * entry );
     bool checkCardBusNumbering(OSArray * children);
     void checkCardBusResources( const OSArray * nubs,
                                 UInt32 * yentaIndices, UInt32 yentaCount );
 
 protected:
+    static void nvLocation( IORegistryEntry * entry,
+			    UInt8 * busNum, UInt8 * deviceNum, UInt8 * functionNum );
+    static SInt32 compareAddressCell( UInt32 cellCount, UInt32 cleft[], UInt32 cright[] );
+
     IORangeAllocator *	bridgeMemoryRanges;
     IORangeAllocator *	bridgeIORanges;
 

@@ -150,6 +150,7 @@ bool SecurityServerEnvironment::getSecret(CssmOwnedData &secret, const CssmData 
 	//@@@ ignoring prompt - not used right now
 	if (database) {
 		QueryPIN query(*database);
+		query.inferHints(Server::process());
 		if (!query()) {	// success
 			secret = query.pin();
 			return true;

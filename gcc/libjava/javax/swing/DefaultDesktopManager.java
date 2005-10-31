@@ -1,5 +1,5 @@
 /* DefaultDesktopManager.java --
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,21 +35,18 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.beans.PropertyVetoException;
 import java.io.Serializable;
-import javax.swing.JDesktopPane;
-import javax.swing.JInternalFrame;
-import javax.swing.JInternalFrame.JDesktopIcon;
 
+import javax.swing.JInternalFrame.JDesktopIcon;
 
 /**
  * DefaultDesktopManager is the default implementation of DesktopManager for
@@ -60,7 +57,7 @@ import javax.swing.JInternalFrame.JDesktopIcon;
 public class DefaultDesktopManager implements DesktopManager, Serializable
 {
   /** DOCUMENT ME! */
-  static final long serialVersionUID = 4657624909838017887L;
+  private static final long serialVersionUID = 4657624909838017887L;
 
   /** The property change event fired when the wasIcon property changes. */
   static final String WAS_ICON_ONCE_PROPERTY = "wasIconOnce";
@@ -84,7 +81,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
   private transient Container pane;
 
   /**
-   * An array of Rectangles that holds the bounds of the JDesktopIcons in the 
+   * An array of Rectangles that holds the bounds of the JDesktopIcons in the
    * JDesktopPane when looking for where to place a new icon.
    */
   private transient Rectangle[] iconRects;
@@ -94,7 +91,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
    */
   public DefaultDesktopManager()
   {
-  } // DefaultDesktopManager()
+  }
 
   /**
    * This method is not normally called since the user will typically add the
@@ -115,7 +112,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
     c.remove(frame.getDesktopIcon());
     c.add(frame);
     frame.setVisible(true);
-  } // openFrame()
+  }
 
   /**
    * This method removes the JInternalFrame and JDesktopIcon (if one is
@@ -136,7 +133,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
 	  c.remove(frame);
 	c.repaint();
       }
-  } // closeFrame()
+  }
 
   /**
    * This method resizes the JInternalFrame to match its parent's bounds.
@@ -175,7 +172,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
 	    // Do nothing.
 	  }
       }
-  } // maximizeFrame()
+  }
 
   /**
    * This method restores the JInternalFrame's bounds to what they were
@@ -204,7 +201,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
 
     setBoundsForFrame(frame, normalBounds.x, normalBounds.y,
                       normalBounds.width, normalBounds.height);
-  } // minimizeFrame()
+  }
 
   /**
    * This method removes the JInternalFrame from its parent and adds its
@@ -235,7 +232,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
       {
 	Rectangle r = getBoundsForIconOf(frame);
 	icon.setBounds(r);
-	setWasIcon(frame, true);
+	setWasIcon(frame, Boolean.TRUE);
       }
 
     if (c != null)
@@ -247,7 +244,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
 	  }
 	c.remove(frame);
       }
-  } // iconifyFrame()
+  }
 
   /**
    * This method removes the JInternalFrame's JDesktopIcon representation and
@@ -283,7 +280,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
       }
 
     c.invalidate();
-  } // deiconifyFrame()
+  }
 
   /**
    * This method activates the JInternalFrame by moving it to the front and
@@ -309,7 +306,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
       }
 
     frame.toFront();
-  } // activateFrame()
+  }
 
   /**
    * This method is called when the JInternalFrame loses focus.
@@ -334,7 +331,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
 	  {
 	  }
       }
-  } // deactivateFrame()
+  }
 
   /**
    * This method is called to indicate that the DesktopManager should prepare
@@ -358,7 +355,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
       currentDragMode = JDesktopPane.LIVE_DRAG_MODE;
     else
       currentDragMode = ((JDesktopPane) pane).getDragMode();
-  } // beginDraggingFrame()
+  }
 
   /**
    * This method is called to drag the JInternalFrame to a new location.
@@ -382,7 +379,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
 	  setBoundsForFrame((JInternalFrame) component, newX, newY, b.width,
 	                    b.height);
       }
-  } // dragFrame()
+  }
 
   /**
    * This method indicates that the dragging is done. Any state information
@@ -400,7 +397,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
 	dragCache = null;
       }
     component.repaint();
-  } // endDraggingFrame()
+  }
 
   /**
    * This method is called to indicate that the given JComponent will be
@@ -421,7 +418,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
       currentDragMode = JDesktopPane.LIVE_DRAG_MODE;
     else
       currentDragMode = ((JDesktopPane) pane).getDragMode();
-  } // beginResizingFrame()
+  }
 
   /**
    * This method resizes the give JComponent.
@@ -444,7 +441,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
     else
       setBoundsForFrame(component, dragCache.x, dragCache.y, dragCache.width,
                         dragCache.height);
-  } // resizeFrame()
+  }
 
   /**
    * This method is called to indicate that the given JComponent has finished
@@ -463,7 +460,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
 	dragCache = null;
       }
     component.repaint();
-  } // endResizingFrame()
+  }
 
   /**
    * This method calls setBounds with the given parameters and repaints the
@@ -486,7 +483,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
       component.getParent().repaint();
     else
       component.repaint();
-  } // setBoundsForFrame()
+  }
 
   /**
    * This is a helper method that removes the JDesktopIcon of the given
@@ -500,7 +497,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
     Container c = icon.getParent();
     if (c != null && icon != null)
       c.remove(icon);
-  } // removeIconFor()
+  }
 
   /**
    * This method is called by iconifyFrame to determine the bounds of the
@@ -574,7 +571,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
       }
 
     return ideal;
-  } // getBoundsForIconOf()
+  }
 
   /**
    * This method sets the bounds of the JInternalFrame right before the
@@ -586,7 +583,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
   protected void setPreviousBounds(JInternalFrame frame, Rectangle rect)
   {
     frame.setNormalBounds(rect);
-  } // setPreviousBounds()
+  }
 
   /**
    * This method returns the normal bounds of the JInternalFrame from before
@@ -599,7 +596,7 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
   protected Rectangle getPreviousBounds(JInternalFrame frame)
   {
     return frame.getNormalBounds();
-  } // getPreviousBounds()
+  }
 
   /**
    * This method sets the value to true if the given JInternalFrame has been
@@ -609,10 +606,10 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
    * @param value True if the JInternalFrame has been iconized and the bounds
    *        of the JDesktopIcon are valid.
    */
-  protected void setWasIcon(JInternalFrame frame, boolean value)
+  protected void setWasIcon(JInternalFrame frame, Boolean value)
   {
-    frame.setWasIcon(value, WAS_ICON_ONCE_PROPERTY);
-  } // setWasIcon()
+    frame.setWasIcon(value.booleanValue(), WAS_ICON_ONCE_PROPERTY);
+  }
 
   /**
    * This method returns true if the given JInternalFrame has been iconized
@@ -626,5 +623,5 @@ public class DefaultDesktopManager implements DesktopManager, Serializable
   protected boolean wasIcon(JInternalFrame frame)
   {
     return frame.getWasIcon();
-  } // wasIcon()
-} // DefaultDesktopManager
+  }
+}

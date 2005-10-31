@@ -42,7 +42,7 @@
 
 #include "../../../Family/if_ppplink.h"
 #include "../../../Family/ppp_domain.h"
-#include "L2TP.h"
+#include "l2tp.h"
 #include "l2tp_proto.h"
 #include "l2tp_wan.h"
 #include "l2tp_rfc.h"

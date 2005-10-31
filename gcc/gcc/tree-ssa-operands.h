@@ -1,5 +1,5 @@
 /* SSA operand management for trees.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -175,21 +175,19 @@ typedef stmt_operands_t *stmt_operands_p;
 #define SET_PHI_ARG_DEF(PHI, I, V)					\
 				SET_USE (PHI_ARG_DEF_PTR ((PHI), (I)), (V))
 #define PHI_ARG_DEF_FROM_EDGE(PHI, E)					\
-				PHI_ARG_DEF ((PHI),			\
-					     phi_arg_from_edge ((PHI),(E)))
+				PHI_ARG_DEF ((PHI), (E)->dest_idx)
 #define PHI_ARG_DEF_PTR_FROM_EDGE(PHI, E)				\
-				PHI_ARG_DEF_PTR ((PHI), 		\
-					     phi_arg_from_edge ((PHI),(E)))
+				PHI_ARG_DEF_PTR ((PHI), (E)->dest_idx)
 
 
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
-/* APPLE LOCAL AV if-conversion --dpatel  */
-extern void add_vdef (tree, tree);
 extern void get_stmt_operands (tree);
 extern void copy_virtual_operands (tree, tree);
 extern void create_ssa_artficial_load_stmt (stmt_operands_p, tree);
 
+extern bool ssa_call_clobbered_cache_valid;
+extern bool ssa_ro_call_cache_valid;
 
 /* This structure is used in the operand iterator loops.  It contains the 
    items required to determine which operand is retrieved next.  During

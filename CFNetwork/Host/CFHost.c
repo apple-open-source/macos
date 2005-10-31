@@ -1934,7 +1934,7 @@ _IsDottedIp(CFStringRef name) {
 		memset(&hints, 0, sizeof(hints));
 		hints.ai_flags = AI_NUMERICHOST;
 		
-		if (!getaddrinfo(buffer, NULL, &hints, &results)) {
+		if (!getaddrinfo((const char*)buffer, NULL, &hints, &results)) {
 			
 			if (results) {
 			

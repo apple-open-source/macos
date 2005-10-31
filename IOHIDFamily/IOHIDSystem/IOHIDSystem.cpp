@@ -375,7 +375,9 @@ typedef IOReturn (*KeyboardEQAction)(IOHIDSystem * self, void *args);
 typedef struct _KeyboardEQElement {
     queue_chain_t   link;
     
-    KeyboardEQAction  action;
+    KeyboardEQAction    action;
+    OSObject *          sender;   
+    AbsoluteTime        ts;
     
     union {
         struct {
@@ -388,8 +390,6 @@ typedef struct _KeyboardEQElement {
             unsigned        origCharSet;
             unsigned        keyboardType;
             bool            repeat;
-            AbsoluteTime    ts;
-            OSObject *      sender;   
         } keyboard;
         struct {
             unsigned        eventType;
@@ -398,12 +398,9 @@ typedef struct _KeyboardEQElement {
             unsigned        flavor;
             UInt64          guid;
             bool            repeat;
-            AbsoluteTime    ts;
-            OSObject *      sender;   
         } keyboardSpecial;
         struct {
             unsigned        flags;
-            OSObject *      sender;   
         } flagsChanged;
     } event;
 } KeyboardEQElement;
@@ -1379,8 +1376,14 @@ void IOHIDSystem::postEvent(int           what,
              /* atTime */   AbsoluteTime  ts,
              /* withData */ NXEventData * myData,
              /* sender */   OSObject *    sender,
-             /* extPID */   UInt32        extPID)
+             /* extPID */   UInt32        extPID,
+             /* processKEQ*/bool          processKEQ)
 {
+    // Clear out the keyboard queue up until this TS.  This should keep
+    // the events in order.
+    if ( processKEQ )
+        processKeyboardEQ(this, &ts);
+
     NXEQElement	* theHead = (NXEQElement *) &evg->lleq[evg->LLEHead];
     NXEQElement	* theLast = (NXEQElement *) &evg->lleq[evg->LLELast];
     NXEQElement	* theTail = (NXEQElement *) &evg->lleq[evg->LLETail];
@@ -2760,12 +2763,18 @@ void IOHIDSystem::proximityEventGated(NXEventData *proximityData,
 
 void IOHIDSystem::doProcessKeyboardEQ(IOHIDSystem * self)
 {
+    processKeyboardEQ(self);
+}
+
+void IOHIDSystem::processKeyboardEQ(IOHIDSystem * self, AbsoluteTime * deadline)
+{
     KeyboardEQElement * keyboardEQElement;
     
     KEYBOARD_EQ_LOCK;
 
-	while ((keyboardEQElement = (KeyboardEQElement *)dequeue_head(&gKeyboardEQ)) != NULL) {
-    
+	while ( ((keyboardEQElement = (KeyboardEQElement *)dequeue_head(&gKeyboardEQ)) != NULL)
+            && !(deadline && (CMP_ABSOLUTETIME(&(keyboardEQElement->ts), deadline) > 0)))
+     {
         KEYBOARD_EQ_UNLOCK;
         
         if (keyboardEQElement->action)
@@ -2828,9 +2837,12 @@ void IOHIDSystem::keyboardEvent(unsigned   eventType,
          /* atTime */           AbsoluteTime ts,
          /* sender */		OSObject * sender)
 {
-    KeyboardEQElement * keyboardEQElement = NULL;
+    KeyboardEQElement * keyboardEQElement   = NULL;
+    UInt32              consumeCause        = ShouldConsumeHIDEvent(ts, stateChangeDeadline);
         
-    if(ShouldConsumeHIDEvent(ts, stateChangeDeadline) == kHIDConsumeCauseDeadline)
+    if (consumeCause == kHIDConsumeCauseKeyLock)
+        return;
+    else if(consumeCause == kHIDConsumeCauseDeadline)
     {
         if (consumedKeyCode != (unsigned)-1)
         {
@@ -2872,7 +2884,9 @@ KEYBOARD_EVENT_PROCESS:
         
     bzero(keyboardEQElement, sizeof(KeyboardEQElement));
     
-    keyboardEQElement->action = IOHIDSystem::doKeyboardEvent;
+    keyboardEQElement->action   = IOHIDSystem::doKeyboardEvent;
+    keyboardEQElement->ts       = ts;
+    keyboardEQElement->sender   = sender;
     
     keyboardEQElement->event.keyboard.eventType     = eventType;
     keyboardEQElement->event.keyboard.flags         = flags;
@@ -2883,8 +2897,6 @@ KEYBOARD_EVENT_PROCESS:
     keyboardEQElement->event.keyboard.origCharSet   = origCharSet;
     keyboardEQElement->event.keyboard.keyboardType  = keyboardType;
     keyboardEQElement->event.keyboard.repeat        = repeat;
-    keyboardEQElement->event.keyboard.ts            = ts;
-    keyboardEQElement->event.keyboard.sender        = sender;
     
     KEYBOARD_EQ_LOCK;
 	enqueue_tail(&gKeyboardEQ, (queue_entry_t)keyboardEQElement);
@@ -2898,6 +2910,9 @@ IOReturn IOHIDSystem::doKeyboardEvent(IOHIDSystem *self, void * args)
 {
     KeyboardEQElement * keyboardEQElement = (KeyboardEQElement *)args;
 
+    AbsoluteTime ts         = keyboardEQElement->ts;
+    OSObject * sender		= keyboardEQElement->sender;
+    
     unsigned   eventType	= keyboardEQElement->event.keyboard.eventType;
     unsigned   flags		= keyboardEQElement->event.keyboard.flags;
     unsigned   key          = keyboardEQElement->event.keyboard.key;
@@ -2907,8 +2922,6 @@ IOReturn IOHIDSystem::doKeyboardEvent(IOHIDSystem *self, void * args)
     unsigned   origCharSet	= keyboardEQElement->event.keyboard.origCharSet;
     unsigned   keyboardType	= keyboardEQElement->event.keyboard.keyboardType;
     bool       repeat		= keyboardEQElement->event.keyboard.repeat;
-    AbsoluteTime ts         = keyboardEQElement->event.keyboard.ts;
-    OSObject * sender		= keyboardEQElement->event.keyboard.sender;
         
     self->keyboardEventGated(eventType, flags, key, charCode, charSet,
 				origCharCode, origCharSet, keyboardType, repeat, ts, sender);
@@ -2968,7 +2981,9 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
 		/* at */       (Point *)&pointerLoc,
 		/* atTime */   ts,
 		/* withData */ &outData,
-        /* sender */   sender);
+        /* sender */   sender,
+        /* extPID */   0,
+        /* processKEQ*/false);
 
 }
 
@@ -3018,7 +3033,9 @@ void IOHIDSystem::keyboardSpecialEvent(   unsigned   eventType,
         
     bzero(keyboardEQElement, sizeof(KeyboardEQElement));
     
-    keyboardEQElement->action = IOHIDSystem::doKeyboardSpecialEvent;
+    keyboardEQElement->action   = IOHIDSystem::doKeyboardSpecialEvent;
+    keyboardEQElement->ts       = ts;
+    keyboardEQElement->sender   = sender;
     
     keyboardEQElement->event.keyboardSpecial.eventType  = eventType;
     keyboardEQElement->event.keyboardSpecial.flags      = flags;
@@ -3026,8 +3043,6 @@ void IOHIDSystem::keyboardSpecialEvent(   unsigned   eventType,
     keyboardEQElement->event.keyboardSpecial.flavor     = flavor;
     keyboardEQElement->event.keyboardSpecial.guid       = guid;
     keyboardEQElement->event.keyboardSpecial.repeat     = repeat;
-    keyboardEQElement->event.keyboardSpecial.ts         = ts;
-    keyboardEQElement->event.keyboardSpecial.sender     = sender;
     
     KEYBOARD_EQ_LOCK;
 	enqueue_tail(&gKeyboardEQ, (queue_entry_t)keyboardEQElement);
@@ -3042,14 +3057,15 @@ IOReturn IOHIDSystem::doKeyboardSpecialEvent(IOHIDSystem *self, void * args)
 {
     KeyboardEQElement * keyboardEQElement = (KeyboardEQElement *)args;
 
+    AbsoluteTime    ts          = keyboardEQElement->ts;
+    OSObject *      sender      = keyboardEQElement->sender;
+
     unsigned        eventType   = keyboardEQElement->event.keyboardSpecial.eventType;
     unsigned        flags       = keyboardEQElement->event.keyboardSpecial.flags;
     unsigned        key         = keyboardEQElement->event.keyboardSpecial.key;
     unsigned        flavor      = keyboardEQElement->event.keyboardSpecial.flavor;
     UInt64          guid        = keyboardEQElement->event.keyboardSpecial.guid;
     bool            repeat      = keyboardEQElement->event.keyboardSpecial.repeat;
-    AbsoluteTime    ts          = keyboardEQElement->event.keyboardSpecial.ts;
-    OSObject *      sender      = keyboardEQElement->event.keyboardSpecial.sender;
     
     self->keyboardSpecialEventGated(eventType, flags, key, flavor, guid, repeat, ts, sender);
     
@@ -3112,7 +3128,9 @@ void IOHIDSystem::keyboardSpecialEventGated(
 					/* at */       (Point *)&pointerLoc,
 					/* atTime */   ts,
 					/* withData */ &outData,
-                    /* sender */   sender);
+                    /* sender */   sender,
+                    /* extPID */   0,
+                    /* processKEQ*/false);
 				}
 				else if(   (evg->eventFlags & NX_COMMANDMASK) 	&&
 						  !(evg->eventFlags & NX_CONTROLMASK) 	&& 
@@ -3128,7 +3146,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
 					/* at */       (Point *)&pointerLoc,
 					/* atTime */   ts,
 					/* withData */ &outData,
-                    /* sender */   sender);
+                    /* sender */   sender,
+                    /* extPID */   0,
+                    /* processKEQ*/false);
+
 				}
 				else if(   (evg->eventFlags & NX_COMMANDMASK) 	&&
 						   (evg->eventFlags & NX_CONTROLMASK) 	&& 
@@ -3144,7 +3165,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
 					/* at */       (Point *)&pointerLoc,
 					/* atTime */   ts,
 					/* withData */ &outData,
-                    /* sender */   sender);
+                    /* sender */   sender,
+                    /* extPID */   0,
+                    /* processKEQ*/false);
+
 				}
 				else if(   (evg->eventFlags & NX_COMMANDMASK) 	&&
 						   (evg->eventFlags & NX_CONTROLMASK) 	&& 
@@ -3161,7 +3185,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
 					/* at */       (Point *)&pointerLoc,
 					/* atTime */   ts,
 					/* withData */ &outData,
-                    /* sender */   sender);
+                    /* sender */   sender,
+                    /* extPID */   0,
+                    /* processKEQ*/false);
+
 				}
 				else if(  !(evg->eventFlags & NX_COMMANDMASK) 	&&
 						   (evg->eventFlags & NX_CONTROLMASK) 	&& 
@@ -3183,7 +3210,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
 					/* at */       (Point *)&pointerLoc,
 					/* atTime */   ts,
 					/* withData */ &outData,
-                    /* sender */   sender);
+                    /* sender */   sender,
+                    /* extPID */   0,
+                    /* processKEQ*/false);
+
 				}
 				else
 				{
@@ -3201,7 +3231,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
 					/* at */       (Point *)&pointerLoc,
 					/* atTime */   ts,
 					/* withData */ &outData,
-                    /* sender */   sender);
+                    /* sender */   sender,
+                    /* extPID */   0,
+                    /* processKEQ*/false);
+
 				}
 				break;
 
@@ -3226,7 +3259,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
 					/* at */       (Point *)&pointerLoc,
 					/* atTime */   ts,
 					/* withData */ &outData,
-                    /* sender */   sender);
+                    /* sender */   sender,
+                    /* extPID */   0,
+                    /* processKEQ*/false);
+
 				break;
 		}
 	}
@@ -3254,7 +3290,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
 			/* at */       (Point *)&pointerLoc,
 			/* atTime */   ts,
 			/* withData */ &outData,
-            /* sender */   sender);
+            /* sender */   sender,
+                    /* extPID */   0,
+                    /* processKEQ*/false);
+
 	}
 	
 	// post keydowns and key ups if this flavor should be posted
@@ -3283,7 +3322,10 @@ void IOHIDSystem::keyboardSpecialEventGated(
                     /* at */       (Point *)&pointerLoc,
                     /* atTime */   ts,
                     /* withData */ &outData,
-                    /* sender */   sender);
+                    /* sender */   sender,
+                    /* extPID */   0,
+                    /* processKEQ*/false);
+
           }
 	}
 
@@ -3326,9 +3368,9 @@ void IOHIDSystem::updateEventFlags(unsigned flags, OSObject * sender)
     bzero(keyboardEQElement, sizeof(KeyboardEQElement));
     
     keyboardEQElement->action = IOHIDSystem::doUpdateEventFlags;
+    keyboardEQElement->sender = sender;
     
-    keyboardEQElement->event.flagsChanged.flags      = flags;
-    keyboardEQElement->event.flagsChanged.sender     = sender;
+    keyboardEQElement->event.flagsChanged.flags = flags;
     
     KEYBOARD_EQ_LOCK;
 	enqueue_tail(&gKeyboardEQ, (queue_entry_t)keyboardEQElement);
@@ -3342,8 +3384,8 @@ IOReturn IOHIDSystem::doUpdateEventFlags(IOHIDSystem *self, void * args)
 {
     KeyboardEQElement * keyboardEQElement = (KeyboardEQElement *)args;
     
+    OSObject * sender   = keyboardEQElement->sender;
     unsigned   flags	= keyboardEQElement->event.flagsChanged.flags;
-    OSObject * sender   = keyboardEQElement->event.flagsChanged.sender;
     
     self->updateEventFlagsGated(flags, sender);
     

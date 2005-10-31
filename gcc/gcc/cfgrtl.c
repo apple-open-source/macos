@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -69,7 +69,6 @@ static int can_delete_label_p (rtx);
 static void commit_one_edge_insertion (edge, int);
 static rtx last_loop_beg_note (rtx);
 static bool back_edge_of_syntactic_loop_p (basic_block, basic_block);
-basic_block force_nonfallthru_and_redirect (edge, basic_block);
 static basic_block rtl_split_edge (edge);
 static bool rtl_move_block_after (basic_block, basic_block);
 static int rtl_verify_flow_info (void);
@@ -369,14 +368,9 @@ rtl_delete_block (basic_block b)
   rtx insn, end, tmp;
 
   /* If the head of this block is a CODE_LABEL, then it might be the
-     label for an exception handler which can't be reached.
-
-     We need to remove the label from the exception_handler_label list
-     and remove the associated NOTE_INSN_EH_REGION_BEG and
-     NOTE_INSN_EH_REGION_END notes.  */
-
+     label for an exception handler which can't be reached.  We need
+     to remove the label from the exception_handler_label list.  */
   insn = BB_HEAD (b);
-
   if (LABEL_P (insn))
     maybe_remove_eh_handler (insn);
 
@@ -385,10 +379,13 @@ rtl_delete_block (basic_block b)
   if (tablejump_p (end, NULL, &tmp))
     end = tmp;
 
-  /* Include any barrier that may follow the basic block.  */
+  /* Include any barriers that may follow the basic block.  */
   tmp = next_nonnote_insn (end);
-  if (tmp && BARRIER_P (tmp))
-    end = tmp;
+  while (tmp && BARRIER_P (tmp))
+    {
+      end = tmp;
+      tmp = next_nonnote_insn (end);
+    }
 
   /* Selectively delete the entire chain.  */
   BB_HEAD (b) = NULL;
@@ -490,8 +487,8 @@ rtl_split_block (basic_block bb, void *insnp)
 
   if (bb->global_live_at_start)
     {
-      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
-      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      new_bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      new_bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
       COPY_REG_SET (new_bb->global_live_at_end, bb->global_live_at_end);
 
       /* We now have to calculate which registers are live at the end
@@ -668,10 +665,8 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 {
   basic_block src = e->src;
   rtx insn = BB_END (src), kill_from;
-  edge tmp;
   rtx set;
   int fallthru = 0;
-  edge_iterator ei;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -688,12 +683,17 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 	  || BB_PARTITION (src) != BB_PARTITION (target)))
     return NULL;
 
-  /* Verify that all targets will be TARGET.  */
-  FOR_EACH_EDGE (tmp, ei, src->succs)
-    if (tmp->dest != target && tmp != e)
-      break;
+  /* We can replace or remove a complex jump only when we have exactly
+     two edges.  Also, if we have exactly one outgoing edge, we can
+     redirect that.  */
+  if (EDGE_COUNT (src->succs) >= 3
+      /* Verify that all targets will be TARGET.  Specifically, the
+	 edge that is not E must also go to TARGET.  */
+      || (EDGE_COUNT (src->succs) == 2
+	  && EDGE_SUCC (src, EDGE_SUCC (src, 0) == e)->dest != target))
+    return NULL;
 
-  if (tmp || !onlyjump_p (insn))
+  if (!onlyjump_p (insn))
     return NULL;
   if ((!optimize || reload_completed) && tablejump_p (insn, NULL, NULL))
     return NULL;
@@ -986,7 +986,7 @@ rtl_redirect_edge_and_branch (edge e, basic_block target)
 /* Like force_nonfallthru below, but additionally performs redirection
    Used by redirect_edge_and_branch_force.  */
 
-basic_block
+static basic_block
 force_nonfallthru_and_redirect (edge e, basic_block target)
 {
   basic_block jump_block, new_bb = NULL, src = e->src;
@@ -1095,10 +1095,8 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 
       if (target->global_live_at_start)
 	{
-	  jump_block->global_live_at_start
-	    = OBSTACK_ALLOC_REG_SET (&flow_obstack);
-	  jump_block->global_live_at_end
-	    = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+	  jump_block->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+	  jump_block->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
 	  COPY_REG_SET (jump_block->global_live_at_start,
 			target->global_live_at_start);
 	  COPY_REG_SET (jump_block->global_live_at_end,
@@ -1206,12 +1204,6 @@ rtl_tidy_fallthru_edge (edge e)
 {
   rtx q;
   basic_block b = e->src, c = b->next_bb;
-  edge e2;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e2, ei, b->succs)
-    if (e == e2)
-      break;
 
   /* ??? In a late-running flow pass, other folks may have deleted basic
      blocks by nopping out blocks, leaving multiple BARRIERs between here
@@ -1234,7 +1226,7 @@ rtl_tidy_fallthru_edge (edge e)
   if (JUMP_P (q)
       && onlyjump_p (q)
       && (any_uncondjump_p (q)
-	  || (EDGE_SUCC (b, 0) == e && ei.index == EDGE_COUNT (b->succs) - 1)))
+	  || EDGE_COUNT (b->succs) == 1))
     {
 #ifdef HAVE_cc0
       /* If this was a conditional jump, we need to also delete
@@ -1384,8 +1376,8 @@ rtl_split_edge (edge edge_in)
   /* ??? This info is likely going to be out of date very soon.  */
   if (edge_in->dest->global_live_at_start)
     {
-      bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
-      bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
       COPY_REG_SET (bb->global_live_at_start,
 		    edge_in->dest->global_live_at_start);
       COPY_REG_SET (bb->global_live_at_end,
@@ -1460,10 +1452,10 @@ bool
 safe_insert_insn_on_edge (rtx insn, edge e)
 {
   rtx x;
-  regset_head killed_head;
-  regset killed = INITIALIZE_REG_SET (killed_head);
+  regset killed;
   rtx save_regs = NULL_RTX;
-  int regno, noccmode;
+  unsigned regno;
+  int noccmode;
   enum machine_mode mode;
   reg_set_iterator rsi;
 
@@ -1473,11 +1465,22 @@ safe_insert_insn_on_edge (rtx insn, edge e)
   noccmode = false;
 #endif
 
+  killed = ALLOC_REG_SET (&reg_obstack);
+
   for (x = insn; x; x = NEXT_INSN (x))
     if (INSN_P (x))
       note_stores (PATTERN (x), mark_killed_regs, killed);
-  bitmap_operation (killed, killed, e->dest->global_live_at_start,
-		    BITMAP_AND);
+
+  /* Mark all hard registers as killed.  Register allocator/reload cannot
+     cope with the situation when life range of hard register spans operation
+     for that the appropriate register is needed, i.e. it would be unsafe to
+     extend the life ranges of hard registers.  */
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (!fixed_regs[regno]
+	&& !REGNO_PTR_FRAME_P (regno))
+      SET_REGNO_REG_SET (killed, regno);
+
+  bitmap_and_into (killed, e->dest->global_live_at_start);
 
   EXECUTE_IF_SET_IN_REG_SET (killed, 0, regno, rsi)
     {
@@ -1522,6 +1525,7 @@ safe_insert_insn_on_edge (rtx insn, edge e)
   insert_insn_on_edge (insn, e);
   
   FREE_REG_SET (killed);
+
   return true;
 }
 
@@ -1983,7 +1987,7 @@ rtl_verify_flow_info_1 (void)
       rtx note;
       edge_iterator ei;
 
-      if (INSN_P (BB_END (bb))
+      if (JUMP_P (BB_END (bb))
 	  && (note = find_reg_note (BB_END (bb), REG_BR_PROB, NULL_RTX))
 	  && EDGE_COUNT (bb->succs) >= 2
 	  && any_condjump_p (BB_END (bb)))
@@ -2115,7 +2119,7 @@ rtl_verify_flow_info_1 (void)
 	}
 
       if (BB_END (bb) == x)
-	/* Do checks for empty blocks her. e */
+	/* Do checks for empty blocks here.  */
 	;
       else
 	for (x = NEXT_INSN (x); x; x = NEXT_INSN (x))
@@ -2201,13 +2205,7 @@ rtl_verify_flow_info (void)
 	  else
 	    for (insn = NEXT_INSN (BB_END (e->src)); insn != BB_HEAD (e->dest);
 		 insn = NEXT_INSN (insn))
-	      if (BARRIER_P (insn)
-#ifndef CASE_DROPS_THROUGH
-		  || INSN_P (insn)
-#else
-		  || (INSN_P (insn) && ! JUMP_TABLE_DATA_P (insn))
-#endif
-		  )
+	      if (BARRIER_P (insn) || INSN_P (insn))
 		{
 		  error ("verify_flow_info: Incorrect fallthru %i->%i",
 			 e->src->index, e->dest->index);
@@ -2257,8 +2255,7 @@ rtl_verify_flow_info (void)
 	    }
 	}
 
-      if (INSN_P (x)
-	  && JUMP_P (x)
+      if (JUMP_P (x)
 	  && returnjump_p (x) && ! condjump_p (x)
 	  && ! (NEXT_INSN (x) && BARRIER_P (NEXT_INSN (x))))
 	    fatal_insn ("return not followed by barrier", x);
@@ -2600,25 +2597,8 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
          of conditional jump, remove it.  */
       if (EDGE_COUNT (src->succs) == 2)
 	{
-	  bool found = false;
-	  unsigned ix = 0;
-	  edge tmp, s;
-	  edge_iterator ei;
-
-	  FOR_EACH_EDGE (tmp, ei, src->succs)
-	    if (e == tmp)
-	      {
-		found = true;
-		ix = ei.index;
-		break;
-	      }
-
-	  gcc_assert (found);
-
-	  if (EDGE_COUNT (src->succs) > (ix + 1))
-	    s = EDGE_SUCC (src, ix + 1);
-	  else
-	    s = EDGE_SUCC (src, 0);
+	  /* Find the edge that is different from E.  */
+	  edge s = EDGE_SUCC (src, EDGE_SUCC (src, 0) == e);
 
 	  if (s->dest == dest
 	      && any_condjump_p (BB_END (src))
@@ -2864,8 +2844,8 @@ cfg_layout_split_edge (edge e)
      create it to avoid getting an ICE later.  */
   if (e->dest->global_live_at_start)
     {
-      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
-      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      new_bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      new_bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
       COPY_REG_SET (new_bb->global_live_at_start,
 		    e->dest->global_live_at_start);
       COPY_REG_SET (new_bb->global_live_at_end,
@@ -2981,15 +2961,13 @@ rtl_flow_call_edges_add (sbitmap blocks)
       if (need_fake_edge_p (insn))
 	{
 	  edge e;
-	  edge_iterator ei;
 
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (e->dest == EXIT_BLOCK_PTR)
-	      {
-		insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
-		commit_edge_insertions ();
-		break;
-	      }
+	  e = find_edge (bb, EXIT_BLOCK_PTR);
+	  if (e)
+	    {
+	      insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
+	      commit_edge_insertions ();
+	    }
 	}
     }
 
@@ -3032,9 +3010,8 @@ rtl_flow_call_edges_add (sbitmap blocks)
 #ifdef ENABLE_CHECKING
 	      if (split_at_insn == BB_END (bb))
 		{
-		  edge_iterator ei;
-		  FOR_EACH_EDGE (e, ei, bb->succs)
-		    gcc_assert (e->dest != EXIT_BLOCK_PTR);
+		  e = find_edge (bb, EXIT_BLOCK_PTR);
+		  gcc_assert (e == NULL);
 		}
 #endif
 
@@ -3083,7 +3060,9 @@ struct cfg_hooks rtl_cfg_hooks = {
   rtl_tidy_fallthru_edge,
   rtl_block_ends_with_call_p,
   rtl_block_ends_with_condjump_p,
-  rtl_flow_call_edges_add
+  rtl_flow_call_edges_add,
+  NULL, /* execute_on_growing_pred */
+  NULL /* execute_on_shrinking_pred */
 };
 
 /* Implementation of CFG manipulation for cfg layout RTL, where
@@ -3119,6 +3098,8 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   NULL,
   rtl_block_ends_with_call_p,
   rtl_block_ends_with_condjump_p,
-  rtl_flow_call_edges_add
+  rtl_flow_call_edges_add,
+  NULL, /* execute_on_growing_pred */
+  NULL /* execute_on_shrinking_pred */
 };
 

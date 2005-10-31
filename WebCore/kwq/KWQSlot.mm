@@ -317,7 +317,7 @@ void KWQSlot::call(Job *job, const KURL &url) const
     call();
 }
 
-void KWQSlot::call(KIO::Job *job, NSData *allData) const
+void KWQSlot::callWithData(KIO::Job *job, NSData *allData) const
 {
     if (m_object.isNull()) {
         return;
@@ -332,7 +332,7 @@ void KWQSlot::call(KIO::Job *job, NSData *allData) const
     call(job);
 }
 
-void KWQSlot::call(KIO::Job *job, NSURLResponse *response) const
+void KWQSlot::callWithResponse(KIO::Job *job, NSURLResponse *response) const
 {
     if (m_object.isNull()) {
         return;

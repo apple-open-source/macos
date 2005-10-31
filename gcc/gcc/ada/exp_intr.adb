@@ -110,21 +110,18 @@ package body Exp_Intr is
       Loc : constant Source_Ptr := Sloc (N);
       P   : Node_Id;
       E   : Entity_Id;
-      S   : String_Id;
 
    begin
       --  Climb up parents to see if we are in exception handler
 
       P := Parent (N);
       loop
-         --  Case of not in exception handler
+         --  Case of not in exception handler, replace by null string
 
          if No (P) then
-            Start_String;
-            S := End_String;
             Rewrite (N,
               Make_String_Literal (Loc,
-                Strval => S));
+                Strval => ""));
             exit;
 
          --  Case of in exception handler
@@ -284,12 +281,21 @@ package body Exp_Intr is
       then
          Expand_Source_Info (N, Nam);
 
-      else
-         --  Only other possibility is a renaming, in which case we expand
-         --  the call to the original operation (which must be intrinsic).
+         --  If we have a renaming, expand the call to the original operation,
+         --  which must itself be intrinsic, since renaming requires matching
+         --  conventions and this has already been checked.
 
-         pragma Assert (Present (Alias (E)));
+      elsif Present (Alias (E)) then
          Expand_Intrinsic_Call (N,  Alias (E));
+
+         --  The only other case is where an external name was specified,
+         --  since this is the only way that an otherwise unrecognized
+         --  name could escape the checking in Sem_Prag. Nothing needs
+         --  to be done in such a case, since we pass such a call to the
+         --  back end unchanged.
+
+      else
+         null;
       end if;
    end Expand_Intrinsic_Call;
 

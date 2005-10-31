@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2005 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -74,6 +74,10 @@ extern void init_dummy_type (void);
    DEFINITION, but a value of 2 is used in special circumstances, defined in
    the code.  */
 extern tree gnat_to_gnu_entity (Entity_Id, tree, int);
+
+/* Similar, but if the returned value is a COMPONENT_REF, return the
+   FIELD_DECL.  */
+extern tree gnat_to_gnu_field_decl (Entity_Id);
 
 /* Given GNAT_ENTITY, an entity in the incoming GNAT tree, return a
    GCC type corresponding to that entity.  GNAT_ENTITY is assumed to
@@ -297,7 +301,7 @@ struct attrib
   struct attrib *next;
   enum attr_type type;
   tree name;
-  tree arg;
+  tree args;
   Node_Id error_point;
 };
 
@@ -340,6 +344,8 @@ enum standard_datatypes
   ADT_raise_nodefer_decl,
   ADT_begin_handler_decl,
   ADT_end_handler_decl,
+  ADT_others_decl,
+  ADT_all_others_decl,
   ADT_LAST};
 
 extern GTY(()) tree gnat_std_decls[(int) ADT_LAST];
@@ -363,6 +369,8 @@ extern GTY(()) tree gnat_raise_decls[(int) LAST_REASON_CODE + 1];
 #define update_setjmp_buf_decl gnat_std_decls[(int) ADT_update_setjmp_buf_decl]
 #define raise_nodefer_decl gnat_std_decls[(int) ADT_raise_nodefer_decl]
 #define begin_handler_decl gnat_std_decls[(int) ADT_begin_handler_decl]
+#define others_decl gnat_std_decls[(int) ADT_others_decl]
+#define all_others_decl gnat_std_decls[(int) ADT_all_others_decl]
 #define end_handler_decl gnat_std_decls[(int) ADT_end_handler_decl]
 
 /* Routines expected by the gcc back-end. They must have exactly the same
@@ -682,6 +690,11 @@ extern bool gnat_mark_addressable (tree);
 /* Implementation of the builtin_function langhook.  */
 extern tree builtin_function (const char *, tree, int, enum built_in_class,
 			      const char *, tree);
+
+/* Search the chain of currently reachable declarations for a builtin
+   FUNCTION_DECL node corresponding to function NAME (an IDENTIFIER_NODE).
+   Return the first node found, if any, or NULL_TREE otherwise.  */
+extern tree builtin_decl_for (tree);
 
 /* This function is called by the front end to enumerate all the supported
    modes for the machine.  We pass a function which is called back with

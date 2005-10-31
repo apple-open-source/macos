@@ -1,6 +1,6 @@
 /* Part of CPP library.  File handling.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -267,9 +267,10 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
   memcpy (pchname, path, flen);
   memcpy (pchname + flen, extension, sizeof (extension));
 
-  /* APPLE LOCAL distcc pch indirection --mrs */
+  /* APPLE LOCAL begin distcc pch indirection --mrs */
   if (! file->main_file)
     pchname = indirect_file (pchname, 0);
+  /* APPLE LOCAL end distcc pch indirection --mrs */
 
   if (stat (pchname, &st) == 0)
     {
@@ -346,10 +347,9 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
         file->path = "";
       res_open_file = open_file (file);
       file->path = path;
-      /* APPLE LOCAL end predictive compilation */
-
 
       if (res_open_file)
+      /* APPLE LOCAL end predictive compilation */
 	return true;
 
       if (file->err_no != ENOENT)
@@ -461,7 +461,6 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
       if (file->dir == NULL)
 	{
 	  if (search_path_exhausted (pfile, fname, file))
-	    /* APPLE LOCAL begin put in 4.1 */
 	    {
 	      /* Although this file must not go in the cache, because
 		 the file found might depend on things (like the current file)
@@ -471,7 +470,6 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
 	      pfile->all_files = file;
 	      return file;
 	    }
-	    /* APPLE LOCAL end put in 4.1 */
 
 	  open_file_failed (pfile, file);
 	  if (invalid_pch)
@@ -714,7 +712,6 @@ should_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
       if (f == file)
 	continue;
 
-      /* APPLE LOCAL begin mainline */
       if ((import || f->once_only)
 	  && f->err_no == 0
 	  && f->st.st_mtime == file->st.st_mtime
@@ -750,7 +747,6 @@ should_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
 	  if (same_file_p)
 	    break;
 	}
-      /* APPLE LOCAL end mainline */
     }
 
   return f == NULL;
@@ -948,7 +944,6 @@ make_cpp_file (cpp_reader *pfile, cpp_dir *dir, const char *fname)
   return file;
 }
 
-/* APPLE LOCAL begin mainline */
 /* Release a _cpp_file structure.  */
 static void
 destroy_cpp_file (_cpp_file *file)
@@ -958,7 +953,6 @@ destroy_cpp_file (_cpp_file *file)
   free ((void *) file->name);
   free (file);
 }
-/* APPLE LOCAL end mainline */
 
 /* A hash of directory names.  The directory names are the path names
    of files which contain a #include "", the included file name is
@@ -1517,7 +1511,6 @@ pchf_save_compare (const void *e1, const void *e2)
   return memcmp (e1, e2, sizeof (struct pchf_entry));
 }
 
-/* APPLE LOCAL begin mainline */
 /* Create and write to F a pchf_data structure.  */
 
 bool
@@ -1584,7 +1577,6 @@ _cpp_save_file_entries (cpp_reader *pfile, FILE *fp)
 
   return fwrite (result, result_size, 1, fp) == 1;
 }
-/* APPLE LOCAL end mainline */
 
 /* Read the pchf_data structure from F.  */
 

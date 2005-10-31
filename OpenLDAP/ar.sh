@@ -39,10 +39,9 @@ unranlib ()
 	local   name="$(basename ${archive})";
 	local    dir="/tmp/unranlib.$$/${name}";
 	local ofiles="";
-	local  archs="$(file ${archive}			| \
-			grep '(for architecture'	| \
-			awk '{print $4}'		| \
-			sed 's/)://')";
+	local archs="$(lipo -info ${archive}  |\
+			grep '^Architectures' | \
+			sed 's/.*://')";
 
 	for arch in ${archs}; do
 	    local archdir="${dir}/${arch}";
@@ -85,7 +84,7 @@ unranlib ()
 archive=$2;
 
 if [ -f "${archive}" ] &&
-   file "${archive}" | grep 'Mach-O fat file' > /dev/null; then
+	lipo -info "${archive}" | grep '^Architectures' > /dev/null; then
 
     # File is fat. Undo ranlib.
     unranlib "${archive}";

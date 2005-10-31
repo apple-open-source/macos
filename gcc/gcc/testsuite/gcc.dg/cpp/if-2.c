@@ -1,5 +1,7 @@
 /* { dg-do preprocess } */
 /* { dg-options -pedantic-errors } */
+/* APPLE LOCAL -Wfour-char-constants */
+/* { dg-options "-Wfour-char-constants" { target *-apple-darwin* } } */
 
 #if 'a' != 'a' || '\001' != 1 || '\x12' != 0x12
 #error a,1,0x12 /* { dg-bogus "#error" "basic charconst recognition" } */
@@ -17,9 +19,8 @@
 #error 0x1234	/* { dg-bogus "error" "wide charconst recognition 3" } */
 #endif
 
-#if 'abcd' /* { dg-warning "multi-character character constant" "multi-character charconst" } */
-# /* APPLE LOCAL -Wfour-char-constants */
-# /* { dg-options "-Wfour-char-constants" { target *-apple-darwin* } } */
+/* The 'character constant (is )?too long' message is produced by 16-bit targets.  */
+#if 'abcd' /* { dg-warning "(multi-character character constant)|(character constant (is )?too long)" "multi-character charconst" } */
 #endif
 
 #if 'abcdefghi' /* { dg-error "character constant (is )?too long" "charconst too long" } */

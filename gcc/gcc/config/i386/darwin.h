@@ -1,4 +1,5 @@
 /* Target definitions for x86 running Darwin.
+   APPLE LOCAL mainline 2005-04-11
    Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -23,13 +24,12 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_MACHO
 #define TARGET_MACHO 1
 
-/* APPLE LOCAL begin default to ppro */
-/* Default to -mcpu=pentiumpro instead of i386 (radar 2730299)  ilr */
-#undef TARGET_CPU_DEFAULT
-#define TARGET_CPU_DEFAULT 4
-/* APPLE LOCAL end default to ppro */
+#define TARGET_VERSION fprintf (stderr, " (i686 Darwin)");
 
-#define TARGET_VERSION fprintf (stderr, " (i386 Darwin)");
+/* APPLE LOCAL begin mainline 2005-04-11 4010614 */
+#undef TARGET_FPMATH_DEFAULT
+#define TARGET_FPMATH_DEFAULT (TARGET_SSE ? FPMATH_SSE : FPMATH_387)
+/* APPLE LOCAL end mainline 2005-04-11 4010614 */
 
 #define TARGET_OS_CPP_BUILTINS()                \
   do                                            \
@@ -46,24 +46,34 @@ Boston, MA 02111-1307, USA.  */
    the kernel or some such.  */
 
 #undef CC1_SPEC
-/* APPLE LOCAL dynamic-no-pic */
-/* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */
-/* When -mdynamic-no-pic finally works, remove the "xx" below.  FIXME!!  */
+/* APPLE LOCAL begin dynamic-no-pic */
 #define CC1_SPEC "\
 %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
-%{!static:%{!mxxdynamic-no-pic:-fPIC}} %<faltivec %<mno-fused-madd %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
-
+"/* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */"\
+%{!static:%{!mdynamic-no-pic:-fPIC}} %<faltivec %<mno-fused-madd %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
+/* APPLE LOCAL end dynamic-no-pic */
 
 /* APPLE LOCAL AltiVec */
 #define CPP_ALTIVEC_SPEC "%<faltivec"
 
 #undef ASM_SPEC
+/* APPLE LOCAL mainline 2005-04-11 */
 #define ASM_SPEC "-arch i386 -force_cpusubtype_ALL"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS					\
+  /* APPLE LOCAL begin mainline 2005-04-11 */			\
   { "darwin_arch", "i386" },					\
   { "darwin_subarch", "i386" },
+  /* APPLE LOCAL end mainline 2005-04-11 */
+
+/* APPLE LOCAL begin 4078600 */
+/* Support for configure-time defaults of some command line options.  */
+#undef OPTION_DEFAULT_SPECS
+#define OPTION_DEFAULT_SPECS \
+  {"arch", "%{!march=*:-march=%(VALUE)}"}, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}"}
+/* APPLE LOCAL end 4078600 */
 
 /* Use the following macro for any Darwin/x86-specific command-line option
    translation.  */
@@ -81,6 +91,12 @@ Boston, MA 02111-1307, USA.  */
 
 #define SHIFT_DOUBLE_OMITS_COUNT 0
 
+/* APPLE LOCAL begin deep branch prediction pic-base */
+extern void darwin_x86_file_end (void);
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END darwin_x86_file_end
+/* APPLE LOCAL end deep branch prediction pic-base */
+
 /* Define the syntax of pseudo-ops, labels and comments.  */
 
 /* String containing the assembler's comment-starter.  */
@@ -90,18 +106,16 @@ Boston, MA 02111-1307, USA.  */
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387.  */
 
-/* APPLE LOCAL long double default size --mrs */
-#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_128BIT_LONG_DOUBLE)
+/* APPLE LOCAL temporary not ALIGN_DOUBLE */
+#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_128BIT_LONG_DOUBLE | (0 & MASK_ALIGN_DOUBLE))
 
-/* TARGET_DEEP_BRANCH_PREDICTION is incompatible with Mach-O PIC.  */
+/* APPLE LOCAL begin dynamic-no-pic */
+/* Darwin switches.  */
+/* Use dynamic-no-pic codegen (no picbase reg; not suitable for shlibs.)  */
+#define MASK_MACHO_DYNAMIC_NO_PIC (0x00800000)
 
-#undef TARGET_DEEP_BRANCH_PREDICTION
-#define TARGET_DEEP_BRANCH_PREDICTION   0
-
-/* For now, disable dynamic-no-pic.  We'll need to go through i386.c
-   with a fine-tooth comb looking for refs to flag_pic!  */
-#define MASK_MACHO_DYNAMIC_NO_PIC 0
-#define TARGET_DYNAMIC_NO_PIC	  (target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
+#define TARGET_DYNAMIC_NO_PIC	(target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
+/* APPLE LOCAL end dynamic-no-pic */
 
 /* Define the syntax of pseudo-ops, labels and comments.  */
 
@@ -190,13 +204,31 @@ Boston, MA 02111-1307, USA.  */
       else fprintf (FILE, "\tcall mcount\n");				\
     } while (0)
 
-/* APPLE LOCAL SSE stack alignment */
+/* APPLE LOCAL begin SSE stack alignment */
 #define BASIC_STACK_BOUNDARY (128)
+/* APPLE LOCAL end SSE stack alignment */
 
+/* APPLE LOCAL begin fix-and-continue x86 */
 #undef SUBTARGET_OVERRIDE_OPTIONS
-/* Force Darwin/x86 to default as "-march=i686 -mcpu=pentium4".  */
-#define SUBTARGET_OVERRIDE_OPTIONS \
-  do { \
-    if (!ix86_arch_string) ix86_arch_string = "pentiumpro"; \
-    if (!ix86_tune_string) ix86_tune_string = "pentium4"; \
+#define SUBTARGET_OVERRIDE_OPTIONS				\
+  do {								\
+    /* Handle -mfix-and-continue.  */				\
+    if (darwin_fix_and_continue_switch)				\
+      {								\
+	const char *base = darwin_fix_and_continue_switch;	\
+	while (base[-1] != 'm') base--;				\
+								\
+	if (*darwin_fix_and_continue_switch != '\0')		\
+	  error ("invalid option %qs", base);			\
+	darwin_fix_and_continue = (base[0] != 'n');		\
+      }								\
   } while (0)
+
+/* True, iff we're generating fast turn around debugging code.  When
+   true, we arrange for function prologues to start with 6 nops so
+   that gdb may insert code to redirect them, and for data to be
+   accessed indirectly.  The runtime uses this indirection to forward
+   references for data to the original instance of that data.  */
+
+#define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)
+/* APPLE LOCAL end fix-and-continue x86 */

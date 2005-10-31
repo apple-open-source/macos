@@ -35,14 +35,15 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
-
 
 /**
  * This class represents JCheckBoxMenuItem. Its behaviour is very similar
@@ -205,7 +206,7 @@ public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
     * This method overrides JComponent.requestFocus with an empty
     * implementation, since JCheckBoxMenuItems should not
     * receve focus in general.
-   */
+    */
   public void requestFocus()
   {
     //  Should do nothing here

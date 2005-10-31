@@ -31,3 +31,14 @@ diff -rup orig/tclapplescript/TclAppleScript.pbproj/project.pbxproj tclapplescri
  		};
  //F50
  //F51
+--- tclMacOSA_OSX.c.orig	2004-05-05 23:34:06.000000000 -0700
++++ tclMacOSA_OSX.c	2005-07-07 14:11:39.000000000 -0700
+@@ -21,7 +21,7 @@
+ #else
+ #include	<tcl.h>
+ #endif
+-#include	<osxMacTcl.h>
++#include	"osxMacTcl.h"
+ #else
+ #include "tcl.h"
+ #include "tclInt.h"

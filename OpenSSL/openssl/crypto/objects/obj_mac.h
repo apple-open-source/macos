@@ -950,6 +950,10 @@
 #define NID_id_cct		268
 #define OBJ_id_cct		OBJ_id_pkix,12L
 
+#define SN_id_ppl		"id-ppl"
+#define NID_id_ppl		662
+#define OBJ_id_ppl		OBJ_id_pkix,21L
+
 #define SN_id_ad		"id-ad"
 #define NID_id_ad		176
 #define OBJ_id_ad		OBJ_id_pkix,48L
@@ -1064,6 +1068,11 @@
 #define LN_sinfo_access		"Subject Information Access"
 #define NID_sinfo_access		398
 #define OBJ_sinfo_access		OBJ_id_pe,11L
+
+#define SN_proxyCertInfo		"proxyCertInfo"
+#define LN_proxyCertInfo		"Proxy Certificate Information"
+#define NID_proxyCertInfo		663
+#define OBJ_proxyCertInfo		OBJ_id_pe,14L
 
 #define SN_id_qt_cps		"id-qt-cps"
 #define LN_id_qt_cps		"Policy Qualifier CPS"
@@ -1389,6 +1398,21 @@
 #define NID_id_cct_PKIResponse		362
 #define OBJ_id_cct_PKIResponse		OBJ_id_cct,3L
 
+#define SN_id_ppl_anyLanguage		"id-ppl-anyLanguage"
+#define LN_id_ppl_anyLanguage		"Any language"
+#define NID_id_ppl_anyLanguage		664
+#define OBJ_id_ppl_anyLanguage		OBJ_id_ppl,0L
+
+#define SN_id_ppl_inheritAll		"id-ppl-inheritAll"
+#define LN_id_ppl_inheritAll		"Inherit all"
+#define NID_id_ppl_inheritAll		665
+#define OBJ_id_ppl_inheritAll		OBJ_id_ppl,1L
+
+#define SN_Independent		"id-ppl-independent"
+#define LN_Independent		"Independent"
+#define NID_Independent		667
+#define OBJ_Independent		OBJ_id_ppl,2L
+
 #define SN_ad_OCSP		"OCSP"
 #define LN_ad_OCSP		"OCSP"
 #define NID_ad_OCSP		178
@@ -1619,6 +1643,10 @@
 #define NID_stateOrProvinceName		16
 #define OBJ_stateOrProvinceName		OBJ_X509,8L
 
+#define LN_streetAddress		"streetAddress"
+#define NID_streetAddress		660
+#define OBJ_streetAddress		OBJ_X509,9L
+
 #define SN_organizationName		"O"
 #define LN_organizationName		"organizationName"
 #define NID_organizationName		17
@@ -1636,6 +1664,10 @@
 #define LN_description		"description"
 #define NID_description		107
 #define OBJ_description		OBJ_X509,13L
+
+#define LN_postalCode		"postalCode"
+#define NID_postalCode		661
+#define OBJ_postalCode		OBJ_X509,17L
 
 #define SN_name		"name"
 #define LN_name		"name"
@@ -2008,6 +2040,46 @@
 #define LN_aes_256_cfb128		"aes-256-cfb"
 #define NID_aes_256_cfb128		429
 #define OBJ_aes_256_cfb128		OBJ_aes,44L
+
+#define SN_aes_128_cfb1		"AES-128-CFB1"
+#define LN_aes_128_cfb1		"aes-128-cfb1"
+#define NID_aes_128_cfb1		650
+
+#define SN_aes_192_cfb1		"AES-192-CFB1"
+#define LN_aes_192_cfb1		"aes-192-cfb1"
+#define NID_aes_192_cfb1		651
+
+#define SN_aes_256_cfb1		"AES-256-CFB1"
+#define LN_aes_256_cfb1		"aes-256-cfb1"
+#define NID_aes_256_cfb1		652
+
+#define SN_aes_128_cfb8		"AES-128-CFB8"
+#define LN_aes_128_cfb8		"aes-128-cfb8"
+#define NID_aes_128_cfb8		653
+
+#define SN_aes_192_cfb8		"AES-192-CFB8"
+#define LN_aes_192_cfb8		"aes-192-cfb8"
+#define NID_aes_192_cfb8		654
+
+#define SN_aes_256_cfb8		"AES-256-CFB8"
+#define LN_aes_256_cfb8		"aes-256-cfb8"
+#define NID_aes_256_cfb8		655
+
+#define SN_des_cfb1		"DES-CFB1"
+#define LN_des_cfb1		"des-cfb1"
+#define NID_des_cfb1		656
+
+#define SN_des_cfb8		"DES-CFB8"
+#define LN_des_cfb8		"des-cfb8"
+#define NID_des_cfb8		657
+
+#define SN_des_ede3_cfb1		"DES-EDE3-CFB1"
+#define LN_des_ede3_cfb1		"des-ede3-cfb1"
+#define NID_des_ede3_cfb1		658
+
+#define SN_des_ede3_cfb8		"DES-EDE3-CFB8"
+#define LN_des_ede3_cfb8		"des-ede3-cfb8"
+#define NID_des_ede3_cfb8		659
 
 #define SN_hold_instruction_code		"holdInstructionCode"
 #define LN_hold_instruction_code		"Hold Instruction Code"

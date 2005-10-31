@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  * Adapted code from Chris Nokleberg (http://sixlegs.com/)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@ package org.blojsom.filter;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.blojsom.util.BlojsomUtils;
+import org.blojsom.util.BlojsomConstants;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -51,7 +52,7 @@ import java.util.regex.Pattern;
  * PermalinkFilter
  *
  * @author David Czarnecki
- * @version $Id: PermalinkFilter.java,v 1.1 2004/08/27 01:13:55 whitmore Exp $
+ * @version $Id: PermalinkFilter.java,v 1.1.2.1 2005/07/21 14:11:03 johnan Exp $
  * @since blojsom 2.17
  */
 public class PermalinkFilter implements Filter {
@@ -107,6 +108,8 @@ public class PermalinkFilter implements Filter {
      */
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
+        request.setCharacterEncoding(BlojsomConstants.UTF8);
+        
         HttpServletRequest hreq = (HttpServletRequest) request;
         String uri = hreq.getRequestURI();
         StringBuffer url = hreq.getRequestURL();
@@ -131,11 +134,12 @@ public class PermalinkFilter implements Filter {
             extraParameters.put("month", new String[]{month});
             extraParameters.put("day", new String[]{day});
             extraParameters.put("permalink", new String[]{permalink});
-            int yearIndex = pathInfo.indexOf(year);
+            String yearSubstring = year + "/";
+            int yearIndex = pathInfo.lastIndexOf(yearSubstring);
             String pathinfo = pathInfo.substring(0, yearIndex);
-            yearIndex = uri.indexOf(year);
+            yearIndex = uri.lastIndexOf(yearSubstring);
             String URI = uri.substring(0, yearIndex);
-            yearIndex = url.indexOf(year);
+            yearIndex = url.lastIndexOf(yearSubstring);
             String URL = url.substring(0, yearIndex);
             _logger.debug("Handling YYYY/MM/DD/permalink request: " + pathinfo);
             hreq = new PermalinkRequest(hreq, extraParameters, URI, URL, pathinfo);
@@ -147,11 +151,12 @@ public class PermalinkFilter implements Filter {
             extraParameters.put("year", new String[]{year});
             extraParameters.put("month", new String[]{month});
             extraParameters.put("day", new String[]{day});
-            int yearIndex = pathInfo.indexOf(year);
+            String yearSubstring = year + "/";
+            int yearIndex = pathInfo.lastIndexOf(yearSubstring);
             String pathinfo = pathInfo.substring(0, yearIndex);
-            yearIndex = uri.indexOf(year);
+            yearIndex = uri.lastIndexOf(yearSubstring);
             String URI = uri.substring(0, yearIndex);
-            yearIndex = url.indexOf(year);
+            yearIndex = url.lastIndexOf(yearSubstring);
             String URL = url.substring(0, yearIndex);
             hreq = new PermalinkRequest(hreq, extraParameters, URI, URL, pathinfo);
             _logger.debug("Handling YYYY/MM/DD/ request: " + pathinfo);
@@ -161,11 +166,12 @@ public class PermalinkFilter implements Filter {
             extraParameters = new HashMap();
             extraParameters.put("year", new String[]{year});
             extraParameters.put("month", new String[]{month});
-            int yearIndex = pathInfo.indexOf(year);
+            String yearSubstring = year + "/";
+            int yearIndex = pathInfo.lastIndexOf(yearSubstring);
             String pathinfo = pathInfo.substring(0, yearIndex);
-            yearIndex = uri.indexOf(year);
+            yearIndex = uri.lastIndexOf(yearSubstring);
             String URI = uri.substring(0, yearIndex);
-            yearIndex = url.indexOf(year);
+            yearIndex = url.lastIndexOf(yearSubstring);
             String URL = url.substring(0, yearIndex);
             hreq = new PermalinkRequest(hreq, extraParameters, URI, URL, pathinfo);
             _logger.debug("Handling YYYY/MM request: " + pathinfo);
@@ -173,14 +179,30 @@ public class PermalinkFilter implements Filter {
             String year = yMatcher.group(1);
             extraParameters = new HashMap();
             extraParameters.put("year", new String[]{year});
-            int yearIndex = pathInfo.indexOf(year);
+            String yearSubstring = year + "/";
+            int yearIndex = pathInfo.lastIndexOf(yearSubstring);
             String pathinfo = pathInfo.substring(0, yearIndex);
-            yearIndex = uri.indexOf(year);
+            yearIndex = uri.lastIndexOf(yearSubstring);
             String URI = uri.substring(0, yearIndex);
-            yearIndex = url.indexOf(year);
+            yearIndex = url.lastIndexOf(yearSubstring);
             String URL = url.substring(0, yearIndex);
             hreq = new PermalinkRequest(hreq, extraParameters, URI, URL, pathinfo);
             _logger.debug("Handling YYYY request: " + pathinfo);
+        } else {
+            // Check for a /category/permalink.html post
+            String permalinkSubstring = "/";
+            int permalinkIndex = pathInfo.lastIndexOf(permalinkSubstring);
+            if (permalinkIndex < pathInfo.length() - 1) {
+                extraParameters = new HashMap();
+                extraParameters.put("permalink", new String[]{pathInfo.substring(permalinkIndex + 1)});
+                String pathinfo = pathInfo.substring(0, permalinkIndex + 1);
+                permalinkIndex = uri.lastIndexOf(permalinkSubstring);
+                String URI = uri.substring(0, permalinkIndex + 1);
+                permalinkIndex = url.lastIndexOf(permalinkSubstring);
+                String URL = url.substring(0, permalinkIndex + 1);
+                _logger.debug("Handling permalink request: " + pathinfo);
+                hreq = new PermalinkRequest(hreq, extraParameters, URI, URL, pathinfo);
+            }
         }
 
         chain.doFilter(hreq, response);
@@ -189,7 +211,7 @@ public class PermalinkFilter implements Filter {
     /**
      * Permalink request
      */
-    private class PermalinkRequest extends HttpServletRequestWrapper {
+    public class PermalinkRequest extends HttpServletRequestWrapper {
 
         private Map params;
         private String uri;
@@ -284,6 +306,16 @@ public class PermalinkFilter implements Filter {
          */
         public String[] getParameterValues(String name) {
             return (String[]) params.get(name);
+        }
+
+        /**
+         * Set the path information for the request
+         *
+         * @param pathInfo New path information
+         * @since blojsom 2.25
+         */
+        public void setPathInfo(String pathInfo) {
+            this.pathInfo = pathInfo;
         }
     }
 }

@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.1.5</string>
+	<string>3.1.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.1.5</string>
+	<string>3.1.9</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCEEM</key>
@@ -48,6 +48,14 @@
 		<string>1.1</string>
 		<key>com.apple.iokit.IOUSBFamily</key>
 		<string>1.9</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0</string>
 	</dict>
 </dict>
 </plist>

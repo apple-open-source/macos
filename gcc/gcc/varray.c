@@ -113,7 +113,6 @@ static const struct {
   { sizeof (union tree_node *), 1 },
   { sizeof (struct bitmap_head_def *), 1 },
   { sizeof (struct reg_info_def *), 0 },
-  { sizeof (struct const_equiv_data), 0 },
   { sizeof (struct basic_block_def *), 1 },
   { sizeof (struct elt_list *), 1 },
   { sizeof (struct edge_def *), 1 },
@@ -217,25 +216,6 @@ varray_underflow (varray_type va, const char *file, int line,
 
 #endif
 
-
-/* Copy varray V2 into varray V1.  Both arrays must be the same size
-   and type.  */
-
-void
-varray_copy (varray_type v1, varray_type v2)
-{
-  size_t data_size;
-  
-  if (v1->type != v2->type)
-    abort ();
-
-  if (v1->num_elements != v2->num_elements)
-    abort ();
-
-  data_size = element[v2->type].size * v2->num_elements;
-  memcpy (v1->data.c, v2->data.c, data_size);
-  v1->elements_used = v2->elements_used;
-}
 
 /* Output per-varray statistics.  */
 #ifdef GATHER_STATISTICS

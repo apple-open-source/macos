@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,19 +24,18 @@
 #ifndef __DNSINFO_H__
 #define __DNSINFO_H__
 
-
 /*
  * These routines provide access to the systems DNS configuration
  */
 
-
+#include <AvailabilityMacros.h>
+#include <sys/cdefs.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#include <sys/cdefs.h>
-
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
 
 #define DEFAULT_SEARCH_ORDER    200000   /* search order for the "default" resolver domain name */
 
@@ -75,10 +74,12 @@ __BEGIN_DECLS
 /*
  * DNS configuration access APIs
  */
-const char *	dns_configuration_notify_key    ();
-dns_config_t *	dns_configuration_copy		();
-void		dns_configuration_free		(dns_config_t *config);
+const char *	dns_configuration_notify_key    ()			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+dns_config_t *	dns_configuration_copy		()			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+void		dns_configuration_free		(dns_config_t *config)	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 __END_DECLS
 
-#endif __DNSINFO_H__
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
+
+#endif	/* __DNSINFO_H__ */

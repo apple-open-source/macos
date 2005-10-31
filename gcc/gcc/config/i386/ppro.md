@@ -1,5 +1,5 @@
 ;; Scheduling for the Intel P6 family of processors
-;; Copyright (C) 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -687,7 +687,7 @@
 
 (define_insn_reservation "ppro_sse_div_V4SF_load" 48
 			 (and (eq_attr "cpu" "pentiumpro")
-			      (and (eq_attr "memory" "none")
+			      (and (eq_attr "memory" "load")
 				   (and (eq_attr "mode" "V4SF")
 					(eq_attr "type" "ssediv"))))
 			 "decoder0,(p2+p0)*2,p0*32")
@@ -696,14 +696,14 @@
 			 (and (eq_attr "cpu" "pentiumpro")
 			      (and (eq_attr "memory" "none")
 				   (and (eq_attr "mode" "V4SF")
-					(eq_attr "type" "sselog"))))
+					(eq_attr "type" "sselog,sselog1"))))
 			 "decodern,p1")
 
 (define_insn_reservation "ppro_sse_log_V4SF_load" 2
 			 (and (eq_attr "cpu" "pentiumpro")
-			      (and (eq_attr "memory" "none")
+			      (and (eq_attr "memory" "load")
 				   (and (eq_attr "mode" "V4SF")
-					(eq_attr "type" "sselog"))))
+					(eq_attr "type" "sselog,sselog1"))))
 			 "decoder0,(p2+p1)")
 
 (define_insn_reservation "ppro_sse_mov_V4SF" 1

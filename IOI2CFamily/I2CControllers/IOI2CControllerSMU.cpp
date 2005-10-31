@@ -1,11 +1,42 @@
 /*
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CControllerSMU.cpp,v 1.4 2004/12/15 02:21:42 jlehrer Exp $
+ *	File: $Id: IOI2CControllerSMU.cpp,v 1.7 2005/08/31 00:50:12 larson Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2CControllerSMU.cpp,v $
+ *		Revision 1.7  2005/08/31 00:50:12  larson
+ *		Bumped the retry count to 30 for slow I2C devices (SATs performing an erase function)
+ *		
+ *		Revision 1.6  2005/07/01 16:09:52  bwpang
+ *		[4086434] added APSL headers
+ *		
+ *		Revision 1.5  2005/02/08 21:09:28  jlehrer
+ *		Reduced IOSleep times and only sleep for retries.
+ *		Added 5-second timeout and retry counts.
+ *		
  *		Revision 1.4  2004/12/15 02:21:42  jlehrer
  *		Returns actual bytes transfered in IOI2CCommand.
  *		Removed cancelTransactions.
@@ -108,7 +139,7 @@ private:
 		kPowerSupplyBus             = 2,                 /* (IVAD is here)*/
 	};
 
-#define MAXIICRETRYCOUNT	20
+#define MAXIICRETRYCOUNT	30
 #define STATUS_DATAREAD		1
 #define STATUS_OK		0
 #define STATUS_BUSY		0xfe
@@ -276,7 +307,16 @@ IOI2CControllerSMU::processReadI2CBus(
 			return status;
 	}
 
-	for (retries = 0; retries < MAXIICRETRYCOUNT; retries++)
+	AbsoluteTime deadline, currentTime;
+	UInt32	timeout_uS = cmd->timeout_uS;
+
+	// By default we allow up to 5 seconds for a transaction to complete.
+	if (timeout_uS < 5000000) // that's the minimum timeout the caller can request.
+		timeout_uS = 5000000;
+	clock_interval_to_deadline(timeout_uS, kMicrosecondScale, &deadline);
+
+	retries = 0;
+	for (;;)
 	{
         iicPB.bus				= bus;
 		iicPB.xferType			= xferType;
@@ -291,96 +331,80 @@ IOI2CControllerSMU::processReadI2CBus(
         sLength					= (short) ((UInt8 *)&iicPB.data - (UInt8 *)&iicPB.bus);   
 
 		DLOG("SMUI2C send length=%d\n",sLength);
-#ifdef SMUI2C_DEBUG
-			{
-				UInt32 iii;
-				UInt8 *sBuffer = (UInt8 *) &iicPB;
-				DLOG("SMUI2C:read1 sL:%d, rL:%d, data:", sLength, rLength);
-				for (iii = 0; iii < sLength; iii++)
-					DLOG(" %02x", sBuffer[iii]);
-				DLOG("\n");
-			}
-#endif
 
         if (kIOReturnSuccess == (status = AppleSMUSendI2CCommand( sLength, (UInt8 *) &iicPB, &rLength, rBuffer, kSMU_I2C_Cmd )))
 		{
-#ifdef SMUI2C_DEBUG
-			{
-				UInt32 iii;
-				DLOG("SMUI2C:read2 sL:%d, rL:%d, data:", sLength, rLength);
-				for (iii = 0; iii < rLength; iii++)
-					DLOG(" %02x", rBuffer[iii]);
-				DLOG("\n");
-			}
-#endif
 			if (rBuffer[0] == STATUS_OK)
 				break;							// if pb accepted, proceed to status/read phase
 		}
 
-		IOSleep (15);	// hmmm...
+		// If we exceeded our retries then indicate that the SMU is not responding.
+		if (++retries >= MAXIICRETRYCOUNT)
+		{
+			status = kIOReturnNotResponding;
+			DLOG("READ SMU STATUS:0x%x, retries:%02lx exceeded\n", status, retries);
+			break;
+		}
+
+		IOSleep (1);	// hmmm...
+		clock_get_uptime(&currentTime);
+		if ( CMP_ABSOLUTETIME(&currentTime, &deadline) > 0 )
+		{
+			status = kIOReturnNotResponding;
+			DLOG("READ SMU STATUS:0x%x, timeout exceeded\n", status);
+			break;
+		}
 	}
 
 	DLOG("READ SMU MID STATUS:0x%x, retries = %d\n", status, retries);
 
-	// If we exceeded our retries then indicate that the device (or SMU) is not responding.
-	if (retries >= MAXIICRETRYCOUNT)
-		status = kIOReturnNotResponding;
-
 	if (status == kIOReturnSuccess)
 	{
-		// SMU has a long round trip time so take a nap
-		IOSleep (kSMUSleepDelay);
-
-		for (retries = 0; retries < MAXIICRETRYCOUNT; retries++)
+		retries = 0;
+		for (;;)
 		{
 			iicPB.bus	= kI2CStatusBus;
 			rLength 	= count + 1;		// added one byte for the leading status byte
 			rBuffer[0]	= 0xff;
 			sLength		= 1;
 
-#ifdef SMUI2C_DEBUG
-			{
-				UInt32 iii;
-				UInt8 *sBuffer = (UInt8 *) &iicPB;
-				DLOG("SMUI2C:read3 sL:%d, rL:%d, data:", sLength, rLength);
-				for (iii = 0; iii < sLength; iii++)
-					DLOG(" %02x", sBuffer[iii]);
-				DLOG("\n");
-			}
-#endif
-
 			if (kIOReturnSuccess == (status = AppleSMUSendI2CCommand( sLength, (UInt8 *) &iicPB, &rLength, rBuffer, kSMU_I2C_Cmd )))
 			{
-#ifdef SMUI2C_DEBUG
-			{
-				UInt32 iii;
-				DLOG("SMUI2C:read4 sL:%d, rL:%d, data:", sLength, rLength);
-				for (iii = 0; iii < rLength; iii++)
-					DLOG(" %02x", rBuffer[iii]);
-				DLOG("\n");
-			}
-#endif
 				if ((SInt8)rBuffer[0] >= STATUS_OK)
 				{
 					DLOG("SMUI2C:rLength:%d, count:%d\n", rLength, count);
 					bcopy( 1 + rBuffer, buffer, count ); // copy SMU data to client buffer, strip smu I2C status byte.
-				}
-				else
-				{
-					status = kIOReturnIOError;
-					DLOG("SMUI2C:read rBuffer[0] < STATUS_OK (%x) considering this an error:%x!!!\n", rBuffer[0], status);
-				}
+					cmd->bytesTransfered = count;
 
-				DLOG("READ I2C SMU END - STATUS:0x%x  retries = %d\n", status, retries);
-				DLOG("addr = 0x%02lx, subAd = 0x%02lx, rdBuf[0] = 0x%02x, count = 0x%ld\n", address, subAddress, rBuffer[0], count);
-				cmd->bytesTransfered = count;
+					DLOG("READ I2C SMU END - STATUS:0x%x  retries = %d\n", status, retries);
+					DLOG("addr = 0x%02lx, subAd = 0x%02lx, rdBuf[0] = 0x%02x, count = 0x%ld\n", address, subAddress, rBuffer[0], count);
+					break;
+				}
+			}
+
+			// If we exceeded our retries then indicate that the SMU is not responding.
+			if (++retries >= MAXIICRETRYCOUNT)
+			{
+				status = kIOReturnNotResponding;
+				DLOG("READ SMU STATUS:0x%x, retries:%02lx exceeded\n", status, retries);
 				break;
 			}
-			IOSleep( 15 );
+
+			// SMU has a long round trip time so take a nap
+			IOSleep (1);
+			clock_get_uptime(&currentTime);
+			if ( CMP_ABSOLUTETIME(&currentTime, &deadline) > 0 )
+			{
+				status = kIOReturnNotResponding;
+				DLOG("READ SMU STATUS:0x%x, timeout exceeded\n", status);
+				break;
+			}
+
+			DLOG("READ SMU STATUS:0x%x, retry:%02lx\n", status, retries);
 		}
 	}
 
-	DLOG("-IOI2CControllerSMU::processReadI2CBus\n\n");
+	DLOG("-IOI2CControllerSMU::processReadI2CBus (%x)\n", status);
 	return status;
 }
 
@@ -474,7 +498,16 @@ IOI2CControllerSMU::processWriteI2CBus(
 	DLOG("\n+IOI2CControllerSMU::processWriteI2CBus\nA:0x%02lx, S:0x%02lx, wrBuf:0x%02x, L:%ld\n",
 		address, subAddress, buffer[0], count);
 
-	for (retries = 0; retries < MAXIICRETRYCOUNT; retries++)
+	AbsoluteTime deadline, currentTime;
+	UInt32	timeout_uS = cmd->timeout_uS;
+
+	// By default we allow up to 5 seconds for a transaction to complete.
+	if (timeout_uS < 5000000) // that's the minimum timeout the caller can request.
+		timeout_uS = 5000000;
+	clock_interval_to_deadline(timeout_uS, kMicrosecondScale, &deadline);
+
+	retries = 0;
+	for (;;)
 	{
         iicPB.bus				= bus;
 		iicPB.xferType			= xferType;
@@ -491,88 +524,75 @@ IOI2CControllerSMU::processWriteI2CBus(
         rLength 				= 1;			// status return only
 		rBuffer[0]				= 0xff;
 		sLength					= (short) (&iicPB.data[count] - &iicPB.bus);  
-#ifdef SMUI2C_DEBUG
-			{
-				UInt32 iii;
-				UInt8 *sBuffer = (UInt8 *)&iicPB;
-				DLOG("SMUI2C:write1 sL:%d, rL:%d, data:", sLength, rLength);
-				for (iii = 0; iii < sLength; iii++)
-					DLOG(" %02x", sBuffer[iii]);
-				DLOG("\n");
-			}
-#endif
 
+		DLOG("SMUI2C send length=%d\n",sLength);
 		if (kIOReturnSuccess == (status = AppleSMUSendI2CCommand( sLength, (UInt8 *) &iicPB, &rLength, rBuffer, kSMU_I2C_Cmd )))
 		{
-#ifdef SMUI2C_DEBUG
-			{
-				UInt32 iii;
-				DLOG("SMUI2C:write2 sL:%d, rL:%d, data:", sLength, rLength);
-				for (iii = 0; iii < rLength; iii++)
-					DLOG(" %02x", rBuffer[iii]);
-				DLOG("\n");
-			}
-#endif
 			if (rBuffer[0] == STATUS_OK)
 				break;			// if pb accepted, proceed to status phase
-			else
-				status = kIOReturnIOError;
 		}
 
-		IOSleep(15);
+		// If we exceeded our retries then indicate that the SMU is not responding.
+		if (++retries >= MAXIICRETRYCOUNT)
+		{
+			status = kIOReturnNotResponding;
+			DLOG("WRITE SMU STATUS:0x%x, retries:%02lx exceeded\n", status, retries);
+			break;
+		}
+		
+		IOSleep (1);	// hmmm...
+		clock_get_uptime(&currentTime);
+		if ( CMP_ABSOLUTETIME(&currentTime, &deadline) > 0 )
+		{
+			status = kIOReturnNotResponding;
+			DLOG("WRITE SMU STATUS:0x%x, timeout exceeded\n", status);
+			break;
+		}
 	}
 
 	DLOG("WRITE SMU MID STATUS:%x, retries:%d\n", status, retries);
 
-	// If we exceeded our retries then indicate that the SMU is not responding.
-	if (retries >= MAXIICRETRYCOUNT)
-		status = kIOReturnNotResponding;
-
 	if (status == kIOReturnSuccess)
 	{
-		// SMU has a long round trip time so take a nap
-		IOSleep (kSMUSleepDelay);
-
-		for (retries = 0; retries < MAXIICRETRYCOUNT; retries++)
+		retries = 0;
+		for (;;)
 		{
 			iicPB.bus		= kI2CStatusBus;	// attempt to recover status
 			rLength 		= sizeof( rBuffer );
 			rBuffer[0]		= 0xff;
 			sLength			= 1;
 
-#ifdef SMUI2C_DEBUG
-			{
-				UInt32 iii;
-				UInt8 *sBuffer = (UInt8 *)&iicPB;
-				DLOG("SMUI2C:write3 sL:%d, rL:%d, data:", sLength, rLength);
-				for (iii = 0; iii < sLength; iii++)
-					DLOG(" %02x", sBuffer[iii]);
-				DLOG("\n");
-			}
-#endif
 			if (kIOReturnSuccess == (status = AppleSMUSendI2CCommand( sLength, (UInt8 *) &iicPB, &rLength, rBuffer, kSMU_I2C_Cmd )))
 			{
-#ifdef SMUI2C_DEBUG
-			{
-				UInt32 iii;
-				DLOG("SMUI2C:write4 sL:%d, rL:%d, data:", sLength, rLength);
-				for (iii = 0; iii < rLength; iii++)
-					DLOG(" %02x", rBuffer[iii]);
-				DLOG("\n");
+				if (rBuffer[0] == STATUS_OK)
+				{
+					cmd->bytesTransfered = count;
+					break;
+				}
 			}
-#endif
-				if (rBuffer[0] != STATUS_OK)
-					status = kIOReturnIOError;
-				DLOG("WRITE SMU STATUS:0x%x, retries:%02lx\n", status, retries);
-				cmd->bytesTransfered = count;
+
+			// If we exceeded our retries then indicate that the SMU is not responding.
+			if (++retries >= MAXIICRETRYCOUNT)
+			{
+				status = kIOReturnNotResponding;
+				DLOG("WRITE SMU STATUS:0x%x, retries:%02lx exceeded\n", status, retries);
 				break;
 			}
 
-            IOSleep(15);
+			IOSleep (1);	// hmmm...
+			clock_get_uptime(&currentTime);
+			if ( CMP_ABSOLUTETIME(&currentTime, &deadline) > 0 )
+			{
+				status = kIOReturnNotResponding;
+				DLOG("WRITE SMU STATUS:0x%x, timeout exceeded\n", status);
+				break;
+			}
+
+			DLOG("WRITE SMU STATUS:0x%x, retry:%02lx\n", status, retries);
 		}
 	}
 
-	DLOG("-IOI2CControllerSMU::processWriteI2CBus\n\n");
+	DLOG("-IOI2CControllerSMU::processWriteI2CBus (%x)\n", status);
 	return status;
 }
 

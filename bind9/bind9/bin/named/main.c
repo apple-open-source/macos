@@ -15,7 +15,7 @@
  * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: main.c,v 1.1.1.2 2003/03/18 19:18:13 rbraun Exp $ */
+/* $Id: main.c,v 1.2 2005/07/28 18:14:19 majka Exp $ */
 
 #include <config.h>
 
@@ -57,6 +57,9 @@
 #include <named/server.h>
 #include <named/lwresd.h>
 #include <named/main.h>
+
+#include <notify.h>
+#define NETWORK_CHANGE_NOTIFICATION "com.apple.system.config.network_change"
 
 /*
  * Include header files for database drivers here.
@@ -550,6 +553,7 @@ cleanup(void) {
 int
 main(int argc, char *argv[]) {
 	isc_result_t result;
+	int nctoken;
 
 	result = isc_file_progname(*argv, program_name, sizeof(program_name));
 	if (result != ISC_R_SUCCESS)
@@ -581,6 +585,12 @@ main(int argc, char *argv[]) {
 	parse_command_line(argc, argv);
 
 	setup();
+
+	/*
+	 * register for a SIGHUP when there's a network configuration change
+	 */
+	nctoken = -1;
+	notify_register_signal(NETWORK_CHANGE_NOTIFICATION, SIGHUP, &nctoken);
 
 	/*
 	 * Start things running and then wait for a shutdown request

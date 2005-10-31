@@ -1,180 +1,289 @@
-<?xml version="1.0" encoding="UTF-8"?>
+#AdministrationHeader("#adminResource('blog.properties.page.header' 'Blog Properties')")
 
-#adminPageHeader("#adminResource('blog.properties.page.header' 'Blog Properties')")
+<body>
+    <div id="wrap">
 
-    <div id="header">
-        <ul id="primary">
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('entries.page.header' '')</a></li>
-            <li><span>#adminResource('weblog.settings.text' '')</span></li>
-            <ul id="secondary">
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
-                <li><span>#adminResource('properties.text' '')</span></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
-            </ul>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('plugin.settings.text' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&action=logout">#adminResource('logout.text' '')</a></li>
+        <h1>Blosjom Administration Interface</h1>
+
+        <div id="login">
+            <p>Logged in as: <a href="#" title="view info">$BLOJSOM_ADMIN_PLUGIN_USERNAME</a> : <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=logout" title="log out">#adminResource('logout.text' '')</a></p>
+            <p>Logged in to: <a href="$BLOJSOM_BLOG.getBlogURL()" title="view site info">$BLOJSOM_BLOG.getBlogName()</a></p>
+        </div>
+
+        <ul id="nav">
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="#">#adminResource('entries.page.header' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('add.entry.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=page">#adminResource('edit.and.delete.entries.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('weblog.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-permissions&action=page">#adminResource('permissions.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('plugin.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('configure.plugin.mappings.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
+                </ul>
+            </li>
         </ul>
-    </div>
 
-    <div id="contents">
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
 
-        #showErrorMessage()
+                <div class="mainClm">
+                    <h3>#adminResource('blog.properties.page.header' 'Blog Properties')</h3>
+                    <table>
+                        <tr>
+                            <th>#adminResource('blog.property.text' 'Blog property')</th> <th>#adminResource('current.value.text' 'Current value')</th>
+                        </tr>
 
-        <center>
-            <table>
-                <tr>
-                    <th>#adminResource('blog.property.text' 'Blog property')</th> <th>#adminResource('current.value.text' 'Current value')</th>
-                </tr>
+                        <form name="edit-blog-properties" action="." method="post" accept-charset="UTF-8">
 
-                <form name="edit-blog-properties" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="edit-blog-properties"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-properties"/>
 
-                    <input type="hidden" name="action" value="edit-blog-properties"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="edit-blog-properties"/>
-
-                    <!-- General blog settings -->
-                    <tr>
-                        <th>#adminResource('blog.properties.general' 'General settings')</th>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.name.text' 'Blog name')</td> <td><input name="blog-name" type="text" size="50" value="$BLOJSOM_BLOG.getBlogName()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.description.text' 'Blog description')</td> <td><input name="blog-description" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDescription()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.url.text' 'Blog URL')</td> <td><input name="blog-url" type="text" size="50" value="$BLOJSOM_BLOG.getBlogURL()" disabled="true"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.base.url.text' 'Blog base URL')</td> <td><input name="blog-base-url" type="text" size="50" value="$BLOJSOM_BLOG.getBlogBaseURL()" disabled="true"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.depth.text' 'Blog depth')</td> <td><input name="blog-depth" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDepth()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.display.entries.text' 'Blog display entries')</td> <td><input name="blog-display-entries" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDisplayEntries()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.owner.text' 'Blog owner')</td> <td><input name="blog-owner" type="text" size="50" value="$BLOJSOM_BLOG.getBlogOwner()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.owner.email.text' 'Blog owner e-mail address')</td> <td><input name="blog-owner-email" type="text" size="50" value="$BLOJSOM_BLOG.getBlogOwnerEmail()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.file.extensions.text' 'Blog file extensions')</td> <td><input name="blog-file-extensions" type="text" size="50" value="$BLOJSOM_BLOG.getBlogProperty("blog-file-extensions")"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.default.flavor.text' 'Blog default flavor')</td> <td><input name="blog-default-flavor" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDefaultFlavor()"/></td>
-                    </tr>
-                    <tr>
-                        #set ($selectListName = "linear-navigation-enabled")
-                        <td>#adminResource('blog.linear.navigation.enabled.text' 'Linear navigation enabled?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getLinearNavigationEnabled())</td>
-                    </tr>
-
-                    <!-- Category mapping settings -->
-                    <tr>
-                        <th>#adminResource('blog.properties.category.mappings' 'Default category mappings')</th>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.default.category.mapping.text' 'Blog default category mapping')</td> <td><input name="blog-default-category-mapping" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDefaultCategoryMappingsAsString()"/></td>
-                    </tr>
-                    #foreach ($flavor in $BLOJSOM_PLUGIN_EDIT_BLOG_PROPERTIES_CATEGORY_MAP.keySet())
+                            <!-- General blog settings -->
                             <tr>
-                                <td>$flavor default category mapping</td> <td><input name="${flavor}.blog-default-category-mapping" type="text" size="50" value="$BLOJSOM_PLUGIN_EDIT_BLOG_PROPERTIES_CATEGORY_MAP.get($flavor)"/></td>
+                                <th>#adminResource('blog.properties.general' 'General settings')</th>
                             </tr>
-                    #end
+                            <tr>
+                                <td>#adminResource('blog.name.text' 'Blog name')</td> <td><input name="blog-name" type="text" size="50" value="$BLOJSOM_BLOG.getBlogName()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.description.text' 'Blog description')</td> <td><input name="blog-description" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDescription()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.url.text' 'Blog URL')</td> <td><input name="blog-url" type="text" size="50" value="$BLOJSOM_BLOG.getBlogURL()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.base.url.text' 'Blog base URL')</td> <td><input name="blog-base-url" type="text" size="50" value="$BLOJSOM_BLOG.getBlogBaseURL()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.depth.text' 'Blog depth')</td> <td><input name="blog-directory-depth" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDepth()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.display.entries.text' 'Blog display entries')</td> <td><input name="blog-display-entries" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDisplayEntries()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.owner.text' 'Blog owner')</td> <td><input name="blog-owner" type="text" size="50" value="$BLOJSOM_BLOG.getBlogOwner()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.owner.email.text' 'Blog owner e-mail address')</td> <td><input name="blog-owner-email" type="text" size="50" value="$BLOJSOM_BLOG.getBlogOwnerEmail()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.file.extensions.text' 'Blog file extensions')</td> <td><input name="blog-file-extensions" type="text" size="50" value="$BLOJSOM_BLOG.getBlogProperty("blog-file-extensions")"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.default.flavor.text' 'Blog default flavor')</td> <td><input name="blog-default-flavor" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDefaultFlavor()"/></td>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "linear-navigation-enabled")
+                                <td>#adminResource('blog.linear.navigation.enabled.text' 'Linear navigation enabled?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getLinearNavigationEnabled())</td>
+                            </tr>
 
-                    <!-- Internationalization settings -->
-                    <tr>
-                        <th>#adminResource('blog.properties.internationalization' 'Internationalization settings')</th>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.encoding.text' 'Blog encoding')</td> <td><input name="blog-file-encoding" type="text" size="50" value="$BLOJSOM_BLOG.getBlogFileEncoding()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.country.text' 'Blog country code')</td> <td><input name="blog-country" type="text" size="50" value="$BLOJSOM_BLOG.getBlogCountry()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.language.text' 'Blog language code')</td> <td><input name="blog-language" type="text" size="50" value="$BLOJSOM_BLOG.getBlogLanguage()"/></td>
-                    </tr>
+                            <!-- Category mapping settings -->
+                            <tr>
+                                <th>#adminResource('blog.properties.category.mappings' 'Default category mappings')</th>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.default.category.mapping.text' 'Blog default category mapping')</td> <td><input name="blog-default-category-mapping" type="text" size="50" value="$BLOJSOM_BLOG.getBlogDefaultCategoryMappingsAsString()"/></td>
+                            </tr>
+                            #foreach ($flavor in $BLOJSOM_PLUGIN_EDIT_BLOG_PROPERTIES_CATEGORY_MAP.keySet())
+                                    <tr>
+                                        <td>$flavor default category mapping</td> <td><input name="${flavor}.blog-default-category-mapping" type="text" size="50" value="$BLOJSOM_PLUGIN_EDIT_BLOG_PROPERTIES_CATEGORY_MAP.get($flavor)"/></td>
+                                    </tr>
+                            #end
 
-                    <!-- Internal aggregator settings -->
-                    <tr>
-                        <th>#adminResource('blog.properties.aggregator' 'Internal aggregator settings')</th>
-                    </tr>
-                    <tr>
-                        #set ($selectListName = "blojsom-plugin-internal-aggegator-opt-out")
-                        <td>#adminResource('aggregator.opt.out.text' 'Opt out of internal aggregation?')</td> <td>#trueFalseSelectList($selectListName $!BLOJSOM_BLOG.getBlogProperty("blojsom-plugin-internal-aggegator-opt-out"))</td>
-                    </tr>
+                            <!-- Internationalization settings -->
+                            <tr>
+                                <th>#adminResource('blog.properties.internationalization' 'Internationalization settings')</th>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.encoding.text' 'Blog encoding')</td> <td><input name="blog-file-encoding" type="text" size="50" value="$BLOJSOM_BLOG.getBlogFileEncoding()"/></td>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "blog-language")
+                                <td>#adminResource('blog.language.text' 'Blog language code')</td> <td>#selectList($selectListName $!BLOJSOM_BLOG.getBlogLanguage() $BLOJSOM_JVM_LANGUAGES)</td>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "blog-country")
+                                <td>#adminResource('blog.country.text' 'Blog country code')</td> <td>#selectList($selectListName $!BLOJSOM_BLOG.getBlogCountry() $BLOJSOM_JVM_COUNTRIES)</td>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "blog-administration-locale")
+                                <td>#adminResource('blog.administration.locale.text' 'Locale setting for administration console')</td> <td>#selectList($selectListName $!BLOJSOM_BLOG.getBlogAdministrationLocaleAsString() $BLOJSOM_INSTALLED_LOCALES)</td>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "blog-timezone-id")
+                                <td>#adminResource('blog.timezone.text' 'Time zone')</td> <td>#selectList($selectListName $!BLOJSOM_BLOG.getBlogProperty("blog-timezone-id") $BLOJSOM_JVM_TIMEZONES)</td>
+                            </tr>
 
-                    <!-- Comment settings -->
-                    <tr>
-                        <th>#adminResource('blog.properties.comments' 'Comment settings')</th>
-                    </tr>
-                    <tr>
-                        #set ($selectListName = "blog-email-enabled")
-                        <td>#adminResource('blog.email.commentstrackbacks.text' 'E-mail new comments and trackbacks to blog owner?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getBlogEmailEnabled())</td>
-                    </tr>
-                    <tr>
-                        #set ($selectListName = "blog-comments-enabled")
-                        <td>#adminResource('blog.comments.enabled.text' 'Comments enabled?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getBlogCommentsEnabled())</td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('comment.prefix.text' 'Prefix for comment e-mail')</td> <td><input name="plugin-comment-email-prefix" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-comment-email-prefix")"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('comment.expiration.duration.text' 'Duration before comment cookies expire')</td> <td><input name="plugin-comment-expiration-duration" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-comment-expiration-duration")"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('comment.throttle.text' 'Comment throttle (in minutes)')</td> <td><input name="plugin-comment-throttle" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-comment-throttle")"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('comment.expiration.days.text' 'Comment expiration (in days)')</td> <td><input name="plugin-comment-days-expiration" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-comment-days-expiration")"/></td>
-                    </tr>
-                    <tr>
-                        #set ($selectListName = "plugin-comment-autoformat")
-                        <td>#adminResource('comment.autoformat.text' 'Autoformat comment text?')</td> <td>#trueFalseSelectList($selectListName $!BLOJSOM_BLOG.getBlogProperty("plugin-comment-autoformat"))</td>
-                    </tr>
+                            <!-- Internal aggregator settings -->
+                            <tr>
+                                <th>#adminResource('blog.properties.aggregator' 'Internal aggregator settings')</th>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "blojsom-plugin-internal-aggegator-opt-out")
+                                <td>#adminResource('aggregator.opt.out.text' 'Opt out of internal aggregation?')</td> <td>#trueFalseSelectList($selectListName $!BLOJSOM_BLOG.getBlogProperty("blojsom-plugin-internal-aggegator-opt-out"))</td>
+                            </tr>
 
-                    <!-- Trackback settings -->
-                    <tr>
-                        <th>#adminResource('blog.properties.trackbacks' 'Trackback settings')</th>
-                    </tr>
-                    <tr>
-                        #set ($selectListName = "blog-trackbacks-enabled")
-                        <td>#adminResource('blog.trackbacks.enabled.text' 'Trackbacks enabled?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getBlogTrackbacksEnabled())</td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('trackback.prefix.text' 'Prefix for trackback e-mail')</td> <td><input name="plugin-trackback-email-prefix" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-trackback-email-prefix")"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('trackback.throttle.text' 'Trackback throttle (in minutes)')</td> <td><input name="plugin-trackback-throttle" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-trackback-throttle")"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('trackback.expiration.days.text' 'Trackback expiration (in days)')</td> <td><input name="plugin-trackback-days-expiration" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-trackback-days-expiration")"/></td>
-                    </tr>
+                            <!-- Comment settings -->
+                            <tr>
+                                <th>#adminResource('blog.properties.comments' 'Comment settings')</th>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "blog-email-enabled")
+                                <td>#adminResource('blog.email.commentstrackbacks.text' 'E-mail new comments and trackbacks to blog owner?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getBlogEmailEnabled())</td>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "blog-comments-enabled")
+                                <td>#adminResource('blog.comments.enabled.text' 'Comments enabled?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getBlogCommentsEnabled())</td>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "comment-moderation-enabled")
+                                <td>#adminResource('blog.comment.moderation.enabled.text' 'Comment moderation enabled?')</td> <td>#trueFalseSelectList($selectListName $!BLOJSOM_BLOG.getBlogProperty("comment-moderation-enabled"))</td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('comment.prefix.text' 'Prefix for comment e-mail')</td> <td><input name="plugin-comment-email-prefix" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-comment-email-prefix")"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('comment.expiration.duration.text' 'Duration before comment cookies expire')</td> <td><input name="plugin-comment-expiration-duration" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-comment-expiration-duration")"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('comment.throttle.text' 'Comment throttle (in minutes)')</td> <td><input name="plugin-comment-throttle" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-comment-throttle")"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('comment.expiration.days.text' 'Comment expiration (in days)')</td> <td><input name="plugin-comment-days-expiration" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-comment-days-expiration")"/></td>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "plugin-comment-autoformat")
+                                <td>#adminResource('comment.autoformat.text' 'Autoformat comment text?')</td> <td>#trueFalseSelectList($selectListName $!BLOJSOM_BLOG.getBlogProperty("plugin-comment-autoformat"))</td>
+                            </tr>
 
-                    <!-- Notification service settings -->
-                    <tr>
-                        <th>#adminResource('blog.properties.notification' 'Notification service settings')</th>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('ping.urls.text' 'URLs to ping when adding or editing a new entry')</td> <td><textarea name="blog-ping-urls" rows="6" cols="50">$!BLOJSOM_BLOG.getBlogProperty("blog-ping-urls")</textarea></td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('edit.blog.properties.text' 'Edit blog properties')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </center>
+                            <!-- Trackback settings -->
+                            <tr>
+                                <th>#adminResource('blog.properties.trackbacks' 'Trackback settings')</th>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "blog-trackbacks-enabled")
+                                <td>#adminResource('blog.trackbacks.enabled.text' 'Trackbacks enabled?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getBlogTrackbacksEnabled())</td>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "trackback-moderation-enabled")
+                                <td>#adminResource('blog.trackback.moderation.enabled.text' 'Trackback moderation enabled?')</td> <td>#trueFalseSelectList($selectListName $!BLOJSOM_BLOG.getBlogProperty("trackback-moderation-enabled"))</td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('trackback.prefix.text' 'Prefix for trackback e-mail')</td> <td><input name="plugin-trackback-email-prefix" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-trackback-email-prefix")"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('trackback.throttle.text' 'Trackback throttle (in minutes)')</td> <td><input name="plugin-trackback-throttle" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-trackback-throttle")"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('trackback.expiration.days.text' 'Trackback expiration (in days)')</td> <td><input name="plugin-trackback-days-expiration" type="text" size="50" value="$!BLOJSOM_BLOG.getBlogProperty("plugin-trackback-days-expiration")"/></td>
+                            </tr>
+
+                            <!-- Pingback settings -->
+                            <tr>
+                                <th>#adminResource('blog.properties.pingbacks' 'Pingback settings')</th>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "blog-pingbacks-enabled")
+                                <td>#adminResource('blog.pingbacks.enabled.text' 'Pingbacks enabled?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getBlogPingbacksEnabled())</td>
+                            </tr>
+
+                            <!-- Notification service settings -->
+                            <tr>
+                                <th>#adminResource('blog.properties.notification' 'Notification service settings')</th>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('ping.urls.text' 'URLs to ping when adding or editing a new entry')</td> <td><textarea name="blog-ping-urls" rows="6" cols="50">$!BLOJSOM_BLOG.getBlogProperty("blog-ping-urls")</textarea></td>
+                            </tr>
+
+                            <!-- XML-RPC service settings -->
+                            <tr>
+                                <th>#adminResource('xmlrpc.settings.text' 'XML-RPC settings')</th>
+                            </tr>
+                            <tr>
+                                #set ($selectListName = "xmlrpc-enabled")
+                                <td>#adminResource('xmlrpc.enabled.text' 'XML-RPC enabled?')</td> <td>#trueFalseSelectList($selectListName $BLOJSOM_BLOG.getXmlrpcEnabled())</td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('edit.blog.properties.text' 'Edit blog properties')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                 </div>
+
+                <div class="mainClm">
+                    <h3>#adminResource('set.individual.property.text' 'Set individual blog property')</h3>
+                    <table>
+                        <form name="edit-blog-properties" action="." method="post" accept-charset="UTF-8">
+
+                            <input type="hidden" name="action" value="set-blog-property"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-properties"/>
+
+                            <!-- Individual blog property -->
+                            <tr>
+                                <td>#adminResource('blog.property.text' 'Blog property')</td> <td><input name="individual-blog-property" type="text" size="50" value=""/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.property.value.text' 'Blog property value')</td> <td><input name="individual-blog-property-value" type="text" size="50" value=""/></td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('set.individual.property.text' 'Set individual blog property')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                 </div>
+
+                 <div class="mainClm">
+                    <h3>#adminResource('check.individual.property.text' 'Check individual blog property')</h3>
+                    <table>
+                        <form name="edit-blog-properties" action="." method="post" accept-charset="UTF-8">
+
+                            <input type="hidden" name="action" value="check-blog-property"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-properties"/>
+
+                            <!-- Individual blog property -->
+                            <tr>
+                                <td>#adminResource('blog.property.text' 'Blog property')</td> <td><input name="individual-blog-property" type="text" size="50" value=""/></td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('check.individual.property.text' 'Check individual blog property')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                 </div>
+            </div>
+        </div>
     </div>
+</body>
 
-#adminPageFooter()
+#AdministrationFooter()

@@ -1,5 +1,5 @@
 /* Expression translation
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -27,13 +27,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tree.h"
 #include "convert.h"
-#include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
 #include "tree-gimple.h"
 #include "flags.h"
-#include <gmp.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-const.h"
@@ -156,7 +154,7 @@ gfc_get_expr_charlen (gfc_expr *e)
 
   /* First candidate: if the variable is of type CHARACTER, the
      expression's length could be the length of the character
-     variable. */
+     variable.  */
   if (e->symtree->n.sym->ts.type == BT_CHARACTER)
     length = e->symtree->n.sym->ts.cl->backend_decl;
 
@@ -416,7 +414,7 @@ gfc_conv_unary_op (enum tree_code code, gfc_se * se, gfc_expr * expr)
   gcc_assert (expr->ts.type != BT_CHARACTER);
   /* Initialize the operand.  */
   gfc_init_se (&operand, se);
-  gfc_conv_expr_val (&operand, expr->op1);
+  gfc_conv_expr_val (&operand, expr->value.op.op1);
   gfc_add_block_to_block (&se->pre, &operand.pre);
 
   type = gfc_typenode_for_spec (&expr->ts);
@@ -542,7 +540,8 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
   n = abs (TREE_INT_CST_LOW (rhs));
   sgn = tree_int_cst_sgn (rhs);
 
-  if ((!flag_unsafe_math_optimizations || optimize_size) && (n > 2 || n < -1))
+  if (((FLOAT_TYPE_P (type) && !flag_unsafe_math_optimizations) || optimize_size)
+      && (n > 2 || n < -1))
     return 0;
 
   /* rhs == 0  */
@@ -608,25 +607,25 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
   tree tmp;
 
   gfc_init_se (&lse, se);
-  gfc_conv_expr_val (&lse, expr->op1);
+  gfc_conv_expr_val (&lse, expr->value.op.op1);
   gfc_add_block_to_block (&se->pre, &lse.pre);
 
   gfc_init_se (&rse, se);
-  gfc_conv_expr_val (&rse, expr->op2);
+  gfc_conv_expr_val (&rse, expr->value.op.op2);
   gfc_add_block_to_block (&se->pre, &rse.pre);
 
-  if (expr->op2->ts.type == BT_INTEGER
-	 && expr->op2->expr_type == EXPR_CONSTANT)
+  if (expr->value.op.op2->ts.type == BT_INTEGER
+	 && expr->value.op.op2->expr_type == EXPR_CONSTANT)
     if (gfc_conv_cst_int_power (se, lse.expr, rse.expr))
       return;        
 
   gfc_int4_type_node = gfc_get_int_type (4);
 
-  kind = expr->op1->ts.kind;
-  switch (expr->op2->ts.type)
+  kind = expr->value.op.op1->ts.kind;
+  switch (expr->value.op.op2->ts.type)
     {
     case BT_INTEGER:
-      ikind = expr->op2->ts.kind;
+      ikind = expr->value.op.op2->ts.kind;
       switch (ikind)
 	{
 	case 1:
@@ -649,7 +648,7 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	{
 	case 1:
 	case 2:
-	  if (expr->op1->ts.type == BT_INTEGER)
+	  if (expr->value.op.op1->ts.type == BT_INTEGER)
 	    lse.expr = convert (gfc_int4_type_node, lse.expr);
 	  else
 	    gcc_unreachable ();
@@ -667,7 +666,7 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	  gcc_unreachable ();
 	}
       
-      switch (expr->op1->ts.type)
+      switch (expr->value.op.op1->ts.type)
 	{
 	case BT_INTEGER:
 	  fndecl = gfor_fndecl_math_powi[kind][ikind].integer;
@@ -781,14 +780,14 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
   tree args;
   tree tmp;
 
-  gcc_assert (expr->op1->ts.type == BT_CHARACTER
-	  && expr->op2->ts.type == BT_CHARACTER);
+  gcc_assert (expr->value.op.op1->ts.type == BT_CHARACTER
+	  && expr->value.op.op2->ts.type == BT_CHARACTER);
 
   gfc_init_se (&lse, se);
-  gfc_conv_expr (&lse, expr->op1);
+  gfc_conv_expr (&lse, expr->value.op.op1);
   gfc_conv_string_parameter (&lse);
   gfc_init_se (&rse, se);
-  gfc_conv_expr (&rse, expr->op2);
+  gfc_conv_expr (&rse, expr->value.op.op2);
   gfc_conv_string_parameter (&rse);
 
   gfc_add_block_to_block (&se->pre, &lse.pre);
@@ -847,10 +846,10 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
 
   checkstring = 0;
   lop = 0;
-  switch (expr->operator)
+  switch (expr->value.op.operator)
     {
     case INTRINSIC_UPLUS:
-      gfc_conv_expr (se, expr->op1);
+      gfc_conv_expr (se, expr->value.op.op1);
       return;
 
     case INTRINSIC_UMINUS:
@@ -952,19 +951,19 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
     }
 
   /* The only exception to this is **, which is handled separately anyway.  */
-  gcc_assert (expr->op1->ts.type == expr->op2->ts.type);
+  gcc_assert (expr->value.op.op1->ts.type == expr->value.op.op2->ts.type);
 
-  if (checkstring && expr->op1->ts.type != BT_CHARACTER)
+  if (checkstring && expr->value.op.op1->ts.type != BT_CHARACTER)
     checkstring = 0;
 
   /* lhs */
   gfc_init_se (&lse, se);
-  gfc_conv_expr (&lse, expr->op1);
+  gfc_conv_expr (&lse, expr->value.op.op1);
   gfc_add_block_to_block (&se->pre, &lse.pre);
 
   /* rhs */
   gfc_init_se (&rse, se);
-  gfc_conv_expr (&rse, expr->op2);
+  gfc_conv_expr (&rse, expr->value.op.op2);
   gfc_add_block_to_block (&se->pre, &rse.pre);
 
   /* For string comparisons we generate a library call, and compare the return
@@ -1114,7 +1113,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  arglist = gfc_chainon_list (arglist, 
 				      convert (gfc_charlen_type_node, len));
 	}
-      else      /* TODO: derived type function return values.  */
+      else
 	gcc_unreachable ();
     }
 
@@ -1195,7 +1194,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
       gfc_add_block_to_block (&se->pre, &parmse.pre);
       gfc_add_block_to_block (&se->post, &parmse.post);
 
-      /* Character strings are passed as two paramarers, a length and a
+      /* Character strings are passed as two parameters, a length and a
          pointer.  */
       if (parmse.string_length != NULL_TREE)
         stringargs = gfc_chainon_list (stringargs, parmse.string_length);
@@ -1221,7 +1220,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
      something like
         x = f()
      where f is pointer valued, we have to dereference the result.  */
-  if (sym->attr.pointer && !se->want_pointer && !byref)
+  if (!se->want_pointer && !byref
+      && (sym->attr.pointer || (sym->result && sym->result->attr.pointer)))
     se->expr = gfc_build_indirect_ref (se->expr);
 
   /* A pure function may still have side-effects - it may modify its
@@ -1566,11 +1566,11 @@ gfc_trans_subarray_assign (tree dest, gfc_component * cm, gfc_expr * expr)
   gfc_add_block_to_block (&block, &loop.pre);
   gfc_add_block_to_block (&block, &loop.post);
 
-  gfc_cleanup_loop (&loop);
-
   for (n = 0; n < cm->as->rank; n++)
     mpz_clear (lss->shape[n]);
   gfc_free (lss->shape);
+
+  gfc_cleanup_loop (&loop);
 
   return gfc_finish_block (&block);
 }

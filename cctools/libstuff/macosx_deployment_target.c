@@ -23,8 +23,9 @@
 #ifndef RLD
 #include <stdlib.h>
 #include <string.h>
-#include <stuff/errors.h>
-#include <stuff/macosx_deployment_target.h>
+#include <mach/mach.h>
+#include "stuff/errors.h"
+#include "stuff/macosx_deployment_target.h"
 
 struct macosx_deployment_target_pair {
     const char *name;
@@ -37,26 +38,34 @@ static const struct macosx_deployment_target_pair
     { "10.2", MACOSX_DEPLOYMENT_TARGET_10_2 },
     { "10.3", MACOSX_DEPLOYMENT_TARGET_10_3 },
     { "10.4", MACOSX_DEPLOYMENT_TARGET_10_4 },
+    { "10.5", MACOSX_DEPLOYMENT_TARGET_10_5 },
     { NULL, 0 }
 };
 
 /*
  * get_macosx_deployment_target() indirectly sets the value and the name with
  * the specified MACOSX_DEPLOYMENT_TARGET environment variable or the current
- * default if not specified.
+ * default if not specified for the cputype.
  */
 __private_extern__
 void
 get_macosx_deployment_target(
 enum macosx_deployment_target_value *value,
-const char **name)
+const char **name,
+cpu_type_t cputype)
 {
     unsigned long i;
     char *p;
 
-	/* the current default */
-	*value = MACOSX_DEPLOYMENT_TARGET_10_1;
-	*name = "10.1";
+	/* set the current default for the cputype */
+	if(cputype == CPU_TYPE_I386){
+	    *value = MACOSX_DEPLOYMENT_TARGET_10_4;
+	    *name = "10.4";
+	}
+	else{
+	    *value = MACOSX_DEPLOYMENT_TARGET_10_1;
+	    *name = "10.1";
+	}
 
 	/*
 	 * Pick up the Mac OS X deployment target environment variable.

@@ -1,8 +1,39 @@
+2005-04-25  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4094385
+	* semantics.c (finish_id_expression): Correctly retrieve function
+	candidate from a BASELINK node, if one was provided.
+
+2005-04-20  Mike Stump  <mrs@apple.com>
+
+	Radar 4077104
+	* parser.c (cp_parser_unary_expression): Handle -40(sp) in CW asms better.
+
+2005-04-20 Devang Patel <dpatel@apple.com>
+
+	Radar 4093536
+	Undo PR libstdc++/10606 fix.
+        2005-02-18  Richard Henderson  <rth@redhat.com>
+
+        PR libstdc++/10606
+        * except.c (do_get_exception_ptr): New.
+        (expand_start_catch_block): Use it.
+
+2005-04-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4055183
+	* typeck.c (build_function_call): Call
+	objc_rewrite_function_call() to handle casts.
+
 2005-03-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3995882
 	* decl.c (objc_mark_locals_volatile): Mark local variables and
 	parameters 'volatile' in ways expected by the C++ front-end.
+
+2005-03-07  Devang Patel  <dpatel@apple.com>
+
+	* class.c (tree-iterator.h): Include.
 
 2005-03-02  Robert Bowdidge <bowdidge@apple.com
 	Radar 4025293

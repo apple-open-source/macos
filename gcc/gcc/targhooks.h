@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -49,8 +49,6 @@ extern void default_unwind_emit (FILE *, rtx);
 
 extern bool default_scalar_mode_supported_p (enum machine_mode);
 
-extern bool default_vect_misaligned_mem_ok (enum machine_mode);
-
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */
 
@@ -61,3 +59,9 @@ extern bool hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
   (CUMULATIVE_ARGS *, enum machine_mode, tree, bool);
 extern bool hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
   (CUMULATIVE_ARGS *, enum machine_mode, tree, bool);
+extern int hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
+  (CUMULATIVE_ARGS *, enum machine_mode, tree, bool);
+/* APPLE LOCAL begin mainline 2005-04-14 */
+extern const char *hook_invalid_arg_for_unprototyped_fn
+  (tree, tree, tree);
+/* APPLE LOCAL end mainline 2005-04-14 */

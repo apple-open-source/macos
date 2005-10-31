@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -41,6 +41,20 @@
 #include <clocale>
 #include <locale>
 #include <cxxabi.h>
+
+// If we have <sys/types.h>, <sys/ipc.h>, and <sys/sem.h>, then assume
+// that System V semaphores are available.
+#if defined(_GLIBCXX_HAVE_SYS_TYPES_H)		\
+    && defined(_GLIBCXX_HAVE_SYS_IPC_H)		\
+    && defined(_GLIBCXX_HAVE_SYS_SEM_H)
+#define _GLIBCXX_SYSV_SEM
+#endif
+
+#ifdef _GLIBCXX_SYSV_SEM
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#endif
 
 namespace __gnu_test
 {
@@ -137,31 +151,8 @@ namespace __gnu_test
 
     std::string w(wanted);
     if (w != s)
-      throw std::runtime_error(s);
+      std::__throw_runtime_error(s);
   }
-
-  
-  // Useful exceptions.
-  class locale_data : public std::runtime_error 
-  {
-  public:
-    explicit 
-    locale_data(const std::string&  __arg) : runtime_error(__arg) { }
-  };
-
-  class environment_variable: public std::runtime_error 
-  {
-  public:
-    explicit 
-    environment_variable(const std::string&  __arg) : runtime_error(__arg) { }
-  };
-
-  class not_found : public std::runtime_error 
-  {
-  public:
-    explicit 
-    not_found(const std::string&  __arg) : runtime_error(__arg) { }
-  };
 
   void 
   run_tests_wrapped_locale(const char* name, const func_callback& l)
@@ -184,7 +175,11 @@ namespace __gnu_test
 	VERIFY( preLC_ALL == postLC_ALL );
       }
     else
-      throw environment_variable(string("LC_ALL for ") + string(name));
+      {
+	string s("LC_ALL for ");
+	s += name;
+	__throw_runtime_error(s.c_str());
+      }
   }
   
   void 
@@ -209,7 +204,12 @@ namespace __gnu_test
 	setenv(env, oldENV ? oldENV : "", 1);
       }
     else
-      throw environment_variable(string(env) + string(" to ") + string(name));
+      {
+	string s(env);
+	s += string(" to ");
+	s += string(name);
+	__throw_runtime_error(s.c_str());
+      }
 #endif
   }
 
@@ -220,6 +220,7 @@ namespace __gnu_test
       {
 	return std::locale(name);
       }
+#ifdef __EXCEPTIONS
     catch (std::runtime_error& ex)
       {
 	// Thrown by generic and gnu implemenation if named locale fails.
@@ -228,6 +229,7 @@ namespace __gnu_test
 	else
 	  throw;
       }
+#endif
   }
 
   int
@@ -248,6 +250,87 @@ namespace __gnu_test
   unsigned int assignment_operator::throw_on_ = 0;
   unsigned int destructor::_M_count = 0;
   int copy_tracker::next_id_ = 0;
+
+#ifdef _GLIBCXX_SYSV_SEM
+  // This union is not declared in system headers.  Instead, it must
+  // be defined by user programs.
+  union semun 
+  {
+    int val;
+    struct semid_ds *buf;
+    unsigned short *array;
+  };
+#endif
+
+  semaphore::semaphore() 
+  {
+#ifdef _GLIBCXX_SYSV_SEM
+    // Remeber the PID for the process that created the semaphore set
+    // so that only one process will destroy the set.
+    pid_ = getpid();
+
+    // GLIBC does not define SEM_R and SEM_A.
+#ifndef SEM_R
+#define SEM_R 0400
+#endif
+    
+#ifndef SEM_A
+#define SEM_A 0200
+#endif
+
+    // Get a semaphore set with one semaphore.
+    sem_set_ = semget(IPC_PRIVATE, 1, SEM_R | SEM_A);
+    if (sem_set_ == -1)
+      std::__throw_runtime_error("could not obtain semaphore set");
+
+    // Initialize the semaphore.
+    union semun val;
+    val.val = 0;
+    if (semctl(sem_set_, 0, SETVAL, val) == -1)
+      std::__throw_runtime_error("could not initialize semaphore");
+#else
+    // There are no semaphores on this system.  We have no way to mark
+    // a test as "unsupported" at runtime, so we just exit, pretending
+    // that the test passed.
+    exit(0);
+#endif
+  }
+
+  semaphore::~semaphore() 
+  {
+#ifdef _GLIBCXX_SYSV_SEM
+    union semun val;
+    // Destroy the semaphore set only in the process that created it. 
+    if (pid_ == getpid())
+      semctl(sem_set_, 0, IPC_RMID, val);
+#endif
+  }
+
+  void
+  semaphore::signal() 
+  {
+#ifdef _GLIBCXX_SYSV_SEM
+    struct sembuf op[1] = 
+      {
+	{ 0, 1, 0 }
+      };
+    if (semop(sem_set_, op, 1) == -1)
+      std::__throw_runtime_error("could not signal semaphore");
+#endif
+  }
+
+  void
+  semaphore::wait() 
+  {
+#ifdef _GLIBCXX_SYSV_SEM
+    struct sembuf op[1] = 
+      {
+	{ 0, -1, SEM_UNDO }
+      };
+    if (semop(sem_set_, op, 1) == -1)
+      std::__throw_runtime_error("could not wait for semaphore");
+#endif    
+  }
 }; // namespace __gnu_test
 
 namespace std

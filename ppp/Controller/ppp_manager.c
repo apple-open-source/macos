@@ -876,6 +876,7 @@ void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *mes
                         gSleepNotification = CFUserNotificationCreate(NULL, 0, 
                                             kCFUserNotificationNoteAlertLevel 
                                             + kCFUserNotificationNoDefaultButtonFlag, &error, dict);
+						CFRelease(dict);
                     }
                 }
             }
@@ -1188,9 +1189,9 @@ void writestrparam(int fd, char *param, char *val)
     while (*val) {
         switch (*val) {
             case '\\':
+            case '\"':
 				write(fd, "\\", 1);
 				break;
-            case '\"':
             case '\'':
             case ' ':
                 //write(fd, "\\", 1);

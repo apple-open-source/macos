@@ -65,6 +65,8 @@ bool AppleRAIDMirrorSet::init()
 
     setProperty(kAppleRAIDLevelNameKey, kAppleRAIDLevelNameMirror);
 
+    arAllocateRequestMethod = OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::allocateRAIDRequest);
+    
     return true;
 }
 
@@ -82,8 +84,8 @@ bool AppleRAIDMirrorSet::initWithHeader(OSDictionary * header, bool firstTime)
 	AbsoluteTime deadline;
 	clock_interval_to_deadline(arSetCompleteTimeout, kSecondScale, &deadline);
 	if (!arSetCompleteThreadCall) {
-	    arSetCompleteThreadCall = thread_call_allocate((thread_call_func_t)&AppleRAIDMirrorSet::setCompleteTimeout,
-							   (thread_call_param_t)this);
+	    thread_call_func_t setCompleteMethod = OSMemberFunctionCast(thread_call_func_t, this, &AppleRAIDMirrorSet::setCompleteTimeout);
+	    arSetCompleteThreadCall = thread_call_allocate(setCompleteMethod, (thread_call_param_t)this);
 	}
 	(void)thread_call_enter_delayed(arSetCompleteThreadCall, deadline);
     }
@@ -137,18 +139,29 @@ bool AppleRAIDMirrorSet::resizeSet(UInt32 newMemberCount)
     return true;
 }
 
+UInt32 AppleRAIDMirrorSet::nextSetState(void)
+{
+    UInt32 nextState = super::nextSetState();
+
+    if (nextState == kAppleRAIDSetStateOnline) {
+	if (arActiveCount < arMemberCount) {
+	    nextState = kAppleRAIDSetStateDegraded;
+	}
+    }
+	
+    return nextState;
+}
+
 bool AppleRAIDMirrorSet::startSet(void)
 {
     if (super::startSet() == false) return false;
 
-    if (arActiveCount < arMemberCount) {
-
-	changeSetState(kAppleRAIDSetStateDegraded);
+    if (getSetState() == kAppleRAIDSetStateDegraded) {
 
 	if (!arSetIsPaused && arSpareCount) {
-
 	    rebuildStart();
 	}
+
     } else {
 	// clear the timeout once the set is complete
 	arSetCompleteTimeout = kARSetCompleteTimeoutNone;
@@ -341,7 +354,8 @@ bool AppleRAIDMirrorSet::recover()
 
     // move failed i/o queue now in case we lose the set
     queue_head_t safeFailedRequestQueue;
-    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDMirrorSet::getRecoverQueue, &arFailedRequestQueue, &safeFailedRequestQueue);
+    IOCommandGate::Action getRecoverQMethod = OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDMirrorSet::getRecoverQueue);
+    arSetCommandGate->runAction(getRecoverQMethod, &arFailedRequestQueue, &safeFailedRequestQueue);
 
     // remove the bad members and rebuild the set 
     bool stillHere = super::recover();
@@ -368,7 +382,7 @@ bool AppleRAIDMirrorSet::recover()
 	if (stillHere) {
 
 	    AppleRAIDStorageRequest * newStorageRequest;
-	    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::allocateRAIDRequest, &newStorageRequest);
+	    arSetCommandGate->runAction(arAllocateRequestMethod, &newStorageRequest);
 	    if (newStorageRequest) {
 
 		// retry failed request
@@ -535,9 +549,8 @@ void AppleRAIDMirrorSet::rebuildStart(void)
     arMembers[memberIndex]->changeMemberState(kAppleRAIDMemberStateRebuilding);
 
     if (!arRebuildThreadCall) {
-	arRebuildThreadCall = thread_call_allocate(
-	    (thread_call_func_t)&AppleRAIDMirrorSet::rebuild,
-	    (thread_call_param_t)this);
+	thread_call_func_t rebuildMethod = OSMemberFunctionCast(thread_call_func_t, this, &AppleRAIDMirrorSet::rebuild);
+	arRebuildThreadCall = thread_call_allocate(rebuildMethod, (thread_call_param_t)this);
     }
 
     // the rebuild runs outside the workloop and global raid lock
@@ -603,8 +616,8 @@ void AppleRAIDMirrorSet::rebuild()
 	    IOLog2("AppleRAIDMirrorSet::rebuild(%p) - offset = %llu bs=%llu\n", this, offset, arSetBlockSize);
 
 	    // if the set is idle pause regular i/o
-	    bool whenIdle = true;
-	    while (arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDMirrorSet::pauseSet, &whenIdle) == false) {
+	    IOCommandGate::Action pauseMethod = OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDMirrorSet::pauseSet);
+	    while (arSetCommandGate->runAction(pauseMethod, (void *)true) == false) {
 		IOSleep(100);
 	    }
 
@@ -618,7 +631,7 @@ void AppleRAIDMirrorSet::rebuild()
 		sourceOpen = false;
 		for (sourceIndex = 0; sourceIndex < arMemberCount; sourceIndex++) {
 		    if (arMembers[sourceIndex] == target) continue;
-		    if (source = arMembers[sourceIndex]) break;
+		    if ((source = arMembers[sourceIndex])) break;
 		}
 		if (!source) break;
 		sourceOpen = open(this, 0, kIOStorageAccessReader);
@@ -629,8 +642,8 @@ void AppleRAIDMirrorSet::rebuild()
 	    rebuildBuffer->setDirection(kIODirectionIn);
 	    rc = source->IOStorage::read((IOService *)this, offset, rebuildBuffer);
 	    if (rc) {
-		// give up
-		IOLog("AppleRAIDMirrorSet::rebuild() - read failed for member %s, member byte offset = %llu\n", source->getUUIDString(), offset);
+		    IOLog("AppleRAIDMirrorSet::rebuild() - read failed with 0x%x on member %s, member byte offset = %llu\n",
+			  rc, source->getUUIDString(), offset);
 		break;
 	    }
 
@@ -638,11 +651,12 @@ void AppleRAIDMirrorSet::rebuild()
 	    rc = target->IOStorage::write((IOService *)this, offset, rebuildBuffer);
 	    if (rc) {
 		// give up
-		IOLog("AppleRAIDMirrorSet::rebuild() - write failed for member %s, member byte offset = %llu\n", target->getUUIDString(), offset);
+		IOLog("AppleRAIDMirrorSet::rebuild() - write failed with 0x%x on member %s, member byte offset = %llu\n",
+		      rc, target->getUUIDString(), offset);
 		break;
 	    }
 
-	    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDMirrorSet::unpauseSet);
+	    arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDMirrorSet::unpauseSet));
 
 	    // calculate % done
 	    currentDone = ((offset / arSetBlockSize) * 100) / arSetBlockCount;
@@ -679,13 +693,14 @@ void AppleRAIDMirrorSet::rebuild()
     bool aborting = target->getMemberState() == kAppleRAIDMemberStateSpare;
     if (aborting) target->changeMemberState(kAppleRAIDMemberStateBroken);
 
-    if (arSetIsPaused) arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDMirrorSet::unpauseSet);
+    if (arSetIsPaused) arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDMirrorSet::unpauseSet));
 
     if (aborting) {
 	arRebuildingMember = 0;
     } else {
 	bool success = offset >= arSetMediaSize;
-	arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDMirrorSet::rebuildComplete, (void *)success);
+	IOCommandGate::Action rebuildCompleteMethod = OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDMirrorSet::rebuildComplete);
+	arSetCommandGate->runAction(rebuildCompleteMethod, (void *)success);
     }
 
     if (arSpareCount) {

@@ -46,6 +46,7 @@ import java.awt.event.KeyEvent;
 import java.io.Serializable;
 import java.util.Enumeration;
 import java.util.ResourceBundle;
+
 import javax.swing.ImageIcon;
 import javax.swing.KeyStroke;
 import javax.swing.LookAndFeel;
@@ -137,6 +138,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "TabbedPaneUI", "javax.swing.plaf.basic.BasicTabbedPaneUI",
       "TableHeaderUI", "javax.swing.plaf.basic.BasicTableHeaderUI",
       "TableUI", "javax.swing.plaf.basic.BasicTableUI",
+      "TextPaneUI", "javax.swing.plaf.basic.BasicTextPaneUI",
       "TextAreaUI", "javax.swing.plaf.basic.BasicTextAreaUI",
       "TextFieldUI", "javax.swing.plaf.basic.BasicTextFieldUI",
       "TextPaneUI", "javax.swing.plaf.basic.BasicTextPaneUI",
@@ -253,7 +255,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "Button.foreground", new ColorUIResource(Color.black),
       "Button.highlight", new ColorUIResource(Color.white),
       "Button.light", new ColorUIResource(Color.lightGray.brighter()),
-      "Button.margin", new InsetsUIResource(2, 14, 2, 14),
+      "Button.margin", new InsetsUIResource(2, 2, 2, 2),
       "Button.shadow", new ColorUIResource(Color.gray),
       "Button.textIconGap", new Integer(4),
       "Button.textShiftOffset", new Integer(0),
@@ -900,8 +902,8 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       }),
       "Tree.background", new ColorUIResource(Color.white),
       "Tree.changeSelectionWithFocus", Boolean.TRUE,
-      // XXX Don't use gif
-      "Tree.closedIcon", new IconUIResource(new ImageIcon("icons/TreeClosed.gif")),
+      "Tree.closedIcon", new IconUIResource(new ImageIcon("icons/TreeClosed.png")),
+      "Tree.collapsedIcon", new IconUIResource(new ImageIcon("icons/TreeCollapsed.png")),
       "Tree.drawsFocusBorderAroundIcon", Boolean.FALSE,
       "Tree.editorBorder", new BorderUIResource.LineBorderUIResource(Color.lightGray),
       "Tree.focusInputMap", new UIDefaults.LazyInputMap(new Object[] {
@@ -949,13 +951,12 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ctrl PAGE_DOWN", "scrollDownChangeLead"
       }),
       "Tree.font", new FontUIResource("Dialog", Font.PLAIN, 12),
+      "Tree.expandedIcon", new IconUIResource(new ImageIcon("icons/TreeExpanded.png")),
       "Tree.foreground", new ColorUIResource(Color.black),
       "Tree.hash", new ColorUIResource(Color.gray),
-      // XXX Don't use gif
-      "Tree.leafIcon", new IconUIResource(new ImageIcon("icons/TreeLeaf.gif")),
+      "Tree.leafIcon", new IconUIResource(new ImageIcon("icons/TreeLeaf.png")),
       "Tree.leftChildIndent", new Integer(7),
-      // XXX Don't use gif
-      "Tree.openIcon", new IconUIResource(new ImageIcon("icons/TreeOpen.gif")),
+      "Tree.openIcon", new IconUIResource(new ImageIcon("icons/TreeOpen.png")),
       "Tree.rightChildIndent", new Integer(13),
       "Tree.rowHeight", new Integer(16),
       "Tree.scrollsOnExpand", Boolean.TRUE,

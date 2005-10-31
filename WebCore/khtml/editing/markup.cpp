@@ -189,7 +189,10 @@ static QString startMarkup(const NodeImpl *node, const RangeImpl *range, EAnnota
             if (defaultStyle) {
                 NodeImpl *element = node->parentNode();
                 if (element) {
-                    CSSMutableStyleDeclarationImpl *style = Position(element, 0).computedStyle()->copyInheritableProperties();
+                    CSSComputedStyleDeclarationImpl *computedStyle = Position(element, 0).computedStyle();
+                    computedStyle->ref();
+                    CSSMutableStyleDeclarationImpl *style = computedStyle->copyInheritableProperties();
+                    computedStyle->deref();
                     style->ref();
                     defaultStyle->diff(style);
                     if (style->length() > 0) {
@@ -212,7 +215,10 @@ static QString startMarkup(const NodeImpl *node, const RangeImpl *range, EAnnota
                 const ElementImpl *el = static_cast<const ElementImpl *>(node);
                 DOMString additionalStyle;
                 if (defaultStyle && el->isHTMLElement()) {
-                    CSSMutableStyleDeclarationImpl *style = Position(const_cast<ElementImpl *>(el), 0).computedStyle()->copyInheritableProperties();
+                    CSSComputedStyleDeclarationImpl *computedStyle = Position(const_cast<ElementImpl *>(el), 0).computedStyle();
+                    computedStyle->ref();
+                    CSSMutableStyleDeclarationImpl *style = computedStyle->copyInheritableProperties();
+                    computedStyle->deref();
                     style->ref();
                     defaultStyle->diff(style);
                     if (style->length() > 0) {
@@ -327,7 +333,11 @@ QString createMarkup(const RangeImpl *range, QPtrList<NodeImpl> *nodes, EAnnotat
 
     // calculate the "default style" for this markup
     Position pos(doc->documentElement(), 0);
-    CSSMutableStyleDeclarationImpl *defaultStyle = pos.computedStyle()->copyInheritableProperties();
+    CSSComputedStyleDeclarationImpl *computedStyle = pos.computedStyle();
+    computedStyle->ref();
+    CSSMutableStyleDeclarationImpl *defaultStyle = computedStyle->copyInheritableProperties();
+    computedStyle->deref();
+
     defaultStyle->ref();
     
     NodeImpl *startNode = range->startNode();
@@ -489,6 +499,53 @@ QString createMarkup(const DOM::NodeImpl *node, EChildrenOnly includeChildren,
     return markup(node, includeChildren, false, nodes);
 }
 
+static void createParagraphContentsFromString(DOM::DocumentImpl *document, ElementImpl *paragraph, const QString &string)
+{
+    int exceptionCode = 0;
+    if (string.isEmpty()) {
+        NodeImpl *placeHolder = createBlockPlaceholderElement(document);
+        paragraph->appendChild(placeHolder, exceptionCode);
+        ASSERT(exceptionCode == 0);
+        return;
+    }
+
+    assert(string.find('\n') == -1);
+
+    QStringList tabList = QStringList::split('\t', string, true);
+    QString tabText = "";
+    while (!tabList.isEmpty()) {
+        QString s = tabList.first();
+        tabList.pop_front();
+
+        // append the non-tab textual part
+        if (!s.isEmpty()) {
+            if (tabText != "") {
+                paragraph->appendChild(createTabSpanElement(document, &tabText), exceptionCode);
+                ASSERT(exceptionCode == 0);
+                tabText = "";
+            }
+            NodeImpl *textNode = document->createTextNode(s);
+            paragraph->appendChild(textNode, exceptionCode);
+            ASSERT(exceptionCode == 0);
+        }
+
+        // there is a tab after every entry, except the last entry
+        // (if the last character is a tab, the list gets an extra empty entry)
+        if (!tabList.isEmpty()) {
+//#ifdef COALESCE_TAB_SPANS
+#if 1
+            tabText += '\t';
+#else
+            paragraph->appendChild(createTabSpanElement(document), exceptionCode);
+            ASSERT(exceptionCode == 0);
+#endif
+        } else if (tabText != "") {
+            paragraph->appendChild(createTabSpanElement(document, &tabText), exceptionCode);
+            ASSERT(exceptionCode == 0);
+        }
+    }
+}
+
 DOM::DocumentFragmentImpl *createFragmentFromText(DOM::DocumentImpl *document, const QString &text)
 {
     if (!document)
@@ -499,10 +556,6 @@ DOM::DocumentFragmentImpl *createFragmentFromText(DOM::DocumentImpl *document, c
     
     if (!text.isEmpty()) {
         QString string = text;
-
-        // Replace tabs with four plain spaces.
-        // These spaces will get converted along with the other existing spaces below.
-        string.replace('\t', "    ");
 
         // FIXME: Wrap the NBSP's in a span that says "converted space".
         int offset = 0;
@@ -549,16 +602,8 @@ DOM::DocumentFragmentImpl *createFragmentFromText(DOM::DocumentImpl *document, c
                 element->setAttribute(ATTR_CLASS, AppleInterchangeNewline);            
             } else {
                 element = createDefaultParagraphElement(document);
-                NodeImpl *paragraphContents;
-                if (s.isEmpty()) {
-                    paragraphContents = createBlockPlaceholderElement(document);
-                } else {
-                    paragraphContents = document->createTextNode(s);
-                    ASSERT(exceptionCode == 0);
-                }
                 element->ref();
-                element->appendChild(paragraphContents, exceptionCode);
-                ASSERT(exceptionCode == 0);
+                createParagraphContentsFromString(document, element, s);
             }
             fragment->appendChild(element, exceptionCode);
             ASSERT(exceptionCode == 0);

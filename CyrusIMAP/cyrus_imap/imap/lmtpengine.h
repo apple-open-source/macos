@@ -1,5 +1,5 @@
 /* lmtpengine.h: lmtp protocol engine interface
- * $Id: lmtpengine.h,v 1.5 2005/03/05 00:36:57 dasenbro Exp $
+ * $Id: lmtpengine.h,v 1.6 2005/08/10 21:38:18 dasenbro Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -83,7 +83,8 @@ int msg_getnumrcpt(message_data_t *m);
 
 /* return delivery destination of recipient 'rcpt_num' */
 void msg_getrcpt(message_data_t *m, int rcpt_num,
-		 const char **user, const char **domain, const char **mailbox);
+		 const char **user, const char **domain, const char **mailbox,
+		 const char **auto_fwd);
 
 /* return entire recipient of 'rcpt_num' */
 const char *msg_getrcptall(message_data_t *m, int rcpt_num);

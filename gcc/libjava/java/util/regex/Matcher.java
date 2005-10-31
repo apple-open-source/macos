@@ -45,7 +45,7 @@ import gnu.regexp.REMatch;
  *
  * @since 1.4
  */
-public class Matcher
+public final class Matcher
 {
   private Pattern pattern;
   private CharSequence input;
@@ -212,7 +212,10 @@ public class Matcher
     if (match != null)
       {
 	if (match.getStartIndex() == 0)
-	  return true;
+	  {
+	    position = match.getEndIndex();
+	    return true;
+	  }
 	match = null;
       }
     return false;
@@ -230,7 +233,13 @@ public class Matcher
    */
   public boolean matches ()
   {
-    return find(0);
+    if (lookingAt())
+      {
+	if (position == input.length())
+	  return true;
+	match = null;
+      }
+    return false;
   }
   
   /**

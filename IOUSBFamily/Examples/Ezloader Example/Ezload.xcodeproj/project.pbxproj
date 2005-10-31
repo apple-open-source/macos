@@ -1,0 +1,259 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		EE4E2E9007B2B8670003BA82 /* hex2c.h in Headers */ = {isa = PBXBuildFile; fileRef = 05F7745D00682FDF7F000001 /* hex2c.h */; };
+		EE4E2E9207B2B8670003BA82 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 08FB7796FE84155DC02AAC07 /* main.c */; settings = {ATTRIBUTES = (); }; };
+		EE4E2E9407B2B8670003BA82 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05F77461006830137F000001 /* IOKit.framework */; };
+		EE4E2E9507B2B8670003BA82 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F56748E5013EE86A01573190 /* CoreFoundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		014CEA520018CE5811CA2923 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		05F7745D00682FDF7F000001 /* hex2c.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = hex2c.h; sourceTree = "<group>"; };
+		05F77461006830137F000001 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		08FB7796FE84155DC02AAC07 /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		EE4E2E9707B2B8670003BA82 /* Ezload */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Ezload; sourceTree = BUILT_PRODUCTS_DIR; };
+		F56748E5013EE86A01573190 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		EE4E2E9307B2B8670003BA82 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE4E2E9407B2B8670003BA82 /* IOKit.framework in Frameworks */,
+				EE4E2E9507B2B8670003BA82 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* USBNotificationExample */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = USBNotificationExample;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7796FE84155DC02AAC07 /* main.c */,
+				05F7745D00682FDF7F000001 /* hex2c.h */,
+				05F77461006830137F000001 /* IOKit.framework */,
+				F56748E5013EE86A01573190 /* CoreFoundation.framework */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				EE4E2E9707B2B8670003BA82 /* Ezload */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		EE4E2E8F07B2B8670003BA82 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE4E2E9007B2B8670003BA82 /* hex2c.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		EE4E2E8E07B2B8670003BA82 /* Ezload */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3EC7CFB408D72FA700CFFA31 /* Build configuration list for PBXNativeTarget "Ezload" */;
+			buildPhases = (
+				EE4E2E8F07B2B8670003BA82 /* Headers */,
+				EE4E2E9107B2B8670003BA82 /* Sources */,
+				EE4E2E9307B2B8670003BA82 /* Frameworks */,
+				EE4E2E9607B2B8670003BA82 /* Rez */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-unused",
+				);
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Ezload;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = Ezload;
+			productInstallPath = "$(HOME)/bin";
+			productName = USBNotificationExample;
+			productReference = EE4E2E9707B2B8670003BA82 /* Ezload */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 3EC7CFB808D72FA700CFFA31 /* Build configuration list for PBXProject "Ezload" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA520018CE5811CA2923 /* Development */,
+				014CEA530018CE5811CA2923 /* Deployment */,
+			);
+			hasScannedForEncodings = 0;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* USBNotificationExample */;
+			projectDirPath = "";
+			targets = (
+				EE4E2E8E07B2B8670003BA82 /* Ezload */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		EE4E2E9607B2B8670003BA82 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		EE4E2E9107B2B8670003BA82 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE4E2E9207B2B8670003BA82 /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		3EC7CFB508D72FA700CFFA31 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = Ezload;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		3EC7CFB608D72FA700CFFA31 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = Ezload;
+			};
+			name = Release;
+		};
+		3EC7CFB908D72FA700CFFA31 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Debug;
+		};
+		3EC7CFBA08D72FA700CFFA31 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3EC7CFB408D72FA700CFFA31 /* Build configuration list for PBXNativeTarget "Ezload" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3EC7CFB508D72FA700CFFA31 /* Debug */,
+				3EC7CFB608D72FA700CFFA31 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3EC7CFB808D72FA700CFFA31 /* Build configuration list for PBXProject "Ezload" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3EC7CFB908D72FA700CFFA31 /* Debug */,
+				3EC7CFBA08D72FA700CFFA31 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

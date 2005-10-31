@@ -25,7 +25,7 @@
 
 #import "BusProberSharedFunctions.h"
 
-int GetDeviceLocationID( IOUSBDeviceInterface **deviceIntf, UInt32 * locationID ) {
+int GetDeviceLocationID( IOUSBDeviceRef deviceIntf, UInt32 * locationID ) {
      IOReturn err;
     
     err = (*deviceIntf)->GetLocationID(deviceIntf, locationID);
@@ -36,7 +36,7 @@ int GetDeviceLocationID( IOUSBDeviceInterface **deviceIntf, UInt32 * locationID 
     return 0;
 }
 
-int GetDeviceSpeed( IOUSBDeviceInterface **deviceIntf, UInt8 * speed ) {
+int GetDeviceSpeed( IOUSBDeviceRef deviceIntf, UInt8 * speed ) {
     IOReturn err;
     
     err = (*deviceIntf)->GetDeviceSpeed(deviceIntf, speed);
@@ -47,7 +47,7 @@ int GetDeviceSpeed( IOUSBDeviceInterface **deviceIntf, UInt8 * speed ) {
     return 0;
 }
 
-int GetDeviceAddress( IOUSBDeviceInterface **deviceIntf, USBDeviceAddress * address ) {
+int GetDeviceAddress( IOUSBDeviceRef deviceIntf, USBDeviceAddress * address ) {
     IOReturn err;
     
     err = (*deviceIntf)->GetDeviceAddress(deviceIntf, address);
@@ -58,7 +58,29 @@ int GetDeviceAddress( IOUSBDeviceInterface **deviceIntf, USBDeviceAddress * addr
     return 0;
 }
 
-IOReturn GetDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len) {
+int SuspendDevice( IOUSBDeviceRef deviceIntf, BOOL suspend ) {
+    IOReturn err;
+    
+	// First, see if we can open the IOUSBDevice.  If so, then call suspend and then close
+    err = (*deviceIntf)->USBDeviceOpen(deviceIntf);
+    if (err) {
+        NSLog(@"BusProber: USBDeviceOpen() failed");
+        return -1;
+    }
+    err = (*deviceIntf)->USBDeviceSuspend(deviceIntf, suspend);
+    if (err) {
+        NSLog(@"BusProber: USBDeviceSuspend() failed");
+        return -1;
+    }
+    err = (*deviceIntf)->USBDeviceClose(deviceIntf);
+    if (err) {
+        NSLog(@"BusProber: USBDeviceClose() failed");
+        return -1;
+    }
+    return 0;
+}
+
+IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len) {
     IOUSBDevRequest req;
     
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
@@ -71,7 +93,7 @@ IOReturn GetDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 
     return (*deviceIntf)->DeviceRequest(deviceIntf, &req);
 }
 
-int GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang) {
+int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang) {
     IOUSBDevRequest req;
     UInt8 		desc[256]; // Max possible descriptor length
     int stringLen;
@@ -111,7 +133,7 @@ int GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void
     return req.wLenDone;
 }
 
-int GetClassDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len)
+int GetClassDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len)
 {
     IOUSBDevRequest req;
     IOReturn err;
@@ -128,7 +150,7 @@ int GetClassDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 
     return req.wLenDone;
 }
 
-int GetDescriptorFromInterface(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len)
+int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len)
 {
     IOUSBDevRequest req;
     IOReturn err;
@@ -154,18 +176,22 @@ char * GetStringFromNumber(UInt32 value, int sizeInBytes, int style) {
     
     if (style == kIntegerOutputStyle) {
         sprintf(valstr, "%d",(int)value);
+		free(format);
         return valstr;
     }
     else if (style == kHexOutputStyle) {
         sprintf(format, "0x%%0%dlX", sizeInBytes*2);
         sprintf(valstr, format, value);
+		free(format);
         return valstr;
     } else {
+		free(format);
+		free(valstr);
         return NULL;
     }
 }
 
-char * GetStringFromIndex(UInt8 strIndex, IOUSBDeviceInterface ** deviceIntf) {
+char * GetStringFromIndex(UInt8 strIndex, IOUSBDeviceRef deviceIntf) {
     Byte buf[256];
     char *str2 =  malloc(500 * sizeof(char));
     memset(str2,'\0', 500 * sizeof(char));

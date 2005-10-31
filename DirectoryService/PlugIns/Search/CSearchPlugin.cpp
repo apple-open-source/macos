@@ -4169,7 +4169,7 @@ sInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 					{
 						recCount = 0;
 					}
-					if ( inData->fType == kDoAttributeValueSearchWithData )
+					if ( inData->fType == kDoMultipleAttributeValueSearchWithData )
 					{
 						siResult = ::dsDoMultipleAttributeValueSearchWithData(
 																pContinue->fNodeRef,
@@ -5066,7 +5066,7 @@ sInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 
 		switch( aRequest )
 		{
-			case 111:
+			case eDSCustomCallSearchSetPolicyAutomatic:
 				SwitchSearchPolicy( kNetInfoSearchPolicy, aSearchConfig );
 				//need to save the switch to the config file
 				if (aSearchConfig->pConfigFromXML)
@@ -5076,7 +5076,7 @@ sInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				}
 				break;
 
-			case 222:
+			case eDSCustomCallSearchSetPolicyLocalOnly:
 				SwitchSearchPolicy( kLocalSearchPolicy, aSearchConfig );
 				//need to save the switch to the config file
 				if (aSearchConfig->pConfigFromXML)
@@ -5086,7 +5086,7 @@ sInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				}
 				break;
 
-			case 333:
+			case eDSCustomCallSearchSetPolicyCustom:
 				SwitchSearchPolicy( kCustomSearchPolicy, aSearchConfig );
 				//need to save the switch to the config file
 				if (aSearchConfig->pConfigFromXML)
@@ -5097,7 +5097,7 @@ sInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				break;
 
 				//here we accept an XML blob to replace the current custom search path nodes
-			case 444:
+			case eDSCustomCallSearchSetCustomNodeList:
 				//need to make xmlData large enough to receive the data
 				//the XML data immediately follows the AuthorizationExternalForm
 				xmlDataLength = (sInt32) bufLen - sizeof( AuthorizationExternalForm );
@@ -5120,7 +5120,7 @@ sInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				}
 				break;
 
-			case 555:
+			case eDSCustomCallSearchReadDHCPLDAPSize:
 				// get length of DHCP LDAP dictionary
 
 				if ( inData->fOutRequestResponse == nil ) throw( (sInt32)eDSNullDataBuff );
@@ -5149,7 +5149,7 @@ sInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				}
 				break;
 
-			case 556:
+			case eDSCustomCallSearchReadDHCPLDAPData:
 				// read xml config
 				CFRange	aRange;
 
@@ -5175,7 +5175,7 @@ sInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				}
 				break;
 				
-			case 557:
+			case eDSCustomCallSearchWriteDHCPLDAPData:
 				//need to make xmlData large enough to receive the data
 				//the XML data immediately follows the AuthorizationExternalForm
 				xmlDataLength = (sInt32) bufLen - sizeof( AuthorizationExternalForm );

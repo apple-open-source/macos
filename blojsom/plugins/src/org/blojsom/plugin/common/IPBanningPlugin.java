@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,7 +47,7 @@ import javax.servlet.ServletConfig;
  * IPBanningPlugin
  *
  * @author David Czarnecki
- * @version $Id: IPBanningPlugin.java,v 1.2 2004/08/27 01:06:37 whitmore Exp $
+ * @version $Id: IPBanningPlugin.java,v 1.2.2.1 2005/07/21 04:30:28 johnan Exp $
  */
 public abstract class IPBanningPlugin implements BlojsomPlugin, BlojsomConstants {
 

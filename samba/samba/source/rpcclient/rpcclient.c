@@ -291,10 +291,10 @@ static NTSTATUS cmd_debuglevel(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	}
 
 	if (argc == 2) {
-		DEBUGLEVEL = atoi(argv[1]);
+		SAMBA_DEBUGLEVEL = atoi(argv[1]);
 	}
 
-	printf("debuglevel is %d\n", DEBUGLEVEL);
+	printf("debuglevel is %d\n", SAMBA_DEBUGLEVEL);
 
 	return NT_STATUS_OK;
 }

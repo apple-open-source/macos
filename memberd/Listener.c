@@ -64,6 +64,7 @@ char *gServiceName = "com.apple.memberd";
 
 bool gDebug = false;
 
+pthread_key_t gThreadKey;
 
 boolean_t server_active(mach_port_t *restart_service_port)
 {
@@ -211,6 +212,7 @@ void InitializeListener()
 	
 	pthread_mutex_init (&gListenMutex, NULL) ;
 	pthread_mutex_init (&gProcessMutex, NULL) ;
+	pthread_key_create(&gThreadKey, NULL);
 //	printf("senum = %lu, sdenom = %lu\n", mti.numer, mti.denom);
 }
 
@@ -257,6 +259,9 @@ void AddToAverage(uint32_t* average, uint32_t* numDataPoints, uint32_t newDataPo
 
 void* StartListening(void* dummy)
 {
+	int flags = 0;
+	pthread_setspecific(gThreadKey, &flags);
+
 	mach_msg_server(memberd_server, sizeof(kauth_identity_extlookup) + 1024,  gServerPort, 0);
 
 	return NULL;
@@ -303,8 +308,11 @@ kern_return_t Server_mbr_MapName(mach_port_t server, uint8_t isUser, string name
 kern_return_t Server_mbr_GetGroups(mach_port_t server, uint32_t uid, uint32_t* numGroups, GIDArray gids)
 {
 	int result;
+
 	pthread_mutex_lock(&gProcessMutex);
+	SetThreadFlags(kUseLoginTimeOutMask);
 	result = ProcessGetGroups(uid, numGroups, gids);
+	SetThreadFlags(0);
 	pthread_mutex_unlock(&gProcessMutex);
 
 	return (kern_return_t)result;
@@ -334,6 +342,9 @@ void *ListenKernel(void *dummy)
 	int result, workresult;
 	int loop = 1;
 	pthread_t newThread;
+	int flags = 0;
+	pthread_setspecific(gThreadKey, &flags);
+
 
 	workresult = 0;
 	while (loop) {
@@ -375,4 +386,16 @@ void StartListeningKernel(void)
 	gThreadsWaiting = 2;
 	pthread_create(&newThread, NULL, ListenKernel, NULL);
 	pthread_create(&newThread, NULL, ListenKernel, NULL);
+}
+
+int GetThreadFlags()
+{
+	int* flags = (int*)pthread_getspecific(gThreadKey);
+	return *flags;
+}
+
+void SetThreadFlags(int flags)
+{
+	int* flagPtr = (int*)pthread_getspecific(gThreadKey);
+	*flagPtr = flags;
 }

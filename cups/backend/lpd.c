@@ -1,5 +1,5 @@
 /*
- * "$Id: lpd.c,v 1.28 2005/01/24 20:31:01 jlovell Exp $"
+ * "$Id: lpd.c,v 1.28.2.1 2005/07/27 21:58:44 jlovell Exp $"
  *
  *   Line Printer Daemon backend for the Common UNIX Printing System (CUPS).
  *
@@ -245,6 +245,14 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
     strlcpy(username, argv[2], sizeof(username));
   }
+
+ /*
+  * If the uri doesn't have an "lpd:" method (as is true with some 3rd party software) then port can be 0 here.
+  * To be backward compatible guard against this here...
+  */
+
+  if (port == 0)
+    port = 515;
 
  /*
   * See if there are any options...
@@ -1107,5 +1115,5 @@ static int connectTimeout()
 
 
 /*
- * End of "$Id: lpd.c,v 1.28 2005/01/24 20:31:01 jlovell Exp $".
+ * End of "$Id: lpd.c,v 1.28.2.1 2005/07/27 21:58:44 jlovell Exp $".
  */

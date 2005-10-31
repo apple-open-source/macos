@@ -1,6 +1,6 @@
 /* Subroutines used for MIPS code generation.
    Copyright (C) 1989, 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -352,6 +352,10 @@ static bool mips_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 				    tree, bool);
 static bool mips_callee_copies (CUMULATIVE_ARGS *, enum machine_mode mode,
 				tree, bool);
+static int mips_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode mode,
+				   tree, bool);
+static bool mips_valid_pointer_mode (enum machine_mode);
+static bool mips_scalar_mode_supported_p (enum machine_mode);
 static bool mips_vector_mode_supported_p (enum machine_mode);
 static rtx mips_prepare_builtin_arg (enum insn_code, unsigned int, tree *);
 static rtx mips_prepare_builtin_target (enum insn_code, unsigned int, rtx);
@@ -557,6 +561,9 @@ const char *mips_abi_string;	/* for -mabi={32,n32,64,eabi} */
 int mips16_hard_float;
 
 const char *mips_cache_flush_func = CACHE_FLUSH_FUNC;
+
+/* Holds string <X> if -mfix-vr4130<X> was passed on the command line.  */
+const char *mips_fix_vr4130_string;
 
 /* If TRUE, we split addresses into their high and low parts in the RTL.  */
 int mips_split_addresses;
@@ -796,9 +803,14 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #define TARGET_PASS_BY_REFERENCE mips_pass_by_reference
 #undef TARGET_CALLEE_COPIES
 #define TARGET_CALLEE_COPIES mips_callee_copies
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES mips_arg_partial_bytes
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P mips_scalar_mode_supported_p
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS mips_init_builtins
@@ -1047,7 +1059,7 @@ mips_valid_base_register_p (rtx x, enum machine_mode mode, int strict)
   if (!strict && GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
 
-  return (GET_CODE (x) == REG
+  return (REG_P (x)
 	  && mips_regno_mode_ok_for_base_p (REGNO (x), mode, strict));
 }
 
@@ -1372,7 +1384,7 @@ mips_const_insns (rtx x)
 int
 mips_fetch_insns (rtx x)
 {
-  gcc_assert (GET_CODE (x) == MEM);
+  gcc_assert (MEM_P (x));
   return mips_address_insns (XEXP (x, 0), GET_MODE (x));
 }
 
@@ -1392,7 +1404,7 @@ mips_idiv_insns (void)
       else
         count += 2;
     }
-  
+
   if (TARGET_FIX_R4000 || TARGET_FIX_R4400)
     count++;
   return count;
@@ -2209,7 +2221,7 @@ mips_subword (rtx op, int high_p)
   else
     byte = 0;
 
-  if (GET_CODE (op) == REG)
+  if (REG_P (op))
     {
       if (FP_REG_P (REGNO (op)))
 	return gen_rtx_REG (word_mode, high_p ? REGNO (op) + 1 : REGNO (op));
@@ -2217,7 +2229,7 @@ mips_subword (rtx op, int high_p)
 	return gen_rtx_REG (word_mode, high_p ? HI_REGNUM : LO_REGNUM);
     }
 
-  if (GET_CODE (op) == MEM)
+  if (MEM_P (op))
     return mips_rewrite_small_data (adjust_address (op, word_mode, byte));
 
   return simplify_gen_subreg (word_mode, op, mode, byte);
@@ -2240,9 +2252,9 @@ mips_split_64bit_move_p (rtx dest, rtx src)
      ldc1 and sdc1 on MIPS II and above.  */
   if (mips_isa > 1)
     {
-      if (FP_REG_RTX_P (dest) && GET_CODE (src) == MEM)
+      if (FP_REG_RTX_P (dest) && MEM_P (src))
 	return false;
-      if (FP_REG_RTX_P (src) && GET_CODE (dest) == MEM)
+      if (FP_REG_RTX_P (src) && MEM_P (dest))
 	return false;
     }
   return true;
@@ -2287,7 +2299,7 @@ mips_split_64bit_move (rtx dest, rtx src)
       rtx low_dest;
 
       low_dest = mips_subword (dest, 0);
-      if (GET_CODE (low_dest) == REG
+      if (REG_P (low_dest)
 	  && reg_overlap_mentioned_p (low_dest, src))
 	{
 	  emit_move_insn (mips_subword (dest, 1), mips_subword (src, 1));
@@ -2829,9 +2841,9 @@ mips_emit_fcc_reload (rtx dest, rtx src, rtx scratch)
   rtx fp1, fp2;
 
   /* Change the source to SFmode.  */
-  if (GET_CODE (src) == MEM)
+  if (MEM_P (src))
     src = adjust_address (src, SFmode, 0);
-  else if (GET_CODE (src) == REG || GET_CODE (src) == SUBREG)
+  else if (REG_P (src) || GET_CODE (src) == SUBREG)
     src = gen_rtx_REG (SFmode, true_regnum (src));
 
   fp1 = gen_rtx_REG (SFmode, REGNO (scratch));
@@ -3131,9 +3143,7 @@ mips_arg_info (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 
   /* See whether the argument has doubleword alignment.  */
-  doubleword_aligned_p = (type
-			  ? TYPE_ALIGN (type) > BITS_PER_WORD
-			  : GET_MODE_UNIT_SIZE (mode) > UNITS_PER_WORD);
+  doubleword_aligned_p = FUNCTION_ARG_BOUNDARY (mode, type) > BITS_PER_WORD;
 
   /* Set REG_OFFSET to the register count we're interested in.
      The EABI allocates the floating-point registers separately,
@@ -3313,18 +3323,35 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 }
 
 
-/* Implement FUNCTION_ARG_PARTIAL_NREGS.  */
+/* Implement TARGET_ARG_PARTIAL_BYTES.  */
 
-int
-function_arg_partial_nregs (const CUMULATIVE_ARGS *cum,
-			    enum machine_mode mode, tree type, int named)
+static int
+mips_arg_partial_bytes (CUMULATIVE_ARGS *cum,
+			enum machine_mode mode, tree type, bool named)
 {
   struct mips_arg_info info;
 
   mips_arg_info (cum, mode, type, named, &info);
-  return info.stack_words > 0 ? info.reg_words : 0;
+  return info.stack_words > 0 ? info.reg_words * UNITS_PER_WORD : 0;
 }
 
+
+/* Implement FUNCTION_ARG_BOUNDARY.  Every parameter gets at least
+   PARM_BOUNDARY bits of alignment, but will be given anything up
+   to STACK_BOUNDARY bits if the type requires it.  */
+
+int
+function_arg_boundary (enum machine_mode mode, tree type)
+{
+  unsigned int alignment;
+
+  alignment = type ? TYPE_ALIGN (type) : GET_MODE_ALIGNMENT (mode);
+  if (alignment < PARM_BOUNDARY)
+    alignment = PARM_BOUNDARY;
+  if (alignment > STACK_BOUNDARY)
+    alignment = STACK_BOUNDARY;
+  return alignment;
+}
 
 /* Return true if FUNCTION_ARG_PADDING (MODE, TYPE) should return
    upward rather than downward.  In other words, return true if the
@@ -3837,7 +3864,7 @@ mips_get_unaligned_mem (rtx *op, unsigned int width, int bitpos,
 
   /* Check that the operand really is a MEM.  Not all the extv and
      extzv predicates are checked.  */
-  if (GET_CODE (*op) != MEM)
+  if (!MEM_P (*op))
     return false;
 
   /* Check that the size is valid.  */
@@ -4106,6 +4133,13 @@ override_options (void)
       else
 	target_flags &= ~MASK_LONG64;
     }
+
+  /* Deprecate -mint64. Remove after 4.0 branches.  */
+  if (TARGET_INT64)
+    warning ("-mint64 is a deprecated option");
+
+  if (mips_fix_vr4130_string && mips_fix_vr4130_string[0] != 0)
+    error ("unrecognized option %<-mfix-vr4130%s%>", mips_fix_vr4130_string);
 
   if (MIPS_MARCH_CONTROLS_SOFT_FLOAT
       && (target_flags_explicit & MASK_SOFT_FLOAT) == 0)
@@ -5107,56 +5141,20 @@ mips_output_ascii (FILE *stream, const char *string_param, size_t len,
     {
       register int c = string[i];
 
-      switch (c)
+      if (ISPRINT (c))
 	{
-	case '\"':
-	case '\\':
-	  putc ('\\', stream);
-	  putc (c, stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_NEWLINE:
-	  fputs ("\\n", stream);
-	  if (i+1 < len
-	      && (((c = string[i+1]) >= '\040' && c <= '~')
-		  || c == TARGET_TAB))
-	    cur_pos = 32767;		/* break right here */
-	  else
-	    cur_pos += 2;
-	  break;
-
-	case TARGET_TAB:
-	  fputs ("\\t", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_FF:
-	  fputs ("\\f", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_BS:
-	  fputs ("\\b", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_CR:
-	  fputs ("\\r", stream);
-	  cur_pos += 2;
-	  break;
-
-	default:
-	  if (c >= ' ' && c < 0177)
+	  if (c == '\\' || c == '\"')
 	    {
-	      putc (c, stream);
+	      putc ('\\', stream);
 	      cur_pos++;
 	    }
-	  else
-	    {
-	      fprintf (stream, "\\%03o", c);
-	      cur_pos += 4;
-	    }
+	  putc (c, stream);
+	  cur_pos++;
+	}
+      else
+	{
+	  fprintf (stream, "\\%03o", c);
+	  cur_pos += 4;
 	}
 
       if (cur_pos > 72 && i+1 < len)
@@ -6047,8 +6045,18 @@ mips_set_frame_expr (rtx frame_pattern)
 static rtx
 mips_frame_set (rtx mem, rtx reg)
 {
-  rtx set = gen_rtx_SET (VOIDmode, mem, reg);
+  rtx set;
+
+  /* If we're saving the return address register and the dwarf return
+     address column differs from the hard register number, adjust the
+     note reg to refer to the former.  */
+  if (REGNO (reg) == GP_REG_FIRST + 31
+      && DWARF_FRAME_RETURN_COLUMN != GP_REG_FIRST + 31)
+    reg = gen_rtx_REG (GET_MODE (reg), DWARF_FRAME_RETURN_COLUMN);
+
+  set = gen_rtx_SET (VOIDmode, mem, reg);
   RTX_FRAME_RELATED_P (set) = 1;
+
   return set;
 }
 
@@ -6837,35 +6845,44 @@ mips_callee_copies (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
   return mips_abi == ABI_EABI && named;
 }
 
-/* Return the class of registers for which a mode change from FROM to TO
-   is invalid.
-
-   In little-endian mode, the hi-lo registers are numbered backwards,
-   so (subreg:SI (reg:DI hi) 0) gets the high word instead of the low
-   word as intended.
-
-   Similarly, when using paired floating-point registers, the first
-   register holds the low word, regardless of endianness.  So in big
-   endian mode, (subreg:SI (reg:DF $f0) 0) does not get the high word
-   as intended.
-
-   Also, loading a 32-bit value into a 64-bit floating-point register
-   will not sign-extend the value, despite what LOAD_EXTEND_OP says.
-   We can't allow 64-bit float registers to change from a 32-bit
-   mode to a 64-bit mode.  */
+/* Return true if registers of class CLASS cannot change from mode FROM
+   to mode TO.  */
 
 bool
 mips_cannot_change_mode_class (enum machine_mode from,
 			       enum machine_mode to, enum reg_class class)
 {
-  if (GET_MODE_SIZE (from) != GET_MODE_SIZE (to))
+  if (MIN (GET_MODE_SIZE (from), GET_MODE_SIZE (to)) <= UNITS_PER_WORD
+      && MAX (GET_MODE_SIZE (from), GET_MODE_SIZE (to)) > UNITS_PER_WORD)
     {
       if (TARGET_BIG_ENDIAN)
-	return reg_classes_intersect_p (FP_REGS, class);
-      if (TARGET_FLOAT64)
-	return reg_classes_intersect_p (HI_AND_FP_REGS, class);
-      return reg_classes_intersect_p (HI_REG, class);
+	{
+	  /* When a multi-word value is stored in paired floating-point
+	     registers, the first register always holds the low word.
+	     We therefore can't allow FPRs to change between single-word
+	     and multi-word modes.  */
+	  if (FP_INC > 1 && reg_classes_intersect_p (FP_REGS, class))
+	    return true;
+	}
+      else
+	{
+	  /* LO_REGNO == HI_REGNO + 1, so if a multi-word value is stored
+	     in LO and HI, the high word always comes first.  We therefore
+	     can't allow values stored in HI to change between single-word
+	     and multi-word modes.  */
+	  if (reg_classes_intersect_p (HI_REG, class))
+	    return true;
+	}
     }
+  /* Loading a 32-bit value into a 64-bit floating-point register
+     will not sign-extend the value, despite what LOAD_EXTEND_OP says.
+     We can't allow 64-bit float registers to change from SImode to
+     to a wider mode.  */
+  if (TARGET_FLOAT64
+      && from == SImode
+      && GET_MODE_SIZE (to) >= UNITS_PER_WORD
+      && reg_classes_intersect_p (FP_REGS, class))
+    return true;
   return false;
 }
 
@@ -6921,7 +6938,7 @@ mips_secondary_reload_class (enum reg_class class,
   int regno = -1;
   int gp_reg_p;
 
-  if (GET_CODE (x) == REG || GET_CODE (x) == SUBREG)
+  if (REG_P (x)|| GET_CODE (x) == SUBREG)
     regno = true_regnum (x);
 
   gp_reg_p = TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
@@ -6973,7 +6990,7 @@ mips_secondary_reload_class (enum reg_class class,
 
   if (class == FP_REGS)
     {
-      if (GET_CODE (x) == MEM)
+      if (MEM_P (x))
 	{
 	  /* In this case we can use lwc1, swc1, ldc1 or sdc1.  */
 	  return NO_REGS;
@@ -7044,11 +7061,48 @@ mips_class_max_nregs (enum reg_class class ATTRIBUTE_UNUSED,
     return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
 
-bool
+static bool
 mips_valid_pointer_mode (enum machine_mode mode)
 {
   return (mode == SImode || (TARGET_64BIT && mode == DImode));
 }
+
+/* Define this so that we can deal with a testcase like:
+
+   char foo __attribute__ ((mode (SI)));
+
+   then compiled with -mabi=64 and -mint64. We have no
+   32-bit type at that point and so the default case
+   always fails.  */
+
+static bool
+mips_scalar_mode_supported_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case QImode:
+    case HImode:
+    case SImode:
+    case DImode:
+      return true;
+
+      /* Handled via optabs.c.  */
+    case TImode:
+      return TARGET_64BIT;
+
+    case SFmode:
+    case DFmode:
+      return true;
+
+      /* LONG_DOUBLE_TYPE_SIZE is 128 for TARGET_NEWABI only.  */
+    case TFmode:
+      return TARGET_NEWABI;
+
+    default:
+      return false;
+    }
+}
+
 
 /* Target hook for vector_mode_supported_p.  */
 static bool
@@ -7090,7 +7144,7 @@ mips16_gp_pseudo_reg (void)
       /* We need to emit the initialization after the FUNCTION_BEG
          note, so that it will be integrated.  */
       for (scan = get_insns (); scan != NULL_RTX; scan = NEXT_INSN (scan))
-	if (GET_CODE (scan) == NOTE
+	if (NOTE_P (scan)
 	    && NOTE_LINE_NUMBER (scan) == NOTE_INSN_FUNCTION_BEG)
 	  break;
       if (scan == NULL_RTX)
@@ -7532,7 +7586,7 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
      Fortunately, this case is illegal, since it means that a function
      was declared in two different ways in a single compilation.  */
   if (fpret && ! l->fpret)
-    error ("cannot handle inconsistent calls to `%s'", fnname);
+    error ("cannot handle inconsistent calls to %qs", fnname);
 
   /* If we are calling a stub which handles a floating point return
      value, we need to arrange to save $18 in the prologue.  We do
@@ -7703,16 +7757,12 @@ dump_constants (struct mips16_constant *constants, rtx insn)
   emit_barrier_after (insn);
 }
 
-/* Return the length of instruction INSN.
-
-   ??? MIPS16 switch tables go in .text, but we don't define
-   JUMP_TABLES_IN_TEXT_SECTION, so get_attr_length will not
-   compute their lengths correctly.  */
+/* Return the length of instruction INSN.  */
 
 static int
 mips16_insn_length (rtx insn)
 {
-  if (GET_CODE (insn) == JUMP_INSN)
+  if (JUMP_P (insn))
     {
       rtx body = PATTERN (insn);
       if (GET_CODE (body) == ADDR_VEC)
@@ -8026,8 +8076,8 @@ vr4130_avoid_branch_rt_conflict (rtx insn)
 
   first = SEQ_BEGIN (insn);
   second = SEQ_END (insn);
-  if (GET_CODE (first) == JUMP_INSN
-      && GET_CODE (second) == INSN
+  if (JUMP_P (first)
+      && NONJUMP_INSN_P (second)
       && GET_CODE (PATTERN (first)) == SET
       && GET_CODE (SET_DEST (PATTERN (first))) == PC
       && GET_CODE (SET_SRC (PATTERN (first))) == IF_THEN_ELSE)
@@ -8102,7 +8152,7 @@ vr4130_align_insns (void)
 	       way, if the nop makes Y aligned, it will also align any labels
 	       between X and Y.  */
 	    if (state.insns_left != state.issue_rate
-		&& GET_CODE (subinsn) != CALL_INSN)
+		&& !CALL_P (subinsn))
 	      {
 		if (subinsn == SEQ_BEGIN (insn) && aligned_p)
 		  {
@@ -8141,7 +8191,7 @@ vr4130_align_insns (void)
 	     mips.md patern, the length is only an estimate.  Insert an
 	     8 byte alignment after it so that the following instructions
 	     can be handled correctly.  */
-	  if (GET_CODE (SEQ_BEGIN (insn)) == INSN
+	  if (NONJUMP_INSN_P (SEQ_BEGIN (insn))
 	      && (recog_memoized (insn) < 0 || length >= 8))
 	    {
 	      next = emit_insn_after (gen_align (GEN_INT (3)), insn);
@@ -8256,10 +8306,24 @@ mips_avoid_hazards (void)
   cfun->machine->ignore_hazard_length_p = true;
   shorten_branches (get_insns ());
 
-  /* The profiler code uses assembler macros.  -mfix-vr4120 relies on
-     assembler nop insertion.  */
-  cfun->machine->all_noreorder_p = (!current_function_profile
-				    && !TARGET_FIX_VR4120);
+  cfun->machine->all_noreorder_p = true;
+
+  /* Profiled functions can't be all noreorder because the profiler
+     support uses assembler macros.  */
+  if (current_function_profile)
+    cfun->machine->all_noreorder_p = false;
+
+  /* Code compiled with -mfix-vr4120 can't be all noreorder because
+     we rely on the assembler to work around some errata.  */
+  if (TARGET_FIX_VR4120)
+    cfun->machine->all_noreorder_p = false;
+
+  /* The same is true for -mfix-vr4130 if we might generate mflo or
+     mfhi instructions.  Note that we avoid using mflo and mfhi if
+     the VR4130 macc and dmacc instructions are available instead;
+     see the *mfhilo_{si,di}_macc patterns.  */
+  if (TARGET_FIX_VR4130 && !ISA_HAS_MACCHI)
+    cfun->machine->all_noreorder_p = false;
 
   last_insn = 0;
   hilo_delay = 2;
@@ -9311,7 +9375,7 @@ struct builtin_description
   enum mips_fp_condition cond;
 
   /* The name of the builtin function.  */
-  const char *name;              
+  const char *name;
 
   /* Specifies how the function should be expanded.  */
   enum mips_builtin_type builtin_type;

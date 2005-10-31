@@ -1,0 +1,157 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		059ED29F08B556DF004C4A4E /* install */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 059ED2A308B55712004C4A4E /* Build configuration list for PBXAggregateTarget "install" */;
+			buildPhases = (
+				059ED29E08B556DF004C4A4E /* ShellScript */,
+			);
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = install;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = install;
+			productName = install;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXFileReference section */
+		059ED2A208B55712004C4A4E /* proj.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; path = proj.tgz; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		059ED29208B556A7004C4A4E = {
+			isa = PBXGroup;
+			children = (
+				059ED2A208B55712004C4A4E /* proj.tgz */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		059ED29408B556A7004C4A4E /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 059ED29508B556A7004C4A4E /* Build configuration list for PBXProject "gcc_binary_shlibs" */;
+			buildStyles = (
+			);
+			hasScannedForEncodings = 0;
+			mainGroup = 059ED29208B556A7004C4A4E;
+			projectDirPath = "";
+			targets = (
+				059ED29F08B556DF004C4A4E /* install */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		059ED29E08B556DF004C4A4E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				proj.tgz,
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# shell script goes here\ntar -x -z -C $INSTALL_DIR < proj.tgz || exit 1\nexit 0";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		059ED29608B556A7004C4A4E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = Debug;
+		};
+		059ED29708B556A7004C4A4E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			name = Release;
+		};
+		059ED2A408B55712004C4A4E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = install;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Debug;
+		};
+		059ED2A508B55712004C4A4E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = install;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		059ED29508B556A7004C4A4E /* Build configuration list for PBXProject "gcc_binary_shlibs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				059ED29608B556A7004C4A4E /* Debug */,
+				059ED29708B556A7004C4A4E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+		059ED2A308B55712004C4A4E /* Build configuration list for PBXAggregateTarget "install" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				059ED2A408B55712004C4A4E /* Debug */,
+				059ED2A508B55712004C4A4E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 059ED29408B556A7004C4A4E /* Project object */;
+}

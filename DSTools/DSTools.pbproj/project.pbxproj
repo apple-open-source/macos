@@ -16,7 +16,6 @@
 				617BBE910466DED6008A5E07,
 				849AD6E805EFCE7A0005E3DB,
 				E52AF834064C4B6700A7A081,
-				840D79200653D0DA00C498B0,
 				84AEA23C065BB88600B63BFF,
 				61E5E70E0711F7B800340448,
 				000AD4F50382D90B00DD2B5C,
@@ -70,7 +69,6 @@
 				617BBE970466E422008A5E07,
 				84DFC26005F40724006783E4,
 				E52AF87D064C4C7600A7A081,
-				840D79510653D31F00C498B0,
 			);
 		};
 		000AD48D0382D5BB00DD2B5C = {
@@ -660,7 +658,6 @@
 				617BBF1304671E88008A5E07,
 				614AF11B0646B5BF0047DEE8,
 				E52AFBE6064C4E1200A7A081,
-				840D795C0653D32D00C498B0,
 			);
 			isa = PBXAggregateTarget;
 			name = DSTools;
@@ -810,7 +807,6 @@
 				617BBE980466E422008A5E07,
 				84DFC26105F40724006783E4,
 				E52AF87E064C4C7600A7A081,
-				840D79520653D31F00C498B0,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -1376,36 +1372,6 @@
 //614
 		611832850711F85200539860 = {
 			fileRef = 61E5E7130711F7FB00340448;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		61455F6006652DB3004226D6 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = text.man;
-			name = dsidentity.1;
-			path = dsidentity/dsidentity.1;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		61455F6106652DB3004226D6 = {
-			fileRef = 61455F6006652DB3004226D6;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		61455F6406652DC2004226D6 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = dsidentity.cpp;
-			path = dsidentity/dsidentity.cpp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		61455F6506652DC2004226D6 = {
-			fileRef = 61455F6406652DC2004226D6;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -2007,168 +1973,6 @@
 //842
 //843
 //844
-		840D79200653D0DA00C498B0 = {
-			children = (
-				840D792B0653D14300C498B0,
-				840D79280653D12000C498B0,
-				840D79250653D11500C498B0,
-			);
-			isa = PBXGroup;
-			name = dsidentity;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		840D79250653D11500C498B0 = {
-			children = (
-				61455F6406652DC2004226D6,
-			);
-			isa = PBXGroup;
-			name = "Other Sources";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		840D79280653D12000C498B0 = {
-			children = (
-				61455F6006652DB3004226D6,
-			);
-			isa = PBXGroup;
-			name = "Man Pages";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		840D792B0653D14300C498B0 = {
-			children = (
-			);
-			isa = PBXGroup;
-			name = Headers;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		840D794D0653D31F00C498B0 = {
-			buildActionMask = 2147483647;
-			files = (
-				84AEA252065BB95F00B63BFF,
-				AAE880DD06ADB63700DCA962,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		840D794E0653D31F00C498B0 = {
-			buildActionMask = 2147483647;
-			files = (
-				84AEA25A065BB97600B63BFF,
-				61455F6506652DC2004226D6,
-				AAE880C906ADB61600DCA962,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		840D794F0653D31F00C498B0 = {
-			buildActionMask = 2147483647;
-			files = (
-				8444AA67065498C5009DAE58,
-				8444AA68065498CB009DAE58,
-				8444AA69065498DA009DAE58,
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		840D79500653D31F00C498B0 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		840D79510653D31F00C498B0 = {
-			buildPhases = (
-				840D794D0653D31F00C498B0,
-				840D794E0653D31F00C498B0,
-				840D794F0653D31F00C498B0,
-				840D79500653D31F00C498B0,
-				840D796D0653D38D00C498B0,
-				840D79720653D39800C498B0,
-			);
-			buildSettings = {
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = dsidentity;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-			};
-			dependencies = (
-			);
-			isa = PBXToolTarget;
-			name = dsidentity;
-			productInstallPath = /usr/sbin;
-			productName = dseditcollabuser;
-			productReference = 840D79520653D31F00C498B0;
-		};
-		840D79520653D31F00C498B0 = {
-			explicitFileType = "compiled.mach-o.executable";
-			includeInIndex = 0;
-			isa = PBXFileReference;
-			path = dsidentity;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		840D795B0653D32D00C498B0 = {
-			containerPortal = 000AD48C0382D5A600DD2B5C;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 840D79510653D31F00C498B0;
-			remoteInfo = dseditcollabuser;
-		};
-		840D795C0653D32D00C498B0 = {
-			isa = PBXTargetDependency;
-			target = 840D79510653D31F00C498B0;
-			targetProxy = 840D795B0653D32D00C498B0;
-		};
-		840D796D0653D38D00C498B0 = {
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man1;
-			dstSubfolderSpec = 0;
-			files = (
-				61455F6106652DB3004226D6,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		840D79720653D39800C498B0 = {
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "#make this setuid\nchmod 4555 \"${DSTROOT}/usr/sbin/dsidentity\"";
-		};
-		8444AA67065498C5009DAE58 = {
-			fileRef = 000AD6890382D97600DD2B5C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		8444AA68065498CB009DAE58 = {
-			fileRef = 61B12CF303D7777400DD2B5C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		8444AA69065498DA009DAE58 = {
-			fileRef = 000AD4F60382D96800DD2B5C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		844B3B6C04310E2500D87C54 = {
 			children = (
 				844B3BD8043113F200D87C54,
@@ -2428,12 +2232,6 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		84AEA252065BB95F00B63BFF = {
-			fileRef = 84AEA251065BB95F00B63BFF;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		84AEA259065BB97600B63BFF = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -2442,12 +2240,6 @@
 			path = commonC/dscommon.c;
 			refType = 4;
 			sourceTree = "<group>";
-		};
-		84AEA25A065BB97600B63BFF = {
-			fileRef = 84AEA259065BB97600B63BFF;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		84DFC25C05F40724006783E4 = {
 			buildActionMask = 2147483647;
@@ -2604,12 +2396,6 @@
 			settings = {
 			};
 		};
-		AAE880C906ADB61600DCA962 = {
-			fileRef = AAE880C706ADB61600DCA962;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		AAE880CA06ADB61600DCA962 = {
 			fileRef = AAE880C706ADB61600DCA962;
 			isa = PBXBuildFile;
@@ -2656,12 +2442,6 @@
 			sourceTree = "<group>";
 		};
 		AAE880DC06ADB63700DCA962 = {
-			fileRef = AAE880DB06ADB63700DCA962;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		AAE880DD06ADB63700DCA962 = {
 			fileRef = AAE880DB06ADB63700DCA962;
 			isa = PBXBuildFile;
 			settings = {

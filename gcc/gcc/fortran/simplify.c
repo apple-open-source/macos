@@ -1,5 +1,5 @@
 /* Simplify intrinsic functions at compile-time.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
@@ -23,9 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "flags.h"
-
-#include <string.h>
-
 #include "gfortran.h"
 #include "arith.h"
 #include "intrinsic.h"
@@ -146,19 +143,17 @@ static void
 twos_complement (mpz_t x, int bitsize)
 {
   mpz_t mask;
-  char mask_s[bitsize + 1];
 
   if (mpz_tstbit (x, bitsize - 1) == 1)
     {
-      /* The mpz_init_set_{u|s}i functions take a long argument, but
-	 the widest integer the target supports might be wider, so we
-	 have to go via an intermediate string.  */
-      memset (mask_s, '1', bitsize);
-      mask_s[bitsize] = '\0';
-      mpz_init_set_str (mask, mask_s, 2);
+      mpz_init_set_ui(mask, 1);
+      mpz_mul_2exp(mask, mask, bitsize);
+      mpz_sub_ui(mask, mask, 1);
 
-      /* We negate the number by hand, zeroing the high bits, and then
-	 have it negated by GMP.  */
+      /* We negate the number by hand, zeroing the high bits, that is
+        make it the corresponding positive number, and then have it
+        negated by GMP, giving the correct representation of the
+        negative number.  */
       mpz_com (x, x);
       mpz_add_ui (x, x, 1);
       mpz_and (x, x, mask);
@@ -597,7 +592,7 @@ gfc_simplify_ceiling (gfc_expr * e, gfc_expr * k)
   gfc_expr *ceil, *result;
   int kind;
 
-  kind = get_kind (BT_REAL, k, "CEILING", gfc_default_real_kind);
+  kind = get_kind (BT_INTEGER, k, "CEILING", gfc_default_integer_kind);
   if (kind == -1)
     return &gfc_bad_expr;
 
@@ -972,6 +967,7 @@ gfc_simplify_exp (gfc_expr * x)
 gfc_expr *
 gfc_simplify_exponent (gfc_expr * x)
 {
+  int i;
   mpfr_t tmp;
   gfc_expr *result;
 
@@ -995,6 +991,12 @@ gfc_simplify_exponent (gfc_expr * x)
   mpfr_log2 (tmp, tmp, GFC_RND_MODE);
 
   gfc_mpfr_to_mpz (result->value.integer, tmp);
+
+  /* The model number for tiny(x) is b**(emin - 1) where b is the base and emin
+     is the smallest exponent value.  So, we need to add 1 if x is tiny(x).  */
+  i = gfc_validate_kind (x->ts.type, x->ts.kind, false);
+  if (mpfr_cmp (x->value.real, gfc_real_kinds[i].tiny) == 0)
+    mpz_add_ui (result->value.integer,result->value.integer, 1);
 
   mpfr_clear (tmp);
 
@@ -1022,7 +1024,7 @@ gfc_simplify_floor (gfc_expr * e, gfc_expr * k)
   mpfr_t floor;
   int kind;
 
-  kind = get_kind (BT_REAL, k, "FLOOR", gfc_default_real_kind);
+  kind = get_kind (BT_INTEGER, k, "FLOOR", gfc_default_integer_kind);
   if (kind == -1)
     gfc_internal_error ("gfc_simplify_floor(): Bad kind");
 
@@ -1478,7 +1480,7 @@ gfc_simplify_int (gfc_expr * e, gfc_expr * k)
   gfc_expr *rpart, *rtrunc, *result;
   int kind;
 
-  kind = get_kind (BT_REAL, k, "INT", gfc_default_real_kind);
+  kind = get_kind (BT_INTEGER, k, "INT", gfc_default_integer_kind);
   if (kind == -1)
     return &gfc_bad_expr;
 
@@ -1771,16 +1773,18 @@ gfc_simplify_kind (gfc_expr * e)
 
 
 static gfc_expr *
-gfc_simplify_bound (gfc_expr * array, gfc_expr * dim, int upper)
+simplify_bound (gfc_expr * array, gfc_expr * dim, int upper)
 {
   gfc_ref *ref;
   gfc_array_spec *as;
-  int i;
+  gfc_expr *e;
+  int d;
 
   if (array->expr_type != EXPR_VARIABLE)
     return NULL;
 
   if (dim == NULL)
+    /* TODO: Simplify constant multi-dimensional bounds.  */
     return NULL;
 
   if (dim->expr_type != EXPR_CONSTANT)
@@ -1788,29 +1792,66 @@ gfc_simplify_bound (gfc_expr * array, gfc_expr * dim, int upper)
 
   /* Follow any component references.  */
   as = array->symtree->n.sym->as;
-  ref = array->ref;
-  while (ref->next != NULL)
+  for (ref = array->ref; ref; ref = ref->next)
     {
-      if (ref->type == REF_COMPONENT)
-	as = ref->u.c.sym->as;
-      ref = ref->next;
+      switch (ref->type)
+	{
+	case REF_ARRAY:
+	  switch (ref->u.ar.type)
+	    {
+	    case AR_ELEMENT:
+	      as = NULL;
+	      continue;
+
+	    case AR_FULL:
+	      /* We're done because 'as' has already been set in the
+		 previous iteration.  */
+	      goto done;
+
+	    case AR_SECTION:
+	    case AR_UNKNOWN:
+	      return NULL;
+	    }
+
+	  gcc_unreachable ();
+
+	case REF_COMPONENT:
+	  as = ref->u.c.component->as;
+	  continue;
+
+	case REF_SUBSTRING:
+	  continue;
+	}
+    }
+ 
+  gcc_unreachable ();
+
+ done:
+  if (as->type == AS_DEFERRED || as->type == AS_ASSUMED_SHAPE)
+    return NULL;
+
+  d = mpz_get_si (dim->value.integer);
+
+  if (d < 1 || d > as->rank
+      || (d == as->rank && as->type == AS_ASSUMED_SIZE && upper))
+    {
+      gfc_error ("DIM argument at %L is out of bounds", &dim->where);
+      return &gfc_bad_expr;
     }
 
-  if (ref->type != REF_ARRAY || ref->u.ar.type != AR_FULL)
+  e = upper ? as->upper[d-1] : as->lower[d-1];
+
+  if (e->expr_type != EXPR_CONSTANT)
     return NULL;
-  
-  i = mpz_get_si (dim->value.integer);
-  if (upper) 
-    return gfc_copy_expr (as->upper[i-1]);
-  else
-    return gfc_copy_expr (as->lower[i-1]);
+
+  return gfc_copy_expr (e);
 }
 
 
 gfc_expr *
 gfc_simplify_lbound (gfc_expr * array, gfc_expr * dim)
 {
-  return gfc_simplify_bound (array, dim, 0);
+  return simplify_bound (array, dim, 0);
 }
 
 
@@ -3583,7 +3624,7 @@ gfc_simplify_trim (gfc_expr * e)
 gfc_expr *
 gfc_simplify_ubound (gfc_expr * array, gfc_expr * dim)
 {
-  return gfc_simplify_bound (array, dim, 1);
+  return simplify_bound (array, dim, 1);
 }
 
 

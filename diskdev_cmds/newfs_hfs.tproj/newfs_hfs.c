@@ -141,7 +141,7 @@ main(argc, argv)
 	struct statfs *mp;
 	int n;
 	
-	if (progname = strrchr(*argv, '/'))
+	if ((progname = strrchr(*argv, '/')))
 		++progname;
 	else
 		progname = *argv;
@@ -298,7 +298,7 @@ static void getnodeopts(char* optlist)
 	char *p;
 	UInt32 ndsize;
 	
-	while((ndarg = strsep(&strp, ",")) != NULL && *ndarg != NULL) {
+	while((ndarg = strsep(&strp, ",")) != NULL && *ndarg != '\0') {
 
 		p = strchr(ndarg, '=');
 		if (p == NULL)
@@ -308,20 +308,20 @@ static void getnodeopts(char* optlist)
 
 		switch (*ndarg) {
 		case 'c':
-			if (ndsize < 4096 || ndsize > 32768 || (ndsize & ndsize-1) != 0)
+			if (ndsize < 4096 || ndsize > 32768 || (ndsize & (ndsize-1)) != 0)
 				fatal("%s: invalid catalog b-tree node size", ndarg);
 			catnodesiz = ndsize;
 			gUserCatNodeSize = TRUE;
 			break;
 
 		case 'e':
-			if (ndsize < 1024 || ndsize > 32768 || (ndsize & ndsize-1) != 0)
+			if (ndsize < 1024 || ndsize > 32768 || (ndsize & (ndsize-1)) != 0)
 				fatal("%s: invalid extents b-tree node size", ndarg);
 			extnodesiz = ndsize;
 			break;
 
 		case 'a':
-			if (ndsize < 1024 || ndsize > 32768 || (ndsize & ndsize-1) != 0)
+			if (ndsize < 1024 || ndsize > 32768 || (ndsize & (ndsize-1)) != 0)
 				fatal("%s: invalid atrribute b-tree node size", ndarg);
 			atrnodesiz = ndsize;
 			break;
@@ -340,7 +340,7 @@ static void getclumpopts(char* optlist)
 	char *p;
 	UInt32 clpblocks;
 	
-	while((ndarg = strsep(&strp, ",")) != NULL && *ndarg != NULL) {
+	while((ndarg = strsep(&strp, ",")) != NULL && *ndarg != '\0') {
 
 		p = strchr(ndarg, '=');
 		if (p == NULL)
@@ -451,7 +451,7 @@ static void validate_hfsplus_block_size(UInt64 sectorCount, UInt32 sectorSize)
 		}
 	} else {
 		/* Make sure a user-specified block size is reasonable */
-		if ((gBlockSize & gBlockSize-1) != 0)
+		if ((gBlockSize & (gBlockSize-1)) != 0)
 			fatal("%s: bad HFS Plus allocation block size (must be a power of two)", optarg);
 	
 		if ((sectorCount / (gBlockSize / sectorSize)) > 0xFFFFFFFF)
@@ -652,7 +652,7 @@ static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *
 	    defaults->journalSize = 512 * 1024 * 1024;
 	}
 
-	strncpy(defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
+	strncpy((char *)defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
 	defaults->volumeName[sizeof(defaults->volumeName) - 1] = '\0';
 
 	if (rsrclumpblks == 0) {
@@ -793,7 +793,7 @@ static void hfs_params(UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defau
 	defaults->attributesNodeSize = 0;
 	defaults->attributesClumpSize = 0;
 
-	strncpy(defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
+	strncpy((char *)defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
 	defaults->volumeName[sizeof(defaults->volumeName) - 1] = '\0';
 
 	/* Compute the default allocation block size */

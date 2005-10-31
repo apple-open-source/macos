@@ -44,6 +44,7 @@
 using DOM::CharacterDataImpl;
 using DOM::NodeImpl;
 using DOM::offsetInCharacters;
+using DOM::UsingComposedCharacters;
 using DOM::Position;
 using DOM::Range;
 using DOM::RangeImpl;
@@ -168,8 +169,21 @@ VisiblePosition VisiblePosition::next() const
 
 VisiblePosition VisiblePosition::previous() const
 {
-    VisiblePosition result =  VisiblePosition(previousVisiblePosition(m_deepPosition), DOWNSTREAM);
-
+    // find first previous DOM position that is visible
+    Position pos = m_deepPosition;
+    while (!pos.atStart()) {
+        pos = pos.previous(UsingComposedCharacters);
+        if (isCandidate(pos))
+            break;
+    }
+    
+    // return null visible position if there is no previous visible position
+    if (pos.atStart())
+        return VisiblePosition();
+        
+    VisiblePosition result = VisiblePosition(pos, DOWNSTREAM);
+    ASSERT(result != *this);
+    
 #ifndef NDEBUG
     // we should always be able to make the affinity DOWNSTREAM, because going previous from an
     // UPSTREAM position can never yield another UPSTREAM position (unless line wrap length is 0!).
@@ -184,27 +198,33 @@ VisiblePosition VisiblePosition::previous() const
 
 Position VisiblePosition::previousVisiblePosition(const Position &pos)
 {
-    if (pos.isNull() || atStart(pos))
+    if (pos.isNull() || pos.atStart())
         return Position();
 
     Position test = deepEquivalent(pos);
     Position downstreamTest = test.downstream(StayInBlock);
     bool acceptAnyVisiblePosition = !isCandidate(test);
 
+    // NOTE: The first position examined is the deepEquivalent of pos.  This,
+    // of course, is often after pos in the DOM.  Some care is taken to not return
+    // a position later than pos, but it is clearly possible to return pos
+    // itself (if it is a candidate) when iterating back from a deepEquivalent
+    // that is not a candidate.  That is wrong!  However, our clients seem to
+    // like it.  Gotta lose those clients! (initDownstream and initUpstream)
     Position current = test;
-    while (!atStart(current)) {
-        current = previousPosition(current);
+    while (!current.atStart()) {
+        current = current.previous(UsingComposedCharacters);
         if (isCandidate(current) && (acceptAnyVisiblePosition || (downstreamTest != current.downstream(StayInBlock)))) {
             return current;
         }
     }
-    
-    return Position();
+
+     return Position();
 }
 
 Position VisiblePosition::nextVisiblePosition(const Position &pos)
 {
-    if (pos.isNull() || atEnd(pos))
+    if (pos.isNull() || pos.atEnd())
         return Position();
 
     Position test = deepEquivalent(pos);
@@ -212,70 +232,14 @@ Position VisiblePosition::nextVisiblePosition(const Position &pos)
 
     Position current = test;
     Position downstreamTest = test.downstream(StayInBlock);
-    while (!atEnd(current)) {
-        current = nextPosition(current);
+    while (!current.atEnd()) {
+        current = current.next(UsingComposedCharacters);
         if (isCandidate(current) && (acceptAnyVisiblePosition || (downstreamTest != current.downstream(StayInBlock)))) {
             return current;
         }
     }
     
     return Position();
-}
-
-Position VisiblePosition::previousPosition(const Position &pos)
-{
-    if (pos.isNull())
-        return pos;
-    
-    Position result;
-
-    if (pos.offset() <= 0) {
-        NodeImpl *prevNode = pos.node()->traversePreviousNode();
-        if (prevNode)
-            result = Position(prevNode, prevNode->maxOffset());
-    }
-    else {
-        NodeImpl *node = pos.node();
-        result = Position(node, node->previousOffset(pos.offset()));
-    }
-    
-    return result;
-}
-
-Position VisiblePosition::nextPosition(const Position &pos)
-{
-    if (pos.isNull())
-        return pos;
-    
-    Position result;
-
-    if (pos.offset() >= pos.node()->maxOffset()) {
-        NodeImpl *nextNode = pos.node()->traverseNextNode();
-        if (nextNode)
-            result = Position(nextNode, 0);
-    }
-    else {
-        NodeImpl *node = pos.node();
-        result = Position(node, node->nextOffset(pos.offset()));
-    }
-    
-    return result;
-}
-
-bool VisiblePosition::atStart(const Position &pos)
-{
-    if (pos.isNull())
-        return true;
-
-    return pos.offset() <= 0 && pos.node()->previousLeafNode() == 0;
-}
-
-bool VisiblePosition::atEnd(const Position &pos)
-{
-    if (pos.isNull())
-        return true;
-
-    return pos.offset() >= pos.node()->maxOffset() && pos.node()->nextLeafNode() == 0;
 }
 
 bool VisiblePosition::isCandidate(const Position &pos)
@@ -362,14 +326,14 @@ Position VisiblePosition::downstreamDeepEquivalent() const
 {
     Position pos = m_deepPosition;
     
-    if (pos.isNull() || atEnd(pos))
+    if (pos.isNull() || pos.atEnd())
         return pos;
 
     Position downstreamTest = pos.downstream(StayInBlock);
 
     Position current = pos;
-    while (!atEnd(current)) {
-        current = nextPosition(current);
+    while (!current.atEnd()) {
+        current = current.next(UsingComposedCharacters);
         if (isCandidate(current)) {
             if (downstreamTest != current.downstream(StayInBlock))
                 break;
@@ -444,7 +408,7 @@ void VisiblePosition::debugPosition(const char *msg) const
     if (isNull())
         fprintf(stderr, "Position [%s]: null\n", msg);
     else
-        fprintf(stderr, "Position [%s]: %s [%p] at %d\n", msg, m_deepPosition.node()->nodeName().string().latin1(), m_deepPosition.node(), m_deepPosition.offset());
+        fprintf(stderr, "Position [%s]: %s [%p] at %ld\n", msg, m_deepPosition.node()->nodeName().string().latin1(), m_deepPosition.node(), m_deepPosition.offset());
 }
 
 #ifndef NDEBUG

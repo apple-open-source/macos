@@ -1,5 +1,5 @@
 /*
- * "$Id: raster.c,v 1.7 2005/01/04 22:10:43 jlovell Exp $"
+ * "$Id: raster.c,v 1.7.2.1 2005/07/27 21:58:44 jlovell Exp $"
  *
  *   Raster file routines for the Common UNIX Printing System (CUPS).
  *
@@ -133,12 +133,7 @@ cupsRasterReadHeader(cups_raster_t      *r,	/* I - Raster stream */
                      cups_page_header_t *h)	/* I - Pointer to header data */
 {
   int		len;				/* Number of words to swap */
-  union swap_s					/* Swapping structure */
-  {
-    unsigned char	b[4];
-    unsigned		v;
-  }		*s;
-
+  unsigned      *s;
 
   if (r == NULL || r->mode != CUPS_RASTER_READ)
     return (0);
@@ -149,10 +144,13 @@ cupsRasterReadHeader(cups_raster_t      *r,	/* I - Raster stream */
 
   if (r->sync == CUPS_RASTER_REVSYNC)
     for (len = (sizeof(cups_page_header_t) - 256) / 4,
-             s = (union swap_s *)&(h->AdvanceDistance);
+             s = (unsigned int *)&h->AdvanceDistance;
 	 len > 0;
 	 len --, s ++)
-      s->v = (((((s->b[0] << 8) | s->b[1]) << 8) | s->b[2]) << 8) | s->b[3];
+      *s = (((*s << 24) & 0xFF000000) | 
+	    ((*s << 8)  & 0x00FF0000) | 
+	    ((*s >> 8)  & 0x0000FF00) | 
+	    ((*s >> 24) & 0x000000FF));
 
   return (1);
 }
@@ -256,5 +254,5 @@ cupsRasterWritePixels(cups_raster_t *r,	/* I - Raster stream */
 
 
 /*
- * End of "$Id: raster.c,v 1.7 2005/01/04 22:10:43 jlovell Exp $".
+ * End of "$Id: raster.c,v 1.7.2.1 2005/07/27 21:58:44 jlovell Exp $".
  */

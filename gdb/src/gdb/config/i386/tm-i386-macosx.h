@@ -25,13 +25,4 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "config/i386/tm-i386.h"
 #include "config/tm-macosx.h"
 
-extern CORE_ADDR i386_macosx_skip_trampoline_code (CORE_ADDR pc);
-#define	SKIP_TRAMPOLINE_CODE(pc) i386_macosx_skip_trampoline_code (pc)
-
-extern int i386_macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name);
-#define IN_SOLIB_CALL_TRAMPOLINE(pc, name) i386_macosx_in_solib_call_trampoline (pc, name)
-
-extern int i386_macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name);
-#define IN_SOLIB_RETURN_TRAMPOLINE(pc,name) i386_macosx_in_solib_return_trampoline (pc, name)
-
 #endif /* TM_I386NEXT_H */

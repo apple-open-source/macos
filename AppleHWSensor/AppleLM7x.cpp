@@ -199,14 +199,14 @@ IOReturn AppleLM7x::getTemperature(SInt32 *temperature)
     status = openI2C(kLM7xBus);
     if(status != kIOReturnSuccess)
     {
-        DLOG("AppleLM7x::getTempertaure(0x%x) failed to open I2C bus.\n", kLM7xAddr<<1);
+        DLOG("AppleLM7x::getTemperature(0x%x) failed to open I2C bus.\n", kLM7xAddr<<1);
         return status;
     }
 
     status = readI2C((UInt8)kTemperatureReg, bytes, 2);
     if(status != kIOReturnSuccess)
     {
-        DLOG("AppleLM7x::getTempertaure(0x%x) readI2C failed.\n", kLM7xAddr<<1);
+        DLOG("AppleLM7x::getTemperature(0x%x) readI2C failed.\n", kLM7xAddr<<1);
         closeI2C();
         return status;
     }
@@ -215,8 +215,11 @@ IOReturn AppleLM7x::getTemperature(SInt32 *temperature)
 
     reading = *((SInt16 *) bytes);
     // Temperature data is represented by a 9-bit, twoÕs complement word with 
-    // an LSB equal to 0.5C (least significat 7 bits are undefined).
-    *temperature = (((SInt32)(reading & 0xFF80)) << 8);
+    // an LSB equal to 0.5C (least significant 7 bits are undefined).
+
+	// Extra casting is required to make sure we sign-extend the temperature, to
+	// handle negative temperatures.
+	*temperature = ( ( ( SInt16 ) ( reading & 0xFF80 ) ) << 8 );
 
     return kIOReturnSuccess;
 }

@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_PlatformPlugin.cpp,v 1.9 2004/12/04 01:46:37 raddog Exp $
+ *  File: $Id: SMU_Neo2_PlatformPlugin.cpp,v 1.12 2005/09/13 02:29:34 larson Exp $
  */
 
 
@@ -62,17 +62,6 @@ bool SMU_Neo2_PlatformPlugin::start( IOService* provider )
 
 	gIOPPluginPlatformID = OSSymbol::withCString( "SMU_Neo2" );
 
-	// Give the ThermalProfile a chance to override the environment.
-
-	if ( thermalProfile != NULL )
-		{
-		thermalProfile->adjustThermalProfile();
-
-		// Tear down the nub (which also terminates thermalProfile)
-		thermalNub->terminate();
-		thermalNub = NULL;
-		thermalProfile = NULL;
-		}
 
 	return( true );
 	}
@@ -116,13 +105,33 @@ UInt8 SMU_Neo2_PlatformPlugin::probeConfig( void )
 		setProperty( kIOPPluginThermalProfileKey, thermalProfile->copyProperty( kIOPPluginThermalProfileKey ) );
 		}
 
+
 	thermalNubDict->release();
 	name->release();
 
 	return( config );
 	}
 
+bool SMU_Neo2_PlatformPlugin::initThermalProfile(IOService *nub)
+{
+	IOLog("SMU_Neo2_PlatformPlugin::initThermalProfile - entry\n");
+	if(!(IOPlatformPlugin::initThermalProfile(nub)))
+		return false;
 
+	// Give the ThermalProfile a chance to override the environment.
+
+	if ( thermalProfile != NULL )
+		{
+		IOLog("SMU_Neo2_PlatformPlugin::initThermalProfile - calling adjust\n");
+		thermalProfile->adjustThermalProfile();
+
+		// Tear down the nub (which also terminates thermalProfile)
+		thermalNub->terminate();
+		thermalNub = NULL;
+		thermalProfile = NULL;
+		}
+	return true;
+}
 bool SMU_Neo2_PlatformPlugin::getSDBPartitionData( UInt8 partitionID, UInt16 offset, UInt16 length, UInt8* outBuffer )
 	{
 	char								partitionName[ 20 ];

@@ -3,8 +3,8 @@
 
     <head>
         <title>$BLOJSOM_BLOG.getBlogName() - $page</title>
-        <style type="text/css" media="screen">@import "$BLOJSOM_SITE_URL/blojsom_resources/includes/admin-basic.css";</style>
-	    <style type="text/css" media="screen">@import "$BLOJSOM_SITE_URL/blojsom_resources/includes/admin-tabs.css";</style>
+        <style type="text/css" media="screen">@import "$BLOJSOM_SITE_URL/admin-basic.css";</style>
+	    <style type="text/css" media="screen">@import "$BLOJSOM_SITE_URL/admin-tabs.css";</style>
         <link rel="SHORTCUT ICON" href="$BLOJSOM_SITE_URL/favicon.ico" />
         <script type="text/javascript">
         function reloadPreviewDiv() {
@@ -22,8 +22,33 @@
         <div id="header">
             <h1>$page</h1>
         </div>
-        
+
         <div id="main">
+#end
+
+#macro(AdministrationHeader $page)
+<html>
+<head>
+<title>$BLOJSOM_BLOG.getBlogName() - $page</title>
+<!-- CSS -->
+<style type="text/css" media="screen">
+@import "$BLOJSOM_SITE_URL/blojsom_resources/administration/blojsom-administration.css";
+</style>
+<link rel="SHORTCUT ICON" href="$BLOJSOM_SITE_URL/favicon.ico" />
+<!-- JAVASCRIPT -->
+<script type="text/javascript">
+        function reloadPreviewDiv() {
+            var previewString = document.getElementById('blog-entry-description').value;
+            document.getElementById('blog-entry-preview').innerHTML = previewString;
+        }
+
+        function loadPreviewText() {
+            document.getElementById('blog-entry-preview').innerHTML = document.getElementById('blog-entry-description').value;
+        }
+        </script>
+
+<script type="text/javascript" src="$BLOJSOM_SITE_URL/blojsom_resources/administration/blojsom-menu.js"></script>
+</head>
 #end
 
 #macro(adminPageFooter)
@@ -32,10 +57,26 @@
 </html>
 #end
 
+#macro(AdministrationFooter)
+</html>
+#end
+
 #macro(showErrorMessage)
     #if ($BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT)
         <p class="note"><a href="#">Status</a>: $BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT</p>
     #end
+#end
+
+#macro(selectList $selectListName $currentOption $options)
+    <select name="$selectListName" size="1">
+        #foreach ($option in $options)
+        #if ($currentOption.equals($option))
+        <option value="$option" selected>$option</option>
+        #else
+        <option value="$option">$option</option>
+        #end
+        #end
+    </select>
 #end
 
 #macro(trueFalseSelectList $selectListName $selectedValue)
@@ -48,4 +89,16 @@
     </select>
 #end
 
-#macro( adminResource $resourceID $fallback )$!BLOJSOM_RESOURCE_MANAGER.getString($resourceID, "org.blojsom.plugin.admin.resources.messages", $fallback, $BLOJSOM_BLOG.getBlogLanguage(), $BLOJSOM_BLOG.getBlogCountry())#end
+#macro( adminResource $resourceID $fallback )$!BLOJSOM_RESOURCE_MANAGER.getString($resourceID, "org.blojsom.plugin.admin.resources.messages", $fallback, $BLOJSOM_BLOG.getBlogAdministrationLocale())#end
+
+#macro(friendlyPermalink $entry)
+    #set ($categoryForEntry = $entry.getBlogCategory().getEncodedCategory())
+    #if ($categoryForEntry == "/") #set($categoryForEntry = "") #end
+    #set ($entryLink = "$BLOJSOM_BLOG.getBlogURL()$categoryForEntry$entry.getDateAsFormat('yyyy')/$entry.getDateAsFormat('MM')/$entry.getDateAsFormat('dd')/$entry.getPermalink()")
+#end
+
+#macro(DisplayTemplateAdditions)
+#foreach ($templateAddition in $BLOJSOM_TEMPLATE_ADDITIONS.values())
+$BLOJSOM_RENDER_TOOL.evaluate($templateAddition)
+#end
+#end

@@ -131,7 +131,7 @@ package body Exception_Propagation is
 
    type GNAT_GCC_Exception is record
       Header : Unwind_Exception;
-      --  ABI Exception header first.
+      --  ABI Exception header first
 
       Id : Exception_Id;
       --  GNAT Exception identifier.  This is filled by Propagate_Exception
@@ -146,7 +146,7 @@ package body Exception_Propagation is
       --  an exception is not handled.
 
       Next_Exception : EOA;
-      --  Used to create a linked list of exception occurrences.
+      --  Used to create a linked list of exception occurrences
    end record;
 
    pragma Convention (C, GNAT_GCC_Exception);
@@ -204,9 +204,9 @@ package body Exception_Propagation is
       UW_Argument  : System.Address);
    pragma Import (C, Unwind_ForcedUnwind, "__gnat_Unwind_ForcedUnwind");
 
-   --------------------------------------------
-   -- Occurrence stack management facilities --
-   --------------------------------------------
+   ------------------------------------------------------------------
+   -- Occurrence Stack Management Facilities for the GCC-EH Scheme --
+   ------------------------------------------------------------------
 
    function Remove
      (Top   : EOA;
@@ -224,15 +224,16 @@ package body Exception_Propagation is
    procedure End_Handler (GCC_Exception : GNAT_GCC_Exception_Access);
    pragma Export (C, End_Handler, "__gnat_end_handler");
 
+   Setup_Key : constant := 16#DEAD#;
    --  To handle the case of a task "transferring" an exception occurrence to
    --  another task, for instance via Exceptional_Complete_Rendezvous, we need
    --  to be able to identify occurrences which have been Setup and not yet
    --  Propagated. We hijack one of the common header fields for that purpose,
    --  setting it to a special key value during the setup process, clearing it
    --  at the very beginning of the propagation phase, and expecting it never
-   --  to be reset to the special value later on.
-
-   Setup_Key : constant := 16#DEAD_BEEF#;
+   --  to be reset to the special value later on. A 16-bit value is used rather
+   --  than a 32-bit value for static compatibility with 16-bit targets such as
+   --  AAMP (where type Unwind_Word will be 16 bits).
 
    function Is_Setup_And_Not_Propagated (E : EOA) return Boolean;
 
@@ -244,7 +245,7 @@ package body Exception_Propagation is
    ------------------------------------------------------------
 
    --  As of today, these are only used by the C implementation of the
-   --  propagation personality routine to avoid having to rely on a C
+   --  GCC propagation personality routine to avoid having to rely on a C
    --  counterpart of the whole exception_data structure, which is both
    --  painful and error prone. These subprograms could be moved to a
    --  more widely visible location if need be.
@@ -266,6 +267,22 @@ package body Exception_Propagation is
      (GNAT_Exception : GNAT_GCC_Exception_Access;
       Adjustment     : Integer);
    pragma Export (C, Adjust_N_Cleanups_For, "__gnat_adjust_n_cleanups_for");
+
+   ---------------------------------------------------------------------------
+   -- Objects to materialize "others" and "all others" in the GCC EH tables --
+   ---------------------------------------------------------------------------
+
+   --  Currently, these only have their address taken and compared so there is
+   --  no real point having whole exception data blocks allocated. In any case
+   --  the types should match what gigi and the personality routine expect.
+   --  The initial value is an arbitrary value that will not exceed the range
+   --  of Integer on 16-bit targets (such as AAMP).
+
+   Others_Value : constant Integer := 16#7FFF#;
+   pragma Export (C, Others_Value, "__gnat_others_value");
+
+   All_Others_Value : constant Integer := 16#7FFF#;
+   pragma Export (C, All_Others_Value, "__gnat_all_others_value");
 
    ------------
    -- Remove --
@@ -359,7 +376,7 @@ package body Exception_Propagation is
 
    function Is_Setup_And_Not_Propagated (E : EOA) return Boolean is
       GCC_E : GNAT_GCC_Exception_Access :=
-        To_GNAT_GCC_Exception (E.Private_Data);
+                To_GNAT_GCC_Exception (E.Private_Data);
    begin
       return GCC_E /= null and then GCC_E.Header.Private1 = Setup_Key;
    end Is_Setup_And_Not_Propagated;
@@ -370,7 +387,7 @@ package body Exception_Propagation is
 
    procedure Clear_Setup_And_Not_Propagated (E : EOA) is
       GCC_E : GNAT_GCC_Exception_Access :=
-        To_GNAT_GCC_Exception (E.Private_Data);
+                To_GNAT_GCC_Exception (E.Private_Data);
    begin
       pragma Assert (GCC_E /= null);
       GCC_E.Header.Private1 := 0;
@@ -382,7 +399,7 @@ package body Exception_Propagation is
 
    procedure Set_Setup_And_Not_Propagated (E : EOA) is
       GCC_E : GNAT_GCC_Exception_Access :=
-        To_GNAT_GCC_Exception (E.Private_Data);
+                To_GNAT_GCC_Exception (E.Private_Data);
    begin
       pragma Assert (GCC_E /= null);
       GCC_E.Header.Private1 := Setup_Key;
@@ -392,9 +409,16 @@ package body Exception_Propagation is
    -- Setup_Exception --
    ---------------------
 
-   --  In this implementation of the exception propagation scheme, this
-   --  subprogram should be understood as: Setup the exception occurrence
+   --  In the GCC-EH implementation of the propagation scheme, this
+   --  subprogram should be understood as : Setup the exception occurrence
    --  stack headed at Current for a forthcoming raise of Excep.
+
+   --  In the GNAT-SJLJ case this "stack" only exists implicitely, by way of
+   --  local occurrence declarations together with save/restore operations
+   --  generated by the front-end, and this routine has nothing to do.
+
+   --  The differenciation is done here and not in the callers to avoid having
+   --  to spread out the test in numerous places.
 
    procedure Setup_Exception
      (Excep    : EOA;
@@ -406,12 +430,22 @@ package body Exception_Propagation is
       GCC_Exception : GNAT_GCC_Exception_Access;
 
    begin
+      --  Just return if we're not in the GCC-EH case. What is otherwise
+      --  performed is useless and even harmful since it potentially involves
+      --  dynamic allocations that would never be released, and participates
+      --  in the Setup_And_Not_Propagated predicate management, only properly
+      --  handled by the rest of the GCC-EH scheme.
 
-      --  The exception Excep is soon to be propagated, and the storage used
-      --  for that will be the occurrence statically allocated for the current
-      --  thread. This storage might currently be used for a still active
-      --  occurrence, so we need to push it on the thread's occurrence stack
-      --  (headed at that static occurrence) before it gets clobbered.
+      if Zero_Cost_Exceptions = 0 then
+         return;
+      end if;
+
+      --  Otherwise, the exception Excep is soon to be propagated, and the
+      --  storage used for that will be the occurrence statically allocated
+      --  for the current thread. This storage might currently be used for a
+      --  still active occurrence, so we need to push it on the thread's
+      --  occurrence stack (headed at that static occurrence) before it gets
+      --  clobbered.
 
       --  What we do here is to trigger this push when need be, and allocate a
       --  Private_Data block for the forthcoming Propagation.
@@ -460,7 +494,6 @@ package body Exception_Propagation is
       Top.Private_Data := GCC_Exception.all'Address;
 
       Set_Setup_And_Not_Propagated (Top);
-
    end Setup_Exception;
 
    -------------------

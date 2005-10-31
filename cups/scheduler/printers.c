@@ -1,5 +1,5 @@
 /*
- * "$Id: printers.c,v 1.39 2005/02/16 17:58:01 jlovell Exp $"
+ * "$Id: printers.c,v 1.39.2.2 2005/08/02 21:05:32 jlovell Exp $"
  *
  *   Printer routines for the Common UNIX Printing System (CUPS).
  *
@@ -544,8 +544,9 @@ CreateCommonData(void)
 void
 DeleteAllPrinters(void)
 {
-  printer_t	*p,	/* Pointer to current printer/class */
-		*next;	/* Pointer to next printer in list */
+  printer_t	*p,		/* Pointer to current printer/class */
+		*next;		/* Pointer to next printer in list */
+  int		num_printers;	/* Number of printers */
 
 
   for (p = Printers; p != NULL; p = next)
@@ -553,7 +554,20 @@ DeleteAllPrinters(void)
     next = p->next;
 
     if (!(p->type & CUPS_PRINTER_CLASS))
+    {
+     /*
+      * Deleting a printer that is part of an implicit class can also cause 
+      * a following class to be deleted (which our 'next' may be pointing at). 
+      * In this case reset 'next' to the head of the list...
+      */
+
+      num_printers = NumPrinters;
+
       DeletePrinter(p, 0);
+
+      if (NumPrinters != num_printers - 1)
+	next = Printers;
+    }
   }
 }
 
@@ -2423,7 +2437,25 @@ SetMimeTypesAttr(printer_t *p)
       if (mimeType(MimeDatabase, "application", "vnd.cups-raster"))
 	strlcat(pdl, "application/vnd.cups-raster,", sizeof(pdl));
 
-      if (mimeType(MimeDatabase, "application", "octet-stream"))
+      /*
+       * Determine if this is a Tioga PrintJobMgr based queue...
+       */
+
+      for (filters = MimeDatabase->filters, i = MimeDatabase->num_filters;
+	   i > 0;
+	   i --, filters ++)
+      {
+	if (filters->dst == p->filetype && filters->filter && 
+	    strstr(filters->filter, "PrintJobMgr"))
+	  break;
+      }
+
+      /*
+       * We only support raw printing if this is not a Tioga PrintJobMgr based
+       * queue and if application/octet-stream is a known conversion...
+       */
+
+      if (i == 0 && mimeType(MimeDatabase, "application", "octet-stream"))
 	strlcat(pdl, "application/octet-stream,", sizeof(pdl));
 
       if (mimeType(MimeDatabase, "image", "png"))
@@ -2780,5 +2812,5 @@ apple_conv_utf8(char **str,		/* I/O - string to be converted */
 #endif	/* __APPLE__ */
 
 /*
- * End of "$Id: printers.c,v 1.39 2005/02/16 17:58:01 jlovell Exp $".
+ * End of "$Id: printers.c,v 1.39.2.2 2005/08/02 21:05:32 jlovell Exp $".
  */

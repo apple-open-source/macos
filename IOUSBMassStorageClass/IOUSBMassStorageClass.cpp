@@ -145,6 +145,10 @@ IOUSBMassStorageClass::start( IOService * provider )
 	// states.
 	fCBICommandStructInUse = false;
 
+    // Flag we use to indicate whether or not the device requires the standard
+    // USB device reset instead of the BO reset. This applies to BO devices only.
+    fUseUSBResetNotBOReset = false;
+    
 	// Check if the personality for this device specifies a preferred protocol
 	if ( getProperty( kIOUSBMassStorageCharacteristics ) == NULL )
 	{
@@ -181,6 +185,12 @@ IOUSBMassStorageClass::start( IOService * provider )
 			fPreferredProtocol = preferredProtocol->unsigned32BitValue();
 		}
 		
+        // Check if this device is known not to support the bulk-only USB reset.
+        if ( characterDict->getObject( kIOUSBMassStorageUseStandardUSBReset ) != NULL )
+        {
+            fUseUSBResetNotBOReset = true;
+        }
+                    
 		// Check if the personality for this device specifies a preferred 
 		// subclass
 		if ( characterDict->getObject( kIOUSBMassStoragePreferredSubclass ) == NULL )
@@ -1226,7 +1236,7 @@ IOUSBMassStorageClass::HandlePowerOn( void )
 {
 	UInt8	eStatus[2];
 	bool	knownResetOnResumeDevice = false;
-	
+
 	// The USB hub port that the device is connected to has been resumed,
 	// check to see if the device is still responding correctly and if not, 
 	// fix it so that it is.
@@ -1246,27 +1256,10 @@ IOUSBMassStorageClass::HandlePowerOn( void )
 		}
 	}
 	
-	if ( ( ( GetStatusEndpointStatus( GetBulkInPipe(), &eStatus[0], NULL) != kIOReturnSuccess ) ||
-		 ( knownResetOnResumeDevice == true ) ) &&
-		 ( isInactive() == false ) )
-	{
-		// We call retain here so that the driver will stick around long enough for
-		// sResetDevice() to do it's thing in case we are being terminated.  The
-		// retain() is balanced with a release in sResetDevice().
-		retain();
-		
-		// The endpoint status could not be retrieved meaning that the device has
-		// stopped responding. Or this could be a device we know needs a reset.
-		// Begin the device reset sequence.
-		
-		STATUS_LOG((4, "%s: kIOMessageServiceIsResumed GetStatusEndpointStatus error or knownResetOnResumeDevice.", getName() ));
-		
-		// Reset the device on its own thread so we don't deadlock.
-		fResetInProgress = true;
-		
-		IOCreateThread( IOUSBMassStorageClass::sResetDevice, this );
-		fCommandGate->runAction ( ( IOCommandGate::Action ) &IOUSBMassStorageClass::sWaitForReset );
-		
+	if ( ( GetStatusEndpointStatus( GetBulkInPipe(), &eStatus[0], NULL) != kIOReturnSuccess ) ||
+		 ( knownResetOnResumeDevice == true ) )
+	{   
+        ResetDeviceNow();
 	}
 	
 	return kIOReturnSuccess;
@@ -1635,6 +1628,37 @@ IOUSBMassStorageClass::DeviceRecoveryCompletionAction(
 	theMSC->FinishDeviceRecovery( status );
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ResetDeviceNow                                                [PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOUSBMassStorageClass::ResetDeviceNow( void )
+{
+    
+    if ( isInactive() == false )
+    {
+		// We call retain here so that the driver will stick around long enough for
+		// sResetDevice() to do it's thing in case we are being terminated.  The
+		// retain() is balanced with a release in sResetDevice().
+		retain();
+		
+		// The endpoint status could not be retrieved meaning that the device has
+		// stopped responding. Or this could be a device we know needs a reset.
+		// Begin the device reset sequence.
+		
+		STATUS_LOG((4, "%s: kIOMessageServiceIsResumed GetStatusEndpointStatus error or knownResetOnResumeDevice.", getName() ));
+		
+		// Reset the device on its own thread so we don't deadlock.
+		fResetInProgress = true;
+		
+		IOCreateThread( IOUSBMassStorageClass::sResetDevice, this );
+		fCommandGate->runAction ( ( IOCommandGate::Action ) &IOUSBMassStorageClass::sWaitForReset );
+		
+	}
+    
+}
 
 // Space reserved for future expansion.
 OSMetaClassDefineReservedUnused( IOUSBMassStorageClass, 3 );

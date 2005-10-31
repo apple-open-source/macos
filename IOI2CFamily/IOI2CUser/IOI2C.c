@@ -1,11 +1,38 @@
 /*
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2C.c,v 1.4 2004/12/15 00:29:45 jlehrer Exp $
+ *	File: $Id: IOI2C.c,v 1.6 2005/07/01 16:09:52 bwpang Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2C.c,v $
+ *		Revision 1.6  2005/07/01 16:09:52  bwpang
+ *		[4086434] added APSL headers
+ *		
+ *		Revision 1.5  2005/02/08 20:49:47  jlehrer
+ *		Clean up compile warnings.
+ *		
  *		Revision 1.4  2004/12/15 00:29:45  jlehrer
  *		Added options to extended read/write.
  *		Removed type from openI2CDevice.
@@ -712,7 +739,7 @@ Boolean isResouce(const char *key)
 	resources = IOServiceGetMatchingService(kIOMasterPortDefault,
 			IOServiceNameMatching("IOResources"));
 
-	if (resources == NULL)
+	if (resources == 0)
 	{
 		DLOG("IOI2C failed to get IOResources\n");
 		return false;
@@ -1190,7 +1217,7 @@ IOReturn closeI2CInterface(I2CInterfaceRef iface)
 {
 	kern_return_t status;
 
-	if (iface == NULL) return kIOReturnBadArgument;
+	if (iface == 0) return kIOReturnBadArgument;
 
 	// call the user client's close method
 	status = IOConnectMethodScalarIScalarO(iface, kI2CUCUnlock, 0, 0);
@@ -1212,7 +1239,7 @@ IOReturn readI2CBus(I2CInterfaceRef iface, I2CReadInput *inputs,
 	IOByteCount		inSize, outSize;
 	kern_return_t status;
 
-	if (iface == NULL || inputs == NULL || outputs == NULL)
+	if (iface == 0 || inputs == NULL || outputs == NULL)
 	{
 		DLOG("IOI2C readI2CBus received NULL pointer arg\n");
 		return kIOReturnBadArgument;
@@ -1239,7 +1266,7 @@ IOReturn writeI2CBus(I2CInterfaceRef iface, I2CWriteInput *inputs,
 	IOByteCount		inSize, outSize;
 	kern_return_t status;
 
-	if (iface == NULL || inputs == NULL || outputs == NULL)
+	if (iface == 0 || inputs == NULL || outputs == NULL)
 	{
 		DLOG("IOI2C writeI2CBus received NULL pointer arg\n");
 		return kIOReturnBadArgument;
@@ -1265,7 +1292,7 @@ IOReturn rmwI2CBus(I2CInterfaceRef iface, I2CRMWInput *inputs)
 	IOByteCount		inSize, outSize;
 	kern_return_t status;
 
-	if (iface == NULL || inputs == NULL)
+	if (iface == 0 || inputs == NULL)
 	{
 		DLOG("IOI2C rmwI2CBus received NULL pointer arg\n");
 		return kIOReturnBadArgument;

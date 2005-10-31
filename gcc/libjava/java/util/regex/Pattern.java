@@ -50,7 +50,7 @@ import java.util.ArrayList;
  *
  * @since 1.4
  */
-public class Pattern implements Serializable
+public final class Pattern implements Serializable
 {
   private static final long serialVersionUID = 5073258162644648461L;
   
@@ -198,8 +198,11 @@ public class Pattern implements Serializable
 	  empties++;
 	else
 	  {
-	    while (empties-- > 0)
-	      list.add("");
+	    while (empties > 0)
+	      {
+		list.add("");
+		empties--;
+	      }
 
 	    String text = input.subSequence(start, end).toString();
 	    list.add(text);
@@ -222,8 +225,11 @@ public class Pattern implements Serializable
 	    int max = limit - list.size();
 	    empties = (empties > max) ? max : empties;
 	  }
-	while (empties-- > 0)
-	  list.add("");
+	while (empties > 0)
+	  {
+	    list.add("");
+	    empties--;
+	  }
       }
 
     // last token at end

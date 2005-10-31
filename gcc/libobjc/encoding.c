@@ -928,6 +928,7 @@ objc_layout_structure_next_member (struct objc_struct_layout *layout)
   return YES;
 }
 
+
 void objc_layout_finish_structure (struct objc_struct_layout *layout,
                                    unsigned int *size,
                                    unsigned int *align)

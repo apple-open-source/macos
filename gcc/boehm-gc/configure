@@ -1890,28 +1890,6 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 
 
 # The autoconf 2.5x version of the no-executables hack.
-# GCC_NO_EXECUTABLES
-# -----------------
-# FIXME: The GCC team has specific needs which the current Autoconf
-# framework cannot solve elegantly.  This macro implements a dirty
-# hack until Autoconf is able to provide the services its users
-# need.
-#
-# Several of the support libraries that are often built with GCC can't
-# assume the tool-chain is already capable of linking a program: the
-# compiler often expects to be able to link with some of such
-# libraries.
-#
-# In several of these libraries, workarounds have been introduced to
-# avoid the AC_PROG_CC_WORKS test, that would just abort their
-# configuration.  The introduction of AC_EXEEXT, enabled either by
-# libtool or by CVS autoconf, have just made matters worse.
-#
-# Unlike the previous AC_NO_EXECUTABLES, this test does not
-# disable link tests at autoconf time, but at configure time.
-# This allows AC_NO_EXECUTABLES to be invoked conditionally.
-# GCC_NO_EXECUTABLES
-
 
 
 # Yak.  We must force CC and CXX to /not/ be precious variables; otherwise
@@ -4339,14 +4317,7 @@ irix5* | irix6*)
 
 # This must be Linux ELF.
 linux-gnu*)
-  case $host_cpu in
-  alpha* | mips* | hppa* | i*86 | powerpc* | sparc* | ia64* | sh* )
-    lt_cv_deplibs_check_method=pass_all ;;
-  *)
-    # glibc up to 2.1.1 does not perform some relocations on ARM
-    lt_cv_deplibs_check_method='file_magic ELF [0-9][0-9]*-bit [LM]SB (shared object|dynamic lib )' ;;
-  esac
-  lt_cv_file_magic_test_file=`echo /lib/libc.so* /lib/libc-*.so`
+  lt_cv_deplibs_check_method=pass_all
   ;;
 
 netbsd* | knetbsd*-gnu)
@@ -4741,7 +4712,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4744 "configure"' > conftest.$ac_ext
+  echo '#line 4715 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5328,7 +5299,7 @@ case "$THREADS" in
  no | none | single)
     THREADS=none
     ;;
- posix | pthreads)
+ posix | posix95 | pthreads)
     THREADS=posix
     THREADLIBS=-lpthread
     case "$host" in
@@ -5790,7 +5761,7 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
     ;;
- sparc-sun-solaris2.*)
+ sparc*-sun-solaris2.*)
     machdep="sparc_mach_dep.lo"
     ;;
  ia64-*-*)
@@ -6468,7 +6439,7 @@ fi
 echo "$as_me:$LINENO: checking whether Solaris gcc optimization fix is necessary" >&5
 echo $ECHO_N "checking whether Solaris gcc optimization fix is necessary... $ECHO_C" >&6
 case "$host" in
- sparc-sun-solaris2*|*aix*)
+ *aix*)
     if test "$GCC" = yes; then
        echo "$as_me:$LINENO: result: yes" >&5
 echo "${ECHO_T}yes" >&6
@@ -6587,6 +6558,14 @@ _ACEOF
   fi
 fi;
 
+if test "${gc_use_mmap}" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define USE_MMAP 1
+_ACEOF
+
+fi
+
 if test -n "$with_cross_host" &&
    test x"$with_cross_host" != x"no"; then
   toolexecdir='$(exec_prefix)/$(target_noncanonical)'
@@ -6609,7 +6588,7 @@ else
   multilib_arg=
 fi
 
-          ac_config_headers="$ac_config_headers include/gc_config.h"
+                    ac_config_headers="$ac_config_headers include/gc_config.h include/gc_ext_config.h"
 
 
                     ac_config_files="$ac_config_files Makefile include/Makefile"
@@ -7207,6 +7186,7 @@ do
   "default-1" ) CONFIG_COMMANDS="$CONFIG_COMMANDS default-1" ;;
   "depfiles" ) CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
   "include/gc_config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS include/gc_config.h" ;;
+  "include/gc_ext_config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS include/gc_ext_config.h" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
    { (exit 1); exit 1; }; };;

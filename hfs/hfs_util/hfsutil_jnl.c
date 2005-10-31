@@ -260,15 +260,6 @@ get_embedded_offset(char *devname)
     }
 
     /*
-     * There are only 31 bits worth of block count in
-     * the buffer cache.  So for large volumes a 4K
-     * physical block size is needed.
-     */
-    if (blksize == 512 && blkcnt > (u_int64_t)0x000000007fffffff) {
-	blksize = 4096;
-    }
-
-    /*
      * At this point:
      *   blksize has our prefered physical block size
      *   blkcnt has the total number of physical blocks

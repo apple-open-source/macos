@@ -83,7 +83,7 @@ static void asyncdns_process(void)
 	struct query_record r;
 	unstring qname;
 
-	DEBUGLEVEL = -1;
+	SAMBA_DEBUGLEVEL = -1;
 
 	while (1) {
 		if (read_data(fd_in, (char *)&r, sizeof(r)) != sizeof(r)) 

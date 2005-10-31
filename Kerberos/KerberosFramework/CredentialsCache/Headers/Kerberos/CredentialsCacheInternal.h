@@ -22,7 +22,7 @@
  * or implied warranty.
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Headers/Kerberos/CredentialsCacheInternal.h,v 1.12 2003/07/03 16:13:43 lxs Exp $ */
+/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Headers/Kerberos/CredentialsCacheInternal.h,v 1.13 2005/05/25 20:23:57 lxs Exp $ */
  
 #ifndef __CREDENTIALSCACHEINTERNAL__
 #define __CREDENTIALSCACHEINTERNAL__
@@ -57,6 +57,7 @@ cc_int32 __CredentialsCacheInternalTellCCacheServerToQuit (void);
 
 cc_int32 __CredentialsCacheInternalTellCCacheServerToBecomeUser (uid_t inNewUID);
 
+#ifdef Classic_Ticket_Sharing
 cc_int32 __CredentialsCacheInternalGetDiffs (
         cc_uint32		inServerID,
         cc_uint32		inSeqNo,
@@ -77,6 +78,7 @@ cc_int32 __CredentialsCacheInternalCompleteSyncWithYellowCache (
 
 cc_int32 __CredentialsCacheInternalSyncWithYellowCache (
 	AEIdleUPP	inIdleProc);
+#endif
 
 #if TARGET_OS_MAC
 #    if defined(__MWERKS__)

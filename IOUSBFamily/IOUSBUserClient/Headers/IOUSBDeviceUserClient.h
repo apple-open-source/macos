@@ -111,7 +111,7 @@ public:
 
     // IOUserClient methods
     //
-    virtual bool			initWithTask(task_t owningTask, void *security_id, UInt32 type);
+    virtual bool			initWithTask(task_t owningTask, void *security_id, UInt32 type, OSDictionary *properties);
     virtual IOExternalMethod * 		getTargetAndMethodForIndex(IOService **target, UInt32 index);
     virtual IOExternalAsyncMethod * 	getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
     virtual IOReturn 			clientClose( void );
@@ -162,7 +162,9 @@ public:
 
     // padding methods
     //
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  0);
+    OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClient,  0);
+    virtual IOReturn                    DeviceReqInOOLv2(IOUSBDevRequestTO *reqIn, UInt32 *sizeOut, IOByteCount inCount, IOByteCount *outCount);
+
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  1);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  2);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  3);

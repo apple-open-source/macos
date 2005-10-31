@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOPCCardFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOPCCardFamily 1.6.1, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOPCCardFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOPCCardFamily</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.6.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.6.1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOPCCardFamily</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOPCCardFamily</string>
+			<key>Configuration Settings</key>
+			<dict>
+				<key>PowerBook</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAK////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook1,1</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook3,1</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAAD/8=
+						</data>
+						<data>
+						AAAgAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook3,2</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAAj/8=
+						</data>
+						<data>
+						AACgAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook3,3</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAAj/8=
+						</data>
+						<data>
+						AACgAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook3,4</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAAj/8=
+						</data>
+						<data>
+						AACgAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook3,5</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAAj/8=
+						</data>
+						<data>
+						AACgAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook5,1</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAAj/8=
+						</data>
+						<data>
+						AACgAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>Test Machine</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAAAAAAAj/8=
+						</data>
+						<data>
+						AACgAAAA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>Test X86PC</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAABAAAABP8=
+						</data>
+						<data>
+						AAAIAAAACP8=
+						</data>
+						<data>
+						AAAMAAAADP8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						AAwAAAAP//8=
+						</data>
+						<data>
+						oAAAAKD///8=
+						</data>
+						<data>
+						YAAAAGD///8=
+						</data>
+					</array>
+				</dict>
+			</dict>
+			<key>Debug Settings</key>
+			<dict>
+				<key>Card Bus</key>
+				<integer>3</integer>
+				<key>Card Services</key>
+				<integer>3</integer>
+				<key>Driver Services</key>
+				<integer>3</integer>
+				<key>i82365</key>
+				<integer>2</integer>
+			</dict>
+			<key>IOClass</key>
+			<string>IOPCCardBridge</string>
+			<key>IOKitDebug</key>
+			<integer>0</integer>
+			<key>IOPCIClassMatch</key>
+			<string>0x06070000</string>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.1.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.3</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+		<key>com.apple.kernel.mach</key>
+		<string>6.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>

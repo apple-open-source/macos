@@ -70,7 +70,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_init.c	8.1 (Berkeley) 6/7/93";
-static const char rcsid[] = "$Id: res_init.c,v 1.16 2005/03/11 01:48:52 majka Exp $";
+static const char rcsid[] = "$Id: res_init.c,v 1.17.16.1 2005/10/12 20:49:29 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #ifndef __APPLE__
@@ -193,6 +193,12 @@ res_build_finish(res_state res, uint32_t timeout, uint16_t port)
 #endif
 		
 		res->nscount = 1;
+
+		/*
+		 * Force loopback queries to use TCP
+		 * so we don't take a timeout if named isn't running.
+		 */
+		res->options |= RES_USEVC;
 	}
 	
 	if (timeout == 0) res->retrans = RES_MAXRETRANS;
@@ -566,6 +572,12 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 		statp->nsaddr.sin_len = sizeof(struct sockaddr_in);
 #endif
 		statp->nscount = 1;
+
+		/*
+		 * Force loopback queries to use TCP
+		 * so we don't take a timeout if named isn't running.
+		 */
+		statp->options |= RES_USEVC;
 	}
 	
 	statp->ndots = 1;
@@ -693,7 +705,7 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 			    cp = buf + sizeof("search") - 1;
 			    while ((*cp == ' ') || (*cp == '\t')) cp++;
 			    if ((*cp == '\0') || (*cp == '\n')) continue;
-
+				
 			    strncpy(statp->defdname, cp, sizeof(statp->defdname) - 1);
 			    statp->defdname[sizeof(statp->defdname) - 1] = '\0';
 				cp = strchr(statp->defdname, '\n');
@@ -946,14 +958,23 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 		dots = 0;
 		for (cp = statp->defdname; *cp; cp++)
 		{
-			dots += (*cp == '.');
+			if (*cp == '.') dots++;
+		}
+
+		/* Back up over any trailing dots and cut them out of the name */
+		for (cp--; (cp >= statp->defdname) && (*cp == '.'); cp--)
+		{
+			*cp = '\0';
+			dots--;
 		}
 
 		cp = statp->defdname;
 		while (pp < statp->dnsrch + MAXDFLSRCH)
 		{
 			if (dots < LOCALDOMAINPARTS) break;
-			cp = strchr(cp, '.') + 1;    /* we know there is one */
+
+			/* we know there is a dot */
+			cp = strchr(cp, '.') + 1;   
 			*pp++ = cp;
 			dots--;
 		}
@@ -1174,20 +1195,31 @@ __res_vinit(res_state statp, int preinit)
 	/* If there was no search list, use "domain" */
 	if ((sc_res->n_search == 0) && (sc_res->domain != NULL))
 	{
-		n = 1;
+		/* Count dots */
+		n = 0;
 		for (p = sc_res->domain; *p != '\0'; p++) 
 		{
 			if (*p == '.') n++;
 		}
 
-		res_build(statp, port, &nsearch, "search", sc_res->domain);
+		/* Back up over any trailing dots and cut them out of the name */
+		for (p--; (p >= sc_res->domain) && (*p == '.'); p--)
+		{
+			*p = '\0';
+			n--;
+		}
+
+		if (p >= sc_res->domain) res_build(statp, port, &nsearch, "search", sc_res->domain);
+
+		/* dots are separators, so number of components is one larger */
+		n++;
 
 		/* Include parent domains with at least LOCALDOMAINPARTS components */
 		p = sc_res->domain;
 		while ((n > LOCALDOMAINPARTS) && (nsearch < MAXDFLSRCH))
 		{
 			/* Find next component */
-			while ((*p != '.') && (*p != '\0')) p++;
+			while (*p != '.') p++;
 			if (*p == '\0') break;
 			p++;
 

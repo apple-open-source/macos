@@ -20,8 +20,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef _AppleRAIDMember_H
-#define _AppleRAIDMember_H
+#ifndef _APPLERAIDMEMBER_H
+#define _APPLERAIDMEMBER_H
 
 #define kAppleRAIDSignature "AppleRAIDHeader"
 
@@ -160,4 +160,4 @@ public:
 
 #endif KERNEL
 
-#endif /* ! _AppleRAIDMember_H */
+#endif /* ! _APPLERAIDMEMBER_H */

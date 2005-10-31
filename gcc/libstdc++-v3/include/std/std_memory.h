@@ -41,9 +41,8 @@
  *
  */
 
-/** @file memory
- *  This is a Standard C++ Library header.  You should @c #include this header
- *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
+/** @file
+ *  This is a Standard C++ Library header.
  */
 
 #ifndef _GLIBCXX_MEMORY
@@ -255,7 +254,7 @@ namespace std
        *  specification here, but omitting it is standard conforming.  Its
        *  presence can be detected only if _Tp::~_Tp() throws, but this is
        *  prohibited.  [17.4.3.6]/2
-       *  @end maint
+       *  @endif
        */
       ~auto_ptr() { delete _M_ptr; }
       
@@ -336,7 +335,7 @@ namespace std
 	  }
       }
       
-      /** @{
+      /** 
        *  @brief  Automatic conversions
        *
        *  These operations convert an %auto_ptr into and from an auto_ptr_ref
@@ -368,7 +367,6 @@ namespace std
       template<typename _Tp1>
         operator auto_ptr<_Tp1>() throw()
         { return auto_ptr<_Tp1>(this->release()); }
-      /** @}  */
   };
 } // namespace std
 

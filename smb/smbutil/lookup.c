@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: lookup.c,v 1.1.1.1 2001/06/09 00:28:13 zarzycki Exp $
+ * $Id: lookup.c,v 1.1.1.1.786.1 2005/08/12 23:13:02 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/errno.h>
@@ -91,7 +91,7 @@ cmd_lookup(int argc, char *argv[])
 		exit(1);
 	hostname = argv[argc - 1];
 /*	printf("Looking for %s...\n", hostname);*/
-	error = nbns_resolvename(hostname, ctx, &sap);
+	error = nbns_resolvename(hostname, ctx, 0, &sap);
 	if (error) {
 		smb_error("unable to resolve %s", error, hostname);
 		exit(1);

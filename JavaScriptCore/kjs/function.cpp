@@ -31,6 +31,7 @@
 #include "operations.h"
 #include "debugger.h"
 #include "context.h"
+#include "shared_ptr.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -41,6 +42,8 @@
 #if APPLE_CHANGES
 #include <unicode/uchar.h>
 #endif
+
+using namespace kxmlcore;
 
 namespace KJS {
 
@@ -77,23 +80,6 @@ Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
 {
   Object &globalObj = exec->dynamicInterpreter()->globalObject();
 
-  Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
-  int sid = -1;
-  int lineno = -1;
-  if (dbg) {
-    if (inherits(&DeclaredFunctionImp::info)) {
-      sid = static_cast<DeclaredFunctionImp*>(this)->body->sourceId();
-      lineno = static_cast<DeclaredFunctionImp*>(this)->body->firstLine();
-    }
-
-    Object func(this);
-    bool cont = dbg->callEvent(exec,sid,lineno,func,args);
-    if (!cont) {
-      dbg->imp()->abort();
-      return Undefined();
-    }
-  }
-
   // enter a new execution context
   ContextImp ctx(globalObj, exec->dynamicInterpreter()->imp(), thisObj, codeType(),
                  exec->context().imp(), this, &args);
@@ -105,11 +91,28 @@ Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
   // add variable declarations (initialized to undefined)
   processVarDecls(&newExec);
 
+  Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
+  int sid = -1;
+  int lineno = -1;
+  if (dbg) {
+    if (inherits(&DeclaredFunctionImp::info)) {
+      sid = static_cast<DeclaredFunctionImp*>(this)->body->sourceId();
+      lineno = static_cast<DeclaredFunctionImp*>(this)->body->firstLine();
+    }
+
+    Object func(this);
+    bool cont = dbg->callEvent(&newExec,sid,lineno,func,args);
+    if (!cont) {
+      dbg->imp()->abort();
+      return Undefined();
+    }
+  }
+
   Completion comp = execute(&newExec);
 
   // if an exception occured, propogate it back to the previous execution object
   if (newExec.hadException())
-    exec->setException(newExec.exception());
+    comp = Completion(Throw, newExec.exception());
 
 #ifdef KJS_VERBOSE
   if (comp.complType() == Throw)
@@ -121,8 +124,14 @@ Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
 #endif
 
   if (dbg) {
+    if (inherits(&DeclaredFunctionImp::info))
+      lineno = static_cast<DeclaredFunctionImp*>(this)->body->lastLine();
+
+    if (comp.complType() == Throw)
+        newExec.setException(comp.value());
+
     Object func(this);
-    int cont = dbg->returnEvent(exec,sid,lineno,func);
+    int cont = dbg->returnEvent(&newExec,sid,lineno,func);
     if (!cont) {
       dbg->imp()->abort();
       return Undefined();
@@ -237,11 +246,11 @@ void FunctionImp::put(ExecState *exec, const Identifier &propertyName, const Val
     InternalFunctionImp::put(exec, propertyName, value, attr);
 }
 
-bool FunctionImp::hasProperty(ExecState *exec, const Identifier &propertyName) const
+bool FunctionImp::hasOwnProperty(ExecState *exec, const Identifier &propertyName) const
 {
     if (propertyName == argumentsPropertyName || propertyName == lengthPropertyName)
         return true;
-    return InternalFunctionImp::hasProperty(exec, propertyName);
+    return InternalFunctionImp::hasOwnProperty(exec, propertyName);
 }
 
 bool FunctionImp::deleteProperty(ExecState *exec, const Identifier &propertyName)
@@ -261,14 +270,7 @@ DeclaredFunctionImp::DeclaredFunctionImp(ExecState *exec, const Identifier &n,
   : FunctionImp(exec,n), body(b)
 {
   Value protect(this);
-  body->ref();
   setScope(sc);
-}
-
-DeclaredFunctionImp::~DeclaredFunctionImp()
-{
-  if ( body->deref() )
-    delete body;
 }
 
 bool DeclaredFunctionImp::implementsConstruct() const
@@ -288,7 +290,7 @@ Object DeclaredFunctionImp::construct(ExecState *exec, const List &args)
 
   Object obj(new ObjectImp(proto));
 
-  Value res = call(exec,obj,args);
+  Value res = Object(this).call(exec,obj,args);
 
   if (res.type() == ObjectType)
     return Object::dynamicCast(res);
@@ -360,11 +362,11 @@ void ActivationImp::put(ExecState *exec, const Identifier &propertyName, const V
     ObjectImp::put(exec, propertyName, value, attr);
 }
 
-bool ActivationImp::hasProperty(ExecState *exec, const Identifier &propertyName) const
+bool ActivationImp::hasOwnProperty(ExecState *exec, const Identifier &propertyName) const
 {
     if (propertyName == argumentsPropertyName)
         return true;
-    return ObjectImp::hasProperty(exec, propertyName);
+    return ObjectImp::hasOwnProperty(exec, propertyName);
 }
 
 bool ActivationImp::deleteProperty(ExecState *exec, const Identifier &propertyName)
@@ -638,7 +640,14 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
       int sid;
       int errLine;
       UString errMsg;
-      ProgramNode *progNode = Parser::parse(UString(), 0, s.data(),s.size(),&sid,&errLine,&errMsg);
+      SharedPtr<ProgramNode> progNode(Parser::parse(UString(), 0, s.data(),s.size(),&sid,&errLine,&errMsg));
+
+      Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
+      if (dbg) {
+        bool cont = dbg->sourceParsed(exec, sid, UString(), s, errLine);
+        if (!cont)
+          return Undefined();
+      }
 
       // no program node means a syntax occurred
       if (!progNode) {
@@ -647,8 +656,6 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
         exec->setException(err);
         return err;
       }
-
-      progNode->ref();
 
       // enter a new execution context
       Object thisVal(Object::dynamicCast(exec->context().thisValue()));
@@ -668,19 +675,11 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
       if (newExec.hadException())
         exec->setException(newExec.exception());
 
-      if ( progNode->deref() )
-          delete progNode;
-      if (c.complType() == ReturnValue)
-	  return c.value();
-      // ### setException() on throw?
-      else if (c.complType() == Normal) {
-	  if (c.isValueCompletion())
-	      return c.value();
-	  else
-	      return Undefined();
-      } else {
-	  return Undefined();
-      }
+        res = Undefined();
+        if (c.complType() == Throw)
+            exec->setException(c.value());
+        else if (c.isValueCompletion())
+            res = c.value();
     }
     break;
   }

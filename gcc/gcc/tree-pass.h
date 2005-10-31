@@ -1,5 +1,5 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -78,6 +78,7 @@ struct dump_file_info
 {
   const char *suffix;           /* suffix to give output file.  */
   const char *swtch;            /* command line switch */
+  const char *glob;             /* command line glob  */
   int flags;                    /* user flags */
   int state;                    /* state of play */
   int num;                      /* dump file number */
@@ -86,8 +87,8 @@ struct dump_file_info
 
 /* Pass properties.  */
 #define PROP_gimple_any		(1 << 0)	/* entire gimple grammar */
-#define PROP_gimple_lcf		(1 << 1)	 /* lowered control flow */
-#define PROP_gimple_leh		(1 << 2)	           /* lowered eh */
+#define PROP_gimple_lcf		(1 << 1)	/* lowered control flow */
+#define PROP_gimple_leh		(1 << 2)	/* lowered eh */
 #define PROP_cfg		(1 << 3)
 #define PROP_referenced_vars	(1 << 4)
 #define PROP_pta		(1 << 5)
@@ -139,15 +140,12 @@ extern struct tree_opt_pass pass_memset;
 extern struct tree_opt_pass pass_unswitch;
 /* APPLE LOCAL begin lno */
 extern struct tree_opt_pass pass_mark_maybe_inf_loops;
-extern struct tree_opt_pass pass_elim_checks;
 /* APPLE LOCAL end lno */
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
-/* APPLE LOCAL lno */
-extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_iv_optimize;
 /* APPLE LOCAL lno */
 extern struct tree_opt_pass pass_loop_prefetch;
@@ -159,6 +157,7 @@ extern struct tree_opt_pass pass_del_ssa;
 extern struct tree_opt_pass pass_dominator;
 extern struct tree_opt_pass pass_dce;
 extern struct tree_opt_pass pass_cd_dce;
+extern struct tree_opt_pass pass_merge_phi;
 extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
@@ -175,6 +174,7 @@ extern struct tree_opt_pass pass_redundant_phi;
 extern struct tree_opt_pass pass_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_remove_useless_vars;
+extern struct tree_opt_pass pass_mark_used_blocks;
 extern struct tree_opt_pass pass_rename_ssa_copies;
 extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;

@@ -1,5 +1,5 @@
 /* ClassLoader.java -- responsible for loading classes into the VM
-   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -109,7 +109,7 @@ import java.util.Map;
  *
  * @author John Keiser
  * @author Mark Wielaard
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see Class
  * @since 1.0
  * @status still missing 1.4 functionality
@@ -260,6 +260,9 @@ public abstract class ClassLoader
     return loadClass(name, false);
   }
 
+  private native Class loadClassFromSig(String name)
+    throws ClassNotFoundException;
+
   /**
    * Load a class using this ClassLoader or its parent, possibly resolving
    * it as well using <code>resolveClass()</code>. It first tries to find
@@ -283,30 +286,37 @@ public abstract class ClassLoader
   protected synchronized Class loadClass(String name, boolean resolve)
     throws ClassNotFoundException
   {
-    // Have we already loaded this class?
-    Class c = findLoadedClass(name);
-    if (c != null)
-      return c;
-
-    // Can the class be loaded by a parent?
-    try
+    // Arrays are handled specially.
+    Class c;
+    if (name.charAt(0) == '[')
+      c = loadClassFromSig(name);
+    else
       {
-	if (parent == null)
+	// Have we already loaded this class?
+	c = findLoadedClass(name);
+	if (c == null)
 	  {
-	    c = VMClassLoader.loadClass(name, resolve);
-	    if (c != null)
-	      return c;
-	  }
-	else
-	  {
-	    return parent.loadClass(name, resolve);
+	    // Can the class be loaded by a parent?
+	    try
+	      {
+		if (parent == null)
+		  {
+		    c = VMClassLoader.loadClass(name, resolve);
+		    if (c != null)
+		      return c;
+		  }
+		else
+		  {
+		    return parent.loadClass(name, resolve);
+		  }
+	      }
+	    catch (ClassNotFoundException e)
+	      {
+	      }
+	    // Still not found, we have to do it ourself.
+	    c = findClass(name);
 	  }
       }
-    catch (ClassNotFoundException e)
-      {
-      }
-    // Still not found, we have to do it ourself.
-    c = findClass(name);
     if (resolve)
       resolveClass(c);
     return c;
@@ -335,7 +345,7 @@ public abstract class ClassLoader
    *   {
    *     String packageName = name.substring(0, lastDot);
    *     // Look if the package already exists
-   *     if (getPackage(pkg) == null)
+   *     if (getPackage(packageName) == null)
    *       {
    *         // define the package
    *         definePackage(packageName, ...);
@@ -435,8 +445,9 @@ public abstract class ClassLoader
       domain = defaultProtectionDomain;
     if (! initialized)
       throw new SecurityException("attempt to define class from uninitialized class loader");
+    
     Class retval = VMClassLoader.defineClass(this, name, data,
-                                             offset, len, domain);
+					     offset, len, domain);
     loadedClasses.put(retval.getName(), retval);
     return retval;
   }

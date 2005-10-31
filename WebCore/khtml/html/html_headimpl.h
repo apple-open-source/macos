@@ -32,7 +32,8 @@ class KHTMLView;
 
 namespace khtml {
     class CachedCSSStyleSheet;
-};
+    class CachedScript;
+}
 
 
 namespace DOM {
@@ -99,16 +100,19 @@ public:
 
     virtual bool isURLAttribute(AttributeImpl *attr) const;
     
+    void tokenizeRelAttribute(const AtomicString& rel);
+
 protected:
     khtml::CachedCSSStyleSheet *m_cachedSheet;
     CSSStyleSheetImpl *m_sheet;
     DOMString m_url;
     DOMString m_type;
     QString m_media;
-    DOMString m_rel;
     int m_disabledState; // 0=unset(default), 1=enabled via script, 2=disabled
-    bool m_loading;
-    bool m_alternate;
+    bool m_loading : 1;
+    bool m_alternate : 1;
+    bool m_isStyleSheet : 1;
+    bool m_isIcon : 1;
     QString m_data; // needed for temporarily storing the loaded style sheet data
 };
 
@@ -134,17 +138,24 @@ protected:
 
 // -------------------------------------------------------------------------
 
-class HTMLScriptElementImpl : public HTMLElementImpl
+class HTMLScriptElementImpl : public HTMLElementImpl, public khtml::CachedObjectClient
 {
 public:
     HTMLScriptElementImpl(DocumentPtr *doc);
-
     ~HTMLScriptElementImpl();
+    
+    virtual void insertedIntoDocument();
+    virtual void removedFromDocument();
+    virtual void notifyFinished(khtml::CachedObject *finishedObj);
 
     virtual Id id() const;
-    
     virtual bool isURLAttribute(AttributeImpl *attr) const;
-    
+
+    void setCreatedByParser(bool createdByParser) { m_createdByParser = createdByParser; }
+
+private:
+    khtml::CachedScript *m_cachedScript;
+    bool m_createdByParser;
 };
 
 // -------------------------------------------------------------------------
@@ -189,6 +200,9 @@ public:
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
     virtual void childrenChanged();
+    
+    DOMString text() const;
+    void setText(const DOMString &);
 
 protected:
     DOMString m_title;

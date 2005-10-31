@@ -1,14 +1,21 @@
 ========================================================================
 Kerberos Manager Bug List
 ========================================================================
-Current version:	2.0fc3
-Date:				February 1, 2005
+Current version:	2.0.1fc1
+Date:				June 15, 2005
 Authors:			smcguire@mit.edu, lxs@mit.edu
 ========================================================================
 
 ========================================================================
 Bug #		Bug description										Fixed in
 ========================================================================
+[RT 2973] Kerberos.app should not specify menu item coloring    2.0.1fc1
+[RT 3070] Deleting empty realm/server/domain from Realms Editor 
+          should not ask if ok                                  2.0.1fc1
+[RT 3072] Use setColumnAutoresizingStyle, not 
+          setAutoresizesAllColumnsToFit                         2.0.1fc1
+[RT 3071] Dock icon doesn't update when pref to show time in 
+          dock icon changes.                                    2.0.1fc1
 [RT 2905] Kerberos.app: Memory leak in 
           stringValueForLifetimeColumn methods                  2.0fc3
 [RT 2901] Kerberos.app uses freed Credential object on 

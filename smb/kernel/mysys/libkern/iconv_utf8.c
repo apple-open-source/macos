@@ -86,9 +86,9 @@ iconv_utf8_conv(void *d2p, const char **inbuf,
 	outlen = 0;
 	
 	if (dp->d_type == UTF8_ENCODE)
-		error = utf8_encodestr((u_int16_t *)*inbuf, inlen, *outbuf, &outlen, *outbytesleft, 0, dp->d_flags);
+		error = utf8_encodestr((u_int16_t *)*inbuf, inlen, (u_int8_t *)*outbuf, &outlen, *outbytesleft, 0, dp->d_flags);
 	else if (dp->d_type == UTF8_DECODE)
-		error = utf8_decodestr(*inbuf, inlen, (u_int16_t *)*outbuf, &outlen, *outbytesleft, 0, dp->d_flags);
+		error = utf8_decodestr((u_int8_t *)*inbuf, inlen, (u_int16_t *)*outbuf, &outlen, *outbytesleft, 0, dp->d_flags);
 	else
 		return (-1);
 

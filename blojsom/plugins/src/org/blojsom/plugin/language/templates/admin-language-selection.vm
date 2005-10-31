@@ -1,0 +1,8 @@
+                    <tr>
+                        <td>#adminResource('language.section.text' 'Language')</td>
+                        <td><select name="language"><option value="">#adminResource('language.selection.text' '-- Select a language --')</option>
+                            #foreach ($language in $BLOJSOM_JVM_LANGUAGES)
+                                <option value="$language" #if($language.equals($BLOJSOM_PLUGIN_CURRENT_LANGUAGE_SELECTION)) SELECTED #end>$language</option>
+                            #end
+                        </select></td>
+                    </tr>

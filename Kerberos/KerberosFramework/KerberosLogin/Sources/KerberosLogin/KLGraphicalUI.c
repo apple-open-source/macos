@@ -1,7 +1,7 @@
 /*
  * KLGraphicalUI.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLGraphicalUI.c,v 1.10 2004/06/17 22:26:18 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLGraphicalUI.c,v 1.11 2005/05/16 22:05:30 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -71,7 +71,7 @@ krb5_error_code __KLPrompterGUI (krb5_context  context,
     // Prompt strings
     if ((result == klNoErr) && (err == KERN_SUCCESS)) {
         for (i = 0; i < num_prompts; i++) {
-            ipcInPromptsSize += strlen (prompts[i].prompt) + 1;
+            ipcInPromptsSize += (prompts[i].prompt != NULL) ? strlen (prompts[i].prompt) + 1 : 1;
         }
     }
     
@@ -83,8 +83,9 @@ krb5_error_code __KLPrompterGUI (krb5_context  context,
     if ((result == klNoErr) && (err == KERN_SUCCESS)) {
         char *currentPrompt = (char *) ipcInPrompts;
         for (i = 0; i < num_prompts; i++) {
-            memmove (currentPrompt, prompts[i].prompt, (strlen (prompts[i].prompt) + 1) * sizeof (char));
-            currentPrompt += (strlen (prompts[i].prompt) + 1) * sizeof (char);
+            char *prompt = (prompts[i].prompt != NULL) ? prompts[i].prompt : ""; 
+            memmove (currentPrompt, prompt, (strlen (prompt) + 1) * sizeof (char));
+            currentPrompt += (strlen (prompt) + 1) * sizeof (char);
         }
     }
     

@@ -587,8 +587,11 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 		SecAsn1OCSPDReply *reply = ocspdReplies.replies[dex];
 		
 		/* Cook up our version of an OCSPResponse from the encoded data */
-		OCSPResponse *ocspResp = new OCSPResponse(reply->ocspResp, TP_OCSP_CACHE_TTL);
-		if(ocspResp == NULL) {
+		OCSPResponse *ocspResp = NULL;
+		try {
+			ocspResp = new OCSPResponse(reply->ocspResp, TP_OCSP_CACHE_TTL);
+		}
+		catch(...) {
 			tpErrorLog("tpVerifyCertGroupWithOCSP: error decoding ocsp response\n");
 			/* what the heck, keep going */
 			continue;

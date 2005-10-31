@@ -83,6 +83,7 @@ char	_fnvirtualmap[130];  //Fake fn key being held down
 IOLock *  _keybrdLock;  
 IOLock	*_packetLock;	//This lock serializes packets coming to us from the PMU
 bool _oneshotCAPSLOCK;
+bool _opened;
 UInt32  _capsLockState;
 
 thread_call_t   ledThreadCall;

@@ -318,7 +318,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
                 MSCHAPv2 : put id and Flags, then PeerChallenge, Reserved and NTResp
             */
             buf[0] = chal_id;
-            buf[1] = ((MS_ChapResponse *) remotemd)->UseNT;
+            buf[1] = ((MS_ChapResponse *) remotemd)->UseNT[0];
             memcpy(&buf[2], remotemd, MS_CHAP_RESPONSE_LEN - 1);
             rad_put_vendor_attr(h, RAD_VENDOR_MICROSOFT, 						
                         type == CHAP_MICROSOFT ? RAD_MICROSOFT_MS_CHAP_RESPONSE : RAD_MICROSOFT_MS_CHAP2_RESPONSE,
@@ -351,23 +351,23 @@ int radius_authenticate_user(char *user, char *passwd, int type,
                 case CHAP_MICROSOFT:	   
                 case CHAP_MICROSOFT_V2:                
 
-					while ((attr_type = rad_get_attr(h, &attr_value, &attr_len)) > 0 ) {
+					while ((attr_type = rad_get_attr(h, (const void **)&attr_value, &attr_len)) > 0 ) {
 
 						switch (attr_type) {
 						
 							case RAD_VENDOR_SPECIFIC: 
 							
-								attr_type = rad_get_vendor_attr(&attr_vendor, &attr_value,  &attr_len);
+								attr_type = rad_get_vendor_attr(&attr_vendor, (const void **)&attr_value,  &attr_len);
 								switch (attr_type) {
 									case RAD_MICROSOFT_MS_MPPE_SEND_KEY:
 										rad_request_authenticator(h, auth, sizeof(auth));
-										radius_decryptmppekey(mppe_send_key, attr_value, attr_len, rad_server_secret(h), auth);
+										radius_decryptmppekey(mppe_send_key, attr_value, attr_len, (u_char*)rad_server_secret(h), auth);
 										mppe_keys_set = 1;
 
 										break;
 									case RAD_MICROSOFT_MS_MPPE_RECV_KEY:
 										rad_request_authenticator(h, auth, sizeof(auth));
-										radius_decryptmppekey(mppe_recv_key, attr_value, attr_len, rad_server_secret(h), auth);
+										radius_decryptmppekey(mppe_recv_key, attr_value, attr_len, (u_char*)rad_server_secret(h), auth);
 										mppe_keys_set = 1;
 										break;
 

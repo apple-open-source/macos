@@ -1,2 +1,0 @@
->>> Over 64 Kb of strings
-<<< done.

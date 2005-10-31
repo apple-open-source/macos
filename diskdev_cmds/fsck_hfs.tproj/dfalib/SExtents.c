@@ -1353,7 +1353,7 @@ static OSErr SearchExtentFile(
 {
 	OSErr				err;
 	UInt32				filePositionBlock;
-	Boolean				noMoreExtents;
+	Boolean				noMoreExtents = true;
 	
 	filePositionBlock = sectorOffset / (vcb->vcbBlockSize >> kSectorShift);
 	

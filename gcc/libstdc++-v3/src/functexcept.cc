@@ -94,15 +94,9 @@ namespace std
   __throw_underflow_error(const char* __s)
   { throw underflow_error(_(__s)); }
 
-  /* APPLE LOCAL  begin make libstdc++ more fine-grained  */
-  /* This function now lives in ios.cc, so that we can avoid dragging in all
-     of IOS when some other function in this file is called.  */
-#ifndef APPLE_KEYMGR
   void
   __throw_ios_failure(const char* __s)
   { throw ios_base::failure(_(__s)); }
-#endif	/* APPLE_KEYMGR  */
-  /* APPLE LOCAL  end make libstdc++ more fine-grained  */
 #else
   void
   __throw_bad_exception(void)

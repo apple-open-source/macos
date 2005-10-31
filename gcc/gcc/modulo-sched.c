@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -147,15 +146,15 @@ struct partial_schedule
 };
 
 
-partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
-void free_partial_schedule (partial_schedule_ptr);
-void reset_partial_schedule (partial_schedule_ptr, int new_ii);
+static partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
+static void free_partial_schedule (partial_schedule_ptr);
+static void reset_partial_schedule (partial_schedule_ptr, int new_ii);
 void print_partial_schedule (partial_schedule_ptr, FILE *);
-ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
-					 ddg_node_ptr node, int cycle,
-					 sbitmap must_precede,
-					 sbitmap must_follow);
-void rotate_partial_schedule (partial_schedule_ptr, int);
+static ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
+						ddg_node_ptr node, int cycle,
+						sbitmap must_precede,
+						sbitmap must_follow);
+static void rotate_partial_schedule (partial_schedule_ptr, int);
 void set_row_column_for_ps (partial_schedule_ptr);
 
 
@@ -340,6 +339,10 @@ const_iteration_count (rtx count_reg, basic_block pre_header,
 {
   rtx insn;
   rtx head, tail;
+
+  if (! pre_header)
+    return NULL_RTX;
+
   get_block_head_tail (pre_header->index, &head, &tail);
 
   for (insn = tail; insn != PREV_INSN (head); insn = PREV_INSN (insn))
@@ -402,6 +405,8 @@ print_node_sched_params (FILE * dump_file, int num_nodes)
 {
   int i;
 
+  if (! dump_file)
+    return;
   for (i = 0; i < num_nodes; i++)
     {
       node_sched_params_ptr nsp = &node_sched_params[i];
@@ -444,14 +449,17 @@ calculate_maxii (ddg_ptr g)
   return maxii;
 }
 
-
-/* Given the partial schedule, generate register moves when the length
-   of the register live range is more than ii; the number of moves is
-   determined according to the following equation:
-		SCHED_TIME (use) - SCHED_TIME (def)   { 1 broken loop-carried
-   nreg_moves = ----------------------------------- - {   dependence.
-			      ii		      { 0 if not.
-   This handles the modulo-variable-expansions (mve's) needed for the ps.  */
+/*
+   Breaking intra-loop register anti-dependences:
+   Each intra-loop register anti-dependence implies a cross-iteration true
+   dependence of distance 1. Therefore, we can remove such false dependencies
+   and figure out if the partial schedule broke them by checking if (for a
+   true-dependence of distance 1): SCHED_TIME (def) < SCHED_TIME (use) and
+   if so generate a register move.   The number of such moves is equal to:
+              SCHED_TIME (use) - SCHED_TIME (def)       { 0 broken
+   nreg_moves = ----------------------------------- + 1 - {   dependecnce.
+                            ii                          { 1 if not.
+*/
 static void
 generate_reg_moves (partial_schedule_ptr ps)
 {
@@ -475,6 +483,9 @@ generate_reg_moves (partial_schedule_ptr ps)
 	  {
 	    int nreg_moves4e = (SCHED_TIME (e->dest) - SCHED_TIME (e->src)) / ii;
 
+            if (e->distance == 1)
+              nreg_moves4e = (SCHED_TIME (e->dest) - SCHED_TIME (e->src) + ii) / ii;
+
 	    /* If dest precedes src in the schedule of the kernel, then dest
 	       will read before src writes and we can save one reg_copy.  */
 	    if (SCHED_ROW (e->dest) == SCHED_ROW (e->src)
@@ -497,6 +508,9 @@ generate_reg_moves (partial_schedule_ptr ps)
 	if (e->type == TRUE_DEP && e->dest != e->src)
 	  {
 	    int dest_copy = (SCHED_TIME (e->dest) - SCHED_TIME (e->src)) / ii;
+
+	    if (e->distance == 1)
+	      dest_copy = (SCHED_TIME (e->dest) - SCHED_TIME (e->src) + ii) / ii;
 
 	    if (SCHED_ROW (e->dest) == SCHED_ROW (e->src)
 		&& SCHED_COLUMN (e->dest) < SCHED_COLUMN (e->src))
@@ -541,7 +555,8 @@ normalize_sched_times (partial_schedule_ptr ps)
   int amount = PS_MIN_CYCLE (ps);
   int ii = ps->ii;
 
-  for (i = 0; i < g->num_nodes; i++)
+  /* Don't include the closing branch assuming that it is the last node.  */
+  for (i = 0; i < g->num_nodes - 1; i++)
     {
       ddg_node_ptr u = &g->nodes[i];
       int normalized_time = SCHED_TIME (u) - amount;
@@ -610,7 +625,7 @@ duplicate_insns_of_cycles (partial_schedule_ptr ps, int from_stage,
 	    /* SCHED_STAGE (u_node) >= from_stage == 0.  Generate increasing
 	       number of reg_moves starting with the second occurrence of
 	       u_node, which is generated if its SCHED_STAGE <= to_stage.  */
-	    i_reg_moves = to_stage - SCHED_STAGE (u_node);
+	    i_reg_moves = to_stage - SCHED_STAGE (u_node) + 1;
 	    i_reg_moves = MAX (i_reg_moves, 0);
 	    i_reg_moves = MIN (i_reg_moves, SCHED_NREG_MOVES (u_node));
 
@@ -1110,6 +1125,8 @@ sms_schedule (FILE *dump_file)
 	     scheduling passes doesn't touch it.  */
 	  if (! flag_resched_modulo_sched)
 	    g->bb->flags |= BB_DISABLE_SCHEDULE;
+	  /* The life-info is not valid any more.  */
+	  g->bb->flags |= BB_DIRTY;
 
 	  generate_reg_moves (ps);
 	  if (dump_file)
@@ -1220,8 +1237,6 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
   ddg_edge_ptr e;
   int start, end, step; /* Place together into one struct?  */
   sbitmap sched_nodes = sbitmap_alloc (num_nodes);
-  sbitmap psp = sbitmap_alloc (num_nodes);
-  sbitmap pss = sbitmap_alloc (num_nodes);
   sbitmap must_precede = sbitmap_alloc (num_nodes);
   sbitmap must_follow = sbitmap_alloc (num_nodes);
 
@@ -1251,10 +1266,8 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
 	    continue;
 
 	  /* 1. compute sched window for u (start, end, step).  */
-	  sbitmap_zero (psp);
-	  sbitmap_zero (pss);
-	  psp_not_empty = sbitmap_a_and_b_cg (psp, u_node_preds, sched_nodes);
-	  pss_not_empty = sbitmap_a_and_b_cg (pss, u_node_succs, sched_nodes);
+	  psp_not_empty = sbitmap_any_common_bits (u_node_preds, sched_nodes);
+	  pss_not_empty = sbitmap_any_common_bits (u_node_succs, sched_nodes);
 
 	  if (psp_not_empty && !pss_not_empty)
 	    {
@@ -1400,8 +1413,6 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
     } /* While try_again_with_larger_ii.  */
 
   sbitmap_free (sched_nodes);
-  sbitmap_free (psp);
-  sbitmap_free (pss);
 
   if (ii >= maxii)
     {
@@ -1783,7 +1794,7 @@ order_nodes_in_scc (ddg_ptr g, sbitmap nodes_ordered, sbitmap scc,
    modulo scheduling.  */
 
 /* Create a partial schedule and allocate a memory to hold II rows.  */
-partial_schedule_ptr
+static partial_schedule_ptr
 create_partial_schedule (int ii, ddg_ptr g, int history)
 {
   partial_schedule_ptr ps = (partial_schedule_ptr)
@@ -1819,7 +1830,7 @@ free_ps_insns (partial_schedule_ptr ps)
 }
 
 /* Free all the memory allocated to the partial schedule.  */
-void
+static void
 free_partial_schedule (partial_schedule_ptr ps)
 {
   if (!ps)
@@ -1831,7 +1842,7 @@ free_partial_schedule (partial_schedule_ptr ps)
 
 /* Clear the rows array with its PS_INSNs, and create a new one with
    NEW_II rows.  */
-void
+static void
 reset_partial_schedule (partial_schedule_ptr ps, int new_ii)
 {
   if (!ps)
@@ -2131,7 +2142,7 @@ ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
    is returned.  Bit N is set in MUST_PRECEDE/MUST_FOLLOW if the node with 
    cuid N must be come before/after (respectively) the node pointed to by 
    PS_I when scheduled in the same cycle.  */
-ps_insn_ptr
+static ps_insn_ptr
 ps_add_node_check_conflicts (partial_schedule_ptr ps, ddg_node_ptr n,
    			     int c, sbitmap must_precede,
 			     sbitmap must_follow)
@@ -2176,7 +2187,7 @@ ps_add_node_check_conflicts (partial_schedule_ptr ps, ddg_node_ptr n,
 
 /* Rotate the rows of PS such that insns scheduled at time
    START_CYCLE will appear in row 0.  Updates max/min_cycles.  */
-void
+static void
 rotate_partial_schedule (partial_schedule_ptr ps, int start_cycle)
 {
   int i, row, backward_rotates;

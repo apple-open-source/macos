@@ -572,7 +572,7 @@ _HttpConnectionCreate(CFAllocatorRef alloc, HttpServer* server, CFSocketNativeHa
 	    
 	do {
         uint8_t name[SOCK_MAXADDRLEN];
-        int namelen = sizeof(name);
+        socklen_t namelen = sizeof(name);
 
         CFRunLoopRef rl = CFRunLoopGetCurrent();
         
@@ -1370,7 +1370,7 @@ _HttpServerHandleNewConnection(HttpServer* server, CFSocketNativeHandle sock) {
     if (server->_callbacks.acceptNewConnectionCallBack) {
         
         uint8_t name[SOCK_MAXADDRLEN];
-        int namelen = sizeof(name);
+        socklen_t namelen = sizeof(name);
         CFDataRef peer = NULL;
         
         // Get the address of the peer.  **FIXME** this is less than optimal

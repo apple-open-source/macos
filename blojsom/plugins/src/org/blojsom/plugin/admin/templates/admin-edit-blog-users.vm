@@ -1,100 +1,119 @@
-<?xml version="1.0" encoding="UTF-8"?>
+#AdministrationHeader("#adminResource('edit.users.page.header' 'User Administration')")
 
-#adminPageHeader("#adminResource('edit.users.page.header' 'User Administration')")
+<body>
+    <div id="wrap">
 
-    <div id="header">
-        <ul id="primary">
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('entries.page.header' '')</a></li>
-            <li><span>#adminResource('weblog.settings.text' '')</span></li>
-            <ul id="secondary">
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
-                <li><span>#adminResource('users.text' '')</span></li>
-            </ul>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('plugin.settings.text' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&action=logout">#adminResource('logout.text' '')</a></li>
+        <h1>Blosjom Administration Interface</h1>
+
+        <div id="login">
+            <p>Logged in as: <a href="#" title="view info">$BLOJSOM_ADMIN_PLUGIN_USERNAME</a> : <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=logout" title="log out">#adminResource('logout.text' '')</a></p>
+            <p>Logged in to: <a href="$BLOJSOM_BLOG.getBlogURL()" title="view site info">$BLOJSOM_BLOG.getBlogName()</a></p>
+        </div>
+
+        <ul id="nav">
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="#">#adminResource('entries.page.header' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('add.entry.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=page">#adminResource('edit.and.delete.entries.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('weblog.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-permissions&action=page">#adminResource('permissions.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('plugin.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('configure.plugin.mappings.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
+                </ul>
+            </li>
         </ul>
-    </div>
 
-    <div id="contents">
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
 
-        #showErrorMessage()
+                <!-- Add blog user form -->
+                <div class="mainClm">
+                    <h3>#adminResource('add.blog.user.text' 'Add blog user')</h3>
+                    <table>
+                        <form name="add-blog-user" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="add-blog-user"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-users"/>
+                            <tr>
+                                <td>#adminResource('blog.user.id.text' 'Blog user ID')</td>
+                                <td><input type="text" size="15" name="blog-user-id"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.user.password.text' 'Blog user password')</td>
+                                <td><input type="password" size="15" name="blog-user-password"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.user.password.check.text' 'Blog user password (again)')</td>
+                                <td><input type="password" size="15" name="blog-user-password-check"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.base.url.sample.text' 'Blog base URL (e.g. http://your.host.com/)')</td>
+                                <td><input type="text" size="60" name="blog-base-url"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.url.sample.text' 'Blog URL (e.g. http://your.host.com/blog/userid/)')</td>
+                                <td><input type="text" size="60" name="blog-url"/></td>
+                            </tr>
+                            <tr></tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('add.blog.user.text' 'Add blog user')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
 
-        <!-- Add blog user form -->
-        <div id="mainClm">
-            <h2>#adminResource('add.blog.user.text' 'Add blog user')</h2>
-            <table>
-                <form name="add-blog-user" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="add-blog-user"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="edit-blog-users"/>
-                    <tr>
-                        <td>#adminResource('blog.user.id.text' 'Blog user ID')</td>
-                        <td><input type="text" size="15" name="blog-user-id"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.user.password.text' 'Blog user password')</td>
-                        <td><input type="password" size="15" name="blog-user-password"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.user.password.check.text' 'Blog user password (again)')</td>
-                        <td><input type="password" size="15" name="blog-user-password-check"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.base.url.sample.text' 'Blog base URL (e.g. http://your.host.com/)')</td>
-                        <td><input type="text" size="60" name="blog-base-url"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.url.sample.text' 'Blog URL (e.g. http://your.host.com/blog/userid/)')</td>
-                        <td><input type="text" size="60" name="blog-url"/></td>
-                    </tr>
-                    <tr></tr>
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('add.blog.user.text' 'Add blog user')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
+                <!-- Delete blog user form -->
+                <div class="mainClm">
+                    <h3>#adminResource('delete.blog.user.text' 'Delete blog user')</h3>
+                    <table>
+                        <form name="delete-blog-user" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="delete-blog-user"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-users"/>
+                            <tr>
+                                <td>#adminResource('blog.user.id.text' 'Blog user ID')</td>
+                                <td>
+                                    <select name="blog-user-id">
+                                    #foreach ($blogUserID in $BLOJSOM_PLUGIN_EDIT_BLOG_USERS_MAP)
+                                        <option value="$blogUserID">$blogUserID</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr></tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('delete.blog.user.text' 'Delete blog user')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
         </div>
-
-        <p></p>
-
-        <!-- Delete blog user form -->
-        <div id="mainClm">
-            <h2>#adminResource('delete.blog.user.text' 'Delete blog user')</h2>
-            <table>
-                <form name="delete-blog-user" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="delete-blog-user"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="edit-blog-users"/>
-                    <tr>
-                        <td>#adminResource('blog.user.id.text' 'Blog user ID')</td>
-                        <td>
-                            <select name="blog-user-id">
-                            #foreach ($blogUserID in $BLOJSOM_PLUGIN_EDIT_BLOG_USERS_MAP)
-                                <option value="$blogUserID.getId()">$blogUserID.getId()</option>
-                            #end
-                            </select>
-                        </td>
-                    </tr>
-                    <tr></tr>
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('delete.blog.user.text' 'Delete blog user')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-
     </div>
+</body>
 
-#adminPageFooter()
+#AdministrationFooter()

@@ -14,12 +14,11 @@ typedef struct dyld_path_info
   char *insert_libraries;
 } dyld_path_info;
 
-void dyld_library_basename
-  (const char *path, const char **s, int *len, int *is_framework,
-   int *is_bundle);
+void dyld_library_basename (const char *path, const char **s, int *len, 
+                            int *is_framework, int *is_bundle);
 
-char *dyld_resolve_image
-  (const struct dyld_path_info *d, const char *dylib_name);
+char *dyld_resolve_image (const struct dyld_path_info *d, 
+                          const char *dylib_name);
 
 void dyld_zero_path_info (dyld_path_info *d);
 

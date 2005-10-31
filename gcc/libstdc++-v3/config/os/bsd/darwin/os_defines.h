@@ -38,17 +38,11 @@
    links to, so there's no need for weak-ness for that.  */
 #define _GLIBCXX_GTHREAD_USE_WEAK 0
 
-/* APPLE LOCAL begin libstdc++ lldiv_t */
-/* MERGE FIXME how on earth does the FSF compiler work? */
-/* -ansi defined __STRICT_ANSI__ and that is documented to dissappear
-    non-c89 things and stdlib.h uses it in Tiger8A282 to disappear
-    lldiv_t, and lldiv_t is a non-c89 thing.  :-(  */
-#ifndef __STRICT_ANSI__
-#define _GLIBCXX_USE_C99_LONG_LONG_DYNAMIC 0
-#else
-#define _GLIBCXX_USE_C99_LONG_LONG_DYNAMIC 1
-#endif
-/* APPLE LOCAL end libstdc++ lldiv_t */
+// On Darwin, in order to enable overriding of operator new and delete,
+// GCC makes the definition of these functions weak, relies on the
+// loader to implement weak semantics properly, and uses
+// -flat_namespace to work around the way that it doesn't.
+#define _GLIBCXX_WEAK_DEFINITION __attribute__ ((weak))
 
 /* APPLE LOCAL begin keymgr */
 /* Copyright (C) 1989, 92-97, 1998, Free Software Foundation, Inc.

@@ -1,5 +1,6 @@
 /* Definitions for SH running Linux-based GNU systems using ELF
-   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Kazumoto Kojima <kkojima@rr.iij4u.or.jp>
 
 This file is part of GCC.
@@ -77,7 +78,6 @@ do { \
 #define LIB_SPEC \
   "%{pthread:-lpthread} \
    %{shared: -lc} \
-   %{!static:-rpath-link %R/lib:%R/usr/lib} \
    %{!shared: \
      %{mieee-fp:-lieee} \
      %{profile:-lc_p} %{!profile: -lc}}"
@@ -109,6 +109,10 @@ do { \
 #ifdef HAVE_LD_AS_NEEDED
 #define USE_LD_AS_NEEDED 1
 #endif
+
+/* Determine whether the the entire c99 runtime
+   is present in the runtime library.  */
+#define TARGET_C99_FUNCTIONS 1
 
 /* Output assembler code to STREAM to call the profiler.  */
 

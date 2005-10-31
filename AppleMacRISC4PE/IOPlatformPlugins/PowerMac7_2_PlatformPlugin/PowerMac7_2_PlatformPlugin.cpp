@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc.  All rights reserved.
  *
  *
  */
@@ -104,6 +104,9 @@ bool PowerMac7_2_PlatformPlugin::start( IOService * provider )
 	if (powerSensor)
 		sensorInfoDicts->setObject( powerSensor->getInfoDict() );
 	sensorID->release();
+
+	// Publish a copy of sensorInfoDicts in the registry
+	setSensorInfoDicts (sensorInfoDicts);
 
 	// Check for system thermal calibration flag.
 	// There are three cases:

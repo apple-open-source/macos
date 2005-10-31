@@ -186,7 +186,7 @@
  * Storage is deallocated with free().
  */
 
-#define RPC_DBG_PRINTF(switch, level, pargs)						\
+#define RPC_DBG_PRINTF2(switch, level, pargs)						\
     if( DCE_SVC_DEBUG_ATLEAST(RPC__SVC_HANDLE,switch,RPC__SVC_DBG_LEVEL(level)) )	\
     {											\
         char *__mptr = rpc__svc_fmt_dbg_msg pargs ;					\
@@ -235,7 +235,7 @@ char * rpc__svc_fmt_dbg_msg (
 
 #ifndef DEBUG
 
-#define RPC_DBG_PRINTF(switch, level, pargs)	(0)
+#define RPC_DBG_PRINTF2(switch, level, pargs)	(0)
 #define RPC_DBG2(switch, level) 		(0)
 
 #endif /* DEBUG */

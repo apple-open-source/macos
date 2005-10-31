@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.c,v 1.54.52.1 2005/05/27 02:35:28 lindak Exp $
+ * $Id: smbfs_node.c,v 1.54.52.2 2005/07/20 05:26:59 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -41,6 +41,8 @@
 #include <sys/malloc.h>
 #include <sys/sysctl.h>
 #include <sys/queue.h>
+#include <sys/fcntl.h>
+#include <sys/stat.h>
 
 #include <sys/md5.h>
 
@@ -92,7 +94,7 @@ smbfs_hash(const u_char *name, int nmlen)
 	return v;
 }
 
-char *
+u_char *
 smbfs_name_alloc(const u_char *name, int nmlen)
 {
 	u_char *cp;
@@ -365,7 +367,7 @@ errout:
         if (ISSET(np->n_flag, NWALLOC))
                 wakeup(np);
 	if (namep)
-		smbfs_name_free(namep);
+		smbfs_name_free((u_char *)namep);
 	FREE(np, M_SMBNODE);
 	return error;
 }

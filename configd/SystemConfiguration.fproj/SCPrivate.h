@@ -25,6 +25,7 @@
 #define _SCPRIVATE_H
 
 #include <sys/cdefs.h>
+#include <sys/socket.h>
 #include <sys/syslog.h>
 #include <mach/message.h>
 

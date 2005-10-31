@@ -33,6 +33,9 @@ void ProcessLookup(struct kauth_identity_extlookup* request)
 	int isMember = -1;
 	uint64_t microsec = GetElapsedMicroSeconds();
 	
+	if (flags & (1<<15))
+		SetThreadFlags(kUseLoginTimeOutMask);
+	
 	if (flags & KAUTH_EXTLOOKUP_VALID_UGUID)
 		user = GetItemWithGUID(&request->el_uguid);
 	else if (flags & KAUTH_EXTLOOKUP_VALID_USID)
@@ -51,7 +54,7 @@ void ProcessLookup(struct kauth_identity_extlookup* request)
 		
 	if ((flags & KAUTH_EXTLOOKUP_WANT_MEMBERSHIP) && (user != NULL))
 	{
-		request->el_member_valid = user->fExpiration - GetElapsedSeconds();
+		request->el_member_valid = gLoginExpiration;
 		if (flags & KAUTH_EXTLOOKUP_VALID_GGUID)
 		{
 			isMember = IsUserMemberOfGroupByGUID(user, &request->el_gguid);
@@ -76,7 +79,7 @@ void ProcessLookup(struct kauth_identity_extlookup* request)
 	
 	if (user != NULL)
 	{
-		request->el_uguid_valid  = request->el_usid_valid = user->fExpiration - GetElapsedSeconds();
+		request->el_uguid_valid  = request->el_usid_valid = gLoginExpiration;
 		if (flags & KAUTH_EXTLOOKUP_WANT_UID)
 		{
 			request->el_flags |= KAUTH_EXTLOOKUP_VALID_UID;
@@ -108,7 +111,7 @@ void ProcessLookup(struct kauth_identity_extlookup* request)
 	
 	if (group != NULL)
 	{
-		request->el_gguid_valid  = request->el_gsid_valid = group->fExpiration - GetElapsedSeconds();
+		request->el_gguid_valid  = request->el_gsid_valid = gLoginExpiration;
 		if ((flags & KAUTH_EXTLOOKUP_WANT_GID) && !group->fIsUser)
 		{
 			request->el_flags |= KAUTH_EXTLOOKUP_VALID_GID;
@@ -128,6 +131,7 @@ void ProcessLookup(struct kauth_identity_extlookup* request)
 	microsec = GetElapsedMicroSeconds() - microsec;
 	AddToAverage(&gStatBlock->fAverageuSecPerCall, &gStatBlock->fTotalCallsHandled, (uint32_t)microsec);
 	request->el_result = KAUTH_EXTLOOKUP_SUCCESS;
+	SetThreadFlags(0);
 }
 
 int ProcessGetGroups(uint32_t uid, uint32_t* numGroups, GIDArray gids)

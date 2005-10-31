@@ -1,6 +1,6 @@
 /* lmtpd.c -- Program to deliver mail to a mailbox
  *
- * $Id: lmtpd.c,v 1.9 2005/03/23 00:39:22 dasenbro Exp $
+ * $Id: lmtpd.c,v 1.12 2005/08/10 21:38:18 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -112,6 +112,10 @@ static void removespool(message_data_t *msgdata);
 
 /* current namespace */
 static struct namespace lmtpd_namespace;
+
+/* current user mail options */
+extern struct od_user_opts	*gUserOpts;
+extern char *gLUser_relay_str;
 
 struct lmtp_func mylmtp = { &deliver, &verify_user, &shut_down,
 			    &spoolfile, &removespool, &lmtpd_namespace,
@@ -230,6 +234,10 @@ int service_main(int argc, char **argv,
     snmp_increment(TOTAL_CONNECTIONS, 1);
     snmp_increment(ACTIVE_CONNECTIONS, 1);
 
+	if ( gUserOpts == NULL ) {
+	gUserOpts = xzmalloc( sizeof(struct od_user_opts) );
+	}
+
     lmtpmode(&mylmtp, deliver_in, deliver_out, 0);
 
     /* free session state */
@@ -284,7 +292,6 @@ int deliver_mailbox(struct protstream *msg,
 {
     int r;
     struct appendstate as;
-	struct od_user_opts	useropts;
     time_t now = time(NULL);
     unsigned long uid;
     const char *notifier;
@@ -296,7 +303,7 @@ int deliver_mailbox(struct protstream *msg,
 	return 0;
     }
 
-    memset( &useropts, 0, sizeof( struct od_user_opts ) );
+	/* alloc global user opts struct if not already */
     r = append_setup(&as, mailboxname, MAILBOX_FORMAT_NORMAL,
 		     authuser, authstate, acloverride ? 0 : ACL_POST, 
 		     quotaoverride ? -1 : 0);
@@ -314,20 +321,28 @@ int deliver_mailbox(struct protstream *msg,
 		char *tmpName = xmalloc( strlen( user ) + 1 );
 		strlcpy( tmpName, user, strlen( user ) + 1 );
 		mboxname_hiersep_toexternal( &lmtpd_namespace, tmpName, 0);
-		odGetUserOpts( tmpName, &useropts );
+		odGetUserOpts( tmpName, gUserOpts );
 		free( tmpName );
 
-		mboxname_hiersep_tointernal(&lmtpd_namespace, useropts.fRecName,
+		mboxname_hiersep_tointernal(&lmtpd_namespace, gUserOpts->fRecNamePtr,
 						config_virtdomains ?
 						strcspn(user, "@") : 0);
 	}
 	else
 	{
-		if ( user )
-		strlcpy( useropts.fRecName, user, kONE_K_BUF );
+		if ( user != NULL )
+		{
+			if ( gUserOpts->fRecNamePtr != NULL )
+			{
+				free( gUserOpts->fRecNamePtr );
+				gUserOpts->fRecNamePtr = NULL;
+			}
+			gUserOpts->fRecNamePtr = xmalloc( strlen( user ) + 1 );
+			strlcpy( gUserOpts->fRecNamePtr, user, strlen( user ) + 1 );
+		}
 	}
 
-    if (!r && useropts.fRecName && (notifier = config_getstring(IMAPOPT_MAILNOTIFIER))) {
+    if (!r && gUserOpts->fRecNamePtr && (notifier = config_getstring(IMAPOPT_MAILNOTIFIER))) {
 	char inbox[MAX_MAILBOX_NAME+1];
 	char namebuf[MAX_MAILBOX_NAME+1];
 	char userbuf[MAX_MAILBOX_NAME+1];
@@ -336,7 +351,7 @@ int deliver_mailbox(struct protstream *msg,
 
 	/* translate user.foo to INBOX */
 	if (!(*lmtpd_namespace.mboxname_tointernal)(&lmtpd_namespace,
-						    "INBOX", useropts.fRecName, inbox)) {
+						    "INBOX", gUserOpts->fRecNamePtr, inbox)) {
 	    int inboxlen = strlen(inbox);
 	    if (strlen(mailboxname) >= inboxlen &&
 		!strncmp(mailboxname, inbox, inboxlen) &&
@@ -350,9 +365,9 @@ int deliver_mailbox(struct protstream *msg,
 	/* translate mailboxname */
 	r2 = (*lmtpd_namespace.mboxname_toexternal)(&lmtpd_namespace,
 						    notify_mailbox,
-						    useropts.fRecName, namebuf);
+						    gUserOpts->fRecNamePtr, namebuf);
 	if (!r2) {
-	    strlcpy(userbuf, useropts.fRecName, sizeof(userbuf));
+	    strlcpy(userbuf, gUserOpts->fRecNamePtr, sizeof(userbuf));
 	    /* translate any separators in user */
 	    mboxname_hiersep_toexternal(&lmtpd_namespace, userbuf,
 					config_virtdomains ?
@@ -367,6 +382,66 @@ int deliver_mailbox(struct protstream *msg,
 					    now, uid);
     return r;
 }
+
+static int auto_forward ( const char *forwardto,
+							char *return_path,
+							struct protstream *file )
+{
+    FILE *sm;
+    const char *smbuf[10];
+    int sm_stat;
+    char buf[1024];
+    pid_t sm_pid;
+    int body = 0, skip;
+
+    smbuf[0] = "sendmail";
+    smbuf[1] = "-i";		/* ignore dots */
+    if ( return_path && *return_path )
+	{
+		smbuf[2] = "-f";
+		smbuf[3] = return_path;
+    }
+	else
+	{
+		smbuf[2] = "-f";
+		smbuf[3] = "<>";
+    }
+    smbuf[4] = "--";
+    smbuf[5] = forwardto;
+    smbuf[6] = NULL;
+    sm_pid = open_sendmail(smbuf, &sm);
+	
+    if (sm == NULL) {
+	return -1;
+    }
+
+    prot_rewind(file);
+    while (prot_fgets(buf, sizeof(buf), file)) {
+	if (!body && buf[0] == '\r' && buf[1] == '\n') {
+	    /* blank line between header and body */
+	    body = 1;
+	}
+
+	skip = 0;
+	if (!body) {
+	    if (!strncasecmp(buf, "Return-Path:", 12)) {
+		/* strip the Return-Path */
+		skip = 1;
+	    }
+	}
+
+	do {
+	    if (!skip) fwrite(buf, strlen(buf), 1, sm);
+	} while (buf[strlen(buf)-1] != '\n' &&
+		 prot_fgets(buf, sizeof(buf), file));
+    }
+
+    fclose(sm);
+    while (waitpid(sm_pid, &sm_stat, 0) < 0);
+
+    return sm_stat;	/* sendmail exit value */
+} /* auto_forward */
+
 
 int deliver(message_data_t *msgdata, char *authuser,
 	    struct auth_state *authstate)
@@ -396,11 +471,11 @@ int deliver(message_data_t *msgdata, char *authuser,
     /* loop through each recipient, attempting delivery for each */
     for (n = 0; n < nrcpts; n++) {
 	char namebuf[MAX_MAILBOX_NAME+1] = "";
-	const char *user, *domain, *mailbox;
+	const char *user, *domain, *mailbox, *auto_fwd = NULL;
 	int quotaoverride = msg_getrcpt_ignorequota(msgdata, n);
 	int r = 0;
 
-	msg_getrcpt(msgdata, n, &user, &domain, &mailbox);
+	msg_getrcpt(msgdata, n, &user, &domain, &mailbox, &auto_fwd);
 
 	if (domain) snprintf(namebuf, sizeof(namebuf), "%s!", domain);
 
@@ -414,7 +489,14 @@ int deliver(message_data_t *msgdata, char *authuser,
 				namebuf, quotaoverride, 0);
 	}
 
-	/* case 2: ordinary user, might have Sieve script */
+	/* case 2: auto-forward */
+	else if ( auto_fwd )
+	{
+		syslog( LOG_DEBUG, "auto-forwarding user: %s to: %s", user, auto_fwd );
+		r = auto_forward( auto_fwd, msgdata->return_path, msgdata->data );
+	}
+
+	/* case 3: ordinary user, might have Sieve script */
 	else {
 	    char userbuf[MAX_MAILBOX_NAME+1];
 	    char *tail;
@@ -513,6 +595,17 @@ void shut_down(int code)
 
     quotadb_close();
     quotadb_done();
+
+	if (gUserOpts) {
+	odFreeUserOpts(gUserOpts, 1);
+	free(gUserOpts);
+	gUserOpts = NULL;
+	}
+
+	if(gLUser_relay_str != NULL){
+	free(gLUser_relay_str);
+	gLUser_relay_str=NULL;
+	}
 #ifdef HAVE_SSL
     tls_shutdown_serverengine();
 #endif
@@ -532,10 +625,12 @@ static int verify_user(const char *user, const char *domain, const char *mailbox
 		       long quotacheck, struct auth_state *authstate)
 {
     char namebuf[MAX_MAILBOX_NAME+1] = "";
-	struct od_user_opts	useropts;
     int r = 0;
 
-	memset( &useropts, 0, sizeof( struct od_user_opts ) );
+	if ( gUserOpts == NULL )
+	{
+		gUserOpts = xzmalloc( sizeof(struct od_user_opts) );
+	}
 
     if ((!user && !mailbox) ||
 	(domain && (strlen(domain) + 1 > sizeof(namebuf)))) {
@@ -553,21 +648,25 @@ static int verify_user(const char *user, const char *domain, const char *mailbox
 	    }
 	} else {
 		/* Translate any separators in mailboxname */
-		char *tmpName = xmalloc( strlen( user ) + 1 );
-		strlcpy( tmpName, user, strlen( user ) + 1 );
-		mboxname_hiersep_toexternal( &lmtpd_namespace, tmpName, 0);
-		odGetUserOpts( tmpName, &useropts );
-		free( tmpName );
 
-		if ( (useropts.fAcctState != eAcctEnabled) && (useropts.fAcctState != eAcctForwarded) )
+		if ( gUserOpts->fRecNamePtr == NULL )
 		{
-			if ( useropts.fAcctState == eAcctNotMember )
+			char *tmpName = xmalloc( strlen( user ) + 1 );
+			strlcpy( tmpName, user, strlen( user ) + 1 );
+			mboxname_hiersep_toexternal( &lmtpd_namespace, tmpName, 0);
+			odGetUserOpts( tmpName, gUserOpts );
+			free( tmpName );
+		}
+
+		if ( !(gUserOpts->fAccountState & eAccountEnabled) && !(gUserOpts->fAccountState & eAutoForwardedEnabled) )
+		{
+			if ( gUserOpts->fAccountState & eACLNotMember )
 			{
-				syslog( LOG_NOTICE, "unable to post message for user: %s, service ACL is not enabled for this user", user );
+				syslog( LOG_WARNING, "warning: unable to post message for user: %s, service ACL is not enabled for this user", user );
 			}
 			else
 			{
-				syslog( LOG_NOTICE, "unable to post message for user: %s, mail is not enabled for this user", user );
+				syslog( LOG_WARNING, "warning: unable to post message for user: %s, mail is not enabled for this user", user );
 			}
 			r = IMAP_MAILBOX_NONEXISTENT;
 		}
@@ -578,7 +677,7 @@ static int verify_user(const char *user, const char *domain, const char *mailbox
 			r = IMAP_MAILBOX_NONEXISTENT;
 			} else {
 			strlcat(namebuf, "user.", sizeof(namebuf));
-			strlcat(namebuf, useropts.fRecName, sizeof(namebuf));
+			strlcat(namebuf, gUserOpts->fRecNamePtr, sizeof(namebuf));
 			}
 		}
 	}
@@ -599,25 +698,39 @@ static int verify_user(const char *user, const char *domain, const char *mailbox
 	if ( r == IMAP_MAILBOX_NONEXISTENT )
 	{
 		char *partition	= NULL;
-		if ( useropts.fAltDataLoc[ 0 ] != '\0' )
+		if ( gUserOpts->fAltDataLocPtr == NULL )
 		{
-			partition = useropts.fAltDataLoc;
+			partition = gUserOpts->fAltDataLocPtr;
 		}
 
-		r = mboxlist_createmailbox( namebuf, MAILBOX_FORMAT_NORMAL, partition, 1, (char *)useropts.fRecName, authstate, 0, 0, 0 );
+		r = mboxlist_createmailbox( namebuf, MAILBOX_FORMAT_NORMAL, partition, 1, (char *)gUserOpts->fRecNamePtr, authstate, 0, 0, 0 );
 	}
 
 	/* set any quotas */
-	if ( useropts.fDiskQuota == 0 )
+	if ( gUserOpts->fDiskQuota == 0 )
 	{
 		/* make sure that quotas are set so that the /quota tool works */
 		mboxlist_setquota( namebuf, INT32_MAX, 0 );
 	} else {
-		mboxlist_setquota( namebuf, useropts.fDiskQuota * 1024, 0 );
+		mboxlist_setquota( namebuf, gUserOpts->fDiskQuota * 1024, 0 );
 	}
     }
 
-    if (r) syslog(LOG_DEBUG, "verify_user(%s) failed: %s", namebuf,
+	if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
+	{
+		if ( (gUserOpts->fAutoFwdPtr == NULL) || (strlen( gUserOpts->fAutoFwdPtr ) == 0) )
+		{
+			syslog( LOG_WARNING, "warning: invalid auto-forward address for user: %s", user );
+			r = IMAP_MAILBOX_NONEXISTENT;
+		}
+		else
+		{
+			syslog( LOG_INFO, "forwarding message for: %s to: %s", user, gUserOpts->fAutoFwdPtr );
+			r = IMAP_AUTO_FORWARD_USER;
+		}
+	}
+
+    if (r && (r != IMAP_AUTO_FORWARD_USER)) syslog(LOG_DEBUG, "verify_user(%s) failed: %s", namebuf,
 		  error_message(r));
 
     return r;
@@ -676,7 +789,7 @@ FILE *spoolfile(message_data_t *msgdata)
 	const char *user, *domain, *mailbox;
 
 	/* build the mailboxname from the recipient address */
-	msg_getrcpt(msgdata, i, &user, &domain, &mailbox);
+	msg_getrcpt(msgdata, i, &user, &domain, &mailbox, NULL);
 
 	if (domain) snprintf(namebuf, sizeof(namebuf), "%s!", domain);
 

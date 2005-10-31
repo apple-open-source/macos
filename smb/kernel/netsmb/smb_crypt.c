@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_crypt.c,v 1.13 2005/01/26 23:50:50 lindak Exp $
+ * $Id: smb_crypt.c,v 1.13.108.1 2005/07/20 05:27:00 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/malloc.h>
@@ -91,7 +91,7 @@ smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN)
 	bzero(p, 14 + 21);
 	P14 = p;
 	S21 = p + 14;
-	bcopy(apwd, P14, min(14, strlen(apwd)));
+	bcopy(apwd, P14, min(14, strlen((char *)apwd)));
 	/*
 	 * S21 = concat(Ex(P14, N8), zeros(5));
 	 */
@@ -116,12 +116,12 @@ smb_ntlmv1hash(const u_char *apwd, u_char *v1hash)
 	MD4_CTX *ctxp;
 	size_t alen, unilen;
 
-	alen = strlen(apwd);
+	alen = strlen((char *)apwd);
 	unipwd = malloc(alen * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
 	/*
 	 * v1hash = concat(MD4(U(apwd)), zeros(5));
 	 */
-	unilen = smb_strtouni(unipwd, apwd, alen,
+	unilen = smb_strtouni(unipwd, (char *)apwd, alen,
 	    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
 	ctxp = malloc(sizeof(MD4_CTX), M_SMBTEMP, M_WAITOK);
 	MD4Init(ctxp);
@@ -229,13 +229,13 @@ smb_ntlmv2response(const u_char *apwd, const u_char *user,
 	 * We assume that user and destination are supplied to us as
 	 * upper-case UTF-8.
 	 */
-	len = strlen(user);
+	len = strlen((char *)user);
 	uniuser = malloc(len * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
-	uniuserlen = smb_strtouni(uniuser, user, len,
+	uniuserlen = smb_strtouni(uniuser, (char *)user, len,
 	    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
-	len = strlen(destination);
+	len = strlen((char *)destination);
 	unidest = malloc(len * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
-	unidestlen = smb_strtouni(unidest, destination, len,
+	unidestlen = smb_strtouni(unidest, (char *)destination, len,
 	    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
 	datalen = uniuserlen + unidestlen;
 	data = malloc(datalen, M_SMBTEMP, M_WAITOK);

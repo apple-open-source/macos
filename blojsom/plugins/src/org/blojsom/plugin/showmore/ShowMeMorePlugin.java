@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,39 +42,38 @@ import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.plugin.BlojsomPlugin;
 import org.blojsom.plugin.BlojsomPluginException;
 import org.blojsom.util.BlojsomUtils;
-import org.blojsom.util.BlojsomProperties;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * ShowMeMorePlugin
  *
  * @author David Czarnecki
- * @version $Id: ShowMeMorePlugin.java,v 1.2 2004/08/27 01:06:40 whitmore Exp $
+ * @version $Id: ShowMeMorePlugin.java,v 1.2.2.1 2005/07/21 04:30:40 johnan Exp $
  */
 public class ShowMeMorePlugin implements BlojsomPlugin {
 
     private Log _logger = LogFactory.getLog(ShowMeMorePlugin.class);
 
-    private static final String SHOW_ME_MORE_CONFIG_IP = "plugin-showmemore";
-    private static final String ENTRY_LENGTH_CUTOFF = "entry-length-cutoff";
-    private static final String ENTRY_TEXT_CUTOFF = "entry-text-cutoff";
-    private static final String SHOW_ME_MORE_TEXT = "show-me-more-text";
-    private static final String ENTRY_TEXT_CUTOFF_START = "entry-text-cutoff-start";
-    private static final String ENTRY_TEXT_CUTOFF_END = "entry-text-cutoff-end";
     private static final String SHOW_ME_MORE_PARAM = "smm";
-    private static final int ENTRY_TEXT_CUTOFF_DEFAULT = 400;
 
-    private Map _showMeMoreConfiguration;
+    public static final String SHOW_ME_MORE_CONFIG_IP = "plugin-showmemore";
+    public static final String ENTRY_LENGTH_CUTOFF = "entry-length-cutoff";
+    public static final String ENTRY_TEXT_CUTOFF = "entry-text-cutoff";
+    public static final String SHOW_ME_MORE_TEXT = "show-me-more-text";
+    public static final String ENTRY_TEXT_CUTOFF_START = "entry-text-cutoff-start";
+    public static final String ENTRY_TEXT_CUTOFF_END = "entry-text-cutoff-end";
+    public static final int ENTRY_TEXT_CUTOFF_DEFAULT = 400;
+
+    private String _showMeMoreConfigurationFile;
+    private BlojsomConfiguration _blojsomConfiguration;
+    private ServletConfig _servletConfig;
 
     /**
      * Default constructor
@@ -90,41 +89,12 @@ public class ShowMeMorePlugin implements BlojsomPlugin {
      * @throws BlojsomPluginException If there is an error initializing the plugin
      */
     public void init(ServletConfig servletConfig, BlojsomConfiguration blojsomConfiguration) throws BlojsomPluginException {
-        String showMeMoreConfiguration = servletConfig.getInitParameter(SHOW_ME_MORE_CONFIG_IP);
-        if (BlojsomUtils.checkNullOrBlank(showMeMoreConfiguration)) {
-            throw new BlojsomPluginException("No value given for: " + SHOW_ME_MORE_CONFIG_IP + " configuration parameter");
-        }
+        _servletConfig = servletConfig;
+        _blojsomConfiguration = blojsomConfiguration;
 
-        String[] users = blojsomConfiguration.getBlojsomUsers();
-        _showMeMoreConfiguration = new HashMap(users.length);
-        for (int i = 0; i < users.length; i++) {
-            String user = users[i];
-            Properties showMeMoreProperties = new BlojsomProperties();
-            String configurationFile = blojsomConfiguration.getBaseConfigurationDirectory() + user + '/' + showMeMoreConfiguration;
-            InputStream is = servletConfig.getServletContext().getResourceAsStream(configurationFile);
-            if (is == null) {
-                _logger.info("No show me more configuration file found: " + configurationFile);
-            } else {
-                try {
-                    showMeMoreProperties.load(is);
-                    is.close();
-                    String moreText = showMeMoreProperties.getProperty(SHOW_ME_MORE_TEXT);
-                    String textCutoff = showMeMoreProperties.getProperty(ENTRY_TEXT_CUTOFF);
-                    String textCutoffStart = showMeMoreProperties.getProperty(ENTRY_TEXT_CUTOFF_START);
-                    String textCutoffEnd = showMeMoreProperties.getProperty(ENTRY_TEXT_CUTOFF_END);
-                    int cutoff;
-                    try {
-                        cutoff = Integer.parseInt(showMeMoreProperties.getProperty(ENTRY_LENGTH_CUTOFF));
-                    } catch (NumberFormatException e) {
-                        cutoff = ENTRY_TEXT_CUTOFF_DEFAULT;
-                    }
-                    ShowMeMoreConfiguration showMeMore = new ShowMeMoreConfiguration(cutoff, textCutoff, moreText, textCutoffStart, textCutoffEnd);
-                    _showMeMoreConfiguration.put(user, showMeMore);
-                } catch (IOException e) {
-                    _logger.error(e);
-                    throw new BlojsomPluginException(e);
-                }
-            }
+        _showMeMoreConfigurationFile = servletConfig.getInitParameter(SHOW_ME_MORE_CONFIG_IP);
+        if (BlojsomUtils.checkNullOrBlank(_showMeMoreConfigurationFile)) {
+            throw new BlojsomPluginException("No value given for: " + SHOW_ME_MORE_CONFIG_IP + " configuration parameter");
         }
     }
 
@@ -148,62 +118,55 @@ public class ShowMeMorePlugin implements BlojsomPlugin {
         if ("y".equalsIgnoreCase(wantsToSeeMore)) {
             return entries;
         } else {
-            String userId = user.getId();
-            if (!_showMeMoreConfiguration.containsKey(userId)) {
+            ShowMeMoreConfiguration showMeMoreConfiguration;
+            try {
+                showMeMoreConfiguration = ShowMeMoreUtilities.loadConfiguration(user.getId(), _showMeMoreConfigurationFile, _blojsomConfiguration, _servletConfig);
+            } catch (IOException e) {
+                _logger.error(e);
+
                 return entries;
-            } else {
-                ShowMeMoreConfiguration showMeMoreConfiguration = (ShowMeMoreConfiguration) _showMeMoreConfiguration.get(userId);
-                int cutoff = showMeMoreConfiguration.getCutoff();
-                String textCutoff = showMeMoreConfiguration.getTextCutoff();
-                String moreText = showMeMoreConfiguration.getMoreText();
-                String textCutoffStart = showMeMoreConfiguration.getTextCutoffStart();
-                String textCutoffEnd = showMeMoreConfiguration.getTextCutoffEnd();
+            }
 
-                for (int i = 0; i < entries.length; i++) {
-                    BlogEntry entry = entries[i];
-                    String description = entry.getDescription();
-                    StringBuffer partialDescription = new StringBuffer();
-                    int indexOfCutoffText;
+            int cutoff = showMeMoreConfiguration.getCutoff();
+            String textCutoff = showMeMoreConfiguration.getTextCutoff();
+            String moreText = showMeMoreConfiguration.getMoreText();
+            String textCutoffStart = showMeMoreConfiguration.getTextCutoffStart();
+            String textCutoffEnd = showMeMoreConfiguration.getTextCutoffEnd();
 
-                    if (!BlojsomUtils.checkNullOrBlank(textCutoffStart) && !BlojsomUtils.checkNullOrBlank(textCutoffEnd)) {
-                        StringBuffer showMeMoreText = new StringBuffer("<a href=\"");
-                        showMeMoreText.append(entry.getLink());
-                        showMeMoreText.append("&amp;");
-                        showMeMoreText.append(SHOW_ME_MORE_PARAM);
-                        showMeMoreText.append("=y\">");
-                        showMeMoreText.append(moreText);
-                        showMeMoreText.append("</a>");
-                        Pattern cutoffPattern = Pattern.compile("(" + textCutoffStart + ".*?" + textCutoffEnd + ").*?", Pattern.DOTALL | Pattern.MULTILINE | Pattern.CASE_INSENSITIVE);
-                        Matcher cutoffMatcher = cutoffPattern.matcher(description);
-                        if (cutoffMatcher.find()) {
-                            description = cutoffMatcher.replaceAll(showMeMoreText.toString());
-                            entry.setDescription(description);
-                        }
+            for (int i = 0; i < entries.length; i++) {
+                BlogEntry entry = entries[i];
+                String description = entry.getDescription();
+                StringBuffer partialDescription = new StringBuffer();
+                int indexOfCutoffText;
+
+                if (!BlojsomUtils.checkNullOrBlank(textCutoffStart) && !BlojsomUtils.checkNullOrBlank(textCutoffEnd)) {
+                    StringBuffer showMeMoreText = new StringBuffer("<a href=\"");
+                    showMeMoreText.append(entry.getLink());
+                    showMeMoreText.append("&amp;");
+                    showMeMoreText.append(SHOW_ME_MORE_PARAM);
+                    showMeMoreText.append("=y\">");
+                    showMeMoreText.append(moreText);
+                    showMeMoreText.append("</a>");
+                    Pattern cutoffPattern = Pattern.compile("(" + textCutoffStart + ".*?" + textCutoffEnd + ").*?", Pattern.DOTALL | Pattern.MULTILINE | Pattern.CASE_INSENSITIVE);
+                    Matcher cutoffMatcher = cutoffPattern.matcher(description);
+                    if (cutoffMatcher.find()) {
+                        description = cutoffMatcher.replaceAll(showMeMoreText.toString());
+                        entry.setDescription(description);
                     }
+                }
 
-                    if (!BlojsomUtils.checkNullOrBlank(textCutoff)) {
-                        indexOfCutoffText = description.indexOf(textCutoff);
-                        if (indexOfCutoffText != -1) {
-                            partialDescription.append(description.substring(0, indexOfCutoffText));
-                            partialDescription.append("&nbsp; <a href=\"");
-                            partialDescription.append(entry.getLink());
-                            partialDescription.append("&amp;");
-                            partialDescription.append(SHOW_ME_MORE_PARAM);
-                            partialDescription.append("=y\">");
-                            partialDescription.append(moreText);
-                            partialDescription.append("</a>");
-                            entry.setDescription(partialDescription.toString());
-                        } else if ((cutoff > 0) && (description.length() > cutoff)) {
-                            partialDescription.append(description.substring(0, cutoff));
-                            partialDescription.append("&nbsp; <a href=\"");
-                            partialDescription.append(entry.getLink());
-                            partialDescription.append("&amp;");
-                            partialDescription.append(SHOW_ME_MORE_PARAM);
-                            partialDescription.append("=y\">");
-                            partialDescription.append(moreText);
-                            partialDescription.append("</a>");
-                            entry.setDescription(partialDescription.toString());
-                        }
+                if (!BlojsomUtils.checkNullOrBlank(textCutoff)) {
+                    indexOfCutoffText = description.indexOf(textCutoff);
+                    if (indexOfCutoffText != -1) {
+                        partialDescription.append(description.substring(0, indexOfCutoffText));
+                        partialDescription.append("&nbsp; <a href=\"");
+                        partialDescription.append(entry.getLink());
+                        partialDescription.append("&amp;");
+                        partialDescription.append(SHOW_ME_MORE_PARAM);
+                        partialDescription.append("=y\">");
+                        partialDescription.append(moreText);
+                        partialDescription.append("</a>");
+                        entry.setDescription(partialDescription.toString());
                     } else if ((cutoff > 0) && (description.length() > cutoff)) {
                         partialDescription.append(description.substring(0, cutoff));
                         partialDescription.append("&nbsp; <a href=\"");
@@ -215,10 +178,20 @@ public class ShowMeMorePlugin implements BlojsomPlugin {
                         partialDescription.append("</a>");
                         entry.setDescription(partialDescription.toString());
                     }
+                } else if ((cutoff > 0) && (description.length() > cutoff)) {
+                    partialDescription.append(description.substring(0, cutoff));
+                    partialDescription.append("&nbsp; <a href=\"");
+                    partialDescription.append(entry.getLink());
+                    partialDescription.append("&amp;");
+                    partialDescription.append(SHOW_ME_MORE_PARAM);
+                    partialDescription.append("=y\">");
+                    partialDescription.append(moreText);
+                    partialDescription.append("</a>");
+                    entry.setDescription(partialDescription.toString());
                 }
-
-                return entries;
             }
+
+            return entries;
         }
     }
 
@@ -236,79 +209,5 @@ public class ShowMeMorePlugin implements BlojsomPlugin {
      * @throws BlojsomPluginException If there is an error in finalizing this plugin
      */
     public void destroy() throws BlojsomPluginException {
-    }
-
-    /**
-     * Internal class to hold configuration properties
-     */
-    private static class ShowMeMoreConfiguration {
-
-        private int _cutoff;
-        private String _textCutoff;
-        private String _moreText;
-        private String _textCutoffStart;
-        private String _textCutoffEnd;
-
-        /**
-         * Default constructor
-         *
-         * @param cutoff          Cutoff length
-         * @param textCutoff      Cutoff string
-         * @param moreText        Text to insert when making a cut
-         * @param textCutoffStart Start tag for cutting parts of entries
-         * @param textCutoffEnd   End tag for cutting parts of entries
-         */
-        public ShowMeMoreConfiguration(int cutoff, String textCutoff, String moreText, String textCutoffStart, String textCutoffEnd) {
-            _cutoff = cutoff;
-            _textCutoff = textCutoff;
-            _moreText = moreText;
-            _textCutoffStart = textCutoffStart;
-            _textCutoffEnd = textCutoffEnd;
-        }
-
-        /**
-         * Cutoff length
-         *
-         * @return Cutoff length
-         */
-        public int getCutoff() {
-            return _cutoff;
-        }
-
-        /**
-         * Cutoff string
-         *
-         * @return Cutoff string
-         */
-        public String getTextCutoff() {
-            return _textCutoff;
-        }
-
-        /**
-         * Text to insert when making a cut
-         *
-         * @return Text to insert when making a cut
-         */
-        public String getMoreText() {
-            return _moreText;
-        }
-
-        /**
-         * Start tag for cutting parts of entries
-         *
-         * @return Start tag for cutting parts of entries
-         */
-        public String getTextCutoffStart() {
-            return _textCutoffStart;
-        }
-
-        /**
-         * End tag for cutting parts of entries
-         *
-         * @return End tag for cutting parts of entries
-         */
-        public String getTextCutoffEnd() {
-            return _textCutoffEnd;
-        }
     }
 }

@@ -45,7 +45,6 @@ with GNAT.Command_Line;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.OS_Lib;               use GNAT.OS_Lib;
 
-
 package body GPrep is
 
    Copyright_Displayed : Boolean := False;
@@ -83,6 +82,9 @@ package body GPrep is
    procedure Display_Copyright;
    --  Display the copyright notice
 
+   procedure Obsolescent_Check (S : Source_Ptr);
+   --  Null procedure, needed by instantiation of Scng below
+
    procedure Post_Scan;
    --  Null procedure, needed by instantiation of Scng below
 
@@ -92,6 +94,7 @@ package body GPrep is
       Errutil.Error_Msg_S,
       Errutil.Error_Msg_SC,
       Errutil.Error_Msg_SP,
+      Obsolescent_Check,
       Errutil.Style);
    --  The scanner for the preprocessor
 
@@ -133,9 +136,8 @@ package body GPrep is
    procedure Display_Copyright is
    begin
       if not Copyright_Displayed then
-         Write_Line ("GNAT Preprocessor " &
-                     Gnatvsn.Gnat_Version_String &
-                     " Copyright 1996-2004 Free Software Foundation, Inc.");
+         Write_Line ("GNAT Preprocessor " & Gnatvsn.Gnat_Version_String);
+         Write_Line ("Copyright 1996-2004 Free Software Foundation, Inc.");
          Copyright_Displayed := True;
       end if;
    end Display_Copyright;
@@ -299,6 +301,17 @@ package body GPrep is
    begin
       New_Line (Outfile.all);
    end New_EOL_To_Outfile;
+
+   -----------------------
+   -- Obsolescent_Check --
+   -----------------------
+
+   procedure Obsolescent_Check (S : Source_Ptr) is
+      pragma Warnings (Off, S);
+   begin
+      null;
+   end Obsolescent_Check;
+
 
    ---------------
    -- Post_Scan --

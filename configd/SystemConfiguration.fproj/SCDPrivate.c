@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -85,7 +85,7 @@ _SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, int bufLen, CFStringEncodi
 			       encoding,
 			       0,
 			       FALSE,
-			       buf,
+			       (UInt8 *)buf,
 			       bufLen,
 			       &last);
 	buf[last] = '\0';

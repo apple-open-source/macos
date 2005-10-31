@@ -35,6 +35,10 @@ using DOM::EventImpl;
 using DOM::NodeImpl;
 using khtml::RenderWidget;
 
+@interface NSTextView (WebCoreKnowsCertainAppKitSecrets)
+- (void)setWantsNotificationForMarkedText:(BOOL)wantsNotification;
+@end
+
 /*
     This widget is used to implement the <TEXTAREA> element.
     
@@ -49,7 +53,6 @@ using khtml::RenderWidget;
      SOFT|VIRTUAL - Text is wrapped, but not actually broken.  
     HARD|PHYSICAL - Text is wrapped, and text is broken into separate lines.
 */
-
 
 @interface NSView (KWQTextArea)
 - (void)_KWQ_setKeyboardFocusRingNeedsDisplay;
@@ -104,6 +107,7 @@ const float LargeNumberForText = 1.0e7;
     [textView setRichText:NO];
     [textView setAllowsUndo:YES];
     [textView setDelegate:self];
+    [textView setWantsNotificationForMarkedText:YES];
 
     [self setDocumentView:textView];
 
@@ -344,12 +348,12 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
     }
 
     if (paragraphSoFar < paragraph) {
-	return NSMakeRange(NSNotFound, 0);
-    } else if (searchRange.location == NSNotFound || newlineRange.location == NSNotFound) {
-	return searchRange;
-    } else {
-	return NSMakeRange(searchRange.location, newlineRange.location - searchRange.location);
+        return NSMakeRange(NSNotFound, 0);
     }
+    if (searchRange.location == NSNotFound || newlineRange.location == NSNotFound) {
+        return searchRange;
+    }
+    return NSMakeRange(searchRange.location, newlineRange.location - searchRange.location);
 }
 
 - (void)setCursorPositionToIndex:(int)index inParagraph:(int)paragraph

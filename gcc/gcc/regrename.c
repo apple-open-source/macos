@@ -1,5 +1,6 @@
 /* Register renaming for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -35,8 +36,6 @@
 #include "flags.h"
 #include "toplev.h"
 #include "obstack.h"
-
-static const char *const reg_class_names[] = REG_CLASS_NAMES;
 
 struct du_chain
 {
@@ -95,6 +94,9 @@ note_sets (rtx x, rtx set ATTRIBUTE_UNUSED, void *data)
   HARD_REG_SET *pset = (HARD_REG_SET *) data;
   unsigned int regno;
   int nregs;
+
+  if (GET_CODE (x) == SUBREG)
+    x = SUBREG_REG (x);
   if (!REG_P (x))
     return;
   regno = REGNO (x);
@@ -667,7 +669,8 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class cl,
 
     case SET:
       scan_rtx (insn, &SET_SRC (x), cl, action, OP_IN, 0);
-      scan_rtx (insn, &SET_DEST (x), cl, action, OP_OUT, 0);
+      scan_rtx (insn, &SET_DEST (x), cl, action,
+		GET_CODE (PATTERN (insn)) == COND_EXEC ? OP_INOUT : OP_OUT, 0);
       return;
 
     case STRICT_LOW_PART:
@@ -692,7 +695,8 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class cl,
       gcc_unreachable ();
 
     case CLOBBER:
-      scan_rtx (insn, &SET_DEST (x), cl, action, OP_OUT, 1);
+      scan_rtx (insn, &SET_DEST (x), cl, action,
+		GET_CODE (PATTERN (insn)) == COND_EXEC ? OP_INOUT : OP_OUT, 0);
       return;
 
     case EXPR_LIST:
@@ -1102,14 +1106,15 @@ kill_value_regno (unsigned int regno, unsigned int nregs,
 static void
 kill_value (rtx x, struct value_data *vd)
 {
-  /* SUBREGS are supposed to have been eliminated by now.  But some
-     ports, e.g. i386 sse, use them to smuggle vector type information
-     through to instruction selection.  Each such SUBREG should simplify,
-     so if we get a NULL  we've done something wrong elsewhere.  */
+  rtx orig_rtx = x;
 
   if (GET_CODE (x) == SUBREG)
-    x = simplify_subreg (GET_MODE (x), SUBREG_REG (x),
-			 GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+    {
+      x = simplify_subreg (GET_MODE (x), SUBREG_REG (x),
+			   GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+      if (x == NULL_RTX)
+	x = SUBREG_REG (orig_rtx);
+    }
   if (REG_P (x))
     {
       unsigned int regno = REGNO (x);
@@ -1760,24 +1765,28 @@ copyprop_hardreg_forward (void)
 {
   struct value_data *all_vd;
   bool need_refresh;
-  basic_block bb, bbp = 0;
+  basic_block bb;
+  sbitmap visited;
 
   need_refresh = false;
 
   all_vd = xmalloc (sizeof (struct value_data) * last_basic_block);
 
+  visited = sbitmap_alloc (last_basic_block - (INVALID_BLOCK + 1));
+  sbitmap_zero (visited);
+
   FOR_EACH_BB (bb)
     {
+      SET_BIT (visited, bb->index - (INVALID_BLOCK + 1));
+
       /* If a block has a single predecessor, that we've already
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
-      if (EDGE_COUNT (bb->preds) > 0)
-	for (bbp = bb; bbp && bbp != EDGE_PRED (bb, 0)->src; bbp = bbp->prev_bb);
       if (EDGE_COUNT (bb->preds) == 1
-	  && ! (EDGE_PRED (bb, 0)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
-	  && EDGE_PRED (bb, 0)->src != ENTRY_BLOCK_PTR
-	  && bbp)
+	  && TEST_BIT (visited,
+		       EDGE_PRED (bb, 0)->src->index - (INVALID_BLOCK + 1))
+	  && ! (EDGE_PRED (bb, 0)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH)))
 	all_vd[bb->index] = all_vd[EDGE_PRED (bb, 0)->src->index];
       else
 	init_value_data (all_vd + bb->index);
@@ -1785,6 +1794,8 @@ copyprop_hardreg_forward (void)
       if (copyprop_hardreg_forward_1 (bb, all_vd + bb->index))
 	need_refresh = true;
     }
+
+  sbitmap_free (visited);  
 
   if (need_refresh)
     {

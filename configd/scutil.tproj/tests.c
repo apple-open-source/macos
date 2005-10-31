@@ -208,7 +208,7 @@ do_showDNSConfiguration(int argc, char **argv)
 			}
 
 			if (resolver->port != 0) {
-				SCPrint(TRUE, stdout, CFSTR("  port    : %hd\n"), ntohs(resolver->port));
+				SCPrint(TRUE, stdout, CFSTR("  port    : %hd\n"), resolver->port);
 			}
 
 			if (resolver->timeout != 0) {

@@ -86,7 +86,7 @@ sub get_mem
 	{
 	my($size,$addr,$reg1,$reg2,$idx)=@_;
 	my($t,$post);
-	my($ret)="[";
+	my($ret)="$size [";
 	$addr =~ s/^\s+//;
 	if ($addr =~ /^(.+)\+(.+)$/)
 		{
@@ -152,7 +152,10 @@ sub main'jle	{ &out1("jle NEAR",@_); }
 sub main'jz	{ &out1("jz NEAR",@_); }
 sub main'jge	{ &out1("jge NEAR",@_); }
 sub main'jl	{ &out1("jl NEAR",@_); }
+sub main'ja	{ &out1("ja NEAR",@_); }
+sub main'jae	{ &out1("jae NEAR",@_); }
 sub main'jb	{ &out1("jb NEAR",@_); }
+sub main'jbe	{ &out1("jbe NEAR",@_); }
 sub main'jc	{ &out1("jc NEAR",@_); }
 sub main'jnc	{ &out1("jnc NEAR",@_); }
 sub main'jnz	{ &out1("jnz NEAR",@_); }
@@ -166,6 +169,7 @@ sub main'not	{ &out1("not",@_); }
 sub main'call	{ &out1("call",($_[0]=~/^\$L/?'':'_').$_[0]); }
 sub main'ret	{ &out0("ret"); }
 sub main'nop	{ &out0("nop"); }
+sub main'movz	{ &out2("movzx",@_); }
 
 sub out2
 	{
@@ -173,6 +177,11 @@ sub out2
 	my($l,$t);
 
 	push(@out,"\t$name\t");
+	if ($name eq "lea")
+		{
+		$p1 =~ s/^[^\[]*\[/\[/;
+		$p2 =~ s/^[^\[]*\[/\[/;
+		}
 	$t=&conv($p1).",";
 	$l=length($t);
 	push(@out,$t);

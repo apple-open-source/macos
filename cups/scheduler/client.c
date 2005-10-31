@@ -1,5 +1,5 @@
 /*
- * "$Id: client.c,v 1.24 2005/01/10 23:40:51 jlovell Exp $"
+ * "$Id: client.c,v 1.24.2.1 2005/07/27 18:22:02 jlovell Exp $"
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -487,6 +487,7 @@ CloseClient(client_t *con)	/* I - Client to close */
       LogMessage(L_DEBUG2, "CloseClient: Removing fd %d from OutputSet...",
         	 con->http.fd);
       shutdown(con->http.fd, 0);
+      FD_CLR(con->http.fd, OutputFds);
       FD_CLR(con->http.fd, OutputSet);
     }
     else
@@ -498,7 +499,9 @@ CloseClient(client_t *con)	/* I - Client to close */
       LogMessage(L_DEBUG2, "CloseClient: Removing fd %d from InputSet and OutputSet...",
         	 con->http.fd);
       close(con->http.fd);
+      FD_CLR(con->http.fd, InputFds);
       FD_CLR(con->http.fd, InputSet);
+      FD_CLR(con->http.fd, OutputFds);
       FD_CLR(con->http.fd, OutputSet);
       con->http.fd = 0;
     }
@@ -521,6 +524,7 @@ CloseClient(client_t *con)	/* I - Client to close */
     {
       LogMessage(L_DEBUG2, "CloseClient: %d Removing fd %d from InputSet...",
         	 con->http.fd, con->file);
+      FD_CLR(con->file, InputFds);
       FD_CLR(con->file, InputSet);
     }
 
@@ -1839,7 +1843,15 @@ ReadClient(client_t *con)		/* I - Client to read from */
 	    return (CloseClient(con));
 	  }
 	  else if (ipp_state != IPP_DATA)
+	  {
+            if (con->http.state == HTTP_POST_SEND)
+	    {
+	      SendError(con, HTTP_BAD_REQUEST);
+	      return (CloseClient(con));
+	    }
+
 	    break;
+          }
 	  else
 	    con->bytes += ippLength(con->request);
 	}
@@ -2481,6 +2493,7 @@ WriteClient(client_t *con)		/* I - Client connection */
     LogMessage(L_DEBUG2, "WriteClient: Removing fd %d from OutputSet...",
                con->http.fd);
 
+    FD_CLR(con->http.fd, OutputFds);
     FD_CLR(con->http.fd, OutputSet);
 
     if (con->file >= 0)
@@ -2489,6 +2502,7 @@ WriteClient(client_t *con)		/* I - Client connection */
       {
 	LogMessage(L_DEBUG2, "WriteClient: Removing fd %d from InputSet...",
                    con->file);
+	FD_CLR(con->file, InputFds);
 	FD_CLR(con->file, InputSet);
       }
 
@@ -3692,5 +3706,5 @@ CDSAWriteFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
 
 
 /*
- * End of "$Id: client.c,v 1.24 2005/01/10 23:40:51 jlovell Exp $".
+ * End of "$Id: client.c,v 1.24.2.1 2005/07/27 18:22:02 jlovell Exp $".
  */

@@ -1,6 +1,6 @@
 # Top level -*- makefile -*- fragment for the GNU compiler for the Java(TM)
 # language.
-#   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+#   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -102,6 +102,7 @@ gt-java-builtins.h gtype-java.h gt-java-resource.h : s-gtype ; @true
 # Executables built by this Makefile:
 JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
   java/constants.o java/lang.o java/typeck.o java/except.o java/verify.o \
+  java/verify-glue.o java/verify-impl.o \
   java/zextract.o java/jcf-io.o java/win32-host.o java/jcf-parse.o java/mangle.o \
   java/mangle_name.o java/builtins.o java/resource.o \
   java/jcf-write.o java/buffer.o java/check-init.o java/jcf-depend.o \
@@ -127,9 +128,6 @@ jvspec.o-warn = -Wno-error
 # Bison-1.75 output often yields (harmless) -Wtraditional warnings
 java/parse-scan.o-warn = -Wno-error
 java/parse.o-warn = -Wno-error
-
-# Use of non-standardized scandir
-java/jcf-io.o-warn = -Wno-error
 
 jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS)
 	rm -f $@
@@ -174,8 +172,10 @@ java.srcinfo: doc/gcj.info
 	-cp -p $^ $(srcdir)/doc
 
 dvi:: doc/gcj.dvi
+html:: $(htmldir)/java/index.html
 JAVA_MANFILES = doc/gcj.1 doc/gcjh.1 doc/jv-scan.1 doc/jcf-dump.1 doc/gij.1 \
-                doc/jv-convert.1 doc/grmic.1 doc/grmiregistry.1
+                doc/jv-convert.1 doc/grmic.1 doc/grmiregistry.1 \
+		doc/gcj-dbtool.1
 
 java.man: $(JAVA_MANFILES)
 
@@ -215,7 +215,9 @@ java.install-common: installdirs
 	    rm -f $(DESTDIR)$(bindir)/$$tool_transformed_name$(exeext); \
 	    $(INSTALL_PROGRAM) $$tool$(exeext) $(DESTDIR)$(bindir)/$$tool_transformed_name$(exeext); \
 	    chmod a+x $(DESTDIR)$(bindir)/$$tool_transformed_name$(exeext); \
-	    if [ $$tool = gcjh ]; then \
+	    if [ -f $(GCJ)-cross$(exeext) ]; then \
+	      true; \
+	    elif [ $$tool = gcjh ]; then \
 	      rm -f $(DESTDIR)$(bindir)/$(GCJH_TARGET_INSTALL_NAME)$(exeext); \
 	      ( cd $(DESTDIR)$(bindir) && \
 	        $(LN) $$tool_transformed_name$(exeext) $(GCJH_TARGET_INSTALL_NAME)$(exeext) ); \
@@ -233,6 +235,7 @@ java.uninstall:
 	-rm -rf $(DESTDIR)$(man1dir)/jcf-dump$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/gij$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/jv-convert$(man1ext)
+	-rm -rf $(DESTDIR)$(man1dir)/gcj-dbtool$(man1ext)
 
 install-info:: $(DESTDIR)$(infodir)/gcj.info
 
@@ -257,6 +260,7 @@ java.maintainer-clean:
 	-rm -f $(docobjdir)/jv-convert.1
 	-rm -f $(docobjdir)/grmic.1
 	-rm -f $(docobjdir)/grmiregistry.1
+	-rm -f $(docobjdir)/gcj-dbtool.1
 #
 # Stage hooks:
 # The main makefile has already created stage?/java.
@@ -337,6 +341,10 @@ java/win32-host.o: java/win32-host.c $(CONFIG_H) $(SYSTEM_H) coretypes.h java/jc
 java/verify.o: java/verify.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
   java/javaop.h java/java-opcodes.h java/java-except.h toplev.h $(SYSTEM_H) \
   coretypes.h $(TM_H)
+java/verify-glue.o: java/verify-glue.c $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) \
+  coretypes.h $(TM_H) java/verify.h
+java/verify-impl.o: java/verify-impl.c $(CONFIG_H) java/verify.h $(SYSTEM_H) \
+  coretypes.h  java/jcf.h $(JAVA_TREE_H)
 java/xref.o: java/xref.c java/xref.h $(CONFIG_H) $(JAVA_TREE_H) toplev.h \
   $(SYSTEM_H) coretypes.h $(TM_H)
 java/zextract.o: java/zextract.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -364,29 +372,26 @@ java/jcf-path.o: java/jcf-path.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	  -DDEFAULT_TARGET_VERSION=\"$(version)\" \
 	  $(srcdir)/java/jcf-path.c $(OUTPUT_OPTION)
 
-# jcf-tree-inline.o needs a -D.
-java/java-tree-inline.o: tree-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(TM_H) $(TREE_H) $(RTL_H) expr.h flags.h params.h input.h insn-config.h \
-  $(INTEGRATE_H) $(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) toplev.h \
-  langhooks.h $(C_COMMON_H) $(srcdir)/tree-inline.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-	-DINLINER_FOR_JAVA=1 \
-	$(srcdir)/tree-inline.c -o $@
+TEXI_JAVA_FILES = java/gcj.texi $(docdir)/include/fdl.texi $(docdir)/include/gpl.texi \
+	 $(docdir)/include/gcc-common.texi
 
 # Documentation
-doc/gcj.info: java/gcj.texi $(docdir)/include/fdl.texi \
-  $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi
+doc/gcj.info: $(TEXI_JAVA_FILES)
 	if test "x$(BUILD_INFO)" = xinfo; then \
 	  rm -f doc/gcj.info*; \
 	  $(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir)/include -o $@ $<; \
 	else true; fi
 
-doc/gcj.dvi: java/gcj.texi $(docdir)/include/fdl.texi \
-	 $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi
+doc/gcj.dvi: $(TEXI_JAVA_FILES)
 	$(TEXI2DVI) -I $(abs_docdir)/include -o $@ $<
 
+$(htmldir)/java/index.html: $(TEXI_JAVA_FILES)
+	$(mkinstalldirs) $(@D)
+	rm -f $(@D)/*
+	$(TEXI2HTML) -I $(docdir)/include -I $(srcdir)/java -o $(@D) $<
+
 .INTERMEDIATE: gcj.pod gcjh.pod jv-scan.pod jcf-dump.pod gij.pod \
-  jv-convert.pod grmic.pod grmiregistry.pod
+  jv-convert.pod grmic.pod grmiregistry.pod gcj-dbtool.pod
 
 gcj.pod: java/gcj.texi
 	-$(TEXI2POD) -D gcj < $< > $@
@@ -404,14 +409,17 @@ grmic.pod: java/gcj.texi
 	-$(TEXI2POD) -D grmic < $< > $@
 grmiregistry.pod: java/gcj.texi
 	-$(TEXI2POD) -D grmiregistry < $< > $@
+gcj-dbtool.pod: java/gcj.texi
+	-$(TEXI2POD) -D gcj-dbtool < $< > $@
 
 # Install the man pages.
 java.install-man: installdirs \
                   $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext) \
 		  $(JAVA_TARGET_INDEPENDENT_BIN_TOOLS:%=doc/%.1) \
-		  doc/gij.1 doc/jv-convert.1 doc/grmic.1 doc/grmiregistry.1
+		  doc/gij.1 doc/jv-convert.1 doc/grmic.1 doc/grmiregistry.1 \
+		  doc/gcj-dbtool.1
 	for tool in $(JAVA_TARGET_INDEPENDENT_BIN_TOOLS) \
-		gij jv-convert grmic grmiregistry ; do \
+		gij jv-convert grmic grmiregistry gcj-dbtool ; do \
 	  tool_transformed_name=`echo $$tool|sed '$(program_transform_name)'`; \
 	  man_name=$(DESTDIR)$(man1dir)/$${tool_transformed_name}$(man1ext); \
 	  rm -f $$man_name ; \

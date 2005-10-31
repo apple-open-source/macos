@@ -1,7 +1,7 @@
 /* -*- c-file-style: "java"; indent-tabs-mode: nil -*-
  * 
  * distcc -- A simple distributed compiler system
- * $Id: util.h,v 1.6 2003/08/18 23:09:03 rwill Exp $ 
+ * $Id: util.h,v 1.1.1.1 2005/05/06 05:09:42 deatley Exp $ 
  *
  * Copyright (C) 2002 by Martin Pool <mbp@samba.org>
  *

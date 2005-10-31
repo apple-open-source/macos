@@ -29,6 +29,7 @@ struct UserGroup;
 typedef struct UserGroup
 {
 	u_int32_t			fExpiration;
+	u_int32_t			fLoginExpiration;
 	guid_t				fGUID;
 	ntsid_t*			fSID;
 	uid_t				fID;
@@ -45,8 +46,9 @@ typedef struct UserGroup
 	char				fNotFound;
 } UserGroup;
 
+extern int gLoginExpiration;
 
-void InitializeUserGroup(int numToCache, int defaultExpiration, int defaultNegativeExpiration, int logSize);
+void InitializeUserGroup(int numToCache, int defaultExpiration, int defaultNegativeExpiration, int logSize, int loginExp);
 
 void ResetCache();
 void DumpState(bool dumpLogOnly);

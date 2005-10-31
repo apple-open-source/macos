@@ -1,5 +1,5 @@
 /*
- * "$Id: http-support.c,v 1.9 2005/01/20 03:24:54 jlovell Exp $"
+ * "$Id: http-support.c,v 1.9.2.1 2005/07/27 21:58:44 jlovell Exp $"
  *
  *   HTTP support routines for the Common UNIX Printing System (CUPS).
  *
@@ -93,8 +93,8 @@ httpSeparate2(const char *uri,		/* I - Universal Resource Identifier */
               char       *resource,	/* O - Resource/filename */
 	      int        resourcelen)	/* I - Size of resource buffer */
 {
-  httpSeparateApple(uri, method, 32, username, HTTP_MAX_URI, host, HTTP_MAX_URI,
-                port, resource, HTTP_MAX_URI, 1);
+  httpSeparateApple(uri, method, methodlen, username, usernamelen, host, hostlen,
+                port, resource, resourcelen, 1);
 }
 
 
@@ -400,5 +400,5 @@ http_copy_decode(char       *dst,	/* O - Destination buffer */
 
 
 /*
- * End of "$Id: http-support.c,v 1.9 2005/01/20 03:24:54 jlovell Exp $".
+ * End of "$Id: http-support.c,v 1.9.2.1 2005/07/27 21:58:44 jlovell Exp $".
  */

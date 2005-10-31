@@ -72,6 +72,7 @@ public:
     bool notNull() const { return m_ptr != 0; }
 
     void reset() { if (m_ptr) m_ptr->deref(); m_ptr = 0; }
+    void reset(T *o) { if (o) o->ref(); if (m_ptr) m_ptr->deref(); m_ptr = o; }
     
     T * get() const { return m_ptr; }
     T &operator*() const { return *m_ptr; }

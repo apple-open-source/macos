@@ -1,4 +1,4 @@
-# generated automatically by aclocal 1.9.2 -*- Autoconf -*-
+# generated automatically by aclocal 1.9.3 -*- Autoconf -*-
 
 # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 # Free Software Foundation, Inc.
@@ -198,4 +198,5 @@ if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" != yes"; then
 fi
 ])
 
+m4_include([../config/gcc-version.m4])
 m4_include([acinclude.m4])

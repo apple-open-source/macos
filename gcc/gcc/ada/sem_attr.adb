@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -258,6 +258,9 @@ package body Sem_Attr is
 
       procedure Check_Library_Unit;
       --  Verify that prefix of attribute N is a library unit
+
+      procedure Check_Modular_Integer_Type;
+      --  Verify that prefix of attribute N is a modular integer type
 
       procedure Check_Not_Incomplete_Type;
       --  Check that P (the prefix of the attribute) is not an incomplete
@@ -1074,6 +1077,20 @@ package body Sem_Attr is
          end if;
       end Check_Library_Unit;
 
+      --------------------------------
+      -- Check_Modular_Integer_Type --
+      --------------------------------
+
+      procedure Check_Modular_Integer_Type is
+      begin
+         Check_Type;
+
+         if not Is_Modular_Integer_Type (P_Type) then
+            Error_Attr
+              ("prefix of % attribute must be modular integer type", P);
+         end if;
+      end Check_Modular_Integer_Type;
+
       -------------------------------
       -- Check_Not_Incomplete_Type --
       -------------------------------
@@ -1232,7 +1249,7 @@ package body Sem_Attr is
          if Is_Limited_Type (P_Type)
            and then Comes_From_Source (N)
            and then not Present (TSS (Btyp, Nam))
-           and then No (Get_Rep_Pragma (Btyp, Name_Stream_Convert))
+           and then not Has_Rep_Pragma (Btyp, Name_Stream_Convert)
          then
             Error_Msg_Name_1 := Aname;
             Error_Msg_NE
@@ -1537,7 +1554,7 @@ package body Sem_Attr is
       --   unanalyzed copy for tree transformation. The analyzed copy is used
       --   for its semantic information (whether prefix is a remote subprogram
       --   name), the unanalyzed copy is used to construct new subtree rooted
-      --   with N_aggregate which represents a fat pointer aggregate.
+      --   with N_Aggregate which represents a fat pointer aggregate.
 
       if Aname = Name_Access then
          Discard_Node (Copy_Separate_Tree (N));
@@ -2197,6 +2214,13 @@ package body Sem_Attr is
          --  Case from RM J.4(2) of constrained applied to private type
 
          if Is_Entity_Name (P) and then Is_Type (Entity (P)) then
+            Check_Restriction (No_Obsolescent_Features, N);
+
+            if Warn_On_Obsolescent_Feature then
+               Error_Msg_N
+                 ("constrained for private type is an " &
+                  "obsolescent feature ('R'M 'J.4)?", N);
+            end if;
 
             --  If we are within an instance, the attribute must be legal
             --  because it was valid in the generic unit. Ditto if this is
@@ -2897,6 +2921,21 @@ package body Sem_Attr is
          Resolve (E2, P_Base_Type);
          Set_Etype (N, P_Base_Type);
 
+      ---------
+      -- Mod --
+      ---------
+
+      when Attribute_Mod =>
+
+         --  Note: this attribute is only allowed in Ada 2005 mode, but
+         --  we do not need to test that here, since Mod is only recognized
+         --  as an attribute name in Ada 2005 mode during the parse.
+
+         Check_E1;
+         Check_Modular_Integer_Type;
+         Resolve (E1, Any_Integer);
+         Set_Etype (N, P_Base_Type);
+
       -----------
       -- Model --
       -----------
@@ -2944,12 +2983,7 @@ package body Sem_Attr is
 
       when Attribute_Modulus =>
          Check_E0;
-         Check_Type;
-
-         if not Is_Modular_Integer_Type (P_Type) then
-            Error_Attr ("prefix of % attribute must be modular type", P);
-         end if;
-
+         Check_Modular_Integer_Type;
          Set_Etype (N, Universal_Integer);
 
       --------------------
@@ -3424,6 +3458,22 @@ package body Sem_Attr is
       when Attribute_Storage_Unit =>
          Standard_Attribute (Ttypes.System_Storage_Unit);
 
+      -----------------
+      -- Stream_Size --
+      -----------------
+
+      when Attribute_Stream_Size =>
+         Check_E0;
+         Check_Type;
+
+         if Is_Entity_Name (P)
+           and then Is_Elementary_Type (Entity (P))
+         then
+            Set_Etype (N, Universal_Integer);
+         else
+            Error_Attr ("invalid prefix for % attribute", P);
+         end if;
+
       ----------
       -- Succ --
       ----------
@@ -3480,22 +3530,21 @@ package body Sem_Attr is
 
       when Attribute_Target_Name => Target_Name : declare
          TN : constant String := Sdefault.Target_Name.all;
-         TL : Integer := TN'Last;
+         TL : Natural;
 
       begin
          Check_Standard_Prefix;
          Check_E0;
-         Start_String;
+
+         TL := TN'Last;
 
          if TN (TL) = '/' or else TN (TL) = '\' then
             TL := TL - 1;
          end if;
 
-         Store_String_Chars (TN (TN'First .. TL));
-
          Rewrite (N,
            Make_String_Literal (Loc,
-             Strval => End_String));
+             Strval => TN (TN'First .. TL)));
          Analyze_And_Resolve (N, Standard_String);
       end Target_Name;
 
@@ -3768,6 +3817,19 @@ package body Sem_Attr is
          Validate_Non_Static_Attribute_Function_Call;
       end Wide_Image;
 
+      ---------------------
+      -- Wide_Wide_Image --
+      ---------------------
+
+      when Attribute_Wide_Wide_Image => Wide_Wide_Image :
+      begin
+         Check_Scalar_Type;
+         Set_Etype (N, Standard_Wide_Wide_String);
+         Check_E1;
+         Resolve (E1, P_Base_Type);
+         Validate_Non_Static_Attribute_Function_Call;
+      end Wide_Wide_Image;
+
       ----------------
       -- Wide_Value --
       ----------------
@@ -3783,6 +3845,31 @@ package body Sem_Attr is
          Set_Etype (N, P_Type);
          Validate_Non_Static_Attribute_Function_Call;
       end Wide_Value;
+
+      ---------------------
+      -- Wide_Wide_Value --
+      ---------------------
+
+      when Attribute_Wide_Wide_Value => Wide_Wide_Value :
+      begin
+         Check_E1;
+         Check_Scalar_Type;
+
+         --  Set Etype before resolving expression because expansion
+         --  of expression may require enclosing type.
+
+         Set_Etype (N, P_Type);
+         Validate_Non_Static_Attribute_Function_Call;
+      end Wide_Wide_Value;
+
+      ---------------------
+      -- Wide_Wide_Width --
+      ---------------------
+
+      when Attribute_Wide_Wide_Width =>
+         Check_E0;
+         Check_Scalar_Type;
+         Set_Etype (N, Universal_Integer);
 
       ----------------
       -- Wide_Width --
@@ -4886,12 +4973,12 @@ package body Sem_Attr is
 
       when Attribute_Enum_Rep =>
 
-         --  For an enumeration type with a non-standard representation
-         --  use the Enumeration_Rep field of the proper constant. Note
-         --  that this would not work for types Character/Wide_Character,
-         --  since no real entities are created for the enumeration
-         --  literals, but that does not matter since these two types
-         --  do not have non-standard representations anyway.
+         --  For an enumeration type with a non-standard representation use
+         --  the Enumeration_Rep field of the proper constant. Note that this
+         --  will not work for types Character/Wide_[Wide-]Character, since no
+         --  real entities are created for the enumeration literals, but that
+         --  does not matter since these two types do not have non-standard
+         --  representations anyway.
 
          if Is_Enumeration_Type (P_Type)
            and then Has_Non_Standard_Rep (P_Type)
@@ -5413,9 +5500,18 @@ package body Sem_Attr is
             Fold_Ureal
               (N, UR_Min (Expr_Value_R (E1), Expr_Value_R (E2)), Static);
          else
-            Fold_Uint (N, UI_Min (Expr_Value (E1), Expr_Value (E2)), Static);
+            Fold_Uint
+              (N, UI_Min (Expr_Value (E1), Expr_Value (E2)), Static);
          end if;
       end Min;
+
+      ---------
+      -- Mod --
+      ---------
+
+      when Attribute_Mod =>
+         Fold_Uint
+           (N, UI_Mod (Expr_Value (E1), Modulus (P_Base_Type)), Static);
 
       -----------
       -- Model --
@@ -5611,11 +5707,23 @@ package body Sem_Attr is
       -- Remainder --
       ---------------
 
-      when Attribute_Remainder =>
-         Fold_Ureal (N,
-           Eval_Fat.Remainder
-             (P_Root_Type, Expr_Value_R (E1), Expr_Value_R (E2)),
-           Static);
+      when Attribute_Remainder => Remainder : declare
+         X : constant Ureal := Expr_Value_R (E1);
+         Y : constant Ureal := Expr_Value_R (E2);
+
+      begin
+         if UR_Is_Zero (Y) then
+            Apply_Compile_Time_Constraint_Error
+              (N, "division by zero in Remainder",
+               CE_Overflow_Check_Failed,
+               Warn => not Static);
+
+            Check_Expressions;
+            return;
+         end if;
+
+         Fold_Ureal (N, Eval_Fat.Remainder (P_Root_Type, X, Y), Static);
+      end Remainder;
 
       -----------
       -- Round --
@@ -5790,7 +5898,7 @@ package body Sem_Attr is
                   --  Size_Clause field for a subtype when Has_Size_Clause
                   --  is False. Consider:
 
-                  --    type x is range 1 .. 64;                         g
+                  --    type x is range 1 .. 64;
                   --    for x'size use 12;
                   --    subtype y is x range 0 .. 3;
 
@@ -5850,6 +5958,13 @@ package body Sem_Attr is
          else
             Fold_Ureal (N, Small_Value (P_Type), True);
          end if;
+
+      -----------------
+      -- Stream_Size --
+      -----------------
+
+      when Attribute_Stream_Size =>
+         null;
 
       ----------
       -- Succ --
@@ -6058,6 +6173,22 @@ package body Sem_Attr is
       when Attribute_Wide_Image =>
          null;
 
+      ---------------------
+      -- Wide_Wide_Image --
+      ---------------------
+
+      --  Wide_Wide_Image is a scalar attribute but is never static, because it
+      --  is not a static function (having a non-scalar argument (RM 4.9(22)).
+
+      when Attribute_Wide_Wide_Image =>
+         null;
+
+      ---------------------
+      -- Wide_Wide_Width --
+      ---------------------
+
+      --  Processing for Wide_Wide_Width is combined with Width
+
       ----------------
       -- Wide_Width --
       ----------------
@@ -6068,9 +6199,11 @@ package body Sem_Attr is
       -- Width --
       -----------
 
-      --  This processing also handles the case of Wide_Width
+      --  This processing also handles the case of Wide_[Wide_]Width
 
-      when Attribute_Width | Attribute_Wide_Width => Width :
+      when Attribute_Width |
+           Attribute_Wide_Width |
+           Attribute_Wide_Wide_Width => Width :
       begin
          if Compile_Time_Known_Bounds (P_Type) then
 
@@ -6151,10 +6284,11 @@ package body Sem_Attr is
                      W := 0;
 
                   --  Width for types derived from Standard.Character
-                  --  and Standard.Wide_Character.
+                  --  and Standard.Wide_[Wide_]Character.
 
                   elsif R = Standard_Character
-                    or else R = Standard_Wide_Character
+                     or else R = Standard_Wide_Character
+                     or else R = Standard_Wide_Wide_Character
                   then
                      W := 0;
 
@@ -6164,6 +6298,8 @@ package body Sem_Attr is
 
                         --  Assume all wide-character escape sequences are
                         --  same length, so we can quit when we reach one.
+
+                        --  Is this right for UTF-8?
 
                         if J > 255 then
                            if Id = Attribute_Wide_Width then
@@ -6257,8 +6393,8 @@ package body Sem_Attr is
                               Get_Decoded_Name_String (Chars (L));
                               Wt := Nat (Name_Len);
 
-                           --  For Wide_Width, use encoded name, and then
-                           --  adjust for the encoding.
+                           --  For Wide_[Wide_]Width, use encoded name, and
+                           --  then adjust for the encoding.
 
                            else
                               Get_Name_String (Chars (L));
@@ -6344,11 +6480,11 @@ package body Sem_Attr is
            Attribute_Value                    |
            Attribute_Wchar_T_Size             |
            Attribute_Wide_Value               |
+           Attribute_Wide_Wide_Value          |
            Attribute_Word_Size                |
            Attribute_Write                    =>
 
          raise Program_Error;
-
       end case;
 
       --  At the end of the case, one more check. If we did a static evaluation
@@ -6413,6 +6549,63 @@ package body Sem_Attr is
       Index    : Interp_Index;
       It       : Interp;
       Nom_Subt : Entity_Id;
+
+      procedure Accessibility_Message;
+      --  Error, or warning within an instance, if the static accessibility
+      --  rules of 3.10.2 are violated.
+
+      ---------------------------
+      -- Accessibility_Message --
+      ---------------------------
+
+      procedure Accessibility_Message is
+         Indic : Node_Id := Parent (Parent (N));
+
+      begin
+         --  In an instance, this is a runtime check, but one we
+         --  know will fail, so generate an appropriate warning.
+
+         if In_Instance_Body then
+            Error_Msg_N
+              ("?non-local pointer cannot point to local object", P);
+            Error_Msg_N
+              ("?Program_Error will be raised at run time", P);
+            Rewrite (N,
+              Make_Raise_Program_Error (Loc,
+                Reason => PE_Accessibility_Check_Failed));
+            Set_Etype (N, Typ);
+            return;
+
+         else
+            Error_Msg_N
+              ("non-local pointer cannot point to local object", P);
+
+            --  Check for case where we have a missing access definition
+
+            if Is_Record_Type (Current_Scope)
+              and then
+                (Nkind (Parent (N)) = N_Discriminant_Association
+                   or else
+                 Nkind (Parent (N)) = N_Index_Or_Discriminant_Constraint)
+            then
+               Indic := Parent (Parent (N));
+               while Present (Indic)
+                 and then Nkind (Indic) /= N_Subtype_Indication
+               loop
+                  Indic := Parent (Indic);
+               end loop;
+
+               if Present (Indic) then
+                  Error_Msg_NE
+                    ("\use an access definition for" &
+                      " the access discriminant of&", N,
+                         Entity (Subtype_Mark (Indic)));
+               end if;
+            end if;
+         end if;
+      end Accessibility_Message;
+
+   --  Start of processing for Resolve_Attribute
 
    begin
       --  If error during analysis, no point in continuing, except for
@@ -6579,9 +6772,14 @@ package body Sem_Attr is
                   --  outside a generic body when the subprogram is declared
                   --  within that generic body.
 
+                  --  Ada2005: If the expected type is for an access
+                  --  parameter, this clause does not apply.
+
                   elsif Present (Enclosing_Generic_Body (Entity (P)))
                     and then Enclosing_Generic_Body (Entity (P)) /=
                              Enclosing_Generic_Body (Btyp)
+                    and then
+                      Ekind (Btyp) /= E_Anonymous_Access_Subprogram_Type
                   then
                      Error_Msg_N
                        ("access type must not be outside generic body", P);
@@ -6617,14 +6815,18 @@ package body Sem_Attr is
 
             elsif Is_Overloaded (P) then
 
-               --  Use the designated type of the context  to disambiguate
+               --  Use the designated type of the context to disambiguate
+               --  Note that this was not strictly conformant to Ada 95,
+               --  but was the implementation adopted by most Ada 95 compilers.
+               --  The use of the context type to resolve an Access attribute
+               --  reference is now mandated in AI-235 for Ada 2005.
 
                declare
                   Index : Interp_Index;
                   It    : Interp;
+
                begin
                   Get_First_Interp (P, Index, It);
-
                   while Present (It.Typ) loop
                      if Covers (Designated_Type (Typ), It.Typ) then
                         Resolve (P, It.Typ);
@@ -6802,60 +7004,34 @@ package body Sem_Attr is
                  and then Object_Access_Level (P) > Type_Access_Level (Btyp)
                  and then Ekind (Btyp) = E_General_Access_Type
                then
-                  --  In an instance, this is a runtime check, but one we
-                  --  know will fail, so generate an appropriate warning.
-
-                  if In_Instance_Body then
-                     Error_Msg_N
-                       ("?non-local pointer cannot point to local object", P);
-                     Error_Msg_N
-                       ("?Program_Error will be raised at run time", P);
-                     Rewrite (N,
-                       Make_Raise_Program_Error (Loc,
-                         Reason => PE_Accessibility_Check_Failed));
-                     Set_Etype (N, Typ);
-                     return;
-
-                  else
-                     Error_Msg_N
-                       ("non-local pointer cannot point to local object", P);
-
-                     if Is_Record_Type (Current_Scope)
-                       and then (Nkind (Parent (N)) =
-                                  N_Discriminant_Association
-                                   or else
-                                 Nkind (Parent (N)) =
-                                   N_Index_Or_Discriminant_Constraint)
-                     then
-                        declare
-                           Indic : Node_Id := Parent (Parent (N));
-
-                        begin
-                           while Present (Indic)
-                             and then Nkind (Indic) /= N_Subtype_Indication
-                           loop
-                              Indic := Parent (Indic);
-                           end loop;
-
-                           if Present (Indic) then
-                              Error_Msg_NE
-                                ("\use an access definition for" &
-                                  " the access discriminant of&", N,
-                                  Entity (Subtype_Mark (Indic)));
-                           end if;
-                        end;
-                     end if;
-                  end if;
+                  Accessibility_Message;
+                  return;
                end if;
             end if;
 
-            if (Ekind (Btyp) = E_Access_Protected_Subprogram_Type
-                  or else
-                Ekind (Btyp) = E_Anonymous_Access_Protected_Subprogram_Type)
-              and then Is_Entity_Name (P)
-              and then not Is_Protected_Type (Scope (Entity (P)))
+            if Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+                 or else
+               Ekind (Btyp) = E_Anonymous_Access_Protected_Subprogram_Type
             then
-               Error_Msg_N ("context requires a protected subprogram", P);
+               if Is_Entity_Name (P)
+                 and then not Is_Protected_Type (Scope (Entity (P)))
+               then
+                  Error_Msg_N ("context requires a protected subprogram", P);
+
+               --  Check accessibility of protected object against that
+               --  of the access type, but only on user code, because
+               --  the expander creates access references for handlers.
+               --  If the context is an anonymous_access_to_protected,
+               --  there are no accessibility checks either.
+
+               elsif Object_Access_Level (P) > Type_Access_Level (Btyp)
+                 and then Comes_From_Source (N)
+                 and then Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+                 and then No (Original_Access_Type (Typ))
+               then
+                  Accessibility_Message;
+                  return;
+               end if;
 
             elsif (Ekind (Btyp) = E_Access_Subprogram_Type
                      or else
@@ -7265,6 +7441,9 @@ package body Sem_Attr is
 
                when Attribute_Wide_Value =>
                   Resolve (First (Expressions (N)), Standard_Wide_String);
+
+               when Attribute_Wide_Wide_Value =>
+                  Resolve (First (Expressions (N)), Standard_Wide_Wide_String);
 
                when others => null;
             end case;

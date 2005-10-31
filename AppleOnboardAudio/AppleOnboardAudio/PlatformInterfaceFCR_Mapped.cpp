@@ -254,6 +254,7 @@ bool	PlatformInterfaceFCR_Mapped::getI2SCellEnable()
 	{
 		case kUseI2SCell0:		result = getI2SCellBitState ( kI2S0CellEnable );					break;
 		case kUseI2SCell1:		result = getI2SCellBitState ( kI2S1CellEnable );					break;
+		default:																					break;
 	}
 	return result;
 }
@@ -267,6 +268,7 @@ bool	PlatformInterfaceFCR_Mapped::getI2SClockEnable()
 	{
 		case kUseI2SCell0:		result = getI2SCellBitState ( kI2S0ClockEnable );					break;
 		case kUseI2SCell1:		result = getI2SCellBitState ( kI2S1ClockEnable );					break;
+		default:																					break;
 	}
 	return result;
 }
@@ -280,6 +282,7 @@ bool	PlatformInterfaceFCR_Mapped::getI2SEnable ()
 	{
 		case kUseI2SCell0:		result = getI2SCellBitState ( kI2S0InterfaceEnable );				break;
 		case kUseI2SCell1:		result = getI2SCellBitState ( kI2S1InterfaceEnable );				break;
+		default:																					break;
 	}
 	return result;
 }
@@ -293,6 +296,7 @@ bool	PlatformInterfaceFCR_Mapped::getI2SSWReset ()
 	{
 		case kUseI2SCell0:		result = getI2SCellBitState ( kI2S0SwReset );						break;
 		case kUseI2SCell1:		result = getI2SCellBitState ( kI2S1SwReset );						break;
+		default:																					break;
 	}
 	return result;
 }
@@ -307,6 +311,7 @@ IOReturn	PlatformInterfaceFCR_Mapped::setI2SCellEnable ( bool enable )
 	{
 		case kUseI2SCell0:		result = setI2SCellBitState ( enable, kI2S0CellEnable );			break;
 		case kUseI2SCell1:		result = setI2SCellBitState ( enable, kI2S1CellEnable );			break;
+		default:																					break;
 	}
 	debugIOLog ( 5, "- PlatformInterfaceFCR_Mapped::setI2SCellEnable ( %d ) returns 0x%lX", enable, result );
 	return result;
@@ -322,6 +327,7 @@ IOReturn	PlatformInterfaceFCR_Mapped::setI2SClockEnable ( bool enable )
 	{
 		case kUseI2SCell0:		result = setI2SCellBitState ( enable, kI2S0ClockEnable );			break;
 		case kUseI2SCell1:		result = setI2SCellBitState ( enable, kI2S1ClockEnable );			break;
+		default:																					break;
 	}
 	debugIOLog ( 5, "- PlatformInterfaceFCR_Mapped::setI2SClockEnable ( %d ) returns 0x%lX", enable, result );
 	return result;
@@ -337,6 +343,7 @@ IOReturn	PlatformInterfaceFCR_Mapped::setI2SEnable ( bool enable )
 	{
 		case kUseI2SCell0:		result = setI2SCellBitState ( enable, kI2S0InterfaceEnable );		break;
 		case kUseI2SCell1:		result = setI2SCellBitState ( enable, kI2S1InterfaceEnable );		break;
+		default:																					break;
 	}
 	debugIOLog ( 5, "- PlatformInterfaceFCR_Mapped::setI2SEnable ( %d ) returns 0x%lX", enable, result );
 	return result;
@@ -352,6 +359,7 @@ IOReturn	PlatformInterfaceFCR_Mapped::setI2SSWReset ( bool enable )
 	{
 		case kUseI2SCell0:		result = setI2SCellBitState ( enable, kI2S0SwReset );				break;
 		case kUseI2SCell1:		result = setI2SCellBitState ( enable, kI2S1SwReset );				break;
+		default:																					break;
 	}
 	debugIOLog ( 5, "- PlatformInterfaceFCR_Mapped::setI2SSWReset ( %d ) returns 0x%lX", enable, result );
 	return result;

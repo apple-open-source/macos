@@ -12,9 +12,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the author nor the names of contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -80,7 +77,7 @@ static int cryptodev_max_iv(int cipher);
 static int cryptodev_key_length_valid(int cipher, int len);
 static int cipher_nid_to_cryptodev(int nid);
 static int get_cryptodev_ciphers(const int **cnids);
-static int get_cryptodev_digests(const int **cnids);
+/*static int get_cryptodev_digests(const int **cnids);*/
 static int cryptodev_usable_ciphers(const int **nids);
 static int cryptodev_usable_digests(const int **nids);
 static int cryptodev_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
@@ -140,6 +137,7 @@ static struct {
 	{ 0,				NID_undef,		0,	 0, },
 };
 
+#if 0 /* UNUSED */
 static struct {
 	int	id;
 	int	nid;
@@ -152,6 +150,7 @@ static struct {
 	{ CRYPTO_SHA1,			NID_undef,		},
 	{ 0,				NID_undef,		},
 };
+#endif
 
 /*
  * Return a fd if /dev/crypto seems usable, 0 otherwise.
@@ -261,7 +260,7 @@ get_cryptodev_ciphers(const int **cnids)
 	int fd, i, count = 0;
 
 	if ((fd = get_dev_crypto()) < 0) {
-		*nids = NULL;
+		*cnids = NULL;
 		return (0);
 	}
 	memset(&sess, 0, sizeof(sess));
@@ -292,6 +291,7 @@ get_cryptodev_ciphers(const int **cnids)
  * returning them here is harmless, as long as we return NULL
  * when asked for a handler in the cryptodev_engine_digests routine
  */
+#if 0 /* UNUSED */
 static int
 get_cryptodev_digests(const int **cnids)
 {
@@ -300,7 +300,7 @@ get_cryptodev_digests(const int **cnids)
 	int fd, i, count = 0;
 
 	if ((fd = get_dev_crypto()) < 0) {
-		*nids = NULL;
+		*cnids = NULL;
 		return (0);
 	}
 	memset(&sess, 0, sizeof(sess));
@@ -321,6 +321,7 @@ get_cryptodev_digests(const int **cnids)
 		*cnids = NULL;
 	return (count);
 }
+#endif
 
 /*
  * Find the useable ciphers|digests from dev/crypto - this is the first
@@ -626,7 +627,7 @@ static int
 bn2crparam(const BIGNUM *a, struct crparam *crp)
 {
 	int i, j, k;
-	ssize_t words, bytes, bits;
+	ssize_t bytes, bits;
 	u_char *b;
 
 	crp->crp_p = NULL;
@@ -874,7 +875,6 @@ cryptodev_dsa_do_sign(const unsigned char *dgst, int dlen, DSA *dsa)
 		goto err;
 	}
 
-	printf("bar\n");
 	memset(&kop, 0, sizeof kop);
 	kop.crk_op = CRK_DSA_SIGN;
 
@@ -1054,14 +1054,17 @@ ENGINE_load_cryptodev(void)
 
 	if (engine == NULL)
 		return;
-	if ((fd = get_dev_crypto()) < 0)
+	if ((fd = get_dev_crypto()) < 0) {
+		ENGINE_free(engine);
 		return;
+	}
 
 	/*
 	 * find out what asymmetric crypto algorithms we support
 	 */
 	if (ioctl(fd, CIOCASYMFEAT, &cryptodev_asymfeat) == -1) {
 		close(fd);
+		ENGINE_free(engine);
 		return;
 	}
 	close(fd);

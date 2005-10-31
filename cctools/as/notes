@@ -25,6 +25,65 @@ Bugs to be fixed:
 - The PowerPC extended branch mnemonic like beqlrl need to take a CRFONLY or
   a number shifted over by 2 (like the fcmpu instruction).
 
+Changes for the 5.18 release (the cctools-589 release):
+- Added support for the CPU_SUBTYPE_PENTIUM_4 cpusubtype.  Radar bug #4115802
+  - Added code in main() in as.c for the -arch pentium4 flag.
+  - Added a if clause in md_assemble() in i386.c for CPU_SUBTYPE_PENTIUM_4.
+
+Changes for the 5.18 release (the cctools-584 release):
+- Fixed the i386 opcode entry for the movd opcode which takes mm,r/m32 operands
+  which had the encoding switched for the reg and r_m bits of the ModR/M byte.
+  It was:
+  {"movd", 2, 0x0f7e, _, RR|Modrm, {mm, r32|m32, 0},"O"},
+  and was changed to:
+  {"movd", 2, 0x0f7e, _, Modrm, {mm, r32|m32, 0},"O"},
+  (Radar bug #4098884 aka #4100636).
+
+Changes for the 5.18 release (the cctools-583 release):
+- Changed the Makefile so that when RC_XBS is set to YES then the compiler
+  options -MD and -dependency-file as well as the md(1) program are not used.
+  Radar bug #4029936.
+
+Changes for the 5.18 release (the cctools-582 release):
+- Changed md_assemble() in ppc.c to cause the check for instructions marked with
+  CPU970 needing the -force_cpusubtype_ALL to not be compiled in for the ppc64
+  assembler.  Radar bug #4092588.
+
+Changes for the 5.18 release (the cctools-581 release):
+- Changed the order of the i386 movq opcodes that assembler register to register
+  operands to fix the problem of this not assembling correctly.  Radar bug
+  #4089432.
+
+Changes for the 5.18 release (the cctools-580 release):
+- Fixed the i386 opcode for the ud2 instruction.  It was assembled as 0x0f 0xff.
+  And should be assembled as 0x0f 0x0b according to the Intel manual.  The
+  change was in i386-opcode.h . Radar bug #4085845.
+- For the PowerPC assembler added "mtocrf" as a synonym for "mtcrf" and
+  "mfocrf" as a synonym for "mfcr" in ppc-opcode.h.  Radar bug #4034280.
+
+Changes for the 5.18 release (the cctools-578 release):
+- Added the sse3 instructions to i386-opcode.h:
+  {"addsubpd", 2, 0x660fd0, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"addsubps", 2, 0xf20fd0, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"fisttps", 1, 0xdf, 1, Modrm, {Mem, 0, 0},"O"},
+  {"fisttpl", 1, 0xdb, 1, Modrm, {Mem, 0, 0},"O"},
+  {"fisttpll", 1, 0xdd, 1, Modrm, {Mem, 0, 0},"O"},
+  {"haddpd", 2, 0x660f7c, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"haddps", 2, 0xf20f7c, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"hsubpd", 2, 0x660f7d, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"hsubps", 2, 0xf20f7d, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"lddqu", 2, 0xf20ff0, _, RR|Modrm, {m128, xmm, 0},"O"},
+  /* We only support the 0-operand version of monitor right now */
+  /* TBD: Support monitor %eax, %ecx, %edx */
+  {"monitor", 0, 0x0f01c8, _, NoModrm, {0, 0, 0},"O"},
+  {"movddup", 2, 0xf20f12, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"movshdup", 2, 0xf30f16, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"movsldup", 2, 0xf30f12, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  /* We only support the 0-operand version of mwait right now */
+  /* TBD: Support mwait %eax, %ecx */
+  {"mwait", 0, 0x0f01c9, _, NoModrm, {0, 0, 0},"O"},
+  Radar bug #4014327.
+
 Changes for the 5.17 release (the cctools-574 release):
 - Changed as.c and to set force_cpusubtype_ALL for the i386 assembler by calling
   the new function force_cpusubtype_ALL_for_cputype().  Radar bug #4002758.

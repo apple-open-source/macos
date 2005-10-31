@@ -1,3 +1,26 @@
+2005-05-17  Ken Raeburn  <raeburn@mit.edu>
+
+	* fake-addrinfo.c (fai_add_hosts_by_name): Pass null pointer
+	instead of telnet as service name.
+
+2005-03-25  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-platform.h: Expand on init/fini comments some more.
+	(MAKE_FINI_FUNCTION): Add an HP-UX specific variant that defines
+	an auxiliary function fitting the signature of HP-UX 10 library
+	combined initializer/finalizer functions.
+
+2005-03-04  Ken Raeburn  <raeburn@mit.edu>
+
+	* configure.in: Check return type of gmtime_r, and define
+	GMTIME_R_RETURNS_INT if it returns int.  If the return type can't
+	be determined, pretend the function isn't there.
+
+2005-02-08  Ken Raeburn  <raeburn@mit.edu>
+
+	* k5-platform.h (PROGRAM_EXITING) [__GNUC__ && !_WIN32 &&
+	CONSTRUCTOR_ATTR_WORKS]: Define as zero.
+
 2005-01-04  Jeffrey Altman <jaltman@mit.edu>
 
         * win-mac.h: define NEED_INSIXADDR_ANY for ipv6 symbol

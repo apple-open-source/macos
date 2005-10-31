@@ -792,7 +792,7 @@ static void parse_mount_smb(int argc, char **argv)
 			} else if(!strcmp(opts, "dmask")) {
 				mount_dmask = strtol(opteq+1, NULL, 8);
 			} else if(!strcmp(opts, "debug")) {
-				DEBUGLEVEL = val;
+				SAMBA_DEBUGLEVEL = val;
 			} else if(!strcmp(opts, "ip")) {
 				dest_ip = *interpret_addr2(opteq+1);
 				if (is_zero_ip(dest_ip)) {
@@ -865,7 +865,7 @@ static void parse_mount_smb(int argc, char **argv)
 	extern int optind;
 	char *p;
 
-	DEBUGLEVEL = 1;
+	SAMBA_DEBUGLEVEL = 1;
 
 	/* here we are interactive, even if run from autofs */
 	setup_logging("mount.smbfs",True);

@@ -1,0 +1,991 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		5938E53B08A1A52A00F35B22 /* IOPCCardFamily */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 5938E53C08A1A54F00F35B22 /* Build configuration list for PBXAggregateTarget "IOPCCardFamily" */;
+			buildPhases = (
+				5938E5A708A1DFD600F35B22 /* CopyFiles */,
+			);
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPCCardFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				5938E57F08A1DC1F00F35B22 /* PBXTargetDependency */,
+			);
+			name = IOPCCardFamily;
+			productName = IOPCCardFamily;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		5929271E08984A5300AC020E /* ApplePMUPCCardEject.h in Headers */ = {isa = PBXBuildFile; fileRef = 052E6954017CFE6202CA299A /* ApplePMUPCCardEject.h */; };
+		5929272008984A5300AC020E /* ApplePMUPCCardEject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 052E6945017CFC5B02CA299A /* ApplePMUPCCardEject.cpp */; };
+		5938E55208A1D9D500F35B22 /* cs.c in Sources */ = {isa = PBXBuildFile; fileRef = 0DA325A3FF6DB01811CA299A /* cs.c */; };
+		5938E55308A1D9D500F35B22 /* bulkmem.c in Sources */ = {isa = PBXBuildFile; fileRef = 0DA3259DFF6DAF8811CA299A /* bulkmem.c */; };
+		5938E55408A1D9D500F35B22 /* cardbus.c in Sources */ = {isa = PBXBuildFile; fileRef = 0DA3259FFF6DAFAC11CA299A /* cardbus.c */; };
+		5938E55508A1D9D500F35B22 /* i82365.c in Sources */ = {isa = PBXBuildFile; fileRef = 0DA325A6FF6DB01811CA299A /* i82365.c */; };
+		5938E55608A1D9D500F35B22 /* rsrc_mgr.c in Sources */ = {isa = PBXBuildFile; fileRef = 0DA325B4FF6DB06911CA299A /* rsrc_mgr.c */; };
+		5938E55708A1D9D500F35B22 /* cistpl.c in Sources */ = {isa = PBXBuildFile; fileRef = 0DA325A2FF6DB01811CA299A /* cistpl.c */; };
+		5938E55808A1D9D500F35B22 /* IOPCCard16Enabler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 084B1DE3FFA6B77611CA299A /* IOPCCard16Enabler.cpp */; };
+		5938E55908A1D9D500F35B22 /* IOPCCardEjectController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 057C0702018E92BE02CA299A /* IOPCCardEjectController.cpp */; };
+		5938E55A08A1D9D500F35B22 /* IOPCCardDevices.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 18928F09FF704AFF11CA299A /* IOPCCardDevices.cpp */; };
+		5938E55B08A1D9D500F35B22 /* IOPCCardSupport.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 18928F0AFF704AFF11CA299A /* IOPCCardSupport.cpp */; };
+		5938E55C08A1D9D500F35B22 /* IOPCCardBridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 18928F08FF704AFF11CA299A /* IOPCCardBridge.cpp */; };
+		5938E56A08A1DA6300F35B22 /* IOPCCardBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 18928F07FF704AFF11CA299A /* IOPCCardBridge.h */; };
+		5938E56B08A1DA6300F35B22 /* bulkmem.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325C3FF6DB14C11CA299A /* bulkmem.h */; };
+		5938E56C08A1DA6300F35B22 /* k_compat.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DEAC1C9FF6DB67711CA299A /* k_compat.h */; };
+		5938E56D08A1DA6300F35B22 /* cisreg.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325C5FF6DB14C11CA299A /* cisreg.h */; };
+		5938E56E08A1DA6300F35B22 /* version.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325D6FF6DB16F11CA299A /* version.h */; };
+		5938E56F08A1DA6300F35B22 /* bus_ops.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325C4FF6DB14C11CA299A /* bus_ops.h */; };
+		5938E57008A1DA6300F35B22 /* IOPCCardEjectController.h in Headers */ = {isa = PBXBuildFile; fileRef = 057C0704018E930502CA299A /* IOPCCardEjectController.h */; };
+		5938E57108A1DA6300F35B22 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325C7FF6DB14C11CA299A /* config.h */; };
+		5938E57208A1DA6300F35B22 /* cs_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325C9FF6DB14C11CA299A /* cs_types.h */; };
+		5938E57308A1DA6300F35B22 /* ss.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325D5FF6DB16F11CA299A /* ss.h */; };
+		5938E57408A1DA6300F35B22 /* IOPCCard16Enabler.h in Headers */ = {isa = PBXBuildFile; fileRef = 084B1DE1FFA6B2ED11CA299A /* IOPCCard16Enabler.h */; };
+		5938E57508A1DA6300F35B22 /* cs.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325C8FF6DB14C11CA299A /* cs.h */; };
+		5938E57608A1DA6300F35B22 /* IOPCCard16Device.h in Headers */ = {isa = PBXBuildFile; fileRef = 18928F06FF704AFF11CA299A /* IOPCCard16Device.h */; };
+		5938E57708A1DA6300F35B22 /* IOCardBusDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 18928F0BFF704AFF11CA299A /* IOCardBusDevice.h */; };
+		5938E57808A1DA6300F35B22 /* IOPCCard.h in Headers */ = {isa = PBXBuildFile; fileRef = 18928F05FF704AFF11CA299A /* IOPCCard.h */; };
+		5938E57908A1DA6300F35B22 /* cistpl.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325C6FF6DB14C11CA299A /* cistpl.h */; };
+		5938E58908A1DE4200F35B22 /* topic.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325B8FF6DB06911CA299A /* topic.h */; };
+		5938E58A08A1DE4200F35B22 /* i82365.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325A7FF6DB01811CA299A /* i82365.h */; };
+		5938E58B08A1DE4200F35B22 /* yenta.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325BAFF6DB06911CA299A /* yenta.h */; };
+		5938E58C08A1DE4200F35B22 /* pio.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D9C1A76FFE6FEC111CA299A /* pio.h */; };
+		5938E58D08A1DE4200F35B22 /* vg468.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325B9FF6DB06911CA299A /* vg468.h */; };
+		5938E58E08A1DE4200F35B22 /* smc34c90.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325B6FF6DB06911CA299A /* smc34c90.h */; };
+		5938E58F08A1DE4200F35B22 /* cs_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325A4FF6DB01811CA299A /* cs_internal.h */; };
+		5938E59008A1DE4200F35B22 /* rsrc_mgr.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325B5FF6DB06911CA299A /* rsrc_mgr.h */; };
+		5938E59108A1DE4200F35B22 /* cirrus.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325A1FF6DB01811CA299A /* cirrus.h */; };
+		5938E59208A1DE4200F35B22 /* ricoh.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325B3FF6DB06911CA299A /* ricoh.h */; };
+		5938E59308A1DE4200F35B22 /* o2micro.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325A8FF6DB01811CA299A /* o2micro.h */; };
+		5938E59408A1DE4200F35B22 /* ti113x.h in Headers */ = {isa = PBXBuildFile; fileRef = 0DA325B7FF6DB06911CA299A /* ti113x.h */; };
+		5938E5A908A1DFEC00F35B22 /* About PC Card Examples.rtf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5977FF740471D39600A80164 /* About PC Card Examples.rtf */; };
+		5938E5AA08A1DFEC00F35B22 /* ApplePCCardSample in CopyFiles */ = {isa = PBXBuildFile; fileRef = 592688880470900A00A80164 /* ApplePCCardSample */; };
+		59D0FE0508A2E46E00D66834 /* bulkmem.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DA325C3FF6DB14C11CA299A /* bulkmem.h */; };
+		59D0FE0608A2E46E00D66834 /* bus_ops.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DA325C4FF6DB14C11CA299A /* bus_ops.h */; };
+		59D0FE0708A2E46E00D66834 /* cisreg.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DA325C5FF6DB14C11CA299A /* cisreg.h */; };
+		59D0FE0808A2E46E00D66834 /* cistpl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DA325C6FF6DB14C11CA299A /* cistpl.h */; };
+		59D0FE0908A2E46E00D66834 /* config.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DA325C7FF6DB14C11CA299A /* config.h */; };
+		59D0FE0A08A2E46E00D66834 /* cs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DA325C8FF6DB14C11CA299A /* cs.h */; };
+		59D0FE0B08A2E46E00D66834 /* cs_types.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DA325C9FF6DB14C11CA299A /* cs_types.h */; };
+		59D0FE0C08A2E46E00D66834 /* IOCardBusDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18928F0BFF704AFF11CA299A /* IOCardBusDevice.h */; };
+		59D0FE0D08A2E46E00D66834 /* IOPCCard.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18928F05FF704AFF11CA299A /* IOPCCard.h */; };
+		59D0FE0E08A2E46E00D66834 /* IOPCCard16Device.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18928F06FF704AFF11CA299A /* IOPCCard16Device.h */; };
+		59D0FE0F08A2E46E00D66834 /* IOPCCard16Enabler.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 084B1DE1FFA6B2ED11CA299A /* IOPCCard16Enabler.h */; };
+		59D0FE1008A2E46E00D66834 /* IOPCCardBridge.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 18928F07FF704AFF11CA299A /* IOPCCardBridge.h */; };
+		59D0FE1108A2E46E00D66834 /* IOPCCardEjectController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 057C0704018E930502CA299A /* IOPCCardEjectController.h */; };
+		59D0FE1208A2E46E00D66834 /* k_compat.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DEAC1C9FF6DB67711CA299A /* k_compat.h */; };
+		59D0FE1308A2E46E00D66834 /* ss.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DA325D5FF6DB16F11CA299A /* ss.h */; };
+		59D0FE1408A2E46E00D66834 /* version.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0DA325D6FF6DB16F11CA299A /* version.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		01A2A179FF9D20B011CA29D1 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = (
+					"\U0001",
+					"-DPCMCIA_DEBUG=0",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		01A2A17AFF9D20B011CA29D1 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXContainerItemProxy section */
+		5938E57E08A1DC1F00F35B22 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5938E54308A1A56A00F35B22;
+			remoteInfo = IOPCCardFamilyKext;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5938E5A708A1DFD600F35B22 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_DEVELOPER_DIR)/Examples/Kernel/IOKit/pccard";
+			dstSubfolderSpec = 0;
+			files = (
+				5938E5A908A1DFEC00F35B22 /* About PC Card Examples.rtf in CopyFiles */,
+				5938E5AA08A1DFEC00F35B22 /* ApplePCCardSample in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		59D0FE0208A2E42300D66834 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/pccard";
+			dstSubfolderSpec = 0;
+			files = (
+				59D0FE0508A2E46E00D66834 /* bulkmem.h in CopyFiles */,
+				59D0FE0608A2E46E00D66834 /* bus_ops.h in CopyFiles */,
+				59D0FE0708A2E46E00D66834 /* cisreg.h in CopyFiles */,
+				59D0FE0808A2E46E00D66834 /* cistpl.h in CopyFiles */,
+				59D0FE0908A2E46E00D66834 /* config.h in CopyFiles */,
+				59D0FE0A08A2E46E00D66834 /* cs.h in CopyFiles */,
+				59D0FE0B08A2E46E00D66834 /* cs_types.h in CopyFiles */,
+				59D0FE0C08A2E46E00D66834 /* IOCardBusDevice.h in CopyFiles */,
+				59D0FE0D08A2E46E00D66834 /* IOPCCard.h in CopyFiles */,
+				59D0FE0E08A2E46E00D66834 /* IOPCCard16Device.h in CopyFiles */,
+				59D0FE0F08A2E46E00D66834 /* IOPCCard16Enabler.h in CopyFiles */,
+				59D0FE1008A2E46E00D66834 /* IOPCCardBridge.h in CopyFiles */,
+				59D0FE1108A2E46E00D66834 /* IOPCCardEjectController.h in CopyFiles */,
+				59D0FE1208A2E46E00D66834 /* k_compat.h in CopyFiles */,
+				59D0FE1308A2E46E00D66834 /* ss.h in CopyFiles */,
+				59D0FE1408A2E46E00D66834 /* version.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		01228F11FF71C3DEC0A8010A /* BUGS */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = BUGS; sourceTree = "<group>"; };
+		01228F13FF71C46AC0A8010A /* CHANGES */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = CHANGES; sourceTree = "<group>"; };
+		01228F14FF71C46AC0A8010A /* COPYING */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = COPYING; sourceTree = "<group>"; };
+		01228F16FF71C46AC0A8010A /* PCMCIA-HOWTO */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = "PCMCIA-HOWTO"; path = "doc/PCMCIA-HOWTO"; sourceTree = "<group>"; };
+		01228F17FF71C46AC0A8010A /* PCMCIA-HOWTO.ps */ = {isa = PBXFileReference; lastKnownFileType = text; name = "PCMCIA-HOWTO.ps"; path = "doc/PCMCIA-HOWTO.ps"; sourceTree = "<group>"; };
+		01228F18FF71C46AC0A8010A /* PCMCIA-PROG */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = "PCMCIA-PROG"; path = "doc/PCMCIA-PROG"; sourceTree = "<group>"; };
+		01228F19FF71C46AC0A8010A /* PCMCIA-PROG.ps */ = {isa = PBXFileReference; lastKnownFileType = text; name = "PCMCIA-PROG.ps"; path = "doc/PCMCIA-PROG.ps"; sourceTree = "<group>"; };
+		01228F1AFF71C46AC0A8010A /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		01228F1BFF71C46AC0A8010A /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		01228F1DFF71C46AC0A8010A /* APPLE_TODO */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = APPLE_TODO; sourceTree = "<group>"; };
+		01D330D8FF7FF22211CA299A /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
+		01D330D9FF7FF22211CA299A /* APPLE_README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = APPLE_README; sourceTree = "<group>"; };
+		052E6945017CFC5B02CA299A /* ApplePMUPCCardEject.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ApplePMUPCCardEject.cpp; sourceTree = "<group>"; };
+		052E6954017CFE6202CA299A /* ApplePMUPCCardEject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ApplePMUPCCardEject.h; sourceTree = "<group>"; };
+		057C0702018E92BE02CA299A /* IOPCCardEjectController.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCCardEjectController.cpp; sourceTree = "<group>"; };
+		057C0704018E930502CA299A /* IOPCCardEjectController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPCCardEjectController.h; sourceTree = "<group>"; };
+		084B1DE1FFA6B2ED11CA299A /* IOPCCard16Enabler.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPCCard16Enabler.h; sourceTree = "<group>"; };
+		084B1DE3FFA6B77611CA299A /* IOPCCard16Enabler.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCCard16Enabler.cpp; sourceTree = "<group>"; };
+		0DA3259DFF6DAF8811CA299A /* bulkmem.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = bulkmem.c; sourceTree = "<group>"; };
+		0DA3259FFF6DAFAC11CA299A /* cardbus.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cardbus.c; sourceTree = "<group>"; };
+		0DA325A1FF6DB01811CA299A /* cirrus.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cirrus.h; sourceTree = "<group>"; };
+		0DA325A2FF6DB01811CA299A /* cistpl.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cistpl.c; sourceTree = "<group>"; };
+		0DA325A3FF6DB01811CA299A /* cs.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cs.c; sourceTree = "<group>"; };
+		0DA325A4FF6DB01811CA299A /* cs_internal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cs_internal.h; sourceTree = "<group>"; };
+		0DA325A6FF6DB01811CA299A /* i82365.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = i82365.c; sourceTree = "<group>"; };
+		0DA325A7FF6DB01811CA299A /* i82365.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = i82365.h; sourceTree = "<group>"; };
+		0DA325A8FF6DB01811CA299A /* o2micro.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = o2micro.h; sourceTree = "<group>"; };
+		0DA325B3FF6DB06911CA299A /* ricoh.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ricoh.h; sourceTree = "<group>"; };
+		0DA325B4FF6DB06911CA299A /* rsrc_mgr.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = rsrc_mgr.c; sourceTree = "<group>"; };
+		0DA325B5FF6DB06911CA299A /* rsrc_mgr.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rsrc_mgr.h; sourceTree = "<group>"; };
+		0DA325B6FF6DB06911CA299A /* smc34c90.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = smc34c90.h; sourceTree = "<group>"; };
+		0DA325B7FF6DB06911CA299A /* ti113x.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ti113x.h; sourceTree = "<group>"; };
+		0DA325B8FF6DB06911CA299A /* topic.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = topic.h; sourceTree = "<group>"; };
+		0DA325B9FF6DB06911CA299A /* vg468.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = vg468.h; sourceTree = "<group>"; };
+		0DA325BAFF6DB06911CA299A /* yenta.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = yenta.h; sourceTree = "<group>"; };
+		0DA325C3FF6DB14C11CA299A /* bulkmem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bulkmem.h; sourceTree = "<group>"; };
+		0DA325C4FF6DB14C11CA299A /* bus_ops.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bus_ops.h; sourceTree = "<group>"; };
+		0DA325C5FF6DB14C11CA299A /* cisreg.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cisreg.h; sourceTree = "<group>"; };
+		0DA325C6FF6DB14C11CA299A /* cistpl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cistpl.h; sourceTree = "<group>"; };
+		0DA325C7FF6DB14C11CA299A /* config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
+		0DA325C8FF6DB14C11CA299A /* cs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cs.h; sourceTree = "<group>"; };
+		0DA325C9FF6DB14C11CA299A /* cs_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cs_types.h; sourceTree = "<group>"; };
+		0DA325D5FF6DB16F11CA299A /* ss.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ss.h; sourceTree = "<group>"; };
+		0DA325D6FF6DB16F11CA299A /* version.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
+		0DEAC1C9FF6DB67711CA299A /* k_compat.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = k_compat.h; sourceTree = "<group>"; };
+		18928F05FF704AFF11CA299A /* IOPCCard.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCCard.h; path = pccard/IOPCCard.h; sourceTree = SOURCE_ROOT; };
+		18928F06FF704AFF11CA299A /* IOPCCard16Device.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCCard16Device.h; path = pccard/IOPCCard16Device.h; sourceTree = SOURCE_ROOT; };
+		18928F07FF704AFF11CA299A /* IOPCCardBridge.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCCardBridge.h; path = pccard/IOPCCardBridge.h; sourceTree = SOURCE_ROOT; };
+		18928F08FF704AFF11CA299A /* IOPCCardBridge.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCCardBridge.cpp; sourceTree = "<group>"; };
+		18928F09FF704AFF11CA299A /* IOPCCardDevices.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCCardDevices.cpp; sourceTree = "<group>"; };
+		18928F0AFF704AFF11CA299A /* IOPCCardSupport.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCCardSupport.cpp; sourceTree = "<group>"; };
+		18928F0BFF704AFF11CA299A /* IOCardBusDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOCardBusDevice.h; path = pccard/IOCardBusDevice.h; sourceTree = SOURCE_ROOT; };
+		2D9C1A76FFE6FEC111CA299A /* pio.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pio.h; sourceTree = "<group>"; };
+		592688880470900A00A80164 /* ApplePCCardSample */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = ApplePCCardSample; sourceTree = "<group>"; };
+		592926EF08984A5300AC020E /* Info-IOPCCardFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "Info-IOPCCardFamily.plist"; path = "../Info-IOPCCardFamily.plist"; sourceTree = "<group>"; };
+		5929272808984A5300AC020E /* Info-ApplePMUPCCardEject.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "Info-ApplePMUPCCardEject.plist"; path = "../Info-ApplePMUPCCardEject.plist"; sourceTree = "<group>"; };
+		5929272908984A5400AC020E /* ApplePMUPCCardEject.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ApplePMUPCCardEject.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		5929273408984A5400AC020E /* BuildHeaderDoc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = BuildHeaderDoc; sourceTree = BUILT_PRODUCTS_DIR; };
+		5938E54408A1A56A00F35B22 /* IOPCCardFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOPCCardFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		5977FF740471D39600A80164 /* About PC Card Examples.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = "About PC Card Examples.rtf"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		01228F15FF71C46AC0A8010A /* Examples */ = {
+			isa = PBXGroup;
+			children = (
+				5977FF740471D39600A80164 /* About PC Card Examples.rtf */,
+				592688880470900A00A80164 /* ApplePCCardSample */,
+			);
+			name = Examples;
+			path = doc;
+			sourceTree = "<group>";
+		};
+		052E6944017CF55B02CA299A /* PMUEject */ = {
+			isa = PBXGroup;
+			children = (
+				5929272808984A5300AC020E /* Info-ApplePMUPCCardEject.plist */,
+				052E6945017CFC5B02CA299A /* ApplePMUPCCardEject.cpp */,
+				052E6954017CFE6202CA299A /* ApplePMUPCCardEject.h */,
+			);
+			name = PMUEject;
+			path = pmueject;
+			sourceTree = "<group>";
+		};
+		089C166AFE841209C02AAC07 /* IOPCCardFamily */ = {
+			isa = PBXGroup;
+			children = (
+				0DA3259CFF6DAEDC11CA299A /* Family */,
+				0DA3259BFF6DAE0A11CA299A /* Headers */,
+				052E6944017CF55B02CA299A /* PMUEject */,
+				5926887F04707FB500A80164 /* Documentation */,
+				01228F15FF71C46AC0A8010A /* Examples */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+			);
+			name = IOPCCardFamily;
+			sourceTree = "<group>";
+		};
+		0DA3259BFF6DAE0A11CA299A /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				18928F05FF704AFF11CA299A /* IOPCCard.h */,
+				18928F07FF704AFF11CA299A /* IOPCCardBridge.h */,
+				18928F0BFF704AFF11CA299A /* IOCardBusDevice.h */,
+				18928F06FF704AFF11CA299A /* IOPCCard16Device.h */,
+				084B1DE1FFA6B2ED11CA299A /* IOPCCard16Enabler.h */,
+				057C0704018E930502CA299A /* IOPCCardEjectController.h */,
+				0DA325C3FF6DB14C11CA299A /* bulkmem.h */,
+				0DA325C4FF6DB14C11CA299A /* bus_ops.h */,
+				0DA325C5FF6DB14C11CA299A /* cisreg.h */,
+				0DA325C6FF6DB14C11CA299A /* cistpl.h */,
+				0DA325C7FF6DB14C11CA299A /* config.h */,
+				0DA325C8FF6DB14C11CA299A /* cs.h */,
+				0DA325C9FF6DB14C11CA299A /* cs_types.h */,
+				0DEAC1C9FF6DB67711CA299A /* k_compat.h */,
+				0DA325D5FF6DB16F11CA299A /* ss.h */,
+				0DA325D6FF6DB16F11CA299A /* version.h */,
+			);
+			name = Headers;
+			path = pccard;
+			sourceTree = "<group>";
+		};
+		0DA3259CFF6DAEDC11CA299A /* Family */ = {
+			isa = PBXGroup;
+			children = (
+				592926EF08984A5300AC020E /* Info-IOPCCardFamily.plist */,
+				18928F08FF704AFF11CA299A /* IOPCCardBridge.cpp */,
+				18928F09FF704AFF11CA299A /* IOPCCardDevices.cpp */,
+				084B1DE3FFA6B77611CA299A /* IOPCCard16Enabler.cpp */,
+				057C0702018E92BE02CA299A /* IOPCCardEjectController.cpp */,
+				18928F0AFF704AFF11CA299A /* IOPCCardSupport.cpp */,
+				0DA3259DFF6DAF8811CA299A /* bulkmem.c */,
+				0DA3259FFF6DAFAC11CA299A /* cardbus.c */,
+				0DA325A1FF6DB01811CA299A /* cirrus.h */,
+				0DA325A2FF6DB01811CA299A /* cistpl.c */,
+				0DA325A3FF6DB01811CA299A /* cs.c */,
+				0DA325A4FF6DB01811CA299A /* cs_internal.h */,
+				0DA325A6FF6DB01811CA299A /* i82365.c */,
+				0DA325A7FF6DB01811CA299A /* i82365.h */,
+				0DA325A8FF6DB01811CA299A /* o2micro.h */,
+				0DA325B3FF6DB06911CA299A /* ricoh.h */,
+				0DA325B4FF6DB06911CA299A /* rsrc_mgr.c */,
+				0DA325B5FF6DB06911CA299A /* rsrc_mgr.h */,
+				0DA325B6FF6DB06911CA299A /* smc34c90.h */,
+				0DA325B7FF6DB06911CA299A /* ti113x.h */,
+				0DA325B8FF6DB06911CA299A /* topic.h */,
+				0DA325B9FF6DB06911CA299A /* vg468.h */,
+				0DA325BAFF6DB06911CA299A /* yenta.h */,
+				2D9C1A76FFE6FEC111CA299A /* pio.h */,
+			);
+			name = Family;
+			path = modules;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5929272908984A5400AC020E /* ApplePMUPCCardEject.kext */,
+				5929273408984A5400AC020E /* BuildHeaderDoc */,
+				5938E54408A1A56A00F35B22 /* IOPCCardFamily.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5926887F04707FB500A80164 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				01D330D8FF7FF22211CA299A /* APPLE_LICENSE */,
+				01D330D9FF7FF22211CA299A /* APPLE_README */,
+				01228F1DFF71C46AC0A8010A /* APPLE_TODO */,
+				01228F1AFF71C46AC0A8010A /* LICENSE */,
+				01228F1BFF71C46AC0A8010A /* README */,
+				01228F11FF71C3DEC0A8010A /* BUGS */,
+				01228F13FF71C46AC0A8010A /* CHANGES */,
+				01228F14FF71C46AC0A8010A /* COPYING */,
+				01228F16FF71C46AC0A8010A /* PCMCIA-HOWTO */,
+				01228F17FF71C46AC0A8010A /* PCMCIA-HOWTO.ps */,
+				01228F18FF71C46AC0A8010A /* PCMCIA-PROG */,
+				01228F19FF71C46AC0A8010A /* PCMCIA-PROG.ps */,
+			);
+			name = Documentation;
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		5929271D08984A5300AC020E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5929271E08984A5300AC020E /* ApplePMUPCCardEject.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5938E56508A1DA4000F35B22 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5938E56A08A1DA6300F35B22 /* IOPCCardBridge.h in Headers */,
+				5938E56B08A1DA6300F35B22 /* bulkmem.h in Headers */,
+				5938E56C08A1DA6300F35B22 /* k_compat.h in Headers */,
+				5938E56D08A1DA6300F35B22 /* cisreg.h in Headers */,
+				5938E56E08A1DA6300F35B22 /* version.h in Headers */,
+				5938E56F08A1DA6300F35B22 /* bus_ops.h in Headers */,
+				5938E57008A1DA6300F35B22 /* IOPCCardEjectController.h in Headers */,
+				5938E57108A1DA6300F35B22 /* config.h in Headers */,
+				5938E57208A1DA6300F35B22 /* cs_types.h in Headers */,
+				5938E57308A1DA6300F35B22 /* ss.h in Headers */,
+				5938E57408A1DA6300F35B22 /* IOPCCard16Enabler.h in Headers */,
+				5938E57508A1DA6300F35B22 /* cs.h in Headers */,
+				5938E57608A1DA6300F35B22 /* IOPCCard16Device.h in Headers */,
+				5938E57708A1DA6300F35B22 /* IOCardBusDevice.h in Headers */,
+				5938E57808A1DA6300F35B22 /* IOPCCard.h in Headers */,
+				5938E57908A1DA6300F35B22 /* cistpl.h in Headers */,
+				5938E58908A1DE4200F35B22 /* topic.h in Headers */,
+				5938E58A08A1DE4200F35B22 /* i82365.h in Headers */,
+				5938E58B08A1DE4200F35B22 /* yenta.h in Headers */,
+				5938E58C08A1DE4200F35B22 /* pio.h in Headers */,
+				5938E58D08A1DE4200F35B22 /* vg468.h in Headers */,
+				5938E58E08A1DE4200F35B22 /* smc34c90.h in Headers */,
+				5938E58F08A1DE4200F35B22 /* cs_internal.h in Headers */,
+				5938E59008A1DE4200F35B22 /* rsrc_mgr.h in Headers */,
+				5938E59108A1DE4200F35B22 /* cirrus.h in Headers */,
+				5938E59208A1DE4200F35B22 /* ricoh.h in Headers */,
+				5938E59308A1DE4200F35B22 /* o2micro.h in Headers */,
+				5938E59408A1DE4200F35B22 /* ti113x.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		5929271B08984A5300AC020E /* ApplePMUPCCardEject */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5929272408984A5300AC020E /* Build configuration list for PBXNativeTarget "ApplePMUPCCardEject" */;
+			buildPhases = (
+				5929271D08984A5300AC020E /* Headers */,
+				5929271F08984A5300AC020E /* Sources */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.ApplePMUPCCardEject;
+				MODULE_VERSION = 1.0.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ApplePMUPCCardEject;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = ApplePMUPCCardEject;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = ApplePMUPCCardEject;
+			productReference = 5929272908984A5400AC020E /* ApplePMUPCCardEject.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		5929272A08984A5400AC020E /* BuildHeaderDoc */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5929273008984A5400AC020E /* Build configuration list for PBXNativeTarget "BuildHeaderDoc" */;
+			buildPhases = (
+				5929272F08984A5400AC020E /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BuildHeaderDoc;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = BuildHeaderDoc;
+			productInstallPath = /usr/local/bin;
+			productName = BuildHeaderDoc;
+			productReference = 5929273408984A5400AC020E /* BuildHeaderDoc */;
+			productType = "com.apple.product-type.tool";
+		};
+		5938E54308A1A56A00F35B22 /* IOPCCardFamilyKext */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5938E54608A1A56B00F35B22 /* Build configuration list for PBXNativeTarget "IOPCCardFamilyKext" */;
+			buildPhases = (
+				59D0FE0208A2E42300D66834 /* CopyFiles */,
+				5938E56508A1DA4000F35B22 /* Headers */,
+				5938E54008A1A56A00F35B22 /* Sources */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = "IOPCCardFamilyKext-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.yourcompany.driver.IOPCCardFamilyKext;
+				MODULE_VERSION = 1.0.0d1;
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = IOPCCardFamilyKext;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = IOPCCardFamilyKext;
+			productName = IOPCCardFamilyKext;
+			productReference = 5938E54408A1A56A00F35B22 /* IOPCCardFamily.kext */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOPCCardFamilyKext</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.yourcompany.driver.IOPCCardFamilyKext</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+	<key>OSBundleLibraries</key>
+	<dict/>
+</dict>
+</plist>
+";
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 5984EB8A08981EC500DCBC01 /* Build configuration list for PBXProject "IOPCCardFamily" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				01A2A179FF9D20B011CA29D1 /* Development */,
+				01A2A17AFF9D20B011CA29D1 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* IOPCCardFamily */;
+			projectDirPath = "";
+			targets = (
+				5938E53B08A1A52A00F35B22 /* IOPCCardFamily */,
+				5938E54308A1A56A00F35B22 /* IOPCCardFamilyKext */,
+				5929272A08984A5400AC020E /* BuildHeaderDoc */,
+				5929271B08984A5300AC020E /* ApplePMUPCCardEject */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		5929272F08984A5400AC020E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "headerdoc2html -o /tmp pccard/*.h\ngatherHeaderDoc /tmp\nopen /tmp/MasterTOC.html";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5929271F08984A5300AC020E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5929272008984A5300AC020E /* ApplePMUPCCardEject.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5938E54008A1A56A00F35B22 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5938E55208A1D9D500F35B22 /* cs.c in Sources */,
+				5938E55308A1D9D500F35B22 /* bulkmem.c in Sources */,
+				5938E55408A1D9D500F35B22 /* cardbus.c in Sources */,
+				5938E55508A1D9D500F35B22 /* i82365.c in Sources */,
+				5938E55608A1D9D500F35B22 /* rsrc_mgr.c in Sources */,
+				5938E55708A1D9D500F35B22 /* cistpl.c in Sources */,
+				5938E55808A1D9D500F35B22 /* IOPCCard16Enabler.cpp in Sources */,
+				5938E55908A1D9D500F35B22 /* IOPCCardEjectController.cpp in Sources */,
+				5938E55A08A1D9D500F35B22 /* IOPCCardDevices.cpp in Sources */,
+				5938E55B08A1D9D500F35B22 /* IOPCCardSupport.cpp in Sources */,
+				5938E55C08A1D9D500F35B22 /* IOPCCardBridge.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5938E57F08A1DC1F00F35B22 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5938E54308A1A56A00F35B22 /* IOPCCardFamilyKext */;
+			targetProxy = 5938E57E08A1DC1F00F35B22 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		5929272508984A5300AC020E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "PCMCIA_DEBUG=0";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-ApplePMUPCCardEject.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.ApplePMUPCCardEject;
+				MODULE_VERSION = 1.0.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ApplePMUPCCardEject;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		5929272608984A5300AC020E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-ApplePMUPCCardEject.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.ApplePMUPCCardEject;
+				MODULE_VERSION = 1.0.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ApplePMUPCCardEject;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		5929272708984A5300AC020E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-ApplePMUPCCardEject.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.ApplePMUPCCardEject;
+				MODULE_VERSION = 1.0.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ApplePMUPCCardEject;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		5929273108984A5400AC020E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "PCMCIA_DEBUG=0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BuildHeaderDoc;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		5929273208984A5400AC020E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BuildHeaderDoc;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		5929273308984A5400AC020E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BuildHeaderDoc;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		5938E53D08A1A54F00F35B22 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPCCardFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		5938E53E08A1A54F00F35B22 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPCCardFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		5938E53F08A1A54F00F35B22 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPCCardFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		5938E54708A1A56B00F35B22 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G4;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "PCMCIA_DEBUG=0";
+				INFOPLIST_FILE = "Info-IOPCCardFamily.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOPCCardFamily;
+				MODULE_VERSION = "";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = IOPCCardFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wno-format",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		5938E54808A1A56B00F35B22 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G4;
+				INFOPLIST_FILE = "Info-IOPCCardFamily.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOPCCardFamily;
+				MODULE_VERSION = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = IOPCCardFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wno-format",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		5938E54908A1A56B00F35B22 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G4;
+				INFOPLIST_FILE = "Info-IOPCCardFamily.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOPCCardFamily;
+				MODULE_VERSION = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = IOPCCardFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wno-format",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		5984EB8B08981EC500DCBC01 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		5984EB8C08981EC500DCBC01 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		5984EB8D08981EC500DCBC01 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5929272408984A5300AC020E /* Build configuration list for PBXNativeTarget "ApplePMUPCCardEject" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5929272508984A5300AC020E /* Development */,
+				5929272608984A5300AC020E /* Deployment */,
+				5929272708984A5300AC020E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		5929273008984A5400AC020E /* Build configuration list for PBXNativeTarget "BuildHeaderDoc" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5929273108984A5400AC020E /* Development */,
+				5929273208984A5400AC020E /* Deployment */,
+				5929273308984A5400AC020E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		5938E53C08A1A54F00F35B22 /* Build configuration list for PBXAggregateTarget "IOPCCardFamily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5938E53D08A1A54F00F35B22 /* Development */,
+				5938E53E08A1A54F00F35B22 /* Deployment */,
+				5938E53F08A1A54F00F35B22 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+		5938E54608A1A56B00F35B22 /* Build configuration list for PBXNativeTarget "IOPCCardFamilyKext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5938E54708A1A56B00F35B22 /* Development */,
+				5938E54808A1A56B00F35B22 /* Deployment */,
+				5938E54908A1A56B00F35B22 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+		5984EB8A08981EC500DCBC01 /* Build configuration list for PBXProject "IOPCCardFamily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5984EB8B08981EC500DCBC01 /* Development */,
+				5984EB8C08981EC500DCBC01 /* Deployment */,
+				5984EB8D08981EC500DCBC01 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

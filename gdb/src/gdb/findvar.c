@@ -49,7 +49,7 @@ you lose
 #endif
 
 LONGEST
-extract_signed_integer (const void *addr, int len)
+extract_signed_integer_with_byte_order (const void *addr, int len, int byte_order)
 {
   LONGEST retval;
   const unsigned char *p;
@@ -63,7 +63,9 @@ That operation is not available on integers of more than %d bytes.",
 
   /* Start at the most significant end of the integer, and work towards
      the least significant.  */
-  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+  if (byte_order == BFD_ENDIAN_UNKNOWN)
+    byte_order = TARGET_BYTE_ORDER;
+  if (byte_order == BFD_ENDIAN_BIG)
     {
       p = startaddr;
       /* Do the sign extension once at the start.  */
@@ -83,7 +85,7 @@ That operation is not available on integers of more than %d bytes.",
 }
 
 ULONGEST
-extract_unsigned_integer (const void *addr, int len)
+extract_unsigned_integer_with_byte_order (const void *addr, int len, int byte_order)
 {
   ULONGEST retval;
   const unsigned char *p;
@@ -98,7 +100,9 @@ That operation is not available on integers of more than %d bytes.",
   /* Start at the most significant end of the integer, and work towards
      the least significant.  */
   retval = 0;
-  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+  if (byte_order == BFD_ENDIAN_UNKNOWN)
+    byte_order = TARGET_BYTE_ORDER;
+  if (byte_order == BFD_ENDIAN_BIG)
     {
       for (p = startaddr; p < endaddr; ++p)
 	retval = (retval << 8) | *p;
@@ -117,13 +121,15 @@ That operation is not available on integers of more than %d bytes.",
    function returns 1 and sets *PVAL.  Otherwise it returns 0.  */
 
 int
-extract_long_unsigned_integer (const void *addr, int orig_len, LONGEST *pval)
+extract_long_unsigned_integer_with_byte_order (const void *addr, int orig_len, LONGEST *pval, int byte_order)
 {
   char *p, *first_addr;
   int len;
 
   len = orig_len;
-  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+  if (byte_order == BFD_ENDIAN_UNKNOWN)
+    byte_order = TARGET_BYTE_ORDER;
+  if (byte_order == BFD_ENDIAN_BIG)
     {
       for (p = (char *) addr;
 	   len > (int) sizeof (LONGEST) && p < (char *) addr + orig_len;
@@ -161,6 +167,21 @@ extract_long_unsigned_integer (const void *addr, int orig_len, LONGEST *pval)
 }
 
 
+extern LONGEST extract_signed_integer (const void *addr, int len)
+{
+  return extract_signed_integer_with_byte_order (addr, len, BFD_ENDIAN_UNKNOWN);
+}
+
+extern ULONGEST extract_unsigned_integer (const void *addr, int len)
+{
+  return extract_unsigned_integer_with_byte_order (addr, len, BFD_ENDIAN_UNKNOWN);
+}
+
+extern int extract_long_unsigned_integer (const void *addr, int orig_len, LONGEST *pval)
+{
+  return extract_long_unsigned_integer_with_byte_order (addr, orig_len, pval, BFD_ENDIAN_UNKNOWN);
+}
+
 /* Treat the bytes at BUF as a pointer of type TYPE, and return the
    address it represents.  */
 CORE_ADDR
@@ -177,7 +198,7 @@ extract_typed_address (const void *buf, struct type *type)
 
 
 void
-store_signed_integer (void *addr, int len, LONGEST val)
+store_signed_integer_with_byte_order (void *addr, int len, LONGEST val, int byte_order)
 {
   unsigned char *p;
   unsigned char *startaddr = (unsigned char *) addr;
@@ -185,7 +206,9 @@ store_signed_integer (void *addr, int len, LONGEST val)
 
   /* Start at the least significant end of the integer, and work towards
      the most significant.  */
-  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+  if (byte_order == BFD_ENDIAN_UNKNOWN)
+    byte_order = TARGET_BYTE_ORDER;
+  if (byte_order == BFD_ENDIAN_BIG)
     {
       for (p = endaddr - 1; p >= startaddr; --p)
 	{
@@ -204,7 +227,7 @@ store_signed_integer (void *addr, int len, LONGEST val)
 }
 
 void
-store_unsigned_integer (void *addr, int len, ULONGEST val)
+store_unsigned_integer_with_byte_order (void *addr, int len, ULONGEST val, int byte_order)
 {
   unsigned char *p;
   unsigned char *startaddr = (unsigned char *) addr;
@@ -212,7 +235,9 @@ store_unsigned_integer (void *addr, int len, ULONGEST val)
 
   /* Start at the least significant end of the integer, and work towards
      the most significant.  */
-  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+  if (byte_order == BFD_ENDIAN_UNKNOWN)
+    byte_order = TARGET_BYTE_ORDER;
+  if (byte_order == BFD_ENDIAN_BIG)
     {
       for (p = endaddr - 1; p >= startaddr; --p)
 	{
@@ -228,6 +253,16 @@ store_unsigned_integer (void *addr, int len, ULONGEST val)
 	  val >>= 8;
 	}
     }
+}
+
+extern void store_signed_integer (void *addr, int len, LONGEST val)
+{
+  store_signed_integer_with_byte_order (addr, len, val, BFD_ENDIAN_UNKNOWN);
+}
+
+extern void store_unsigned_integer (void *addr, int len, ULONGEST val)
+{
+  store_unsigned_integer_with_byte_order (addr, len, val, BFD_ENDIAN_UNKNOWN);
 }
 
 /* Store the address ADDR as a pointer of type TYPE at BUF, in target

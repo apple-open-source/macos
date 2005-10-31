@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -7,6 +7,15 @@ Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -53,10 +62,25 @@ Boston, MA 02111-1307, USA.  */
     st_write(), an error inhibits any data from actually being
     transferred.  */
 
-gfc_unit *current_unit;
+extern void transfer_integer (void *, int);
+export_proto(transfer_integer);
+
+extern void transfer_real (void *, int);
+export_proto(transfer_real);
+
+extern void transfer_logical (void *, int);
+export_proto(transfer_logical);
+
+extern void transfer_character (void *, int);
+export_proto(transfer_character);
+
+extern void transfer_complex (void *, int);
+export_proto(transfer_complex);
+
+gfc_unit *current_unit = NULL;
 static int sf_seen_eor = 0;
 
-char scratch[SCRATCH_SIZE];
+char scratch[SCRATCH_SIZE] = { };
 static char *line_buffer = NULL;
 
 static unit_advance advance_status;
@@ -147,13 +171,13 @@ read_sf (int *length)
 
       /* If we have a line without a terminating \n, drop through to
 	 EOR below.  */
-      if (readlen < 1 & n == 0)
+      if (readlen < 1 && n == 0)
 	{
 	  generate_error (ERROR_END, NULL);
 	  return NULL;
 	}
 
-      if (readlen < 1 || *q == '\n')
+      if (readlen < 1 || *q == '\n' || *q == '\r')
 	{
 	  /* ??? What is this for?  */
           if (current_unit->unit_number == options.stdin_unit)
@@ -271,6 +295,13 @@ unformatted_read (bt type, void *dest, int length)
 {
   void *source;
   int w;
+
+  /* Transfer functions get passed the kind of the entity, so we have
+     to fix this for COMPLEX data which are twice the size of their
+     kind.  */
+  if (type == BT_COMPLEX)
+    length *= 2;
+
   w = length;
   source = read_block (&w);
 
@@ -288,9 +319,14 @@ static void
 unformatted_write (bt type, void *source, int length)
 {
   void *dest;
-   dest = write_block (length);
-   if (dest != NULL)
-     memcpy (dest, source, length);
+
+  /* Correction for kind vs. length as in unformatted_read.  */
+  if (type == BT_COMPLEX)
+    length *= 2;
+
+  dest = write_block (length);
+  if (dest != NULL)
+    memcpy (dest, source, length);
 }
 
 
@@ -350,7 +386,7 @@ write_constant_string (fnode * f)
   for (; length > 0; length--)
     {
       c = *p++ = *q++;
-      if (c == delimiter && c != 'H')
+      if (c == delimiter && c != 'H' && c != 'h')
 	q++;			/* Skip the doubled delimiter.  */
     }
 }
@@ -398,16 +434,16 @@ formatted_transfer (bt type, void *p, int len)
   if (type == BT_COMPLEX)
     type = BT_REAL;
 
-  /* If reversion has occurred and there is another real data item,
-     then we have to move to the next record.  */
-
-  if (g.reversion_flag && n > 0)
-    {
-      g.reversion_flag = 0;
-      next_record (0);
-    }
   for (;;)
     {
+      /* If reversion has occurred and there is another real data item,
+         then we have to move to the next record.  */
+      if (g.reversion_flag && n > 0)
+        {
+          g.reversion_flag = 0;
+          next_record (0);
+        }
+
       consume_data_flag = 1 ;
       if (ioparm.library_return != LIBRARY_OK)
 	break;
@@ -733,14 +769,12 @@ formatted_transfer (bt type, void *p, int len)
 
   return;
 
-/* Come here when we need a data descriptor but don't have one.  We
-   push the current format node back onto the input, then return and
-   let the user program call us back with the data.  */
-
-need_data:
+  /* Come here when we need a data descriptor but don't have one.  We
+     push the current format node back onto the input, then return and
+     let the user program call us back with the data.  */
+ need_data:
   unget_format (f);
 }
-
 
 
 /* Data transfer entry points.  The type of the data entity is
@@ -750,7 +784,6 @@ need_data:
 void
 transfer_integer (void *p, int kind)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -761,7 +794,6 @@ transfer_integer (void *p, int kind)
 void
 transfer_real (void *p, int kind)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -772,7 +804,6 @@ transfer_real (void *p, int kind)
 void
 transfer_logical (void *p, int kind)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -783,7 +814,6 @@ transfer_logical (void *p, int kind)
 void
 transfer_character (void *p, int len)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -794,7 +824,6 @@ transfer_character (void *p, int len)
 void
 transfer_complex (void *p, int kind)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -807,11 +836,15 @@ transfer_complex (void *p, int kind)
 static void
 us_read (void)
 {
-  gfc_offset *p;
+  char *p;
   int n;
+  gfc_offset i;
 
   n = sizeof (gfc_offset);
-  p = (gfc_offset *) salloc_r (current_unit->s, &n);
+  p = salloc_r (current_unit->s, &n);
+
+  if (n == 0)
+    return;  /* end of file */
 
   if (p == NULL || n != sizeof (gfc_offset))
     {
@@ -819,7 +852,8 @@ us_read (void)
       return;
     }
 
-  current_unit->bytes_left = *p;
+  memcpy (&i, p, sizeof (gfc_offset));
+  current_unit->bytes_left = i;
 }
 
 
@@ -829,11 +863,11 @@ us_read (void)
 static void
 us_write (void)
 {
-  gfc_offset *p;
+  char *p;
   int length;
 
   length = sizeof (gfc_offset);
-  p = (gfc_offset *) salloc_w (current_unit->s, &length);
+  p = salloc_w (current_unit->s, &length);
 
   if (p == NULL)
     {
@@ -841,7 +875,7 @@ us_write (void)
       return;
     }
 
-  *p = 0;			/* Bogus value for now.  */
+  memset (p, '\0', sizeof (gfc_offset));	/* Bogus value for now.  */
   if (sfree (current_unit->s) == FAILURE)
     generate_error (ERROR_OS, NULL);
 
@@ -861,7 +895,6 @@ us_write (void)
 static void
 pre_position (void)
 {
-
   if (current_unit->current_record)
     return;			/* Already positioned.  */
 
@@ -902,6 +935,12 @@ data_transfer_init (int read_flag)
   current_unit = get_unit (read_flag);
   if (current_unit == NULL)
   {  /* Open the unit with some default flags.  */
+     if (ioparm.unit < 0)
+     {
+       generate_error (ERROR_BAD_OPTION, "Bad unit number in OPEN statement");
+       library_end ();
+       return;
+     }
      memset (&u_flags, '\0', sizeof (u_flags));
      u_flags.access = ACCESS_SEQUENTIAL;
      u_flags.action = ACTION_READWRITE;
@@ -1008,7 +1047,7 @@ data_transfer_init (int read_flag)
 
   if (read_flag)
     {
-      if (ioparm.eor != 0 && advance_status == ADVANCE_NO)
+      if (ioparm.eor != 0 && advance_status != ADVANCE_NO)
 	generate_error (ERROR_MISSING_OPTION,
 			"EOR specification requires an ADVANCE specification of NO");
 
@@ -1128,9 +1167,7 @@ data_transfer_init (int read_flag)
   /* Start the data transfer if we are doing a formatted transfer.  */
   if (current_unit->flags.form == FORM_FORMATTED && !ioparm.list_format
       && ioparm.namelist_name == NULL && ionml == NULL)
-
-     formatted_transfer (0, NULL, 0);
-
+    formatted_transfer (0, NULL, 0);
 }
 
 
@@ -1186,12 +1223,12 @@ next_record_r (int done)
 	      current_unit->bytes_left -= length;
 	    }
 	}
-
       break;
 
     case FORMATTED_SEQUENTIAL:
       length = 1;
-      if (sf_seen_eor && done)
+      /* sf_read has already terminated input because of an '\n'  */
+      if (sf_seen_eor) 
          break;
 
       do
@@ -1269,7 +1306,7 @@ next_record_w (int done)
       if (p == NULL)
 	goto io_error;
 
-      *((gfc_offset *) p) = m;
+      memcpy (p, &m, sizeof (gfc_offset));
       if (sfree (current_unit->s) == FAILURE)
 	goto io_error;
 
@@ -1280,7 +1317,7 @@ next_record_w (int done)
       if (p == NULL)
 	generate_error (ERROR_OS, NULL);
 
-      *((gfc_offset *) p) = m;
+      memcpy (p, &m, sizeof (gfc_offset));
       if (sfree (current_unit->s) == FAILURE)
 	goto io_error;
 
@@ -1332,6 +1369,9 @@ next_record (int done)
   else
     next_record_w (done);
 
+  /* keep position up to date for INQUIRE */
+  current_unit->flags.position = POSITION_ASIS;
+
   current_unit->current_record = 0;
   if (current_unit->flags.access == ACCESS_DIRECT)
    {
@@ -1355,6 +1395,8 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
+  if (ioparm.library_return != LIBRARY_OK)
+    return;
 
   if ((ionml != NULL) && (ioparm.namelist_name != NULL))
     {
@@ -1417,7 +1459,6 @@ iolength_transfer (bt type, void *dest, int len)
 static void
 iolength_transfer_init (void)
 {
-
   if (ioparm.iolength != NULL)
     *ioparm.iolength = 0;
 
@@ -1426,7 +1467,6 @@ iolength_transfer_init (void)
   /* Set up the subroutine that will handle the transfers.  */
 
   transfer = iolength_transfer;
-
 }
 
 
@@ -1435,13 +1475,18 @@ iolength_transfer_init (void)
    it must still be a runtime library call so that we can determine
    the iolength for dynamic arrays and such.  */
 
+extern void st_iolength (void);
+export_proto(st_iolength);
+
 void
 st_iolength (void)
 {
   library_start ();
-
   iolength_transfer_init ();
 }
+
+extern void st_iolength_done (void);
+export_proto(st_iolength_done);
 
 void
 st_iolength_done (void)
@@ -1452,10 +1497,12 @@ st_iolength_done (void)
 
 /* The READ statement.  */
 
+extern void st_read (void);
+export_proto(st_read);
+
 void
 st_read (void)
 {
-
   library_start ();
 
   data_transfer_init (1);
@@ -1485,29 +1532,32 @@ st_read (void)
       }
 }
 
+extern void st_read_done (void);
+export_proto(st_read_done);
 
 void
 st_read_done (void)
 {
   finalize_transfer ();
-
   library_end ();
 }
 
+extern void st_write (void);
+export_proto(st_write);
 
 void
 st_write (void)
 {
-
   library_start ();
   data_transfer_init (0);
 }
 
+extern void st_write_done (void);
+export_proto(st_write_done);
 
 void
 st_write_done (void)
 {
-
   finalize_transfer ();
 
   /* Deal with endfile conditions associated with sequential files.  */
@@ -1522,9 +1572,13 @@ st_write_done (void)
 	current_unit->endfile = AT_ENDFILE;	/* Just at it now.  */
 	break;
 
-      case NO_ENDFILE:	/* Get rid of whatever is after this record.  */
-	if (struncate (current_unit->s) == FAILURE)
-	  generate_error (ERROR_OS, NULL);
+      case NO_ENDFILE:
+	if (current_unit->current_record > current_unit->last_record)
+          {
+            /* Get rid of whatever is after this record.  */
+            if (struncate (current_unit->s) == FAILURE)
+              generate_error (ERROR_OS, NULL);
+          }
 
 	current_unit->endfile = AT_ENDFILE;
 	break;
@@ -1574,11 +1628,25 @@ st_set_nml_var (void * var_addr, char * var_name, int var_name_len,
     }
 }
 
+extern void st_set_nml_var_int (void *, char *, int, int);
+export_proto(st_set_nml_var_int);
+
+extern void st_set_nml_var_float (void *, char *, int, int);
+export_proto(st_set_nml_var_float);
+
+extern void st_set_nml_var_char (void *, char *, int, int, gfc_charlen_type);
+export_proto(st_set_nml_var_char);
+
+extern void st_set_nml_var_complex (void *, char *, int, int);
+export_proto(st_set_nml_var_complex);
+
+extern void st_set_nml_var_log (void *, char *, int, int);
+export_proto(st_set_nml_var_log);
+
 void
 st_set_nml_var_int (void * var_addr, char * var_name, int var_name_len,
 		    int kind)
 {
-
   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_INTEGER, 0);
 }
 
@@ -1586,7 +1654,6 @@ void
 st_set_nml_var_float (void * var_addr, char * var_name, int var_name_len,
 		      int kind)
 {
-
   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_REAL, 0);
 }
 
@@ -1594,7 +1661,6 @@ void
 st_set_nml_var_char (void * var_addr, char * var_name, int var_name_len,
 		     int kind, gfc_charlen_type string_length)
 {
-
   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_CHARACTER,
 		  string_length);
 }
@@ -1603,7 +1669,6 @@ void
 st_set_nml_var_complex (void * var_addr, char * var_name, int var_name_len,
 			int kind)
 {
-
   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_COMPLEX, 0);
 }
 
@@ -1611,7 +1676,5 @@ void
 st_set_nml_var_log (void * var_addr, char * var_name, int var_name_len,
 		    int kind)
 {
-  
    st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_LOGICAL, 0);
 }
-

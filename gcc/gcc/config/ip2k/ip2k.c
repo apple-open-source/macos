@@ -1,6 +1,7 @@
 /* Subroutines used for code generation on Ubicom IP2022
    Communications Controller.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Red Hat, Inc and Ubicom, Inc.
 
    This file is part of GCC.
@@ -3160,7 +3161,7 @@ ip2k_handle_progmem_attribute (tree *node, tree name,
 	}
       else
 	{
-	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	  warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
     }
@@ -3178,7 +3179,7 @@ ip2k_handle_fndecl_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -5245,7 +5246,7 @@ mdr_try_wreg_elim (first_insn)
 #endif /* IP2K_MD_REORG_PASS */
 
 /* We perform a lot of untangling of the RTL within the reorg pass since
-   the IP2k requires some really bizarre (and really undesireable) things
+   the IP2k requires some really bizarre (and really undesirable) things
    to happen in order to guarantee not aborting.  This pass causes several
    earlier passes to be re-run as it progressively transforms things,
    making the subsequent runs continue to win.  */
@@ -5317,7 +5318,7 @@ ip2k_reorg (void)
   /* There's a good chance that since we last did CSE that we've rearranged
      things in such a way that another go will win.  Do so now!  */
   reload_cse_regs (first_insn);
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_REG_INFO | PROP_DEATH_NOTES);
   
   /* Look for where absurd things are happening with DP.  */
@@ -5329,7 +5330,7 @@ ip2k_reorg (void)
   split_all_insns (0);
 
   reload_cse_regs (first_insn);
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_REG_INFO | PROP_DEATH_NOTES);
   if (flag_peephole2)
     peephole2_optimize (NULL);
@@ -5356,7 +5357,7 @@ ip2k_reorg (void)
   mdr_try_move_dp_reload (first_insn);
   mdr_try_move_pushes (first_insn);
 
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_FINAL);
 
   mdr_try_propagate_move (first_insn);
@@ -5370,14 +5371,14 @@ ip2k_reorg (void)
   mdr_try_propagate_move (first_insn);
 
   reload_cse_regs (first_insn);
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_FINAL);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
   mdr_try_propagate_move (first_insn);
 
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_FINAL);
 
   ip2k_reorg_split_simode = 1;
@@ -5388,14 +5389,14 @@ ip2k_reorg (void)
   mdr_try_propagate_move (first_insn);
 
   reload_cse_regs (first_insn);
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_FINAL);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
   mdr_try_propagate_move (first_insn);
 
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_FINAL);
 
   ip2k_reorg_split_himode = 1;
@@ -5413,21 +5414,21 @@ ip2k_reorg (void)
 
   /* Call to  jump_optimize (...) was here, but now I removed it.  */
   
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_FINAL);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
   mdr_try_propagate_move (first_insn);
 
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_FINAL);
   mdr_try_remove_redundant_insns (first_insn);
 
   mdr_try_propagate_clr (first_insn);
   mdr_try_propagate_move (first_insn);
 
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_FINAL);
 
   ip2k_reorg_split_qimode = 1;
@@ -5436,7 +5437,7 @@ ip2k_reorg (void)
   mdr_try_wreg_elim (first_insn);
   mdr_try_propagate_move (first_insn);
 
-  find_basic_blocks (first_insn, max_reg_num (), 0);
+  find_basic_blocks (first_insn);
   life_analysis (0, PROP_FINAL);
 #endif
 }

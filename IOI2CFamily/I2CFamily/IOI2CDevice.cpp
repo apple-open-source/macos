@@ -1,39 +1,31 @@
 /*
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDevice.cpp,v 1.7 2004/12/17 00:51:01 jlehrer Exp $
+ *	File: $Id: IOI2CDevice.cpp,v 1.10 2005/07/01 16:09:52 bwpang Exp $
  *
  *  DRI: Joseph Lehrer
  *
- *		$Log: IOI2CDevice.cpp,v $
- *		Revision 1.7  2004/12/17 00:51:01  jlehrer
- *		[3867728] Force PM to power off before calling PMstop in freeI2CResources.
- *		
- *		Revision 1.6  2004/12/15 02:16:58  jlehrer
- *		[3905559] Disable mac-io/i2c power management for AOA.
- *		[3917744,3917697] Require root privilges for IOI2CUserClient class.
- *		[3867728] Add support for teardown in freeI2CResources and callPlatformFunction.
- *		
- *		Revision 1.5  2004/11/04 20:20:28  jlehrer
- *		Unregisters for IOI2CPowerStateInterest in freeI2CResources.
- *		
- *		Revision 1.4  2004/09/28 01:47:37  jlehrer
- *		Added separate DLOGPWR macro.
- *		
- *		Revision 1.3  2004/09/17 21:05:24  jlehrer
- *		Removed APSL headers.
- *		Added support for 10-bit addresses.
- *		Added external client read/write interface.
- *		Fixed: removed semaphore_wait(fClientSem) from wakeup event.
- *		Added: publish all on demand and interrupt flagged PlatformFunctions.
- *		Changed: readI2C/writeI2C to not recursive call when default key is used.
- *		
- *		Revision 1.2  2004/06/08 23:45:15  jlehrer
- *		Added ERRLOG, disabled DLOG, changed DLOGI2C to use runtime cmd.option flag.
- *		
- *		Revision 1.1  2004/06/07 21:53:41  jlehrer
- *		Initial Checkin
- *		
  *
  */
 
@@ -79,7 +71,8 @@
 #define I2C_DEBUG_VERBOSE 1
 
 #if (defined(I2C_DEBUG_VERBOSE) && I2C_DEBUG_VERBOSE)
-#define DLOGI2C(opt, fmt, args...)	do{if(opt&kI2COption_VerboseLog)kprintf(fmt, ## args);}while(0)
+#define DLOGI2C(opt, fmt, args...)	do{if((opt&kI2COption_VerboseLog)||(fStateFlags&kStateFlags_kprintf))kprintf(fmt, ## args);if((opt&kI2COption_VerboseLog)||(fStateFlags&kStateFlags_IOLog))IOLog(fmt, ## args);}while(0)
+//#define DLOGI2C(opt, fmt, args...) do{if((opt&kI2COption_VerboseLog)||(fStateFlags&kStateFlags_kprintf)){mach_timespec_t absTime; IOGetTime(&absTime);kprintf("%d.%d " fmt, (int)absTime.tv_sec, (int)absTime.tv_nsec, ## args);}}while(0)
 #else
 #define DLOGI2C(opt, fmt, args...)
 #endif
@@ -120,6 +113,7 @@ bool IOI2CDevice::init(
 
 	if (0 == (reserved = (ExpansionData *)IOMalloc(sizeof(struct ExpansionData))))
 		return false;
+	bzero( reserved, sizeof(struct ExpansionData) );	// [3987457]
 
 	return true;
 }
@@ -163,7 +157,10 @@ IOI2CDevice::start(
 	}
 
 	AbsoluteTime deadline, currentTime;
-	clock_interval_to_deadline(3, kSecondScale, &deadline);
+
+	// The original deadline was for 3 seconds, but this proved to short in some systems with densely populated I2C busses [4103531]
+	clock_interval_to_deadline(15, kSecondScale, &deadline);
+
 	while (isI2COffline())
 	{
 		IOSleep(10);
@@ -289,7 +286,7 @@ IOI2CDevice::freeI2CResources(void)
 	I2CUNLOCK;
 
 	DLOG("+IOI2CDevice@%lx::freeI2CResources\n",fI2CAddress);
-	if (initialized)
+	if (fStateFlags & kStateFlags_PMInit)	// Don't rely on initialized flag to identify if PMinit was called.
 	{
 		DLOGPWR("+IOI2CDevice@%lx::freeI2CResources requesting power OFF\n",fI2CAddress);
 		changePowerStateTo(kIOI2CPowerState_OFF);
@@ -309,7 +306,11 @@ IOI2CDevice::freeI2CResources(void)
 		}
 
 		DLOGPWR("+IOI2CDevice@%lx::freeI2CResources calling PMStop\n",fI2CAddress);
-		PMstop();
+		if (fStateFlags & kStateFlags_PMInit)
+		{
+			fStateFlags &= ~kStateFlags_PMInit;
+			PMstop();
+		}
 	}
 	DLOG("IOI2CDevice@%lx::freeI2CResources 1\n",fI2CAddress);
 
@@ -320,7 +321,8 @@ IOI2CDevice::freeI2CResources(void)
 		fPowerStateThreadCall = 0;
 	}
 
-	fProvider->callPlatformFunction("IOI2CPowerStateInterest", FALSE, (void *)this, (void *)false, 0, 0);
+	if (fProvider)
+		fProvider->callPlatformFunction("IOI2CPowerStateInterest", FALSE, (void *)this, (void *)false, 0, 0);
 
 	DLOG("IOI2CDevice@%lx::freeI2CResources 2\n",fI2CAddress);
 	if (symLockI2CBus)		{ symLockI2CBus->release();		symLockI2CBus = 0; }
@@ -442,6 +444,7 @@ IOI2CDevice::InitializePowerManagement(void)
 
 	// Initialize Power Management superclass variables from IOService.h
 	PMinit();
+	fStateFlags |= kStateFlags_PMInit;
 
 	// Join the Power Management tree from IOService.h
 	fProvider->joinPMtree( this);
@@ -517,7 +520,7 @@ IOReturn IOI2CDevice::setPowerState(
 	unsigned long	newPowerState,
 	IOService		*dontCare)
 {
-	kprintf("IOI2CDevice@%lx::setPowerState called with state:%lu\n", fI2CAddress, newPowerState);
+	DLOGPWR("IOI2CDevice@%lx::setPowerState called with state:%lu\n", fI2CAddress, newPowerState);
 
 	if (pm_vars == NULL)
 		return IOPMAckImplied;
@@ -549,7 +552,7 @@ IOI2CDevice::sPowerStateThreadCall(
 	if (self == NULL)
 		panic("IOI2CDevice::sPowerStateThreadCall with unknown \"this\" type\n");
 
-	DLOG("IOI2CDevice@%lx::sPowerStateThreadCall called with state:%lu\n", self->fI2CAddress, newPowerState);
+	DLOGPWR("IOI2CDevice@%lx::sPowerStateThreadCall called with state:%lu\n", self->fI2CAddress, newPowerState);
 	self->powerStateThreadCall(newPowerState);
 }
 
@@ -752,7 +755,7 @@ IOI2CDevice::lockI2CBus(
 	{
 		ERRLOG("IOI2CDevice@%lx::lockI2CBus device is offline\n", fI2CAddress);
 		*clientKeyRef = kIOI2C_CLIENT_KEY_INVALID;
-		status = kIOReturnOffline;
+		return kIOReturnOffline;
 	}
 
 	I2CLOCK;
@@ -879,7 +882,6 @@ IOI2CDevice::writeI2C(
 	{
 		if (kIOReturnSuccess == (status = lockI2CBus(&clientKey)))
 		{
-//			status = writeI2C(cmd, clientKey);
 			cmd->address = getI2CAddress();
 			DLOGI2C((cmd->options), "IOI2CDevice@%lx::writeI2C cmd key:%lx, B:%lx, A:%lx S:%lx, L:%lx, M:%lx\n",
 				fI2CAddress, clientKey, cmd->bus, cmd->address, cmd->subAddress, cmd->count, cmd->mode);
@@ -988,6 +990,17 @@ IOI2CDevice::callPlatformFunction(
 		else
 		if (symClientWrite->isEqualTo(functionName))
 			return writeI2C((UInt32)param1, (UInt8 *)param2, (UInt32)param3, (UInt32)param4);
+		else
+		if (functionName->isEqualTo("IOI2CSetDebugFlags"))
+		{
+			UInt32 flags = ( (UInt32)param1 & ( kStateFlags_IOLog | kStateFlags_kprintf ) );
+			kprintf("IOI2CDevice@%lx IOI2CSetDebugFlags:%lx %s\n", (unsigned long int)getI2CAddress(), (unsigned long int)flags, ((UInt32)param2 == true)?"TRUE":"FALSE");
+			if ((UInt32)param2 == true)
+				fStateFlags |= flags;	// set the debug flags
+			else
+				fStateFlags &= ~flags;	// clear the debug flags
+			return kIOReturnSuccess;
+		}
 
 		// If no other symbol matched - check for OnDemand platform function.
 		if (fEnableOnDemandPlatformFunctions)

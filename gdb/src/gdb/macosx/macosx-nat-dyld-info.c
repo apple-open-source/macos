@@ -191,7 +191,10 @@ dyld_objfile_info_init (struct dyld_objfile_info *i)
 void
 dyld_objfile_info_clear_objfiles (struct dyld_objfile_info *i)
 {
-  unsigned int n;
+  int n;
+
+  /* Don't use DYLD_ALL_OBJFILE_INFO_ENTRIES here because we don't want
+     to skip unallocated entries.  */
 
   for (n = 0; n < i->nents; n++)
     {
@@ -206,7 +209,7 @@ dyld_objfile_info_clear_objfiles (struct dyld_objfile_info *i)
 void
 dyld_objfile_info_pack (struct dyld_objfile_info *i)
 {
-  unsigned int j;
+  int j;
   for (j = 0; j < i->nents; j++)
     {
       if (!i->entries[j].allocated)
@@ -306,7 +309,7 @@ int
 dyld_objfile_info_compare (struct dyld_objfile_info *a,
                            struct dyld_objfile_info *b)
 {
-  unsigned int i;
+  int i;
 
   if (a->nents != b->nents)
     {
@@ -334,15 +337,10 @@ dyld_objfile_info_copy_entries (struct dyld_objfile_info *d,
                                 unsigned int mask)
 {
   struct dyld_objfile_entry *e, *n;
-  unsigned int i;
+  int i;
 
-  for (i = 0; i < s->nents; i++)
+  DYLD_ALL_OBJFILE_INFO_ENTRIES (s, e, i)
     {
-      e = &s->entries[i];
-      if (!e->allocated)
-        {
-          continue;
-        }
       if (e->reason & mask)
         {
           n = dyld_objfile_entry_alloc (d);
@@ -423,7 +421,8 @@ dyld_objfile_entry_alloc (struct dyld_objfile_info *i)
 
 const char *
 dyld_entry_filename (const struct dyld_objfile_entry *e,
-                     const struct dyld_path_info *d, int type)
+                     const struct dyld_path_info *d, 
+                     enum dyld_entry_filename_type type)
 {
   CHECK_FATAL (e != NULL);
   CHECK_FATAL (e->allocated);
@@ -479,12 +478,10 @@ dyld_entry_filename (const struct dyld_objfile_entry *e,
   if (resolved == NULL)
     return name;
 
-#if 0
   char buf[PATH_MAX];
   resolved = realpath (resolved, buf);
   if (resolved == NULL)
     return name;
-#endif
 
   name = xstrdup (resolved);
 
@@ -863,27 +860,20 @@ dyld_entry_shlib_num (struct dyld_objfile_info *s,
 /* Returns the length of the longest field that would be printed when
    displaying 's' according to 'reason_mask'. */
 
-unsigned int
+int
 dyld_shlib_info_basename_length (struct dyld_objfile_info *s,
                                  unsigned int reason_mask)
 {
   int i;
   int baselen = 0;
   struct objfile *objfile, *temp;
+  struct dyld_objfile_entry *j;
 
-  for (i = 0; i < s->nents; i++)
+  DYLD_ALL_OBJFILE_INFO_ENTRIES (s, j, i)
     {
-
       const char *name = NULL;
       const char *tfname = NULL;
-      unsigned int tfnamelen = 0;
-
-      struct dyld_objfile_entry *j = &s->entries[i];
-
-      if (!j->allocated)
-        {
-          continue;
-        }
+      int tfnamelen = 0;
 
       if (!(j->reason & reason_mask))
         {
@@ -920,17 +910,13 @@ dyld_shlib_info_basename_length (struct dyld_objfile_info *s,
     const char *name = NULL;
     const char *tfname = NULL;
     int tfnamelen = 0;
+    struct dyld_objfile_entry *j;
 
     int found = 0;
 
-    for (i = 0; i < s->nents; i++)
+    DYLD_ALL_OBJFILE_INFO_ENTRIES (s, j, i)
       {
-        struct dyld_objfile_entry *j = &s->entries[i];
-        if (!j->allocated)
-          {
-            continue;
-          }
-        if ((j->objfile == objfile) || (j->commpage_objfile == objfile))
+        if (j->objfile == objfile || j->commpage_objfile == objfile)
           {
             found = 1;
           }
@@ -1310,11 +1296,11 @@ void
 dyld_print_shlib_info (struct dyld_objfile_info *s, unsigned int reason_mask,
                        int header, char *args)
 {
-  unsigned int baselen = 0;
+  int baselen = 0;
   char *basepad = NULL;
-  unsigned int shlibnum = 0;
+  int shlibnum = 0;
   struct objfile *objfile, *temp;
-  unsigned int i;
+  int i;
 
   baselen = dyld_shlib_info_basename_length (s, reason_mask);
   if (baselen < 12)
@@ -1344,7 +1330,6 @@ dyld_print_shlib_info (struct dyld_objfile_info *s, unsigned int reason_mask,
 
   for (i = 0; i < s->nents; i++)
     {
-
       struct dyld_objfile_entry *j = &s->entries[i];
 
       if (!j->allocated)
@@ -1371,17 +1356,12 @@ dyld_print_shlib_info (struct dyld_objfile_info *s, unsigned int reason_mask,
 
   ALL_OBJFILES_SAFE (objfile, temp)
   {
-
     int found = 0;
+    struct dyld_objfile_entry *j;
 
-    for (i = 0; i < s->nents; i++)
+    DYLD_ALL_OBJFILE_INFO_ENTRIES (s, j, i)
       {
-        struct dyld_objfile_entry *j = &s->entries[i];
-        if (!j->allocated)
-          {
-            continue;
-          }
-        if ((j->objfile == objfile) || (j->commpage_objfile == objfile))
+        if (j->objfile == objfile || j->commpage_objfile == objfile)
           {
             found = 1;
           }
@@ -1398,8 +1378,7 @@ dyld_print_shlib_info (struct dyld_objfile_info *s, unsigned int reason_mask,
             continue;
           }
 
-        if ((args == NULL)
-            || dyld_entry_shlib_num_matches (shlibnum, args, 0))
+        if (args == NULL || dyld_entry_shlib_num_matches (shlibnum, args, 0))
           {
             dyld_convert_entry (objfile, &tentry);
             dyld_print_entry_info (&tentry, shlibnum, baselen);
@@ -1417,8 +1396,8 @@ dyld_print_shlib_info (struct dyld_objfile_info *s, unsigned int reason_mask,
    whatever.)  If you call it with N having a value of 5, you can get
    back 5 or a higher number as it skips over unallocated entries.  */
 
-unsigned int
-dyld_next_allocated_shlib (struct dyld_objfile_info *info, unsigned int n)
+int
+dyld_next_allocated_shlib (struct dyld_objfile_info *info, int n)
 {
   for (;;)
     {

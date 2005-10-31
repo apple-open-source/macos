@@ -102,6 +102,8 @@ static void init_idents (void);
 static bool m32r_rtx_costs (rtx, int, int, int *);
 static bool m32r_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
+static int m32r_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
+				   tree, bool);
 
 /* Initialize the GCC target structure.  */
 #undef  TARGET_ATTRIBUTE_TABLE
@@ -145,6 +147,8 @@ static bool m32r_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 #undef  TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE m32r_pass_by_reference
+#undef  TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES m32r_arg_partial_bytes
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -353,7 +357,7 @@ m32r_handle_model_attribute (tree *node ATTRIBUTE_UNUSED, tree name,
       && arg != large_ident1
       && arg != large_ident2)
     {
-      warning ("invalid argument of `%s' attribute",
+      warning ("invalid argument of %qs attribute",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -1321,13 +1325,11 @@ gen_split_move_double (rtx operands[])
 }
 
 
-/* Implements the FUNCTION_ARG_PARTIAL_NREGS macro.  */
-
-int
-function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-			    tree type, int named ATTRIBUTE_UNUSED)
+static int
+m32r_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+			tree type, bool named ATTRIBUTE_UNUSED)
 {
-  int ret;
+  int words;
   unsigned int size =
     (((mode == BLKmode && type)
       ? (unsigned int) int_size_in_bytes (type)
@@ -1335,13 +1337,13 @@ function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     / UNITS_PER_WORD;
 
   if (*cum >= M32R_MAX_PARM_REGS)
-    ret = 0;
+    words = 0;
   else if (*cum + size > M32R_MAX_PARM_REGS)
-    ret = (*cum + size) - M32R_MAX_PARM_REGS;
+    words = (*cum + size) - M32R_MAX_PARM_REGS;
   else
-    ret = 0;
+    words = 0;
 
-  return ret;
+  return words * UNITS_PER_WORD;
 }
 
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
@@ -1987,12 +1989,21 @@ m32r_legitimize_pic_address (rtx orig, rtx reg)
       else
         address = reg;
 
+      current_function_uses_pic_offset_table = 1;
+
+      if (GET_CODE (orig) == LABEL_REF
+          || (GET_CODE (orig) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (orig)))
+        {
+          emit_insn (gen_gotoff_load_addr (reg, orig));
+          emit_insn (gen_addsi3 (reg, reg, pic_offset_table_rtx));
+          return reg;
+        }
+
       emit_insn (gen_pic_load_addr (address, orig));
 
       emit_insn (gen_addsi3 (address, address, pic_offset_table_rtx));
       pic_ref = gen_const_mem (Pmode, address);
       insn = emit_move_insn (reg, pic_ref);
-      current_function_uses_pic_offset_table = 1;
 #if 0
       /* Put a REG_EQUAL note on this insn, so that it can be optimized
          by loop.  */

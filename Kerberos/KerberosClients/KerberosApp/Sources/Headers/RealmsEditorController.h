@@ -1,7 +1,7 @@
 /*
  * RealmsEditorController.h
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/RealmsEditorController.h,v 1.10 2004/11/02 23:28:38 lxs Exp $
+ * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/RealmsEditorController.h,v 1.11 2005/05/25 20:36:06 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -136,9 +136,12 @@
 - (void) realmConfigurationErrorNeedsDisplay: (NSNotification *) notification;
 - (void) tableViewSelectionDidChange: (NSNotification *) notification;
 
-- (BOOL) saveChanges;
-
+- (NSString *) currentRealmString;
+- (NSString *) currentServerString;
+- (NSString *) currentDomainString;
 - (BOOL) stopEditing;
+
+- (BOOL) saveChanges;
 
 - (KerberosRealm *) selectedRealm;
 - (KerberosServer *) selectedServer;

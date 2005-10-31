@@ -61,7 +61,7 @@ using namespace std;
 #include "DSUtils.h"
 #include "PrivateTypes.h"
 #include "CLog.h"
-#include "GetMacAddress.h"
+#include "GetMACAddress.h"
 #include "DSLDAPUtils.h"
 #include "buffer_unpackers.h"
 #include "CDSPluginUtils.h"
@@ -865,7 +865,7 @@ void AddKeytabEntry( char *inPrinc, char *inPass )
 void RemoveKeytabEntry( char *inPrinc )
 {
 	char				ktname[MAXPATHLEN+sizeof("WRFILE:")+1];
-	krb5_kt_cursor		cursor;
+	krb5_kt_cursor		cursor		= NULL;
 	krb5_keytab_entry   entry;
 	krb5_principal		host_princ	= NULL;
 	krb5_keytab			kt			= NULL;
@@ -873,6 +873,8 @@ void RemoveKeytabEntry( char *inPrinc )
 	krb5_error_code		retval;
 	
 	gLDAPKerberosMutex->Wait();
+	
+	bzero( &entry, sizeof(entry) );
 	
 	retval = krb5_init_context( &kContext );
 	if( 0 == retval )
@@ -912,7 +914,10 @@ void RemoveKeytabEntry( char *inPrinc )
 			// need to free the contents so we don't leak
 			krb5_free_keytab_entry_contents( kContext, &entry );
 		}
-		krb5_kt_end_seq_get( kContext, kt, &cursor );
+		if( cursor != NULL )
+		{
+			krb5_kt_end_seq_get( kContext, kt, &cursor );
+		}
 	}
 	
 	if( host_princ )
@@ -5044,18 +5049,45 @@ char *CLDAPv3Plugin::BuildLDAPQueryFilter (	char			   *inConstAttrType,
 		if (inConstAttrName != nil)
 		{
 			recNameLen = strlen(inConstAttrName);
-			escapedName = (char *)::calloc(1, 2 * recNameLen + 1);
+			escapedName = (char *)::calloc(1, 3 * recNameLen + 1);
 			// assume at most all characters will be escaped
 			while (originalIndex < recNameLen)
 			{
 				switch (inConstAttrName[originalIndex])
 				{
+                    // add \ escape character then hex representation of original character
 					case '*':
+						escapedName[escapedIndex] = '\\';
+						++escapedIndex;
+						escapedName[escapedIndex] = '2';
+						++escapedIndex;
+						escapedName[escapedIndex] = 'a';
+						++escapedIndex;                        
+						break;
 					case '(':
+						escapedName[escapedIndex] = '\\';
+						++escapedIndex;
+						escapedName[escapedIndex] = '2';
+						++escapedIndex;
+						escapedName[escapedIndex] = '8';
+						++escapedIndex;                        
+						break;
 					case ')':
 						escapedName[escapedIndex] = '\\';
 						++escapedIndex;
-						// add \ escape character then fall through and pick up the original character
+						escapedName[escapedIndex] = '2';
+						++escapedIndex;
+						escapedName[escapedIndex] = '9';
+						++escapedIndex;                        
+						break;
+					case '\\':
+						escapedName[escapedIndex] = '\\';
+						++escapedIndex;
+						escapedName[escapedIndex] = '5';
+						++escapedIndex;
+						escapedName[escapedIndex] = 'c';
+						++escapedIndex;                        
+						break;
 					default:
 						escapedName[escapedIndex] = inConstAttrName[originalIndex];
 						++escapedIndex;
@@ -5375,7 +5407,7 @@ char *CLDAPv3Plugin::BuildLDAPQueryMultiFilter
 			while(inAttrNames[strCount] != nil)
 			{
 				recNameLen = strlen(inAttrNames[strCount]);
-				escapedStrings[strCount] = (char *)::calloc(1, 2 * recNameLen + 1);
+				escapedStrings[strCount] = (char *)::calloc(1, 3 * recNameLen + 1);
 				//assume at most all characters will be escaped
 				escapedIndex	= 0;
 				originalIndex   = 0;
@@ -5383,12 +5415,40 @@ char *CLDAPv3Plugin::BuildLDAPQueryMultiFilter
 				{
 					switch (inAttrNames[strCount][originalIndex])
 					{
+						// add \ escape character then hex representation of original character
 						case '*':
+							escapedStrings[strCount][escapedIndex] = '\\';
+							++escapedIndex;
+							escapedStrings[strCount][escapedIndex] = '2';
+							++escapedIndex;
+							escapedStrings[strCount][escapedIndex] = 'a';
+							++escapedIndex;                        
+							break;
 						case '(':
+							escapedStrings[strCount][escapedIndex] = '\\';
+							++escapedIndex;
+							escapedStrings[strCount][escapedIndex] = '2';
+							++escapedIndex;
+							escapedStrings[strCount][escapedIndex] = '8';
+							++escapedIndex;                        
+							break;
 						case ')':
 							escapedStrings[strCount][escapedIndex] = '\\';
 							++escapedIndex;
 							// add \ escape character then fall through and pick up the original character
+							escapedStrings[strCount][escapedIndex] = '2';
+							++escapedIndex;
+							escapedStrings[strCount][escapedIndex] = '9';
+							++escapedIndex;                        
+							break;
+						case '\\':
+							escapedStrings[strCount][escapedIndex] = '\\';
+							++escapedIndex;
+							escapedStrings[strCount][escapedIndex] = '5';
+							++escapedIndex;
+							escapedStrings[strCount][escapedIndex] = 'c';
+							++escapedIndex;                        
+							break;
 						default:
 							escapedStrings[strCount][escapedIndex] = inAttrNames[strCount][originalIndex];
 							++escapedIndex;
@@ -12409,8 +12469,8 @@ sInt32 CLDAPv3Plugin::DoSetPassword ( sLDAPContextData *inContext, tDataBuffer *
 			}
 
 			inContext->fLDAPNodeStruct->ChangeRefCountBy( -1 ); // was temporary need to unref count it
-			inContext->fLDAPNodeStruct = origNodeStruct; // already incremented above and decremented by Authopen
 			inLDAPSessionMgr.UnLockSession(inContext);
+			inContext->fLDAPNodeStruct = origNodeStruct; // already incremented above and decremented by Authopen
 		}
 		else
 		{
@@ -12737,8 +12797,8 @@ sInt32 CLDAPv3Plugin::DoChangePassword ( sLDAPContextData *inContext, tDataBuffe
 			}
 
 			inContext->fLDAPNodeStruct->ChangeRefCountBy( -1 ); // was temporary need to unref count it
-			inContext->fLDAPNodeStruct = origNodeStruct; // already incremented above and decremented by Authopen
 			inLDAPSessionMgr.UnLockSession(inContext);
+			inContext->fLDAPNodeStruct = origNodeStruct; // already incremented above and decremented by Authopen
 		}
 		else
 		{
@@ -13801,7 +13861,7 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 		{
 			aRequest = inData->fInRequestCode;
 			bufLen = inData->fInRequestData->fBufferLength;
-			if ( aRequest != 55 )
+			if ( aRequest != eDSCustomCallLDAPv3WriteServerMappings )
 			{
 				if ( bufLen < sizeof( AuthorizationExternalForm ) ) throw( (sInt32)eDSInvalidBuffFormat );
 
@@ -13838,7 +13898,7 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 			}
 			switch( aRequest )
 			{
-				case 55:
+				case eDSCustomCallLDAPv3WriteServerMappings:
 					// parse input buffer
 					dataList = dsAuthBufferGetDataListAllocPriv(inData->fInRequestData);
 					if ( dataList == nil ) throw( (sInt32)eDSInvalidBuffFormat );
@@ -13879,7 +13939,7 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					CFDataRef gpConfigFromXML->ReadServerMappings ( LDAP *serverHost = pContext->fHost, CFDataRef inMappings = xmlData );
 					*/
 					 
-				case 66:
+				case eDSCustomCallLDAPv3ReadConfigSize:
 					// get length of XML file
 						
 					if ( inData->fOutRequestResponse == nil ) throw( (sInt32)eDSNullDataBuff );
@@ -13899,7 +13959,7 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					}
 					break;
 					
-				case 77:
+				case eDSCustomCallLDAPv3ReadConfigData:
 					// read xml config
 					CFRange	aRange;
 						
@@ -13921,7 +13981,7 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					}
 					break;
 					
-				case 88:
+				case eDSCustomCallLDAPv3WriteConfigData:
 				{
 					CFPropertyListRef		configPropertyList = NULL;
 					CFStringRef				errorString = NULL;
@@ -13965,11 +14025,11 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					break;
 				}
 					
-				case 99:
+				case eDSCustomCallLDAPv3Reinitialize:
 					Initialize();
 					break;
 
-				case 111:
+				case eDSCustomCallLDAPv3AddServerConfig:
 					//here we accept an XML blob to add a Server Mappings LDAP node to the search policy
 					//need to make xmlData large enough to accomodate the data
 					xmlDataLength = (sInt32) bufLen - sizeof(AuthorizationExternalForm);
@@ -13987,8 +14047,8 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					CFRelease(xmlData);
 					break;
 					
-				case 200:
-				case 201:
+				case eDSCustomCallLDAPv3NewServerDiscovery:
+				case eDSCustomCallLDAPv3NewServerDiscoveryNoDupes:
 					// Verify server can be contacted, get basic information from RootDSE
 					// this includes determining the name context and look for server mappings
 					// Will return:
@@ -13999,7 +14059,7 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					siResult = DoNewServerDiscovery( inData );
 					break;
 					
-				case 202:
+				case eDSCustomCallLDAPv3NewServerVerifySettings:
 					// Verify configuration from server or user works (i.e., mappings) or requires authentication
 					// Will return:
 					//		eDSNoErr					= Everything okay, continue to next step
@@ -14009,7 +14069,7 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					siResult = DoNewServerVerifySettings( inData );
 					break;
 					
-				case 203:
+				case eDSCustomCallLDAPv3NewServerGetConfig:
 					// Determine if server configuration (i.e., Directory Binding)
 					// Will return:
 					//		eDSNoErr					= Everything okay, continue next step
@@ -14019,8 +14079,8 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					siResult = DoNewServerGetConfig( inData );
 					break;
 					
-				case 204:		// Do not join, check fail with eDSRecordAlreadyExists if already there
-				case 205:		// Join existing account
+				case eDSCustomCallLDAPv3NewServerBind:		// Do not join, check fail with eDSRecordAlreadyExists if already there
+				case eDSCustomCallLDAPv3NewServerForceBind:	// Join existing account
 					// Bind to server
 					// Will return:
 					//		eDSNoErr					= Everything okay, configuration complete
@@ -14029,11 +14089,11 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					//		eDSNoStdMappingAvailable	= No Computer Mapping available for this process
 					//		eDSInvalidRecordName		= Missing a valid name for the Computer
 					//		eDSAuthMethodNotSupported   = Method not supported, see key "Supported Security Level"
-					//		eDSRecordAlreadyExists		= Computer already exists, send 205 to override
+					//		eDSRecordAlreadyExists		= Computer already exists, send eDSCustomCallLDAPv3NewServerForceBind to override
 					siResult = DoNewServerBind( inData );
 					break;
 					
-				case 206:
+				case eDSCustomCallLDAPv3NewServerAddConfig:
 					// Setup and non-binded server
 					// Will return:
 					//		eDSNoErr					= Everything okay, configuration complete
@@ -14042,9 +14102,9 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					siResult = DoNewServerSetup( inData );
 					break;
 					
-				case 207:   // normal unbind
-				case 208:   // force unbind, leaving computer account if it exists
-				case 209:   // remove server from configuration
+				case eDSCustomCallLDAPv3UnbindServerConfig:			// normal unbind
+				case eDSCustomCallLDAPv3ForceUnbindServerConfig:	// force unbind, leaving computer account if it exists
+				case eDSCustomCallLDAPv3RemoveServerConfig:			// remove server from configuration
 					// Unbind request
 					// Will return:
 					//		eDSNoErr					= Everything okay, removal complete
@@ -14053,8 +14113,8 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					siResult = DoRemoveServer( inData );
 					break;
 				
-				case 210:   // do a bind, but not for ourselves
-				case 211:   // do a force bind, but not for ourselves
+				case eDSCustomCallLDAPv3NewServerBindOther:			// do a bind, but not for ourselves
+				case eDSCustomCallLDAPv3NewServerForceBindOther:	// do a force bind, but not for ourselves
 					// Bind to server
 					// Will return:
 					//		eDSNoErr					= Everything okay, configuration complete
@@ -14063,7 +14123,7 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					//		eDSNoStdMappingAvailable	= No Computer Mapping available for this process
 					//		eDSInvalidRecordName		= Missing a valid name for the Computer
 					//		eDSAuthMethodNotSupported   = Method not supported, see key "Supported Security Level"
-					//		eDSRecordAlreadyExists		= Computer already exists, send 205 to override
+					//		eDSRecordAlreadyExists		= Computer already exists, send eDSCustomCallLDAPv3NewServerForceBind to override
 					siResult = DoNewServerBind2( inData );
 					break;
 					
@@ -14818,7 +14878,7 @@ sInt32 CLDAPv3Plugin::DoNewServerDiscovery( sDoPlugInCustomCall *inData )
 		}
 		
 		// see if server is already in our config, return error if so
-		if( inData->fInRequestCode == 201 && IsServerInConfig(NULL, cfServer, NULL, NULL) )
+		if( inData->fInRequestCode == eDSCustomCallLDAPv3NewServerDiscoveryNoDupes && IsServerInConfig(NULL, cfServer, NULL, NULL) )
 		{
 			throw( (sInt32) eDSRecordAlreadyExists );
 		}
@@ -15729,7 +15789,7 @@ sInt32 CLDAPv3Plugin::DoNewServerBind2( sDoPlugInCustomCall *inData )
 		// if we didn't get an error, then we were able to open the record
 		if( siResult == eDSNoErr )
 		{
-			if( inData->fInRequestCode == 204 || inData->fInRequestCode == 210 )
+			if( inData->fInRequestCode == eDSCustomCallLDAPv3NewServerBind || inData->fInRequestCode == eDSCustomCallLDAPv3NewServerBindOther )
 			{
 				DBGLOG1( kLogPlugin, "CLDAPv3Plugin: Bind Request - Existing computer record %s", pComputerID );
 				throw( (sInt32) eDSRecordAlreadyExists );
@@ -15840,7 +15900,7 @@ sInt32 CLDAPv3Plugin::DoNewServerBind2( sDoPlugInCustomCall *inData )
 		}
 		
 		CFStringRef cfEnetAddr = NULL;
-		if( inData->fInRequestCode == 210 || inData->fInRequestCode == 211 )
+		if( inData->fInRequestCode == eDSCustomCallLDAPv3NewServerBindOther || inData->fInRequestCode == eDSCustomCallLDAPv3NewServerForceBindOther )
 		{
 			CFStringRef cfTempAddr = (CFStringRef) CFDictionaryGetValue( cfXMLDict, CFSTR(kDS1AttrENetAddress) );
 			if( cfTempAddr != NULL && CFGetTypeID(cfTempAddr) == CFStringGetTypeID() )
@@ -16315,7 +16375,7 @@ sInt32 CLDAPv3Plugin::DoRemoveServer( sDoPlugInCustomCall *inData )
 			nodeString = NULL;
 			
 			// if we are forcibly unbinding and we have a failure, throw noError and just delete it
-			if( siResult == eDSOpenNodeFailed && inData->fInRequestCode == 208 )
+			if( siResult == eDSOpenNodeFailed && inData->fInRequestCode == eDSCustomCallLDAPv3ForceUnbindServerConfig )
 			{
 				throw( (sInt32) eDSNoErr );
 			}
@@ -16376,14 +16436,14 @@ sInt32 CLDAPv3Plugin::DoRemoveServer( sDoPlugInCustomCall *inData )
 				
 				if( siResult != eDSNoErr )
 				{
-					if( inData->fInRequestCode == 207 ) // not a force unbind, so throw the appropriate error
+					if( inData->fInRequestCode == eDSCustomCallLDAPv3UnbindServerConfig ) // not a force unbind, so throw the appropriate error
 					{
 						throw( (sInt32) siResult );
 					}
 				}
 			}
 			
-			if( inData->fInRequestCode == 208 ) // if this is force unbind, we will reset to no error
+			if( inData->fInRequestCode == eDSCustomCallLDAPv3ForceUnbindServerConfig ) // if this is force unbind, we will reset to no error
 			{
 				siResult = eDSNoErr;
 			}
@@ -16476,7 +16536,7 @@ sInt32 CLDAPv3Plugin::DoRemoveServer( sDoPlugInCustomCall *inData )
 		CFDictionarySetValue( cfServerDict, CFSTR(kXMLKerberosId), CFSTR("") );
 		
 		// if we are removing, let's remove the index
-		if( inData->fInRequestCode == 209 )
+		if( inData->fInRequestCode == eDSCustomCallLDAPv3RemoveServerConfig )
 		{
 			// remove the value at the index we saved.. then stuff it back and reset the configuration.
 			CFArrayRemoveValueAtIndex( cfConfigList, iConfigIndex );

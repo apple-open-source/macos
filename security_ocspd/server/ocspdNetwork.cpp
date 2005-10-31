@@ -197,6 +197,12 @@ errOut:
 
 /* fetch via HTTP POST */
 
+/* SPI to specify timeout on CFReadStream */
+#define _kCFStreamPropertyReadTimeout   CFSTR("_kCFStreamPropertyReadTimeout")
+
+/* the timeout we set */
+#define READ_STREAM_TIMEOUT		15
+
 #define POST_BUFSIZE	1024
 
 CSSM_RETURN ocspdHttpPost(
@@ -208,12 +214,14 @@ CSSM_RETURN ocspdHttpPost(
 	CSSM_RETURN ourRtn = CSSM_OK;
 	CFIndex thisMove;
 	UInt8 inBuf[POST_BUFSIZE];
+	SInt32 ito;
 	/* resources to release on exit */
 	CFMutableDataRef inData = NULL;
 	CFReadStreamRef cfStream = NULL;
     CFHTTPMessageRef request = NULL;
 	CFDataRef postData = NULL;
 	CFURLRef cfUrl = NULL;
+	CFNumberRef cfnTo = NULL;
 	
 	/* trim off possible NULL terminator from incoming URL */
 	uint32 urlLen = url.Length;
@@ -265,7 +273,15 @@ CSSM_RETURN ocspdHttpPost(
 		ourRtn = CSSMERR_TP_INTERNAL_ERROR;
 		goto errOut;
     }
-    
+	
+	/* set a reasonable timeout */
+	ito = READ_STREAM_TIMEOUT;
+	cfnTo = CFNumberCreate(NULL, kCFNumberSInt32Type, &ito);
+    if(!CFReadStreamSetProperty(cfStream, _kCFStreamPropertyReadTimeout, cfnTo)) {
+		ocspdErrorLog("ocspdHttpPost: error setting _kCFStreamPropertyReadTimeout\n");
+		/* but keep going */
+	}
+	
 	/* go, synchronously */
 	if(!CFReadStreamOpen(cfStream)) {
 		ocspdErrorLog("ocspdHttpPost: error opening CFReadStream\n");
@@ -304,6 +320,7 @@ errOut:
     CFRELEASE(request);
 	CFRELEASE(postData);
 	CFRELEASE(cfUrl);
+	CFRELEASE(cfnTo);
 	return ourRtn;
 }
 

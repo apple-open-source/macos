@@ -76,19 +76,16 @@
 
 static const char *dev = NULL;
 static int hot = 0;
-static int preen = 0;
+/*static int preen = 0;*/
 
 extern char *__progname;
 
 static void vmsg __P((int, const char *, va_list));
 
 void
-setcdevname(cd, pr)
-	const char *cd;
-	int pr;
+setcdevname(const char *cd)
 {
 	dev = cd;
-	preen = pr;
 }
 
 const char *
@@ -199,7 +196,7 @@ pwarn(va_alist)
 __private_extern__
 #endif
 void
-perror(s)
+perr(s)
 	const char *s;
 {
 	pfatal("%s (%s)\n", s, strerror(errno));
@@ -275,14 +272,14 @@ blockcheck(origname)
 
 	hot = 0;
 	if (stat("/", &stslash) < 0) {
-		perror("/");
+		perr("/");
 		printf("Can't stat root\n");
 		return (origname);
 	}
 	newname = origname;
 retry:
 	if (stat(newname, &stblock) < 0) {
-		perror(newname);
+		perr(newname);
 		printf("Can't stat %s\n", newname);
 		return (origname);
 	}
@@ -291,7 +288,7 @@ retry:
 			hot++;
 		raw = rawname(newname);
 		if (stat(raw, &stchar) < 0) {
-			perror(raw);
+			perr(raw);
 			printf("Can't stat %s\n", raw);
 			return (origname);
 		}

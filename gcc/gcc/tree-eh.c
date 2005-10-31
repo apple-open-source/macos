@@ -1,5 +1,5 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -443,6 +443,8 @@ replace_goto_queue_stmt_list (tree t, struct leh_tf_state *tf)
 static void
 replace_goto_queue (struct leh_tf_state *tf)
 {
+  if (tf->goto_queue_active == 0)
+    return;
   replace_goto_queue_stmt_list (*tf->top_p, tf);
 }
 
@@ -753,7 +755,7 @@ lower_try_finally_fallthru_label (struct leh_tf_state *tf)
    alternative considered below.  For the nonce, we always choose the first
    option.
 
-   THIS_STATE may be null if if this is a try-cleanup, not a try-finally.  */
+   THIS_STATE may be null if this is a try-cleanup, not a try-finally.  */
 
 static void
 honor_protect_cleanup_actions (struct leh_state *outer_state,
@@ -1036,47 +1038,72 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
     {
       struct goto_queue_node *q, *qe;
       tree return_val = NULL;
-      int return_index;
-      tree *labels;
+      int return_index, index;
+      struct
+      {
+	struct goto_queue_node *q;
+	tree label;
+      } *labels;
 
       if (tf->dest_array)
 	return_index = VARRAY_ACTIVE_SIZE (tf->dest_array);
       else
 	return_index = 0;
-      labels = xcalloc (sizeof (tree), return_index + 1);
+      labels = xcalloc (sizeof (*labels), return_index + 1);
 
       q = tf->goto_queue;
       qe = q + tf->goto_queue_active;
       for (; q < qe; q++)
 	{
-	  int index = q->index < 0 ? return_index : q->index;
-	  tree lab = labels[index];
-	  bool build_p = false;
+	  index = q->index < 0 ? return_index : q->index;
 
-	  if (!lab)
-	    {
-	      labels[index] = lab = create_artificial_label ();
-	      build_p = true;
-	    }
+	  if (!labels[index].q)
+	    labels[index].q = q;
+	}
+
+      for (index = 0; index < return_index + 1; index++)
+	{
+	  tree lab;
+
+	  q = labels[index].q;
+	  if (! q)
+	    continue;
+
+	  lab = labels[index].label = create_artificial_label ();
 
 	  if (index == return_index)
 	    do_return_redirection (q, lab, NULL, &return_val);
 	  else
 	    do_goto_redirection (q, lab, NULL);
 
-	  if (build_p)
-	    {
-	      x = build1 (LABEL_EXPR, void_type_node, lab);
-	      append_to_statement_list (x, &new_stmt);
+	  x = build1 (LABEL_EXPR, void_type_node, lab);
+	  append_to_statement_list (x, &new_stmt);
 
-	      x = lower_try_finally_dup_block (finally, state);
-	      lower_eh_constructs_1 (state, &x);
-	      append_to_statement_list (x, &new_stmt);
+	  x = lower_try_finally_dup_block (finally, state);
+	  lower_eh_constructs_1 (state, &x);
+	  append_to_statement_list (x, &new_stmt);
 
-	      append_to_statement_list (q->cont_stmt, &new_stmt);
-	      maybe_record_in_goto_queue (state, q->cont_stmt);
-	    }
+	  append_to_statement_list (q->cont_stmt, &new_stmt);
+	  maybe_record_in_goto_queue (state, q->cont_stmt);
 	}
+
+      for (q = tf->goto_queue; q < qe; q++)
+	{
+	  tree lab;
+
+	  index = q->index < 0 ? return_index : q->index;
+
+	  if (labels[index].q == q)
+	    continue;
+
+	  lab = labels[index].label;
+
+	  if (index == return_index)
+	    do_return_redirection (q, lab, NULL, &return_val);
+	  else
+	    do_goto_redirection (q, lab, NULL);
+	}
+	
       replace_goto_queue (tf);
       free (labels);
     }
@@ -1192,7 +1219,6 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   q = tf->goto_queue;
   qe = q + tf->goto_queue_active;
   j = last_case_index + tf->may_return;
-  last_case_index += nlabels;
   for (; q < qe; ++q)
     {
       tree mod;
@@ -1215,20 +1241,37 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
       case_index = j + q->index;
       if (!TREE_VEC_ELT (case_label_vec, case_index))
-	{
-	  last_case = build (CASE_LABEL_EXPR, void_type_node,
-			     build_int_cst (NULL_TREE, switch_id), NULL,
-			     create_artificial_label ());
-	  TREE_VEC_ELT (case_label_vec, case_index) = last_case;
+	TREE_VEC_ELT (case_label_vec, case_index)
+	  = build (CASE_LABEL_EXPR, void_type_node,
+		   build_int_cst (NULL_TREE, switch_id), NULL,
+		   /* We store the cont_stmt in the
+		      CASE_LABEL, so that we can recover it
+		      in the loop below.  We don't create
+		      the new label while walking the
+		      goto_queue because pointers don't
+		      offer a stable order.  */
+		   q->cont_stmt);
+    }
+  for (j = last_case_index; j < last_case_index + nlabels; j++)
+    {
+      tree label;
+      tree cont_stmt;
 
-	  x = build (LABEL_EXPR, void_type_node, CASE_LABEL (last_case));
-	  append_to_statement_list (x, &switch_body);
-	  append_to_statement_list (q->cont_stmt, &switch_body);
-	  maybe_record_in_goto_queue (state, q->cont_stmt);
-	}
+      last_case = TREE_VEC_ELT (case_label_vec, j);
+
+      gcc_assert (last_case);
+
+      cont_stmt = CASE_LABEL (last_case);
+
+      label = create_artificial_label ();
+      CASE_LABEL (last_case) = label;
+
+      x = build (LABEL_EXPR, void_type_node, label);
+      append_to_statement_list (x, &switch_body);
+      append_to_statement_list (cont_stmt, &switch_body);
+      maybe_record_in_goto_queue (state, cont_stmt);
     }
   replace_goto_queue (tf);
-  last_case_index += nlabels;
 
   /* Make sure that the last case is the default label, as one is required.
      Then sort the labels, which is also required in GIMPLE.  */
@@ -1835,6 +1878,13 @@ tree_could_trap_p (tree expr)
       if (fp_operation && flag_trapping_math)
 	return true;
       if (honor_trapv)
+	return true;
+      return false;
+
+    case CALL_EXPR:
+      t = get_callee_fndecl (expr);
+      /* Assume that calls to weak functions may trap.  */
+      if (!t || !DECL_P (t) || DECL_WEAK (t))
 	return true;
       return false;
 

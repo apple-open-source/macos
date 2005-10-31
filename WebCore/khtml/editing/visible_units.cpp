@@ -821,9 +821,6 @@ VisiblePosition startOfEditableContent(const VisiblePosition &c)
     if (!node)
         return VisiblePosition();
 
-    if (!node->isContentEditable())
-        return VisiblePosition();
-
     return VisiblePosition(node->rootEditableElement(), 0, DOWNSTREAM);
 }
 
@@ -832,9 +829,6 @@ VisiblePosition endOfEditableContent(const VisiblePosition &c)
     Position p = c.deepEquivalent();
     NodeImpl *node = p.node();
     if (!node)
-        return VisiblePosition();
-
-    if (!node->isContentEditable())
         return VisiblePosition();
 
     node = node->rootEditableElement();

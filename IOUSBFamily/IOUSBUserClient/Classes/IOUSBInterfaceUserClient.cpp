@@ -27,7 +27,25 @@
 //================================================================================================
 //
 #include <IOKit/usb/IOUSBInterfaceUserClient.h>
-#include <sys/proc.h>
+#include <IOKit/IOKitKeys.h>
+
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
+#define super IOUserClient
+
+#define fClientRunningUnderRosetta			fIOUSBInterfaceUserClientExpansionData->clientRunningUnderRosetta
+
+#ifndef kIOUserClientCrossEndianKey
+#define kIOUserClientCrossEndianKey "IOUserClientCrossEndian"
+#endif
+
+#ifndef kIOUserClientCrossEndianCompatibleKey
+#define kIOUserClientCrossEndianCompatibleKey "IOUserClientCrossEndianCompatible"
+#endif
 
 //=============================================================================================
 //
@@ -56,8 +74,7 @@
 //
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-#define super IOUserClient
-OSDefineMetaClassAndStructors(IOUSBInterfaceUserClient, IOUserClient)
+OSDefineMetaClassAndStructors(IOUSBInterfaceUserClient, super)
 OSDefineMetaClassAndStructors(IOUSBLowLatencyCommand, IOCommand)
 
 
@@ -379,20 +396,39 @@ IOUSBInterfaceUserClient::getAsyncTargetAndMethodForIndex(IOService **target, UI
 }
 
 
-
+// Don't add any USBLogs to this routine.   You will panic if you use getName().
 bool
-IOUSBInterfaceUserClient::initWithTask(task_t owningTask, void *security_id , UInt32 type )
+IOUSBInterfaceUserClient::initWithTask(task_t owningTask,void *security_id , UInt32 type, OSDictionary * properties )
 {
-    if (!super::initWithTask(owningTask, security_id , type))
+	if ( properties != NULL )
+	{
+		properties->setObject( kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+	}
+	
+    if (!super::initWithTask(owningTask, security_id , type, properties))
         return false;
-
+	
     if (!owningTask)
-	return false;
-
+		return false;
+	
+	// Allocate our expansion data
+    //
+    if (!fIOUSBInterfaceUserClientExpansionData)
+    {
+        fIOUSBInterfaceUserClientExpansionData = (IOUSBInterfaceUserClientExpansionData *)IOMalloc(sizeof(IOUSBInterfaceUserClientExpansionData));
+        if (!fIOUSBInterfaceUserClientExpansionData)
+            return false;
+		
+        bzero(fIOUSBInterfaceUserClientExpansionData, sizeof(IOUSBInterfaceUserClientExpansionData));
+    }
+	
     fTask = owningTask;
     fDead = false;
+	
+	// If bit 31 of type is set, then our client is running under Rosetta
+	fClientRunningUnderRosetta = ( type & 0x80000000 );
     SetExternalMethodVectors();
-
+	
     return true;
 }
 
@@ -518,29 +554,29 @@ IOUSBInterfaceUserClient::close()
 {
     IOReturn 	ret = kIOReturnSuccess;
     
-    USBLog(5, "+%s[%p]::close", getName(), this);
+    USBLog(7, "+%s[%p]::close", getName(), this);
     IncrementOutstandingIO();
     
     if (fOwner && !isInactive())
     {
-	if (fOwner->isOpen(this))
-	{
-	    fNeedToClose = true;				// the last outstanding IO will close this
-	    if (GetOutstandingIO() > 1)				// 1 for the one at the top of this routine
-	    {
-		int		i;
-    
-		USBLog(5, "%s[%p]::close - outstanding IO, aborting pipes", getName(), this);
-		for (i=1; i <= kUSBMaxPipes; i++)
-		    AbortPipe(i);
-	    }
-	}
-	else
-	    ret = kIOReturnNotOpen;
+		if (fOwner->isOpen(this))
+		{
+			fNeedToClose = true;				// the last outstanding IO will close this
+			if (GetOutstandingIO() > 1)				// 1 for the one at the top of this routine
+			{
+				int		i;
+				
+				USBLog(6, "%s[%p]::close - outstanding IO, aborting pipes", getName(), this);
+				for (i=1; i <= kUSBMaxPipes; i++)
+					AbortPipe(i);
+			}
+		}
+		else
+			ret = kIOReturnNotOpen;
     }
     else
-	ret = kIOReturnNotAttached;
- 
+		ret = kIOReturnNotAttached;
+	
     DecrementOutstandingIO();
     USBLog(7, "-%s[%p]::close - returning %x", getName(), this, ret);
     return ret;
@@ -555,7 +591,7 @@ IOUSBInterfaceUserClient::close()
 IOReturn  
 IOUSBInterfaceUserClient::clientClose( void )
 {
-    USBLog(5, "+%s[%p]::clientClose(%p), IO: %d", getName(), this, fUserClientBufferInfoListHead, fOutstandingIO);
+    USBLog(7, "+%s[%p]::clientClose(%p), IO: %d", getName(), this, fUserClientBufferInfoListHead, fOutstandingIO);
 
     // Sleep for 1 ms to allow other threads that are pending to run
     //
@@ -565,25 +601,51 @@ IOUSBInterfaceUserClient::clientClose( void )
     // is not useful
     //
     if ( fDead && fOwner && !isInactive() && fOwner->isOpen(this) )
+	{
+		// If the interface is other than 0, set it to 0 before closing the pipes
+		UInt8	altSetting = fOwner->GetAlternateSetting();
+		
+		if ( altSetting != 0 )
+		{
+			USBLog(6, "+%s[%p]::clientClose setting Alternate Interface to 0 before closing pipes", getName(), this);
+			fOwner->SetAlternateInterface(this, 0);
+		}
+		
         fOwner->ClosePipes();
+	}
     
-    if ( fOutstandingIO == 0 )
-    {
-        USBLog(5, "+%s[%p]::clientClose closing provider", getName(), this);
-        fOwner->close(this);
-        if ( fDead) release();
-    }
-    else
-    {
-        USBLog(5, "+%s[%p]::clientClose will close provider later", getName(), this);
-        fNeedToClose = true;
-    }
+	// If we are already inactive, it means that our IOUSBInterface is going/has gone away.  In that case
+	// we really do not need to do anything as the IOKit termination will take care of cleaning things.
+	if ( !isInactive() )
+	{
+		if ( fOutstandingIO == 0 )
+		{
+			USBLog(6, "+%s[%p]::clientClose closing provider", getName(), this);
 
-    fTask = NULL;
-
-    terminate();
-    
-    USBLog(5, "-%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
+			if ( fOwner) 
+			{
+				// Since this is call that tells us that our user space client has gone away, we can
+				// close our provider.  We don't set it to NULL because the IOKit object representing
+				// it has not gone away.  That will come in thru did/willTerminate.  Also, we should
+				// be checking whether fOwner was open before closing it, but we will do that later.
+				fOwner->close(this);
+			}
+			
+			if ( fDead) 
+				release();
+		}
+		else
+		{
+			USBLog(5, "+%s[%p]::clientClose will close provider later", getName(), this);
+			fNeedToClose = true;
+		}
+		
+		fTask = NULL;
+		
+		terminate();
+	}
+	
+    USBLog(7, "-%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
 
     return kIOReturnSuccess;			// DONT call super::clientClose, which just returns notSupported
 }
@@ -594,14 +656,14 @@ IOUSBInterfaceUserClient::clientDied( void )
 {
     IOReturn ret;
 
-    USBLog(5, "+%s[%p]::clientDied() IO: %d", getName(), this, fOutstandingIO);
+    USBLog(6, "+%s[%p]::clientDied() IO: %d", getName(), this, fOutstandingIO);
     
     retain();                       // We will release once any outstandingIO is finished
         
     fDead = true;				// don't send any mach messages in this case
     ret = super::clientDied();
 
-    USBLog(5, "-%s[%p]::clientDied()", getName(), this);
+    USBLog(6, "-%s[%p]::clientDied()", getName(), this);
 
     return ret;
 }
@@ -649,10 +711,25 @@ IOUSBInterfaceUserClient::IsoReqComplete(void *obj, void *param, IOReturn res, I
     void *	args[1];
     IOUSBInterfaceUserClientISOAsyncParamBlock * pb = (IOUSBInterfaceUserClientISOAsyncParamBlock *)param;
     IOUSBInterfaceUserClient *me = OSDynamicCast(IOUSBInterfaceUserClient, (OSObject*)obj);
-
-    if (!me)
-	return;
+	UInt32			i;
 	
+    if (!me)
+		return;
+	
+	// If running under Rosetta, I need to swap the frActCount and frStatus:
+	if ( me->fClientRunningUnderRosetta )
+	{
+		USBLog(8,"IOUSBInterfaceUserClient::IsoReqComplete swapping the results");
+		
+		for ( i=0; i < pb->numFrames; i++)
+		{
+			//USBLog(5,"IOUSBInterfaceUserClient::IsoReqComplete  frame[%d]: frReqCount: 0x%x frStatus: 0x%x, frActCount = 0x%x", i, pFrames[0].frReqCount, pFrames[0].frStatus, pFrames[0].frActCount);
+			pFrames[i].frReqCount = OSSwapInt16(pFrames[i].frReqCount);
+			pFrames[i].frActCount = OSSwapInt16(pFrames[i].frActCount);
+			pFrames[i].frStatus = OSSwapInt32(pFrames[i].frStatus);
+		}
+	}
+		
     args[0] = pb->frameBase;
     pb->countMem->writeBytes(0, pb->frames, pb->frameLen);
     pb->dataMem->complete();
@@ -663,9 +740,9 @@ IOUSBInterfaceUserClient::IsoReqComplete(void *obj, void *param, IOReturn res, I
     pb->countMem->release();
     pb->countMem = NULL;
     
-    if (!me->fDead)
-	sendAsyncResult(pb->fAsyncRef, res, args, 1);
-
+	if (!me->fDead)
+		sendAsyncResult(pb->fAsyncRef, res, args, 1);
+	
     IOFree(pb, sizeof(*pb)+pb->frameLen);
     me->DecrementOutstandingIO();
     me->release(); 
@@ -683,18 +760,17 @@ IOUSBInterfaceUserClient::LowLatencyIsoReqComplete(void *obj, void *param, IORet
     OSAsyncReference		asyncRef;
     
     IOUSBInterfaceUserClient *	me = OSDynamicCast(IOUSBInterfaceUserClient, (OSObject*)obj);
-
+	
     if (!me)
-	return;
-
-//    USBLog(5, "+%s[%p]::LowLatencyIsoReqComplete (%p)", me->getName(), me, res);
+		return;
+	
     args[0] = command->GetFrameBase(); 
     
     command->GetAsyncReference(&asyncRef);
     
     if (!me->fDead)
-	sendAsyncResult( asyncRef, res, args, 1);
-
+		sendAsyncResult( asyncRef, res, args, 1);
+	
     // Complete the memory descriptor
     //
     dataBufferDescriptor = command->GetDataBuffer();
@@ -704,7 +780,7 @@ IOUSBInterfaceUserClient::LowLatencyIsoReqComplete(void *obj, void *param, IORet
     
     // Free/give back the command 
     me->fFreeUSBLowLatencyCommandPool->returnCommand(command);
-
+	
     me->DecrementOutstandingIO();
     me->release(); 
 }
@@ -787,8 +863,11 @@ IOUSBInterfaceUserClient::GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 
 {
     // This method only available for v2 controllers
     //
-    IOUSBControllerV2	*v2 = OSDynamicCast(IOUSBControllerV2, fOwner->GetDevice()->GetBus());
+    IOUSBControllerV2	*v2 = NULL;
     IOReturn		ret = kIOReturnSuccess;
+
+	if (fOwner)
+		v2 = OSDynamicCast(IOUSBControllerV2, fOwner->GetDevice()->GetBus());
 
     if (!v2)
     {
@@ -904,7 +983,6 @@ IOUSBInterfaceUserClient::GetEndpointProperties(UInt8 alternateSetting, UInt8 en
         *transferType = myTT;
         *maxPacketSize = myMPS;
         *interval = myIV;
-	USBLog(3, "%s[%p]::GetEndpointProperties - tt=%d, mps=%d, int=%d", getName(), this, *transferType, *maxPacketSize, *interval);
     }
     return ret;
 }
@@ -2087,51 +2165,54 @@ IOUSBInterfaceUserClient::ControlAsyncRequestIn(OSAsyncReference asyncRef, IOUSB
 IOReturn 
 IOUSBInterfaceUserClient::DoIsochPipeAsync(OSAsyncReference asyncRef, IOUSBIsocStruct *stuff, IODirection direction)
 {
-    IOReturn 			ret;
-    IOUSBPipe *			pipeObj;
+    IOReturn				ret;
+    IOUSBPipe *				pipeObj;
     IOUSBIsocCompletion		tap;
     IOMemoryDescriptor *	dataMem = NULL;
     IOMemoryDescriptor *	countMem = NULL;
-    int				frameLen = 0;	// In bytes
+    int						frameLen = 0;	// In bytes
+    bool					countMemPrepared = false;
+    bool					dataMemPrepared = false;
     IOUSBInterfaceUserClientISOAsyncParamBlock * 		pb = NULL;
-    bool			countMemPrepared = false;
-    bool			dataMemPrepared = false;
-
+	
     USBLog(7, "+%s[%p]::DoIsochPipeAsync", getName(), this);
     retain();
+	USBLog(8,"IOUSBInterfaceUserClient::DoIsochPipeAsync  fPipe: %ld, fBuffer: %p, fBufSize = 0x%lx, fStartFrame: 0x%qx, fNumFrames: 0x%x, fFramecounts: %p",
+		   stuff->fPipe, stuff->fBuffer, stuff->fBufSize, stuff->fStartFrame, stuff->fNumFrames, stuff->fFrameCounts);
+	
     IncrementOutstandingIO();		// to make sure IsoReqComplete is still around
     
     if (fOwner && !isInactive())
     {
-	pipeObj = GetPipeObj(stuff->fPipe);
-	if(pipeObj)
-	{
-	    frameLen = stuff->fNumFrames * sizeof(IOUSBIsocFrame);
-	    do {
-		dataMem = IOMemoryDescriptor::withAddress((vm_address_t)stuff->fBuffer, stuff->fBufSize, direction, fTask);
-		if(!dataMem) 
+		pipeObj = GetPipeObj(stuff->fPipe);
+		if(pipeObj)
 		{
+			frameLen = stuff->fNumFrames * sizeof(IOUSBIsocFrame);
+			do {
+				dataMem = IOMemoryDescriptor::withAddress((vm_address_t)stuff->fBuffer, stuff->fBufSize, direction, fTask);
+				if(!dataMem) 
+				{
                     USBLog(1, "%s[%p]::DoIsochPipeAsync could not create dataMem descriptor", getName(), this);
-		    ret = kIOReturnNoMemory;
-		    break;
-		}
-		ret = dataMem->prepare();
-		if (ret != kIOReturnSuccess)
+					ret = kIOReturnNoMemory;
+					break;
+				}
+				ret = dataMem->prepare();
+				if (ret != kIOReturnSuccess)
                 {
                     USBLog(1, "%s[%p]::DoIsochPipeAsync could not prepare dataMem descriptor (0x%x)", getName(), this, ret);
-		    break;
+					break;
                 }
-
+				
                 dataMemPrepared = true;
                 
-		countMem = IOMemoryDescriptor::withAddress((vm_address_t)stuff->fFrameCounts, frameLen, kIODirectionOutIn, fTask);
-		if(!countMem) 
-		{
+				countMem = IOMemoryDescriptor::withAddress((vm_address_t)stuff->fFrameCounts, frameLen, kIODirectionOutIn, fTask);
+				if(!countMem) 
+				{
                     USBLog(1, "%s[%p]::DoIsochPipeAsync could not create countMem descriptor", getName(), this);
-		    ret = kIOReturnNoMemory;
-		    break;
-		}
-
+					ret = kIOReturnNoMemory;
+					break;
+				}
+				
                 ret = countMem->prepare();
                 if (ret != kIOReturnSuccess)
                 {
@@ -2139,62 +2220,65 @@ IOUSBInterfaceUserClient::DoIsochPipeAsync(OSAsyncReference asyncRef, IOUSBIsocS
                     break;
                 }
                 countMemPrepared = true;
-
+				
                 // Copy in requested transfers, we'll copy out result in completion routine
-		pb = (IOUSBInterfaceUserClientISOAsyncParamBlock *)IOMalloc(sizeof(IOUSBInterfaceUserClientISOAsyncParamBlock) + frameLen);
-		if(!pb) 
-		{
-		    ret = kIOReturnNoMemory;
-		    break;
-		}
+				pb = (IOUSBInterfaceUserClientISOAsyncParamBlock *)IOMalloc(sizeof(IOUSBInterfaceUserClientISOAsyncParamBlock) + frameLen);
+				if(!pb) 
+				{
+					ret = kIOReturnNoMemory;
+					break;
+				}
                 
                 bcopy(asyncRef, pb->fAsyncRef, sizeof(OSAsyncReference));
-		pb->frameLen = frameLen;
-		pb->frameBase = stuff->fFrameCounts;
-		pb->dataMem = dataMem;
-		pb->countMem = countMem;
-		countMem->readBytes(0, pb->frames, frameLen);
-		tap.target = this;
-		tap.action = &IsoReqComplete;
-		tap.parameter = pb;
-		if(direction == kIODirectionOut)
-		    ret = pipeObj->Write(dataMem, stuff->fStartFrame, stuff->fNumFrames, pb->frames, &tap);
+				pb->frameLen = frameLen;
+				pb->frameBase = stuff->fFrameCounts;
+				pb->numFrames = stuff->fNumFrames;
+				pb->dataMem = dataMem;
+				pb->countMem = countMem;
+				countMem->readBytes(0, pb->frames, frameLen);
+				tap.target = this;
+				tap.action = &IsoReqComplete;
+				tap.parameter = pb;
+				if(direction == kIODirectionOut)
+					ret = pipeObj->Write(dataMem, stuff->fStartFrame, stuff->fNumFrames, pb->frames, &tap);
+				else
+					ret = pipeObj->Read(dataMem, stuff->fStartFrame, stuff->fNumFrames, pb->frames, &tap);
+			} while (false);
+			pipeObj->release();
+		}
 		else
-		    ret = pipeObj->Read(dataMem, stuff->fStartFrame, stuff->fNumFrames, pb->frames, &tap);
-	    } while (false);
-	    pipeObj->release();
-	}
-	else
-	    ret = kIOUSBUnknownPipeErr;
+			ret = kIOUSBUnknownPipeErr;
     }
     else
         ret = kIOReturnNotAttached;
-
+	
     if(kIOReturnSuccess != ret) 
     {
-	USBLog(3, "%s[%p]::DoIsochPipeAsync err 0x%x", getName(), this, ret);
-	if(dataMem)
+		USBLog(3, "%s[%p]::DoIsochPipeAsync err 0x%x", getName(), this, ret);
+		if(dataMem)
         {
             if ( dataMemPrepared )
                 dataMem->complete();
-	    dataMem->release();
+			dataMem->release();
             dataMem = NULL;
         }
         
-	if(countMem)
+		if(countMem)
         {
             if ( countMemPrepared )
                 countMem->complete();
-	    countMem->release();
+			countMem->release();
             countMem = NULL;
         }
         
-	if(pb)
-	    IOFree(pb, sizeof(*pb) + frameLen);
-	DecrementOutstandingIO();
+		if(pb)
+			IOFree(pb, sizeof(*pb) + frameLen);
+		DecrementOutstandingIO();
         release();
     }
-
+	
+	if ( ret != kIOReturnSuccess )
+		USBLog(5, "%s[%p]::-DoIsochPipeAsync err 0x%x", getName(), this, ret);
     return ret;
 }
 
@@ -2519,7 +2603,7 @@ void
 IOUSBInterfaceUserClient::stop(IOService * provider)
 {
     
-    USBLog(5, "+%s[%p]::stop(%p), IO: %d", getName(), this, provider, fOutstandingIO);
+    USBLog(7, "+%s[%p]::stop(%p), IO: %d", getName(), this, provider, fOutstandingIO);
 
     // If we have any kernelDataBuffer pointers, then release them now
     //
@@ -2530,7 +2614,7 @@ IOUSBInterfaceUserClient::stop(IOService * provider)
 
     super::stop(provider);
 
-    USBLog(5, "-%s[%p]::stop(%p)", getName(), this, provider);
+    USBLog(7, "-%s[%p]::stop(%p)", getName(), this, provider);
 
 }
 
@@ -2539,7 +2623,7 @@ IOUSBInterfaceUserClient::free()
 {
     IOReturn ret;
 
-    USBLog(5, "IOUSBInterfaceUserClient[%p]::free", this);
+    USBLog(7, "IOUSBInterfaceUserClient[%p]::free", this);
     
     // If we have any kernelDataBuffer pointers, then release them now
     //
@@ -2567,6 +2651,15 @@ IOUSBInterfaceUserClient::free()
         fGate = NULL;
     }
         
+    //  This needs to be the LAST thing we do, as it disposes of our "fake" member
+    //  variables.
+    //
+    if (fIOUSBInterfaceUserClientExpansionData)
+    {
+        IOFree(fIOUSBInterfaceUserClientExpansionData, sizeof(IOUSBInterfaceUserClientExpansionData));
+        fIOUSBInterfaceUserClientExpansionData = NULL;
+    }
+
     super::free();
 }
 
@@ -2645,7 +2738,11 @@ IOUSBInterfaceUserClient::didTerminate( IOService * provider, IOOptionBits optio
     if ( fOwner )
     {
         if ( fOutstandingIO == 0 )
+		{
             fOwner->close(this);
+			if ( isInactive() )
+				fOwner = NULL;
+		}
         else
             fNeedToClose = true;
     }
@@ -2662,7 +2759,13 @@ IOUSBInterfaceUserClient::DecrementOutstandingIO(void)
 	if (!--fOutstandingIO && fNeedToClose)
 	{
 	    USBLog(3, "%s[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %d - closing device", getName(), this, isInactive(), fOutstandingIO);
-	    fOwner->close(this);
+	    if (fOwner) 
+		{
+			fOwner->close(this);
+			if ( isInactive() )
+				fOwner = NULL;
+		}
+		
             if ( fDead) release();
 	}
 	return;
@@ -2691,27 +2794,34 @@ IOUSBInterfaceUserClient::ChangeOutstandingIO(OSObject *target, void *param1, vo
     
     if (!me)
     {
-	USBLog(1, "IOUSBInterfaceUserClient::ChangeOutstandingIO - invalid target");
-	return kIOReturnSuccess;
+		USBLog(1, "IOUSBInterfaceUserClient::ChangeOutstandingIO - invalid target");
+		return kIOReturnSuccess;
     }
-
+	
     switch (direction)
     {
-	case 1:
-	    me->fOutstandingIO++;
-	    break;
-	    
-	case -1:
-	    if (!--me->fOutstandingIO && me->fNeedToClose)
+		case 1:
+			me->fOutstandingIO++;
+			break;
+			
+		case -1:
+			if (!--me->fOutstandingIO && me->fNeedToClose)
             {
-                USBLog(3, "%s[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %d - closing device", me->getName(), me, me->isInactive(), me->fOutstandingIO);
-                me->fOwner->close(me);
-                if ( me->fDead) me->release();
-                }
-                break;
-	    
-	default:
-	    USBLog(1, "%s[%p]::ChangeOutstandingIO - invalid direction", me->getName(), me);
+                USBLog(6, "%s[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %d - closing device", me->getName(), me, me->isInactive(), me->fOutstandingIO);
+                if (me->fOwner) 
+				{
+					me->fOwner->close(me);
+					if ( me->isInactive() )
+						me->fOwner = NULL;
+				}
+				
+                if ( me->fDead) 
+					me->release();
+			}
+			break;
+			
+		default:
+			USBLog(1, "%s[%p]::ChangeOutstandingIO - invalid direction", me->getName(), me);
     }
     return kIOReturnSuccess;
 }

@@ -1,7 +1,7 @@
 /*
  * KerberosController.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/KerberosController.m,v 1.22 2005/02/01 15:33:20 lxs Exp $
+ * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/KerberosController.m,v 1.23 2005/05/25 20:39:55 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -352,6 +352,11 @@ static void HandlePowerManagerEvent (void *inContext,
     [dockMenu       setAutoenablesItems: NO];
     
     [[NSNotificationCenter defaultCenter] addObserver: self
+                                             selector: @selector (preferencesDidChange:)
+                                                 name: PreferencesDidChangeNotification
+                                               object: nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserver: self
                                              selector: @selector (cacheCollectionDidChange:)
                                                  name: CacheCollectionDidChangeNotification
                                                object: nil];    
@@ -483,6 +488,16 @@ static void HandlePowerManagerEvent (void *inContext,
     [[Preferences sharedPreferences] setTicketWindowLastOpen: [self haveTicketListWindow]];
     
     [minuteTimer invalidate];
+}
+
+// ---------------------------------------------------------------------------
+
+- (void) preferencesDidChange: (NSNotification *) notification
+{
+    dprintf ("Kerberos Controller got PreferencesDidChangeNotification");
+    [self synchronizeDockIcon];
+    [self menuNeedsUpdate: dockMenu];
+    dprintf ("Kerberos Controller done with PreferencesDidChangeNotification");
 }
 
 // ---------------------------------------------------------------------------

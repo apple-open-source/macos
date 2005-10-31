@@ -2,6 +2,208 @@
  OpenSSL CHANGES
  _______________
 
+ Changes between 0.9.7f and 0.9.7g  [11 Apr 2005]
+
+  *) Fixes for newer kerberos headers. NB: the casts are needed because
+     the 'length' field is signed on one version and unsigned on another
+     with no (?) obvious way to tell the difference, without these VC++
+     complains. Also the "definition" of FAR (blank) is no longer included
+     nor is the error ENOMEM. KRB5_PRIVATE has to be set to 1 to pick up
+     some needed definitions.
+     [Steve Henson]
+
+  *) Undo Cygwin change.
+     [Ulf Möller]
+
+  *) Added support for proxy certificates according to RFC 3820.
+     Because they may be a security thread to unaware applications,
+     they must be explicitely allowed in run-time.  See
+     docs/HOWTO/proxy_certificates.txt for further information.
+     [Richard Levitte]
+
+ Changes between 0.9.7e and 0.9.7f  [22 Mar 2005]
+
+  *) Use (SSL_RANDOM_VALUE - 4) bytes of pseudo random data when generating
+     server and client random values. Previously
+     (SSL_RANDOM_VALUE - sizeof(time_t)) would be used which would result in
+     less random data when sizeof(time_t) > 4 (some 64 bit platforms).
+
+     This change has negligible security impact because:
+
+     1. Server and client random values still have 24 bytes of pseudo random
+        data.
+
+     2. Server and client random values are sent in the clear in the initial
+        handshake.
+
+     3. The master secret is derived using the premaster secret (48 bytes in
+        size for static RSA ciphersuites) as well as client server and random
+        values.
+
+     The OpenSSL team would like to thank the UK NISCC for bringing this issue
+     to our attention. 
+
+     [Stephen Henson, reported by UK NISCC]
+
+  *) Use Windows randomness collection on Cygwin.
+     [Ulf Möller]
+
+  *) Fix hang in EGD/PRNGD query when communication socket is closed
+     prematurely by EGD/PRNGD.
+     [Darren Tucker <dtucker@zip.com.au> via Lutz Jänicke, resolves #1014]
+
+  *) Prompt for pass phrases when appropriate for PKCS12 input format.
+     [Steve Henson]
+
+  *) Back-port of selected performance improvements from development
+     branch, as well as improved support for PowerPC platforms.
+     [Andy Polyakov]
+
+  *) Add lots of checks for memory allocation failure, error codes to indicate
+     failure and freeing up memory if a failure occurs.
+     [Nauticus Networks SSL Team <openssl@nauticusnet.com>, Steve Henson]
+
+  *) Add new -passin argument to dgst.
+     [Steve Henson]
+
+  *) Perform some character comparisons of different types in X509_NAME_cmp:
+     this is needed for some certificates that reencode DNs into UTF8Strings
+     (in violation of RFC3280) and can't or wont issue name rollover
+     certificates.
+     [Steve Henson]
+
+  *) Make an explicit check during certificate validation to see that
+     the CA setting in each certificate on the chain is correct.  As a
+     side effect always do the following basic checks on extensions,
+     not just when there's an associated purpose to the check:
+
+      - if there is an unhandled critical extension (unless the user
+        has chosen to ignore this fault)
+      - if the path length has been exceeded (if one is set at all)
+      - that certain extensions fit the associated purpose (if one has
+        been given)
+     [Richard Levitte]
+
+ Changes between 0.9.7d and 0.9.7e  [25 Oct 2004]
+
+  *) Avoid a race condition when CRLs are checked in a multi threaded 
+     environment. This would happen due to the reordering of the revoked
+     entries during signature checking and serial number lookup. Now the
+     encoding is cached and the serial number sort performed under a lock.
+     Add new STACK function sk_is_sorted().
+     [Steve Henson]
+
+  *) Add Delta CRL to the extension code.
+     [Steve Henson]
+
+  *) Various fixes to s3_pkt.c so alerts are sent properly.
+     [David Holmes <d.holmes@f5.com>]
+
+  *) Reduce the chances of duplicate issuer name and serial numbers (in
+     violation of RFC3280) using the OpenSSL certificate creation utilities.
+     This is done by creating a random 64 bit value for the initial serial
+     number when a serial number file is created or when a self signed
+     certificate is created using 'openssl req -x509'. The initial serial
+     number file is created using 'openssl x509 -next_serial' in CA.pl
+     rather than being initialized to 1.
+     [Steve Henson]
+
+ Changes between 0.9.7c and 0.9.7d  [17 Mar 2004]
+
+  *) Fix null-pointer assignment in do_change_cipher_spec() revealed           
+     by using the Codenomicon TLS Test Tool (CAN-2004-0079)                    
+     [Joe Orton, Steve Henson]   
+
+  *) Fix flaw in SSL/TLS handshaking when using Kerberos ciphersuites
+     (CAN-2004-0112)
+     [Joe Orton, Steve Henson]   
+
+  *) Make it possible to have multiple active certificates with the same
+     subject in the CA index file.  This is done only if the keyword
+     'unique_subject' is set to 'no' in the main CA section (default
+     if 'CA_default') of the configuration file.  The value is saved
+     with the database itself in a separate index attribute file,
+     named like the index file with '.attr' appended to the name.
+     [Richard Levitte]
+
+  *) X509 verify fixes. Disable broken certificate workarounds when 
+     X509_V_FLAGS_X509_STRICT is set. Check CRL issuer has cRLSign set if
+     keyUsage extension present. Don't accept CRLs with unhandled critical
+     extensions: since verify currently doesn't process CRL extensions this
+     rejects a CRL with *any* critical extensions. Add new verify error codes
+     for these cases.
+     [Steve Henson]
+
+  *) When creating an OCSP nonce use an OCTET STRING inside the extnValue.
+     A clarification of RFC2560 will require the use of OCTET STRINGs and 
+     some implementations cannot handle the current raw format. Since OpenSSL
+     copies and compares OCSP nonces as opaque blobs without any attempt at
+     parsing them this should not create any compatibility issues.
+     [Steve Henson]
+
+  *) New md flag EVP_MD_CTX_FLAG_REUSE this allows md_data to be reused when
+     calling EVP_MD_CTX_copy_ex() to avoid calling OPENSSL_malloc(). Without
+     this HMAC (and other) operations are several times slower than OpenSSL
+     < 0.9.7.
+     [Steve Henson]
+
+  *) Print out GeneralizedTime and UTCTime in ASN1_STRING_print_ex().
+     [Peter Sylvester <Peter.Sylvester@EdelWeb.fr>]
+
+  *) Use the correct content when signing type "other".
+     [Steve Henson]
+
+ Changes between 0.9.7b and 0.9.7c  [30 Sep 2003]
+
+  *) Fix various bugs revealed by running the NISCC test suite:
+
+     Stop out of bounds reads in the ASN1 code when presented with
+     invalid tags (CAN-2003-0543 and CAN-2003-0544).
+     
+     Free up ASN1_TYPE correctly if ANY type is invalid (CAN-2003-0545).
+
+     If verify callback ignores invalid public key errors don't try to check
+     certificate signature with the NULL public key.
+
+     [Steve Henson]
+
+  *) New -ignore_err option in ocsp application to stop the server
+     exiting on the first error in a request.
+     [Steve Henson]
+
+  *) In ssl3_accept() (ssl/s3_srvr.c) only accept a client certificate
+     if the server requested one: as stated in TLS 1.0 and SSL 3.0
+     specifications.
+     [Steve Henson]
+
+  *) In ssl3_get_client_hello() (ssl/s3_srvr.c), tolerate additional
+     extra data after the compression methods not only for TLS 1.0
+     but also for SSL 3.0 (as required by the specification).
+     [Bodo Moeller; problem pointed out by Matthias Loepfe]
+
+  *) Change X509_certificate_type() to mark the key as exported/exportable
+     when it's 512 *bits* long, not 512 bytes.
+     [Richard Levitte]
+
+  *) Change AES_cbc_encrypt() so it outputs exact multiple of
+     blocks during encryption.
+     [Richard Levitte]
+
+  *) Various fixes to base64 BIO and non blocking I/O. On write 
+     flushes were not handled properly if the BIO retried. On read
+     data was not being buffered properly and had various logic bugs.
+     This also affects blocking I/O when the data being decoded is a
+     certain size.
+     [Steve Henson]
+
+  *) Various S/MIME bugfixes and compatibility changes:
+     output correct application/pkcs7 MIME type if
+     PKCS7_NOOLDMIMETYPE is set. Tolerate some broken signatures.
+     Output CR+LF for EOL if PKCS7_CRLFEOL is set (this makes opening
+     of files as .eml work). Correctly handle very long lines in MIME
+     parser.
+     [Steve Henson]
+
  Changes between 0.9.7a and 0.9.7b  [10 Apr 2003]
 
   *) Countermeasure against the Klima-Pokorny-Rosa extension of
@@ -119,6 +321,9 @@
      [Richard Levitte & Kris Kennaway <kris@obsecurity.org>]
 
  Changes between 0.9.6h and 0.9.7  [31 Dec 2002]
+
+  [NB: OpenSSL 0.9.6i and later 0.9.6 patch levels were released after
+  OpenSSL 0.9.7.]
 
   *) Fix session ID handling in SSLv2 client code: the SERVER FINISHED
      code (06) was taken as the first octet of the session ID and the last
@@ -1937,6 +2142,71 @@ des-cbc           3624.96k     5258.21k     5530.91k     5624.30k     5628.26k
 
   *) Clean old EAY MD5 hack from e_os.h.
      [Richard Levitte]
+
+ Changes between 0.9.6l and 0.9.6m  [17 Mar 2004]
+
+  *) Fix null-pointer assignment in do_change_cipher_spec() revealed
+     by using the Codenomicon TLS Test Tool (CAN-2004-0079)
+     [Joe Orton, Steve Henson]
+
+ Changes between 0.9.6k and 0.9.6l  [04 Nov 2003]
+
+  *) Fix additional bug revealed by the NISCC test suite:
+
+     Stop bug triggering large recursion when presented with
+     certain ASN.1 tags (CAN-2003-0851)
+     [Steve Henson]
+
+ Changes between 0.9.6j and 0.9.6k  [30 Sep 2003]
+
+  *) Fix various bugs revealed by running the NISCC test suite:
+
+     Stop out of bounds reads in the ASN1 code when presented with
+     invalid tags (CAN-2003-0543 and CAN-2003-0544).
+     
+     If verify callback ignores invalid public key errors don't try to check
+     certificate signature with the NULL public key.
+
+     [Steve Henson]
+
+  *) In ssl3_accept() (ssl/s3_srvr.c) only accept a client certificate
+     if the server requested one: as stated in TLS 1.0 and SSL 3.0
+     specifications.
+     [Steve Henson]
+
+  *) In ssl3_get_client_hello() (ssl/s3_srvr.c), tolerate additional
+     extra data after the compression methods not only for TLS 1.0
+     but also for SSL 3.0 (as required by the specification).
+     [Bodo Moeller; problem pointed out by Matthias Loepfe]
+
+  *) Change X509_certificate_type() to mark the key as exported/exportable
+     when it's 512 *bits* long, not 512 bytes.
+     [Richard Levitte]
+
+ Changes between 0.9.6i and 0.9.6j  [10 Apr 2003]
+
+  *) Countermeasure against the Klima-Pokorny-Rosa extension of
+     Bleichbacher's attack on PKCS #1 v1.5 padding: treat
+     a protocol version number mismatch like a decryption error
+     in ssl3_get_client_key_exchange (ssl/s3_srvr.c).
+     [Bodo Moeller]
+
+  *) Turn on RSA blinding by default in the default implementation
+     to avoid a timing attack. Applications that don't want it can call
+     RSA_blinding_off() or use the new flag RSA_FLAG_NO_BLINDING.
+     They would be ill-advised to do so in most cases.
+     [Ben Laurie, Steve Henson, Geoff Thorpe, Bodo Moeller]
+
+  *) Change RSA blinding code so that it works when the PRNG is not
+     seeded (in this case, the secret RSA exponent is abused as
+     an unpredictable seed -- if it is not unpredictable, there
+     is no point in blinding anyway).  Make RSA blinding thread-safe
+     by remembering the creator's thread ID in rsa->blinding and
+     having all other threads use local one-time blinding factors
+     (this requires more computation than sharing rsa->blinding, but
+     avoids excessive locking; and if an RSA object is not shared
+     between threads, blinding will still be very fast).
+     [Bodo Moeller]
 
  Changes between 0.9.6h and 0.9.6i  [19 Feb 2003]
 

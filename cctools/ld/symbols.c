@@ -1133,6 +1133,25 @@ merge_symbols(void)
 			if((merged_symbol->nlist.n_type == (N_EXT | N_UNDF) &&
 			    merged_symbol->nlist.n_value == 0) ||
 			    merged_symbol->nlist.n_type == (N_EXT | N_PBUD)){
+			    /*
+			     * The merged symbol may be from an dylib and we
+			     * haven't yet seen any undefined symbols before	
+			     * this object.  If so just set the N_WEAK_REF bit
+			     * in the merged symbol to be that in this object
+			     * file.
+			     */
+			    if(merged_symbol->seen_undef == FALSE){
+				merged_symbol->nlist.n_desc =
+				  (merged_symbol->nlist.n_desc & ~N_WEAK_REF) |
+				  (object_symbols[i].n_desc & N_WEAK_REF);
+			    }
+			    else
+				/*
+				 * We have seen an undefined symbol before so
+				 * if the N_WEAK_REF bits don't match resolve it
+				 * based on the -weak_reference_mismatches
+				 * setting.
+				 */
 			    if(((merged_symbol->nlist.n_desc & N_WEAK_REF) ==
 				 N_WEAK_REF &&
 				(object_symbols[i].n_desc & N_WEAK_REF) !=
@@ -1153,6 +1172,7 @@ merge_symbols(void)
 				    merged_symbol->nlist.n_desc &=
 					~(N_WEAK_REF);
 			    }
+			    merged_symbol->seen_undef = TRUE;
 			}
 		    }
 		    /*

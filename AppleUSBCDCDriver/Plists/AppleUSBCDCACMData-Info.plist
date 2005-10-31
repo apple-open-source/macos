@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCACMData</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.1.5, USB CDC ACM driver Data Interface</string>
+	<string>3.1.9, USB CDC ACM driver Data Interface</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.1.5</string>
+	<string>3.1.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.1.5</string>
+	<string>3.1.9</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCACMData</key>
@@ -37,7 +37,7 @@
 			<key>InputBuffers</key>
 			<integer>8</integer>
 			<key>OutputBuffers</key>
-			<integer>4</integer>
+			<integer>16</integer>
 			<key>bInterfaceClass</key>
 			<integer>10</integer>
 			<key>bInterfaceSubClass</key>
@@ -54,7 +54,7 @@
 			<key>InputBuffers</key>
 			<integer>8</integer>
 			<key>OutputBuffers</key>
-			<integer>4</integer>
+			<integer>16</integer>
 			<key>bInterfaceClass</key>
 			<integer>10</integer>
 			<key>bInterfaceSubClass</key>
@@ -114,6 +114,8 @@
 			<string>IOUSBInterface</string>
 			<key>IOProviderMergeProperties</key>
 			<dict>
+				<key>EnumerateOnWake</key>
+				<true/>
 				<key>ResetOnClose</key>
 				<true/>
 				<key>SuppressWarning</key>
@@ -127,6 +129,30 @@
 			<integer>18690</integer>
 			<key>idVendor</key>
 			<integer>8888</integer>
+		</dict>
+		<key>OpenNetworksNT1PlusII</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>InputBuffers</key>
+				<integer>1</integer>
+				<key>OutputBuffers</key>
+				<integer>1</integer>
+			</dict>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>1</integer>
+			<key>idProduct</key>
+			<integer>4192</integer>
+			<key>idVendor</key>
+			<integer>2762</integer>
 		</dict>
 		<key>Suntac Slipper A3</key>
 		<dict>

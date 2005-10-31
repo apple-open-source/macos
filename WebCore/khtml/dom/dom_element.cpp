@@ -288,6 +288,12 @@ bool Element::hasAttributeNS( const DOMString &namespaceURI,
     return static_cast<ElementImpl*>(impl)->attributes(true)->getAttributeItem(id) != 0;
 }
 
+void Element::scrollIntoView (bool alignToTop)
+{
+    if(!impl) return;
+    static_cast<ElementImpl*>(impl)->scrollIntoView(alignToTop);
+}
+
 bool Element::isHTMLElement() const
 {
     if(!impl) return false;

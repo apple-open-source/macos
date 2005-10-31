@@ -1,4 +1,5 @@
 // { dg-do assemble  }
+// { dg-require-effective-target ilp32 } */
 // { dg-options "-w" }
 // prms-id: 784
 
@@ -3627,7 +3628,7 @@ inline GctSymbol& GctSymbolGctSymbolCHMap::contents(Pix p)
 
 static inline int goodCHptr(GctSymbolGctSymbolCHNode* t)
 {
-  return ((((unsigned long)t) & 1) == 0);
+  return ((((unsigned)t) & 1) == 0);
 }
 
 static inline GctSymbolGctSymbolCHNode* index_to_CHptr(int i)
@@ -3637,7 +3638,7 @@ static inline GctSymbolGctSymbolCHNode* index_to_CHptr(int i)
 
 static inline int CHptr_to_index(GctSymbolGctSymbolCHNode* t)
 {
-  return ( ((unsigned long) t) >> 1);
+  return ( ((unsigned) t) >> 1);
 }
 
 GctSymbolGctSymbolCHMap::GctSymbolGctSymbolCHMap(GctSymbol& dflt, unsigned int sz)

@@ -1,5 +1,6 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
+   2004, 2005
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -158,7 +159,7 @@ enum cpp_ttype
 #undef OP
 #undef TK
 
-/* C language kind, used when calling cpp_reader_init.  */
+/* C language kind, used when calling cpp_create_reader.  */
 enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_STDC89, CLK_STDC94, CLK_STDC99,
 	     CLK_GNUCXX, CLK_CXX98, CLK_ASM};
 
@@ -240,6 +241,21 @@ typedef CPPCHAR_SIGNED_T cppchar_signed_t;
 
 /* Style of header dependencies to generate.  */
 enum cpp_deps_style { DEPS_NONE = 0, DEPS_USER, DEPS_SYSTEM };
+
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+/* The possible normalization levels, from most restrictive to least.  */
+enum cpp_normalize_level {
+  /* In NFKC.  */
+  normalized_KC = 0,
+  /* In NFC.  */
+  normalized_C,
+  /* In NFC, except for subsequences where being in NFC would make
+     the identifier invalid.  */
+  normalized_identifier_C,
+  /* Not normalized at all.  */
+  normalized_none
+};
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 
 /* This structure is nested inside struct cpp_reader, and
    carries all the options visible to the command line.  */
@@ -392,9 +408,10 @@ struct cpp_options
   /* Nonzero means handle C++ alternate operator names.  */
   unsigned char operator_names;
 
-  /* APPLE LOCAL -Wno-#warnings */
+  /* APPLE LOCAL begin -Wno-#warnings */
   /* Nonzero means suppress all #warning messages. (Radar 2796309) */
   int no_pound_warnings;
+  /* APPLE LOCAL end -Wno-#warnings */
 
   /* True for traditional preprocessing.  */
   unsigned char traditional;
@@ -407,6 +424,12 @@ struct cpp_options
 
   /* Holds the name of the input character set.  */
   const char *input_charset;
+
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+  /* The minimum permitted level of normalization before a warning
+     is generated.  */
+  enum cpp_normalize_level warn_normalize;
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 
   /* True to warn about precompiled header files we couldn't use.  */
   bool warn_invalid_pch;
@@ -422,11 +445,11 @@ struct cpp_options
   bool use_ss;
   /* APPLE LOCAL end Symbol Separation */
 
-  /* APPLE LOCAL BEGIN pch distcc --mrs */
+  /* APPLE LOCAL begin pch distcc --mrs */
   /* True if PCH should omit from the -E output all lines from PCH files
      found in PCH files.  */
   unsigned char pch_preprocess;
-  /* APPLE LOCAL END pch distcc --mrs */
+  /* APPLE LOCAL end pch distcc --mrs */
 
   /* Dependency generation.  */
   struct
@@ -724,9 +747,10 @@ extern unsigned int cpp_errors (cpp_reader *);
 extern unsigned int cpp_token_len (const cpp_token *);
 extern unsigned char *cpp_token_as_text (cpp_reader *, const cpp_token *);
 extern unsigned char *cpp_spell_token (cpp_reader *, const cpp_token *,
-				       unsigned char *);
+  /* APPLE LOCAL mainline UCNs 2005-04-17 3892809 */
+				       unsigned char *, bool);
 extern void cpp_register_pragma (cpp_reader *, const char *, const char *,
-				 void (*) (cpp_reader *));
+				 void (*) (cpp_reader *), bool);
 extern void cpp_handle_deferred_pragma (cpp_reader *, const cpp_string *);
 extern int cpp_avoid_paste (cpp_reader *, const cpp_token *,
 			    const cpp_token *);
@@ -751,6 +775,9 @@ extern bool cpp_interpret_string_notranslate (cpp_reader *,
 					      const cpp_string *, size_t,
 					      /* APPLE LOCAL pascal strings */
 					      cpp_string *, bool, bool);
+
+/* Convert a host character constant to the execution character set.  */
+extern cppchar_t cpp_host_to_exec_charset (cpp_reader *, cppchar_t);
 
 /* Used to register macros and assertions, perhaps from the command line.
    The text is the same as the command line argument.  */
@@ -835,12 +862,6 @@ cpp_num cpp_num_sign_extend (cpp_num, size_t);
 /* Nonzero if a diagnostic level is one of the warnings.  */
 #define CPP_DL_WARNING_P(l)	(CPP_DL_EXTRACT (l) >= CPP_DL_WARNING \
 				 && CPP_DL_EXTRACT (l) <= CPP_DL_PEDWARN)
-
-/* N.B. The error-message-printer prototypes have not been nicely
-   formatted because exgettext needs to see 'msgid' on the same line
-   as the name of the function in order to work properly.  Only the
-   string argument gets a name in an effort to keep the lines from
-   getting ridiculously oversized.  */
 
 /* Output a diagnostic of some kind.  */
 extern void cpp_error (cpp_reader *, int, const char *msgid, ...)

@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -56,7 +56,7 @@ import java.util.Map;
  * WikiPlugin
  * 
  * @author David Czarnecki 
- * @version $Id: WikiPlugin.java,v 1.2 2004/08/27 00:29:23 whitmore Exp $
+ * @version $Id: WikiPlugin.java,v 1.2.2.1 2005/07/21 04:30:22 johnan Exp $
  * @since blojsom 1.8
  */
 public class WikiPlugin implements BlojsomPlugin {

@@ -108,6 +108,7 @@ namespace KJS {
         macro(arguments) \
         macro(callee) \
         macro(constructor) \
+        macro(fromCharCode) \
         macro(length) \
         macro(message) \
         macro(name) \

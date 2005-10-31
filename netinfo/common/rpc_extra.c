@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)svc_udp.c 1.24 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)svc_udp.c	2.2 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: rpc_extra.c,v 1.4 2004/10/06 17:09:08 majka Exp $";
+static char *rcsid = "$Id: rpc_extra.c,v 1.5 2005/06/13 16:15:58 majka Exp $";
 #endif
 
 /*
@@ -274,6 +274,8 @@ svcudp_stat(xprt)
 	return (XPRT_IDLE); 
 }
 
+static int cache_get();
+
 static bool_t
 svcudp_recv(xprt, msg)
 	SVCXPRT *xprt;
@@ -284,7 +286,6 @@ svcudp_recv(xprt, msg)
 	int rlen;
 	char *reply;
 	u_long replylen;
-	static int cache_get();
 
     again:
 	xprt->xp_addrlen = sizeof(struct sockaddr_in);
@@ -309,6 +310,8 @@ svcudp_recv(xprt, msg)
 	return (TRUE);
 }
 
+static void cache_set();
+
 static bool_t
 svcudp_reply(xprt, msg)
 	SVCXPRT *xprt; 
@@ -318,7 +321,6 @@ svcudp_reply(xprt, msg)
 	XDR *xdrs = &(su->su_xdrs);
 	int slen;
 	bool_t stat = FALSE;
-	static void cache_set();
 
 	xdrs->x_op = XDR_ENCODE;
 	XDR_SETPOS(xdrs, 0);

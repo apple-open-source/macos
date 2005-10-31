@@ -1,2 +1,0 @@
->>> Automatic storage format
-<<< done.

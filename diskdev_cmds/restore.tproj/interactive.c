@@ -661,7 +661,7 @@ formatf(list, nentry)
 {
 	register struct afile *fp, *endlist;
 	int width, bigino, haveprefix, havepostfix;
-	int i, j, w, precision, columns, lines;
+	int i, j, w, precision = 0, columns, lines;
 
 	width = 0;
 	haveprefix = 0;

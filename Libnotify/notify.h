@@ -209,4 +209,4 @@ uint32_t notify_cancel(int token);
 
 __END_DECLS
 
-#endif __NOTIFICATION_H__
+#endif /*__NOTIFICATION_H__*/

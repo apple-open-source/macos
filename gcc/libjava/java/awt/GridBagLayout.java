@@ -1,5 +1,5 @@
 /* GridBagLayout - Layout manager for components according to GridBagConstraints
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -40,12 +40,12 @@ package java.awt;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Hashtable;
 import java.util.HashMap;
+import java.util.Hashtable;
 
 /**
- * @author Michael Koch <konqueror@gmx.de>
- * @author Jeroen Frijters <jeroen@frijters.net>
+ * @author Michael Koch (konqueror@gmx.de)
+ * @author Jeroen Frijters (jeroen@frijters.net)
  */
 public class GridBagLayout
     implements Serializable, LayoutManager2

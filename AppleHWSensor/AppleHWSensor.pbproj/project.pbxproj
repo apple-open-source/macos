@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
@@ -15,8 +15,6 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		06AA1265FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -30,8 +28,6 @@
 			name = Development;
 		};
 		06AA1266FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -60,6 +56,8 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
@@ -76,12 +74,14 @@
 				E9A7E624055624CC0064C204,
 				2E8DE2910564379C00E76A8F,
 				636413E605DC57270FCE15D6,
+				179851450801FD76004D007B,
 				A6B771BD06532E580021A338,
 				A6B9A1D606511C370076D98D,
 				A6B771AF065325C90021A338,
 				7EAEDEDB077A6172004BF8DF,
 				A6C7763F0646E36800A31951,
 				A673ECB006F21FF1000D853F,
+				CA0B233207691F4500369DDF,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -94,6 +94,7 @@
 			isa = PBXGroup;
 			name = AppleHWSensor;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -113,13 +114,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleHWSensor;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleHWSensor;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -136,6 +138,8 @@
 				7EAEDEEC077A6566004BF8DF,
 				A6C7787C0646E67D00A31951,
 				A6E998B806F24BBD00B75694,
+				9B833AFF076F36B10011E409,
+				179851540801FFC5004D007B,
 			);
 			isa = PBXBundleTarget;
 			name = AppleHWSensor;
@@ -151,7 +155,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleHWSensor</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleHWSensor version 1.3.7, Copyright 2002-2005 Apple Computer, Inc.</string>
+	<string>AppleHWSensor version 1.4.5, Copyright 2002-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -163,11 +167,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ControlTypeALS</key>
@@ -282,6 +286,20 @@
 			<key>IOProviderClass</key>
 			<string>IOService</string>
 		</dict>
+		<key>SensorTypeGPU</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleHWSensor</string>
+			<key>IOClass</key>
+			<string>IOHWSensor</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>device_type</key>
+				<string>gpu-sensor</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOService</string>
+		</dict>
 		<key>SensorTypePower</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -391,15 +409,216 @@
 //0B3
 //0B4
 		0B81C263FFB7832611CA28AA = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleHWSensor.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //0B0
 //0B1
 //0B2
 //0B3
 //0B4
+//170
+//171
+//172
+//173
+//174
+		179851450801FD76004D007B = {
+			buildPhases = (
+				179851460801FD76004D007B,
+				179851470801FD76004D007B,
+				1798514A0801FD76004D007B,
+				1798514C0801FD76004D007B,
+				1798514D0801FD76004D007B,
+				1798514E0801FD76004D007B,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim1631;
+				MODULE_VERSION = 1.4.5d11;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim1631;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOI2CMaxim1631;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleMaxim1989;
+			productReference = 1798514F0801FD76004D007B;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOI2CMaxim1631</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOI2CMaxim1631 version 1.4.5, Copyright 2005 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOI2CMaxim1631</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOI2CMaxim1631</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.5</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.5d11</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOI2CMaxim1631</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CMaxim1631</string>
+			<key>IOClass</key>
+			<string>IOI2CMaxim1631</string>
+			<key>IONameMatch</key>
+			<string>ds1631</string>
+			<key>IOProbeScore</key>
+			<integer>1024</integer>
+			<key>IOProviderClass</key>
+			<string>IOI2CService</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOI2CFamily</key>
+		<string>1.0</string>
+		<key>com.apple.driver.IOPlatformFunction</key>
+		<string>1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.4</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.4</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+		179851460801FD76004D007B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		179851470801FD76004D007B = {
+			buildActionMask = 2147483647;
+			files = (
+				179851480801FD76004D007B,
+				179851530801FE65004D007B,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		179851480801FD76004D007B = {
+			fileRef = B45D877404215FFF00CE0E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		1798514A0801FD76004D007B = {
+			buildActionMask = 2147483647;
+			files = (
+				179851520801FE65004D007B,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1798514C0801FD76004D007B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1798514D0801FD76004D007B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1798514E0801FD76004D007B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		1798514F0801FD76004D007B = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = IOI2CMaxim1631.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		179851500801FE65004D007B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOI2CMaxim1631.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		179851510801FE65004D007B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOI2CMaxim1631.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		179851520801FE65004D007B = {
+			fileRef = 179851500801FE65004D007B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		179851530801FE65004D007B = {
+			fileRef = 179851510801FE65004D007B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		179851540801FFC5004D007B = {
+			isa = PBXTargetDependency;
+			target = 179851450801FD76004D007B;
+			targetProxy = 2E954C38083947DE00B7084C;
+		};
+//170
+//171
+//172
+//173
+//174
 //190
 //191
 //192
@@ -419,11 +638,14 @@
 				A6B771B8065325C90021A338,
 				A6B771C706532E580021A338,
 				A673ECB906F21FF1000D853F,
+				CA0B233307691F4500369DDF,
 				7EAEDEDC077A6172004BF8DF,
+				1798514F0801FD76004D007B,
 			);
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -438,14 +660,18 @@
 		1A224C3EFF42367911CA2CB7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleHWSensor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1A224C3FFF42367911CA2CB7 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleHWSensor.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1A224C40FF42367911CA2CB7 = {
 			fileRef = 1A224C3EFF42367911CA2CB7;
@@ -496,11 +722,16 @@
 				A6B771B90653268E0021A338,
 				A6B771C906532EFF0021A338,
 				A6B771C806532EFF0021A338,
+				CA0B2337076921BD00369DDF,
+				CA0B2338076921BD00369DDF,
+				179851500801FE65004D007B,
+				179851510801FE65004D007B,
 			);
 			isa = PBXGroup;
 			name = Source;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //240
 //241
@@ -577,13 +808,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleLM8x;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleLM8x;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -603,7 +835,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleLM8x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleLM8x version 1.3.7, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>AppleLM8x version 1.4.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -615,11 +847,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleLM8x-ppci2c</key>
@@ -655,25 +887,32 @@
 ";
 		};
 		2E8DE2920564379C00E76A8F = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleLM8x.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		2E8DE2930564388900E76A8F = {
 			isa = PBXTargetDependency;
 			target = 2E8DE2910564379C00E76A8F;
+			targetProxy = 2E954C3D083947DE00B7084C;
 		};
 		2E8DE294056438A400E76A8F = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleLM8x.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		2E8DE295056438A400E76A8F = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleLM8x.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		2E8DE296056438A400E76A8F = {
 			fileRef = 2E8DE294056438A400E76A8F;
@@ -686,6 +925,104 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		2E954C32083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = CA0B233207691F4500369DDF;
+			remoteInfo = IOI2CSMUSat;
+		};
+		2E954C33083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = B45D876504214D7D00CE0E5B;
+			remoteInfo = AppleMaxim6690;
+		};
+		2E954C34083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A6B9A1D606511C370076D98D;
+			remoteInfo = IOI2CMaxim6690;
+		};
+		2E954C35083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A6C7763F0646E36800A31951;
+			remoteInfo = IOI2CLM7x;
+		};
+		2E954C36083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 636413E605DC57270FCE15D6;
+			remoteInfo = AppleMaxim1989;
+		};
+		2E954C37083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A6B771BD06532E580021A338;
+			remoteInfo = IOI2CMaxim1989;
+		};
+		2E954C38083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 179851450801FD76004D007B;
+			remoteInfo = IOI2CMaxim1631;
+		};
+		2E954C39083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A673ECB006F21FF1000D853F;
+			remoteInfo = IOI2CLM8x;
+		};
+		2E954C3A083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 7EAEDEDB077A6172004BF8DF;
+			remoteInfo = IOI2CLM6x;
+		};
+		2E954C3B083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A6B771AF065325C90021A338;
+			remoteInfo = IOI2CAD741x;
+		};
+		2E954C3C083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = E83102D605E16E680088427C;
+			remoteInfo = AppleSMUMonitor;
+		};
+		2E954C3D083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 2E8DE2910564379C00E76A8F;
+			remoteInfo = AppleLM8x;
+		};
+		2E954C3E083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = E9A7E624055624CC0064C204;
+			remoteInfo = AppleLM7x;
+		};
+		2E954C3F083947DE00B7084C = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = B4228CF104605B3900CE0E5B;
+			remoteInfo = AppleAD741x;
 		};
 //2E0
 //2E1
@@ -763,13 +1100,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMaxim1989;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleMaxim1989;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -789,7 +1127,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMaxim1989</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMaxim1989 version 1.3.7, Copyright 2005 Apple Computer, Inc.</string>
+	<string>AppleMaxim1989 version 1.4.5, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -801,11 +1139,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleMaxim1989-ppci2c</key>
@@ -841,15 +1179,19 @@
 ";
 		};
 		636413E705DC57270FCE15D6 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleMaxim1989.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		636413E805DC574A0FCE15D6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleMaxim1989.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		636413E905DC574A0FCE15D6 = {
 			fileRef = 636413E805DC574A0FCE15D6;
@@ -860,8 +1202,10 @@
 		636413EA05DC575B0FCE15D6 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleMaxim1989.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		636413EB05DC575B0FCE15D6 = {
 			fileRef = 636413EA05DC575B0FCE15D6;
@@ -872,6 +1216,7 @@
 		63BE826F05DC6C4B0FCE15D6 = {
 			isa = PBXTargetDependency;
 			target = 636413E605DC57270FCE15D6;
+			targetProxy = 2E954C36083947DE00B7084C;
 		};
 		63E1FFE605DC78180FCE15D6 = {
 			fileRef = B45D877404215FFF00CE0E5B;
@@ -893,11 +1238,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -936,11 +1277,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -962,13 +1299,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CLM6x;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOI2CLM6x;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -988,7 +1326,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CLM6x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CLM7x version 1.3.7, Copyright 2005 Apple Computer, Inc.</string>
+	<string>IOI2CLM6x version 1.4.5, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1000,11 +1338,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CLM6x</key>
@@ -1041,21 +1379,27 @@
 ";
 		};
 		7EAEDEDC077A6172004BF8DF = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOI2CLM6x.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		7EAEDEE6077A6457004BF8DF = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOI2CLM6x.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		7EAEDEE7077A6457004BF8DF = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOI2CLM6x.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		7EAEDEE8077A6457004BF8DF = {
 			fileRef = 7EAEDEE6077A6457004BF8DF;
@@ -1072,12 +1416,15 @@
 		7EAEDEEC077A6566004BF8DF = {
 			isa = PBXTargetDependency;
 			target = 7EAEDEDB077A6172004BF8DF;
+			targetProxy = 2E954C3A083947DE00B7084C;
 		};
 		7EE139E30794A37800338C8F = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleHWSensorDebug.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		7EE139E40794A37800338C8F = {
 			fileRef = 7EE139E30794A37800338C8F;
@@ -1090,6 +1437,21 @@
 //7E2
 //7E3
 //7E4
+//9B0
+//9B1
+//9B2
+//9B3
+//9B4
+		9B833AFF076F36B10011E409 = {
+			isa = PBXTargetDependency;
+			target = CA0B233207691F4500369DDF;
+			targetProxy = 2E954C32083947DE00B7084C;
+		};
+//9B0
+//9B1
+//9B2
+//9B3
+//9B4
 //A60
 //A61
 //A62
@@ -1112,13 +1474,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CLM8x;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOI2CLM8x;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -1138,7 +1501,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CLM8x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CLM8x version 1.3.7, Copyright 2005 Apple Computer, Inc.</string>
+	<string>IOI2CLM8x version 1.4.5, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1150,11 +1513,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CLM8x</key>
@@ -1243,21 +1606,27 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		A673ECB906F21FF1000D853F = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOI2CLM8x.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		A68F21C9070376360083E4E1 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOI2CLM8x.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A68F21CA070376360083E4E1 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOI2CLM8x.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A68F21CB070376360083E4E1 = {
 			fileRef = A68F21C9070376360083E4E1;
@@ -1288,13 +1657,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CAD741x;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOI2CAD741x;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -1314,7 +1684,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CAD741x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CAD741x version 1.3.7, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>IOI2CAD741x version 1.4.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1326,11 +1696,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CAD741x</key>
@@ -1413,21 +1783,27 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		A6B771B8065325C90021A338 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOI2CAD741x.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		A6B771B90653268E0021A338 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOI2CAD741x.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A6B771BA0653268E0021A338 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOI2CAD741x.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A6B771BB0653268E0021A338 = {
 			fileRef = A6B771B90653268E0021A338;
@@ -1458,13 +1834,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CMaxim1989;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOI2CMaxim1989;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -1484,7 +1861,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CMaxim1989</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CMaxim1989 version 1.3.7, Copyright 2005 Apple Computer, Inc.</string>
+	<string>IOI2CMaxim1989 version 1.4.5, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1496,11 +1873,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CMaxim1989</key>
@@ -1590,21 +1967,27 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		A6B771C706532E580021A338 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOI2CMaxim1989.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		A6B771C806532EFF0021A338 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOI2CMaxim1989.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A6B771C906532EFF0021A338 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOI2CMaxim1989.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A6B771CA06532EFF0021A338 = {
 			fileRef = A6B771C806532EFF0021A338;
@@ -1621,14 +2004,18 @@
 		A6B9A1C806511B010076D98D = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOI2CMaxim6690.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A6B9A1C906511B010076D98D = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOI2CMaxim6690.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A6B9A1D606511C370076D98D = {
 			buildPhases = (
@@ -1647,13 +2034,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CMaxim6690;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOI2CMaxim6690;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -1673,7 +2061,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CMaxim6690</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CMaxim6690 version 1.3.7, Copyright 2005 Apple Computer, Inc.</string>
+	<string>IOI2CMaxim6690 version 1.4.5, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1685,11 +2073,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CMaxim6690</key>
@@ -1778,9 +2166,11 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		A6B9A1DF06511C370076D98D = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOI2CMaxim6690.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		A6B9A1E006511D680076D98D = {
 			fileRef = A6B9A1C806511B010076D98D;
@@ -1797,6 +2187,7 @@
 		A6BA70A006ADEC0200AD8989 = {
 			isa = PBXTargetDependency;
 			target = A6B771BD06532E580021A338;
+			targetProxy = 2E954C37083947DE00B7084C;
 		};
 		A6C776390646E36800A31951 = {
 			buildActionMask = 2147483647;
@@ -1863,13 +2254,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CLM7x;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOI2CLM7x;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -1889,7 +2281,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CLM7x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CLM7x version 1.3.7, Copyright 2005 Apple Computer, Inc.</string>
+	<string>IOI2CLM7x version 1.4.5, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1901,11 +2293,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CLM7x</key>
@@ -1947,21 +2339,27 @@
 ";
 		};
 		A6C776400646E36800A31951 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = IOI2CLM7x.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		A6C778780646E4DA00A31951 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOI2CLM7x.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A6C778790646E4DA00A31951 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOI2CLM7x.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		A6C7787A0646E4DA00A31951 = {
 			fileRef = A6C778780646E4DA00A31951;
@@ -1978,18 +2376,22 @@
 		A6C7787C0646E67D00A31951 = {
 			isa = PBXTargetDependency;
 			target = A6C7763F0646E36800A31951;
+			targetProxy = 2E954C35083947DE00B7084C;
 		};
 		A6E998B606F24BA800B75694 = {
 			isa = PBXTargetDependency;
 			target = A6B771AF065325C90021A338;
+			targetProxy = 2E954C3B083947DE00B7084C;
 		};
 		A6E998B706F24BB000B75694 = {
 			isa = PBXTargetDependency;
 			target = A6B9A1D606511C370076D98D;
+			targetProxy = 2E954C34083947DE00B7084C;
 		};
 		A6E998B806F24BBD00B75694 = {
 			isa = PBXTargetDependency;
 			target = A673ECB006F21FF1000D853F;
+			targetProxy = 2E954C39083947DE00B7084C;
 		};
 //A60
 //A61
@@ -2066,13 +2468,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleAD741x;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleAD741x;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -2092,7 +2495,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleAD741x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleAD741x version 1.3.7, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>AppleAD741x version 1.4.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2104,11 +2507,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleAD741x-ppci2c</key>
@@ -2144,21 +2547,27 @@
 ";
 		};
 		B4228CF204605B3900CE0E5B = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleAD741x.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		B4228CF304605CEF00CE0E5B = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleAD741x.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		B4228CF404605CEF00CE0E5B = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleAD741x.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		B4228CF504605CEF00CE0E5B = {
 			fileRef = B4228CF304605CEF00CE0E5B;
@@ -2175,6 +2584,7 @@
 		B4228CF704606E7900CE0E5B = {
 			isa = PBXTargetDependency;
 			target = B4228CF104605B3900CE0E5B;
+			targetProxy = 2E954C3F083947DE00B7084C;
 		};
 		B45D875F04214D7D00CE0E5B = {
 			buildActionMask = 2147483647;
@@ -2242,13 +2652,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMaxim6690;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleMaxim6690;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -2268,7 +2679,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMaxim6690</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMaxim6690 version 1.3.7, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>AppleMaxim6690 version 1.4.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2280,11 +2691,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleMaxim6690-ppci2c</key>
@@ -2320,25 +2731,32 @@
 ";
 		};
 		B45D876604214D7D00CE0E5B = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleMaxim6690.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		B45D876704214D8700CE0E5B = {
 			isa = PBXTargetDependency;
 			target = B45D876504214D7D00CE0E5B;
+			targetProxy = 2E954C33083947DE00B7084C;
 		};
 		B45D876804214DB600CE0E5B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleMaxim6690.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		B45D876904214DB600CE0E5B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleMaxim6690.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		B45D876A04214DB600CE0E5B = {
 			fileRef = B45D876804214DB600CE0E5B;
@@ -2355,8 +2773,10 @@
 		B45D877404215FFF00CE0E5B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOPlatformFunction.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		B45D877504215FFF00CE0E5B = {
 			fileRef = B45D877404215FFF00CE0E5B;
@@ -2369,6 +2789,200 @@
 //B42
 //B43
 //B44
+//CA0
+//CA1
+//CA2
+//CA3
+//CA4
+		CA0B232C07691F4500369DDF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		CA0B232D07691F4500369DDF = {
+			buildActionMask = 2147483647;
+			files = (
+				CA0B2339076921BD00369DDF,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA0B232E07691F4500369DDF = {
+			buildActionMask = 2147483647;
+			files = (
+				CA0B233A076921BD00369DDF,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA0B232F07691F4500369DDF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA0B233007691F4500369DDF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA0B233107691F4500369DDF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		CA0B233207691F4500369DDF = {
+			buildPhases = (
+				CA0B232C07691F4500369DDF,
+				CA0B232D07691F4500369DDF,
+				CA0B232E07691F4500369DDF,
+				CA0B232F07691F4500369DDF,
+				CA0B233007691F4500369DDF,
+				CA0B233107691F4500369DDF,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CSMUSat;
+				MODULE_VERSION = 1.4.5d11;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CSMUSat;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOI2CSMUSat;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOI2CSMUSat;
+			productReference = CA0B233307691F4500369DDF;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOI2CSMUSat</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOI2CSMUSat version 1.4.5, Copyright 2005 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOI2CSMUSat</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOI2CSMUSat</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.5</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.5d11</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOI2CSMUSat</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CSMUSat</string>
+			<key>IOClass</key>
+			<string>IOI2CSMUSat</string>
+			<key>IOProbeScore</key>
+			<integer>0</integer>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>compatible</key>
+				<string>smu-sat</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOI2CService</string>
+			<key>IOUserClientClass</key>
+			<string>IOI2CUserClient</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOI2CFamily</key>
+		<string>1.0</string>
+		<key>com.apple.driver.IOPlatformFunction</key>
+		<string>1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+		CA0B233307691F4500369DDF = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = IOI2CSMUSat.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		CA0B2337076921BD00369DDF = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOI2CSMUSat.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		CA0B2338076921BD00369DDF = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOI2CSMUSat.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		CA0B2339076921BD00369DDF = {
+			fileRef = CA0B2337076921BD00369DDF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		CA0B233A076921BD00369DDF = {
+			fileRef = CA0B2338076921BD00369DDF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//CA0
+//CA1
+//CA2
+//CA3
+//CA4
 //E80
 //E81
 //E82
@@ -2383,18 +2997,23 @@
 			name = AppleSMUMonitor;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		E83102CC05E16AEC0088427C = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleSMUMonitor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		E83102CD05E16AEC0088427C = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleSMUMonitor.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		E83102CF05E16CFE0088427C = {
 			children = (
@@ -2410,6 +3029,7 @@
 			name = AppleHWSensor;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		E83102D005E16E680088427C = {
 			buildActionMask = 2147483647;
@@ -2476,13 +3096,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleSMUMonitor;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleSMUMonitor;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -2502,7 +3123,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleSMUMonitor</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleSMUMonitor version 1.3.7, Copyright 2005 Apple Computer, Inc.</string>
+	<string>AppleSMUMonitor version 1.4.5, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2514,11 +3135,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>SMUFans</key>
@@ -2562,9 +3183,11 @@
 ";
 		};
 		E83102D705E16E680088427C = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleSMUMonitor.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		E83102D805E170BF0088427C = {
 			fileRef = E83102CC05E16AEC0088427C;
@@ -2581,18 +3204,23 @@
 		E83102E605E2B49E0088427C = {
 			isa = PBXTargetDependency;
 			target = E83102D605E16E680088427C;
+			targetProxy = 2E954C3C083947DE00B7084C;
 		};
 		E890D3F2054851030089C46E = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleHWMonitor.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		E890D3F3054851030089C46E = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleHWMonitor.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		E890D3F4054851030089C46E = {
 			fileRef = E890D3F2054851030089C46E;
@@ -2609,14 +3237,18 @@
 		E8B8FCB1054707D500D27581 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleHWControl.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		E8B8FCB2054707D500D27581 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleHWControl.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		E8B8FCB3054707D500D27581 = {
 			fileRef = E8B8FCB1054707D500D27581;
@@ -2705,13 +3337,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleLM7x;
-				MODULE_VERSION = 1.3.7d4;
+				MODULE_VERSION = 1.4.5d11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleLM7x;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -2731,7 +3364,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleLM7x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleLM7x version 1.3.7, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>AppleLM7x version 1.4.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2743,11 +3376,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.7</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.7d4</string>
+	<string>1.4.5d11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleLM7x-k2dev-ds1775</key>
@@ -2831,26 +3464,33 @@
 ";
 		};
 		E9A7E625055624CC0064C204 = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleLM7x.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		E9A7E626055625E90064C204 = {
 			isa = PBXTargetDependency;
 			target = E9A7E624055624CC0064C204;
+			targetProxy = 2E954C3E083947DE00B7084C;
 		};
 		E9AD398A0556273800499D7C = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleLM7x.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		E9AD398B0556273900499D7C = {
 			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleLM7x.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 4;
 			usesTabs = 1;
 		};

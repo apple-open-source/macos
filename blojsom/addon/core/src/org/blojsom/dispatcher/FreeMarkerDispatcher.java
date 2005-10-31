@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,10 @@ import freemarker.ext.beans.BeansWrapper;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
+import freemarker.cache.FileTemplateLoader;
+import freemarker.cache.ClassTemplateLoader;
+import freemarker.cache.MultiTemplateLoader;
+import freemarker.cache.TemplateLoader;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.blojsom.BlojsomException;
@@ -59,7 +63,7 @@ import java.util.Properties;
  * FreeMarkerDispatcher
  * 
  * @author czarneckid
- * @version $Id: FreeMarkerDispatcher.java,v 1.1 2004/11/18 22:22:34 johnan Exp $
+ * @version $Id: FreeMarkerDispatcher.java,v 1.1.2.1 2005/07/21 04:30:21 johnan Exp $
  * @since blojsom 2.05
  */
 public class FreeMarkerDispatcher implements BlojsomDispatcher {
@@ -91,7 +95,7 @@ public class FreeMarkerDispatcher implements BlojsomDispatcher {
         _installationDirectory = blojsomConfiguration.getInstallationDirectory();
         _templatesDirectory = blojsomConfiguration.getTemplatesDirectory();
 
-        _freemarkerProperties = BlojsomUtils.loadProperties(servletConfig, FREEMARKER_PROPERTIES_IP, true);
+        _freemarkerProperties = BlojsomUtils.loadProperties(servletConfig, FREEMARKER_PROPERTIES_IP, false);
         if (_freemarkerProperties.isEmpty()) {
             _freemarkerProperties = null;
         }
@@ -100,19 +104,42 @@ public class FreeMarkerDispatcher implements BlojsomDispatcher {
     }
 
     /**
-     * Return a path appropriate for loading FreeMarker templates
+     * Set paths appropriate for loading FreeMarker templates
      * 
      * @param userId User ID
-     * @return blojsom installation directory + base configuration directory + user id + templates directory
+     * @param freemarkerConfiguration
      */
-    private String getTemplatePath(String userId) {
-        StringBuffer templatePath = new StringBuffer();
-        templatePath.append(_installationDirectory);
-        templatePath.append(BlojsomUtils.removeInitialSlash(_baseConfigurationDirectory));
-        templatePath.append(userId).append("/");
-        templatePath.append(BlojsomUtils.removeInitialSlash(_templatesDirectory));
+    private void setTemplatePath(String userId, Configuration freemarkerConfiguration) {
+        try {
+            StringBuffer templatePath = new StringBuffer();
+            templatePath.append(_installationDirectory);
+            templatePath.append(BlojsomUtils.removeInitialSlash(_baseConfigurationDirectory));
+            templatePath.append(userId).append("/");
+            templatePath.append(BlojsomUtils.removeInitialSlash(_templatesDirectory));
+            FileTemplateLoader fileTemplateLoaderUser = new FileTemplateLoader(new File(templatePath.toString()));
 
-        return templatePath.toString();
+            ClassTemplateLoader classTemplateLoader = new ClassTemplateLoader(getClass(), "");
+
+            templatePath = new StringBuffer();
+            templatePath.append(_installationDirectory);
+            templatePath.append(BlojsomUtils.removeInitialSlash(_baseConfigurationDirectory));
+            templatePath.append(BlojsomUtils.removeInitialSlash(_templatesDirectory));
+            File globalTemplateDirectory = new File(templatePath.toString());
+
+            TemplateLoader[] loaders;
+            if (globalTemplateDirectory.exists()) {
+                FileTemplateLoader fileTemplateLoaderGlobal = new FileTemplateLoader(globalTemplateDirectory);
+                loaders = new TemplateLoader[] {fileTemplateLoaderUser, fileTemplateLoaderGlobal,
+                                                classTemplateLoader};
+            } else {
+                loaders = new TemplateLoader[] {fileTemplateLoaderUser, classTemplateLoader};
+            }
+
+            MultiTemplateLoader multiTemplateLoader = new MultiTemplateLoader(loaders);
+            freemarkerConfiguration.setTemplateLoader(multiTemplateLoader);
+        } catch (IOException e) {
+            _logger.error(e);
+        }
     }
 
     /**
@@ -133,8 +160,6 @@ public class FreeMarkerDispatcher implements BlojsomDispatcher {
     public void dispatch(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, BlogUser user, Map context, String flavorTemplate, String flavorContentType) throws IOException, ServletException {
         httpServletResponse.setContentType(flavorContentType);
 
-        String templatePath = getTemplatePath(user.getId());
-
         // Configure FreeMarker with the loaded properties
         Configuration freemarkerConfiguration = Configuration.getDefaultConfiguration();
         if (_freemarkerProperties != null) {
@@ -144,7 +169,8 @@ public class FreeMarkerDispatcher implements BlojsomDispatcher {
                 _logger.error(e);
             }
         }
-        freemarkerConfiguration.setDirectoryForTemplateLoading(new File(templatePath));
+
+        setTemplatePath(user.getId(), freemarkerConfiguration);
 
         BeansWrapper wrapper = new BeansWrapper();
         wrapper.setExposureLevel(BeansWrapper.EXPOSE_PROPERTIES_ONLY);
@@ -153,9 +179,10 @@ public class FreeMarkerDispatcher implements BlojsomDispatcher {
 
         Writer responseWriter = httpServletResponse.getWriter();
         String flavorTemplateForPage = null;
+        String pageParameter = BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest, true);
 
-        if (BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest) != null) {
-            flavorTemplateForPage = BlojsomUtils.getTemplateForPage(flavorTemplate, BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest));
+        if (pageParameter != null) {
+            flavorTemplateForPage = BlojsomUtils.getTemplateForPage(flavorTemplate, pageParameter);
             _logger.debug("Retrieved template for page: " + flavorTemplateForPage);
         }
 

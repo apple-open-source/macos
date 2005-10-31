@@ -47,6 +47,10 @@
 #include "block.h"
 #include "dictionary.h"
 
+#ifdef NM_NEXTSTEP
+#include "macosx-nat-dyld.h"
+#endif
+
 /* Prototypes for local functions */
 
 #if defined(USE_MMALLOC) && defined(HAVE_MMAP)
@@ -2317,6 +2321,7 @@ _initialize_objfiles (void)
 		   "Set if GDB should use persistent symbol tables by default.",
 		   &setlist);
   add_show_from_set (c, &showlist);
+#endif /* HAVE_MMAP */
 
   /* APPLE LOCAL: We don't want to raise load levels for MetroWerks.  */
   c = add_set_cmd ("auto-raise-load-levels", class_obscure, var_boolean, 
@@ -2325,6 +2330,4 @@ _initialize_objfiles (void)
 		   " all frames found in backtraces.",
 		   &setlist);
   add_show_from_set (c, &showlist);
-
-#endif /* HAVE_MMAP */
 }

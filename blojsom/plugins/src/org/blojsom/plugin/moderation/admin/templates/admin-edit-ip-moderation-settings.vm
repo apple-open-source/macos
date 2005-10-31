@@ -1,0 +1,164 @@
+#AdministrationHeader("#adminResource('ip.moderation.page.header' 'IP Address Moderation Settings')")
+
+<body>
+    <div id="wrap">
+
+        <h1>Blosjom Administration Interface</h1>
+
+        <div id="login">
+            <p>Logged in as: <a href="#" title="view info">$BLOJSOM_ADMIN_PLUGIN_USERNAME</a> : <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=logout" title="log out">#adminResource('logout.text' '')</a></p>
+            <p>Logged in to: <a href="$BLOJSOM_BLOG.getBlogURL()" title="view site info">$BLOJSOM_BLOG.getBlogName()</a></p>
+        </div>
+
+        <ul id="nav">
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="#">#adminResource('entries.page.header' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('add.entry.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=page">#adminResource('edit.and.delete.entries.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('weblog.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-permissions&action=page">#adminResource('permissions.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('plugin.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('configure.plugin.mappings.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
+                </ul>
+            </li>
+        </ul>
+
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
+
+                <!-- Add IP address form -->
+                <div class="mainClm">
+                    <h3>#adminResource('add.ip.address.text' 'Add a IP address (regular expressions allowed)')</h3>
+                    <table>
+                        <form name="add-ip-address" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="add-ip-address"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="ip-moderation-admin"/>
+                            <tr>
+                                <td>#adminResource('ip.address.text' 'IP address')</td>
+                                <td><input type="text" size="25" name="ip-address"/></td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>#adminResource('list.type.text.text' 'Add to whitelist or blacklist?')</td>
+                                <td><select name="list-type" size="2">
+                                    <option value="blacklist" selected>Blacklist</option>
+                                    <option value="whitelist">Whitelist</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('add.ip.address.short.text' 'Add IP address')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Delete IP address form (blacklist) -->
+                <div class="mainClm">
+                    <h3>#adminResource('delete.ip.address.blacklist.text' 'Delete an IP address from blacklist (multiple selections allowed)')</h3>
+                    <table>
+                        <form name="delete-ip-address" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="delete-ip-address"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="ip-moderation-admin"/>
+                            <input type="hidden" name="list-type" value="blacklist"/>
+                            <tr>
+                                <td>#adminResource('ip.address.text' 'IP address')</td>
+                                <td>
+                                    #set ($counter = 0)
+                                    <select name="ip-address" size="3" multiple>
+                                        #foreach ($ipAddress in $BLOJSOM_PLUGIN_IP_BLACKLIST)
+                                        <option value="$counter">$ipAddress</option>
+                                        #set($counter = $counter + 1)
+                                        #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('delete.ip.address.short.text' 'Delete IP address(es)')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Delete IP address form (whitelist) -->
+                <div class="mainClm">
+                    <h3>#adminResource('delete.ip.address.whitelist.text' 'Delete an IP address from whitelist (multiple selections allowed)')</h3>
+                    <table>
+                        <form name="delete-ip-address" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="delete-ip-address"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="ip-moderation-admin"/>
+                            <input type="hidden" name="list-type" value="whitelist"/>
+                            <tr>
+                                <td>#adminResource('ip.address.text' 'IP address')</td>
+                                <td>
+                                    #set ($counter = 0)
+                                    <select name="ip-address" size="3" multiple>
+                                        #foreach ($ipAddress in $BLOJSOM_PLUGIN_IP_WHITELIST)
+                                        <option value="$counter">$ipAddress</option>
+                                        #set($counter = $counter + 1)
+                                        #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('delete.ip.address.short.text' 'Delete IP address(es)')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Current IP moderation settings (blacklist) -->
+            <div id="sidebar">
+                <h4>#adminResource('current.ip.address.moderation.settings.blacklist.text' 'Current IP address moderation settings (blacklist)')</h4>
+                #foreach ($ipAddress in $BLOJSOM_PLUGIN_IP_BLACKLIST)
+                   <a href="#">$ipAddress&nbsp;</a><br/>
+                #end
+            </div>
+
+            <!-- Current IP moderation settings (whitelist) -->
+            <div id="sidebar">
+                <h4>#adminResource('current.ip.address.moderation.settings.whitelist.text' 'Current IP address moderation settings (whitelist)')</h4>
+                #foreach ($ipAddress in $BLOJSOM_PLUGIN_IP_WHITELIST)
+                   <a href="#">$ipAddress&nbsp;</a><br/>
+                #end
+            </div>
+        </div>
+    </div>
+</body>
+
+#AdministrationFooter()

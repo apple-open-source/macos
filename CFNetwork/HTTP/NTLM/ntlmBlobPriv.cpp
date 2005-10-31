@@ -47,7 +47,7 @@
  * Private routines used by NtlmGenerator module. 
  */
 #include "ntlmBlobPriv.h"
-#include <CoreServices.framework/Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <CoreServices/CoreServices.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>

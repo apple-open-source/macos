@@ -1,5 +1,5 @@
 /* List.java -- A listbox widget
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -45,7 +45,13 @@ import java.awt.event.ItemListener;
 import java.awt.peer.ListPeer;
 import java.util.EventListener;
 import java.util.Vector;
+
 import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.accessibility.AccessibleSelection;
+import javax.accessibility.AccessibleState;
+import javax.accessibility.AccessibleStateSet;
 
 /**
   * Class that implements a listbox widget
@@ -105,6 +111,7 @@ private ItemListener item_listeners;
 // The list of ActionListeners for this object.
 private ActionListener action_listeners;
 
+
 /*************************************************************************/
 
 /*
@@ -129,7 +136,7 @@ List()
   * Initializes a new instance of <code>List</code> with the specified
   * number of visible lines and multi-select disabled.
   *
-  * @param lines The number of visible lines in the list.
+  * @param rows The number of visible rows in the list.
   *
   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
@@ -145,7 +152,7 @@ List(int rows)
   * Initializes a new instance of <code>List</code> with the specified
   * number of lines and the specified multi-select setting.
   *
-  * @param lines The number of visible lines in the list.
+  * @param rows The number of visible rows in the list.
   * @param multipleMode <code>true</code> if multiple lines can be selected
   * simultaneously, <code>false</code> otherwise.
   *
@@ -1074,5 +1081,183 @@ paramString()
   public ItemListener[] getItemListeners ()
   {
     return (ItemListener[]) getListeners (ItemListener.class);
+  }
+  
+  // Accessibility internal class 
+  protected class AccessibleAWTList extends AccessibleAWTComponent
+    implements AccessibleSelection, ItemListener, ActionListener
+  {
+    protected class AccessibleAWTListChild extends AccessibleAWTComponent
+      implements Accessible
+    {
+      private int index;
+      private List parent;
+      
+      public AccessibleAWTListChild(List parent, int indexInParent)
+      {
+        this.parent = parent;
+        index = indexInParent;
+        if (parent == null)
+          index = -1;
+      }
+      
+      /* (non-Javadoc)
+       * @see javax.accessibility.Accessible#getAccessibleContext()
+       */
+      public AccessibleContext getAccessibleContext()
+      {
+        return this;
+      }
+      
+      public AccessibleRole getAccessibleRole()
+      {
+        return AccessibleRole.LIST_ITEM;
+      }
+      
+      public AccessibleStateSet getAccessibleStateSet()
+      {
+        AccessibleStateSet states = super.getAccessibleStateSet();
+        if (parent.isIndexSelected(index))
+          states.add(AccessibleState.SELECTED);
+        return states;
+      }
+      
+      public int getAccessibleIndexInParent()
+      {
+        return index;
+      }
+
+    }
+    
+    public AccessibleAWTList()
+    {
+      addItemListener(this);
+      addActionListener(this);
+    }
+    
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.LIST;
+    }
+    
+    public AccessibleStateSet getAccessibleStateSet()
+    {
+      AccessibleStateSet states = super.getAccessibleStateSet();
+      states.add(AccessibleState.SELECTABLE);
+      if (isMultipleMode())
+        states.add(AccessibleState.MULTISELECTABLE);
+      return states;
+    }
+
+    public int getAccessibleChildrenCount()
+    {
+      return getItemCount();
+    }
+
+    public Accessible getAccessibleChild(int i)
+    {
+      if (i >= getItemCount())
+        return null;
+      return new AccessibleAWTListChild(List.this, i);
+    }
+    
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleSelection#getAccessibleSelectionCount()
+     */
+    public int getAccessibleSelectionCount()
+    {
+      return getSelectedIndexes().length;
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleSelection#getAccessibleSelection()
+     */
+    public AccessibleSelection getAccessibleSelection()
+    {
+      return this;
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleSelection#getAccessibleSelection(int)
+     */
+    public Accessible getAccessibleSelection(int i)
+    {
+      int[] items = getSelectedIndexes();
+      if (i >= items.length)
+        return null;
+      return new AccessibleAWTListChild(List.this, items[i]);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleSelection#isAccessibleChildSelected(int)
+     */
+    public boolean isAccessibleChildSelected(int i)
+    {
+      return isIndexSelected(i);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleSelection#addAccessibleSelection(int)
+     */
+    public void addAccessibleSelection(int i)
+    {
+      select(i);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleSelection#removeAccessibleSelection(int)
+     */
+    public void removeAccessibleSelection(int i)
+    {
+      deselect(i);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleSelection#clearAccessibleSelection()
+     */
+    public void clearAccessibleSelection()
+    {
+      for (int i = 0; i < getItemCount(); i++)
+        deselect(i);
+    }
+
+    /* (non-Javadoc)
+     * @see javax.accessibility.AccessibleSelection#selectAllAccessibleSelection()
+     */
+    public void selectAllAccessibleSelection()
+    {
+      if (isMultipleMode())
+        for (int i = 0; i < getItemCount(); i++)
+          select(i);
+    }
+
+    /* (non-Javadoc)
+     * @see java.awt.event.ItemListener#itemStateChanged(java.awt.event.ItemEvent)
+     */
+    public void itemStateChanged(ItemEvent event)
+    {
+    }
+
+    /* (non-Javadoc)
+     * @see java.awt.event.ActionListener#actionPerformed(java.awt.event.ActionEvent)
+     */
+    public void actionPerformed(ActionEvent event)
+    {
+    }
+    
+  }
+
+  /**
+   * Gets the AccessibleContext associated with this <code>List</code>.
+   * The context is created, if necessary.
+   *
+   * @return the associated context
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    /* Create the context if this is the first request */
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleAWTList();
+    return accessibleContext;
   }
 } // class List

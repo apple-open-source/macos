@@ -22,7 +22,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "cpplib.h"
 #include "internal.h"
-#include "ucnid.h"
+/* APPLE LOCAL mainline UCNs 2005-04-17 3892809 */
+/* Remove include of ucnid.h */
 
 /* Character set handling for C-family languages.
 
@@ -81,8 +82,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if HOST_CHARSET == HOST_CHARSET_ASCII
 #define SOURCE_CHARSET "UTF-8"
+#define LAST_POSSIBLY_BASIC_SOURCE_CHAR 0x7e
 #elif HOST_CHARSET == HOST_CHARSET_EBCDIC
 #define SOURCE_CHARSET "UTF-EBCDIC"
+#define LAST_POSSIBLY_BASIC_SOURCE_CHAR 0xFF
 #else
 #error "Unrecognized basic host character set"
 #endif
@@ -714,6 +717,63 @@ _cpp_destroy_iconv (cpp_reader *pfile)
     }
 }
 
+/* Utility routine for use by a full compiler.  C is a character taken
+   from the *basic* source character set, encoded in the host's
+   execution encoding.  Convert it to (the target's) execution
+   encoding, and return that value.
+
+   Issues an internal error if C's representation in the narrow
+   execution character set fails to be a single-byte value (C99
+   5.2.1p3: "The representation of each member of the source and
+   execution character sets shall fit in a byte.")  May also issue an
+   internal error if C fails to be a member of the basic source
+   character set (testing this exactly is too hard, especially when
+   the host character set is EBCDIC).  */
+cppchar_t
+cpp_host_to_exec_charset (cpp_reader *pfile, cppchar_t c)
+{
+  uchar sbuf[1];
+  struct _cpp_strbuf tbuf;
+
+  /* This test is merely an approximation, but it suffices to catch
+     the most important thing, which is that we don't get handed a
+     character outside the unibyte range of the host character set.  */
+  if (c > LAST_POSSIBLY_BASIC_SOURCE_CHAR)
+    {
+      cpp_error (pfile, CPP_DL_ICE,
+		 "character 0x%lx is not in the basic source character set\n",
+		 (unsigned long)c);
+      return 0;
+    }
+
+  /* Being a character in the unibyte range of the host character set,
+     we can safely splat it into a one-byte buffer and trust that that
+     is a well-formed string.  */
+  sbuf[0] = c;
+
+  /* This should never need to reallocate, but just in case... */
+  tbuf.asize = 1;
+  tbuf.text = xmalloc (tbuf.asize);
+  tbuf.len = 0;
+
+  if (!APPLY_CONVERSION (pfile->narrow_cset_desc, sbuf, 1, &tbuf))
+    {
+      cpp_errno (pfile, CPP_DL_ICE, "converting to execution character set");
+      return 0;
+    }
+  if (tbuf.len != 1)
+    {
+      cpp_error (pfile, CPP_DL_ICE,
+		 "character 0x%lx is not unibyte in execution character set",
+		 (unsigned long)c);
+      return 0;
+    }
+  c = tbuf.text[0];
+  free(tbuf.text);
+  return c;
+}
+
+
 
 /* Utility routine that computes a mask of the form 0000...111... with
    WIDTH 1-bits.  */
@@ -727,47 +787,133 @@ width_to_mask (size_t width)
     return ((size_t) 1 << width) - 1;
 }
 
-
+
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+/* A large table of unicode character information.  */
+enum {
+  /* Valid in a C99 identifier?  */
+  C99 = 1,
+  /* Valid in a C99 identifier, but not as the first character?  */
+  DIG = 2,
+  /* Valid in a C++ identifier?  */
+  CXX = 4,
+  /* NFC representation is not valid in an identifier?  */
+  CID = 8,
+  /* Might be valid NFC form?  */
+  NFC = 16,
+  /* Might be valid NFKC form?  */
+  NKC = 32,
+  /* Certain preceding characters might make it not valid NFC/NKFC form?  */
+  CTX = 64
+};
+
+static const struct {
+  /* Bitmap of flags above.  */
+  unsigned char flags;
+  /* Combining class of the character.  */
+  unsigned char combine;
+  /* Last character in the range described by this entry.  */
+  unsigned short end;
+} ucnranges[] = {
+#include "ucnid.h"
+};
 
 /* Returns 1 if C is valid in an identifier, 2 if C is valid except at
    the start of an identifier, and 0 if C is not valid in an
    identifier.  We assume C has already gone through the checks of
-   _cpp_valid_ucn.  The algorithm is a simple binary search on the
-   table defined in cppucnid.h.  */
+   _cpp_valid_ucn.  Also update NST for C if returning nonzero.  The
+   algorithm is a simple binary search on the table defined in
+   ucnid.h.  */
 
 static int
-ucn_valid_in_identifier (cpp_reader *pfile, cppchar_t c)
+ucn_valid_in_identifier (cpp_reader *pfile, cppchar_t c,
+			 struct normalize_state *nst)
 {
   int mn, mx, md;
 
-  mn = -1;
-  mx = ARRAY_SIZE (ucnranges);
-  while (mx - mn > 1)
+  if (c > 0xFFFF)
+    return 0;
+
+  mn = 0;
+  mx = ARRAY_SIZE (ucnranges) - 1;
+  while (mx != mn)
     {
       md = (mn + mx) / 2;
-      if (c < ucnranges[md].lo)
+      if (c <= ucnranges[md].end)
 	mx = md;
-      else if (c > ucnranges[md].hi)
-	mn = md;
       else
-	goto found;
+	mn = md + 1;
     }
-  return 0;
 
- found:
   /* When -pedantic, we require the character to have been listed by
      the standard for the current language.  Otherwise, we accept the
      union of the acceptable sets for C++98 and C99.  */
+  if (! (ucnranges[mn].flags & (C99 | CXX)))
+      return 0;
+
   if (CPP_PEDANTIC (pfile)
-      && ((CPP_OPTION (pfile, c99) && !(ucnranges[md].flags & C99))
+      && ((CPP_OPTION (pfile, c99) && !(ucnranges[mn].flags & C99))
 	  || (CPP_OPTION (pfile, cplusplus)
-	      && !(ucnranges[md].flags & CXX))))
+	      && !(ucnranges[mn].flags & CXX))))
     return 0;
 
+  /* Update NST.  */
+  if (ucnranges[mn].combine != 0 && ucnranges[mn].combine < nst->prev_class)
+    nst->level = normalized_none;
+  else if (ucnranges[mn].flags & CTX)
+    {
+      bool safe;
+      cppchar_t p = nst->previous;
+
+      /* Easy cases from Bengali, Oriya, Tamil, Jannada, and Malayalam.  */
+      if (c == 0x09BE)
+	safe = p != 0x09C7;  /* Use 09CB instead of 09C7 09BE.  */
+      else if (c == 0x0B3E)
+	safe = p != 0x0B47;  /* Use 0B4B instead of 0B47 0B3E.  */
+      else if (c == 0x0BBE)
+	safe = p != 0x0BC6 && p != 0x0BC7;  /* Use 0BCA/0BCB instead.  */
+      else if (c == 0x0CC2)
+	safe = p != 0x0CC6;  /* Use 0CCA instead of 0CC6 0CC2.  */
+      else if (c == 0x0D3E)
+	safe = p != 0x0D46 && p != 0x0D47;  /* Use 0D4A/0D4B instead.  */
+      /* For Hangul, characters in the range AC00-D7A3 are NFC/NFKC,
+	 and are combined algorithmically from a sequence of the form
+	 1100-1112 1161-1175 11A8-11C2
+	 (if the third is not present, it is treated as 11A7, which is not
+	 really a valid character).
+	 Unfortunately, C99 allows (only) the NFC form, but C++ allows
+	 only the combining characters.  */
+      else if (c >= 0x1161 && c <= 0x1175)
+	safe = p < 0x1100 || p > 0x1112;
+      else if (c >= 0x11A8 && c <= 0x11C2)
+	safe = (p < 0xAC00 || p > 0xD7A3 || (p - 0xAC00) % 28 != 0);
+      else
+	{
+	  /* Uh-oh, someone updated ucnid.h without updating this code.  */
+	  cpp_error (pfile, CPP_DL_ICE, "Character %x might not be NFKC", c);
+	  safe = true;
+	}
+      if (!safe && c < 0x1161)
+	nst->level = normalized_none;
+      else if (!safe)
+	nst->level = MAX (nst->level, normalized_identifier_C);
+    }
+  else if (ucnranges[mn].flags & NKC)
+    ;
+  else if (ucnranges[mn].flags & NFC)
+    nst->level = MAX (nst->level, normalized_C);
+  else if (ucnranges[mn].flags & CID)
+    nst->level = MAX (nst->level, normalized_identifier_C);
+  else
+    nst->level = normalized_none;
+  nst->previous = c;
+  nst->prev_class = ucnranges[mn].combine;
+
   /* In C99, UCN digits may not begin identifiers.  */
-  if (CPP_OPTION (pfile, c99) && (ucnranges[md].flags & DIG))
+  if (CPP_OPTION (pfile, c99) && (ucnranges[mn].flags & DIG))
     return 2;
 
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
   return 1;
 }
 
@@ -781,10 +927,11 @@ ucn_valid_in_identifier (cpp_reader *pfile, cppchar_t c)
    designates a character in the basic source character set, then the
    program is ill-formed.
 
+   APPLE LOCAL begin mainline UCNs 2005-04-17 3892809
    *PSTR must be preceded by "\u" or "\U"; it is assumed that the
-   buffer end is delimited by a non-hex digit.  Returns zero if UCNs
-   are not part of the relevant standard, or if the string beginning
-   at *PSTR doesn't syntactically match the form 'NNNN' or 'NNNNNNNN'.
+   buffer end is delimited by a non-hex digit.  Returns zero if the
+   UCN has not been consumed.
+   APPLE LOCAL end mainline UCNs 2005-04-17 3892809
 
    Otherwise the nonzero value of the UCN, whether valid or invalid,
    is returned.  Diagnostics are emitted for invalid values.  PSTR
@@ -796,7 +943,10 @@ ucn_valid_in_identifier (cpp_reader *pfile, cppchar_t c)
 
 cppchar_t
 _cpp_valid_ucn (cpp_reader *pfile, const uchar **pstr,
-		const uchar *limit, int identifier_pos)
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+		const uchar *limit, int identifier_pos,
+		struct normalize_state *nst)
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 {
   cppchar_t result, c;
   unsigned int length;
@@ -816,8 +966,13 @@ _cpp_valid_ucn (cpp_reader *pfile, const uchar **pstr,
   else if (str[-1] == 'U')
     length = 8;
   else
-    abort();
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+    {
+      cpp_error (pfile, CPP_DL_ICE, "In _cpp_valid_ucn but not a UCN");
+      length = 4;
+    }
 
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
   result = 0;
   do
     {
@@ -829,10 +984,16 @@ _cpp_valid_ucn (cpp_reader *pfile, const uchar **pstr,
     }
   while (--length && str < limit);
 
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+  /* Partial UCNs are not valid in strings, but decompose into
+     multiple tokens in identifiers, so we can't give a helpful
+     error message in that case.  */
+  if (length && identifier_pos)
+    return 0;
+  
   *pstr = str;
   if (length)
     {
-      /* We'll error when we try it out as the start of an identifier.  */
       cpp_error (pfile, CPP_DL_ERROR,
 		 "incomplete universal character name %.*s",
 		 (int) (str - base), base);
@@ -850,9 +1011,19 @@ _cpp_valid_ucn (cpp_reader *pfile, const uchar **pstr,
 		 (int) (str - base), base);
       result = 1;
     }
+  else if (identifier_pos && result == 0x24 
+	   && CPP_OPTION (pfile, dollars_in_ident))
+    {
+      if (CPP_OPTION (pfile, warn_dollars) && !pfile->state.skipping)
+	{
+	  CPP_OPTION (pfile, warn_dollars) = 0;
+	  cpp_error (pfile, CPP_DL_PEDWARN, "'$' in identifier or number");
+	}
+      NORMALIZE_STATE_UPDATE_IDNUM (nst);
+    }
   else if (identifier_pos)
     {
-      int validity = ucn_valid_in_identifier (pfile, result);
+      int validity = ucn_valid_in_identifier (pfile, result, nst);
 
       if (validity == 0)
 	cpp_error (pfile, CPP_DL_ERROR,
@@ -863,6 +1034,7 @@ _cpp_valid_ucn (cpp_reader *pfile, const uchar **pstr,
    "universal character %.*s is not valid at the start of an identifier",
 		   (int) (str - base), base);
     }
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 
   if (result == 0)
     result = 1;
@@ -884,10 +1056,13 @@ convert_ucn (cpp_reader *pfile, const uchar *from, const uchar *limit,
   int rval;
   struct cset_converter cvt
     = wide ? pfile->wide_cset_desc : pfile->narrow_cset_desc;
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+  struct normalize_state nst = INITIAL_NORMALIZE_STATE;
 
   from++;  /* Skip u/U.  */
-  ucn = _cpp_valid_ucn (pfile, &from, limit, 0);
+  ucn = _cpp_valid_ucn (pfile, &from, limit, 0, &nst);
 
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
   rval = one_cppchar_to_utf8 (ucn, &bufp, &bytesleft);
   if (rval)
     {
@@ -1385,7 +1560,62 @@ cpp_interpret_charconst (cpp_reader *pfile, const cpp_token *token,
 
   return result;
 }
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+
+/* Convert an identifier denoted by ID and LEN, which might contain
+   UCN escapes, to the source character set, either UTF-8 or
+   UTF-EBCDIC.  Assumes that the identifier is actually a valid identifier.  */
+cpp_hashnode *
+_cpp_interpret_identifier (cpp_reader *pfile, const uchar *id, size_t len)
+{
+  /* It turns out that a UCN escape always turns into fewer characters
+     than the escape itself, so we can allocate a temporary in advance.  */
+  uchar * buf = alloca (len + 1);
+  uchar * bufp = buf;
+  size_t idp;
+  
+  for (idp = 0; idp < len; idp++)
+    if (id[idp] != '\\')
+      *bufp++ = id[idp];
+    else
+      {
+	unsigned length = id[idp+1] == 'u' ? 4 : 8;
+	cppchar_t value = 0;
+	size_t bufleft = len - (bufp - buf);
+	int rval;
 
+	idp += 2;
+	while (length && idp < len && ISXDIGIT (id[idp]))
+	  {
+	    value = (value << 4) + hex_value (id[idp]);
+	    idp++;
+	    length--;
+	  }
+	idp--;
+
+	/* Special case for EBCDIC: if the identifier contains
+	   a '$' specified using a UCN, translate it to EBCDIC.  */
+	if (value == 0x24)
+	  {
+	    *bufp++ = '$';
+	    continue;
+	  }
+
+	rval = one_cppchar_to_utf8 (value, &bufp, &bufleft);
+	if (rval)
+	  {
+	    errno = rval;
+	    cpp_errno (pfile, CPP_DL_ERROR,
+		       "converting UCN to source character set");
+	    break;
+	  }
+      }
+
+  return CPP_HASHNODE (ht_lookup (pfile->hash_table, 
+				  buf, bufp - buf, HT_ALLOC));
+}
+
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 /* Convert an input buffer (containing the complete contents of one
    source file) from INPUT_CHARSET to the source character set.  INPUT
    points to the input buffer, SIZE is its allocated size, and LEN is

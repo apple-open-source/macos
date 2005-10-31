@@ -340,7 +340,8 @@ char **envp)
 	 * on it.
 	 */
 	get_macosx_deployment_target(&macosx_deployment_target,
-				     &macosx_deployment_target_name);
+				     &macosx_deployment_target_name,
+				     CPU_TYPE_ANY);
 	/*
 	 * In 10.4 and later we now only round to the nearest page and
 	 * allow the entire 256 mb split region to be used.

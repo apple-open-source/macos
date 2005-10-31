@@ -38,16 +38,25 @@ def quote(x):
 	return s
 
 
-def remote_id():
-	"""Find the sender's phone number so it can be used in the PDF name"""
-	try:
-		remote_id = os.environ['REMID']
-	except:
-		remote_id = '?'
+def phone_filter(c):
+	"""Limit a phone number's character set so it can always be used in file names"""
+	return c in ' #()*+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'
 
-	if remote_id == '?' :
-		remote_id = 'Unknown'
-	return remote_id
+def phone_from_log(logfilename):
+	"""Find the sender's phone number so it can be used in the PDF name"""
+	phone_number = ''
+	PHONE_KEY = 'remote ID ->'
+	logfile = file(logfilename)
+	for line in logfile :
+		index = line.find(PHONE_KEY)
+		if index != -1 :
+			phone_number = string.strip(line[index + len(PHONE_KEY):])
+			phone_number = filter(phone_filter, phone_number)
+			break
+	logfile.close()
+	if len(phone_number) == 0 :
+		phone_number = 'Unknown'
+	return phone_number
 
 
 def copy_versioned_file(srcfile, dstdir):
@@ -148,7 +157,7 @@ if len(sys.argv) == 2 :
 	sys.exit(0)
 
 tiff_files = string.join(map(quote, sys.argv[2:]))
-pdf_file = 'FAX from ' + remote_id() + '.pdf'
+pdf_file = 'FAX from ' + phone_from_log(sys.argv[1]) + '.pdf'
 
 try:
 	# Convert TIFFs into a single PDF
@@ -178,8 +187,9 @@ try:
 		recipients = defaults_read('EmailRecipient')
 		sender = defaults_read('EmailSender')
 		if sender == '' :
-			if socket.gethostname()[-7:] == '.local.' :
-				sender = recipients.split(',')[0].strip(whitespace + '<>')
+			hostname = socket.gethostname()
+			if hostname.endswith('.local') or hostname.endswith('.local.') :
+				sender = recipients.split(',')[0].strip(string.whitespace + '<>')
 			else :
 				sender = 'FaxNotify'
 		email_fax(recipients, sender, pdf_file)

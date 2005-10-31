@@ -1,9 +1,15 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDriveBayMGPIO.cpp,v 1.1 2004/09/18 00:27:51 jlehrer Exp $
+ *	File: $Id: IOI2CDriveBayMGPIO.cpp,v 1.3 2005/08/01 23:37:34 galcher Exp $
  *
  *		$Log: IOI2CDriveBayMGPIO.cpp,v $
+ *		Revision 1.3  2005/08/01 23:37:34  galcher
+ *		Removed unused variable 'cstr' from ::start.
+ *		
+ *		Revision 1.2  2005/02/09 02:21:41  jlehrer
+ *		Updated interrupt processing for mac-io gpio-16
+ *		
  *		Revision 1.1  2004/09/18 00:27:51  jlehrer
  *		Initial checkin
  *		
@@ -14,14 +20,16 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include "IOI2CDriveBayMGPIO.h"
+#include "IOI2CDriveBayGPIO.h"
 #include "GPIOParent.h"
+#include "IOPlatformFunction.h"
 
 #ifdef DLOG
 #undef DLOG
 #endif
 
 // Uncomment for debug info
-//#define IOI2CPCA9554_DEBUG 1
+#define IOI2CPCA9554_DEBUG 1
 
 #ifdef IOI2CPCA9554_DEBUG
 #define DLOG(fmt, args...)  kprintf(fmt, ## args)
@@ -29,29 +37,29 @@
 #define DLOG(fmt, args...)
 #endif
 
+#define LOCK	IOLockLock(fClientLock)
+#define UNLOCK	IOLockUnlock(fClientLock)
 
-#define super IOService
+#define super IOI2CDevice
 
-OSDefineMetaClassAndStructors(IOI2CDriveBayMGPIO, IOService)
+OSDefineMetaClassAndStructors(IOI2CDriveBayMGPIO, IOI2CDevice)
 
 bool
 IOI2CDriveBayMGPIO::start(IOService *provider)
 {
-	IOReturn				status;
+	IOReturn				status = kIOReturnError;
 	OSData					*data;
 	mach_timespec_t			timeout;
-	const char				*cstr;
 
-	if (false == super::start(provider))
-		return false;
+	fSymIntRegister 	= OSSymbol::withCString(kIOPFInterruptRegister);
+	fSymIntUnRegister 	= OSSymbol::withCString(kIOPFInterruptUnRegister);
+	fSymIntEnable 		= OSSymbol::withCString(kIOPFInterruptEnable);
+	fSymIntDisable		= OSSymbol::withCString(kIOPFInterruptDisable);
 
 	// Determine GPIO register mapping...
 	// G4 Xserve mapping is PCA9554 compatible. (not supported by this driver :p we only match on PCA9554M)
 	// G5 Xserve mapping is PCA9554M compatible.
-	if (data = OSDynamicCast(OSData, provider->getProperty("compatible")))
-		if (cstr = (const char *)data->getBytesNoCopy())
-			if (0 == strcmp(cstr, "PCA9554M"))
-				fC3Mapping = true;
+	fC3Mapping = true;
 
 	// Format the reg property into a client interrupt address info...
 	if (0 == (data = OSDynamicCast(OSData, provider->getProperty("reg"))))
@@ -64,44 +72,105 @@ IOI2CDriveBayMGPIO::start(IOService *provider)
 	fIntAddrInfo <<= 8;		// shift in subaddress = 0x00
 	fIntAddrInfo |= 0x00000100;		// set the i2c read bit
 
-	// Get a count of 9554 clients...
-	if (0 == (data = OSDynamicCast(OSData, provider->getProperty("i2c-combined"))))
-	{
-		DLOG ("IOI2CDriveBayMGPIO::start - combined property not found\n");
-		return false;
-	}
+	fConfigReg = 0xFF;		// default to all input pins
+	fPolarityReg = 0x00;	// no polarity inversion
 
-	if (0 == (fClientCount = data->getLength() / sizeof(UInt32)))
-	{
-		DLOG ("IOI2CDriveBayMGPIO::start - combined property count == 0\n");
-		return false;
-	}
+	// find out how to program the config register
+	if (data = OSDynamicCast(OSData, provider->getProperty("config-reg")))
+		fConfigReg = (UInt8)*((UInt32 *)data->getBytesNoCopy());
 
-	if (0 == (fClient = (PCA9554CallbackInfo **)IOMalloc(fClientCount * sizeof(PCA9554CallbackInfo *))))
-	{
-		DLOG ("IOI2CDriveBayMGPIO::start - malloc %d clients failed\n", fClientCount);
-		return false;
-	}
+	// find out how to program the polarity register
+	if (data = OSDynamicCast(OSData, provider->getProperty("polarity-reg")))
+		fPolarityReg = (UInt8)*((UInt32 *)data->getBytesNoCopy());
 
-	bzero(fClient, (fClientCount * sizeof(PCA9554CallbackInfo *)));
+	DLOG("IOI2CDriveBayMGPIO@%lx::start fConfigReg = %02x fPolarityReg = %02x\n", fIntAddrInfo, fConfigReg, fPolarityReg);
+
+	fClientCount = 0;
+	for (int i = 0; i < kCLIENT_MAX; i++)
+		fClient[i].reg = 0x4badbeef;
 
 	// allocate my lock
 	if (0 == (fClientLock = IOLockAlloc()))
 		return false;
 
-	// Find the ApplePMU...
-	timeout.tv_sec = 30;
-	timeout.tv_nsec = 0;
-	if (0 == (fApplePMU = IOService::waitForService(IOService::serviceMatching("ApplePMU"), &timeout)))
+	// Register for mac-io gpio interrupt... Our interrupt.
+	// Clients will enable/disable the interrupts as needed.
+
+	if (data = OSDynamicCast(OSData, provider->getProperty("platform-drivebay-sense")))
 	{
-		DLOG ("IOI2CDriveBayMGPIO::start - timeout waiting for ApplePMU\n");
+		DLOG ("IOI2CDriveBayMGPIO::start - got platform-drivebay-sense property!\n");
+		if (data = OSDynamicCast(OSData, provider->getProperty("AAPL,phandle")))
+		{
+			DLOG ("IOI2CDriveBayMGPIO::start - got AAPL,phandle property!\n");
+			char cstr[256];
+			UInt32 ph;
+			ph = *(UInt32 *)data->getBytesNoCopy();
+			sprintf( cstr, "platform-drivebay-sense-%08x", ph );
+			if (fDrivebaySenseSym = OSSymbol::withCString(cstr))
+			{
+				timeout.tv_sec = 30;
+				timeout.tv_nsec = 0;
+
+				if (fDrivebaySense = waitForService(resourceMatching(fDrivebaySenseSym), &timeout))
+				{
+					fDrivebaySense = OSDynamicCast( IOService, fDrivebaySense->getProperty(fDrivebaySenseSym) );
+
+					if (fDrivebaySense)
+					{
+						status = fDrivebaySense->callPlatformFunction(fDrivebaySenseSym, TRUE, (void *)&IOI2CDriveBayMGPIO::sProcessGPIOInterrupt, (void *)this, (void *)0, (void *)fSymIntRegister);
+						DLOG ("IOI2CDriveBayMGPIO::start - \"%s\" service returned: (%x)\n", fDrivebaySenseSym->getCStringNoCopy(), (int)status);
+					}
+				}
+				else
+					DLOG ("IOI2CDriveBayMGPIO::start - timeout waiting for \"%s\"\n", fDrivebaySenseSym->getCStringNoCopy());
+			}
+			else
+				DLOG ("IOI2CDriveBayMGPIO::start - could not create platform-drivebay-sense symbol\n");
+		}
+		else
+			DLOG ("IOI2CDriveBayMGPIO::start - AAPL,phandle property not found\n");
+	}
+	else
+		DLOG ("IOI2CDriveBayMGPIO::start - platform-drivebay-sense property not found\n");
+
+	if (status != kIOReturnSuccess)
+	{
+		DLOG ("IOI2CDriveBayMGPIO::start - PF interrupt provider not found. status=(%x)\n", (int)status);
 		return false;
 	}
 
-	if (kIOReturnSuccess != (status = fApplePMU->callPlatformFunction("registerForPMUInterrupts", true,
-				(void*)0x01, (void*)sProcessApplePMUInterrupt, (void*)this, NULL )))
+	fFlags |= kFlag_InterruptsRegistered;
+
+/*
+	else
 	{
-		DLOG ("IOI2CDriveBayMGPIO::start -  ApplePMU registerForPMUInterrupts failed: 0x%08x\n", status);
+		timeout.tv_sec = 30;
+		timeout.tv_nsec = 0;
+
+		// Find the ApplePMU...
+		if (0 == (fApplePMU = IOService::waitForService(IOService::serviceMatching("ApplePMU"), &timeout)))
+		{
+			DLOG ("IOI2CDriveBayMGPIO::start - timeout waiting for ApplePMU\n");
+			return false;
+		}
+
+		if (kIOReturnSuccess != (status = fApplePMU->callPlatformFunction("registerForPMUInterrupts", true,
+					(void*)0x01, (void*)sProcessApplePMUInterrupt, (void*)this, NULL )))
+		{
+			DLOG ("IOI2CDriveBayMGPIO::start -  ApplePMU registerForPMUInterrupts failed: 0x%08x\n", status);
+			return false;
+		}
+	}
+*/
+
+	// Publish client interface.
+	if (false == super::start(provider))
+		return false;
+
+	if (kIOReturnSuccess != readI2C(k9554OutputPort, &fOutputReg, 1))
+	{
+		DLOG("IOI2CDriveBayGPIO::start -- super::start returned error\n");
+		freeI2CResources();
 		return false;
 	}
 
@@ -124,19 +193,21 @@ IOI2CDriveBayMGPIO::free(void)
 
 	DLOG ("IOI2CDriveBayMGPIO::free\n");
 
-	if (fClient)
+	// Disable interrupt source...
+	if (fDrivebaySense && fDrivebaySenseSym && fSymIntDisable && fSymIntUnRegister)
 	{
-		for (i = 0; i < fClientCount; i++)
-		{
-			if (fClient[i])
-			{
-				IOFree((void *)fClient[i], sizeof(PCA9554CallbackInfo));
-				fClient[i] = 0;
-			}
-		}
-		IOFree((void *)fClient, fClientCount * sizeof(PCA9554CallbackInfo *));
-		fClient = 0;
+		if (fFlags & kFlag_InterruptsEnabled)
+			fDrivebaySense->callPlatformFunction(fDrivebaySenseSym, FALSE, (void *)&IOI2CDriveBayMGPIO::sProcessGPIOInterrupt, (void *)this, (void *)0, (void *)fSymIntDisable);
+		if (fFlags & kFlag_InterruptsRegistered)
+			fDrivebaySense->callPlatformFunction(fDrivebaySenseSym, FALSE, (void *)&IOI2CDriveBayMGPIO::sProcessGPIOInterrupt, (void *)this, (void *)0, (void *)fSymIntUnRegister);
 	}
+	fFlags = 0;
+
+	// Deallocate clients...
+	for (i = 0; i < fClientCount; i++)
+		fClient[i].reg = 0x4badbeef;
+
+	if (fClientLock)	{ IOLockFree(fClientLock);	fClientLock = NULL; }
 
 	super::free();
 }
@@ -175,72 +246,159 @@ IOI2CDriveBayMGPIO::callPlatformFunction(
 
 IOReturn
 IOI2CDriveBayMGPIO::registerClient(
-	UInt32				id,
+	UInt32					reg,
 	PCA9554ClientCallback	handler,
-	IOService			*client,
-	bool				isRegister)
+	IOService				*client,
+	bool					isRegister)
 {
-	PCA9554CallbackInfo	*clientInfo;
+	IOReturn				status = kIOReturnSuccess;
+	int						i;
 
-	DLOG ("IOI2CDriveBayMGPIO::registerClient id:%d %s\n", id, isRegister?"":"unregister");
+	LOCK;
 
 	// Make sure the id is valid and not already registered
-	if (id >= fClientCount)
-		return kIOReturnBadArgument;
+	for (i = 0; i < kCLIENT_MAX; i++)
+		if (fClient[i].reg == reg)
+			break;
 
 	if (isRegister)
 	{
-		if (fClient[id] != 0)
+		if (i >= kCLIENT_MAX) // make sure we did not find the client
 		{
-			DLOG ("IOI2CDriveBayMGPIO::registerClient id:%d already open\n", id);
-			return kIOReturnStillOpen;
+			fClient[fClientCount].reg		= reg;
+			fClient[fClientCount].handler	= handler;
+			fClient[fClientCount].client	= client;
+			fClient[fClientCount].isEnabled	= false;
+			DLOG ("IOI2CDriveBayMGPIO::registerClient(%x) client %d added.\n", (int)reg, (int)fClientCount);
+			fClientCount++;
 		}
-
-		if (0 == (clientInfo = (PCA9554CallbackInfo *)IOMalloc(sizeof(PCA9554CallbackInfo))))
+		else
 		{
-			DLOG ("IOI2CDriveBayMGPIO::registerClient id:%d malloc err\n", id);
-			return kIOReturnNoMemory;
+			DLOG ("IOI2CDriveBayMGPIO::registerClient(%x) already registered.\n", (int)reg);
 		}
-
-		clientInfo->handler		= handler;
-		clientInfo->client		= client;
-		clientInfo->isEnabled	= false;
-		fClient[id] = clientInfo;
 	}
 	else // unregister client
 	{
-		if ((fClient[id] == 0) || (fClient[id]->client != client) || (fClient[id]->handler != handler))
+		if (i < kCLIENT_MAX)
 		{
-			DLOG ("IOI2CDriveBayMGPIO::registerClient unregister id:%d not open\n", id);
-			return kIOReturnNotOpen;
+			fClient[i].isEnabled	= false;
+			fClient[i].reg			= 0x4badbeef;
+			fClient[i].client		= 0;
+			fClient[i].handler		= 0;
+			DLOG ("IOI2CDriveBayMGPIO::registerClient(%x) client removed.\n", (int)reg);
 		}
-
-		clientInfo = fClient[id];
-		fClient[id] = 0;
-
-		IOFree(clientInfo, sizeof(PCA9554CallbackInfo));
+		else
+		{
+			DLOG ("IOI2CDriveBayMGPIO::registerClient(%x) unregister not open\n", (int)reg);
+			status = kIOReturnNotOpen;
+		}
 	}
+	UNLOCK;
 
-	return kIOReturnSuccess;
+	return status;
 }
 
 IOReturn
 IOI2CDriveBayMGPIO::enableClient(
-	UInt32		id,
+	UInt32		reg,
 	bool		isEnable)
 {
-	if ((id >= fClientCount) || (fClient[id] == 0))
+	IOReturn	status = kIOReturnSuccess;
+	int			i;
+
+	LOCK;
+	for (i = 0; i < kCLIENT_MAX; i++)
+		if (fClient[i].reg == reg)
+			break;
+
+	if (i < kCLIENT_MAX)
 	{
-		DLOG ("IOI2CDriveBayMGPIO::enableClient id:%d not open\n", id);
-		return kIOReturnBadArgument;
+		DLOG ("IOI2CDriveBayMGPIO::enableClient reg:%x %s\n", reg, isEnable?"enable":"disable");
+		fClient[i].isEnabled = isEnable;
+
+		if (isEnable)
+		{
+			// Enable interrupt source... (if needed)
+			if (0 == (fFlags & kFlag_InterruptsEnabled))
+			{
+				if (kIOReturnSuccess == (status = fDrivebaySense->callPlatformFunction(fDrivebaySenseSym, FALSE, (void *)&IOI2CDriveBayMGPIO::sProcessGPIOInterrupt, (void *)this, (void *)0, (void *)fSymIntEnable)))
+					fFlags |= kFlag_InterruptsEnabled;
+
+				DLOG ("IOI2CDriveBayMGPIO::enableClient enable drivebay sense (%x)\n", (int)status);
+			}
+		}
+		else
+		{
+			// Disable interrupt source... (if needed)
+			if (fFlags & kFlag_InterruptsEnabled)
+			{
+				bool anyClients = 0;
+				for (i = 0; i < kCLIENT_MAX; i++)
+				{
+					if (fClient[i].reg != 0x4badbeef)
+					{
+						anyClients = true;
+						break;
+					}
+				}
+
+				if ( anyClients == false )
+				{
+					if (kIOReturnSuccess == (status = fDrivebaySense->callPlatformFunction(fDrivebaySenseSym, FALSE, (void *)&IOI2CDriveBayMGPIO::sProcessGPIOInterrupt, (void *)this, (void *)0, (void *)fSymIntEnable)))
+						fFlags &= ~kFlag_InterruptsEnabled;
+					DLOG ("IOI2CDriveBayMGPIO::enableClient disable drivebay sense (%x)\n", (int)status);
+				}
+			}
+		}
 	}
+	else
+	{
+		DLOG ("IOI2CDriveBayMGPIO::enableClient reg:%x not open\n", (int)reg);
+		status = kIOReturnBadArgument;
+	}
+	UNLOCK;
 
-	DLOG ("IOI2CDriveBayMGPIO::enableClient id:%d %s\n", id, isEnable?"enable":"disable");
-	fClient[id]->isEnabled = isEnable;
-
-	return kIOReturnSuccess;
+	return status;
 }
 
+
+void
+IOI2CDriveBayMGPIO::processPowerEvent(
+	UInt32		eventType)
+{
+	UInt8	data;
+
+	switch (eventType)
+	{
+		case kI2CPowerEvent_OFF:
+		case kI2CPowerEvent_SLEEP:
+			if (kIOReturnSuccess == readI2C(k9554OutputPort, &data, 1))
+				fOutputReg = data;
+			break;
+		case kI2CPowerEvent_ON:
+		case kI2CPowerEvent_WAKE:
+		{
+			// Restore the output register
+			if (kIOReturnSuccess != writeI2C(k9554OutputPort, &fOutputReg, 1))
+			{
+				DLOG("IOI2CDriveBayGPIO::doPowerUp failed to restore outputs\n");
+			}
+
+			// program the polarity inversion register
+			if (kIOReturnSuccess != writeI2C(k9554PolarityInv, &fPolarityReg, 1))
+			{
+				DLOG("IOI2CDriveBayGPIO::doPowerUp failed to program polarity inversion reg\n");
+			}
+
+			// configure 9554 (direction bits)
+			if (kIOReturnSuccess != writeI2C(k9554Config, &fConfigReg, 1))
+			{
+				DLOG("IOI2CDriveBayGPIO::doPowerUp failed to configure gpio\n");
+			}
+			break;
+		}
+	}
+}
 
 
 // ApplePMU calls this (from secondary interrupt context) when the PCA9554M changes state.
@@ -273,28 +431,48 @@ IOI2CDriveBayMGPIO::sProcessApplePMUInterrupt(
 	}
 
 	if (self->fIntAddrInfo == (*(UInt32 *)buffer)) // Works on big-endian only.
-		self->processApplePMUInterrupt(buffer[4]);
+		self->processGPIOInterrupt(buffer[4]);
 }
 
 void
-IOI2CDriveBayMGPIO::processApplePMUInterrupt(
+IOI2CDriveBayMGPIO::sProcessGPIOInterrupt(
+	IOI2CDriveBayMGPIO		*self,
+	void					*param2,
+	void					*param3,
+	UInt8					newData)
+{
+	IOReturn status;
+
+	if (0 == OSDynamicCast(IOI2CDriveBayMGPIO, self))
+	{
+		DLOG("IOI2CDriveBayMGPIO::sProcessGPIOInterrupt unknown instance type\n");
+		return;
+	}
+
+	UInt8	data;
+	if (kIOReturnSuccess == (status = self->readI2C(k9554InputPort, &data, 1)))
+		self->processGPIOInterrupt(data);
+}
+
+void
+IOI2CDriveBayMGPIO::processGPIOInterrupt(
 	UInt8		newState)
 {
 	UInt8		diff;
 	unsigned	i;
 
-	if (newState == fIntRegState)
+	if (newState == fOutputReg)
 	{
-		DLOG("IOI2CDriveBayMGPIO::processApplePMUInterrupt state: 0x%02x -> 0x%02x, disregarding...\n", newState, fIntRegState);
+		DLOG("IOI2CDriveBayMGPIO::processGPIOInterrupt state: 0x%02x -> 0x%02x, disregarding...\n", newState, fOutputReg);
 		return;
 	}
 
-	diff = newState ^ fIntRegState;
+	diff = newState ^ fOutputReg;
 
-	DLOG("IOI2CDriveBayMGPIO::processApplePMUInterrupt state: 0x%02x -> 0x%02x, xor = 0x%02x\n", fIntRegState, newState, diff);
+	DLOG("IOI2CDriveBayMGPIO::processGPIOInterrupt state: 0x%02x -> 0x%02x, xor = 0x%02x\n", fOutputReg, newState, diff);
 
 	// Store the new value as the last known state
-	fIntRegState = newState;
+	fOutputReg = newState;
 
 	// If the keyswitch is locked, ignore the event
 	if (fKeyswitch)
@@ -308,7 +486,7 @@ IOI2CDriveBayMGPIO::processApplePMUInterrupt(
 	// Map the interrupt event to each client...
 	for (i = 0; i < fClientCount; i++)
 	{
-		if (fClient[i])
+		if ( (fClient[i].reg != 0x4badbeef) && (fClient[i].isEnabled) )
 		{
 			UInt32 bitOffset;
 			UInt8 mappedState = 0;
@@ -317,7 +495,7 @@ IOI2CDriveBayMGPIO::processApplePMUInterrupt(
 			bitOffset = (fC3Mapping) ? (i * 2) : i;
 			if (diff & (1 << bitOffset))
 			{
-				if (fIntRegState & (1 << bitOffset))
+				if (fOutputReg & (1 << bitOffset))
 					mappedState |= (1 << 4);
 				mappedMask |= (1 << 4);
 			}
@@ -325,15 +503,15 @@ IOI2CDriveBayMGPIO::processApplePMUInterrupt(
 			bitOffset = (fC3Mapping) ? ((i * 2) + 1) : (i + 4);
 			if (diff & (1 << bitOffset))
 			{
-				if (fIntRegState & (1 << bitOffset))
+				if (fOutputReg & (1 << bitOffset))
 					mappedState |= (1 << 3);
 				mappedMask |= (1 << 3);
 			}
 
 			if (mappedMask)
 			{
-				DLOG("IOI2CDriveBayMGPIO::processApplePMUInterrupt call client %d mask:0x%02x state:0x%02x\n", i, mappedMask, mappedState);
-				fClient[i]->handler(fClient[i]->client, mappedMask, mappedState);
+				DLOG("IOI2CDriveBayMGPIO::processGPIOInterrupt call client %d mask:0x%02x state:0x%02x\n", i, mappedMask, mappedState);
+				fClient[i].handler(fClient[i].client, mappedMask, mappedState);
 			}
 		}
 	}

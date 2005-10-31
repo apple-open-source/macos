@@ -1,4 +1,4 @@
-# Copyright 2003, 2004
+# Copyright 2003, 2004, 2005
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -92,7 +92,7 @@ remote_exec build "make -C $objdir/$subdir stage3"
 
 mi_gdb_test "838-file-fix-file $objdir/$subdir/b-bundlized.o3 $objdir/$subdir/b.c" ".*838\\^done,replaced-functions=\\\[\{thread-id=\"1\",replaced=\\\[frame=\{level=\"2\",addr=\"$hex\",fp=\"$hex\",func=\"bar\",file=\"b.c\",line=\"2\[67\]\",dir=\".*\"\},frame=\{level=\"0\",addr=\"$hex\",fp=\"$hex\",func=\"slurry\",file=\"b.c\",line=\"40\",dir=\".*\"\}\\\]\}\\\]" "Bring in fixed b.c version 3"
 
-mi_gdb_test "183-thread-set-pc 1 b.c:36" ".*183\\^done,frame=.*,func=\"slurry\",.*line=\"38\".*" "Set \$pc to the new slurry"
+mi_gdb_test "183-thread-set-pc 1 b.c:36" ".*183\\^done,frame=.*,func=\"slurry\",.*line=\"40\".*" "Set \$pc to the new slurry"
 
 gdb_exit
 

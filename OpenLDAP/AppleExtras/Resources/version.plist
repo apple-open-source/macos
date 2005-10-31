@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
 	<key>BuildVersion</key>
 	<string>132</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4</string>
+	<string>1.4.1</string>
 	<key>CFBundleVersion</key>
 	<string>9</string>
 	<key>ProjectName</key>
@@ -13,6 +13,6 @@
 	<key>ReleaseStatus</key>
 	<string>GM</string>
 	<key>SourceVersion</key>
-	<string>68</string>
+	<string>69.0.1</string>
 </dict>
 </plist>

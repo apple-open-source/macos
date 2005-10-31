@@ -97,6 +97,7 @@ public:
 
     // overrides
     virtual NodeImpl *addChild(NodeImpl *child);
+    virtual void childrenChanged();
     
     virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
     virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);

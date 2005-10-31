@@ -79,6 +79,12 @@ static char sccsid[] = "@(#)quotaon.c	8.1 (Berkeley) 6/6/93";
 #include <ufs/ufs/quota.h>
 #include <stdio.h>
 #include <fstab.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+/* Internal functions */
+void usage(char *whoami);
 
 char *qfname = QUOTAFILENAME;
 char *qfextension[] = INITQFNAMES;
@@ -88,7 +94,7 @@ int	gflag;		/* operate on group quotas */
 int	uflag;		/* operate on user quotas */
 int	vflag;		/* verbose */
 
-main(argc, argv)
+int main(argc, argv)
 	int argc;
 	char **argv;
 {
@@ -204,7 +210,7 @@ main(argc, argv)
 	exit(errs);
 }
 
-usage(whoami)
+void usage(whoami)
 	char *whoami;
 {
 
@@ -214,7 +220,7 @@ usage(whoami)
 }
 
 #ifdef __APPLE__
-quotaonoff(fst, offmode, type, qfpathname)
+int quotaonoff(fst, offmode, type, qfpathname)
 	register struct statfs *fst;
 	int offmode, type;
 	char *qfpathname;
@@ -243,7 +249,7 @@ quotaonoff(fst, offmode, type, qfpathname)
 	return (0);
 }
 #else
-quotaonoff(fs, offmode, type, qfpathname)
+int quotaonoff(fs, offmode, type, qfpathname)
 	register struct fstab *fs;
 	int offmode, type;
 	char *qfpathname;
@@ -276,7 +282,7 @@ quotaonoff(fs, offmode, type, qfpathname)
 /*
  * Check to see if target appears in list of size cnt.
  */
-oneof(target, list, cnt)
+int oneof(target, list, cnt)
 	register char *target, *list[];
 	int cnt;
 {
@@ -292,7 +298,7 @@ oneof(target, list, cnt)
  * Check to see if a particular quota is to be enabled.
  */
 #ifdef __APPLE__
-hasquota(fst, type, qfnamep)
+int hasquota(fst, type, qfnamep)
 	register struct statfs *fst;
 	int type;
 	char **qfnamep;
@@ -325,7 +331,7 @@ hasquota(fst, type, qfnamep)
 	return (1);
 }
 #else
-hasquota(fs, type, qfnamep)
+int hasquota(fs, type, qfnamep)
 	register struct fstab *fs;
 	int type;
 	char **qfnamep;
@@ -365,7 +371,7 @@ hasquota(fs, type, qfnamep)
 /*
  * Verify file system is mounted and not readonly.
  */
-readonly(fs)
+int readonly(fs)
 	register struct fstab *fs;
 {
 	struct statfs fsbuf;

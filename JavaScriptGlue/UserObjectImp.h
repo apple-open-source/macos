@@ -20,30 +20,30 @@ class UserObjectImp : public ObjectImp
         
         virtual bool	implementsCall() const;
 
-		virtual bool hasProperty(ExecState *exec, const Identifier &propertyName) const;
-		virtual ReferenceList UserObjectImp::propList(ExecState *exec, bool recursive=true);
+	virtual bool hasOwnProperty(ExecState *exec, const Identifier &propertyName) const;
+        virtual ReferenceList UserObjectImp::propList(ExecState *exec, bool recursive=true);
 
         virtual Value	call(ExecState *exec, Object &thisObj, const List &args);
 #if JAG_PINK_OR_LATER
-		virtual Value	get(ExecState *exec, const Identifier &propertyName) const;
-		virtual void	put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
+        virtual Value	get(ExecState *exec, const Identifier &propertyName) const;
+        virtual void	put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
 #else
         virtual Value	get(ExecState* exec, const UString& propertyName) const;
         virtual void	put(ExecState* exec, const UString& propertyName, const Value& value, int attr = None);
 #endif
 
-		virtual Value toPrimitive(ExecState *exec, Type preferredType = UnspecifiedType) const;
-		virtual bool toBoolean(ExecState *exec) const;
-		virtual double toNumber(ExecState *exec) const;
-		virtual UString toString(ExecState *exec) const;
+        virtual Value toPrimitive(ExecState *exec, Type preferredType = UnspecifiedType) const;
+        virtual bool toBoolean(ExecState *exec) const;
+        virtual double toNumber(ExecState *exec) const;
+        virtual UString toString(ExecState *exec) const;
 
         
-		virtual void mark();
+        virtual void mark();
 		
         JSUserObject* GetJSUserObject() const;
-	protected:
-		UserObjectImp();
-    private:
+ protected:
+        UserObjectImp();
+ private:
         JSUserObject* fJSUserObject;
 };
 

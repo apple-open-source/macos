@@ -1,5 +1,7 @@
-// PR libbstdc++/10689
+// { dg-do run { xfail broken_cplxf_arg } }
+// PR libstdc++/10689
 // Origin: Daniel.Levine@jhuaph.edu
+// { dg-options "-mieee" { target alpha*-*-* } }
 
 #include <complex>
 #include <testsuite_hooks.h>

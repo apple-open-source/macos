@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 1999-2004, Ada Core Technologies, Inc.           --
+--           Copyright (C) 1999-2005, Ada Core Technologies, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,8 +36,6 @@ with MLib.Utl; use MLib.Utl;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.OS_Lib;               use GNAT.OS_Lib;
-
-with System;
 
 package body MLib is
 
@@ -103,12 +101,9 @@ package body MLib is
       To         : Name_Id;
       Interfaces : String_List)
    is
-      Success   : Boolean := False;
-      To_Dir    : constant String := Get_Name_String (To);
-      Interface : Boolean := False;
-
-      procedure Set_Readonly (Name : System.Address);
-      pragma Import (C, Set_Readonly, "__gnat_set_readonly");
+      Success      : Boolean := False;
+      To_Dir       : constant String := Get_Name_String (To);
+      Is_Interface : Boolean := False;
 
       procedure Verbose_Copy (Index : Positive);
       --  In verbose mode, output a message that the indexed file is copied
@@ -159,11 +154,11 @@ package body MLib is
 
                --  Check if this is one of the interface ALIs
 
-               Interface := False;
+               Is_Interface := False;
 
                for Index in Interfaces'Range loop
                   if File_Name = Interfaces (Index).all then
-                     Interface := True;
+                     Is_Interface := True;
                      exit;
                   end if;
                end loop;
@@ -172,7 +167,7 @@ package body MLib is
                --  the interface indication at the end of the P line.
                --  Do not copy ALI files that are not Interfaces.
 
-               if Interface then
+               if Is_Interface then
                   Success := False;
                   Verbose_Copy (Index);
 
@@ -264,7 +259,8 @@ package body MLib is
                               Success := Status and Actual_Len = Len + 3;
 
                               if Success then
-                                 Set_Readonly (Name_Buffer'Address);
+                                 Set_Read_Only (
+                                   Name_Buffer (1 .. Name_Len - 1));
                               end if;
                            end if;
                         end if;

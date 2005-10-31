@@ -3,6 +3,7 @@
  * distcc -- A simple distributed compiler system
  *
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
+ * Copyright (C)2005 by Apple Computer, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -78,6 +79,8 @@ char *dcc_argv_tostr(char **a);
 int dcc_trace_argv(const char *message, char *argv[]);
 
 int dcc_argv_len(char **a);
+
+int dcc_validate_compiler(char *aPath);
 
 /* dopt.c */
 extern struct dcc_allow_list *opt_allowed;

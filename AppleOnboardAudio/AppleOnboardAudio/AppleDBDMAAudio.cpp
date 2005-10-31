@@ -16,10 +16,8 @@
 #pragma mark еее Constants
 #pragma mark ------------------------ 
 
-#ifdef _TIME_CLIP_ROUTINE
 #define kIOProcTimingCountCurrent 10
 #define kIOProcTimingCountAverage 100
-#endif 
 
 extern "C" {
 extern vm_offset_t phystokv(vm_offset_t pa);
@@ -169,7 +167,9 @@ bool AppleDBDMAAudio::init (OSDictionary *			properties,
 	
 	mHasInput = hasInput;
 	mHasOutput = hasOutput;
-	
+    
+    mEnableCPUProfiling = FALSE;
+    
 	//	[3305011]	begin {
 	//	Init the dma activity counter that can be viewed with AOA Viewer
 	mDmaInterruptCount = 0;
@@ -229,19 +229,32 @@ bool AppleDBDMAAudio::init (OSDictionary *			properties,
 	mInputGainLPtr = NULL;	
 	mInputGainRPtr = NULL;	
 
-
-#ifdef _TIME_CLIP_ROUTINE
-	mCallCount = 0;
-	mStartIOProcUptime.hi = 0;
-	mStartIOProcUptime.lo = 0;
-	mEndProcessingUptime.hi = 0;
-	mEndProcessingUptime.lo = 0;
-	mCurrentTotalNanos = 0;
-	mTotalProcessingNanos = 0;
-	mTotalIOProcNanos = 0;
-#endif
-
-	result = TRUE;
+    
+	mOutputIOProcCallCount = 0;
+	mStartOutputIOProcUptime.hi = 0;
+	mStartOutputIOProcUptime.lo = 0;
+	mEndOutputProcessingUptime.hi = 0;
+	mEndOutputProcessingUptime.lo = 0;
+    mPauseOutputProcessingUptime.hi = 0;
+    mPauseOutputProcessingUptime.lo = 0;
+	mCurrentTotalOutputNanos = 0;
+	mTotalOutputProcessingNanos = 0;
+	mTotalOutputIOProcNanos = 0;
+    mCurrentTotalPausedOutputNanos = 0;
+    
+    mInputIOProcCallCount = 0;
+	mStartInputIOProcUptime.hi = 0;
+	mStartInputIOProcUptime.lo = 0;
+	mEndInputProcessingUptime.hi = 0;
+	mEndInputProcessingUptime.lo = 0;
+    mPauseInputProcessingUptime.hi = 0;
+    mPauseInputProcessingUptime.lo = 0;
+	mCurrentTotalInputNanos = 0;
+	mTotalInputProcessingNanos = 0;
+	mTotalInputIOProcNanos = 0;
+    mCurrentTotalPausedInputNanos = 0;
+	
+    result = TRUE;
 
 Exit:
 	debugIOLog (3,  "- AppleDBDMAAudio::init returns %d", (unsigned int)result );
@@ -352,6 +365,7 @@ bool AppleDBDMAAudio::updateOutputStreamFormats ()
 	UInt32								formatIndex;
 	UInt32								rateIndex;
 	UInt32								numSampleRates;
+    UInt32                              engineState;
 	bool								haveNonMixableFormat;
 	bool								result;
 
@@ -360,8 +374,12 @@ bool AppleDBDMAAudio::updateOutputStreamFormats ()
 	result = FALSE;
 
 	FailIf (NULL == mOutputStream, Exit);
-
-	pauseAudioEngine ();
+    
+    engineState = getState();
+    debugIOLog (5, "AppleDBDMAAudio::updateOutputStreamFormats - about to try to pauseAudioEngine...engine state = %lu", engineState);
+	if ( ( kIOAudioEngineRunning == engineState ) || ( kIOAudioEngineResumed == engineState ) ) {
+        pauseAudioEngine ();
+    }
 	beginConfigurationChange ();
 
 	mOutputStream->clearAvailableFormats (); 
@@ -470,9 +488,24 @@ bool AppleDBDMAAudio::updateOutputStreamFormats ()
 	if (FALSE == haveNonMixableFormat) {
 		mDBDMAOutputFormat.fIsMixable = TRUE;
 	}
-
-	resumeAudioEngine ();
+    
 	completeConfigurationChange ();
+    engineState = getState();
+    debugIOLog (5, "AppleDBDMAAudio::updateOutputStreamFormats - about to try to resumeAudioEngine...engine state = %lu", engineState);
+	if ( kIOAudioEnginePaused == engineState ) {
+        resumeAudioEngine ();
+		// [4238699]
+		// resumeAudioEngine alone only puts IOAudioEngine in its kIOAudioEngineResumed state.  If an engine was running prior to this pause-resume
+		// sequence, it might be possible to keep the engine in a resumed state indefinitely.  This can prevent audioEngineStopped from being called, even
+		// if a sound has finished playing.  This is dangerous when running on battery power as it can prevent us from going idle.  By calling startAudioEngine,
+		// we force the engine to issue a performAudioEngineStart, and the engine's state is set to running.  This allows audioEngineStopped to be called.
+		//
+		// Before calling startAudioEngine, check to make sure that the engine is in the resumed state.  This ensures that the audio engine will be started on only
+		// the last resume call in cases where pause-resume sequences are nested.
+		if ( kIOAudioEngineResumed == getState() ) {
+            startAudioEngine ();
+        }
+    }
 
 	result = TRUE;
 
@@ -1090,18 +1123,31 @@ IOReturn AppleDBDMAAudio::performAudioEngineStop()
     
 	dmaRunState = FALSE;				//	rbm 7.12.02	added for user client support
     interruptEventSource->enable();
-
-#ifdef _TIME_CLIP_ROUTINE
-	mCallCount = 0;
-	mStartIOProcUptime.hi = 0;
-	mStartIOProcUptime.lo = 0;
-	mEndProcessingUptime.hi = 0;
-	mEndProcessingUptime.lo = 0;
-	mCurrentTotalNanos = 0;
-	mTotalProcessingNanos = 0;
-	mTotalIOProcNanos = 0;
-#endif
-
+    
+    mOutputIOProcCallCount = 0;
+    mStartOutputIOProcUptime.hi = 0;
+    mStartOutputIOProcUptime.lo = 0;
+    mEndOutputProcessingUptime.hi = 0;
+    mEndOutputProcessingUptime.lo = 0;
+    mPauseOutputProcessingUptime.hi = 0;
+    mPauseOutputProcessingUptime.lo = 0;
+    mCurrentTotalOutputNanos = 0;
+    mTotalOutputProcessingNanos = 0;
+    mTotalOutputIOProcNanos = 0;
+    mCurrentTotalPausedOutputNanos = 0;
+    
+    mInputIOProcCallCount = 0;
+    mStartInputIOProcUptime.hi = 0;
+    mStartInputIOProcUptime.lo = 0;
+    mEndInputProcessingUptime.hi = 0;
+    mEndInputProcessingUptime.lo = 0;
+    mPauseInputProcessingUptime.hi = 0;
+    mPauseInputProcessingUptime.lo = 0;
+    mCurrentTotalInputNanos = 0;
+    mTotalInputProcessingNanos = 0;
+    mTotalInputIOProcNanos = 0;        
+    mCurrentTotalPausedInputNanos = 0;
+    
     debugIOLog (3, "- AppleDBDMAAudio::performAudioEngineStop() for AOA with mInstanceIndex of %ld", ourProvider->getAOAInstanceIndex());
     return kIOReturnSuccess;
 }
@@ -1337,17 +1383,13 @@ IOReturn AppleDBDMAAudio::clipOutputSamples(const void *mixBuf, void *sampleBuf,
 		mNeedToRestartDMA = FALSE;
 		restartDMA ();
 	}
-
-	startTiming();
-
+    
 	if (0 != numSampleFrames) {
 
 		// [3094574] aml, use function pointer instead of if/else block - handles both iSub and non-iSub clipping cases.
 		result = (*this.*mClipAppleDBDMAToOutputStreamRoutine)(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
 	}
-
-	endTiming();
-
+    
 	return result;
 }
 
@@ -1361,9 +1403,9 @@ IOReturn AppleDBDMAAudio::convertInputSamples(const void *sampleBuf, void *destB
 		mNeedToRestartDMA = FALSE;
 		restartDMA ();
 	}
-
+    
 	result = (*this.*mConvertInputStreamToAppleDBDMARoutine)(sampleBuf, destBuf, firstSampleFrame, numSampleFrames, streamFormat);
-
+    
 	return result;
 }
 
@@ -1410,9 +1452,13 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16(const void *inFloatBuff
 	outSInt16BufferPtr = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;	
 
 	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
-
+    
+    startOutputTiming();
+    
 	outputProcessing((float *)mIntermediateOutputSampleBuffer, numSamples);
 	
+    endOutputTiming();
+    
 	Float32ToNativeInt16( (float *)mIntermediateOutputSampleBuffer, outSInt16BufferPtr, numSamples );
 
     return kIOReturnSuccess;
@@ -1431,9 +1477,13 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16MixRightChannel(const vo
 	outSInt16BufferPtr = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;
 
 	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
-
+    
+    startOutputTiming();
+    
 	outputProcessing((float *)mIntermediateOutputSampleBuffer, numSamples);
 	
+    endOutputTiming();
+    
 	mixAndMuteRightChannel( (float *)mIntermediateOutputSampleBuffer, (float *)mIntermediateOutputSampleBuffer, numSamples );
 
 	Float32ToNativeInt16( (float *)mIntermediateOutputSampleBuffer, outSInt16BufferPtr, numSamples );
@@ -1453,9 +1503,13 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32(const void *inFloatBuff
 	outSInt32BufferPtr = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
 
 	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
-
+    
+    startOutputTiming();
+    
 	outputProcessing((float *)mIntermediateOutputSampleBuffer, numSamples);
-
+    
+    endOutputTiming();
+    
 	Float32ToNativeInt32( (float *)mIntermediateOutputSampleBuffer, outSInt32BufferPtr, numSamples );
 
     return kIOReturnSuccess;
@@ -1474,9 +1528,13 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32MixRightChannel(const vo
 	outSInt32BufferPtr = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
 
 	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
-
+    
+    startOutputTiming();
+    
 	outputProcessing((float *)mIntermediateOutputSampleBuffer, numSamples);
-
+    
+    endOutputTiming();
+    
 	mixAndMuteRightChannel( (float *)mIntermediateOutputSampleBuffer, (float *)mIntermediateOutputSampleBuffer, numSamples );
 
 	Float32ToNativeInt32( (float *)mIntermediateOutputSampleBuffer, outSInt32BufferPtr, numSamples );
@@ -1522,9 +1580,13 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSub(const void *inFloat
 	StereoLowPass4thOrder ((float *)mIntermediateOutputSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, coefficients, filterState, filterState2);
 
 	outputBuf16 = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;
-
+    
+    startOutputTiming();
+    
 	outputProcessing ((float *)mIntermediateOutputSampleBuffer, numSamples);
-
+    
+    endOutputTiming();
+    
 	Float32ToNativeInt16( (float *)mIntermediateOutputSampleBuffer, outputBuf16, numSamples );
 
  	sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
@@ -1571,9 +1633,13 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSubMixRightChannel(cons
 
 	outputBuf16 = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;
 	mixAndMuteRightChannel( (float *)mIntermediateOutputSampleBuffer, (float *)mIntermediateOutputSampleBuffer, numSamples );
-
+    
+    startOutputTiming();
+    
 	outputProcessing ((float *)mIntermediateOutputSampleBuffer, numSamples);
-
+    
+    endOutputTiming();
+    
 	Float32ToNativeInt16( (float *)mIntermediateOutputSampleBuffer, outputBuf16, numSamples );
 
  	sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
@@ -1617,9 +1683,13 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSub(const void *inFloat
 	StereoLowPass4thOrder ((float *)mIntermediateOutputSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, coefficients, filterState, filterState2);
 
 	outputBuf32 = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
-
+    
+    startOutputTiming();
+    
 	outputProcessing ((float *)mIntermediateOutputSampleBuffer, numSamples);
-
+    
+    endOutputTiming();
+    
 	Float32ToNativeInt32( (float *)mIntermediateOutputSampleBuffer, outputBuf32, numSamples );
 
   	sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
@@ -1664,9 +1734,13 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSubMixRightChannel(cons
 
 	outputBuf32 = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
 	mixAndMuteRightChannel( (float *)mIntermediateOutputSampleBuffer, (float *)mIntermediateOutputSampleBuffer, numSamples );
-
+    
+    startOutputTiming();
+    
 	outputProcessing ((float *)mIntermediateOutputSampleBuffer, numSamples);
-
+    
+    endOutputTiming();
+    
 	Float32ToNativeInt32( (float *)mIntermediateOutputSampleBuffer, outputBuf32, numSamples );
 
  	sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
@@ -1713,8 +1787,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16(const void *sampleB
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32(inputBuf16, convertAtPointer, samplesToConvert, 16);
+        
+        startInputTiming();
+        
 		inputProcessing (convertAtPointer, samplesToConvert); 
-
+        
+        endInputTiming();
+        
 	} else if (targetSampleFrame < mLastSampleFrameConverted) {
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
@@ -1722,8 +1801,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16(const void *sampleB
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32(inputBuf16, convertAtPointer, samplesToConvert, 16);
-		inputProcessing (convertAtPointer, samplesToConvert); 
-
+        
+        startInputTiming();
+        
+		inputProcessing (convertAtPointer, samplesToConvert);
+        
+        pauseInputTiming();
+        
 		samplesToConvert = targetSampleFrame * streamFormat->fNumChannels;
 		inputBuf16 = (SInt16 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
@@ -1731,7 +1815,12 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16(const void *sampleB
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32(inputBuf16, convertAtPointer, samplesToConvert, 16);
-		inputProcessing (convertAtPointer, samplesToConvert); 
+        
+        resumeInputTiming();
+        
+		inputProcessing (convertAtPointer, samplesToConvert);
+        
+        endInputTiming();
 	}
 	
 	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
@@ -1777,8 +1866,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16CopyR2L(const void *
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32CopyRightToLeft(inputBuf16, convertAtPointer, samplesToConvert, 16);
-		inputProcessing (convertAtPointer, samplesToConvert); 
-
+        
+		startInputTiming();
+        
+        inputProcessing (convertAtPointer, samplesToConvert);
+        
+        endInputTiming();
+        
 	} else if (targetSampleFrame < mLastSampleFrameConverted) {
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
@@ -1786,8 +1880,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16CopyR2L(const void *
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32CopyRightToLeft(inputBuf16, convertAtPointer, samplesToConvert, 16);
+        
+        startInputTiming();
+        
 		inputProcessing (convertAtPointer, samplesToConvert); 
-
+        
+        pauseInputTiming();
+        
 		samplesToConvert = targetSampleFrame * streamFormat->fNumChannels;
 		inputBuf16 = (SInt16 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
@@ -1795,7 +1894,12 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16CopyR2L(const void *
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32CopyRightToLeft(inputBuf16, convertAtPointer, samplesToConvert, 16);
-		inputProcessing (convertAtPointer, samplesToConvert); 
+        
+		resumeInputTiming();
+        
+        inputProcessing (convertAtPointer, samplesToConvert);
+        
+        endInputTiming();
 	}
 	
 	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
@@ -1839,8 +1943,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16WithGain(const void 
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32Gain(inputBuf16, convertAtPointer, samplesToConvert, 16, mInputGainLPtr, mInputGainRPtr);
-		inputProcessing (convertAtPointer, samplesToConvert); 
 
+		startInputTiming();
+        
+        inputProcessing (convertAtPointer, samplesToConvert); 
+        
+        endInputTiming();
+        
 	} else if (targetSampleFrame < mLastSampleFrameConverted) {
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
@@ -1848,8 +1957,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16WithGain(const void 
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32Gain(inputBuf16, convertAtPointer, samplesToConvert, 16, mInputGainLPtr, mInputGainRPtr);
-		inputProcessing (convertAtPointer, samplesToConvert); 
-
+        
+        startInputTiming();
+		
+        inputProcessing (convertAtPointer, samplesToConvert);
+        
+        pauseInputTiming();
+        
 		samplesToConvert = targetSampleFrame * streamFormat->fNumChannels;
 		inputBuf16 = (SInt16 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
@@ -1857,7 +1971,12 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream16WithGain(const void 
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf16, inputBuf16 - (SInt16 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt16ToFloat32Gain(inputBuf16, convertAtPointer, samplesToConvert, 16, mInputGainLPtr, mInputGainRPtr);
-		inputProcessing (convertAtPointer, samplesToConvert); 
+        
+        resumeInputTiming();
+        
+		inputProcessing (convertAtPointer, samplesToConvert);
+        
+        endInputTiming();
 	}
 	
 	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
@@ -1901,8 +2020,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32(const void *sampleB
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32(inputBuf32, convertAtPointer, samplesToConvert, 32);
+        
+        startInputTiming();
+        
 		inputProcessing (convertAtPointer, samplesToConvert); 
-
+        
+        endInputTiming();
+        
 	} else if (targetSampleFrame < mLastSampleFrameConverted) {
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
@@ -1910,8 +2034,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32(const void *sampleB
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32(inputBuf32, convertAtPointer, samplesToConvert, 32);
-		inputProcessing (convertAtPointer, samplesToConvert); 
-
+        
+        startInputTiming();
+		
+        inputProcessing (convertAtPointer, samplesToConvert);
+        
+        pauseInputTiming();
+        
 		samplesToConvert = targetSampleFrame * streamFormat->fNumChannels;
 		inputBuf32 = (SInt32 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
@@ -1919,7 +2048,12 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32(const void *sampleB
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32(inputBuf32, convertAtPointer, samplesToConvert, 32);
-		inputProcessing (convertAtPointer, samplesToConvert); 
+        
+        resumeInputTiming();
+        
+        inputProcessing (convertAtPointer, samplesToConvert);
+        
+        endInputTiming();
 	}
 	
 	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
@@ -1963,8 +2097,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32WithGain(const void 
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32Gain(inputBuf32, convertAtPointer, samplesToConvert, 32, mInputGainLPtr, mInputGainRPtr);
+        
+        startInputTiming();
+        
 		inputProcessing (convertAtPointer, samplesToConvert); 
-
+        
+        endInputTiming();
+        
 	} else if (targetSampleFrame < mLastSampleFrameConverted) {
 
 		samplesToConvert = (numSampleFramesPerBuffer - mLastSampleFrameConverted) * streamFormat->fNumChannels;		
@@ -1972,8 +2111,13 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32WithGain(const void 
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32Gain(inputBuf32, convertAtPointer, samplesToConvert, 32, mInputGainLPtr, mInputGainRPtr);
-		inputProcessing (convertAtPointer, samplesToConvert); 
-
+        
+        startInputTiming();
+        
+		inputProcessing (convertAtPointer, samplesToConvert);
+        
+        pauseInputTiming();
+        
 		samplesToConvert = targetSampleFrame * streamFormat->fNumChannels;
 		inputBuf32 = (SInt32 *)sampleBuf;
 		convertAtPointer = (float *)mIntermediateInputSampleBuffer;
@@ -1981,7 +2125,12 @@ IOReturn AppleDBDMAAudio::convertAppleDBDMAFromInputStream32WithGain(const void 
 		debugIOLog (7, "  convert:\t%p\t%ld\t%p\t%ld\t%ld\n", inputBuf32, inputBuf32 - (SInt32 *)sampleBuf, convertAtPointer, convertAtPointer - (float *)mIntermediateInputSampleBuffer, samplesToConvert);
 
 		NativeInt32ToFloat32Gain(inputBuf32, convertAtPointer, samplesToConvert, 32, mInputGainLPtr, mInputGainRPtr);
-		inputProcessing (convertAtPointer, samplesToConvert); 
+        
+        resumeInputTiming();
+        
+		inputProcessing (convertAtPointer, samplesToConvert);
+        
+        endInputTiming();
 	}
 	
 	debugIOLog (7, "  copy:\t\t%ld\t\t%ld\t\t%ld\n", firstSampleFrame, firstSampleFrame + numSampleFrames - 1, numSampleFrames);
@@ -2192,18 +2341,18 @@ IOReturn AppleDBDMAAudio::copyDMAStateAndFormat (DBDMAUserClientStructPtr outSta
 IOReturn AppleDBDMAAudio::setDMAStateAndFormat ( DBDMAUserClientStructPtr inState ) {
 	IOReturn			result = kIOReturnBadArgument;
 	
-	FailIf ( inState->softwareOutputLeftVolume > mMaxVolumedB, Exit );
-	FailIf ( inState->softwareOutputLeftVolume < mMinVolumedB, Exit );
-	FailIf ( inState->softwareOutputRightVolume > mMaxVolumedB, Exit );
-	FailIf ( inState->softwareOutputRightVolume < mMinVolumedB, Exit );
-	
+	//FailIf ( inState->softwareOutputLeftVolume > mMaxVolumedB, Exit );
+	//FailIf ( inState->softwareOutputLeftVolume < mMinVolumedB, Exit );
+	//FailIf ( inState->softwareOutputRightVolume > mMaxVolumedB, Exit );
+	//FailIf ( inState->softwareOutputRightVolume < mMinVolumedB, Exit );
 	mUseSoftwareOutputVolume = ( 0 != ( ( 1 << kDMA_FLAG_useSoftwareOutputVolume ) & inState->dmaFlags )) ? TRUE : FALSE ;
-	mLeftVolume[0] = inState->softwareOutputLeftVolume;
-	mRightVolume[0] = inState->softwareOutputRightVolume;
 	
-	result = kIOReturnSuccess;
+	if (inState && validateSoftwareVolumes(inState->softwareOutputLeftVolume,inState->softwareOutputRightVolume,mMaxVolumedB,mMinVolumedB)) {
+		mLeftVolume[0] = inState->softwareOutputLeftVolume;
+		mRightVolume[0] = inState->softwareOutputRightVolume;
+		result = kIOReturnSuccess;
+	}
 	
-Exit:
 	return result;
 }
 
@@ -3172,41 +3321,130 @@ void AppleDBDMAAudio::updateiSubPosition(UInt32 firstSampleFrame, UInt32 numSamp
 #pragma mark еее Utilities
 #pragma mark ------------------------ 
 
-inline void AppleDBDMAAudio::startTiming() {
-#ifdef _TIME_CLIP_ROUTINE
-	mCallCount++;
-	if ((mCallCount % kIOProcTimingCountCurrent) == 0) {
-		AbsoluteTime				uptime;
-		UInt64						nanos;
-		// get time for end of last cycle
-		clock_get_uptime (&uptime);
-		// calculate total time between start of last cycle and end of last cycle
-		SUB_ABSOLUTETIME (&uptime, &mStartIOProcUptime);
-		// convert total time to nanos
-		absolutetime_to_nanoseconds (uptime, &mCurrentTotalNanos);
-		mTotalIOProcNanos += mCurrentTotalNanos >> 10;
-		// calculate time between start of last cycle and end of output processing time
-		SUB_ABSOLUTETIME (&mEndProcessingUptime, &mStartIOProcUptime);
-		// convert output processing time to nanos
-		absolutetime_to_nanoseconds (mEndProcessingUptime, &nanos);
-		mTotalProcessingNanos += nanos >> 10;
-		// calculate the percentage of nonos out of the cycle spent in output processing
-		convertNanosToPercent(nanos, mCurrentTotalNanos, &mCurrentCPUUsagePercent);
-//		IOLog1Float ("CPU usage:\t\t", &mCurrentCPUUsagePercent, " \%\n");
-		// store start time for new cycle
-	}
-	if ((mCallCount % kIOProcTimingCountAverage) == 0) {
-		convertNanosToPercent(mTotalProcessingNanos, mTotalIOProcNanos, &mAverageCPUUsagePercent);
-//		IOLog1Float ("Average CPU usage:\t\033[2;31m", &mAverageCPUUsagePercent, " \%\033[0m\n");
-	}
-	clock_get_uptime (&mStartIOProcUptime);
-#endif
+inline void AppleDBDMAAudio::startOutputTiming() {
+    if ( mEnableCPUProfiling )
+    {
+        mOutputIOProcCallCount++;
+        if ((mOutputIOProcCallCount % kIOProcTimingCountCurrent) == 0) {
+            AbsoluteTime				uptime;
+            UInt64						nanos;
+            // get time for end of last cycle
+            clock_get_uptime (&uptime);
+            // calculate total time between start of last cycle and end of last cycle
+            SUB_ABSOLUTETIME (&uptime, &mStartOutputIOProcUptime);
+            // convert total time to nanos
+            absolutetime_to_nanoseconds (uptime, &mCurrentTotalOutputNanos);
+            mTotalOutputIOProcNanos += mCurrentTotalOutputNanos >> 10;
+            // calculate time between start of last cycle and end of output processing time
+            SUB_ABSOLUTETIME (&mEndOutputProcessingUptime, &mStartOutputIOProcUptime);
+            // convert output processing time to nanos
+            absolutetime_to_nanoseconds (mEndOutputProcessingUptime, &nanos);
+            // subtract any time spent not actually output processing
+            nanos -= mCurrentTotalPausedOutputNanos;
+            mTotalOutputProcessingNanos += nanos >> 10;
+            // calculate the percentage of nonos out of the cycle spent in output processing
+            convertNanosToPercent(nanos, mCurrentTotalOutputNanos, &mCurrentOutputCPUUsagePercent);
+        }
+        
+        if ((mOutputIOProcCallCount % kIOProcTimingCountAverage) == 0) {
+            convertNanosToPercent(mTotalOutputProcessingNanos, mTotalOutputIOProcNanos, &mAverageOutputCPUUsagePercent);
+        }
+        
+        // reset count of paused output processing time
+        mCurrentTotalPausedOutputNanos = 0;
+        // store start time for new cycle
+        clock_get_uptime (&mStartOutputIOProcUptime);
+    }
 }
 
-inline void AppleDBDMAAudio::endTiming() {
-#ifdef _TIME_CLIP_ROUTINE
-	clock_get_uptime (&mEndProcessingUptime);		
-#endif
+inline void AppleDBDMAAudio::endOutputTiming() {
+    if ( mEnableCPUProfiling )
+    {
+        clock_get_uptime (&mEndOutputProcessingUptime);		
+    }
+}
+
+inline void AppleDBDMAAudio::pauseOutputTiming() {
+    if ( mEnableCPUProfiling )
+    {
+        clock_get_uptime (&mPauseOutputProcessingUptime);
+    }
+}
+
+inline void AppleDBDMAAudio::resumeOutputTiming() {
+    if ( mEnableCPUProfiling )
+    {
+        AbsoluteTime    uptime;
+        UInt64          nanos;
+        
+        clock_get_uptime (&uptime);
+        SUB_ABSOLUTETIME (&uptime, &mPauseOutputProcessingUptime);
+        absolutetime_to_nanoseconds (uptime, &nanos);
+        mCurrentTotalPausedOutputNanos += nanos;
+    }
+}
+
+inline void AppleDBDMAAudio::startInputTiming() {
+    if ( mEnableCPUProfiling )
+    {
+        mInputIOProcCallCount++;
+        if ((mInputIOProcCallCount % kIOProcTimingCountCurrent) == 0) {
+            AbsoluteTime				uptime;
+            UInt64						nanos;
+            // get time for end of last cycle
+            clock_get_uptime (&uptime);
+            // calculate total time between start of last cycle and end of last cycle
+            SUB_ABSOLUTETIME (&uptime, &mStartInputIOProcUptime);
+            // convert total time to nanos
+            absolutetime_to_nanoseconds (uptime, &mCurrentTotalInputNanos);
+            mTotalInputIOProcNanos += mCurrentTotalInputNanos >> 10;
+            // calculate time between start of last cycle and end of input processing time
+            SUB_ABSOLUTETIME (&mEndInputProcessingUptime, &mStartInputIOProcUptime);
+            // convert input processing time to nanos
+            absolutetime_to_nanoseconds (mEndInputProcessingUptime, &nanos);
+            // subtract any time spent not actually input processing
+            nanos -= mCurrentTotalPausedInputNanos;
+            mTotalInputProcessingNanos += nanos >> 10;
+            // calculate the percentage of nanos out of the cycle spent in input processing
+            convertNanosToPercent(nanos, mCurrentTotalInputNanos, &mCurrentInputCPUUsagePercent);
+        }
+        
+        if ((mInputIOProcCallCount % kIOProcTimingCountAverage) == 0) {
+            convertNanosToPercent(mTotalInputProcessingNanos, mTotalInputIOProcNanos, &mAverageInputCPUUsagePercent);
+        }
+        
+        // reset count of paused input processing time
+        mCurrentTotalPausedInputNanos = 0;
+        // store start time for new cycle
+        clock_get_uptime (&mStartInputIOProcUptime);
+    }
+}
+
+inline void AppleDBDMAAudio::endInputTiming() {
+    if ( mEnableCPUProfiling )
+    {
+        clock_get_uptime (&mEndInputProcessingUptime);		
+    }
+}
+
+inline void AppleDBDMAAudio::pauseInputTiming() {
+    if ( mEnableCPUProfiling )
+    {
+        clock_get_uptime (&mPauseInputProcessingUptime);
+    }
+}
+
+inline void AppleDBDMAAudio::resumeInputTiming() {
+    if ( mEnableCPUProfiling )
+    {
+        AbsoluteTime    uptime;
+        UInt64          nanos;
+        
+        clock_get_uptime (&uptime);
+        SUB_ABSOLUTETIME (&uptime, &mPauseInputProcessingUptime);
+        absolutetime_to_nanoseconds (uptime, &nanos);
+        mCurrentTotalPausedInputNanos += nanos;
+    }
 }
 
 // --------------------------------------------------------------------------

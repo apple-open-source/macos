@@ -85,6 +85,7 @@
 
 #define kIOHIDScrollResetKey			"HIDScrollReset"
 #define kIOHIDScrollResolutionKey		"HIDScrollResolution"
+#define kIOHIDScrollReportRateKey       "HIDScrollReportRate"
 #define kIOHIDScrollAccelerationKey		"HIDScrollAcceleration"
 #define kIOHIDScrollAccelerationTypeKey     "HIDScrollAccelerationType"
 #define kIOHIDScrollAccelerationTableKey	"HIDScrollAccelerationTable"

@@ -24,6 +24,8 @@
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
+#include <IOKit/IOMessage.h>
 
 #include "AppleUSBUHCI.h"
 
@@ -114,40 +116,42 @@ AppleUSBUHCI::initForPM (IOPCIDevice *provider)
 {
     USBLog(3, "%s[%p]::initForPM %p", getName(), this, provider);
     
-    /* Key Largo systems require an additional flag */
-    if (provider->getProperty("AAPL,clock-id")) {
-        USBLog(3, "%s[%p]: using Key Largo flags", getName(), this);
-        powerStates[kUHCIPowerLevelRunning].inputPowerRequirement |= IOPMClockNormal;
+    if (provider->getProperty("built-in") && (_errataBits & kErrataICH6PowerSequencing)) 
+	{
+		// The ICH6 UHCI drivers on a Transition system just magically work on sleep/wake
+		// so we will just hard code those. Other systems will have to be evaluated later
+        setProperty("Card Type","Built-in");
+        _unloadUIMAcrossSleep = false;
     }
-    
-    /* This appears to be necessary. */
+    else 
+	{
+        // This appears to be necessary
     setProperty("Card Type","PCI");
     _unloadUIMAcrossSleep = true;
+    }
+    
+	if (_errataBits & kErrataICH6PowerSequencing)
+		_powerDownNotifier = registerPrioritySleepWakeInterest(PowerDownHandler, this, 0);
     
     registerPowerDriver(this, powerStates, kUHCI_NUM_POWER_STATES);
     changePowerStateTo(kUHCIPowerLevelRunning);
 }
 
+
+
 unsigned long
 AppleUSBUHCI::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
 {
-    if ( getProvider()->getProperty("AAPL,clock-id") ) {
-        /* Key Largo systems require additional flags */
-        if (((domainState & IOPMPowerOn) && (domainState & IOPMClockNormal)) ||
-             (domainState & kIOPMDoze) && (domainState & IOPMClockNormal)) {
-            return kUHCIPowerLevelRunning;
-        } else {
-            return kUHCIPowerLevelSuspend;
-        }
-    } else {
-        if ( (domainState & IOPMPowerOn) ||
-             (domainState & kIOPMDoze) ) {
-            return kUHCIPowerLevelRunning;
-        } else {
-            return kUHCIPowerLevelSuspend;
-        }
-    }
+	if ( (domainState & IOPMPowerOn) || (domainState & kIOPMDoze) ) 
+	{
+		return kUHCIPowerLevelRunning;
+	} else 
+	{
+		return kUHCIPowerLevelSuspend;
+	}
 }
+
+
 
 unsigned long
 AppleUSBUHCI::initialPowerStateForDomainState ( IOPMPowerFlags domainState )
@@ -175,10 +179,12 @@ AppleUSBUHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
     case kUHCIPowerLevelRunning:
         USBLog(3, "%s[%p]: changing to running state", getName(), this);
         
-        if (_powerLevel == kUHCIPowerLevelSuspend && _unloadUIMAcrossSleep) {
+        if (_powerLevel == kUHCIPowerLevelSuspend) {
             if (!isInactive()) {
                 //if (!_uimInitialized) {
+                    EnableUSBInterrupt(false);
                     UIMInitializeForPowerUp();
+                    EnableUSBInterrupt(true);
                 //}
                 if (_rootHubDevice == NULL) {
                     result = CreateRootHubDevice(_device, &_rootHubDevice);
@@ -214,9 +220,7 @@ AppleUSBUHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             
         SuspendController();
             
-        if (_unloadUIMAcrossSleep) {
-            UIMFinalizeForPowerDown();
-        }
+        UIMFinalizeForPowerDown();
         
         _remoteWakeupOccurred = false;
         _powerLevel = kUHCIPowerLevelSuspend;
@@ -367,6 +371,45 @@ AppleUSBUHCI::RestartController(void)
 {
     /* Start the controller. */
     Run(true);
+}
+
+IOReturn 
+AppleUSBUHCI::PowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service,
+                               void *messageArgument, vm_size_t argSize )
+{
+    AppleUSBUHCI *	me = OSDynamicCast(AppleUSBUHCI, (OSObject *)target);
+    
+    if (!me)
+        return kIOReturnUnsupported;
+    
+    USBLog(4, "UHCI: %p: PowerDownHandler %x %x", me, messageType, messageArgument);
+    switch (messageType)
+    {
+        case kIOMessageSystemWillRestart:
+        case kIOMessageSystemWillPowerOff:
+            if (me->_powerLevel == kUHCIPowerLevelRunning) {
+                if ( me->_rootHubDevice )
+                {
+                    me->_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
+                    me->_rootHubDevice->detachAll(gIOUSBPlane);
+                    me->_rootHubDevice->release();
+                    me->_rootHubDevice = NULL;
+                }
+                
+                me->SuspendController();
+                me->_powerLevel = kUHCIPowerLevelSuspend;
+            }
+            if (me->_powerLevel != kUHCIPowerLevelSuspend) {
+                me->UIMFinalizeForPowerDown();
+            }
+            break;
+            
+        default:
+            // We don't care about any other message that comes in here.
+            break;
+            
+    }
+    return kIOReturnSuccess;
 }
 
 

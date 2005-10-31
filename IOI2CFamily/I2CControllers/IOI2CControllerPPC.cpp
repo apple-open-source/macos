@@ -1,11 +1,28 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CControllerPPC.cpp,v 1.5 2004/12/17 04:53:15 jlehrer Exp $
+ *	File: $Id: IOI2CControllerPPC.cpp,v 1.9 2005/09/08 03:17:16 galcher Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2CControllerPPC.cpp,v $
+ *		Revision 1.9  2005/09/08 03:17:16  galcher
+ *		[rdar://4242471] Remove Kodiak Workarounds (IOI2CControllerPPC).
+ *		Removed variables and kodiakSyncWait() inline definition.  Removed setup of
+ *		kodiakSyncWait in ::start.  Removed usage of kodiakSyncWait() in ::writeReg()
+ *		and ::readReg().
+ *		
+ *		Revision 1.8  2005/05/31 23:27:37  tmason
+ *		Fix for Radar bug ID 4117978, panic with boot-args lcks=1
+ *		
+ *		Revision 1.7  2005/05/16 23:30:57  galcher
+ *		[rdar://problem/4120572] OS changes needed to support Kodiak <= 1.1.
+ *		Add kodiakSyncWait() routine and use it in the NorthBridge I2C register
+ *		accessors.  NOTE - this will need to be removed before shipping.
+ *		
+ *		Revision 1.6  2005/02/24 22:07:00  jlehrer
+ *		[4022756] Fixed fMODE_CLKDIV enums.
+ *		
  *		Revision 1.5  2004/12/17 04:53:15  jlehrer
  *		[3925249] Fix polled mode timeout warning.
  *		
@@ -132,9 +149,9 @@ private:
 		fMODE_APMODE_comb	= (3 << 2),
 
 		fMODE_CLKDIV		= (3 << 0),		// N Clock divider N, bits[0:1]
-		fMODE_CLKDIV_25kHz	= (0 << 0),
+		fMODE_CLKDIV_100kHz	= (0 << 0),
 		fMODE_CLKDIV_50kHz	= (1 << 0),
-		fMODE_CLKDIV_100kHz	= (2 << 0),
+		fMODE_CLKDIV_25kHz	= (2 << 0),
 	};
 
 	enum
@@ -289,27 +306,27 @@ IOI2CControllerPPC::start(
 				break;
 			}
 			else
-			if (0 == strncmp("mac-io-i2c-control", cstr, strlen("mac-io-i2c-control")))
-			{
-				fDisablePowerManagement = true;
-				cellID = 2;
-				resourceName = "IOI2CControllerPPC.mac-io";
-				break;
-			}
-		
+					if (0 == strncmp("mac-io-i2c-control", cstr, strlen("mac-io-i2c-control")))
+					{
+							fDisablePowerManagement = true;
+							cellID = 2;
+							resourceName = "IOI2CControllerPPC.mac-io";
+							break;
+					}
+
 			cstr += (strlen(cstr) + 1);
 		}
 
 		if (resourceName == 0)
-			DLOG("IOI2CControllerPPC::start publishResource NO MATCH\n");
+				DLOG("IOI2CControllerPPC::start publishResource NO MATCH\n");
 	}
 	else
-		DLOG("IOI2CControllerPPC::start publishResource compatible property not found\n");
+			DLOG("IOI2CControllerPPC::start publishResource compatible property not found\n");
 
 	if (false == super::start(provider))
 	{
-		DLOG("-IOI2CControllerPPC::start super::start failed\n");
-		return false;
+			DLOG("-IOI2CControllerPPC::start super::start failed\n");
+			return false;
 	}
 
 	registerService();
@@ -318,8 +335,8 @@ IOI2CControllerPPC::start(
 
 	if (resourceName)
 	{
-		publishResource(resourceName, this);
-		DLOG("IOI2CControllerPPC::start publishResource %s\n", resourceName);
+			publishResource(resourceName, this);
+			DLOG("IOI2CControllerPPC::start publishResource %s\n", resourceName);
 	}
 
 	DLOG("-IOI2CControllerPPC::start\n");
@@ -329,80 +346,80 @@ IOI2CControllerPPC::start(
 
 void IOI2CControllerPPC::stop(IOService * provider)
 {
-	DLOG("IOI2CControllerPPC::stop\n");
-	if (fInterruptRegistered)
-	{
-		fInterruptCapable = FALSE;
-		provider->disableInterrupt(0);
-		provider->unregisterInterrupt(0);
-	}
+		DLOG("IOI2CControllerPPC::stop\n");
+		if (fInterruptRegistered)
+		{
+				fInterruptCapable = FALSE;
+				provider->disableInterrupt(0);
+				provider->unregisterInterrupt(0);
+		}
 
-	super::stop(provider);
+		super::stop(provider);
 }
 
 void IOI2CControllerPPC::free( void )
 {
-	if (i2c_lock)			{ IOLockFree(i2c_lock);			i2c_lock = 0;  }
+		if (i2c_lock)			{ IOLockFree(i2c_lock);			i2c_lock = 0;  }
 
-	super::free();
+		super::free();
 }
 
 
 // Subclass required methods...
 IOReturn
 IOI2CControllerPPC::processLockI2CBus(
-	UInt32			bus)
+				UInt32			bus)
 {
-	return kIOReturnSuccess;	// Just acknowledge. The superclass handles locking.
+		return kIOReturnSuccess;	// Just acknowledge. The superclass handles locking.
 }
 
 IOReturn
 IOI2CControllerPPC::processUnlockI2CBus(
-	UInt32			bus)
+				UInt32			bus)
 {
-	return kIOReturnSuccess;	// Just acknowledge. The superclass handles unlocking.
+		return kIOReturnSuccess;	// Just acknowledge. The superclass handles unlocking.
 }
 
 IOReturn
 IOI2CControllerPPC::processReadI2CBus(
-	IOI2CCommand	*cmd)
+				IOI2CCommand	*cmd)
 {
-	IOReturn		status;
+		IOReturn		status;
 
-	if (cmd == NULL)
-		return kIOReturnBadArgument;
+		if (cmd == NULL)
+				return kIOReturnBadArgument;
 
-	cmd->bytesTransfered = 0;
-	status = i2cTransaction(cmd, true);
+		cmd->bytesTransfered = 0;
+		status = i2cTransaction(cmd, true);
 
-	if (status == kIOReturnTimeout)
-		ERRLOG("IOI2CControllerPPC::i2cRead timed out\n");
-	else
-	if (status != kIOReturnSuccess)
-		ERRLOG("IOI2CControllerPPC::i2cRead error: %x\n", status);
+		if (status == kIOReturnTimeout)
+				ERRLOG("IOI2CControllerPPC::i2cRead timed out\n");
+		else
+				if (status != kIOReturnSuccess)
+						ERRLOG("IOI2CControllerPPC::i2cRead error: %x\n", status);
 
-	return status;
+		return status;
 }
 
 IOReturn
 IOI2CControllerPPC::processWriteI2CBus(
-	IOI2CCommand	*cmd)
+				IOI2CCommand	*cmd)
 {
-	IOReturn		status;
+		IOReturn		status;
 
-	if (cmd == NULL)
-		return kIOReturnBadArgument;
+		if (cmd == NULL)
+				return kIOReturnBadArgument;
 
-	cmd->bytesTransfered = 0;
-	status = i2cTransaction(cmd, false);
+		cmd->bytesTransfered = 0;
+		status = i2cTransaction(cmd, false);
 
-	if (status == kIOReturnTimeout)
-		ERRLOG("IOI2CControllerPPC::i2cWrite timed out\n");
-	else
-	if (status != kIOReturnSuccess)
-		ERRLOG("IOI2CControllerPPC::i2cWrite error: %x\n", status);
+		if (status == kIOReturnTimeout)
+				ERRLOG("IOI2CControllerPPC::i2cWrite timed out\n");
+		else
+				if (status != kIOReturnSuccess)
+						ERRLOG("IOI2CControllerPPC::i2cWrite error: %x\n", status);
 
-	return status;
+		return status;
 }
 
 
@@ -412,209 +429,215 @@ IOI2CControllerPPC::processWriteI2CBus(
 
 IOReturn
 IOI2CControllerPPC::i2cTransaction(
-	IOI2CCommand	*cmd,
-	bool			isRead)
+				IOI2CCommand	*cmd,
+				bool			isRead)
 {
-	IOReturn		status;
-	kern_return_t	rval = 0;
-	int				retry;
-	bool			intMode;
-	AbsoluteTime	deadline;
+		IOReturn		status;
+		kern_return_t	rval = 0;
+		int				retry;
+		bool			intMode;
+		AbsoluteTime	deadline;
 
-	UInt8	mode = cmd->mode;
-	UInt8	address = cmd->address;
-	UInt8	subAddress = cmd->subAddress;
-	UInt32	timeout_uS = cmd->timeout_uS;
+		UInt8	mode = cmd->mode;
+		UInt8	address = cmd->address;
+		UInt8	subAddress = cmd->subAddress;
+		UInt32	timeout_uS = cmd->timeout_uS;
 
-	// By default we allow up to 5 seconds for a transaction to complete.
-	if (timeout_uS < 5000000) // that's the minimum timeout the caller can request.
-		timeout_uS = 5000000;
-	clock_interval_to_deadline(timeout_uS, kMicrosecondScale, &deadline);
+		// By default we allow up to 5 seconds for a transaction to complete.
+		if (timeout_uS < 5000000) // that's the minimum timeout the caller can request.
+				timeout_uS = 5000000;
+		clock_interval_to_deadline(timeout_uS, kMicrosecondScale, &deadline);
 
-	if (isRead)
-		address |= fADDR_READ;
-	else
-		address &= ~fADDR_READ;
-
-	// Translate IOI2C mode to PPCI2C mode...
-	switch (mode)
-	{
-		default:
-		case kI2CMode_Unspecified:	return kIOReturnUnsupported; //	mode = fMODE_APMODE_dumb;	break;
-		case kI2CMode_Standard:		mode = fMODE_APMODE_std;	break;
-		case kI2CMode_StandardSub:	mode = fMODE_APMODE_sub;	break;
-		case kI2CMode_Combined:		mode = fMODE_APMODE_comb;	break;
-	}
-
-	switch (cmd->bus)	// bus can be either {0 or 1} only!
-	{
-		case 0: break;
-		case 1: mode |= fMODE_PORTSEL; break;
-		default:
-			ERRLOG("-i2cTransaction invalid bus:%ld\n", cmd->bus);
-			return kIOReturnBadArgument;
-	}
-
-	if (i2c_rate < 50)
-		mode |= fMODE_CLKDIV_25kHz;
-	else
-	if (i2c_rate < 100)
-		mode |= fMODE_CLKDIV_50kHz;
-	else
-		mode |= fMODE_CLKDIV_100kHz;
-
-	// Wait up to 1 second for busy=0 before writing mode reg...
-	for (retry = 1000; (retry > 0) && (readReg(iSTATUS) & fSTATUS_BUSY); retry--)
-	{
-		if (ml_at_interrupt_context())
-			IODelay(1000);
+		if (isRead)
+				address |= fADDR_READ;
 		else
-			IOSleep(1);
-	}
+				address &= ~fADDR_READ;
 
-	if (retry <= 0)
-	{
-		ERRLOG("-IOI2CControllerPPC::i2cTransaction IIC cell busy.\n");
-		return kIOReturnDeviceError; // 0x2e9
-	}
-
-	// Ready to go...
-	writeReg(iIER, 0);									// disable all interrupts
-	writeReg(iISR, fISR_IMASK);							// clear pending interrupts
-
-	i2c_xfer = true;									// set transfer in progress flag
-	i2c_state = 0;
-	i2c_status = kIOReturnSuccess;
-	i2c_data = cmd->buffer;
-	i2c_count = cmd->count;
-	i2c_index = 0;
-	i2c_readDirection = isRead;
-
-	// Check conditions for an interrupt transaction.
-	intMode = ( fInterruptCapable && (false == ml_at_interrupt_context()) && (0 == (cmd->options & kI2COption_NoInterrupts)) );
-
-	if (intMode)
-	{
-		if (fInterruptRegistered == false)
+		// Translate IOI2C mode to PPCI2C mode...
+		switch (mode)
 		{
-			DLOG("IOI2CControllerPPC::i2cTransaction calling registerInterrupt\n");
-			if (kIOReturnSuccess != (status = fProvider->registerInterrupt(0, this, sProcessInterrupt, 0)))
-			{
-				ERRLOG("-IOI2CControllerPPC::i2cTransaction registerInterrupt returned:0x%lx\n", status);
-				return status;
-			}
-			fInterruptRegistered = true;
+				default:
+				case kI2CMode_Unspecified:	return kIOReturnUnsupported; //	mode = fMODE_APMODE_dumb;	break;
+				case kI2CMode_Standard:		mode = fMODE_APMODE_std;	break;
+				case kI2CMode_StandardSub:	mode = fMODE_APMODE_sub;	break;
+				case kI2CMode_Combined:		mode = fMODE_APMODE_comb;	break;
 		}
 
-//		DLOG("IOI2CPPC imode\n");
-		if (kIOReturnSuccess != (status = fProvider->enableInterrupt(0)))
+		switch (cmd->bus)	// bus can be either {0 or 1} only!
 		{
-			ERRLOG("-IOI2CControllerPPC::i2cTransaction enableInterrupt failed: 0x%08x\n", status);
-			return status;
+				case 0: break;
+				case 1: mode |= fMODE_PORTSEL; break;
+				default:
+						ERRLOG("-i2cTransaction invalid bus:%ld\n", cmd->bus);
+						return kIOReturnBadArgument;
 		}
-	}
-	else
-		i2c_state |= 0x80000000;
 
-	writeReg(iMODE, mode);
-	writeReg(iADDR, address);
-//	if ((mode == fMODE_APMODE_sub) || (mode == fMODE_APMODE_comb))
-	writeReg(iSUBADDR, subAddress);
-
-	writeReg(iISR, fISR_IMASK);							// clear pending interrupts
-	writeReg(iIER, fISR_IMASK);							// enable all interrupts
-	writeReg(iCNTRL, fCNTRL_XADDR);						// start the bus transaction
-
-	if (intMode == false)
-	{
-//		DLOG("IOI2CPPC pmode\n");
-		while (i2c_xfer)
-		{
-			if (readReg(iISR))
-				processInterrupt();
-			else
-			{
-				if (ml_at_interrupt_context())
-					IODelay(1000);
+		if (i2c_rate < 50)
+				mode |= fMODE_CLKDIV_25kHz;
+		else
+				if (i2c_rate < 100)
+						mode |= fMODE_CLKDIV_50kHz;
 				else
-					IOSleep(1);
-			}
-		}
-	}
-	else
-	{
-		rval = IOLockSleepDeadline(i2c_lock, &i2c_state, deadline, THREAD_UNINT);
-	}
+						mode |= fMODE_CLKDIV_100kHz;
 
-	// Clear transfer in progress flag to try preventing the interupt context from calling IOLockWake after a timeout.
-	// If it does.. no big deal.
-	i2c_xfer = false;
-
-	// Wait for IIC cell to clear its busy bit before the next transaction...
-	// This indicates the stop bit was sent and the SCL and SDA lines have deasserted.
-	UInt8 reg = readReg(iSTATUS);
-	if (reg & fSTATUS_BUSY)
-	{
-		for (retry = 1000; retry > 0; retry--)
+		// Wait up to 1 second for busy=0 before writing mode reg...
+		for (retry = 1000; (retry > 0) && (readReg(iSTATUS) & fSTATUS_BUSY); retry--)
 		{
-			reg = readReg(iSTATUS);
-			if ((reg & fSTATUS_BUSY) == 0)
-				break;
-
-			if (ml_at_interrupt_context())
-				IODelay(1000);
-			else
-				IOSleep(1);
+				if (ml_at_interrupt_context())
+						IODelay(1000);
+				else
+						IOSleep(1);
 		}
-		if (retry == 0)
-			ERRLOG("IOI2CControllerPPC::i2cTransaction IIC cell got no stop and still busy: 0x%02x\n", reg);
 
-		if (retry < 998)
-			ERRLOG("IOI2CControllerPPC::i2cTransaction Waited %d ms for IIC Cell to complete:\n", 1000-retry);
-	}
-
-	// This is the end of the transaction.
-	writeReg(iIER, 0);									// disable all interrupts
-	writeReg(iISR, fISR_IMASK);							// clear pending interrupts
-
-	if (intMode)
-	{
-		if (kIOReturnSuccess != (status = fProvider->disableInterrupt(0)))
+		if (retry <= 0)
 		{
-			ERRLOG("IOI2CControllerPPC::i2cTransaction disableInterrupt failed: 0x%08x\n", status);
+				ERRLOG("-IOI2CControllerPPC::i2cTransaction IIC cell busy.\n");
+				return kIOReturnDeviceError; // 0x2e9
 		}
-	}
 
-	// Evaluate transaction status
-	if (i2c_status == kIOReturnSuccess)
-	{
-		// If transaction successful and didn't timeout?
-		if (rval == THREAD_TIMED_OUT)
+		// Ready to go...
+		writeReg(iIER, 0);									// disable all interrupts
+		writeReg(iISR, fISR_IMASK);							// clear pending interrupts
+
+		i2c_xfer = true;									// set transfer in progress flag
+		i2c_state = 0;
+		i2c_status = kIOReturnSuccess;
+		i2c_data = cmd->buffer;
+		i2c_count = cmd->count;
+		i2c_index = 0;
+		i2c_readDirection = isRead;
+
+		// Check conditions for an interrupt transaction.
+		intMode = ( fInterruptCapable && (false == ml_at_interrupt_context()) && (0 == (cmd->options & kI2COption_NoInterrupts)) );
+
+		if (intMode)
 		{
-			ERRLOG("IOI2CControllerPPC::i2c%c timed-out B:0x%02x A:0x%02x %d/%d i2c_state:0x%08x\n", i2c_readDirection?'R':'W', cmd->bus, address, i2c_index, i2c_count, i2c_state);
-//			if (i2c_state & 0x2000200) // IOLockWake was signaled after the timeout.
-//				ERRLOG("I2C got a stop after the timeout\n");
+				if (fInterruptRegistered == false)
+				{
+						DLOG("IOI2CControllerPPC::i2cTransaction calling registerInterrupt\n");
+						if (kIOReturnSuccess != (status = fProvider->registerInterrupt(0, this, sProcessInterrupt, 0)))
+						{
+								ERRLOG("-IOI2CControllerPPC::i2cTransaction registerInterrupt returned:0x%lx\n", status);
+								return status;
+						}
+						fInterruptRegistered = true;
+				}
 
-			// Only indicate a timeout if the stop still has not occured.
-			if (0 == (i2c_state & 0x1000100))
-				i2c_status = kIOReturnTimeout; // 0x2d6
+				//		DLOG("IOI2CPPC imode\n");
+				if (kIOReturnSuccess != (status = fProvider->enableInterrupt(0)))
+				{
+						ERRLOG("-IOI2CControllerPPC::i2cTransaction enableInterrupt failed: 0x%08x\n", status);
+						return status;
+				}
 		}
-	}
-	else // kIOReturnAborted or kIOReturnNotResponding
-	{
-		// kIOReturnAborted is returned only for write transactions during the data phase.
-		// It means the slave device no-acked a data byte.
+		else
+				i2c_state |= 0x80000000;
 
-		// kIOReturnNotResponding is returned for address phase no-acks.
+		writeReg(iMODE, mode);
+		writeReg(iADDR, address);
+		//	if ((mode == fMODE_APMODE_sub) || (mode == fMODE_APMODE_comb))
+		writeReg(iSUBADDR, subAddress);
 
-		ERRLOG("i2c%c B:0x%02x A:0x%02x %s: %d/%d i2c_state:0x%08x\n", i2c_readDirection?'R':'W', cmd->bus, address, (i2c_status == kIOReturnAborted)?"aborted":(i2c_status == kIOReturnNotResponding)?"not responding":"???", i2c_index, i2c_count, i2c_state);
-	}
+		writeReg(iISR, fISR_IMASK);							// clear pending interrupts
+		writeReg(iIER, fISR_IMASK);							// enable all interrupts
+		writeReg(iCNTRL, fCNTRL_XADDR);						// start the bus transaction
 
-	// Return the actual number of bytes transfered.
-	cmd->bytesTransfered = i2c_index;
+		if (intMode == false)
+		{
+				//		DLOG("IOI2CPPC pmode\n");
+				while (i2c_xfer)
+				{
+						if (readReg(iISR))
+								processInterrupt();
+						else
+						{
+								if (ml_at_interrupt_context())
+										IODelay(1000);
+								else
+										IOSleep(1);
+						}
+				}
+		}
+		else
+		{
+				IOLockLock(i2c_lock);
+				rval = IOLockSleepDeadline(i2c_lock, &i2c_state, deadline, THREAD_UNINT);
+				//
+				// No need to determine what rval is as IOLockUnlock will not report anything.
+				//    At most this will be an unnecessary method call on failure, but since the I2C
+				//    bus is so slow this is minor in comparison.
+				IOLockUnlock(i2c_lock);
+		}
 
-//	kprintf("-i2cTransaction **** done\n");
-	return i2c_status;
+		// Clear transfer in progress flag to try preventing the interupt context from calling IOLockWake after a timeout.
+		// If it does.. no big deal.
+		i2c_xfer = false;
+
+		// Wait for IIC cell to clear its busy bit before the next transaction...
+		// This indicates the stop bit was sent and the SCL and SDA lines have deasserted.
+		UInt8 reg = readReg(iSTATUS);
+		if (reg & fSTATUS_BUSY)
+		{
+				for (retry = 1000; retry > 0; retry--)
+				{
+						reg = readReg(iSTATUS);
+						if ((reg & fSTATUS_BUSY) == 0)
+								break;
+
+						if (ml_at_interrupt_context())
+								IODelay(1000);
+						else
+								IOSleep(1);
+				}
+				if (retry == 0)
+						ERRLOG("IOI2CControllerPPC::i2cTransaction IIC cell got no stop and still busy: 0x%02x\n", reg);
+
+				if (retry < 998)
+						ERRLOG("IOI2CControllerPPC::i2cTransaction Waited %d ms for IIC Cell to complete:\n", 1000-retry);
+		}
+
+		// This is the end of the transaction.
+		writeReg(iIER, 0);									// disable all interrupts
+		writeReg(iISR, fISR_IMASK);							// clear pending interrupts
+
+		if (intMode)
+		{
+				if (kIOReturnSuccess != (status = fProvider->disableInterrupt(0)))
+				{
+						ERRLOG("IOI2CControllerPPC::i2cTransaction disableInterrupt failed: 0x%08x\n", status);
+				}
+		}
+
+		// Evaluate transaction status
+		if (i2c_status == kIOReturnSuccess)
+		{
+				// If transaction successful and didn't timeout?
+				if (rval == THREAD_TIMED_OUT)
+				{
+						ERRLOG("IOI2CControllerPPC::i2c%c timed-out B:0x%02x A:0x%02x %d/%d i2c_state:0x%08x\n", i2c_readDirection?'R':'W', cmd->bus, address, i2c_index, i2c_count, i2c_state);
+						//			if (i2c_state & 0x2000200) // IOLockWake was signaled after the timeout.
+						//				ERRLOG("I2C got a stop after the timeout\n");
+
+						// Only indicate a timeout if the stop still has not occured.
+						if (0 == (i2c_state & 0x1000100))
+								i2c_status = kIOReturnTimeout; // 0x2d6
+				}
+		}
+		else // kIOReturnAborted or kIOReturnNotResponding
+		{
+				// kIOReturnAborted is returned only for write transactions during the data phase.
+				// It means the slave device no-acked a data byte.
+
+				// kIOReturnNotResponding is returned for address phase no-acks.
+
+				ERRLOG("i2c%c B:0x%02x A:0x%02x %s: %d/%d i2c_state:0x%08x\n", i2c_readDirection?'R':'W', cmd->bus, address, (i2c_status == kIOReturnAborted)?"aborted":(i2c_status == kIOReturnNotResponding)?"not responding":"???", i2c_index, i2c_count, i2c_state);
+		}
+
+		// Return the actual number of bytes transfered.
+		cmd->bytesTransfered = i2c_index;
+
+		//	kprintf("-i2cTransaction **** done\n");
+		return i2c_status;
 }
 
 
@@ -625,178 +648,178 @@ IOI2CControllerPPC::i2cTransaction(
 //#define iLOG kprintf
 void
 IOI2CControllerPPC::sProcessInterrupt(
-	OSObject	*target,
-	void		*refCon,
-	IOService	*nub,
-	int			source)
+				OSObject	*target,
+				void		*refCon,
+				IOService	*nub,
+				int			source)
 {
-	IOI2CControllerPPC *self = OSDynamicCast(IOI2CControllerPPC, target);
-	if (self)
-		self->processInterrupt();
+		IOI2CControllerPPC *self = OSDynamicCast(IOI2CControllerPPC, target);
+		if (self)
+				self->processInterrupt();
 }
 
-void
+		void
 IOI2CControllerPPC::processInterrupt(void)
 {
-	register UInt8 byte;
-	register UInt8 isrReg;
-	register UInt8 statusReg;
+		register UInt8 byte;
+		register UInt8 isrReg;
+		register UInt8 statusReg;
 
-//	TLOG("intr");
+		//	TLOG("intr");
 
-	isrReg = readReg(iISR);
+		isrReg = readReg(iISR);
 
-//	iLOG("i2c intr: %02x\n", isrReg);
+		//	iLOG("i2c intr: %02x\n", isrReg);
 
-	if (i2c_readDirection)
-	{
-		if (isrReg & fISR_IADDR)
+		if (i2c_readDirection)
 		{
-			iLOG("i2cR Addr");
-			i2c_state |= 0x01;
-			statusReg = readReg(iSTATUS);					// read bus status
-			if (statusReg & fSTATUS_LASTAAK)				// got an ack?
-			{
-				if (i2c_count > 1)							// more than one byte?
+				if (isrReg & fISR_IADDR)
 				{
-					iLOG(" ->aak\n");
-					i2c_state |= 0x02;
-					writeReg(iCNTRL, fCNTRL_AAK);			// ..signal ack control
-				}
-				else										// zero or one bytes?
-				{
-					iLOG(" ->nak\n");
-					i2c_state |= 0x04;
-					writeReg(iCNTRL, fCNTRL_NoAAK);			// ..signal noack control
-				}
-			}
-			else											// got noack?
-			{
-				iLOG(" got nak\n");
-				i2c_status = kIOReturnNotResponding;
-				i2c_state |= 0x08;
-//				writeReg(iCNTRL, fCNTRL_STOP);				// stop is automatically sent after nak
-			}
+						iLOG("i2cR Addr");
+						i2c_state |= 0x01;
+						statusReg = readReg(iSTATUS);					// read bus status
+						if (statusReg & fSTATUS_LASTAAK)				// got an ack?
+						{
+								if (i2c_count > 1)							// more than one byte?
+								{
+										iLOG(" ->aak\n");
+										i2c_state |= 0x02;
+										writeReg(iCNTRL, fCNTRL_AAK);			// ..signal ack control
+								}
+								else										// zero or one bytes?
+								{
+										iLOG(" ->nak\n");
+										i2c_state |= 0x04;
+										writeReg(iCNTRL, fCNTRL_NoAAK);			// ..signal noack control
+								}
+						}
+						else											// got noack?
+						{
+								iLOG(" got nak\n");
+								i2c_status = kIOReturnNotResponding;
+								i2c_state |= 0x08;
+								//				writeReg(iCNTRL, fCNTRL_STOP);				// stop is automatically sent after nak
+						}
 
-			writeReg(iISR, fISR_IADDR);						// clear interrupt
+						writeReg(iISR, fISR_IADDR);						// clear interrupt
+				}
+
+				if (isrReg & fISR_IDATA)
+				{
+						iLOG("i2cR Data");
+						if (i2c_count)
+						{
+								byte = readReg(iDATA);						// save next data byte
+								i2c_data[i2c_index++] = byte;
+								iLOG(" %d/%d=0x%02x",i2c_index,i2c_count,byte);
+								i2c_state |= 0x10;
+						}
+
+						if (i2c_index < i2c_count)						// more bytes?
+						{
+								if (i2c_index >= (i2c_count - 1))			// is next byte the last byte?
+								{
+										iLOG(" ->nak\n");
+										writeReg(iCNTRL, fCNTRL_NoAAK);			// signal noack control
+										i2c_state |= 0x20;
+								}
+								else
+								{
+										iLOG(" ->aak\n");
+										writeReg(iCNTRL, fCNTRL_AAK);			// signal ack control
+										i2c_state |= 0x40;
+								}
+						}
+						else
+						{
+								iLOG(" ->stop\n");
+								i2c_state |= 0x80;
+						}
+						writeReg(iISR, fISR_IDATA);						// clear interrupt
+				}
+
+				if (isrReg & fISR_ISTOP)
+				{
+						iLOG("i2cR Stop\n");
+						//			writeReg(iIER, 0);								// disable all interrupts
+						writeReg(iISR, fISR_ISTOP);						// clear stop interrupt
+						i2c_state |= 0x100;
+						if (i2c_xfer)
+						{
+								i2c_xfer = false;							// clear transfer in progress flag
+								if (0 == (i2c_state & 0x80000000))			// wakeup sleeping i2cTransaction thread if not in polled mode.
+										IOLockWakeup(i2c_lock, &i2c_state, true);
+								i2c_state |= 0x200;
+						}
+				}
 		}
-
-		if (isrReg & fISR_IDATA)
+		else // write direction
 		{
-			iLOG("i2cR Data");
-			if (i2c_count)
-			{
-				byte = readReg(iDATA);						// save next data byte
-				i2c_data[i2c_index++] = byte;
-				iLOG(" %d/%d=0x%02x",i2c_index,i2c_count,byte);
-				i2c_state |= 0x10;
-			}
-
-			if (i2c_index < i2c_count)						// more bytes?
-			{
-				if (i2c_index >= (i2c_count - 1))			// is next byte the last byte?
+				if (isrReg & fISR_IADDR)
 				{
-					iLOG(" ->nak\n");
-					writeReg(iCNTRL, fCNTRL_NoAAK);			// signal noack control
-					i2c_state |= 0x20;
+						iLOG("i2cW Addr");
+						i2c_state |= 0x10000;
+						statusReg = readReg(iSTATUS);					// read bus status
+						if (statusReg & fSTATUS_LASTAAK)				// got an ack?
+						{
+								byte = i2c_data[i2c_index++];
+								writeReg(iDATA, byte);		// load first data byte
+								iLOG(" ack -> %d/%d=0x%02x\n",i2c_index,i2c_count,byte);
+								i2c_state |= 0x20000;
+						}
+						else
+						{
+								iLOG(" got nak\n");
+								i2c_status = kIOReturnNotResponding;
+								i2c_state |= 0x80000;
+						}
+						writeReg(iISR, fISR_IADDR);						// clear interrupt
 				}
-				else
-				{
-					iLOG(" ->aak\n");
-					writeReg(iCNTRL, fCNTRL_AAK);			// signal ack control
-					i2c_state |= 0x40;
-				}
-			}
-			else
-			{
-				iLOG(" ->stop\n");
-				i2c_state |= 0x80;
-			}
-			writeReg(iISR, fISR_IDATA);						// clear interrupt
-		}
 
-		if (isrReg & fISR_ISTOP)
-		{
-			iLOG("i2cR Stop\n");
-//			writeReg(iIER, 0);								// disable all interrupts
-			writeReg(iISR, fISR_ISTOP);						// clear stop interrupt
-			i2c_state |= 0x100;
-			if (i2c_xfer)
-			{
-				i2c_xfer = false;							// clear transfer in progress flag
-				if (0 == (i2c_state & 0x80000000))			// wakeup sleeping i2cTransaction thread if not in polled mode.
-					IOLockWakeup(i2c_lock, &i2c_state, true);
-				i2c_state |= 0x200;
-			}
-		}
-	}
-	else // write direction
-	{
-		if (isrReg & fISR_IADDR)
-		{
-			iLOG("i2cW Addr");
-			i2c_state |= 0x10000;
-			statusReg = readReg(iSTATUS);					// read bus status
-			if (statusReg & fSTATUS_LASTAAK)				// got an ack?
-			{
-				byte = i2c_data[i2c_index++];
-				writeReg(iDATA, byte);		// load first data byte
-				iLOG(" ack -> %d/%d=0x%02x\n",i2c_index,i2c_count,byte);
-				i2c_state |= 0x20000;
-			}
-			else
-			{
-				iLOG(" got nak\n");
-				i2c_status = kIOReturnNotResponding;
-				i2c_state |= 0x80000;
-			}
-			writeReg(iISR, fISR_IADDR);						// clear interrupt
-		}
-
-		if (isrReg & fISR_IDATA)
-		{
-			iLOG("i2cW Data");
-			statusReg = readReg(iSTATUS);					// read bus status
-			if (statusReg & fSTATUS_LASTAAK)				// got an ack?
-			{
-				if (i2c_index < i2c_count)					// more bytes?
+				if (isrReg & fISR_IDATA)
 				{
-					byte = i2c_data[i2c_index++];
-					writeReg(iDATA, byte);					// load next data byte
-					iLOG(" -> %d/%d=0x%02x\n",i2c_index,i2c_count,byte);
-					i2c_state |= 0x100000;
+						iLOG("i2cW Data");
+						statusReg = readReg(iSTATUS);					// read bus status
+						if (statusReg & fSTATUS_LASTAAK)				// got an ack?
+						{
+								if (i2c_index < i2c_count)					// more bytes?
+								{
+										byte = i2c_data[i2c_index++];
+										writeReg(iDATA, byte);					// load next data byte
+										iLOG(" -> %d/%d=0x%02x\n",i2c_index,i2c_count,byte);
+										i2c_state |= 0x100000;
+								}
+								else										// last byte?
+								{
+										iLOG(" ->stop\n");
+										writeReg(iCNTRL, fCNTRL_STOP);			// signal stop control
+										i2c_state |= 0x200000;
+								}
+						}
+						else
+						{
+								i2c_status = kIOReturnAborted;
+								iLOG(" got nak\n");
+								i2c_state |= 0x400000;
+						}
+						writeReg(iISR, fISR_IDATA);						// clear data interrupt
 				}
-				else										// last byte?
-				{
-					iLOG(" ->stop\n");
-					writeReg(iCNTRL, fCNTRL_STOP);			// signal stop control
-					i2c_state |= 0x200000;
-				}
-			}
-			else
-			{
-				i2c_status = kIOReturnAborted;
-				iLOG(" got nak\n");
-				i2c_state |= 0x400000;
-			}
-			writeReg(iISR, fISR_IDATA);						// clear data interrupt
-		}
 
-		if (isrReg & fISR_ISTOP)
-		{
-			iLOG("i2cW Stop\n");
-			writeReg(iISR, fISR_ISTOP);						// clear stop interrupt
-//			writeReg(iIER, 0);								// disable all interrupts
-			i2c_state |= 0x1000000;
-			if (i2c_xfer)
-			{
-				i2c_xfer = false;							// clear transfer in progress flag
-				if (0 == (i2c_state & 0x80000000))			// wakeup sleeping i2cTransaction thread if not in polled mode.
-					IOLockWakeup(i2c_lock, &i2c_state, true);
-				i2c_state |= 0x2000000;
-			}
+				if (isrReg & fISR_ISTOP)
+				{
+						iLOG("i2cW Stop\n");
+						writeReg(iISR, fISR_ISTOP);						// clear stop interrupt
+						//			writeReg(iIER, 0);								// disable all interrupts
+						i2c_state |= 0x1000000;
+						if (i2c_xfer)
+						{
+								i2c_xfer = false;							// clear transfer in progress flag
+								if (0 == (i2c_state & 0x80000000))			// wakeup sleeping i2cTransaction thread if not in polled mode.
+										IOLockWakeup(i2c_lock, &i2c_state, true);
+								i2c_state |= 0x2000000;
+						}
+				}
 		}
-	}
 }
 
 
@@ -804,49 +827,46 @@ IOI2CControllerPPC::processInterrupt(void)
 // IIC Cell Hardware I/O
 // *******************************************************************
 /*
-static const char *vstrs[]=
-{"iMODE","iCNTRL","iSTATUS","iISR","iIER","iADDR","iSUBADDR","iDATA","iREVNUM","iRISETIMECNT","iBITTIMECNT","UNKNOWN"};
+   static const char *vstrs[]=
+   {"iMODE","iCNTRL","iSTATUS","iISR","iIER","iADDR","iSUBADDR","iDATA","iREVNUM","iRISETIMECNT","iBITTIMECNT","UNKNOWN"};
 
-const char *v2s(UInt8 v)
-{
-	if (v < 0x0b)
-		return vstrs[v];
-	return vstrs[0x0b];
-}
-*/
+   const char *v2s(UInt8 v)
+   {
+   if (v < 0x0b)
+   return vstrs[v];
+   return vstrs[0x0b];
+   }
+ */
 
 void
-IOI2CControllerPPC::writeReg(
-	int reg_index,
-	UInt8 value)
+IOI2CControllerPPC::writeReg( int reg_index, UInt8 value)
 {
-//	kprintf("wReg:%s, %02x\n",v2s(reg_index),value);
-	*(iic[reg_index]) = value;
-	eieio();
+		//	kprintf("wReg:%s, %02x\n",v2s(reg_index),value);
+		*(iic[reg_index]) = value;
+		eieio();
 }
 
 UInt8
-IOI2CControllerPPC::readReg(
-	int reg_index)
+IOI2CControllerPPC::readReg( int reg_index)
 {
-	UInt8 value = *(iic[reg_index]);
-	eieio();
-//	kprintf("rReg:%s, %02x\n",v2s(reg_index),value);
-	return value;
+		UInt8 value = *(iic[reg_index]);
+		eieio();
+		//	kprintf("rReg:%s, %02x\n",v2s(reg_index),value);
+		return value;
 }
 
 IOReturn
 IOI2CControllerPPC::setPowerState(
-	unsigned long	newPowerState,
-	IOService		*dontCare)
+				unsigned long	newPowerState,
+				IOService		*dontCare)
 {
-	if (fU3NoSleep)
-	{
-		if (newPowerState == kIOI2CPowerState_SLEEP)
+		if (fU3NoSleep)
 		{
-			kprintf("IOI2CControllerPPC::setPowerState -> sleep (leave it on for PE4CPU)\n");
-			return IOPMAckImplied;
+				if (newPowerState == kIOI2CPowerState_SLEEP)
+				{
+						kprintf("IOI2CControllerPPC::setPowerState -> sleep (leave it on for PE4CPU)\n");
+						return IOPMAckImplied;
+				}
 		}
-	}
-	return super::setPowerState(newPowerState, dontCare);
+		return super::setPowerState(newPowerState, dontCare);
 }

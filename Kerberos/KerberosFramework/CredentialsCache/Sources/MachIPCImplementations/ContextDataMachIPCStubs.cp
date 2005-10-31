@@ -1,7 +1,7 @@
 /*
  * CCIContextDataMachIPCStubs.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/ContextDataMachIPCStubs.cp,v 1.14 2003/03/17 20:47:42 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/ContextDataMachIPCStubs.cp,v 1.16 2005/05/25 20:21:50 lxs Exp $
  */
 
 #include "ContextDataMachIPCStubs.h"
@@ -217,12 +217,15 @@ CCIContextDataMachIPCStub::GetGlobalContextID () const
 mach_port_t 
 CCIContextDataMachIPCStub::GetPort () const
 {
-    mach_port_t oldPortValue = GetLastServerPort ();
+    pid_t lastServerPID = GetLastServerPID ();  // Note: get this first since GetPort may update it.
     mach_port_t port = CCIMachIPCStub::GetPort ();
-     
-    if ((port != MACH_PORT_NULL) && (oldPortValue != port)) {
+    pid_t newServerPID = CCIMachIPCStub::GetServerPID (port);
+
+    //dprintf ("%s(): port: %x / lastServerPID: %d / newServerPID: %d", __FUNCTION__, port, lastServerPID, newServerPID);
+    if ((port != MACH_PORT_NULL) && (lastServerPID != newServerPID)) {
         // A new server: remember the context id:
         CCIUniqueID contextID = GetGlobalContextID ();
+        dprintf ("%s(): got new context id %d", __FUNCTION__, contextID.object);
         SetContextID (contextID);
     }
     return port;
@@ -231,12 +234,15 @@ CCIContextDataMachIPCStub::GetPort () const
 mach_port_t 
 CCIContextDataMachIPCStub::GetPortNoLaunch () const
 {
-    mach_port_t oldPortValue = GetLastServerPort ();
+    pid_t lastServerPID = GetLastServerPID ();  // Note: get this first since GetPortNoLaunch may update it.
     mach_port_t port = CCIMachIPCStub::GetPortNoLaunch ();
-     
-    if ((port != MACH_PORT_NULL) && (oldPortValue != port)) {
+    pid_t newServerPID = CCIMachIPCStub::GetServerPID (port);
+    
+    //dprintf ("%s(): port: %d / lastServerPID: %d / newServerPID: %d", __FUNCTION__, port, lastServerPID, newServerPID);
+    if ((port != MACH_PORT_NULL) && (lastServerPID != newServerPID)) {
         // A new server: remember the context id:
         CCIUniqueID contextID = GetGlobalContextID ();
+        dprintf ("%s(): got new context id %d", __FUNCTION__, contextID.object);
         SetContextID (contextID);
     }
     return port;

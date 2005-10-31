@@ -1,6 +1,7 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -64,6 +65,9 @@ struct arg_data
      This is not the same register as for normal calls on machines with
      register windows.  */
   rtx tail_call_reg;
+  /* If REG is a PARALLEL, this is a copy of VALUE pulled into the correct
+     form for emit_group_move.  */
+  rtx parallel_value;
   /* If REG was promoted from the actual mode of the argument expression,
      indicates whether the promotion is sign- or zero-extended.  */
   int unsignedp;
@@ -145,7 +149,8 @@ static int check_sibcall_argument_overlap (rtx, struct arg_data *, int);
 
 static int combine_pending_stack_adjustment_and_call (int, struct args_size *,
 						      unsigned int);
-static bool shift_returned_value (tree, rtx *);
+static tree split_complex_values (tree);
+static tree split_complex_types (tree);
 
 #ifdef REG_PARM_STACK_SPACE
 static rtx save_fixed_argument_area (int, rtx, int *, int *);
@@ -258,7 +263,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
      and we don't want to load it into a register as an optimization,
      because prepare_call_address already did it if it should be done.  */
   if (GET_CODE (funexp) != SYMBOL_REF)
-/* APPLE LOCAL use R12 as register for indirect calls */
+/* APPLE LOCAL begin use R12 as register for indirect calls */
 /* This improves codegen (computation of value will be into R12) and
    makes indirect sibcalls possible by ensuring a volatile reg is used. */
 #ifdef MAGIC_INDIRECT_CALL_REG
@@ -266,6 +271,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
 #else
     funexp = memory_address (FUNCTION_MODE, funexp);
 #endif
+/* APPLE LOCAL end use R12 as register for indirect calls */
 
 #if defined (HAVE_sibcall_pop) && defined (HAVE_sibcall_value_pop)
   if ((ecf_flags & ECF_SIBCALL)
@@ -455,7 +461,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
 
       if (rounded_stack_size != 0)
 	{
-	  if (ecf_flags & (ECF_SP_DEPRESSED | ECF_NORETURN | ECF_LONGJMP))
+	  if (ecf_flags & (ECF_SP_DEPRESSED | ECF_NORETURN))
 	    /* Just pretend we did the pop.  */
 	    stack_pointer_delta -= rounded_stack_size;
 	  else if (flag_defer_pop && inhibit_defer_pop == 0
@@ -545,7 +551,7 @@ special_function_p (tree fndecl, int flags)
 
 	  if (tname[1] == 'i'
 	      && ! strcmp (tname, "siglongjmp"))
-	    flags |= ECF_LONGJMP;
+	    flags |= ECF_NORETURN;
 	}
       else if ((tname[0] == 'q' && tname[1] == 's'
 		&& ! strcmp (tname, "qsetjmp"))
@@ -555,7 +561,7 @@ special_function_p (tree fndecl, int flags)
 
       else if (tname[0] == 'l' && tname[1] == 'o'
 	       && ! strcmp (tname, "longjmp"))
-	flags |= ECF_LONGJMP;
+	flags |= ECF_NORETURN;
     }
 
   return flags;
@@ -667,7 +673,8 @@ call_expr_flags (tree t)
    Set REG_PARM_SEEN if we encounter a register parameter.  */
 
 static void
-precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg_parm_seen)
+precompute_register_parameters (int num_actuals, struct arg_data *args,
+				int *reg_parm_seen)
 {
   int i;
 
@@ -702,6 +709,17 @@ precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg
 			     TYPE_MODE (TREE_TYPE (args[i].tree_value)),
 			     args[i].value, args[i].unsignedp);
 
+	/* If we're going to have to load the value by parts, pull the
+	   parts into pseudos.  The part extraction process can involve
+	   non-trivial computation.  */
+	if (GET_CODE (args[i].reg) == PARALLEL)
+	  {
+	    tree type = TREE_TYPE (args[i].tree_value);
+	    args[i].parallel_value
+	      = emit_group_load_into_temps (args[i].reg, args[i].value,
+					    type, int_size_in_bytes (type));
+	  }
+
 	/* If the value is expensive, and we are inside an appropriately
 	   short loop, put the value into a pseudo and then put the pseudo
 	   into the hard reg.
@@ -710,13 +728,13 @@ precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg
 	   register parameters.  This is to avoid reload conflicts while
 	   loading the parameters registers.  */
 
-	if ((! (REG_P (args[i].value)
-		|| (GET_CODE (args[i].value) == SUBREG
-		    && REG_P (SUBREG_REG (args[i].value)))))
-	    && args[i].mode != BLKmode
-	    && rtx_cost (args[i].value, SET) > COSTS_N_INSNS (1)
-	    && ((SMALL_REGISTER_CLASSES && *reg_parm_seen)
-		|| optimize))
+	else if ((! (REG_P (args[i].value)
+		     || (GET_CODE (args[i].value) == SUBREG
+			 && REG_P (SUBREG_REG (args[i].value)))))
+		 && args[i].mode != BLKmode
+		 && rtx_cost (args[i].value, SET) > COSTS_N_INSNS (1)
+		 && ((SMALL_REGISTER_CLASSES && *reg_parm_seen)
+		     || optimize))
 	  args[i].value = copy_to_mode_reg (args[i].mode, args[i].value);
       }
 }
@@ -841,10 +859,19 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 	    < (unsigned int) MIN (BIGGEST_ALIGNMENT, BITS_PER_WORD)))
       {
 	int bytes = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
-	int nregs = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 	int endian_correction = 0;
 
-	args[i].n_aligned_regs = args[i].partial ? args[i].partial : nregs;
+	if (args[i].partial)
+	  {
+	    gcc_assert (args[i].partial % UNITS_PER_WORD == 0);
+	    args[i].n_aligned_regs = args[i].partial / UNITS_PER_WORD;
+	  }
+	else
+	  {
+	    args[i].n_aligned_regs
+	      = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+	  }
+
 	args[i].aligned_regs = xmalloc (sizeof (rtx) * args[i].n_aligned_regs);
 
 	/* Structures smaller than a word are normally aligned to the
@@ -929,9 +956,10 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
 				 int *must_preallocate, int *ecf_flags,
+				 /* APPLE LOCAL begin Altivec */
 				 bool *may_tailcall, bool call_from_thunk_p,
-				 /* APPLE LOCAL Altivec */
 				 tree type_arg_types)
+				 /* APPLE LOCAL end Altivec */
 {
   /* 1 if scanning parms front to back, -1 if scanning back to front.  */
   int inc;
@@ -966,7 +994,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       i = 0, inc = 1;
     }
 
-   /* APPLE LOCAL begin Altivec */
+  /* APPLE LOCAL begin Altivec */
   stdarg = (type_arg_types != 0 
 	    && TREE_VALUE (tree_last (type_arg_types)) != void_type_node);
   last_pass = 1;
@@ -976,9 +1004,9 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
   {
     i = save_i;
     inc = save_inc;
-   /* APPLE LOCAL end Altivec */
     /* I counts args in order (to be) pushed; ARGPOS counts in order written.  */
     for (p = actparms, argpos = 0; p; p = TREE_CHAIN (p), i += inc, argpos++)
+    /* APPLE LOCAL end Altivec */
     {
       tree type = TREE_TYPE (TREE_VALUE (p));
       int unsignedp;
@@ -1008,7 +1036,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	 args[i].reg is nonzero if all or part is passed in registers.
 
 	 args[i].partial is nonzero if part but not all is passed in registers,
-	 and the exact value says how many words are passed in registers.
+	 and the exact value says how many bytes are passed in registers.
 
 	 args[i].pass_on_stack is nonzero if the argument must at least be
 	 computed on the stack.  It may then be loaded back into registers
@@ -1114,8 +1142,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
       if (args[i].reg)
 	args[i].partial
-	  = FUNCTION_ARG_PARTIAL_NREGS (*args_so_far, mode, type,
-					argpos < n_named_args);
+	  = targetm.calls.arg_partial_bytes (args_so_far, mode, type,
+					     argpos < n_named_args);
 
       args[i].pass_on_stack = targetm.calls.must_pass_in_stack (mode, type);
 
@@ -1142,8 +1170,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
       /* Compute the stack-size of this argument.  */
       if (args[i].reg == 0 || args[i].partial != 0
-	   || reg_parm_stack_space > 0
-	   || args[i].pass_on_stack)
+	  || reg_parm_stack_space > 0
+	  || args[i].pass_on_stack)
 	locate_and_pad_parm (mode, type,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
 			     1,
@@ -1502,8 +1530,13 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	     we just use a normal move insn.  This value can be zero if the
 	     argument is a zero size structure with no fields.  */
 	  nregs = -1;
-	  if (partial)
-	    nregs = partial;
+	  if (GET_CODE (reg) == PARALLEL)
+	    ;
+	  else if (partial)
+	    {
+	      gcc_assert (partial % UNITS_PER_WORD == 0);
+	      nregs = partial / UNITS_PER_WORD;
+	    }
 	  else if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode)
 	    {
 	      size = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
@@ -1516,11 +1549,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	     locations.  The Irix 6 ABI has examples of this.  */
 
 	  if (GET_CODE (reg) == PARALLEL)
-	    {
-	      tree type = TREE_TYPE (args[i].tree_value);
-	      emit_group_load (reg, args[i].value, type,
-			       int_size_in_bytes (type));
-	    }
+	    emit_group_move (reg, args[i].parallel_value);
 
 	  /* If simple case, just do move.  If normal partial, store_one_arg
 	     has already loaded the register for us.  In all other cases,
@@ -1571,10 +1600,9 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 #ifdef BLOCK_REG_PADDING
 		  && args[i].locate.where_pad == downward
 #else
-		  && BYTES_BIG_ENDIAN 
-		  /* APPLE LOCAL begin fix to regression caused by PR 14262 */
+		  && BYTES_BIG_ENDIAN
+		  /* APPLE LOCAL fix to regression caused by PR 14262 */
 		  && !args[i].pass_on_stack
-		  /* APPLE LOCAL end fix to regression caused by PR 14262 */
 #endif
 		 )
 		{
@@ -1609,8 +1637,8 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	    use_group_regs (call_fusage, reg);
 	  else if (nregs == -1)
 	    use_reg (call_fusage, reg);
-	  else
-	    use_regs (call_fusage, REGNO (reg), nregs == 0 ? 1 : nregs);
+	  else if (nregs > 0)
+	    use_regs (call_fusage, REGNO (reg), nregs);
 	}
     }
 }
@@ -1700,7 +1728,7 @@ check_sibcall_argument_overlap_1 (rtx x)
 	       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
 	i = INTVAL (XEXP (XEXP (x, 0), 1));
       else
-	return 1;
+	return 0;
 
 #ifdef ARGS_GROW_DOWNWARD
       i = -i - GET_MODE_SIZE (GET_MODE (x));
@@ -1769,39 +1797,27 @@ check_sibcall_argument_overlap (rtx insn, struct arg_data *arg, int mark_stored_
   return insn != NULL_RTX;
 }
 
-/* If function value *VALUE was returned at the most significant end of a
-   register, shift it towards the least significant end and convert it to
-   TYPE's mode.  Return true and update *VALUE if some action was needed.
+/* Given that a function returns a value of mode MODE at the most
+   significant end of hard register VALUE, shift VALUE left or right
+   as specified by LEFT_P.  Return true if some action was needed.  */
 
-   TYPE is the type of the function's return value, which is known not
-   to have mode BLKmode.  */
-
-static bool
-shift_returned_value (tree type, rtx *value)
+bool
+shift_return_value (enum machine_mode mode, bool left_p, rtx value)
 {
-  if (targetm.calls.return_in_msb (type))
-    {
-      HOST_WIDE_INT shift;
+  HOST_WIDE_INT shift;
 
-      shift = (GET_MODE_BITSIZE (GET_MODE (*value))
-	       - BITS_PER_UNIT * int_size_in_bytes (type));
-      if (shift > 0)
-	{
-	  /* Shift the value into the low part of the register.  */
-	  *value = expand_binop (GET_MODE (*value), lshr_optab, *value,
-				 GEN_INT (shift), 0, 1, OPTAB_WIDEN);
+  gcc_assert (REG_P (value) && HARD_REGISTER_P (value));
+  shift = GET_MODE_BITSIZE (GET_MODE (value)) - GET_MODE_BITSIZE (mode);
+  if (shift == 0)
+    return false;
 
-	  /* Truncate it to the type's mode, or its integer equivalent.
-	     This is subject to TRULY_NOOP_TRUNCATION.  */
-	  *value = convert_to_mode (int_mode_for_mode (TYPE_MODE (type)),
-				    *value, 0);
-
-	  /* Now convert it to the final form.  */
-	  *value = gen_lowpart (TYPE_MODE (type), *value);
-	  return true;
-	}
-    }
-  return false;
+  /* Use ashr rather than lshr for right shifts.  This is for the benefit
+     of the MIPS port, which requires SImode values to be sign-extended
+     when stored in 64-bit registers.  */
+  if (!force_expand_binop (GET_MODE (value), left_p ? ashl_optab : ashr_optab,
+			   value, GEN_INT (shift), value, 1, OPTAB_WIDEN))
+    gcc_unreachable ();
+  return true;
 }
 
 /* Remove all REG_EQUIV notes found in the insn chain.  */
@@ -1844,18 +1860,20 @@ expand_call (tree exp, rtx target, int ignore)
   tree actparms = TREE_OPERAND (exp, 1);
   /* RTX for the function to be called.  */
   rtx funexp;
-  /* APPLE LOCAL use R12 as register for indirect calls */
+  /* APPLE LOCAL begin use R12 as register for indirect calls */
   /* A single rtx to be shared among multiple chains for indirect sibcalls */
   rtx funexp_keep = NULL_RTX;
+  /* APPLE LOCAL end use R12 as register for indirect calls */
   /* Sequence of insns to perform a normal "call".  */
   rtx normal_call_insns = NULL_RTX;
   /* Sequence of insns to perform a tail "call".  */
   rtx tail_call_insns = NULL_RTX;
   /* Data type of the function.  */
   tree funtype;
-  /* APPLE LOCAL objc stret methods */
+  /* APPLE LOCAL begin objc stret methods */
   /* Return type of the function.  */
   tree saved_return_type;
+  /* APPLE LOCAL end objc stret methods */
   tree type_arg_types;
   /* Declaration of the function being called,
      or 0 if the function is computed (not known by name).  */
@@ -2042,8 +2060,10 @@ expand_call (tree exp, rtx target, int ignore)
 	    structure_value_addr = expand_expr (return_arg, NULL_RTX,
 						VOIDmode, EXPAND_NORMAL);
 	  }
+#if 0
 	else if (target && MEM_P (target))
 	  structure_value_addr = XEXP (target, 0);
+#endif
 	else
 	  {
 	    /* For variable-sized objects, we must be called with a target
@@ -2073,7 +2093,7 @@ expand_call (tree exp, rtx target, int ignore)
   gcc_assert (POINTER_TYPE_P (funtype));
   funtype = TREE_TYPE (funtype);
 
-  /* APPLE LOCAL objc stret methods */
+  /* APPLE LOCAL begin objc stret methods */
   /* Set the return type of the function to the type of the call expression,
      in case that's different from the function declaration.
      (This is the case when calling _objc_msgSend_stret, for example,
@@ -2082,6 +2102,7 @@ expand_call (tree exp, rtx target, int ignore)
      in case it's needed.  */
   saved_return_type = TREE_TYPE (funtype);
   TREE_TYPE (funtype) = TREE_TYPE (exp);
+  /* APPLE LOCAL end objc stret methods */
 
   /* Munge the tree to split complex arguments into their imaginary
      and real parts.  */
@@ -2185,9 +2206,10 @@ expand_call (tree exp, rtx target, int ignore)
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
 				   &must_preallocate, &flags,
+				   /* APPLE LOCAL begin Altivec */
 				   &try_tail_call, CALL_FROM_THUNK_P (exp),
-				   /* APPLE LOCAL Altivec */
 				   type_arg_types);
+				   /* APPLE LOCAL end Altivec */
 
   if (args_size.var)
     {
@@ -2260,7 +2282,7 @@ expand_call (tree exp, rtx target, int ignore)
       || !targetm.function_ok_for_sibcall (fndecl, exp)
       /* Functions that do not return exactly once may not be sibcall
          optimized.  */
-      || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP | ECF_NORETURN))
+      || (flags & (ECF_RETURNS_TWICE | ECF_NORETURN))
       || TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (addr)))
       /* If the called function is nested in the current one, it might access
          some of the caller's arguments, but could clobber them beforehand if
@@ -2289,13 +2311,14 @@ expand_call (tree exp, rtx target, int ignore)
 
   preferred_unit_stack_boundary = preferred_stack_boundary / BITS_PER_UNIT;
 
-  /* APPLE LOCAL indirect sibcalls */
+  /* APPLE LOCAL begin indirect sibcalls */
   /* Do this before creating the chains, to avoid a branch within them.
      The paired chains both branch to the same label, but only one
      chain has a definition of that label, because of the way the
      infrastructure works. */
   if ( !fndecl )
     funexp_keep = rtx_for_function_call (fndecl, addr);
+  /* APPLE LOCAL end indirect sibcalls */
 
   /* We want to make two insn chains; one for a sibling call, the other
      for a normal call.  We will select one of the two chains after
@@ -2339,10 +2362,14 @@ expand_call (tree exp, rtx target, int ignore)
 	 Also, do all pending adjustments now if there is any chance
 	 this might be a call to alloca or if we are expanding a sibling
 	 call sequence or if we are calling a function that is to return
-	 with stack pointer depressed.  */
+	 with stack pointer depressed.
+	 Also do the adjustments before a throwing call, otherwise
+	 exception handling can fail; PR 19225. */
       if (pending_stack_adjust >= 32
 	  || (pending_stack_adjust > 0
 	      && (flags & (ECF_MAY_BE_ALLOCA | ECF_SP_DEPRESSED)))
+	  || (pending_stack_adjust > 0
+	      && flag_exceptions && !(flags & ECF_NOTHROW))
 	  || pass == 0)
 	do_pending_stack_adjust ();
 
@@ -2606,11 +2633,12 @@ expand_call (tree exp, rtx target, int ignore)
 	 be deferred during the evaluation of the arguments.  */
       NO_DEFER_POP;
 
-      /* APPLE LOCAL indirect sibcalls */
+      /* APPLE LOCAL begin indirect sibcalls */
       if ( !fndecl )
 	funexp = funexp_keep;
       else
 	funexp = rtx_for_function_call (fndecl, addr);
+      /* APPLE LOCAL end indirect sibcalls */
 
       /* Figure out the register where the value, if any, will come back.  */
       valreg = 0;
@@ -2776,10 +2804,25 @@ expand_call (tree exp, rtx target, int ignore)
 		   next_arg_reg, valreg, old_inhibit_defer_pop, call_fusage,
 		   flags, & args_so_far);
 
-      /* APPLE LOCAL objc stret methods */
+      /* If a non-BLKmode value is returned at the most significant end
+	 of a register, shift the register right by the appropriate amount
+	 and update VALREG accordingly.  BLKmode values are handled by the
+	 group load/store machinery below.  */
+      if (!structure_value_addr
+	  && !pcc_struct_value
+	  && TYPE_MODE (TREE_TYPE (exp)) != BLKmode
+	  && targetm.calls.return_in_msb (TREE_TYPE (exp)))
+	{
+	  if (shift_return_value (TYPE_MODE (TREE_TYPE (exp)), false, valreg))
+	    sibcall_failure = 1;
+	  valreg = gen_rtx_REG (TYPE_MODE (TREE_TYPE (exp)), REGNO (valreg));
+	}
+
+      /* APPLE LOCAL begin objc stret methods */
       /* Restore the function's original return type
 	 in case it's needed later on.  */
       TREE_TYPE (funtype) = saved_return_type;
+      /* APPLE LOCAL end objc stret methods */
 
       /* If call is cse'able, make appropriate pair of reg-notes around it.
 	 Test valreg so we don't crash; may safely ignore `const'
@@ -2817,7 +2860,7 @@ expand_call (tree exp, rtx target, int ignore)
 	      end_sequence ();
 	      if (flag_unsafe_math_optimizations
 		  && fndecl
-		  && DECL_BUILT_IN (fndecl)
+		  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 		  && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRT
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTF
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTL))
@@ -2874,7 +2917,7 @@ expand_call (tree exp, rtx target, int ignore)
 	 if nonvolatile values are live.  For functions that cannot return,
 	 inform flow that control does not fall through.  */
 
-      if ((flags & (ECF_NORETURN | ECF_LONGJMP)) || pass == 0)
+      if ((flags & ECF_NORETURN) || pass == 0)
 	{
 	  /* The barrier must be emitted
 	     immediately after the CALL_INSN.  Some ports emit more
@@ -2899,9 +2942,6 @@ expand_call (tree exp, rtx target, int ignore)
 	      pending_stack_adjust = 0;
 	    }
 	}
-
-      if (flags & ECF_LONGJMP)
-	current_function_calls_longjmp = 1;
 
       /* If value type not void, return an rtx for the value.  */
 
@@ -2938,12 +2978,8 @@ expand_call (tree exp, rtx target, int ignore)
 	      tree nt = build_qualified_type (TREE_TYPE (exp),
 					      (TYPE_QUALS (TREE_TYPE (exp))
 					       | TYPE_QUAL_CONST));
-	      /* APPLE LOCAL FSF candidate */
-	      push_temp_slots ();
+
 	      target = assign_temp (nt, 0, 1, 1);
-	      preserve_temp_slots (target);
-	      /* APPLE LOCAL FSF candidate */
-	      pop_temp_slots ();
 	    }
 
 	  if (! rtx_equal_p (target, valreg))
@@ -2979,12 +3015,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  sibcall_failure = 1;
 	}
       else
-	{
-	  if (shift_returned_value (TREE_TYPE (exp), &valreg))
-	    sibcall_failure = 1;
-
-	  target = copy_to_reg (valreg);
-	}
+	target = copy_to_reg (valreg);
 
       if (targetm.calls.promote_function_return(funtype))
 	{
@@ -3104,7 +3135,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  normal_call_insns = insns;
 
 	  /* Verify that we've deallocated all the stack we used.  */
-	  gcc_assert ((flags & (ECF_NORETURN | ECF_LONGJMP))
+	  gcc_assert ((flags & ECF_NORETURN)
 		      || (old_stack_allocated
 			  == stack_pointer_delta - pending_stack_adjust));
 	}
@@ -3178,7 +3209,7 @@ fixup_tail_calls (void)
 
 /* Traverse an argument list in VALUES and expand all complex
    arguments into their components.  */
-tree
+static tree
 split_complex_values (tree values)
 {
   tree p;
@@ -3232,7 +3263,7 @@ split_complex_values (tree values)
 
 /* Traverse a list of TYPES and expand all complex types into their
    components.  */
-tree
+static tree
 split_complex_types (tree types)
 {
   tree p;
@@ -3436,7 +3467,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   if (mem_value && struct_value == 0 && ! pcc_struct_value)
     {
       rtx addr = XEXP (mem_value, 0);
-      int partial;
       
       nargs++;
 
@@ -3450,8 +3480,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       argvec[count].partial = 0;
 
       argvec[count].reg = FUNCTION_ARG (args_so_far, Pmode, NULL_TREE, 1);
-      partial = FUNCTION_ARG_PARTIAL_NREGS (args_so_far, Pmode, NULL_TREE, 1);
-      gcc_assert (!partial);
+      gcc_assert (targetm.calls.arg_partial_bytes (&args_so_far, Pmode,
+						   NULL_TREE, 1) == 0);
 
       locate_and_pad_parm (Pmode, NULL_TREE,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
@@ -3537,7 +3567,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       argvec[count].reg = FUNCTION_ARG (args_so_far, mode, NULL_TREE, 1);
 
       argvec[count].partial
-	= FUNCTION_ARG_PARTIAL_NREGS (args_so_far, mode, NULL_TREE, 1);
+	= targetm.calls.arg_partial_bytes (&args_so_far, mode, NULL_TREE, 1);
 
       locate_and_pad_parm (mode, NULL_TREE,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
@@ -3837,7 +3867,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
      if nonvolatile values are live.  For functions that cannot return,
      inform flow that control does not fall through.  */
 
-  if (flags & (ECF_NORETURN | ECF_LONGJMP))
+  if (flags & ECF_NORETURN)
     {
       /* The barrier note must be emitted
 	 immediately after the CALL_INSN.  Some ports emit more than
@@ -4247,20 +4277,11 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	}
       else
 	{
-	  /* PUSH_ROUNDING has no effect on us, because
-	     emit_push_insn for BLKmode is careful to avoid it.  */
-	  if (reg && GET_CODE (reg) == PARALLEL)
-	  {
-	    /* Use the size of the elt to compute excess.  */
-	    rtx elt = XEXP (XVECEXP (reg, 0, 0), 0);
-	    excess = (arg->locate.size.constant
-		      - int_size_in_bytes (TREE_TYPE (pval))
-		      + partial * GET_MODE_SIZE (GET_MODE (elt)));
-	  }
-	  else
-	    excess = (arg->locate.size.constant
-		      - int_size_in_bytes (TREE_TYPE (pval))
-		      + partial * UNITS_PER_WORD);
+	  /* PUSH_ROUNDING has no effect on us, because emit_push_insn
+	     for BLKmode is careful to avoid it.  */
+	  excess = (arg->locate.size.constant
+		    - int_size_in_bytes (TREE_TYPE (pval))
+		    + partial);
 	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
 				  NULL_RTX, TYPE_MODE (sizetype), 0);
 	}
@@ -4328,6 +4349,14 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	 like that.  It's not clear that this is always correct.  */
       if (partial == 0)
 	arg->value = arg->stack_slot;
+    }
+
+  if (arg->reg && GET_CODE (arg->reg) == PARALLEL)
+    {
+      tree type = TREE_TYPE (arg->tree_value);
+      arg->parallel_value
+	= emit_group_load_into_temps (arg->reg, arg->value, type,
+				      int_size_in_bytes (type));
     }
 
   /* Mark all slots this store used.  */

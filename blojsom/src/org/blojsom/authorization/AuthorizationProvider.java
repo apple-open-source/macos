@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,7 +46,7 @@ import java.util.Map;
  * AuthorizationProvider
  *
  * @author David Czarnecki
- * @version $Id: AuthorizationProvider.java,v 1.1 2004/08/27 01:13:55 whitmore Exp $
+ * @version $Id: AuthorizationProvider.java,v 1.1.2.1 2005/07/21 14:11:01 johnan Exp $
  * @since blojsom 2.16
  */
 public interface AuthorizationProvider {
@@ -79,4 +79,16 @@ public interface AuthorizationProvider {
      * @throws BlojsomException If there is an error authorizing the username and password
      */
     public void authorize(BlogUser blogUser, Map authorizationContext, String username, String password) throws BlojsomException;
+
+    /**
+     * Check a permission for the given {@link BlogUser}
+     *
+     * @param blogUser          {@link BlogUser}
+     * @param permissionContext {@link Map} to be used to provide other information for permission check. This will
+     *                          change depending on the authorization provider.
+     * @param username          Username
+     * @param permission        Permission
+     * @throws BlojsomException If there is an error checking the permission for the username and permission
+     */
+    public void checkPermission(BlogUser blogUser, Map permissionContext, String username, String permission) throws BlojsomException;
 }

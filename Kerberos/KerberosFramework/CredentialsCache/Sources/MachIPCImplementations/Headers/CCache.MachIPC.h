@@ -5,6 +5,7 @@
 
 #include <syslog.h>
 #include <mach/mach_error.h>
+#include <Kerberos/com_err.h>
 
 #define kCCacheServerBundleID "edu.mit.Kerberos.CCacheServer"
 #define kCCacheServerPath     "/System/Library/CoreServices/CCacheServer.app/Contents/MacOS/CCacheServer"
@@ -16,14 +17,18 @@
 #define __AfterSendRpc(num, name)														\
     dprintf ("Sent IPC request %d (%s) to %x\n", num, name, inServerPort);
 #define __BeforeSendRpc(num, name)														\
-    dprintf ("Sending IPC request %d (%s) to %x;\n" num, name, inServerPort);*/
+    dprintf ("Sending IPC request %d (%s) to %x\n", num, name, inServerPort);*/
 
 #define ThrowIfIPCError_(err, result) 												\
     do {																			\
         if (err != KERN_SUCCESS) {													\
+            dprintf ("%s() got IPC error %d '%s' (%s:%d)", \
+                     __FUNCTION__, err, mach_error_string (err), __FILE__, __LINE__);                          \
             InvalidatePort ();														\
             CCIDebugThrow_ (CCIException (ccErrServerUnavailable));					\
         } else if (result != ccNoError) {											\
+            dprintf ("%s() got CCAPI result %d '%s' (%s:%d)", \
+                     __FUNCTION__, result, error_message (result), __FILE__, __LINE__);                          \
             CCIDebugThrow_ (CCIException (result));									\
         }																			\
     } while (false)
@@ -31,21 +36,25 @@
 #define ThrowIfIPCAllocateFailed_(pointer, err)				\
     do {								\
         if (err != KERN_SUCCESS) {					\
-            syslog (LOG_DEBUG, "VM allocation failed with %s (%d)",	\
-                mach_error_string (err), err);				\
+            dprintf ("%s(): VM allocation failed with error %d '%s' (%s:%d)", \
+                __FUNCTION__, err, mach_error_string (err), __FILE__, __LINE__);				\
             throw (CCIException (ccErrNoMem));				\
         }								\
     } while (false)
 
 #define CatchForIPCReturn_(err)						\
     catch (CCIException& e) {						\
-        syslog (LOG_DEBUG, "IPC returning error %d", e.Error ());	\
+        dprintf ("%s(): caught CCIException, returning error %d (%s:%d)", \
+                 __FUNCTION__, e.Error (), __FILE__, __LINE__);	\
         *err = e.Error ();						\
     } catch (...) {							\
-        CCISignal_ ("Uncaught exception, returning ccErrBadParam");	\
+        dprintf ("%s(): uncaught exception, returning ccErrBadParam (%s:%d)", \
+                    __FUNCTION__, __FILE__, __LINE__);	\
         *err = ccErrBadParam;						\
     }
-    
+
+typedef		pid_t				CCIPID;
+
 typedef		CCITime				Time;
 typedef		CCIObjectID			ContextID;
 typedef		CCIObjectID			CCacheID;

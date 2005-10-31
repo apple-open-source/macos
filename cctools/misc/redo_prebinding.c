@@ -2741,7 +2741,8 @@ void)
 	 */
 	const char *deployment_string;
 	enum macosx_deployment_target_value deployment_version;
-	get_macosx_deployment_target(&deployment_version, &deployment_string);
+	get_macosx_deployment_target(&deployment_version, &deployment_string,
+				     arch->object->mh->cputype);
 	if(deployment_version >= MACOSX_DEPLOYMENT_TARGET_10_3 &&
 	   deployment_version < MACOSX_DEPLOYMENT_TARGET_10_4){
 	    /*
@@ -7672,7 +7673,7 @@ unsigned long size)
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		if(vmaddr >= sg->vmaddr &&
-		   vmaddr + size < sg->vmaddr + sg->vmsize){
+		   vmaddr + size <= sg->vmaddr + sg->vmsize){
 		    offset = vmaddr - sg->vmaddr;
 		    if(offset + size <= sg->filesize)
 			return(arch->object->object_addr +

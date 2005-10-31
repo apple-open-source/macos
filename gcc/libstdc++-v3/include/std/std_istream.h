@@ -33,8 +33,7 @@
 //
 
 /** @file istream
- *  This is a Standard C++ Library header.  You should @c #include this header
- *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
+ *  This is a Standard C++ Library header.
  */
 
 #ifndef _GLIBCXX_ISTREAM
@@ -574,7 +573,40 @@ namespace std
       explicit 
       basic_istream(): _M_gcount(streamsize(0)) { }
     };
+
+  // Explicit specialization declarations, defined in src/istream.cc.
+  template<> 
+    basic_istream<char>& 
+    basic_istream<char>::
+    getline(char_type* __s, streamsize __n, char_type __delim);
   
+  template<>
+    basic_istream<char>&
+    basic_istream<char>::
+    ignore(streamsize __n);
+  
+  template<>
+    basic_istream<char>&
+    basic_istream<char>::
+    ignore(streamsize __n, int_type __delim);
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+  template<> 
+    basic_istream<wchar_t>& 
+    basic_istream<wchar_t>::
+    getline(char_type* __s, streamsize __n, char_type __delim);
+
+  template<>
+    basic_istream<wchar_t>&
+    basic_istream<wchar_t>::
+    ignore(streamsize __n);
+  
+  template<>
+    basic_istream<wchar_t>&
+    basic_istream<wchar_t>::
+    ignore(streamsize __n, int_type __delim);
+#endif
+
   /**
    *  @brief  Performs setup work for input streams.
    *
@@ -693,13 +725,13 @@ namespace std
     operator>>(basic_istream<_CharT, _Traits>& __in, _CharT* __s);
   
   template<class _Traits>
-    basic_istream<char,_Traits>&
-    operator>>(basic_istream<char,_Traits>& __in, unsigned char* __s)
+    basic_istream<char, _Traits>&
+    operator>>(basic_istream<char, _Traits>& __in, unsigned char* __s)
     { return (__in >> reinterpret_cast<char*>(__s)); }
 
   template<class _Traits>
-    basic_istream<char,_Traits>&
-    operator>>(basic_istream<char,_Traits>& __in, signed char* __s)
+    basic_istream<char, _Traits>&
+    operator>>(basic_istream<char, _Traits>& __in, signed char* __s)
     { return (__in >> reinterpret_cast<char*>(__s)); }
   //@}
 

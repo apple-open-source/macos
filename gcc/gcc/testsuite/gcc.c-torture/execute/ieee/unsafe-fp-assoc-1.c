@@ -1,4 +1,3 @@
-#include <float.h>
 extern void abort();
 
 typedef union {

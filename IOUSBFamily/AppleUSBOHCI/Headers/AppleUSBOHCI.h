@@ -143,8 +143,7 @@ private:
     void print_itd(AppleOHCIIsochTransferDescriptorPtr x);
     void print_ed(AppleOHCIEndpointDescriptorPtr x);
     void print_isoc_ed(AppleOHCIEndpointDescriptorPtr x);
-    void print_list(AppleOHCIEndpointDescriptorPtr pListHead,
-                    AppleOHCIEndpointDescriptorPtr pListTail);
+    void					print_list(AppleOHCIEndpointDescriptorPtr pListHead, AppleOHCIEndpointDescriptorPtr pListTail);
     void print_control_list(void);
     void print_bulk_list(void);
     void print_int_list(void);
@@ -225,7 +224,8 @@ protected:
     volatile UInt32					_consumerCount;			// Counter used to synchronize reading of the done queue between filter (producer) and action (consumer)
     IOSimpleLock *					_wdhLock;
     UInt64						_timeElapsed;
-    
+	bool									_needToCreateRootHub;					// True if we need to create the root hub post wake
+
     static void 				InterruptHandler(OSObject *owner,  IOInterruptEventSource * source, int count);
     static bool 				PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
     bool 					FilterInterrupt(int index);
@@ -243,9 +243,7 @@ protected:
     bool  					_remote_wakeup_occurred;
     
     // Memory routines
-    void doCallback(AppleOHCIGeneralTransferDescriptorPtr	nextTD,
-                    UInt32				transferStatus,
-                    UInt32  				bufferSizeRemaining);
+    void										doCallback(AppleOHCIGeneralTransferDescriptorPtr nextTD, UInt32 transferStatus, UInt32 bufferSizeRemaining);
     UInt32 findBufferRemaining (AppleOHCIGeneralTransferDescriptorPtr pCurrentTD);
     AppleOHCIIsochTransferDescriptorPtr AllocateITD(void);
     AppleOHCIGeneralTransferDescriptorPtr AllocateTD(void);

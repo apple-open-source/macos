@@ -31,7 +31,7 @@
 #define _IOKIT_MACRISC2_H
 
 #include <IOKit/platform/ApplePlatformExpert.h>
-#include <IOKit/pci/IOPCIDevice.h>
+#include <IOKit/pci/IOAGPDevice.h>
 
 #include "UniN.h"
 #include "MacRISC2CPU.h"
@@ -84,9 +84,11 @@ private:
     IOService					*usb2;
     IOService					*keylargoUSB1;
     IOService					*keylargoUSB2;
+	IOService					*gpuSensor;
+	IOAGPDevice					*atiDriver;
+	IOPCIBridge					*agpBridgeDriver;
 	MacRISC2CPU					*macRISC2CPU;
 	AppleUniN					*uniN;
-    class IOPMPagingPlexus		*plexus;
     class IOPMSlotsMacRISC2		*slotsMacRISC2;
     IOLock						*mutex;
     UInt32						processorSpeedChangeFlags;
@@ -94,6 +96,7 @@ private:
 	bool						doPlatformPowerMonitor;
     bool						hasPMon, hasPPlugin;
     bool						hasEmbededThermals;
+	bool						i2ResetOnWake;
     UInt32						pMonPlatformNumber;
     
 	// Possible power states we care about

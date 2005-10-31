@@ -67,7 +67,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "insn-config.h"
@@ -1118,7 +1117,8 @@ update_equiv_regs (void)
   /* Clear all dead REGNOs from all basic block's live info.  */
   if (clear_regnos)
     {
-      int j;
+      unsigned j;
+      
       if (clear_regnos > 8)
 	{
 	  FOR_EACH_BB (bb)
@@ -1314,9 +1314,8 @@ block_alloc (int b)
 		  if (hard_reg != NULL_RTX)
 		    {
 		      if (REG_P (hard_reg)
-			  && IN_RANGE (REGNO (hard_reg),
-				       0, FIRST_PSEUDO_REGISTER - 1)
-			  && ! call_used_regs[REGNO (hard_reg)])
+			  && REGNO (hard_reg) < FIRST_PSEUDO_REGISTER
+			  && !call_used_regs[REGNO (hard_reg)])
 			continue;
 		    }
 
@@ -2011,7 +2010,7 @@ reg_is_born (rtx reg, int birth)
     {
       regno = REGNO (SUBREG_REG (reg));
       if (regno < FIRST_PSEUDO_REGISTER)
-	regno = subreg_hard_regno (reg, 1);
+	regno = subreg_regno (reg);
     }
   else
     regno = REGNO (reg);

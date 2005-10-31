@@ -1,4 +1,3 @@
-/* APPLE LOCAL file constant strings */
 /* Test if ObjC constant strings get placed in the correct section.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */
 

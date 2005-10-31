@@ -121,9 +121,11 @@
 #include <openssl/objects.h>
 #include <openssl/evp.h>
 #include <openssl/x509.h>
+#ifndef OPENSSL_NO_KRB5
 #include <openssl/krb5_asn.h>
+#endif
 #include <openssl/md5.h>
-#include "cryptlib.h"
+#include <openssl/fips.h>
 
 static SSL_METHOD *ssl3_get_server_method(int ver);
 static int ssl3_get_client_hello(SSL *s);
@@ -431,10 +433,11 @@ int ssl3_accept(SSL *s)
 			if (ret == 2)
 				s->state = SSL3_ST_SR_CLNT_HELLO_C;
 			else {
-				/* could be sent for a DH cert, even if we
-				 * have not asked for it :-) */
-				ret=ssl3_get_client_certificate(s);
-				if (ret <= 0) goto end;
+				if (s->s3->tmp.cert_request)
+					{
+					ret=ssl3_get_client_certificate(s);
+					if (ret <= 0) goto end;
+					}
 				s->init_num=0;
 				s->state=SSL3_ST_SR_KEY_EXCH_A;
 			}
@@ -844,6 +847,9 @@ static int ssl3_get_client_hello(SSL *s)
 		}
 
 	/* TLS does not mind if there is extra stuff */
+#if 0   /* SSL 3.0 does not mind either, so we should disable this test
+         * (was enabled in 0.9.6d through 0.9.6j and 0.9.7 through 0.9.7b,
+         * in earlier SSLeay/OpenSSL releases this test existed but was buggy) */
 	if (s->version == SSL3_VERSION)
 		{
 		if (p < (d+n))
@@ -855,6 +861,7 @@ static int ssl3_get_client_hello(SSL *s)
 			goto f_err;
 			}
 		}
+#endif
 
 	/* Given s->session->ciphers and SSL_get_ciphers, we must
 	 * pick a cipher */
@@ -949,7 +956,8 @@ static int ssl3_send_server_hello(SSL *s)
 		p=s->s3->server_random;
 		Time=time(NULL);			/* Time */
 		l2n(Time,p);
-		RAND_pseudo_bytes(p,SSL3_RANDOM_SIZE-sizeof(Time));
+		if(RAND_pseudo_bytes(p,SSL3_RANDOM_SIZE-4) <= 0)
+			return -1;
 		/* Do the message type and length last */
 		d=p= &(buf[4]);
 
@@ -1205,6 +1213,8 @@ static int ssl3_send_server_key_exchange(SSL *s)
 				j=0;
 				for (num=2; num > 0; num--)
 					{
+					EVP_MD_CTX_set_flags(&md_ctx,
+						EVP_MD_CTX_FLAG_NON_FIPS_ALLOW);
 					EVP_DigestInit_ex(&md_ctx,(num == 2)
 						?s->ctx->md5:s->ctx->sha1, NULL);
 					EVP_DigestUpdate(&md_ctx,&(s->s3->client_random[0]),SSL3_RANDOM_SIZE);
@@ -1352,6 +1362,7 @@ static int ssl3_send_certificate_request(SSL *s)
 		s->init_num += 4;
 #endif
 
+		s->state = SSL3_ST_SW_CERT_REQ_B;
 		}
 
 	/* SSL3_ST_SW_CERT_REQ_B */
@@ -1484,7 +1495,8 @@ static int ssl3_get_client_key_exchange(SSL *s)
 			i = SSL_MAX_MASTER_KEY_LENGTH;
 			p[0] = s->client_version >> 8;
 			p[1] = s->client_version & 0xff;
-			RAND_pseudo_bytes(p+2, i-2); /* should be RAND_bytes, but we cannot work around a failure */
+			if(RAND_pseudo_bytes(p+2, i-2) <= 0)  /* should be RAND_bytes, but we cannot work around a failure */
+				goto err;
 			}
 	
 		s->session->master_key_length=
@@ -1582,7 +1594,7 @@ static int ssl3_get_client_key_exchange(SSL *s)
 		n2s(p,i);
 		enc_ticket.length = i;
 
-		if (n < enc_ticket.length + 6)
+		if (n < (long)enc_ticket.length + 6)
 			{
 			SSLerr(SSL_F_SSL3_GET_CLIENT_KEY_EXCHANGE,
 				SSL_R_DATA_LENGTH_TOO_LONG);
@@ -1595,7 +1607,7 @@ static int ssl3_get_client_key_exchange(SSL *s)
 		n2s(p,i);
 		authenticator.length = i;
 
-		if (n < enc_ticket.length + authenticator.length + 6)
+		if (n < (long)(enc_ticket.length + authenticator.length + 6))
 			{
 			SSLerr(SSL_F_SSL3_GET_CLIENT_KEY_EXCHANGE,
 				SSL_R_DATA_LENGTH_TOO_LONG);
@@ -1620,8 +1632,8 @@ static int ssl3_get_client_key_exchange(SSL *s)
 			goto err;
 			}
 
-		if (n != enc_ticket.length + authenticator.length +
-						enc_pms.length + 6)
+		if (n != (long)(enc_ticket.length + authenticator.length +
+						enc_pms.length + 6))
 			{
 			SSLerr(SSL_F_SSL3_GET_CLIENT_KEY_EXCHANGE,
 				SSL_R_DATA_LENGTH_TOO_LONG);

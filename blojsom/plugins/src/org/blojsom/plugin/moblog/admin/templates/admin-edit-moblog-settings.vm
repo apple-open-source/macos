@@ -1,132 +1,161 @@
-<?xml version="1.0" encoding="UTF-8"?>
+#AdministrationHeader("#adminResource('update.moblog.page.header' 'Update Moblog Plugin Configuration')")
 
-#adminPageHeader("#adminResource('update.moblog.page.header' 'Update Moblog Plugin Configuration')")
+<body>
+    <div id="wrap">
 
-    <div id="header">
-        <ul id="primary">
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('entries.page.header' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('weblog.settings.text' '')</a></li>
-            <li><span>#adminResource('plugin.settings.text' '')</span></li>
-            <ul id="secondary">
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('mappings.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
-            </ul>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&action=logout">#adminResource('logout.text' '')</a></li>
+        <h1>Blosjom Administration Interface</h1>
+
+        <div id="login">            
+            <p>Logged in as: <a href="#" title="view info">$BLOJSOM_ADMIN_PLUGIN_USERNAME</a> : <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=logout" title="log out">#adminResource('logout.text' '')</a></p>
+            <p>Logged in to: <a href="$BLOJSOM_BLOG.getBlogURL()" title="view site info">$BLOJSOM_BLOG.getBlogName()</a></p>
+        </div>
+
+        <ul id="nav">
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="#">#adminResource('entries.page.header' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('add.entry.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=page">#adminResource('edit.and.delete.entries.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('weblog.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-permissions&action=page">#adminResource('permissions.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('plugin.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('configure.plugin.mappings.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
+                </ul>
+            </li>
         </ul>
+
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
+
+                <!-- Update moblog settings -->
+                <div class="mainClm">
+                    <h3>#adminResource('update.moblog.settings.text' 'Update moblog settings')</h3>
+                    <table>
+                        <form name="update-moblog-settings" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="update-moblog-settings"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="moblog-admin"/>
+                            <tr>
+                                <td>#adminResource('moblog.plugin.enabled.text' 'Moblog plugin enabled')</td>
+                                #set ($selectListName = "moblog-enabled")
+                                <td>#trueFalseSelectList($selectListName $BLOJSOM_PLUGIN_MOBLOG_MAILBOX.isEnabled())</td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('mailbox.hostname.text' 'Hostname')</td>
+                                <td><input type="text" size="60" name="moblog-hostname" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getHostName()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('mailbox.userid.text' 'User ID')</td>
+                                <td><input type="text" size="60" name="moblog-userid" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getUserId()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('mailbox.password.text' 'Password')</td>
+                                <td><input type="password" size="60" name="moblog-password" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getPassword()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('mailbox.category.text' 'Moblog category')</td>
+                                <td><input type="text" size="60" name="moblog-category" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getCategoryName()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('mailbox.secret.word.text' 'Secret word')</td>
+                                <td><input type="text" size="60" name="moblog-secret-word" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getSecretWord()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('mailbox.ignore.expression.text' 'Ignore text regular expression')</td>
+                                <td><input type="text" size="60" name="moblog-ignore-expression" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getIgnoreExpression()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('mailbox.text.types.text' 'Accepted text MIME types')</td>
+                                <td><input type="text" size="60" name="moblog-text-mime-types" value="$BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getTextMimeTypesAsStringList()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('mailbox.image.types.text' 'Accepted image MIME types')</td>
+                                <td><input type="text" size="60" name="moblog-image-mime-types" value="$BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getImageMimeTypesAsStringList()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('mailbox.attachment.types.text' 'Accepted attachment MIME types')</td>
+                                <td><input type="text" size="60" name="moblog-attachment-mime-types" value="$BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getAttachmentMimeTypesAsStringList()"/></td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('update.moblog.settings.text' 'Update moblog settings')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Add moblog authorization e-mail -->
+                <div class="mainClm">
+                    <h3>#adminResource('add.authorized.address.text' 'Add authorized e-mail address')</h3>
+                    <table>
+                        <form name="add-authorized-address" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="add-authorized-address"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="moblog-admin"/>
+                            <tr>
+                                <td>#adminResource('authorized.address.text' 'Authorized e-mail address')</td>
+                                <td><input type="text" size="30" name="moblog-authorized-address"/></td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('add.authorized.address.text' 'Add authorized e-mail address')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Delete moblog authorization e-mail -->
+                <div class="mainClm">
+                    <h3>#adminResource('delete.authorized.address.text' 'Delete authorized e-mail address')</h3>
+                    <table>
+                        <form name="delete-authorized-address" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="delete-authorized-address"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="moblog-admin"/>
+
+                            #set ($authorizedAddresses = $BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getAuthorizedAddresses())
+                            <tr>
+                                <td>#adminResource('authorized.address.text' 'Authorized e-mail address')</td>
+                                <td><select size="5" name="moblog-authorized-address">
+                                    #foreach ($emailAddress in $authorizedAddresses.keySet())
+                                    <option value="$emailAddress">$emailAddress</option>
+                                    #end
+                                </select></td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('delete.authorized.address.text' 'Delete authorized e-mail address')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
+</body>
 
-    <div id="contents">
-
-        <!-- Update moblog settings -->
-        <div id="mainClm">
-            <h2>#adminResource('update.moblog.settings.text' 'Update moblog settings')</h2>
-            <table>
-                <form name="update-moblog-settings" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="update-moblog-settings"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="moblog-admin"/>
-                    <tr>
-                        <td>#adminResource('moblog.plugin.enabled.text' 'Moblog plugin enabled')</td>
-                        #set ($selectListName = "moblog-enabled")
-                        <td>#trueFalseSelectList($selectListName $BLOJSOM_PLUGIN_MOBLOG_MAILBOX.isEnabled())</td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('mailbox.hostname.text' 'Hostname')</td>
-                        <td><input type="text" size="60" name="moblog-hostname" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getHostName()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('mailbox.userid.text' 'User ID')</td>
-                        <td><input type="text" size="60" name="moblog-userid" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getUserId()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('mailbox.password.text' 'Password')</td>
-                        <td><input type="text" size="60" name="moblog-password" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getPassword()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('mailbox.category.text' 'Moblog category')</td>
-                        <td><input type="text" size="60" name="moblog-category" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getCategoryName()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('mailbox.secret.word.text' 'Secret word')</td>
-                        <td><input type="text" size="60" name="moblog-secret-word" value="$!BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getSecretWord()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('mailbox.text.types.text' 'Accepted text MIME types')</td>
-                        <td><input type="text" size="60" name="moblog-text-mime-types" value="$BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getTextMimeTypesAsStringList()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('mailbox.image.types.text' 'Accepted image MIME types')</td>
-                        <td><input type="text" size="60" name="moblog-image-mime-types" value="$BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getImageMimeTypesAsStringList()"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('mailbox.attachment.types.text' 'Accepted attachment MIME types')</td>
-                        <td><input type="text" size="60" name="moblog-attachment-mime-types" value="$BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getAttachmentMimeTypesAsStringList()"/></td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('update.moblog.settings.text' 'Update moblog settings')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-
-        <p></p>
-
-        <!-- Add moblog authorization e-mail -->
-        <div id="mainClm">
-            <h2>#adminResource('add.authorized.address.text' 'Add authorized e-mail address')</h2>
-            <table>
-                <form name="add-authorized-address" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="add-authorized-address"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="moblog-admin"/>
-                    <tr>
-                        <td>#adminResource('authorized.address.text' 'Authorized e-mail address')</td>
-                        <td><input type="text" size="30" name="moblog-authorized-address"/></td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('add.authorized.address.text' 'Add authorized e-mail address')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-
-        <p></p>
-
-        <!-- Delete moblog authorization e-mail -->
-        <div id="mainClm">
-            <h2>#adminResource('delete.authorized.address.text' 'Delete authorized e-mail address')</h2>
-            <table>
-                <form name="delete-authorized-address" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="delete-authorized-address"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="moblog-admin"/>
-
-                    #set ($authorizedAddresses = $BLOJSOM_PLUGIN_MOBLOG_MAILBOX.getAuthorizedAddresses())
-                    <tr>
-                        <td>#adminResource('authorized.address.text' 'Authorized e-mail address')</td>
-                        <td><select size="5" name="moblog-authorized-address">
-                            #foreach ($emailAddress in $authorizedAddresses.keySet())
-                            <option value="$emailAddress">$emailAddress</option>
-                            #end
-                        </select></td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('delete.authorized.address.text' 'Delete authorized e-mail address')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-    </div>
-
-#adminPageFooter()
+#AdministrationFooter()

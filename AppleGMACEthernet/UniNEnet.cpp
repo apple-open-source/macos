@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998-2002 Apple Computer
+ * Copyright (c) 1998-2005 Apple Computer
  *
  * Hardware independent (relatively) code for the Sun GEM Ethernet Controller 
  *
@@ -277,11 +277,11 @@ bool UniNEnet::init( OSDictionary *properties )
 
 		/* Initialize some instance variables:	*/
 
-	fCellClockEnabled	= true;
+	fCellClockEnabled	= false;
 	fAutoNegotiate		= true;
 	fMediumType			= kIOMediumEthernetAuto;	// default to autoNegotiation
 	fSendPauseCommand	= kSendPauseCommand_default;
-	fTxRingIndexLast	= ~0;
+	fTxRingIndexLast	= ~0U;
     return true;
 }/* end init */
 
@@ -371,10 +371,12 @@ bool UniNEnet::start( IOService *provider )
     	/* Allocate Interrupt source:	*/
 
     interruptSource = IOInterruptEventSource::interruptEventSource(
-                        (OSObject*)this,
-                        (IOInterruptEventAction)&UniNEnet::interruptOccurred,
-                        (IOService*)provider,
-                        (int)0 );
+							(OSObject*)this,
+							OSMemberFunctionCast(	IOInterruptEventAction,
+													this,
+													&UniNEnet::interruptOccurred ),
+							(IOService*)provider,
+							(int)0 );
 
     if ( interruptSource == NULL )
     {	IOLog( "UniNEnet::start: Couldn't allocate Interrupt event source\n" );    
@@ -389,7 +391,9 @@ bool UniNEnet::start( IOService *provider )
 
     timerSource = IOTimerEventSource::timerEventSource(
 						this,
-						(IOTimerEventSource::Action)&UniNEnet::timeoutOccurred );
+						OSMemberFunctionCast(	IOTimerEventSource::Action,
+												this,
+												&UniNEnet::timeoutOccurred ) );
     if ( timerSource == NULL )
     {
         IOLog( "UniNEnet::start - Couldn't allocate timer event source\n" );
@@ -654,7 +658,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 		if ( fCellClockEnabled == false )
 	         interruptStatus = 0x8BadF00d;
 		else interruptStatus = READ_REGISTER( Status );
-		ALRT( this, interruptStatus, 'int-', "interruptOccurred - not ready" );
+		ELG( this, interruptStatus, 'int-', "interruptOccurred - not ready" );
 		return;
 	}
 
@@ -1329,13 +1333,7 @@ IOReturn UniNEnet::setMulticastMode( bool active )
 }/* end setMulticastMode */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
-
-IOReturn UniNEnet::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
+IOReturn UniNEnet::setMulticastList( IOEthernetAddress *addrs, UInt32 count )
 {
 	IODebuggerLockState		lockState = kIODebuggerLockTaken;
 
@@ -1343,28 +1341,23 @@ IOReturn UniNEnet::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
 	ELG( addrs, count, 'SetL', "setMulticastList" );
     
 	if ( fCellClockEnabled == false )
-		return kIOReturnSuccess;
-	
+		enableCellClock();				// Leave the cell clocked when done.
+
 	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
     resetHashTableMask();
-    for (UInt32 i = 0; i < count; i++) 
+    for ( UInt32 i = 0; i < count; i++ )
     {
-        addToHashTableMask(addrs->bytes);
+        addToHashTableMask( addrs->bytes );
         addrs++;
     }
     updateHashTableMask();
-    
+
 	if ( fBuiltin )		IODebuggerUnlock( lockState );
     return kIOReturnSuccess;
 }/* end setMulticastList */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
 
 IOOutputQueue* UniNEnet::createOutputQueue()
 {

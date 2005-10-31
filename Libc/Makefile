@@ -19,7 +19,7 @@ SHLIB_MINOR= 0
 .if (${MACHINE_ARCH} == unknown)
 MACHINE_ARCH != /usr/bin/arch
 .endif 
-CC = gcc-3.5
+CC = gcc-4.0
 # always set __DARWIN_UNIX03 to zero (variant will set to one) except for ppc64
 .if (${MACHINE_ARCH} == ppc64)
 CFLAGS += -D__DARWIN_UNIX03=1

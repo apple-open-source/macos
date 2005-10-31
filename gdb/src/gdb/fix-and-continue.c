@@ -55,10 +55,13 @@
 #include <readline/readline.h>
 #include "osabi.h"
 
-#if defined(TARGET_POWERPC)
+#if defined (TARGET_POWERPC)
 #include "ppc-macosx-frameinfo.h"
 #include "ppc-macosx-tdep.h"
-#endif /* TARGET_POWERPC */
+#endif
+#if defined (TARGET_I386)
+#include "i386-tdep.h"
+#endif
 
 #ifdef NM_NEXTSTEP
 #include "macosx-nat-dyld-process.h"
@@ -2344,6 +2347,7 @@ redirect_old_function (struct fixinfo *fixinfo, struct symbol *new_sym,
 
   fixup_addr = oldfuncstart; 
 
+#if defined (TARGET_POWERPC)
   /* li r12,lo16(newfuncstart) */
   inst = 0x39800000 | encode_lo16 (newfuncstart);
   updatedatum (fixinfo, fixup_addr, (char *)&inst, 4);
@@ -2363,6 +2367,17 @@ redirect_old_function (struct fixinfo *fixinfo, struct symbol *new_sym,
   /* .long 0 - Illegal instruction for trampoline detection */
   inst = 0x0;
   updatedatum (fixinfo, fixup_addr + 16, (char *)&inst, 4);
+#endif
+#if defined (TARGET_I386)
+  unsigned char buf[6];
+  uint32_t relative_offset;
+
+  buf[0] = 0xe9;  /* jmp <imm32-relative-addr> */
+  buf[5] = 0xcc;  /* int 3 */
+  relative_offset = (uint32_t) newfuncstart - (oldfuncstart + 5);
+  store_unsigned_integer (buf + 1, TARGET_ADDRESS_BYTES, relative_offset);
+  target_write_memory (oldfuncstart, buf, 6);
+#endif
 
   SYMBOL_OBSOLETED (old_sym) = 1;
   msym = lookup_minimal_symbol_by_pc (oldfuncstart);
@@ -2382,13 +2397,14 @@ redirect_old_function (struct fixinfo *fixinfo, struct symbol *new_sym,
 }
 
 
-  /* Detect a Fix and Continue trampoline on PPC systems. 
+  /* Detect a Fix and Continue trampoline.
      Returns 0 if this is not a F&C trampoline; returns the
      destination address if it is.  */
 
 CORE_ADDR
 decode_fix_and_continue_trampoline (CORE_ADDR pc)
 {
+#if defined (TARGET_POWERPC)
   uint16_t newpc_lo16, newpc_hi16;
   int buf;
 
@@ -2420,6 +2436,29 @@ decode_fix_and_continue_trampoline (CORE_ADDR pc)
     return 0;
 
   return decode_hi16_lo16 (newpc_hi16, newpc_lo16);
+#endif
+#if defined (TARGET_I386)
+
+  /* Detect the x86 F&C trampoline sequence.  */
+
+  unsigned char buf[5];
+  uint32_t current_pc, relative_offset;
+  target_read_memory (pc, buf, 5);
+
+  /* jmp <32-bit-relative-addr> */
+  if (buf[0] != 0xe9)
+    return 0;
+
+  /* int 3 */
+  if (buf[5] != 0xcc)
+    return 0;
+  
+  relative_offset = extract_unsigned_integer (buf + 1, 4);
+  current_pc = pc;  /* 64bit x86 unsafe, we're truncating the top 32 bits */
+  current_pc += 5;  /* Offset is from next instruction */
+  return (uint32_t) current_pc + relative_offset;
+
+#endif
 }
 
 /* Print all of the functions that are currently on the stack which
@@ -2507,16 +2546,21 @@ update_picbase_register (struct symbol *new_fun)
      a good choice -- I'm not distinguishing between a function that doesn't
      have a PIC base and a failure to find the PIC base.  */
   if (pic_base_reg == 0 || pic_base_value == INVALID_ADDRESS)
-    {
-      return;
-#if 0
-      error ("Unable to find PIC base in new function %s.",
-             (new_fun != NULL ? SYMBOL_NAME (new_fun) : "<null>"));
-#endif
-    }
+    return;
 
   write_register (pic_base_reg, pic_base_value);
-#endif /* TARGET_POWERPC */
+#endif
+#if defined (TARGET_I386)
+
+  /* Find & update the x86 PIC base register if one is used. */
+
+  enum i386_regnum pic_base_reg;
+  CORE_ADDR pic_base_value;
+  if (i386_find_picbase_setup (BLOCK_START (SYMBOL_BLOCK_VALUE (new_fun)),
+                               &pic_base_value, &pic_base_reg))
+    write_register (pic_base_reg, pic_base_value);
+
+#endif
 }
 
 static struct objfile *
@@ -2750,13 +2794,6 @@ raise_objfile_load_level (struct objfile *obj)
 int
 fix_and_continue_supported (void)
 {
-
-  /* F&C is not supported on non-ppc arches yet. */
-
-#if !defined (TARGET_POWERPC)
-  return 0;
-#endif
-
   /* Don't have a binary specified OR we've attached to a process and
      exec_bfd hasn't been set up for us. */
 

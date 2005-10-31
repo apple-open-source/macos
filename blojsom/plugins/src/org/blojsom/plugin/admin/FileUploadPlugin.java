@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,29 +34,29 @@
  */
 package org.blojsom.plugin.admin;
 
-import org.apache.commons.logging.LogFactory;
-import org.apache.commons.logging.Log;
 import org.apache.commons.fileupload.DiskFileUpload;
-import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.FileItem;
-import org.blojsom.blog.BlojsomConfiguration;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.blojsom.BlojsomException;
 import org.blojsom.blog.BlogEntry;
 import org.blojsom.blog.BlogUser;
+import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.plugin.BlojsomPluginException;
 import org.blojsom.util.BlojsomUtils;
-import org.blojsom.BlojsomException;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.*;
 import java.io.File;
+import java.util.*;
 
 /**
  * FileUploadPlugin
- * 
+ *
  * @author czarnecki
- * @version $Id: FileUploadPlugin.java,v 1.2 2004/08/27 01:06:35 whitmore Exp $
+ * @version $Id: FileUploadPlugin.java,v 1.2.2.2 2005/07/29 22:13:29 johnan Exp $
  * @since blojsom 2.05
  */
 public class FileUploadPlugin extends BaseAdminPlugin {
@@ -72,8 +72,9 @@ public class FileUploadPlugin extends BaseAdminPlugin {
     private static final int DEFAULT_MAXIMUM_MEMORY_SIZE = 50000;
     private static final String ACCEPTED_FILE_TYPES_IP = "accepted-file-types";
     private static final String[] DEFAULT_ACCEPTED_FILE_TYPES = {"image/jpeg", "image/gif", "image/png"};
-    private static final String RESOURCES_DIRECTORY_IP = "resources-directory";
-    private static final String DEFAULT_RESOURCES_DIRECTORY = "/resources/";
+    private static final String DEFAULT_RESOURCES_DIRECTORY = "/blojsom_resources/meta/";
+    private static final String INVALID_FILE_EXTENSIONS_IP = "invalid-file-extensions";
+    private static final String[] DEFAULT_INVALID_FILE_EXTENSIONS = {".jsp", ".jspf", ".jspi", ".jspx", ".php", ".cgi"};
 
     // Pages
     private static final String FILE_UPLOAD_PAGE = "/org/blojsom/plugin/admin/templates/admin-file-upload";
@@ -88,11 +89,15 @@ public class FileUploadPlugin extends BaseAdminPlugin {
     // Form items
     private static final String FILE_TO_DELETE = "file-to-delete";
 
-    private String _temporaryDirectory;
-    private long _maximumUploadSize;
-    private int _maximumMemorySize;
-    private Map _acceptedFileTypes;
-    private String _resourcesDirectory;
+    // Permissions
+    protected static final String FILE_UPLOAD_PERMISSION = "file_upload";
+
+    protected String _temporaryDirectory;
+    protected long _maximumUploadSize;
+    protected int _maximumMemorySize;
+    protected Map _acceptedFileTypes;
+    protected String _resourcesDirectory;
+    protected String[] _invalidFileExtensions;
 
     /**
      * Default constructor.
@@ -102,7 +107,7 @@ public class FileUploadPlugin extends BaseAdminPlugin {
 
     /**
      * Initialize this plugin. This method only called when the plugin is instantiated.
-     * 
+     *
      * @param servletConfig        Servlet config object for the plugin to retrieve any initialization parameters
      * @param blojsomConfiguration {@link org.blojsom.blog.BlojsomConfiguration} information
      * @throws org.blojsom.plugin.BlojsomPluginException
@@ -147,13 +152,21 @@ public class FileUploadPlugin extends BaseAdminPlugin {
             }
             _logger.debug("Using accepted file types: " + BlojsomUtils.arrayOfStringsToString(parsedListOfTypes));
 
-            _resourcesDirectory = configurationProperties.getProperty(RESOURCES_DIRECTORY_IP);
+            _resourcesDirectory = _blojsomConfiguration.getResourceDirectory();
             if (BlojsomUtils.checkNullOrBlank(_resourcesDirectory)) {
                 _resourcesDirectory = DEFAULT_RESOURCES_DIRECTORY;
             }
 
             _resourcesDirectory = BlojsomUtils.checkStartingAndEndingSlash(_resourcesDirectory);
             _logger.debug("Using resources directory: " + _resourcesDirectory);
+
+            String invalidFileExtensionsProperty = configurationProperties.getProperty(INVALID_FILE_EXTENSIONS_IP);
+            if (BlojsomUtils.checkNullOrBlank(invalidFileExtensionsProperty)) {
+                _invalidFileExtensions = DEFAULT_INVALID_FILE_EXTENSIONS;
+            } else {
+                _invalidFileExtensions = BlojsomUtils.parseCommaList(invalidFileExtensionsProperty);
+            }
+            _logger.debug("Using invalid file extensions: " + invalidFileExtensionsProperty);
         } catch (BlojsomException e) {
             _logger.error(e);
             throw new BlojsomPluginException(e);
@@ -162,7 +175,7 @@ public class FileUploadPlugin extends BaseAdminPlugin {
 
     /**
      * Process the blog entries
-     * 
+     *
      * @param httpServletRequest  Request
      * @param httpServletResponse Response
      * @param user                {@link org.blojsom.blog.BlogUser} instance
@@ -174,6 +187,14 @@ public class FileUploadPlugin extends BaseAdminPlugin {
     public BlogEntry[] process(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, BlogUser user, Map context, BlogEntry[] entries) throws BlojsomPluginException {
         if (!authenticateUser(httpServletRequest, httpServletResponse, context, user)) {
             httpServletRequest.setAttribute(PAGE_PARAM, ADMIN_LOGIN_PAGE);
+
+            return entries;
+        }
+
+        String username = getUsernameFromSession(httpServletRequest, user.getBlog());
+        if (!checkPermission(user, null, username, FILE_UPLOAD_PERMISSION)) {
+            httpServletRequest.setAttribute(PAGE_PARAM, ADMIN_LOGIN_PAGE);
+            addOperationResultMessage(context, "You are not allowed to upload files");
 
             return entries;
         }
@@ -214,8 +235,18 @@ public class FileUploadPlugin extends BaseAdminPlugin {
                         String fileType = item.getContentType();
                         boolean isAcceptedFileType = _acceptedFileTypes.containsKey(fileType);
 
+                        String extension = BlojsomUtils.getFileExtension(itemNameWithoutPath);
+                        boolean isAcceptedFileExtension = true;
+                        for (int i = 0; i < _invalidFileExtensions.length; i++) {
+                            String invalidFileExtension = _invalidFileExtensions[i];
+                            if (itemNameWithoutPath.indexOf(invalidFileExtension) != -1) {
+                                isAcceptedFileExtension = false;
+                                break;
+                            }
+                        }
+
                         // If so, upload the file to the resources directory
-                        if (isAcceptedFileType) {
+                        if (isAcceptedFileType && isAcceptedFileExtension) {
                             if (!resourceDirectory.exists()) {
                                 if (!resourceDirectory.mkdirs()) {
                                     _logger.error("Unable to create resource directory for user: " + resourceDirectory.toString());
@@ -235,8 +266,13 @@ public class FileUploadPlugin extends BaseAdminPlugin {
                             _logger.debug("Successfully uploaded resource file: " + resourceFile.toString());
                             addOperationResultMessage(context, "Successfully upload resource file: " + item.getName());
                         } else {
-                            _logger.error("Upload file is not an accepted type: " + item.getName() + " of type: " + item.getContentType());
-                            addOperationResultMessage(context, "Upload file is not an accepted type: " + item.getName() + " of type: " + item.getContentType());
+                            if (!isAcceptedFileExtension) {
+                                _logger.error("Upload file does not have an accepted extension: " + extension);
+                                addOperationResultMessage(context, "Upload file does not have an accepted extension: " + extension);
+                            } else {
+                                _logger.error("Upload file is not an accepted type: " + item.getName() + " of type: " + item.getContentType());
+                                addOperationResultMessage(context, "Upload file is not an accepted type: " + item.getName() + " of type: " + item.getContentType());
+                            }
                         }
                     }
                 }
@@ -265,7 +301,7 @@ public class FileUploadPlugin extends BaseAdminPlugin {
         }
 
         // Create a list of files in the user's resource directory
-        Map resourceFilesMap = new HashMap();
+        Map resourceFilesMap = null;
         if (resourceDirectory.exists()) {
             File[] resourceFiles = resourceDirectory.listFiles();
 
@@ -279,6 +315,8 @@ public class FileUploadPlugin extends BaseAdminPlugin {
         } else {
             resourceFilesMap = new HashMap();
         }
+
+        resourceFilesMap = new TreeMap(resourceFilesMap);
         context.put(PLUGIN_ADMIN_FILE_UPLOAD_FILES, resourceFilesMap);
 
         return entries;

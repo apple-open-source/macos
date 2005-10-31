@@ -1,2 +1,0 @@
->>> Empty view outlives temp storage
-<<< done.

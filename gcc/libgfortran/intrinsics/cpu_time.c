@@ -1,20 +1,29 @@
 /* Implementation of the CPU_TIME intrinsic.
    Copyright (C) 2003 Free Software Foundation, Inc.
 
-This file is part of the GNU Fortran 95 runtime library (libgfor).
+This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
-Libgfor is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+Libgfortran is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
 
-Libgfor is distributed in the hope that it will be useful,
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
+Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -101,29 +110,43 @@ __cpu_time_1 (long *sec, long *usec)
 #endif  /* HAVE_GETRUSAGE */
 }
 
-#undef CPU_TIME
-#define CPU_TIME(KIND)						\
-void prefix(cpu_time_##KIND) (GFC_REAL_##KIND *__time)		\
-{								\
-  long sec, usec;						\
-  __cpu_time_1 (&sec, &usec);					\
-  *__time = (GFC_REAL_##KIND) sec +				\
-		((GFC_REAL_##KIND) usec) * 1.e-6;		\
+extern void cpu_time_4 (GFC_REAL_4 *);
+iexport_proto(cpu_time_4);
+
+void cpu_time_4 (GFC_REAL_4 *time)
+{
+  long sec, usec;
+  __cpu_time_1 (&sec, &usec);
+  *time = sec + usec * (GFC_REAL_4)1.e-6;
+}
+iexport(cpu_time_4);
+
+extern void cpu_time_8 (GFC_REAL_8 *);
+export_proto(cpu_time_8);
+
+void cpu_time_8 (GFC_REAL_8 *time)
+{
+  long sec, usec;
+  __cpu_time_1 (&sec, &usec);
+  *time = sec + usec * (GFC_REAL_8)1.e-6;
 }
 
-CPU_TIME(4)
-CPU_TIME(8)
+extern void second_sub (GFC_REAL_4 *);
+export_proto(second_sub);
 
 void
-prefix(second_sub) (GFC_REAL_4 *s)
+second_sub (GFC_REAL_4 *s)
 {
-  prefix(cpu_time_4)(s);
+  cpu_time_4 (s);
 }
 
+extern GFC_REAL_4 second (void);
+export_proto(second);
+
 GFC_REAL_4
-prefix(second) (void)
+second (void)
 {
   GFC_REAL_4 s;
-  prefix(cpu_time_4)(&s);
+  cpu_time_4 (&s);
   return s;
 }

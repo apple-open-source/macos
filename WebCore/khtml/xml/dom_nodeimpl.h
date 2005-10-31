@@ -28,6 +28,7 @@
 #include "dom/dom_misc.h"
 #include "dom/dom_string.h"
 #include "dom/dom_node.h"
+#include "misc/main_thread_malloc.h"
 #include "misc/helper.h"
 #include "misc/shared.h"
 #include "dom_atomicstring.h"
@@ -95,6 +96,8 @@ public:
     NodeImpl(DocumentPtr *doc);
     virtual ~NodeImpl();
 
+    MAIN_THREAD_ALLOCATED;
+
     // DOM methods & attributes for Node
     virtual DOMString nodeName() const;
     virtual DOMString nodeValue() const;
@@ -114,6 +117,7 @@ public:
     virtual bool hasChildNodes (  ) const;
     virtual NodeImpl *cloneNode ( bool deep ) = 0;
     virtual DOMString localName() const;
+    virtual DOMString namespaceURI() const;
     virtual DOMString prefix() const;
     virtual void setPrefix(const DOMString &_prefix, int &exceptioncode );
     void normalize ();
@@ -243,7 +247,8 @@ public:
     bool changed() const    { return m_changed; }
     bool hasChangedChild() const { return m_hasChangedChild; }
     bool hasAnchor() const { return m_hasAnchor; }
-    bool inDocument() const { return m_inDocument; }
+    // inDocument should also make sure a document exists in case the document has been destroyed before the node is removed from the document.
+    bool inDocument() const { return document->document() && m_inDocument; }
     bool styleElement() const { return m_styleElement; }
     bool implicitNode() const { return m_implicit; }
     void setHasID(bool b=true) { m_hasId = b; }
@@ -359,6 +364,7 @@ public:
     virtual bool childAllowed( NodeImpl *newChild );
 
     virtual long maxOffset() const;
+    long maxDeepOffset() const;
     virtual long caretMinOffset() const;
     virtual long caretMaxOffset() const;
     virtual unsigned long caretMaxRenderedOffset() const;
@@ -564,6 +570,8 @@ public:
     NodeListImpl( NodeImpl *_rootNode );
     virtual ~NodeListImpl();
 
+    MAIN_THREAD_ALLOCATED;
+
     // DOM methods & attributes for NodeList
     virtual unsigned long length() const = 0;
     virtual NodeImpl *item ( unsigned long index ) const = 0;
@@ -658,6 +666,8 @@ class NamedNodeMapImpl : public khtml::Shared<NamedNodeMapImpl>
 public:
     NamedNodeMapImpl();
     virtual ~NamedNodeMapImpl();
+
+    MAIN_THREAD_ALLOCATED;
 
     // DOM methods & attributes for NamedNodeMap
     virtual NodeImpl *getNamedItem ( NodeImpl::Id id ) const = 0;

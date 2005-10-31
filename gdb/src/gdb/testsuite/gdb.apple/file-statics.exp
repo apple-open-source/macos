@@ -85,17 +85,17 @@ test_errors file-list-statics
 # One test of the old style just to make sure we don't totally break it till we remove it:
 
 mi_gdb_test {30-file-list-statics file-statics.c file-statics --no-values} \
-    {30\^done,statics=\[\{name="static_int"\},\{name="static_doesnt_match"\}\]} \
+    {30\^done,statics=\[\{name="static_doesnt_match"\},\{name="static_int"\}\]} \
     {-file-list-statics: Old style - supply file and shlib, no values}
 
 # These are the new style:
 
 mi_gdb_test {20-file-list-statics -file file-statics.c -shlib file-statics --no-values} \
-    {20\^done,statics=\[\{name="static_int"\},\{name="static_doesnt_match"\}\]} \
+    {20\^done,statics=\[\{name="static_doesnt_match"\},\{name="static_int"\}\]} \
     {-file-list-statics: supply file and shlib, no values}
 
 mi_gdb_test {21-file-list-statics -file file-statics.c -shlib "" --no-values} \
-    {21\^done,statics=\[\{name="static_int"\},\{name="static_doesnt_match"\}\]} \
+    {21\^done,statics=\[\{name="static_doesnt_match"\},\{name="static_int"\}\]} \
     {-file-list-statics: supply file and shlib, no values}
 
 mi_gdb_test {22-file-list-statics -file file-statics.c -shlib file-statics --no-values -filter _int} \
@@ -103,7 +103,7 @@ mi_gdb_test {22-file-list-statics -file file-statics.c -shlib file-statics --no-
     {-file-list-statics: supply file and shlib, no values, with filter}
 
 mi_gdb_test {23-file-list-statics -file file-statics.c -shlib file-statics --no-values -constants 0} \
-    {23\^done,statics=\[\{name="static_int"\},\{name="static_doesnt_match"\}\]} \
+    {23\^done,statics=\[\{name="static_doesnt_match"\},\{name="static_int"\}\]} \
     {-file-list-statics: supply file and shlib, no values, no constants}
 
 mi_gdb_test {24-file-list-statics -file "" -shlib file-statics --no-values} \
@@ -111,11 +111,11 @@ mi_gdb_test {24-file-list-statics -file "" -shlib file-statics --no-values} \
     {-file-list-statics: empty file and shlib, no values}
 
 mi_gdb_test {21-file-list-statics -file file-statics.c -shlib file-statics --simple-values} \
-    {21\^done,statics=\[\{name="static_int",type="int",value="7"\},\{name="static_doesnt_match",type="int",value="8"\}\]} \
+    {21\^done,statics=\[\{name="static_doesnt_match",type="int",value="8"\},\{name="static_int",type="int",value="7"\}\]} \
     {-file-list-statics: supply file and shlib, no simple}
 
 mi_gdb_test {21-file-list-statics -file file-statics.c -shlib file-statics --make-varobjs} \
-    {21\^done,statics=\[varobj=\{exp="static_int",value="7",name="var1",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\},varobj=\{exp="static_doesnt_match",value="8",name="var2",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\}\]} \
+    {21\^done,statics=\[varobj=\{exp="static_doesnt_match",value="8",name="var1",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\},varobj=\{exp="static_int",value="7",name="var2",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\}\]} \
     {-file-list-statics: supply file and shlib, make varobj}
 
 
@@ -155,8 +155,37 @@ mi_gdb_test {55-file-list-globals -file "" -shlib file-statics --no-values} \
     {55\^done,.*file=\[filename=".*/more-statics.c",globals=\[\{name="second_const_int"\},\{name="second_const_char"\},\{name="second_const_doesnt_match"\},\{name="second_global_int"\}\]\],.*file=\[filename=".*/file-statics.c",globals=\[\{name="const_int"\},\{name="const_char"\},\{name="const_doesnt_match"\},\{name="global_int"\}\]\].*} \
     {-file-list-globals: all files, supply shlib, no values}
 
-#mi_run_cmd
-# The running part has been checked already by mi_run_cmd
+# Now test a few C++ cases.
 
-#mi_get_bp_stopped "3" "\[01\]" "" "main" "objc-prog.m" ".*" "run to main"
+gdb_exit
+if [mi_gdb_start] {
+    continue
+}
 
+set testfile "file-statics-cpp"
+set srcfile ${testfile}.cpp
+
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [gdb_compile "$srcdir/$subdir/$srcfile" "${binfile}" executable {debug c++}] != "" } {
+    gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+mi_delete_breakpoints
+mi_gdb_reinitialize_dir $srcdir/$subdir
+mi_gdb_load ${binfile}
+
+mi_gdb_test {61-file-list-globals -file file-statics-cpp.cpp -shlib file-statics-cpp --simple-values} \
+    {61\^done,globals=\[\{name=\"Test::myVar\",type=\"int\",value=\"0\"\}\]} \
+    {-file-list-globals: c++ - supply file and shlib, simple values}
+
+mi_gdb_test {62-file-list-globals -file file-statics-cpp.cpp -shlib file-statics-cpp --make-varobjs} \
+    {62\^done,globals=\[varobj={exp=\"Test::myVar\",value=\"0\",name=\"var1\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"}\]} \
+    {-file-list-globals: c++ - supply file and shlib, make varobjs}
+
+mi_gdb_test {71-file-list-statics -file file-statics-cpp.cpp -shlib file-statics-cpp --simple-values} \
+    {71\^done,statics=\[\{name=\"const_int\",type=\"const int\",value=\"5\"\}\]} \
+    {-file-list-statics: c++ - supply file and shlib, simple values}
+
+mi_gdb_test {72-file-list-statics -file file-statics-cpp.cpp -shlib file-statics-cpp --make-varobjs} \
+    {72\^done,statics=\[varobj={exp=\"const_int\",value=\"5\",name=\"var2\",numchild=\"0\",type=\"const int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"no block\",block_end_addr=\"no block\"}\]} \
+    {-file-list-statics: c++ - supply file and shlib, make varobjs}

@@ -1,4 +1,4 @@
-@c Copyright (c) 2004 Free Software Foundation, Inc.
+@c Copyright (c) 2004, 2005 Free Software Foundation, Inc.
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -23,7 +23,7 @@ GIMPLE and RTL are used to optimize the program.  GIMPLE is used for
 target and language independent optimizations (e.g., inlining,
 constant propagation, tail call elimination, redundancy elimination,
 etc).  Much like GENERIC, GIMPLE is a language independent, tree based
-representation. However, it differs from GENERIC in that the GIMPLE
+representation.  However, it differs from GENERIC in that the GIMPLE
 grammar is more restrictive: expressions contain no more than 3
 operands (except function calls), it has no control flow structures
 and expressions with side-effects are only allowed on the right hand
@@ -53,10 +53,10 @@ The purpose of GENERIC is simply to provide a language-independent way of
 representing an entire function in trees.  To this end, it was necessary to
 add a few new tree codes to the back end, but most everything was already
 there.  If you can express it with the codes in @code{gcc/tree.def}, it's
-GENERIC.
+GENERIC@.
 
 Early on, there was a great deal of debate about how to think about
-statements in a tree IL.  In GENERIC, a statement is defined as any
+statements in a tree IL@.  In GENERIC, a statement is defined as any
 expression whose value, if any, is ignored.  A statement will always
 have @code{TREE_SIDE_EFFECTS} set (or it will be discarded), but a
 non-statement expression may also have side effects.  A
@@ -72,10 +72,10 @@ off to @code{tree_rest_of_compilation}, but this seems inelegant.
 If necessary, a front end can use some language-dependent tree codes
 in its GENERIC representation, so long as it provides a hook for
 converting them to GIMPLE and doesn't expect them to work with any
-(hypothetical) optimizers that run before the conversion to GIMPLE.
+(hypothetical) optimizers that run before the conversion to GIMPLE@.
 The intermediate representation used while parsing C and C++ looks
 very little like GENERIC, but the C and C++ gimplifier hooks are
-perfectly happy to take it as input and spit out GIMPLE.
+perfectly happy to take it as input and spit out GIMPLE@.
 
 @node GIMPLE
 @section GIMPLE
@@ -102,7 +102,7 @@ place of the container.
 
 The compiler pass which lowers GENERIC to GIMPLE is referred to as the
 @samp{gimplifier}.  The gimplifier works recursively, replacing complex
-statements with sequences of simple statements.  
+statements with sequences of simple statements.
 
 @c Currently, the only way to
 @c tell whether or not an expression is in GIMPLE form is by recursively
@@ -129,14 +129,14 @@ The tree representation of a function is stored in
 If a front end wants to include language-specific tree codes in the tree
 representation which it provides to the back end, it must provide a
 definition of @code{LANG_HOOKS_GIMPLIFY_EXPR} which knows how to
-convert the front end trees to GIMPLE.  Usually such a hook will involve
-much of the same code for expanding front end trees to RTL.  This function
+convert the front end trees to GIMPLE@.  Usually such a hook will involve
+much of the same code for expanding front end trees to RTL@.  This function
 can return fully lowered GIMPLE, or it can return GENERIC trees and let the
 main gimplifier lower them the rest of the way; this is often simpler.
 
 The C and C++ front ends currently convert directly from front end
 trees to GIMPLE, and hand that off to the back end rather than first
-converting to GENERIC.  Their gimplifier hooks know about all the
+converting to GENERIC@.  Their gimplifier hooks know about all the
 @code{_STMT} nodes and how to convert them to GENERIC forms.  There
 was some work done on a genericization pass which would run first, but
 the existence of @code{STMT_EXPR} meant that in order to convert all
@@ -144,7 +144,7 @@ of the C statements into GENERIC equivalents would involve walking the
 entire tree anyway, so it was simpler to lower all the way.  This
 might change in the future if someone writes an optimization pass
 which would work better with higher-level trees, but currently the
-optimizers all expect GIMPLE.
+optimizers all expect GIMPLE@.
 
 A front end which wants to use the tree optimizers (and already has
 some sort of whole-function tree representation) only needs to provide
@@ -195,7 +195,7 @@ GIMPLE rvalue (@code{is_gimple_val}), i.e.@: a constant or a register
 variable.  More complex operands are factored out into temporaries, so
 that
 @smallexample
-  a = b + c + d 
+  a = b + c + d
 @end smallexample
 becomes
 @smallexample
@@ -293,8 +293,8 @@ Most statements will be assignment statements, represented by
 @code{MODIFY_EXPR}.  A @code{CALL_EXPR} whose value is ignored can
 also be a statement.  No other C expressions can appear at statement level;
 a reference to a volatile object is converted into a @code{MODIFY_EXPR}.
-In GIMPLE form, type of @code{MODIFY_EXPR} is not meaningful. Instead, use type 
-of LHS or RHS.
+In GIMPLE form, type of @code{MODIFY_EXPR} is not meaningful.  Instead, use type
+of LHS or RHS@.
 
 There are also several varieties of complex statements.
 
@@ -318,7 +318,7 @@ expressed using the @code{BIND_EXPR} code, which in previous versions of
 GCC was primarily used for the C statement-expression extension.
 
 Variables in a block are collected into @code{BIND_EXPR_VARS} in
-declaration order.  Any runtime initialization is moved out of 
+declaration order.  Any runtime initialization is moved out of
 @code{DECL_INITIAL} and into a statement in the controlled block.  When
 gimplifying from C or C++, this initialization replaces the
 @code{DECL_STMT}.
@@ -328,7 +328,7 @@ refers to variables initialized earlier in the block.  To handle this, we
 currently split the block at that point, and move the VLA into a new, inner
 @code{BIND_EXPR}.  This strategy may change in the future.
 
-@code{DECL_SAVED_TREE} for a GIMPLE function will always be a 
+@code{DECL_SAVED_TREE} for a GIMPLE function will always be a
 @code{BIND_EXPR} which contains declarations for the temporary variables
 used in the function.
 
@@ -337,7 +337,7 @@ syntactic blocks in the source code, since several C++ constructs have
 implicit scopes associated with them.  On the other hand, although the C++
 front end uses pseudo-scopes to handle cleanups for objects with
 destructors, these don't translate into the GIMPLE form; multiple
-declarations at the same level use the same BIND_EXPR.
+declarations at the same level use the same @code{BIND_EXPR}.
 
 @node Statement Sequences
 @subsubsection Statement Sequences
@@ -422,7 +422,7 @@ edge.
 @cindex GIMPLE Exception Handling
 
 Other exception handling constructs are represented using
-@code{TRY_CATCH_EXPR}.  The handler operand of a @code{TRY_CATCH_EXPR} 
+@code{TRY_CATCH_EXPR}.  The handler operand of a @code{TRY_CATCH_EXPR}
 can be a normal statement to be executed if the controlled block throws an
 exception, or it can have one of two special forms:
 
@@ -685,7 +685,7 @@ void f()
 
 The optimizers need to associate attributes with statements and
 variables during the optimization process.  For instance, we need to
-know what basic block does a statement belong to or whether a variable
+know what basic block a statement belongs to or whether a variable
 has aliases.  All these attributes are stored in data structures
 called annotations which are then linked to the field @code{ann} in
 @code{struct tree_common}.
@@ -711,7 +711,7 @@ operands, they are organized into arrays associated inside each
 statement's annotation.  Each element in an operand array is a pointer
 to a @code{VAR_DECL}, @code{PARM_DECL} or @code{SSA_NAME} tree node.
 This provides a very convenient way of examining and replacing
-operands.  
+operands.
 
 Data flow analysis and optimization is done on all tree nodes
 representing variables.  Any node for which @code{SSA_VAR_P} returns
@@ -752,15 +752,15 @@ variable @code{a}.  Real definition are also known as @dfn{killing
 definitions}.  Similarly, the use of @code{a} reads all its bits.
 
 In contrast, virtual operands are used with variables that can have
-a partial or ambiguous reference. This includes structures, arrays,
-globals, and aliased variables. In these cases, we have two types of
-definitions. For globals, structures, and arrays, we can determine from
-a statement whether a variable of these types has a killing definition. 
+a partial or ambiguous reference.  This includes structures, arrays,
+globals, and aliased variables.  In these cases, we have two types of
+definitions.  For globals, structures, and arrays, we can determine from
+a statement whether a variable of these types has a killing definition.
 If the variable does, then the statement is marked as having a
-@dfn{must definition} of that variable. However, if a statement is only
+@dfn{must definition} of that variable.  However, if a statement is only
 defining a part of the variable (i.e.@: a field in a structure), or if we
 know that a statement might define the variable but we cannot say for sure,
-then we mark that statement as having a @dfn{may definition}.  For 
+then we mark that statement as having a @dfn{may definition}.  For
 instance, given
 
 @smallexample
@@ -814,10 +814,15 @@ incorrect assumptions about them.
 
 Operands are collected by @file{tree-ssa-operands.c}.  They are stored
 inside each statement's annotation and can be accessed with
-@code{DEF_OPS}, @code{USE_OPS}, @code{V_MAY_DEF_OPS}, 
-@code{V_MUST_DEF_OPS} and @code{VUSE_OPS}. The following are all the 
-accessor macros available to access USE operands.  To access all the 
-other operand arrays, just change the name accordingly:
+@code{DEF_OPS}, @code{USE_OPS}, @code{V_MAY_DEF_OPS},
+@code{V_MUST_DEF_OPS} and @code{VUSE_OPS}.  The following are all the
+accessor macros available to access USE operands.  To access all the
+other operand arrays, just change the name accordingly.  Note that
+this interface to the operands is deprecated, and is slated for
+removal in a future version of gcc.  The preferred interface is the
+operand iterator interface.  Unless you need to discover the number of
+operands of a given type on a statement, you are strongly urged not to
+use this interface.
 
 @defmac USE_OPS (@var{ann})
 Returns the array of operands used by the statement with annotation
@@ -858,7 +863,7 @@ print_ops (tree stmt)
 
   get_stmt_operands (stmt);
   ann = stmt_ann (stmt);
-  
+
   defs = DEF_OPS (ann);
   for (i = 0; i < NUM_DEFS (defs); i++)
     print_generic_expr (stderr, DEF_OP (defs, i), 0);
@@ -866,7 +871,7 @@ print_ops (tree stmt)
   uses = USE_OPS (ann);
   for (i = 0; i < NUM_USES (uses); i++)
     print_generic_expr (stderr, USE_OP (uses, i), 0);
-  
+
   v_may_defs = V_MAY_DEF_OPS (ann);
   for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     @{
@@ -877,7 +882,7 @@ print_ops (tree stmt)
   v_must_defs = V_MUST_DEF_OPS (ann);
   for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
     print_generic_expr (stderr, V_MUST_DEF_OP (v_must_defs, i), 0);
-  
+
   vuses = VUSE_OPS (ann);
   for (i = 0; i < NUM_VUSES (vuses); i++)
     print_generic_expr (stderr, VUSE_OP (vuses, i), 0);
@@ -914,33 +919,33 @@ print_ops (tree stmt)
 
 @enumerate
 @item Determine whether you are need to see the operand pointers, or just the
-    trees, and choose the appropriate macro: 
+    trees, and choose the appropriate macro:
 
 @smallexample
-Need            Macro: 
-----            ------- 
-use_operand_p   FOR_EACH_SSA_USE_OPERAND 
-def_operand_p   FOR_EACH_SSA_DEF_OPERAND 
-tree            FOR_EACH_SSA_TREE_OPERAND 
+Need            Macro:
+----            -------
+use_operand_p   FOR_EACH_SSA_USE_OPERAND
+def_operand_p   FOR_EACH_SSA_DEF_OPERAND
+tree            FOR_EACH_SSA_TREE_OPERAND
 @end smallexample
 
 @item You need to declare a variable of the type you are interested
     in, and an ssa_op_iter structure which serves as the loop
-    controlling variable. 
+    controlling variable.
 
 @item Determine which operands you wish to use, and specify the flags of
     those you are interested in.  They are documented in
-    @file{tree-ssa-operands.h}: 
+    @file{tree-ssa-operands.h}:
 
 @smallexample
-#define SSA_OP_USE              0x01    /* Real USE operands.  */
-#define SSA_OP_DEF              0x02    /* Real DEF operands.  */
-#define SSA_OP_VUSE             0x04    /* VUSE operands.  */
-#define SSA_OP_VMAYUSE          0x08    /* USE portion of V_MAY_DEFS.  */
-#define SSA_OP_VMAYDEF          0x10    /* DEF portion of V_MAY_DEFS.  */
-#define SSA_OP_VMUSTDEF         0x20    /* V_MUST_DEF definitions.  */
+#define SSA_OP_USE              0x01    /* @r{Real USE operands.}  */
+#define SSA_OP_DEF              0x02    /* @r{Real DEF operands.}  */
+#define SSA_OP_VUSE             0x04    /* @r{VUSE operands.}  */
+#define SSA_OP_VMAYUSE          0x08    /* @r{USE portion of V_MAY_DEFS.}  */
+#define SSA_OP_VMAYDEF          0x10    /* @r{DEF portion of V_MAY_DEFS.}  */
+#define SSA_OP_VMUSTDEF         0x20    /* @r{V_MUST_DEF definitions.}  */
 
-/* These are commonly grouped operand flags.  */
+/* @r{These are commonly grouped operand flags.}  */
 #define SSA_OP_VIRTUAL_USES     (SSA_OP_VUSE | SSA_OP_VMAYUSE)
 #define SSA_OP_VIRTUAL_DEFS     (SSA_OP_VMAYDEF | SSA_OP_VMUSTDEF)
 #define SSA_OP_ALL_USES         (SSA_OP_VIRTUAL_USES | SSA_OP_USE)
@@ -950,22 +955,22 @@ tree            FOR_EACH_SSA_TREE_OPERAND
 @end enumerate
 
 So if you want to look at the use pointers for all the @code{USE} and
-@code{VUSE} operands, you would do something like: 
+@code{VUSE} operands, you would do something like:
 
 @smallexample
-  use_operand_p use_p; 
-  ssa_op_iter iter; 
+  use_operand_p use_p;
+  ssa_op_iter iter;
 
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, (SSA_OP_USE | SSA_OP_VUSE))
-    @{ 
-      process_use_ptr (use_p); 
-    @} 
+    @{
+      process_use_ptr (use_p);
+    @}
 @end smallexample
 
 The @code{_TREE_} macro is basically the same as the @code{USE} and
 @code{DEF} macros, only with the use or def dereferenced via
-@code{USE_FROM_PTR (use_p)} and @code{DEF_FROM_PTR (def_p)}. Since we
-aren't using operand pointers, use and defs flags can be mixed. 
+@code{USE_FROM_PTR (use_p)} and @code{DEF_FROM_PTR (def_p)}.  Since we
+aren't using operand pointers, use and defs flags can be mixed.
 
 @smallexample
   tree var;
@@ -977,28 +982,47 @@ aren't using operand pointers, use and defs flags can be mixed.
     @}
 @end smallexample
 
-Note that @code{V_MAY_DEFS} are broken into 2 flags, one for the
+@code{V_MAY_DEF}s are broken into two flags, one for the
 @code{DEF} portion (@code{SSA_OP_VMAYDEF}) and one for the USE portion
-(@code{SSA_OP_VMAYUSE}). If all you want to look at are the
-@code{V_MAY_DEFS} together, there is a fourth iterator macro for this,
+(@code{SSA_OP_VMAYUSE}).  If all you want to look at are the
+@code{V_MAY_DEF}s together, there is a fourth iterator macro for this,
 which returns both a def_operand_p and a use_operand_p for each
-@code{V_MAY_DEF} in the statement. Note that you don't need any flags for
-this one. 
+@code{V_MAY_DEF} in the statement.  Note that you don't need any flags for
+this one.
 
 @smallexample
-  use_operand_p use_p; 
-  def_operand_p def_p; 
-  ssa_op_iter iter; 
+  use_operand_p use_p;
+  def_operand_p def_p;
+  ssa_op_iter iter;
 
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter) 
-    @{ 
-      my_code; 
-    @} 
+  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
+    @{
+      my_code;
+    @}
+@end smallexample
+
+@code{V_MUST_DEF}s are broken into two flags, one for the
+@code{DEF} portion (@code{SSA_OP_VMUSTDEF}) and one for the kill portion
+(@code{SSA_OP_VMUSTDEFKILL}).  If all you want to look at are the
+@code{V_MUST_DEF}s together, there is a fourth iterator macro for this,
+which returns both a def_operand_p and a use_operand_p for each
+@code{V_MUST_DEF} in the statement.  Note that you don't need any flags for
+this one.
+
+@smallexample
+  use_operand_p kill_p;
+  def_operand_p def_p;
+  ssa_op_iter iter;
+
+  FOR_EACH_SSA_MUSTDEF_OPERAND (def_p, kill_p, stmt, iter)
+    @{
+      my_code;
+    @}
 @end smallexample
 
 
 There are many examples in the code as well, as well as the
-documentation in @file{tree-ssa-operands.h}. 
+documentation in @file{tree-ssa-operands.h}.
 
 
 @node SSA
@@ -1009,8 +1033,8 @@ documentation in @file{tree-ssa-operands.h}.
 Most of the tree optimizers rely on the data flow information provided
 by the Static Single Assignment (SSA) form.  We implement the SSA form
 as described in @cite{R. Cytron, J. Ferrante, B. Rosen, M. Wegman, and
-K. Zadeck. Efficiently Computing Static Single Assignment Form and the
-Control Dependence Graph. ACM Transactions on Programming Languages
+K. Zadeck.  Efficiently Computing Static Single Assignment Form and the
+Control Dependence Graph.  ACM Transactions on Programming Languages
 and Systems, 13(4):451-490, October 1991}.
 
 The SSA form is based on the premise that program variables are
@@ -1063,7 +1087,7 @@ The following macros can be used to examine PHI nodes
 
 @defmac	PHI_RESULT (@var{phi})
 Returns the @code{SSA_NAME} created by PHI node @var{phi} (i.e.,
-@var{phi}'s LHS).
+@var{phi}'s LHS)@.
 @end defmac
 
 @defmac	PHI_NUM_ARGS (@var{phi})
@@ -1127,7 +1151,7 @@ Calls function @var{fn} at each reaching definition found.  Function
 (@var{def_stmt}) and a generic pointer to whatever state information
 that @var{fn} may want to maintain (@var{data}).  Function @var{fn} is
 able to stop the walk by returning @code{true}, otherwise in order to
-continue the walk, @var{fn} should return @code{false}.  
+continue the walk, @var{fn} should return @code{false}.
 
 Note, that if @var{def_stmt} is a @code{PHI} node, the semantics are
 slightly different.  For each argument @var{arg} of the PHI node, this
@@ -1218,8 +1242,8 @@ the variables pointed-to by P_i (and its memory tag) also escape.
 
 We have two classes of memory tags.  Memory tags associated with
 the pointed-to data type of the pointers in the program.  These
-tags are called ``type memory tag'' (TMT).  The other class are
-those associated with SSA_NAMEs, called ``name memory tag'' (NMT).
+tags are called ``type memory tag'' (TMT)@.  The other class are
+those associated with SSA_NAMEs, called ``name memory tag'' (NMT)@.
 The basic idea is that when adding operands for an INDIRECT_REF
 *P_i, we will first check whether P_i has a name tag, if it does
 we use it, because that will have more precise aliasing

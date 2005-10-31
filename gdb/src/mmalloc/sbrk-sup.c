@@ -19,9 +19,7 @@ License along with the GNU C Library; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifdef HAVE_UNISTD_H
 #include <unistd.h>	/* Prototypes for sbrk (maybe) */
-#endif
 #include <string.h>	/* Prototypes for memcpy, memmove, memset, etc */
 
 #include "mmprivate.h"
@@ -38,9 +36,9 @@ sbrk_morecore (mdp, size)
   struct mdesc *mdp;
   int size;
 {
-  PTR result;
+  void *result;
 
-  if ((result = sbrk (size)) == (PTR) -1)
+  if ((result = sbrk (size)) == (void *) -1)
     {
       result = NULL;
     }

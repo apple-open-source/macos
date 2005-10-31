@@ -64,7 +64,7 @@ cc_result	cc_remap_error (cc_result	inNewError) {
             return CC_IO;
         
 		default:
-			CCISignal_ ("Unhandled error in cc_remap_error.");
+			dprintf ("%s(): Unhandled error", __FUNCTION__);
 			return CC_BAD_PARM;
 	}
 }

@@ -5,6 +5,32 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.18 release (the cctools-589 release):
+- Added support for the CPU_SUBTYPE_PENTIUM_4 cpusubtype.  Radar bug #4115802
+  - Added an entry in the arch_flags[] array in arch.c for pentium4 as:
+    { "pentium4",CPU_TYPE_I386, CPU_SUBTYPE_PENTIUM_4 },
+  - Added code in get_arch_from_host() in get_arch_from_host.c for the
+    CPU_SUBTYPE_PENTIUM_4 cpusubtype.
+  - Added a case for CPU_SUBTYPE_PENTIUM_4 in cpusubtype_execute() in
+    best_arch.c .
+- Changed the Makefile and added a LEGACY macro with two defines to allow
+  the code to use the old field name "environ" from the i386 structs.
+  Radar bug #4113580.
+
+Changes for the 5.18 release (the cctools-583 release):
+- Added the following entry to the table in macosx_deployment_target.c :
+    { "10.5", MACOSX_DEPLOYMENT_TARGET_10_5 },
+  Radar bug #4098516.
+- Changed the Makefile so that when RC_XBS is set to YES then the compiler
+  options -MD and -dependency-file as well as the md(1) program are not used.
+  Radar bug #4029936.
+
+Changes for the 5.18 release (the cctools-580 release):
+- Changed get_macosx_deployment_target() in macosx_deployment_target.c to take
+  an additional cpu_type_t parameter.  Then if new cpu_type_t parameter is
+  CPU_TYPE_I386 the default is set to 10.4 otherwise it is set to 10.1.
+  Radar bug #4081062.
+
 Changes for the 5.17 release (the cctools-574 release):
 - Changed the routine cpusubtype_combine() in best_arch.c to combine any i386
   subtype to the ALL subtype.  Radar 4002756.

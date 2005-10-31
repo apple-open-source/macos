@@ -1,7 +1,7 @@
 /*
  * ErrorAlert.h
  *
- * $Header: /cvs/kfm/Common/Headers/ErrorAlert.h,v 1.2 2004/10/16 22:32:53 lxs Exp $
+ * $Header: /cvs/kfm/Common/Headers/ErrorAlert.h,v 1.3 2005/03/04 23:04:37 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

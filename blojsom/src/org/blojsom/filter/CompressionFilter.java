@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,8 +53,8 @@ import java.io.IOException;
  * the book and help support the authors, development of more free code,
  * and the JSP/Servlet/J2EE community.
  *
+ * @version $Id: CompressionFilter.java,v 1.2.2.1 2005/07/21 14:11:03 johnan Exp $
  * @since blojsom 2.10
- * @version $Id: CompressionFilter.java,v 1.2 2004/08/27 01:13:55 whitmore Exp $
  */
 public class CompressionFilter implements Filter, BlojsomConstants {
 
@@ -73,39 +73,38 @@ public class CompressionFilter implements Filter, BlojsomConstants {
      * Filter a request looking for the "accept-encoding" HTTP header and if available,
      * send compressed content.
      *
-     * @param req Request
-     * @param res Response
+     * @param req   Request
+     * @param res   Response
      * @param chain Filter chain
-     * @throws IOException If there is an error writing the response
+     * @throws IOException      If there is an error writing the response
      * @throws ServletException If there is an error processing the request
      */
     public void doFilter(ServletRequest req, ServletResponse res,
                          FilterChain chain) throws IOException, ServletException {
-        try {
-            if (req instanceof HttpServletRequest) {
-                HttpServletRequest request = (HttpServletRequest) req;
-                HttpServletResponse response = (HttpServletResponse) res;
-                String ae = request.getHeader("accept-encoding");
-                if (ae != null && ae.indexOf("gzip") != -1) {
-                    _logger.debug("GZIP supported, compressing.");
-                    GZIPResponseWrapper wrappedResponse =  new GZIPResponseWrapper(response);
+        if (req instanceof HttpServletRequest) {
+            HttpServletRequest request = (HttpServletRequest) req;
+            HttpServletResponse response = (HttpServletResponse) res;
+            String ae = request.getHeader("accept-encoding");
+            if (ae != null && ae.indexOf("gzip") != -1) {
+                _logger.debug("GZIP supported, compressing.");
+                GZIPResponseWrapper wrappedResponse = new GZIPResponseWrapper(response);
+                try {
                     chain.doFilter(req, wrappedResponse);
+                } catch (IOException e) {
+                    _logger.error(e);
+                    if (e.getCause() != null) {
+                        _logger.error(e.getCause());
+                    }
+                } catch (ServletException e) {
+                    _logger.error(e);
+                    if (e.getRootCause() != null) {
+                        _logger.error(e.getRootCause());
+                    }
+                } finally {
                     wrappedResponse.finishResponse();
-
-                    return;
                 }
-
+            } else {
                 chain.doFilter(req, res);
-            }
-        } catch (IOException e) {
-            _logger.error(e);
-            if (e.getCause() != null) {
-                _logger.error(e.getCause());
-            }
-        } catch (ServletException e) {
-            _logger.error(e);
-            if (e.getRootCause() != null) {
-                _logger.error(e.getRootCause());
             }
         }
     }

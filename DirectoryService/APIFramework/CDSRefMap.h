@@ -37,7 +37,9 @@
 #include "DSMutexSemaphore.h"
 #include "CDSRefTable.h"
 
-//RCF#include <CoreFoundation/CoreFoundation.h>
+#ifdef __LITTLE_ENDIAN__
+#include <map> //STL map class
+#endif
 
 class CDSRefMap;
 
@@ -58,6 +60,7 @@ typedef struct sFWRefMapEntry {
 	sListFWInfo	   *fChildren;
 	sPIDFWInfo	   *fChildPID;
 	uInt32			fMessageTableIndex;
+	char		   *fPluginName;
 } sFWRefMapEntry;
 
 typedef sInt32 RefMapDeallocateProc ( uInt32 inRefNum, sFWRefMapEntry *entry );
@@ -72,6 +75,11 @@ typedef struct sRefMapTable {
 	uInt32			fItemCnt;
 	sFWRefMapEntry *fTableData[ kMaxFWTableItems ];
 } sRefMapTable;
+
+#ifdef __LITTLE_ENDIAN__
+typedef std::map<uInt32, uInt32> tRefMap;
+typedef tRefMap::iterator tRefMapI;
+#endif
 
 //------------------------------------------------------------------------------------
 //	* CDSRefMap
@@ -89,7 +97,7 @@ public:
 	static tDirStatus	VerifyAttrValueRef	( tAttributeValueListRef inAttributeValueListRef, sInt32 inPID );
 
 	static tDirStatus	NewDirRefMap		( uInt32 *outNewRef, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
-	static tDirStatus	NewNodeRefMap		( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
+	static tDirStatus	NewNodeRefMap		( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex, char* inPluginName );
 	static tDirStatus	NewRecordRefMap		( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
 	static tDirStatus	NewAttrListRefMap	( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
 	static tDirStatus	NewAttrValueRefMap	( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
@@ -102,14 +110,35 @@ public:
 
 	static tDirStatus	AddChildPIDToRef	( uInt32 inRefNum, uInt32 inParentPID, sInt32 inChildPID );
 	
-	static void			CheckClientPIDs		( bool inUseTimeOuts );
-    
     static tDirStatus	SetRemoteRefNum		( uInt32 inRefNum, uInt32 inType, uInt32 inRemoteRefNum, sInt32 inPID );
 
     static uInt32		GetMessageTableIndex( uInt32 inRefNum, uInt32 inType, sInt32 inPID );
     static tDirStatus	SetMessageTableIndex( uInt32 inRefNum, uInt32 inType, uInt32 inMsgTableIndex, sInt32 inPID );
 
+	static char*		GetPluginName		( uInt32 inRefNum, sInt32 inPID );
+	static tDirStatus	SetPluginName		( uInt32 inRefNum, uInt32 inType, char* inPluginName, sInt32 inPID );
+	
 	static uInt32		GetRefNum			( uInt32 inRefNum, uInt32 inType, sInt32 inPID );
+	static uInt32		GetRefNumMap	 	( uInt32 inRefNum, uInt32 inType, sInt32 inPID );
+#ifdef __LITTLE_ENDIAN__
+	static void			MapServerRefToLocalRef
+											( uInt32 inServerRef, uInt32 inLocalRef );
+	static void			RemoveServerToLocalRefMap
+											( uInt32 inServerRef );
+	static uInt32		GetLocalRefFromServerMap
+											( uInt32 inServerRef );
+	static void			MapMsgIDToServerRef	( uInt32 inMsgID, uInt32 inServerRef );
+	static void			RemoveMsgIDToServerRefMap
+											( uInt32 inMsgID );
+	static uInt32		GetServerRefFromMsgIDMap
+											( uInt32 inMsgID );
+	static void			MapMsgIDToCustomCode( uInt32 inMsgID, uInt32 inCustomCode );
+	static void			RemoveMsgIDToCustomCodeMap
+											( uInt32 inMsgID );
+	static uInt32		GetCustomCodeFromMsgIDMap
+											( uInt32 inMsgID );
+#endif
+
 
 private:
 	tDirStatus		VerifyReference		( tDirReference inDirRef, uInt32 inType, sInt32 inPID );
@@ -128,19 +157,11 @@ private:
 
 	sFWRefMapEntry*	GetTableRef			( uInt32 inRefNum );
 
-	uInt32			UpdateClientPIDRefCount
-									( sInt32 inClientPID, bool inUpRefCount, uInt32 inDirRef=0 );
-
-	void			DoCheckClientPIDs	( bool inUseTimeOuts );
-
 	uInt32			fTableCount;
 	sRefMapTable   *fRefMapTables[ kMaxFWTables + 1 ];//added 1 since table is 1-based and code depends upon having that last
 													//index in as kMaxFWTables ie. note array is 0-based
 	RefMapDeallocateProc *fDeallocProc;
 	
-//RCF	CFMutableDictionaryRef	fClientPIDList;
-//RCF	DSMutexSemaphore	   *fClientPIDListLock;		//mutex on the client PID list tracking references per PID
-
 	time_t					fSunsetTime;
 
 };

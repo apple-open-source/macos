@@ -251,6 +251,7 @@ static rtx emit_pop_insn (rtx, stack, rtx, enum emit_where);
 static void emit_swap_insn (rtx, stack, rtx);
 static void swap_to_top(rtx, stack, rtx, rtx);
 static bool move_for_stack_reg (rtx, stack, rtx);
+static bool move_nan_for_stack_reg (rtx, stack, rtx);
 static int swap_rtx_condition_1 (rtx);
 static int swap_rtx_condition (rtx);
 static void compare_for_stack_reg (rtx, stack, rtx);
@@ -265,7 +266,6 @@ static int convert_regs_2 (FILE *, basic_block);
 static int convert_regs (FILE *);
 static void print_stack (FILE *, stack);
 static rtx next_flags_user (rtx);
-static void record_label_references (rtx, rtx);
 static bool compensate_edge (edge, FILE *);
 
 /* Return nonzero if any stack register is mentioned somewhere within PAT.  */
@@ -491,58 +491,7 @@ reg_to_stack (FILE *file)
   free_aux_for_blocks ();
   return true;
 }
-
-/* Check PAT, which is in INSN, for LABEL_REFs.  Add INSN to the
-   label's chain of references, and note which insn contains each
-   reference.  */
 
-static void
-record_label_references (rtx insn, rtx pat)
-{
-  enum rtx_code code = GET_CODE (pat);
-  int i;
-  const char *fmt;
-
-  if (code == LABEL_REF)
-    {
-      rtx label = XEXP (pat, 0);
-      rtx ref;
-
-      gcc_assert (LABEL_P (label));
-
-      /* If this is an undefined label, LABEL_REFS (label) contains
-         garbage.  */
-      if (INSN_UID (label) == 0)
-	return;
-
-      /* Don't make a duplicate in the code_label's chain.  */
-
-      for (ref = LABEL_REFS (label);
-	   ref && ref != label;
-	   ref = LABEL_NEXTREF (ref))
-	if (CONTAINING_INSN (ref) == insn)
-	  return;
-
-      CONTAINING_INSN (pat) = insn;
-      LABEL_NEXTREF (pat) = LABEL_REFS (label);
-      LABEL_REFS (label) = pat;
-
-      return;
-    }
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	record_label_references (insn, XEXP (pat, i));
-      if (fmt[i] == 'E')
-	{
-	  int j;
-	  for (j = 0; j < XVECLEN (pat, i); j++)
-	    record_label_references (insn, XVECEXP (pat, i, j));
-	}
-    }
-}
 
 /* Return a pointer to the REG expression within PAT.  If PAT is not a
    REG, possible enclosed by a conversion rtx, return the inner part of
@@ -759,7 +708,7 @@ check_asm_stack_operands (rtx insn)
 	  if (operands_match_p (recog_data.operand[j], recog_data.operand[i]))
 	    {
 	      error_for_asm (insn,
-			     "output operand %d must use `&' constraint", j);
+			     "output operand %d must use %<&%> constraint", j);
 	      malformed_asm = 1;
 	    }
       }
@@ -1107,9 +1056,13 @@ move_for_stack_reg (rtx insn, stack regstack, rtx pat)
 	    if (regstack->reg[i] == REGNO (src))
 	      break;
 
-	  /* The source must be live, and the dest must be dead.  */
-	  gcc_assert (i >= 0);
+	  /* The destination must be dead, or life analysis is borked.  */
 	  gcc_assert (get_hard_regnum (regstack, dest) < FIRST_STACK_REG);
+
+	  /* If the source is not live, this is yet another case of
+	     uninitialized variables.  Load up a NaN instead.  */
+	  if (i < 0)
+	    return move_nan_for_stack_reg (insn, regstack, dest);
 
 	  /* It is possible that the dest is unused after this insn.
 	     If so, just pop the src.  */
@@ -1210,6 +1163,22 @@ move_for_stack_reg (rtx insn, stack regstack, rtx pat)
     }
 
   return control_flow_insn_deleted;
+}
+
+/* A helper function which replaces INSN with a pattern that loads up
+   a NaN into DEST, then invokes move_for_stack_reg.  */
+
+static bool
+move_nan_for_stack_reg (rtx insn, stack regstack, rtx dest)
+{
+  rtx pat;
+
+  dest = FP_MODE_REG (REGNO (dest), SFmode);
+  pat = gen_rtx_SET (VOIDmode, dest, not_a_num);
+  PATTERN (insn) = pat;
+  INSN_CODE (insn) = -1;
+
+  return move_for_stack_reg (insn, regstack, pat);
 }
 
 /* Swap the condition on a branch, if there is one.  Return true if we
@@ -1482,23 +1451,19 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		   all other clobbers, this must be due to a function
 		   returning without a value.  Load up a NaN.  */
 
-		if (! note
-		    && get_hard_regnum (regstack, *dest) == -1)
+		if (!note)
 		  {
-		    pat = gen_rtx_SET (VOIDmode,
-				       FP_MODE_REG (REGNO (*dest), SFmode),
-				       not_a_num);
-		    PATTERN (insn) = pat;
-		    control_flow_insn_deleted |= move_for_stack_reg (insn, regstack, pat);
-		  }
-		if (! note && COMPLEX_MODE_P (GET_MODE (*dest))
-		    && get_hard_regnum (regstack, FP_MODE_REG (REGNO (*dest), DFmode)) == -1)
-		  {
-		    pat = gen_rtx_SET (VOIDmode,
-				       FP_MODE_REG (REGNO (*dest) + 1, SFmode),
-				       not_a_num);
-		    PATTERN (insn) = pat;
-		    control_flow_insn_deleted |= move_for_stack_reg (insn, regstack, pat);
+		    rtx t = *dest;
+		    if (get_hard_regnum (regstack, t) == -1)
+		      control_flow_insn_deleted
+			|= move_nan_for_stack_reg (insn, regstack, t);
+		    if (COMPLEX_MODE_P (GET_MODE (t)))
+		      {
+			t = FP_MODE_REG (REGNO (t) + 1, DFmode);
+			if (get_hard_regnum (regstack, t) == -1)
+			  control_flow_insn_deleted
+			    |= move_nan_for_stack_reg (insn, regstack, t);
+		      }
 		  }
 	      }
 	  }
@@ -2419,10 +2384,97 @@ change_stack (rtx insn, stack old, stack new, enum emit_where where)
 
   /* Pop any registers that are not needed in the new block.  */
 
-  for (reg = old->top; reg >= 0; reg--)
-    if (! TEST_HARD_REG_BIT (new->reg_set, old->reg[reg]))
-      emit_pop_insn (insn, old, FP_MODE_REG (old->reg[reg], DFmode),
-		     EMIT_BEFORE);
+  /* If the destination block's stack already has a specified layout
+     and contains two or more registers, use a more intelligent algorithm
+     to pop registers that minimizes the number number of fxchs below.  */
+  if (new->top > 0)
+    {
+      bool slots[REG_STACK_SIZE];
+      int pops[REG_STACK_SIZE];
+      int next, dest, topsrc;
+
+      /* First pass to determine the free slots.  */
+      for (reg = 0; reg <= new->top; reg++)
+	slots[reg] = TEST_HARD_REG_BIT (new->reg_set, old->reg[reg]);
+
+      /* Second pass to allocate preferred slots.  */
+      topsrc = -1;
+      for (reg = old->top; reg > new->top; reg--)
+	if (TEST_HARD_REG_BIT (new->reg_set, old->reg[reg]))
+	  {
+	    dest = -1;
+	    for (next = 0; next <= new->top; next++)
+	      if (!slots[next] && new->reg[next] == old->reg[reg])
+		{
+		  /* If this is a preference for the new top of stack, record
+		     the fact by remembering it's old->reg in topsrc.  */
+                  if (next == new->top)
+		    topsrc = reg;
+		  slots[next] = true;
+		  dest = next;
+		  break;
+		}
+	    pops[reg] = dest;
+	  }
+	else
+	  pops[reg] = reg;
+
+      /* Intentionally, avoid placing the top of stack in it's correct
+	 location, if we still need to permute the stack below and we
+	 can usefully place it somewhere else.  This is the case if any
+	 slot is still unallocated, in which case we should place the
+	 top of stack there.  */
+      if (topsrc != -1)
+	for (reg = 0; reg < new->top; reg++)
+	  if (!slots[reg])
+	    {
+	      pops[topsrc] = reg;
+	      slots[new->top] = false;
+	      slots[reg] = true;
+	      break;
+	    }
+
+      /* Third pass allocates remaining slots and emits pop insns.  */
+      next = new->top;
+      for (reg = old->top; reg > new->top; reg--)
+	{
+	  dest = pops[reg];
+	  if (dest == -1)
+	    {
+	      /* Find next free slot.  */
+	      while (slots[next])
+		next--;
+	      dest = next--;
+	    }
+	  emit_pop_insn (insn, old, FP_MODE_REG (old->reg[dest], DFmode),
+			 EMIT_BEFORE);
+	}
+    }
+  else
+    {
+      /* The following loop attempts to maximize the number of times we
+	 pop the top of the stack, as this permits the use of the faster
+	 ffreep instruction on platforms that support it.  */
+      int live, next;
+
+      live = 0;
+      for (reg = 0; reg <= old->top; reg++)
+        if (TEST_HARD_REG_BIT (new->reg_set, old->reg[reg]))
+          live++;
+
+      next = live;
+      while (old->top >= live)
+        if (TEST_HARD_REG_BIT (new->reg_set, old->reg[old->top]))
+	  {
+	    while (TEST_HARD_REG_BIT (new->reg_set, old->reg[next]))
+	      next--;
+	    emit_pop_insn (insn, old, FP_MODE_REG (old->reg[next], DFmode),
+			   EMIT_BEFORE);
+	  }
+	else
+	  emit_pop_insn (insn, old, FP_MODE_REG (old->reg[old->top], DFmode),
+			 EMIT_BEFORE);
+    }
 
   if (new->top == -2)
     {
@@ -2886,13 +2938,9 @@ convert_regs_1 (FILE *file, basic_block block)
 	  rtx set;
 
 	  if (file)
-	    {
-	      fprintf (file, "Emitting insn initializing reg %d\n",
-		       reg);
-	    }
+	    fprintf (file, "Emitting insn initializing reg %d\n", reg);
 
-	  set = gen_rtx_SET (VOIDmode, FP_MODE_REG (reg, SFmode),
-			     not_a_num);
+	  set = gen_rtx_SET (VOIDmode, FP_MODE_REG (reg, SFmode), not_a_num);
 	  insn = emit_insn_after (set, insn);
 	  control_flow_insn_deleted |= subst_stack_regs (insn, &regstack);
 	}
@@ -3000,6 +3048,8 @@ convert_regs_2 (FILE *file, basic_block block)
       BLOCK_INFO (block)->done = 1;
     }
   while (sp != stack);
+
+  free (stack);
 
   return inserted;
 }

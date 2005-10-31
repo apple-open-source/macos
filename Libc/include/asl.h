@@ -213,8 +213,8 @@ const char *asl_get(aslmsg msg, const char *key);
  * format: A formating string followed by a list of arguments, like printf()
  * returns 0 for success, non-zero for failure
  */
-#ifdef __DARWIN_LDBL_COMPAT
-int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...) __DARWIN_LDBL_COMPAT(asl_log);
+#ifdef __DARWIN_LDBL_COMPAT2
+int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...) __DARWIN_LDBL_COMPAT2(asl_log);
 #else
 int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...);
 #endif
@@ -229,8 +229,8 @@ int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...);
  * format: A formating string followed by a list of arguments, like vprintf()
  * returns 0 for success, non-zero for failure
  */
-#ifdef __DARWIN_LDBL_COMPAT
-int asl_vlog(aslclient asl, aslmsg msg, int level, const char *format, va_list ap) __DARWIN_LDBL_COMPAT(asl_vlog);
+#ifdef __DARWIN_LDBL_COMPAT2
+int asl_vlog(aslclient asl, aslmsg msg, int level, const char *format, va_list ap) __DARWIN_LDBL_COMPAT2(asl_vlog);
 #else
 int asl_vlog(aslclient asl, aslmsg msg, int level, const char *format, va_list ap);
 #endif

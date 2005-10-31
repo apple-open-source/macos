@@ -1,4 +1,4 @@
-/* APPLE LOCAL entire file */
+/* APPLE LOCAL file */
 /* Test whether -fverbose-asm emits option values.  */
 /* Contibuted by Devang Patel <dpatel@apple.com>.  */
 

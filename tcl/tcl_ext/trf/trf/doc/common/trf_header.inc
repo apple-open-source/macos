@@ -1,5 +1,0 @@
-[comment {-*- tcl -*- doctools = trf_header.inc}]
-[moddesc {Trf transformer commands}]
-[copyright {1996-2003, Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
-[require Tcl [opt 8.2]]
-[require Trf [opt [vset trf_version]]]

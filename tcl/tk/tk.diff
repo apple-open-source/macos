@@ -408,13 +408,9 @@ diff -u -p -r1.3.2.1 tkMacOSXInt.h
  
  #include "tkIntPlatDecls.h"
  
-Index: macosx/Wish.pbproj/project.pbxproj
 ===================================================================
-RCS file: /cvsroot/tktoolkit/tk/macosx/Wish.pbproj/project.pbxproj,v
-retrieving revision 1.18.2.16
-diff -u -p -r1.18.2.16 project.pbxproj
---- macosx/Wish.pbproj/project.pbxproj	20 Jul 2004 06:05:59 -0000	1.18.2.16
-+++ macosx/Wish.pbproj/project.pbxproj	27 Sep 2004 08:36:46 -0000
+--- macosx/Wish.pbproj/project.pbxproj.orig	2004-07-19 23:05:59.000000000 -0700
++++ macosx/Wish.pbproj/project.pbxproj	2005-07-07 18:03:26.000000000 -0700
 @@ -134,7 +134,7 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
@@ -452,7 +448,30 @@ diff -u -p -r1.18.2.16 project.pbxproj
  				F53755CA016C389901DC9062,
  				F53755CB016C389901DC9062,
  			);
-@@ -2941,7 +2942,7 @@ MacOS X Port by Jim Ingham &lt;jingham@a
+@@ -1566,11 +1567,11 @@
+ 	<key>CFBundlePackageType</key>
+ 	<string>FMWK</string>
+ 	<key>CFBundleShortVersionString</key>
+-	<string>8.4.7</string>
++	<string>8.4.7 1</string>
+ 	<key>CFBundleSignature</key>
+ 	<string>WiSH</string>
+ 	<key>CFBundleVersion</key>
+-	<string>8.4.7</string>
++	<string>8.4.7 1</string>
+ </dict>
+ </plist>
+ ";
+@@ -2897,7 +2898,7 @@
+ 				LIBRARY_SEARCH_PATHS = "";
+ 				OPTIMIZATION_CFLAGS = "-O0";
+ 				OTHER_CFLAGS = "-DMAC_OSX_TK -DTCL_WIDE_INT_TYPE=\"long long\"";
+-				OTHER_LDFLAGS = "-sectcreate __TEXT __info_plist \"$TEMP_DIR/Info.plist\" -headerpad_max_install_names";
++				OTHER_LDFLAGS = "-sectcreate __TEXT __info_plist \"${OBJROOT}/$(PROJECT_NAME).build/$(TARGET_NAME).build/Info.plist\" -headerpad_max_install_names";
+ 				OTHER_REZFLAGS = "-i \"$(TCL_FRAMEWORK_DIR)/Tcl.framework/Headers\" -i \"../generic\"";
+ 				PRODUCT_NAME = "Wish Shell";
+ 				SECTORDER_FLAGS = "";
+@@ -2941,7 +2942,7 @@
  	<key>CFBundleExecutable</key>
  	<string>Wish Shell</string>
  	<key>CFBundleGetInfoString</key>
@@ -461,7 +480,21 @@ diff -u -p -r1.18.2.16 project.pbxproj
  MacOS X Port by Jim Ingham &lt;jingham@apple.com&gt; &amp; Ian Reid, Copyright © 2001-2002, Apple Computer, Inc.</string>
  	<key>CFBundleIconFile</key>
  	<string>Wish.icns</string>
-@@ -2967,8 +2968,6 @@ MacOS X Port by Jim Ingham &lt;jingham@a
+@@ -2954,11 +2955,11 @@
+ 	<key>CFBundlePackageType</key>
+ 	<string>APPL</string>
+ 	<key>CFBundleShortVersionString</key>
+-	<string>8.4.7</string>
++	<string>8.4.7 1</string>
+ 	<key>CFBundleSignature</key>
+ 	<string>WiSH</string>
+ 	<key>CFBundleVersion</key>
+-	<string>8.4.7</string>
++	<string>8.4.7 1</string>
+ </dict>
+ </plist>
+ ";
+@@ -2967,8 +2968,6 @@
  			buildActionMask = 2147483647;
  			files = (
  				F53756AC016C4E1D01DC9062,
@@ -470,7 +503,7 @@ diff -u -p -r1.18.2.16 project.pbxproj
  			);
  			isa = PBXHeadersBuildPhase;
  			runOnlyForDeploymentPostprocessing = 0;
-@@ -3039,18 +3038,6 @@ MacOS X Port by Jim Ingham &lt;jingham@a
+@@ -3039,18 +3038,6 @@
  			settings = {
  			};
  		};
@@ -509,7 +542,7 @@ diff -N macosx/tkMacOSXAppInit.c
 - * See the file "license.terms" for information on usage and redistribution
 - * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 - *
-- * RCS: @(#) $Id: tk.diff,v 1.3 2005/01/08 02:00:54 jkh Exp $
+- * RCS: @(#) $Id: tk.diff,v 1.2.10.1 2005/01/08 01:03:30 jkh Exp $
 - */
 -#include <pthread.h>
 -#include <sys/stat.h>

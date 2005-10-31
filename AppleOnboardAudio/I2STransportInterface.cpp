@@ -90,15 +90,18 @@ IOReturn	I2STransportInterface::restartTransport ( void ) {
 	
 	result = mPlatformObject->setI2SEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
+	IOSleep ( 1 );
 	
 	result = mPlatformObject->setI2SCellEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
+	IOSleep ( 1 );
 
 	//	Set the I2S cell to a clocks stopped mode so that the clocks
 	//	stop low and then tristate so that a new format can be applied.
 	mPlatformObject->setI2SIOMIntControl ( 1 << kClocksStoppedPendingShift );	//	Clear the clock stop status
 	result = mPlatformObject->setI2SClockEnable ( FALSE );
 	FailIf ( kIOReturnSuccess != result, Exit );
+	IOSleep ( 1 );
 	
 	waitForClocksStopped ();
 	
@@ -110,6 +113,8 @@ IOReturn	I2STransportInterface::restartTransport ( void ) {
 	
 	result = mPlatformObject->setI2SClockEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
+	IOSleep ( 1 );
+
 Exit:		
 	debugIOLog (3,  "- I2STransportInterface[%ld]::restartTransport () returns %lX", mInstanceIndex, result );
 	return result;
@@ -168,6 +173,7 @@ IOReturn	I2STransportInterface::transportSetSampleWidth ( UInt32 sampleDepth, UI
 	mPlatformObject->setI2SIOMIntControl ( 1 << kClocksStoppedPendingShift );	//	Clear the clock stop status
 	result = mPlatformObject->setI2SClockEnable ( FALSE );
 	FailIf ( kIOReturnSuccess != result, Exit );
+	IOSleep ( 1 );
 	
 	waitForClocksStopped ();
 	
@@ -176,9 +182,11 @@ IOReturn	I2STransportInterface::transportSetSampleWidth ( UInt32 sampleDepth, UI
 	
 	result = mPlatformObject->setI2SEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
+	IOSleep ( 1 );
 	
 	result = mPlatformObject->setI2SClockEnable ( TRUE );
 	FailIf ( kIOReturnSuccess != result, Exit );
+	IOSleep ( 1 );
 
 	result = super::transportSetSampleWidth ( sampleDepth, dmaWidth );
 
@@ -207,6 +215,7 @@ IOReturn	I2STransportInterface::performTransportSleep ( void ) {
 	mPlatformObject->setI2SIOMIntControl ( 1 << kClocksStoppedPendingShift );	//	Clear the clock stop status
 	result = mPlatformObject->setI2SClockEnable ( FALSE );
 	FailIf ( kIOReturnSuccess != result, Exit );
+	IOSleep ( 1 );
 
 	waitForClocksStopped ();
 	

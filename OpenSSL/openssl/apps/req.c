@@ -175,7 +175,7 @@ int MAIN(int argc, char **argv)
 	char *passin = NULL, *passout = NULL;
 	char *p;
 	char *subj = NULL;
-	const EVP_MD *md_alg=NULL,*digest=EVP_md5();
+	const EVP_MD *md_alg=NULL,*digest;
 	unsigned long chtype = MBSTRING_ASC;
 #ifndef MONOLITH
 	char *to_free;
@@ -196,6 +196,13 @@ int MAIN(int argc, char **argv)
 	outfile=NULL;
 	informat=FORMAT_PEM;
 	outformat=FORMAT_PEM;
+
+#ifdef  OPENSSL_FIPS
+	if (FIPS_mode())
+		digest = EVP_sha1();
+	else
+#endif
+		digest = EVP_md5();
 
 	prog=argv[0];
 	argc--;
@@ -499,13 +506,16 @@ bad:
 	else
 		{
 		req_conf=config;
-		if( verbose )
-			BIO_printf(bio_err,"Using configuration from %s\n",
-			default_config_file);
+
 		if (req_conf == NULL)
 			{
-			BIO_printf(bio_err,"Unable to load config info\n");
+			BIO_printf(bio_err,"Unable to load config info from %s\n", default_config_file);
+			if (newreq)
+				goto end;
 			}
+		else if( verbose )
+			BIO_printf(bio_err,"Using configuration from %s\n",
+			default_config_file);
 		}
 
 	if (req_conf != NULL)
@@ -824,14 +834,16 @@ loop:
 			if ((x509ss=X509_new()) == NULL) goto end;
 
 			/* Set version to V3 */
-			if(!X509_set_version(x509ss, 2)) goto end;
+			if(extensions && !X509_set_version(x509ss, 2)) goto end;
 			if (serial)
 				{
 				if (!X509_set_serialNumber(x509ss, serial)) goto end;
 				}
 			else
 				{
-				if (!ASN1_INTEGER_set(X509_get_serialNumber(x509ss),0L)) goto end;
+				if (!rand_serial(NULL,
+					X509_get_serialNumber(x509ss)))
+						goto end;
 				}
 
 			if (!X509_set_issuer_name(x509ss, X509_REQ_get_subject_name(req))) goto end;
@@ -1223,34 +1235,34 @@ start:		for (;;)
 				}
 			/* If OBJ not recognised ignore it */
 			if ((nid=OBJ_txt2nid(type)) == NID_undef) goto start;
-
-			if(strlen(v->name) > sizeof buf-9)
+			if (BIO_snprintf(buf,sizeof buf,"%s_default",v->name)
+				>= sizeof buf)
 			   {
 			   BIO_printf(bio_err,"Name '%s' too long\n",v->name);
 			   return 0;
 			   }
 
-			sprintf(buf,"%s_default",v->name);
 			if ((def=NCONF_get_string(req_conf,dn_sect,buf)) == NULL)
 				{
 				ERR_clear_error();
 				def="";
 				}
-			sprintf(buf,"%s_value",v->name);
+				
+			BIO_snprintf(buf,sizeof buf,"%s_value",v->name);
 			if ((value=NCONF_get_string(req_conf,dn_sect,buf)) == NULL)
 				{
 				ERR_clear_error();
 				value=NULL;
 				}
 
-			sprintf(buf,"%s_min",v->name);
+			BIO_snprintf(buf,sizeof buf,"%s_min",v->name);
 			if (!NCONF_get_number(req_conf,dn_sect,buf, &n_min))
 				{
 				ERR_clear_error();
 				n_min = -1;
 				}
 
-			sprintf(buf,"%s_max",v->name);
+			BIO_snprintf(buf,sizeof buf,"%s_max",v->name);
 			if (!NCONF_get_number(req_conf,dn_sect,buf, &n_max))
 				{
 				ERR_clear_error();
@@ -1288,13 +1300,13 @@ start2:			for (;;)
 				if ((nid=OBJ_txt2nid(type)) == NID_undef)
 					goto start2;
 
-				if(strlen(v->name) > sizeof buf-9)
+				if (BIO_snprintf(buf,sizeof buf,"%s_default",type)
+					>= sizeof buf)
 				   {
 				   BIO_printf(bio_err,"Name '%s' too long\n",v->name);
 				   return 0;
 				   }
 
-				sprintf(buf,"%s_default",type);
 				if ((def=NCONF_get_string(req_conf,attr_sect,buf))
 					== NULL)
 					{
@@ -1303,7 +1315,7 @@ start2:			for (;;)
 					}
 				
 				
-				sprintf(buf,"%s_value",type);
+				BIO_snprintf(buf,sizeof buf,"%s_value",type);
 				if ((value=NCONF_get_string(req_conf,attr_sect,buf))
 					== NULL)
 					{
@@ -1311,11 +1323,11 @@ start2:			for (;;)
 					value=NULL;
 					}
 
-				sprintf(buf,"%s_min",type);
+				BIO_snprintf(buf,sizeof buf,"%s_min",type);
 				if (!NCONF_get_number(req_conf,attr_sect,buf, &n_min))
 					n_min = -1;
 
-				sprintf(buf,"%s_max",type);
+				BIO_snprintf(buf,sizeof buf,"%s_max",type);
 				if (!NCONF_get_number(req_conf,attr_sect,buf, &n_max))
 					n_max = -1;
 
@@ -1397,9 +1409,8 @@ start:
 	(void)BIO_flush(bio_err);
 	if(value != NULL)
 		{
-		OPENSSL_assert(strlen(value) < sizeof buf-2);
-		strcpy(buf,value);
-		strcat(buf,"\n");
+		BUF_strlcpy(buf,value,sizeof buf);
+		BUF_strlcat(buf,"\n",sizeof buf);
 		BIO_printf(bio_err,"%s\n",value);
 		}
 	else
@@ -1421,8 +1432,8 @@ start:
 		{
 		if ((def == NULL) || (def[0] == '\0'))
 			return(1);
-		strcpy(buf,def);
-		strcat(buf,"\n");
+		BUF_strlcpy(buf,def,sizeof buf);
+		BUF_strlcat(buf,"\n",sizeof buf);
 		}
 	else if ((buf[0] == '.') && (buf[1] == '\n')) return(1);
 
@@ -1456,9 +1467,8 @@ start:
 	(void)BIO_flush(bio_err);
 	if (value != NULL)
 		{
-		OPENSSL_assert(strlen(value) < sizeof buf-2);
-		strcpy(buf,value);
-		strcat(buf,"\n");
+		BUF_strlcpy(buf,value,sizeof buf);
+		BUF_strlcat(buf,"\n",sizeof buf);
 		BIO_printf(bio_err,"%s\n",value);
 		}
 	else
@@ -1480,8 +1490,8 @@ start:
 		{
 		if ((def == NULL) || (def[0] == '\0'))
 			return(1);
-		strcpy(buf,def);
-		strcat(buf,"\n");
+		BUF_strlcpy(buf,def,sizeof buf);
+		BUF_strlcat(buf,"\n",sizeof buf);
 		}
 	else if ((buf[0] == '.') && (buf[1] == '\n')) return(1);
 

@@ -24,6 +24,7 @@
 #define _IOHIKEYBOARDMAPPER_H
 
 #include <IOKit/hidsystem/ev_keymap.h>
+#include <IOKit/hidsystem/IOLLEvent.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOInterruptEventSource.h>
 
@@ -245,7 +246,7 @@ private:
 	bool createParamDicts (void);
   
 	// post special keyboard events thru the event system
-	void postKeyboardSpecialEvent (unsigned subtype);
+	void postKeyboardSpecialEvent (unsigned subtype, unsigned eventType=NX_SYSDEFINED);
 
 	// check any modifier to see if it is pressed 5 times
 	// based on StickyKeys_ToggleInfo

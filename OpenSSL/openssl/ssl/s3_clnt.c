@@ -117,7 +117,7 @@
 #include <openssl/objects.h>
 #include <openssl/evp.h>
 #include <openssl/md5.h>
-#include "cryptlib.h"
+#include <openssl/fips.h>
 
 static SSL_METHOD *ssl3_get_client_method(int ver);
 static int ssl3_client_hello(SSL *s);
@@ -535,7 +535,8 @@ static int ssl3_client_hello(SSL *s)
 		p=s->s3->client_random;
 		Time=time(NULL);			/* Time */
 		l2n(Time,p);
-		RAND_pseudo_bytes(p,SSL3_RANDOM_SIZE-sizeof(Time));
+		if(RAND_pseudo_bytes(p,SSL3_RANDOM_SIZE-4) <= 0)
+		    goto err;
 
 		/* Do the message type and length last */
 		d=p= &(buf[4]);
@@ -1161,11 +1162,14 @@ static int ssl3_get_key_exchange(SSL *s)
 			q=md_buf;
 			for (num=2; num > 0; num--)
 				{
+				EVP_MD_CTX_set_flags(&md_ctx,
+					EVP_MD_CTX_FLAG_NON_FIPS_ALLOW);
 				EVP_DigestInit_ex(&md_ctx,(num == 2)
 					?s->ctx->md5:s->ctx->sha1, NULL);
 				EVP_DigestUpdate(&md_ctx,&(s->s3->client_random[0]),SSL3_RANDOM_SIZE);
 				EVP_DigestUpdate(&md_ctx,&(s->s3->server_random[0]),SSL3_RANDOM_SIZE);
 				EVP_DigestUpdate(&md_ctx,param,param_len);
+				
 				EVP_DigestFinal_ex(&md_ctx,q,(unsigned int *)&i);
 				q+=i;
 				j+=i;
@@ -1769,6 +1773,7 @@ static int ssl3_send_client_verify(SSL *s)
 		*(d++)=SSL3_MT_CERTIFICATE_VERIFY;
 		l2n3(n,d);
 
+		s->state=SSL3_ST_CW_CERT_VRFY_B;
 		s->init_num=(int)n+4;
 		s->init_off=0;
 		}
@@ -1946,7 +1951,7 @@ static int ssl3_check_cert_and_algorithm(SSL *s)
 		if (algs & SSL_kRSA)
 			{
 			if (rsa == NULL
-			    || RSA_size(rsa) > SSL_C_EXPORT_PKEYLENGTH(s->s3->tmp.new_cipher))
+			    || RSA_size(rsa)*8 > SSL_C_EXPORT_PKEYLENGTH(s->s3->tmp.new_cipher))
 				{
 				SSLerr(SSL_F_SSL3_CHECK_CERT_AND_ALGORITHM,SSL_R_MISSING_EXPORT_TMP_RSA_KEY);
 				goto f_err;
@@ -1958,7 +1963,7 @@ static int ssl3_check_cert_and_algorithm(SSL *s)
 			if (algs & (SSL_kEDH|SSL_kDHr|SSL_kDHd))
 			    {
 			    if (dh == NULL
-				|| DH_size(dh) > SSL_C_EXPORT_PKEYLENGTH(s->s3->tmp.new_cipher))
+				|| DH_size(dh)*8 > SSL_C_EXPORT_PKEYLENGTH(s->s3->tmp.new_cipher))
 				{
 				SSLerr(SSL_F_SSL3_CHECK_CERT_AND_ALGORITHM,SSL_R_MISSING_EXPORT_TMP_DH_KEY);
 				goto f_err;

@@ -1,6 +1,6 @@
 /* Prints out trees in human readable form.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -100,8 +100,6 @@ cxx_print_type (FILE *file, tree node, int indent)
     fputs ( "needs-constructor", file);
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (node))
     fputs (" needs-destructor", file);
-  if (TYPE_HAS_DESTRUCTOR (node))
-    fputs (" ~X()", file);
   if (TYPE_HAS_DEFAULT_CONSTRUCTOR (node))
     fputs (" X()", file);
   if (TYPE_HAS_CONVERSION (node))

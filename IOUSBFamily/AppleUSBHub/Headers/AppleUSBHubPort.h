@@ -68,22 +68,27 @@ class AppleUSBHubPort : public OSObject
     
     OSDeclareDefaultStructors(AppleUSBHubPort)
 
+	IOUSBDeviceDescriptor			_desc;
+    UInt8							_speed;					// kUSBDeviceSpeedLow or kUSBDeviceSpeedFull
+    UInt32							_portPowerAvailable;
+    int								_portNum;
+	
 protected:
-    IOUSBController		*_bus;
-    AppleUSBHub 		*_hub;
-    IOUSBHubDescriptor		*_hubDesc;
-    IOUSBDevice			*_portDevice;
-    bool			_devZero;
-    bool			_captive;
-    bool			_retryPortStatus;
-    bool			_statusChangedThreadActive;
-    UInt8			_statusChangedState;
-    UInt8			_connectionChangedState;
-    bool			_initThreadActive;
-    bool			_inCommandSleep;
-    UInt32			_attachRetry;
-	bool			_attachMessageDisplayed;
-	bool			_overCurrentNoticeDisplayed;
+    IOUSBController *				_bus;
+    AppleUSBHub *					_hub;
+    IOUSBHubDescriptor *			_hubDesc;
+    IOUSBDevice *					_portDevice;
+    bool							_devZero;
+    bool							_captive;
+    bool							_retryPortStatus;
+    bool							_statusChangedThreadActive;
+    UInt8							_statusChangedState;
+    UInt8							_connectionChangedState;
+    bool							_initThreadActive;
+    bool							_inCommandSleep;
+    UInt32							_attachRetry;
+	bool							_attachMessageDisplayed;
+	bool							_overCurrentNoticeDisplayed;
     
     portStatusChangeVector	_changeHandler[kNumChangeHandlers];
     
@@ -91,71 +96,70 @@ protected:
     ExpansionData * _expansionData;
 
 private:
-    thread_call_t		_initThread;
-    thread_call_t		_portStatusChangedHandlerThread;
-    IOUSBHubPortStatus  	_portStatus;
-    HubPortState		_state;
-    IOLock*			_runLock;
-    bool			_getDeviceDescriptorFailed;
-    UInt8			_setAddressFailed;
-    UInt32			_devZeroCounter;
-    bool			_extraResetDelay;
+		
+    thread_call_t					_initThread;
+    thread_call_t					_portStatusChangedHandlerThread;
+    IOUSBHubPortStatus				_portStatus;
+    HubPortState					_state;
+    IOLock *						_runLock;											// Lock to synchronize accesses to our ProcessStatus thread
+	IOLock *						_initLock;											// Lock to make sure we don't start processing changes until init is done
+    bool							_getDeviceDescriptorFailed;
+    UInt8							_setAddressFailed;
+    UInt32							_devZeroCounter;
+    bool							_extraResetDelay;
     
-    static void			PortInitEntry(OSObject *target);			// this will run on its own thread
-    static void			PortStatusChangedHandlerEntry(OSObject *target);	// this will run on its own thread
+    static void						PortInitEntry(OSObject *target);					// this will run on its own thread
+    static void						PortStatusChangedHandlerEntry(OSObject *target);	// this will run on its own thread
  
-    IOReturn			DetachDevice();
-    IOReturn			GetDevZeroDescriptorWithRetries();
-    bool			AcquireDeviceZero();
-    void			ReleaseDeviceZero();
+    IOReturn						DetachDevice();
+    IOReturn						GetDevZeroDescriptorWithRetries();
+    bool							AcquireDeviceZero();
+    void							ReleaseDeviceZero();
     
 protected:
-    virtual IOReturn        	init(AppleUSBHub *	parent, int portNum, UInt32 powerAvailable, bool captive);
-    virtual void		PortInit(void);
-    virtual void		PortStatusChangedHandler(void);
+		
+    virtual IOReturn				init(AppleUSBHub *	parent, int portNum, UInt32 powerAvailable, bool captive);
+    virtual void					PortInit(void);
+    virtual void					PortStatusChangedHandler(void);
 
 public:
 
-    IOUSBDeviceDescriptor	_desc;
-    UInt8			_speed;					// kUSBDeviceSpeedLow or kUSBDeviceSpeedFull
-    UInt32			_portPowerAvailable;
+	// IOService methods
+    virtual IOReturn				start(void);
+    virtual void					stop(void);
+	virtual void					free(void);
 
-    int 			_portNum;
+    IOReturn						AddDevice(void);
+    void							RemoveDevice(void);
+    IOReturn						ResetPort();
+    IOReturn						ClearTT(bool multiTTs, UInt32 options);
+    bool							StatusChanged(void);
 
-    virtual IOReturn		start(void);
-    virtual void 		stop(void);
+    void							InitPortVectors(void);
+    void							SetPortVector(ChangeHandlerFuncPtr routine, UInt32 condition);
+    IOReturn						DefaultOverCrntChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
+    IOReturn						DefaultResetChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
+    IOReturn						DefaultSuspendChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
+    IOReturn						DefaultEnableChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
+    IOReturn						DefaultConnectionChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
+    IOReturn						AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
+    IOReturn						HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags);
+    IOReturn						HandleSuspendPortHandler(UInt16 changeFlags, UInt16 statusFlags);
+    void							FatalError(IOReturn err, char *str);
+    IOReturn						ReleaseDevZeroLock( void);
+    IOReturn						SuspendPort(bool suspend);
+    IOReturn						ReEnumeratePort(UInt32 options);
+	
+    void							DisplayOverCurrentNotice(bool individual);
+	bool							willTerminate( IOService * provider, IOOptionBits options );
 
-    IOReturn 		AddDevice(void);
-    void 		RemoveDevice(void);
-    IOReturn		ResetPort();
-    IOReturn		ClearTT(bool multiTTs, UInt32 options);
-    bool 		StatusChanged(void);
+	
+	// Accessors
+    AppleUSBHub *					GetHub(void) { return _hub; }
+    bool							IsCaptive(void) { return _captive; }
+    bool							GetDevZeroLock(void) { return _devZero; }
+    UInt32							GetPortTimeStamp(void) { return _devZeroCounter; }
 
-    void 		InitPortVectors(void);
-    void 		SetPortVector(ChangeHandlerFuncPtr routine, UInt32 condition);
-    IOReturn 		DefaultOverCrntChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
-    IOReturn 		DefaultResetChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
-    IOReturn 		DefaultSuspendChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
-    IOReturn 		DefaultEnableChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
-    IOReturn 		DefaultConnectionChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
-    IOReturn 		AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFlags);
-    IOReturn 		HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags);
-    IOReturn 		HandleSuspendPortHandler(UInt16 changeFlags, UInt16 statusFlags);
-    void 		FatalError(IOReturn err, char *str);
-
-    AppleUSBHub *	GetHub(void) { return _hub; }
-    bool		IsCaptive(void) { return _captive; }
-    
-    bool		GetDevZeroLock(void) { return _devZero; }
-    IOReturn		ReleaseDevZeroLock( void);
-    UInt32		GetPortTimeStamp(void) { return _devZeroCounter; }
-
-    IOReturn		SuspendPort(bool suspend);
-    IOReturn		ReEnumeratePort(UInt32 options);
-
-    void		DisplayOverCurrentNotice(bool individual);
-
-    bool 		willTerminate( IOService * provider, IOOptionBits options );
 };
 
 #endif  _IOKIT_APPLEUSBHUBPORT_H

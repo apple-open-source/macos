@@ -1,9 +1,4 @@
-/* { dg-do run { target powerpc*-*-* } } */
-/* { dg-do run { target i?86-*-* x86_64-*-* } } */
-/* { dg-do run { target mipsisa64*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -mpaired-single" { target mipsisa64*-*-* } } */
+/* { dg-require-effective-target vect_float } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -18,7 +13,7 @@ int main1 ()
   float c[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
   float diff;
 
-  /* Not vetorizable yet (reduction).  */
+  /* Not vectorizable yet (reduction).  */
   diff = 0;
   for (i = 0; i < N; i++) {
     diff += (b[i] - c[i]);

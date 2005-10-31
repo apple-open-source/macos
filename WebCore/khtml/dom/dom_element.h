@@ -535,6 +535,15 @@ public:
                           const DOMString &localName );
 
     /**
+     * There is no public standard that applies to this method.
+     *
+     * @param alignToTop Optional. Boolean that specifies one of the following values:
+            true	Default. Scrolls the object so that top of the object is visible at the top of the window.
+            false	Scrolls the object so that the bottom of the object is visible at the bottom of the window.
+    **/
+    void scrollIntoView (bool alignToTop);
+    
+    /**
      * Introduced in DOM Level 2
      * This method is from the CSSStyleDeclaration interface
      *

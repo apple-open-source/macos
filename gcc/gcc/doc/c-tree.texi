@@ -1,4 +1,4 @@
-@c Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+@c Copyright (c) 1999, 2000, 2001, 2002, 2003, 2004, 2005
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -145,7 +145,7 @@ erroneous code, you must be prepared to deal with the
 
 Occasionally, a particular tree slot (like an operand to an expression,
 or a particular field in a declaration) will be referred to as
-``reserved for the back end.''  These slots are used to store RTL when
+``reserved for the back end''.  These slots are used to store RTL when
 the tree is converted to RTL for use by the GCC back end.  However, if
 that process is not taking place (e.g., if the front end is being hooked
 up to an intelligent editor), then those slots may be used by the
@@ -776,7 +776,7 @@ The following macros can be used on a tree node representing a class-type.
 
 @ftable @code
 @item LOCAL_CLASS_P
-This predicate holds if the class is local class @emph{i.e.} declared
+This predicate holds if the class is local class @emph{i.e.}@: declared
 inside a function body.
 
 @item TYPE_POLYMORPHIC_P
@@ -1363,7 +1363,7 @@ void process_stmt (stmt)
         @{
         case IF_STMT:
           process_stmt (THEN_CLAUSE (stmt));
-          /* More processing here.  */
+          /* @r{More processing here.}  */
           break;
 
         @dots{}
@@ -1551,7 +1551,7 @@ returned value for a constructor.  The first argument to the
 argument is the initializer for the object.  The object is initialized
 when the @code{RETURN_INIT} is encountered.  The object referred to is
 the actual object returned; this extension is a manual way of doing the
-``return-value optimization.''  Therefore, the object must actually be
+``return-value optimization''.  Therefore, the object must actually be
 constructed in the place where the object will be returned.
 
 @item RETURN_STMT
@@ -1573,11 +1573,11 @@ cleanups must be executed in the reverse order in which they appear.
 
 @item SWITCH_STMT
 
-Used to represent a @code{switch} statement.  The @code{SWITCH_COND} is
-the expression on which the switch is occurring.  See the documentation
+Used to represent a @code{switch} statement.  The @code{SWITCH_STMT_COND}
+is the expression on which the switch is occurring.  See the documentation
 for an @code{IF_STMT} for more information on the representation used
-for the condition.  The @code{SWITCH_BODY} is the body of the switch
-statement.   The @code{SWITCH_TYPE} is the original type of switch
+for the condition.  The @code{SWITCH_STMT_BODY} is the body of the switch
+statement.   The @code{SWITCH_STMT_TYPE} is the original type of switch
 expression as given in the source, before any compiler conversions.
 
 @item TRY_BLOCK
@@ -2011,7 +2011,7 @@ shift.  Right shift should be treated as arithmetic, i.e., the
 high-order bits should be zero-filled when the expression has unsigned
 type and filled with the sign bit when the expression has signed type.
 Note that the result is undefined if the second operand is larger
-than the first operand's type size.
+than or equal to the first operand's type size.
 
 
 @item BIT_IOR_EXPR
@@ -2062,7 +2062,7 @@ These nodes represent integer division operations that return an integer
 result.  @code{TRUNC_DIV_EXPR} rounds towards zero, @code{FLOOR_DIV_EXPR}
 rounds towards negative infinity, @code{CEIL_DIV_EXPR} rounds towards
 positive infinity and @code{ROUND_DIV_EXPR} rounds to the closest integer.
-Integer division in C and C++ is truncating, i.e@. @code{TRUNC_DIV_EXPR}.
+Integer division in C and C++ is truncating, i.e.@: @code{TRUNC_DIV_EXPR}.
 
 The behavior of these operations on signed arithmetic overflow, when
 dividing the minimum signed integer by minus one, is controlled by the
@@ -2076,9 +2076,9 @@ These nodes represent the integer remainder or modulus operation.
 The integer modulus of two operands @code{a} and @code{b} is
 defined as @code{a - (a/b)*b} where the division calculated using
 the corresponding division operator.  Hence for @code{TRUNC_MOD_EXPR}
-this definition assumes division using truncation towards zero, i.e@.
+this definition assumes division using truncation towards zero, i.e.@:
 @code{TRUNC_DIV_EXPR}.  Integer remainder in C and C++ uses truncating
-division, i.e@. @code{TRUNC_MOD_EXPR}.
+division, i.e.@: @code{TRUNC_MOD_EXPR}.
 
 @item EXACT_DIV_EXPR
 The @code{EXACT_DIV_EXPR} code is used to represent integer divisions where
@@ -2170,7 +2170,7 @@ variable is initialized, rather than assigned to subsequently.
 These nodes represent non-static data member accesses.  The first
 operand is the object (rather than a pointer to it); the second operand
 is the @code{FIELD_DECL} for the data member.  The third operand represents
-the byte offset of the field, but should not be used directly; call 
+the byte offset of the field, but should not be used directly; call
 @code{component_ref_field_offset} instead.
 
 @item COMPOUND_EXPR
@@ -2273,11 +2273,14 @@ expression used to initialize that field.
 
 If the @code{TREE_TYPE} of the @code{CONSTRUCTOR} is an
 @code{ARRAY_TYPE}, then the @code{TREE_PURPOSE} of each element in the
-@code{TREE_LIST} will be an @code{INTEGER_CST}.  This constant indicates
-which element of the array (indexed from zero) is being assigned to;
-again, the @code{TREE_VALUE} is the corresponding initializer.  If the
-@code{TREE_PURPOSE} is @code{NULL_TREE}, then the initializer is for the
-next available array element.
+@code{TREE_LIST} will be an @code{INTEGER_CST} or a @code{RANGE_EXPR} of
+two @code{INTEGER_CST}s.  A single @code{INTEGER_CST} indicates which
+element of the array (indexed from zero) is being assigned to.  A
+@code{RANGE_EXPR} indicates an inclusive range of elements to
+initialize.  In both cases the @code{TREE_VALUE} is the corresponding
+initializer.  It is re-evaluated for each element of a
+@code{RANGE_EXPR}.  If the @code{TREE_PURPOSE} is @code{NULL_TREE}, then
+the initializer is for the next available array element.
 
 In the front end, you should not depend on the fields appearing in any
 particular order.  However, in the middle end, fields must appear in

@@ -1,5 +1,5 @@
 /* Target macros for the FRV port of GCC.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Red Hat Inc.
 
@@ -309,6 +309,7 @@ extern int target_flags;
 #define MASK_LONG_CALLS	     0x00000800 /* Use indirect calls */
 #define MASK_ALIGN_LABELS    0x00001000 /* Optimize label alignments */
 #define MASK_LINKED_FP	     0x00002000 /* Follow ABI linkage requirements.  */
+#define MASK_BIG_TLS         0x00008000 /* Assume a big TLS segment */
 
 			 		/* put debug masks up high */
 #define MASK_DEBUG_ARG	     0x40000000	/* debug argument handling */
@@ -353,6 +354,7 @@ extern int target_flags;
 #define TARGET_NO_NESTED_CE	((target_flags & MASK_NO_NESTED_CE) != 0)
 #define TARGET_FDPIC	        ((target_flags & MASK_FDPIC) != 0)
 #define TARGET_INLINE_PLT	((target_flags & MASK_INLINE_PLT) != 0)
+#define TARGET_BIG_TLS		((target_flags & MASK_BIG_TLS) != 0)
 #define TARGET_GPREL_RO		((target_flags & MASK_GPREL_RO) != 0)
 #define TARGET_PACK		((target_flags & MASK_PACK) != 0)
 #define TARGET_LONG_CALLS	((target_flags & MASK_LONG_CALLS) != 0)
@@ -413,6 +415,10 @@ extern int target_flags;
 #define TARGET_FR405_BUILTINS					\
   (frv_cpu_type == FRV_CPU_FR405				\
    || frv_cpu_type == FRV_CPU_FR450)
+
+#ifndef HAVE_AS_TLS
+#define HAVE_AS_TLS 0
+#endif
 
 /* This macro defines names of command options to set and clear bits in
    `target_flags'.  Its definition is an initializer with a subgrouping for
@@ -494,6 +500,8 @@ extern int target_flags;
  { "no-fdpic",	         -MASK_FDPIC,		"Disable file descriptor PIC mode" }, \
  { "inline-plt",	  MASK_INLINE_PLT,	"Enable inlining of PLT in function calls" }, \
  { "no-inline-plt",	 -MASK_INLINE_PLT,	"Disable inlining of PLT in function calls" }, \
+ { "TLS",		  MASK_BIG_TLS,         "Assume a large TLS segment" }, \
+ { "tls",                -MASK_BIG_TLS,		"Do not assume a large TLS segment" }, \
  { "gprel-ro",		  MASK_GPREL_RO,	"Enable use of GPREL for read-only data in FDPIC" }, \
  { "no-gprel-ro",	 -MASK_GPREL_RO,	"Disable use of GPREL for read-only data in FDPIC" }, \
  { "tomcat-stats",	  0, 			"Cause gas to print tomcat statistics" }, \
@@ -1267,6 +1275,9 @@ enum reg_class
   CR_REGS,
   LCR_REG,
   LR_REG,
+  GR8_REGS,
+  GR9_REGS,
+  GR89_REGS,
   FDPIC_REGS,
   FDPIC_FPTR_REGS,
   FDPIC_CALL_REGS,
@@ -1304,6 +1315,9 @@ enum reg_class
    "CR_REGS",								\
    "LCR_REG",								\
    "LR_REG",								\
+   "GR8_REGS",                                                          \
+   "GR9_REGS",                                                          \
+   "GR89_REGS",                                                         \
    "FDPIC_REGS",							\
    "FDPIC_FPTR_REGS",							\
    "FDPIC_CALL_REGS",							\
@@ -1342,6 +1356,9 @@ enum reg_class
   { 0x00000000,0x00000000,0x00000000,0x00000000,0x0000ff00,0x0}, /* CR_REGS  */\
   { 0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x400}, /* LCR_REGS */\
   { 0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x200}, /* LR_REGS  */\
+  { 0x00000100,0x00000000,0x00000000,0x00000000,0x00000000,0x0}, /* GR8_REGS */\
+  { 0x00000200,0x00000000,0x00000000,0x00000000,0x00000000,0x0}, /* GR9_REGS */\
+  { 0x00000300,0x00000000,0x00000000,0x00000000,0x00000000,0x0}, /* GR89_REGS */\
   { 0x00008000,0x00000000,0x00000000,0x00000000,0x00000000,0x0}, /* FDPIC_REGS */\
   { 0x00004000,0x00000000,0x00000000,0x00000000,0x00000000,0x0}, /* FDPIC_FPTR_REGS */\
   { 0x0000c000,0x00000000,0x00000000,0x00000000,0x00000000,0x0}, /* FDPIC_CALL_REGS */\
@@ -1580,6 +1597,17 @@ extern enum reg_class reg_class_from_letter[];
    : (C) == 'T' ? EXTRA_CONSTRAINT_FOR_T (VALUE)			\
    : (C) == 'U' ? EXTRA_CONSTRAINT_FOR_U (VALUE)			\
    : 0)
+
+#define CONSTRAINT_LEN(C, STR) \
+  ((C) == 'D' ? 3 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
+
+#define REG_CLASS_FROM_CONSTRAINT(C, STR) \
+  (((C) == 'D' && (STR)[1] == '8' && (STR)[2] == '9') ? GR89_REGS : \
+   ((C) == 'D' && (STR)[1] == '0' && (STR)[2] == '9') ? GR9_REGS : \
+   ((C) == 'D' && (STR)[1] == '0' && (STR)[2] == '8') ? GR8_REGS : \
+   ((C) == 'D' && (STR)[1] == '1' && (STR)[2] == '4') ? FDPIC_FPTR_REGS : \
+   ((C) == 'D' && (STR)[1] == '1' && (STR)[2] == '5') ? FDPIC_REGS : \
+   REG_CLASS_FROM_LETTER ((C)))
 
 
 /* Basic Stack Layout.  */
@@ -1883,26 +1911,6 @@ struct machine_function GTY(())
 
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED)			\
   frv_function_arg (&CUM, MODE, TYPE, NAMED, TRUE)
-
-/* A C expression for the number of words, at the beginning of an argument,
-   must be put in registers.  The value must be zero for arguments that are
-   passed entirely in registers or that are entirely pushed on the stack.
-
-   On some machines, certain arguments must be passed partially in registers
-   and partially in memory.  On these machines, typically the first N words of
-   arguments are passed in registers, and the rest on the stack.  If a
-   multi-word argument (a `double' or a structure) crosses that boundary, its
-   first few words must be passed in registers and the rest must be pushed.
-   This macro tells the compiler when this occurs, and how many of the words
-   should go in registers.
-
-   `FUNCTION_ARG' for these arguments should return the first register to be
-   used by the caller for this argument; likewise `FUNCTION_INCOMING_ARG', for
-   the called function.  */
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)		\
-  frv_function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
-
-/* extern int frv_function_arg_partial_nregs (CUMULATIVE_ARGS, int, Tree, int);  */
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the type
@@ -2384,12 +2392,7 @@ do {							\
               ? CC_NOOVmode : CCmode))
 
    You need not define this macro if `EXTRA_CC_MODES' is not defined.  */
-#define SELECT_CC_MODE(OP, X, Y)					\
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT				\
-   ? CC_FPmode								\
-   : (((OP) == LEU || (OP) == GTU || (OP) == LTU || (OP) == GEU)	\
-      ? CC_UNSmode							\
-      : CCmode))
+#define SELECT_CC_MODE frv_select_cc_mode
 
 /* A C expression whose value is one if it is always safe to reverse a
    comparison whose mode is MODE.  If `SELECT_CC_MODE' can ever return MODE for
@@ -2405,7 +2408,8 @@ do {							\
 
 /* On frv, don't consider floating point comparisons to be reversible.  In
    theory, fp equality comparisons can be reversible.  */
-#define REVERSIBLE_CC_MODE(MODE) ((MODE) == CCmode || (MODE) == CC_UNSmode)
+#define REVERSIBLE_CC_MODE(MODE) \
+  ((MODE) == CCmode || (MODE) == CC_UNSmode || (MODE) == CC_NZmode)
 
 /* Frv CCR_MODE's are not reversible.  */
 #define REVERSE_CONDEXEC_PREDICATES_P(x,y)      0
@@ -2601,6 +2605,13 @@ do {									\
   fprintf (STREAM, "\t.picptr\t");					\
   assemble_name (STREAM, LABEL);					\
 } while (0)
+
+#if HAVE_AS_TLS
+/* Emit a dtp-relative reference to a TLS variable.  */
+
+#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
+  frv_output_dwarf_dtprel ((FILE), (SIZE), (X))
+#endif
 
 /* Whether to emit the gas specific dwarf2 line number support.  */
 #define DWARF2_ASM_LINE_DEBUG_INFO (TARGET_DEBUG_LOC)
@@ -3012,12 +3023,14 @@ do {                                                                    \
 					  CONST_DOUBLE, CONST,		\
 					  SYMBOL_REF, LABEL_REF }},	\
   { "move_destination_operand",		{ REG, SUBREG, MEM }},		\
+  { "movcc_fp_destination_operand",	{ REG, SUBREG, MEM }},		\
   { "condexec_source_operand",		{ REG, SUBREG, CONST_INT, MEM,	\
 					  CONST_DOUBLE }},		\
   { "condexec_dest_operand",		{ REG, SUBREG, MEM }},		\
   { "reg_or_0_operand",			{ REG, SUBREG, CONST_INT }},	\
   { "lr_operand",			{ REG }},			\
   { "gpr_or_memory_operand",		{ REG, SUBREG, MEM }},		\
+  { "gpr_or_memory_operand_with_scratch", { REG, SUBREG, MEM }},	\
   { "fpr_or_memory_operand",		{ REG, SUBREG, MEM }},		\
   { "int12_operand",			{ CONST_INT }},			\
   { "int_2word_operand",		{ CONST_INT, CONST_DOUBLE,	\
@@ -3049,10 +3062,11 @@ do {                                                                    \
 					  CONST }}, 			\
   { "upper_int16_operand",		{ CONST_INT }},			\
   { "uint16_operand",			{ CONST_INT }},			\
+  { "symbolic_operand",                 { SYMBOL_REF, CONST_INT }},     \
   { "relational_operator",		{ EQ, NE, LE, LT, GE, GT,	\
 					  LEU, LTU, GEU, GTU }},	\
-  { "signed_relational_operator",	{ EQ, NE, LE, LT, GE, GT }},	\
-  { "unsigned_relational_operator",	{ LEU, LTU, GEU, GTU }},	\
+  { "integer_relational_operator",	{ EQ, NE, LE, LT, GE, GT,	\
+					  LEU, LTU, GEU, GTU }},	\
   { "float_relational_operator",	{ EQ, NE, LE, LT, GE, GT }},	\
   { "ccr_eqne_operator",		{ EQ, NE }},			\
   { "minmax_operator",			{ SMIN, SMAX, UMIN, UMAX }},	\
@@ -3064,8 +3078,6 @@ do {                                                                    \
   { "condexec_sf_add_operator",		{ PLUS, MINUS }},		\
   { "condexec_sf_conv_operator",	{ ABS, NEG }},			\
   { "intop_compare_operator",		{ PLUS, MINUS, AND, IOR, XOR,	\
-					  ASHIFT, ASHIFTRT, LSHIFTRT }}, \
-  { "condexec_intop_cmp_operator",	{ PLUS, MINUS, AND, IOR, XOR,	\
 					  ASHIFT, ASHIFTRT, LSHIFTRT }}, \
   { "fpr_or_int6_operand",		{ REG, SUBREG, CONST_INT }},	\
   { "int6_operand",			{ CONST_INT }},			\

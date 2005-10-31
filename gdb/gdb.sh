@@ -1,25 +1,68 @@
 #! /bin/sh
 
-arch=""
-for i in /sbin/arch /bin/arch /usr/sbin/arch /usr/bin/arch; do
-    if [ -x "$i" ]; then
-        archbin="$i"
-    fi
-done
+host_architecture=""
+requested_architecture=""
+architecture_to_use=""
 
-if [ -z "$archbin" ]; then
-    echo "Unable to locate the 'arch' utility; assuming 'ppc'.";
-    arch="ppc";
+# classic-inferior-support
+oah750_mode=0
+oah750_binary=""
+
+PATH=$PATH:/sbin:/bin:/usr/sbin:/usr/bin
+
+host_architecture=`(unset DYLD_PRINT_LIBRARIES; "arch") 2>/dev/null` || host_architecture=""
+
+if [ -z "$host_architecture" ]; then
+    echo "There was an error executing 'arch(1)'; assuming 'ppc'.";
+    host_architecture="ppc";
+fi
+
+
+case "$1" in
+  --help)
+    echo "  --oah750           Debug classic applications running under oah750." >&2
+    echo "  -arch i386|ppc     Specify a gdb targetting either ppc or i386" >&2
+    ;;
+  -arch=* | -a=* | --arch=*)
+    requested_architecture=`echo "$1" | sed 's,^[^=]*=,,'`
+    shift;;
+  -arch | -a | --arch)
+    shift
+    requested_architecture="$1"
+    shift;;
+  -oah750 | --oah750 | -oah* | --oah*)
+    oah750_mode=1
+    shift;;
+esac
+
+if [ $oah750_mode -eq 1 ]
+then
+  if [ "$host_architecture" = i386 -a -x /usr/libexec/oah/oah750 ]
+  then
+    requested_architecture="ppc"
+    oah750_binary=/usr/libexec/oah/oah750
+  else
+    echo ERROR: oah750 not available.  Running in normal debugger mode. >&2
+  fi
+fi
+
+if [ -n "$requested_architecture" ]
+then
+  if [ "$requested_architecture" != ppc -a "$requested_architecture" != i386 ]
+  then
+    echo Unrecognized architecture \'$requested_architecture\', using host arch. >&2
+    requested_architecture=""
+  fi
+fi
+
+if [ -n "$requested_architecture" ]
+then
+  architecture_to_use="$requested_architecture"
 else
-    arch=`(unset DYLD_PRINT_LIBRARIES; "$archbin") 2>/dev/null` || arch=""
+  architecture_to_use="$host_architecture"
 fi
 
-if [ -z "$arch" ]; then
-    echo "There was an error executing '$archbin'; assuming 'ppc'.";
-    arch="ppc";
-fi
-
-case "$arch" in
+case "$architecture_to_use" in
     ppc)
         gdb="${GDB_ROOT}/usr/libexec/gdb/gdb-powerpc-apple-darwin"
         ;;
@@ -27,7 +70,7 @@ case "$arch" in
         gdb="${GDB_ROOT}/usr/libexec/gdb/gdb-i386-apple-darwin"
         ;;
     *)
-        echo "Unknown architecture '$arch'; using 'ppc' instead.";
+        echo "Unknown architecture '$architecture_to_use'; using 'ppc' instead.";
         gdb="${GDB_ROOT}/usr/libexec/gdb/gdb-powerpc-apple-darwin"
         ;;
 esac
@@ -37,4 +80,4 @@ if [ ! -x "$gdb" ]; then
     exit 1
 fi
 
-exec "$gdb" "$@"
+exec $oah750_binary "$gdb" "$@"

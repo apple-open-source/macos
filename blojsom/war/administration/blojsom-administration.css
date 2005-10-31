@@ -1,0 +1,145 @@
+/* ----------------------------------------------------------------- */
+/* CSS AND DESIGN BY smallTransport.com */
+/* ----------------------------------------------------------------- */
+body {
+padding: 8px 0 20px 0;
+margin:0;
+font:.7em/1.6em  "Lucida Grande", "Trebuchet MS", Verdana, Arial, sans-serif;
+background: url(images/blojsom-bg.gif) repeat-x #F8FBFC;
+min-width: 800px;
+ }
+
+a:link { color:#D41B2A; text-decoration:none; }
+a:hover { text-decoration: underline; }
+br {clear:both;}
+
+h1 {
+width:224px;
+height:79px;
+padding:0;
+margin:0;
+background: url(images/blojsom-logo.gif) no-repeat;
+text-indent: -3000px;
+ }
+ /* not applied by IE PC */
+head+body h1 { height:82px; }
+ /* not applied by IE Mac or PC \*/
+html>body h1 { height:82px; }
+/* End hack */
+
+h2 {
+clear: left;
+font:2em  "Lucida Grande", "Trebuchet MS", Verdana, Arial, sans-serif;
+font-weight: normal;
+margin:0; 
+padding:20px 0 0 0; }
+
+h3 {
+font-size: 1.3em;
+font-weight: normal;
+color:#3C657B;
+margin:0 0 10px 0;
+padding:0 0 10px 0;
+border-bottom: 1px dashed #A4AEB2;
+ }
+h4 {
+font-size: 1.1em;
+font-weight: normal;
+color:#584E37;
+margin:0 0 10px 0;
+padding:0; 
+}
+p { margin:10px 0 10px 0; color:333;}
+
+/* ----------------------------------------------------------------- */
+/* NAV AREA */
+/* ----------------------------------------------------------------- */
+
+ul#nav { height:28px; margin:0; padding:0; }
+ul#nav { list-style: none; padding: 0 0 0 15px; margin: 0; font: 11px "Lucida Grande", "Trebuchet MS", Verdana, Arial, sans-serif; }
+#nav li { float: left; position: relative; height:28px; text-align: left; width: 120px;  }
+/* not applied by IE Mac or PC \*/
+html>body #nav li { width:auto; }
+/* End hack */
+#nav a { display: block; height:28px; padding:0 15px; line-height:28px; color: #2D5879; text-decoration: none; border-bottom:none; border-right:1px solid #B9C3C8; }
+#nav li a:hover { background-color:2D5879; color:#fff; }
+#nav li ul { display: none; width:120px; list-style: none; position: absolute; top: 100%; left:0; font-weight: normal; background-color:#fff; border:1px solid #B9C3C8; border-bottom:none; padding:0; margin:0;}
+#nav li>ul { top: auto; left: auto; }
+#nav li li { display: block; width:120px; text-align: left; float: none; height: auto; line-height:1.6em; background-color: transparent; border-bottom:1px solid #B9C3C8; }
+#nav li li a { display: block; width:120px; padding:4px 10px; font-weight: normal; color: #2D5879; line-height:20px; height: auto;}
+/* not applied by IE Mac or PC \*/
+html>body #nav li li a { width:100; }
+/* End hack */
+#nav li li a:hover { background-color:#2D5879; background-image:none; color:#fff; }
+#nav li:hover ul, #nav li.over ul { display: block; }
+
+/* ----------------------------------------------------------------- */
+/* LOGIN BOX */
+/* ----------------------------------------------------------------- */
+
+div#login {
+	position: absolute;
+	top: 13px;
+	right: 20px;
+	padding:0 10px;
+	width:25%;
+	background-color: #fff;
+	border: 1px solid #C9D6D6;
+	color:#fff;
+}
+
+/* ----------------------------------------------------------------- */
+/* MAIN CONTENT AREAS */
+/* ----------------------------------------------------------------- */
+
+div#wrap { width:100%; }
+
+div#main {
+	margin: 30px 20px;
+}
+
+div#header {
+	margin:0 20px;
+}
+
+div#contents {
+	float: left;
+	width:65%;
+}
+div.desc {
+	margin:0 0 20px 0;
+}
+div.mainClm {
+	padding: 10px;
+	margin: 0 0 10px 0;
+	border: double #A4AEB2;
+	background-color: #fff;
+
+}
+table td {
+	font:.7em/1.6em  "Lucida Grande", "Trebuchet MS", Verdana, Arial, sans-serif;
+	padding:2px 5px;
+	}
+
+table th{
+	font:.8em  "Lucida Grande", "Trebuchet MS", Verdana, Arial, sans-serif;
+	color:#fff;
+	background-color: #ADAE8C;
+	font-weight: bold;
+	text-align: left;
+	padding:5px 0 5px 5px;
+	}
+form input.small { width:100px; }
+
+/* ----------------------------------------------------------------- */
+/* SIDEBAR */
+/* ----------------------------------------------------------------- */
+
+#sidebar {
+	float: right;
+	margin-left: 0;
+	padding: 10px;
+  width: 25%;	
+  background-color: #F5F9DE;
+	border: 1px solid #ADAE8C;
+}

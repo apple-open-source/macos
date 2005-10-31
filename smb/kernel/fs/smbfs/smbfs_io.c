@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_io.c,v 1.41.38.1 2005/05/27 02:35:28 lindak Exp $
+ * $Id: smbfs_io.c,v 1.41.38.3 2005/07/20 05:26:59 lindak Exp $
  *
  */
 #include <sys/param.h>
@@ -48,6 +48,9 @@
 #include <sys/kauth.h>
 
 #include <sys/syslog.h>
+#ifdef thread_sleep_simple_lock
+#undef thread_sleep_simple_lock
+#endif
 #include <sys/smb_apple.h>
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
@@ -366,6 +369,7 @@ smbfs_vinvalbuf(vp, flags, vfsctx, intrflg)
 	int error = 0, slpflag, slptimeo;
 	int lasterror = ENXIO;
 	struct timespec ts;
+	off_t size;
 
 	if (intrflg) {
 		slpflag = PCATCH;
@@ -407,8 +411,9 @@ smbfs_vinvalbuf(vp, flags, vfsctx, intrflg)
 		wakeup((caddr_t)&np->n_flag);
 	}
 	/* get the pages out of vm also */
-	if (!ubc_sync_range(vp, (off_t)0, smb_ubc_getsize(vp),
-			    UBC_PUSHALL | UBC_INVALIDATE))
+	size = smb_ubc_getsize(vp);
+	if (size && !ubc_sync_range(vp, (off_t)0, size,
+				    UBC_PUSHALL | UBC_INVALIDATE))
 		SMBERROR("ubc_sync_range failure");
 	return (error);
 }

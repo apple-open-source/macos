@@ -1,5 +1,5 @@
 /* Expression parser.
-   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -21,7 +21,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #include "config.h"
-#include <string.h>
+#include "system.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -179,11 +179,11 @@ build_node (gfc_intrinsic_op operator, locus * where,
 
   new = gfc_get_expr ();
   new->expr_type = EXPR_OP;
-  new->operator = operator;
+  new->value.op.operator = operator;
   new->where = *where;
 
-  new->op1 = op1;
-  new->op2 = op2;
+  new->value.op.op1 = op1;
+  new->value.op.op2 = op2;
 
   return new;
 }
@@ -214,7 +214,7 @@ match_level_1 (gfc_expr ** result)
   else
     {
       f = build_node (INTRINSIC_USER, &where, e, NULL);
-      f->uop = uop;
+      f->value.op.uop = uop;
       *result = f;
     }
 
@@ -873,7 +873,7 @@ gfc_match_expr (gfc_expr ** result)
 	}
 
       all = build_node (INTRINSIC_USER, &where, all, e);
-      all->uop = uop;
+      all->value.op.uop = uop;
     }
 
   *result = all;

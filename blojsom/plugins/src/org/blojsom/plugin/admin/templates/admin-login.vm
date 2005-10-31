@@ -1,40 +1,54 @@
-<?xml version="1.0" encoding="UTF-8"?>
+#AdministrationHeader("#adminResource('login.header' 'Login')")
 
-#adminPageHeader("#adminResource('login.header' 'Login')")
+<body>
+    <div id="wrap">
 
-    <div id="contents">
+        <h1>Blosjom Administration Interface</h1>
 
-        #showErrorMessage()
+        <ul id="nav">
+        </ul>
 
-         <center>
-            <table>
-                <form name="blojsom-login" action="$BLOJSOM_BLOG.getBlogURL()?flavor=admin" method="post">
-                    <tr>
-                        <td>#adminResource('username.text' 'Username')</td>
-                        <td><input name="username" type="text" size="25"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('password.text' 'Password')</td>
-                        <td><input name="password" type="password" size="25"/></td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <center>
-                                <input type="submit" name="submit" value="#adminResource('login.text' 'Login')"/>
-                                <input type="reset" name="Reset" value="#adminResource('reset.text' 'Reset')"/>
-                            </center>
-                        </td>
-                    </tr>
-                </form>
-            </table>
+        <div id="main">
+            <div id="contents">
 
-            <p></p>
-            <a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&page=forgotten-password">#adminResource('forget.your.password.text' 'Forget your password?')</a><p/>
-            Back to <a href="$BLOJSOM_BLOG.getBlogURL()">$BLOJSOM_BLOG.getBlogName()</a>
-            <p/><p/>
-            <a href="http://blojsom.sf.net"><img src="$BLOJSOM_SITE_URL/powered-by-blojsom.gif" border="0" alt="Powered By blojsom" /></a>
+                #showErrorMessage()
 
-        </center>
+                <div class="mainClm">
+                    <h3>#adminResource('login.header' 'Login')</h3>
+                    <table>
+                        <form name="blojsom-login" action="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin" method="post">
+                            <tr>
+                                <td>#adminResource('username.text' 'Username')</td>
+                                <td>
+                                    <input name="username" type="text" size="25"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('password.text' 'Password')</td>
+                                <td>
+                                    <input name="password" type="password" size="25"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('login.text' 'Login')"/>
+                                    <input type="reset" name="Reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                            <tr><td>&nbsp;</td><td>&nbsp;</td></tr>
+                            <tr>
+                                <td></td><td><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=forgotten-password">#adminResource('forget.your.password.text' 'Forget your password?')</a></td>
+                            </tr>
+                            <tr>
+                                <td></td><td>Back to <a href="$BLOJSOM_BLOG.getBlogURL()">$BLOJSOM_BLOG.getBlogName()</a></td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
+</body>
 
-#adminPageFooter()
+#AdministrationFooter()

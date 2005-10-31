@@ -420,6 +420,13 @@ ni_svc_run(int maxlisteners)
 	while (!shutdown_server)
 	{
 		/*
+		 * Call get_binding_status() to tickle it to send
+		 * a notification if the status changed as the result
+		 * of a sighup.
+		 */
+		get_binding_status();
+
+		/*
 		 * If we need to clean up proxies, do it here to
 		 * avoid possible race conditions with ourself, due
 		 * to calling free() in [HashTable removeKey:] in

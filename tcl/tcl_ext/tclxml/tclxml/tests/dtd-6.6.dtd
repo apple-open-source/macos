@@ -1,6 +1,0 @@
-<!ENTITY % module "INCLUDE">
-<![%module;[
-<!ELEMENT Test (#PCDATA)>
-]]>
-<!ELEMENT Test2 (#PCDATA)>
-

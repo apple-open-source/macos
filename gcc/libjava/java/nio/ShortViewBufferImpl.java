@@ -53,6 +53,8 @@ final class ShortViewBufferImpl extends ShortBuffer
     this.offset = bb.position();
     this.readOnly = bb.isReadOnly();
     this.endian = bb.order();
+    if (bb.isDirect())
+      this.address = VMDirectByteBuffer.adjustAddress(bb.address, offset);
   }
   
   public ShortViewBufferImpl (ByteBuffer bb, int offset, int capacity,
@@ -64,6 +66,8 @@ final class ShortViewBufferImpl extends ShortBuffer
     this.offset = offset;
     this.readOnly = readOnly;
     this.endian = endian;
+    if (bb.isDirect())
+      this.address = VMDirectByteBuffer.adjustAddress(bb.address, offset);
   }
 
   /**
@@ -115,6 +119,11 @@ final class ShortViewBufferImpl extends ShortBuffer
 	bb.shiftDown(offset, offset + 2 * position(), 2 * count);
         position (count);
         limit (capacity ());
+      }
+    else
+      {
+	position(limit());
+	limit(capacity());
       }
     return this;
   }

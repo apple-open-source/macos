@@ -1,5 +1,5 @@
 /* Dwarf2 assembler output helper routines.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -149,6 +149,8 @@ dw2_asm_output_offset (int size, const char *label,
   va_end (ap);
 }
 
+#if 0
+
 /* Output a self-relative reference to a label, possibly in a
    different section or object file.  */
 
@@ -179,6 +181,7 @@ dw2_asm_output_pcrel (int size ATTRIBUTE_UNUSED,
 
   va_end (ap);
 }
+#endif /* 0 */
 
 /* Output an absolute reference to a label.  */
 
@@ -649,6 +652,8 @@ dw2_asm_output_delta_uleb128 (const char *lab1 ATTRIBUTE_UNUSED,
   va_end (ap);
 }
 
+#if 0
+
 void
 dw2_asm_output_delta_sleb128 (const char *lab1 ATTRIBUTE_UNUSED,
 			      const char *lab2 ATTRIBUTE_UNUSED,
@@ -676,6 +681,7 @@ dw2_asm_output_delta_sleb128 (const char *lab1 ATTRIBUTE_UNUSED,
 
   va_end (ap);
 }
+#endif /* 0 */
 
 static rtx dw2_force_const_mem (rtx);
 static int dw2_output_indirect_constant_1 (splay_tree_node, void *);
@@ -723,6 +729,7 @@ dw2_force_const_mem (rtx x)
 	  id = get_identifier (ref_name);
 	  decl = build_decl (VAR_DECL, id, ptr_type_node);
 	  DECL_ARTIFICIAL (decl) = 1;
+	  DECL_IGNORED_P (decl) = 1;
 	  TREE_PUBLIC (decl) = 1;
 	  DECL_INITIAL (decl) = decl;
 	  make_decl_one_only (decl);
@@ -736,6 +743,7 @@ dw2_force_const_mem (rtx x)
 	  id = get_identifier (label);
 	  decl = build_decl (VAR_DECL, id, ptr_type_node);
 	  DECL_ARTIFICIAL (decl) = 1;
+	  DECL_IGNORED_P (decl) = 1;
 	  TREE_STATIC (decl) = 1;
 	  DECL_INITIAL (decl) = decl;
 	}

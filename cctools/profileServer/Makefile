@@ -9,7 +9,8 @@ else
 	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 endif
 
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
+				  [ "$(RC_XBS)" != "YES" ]; then \
 	     echo YES ; else echo NO ; \
 	     fi; )
 

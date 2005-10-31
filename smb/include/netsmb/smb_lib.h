@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_lib.h,v 1.21.82.2 2005/06/02 00:55:39 lindak Exp $
+ * $Id: smb_lib.h,v 1.21.82.3.18.1 2005/09/09 22:15:02 lindak Exp $
  */
 #ifndef _NETSMB_SMB_LIB_H_
 #define _NETSMB_SMB_LIB_H_
@@ -105,7 +105,8 @@ struct smb_ctx {
 	int		ct_parsedlevel;
 	int		ct_minlevel;
 	int		ct_maxlevel;
-	char *		ct_fullserver; /* original server name from cmd line */
+	char *		ct_fullserver; /* original server name from cmd line - not utf8 */
+	char *		ct_utf8_servname; /* utf8 server name from cmd line */
 	char *		ct_srvaddr;	/* hostname or IP address of server */
 	struct sockaddr_in ct_srvinaddr;/* IP address of server */
 	char		ct_locname[SMB_MAXUSERNAMELEN + 1];
@@ -132,6 +133,7 @@ struct smb_ctx {
 #define SMBCF_SSNACTIVE		0x02000000 /* session setup succeeded */
 #define SMBCF_WGFROMUSR		0x04000000 /* user defined workgroup */
 #define SMBCF_NONEGDOM		0x08000000 /* Don't use domain field in negprot respose */
+#define SMBCF_EXPLICITPWD	0x10000000
 
 /*
  * request handling structures

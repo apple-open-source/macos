@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -188,6 +187,8 @@ create_ddg_dependence (ddg_ptr g, ddg_node_ptr src_node,
       else
 	free (e);
     }
+  else if (t == ANTI_DEP && dt == REG_DEP)
+    free (e);  /* We can fix broken anti register deps using reg-moves.  */
   else
     add_edge_to_ddg (g, e);
 }
@@ -311,7 +312,7 @@ add_deps_for_use (ddg_ptr g, struct df *df, struct ref *use)
 static void
 build_inter_loop_deps (ddg_ptr g, struct df *df)
 {
-  int rd_num, u_num;
+  unsigned rd_num, u_num;
   struct bb_info *bb_info;
   bitmap_iterator bi;
 

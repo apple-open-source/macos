@@ -46,6 +46,10 @@ __END_DECLS
 
 #define kMacRISC_GPIO_DIRECTION_BIT	2
 
+#ifndef kIOHibernateStateKey
+#define kIOHibernateStateKey	"IOHibernateState"
+#endif
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define super IOCPU
@@ -95,6 +99,7 @@ static IOService						*gI2CDriver,
 static const OSSymbol					*gTBFunctionNameSym;
 static const OSSymbol					*gTBReadFunctionNameSym;		// XXX Temp!!!
 static const cpu_timebase_params_t		*gTimeBaseParams;
+static UInt32 							*gPHibernateState;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -102,7 +107,9 @@ static IOCPUInterruptController *gCPUIC;
 
 bool MacRISC4CPU::start(IOService *provider)
 {
+#if defined( __ppc__ )
     kern_return_t        result;
+#endif
     IORegistryEntry      *cpusRegEntry, *cpu0RegEntry, *mpicRegEntry;
     OSIterator           *cpusIterator;
     OSData               *tmpData;
@@ -112,6 +119,7 @@ bool MacRISC4CPU::start(IOService *provider)
     OSArray              *tmpArray;
     OSDictionary         *matchDict;
     char                 mpicICName[48];
+	bool				 makeInterruptsProperties;
     UInt32               maxCPUs, physCPU, mpicPHandle;
     IOService            *tbResources;
     ml_processor_info_t  processor_info;
@@ -208,14 +216,11 @@ bool MacRISC4CPU::start(IOService *provider)
 					cypressCompat = NULL;
 					if (IODTCompareNubName(clockchip, pulsarCompat, NULL)) {
 						gTimeBaseParams = &pulsarD2;
-						IOLog ("MacRISC4CPU::start - found 'pulsar-legacy-slewing'\n");
 					} else {
 						cypressCompat = OSString::withCString ("cy28508");
 						if (IODTCompareNubName(clockchip, cypressCompat, NULL)) {
 							gTimeBaseParams = &cypress;
-							IOLog ("MacRISC4CPU::start - found 'cy28508'\n");
 						}
-						else IOLog ("MacRISC4CPU::start - no match for 'i2c-hwclock@d2'\n");
 					}
 
 					pulsarCompat->release();
@@ -299,30 +304,49 @@ bool MacRISC4CPU::start(IOService *provider)
     keyLargo = waitForService(serviceMatching("KeyLargo"));
     if (keyLargo == 0) return false;
     
-    // Find the interrupt controller specified by the provider.
-    parentICData = OSDynamicCast(OSData, provider->getProperty(kMacRISC4ParentICKey));
-    mpicPHandle = *(UInt32 *)parentICData->getBytesNoCopy();
-    sprintf(mpicICName, "IOInterruptController%08lX", mpicPHandle);
-    mpicICSymbol = OSSymbol::withCString(mpicICName);
+	// Set the IOInterruptController and IOInterruptSpecifier properties if they don't exist
+	if (tmpArray = OSDynamicCast (OSArray, (cpuNub->getProperty(gIOInterruptControllersKey)))) {
+		// The properties exist so all we need to do is locate the right MPIC
+		makeInterruptsProperties = false;
+		mpicICSymbol = OSSymbol::withString ((const OSString *)tmpArray->getObject(0));
+	} else {
+		makeInterruptsProperties = true;
+
+		// Find the interrupt controller specified by the provider.
+		parentICData = OSDynamicCast(OSData, provider->getProperty(kMacRISC4ParentICKey));
+		if (parentICData) {
+			mpicPHandle = *(UInt32 *)parentICData->getBytesNoCopy();
+			sprintf(mpicICName, "IOInterruptController%08lX", mpicPHandle);
+			mpicICSymbol = OSSymbol::withCString(mpicICName);
+		} else {
+			IOLog ("MacRISC4CPU::start - no cpu IOInterruptController!  Start failed!\n");
+			return false;
+		}
+	}
+	
+	// Get the MPIC reference
     matchDict = serviceMatching("AppleMPICInterruptController");
     matchDict->setObject("InterruptControllerName", mpicICSymbol);
     mpic = waitForService(matchDict);
     
-    // Set the Interrupt Properties for this cpu.
-    mpic->callPlatformFunction(mpic_getProvider, false, (void *)&mpicRegEntry, 0, 0, 0);
-    interruptControllerName = IODTInterruptControllerName(mpicRegEntry);
-    mpic->callPlatformFunction(mpic_getIPIVector, false, (void *)&physCPU, (void *)&interruptData, 0, 0);
-    if ((interruptControllerName == 0) || (interruptData == 0)) return false;
-  
-    tmpArray = OSArray::withCapacity(1);
-    tmpArray->setObject(interruptControllerName);
-    cpuNub->setProperty(gIOInterruptControllersKey, tmpArray);
-    tmpArray->release();
-  
-    tmpArray = OSArray::withCapacity(1);
-    tmpArray->setObject(interruptData);
-    cpuNub->setProperty(gIOInterruptSpecifiersKey, tmpArray);
-    tmpArray->release();
+	if (makeInterruptsProperties) {
+		// Set the Interrupt Properties for this cpu.
+		mpic->callPlatformFunction(mpic_getProvider, false, (void *)&mpicRegEntry, 0, 0, 0);
+		interruptControllerName = IODTInterruptControllerName(mpicRegEntry);
+		mpic->callPlatformFunction(mpic_getIPIVector, false, (void *)&physCPU, (void *)&interruptData, 0, 0);
+		if ((interruptControllerName == 0) || (interruptData == 0)) return false;
+	  
+		tmpArray = OSArray::withCapacity(1);
+		tmpArray->setObject(interruptControllerName);
+		cpuNub->setProperty(gIOInterruptControllersKey, tmpArray);
+		tmpArray->release();
+	  
+		tmpArray = OSArray::withCapacity(1);
+		tmpArray->setObject(interruptData);
+		cpuNub->setProperty(gIOInterruptSpecifiersKey, tmpArray);
+		tmpArray->release();
+	}
+
   
     setCPUState(kIOCPUStateUninitalized);
   
@@ -391,10 +415,8 @@ bool MacRISC4CPU::start(IOService *provider)
 
 	// necessary bootCPU initialization is done, so release other CPU drivers to do their thing
 	// other drivers need to be unblocked *before* we call processor_start otherwise we deadlock
-	if (bootCPU) {
-		IOLog ("MacRISC4CPU: publishing BootCPU\n");
+	if (bootCPU)
 		publishResource ("BootCPU", this);
-	}
 
     if (physCPU < numCPUs)
     {
@@ -441,8 +463,6 @@ bool MacRISC4CPU::start(IOService *provider)
     // I can not put these calls there because quiesce runs in interrupt
     // context and waitForService may block.
 	if (!pmu) {
-
-		kprintf("MacRISC4CPU::start(%ld) - waiting for IOPMU\n", getCPUNumber());
 
 		service = waitForService(resourceMatching("IOPMU"));
 		if (service) 
@@ -533,7 +553,9 @@ void MacRISC4CPU::quiesceCPU(void)
 		uniN->callPlatformFunction (UniNSetPowerState, false, (void *)(kUniNSave),
 			(void *)0, (void *)0, (void *)0);
 
-		{
+		if (!gPHibernateState || !*gPHibernateState) {
+			// Tell U3 to enter sleep mode if not hibernating
+			// For U3, this has to be done before telling the PMU to start going to sleep
 			uniN->callPlatformFunction (UniNSetPowerState, false, (void *)(kUniNSleep),
 				(void *)0, (void *)0, (void *)0);
         }
@@ -548,6 +570,7 @@ void MacRISC4CPU::quiesceCPU(void)
 			 * After the command to PMU is sent we only have 100 milliseconds to quiesce
 			 * the cpu, so unnecessary delays, like kprints must be avoided.
 			 */
+			if (!gPHibernateState || !*gPHibernateState)
 				pmu->callPlatformFunction("sleepNow", false, 0, 0, 0, 0);
 	
 			// Disables the interrupts for this CPU.
@@ -561,7 +584,7 @@ void MacRISC4CPU::quiesceCPU(void)
 			keyLargo->callPlatformFunction(keyLargo_saveRegisterState, false, 0, 0, 0, 0);
 	
 			// Turn Off all KeyLargo I/O.
-			{
+			if (!gPHibernateState || !*gPHibernateState) {
 				keyLargo->callPlatformFunction(keyLargo_turnOffIO, false, (void *)false, 0, 0, 0);
         	}
         }
@@ -663,6 +686,11 @@ void MacRISC4CPU::haltCPU(void)
   
     if (bootCPU)
     {
+		if (!gPHibernateState) {
+			OSData * data = OSDynamicCast(OSData, getPMRootDomain()->getProperty(kIOHibernateStateKey));
+			if (data)
+				gPHibernateState = (UInt32 *) data->getBytesNoCopy();
+		}
         
 		uniN->callPlatformFunction (UniNPrepareForSleep, false, 
 			(void *)0, (void *)0, (void *)0, (void *)0);

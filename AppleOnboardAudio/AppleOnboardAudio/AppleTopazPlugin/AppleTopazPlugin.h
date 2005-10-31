@@ -72,6 +72,12 @@ typedef ChanStatusStruct * ChanStatusStructPtr;
 #define kCS84XX_BIT_MASK						0x01
 #define kCS84XX_TWO_BIT_MASK					0x03
 
+
+// [4073140] - valid OMCK/RMCK ratio values
+#define kCS84XX_OMCK_RMCK_RATIO_LOCKED_MIN      0x15    /* 0.333 with 2.5% variance below in unsigned 2.6 fixed-point format (with integer ceiling applied) */
+#define kCS84XX_OMCK_RMCK_RATIO_LOCKED_MAX      0xC4    /* 3.000 with 2.5% variance above in unsigned 2.6 fixed-point format (with integer floor applied)   */
+
+
 //	====================================================================================================
 //
 //	Control Port Register Bit Definitions.
@@ -235,6 +241,7 @@ public:
 	void					initPlugin ( PlatformInterface* inPlatformObject );
 	void					initPlugin ( PlatformInterface* inPlatformObject, IOService * provider, HardwarePluginType codecID );
 	virtual bool			preDMAEngineInit ( void ) { return false; }
+    virtual bool            preDMAEngineInit ( UInt32 autoClockSelectionIsBeingUsed ) { return preDMAEngineInit(); }
 	
 	virtual IOReturn		initCodecRegisterCache ( void ) { return kIOReturnError; }
 	virtual IOReturn		setMute ( bool muteState ) { return kIOReturnError; }
@@ -265,6 +272,7 @@ public:
 
 	virtual void			poll ( void ) { return; }
 	virtual void			notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) { return; }
+    virtual void            decrementDelayPollAfterWakeCounter() { return; }
 	virtual UInt32			getClockLockTerminalCount () { return 10; }
 	virtual bool			canOnlyMasterTheClock () { return FALSE; }
 	

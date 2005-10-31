@@ -1,3 +1,4 @@
+/* APPLE LOCAL file Objective-C++ */
 /* Check that the compiler does correctly complain about
    exceptions being caught by previous @catch blocks.  */
 /* Force the use of NeXT runtime to see that we don't ICE after

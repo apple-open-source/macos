@@ -1,3 +1,4 @@
+/* APPLE LOCAL file Objective-C++ */
 /* Check that the compiler does not incorrectly complain about
    exceptions being caught by previous @catch blocks.  */
 /* Author: Ziemowit Laski <zlaski@apple.com> */

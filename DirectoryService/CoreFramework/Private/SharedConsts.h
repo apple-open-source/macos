@@ -58,11 +58,8 @@ typedef struct sDSTableEntry {
 typedef struct {
 	unsigned int	msgt_name : 8,
 					msgt_size : 8,
-					msgt_number : 12,
-					msgt_inline : 1,
-					msgt_longform : 1,
-					msgt_deallocate : 1,
-					msgt_unused : 1;
+					msgt_number : 8,
+					msgt_translate : 8;
 } mach_msg_type_t;
 
 typedef struct sObject
@@ -149,7 +146,7 @@ typedef struct sIPCMsg
 
 
 typedef enum {
-	kResult					= 4460,
+	kResult					= 4460, //need to keep this as first for endian swapping code
 	ktDirRef				= 4461,
 	ktNodeRef				= 4462,
 	ktRecRef				= 4463,
@@ -212,6 +209,7 @@ typedef enum {
 	
 	kAttrMatches			= 4519,
 	kAttrValueList			= 4520,
+	ktNodeRefMap			= 4521,			//special mapped node ref in FW for Custom Calls to retrieve plugin name
 	kEnd					= 0xFFFFFFFF
 } eValueType;
 

@@ -1,2 +1,0 @@
->>> Pairwise combination
-<<< done.

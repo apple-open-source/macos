@@ -48,7 +48,7 @@ enum
 };
 
 #define     kDefaultFixedResolution             (400 << 16)
-#define     kDefaultScrollFixedResolution       (10 << 16)
+#define     kDefaultScrollFixedResolution       (9 << 16)
 
 #define     kMaxSystemBarrelPressure            32767
 #define     kMaxSystemTipPressure               65535
@@ -117,13 +117,13 @@ bool IOHIDEventService::start ( IOService * provider )
 
     if ( !handleStart(provider) )
         return false;
-        
-    parseSupportedElements ( getReportElements(), bootProtocol );
-    
+            
     setProperty(kIOHIDTransportKey, getTransport());
     setProperty(kIOHIDVendorIDKey, getVendorID(), 32);
     setProperty(kIOHIDProductIDKey, getProductID(), 32);
     setProperty(kIOHIDLocationIDKey, getLocationID(), 32);
+
+    parseSupportedElements ( getReportElements(), bootProtocol );
     
     if ((!_consumerNub && _keyboardNub) || (!_keyboardNub && _consumerNub))
     {

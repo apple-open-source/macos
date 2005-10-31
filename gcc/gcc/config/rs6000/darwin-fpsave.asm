@@ -40,7 +40,6 @@
 
    MORAL: DO NOT MESS AROUND WITH THESE FUNCTIONS!  */
 
-/* APPLE LOCAL mainline throughout */
 #include "darwin-asm.h"
 
 .text

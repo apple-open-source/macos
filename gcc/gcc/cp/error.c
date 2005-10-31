@@ -1,7 +1,7 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -348,7 +348,10 @@ dump_type (tree t, int flags)
     }
     case TYPENAME_TYPE:
       pp_cxx_cv_qualifier_seq (cxx_pp, t);
-      pp_cxx_identifier (cxx_pp, "typename");
+      pp_cxx_identifier (cxx_pp, 
+			 TYPENAME_IS_ENUM_P (t) ? "enum" 
+			 : TYPENAME_IS_CLASS_P (t) ? "class"
+			 : "typename");
       dump_typename (t, flags);
       break;
 
@@ -610,6 +613,8 @@ dump_type_suffix (tree t, int flags)
 	if (TREE_CODE (t) == METHOD_TYPE)
           pp_cxx_cv_qualifier_seq
             (cxx_pp, TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (t))));
+        else
+          pp_cxx_cv_qualifier_seq(cxx_pp, t);
 	dump_exception_spec (TYPE_RAISES_EXCEPTIONS (t), flags);
 	dump_type_suffix (TREE_TYPE (t), flags);
 	break;
@@ -710,19 +715,17 @@ dump_decl (tree t, int flags)
   switch (TREE_CODE (t))
     {
     case TYPE_DECL:
-      {
-	/* Don't say 'typedef class A' */
-        if (DECL_ARTIFICIAL (t))
-	  {
-	    if ((flags & TFF_DECL_SPECIFIERS)
-	        && TREE_CODE (TREE_TYPE (t)) == TEMPLATE_TYPE_PARM)
-	      /* Say `class T' not just `T'.  */
-	      pp_cxx_identifier (cxx_pp, "class");
-
-	    dump_type (TREE_TYPE (t), flags);
-	    break;
-	  }
-      }
+      /* Don't say 'typedef class A' */
+      if (DECL_ARTIFICIAL (t))
+	{
+	  if ((flags & TFF_DECL_SPECIFIERS)
+	      && TREE_CODE (TREE_TYPE (t)) == TEMPLATE_TYPE_PARM)
+	    /* Say `class T' not just `T'.  */
+	    pp_cxx_identifier (cxx_pp, "class");
+	  
+	  dump_type (TREE_TYPE (t), flags);
+	  break;
+	}
       if (flags & TFF_DECL_SPECIFIERS)
 	pp_cxx_identifier (cxx_pp, "typedef");
       dump_simple_decl (t, DECL_ORIGINAL_TYPE (t)
@@ -1285,8 +1288,15 @@ dump_expr (tree t, int flags)
       dump_decl (t, (flags & ~TFF_DECL_SPECIFIERS) | TFF_NO_FUNCTION_ARGUMENTS);
       break;
 
-    case INTEGER_CST:
     case STRING_CST:
+      if (PAREN_STRING_LITERAL_P (t))
+	pp_cxx_left_paren (cxx_pp);
+      pp_c_constant (pp_c_base (cxx_pp), t);
+      if (PAREN_STRING_LITERAL_P (t))
+	pp_cxx_right_paren (cxx_pp);
+      break;
+      
+    case INTEGER_CST:
     case REAL_CST:
        pp_c_constant (pp_c_base (cxx_pp), t);
       break;
@@ -1805,16 +1815,12 @@ dump_expr (tree t, int flags)
       dump_decl (t, flags);
       break;
 
+    case BIND_EXPR:
     case STMT_EXPR:
+    case STATEMENT_LIST:
       /* We don't yet have a way of dumping statements in a
 	 human-readable format.  */
       pp_string (cxx_pp, "({...})");
-      break;
-
-    case BIND_EXPR:
-      pp_cxx_left_brace (cxx_pp);
-      dump_expr (TREE_OPERAND (t, 1), flags & ~TFF_EXPR_IN_PARENS);
-      pp_cxx_right_brace (cxx_pp);
       break;
 
     case LOOP_EXPR:
@@ -1916,14 +1922,6 @@ decl_as_string (tree decl, int flags)
 {
   reinit_cxx_pp ();
   dump_decl (decl, flags);
-  return pp_formatted_text (cxx_pp);
-}
-
-const char *
-context_as_string (tree context, int flags)
-{
-  reinit_cxx_pp ();
-  dump_scope (context, flags);
   return pp_formatted_text (cxx_pp);
 }
 
@@ -2152,7 +2150,7 @@ cp_print_error_function (diagnostic_context *context,
       if (current_function_decl == NULL)
         pp_base_string (context->printer, "At global scope:");
       else
-        pp_printf (context->printer, "In %s `%s':",
+        pp_printf (context->printer, "In %s %qs:",
                    function_category (current_function_decl),
                    cxx_printable_name (current_function_decl, 2));
       pp_base_newline (context->printer);
@@ -2203,10 +2201,10 @@ print_instantiation_full_context (diagnostic_context *context)
       else
 	{
 	  if (current_function_decl == TINST_DECL (p))
-	    /* Avoid redundancy with the the "In function" line.  */;
+	    /* Avoid redundancy with the "In function" line.  */;
 	  else
 	    pp_verbatim (context->printer,
-                         "%s: In instantiation of `%s':\n",
+                         "%s: In instantiation of %qs:\n",
 			 LOCATION_FILE (location),
                          decl_as_string (TINST_DECL (p),
                                          TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
@@ -2230,7 +2228,7 @@ print_instantiation_partial_context (diagnostic_context *context,
       xloc = expand_location (loc);
       if (t == NULL_TREE)
 	break;
-      pp_verbatim (context->printer, "%s:%d:   instantiated from `%s'\n",
+      pp_verbatim (context->printer, "%s:%d:   instantiated from %qs\n",
                    xloc.file, xloc.line,
                    decl_as_string (TINST_DECL (t),
                                    TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
@@ -2370,7 +2368,7 @@ locate_error (const char *msgid, va_list ap)
 
 	    default:
 	      errorcount = 0;  /* damn ICE suppression */
-	      internal_error ("unexpected letter `%c' in locate_error\n", *f);
+	      internal_error ("unexpected letter %qc in locate_error\n", *f);
 	    }
 	}
     }

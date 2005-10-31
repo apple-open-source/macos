@@ -1,5 +1,5 @@
 /* Container.java -- parent container class in AWT
-   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -35,28 +35,29 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.awt;
 
-import java.awt.event.AWTEventListener;
 import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
-import java.awt.event.MouseEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.awt.peer.ContainerPeer;
 import java.awt.peer.LightweightPeer;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
-import java.io.ObjectInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.EventListener;
-import java.util.Iterator;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
+
 import javax.accessibility.Accessible;
 import javax.swing.SwingUtilities;
 
@@ -66,7 +67,7 @@ import javax.swing.SwingUtilities;
  * list or bottom of the stacking order.
  *
  * @author original author unknown
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  *
  * @since 1.0
  *
@@ -146,7 +147,7 @@ public class Container extends Component
   /**
    * Returns the component at the specified index.
    *
-   * @param index The index of the component to retrieve.
+   * @param n The index of the component to retrieve.
    *
    * @return The requested component.
    *
@@ -230,7 +231,7 @@ public class Container extends Component
    * Adds the specified component to this container at the end of the
    * component list.
    *
-   * @param component The component to add to the container.
+   * @param comp The component to add to the container.
    *
    * @return The same component that was added.
    */
@@ -246,7 +247,7 @@ public class Container extends Component
    * <code>add(Component, Object)</code>.
    *
    * @param name The name of the component to be added.
-   * @param component The component to be added.
+   * @param comp The component to be added.
    *
    * @return The same component that was added.
    *
@@ -262,7 +263,7 @@ public class Container extends Component
    * Adds the specified component to this container at the specified index
    * in the component list.
    *
-   * @param component The component to be added.
+   * @param comp The component to be added.
    * @param index The index in the component list to insert this child
    * at, or -1 to add at the end of the list.
    *
@@ -281,7 +282,7 @@ public class Container extends Component
    * component list.  The layout manager will use the specified constraints
    * when laying out this component.
    *
-   * @param component The component to be added to this container.
+   * @param comp The component to be added to this container.
    * @param constraints The layout constraints for this component.
    */
   public void add(Component comp, Object constraints)
@@ -294,7 +295,7 @@ public class Container extends Component
    * in the component list.  The layout manager will use the specified
    * constraints when layout out this component.
    *
-   * @param component The component to be added.
+   * @param comp The component to be added.
    * @param constraints The layout constraints for this component.
    * @param index The index in the component list to insert this child
    * at, or -1 to add at the end of the list.
@@ -313,7 +314,7 @@ public class Container extends Component
    * method.  Any subclass doing this must call the superclass version of
    * this method in order to ensure proper functioning of the container.
    *
-   * @param component The component to be added.
+   * @param comp The component to be added.
    * @param constraints The layout constraints for this component, or
    * <code>null</code> if there are no constraints.
    * @param index The index in the component list to insert this child
@@ -339,8 +340,6 @@ public class Container extends Component
         comp.parent = this;
         if (peer != null)
           {
-            comp.addNotify();
-            
             if (comp.isLightweight ())
 	      {
 		enableEvents (comp.eventMask);
@@ -388,11 +387,14 @@ public class Container extends Component
               layoutMgr.addLayoutComponent(null, comp);
           }
 
-        // Post event to notify of adding the container.
-        ContainerEvent ce = new ContainerEvent(this,
-                                               ContainerEvent.COMPONENT_ADDED,
-                                               comp);
-        getToolkit().getSystemEventQueue().postEvent(ce);
+        if (isShowing ())
+          {
+            // Post event to notify of adding the component.
+            ContainerEvent ce = new ContainerEvent(this,
+                                                   ContainerEvent.COMPONENT_ADDED,
+                                                   comp);
+            getToolkit().getSystemEventQueue().postEvent(ce);
+          }
       }
   }
 
@@ -420,11 +422,14 @@ public class Container extends Component
 
         r.parent = null;
 
-        // Post event to notify of adding the container.
-        ContainerEvent ce = new ContainerEvent(this,
-                                               ContainerEvent.COMPONENT_REMOVED,
-                                               r);
-        getToolkit().getSystemEventQueue().postEvent(ce);
+        if (isShowing ())
+          {
+            // Post event to notify of removing the component.
+            ContainerEvent ce = new ContainerEvent(this,
+                                                   ContainerEvent.COMPONENT_REMOVED,
+                                                   r);
+            getToolkit().getSystemEventQueue().postEvent(ce);
+          }
       }
   }
 
@@ -527,7 +532,7 @@ public class Container extends Component
   /**
    * Recursively invalidates the container tree.
    */
-  private void invalidateTree()
+  void invalidateTree()
   {
     for (int i = 0; i < ncomponents; i++)
       {
@@ -554,10 +559,19 @@ public class Container extends Component
         cPeer.beginValidate();
       }
 
-    doLayout();
     for (int i = 0; i < ncomponents; ++i)
       {
         Component comp = component[i];
+
+        if (comp.getPeer () == null)
+          comp.addNotify();
+      }
+
+    doLayout ();
+    for (int i = 0; i < ncomponents; ++i)
+      {
+        Component comp = component[i];
+
         if (! comp.isValid())
           {
             if (comp instanceof Container)
@@ -572,8 +586,8 @@ public class Container extends Component
       }
 
     /* children will call invalidate() when they are layed out. It
-       is therefore imporant that valid is not set to true
-       before after the children has been layed out. */
+       is therefore important that valid is not set to true
+       until after the children have been layed out. */
     valid = true;
 
     if (cPeer != null)
@@ -698,12 +712,14 @@ public class Container extends Component
    * a superclass method so that lightweight components are properly
    * drawn.
    *
-   * @param graphics The graphics context for this paint job.
+   * @param g The graphics context for this paint job.
    */
   public void paint(Graphics g)
   {
     if (!isShowing())
       return;
+    // Paint self first.
+    super.paint(g);
     // Visit heavyweights as well, in case they were
     // erased when we cleared the background for this container.
     visitChildren(g, GfxPaintVisitor.INSTANCE, false);
@@ -716,7 +732,7 @@ public class Container extends Component
    * a superclass method so that lightweight components are properly
    * drawn.
    *
-   * @param graphics The graphics context for this update.
+   * @param g The graphics context for this update.
    */
   public void update(Graphics g)
   {
@@ -730,7 +746,7 @@ public class Container extends Component
    * a superclass method so that lightweight components are properly
    * drawn.
    *
-   * @param graphics The graphics context for this print job.
+   * @param g The graphics context for this print job.
    */
   public void print(Graphics g)
   {
@@ -741,7 +757,7 @@ public class Container extends Component
   /**
    * Paints all of the components in this container.
    *
-   * @param graphics The graphics context for this paint job.
+   * @param g The graphics context for this paint job.
    */
   public void paintComponents(Graphics g)
   {
@@ -752,7 +768,7 @@ public class Container extends Component
   /**
    * Prints all of the components in this container.
    *
-   * @param graphics The graphics context for this print job.
+   * @param g The graphics context for this print job.
    */
   public void printComponents(Graphics g)
   {
@@ -766,9 +782,9 @@ public class Container extends Component
    *
    * @param listener The listener to add.
    */
-  public synchronized void addContainerListener(ContainerListener l)
+  public synchronized void addContainerListener(ContainerListener listener)
   {
-    containerListener = AWTEventMulticaster.add(containerListener, l);
+    containerListener = AWTEventMulticaster.add(containerListener, listener);
   }
 
   /**
@@ -777,9 +793,9 @@ public class Container extends Component
    *
    * @param listener The listener to remove.
    */
-  public synchronized void removeContainerListener(ContainerListener l)
+  public synchronized void removeContainerListener(ContainerListener listener)
   {
-    containerListener = AWTEventMulticaster.remove(containerListener, l);
+    containerListener = AWTEventMulticaster.remove(containerListener, listener);
   }
 
   /**
@@ -815,7 +831,7 @@ public class Container extends Component
    * <code>ContainerEvent</code>, otherwise it calls the superclass
    * method.
    *
-   * @param event The event to be processed.
+   * @param e The event to be processed.
    */
   protected void processEvent(AWTEvent e)
   {
@@ -829,7 +845,7 @@ public class Container extends Component
    * Called when a container event occurs if container events are enabled.
    * This method calls any registered listeners.
    *
-   * @param event The event that occurred.
+   * @param e The event that occurred.
    */
   protected void processContainerEvent(ContainerEvent e)
   {
@@ -850,7 +866,7 @@ public class Container extends Component
   /**
    * AWT 1.0 event processor.
    *
-   * @param event The event that occurred.
+   * @param e The event that occurred.
    *
    * @deprecated use {@link #dispatchEvent(AWTEvent)} instead
    */
@@ -895,7 +911,8 @@ public class Container extends Component
    * unless the point does not exist within this container, in which
    * case <code>null</code> is returned.
    *
-   * @param point The point to return the component at.
+   * @param x The x position of the point to return the component at.
+   * @param y The y position of the point to return the component at.
    *
    * @return The component containing the specified point, or <code>null</code>
    * if there is no such point.
@@ -931,7 +948,7 @@ public class Container extends Component
    * unless the point does not exist within this container, in which
    * case <code>null</code> is returned.
    *
-   * @param point The point to return the component at.
+   * @param p The point to return the component at.
    * @return The component containing the specified point, or <code>null</code>
    * if there is no such point.
    */
@@ -1007,7 +1024,7 @@ public class Container extends Component
    * Tests whether or not the specified component is contained within
    * this components subtree.
    *
-   * @param component The component to test.
+   * @param comp The component to test.
    *
    * @return <code>true</code> if this container is an ancestor of the
    * specified component, <code>false</code> otherwise.
@@ -1035,18 +1052,21 @@ public class Container extends Component
    */
   protected String paramString()
   {
-    String param = super.paramString();
-    if (layoutMgr != null)
-      param = param + ",layout=" + layoutMgr.getClass().getName();
+    if (layoutMgr == null)
+      return super.paramString();
 
-    return param;
+    StringBuffer sb = new StringBuffer();
+    sb.append(super.paramString());
+    sb.append(",layout=");
+    sb.append(layoutMgr.getClass().getName());
+    return sb.toString();
   }
 
   /**
    * Writes a listing of this container to the specified stream starting
    * at the specified indentation point.
    *
-   * @param stream The <code>PrintStream</code> to write to.
+   * @param out The <code>PrintStream</code> to write to.
    * @param indent The indentation point.
    */
   public void list(PrintStream out, int indent)
@@ -1063,7 +1083,7 @@ public class Container extends Component
    * Writes a listing of this container to the specified stream starting
    * at the specified indentation point.
    *
-   * @param stream The <code>PrintWriter</code> to write to.
+   * @param out The <code>PrintWriter</code> to write to.
    * @param indent The indentation point.
    */
   public void list(PrintWriter out, int indent)
@@ -1666,32 +1686,48 @@ public class Container extends Component
 
   static class GfxPaintVisitor extends GfxVisitor
   {
-    public void visit(Component c, Graphics gfx) { c.paint(gfx); }
     public static final GfxVisitor INSTANCE = new GfxPaintVisitor();
+    
+    public void visit(Component c, Graphics gfx)
+    {
+      c.paint(gfx);
+    }
   }
 
   static class GfxPrintVisitor extends GfxVisitor
   {
-    public void visit(Component c, Graphics gfx) { c.print(gfx); }
     public static final GfxVisitor INSTANCE = new GfxPrintVisitor();
+    
+    public void visit(Component c, Graphics gfx)
+    {
+      c.print(gfx);
+    }
   }
 
   static class GfxPaintAllVisitor extends GfxVisitor
   {
-    public void visit(Component c, Graphics gfx) { c.paintAll(gfx); }
     public static final GfxVisitor INSTANCE = new GfxPaintAllVisitor();
+
+    public void visit(Component c, Graphics gfx)
+    {
+      c.paintAll(gfx);
+    }
   }
 
   static class GfxPrintAllVisitor extends GfxVisitor
   {
-    public void visit(Component c, Graphics gfx) { c.printAll(gfx); }
     public static final GfxVisitor INSTANCE = new GfxPrintAllVisitor();
+
+    public void visit(Component c, Graphics gfx)
+    {
+      c.printAll(gfx);
+    }
   }
 
   /**
    * This class provides accessibility support for subclasses of container.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @author Eric Blake (ebb9@email.byu.edu)
    *
    * @since 1.3
    */
@@ -1780,7 +1816,7 @@ public class Container extends Component
      * This class fires a <code>PropertyChange</code> listener, if registered,
      * when children are added or removed from the enclosing accessible object.
      *
-     * @author Eric Blake <ebb9@email.byu.edu>
+     * @author Eric Blake (ebb9@email.byu.edu)
      *
      * @since 1.3
      */

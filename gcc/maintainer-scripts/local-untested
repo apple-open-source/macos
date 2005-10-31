@@ -1,9 +1,0 @@
-#!/bin/sh
-# APPLE LOCAL file maintenance
-# Use from the toplevel directory.
-
-maintainer-scripts/local-summary gcc >/tmp/locals1
-maintainer-scripts/local-summary gcc/testsuite >/tmp/locals2
-
-diff -u /tmp/locals1 /tmp/locals2 | grep '^-' | sed -e 's/^-//'
-

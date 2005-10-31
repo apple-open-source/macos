@@ -1,15 +1,58 @@
 ========================================================================
 Kerberos.framework Version History
 ========================================================================
-Current version: 5.5fc10
-Date:            March 21, 2005
+Current version: 5.5.1fc1
+Date:            June 15, 2005
 Author:          meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu,
                  mjv@mit.edu, fdabek@mit.edu, yak@mit.edu
 ========================================================================
 
+Kerberos.framework 5.5.1fc1
+June 15, 2005
+
+[RT 2973] Kerberos.app should not specify menu item coloring
+[RT 3070] Deleting empty realm/server/domain from Realms Editor should not ask if ok
+[RT 3072] Use setColumnAutoresizingStyle, not setAutoresizesAllColumnsToFit
+[RT 3071] Dock icon doesn't update when pref to show time in dock icon changes.
+[RT 3020] Authenticate dialog in "renew" mode has no cursor
+[RT 3051] KerberosAgent should disable apple menu
+[RT 3052] KerberosAgent should not have a services menu
+[RT 3095] KerberosAgent dialog text fields should not have contextual menus
+[RT 3055] KLL should not allow empty string password arguments
+[RT 3062] NULL prompt string crashes graphical prompter
+[RT 3069] KLL should inherit ticket_lifetime config option
+[RT 3053] mach_server_become_user does not reregister the service as the new user
+[RT 3068] remove mach_server_become_user
+[RT 3085] MachIPC servers should shed root privileges if necessary
+[RT 3067] Stop checking security trailers
+[RT 3061] CCAPI server relaunch handling code can't handle on-demand servers
+[RT 3074] CFBundleVersion should be build #
+[RT 3093] compile_et fails on strings containing " index "
+[RT 3083] getaddrinfo call shouldn't use faked telnet service
+
+Components:
+	CredentialsCache        3.5.1fc1
+	KClient                 3.4fc1
+	Kerberos5               1.4.2beta
+	KerberosDebug           1.6fc5
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2.1fc1
+	KerberosLogin           1.8.1fc1
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0.1fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
 Kerberos.framework 5.5fc10
 March 21, 2005
 
+[RT 2954] kinit -P and -p flags should apply to proxiability, not forwardability
 [RT 2971] thread_termination doesn't free array of thread specific data
 
 Components:

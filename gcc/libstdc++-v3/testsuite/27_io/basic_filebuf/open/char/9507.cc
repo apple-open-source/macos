@@ -1,4 +1,4 @@
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,25 +42,22 @@ void test_06()
 
   unlink(name);
   try_mkfifo(name, S_IRWXU);
-	
-  if (!fork())
-    {
-      std::filebuf fbuf;
-      fbuf.open(name, std::ios_base::in);
-      fbuf.sgetc();
-      sleep(2);
-      fbuf.close();
-      exit(0);
-    }
-
+  
   std::filebuf fbuf;
-  sleep(1);
+  // The use of ios_base::ate implies an attempt to seek on the file
+  // descriptor.  The seek will fail.  Thus, at the OS level, this
+  // call to "fbuf.open" will result in a call to "open" (which will
+  // succeed), a call to "lseek" (which will fail), and, finally, a
+  // call to "close" (which will succeed).  Thus, after this call, the
+  // file should be closed.
   std::filebuf* r = fbuf.open(name,
 			      std::ios_base::in 
 			      | std::ios_base::out
 			      | std::ios_base::ate);
-  VERIFY( !fbuf.is_open() );
-  VERIFY( r == NULL );
+  if (r == NULL)
+    VERIFY( !fbuf.is_open() );
+  else
+    VERIFY( fbuf.is_open() );
 }
 
 int

@@ -98,6 +98,8 @@ static const NXArchInfo ArchInfoTable[] = {
 	 "Intel Pentium II Model 3" },
     {"pentIIm5", CPU_TYPE_I386, CPU_SUBTYPE_PENTII_M5, NX_LittleEndian,
 	 "Intel Pentium II Model 5" },
+    {"pentium4", CPU_TYPE_I386, CPU_SUBTYPE_PENTIUM_4, NX_LittleEndian,
+	 "Intel Pentium 4" },
     {"ppc601", CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_601,  NX_BigEndian,
 	 "PowerPC 601" },
     {"ppc603", CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_603,  NX_BigEndian,

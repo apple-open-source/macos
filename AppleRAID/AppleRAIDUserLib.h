@@ -260,6 +260,15 @@ CF_EXPORT
 bool AppleRAIDRemoveHeaders(CFStringRef partitionName);
 
 
+/*!
+	@function AppleRAIDDumpHeader
+	@discussion Returns a CFData object for the raw header data.
+	This is intended for internal diagnostic use only.
+	@param partitionName Path to disk partition or raid set.
+*/
+CF_EXPORT
+CFDataRef AppleRAIDDumpHeader(CFStringRef partitionName);
+
 // ********************************************************************************************
 // ********************************************************************************************
 

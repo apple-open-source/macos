@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BuiltIn</key>
+	<false/>
+	<key>CDSAVersion</key>
+	<string>2.0</string>
+	<key>Desc</key>
+	<string>AppleDotMacTP</string>
+	<key>DynamicFlag</key>
+	<false/>
+	<key>MdsFileDescription</key>
+	<string>AppleDotMacTP Common info</string>
+	<key>MdsFileType</key>
+	<string>PluginCommon</string>
+	<key>ModuleID</key>
+	<string>{87191ca7-0fc9-11d4-849a-000502b52122}</string>
+	<key>ModuleName</key>
+	<string>AppleDotMacTP</string>
+	<key>MultiThreadFlag</key>
+	<true/>
+	<key>ProductVersion</key>
+	<string>1.0</string>
+	<key>ServiceMask</key>
+	<string>CSSM_SERVICE_TP</string>
+</dict>
+</plist>

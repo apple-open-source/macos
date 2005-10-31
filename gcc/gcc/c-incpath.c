@@ -1,6 +1,6 @@
 /* Set up combined include path chain for the preprocessor.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    Broken out of cppinit.c and cppfiles.c and rewritten Mar 2003.
 
@@ -29,6 +29,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "c-incpath.h"
 #include "cppdefault.h"
+/* APPLE LOCAL headermaps 3871393 */ 
+#include "errors.h"
 
 /* Windows does not natively support inodes, and neither does MSDOS.
    Cygwin's emulation can generate non-unique inodes, so don't use it.
@@ -363,8 +365,8 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	    }
 	}
       else if (!S_ISDIR (st.st_mode))
+	/* APPLE LOCAL begin headermaps 3871393 */
 	{
-/* APPLE LOCAL begin headermaps 3871393 */
 	  /* Only check for headermap if this is a regular file and if there
 	     is no path-constructor function in CUR. */
 	  if (S_ISREG (st.st_mode) && !cur->construct)
@@ -386,12 +388,12 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 		  continue;
 		}
 	    }
-/* APPLE LOCAL end headermaps 3871393 */
 
 	    /* If we fall through to here, it's some other kind of file.  */
 	    cpp_error_with_line (pfile, CPP_DL_ERROR, 0, 0,
 				 "%s: not a directory", cur->name);
 	}
+        /* APPLE LOCAL end headermaps 3871393 */
       else
 	{
 	  INO_T_COPY (cur->ino, st.st_ino);
@@ -521,7 +523,7 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
 
 #if defined (HAVE_DOS_BASED_FILE_SYSTEM)
   /* Convert all backslashes to slashes.  The native CRT stat()
-     function does not recognise a directory that ends in a backslash
+     function does not recognize a directory that ends in a backslash
      (unless it is a drive root dir, such "c:\").  Forward slashes,
      trailing or otherwise, cause no problems for stat().  */
   char* c;

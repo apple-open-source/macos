@@ -57,5 +57,6 @@ extern void RootlessReenableUpdate (WindowPtr pWin);
 extern void RootlessUpdateRooted (Bool state);
 extern void RootlessHideAllWindows (void);
 extern void RootlessShowAllWindows (void);
+extern void RootlessOrderAllWindows (void);
 
 #endif /* _ROOTLESS_H */

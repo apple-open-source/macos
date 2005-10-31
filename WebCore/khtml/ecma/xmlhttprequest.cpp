@@ -1,4 +1,3 @@
-// -*- c-basic-offset: 2 -*-
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 2004 Apple Computer, Inc.
@@ -178,13 +177,13 @@ Value XMLHttpRequest::getValueProperty(ExecState *exec, int token) const
   case StatusText:
     return getStatusText();
   case Onreadystatechange:
-   if (onReadyStateChangeListener && onReadyStateChangeListener->listenerObjImp()) {
+   if (onReadyStateChangeListener.notNull() && onReadyStateChangeListener->listenerObjImp()) {
      return onReadyStateChangeListener->listenerObj();
    } else {
      return Null();
    }
   case Onload:
-   if (onLoadListener && onLoadListener->listenerObjImp()) {
+   if (onLoadListener.notNull() && onLoadListener->listenerObjImp()) {
      return onLoadListener->listenerObj();
    } else {
      return Null();
@@ -204,12 +203,10 @@ void XMLHttpRequest::putValue(ExecState *exec, int token, const Value& value, in
 {
   switch(token) {
   case Onreadystatechange:
-    onReadyStateChangeListener = Window::retrieveActive(exec)->getJSUnprotectedEventListener(value, true);
-    if (onReadyStateChangeListener) onReadyStateChangeListener->ref();
+    onReadyStateChangeListener.reset(Window::retrieveActive(exec)->getJSUnprotectedEventListener(value, true));
     break;
   case Onload:
-    onLoadListener = Window::retrieveActive(exec)->getJSUnprotectedEventListener(value, true);
-    if (onLoadListener) onLoadListener->ref();
+    onLoadListener.reset(Window::retrieveActive(exec)->getJSUnprotectedEventListener(value, true));
     break;
   default:
     kdWarning() << "HTMLDocument::putValue unhandled token " << token << endl;
@@ -220,10 +217,10 @@ void XMLHttpRequest::mark()
 {
   DOMObject::mark();
 
-  if (onReadyStateChangeListener)
+  if (onReadyStateChangeListener.notNull())
     onReadyStateChangeListener->mark();
 
-  if (onLoadListener)
+  if (onLoadListener.notNull())
     onLoadListener->mark();
 }
 
@@ -234,8 +231,6 @@ XMLHttpRequest::XMLHttpRequest(ExecState *exec, const DOM::Document &d)
     async(true),
     job(0),
     state(Uninitialized),
-    onReadyStateChangeListener(0),
-    onLoadListener(0),
     decoder(0),
     createdDocument(false),
     aborted(false)
@@ -256,13 +251,13 @@ void XMLHttpRequest::changeState(XMLHttpRequestState newState)
   if (state != newState) {
     state = newState;
     
-    if (onReadyStateChangeListener != 0 && doc->part()) {
+    if (doc && doc->part() && onReadyStateChangeListener.notNull()) {
       DOM::Event ev = doc->part()->document().createEvent("HTMLEvents");
       ev.initEvent("readystatechange", true, true);
       onReadyStateChangeListener->handleEvent(ev, true);
     }
     
-    if (state == Completed && onLoadListener != 0 && doc->part()) {
+    if (doc && doc->part() && state == Completed && onLoadListener.notNull()) {
       DOM::Event ev = doc->part()->document().createEvent("HTMLEvents");
       ev.initEvent("load", true, true);
       onLoadListener->handleEvent(ev, true);
@@ -362,7 +357,10 @@ void XMLHttpRequest::send(const QString& _body)
   }
 #endif
 
-  gcProtect (this);
+  {
+    InterpreterLock lock;
+    gcProtect(this);
+  }
   
   qObject->connect( job, SIGNAL( result( KIO::Job* ) ),
 		    SLOT( slotFinished( KIO::Job* ) ) );
@@ -400,8 +398,10 @@ void XMLHttpRequest::abort()
   }
   aborted = true;
 
-  if (hadJob)
+  if (hadJob) {
+    InterpreterLock lock;
     gcUnprotect(this);
+  }
 }
 
 void XMLHttpRequest::setRequestHeader(const QString& name, const QString &value)
@@ -546,7 +546,8 @@ void XMLHttpRequest::slotFinished(KIO::Job *)
     decoder = 0;
   }
 
-  gcUnprotect (this);
+  InterpreterLock lock;
+  gcUnprotect(this);
 }
 
 void XMLHttpRequest::slotRedirection(KIO::Job*, const KURL& url)

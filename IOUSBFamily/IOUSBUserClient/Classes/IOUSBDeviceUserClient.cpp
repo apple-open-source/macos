@@ -28,10 +28,30 @@
 //================================================================================================
 //
 #include <IOKit/usb/IOUSBDeviceUserClient.h>
-#include <sys/proc.h>
+#include <IOKit/IOKitKeys.h>
 
 
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
 #define super IOUserClient
+
+#ifndef kIOUserClientCrossEndianKey
+#define kIOUserClientCrossEndianKey "IOUserClientCrossEndian"
+#endif
+
+#ifndef kIOUserClientCrossEndianCompatibleKey
+#define kIOUserClientCrossEndianCompatibleKey "IOUserClientCrossEndianCompatible"
+#endif
+
+enum {
+    kMethodObjectThis = 0,
+    kMethodObjectOwner
+};
+
 
 //=============================================================================================
 //
@@ -61,24 +81,11 @@
 
 //================================================================================================
 //
-//   Local Definitions
-//
-//================================================================================================
-//
-#define super IOUserClient
-
-enum {
-    kMethodObjectThis = 0,
-    kMethodObjectOwner
-};
-
-//================================================================================================
-//
 //   IOUSBDeviceUserClient Methods
 //
 //================================================================================================
 //
-OSDefineMetaClassAndStructors(IOUSBDeviceUserClient, IOUserClient)
+OSDefineMetaClassAndStructors(IOUSBDeviceUserClient, super)
 
 const IOExternalMethod 
 IOUSBDeviceUserClient::sMethods[kNumUSBDeviceMethods] = {
@@ -122,7 +129,7 @@ IOUSBDeviceUserClient::sMethods[kNumUSBDeviceMethods] = {
 	(IOMethod) &IOUSBDeviceUserClient::GetFrameNumber,
 	kIOUCScalarIStructO,
 	0,
-	0xffffffff
+	sizeof(IOUSBGetFrameStruct)
     },
     { //    kUSBDeviceUserClientDeviceRequestOut
 	(IOService*)kMethodObjectThis,
@@ -147,7 +154,7 @@ IOUSBDeviceUserClient::sMethods[kNumUSBDeviceMethods] = {
     },
     { //    kUSBDeviceUserClientDeviceRequestInOOL
 	(IOService*)kMethodObjectThis,
-	(IOMethod) &IOUSBDeviceUserClient::DeviceReqInOOL,
+	(IOMethod) &IOUSBDeviceUserClient::DeviceReqInOOLv2,
 	kIOUCStructIStructO,
 	sizeof(IOUSBDevRequestTO),
 	sizeof(UInt32)
@@ -273,12 +280,16 @@ IOUSBDeviceUserClient::getAsyncTargetAndMethodForIndex(IOService **target, UInt3
 }
 
 
-
+// Don't add any USBLogs to this routine.   You will panic if you use getName().
 bool
-IOUSBDeviceUserClient::initWithTask(task_t owningTask,void *security_id , UInt32 type )
+IOUSBDeviceUserClient::initWithTask(task_t owningTask,void *security_id , UInt32 type, OSDictionary * properties )
 {
-    USBLog(7, "+%s[%p]::initWithTask", getName(), this);
-    if (!super::initWithTask(owningTask, security_id , type))
+	if ( properties != NULL )
+	{
+		properties->setObject( kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+	}
+	
+    if (!super::initWithTask(owningTask, security_id , type, properties))
         return false;
     
     if (!owningTask)
@@ -290,7 +301,7 @@ IOUSBDeviceUserClient::initWithTask(task_t owningTask,void *security_id , UInt32
     fGate = NULL;
     fDead = false;
     SetExternalMethodVectors();
-    USBLog(7, "-%s[%p]::initWithTask", getName(), this);
+
     return true;
 }
 
@@ -301,72 +312,72 @@ IOUSBDeviceUserClient::start( IOService * provider )
 {
     IOWorkLoop	*		workLoop = NULL;
     IOCommandGate *		commandGate = NULL;
-
+	
     USBLog(7, "+%s[%p]::start(%p)", getName(), this, provider);
-
+	
     IncrementOutstandingIO();		// make sure we don't close until start is done
-
+	
     fOwner = OSDynamicCast(IOUSBDevice, provider);
-
+	
     if (!fOwner)
     {
- 	USBError(1, "%s[%p]::start - provider is NULL!", getName(), this);
-	goto ErrorExit;
+		USBError(1, "%s[%p]::start - provider is NULL!", getName(), this);
+		goto ErrorExit;
     }
     
     if (!super::start(provider))
     {
- 	USBError(1, "%s[%p]::start - super::start returned false!", getName(), this);
+		USBError(1, "%s[%p]::start - super::start returned false!", getName(), this);
         goto ErrorExit;
     }
     
     commandGate = IOCommandGate::commandGate(this);
-
+	
     if (!commandGate)
     {
-	USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
-	goto ErrorExit;
+		USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
+		goto ErrorExit;
     }
-
+	
     workLoop = getWorkLoop();
     if (!workLoop)
     {
-	USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
-	goto ErrorExit;
+		USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
+		goto ErrorExit;
     }
     workLoop->retain();
-        
+	
     if (workLoop->addEventSource(commandGate) != kIOReturnSuccess)
     {
-	USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
-	goto ErrorExit;
+		USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
+		goto ErrorExit;
     }
-
+	
     // Now that we have succesfully added our gate to the workloop, set our member variables
     //
     fGate = commandGate;
     fWorkLoop = workLoop;
     
     DecrementOutstandingIO();
-
+	
     USBLog(7, "-%s[%p]::start", getName(), this);
-
+	
     return true;
     
 ErrorExit:
-    
-    if ( commandGate != NULL )
-    {
-        commandGate->release();
-        commandGate = NULL;
-    }
-
+		
+		if ( commandGate != NULL )
+		{
+			commandGate->release();
+			commandGate = NULL;
+		}
+	
     if ( workLoop != NULL )
     {
         workLoop->release();
         workLoop = NULL;
     }
-
+	
     DecrementOutstandingIO();
     return false;
 }
@@ -378,20 +389,20 @@ IOUSBDeviceUserClient::open(bool seize)
 {
     IOOptionBits	options = (seize ? (IOOptionBits)kIOServiceSeize : 0);
     IOReturn		ret = kIOReturnSuccess;
-
+	
     USBLog(3, "+%s[%p]::open", getName(), this);
     IncrementOutstandingIO();
-
+	
     if (fOwner && !isInactive())
     {
-	if (fOwner->open(this, options))
-	    fNeedToClose = false;
-	else
-	    ret = kIOReturnExclusiveAccess;
+		if (fOwner->open(this, options))
+			fNeedToClose = false;
+		else
+			ret = kIOReturnExclusiveAccess;
     }
     else
         ret = kIOReturnNotAttached;
-
+	
     DecrementOutstandingIO();
     USBLog(3, "-%s[%p]::open - returning %x", getName(), this, ret);    
     return ret;
@@ -412,18 +423,18 @@ IOUSBDeviceUserClient::close()
     
     if (fOwner && !isInactive())
     {
-	if (fOwner->isOpen(this))
-	{
-	    fNeedToClose = true;			// this will cause the DecrementOutstandingIO to close us
-	    if (GetOutstandingIO() > 1)
-	    {
-		// we need to abort any outstanding IO to allow us to close
-		USBLog(3, "%s[%p]::close - outstanding IO - aborting pipe zero", getName(), this);
-		AbortPipeZero();
-	    }
-	}
-	else
-	    ret = kIOReturnNotOpen;
+		if (fOwner->isOpen(this))
+		{
+			fNeedToClose = true;			// this will cause the DecrementOutstandingIO to close us
+			if (GetOutstandingIO() > 1)
+			{
+				// we need to abort any outstanding IO to allow us to close
+				USBLog(3, "%s[%p]::close - outstanding IO - aborting pipe zero", getName(), this);
+				AbortPipeZero();
+			}
+		}
+		else
+			ret = kIOReturnNotOpen;
     }
     else
         ret = kIOReturnNotAttached;
@@ -472,22 +483,26 @@ IOReturn
 IOUSBDeviceUserClient::GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size)
 {
     IOReturn		ret = kIOReturnSuccess;
-    
+	
     if(*size != sizeof(IOUSBGetFrameStruct))
+	{
         return kIOReturnBadArgument;
-
+	}
+	
     IncrementOutstandingIO();
     if (fOwner && !isInactive())
     {
-	clock_get_uptime(&data->timeStamp);
-	data->frame = fOwner->GetBus()->GetFrameNumber();
+		clock_get_uptime(&data->timeStamp);
+		data->frame = fOwner->GetBus()->GetFrameNumber();
+		USBLog(6,"IOUSBDeviceUserClient::GetFrameNumber frame: 0x%qx, timeStamp.hi: 0x%lx, timeStamp.lo: 0x%lx", data->frame, (data->timeStamp).hi, (data->timeStamp).lo);
+		*size = sizeof(IOUSBGetFrameStruct);
     }
     else
         ret = kIOReturnNotAttached;
 	
     DecrementOutstandingIO();
     if (ret)
-	USBLog(3, "%s[%p]::GetFrameNumber - returning err %x", getName(), this, ret);
+		USBLog(3, "%s[%p]::GetFrameNumber - returning err %x", getName(), this, ret);
     return ret;
 }
 
@@ -498,8 +513,11 @@ IOUSBDeviceUserClient::GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 *si
 {
     // This method only available for v2 controllers
     //
-    IOUSBControllerV2	*v2 = OSDynamicCast(IOUSBControllerV2, fOwner->GetBus());
+    IOUSBControllerV2	*v2 = NULL;
     IOReturn		ret = kIOReturnSuccess;
+    
+	if (fOwner)
+		v2 = OSDynamicCast(IOUSBControllerV2, fOwner->GetBus());
     
     if (!v2)
     {
@@ -518,6 +536,7 @@ IOUSBDeviceUserClient::GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 *si
     {
         clock_get_uptime(&data->timeStamp);
         data->frame = v2->GetMicroFrameNumber();
+		USBLog(6,"IOUSBDeviceUserClient::GetMicroFrameNumber frame: 0x%qx, timeStamp.hi: 0x%lx, timeStamp.lo: 0x%lx", data->frame, (data->timeStamp).hi, (data->timeStamp).lo);
     }
     else
     {
@@ -592,7 +611,7 @@ IOUSBDeviceUserClient::GetConfigDescriptor(UInt8 configIndex, IOUSBConfiguration
     IOReturn				ret;
     
 
-    USBLog(7,"%s[%p]::GetConfigDescriptor (%d)", getName(), this, configIndex);
+    USBLog(7,"+%s[%p]::GetConfigDescriptor (Config %d)", getName(), this, configIndex);
     IncrementOutstandingIO();
     if (fOwner && !isInactive())
     {
@@ -615,8 +634,8 @@ IOUSBDeviceUserClient::GetConfigDescriptor(UInt8 configIndex, IOUSBConfiguration
         ret = kIOReturnNotAttached;
 
     DecrementOutstandingIO();
-    if (ret)
-	USBLog(3, "%s[%p]::GetConfigDescriptor - returning err %x", getName(), this, ret);
+   	if (ret)
+		USBLog(5, "%s[%p]::GetConfigDescriptor - returning err %x", getName(), this, ret);
     return ret;
 }
 
@@ -627,28 +646,29 @@ IOUSBDeviceUserClient::CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn,
 {
     OSIterator		*iter;
     IOReturn		ret = kIOReturnSuccess;
-
+	
     IncrementOutstandingIO();
-
+	
     if (fOwner && !isInactive())
     {
-	iter = fOwner->CreateInterfaceIterator(reqIn);
-    
-	if(iter) 
-	{
-	    *outCount = sizeof(io_object_t);
-	    ret = exportObjectToClient(fTask, iter, iterOut);
-	}
-	else
-	    ret = kIOReturnNoMemory;
+		iter = fOwner->CreateInterfaceIterator(reqIn);
+		
+		if(iter) 
+		{
+			*outCount = sizeof(io_object_t);
+			ret = exportObjectToClient(fTask, iter, iterOut);
+		}
+		else
+			ret = kIOReturnNoMemory;
     }
     else
         ret = kIOReturnNotAttached;
     
     DecrementOutstandingIO();
     if (ret)
-	USBLog(3, "%s[%p]::CreateInterfaceIterator - returning err %x", getName(), this, ret);
-    return ret;
+		USBLog(3, "%s[%p]::CreateInterfaceIterator - returning err %x", getName(), this, ret);
+
+	return ret;
 }
 
 
@@ -668,36 +688,37 @@ IOUSBDeviceUserClient::DeviceReqIn(UInt16 param1, UInt32 param2, UInt32 noDataTi
     UInt16			wValue = (param2 >> 16) & 0xFFFF;
     UInt16			wIndex = param2 & 0xFFFF;
     
+	// USBLog(3, "%s[%p]::DeviceReqIn param1: 0x%x, param2: 0x%x, noDataTimeout: 0x%x, completionTimeout: 0x%x", getName(), this, param1, param2, noDataTimeout, completionTimeout);
     IncrementOutstandingIO();
     
     if (fOwner && !isInactive())
     {
-	req.bmRequestType = bmRequestType;
-	req.bRequest = bRequest;
-	req.wValue = wValue;
-	req.wIndex = wIndex;
-	req.wLength = *size;
-	req.pData = buf;
-	req.wLenDone = 0;
-	
-	ret = fOwner->DeviceRequest(&req, noDataTimeout, completionTimeout);
-    
-	if(ret == kIOReturnSuccess) 
-	{
-	    *size = req.wLenDone;
-	}
-	else 
-	{
-	    USBLog(3, "%s[%p]::DeviceReqIn err:0x%x", getName(), this, ret);
-	    *size = 0;
-	}
+		req.bmRequestType = bmRequestType;
+		req.bRequest = bRequest;
+		req.wValue = wValue;
+		req.wIndex = wIndex;
+		req.wLength = *size;
+		req.pData = buf;
+		req.wLenDone = 0;
+		
+		ret = fOwner->DeviceRequest(&req, noDataTimeout, completionTimeout);
+		
+		if(ret == kIOReturnSuccess) 
+		{
+			*size = req.wLenDone;
+		}
+		else 
+		{
+			USBLog(3, "%s[%p]::DeviceReqIn err:0x%x", getName(), this, ret);
+			*size = 0;
+		}
     }
     else
         ret = kIOReturnNotAttached;
-
+	
     DecrementOutstandingIO();
     if (ret)
-	USBLog(3, "%s[%p]::DeviceReqIn - returning err %x", getName(), this, ret);
+		USBLog(3, "%s[%p]::DeviceReqIn - returning err %x", getName(), this, ret);
     return ret;
 }
 
@@ -717,6 +738,7 @@ IOUSBDeviceUserClient::DeviceReqOut(UInt16 param1, UInt32 param2, UInt32 noDataT
     UInt16			wValue = (param2 >> 16) & 0xFFFF;
     UInt16			wIndex = param2 & 0xFFFF;
     
+	// USBLog(3, "%s[%p]::DeviceReqOut param1: 0x%x, param2: 0x%x, noDataTimeout: 0x%x, completionTimeout: 0x%x", getName(), this, param1, param2, noDataTimeout, completionTimeout);
     IncrementOutstandingIO();
 
     if (fOwner && !isInactive())
@@ -749,51 +771,72 @@ IOUSBDeviceUserClient::DeviceReqOut(UInt16 param1, UInt32 param2, UInt32 noDataT
 IOReturn
 IOUSBDeviceUserClient::DeviceReqInOOL(IOUSBDevRequestTO *reqIn, IOByteCount inCount, UInt32 *sizeOut, IOByteCount *outCount)
 {
+	return kIOReturnUnsupported;
+}
+
+OSMetaClassDefineReservedUsed(IOUSBDeviceUserClient,  0);
+IOReturn
+IOUSBDeviceUserClient::DeviceReqInOOLv2(IOUSBDevRequestTO *reqIn, UInt32 *sizeOut, IOByteCount inCount, IOByteCount *outCount)
+{
     IOReturn 			ret;
     IOUSBDevRequestDesc		req;
     IOMemoryDescriptor *	mem;
-
+	
+	
     if((inCount != sizeof(IOUSBDevRequestTO)) || (*outCount != sizeof(UInt32)))
+	{
+		USBLog(5,"IOUSBDeviceUserClient::DeviceReqInOOLv2 returning kIOReturnBadArgument:  inCount = 0x%lx (0x%lx), *outCount = 0x%lx ( 0x%lx )",inCount, sizeof(IOUSBDevRequestTO), *outCount, sizeof(UInt32));
         return kIOReturnBadArgument;
-
+	}
+	
+	USBLog(7, "IOUSBDeviceUserClient::DeviceReqInOOLv2: bmRequestType = 0x%2.2x bRequest = 0x%2.2x wValue = 0x%4.4x wIndex = 0x%4.4x wLength = 0x%4.4x pData = %p noDataTimeout = %ld completionTimeout = %ld\n\tsizeOut = 0x%lx\n",
+		   reqIn->bmRequestType,
+		   reqIn->bRequest,
+		   reqIn->wValue,
+		   reqIn->wIndex,
+		   reqIn->wLength,
+		   reqIn->pData,
+		   reqIn->noDataTimeout,
+		   reqIn->completionTimeout,
+		   *sizeOut);
+	
     IncrementOutstandingIO();
     if (fOwner && !isInactive())
     {
-	mem = IOMemoryDescriptor::withAddress((vm_address_t)reqIn->pData, reqIn->wLength, kIODirectionIn, fTask);
-	if(mem)
-	{
-	    req.bmRequestType = reqIn->bmRequestType;
-	    req.bRequest = reqIn->bRequest;
-	    req.wValue = reqIn->wValue;
-	    req.wIndex = reqIn->wIndex;
-	    req.wLength = reqIn->wLength;
-	    req.pData = mem;
-	    req.wLenDone = 0;
-	
-	    ret = mem->prepare();
-	    if(ret == kIOReturnSuccess)
-		ret = fOwner->DeviceRequest(&req, reqIn->noDataTimeout, reqIn->completionTimeout);
-
-	    mem->complete();
-	    mem->release();
-	    if(ret == kIOReturnSuccess) 
-		*sizeOut = req.wLenDone;
-	    else 
-	    {
-		USBLog(3, "%s[%p]::DeviceReqInOOL err:0x%x", getName(), this, ret);
-		*sizeOut = 0;
-	    }
-	    *outCount = sizeof(UInt32);
-	}
-	else
-	    ret = kIOReturnNoMemory;
+		mem = IOMemoryDescriptor::withAddress((vm_address_t)reqIn->pData, reqIn->wLength, kIODirectionIn, fTask);
+		if(mem)
+		{
+			req.bmRequestType = reqIn->bmRequestType;
+			req.bRequest = reqIn->bRequest;
+			req.wValue = reqIn->wValue;
+			req.wIndex = reqIn->wIndex;
+			req.wLength = reqIn->wLength;
+			req.pData = mem;
+			req.wLenDone = 0;
+			
+			ret = mem->prepare();
+			if(ret == kIOReturnSuccess)
+				ret = fOwner->DeviceRequest(&req, reqIn->noDataTimeout, reqIn->completionTimeout);
+			
+			mem->complete();
+			mem->release();
+			if(ret == kIOReturnSuccess) 
+				*sizeOut = req.wLenDone;
+			else 
+			{
+				*sizeOut = 0;
+			}
+			*outCount = sizeof(UInt32);
+		}
+		else
+			ret = kIOReturnNoMemory;
     }
     else
         ret = kIOReturnNotAttached;
-
+	
     DecrementOutstandingIO();
     if (ret)
-	USBLog(3, "%s[%p]::DeviceReqInOOL - returning err %x", getName(), this, ret);
+		USBLog(3, "%s[%p]::DeviceReqInOOLv2 - returning err %x", getName(), this, ret);
     return ret;
 }
 
@@ -808,8 +851,20 @@ IOUSBDeviceUserClient::DeviceReqInAsync(OSAsyncReference asyncRef, IOUSBDevReque
     IOMemoryDescriptor *	mem = NULL;
 
     if(inCount != sizeof(IOUSBDevRequestTO))
+	{
+		USBLog(5,"IOUSBDeviceUserClient::DeviceReqInAsync returning kIOReturnBadArgument:  inCount = 0x%lx (0x%lx)",inCount, sizeof(IOUSBDevRequestTO));
         return kIOReturnBadArgument;
+	}
 
+	USBLog(7, "IOUSBDeviceUserClient::DeviceReqInAsync: bmRequestType = 0x%2.2x bRequest = 0x%2.2x wValue = 0x%4.4x wIndex = 0x%4.4x wLength = 0x%4.4x pData = %p noDataTimeout = %ld completionTimeout = %ld",
+		   reqIn->bmRequestType,
+		   reqIn->bRequest,
+		   reqIn->wValue,
+		   reqIn->wIndex,
+		   reqIn->wLength,
+		   reqIn->pData,
+		   reqIn->noDataTimeout,
+		   reqIn->completionTimeout);
     retain();
     IncrementOutstandingIO();
     if (fOwner && !isInactive())
@@ -887,7 +942,20 @@ IOUSBDeviceUserClient::DeviceReqOutOOL(IOUSBDevRequestTO *reqIn, IOByteCount inC
     IOMemoryDescriptor *	mem;
 
     if(inCount != sizeof(IOUSBDevRequestTO))
+	{
+		USBLog(5,"IOUSBDeviceUserClient::DeviceReqOutOOL returning kIOReturnBadArgument:  inCount = 0x%lx (0x%lx)",inCount, sizeof(IOUSBDevRequestTO));
         return kIOReturnBadArgument;
+	}
+	
+	USBLog(7, "IOUSBDeviceUserClient::DeviceReqOutOOL: bmRequestType = 0x%2.2x bRequest = 0x%2.2x wValue = 0x%4.4x wIndex = 0x%4.4x wLength = 0x%4.4x pData = %p noDataTimeout = %ld completionTimeout = %ld\n",
+		   reqIn->bmRequestType,
+		   reqIn->bRequest,
+		   reqIn->wValue,
+		   reqIn->wIndex,
+		   reqIn->wLength,
+		   reqIn->pData,
+		   reqIn->noDataTimeout,
+		   reqIn->completionTimeout);
 
     IncrementOutstandingIO();
     if (fOwner && !isInactive())
@@ -930,7 +998,20 @@ IOUSBDeviceUserClient::DeviceReqOutAsync(OSAsyncReference asyncRef, IOUSBDevRequ
     IOMemoryDescriptor *	mem = NULL;
 
     if(inCount != sizeof(IOUSBDevRequestTO))
+	{
+		USBLog(5,"IOUSBDeviceUserClient::DeviceReqOutAsync returning kIOReturnBadArgument:  inCount = 0x%lx (0x%lx)",inCount, sizeof(IOUSBDevRequestTO));
         return kIOReturnBadArgument;
+	}
+	
+	USBLog(7, "IOUSBDeviceUserClient::DeviceReqOutAsync: bmRequestType = 0x%2.2x bRequest = 0x%2.2x wValue = 0x%4.4x wIndex = 0x%4.4x wLength = 0x%4.4x pData = %p noDataTimeout = %ld completionTimeout = %ld\n\n",
+		   reqIn->bmRequestType,
+		   reqIn->bRequest,
+		   reqIn->wValue,
+		   reqIn->wIndex,
+		   reqIn->wLength,
+		   reqIn->pData,
+		   reqIn->noDataTimeout,
+		   reqIn->completionTimeout);
 
     retain();
     IncrementOutstandingIO();		// to make sure ReqComplete is still around
@@ -1073,22 +1154,35 @@ IOUSBDeviceUserClient::clientClose( void )
     //
     IOSleep(1);
     
-    if ( fOutstandingIO == 0 )
-    {
-        USBLog(5, "+%s[%p]::clientClose closing provider", getName(), this);
-        fOwner->close(this);
-        if ( fDead) release();
-    }
-    else
-    {
-        USBLog(5, "+%s[%p]::clientClose will close provider later", getName(), this);
-        fNeedToClose = true;
-    }
-    
-    fTask = NULL;
+	// If we are already inactive, it means that our IOUSBDevice is going/has gone away.  In that case
+	// we really do not need to do anything as the IOKit termination will take care of cleaning things.
+	if ( !isInactive() )
+	{
+		if ( fOutstandingIO == 0 )
+		{
+			USBLog(6, "+%s[%p]::clientClose closing provider", getName(), this);
+			if ( fOwner )
+			{
+				// Since this is call that tells us that our user space client has gone away, we can
+				// close our provider.  We don't set it to NULL because the IOKit object representing
+				// it has not gone away.  That will come in thru did/willTerminate.  Also, we should
+				// be checking whether fOwner was open before closing it, but we will do that later.
+				fOwner->close(this);
+			}
+			if ( fDead) 
+				release();
+		}
+		else
+		{
+			USBLog(5, "+%s[%p]::clientClose will close provider later", getName(), this);
+			fNeedToClose = true;
+		}
+		
+		fTask = NULL;
     	
-    terminate();			// this will call stop eventually
-    
+		terminate();			// this will call stop eventually
+    }
+	
     USBLog(7, "-%s[%p]::clientClose()", getName(), this);
 
     return kIOReturnSuccess;		// DONT call super::clientClose, which just returns notSupported
@@ -1101,14 +1195,14 @@ IOUSBDeviceUserClient::clientDied( void )
 {
     IOReturn ret;
     
-    USBLog(5, "+%s[%p]::clientDied", getName(), this);
+    USBLog(6, "+%s[%p]::clientDied", getName(), this);
 
     retain();                       // We will release once any outstandingIO is finished
     
-    fDead = true;			// don't send mach messages in this case
+    fDead = true;					// don't send mach messages in this case
     ret = super::clientDied();		// this just calls clientClose
 
-    USBLog(5, "-%s[%p]::clientDied", getName(), this);
+    USBLog(6, "-%s[%p]::clientDied", getName(), this);
 
     return ret;
 }
@@ -1178,7 +1272,7 @@ IOUSBDeviceUserClient::willTerminate( IOService * provider, IOOptionBits options
     // we have begun getting our callbacks in order. by the time we get here, the 
     // isInactive flag is set, so we really are marked as being done. we will do in here
     // what we used to do in the message method (this happens first)
-    USBLog(3, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
+    USBLog(6, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
 
     //  We have seen cases where our fOwner is not valid at this point.  This is strange
     //  but we'll code defensively and only execute if our provider (fOwner) is still around
@@ -1209,12 +1303,16 @@ IOUSBDeviceUserClient::didTerminate( IOService * provider, IOOptionBits options,
     // this method comes at the end of the termination sequence. Hopefully, all of our outstanding IO is complete
     // in which case we can just close our provider and IOKit will take care of the rest. Otherwise, we need to 
     // hold on to the device and IOKit will terminate us when we close it later
-    USBLog(3, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), fOutstandingIO);
+    USBLog(6, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), fOutstandingIO);
 
     if ( fOwner )
     {
         if ( fOutstandingIO == 0 )
+		{
             fOwner->close(this);
+			if ( isInactive() )
+				fOwner = NULL;
+		}
         else
             fNeedToClose = true;
     }
@@ -1231,8 +1329,15 @@ IOUSBDeviceUserClient::DecrementOutstandingIO(void)
 	if (!--fOutstandingIO && fNeedToClose)
 	{
 	    USBLog(3, "%s[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %d - closing device", getName(), this, isInactive(), fOutstandingIO);
-	    fOwner->close(this);
-            if ( fDead) release();
+			if ( fOwner )
+			{
+				fOwner->close(this);
+				if ( isInactive() )
+					fOwner = NULL;
+			}
+			
+            if ( fDead) 
+				release();
 	}
 	return;
     }
@@ -1273,8 +1378,16 @@ IOUSBDeviceUserClient::ChangeOutstandingIO(OSObject *target, void *param1, void 
 	    if (!--me->fOutstandingIO && me->fNeedToClose)
 	    {
 		USBLog(3, "%s[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %d - closing device", me->getName(), me, me->isInactive(), me->fOutstandingIO);
-		me->fOwner->close(me);
-                if ( me->fDead) me->release();
+				
+				if (me->fOwner) 
+				{
+					me->fOwner->close(me);
+					if ( me->isInactive() )
+						me->fOwner = NULL;
+				}
+				
+                if ( me->fDead) 
+					me->release();
 	    }
 	    break;
 	    
@@ -1318,7 +1431,6 @@ IOUSBDeviceUserClient::GetGatedOutstandingIO(OSObject *target, void *param1, voi
 
 // padding methods
 //
-OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  0);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  1);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  2);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClient,  3);

@@ -1,2 +1,0 @@
->>> Serialize memo fields
-<<< done.

@@ -74,8 +74,8 @@ look_back_for_slash (const char *name, const char *p)
 static char *
 build_suffix_name (const char *name, const char *suffix)
 {
-  size_t suffixlen = strlen (suffix);
-  size_t namelen = strlen (name);
+  int suffixlen = strlen (suffix);
+  int namelen = strlen (name);
   char *name_with_suffix;
 
   if (suffixlen > 0)
@@ -124,9 +124,9 @@ search_for_name_in_path (const char *name, const char *path, const char *suffix)
   char *name_with_suffix;
   int name_with_suffix_len;
   const char *p, *cur;
-  size_t curlen;
-  size_t namelen;
-  size_t pathlen;
+  int curlen;
+  int namelen;
+  int pathlen;
   struct stat stat_buf;
 
   namelen = strlen (name);
@@ -282,7 +282,10 @@ get_framework_pathname (const char *name, const char *type, int with_suffix)
   if (b == name)
     return (NULL);
   c = look_back_for_slash (name, b);
-  if (c == NULL || c == name)
+  if (c == NULL)
+    return NULL;
+
+  if (c == name)
     {
       if (c == NULL)
 	return (NULL);
@@ -629,10 +632,14 @@ dyld_init_paths (dyld_path_info * d)
   const char *default_fallback_framework_path =
     "%s/Library/Frameworks:"
     "/Local/Library/Frameworks:"
-    "/Network/Library/Frameworks:" "/System/Library/Frameworks";
+    "/Network/Library/Frameworks:" 
+    "/System/Library/Frameworks";
 
   const char *default_fallback_library_path =
-    "%s/lib:" "/usr/local/lib:" "/lib:" "/usr/lib";
+    "%s/lib:" 
+    "/usr/local/lib:" 
+    "/lib:" 
+    "/usr/lib";
 
   /* Neither framework path searching nor library insertion is done
      for setuid programs which are not run by the real user.  */

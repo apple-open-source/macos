@@ -1,5 +1,5 @@
 /* Interface for the GNU C++ pretty-printer.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -69,9 +69,7 @@ void pp_cxx_colon_colon (cxx_pretty_printer *);
 void pp_cxx_separate_with (cxx_pretty_printer *, int);
 
 void pp_cxx_declaration (cxx_pretty_printer *, tree);
-void pp_cxx_function_definition (cxx_pretty_printer *, tree);
 void pp_cxx_canonical_template_parameter (cxx_pretty_printer *, tree);
-void pp_cxx_statement (cxx_pretty_printer *, tree);
 
 
 #endif /* GCC_CXX_PRETTY_PRINT_H */

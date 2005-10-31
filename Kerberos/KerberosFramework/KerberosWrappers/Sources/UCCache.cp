@@ -311,7 +311,7 @@ UCCache::GetCredentialsForService (
 	UCredentials credentials;
 	
 	while (iterator.Next (credentials)) {
-		if (inPrincipal == credentials.GetServicePrincipal ())
+		if (credentials.GetServicePrincipal () == inPrincipal)
 			return credentials;
 	}
 	
@@ -332,7 +332,7 @@ UCCache::DeleteCredentialsForService (
 	UCredentials theCredentials;
 	
 	while (iterator.Next (theCredentials)) {
-		if (inPrincipal == theCredentials.GetServicePrincipal ()) {
+		if (theCredentials.GetServicePrincipal () == inPrincipal) {
 			cc_int32 ccErr = cc_ccache_remove_credentials (Get (), theCredentials.Get ());
 			ThrowIfCCacheError (ccErr);
 		}

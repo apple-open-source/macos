@@ -1,5 +1,5 @@
 /* Lower complex number and vector operations to scalar operations.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
    
@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "flags.h"
+#include "ggc.h"
 
 
 /* Extract the real or imaginary part of a complex variable or constant.
@@ -104,6 +105,40 @@ expand_complex_addition (block_stmt_iterator *bsi, tree inner_type,
   update_complex_assignment (bsi, rr, ri);
 }
 
+/* Expand a complex multiplication or division to a libcall to the c99
+   compliant routines.  */
+
+static void
+expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
+			tree br, tree bi, enum tree_code code)
+{
+  enum machine_mode mode;
+  enum built_in_function bcode;
+  tree args, fn, stmt, type;
+
+  args = tree_cons (NULL, bi, NULL);
+  args = tree_cons (NULL, br, args);
+  args = tree_cons (NULL, ai, args);
+  args = tree_cons (NULL, ar, args);
+
+  stmt = bsi_stmt (*bsi);
+  type = TREE_TYPE (TREE_OPERAND (stmt, 1));
+
+  mode = TYPE_MODE (type);
+  gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
+  if (code == MULT_EXPR)
+    bcode = BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+  else if (code == RDIV_EXPR)
+    bcode = BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+  else
+    gcc_unreachable ();
+  fn = built_in_decls[bcode];
+
+  TREE_OPERAND (stmt, 1)
+    = build3 (CALL_EXPR, type, build_fold_addr_expr (fn), args, NULL);
+  modify_stmt (stmt);
+}
+
 /* Expand complex multiplication to scalars:
 	a * b = (ar*br - ai*bi) + i(ar*bi + br*ai)
 */
@@ -113,6 +148,12 @@ expand_complex_multiplication (block_stmt_iterator *bsi, tree inner_type,
 			       tree ar, tree ai, tree br, tree bi)
 {
   tree t1, t2, t3, t4, rr, ri;
+
+  if (flag_complex_method == 2 && SCALAR_FLOAT_TYPE_P (inner_type))
+    {
+      expand_complex_libcall (bsi, ar, ai, br, bi, MULT_EXPR);
+      return;
+    }
 
   t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, br);
   t2 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, bi);
@@ -168,7 +209,8 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 			 tree ar, tree ai, tree br, tree bi,
 			 enum tree_code code)
 {
-  tree rr, ri, ratio, div, t1, t2, min, max, cond;
+  tree rr, ri, ratio, div, t1, t2, tr, ti, cond;
+  basic_block bb_cond, bb_true, bb_false, bb_join;
 
   /* Examine |br| < |bi|, and branch.  */
   t1 = gimplify_build1 (bsi, ABS_EXPR, inner_type, br);
@@ -176,29 +218,14 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
   cond = fold (build (LT_EXPR, boolean_type_node, t1, t2));
   STRIP_NOPS (cond);
 
-  if (TREE_CONSTANT (cond))
+  bb_cond = bb_true = bb_false = bb_join = NULL;
+  rr = ri = tr = ti = NULL;
+  if (!TREE_CONSTANT (cond))
     {
-      if (integer_zerop (cond))
-	min = bi, max = br;
-      else
-	min = br, max = bi;
-    }
-  else
-    {
-      basic_block bb_cond, bb_true, bb_false, bb_join;
-      tree l1, l2, l3;
       edge e;
 
-      l1 = create_artificial_label ();
-      t1 = build (GOTO_EXPR, void_type_node, l1);
-      l2 = create_artificial_label ();
-      t2 = build (GOTO_EXPR, void_type_node, l2);
-      cond = build (COND_EXPR, void_type_node, cond, t1, t2);
+      cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
       bsi_insert_before (bsi, cond, BSI_SAME_STMT);
-
-      min = make_rename_temp (inner_type, NULL);
-      max = make_rename_temp (inner_type, NULL);
-      l3 = create_artificial_label ();
 
       /* Split the original block, and create the TRUE and FALSE blocks.  */
       e = split_block (bsi->bb, cond);
@@ -207,12 +234,17 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
       bb_true = create_empty_bb (bb_cond);
       bb_false = create_empty_bb (bb_true);
 
+      t1 = build (GOTO_EXPR, void_type_node, tree_block_label (bb_true));
+      t2 = build (GOTO_EXPR, void_type_node, tree_block_label (bb_false));
+      COND_EXPR_THEN (cond) = t1;
+      COND_EXPR_ELSE (cond) = t2;
+
       /* Wire the blocks together.  */
       e->flags = EDGE_TRUE_VALUE;
       redirect_edge_succ (e, bb_true);
       make_edge (bb_cond, bb_false, EDGE_FALSE_VALUE);
-      make_edge (bb_true, bb_join, 0);
-      make_edge (bb_false, bb_join, 0);
+      make_edge (bb_true, bb_join, EDGE_FALLTHRU);
+      make_edge (bb_false, bb_join, EDGE_FALLTHRU);
 
       /* Update dominance info.  Note that bb_join's data was
          updated by split_block.  */
@@ -222,46 +254,92 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
           set_immediate_dominator (CDI_DOMINATORS, bb_false, bb_cond);
         }
 
-      /* Compute min and max for TRUE block.  */
-      *bsi = bsi_start (bb_true);
-      t1 = build (LABEL_EXPR, void_type_node, l1);
-      bsi_insert_after (bsi, t1, BSI_NEW_STMT);
-      t1 = build (MODIFY_EXPR, inner_type, min, br);
-      bsi_insert_after (bsi, t1, BSI_NEW_STMT);
-      t1 = build (MODIFY_EXPR, inner_type, max, bi);
-      bsi_insert_after (bsi, t1, BSI_NEW_STMT);
-
-      /* Compute min and max for FALSE block.  */
-      *bsi = bsi_start (bb_false);
-      t1 = build (LABEL_EXPR, void_type_node, l2);
-      bsi_insert_after (bsi, t1, BSI_NEW_STMT);
-      t1 = build (MODIFY_EXPR, inner_type, min, bi);
-      bsi_insert_after (bsi, t1, BSI_NEW_STMT);
-      t1 = build (MODIFY_EXPR, inner_type, max, br);
-      bsi_insert_after (bsi, t1, BSI_NEW_STMT);
-
-      /* Insert the join label into the tail of the original block.  */
-      *bsi = bsi_start (bb_join);
-      t1 = build (LABEL_EXPR, void_type_node, l3);
-      bsi_insert_before (bsi, t1, BSI_SAME_STMT);
+      rr = make_rename_temp (inner_type, NULL);
+      ri = make_rename_temp (inner_type, NULL);
     }
-  
-  /* Now we have MIN(|br|, |bi|) and MAX(|br|, |bi|).  We now use the
-     ratio min/max to scale both the dividend and divisor.  */
-  ratio = gimplify_build2 (bsi, code, inner_type, min, max);
 
-  /* Calculate the divisor: min*ratio + max.  */
-  t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, min, ratio);
-  div = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, max);
+  /* In the TRUE branch, we compute
+      ratio = br/bi;
+      div = (br * ratio) + bi;
+      tr = (ar * ratio) + ai;
+      ti = (ai * ratio) - ar;
+      tr = tr / div;
+      ti = ti / div;  */
+  if (bb_true || integer_nonzerop (cond))
+    {
+      if (bb_true)
+	{
+	  *bsi = bsi_last (bb_true);
+	  bsi_insert_after (bsi, build_empty_stmt (), BSI_NEW_STMT);
+	}
 
-  /* Result is now ((ar + ai*ratio)/div) + i((ai - ar*ratio)/div).  */
-  t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, ratio);
-  t2 = gimplify_build2 (bsi, PLUS_EXPR, inner_type, ar, t1);
-  rr = gimplify_build2 (bsi, code, inner_type, t2, div);
+      ratio = gimplify_build2 (bsi, code, inner_type, br, bi);
 
-  t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, ratio);
-  t2 = gimplify_build2 (bsi, MINUS_EXPR, inner_type, ai, t1);
-  ri = gimplify_build2 (bsi, code, inner_type, t2, div);
+      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, br, ratio);
+      div = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, bi);
+
+      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, ratio);
+      tr = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, ai);
+
+      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, ratio);
+      ti = gimplify_build2 (bsi, MINUS_EXPR, inner_type, t1, ar);
+
+      tr = gimplify_build2 (bsi, code, inner_type, tr, div);
+      ti = gimplify_build2 (bsi, code, inner_type, ti, div);
+
+     if (bb_true)
+       {
+	 t1 = build (MODIFY_EXPR, inner_type, rr, tr);
+	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
+	 t1 = build (MODIFY_EXPR, inner_type, ri, ti);
+	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
+	 bsi_remove (bsi);
+       }
+    }
+
+  /* In the FALSE branch, we compute
+      ratio = d/c;
+      divisor = (d * ratio) + c;
+      tr = (b * ratio) + a;
+      ti = b - (a * ratio);
+      tr = tr / div;
+      ti = ti / div;  */
+  if (bb_false || integer_zerop (cond))
+    {
+      if (bb_false)
+	{
+	  *bsi = bsi_last (bb_false);
+	  bsi_insert_after (bsi, build_empty_stmt (), BSI_NEW_STMT);
+	}
+
+      ratio = gimplify_build2 (bsi, code, inner_type, bi, br);
+
+      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, bi, ratio);
+      div = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, br);
+
+      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, ratio);
+      tr = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, ar);
+
+      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, ratio);
+      ti = gimplify_build2 (bsi, MINUS_EXPR, inner_type, ai, t1);
+
+      tr = gimplify_build2 (bsi, code, inner_type, tr, div);
+      ti = gimplify_build2 (bsi, code, inner_type, ti, div);
+
+     if (bb_false)
+       {
+	 t1 = build (MODIFY_EXPR, inner_type, rr, tr);
+	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
+	 t1 = build (MODIFY_EXPR, inner_type, ri, ti);
+	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
+	 bsi_remove (bsi);
+       }
+    }
+
+  if (bb_join)
+    *bsi = bsi_start (bb_join);
+  else
+    rr = tr, ri = ti;
 
   update_complex_assignment (bsi, rr, ri);
 }
@@ -273,18 +351,27 @@ expand_complex_division (block_stmt_iterator *bsi, tree inner_type,
 			 tree ar, tree ai, tree br, tree bi,
 			 enum tree_code code)
 {
-  switch (flag_complex_divide_method)
+  switch (flag_complex_method)
     {
     case 0:
       /* straightforward implementation of complex divide acceptable.  */
       expand_complex_div_straight (bsi, inner_type, ar, ai, br, bi, code);
       break;
+
+    case 2:
+      if (SCALAR_FLOAT_TYPE_P (inner_type))
+	{
+	  expand_complex_libcall (bsi, ar, ai, br, bi, code);
+	  return;
+	}
+      /* FALLTHRU */
+
     case 1:
       /* wide ranges of inputs must work for complex divide.  */
       expand_complex_div_wide (bsi, inner_type, ar, ai, br, bi, code);
       break;
+
     default:
-      /* C99-like requirements for complex divide (not yet implemented).  */
       gcc_unreachable ();
     }
 }
@@ -509,25 +596,30 @@ build_replicated_const (tree type, tree inner_type, HOST_WIDE_INT value)
   return ret;
 }
 
+static GTY(()) tree vector_inner_type;
+static GTY(()) tree vector_last_type;
+static GTY(()) int vector_last_nunits;
+
 /* Return a suitable vector types made of SUBPARTS units each of mode
    "word_mode" (the global variable).  */
 static tree
 build_word_mode_vector_type (int nunits)
 {
-  static tree innertype;
-  static tree last;
-  static int last_nunits;
-
-  if (!innertype)
-    innertype = lang_hooks.types.type_for_mode (word_mode, 1);
-  else if (last_nunits == nunits)
-    return last;
+  if (!vector_inner_type)
+    vector_inner_type = lang_hooks.types.type_for_mode (word_mode, 1);
+  else if (vector_last_nunits == nunits)
+    {
+      gcc_assert (TREE_CODE (vector_last_type) == VECTOR_TYPE);
+      return vector_last_type;
+    }
 
   /* We build a new type, but we canonicalize it nevertheless,
      because it still saves some memory.  */
-  last_nunits = nunits;
-  last = type_hash_canon (nunits, build_vector_type (innertype, nunits));
-  return last;
+  vector_last_nunits = nunits;
+  vector_last_type = type_hash_canon (nunits,
+				      build_vector_type (vector_inner_type,
+							 nunits));
+  return vector_last_type;
 }
 
 typedef tree (*elem_op_func) (block_stmt_iterator *,
@@ -953,3 +1045,5 @@ struct tree_opt_pass pass_pre_expand =
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
 };
+
+#include "gt-tree-complex.h"

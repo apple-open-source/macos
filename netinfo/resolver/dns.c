@@ -80,6 +80,29 @@ extern res_state res_build_start(res_state res);
 extern int res_build(res_state res, uint16_t port, uint32_t *nsrch, char *key, char *val);
 extern int res_build_sortlist(res_state res, struct in_addr addr, struct in_addr mask);
 
+static void
+_pdns_set_name(pdns_handle_t *pdns, const char *name)
+{
+	int n;
+
+	if (pdns == NULL) return;
+	if (name == NULL) return;
+
+	/* only set the name once */
+	if (pdns->name != NULL) return;
+
+	/* strip trailing dots */
+	n = strlen(name) - 1;
+	while ((n >= 0) && (name[n] == '.')) n--;
+
+	if (n < 0) return;
+
+	n++;
+	pdns->name = calloc(n + 1, sizeof(char));
+	if (pdns->name == NULL) return;
+	memcpy(pdns->name, name, n);
+}
+
 static pdns_handle_t *
 _pdns_build_start(char *name)
 {
@@ -95,7 +118,7 @@ _pdns_build_start(char *name)
 		return NULL;
 	}
 
-	if (name != NULL) pdns->name = strdup(name);
+	_pdns_set_name(pdns, name);
 	pdns->port = NS_DEFAULTPORT;
 
 	return pdns;
@@ -398,8 +421,8 @@ _pdns_sc_open(const char *name)
 	}
 
 	pdns->name = NULL;
-	if (pdns->res->defdname[0] != '\0') pdns->name = strdup(pdns->res->defdname);
-	else if (name != NULL) pdns->name = strdup(name);
+	if (pdns->res->defdname[0] != '\0') _pdns_set_name(pdns, pdns->res->defdname);
+	else if (name != NULL) _pdns_set_name(pdns, name);
 		
 	if (name != NULL) pdns->search_count = -1;
 
@@ -485,17 +508,13 @@ _pdns_file_open(const char *name)
 			y = res_next_word(&p);
 			_pdns_build(pdns, x, y);
 
-			if ((!strcmp(x, "domain")) && (pdns->name == NULL)) pdns->name = strdup(y);
+			if ((!strcmp(x, "domain")) && (pdns->name == NULL)) _pdns_set_name(pdns, y);
 		}
 	}
 
 	fclose(fp);
 
-	if (pdns->name == NULL)
-	{
-		if (name == NULL) pdns->name = strdup("nil");
-		else pdns->name = strdup(name);
-	}
+	if (pdns->name == NULL) _pdns_set_name(pdns, name);
 
 	_pdns_build_finish(pdns);
 
@@ -538,7 +557,7 @@ _pdns_free(pdns_handle_t *pdns)
 
 	if (pdns == NULL) return;
 
-	if (pdns->search_count > 0)
+	if ((pdns->search_count != -1) && (pdns->search_count > 0))
 	{
 		for (i = 0; i < pdns->search_count; i++) free(pdns->search_list[i]);
 		free(pdns->search_list);
@@ -552,25 +571,42 @@ _pdns_free(pdns_handle_t *pdns)
 
 /*
  * If there was no search list, use domain name and parent domain components.
+ *
+ * N.B. This code deals with multiple trailing dots, but does not deal with
+ * multiple internal dots, e.g. "foo.....com".  
  */
 static void
 _pdns_check_search_list(pdns_handle_t *pdns)
 {
 	int n;
 	char *p;
-	
+
 	if (pdns == NULL) return;
 	if (pdns->name == NULL) return;
 	if (pdns->search_count > 0) return;
-	
-	n = 1;
+
+	/* Count dots */
+	n = 0;
 	for (p = pdns->name; *p != '\0'; p++) 
 	{
 		if (*p == '.') n++;
 	}
-	
+
+	/* Back up over any trailing dots and cut them out of the name */
+	for (p--; (p >= pdns->name) && (*p == '.'); p--)
+	{
+		*p = '\0';
+		n--;
+	}
+
+	/* This will be true if name was all dots */
+	if (p < pdns->name) return;
+
+	/* dots are separators, so number of components is one larger */
+	n++;
+
 	_pdns_build(pdns, "search", pdns->name);
-	
+
 	/* Include parent domains with at least LOCALDOMAINPARTS components */
 	p = pdns->name;
 	while (n > LOCALDOMAINPARTS)
@@ -579,7 +615,7 @@ _pdns_check_search_list(pdns_handle_t *pdns)
 		while ((*p != '.') && (*p != '\0')) p++;
 		if (*p == '\0') break;
 		p++;
-		
+
 		n--;
 		_pdns_build(pdns, "search", p);
 	}

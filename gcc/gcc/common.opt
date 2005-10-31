@@ -1,6 +1,6 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -29,7 +29,7 @@ Display this information
 
 -param
 Common Separate
---param <param>=<value>	Set paramter <param> to value.  See below for a complete list of parameters
+--param <param>=<value>	Set parameter <param> to value.  See below for a complete list of parameters
 
 -target-help
 Common
@@ -161,9 +161,10 @@ Wunused-variable
 Common Var(warn_unused_variable)
 Warn when a variable is unused
 
-; APPLE LOCAL fat builds
+; APPLE LOCAL begin fat builds
 arch
 Common Separate
+; APPLE LOCAL end fat builds
 
 aux-info
 Common Separate
@@ -204,29 +205,53 @@ falign-functions
 Common Report Var(align_functions,0)
 Align the start of functions
 
+; APPLE LOCAL begin 4096997
 falign-functions=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Var(align_functions) VarExists
 
+; APPLE LOCAL end 4096997
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 falign-jumps
-Common Report Var(align_jumps,0)
+Common Report Var(align_jumps,0) VarUint PerFunc
 Align labels which are only reached by jumping
 
 falign-jumps=
+Common RejectNegative Joined UInteger Var(align_jumps) VarExists VarUint PerFunc
+
+; APPLE LOCAL begin falign-jumps-max-skip
+
+falign-jumps-max-skip
+Common Report Var(align_jumps_max_skip,0)
+
+falign-jumps-max-skip=
 Common RejectNegative Joined UInteger
 
+; APPLE LOCAL end falign-jumps-max-skip
+
 falign-labels
-Common Report Var(align_labels,0)
+Common Report Var(align_labels,0) VarUint PerFunc
 Align all labels
 
 falign-labels=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Var(align_labels) VarExists PerFunc VarUint
 
 falign-loops
-Common Report Var(align_loops)
+Common Report Var(align_loops) VarUint PerFunc
 Align the start of loops
 
 falign-loops=
+Common RejectNegative Joined UInteger Var(align_loops) VarExists PerFunc VarUint
+
+; APPLE LOCAL end optimization pragmas 3124235/3420242
+; APPLE LOCAL begin falign-loops-max-skip
+
+falign-loops-max-skip
+Common Report Var(align_loops_max_skip,0)
+
+falign-loops-max-skip=
 Common RejectNegative Joined UInteger
+
+; APPLE LOCAL end falign-loops-max-skip
 
 ; APPLE LOCAL begin predictive compilation
 fpredictive-compilation
@@ -268,25 +293,29 @@ fbounds-check
 Common Report Var(flag_bounds_check)
 Generate code to check bounds before indexing arrays
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fbranch-count-reg
-Common Report Var(flag_branch_on_count_reg) Init(1)
+Common Report Var(flag_branch_on_count_reg) Init(1) PerFunc
 Replace add, compare, branch with branch on count register
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fbranch-probabilities
 Common Report Var(flag_branch_probabilities)
 Use profiling information for branch probabilities
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fbranch-target-load-optimize
-Common Report Var(flag_branch_target_load_optimize)
+Common Report Var(flag_branch_target_load_optimize) PerFunc
 Perform branch target load optimization before prologue / epilogue threading
 
 fbranch-target-load-optimize2
-Common Report Var(flag_branch_target_load_optimize2)
+Common Report Var(flag_branch_target_load_optimize2) PerFunc
 Perform branch target load optimization after prologue / epilogue threading
 
 fbtr-bb-exclusive
-Common Report Var(flag_btr_bb_exclusive)
+Common Report Var(flag_btr_bb_exclusive) PerFunc
 Restrict target load migration not to re-use registers in any basic block
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fcall-saved-
 Common Joined RejectNegative
@@ -299,17 +328,21 @@ Common Joined RejectNegative
 ; Nonzero for -fcaller-saves: allocate values in regs that need to
 ; be saved across function calls, if that produces overall better code.
 ; Optional now, so people can test it.
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fcaller-saves
-Common Report Var(flag_caller_saves)
+Common Report Var(flag_caller_saves) PerFunc
 Save registers around function calls
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fcommon
 Common Report Var(flag_no_common,0)
 Do not put uninitialized globals in the common section
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fcprop-registers
-Common Report Var(flag_cprop_registers)
+Common Report Var(flag_cprop_registers) PerFunc
 Perform a register copy-propagation optimization pass
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ; APPLE LOCAL begin new profiling flag
 fcreate-profile
@@ -317,17 +350,23 @@ Common
 Enable common options for generating profile info for profile feedback directed optimizations
 ; APPLE LOCAL end new profiling flag
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fcrossjumping
-Common Report Var(flag_crossjumping)
+Common Report Var(flag_crossjumping) PerFunc
 Perform cross-jumping optimization
 
 fcse-follow-jumps
-Common Report Var(flag_cse_follow_jumps)
+Common Report Var(flag_cse_follow_jumps) PerFunc
 When running CSE, follow jumps to their targets
 
 fcse-skip-blocks
-Common Report Var(flag_cse_skip_blocks)
+Common Report Var(flag_cse_skip_blocks) PerFunc
 When running CSE, follow conditional jumps
+
+fcx-limited-range
+Common Report Var(flag_cx_limited_range) PerFunc
+Omit range reduction step when performing complex division
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fdata-sections
 Common Report Var(flag_data_sections)
@@ -335,17 +374,19 @@ Place data items into their own section
 
 ; Nonzero for -fdefer-pop: don't pop args after each function call
 ; instead save them up to pop many calls' args with one insns.
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fdefer-pop
-Common Report Var(flag_defer_pop)
+Common Report Var(flag_defer_pop) PerFunc
 Defer popping functions args from stack until later
 
 fdelayed-branch
-Common Report Var(flag_delayed_branch)
+Common Report Var(flag_delayed_branch) PerFunc
 Attempt to fill delay slots of branch instructions
 
 fdelete-null-pointer-checks
-Common Report Var(flag_delete_null_pointer_checks)
+Common Report Var(flag_delete_null_pointer_checks) PerFunc
 Delete useless null pointer checks
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fdiagnostics-show-location=
 Common Joined RejectNegative
@@ -375,73 +416,81 @@ fexceptions
 Common Report Var(flag_exceptions)
 Enable exception handling
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fexpensive-optimizations
-Common Report Var(flag_expensive_optimizations)
+Common Report Var(flag_expensive_optimizations) PerFunc
 Perform a number of minor, expensive optimizations
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ffast-math
 Common
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 ffinite-math-only
-Common Report Var(flag_finite_math_only)
+Common Report Var(flag_finite_math_only) PerFunc
 Assume no NaNs or infinities are generated
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ffixed-
 Common Joined RejectNegative
 -ffixed-<register>	Mark <register> as being unavailable to the compiler
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 ffloat-store
-Common Report Var(flag_float_store)
+Common Report Var(flag_float_store) PerFunc
 Don't allocate floats and doubles in extended-precision registers
 
 ; Nonzero for -fforce-addr: load memory address into a register before
 ; reference to memory.  This makes better cse but slower compilation.
 fforce-addr
-Common Report Var(flag_force_addr)
+Common Report Var(flag_force_addr) PerFunc
 Copy memory address constants into registers before use
 
 ; Nonzero for -fforce-mem: load memory value into a register
 ; before arithmetic on it.  This makes better cse but slower compilation.
 fforce-mem
-Common Report Var(flag_force_mem)
+Common Report Var(flag_force_mem) PerFunc
 Copy memory operands into registers before use
 
 ; Nonzero means don't put addresses of constant functions in registers.
 ; Used for compiling the Unix kernel, where strange substitutions are
 ; done on the assembly output.
 ffunction-cse
-Common Report Var(flag_no_function_cse,0)
+Common Report Var(flag_no_function_cse,0) PerFunc
 Allow function addresses to be held in registers
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ffunction-sections
 Common Report Var(flag_function_sections)
 Place each function into its own section
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fgcse
-Common Report Var(flag_gcse)
+Common Report Var(flag_gcse) PerFunc
 Perform global common subexpression elimination
 
 fgcse-lm
-Common Report Var(flag_gcse_lm) Init(1)
+Common Report Var(flag_gcse_lm) Init(1) PerFunc
 Perform enhanced load motion during global common subexpression elimination
 
 fgcse-sm
-Common Report Var(flag_gcse_sm) Init(0)
+Common Report Var(flag_gcse_sm) Init(0) PerFunc
 Perform store motion after global common subexpression elimination
 
 fgcse-las
-Common Report Var(flag_gcse_las) Init(0)
+Common Report Var(flag_gcse_las) Init(0) PerFunc
 Perform redundant load after store elimination in global common subexpression
 elimination
 
 fgcse-after-reload
-Common Report Var(flag_gcse_after_reload)
+Common Report Var(flag_gcse_after_reload) PerFunc
 Perform global common subexpression elimination after register allocation
 has finished.
 
 fguess-branch-probability
-Common Report Var(flag_guess_branch_prob)
+Common Report Var(flag_guess_branch_prob) PerFunc
 Enable guessing of branch probabilities
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ; Nonzero means ignore `#ident' directives.  0 means handle them.
 ; Generate position-independent code for executables if possible
@@ -451,13 +500,15 @@ fident
 Common Report Var(flag_no_ident,0)
 Process #ident directives
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fif-conversion
-Common Report Var(flag_if_conversion)
+Common Report Var(flag_if_conversion) PerFunc
 Perform conversion of conditional jumps to branchless equivalents
 
 fif-conversion2
-Common Report Var(flag_if_conversion2)
+Common Report Var(flag_if_conversion2) PerFunc
 Perform conversion of conditional jumps to conditional execution
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ; -finhibit-size-directive inhibits output of .size for ELF.
 ; This is used only for compiling crtstuff.c,
@@ -491,15 +542,11 @@ finstrument-functions
 Common Report Var(flag_instrument_function_entry_exit)
 Instrument function entry and exit with profiling calls
 
-; APPLE LOCAL begin lno
-fivcanon
-Common Report Var(flag_ivcanon)
-Create canonical induction variables in loops
-; APPLE LOCAL end lno
-
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fivopts
-Common Report Var(flag_ivopts) Init(1)
+Common Report Var(flag_ivopts) Init(1) PerFunc
 Optimize induction variables on trees
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fkeep-inline-functions
 Common Report Var(flag_keep_inline_functions)
@@ -513,21 +560,27 @@ fleading-underscore
 Common Report Var(flag_leading_underscore) Init(-1)
 Give external symbols a leading underscore
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 floop-optimize
-Common Report Var(flag_loop_optimize)
+Common Report Var(flag_loop_optimize) PerFunc
 Perform loop optimizations
 
 floop-optimize2
-Common Report Var(flag_loop_optimize2)
+Common Report Var(flag_loop_optimize2) PerFunc
 Perform loop optimizations using the new loop optimizer
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
+; APPLE LOCAL begin lno
 floop-test
 Common Report Var(flag_tree_ssa_loop_test)
 Run loop optimizer tests
+; APPLE LOCAL end lno
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fmath-errno
-Common Report Var(flag_errno_math) Init(1)
+Common Report Var(flag_errno_math) Init(1) PerFunc
 Set errno after built-in math functions
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fmem-report
 Common Report Var(mem_report)
@@ -548,13 +601,15 @@ fmessage-length=
 Common RejectNegative Joined UInteger
 -fmessage-length=<number>	Limit diagnostics to <number> characters per line.  0 suppresses line-wrapping
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fmodulo-sched
-Common Report Var(flag_modulo_sched)
+Common Report Var(flag_modulo_sched) PerFunc
 Perform SMS based modulo scheduling before the first scheduling pass
 
 fmove-loop-invariants
-Common Report Var(flag_move_loop_invariants)
+Common Report Var(flag_move_loop_invariants) PerFunc
 Move loop invariant computations out of loops
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fmudflap
 Common RejectNegative Report Var(flag_mudflap)
@@ -568,13 +623,11 @@ fmudflapir
 Common RejectNegative Report Var(flag_mudflap_ignore_reads)
 Ignore read operations when inserting mudflap instrumentation.
 
-fnew-ra
-Common Report Var(flag_new_regalloc)
-Use graph-coloring register allocation
-
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 freschedule-modulo-scheduled-loops
-Common Report Var(flag_resched_modulo_sched)
+Common Report Var(flag_resched_modulo_sched) PerFunc
 Enable/Disable the traditional scheduling in loops that already passed modulo scheduling
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fnon-call-exceptions
 Common Report Var(flag_non_call_exceptions)
@@ -586,17 +639,19 @@ Common Report Var(flag_obey_inline) VarExists
 Obey 'inline' keyword and always inline, regardless of size
 ; APPLE LOCAL end -fobey-inline
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fomit-frame-pointer
-Common Report Var(flag_omit_frame_pointer)
+Common Report Var(flag_omit_frame_pointer) PerFunc VarUint
 When possible do not generate stack frames
 
 foptimize-register-move
-Common Report Var(flag_regmove)
+Common Report Var(flag_regmove) PerFunc
 Do the full register move optimization pass
 
 foptimize-sibling-calls
-Common Report Var(flag_optimize_sibling_calls)
+Common Report Var(flag_optimize_sibling_calls) PerFunc
 Optimize sibling and tail recursive calls
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fpack-struct
 Common Report Var(flag_pack_struct)
@@ -616,17 +671,19 @@ fpcc-struct-return
 Common Report Var(flag_pcc_struct_return,1) VarExists
 Return small aggregates in memory, not registers
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fpeel-loops
-Common Report Var(flag_peel_loops)
+Common Report Var(flag_peel_loops) PerFunc
 Perform loop peeling
 
 fpeephole
-Common Report Var(flag_no_peephole,0)
+Common Report Var(flag_no_peephole,0) PerFunc
 Enable machine specific peephole optimizations
 
 fpeephole2
-Common Report Var(flag_peephole2)
+Common Report Var(flag_peephole2) PerFunc
 Enable an RTL peephole pass before sched2
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fPIC
 Common Report Var(flag_pic,2)
@@ -650,9 +707,11 @@ Common Var(flag_fppc) VarExists
 Perform floating-point precision-control pass
 ; APPLE LOCAL end -ffppc 2001-08-01 --sts
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fprefetch-loop-arrays
-Common Report Var(flag_prefetch_loop_arrays)
+Common Report Var(flag_prefetch_loop_arrays) PerFunc
 Generate prefetch instructions, if available, for arrays in loops
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fprofile
 Common Report Var(profile_flag)
@@ -685,73 +744,77 @@ freg-struct-return
 Common Report Var(flag_pcc_struct_return,0) VarExists
 Return small aggregates in registers
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fregmove
-Common Report Var(flag_regmove)
+Common Report Var(flag_regmove) PerFunc VarExists
 Enables a register move optimization
 
 frename-registers
-Common Report Var(flag_rename_registers)
+Common Report Var(flag_rename_registers) PerFunc
 Perform a register renaming optimization pass
 
 freorder-blocks
-Common Report Var(flag_reorder_blocks)
+Common Report Var(flag_reorder_blocks) PerFunc
 Reorder basic blocks to improve code placement
 
 freorder-blocks-and-partition
-Common Report Var(flag_reorder_blocks_and_partition)
+Common Report Var(flag_reorder_blocks_and_partition) PerFunc
 Reorder basic blocks and partition into hot and cold sections
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 freorder-functions
 Common Report Var(flag_reorder_functions)
 Reorder functions to improve code placement
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 frerun-cse-after-loop
-Common Report Var(flag_rerun_cse_after_loop)
+Common Report Var(flag_rerun_cse_after_loop) PerFunc
 Add a common subexpression elimination pass after loop optimizations
 
 frerun-loop-opt
-Common Report Var(flag_rerun_loop_opt)
+Common Report Var(flag_rerun_loop_opt) PerFunc
 Run the loop optimizer twice
 
 frounding-math
-Common Report Var(flag_rounding_math)
+Common Report Var(flag_rounding_math) PerFunc
 Disable optimizations that assume default FP rounding behavior
 
 fsched-interblock
-Common Report Var(flag_schedule_interblock) Init(1)
+Common Report Var(flag_schedule_interblock) Init(1) PerFunc
 Enable scheduling across basic blocks
 
 fsched-spec
-Common Report Var(flag_schedule_speculative) Init(1)
+Common Report Var(flag_schedule_speculative) Init(1) PerFunc
 Allow speculative motion of non-loads
 
 fsched-spec-load
-Common Report Var(flag_schedule_speculative_load)
+Common Report Var(flag_schedule_speculative_load) PerFunc
 Allow speculative motion of some loads
 
 fsched-spec-load-dangerous
-Common Report Var(flag_schedule_speculative_load_dangerous)
+Common Report Var(flag_schedule_speculative_load_dangerous) PerFunc
 Allow speculative motion of more loads
 
 fsched-verbose=
-Common RejectNegative Joined
+Common RejectNegative Joined Var(sched_verbose_param) UInteger PerFunc VarUint
 -fsched-verbose=<number>	Set the verbosity level of the scheduler
 
 fsched2-use-superblocks
-Common Report Var(flag_sched2_use_superblocks)
+Common Report Var(flag_sched2_use_superblocks) PerFunc
 If scheduling post reload, do superblock scheduling
 
 fsched2-use-traces
-Common Report Var(flag_sched2_use_traces)
+Common Report Var(flag_sched2_use_traces) PerFunc
 If scheduling post reload, do trace scheduling
 
 fschedule-insns
-Common Report Var(flag_schedule_insns)
+Common Report Var(flag_schedule_insns) PerFunc
 Reschedule instructions before register allocation
 
 fschedule-insns2
-Common Report Var(flag_schedule_insns_after_reload)
+Common Report Var(flag_schedule_insns_after_reload) PerFunc
 Reschedule instructions after register allocation
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ; sched_stalled_insns means that insns can be moved prematurely from the queue
 ; of stalled insns into the ready list.
@@ -761,27 +824,31 @@ Allow premature scheduling of queued insns
 
 fsched-stalled-insns=
 Common RejectNegative Joined UInteger 
--fsched-stalled-insns=<number>       Set number of queued insns that can be prematurely scheduled
+-fsched-stalled-insns=<number>	Set number of queued insns that can be prematurely scheduled
 
 ; sched_stalled_insns_dep controls how many recently scheduled cycles will
 ; be examined for a dependency on a stalled insn that is candidate for
 ; premature removal from the queue of stalled insns into the ready list (has
 ; an effect only if the flag 'sched_stalled_insns' is set).
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fsched-stalled-insns-dep
-Common Report Var(flag_sched_stalled_insns_dep,1) Init(1)
+Common Report Var(flag_sched_stalled_insns_dep,1) Init(1) PerFunc VarUint
 Set dependence distance checking in premature scheduling of queued insns
 
 fsched-stalled-insns-dep=
-Common RejectNegative Joined UInteger
--fsched-stalled-insns-dep=<number>   Set dependence distance checking in premature scheduling of queued insns
+Common RejectNegative Joined UInteger Var(flag_sched_stalled_insns_dep) VarExists VarUint PerFunc
+-fsched-stalled-insns-dep=<number>	Set dependence distance checking in premature scheduling of queued insns
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fshared-data
 Common Report Var(flag_shared_data)
 Mark data as shared rather than private
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fsignaling-nans
-Common Report Var(flag_signaling_nans)
+Common Report Var(flag_signaling_nans) PerFunc
 Disable optimizations observable by IEEE signaling NaNs
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 fsingle-precision-constant
 Common Report Var(flag_single_precision_constant)
@@ -791,13 +858,15 @@ fspeculative-prefetching
 Common Report Var(flag_speculative_prefetching)
 Use value profiling for speculative prefetching
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fsplit-ivs-in-unroller
-Common Report Var(flag_split_ivs_in_unroller) Init(1)
+Common Report Var(flag_split_ivs_in_unroller) Init(1) PerFunc
 Split lifetimes of induction variables when loops are unrolled.
 
 fvariable-expansion-in-unroller
-Common Report Var(flag_variable_expansion_in_unroller) 
+Common Report Var(flag_variable_expansion_in_unroller) PerFunc
 Apply variable expansion when loops are unrolled.
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ; Emit code to probe the stack, to help detect stack overflow; also
 ; may cause large objects to be allocated dynamically.
@@ -816,9 +885,11 @@ fstack-limit-symbol=
 Common RejectNegative Joined
 -fstack-limit-symbol=<name>	Trap if the stack goes past symbol <name>
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fstrength-reduce
-Common Report Var(flag_strength_reduce)
+Common Report Var(flag_strength_reduce) PerFunc
 Perform strength reduction optimizations
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ; Nonzero if we should do (language-dependent) alias analysis.
 ; Typically, this analysis will assume that expressions of certain
@@ -836,9 +907,11 @@ ftest-coverage
 Common Report Var(flag_test_coverage)
 Create data files needed by \"gcov\"
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fthread-jumps
-Common Report Var(flag_thread_jumps)
+Common Report Var(flag_thread_jumps) PerFunc
 Perform jump threading optimizations
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ftime-report
 Common Report Var(time_report)
@@ -848,121 +921,110 @@ ftls-model=
 Common Joined RejectNegative
 -ftls-model=[global-dynamic|local-dynamic|initial-exec|local-exec]	Set the default thread-local storage code generation model
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 ftracer
-Common Report Var(flag_tracer)
+Common Report Var(flag_tracer) PerFunc
 Perform superblock formation via tail duplication
 
 ; Zero means that floating-point math operations cannot generate a
 ; (user-visible) trap.  This is the case, for example, in nonstop
 ; IEEE 754 arithmetic.
 ftrapping-math
-Common Report Var(flag_trapping_math) Init(1)
+Common Report Var(flag_trapping_math) Init(1) PerFunc
 Assume floating-point operations can trap
 
 ftrapv
-Common Report Var(flag_trapv)
+Common Report Var(flag_trapv) PerFunc
 Trap for signed overflow in addition, subtraction and multiplication
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ftree-based-profiling
 Common Report Var(flag_tree_based_profiling)
 Use tree-ssa based implementation of profiling
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 ftree-ccp
-Common Report Var(flag_tree_ccp)
+Common Report Var(flag_tree_ccp) PerFunc
 Enable SSA-CCP optimization on trees
 
 ftree-ch
-Common Report Var(flag_tree_ch)
+Common Report Var(flag_tree_ch) PerFunc
 Enable loop header copying on trees
 
 ftree-combine-temps
-Common Report Var(flag_tree_combine_temps)
+Common Report Var(flag_tree_combine_temps) PerFunc
 Coalesce memory temporaries in the SSA->normal pass
 
 ftree-copyrename
-Common Report Var(flag_tree_copyrename)
+Common Report Var(flag_tree_copyrename) PerFunc
 Replace SSA temporaries with better names in copies.
 
 ftree-dce
-Common Report Var(flag_tree_dce)
+Common Report Var(flag_tree_dce) PerFunc
 Enable SSA dead code elimination optimization on trees
 
 ftree-dominator-opts
-Common Report Var(flag_tree_dom)
+Common Report Var(flag_tree_dom) PerFunc
 Enable dominator optimizations
 
 ftree-dse
-Common Report Var(flag_tree_dse)
+Common Report Var(flag_tree_dse) PerFunc
 Enable dead store elimination
 
-; APPLE LOCAL begin lno
-ftree-elim-checks
-Common Report Var(flag_tree_elim_checks)
-Eliminate checks based on scalar evolution informations
-
-ftree-loop-linear
-Common Report Var(flag_tree_loop_linear)
-Enable linear loop transforms on trees
-; APPLE LOCAL end lno
-
 ftree-fre
-Common Report Var(flag_tree_fre)
+Common Report Var(flag_tree_fre) PerFunc
 Enable Full Redundancy Elimination (FRE) on trees
 
 ftree-loop-im
-Common Report Var(flag_tree_loop_im) Init(1)
+Common Report Var(flag_tree_loop_im) Init(1) PerFunc
 Enable loop invariant motion on trees
 
 ftree-loop-linear
-Common Report Var(flag_tree_loop_linear)
+Common Report Var(flag_tree_loop_linear) PerFunc
 Enable linear loop transforms on trees
 
 ftree-loop-ivcanon
-Common Report Var(flag_tree_loop_ivcanon) Init(1)
+Common Report Var(flag_tree_loop_ivcanon) Init(1) PerFunc
 Create canonical induction variables in loops
 
 ; APPLE LOCAL begin loops-to-memset
 ftree-loop-memset
-Common Report Var(flag_tree_loop_memset) Init(0)
+Common Report Var(flag_tree_loop_memset) Init(0) PerFunc
 Transform appropriate loops to memset calls
 ; APPLE LOCAL end loops-to-memset
 
 ftree-loop-optimize
-Common Report Var(flag_tree_loop_optimize) Init(1)
+Common Report Var(flag_tree_loop_optimize) Init(1) PerFunc
 Enable loop optimizations on tree level
 
 ftree-pre
-Common Report Var(flag_tree_pre)
+Common Report Var(flag_tree_pre) PerFunc
 Enable SSA-PRE optimization on trees
 
-; APPLE LOCAL begin lno
-ftree-vectorize
-Common Report Var(flag_tree_vectorize)
-Enable loop vectorization on trees
-; APPLE LOCAL end lno
-
 ftree-sra
-Common Report Var(flag_tree_sra)
+Common Report Var(flag_tree_sra) PerFunc
 Perform scalar replacement of aggregates
 
 ftree-ter
-Common Report Var(flag_tree_ter)
+Common Report Var(flag_tree_ter) PerFunc
 Replace temporary expressions in the SSA->normal pass
 
 ftree-lrs
-Common Report Var(flag_tree_live_range_split)
+Common Report Var(flag_tree_live_range_split) PerFunc
 Perform live range splitting during the SSA->normal pass.
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 funit-at-a-time
 Common Report Var(flag_unit_at_a_time)
 Compile whole compilation unit at a time
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 funroll-loops
-Common Report Var(flag_unroll_loops)
+Common Report Var(flag_unroll_loops) PerFunc
 Perform loop unrolling when iteration count is known
 
 funroll-all-loops
-Common Report Var(flag_unroll_all_loops)
+Common Report Var(flag_unroll_all_loops) PerFunc
 Perform loop unrolling for all loops
 
 ; Nonzero means that unsafe floating-point math optimizations are allowed
@@ -970,12 +1032,13 @@ Perform loop unrolling for all loops
 ; are allowed to assume that their arguments and results are "normal"
 ; (e.g., nonnegative for SQRT).
 funsafe-math-optimizations
-Common Report Var(flag_unsafe_math_optimizations)
+Common Report Var(flag_unsafe_math_optimizations) PerFunc
 Allow math optimizations that may violate IEEE or ISO standards
 
 funswitch-loops
-Common Report Var(flag_unswitch_loops)
+Common Report Var(flag_unswitch_loops) PerFunc
 Perform loop unswitching
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 funwind-tables
 Common Report Var(flag_unwind_tables)
@@ -991,9 +1054,15 @@ fvar-tracking
 Common Report Var(flag_var_tracking) VarExists
 Perform variable tracking
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 ftree-vectorize
-Common Report Var(flag_tree_vectorize)
+Common Report Var(flag_tree_vectorize) PerFunc
 Enable loop vectorization on trees
+; APPLE LOCAL end optimization pragmas 3124235/3420242
+
+ftree-vectorizer-verbose=
+Common RejectNegative Joined
+-ftree-vectorizer-verbose=<number>	Set the verbosity level of the vectorizer
 
 ; -fverbose-asm causes extra commentary information to be produced in
 ; the generated assembly code (to make it more readable).  This option
@@ -1014,13 +1083,15 @@ fvpt
 Common Report Var(flag_value_profile_transformations)
 Use expression value profiles in optimizations
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fweb
-Common Report Var(flag_web) Init(0)
+Common Report Var(flag_web) Init(0) PerFunc
 Construct webs and split unrelated uses of single variable
 
 fwrapv
-Common Report Var(flag_wrapv)
+Common Report Var(flag_wrapv) PerFunc
 Assume signed arithmetic overflow wraps around
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 ; APPLE LOCAL begin fwritable strings
 fwritable-strings
@@ -1081,9 +1152,11 @@ o
 Common Joined Separate
 -o <file>	Place output into <file>
 
+; APPLE LOCAL begin optimization pragmas 3124235/3420242
 p
-Common Var(profile_flag)
+Common Var(profile_flag) VarExists
 Enable function profiling
+; APPLE LOCAL end optimization pragmas 3124235/3420242
 
 pedantic
 Common Var(pedantic)

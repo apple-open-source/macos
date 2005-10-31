@@ -171,7 +171,7 @@ static u_int8_t interface[17];
 static pthread_t resolverthread = 0;
 static int 	resolverfds[2];
 static int 	peer_route_set = 0;		/* has a route to the peer been set ? */
-static int	echo_timer_running = 0;
+//static int	echo_timer_running = 0;
 static int	transport_up = 1;
 static int	wait_interface_timer_running = 0;
 

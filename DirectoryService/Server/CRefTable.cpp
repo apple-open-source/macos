@@ -27,8 +27,6 @@
 
 #include "CRefTable.h"
 #include "CLog.h"
-//DSSERVERTCP needed to direct TCP error logging
-#define DSSERVERTCP 1
 #include "DSNetworkUtilities.h"
 
 #include <stdlib.h>

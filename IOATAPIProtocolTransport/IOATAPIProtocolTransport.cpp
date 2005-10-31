@@ -42,6 +42,7 @@
 #include <IOKit/ata/IOATACommand.h>
 #include <IOKit/IOSyncer.h>
 #include <IOKit/scsi/SCSICommandOperationCodes.h>
+#include <IOKit/scsi/SCSITask.h>
 #include <IOKit/scsi/SCSITaskDefinition.h>			// Remove me when API is available for IsAutosenseRequested()
 
 #include "IOATAPIProtocolTransport.h"
@@ -796,12 +797,20 @@ IOATAPIProtocolTransport::SCSITaskCallbackFunction ( IOATACommand * cmd,
 		case kATATimeoutErr:
 			{
 				
+				SCSITaskStatus		taskStatus;
+				
+				if ( result == kATATimeoutErr )
+					taskStatus = kSCSITaskStatus_TaskTimeoutOccurred;
+				
+				else if ( result == kATAErrDevBusy )
+					taskStatus = kSCSITaskStatus_DeviceNotResponding;
+				
 				// Reset the device because the device is hung
 				clientData->self->ResetATAPIDevice ( );
 				SetRealizedDataTransferCount ( scsiTask, bytesTransferred );
 				CompleteSCSITask ( 	scsiTask,
 									kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE,
-									kSCSITaskStatus_No_Status );
+									taskStatus );
 				
 				// Since we reset the device, message the upper layer to check its configuration
 				// and do anything it needs to do
@@ -844,7 +853,7 @@ IOATAPIProtocolTransport::SCSITaskCallbackFunction ( IOATACommand * cmd,
 				SetRealizedDataTransferCount ( scsiTask, bytesTransferred );
 				CompleteSCSITask ( 	scsiTask,
 									kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE,
-									kSCSITaskStatus_No_Status );
+									kSCSITaskStatus_DeliveryFailure );
 								
 			}
 			break;
@@ -879,19 +888,7 @@ IOATAPIProtocolTransport::CompleteSCSITask ( 	SCSITaskIdentifier	request,
 SCSIServiceResponse
 IOATAPIProtocolTransport::AbortSCSICommand ( SCSITaskIdentifier request )
 {
-		
-	STATUS_LOG ( ( "IOATAPIProtocolTransport::AbortSCSICommand called\n" ) );
-	if ( request == NULL )
-	{
-		
-		STATUS_LOG ( ( "IOATAPIProtocolTransport::AbortSCSICommand called with a NULL request\n" ) );
-		return kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-		
-	}
-	
-	//еее Eventually, we might be able to support this if the ATA stack changes
 	return kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	
 }
 
 
@@ -1336,6 +1333,10 @@ IOATAPIProtocolTransport::AllocateATACommandObjects ( void )
 	fIdentifyCommand = fATADevice->allocCommand ( );
 	assert ( fIdentifyCommand != NULL );
 	
+	clientData = ( ATAPIClientData * ) IOMalloc ( sizeof ( ATAPIClientData ) );
+	bzero ( clientData, sizeof ( ATAPIClientData ) );
+	fIdentifyCommand->refCon = ( void * ) clientData;
+	
 	for ( UInt32 index = 0; index < kIOATAPICommandPoolSize; index++ )
 	{
 		
@@ -1406,6 +1407,11 @@ IOATAPIProtocolTransport::DeallocateATACommandObjects ( void )
 	configData->syncer->release ( );
 	IOFree ( configData, sizeof ( ATAPIConfigData ) );
 	configData = NULL;
+	
+	clientData = ( ATAPIClientData * ) fIdentifyCommand->refCon;
+	assert ( clientData != NULL );
+	IOFree ( clientData, sizeof ( ATAPIClientData ) );
+	clientData = NULL;
 	
 	// release "special" comands
 	fATADevice->freeCommand ( fConfigCommand );
@@ -1624,7 +1630,10 @@ IOATAPIProtocolTransport::IdentifyATAPIDevice ( void )
 
 	IOReturn		theErr 			= kIOReturnSuccess;
 	IOSyncer *		syncer			= NULL;
-
+	void *			previousRefCon	= NULL;
+	
+	previousRefCon = fIdentifyCommand->refCon;
+	
 	syncer = IOSyncer::create ( );
 	assert ( syncer != NULL );
 	
@@ -1667,6 +1676,8 @@ IOATAPIProtocolTransport::IdentifyATAPIDevice ( void )
 	#endif
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::IdentifyATAPIDevice exiting with theErr = %ld.\n", theErr ) );
+	
+	fIdentifyCommand->refCon = previousRefCon;
 	
 	return theErr;
 	

@@ -69,7 +69,6 @@ eaptls_introspect(EAPClientPluginFuncName name);
 extern CFDictionaryRef		userOptions;	/* user options from pppd */
 
 
-
 /* ------------------------------------------------------------------------------------
 get the EAP dictionary from the options
 ------------------------------------------------------------------------------------ */ 
@@ -169,10 +168,10 @@ int Init (struct EAP_Input *eap_in, void **context)
 	bzero(&eapData, sizeof(eapData));
 	
     /* remaining fields are read-only: */
-    eapData.log_enabled = 1;
-    eapData.log_level = LOG_ERR;
-	eapData.mtu = eap_in->mtu;
-    eapData.generation = 0; /* changed when user updates */
+	*((bool *)&eapData.log_enabled) = 1;
+	*((uint32_t *)&eapData.log_level) = LOG_ERR;
+	*((uint32_t *)&eapData.mtu) = eap_in->mtu;
+	*((uint32_t *)&eapData.generation) = 0;/* changed when user updates */
 
 	fd = open("/dev/random", O_RDONLY);
     if (fd < 0) {
@@ -186,13 +185,13 @@ int Init (struct EAP_Input *eap_in, void **context)
 	close(fd);
 
     eapData.unique_id = eaptls_unique;  /* used for TLS session resumption */
-	eapData.unique_id_length = strlen(eapData.unique_id);
+	*((uint32_t *)&eapData.unique_id_length) = strlen(eapData.unique_id);
 
     eapData.username = eap_in->identity;
-    eapData.username_length = strlen(eapData.username);
+	*((uint32_t *)&eapData.username_length) = strlen(eapData.username);
 
     eapData.password = 0; 	/* may be NULL */
-    eapData.password_length = 0;
+	*((uint32_t *)&eapData.password_length) = 0;
 
 	if (eapOptions)
 		eapProperties = CFDictionaryCreateMutableCopy(0, 0, eapOptions);
@@ -203,8 +202,8 @@ int Init (struct EAP_Input *eap_in, void **context)
 			(log_error)("EAP-TLS: Cannot allocate memory\n");
 		goto failed;
 	}
-		
-	eapData.properties = eapProperties;
+
+	*((CFDictionaryRef *)&eapData.properties) = eapProperties;
 	
 	//CFDictionarySetValue(prop_dict, kEAPClientPropTLSVerifyServerCertificate, kCFBooleanFalse);
 	

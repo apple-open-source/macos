@@ -27,11 +27,14 @@
  */
 // 45678901234567890123456789012345678901234567890123456789012345678901234567890
 
-#include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
-#if !KERNEL
+
+// fat.h is incompatible with swap.h and should not be included simultaneously
+#if KERNEL
+#include <mach-o/fat.h>
+#else
 #include <mach-o/swap.h>
 #endif
 

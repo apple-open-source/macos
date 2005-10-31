@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,7 +53,7 @@ import java.util.*;
  * to filter content.
  *
  * @author Mark Lussier
- * @version $Id: AbstractCalendarPlugin.java,v 1.2 2004/08/27 01:06:36 whitmore Exp $
+ * @version $Id: AbstractCalendarPlugin.java,v 1.2.2.1 2005/07/21 04:30:26 johnan Exp $
  */
 public abstract class AbstractCalendarPlugin implements BlojsomPlugin {
 
@@ -144,7 +144,7 @@ public abstract class AbstractCalendarPlugin implements BlojsomPlugin {
         String calendarUrl = user.getBlog().getBlogURL();
 
         // Default to the Current Month and Year
-        Calendar calendar = new GregorianCalendar(locale);
+        Calendar calendar = Calendar.getInstance(locale);
         calendar.set(Calendar.DAY_OF_MONTH, 1);
 
         int currentMonth = calendar.get(Calendar.MONTH);

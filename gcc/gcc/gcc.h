@@ -55,6 +55,7 @@ struct spec_function
   || !strcmp (STR, "-param") || !strcmp (STR, "specs") \
   || !strcmp (STR, "MF") || !strcmp (STR, "MT") || !strcmp (STR, "MQ"))
 
+
 /* These are exported by gcc.c.  */
 extern int do_spec (const char *);
 extern void record_temp_file (const char *, int, int);

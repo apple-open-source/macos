@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,36 +34,36 @@
  */
 package org.blojsom.plugin.admin;
 
-import org.blojsom.plugin.BlojsomPluginException;
-import org.blojsom.blog.BlojsomConfiguration;
-import org.blojsom.blog.BlogEntry;
-import org.blojsom.blog.BlogUser;
-import org.blojsom.util.BlojsomUtils;
-import org.blojsom.util.BlojsomProperties;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.blojsom.blog.BlogEntry;
+import org.blojsom.blog.BlogUser;
+import org.blojsom.blog.BlojsomConfiguration;
+import org.blojsom.plugin.BlojsomPluginException;
+import org.blojsom.util.BlojsomProperties;
+import org.blojsom.util.BlojsomUtils;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.Map;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Properties;
 import java.io.File;
-import java.io.IOException;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.*;
 
 /**
  * EditBlogFlavorsPlugin
- * 
+ *
  * @author czarnecki
- * @version $Id: EditBlogFlavorsPlugin.java,v 1.2 2004/08/27 01:06:35 whitmore Exp $
+ * @version $Id: EditBlogFlavorsPlugin.java,v 1.2.2.1 2005/07/21 04:30:24 johnan Exp $
  * @since blojsom 2.05
  */
 public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
 
     private Log _logger = LogFactory.getLog(EditBlogFlavorsPlugin.class);
+
+    private static final String PROTECTED_FLAVORS_IP = "protected-flavors";
+    private static final String DEFAULT_PROTECTED_FLAVORS = "admin";
 
     // Pages
     private static final String EDIT_BLOG_FLAVORS_PAGE = "/org/blojsom/plugin/admin/templates/admin-edit-blog-flavors";
@@ -71,6 +71,7 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
     // Constants
     private static final String DEFAULT_MIME_TYPE = "text/html";
     private static final String DEFAULT_CHARACTER_SET = UTF8;
+    private static final String BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_EXISTING = "BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_EXISTING";
     private static final String BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_TEMPLATE_FILES = "BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_TEMPLATE_FILES";
     private static final String BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_FLAVORS = "BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_FLAVORS";
 
@@ -85,6 +86,9 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
     private static final String FLAVOR_CHARACTER_SET = "flavor-character-set";
     private static final String BLOG_TEMPLATE = "blog-template";
 
+    // Permissions
+    private static final String EDIT_BLOG_FLAVORS_PERMISSION = "edit_blog_flavors";
+
     private String _flavorConfiguration;
 
     /**
@@ -95,7 +99,7 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
 
     /**
      * Initialize this plugin. This method only called when the plugin is instantiated.
-     * 
+     *
      * @param servletConfig        Servlet config object for the plugin to retrieve any initialization parameters
      * @param blojsomConfiguration {@link org.blojsom.blog.BlojsomConfiguration} information
      * @throws org.blojsom.plugin.BlojsomPluginException
@@ -108,8 +112,37 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
     }
 
     /**
+     * Add flavor information to the context
+     *
+     * @param blogUser {@link BlogUser}
+     * @param context Context
+     */
+    protected void addFlavorInformationToContext(BlogUser blogUser, Map context) {
+
+        // Put the available templates in the context for the edit flavors template
+        File templatesDirectory = new File(_blojsomConfiguration.getInstallationDirectory() + BlojsomUtils.removeInitialSlash(_blojsomConfiguration.getBaseConfigurationDirectory()) +
+                blogUser.getId() + _blojsomConfiguration.getTemplatesDirectory());
+        _logger.debug("Looking for templates in directory: " + templatesDirectory.toString());
+
+        File[] templates = templatesDirectory.listFiles();
+        ArrayList templatesList = new ArrayList(templates.length);
+        for (int i = 0; i < templates.length; i++) {
+            File template = templates[i];
+            if (template.isFile()) {
+                templatesList.add(template.getName());
+                _logger.debug("Added template: " + template.getName());
+            }
+        }
+
+        // Put the available flavors in the context for the edit flavors template
+        context.put(BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_FLAVORS, new TreeMap(blogUser.getFlavors()));
+        context.put(BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_TEMPLATE_FILES, templatesList);
+        context.put(BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_EXISTING, new TreeMap(blogUser.getFlavorToTemplate()));
+    }
+
+    /**
      * Process the blog entries
-     * 
+     *
      * @param httpServletRequest  Request
      * @param httpServletResponse Response
      * @param user                {@link org.blojsom.blog.BlogUser} instance
@@ -125,24 +158,24 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
             return entries;
         }
 
-        // Put the available flavors in the context for the edit flavors template
-        context.put(BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_FLAVORS, user.getFlavors());
+        String username = getUsernameFromSession(httpServletRequest, user.getBlog());
+        if (!checkPermission(user, null, username, EDIT_BLOG_FLAVORS_PERMISSION)) {
+            httpServletRequest.setAttribute(PAGE_PARAM, ADMIN_LOGIN_PAGE);
+            addOperationResultMessage(context, "You are not allowed to edit blog flavors");
 
-        // Put the available templates in the context for the edit flavors template
-        File templatesDirectory = new File(_blojsomConfiguration.getInstallationDirectory() + BlojsomUtils.removeInitialSlash(_blojsomConfiguration.getBaseConfigurationDirectory()) +
-                user.getId() + _blojsomConfiguration.getTemplatesDirectory());
-        _logger.debug("Looking for templates in directory: " + templatesDirectory.toString());
-
-        File[] templates = templatesDirectory.listFiles();
-        ArrayList templatesList = new ArrayList(templates.length);
-        for (int i = 0; i < templates.length; i++) {
-            File template = templates[i];
-            if (template.isFile()) {
-                templatesList.add(template.getName());
-                _logger.debug("Added template: " + template.getName());
-            }
+            return entries;
         }
-        context.put(BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_TEMPLATE_FILES, templatesList);
+
+        String protectedFlavors = user.getBlog().getBlogProperty(PROTECTED_FLAVORS_IP);
+        if (BlojsomUtils.checkNullOrBlank(protectedFlavors)) {
+            protectedFlavors = DEFAULT_PROTECTED_FLAVORS;
+        }
+
+        if (protectedFlavors.indexOf(DEFAULT_PROTECTED_FLAVORS) == -1) {
+            protectedFlavors = protectedFlavors + " " + DEFAULT_PROTECTED_FLAVORS;
+        }
+
+        addFlavorInformationToContext(user, context);
 
         String action = BlojsomUtils.getRequestValue(ACTION_PARAM, httpServletRequest);
         if (BlojsomUtils.checkNullOrBlank(action)) {
@@ -160,6 +193,8 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
             if (BlojsomUtils.checkNullOrBlank(flavorName)) {
                 _logger.debug("No flavor name specified");
                 addOperationResultMessage(context, "No flavor name specified");
+                httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_FLAVORS_PAGE);
+
                 return entries;
             }
 
@@ -167,6 +202,8 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
             if (BlojsomUtils.checkNullOrBlank(blogTemplate)) {
                 _logger.debug("No blog template specified");
                 addOperationResultMessage(context, "No blog template specified");
+                httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_FLAVORS_PAGE);
+
                 return entries;
             }
 
@@ -183,7 +220,6 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
             }
 
             Map flavorMapForUser = user.getFlavors();
-
             Map flavorTemplatesForUser = user.getFlavorToTemplate();
             Map flavorContentTypesForUser = user.getFlavorToContentType();
 
@@ -196,6 +232,8 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
                 writeFlavorConfiguration(user);
                 addOperationResultMessage(context, "Successfully added flavor: " + flavorName + " using template: " + blogTemplate + " with content type: " + flavorMimeType + ";" + flavorCharacterSet);
                 _logger.debug("Successfully wrote flavor configuration file for user: " + user.getId());
+
+                addFlavorInformationToContext(user, context);
             } catch (IOException e) {
                 addOperationResultMessage(context, "Unable to update flavor configuration");
                 _logger.error(e);
@@ -209,6 +247,7 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
             if (BlojsomUtils.checkNullOrBlank(flavorName)) {
                 _logger.debug("No flavor name specified");
                 addOperationResultMessage(context, "No flavor name specified");
+                httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_FLAVORS_PAGE);
 
                 return entries;
             }
@@ -216,7 +255,16 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
             if (flavorName.equalsIgnoreCase(user.getBlog().getBlogDefaultFlavor())) {
                 _logger.debug("Cannot delete the default flavor");
                 addOperationResultMessage(context, "Cannot delete the default flavor");
+                httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_FLAVORS_PAGE);
 
+                return entries;
+            }
+
+            if (protectedFlavors.indexOf(flavorName) != -1) {
+                _logger.debug("Cannot delete protected flavor: " + flavorName);
+                addOperationResultMessage(context, "Cannot delete protected flavor: " + flavorName);
+                httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_FLAVORS_PAGE);
+ 
                 return entries;
             }
 
@@ -230,6 +278,8 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
                 writeFlavorConfiguration(user);
                 _logger.debug("Successfully wrote flavor configuration file for user: " + user.getId());
                 addOperationResultMessage(context, "Successfully deleted flavor: " + flavorName);
+
+                addFlavorInformationToContext(user, context);
             } catch (IOException e) {
                 addOperationResultMessage(context, "Unable to update flavor configuration deleting flavor");
                 _logger.error(e);
@@ -243,7 +293,7 @@ public class EditBlogFlavorsPlugin extends BaseAdminPlugin {
 
     /**
      * Write out the flavor configuration file for a particular user
-     * 
+     *
      * @param user Blog user information
      * @throws IOException If there is an error writing the flavor configuration file
      */

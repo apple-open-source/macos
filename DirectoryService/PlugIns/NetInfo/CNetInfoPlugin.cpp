@@ -54,6 +54,7 @@
 //PFIXextern	dsBool	gLocalNodeNotAvailable;
 
 extern	bool			gFirstNetworkUpAtBoot;
+extern	bool			gbBuildNILocalUserCache;
 
 // --------------------------------------------------------------------------------
 //	Globals
@@ -61,6 +62,9 @@ extern	bool			gFirstNetworkUpAtBoot;
 DSEventSemaphore		*gKickNodeRequests	= nil;
 DSMutexSemaphore		*gNetInfoMutex		= nil;
 bool					gBlockNINetworkChange		= false;
+CFRunLoopTimerRef		CNetInfoPlugin::fTimerRef	= NULL;
+bool					CNetInfoPlugin::fHandlingNINetworkTransition = false;
+int						gCountToCheckLocalDataStamp	= 0;
 
 CNiNodeList	   *gNiNodeList				= nil;
 FourCharCode	CNetInfoPlugin::fToken	= 0;
@@ -99,11 +103,11 @@ CNetInfoPlugin::CNetInfoPlugin ( FourCharCode inSig, const char *inName ) : CSer
 	fState					= kUnknownState;
 	fRegisterNodePtr		= nil;
 	fServerRunLoop			= nil;  //could be obtained directly now since a module not plugin
-	fTransitionCheckTime	= 0;
 	bFirstNetworkTransition	= true;
 
 	//need the signature for some static functions
 	CNetInfoPlugin::fToken = inSig;
+	fHandlingNINetworkTransition = false;
 	
 	if ( gKickNodeRequests == nil )
 	{
@@ -353,6 +357,7 @@ sInt32 CNetInfoPlugin::Initialize ( void )
 
 sInt32 CNetInfoPlugin::PeriodicTask ( void )
 {
+	gCountToCheckLocalDataStamp++; //counts number of 30 second periodic tasks
 	return( eDSNoErr );
 } // PeriodicTask
 
@@ -558,30 +563,31 @@ sInt32 CNetInfoPlugin::ProcessRequest ( void *inData )
 void CNetInfoPlugin::HandleMultipleNetworkTransitions ( void )
 {
 	void	   *ptInfo		= nil;
-	CFRunLoopTimerRef timer;
 	
 	//let us be smart about doing the recheck
 	//we would like to wait a short period for NetInfo to come back fully
 	//we also don't want to re-init multiple times during this wait period
 	//however we do go ahead and fire off timers each time
 	//each call in here we update the delay time by 5 seconds
-	if (bFirstNetworkTransition) //first network transition we don't wait at all since it will be at boot time
-	{
-		fTransitionCheckTime = time(nil);
-	}
-	else
-	{
-		fTransitionCheckTime = time(nil) + 5;
-	}
-
 	if (fServerRunLoop != nil)
 	{
+		// invalidate any existing timer and free it, as we will add it again below
+		// this routine is called on main RunLoop so there is no need to mutex protect this variable
+		if( fTimerRef != NULL )
+		{
+			DBGLOG1( kLogPlugin, "T[%X] CNetInfoPlugin::HandleMultipleNetworkTransitions invalidating previous timer", pthread_self() );
+
+			CFRunLoopTimerInvalidate( fTimerRef );
+			CFRelease( fTimerRef );
+			fTimerRef = NULL;
+		}
+		
 		ptInfo = (void *)this;
 		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, NetworkChangeNIPICopyStringCallback};
 	
 		if (bFirstNetworkTransition)
 		{
-			timer = CFRunLoopTimerCreate(	NULL,
+			fTimerRef = CFRunLoopTimerCreate(	NULL,
 											CFAbsoluteTimeGetCurrent(),
 											0,
 											0,
@@ -591,7 +597,10 @@ void CNetInfoPlugin::HandleMultipleNetworkTransitions ( void )
 		}
 		else
 		{
-			timer = CFRunLoopTimerCreate(	NULL,
+			DBGLOG1( kLogPlugin, "T[%X] CNetInfoPlugin::HandleMultipleNetworkTransitions, setting fHandlingNINetworkTransition to true", pthread_self() );
+			fHandlingNINetworkTransition = true;
+
+			fTimerRef = CFRunLoopTimerCreate(	NULL,
 											CFAbsoluteTimeGetCurrent() + 5,
 											0,
 											0,
@@ -600,8 +609,7 @@ void CNetInfoPlugin::HandleMultipleNetworkTransitions ( void )
 											(CFRunLoopTimerContext*)&c);
 		}
 	
-		CFRunLoopAddTimer(fServerRunLoop, timer, kCFRunLoopDefaultMode);
-		if (timer) CFRelease(timer);
+		CFRunLoopAddTimer(fServerRunLoop, fTimerRef, kCFRunLoopDefaultMode);
 	}
 } // HandleMultipleNetworkTransitions
 
@@ -614,7 +622,7 @@ void CNetInfoPlugin::ReDiscoverNetwork(void)
 	sInt32	siResult	= eDSNoErr;
 	
 	//do something if the wait period has passed or if first time
-	if ( ( (time(nil) >= fTransitionCheckTime) || (bFirstNetworkTransition) ) && !gBlockNINetworkChange )
+	if ( ( fHandlingNINetworkTransition || bFirstNetworkTransition ) && !gBlockNINetworkChange )
 	{
 		bFirstNetworkTransition = false;
 		if ( gNiNodeList != nil )
@@ -644,6 +652,11 @@ void CNetInfoPlugin::ReDiscoverNetwork(void)
 			}
 			fRegisterMutex.Signal();
 		}
+		if (fHandlingNINetworkTransition)
+		{
+			fHandlingNINetworkTransition = false;
+		}
+		gbBuildNILocalUserCache = true;
 	}
 } // ReDiscoverNetwork
 

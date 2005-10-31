@@ -1,3 +1,4 @@
+/* APPLE LOCAL file Objective-C++ */
 /* Check @defs() in Objective-C++ */
 /* Contributed by Devang Patel  <dpatel@apple.com>  */
 /* { dg-options "-lobjc" } */

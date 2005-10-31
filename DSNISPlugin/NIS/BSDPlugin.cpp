@@ -49,6 +49,11 @@
 #define kServerRunLoop (eDSPluginCalls)(kHandleNetworkTransition + 1)
 #endif
 
+extern "C" int _lookupd_port(int);	// for lookupd flush cache calls
+extern "C" int _lookup_link(mach_port_t, char *, int *);
+extern "C" int _lookup_one(mach_port_t, int, char *, int, char **, int *);
+extern "C" int _lu_running();
+
 #define kTaskInterval	2
 #define kMaxSizeOfParam 1024
 
@@ -112,12 +117,20 @@ static const char* kLookupdRecordNames[kNumLookupTypes] =	{	"lookupd",
 																"networks"
 															};
 
-static const char* kLookupdRecordLookupOrders[kNumLookupTypes][kMaxNumAgents+1] =	{	{"CacheAgent", "NIAgent", "DSAgent", "NISAgent", NULL},
+static const char* kLookupdRecordLookupOrdersNISEnabled[kNumLookupTypes][kMaxNumAgents+1] =	{	{"CacheAgent", "NIAgent", "DSAgent", NULL},
 																		{"CacheAgent", "FFAgent", "DNSAgent", "NIAgent", "DSAgent", "NISAgent", NULL},
 																		{"CacheAgent", "FFAgent", "NIAgent", "DSAgent", "NISAgent", NULL},
 																		{"CacheAgent", "FFAgent", "NIAgent", "DSAgent", "NISAgent", NULL},
 																		{"CacheAgent", "FFAgent", "NIAgent", "DSAgent", "NISAgent", NULL},
 																		{"CacheAgent", "FFAgent", "NIAgent", "DSAgent", "NISAgent", NULL}
+																	};
+
+static const char* kLookupdRecordLookupOrdersNISDisabled[kNumLookupTypes][kMaxNumAgents+1] =	{	{"CacheAgent", "NIAgent", "DSAgent", NULL},
+																		{"CacheAgent", "FFAgent", "DNSAgent", "NIAgent", "DSAgent", NULL},
+																		{"CacheAgent", "FFAgent", "NIAgent", "DSAgent", NULL},
+																		{"CacheAgent", "FFAgent", "NIAgent", "DSAgent", NULL},
+																		{"CacheAgent", "FFAgent", "NIAgent", "DSAgent", NULL},
+																		{"CacheAgent", "FFAgent", "NIAgent", "DSAgent", NULL}
 																	};
 #ifdef BUILDING_COMBO_PLUGIN
 const char* kFFRecordTypeUsers			= "master.passwd";
@@ -223,12 +236,19 @@ BSDPlugin::BSDPlugin( void )
     mLookupdIsAlreadyConfigured = false;
 	
 	mState		= kUnknownState;
+	mLastTimeOfNetworkTransition = 0;
 	
+#ifdef USE_CACHE
 	mCachedMapsRef = NULL;
+#endif
 #ifdef BUILDING_COMBO_PLUGIN
 	mCachedFFRef = NULL;
 	bzero( mModTimes, sizeof( mModTimes ) );
 #endif
+
+	mNISServersRef = NULL;
+	mNISOK = true;
+	mNISAgentIsConfigured = false;
 } // BSDPlugin
 
 
@@ -260,6 +280,10 @@ BSDPlugin::~BSDPlugin( void )
         ::CFRelease( mOpenRefTable );
         mOpenRefTable = NULL;
     }
+	
+	if ( mNISServersRef )
+		CFRelease( mNISServersRef );
+	mNISServersRef = NULL;
 
 } // ~BSDPlugin
 
@@ -303,8 +327,9 @@ sInt32 BSDPlugin::Initialize( void )
 #ifdef BUILDING_COMBO_PLUGIN
     pthread_mutex_init( &mFFCache, NULL );
 #endif
+#ifdef USE_CACHE
 	pthread_mutex_init( &mMapCache, NULL );
-	
+#endif	
     // use these for the reftable dictionary
     keyCallBack.version = 0;
     keyCallBack.retain = NULL;
@@ -324,11 +349,14 @@ sInt32 BSDPlugin::Initialize( void )
 	if ( !mOpenRecordsRef )
 		mOpenRecordsRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 	
+	mLastTimeCheckedServerAvailabilityViaRPC = 0;
+
 #ifdef BUILDING_COMBO_PLUGIN
 	ResetFFCache();
 #endif
+#ifdef USE_CACHE
 	ResetMapCache();
-		
+#endif		
 #ifdef BUILDING_COMBO_PLUGIN
 	if ( !mFFMetaNodeLocationRef )
 	{
@@ -432,73 +460,58 @@ sInt32 BSDPlugin::GetNISConfiguration( void )
 		resultPtr = NULL;
 	}
 	else
-		DBGLOG( "BSDPlugin::GetNISConfiguration resultPtr is NULL!\n" );
-	
-	if ( mLocalNodeString )
 	{
-		// now we should check to see if portmap is running
-		resultPtr = CopyResultOfNISLookup( kNISrpcinfo );
-		
-		if ( resultPtr )
-		{
-			if ( strstr( resultPtr, "error" ) )
-			{
-				DBGLOG( "BSDPlugin::GetNISConfiguration portmapper not running, we'll try starting it\n" );
-			
-				free( resultPtr );
-				resultPtr = NULL;
-				
-				resultPtr = CopyResultOfNISLookup( kNISportmap );
-
-				if ( resultPtr )
-				{
-					free( resultPtr );
-					resultPtr = NULL;
-				}
-			}
-			else
-			{
-				DBGLOG( "BSDPlugin::GetNISConfiguration portmap running\n" );
-			}
-		}
-		else
-			DBGLOG( "BSDPlugin::GetNISConfiguration resultPtr is NULL!\n" );
-
-		if ( resultPtr )
-		{
-			free( resultPtr );
-			resultPtr = NULL;
-		}
-		
-/*		resultPtr = CopyResultOfNISLookup( kNISypwhich );			
-		
-		if ( resultPtr && strlen(resultPtr) > 1 )
-		{
-			char*	 eoln	= strstr( resultPtr, "\n" );
-			if ( eoln )
-				*eoln = '\0';
-				
-			DBGLOG( "BSDPlugin::GetNISConfiguration, we are bound to NIS server: %s\n", resultPtr );
-		}
-*/
+		mNISOK = false;
+		DBGLOG( "BSDPlugin::GetNISConfiguration resultPtr is NULL setting mNISOK to false! \n" );
 	}
-			
+				
 	if ( resultPtr )
 	{
 		free( resultPtr );
 		resultPtr = NULL;
 	}
-					
+
+	if ( mLocalNodeString )
+	{
+		// now we check to see if we can connect to the server
+		if ( !NISAvailable() )
+			mNISOK = false;
+	}
+	
+	if ( mNISOK )
+		SetNISAvailable();
+	else
+		SetNISUnavailable();
+		
 	return siResult;
+}
+
+void BSDPlugin::SetNISUnavailable( void )
+{
+	// if we were in a previously available state, we want to modify the lookupd configuration to stop using NISAgent.
+	if ( mNISAgentIsConfigured )
+	{
+		SaveDefaultLookupdConfigurationWithNISDisabled();
+	}
+}
+
+void BSDPlugin::SetNISAvailable( void )
+{
+	// if we were in a previously unavailable state, we want to modify the lookupd configuration to start using NISAgent again.
+	if ( !mNISAgentIsConfigured )
+	{
+		SaveDefaultLookupdConfigurationWithNISEnabled();
+	}
 }
 
 sInt32 BSDPlugin::PeriodicTask( void )
 {
     sInt32				siResult	= eDSNoErr;
 
+#ifdef USE_CACHE
 	if ( mLastTimeCacheReset + kMaxTimeForMapCacheToLive < CFAbsoluteTimeGetCurrent() )
 		ResetMapCache();
-		
+#endif		
     return( siResult );
 } // PeriodicTask
 
@@ -531,15 +544,18 @@ sInt32 BSDPlugin::ProcessRequest ( void *inData )
 		{
 			// these are ok when we are inactive if this is the top level
 			char			   *pathStr				= nil;
+			char			   *protocolStr			= nil;
 			tDataListPtr		pNodeList			= nil;
 
 			pNodeList	=	((sOpenDirNode *)inData)->fInDirNodeName;
 			pathStr = dsGetPathFromListPriv( pNodeList, (char *)"/" );
-			pathStr++;	// advance past first /
 			
-			if ( pathStr && GetProtocolPrefixString() && strcmp( pathStr, GetProtocolPrefixString() ) == 0 )
+			if ( pathStr )
+				protocolStr = pathStr+1;	// advance past first /
+			
+			if ( protocolStr && GetProtocolPrefixString() && strcmp( protocolStr, GetProtocolPrefixString() ) == 0 )
 			{
-				DBGLOG( "BSDPlugin::ProcessRequest (kOpenDirNode), plugin not active, open on (%s) ok\n", pathStr );
+				DBGLOG( "BSDPlugin::ProcessRequest (kOpenDirNode), plugin not active, open on (%s) ok\n", protocolStr );
 
 				if (pathStr != NULL)
 				{
@@ -602,14 +618,15 @@ sInt32 BSDPlugin::SetPluginState ( const uInt32 inState )
 #ifdef BUILDING_COMBO_PLUGIN
 		ResetFFCache();
 #endif
+#ifdef USE_CACHE
 		ResetMapCache();
-		
+#endif		
 #ifdef BUILDING_COMBO_PLUGIN
 		AddNode( kFFNodeName );
 #endif
 		siResult = GetNISConfiguration();
 		
-		if ( siResult == eDSNoErr && mLocalNodeString )
+		if ( siResult == eDSNoErr && mLocalNodeString && mNISOK )
 		{
 			AddNode( mLocalNodeString );	// all is well, publish our node
 		}
@@ -628,8 +645,9 @@ sInt32 BSDPlugin::SetPluginState ( const uInt32 inState )
 #ifdef BUILDING_COMBO_PLUGIN
 		ResetFFCache();
 #endif
+#ifdef USE_CACHE
 		ResetMapCache();
-
+#endif
 #ifdef BUILDING_COMBO_PLUGIN
 		RemoveNode( CFSTR(kFFNodeName) );
 #endif		
@@ -650,6 +668,8 @@ sInt32 BSDPlugin::SetPluginState ( const uInt32 inState )
 			free(oldDomainStr);
 			oldDomainStr = NULL;
 		}
+		
+		SetNISUnavailable();	// make sure we disable NISAgent as well
     }
 
 	return( siResult );
@@ -809,8 +829,8 @@ sInt32 BSDPlugin::HandleRequest( void *inData )
 				break;
 				
 			case kGetRecordEntry:
-				DBGLOG( "BSDPlugin::HandleRequest, we don't handle kGetRecordEntry yet\n" );
-				siResult = eNotHandledByThisNode;
+				DBGLOG( "BSDPlugin::HandleRequest, type: kGetRecordEntry\n" );
+				siResult = GetRecordEntry( (sGetRecordEntry *)inData );
 				break;
 				
 			case kGetAttributeEntry:
@@ -829,18 +849,18 @@ sInt32 BSDPlugin::HandleRequest( void *inData )
 				break;
 				
 			case kGetRecordReferenceInfo:
-				DBGLOG( "BSDPlugin::HandleRequest, we don't handle kGetRecordReferenceInfo yet\n" );
-				siResult = eNotHandledByThisNode;
+				DBGLOG( "BSDPlugin::HandleRequest, type: kGetRecordReferenceInfo\n" );
+				siResult = GetRecRefInfo( (sGetRecRefInfo *)inData );
 				break;
 				
 			case kGetRecordAttributeInfo:
-				DBGLOG( "BSDPlugin::HandleRequest, we don't handle kGetRecordAttributeInfo yet\n" );
-				siResult = eNotHandledByThisNode;
+				DBGLOG( "BSDPlugin::HandleRequest, type: kGetRecordAttributeInfo\n" );
+				siResult = GetRecordAttributeInfo( (sGetRecAttribInfo *)inData );
 				break;
 				
 			case kGetRecordAttributeValueByID:
-				DBGLOG( "BSDPlugin::HandleRequest, we don't handle kGetRecordAttributeValueByID yet\n" );
-				siResult = eNotHandledByThisNode;
+				DBGLOG( "BSDPlugin::HandleRequest, type: kGetRecordAttributeValueByID\n" );
+				siResult = GetRecordAttributeValueByID( (sGetRecordAttributeValueByID *)inData );
 				break;
 				
 			case kGetRecordAttributeValueByIndex:
@@ -848,9 +868,14 @@ sInt32 BSDPlugin::HandleRequest( void *inData )
 				siResult = GetRecordAttributeValueByIndex( (sGetRecordAttributeValueByIndex *)inData );
 				break;
 				
+			case kGetRecordAttributeValueByValue:
+				DBGLOG( "BSDPlugin::HandleRequest, type: kGetRecordAttributeValueByValue\n" );
+				siResult = GetRecordAttributeValueByValue( (sGetRecordAttributeValueByValue *)inData );
+				break;
+				
 			case kFlushRecord:
 				DBGLOG( "BSDPlugin::HandleRequest, type: kFlushRecord\n" );
-				siResult = eNotHandledByThisNode;
+				siResult = eDSNoErr;
 				break;
 				
 			case kCloseAttributeList:
@@ -859,8 +884,7 @@ sInt32 BSDPlugin::HandleRequest( void *inData )
 				break;
 	
 			case kCloseAttributeValueList:
-				DBGLOG( "BSDPlugin::HandleRequest, we don't handle kCloseAttributeValueList yet\n" );
-				siResult = eNotHandledByThisNode;
+				siResult = eDSNoErr;
 				break;
 	
 			case kCloseRecord:
@@ -1037,7 +1061,7 @@ sInt32 BSDPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					// write config
 					siResult = SaveNewState( inData );
 
-					if ( GetNISConfiguration() == eDSNoErr && mLocalNodeString )
+					if ( GetNISConfiguration() == eDSNoErr && mLocalNodeString && mNISOK )
 					{
 						DBGLOG( "BSDPlugin::DoPlugInCustomCall calling AddNode on %s\n", mLocalNodeString );
 						AddNode( mLocalNodeString );	// all is well, publish our node
@@ -1048,7 +1072,9 @@ sInt32 BSDPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 #ifdef BUILDING_COMBO_PLUGIN
 					ResetFFCache();
 #endif
+#ifdef USE_CACHE
 					ResetMapCache();
+#endif
 				}
 				break;
 					
@@ -1164,7 +1190,9 @@ sInt32 BSDPlugin::SaveNewState( sDoPlugInCustomCall *inData )
 		siResult = SetNISServers( nisServersRef, (oldDomainStr)?oldDomainStr:mLocalNodeString );
 	
 	if ( siResult == eDSNoErr )
-		ConfigureLookupdIfNeeded();
+		SaveDefaultLookupdConfigurationWithNISEnabled();
+	else
+		SaveDefaultLookupdConfigurationWithNISDisabled();
 		
 	if ( localNodeStringRef )
 		CFRelease( localNodeStringRef );
@@ -1187,202 +1215,36 @@ void BSDPlugin::ConfigureLookupdIfNeeded( void )
 	// Until we have solved the circular dependancy problem between lookupd -> DS -> lookupd, 
 	// we want to have the NISAgent handle any lookups sent through lookupd and we'll just handle
 	// anything that comes directly into DS.
-	
-	// see if there already exists configuration info for lookupd in NetInfo.  If so, we won't
-	// mess with it since it means that either we have been here before or the user has already
-	// set it up the way they want it.
-	if ( !LookupdIsConfigured() )
-	{
-		SaveDefaultLookupdConfiguration();
-	}
+
+	if ( NISAvailable() )
+		SaveDefaultLookupdConfigurationWithNISEnabled();
+	else
+		SaveDefaultLookupdConfigurationWithNISDisabled();
 }
 
 
-Boolean BSDPlugin::LookupdIsConfigured( void )
+
+void BSDPlugin::SaveDefaultLookupdConfigurationWithNISEnabled( void )
 {
-	if ( !mLookupdIsAlreadyConfigured )
-	{
-		// we'll have to check.  We are basically looking to see if there is any data in NetInfo at the
-		// following path:
-		// /locations/lookupd
-		tDirReference			dirRef;
-		tDataListPtr			dirNodeName = NULL;
-		tDirNodeReference		dirNodeRef;
-		tDirStatus				status;
+	SaveDefaultLookupdConfiguration( true );
 		
-		status = dsOpenDirService( &dirRef );
-		
-		if ( !status )
-		{
-			sInt32					siResult			= eDSNoErr;
-			tDataBuffer			   *pLocalNodeBuff 		= nil;
-			tDataList			   *pNodePath			= nil;
-			uInt32					uiCount				= 0;
-			tContextData			context				= NULL;
-			tDataBufferPtr			dataBuffPtr			= NULL;
-			tDataListPtr			recName				= NULL;
-			tDataListPtr			recordType			= NULL;
-			tDataListPtr			attrListAll			= NULL;
-			
-			try
-			{
-				pLocalNodeBuff = ::dsDataBufferAllocate( dirRef, 512 );
-				if ( pLocalNodeBuff == nil ) throw( (sInt32)eMemoryError );
-		
-				do 
-				{
-					siResult = dsFindDirNodes( dirRef, pLocalNodeBuff, NULL, eDSLocalNodeNames, &uiCount, &context );
-					if (siResult == eDSBufferTooSmall)
-					{
-						uInt32 bufSize = pLocalNodeBuff->fBufferSize;
-						dsDataBufferDeallocatePriv( pLocalNodeBuff );
-						pLocalNodeBuff = nil;
-						pLocalNodeBuff = ::dsDataBufferAllocatePriv( bufSize * 2 );
-					}
-				} while (siResult == eDSBufferTooSmall);
-			
-				if ( siResult != eDSNoErr ) throw( siResult );
-				if ( uiCount == 0 )
-				{
-					DBGLOG( "BSDPlugin::LookupdIsConfigured:dsFindDirNodes on local returned zero" );
-					throw( siResult ); //could end up throwing eDSNoErr but no local node will still return nil
-				}
-				
-				// assume there is only one local node
-				siResult = dsGetDirNodeName( dirRef, pLocalNodeBuff, 1, &dirNodeName );
-				if ( siResult != eDSNoErr )
-				{
-					DBGLOG( "BSDPlugin::LookupdIsConfigured:dsGetDirNodeName on local returned error %ld", siResult );
-					throw( siResult );
-				}
-				
-				if ( pLocalNodeBuff != nil )
-				{
-					::dsDataBufferDeAllocate( dirRef, pLocalNodeBuff );
-					pLocalNodeBuff = nil;
-				}
-				
-				//open the local node
-				siResult = ::dsOpenDirNode( dirRef, dirNodeName, &dirNodeRef );
-				if ( siResult != eDSNoErr )
-				{
-					DBGLOG( "BSDPlugin::LookupdIsConfigured:dsOpenDirNode on local returned error %ld", siResult );
-					throw( siResult );
-				}
-		
-				::dsDataListDeAllocate( dirRef, dirNodeName, false );
-				free(dirNodeName);
-				dirNodeName = nil;
-				
-				pNodePath = ::dsBuildListFromStringsPriv( kDSNAttrNodePath, nil );
-				if ( pNodePath == nil ) throw( (sInt32)eMemoryAllocError );
-		
-// do a get record list to find the locations native recordtype
-				recName = dsDataListAllocate( dirRef );
-				recordType = dsDataListAllocate( dirRef );
-				attrListAll = dsDataListAllocate( dirRef );
-				unsigned long	recEntryCount = 1; // just want to know if the record exists!
-
-				status = dsBuildListFromStringsAlloc( dirRef, recName, "lookupd", nil );
-
-				status = dsBuildListFromStringsAlloc( dirRef, recordType, "dsRecTypeNative:locations", nil );
-		
-				status = dsBuildListFromStringsAlloc( dirRef, attrListAll, kDSAttributesAll, nil );
-
-				dataBuffPtr = dsDataBufferAllocate( dirRef, 4096 );
-	
-				tContextData*	continueData = NULL;
-				
-				status = dsGetRecordList(	dirNodeRef,
-											dataBuffPtr,
-											recName,
-											eDSExact,
-											recordType,
-											attrListAll,		// all attribute types
-											TRUE,
-											&recEntryCount,
-											continueData );
-
-				if ( recEntryCount > 0 )
-					mLookupdIsAlreadyConfigured = true;
-					
-				//close dir node after releasing attr references
-				siResult = ::dsCloseDirNode(dirNodeRef);
-			}
-		
-			catch( sInt32 err )
-			{
-				siResult = err;
-			}
-		
-			if ( dataBuffPtr != nil )
-			{
-				::dsDataBufferDeAllocate( dirRef, dataBuffPtr );
-				dataBuffPtr = nil;
-			}
-			
-			if ( recName != nil )
-			{
-				::dsDataListDeAllocate( dirRef, recName, false );
-				free(recName);
-				recName = nil;
-			}
-		
-			if ( recordType != nil )
-			{
-				::dsDataListDeAllocate( dirRef, recordType, false );
-				free(recordType);
-				recordType = nil;
-			}
-		
-			if ( attrListAll != nil )
-			{
-				::dsDataListDeAllocate( dirRef, attrListAll, false );
-				free(attrListAll);
-				attrListAll = nil;
-			}
-		
-			if ( dirNodeName != nil )
-			{
-				::dsDataListDeAllocate( dirRef, dirNodeName, false );
-				free(dirNodeName);
-				dirNodeName = nil;
-			}
-		
-			if ( pNodePath != nil )
-			{
-				::dsDataListDeAllocate( dirRef, pNodePath, false );
-				free(pNodePath);
-				pNodePath = nil;
-			}
-		
-			if ( pLocalNodeBuff != nil )
-			{
-				::dsDataBufferDeAllocate( dirRef, pLocalNodeBuff );
-				pLocalNodeBuff = nil;
-			}
-
-			if ( !status )
-			{
-				// ok, there was a dir node at this location, looks like this has been set up!
-				status = dsCloseDirNode( dirNodeRef );
-			}
-			
-			status = dsCloseDirService( dirRef );
-		}
-		
-	}
-	
-	return mLookupdIsAlreadyConfigured;
+	mNISAgentIsConfigured = true;
 }
 
-void BSDPlugin::SaveDefaultLookupdConfiguration( void )
+void BSDPlugin::SaveDefaultLookupdConfigurationWithNISDisabled( void )
 {
-	tDirReference			dirRef;
+	SaveDefaultLookupdConfiguration( false );
+		
+	mNISAgentIsConfigured = false;
+}
+
+void BSDPlugin::SaveDefaultLookupdConfiguration( Boolean enableNIS )
+{
+	tDirReference			dirRef = 0;
 	tDataListPtr			dirNodeName = NULL;
 	tDirNodeReference		dirNodeRef = 0;
-	tDirStatus				status;
-	
+	tDirStatus				status = eDSNoErr;
+
 	status = dsOpenDirService( &dirRef );
 	
 	if ( !status )
@@ -1418,7 +1280,7 @@ void BSDPlugin::SaveDefaultLookupdConfiguration( void )
 			if ( siResult != eDSNoErr ) throw( siResult );
 			if ( uiCount == 0 )
 			{
-				DBGLOG( "BSDPlugin::LookupdIsConfigured:dsFindDirNodes on local returned zero" );
+				DBGLOG( "BSDPlugin::SaveDefaultLookupdConfiguration:dsFindDirNodes on local returned zero" );
 				throw( siResult ); //could end up throwing eDSNoErr but no local node will still return nil
 			}
 			
@@ -1426,7 +1288,7 @@ void BSDPlugin::SaveDefaultLookupdConfiguration( void )
 			siResult = dsGetDirNodeName( dirRef, pLocalNodeBuff, 1, &dirNodeName );
 			if ( siResult != eDSNoErr )
 			{
-				DBGLOG( "BSDPlugin::LookupdIsConfigured:dsGetDirNodeName on local returned error %ld", siResult );
+				DBGLOG( "BSDPlugin::SaveDefaultLookupdConfiguration:dsGetDirNodeName on local returned error %ld", siResult );
 				throw( siResult );
 			}
 			
@@ -1440,7 +1302,7 @@ void BSDPlugin::SaveDefaultLookupdConfiguration( void )
 			siResult = ::dsOpenDirNode( dirRef, dirNodeName, &dirNodeRef );
 			if ( siResult != eDSNoErr )
 			{
-				DBGLOG( "BSDPlugin::LookupdIsConfigured:dsOpenDirNode on local returned error %ld", siResult );
+				DBGLOG( "BSDPlugin::SaveDefaultLookupdConfiguration:dsOpenDirNode on local returned error %ld", siResult );
 				throw( siResult );
 			}
 	
@@ -1459,23 +1321,43 @@ void BSDPlugin::SaveDefaultLookupdConfiguration( void )
 				recName = dsDataNodeAllocateString( dirRef, kLookupdRecordNames[i] );
 				if ( recName == nil ) throw( (sInt32)eMemoryAllocError );
 
-				status = dsCreateRecordAndOpen( dirNodeRef, recordType, recName, &userRecRef );
-			
-				if ( status ) throw( status );
+				status = dsOpenRecord( dirNodeRef, recordType, recName, &userRecRef );
+				
+				if ( status == eDSRecordNotFound )
+					status = dsCreateRecordAndOpen( dirNodeRef, recordType, recName, &userRecRef );
+
+				if ( status != eDSNoErr ) throw( status );
 				
 				attributeKey = dsDataNodeAllocateString( dirNodeRef, "dsAttrTypeNative:LookupOrder" );
 				if ( attributeKey == nil ) throw( (sInt32)eMemoryAllocError );
 				
-				for ( int j=0; kLookupdRecordLookupOrders[i][j]; j++ )
+				siResult = dsRemoveAttribute( userRecRef, attributeKey );			// in case it was pre-existing
+				
+				if ( enableNIS )
 				{
-					attributeValue = dsDataNodeAllocateString( dirNodeRef, kLookupdRecordLookupOrders[i][j] );
-					if ( attributeValue == nil ) throw( (sInt32)eMemoryAllocError );
+					for ( int j=0; kLookupdRecordLookupOrdersNISEnabled[i][j]; j++ )
+					{
+						attributeValue = dsDataNodeAllocateString( dirNodeRef, kLookupdRecordLookupOrdersNISEnabled[i][j] );
+						if ( attributeValue == nil ) throw( (sInt32)eMemoryAllocError );
 
-					status = dsAddAttributeValue( userRecRef, attributeKey, attributeValue );
-					dsDataNodeDeAllocate( dirNodeRef, attributeValue );
-					attributeValue = NULL;
+						status = dsAddAttributeValue( userRecRef, attributeKey, attributeValue );
+						dsDataNodeDeAllocate( dirNodeRef, attributeValue );
+						attributeValue = NULL;
+					}
 				}
+				else
+				{
+					for ( int j=0; kLookupdRecordLookupOrdersNISDisabled[i][j]; j++ )
+					{
+						attributeValue = dsDataNodeAllocateString( dirNodeRef, kLookupdRecordLookupOrdersNISDisabled[i][j] );
+						if ( attributeValue == nil ) throw( (sInt32)eMemoryAllocError );
 
+						status = dsAddAttributeValue( userRecRef, attributeKey, attributeValue );
+						dsDataNodeDeAllocate( dirNodeRef, attributeValue );
+						attributeValue = NULL;
+					}
+				}
+				
 				dsDataNodeDeAllocate( dirNodeRef, attributeKey );
 				attributeKey = NULL;
 			
@@ -1485,6 +1367,7 @@ void BSDPlugin::SaveDefaultLookupdConfiguration( void )
 					attributeKey = dsDataNodeAllocateString( dirNodeRef, "dsAttrTypeNative:MaxThreads" );
 					if ( attributeKey == nil ) throw( (sInt32)eMemoryAllocError );
 
+					siResult = dsRemoveAttribute( userRecRef, attributeKey );			// in case it was pre-existing
 					attributeValue = dsDataNodeAllocateString( dirNodeRef, "64" );
 					if ( attributeValue == nil ) throw( (sInt32)eMemoryAllocError );
 
@@ -1506,7 +1389,7 @@ void BSDPlugin::SaveDefaultLookupdConfiguration( void )
 	
 		catch( sInt32 err )
 		{
-			DBGLOG( "BSDPlugin::LookupdIsConfigured:dsOpenDirNode caught error %ld", err );
+			DBGLOG( "BSDPlugin::SaveDefaultLookupdConfiguration:dsOpenDirNode caught error %ld", err );
 			siResult = err;
 		}
 	
@@ -1566,17 +1449,36 @@ void BSDPlugin::SaveDefaultLookupdConfiguration( void )
 			attributeKey = NULL;
 		}
 		
-		if ( !status )
-		{
-			// ok, there was a dir node at this location, looks like this has been set up!
-			status = dsCloseDirNode( dirNodeRef );
-		}
-		
 		status = dsCloseDirService( dirRef );
 	}
 	
 	mLookupdIsAlreadyConfigured = true;
+	
+	FlushLookupdCache();
 }
+
+sInt32 BSDPlugin::FlushLookupdCache ( void )
+{
+	sInt32		siResult	= eDSNoErr;
+	int			i			= 0;
+	int			proc		= 0;
+	char		str[32];
+	mach_port_t	port		= MACH_PORT_NULL;
+
+	{
+		DBGLOG( "BSDPlugin::FlushLookupdCache sending lookupd flushcache" );
+		_lu_running();
+		port = _lookupd_port(0);
+
+		if( port != MACH_PORT_NULL )
+		{
+			_lookup_link(port, "_invalidatecache", &proc);
+			_lookup_one(port, proc, NULL, 0, (char **)&str, &i);
+		}
+	}
+	
+	return(siResult);
+}// FlushLookupdCache
 
 #pragma mark -
 CFStringRef BSDPlugin::CopyDomainFromFile( void )
@@ -1608,6 +1510,7 @@ CFStringRef BSDPlugin::CopyDomainFromFile( void )
 			if ( buf[0] != '\0' )
 			{
 				domainToReturn = CFStringCreateWithCString( NULL, buf, kCFStringEncodingASCII );
+				DBGLOG( "BSDPlugin::CopyDomainFromFile: using domain: [%s]", buf );
 			}
 		}
 	}
@@ -1622,31 +1525,34 @@ CFStringRef BSDPlugin::CopyDomainFromFile( void )
 
 void BSDPlugin::SaveDomainToFile( CFStringRef domainNameRef )
 {
-    FILE					*destFP = NULL;
-    char					buf[kMaxSizeOfParam] = {0,};
-	
-	LockPlugin();
-	DBGLOG( "BSDPlugin::SaveDomainToFile called\n" );
-	// now, we want to edit /etc/hostconfig and if the NISDOMAIN entry is different, updated it with nisDomainValue
-	destFP = fopen(kDefaultDomainFilePath,"w+");
-	
-	if ( destFP == NULL )
+	if ( domainNameRef )
 	{
-		DBGLOG( "BSDPlugin::SaveDomainToFile: could not open nisdomain file to write! (%s)", strerror(errno) );
-	}
-	else
-	{
-		if ( domainNameRef )
-		{
-			CFStringGetCString( domainNameRef, buf, sizeof(buf), kCFStringEncodingASCII );
+		FILE					*destFP = NULL;
+		char					buf[kMaxSizeOfParam] = {0,};
 		
-			fputs( buf, destFP );
+		LockPlugin();
+		DBGLOG( "BSDPlugin::SaveDomainToFile called\n" );
+		// now, we want to edit /etc/hostconfig and if the NISDOMAIN entry is different, updated it with nisDomainValue
+		destFP = fopen(kDefaultDomainFilePath,"w+");
+		
+		if ( destFP == NULL )
+		{
+			DBGLOG( "BSDPlugin::SaveDomainToFile: could not open nisdomain file to write! (%s)", strerror(errno) );
+		}
+		else
+		{
+			if ( domainNameRef )
+			{
+				CFStringGetCString( domainNameRef, buf, sizeof(buf), kCFStringEncodingASCII );
+			
+				fputs( buf, destFP );
+			}
+
+			fclose( destFP );
 		}
 
-		fclose( destFP );
+		UnlockPlugin();
 	}
-
-	UnlockPlugin();
 }
 
 sInt32 BSDPlugin::SetDomain( CFStringRef domainNameRef )
@@ -1659,15 +1565,17 @@ sInt32 BSDPlugin::SetDomain( CFStringRef domainNameRef )
 		CFStringGetCString( domainNameRef, mLocalNodeString, len, kCFStringEncodingUTF8 ); 
 		DBGLOG( "BSDPlugin::SaveNewState, changing our domain to %s\n", mLocalNodeString );
 		AddNode( mLocalNodeString );
-	}
 	
-	SaveDomainToFile( domainNameRef );
+		SaveDomainToFile( domainNameRef );
 	
-	char*		resultPtr = CopyResultOfNISLookup( kNISdomainname, (domainNameRef)?mLocalNodeString:kNoDomainName );		// set this now
+// For null domainname case, this won't clear it out.  The "domainname" command with no arguments just returns the
+// current domainname...
+		char*		resultPtr = CopyResultOfNISLookup( kNISdomainname, (domainNameRef)?mLocalNodeString:kNoDomainName );		// set this now
 
-	if ( resultPtr )
-		free( resultPtr );
-	resultPtr = NULL;
+		if ( resultPtr )
+			free( resultPtr );
+		resultPtr = NULL;
+	}
 		
 	return siResult;
 }
@@ -1680,7 +1588,7 @@ sInt32 BSDPlugin::SetNISServers( CFStringRef nisServersRef, char* oldDomainStr )
 	
 	if ( oldDomainStr )
 	{
-		const char*	argv[4] = {0};
+		char *		argv[4] = {0};
 		char		serverFilePath[1024];
 		char*		resultPtr = NULL;
 		Boolean		canceled = false;
@@ -1711,11 +1619,17 @@ sInt32 BSDPlugin::SetNISServers( CFStringRef nisServersRef, char* oldDomainStr )
 	{
 		if ( nisServersRef && !CFStringHasPrefix( nisServersRef, CFSTR("\n") ) )	// ignore this if it starts with an newline
 		{
-			// need to create a file in location /var/yp/binding/<domainname>.ypservers with a list of servers
+			// first update our internal list
+			if ( mNISServersRef )
+				CFRelease( mNISServersRef );
+				
+			mNISServersRef = CFStringCreateArrayBySeparatingStrings( NULL, nisServersRef, CFSTR("\n") );
+			
+			// now need to create a file in location /var/yp/binding/<domainname>.ypservers with a list of servers
 			FILE*		fp = NULL;
 			char		name[1024] = {0};
 			char*		resultPtr = NULL;
-			const char*	argv[8] = {0};
+			char*		argv[8] = {0};
 			Boolean		canceled = false;
 			
 			snprintf( name, sizeof(name), "/var/yp/binding/%s.ypservers", mLocalNodeString );
@@ -1836,7 +1750,14 @@ DBGLOG( "BSDPlugin::FillOutCurrentState: mLocalNodeString is %s\n", mLocalNodeSt
 		CFRelease( currentStateRef );
 	
 	if ( nisServersRef )
-		CFRelease( nisServersRef );
+	{
+		if ( mNISServersRef )
+			CFRelease( mNISServersRef );
+			
+		mNISServersRef = CFStringCreateArrayBySeparatingStrings( NULL, nisServersRef, CFSTR("\n") );
+	}
+	else
+		mNISServersRef = CFArrayCreate( NULL, NULL, 0, &kCFTypeArrayCallBacks );
 	
 	if ( domainNameRef )
 		CFRelease( domainNameRef );
@@ -1847,6 +1768,182 @@ DBGLOG( "BSDPlugin::FillOutCurrentState: mLocalNodeString is %s\n", mLocalNodeSt
 	return siResult;
 }
 
+Boolean BSDPlugin::NISAvailable( void )
+{
+	DBGLOG( "BSDPlugin::NISAvailable called" );
+	
+	Boolean		nisAvail = ( mNISOK && AreNISServersReachable() );
+	
+	DBGLOG( "BSDPlugin::NISAvailable called, nisAvail is %s", (nisAvail)?"true":"false" );
+	
+	if ( !mNISOK && AreNISServersReachable() && mLastTimeCheckedServerAvailabilityViaRPC + kMinTimeBetweenRPCInfoRequests < CFAbsoluteTimeGetCurrent() )
+	{
+		DBGLOG( "BSDPlugin::NISAvailable, servers are reachable.  Verifying by using RPCInfo..." );
+		mLastTimeCheckedServerAvailabilityViaRPC = CFAbsoluteTimeGetCurrent();
+				
+		// need to try each server listed to see if one is available.
+		if ( mNISServersRef && CFArrayGetCount( mNISServersRef ) > 0 )
+		{
+			CFIndex		curServerIndex = 0;
+			CFIndex		numServers = CFArrayGetCount( mNISServersRef );
+			CFStringRef	curServerName = NULL;
+			char*		curServerCStringName = NULL;
+			
+			for ( ; curServerIndex < numServers; curServerIndex++ )
+			{
+				curServerName = (CFStringRef)CFArrayGetValueAtIndex( mNISServersRef, curServerIndex );
+				
+				if ( curServerName && CFStringGetLength(curServerName) > 1 )	// ignore the '\n' value
+				{
+					curServerCStringName = (char*)malloc( CFStringGetMaximumSizeForEncoding(CFStringGetLength(curServerName), kCFStringEncodingUTF8) + 1 );
+					
+					if ( CFStringGetCString( curServerName, curServerCStringName, CFStringGetMaximumSizeForEncoding(CFStringGetLength(curServerName), kCFStringEncodingUTF8) + 1, kCFStringEncodingUTF8 ) )
+					{
+						char* resultPtr = CopyResultOfNISLookup( kNISrpcinfo, curServerCStringName );			
+						if ( resultPtr && strstr( resultPtr, "ypbind" ) )
+						{
+							DBGLOG( "BSDPlugin::NISAvailable rpcinfo showed server [%s] running ypbind, setting nisAvail to true.\n%s", curServerCStringName, resultPtr );
+							nisAvail = true;
+							break;	// no need to try any others
+						}
+						else
+						{
+							DBGLOG( "BSDPlugin::NISAvailable rpcinfo did not show server [%s] running ypbind\n%s", curServerCStringName, (resultPtr)?resultPtr:"" );
+						}
+						
+						if ( resultPtr )
+						{
+							free( resultPtr );
+							resultPtr = NULL;
+						}
+					}
+					
+					if ( curServerCStringName )
+					{
+						free( curServerCStringName );
+						curServerCStringName = NULL;
+					}
+				}
+			}
+					
+			if ( curServerCStringName )
+			{
+				free( curServerCStringName );
+				curServerCStringName = NULL;
+			}
+		}
+		else
+		{
+			// check to see if we can find a server dynamically
+			DBGLOG( "BSDPlugin::NISAvailable, checking to see if we can find a server dynamically by calling ypwhich" );
+			char* resultPtr = CopyResultOfNISLookup( kNISypwhich, NULL, NULL );
+			
+			if ( !resultPtr )
+			{
+				DBGLOG( "BSDPlugin::NISAvailable, ypwhich returned no data, call ypbind and try again" );
+				// check to see if we can find a server dynamically
+				resultPtr = CopyResultOfNISLookup( kNISbind );			
+				
+				if ( resultPtr )
+					free( resultPtr );
+
+				DBGLOG( "BSDPlugin::NISAvailable, trying ypwhich again" );
+				resultPtr = CopyResultOfNISLookup( kNISypwhich, NULL, NULL );
+			}
+			
+			if ( resultPtr )
+			{
+				nisAvail = true;	// the destination is reachable!
+				free( resultPtr );
+			}
+		}
+	}
+	
+	DBGLOG( "BSDPlugin::NISAvailable returning: %s, mNISOK was %s", nisAvail?"true":"false", mNISOK?"true":"false" );
+
+	mNISOK = nisAvail;
+	
+	return nisAvail;
+}
+
+Boolean BSDPlugin::AreNISServersReachable( void )
+{
+	// we'll just do a reachability test here
+	SCNetworkReachabilityRef	target	= NULL;
+	SCNetworkConnectionFlags	flags;
+	Boolean						reachable = false;
+
+	DBGLOG( "BSDPlugin::AreNISServersReachable called" );
+
+	if ( !mNISServersRef )
+	{
+		CFStringRef		nisServersRef = CreateListOfServers();
+		
+		if ( nisServersRef )
+			mNISServersRef = CFStringCreateArrayBySeparatingStrings( NULL, nisServersRef, CFSTR("\n") );
+		else
+			mNISServersRef = CFArrayCreate( NULL, NULL, 0, &kCFTypeArrayCallBacks );
+	}
+		
+	if ( mNISServersRef && CFArrayGetCount( mNISServersRef ) > 0 )
+	{
+		CFIndex		curServerIndex = 0;
+		CFIndex		numServers = CFArrayGetCount( mNISServersRef );
+		CFStringRef	curServerName = NULL;
+		char*		curServerCStringName = NULL;
+		
+		for ( ; curServerIndex < numServers; curServerIndex++ )
+		{
+			curServerName = (CFStringRef)CFArrayGetValueAtIndex( mNISServersRef, curServerIndex );
+			
+			if ( curServerName && CFStringGetLength(curServerName) > 1 )	// ignore the '\n' value
+			{
+				curServerCStringName = (char*)malloc( CFStringGetMaximumSizeForEncoding(CFStringGetLength(curServerName), kCFStringEncodingUTF8) + 1 );
+				
+				if ( CFStringGetCString( curServerName, curServerCStringName, CFStringGetMaximumSizeForEncoding(CFStringGetLength(curServerName), kCFStringEncodingUTF8) + 1, kCFStringEncodingUTF8 ) )
+				{
+					DBGLOG( "BSDPlugin::AreNISServersReachable calling SCNetworkReachabilityCreateWithName on [%s]", curServerCStringName );
+					target = SCNetworkReachabilityCreateWithName( NULL, curServerCStringName );
+					DBGLOG( "BSDPlugin::AreNISServersReachable, SCNetworkReachabilityCreateWithName returned target: 0x%x", target );
+					if (target == NULL) {
+						// can't determine the reachability
+						continue;
+					}
+
+					if (!SCNetworkReachabilityGetFlags(target, &flags)) {
+						// can't get the reachability flags
+						continue;
+					}
+
+					if (!(flags & kSCNetworkFlagsReachable)) {
+						// the destination address is not reachable with the current network config
+						continue;
+					}
+
+					if (flags & kSCNetworkFlagsConnectionRequired) {
+						// a connection must first be established to reach the destination address
+						continue;
+					}
+
+					reachable = true;	// the destination is reachable!
+					break;
+				}
+			}
+		}
+		
+		if ( curServerCStringName )
+			free( curServerCStringName );
+	}
+	else
+	{
+		reachable = true;		// if the server isn't specified, assume we can find it (we'll be checking later)
+	}
+	
+	if ( target ) 
+		CFRelease( target );
+
+	return ( reachable );
+}
 
 #pragma mark -
 CFStringRef BSDPlugin::CreateListOfServers( void )
@@ -1918,7 +2015,8 @@ Boolean BSDPlugin::IsOurFFNode( char* path )
 	Boolean 		result = false;
 	
 	DBGLOG( "BSDPlugin::IsOurDomainNode comparing path: %s to FF Node Name: %s\n", (path)?path:"", kFFNodeName );
-	if ( path && strstr( path, kFFNodeName ) != NULL )
+	if ( path && ( strcmp( path, "/BSD/" kFFNodeName ) == 0
+                   || strcmp( path, "/BSD Configuration Files/" kFFNodeName ) == 0 ))
 		result = true;
 		
 	return result;
@@ -1951,33 +2049,42 @@ sInt32 BSDPlugin::OpenDirNode ( sOpenDirNode *inData )
 #endif
 			 )
 		{
-			nodeName = new char[1+strlen(protocolStr)];
-			if ( !nodeName ) throw ( eDSNullNodeName );
-				
-			::strcpy(nodeName,protocolStr);
-			
-			if ( nodeName )
+			if ( !IsOurFFNode(pathStr) && !IsOurConfigNode(pathStr) && !NISAvailable() )
 			{
-				DBGLOG( "BSDPlugin::OpenDirNode on %s\n", nodeName );
-				BSDDirNodeRep*		newNodeRep = new BSDDirNodeRep( this, (const void*)inData->fOutNodeRef );
+				// NIS isn't available, we need to return an error.
+				siResult = eDSOpenNodeFailed;
+				DBGLOG( "BSDPlugin::OpenDirNode returning eDSOpenNodeFailed due to NIS not being available\n" );
+			}
+			else
+			{
+				nodeName = new char[1+strlen(protocolStr)];
+				if ( !nodeName ) throw ( eDSNullNodeName );
+					
+				::strcpy(nodeName,protocolStr);
 				
-				if (!newNodeRep) throw ( eDSNullNodeName );
-				
-				siResult = newNodeRep->Initialize( nodeName, inData->fInUID );
-	
-				if ( !siResult )
+				if ( nodeName )
 				{
-					LockPlugin();
+					DBGLOG( "BSDPlugin::OpenDirNode on %s\n", nodeName );
+					BSDDirNodeRep*		newNodeRep = new BSDDirNodeRep( this, (const void*)inData->fOutNodeRef );
 					
-					newNodeRep->Retain();
+					if (!newNodeRep) throw ( eDSNullNodeName );
 					
-					// add the item to the reference table
-					::CFDictionaryAddValue( mOpenRefTable, (const void*)inData->fOutNodeRef, (const void*)newNodeRep );
-					UnlockPlugin();
+					siResult = newNodeRep->Initialize( nodeName, inData->fInUID );
+		
+					if ( !siResult )
+					{
+						LockPlugin();
+						
+						newNodeRep->Retain();
+						
+						// add the item to the reference table
+						::CFDictionaryAddValue( mOpenRefTable, (const void*)inData->fOutNodeRef, (const void*)newNodeRep );
+						UnlockPlugin();
+					}
+					
+					delete( nodeName );
+					nodeName = nil;
 				}
-				
-				delete( nodeName );
-				nodeName = nil;
 			}
 		}
 		else
@@ -2390,6 +2497,262 @@ sInt32 BSDPlugin::ReleaseContinueData( sNISContinueData* continueData )
 #pragma mark
 
 //------------------------------------------------------------------------------------
+//      * GetRecRefInfo
+//------------------------------------------------------------------------------------
+
+sInt32 BSDPlugin::GetRecRefInfo ( sGetRecRefInfo *inData )
+{
+	sInt32				siResult	= eDSNoErr;
+	uInt32				uiRecSize	= 0;
+	uInt32				uiDataLen	= 0;
+	tRecordEntry	   *pRecEntry	= nil;
+	CFStringRef			cfRefType	= 0;
+	CFStringRef			cfRefName	= 0;	
+	char			   *refType		= nil;
+	uInt32				refTypeLen	= 0;
+	uInt32				uiOffset	= 0;
+	char			   *refName		= nil;
+	uInt32				refNameLen	= 0;
+	
+	if ( inData == NULL ) return eDSNullParameter;
+	
+	DBGLOG( "BSDPlugin::GetRecRefInfo called on refNum:0x%x\n", (int)inData->fInRecRef );
+	CFDictionaryRef recordRef = GetRecordFromRecRef( inData->fInRecRef );
+	
+	if ( !recordRef )	
+	{
+		DBGLOG( "BSDPlugin::GetRecRefInfo, unknown record\n" );
+		return eDSInvalidRecordRef;
+	}
+
+	CFPropertyListRef	valueResult = (CFPropertyListRef)CFDictionaryGetValue( recordRef, CFSTR( kDSNAttrRecordType ) );
+		
+	if ( valueResult )
+	{
+		if ( CFGetTypeID( valueResult ) == CFStringGetTypeID() )
+		{
+			cfRefType = (CFStringRef)valueResult;
+		}
+		else if ( CFGetTypeID( valueResult ) == CFArrayGetTypeID() )		
+		{
+			if ( CFArrayGetCount( (CFArrayRef)valueResult ) > 0 ) 
+			{
+				cfRefType = (CFStringRef)CFArrayGetValueAtIndex( (CFArrayRef)valueResult, 0 );
+			}
+		}
+	}
+	
+	valueResult = (CFPropertyListRef)CFDictionaryGetValue( recordRef, CFSTR( kDSNAttrRecordName ) );
+		
+	if ( valueResult )
+	{
+		if ( CFGetTypeID( valueResult ) == CFStringGetTypeID() )
+		{
+			cfRefName = (CFStringRef)valueResult;
+		}
+		else if ( CFGetTypeID( valueResult ) == CFArrayGetTypeID() )		
+		{
+			if ( CFArrayGetCount( (CFArrayRef)valueResult ) > 0 ) 
+			{
+				cfRefName = (CFStringRef)CFArrayGetValueAtIndex( (CFArrayRef)valueResult, 0 );
+			}
+		}
+	}
+	
+	if ( cfRefType )
+	{
+		uiDataLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfRefType), kCFStringEncodingUTF8) + 1;
+		refType = (char *)::calloc( uiDataLen, sizeof( char ) );
+
+		CFStringGetCString( cfRefType, refType, uiDataLen, kCFStringEncodingUTF8 );
+	}
+	else
+	{
+		refType = strdup( "Record Type Unknown" );	
+	}
+	
+	if ( cfRefName )
+	{
+		uiDataLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfRefName), kCFStringEncodingUTF8) + 1;
+		refName = (char *)::calloc( uiDataLen, sizeof( char ) );
+
+		CFStringGetCString( cfRefName, refName, uiDataLen, kCFStringEncodingUTF8 );
+	}
+	else
+	{
+		refName = strdup( "Record Name Unknown" );	
+	}
+
+	refTypeLen = ::strlen( refType );
+	refNameLen = ::strlen( refName );
+	uiRecSize = sizeof( tRecordEntry ) + refTypeLen + refNameLen + 4 + kBuffPad;
+	pRecEntry = (tRecordEntry *)::calloc( 1, uiRecSize );
+
+	pRecEntry->fRecordNameAndType.fBufferSize       = refTypeLen + refNameLen + 4 + kBuffPad;
+	pRecEntry->fRecordNameAndType.fBufferLength     = refTypeLen + refNameLen + 4;
+
+	uiOffset = 0;
+	uInt16 strLen = 0;
+	// Add the record name length and name itself
+	strLen = ::strlen( refName );
+	::memcpy( pRecEntry->fRecordNameAndType.fBufferData + uiOffset, &strLen, 2);
+	uiOffset += 2;
+	::memcpy( pRecEntry->fRecordNameAndType.fBufferData + uiOffset, refName, strLen);
+	uiOffset += strLen;
+
+	// Add the record type length and type itself
+	strLen = ::strlen( refType );
+	::memcpy( pRecEntry->fRecordNameAndType.fBufferData + uiOffset, &strLen, 2);
+	uiOffset += 2;
+	::memcpy( pRecEntry->fRecordNameAndType.fBufferData + uiOffset, refType, strLen);
+	uiOffset += strLen;
+
+	inData->fOutRecInfo = pRecEntry;
+
+	if (refType != nil)
+	{
+		free( refType );
+		refType = nil;
+	}
+	if (refName != nil)
+	{
+		free( refName );
+		refName = nil;
+	}
+
+	return( siResult );
+
+} // GetRecRefInfo
+
+//------------------------------------------------------------------------------------
+//      * GetRecordEntry
+//------------------------------------------------------------------------------------
+
+sInt32 BSDPlugin::GetRecordEntry ( sGetRecordEntry *inData )
+{
+	sInt32					siResult	= eDSNoErr;
+	uInt32					uiIndex		= 0;
+	uInt32					uiCount		= 0;
+	uInt32					uiOffset	= 0;
+	uInt32					uberOffset	= 0;
+	char				   *pData		= nil;
+	tRecordEntryPtr			pRecEntry	= nil;
+	sNISContextData		   *pContext	= nil;
+	CBuff					inBuff;
+	uInt32					offset		= 0;
+	uInt16					usTypeLen	= 0;
+	char				   *pRecType	= nil;
+	uInt16					usNameLen	= 0;
+	char				   *pRecName	= nil;
+	uInt16					usAttrCnt	= 0;
+	uInt32					buffLen		= 0;
+
+	LockPlugin();
+	try
+	{
+		if ( inData  == nil ) throw( (sInt32) eDSNullParameter );
+		if ( inData->fInOutDataBuff  == nil ) throw( (sInt32)eDSEmptyBuffer );
+		if (inData->fInOutDataBuff->fBufferSize == 0) throw( (sInt32)eDSEmptyBuffer );
+
+		siResult = inBuff.Initialize( inData->fInOutDataBuff );
+		if ( siResult != eDSNoErr ) throw( siResult );
+		
+		siResult = inBuff.GetDataBlockCount( &uiCount );
+		if ( siResult != eDSNoErr ) throw( siResult );
+
+		uiIndex = inData->fInRecEntryIndex;
+		if ((uiIndex > uiCount) || (uiIndex == 0)) throw( (sInt32)eDSInvalidIndex );
+
+		pData = inBuff.GetDataBlock( uiIndex, &uberOffset );
+		if ( pData  == nil ) throw( (sInt32)eDSCorruptBuffer );
+
+		//assume that the length retrieved is valid
+		buffLen = inBuff.GetDataBlockLength( uiIndex );
+
+		// Skip past this same record length obtained from GetDataBlockLength
+		pData   += 4;
+		offset  = 0; //buffLen does not include first four bytes
+
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (offset + 2 > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+
+		// Get the length for the record type
+		::memcpy( &usTypeLen, pData, 2 );
+
+		pData   += 2;
+		offset  += 2;
+
+		pRecType = pData;
+
+		pData   += usTypeLen;
+		offset  += usTypeLen;
+
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (offset + 2 > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+
+		// Get the length for the record name
+		::memcpy( &usNameLen, pData, 2 );
+
+		pData   += 2;
+		offset  += 2;
+
+		pRecName = pData;
+
+		pData   += usNameLen;
+		offset  += usNameLen;
+
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (offset + 2 > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+
+		// Get the attribute count
+		::memcpy( &usAttrCnt, pData, 2 );
+
+		pRecEntry = (tRecordEntry *)::calloc( 1, sizeof( tRecordEntry ) + usNameLen + usTypeLen + 4 + kBuffPad );
+
+		pRecEntry->fRecordNameAndType.fBufferSize       = usNameLen + usTypeLen + 4 + kBuffPad;
+		pRecEntry->fRecordNameAndType.fBufferLength     = usNameLen + usTypeLen + 4;
+
+		// Add the record name length
+		::memcpy( pRecEntry->fRecordNameAndType.fBufferData, &usNameLen, 2 );
+		uiOffset += 2;
+
+		// Add the record name
+		::memcpy( pRecEntry->fRecordNameAndType.fBufferData + uiOffset, pRecName, usNameLen );
+		uiOffset += usNameLen;
+
+		// Add the record type length
+		::memcpy( pRecEntry->fRecordNameAndType.fBufferData + uiOffset, &usTypeLen, 2 );
+
+		// Add the record type
+		uiOffset += 2;
+		::memcpy( pRecEntry->fRecordNameAndType.fBufferData + uiOffset, pRecType, usTypeLen );
+
+		pRecEntry->fRecordAttributeCount = usAttrCnt;
+
+		pContext = new sNISContextData;
+		if ( pContext  == nil ) throw( (sInt32) eMemoryAllocError );
+
+		pContext->offset = uberOffset + offset + 4; // context used by next calls of GetAttributeEntry
+													// include the four bytes of the buffLen
+
+		::CFDictionaryAddValue( mOpenRefTable, (const void*)inData->fOutAttrListRef, (const void*)pContext );
+		
+		inData->fOutRecEntryPtr = pRecEntry;
+	}
+
+	catch ( sInt32 err )
+	{
+		siResult = err;
+	}
+	
+	UnlockPlugin();
+
+	return( siResult );
+
+} // GetRecordEntry
+
+
+//------------------------------------------------------------------------------------
 //	* GetAttributeEntry
 //------------------------------------------------------------------------------------
 
@@ -2656,8 +3019,9 @@ sInt32 BSDPlugin::GetAttributeValue ( sGetAttributeValue *inData )
 		
 		::memcpy( pAttrValue->fAttributeValueData.fBufferData, p, usValueLen );
 
-			// Set the attribute value ID
+        // Set the attribute value ID
 		pAttrValue->fAttributeValueID = inData->fInAttrValueIndex;
+        //CalcCRC( pOutAttrValue->fAttributeValueData.fBufferData )
 
 		inData->fOutAttrValue = pAttrValue;
 			
@@ -2915,7 +3279,10 @@ sInt32 BSDPlugin::OpenRecord ( sOpenRecord *inData )
 	{
 		CFMutableDictionaryRef	recordResults = CopyRecordLookup( nodeDirRep->IsFFNode(), pNSLRecType, (char*)inData->fInRecName->fBufferData );
 	
-		AddRecordRecRef( inData->fOutRecRef, recordResults );
+		if ( recordResults )
+            AddRecordRecRef( inData->fOutRecRef, recordResults );
+        else
+            siResult = eDSRecordNotFound;
     }
 	else
 	{
@@ -2927,11 +3294,77 @@ sInt32 BSDPlugin::OpenRecord ( sOpenRecord *inData )
     return( siResult );
 }	// OpenRecord
 
+sInt32 BSDPlugin::GetRecordAttributeInfo( sGetRecAttribInfo *inData )
+{
+    tDirStatus					siResult = eDSNoErr;
+	tAttributeEntryPtr          pOutAttrEntry	= NULL;
+	uInt32						uiTypeLen		= 0;
+	
+	if ( inData == NULL ) return eDSNullParameter; 
+
+	DBGLOG( "BSDPlugin::GetRecordAttributeInfo called on refNum:0x%x, for type: %s\n", (int)inData->fInRecRef, (char*)inData->fInAttrType->fBufferData );
+	CFDictionaryRef recordRef = GetRecordFromRecRef( inData->fInRecRef );
+	
+	if ( !recordRef )	
+	{
+		DBGLOG( "BSDPlugin::GetRecordAttributeValueInfo, unknown record\n" );
+		return eDSInvalidRecordRef;
+	}
+
+	CFStringRef		keyRef = CFStringCreateWithCString( NULL, (char*)inData->fInAttrType->fBufferData, kCFStringEncodingUTF8 );
+	
+	if ( keyRef )
+	{
+		CFPropertyListRef	valueResult = (CFPropertyListRef)CFDictionaryGetValue( recordRef, keyRef );
+		
+		if ( valueResult )
+        {
+            //set up the length of the attribute type
+            uiTypeLen = ::strlen( inData->fInAttrType->fBufferData );
+            pOutAttrEntry = (tAttributeEntry *)::calloc( 1, sizeof( tAttributeEntry ) + uiTypeLen + 1 );
+
+            pOutAttrEntry->fAttributeSignature.fBufferSize          = uiTypeLen;
+            pOutAttrEntry->fAttributeSignature.fBufferLength        = uiTypeLen;
+            ::memcpy( pOutAttrEntry->fAttributeSignature.fBufferData, inData->fInAttrType->fBufferData, uiTypeLen );
+            pOutAttrEntry->fAttributeValueMaxSize = 255;
+            if ( CFGetTypeID( valueResult ) == CFStringGetTypeID() )
+            {
+                // count is one
+                pOutAttrEntry->fAttributeValueCount = 1;
+                // JT figure out uiDataLen
+            }
+            else if ( CFGetTypeID( valueResult ) == CFArrayGetTypeID() )		
+            {
+                pOutAttrEntry->fAttributeValueCount = CFArrayGetCount( (CFArrayRef)valueResult );
+                // JT figure out uiDataLen
+            }
+            
+            inData->fOutAttrInfoPtr = pOutAttrEntry;
+        }
+		else
+        {
+			DBGLOG( "BSDPlugin::GetRecordAttributeInfo, the value wasn't one we handle (%ld), ignoring\n", (valueResult)?CFGetTypeID( valueResult ):0 );
+            siResult = eDSAttributeNotFound; // should this be eDSInvalidAttributeType?
+        }
+			
+		CFRelease( keyRef );
+	}
+	else
+	{
+		DBGLOG( "BSDPlugin::GetRecordAttributeInfo, couldn't create a keyRef!\n" );
+		siResult = eDSInvalidAttributeType;
+	}
+		
+    return( siResult );
+}
+
 sInt32 BSDPlugin::GetRecordAttributeValueByIndex( sGetRecordAttributeValueByIndex *inData )
 {
     tDirStatus					siResult = eDSNoErr;
 	tAttributeValueEntryPtr		pOutAttrValue	= nil;
 	uInt32						uiDataLen		= 0;
+	
+	if ( inData == NULL ) return eDSNullParameter;
 
 	DBGLOG( "BSDPlugin::GetRecordAttributeValueByIndex called on refNum:0x%x, for type: %s, index: %ld\n", (int)inData->fInRecRef, (char*)inData->fInAttrType->fBufferData, inData->fInAttrValueIndex );
 	CFDictionaryRef recordRef = GetRecordFromRecRef( inData->fInRecRef );
@@ -2972,11 +3405,13 @@ sInt32 BSDPlugin::GetRecordAttributeValueByIndex( sGetRecordAttributeValueByInde
 			uiDataLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueStringRef), kCFStringEncodingUTF8) + 1;
 			pOutAttrValue = (tAttributeValueEntry *)::calloc( (sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad), sizeof( char ) );
 
+			pOutAttrValue->fAttributeValueID = inData->fInAttrValueIndex;	// what do we do for an ID, index for now
+			CFStringGetCString( valueStringRef, pOutAttrValue->fAttributeValueData.fBufferData, uiDataLen, kCFStringEncodingUTF8 );
+            //CalcCRC( pOutAttrValue->fAttributeValueData.fBufferData )
+
+			uiDataLen = strlen( pOutAttrValue->fAttributeValueData.fBufferData );
 			pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen;
 			pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
-
-			pOutAttrValue->fAttributeValueID = inData->fInAttrValueIndex;	// what do we do for an ID, index for now
-			CFStringGetCString( valueStringRef, pOutAttrValue->fAttributeValueData.fBufferData, uiDataLen, kCFStringEncodingUTF8 ); 
 
 			inData->fOutEntryPtr = pOutAttrValue;
 
@@ -2995,6 +3430,194 @@ sInt32 BSDPlugin::GetRecordAttributeValueByIndex( sGetRecordAttributeValueByInde
 		DBGLOG( "BSDPlugin::GetRecordAttributeValueByIndex, couldn't create a keyRef!\n" );
 		siResult = eDSInvalidAttributeType;
 	}
+		
+    return( siResult );
+}
+
+sInt32 BSDPlugin::GetRecordAttributeValueByID( sGetRecordAttributeValueByID *inData )
+{
+    tDirStatus					siResult = eDSNoErr;
+	tAttributeValueEntryPtr		pOutAttrValue	= nil;
+	uInt32						uiDataLen		= 0;
+	
+	if ( inData == NULL ) return eDSNullParameter;
+
+	DBGLOG( "BSDPlugin::GetRecordAttributeValueByID called on refNum:0x%x, for type: %s, ID: %ld\n", (int)inData->fInRecRef, (char*)inData->fInAttrType->fBufferData, inData->fInValueID );
+	CFDictionaryRef recordRef = GetRecordFromRecRef( inData->fInRecRef );
+	
+	if ( !recordRef )	
+	{
+		DBGLOG( "BSDPlugin::GetRecordAttributeValueByID, unknown record\n" );
+		return eDSInvalidRecordRef;
+	}
+
+	CFStringRef		keyRef = CFStringCreateWithCString( NULL, (char*)inData->fInAttrType->fBufferData, kCFStringEncodingUTF8 );
+	
+	if ( keyRef )
+	{
+		CFStringRef			valueStringRef = NULL;
+		CFPropertyListRef	valueResult = (CFPropertyListRef)CFDictionaryGetValue( recordRef, keyRef );
+		
+		if ( valueResult && CFGetTypeID( valueResult ) == CFStringGetTypeID() )
+		{
+			if ( inData->fInValueID == 1 )
+				valueStringRef = (CFStringRef)valueResult;
+			else
+            {
+				DBGLOG( "BSDPlugin::GetRecordAttributeValueByID, they are asking for an ID of (%ld) when we only have one value\n", inData->fInValueID );
+                siResult = eDSAttributeValueNotFound;
+            }
+		}
+		else if ( valueResult && CFGetTypeID( valueResult ) == CFArrayGetTypeID() )		
+		{
+			if ( (CFIndex)inData->fInValueID <= CFArrayGetCount( (CFArrayRef)valueResult ) )
+				valueStringRef = (CFStringRef)CFArrayGetValueAtIndex( (CFArrayRef)valueResult, inData->fInValueID-1 );
+			else
+            {
+				DBGLOG( "BSDPlugin::GetRecordAttributeValueByID, they are asking for an ID of (%ld) when we only have %ld value(s)\n", inData->fInValueID, CFArrayGetCount( (CFArrayRef)valueResult ) );
+                siResult = eDSAttributeValueNotFound;
+            }
+		}
+		else
+        {
+			DBGLOG( "BSDPlugin::GetRecordAttributeValueByID, the value wasn't one we handle (%ld), ignoring\n", (valueResult)?CFGetTypeID( valueResult ):0 );
+			siResult = eDSAttributeNotFound;            
+        }
+
+		
+		if ( valueStringRef )
+		{
+			uiDataLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueStringRef), kCFStringEncodingUTF8) + 1;
+			pOutAttrValue = (tAttributeValueEntry *)::calloc( (sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad), sizeof( char ) );
+
+			pOutAttrValue->fAttributeValueID = inData->fInValueID;	// what do we do for an ID, index for now
+			CFStringGetCString( valueStringRef, pOutAttrValue->fAttributeValueData.fBufferData, uiDataLen, kCFStringEncodingUTF8 );
+            //CalcCRC( pOutAttrValue->fAttributeValueData.fBufferData )
+
+			uiDataLen = strlen( pOutAttrValue->fAttributeValueData.fBufferData );
+			pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen;
+			pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
+
+			inData->fOutEntryPtr = pOutAttrValue;
+
+			DBGLOG( "BSDPlugin::GetRecordAttributeValueByIndex, found the value: %s\n", pOutAttrValue->fAttributeValueData.fBufferData );
+		}
+		else
+		{
+			DBGLOG( "BSDPlugin::GetRecordAttributeValueByID, couldn't find any values with this key!\n" );
+		}
+			
+		CFRelease( keyRef );
+	}
+	else
+	{
+		DBGLOG( "BSDPlugin::GetRecordAttributeValueByID, couldn't create a keyRef!\n" );
+		siResult = eDSInvalidAttributeType;
+	}
+		
+    return( siResult );
+}
+
+sInt32 BSDPlugin::GetRecordAttributeValueByValue( sGetRecordAttributeValueByValue *inData )
+{
+    tDirStatus					siResult = eDSNoErr;
+	tAttributeValueEntryPtr		pOutAttrValue	= nil;
+	uInt32						uiDataLen		= 0;
+	CFIndex						i				= 0;
+	
+	if ( inData == NULL ) return eDSNullParameter;
+
+	DBGLOG( "BSDPlugin::GetRecordAttributeValueByValue called on refNum:0x%x, for type: %s, value: %s\n", (int)inData->fInRecRef, (char*)inData->fInAttrType->fBufferData, (char*)inData->fInAttrValue->fBufferData );
+	CFDictionaryRef recordRef = GetRecordFromRecRef( inData->fInRecRef );
+	
+	if ( !recordRef )	
+	{
+		DBGLOG( "BSDPlugin::GetRecordAttributeValueByValue, unknown record\n" );
+		return eDSInvalidRecordRef;
+	}
+
+	CFStringRef		keyRef = CFStringCreateWithCString( NULL, (char*)inData->fInAttrType->fBufferData, kCFStringEncodingUTF8 );
+	CFStringRef		value = CFStringCreateWithCString( NULL, (char*)inData->fInAttrValue->fBufferData, kCFStringEncodingUTF8 );
+	
+	if ( keyRef && value )
+	{
+		CFStringRef			valueStringRef = NULL;
+		CFPropertyListRef	valueResult = (CFPropertyListRef)CFDictionaryGetValue( recordRef, keyRef );
+		
+		if ( valueResult && CFGetTypeID( valueResult ) == CFStringGetTypeID() )
+		{
+			if ( CFStringCompare( value, (CFStringRef)valueResult, 0 ) == kCFCompareEqualTo ) 
+			{
+				// found the desired value
+				valueStringRef = (CFStringRef)valueResult;
+				i = 0;
+			}
+			else
+			{
+				// attribute exists, but not with that value
+				siResult = eDSAttributeValueNotFound;
+			}
+		}
+		else if ( valueResult && CFGetTypeID( valueResult ) == CFArrayGetTypeID() )		
+		{
+			// check each value to see if we can find it
+			CFIndex count = CFArrayGetCount( (CFArrayRef)valueResult );
+			for ( i = 0; i < count; i++ )
+			{
+				valueStringRef = (CFStringRef)CFArrayGetValueAtIndex( (CFArrayRef)valueResult, i );
+				if ( CFStringCompare( value, (CFStringRef)valueStringRef, 0 ) == kCFCompareEqualTo )
+				{
+					break;
+				}
+			}
+			
+			if ( i == count )
+			{
+				siResult = eDSAttributeValueNotFound;
+			}
+		}
+		else
+		{
+			DBGLOG( "BSDPlugin::GetRecordAttributeValueByValue, the value wasn't one we handle (%ld), ignoring\n", (valueResult)?CFGetTypeID( valueResult ):0 );
+			siResult = eDSAttributeNotFound;
+		}
+		
+		if ( valueStringRef )
+		{
+			uiDataLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueStringRef), kCFStringEncodingUTF8) + 1;
+			pOutAttrValue = (tAttributeValueEntry *)::calloc( (sizeof( tAttributeValueEntry ) + uiDataLen + kBuffPad), sizeof( char ) );
+
+			pOutAttrValue->fAttributeValueID = i + 1;	// what do we do for an ID, index for now
+			CFStringGetCString( valueStringRef, pOutAttrValue->fAttributeValueData.fBufferData, uiDataLen, kCFStringEncodingUTF8 );
+            //CalcCRC( pOutAttrValue->fAttributeValueData.fBufferData )
+
+			uiDataLen = strlen( pOutAttrValue->fAttributeValueData.fBufferData );
+			pOutAttrValue->fAttributeValueData.fBufferSize = uiDataLen;
+			pOutAttrValue->fAttributeValueData.fBufferLength = uiDataLen;
+
+			inData->fOutEntryPtr = pOutAttrValue;
+
+			DBGLOG( "BSDPlugin::GetRecordAttributeValueByValue, found the value: %s\n", pOutAttrValue->fAttributeValueData.fBufferData );
+		}
+		else
+		{
+			DBGLOG( "BSDPlugin::GetRecordAttributeValueByValue, couldn't find any values with this key!\n" );
+			siResult = eDSIndexOutOfRange;
+		}
+	}
+	else if ( keyRef == NULL )
+	{
+		DBGLOG( "BSDPlugin::GetRecordAttributeValueByValue, couldn't create a keyRef!\n" );
+		siResult = eDSInvalidAttributeType;
+	}
+	else
+	{
+		DBGLOG( "BSDPlugin::GetRecordAttributeValueByValue, couldn't create value!\n" );
+		siResult = eDSAttributeValueNotFound;
+	}
+	
+	DSCFRelease( keyRef );
+	DSCFRelease( value );
 		
     return( siResult );
 }
@@ -3277,7 +3900,11 @@ sInt32 BSDPlugin::HandleNetworkTransition( sHeader *inData )
 {
     sInt32					siResult			= eDSNoErr;
 	
-	DBGLOG( "BSDPlugin::HandleNetworkTransition called\n" );
+	DBGLOG( "BSDPlugin::HandleNetworkTransition called, setting mNISOK to true\n" );
+	
+	mNISOK = true;									// reset these
+	mLastTimeOfNetworkTransition = CFAbsoluteTimeGetCurrent();		// in case outstanding searches timeout, they can see that a network transition occurred
+	mLastTimeCheckedServerAvailabilityViaRPC = 0;
 	
 	if ( mLocalNodeString )
 	{
@@ -3301,8 +3928,9 @@ sInt32 BSDPlugin::HandleNetworkTransition( sHeader *inData )
 	else
 		DBGLOG( "BSDPlugin::HandleNetworkTransition not calling AddNode (siResult:%ld) because %s\n", siResult, (mLocalNodeString)?"we have no damain name":"of an error" );
 
+#ifdef USE_CACHE
 	ResetMapCache();
-	
+#endif	
     return ( siResult );
 }
 
@@ -3322,6 +3950,7 @@ void BSDPlugin::ResetFFCache( void )
 }
 #endif
 
+#ifdef USE_CACHE
 void BSDPlugin::ResetMapCache( void )
 {
 	LockMapCache();
@@ -3335,7 +3964,7 @@ void BSDPlugin::ResetMapCache( void )
 	mLastTimeCacheReset = CFAbsoluteTimeGetCurrent();
 	UnlockMapCache();
 }
-
+#endif
 Boolean BSDPlugin::ResultMatchesRequestRecordNameCriteria(	CFDictionaryRef		result,
 															tDirPatternMatch	patternMatch,
 															tDataListPtr		inRecordNameList )
@@ -4359,10 +4988,11 @@ void BSDPlugin::AddResultToDictionaries( CFMutableDictionaryRef primaryDictRef, 
 char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTypeName, const char* keys )
 {
     char*		resultPtr = NULL;
-	const char*	argv[8] = {0};
-	const char* pathArg = NULL;
+	char* 		argv[8] = {0};
+	char*		pathArg = NULL;
     Boolean		canceled = false;
 	int			callTimedOut = 0;
+	CFAbsoluteTime timeLookupStarted = CFAbsoluteTimeGetCurrent();
 	
 	DBGLOG( "BSDPlugin::CopyResultOfNISLookup started type: %d, recordTypeName: %s, keys: %s\n", type, (recordTypeName)?recordTypeName:"NULL", (keys)?keys:"NULL" );
 	// we can improve here by saving these results and caching them...
@@ -4380,7 +5010,7 @@ char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTy
 			argv[1] = "-k";
 			argv[2] = "-d";
 			argv[3] = mLocalNodeString;
-			argv[4] = recordTypeName;
+			argv[4] = (char*)recordTypeName;
 			
 			pathArg = kNISypcatPath;
 		}
@@ -4389,7 +5019,7 @@ char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTy
 		case kNISdomainname:
 		{
 			argv[0] = kNISdomainnamePath;
-			argv[1] = recordTypeName;
+			argv[1] = (char*)recordTypeName;
 			pathArg = kNISdomainnamePath;
 		}
 		break;
@@ -4398,6 +5028,7 @@ char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTy
 		{
 			argv[0] = kNISrpcinfoPath;
 			argv[1] = "-p";
+			argv[2] = (char*)recordTypeName;
 
 			pathArg = kNISrpcinfoPath;
 		}
@@ -4434,22 +5065,29 @@ char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTy
 			argv[2] = mLocalNodeString;
 			argv[3] = "-t";
 			argv[4] = "-k";
-			argv[5] = keys;
-			argv[6] = recordTypeName;
+			argv[5] = (char*)keys;
+			argv[6] = (char*)recordTypeName;
 			
 			pathArg = kNISypmatchPath;
 		}
 		break;
 	};
 			
-	if ( myexecutecommandas( NULL, pathArg, argv, false, 10, &resultPtr, &canceled, getuid(), getgid(), &callTimedOut ) < 0 )
+	if ( myexecutecommandas( NULL, pathArg, argv, false, (type==kNISypwhich)?2:10, &resultPtr, &canceled, getuid(), getgid(), &callTimedOut ) < 0 )
 	{
 		DBGLOG( "BSDPlugin::CopyResultOfNISLookup failed\n" );
 	}
 			
 	if ( type == kNISbind && callTimedOut )
 	{
-		syslog( LOG_ALERT, "ypbind failed to locate NIS Server, some services may be unavailable...\n" );
+		if ( mLastTimeOfNetworkTransition < timeLookupStarted )
+		{
+			syslog( LOG_ALERT, "ypbind failed to locate NIS Server, some services may be unavailable...\n" );
+			mNISOK = false;
+			SetNISUnavailable();
+		}
+		else
+			DBGLOG( "BSDPlugin::CopyResultOfNISLookup, ypbind failed to locate NIS Server, ignoring because a NetworkTransition occurred.\n" );
 	}
 
 	DBGLOG( "BSDPlugin::CopyResultOfNISLookup finished type: %d, recordTypeName: %s, keys: %s\n", type, (recordTypeName)?recordTypeName:"NULL", (keys)?keys:"NULL" );
@@ -4669,7 +5307,7 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 {
 	if ( !recordTypeName )
 		return NULL;
-
+	
 	DBGLOG("BSDPlugin::CopyMapResults on %s for %s\n", (isFFRecord)?"/BSD/local":"NIS", recordTypeName);
 		
 	CFDictionaryRef			results = NULL;
@@ -4695,6 +5333,7 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 		else
 #endif	
 		{
+			#ifdef USE_CACHE
 			LockMapCache();
 	
 			results = (CFDictionaryRef)CFDictionaryGetValue( mCachedMapsRef, recordTypeRef );
@@ -4707,6 +5346,7 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 			}
 			
 			UnlockMapCache();
+			#endif
 		}
 	}
 	else
@@ -4774,7 +5414,6 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 			char*				eoln = NULL;
 			char*				key = NULL;
 			char*				value = NULL;
-			CFMutableSetRef		dupFilterSetRef = CFSetCreateMutable( NULL, 0, &kCFCopyStringSetCallBacks );
 			
 			while ( curPtr && curPtr[0] != '\0' )
 			{
@@ -4808,47 +5447,20 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 				if ( key && value )
 				{
 					DBGLOG( "BSDPlugin::CopyMapResults key is: %s, value is: %s\n", key, value );
-					CFMutableStringRef		dupValueCheckRef = CFStringCreateMutable( NULL, 0 );
-					
-					if ( dupValueCheckRef )
-					{
-						CFStringAppendCString( dupValueCheckRef, key, kCFStringEncodingUTF8 );
-						CFStringAppendCString( dupValueCheckRef, value, kCFStringEncodingUTF8 );
-						
-						if ( CFSetContainsValue( dupFilterSetRef, dupValueCheckRef ) )
-						{
-							CFRelease( dupValueCheckRef );
 
-							DBGLOG( "BSDPlugin::CopyMapResults filtering duplicate result key is: %s, val is: %s\n", key, value );
-							continue;
-						}
+					CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, recordTypeName );
+		
+					if ( resultRef )
+					{
+						AddResultToDictionaries( newResult, alternateDictionaryRef, resultRef );
 					
-						CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, recordTypeName );
-			
-						if ( resultRef )
-						{
-							if ( dupValueCheckRef )
-								CFSetAddValue( dupFilterSetRef, dupValueCheckRef );
-							
-							AddResultToDictionaries( newResult, alternateDictionaryRef, resultRef );
-						
-							CFRelease( resultRef );
-						}
-						else
-							DBGLOG( "BSDPlugin::CopyMapResults no result\n" );
-					
-						CFRelease( dupValueCheckRef );
+						CFRelease( resultRef );
 					}
 					else
-						DBGLOG( "BSDPlugin::CopyMapResults, couldn't make a CFString out of the value (%s)!!!\n", value );
+						DBGLOG( "BSDPlugin::CopyMapResults no result\n" );
 				}
 			}
-	
-			if ( dupFilterSetRef )
-			{
-				CFRelease( dupFilterSetRef );
-			}
-			
+
 			free( resultPtr );
 			resultPtr = NULL;
 		}
@@ -4870,12 +5482,14 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 			else
 #endif
 			{
+				#ifdef USE_CACHE
 				LockMapCache();
 	
 				CFDictionarySetValue( mCachedMapsRef, recordTypeRef, results ); // only set this if we did a full cat lookup
 				CFDictionarySetValue( mCachedMapsRef, alternateRecordTypeRef, alternateDictionaryRef );
 	
 				UnlockMapCache();
+				#endif
 			}
 		}
 		else
@@ -5010,6 +5624,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 	else
 #endif
 	{
+		#ifdef USE_CACHE
 		LockMapCache();
 	
 		CFDictionaryRef		cachedMapRef = (CFDictionaryRef)CFDictionaryGetValue( mCachedMapsRef, recordTypeRef );
@@ -5035,6 +5650,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 		}
 		
 		UnlockMapCache();
+		#endif
 	}
 	
 	if ( !returnRecordRef )
@@ -5070,12 +5686,20 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 				resultPtr = CopyResultOfNISLookup( (recordName)?kNISypmatch:kNISypcat, recordTypeName, recordName );
 			}
 			
+			// check to see if we got an error looking up a user name, if it failed a match, try ypcat for full name lookup
+			if ( !isFFRecord && resultPtr && recordName && strncmp( recordTypeName, kNISRecordTypeUsers, sizeof(kNISRecordTypeUsers) ) == 0 && strstr( resultPtr, "No such key in map" ) != NULL )
+			{
+				DBGLOG( "BSDPlugin::CopyRecordResult unable to find user record, try a ypcat call to try long name\n" );
+				free( resultPtr);
+				
+				resultPtr = CopyResultOfNISLookup( kNISypcat, recordTypeName );
+			}
+			
 			if ( isFFRecord || ( strncmp( resultPtr, "No such map", strlen("No such map") ) != 0 && strncmp( resultPtr, "Can't match key", strlen("Can't match key") ) != 0 ) )
 			{
 				char*					curPtr = resultPtr;
 				char*					eoln = NULL;
 				char*					value = NULL;
-				CFMutableSetRef			dupFilterSetRef = CFSetCreateMutable( NULL, 0, &kCFCopyStringSetCallBacks );
 				CFMutableDictionaryRef	resultDictionaryRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 				CFMutableDictionaryRef	alternateDictionaryRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 				
@@ -5117,51 +5741,32 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 							continue;
 						}
 */							
-						CFStringRef		dupValueCheckRef = CFStringCreateWithCString( NULL, value, kCFStringEncodingUTF8 );
-						
-						if ( dupValueCheckRef )
+						CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, recordTypeName );
+		
+						if ( resultRef )
 						{
-							if ( CFSetContainsValue( dupFilterSetRef, dupValueCheckRef ) )
-							{
-								CFRelease( dupValueCheckRef );
-								DBGLOG( "BSDPlugin::CopyRecordResult filtering duplicate result, val is: %s\n", value );
-								continue;
-							}
+							AddResultToDictionaries( resultDictionaryRef, alternateDictionaryRef, resultRef );
 						
-							CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, recordTypeName );
-			
-							if ( resultRef )
-							{
-								if ( dupValueCheckRef )
-									CFSetAddValue( dupFilterSetRef, dupValueCheckRef );
-								
-								AddResultToDictionaries( resultDictionaryRef, alternateDictionaryRef, resultRef );
-							
-								CFRelease( resultRef );
-							}
-							else
-								DBGLOG( "BSDPlugin::CopyRecordResult no result\n" );
-						
-							CFRelease( dupValueCheckRef );
+							CFRelease( resultRef );
 						}
 						else
-							DBGLOG( "BSDPlugin::CopyRecordResult, couldn't make a CFString out of the value (%s)!!!\n", value );
+							DBGLOG( "BSDPlugin::CopyRecordResult no result\n" );
 					}
 				}
-		
-				if ( dupFilterSetRef )
-				{
-					CFRelease( dupFilterSetRef );
-				}
-				
+
+				#ifdef USE_CACHE
 				LockMapCache();
 				
 				CFDictionarySetValue( mCachedMapsRef, recordTypeRef, resultDictionaryRef );
 				CFDictionarySetValue( mCachedMapsRef, alternateRecordTypeRef, alternateDictionaryRef );
 	
 				UnlockMapCache();
+				#endif
 				
 				returnRecordRef = (CFDictionaryRef)CFDictionaryGetValue( resultDictionaryRef, recordNameRef );
+				
+				if ( !returnRecordRef )
+					returnRecordRef= (CFDictionaryRef)CFDictionaryGetValue( alternateDictionaryRef, recordNameRef );
 				
 				if ( returnRecordRef )
 				{

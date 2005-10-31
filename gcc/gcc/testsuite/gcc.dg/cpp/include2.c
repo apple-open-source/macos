@@ -1,7 +1,7 @@
 /* Copyright (C) 2000 Free Software Foundation, Inc.  */
 
 /* { dg-do preprocess } */
-/* APPLE LOCAL BEGIN -Wextra-tokens */
+/* APPLE LOCAL begin -Wextra-tokens */
 /* Tests that #include does not allow the terminating '>' or '"' to be
    escaped, as per the standard.  */
 /* { dg-options "-Wextra-tokens"  } */
@@ -13,4 +13,4 @@
 /* These error is No such file or directory, just once.  However, this
    message is locale-dependent, so don't test for it.  */
 /* { dg-error "silly" "" { target *-*-* } 10 } */
-/* APPLE LOCAL END  */
+/* APPLE LOCAL end */

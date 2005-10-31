@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -24,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include <errno.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "libgfortran.h"
 #include "io.h"
 
@@ -35,7 +45,6 @@ Boston, MA 02111-1307, USA.  */
 void
 set_integer (void *dest, int64_t value, int length)
 {
-
   switch (length)
     {
     case 8:
@@ -89,25 +98,28 @@ max_value (int length, int signed_flag)
 /* convert_real()-- Convert a character representation of a floating
  * point number to the machine number.  Returns nonzero if there is a
  * range problem during conversion.  TODO: handle not-a-numbers and
- * infinities.  Handling of kind 4 is probably wrong because of double
- * rounding. */
+ * infinities.  */
 
 int
 convert_real (void *dest, const char *buffer, int length)
 {
-
   errno = 0;
 
   switch (length)
     {
     case 4:
-      *((float *) dest) = (float) strtod (buffer, NULL);
+      *((float *) dest) =
+#if defined(HAVE_STRTOF)
+	strtof (buffer, NULL);
+#else
+	(float) strtod (buffer, NULL);
+#endif
       break;
     case 8:
       *((double *) dest) = strtod (buffer, NULL);
       break;
     default:
-      internal_error ("Bad real number kind");
+      internal_error ("Unsupported real kind during IO");
     }
 
   if (errno != 0)
@@ -115,114 +127,6 @@ convert_real (void *dest, const char *buffer, int length)
       generate_error (ERROR_READ_VALUE,
 		      "Range error during floating point read");
       return 1;
-    }
-
-  return 0;
-}
-
-static int
-convert_precision_real (void *dest, int sign,
-                       char *buffer, int length, int exponent)
-{
-  int w, new_dp_pos, i, slen, k, dp;
-  char * p, c;
-  double fval;
-  float tf;
-
-  fval =0.0;
-  tf = 0.0;
-  dp = 0;
-  new_dp_pos = 0;
-
-  slen = strlen (buffer);
-  w = slen;
-  p = buffer;
-
-/*  for (i = w - 1; i > 0; i --)
-    {
-       if (buffer[i] == '0' || buffer[i] == 0)
-         buffer[i] = 0;
-       else
-         break;
-    }
-*/
-  for (i = 0; i < w; i++)
-    {
-       if (buffer[i] == '.')
-         break;
-    }
-
-  new_dp_pos = i;
-  new_dp_pos += exponent;
-
-  while (w > 0)
-    {
-      c = *p;
-      switch (c)
-        {
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-          fval = fval * 10.0 + c - '0';
-          p++;
-          w--;
-          break;
-
-        case '.':
-          dp = 1;
-          p++;
-          w--;
-          break;
-
-       default:
-          p++;
-          w--;
-          break;
-     }
-  }
-
-  if (sign)
-    fval = - fval;
-
-  i = new_dp_pos - slen + dp;
-  k = abs(i);
-  tf = 1.0;
-
-  while (k > 0)
-    {
-       tf *= 10.0 ;
-       k -- ;
-    }
-
-  if (fval != 0.0)
-    {
-       if (i < 0)
-         {
-           fval = fval / tf;
-         }
-        else
-         {
-           fval = fval * tf;
-         }
-    }
-
-  switch (length)
-    {
-    case 4:
-      *((float *) dest) = (float)fval;
-      break;
-    case 8:
-      *((double *) dest) = fval;
-      break;
-    default:
-      internal_error ("Bad real number kind");
     }
 
   return 0;
@@ -307,7 +211,6 @@ read_a (fnode * f, char *p, int length)
 static char *
 eat_leading_spaces (int *width, char *p)
 {
-
   for (;;)
     {
       if (*width == 0 || *p != ' ')
@@ -428,11 +331,11 @@ read_decimal (fnode * f, char *dest, int length)
   set_integer (dest, v, length);
   return;
 
-bad:
+ bad:
   generate_error (ERROR_READ_VALUE, "Bad value during integer read");
   return;
 
-overflow:
+ overflow:
   generate_error (ERROR_READ_OVERFLOW,
 		  "Value overflowed during integer read");
   return;
@@ -564,11 +467,11 @@ read_radix (fnode * f, char *dest, int length, int radix)
   set_integer (dest, v, length);
   return;
 
-bad:
+ bad:
   generate_error (ERROR_READ_VALUE, "Bad value during integer read");
   return;
 
-overflow:
+ overflow:
   generate_error (ERROR_READ_OVERFLOW,
 		  "Value overflowed during integer read");
   return;
@@ -576,19 +479,23 @@ overflow:
 
 
 /* read_f()-- Read a floating point number with F-style editing, which
- * is what all of the other floating point descriptors behave as.  The
- * tricky part is that optional spaces are allowed after an E or D,
- * and the implicit decimal point if a decimal point is not present in
- * the input. */
+   is what all of the other floating point descriptors behave as.  The
+   tricky part is that optional spaces are allowed after an E or D,
+   and the implicit decimal point if a decimal point is not present in
+   the input.  */
 
 void
 read_f (fnode * f, char *dest, int length)
 {
   int w, seen_dp, exponent;
   int exponent_sign, val_sign;
-  char *p, *buffer, *n;
+  int ndigits;
+  int edigits;
+  int i;
+  char *p, *buffer;
+  char *digits;
 
-  val_sign = 0;
+  val_sign = 1;
   seen_dp = 0;
   w = f->u.w;
   p = read_block (&w);
@@ -601,32 +508,26 @@ read_f (fnode * f, char *dest, int length)
       switch (length)
 	{
 	case 4:
-	  *((float *) dest) = 0.0;
+	  *((float *) dest) = 0.0f;
 	  break;
 
 	case 8:
 	  *((double *) dest) = 0.0;
 	  break;
+
+	default:
+	  internal_error ("Unsupported real kind during IO");
 	}
 
       return;
     }
-
-  if (w + 2 < SCRATCH_SIZE)
-    buffer = scratch;
-  else
-    buffer = get_mem (w + 2);
-
-  memset(buffer, 0, w + 2);
-
-  n = buffer;
 
   /* Optional sign */
 
   if (*p == '-' || *p == '+')
     {
       if (*p == '-')
-        val_sign = 1;
+        val_sign = -1;
       p++;
 
       if (--w == 0)
@@ -640,10 +541,21 @@ read_f (fnode * f, char *dest, int length)
   if (!isdigit (*p) && *p != '.')
     goto bad_float;
 
+  /* Remember the position of the first digit.  */
+  digits = p;
+  ndigits = 0;
+
+  /* Scan through the string to find the exponent.  */
   while (w > 0)
     {
       switch (*p)
 	{
+	case '.':
+	  if (seen_dp)
+	    goto bad_float;
+	  seen_dp = 1;
+	  /* Fall through */
+
 	case '0':
 	case '1':
 	case '2':
@@ -654,23 +566,9 @@ read_f (fnode * f, char *dest, int length)
 	case '7':
 	case '8':
 	case '9':
-	  *n++ = *p++;
-	  w--;
-	  break;
-
-	case '.':
-	  if (seen_dp)
-	    goto bad_float;
-	  seen_dp = 1;
-
-	  *n++ = *p++;
-	  w--;
-	  break;
-
 	case ' ':
-	  if (g.blank_status == BLANK_ZERO)
-	    *n++ = '0';
-	  p++;
+	  ndigits++;
+	  *p++;
 	  w--;
 	  break;
 
@@ -696,20 +594,16 @@ read_f (fnode * f, char *dest, int length)
 	}
     }
 
-/* No exponent has been seen, so we use the current scale factor */
-
+  /* No exponent has been seen, so we use the current scale factor */
   exponent = -g.scale_factor;
   goto done;
 
-bad_float:
+ bad_float:
   generate_error (ERROR_READ_VALUE, "Bad value during floating point read");
-  if (buffer != scratch)
-     free_mem (buffer);
   return;
 
-/* At this point the start of an exponent has been found */
-
-exp1:
+  /* At this point the start of an exponent has been found */
+ exp1:
   while (w > 0 && *p == ' ')
     {
       w--;
@@ -731,11 +625,10 @@ exp1:
   if (w == 0)
     goto bad_float;
 
-/* At this point a digit string is required.  We calculate the value
- * of the exponent in order to take account of the scale factor and
- * the d parameter before explict conversion takes place. */
-
-exp2:
+  /* At this point a digit string is required.  We calculate the value
+     of the exponent in order to take account of the scale factor and
+     the d parameter before explict conversion takes place. */
+ exp2:
   if (!isdigit (*p))
     goto bad_float;
 
@@ -746,9 +639,6 @@ exp2:
   while (w > 0 && isdigit (*p))
     {
       exponent = 10 * exponent + *p - '0';
-      if (exponent > 999999)
-	goto bad_float;
-
       p++;
       w--;
     }
@@ -765,15 +655,57 @@ exp2:
 
   exponent = exponent * exponent_sign;
 
-done:
+ done:
+  /* Use the precision specified in the format if no decimal point has been
+     seen.  */
   if (!seen_dp)
     exponent -= f->u.real.d;
 
-  /* The number is syntactically correct and ready for conversion.
-   * The only thing that can go wrong at this point is overflow or
-   * underflow. */
+  if (exponent > 0)
+    {
+      edigits = 2;
+      i = exponent;
+    }
+  else
+    {
+      edigits = 3;
+      i = -exponent;
+    }
 
-  convert_precision_real (dest, val_sign, buffer, length, exponent);
+  while (i >= 10)
+    {
+      i /= 10;
+      edigits++;
+    }
+
+  i = ndigits + edigits + 1;
+  if (val_sign < 0)
+    i++;
+
+  if (i < SCRATCH_SIZE) 
+    buffer = scratch;
+  else
+    buffer = get_mem (i);
+
+  /* Reformat the string into a temporary buffer.  As we're using atof it's
+     easiest to just leave the dcimal point in place.  */
+  p = buffer;
+  if (val_sign < 0)
+    *(p++) = '-';
+  for (; ndigits > 0; ndigits--)
+    {
+      if (*digits == ' ' && g.blank_status == BLANK_ZERO)
+	*p = '0';
+      else
+	*p = *digits;
+      p++;
+      digits++;
+    }
+  *(p++) = 'e';
+  sprintf (p, "%d", exponent);
+
+  /* Do the actual conversion.  */
+  convert_real (dest, buffer, length);
 
   if (buffer != scratch)
      free_mem (buffer);

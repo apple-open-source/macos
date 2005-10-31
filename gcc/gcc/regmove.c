@@ -1150,10 +1150,11 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 		  && GET_MODE_SIZE (GET_MODE (dst))
 		     >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (dst))))
 		{
-		  src_subreg
-		    = gen_rtx_SUBREG (GET_MODE (SUBREG_REG (dst)),
-				      src, SUBREG_BYTE (dst));
 		  dst = SUBREG_REG (dst);
+		  src_subreg = lowpart_subreg (GET_MODE (dst),
+					       src, GET_MODE (src));
+		  if (!src_subreg)
+		    continue;
 		}
 	      if (!REG_P (dst)
 		  || REGNO (dst) < FIRST_PSEUDO_REGISTER)
@@ -2456,4 +2457,7 @@ combine_stack_adjustments_for_block (basic_block bb)
 
   if (last_sp_set && last_sp_adjust == 0)
     delete_insn (last_sp_set);
+
+  if (memlist)
+    free_csa_memlist (memlist);
 }

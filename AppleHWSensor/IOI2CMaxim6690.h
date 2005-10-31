@@ -1,9 +1,12 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: IOI2CMaxim6690.h,v 1.2 2004/09/18 01:12:01 jlehrer Exp $
+ *  File: $Id: IOI2CMaxim6690.h,v 1.3 2005/05/19 22:15:32 tsherman Exp $
  *
  *		$Log: IOI2CMaxim6690.h,v $
+ *		Revision 1.3  2005/05/19 22:15:32  tsherman
+ *		4095546 - SMUSAT sensors - Update driver to read all SAT sensors with one read (raddog)
+ *		
  *		Revision 1.2  2004/09/18 01:12:01  jlehrer
  *		Removed APSL header.
  *		
@@ -37,7 +40,7 @@
 #endif
 
 // Uncomment for debug info
-#define MAX6690_DEBUG 1
+//#define MAX6690_DEBUG 1
 
 #ifdef MAX6690_DEBUG
 #define DLOG(fmt, args...)  kprintf(fmt, ## args)

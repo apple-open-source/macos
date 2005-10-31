@@ -3,7 +3,7 @@
  * KClient API functions deprecated in KClient API 3.0
  * Provided only for backwards compatibility
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/CompatibilityAPI/KClientDeprecated.Shlib.cp,v 1.30 2004/10/22 20:53:02 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/CompatibilityAPI/KClientDeprecated.Shlib.cp,v 1.31 2005/06/14 19:25:32 lxs Exp $
  */
 
 #include <Kerberos/KClientDeprecated.h>
@@ -582,7 +582,8 @@ KClientGetNumCredentialsDeprecated (
 	BeginShieldedTry_ {
 		KClientCCacheInterface ccache;
 		UPrincipal principal (UPrincipal::kerberosV4, inName, inInstance, inRealm);
-		*outNumCredentials = ccache.CountCredentials (ccache.GetPrincipalCCache (principal));
+        UCCache principalCCache = ccache.GetPrincipalCCache (principal);
+		*outNumCredentials = ccache.CountCredentials (principalCCache);
 	} ShieldedCatch_ (std::bad_alloc& e) {
 		err = RemapError (e);
 	} ShieldedCatch_ (UCCacheRuntimeError& e) {
@@ -613,7 +614,8 @@ KClientGetNthCredentialDeprecated (
 		std::string		instance;
 		std::string		realm;
 		UPrincipal principal (UPrincipal::kerberosV4, inName, inInstance, inRealm);
-		ccache.GetNthCredentials (ccache.GetPrincipalCCache (principal), inIndex).
+        UCCache principalCCache = ccache.GetPrincipalCCache (principal);
+		ccache.GetNthCredentials (principalCCache, inIndex).
 			GetServicePrincipal().GetTriplet (UPrincipal::kerberosV4, name, instance, realm);
 		strcpy (outSname, name.c_str ());
 		strcpy (outSinstance, instance.c_str ());

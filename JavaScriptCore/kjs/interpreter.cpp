@@ -126,23 +126,17 @@ Completion Interpreter::evaluate(const UString &sourceURL, int startingLineNumbe
 
 #if APPLE_CHANGES
   if (shouldPrintExceptions() && comp.complType() == Throw) {
-    lock();
+    InterpreterLock lock;
     ExecState *exec = rep->globalExec();
     char *f = strdup(sourceURL.ascii());
     const char *message = comp.value().toObject(exec).toString(exec).ascii();
     printf("[%d] %s:%s\n", getpid(), f, message);
 
     free(f);
-    unlock();
   }
 #endif
 
   return comp;
-}
-
-InterpreterImp *Interpreter::imp()
-{
-  return rep;
 }
 
 Object Interpreter::builtinObject() const

@@ -139,7 +139,7 @@ static void print_socket_options(int s)
 
 	/* wrapped in if statement to prevent streams leak in SCO Openserver 5.0 */
 	/* reported on samba-technical  --jerry */
-	if ( DEBUGLEVEL >= 5 ) {
+	if ( SAMBA_DEBUGLEVEL >= 5 ) {
 	for (; p->name != NULL; p++) {
 		if (getsockopt(s, p->level, p->option, (void *)&value, &vlen) == -1) {
 			DEBUG(5,("Could not test socket option %s.\n", p->name));

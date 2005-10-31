@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_smb.c,v 1.35.100.2 2005/06/02 00:55:39 lindak Exp $
+ * $Id: smb_smb.c,v 1.35.100.5.18.1 2005/10/01 23:12:22 lindak Exp $
  */
 /*
  * various SMB requests. Most of the routines merely packs data into mbufs.
@@ -180,7 +180,7 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 			md_get_uint32le(mdp, &sp->sv_maxraw);
 			md_get_uint32le(mdp, &sp->sv_skey);
 			md_get_uint32le(mdp, &sp->sv_caps);
-			md_get_mem(mdp, stime, 8, MB_MSYSTEM);
+			md_get_mem(mdp, (caddr_t)stime, 8, MB_MSYSTEM);
 			md_get_uint16le(mdp, (u_int16_t*)&sp->sv_tz);
 			md_get_uint8(mdp, &sblen);
 			error = md_get_uint16le(mdp, &bc);
@@ -256,7 +256,7 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 
 			if (sblen && sblen <= SMB_MAXCHALLENGELEN && 
 			    sp->sv_sm & SMB_SM_ENCRYPT) {
-				error = md_get_mem(mdp, vcp->vc_ch, sblen,
+				error = md_get_mem(mdp, (caddr_t)(vcp->vc_ch), sblen,
 						   MB_MSYSTEM);
 				if (error)
 					break;
@@ -340,7 +340,7 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 				if (bc < swlen)
 					break;
 				if (swlen && (sp->sv_sm & SMB_SM_ENCRYPT)) {
-					error = md_get_mem(mdp, vcp->vc_ch, swlen, MB_MSYSTEM);
+					error = md_get_mem(mdp, (caddr_t)(vcp->vc_ch), swlen, MB_MSYSTEM);
 					if (error)
 						break;
 					vcp->vc_chlen = swlen;
@@ -443,12 +443,12 @@ add_name_to_blob(u_char *blobnames, struct smb_vc *vcp, const u_char *name,
 		uninamebuf = malloc(2 * namelen, M_SMBTEMP, M_WAITOK);
 		if (uppercase) {
 			namebuf = malloc(namelen + 1, M_SMBTEMP, M_WAITOK);
-			iconv_convstr(vcp->vc_toupper, namebuf, name, namelen);
+			iconv_convstr(vcp->vc_toupper, namebuf, (char *)name, namelen);
 			uninamelen = smb_strtouni(uninamebuf, namebuf, namelen,
 			    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
 			free(namebuf, M_SMBTEMP);
 		} else {
-			uninamelen = smb_strtouni(uninamebuf, name, namelen,
+			uninamelen = smb_strtouni(uninamebuf, (char *)name, namelen,
 			    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
 		}
 	} else {
@@ -507,9 +507,9 @@ make_ntlmv2_blob(struct smb_vc *vcp, u_int64_t client_nonce, size_t *bloblen)
 	blobhdr->timestamp = htoleq(timestamp);
 	blobhdr->client_nonce = client_nonce;
 	blobnames = blob + sizeof (struct ntlmv2_blobhdr);
-	blobnames = add_name_to_blob(blobnames, vcp, vcp->vc_domain, domainlen,
+	blobnames = add_name_to_blob(blobnames, vcp, (u_char *)(vcp->vc_domain), domainlen,
 				     NAMETYPE_DOMAIN_NB, 1);
-	blobnames = add_name_to_blob(blobnames, vcp, vcp->vc_srvname, srvlen,
+	blobnames = add_name_to_blob(blobnames, vcp, (u_char *)(vcp->vc_srvname), srvlen,
 				     NAMETYPE_MACHINE_NB, 1);
 	blobnames = add_name_to_blob(blobnames, vcp, NULL, 0, NAMETYPE_EOL, 0);
 	*bloblen = blobnames - blob;
@@ -682,8 +682,6 @@ again:
 		 */
 		 pp = "";
 		 plen = 1;
-		 unipp = &smb_unieol;
-		 uniplen = sizeof(smb_unieol);
 	} else {
 		pbuf = malloc(SMB_MAXPASSWORDLEN + 1, M_SMBTEMP, M_WAITOK);
 		if (vcp->vc_sopt.sv_sm & SMB_SM_ENCRYPT) {
@@ -718,7 +716,7 @@ again:
 				 * client nonce, and the Unicode
 				 * password.
 				 */
-				smb_ntlmv2response(pbuf, ucup, ucdp, vcp->vc_ch,
+				smb_ntlmv2response((u_char *)pbuf, (u_char *)ucup, (u_char *)ucdp, (u_char *)vcp->vc_ch,
 						  (u_char *)&client_nonce, 8,
 						  (u_char**)&encpass, &plen);
 				pp = encpass;
@@ -737,10 +735,9 @@ again:
 				 * into which we're logging, the
 				 * blob, and the Unicode password.
 				 */
-				smb_ntlmv2response(pbuf, ucup, ucdp, vcp->vc_ch,
-						  ntlmv2_blob, ntlmv2_bloblen,
-						  (u_char**)&ntencpass,
-						  &uniplen);
+				smb_ntlmv2response((u_char *)pbuf, (u_char *)ucup, (u_char *)ucdp, 
+						vcp->vc_ch, ntlmv2_blob, ntlmv2_bloblen,
+						(u_char**)&ntencpass, &uniplen);
 				free(ucup, M_SMBTEMP);
 				free(ntlmv2_blob, M_SMBTEMP);
 				unipp = ntencpass;
@@ -769,8 +766,8 @@ again:
 					get_ascii_password(vcp,
 							   (state == STATE_UCPW),
 							   pbuf);
-					smb_lmresponse(pbuf, vcp->vc_ch,
-						       encpass);
+					smb_lmresponse((u_char *)pbuf, vcp->vc_ch,
+						       (u_char *)encpass);
 				}
 				pp = encpass;
 
@@ -782,7 +779,7 @@ again:
 				uniplen = 24;
 				ntencpass = malloc(uniplen, M_SMBTEMP,
 						   M_WAITOK);
-				smb_ntlmresponse(pbuf, vcp->vc_ch,
+				smb_ntlmresponse((u_char *)pbuf, vcp->vc_ch,
 						(u_char*)ntencpass);
 				unipp = ntencpass;
 			}
@@ -844,7 +841,7 @@ again:
 			smb_rq_bstart(rqp);
 			mb_put_mem(mbp, vcp->vc_intok, vcp->vc_intoklen,
 				   MB_MSYSTEM);	/* security blob */
-		} else {
+		} else { /* no extended security */
 			mb_put_uint16le(mbp, plen);
 			mb_put_uint16le(mbp, uniplen);
 			mb_put_uint32le(mbp, 0);		/* reserved */
@@ -852,7 +849,8 @@ again:
 			smb_rq_wend(rqp);
 			smb_rq_bstart(rqp);
 			mb_put_mem(mbp, pp, plen, MB_MSYSTEM); /* password */
-			mb_put_mem(mbp, (caddr_t)unipp, uniplen, MB_MSYSTEM);
+			if (uniplen)
+				mb_put_mem(mbp, (caddr_t)unipp, uniplen, MB_MSYSTEM);
 			smb_put_dstring(mbp, vcp, up, SMB_CS_NONE); /* user */
 			smb_put_dstring(mbp, vcp, ucdp, SMB_CS_NONE); /* domain */
 		}
@@ -1015,14 +1013,25 @@ smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred)
 	char *pp, *pbuf, *encpass;
 	int error, plen, caseopt;
 	int upper = 0;
+	u_int16_t save_hflags2;
+	void *save_toserver;
 
- again:
         vcp = SSTOVC(ssp);
-        
+       
+	save_hflags2 = vcp->vc_hflags2;
+	save_toserver = vcp->vc_toserver;
+ again:
+	/* Generic server name when NBNS query fails */
+        if (!strcmp(vcp->vc_srvname,"*SMBSERVER")) {
+		/* Unicode causes problems in this case */
+		vcp->vc_hflags2 &= ~SMB_FLAGS2_UNICODE;
+		vcp->vc_toserver = 0;
+	}
+ 
 	ssp->ss_tid = SMB_TID_UNKNOWN;
 	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_TREE_CONNECT_ANDX, scred, &rqp);
 	if (error)
-		return error;
+		goto treeconnect_exit;
 	caseopt = SMB_CS_NONE;
 	if (vcp->vc_sopt.sv_sm & SMB_SM_USER) {
 		plen = 1;
@@ -1046,10 +1055,9 @@ smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred)
 				SMB_MAXPASSWORDLEN);
 			pbuf[SMB_MAXPASSWORDLEN] = '\0';
 		}
-		iconv_convstr(vcp->vc_toserver, pbuf, pbuf, SMB_MAXPASSWORDLEN);
 		if (vcp->vc_sopt.sv_sm & SMB_SM_ENCRYPT) {
 			plen = 24;
-			smb_lmresponse(pbuf, vcp->vc_ch, encpass);
+			smb_lmresponse((u_char *)pbuf, vcp->vc_ch, (u_char *)encpass);
 			pp = encpass;
 		} else {
 			plen = strlen(pbuf) + 1;
@@ -1085,7 +1093,7 @@ smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred)
 		goto bad;
 	}
 	/* The type name is always ASCII */
-	pp = smb_share_typename(ssp->ss_type);
+	pp = smb_share_typename(ssp->ss_type); 
 	error = mb_put_mem(mbp, pp, strlen(pp) + 1, MB_MSYSTEM);
 	if (error) {
 		SMBERROR("error %d from mb_put_mem for ss_type\n", error);
@@ -1107,6 +1115,9 @@ bad:
 	smb_rq_done(rqp);
 	if (error && upper == 1)
 		goto again;
+treeconnect_exit:
+	vcp->vc_hflags2 = save_hflags2;
+	vcp->vc_toserver = save_toserver;
 	return error;
 }
 
@@ -1350,7 +1361,7 @@ int
 smb_read(struct smb_share *ssp, u_int16_t fid, uio_t uio,
 	struct smb_cred *scred)
 {
-	int tsize, len, resid;
+	int tsize, len, resid = 0;
 	int error = 0;
 
 	tsize = uio_resid(uio);
@@ -1429,7 +1440,7 @@ int
 smb_write(struct smb_share *ssp, u_int16_t fid, uio_t uio,
 	struct smb_cred *scred, int timo)
 {
-	int error = 0, len, tsize, resid;
+	int error = 0, len, tsize, resid = 0;
 	user_ssize_t  old_resid;
 	off_t  old_offset;
 

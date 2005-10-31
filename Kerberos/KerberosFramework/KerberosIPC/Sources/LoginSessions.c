@@ -1,7 +1,7 @@
 /*
  * LoginSessions.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/LoginSessions.c,v 1.17 2005/01/27 22:35:04 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/LoginSessions.c,v 1.18 2005/06/15 20:59:13 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <pwd.h>
 
 // ---------------------------------------------------------------------------
 
@@ -139,4 +140,20 @@ uid_t LoginSessionGetSessionUID (void)
     }
 
     return uid;
+}
+
+// ---------------------------------------------------------------------------
+
+uid_t LoginSessionGetSecurityAgentUID (void)
+{
+    uid_t securityAgentUID = 92;
+    
+    struct passwd *pw = getpwnam ("securityagent");
+    if (pw != NULL) {
+        securityAgentUID = pw->pw_uid;
+    } else {
+        dprintf ("%s: getpwnam(securityagent) failed, using hardcoded value.", __FUNCTION__);
+    }
+    
+    return securityAgentUID;
 }

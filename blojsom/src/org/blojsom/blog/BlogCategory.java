@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,18 +40,17 @@ import org.blojsom.util.BlojsomConstants;
 import org.blojsom.util.BlojsomUtils;
 import org.blojsom.BlojsomException;
 
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
+import java.io.Serializable;
 
 /**
  * BlogCategory
  *
  * @author David Czarnecki
- * @version $Id: BlogCategory.java,v 1.2 2004/08/27 01:13:55 whitmore Exp $
+ * @author Mark Lussier
+ * @version $Id: BlogCategory.java,v 1.2.2.1 2005/07/21 14:11:02 johnan Exp $
  */
-public abstract class BlogCategory implements Comparable {
+public abstract class BlogCategory implements Comparable, Serializable {
 
     protected Log _logger = LogFactory.getLog(BlogCategory.class);
 
@@ -60,21 +59,26 @@ public abstract class BlogCategory implements Comparable {
     protected Map _metadata = null;
     protected String _description = null;
     protected String _name = null;
+    protected List _subcategories;
+    protected BlogEntry _blogEntry;
+    protected BlogCategory _parentCategory = null;
 
     /**
      * Create a new BlogCategory.
      */
     public BlogCategory() {
+        _subcategories = new ArrayList();
     }
 
     /**
      * Create a new BlogCategory.
      *
-     * @param category Category name
+     * @param category    Category name
      * @param categoryURL Category URL
      */
     public BlogCategory(String category, String categoryURL) {
-        _category = category;
+        super();
+        _category = BlojsomUtils.normalize(category);
         _categoryURL = categoryURL;
     }
 
@@ -106,20 +110,20 @@ public abstract class BlogCategory implements Comparable {
     }
 
     /**
-     * Return the category name encoded
+     * Return the category name encoded for a link
      *
+     * @return Category name encoded as UTF-8 with preserved "/" and "+" characters
      * @since blojsom 2.08
-     * @return Category name encoded as UTF-8
      */
     public String getEncodedCategory() {
-        return BlojsomUtils.urlEncode(_category);
+        return BlojsomUtils.urlEncodeForLink(_category);
     }
 
     /**
      * Return the category URL encoded for a link
      *
+     * @return Category URL encoded as UTF-8 with preserved "/" characters and "+" characters
      * @see {@link BlojsomUtils#urlEncodeForLink(java.lang.String)}
-     * @return Category URL encoded as UTF-8 with preserved "/" characters
      * @since blojsom 2.14
      */
     public String getEncodedCategoryURL() {
@@ -132,7 +136,7 @@ public abstract class BlogCategory implements Comparable {
      * @param category Category name
      */
     public void setCategory(String category) {
-        _category = category;
+        _category = BlojsomUtils.normalize(category);
     }
 
     /**
@@ -160,8 +164,8 @@ public abstract class BlogCategory implements Comparable {
     /**
      * Returns the category name
      *
-     * @see #getCategory()
      * @return Category name
+     * @see #getCategory()
      */
     public String toString() {
         return _category;
@@ -259,15 +263,15 @@ public abstract class BlogCategory implements Comparable {
         if (_metadata == null) {
             return new HashMap();
         }
-        
+
         return _metadata;
     }
 
     /**
      * Set any attributes of the blog category using data from the map.
      *
-     * @since blojsom 1.9.1
      * @param attributeMap Attributes
+     * @since blojsom 1.9.1
      */
     public void setAttributes(Map attributeMap) {
     }
@@ -275,27 +279,130 @@ public abstract class BlogCategory implements Comparable {
     /**
      * Load a blog category.
      *
-     * @since blojsom 1.9.1
-     * @param blog Blog
+     * @param blog {@link Blog}
      * @throws BlojsomException If there is an error loading the category
+     * @since blojsom 1.9.1
+     * @deprecated
      */
     public abstract void load(Blog blog) throws BlojsomException;
 
     /**
      * Save the blog category.
      *
-     * @since blojsom 1.9.1
-     * @param blog Blog
+     * @param blog {@link Blog}
      * @throws BlojsomException If there is an error saving the category
+     * @since blojsom 1.9.1
+     * @deprecated
      */
     public abstract void save(Blog blog) throws BlojsomException;
 
     /**
      * Delete the blog category.
      *
-     * @since blojsom 1.9.1
-     * @param blog Blog
+     * @param blog {@link Blog}
      * @throws BlojsomException If there is an error deleting the category
+     * @since blojsom 1.9.1
+     * @deprecated
      */
     public abstract void delete(Blog blog) throws BlojsomException;
+
+    /**
+     * Load a blog category.
+     *
+     * @param blogUser {@link BlogUser}
+     * @throws BlojsomException If there is an error loading the category
+     * @since blojsom 2.22
+     */
+    public abstract void load(BlogUser blogUser) throws BlojsomException;
+
+    /**
+     * Save the blog category.
+     *
+     * @param blogUser {@link BlogUser}
+     * @throws BlojsomException If there is an error saving the category
+     * @since blojsom 2.22
+     */
+    public abstract void save(BlogUser blogUser) throws BlojsomException;
+
+    /**
+     * Delete the blog category.
+     *
+     * @param blogUser {@link BlogUser}
+     * @throws BlojsomException If there is an error deleting the category
+     * @since blojsom 2.22
+     */
+    public abstract void delete(BlogUser blogUser) throws BlojsomException;
+
+    /**
+     * Count the number of blog entries in this category. If <code>recursive</code> is true, the method
+     * will also count entries in all sub-categories.
+     *
+     * @param blog      {@link Blog}
+     * @param recursive Set to <code>true</code> if entries in sub-categories should be counted
+     * @return Number of blog entries in this category
+     * @since blojsom 2.22
+     */
+    public abstract int countBlogEntries(Blog blog, boolean recursive);
+
+    /**
+     * Return a list of sub-categories under the current category
+     *
+     * @return {@link List} of sub-categories as {@link BlogCategory} objects
+     * @since blojsom 2.22
+     */
+    public List getSubcategories() {
+        return _subcategories;
+    }
+
+    /**
+     * Set the sub-categories for this category
+     *
+     * @param subcategories {@link List} of {@link BlogCategory} objects
+     * @since blojsom 2.22
+     */
+    public void setSubcategories(List subcategories) {
+        _subcategories = subcategories;
+    }
+
+
+    /**
+     * Returns the parent category of this category. Defaults to "/"
+     *
+     * @return {@link BlogCategory} containing the parent category
+     * @since  blojsom 2.25
+     */
+    public BlogCategory getParentCategory() {
+        return _parentCategory;
+    }
+
+
+    /**
+     * Sets the parent category of this category
+     *
+     * @param cateogory {@link BlogCategory} that represents the parent category
+     * @since blojsom 2.25
+     */
+    public void setParentCategory(BlogCategory cateogory) {
+        _parentCategory = cateogory;
+    }
+
+    /**
+     * Retrieve the {@link BlogEntry} associated with this category
+     *
+     * @return {@link BlogEntry}
+     * @since blojsom 2.23
+     */
+    public BlogEntry getBlogEntry() {
+        return _blogEntry;
+    }
+
+    /**
+     * Set the {@link BlogEntry} associated with this category
+     *
+     * @param blogEntry {@link BlogEntry}
+     * @since blojsom 2.23
+     */
+    public void setBlogEntry(BlogEntry blogEntry) {
+        _blogEntry = blogEntry;
+    }
 }

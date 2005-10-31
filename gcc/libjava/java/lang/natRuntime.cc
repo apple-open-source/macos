@@ -1,6 +1,6 @@
 // natRuntime.cc - Implementation of native side of Runtime class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -163,7 +163,7 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
 
   if (do_search)
     {
-      ClassLoader *sys = ClassLoader::getSystemClassLoader();
+      ClassLoader *sys = ClassLoader::systemClassLoader;
       ClassLoader *look = NULL;
       gnu::gcj::runtime::StackTrace *t = new gnu::gcj::runtime::StackTrace(10);
       try
@@ -388,8 +388,11 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
 	newprops->put(JvNewStringLatin1 (Prop), JvNewStringLatin1 (Val))
 
   // A mixture of the Java Product Versioning Specification
-  // (introduced in 1.2), and earlier versioning properties.
-  SET ("java.version", GCJVERSION);
+  // (introduced in 1.2), and earlier versioning properties.  Some
+  // programs rely on seeing values that they expect, so we claim to
+  // be a 1.4-ish VM for their sake.
+  SET ("java.version", JV_VERSION);
+  SET ("java.runtime.version", JV_VERSION);
   SET ("java.vendor", "Free Software Foundation, Inc.");
   SET ("java.vendor.url", "http://gcc.gnu.org/java/");
   SET ("java.class.version", "46.0");
@@ -399,7 +402,7 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
   SET ("java.vm.version", __VERSION__);
   SET ("java.vm.vendor", "Free Software Foundation, Inc.");
   SET ("java.vm.name", "GNU libgcj");
-  SET ("java.specification.version", "1.3");
+  SET ("java.specification.version", JV_API_VERSION);
   SET ("java.specification.name", "Java(tm) Platform API Specification");
   SET ("java.specification.vendor", "Sun Microsystems Inc.");
 
@@ -417,7 +420,7 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
   // part we do this because most people specify only --prefix and
   // nothing else when installing gcj.  Plus, people are free to
   // redefine `java.home' with `-D' if necessary.
-  SET ("java.home", PREFIX);
+  SET ("java.home", JAVA_HOME);
   SET ("gnu.classpath.home", PREFIX);
   // This is set to $(libdir) because we use this to find .security
   // files at runtime.
@@ -433,8 +436,18 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
   if (! uname (&u))
     {
       SET ("os.name", u.sysname);
-      SET ("os.arch", u.machine);
       SET ("os.version", u.release);
+
+      // Normalize x86 architecture names to "i386" (except on Windows, which 
+      // is handled in win32.cc).
+      if (u.machine[0] == 'i'
+	  && u.machine[1] != 0
+	  && u.machine[2] == '8'
+	  && u.machine[3] == '6'
+	  && u.machine[4] == 0)
+	SET ("os.arch", "i386");
+      else
+	SET ("os.arch", u.machine);
     }
   else
     {
@@ -534,9 +547,25 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
       SET ("user.region", "US");
     }  
 
+  // The java extensions directory.
+  SET ("java.ext.dirs", JAVA_EXT_DIRS);
+
+  // The endorsed directories that libgcj knows about by default.
+  // This is a way to get other jars into the boot class loader
+  // without overriding java.endorsed.dirs.
+  SET ("gnu.gcj.runtime.endorsed.dirs", GCJ_ENDORSED_DIRS);
+
+  // The path to libgcj's boot classes
+  SET ("sun.boot.class.path", BOOT_CLASS_PATH);
+
+  // If there is a default system database, set it.
+  SET ("gnu.gcj.precompiled.db.path", LIBGCJ_DEFAULT_DATABASE);
+
   // Set some properties according to whatever was compiled in with
-  // `-D'.
-  for (int i = 0; _Jv_Compiler_Properties[i]; ++i)
+  // `-D'.  Important: after this point, the only properties that
+  // should be set are those which either the user cannot meaningfully
+  // override, or which augment whatever value the user has provided.
+  for (int i = 0; i < _Jv_Properties_Count; ++i)
     {
       const char *s, *p;
       // Find the `='.
@@ -562,38 +591,8 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
     }
 #endif
 
-  if (_Jv_Jar_Class_Path)
-    newprops->put(JvNewStringLatin1 ("java.class.path"),
- 		  JvNewStringLatin1 (_Jv_Jar_Class_Path));
-  else
-    {
-      // FIXME: find libgcj.zip and append its path?
-      char *classpath = ::getenv("CLASSPATH");
-      jstring cp = newprops->getProperty (JvNewStringLatin1("java.class.path"));
-      java::lang::StringBuffer *sb = new java::lang::StringBuffer ();
-      
-      if (classpath)
-	{
-	  sb->append (JvNewStringLatin1 (classpath));
-	  sb->append (_Jv_platform_path_separator);
-	}
-      if (cp != NULL)
-	sb->append (cp);
-      else
-	sb->append ((jchar) '.');
-      
-      newprops->put(JvNewStringLatin1 ("java.class.path"),
-		      sb->toString ());
-    }
-
-  // The path to libgcj's boot classes
-  SET ("sun.boot.class.path", BOOT_CLASS_PATH);
-
   // The name used to invoke this process (argv[0] in C).
   SET ("gnu.gcj.progname", _Jv_GetSafeArg (0));
-
-  // The java extensions directory.
-  SET ("java.ext.dirs", JAVA_EXT_DIRS);
 
   // Allow platform specific settings and overrides.
   _Jv_platform_initProperties (newprops);
@@ -616,6 +615,25 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
       // LD_LIBRARY_PATH, etc.
       SET ("java.library.path", "");
     }
+
+  // If java.class.path is still not set then set it according to the
+  // CLASSPATH environment variable if given.  See gij.cc main () and
+  // prims.cc _Jv_CreateJavaVM () for all the ways this could have
+  // been set much earlier.
+  // If CLASSPATH isn't set or if the path is empty fall back to "."
+  path = newprops->getProperty(JvNewStringLatin1("java.class.path"));
+  if (!path)
+    {
+      char *classpath = getenv("CLASSPATH");
+      if (classpath && classpath[0] != 0)
+	{
+	  path = JvNewStringLatin1 (classpath);
+	  newprops->put(JvNewStringLatin1 ("java.class.path"), path);
+	}
+    }
+
+  if (!path || path->length() == 0)
+    SET ("java.class.path", ".");
 }
 
 java::lang::Process *

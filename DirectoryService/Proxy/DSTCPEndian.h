@@ -29,10 +29,10 @@
 #ifndef __DSTCPEndian_h__
 #define __DSTCPEndian_h__ 1
 
-#include <machine/byte_order.h>
+#ifndef __BIG_ENDIAN__
 
 #include "SharedConsts.h"	// for sComProxyData
-#include "DirServicesConst.h"
+#include "DSSwapUtils.h"
 
 
 class DSTCPEndian
@@ -42,59 +42,15 @@ public:
     
     void SwapMessage(void);
     
-    enum { kSwapToBig, kSwapToHost };
+	void AddIPAndPort( uInt32 inIPAddress, uInt32 inPort);
 
 private:
-    void SwapObjectData(uInt32 type, char* data, uInt32 size, bool swapAuth);
-    
-    void SwapStandardBuf(char* data, uInt32 size);
-    void SwapRecordEntry(char* data, uInt32 type);
-
-    uInt32 GetLong(void* ptr)
-    {
-        uInt32 returnVal = *(uInt32*)(ptr);
-        if (!toBig)
-            returnVal = NXSwapBigLongToHost(returnVal);
-            
-        return returnVal;
-    }
-
-    uInt16 GetShort(void* ptr)
-    {
-        uInt16 returnVal = *(uInt16*)(ptr);
-        if (!toBig)
-            returnVal = NXSwapBigShortToHost(returnVal);
-            
-        return returnVal;
-    }
-    
-    uInt32 GetAndSwapLong(void* ptr)
-    {
-        uInt32 returnVal = *(uInt32*)(ptr);
-        if (toBig)
-            *(uInt32*)(ptr) = NXSwapHostLongToBig(returnVal);
-        else
-            returnVal = *(uInt32*)(ptr) = NXSwapBigLongToHost(returnVal);
-            
-        return returnVal;
-    }
-
-    uInt16 GetAndSwapShort(void* ptr)
-    {
-        uInt16 returnVal = *(uInt16*)(ptr);
-        if (toBig)
-            *(uInt16*)(ptr) = NXSwapHostShortToBig(returnVal);
-        else
-            returnVal = *(uInt16*)(ptr) = NXSwapBigShortToHost(returnVal);
-            
-        return returnVal;
-    }
-    
-    void SwapLong(void* ptr) { GetAndSwapLong(ptr); }
-    void SwapShort(void* ptr) { GetAndSwapShort(ptr); }
-
     sComProxyData* fMessage;
     bool toBig;
+	uInt32 fIPAddress;
+	uInt32 fPort;
 };
+
+#endif
 
 #endif

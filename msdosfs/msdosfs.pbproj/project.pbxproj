@@ -312,11 +312,14 @@
 		};
 		7D8BA36C010E490C02CA2964 = {
 			fileEncoding = 30;
+			indentWidth = 8;
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.c;
 			path = msdosfs_fat.c;
 			refType = 4;
 			sourceTree = "<group>";
+			tabWidth = 8;
+			usesTabs = 1;
 		};
 		7D8BA36D010E490C02CA2964 = {
 			fileEncoding = 30;
@@ -343,7 +346,7 @@
 			refType = 4;
 			sourceTree = "<group>";
 			tabWidth = 4;
-			usesTabs = 0;
+			usesTabs = 1;
 		};
 		7D8BA376010E490C02CA2964 = {
 			children = (
@@ -561,7 +564,7 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = "msdosfs_module_stop ";
-				MODULE_VERSION = 1.4.1;
+				MODULE_VERSION = 1.4.2;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -596,11 +599,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.4.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.1</string>
+	<string>1.4.2</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>
@@ -851,11 +854,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.4.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.1</string>
+	<string>1.4.2</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>DOS_FAT_12</key>
@@ -912,6 +915,22 @@
 			<dict>
 				<key>Content Hint</key>
 				<string>DOS_FAT_32</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../msdos.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
+		<key>EBD0A0A2-B9E5-4433-87C0-68B6B72699C7</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>EBD0A0A2-B9E5-4433-87C0-68B6B72699C7</string>
 				<key>Leaf</key>
 				<true/>
 			</dict>

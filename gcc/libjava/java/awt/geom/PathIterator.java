@@ -44,10 +44,10 @@ package java.awt.geom;
  * MOVETO directive, and can close a circular path back to the previos
  * MOVETO via the CLOSE directive.
  *
- * @author Tom Tromey <tromey@cygnus.com>
- * @author Eric Blake <ebb9@email.byu.edu>
- * @see Shape
- * @see Stroke
+ * @author Tom Tromey (tromey@cygnus.com)
+ * @author Eric Blake (ebb9@email.byu.edu)
+ * @see java.awt.Shape
+ * @see java.awt.Stroke
  * @see FlatteningPathIterator
  * @since 1.2
  * @status updated to 1.4

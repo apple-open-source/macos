@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -276,6 +276,7 @@ typedef OptionBits  ReleaseBlockOptions;
 struct BlockDescriptor{
 	void		*buffer;
 	void		*blockHeader;
+	UInt64		 blockNum;
 	UInt32		 blockSize;
 	Boolean		 blockReadFromDisk;
 	Boolean		 fragmented;
@@ -333,6 +334,8 @@ struct SVCB {
 	SInt16		vcbDriverWriteRef;
 
 	void *		vcbBlockCache;
+
+	struct SGlob *	vcbGPtr;
 
 	/* deprecated fields... */
 	SInt16		vcbVRefNum;

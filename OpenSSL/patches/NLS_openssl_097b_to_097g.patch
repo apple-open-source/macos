@@ -1,0 +1,60 @@
+diff -Naur ../../openssl-0.9.7g/Makefile ./Makefile
+--- ../../openssl-0.9.7g/Makefile	2005-04-11 08:17:45.000000000 -0700
++++ ./Makefile	2005-07-27 02:19:06.000000000 -0700
+@@ -61,7 +61,7 @@
+ 
+ CC= cc
+ #CFLAG= -DL_ENDIAN -DTERMIO -O3 -fomit-frame-pointer -m486 -Wall -Wuninitialized -DSHA1_ASM -DMD5_ASM -DRMD160_ASM
+-CFLAG= -DOPENSSL_NO_KRB5 -O
++CFLAG+= -DOPENSSL_NO_KRB5 -O
+ DEPFLAG= 
+ PEX_LIBS= 
+ EX_LIBS= 
+diff -Naur ../../openssl-0.9.7g/Makefile.org ./Makefile.org
+--- ../../openssl-0.9.7g/Makefile.org	2005-03-15 01:46:13.000000000 -0800
++++ ./Makefile.org	2005-07-27 02:59:28.000000000 -0700
+@@ -59,7 +59,7 @@
+ 
+ CC= gcc
+ #CFLAG= -DL_ENDIAN -DTERMIO -O3 -fomit-frame-pointer -m486 -Wall -Wuninitialized -DSHA1_ASM -DMD5_ASM -DRMD160_ASM
+-CFLAG= -DTERMIOS -DL_ENDIAN -fomit-frame-pointer -O3 -m486 -Wall -DSHA1_ASM -DMD5_ASM -DRMD160_ASM
++CFLAG+= -DTERMIOS -DL_ENDIAN -fomit-frame-pointer -O3 -m486 -Wall -DSHA1_ASM -DMD5_ASM -DRMD160_ASM
+ DEPFLAG= 
+ PEX_LIBS= 
+ EX_LIBS= 
+@@ -886,10 +886,7 @@
+ 		$(INSTALL_PREFIX)$(MANDIR)/man7
+ 	@pod2man="`cd util; ./pod2mantest $(PERL)`"; \
+ 	here="`pwd`"; \
+-	filecase=; \
+-	if [ "$(PLATFORM)" = "DJGPP" -o "$(PLATFORM)" = "Cygwin" -o "$(PLATFORM)" = "mingw" ]; then \
+-		filecase=-i; \
+-	fi; \
++	filecase=-i; \
+ 	for i in doc/apps/*.pod; do \
+ 		fn=`basename $$i .pod`; \
+ 		if [ "$$fn" = "config" ]; then sec=5; else sec=1; fi; \
+diff -Naur ../../openssl-0.9.7g/crypto/des/set_key.c ./crypto/des/set_key.c
+--- ../../openssl-0.9.7g/crypto/des/set_key.c	2004-05-11 05:45:14.000000000 -0700
++++ ./crypto/des/set_key.c	2005-07-27 04:21:10.000000000 -0700
+@@ -67,7 +67,7 @@
+ 
+ #ifndef OPENSSL_FIPS
+ 
+-OPENSSL_IMPLEMENT_GLOBAL(int,DES_check_key);	/* defaults to false */
++OPENSSL_IMPLEMENT_GLOBAL(int,DES_check_key) = 0;	/* defaults to false */
+ 
+ static const unsigned char odd_parity[256]={
+   1,  1,  2,  2,  4,  4,  7,  7,  8,  8, 11, 11, 13, 13, 14, 14,
+diff -Naur ../../openssl-0.9.7g/util/domd ./util/domd
+--- ../../openssl-0.9.7g/util/domd	2004-05-11 05:46:18.000000000 -0700
++++ ./util/domd	2005-07-27 02:58:43.000000000 -0700
+@@ -2,6 +2,8 @@
+ # Do a makedepend, only leave out the standard headers
+ # Written by Ben Laurie <ben@algroup.co.uk> 19 Jan 1999
+ 
++export PATH=$PATH:/usr/X11R6/bin
++
+ TOP=$1
+ shift
+ if [ "$1" = "-MD" ]; then

@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -33,19 +33,9 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "integrate.h"
 #include "tree-inline.h"
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 #include "debug.h"
 #include "target.h"
-
-/* APPLE LOCAL begin new tree dump */
-#ifdef ENABLE_DMP_TREE
-#include "dmp-tree.h"
-extern int cp_dump_tree_p PARAMS ((FILE *, const char *, tree, int));
-extern lang_dump_tree_p_t cp_prev_lang_dump_tree_p;
-extern int c_dump_tree_p PARAMS ((FILE *, const char *, tree, int));
-extern lang_dump_tree_p_t c_prev_lang_dump_tree_p;
-#endif
-/* APPLE LOCAL end new tree dump */
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -123,7 +113,7 @@ lvalue_p_1 (tree ref,
     case STRING_CST:
       return clk_ordinary;
 
-    /* APPLE LOCAL Objective-C++ */
+    /* APPLE LOCAL mainline */
     case CONST_DECL:
     case VAR_DECL:
       if (TREE_READONLY (ref) && ! TREE_STATIC (ref)
@@ -242,86 +232,6 @@ builtin_valid_in_constant_expr_p (tree decl)
     && DECL_FUNCTION_CODE (decl) == BUILT_IN_CONSTANT_P;
 }
 
-
-/* APPLE LOCAL begin non lvalue assign */
-/* Return nonzero if the expression pointed to by REF is an lvalue
-   valid for this language; otherwise, print an error message and return
-   zero.  STRING describes how the lvalue is being used.
-   If -fnon-lvalue-assign has been specified, certain
-   non-lvalue expression shall be rewritten as lvalues and stored back
-   at the location pointed to by REF.  */
-
-int
-lvalue_or_else (tree *ref, const char* string)
-{
-  tree r = *ref;
-
-  if (!lvalue_p (r))
-    {
-      /* If -fnon-lvalue-assign is specified, we shall allow assignments
-	 to certain constructs that are not (stricly speaking) lvalues.  */
-      if (flag_non_lvalue_assign)
-	{
-	  /* (1) Assignment to casts of lvalues, as long as both the lvalue
-		 and the cast are POD types with identical size and
-		 alignment.  */
-	  if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR)
-	      && string && (string[0] == 'a' || string[0] == 'u')
-	      && lvalue_or_else (&TREE_OPERAND (r, 0), string))
-	    {
-	      tree cast_to = TREE_TYPE (r);
-	      tree cast_from = TREE_TYPE (TREE_OPERAND (r, 0));
-
-	      if (pod_type_p (cast_to) && pod_type_p (cast_from)
-		  && simple_cst_equal (TYPE_SIZE (cast_to),
-				       TYPE_SIZE (cast_from))
-		  && TYPE_ALIGN (cast_to) == TYPE_ALIGN (cast_from))
-		{
-		  /* Rewrite '(cast_to)ref' as '*(cast_to *)&ref' so
-		     that the back-end need not think too hard...  */
-		  *ref
-		    = build_indirect_ref
-		      (convert (build_pointer_type (cast_to),
-				build_unary_op
-				(ADDR_EXPR, TREE_OPERAND (r, 0), 0)), 0);
-
-		  goto allow_as_lvalue;
-		}
-	    }
-	  /* (2) Assignment to conditional expressions, as long as both
-		 alternatives are already lvalues.  */
-	  else if (TREE_CODE (r) == COND_EXPR
-		   && lvalue_or_else (&TREE_OPERAND (r, 1), string)
-		   && lvalue_or_else (&TREE_OPERAND (r, 2), string))
-	    {
-	      /* Rewrite 'cond ? lv1 : lv2' as '*(cond ? &lv1 : &lv2)' to
-		 placate the back-end.  */
-	      *ref
-		= build_indirect_ref
-		  (build_conditional_expr
-		   (TREE_OPERAND (r, 0),
-		    build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 1), 0),
-		    build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 2), 0)),
-		   0);
-
-	     allow_as_lvalue:
-	      if (warn_non_lvalue_assign)
-		warning ("%s not really an lvalue; "
-			 "this will be a hard error in the future",
-			 (string[0] == 'u'
-			  ? "argument to '&'"
-			  : "target of assignment"));
-	      return 1;
-	    }
-	}
-      /* APPLE LOCAL end non lvalue assign */
-
-      error ("non-lvalue in %s", string);
-      return 0;
-    }
-  return 1;
-}
-
 /* Build a TARGET_EXPR, initializing the DECL with the VALUE.  */
 
 static tree
@@ -348,6 +258,7 @@ build_local_temp (tree type)
 {
   tree slot = build_decl (VAR_DECL, NULL_TREE, type);
   DECL_ARTIFICIAL (slot) = 1;
+  DECL_IGNORED_P (slot) = 1;
   DECL_CONTEXT (slot) = current_function_decl;
   layout_decl (slot, 0);
   return slot;
@@ -592,11 +503,10 @@ cp_build_qualified_type_real (tree type,
       return build_ptrmemfunc_type (t);
     }
 
-  /* A reference, function or method type shall not be cv qualified.
+  /* A reference or method type shall not be cv qualified.
      [dcl.ref], [dct.fct]  */
   if (type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE)
       && (TREE_CODE (type) == REFERENCE_TYPE
-	  || TREE_CODE (type) == FUNCTION_TYPE
 	  || TREE_CODE (type) == METHOD_TYPE))
     {
       bad_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
@@ -604,10 +514,11 @@ cp_build_qualified_type_real (tree type,
     }
 
   /* A restrict-qualified type must be a pointer (or reference)
-     to object or incomplete type.  */
+     to object or incomplete type, or a function type. */
   if ((type_quals & TYPE_QUAL_RESTRICT)
       && TREE_CODE (type) != TEMPLATE_TYPE_PARM
       && TREE_CODE (type) != TYPENAME_TYPE
+      && TREE_CODE (type) != FUNCTION_TYPE
       && !POINTER_TYPE_P (type))
     {
       bad_quals |= TYPE_QUAL_RESTRICT;
@@ -842,21 +753,6 @@ hash_tree_chain (tree value, tree chain)
 {
   return hash_tree_cons (NULL_TREE, value, chain);
 }
-
-/* Similar, but used for concatenating two lists.  */
-
-tree
-hash_chainon (tree list1, tree list2)
-{
-  if (list2 == 0)
-    return list1;
-  if (list1 == 0)
-    return list2;
-  if (TREE_CHAIN (list1) == NULL_TREE)
-    return hash_tree_chain (TREE_VALUE (list1), list2);
-  return hash_tree_chain (TREE_VALUE (list1),
-			  hash_chainon (TREE_CHAIN (list1), list2));
-}
 
 void
 debug_binfo (tree elem)
@@ -887,20 +783,6 @@ debug_binfo (tree elem)
       ++n;
       virtuals = TREE_CHAIN (virtuals);
     }
-}
-
-int
-count_functions (tree t)
-{
-  int i;
-  
-  if (TREE_CODE (t) == FUNCTION_DECL)
-    return 1;
-  gcc_assert (TREE_CODE (t) == OVERLOAD);
-  
-  for (i = 0; t; t = OVL_CHAIN (t))
-    i++;
-  return i;
 }
 
 int
@@ -939,16 +821,6 @@ get_first_fn (tree from)
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
   return OVL_CURRENT (from);
-}
-
-/* Returns nonzero if T is a ->* or .* expression that refers to a
-   member function.  */
-
-int
-bound_pmf_p (tree t)
-{
-  return (TREE_CODE (t) == OFFSET_REF
-	  && TYPE_PTRMEMFUNC_P (TREE_TYPE (TREE_OPERAND (t, 1))));
 }
 
 /* Return a new OVL node, concatenating it with the old one.  */
@@ -1591,6 +1463,7 @@ cp_tree_equal (tree t1, tree t2)
     case FUNCTION_DECL:
     case TEMPLATE_DECL:
     case IDENTIFIER_NODE:
+    case SSA_NAME:
       return false;
 
     case BASELINK:
@@ -1650,6 +1523,11 @@ cp_tree_equal (tree t1, tree t2)
 	return false;
 
       return same_type_p (PTRMEM_CST_CLASS (t1), PTRMEM_CST_CLASS (t2));
+
+    case OVERLOAD:
+      if (OVL_FUNCTION (t1) != OVL_FUNCTION (t2))
+	return false;
+      return cp_tree_equal (OVL_CHAIN (t1), OVL_CHAIN (t2));
 
     default:
       break;
@@ -1809,7 +1687,7 @@ pod_type_p (tree t)
     return 1; /* pointer to member */
 
   if (TREE_CODE (t) == VECTOR_TYPE)
-    return 1; /* vectors are (small) arrays if scalars */
+    return 1; /* vectors are (small) arrays of scalars */
 
   if (! CLASS_TYPE_P (t))
     return 0; /* other non-class type (reference or function) */
@@ -1975,17 +1853,6 @@ handle_init_priority_attribute (tree* node,
       *no_add_attrs = true;
       return NULL_TREE;
     }
-}
-
-/* Return a new TINST_LEVEL for DECL at location locus.  */
-tree
-make_tinst_level (tree decl, location_t locus)
-{
-  tree tinst_level = make_node (TINST_LEVEL);
-  TREE_CHAIN (tinst_level) = NULL_TREE;
-  TINST_DECL (tinst_level) = decl;
-  TINST_LOCATION (tinst_level) = locus;
-  return tinst_level;
 }
 
 /* Return a new PTRMEM_CST of the indicated TYPE.  The MEMBER is the
@@ -2175,16 +2042,6 @@ cp_add_pending_fn_decls (void* fns_p, tree prev_fn)
   return prev_fn;
 }
 
-/* Determine whether a tree node is an OVERLOAD node.  Used to decide
-   whether to copy a node or to preserve its chain when inlining a
-   function.  */
-
-int
-cp_is_overload_p (tree t)
-{
-  return TREE_CODE (t) == OVERLOAD;
-}
-
 /* Determine whether VAR is a declaration of an automatic variable in
    function FN.  */
 
@@ -2195,20 +2052,6 @@ cp_auto_var_in_fn_p (tree var, tree fn)
 	  && nonstatic_local_decl_p (var));
 }
 
-/* FN body has been duplicated.  Update language specific fields.  */
-
-void
-cp_update_decl_after_saving (tree fn,
-                             void* decl_map_)
-{
-  splay_tree decl_map = (splay_tree)decl_map_;
-  tree nrv = DECL_SAVED_FUNCTION_DATA (fn)->x_return_value;
-  if (nrv)
-    {
-      DECL_SAVED_FUNCTION_DATA (fn)->x_return_value
-	= (tree) splay_tree_lookup (decl_map, (splay_tree_key) nrv)->value;
-    }
-}
 /* Initialize tree.c.  */
 
 void
@@ -2245,22 +2088,6 @@ special_function_p (tree decl)
     return sfk_conversion;
 
   return sfk_none;
-}
-
-/* Returns true if and only if NODE is a name, i.e., a node created
-   by the parser when processing an id-expression.  */
-
-bool
-name_p (tree node)
-{
-  if (TREE_CODE (node) == TEMPLATE_ID_EXPR)
-    node = TREE_OPERAND (node, 0);
-  return (/* An ordinary unqualified name.  */
-	  TREE_CODE (node) == IDENTIFIER_NODE
-	  /* A destructor name.  */
-	  || TREE_CODE (node) == BIT_NOT_EXPR
-	  /* A qualified name.  */
-	  || TREE_CODE (node) == SCOPE_REF);
 }
 
 /* Returns nonzero if TYPE is a character type, including wchar_t.  */
@@ -2423,7 +2250,10 @@ stabilize_init (tree init, tree *initp)
       if (TREE_CODE (t) == COND_EXPR)
 	return false;
 
-      stabilize_call (t, initp);
+      /* The TARGET_EXPR might be initializing via bitwise copy from
+	 another variable; leave that alone.  */
+      if (TREE_SIDE_EFFECTS (t))
+	stabilize_call (t, initp);
     }
 
   return true;

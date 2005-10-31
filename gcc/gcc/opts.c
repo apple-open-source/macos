@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -38,6 +38,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"		/* For OPTIMIZATION_OPTIONS.  */
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
 #include "target.h"
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+#include "hashtab.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -176,13 +178,13 @@ find_opt (const char *input, int lang_mask)
     {
       const struct cl_option *opt = &cl_options[mn];
 
-      /* Is this switch a prefix of the input?  */
-      if (!strncmp (input, opt->opt_text + 1, opt->opt_len))
+      /* Is the input either an exact match or a prefix that takes a
+	 joined argument?  */
+      if (!strncmp (input, opt->opt_text + 1, opt->opt_len)
+	  && (input[opt->opt_len] == '\0' || (opt->flags & CL_JOINED)))
 	{
-	  /* If language is OK, and the match is exact or the switch
-	     takes a joined argument, return it.  */
-	  if ((opt->flags & lang_mask)
-	      && (input[opt->opt_len] == '\0' || (opt->flags & CL_JOINED)))
+	  /* If language is OK, return it.  */
+	  if (opt->flags & lang_mask)
 	    return mn;
 
 	  /* If we haven't remembered a prior match, remember this
@@ -373,6 +375,21 @@ handle_option (const char **argv, unsigned int lang_mask)
 	*option->flag_var = value;
     }
   
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+  else if (option->access_flag)
+    {
+      if (option->has_set_value)
+	{
+	  if (value)
+	    (option->access_flag) (option->set_value, 1);
+	  else
+	    (option->access_flag) (!option->set_value, 1);
+	}
+      else
+	(option->access_flag) (value, 1);
+    }
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
+
   if (option->flags & lang_mask)
     if (lang_hooks.handle_option (opt_index, arg, value) == 0)
       result = 0;
@@ -385,6 +402,15 @@ handle_option (const char **argv, unsigned int lang_mask)
   if (dup)
     free (dup);
   return result;
+}
+
+/* Handle FILENAME from the command line.  */
+static void
+add_input_filename (const char *filename)
+{
+  num_in_fnames++;
+  in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
+  in_fnames[num_in_fnames - 1] = filename;
 }
 
 /* Decode and handle the vector of command line options.  LANG_MASK
@@ -419,15 +445,149 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
     }
 }
 
-/* Handle FILENAME from the command line.  */
-void
-add_input_filename (const char *filename)
-{
-  num_in_fnames++;
-  in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
-  in_fnames[num_in_fnames - 1] = filename;
-}
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* Use OPTIMIZE and OPTIMIZE_SIZE to set default values of more
+   detailed flags that they control.  CMDLINE tells whether this
+   is the first call, from the command line, or a later call due
+   to user pragmas.  Those flags which are not safe to change on
+   a per-function basis are not reset when !CMDLINE.  (FIXME:
+   There should be some better way to identify these than handcoding.) */
 
+void set_flags_from_O (unsigned int cmdline)
+{
+  /* Reset flags to the "raw" state before command line processing,
+     except for optimize and optimize_size.  */
+  int save_optimize_size = optimize_size;
+  int save_optimize = optimize;
+  cl_pf_opts = cl_pf_opts_raw;
+  optimize = save_optimize;
+  optimize_size = save_optimize_size;
+
+  if (!optimize)
+    {
+      if (cmdline)
+	flag_merge_constants = 0;
+    }
+
+  if (optimize >= 1)
+    {
+      flag_defer_pop = 1;
+#ifdef DELAY_SLOTS
+      flag_delayed_branch = 1;
+#endif
+#ifdef CAN_DEBUG_WITHOUT_FP
+      flag_omit_frame_pointer = 1;
+#endif
+      flag_guess_branch_prob = 1;
+      flag_cprop_registers = 1;
+      flag_loop_optimize = 1;
+      flag_if_conversion = 1;
+      flag_if_conversion2 = 1;
+      flag_tree_ccp = 1;
+      flag_tree_dce = 1;
+      flag_tree_dom = 1;
+      flag_tree_dse = 1;
+      /* APPLE LOCAL begin lno */
+      flag_tree_loop_im = 1;
+      flag_ivopts = 1;
+      flag_tree_vectorize = 0;
+      flag_tree_loop_linear = 0;
+      flag_tree_pre = 1;
+      /* APPLE LOCAL end lno */
+      flag_tree_ter = 1;
+      flag_tree_live_range_split = 1;
+      flag_tree_sra = 1;
+      flag_tree_copyrename = 1;
+      flag_tree_fre = 1;
+
+      if (!optimize_size)
+	{
+	  /* Loop header copying usually increases size of the code.  This used
+	     not to be true, since quite often it is possible to verify that
+	     the condition is satisfied in the first iteration and therefore
+	     to eliminate it.  Jump threading handles these cases now.  */
+	  flag_tree_ch = 1;
+	}
+    }
+
+  if (optimize >= 2)
+    {
+      flag_thread_jumps = 1;
+      flag_crossjumping = 1;
+      flag_optimize_sibling_calls = 1;
+      flag_cse_follow_jumps = 1;
+      flag_cse_skip_blocks = 1;
+      flag_gcse = 1;
+      flag_expensive_optimizations = 1;
+      flag_strength_reduce = 1;
+      flag_rerun_cse_after_loop = 1;
+      flag_rerun_loop_opt = 1;
+      flag_caller_saves = 1;
+      flag_force_mem = 1;
+      flag_peephole2 = 1;
+#ifdef INSN_SCHEDULING
+      flag_schedule_insns = 1;
+      flag_schedule_insns_after_reload = 1;
+#endif
+      flag_regmove = 1;
+      flag_delete_null_pointer_checks = 1;
+      flag_reorder_blocks = 1;
+      if (cmdline)
+	{
+	  flag_strict_aliasing = 1;
+	  flag_reorder_functions = 1;
+	  flag_unit_at_a_time = 1;
+	}
+
+      if (!optimize_size)
+	{
+          /* PRE tends to generate bigger code.  */
+          flag_tree_pre = 1;
+	}
+    }
+
+  if (optimize >= 3)
+    {
+      if (cmdline)
+        flag_inline_functions = 1;
+      flag_unswitch_loops = 1;
+      flag_gcse_after_reload = 1;
+    }
+
+  if (optimize < 2 || optimize_size)
+    {
+      align_loops = 1;
+      align_jumps = 1;
+      align_labels = 1;
+      if (cmdline)
+        align_functions = 1;
+
+      /* Don't reorder blocks when optimizing for size because extra
+	 jump insns may be created; also barrier may create extra padding.
+
+	 More correctly we should have a block reordering mode that tried
+	 to minimize the combined size of all the jumps.  This would more
+	 or less automatically remove extra jumps, but would also try to
+	 use more short jumps instead of long jumps.  */
+      flag_reorder_blocks = 0;
+      flag_reorder_blocks_and_partition = 0;
+    }
+
+  if (optimize_size)
+    {
+      if (cmdline)
+	{
+	  /* Inlining of very small functions usually reduces total size.  */
+	  set_param_value ("max-inline-insns-single", 5);
+	  set_param_value ("max-inline-insns-auto", 5);
+	  flag_inline_functions = 1;
+
+	  /* We want to crossjump as much as possible.  */
+	  set_param_value ("min-crossjump-insns", 1);
+	}
+    }
+}
+ 
 /* Parse command line options and set default flag values.  Do minimal
    options processing.  */
 void
@@ -439,6 +599,10 @@ decode_options (unsigned int argc, const char **argv)
   lang_mask = lang_hooks.init_options (argc, argv);
 
   lang_hooks.initialize_diagnostics (global_dc);
+
+  /* Make a backup copy of the default, pre-command line options.
+     Note this includes "optimize" and "optimize_size".  */
+  cl_pf_opts_raw = cl_pf_opts;
 
   /* Scan to see what optimization level has been specified.  That will
      determine the default value of many flags.  */
@@ -482,10 +646,8 @@ decode_options (unsigned int argc, const char **argv)
           else if (!strcmp(p, "astcp"))
             flag_fastcp = 1;
         }
-        /* APPLE LOCAL end -fast or -fastf or -fastcp */
     }
 
-    /* APPLE LOCAL begin -fast or -fastf or -fastcp */
     if (flag_fast || flag_fastf || flag_fastcp )
     {
       optimize = 3;
@@ -497,115 +659,8 @@ decode_options (unsigned int argc, const char **argv)
     }
     /* APPLE LOCAL end -fast or -fastf or -fastcp */
 
-  if (!optimize)
-    {
-      flag_merge_constants = 0;
-    }
-
-  if (optimize >= 1)
-    {
-      flag_defer_pop = 1;
-      flag_thread_jumps = 1;
-#ifdef DELAY_SLOTS
-      flag_delayed_branch = 1;
-#endif
-#ifdef CAN_DEBUG_WITHOUT_FP
-      flag_omit_frame_pointer = 1;
-#endif
-      flag_guess_branch_prob = 1;
-      flag_cprop_registers = 1;
-      flag_loop_optimize = 1;
-      flag_if_conversion = 1;
-      flag_if_conversion2 = 1;
-      flag_tree_ccp = 1;
-      flag_tree_dce = 1;
-      flag_tree_dom = 1;
-      flag_tree_dse = 1;
-      /* APPLE LOCAL begin lno */
-      flag_tree_loop_im = 1;
-      flag_ivcanon = 1;
-      flag_ivopts = 1;
-      flag_tree_vectorize = 0;
-      flag_tree_loop_linear = 0;
-      /* APPLE LOCAL end lno */
-      flag_tree_pre = 1;
-      /* APPLE LOCAL lno */
-      flag_tree_elim_checks = 0;
-      flag_tree_ter = 1;
-      flag_tree_live_range_split = 1;
-      flag_tree_sra = 1;
-      flag_tree_copyrename = 1;
-      flag_tree_fre = 1;
-
-      if (!optimize_size)
-	{
-	  /* Loop header copying usually increases size of the code.  This used
-	     not to be true, since quite often it is possible to verify that
-	     the condition is satisfied in the first iteration and therefore
-	     to eliminate it.  Jump threading handles these cases now.  */
-	  flag_tree_ch = 1;
-	}
-    }
-
-  if (optimize >= 2)
-    {
-      flag_crossjumping = 1;
-      flag_optimize_sibling_calls = 1;
-      flag_cse_follow_jumps = 1;
-      flag_cse_skip_blocks = 1;
-      flag_gcse = 1;
-      flag_expensive_optimizations = 1;
-      flag_strength_reduce = 1;
-      flag_rerun_cse_after_loop = 1;
-      flag_rerun_loop_opt = 1;
-      flag_caller_saves = 1;
-      flag_force_mem = 1;
-      flag_peephole2 = 1;
-#ifdef INSN_SCHEDULING
-      flag_schedule_insns = 1;
-      flag_schedule_insns_after_reload = 1;
-#endif
-      flag_regmove = 1;
-      flag_strict_aliasing = 1;
-      flag_delete_null_pointer_checks = 1;
-      flag_reorder_blocks = 1;
-      flag_reorder_functions = 1;
-      flag_unit_at_a_time = 1;
-    }
-
-  if (optimize >= 3)
-    {
-      flag_inline_functions = 1;
-      flag_unswitch_loops = 1;
-      flag_gcse_after_reload = 1;
-    }
-
-  if (optimize < 2 || optimize_size)
-    {
-      align_loops = 1;
-      align_jumps = 1;
-      align_labels = 1;
-      align_functions = 1;
-
-      /* Don't reorder blocks when optimizing for size because extra
-	 jump insns may be created; also barrier may create extra padding.
-
-	 More correctly we should have a block reordering mode that tried
-	 to minimize the combined size of all the jumps.  This would more
-	 or less automatically remove extra jumps, but would also try to
-	 use more short jumps instead of long jumps.  */
-      flag_reorder_blocks = 0;
-      flag_reorder_blocks_and_partition = 0;
-    }
-
-  if (optimize_size)
-    {
-      /* Inlining of very small functions usually reduces total size.  */
-      set_param_value ("max-inline-insns-single", 5);
-      set_param_value ("max-inline-insns-auto", 5);
-      set_param_value ("max-inline-insns-rtl", 10);
-      flag_inline_functions = 1;
-    }
+  set_flags_from_O (true);
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
   /* Initialize whether `char' is signed.  */
   flag_signed_char = DEFAULT_SIGNED_CHAR;
@@ -794,22 +849,20 @@ common_handle_option (size_t scode, const char *arg, int value)
       dump_base_name = arg;
       break;
 
-    case OPT_falign_functions_:
-      align_functions = value;
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
+    /* APPLE LOCAL begin falign-jumps-max-skip */
+    case OPT_falign_jumps_max_skip_:
+      align_jumps_max_skip = value;
       break;
 
-    case OPT_falign_jumps_:
-      align_jumps = value;
+    case OPT_falign_loops_max_skip_:
+      align_loops_max_skip = value;
       break;
+    /* APPLE LOCAL end falign-jumps-max-skip */
 
-    case OPT_falign_labels_:
-      align_labels = value;
-      break;
-
-    case OPT_falign_loops_:
-      align_loops = value;
-      break;
-
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
     /* APPLE LOCAL begin predictive compilation */
     case OPT_fpredictive_compilation:
       predictive_compilation = 0;
@@ -869,7 +922,6 @@ common_handle_option (size_t scode, const char *arg, int value)
     case OPT_finline_limit_eq:
       set_param_value ("max-inline-insns-single", value / 2);
       set_param_value ("max-inline-insns-auto", value / 2);
-      set_param_value ("max-inline-insns-rtl", value);
       break;
 
     case OPT_fmessage_length_:
@@ -972,13 +1024,8 @@ common_handle_option (size_t scode, const char *arg, int value)
       flag_random_seed = arg;
       break;
 
-    case OPT_fsched_verbose_:
-#ifdef INSN_SCHEDULING
-      fix_sched_param ("verbose", arg);
-      break;
-#else
-      return 0;
-#endif
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
     case OPT_fsched_stalled_insns_:
       flag_sched_stalled_insns = value;
@@ -986,9 +1033,8 @@ common_handle_option (size_t scode, const char *arg, int value)
 	flag_sched_stalled_insns = -1;
       break;
 
-    case OPT_fsched_stalled_insns_dep_:
-      flag_sched_stalled_insns_dep = value;
-      break;
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
     case OPT_fstack_limit:
       /* The real switch is -fno-stack-limit.  */
@@ -1009,6 +1055,10 @@ common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fstack_limit_symbol_:
       stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (arg));
+      break;
+
+    case OPT_ftree_vectorizer_verbose_:
+      vect_set_verbosity_level (arg);
       break;
 
     case OPT_ftls_model_:
@@ -1083,7 +1133,8 @@ common_handle_option (size_t scode, const char *arg, int value)
     default:
       /* If the flag was handled in a standard way, assume the lack of
 	 processing here is intentional.  */
-      if (cl_options[scode].flag_var)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+      if (cl_options[scode].flag_var || cl_options[scode].access_flag)
 	break;
 
       abort ();
@@ -1107,7 +1158,7 @@ handle_param (const char *carg)
     {
       value = integral_argument (equal + 1);
       if (value == -1)
-	error ("invalid --param value `%s'", equal + 1);
+	error ("invalid --param value %qs", equal + 1);
       else
 	{
 	  *equal = '\0';
@@ -1165,6 +1216,7 @@ set_fast_math_flags (int set)
     {
       flag_signaling_nans = 0;
       flag_rounding_math = 0;
+      flag_cx_limited_range = 1;
     }
 }
 
@@ -1236,7 +1288,6 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
       else if (debug_info_level > 3)
 	error ("debug output level %s is too high", arg);
     }
-
 }
 
 /* Output --help text.  */
@@ -1450,3 +1501,156 @@ wrap_help (const char *help, const char *item, unsigned int item_width)
     }
   while (remaining);
 }
+
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+/* Find or allocate a cl_perfunc_opts to represent the current
+   state of the per-function options, found in the global cl_pf_opts.
+   There are logically not many of these, usually only 1, so we use 
+   a small hash table to avoid unnecessary copies.  */
+
+static htab_t cl_perfunc_opts_hash_table;
+
+static hashval_t 
+hash_cl_perfunc_opts (const void *p)
+{
+  const unsigned int *uip = p;
+  unsigned int i;
+  hashval_t h = 0;
+  for (i = 0; i < sizeof (struct cl_perfunc_opts) / sizeof (int); i++)
+    h += *uip++;
+  return h;
+}
+
+static int 
+cmp_cl_perfunc_opts (const void *p, const void *q)
+{
+  return !memcmp(p, q, sizeof(struct cl_perfunc_opts));
+}
+
+static struct cl_perfunc_opts *
+make_perfunc_opts (void)
+{
+  PTR *slot;
+
+  if (!cl_perfunc_opts_hash_table)
+    cl_perfunc_opts_hash_table = htab_create (11, hash_cl_perfunc_opts,
+	cmp_cl_perfunc_opts, NULL);
+  slot = htab_find_slot (cl_perfunc_opts_hash_table, &cl_pf_opts,
+	    INSERT);
+  if (*slot == NULL)
+    {
+      *slot = xmalloc (sizeof (struct cl_perfunc_opts));
+      memcpy (*slot, &cl_pf_opts, sizeof (struct cl_perfunc_opts));
+    }
+  return *slot;
+}
+
+/* Record the per-function opts in effect, and associate them with
+   a FUNCTION_DECL.  The more natural way to do this is to put a field
+   in the struct function, but we want to record this info at a time
+   when the struct function has not been allocated yet.  A hash table
+   isn't a great way to do this; maybe I'll think of something better.  */
+
+static htab_t func_cl_pf_opts_mapping_hash_table;
+
+struct func_cl_pf_opts_mapping
+{
+  tree func;
+  /* The following pointer might or might not point to malloc'd storage.
+     Don't free it. */
+  struct cl_perfunc_opts *cl_pf_opts;
+};
+
+static hashval_t
+func_cl_pf_opts_mapping_hash (const void* entry)
+{
+  const struct func_cl_pf_opts_mapping *e = entry;
+  return htab_hash_pointer (e->func);
+}
+
+static int
+func_cl_pf_opts_mapping_eq (const void *p, const void *q)
+{
+  const struct func_cl_pf_opts_mapping *pp = p;
+  const struct func_cl_pf_opts_mapping *qq = q;
+  return pp->func == qq->func;
+}
+
+void 
+record_func_cl_pf_opts_mapping (tree func)
+{
+  PTR *slot;
+  struct func_cl_pf_opts_mapping map, *entry;
+  if (!func_cl_pf_opts_mapping_hash_table)
+    func_cl_pf_opts_mapping_hash_table = htab_create (101, 
+	func_cl_pf_opts_mapping_hash, func_cl_pf_opts_mapping_eq, 0);
+  map.func = func;
+  slot = htab_find_slot (func_cl_pf_opts_mapping_hash_table, &map, INSERT);
+  if (*slot)
+    entry = *slot;
+  else
+    {
+      entry = xmalloc (sizeof (struct func_cl_pf_opts_mapping));
+      entry->func = func;
+      *slot = entry;
+    }
+  entry->cl_pf_opts = make_perfunc_opts ();
+}
+
+void 
+restore_func_cl_pf_opts_mapping (tree func)
+{
+  PTR *slot;
+  struct func_cl_pf_opts_mapping map, *entry;
+  /* This will be the case for languages whose FEs don't call
+     record_func_cl_pf_opts_mapping.  */
+  if (!func_cl_pf_opts_mapping_hash_table)
+    return;
+  map.func = func;
+  slot = htab_find_slot (func_cl_pf_opts_mapping_hash_table, &map, INSERT);
+  if (*slot)
+    entry = *slot;
+  else
+    {
+      /* This means we did not call record_func_cl_opts_pf_mapping earlier.
+	 Currently this happens for functions defined inside a C++ class;
+	 we just record a token stream for those, which doesn't include
+	 pragmas in a usable fashion.  For now just use the command line
+	 options for these.  */
+      entry = xmalloc (sizeof (struct func_cl_pf_opts_mapping));
+      entry->func = func;
+      entry->cl_pf_opts = &cl_pf_opts_cooked;
+      *slot = entry;
+    }
+  cl_pf_opts = *(entry->cl_pf_opts);
+}
+
+void
+copy_func_cl_pf_opts_mapping (tree funcold, tree funcnew)
+{
+  PTR *slot;
+  struct func_cl_pf_opts_mapping map, *entry;
+  struct cl_perfunc_opts *oldcl_pf_opts;
+  /* This will be the case for languages whose FEs don't call
+     record_func_cl_pf_opts_mapping.  */
+  if (!func_cl_pf_opts_mapping_hash_table)
+    return;
+  map.func = funcold;
+  slot = htab_find_slot (func_cl_pf_opts_mapping_hash_table, &map, NO_INSERT);
+  gcc_assert (*slot);
+  entry = *slot;
+  oldcl_pf_opts = entry->cl_pf_opts;
+
+  map.func = funcnew;
+  slot = htab_find_slot (func_cl_pf_opts_mapping_hash_table, &map, INSERT);
+  if (*slot)
+    entry = *slot;
+  else
+    {
+      entry = xmalloc (sizeof (struct func_cl_pf_opts_mapping));
+      entry->func = funcnew;
+      *slot = entry;
+    }
+  entry->cl_pf_opts = oldcl_pf_opts;
+}
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */

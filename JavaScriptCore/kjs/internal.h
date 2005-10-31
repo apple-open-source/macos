@@ -28,9 +28,11 @@
 #include "ustring.h"
 #include "value.h"
 #include "object.h"
+#include "protect.h"
 #include "types.h"
 #include "interpreter.h"
 #include "scope_chain.h"
+#include "shared_ptr.h"
 
 #define I18N_NOOP(s) s
 
@@ -120,6 +122,7 @@ namespace KJS {
   inline String::String(StringImp *imp) : Value(imp) { }
 
   class NumberImp : public ValueImp {
+    friend class Value;
     friend class Number;
     friend class InterpreterImp;
   public:
@@ -204,11 +207,11 @@ namespace KJS {
    */
   class Parser {
   public:
-    static ProgramNode *parse(const UString &sourceURL, int startingLineNumber,
-                              const UChar *code, unsigned int length, int *sourceId = 0,
-			      int *errLine = 0, UString *errMsg = 0);
+    static kxmlcore::SharedPtr<ProgramNode> parse(const UString &sourceURL, int startingLineNumber,
+                                                  const UChar *code, unsigned int length, int *sourceId = 0,
+                                                  int *errLine = 0, UString *errMsg = 0);
+    static void accept(ProgramNode *prog);
 
-    static ProgramNode *progNode;
     static int sid;
   };
 
@@ -259,7 +262,7 @@ namespace KJS {
     InterpreterImp(Interpreter *interp, const Object &glob);
     ~InterpreterImp();
 
-    ProtectedObject &globalObject() const { return const_cast<ProtectedObject &>(global); }
+    Object &globalObject() { return global; }
     Interpreter* interpreter() const { return m_interpreter; }
 
     void initGlobalObject();
@@ -273,7 +276,7 @@ namespace KJS {
     bool checkSyntax(const UString &code);
     Completion evaluate(const UString &code, const Value &thisV, const UString &sourceURL, int startingLineNumber);
     Debugger *debugger() const { return dbg; }
-    void setDebugger(Debugger *d);
+    void setDebugger(Debugger *d) { dbg = d; }
 
     Object builtinObject() const { return b_Object; }
     Object builtinFunction() const { return b_Function; }

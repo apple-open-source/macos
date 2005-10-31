@@ -150,7 +150,8 @@ writePlist( const char * path, CFMutableDictionaryRef dict, UInt32 key )
 static CFMutableDictionaryRef
 IODisplayCreateOverrides( IOOptionBits options, 
                             IODisplayVendorID vendor, IODisplayProductID product,
-                            UInt32 serialNumber, CFAbsoluteTime manufactureDate )
+                            UInt32 serialNumber, CFAbsoluteTime manufactureDate,
+			    Boolean isDigital )
 {
 
     char			path[256];
@@ -166,12 +167,45 @@ IODisplayCreateOverrides( IOOptionBits options,
     
         obj = readPlist( path, ((vendor & 0xffff) << 16) | (product & 0xffff) );
         if( obj) {
-            if( CFDictionaryGetTypeID() == CFGetTypeID( obj )) {
-                dict = CFDictionaryCreateMutableCopy( kCFAllocatorDefault, 0, obj);
-                CFRelease( obj );
-            } else if( CFArrayGetTypeID() == CFGetTypeID( obj )) {
-                // match serial numbers etc
+            if( CFDictionaryGetTypeID() == CFGetTypeID( obj ))
+	    {
+                dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, obj);
             }
+	    else if( CFArrayGetTypeID() == CFGetTypeID( obj ))
+	    {
+		CFArrayRef      array;
+		CFIndex         count, idx;
+		CFTypeRef       obj2;
+		CFDictionaryRef matching, candidate;
+
+                // look for a matching override
+		array = obj;
+		candidate = 0;
+		count = CFArrayGetCount(array);
+		for (idx = 0; idx < count; idx++, candidate = 0)
+		{
+		    obj2 = CFArrayGetValueAtIndex(array, idx);
+		    if (CFDictionaryGetTypeID() != CFGetTypeID(obj2))
+			continue;
+		    candidate = obj2;
+		    matching = CFDictionaryGetValue(candidate, CFSTR(kIODisplayOverrideMatchingKey));
+		    if (!matching)
+			break;
+		    if (CFDictionaryGetTypeID() != CFGetTypeID(matching))
+			continue;
+
+		    obj2 = CFDictionaryGetValue(matching, CFSTR(kIODisplayIsDigitalKey));
+		    if ((obj2 == kCFBooleanTrue) && !isDigital)
+			continue;
+		    if ((obj2 == kCFBooleanFalse) && isDigital)
+			continue;
+
+		    break;
+		}
+		if (candidate)
+		    dict = CFDictionaryCreateMutableCopy( kCFAllocatorDefault, 0, candidate);
+            }
+	    CFRelease( obj );
         }
     }
     if( !dict)
@@ -213,14 +247,17 @@ IODisplayCreateOverrides( IOOptionBits options,
 static void
 EDIDInfo( struct EDID * edid,
             IODisplayVendorID * vendor, IODisplayProductID * product,
-            UInt32 * serialNumber, CFAbsoluteTime * manufactureDate )
+            UInt32 * serialNumber, CFAbsoluteTime * manufactureDate,
+	    Boolean * isDigital )
 {
     SInt32		sint;
 
-    if( vendor)
+    if (vendor)
         *vendor = (edid->vendorProduct[0] << 8) | edid->vendorProduct[1];
-    if( product)
+    if (product)
         *product = (edid->vendorProduct[3] << 8) | edid->vendorProduct[2];
+    if (isDigital)
+	*isDigital = (0 != (0x80 & edid->displayParams[0]));
 
     if( serialNumber) {
         sint = (edid->serialNumber[3] << 24)
@@ -678,7 +715,12 @@ StandardResolutionToDetailedTiming( IOFBConnectRef connectRef, EDID * edid,
     key = (const void *) spec->timingID;
     if (!key)
     {
-	timingIDs = CFDictionaryGetValue(connectRef->iographicsProperties, CFSTR("timing-ids"));
+	CFStringRef timingKey;
+	if (kResSpecInternalReducedBlank & spec->flags)
+	    timingKey = CFSTR("irb-timing-ids");
+	else
+	    timingKey = CFSTR("timing-ids");
+	timingIDs = CFDictionaryGetValue(connectRef->iographicsProperties, timingKey);
 	if (!timingIDs)
 	    return (kIOReturnUnsupportedMode);
 	key = (const void *)((spec->width << 20) | (spec->height << 8) | ((UInt32)(spec->refreshRate + 0.5)));
@@ -1144,7 +1186,8 @@ CheckTimingWithRange( IOFBConnectRef connectRef,
         return(1);
 
     if ((kIOInterlacedCEATiming & timing->signalConfig)
-     && !(kIORangeSupportsInterlacedCEATiming & range->supportedSignalConfigs))
+     && !((kIORangeSupportsInterlacedCEATiming | kIORangeSupportsInterlacedCEATimingWithConfirm) 
+	    & range->supportedSignalConfigs))
         return(34);
 
     if ((timing->numLinks > 1) 
@@ -1162,6 +1205,9 @@ CheckTimingWithRange( IOFBConnectRef connectRef,
     hTotal += timing->horizontalBlanking;
     vTotal  = timing->verticalActive;
     vTotal += timing->verticalBlanking;
+
+    if (!hTotal || !vTotal)
+        return(36);
 
     if( (pixelClock > range->maxPixelClock)
      || (pixelClock < range->minPixelClock))
@@ -1458,7 +1504,11 @@ InstallTiming( IOFBConnectRef                connectRef,
     }
 
     if (timing->detailedInfo.v2.signalConfig & kIOInterlacedCEATiming)
+    {
 	dmFlags |= (kDisplayModeInterlacedFlag /*| kDisplayModeTelevisionFlag*/);
+	if (connectRef->fbRange && (kIORangeSupportsInterlacedCEATimingWithConfirm & connectRef->fbRange->supportedSignalConfigs))
+	    dmFlags &= ~kDisplayModeSafeFlag;
+    }
 
     desc->info.flags = dmFlags;
 
@@ -1491,12 +1541,61 @@ InstallFromEDIDDesc( IOFBConnectRef connectRef,
     err = EDIDDescToDetailedTiming( edid, desc, (IODetailedTimingInformation *) &timing->detailedInfo.v2 );
     if( kIOReturnSuccess != err)
         return (err);
-    
+
     if (kIOInterlacedCEATiming & timing->detailedInfo.v2.signalConfig)
     {
 	connectRef->hasInterlaced = true;
 	DEBG(connectRef, "hasInterlaced\n");
     }
+#if 1
+    // internal reduced blank timing switch
+    else if (
+	(kDisplayModeDefaultFlag & dmFlags)
+	&& connectRef->fbRange
+	&& CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey))
+	&& ((timing->detailedInfo.v2.pixelClock > connectRef->fbRange->maxPixelClock)
+	 || (connectRef->fbRange->maxLink0PixelClock 
+		&& (timing->detailedInfo.v2.pixelClock > (connectRef->fbRange->maxLink0PixelClock * 1000ULL)))))
+    {
+	IOTimingInformation   _newTiming;
+	IOTimingInformation * newTiming = &_newTiming;
+	IOFBResolutionSpec    spec;
+	
+	spec.timingID    = kIOTimingIDInvalid;
+	spec.width       = timing->detailedInfo.v2.horizontalActive;
+	spec.height      = timing->detailedInfo.v2.verticalActive;
+	spec.refreshRate = RefreshRateFromDetailedTiming( &timing->detailedInfo.v2 );
+	spec.flags       = kResSpecInternalReducedBlank;
+
+	err = StandardResolutionToDetailedTiming( connectRef, edid, &spec, newTiming );
+	if (kIOReturnSuccess == err)
+	{
+#if RLOG
+	    DEBG(connectRef, "switching:\n");
+	    IOFBLogTiming(connectRef, timing);
+#endif
+	    timing->detailedInfo.v2.pixelClock		     = newTiming->detailedInfo.v2.pixelClock;
+	    timing->detailedInfo.v2.maxPixelClock 	     = newTiming->detailedInfo.v2.pixelClock;
+	    timing->detailedInfo.v2.minPixelClock 	     = newTiming->detailedInfo.v2.pixelClock;
+	    timing->detailedInfo.v2.horizontalActive	     = newTiming->detailedInfo.v2.horizontalActive;
+	    timing->detailedInfo.v2.horizontalBlanking       = newTiming->detailedInfo.v2.horizontalBlanking;
+	    timing->detailedInfo.v2.verticalActive           = newTiming->detailedInfo.v2.verticalActive;
+	    timing->detailedInfo.v2.verticalBlanking         = newTiming->detailedInfo.v2.verticalBlanking;
+	    timing->detailedInfo.v2.horizontalSyncOffset     = newTiming->detailedInfo.v2.horizontalSyncOffset;
+	    timing->detailedInfo.v2.horizontalSyncPulseWidth = newTiming->detailedInfo.v2.horizontalSyncPulseWidth;
+	    timing->detailedInfo.v2.verticalSyncOffset       = newTiming->detailedInfo.v2.verticalSyncOffset;
+	    timing->detailedInfo.v2.verticalSyncPulseWidth   = newTiming->detailedInfo.v2.verticalSyncPulseWidth;
+	    timing->detailedInfo.v2.horizontalBorderLeft     = newTiming->detailedInfo.v2.horizontalBorderLeft;
+	    timing->detailedInfo.v2.horizontalBorderRight    = newTiming->detailedInfo.v2.horizontalBorderRight;
+	    timing->detailedInfo.v2.verticalBorderTop        = newTiming->detailedInfo.v2.verticalBorderTop;
+	    timing->detailedInfo.v2.verticalBorderBottom     = newTiming->detailedInfo.v2.verticalBorderBottom;
+#if RLOG
+	    DEBG(connectRef, "switching to:\n");
+	    IOFBLogTiming(connectRef, timing);
+#endif
+	}
+    }
+#endif
 
     if ((pixelRep = GetAssumedPixelRepetition((IODetailedTimingInformation *) &timing->detailedInfo.v2)))
     {
@@ -2187,6 +2286,12 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 #endif
         edid = (EDID *) CFDataGetBytePtr( data );
 
+        static const uint8_t checkHeader[] = { 0x00,0xff,0xff,0xff,0xff,0xff,0xff,0x00 };
+        if (bcmp(&checkHeader[0], &edid->header[0], sizeof(checkHeader)))
+	{
+	    edid = 0;
+            continue;
+	}
 	count = CFDataGetLength(data);
 	if (count > sizeof(EDID))
 	    LookExtensions(connectRef, edid, (UInt8 *)(edid + 1), count - sizeof(EDID));
@@ -2395,6 +2500,7 @@ _IODisplayCreateInfoDictionary(
 {
     IOReturn			kr;
     io_service_t		service = 0;
+    Boolean			isDigital = false;
     CFDataRef			data = 0;
     CFNumberRef			num;
     CFMutableDictionaryRef	dict = 0;
@@ -2477,9 +2583,9 @@ _IODisplayCreateInfoDictionary(
             continue;
         edid = (EDID *) CFDataGetBytePtr( data );
         if( vendor && product)
-            EDIDInfo( edid, 0, 0, &serialNumber, &manufactureDate );
+            EDIDInfo( edid, 0, 0, &serialNumber, &manufactureDate, &isDigital );
         else
-            EDIDInfo( edid, &vendor, &product, &serialNumber, &manufactureDate );
+            EDIDInfo( edid, &vendor, &product, &serialNumber, &manufactureDate, &isDigital );
 
     } while( false );
 
@@ -2490,7 +2596,7 @@ _IODisplayCreateInfoDictionary(
     } // </hack>
 
     dict = IODisplayCreateOverrides( options, vendor, product,
-                                        serialNumber, manufactureDate );
+                                        serialNumber, manufactureDate, isDigital );
 
 #define makeInt( key, value )	\
 	num = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &value );	\
@@ -2536,8 +2642,8 @@ _IODisplayCreateInfoDictionary(
         if( data)
             CFDictionaryAddValue( dict, CFSTR(kIODisplayEDIDKey), data);
         // get final edid
-        data = CFDictionaryGetValue( dict, CFSTR(kIODisplayEDIDKey));
-        if(data)
+        data = CFDictionaryGetValue(dict, CFSTR(kIODisplayEDIDKey));
+        if (data)
             edid = (EDID *) CFDataGetBytePtr(data);
             // no point in serial# / manufacture date from override
         else

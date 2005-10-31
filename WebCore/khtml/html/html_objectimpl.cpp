@@ -388,6 +388,7 @@ HTMLObjectElementImpl::HTMLObjectElementImpl(DocumentPtr *doc)
 #endif
 {
     needWidgetUpdate = false;
+    m_useFallbackContent = false;
 }
 
 HTMLObjectElementImpl::~HTMLObjectElementImpl()
@@ -409,19 +410,22 @@ KJS::Bindings::Instance *HTMLObjectElementImpl::getObjectInstance() const
 
     if (objectInstance)
         return objectInstance;
-    
-    RenderPartObject *r = static_cast<RenderPartObject*>(m_render);
-    if (r) {
-        if (r->widget()){
-            // Call into the part (and over the bridge) to pull the Bindings::Instance
-            // from the guts of the plugin.
-            void *_view = r->widget()->getView();
-            objectInstance = KWQ(part)->getObjectInstanceForView((NSView *)_view);
-            // Applet may specified with <object> tag.
-            if (!objectInstance)
-                objectInstance = KWQ(part)->getAppletInstanceForView((NSView *)_view);
+
+    if (RenderObject *r = m_render) {
+        if (r->isWidget()) {
+            if (QWidget *widget = static_cast<RenderWidget *>(r)->widget()) {
+                if (NSView *view = widget->getView())  {
+                    // Call into the part (and over the bridge) to pull the Bindings::Instance
+                    // from the guts of the plugin.
+                    objectInstance = KWQ(part)->getObjectInstanceForView(view);
+                    // Applet may specified with <object> tag.
+                    if (!objectInstance)
+                        objectInstance = KWQ(part)->getAppletInstanceForView(view);
+                }
+            }
         }
     }
+
     return objectInstance;
 }
 #endif
@@ -458,7 +462,7 @@ void HTMLObjectElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
           serviceType = serviceType.left( pos );
       if (m_render)
           needWidgetUpdate = true;
-      if (!canRenderImageType(serviceType) && m_imageLoader) {
+      if (!isImageType() && m_imageLoader) {
           delete m_imageLoader;
           m_imageLoader = 0;
       }
@@ -467,7 +471,7 @@ void HTMLObjectElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
       url = khtml::parseURL(  val ).string();
       if (m_render)
           needWidgetUpdate = true;
-      if (m_render && canRenderImageType(serviceType)) {
+      if (m_render && isImageType()) {
           if (!m_imageLoader)
               m_imageLoader = new HTMLImageLoader(this);
           m_imageLoader->updateFromElement();
@@ -505,9 +509,8 @@ DocumentImpl* HTMLObjectElementImpl::contentDocument() const
 
 bool HTMLObjectElementImpl::rendererIsNeeded(RenderStyle *style)
 {
-    if (canRenderImageType(serviceType)) {
+    if (m_useFallbackContent || isImageType())
         return HTMLElementImpl::rendererIsNeeded(style);
-    }
 
     KHTMLPart* part = getDocument()->part();
     if (!part || !part->pluginsEnabled()) {
@@ -528,9 +531,10 @@ bool HTMLObjectElementImpl::rendererIsNeeded(RenderStyle *style)
 
 RenderObject *HTMLObjectElementImpl::createRenderer(RenderArena *arena, RenderStyle *style)
 {
-    if (canRenderImageType(serviceType)) {
+    if (m_useFallbackContent)
+        return RenderObject::createObject(this, style);
+    if (isImageType())
         return new (arena) RenderImage(this);
-    }
     return new (arena) RenderPartObject(this);
 }
 
@@ -538,8 +542,8 @@ void HTMLObjectElementImpl::attach()
 {
     HTMLElementImpl::attach();
 
-    if (m_render) {
-        if (canRenderImageType(serviceType)) {
+    if (m_render && !m_useFallbackContent) {
+        if (isImageType()) {
             if (!m_imageLoader)
                 m_imageLoader = new HTMLImageLoader(this);
             m_imageLoader->updateFromElement();
@@ -565,7 +569,7 @@ void HTMLObjectElementImpl::attach()
 void HTMLObjectElementImpl::detach()
 {
     // Only bother with an unload event if we had a render object.  - dwh
-    if (attached() && m_render)
+    if (attached() && m_render && !m_useFallbackContent)
         // ### do this when we are actualy removed from document instead
         dispatchHTMLEvent(EventImpl::UNLOAD_EVENT,false,false);
 
@@ -574,7 +578,7 @@ void HTMLObjectElementImpl::detach()
 
 void HTMLObjectElementImpl::recalcStyle(StyleChange ch)
 {
-    if (needWidgetUpdate && m_render && !canRenderImageType(serviceType)) {
+    if (!m_useFallbackContent && needWidgetUpdate && m_render && !isImageType()) {
         // Set needWidgetUpdate to false before calling updateWidget because updateWidget may cause
         // this method or attach (which also calls updateWidget) to be called.
         needWidgetUpdate = false;
@@ -586,7 +590,7 @@ void HTMLObjectElementImpl::recalcStyle(StyleChange ch)
 
 void HTMLObjectElementImpl::childrenChanged()
 {
-    if (inDocument()) {
+    if (inDocument() && !m_useFallbackContent) {
         needWidgetUpdate = true;
         setChanged();
     }
@@ -595,6 +599,39 @@ void HTMLObjectElementImpl::childrenChanged()
 bool HTMLObjectElementImpl::isURLAttribute(AttributeImpl *attr) const
 {
     return (attr->id() == ATTR_DATA || (attr->id() == ATTR_USEMAP && attr->value().domString()[0] != '#'));
+}
+
+bool HTMLObjectElementImpl::isImageType()
+{
+    if (serviceType.isEmpty() && url.startsWith("data:")) {
+        // Extract the MIME type from the data URL.
+        int index = url.find(';');
+        if (index == -1)
+            index = url.find(',');
+        if (index != -1) {
+            int len = index - 5;
+            if (len > 0)
+                serviceType = url.mid(5, len);
+            else
+                serviceType = "text/plain"; // Data URLs with no MIME type are considered text/plain.
+        }
+    }
+
+    return canRenderImageType(serviceType);
+}
+
+void HTMLObjectElementImpl::renderFallbackContent()
+{
+    if (m_useFallbackContent)
+        return;
+
+    // Mark ourselves as using the fallback content.
+    m_useFallbackContent = true;
+
+    // Now do a detach and reattach.    
+    // FIXME: Style gets recalculated which is suboptimal.
+    detach();
+    attach();
 }
 
 // -------------------------------------------------------------------------

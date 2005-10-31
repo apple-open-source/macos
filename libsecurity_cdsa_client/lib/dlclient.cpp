@@ -108,6 +108,34 @@ DbImpl::open()
 }
 
 void
+DbImpl::createWithBlob(CssmData &blob)
+{
+	if (mActive)
+		CssmError::throwMe(CSSMERR_DL_DATASTORE_ALREADY_EXISTS);
+
+	if (mDbInfo == nil) {
+		// handle a missing (null) mDbInfo as an all-zero one
+		static const CSSM_DBINFO nullDbInfo = { };
+		mDbInfo = &nullDbInfo;
+	}
+
+	mHandle.DLHandle = dl()->handle();
+
+	// create a parameter block for our call to the passthrough
+	CSSM_APPLE_CSPDL_DB_CREATE_WITH_BLOB_PARAMETERS params;
+	
+	params.dbName = mDbName.dbName ();
+	params.dbLocation = dbLocation ();
+	params.dbInfo = mDbInfo;
+	params.accessRequest = mAccessRequest;
+	params.credAndAclEntry = NULL;
+	params.openParameters = mOpenParameters;
+	params.blob = &blob;
+
+	check(CSSM_DL_PassThrough (mHandle, CSSM_APPLECSPDL_DB_CREATE_WITH_BLOB, &params, (void**) &mHandle.DBHandle));
+}
+
+void
 DbImpl::create()
 {
 	if (mActive)

@@ -548,7 +548,7 @@ thread_apply_all_command (char *cmd, int from_tty)
   if (cmd == NULL || *cmd == '\000')
     error ("Please specify a command following the thread ID list");
 
-  old_chain = make_cleanup_restore_current_thread (inferior_ptid, 1);
+  old_chain = make_cleanup_restore_current_thread (inferior_ptid, 0);
 
   /* It is safe to update the thread list now, before
      traversing it for "thread apply all".  MVS */
@@ -598,7 +598,7 @@ thread_apply_command (char *tidlist, int from_tty)
   if (*cmd == '\000')
     error ("Please specify a command following the thread ID list");
 
-  old_chain = make_cleanup_restore_current_thread (inferior_ptid, 1);
+  old_chain = make_cleanup_restore_current_thread (inferior_ptid, 0);
 
   /* Save a copy of the command in case it is clobbered by
      execute_command */

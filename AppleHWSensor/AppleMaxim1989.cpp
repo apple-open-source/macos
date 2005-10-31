@@ -614,7 +614,10 @@ IOReturn AppleMaxim1989::getTemp( UInt32 maximReg, SInt32 * temp )
 	closeI2C();
 
 	// format the 16.16 fixed point temperature and return it
-	*temp = ((integer << 16) & 0x00FF0000);
+	// Integer is a signed 7-bit temperature value.  Funky casting is required to sign-extend
+	// temperature.
+
+	*temp = ( ( ( SInt8 ) ( integer << 1 ) ) << 15 );
 	return(kIOReturnSuccess);
 
 failClose:

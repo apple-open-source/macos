@@ -1,2 +1,0 @@
->>> Rollback during extend
-<<< done.

@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -34,12 +34,12 @@
 # error "MMX instruction set not enabled"
 #else
 /* The data type intended for user use.  */
-typedef int __m64 __attribute__ ((vector_size (8)));
+typedef int __m64 __attribute__ ((__vector_size__ (8)));
 
 /* Internal data types for implementing the intrinsics.  */
-typedef int __v2si __attribute__ ((vector_size (8)));
-typedef short __v4hi __attribute__ ((vector_size (8)));
-typedef char __v8qi __attribute__ ((vector_size (8)));
+typedef int __v2si __attribute__ ((__vector_size__ (8)));
+typedef short __v4hi __attribute__ ((__vector_size__ (8)));
+typedef char __v8qi __attribute__ ((__vector_size__ (8)));
 
 /* Empty the multimedia state.  */
 static __inline void
@@ -58,8 +58,7 @@ _m_empty (void)
 static __inline __m64 
 _mm_cvtsi32_si64 (int __i)
 {
-  long long __tmp = (unsigned int)__i;
-  return (__m64) __tmp;
+  return (__m64) __builtin_ia32_vec_init_v2si (__i, 0);
 }
 
 static __inline __m64 
@@ -88,8 +87,7 @@ _mm_set_pi64x (long long __i)
 static __inline int
 _mm_cvtsi64_si32 (__m64 __i)
 {
-  long long __tmp = (long long)__i;
-  return __tmp;
+  return __builtin_ia32_vec_ext_v2si ((__v2si)__i, 0);
 }
 
 static __inline int
@@ -687,7 +685,7 @@ _m_psrlqi (__m64 __m, int __count)
 static __inline __m64
 _mm_and_si64 (__m64 __m1, __m64 __m2)
 {
-  return (__m64) __builtin_ia32_pand ((long long)__m1, (long long)__m2);
+  return __builtin_ia32_pand (__m1, __m2);
 }
 
 static __inline __m64
@@ -701,7 +699,7 @@ _m_pand (__m64 __m1, __m64 __m2)
 static __inline __m64
 _mm_andnot_si64 (__m64 __m1, __m64 __m2)
 {
-  return (__m64) __builtin_ia32_pandn ((long long)__m1, (long long)__m2);
+  return __builtin_ia32_pandn (__m1, __m2);
 }
 
 static __inline __m64
@@ -714,7 +712,7 @@ _m_pandn (__m64 __m1, __m64 __m2)
 static __inline __m64
 _mm_or_si64 (__m64 __m1, __m64 __m2)
 {
-  return (__m64)__builtin_ia32_por ((long long)__m1, (long long)__m2);
+  return __builtin_ia32_por (__m1, __m2);
 }
 
 static __inline __m64
@@ -727,7 +725,7 @@ _m_por (__m64 __m1, __m64 __m2)
 static __inline __m64
 _mm_xor_si64 (__m64 __m1, __m64 __m2)
 {
-  return (__m64)__builtin_ia32_pxor ((long long)__m1, (long long)__m2);
+  return __builtin_ia32_pxor (__m1, __m2);
 }
 
 static __inline __m64
@@ -818,35 +816,21 @@ _m_pcmpgtd (__m64 __m1, __m64 __m2)
 static __inline __m64
 _mm_setzero_si64 (void)
 {
-  return (__m64)__builtin_ia32_mmx_zero ();
+  return (__m64)0LL;
 }
 
 /* Creates a vector of two 32-bit values; I0 is least significant.  */
 static __inline __m64
 _mm_set_pi32 (int __i1, int __i0)
 {
-  union {
-    __m64 __q;
-    struct {
-      unsigned int __i0;
-      unsigned int __i1;
-    } __s;
-  } __u;
-
-  __u.__s.__i0 = __i0;
-  __u.__s.__i1 = __i1;
-
-  return __u.__q;
+  return (__m64) __builtin_ia32_vec_init_v2si (__i0, __i1);
 }
 
 /* Creates a vector of four 16-bit values; W0 is least significant.  */
 static __inline __m64
 _mm_set_pi16 (short __w3, short __w2, short __w1, short __w0)
 {
-  unsigned int __i1 = (unsigned short)__w3 << 16 | (unsigned short)__w2;
-  unsigned int __i0 = (unsigned short)__w1 << 16 | (unsigned short)__w0;
-  return _mm_set_pi32 (__i1, __i0);
-		       
+  return (__m64) __builtin_ia32_vec_init_v4hi (__w0, __w1, __w2, __w3);
 }
 
 /* Creates a vector of eight 8-bit values; B0 is least significant.  */
@@ -854,19 +838,8 @@ static __inline __m64
 _mm_set_pi8 (char __b7, char __b6, char __b5, char __b4,
 	     char __b3, char __b2, char __b1, char __b0)
 {
-  unsigned int __i1, __i0;
-
-  __i1 = (unsigned char)__b7;
-  __i1 = __i1 << 8 | (unsigned char)__b6;
-  __i1 = __i1 << 8 | (unsigned char)__b5;
-  __i1 = __i1 << 8 | (unsigned char)__b4;
-
-  __i0 = (unsigned char)__b3;
-  __i0 = __i0 << 8 | (unsigned char)__b2;
-  __i0 = __i0 << 8 | (unsigned char)__b1;
-  __i0 = __i0 << 8 | (unsigned char)__b0;
-
-  return _mm_set_pi32 (__i1, __i0);
+  return (__m64) __builtin_ia32_vec_init_v8qi (__b0, __b1, __b2, __b3,
+					       __b4, __b5, __b6, __b7);
 }
 
 /* Similar, but with the arguments in reverse order.  */
@@ -900,17 +873,14 @@ _mm_set1_pi32 (int __i)
 static __inline __m64
 _mm_set1_pi16 (short __w)
 {
-  unsigned int __i = (unsigned short)__w << 16 | (unsigned short)__w;
-  return _mm_set1_pi32 (__i);
+  return _mm_set_pi16 (__w, __w, __w, __w);
 }
 
 /* Creates a vector of eight 8-bit values, all elements containing B.  */
 static __inline __m64
 _mm_set1_pi8 (char __b)
 {
-  unsigned int __w = (unsigned char)__b << 8 | (unsigned char)__b;
-  unsigned int __i = __w << 16 | __w;
-  return _mm_set1_pi32 (__i);
+  return _mm_set_pi8 (__b, __b, __b, __b, __b, __b, __b, __b);
 }
 
 #endif /* __MMX__ */

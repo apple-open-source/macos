@@ -18,6 +18,7 @@
  *  License along with this library; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+
 #include "khtml_part.h"
 #include "kjs_window.h"
 #include "kjs_events.h"
@@ -35,6 +36,7 @@
 using namespace KJS;
 
 using DOM::DocumentImpl;
+using DOM::DOMString;
 using DOM::EventImpl;
 using DOM::KeyboardEvent;
 using DOM::MouseRelatedEventImpl;
@@ -66,8 +68,12 @@ void JSAbstractEventListener::handleEvent(DOM::Event &evt, bool isWindowEvent)
   KJSProxy *proxy = 0;
   if (part)
       proxy = KJSProxy::proxy( part );
+  if (!proxy)
+    return;
 
-  if (proxy && listener.implementsCall()) {
+  if (listener.implementsCall()) {
+    InterpreterLock lock;
+
     ref();
 
     KJS::ScriptInterpreter *interpreter = static_cast<KJS::ScriptInterpreter *>(proxy->interpreter());
@@ -83,44 +89,39 @@ void JSAbstractEventListener::handleEvent(DOM::Event &evt, bool isWindowEvent)
     interpreter->setCurrentEvent( &evt );
 
     Object thisObj;
-    if (isWindowEvent) {
+    if (isWindowEvent) 
         thisObj = win;
-    } else {
-        KJS::Interpreter::lock();
+    else 
         thisObj = Object::dynamicCast(getDOMNode(exec,evt.currentTarget()));
-        KJS::Interpreter::unlock();
-    }
 
-    KJS::Interpreter::lock();
     Value retval = listener.call(exec, thisObj, args);
-    KJS::Interpreter::unlock();
 
     window->setCurrentEvent( 0 );
     interpreter->setCurrentEvent( 0 );
-#if APPLE_CHANGES
-    if ( exec->hadException() ) {
-        KJS::Interpreter::lock();
+
+    if (exec->hadException()) {
         char *message = exec->exception().toObject(exec).get(exec, messagePropertyName).toString(exec).ascii();
         int lineNumber =  exec->exception().toObject(exec).get(exec, "line").toInt32(exec);
-        UString sourceURL = exec->exception().toObject(exec).get(exec, "sourceURL").toString(exec);
-        KJS::Interpreter::unlock();
+        QString sourceURL;
+        {
+          // put this in a block to make sure UString is deallocated inside the lock
+          UString uSourceURL = exec->exception().toObject(exec).get(exec, "sourceURL").toString(exec);
+          sourceURL = uSourceURL.qstring();
+        }
         if (Interpreter::shouldPrintExceptions()) {
 	    printf("(event handler):%s\n", message);
 	}
-        KWQ(part)->addMessageToConsole(message, lineNumber, sourceURL.qstring());
-        exec->clearException();
-    }
-#else
-    if ( exec->hadException() )
-        exec->clearException();
-#endif
+        KWQ(part)->addMessageToConsole(message, lineNumber, sourceURL);
 
-    else if (html)
-    {
+        if (Interpreter::shouldPrintExceptions())
+            printf("(event handler):%s\n", message);
+        exec->clearException();
+    } else if (html) {
         QVariant ret = ValueToVariant(exec, retval);
         if (ret.type() == QVariant::Bool && ret.toBool() == false)
             evt.preventDefault();
     }
+
     DOM::DocumentImpl::updateDocumentsRendering();
     deref();
   }
@@ -149,7 +150,9 @@ JSUnprotectedEventListener::JSUnprotectedEventListener(Object _listener, const O
 JSUnprotectedEventListener::~JSUnprotectedEventListener()
 {
     if (listener.imp()) {
-      static_cast<Window*>(win.imp())->jsUnprotectedEventListeners.remove(listener.imp());
+        if (!win.isNull()) {
+            static_cast<Window*>(win.imp())->jsUnprotectedEventListeners.remove(listener.imp());
+        }
     }
 }
 
@@ -162,6 +165,12 @@ Object JSUnprotectedEventListener::windowObj() const
 {
     return win;
 }
+
+void JSUnprotectedEventListener::clearWindowObj()
+{
+    win = Object();
+}
+
 
 void JSUnprotectedEventListener::mark()
 {
@@ -186,7 +195,9 @@ JSEventListener::JSEventListener(Object _listener, const Object &_win, bool _htm
 JSEventListener::~JSEventListener()
 {
     if (listener.imp()) {
-      static_cast<Window*>(win.imp())->jsEventListeners.remove(listener.imp());
+        if (!win.isNull()) {
+          static_cast<Window*>(win.imp())->jsEventListeners.remove(listener.imp());
+        }
     }
     //fprintf(stderr,"JSEventListener::~JSEventListener this=%p listener=%p\n",this,listener.imp());
 }
@@ -199,6 +210,11 @@ Object JSEventListener::listenerObj() const
 Object JSEventListener::windowObj() const
 {
     return win;
+}
+
+void JSEventListener::clearWindowObj()
+{
+    win = Object();
 }
 
 // -------------------------------------------------------------------------
@@ -246,7 +262,7 @@ void JSLazyEventListener::parseCode() const
       KJS::ScriptInterpreter *interpreter = static_cast<KJS::ScriptInterpreter *>(proxy->interpreter());
       ExecState *exec = interpreter->globalExec();
 
-      KJS::Interpreter::lock();
+      InterpreterLock lock;
       //KJS::Constructor constr(KJS::Global::current().get("Function").imp());
       KJS::Object constr = interpreter->builtinFunction();
       KJS::List args;
@@ -256,8 +272,6 @@ void JSLazyEventListener::parseCode() const
       args.append(eventString);
       args.append(KJS::String(code));
       listener = constr.construct(exec, args, sourceURL, lineNumber); // ### is globalExec ok ?
-
-      KJS::Interpreter::unlock();
 
       if (exec->hadException()) {
 	exec->clearException();
@@ -274,10 +288,7 @@ void JSLazyEventListener::parseCode() const
         KJS::Interpreter::unlock();
         
         if (!thisObj.isNull()) {
-          KJS::Interpreter::lock();
           static_cast<DOMNode*>(thisObj.imp())->pushEventHandlerScope(exec, scope);
-          KJS::Interpreter::unlock();
-          
           listener.setScope(scope);
         }
       }
@@ -346,9 +357,13 @@ Value EventConstructor::getValueProperty(ExecState *, int token) const
   return Number(token);
 }
 
-Value KJS::getEventConstructor(ExecState *exec)
+namespace KJS {
+
+Value getEventConstructor(ExecState *exec)
 {
   return cacheGlobalObject<EventConstructor>(exec, "[[event.constructor]]");
+}
+
 }
 
 // -------------------------------------------------------------------------
@@ -509,7 +524,7 @@ Value KJS::getDOMEvent(ExecState *exec, DOM::Event e)
     return Null();
   ScriptInterpreter* interp = static_cast<ScriptInterpreter *>(exec->dynamicInterpreter());
 
-  KJS::Interpreter::lock();
+  InterpreterLock lock;
 
   DOMObject *ret = interp->getDOMObject(ei);
   if (!ret) {
@@ -528,8 +543,6 @@ Value KJS::getDOMEvent(ExecState *exec, DOM::Event e)
 
     interp->putDOMObject(ei, ret);
   }
-
-  KJS::Interpreter::unlock();
 
   return Value(ret);
 }
@@ -564,7 +577,7 @@ Value EventExceptionConstructor::getValueProperty(ExecState *, int token) const
   return Number(token);
 }
 
-Value KJS::getEventExceptionConstructor(ExecState *exec)
+Value getEventExceptionConstructor(ExecState *exec)
 {
   return cacheGlobalObject<EventExceptionConstructor>(exec, "[[eventException.constructor]]");
 }
@@ -907,7 +920,7 @@ Value MutationEventConstructor::getValueProperty(ExecState *, int token) const
   return Number(token);
 }
 
-Value KJS::getMutationEventConstructor(ExecState *exec)
+Value getMutationEventConstructor(ExecState *exec)
 {
   return cacheGlobalObject<MutationEventConstructor>(exec, "[[mutationEvent.constructor]]");
 }
@@ -1251,4 +1264,3 @@ Value ClipboardProtoFunc::tryCall(ExecState *exec, Object &thisObj, const List &
     }
     return Undefined();
 }
-

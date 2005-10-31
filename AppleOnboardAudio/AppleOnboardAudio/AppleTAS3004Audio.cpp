@@ -721,7 +721,7 @@ IOReturn AppleTAS3004Audio::performSetPowerState ( UInt32 currentPowerState, UIn
 	switch ( pendingPowerState )
 	{
 		case kIOAudioDeviceSleep:
-			result = performDeviceSleep ();
+			result = mPlatformInterface->setCodecReset ( kCODEC_RESET_Analog, kGPIO_Reset );
 			FailMessage ( kIOReturnSuccess != result );
 			break;
 		case kIOAudioDeviceIdle:
@@ -766,13 +766,7 @@ IOReturn AppleTAS3004Audio::performDeviceSleep () {
         
     result = SetAnalogPowerDownMode (kPowerDownAnalog);
 	FailMessage ( kIOReturnSuccess != result );
- 
-//	mPlatformInterface->setHeadphoneMuteState ( kGPIO_Muted );
-//	mPlatformInterface->setSpeakerMuteState ( kGPIO_Muted );
-//	mPlatformInterface->setLineOutMuteState ( kGPIO_Muted );
-    
-//	IOSleep (kAmpRecoveryMuteDuration);
-
+	
 	debugIOLog (3, "- AppleTAS3004Audio::performDeviceSleep");
 	return result;
 }

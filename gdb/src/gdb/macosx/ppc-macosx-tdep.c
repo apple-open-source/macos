@@ -511,9 +511,26 @@ ppc_frame_prev_register (struct frame_info *next_frame, void **this_cache,
       *realnump = -1;
       if (valuep)
         {
-          int wordsize = (gdbarch_tdep (current_gdbarch))->wordsize;
-          int offset = register_size (current_gdbarch, regnum) - wordsize;
-          *((int *) valuep) = 0;
+	  int wordsize;
+	  int offset;
+
+	  /* The FP & VP registers are the same size on 32 bit & 64 bit
+	     processors.  The second branch of the if handles the GP
+	     regs, since for a 32 bit task, the registers are 64 bits,
+	     but only 32 bits are stored on the stack.  */
+
+	  if (PPC_MACOSX_IS_FP_REGNUM (regnum) 
+	      || PPC_MACOSX_IS_VP_REGNUM (regnum))
+	    {
+	      wordsize = register_size (current_gdbarch, regnum);
+	      offset = 0;
+	    }
+	  else
+	    {
+	      wordsize = (gdbarch_tdep (current_gdbarch))->wordsize;
+	      offset = register_size (current_gdbarch, regnum) - wordsize;
+	      *((int *) valuep) = 0;
+	    }
 
           read_memory (*addrp, ((char *) valuep) + offset,
                        wordsize);
@@ -867,14 +884,14 @@ ppc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   set_gdbarch_frame_args_skip (gdbarch, 0);
 
-  set_gdbarch_skip_trampoline_code (gdbarch, ppc_macosx_skip_trampoline_code);
+  set_gdbarch_skip_trampoline_code (gdbarch, macosx_skip_trampoline_code);
   set_gdbarch_dynamic_trampoline_nextpc (gdbarch,
-                                         ppc_macosx_dynamic_trampoline_nextpc);
+                                         macosx_dynamic_trampoline_nextpc);
 
   set_gdbarch_in_solib_call_trampoline (gdbarch,
-                                        ppc_macosx_in_solib_call_trampoline);
+                                        macosx_in_solib_call_trampoline);
   set_gdbarch_in_solib_return_trampoline (gdbarch,
-                                          ppc_macosx_in_solib_return_trampoline);
+                                          macosx_in_solib_return_trampoline);
 
   set_gdbarch_print_insn (gdbarch, print_insn_big_powerpc);
 
@@ -1024,6 +1041,14 @@ ppc_fast_show_stack (int show_frames, int get_names,
             goto ppc_count_finish;
           if (next_fp == 0)
             goto ppc_count_finish;
+	  else if (fp == next_fp)
+	    {
+	      /* This shouldn't ever happen, but if it does we will
+		 loop forever here, so protect against that.  */
+	      warning ("Frame pointer point back at the previous frame");
+	      err = 1;
+	      goto ppc_count_finish;
+	    }
           if (!safe_read_memory_unsigned_integer
               (fp + PPC_MACOSX_DEFAULT_LR_SAVE, 4, &pc))
             goto ppc_count_finish;
@@ -1046,44 +1071,6 @@ ppc_count_finish:
 
   *count = i;
   return (!err);
-}
-
-CORE_ADDR
-ppc_macosx_skip_trampoline_code (CORE_ADDR pc)
-{
-  CORE_ADDR newpc;
-
-  newpc = dyld_symbol_stub_function_address (pc, NULL);
-  if (newpc != 0)
-    return newpc;
-
-  newpc = decode_fix_and_continue_trampoline (pc);
-  if (newpc != 0)
-    return newpc;
-
-  return 0;
-}
-
-CORE_ADDR
-ppc_macosx_dynamic_trampoline_nextpc (CORE_ADDR pc)
-{
-  return dyld_symbol_stub_function_address (pc, NULL);
-}
-
-int
-ppc_macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name)
-{
-  return 0;
-}
-
-int
-ppc_macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name)
-{
-  if (ppc_macosx_skip_trampoline_code (pc) != 0)
-    {
-      return 1;
-    }
-  return 0;
 }
 
 /* Grub around in the argument list to find the exception object,

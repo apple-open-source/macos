@@ -53,8 +53,7 @@ userprefix KLIPC;
 waittime kKLMachIPCTimeout;
 
 routine GetServerPID (inServerPort : mach_port_t;
-                  out outServerPID : KLIPCPid;
-             UserSecToken outToken : security_token_t);
+                  out outServerPID : KLIPCPid);
 
 routine AcquireNewInitialTickets (inServerPort : mach_port_t;
                              inApplicationTask : task_t;

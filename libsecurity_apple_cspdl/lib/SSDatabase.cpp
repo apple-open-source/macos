@@ -137,11 +137,11 @@ SSDatabaseImpl::dbHandle()
 }
 
 void
-SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
+SSDatabaseImpl::commonCreate(const DLDbIdentifier &dlDbIdentifier, bool &autoCommit)
 {
 	mIdentifier = dlDbIdentifier;
 	// Set to false if autocommit should remain off after the create. 
-	bool autoCommit = true;
+	autoCommit = true;
 
 	// OpenParameters to use
 	CSSM_APPLEDL_OPEN_PARAMETERS newOpenParameters =
@@ -196,29 +196,36 @@ SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
 		throw;
 	}
 
+	// @@@ The CSSM_DB_SCHEMA_ATTRIBUTE_INFO and CSSM_DB_SCHEMA_INDEX_INFO
+	// arguments should be optional.
+	createRelation(DBBlobRelationID, DBBlobRelationName,
+				0, (CSSM_DB_SCHEMA_ATTRIBUTE_INFO *)42,
+				0, (CSSM_DB_SCHEMA_INDEX_INFO *)42);
+
+	// @@@ Only iff not already in mDbInfo
+	createRelation(CSSM_DL_DB_RECORD_PUBLIC_KEY, "CSSM_DL_DB_RECORD_PUBLIC_KEY",
+				KeySchema::KeySchemaAttributeCount, KeySchema::KeySchemaAttributeList,
+				KeySchema::KeySchemaIndexCount, KeySchema::KeySchemaIndexList);
+
+	// @@@ Only iff not already in mDbInfo
+	createRelation(CSSM_DL_DB_RECORD_PRIVATE_KEY, "CSSM_DL_DB_RECORD_PRIVATE_KEY",
+				KeySchema::KeySchemaAttributeCount, KeySchema::KeySchemaAttributeList,
+				KeySchema::KeySchemaIndexCount, KeySchema::KeySchemaIndexList);
+
+	// @@@ Only iff not already in mDbInfo
+	createRelation(CSSM_DL_DB_RECORD_SYMMETRIC_KEY, "CSSM_DL_DB_RECORD_SYMMETRIC_KEY",
+				KeySchema::KeySchemaAttributeCount, KeySchema::KeySchemaAttributeList,
+				KeySchema::KeySchemaIndexCount, KeySchema::KeySchemaIndexList);
+}
+
+void
+SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
+{
 	try
 	{
-		// @@@ The CSSM_DB_SCHEMA_ATTRIBUTE_INFO and CSSM_DB_SCHEMA_INDEX_INFO
-		// arguments should be optional.
-		createRelation(DBBlobRelationID, DBBlobRelationName,
-					0, (CSSM_DB_SCHEMA_ATTRIBUTE_INFO *)42,
-					0, (CSSM_DB_SCHEMA_INDEX_INFO *)42);
-
-		// @@@ Only iff not already in mDbInfo
-		createRelation(CSSM_DL_DB_RECORD_PUBLIC_KEY, "CSSM_DL_DB_RECORD_PUBLIC_KEY",
-					KeySchema::KeySchemaAttributeCount, KeySchema::KeySchemaAttributeList,
-					KeySchema::KeySchemaIndexCount, KeySchema::KeySchemaIndexList);
-
-		// @@@ Only iff not already in mDbInfo
-		createRelation(CSSM_DL_DB_RECORD_PRIVATE_KEY, "CSSM_DL_DB_RECORD_PRIVATE_KEY",
-					KeySchema::KeySchemaAttributeCount, KeySchema::KeySchemaAttributeList,
-					KeySchema::KeySchemaIndexCount, KeySchema::KeySchemaIndexList);
-
-		// @@@ Only iff not already in mDbInfo
-		createRelation(CSSM_DL_DB_RECORD_SYMMETRIC_KEY, "CSSM_DL_DB_RECORD_SYMMETRIC_KEY",
-					KeySchema::KeySchemaAttributeCount, KeySchema::KeySchemaAttributeList,
-					KeySchema::KeySchemaIndexCount, KeySchema::KeySchemaIndexList);
-
+		bool autoCommit;
+		commonCreate(dlDbIdentifier, autoCommit);
+		
 		DBParameters dbParameters;
 		memset(&dbParameters, 0, sizeof(DBParameters));
 		dbParameters.idleTimeout = kDefaultIdleTimeout;
@@ -235,6 +242,28 @@ SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
 		CssmDataContainer dbb(allocator());
 		mClientSession.encodeDb(mSSDbHandle, dbb, allocator());
 		Db::Impl::insert(DBBlobRelationID, NULL, &dbb);
+		if (autoCommit)
+		{
+			passThrough(CSSM_APPLEFILEDL_COMMIT, NULL);
+			passThrough(CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT,
+				reinterpret_cast<const void *>(1));
+		}
+	}
+	catch(...)
+	{
+		DbImpl::deleteDb();
+		throw;
+	}
+}
+
+void
+SSDatabaseImpl::createWithBlob(const DLDbIdentifier &dlDbIdentifier, const CSSM_DATA &blob)
+{
+	try
+	{
+		bool autoCommit;
+		commonCreate(dlDbIdentifier, autoCommit);
+		Db::Impl::insert(DBBlobRelationID, NULL, &blob);
 		if (autoCommit)
 		{
 			passThrough(CSSM_APPLEFILEDL_COMMIT, NULL);

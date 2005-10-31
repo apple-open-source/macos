@@ -1,5 +1,5 @@
 /* Statement translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -26,11 +26,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-gimple.h"
-#include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
-#include <gmp.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-stmt.h"
@@ -82,7 +80,23 @@ gfc_trans_label_here (gfc_code * code)
   return build1_v (LABEL_EXPR, gfc_get_label_decl (code->here));
 }
 
+
+/* Given a variable expression which has been ASSIGNed to, find the decl
+   containing the auxiliary variables.  For variables in common blocks this
+   is a field_decl.  */
+
+void
+gfc_conv_label_variable (gfc_se * se, gfc_expr * expr)
+{
+  gcc_assert (expr->symtree->n.sym->attr.assign == 1);
+  gfc_conv_expr (se, expr);
+  /* Deals with variable in common block. Get the field declaration.  */
+  if (TREE_CODE (se->expr) == COMPONENT_REF)
+    se->expr = TREE_OPERAND (se->expr, 1);
+}
+
 /* Translate a label assignment statement.  */
+
 tree
 gfc_trans_label_assign (gfc_code * code)
 {
@@ -97,7 +111,8 @@ gfc_trans_label_assign (gfc_code * code)
   /* Start a new block.  */
   gfc_init_se (&se, NULL);
   gfc_start_block (&se.pre);
-  gfc_conv_expr (&se, code->expr);
+  gfc_conv_label_variable (&se, code->expr);
+
   len = GFC_DECL_STRING_LEN (se.expr);
   addr = GFC_DECL_ASSIGN_ADDR (se.expr);
 
@@ -105,6 +120,8 @@ gfc_trans_label_assign (gfc_code * code)
 
   if (code->label->defined == ST_LABEL_TARGET)
     {
+      /* Shouldn't need to set this flag. Reserve for optimization bug.  */
+      DECL_ARTIFICIAL (label_tree) = 0;
       label_tree = gfc_build_addr_expr (pvoid_type_node, label_tree);
       len_tree = integer_minus_one_node;
     }
@@ -142,7 +159,7 @@ gfc_trans_goto (gfc_code * code)
   /* ASSIGNED GOTO.  */
   gfc_init_se (&se, NULL);
   gfc_start_block (&se.pre);
-  gfc_conv_expr (&se, code->expr);
+  gfc_conv_label_variable (&se, code->expr);
   assign_error =
     gfc_build_cstring_const ("Assigned label is not a target label");
   tmp = GFC_DECL_STRING_LEN (se.expr);
@@ -617,8 +634,7 @@ exit_label:
    TODO: Large loop counts
    The code above assumes the loop count fits into a signed integer kind,
    i.e. Does not work for loop counts > 2^31 for integer(kind=4) variables
-   We must support the full range.
-   TODO: Real type do variables.  */
+   We must support the full range.  */
 
 tree
 gfc_trans_do (gfc_code * code)
@@ -629,6 +645,7 @@ gfc_trans_do (gfc_code * code)
   tree to;
   tree step;
   tree count;
+  tree count_one;
   tree type;
   tree cond;
   tree cycle_label;
@@ -647,17 +664,17 @@ gfc_trans_do (gfc_code * code)
   type = TREE_TYPE (dovar);
 
   gfc_init_se (&se, NULL);
-  gfc_conv_expr_type (&se, code->ext.iterator->start, type);
+  gfc_conv_expr_val (&se, code->ext.iterator->start);
   gfc_add_block_to_block (&block, &se.pre);
   from = gfc_evaluate_now (se.expr, &block);
 
   gfc_init_se (&se, NULL);
-  gfc_conv_expr_type (&se, code->ext.iterator->end, type);
+  gfc_conv_expr_val (&se, code->ext.iterator->end);
   gfc_add_block_to_block (&block, &se.pre);
   to = gfc_evaluate_now (se.expr, &block);
 
   gfc_init_se (&se, NULL);
-  gfc_conv_expr_type (&se, code->ext.iterator->step, type);
+  gfc_conv_expr_val (&se, code->ext.iterator->step);
   gfc_add_block_to_block (&block, &se.pre);
   step = gfc_evaluate_now (se.expr, &block);
 
@@ -672,10 +689,23 @@ gfc_trans_do (gfc_code * code)
 
   tmp = fold (build2 (MINUS_EXPR, type, step, from));
   tmp = fold (build2 (PLUS_EXPR, type, to, tmp));
-  tmp = fold (build2 (TRUNC_DIV_EXPR, type, tmp, step));
-
-  count = gfc_create_var (type, "count");
+  if (TREE_CODE (type) == INTEGER_TYPE)
+    {
+      tmp = fold (build2 (TRUNC_DIV_EXPR, type, tmp, step));
+      count = gfc_create_var (type, "count");
+    }
+  else
+    {
+      /* TODO: We could use the same width as the real type.
+	 This would probably cause more problems that it solves
+	 when we implement "long double" types.  */
+      tmp = fold (build2 (RDIV_EXPR, type, tmp, step));
+      tmp = fold (build1 (FIX_TRUNC_EXPR, gfc_array_index_type, tmp));
+      count = gfc_create_var (gfc_array_index_type, "count");
+    }
   gfc_add_modify_expr (&block, count, tmp);
+
+  count_one = convert (TREE_TYPE (count), integer_one_node);
 
   /* Initialize the DO variable: dovar = from.  */
   gfc_add_modify_expr (&block, dovar, from);
@@ -688,7 +718,8 @@ gfc_trans_do (gfc_code * code)
   exit_label = gfc_build_label_decl (NULL_TREE);
 
   /* Start with the loop condition.  Loop until count <= 0.  */
-  cond = build2 (LE_EXPR, boolean_type_node, count, integer_zero_node);
+  cond = build2 (LE_EXPR, boolean_type_node, count,
+		convert (TREE_TYPE (count), integer_zero_node));
   tmp = build1_v (GOTO_EXPR, exit_label);
   TREE_USED (exit_label) = 1;
   tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
@@ -717,7 +748,7 @@ gfc_trans_do (gfc_code * code)
   gfc_add_modify_expr (&body, dovar, tmp);
 
   /* Decrement the loop count.  */
-  tmp = build2 (MINUS_EXPR, type, count, gfc_index_one_node);
+  tmp = build2 (MINUS_EXPR, TREE_TYPE (count), count, count_one);
   gfc_add_modify_expr (&body, count, tmp);
 
   /* End of loop body.  */
@@ -933,8 +964,7 @@ gfc_trans_integer_select (gfc_code * code)
 	    }
 
           /* Build a label.  */
-          label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-          DECL_CONTEXT (label) = current_function_decl;
+          label = gfc_build_label_decl (NULL_TREE);
 
 	  /* Add this case label.
              Add parameter 'label', make it match GCC backend.  */
@@ -1567,10 +1597,8 @@ generate_loop_for_temp_to_lhs (gfc_expr *expr, tree tmp1, tree size,
      /* Form the mask expression according to the mask tree list.  */
      if (wheremask)
        {
-         tmp2 = wheremask;
-         if (tmp2 != NULL)
-            wheremaskexpr = gfc_build_array_ref (tmp2, count3);
-         tmp2 = TREE_CHAIN (tmp2);
+	 wheremaskexpr = gfc_build_array_ref (wheremask, count3);
+         tmp2 = TREE_CHAIN (wheremask);
          while (tmp2)
            {
              tmp1 = gfc_build_array_ref (tmp2, count3);
@@ -1673,10 +1701,8 @@ generate_loop_for_rhs_to_temp (gfc_expr *expr2, tree tmp1, tree size,
   /* Form the mask expression according to the mask tree list.  */
   if (wheremask)
     {
-      tmp2 = wheremask;
-      if (tmp2 != NULL)
-        wheremaskexpr = gfc_build_array_ref (tmp2, count3);
-      tmp2 = TREE_CHAIN (tmp2);
+      wheremaskexpr = gfc_build_array_ref (wheremask, count3);
+      tmp2 = TREE_CHAIN (wheremask);
       while (tmp2)
         {
           tmp1 = gfc_build_array_ref (tmp2, count3);
@@ -1899,7 +1925,7 @@ gfc_trans_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2, tree wheremask,
   type = gfc_typenode_for_spec (&expr1->ts);
 
   /* Allocate temporary for nested forall construct according to the
-     information in nested_forall_info and inner_size. */
+     information in nested_forall_info and inner_size.  */
   tmp1 = allocate_temp_for_forall_nest (nested_forall_info, type,
                                 inner_size, block, &ptemp1);
 
@@ -2175,7 +2201,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
       e<i> = f<i>
       g<i> = h<i>
     end forall
-   (where e,f,g,h<i> are arbitary expressions possibly involving i)
+   (where e,f,g,h<i> are arbitrary expressions possibly involving i)
    Translates to:
     count = ((end + 1 - start) / staride)
     masktmp(:) = maskexpr(:)
@@ -2348,7 +2374,7 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
     }
 
   /* Copy the mask into a temporary variable if required.
-     For now we assume a mask temporary is needed. */
+     For now we assume a mask temporary is needed.  */
   if (code->expr)
     {
       /* Allocate the mask temporary.  */
@@ -3025,7 +3051,7 @@ gfc_trans_where_2 (gfc_code * code, tree mask, tree pmask,
 
 /* As the WHERE or WHERE construct statement can be nested, we call
    gfc_trans_where_2 to do the translation, and pass the initial
-   NULL values for both the control mask and the pending control mask. */
+   NULL values for both the control mask and the pending control mask.  */
 
 tree
 gfc_trans_where (gfc_code * code)
@@ -3070,7 +3096,7 @@ gfc_trans_cycle (gfc_code * code)
 }
 
 
-/* EXIT a DO loop. Similair to CYCLE, but now the label is in
+/* EXIT a DO loop. Similar to CYCLE, but now the label is in
    TREE_VALUE (backend_decl) of the gfc_code node at the head of the
    loop.  */
 

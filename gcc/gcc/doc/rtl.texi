@@ -1,4 +1,5 @@
-@c Copyright (C) 1988, 1989, 1992, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+@c Copyright (C) 1988, 1989, 1992, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
+@c 2003, 2004, 2005
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -72,9 +73,9 @@ commonly found inside @code{symbol_ref} expressions, but they appear in
 other contexts in the RTL expressions that make up machine descriptions.
 
 In a machine description, strings are normally written with double
-quotes, as you would in C.  However, strings in machine descriptions may
+quotes, as you would in C@.  However, strings in machine descriptions may
 extend over many lines, which is invalid C, and adjacent string
-constants are not concatenated as they are in C.  Any string constant
+constants are not concatenated as they are in C@.  Any string constant
 may be surrounded with a single set of parentheses.  Sometimes this
 makes the machine description easier to read.
 
@@ -534,16 +535,8 @@ Stored in the @code{unchanging} field and printed as @samp{/u}.
 @item INSN_ANNULLED_BRANCH_P (@var{x})
 In a @code{jump_insn}, @code{call_insn}, or @code{insn} indicates
 that the branch is an annulling one.  See the discussion under
-@code{sequence} below. Stored in the @code{unchanging} field and
+@code{sequence} below.  Stored in the @code{unchanging} field and
 printed as @samp{/u}.
-
-@findex INSN_DEAD_CODE_P
-@cindex @code{insn} and @samp{/s}
-@cindex @code{in_struct}, in @code{insn}
-@item INSN_DEAD_CODE_P (@var{x})
-In an @code{insn} during the dead-code elimination pass, nonzero if the
-insn is dead.
-Stored in the @code{in_struct} field and printed as @samp{/s}.
 
 @findex INSN_DELETED_P
 @cindex @code{insn} and @samp{/v}
@@ -660,14 +653,6 @@ value is going to be returned.  (This happens only in a hard
 register.)  Stored in the @code{integrated} field and printed as
 @samp{/i}.
 
-@findex REG_LOOP_TEST_P
-@cindex @code{reg} and @samp{/s}
-@cindex @code{in_struct}, in @code{reg}
-@item REG_LOOP_TEST_P (@var{x})
-In @code{reg} expressions, nonzero if this register's entire life is
-contained in the exit test code for some loop.  Stored in the
-@code{in_struct} field and printed as @samp{/s}.
-
 @findex REG_POINTER
 @cindex @code{reg} and @samp{/f}
 @cindex @code{frame_related}, in @code{reg}
@@ -741,7 +726,7 @@ Stored in the @code{integrated} field and printed as @samp{/i}.
 @item MEM_READONLY_P (@var{x})
 Nonzero in a @code{mem}, if the memory is statically allocated and read-only.
 
-Read-only in this context never modified during the lifetime of the
+Read-only in this context means never modified during the lifetime of the
 program, not necessarily in ROM or in write-disabled pages.  A common
 example of the later is a shared library's global offset table.  This
 table is initialized by the runtime loader, so the memory is technically
@@ -808,7 +793,7 @@ the value.  Use @code{SUBREG_PROMOTED_UNSIGNED_SET} to change the value.
 Set the @code{unchanging} and @code{volatil} fields in a @code{subreg}
 to reflect zero, sign, or other extension.  If @code{volatil} is
 zero, then @code{unchanging} as nonzero means zero extension and as
-zero means sign extension. If @code{volatil} is nonzero then some
+zero means sign extension.  If @code{volatil} is nonzero then some
 other type of extension was done via the @code{ptr_extend} instruction.
 
 @findex SUBREG_PROMOTED_VAR_P
@@ -1302,6 +1287,9 @@ This type of expression represents the integer value @var{i}.  @var{i}
 is customarily accessed with the macro @code{INTVAL} as in
 @code{INTVAL (@var{exp})}, which is equivalent to @code{XWINT (@var{exp}, 0)}.
 
+Constants generated for modes with fewer bits than @code{HOST_WIDE_INT}
+must be sign extended to full width (e.g., with @code{gen_int_mode}).
+
 @findex const0_rtx
 @findex const1_rtx
 @findex const2_rtx
@@ -1618,7 +1606,7 @@ It is also not valid to access a single word of a multi-word value in a
 hard register when less registers can hold the value than would be
 expected from its size.  For example, some 32-bit machines have
 floating-point registers that can hold an entire @code{DFmode} value.
-If register 10 were such a register @code{(subreg:SI (reg:DF 10) 1)}
+If register 10 were such a register @code{(subreg:SI (reg:DF 10) 4)}
 would be invalid because there is no way to convert that reference to
 a single machine register.  The reload pass prevents @code{subreg}
 expressions such as these from being formed.
@@ -1772,7 +1760,7 @@ saturates at the maximum signed value representable in @var{m};
 This expression represents the sum of @var{x} and the low-order bits
 of @var{y}.  It is used with @code{high} (@pxref{Constants}) to
 represent the typical two-instruction sequence used in RISC machines
-to reference a global memory location.  
+to reference a global memory location.
 
 The number of low order bits is machine-dependent but is
 normally the number of bits in a @code{Pmode} item minus the number of
@@ -1900,7 +1888,10 @@ the quotient.
 @item (smin:@var{m} @var{x} @var{y})
 @itemx (smax:@var{m} @var{x} @var{y})
 Represents the smaller (for @code{smin}) or larger (for @code{smax}) of
-@var{x} and @var{y}, interpreted as signed integers in mode @var{m}.
+@var{x} and @var{y}, interpreted as signed values in mode @var{m}.
+When used with floating point, if both operands are zeros, or if either
+operand is @code{NaN}, then it is unspecified which of the two operands
+is returned as the result.
 
 @findex umin
 @findex umax
@@ -2148,9 +2139,6 @@ for insn attributes.  @xref{Insn Attributes}.
 @cindex bit-fields
 
 Special expression codes exist to represent bit-field instructions.
-These types of expressions are lvalues in RTL; they may appear
-on the left side of an assignment, indicating insertion of a value
-into the specified bit-field.
 
 @table @code
 @findex sign_extract
@@ -2174,11 +2162,18 @@ in the @code{insv} or @code{extv} pattern.
 The mode @var{m} is the same as the mode that would be used for
 @var{loc} if it were a register.
 
+A @code{sign_extract} can not appear as an lvalue, or part thereof,
+in RTL.
+
 @findex zero_extract
 @item (zero_extract:@var{m} @var{loc} @var{size} @var{pos})
 Like @code{sign_extract} but refers to an unsigned or zero-extended
 bit-field.  The same sequence of bits are extracted, but they
 are filled to an entire word with zeros instead of by sign-extension.
+
+Unlike @code{sign_extract}, this type of expressions can be lvalues
+in RTL; they may appear on the left side of an assignment, indicating
+insertion of a value into the specified bit-field.
 @end table
 
 @node Vector Operations
@@ -2381,10 +2376,15 @@ rest of the register receives an undefined value.  Likewise, if
 the mode of the register, the rest of the register can be changed in
 an undefined way.
 
-If @var{lval} is a @code{strict_low_part} or @code{zero_extract}
-of a @code{subreg}, then the part of the register specified by the
-machine mode of the @code{subreg} is given the value @var{x} and
-the rest of the register is not changed.
+If @var{lval} is a @code{strict_low_part} of a subreg, then the part
+of the register specified by the machine mode of the @code{subreg} is
+given the value @var{x} and the rest of the register is not changed.
+
+If @var{lval} is a @code{zero_extract}, then the referenced part of
+the bit-field (a memory or register reference) specified by the
+@code{zero_extract} is given the value @var{x} and the rest of the
+bit-field is not changed.  Note that @code{sign_extract} can not
+appear in @var{lval}.
 
 If @var{lval} is @code{(cc0)}, it has no machine mode, and @var{x} may
 be either a @code{compare} expression or a value that may have any mode.
@@ -3517,7 +3517,7 @@ on these machines should have a body which is a @code{parallel}
 that contains both the @code{call} expression and @code{clobber}
 expressions that indicate which registers are destroyed.  Similarly,
 if the call instruction requires some register other than the stack
-pointer that is not explicitly mentioned it its RTL, a @code{use}
+pointer that is not explicitly mentioned in its RTL, a @code{use}
 subexpression should mention that register.
 
 Functions that are called are assumed to modify all registers listed in

@@ -35,7 +35,6 @@
 #include "dom_elementimpl.h"
 #include "dom_nodeimpl.h"
 #include "dom_position.h"
-#include "dom_positioniterator.h"
 #include "dom_stringimpl.h"
 #include "dom_textimpl.h"
 #include "dom2_range.h"
@@ -83,7 +82,6 @@ using DOM::Node;
 using DOM::NodeImpl;
 using DOM::NodeListImpl;
 using DOM::Position;
-using DOM::PositionIterator;
 using DOM::Range;
 using DOM::RangeImpl;
 using DOM::StayInBlock;
@@ -134,8 +132,6 @@ static inline bool nextCharacterIsCollapsibleWhitespace(const Position &pos)
     return isCollapsibleWhitespace(static_cast<TextImpl *>(pos.node())->data()[pos.offset()]);
 }
 
-static const int spacesPerTab = 4;
-
 static bool isTableStructureNode(const NodeImpl *node)
 {
     RenderObject *r = node->renderer();
@@ -154,7 +150,7 @@ static bool isListStructureNode(const NodeImpl *node)
 
 static DOMString &nonBreakingSpaceString()
 {
-    static DOMString nonBreakingSpaceString = QString(QChar(0xa0));
+    static DOMString nonBreakingSpaceString = QString(QChar(NON_BREAKING_SPACE));
     return nonBreakingSpaceString;
 }
 
@@ -734,7 +730,7 @@ bool EditCommand::isTypingCommand() const
 
 CSSMutableStyleDeclarationImpl *EditCommand::styleAtPosition(const Position &pos)
 {
-    CSSComputedStyleDeclarationImpl *computedStyle = pos.computedStyle();
+    CSSComputedStyleDeclarationImpl *computedStyle = positionBeforeTabSpan(pos).computedStyle();
     computedStyle->ref();
     CSSMutableStyleDeclarationImpl *style = computedStyle->copyInheritableProperties();
     computedStyle->deref();
@@ -1262,8 +1258,11 @@ void CompositeEditCommand::moveParagraphContentsToNewBlockIfNecessary(const Posi
     }
 }
 
-static bool isSpecialElement(NodeImpl *n)
+bool isSpecialElement(const NodeImpl *n)
 {
+    if (!n)
+        return false;
+       
     if (!n->isHTMLElement())
         return false;
 
@@ -1274,16 +1273,18 @@ static bool isSpecialElement(NodeImpl *n)
         return true;
 
     RenderObject *renderer = n->renderer();
-
-    if (renderer && (renderer->style()->display() == TABLE || renderer->style()->display() == INLINE_TABLE))
+    if (!renderer)
+        return false;
+        
+    if (renderer->style()->display() == TABLE || renderer->style()->display() == INLINE_TABLE)
         return true;
 
-    if (renderer && renderer->style()->isFloating())
+    if (renderer->style()->isFloating())
         return true;
 
-    if (renderer && renderer->style()->position() != STATIC)
+    if (renderer->style()->position() != STATIC)
         return true;
-
+        
     return false;
 }
 
@@ -1872,6 +1873,8 @@ void ApplyStyleCommand::removeCSSStyle(CSSMutableStyleDeclarationImpl *style, HT
         int propertyID = (*it).id();
         CSSValueImpl *value = decl->getPropertyCSSValue(propertyID);
         if (value) {
+            if (propertyID == CSS_PROP_WHITE_SPACE && isTabSpanNode(elem))
+                continue;
             value->ref();
             removeCSSProperty(decl, propertyID);
             value->deref();
@@ -2434,6 +2437,10 @@ void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclarationImpl *s
     StyleChange styleChange(style, Position(startNode, 0), StyleChange::styleModeForParseMode(document()->inCompatMode()));
     int exceptionCode = 0;
     
+    // Prevent style changes to our tab spans, because it might remove the whitespace:pre we are after
+    if (isTabSpanTextNode(startNode))
+        return;
+    
     //
     // Font tags need to go outside of CSS so that CSS font sizes override leagcy font sizes.
     //
@@ -2582,7 +2589,8 @@ DeleteSelectionCommand::DeleteSelectionCommand(DocumentImpl *document, bool smar
       m_startBlock(0),
       m_endBlock(0),
       m_startNode(0),
-      m_typingStyle(0)
+      m_typingStyle(0),
+      m_deleteIntoBlockquoteStyle(0)
 {
 }
 
@@ -2595,7 +2603,8 @@ DeleteSelectionCommand::DeleteSelectionCommand(DocumentImpl *document, const Sel
       m_startBlock(0),
       m_endBlock(0),
       m_startNode(0),
-      m_typingStyle(0)
+      m_typingStyle(0),
+      m_deleteIntoBlockquoteStyle(0)
 {
 }
 
@@ -2725,11 +2734,22 @@ void DeleteSelectionCommand::saveTypingStyleState()
     // Figure out the typing style in effect before the delete is done.
     // FIXME: Improve typing style.
     // See this bug: <rdar://problem/3769899> Implementation of typing style needs improvement
-    CSSComputedStyleDeclarationImpl *computedStyle = m_selectionToDelete.start().computedStyle();
+    CSSComputedStyleDeclarationImpl *computedStyle = positionBeforeTabSpan(m_selectionToDelete.start()).computedStyle();
     computedStyle->ref();
     m_typingStyle = computedStyle->copyInheritableProperties();
     m_typingStyle->ref();
     computedStyle->deref();
+    
+    // If we're deleting into a Mail blockquote, save the style at end() instead of start()
+    // We'll use this later in computeTypingStyleAfterDelete if we end up outside of a Mail blockquote
+    if (nearestMailBlockquote(m_selectionToDelete.start().node())) {
+        computedStyle = m_selectionToDelete.end().computedStyle();
+        computedStyle->ref();
+        m_deleteIntoBlockquoteStyle = computedStyle->copyInheritableProperties();
+        m_deleteIntoBlockquoteStyle->ref();
+        computedStyle->deref();
+    } else
+        m_deleteIntoBlockquoteStyle = 0;
 }
 
 bool DeleteSelectionCommand::handleSpecialCaseBRDelete()
@@ -2739,8 +2759,9 @@ bool DeleteSelectionCommand::handleSpecialCaseBRDelete()
     bool downstreamStartIsBR = m_downstreamStart.node()->id() == ID_BR;
     bool isBROnLineByItself = upstreamStartIsBR && downstreamStartIsBR && m_downstreamStart.node() == m_upstreamEnd.node();
     if (isBROnLineByItself) {
+        m_endingPosition = Position(m_downstreamStart.node()->parentNode(), m_downstreamStart.node()->nodeIndex());
         removeNode(m_downstreamStart.node());
-        m_endingPosition = m_upstreamStart;
+        m_endingPosition = m_endingPosition.equivalentDeepPosition();
         m_mergeBlocksAfterDelete = false;
         return true;
     }
@@ -2989,6 +3010,11 @@ void DeleteSelectionCommand::moveNodesAfterNode()
     // Insert after the subtree containing destNode
     NodeImpl *refNode = dstNode->enclosingInlineElement();
 
+    // If node is an ancestor of refNode, use the highest non-common ancestor instead
+    // (otherwise we would be trying to append refNode's ancestor after refNode)
+    if (refNode->isAncestor(node))
+        for (node = startNode; !refNode->isAncestor(node->parent()); node = node->parent());
+    
     // Nothing to do if start is already at the beginning of dstBlock
     NodeImpl *dstBlock = refNode->enclosingBlockFlowElement();
     if (startBlock == dstBlock->firstChild())
@@ -3070,6 +3096,20 @@ void DeleteSelectionCommand::calculateTypingStyleAfterDelete(NodeImpl *insertedP
     // has completed.
     // FIXME: Improve typing style.
     // See this bug: <rdar://problem/3769899> Implementation of typing style needs improvement
+   
+    if (m_deleteIntoBlockquoteStyle) {
+        // If we deleted into a blockquote, but are now no longer in a blockquote, use the alternate typing style
+        if (!nearestMailBlockquote(m_endingPosition.node())) {
+            CSSMutableStyleDeclarationImpl *oldStyle = m_typingStyle;
+            m_typingStyle = m_deleteIntoBlockquoteStyle;
+            m_deleteIntoBlockquoteStyle = 0;
+            oldStyle->deref();
+        } else {
+            m_deleteIntoBlockquoteStyle->deref();
+            m_deleteIntoBlockquoteStyle = 0;
+        }
+    }
+
     CSSComputedStyleDeclarationImpl endingStyle(m_endingPosition.node());
     endingStyle.diff(m_typingStyle);
     if (!m_typingStyle->length()) {
@@ -3128,6 +3168,10 @@ void DeleteSelectionCommand::clearTransientState()
         m_typingStyle->deref();
         m_typingStyle = 0;
     }
+    if (m_deleteIntoBlockquoteStyle) {
+        m_deleteIntoBlockquoteStyle->deref();
+        m_deleteIntoBlockquoteStyle = 0;
+    }
 }
 
 void DeleteSelectionCommand::doApply()
@@ -3165,10 +3209,20 @@ void DeleteSelectionCommand::doApply()
     deleteInsignificantTextDownstream(m_trailingWhitespace);    
 
     saveTypingStyleState();
-    insertPlaceholderForAncestorBlockContent();
     
-    if (!handleSpecialCaseBRDelete())
-        handleGeneralDelete();
+    // deleting just a BR is handled specially, at least because we do not
+    // want to replace it with a placeholder BR!
+    if (handleSpecialCaseBRDelete()) {
+        calculateTypingStyleAfterDelete(false);
+        debugPosition("endingPosition   ", m_endingPosition);
+        setEndingSelection(Selection(m_endingPosition, affinity));
+        clearTransientState();
+        rebalanceWhitespace();
+        return;
+    }
+
+    insertPlaceholderForAncestorBlockContent();
+    handleGeneralDelete();
     
     // Do block merge if start and end of selection are in different blocks.
     moveNodesAfterNode();
@@ -3188,6 +3242,7 @@ void DeleteSelectionCommand::doApply()
         addBlockPlaceholderIfNeeded(m_endingPosition.node());
 
     calculateTypingStyleAfterDelete(addedPlaceholder);
+    
     debugPosition("endingPosition   ", m_endingPosition);
     setEndingSelection(Selection(m_endingPosition, affinity));
     clearTransientState();
@@ -3862,23 +3917,10 @@ void InsertTextCommand::doApply()
 {
 }
 
-Position InsertTextCommand::prepareForTextInsertion(bool adjustDownstream)
+Position InsertTextCommand::prepareForTextInsertion(const Position& pos)
 {
-    // Prepare for text input by looking at the current position.
+    // Prepare for text input by looking at the specified position.
     // It may be necessary to insert a text node to receive characters.
-    Selection selection = endingSelection();
-    ASSERT(selection.isCaret());
-    
-    Position pos = selection.start();
-    if (adjustDownstream)
-        pos = pos.downstream(StayInBlock);
-    else
-        pos = pos.upstream(StayInBlock);
-    
-    Selection typingStyleRange;
-
-    pos = positionOutsideContainingSpecialElement(pos);
-
     if (!pos.node()->isTextNode()) {
         NodeImpl *textNode = document()->createEditingTextNode("");
         NodeImpl *nodeToInsert = textNode;
@@ -3899,7 +3941,30 @@ Position InsertTextCommand::prepareForTextInsertion(bool adjustDownstream)
         else
             ASSERT_NOT_REACHED();
         
-        pos = Position(textNode, 0);
+        return Position(textNode, 0);
+    }
+
+    if (isTabSpanTextNode(pos.node())) {
+        Position tempPos = pos;
+//#ifndef COALESCE_TAB_SPANS
+#if 0
+        NodeImpl *node = pos.node()->parentNode();
+        if (pos.offset() > pos.node()->caretMinOffset())
+            tempPos = Position(node->parentNode(), node->nodeIndex() + 1);
+        else
+            tempPos = Position(node->parentNode(), node->nodeIndex());
+#endif        
+        NodeImpl *textNode = document()->createEditingTextNode("");
+        NodeImpl *originalTabSpan = tempPos.node()->parent();
+        if (tempPos.offset() <= tempPos.node()->caretMinOffset()) {
+            insertNodeBefore(textNode, originalTabSpan);
+        } else if (tempPos.offset() >= tempPos.node()->caretMaxOffset()) {
+            insertNodeAfter(textNode, originalTabSpan);
+        } else {
+            splitTextNodeContainingElement(static_cast<TextImpl *>(tempPos.node()), tempPos.offset());
+            insertNodeBefore(textNode, originalTabSpan);
+        }
+        return Position(textNode, 0);
     }
 
     return pos;
@@ -3920,59 +3985,65 @@ void InsertTextCommand::input(const DOMString &text, bool selectInsertedText)
     // out correctly after the insertion.
     selection = endingSelection();
     deleteInsignificantTextDownstream(selection.end().trailingWhitespacePosition(selection.endAffinity()));
-    
-    // Make sure the document is set up to receive text
-    Position startPosition = prepareForTextInsertion(adjustDownstream);
-    
+
+    // Figure out the startPosition
+    Position startPosition = selection.start();
     Position endPosition;
-
-    TextImpl *textNode = static_cast<TextImpl *>(startPosition.node());
-    long offset = startPosition.offset();
-
-    // Now that we are about to add content, check to see if a placeholder element
-    // can be removed.
-    removeBlockPlaceholder(textNode->enclosingBlockFlowElement());
+    if (adjustDownstream)
+        startPosition = startPosition.downstream(StayInBlock);
+    else
+        startPosition = startPosition.upstream(StayInBlock);
+    startPosition = positionOutsideContainingSpecialElement(startPosition);
     
-    // These are temporary implementations for inserting adjoining spaces
-    // into a document. We are working on a CSS-related whitespace solution
-    // that will replace this some day. We hope.
     if (text == "\t") {
-        // Treat a tab like a number of spaces. This seems to be the HTML editing convention,
-        // although the number of spaces varies (we choose four spaces). 
-        // Note that there is no attempt to make this work like a real tab stop, it is merely 
-        // a set number of spaces. This also seems to be the HTML editing convention.
-        for (int i = 0; i < spacesPerTab; i++) {
+        endPosition = insertTab(startPosition);
+        startPosition = endPosition.previous();
+        removeBlockPlaceholder(startPosition.node()->enclosingBlockFlowElement());
+        m_charactersAdded += 1;
+    } else {
+        // Make sure the document is set up to receive text
+        startPosition = prepareForTextInsertion(startPosition);
+        removeBlockPlaceholder(startPosition.node()->enclosingBlockFlowElement());
+        TextImpl *textNode = static_cast<TextImpl *>(startPosition.node());
+        long offset = startPosition.offset();
+
+        if (text == " ") {
             insertSpace(textNode, offset);
+            endPosition = Position(textNode, offset + 1);
+
+            m_charactersAdded++;
             rebalanceWhitespace();
-            document()->updateLayout();
         }
-        
-        endPosition = Position(textNode, offset + spacesPerTab);
+        else {
+            const DOMString &existingText = textNode->data();
+            if (textNode->length() >= 2 && offset >= 2 && isNBSP(existingText[offset - 1]) && !isCollapsibleWhitespace(existingText[offset - 2])) {
+                // DOM looks like this:
+                // character nbsp caret
+                // As we are about to insert a non-whitespace character at the caret
+                // convert the nbsp to a regular space.
+                // EDIT FIXME: This needs to be improved some day to convert back only
+                // those nbsp's added by the editor to make rendering come out right.
+                replaceTextInNode(textNode, offset - 1, 1, " ");
+            }
+            unsigned int len = text.length();
 
-        m_charactersAdded += spacesPerTab;
-    }
-    else if (text == " ") {
-        insertSpace(textNode, offset);
-        endPosition = Position(textNode, offset + 1);
+#if APPLE_CHANGES
+            // When the user hits space to finish marked sequence, the string that
+            // we receive ends with a normal space, not a non breaking space.  This code
+            // ensures that the right kind of space is produced.
+            if (KWQ(document()->part())->markedTextRange() != NULL && text[len-1] == ' ') {
+                DOMString textWithoutTrailingSpace(text.unicode(), len-1);
+                insertTextIntoNode(textNode, offset, textWithoutTrailingSpace);
+                insertSpace(textNode, offset + len-1);
+            } else
+                insertTextIntoNode(textNode, offset, text);
+#else
 
-        m_charactersAdded++;
-        rebalanceWhitespace();
-    }
-    else {
-        const DOMString &existingText = textNode->data();
-        if (textNode->length() >= 2 && offset >= 2 && isNBSP(existingText[offset - 1]) && !isCollapsibleWhitespace(existingText[offset - 2])) {
-            // DOM looks like this:
-            // character nbsp caret
-            // As we are about to insert a non-whitespace character at the caret
-            // convert the nbsp to a regular space.
-            // EDIT FIXME: This needs to be improved some day to convert back only
-            // those nbsp's added by the editor to make rendering come out right.
-            replaceTextInNode(textNode, offset - 1, 1, " ");
+            insertTextIntoNode(textNode, offset, text);
+#endif
+            m_charactersAdded += len;
+            endPosition = Position(textNode, offset + len);
         }
-        insertTextIntoNode(textNode, offset, text);
-        endPosition = Position(textNode, offset + text.length());
-
-        m_charactersAdded += text.length();
     }
 
     setEndingSelection(Selection(startPosition, DOWNSTREAM, endPosition, SEL_DEFAULT_AFFINITY));
@@ -3986,6 +4057,56 @@ void InsertTextCommand::input(const DOMString &text, bool selectInsertedText)
 
     if (!selectInsertedText)
         setEndingSelection(endingSelection().end(), endingSelection().endAffinity());
+}
+
+DOM::Position InsertTextCommand::insertTab(Position pos)
+{
+    Position insertPos = VisiblePosition(pos, DOWNSTREAM).deepEquivalent();
+    NodeImpl *node = insertPos.node();
+    unsigned int offset = insertPos.offset();
+
+//#ifdef COALESCE_TAB_SPANS
+#if 1
+    // keep tabs coalesced in tab span
+    if (isTabSpanTextNode(node)) {
+        insertTextIntoNode(static_cast<TextImpl *>(node), offset, "\t");
+        return Position(node, offset + 1);
+    }
+#else
+    if (isTabSpanTextNode(node)) {
+        node = node->parentNode();
+        if (offset > (unsigned int) node->caretMinOffset())
+            insertPos = Position(node->parentNode(), node->nodeIndex() + 1);
+        else
+            insertPos = Position(node->parentNode(), node->nodeIndex());
+        node = insertPos.node();
+        offset = insertPos.offset();
+    }
+#endif
+    
+    // create new tab span
+    DOM::ElementImpl * spanNode = createTabSpanElement(document());
+    
+    // place it
+    if (!node->isTextNode()) {
+        insertNodeAt(spanNode, node, offset);
+    } else {
+        TextImpl *textNode = static_cast<TextImpl *>(node);
+        if (offset >= textNode->length()) {
+            insertNodeAfter(spanNode, textNode);
+        } else {
+            // split node to make room for the span
+            // NOTE: splitTextNode uses textNode for the
+            // second node in the split, so we need to
+            // insert the span before it.
+            if (offset > 0)
+                splitTextNode(textNode, offset);
+            insertNodeBefore(spanNode, textNode);
+        }
+    }
+    
+    // return the position following the new tab
+    return Position(spanNode->lastChild(), spanNode->lastChild()->caretMaxOffset());
 }
 
 void InsertTextCommand::insertSpace(TextImpl *textNode, unsigned long offset)
@@ -4691,7 +4812,7 @@ int ReplacementFragment::countRenderedBlocks(NodeImpl *holder)
 void ReplacementFragment::removeStyleNodes()
 {
     // Since style information has been computed and cached away in
-    // computeStylesForNodes(), these style nodes can be removed, since
+    // computeStylesUsingTestRendering(), these style nodes can be removed, since
     // the correct styles will be added back in fixupNodeStyles().
     NodeImpl *node = m_fragment->firstChild();
     while (node) {
@@ -4713,7 +4834,9 @@ void ReplacementFragment::removeStyleNodes()
             isStyleSpan(node)) {
             removeNodePreservingChildren(node);
         }
-        else if (node->isHTMLElement()) {
+        // need to skip tab span because fixupNodeStyles() is not called
+        // when replace is matching style
+        else if (node->isHTMLElement() && !isTabSpanNode(node)) {
             HTMLElementImpl *elem = static_cast<HTMLElementImpl *>(node);
             CSSMutableStyleDeclarationImpl *inlineStyleDecl = elem->inlineStyleDecl();
             if (inlineStyleDecl) {
@@ -5281,8 +5404,10 @@ void ReplaceSelectionCommand::fixupNodeStyles(const QValueList<NodeDesiredStyle>
             NodeImpl *blockquote = nearestMailBlockquote(node);
             Position pos(blockquote ? blockquote : node->getDocument()->documentElement(), 0);
             CSSComputedStyleDeclarationImpl *style = pos.computedStyle();
+            style->ref();
             DOMString desiredColor = desiredStyle->getPropertyValue(CSS_PROP_COLOR);
             DOMString nearestColor = style->getPropertyValue(CSS_PROP_COLOR);
+            style->deref();
             if (desiredColor != nearestColor)
                 desiredStyle->setProperty(CSS_PROP_COLOR, nearestColor);
         }
@@ -5330,15 +5455,21 @@ void computeAndStoreNodeDesiredStyle(DOM::NodeImpl *node, QValueList<NodeDesired
     // being pasted in.
     if (NodeImpl *blockquote = nearestMailBlockquote(node)) {
         CSSComputedStyleDeclarationImpl *blockquoteStyle = Position(blockquote, 0).computedStyle();
-        if (blockquoteStyle->getPropertyValue(CSS_PROP_COLOR) == style->getPropertyValue(CSS_PROP_COLOR)) {
-            style->setProperty(CSS_PROP__KHTML_MATCH_NEAREST_MAIL_BLOCKQUOTE_COLOR, matchNearestBlockquoteColorString());
-            return;
-        }
+            blockquoteStyle->ref();
+            bool match = (blockquoteStyle->getPropertyValue(CSS_PROP_COLOR) == style->getPropertyValue(CSS_PROP_COLOR));
+            blockquoteStyle->deref();
+            if (match) {
+                style->setProperty(CSS_PROP__KHTML_MATCH_NEAREST_MAIL_BLOCKQUOTE_COLOR, matchNearestBlockquoteColorString());
+                return;
+            }
     }
     NodeImpl *documentElement = node->getDocument() ? node->getDocument()->documentElement() : 0;
     if (documentElement) {
         CSSComputedStyleDeclarationImpl *documentStyle = Position(documentElement, 0).computedStyle();
-        if (documentStyle->getPropertyValue(CSS_PROP_COLOR) == style->getPropertyValue(CSS_PROP_COLOR)) {
+        documentStyle->ref();
+        bool match = (documentStyle->getPropertyValue(CSS_PROP_COLOR) == style->getPropertyValue(CSS_PROP_COLOR));
+        documentStyle->deref();
+        if (match) {
             style->setProperty(CSS_PROP__KHTML_MATCH_NEAREST_MAIL_BLOCKQUOTE_COLOR, matchNearestBlockquoteColorString());
         }
     }
@@ -6091,11 +6222,55 @@ ElementImpl *createFontElement(DocumentImpl *document)
 ElementImpl *createStyleSpanElement(DocumentImpl *document)
 {
     int exceptionCode = 0;
-    ElementImpl *styleElement = document->createHTMLElement("SPAN", exceptionCode);
+    ElementImpl *styleElement = document->createHTMLElement("span", exceptionCode);
     ASSERT(exceptionCode == 0);
     styleElement->ref();
     styleElement->setAttribute(ATTR_CLASS, styleSpanClassString());
     return floatRefdElement(styleElement);
+}
+
+bool isTabSpanNode(const NodeImpl *node)
+{
+    return (node && node->isElementNode() && static_cast<const ElementImpl *>(node)->getAttribute("class") == AppleTabSpanClass);
+}
+
+bool isTabSpanTextNode(const NodeImpl *node)
+{
+    return (node && node->parentNode() && isTabSpanNode(node->parentNode()));
+}
+
+Position positionBeforeTabSpan(const Position& pos)
+{
+    NodeImpl *node = pos.node();
+    if (isTabSpanTextNode(node))
+        node = node->parent();
+    else if (!isTabSpanNode(node))
+        return pos;
+    
+    return Position(node->parentNode(), node->nodeIndex());
+}
+
+ElementImpl *createTabSpanElement(DocumentImpl *document, NodeImpl *tabTextNode)
+{
+    // make the span to hold the tab
+    int exceptionCode = 0;
+    ElementImpl *spanElement = document->createHTMLElement("span", exceptionCode);
+    assert(exceptionCode == 0);
+    spanElement->setAttribute(ATTR_CLASS, AppleTabSpanClass);
+    spanElement->setAttribute(ATTR_STYLE, "white-space:pre");
+
+    // add tab text to that span
+    if (!tabTextNode)
+        tabTextNode = document->createEditingTextNode("\t");
+    spanElement->appendChild(tabTextNode, exceptionCode);
+    assert(exceptionCode == 0);
+
+    return spanElement;
+}
+
+ElementImpl *createTabSpanElement(DocumentImpl *document, QString *tabText)
+{
+    return createTabSpanElement(document, document->createTextNode(*tabText));
 }
 
 bool isNodeRendered(const NodeImpl *node)

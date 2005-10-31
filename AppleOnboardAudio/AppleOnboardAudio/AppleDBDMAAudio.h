@@ -13,8 +13,6 @@
 
 #include "DSP_Manager.h"
 
-//#define _TIME_CLIP_ROUTINE
-
 // aml 2.28.02 adding header to get constants
 #include "AppleiSubEngine.h"
 
@@ -202,9 +200,8 @@ public:
 	bool				updateOutputStreamFormats ();
 
 
-#ifdef _TIME_CLIP_ROUTINE
-	UInt64				getTotalNanos () { return mCurrentTotalNanos; }
-#endif	
+	UInt64				getTotalNanos () { return mCurrentTotalOutputNanos; }
+
     static const int 	kDBDMADeviceIndex;
     static const int 	kDBDMAOutputIndex;
     static const int 	kDBDMAInputIndex;
@@ -340,22 +337,41 @@ protected:
 	IOReturn 						(AppleDBDMAAudio::*mClipAppleDBDMAToOutputStreamRoutine)(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 	IOReturn 						(AppleDBDMAAudio::*mConvertInputStreamToAppleDBDMARoutine)(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 
-	inline	void					startTiming();
-	inline 	void					endTiming();
+	inline	void					startOutputTiming();
+	inline 	void					endOutputTiming();
+    inline  void                    pauseOutputTiming();
+    inline  void                    resumeOutputTiming();
+    inline  void                    startInputTiming();
+    inline  void                    endInputTiming();
+    inline  void                    pauseInputTiming();
+    inline  void                    resumeInputTiming();
 	
 	float*							mMixBufferPtr;
-	
-#ifdef _TIME_CLIP_ROUTINE
-	UInt32 							mCallCount;	
-	AbsoluteTime					mStartIOProcUptime;
-	AbsoluteTime					mEndProcessingUptime;
-	UInt64							mCurrentTotalNanos;
-	UInt64							mTotalIOProcNanos;
-	UInt64							mTotalProcessingNanos;
-	float							mCurrentCPUUsagePercent;
-	float							mAverageCPUUsagePercent;
-#endif
-
+    
+    bool                            mEnableCPUProfiling;
+    
+	UInt32 							mOutputIOProcCallCount;
+	AbsoluteTime					mStartOutputIOProcUptime;
+	AbsoluteTime					mEndOutputProcessingUptime;
+    AbsoluteTime                    mPauseOutputProcessingUptime;
+	UInt64							mCurrentTotalOutputNanos;
+	UInt64							mTotalOutputIOProcNanos;
+	UInt64							mTotalOutputProcessingNanos;
+    UInt64                          mCurrentTotalPausedOutputNanos;
+	float							mCurrentOutputCPUUsagePercent;
+	float							mAverageOutputCPUUsagePercent;
+    
+	UInt32 							mInputIOProcCallCount;
+	AbsoluteTime					mStartInputIOProcUptime;
+	AbsoluteTime					mEndInputProcessingUptime;
+    AbsoluteTime                    mPauseInputProcessingUptime;
+	UInt64							mCurrentTotalInputNanos;
+	UInt64							mTotalInputIOProcNanos;
+	UInt64							mTotalInputProcessingNanos;
+    UInt64                          mCurrentTotalPausedInputNanos;
+	float							mCurrentInputCPUUsagePercent;
+	float							mAverageInputCPUUsagePercent;
+    
 #pragma mark ---------------------------------------- 
 #pragma mark еее Output Conversion Routines
 #pragma mark ---------------------------------------- 

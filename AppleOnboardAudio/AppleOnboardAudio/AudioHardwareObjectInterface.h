@@ -35,6 +35,7 @@ public:
 
 	virtual void			initPlugin(PlatformInterface* inPlatformObject) {return;}
 	virtual bool			preDMAEngineInit () {return false;}
+	virtual bool			preDMAEngineInit (UInt32 initFlags) {return preDMAEngineInit();}
 	virtual bool			postDMAEngineInit () { return mInitialized = true;}
 
 	virtual void			setWorkLoop (IOWorkLoop * inWorkLoop) {mWorkLoop = inWorkLoop;}

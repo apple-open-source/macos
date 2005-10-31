@@ -1,5 +1,5 @@
-/* JPopupMenu.java
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+/* JPopupMenu.java --
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,21 +35,16 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
-import java.awt.Frame;
-import java.awt.Graphics;
 import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.LayoutManager;
 import java.awt.Panel;
 import java.awt.Point;
-import java.awt.Window;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
@@ -57,15 +52,15 @@ import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.EventListener;
-import java.util.Vector;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.PopupMenuUI;
-
 
 /**
  * JPopupMenu is a container that is used to display popup menu's menu
@@ -96,12 +91,6 @@ import javax.swing.plaf.PopupMenuUI;
 public class JPopupMenu extends JComponent implements Accessible, MenuElement
 {
   private static final long serialVersionUID = -8336996630009646009L;
-
-  /** name for the UI delegate for this menuItem. */
-  private static final String uiClassID = "PopupMenuUI";
-
-  /** Fire a PropertyChangeEvent when the "borderPainted" property changes. */
-  public static final String LABEL_CHANGED_PROPERTY = "label";
 
   /* indicates if popup's menu border should be painted*/
   private boolean borderPainted = true;
@@ -147,19 +136,12 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   /* Field indicating if popup menu is visible or not */
   private boolean visible = false;
   
-  /* Bound Property indicating visibility of the popup menu*/
-  public static final String VISIBLE_CHANGED_PROPERTY = "visible";
-
   /**
    * Creates a new JPopupMenu object.
    */
   public JPopupMenu()
   {
-    updateUI();
-
-    lightWeightPopupEnabled = DefaultLightWeightPopupEnabled;
-    selectionModel = new DefaultSingleSelectionModel();
-    super.setVisible(false);
+    this(null);
   }
 
   /**
@@ -169,7 +151,11 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   public JPopupMenu(String label)
   {
+    lightWeightPopupEnabled = getDefaultLightWeightPopupEnabled();
     setLabel(label);
+    setSelectionModel(new DefaultSingleSelectionModel());
+    super.setVisible(false);
+    updateUI();
   }
 
   private void readObject(ObjectInputStream stream)
@@ -182,12 +168,12 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   }
 
   /**
-   * Adds given menu item to the popup menu
-   *
-   * @param item menu item to add to the popup menu
-   *
-   * @return menu item that was added to the popup menu
-   */
+  * Adds given menu item to the popup menu
+  *
+  * @param item menu item to add to the popup menu
+  *
+  * @return menu item that was added to the popup menu
+  */
   public JMenuItem add(JMenuItem item)
   {
     this.insert(item, -1);
@@ -296,18 +282,6 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   }
 
   /**
-   * Paints popup menu's border if borderPainted is true
-   *
-   * @param graphics graphics context used to paint this popup's menu border.
-   */
-  protected void borderPainted(Graphics graphics)
-  {
-    if (borderPainted)
-      getBorder().paintBorder(this, graphics, 0, 0, getSize(null).width,
-                              getSize(null).height);
-  }
-
-  /**
    * Returns flag indicating if newly created JPopupMenu will use
    * heavyweight or lightweight container to display its menu items
    *
@@ -391,10 +365,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   public void setSelectionModel(SingleSelectionModel model)
   {
-    if (selectionModel != model)
-      {
-	SingleSelectionModel oldModel = this.selectionModel;
-      }
+	selectionModel = model;
   }
 
   /**
@@ -457,7 +428,7 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   /**
    * Sets label for this popup menu. This method fires PropertyChangeEvent
    * when the label property is changed. Please note that most
-   * of the Look & Feel will ignore this property.
+   * of the Look &amp; Feel will ignore this property.
    *
    * @param label label for this popup menu
    */
@@ -466,8 +437,8 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
     if (label != this.label)
       {
 	String oldLabel = this.label;
-    this.label = label;
-	firePropertyChange(LABEL_CHANGED_PROPERTY, oldLabel, label);
+	this.label = label;
+	firePropertyChange("label", oldLabel, label);
       }
   }
 
@@ -579,11 +550,14 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   public void setVisible(boolean visible)
   {
+    if (visible == isVisible())
+      return;
+
     boolean old = isVisible();
     this.visible = visible;
     if (old != isVisible())
       {
-	firePropertyChange(VISIBLE_CHANGED_PROPERTY, old, (boolean) isVisible());
+	firePropertyChange("visible", old, isVisible());
 	if (visible)
 	  {
 	    firePopupMenuWillBecomeVisible();
@@ -624,11 +598,11 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 	      {
 		// Subtract insets of the top-level container if popup menu's
 		// top-left corner is inside it.
-		    Insets insets = rootContainer.getInsets();
-		    popup.show(popupLocation.x - insets.left,
-		               popupLocation.y - insets.top, size.width,
-		               size.height);
-		  }
+		Insets insets = rootContainer.getInsets();
+		popup.show(popupLocation.x - insets.left,
+		           popupLocation.y - insets.top, size.width,
+		           size.height);
+	      }
 	  }
 	else
 	  {
@@ -796,7 +770,17 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
    */
   protected String paramString()
   {
-    return "JPopupMenu";
+    StringBuffer sb = new StringBuffer();
+    sb.append(super.paramString());
+    sb.append(",label=");
+    if (getLabel() != null)
+      sb.append(getLabel());
+    sb.append(",lightWeightPopupEnabled=").append(isLightWeightPopupEnabled());
+    sb.append(",margin=");
+    if (getMargin() != null)
+      sb.append(margin);
+    sb.append(",paintBorder=").append(isBorderPainted());
+    return sb.toString();
   }
 
   /**
@@ -844,19 +828,22 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   }
 
   /**
-   * Return subcomonents of this popup menu.
+   * Return subcomonents of this popup menu. This method returns only
+   * components that implement the <code>MenuElement</code> interface.
    *
-   * @return Array containing menuItem's of belonging to this popup menu.
+   * @return array of menu items belonging to this popup menu
    */
   public MenuElement[] getSubElements()
   {
     Component[] items = getComponents();
-    MenuElement[] subElements = new MenuElement[items.length];
+    ArrayList subElements = new ArrayList();
 
     for (int i = 0; i < items.length; i++)
-      subElements[i] = (MenuElement) items[i];
+      if (items[i] instanceof MenuElement)
+	subElements.add(items[i]);
 
-    return subElements;
+    return (MenuElement[])
+      subElements.toArray(new MenuElement[subElements.size()]);
   }
 
   /**
@@ -1042,14 +1029,6 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
     {
       this.setBounds(x, y, width, height);
       this.show();
-    }
-
-    /**
-     * Hides JWindow with menu item's from the screen.
-     */
-    public void hide()
-    {
-      super.hide();
     }
   }
 

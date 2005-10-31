@@ -46,6 +46,11 @@
 #define kUniNVersion200            (0x0024)
 #define kUniNVersionPangea         (0x00C0)
 #define kUniNVersionIntrepid       (0x00D2)
+#define kUniNVersionIntrepid2      (0x00D8)
+#define kkUniNVersionIntrepid2Mask (0x000000F8)
+
+#define IsThisAnIntrepid(v)		   (( v == kUniNVersionIntrepid) || (( v & kkUniNVersionIntrepid2Mask ) == kUniNVersionIntrepid2 ))
+#define IsThisAnIntrepid2(v)	   (( v & kkUniNVersionIntrepid2Mask ) == kUniNVersionIntrepid2 )
 
 #define kUniNClockControl          (0x0020)
 #define kUniNFirewireClockEnable   (1 << 2)
@@ -57,6 +62,7 @@
 #define kUniNIdle2                 (0x01)
 #define kUniNSleep                 (0x02)
 #define kUniNSave                  (0x03)
+#define kUniNPowerMask			   (0x03)
 
 #define kUniNArbCtrl               (0x0040)
 #define kUniNArbCtrlQAckDelayShift (15)

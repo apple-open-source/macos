@@ -137,6 +137,39 @@ int EVP_DigestInit(EVP_MD_CTX *ctx, const EVP_MD *type)
 	return EVP_DigestInit_ex(ctx, type, NULL);
 	}
 
+#ifdef OPENSSL_FIPS
+
+/* The purpose of these is to trap programs that attempt to use non FIPS
+ * algorithms in FIPS mode and ignore the errors.
+ */
+
+static int bad_init(EVP_MD_CTX *ctx)
+	{ FIPS_ERROR_IGNORED("Digest init"); return 0;}
+
+static int bad_update(EVP_MD_CTX *ctx,const void *data,unsigned long count)
+	{ FIPS_ERROR_IGNORED("Digest update"); return 0;}
+
+static int bad_final(EVP_MD_CTX *ctx,unsigned char *md)
+	{ FIPS_ERROR_IGNORED("Digest Final"); return 0;}
+
+static const EVP_MD bad_md =
+	{
+	0,
+	0,
+	0,
+	0,
+	bad_init,
+	bad_update,
+	bad_final,
+	NULL,
+	NULL,
+	NULL,
+	0,
+	{0,0,0,0},
+	};
+
+#endif
+
 int EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl)
 	{
 	EVP_MD_CTX_clear_flags(ctx,EVP_MD_CTX_FLAG_CLEANED);
@@ -195,6 +228,18 @@ int EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl)
 #endif
 	if (ctx->digest != type)
 		{
+#ifdef OPENSSL_FIPS
+		if (FIPS_mode())
+			{
+			if (!(type->flags & EVP_MD_FLAG_FIPS) 
+			 && !(ctx->flags & EVP_MD_CTX_FLAG_NON_FIPS_ALLOW))
+				{
+				EVPerr(EVP_F_EVP_DIGESTINIT, EVP_R_DISABLED_FOR_FIPS);
+				ctx->digest = &bad_md;
+				return 0;
+				}
+			}
+#endif
 		if (ctx->digest && ctx->digest->ctx_size)
 			OPENSSL_free(ctx->md_data);
 		ctx->digest=type;
@@ -248,6 +293,7 @@ int EVP_MD_CTX_copy(EVP_MD_CTX *out, const EVP_MD_CTX *in)
 
 int EVP_MD_CTX_copy_ex(EVP_MD_CTX *out, const EVP_MD_CTX *in)
 	{
+	unsigned char *tmp_buf;
 	if ((in == NULL) || (in->digest == NULL))
 		{
 		EVPerr(EVP_F_EVP_MD_CTX_COPY,EVP_R_INPUT_NOT_INITIALIZED);
@@ -262,15 +308,22 @@ int EVP_MD_CTX_copy_ex(EVP_MD_CTX *out, const EVP_MD_CTX *in)
 		}
 #endif
 
+	if (out->digest == in->digest)
+		{
+		tmp_buf = out->md_data;
+	    	EVP_MD_CTX_set_flags(out,EVP_MD_CTX_FLAG_REUSE);
+		}
+	else tmp_buf = NULL;
 	EVP_MD_CTX_cleanup(out);
 	memcpy(out,in,sizeof *out);
 
 	if (out->digest->ctx_size)
 		{
-		out->md_data=OPENSSL_malloc(out->digest->ctx_size);
+		if (tmp_buf) out->md_data = tmp_buf;
+		else out->md_data=OPENSSL_malloc(out->digest->ctx_size);
 		memcpy(out->md_data,in->md_data,out->digest->ctx_size);
 		}
-	
+
 	if (out->digest->copy)
 		return out->digest->copy(out,in);
 	
@@ -308,7 +361,8 @@ int EVP_MD_CTX_cleanup(EVP_MD_CTX *ctx)
 	if (ctx->digest && ctx->digest->cleanup
 	    && !EVP_MD_CTX_test_flags(ctx,EVP_MD_CTX_FLAG_CLEANED))
 		ctx->digest->cleanup(ctx);
-	if (ctx->digest && ctx->digest->ctx_size && ctx->md_data)
+	if (ctx->digest && ctx->digest->ctx_size && ctx->md_data
+	    && !EVP_MD_CTX_test_flags(ctx, EVP_MD_CTX_FLAG_REUSE))
 		{
 		OPENSSL_cleanse(ctx->md_data,ctx->digest->ctx_size);
 		OPENSSL_free(ctx->md_data);

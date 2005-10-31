@@ -863,7 +863,7 @@ static Boolean readChunkedTrailers(_CFHTTPFilter *httpFilter, CFStreamError *err
     Boolean result = TRUE;
     
     CFHTTPMessageRef hdrs = CFHTTPMessageCreateEmpty(CFGetAllocator(stream), FALSE);
-    CFHTTPMessageAppendBytes(hdrs, bogus,  sizeof(bogus) - 1);
+    CFHTTPMessageAppendBytes(hdrs, (const UInt8*)bogus,  sizeof(bogus) - 1);
     
     if (httpFilter->_data) {
         CFIndex length = CFDataGetLength(httpFilter->_data);
@@ -1776,7 +1776,7 @@ static Boolean httpWrFilterCanWrite(CFWriteStreamRef stream, void *info) {
 
 // !!!  This should take place at close!
 static void writeChunkTrailer(CFWriteStreamRef stream, _CFHTTPFilter *filter) {
-    CFWriteStreamWrite(stream, "\r\n0\r\n\r\n", 7);
+    CFWriteStreamWrite(stream, (const UInt8*)"\r\n0\r\n\r\n", 7);
 }
 
 extern

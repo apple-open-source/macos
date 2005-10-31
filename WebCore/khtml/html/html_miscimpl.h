@@ -119,6 +119,8 @@ protected:
 
     // For nextNamedItem()
     mutable bool idsDone;
+
+    mutable bool m_ownsInfo;
 };
 
 // this whole class is just a big hack to find form elements even in

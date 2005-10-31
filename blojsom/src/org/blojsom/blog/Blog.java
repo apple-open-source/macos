@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,8 @@ import com.apple.blojsom.util.BlojsomAppleUtils;
 
 import java.io.File;
 import java.util.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 /**
  * Blog
@@ -50,7 +52,7 @@ import java.util.*;
  * @author David Czarnecki
  * @author Mark Lussier
  * @author Dan Morrill
- * @version $Id: Blog.java,v 1.13 2005/03/02 01:20:45 whitmore Exp $
+ * @version $Id: Blog.java,v 1.13.2.1 2005/07/21 14:11:02 johnan Exp $
  */
 public class Blog implements BlojsomConstants {
 
@@ -60,9 +62,11 @@ public class Blog implements BlojsomConstants {
     private String _blogName;
     private String _blogDescription;
     private String _blogURL;
+    private String _blogAdminURL;
     private String _blogBaseURL;
     private String _blogCountry;
     private String _blogLanguage;
+    private String _blogAdministrationLocale;
     private String[] _blogFileExtensions;
     private String[] _blogPropertiesExtensions;
     private int _blogDepth;
@@ -75,11 +79,16 @@ public class Blog implements BlojsomConstants {
     private Boolean _blogCommentsEnabled;
     private Boolean _blogEmailEnabled;
     private Boolean _blogTrackbacksEnabled;
+    private Boolean _blogPingbacksEnabled;
     private String _blogTrackbackDirectory;
     private String _blogEntryMetaDataExtension;
     private String _blogFileEncoding;
     private String _blogDefaultFlavor;
     private Boolean _linearNavigationEnabled;
+    private Boolean _xmlrpcEnabled;
+    private String _blogPingbacksDirectory;
+    private Boolean _useEncryptedPasswords;
+    private String _digestAlgorithm;
 	private String _blogDefaultStyleSheet;
 
     private Map _blogProperties;
@@ -108,6 +117,7 @@ public class Blog implements BlojsomConstants {
             _logger.error("No value supplied for blog-home");
             throw new BlojsomConfigurationException("No valued supplied for blog-home");
         }
+        _blogHome = _blogHome.trim();
         if (!_blogHome.endsWith("/")) {
             _blogHome += "/";
         }
@@ -115,28 +125,28 @@ public class Blog implements BlojsomConstants {
 
         _blogLanguage = blogConfiguration.getProperty(BLOG_LANGUAGE_IP);
         if (_blogLanguage == null) {
-            _logger.warn("No value supplied for blog-language. Defaulting to: " + BLOG_LANGUAGE_DEFAULT);
+            _logger.info("No value supplied for blog-language. Defaulting to: " + BLOG_LANGUAGE_DEFAULT);
             _blogLanguage = BLOG_LANGUAGE_DEFAULT;
         }
         _blogProperties.put(BLOG_LANGUAGE_IP, _blogLanguage);
 
         _blogCountry = blogConfiguration.getProperty(BLOG_COUNTRY_IP);
         if (_blogCountry == null) {
-            _logger.warn("No value supplied for blog-country. Defaulting to: " + BLOG_COUNTRY_DEFAULT);
+            _logger.info("No value supplied for blog-country. Defaulting to: " + BLOG_COUNTRY_DEFAULT);
             _blogCountry = BLOG_COUNTRY_DEFAULT;
         }
         _blogProperties.put(BLOG_COUNTRY_IP, _blogCountry);
 
         _blogDescription = blogConfiguration.getProperty(BLOG_DESCRIPTION_IP);
         if (_blogDescription == null) {
-            _logger.warn("No value supplied for blog-description");
+            _logger.info("No value supplied for blog-description");
             _blogDescription = "";
         }
         _blogProperties.put(BLOG_DESCRIPTION_IP, _blogDescription);
 
         _blogName = blogConfiguration.getProperty(BLOG_NAME_IP);
         if (_blogName == null) {
-            _logger.warn("No value supplied for blog-name");
+            _logger.info("No value supplied for blog-name");
             _blogName = "";
         }
 		else if (COMPUTER_NAME.equals(_blogName)) {
@@ -148,29 +158,44 @@ public class Blog implements BlojsomConstants {
         _blogProperties.put(BLOG_DEPTH_IP, new Integer(_blogDepth));
 
         _blogURL = blogConfiguration.getProperty(BLOG_URL_IP);
-        if (_blogURL == null) {
-            _logger.error("No value supplied for blog-url");
-            throw new BlojsomConfigurationException("No value supplied for blog-url");
-        }
-        if (!_blogURL.endsWith("/")) {
-            _blogURL += "/";
+        if (BlojsomUtils.checkNullOrBlank(_blogURL)) {
+            _logger.info("No value supplied for blog-url");
+        } else {
+            if (!_blogURL.endsWith("/")) {
+                _blogURL += "/";
+            }
         }
         _blogProperties.put(BLOG_URL_IP, _blogURL);
 
-        _blogBaseURL = blogConfiguration.getProperty(BLOG_BASE_URL_IP);
-        if (_blogBaseURL == null) {
-            _logger.error("No value supplied for blog-base-url");
-            throw new BlojsomConfigurationException("No value supplied for blog-base-url");
+        _blogAdminURL = blogConfiguration.getProperty(BLOG_ADMIN_URL_IP);
+        if (BlojsomUtils.checkNullOrBlank(_blogAdminURL)) {
+            _logger.info("No value supplied for blog-admin-url");
+            _blogAdminURL = _blogURL;
+        } else {
+            if (!_blogAdminURL.endsWith("/")) {
+                _blogAdminURL += "/";
+            }
         }
-        if (_blogBaseURL.endsWith("/")) {
-            _blogBaseURL = _blogBaseURL.substring(0, _blogBaseURL.length() - 1);
+        _blogProperties.put(BLOG_ADMIN_URL_IP, _blogAdminURL);
+
+        _blogBaseURL = blogConfiguration.getProperty(BLOG_BASE_URL_IP);
+        if (BlojsomUtils.checkNullOrBlank(_blogBaseURL)) {
+            _logger.info("No value supplied for blog-base-url");
+        } else {
+            if (_blogBaseURL.endsWith("/")) {
+                _blogBaseURL = _blogBaseURL.substring(0, _blogBaseURL.length() - 1);
+            }
         }
         _blogProperties.put(BLOG_BASE_URL_IP, _blogBaseURL);
 
         _blogFileExtensions = BlojsomUtils.parseCommaList(blogConfiguration.getProperty(BLOG_FILE_EXTENSIONS_IP));
         _blogProperties.put(BLOG_FILE_EXTENSIONS_IP, blogConfiguration.getProperty(BLOG_FILE_EXTENSIONS_IP));
 
-        _blogPropertiesExtensions = BlojsomUtils.parseCommaList(blogConfiguration.getProperty(BLOG_PROPERTIES_EXTENSIONS_IP));
+        String blogPropertiesExtensions = blogConfiguration.getProperty(BLOG_PROPERTIES_EXTENSIONS_IP);
+        if (BlojsomUtils.checkNullOrBlank(blogPropertiesExtensions)) {
+            _blogPropertiesExtensions = DEFAULT_PROPERTIES_EXTENSIONS;
+        }
+        _blogPropertiesExtensions = BlojsomUtils.parseCommaList(blogPropertiesExtensions);
         _blogProperties.put(BLOG_PROPERTIES_EXTENSIONS_IP, _blogPropertiesExtensions);
 
         _blogEntryMetaDataExtension = blogConfiguration.getProperty(BLOG_ENTRY_META_DATA_EXTENSION_IP);
@@ -214,10 +239,21 @@ public class Blog implements BlojsomConstants {
 
         trackbackDirectoryRegex = ".*" + File.separator + _blogTrackbackDirectory;
 
+        _blogPingbacksDirectory = blogConfiguration.getProperty(BLOG_PINGBACKS_DIRECTORY_IP);
+        if (BlojsomUtils.checkNullOrBlank(_blogPingbacksDirectory)) {
+            _blogPingbacksDirectory = DEFAULT_PINGBACKS_DIRECTORY;
+        }
+        _logger.debug("blojsom pingbacks directory: " + _blogPingbacksDirectory);
+        _blogProperties.put(BLOG_PINGBACKS_DIRECTORY_IP, _blogPingbacksDirectory);
+
+        String pingbacksDirectoryRegex;
+
+        pingbacksDirectoryRegex = ".*" + File.separator + _blogPingbacksDirectory;
+
         String blogDirectoryFilter = blogConfiguration.getProperty(BLOG_DIRECTORY_FILTER_IP);
         // Add the blog comments and trackback directories to the blog directory filter
         if (BlojsomUtils.checkNullOrBlank(blogDirectoryFilter)) {
-            blogDirectoryFilter = commentsDirectoryRegex + ", " + trackbackDirectoryRegex;
+            blogDirectoryFilter = commentsDirectoryRegex + ", " + trackbackDirectoryRegex + ", " + pingbacksDirectoryRegex;
         } else {
             if (blogDirectoryFilter.indexOf(commentsDirectoryRegex) == -1) {
                 blogDirectoryFilter += ", " + commentsDirectoryRegex;
@@ -226,9 +262,14 @@ public class Blog implements BlojsomConstants {
             if (blogDirectoryFilter.indexOf(trackbackDirectoryRegex) == -1) {
                 blogDirectoryFilter += ", " + trackbackDirectoryRegex;
             }
+
+            if (blogDirectoryFilter.indexOf(pingbacksDirectoryRegex) == -1) {
+                blogDirectoryFilter += ", " + pingbacksDirectoryRegex;
+            }
         }
         _logger.debug("Comments directory regex: " + commentsDirectoryRegex);
         _logger.debug("Trackbacks directory regex: " + trackbackDirectoryRegex);
+        _logger.debug("Pingbacks directory regex: " + pingbacksDirectoryRegex);
 
         _blogDirectoryFilter = BlojsomUtils.parseCommaList(blogDirectoryFilter);
         for (int i = 0; i < _blogDirectoryFilter.length; i++) {
@@ -250,6 +291,10 @@ public class Blog implements BlojsomConstants {
         String blogTrackbacksEnabled = blogConfiguration.getProperty(BLOG_TRACKBACKS_ENABLED_IP);
         _blogTrackbacksEnabled = Boolean.valueOf(blogTrackbacksEnabled);
         _blogProperties.put(BLOG_TRACKBACKS_ENABLED_IP, _blogTrackbacksEnabled);
+
+        String blogPingbacksEnabled = blogConfiguration.getProperty(BLOG_PINGBACKS_ENABLED_IP);
+        _blogPingbacksEnabled = Boolean.valueOf(blogPingbacksEnabled);
+        _blogProperties.put(BLOG_PINGBACKS_ENABLED_IP, _blogPingbacksEnabled);
 
         String blogEmailEnabled = blogConfiguration.getProperty(BLOG_EMAIL_ENABLED_IP);
         if ("true".equalsIgnoreCase(blogEmailEnabled)) {
@@ -276,7 +321,37 @@ public class Blog implements BlojsomConstants {
         String linearNavigationEnabled = blogConfiguration.getProperty(LINEAR_NAVIGATION_ENABLED_IP);
         _linearNavigationEnabled = Boolean.valueOf(linearNavigationEnabled);
         _blogProperties.put(LINEAR_NAVIGATION_ENABLED_IP, _linearNavigationEnabled);
-		
+
+        String xmlrpcEnabled = blogConfiguration.getProperty(XMLRPC_ENABLED_IP);
+        if (BlojsomUtils.checkNullOrBlank(xmlrpcEnabled)) {
+            xmlrpcEnabled = "true";
+        }
+        _xmlrpcEnabled = Boolean.valueOf(xmlrpcEnabled);
+        _blogProperties.put(XMLRPC_ENABLED_IP, _xmlrpcEnabled);
+
+        String blogAdministrationLocale = blogConfiguration.getProperty(BLOG_ADMINISTRATION_LOCALE_IP);
+        if (BlojsomUtils.checkNullOrBlank(blogAdministrationLocale)) {
+            blogAdministrationLocale = BLOG_LANGUAGE_DEFAULT + "_" + BLOG_COUNTRY_DEFAULT;
+        }
+        _blogAdministrationLocale = blogAdministrationLocale;
+        _blogProperties.put(BLOG_ADMINISTRATION_LOCALE_IP, _blogAdministrationLocale);
+
+        String useEncryptedPasswords = blogConfiguration.getProperty(USE_ENCRYPTED_PASSWORDS);
+        _useEncryptedPasswords = Boolean.valueOf(useEncryptedPasswords);
+        _blogProperties.put(USE_ENCRYPTED_PASSWORDS, _useEncryptedPasswords);
+
+        String digestAlgorithm = blogConfiguration.getProperty(DIGEST_ALGORITHM);
+        if (BlojsomUtils.checkNullOrBlank(digestAlgorithm)) {
+            digestAlgorithm = DEFAULT_DIGEST_ALGORITHM;
+        }
+        try {
+            MessageDigest messageDigest = MessageDigest.getInstance(digestAlgorithm);
+        } catch (NoSuchAlgorithmException e) {
+            digestAlgorithm = DEFAULT_DIGEST_ALGORITHM;
+        }
+        _digestAlgorithm = digestAlgorithm;
+        _blogProperties.put(DIGEST_ALGORITHM, _digestAlgorithm);
+
 		String blogDefaultStyleSheet = blogConfiguration.getProperty(BLOG_DEFAULT_STYLESHEET_IP);
 		if (blogDefaultStyleSheet == null) {
 			blogDefaultStyleSheet = "";
@@ -316,7 +391,7 @@ public class Blog implements BlojsomConstants {
      */
     public String getAuthorizedUserEmail(String username) {
         if (_authorization.containsKey(username)) {
-            String[] parsedPasswordAndEmail = BlojsomUtils.parseCommaList((String)_authorization.get(username));
+            String[] parsedPasswordAndEmail = BlojsomUtils.parseLastComma((String)_authorization.get(username));
             if (parsedPasswordAndEmail.length < 2) {
                 return getBlogOwnerEmail();
             } else {
@@ -336,7 +411,7 @@ public class Blog implements BlojsomConstants {
      */
     public void setAuthorizedUserEmail(String username, String email) {
         if (_authorization.containsKey(username)) {
-            String[] parsedPasswordAndEmail = BlojsomUtils.parseCommaList((String)_authorization.get(username));
+            String[] parsedPasswordAndEmail = BlojsomUtils.parseLastComma((String)_authorization.get(username));
             StringBuffer updatedPasswordAndEmail = new StringBuffer();
             updatedPasswordAndEmail.append(parsedPasswordAndEmail[0]);
             updatedPasswordAndEmail.append(",");
@@ -355,7 +430,7 @@ public class Blog implements BlojsomConstants {
      */
     public void setAuthorizedUserPassword(String username, String password) {
         if (_authorization.containsKey(username)) {
-            String[] parsedPasswordAndEmail = BlojsomUtils.parseCommaList((String)_authorization.get(username));
+            String[] parsedPasswordAndEmail = BlojsomUtils.parseLastComma((String)_authorization.get(username));
             StringBuffer updatedPasswordAndEmail = new StringBuffer();
             updatedPasswordAndEmail.append(password);
             if (parsedPasswordAndEmail.length == 2) {
@@ -449,6 +524,16 @@ public class Blog implements BlojsomConstants {
      */
     public String getBlogURL() {
         return _blogURL;
+    }
+
+    /**
+     * Admin URL for the blog
+     *
+     * @return Blog admin URL
+     * @since blosjom 2.21
+     */
+    public String getBlogAdminURL() {
+        return _blogAdminURL;
     }
 
     /**
@@ -594,6 +679,17 @@ public class Blog implements BlojsomConstants {
     }
 
     /**
+     * Get the directory where blog pingbacks will be written to under the individual blog
+     * category directories
+     *
+     * @return Blog pingbacks directory
+     * @since blojsom 2.23
+     */
+    public String getBlogPingbacksDirectory() {
+        return _blogPingbacksDirectory;
+    }
+
+    /**
      * Return whether or not comments are enabled
      * 
      * @return Whether or not comments are enabled
@@ -610,6 +706,16 @@ public class Blog implements BlojsomConstants {
      */
     public Boolean getBlogTrackbacksEnabled() {
         return _blogTrackbacksEnabled;
+    }
+
+    /**
+     * Return whether or not pingbacks are enabled
+     *
+     * @return <code>true</code> if pingbacks are enabled, <code>false</code> otherwise
+     * @since blojsom 2.23
+     */
+    public Boolean getBlogPingbacksEnabled() {
+        return _blogPingbacksEnabled;
     }
 
     /**
@@ -704,6 +810,17 @@ public class Blog implements BlojsomConstants {
     public void setBlogURL(String blogURL) {
         _blogURL = blogURL;
         _blogProperties.put(BLOG_URL_IP, blogURL);
+    }
+
+    /**
+     * Set the new admin URL for the blog
+     *
+     * @param blogAdminURL Blog admin URL
+     * @since blojsom 2.21
+     */
+    public void setAdminBlogURL(String blogAdminURL) {
+        _blogAdminURL = blogAdminURL;
+        _blogProperties.put(BLOG_ADMIN_URL_IP, blogAdminURL);
     }
 
     /**
@@ -817,6 +934,17 @@ public class Blog implements BlojsomConstants {
     }
 
     /**
+     * Set whether blog pingbacks are enabled
+     *
+     * @param blogPingbacksEnabled <code>true</code> if pingbacks are enabled, <code>false</code> otherwise
+     * @since blojsom 2.23
+     */
+    public void setBlogPingbacksEnabled(Boolean blogPingbacksEnabled) {
+        _blogPingbacksEnabled = blogPingbacksEnabled;
+        _blogProperties.put(BLOG_PINGBACKS_ENABLED_IP, blogPingbacksEnabled);
+    }
+
+    /**
      * Set the new blog file encoding
      * 
      * @param blogFileEncoding Blog file encoding
@@ -869,7 +997,7 @@ public class Blog implements BlojsomConstants {
      */
     public void setBlogProperty(String key, String value) {
         if (key != null && value != null) {
-            if (!key.equals(BLOG_HOME_IP)  && !key.equals(BLOG_COMMENTS_DIRECTORY_IP)  && !key.equals(BLOG_TRACKBACK_DIRECTORY_IP)) {
+            if (!key.equals(BLOG_HOME_IP)  && !key.equals(BLOG_COMMENTS_DIRECTORY_IP)  && !key.equals(BLOG_TRACKBACK_DIRECTORY_IP) && !key.equals(BLOG_PINGBACKS_DIRECTORY_IP)) {
                 _blogProperties.put(key, value);
             }
         }
@@ -895,7 +1023,128 @@ public class Blog implements BlojsomConstants {
         _linearNavigationEnabled = linearNavigationEnabled;
         _blogProperties.put(LINEAR_NAVIGATION_ENABLED_IP, _linearNavigationEnabled);
     }
-    
+
+    /**
+     * Is XML-RPC enabled for this blog?
+     *
+     * @return <code>true</code> if XML-RPC is enabled, <code>false</code> otherwise
+     * @since blojsom 2.19
+     */
+    public Boolean getXmlrpcEnabled() {
+        return _xmlrpcEnabled;
+    }
+
+    /**
+     * Set whether or not XML-RPC is enabled
+     *
+     * @param xmlrpcEnabled <code>true</code> if XML-RPC is enabled, <code>false</code> otherwise
+     * @since blojsom 2.19
+     */
+    public void setXmlrpcEnabled(Boolean xmlrpcEnabled) {
+        _xmlrpcEnabled = xmlrpcEnabled;
+        _blogProperties.put(XMLRPC_ENABLED_IP, _xmlrpcEnabled);
+    }
+
+    /**
+     * Retrieve the blog administration locale as a String
+     *
+     * @return String of blog administration locale
+     * @since blojsom 2.21
+     */
+    public String getBlogAdministrationLocaleAsString() {
+        return _blogAdministrationLocale;
+    }
+
+    /**
+     * Retrieve the blog administration locale as a {@link Locale} object
+     *
+     * @return {@link Locale} object for blog administration locale
+     * @since blojsom 2.21
+     */
+    public Locale getBlogAdministrationLocale() {
+        return BlojsomUtils.getLocaleFromString(_blogAdministrationLocale);
+    }
+
+    /**
+     * Set the locale used in the administration console
+     *
+     * @param blogAdministrationLocale Locale string of form <code>language_country_variant</code>
+     * @since blojsom 2.21
+     */
+    public void setBlogAdministrationLocale(String blogAdministrationLocale) {
+        _blogAdministrationLocale = blogAdministrationLocale;
+        _blogProperties.put(BLOG_ADMINISTRATION_LOCALE_IP, _blogAdministrationLocale);
+    }
+
+    /**
+     * Retrive a {@link Locale} object from the blog's language and country settings
+     *
+     * @return {@link Locale} object from the blog's language and country settings
+     * @since blojsom 2.21
+     */
+    public Locale getBlogLocale() {
+        return new Locale(_blogLanguage, _blogCountry);
+    }
+
+    /**
+     * Retrieve whether or not MD5 encrypted passwords are used
+     *
+     * @return <code>true</code> if encrypted passwords are used, <code>false</code> otherwise
+     * @since blojsom 2.24
+     */
+    public Boolean getUseEncryptedPasswords() {
+        return _useEncryptedPasswords;
+    }
+
+    /**
+     * Set whether or not MD5 encrypted passwords are used
+     *
+     * @param useEncryptedPasswords <code>true</code> if MD5 passwords are used, <code>false</code> otherwise
+     * @since blojsom 2.24
+     */
+    public void setUseEncryptedPasswords(Boolean useEncryptedPasswords) {
+        _useEncryptedPasswords = useEncryptedPasswords;
+    }
+
+    /**
+     * Set the new admin URL for the blog
+     *
+     * @param blogAdminURL Blog admin URL
+     * @since blojsom 2.24
+     */
+    public void setBlogAdminURL(String blogAdminURL) {
+        _blogAdminURL = blogAdminURL;
+        _blogProperties.put(BLOG_ADMIN_URL_IP, blogAdminURL);
+    }
+
+    /**
+     * Retrieve the in-use password digest algorithm
+     *
+     * @return Password digest algorithm
+     */
+    public String getDigestAlgorithm() {
+        return _digestAlgorithm;
+    }
+
+    /**
+     * Set the in-use password digest algorithm
+     *
+     * @param digestAlgorithm Digest algorithm
+     */
+    public void setDigestAlgorithm(String digestAlgorithm) {
+        if (BlojsomUtils.checkNullOrBlank(digestAlgorithm)) {
+            digestAlgorithm = DEFAULT_DIGEST_ALGORITHM;
+        }
+        try {
+            MessageDigest messageDigest = MessageDigest.getInstance(digestAlgorithm);
+        } catch (NoSuchAlgorithmException e) {
+            digestAlgorithm = DEFAULT_DIGEST_ALGORITHM;
+        }
+
+        _digestAlgorithm = digestAlgorithm;
+        _blogProperties.put(DIGEST_ALGORITHM, _digestAlgorithm);
+    }
+
     /**
      * Set the new default style sheet for this blog
      *

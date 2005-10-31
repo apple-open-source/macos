@@ -34,7 +34,7 @@
 #include <sys/stat.h>			//used for mkdir and stat
 #include <syslog.h>				//error logging
 
-#include "GetMacAddress.h"
+#include "GetMACAddress.h"
 #include "CLDAPv3Configs.h"
 #include "CLog.h"
 #include "DSLDAPUtils.h"

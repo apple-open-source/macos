@@ -207,9 +207,15 @@ lookup_minimal_symbol (const char *name, const char *sfile,
 			case mst_file_data:
 			case mst_file_bss:
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
-                        if (sfile == NULL
-			    || strcmp (msymbol->filename, sfile) == 0)
-                          found_file_symbol = msymbol;
+			  /* APPLE LOCAL: If the minsym doesn't have a
+			     filename set, don't allow it to match
+			     anything.  This isn't perhaps optimal,
+			     but it's better than crashing (the old
+			     behavior).  Perhaps put a complaint()
+			     here?  */
+			  if (sfile == NULL
+			      || ((msymbol->filename != NULL) && (strcmp (msymbol->filename, sfile) == 0)))
+			    found_file_symbol = msymbol;
 #else
 			  /* We have neither the ability nor the need to
 			     deal with the SFILE parameter.  If we find

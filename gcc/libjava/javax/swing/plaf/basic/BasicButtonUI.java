@@ -1,5 +1,5 @@
-/* BasicButtonUI.java
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+/* BasicButtonUI.java --
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,17 +35,15 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.plaf.basic;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.awt.Stroke;
 
 import javax.swing.AbstractButton;
 import javax.swing.ButtonModel;
@@ -136,10 +134,10 @@ public class BasicButtonUI extends ButtonUI
 
   protected BasicButtonListener createButtonListener(AbstractButton b)
   {
-    return new BasicButtonListener();
+    return new BasicButtonListener(b);
   }
 
-  public void installListeners(AbstractButton b)
+  protected void installListeners(AbstractButton b)
   {
     listener = createButtonListener(b);
     b.addChangeListener(listener);
@@ -149,7 +147,7 @@ public class BasicButtonUI extends ButtonUI
     b.addMouseMotionListener(listener);
   }
 
-  public void uninstallListeners(AbstractButton b)
+  protected void uninstallListeners(AbstractButton b)
   {
     b.removeChangeListener(listener);
     b.removePropertyChangeListener(listener);
@@ -205,7 +203,7 @@ public class BasicButtonUI extends ButtonUI
     return d;
   }
 
-  static private Icon currentIcon(AbstractButton b)
+  private static Icon currentIcon(AbstractButton b)
   {
     Icon i = b.getIcon();
     ButtonModel model = b.getModel();

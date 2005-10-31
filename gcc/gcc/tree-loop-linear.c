@@ -1,5 +1,5 @@
 /* Linear Loop transforms
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
 
 This file is part of GCC.
@@ -374,6 +374,7 @@ linear_transform_loops (struct loops *loops)
     }
   free_df ();
   scev_reset ();
+  rewrite_into_ssa (false);
   rewrite_into_loop_closed_ssa ();
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa ();

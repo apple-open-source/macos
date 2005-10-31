@@ -37,6 +37,8 @@
 #include "notify.h"
 #include "common.h"
 
+#define MACH_PORT_SEND_TIMEOUT 50
+
 /* Required to prevent deadlocks */
 int __notify_78945668_info__ = 0;
 
@@ -367,13 +369,15 @@ _internal_send(notify_state_t *ns, client_t *c)
 			break;
 		case NOTIFY_TYPE_PORT:
 			c->info->msg->header.msgh_id = (mach_msg_id_t)(c->info->token);
-			kstatus = mach_msg(&(c->info->msg->header), 
-				MACH_SEND_MSG, 
-				c->info->msg->header.msgh_size, 
-				0, 
-				MACH_PORT_NULL,
-				MACH_MSG_TIMEOUT_NONE,
-				MACH_PORT_NULL);
+
+			kstatus = mach_msg(&(c->info->msg->header),
+							   MACH_SEND_MSG | MACH_SEND_TIMEOUT,
+							   c->info->msg->header.msgh_size,
+							   0,
+							   MACH_PORT_NULL,
+							   MACH_PORT_SEND_TIMEOUT,
+							   MACH_PORT_NULL);
+
 			if (kstatus == MACH_SEND_INVALID_DEST)
 			{
 				/* XXX clean up XXX */

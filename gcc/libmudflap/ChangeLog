@@ -1,3 +1,82 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-02-13  Frank Ch. Eigler  <fche@redhat.com>
+
+	PR mudflap/19319
+	* testsuite/libmudflap.c++/pass55-frag.c: New test.
+
+2005-01-05  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/libmudflap.c/pass32-frag.c: Fix typo.
+
+2005-01-02  Greg McGary  <greg@mcgary.org>
+
+	* mf-impl.h (uintptr_t): Get typedef via stdint.h or define explicitly.
+	* mf-runtime.h: New file, replaces mf-runtime.h.in.
+	* configure.ac (AC_CONFIG_FILES): mf-runtime.h is no longer generated.
+	* Makefile.in: Ditto.
+	* testsuite/lib/libmudflap.exp: Add -I${srcdir}/.. to get mf-runtime.h
+	* testsuite/libmudflap.c/pass32-frag.c: s/uintptr_t/__mf_uintptr_t/
+	* testsuite/libmudflap.c/fail36-frag.c: New test.
+	* testsuite/libmudflap.c/fail37-frag.c: New test.
+	* testsuite/libmudflap.c/fail38-frag.c: New test.
+
+2004-12-08  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am: Add ../config to ACLOCAL_AMFLAGS.
+	* aclocal.m4, Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.ac: Use TL_AC_GCC_VERSION to set gcc_version.
+	* aclocal.m4: Include ../config/gcc-version.m4.
+	* configure, Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2004-11-29  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am: Define ACLOCAL_AMFLAGS.
+	* acinclude.m4: Remove.
+	* stamp-h.in: Remove superfluous stamp file.
+	* aclocal.m4, configure, Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Likewise.
+
+2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am: Revert previous.
+	* acinclude.m4: Restore.
+	* aclocal.m4, configure, Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Likewise.
+
+2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am: Define ACLOCAL_AMFLAGS.
+	* acinclude.m4: Remove.
+	* aclocal.m4, configure, Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Likewise.
+
+2004-11-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* testsuite/lib/libmudflap.exp: Use new procs in target-libpath.exp.
+
+2004-11-23  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.in, configure, aclocal.m4: Regenerate with automake 1.9.3.
+	* testsuite/Makefile.in: Likewise.
+
+2004-11-01  Andreas Schwab  <schwab@suse.de>
+
+	* configure.ac: (target_alias): Default to $host_alias, not
+	$target.
+	* configure: Regenerated.
+
+2004-10-28  Frank Ch. Eigler  <fche@redhat.com>
+
+	* testsuite/libmudflap.c/fail35-,pass53-,pass54-frag.c: New tests.
+	* testsuite/libmudflap.c/pass35-frag.c: Correct embedded warning
+	message.
+
 2004-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	PR other/18138

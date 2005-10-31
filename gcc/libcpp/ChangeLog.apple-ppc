@@ -1,8 +1,28 @@
-2005-03-16  Dale Johannesen  <dalej@apple.com>
+2005-04-21  Devang Patel  <dpatel@apple.com>
 
-	Radar 4054948
-	* directives.c (do_pragma):  Handle unknown pragmas correctly.
-	(cpp_handle_deferred_pragma):  Ditto.
+	Radar 4058553
+	Backport from FSF Mainline.
+	2005-04-19  Per Bothner  <per@bothner.com>
+
+	PR preprocessor/20907
+	* line-map.c (linemap_line_start): Fix bug when we need to increse
+	column_bits but can re-use the current line_map.
+
+2005-03-11  Devang Patel  <dpatel@apple.com.
+
+	* diretives.c: Fix white space.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	* init.c (cpp_read_main_file): Remove Symbol Separation support.
+	* internal.h (cpp_cinfo_state): Remove.
+	(struct cpp_reader): Remove Symbol Separation support.
+	(find_include_cinfo): Remove.
+	* pch.c (count_defs): Remove Symbol Separation support.
+	(write_defs): Same.
+	(cpp_valid_state): Remove warn_invalid_sr use.
+	* directives.c (find_include_cinfo, cpp_symbol_separation_init, 
+	cpp_write_symbol_deps, cpp_get_stabs_checksum): Remove.
 
 2005-02-27  Devang Patel  <dpatel@apple.com>
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2005, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -99,7 +99,7 @@ package body System.Task_Primitives.Operations is
    ----------------
 
    Environment_Task_Id : Task_Id;
-   --  A variable to hold Task_Id for the environment task.
+   --  A variable to hold Task_Id for the environment task
 
    Single_RTS_Lock : aliased RTS_Lock;
    --  This is a lock to allow only one thread of control in the RTS at
@@ -113,10 +113,10 @@ package body System.Task_Primitives.Operations is
    pragma Import (C, Dispatching_Policy, "__gl_task_dispatching_policy");
 
    FIFO_Within_Priorities : constant Boolean := Dispatching_Policy = 'F';
-   --  Indicates whether FIFO_Within_Priorities is set.
+   --  Indicates whether FIFO_Within_Priorities is set
 
    Foreign_Task_Elaborated : aliased Boolean := True;
-   --  Used to identified fake tasks (i.e., non-Ada Threads).
+   --  Used to identified fake tasks (i.e., non-Ada Threads)
 
    ------------------------------------
    -- The thread local storage index --
@@ -843,6 +843,13 @@ package body System.Task_Primitives.Operations is
       Priority   : System.Any_Priority;
       Succeeded  : out Boolean)
    is
+      pragma Unreferenced (Stack_Size);
+
+      Initial_Stack_Size : constant := 1024;
+      --  We set the initial stack size to 1024. On Windows there is no way to
+      --  fix a task stack size. Only the initial stack size can be set, the
+      --  operating system will raise the task stack size if needed.
+
       hTask          : HANDLE;
       TaskId         : aliased DWORD;
       pTaskParameter : System.OS_Interface.PVOID;
@@ -856,7 +863,7 @@ package body System.Task_Primitives.Operations is
 
       hTask := CreateThread
          (null,
-          DWORD (Adjust_Storage_Size (Stack_Size)),
+          Initial_Stack_Size,
           Entry_Point,
           pTaskParameter,
           DWORD (Create_Suspended),

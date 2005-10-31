@@ -1,2 +1,0 @@
->>> Smart and failed commits
-<<< done.

@@ -772,11 +772,6 @@ bool PowerMac7_3_CPUCoolingCtrlLoop::updateMetaState( void )
 	}
 }
 
-void PowerMac7_3_CPUCoolingCtrlLoop::adjustControls( void )
-{
-	// [4001211] Override to prevent calculateNewTarget() from being called from when the environment changes.
-}
-
 bool PowerMac7_3_CPUCoolingCtrlLoop::acquireSample( void )
 {
 	samplePoint * latest;
@@ -1296,14 +1291,11 @@ void PowerMac7_3_CPUCoolingCtrlLoop::deadlinePassed( void )
 		platformPlugin->sleepSystem();
 	}
 
-	 // [4001211] Always calculate the PID function when the interval deadline expires.
-	if (ctrlloopState != kIOPCtrlLoopNotReady)
+	// If we changed the environment, the platform plugin will invoke updateMetaState()
+	// and adjustControls().  If not, then we just need to call adjustControls()
+	if (!didSetEnv)
 	{
-		// Apply the PID algorithm.
-		ControlValue newTarget = calculateNewTarget();
-
-		// set the target
-		sendNewTarget( newTarget );
+		adjustControls();
 	}
 
 

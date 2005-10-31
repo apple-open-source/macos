@@ -269,15 +269,6 @@ extern int target_flags;
 #define FLOAT_WORDS_BIG_ENDIAN 1
 #define UNITS_PER_WORD 8
 
-/* FIXME: This macro is correlated to MAX_FIXED_MODE_SIZE in that
-   e.g. this macro must not be 8 (default, UNITS_PER_WORD) when
-   MAX_FIXED_MODE_SIZE is 64 (default, DImode), or really: this must be
-   set manually if MAX_FIXED_MODE_SIZE is not at least twice the register
-   size.  By setting it to 4, we don't have to worry about TImode things
-   yet.  Revisit, perhaps get TImode going or get some solution that does
-   not mandate TImode or lie in other ways.  */
-#define MIN_UNITS_PER_WORD 4
-
 /* FIXME: Promotion of modes currently generates slow code, extending
    before every operation.  */
 /* I'm a little bit undecided about this one.  It might be beneficial to
@@ -908,6 +899,9 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 #define ASM_OUTPUT_LABEL(STREAM, NAME) \
  mmix_asm_output_label (STREAM, NAME)
+
+#define ASM_OUTPUT_INTERNAL_LABEL(STREAM, NAME) \
+ mmix_asm_output_internal_label (STREAM, NAME)
 
 #define ASM_DECLARE_REGISTER_GLOBAL(STREAM, DECL, REGNO, NAME) \
  mmix_asm_declare_register_global (STREAM, DECL, REGNO, NAME)

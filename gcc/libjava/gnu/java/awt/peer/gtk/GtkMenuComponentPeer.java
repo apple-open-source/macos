@@ -43,10 +43,21 @@ import java.awt.peer.MenuComponentPeer;
 public class GtkMenuComponentPeer extends GtkGenericPeer
   implements MenuComponentPeer
 {
+  void create ()
+  {
+    throw new RuntimeException ();
+  }
+
+  void setFont ()
+  {
+  }
+
   public GtkMenuComponentPeer (Object awtWidget)
   {
     super (awtWidget);
+    create ();
+    setFont ();
   }
-  
+
   public native void dispose();
 }

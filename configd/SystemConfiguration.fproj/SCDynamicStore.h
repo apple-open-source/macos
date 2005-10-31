@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #ifndef _SCDYNAMICSTORE_H
 #define _SCDYNAMICSTORE_H
 
+#include <AvailabilityMacros.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -132,6 +133,8 @@ SCDynamicStoreCreate			(
 					SCDynamicStoreContext		*context
 					);
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+
 /*!
 	@function SCDynamicStoreCreateWithOptions
 	@discussion Creates a new session used to interact with the dynamic
@@ -176,9 +179,11 @@ SCDynamicStoreCreateWithOptions		(
 					CFDictionaryRef			storeOptions,
 					SCDynamicStoreCallBack		callout,
 					SCDynamicStoreContext		*context
-					);
+					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
-extern const CFStringRef	kSCDynamicStoreUseSessionKeys;	/* CFBoolean */
+extern const CFStringRef	kSCDynamicStoreUseSessionKeys		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;	/* CFBoolean */
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
 
 /*!
 	@function SCDynamicStoreCreateRunLoopSource

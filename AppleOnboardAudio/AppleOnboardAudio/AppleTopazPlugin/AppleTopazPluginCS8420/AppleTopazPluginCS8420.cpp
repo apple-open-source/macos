@@ -481,11 +481,23 @@ void AppleTopazPluginCS8420::poll ( void ) {
 //  through GPIO hardware interrupt dispatch services or throught timer polled
 //  services.
 void AppleTopazPluginCS8420::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) {
+    IOReturn    error;
+    UInt8       ratio;
+    
 	if ( kCodecErrorInterruptStatus == statusSelector ) {
-		CODEC_ReadRegister ( map_CS8420_RX_ERROR, &mShadowRegs[map_CS8420_RX_ERROR], 1 );
-		if ( ( bvCS8420_pllLocked << baCS8420_UNLOCK ) == ( ( bvCS8420_pllUnlocked << baCS8420_UNLOCK ) & mShadowRegs[map_CS8420_RX_ERROR] ) ) {
-			mUnlockErrorCount = 0;
-			mLockStatus = TRUE;
+		error = CODEC_ReadRegister ( map_CS8420_RX_ERROR, &mShadowRegs[map_CS8420_RX_ERROR], 1 );
+        FailIf ( kIOReturnSuccess != error, Exit );
+        
+        // [4073140] - validate OMCK/RMCK ratio register
+        error = CODEC_ReadRegister ( map_CS8420_SAMPLE_RATE_RATIO, &mShadowRegs[map_CS8420_SAMPLE_RATE_RATIO], 1 );
+        FailIf ( kIOReturnSuccess != error, Exit );
+        
+        ratio = mShadowRegs[map_CS8420_SAMPLE_RATE_RATIO];
+        
+		if ( ( ( bvCS8420_pllLocked << baCS8420_UNLOCK ) == ( ( bvCS8420_pllUnlocked << baCS8420_UNLOCK ) & mShadowRegs[map_CS8420_RX_ERROR] ) ) &&
+             ( ( kCS84XX_OMCK_RMCK_RATIO_LOCKED_MIN <= ratio ) && ( kCS84XX_OMCK_RMCK_RATIO_LOCKED_MAX >= ratio ) ) ) {
+            mUnlockErrorCount = 0;
+            mLockStatus = TRUE;
 		} else {
 			mUnlockErrorCount++;
 			if ( kCLOCK_UNLOCK_ERROR_TERMINAL_COUNT < mUnlockErrorCount ) {
@@ -493,13 +505,19 @@ void AppleTopazPluginCS8420::notifyHardwareEvent ( UInt32 statusSelector, UInt32
 				mLockStatus = FALSE;
 			}
 		}
+        
 		if ( mLockStatus ) {
+            debugIOLog ( 4, "  AppleTopazPluginCS8420::notifyHardwareEvent posts kClockLockStatus, mShadowRegs[map_CS8420_RX_ERROR] = 0x%0.2X, OMCK/RMCK ratio = 0x%0.2X", mShadowRegs[map_CS8420_RX_ERROR], ratio );
 			mAudioDeviceProvider->interruptEventHandler ( kClockLockStatus, (UInt32)0 );
 		} else {
+            debugIOLog ( 4, "  AppleTopazPluginCS8420::notifyHardwareEvent posts kClockUnLockStatus, mShadowRegs[map_CS8420_RX_ERROR] = 0x%0.2X, OMCK/RMCK ratio = 0x%0.2X", mShadowRegs[map_CS8420_RX_ERROR], ratio );
 			mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );
 		}
 	} else if ( kCodecInterruptStatus == statusSelector ) {
 	}
+    
+Exit:
+    
 	return;
 }
 

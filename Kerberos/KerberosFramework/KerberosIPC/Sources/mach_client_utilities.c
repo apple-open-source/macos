@@ -1,7 +1,7 @@
 /*
  * mach_client_utilities.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/mach_client_utilities.c,v 1.14 2005/01/27 23:38:43 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/mach_client_utilities.c,v 1.16 2005/06/15 20:59:14 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -82,6 +82,7 @@ mach_client_check_server_registration (mach_port_t inBootstrapPort,
                 mach_port_t   serverPrivPort = MACH_PORT_NULL;
                 mach_port_t   servicePort = MACH_PORT_NULL;
                 uid_t         serverUID = LoginSessionGetSessionUID ();
+                if (serverUID == 0 /* root */) { serverUID = LoginSessionGetSecurityAgentUID (); } // don't be root
                 
                 // The service got unregistered or was never registered.  Register it!
                 err = bootstrap_create_server (inBootstrapPort, (char *) inServerPath, serverUID, TRUE /* on demand */, &serverPrivPort);
@@ -189,26 +190,6 @@ mach_client_lookup_and_launch_server (const char *inServiceName,
     return KerberosIPCError_ (err);
 }
 
-// ---------------------------------------------------------------------------
-
-boolean_t
-mach_client_allow_server (security_token_t inToken)
-{
-    uid_t clientUID = LoginSessionGetSessionUID ();
-    if (inToken.val[0] == clientUID) {
-        return true;
-    } else if (geteuid() == 0) {
-        // If we are a su-ed client, allow if we are effective uid root since server will allow us
-        // We check the effective uid since that's what security trailers store
-        dprintf ("mach_client_allow_server: WARNING, server with uid %ld approved for seteuid root client\n",
-                clientUID, inToken.val[0]);
-        return true;
-    } else {
-        dprintf ("mach_client_allow_server: WARNING! Client with uid %ld refused server with uid %ld\n",
-                clientUID, inToken.val[0]);
-        return false;
-    }
-}
 #pragma mark -
 
 

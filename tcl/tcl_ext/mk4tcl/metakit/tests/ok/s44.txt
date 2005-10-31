@@ -1,2 +1,0 @@
->>> Bad memo free space
-<<< done.

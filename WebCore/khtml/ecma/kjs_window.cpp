@@ -50,9 +50,11 @@
 #include "kjs_events.h"
 #include "xmlhttprequest.h"
 #include "xmlserializer.h"
+#include "domparser.h"
 
 #include "khtmlview.h"
 #include "khtml_part.h"
+#include "khtml_ext.h"
 #include "dom/dom_string.h"
 #include "dom/dom_node.h"
 #include "editing/htmlediting.h"
@@ -64,6 +66,12 @@
 
 #include "misc/htmltags.h"
 
+// Must include <cmath> instead of <math.h> because of a bug in the
+// gcc 3.3 library version of <math.h> where if you include both
+// <cmath> and <math.h> the macros necessary for functions like
+// isnan are not defined.
+#include <cmath>
+
 using DOM::DocumentImpl;
 using DOM::DOMString;
 using DOM::ElementImpl;
@@ -71,7 +79,13 @@ using DOM::Node;
 using DOM::Position;
 using khtml::TypingCommand;
 
+using KParts::ReadOnlyPart;
+using KParts::URLArgs;
+using KParts::WindowArgs;
+
 using namespace KJS;
+
+using std::isnan;
 
 namespace KJS {
 
@@ -249,6 +263,7 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
   Option	Window::Option		DontDelete|ReadOnly
   XMLHttpRequest	Window::XMLHttpRequest	DontDelete|ReadOnly
   XMLSerializer	Window::XMLSerializer	DontDelete|ReadOnly
+  DOMParser	Window::DOMParser	DontDelete|ReadOnly
   alert		Window::Alert		DontDelete|Function 1
   confirm	Window::Confirm		DontDelete|Function 1
   prompt	Window::Prompt		DontDelete|Function 2
@@ -294,6 +309,7 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
   onsubmit	Window::Onsubmit	DontDelete
   onunload	Window::Onunload	DontDelete
   frameElement  Window::FrameElement    DontDelete|ReadOnly
+  showModalDialog Window::ShowModalDialog    DontDelete|Function 1
 @end
 */
 IMPLEMENT_PROTOFUNC(WindowFunc)
@@ -320,8 +336,20 @@ Window::Window(KHTMLPart *p)
 
 Window::~Window()
 {
-  kdDebug(6070) << "Window::~Window this=" << this << " part=" << m_part << endl;
-  delete winq;
+    // Clear any backpointers to the window
+    QPtrDictIterator<JSUnprotectedEventListener> unprotectedListeners(jsUnprotectedEventListeners);
+    while (unprotectedListeners.current()) {
+        unprotectedListeners.current()->clearWindowObj();
+        ++unprotectedListeners;
+    }
+    
+    QPtrDictIterator<JSEventListener> listeners(jsEventListeners);
+    while (listeners.current()) {
+        listeners.current()->clearWindowObj();
+        ++listeners;
+    }
+    
+    delete winq;
 }
 
 KJS::Interpreter *Window::interpreter() const
@@ -460,6 +488,211 @@ UString Window::toString(ExecState *) const
   return "[object Window]";
 }
 
+static bool allowPopUp(ExecState *exec, Window *window)
+{
+#if APPLE_CHANGES
+    return window->part()
+        && (window->part()->settings()->JavaScriptCanOpenWindowsAutomatically()
+            || static_cast<ScriptInterpreter *>(exec->dynamicInterpreter())->wasRunByUserGesture());
+#else    
+    KConfig config("konquerorrc");
+    config.setGroup("Java/JavaScript Settings");
+    switch (config.readUnsignedNumEntry("WindowOpenPolicy", 0)) { // 0=allow, 1=ask, 2=deny, 3=smart
+        default:
+        case 0: // allow
+            return true;
+        case 1: // ask
+            return KMessageBox::questionYesNo(widget,
+                i18n("This site is trying to open up a new browser window using Javascript.\n"
+                     "Do you want to allow this?"),
+                i18n("Confirmation: Javascript Popup")) == KMessageBox::Yes;
+        case 2: // deny
+            return false;
+        case 3: // smart
+            return static_cast<ScriptInterpreter *>(exec->dynamicInterpreter())->wasRunByUserGesture();
+    }
+#endif
+}
+
+static QMap<QString, QString> parseFeatures(ExecState *exec, ValueImp *featuresArg)
+{
+    QMap<QString, QString> map;
+
+    QStringList features = QStringList::split(';', featuresArg->dispatchToString(exec).qstring());
+    QStringList::ConstIterator end = features.end();
+    for (QStringList::ConstIterator it = features.begin(); it != end; ++it) {
+        QString s = *it;
+        int pos = s.find('=');
+        int colonPos = s.find(':');
+        if (pos >= 0 && colonPos >= 0)
+            continue; // ignore any strings that have both = and :
+        if (pos < 0)
+            pos = colonPos;
+        if (pos < 0) {
+            // null string for value means key without value
+            map.insert(s.stripWhiteSpace().lower(), QString());
+        } else {
+            QString key = s.left(pos).stripWhiteSpace().lower();
+            QString val = s.mid(pos + 1).stripWhiteSpace().lower();
+            int spacePos = val.find(' ');
+            if (spacePos != -1)
+                val = val.left(spacePos);
+            map.insert(key, val);
+        }
+    }
+
+    return map;
+}
+
+static bool boolFeature(const QMap<QString, QString> &features, const char *key, bool defaultValue = false)
+{
+    QMap<QString, QString>::ConstIterator it = features.find(key);
+    if (it == features.end())
+        return defaultValue;
+    QString value = it.data();
+    return value.isNull() || value == "1" || value == "yes" || value == "on";
+}
+
+static int intFeature(const QMap<QString, QString> &features, const char *key, int min, int max, int defaultValue)
+{
+    QMap<QString, QString>::ConstIterator it = features.find(key);
+    if (it == features.end())
+        return defaultValue;
+    QString value = it.data();
+    // FIXME: Can't distinguish "0q" from string with no digits in it -- both return d == 0 and ok == false.
+    // Would be good to tell them apart somehow since string with no digits should be default value and
+    // "0q" should be minimum value.
+    bool ok;
+    double d = value.toDouble(&ok);
+    if ((d == 0 && !ok) || isnan(d))
+        return defaultValue;
+    if (d < min || max <= min)
+        return min;
+    if (d > max)
+        return max;
+    return static_cast<int>(d);
+}
+
+static KHTMLPart *createNewWindow(ExecState *exec, Window *openerWindow, const QString &URL,
+    const QString &frameName, const WindowArgs &windowArgs, ValueImp *dialogArgs)
+{
+    KHTMLPart *openerPart = openerWindow->part();
+    KHTMLPart *activePart = Window::retrieveActive(exec)->part();
+
+    URLArgs uargs;
+
+    uargs.frameName = frameName;
+    if (activePart)
+        uargs.metaData()["referrer"] = activePart->referrer();
+    uargs.serviceType = "text/html";
+
+    // FIXME: It's much better for client API if a new window starts with a URL, here where we
+    // know what URL we are going to open. Unfortunately, this code passes the empty string
+    // for the URL, but there's a reason for that. Before loading we have to set up the opener,
+    // openedByJS, and dialogArguments values. Also, to decide whether to use the URL we currently
+    // do an isSafeScript call using the window we create, which can't be done before creating it.
+    // We'd have to resolve all those issues to pass the URL instead of "".
+
+    ReadOnlyPart *newReadOnlyPart = 0;
+    emit openerPart->browserExtension()->createNewWindow("", uargs, windowArgs, newReadOnlyPart);
+
+    if (!newReadOnlyPart || !newReadOnlyPart->inherits("KHTMLPart"))
+        return 0;
+
+    KHTMLPart *newPart = static_cast<KHTMLPart *>(newReadOnlyPart);
+    Window *newWindow = Window::retrieveWindow(newPart);
+
+    newPart->setOpener(openerPart);
+    newPart->setOpenedByJS(true);
+    if (dialogArgs)
+        newWindow->putDirect("dialogArguments", dialogArgs);
+
+    DocumentImpl *activeDoc = activePart ? activePart->xmlDocImpl() : 0;
+    if (!URL.isEmpty() && activeDoc) {
+        QString completedURL = activeDoc->completeURL(URL);
+        if (!completedURL.startsWith("javascript:", false) || newWindow->isSafeScript(exec)) {
+            bool userGesture = static_cast<ScriptInterpreter *>(exec->dynamicInterpreter())->wasRunByUserGesture();
+            newPart->changeLocation(completedURL, activePart->referrer(), false, userGesture);
+        }
+    }
+
+    return newPart;
+}
+
+static bool canShowModalDialog(const Window *window)
+{
+    KHTMLPart *part = window->part();
+    return part && static_cast<KHTMLPartBrowserExtension *>(part->browserExtension())->canRunModal();
+}
+
+static bool canShowModalDialogNow(const Window *window)
+{
+    KHTMLPart *part = window->part();
+    return part && static_cast<KHTMLPartBrowserExtension *>(part->browserExtension())->canRunModalNow();
+}
+
+static ValueImp *showModalDialog(ExecState *exec, Window *openerWindow, const List &args)
+{
+    UString URL = args[0].toString(exec);
+
+    if (!canShowModalDialogNow(openerWindow) || !allowPopUp(exec, openerWindow))
+        return Undefined().imp();
+    
+    const QMap<QString, QString> features = parseFeatures(exec, args[2].imp());
+
+    bool trusted = false;
+
+    WindowArgs wargs;
+
+    // The following features from Microsoft's documentation are not implemented:
+    // - default font settings
+    // - width, height, left, and top specified in units other than "px"
+    // - edge (sunken or raised, default is raised)
+    // - dialogHide: trusted && boolFeature(features, "dialoghide"), makes dialog hide when you print
+    // - help: boolFeature(features, "help", true), makes help icon appear in dialog (what does it do on Windows?)
+    // - unadorned: trusted && boolFeature(features, "unadorned");
+
+    QRect screenRect = QApplication::desktop()->availableGeometry(openerWindow->part()->view());
+
+    wargs.width = intFeature(features, "dialogwidth", 100, screenRect.width(), 620); // default here came from frame size of dialog in MacIE
+    wargs.widthSet = true;
+    wargs.height = intFeature(features, "dialogheight", 100, screenRect.height(), 450); // default here came from frame size of dialog in MacIE
+    wargs.heightSet = true;
+
+    wargs.x = intFeature(features, "dialogleft", screenRect.x(), screenRect.x() + screenRect.width() - wargs.width, -1);
+    wargs.xSet = wargs.x > 0;
+    wargs.y = intFeature(features, "dialogtop", screenRect.y(), screenRect.y() + screenRect.height() - wargs.height, -1);
+    wargs.ySet = wargs.y > 0;
+
+    if (boolFeature(features, "center", true)) {
+        if (!wargs.xSet) {
+            wargs.x = screenRect.x() + (screenRect.width() - wargs.width) / 2;
+            wargs.xSet = true;
+        }
+        if (!wargs.ySet) {
+            wargs.y = screenRect.y() + (screenRect.height() - wargs.height) / 2;
+            wargs.ySet = true;
+        }
+    }
+	
+    wargs.dialog = true;
+    wargs.resizable = boolFeature(features, "resizable");
+    wargs.scrollbarsVisible = boolFeature(features, "scroll", true);
+    wargs.statusBarVisible = boolFeature(features, "status", !trusted);
+    wargs.toolBarsVisible = false;
+
+    KHTMLPart *dialogPart = createNewWindow(exec, openerWindow, URL.qstring(), "", wargs, args[1].imp());
+    if (!dialogPart)
+        return Undefined().imp();
+
+    Window *dialogWindow = Window::retrieveWindow(dialogPart);
+    ValueImp *returnValue = Undefined().imp();
+    dialogWindow->setReturnValueSlot(&returnValue);
+    static_cast<KHTMLPartBrowserExtension *>(dialogPart->browserExtension())->runModal();
+    dialogWindow->setReturnValueSlot(NULL);
+    return returnValue;
+}
+
 Value Window::get(ExecState *exec, const Identifier &p) const
 {
 #ifdef KJS_VERBOSE
@@ -545,12 +778,12 @@ Value Window::get(ExecState *exec, const Identifier &p) const
     case InnerHeight:
       if (!m_part->view())
         return Undefined();
-      updateLayout();
+      updateLayout(false);
       return Number(m_part->view()->visibleHeight());
     case InnerWidth:
       if (!m_part->view())
         return Undefined();
-      updateLayout();
+      updateLayout(false);
       return Number(m_part->view()->visibleWidth());
     case Length:
       return Number(m_part->frames().count());
@@ -669,10 +902,16 @@ Value Window::get(ExecState *exec, const Identifier &p) const
       return Value(new XMLHttpRequestConstructorImp(exec, m_part->document()));
     case XMLSerializer:
       return Value(new XMLSerializerConstructorImp(exec));
+    case DOMParser:
+      return Value(new DOMParserConstructorImp(exec, m_part->xmlDocImpl()));
     case Focus:
     case Blur:
     case Close:
 	return lookupOrCreateFunction<WindowFunc>(exec,p,this,entry->value,entry->params,entry->attr);
+    case ShowModalDialog:
+        if (!canShowModalDialog(this))
+            return Undefined();
+        // fall through
     case Alert:
     case Confirm:
     case Prompt:
@@ -882,7 +1121,7 @@ Value Window::get(ExecState *exec, const Identifier &p) const
   return Undefined();
 }
 
-bool Window::hasProperty(ExecState *exec, const Identifier &p) const
+bool Window::hasOwnProperty(ExecState *exec, const Identifier &p) const
 {
   // matches logic in get function above, but no need to handle numeric values (frame indices)
 
@@ -1316,18 +1555,21 @@ JSLazyEventListener *Window::getJSLazyEventListener(const QString& code, DOM::No
 
 void Window::clear( ExecState *exec )
 {
-  KJS::Interpreter::lock();
+  InterpreterLock lock;
+  if (m_returnValueSlot)
+    if (ValueImp *returnValue = getDirect("returnValue"))
+      *m_returnValueSlot = returnValue;
   kdDebug(6070) << "Window::clear " << this << endl;
   delete winq;
-  winq = new WindowQObject(this);;
-  // Get rid of everything, those user vars could hold references to DOM nodes
+  winq = new WindowQObject(this);
+
   deleteAllProperties( exec );
-  // Really delete those properties, so that the DOM nodes get deref'ed
-  KJS::Collector::collect();
+  // there's likely to be lots of garbage now
+  Collector::collect();
+
   // Now recreate a working global object for the next URL that will use us
   KJS::Interpreter *interpreter = KJSProxy::proxy( m_part )->interpreter();
   interpreter->initGlobalObject();
-  KJS::Interpreter::unlock();
 }
 
 void Window::setCurrentEvent( DOM::Event *evt )
@@ -1475,7 +1717,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
             if (key == "left" || key == "screenx") {
               bool ok;
               double d = val.toDouble(&ok);
-              if (d != 0 || ok) {
+              if ((d != 0 || ok) && !isnan(d)) {
                 d += screen.x();
                 if (d < screen.x() || d > screen.right())
 		  d = screen.x(); // only safe choice until size is determined
@@ -1487,7 +1729,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
             } else if (key == "top" || key == "screeny") {
               bool ok;
               double d = val.toDouble(&ok);
-              if (d != 0 || ok) {
+              if ((d != 0 || ok) && !isnan(d)) {
                 d += screen.y();
                 if (d < screen.y() || d > screen.bottom())
 		  d = screen.y(); // only safe choice until size is determined
@@ -1499,7 +1741,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
             } else if (key == "height") {
               bool ok;
               double d = val.toDouble(&ok);
-              if (d != 0 || ok) {
+              if ((d != 0 || ok) && !isnan(d)) {
 #if !APPLE_CHANGES
                 d += 2*qApp->style().pixelMetric( QStyle::PM_DefaultFrameWidth ) + 2;
 #endif
@@ -1515,7 +1757,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
             } else if (key == "width") {
               bool ok;
               double d = val.toDouble(&ok);
-              if (d != 0 || ok) {
+              if ((d != 0 || ok) && !isnan(d)) {
 #if !APPLE_CHANGES
                 d += 2*qApp->style().pixelMetric( QStyle::PM_DefaultFrameWidth ) + 2;
 #endif
@@ -1844,16 +2086,20 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
         }
         return Undefined();
     }
-
+  case Window::ShowModalDialog:
+    return Value(showModalDialog(exec, window, args));
   }
   return Undefined();
 }
 
-void Window::updateLayout() const
+void Window::updateLayout(bool ignoreStylesheets) const
 {
   DOM::DocumentImpl* docimpl = static_cast<DOM::DocumentImpl *>(m_part->document().handle());
   if (docimpl) {
-    docimpl->updateLayoutIgnorePendingStylesheets();
+    if (ignoreStylesheets)
+      docimpl->updateLayoutIgnorePendingStylesheets();
+    else
+      docimpl->updateLayout();
   }
 }
 
@@ -1883,43 +2129,38 @@ ScheduledAction::ScheduledAction(const QString &_code, bool _singleShot)
 void ScheduledAction::execute(Window *window)
 {
   ScriptInterpreter *interpreter = static_cast<ScriptInterpreter *>(KJSProxy::proxy(window->m_part)->interpreter());
-
+  
   interpreter->setProcessingTimerCallback(true);
-
+  
   //kdDebug(6070) << "ScheduledAction::execute " << this << endl;
   if (isFunction) {
     if (func.implementsCall()) {
       // #### check this
       Q_ASSERT( window->m_part );
-      if ( window->m_part )
-      {
-        KJS::Interpreter *interpreter = KJSProxy::proxy( window->m_part )->interpreter();
+      if (window->m_part) {
+        Interpreter *interpreter = KJSProxy::proxy(window->m_part)->interpreter();
         ExecState *exec = interpreter->globalExec();
         Q_ASSERT( window == interpreter->globalObject().imp() );
         Object obj( window );
-	Interpreter::lock();
+	InterpreterLock lock;
         func.call(exec,obj,args); // note that call() creates its own execution state for the func call
-	Interpreter::unlock();
+        
 	if ( exec->hadException() ) {
 #if APPLE_CHANGES
-          Interpreter::lock();
           char *message = exec->exception().toObject(exec).get(exec, messagePropertyName).toString(exec).ascii();
           int lineNumber =  exec->exception().toObject(exec).get(exec, "line").toInt32(exec);
-          Interpreter::unlock();
-	  if (Interpreter::shouldPrintExceptions()) {
+	  if (Interpreter::shouldPrintExceptions())
 	    printf("(timer):%s\n", message);
-	  }
+
           KWQ(window->m_part)->addMessageToConsole(message, lineNumber, QString());
 #endif
 	  exec->clearException();
-	}
+        }
       }
     }
-  }
-  else {
+  } else
     window->m_part->executeScript(code);
-  }
-
+  
   // Update our document's rendering following the execution of the timeout callback.
   DOM::DocumentImpl *doc = static_cast<DOM::DocumentImpl*>(window->m_part->document().handle());
   doc->updateRendering();
@@ -2668,7 +2909,7 @@ Value HistoryFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 
 const ClassInfo Konqueror::info = { "Konqueror", 0, 0, 0 };
 
-bool Konqueror::hasProperty(ExecState *exec, const Identifier &p) const
+bool Konqueror::hasOwnProperty(ExecState *exec, const Identifier &p) const
 {
   if ( p.qstring().startsWith( "goHistory" ) ) return false;
 

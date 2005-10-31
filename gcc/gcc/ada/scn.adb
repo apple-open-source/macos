@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,9 +28,12 @@ with Atree;    use Atree;
 with Csets;    use Csets;
 with Namet;    use Namet;
 with Opt;      use Opt;
+with Restrict; use Restrict;
+with Rident;   use Rident;
 with Scans;    use Scans;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
+with Uintp;    use Uintp;
 
 package body Scn is
 
@@ -62,7 +65,7 @@ package body Scn is
       case Token is
          when Tok_Char_Literal =>
             Token_Node := New_Node (N_Character_Literal, Token_Ptr);
-            Set_Char_Literal_Value (Token_Node, Character_Code);
+            Set_Char_Literal_Value (Token_Node, UI_From_CC (Character_Code));
             Set_Chars (Token_Node, Token_Name);
 
          when Tok_Identifier =>
@@ -320,6 +323,20 @@ package body Scn is
          Used_As_Identifier (J) := False;
       end loop;
    end Initialize_Scanner;
+
+   -----------------------
+   -- Obsolescent_Check --
+   -----------------------
+
+   procedure Obsolescent_Check (S : Source_Ptr) is
+   begin
+      --  This is a pain in the neck case, since we normally need a node to
+      --  call Check_Restrictions, and all we have is a source pointer. The
+      --  easiest thing is to construct a dummy node. A bit kludgy, but this
+      --  is a marginal case. It's not worth trying to do things more cleanly.
+
+      Check_Restriction (No_Obsolescent_Features, New_Node (N_Empty, S));
+   end Obsolescent_Check;
 
    ------------------------------
    -- Scan_Reserved_Identifier --

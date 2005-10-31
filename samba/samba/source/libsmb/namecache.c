@@ -126,7 +126,7 @@ BOOL namecache_store(const char *name, int name_type,
 	 */
 	if (!gencache_init()) return False;
 
-	if ( DEBUGLEVEL >= 5 ) {
+	if ( SAMBA_DEBUGLEVEL >= 5 ) {
 		DEBUG(5, ("namecache_store: storing %d address%s for %s#%02x: ",
 			num_names, num_names == 1 ? "": "es", name, name_type));
 

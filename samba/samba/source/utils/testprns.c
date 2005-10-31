@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
       if (dbf == NULL) {
          printf("Unable to open logfile.\n");
       } else {
-         DEBUGLEVEL = 3;
+         SAMBA_DEBUGLEVEL = 3;
          pszTemp = (argc < 3) ? PRINTCAP_NAME : argv[2];
          printf("Looking for printer %s in printcap file %s\n", 
                  argv[1], pszTemp);

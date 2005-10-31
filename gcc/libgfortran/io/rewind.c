@@ -1,4 +1,3 @@
-
 /* Copyright (C) 2002-2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -8,6 +7,15 @@ Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,6 +32,9 @@ Boston, MA 02111-1307, USA.  */
 #include "io.h"
 
 /* rewind.c--  Implement the rewind statement */
+
+extern void st_rewind (void);
+export_proto(st_rewind);
 
 void
 st_rewind (void)
@@ -55,6 +66,8 @@ st_rewind (void)
 	  u->current_record = 0;
 	  test_endfile (u);
 	}
+      /* update position for INQUIRE */
+      u->flags.position = POSITION_REWIND;
     }
 
   library_end ();

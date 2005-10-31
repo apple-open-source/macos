@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -257,8 +257,7 @@ namespace std
       // Data Members (public):
       // NB: This is an unsigned type, and thus represents the maximum
       // size that the allocator can hold.
-      /// @var
-      /// Value returned by various member functions when they fail.
+      ///  Value returned by various member functions when they fail.
       static const size_type	npos = static_cast<size_type>(-1);
 
     private:
@@ -776,19 +775,7 @@ namespace std
        *  @return  Reference to this string.
        */
       basic_string&
-      append(const basic_string& __str)
-      {
-	const size_type __size = __str.size();
-	if (__size)
-	  {
-	    const size_type __len = __size + this->size();
-	    if (__len > this->capacity() || _M_rep()->_M_is_shared())
-	      this->reserve(__len);
-	    _M_copy(_M_data() + this->size(), __str._M_data(), __size);
-	    _M_rep()->_M_set_length_and_sharable(__len);
-	  }
-	return *this;
-      }
+      append(const basic_string& __str);
 
       /**
        *  @brief  Append a substring.
@@ -835,19 +822,7 @@ namespace std
        *  Appends n copies of c to this string.
        */
       basic_string&
-      append(size_type __n, _CharT __c)
-      {
-	if (__n)
-	  {
-	    _M_check_length(size_type(0), __n, "basic_string::append");	  
-	    const size_type __len = __n + this->size();
-	    if (__len > this->capacity() || _M_rep()->_M_is_shared())
-	      this->reserve(__len);
-	    _M_assign(_M_data() + this->size(), __n, __c);
-	    _M_rep()->_M_set_length_and_sharable(__len);
-	  }
-	return *this;
-      }
+      append(size_type __n, _CharT __c);
 
       /**
        *  @brief  Append a range of characters.
@@ -882,18 +857,7 @@ namespace std
        *  @return  Reference to this string.
        */
       basic_string&
-      assign(const basic_string& __str)
-      {
-	if (_M_rep() != __str._M_rep())
-	  {
-	    // XXX MT
-	    const allocator_type __a = this->get_allocator();
-	    _CharT* __tmp = __str._M_rep()->_M_grab(__a, __str.get_allocator());
-	    _M_rep()->_M_dispose(__a);
-	    _M_data(__tmp);
-	  }
-	return *this;
-      }
+      assign(const basic_string& __str);
 
       /**
        *  @brief  Set value to a substring of a string.
@@ -1140,8 +1104,11 @@ namespace std
       */
       basic_string&
       erase(size_type __pos = 0, size_type __n = npos)
-      { return _M_replace_safe(_M_check(__pos, "basic_string::erase"),
-			       _M_limit(__pos, __n), NULL, size_type(0)); }
+      { 
+	_M_mutate(_M_check(__pos, "basic_string::erase"),
+		  _M_limit(__pos, __n), size_type(0));
+	return *this;
+      }
 
       /**
        *  @brief  Remove one character.
@@ -1157,7 +1124,7 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__position >= _M_ibegin()
 				 && __position < _M_iend());
 	const size_type __pos = __position - _M_ibegin();
-	_M_replace_safe(__pos, size_type(1), NULL, size_type(0));
+	_M_mutate(__pos, size_type(1), size_type(0));
 	_M_rep()->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
@@ -1177,7 +1144,7 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__first >= _M_ibegin() && __first <= __last
 				 && __last <= _M_iend());
         const size_type __pos = __first - _M_ibegin();
-	_M_replace_safe(__pos, __last - __first, NULL, size_type(0));
+	_M_mutate(__pos, __last - __first, size_type(0));
 	_M_rep()->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
@@ -1394,7 +1361,7 @@ namespace std
 	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
 				   && __i2 <= _M_iend());
 	  __glibcxx_requires_valid_range(__k1, __k2);
-	  typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
+	  typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	  return _M_replace_dispatch(__i1, __i2, __k1, __k2, _Integral());
 	}
 
@@ -1456,24 +1423,11 @@ namespace std
 
       basic_string&
       _M_replace_aux(size_type __pos1, size_type __n1, size_type __n2,
-		     _CharT __c)
-      {
-	_M_check_length(__n1, __n2, "basic_string::_M_replace_aux");
-	_M_mutate(__pos1, __n1, __n2);
-	if (__n2)
-	  _M_assign(_M_data() + __pos1, __n2, __c);
-	return *this;
-      }
+		     _CharT __c);
 
       basic_string&
       _M_replace_safe(size_type __pos1, size_type __n1, const _CharT* __s,
-		      size_type __n2)
-      {
-	_M_mutate(__pos1, __n1, __n2);
-	if (__n2)
-	  _M_copy(_M_data() + __pos1, __s, __n2);
-	return *this;
-      }
+		      size_type __n2);
 
       // _S_construct_aux is used to implement the 21.3.1 para 15 which
       // requires special behaviour if _InIter is an integral type
@@ -1497,7 +1451,7 @@ namespace std
         static _CharT*
         _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a)
 	{
-	  typedef typename _Is_integer<_InIterator>::_Integral _Integral;
+	  typedef typename std::__is_integer<_InIterator>::__type _Integral;
 	  return _S_construct_aux(__beg, __end, __a, _Integral());
         }
 
@@ -2331,7 +2285,7 @@ namespace std
     inline bool
     operator<=(const _CharT* __lhs,
 	       const basic_string<_CharT, _Traits, _Alloc>& __rhs)
-  { return __rhs.compare(__lhs) >= 0; }
+    { return __rhs.compare(__lhs) >= 0; }
 
   // operator >=
   /**
@@ -2427,7 +2381,7 @@ namespace std
    *  delim was encountered, it is extracted but not stored into @a str.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_istream<_CharT,_Traits>&
+    basic_istream<_CharT, _Traits>&
     getline(basic_istream<_CharT, _Traits>& __is,
 	    basic_string<_CharT, _Traits, _Alloc>& __str, _CharT __delim);
 
@@ -2444,9 +2398,21 @@ namespace std
    *  encountered, it is extracted but not stored into @a str.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
-    inline basic_istream<_CharT,_Traits>&
+    inline basic_istream<_CharT, _Traits>&
     getline(basic_istream<_CharT, _Traits>& __is,
 	    basic_string<_CharT, _Traits, _Alloc>& __str);
+    
+  template<>
+    basic_istream<char>&
+    getline(basic_istream<char>& __in, basic_string<char>& __str,
+	    char __delim);
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+  template<>
+    basic_istream<wchar_t>&
+    getline(basic_istream<wchar_t>& __in, basic_string<wchar_t>& __str,
+	    wchar_t __delim);
+#endif  
 } // namespace std
 
 #endif /* _BASIC_STRING_H */

@@ -24,6 +24,12 @@
 #ifndef __aod_h__
 #define __aod_h__	1
 
+#include <uuid/uuid.h>
+
+#include <DirectoryService/DirServices.h>
+#include <DirectoryService/DirServicesUtils.h>
+#include <DirectoryService/DirServicesConst.h>
+
 #include "prot.h"
 
 /* Mail user attribute version */
@@ -74,87 +80,54 @@
 #define	MAX_CHAL_BUF_SIZE		2048
 #define	MAX_IO_BUF_SIZE			21848
 
-#define	ODA_NO_ERROR			0
-#define	ODA_AUTH_FAILED			-2000
-#define	ODA_AUTH_CANCEL			-2001
-#define	ODA_PROTOCOL_ERROR		-2002
-#define	ODA_METHOD_NOT_ENABLDE	-2003
-
-
-static const char * const odText[] = {
-	/*  0 */	"No Error",
-	/*  1 */	"AOD: Parameter error (parameter %d)",
-	/*  2 */	"AOD: Unable to open Directory Services (Error %d)",
-	/*  3 */	"AOD: Unable to open Directory Services search node (Error %d)",
-	/*  4 */	"AOD: Unable to find user %s (Error %d)",
-	/*  5 */	"AOD: Unable to open user directory node for user %s (Error %d)",
-	/*  6 */	"AOD: Authentication failed for user %s (Error %d)",
-	/*  7 */	"AOD: Warning: Authentication succeeded for user %s but a new password is required (Error %d)",
-	/*  8 */	"AOD: Warning: Authentication succeeded for user %s but user password has expired (Error %d)",
-	/*  9 */	"AOD: Error: Unable to allocate memory (Error %d)",
-	/* 10 */	"AOD: Unknown error (Error %d)",
-		0
-};
-
-#define	kMAX_GUID_LEN			128
-#define	kONE_K_BUF				1024
 
 typedef enum {
-	eTypeNoErr				=  0,
-	eTypeParamErr			=  1,
-	eTypeOpenDSFailed		=  2,
-	eTypeOpenSearchFailed	=  3,
-	eTypeUserNotFound		=  4,
-	eTypeCantOpenUserNode	=  5,
-	eTypeAuthFailed			=  6,
-	eTypeAuthWarnNewPW		=  7,
-	eTypeAuthWarnExpirePW	=  8,
-	eTypeAllocError			=  9,
-	eMaxErrors				= 10,
-	eMalformedAttr			= -8003,
-	eWrongVersion			= -8004,
-	eNoUserID				= -8005,
-	eItemNotFound			= -8001,
-	eInvalidDataType		= -8002,
-	eEmptyString			= -8006
-} eErrorType;
-
-typedef enum {
-	eAcctEnabled			= 1,
-	eAcctDisabled			= 2,
-	eAcctNotMember			= 3,
-	eAcctForwarded			= 4,
-	eAcctProtocolEnabled	= 5
-} eMailAcctState;
-
-typedef enum {
-	eAODNoErr				=  0,
-	eAODParamErr			= -1,
-	eAODOpenDSFailed		= -2,
-	eAODOpenSearchFailed	= -3,
-	eAODUserNotFound		= -4,
-	eAODCantOpenUserNode	= -5,
-	eAODAuthFailed			= -6,
-	eAODAuthWarnNewPW		= -7,
-	eAODAuthWarnExpirePW	= -8,
-	eAODAllocError			= -9,
+	eAODNoErr				=   0,
+	eAODParamErr			=  -1,
+	eAODOpenDSFailed		=  -2,
+	eAODOpenSearchFailed	=  -3,
+	eAODUserNotFound		=  -4,
+	eAODCantOpenUserNode	=  -5,
+	eAODAuthFailed			=  -6,
+	eAODAuthWarnNewPW		=  -7,
+	eAODAuthWarnExpirePW	=  -8,
+	eAODAllocError			=  -9,
 	eAODConfigError			= -10,
+	eAODMethodNotEnabled	= -11,
+	eAODAuthCanceled		= -12,
+	eAODProtocolError		= -13,
+	eAODInvalidDataType		= -14,
+	eAODItemNotFound		= -15,
+	eAODWrongVersion		= -16,
+	eAODLostConnection		= -17,
+	eAODNullbuffer			= -18,
 	eAOD					= 0xFF
 } eAODError;
 
+typedef enum {
+	eUnknownState			= 0x00000000,
+	eUnknownUser			= 0x00000001,
+	eAccountEnabled			= 0x00000002,
+	eIMAPEnabled			= 0x00000004,
+	ePOPEnabled				= 0x00000008,
+	eAutoForwardedEnabled	= 0x00000010,
+	eACLNotMember			= 0x00000020
+} eAccountState;
+
 struct od_user_opts
 {
-	char			fUserID[ kONE_K_BUF ];
-	char			fRecName[ kONE_K_BUF ];
-	char			fGUID[ kMAX_GUID_LEN ];
-	unsigned long	fUID;
-	eMailAcctState	fAcctState;
-	eMailAcctState	fPOP3Login;
-	eMailAcctState	fIMAPLogin;
-	char			fAutoFwdAddr[ kONE_K_BUF ];
-	char			fAccountLoc[ kONE_K_BUF ];
-	char			fAltDataLoc[ kONE_K_BUF ];
-	int				fDiskQuota;
+	tDirReference		fDirRef;
+	tDirNodeReference	fSearchNodeRef;
+	eAccountState		fAccountState;
+	int					fDiskQuota;
+	char			   *fUserIDPtr;
+	uuid_t			   *fUserUUID;
+	char			   *fAuthIDNamePtr;
+	char			   *fRecNamePtr;
+	char			   *fAccountLocPtr;
+	char			   *fAltDataLocPtr;
+	char			   *fAutoFwdPtr;
+	char			   *fUserLocPtr;
 };
 
 typedef enum
@@ -185,13 +158,15 @@ static char index_64[ 128 ] =
     41,42,43,44, 45,46,47,48, 49,50,51,-1, -1,-1,-1,-1
 };
 
-int odGetUserOpts   ( const char *inUserID, struct od_user_opts *inOutOpts );
-int odCheckPass		( const char *inUserID, const char *inPasswd );
-int odCheckAPOP		( char **inOutUserID, const char *inChallenge, const char *inResponse  );
-int odCRAM_MD5		( const char *inUserID, const char *inChallenge, const char *inResponse  );
-int odDoAuthenticate( const char *inMethod, const char *inDigest, const char *inCont,
-					  const char *inProtocol, struct protstream *inStreamIn,
-					  struct protstream *inStreamOut, char **inOutCannonUser );
+int	 odGetUserOpts		( const char *inUserID, struct od_user_opts *inOutOpts );
+void odFreeUserOpts		( struct od_user_opts *inOutOpts, int inFreeOD );
+int  odCheckPass		( const char *inPasswd, struct od_user_opts *inOutOpts );
+int  odCheckAPOP		( const char *inChallenge, const char *inResponse, struct od_user_opts *inOutOpts );
+int  odCRAM_MD5			( const char *inChallenge, const char *inResponse, struct od_user_opts *inOutOpts );
+int  odDoAuthenticate	( const char *inMethod, const char *inDigest, const char *inCont,
+						  const char *inProtocol, struct protstream *inStreamIn,
+						  struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
+int odIsMember			( const char *inUser, const char *inGroup );
 
 typedef struct
 {
@@ -202,7 +177,5 @@ typedef struct
 
 int apple_password_callback ( char *inBuf, int inSize, int in_rwflag, void *inUserData );
 
-
-extern char	gErrStr[ kONE_K_BUF ];
 
 #endif /* aod */

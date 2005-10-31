@@ -1,7 +1,8 @@
 // -*- C++ -*-
 // Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -102,6 +103,23 @@ namespace __gnu_test
   // Check mangled name demangles (using __cxa_demangle) as expected.
   void
   verify_demangle(const char* mangled, const char* wanted);
+
+  // 17.3.2.1.2 - Bitmask types [lib.bitmask.types]
+  // bitmask_operators
+  template<typename bitmask_type>
+    void
+    bitmask_operators()
+    {
+      bitmask_type a;
+      bitmask_type b;
+      a | b;
+      a & b;
+      a ^ b;
+      ~b;
+      a |= b; // set
+      a &= ~b; // clear
+      a ^= b;
+    }
 
   // Simple callback structure for variable numbers of tests (all with
   // same signature).  Assume all unit tests are of the signature
@@ -207,7 +225,7 @@ namespace __gnu_test
     {
       count_++;
       if (count_ == throw_on_)
-	__throw_exception_again "copy constructor exception";
+	std::__throw_runtime_error("copy_constructor::mark_call");
     }
       
     static void
@@ -238,7 +256,7 @@ namespace __gnu_test
     {
       count_++;
       if (count_ == throw_on_)
-	__throw_exception_again "assignment operator exception";
+	std::__throw_runtime_error("assignment_operator::mark_call");
     }
 
     static void
@@ -363,6 +381,30 @@ namespace __gnu_test
 	return it == end ? v.end() : it;
       }
     };
+
+  // A binary semaphore for use across multiple processes.
+  class semaphore 
+  {
+  public:
+    // Creates a binary semaphore.  The semaphore is initially in the
+    // unsignaled state. 
+    semaphore();
+
+    // Destroy the semaphore.
+    ~semaphore();
+
+    // Signal the semaphore.  If there are processes blocked in
+    // "wait", exactly one will be permitted to proceed.
+    void signal();
+
+    // Wait until the semaphore is signaled.
+    void wait();
+
+  private:
+    int sem_set_;
+
+    pid_t pid_;
+  };
 } // namespace __gnu_test
 
 namespace std

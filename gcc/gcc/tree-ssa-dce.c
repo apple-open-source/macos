@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
    Adapted to use control dependence by Steven Bosscher, SUSE Labs.
@@ -54,6 +54,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 
 #include "tree.h"
@@ -91,6 +92,10 @@ static sbitmap last_stmt_necessary;
    bitmap.  The Ith bit in the bitmap is set if that block is dependent
    on the Ith edge.  */
 bitmap *control_dependence_map;
+
+/* Vector indicating that a basic block has already had all the edges
+   processed that it is control dependent on.  */
+sbitmap visited_control_parents;
 
 /* Execute CODE for each edge (given number EDGE_NUMBER within the CODE)
    for which the block with index N is control dependent.  */
@@ -263,7 +268,7 @@ mark_operand_necessary (tree op, bool phionly)
 }
 
 
-/* Mark STMT as necessary if it is obviously is.  Add it to the worklist if
+/* Mark STMT as necessary if it obviously is.  Add it to the worklist if
    it can make other statements necessary.
 
    If AGGRESSIVE is false, control statements are conservatively marked as
@@ -325,22 +330,12 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
       break;
 
     case GOTO_EXPR:
-      if (! simple_goto_p (stmt))
-	mark_stmt_necessary (stmt, true);
+      gcc_assert (!simple_goto_p (stmt));
+      mark_stmt_necessary (stmt, true);
       return;
 
     case COND_EXPR:
-      if (GOTO_DESTINATION (COND_EXPR_THEN (stmt))
-	  == GOTO_DESTINATION (COND_EXPR_ELSE (stmt)))
-	{
-	  /* A COND_EXPR is obviously dead if the target labels are the same.
-	     We cannot kill the statement at this point, so to prevent the
-	     statement from being marked necessary, we replace the condition
-	     with a constant.  The stmt is killed later on in cfg_cleanup.  */
-	  COND_EXPR_COND (stmt) = integer_zero_node;
-	  modify_stmt (stmt);
-	  return;
-	}
+      gcc_assert (EDGE_COUNT (bb_for_stmt (stmt)->succs) == 2);
       /* Fall through.  */
 
     case SWITCH_EXPR:
@@ -491,11 +486,6 @@ find_obviously_necessary_stmts (struct edge_list *el)
 	  NECESSARY (stmt) = 0;
 	  mark_stmt_if_obviously_necessary (stmt, el != NULL);
 	}
-
-      /* Mark this basic block as `not visited'.  A block will be marked
-	 visited when the edges that it is control dependent on have been
-	 marked.  */
-      bb->flags &= ~BB_VISITED;
     }
 
   if (el)
@@ -518,7 +508,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
 static void
 mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
 {
-  int edge_number;
+  unsigned edge_number;
 
   gcc_assert (bb != EXIT_BLOCK_PTR);
 
@@ -574,9 +564,10 @@ propagate_necessity (struct edge_list *el)
 	     containing `i' is control dependent on, but only if we haven't
 	     already done so.  */
 	  basic_block bb = bb_for_stmt (i);
-	  if (! (bb->flags & BB_VISITED))
+	  if (bb != ENTRY_BLOCK_PTR
+	      && ! TEST_BIT (visited_control_parents, bb->index))
 	    {
-	      bb->flags |= BB_VISITED;
+	      SET_BIT (visited_control_parents, bb->index);
 	      mark_control_dependent_edges_necessary (bb, el);
 	    }
 	}
@@ -602,9 +593,10 @@ propagate_necessity (struct edge_list *el)
 	      for (k = 0; k < PHI_NUM_ARGS (i); k++)
 		{
 		  basic_block arg_bb = PHI_ARG_EDGE (i, k)->src;
-		  if (! (arg_bb->flags & BB_VISITED))
+		  if (arg_bb != ENTRY_BLOCK_PTR
+		      && ! TEST_BIT (visited_control_parents, arg_bb->index))
 		    {
-		      arg_bb->flags |= BB_VISITED;
+		      SET_BIT (visited_control_parents, arg_bb->index);
 		      mark_control_dependent_edges_necessary (arg_bb, el);
 		    }
 		}
@@ -698,6 +690,7 @@ mark_really_necessary_kill_operand_phis (void)
 
 
 
+
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
 
@@ -709,33 +702,36 @@ eliminate_unnecessary_stmts (void)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
-
+  
   clear_special_calls ();
   FOR_EACH_BB (bb)
     {
       /* Remove dead PHI nodes.  */
       remove_dead_phis (bb);
+    }
 
+  FOR_EACH_BB (bb)
+    {
       /* Remove dead statements.  */
       for (i = bsi_start (bb); ! bsi_end_p (i) ; )
 	{
-	  tree t = bsi_stmt (i);
+         tree t = bsi_stmt (i);
 
-	  stats.total++;
+         stats.total++;
 
-	  /* If `i' is not necessary then remove it.  */
-	  if (! NECESSARY (t))
-	    remove_dead_stmt (&i, bb);
-	  else
-	    {
-	      tree call = get_call_expr_in (t);
-	      if (call)
-		notice_special_calls (call);
-	      bsi_next (&i);
-	    }
+         /* If `i' is not necessary then remove it.  */
+         if (! NECESSARY (t))
+           remove_dead_stmt (&i, bb);
+         else
+           {
+             tree call = get_call_expr_in (t);
+             if (call)
+               notice_special_calls (call);
+             bsi_next (&i);
+           }
 	}
     }
-}
+ }
 
 /* Remove dead PHI nodes from block BB.  */
 
@@ -802,6 +798,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
   if (is_ctrl_stmt (t))
     {
       basic_block post_dom_bb;
+
       /* The post dominance info has to be up-to-date.  */
       gcc_assert (dom_computed[CDI_POST_DOMINATORS] == DOM_OK);
       /* Get the immediate post dominator of bb.  */
@@ -815,9 +812,20 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	  return;
 	}
 
-      /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
-      redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
-      PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+      /* If the post dominator block has PHI nodes, we might be unable
+	 to compute the right PHI args for them.  Since the control
+	 statement is unnecessary, all edges can be regarded as
+	 equivalent, but we have to get rid of the condition, since it
+	 might reference a variable that was determined to be
+	 unnecessary and thus removed.  */
+      if (phi_nodes (post_dom_bb))
+	post_dom_bb = EDGE_SUCC (bb, 0)->dest;
+      else
+	{
+	  /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
+	  redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
+	  PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+	}
       EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
       EDGE_SUCC (bb, 0)->count = bb->count;
 
@@ -837,7 +845,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       while (EDGE_COUNT (bb->succs) != 1)
         remove_edge (EDGE_SUCC (bb, 1));
     }
-
+  
   FOR_EACH_SSA_DEF_OPERAND (def_p, t, iter, 
 			    SSA_OP_VIRTUAL_DEFS | SSA_OP_VIRTUAL_KILLS)
     {
@@ -845,8 +853,8 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       bitmap_set_bit (vars_to_rename,
 		      var_ann (SSA_NAME_VAR (def))->uid);
     }
-  bsi_remove (i);
-  release_defs (t);
+  bsi_remove (i);  
+  release_defs (t); 
 }
 
 /* Print out removed statement statistics.  */
@@ -871,7 +879,7 @@ print_stats (void)
 	       stats.removed_phis, stats.total_phis, (int) percg);
     }
 }
-
+
 /* Initialization for this pass.  Set up the used data structures.  */
 
 static void
@@ -886,7 +894,7 @@ tree_dce_init (bool aggressive)
       control_dependence_map 
 	= xmalloc (last_basic_block * sizeof (bitmap));
       for (i = 0; i < last_basic_block; ++i)
-	control_dependence_map[i] = BITMAP_XMALLOC ();
+	control_dependence_map[i] = BITMAP_ALLOC (NULL);
 
       last_stmt_necessary = sbitmap_alloc (last_basic_block);
       sbitmap_zero (last_stmt_necessary);
@@ -908,9 +916,10 @@ tree_dce_done (bool aggressive)
       int i;
 
       for (i = 0; i < last_basic_block; ++i)
-	BITMAP_XFREE (control_dependence_map[i]);
+	BITMAP_FREE (control_dependence_map[i]);
       free (control_dependence_map);
 
+      sbitmap_free (visited_control_parents);
       sbitmap_free (last_stmt_necessary);
     }
 
@@ -946,6 +955,9 @@ perform_tree_ssa_dce (bool aggressive)
       el = create_edge_list ();
       find_all_control_dependences (el);
       timevar_pop (TV_CONTROL_DEPENDENCES);
+
+      visited_control_parents = sbitmap_alloc (last_basic_block);
+      sbitmap_zero (visited_control_parents);
 
       mark_dfs_back_edges ();
     }
@@ -1022,3 +1034,4 @@ struct tree_opt_pass pass_cd_dce =
 					/* todo_flags_finish */
   0					/* letter */
 };
+

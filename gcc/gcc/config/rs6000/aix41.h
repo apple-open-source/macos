@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX version 4.1.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
@@ -91,3 +92,7 @@
 #undef RS6000_CALL_GLUE
 #define RS6000_CALL_GLUE "{cror 31,31,31|nop}"
 
+/* The IBM AIX 4.x assembler doesn't support forward references in
+   .set directives.  We handle this by deferring the output of .set
+   directives to the end of the compilation unit.  */
+#define TARGET_DEFERRED_OUTPUT_DEFS(DECL,TARGET) true

@@ -1,3 +1,4 @@
+/* APPLE LOCAL file */
 /* { dg-do run { target powerpc*-*-* } } */
 /* { dg-options "-maltivec" } */
 

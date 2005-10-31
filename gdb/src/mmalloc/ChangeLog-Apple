@@ -1,3 +1,24 @@
+2005-03-24  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.in: Mark the mmap pre-destination as an apple
+	local change.
+	* configure: Regenerated.
+
+2005-03-07  Jason Molenda  (jmolenda@apple.com)
+
+	* mmap-sup.c (__mmalloc_map_morecore): Add cast to handle warning.
+	(mmalloc_findbase): Use a void* instead of int to store a pointer.
+	Add a couple casts to suppress warnings.
+	* mmalloc.h (mmalloc_findbase): Update prototype.
+	* pagecheck-sup.c (mfree_pagecheck, mrealloc_pagecheck): Add a couple
+	of necessary casts.
+	* sbrk-sup.c: Include unistd.h unconditionally.
+	(sbrk_morecore): Just use void* already.
+
+2004-01-03  Jim Ingham <jingham@apple.com>
+
+	* mmap-sup.c: Include sys/types.h for caddr_t.
+	
 2003-09-02  Klee Dienes  <kdienes@apple.com>
 
 	* attach.c (mmalloc_attach): Remove code (previously #ifdef 0'd)

@@ -149,6 +149,12 @@ void fc_purge __P((struct denode *dep, u_int frcn));
  */
 int markvoldirty(struct msdosfsmount *pmp, int dirty, vfs_context_t context);
 
+/*
+ * Write the primary/active FAT and all directories to the device.  This
+ * skips the boot sector, FSInfo sector, and non-active copies of the FAT.
+ */
+void msdosfs_meta_flush(struct msdosfsmount *pmp);
+
 enum vtype msdosfs_check_link(struct denode *dep, vfs_context_t context);
 
 #endif	/* KERNEL */

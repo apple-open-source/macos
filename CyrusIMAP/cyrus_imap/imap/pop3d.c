@@ -40,7 +40,7 @@
  */
 
 /*
- * $Id: pop3d.c,v 1.7 2005/03/23 00:38:14 dasenbro Exp $
+ * $Id: pop3d.c,v 1.12 2005/08/24 23:22:04 dasenbro Exp $
  */
 #include <config.h>
 
@@ -144,6 +144,10 @@ const int config_need_data = CONFIG_NEED_PARTITION_DATA;
 
 /* current namespace */
 static struct namespace popd_namespace;
+
+/* current user mail options */
+static struct od_user_opts	*gUserOpts = NULL;
+static int gBadLoginSleep	= 2;
 
 /* PROXY stuff */
 struct backend *backend = NULL;
@@ -352,6 +356,10 @@ int service_main(int argc __attribute__((unused)),
     popd_in = prot_new(0, 0);
     popd_out = prot_new(1, 1);
 
+	if ( gUserOpts == NULL ) {
+	gUserOpts = xzmalloc( sizeof(struct od_user_opts) );
+	}
+
     /* Find out name of client host */
     salen = sizeof(popd_remoteaddr);
     if (getpeername(0, (struct sockaddr *)&popd_remoteaddr, &salen) == 0 &&
@@ -475,6 +483,12 @@ void shut_down(int code)
 	backend_disconnect(backend, &protocol[PROTOCOL_POP3]);
 	free(backend);
     }
+
+	if (gUserOpts) {
+	odFreeUserOpts(gUserOpts, 1);
+	free(gUserOpts);
+	gUserOpts = NULL;
+	}
 
     mboxlist_close();
     mboxlist_done();
@@ -701,6 +715,7 @@ static void cmdloop(void)
 			(void) mailbox_expunge(popd_mailbox, 1, expungedeleted, 0);
 		    }
 		}
+		odFreeUserOpts( gUserOpts, 0 );
 		prot_printf(popd_out, "+OK\r\n");
 		return;
 	    }
@@ -1001,8 +1016,6 @@ static void cmd_apop(char *response)
 {
     int sasl_result;
     char *canon_user;
-    char *user = NULL;
-    struct od_user_opts	useropts;
 
     assert(response != NULL);
 
@@ -1044,62 +1057,59 @@ static void cmd_apop(char *response)
 	}
 	else
 	{
-		sasl_result = odCheckAPOP( &user, popd_apop_chal, response );
+		/* odCheckAPOP mallocs user and fills global user opts struct */
+		sasl_result = odCheckAPOP( popd_apop_chal, response, gUserOpts );
 		if ( sasl_result != eAODNoErr )
 		{
-			prot_printf( popd_out, "-ERR [AUTH] authenticating: %s\r\n", gErrStr );
+			prot_printf( popd_out, "-ERR [AUTH] authentication error: %d\r\n", sasl_result );
 
-			syslog( LOG_NOTICE, "badlogin: %s APOP (%s) Error:%d: %s",
-				popd_clienthost, popd_apop_chal, sasl_result, gErrStr );
+			syslog( LOG_NOTICE, "badlogin: %s APOP (%s) Error: %d",
+				popd_clienthost, popd_apop_chal, sasl_result );
 			
 			return;
 		}
 
-		odGetUserOpts( user, &useropts );
-		if ( useropts.fAcctState != eAcctEnabled )
+		if ( !(gUserOpts->fAccountState & eAccountEnabled) )
 		{
-			if ( useropts.fAcctState == eAcctNotMember )
+			if ( gUserOpts->fAccountState & eACLNotMember )
 			{
 				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
-						popd_clienthost, beautify_string( user ) );
+						popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 				prot_printf( popd_out, "-ERR [SYS/PERM] mail service ACL is not enabled for this user\r\n" );
 			}
-			else if ( useropts.fAcctState == eAcctForwarded )
+			else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
 			{
 				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
-						popd_clienthost, beautify_string( user ) );
+						popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 				prot_printf( popd_out, "-ERR [SYS/PERM] mail auto-forwarding is enabled for this user\r\n" );
 			}
 			else
 			{
 				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
-						popd_clienthost, beautify_string( user ) );
+						popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 				prot_printf( popd_out, "-ERR [SYS/PERM] mail account is not enabled for this user\r\n" );
 			}
 
-			/* xxx - med - need to free user */
 			return;
 		}
 
-		if ( useropts.fPOP3Login != eAcctProtocolEnabled )
+		if ( !(gUserOpts->fAccountState & ePOPEnabled) )
 		{
 			syslog( LOG_NOTICE, "badlogin: %s plaintext user \"%s\" POP3 access is not enabled for this user",
-					popd_clienthost, beautify_string( user ) );
+					popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 			prot_printf( popd_out, "-ERR [SYS/PERM] NO POP3 access is not enabled for this user\r\n" );
 
-			/* xxx - med - need to free user */
 			return;
 		}
 
 		/* successful authentication */
-		canon_user = auth_canonifyid( useropts.fRecName, 0 );
+		canon_user = auth_canonifyid( gUserOpts->fRecNamePtr, 0 );
 
 		popd_userid = xstrdup(canon_user);
-
 	}
 
     /* failed authentication */
@@ -1130,7 +1140,6 @@ static void cmd_apop(char *response)
 void cmd_user(char *user)
 {
     char *p, *dot, *domain;
-    struct od_user_opts	useropts;
 
     /* possibly disallow USER */
     if (!(kflag || popd_starttls_done ||
@@ -1145,44 +1154,7 @@ void cmd_user(char *user)
 	return;
     }
 
-	odGetUserOpts( user, &useropts );
-	if ( useropts.fAcctState != eAcctEnabled )
-	{
-		if ( useropts.fAcctState == eAcctNotMember )
-		{
-			syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
-					popd_clienthost, beautify_string( user ) );
-
-			prot_printf( popd_out, "-ERR [SYS/PERM] mail service ACL is not enabled for this user\r\n" );
-		}
-		else if ( useropts.fAcctState == eAcctForwarded )
-		{
-			syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
-					popd_clienthost, beautify_string( user ) );
-
-			prot_printf( popd_out, "-ERR [SYS/PERM] mail auto-forwarding is enabled for this user\r\n" );
-		}
-		else
-		{
-			syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
-					popd_clienthost, beautify_string( user ) );
-
-			prot_printf( popd_out, "-ERR [SYS/PERM] mail account is not enabled for this user\r\n" );
-		}
-
-		return;
-	}
-
-	if ( useropts.fPOP3Login != eAcctProtocolEnabled )
-	{
-		syslog( LOG_NOTICE, "badlogin: %s plaintext user \"%s\" POP3 access is not enabled for this user",
-				popd_clienthost, beautify_string( user ) );
-
-		prot_printf( popd_out, "-ERR [SYS/PERM] NO POP3 access is not enabled for this user\r\n" );
-
-		return;
-	}
-
+	/* alloc global user opts struct if not already */
 	if ( config_getswitch( IMAPOPT_POP_AUTH_CLEAR ) == 0 )
 	{
 		prot_printf( popd_out, "-ERR [AUTH] pass not enabled\r\n" );
@@ -1194,7 +1166,10 @@ void cmd_user(char *user)
 	return;
     }
 
-    if (!(p = canonify_userid(useropts.fRecName, NULL, NULL)) ||
+	/* set global user options */
+	odGetUserOpts( user, gUserOpts );
+
+    if (!(p = canonify_userid(gUserOpts->fRecNamePtr, NULL, NULL)) ||
 	     /* '.' isn't allowed if '.' is the hierarchy separator */
 	     (popd_namespace.hier_sep == '.' && (dot = strchr(p, '.')) &&
 	      !(config_virtdomains &&  /* allow '.' in dom.ain */
@@ -1214,6 +1189,7 @@ void cmd_user(char *user)
 
 void cmd_pass(char *pass)
 {
+    int bad_login	= 0;
     int plaintextloginpause;
 
     if (!popd_userid) {
@@ -1256,6 +1232,9 @@ void cmd_pass(char *pass)
 	    syslog(LOG_NOTICE, "badlogin: %s anonymous login refused",
 		   popd_clienthost);
 	    prot_printf(popd_out, "-ERR [AUTH] Invalid login\r\n");
+		odFreeUserOpts(gUserOpts, 0);
+		free(popd_userid);
+		popd_userid = 0;
 	    return;
 	}
     }
@@ -1269,18 +1248,20 @@ void cmd_pass(char *pass)
 	       popd_clienthost, popd_userid, sasl_errdetail(popd_saslconn));
 	sleep(3);
 	prot_printf(popd_out, "-ERR [AUTH] Invalid login\r\n");
+	odFreeUserOpts(gUserOpts, 0);
 	free(popd_userid);
 	popd_userid = 0;
 
 	return;
     }
 	else if ( (config_getswitch( IMAPOPT_APPLE_AUTH )) &&
-			  (odCheckPass( popd_userid, pass )) != 0)
+			  (odCheckPass( pass, gUserOpts )) != 0)
 	{ 
 		syslog(LOG_NOTICE, "badlogin: %s plaintext %s", popd_clienthost, popd_userid);
 
 		sleep(3);
 		prot_printf(popd_out, "-ERR [AUTH] Invalid login\r\n");
+		odFreeUserOpts(gUserOpts, 0);
 		free(popd_userid);
 		popd_userid = 0;
 	
@@ -1288,6 +1269,45 @@ void cmd_pass(char *pass)
 	}
 	else
 	{
+		if ( !(gUserOpts->fAccountState & eAccountEnabled) )
+		{
+			if ( gUserOpts->fAccountState & eACLNotMember )
+			{
+				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
+						popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
+
+				prot_printf( popd_out, "-ERR [SYS/PERM] mail service ACL is not enabled for this user\r\n" );
+			}
+			else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
+			{
+				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
+						popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
+
+				prot_printf( popd_out, "-ERR [SYS/PERM] mail auto-forwarding is enabled for this user\r\n" );
+			}
+			else
+			{
+				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
+						popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
+
+				prot_printf( popd_out, "-ERR [SYS/PERM] mail account is not enabled for this user\r\n" );
+			}
+
+			odFreeUserOpts( gUserOpts, 0 );
+			return;
+		}
+
+		if ( !(gUserOpts->fAccountState & ePOPEnabled) )
+		{
+			syslog( LOG_NOTICE, "badlogin: %s plaintext user \"%s\" POP3 access is not enabled for this user",
+					popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
+
+			prot_printf( popd_out, "-ERR [SYS/PERM] NO POP3 access is not enabled for this user\r\n" );
+
+			odFreeUserOpts( gUserOpts, 0 );
+			return;
+		}
+
 		syslog(LOG_NOTICE, "login: %s %s plaintext%s %s", popd_clienthost,
 			   popd_userid, popd_starttls_done ? "+TLS" : "", 
 			   "User logged in");
@@ -1438,7 +1458,8 @@ void cmd_auth(char *arg)
 	arg = NULL;
     }
 
-	if ( !config_getswitch( IMAPOPT_APPLE_AUTH ) )
+	if ( !config_getswitch( IMAPOPT_APPLE_AUTH ) ||
+		 (strcasecmp( authtype, "GSSAPI" ) == 0) )
 	{
 		r = saslserver(popd_saslconn, authtype, arg, "", "+ ", "",
 			   popd_in, popd_out, &sasl_result, NULL);
@@ -1492,27 +1513,82 @@ void cmd_auth(char *arg)
 				sasl_result);
 		return;
 		}
+
+		if ( (config_getswitch( IMAPOPT_APPLE_AUTH ) != 0) &&
+			 (strcasecmp( authtype, "GSSAPI" ) == 0) )
+		{
+			/* get user options */
+			odGetUserOpts( canon_user, gUserOpts );
+
+			/* do we know this user */
+			if ( gUserOpts->fRecNamePtr == NULL )
+			{
+				syslog( LOG_NOTICE, "badlogin from: %s plaintext user: %s. unknown user",
+						popd_clienthost, canon_user );
+
+				prot_printf( popd_out, "-ERR [AUTH] unknown user or bad password\r\n" );
+				odFreeUserOpts( gUserOpts, 0 );
+				return;
+			}
+
+			if ( !(gUserOpts->fAccountState & eAccountEnabled) )
+			{
+				if ( gUserOpts->fAccountState & eACLNotMember )
+				{
+					syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
+							popd_clienthost, gUserOpts->fRecNamePtr );
+
+					prot_printf( popd_out, "-ERR [SYS/PERM] mail service ACL is not enabled for this user\r\n" );
+				}
+				else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
+				{
+					syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
+							popd_clienthost, gUserOpts->fRecNamePtr );
+
+					prot_printf( popd_out, "-ERR [SYS/PERM] mail auto-forwarding is enabled for this user\r\n" );
+				}
+				else
+				{
+					syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
+							popd_clienthost, gUserOpts->fRecNamePtr );
+
+					prot_printf( popd_out, "-ERR [SYS/PERM] mail account is not enabled for this user\r\n" );
+				}
+				odFreeUserOpts( gUserOpts, 0 );
+				return;
+			}
+
+			if ( !(gUserOpts->fAccountState & ePOPEnabled) )
+			{
+				syslog( LOG_NOTICE, "badlogin: %s plaintext user \"%s\" POP3 access is not enabled for this user",
+						popd_clienthost, gUserOpts->fRecNamePtr );
+
+				prot_printf( popd_out, "-ERR [SYS/PERM] NO POP3 access is not enabled for this user\r\n" );
+				odFreeUserOpts( gUserOpts, 0 );
+				return;
+			}
+		}
 		popd_userid = xstrdup(canon_user);
 	}
 	else
 	{
-		r = odDoAuthenticate( authtype, NULL, "+ ", kXMLPOP3_Principal, popd_in, popd_out, (char **)&canon_user );
+		r = odDoAuthenticate( authtype, NULL, "+ ", kXMLPOP3_Principal, popd_in, popd_out, gUserOpts );
 		if ( r )
 		{
 			switch ( r )
 			{
-				case ODA_AUTH_CANCEL:
+				case eAODAuthCanceled:
 					prot_printf( popd_out, "-ERR [AUTH] Client canceled authentication\r\n" );
 					break;
 
-				case ODA_PROTOCOL_ERROR:
+				case eAODProtocolError:
 					prot_printf( popd_out, "-ERR [AUTH] Error reading client response\r\n" );
 					break;
 
 				default:
 					sleep( 3 );
 
-					if (authtype)
+					if ( authtype )
 					{
 						syslog( LOG_NOTICE, "badlogin: %s %s", popd_clienthost, authtype );
 					}
@@ -1523,15 +1599,53 @@ void cmd_auth(char *arg)
 
 					prot_printf( popd_out, "-ERR [AUTH] authenticating\r\n" );
 			}
+			odFreeUserOpts( gUserOpts, 0 );
+			return;
+		}
 
+		if ( !(gUserOpts->fAccountState & eAccountEnabled) )
+		{
+			if ( gUserOpts->fAccountState & eACLNotMember )
+			{
+				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
+						popd_clienthost, gUserOpts->fRecNamePtr );
+
+				prot_printf( popd_out, "-ERR [SYS/PERM] mail service ACL is not enabled for this user\r\n" );
+			}
+			else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
+			{
+				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
+						popd_clienthost, gUserOpts->fRecNamePtr );
+
+				prot_printf( popd_out, "-ERR [SYS/PERM] mail auto-forwarding is enabled for this user\r\n" );
+			}
+			else
+			{
+				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
+						popd_clienthost, gUserOpts->fRecNamePtr );
+
+				prot_printf( popd_out, "-ERR [SYS/PERM] mail account is not enabled for this user\r\n" );
+			}
+			odFreeUserOpts( gUserOpts, 0 );
+			return;
+		}
+
+		if ( !(gUserOpts->fAccountState & ePOPEnabled) )
+		{
+			syslog( LOG_NOTICE, "badlogin: %s plaintext user \"%s\" POP3 access is not enabled for this user",
+					popd_clienthost, gUserOpts->fRecNamePtr );
+
+			prot_printf( popd_out, "-ERR [SYS/PERM] NO POP3 access is not enabled for this user\r\n" );
+			odFreeUserOpts( gUserOpts, 0 );
 			return;
 		}
 
 		/* successful authentication */
-
+		canon_user = auth_canonifyid( gUserOpts->fRecNamePtr, 0 );
 		if ( canon_user == NULL )
 		{
 			prot_printf( popd_out, "-ERR [AUTH] Error reading client response\r\n" );
+			odFreeUserOpts( gUserOpts, 0 );
 			return;
 		}
 
@@ -1575,11 +1689,9 @@ int openinbox(void)
 	if ( !r )
 	{
 		char *partition	= NULL;
-		struct od_user_opts	useropts;
-		odGetUserOpts( popd_userid, &useropts );
-		if ( useropts.fAltDataLoc[ 0 ] != '\0' )
+		if ( (gUserOpts != NULL) && gUserOpts->fAltDataLocPtr != NULL )
 		{
-			partition = useropts.fAltDataLoc;
+			partition = gUserOpts->fAltDataLocPtr;
 		}
 		mboxlist_createmailbox( inboxname, MAILBOX_FORMAT_NORMAL, partition, 1, popd_userid, NULL, 0, 0, 0 );
 	}
@@ -1718,6 +1830,7 @@ int openinbox(void)
     return 0;
 
   fail:
+	odFreeUserOpts(gUserOpts, 0);
     free(popd_userid);
     popd_userid = 0;
     auth_freestate(popd_authstate);

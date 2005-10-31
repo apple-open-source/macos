@@ -72,6 +72,7 @@ typedef struct _disk_t {
 
 /* Prototypes */
 int DISK_open __P((char *, int));
+int DISK_openshared __P((char *, int, int *));
 int DISK_close __P((int));
 int DISK_getmetrics __P((disk_t *, DISK_metrics *));
 int DISK_printmetrics __P((disk_t *));

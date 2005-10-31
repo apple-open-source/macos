@@ -1,7 +1,7 @@
 /*
  * RealmsEditorController.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/RealmsEditorController.m,v 1.13 2004/11/02 23:28:39 lxs Exp $
+ * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/RealmsEditorController.m,v 1.15 2005/05/25 20:36:07 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -134,7 +134,8 @@
     KerberosRealm *selectedRealm = [self selectedRealm];
     if (selectedRealm != NULL) {
         NSString *format = NSLocalizedString (@"KAppStringAskRemoveRealm", NULL);
-        if ([ErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [selectedRealm name]]
+        if (([[self currentRealmString] length] == 0) ||
+            [ErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [self currentRealmString]]
                             modalForWindow: [self window]]) {
             [realmsConfiguration removeRealm: selectedRealm];
         }
@@ -193,7 +194,8 @@
     KerberosServer *selectedServer = [self selectedServer];
     if ((selectedRealm != NULL) && (selectedServer != NULL)) {
         NSString *format = NSLocalizedString (@"KAppStringAskRemoveServer", NULL);
-        if ([ErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [selectedServer host]]
+        if (([[self currentServerString] length] == 0) ||
+            [ErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [self currentServerString]]
                             modalForWindow: [self window]]) {
             [selectedRealm removeServer: selectedServer];
         }
@@ -224,7 +226,8 @@
     KerberosDomain *selectedDomain = [self selectedDomain];
     if ((selectedRealm != NULL) && (selectedDomain != NULL)) {
         NSString *format = NSLocalizedString (@"KAppStringAskRemoveDomain", NULL);
-        if ([ErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [selectedDomain name]]
+        if (([[self currentDomainString] length] == 0) ||
+            [ErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [self currentDomainString]]
                             modalForWindow: [self window]]) {
             [selectedRealm removeDomain: selectedDomain];
         }
@@ -523,27 +526,7 @@
     }
 }
 
-#pragma mark -- Miscellaneous --
-
-// ---------------------------------------------------------------------------
-
-- (BOOL) saveChanges
-{
-    BOOL success = NO;
-    
-    if ([self stopEditing]) {
-        krb5_error_code err = [realmsConfiguration flush];
-        if (!err) {
-            success = YES;
-        } else if ((err != errAuthorizationCanceled) && (err != userCanceledErr)) {
-            // Report non-user-initiated error conditions
-            [self displayErrorMessage: NSLocalizedString (@"KAppStringRealmsConfigurationWriteError", NULL)
-                          description: [NSString stringWithUTF8String: error_message (err)]];
-        }
-    }    
-    
-    return success;
-}
+#pragma mark -- Editing --
 
 // ---------------------------------------------------------------------------
 
@@ -573,17 +556,57 @@
 // written to disk because that's what's in the data source.  So we also 
 // manually stop any editing which is currently going on.
 
+// ---------------------------------------------------------------------------
+
+- (NSString *) currentRealmString
+{
+    KerberosRealm *realm = [self selectedRealm];
+    NSText *editor = [realmTextField currentEditor];
+    NSString *string = NULL;
+    
+    if ((string == NULL) && (editor != NULL)) { string = [editor string]; }
+    if ((string == NULL) && (realm  != NULL)) { string = [realm name]; }
+    
+    return string;
+}
+
+// ---------------------------------------------------------------------------
+
+- (NSString *) currentServerString
+{
+    KerberosServer *server = [self selectedServer];
+    NSText *editor = [serversTableView currentEditor];
+    NSString *string = NULL;
+    
+    if ((string == NULL) && (editor != NULL)) { string = [editor string]; }
+    if ((string == NULL) && (server != NULL)) { string = [server host]; }
+    
+    return string;
+}
+
+// ---------------------------------------------------------------------------
+
+- (NSString *) currentDomainString
+{
+    KerberosDomain *domain = [self selectedDomain];
+    NSText *editor = [domainsTableView currentEditor];
+    NSString *string = NULL;
+    
+    if ((string == NULL) && (editor != NULL)) { string = [editor string]; }
+    if ((string == NULL) && (domain != NULL)) { string = [domain name]; }
+    
+    return string;
+}
+
+// ---------------------------------------------------------------------------
+
 - (BOOL) stopEditing
 {
     BOOL allow = YES;
     
     if (allow) {
-        KerberosRealm *realm = [self selectedRealm];
+        NSString *string = [self currentRealmString];
         NSText *editor = [realmTextField currentEditor];
-        NSString *string = NULL;
-        
-        if ((string == NULL) && (editor != NULL)) { string = [editor string]; }
-        if ((string == NULL) && (realm  != NULL)) { string = [realm name]; }
         
         if (string != NULL) {
             //NSLog (@"Realm text field editor exists and contains '%@'", string);
@@ -602,12 +625,8 @@
     }
     
     if (allow) {
-        KerberosServer *server = [self selectedServer];
+        NSString *string = [self currentServerString];
         NSText *editor = [serversTableView currentEditor];
-        NSString *string = NULL;
-        
-        if ((string == NULL) && (editor != NULL)) { string = [editor string]; }
-        if ((string == NULL) && (server != NULL)) { string = [server host]; }
         
         if (string != NULL) {
             //NSLog (@"Server table ditor exists and contains '%@'", string);
@@ -630,12 +649,8 @@
     }
 
     if (allow) {
-        KerberosDomain *domain = [self selectedDomain];
+        NSString *string = [self currentDomainString];
         NSText *editor = [domainsTableView currentEditor];
-        NSString *string = NULL;
-        
-        if ((string == NULL) && (editor != NULL)) { string = [editor string]; }
-        if ((string == NULL) && (domain != NULL)) { string = [domain name]; }
         
         if (string != NULL) {
             KerberosRealm *selectedRealm = [self selectedRealm];
@@ -669,6 +684,31 @@
     }
     
     return allow;
+}
+
+#pragma mark -- Miscellaneous --
+
+// ---------------------------------------------------------------------------
+
+- (BOOL) saveChanges
+{
+    BOOL success = NO;
+    
+    if ([self stopEditing]) {
+        krb5_error_code err = [realmsConfiguration flush];
+        if (!err) {
+            success = YES;
+            [realmsTableView reloadData];
+            [self tableViewSelectionDidChange: [NSNotification notificationWithName: NSTableViewSelectionDidChangeNotification 
+                                                                             object: realmsTableView]];
+        } else if ((err != errAuthorizationCanceled) && (err != userCanceledErr)) {
+            // Report non-user-initiated error conditions
+            [self displayErrorMessage: NSLocalizedString (@"KAppStringRealmsConfigurationWriteError", NULL)
+                          description: [NSString stringWithUTF8String: error_message (err)]];
+        }
+    }    
+    
+    return success;
 }
 
 // ---------------------------------------------------------------------------

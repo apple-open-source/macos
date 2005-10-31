@@ -1,3 +1,15 @@
+2005-04-14  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c (OP_E): Print disp8 and disp32 displacement offsets
+	as signed integers, not hex values.
+
+2005-03-24  Jason Molenda  (jmolenda@apple.com)
+
+        * configure.in: Force AC_FUNC_MMAP's result to 'yes' - it
+        needs to run a test case to say 'yes' so cross-host builds
+        end up with mmap support turned off.
+	* configure, config.in, po/POTFILES.in: Regenerated.
+
 2003-05-20 Klee Dienes   <kdienes@apple.com>
 
         * po/Make-in: Don't error out if unable to write .po files to

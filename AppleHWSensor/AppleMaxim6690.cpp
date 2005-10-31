@@ -22,11 +22,14 @@
 /*
  * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: AppleMaxim6690.cpp,v 1.6 2004/01/30 23:52:00 eem Exp $
+ *  File: $Id: AppleMaxim6690.cpp,v 1.7 2005/04/11 23:39:13 dirty Exp $
  *
  *  DRI: Eric Muehlhausen
  *
  *		$Log: AppleMaxim6690.cpp,v $
+ *		Revision 1.7  2005/04/11 23:39:13  dirty
+ *		[4078743] Properly handle negative temperatures.
+ *		
  *		Revision 1.6  2004/01/30 23:52:00  eem
  *		[3542678] IOHWSensor/IOHWControl should use "reg" with version 2 thermal parameters
  *		Remove AppleSMUSensor/AppleSMUFan since that code will be in AppleSMUDevice class.
@@ -787,7 +790,7 @@ IOReturn AppleMaxim6690::getInternalTemp( SInt32 * temp )
 	closeI2C();
 
 	// format the 16.16 fixed point temperature and return it
-	*temp = ((integer << 16) & 0x00FF0000) | ((fraction << 8) & 0x0000E000);
+	*temp = ( ( ( ( SInt8 ) integer ) << 16 ) | ( ( fraction & 0xE0 ) << 8) );
 	return(kIOReturnSuccess);
 
 failClose:
@@ -852,7 +855,8 @@ IOReturn AppleMaxim6690::getExternalTemp( SInt32 * temp )
 	closeI2C();
 
 	// format the 16.16 fixed point temperature and return it
-	*temp = ((integer << 16) & 0x00FF0000) | ((fraction << 8) & 0x0000E000);
+	*temp = ( ( ( ( SInt8 ) integer ) << 16 ) | ( ( fraction & 0xE0 ) << 8) );
+//	*temp = ((integer << 16) & 0x00FF0000) | ((fraction << 8) & 0x0000E000);
 	return(kIOReturnSuccess);
 
 failClose:

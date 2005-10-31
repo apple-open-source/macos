@@ -1,5 +1,5 @@
 /* UIManager.java -- 
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,6 +44,8 @@ import java.awt.Font;
 import java.awt.Insets;
 import java.beans.PropertyChangeListener;
 import java.io.Serializable;
+import java.util.Locale;
+
 import javax.swing.border.Border;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.metal.MetalLookAndFeel;
@@ -92,7 +94,7 @@ public class UIManager implements Serializable
    *
    * @param listener the listener to add
    */
-  public static void addPropertyChangeListener (PropertyChangeListener listener)
+  public static void addPropertyChangeListener(PropertyChangeListener listener)
   {
     // FIXME
   }
@@ -102,7 +104,7 @@ public class UIManager implements Serializable
    *
    * @param listener the listener to remove
    */
-  public static void removePropertyChangeListener (PropertyChangeListener listener)
+  public static void removePropertyChangeListener(PropertyChangeListener listener)
   {
     // FIXME
   }
@@ -114,7 +116,7 @@ public class UIManager implements Serializable
    *
    * @since 1.4
    */
-  public static PropertyChangeListener[] getPropertyChangeListeners ()
+  public static PropertyChangeListener[] getPropertyChangeListeners()
   {
     // FIXME
     throw new Error ("Not implemented");
@@ -158,10 +160,43 @@ public class UIManager implements Serializable
   }
 
   public static  LookAndFeel[] getAuxiliaryLookAndFeels()
-  {	return aux_installed;    }
+  {
+    return aux_installed;
+  }
 
   public static  Object get(Object key)
-  {	return getLookAndFeel().getDefaults().get(key);    }
+  {
+    return getLookAndFeel().getDefaults().get(key);
+  }
+
+  public static  Object get(Object key, Locale locale)
+  {
+    return getLookAndFeel().getDefaults().get(key ,locale);
+  }
+
+  /**
+   * Returns a boolean value from the defaults table,
+   * <code>false</code> if key is not present.
+   *
+   * @since 1.4
+   */
+  public static boolean getBoolean(Object key)
+  {
+    Boolean value = (Boolean) getLookAndFeel().getDefaults().get(key);
+    return value != null ? value.booleanValue() : false;
+  }
+  
+  /**
+   * Returns a boolean value from the defaults table,
+   * <code>false</code> if key is not present.
+   *
+   * @since 1.4
+   */
+  public static boolean getBoolean(Object key, Locale locale)
+  {
+    Boolean value = (Boolean) getLookAndFeel().getDefaults().get(key, locale);
+    return value != null ? value.booleanValue() : false;
+  }
     
   /**
    * Returns a border from the defaults table. 
@@ -172,9 +207,27 @@ public class UIManager implements Serializable
   }
     
   /**
+   * Returns a border from the defaults table.
+   *
+   * @since 1.4
+   */
+  public static Border getBorder(Object key, Locale locale)
+  {
+    return (Border) getLookAndFeel().getDefaults().get(key, locale);
+  }
+    
+  /**
    * Returns a drawing color from the defaults table. 
    */
   public static  Color getColor(Object key)
+  {
+    return (Color) getLookAndFeel().getDefaults().get(key);
+  }
+
+  /**
+   * Returns a drawing color from the defaults table. 
+   */
+  public static  Color getColor(Object key, Locale locale)
   {
     return (Color) getLookAndFeel().getDefaults().get(key);
   }
@@ -204,6 +257,14 @@ public class UIManager implements Serializable
   }
 
   /**
+   * Returns a dimension from the defaults table. 
+   */
+  public static Dimension getDimension(Object key, Locale locale)
+  {
+    return (Dimension) getLookAndFeel().getDefaults().get(key, locale);
+  }
+
+  /**
    * Retrieves a font from the defaults table of the current
    * LookAndFeel.
    *
@@ -217,11 +278,32 @@ public class UIManager implements Serializable
   }
 
   /**
+   * Retrieves a font from the defaults table of the current
+   * LookAndFeel.
+   *
+   * @param key an Object that specifies the font. Typically,
+   *        this is a String such as
+   *        <code>TitledBorder.font</code>.
+   */
+  public static Font getFont(Object key, Locale locale)
+  {
+    return (Font) getLookAndFeel().getDefaults().get(key ,locale);
+  }
+
+  /**
    * Returns an Icon from the defaults table.
    */
   public static Icon getIcon(Object key)
   {
     return (Icon) getLookAndFeel().getDefaults().get(key);
+  }
+  
+  /**
+   * Returns an Icon from the defaults table.
+   */
+  public static Icon getIcon(Object key, Locale locale)
+  {
+    return (Icon) getLookAndFeel().getDefaults().get(key, locale);
   }
   
   /**
@@ -232,6 +314,14 @@ public class UIManager implements Serializable
     return (Insets) getLookAndFeel().getDefaults().getInsets(key);
   }
 
+  /**
+   * Returns an Insets object from the defaults table.
+   */
+  public static Insets getInsets(Object key, Locale locale)
+  {
+    return (Insets) getLookAndFeel().getDefaults().getInsets(key, locale);
+  }
+
   public static LookAndFeelInfo[] getInstalledLookAndFeels()
   {
     return installed;
@@ -240,6 +330,14 @@ public class UIManager implements Serializable
   public static int getInt(Object key)
   {
     Integer x = (Integer) getLookAndFeel().getDefaults().get(key);
+    if (x == null)
+      return 0;
+    return x.intValue();
+  }
+
+  public static int getInt(Object key, Locale locale)
+  {
+    Integer x = (Integer) getLookAndFeel().getDefaults().get(key, locale);
     if (x == null)
       return 0;
     return x.intValue();
@@ -265,6 +363,14 @@ public class UIManager implements Serializable
   public static String getString(Object key)
   {
     return (String) getLookAndFeel().getDefaults().get(key);
+  }
+  
+  /**
+   * Returns a string from the defaults table.
+   */
+  public static String getString(Object key, Locale locale)
+  {
+    return (String) getLookAndFeel().getDefaults().get(key, locale);
   }
   
   /**

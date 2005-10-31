@@ -1,9 +1,12 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- * File: $Id: IOI2CLM8x.cpp,v 1.2 2004/12/15 04:44:51 jlehrer Exp $
+ * File: $Id: IOI2CLM8x.cpp,v 1.3 2005/04/11 23:39:37 dirty Exp $
  *
  *		$Log: IOI2CLM8x.cpp,v $
+ *		Revision 1.3  2005/04/11 23:39:37  dirty
+ *		[4078743] Properly handle negative temperatures.
+ *		
  *		Revision 1.2  2004/12/15 04:44:51  jlehrer
  *		[3867728] Support for failed hardware.
  *		
@@ -123,7 +126,7 @@ IOReturn IOI2CLM8x::callPlatformFunction(
 				}
 
 				if (LUNtable[i].type == kTypeTemperature)
-					*value = (((SInt32)data) * LUNtable[i].ConversionMultiple) << 16;
+					*value = ( ( ( ( SInt8 ) data ) << 16 ) * LUNtable[i].ConversionMultiple );
 
 				if (LUNtable[i].type == kTypeADC)
 					*value = (SInt32)(((SInt32)data) * LUNtable[i].ConversionMultiple);

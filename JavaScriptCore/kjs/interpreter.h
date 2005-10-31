@@ -1,4 +1,3 @@
-// -*- c-basic-offset: 2 -*-
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
@@ -28,7 +27,6 @@
 #include "value.h"
 #include "object.h"
 #include "types.h"
-#include "protect.h"
 
 #if APPLE_CHANGES
 
@@ -215,7 +213,7 @@ namespace KJS {
      * Returns the implementation object associated with this interpreter.
      * Only useful for internal KJS operations.
      */
-    InterpreterImp *imp();
+    InterpreterImp *imp() const { return rep; }
 
     /**
      * Returns the builtin "Object" object. This is the object that was set
@@ -467,9 +465,19 @@ namespace KJS {
         : _interpreter(interp), _context(con) { }
     Interpreter *_interpreter;
     ContextImp *_context;
-    ProtectedValue _exception;
+    Value _exception;
   };
 
-}; // namespace
+    class InterpreterLock
+    {
+    public:
+        InterpreterLock() { Interpreter::lock(); }
+        ~InterpreterLock() { Interpreter::unlock(); }
+    private:
+        InterpreterLock(const InterpreterLock &);
+        InterpreterLock &operator =(const InterpreterLock &);
+    };
+
+} // namespace
 
 #endif // _KJS_INTERPRETER_H_

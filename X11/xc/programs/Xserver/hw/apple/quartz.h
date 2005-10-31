@@ -49,6 +49,7 @@ enum {
   kXquartzWindowMoved,
   kXquartzToggleFullscreen,
   kXquartzSetRootless,
+  kXquartzBringAllToFront,
 };
 
 extern int quartzUseSysBeep;

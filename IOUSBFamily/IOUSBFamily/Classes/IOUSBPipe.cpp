@@ -532,7 +532,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         tap.parameter = bytesRead;
 
         err = _controller->Read(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
-        if (err == kIOReturnSuccess)
+        if (err != kIOReturnSuccess)
         {
             // any err coming back in the callback indicates a stalled pipe
             if (err && (err != kIOUSBTransactionTimeout))
@@ -596,7 +596,7 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
         tap.parameter = NULL;
 
         err = _controller->Write(buffer, _address, &_endpoint, &tap, noDataTimeout, completionTimeout, reqCount);
-        if (err == kIOReturnSuccess)
+        if (err != kIOReturnSuccess)
         {
             // any err coming back in the callback indicates a stalled pipe
             if (err && (err != kIOUSBTransactionTimeout))
@@ -938,7 +938,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         tap.parameter = bytesRead;
 
         err = controllerV2->ReadV2(buffer, _address, &_endpoint, (IOUSBCompletionWithTimeStamp *) &tap, noDataTimeout, completionTimeout, reqCount);
-        if (err == kIOReturnSuccess)
+        if (err != kIOReturnSuccess)
         {
             // any err coming back in the callback indicates a stalled pipe
             if (err && (err != kIOUSBTransactionTimeout))

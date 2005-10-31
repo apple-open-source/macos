@@ -47,6 +47,7 @@ enum
     kHIDUsage_AppleVendor_IlluminationToggle    = 0x07,
     kHIDUsage_AppleVendor_IlluminationUp        = 0x08,
     kHIDUsage_AppleVendor_IlluminationDown      = 0x09,
+    kHIDUsage_AppleVendor_Reserved_MouseData    = 0xc0
 };
 
 

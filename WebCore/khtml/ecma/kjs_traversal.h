@@ -103,6 +103,6 @@ namespace KJS {
     ProtectedObject filter;
   };
 
-}; // namespace
+} // namespace
 
 #endif

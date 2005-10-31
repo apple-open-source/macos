@@ -20,7 +20,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: css_ruleimpl.h,v 1.12 2004/11/19 00:12:20 darin Exp $
+ * $Id: css_ruleimpl.h,v 1.12.10.1 2005/07/22 03:09:47 adele Exp $
  */
 #ifndef _CSS_css_ruleimpl_h_
 #define _CSS_css_ruleimpl_h_
@@ -135,6 +135,8 @@ public:
     CSSRuleListImpl() {}
 
     ~CSSRuleListImpl();
+
+    MAIN_THREAD_ALLOCATED;
 
     unsigned long length() const { return m_lstCSSRules.count(); }
     CSSRuleImpl *item ( unsigned long index ) { return m_lstCSSRules.at( index ); }

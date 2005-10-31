@@ -36,4 +36,4 @@ all: foo.c main.c
 	mv libfoo.dylib present/
 
 clean:
-	${RM} ${RMFLAGS} *~ libfoo.dylib absent/main present/{main,libfoo.dylib}
+	${RM} ${RMFLAGS} *~ libfoo.dylib absent present

@@ -1,4 +1,4 @@
-/* APPLE LOCAL 3926484 */
+/* APPLE LOCAL file 3926484 */
 /* { dg-do compile } */
 #import <Foundation/Foundation.h>
 main() { [NSObject new]; }

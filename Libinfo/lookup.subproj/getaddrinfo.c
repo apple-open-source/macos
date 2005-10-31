@@ -1369,7 +1369,7 @@ getnameinfo(const struct sockaddr * __restrict sa, socklen_t salen, char * __res
 		 */
 		if ((isll != 0) || (issl != 0))
 		{
-			ifnum = s6->sin6_addr.__u6_addr.__u6_addr16[1];
+			ifnum = ntohs(s6->sin6_addr.__u6_addr.__u6_addr16[1]);
 			if (ifnum == 0) ifnum = s6->sin6_scope_id;
 			else if ((s6->sin6_scope_id != 0) && (ifnum != s6->sin6_scope_id)) return EAI_FAIL;
 

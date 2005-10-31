@@ -40,12 +40,6 @@
 #include "AppleRAIDUserLib.h"
 #include "AppleRAIDMember.h"
 
-//XXX new for tiger - remove this
-//XXX new for tiger - remove this
-CF_EXPORT CFNotificationCenterRef CFNotificationCenterGetLocalCenter(void);
-//XXX new for tiger - remove this
-//XXX new for tiger - remove this
-
 #ifdef DEBUG
 
 #define IOLog1(...) { printf(__VA_ARGS__); fflush(stdout); }
@@ -106,9 +100,20 @@ AppleRAIDOpenConnection()
     }
 
     kr = IOConnectMethodScalarIScalarO(gRAIDControllerPort, kAppleRAIDClientOpen, 0, 0);
+    UInt32 count = 0;
+    // retry for 1 minute
+    while (kr == kIOReturnExclusiveAccess && count < 60)
+    {
+#ifdef DEBUG
+	if ((count % 15) == 0) IOLog1("AppleRAID: controller object is busy, retrying...\n");
+#endif
+	(void)sleep(1);
+	kr = IOConnectMethodScalarIScalarO(gRAIDControllerPort, kAppleRAIDClientOpen, 0, 0);
+	count++;
+    }
     if (kr != KERN_SUCCESS)
     {
-        IOLog1("AppleRAIDClientOpen returned %d\n", kr);
+	printf("AppleRAID: failed trying to get controller object, rc = 0x%x.\n", kr);
         
         // This closes the connection to our user client and destroys the connect handle.
         IOServiceClose(gRAIDControllerPort);
@@ -769,12 +774,28 @@ writeHeader(CFMutableDictionaryRef setInfo, memberInfo_t * memberInfo)
 
     header->size = memberInfo->chunkCount * memberInfo->chunkSize;
 
-    CFDataRef setData = IOCFSerialize(setInfo, kNilOptions);
+    // strip any internal keys from header dictionary before writing to disk
+    CFMutableDictionaryRef headerInfo = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, setInfo);
+    if (!headerInfo) return false;
+    CFIndex propCount = CFDictionaryGetCount(headerInfo);
+    if (!propCount) return false;
+    const void ** keys = calloc(propCount, sizeof(void *));
+    if (!keys) return false;
+    CFDictionaryGetKeysAndValues(headerInfo, keys, NULL);
+    CFIndex i;
+    for (i = 0; i < propCount; i++) {
+	if (!CFStringHasPrefix(keys[i], CFSTR("AppleRAID-"))) {
+	    CFDictionaryRemoveValue(headerInfo, keys[i]);
+	}
+    }
+
+    CFDataRef setData = IOCFSerialize(headerInfo, kNilOptions);
     if (!setData) {
 	IOLog1("AppleRAIDLib - serialize on setInfo failed\n");
 	return false;
     }
     bcopy(CFDataGetBytePtr(setData), header->plist, CFDataGetLength(setData));
+    CFRelease(headerInfo);
     CFRelease(setData);
 
     char devicePath[256];
@@ -791,10 +812,44 @@ writeHeader(CFMutableDictionaryRef setInfo, memberInfo_t * memberInfo)
     int length = write(fd, header, kAppleRAIDHeaderSize);
 	
     close(fd);
+
+    free(header);
 	
     if (length < kAppleRAIDHeaderSize) return false;
 
     return true;
+}
+
+static CFDataRef
+readHeader(memberInfo_t * memberInfo)
+{
+    AppleRAIDHeaderV2 * header = calloc(1, kAppleRAIDHeaderSize);
+    if (!header) return NULL;
+
+    char devicePath[256];
+    sprintf(devicePath, "/dev/%s", memberInfo->diskName);
+
+    int fd = open(devicePath, O_RDONLY, 0);
+    if (fd < 0) return NULL;
+	
+    memberInfo->headerOffset = ARHEADER_OFFSET(memberInfo->size);
+
+//    IOLog1("readHeader %s, header offset = %llu.\n", devicePath, memberInfo->headerOffset);
+    
+    off_t seek = lseek(fd, memberInfo->headerOffset, SEEK_SET);
+    if (seek != memberInfo->headerOffset) return NULL;
+
+    int length = read(fd, header, kAppleRAIDHeaderSize);
+	
+    close(fd);
+	
+    if (length < kAppleRAIDHeaderSize) return NULL;
+    if (strncmp(header->raidSignature, kAppleRAIDSignature, 16)) return NULL;
+
+    CFDataRef headerData = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)header, kAppleRAIDHeaderSize);
+    free(header);
+    
+    return headerData;
 }
 
 static bool
@@ -1017,8 +1072,7 @@ AppleRAIDUpdateSet(CFMutableDictionaryRef setInfo)
 
 
     // if the raid set has status it is "live", get it's current member/spare counts
-    bool liveSet = CFDictionaryContainsKey(setInfo, CFSTR(kAppleRAIDStatusKey));
-    UInt64 currentMemberSize = 0;
+    bool liveSet = CFDictionaryContainsKey(setInfo, CFSTR(kAppleRAIDStatusKey));  // this only works once
     if (liveSet) {
 	CFDictionaryRemoveValue(setInfo, CFSTR(kAppleRAIDStatusKey));
 
@@ -1030,18 +1084,6 @@ AppleRAIDUpdateSet(CFMutableDictionaryRef setInfo)
 	if (tempSpares) {
 	    spareCount = CFArrayGetCount(tempSpares) - newSpareCount;
 	}
-
-	// calculate the min size for a member partition in this set
-	UInt64 chunkSize = 0;
-	CFNumberRef number;
-	number = (CFNumberRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDChunkSizeKey));
-	if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &chunkSize);
-
-	currentMemberSize = 0;
-	number = (CFNumberRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDChunkCountKey));
-	if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &currentMemberSize);
-
-	currentMemberSize = currentMemberSize * chunkSize + (UInt64)kAppleRAIDHeaderSize;
     }
 
     // get info for new members and/or spares
@@ -1077,12 +1119,23 @@ AppleRAIDUpdateSet(CFMutableDictionaryRef setInfo)
 	// find the smallest member (or spare)
 	UInt64 smallestSize = 0;
 	if (liveSet) {
-	    smallestSize = currentMemberSize;
+	    // calculate the minimum required size for a member partition in this set
+	    UInt64 chunkSize = 0, chunkCount = 0;
+	    CFNumberRef number;
+	    number = (CFNumberRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDChunkSizeKey));
+	    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &chunkSize);
+
+	    number = (CFNumberRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDChunkCountKey));
+	    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &chunkCount);
+
+	    if (!chunkSize || !chunkCount) return NULL;
+
+	    smallestSize = chunkCount * chunkSize + (UInt64)kAppleRAIDHeaderSize;
 	} else {
 	    smallestSize = memberInfo[0]->size;
 	}
 	if (!sizesCanVary) {
-	    for (i = 1; i < newMemberCount + newSpareCount; i++) {
+	    for (i = 0; i < newMemberCount + newSpareCount; i++) {
 		// XXX if smaller than minimum raid set size  (1MB ?)
 		if (liveSet) {
 		    if (memberInfo[i]->size < smallestSize) {
@@ -1331,4 +1384,18 @@ UInt64 AppleRAIDGetUsableSize(UInt64 partitionSize, UInt64 chunkSize)
     UInt64 chunkCount = ARCHUNK_COUNT(partitionSize, chunkSize);
 
     return chunkCount * chunkSize;
+}
+
+
+CFDataRef
+AppleRAIDDumpHeader(CFStringRef partitionName)
+{
+    memberInfo_t * memberInfo = getMemberInfo(partitionName);
+    if (!memberInfo) return NULL;
+
+    CFDataRef data = readHeader(memberInfo);
+
+    freeMemberInfo(memberInfo);
+
+    return data;
 }

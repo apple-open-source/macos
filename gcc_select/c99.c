@@ -65,6 +65,8 @@ int
 main(int argc, char *argv[])
 {
 	int ch, i;
+	int link = 1;
+	int inputs = 0;
 
 	args = NULL;
 	cargs = nargs = 0;
@@ -86,6 +88,11 @@ main(int argc, char *argv[])
 	addarg("-pedantic");
 	addarg("-Wextra-tokens");
 	addarg("-mlong-double-64");
+	addarg("-fmath-errno");
+	addarg("-fno-builtin-pow");
+	addarg("-fno-builtin-powl");
+	addarg("-fno-builtin-powf");
+
 	for (i = 1; i < optind; i++) {
 	  /* "--" indicates end of options. Radar 3761967.  */
 	  if (strcmp (argv[i], "--") == 0)
@@ -117,8 +124,15 @@ main(int argc, char *argv[])
 	    i++;
 	  } else if (strncmp (argv[i], "-D", 2) == 0)
 	    add_def (argv[i]+2);
-	  else
+	  else {
 	    addarg(argv[i]);
+	    if (argv[i][0] == '-') {
+	      if (argv[i][1] == 'c' ||
+		  argv[i][1] == 'E')
+		link = 0;
+            } else
+	      inputs++;
+	  }
 	}
 	while (i < argc) {
 		if (strncmp(argv[i], "-l", 2) == 0) {
@@ -137,8 +151,15 @@ main(int argc, char *argv[])
 		}
 		else if (strcmp (argv[i], "--") == 0) {
 		  dash_dash_seen = 1;
-		} else
-		  addarg(argv[i++]);
+		  i++;
+		} else {
+                  addarg(argv[i++]);
+		  inputs++;
+		}
+	}
+	if (link && inputs > 0) {
+		dash_dash_seen = 0; /* don't ./ -liconv */
+		addlib("iconv");
 	}
 	execv("/usr/bin/cc", args);
 	err(1, "/usr/bin/cc");

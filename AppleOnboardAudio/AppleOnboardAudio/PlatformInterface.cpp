@@ -77,7 +77,7 @@ OSDefineMetaClassAndStructors ( PlatformInterface, OSObject );
 //		2					PlatformInterfaceI2S_Function
 //
 //	3 Nov 2004 - RBM
-bool PlatformInterface::init ( IOService* device, AppleOnboardAudio* provider, UInt32 inDBDMADeviceIndex, UInt32 supportSelectors )
+bool PlatformInterface::init ( IOService* device, AppleOnboardAudio* provider, UInt32 inDBDMADeviceIndex, UInt32 supportSelectors, UInt32 irqEnableMask )
 {
 	Boolean		result;
 
@@ -88,6 +88,7 @@ bool PlatformInterface::init ( IOService* device, AppleOnboardAudio* provider, U
 	
 	FailIf ( 0 == provider, Exit );
 	mProvider = provider;
+    mIrqEnableMask = irqEnableMask;                         //  [4073140,4079688]
 
 	mSupportSelectors = supportSelectors;
 	
@@ -532,43 +533,49 @@ void	PlatformInterface::threadedMemberRegisterDetectInterrupts ( IOService * dev
 	FailIf ( 0 == device, Exit );
 	FailIf ( 0 == mProvider, Exit );
 	
-	if ( !mDetectInterruptsHaveBeenRegistered ) 
+	if ( !mDetectInterruptsHaveBeenRegistered )
 	{
-		if ( kGPIO_Unknown != getComboInJackTypeConnected () )  
-		{
-			err = registerInterruptHandler ( device, ( void* ) comboInDetectInterruptHandler, kComboInDetectInterrupt );
-			if ( kIOReturnSuccess == err )
-			{
-				mGpioMessageFlag |= ( 1 << gpioMessage_ComboInJackType_bitAddress );
-			}
-			else
-			{
-				mGpioMessageFlag &= ( ~( 1 << gpioMessage_ComboInJackType_bitAddress ) );
-				FailMessage ( TRUE );
-			}
-		}
-		else
-		{
-			debugIOLog ( 3, "  PlatformInterface::threadedMemberRegisterDetectInterrupts kGPIO_Unknown == getComboInJackTypeConnected( ) " );
-		}
+        if ( 0 != ( mIrqEnableMask & ( 1 << gpioMessage_ComboInJackType_bitAddress ) ) )      //  [4073140,4079688]
+        {
+            if ( kGPIO_Unknown != getComboInJackTypeConnected () )  
+            {
+                err = registerInterruptHandler ( device, ( void* ) comboInDetectInterruptHandler, kComboInDetectInterrupt );
+                if ( kIOReturnSuccess == err )
+                {
+                    mGpioMessageFlag |= ( 1 << gpioMessage_ComboInJackType_bitAddress );
+                }
+                else
+                {
+                    mGpioMessageFlag &= ( ~( 1 << gpioMessage_ComboInJackType_bitAddress ) );
+                    FailMessage ( TRUE );
+                }
+            }
+            else
+            {
+                debugIOLog ( 3, "  PlatformInterface::threadedMemberRegisterDetectInterrupts kGPIO_Unknown == getComboInJackTypeConnected( ) " );
+            }
+        }
 		
-		if ( kGPIO_Unknown != getComboOutJackTypeConnected () )  {
-			debugIOLog ( 3, "  Attempting to register comboOutDetectInterruptHandler..." );
-			err = registerInterruptHandler ( device, ( void* ) comboOutDetectInterruptHandler, kComboOutDetectInterrupt );
-			if ( kIOReturnSuccess == err )
-			{
-				mGpioMessageFlag |= ( 1 << gpioMessage_ComboOutJackType_bitAddress );
-			}
-			else
-			{
-				mGpioMessageFlag &= ( ~( 1 << gpioMessage_ComboOutJackType_bitAddress ) );
-				FailMessage ( TRUE );
-			}
-		}
-		else
-		{
-			debugIOLog ( 3, "  PlatformInterface::threadedMemberRegisterDetectInterrupts kGPIO_Unknown == getComboOutJackTypeConnected( ) " );
-		}
+        if ( 0 != ( mIrqEnableMask & ( 1 << gpioMessage_ComboOutJackType_bitAddress ) ) )      //  [4073140,4079688]
+        {
+            if ( kGPIO_Unknown != getComboOutJackTypeConnected () )  {
+                debugIOLog ( 3, "  Attempting to register comboOutDetectInterruptHandler..." );
+                err = registerInterruptHandler ( device, ( void* ) comboOutDetectInterruptHandler, kComboOutDetectInterrupt );
+                if ( kIOReturnSuccess == err )
+                {
+                    mGpioMessageFlag |= ( 1 << gpioMessage_ComboOutJackType_bitAddress );
+                }
+                else
+                {
+                    mGpioMessageFlag &= ( ~( 1 << gpioMessage_ComboOutJackType_bitAddress ) );
+                    FailMessage ( TRUE );
+                }
+            }
+            else
+            {
+                debugIOLog ( 3, "  PlatformInterface::threadedMemberRegisterDetectInterrupts kGPIO_Unknown == getComboOutJackTypeConnected( ) " );
+            }
+        }
 		
 		if ( kGPIO_Unknown != getHeadphoneConnected () )
 		{
@@ -818,15 +825,22 @@ void	PlatformInterface::unregisterDetectInterrupts ( void )
 {
 	debugIOLog ( 6, "+ PlatformInterface::unregisterDetectInterrupts ()" );
 	if ( mDetectInterruptsHaveBeenRegistered )  {
-		if ( kGPIO_Unknown != getComboInJackTypeConnected () )
-		{
-			unregisterInterruptHandler ( (IOService*)this, (void*)comboInDetectInterruptHandler, kComboInDetectInterrupt );
+
+        if ( 0 != ( mIrqEnableMask & ( 1 << gpioMessage_ComboInJackType_bitAddress ) ) )      //  [4073140,4079688]
+        {
+            if ( kGPIO_Unknown != getComboInJackTypeConnected () )
+            {
+                unregisterInterruptHandler ( (IOService*)this, (void*)comboInDetectInterruptHandler, kComboInDetectInterrupt );
+            }
 		}
 		
-		if ( kGPIO_Unknown != getComboOutJackTypeConnected () )
-		{
-			unregisterInterruptHandler ( (IOService*)this, (void*)comboOutDetectInterruptHandler, kComboOutDetectInterrupt );
-		}
+        if ( 0 != ( mIrqEnableMask & ( 1 << gpioMessage_ComboOutJackType_bitAddress ) ) )      //  [4073140,4079688]
+        {
+            if ( kGPIO_Unknown != getComboOutJackTypeConnected () )
+            {
+                unregisterInterruptHandler ( (IOService*)this, (void*)comboOutDetectInterruptHandler, kComboOutDetectInterrupt );
+            }
+        }
 		
 		if ( kGPIO_Unknown != getHeadphoneConnected () )
 		{
@@ -925,21 +939,19 @@ Exit:
 	return;
 }					
 
-
-
 //	--------------------------------------------------------------------------------
-void	PlatformInterface::triggerComboOneShot ()
+void	PlatformInterface::triggerComboOneShot (UInt64 delayInNanos)
 {
     AbsoluteTime				fireTime;
     UInt64						nanos;
 
-	debugIOLog ( 6, "+ PlatformInterface::triggerComboOneShot ()" );
+	debugIOLog ( 6, "+ PlatformInterface::triggerComboOneShot (delayInNanos = %llu)", delayInNanos );
 	if ( comboDelayTimer )
 	{
 		comboDelayTimer->cancelTimeout ();
 		clock_get_uptime ( &fireTime );
 		absolutetime_to_nanoseconds ( fireTime, &nanos );
-		nanos += kComboJackDelay;
+        nanos += delayInNanos;
 		nanoseconds_to_absolutetime ( nanos, &fireTime );
 		comboDelayTimer->wakeAtTime ( fireTime );
 	}
@@ -1029,28 +1041,6 @@ void PlatformInterface::platformRunComboDelayTasks ( void )
 			//	to the AppleOnboardAudio protectedInterruptEventHandler must be determined based
 			//	on the type of jack that was removed and not based on the current analog state.
 			//	Note that the jack always reports an analog when the jack is removed.
-#if 0
-			debugIOLog ( 6, "  mProvider->parseOutputDetectCollection () = '%lX'", mProvider->parseOutputDetectCollection () );
-			switch ( mProvider->parseOutputDetectCollection () )
-			{
-				case kIOAudioOutputPortSubTypeSPDIF:
-					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kDigitalOutStatus, kRemoved )" );
-					mProvider->protectedInterruptEventHandler ( kDigitalOutStatus, kRemoved );
-					break;
-				case kIOAudioOutputPortSubTypeHeadphones:
-					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kHeadphoneStatus, kRemoved )" );
-					mProvider->protectedInterruptEventHandler ( kHeadphoneStatus, kRemoved );
-					break;
-				case kIOAudioOutputPortSubTypeLine:
-					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kLineOutStatus, kRemoved )" );
-					mProvider->protectedInterruptEventHandler ( kLineOutStatus, kRemoved );
-					break;
-				case kIOAudioOutputPortSubTypeExternalSpeaker:
-					debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kRemoved )" );
-					mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kRemoved );
-					break;
-			}
-#else
 			debugIOLog ( 6, "  mProvider->getDetectCollection () = 0x%lX", mProvider->getDetectCollection () );
 			if ( kSndHWDigitalOutput & mProvider->getDetectCollection () )
 			{
@@ -1072,7 +1062,11 @@ void PlatformInterface::platformRunComboDelayTasks ( void )
 				debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kRemoved )" );
 				mProvider->protectedInterruptEventHandler ( kExtSpeakersStatus, kRemoved );
 			}
-#endif
+			else if ( kSndHWInternalSpeaker & mProvider->getDetectCollection () )
+			{
+				debugIOLog ( 6, "  mProvider->protectedInterruptEventHandler ( kSndHWInternalSpeaker, kInserted )" );
+				mProvider->protectedInterruptEventHandler ( kInternalSpeakerStatus, kInserted );
+			}
 		}
 	}
 	
@@ -1182,7 +1176,7 @@ void PlatformInterface::comboInDetectInterruptHandler ( OSObject * owner, IOInte
 	if ( 0 != cg )
 	{
 		platformInterface->mComboInInterruptsProduced++;
-		platformInterface->triggerComboOneShot ();
+		platformInterface->triggerComboOneShot (kComboJackDelay);
 	}
 Exit:
 	debugIOLog ( 6, "- comboInDetectInterruptHandler ( %p, %p, %ld, %p ) ", owner, source, count, arg4 );
@@ -1209,7 +1203,7 @@ void PlatformInterface::comboOutDetectInterruptHandler ( OSObject * owner, IOInt
 	if ( 0 != cg )
 	{
 		platformInterface->mComboOutInterruptsProduced++;
-		platformInterface->triggerComboOneShot ();
+		platformInterface->triggerComboOneShot (kComboJackDelay);
 	}
 Exit:
 	debugIOLog ( 6, "- comboOutDetectInterruptHandler ( %p, %p, %ld, %p ) ", owner, source, count, arg4 );
@@ -1297,7 +1291,22 @@ void PlatformInterface::headphoneDetectInterruptHandler ( OSObject * owner, IOIn
 		else
 		{
 			platformInterface->mComboOutInterruptsProduced++;
-			platformInterface->triggerComboOneShot ();
+			// 4141477
+			//	If the combo jack interrupt was enabled then an old style combo jack is in use
+			//	and a timer deferred parsing of the combo jack state is prescribed.  If the combo
+			//	jack interrupt was not enabled then a new style combo jack is in use.
+            // 4166340
+			//  For new style combo jacks, the jack type detect only becomes valid after the jack
+            //  insert.  Because the hardware is "filtering" metal/plastic transitions in order to provide
+            //  a single jack type detect, we still need to wait for the jack type detect to become stable.
+			if ( 0 == ( platformInterface->mGpioMessageFlag & ( 1 << gpioMessage_ComboOutJackType_bitAddress ) ) )
+			{
+				platformInterface->triggerComboOneShot (kNewStyleComboJackDelay);  // [4166340]
+			}
+			else
+			{
+				platformInterface->triggerComboOneShot (kComboJackDelay);
+			}
 		}
 	}
 Exit:
@@ -1334,7 +1343,22 @@ void PlatformInterface::lineInDetectInterruptHandler ( OSObject * owner, IOInter
 		else
 		{
 			platformInterface->mComboInInterruptsProduced++;
-			platformInterface->triggerComboOneShot ();
+			// 4141477
+			//	If the combo jack interrupt was enabled then an old style combo jack is in use
+			//	and a timer deferred parsing of the combo jack state is prescribed.  If the combo
+			//	jack interrupt was not enabled then a new style combo jack is in use.
+            // 4166340
+			//  For new style combo jacks, the jack type detect only becomes valid after the jack
+            //  insert.  Because the hardware is "filtering" metal/plastic transitions in order to provide
+            //  a single jack type detect, we still need to wait for the jack type detect to become stable.
+			if ( 0 == ( platformInterface->mGpioMessageFlag & ( 1 << gpioMessage_ComboInJackType_bitAddress ) ) )
+			{
+				platformInterface->triggerComboOneShot (kNewStyleComboJackDelay);  // [4166340]
+			}
+			else
+			{
+				platformInterface->triggerComboOneShot (kComboJackDelay);
+			}
 		}
 	}
 Exit:
@@ -1369,7 +1393,22 @@ void PlatformInterface::lineOutDetectInterruptHandler ( OSObject * owner, IOInte
 		else
 		{
 			platformInterface->mComboOutInterruptsProduced++;
-			platformInterface->triggerComboOneShot ();
+			// 4141477
+			//	If the combo jack interrupt was enabled then an old style combo jack is in use
+			//	and a timer deferred parsing of the combo jack state is prescribed.  If the combo
+			//	jack interrupt was not enabled then a new style combo jack is in use.
+            // 4166340
+			//  For new style combo jacks, the jack type detect only becomes valid after the jack
+            //  insert.  Because the hardware is "filtering" metal/plastic transitions in order to provide
+            //  a single jack type detect, we still need to wait for the jack type detect to become stable.
+			if ( 0 == ( platformInterface->mGpioMessageFlag & ( 1 << gpioMessage_ComboOutJackType_bitAddress ) ) )
+			{
+				platformInterface->triggerComboOneShot (kNewStyleComboJackDelay);  // [4166340]
+			}
+			else
+			{
+				platformInterface->triggerComboOneShot (kComboJackDelay);
+			}
 		}
 	}
 Exit:
@@ -1416,7 +1455,22 @@ void PlatformInterface::speakerDetectInterruptHandler ( OSObject * owner, IOInte
 		else
 		{
 			platformInterface->mComboOutInterruptsProduced++;
-			platformInterface->triggerComboOneShot ();
+			// 4141477
+			//	If the combo jack interrupt was enabled then an old style combo jack is in use
+			//	and a timer deferred parsing of the combo jack state is prescribed.  If the combo
+			//	jack interrupt was not enabled then a new style combo jack is in use.
+            // 4166340
+			//  For new style combo jacks, the jack type detect only becomes valid after the jack
+            //  insert.  Because the hardware is "filtering" metal/plastic transitions in order to provide
+            //  a single jack type detect, we still need to wait for the jack type detect to become stable.
+			if ( 0 == ( platformInterface->mGpioMessageFlag & ( 1 << gpioMessage_ComboOutJackType_bitAddress ) ) )
+			{
+				platformInterface->triggerComboOneShot (kNewStyleComboJackDelay);  // [4166340]
+			}
+			else
+			{
+				platformInterface->triggerComboOneShot (kComboJackDelay);
+			}
 		}
 	}
 	
@@ -1694,6 +1748,18 @@ GpioAttributes PlatformInterface::getInputDataMux ()
 	if ( platformInterfaceGPIO )
 	{
 		result = platformInterfaceGPIO->getInputDataMux ();
+	}
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+GpioAttributes PlatformInterface::getInternalMicrophoneID ()
+{
+	GpioAttributes			result = kGPIO_Unknown;
+	
+	if ( platformInterfaceGPIO )
+	{
+		result = platformInterfaceGPIO->getInternalMicrophoneID ();
 	}
 	return result;
 }
@@ -2432,6 +2498,7 @@ IOReturn	PlatformInterface::getPlatformState ( PlatformStateStructPtr outState )
 		outState->gpio.gpio_HeadphoneDetect = platformInterfaceGPIO->getHeadphoneConnected ();
 		outState->gpio.gpio_HeadphoneMute = platformInterfaceGPIO->getHeadphoneMuteState ();
 		outState->gpio.gpio_InputDataMux = platformInterfaceGPIO->getInputDataMux ();
+		outState->gpio.gpio_InternalMicrophoneID = platformInterfaceGPIO->getInternalMicrophoneID ();
 		outState->gpio.gpio_InternalSpeakerID = platformInterfaceGPIO->getInternalSpeakerID ();
 		outState->gpio.gpio_LineInDetect = platformInterfaceGPIO->getLineInConnected ();
 		outState->gpio.gpio_LineOutDetect = platformInterfaceGPIO->getLineOutConnected ();
@@ -2440,8 +2507,7 @@ IOReturn	PlatformInterface::getPlatformState ( PlatformStateStructPtr outState )
 		outState->gpio.gpio_SpeakerMute = platformInterfaceGPIO->getSpeakerMuteState ();
 		outState->gpio.gpio_ComboInAssociation = getComboInAssociation ();
 		outState->gpio.gpio_ComboOutAssociation = getComboOutAssociation ();
-		
-		outState->gpio.reserved_20 = kGPIO_Unknown;
+		// outState->gpio.reserved_20 = kGPIO_Unknown;
 		outState->gpio.reserved_21 = kGPIO_Unknown;
 		outState->gpio.reserved_22 = kGPIO_Unknown;
 		outState->gpio.reserved_23 = kGPIO_Unknown;
@@ -2465,6 +2531,7 @@ IOReturn	PlatformInterface::getPlatformState ( PlatformStateStructPtr outState )
 		outState->gpio.gpio_HeadphoneDetect = kGPIO_Unknown;
 		outState->gpio.gpio_HeadphoneMute = kGPIO_Unknown;
 		outState->gpio.gpio_InputDataMux = kGPIO_Unknown;
+		outState->gpio.gpio_InternalMicrophoneID = kGPIO_Unknown;
 		outState->gpio.gpio_InternalSpeakerID = kGPIO_Unknown;
 		outState->gpio.gpio_LineInDetect = kGPIO_Unknown;
 		outState->gpio.gpio_LineOutDetect = kGPIO_Unknown;
@@ -2473,7 +2540,7 @@ IOReturn	PlatformInterface::getPlatformState ( PlatformStateStructPtr outState )
 		outState->gpio.gpio_SpeakerMute = kGPIO_Unknown;
 		outState->gpio.gpio_ComboInAssociation = kGPIO_Selector_NotAssociated;
 		outState->gpio.gpio_ComboOutAssociation = kGPIO_Selector_NotAssociated;
-		outState->gpio.reserved_20 = kGPIO_Unknown;
+		// outState->gpio.reserved_20 = kGPIO_Unknown;
 		outState->gpio.reserved_21 = kGPIO_Unknown;
 		outState->gpio.reserved_22 = kGPIO_Unknown;
 		outState->gpio.reserved_23 = kGPIO_Unknown;

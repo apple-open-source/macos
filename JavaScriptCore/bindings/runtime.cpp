@@ -130,11 +130,8 @@ Object Instance::createRuntimeObject (BindingLanguage language, void *nativeInst
 {
     Instance *interfaceObject = Instance::createBindingForLanguageInstance (language, (void *)nativeInstance, executionContext);
     
-    Interpreter::lock();
-    Object theObject(new RuntimeObjectImp(interfaceObject,true));
-    Interpreter::unlock();
-    
-    return theObject;
+    InterpreterLock lock;
+    return Object(new RuntimeObjectImp(interfaceObject,true));
 }
 
 void *Instance::createLanguageInstanceForValue (ExecState *exec, BindingLanguage language, const Object &value, const RootObject *origin, const RootObject *current)

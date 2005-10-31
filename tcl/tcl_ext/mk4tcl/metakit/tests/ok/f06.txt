@@ -1,2 +1,0 @@
->>> Flip foreign data
-<<< done.

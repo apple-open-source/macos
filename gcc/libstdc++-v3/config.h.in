@@ -14,11 +14,14 @@
 // Include I/O support for 'long long' and 'unsigned long long'.
 #undef _GLIBCXX_USE_LONG_LONG
 
+// Define if C99 features such as lldiv_t, llabs, lldiv should be exposed.
+#undef _GLIBCXX_USE_C99
+
 // Define if C99 math functions (like fpclassify) should be exposed.
 #undef _GLIBCXX_USE_C99_MATH
 
-// Define if C99 features such as lldiv_t, llabs, lldiv should be exposed.
-#undef _GLIBCXX_USE_C99
+// Define if C99 complex math functions should be used in std::complex.
+#undef _GLIBCXX_USE_C99_COMPLEX
 
 // Define if code specialized for wchar_t should be used.
 #undef _GLIBCXX_USE_WCHAR_T
@@ -199,6 +202,9 @@
 
 /* Define to 1 if you have the `ceill' function. */
 #undef HAVE_CEILL
+
+/* Define to 1 if you have the <complex.h> header file. */
+#undef HAVE_COMPLEX_H
 
 /* Define to 1 if you have the `copysign' function. */
 #undef HAVE_COPYSIGN
@@ -506,6 +512,9 @@
 /* Define to 1 if you have the <sys/ioctl.h> header file. */
 #undef HAVE_SYS_IOCTL_H
 
+/* Define to 1 if you have the <sys/ipc.h> header file. */
+#undef HAVE_SYS_IPC_H
+
 /* Define to 1 if you have the <sys/isa_defs.h> header file. */
 #undef HAVE_SYS_ISA_DEFS_H
 
@@ -517,6 +526,9 @@
 
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H
+
+/* Define to 1 if you have the <sys/sem.h> header file. */
+#undef HAVE_SYS_SEM_H
 
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H

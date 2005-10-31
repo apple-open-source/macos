@@ -43,7 +43,7 @@ static int kmod_compare(const void * a, const void * b)
     kern_return_t mach_result = KERN_SUCCESS;
     port_t host_port = PORT_NULL;
     kmod_info_t * kmod_list;
-    int kmod_bytecount;  // not really used
+    mach_msg_type_number_t kmod_bytecount;  // not really used
     int kmod_count;
     kmod_info_t * this_kmod;
     int i;

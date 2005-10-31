@@ -1,5 +1,5 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "bitmap.h"
+#include "pointer-set.h"
 #include "tree-flow.h"
 #include "tree-gimple.h"
 #include "tree-inline.h"
@@ -44,24 +45,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
-
-/* Remove edge E and remove the corresponding arguments from the PHI nodes
-   in E's destination block.  */
-
-void
-ssa_remove_edge (edge e)
-{
-  tree phi, next;
-
-  /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (phi = phi_nodes (e->dest); phi; phi = next)
-    {
-      next = PHI_CHAIN (phi);
-      remove_phi_arg (phi, e->src);
-    }
-
-  remove_edge (e);
-}
 
 /* Remove the corresponding arguments from the PHI nodes in E's
    destination block and redirect it to DEST.  Return redirected edge.
@@ -73,24 +56,20 @@ ssa_redirect_edge (edge e, basic_block dest)
   tree phi, next;
   tree list = NULL, *last = &list;
   tree src, dst, node;
-  int i;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = next)
     {
       next = PHI_CHAIN (phi);
 
-      i = phi_arg_from_edge (phi, e);
-      if (i < 0)
+      if (PHI_ARG_DEF (phi, e->dest_idx) == NULL_TREE)
 	continue;
 
-      src = PHI_ARG_DEF (phi, i);
+      src = PHI_ARG_DEF (phi, e->dest_idx);
       dst = PHI_RESULT (phi);
       node = build_tree_list (dst, src);
       *last = node;
       last = &TREE_CHAIN (node);
-
-      remove_phi_arg_num (phi, i);
     }
 
   e = redirect_edge_succ_nodup (e, dest);
@@ -115,7 +94,7 @@ flush_pending_stmts (edge e)
        phi = PHI_CHAIN (phi), arg = TREE_CHAIN (arg))
     {
       tree def = TREE_VALUE (arg);
-      add_phi_arg (&phi, def, e);
+      add_phi_arg (phi, def, e);
     }
 
   PENDING_STMT (e) = NULL;
@@ -129,8 +108,6 @@ flush_pending_stmts (edge e)
 static bool
 verify_ssa_name (tree ssa_name, bool is_virtual)
 {
-  TREE_VISITED (ssa_name) = 1;
-
   if (TREE_CODE (ssa_name) != SSA_NAME)
     {
       error ("Expected an SSA_NAME object");
@@ -240,6 +217,7 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
   bool err = false;
 
   err = verify_ssa_name (ssa_name, is_virtual);
+  TREE_VISITED (ssa_name) = 1;
 
   if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
       && var_ann (SSA_NAME_VAR (ssa_name))->default_def == ssa_name)
@@ -286,8 +264,6 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
 /* Return true if any of the arguments for PHI node PHI at block BB is
    malformed.
 
-   IDOM contains immediate dominator information for the flowgraph.
-
    DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
       numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set, it means that the
       block in that array slot contains the definition of SSA_NAME.  */
@@ -297,18 +273,35 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 {
   edge e;
   bool err = false;
-  int i, phi_num_args = PHI_NUM_ARGS (phi);
-  edge_iterator ei;
+  unsigned i, phi_num_args = PHI_NUM_ARGS (phi);
 
-  /* Mark all the incoming edges.  */
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    e->aux = (void *) 1;
+  if (EDGE_COUNT (bb->preds) != phi_num_args)
+    {
+      error ("Incoming edge count does not match number of PHI arguments\n");
+      err = true;
+      goto error;
+    }
 
   for (i = 0; i < phi_num_args; i++)
     {
       tree op = PHI_ARG_DEF (phi, i);
 
-      e = PHI_ARG_EDGE (phi, i);
+      e = EDGE_PRED (bb, i);
+
+      if (op == NULL_TREE)
+	{
+	  error ("PHI argument is missing for edge %d->%d\n",
+	         e->src->index,
+		 e->dest->index);
+	  err = true;
+	  goto error;
+	}
+
+      if (TREE_CODE (op) != SSA_NAME && !is_gimple_min_invariant (op))
+	{
+	  error ("PHI argument is not SSA_NAME, or invariant");
+	  err = true;
+	}
 
       if (TREE_CODE (op) == SSA_NAME)
 	err = verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op,
@@ -323,40 +316,12 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	  err = true;
 	}
 
-      if (e->aux == (void *) 0)
-	{
-	  error ("PHI argument flowing through dead edge %d->%d\n",
-	         e->src->index, e->dest->index);
-	  err = true;
-	}
-
-      if (e->aux == (void *) 2)
-	{
-	  error ("PHI argument duplicated for edge %d->%d\n", e->src->index,
-	         e->dest->index);
-	  err = true;
-	}
-
       if (err)
 	{
 	  fprintf (stderr, "PHI argument\n");
 	  print_generic_stmt (stderr, op, TDF_VOPS);
 	  goto error;
 	}
-
-      e->aux = (void *) 2;
-    }
-
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      if (e->aux != (void *) 2)
-	{
-	  error ("No argument flowing through edge %d->%d\n", e->src->index,
-		 e->dest->index);
-	  err = true;
-	  goto error;
-	}
-      e->aux = (void *) 0;
     }
 
 error:
@@ -376,7 +341,7 @@ verify_flow_insensitive_alias_info (void)
 {
   size_t i;
   tree var;
-  bitmap visited = BITMAP_XMALLOC ();
+  bitmap visited = BITMAP_ALLOC (NULL);
 
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -419,7 +384,7 @@ verify_flow_insensitive_alias_info (void)
 	}
     }
 
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
   return;
 
 err:
@@ -436,31 +401,34 @@ verify_flow_sensitive_alias_info (void)
 
   for (i = 1; i < num_ssa_names; i++)
     {
+      tree var;
       var_ann_t ann;
       struct ptr_info_def *pi;
+ 
 
       ptr = ssa_name (i);
       if (!ptr)
 	continue;
-      ann = var_ann (SSA_NAME_VAR (ptr));
-      pi = SSA_NAME_PTR_INFO (ptr);
 
       /* We only care for pointers that are actually referenced in the
 	 program.  */
-      if (!TREE_VISITED (ptr) || !POINTER_TYPE_P (TREE_TYPE (ptr)))
+      if (!POINTER_TYPE_P (TREE_TYPE (ptr)) || !TREE_VISITED (ptr))
 	continue;
 
       /* RESULT_DECL is special.  If it's a GIMPLE register, then it
 	 is only written-to only once in the return statement.
 	 Otherwise, aggregate RESULT_DECLs may be written-to more than
 	 once in virtual operands.  */
-      if (TREE_CODE (SSA_NAME_VAR (ptr)) == RESULT_DECL
+      var = SSA_NAME_VAR (ptr);
+      if (TREE_CODE (var) == RESULT_DECL
 	  && is_gimple_reg (ptr))
 	continue;
 
+      pi = SSA_NAME_PTR_INFO (ptr);
       if (pi == NULL)
 	continue;
 
+      ann = var_ann (var);
       if (pi->is_dereferenced && !pi->name_mem_tag && !ann->type_mem_tag)
 	{
 	  error ("Dereferenced pointers should have a name or a type tag");
@@ -469,8 +437,7 @@ verify_flow_sensitive_alias_info (void)
 
       if (pi->name_mem_tag
 	  && !pi->pt_malloc
-	  && (pi->pt_vars == NULL
-	      || bitmap_first_set_bit (pi->pt_vars) < 0))
+	  && (pi->pt_vars == NULL || bitmap_empty_p (pi->pt_vars)))
 	{
 	  error ("Pointers with a memory tag, should have points-to sets or point to malloc");
 	  goto err;
@@ -499,7 +466,11 @@ DEF_VEC_MALLOC_P (bitmap);
    same name tag must have the same points-to set. 
    So we check a single variable for each name tag, and verify that its
    points-to set is different from every other points-to set for other name
-   tags.  */
+   tags.
+
+   Additionally, given a pointer P_i with name tag NMT and type tag
+   TMT, this function verified the alias set of TMT is a superset of
+   the alias set of NMT.  */
 
 static void
 verify_name_tags (void)
@@ -509,25 +480,62 @@ verify_name_tags (void)
   bitmap first, second;  
   VEC (tree) *name_tag_reps = NULL;
   VEC (bitmap) *pt_vars_for_reps = NULL;
+  bitmap type_aliases = BITMAP_ALLOC (NULL);
 
   /* First we compute the name tag representatives and their points-to sets.  */
   for (i = 0; i < num_ssa_names; i++)
     {
-      if (ssa_name (i))
+      struct ptr_info_def *pi;
+      tree tmt, ptr = ssa_name (i);
+
+      if (ptr == NULL_TREE)
+	continue;
+      
+      pi = SSA_NAME_PTR_INFO (ptr);
+
+      if (!TREE_VISITED (ptr) 
+	  || !POINTER_TYPE_P (TREE_TYPE (ptr)) 
+	  || !pi
+	  || !pi->name_mem_tag 
+	  || TREE_VISITED (pi->name_mem_tag))
+	continue;
+
+      TREE_VISITED (pi->name_mem_tag) = 1;
+
+      if (pi->pt_vars == NULL)
+	continue;
+
+      VEC_safe_push (tree, name_tag_reps, ptr);
+      VEC_safe_push (bitmap, pt_vars_for_reps, pi->pt_vars);
+
+      /* Verify that alias set of PTR's type tag is a superset of the
+	 alias set of PTR's name tag.  */
+      tmt = var_ann (SSA_NAME_VAR (ptr))->type_mem_tag;
+      if (tmt)
 	{
-	  tree ptr = ssa_name (i);
-	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
-	  if (!TREE_VISITED (ptr) 
-	      || !POINTER_TYPE_P (TREE_TYPE (ptr)) 
-	      || !pi
-	      || !pi->name_mem_tag 
-	      || TREE_VISITED (pi->name_mem_tag))
+	  size_t i;
+	  varray_type aliases = var_ann (tmt)->may_aliases;
+	  bitmap_clear (type_aliases);
+	  for (i = 0; aliases && i < VARRAY_ACTIVE_SIZE (aliases); i++)
+	    {
+	      tree alias = VARRAY_TREE (aliases, i);
+	      bitmap_set_bit (type_aliases, var_ann (alias)->uid);
+	    }
+
+	  /* When grouping, we may have added PTR's type tag into the
+	     alias set of PTR's name tag.  To prevent a false
+	     positive, pretend that TMT is in its own alias set.  */
+	  bitmap_set_bit (type_aliases, var_ann (tmt)->uid);
+
+	  if (bitmap_equal_p (type_aliases, pi->pt_vars))
 	    continue;
-	  TREE_VISITED (pi->name_mem_tag) = 1;
-	  if (pi->pt_vars != NULL)
-	    {    
-	      VEC_safe_push (tree, name_tag_reps, ptr);
-	      VEC_safe_push (bitmap, pt_vars_for_reps, pi->pt_vars);
+
+	  if (!bitmap_intersect_compl_p (type_aliases, pi->pt_vars))
+	    {
+	      error ("Alias set of a pointer's type tag should be a superset of the corresponding name tag");
+	      debug_variable (tmt);
+	      debug_variable (pi->name_mem_tag);
+	      goto err;
 	    }
 	}
     }
@@ -562,13 +570,17 @@ verify_name_tags (void)
 	  TREE_VISITED (pi->name_mem_tag) = 0;
 	}
     } 
+
   VEC_free (bitmap, pt_vars_for_reps);
+  BITMAP_FREE (type_aliases);
   return;
   
 err:
   debug_variable (VEC_index (tree, name_tag_reps, i));
   internal_error ("verify_name_tags failed");
 }
+
+
 /* Verify the consistency of aliasing information.  */
 
 static void
@@ -592,71 +604,31 @@ verify_ssa (void)
   ssa_op_iter iter;
   tree op;
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
-  bitmap names_defined_in_bb = BITMAP_XMALLOC ();
+  bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
 
   timevar_push (TV_TREE_SSA_VERIFY);
 
   /* Keep track of SSA names present in the IL.  */
   for (i = 1; i < num_ssa_names; i++)
-    if (ssa_name (i))
-      TREE_VISITED (ssa_name (i)) = 0;
-
-  calculate_dominance_info (CDI_DOMINATORS);
-
-  /* Verify and register all the SSA_NAME definitions found in the
-     function.  */
-  FOR_EACH_BB (bb)
     {
-      tree phi;
-      block_stmt_iterator bsi;
-
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  int i;
-	  if (verify_def (bb, definition_block, PHI_RESULT (phi), phi,
-			!is_gimple_reg (PHI_RESULT (phi))))
-	  goto err;
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	    {
-	      tree def = PHI_ARG_DEF (phi, i);
-	      if (TREE_CODE (def) != SSA_NAME && !is_gimple_min_invariant (def))
-		{
-		  error ("PHI argument is not SSA_NAME, or invariant");
-		  print_generic_stmt (stderr, phi, TDF_VOPS);
-		  goto err;
-		}
-	    }
-	}
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      tree name = ssa_name (i);
+      if (name)
 	{
 	  tree stmt;
+	  TREE_VISITED (name) = 0;
 
-	  stmt = bsi_stmt (bsi);
-	  get_stmt_operands (stmt);
+	  stmt = SSA_NAME_DEF_STMT (name);
+	  if (!IS_EMPTY_STMT (stmt))
+	    {
+	      basic_block bb = bb_for_stmt (stmt);
+	      verify_def (bb, definition_block,
+			  name, stmt, !is_gimple_reg (name));
 
-	  if (stmt_ann (stmt)->makes_aliased_stores 
-	      && NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0)
-	    {
-	      error ("Statement makes aliased stores, but has no V_MAY_DEFS");
-	      print_generic_stmt (stderr, stmt, TDF_VOPS);
-	      goto err;
-	    }
-	    
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_DEFS)
-	    {
-	      if (verify_def (bb, definition_block, op, stmt, true))
-		goto err;
-	    }
-          
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF)
-	    {
-	      if (verify_def (bb, definition_block, op, stmt, false))
-		goto err;
 	    }
 	}
     }
 
+  calculate_dominance_info (CDI_DOMINATORS);
 
   /* Now verify all the uses and make sure they agree with the definitions
      found in the previous pass.  */
@@ -692,18 +664,20 @@ verify_ssa (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
-	    {
-	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, true,
-			      names_defined_in_bb))
-		goto err;
-	    }
+	      get_stmt_operands (stmt);
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
+	      if (stmt_ann (stmt)->makes_aliased_stores 
+		  && NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0)
+		{
+		  error ("Statement makes aliased stores, but has no V_MAY_DEFS");
+		  print_generic_stmt (stderr, stmt, TDF_VOPS);
+		  goto err;
+		}
+
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
 	    {
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, false,
+			      op, stmt, false, !is_gimple_reg (op),
 			      names_defined_in_bb))
 		goto err;
 	    }
@@ -711,24 +685,6 @@ verify_ssa (void)
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_DEFS)
 	    {
 	      bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
-	    }
-	}
-
-      /* Verify the uses in arguments of PHI nodes at the exits from the
-	 block.  */
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
-	    {
-	      bool virtual = !is_gimple_reg (PHI_RESULT (phi));
-	      op = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	      if (TREE_CODE (op) != SSA_NAME)
-		continue;
-
-	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, phi, false, virtual,
-			      names_defined_in_bb))
-		goto err;
 	    }
 	}
 
@@ -746,7 +702,7 @@ verify_ssa (void)
   else
     dom_computed[CDI_DOMINATORS] = orig_dom_state;
   
-  BITMAP_XFREE (names_defined_in_bb);
+  BITMAP_FREE (names_defined_in_bb);
   timevar_pop (TV_TREE_SSA_VERIFY);
   return;
 
@@ -761,12 +717,13 @@ void
 init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
-  call_clobbered_vars = BITMAP_XMALLOC ();
-  addressable_vars = BITMAP_XMALLOC ();
+  call_clobbered_vars = BITMAP_ALLOC (NULL);
+  addressable_vars = BITMAP_ALLOC (NULL);
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
   global_var = NULL_TREE;
+  aliases_computed_p = false;
 }
 
 
@@ -806,10 +763,12 @@ delete_tree_ssa (void)
   fini_ssa_operands ();
 
   global_var = NULL_TREE;
-  BITMAP_XFREE (call_clobbered_vars);
+  BITMAP_FREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
-  BITMAP_XFREE (addressable_vars);
+  BITMAP_FREE (addressable_vars);
   addressable_vars = NULL;
+  modified_noreturn_calls = NULL;
+  aliases_computed_p = false;
 }
 
 
@@ -819,11 +778,17 @@ delete_tree_ssa (void)
 bool
 tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
 {
+  if (inner_type == outer_type)
+    return true;
+
+  /* Changes in machine mode are never useless conversions.  */
+  if (TYPE_MODE (inner_type) != TYPE_MODE (outer_type))
+    return false;
+
   /* If the inner and outer types are effectively the same, then
      strip the type conversion and enter the equivalence into
      the table.  */
-  if (inner_type == outer_type
-     || (lang_hooks.types_compatible_p (inner_type, outer_type)))
+  if (lang_hooks.types_compatible_p (inner_type, outer_type))
     return true;
 
   /* If both types are pointers and the outer type is a (void *), then
@@ -834,6 +799,8 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      implement the ABI.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
+	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
+	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
     return true;
 
@@ -841,6 +808,8 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      so strip conversions that just switch between them.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
+	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
+	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
            && lang_hooks.types_compatible_p (TREE_TYPE (inner_type),
 					     TREE_TYPE (outer_type)))
     return true;
@@ -854,7 +823,6 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      mean that testing of precision is necessary.  */
   else if (INTEGRAL_TYPE_P (inner_type)
            && INTEGRAL_TYPE_P (outer_type)
-	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type)
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
     {
@@ -895,12 +863,31 @@ tree_ssa_useless_type_conversion (tree expr)
   return false;
 }
 
+/* Returns true if statement STMT may read memory.  */
+
+bool
+stmt_references_memory_p (tree stmt)
+{
+  stmt_ann_t ann;
+
+  get_stmt_operands (stmt);
+  ann = stmt_ann (stmt);
+
+  if (ann->has_volatile_ops)
+    return true;
+
+  return (NUM_VUSES (VUSE_OPS (ann)) > 0
+	  || NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0
+	  || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0);
+}
 
 /* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
    described in walk_use_def_chains.
    
-   VISITED is a bitmap used to mark visited SSA_NAMEs to avoid
-      infinite loops.
+   VISITED is a pointer set used to mark visited SSA_NAMEs to avoid
+      infinite loops.  We used to have a bitmap for this to just mark
+      SSA versions we had visited.  But non-sparse bitmaps are way too
+      expensive, while sparse bitmaps may cause quadratic behavior.
 
    IS_DFS is true if the caller wants to perform a depth-first search
       when visiting PHI nodes.  A DFS will visit each PHI argument and
@@ -910,14 +897,12 @@ tree_ssa_useless_type_conversion (tree expr)
 
 static bool
 walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
-		       bitmap visited, bool is_dfs)
+		       struct pointer_set_t *visited, bool is_dfs)
 {
   tree def_stmt;
 
-  if (bitmap_bit_p (visited, SSA_NAME_VERSION (var)))
+  if (pointer_set_insert (visited, var))
     return false;
-
-  bitmap_set_bit (visited, SSA_NAME_VERSION (var));
 
   def_stmt = SSA_NAME_DEF_STMT (var);
 
@@ -996,9 +981,9 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
     (*fn) (var, def_stmt, data);
   else
     {
-      bitmap visited = BITMAP_XMALLOC ();
+      struct pointer_set_t *visited = pointer_set_create ();
       walk_use_def_chains_1 (var, fn, data, visited, is_dfs);
-      BITMAP_XFREE (visited);
+      pointer_set_destroy (visited);
     }
 }
 
@@ -1124,9 +1109,12 @@ replace_immediate_uses (tree var, tree repl)
 	{
 	  tree tmp = stmt;
 	  fold_stmt (&tmp);
+          mark_new_vars = true;
 	  if (tmp != stmt)
 	    {
 	      block_stmt_iterator si = bsi_for_stmt (stmt);
+	      mark_new_vars_to_rename (tmp, vars_to_rename);
+	      redirect_immediate_uses (stmt, tmp);
 	      bsi_replace (&si, tmp, true);
 	      stmt = bsi_stmt (si);
 	    }
@@ -1191,6 +1179,7 @@ check_phi_redundancy (tree phi, tree *eq_to)
   for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
     {
       def = PHI_ARG_DEF (phi, i);
+
       if (TREE_CODE (def) == SSA_NAME)
 	{
 	  def = get_eq_name (eq_to, def);
@@ -1199,7 +1188,7 @@ check_phi_redundancy (tree phi, tree *eq_to)
 	}
 
       if (val
-	  && !operand_equal_p (val, def, 0))
+	  && !operand_equal_for_phi_arg_p (val, def))
 	return;
 
       val = def;
@@ -1273,7 +1262,7 @@ kill_redundant_phi_nodes (void)
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  var = PHI_RESULT (phi);
 	  check_phi_redundancy (phi, eq_to);
@@ -1317,7 +1306,7 @@ struct tree_opt_pass pass_redundant_phi =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_TREE_REDPHI,			/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -1387,7 +1376,7 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
   /* We only do data flow with SSA_NAMEs, so that's all we can warn about.  */
   if (TREE_CODE (t) == SSA_NAME)
     {
-      warn_uninit (t, "%H'%D' is used uninitialized in this function", locus);
+      warn_uninit (t, "%H%qD is used uninitialized in this function", locus);
       *walk_subtrees = 0;
     }
   else if (IS_TYPE_OR_DECL_P (t))
@@ -1412,7 +1401,7 @@ warn_uninitialized_phi (tree phi)
     {
       tree op = PHI_ARG_DEF (phi, i);
       if (TREE_CODE (op) == SSA_NAME)
-	warn_uninit (op, "%H'%D' may be used uninitialized in this function",
+	warn_uninit (op, "%H%qD may be used uninitialized in this function",
 		     NULL);
     }
 }
@@ -1484,3 +1473,4 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,                                    /* todo_flags_finish */
   0				        /* letter */
 };
+	  

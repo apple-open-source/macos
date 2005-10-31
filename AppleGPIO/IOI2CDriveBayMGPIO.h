@@ -1,9 +1,12 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDriveBayMGPIO.h,v 1.1 2004/09/18 00:27:51 jlehrer Exp $
+ *	File: $Id: IOI2CDriveBayMGPIO.h,v 1.2 2005/02/09 02:21:41 jlehrer Exp $
  *
  *		$Log: IOI2CDriveBayMGPIO.h,v $
+ *		Revision 1.2  2005/02/09 02:21:41  jlehrer
+ *		Updated interrupt processing for mac-io gpio-16
+ *		
  *		Revision 1.1  2004/09/18 00:27:51  jlehrer
  *		Initial checkin
  *		
@@ -15,19 +18,19 @@
 #define _IOI2CDriveBayMGPIO_H
 
 #include <IOKit/IOService.h>
+#include <IOI2C/IOI2CDevice.h>
 #include "GPIOParent.h"
 
-class IOI2CDriveBayMGPIO : public IOService
+class IOI2CDriveBayMGPIO : public IOI2CDevice
 {
 	OSDeclareDefaultStructors(IOI2CDriveBayMGPIO)
 
 public:
-	virtual bool init(OSDictionary *dict);
+//	virtual bool init(OSDictionary *dict);
 	virtual void free(void);
 	virtual bool start(IOService *provider);
-	virtual void stop(IOService *provider);
 
-	using IOService::callPlatformFunction;
+	using IOI2CDevice::callPlatformFunction;
 	virtual IOReturn callPlatformFunction(
 		const OSSymbol *functionName,
 		bool waitForFunction,
@@ -40,6 +43,7 @@ private:
 	// structure to store info about AppleGPIO interrupt clients
 	typedef struct
 	{
+		UInt32					reg;
 		PCA9554ClientCallback	handler;
 		IOService				*client;
 		bool					isEnabled;
@@ -52,12 +56,27 @@ private:
 		kSwitch = 4
 	};
 
-	IOService	*fApplePMU;
-	IOService	*fKeyswitch;
+	IOService			*fApplePMU;
+	IOService			*fKeyswitch;
+	IOService			*fDrivebaySense;
+	const OSSymbol		*fDrivebaySenseSym;
 
-	bool		fC3Mapping;
-	UInt32		fClientCount;
-	IOLock		*fClientLock;
+	// Symbols for interrupt registration and enable/disable support
+	const OSSymbol		*fSymIntRegister;
+	const OSSymbol		*fSymIntUnRegister;
+	const OSSymbol		*fSymIntEnable;
+	const OSSymbol		*fSymIntDisable;
+
+	bool				fC3Mapping;
+	UInt32				fClientCount;
+	IOLock				*fClientLock;
+
+	enum
+	{
+		kFlag_InterruptsRegistered		= (1 << 0),
+		kFlag_InterruptsEnabled			= (1 << 1),
+	};
+	UInt32				fFlags;
 
 	// i2c address of consolidated register
 	// pmu automagically polls this register and generates interrupts
@@ -70,8 +89,13 @@ private:
 	UInt32		fIntAddrInfo;
 	UInt8		fIntRegState;	// last known state of the consolidated register
 
+	UInt8 fConfigReg;
+	UInt8 fPolarityReg;
+	UInt8 fOutputReg;
+
 	// my gpio children who have registered for interrupt notification
-	PCA9554CallbackInfo	**fClient;
+	#define kCLIENT_MAX 4
+	PCA9554CallbackInfo	fClient[kCLIENT_MAX];
 
 	// Client API
 	IOReturn registerClient(
@@ -90,8 +114,16 @@ private:
 		UInt32				length,
 		UInt8				*buffer);
 
-	void processApplePMUInterrupt(
+	static void sProcessGPIOInterrupt(
+		IOI2CDriveBayMGPIO	*self,
+		void				*param2,
+		void				*param3,
+		UInt8				newData);
+
+	void processGPIOInterrupt(
 		UInt8				newState);
+
+	virtual void processPowerEvent(UInt32 eventType);
 };
 
 #endif // _IOI2CPCA9554_H

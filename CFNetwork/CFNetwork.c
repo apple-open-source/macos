@@ -82,11 +82,11 @@ _CFStringGetOrCreateCString(CFAllocatorRef allocator, CFStringRef string, UInt8*
 	
 	if (!bufferLength)
 		bufferLength = &extra;
+                
+        assert(string);
 	
-	assert(string);
-	
-	if (buffer && *bufferLength && CFStringGetCString(string, buffer, *bufferLength, encoding))
-		*bufferLength = strlen(buffer);
+	if (buffer && *bufferLength && CFStringGetCString(string, (char*)buffer, *bufferLength, encoding))
+		*bufferLength = strlen((const char*)buffer);
 	
 	else {
 		
@@ -517,12 +517,12 @@ _CFGregorianDateCreateWithBytes(CFAllocatorRef alloc, const UInt8* bytes, CFInde
 			}
 			
 			/* If it's not GMT/UT time, need to parse the alpha offset. */
-			else if (!strncmp(&buffer[scan], "UT", 2)) {
+			else if (!strncmp((const char*)(&buffer[scan]), "UT", 2)) {
 				*tz = CFTimeZoneCreateWithTimeIntervalFromGMT(alloc, 0);
 				scan += 2;
 			}
 				
-			else if (!strncmp(&buffer[scan], "GMT", 3)) {
+			else if (!strncmp((const char*)(&buffer[scan]), "GMT", 3)) {
 				*tz = CFTimeZoneCreateWithTimeIntervalFromGMT(alloc, 0);
 				scan += 3;
 			}

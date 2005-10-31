@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -52,6 +52,9 @@ static unsigned long macRISC4Speed[] = { 0, 1 };
 
 extern char *gIOMacRISC4PMTree;
 
+#ifndef kIOHibernateFeatureKey
+#define kIOHibernateFeatureKey	"Hibernation"
+#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -68,7 +71,8 @@ bool MacRISC4PE::start(IOService *provider)
     OSData          		*tmpData;
 	IORegistryEntry 		*uniNRegEntry,
 							*spuRegEntry,
-							*powerMgtEntry;
+							*powerMgtEntry,
+							* aCPURegEntry;
     UInt32			   		*primInfo;
 	const OSSymbol			*nameValueSymbol;
 	const OSData			*nameValueData;
@@ -144,35 +148,35 @@ bool MacRISC4PE::start(IOService *provider)
 	} else
 		spuNeedsRamFix = false;		// No SPU, nothing to fix
 
+	if (spuNeedsRamFix)
+	{
+	OSData			* cpu0FreqData = NULL;
+	UInt32			cpu0Freq = 0;
+	int				cpuCount;
+	const UInt32	one_eight_ghz_freq = 1800000000;
 
-	if (spuNeedsRamFix) {
 		// get uni-N version
 		uniNRegEntry = provider->childFromPath("u3", gIODTPlane);
-		if ((uniNRegEntry) && 
-			(tmpData = OSDynamicCast(OSData, uniNRegEntry->getProperty("device-rev")))) {
-    	uniNVersion = ((unsigned long *)tmpData->getBytesNoCopy())[0];
-
-		IORegistryEntry *cpuRegEntry = NULL;
-		OSData *cpu0FreqData = NULL;
-		UInt32 cpu0Freq = 0;
-		int cpuCount;
-		const UInt32 one_eight_ghz_freq = 1800000000;
+		if ((uniNRegEntry) && (tmpData = OSDynamicCast(OSData, uniNRegEntry->getProperty("device-rev"))))
+		{
+			uniNVersion = ((unsigned long *)tmpData->getBytesNoCopy())[0];
 
 		// Count the CPUs
-		cpuRegEntry = fromPath ("/cpus/@1", gIODTPlane);
-		if (cpuRegEntry) {
-			cpuCount = 2;
-			cpuRegEntry->release();
+		aCPURegEntry = fromPath ("/cpus/@1", gIODTPlane);
+		if (aCPURegEntry) {
+			cpuCount = 2;		// do multiple CPUs exist (don't care about the actual number)
+			aCPURegEntry->release();
 		} else
 			cpuCount = 1;
 			
-		cpuRegEntry = fromPath ("/cpus/@0", gIODTPlane);
-		if(cpuRegEntry) {
+		aCPURegEntry = fromPath ("/cpus/@0", gIODTPlane);
+		if( aCPURegEntry )
+		{
 			// get the cpu clock frequency
-			cpu0FreqData = OSDynamicCast (OSData, cpuRegEntry->getProperty ("clock-frequency"));
+			cpu0FreqData = OSDynamicCast (OSData, aCPURegEntry->getProperty ("clock-frequency"));
 			if(cpu0FreqData) 
 				cpu0Freq = *(UInt32 *)cpu0FreqData->getBytesNoCopy();
-			cpuRegEntry->release();
+			aCPURegEntry->release();
     	}
     
 			cannotSleep = ((0 == strncmp(provider_name, "PowerMac7,2", strlen("PowerMac7,2")))     // check model
@@ -218,6 +222,16 @@ bool MacRISC4PE::start(IOService *provider)
     else
 		IOLockInit( pmmutex );
 	
+	// [4043827] Platform Expert needs to advertise the existence of a mapper (DART)
+	// requires [4043836] Remove DART hack from iokit kernel 
+    IORegistryEntry * regEntry = IORegistryEntry::fromPath("/u3/dart", gIODTPlane);
+    if (!regEntry)
+		regEntry = IORegistryEntry::fromPath("/u4/dart", gIODTPlane);
+    if (regEntry) {
+	    setProperty(kIOPlatformMapperPresentKey, kOSBooleanTrue);
+		regEntry->release();
+    }
+
 	/*
 	 * Call super::start *before* we create specialized child nubs.  Child drivers for these nubs
 	 * want to call publishResource and publishResource needs the IOResources node to exist 
@@ -228,13 +242,16 @@ bool MacRISC4PE::start(IOService *provider)
 	
 	// Create PlatformFunction nub
 	platFuncDict = OSDictionary::withCapacity(2);
-	if (platFuncDict) {		
+	if (platFuncDict)
+	{
 		strcpy(tmpName, "IOPlatformFunctionNub");
 		nameValueSymbol = OSSymbol::withCString(tmpName);
 		nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
 		platFuncDict->setObject ("name", nameValueData);
 		platFuncDict->setObject ("compatible", nameValueData);
-		if (plFuncNub = IOPlatformExpert::createNub (platFuncDict)) {
+
+		if (plFuncNub = IOPlatformExpert::createNub (platFuncDict))
+		{
 			if (!plFuncNub->attach( this ))
 				IOLog ("NUB ATTACH FAILED for IOPlatformFunctionNub\n");
 			plFuncNub->setName (nameValueSymbol);
@@ -244,7 +261,9 @@ bool MacRISC4PE::start(IOService *provider)
 		platFuncDict->release();
 		nameValueSymbol->release();
 		nameValueData->release();
-	} else return false;
+	}
+	else
+		return false;
 
 	//
 	// Create PlatformPlugin nub.  Use the "provider_name" as a key into the IOPlatformPluginTable
@@ -253,7 +272,9 @@ bool MacRISC4PE::start(IOService *provider)
 	// is used.
 	//
 
-	OSDictionary*					pluginLookupDict;
+	OSDictionary					* pluginLookupDict;
+	OSData							* pHandle;
+	const OSSymbol					* pHandleKey;
 
 	if ( ( pluginLookupDict = OSDynamicCast( OSDictionary, getProperty( "IOPlatformPluginTable" ) ) ) == NULL )
 		{
@@ -294,18 +315,70 @@ bool MacRISC4PE::start(IOService *provider)
 	nameValueData->release();
 	platformPluginNameData->release();
 
+	// Add AAPL,phandle for "platform-" function use
+	pHandleKey = OSSymbol::withCStringNoCopy("AAPL,phandle");
+	if (pHandle = OSDynamicCast (OSData, provider->getProperty (pHandleKey)))
+		pluginDict->setObject (pHandleKey, pHandle);
+	pHandleKey->release();
+
 	if ( ( ioPPluginNub = IOPlatformExpert::createNub( pluginDict ) ) != NULL )
-		{
+	{
 		if ( !ioPPluginNub->attach( this ) )
 			kprintf( "NUB ATTACH FAILED\n" );
 
 		ioPPluginNub->setName( ioPlatformPluginString );
 		ioPPluginNub->registerService();
-		}
+	}
 
 	pluginDict->release();
 
 	modelString->release();
+
+
+	// Propagate platform- function properties to plugin nub
+	// NOTE - this assumes *all* such properties need to be moved to the plugin nub
+	//   as the properties in our nub will get deleted
+	{
+	OSDictionary			* propTable;
+	OSCollectionIterator	* propIter;
+	OSSymbol				* propKey;
+	OSData					* propData;
+
+		propTable = NULL;
+		propIter = NULL;
+		if ( ((propTable = provider->dictionaryWithProperties()) == 0) ||
+			 ((propIter  = OSCollectionIterator::withCollection( propTable )) == 0) )
+		{
+			if ( propTable )
+				propTable->release();
+			propTable = NULL;
+		}
+
+		if ( propTable )
+		{
+			while ( (propKey = OSDynamicCast(OSSymbol, propIter->getNextObject())) != 0 )
+			{
+				// look for all properties starting with "platform-"
+				if ( strncmp( kFunctionRequiredPrefix, propKey->getCStringNoCopy(), strlen(kFunctionRequiredPrefix)) == 0)
+				{
+					// Check specifically for "platform-do" properties and don't copy them
+					if (strncmp(kFunctionProvidedPrefix, propKey->getCStringNoCopy(), strlen(kFunctionProvidedPrefix)) == 0)
+						continue; // Don't copy "platform-do"s
+						
+					propData = OSDynamicCast(OSData, propTable->getObject(propKey));
+					if (propData)
+					{
+						if ( ioPPluginNub->setProperty (propKey, propData) )
+							// Successfully copied to plugin nub so remove our copy
+							provider->removeProperty (propKey);
+					}
+				}
+			}
+		}
+		if (propTable) propTable->release();
+		if (propIter)  propIter->release();
+	}
+
 
 	kprintf ("MacRISC4PE::start - done\n");
     return result;
@@ -347,6 +420,7 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
     bool				result;
     IORegistryEntry		*parentIC;
     OSData				*parentICData;
+
 
 #if 1			// VESTA HACK - remove this code once a better solution for resetting the phy!!
 	IORegistryEntry		*phy;
@@ -403,12 +477,24 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
     
     if (IODTMatchNubWithKeys(service, "cpu"))
     {
-        parentICData = OSDynamicCast(OSData, service->getProperty(kMacRISC4ParentICKey));
-        if (parentICData == 0)
-        {
-            parentIC = fromPath("mac-io/mpic", gIODTPlane);
-            parentICData = OSDynamicCast(OSData, parentIC->getProperty("AAPL,phandle"));
-            service->setProperty(kMacRISC4ParentICKey, parentICData);
+		if (!(service->getProperty(gIOInterruptControllersKey)))
+		{
+			/*
+			 * Ideally the interrupts properties are created by the BootROM and we can just use them
+			 * But historically that wasn't true so if the interrupt controller properties don't exist 
+			 * we provide a hook so they can be created in the CPU driver.
+			 */
+			parentICData = OSDynamicCast(OSData, service->getProperty(kMacRISC4ParentICKey));
+			if (parentICData == 0)
+			{
+				parentIC = fromPath("mac-io/mpic", gIODTPlane);
+				if (parentIC)
+				{
+					parentICData = OSDynamicCast(OSData, parentIC->getProperty("AAPL,phandle"));
+					service->setProperty(kMacRISC4ParentICKey, parentICData);
+					parentIC->release();
+				}
+			}
         }
         
 		// Identify this as a MacRISC4 type cpu so cpu matching works correctly
@@ -480,13 +566,6 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
 		}
 		return( true );
     }  
-
-    if (!strcmp(service->getName(), "programmer-switch"))
-    {
-        // Set property to tell AppleNMI to mask/unmask NMI @ sleep/wake
-        service->setProperty("mask_NMI", service); 
-        return true;
-    }
   
     if (!strcmp(service->getName(), "pmu"))
     {
@@ -549,6 +628,12 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
         return true;
     }
 	
+    if (!strcmp(service->getName(), "pci") && service->getProperty ("shasta-interrupt-sequencer"))
+    {
+		publishResource ("ht-interrupt-sequencer", service);
+        return true;
+    }
+	
     return true;
 }
 
@@ -591,6 +676,7 @@ void MacRISC4PE::getDefaultBusSpeeds(long *numSpeeds, unsigned long **speedList)
 void MacRISC4PE::PMInstantiatePowerDomains ( void )
 {    
     IOPMUSBMacRISC4		*usbMacRISC4;
+	UInt32				hibEnable;
 
 	const OSSymbol *desc = OSSymbol::withCString("powertreedesc");
 
@@ -629,6 +715,10 @@ void MacRISC4PE::PMInstantiatePowerDomains ( void )
         return;
     }
 
+    if (PE_parse_boot_arg("hib", &hibEnable) && hibEnable)
+    {
+        root->publishFeature(kIOHibernateFeatureKey);
+    }
 
     PMRegisterDevice (NULL, root);
 

@@ -1,5 +1,5 @@
 /* IO Code translation/library interface
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -25,11 +25,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-gimple.h"
-#include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
-#include <gmp.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-stmt.h"
@@ -135,7 +133,7 @@ static GTY(()) tree iocall_set_nml_val_log;
 
 /* Variable for keeping track of what the last data transfer statement
    was.  Used for deciding which subroutine to call when the data
-   transfer is complete. */
+   transfer is complete.  */
 static enum { READ, WRITE, IOLENGTH } last_dt;
 
 #define ADD_FIELD(name, type)						\
@@ -149,7 +147,7 @@ static enum { READ, WRITE, IOLENGTH } last_dt;
 	 get_identifier (stringize(name)), pchar_type_node);		\
   ioparm_ ## name ## _len = gfc_add_field_to_struct			\
         (&(TYPE_FIELDS (ioparm_type)), ioparm_type,			\
-	 get_identifier (stringize(name) "_len"), gfc_int4_type_node)
+	 get_identifier (stringize(name) "_len"), gfc_charlen_type_node)
 
 
 /* Create function decls for IO library functions.  */
@@ -166,7 +164,7 @@ gfc_build_io_library_fndecls (void)
 
   /* Build the st_parameter structure.  Information associated with I/O
      calls are transferred here.  This must match the one defined in the
-     library exactly. */
+     library exactly.  */
 
   ioparm_type = make_node (RECORD_TYPE);
   TYPE_NAME (ioparm_type) = get_identifier ("_gfc_ioparm");
@@ -183,11 +181,11 @@ gfc_build_io_library_fndecls (void)
   ADD_FIELD (opened, gfc_pint4_type_node);
   ADD_FIELD (number, gfc_pint4_type_node);
   ADD_FIELD (named, gfc_pint4_type_node);
-  ADD_FIELD (rec, gfc_pint4_type_node);
+  ADD_FIELD (rec, gfc_int4_type_node);
   ADD_FIELD (nextrec, gfc_pint4_type_node);
   ADD_FIELD (size, gfc_pint4_type_node);
 
-  ADD_FIELD (recl_in, gfc_pint4_type_node);
+  ADD_FIELD (recl_in, gfc_int4_type_node);
   ADD_FIELD (recl_out, gfc_pint4_type_node);
 
   ADD_FIELD (iolength, gfc_pint4_type_node);
@@ -399,7 +397,6 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
   tree len;
 
   gfc_init_se (&se, NULL);
-  gfc_conv_expr (&se, e);
 
   io = build3 (COMPONENT_REF, TREE_TYPE (var), ioparm_var, var, NULL_TREE);
   len = build3 (COMPONENT_REF, TREE_TYPE (var_len), ioparm_var, var_len,
@@ -408,6 +405,7 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
   /* Integer variable assigned a format label.  */
   if (e->ts.type == BT_INTEGER && e->symtree->n.sym->attr.assign == 1)
     {
+      gfc_conv_label_variable (&se, e);
       msg =
         gfc_build_cstring_const ("Assigned label is not a format label");
       tmp = GFC_DECL_STRING_LEN (se.expr);
@@ -419,6 +417,7 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
     }
   else
     {
+      gfc_conv_expr (&se, e);
       gfc_conv_string_parameter (&se);
       gfc_add_modify_expr (&se.pre, io, fold_convert (TREE_TYPE (io), se.expr));
       gfc_add_modify_expr (&se.pre, len, se.string_length);
@@ -454,8 +453,7 @@ add_case (int label_value, gfc_st_label * label, stmtblock_t * body)
   value = build_int_cst (NULL_TREE, label_value);
 
   /* Make a backend label for this case.  */
-  tmp = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (tmp) = current_function_decl;
+  tmp = gfc_build_label_decl (NULL_TREE);
 
   /* And the case itself.  */
   tmp = build3_v (CASE_LABEL_EXPR, value, NULL_TREE, tmp);
@@ -800,6 +798,10 @@ gfc_trans_inquire (gfc_code * code)
     set_string (&block, &post_block, ioparm_delim, ioparm_delim_len,
 		p->delim);
 
+  if (p->pad)
+    set_string (&block, &post_block, ioparm_pad, ioparm_pad_len,
+                p->pad); 
+
   if (p->err)
     set_flag (&block, ioparm_err);
 
@@ -815,7 +817,7 @@ gfc_trans_inquire (gfc_code * code)
 
 
 static gfc_expr *
-gfc_new_nml_name_expr (char * name)
+gfc_new_nml_name_expr (const char * name)
 {
    gfc_expr * nml_name;
    nml_name = gfc_get_expr();
@@ -824,7 +826,8 @@ gfc_new_nml_name_expr (char * name)
    nml_name->ts.kind = gfc_default_character_kind;
    nml_name->ts.type = BT_CHARACTER;
    nml_name->value.character.length = strlen(name);
-   nml_name->value.character.string = name;
+   nml_name->value.character.string = gfc_getmem (strlen (name) + 1);
+   strcpy (nml_name->value.character.string, name);
 
    return nml_name;
 }
@@ -857,7 +860,7 @@ get_new_var_expr(gfc_symbol * sym)
 
    Note that the first output field appears after the name of the
    variable, not of the field name.  This causes a little complication
-   documented below. */
+   documented below.  */
 
 static void
 transfer_namelist_element (stmtblock_t * block, gfc_typespec * ts, tree addr_expr, 
@@ -890,7 +893,7 @@ transfer_namelist_element (stmtblock_t * block, gfc_typespec * ts, tree addr_exp
              derived type variable.  All other fields are anonymous
              and appear with nulls in their string and string_length
              fields.  After the first use, we set string and
-             string_length to null. */
+             string_length to null.  */
           string = null_pointer_node;
           string_length = integer_zero_node;
         }
@@ -1044,7 +1047,7 @@ build_dt (tree * function, gfc_code * code)
 
 /* Translate the IOLENGTH form of an INQUIRE statement.  We treat
    this as a third sort of data transfer statement, except that
-   lengths are summed instead of actually transfering any data.  */
+   lengths are summed instead of actually transferring any data.  */
 
 tree
 gfc_trans_iolength (gfc_code * code)
@@ -1190,7 +1193,7 @@ transfer_array_component (tree expr, gfc_component * cm)
       mpz_add_ui (ss->shape[n], ss->shape[n], 1);
     }
 
-  /* Once we got ss, we use scalarizer to create the loop. */
+  /* Once we got ss, we use scalarizer to create the loop.  */
 
   gfc_init_loopinfo (&loop);
   gfc_add_ss_to_loop (&loop, ss);
@@ -1212,7 +1215,7 @@ transfer_array_component (tree expr, gfc_component * cm)
   transfer_expr (&se, &cm->ts, tmp);
 
   /* We are done now with the loop body.  Wrap up the scalarizer and
-     return. */
+     return.  */
 
   gfc_add_block_to_block (&body, &se.pre);
   gfc_add_block_to_block (&body, &se.post);
@@ -1222,11 +1225,11 @@ transfer_array_component (tree expr, gfc_component * cm)
   gfc_add_block_to_block (&block, &loop.pre);
   gfc_add_block_to_block (&block, &loop.post);
 
-  gfc_cleanup_loop (&loop);
-
   for (n = 0; n < cm->as->rank; n++)
     mpz_clear (ss->shape[n]);
   gfc_free (ss->shape);
+
+  gfc_cleanup_loop (&loop);
 
   return gfc_finish_block (&block);
 }

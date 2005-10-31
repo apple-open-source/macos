@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,7 +54,42 @@ static Boolean			_verbose	= FALSE;
 
 /* in SystemConfiguration/LinkConfiguration.c */
 int
-__createMediaOptions(CFDictionaryRef media_options);
+__createMediaOptions(CFStringRef interface, CFDictionaryRef media_options);
+
+
+static CFDictionaryRef
+__copyMediaOptions(CFDictionaryRef options)
+{
+	CFMutableDictionaryRef	requested	= NULL;
+	CFTypeRef		val;
+
+	if (!isA_CFDictionary(options)) {
+		return NULL;
+	}
+
+	val = CFDictionaryGetValue(options, kSCPropNetEthernetMediaSubType);
+	if (isA_CFString(val)) {
+		requested = CFDictionaryCreateMutable(NULL,
+						      0,
+						      &kCFTypeDictionaryKeyCallBacks,
+						      &kCFTypeDictionaryValueCallBacks);
+		CFDictionaryAddValue(requested, kSCPropNetEthernetMediaSubType, val);
+	} else {
+		/* if garbage */;
+		return NULL;
+	}
+
+	val = CFDictionaryGetValue(options, kSCPropNetEthernetMediaOptions);
+	if (isA_CFArray(val)) {
+		CFDictionaryAddValue(requested, kSCPropNetEthernetMediaOptions, val);
+	} else {
+		/* if garbage */;
+		CFRelease(requested);
+		return NULL;
+	}
+
+	return requested;
+}
 
 
 __private_extern__
@@ -68,44 +103,34 @@ _NetworkInterfaceSetMediaOptions(CFStringRef		interface,
 	struct ifreq		ifr;
 	Boolean			ok		= FALSE;
 	int			newOptions;
-	CFMutableDictionaryRef	requested	= NULL;
+	CFDictionaryRef		requested;
 	int			sock		= -1;
-	CFTypeRef		val;
 
 	/* get current & available options */
 	if (!NetworkInterfaceCopyMediaOptions(interface, &current, NULL, &available, FALSE)) {
+		/* could not get current media options */
 		return FALSE;
 	}
 
 	/* extract just the dictionary key/value pairs of interest */
-	requested = CFDictionaryCreateMutable(NULL,
-					      0,
-					      &kCFTypeDictionaryKeyCallBacks,
-					      &kCFTypeDictionaryValueCallBacks);
+	requested = __copyMediaOptions(options);
+	if (requested == NULL) {
+		CFDictionaryRef	baseOptions;
 
-	val = CFDictionaryGetValue(options, kSCPropNetEthernetMediaSubType);
-	if (!val) {
-		val = CFDictionaryGetValue(current, kSCPropNetEthernetMediaSubType);
+		/* get base options */
+		baseOptions = CFDictionaryGetValue(baseSettings, interface);
+		requested = __copyMediaOptions(baseOptions);
 	}
-	if (isA_CFString(val)) {
-		CFDictionaryAddValue(requested, kSCPropNetEthernetMediaSubType, val);
-	} else {
-		/* if garbage */;
+	if (requested == NULL) {
+		/* get base options */
+		requested = __copyMediaOptions(current);
+	}
+	if (requested == NULL) {
+		/* if no media options to set */
 		goto done;
 	}
 
-	val = CFDictionaryGetValue(options, kSCPropNetEthernetMediaOptions);
-	if (!val) {
-		val = CFDictionaryGetValue(current, kSCPropNetEthernetMediaOptions);
-	}
-	if (isA_CFArray(val)) {
-		CFDictionaryAddValue(requested, kSCPropNetEthernetMediaOptions, val);
-	} else {
-		/* if garbage */;
-		goto done;
-	}
-
-	if (current && CFEqual(current, requested)) {
+	if ((current != NULL) && CFEqual(current, requested)) {
 		/* if current settings are as requested */
 		ok = TRUE;
 		goto done;
@@ -117,7 +142,7 @@ _NetworkInterfaceSetMediaOptions(CFStringRef		interface,
 		goto done;
 	}
 
-	newOptions = __createMediaOptions(requested);
+	newOptions = __createMediaOptions(interface, requested);
 	if (newOptions == -1) {
 		/* since we have just validated, this should never happen */
 		goto done;
@@ -210,13 +235,22 @@ _NetworkInterfaceSetMTU(CFStringRef	interface,
 		return FALSE;
 	}
 
-	val = CFDictionaryGetValue(options, kSCPropNetEthernetMTU);
-	if (val) {
-		if (isA_CFNumber(val)) {
-			CFNumberGetValue(val, kCFNumberIntType, &requested);
-		} else {
-			return FALSE;
+	val = NULL;
+	if (isA_CFDictionary(options)) {
+		val = CFDictionaryGetValue(options, kSCPropNetEthernetMTU);
+		val = isA_CFNumber(val);
+	}
+	if (val == NULL) {
+		CFDictionaryRef	baseOptions;
+
+		/* get base MTU */
+		baseOptions = CFDictionaryGetValue(baseSettings, interface);
+		if (baseOptions != NULL) {
+			val = CFDictionaryGetValue(baseOptions, kSCPropNetEthernetMTU);
 		}
+	}
+	if (val != NULL) {
+		CFNumberGetValue(val, kCFNumberIntType, &requested);
 	} else {
 		requested = mtu_cur;
 	}
@@ -342,39 +376,37 @@ updateLink(CFStringRef ifKey, CFDictionaryRef options)
 			CFDictionaryRef		cur_media	= NULL;
 			CFMutableDictionaryRef	new_media	= NULL;
 			int			cur_mtu		= -1;
-			CFNumberRef		num;
 
-			if (!NetworkInterfaceCopyMediaOptions(interface, &cur_media, NULL, NULL, FALSE)) {
-				/* could not determine current settings */
-				goto done;
+			/* preserve current media options */
+			if (NetworkInterfaceCopyMediaOptions(interface, &cur_media, NULL, NULL, FALSE)) {
+				if (cur_media != NULL) {
+					new_media = CFDictionaryCreateMutableCopy(NULL, 0, cur_media);
+					CFRelease(cur_media);
+				}
 			}
 
-			if (!cur_media) {
-				/* could not determine current settings */
-				goto done;
+			/* preserve current MTU */
+			if (NetworkInterfaceCopyMTU(interface, &cur_mtu, NULL, NULL)) {
+				if (cur_mtu != -1) {
+					CFNumberRef	num;
+
+					if (new_media == NULL) {
+						new_media = CFDictionaryCreateMutable(NULL,
+										      0,
+										      &kCFTypeDictionaryKeyCallBacks,
+										      &kCFTypeDictionaryValueCallBacks);
+					}
+
+					num = CFNumberCreate(NULL, kCFNumberIntType, &cur_mtu);
+					CFDictionaryAddValue(new_media, kSCPropNetEthernetMTU, num);
+					CFRelease(num);
+				}
 			}
 
-			if (!NetworkInterfaceCopyMTU(interface, &cur_mtu, NULL, NULL)) {
-				/* could not determine current MTU */
-				CFRelease(cur_media);
-				goto done;
+			if (new_media != NULL) {
+				CFDictionarySetValue(baseSettings, interface, new_media);
+				CFRelease(new_media);
 			}
-
-			if (cur_mtu < 0) {
-				/* could not determine current MTU */
-				CFRelease(cur_media);
-				goto done;
-			}
-
-			new_media = CFDictionaryCreateMutableCopy(NULL, 0, cur_media);
-			CFRelease(cur_media);
-
-			num = CFNumberCreate(NULL, kCFNumberIntType, &cur_mtu);
-			CFDictionaryAddValue(new_media, kSCPropNetEthernetMTU, num);
-			CFRelease(num);
-
-			CFDictionarySetValue(baseSettings, interface, new_media);
-			CFRelease(new_media);
 		}
 
 		/* establish new settings */
@@ -458,11 +490,27 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 
 	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
+	/* ...watch for (per-interface) AirPort configuration changes */
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainSetup,
+							    kSCCompAnyRegex,
+							    kSCEntNetAirPort);
+	CFArrayAppendValue(patterns, key);
+	CFRelease(key);
+
 	/* ...watch for (per-interface) Ethernet configuration changes */
 	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							    kSCDynamicStoreDomainSetup,
 							    kSCCompAnyRegex,
 							    kSCEntNetEthernet);
+	CFArrayAppendValue(patterns, key);
+	CFRelease(key);
+
+	/* ...watch for (per-interface) FireWire configuration changes */
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainSetup,
+							    kSCCompAnyRegex,
+							    kSCEntNetFireWire);
 	CFArrayAppendValue(patterns, key);
 	CFRelease(key);
 

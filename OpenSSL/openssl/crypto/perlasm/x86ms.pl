@@ -144,7 +144,10 @@ sub main'jle	{ &out1("jle",@_); }
 sub main'jz	{ &out1("jz",@_); }
 sub main'jge	{ &out1("jge",@_); }
 sub main'jl	{ &out1("jl",@_); }
+sub main'ja	{ &out1("ja",@_); }
+sub main'jae	{ &out1("jae",@_); }
 sub main'jb	{ &out1("jb",@_); }
+sub main'jbe	{ &out1("jbe",@_); }
 sub main'jc	{ &out1("jc",@_); }
 sub main'jnc	{ &out1("jnc",@_); }
 sub main'jnz	{ &out1("jnz",@_); }
@@ -157,6 +160,7 @@ sub main'not	{ &out1("not",@_); }
 sub main'call	{ &out1("call",($_[0]=~/^\$L/?'':'_').$_[0]); }
 sub main'ret	{ &out0("ret"); }
 sub main'nop	{ &out0("nop"); }
+sub main'movz	{ &out2("movzx",@_); }
 
 sub out2
 	{

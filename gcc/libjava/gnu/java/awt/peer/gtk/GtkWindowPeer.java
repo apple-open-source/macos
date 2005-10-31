@@ -1,5 +1,5 @@
 /* GtkWindowPeer.java -- Implements WindowPeer with GTK
-   Copyright (C) 1998, 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,23 +39,22 @@ exception statement from your version. */
 package gnu.java.awt.peer.gtk;
 
 import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Window;
 import java.awt.Frame;
+import java.awt.Window;
 import java.awt.event.WindowEvent;
 import java.awt.peer.WindowPeer;
 
 public class GtkWindowPeer extends GtkContainerPeer
   implements WindowPeer
 {
-  static protected final int GDK_WINDOW_TYPE_HINT_NORMAL = 0;
-  static protected final int GDK_WINDOW_TYPE_HINT_DIALOG = 1;
-  static protected final int GDK_WINDOW_TYPE_HINT_MENU = 2;
-  static protected final int GDK_WINDOW_TYPE_HINT_TOOLBAR = 3;
-  static protected final int GDK_WINDOW_TYPE_HINT_SPLASHSCREEN = 4;
-  static protected final int GDK_WINDOW_TYPE_HINT_UTILITY = 5;
-  static protected final int GDK_WINDOW_TYPE_HINT_DOCK = 6;
-  static protected final int GDK_WINDOW_TYPE_HINT_DESKTOP = 7;
+  protected static final int GDK_WINDOW_TYPE_HINT_NORMAL = 0;
+  protected static final int GDK_WINDOW_TYPE_HINT_DIALOG = 1;
+  protected static final int GDK_WINDOW_TYPE_HINT_MENU = 2;
+  protected static final int GDK_WINDOW_TYPE_HINT_TOOLBAR = 3;
+  protected static final int GDK_WINDOW_TYPE_HINT_SPLASHSCREEN = 4;
+  protected static final int GDK_WINDOW_TYPE_HINT_UTILITY = 5;
+  protected static final int GDK_WINDOW_TYPE_HINT_DOCK = 6;
+  protected static final int GDK_WINDOW_TYPE_HINT_DESKTOP = 7;
 
   private boolean hasBeenShown = false;
   private int oldState = Frame.NORMAL;
@@ -64,30 +63,27 @@ public class GtkWindowPeer extends GtkContainerPeer
   native void gtkWindowSetResizable (boolean resizable);
   native void gtkWindowSetModal (boolean modal);
 
-  native void create (int type, boolean decorated,
-		      int width, int height,
-		      GtkWindowPeer parent,
-		      int[] insets);
+  int getWidth ()
+  {
+    return awtComponent.getWidth();
+  }
+
+  int getHeight ()
+  {
+    return awtComponent.getHeight();
+  }
+
+  native void create (int type, boolean decorated, GtkWindowPeer parent);
 
   void create (int type, boolean decorated)
   {
     GtkWindowPeer parent_peer = null;
     Component parent = awtComponent.getParent();
-    int[] insets = new int [] { 0, 0, 0, 0 };
 
     if (parent != null)
       parent_peer = (GtkWindowPeer) awtComponent.getParent().getPeer();
 
-    create (type, decorated,
-	    awtComponent.getWidth(),
-	    awtComponent.getHeight(),
-	    parent_peer,
-	    insets);
-
-    this.insets.top = insets [0];
-    this.insets.left = insets [1];
-    this.insets.bottom = insets [2];
-    this.insets.right = insets [3];
+    create (type, decorated, parent_peer);
   }
 
   void create ()
@@ -106,7 +102,6 @@ public class GtkWindowPeer extends GtkContainerPeer
   {
   }
 
-  native void connectJObject ();
   native void connectSignals ();
 
   public GtkWindowPeer (Window window)
@@ -114,8 +109,8 @@ public class GtkWindowPeer extends GtkContainerPeer
     super (window);
   }
 
-  native public void toBack ();
-  native public void toFront ();
+  public native void toBack();
+  public native void toFront();
 
   native void nativeSetBounds (int x, int y, int width, int height);
 
@@ -167,10 +162,12 @@ public class GtkWindowPeer extends GtkContainerPeer
 	|| frame_y != awtComponent.getY()
 	|| frame_width != awtComponent.getWidth()
 	|| frame_height != awtComponent.getHeight())
-      setBoundsCallback ((Window) awtComponent,
-			 frame_x, frame_y, frame_width, frame_height);
+      {
+        setBoundsCallback ((Window) awtComponent,
+                           frame_x, frame_y, frame_width, frame_height);
 
-    awtComponent.validate();
+        awtComponent.validate();
+      }
   }
 
   native void nativeSetVisible (boolean b);
@@ -193,7 +190,7 @@ public class GtkWindowPeer extends GtkContainerPeer
 	// Post a WINDOW_OPENED event the first time this window is shown.
 	if (!hasBeenShown)
 	  {
-	    q.postEvent (new WindowEvent ((Window) awtComponent, id,
+	    q().postEvent (new WindowEvent ((Window) awtComponent, id,
 					  opposite));
 	    hasBeenShown = true;
 	  }
@@ -202,12 +199,12 @@ public class GtkWindowPeer extends GtkContainerPeer
       {
 	if (oldState != newState)
 	  {
-	    q.postEvent (new WindowEvent ((Window) awtComponent, id, opposite,
+	    q().postEvent (new WindowEvent ((Window) awtComponent, id, opposite,
 					  oldState, newState));
 	    oldState = newState;
 	  }
       }
     else
-      q.postEvent (new WindowEvent ((Window) awtComponent, id, opposite));
+      q().postEvent (new WindowEvent ((Window) awtComponent, id, opposite));
   }
 }

@@ -81,7 +81,6 @@
 				0586E65E069CB9C300F6FAAA,
 				0586E76F069CD2CD00F6FAAA,
 				05BCD7E4069F322C00A79292,
-				05E4ADE106A83EF100546A37,
 				05E6693A070B38730079A61A,
 				05DB0AA6070B560000D9000A,
 			);
@@ -97,14 +96,14 @@
 			buildRules = (
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 7;
-				DYLIB_CURRENT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 25421;
+				DYLIB_CURRENT_VERSION = 25421;
 				FRAMEWORK_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)\" /usr/local/SecurityPieces/Frameworks/ /usr/local/SecurityPieces/Frameworks";
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/common";
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = /usr/lib/gcc/darwin/3.3;
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-framework security_ocspd";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ocspd;
 				SECTORDER_FLAGS = "";
@@ -421,12 +420,6 @@
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
-		05E4ADE106A83EF100546A37 = {
-			fileRef = 05E4ADE006A83EF100546A37;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		05E66939070B38730079A61A = {
 			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
@@ -505,6 +498,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_LDFLAGS = "-framework security_ocspd,_debug";
 				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
@@ -513,6 +507,7 @@
 		4CA1FEAA052A3C3800F22E42 = {
 			buildSettings = {
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_LDFLAGS = "-framework security_ocspd";
 				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;

@@ -1,4 +1,5 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- 
+ *
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
@@ -125,6 +126,7 @@ public:
 	std::vector<SectionAlignment>&	sectionAlignments();
 	CommonsMode					commonsMode();
 	bool						warnCommons();
+	FileInfo					findFile(const char* path);
 
 private:
 	class CStringEquals
@@ -143,7 +145,6 @@ private:
 	void						parseArch(const char* architecture);
 	FileInfo					findLibrary(const char* rootName);
 	FileInfo					findFramework(const char* rootName);
-	FileInfo					makeFileInfo(const char* path);
 	bool						checkForFile(const char* format, const char* dir, const char* rootName, FileInfo& result);
 	uint32_t					parseVersionNumber(const char*);
 	void						parseSectionOrderFile(const char* segment, const char* section, const char* path);
@@ -200,12 +201,14 @@ private:
 	uint32_t							fMinimumHeaderPad;
 	CommonsMode							fCommonsMode;
 	bool								fWarnCommons;
+	bool								fVerbose;
 	std::vector<const char*>			fInitialUndefines;
 	std::vector<ExtraSection>			fExtraSections;
 	std::vector<SectionAlignment>		fSectionAlignments;
 	
 	std::vector<const char*>			fLibrarySearchPaths;
 	std::vector<const char*>			fFrameworkSearchPaths;
+	std::vector<const char*>			fSDKPaths;
 
 };
 

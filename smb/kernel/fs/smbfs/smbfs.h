@@ -29,15 +29,16 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs.h,v 1.30.100.1 2005/05/27 02:35:28 lindak Exp $
+ * $Id: smbfs.h,v 1.30.100.3 2005/08/12 23:18:35 lindak Exp $
  */
+
 #ifndef _SMBFS_SMBFS_H_
 #define _SMBFS_SMBFS_H_
 
 #define VT_SMBFS	VT_OTHER
 
 #define SMBFS_VERMAJ	1
-#define SMBFS_VERMIN	3100
+#define SMBFS_VERMIN	3200
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
 
@@ -50,6 +51,7 @@
 
 #define	SMBFS_MAXPATHCOMP	256	/* maximum number of path components */
 
+#include <sys/mount.h>
 
 /* Layout of the mount control block for an smb file system. */
 struct smbfs_args {
@@ -63,6 +65,8 @@ struct smbfs_args {
 	mode_t 		file_mode;
 	mode_t 		dir_mode;
 	int		caseopt;
+	/* utf8_servname has to fit in f_mntfromname */
+	char            utf8_servname[MNAMELEN];
 };
 
 #ifdef KERNEL

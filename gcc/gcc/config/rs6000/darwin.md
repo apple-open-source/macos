@@ -1,8 +1,8 @@
 /* Machine description patterns for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
 GNU CC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -27,6 +27,49 @@ Boston, MA 02111-1307, USA.  */
   "{cau|addis} %0,%1,ha16(%2)"
   [(set_attr "length" "4")])
 
+(define_insn "movdf_low_si"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=f,!r")
+        (mem:DF (lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b,b")
+                           (match_operand 2 "" ""))))]
+  "TARGET_MACHO && TARGET_HARD_FLOAT && TARGET_FPRS && ! TARGET_64BIT"
+  "*
+{
+  switch (which_alternative)
+    {
+      case 0:
+	return \"lfd %0,lo16(%2)(%1)\";
+      case 1:
+	{
+	  rtx operands2[4];
+	  operands2[0] = operands[0];
+	  operands2[1] = operands[1];
+	  operands2[2] = operands[2];
+	  if (TARGET_POWERPC64 && TARGET_32BIT)
+	    /* Note, old assemblers didn't support relocation here.  */
+	    return \"ld %0,lo16(%2)(%1)\";
+	  else
+	  {
+	    operands2[3] = gen_rtx_REG (SImode, RS6000_PIC_OFFSET_TABLE_REGNUM);
+	    output_asm_insn (\"{l|lwz} %0,lo16(%2)(%1)\", operands);
+#if TARGET_MACHO
+	    if (MACHO_DYNAMIC_NO_PIC_P)
+	      output_asm_insn (\"{liu|lis} %L0,ha16(%2+4)\", operands);
+	    else
+	    /* We cannot rely on ha16(low half)==ha16(high half), alas,
+	       although in practice it almost always is.  */
+	    output_asm_insn (\"{cau|addis} %L0,%3,ha16(%2+4)\", operands2);
+#endif
+	    return (\"{l|lwz} %L0,lo16(%2+4)(%L0)\");
+	  }
+	}
+      default:
+	abort();
+    }
+}"
+  [(set_attr "type" "load")
+   (set_attr "length" "4,12")])
+
+
 (define_insn "movdf_low_di"
   [(set (match_operand:DF 0 "gpc_reg_operand" "=f,!r")
         (mem:DF (lo_sum:DI (match_operand:DI 1 "gpc_reg_operand" "b,b")
@@ -47,6 +90,15 @@ Boston, MA 02111-1307, USA.  */
   [(set_attr "type" "load")
    (set_attr "length" "4,4")])
 
+(define_insn "movdf_low_st_si"
+  [(set (mem:DF (lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b")
+                           (match_operand 2 "" "")))
+	(match_operand:DF 0 "gpc_reg_operand" "f"))]
+  "TARGET_MACHO && TARGET_HARD_FLOAT && TARGET_FPRS && ! TARGET_64BIT"
+  "stfd %0,lo16(%2)(%1)"
+  [(set_attr "type" "store")
+   (set_attr "length" "4")])
+
 (define_insn "movdf_low_st_di"
   [(set (mem:DF (lo_sum:DI (match_operand:DI 1 "gpc_reg_operand" "b")
                            (match_operand 2 "" "")))
@@ -54,6 +106,17 @@ Boston, MA 02111-1307, USA.  */
   "TARGET_MACHO && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_64BIT"
   "stfd %0,lo16(%2)(%1)"
   [(set_attr "type" "store")
+   (set_attr "length" "4")])
+
+(define_insn "movsf_low_si"
+  [(set (match_operand:SF 0 "gpc_reg_operand" "=f,!r")
+        (mem:SF (lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b,b")
+                           (match_operand 2 "" ""))))]
+  "TARGET_MACHO && TARGET_HARD_FLOAT && TARGET_FPRS && ! TARGET_64BIT"
+  "@
+   lfs %0,lo16(%2)(%1)
+   {l|lwz} %0,lo16(%2)(%1)"
+  [(set_attr "type" "load")
    (set_attr "length" "4")])
 
 (define_insn "movsf_low_di"
@@ -65,6 +128,17 @@ Boston, MA 02111-1307, USA.  */
    lfs %0,lo16(%2)(%1)
    {l|lwz} %0,lo16(%2)(%1)"
   [(set_attr "type" "load")
+   (set_attr "length" "4")])
+
+(define_insn "movsf_low_st_si"
+  [(set (mem:SF (lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b,b")
+                           (match_operand 2 "" "")))
+	(match_operand:SF 0 "gpc_reg_operand" "f,!r"))]
+  "TARGET_MACHO && TARGET_HARD_FLOAT && TARGET_FPRS && ! TARGET_64BIT"
+  "@
+   stfs %0,lo16(%2)(%1)
+   {st|stw} %0,lo16(%2)(%1)"
+  [(set_attr "type" "store")
    (set_attr "length" "4")])
 
 (define_insn "movsf_low_st_di"
@@ -88,6 +162,15 @@ Boston, MA 02111-1307, USA.  */
   [(set_attr "type" "load")
    (set_attr "length" "4")])
 
+(define_insn "movsi_low_st"
+  [(set (mem:SI (lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b")
+                           (match_operand 2 "" "")))
+	(match_operand:SI 0 "gpc_reg_operand" "r"))]
+  "TARGET_MACHO && ! TARGET_64BIT"
+  "{st|stw} %0,lo16(%2)(%1)"
+  [(set_attr "type" "store")
+   (set_attr "length" "4")])
+
 (define_insn "movdi_low_st"
   [(set (mem:DI (lo_sum:DI (match_operand:DI 1 "gpc_reg_operand" "b")
                            (match_operand 2 "" "")))
@@ -97,11 +180,55 @@ Boston, MA 02111-1307, USA.  */
   [(set_attr "type" "store")
    (set_attr "length" "4")])
 
+;; Mach-O PIC trickery.
+(define_expand "macho_high"
+  [(set (match_operand 0 "" "")
+	(high (match_operand 1 "" "")))]
+  "TARGET_MACHO"
+{
+  if (TARGET_64BIT)
+    emit_insn (gen_macho_high_di (operands[0], operands[1]));
+  else
+    emit_insn (gen_macho_high_si (operands[0], operands[1]));
+
+  DONE;
+})
+
+(define_insn "macho_high_si"
+  [(set (match_operand:SI 0 "gpc_reg_operand" "=b*r")
+	(high:SI (match_operand 1 "" "")))]
+  "TARGET_MACHO && ! TARGET_64BIT"
+  "{liu|lis} %0,ha16(%1)")
+  
+
 (define_insn "macho_high_di"
   [(set (match_operand:DI 0 "gpc_reg_operand" "=b*r")
 	(high:DI (match_operand 1 "" "")))]
   "TARGET_MACHO && TARGET_64BIT"
   "{liu|lis} %0,ha16(%1)")
+
+(define_expand "macho_low"
+  [(set (match_operand 0 "" "")
+	(lo_sum (match_operand 1 "" "")
+		   (match_operand 2 "" "")))]
+   "TARGET_MACHO"
+{
+  if (TARGET_64BIT)
+    emit_insn (gen_macho_low_di (operands[0], operands[1], operands[2]));
+  else
+    emit_insn (gen_macho_low_si (operands[0], operands[1], operands[2]));
+
+  DONE;
+})
+
+(define_insn "macho_low_si"
+  [(set (match_operand:SI 0 "gpc_reg_operand" "=r,r")
+	(lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b,!*r")
+		   (match_operand 2 "" "")))]
+   "TARGET_MACHO && ! TARGET_64BIT"
+   "@
+    {cal %0,%a2@l(%1)|la %0,lo16(%2)(%1)}
+    {cal %0,%a2@l(%1)|addic %0,%1,lo16(%2)}")
 
 (define_insn "macho_low_di"
   [(set (match_operand:DI 0 "gpc_reg_operand" "=r,r")
@@ -123,15 +250,64 @@ Boston, MA 02111-1307, USA.  */
 	(match_dup 2))]
   "")
 
-/* APPLE LOCAL begin 64-bit */
+(define_expand "load_macho_picbase"
+  [(set (match_operand 0 "" "")
+        (unspec [(match_operand 1 "" "")]
+                   UNSPEC_LD_MPIC))]
+  "(DEFAULT_ABI == ABI_DARWIN) && flag_pic"
+{
+  if (TARGET_32BIT)
+    emit_insn (gen_load_macho_picbase_si (operands[0], operands[1]));
+  else
+    emit_insn (gen_load_macho_picbase_di (operands[0], operands[1]));
 
-(define_insn "load_macho_picbase_di"
-  [(set (match_operand:DI 0 "register_operand" "=l")
-	(unspec:DI [(match_operand:DI 1 "immediate_operand" "s")] 15))]
+  DONE;
+})
+
+(define_insn "load_macho_picbase_si"
+  [(set (match_operand:SI 0 "register_operand" "=l")
+	(unspec:SI [(match_operand:SI 1 "immediate_operand" "s")]
+		   UNSPEC_LD_MPIC))]
   "(DEFAULT_ABI == ABI_DARWIN) && flag_pic"
   "bcl 20,31,%1\\n%1:"
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
+
+(define_insn "load_macho_picbase_di"
+  [(set (match_operand:DI 0 "register_operand" "=l")
+	(unspec:DI [(match_operand:DI 1 "immediate_operand" "s")] UNSPEC_LD_MPIC))]
+  "(DEFAULT_ABI == ABI_DARWIN) && flag_pic && TARGET_64BIT"
+  "bcl 20,31,%1\\n%1:"
+  [(set_attr "type" "branch")
+   (set_attr "length" "4")])
+
+(define_expand "macho_correct_pic"
+  [(set (match_operand 0 "" "")
+	(plus (match_operand 1 "" "")
+		 (unspec [(match_operand 2 "" "")
+			     (match_operand 3 "" "")]
+			    UNSPEC_MPIC_CORRECT)))]
+  "DEFAULT_ABI == ABI_DARWIN"
+{
+  if (TARGET_32BIT)
+    emit_insn (gen_macho_correct_pic_si (operands[0], operands[1], operands[2],
+	       operands[3]));
+  else
+    emit_insn (gen_macho_correct_pic_di (operands[0], operands[1], operands[2],
+	       operands[3]));
+
+  DONE;
+})
+
+(define_insn "macho_correct_pic_si"
+  [(set (match_operand:SI 0 "gpc_reg_operand" "=r")
+	(plus:SI (match_operand:SI 1 "gpc_reg_operand" "r")
+		 (unspec:SI [(match_operand:SI 2 "immediate_operand" "s")
+			     (match_operand:SI 3 "immediate_operand" "s")]
+			    UNSPEC_MPIC_CORRECT)))]
+  "DEFAULT_ABI == ABI_DARWIN"
+  "addis %0,%1,ha16(%2-%3)\n\taddi %0,%0,lo16(%2-%3)"
+  [(set_attr "length" "8")])
 
 (define_insn "macho_correct_pic_di"
   [(set (match_operand:DI 0 "gpc_reg_operand" "=r")
@@ -139,7 +315,7 @@ Boston, MA 02111-1307, USA.  */
 		 (unspec:DI [(match_operand:DI 2 "immediate_operand" "s")
 			     (match_operand:DI 3 "immediate_operand" "s")]
 			    16)))]
-  "DEFAULT_ABI == ABI_DARWIN"
+  "DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT"
   "addis %0,%1,ha16(%2-%3)\n\taddi %0,%0,lo16(%2-%3)"
   [(set_attr "length" "8")])
 
@@ -148,7 +324,7 @@ Boston, MA 02111-1307, USA.  */
 	 (match_operand 1 "" "g,g,g,g"))
    (use (match_operand:SI 2 "immediate_operand" "O,O,n,n"))
    (clobber (match_scratch:SI 3 "=l,l,l,l"))]
-  "DEFAULT_ABI == ABI_DARWIN"
+  "DEFAULT_ABI == ABI_DARWIN && TARGET_64BIT"
 {
   return "b%T0l";
 }
@@ -165,6 +341,8 @@ Boston, MA 02111-1307, USA.  */
 {
 #if TARGET_MACHO
   return output_call(insn, operands, 0, 2);
+#else
+  abort();
 #endif
 }
   [(set_attr "type" "branch,branch")
@@ -194,7 +372,9 @@ Boston, MA 02111-1307, USA.  */
 {
 #if TARGET_MACHO
   return output_call(insn, operands, 1, 3);
-#endif     
+#else
+  abort();
+#endif
 }
   [(set_attr "type" "branch,branch")
    (set_attr "length" "4,8")])
@@ -269,6 +449,7 @@ Boston, MA 02111-1307, USA.  */
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
 
+/* APPLE LOCAL begin 64-bit */
 (define_insn "*save_fpregs_with_label_di"
  [(match_parallel 0 "any_parallel_operand"
                   [(clobber (match_operand:DI 1 "register_operand" "=l"))

@@ -151,10 +151,7 @@ sInt32 CNiNodeList::AddNode ( const char *inStr, tDataList *inListPtr, bool inRe
 				}
 				if (aNode->fDomain != nil)
 				{
-					gNetInfoMutex->Wait();
-					DBGLOG( kLogPlugin, "CNiNodeList::AddNode - free the NI domain since it is being replaced");
-					//ni_free(aNode->fDomain); //management of domains left to netinfo_open package
-					gNetInfoMutex->Signal();
+					//fDomain is dealt with in netinfo_open separately from this cleanup
 					aNode->fDomain = nil;
 				}
 			}
@@ -441,10 +438,7 @@ void CNiNodeList::CleanUpUnknownConnections ( const uInt32 inSignature )
 				}
 				if (aNode->fDomain != nil)
 				{
-					//gNetInfoMutex->Wait();
-					//DBGLOG( kLogPlugin, "CNiNodeList::CleanUpUnknownConnections - free the ni domain");
-					//ni_free(aNode->fDomain); // management of domains left to netinfo_open package netinfo clear is called below
-					//gNetInfoMutex->Signal();
+					//fDomain is dealt with in netinfo_open separately from this cleanup
 					aNode->fDomain = nil;
 				}
 				if (aNode->fDomainName != nil)
@@ -459,12 +453,13 @@ void CNiNodeList::CleanUpUnknownConnections ( const uInt32 inSignature )
 			}
 		}
 	}
-	//cleanup all the netinfo connections
+
+	fMutex.Signal();
+
+	//cleanup all the netinfo connections outside of the node list mutex to maintain mutex use orders
 	gNetInfoMutex->Wait();
 	netinfo_clear(NETINFO_CLEAR_PRESERVE_LOCAL);
 	gNetInfoMutex->Signal();
-
-	fMutex.Signal();
 
 } // CleanUpUnknownConnections
 

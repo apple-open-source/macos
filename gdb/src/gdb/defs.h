@@ -1237,6 +1237,12 @@ enum { MAX_REGISTER_SIZE = 16 };
 
 /* In findvar.c.  */
 
+extern LONGEST extract_signed_integer_with_byte_order (const void *, int, int byte_order);
+
+extern ULONGEST extract_unsigned_integer_with_byte_order (const void *, int, int byte_order);
+
+extern int extract_long_unsigned_integer_with_byte_order (const void *, int, LONGEST *, int byte_order);
+
 extern LONGEST extract_signed_integer (const void *, int);
 
 extern ULONGEST extract_unsigned_integer (const void *, int);
@@ -1244,6 +1250,10 @@ extern ULONGEST extract_unsigned_integer (const void *, int);
 extern int extract_long_unsigned_integer (const void *, int, LONGEST *);
 
 extern CORE_ADDR extract_typed_address (const void *buf, struct type *type);
+
+extern void store_signed_integer_with_byte_order (void *, int, LONGEST, int byte_order);
+
+extern void store_unsigned_integer_with_byte_order (void *, int, ULONGEST, int byte_order);
 
 extern void store_signed_integer (void *, int, LONGEST);
 

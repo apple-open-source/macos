@@ -1,0 +1,5 @@
+/RANLIB=/a
+LIBTOOL=	@LIBTOOL@
+.
+/libtool/s//$(LIBTOOL)/
+w

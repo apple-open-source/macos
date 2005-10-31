@@ -2,7 +2,7 @@
    additional tree codes used in the GNU C++ compiler (see tree.def
    for the standard codes).
    Copyright (C) 1987, 1988, 1990, 1993, 1997, 1998,
-   1999, 2000, 2001, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2004, 2005 Free Software Foundation, Inc.
    Written by Benjamin Chelf <chelf@codesourcery.com>
 
 This file is part of GCC.
@@ -52,7 +52,7 @@ DEFTREECODE (BREAK_STMT, "break_stmt", tcc_expression, 0)
 DEFTREECODE (CONTINUE_STMT, "continue_stmt", tcc_expression, 0)
 
 /* Used to represent a 'switch' statement. The operands are
-   SWITCH_COND, SWITCH_BODY and SWITCH_TYPE, respectively.  */
+   SWITCH_STMT_COND, SWITCH_STMT_BODY and SWITCH_STMT_TYPE, respectively.  */
 DEFTREECODE (SWITCH_STMT, "switch_stmt", tcc_expression, 3)
 
 /* A STMT_EXPR represents a statement-expression.  The

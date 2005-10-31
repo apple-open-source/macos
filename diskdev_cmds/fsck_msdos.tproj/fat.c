@@ -105,7 +105,7 @@ int isdirty(int fs, struct bootblock *boot, int fat)
 
        buffer = malloc(boot->BytesPerSec);
        if (buffer == NULL) {
-               perror("No space for FAT sector");
+               perr("No space for FAT sector");
                return 1;               /* Assume it was dirty */
        }
 
@@ -113,12 +113,12 @@ int isdirty(int fs, struct bootblock *boot, int fat)
        offset *= boot->BytesPerSec;
 
        if (lseek(fs, offset, SEEK_SET) != offset) {
-               perror("Unable to read FAT");
+               perr("Unable to read FAT");
                goto ERROR;
        }
 
        if (deblock_read(fs, buffer, boot->BytesPerSec) != boot->BytesPerSec) {
-               perror("Unable to read FAT");
+               perr("Unable to read FAT");
                goto ERROR;
        }
 
@@ -233,13 +233,13 @@ static int _readchunk(int fd, struct bootblock *boot, u_int32_t chunk, u_char *b
 
     if (lseek(fd, offset, SEEK_SET) != offset)
     {
-        perror("Unable to seek FAT");
+        perr("Unable to seek FAT");
         return 1;
     }
     
     if (deblock_read(fd, buffer, length) != length)
     {
-        perror("Unable to read FAT");
+        perr("Unable to read FAT");
         return 1;
     }
 
@@ -278,13 +278,13 @@ static int _writechunks(int fd, struct bootblock *boot, u_int32_t chunk, u_char 
         
         if (lseek(fd, offset, SEEK_SET) != offset)
         {
-            perror("Unable to seek FAT");
+            perr("Unable to seek FAT");
             return 1;
         }
         
         if (deblock_write(fd, buffer, length) != length)
         {
-            perror("Unable to write FAT");
+            perr("Unable to write FAT");
             return 1;
         }
     }
@@ -314,7 +314,7 @@ readfat(fs, boot, no, fp)
         buffer = malloc(FAT_CHUNK_SIZE);
         if (buffer == NULL)
         {
-            perror("No space for FAT");
+            perr("No space for FAT");
             return FSFATAL;
         }
         
@@ -328,7 +328,7 @@ readfat(fs, boot, no, fp)
         
 	fat = calloc(boot->NumClusters, sizeof(struct fatEntry));
 	if (fat == NULL) {
-		perror("No space for FAT");
+		perr("No space for FAT");
 		free(buffer);
 		return FSFATAL;
 	}
@@ -690,7 +690,7 @@ writefat(fs, boot, fat, correct_fat)
         /* Allocate a buffer for the current FAT chunk */
 	buffer = malloc(FAT_CHUNK_SIZE);
 	if (buffer == NULL) {
-		perror("No space for FAT");
+		perr("No space for FAT");
 		return FSFATAL;
 	}
 

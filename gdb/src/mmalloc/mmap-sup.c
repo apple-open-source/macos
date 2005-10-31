@@ -36,6 +36,9 @@ Boston, MA 02111-1307, USA.  */
 #include <unistd.h>
 #include <sys/mman.h>
 #include <errno.h>
+/* APPLE LOCAL: Needed sys/types.h for caddr_t  */
+#include <sys/types.h>
+#include <stdint.h>
 
 #include <mach/mach.h>
 
@@ -218,7 +221,7 @@ __mmalloc_mmap_morecore (mdp, size)
 	{
 	  return NULL;
 	}
-      if ((kret == KERN_SUCCESS) && (r_start < (mdp -> top + mapbytes)))
+      if ((kret == KERN_SUCCESS) && (r_start < ((uintptr_t) mdp -> top + mapbytes)))
 	{
 	  return NULL;
 	}
@@ -241,11 +244,9 @@ __mmalloc_mmap_morecore (mdp, size)
 }
 
 PTR
-mmalloc_findbase (size, base)
-  size_t size;
-  size_t base;
+mmalloc_findbase (size_t size, void *base)
 {
-  vm_address_t last = base;
+  vm_address_t last = (vm_address_t) base;
 
   if (last == 0) 
     last = 0xd0000000;
@@ -267,7 +268,7 @@ mmalloc_findbase (size, base)
 		      &r_info_size, &r_object_name);
     if ((kret == KERN_INVALID_ADDRESS) && ((last + size) > last))
       {
-	return last;
+	return (void *) last;
       }
     if (kret != KERN_SUCCESS) 
       {
@@ -275,7 +276,7 @@ mmalloc_findbase (size, base)
       }
     if ((r_start - last) >= size)
       {
-	return last;
+	return (void *) last;
       }
 
     last = r_start + r_size;

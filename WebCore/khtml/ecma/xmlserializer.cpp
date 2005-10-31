@@ -27,6 +27,8 @@
 
 #include <kdebug.h>
 
+using DOM::NodeImpl;
+
 using namespace KJS;
 
 ////////////////////// XMLSerializer Object ////////////////////////
@@ -84,21 +86,20 @@ Value XMLSerializerProtoFunc::tryCall(ExecState *exec, Object &thisObj, const Li
 	return Undefined();
       }
 
-      if (!args[0].toObject(exec).inherits(&DOMDocument::info)) {
+      if (!args[0].toObject(exec).inherits(&DOMNode::info)) {
 	return Undefined();
       }
 
-      DOM::Node docNode = static_cast<KJS::DOMDocument *>(args[0].toObject(exec).imp())->toNode();
-      DOM::DocumentImpl *doc = static_cast<DOM::DocumentImpl *>(docNode.handle());
+      NodeImpl *node = static_cast<NodeImpl *>(static_cast<DOMNode *>(args[0].toObject(exec).imp())->toNode().handle());
 
-      if (!doc) {
+      if (!node) {
 	return Undefined();
       }
 	  
       QString body;
 
       try {
-	  body = doc->toString().string();
+	  body = node->toString().string();
       } catch(DOM::DOMException& e) {
 	  Object err = Error::create(exec, GeneralError, "Exception serializing document");
 	  exec->setException(err);

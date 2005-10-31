@@ -32,6 +32,10 @@
 /* Define if getservbyname_r returns int rather than struct servent * */
 #undef GETSERVBYNAME_R_RETURNS_INT
 
+/* Define if gmtime_r returns int instead of struct tm pointer, as on old
+   HP-UX systems. */
+#undef GMTIME_R_RETURNS_INT
+
 /* Define if bt_rseq is available, for recursive btree traversal. */
 #undef HAVE_BT_RSEQ
 

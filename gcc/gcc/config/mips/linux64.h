@@ -1,6 +1,6 @@
 /* Definitions for MIPS running Linux-based GNU systems with ELF format
    using n32/64 abi.
-   Copyright 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -19,38 +19,20 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* This sets the post-install default ABI to n32.  This must NOT be
-   kept in sync with the default ABI in gcc/config.gcc; it's actually
-   meant to override that.  However, for correct behavior at build
-   time, we also need t-linux64 to get the build-time specs in line
-   with the setting in config.gcc.  */
-#define DRIVER_DEFAULT_ABI_SELF_SPEC "%{!mabi=*:-mabi=n32}"
-#undef SUBTARGET_EXTRA_SPECS
-#define SUBTARGET_EXTRA_SPECS \
-  { "driver_default_abi_self_spec", DRIVER_DEFAULT_ABI_SELF_SPEC },
+/* Force the default endianness and ABI flags onto the command line
+   in order to make the other specs easier to write.  */
 #define DRIVER_SELF_SPECS \
 "%{!EB:%{!EL:%(endian_spec)}}", \
-"%{mabi-fake-default:%{!mabi=*:-mabi=32}}", \
-"%(driver_default_abi_self_spec)", \
-"%{!mips*:%{!march=*:%{mabi=32:-mips1}%{mabi=n32|mabi=64:-mips3}}}"
-
-#undef SUBTARGET_TARGET_SWITCHES
-#define SUBTARGET_TARGET_SWITCHES \
-  { "abi-fake-default", 0, N_("Same as -mabi=32, just trickier") },
+"%{!mabi=*: -mabi=n32}"
 
 #undef SUBTARGET_ASM_SPEC
 #define SUBTARGET_ASM_SPEC "\
 %{!fno-PIC:%{!fno-pic:-KPIC}} \
-%{fno-PIC:-non_shared} %{fno-pic:-non_shared} \
-%{mabi=64:-64} %{mabi=n32:-n32}"
+%{fno-PIC:-non_shared} %{fno-pic:-non_shared}"
 
 #undef LIB_SPEC
 #define LIB_SPEC "\
 %{shared: -lc} \
-%{!static: \
- %{mabi=n32:-rpath-link %R/lib32:%R/usr/lib32} \
- %{mabi=64:-rpath-link %R/lib64:%R/usr/lib64} \
- %{mabi=32:-rpath-link %R/lib:%R/usr/lib}} \
 %{!shared: %{pthread:-lpthread} \
   %{profile:-lc_p} %{!profile: -lc}}"
 

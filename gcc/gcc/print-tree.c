@@ -28,6 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "ggc.h"
 #include "langhooks.h"
+/* APPLE LOCAL mainline */
+#include "tree-iterator.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -79,6 +81,12 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
+      else if (TREE_CODE (node) == LABEL_DECL
+	       && LABEL_DECL_UID (node) != -1)
+	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+      else
+	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
+		 DECL_UID (node));
     }
   else if (class == tcc_type)
     {
@@ -158,7 +166,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   enum machine_mode mode;
   enum tree_code_class class;
   int len;
-  int first_rtl;
   int i;
   expanded_location xloc;
 
@@ -218,6 +225,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
+      else if (TREE_CODE (node) == LABEL_DECL
+	       && LABEL_DECL_UID (node) != -1)
+	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+      else
+	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
+		 DECL_UID (node));
     }
   else if (class == tcc_type)
     {
@@ -253,6 +266,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" readonly", file);
   if (!TYPE_P (node) && TREE_CONSTANT (node))
     fputs (" constant", file);
+  else if (TYPE_P (node) && TYPE_SIZES_GIMPLIFIED (node))
+    fputs (" sizes-gimplified", file);
+
   if (TREE_INVARIANT (node))
     fputs (" invariant", file);
   if (TREE_ADDRESSABLE (node))
@@ -542,7 +558,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       if (TREE_CODE (node) == ENUMERAL_TYPE)
 	print_node (file, "values", TYPE_VALUES (node), indent + 4);
-      else if (TREE_CODE (node) == ARRAY_TYPE || TREE_CODE (node) == SET_TYPE)
+      else if (TREE_CODE (node) == ARRAY_TYPE)
 	print_node (file, "domain", TYPE_DOMAIN (node), indent + 4);
       else if (TREE_CODE (node) == VECTOR_TYPE)
 	fprintf (file, " nunits %d", (int) TYPE_VECTOR_SUBPARTS (node));
@@ -595,29 +611,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       len = TREE_CODE_LENGTH (TREE_CODE (node));
 
-      /* Some nodes contain rtx's, not trees,
-	 after a certain point.  Print the rtx's as rtx's.  */
-      first_rtl = first_rtl_op (TREE_CODE (node));
-
       for (i = 0; i < len; i++)
 	{
-	  if (i >= first_rtl)
-	    {
-	      indent_to (file, indent + 4);
-	      fprintf (file, "rtl %d ", i);
-	      if (TREE_OPERAND (node, i))
-		print_rtl (file, (rtx) TREE_OPERAND (node, i));
-	      else
-		fprintf (file, "(nil)");
-	      fprintf (file, "\n");
-	    }
-	  else
-	    {
-	      char temp[10];
+	  char temp[10];
 
-	      sprintf (temp, "arg %d", i);
-	      print_node (file, temp, TREE_OPERAND (node, i), indent + 4);
-	    }
+	  sprintf (temp, "arg %d", i);
+	  print_node (file, temp, TREE_OPERAND (node, i), indent + 4);
 	}
 
       print_node (file, "chain", TREE_CHAIN (node), indent + 4);
@@ -729,6 +728,30 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		print_node_brief (file, temp, TREE_VEC_ELT (node, i), 0);
 	      }
 	  break;
+
+	/* APPLE LOCAL begin mainline */
+    	case STATEMENT_LIST:
+	  fprintf (file, " head " HOST_PTR_PRINTF " tail " HOST_PTR_PRINTF " stmts",
+		   (void *) node->stmt_list.head, (void *) node->stmt_list.tail);
+	  {
+	    tree_stmt_iterator i;
+	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
+	      {
+		/* Not printing the addresses of the (not-a-tree)
+		   'struct tree_stmt_list_node's.  */
+		fprintf (file, " " HOST_PTR_PRINTF, (void *)tsi_stmt (i));
+	      }
+	    fprintf (file, "\n");
+	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
+	      {
+		/* Not printing the addresses of the (not-a-tree)
+		   'struct tree_stmt_list_node's.  */
+		print_node (file, "stmt", tsi_stmt (i), indent + 4);
+	      }
+	  }
+	  print_node (file, "chain", TREE_CHAIN (node), indent + 4);
+	  break;
+	/* APPLE LOCAL end mainline */
 
 	case BLOCK:
 	  print_node (file, "vars", BLOCK_VARS (node), indent + 4);

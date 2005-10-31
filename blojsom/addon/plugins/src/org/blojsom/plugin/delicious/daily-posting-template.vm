@@ -1,0 +1,10 @@
+<ul class="delicious">
+#foreach ($post in $DAILY_POSTING_POSTS)
+	<li>
+		<div class="delicious-link" ><a href="$!post.getHref()">$!post.getDescription()</a> </div>
+		#if ($post.getExtended())<div class="delicious-extended"> $!post.getExtended() </div>#end
+        #set ($postTags = $post.getTagsAsArray(' '))
+		<div class="delicious-tags"> (tags: #foreach ($tag in $postTags)<a href="http://del.icio.us/$DAILY_POSTING_USERNAME/$tag">$tag</a> #end ) </div>
+	</li>
+#end
+</ul>

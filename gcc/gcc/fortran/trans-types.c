@@ -1,5 +1,5 @@
 /* Backend support for Fortran 95 basic types and derived types.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -81,6 +81,7 @@ int gfc_index_integer_kind;
 /* The default kinds of the various types.  */
 
 int gfc_default_integer_kind;
+int gfc_max_integer_kind;
 int gfc_default_real_kind;
 int gfc_default_double_kind;
 int gfc_default_character_kind;
@@ -135,6 +136,9 @@ gfc_init_kinds (void)
       i_index += 1;
     }
 
+  /* Set the maximum integer kind.  Used with at least BOZ constants.  */
+  gfc_max_integer_kind = gfc_integer_kinds[i_index - 1].kind;
+
   for (r_index = 0, mode = MIN_MODE_FLOAT; mode <= MAX_MODE_FLOAT; mode++)
     {
       const struct real_format *fmt = REAL_MODE_FORMAT (mode);
@@ -183,10 +187,10 @@ gfc_init_kinds (void)
 
   /* Choose the default integer kind.  We choose 4 unless the user
      directs us otherwise.  */
-  if (gfc_option.i8)
+  if (gfc_option.flag_default_integer)
     {
       if (!saw_i8)
-	fatal_error ("integer kind=8 not available for -i8 option");
+	fatal_error ("integer kind=8 not available for -fdefault-integer-8 option");
       gfc_default_integer_kind = 8;
     }
   else if (saw_i4)
@@ -195,10 +199,10 @@ gfc_init_kinds (void)
     gfc_default_integer_kind = gfc_integer_kinds[i_index - 1].kind;
 
   /* Choose the default real kind.  Again, we choose 4 when possible.  */
-  if (gfc_option.r8)
+  if (gfc_option.flag_default_real)
     {
       if (!saw_r8)
-	fatal_error ("real kind=8 not available for -r8 option");
+	fatal_error ("real kind=8 not available for -fdefault-real-8 option");
       gfc_default_real_kind = 8;
     }
   else if (saw_r4)
@@ -206,9 +210,16 @@ gfc_init_kinds (void)
   else
     gfc_default_real_kind = gfc_real_kinds[0].kind;
 
-  /* Choose the default double kind.  If -r8 is specified, we use kind=16,
-     if it's available, otherwise we do not change anything.  */
-  if (gfc_option.r8 && saw_r16)
+  /* Choose the default double kind.  If -fdefault-real and -fdefault-double 
+     are specified, we use kind=8, if it's available.  If -fdefault-real is
+     specified without -fdefault-double, we use kind=16, if it's available.
+     Otherwise we do not change anything.  */
+  if (gfc_option.flag_default_double && !gfc_option.flag_default_real)
+    fatal_error ("Use of -fdefault-double-8 requires -fdefault-real-8");
+
+  if (gfc_option.flag_default_real && gfc_option.flag_default_double && saw_r8)
+    gfc_default_double_kind = 8;
+  else if (gfc_option.flag_default_real && saw_r16)
     gfc_default_double_kind = 16;
   else if (saw_r4 && saw_r8)
     gfc_default_double_kind = 8;
@@ -580,7 +591,7 @@ gfc_get_character_type_len (int kind, tree len)
 
   gfc_validate_kind (BT_CHARACTER, kind, false);
 
-  bounds = build_range_type (gfc_array_index_type, gfc_index_one_node, len);
+  bounds = build_range_type (gfc_charlen_type_node, gfc_index_one_node, len);
   type = build_array_type (gfc_character1_type_node, bounds);
   TYPE_STRING_FLAG (type) = 1;
 
@@ -848,20 +859,32 @@ gfc_get_desc_dim_type (void)
   return type;
 }
 
-static tree
-gfc_get_dtype (tree type, int rank)
+
+/* Return the DTYPE for an array.  This describes the type and type parameters
+   of the array.  */
+/* TODO: Only call this when the value is actually used, and make all the
+   unknown cases abort.  */
+
+tree
+gfc_get_dtype (tree type)
 {
   tree size;
   int n;
   HOST_WIDE_INT i;
   tree tmp;
   tree dtype;
+  tree etype;
+  int rank;
 
-  if (GFC_DESCRIPTOR_TYPE_P (type) || GFC_ARRAY_TYPE_P (type))
-    return (GFC_TYPE_ARRAY_DTYPE (type));
+  gcc_assert (GFC_DESCRIPTOR_TYPE_P (type) || GFC_ARRAY_TYPE_P (type));
 
-  /* TODO: Correctly identify LOGICAL types.  */
-  switch (TREE_CODE (type))
+  if (GFC_TYPE_ARRAY_DTYPE (type))
+    return GFC_TYPE_ARRAY_DTYPE (type);
+
+  rank = GFC_TYPE_ARRAY_RANK (type);
+  etype = gfc_get_element_type (type);
+
+  switch (TREE_CODE (etype))
     {
     case INTEGER_TYPE:
       n = GFC_DTYPE_INTEGER;
@@ -879,7 +902,7 @@ gfc_get_dtype (tree type, int rank)
       n = GFC_DTYPE_COMPLEX;
       break;
 
-    /* Arrays have already been dealt with.  */
+    /* We will never have arrays of arrays.  */
     case RECORD_TYPE:
       n = GFC_DTYPE_DERIVED;
       break;
@@ -895,7 +918,7 @@ gfc_get_dtype (tree type, int rank)
     }
 
   gcc_assert (rank <= GFC_DTYPE_RANK_MASK);
-  size = TYPE_SIZE_UNIT (type);
+  size = TYPE_SIZE_UNIT (etype);
 
   i = rank | (n << GFC_DTYPE_TYPE_SHIFT);
   if (size && INTEGER_CST_P (size))
@@ -918,6 +941,7 @@ gfc_get_dtype (tree type, int rank)
   /* TODO: Check this is actually true, particularly when repacking
      assumed size parameters.  */
 
+  GFC_TYPE_ARRAY_DTYPE (type) = dtype;
   return dtype;
 }
 
@@ -1028,8 +1052,8 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
   else
     GFC_TYPE_ARRAY_SIZE (type) = NULL_TREE;
 
-  GFC_TYPE_ARRAY_DTYPE (type) = gfc_get_dtype (etype, as->rank);
   GFC_TYPE_ARRAY_RANK (type) = as->rank;
+  GFC_TYPE_ARRAY_DTYPE (type) = NULL_TREE;
   range = build_range_type (gfc_array_index_type, gfc_index_zero_node,
 			    NULL_TREE);
   /* TODO: use main type if it is unbounded.  */
@@ -1092,7 +1116,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   TYPE_LANG_SPECIFIC (fat_type) = (struct lang_type *)
     ggc_alloc_cleared (sizeof (struct lang_type));
   GFC_TYPE_ARRAY_RANK (fat_type) = dimen;
-  GFC_TYPE_ARRAY_DTYPE (fat_type) = gfc_get_dtype (etype, dimen);
+  GFC_TYPE_ARRAY_DTYPE (fat_type) = NULL_TREE;
 
   tmp = TYPE_NAME (etype);
   if (tmp && TREE_CODE (tmp) == TYPE_DECL)
@@ -1370,15 +1394,12 @@ gfc_get_derived_type (gfc_symbol * derived)
       if (c->ts.type == BT_DERIVED && c->pointer)
         {
           if (c->ts.derived->backend_decl)
-            field_type = c->ts.derived->backend_decl;
+	    /* We already saw this derived type so use the exiting type.
+	       It doesn't matter if it is incomplete.  */
+	    field_type = c->ts.derived->backend_decl;
           else
-            {
-              /* Build the type node.  */
-              field_type = make_node (RECORD_TYPE);
-              TYPE_NAME (field_type) = get_identifier (c->ts.derived->name);
-              TYPE_PACKED (field_type) = gfc_option.flag_pack_derived;
-              c->ts.derived->backend_decl = field_type;
-            }
+	    /* Recurse into the type.  */
+	    field_type = gfc_get_derived_type (c->ts.derived);
         }
       else
 	{
@@ -1399,7 +1420,7 @@ gfc_get_derived_type (gfc_symbol * derived)
 	  if (c->pointer)
 	    {
 	      /* Pointers to arrays aren't actually pointer types.  The
-	         descriptors are seperate, but the data is common.  */
+	         descriptors are separate, but the data is common.  */
 	      field_type = gfc_build_array_type (field_type, c->as);
 	    }
 	  else
@@ -1656,5 +1677,25 @@ gfc_signed_type (tree type)
 {
   return gfc_signed_or_unsigned_type (0, type);
 }
+
+/* APPLE LOCAL kext */
+int flag_weak = 0;
+
+/* APPLE LOCAL constant cfstrings */
+struct cpp_reader* parse_in;
+
+/* APPLE LOCAL begin AltiVec */
+tree
+build_stmt (enum tree_code code ATTRIBUTE_UNUSED, ...)
+{
+  gcc_assert(0);
+}
+
+void
+store_init_value (tree decl ATTRIBUTE_UNUSED, tree init ATTRIBUTE_UNUSED)
+{
+  gcc_assert(0);
+}
+/* APPLE LOCAL end AltiVec */
 
 #include "gt-fortran-trans-types.h"

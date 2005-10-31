@@ -1,3 +1,18 @@
+Changes for the 5.18 release (the cctools-589 release):
+- Added the CPU_SUBTYPE_PENTIUM_4 subtype to <mach/machine.h>
+  Radar bug #4115802.
+
+Changes for the 5.18 release (the cctools-583 release):
+- Added the MACOSX_DEPLOYMENT_TARGET_10_5 value to the enum
+  macosx_deployment_target_value list in macosx_deployment_target.h.  Radar
+  bug #4098516.
+
+Changes for the 5.18 release (the cctools-580 release):
+- Changed get_macosx_deployment_target() in "stuff/macosx_deployment_target.h"
+  to take an additional cpu_type_t parameter.  The new cpu_type_t parameter is
+  used to set the default.  For CPU_TYPE_I386 the default is 10.4 otherwise it
+  is 10.1.  Radar bug #4081062.
+
 Changes for the 5.17 release (the cctools-574 release):
 - Added the new force_cpusubtype_ALL_for_cputype() function to "stuff/arch.h" .
   Radar bug #4002758.

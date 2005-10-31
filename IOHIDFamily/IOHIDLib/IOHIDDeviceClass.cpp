@@ -1830,7 +1830,7 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
     // either a collection element or a leaf element
     else if (type == CFDictionaryGetTypeID())
     {
-        CFMutableDictionaryRef  dictionary  = (CFMutableDictionaryRef) element;
+        CFMutableDictionaryRef  dictionary  = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, (CFMutableDictionaryRef) element);
         CFDictionaryRef         tempElement = 0;
         IOHIDElementStruct      hidelement;
         CFTypeRef               object;
@@ -1977,7 +1977,7 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
                 for ( unsigned i=0; i<duplicateCount; i++)
                 {
                     hidelement.cookie ++;
-                    hidelement.valueLocation += duplicateSizeOffset;
+                    hidelement.valueLocation -= duplicateSizeOffset;  // Assume element shared mem is allocated in descending order.
 
                     hidelement.elementDictionaryRef = 0;
 
@@ -2023,6 +2023,8 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
             } while ( 0 );
 
         }
+        
+        CFRelease(dictionary);
     }
     // this case should not happen, something else was found
     else

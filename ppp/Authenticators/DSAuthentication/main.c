@@ -343,7 +343,7 @@ static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNod
     MS_Chap2Response	*resp;  
     char				*keyaccessPassword = 0;
     char				*keyaccessName = 0;
-    u_int32_t			keyaccessNameSize;
+    u_int32_t			keyaccessNameSize = 0;
     u_int32_t			keyaccessPasswordSize;
     int					len, useKeyAgent, i;
     u_int32_t			userNameSize = strlen(user);

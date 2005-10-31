@@ -1,4 +1,4 @@
-@c APPLE LOCAL entire file
+@c APPLE LOCAL file GPL compliance
 @node Source Code
 @unnumbered Source Code
 
@@ -6,7 +6,7 @@ The source code for Apple's versions of GCC is available using
 anonymous CVS, from
 @samp{:pserver:anonymous@@anoncvs.opensource.apple.com:/cvs/root}
 with password @samp{anonymous}, as module @samp{gcc}, branch
-@samp{apple-ppc-branch}.
+@samp{apple-local-200502-branch}.
 
 For example, you can fetch the latest version by entering:
 
@@ -14,7 +14,7 @@ For example, you can fetch the latest version by entering:
 $ cvs -d :pserver:anonymous@@anoncvs.opensource.apple.com:/cvs/root login
 Password: anonymous
 $ cvs -d :pserver:anonymous@@anoncvs.opensource.apple.com:/cvs/root -z6 \
-  co -r apple-ppc-branch gcc
+  co -r apple-local-200502-branch gcc
 @end smallexample
 
 Each version will be tagged based on its build number, which

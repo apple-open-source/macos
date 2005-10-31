@@ -27,7 +27,6 @@
 
 #define SafeIPCCallBegin_(ipcErr, result)                                                                           \
     {                                                                                                               \
-        security_token_t token;                                                                                     \
         u_int32_t retriesLeft = kMachIPCRetryCount;                                                                 \
         gServerKilled = false;                                                                                      \
         mach_port_t machPort = MACH_PORT_NULL;                                                                      \
@@ -45,13 +44,9 @@
                                                                                                                     \
         if (ipcErr == BOOTSTRAP_SUCCESS) {                                                                          \
             do {                                                                                                    \
-                ipcErr = KLIPCGetServerPID (machPort, &gServerPID, &token);                                         \
-                if (ipcErr == KERN_SUCCESS) {                                                                       \
-                    if (!mach_client_allow_server (token)) {                                                        \
-                        result = klServerInsecureErr;                                                               \
-                        break;                                                                                      \
-                    }
-    
+                ipcErr = KLIPCGetServerPID (machPort, &gServerPID);                                                 \
+                if (ipcErr == KERN_SUCCESS) {                                                                       
+                    
     #define SafeIPCCallEnd_(ipcErr, result)                                                                         \
                 }                                                                                                   \
                 retriesLeft--;                                                                                      \
@@ -64,7 +59,7 @@
         }                                                                                                           \
                                                                                                                     \
         if (machPort != MACH_PORT_NULL) { mach_port_deallocate (mach_task_self (), machPort); }                     \
-        if (path       != NULL) { KLDisposeString (path); }                                                               \
+        if (path     != NULL)           { KLDisposeString (path); }                                                 \
     }
 
 /*#define __AfterRcvRpc(num, name)					\

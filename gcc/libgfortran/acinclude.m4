@@ -42,9 +42,9 @@ main ()
       fi
     fi
     AC_REQUIRE([AC_HEADER_TIME])
-    AC_CACHE_CHECK(whether gettimeofday can accept two arguments,
+    AC_CACHE_CHECK([whether gettimeofday can accept two arguments],
       emacs_cv_gettimeofday_two_arguments,
-      AC_TRY_LINK([
+      [AC_TRY_LINK([
 #ifdef TIME_WITH_SYS_TIME
 #include <sys/time.h>
 #include <time.h>
@@ -66,7 +66,7 @@ main ()
 #endif
       gettimeofday (&time, DUMMY);],
       emacs_cv_gettimeofday_two_arguments=yes,
-      emacs_cv_gettimeofday_two_arguments=no))
+      emacs_cv_gettimeofday_two_arguments=no)])
     if test $emacs_cv_gettimeofday_two_arguments = no; then
       AC_DEFINE(GETTIMEOFDAY_ONE_ARGUMENT, 1,
         [Does gettimeofday take a single argument])
@@ -83,3 +83,68 @@ AC_DEFUN([AC_LIBTOOL_DLOPEN])
 AC_DEFUN([AC_PROG_LD])
 ])
 
+dnl Check whether the target is ILP32.
+AC_DEFUN([LIBGFOR_TARGET_ILP32], [
+  AC_CACHE_CHECK([whether the target is ILP32], target_ilp32, [
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="-O2"
+  AC_TRY_LINK(,[
+if (sizeof(int) == 4 && sizeof(long) == 4 && sizeof(void *) == 4)
+  ;
+else
+  undefined_function ();
+               ],
+               target_ilp32=yes,
+               target_ilp32=no)
+  CFLAGS="$save_CFLAGS"])
+  if test $target_ilp32 = yes; then
+    AC_DEFINE(TARGET_ILP32, 1,
+      [Define to 1 if the target is ILP32.])
+  fi
+  ])
+
+dnl Check whether the target supports hidden visibility.
+AC_DEFUN([LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY], [
+  AC_CACHE_CHECK([whether the target supports hidden visibility],
+		 have_attribute_visibility, [
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -Werror"
+  AC_TRY_COMPILE([void __attribute__((visibility("hidden"))) foo(void) { }],
+		 [], have_attribute_visibility=yes,
+		 have_attribute_visibility=no)
+  CFLAGS="$save_CFLAGS"])
+  if test $have_attribute_visibility = yes; then
+    AC_DEFINE(HAVE_ATTRIBUTE_VISIBILITY, 1,
+      [Define to 1 if the target supports __attribute__((visibility(...))).])
+  fi])
+
+dnl Check whether the target supports dllexport
+AC_DEFUN([LIBGFOR_CHECK_ATTRIBUTE_DLLEXPORT], [
+  AC_CACHE_CHECK([whether the target supports dllexport],
+		 have_attribute_dllexport, [
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -Werror"
+  AC_TRY_COMPILE([void __attribute__((dllexport)) foo(void) { }],
+		 [], have_attribute_dllexport=yes,
+		 have_attribute_dllexport=no)
+  CFLAGS="$save_CFLAGS"])
+  if test $have_attribute_dllexport = yes; then
+    AC_DEFINE(HAVE_ATTRIBUTE_DLLEXPORT, 1,
+      [Define to 1 if the target supports __attribute__((dllexport)).])
+  fi])
+
+dnl Check whether the target supports symbol aliases.
+AC_DEFUN([LIBGFOR_CHECK_ATTRIBUTE_ALIAS], [
+  AC_CACHE_CHECK([whether the target supports symbol aliases],
+		 have_attribute_alias, [
+  AC_TRY_LINK([
+#define ULP	STR1(__USER_LABEL_PREFIX__)
+#define STR1(x)	STR2(x)
+#define STR2(x)	#x
+void foo(void) { }
+extern void bar(void) __attribute__((alias(ULP "foo")));],
+    [bar();], have_attribute_alias=yes, have_attribute_alias=no)])
+  if test $have_attribute_alias = yes; then
+    AC_DEFINE(HAVE_ATTRIBUTE_ALIAS, 1,
+      [Define to 1 if the target supports __attribute__((alias(...))).])
+  fi])

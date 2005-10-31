@@ -1,5 +1,5 @@
 /* High-level loop manipulation functions.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -41,7 +41,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    It is expected that neither BASE nor STEP are shared with other expressions
    (unless the sharing rules allow this).  Use VAR as a base var_decl for it
    (if NULL, a new temporary will be created).  The increment will occur at
-   INCR_POS (after it if AFTER is true, before it otherwise).  The ssa versions
+   INCR_POS (after it if AFTER is true, before it otherwise).  INCR_POS and 
+   AFTER can be computed using standard_iv_increment_position.  The ssa versions
    of the variable before and after increment will be stored in VAR_BEFORE and
    VAR_AFTER (unless they are NULL).  */
 
@@ -110,8 +111,8 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 
   stmt = create_phi_node (vb, loop->header);
   SSA_NAME_DEF_STMT (vb) = stmt;
-  add_phi_arg (&stmt, initial, loop_preheader_edge (loop));
-  add_phi_arg (&stmt, va, loop_latch_edge (loop));
+  add_phi_arg (stmt, initial, loop_preheader_edge (loop));
+  add_phi_arg (stmt, va, loop_latch_edge (loop));
 }
 
 /* Add exit phis for the USE on EXIT.  */
@@ -140,7 +141,7 @@ add_exit_phis_edge (basic_block exit, tree use)
   phi = create_phi_node (use, exit);
 
   FOR_EACH_EDGE (e, ei, exit->preds)
-    add_phi_arg (&phi, use, e);
+    add_phi_arg (phi, use, e);
 
   SSA_NAME_DEF_STMT (use) = def_stmt;
 }
@@ -152,16 +153,16 @@ static void
 add_exit_phis_var (tree var, bitmap livein, bitmap exits)
 {
   bitmap def;
-  int index;
+  unsigned index;
   basic_block def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
   bitmap_iterator bi;
 
   bitmap_clear_bit (livein, def_bb->index);
 
-  def = BITMAP_XMALLOC ();
+  def = BITMAP_ALLOC (NULL);
   bitmap_set_bit (def, def_bb->index);
   compute_global_livein (livein, def);
-  BITMAP_XFREE (def);
+  BITMAP_FREE (def);
 
   EXECUTE_IF_AND_IN_BITMAP (exits, livein, 0, index, bi)
     {
@@ -190,7 +191,7 @@ add_exit_phis (bitmap names_to_rename, bitmap *use_blocks, bitmap loop_exits)
 static bitmap
 get_loops_exits (void)
 {
-  bitmap exits = BITMAP_XMALLOC ();
+  bitmap exits = BITMAP_ALLOC (NULL);
   basic_block bb;
   edge e;
   edge_iterator ei;
@@ -234,7 +235,7 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap *use_blocks)
     return;
 
   if (!use_blocks[ver])
-    use_blocks[ver] = BITMAP_XMALLOC ();
+    use_blocks[ver] = BITMAP_ALLOC (NULL);
   bitmap_set_bit (use_blocks[ver], bb->index);
 
   if (!flow_bb_inside_loop_p (def_loop, bb))
@@ -272,9 +273,9 @@ find_uses_to_rename (bitmap *use_blocks)
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	  find_uses_to_rename_use (PHI_ARG_EDGE (phi, i)->src,
+	  find_uses_to_rename_use (EDGE_PRED (bb, i)->src,
 				   PHI_ARG_DEF (phi, i), use_blocks);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -329,10 +330,10 @@ rewrite_into_loop_closed_ssa (void)
   add_exit_phis (names_to_rename, use_blocks, loop_exits);
 
   for (i = 0; i < num_ssa_names; i++)
-    BITMAP_XFREE (use_blocks[i]);
+    BITMAP_FREE (use_blocks[i]);
   free (use_blocks);
-  BITMAP_XFREE (loop_exits);
-  BITMAP_XFREE (names_to_rename);
+  BITMAP_FREE (loop_exits);
+  BITMAP_FREE (names_to_rename);
 
   /* Do the rewriting.  */
   rewrite_ssa_into_ssa ();
@@ -383,7 +384,7 @@ verify_loop_closed_ssa (void)
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
 	  check_loop_closed_ssa_use (PHI_ARG_EDGE (phi, i)->src,
 				     PHI_ARG_DEF (phi, i));
@@ -404,7 +405,7 @@ split_loop_exit_edge (edge exit)
   tree phi, new_phi, new_name, name;
   use_operand_p op_p;
 
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
       op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, EDGE_SUCC (bb, 0));
 
@@ -420,7 +421,7 @@ split_loop_exit_edge (edge exit)
       new_name = duplicate_ssa_name (name, NULL);
       new_phi = create_phi_node (new_name, bb);
       SSA_NAME_DEF_STMT (new_name) = new_phi;
-      add_phi_arg (&new_phi, name, exit);
+      add_phi_arg (new_phi, name, exit);
       SET_USE (op_p, new_name);
     }
 }
@@ -567,11 +568,11 @@ set_phi_def_stmts (basic_block bb)
 {
   tree phi;
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = phi;
 }
 
-/* The same ad cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
+/* The same as cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
    ssa.  In order to achieve this, only loops whose exits all lead to the same
    location are handled.
    
@@ -589,7 +590,6 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   unsigned first_new_block;
   basic_block bb;
   unsigned i;
-  tree phi, arg, map, def;
   bitmap definitions;
 
   if (!(loops->state & LOOPS_HAVE_SIMPLE_LATCHES))
@@ -609,17 +609,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
     return false;
 
   /* Readd the removed phi args for e.  */
-  map = PENDING_STMT (e);
-  PENDING_STMT (e) = NULL;
-
-  for (phi = phi_nodes (e->dest), arg = map;
-       phi;
-       phi = TREE_CHAIN (phi), arg = TREE_CHAIN (arg))
-    {
-      def = TREE_VALUE (arg);
-      add_phi_arg (&phi, def, e);
-    }
-  gcc_assert (arg == NULL);
+  flush_pending_stmts (e);
 
   /* Copy the phi node arguments.  */
   copy_phi_node_args (first_new_block);
@@ -628,7 +618,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   definitions = marked_ssa_names ();
   rename_variables (first_new_block, definitions);
   unmark_all_for_rewrite ();
-  BITMAP_XFREE (definitions);
+  BITMAP_FREE (definitions);
 
   /* For some time we have the identical ssa names as results in multiple phi
      nodes.  When phi node is resized, it sets SSA_NAME_DEF_STMT of its result
@@ -676,23 +666,21 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 
   for (phi2 = phi_nodes (second), phi1 = phi_nodes (first); 
        phi2 && phi1; 
-       phi2 = TREE_CHAIN (phi2),  phi1 = TREE_CHAIN (phi1))
+       phi2 = PHI_CHAIN (phi2),  phi1 = PHI_CHAIN (phi1))
     {
-      int i;
-      for (i = 0; i < PHI_NUM_ARGS (phi2); i++)
+      edge e2 = find_edge (new_head, second);
+
+      if (e2)
 	{
-	  if (PHI_ARG_EDGE (phi2, i)->src == new_head)
-	    {
-	      tree def = PHI_ARG_DEF (phi2, i);
-	      add_phi_arg (&phi1, def, e);
-	    }
+	  tree def = PHI_ARG_DEF (phi2, e2->dest_idx);
+	  add_phi_arg (phi1, def, e);
 	}
     }
 }
 
 /* Adjust entry edge for lv.
    
-  e is a incoming edge. 
+  e is an incoming edge. 
 
   --- edge e ---- > [second_head]
 
@@ -746,31 +734,6 @@ lv_adjust_loop_entry_edge (basic_block first_head,
 
   return new_head;
 }
-
-/* Add phi args using PENDINT_STMT list.  */
-
-static void
-lv_update_pending_stmts (edge e)
-{
-  basic_block dest;
-  tree phi, arg, def;
-
-  if (!PENDING_STMT (e))
-    return;
-
-  dest = e->dest;
-
-  for (phi = phi_nodes (dest), arg = PENDING_STMT (e);
-       phi;
-       phi = TREE_CHAIN (phi), arg = TREE_CHAIN (arg))
-    {
-      def = TREE_VALUE (arg);
-      add_phi_arg (&phi, def, e);
-    }
-
-  PENDING_STMT (e) = NULL;
-}
-
 
 /* Main entry point for Loop Versioning transformation.
    
@@ -832,11 +795,11 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
     nloop->single_exit = find_edge (exit->src->rbi->copy, exit->dest);
 
   /* loopify redirected latch_edge. Update its PENDING_STMTS.  */ 
-  lv_update_pending_stmts (latch_edge);
+  flush_pending_stmts (latch_edge);
 
   /* loopify redirected condition_bb's succ edge. Update its PENDING_STMTS.  */ 
   extract_true_false_edges_from_block (*condition_bb, &true_edge, &false_edge);
-  lv_update_pending_stmts (false_edge);
+  flush_pending_stmts (false_edge);
 
   /* Adjust irreducible flag.  */
   if (irred_flag)

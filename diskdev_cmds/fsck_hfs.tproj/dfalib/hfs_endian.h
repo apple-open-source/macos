@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,31 +35,23 @@
 /*********************/
 /* BIG ENDIAN Macros */
 /*********************/
-#if BYTE_ORDER == BIG_ENDIAN
+#define SWAP_BE16(__a) 							OSSwapBigToHostInt16 (__a)
+#define SWAP_BE32(__a) 							OSSwapBigToHostInt32 (__a)
+#define SWAP_BE64(__a) 							OSSwapBigToHostInt64 (__a)
 
-    /* HFS is always big endian, make swaps into no-ops */
-    #define SWAP_BE16(__a) (__a)
-    #define SWAP_BE32(__a) (__a)
-    #define SWAP_BE64(__a) (__a)
+#if BYTE_ORDER == BIG_ENDIAN
     
     /* HFS is always big endian, no swapping needed */
     #define SWAP_HFSMDB(__a)
     #define SWAP_HFSPLUSVH(__a)
-    #define SWAP_BT_NODE(__a, __b, __c, __d)
 
 /************************/
 /* LITTLE ENDIAN Macros */
 /************************/
 #elif BYTE_ORDER == LITTLE_ENDIAN
 
-    /* HFS is always big endian, make swaps actually swap */
-    #define SWAP_BE16(__a) 				NXSwapBigShortToHost (__a)
-    #define SWAP_BE32(__a) 				NXSwapBigLongToHost (__a)
-    #define SWAP_BE64(__a) 				NXSwapBigLongLongToHost (__a)
-    
     #define SWAP_HFSMDB(__a)				hfs_swap_HFSMasterDirectoryBlock ((__a))
     #define SWAP_HFSPLUSVH(__a)				hfs_swap_HFSPlusVolumeHeader ((__a))
-    #define SWAP_BT_NODE(__a, __b, __c, __d)		hfs_swap_BTNode ((__a), (__b), (__c), (__d))
 
 #else
 #warning Unknown byte order
@@ -70,9 +62,32 @@
 extern "C" {
 #endif
 
+/*
+ * Constants for the "unswap" argument to hfs_swap_BTNode:
+ */
+enum HFSBTSwapDirection {
+	kSwapBTNodeBigToHost		=	0,
+	kSwapBTNodeHostToBig		=	1,
+
+	/*
+	 * kSwapBTNodeHeaderRecordOnly is used to swap just the header record
+	 * of a header node from big endian (on disk) to host endian (in memory).
+	 * It does not swap the node descriptor (forward/backward links, record
+	 * count, etc.).  It assumes the header record is at offset 0x000E.
+	 *
+	 * Since HFS Plus doesn't have fixed B-tree node sizes, we have to read
+	 * the header record to determine the actual node size for that tree
+	 * before we can set up the B-tree control block.  We read it initially
+	 * as 512 bytes, then re-read it once we know the correct node size.  Since
+	 * we may not have read the entire header node the first time, we can't
+	 * swap the record offsets, other records, or do most sanity checks.
+	 */
+	kSwapBTNodeHeaderRecordOnly	=	3
+};
+
 void hfs_swap_HFSMasterDirectoryBlock (void *buf);
 void hfs_swap_HFSPlusVolumeHeader (void *buf);
-int  hfs_swap_BTNode (BlockDescriptor *src, int isHFSPlus, HFSCatalogNodeID fileID, int unswap);
+int  hfs_swap_BTNode (BlockDescriptor *src, SFCB *fcb, enum HFSBTSwapDirection direction);
 
 #ifdef __cplusplus
 }

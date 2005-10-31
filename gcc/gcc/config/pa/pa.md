@@ -1,6 +1,6 @@
 ;;- Machine description for HP PA-RISC architecture for GCC compiler
 ;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-;;   2002, 2003, 2004 Free Software Foundation, Inc.
+;;   2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -5101,7 +5101,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 4))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5227,7 +5227,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 5))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5283,7 +5283,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 5))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5340,7 +5340,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 5))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5392,7 +5392,7 @@
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 25))
 	      (clobber (match_dup 5))])
-   (set (match_operand:SI 0 "general_operand" "") (reg:SI 29))]
+   (set (match_operand:SI 0 "move_dest_operand" "") (reg:SI 29))]
   ""
   "
 {
@@ -5441,25 +5441,14 @@
 
 (define_expand "anddi3"
   [(set (match_operand:DI 0 "register_operand" "")
-	(and:DI (match_operand:DI 1 "and_operand" "")
+	(and:DI (match_operand:DI 1 "register_operand" "")
 		(match_operand:DI 2 "and_operand" "")))]
   ""
   "
 {
-  if (TARGET_64BIT)
-    {
-      /* One operand must be a register operand.  */
-      if (!register_operand (operands[1], DImode)
-	  && !register_operand (operands[2], DImode))
-	FAIL;
-    }
-  else
-    {
-      /* Both operands must be register operands.  */
-      if (!register_operand (operands[1], DImode)
-	  || !register_operand (operands[2], DImode))
-	FAIL;
-    }
+  /* Both operands must be register operands.  */
+  if (!TARGET_64BIT && !register_operand (operands[2], DImode))
+    FAIL;
 }")
 
 (define_insn ""
@@ -5520,25 +5509,14 @@
 
 (define_expand "iordi3"
   [(set (match_operand:DI 0 "register_operand" "")
-	(ior:DI (match_operand:DI 1 "ior_operand" "")
+	(ior:DI (match_operand:DI 1 "register_operand" "")
 		(match_operand:DI 2 "ior_operand" "")))]
   ""
   "
 {
-  if (TARGET_64BIT)
-    {
-      /* One operand must be a register operand.  */
-      if (!register_operand (operands[1], DImode)
-	  && !register_operand (operands[2], DImode))
-	FAIL;
-    }
-  else
-    {
-      /* Both operands must be register operands.  */
-      if (!register_operand (operands[1], DImode)
-	  || !register_operand (operands[2], DImode))
-	FAIL;
-    }
+  /* Both operands must be register operands.  */
+  if (!TARGET_64BIT && !register_operand (operands[2], DImode))
+    FAIL;
 }")
 
 (define_insn ""
@@ -9283,134 +9261,88 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
    (match_operand 2 "const_int_operand" "")]
   "TARGET_PA_20"
 {
-  /* The PA 2.0 prefetch instructions only support short displacements
-     when a cache control completer needs to be supplied.  Thus, we
-     can't use LO_SUM DLT addresses with the spatial locality completer.  */
-  if (operands[2] == const0_rtx && IS_LO_SUM_DLT_ADDR_P (operands[0]))
-    FAIL;
+  int locality = INTVAL (operands[2]);
 
-  /* We change operand0 to a MEM as we don't have the infrastructure to
-     output all the supported address modes for ldw/ldd but we do have
-     it for MEMs.  */
-  operands[0] = gen_rtx_MEM (Pmode, operands[0]);
+  if (locality < 0 || locality > 3)
+    abort ();
 
-  if (!TARGET_NO_SPACE_REGS
-      && !cse_not_expected
-      && GET_CODE (XEXP (operands[0], 0)) == PLUS
-      && REG_P (XEXP (XEXP (operands[0], 0), 0))
-      && REG_P (XEXP (XEXP (operands[0], 0), 1)))
-    operands[0]
-      = replace_equiv_address (operands[0],
-			       copy_to_mode_reg (Pmode,
-					 	 XEXP (operands[0], 0)));
+  /* Change operand[0] to a MEM as we don't have the infrastructure
+     to output all the supported address modes for ldw/ldd when we use
+     the address directly.  However, we do have it for MEMs.  */
+  operands[0] = gen_rtx_MEM (QImode, operands[0]);
 
-  if (TARGET_64BIT)
-    emit_insn (gen_prefetch_64 (operands[0], operands[1], operands[2]));
+  /* If the address isn't valid for the prefetch, replace it.  */
+  if (locality)
+    {
+      if (!prefetch_nocc_operand (operands[0], QImode))
+	operands[0]
+	  = replace_equiv_address (operands[0],
+				   copy_to_mode_reg (Pmode,
+						     XEXP (operands[0], 0)));
+      emit_insn (gen_prefetch_nocc (operands[0], operands[1], operands[2]));
+    }
   else
-    emit_insn (gen_prefetch_32 (operands[0], operands[1], operands[2]));
+    {
+      if (!prefetch_cc_operand (operands[0], QImode))
+	operands[0]
+	  = replace_equiv_address (operands[0],
+				   copy_to_mode_reg (Pmode,
+						     XEXP (operands[0], 0)));
+      emit_insn (gen_prefetch_cc (operands[0], operands[1], operands[2]));
+    }
   DONE;
 })
 
-(define_insn "prefetch_64"
-  [(prefetch (match_operand:DI 0 "prefetch_operand" "A,RQ")
-	     (match_operand:DI 1 "const_int_operand" "n,n")
-	     (match_operand:DI 2 "const_int_operand" "n,n"))]
-  "TARGET_64BIT
-   && (operands[2] != const0_rtx
-       || GET_CODE (XEXP (operands[0], 0)) != PLUS
-       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
-       || VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1)))"
+(define_insn "prefetch_cc"
+  [(prefetch (match_operand:QI 0 "prefetch_cc_operand" "RW")
+	     (match_operand:SI 1 "const_int_operand" "n")
+	     (match_operand:SI 2 "const_int_operand" "n"))]
+  "TARGET_PA_20 && operands[2] == const0_rtx"
 {
-  /* The SL completor indicates good spatial locality but poor temporal
-     locality.  The ldw instruction with a target of general register 0
-     prefetches a cache line for a read.  The ldd instruction prefetches
-     a cache line for a write.  */
-  static const char * const instr[2][2][2] = {
-    {
-      {
-	"",
-	"ldw RT'%A0,%%r0",
-      },
-      {
-	"",
-	"ldd RT'%A0,%%r0",
-      },
-    },
-    {
-      {
-	"ldw%M0,sl %0,%%r0",
-	"ldw%M0 %0,%%r0",
-      },
-      {
-	"ldd%M0,sl %0,%%r0",
-	"ldd%M0 %0,%%r0",
-      }
-    }
+  /* The SL cache-control completor indicates good spatial locality but
+     poor temporal locality.  The ldw instruction with a target of general
+     register 0 prefetches a cache line for a read.  The ldd instruction
+     prefetches a cache line for a write.  */
+  static const char * const instr[2] = {
+    "ldw%M0,sl %0,%%r0",
+    "ldd%M0,sl %0,%%r0"
   };
   int read_or_write = INTVAL (operands[1]);
-  int locality = INTVAL (operands[2]);
 
-  if ((which_alternative != 0 && which_alternative != 1)
-      || (read_or_write != 0 && read_or_write != 1)
-      || (locality < 0 || locality > 3))
+  if (read_or_write < 0 || read_or_write > 1)
     abort ();
 
-  if (which_alternative == 0 && locality == 0)
-    abort ();
-
-  return instr [which_alternative][read_or_write][locality == 0 ? 0 : 1];
+  return instr [read_or_write];
 }
   [(set_attr "type" "load")
    (set_attr "length" "4")])
 
-(define_insn "prefetch_32"
-  [(prefetch (match_operand:SI 0 "prefetch_operand" "A,RQ")
+(define_insn "prefetch_nocc"
+  [(prefetch (match_operand:QI 0 "prefetch_nocc_operand" "A,RQ")
 	     (match_operand:SI 1 "const_int_operand" "n,n")
 	     (match_operand:SI 2 "const_int_operand" "n,n"))]
-  "TARGET_PA_20
-   && (operands[2] != const0_rtx
-       || GET_CODE (XEXP (operands[0], 0)) != PLUS
-       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
-       || VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1)))"
+  "TARGET_PA_20 && operands[2] != const0_rtx"
 {
-  /* The SL completor indicates good spatial locality but poor temporal
-     locality.  The ldw instruction with a target of general register 0
-     prefetches a cache line for a read.  The ldd instruction prefetches
-     a cache line for a write.  */
-  static const char * const instr[2][2][2] = {
+  /* The ldw instruction with a target of general register 0 prefetches
+     a cache line for a read.  The ldd instruction prefetches a cache line
+     for a write.  */
+  static const char * const instr[2][2] = {
     {
-      {
-	"",
-	"ldw RT'%A0,%%r0",
-      },
-      {
-	"",
-	"ldd RT'%A0,%%r0",
-      },
+      "ldw RT'%A0,%%r0",
+      "ldd RT'%A0,%%r0",
     },
     {
-      {
-	"ldw%M0,sl %0,%%r0",
-	"ldw%M0 %0,%%r0",
-      },
-      {
-	"ldd%M0,sl %0,%%r0",
-	"ldd%M0 %0,%%r0",
-      }
+      "ldw%M0 %0,%%r0",
+      "ldd%M0 %0,%%r0",
     }
   };
   int read_or_write = INTVAL (operands[1]);
-  int locality = INTVAL (operands[2]);
 
   if ((which_alternative != 0 && which_alternative != 1)
-      || (read_or_write != 0 && read_or_write != 1)
-      || (locality < 0 || locality > 3))
+      || (read_or_write < 0 || read_or_write > 1))
     abort ();
 
-  if (which_alternative == 0 && locality == 0)
-    abort ();
-
-  return instr [which_alternative][read_or_write][locality == 0 ? 0 : 1];
+  return instr [which_alternative][read_or_write];
 }
   [(set_attr "type" "load")
    (set_attr "length" "4")])

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2003-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 2003-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,7 +30,7 @@ with ALI;      use ALI;
 with Csets;
 with Gnatvsn;
 with Hostparm;
-with Makeutl;  use Makeutl;
+with Makeutl;
 with MLib.Tgt; use MLib.Tgt;
 with Namet;    use Namet;
 with Opt;      use Opt;
@@ -43,7 +43,6 @@ with Prj.Ext;
 with Prj.Pars;
 with Prj.Util; use Prj.Util;
 with Snames;
-with System;
 with Table;
 with Types;    use Types;
 
@@ -66,7 +65,7 @@ package body Clean is
    Debug_Suffix    : String          := ".dg";
    --  Changed to "_dg" for VMS in the body of the package
 
-   Repinfo_Suffix  : String          := ".rep";
+   Repinfo_Suffix  : String := ".rep";
    --  Changed to "_rep" for VMS in the body of the package
 
    B_Start : String := "b~";
@@ -76,10 +75,14 @@ package body Clean is
    Object_Directory_Path : String_Access := null;
    --  The path name of the object directory, set with switch -D
 
+   Force_Deletions : Boolean := False;
+   --  Set to True by switch -f. When True, attempts to delete non writable
+   --  files will be done.
+
    Do_Nothing : Boolean := False;
-   --  Set to True when switch -n is specified.
-   --  When True, no file is deleted. gnatclean only lists the files that
-   --  would have been deleted if the switch -n had not been specified.
+   --  Set to True when switch -n is specified. When True, no file is deleted.
+   --  gnatclean only lists the files that would have been deleted if the
+   --  switch -n had not been specified.
 
    File_Deleted : Boolean := False;
    --  Set to True if at least one file has been deleted
@@ -93,7 +96,7 @@ package body Clean is
 
    All_Projects : Boolean := False;
 
-   --  Packages of project files where unknown attributes are errors.
+   --  Packages of project files where unknown attributes are errors
 
    Naming_String   : aliased String := "naming";
    Builder_String  : aliased String := "builder";
@@ -142,13 +145,13 @@ package body Clean is
    --  If Lib_File is not marked, inserts it at the end of Q and mark it
 
    function Empty_Q return Boolean;
-   --  Returns True if Q is empty.
+   --  Returns True if Q is empty
 
    procedure Extract_From_Q (Lib_File : out File_Name_Type);
-   --  Extracts the first element from the Q.
+   --  Extracts the first element from the Q
 
    Q_Front : Natural;
-   --  Points to the first valid element in the Q.
+   --  Points to the first valid element in the Q
 
    package Q is new Table.Table (
      Table_Component_Type => File_Name_Type,
@@ -364,9 +367,6 @@ package body Clean is
       Name : String (1 .. 200);
       Last : Natural;
 
-      procedure Set_Writable (Name : System.Address);
-      pragma Import (C, Set_Writable, "__gnat_set_writable");
-
    begin
       Change_Dir (Directory);
       Open (Direc, ".");
@@ -380,8 +380,7 @@ package body Clean is
 
          if Is_Regular_File (Name (1 .. Last)) then
             if not Do_Nothing then
-               Name (Last + 1) := ASCII.NUL;
-               Set_Writable (Name (1)'Address);
+               Set_Writable (Name (1 .. Last));
             end if;
 
             Delete (Directory, Name (1 .. Last));
@@ -594,7 +593,7 @@ package body Clean is
          Put_Line ("""");
       end if;
 
-      --  Add project to the list of proceesed projects
+      --  Add project to the list of processed projects
 
       Processed_Projects.Increment_Last;
       Processed_Projects.Table (Processed_Projects.Last) := Project;
@@ -612,7 +611,7 @@ package body Clean is
             --  Look through the units to find those that are either immediate
             --  sources or inherited sources of the project.
 
-            if Data.Languages (Lang_Ada) then
+            if Data.Languages (Ada_Language_Index) then
                for Unit in 1 .. Prj.Com.Units.Last loop
                   U_Data := Prj.Com.Units.Table (Unit);
                   File_Name1 := No_Name;
@@ -788,7 +787,9 @@ package body Clean is
                --  If it is a library with only non Ada sources, delete
                --  the fake archive and the dependency file, if they exist.
 
-               if Data.Library and then not Data.Languages (Lang_Ada) then
+               if Data.Library
+                 and then not Data.Languages (Ada_Language_Index)
+               then
                   Clean_Archive (Project);
                end if;
             end if;
@@ -799,7 +800,7 @@ package body Clean is
       --  interface copy dir and, for a Stand-Alone Library, the binder
       --  generated files of the library.
 
-      --  The directories are cleaned only if switch -c is not specified.
+      --  The directories are cleaned only if switch -c is not specified
 
       if Data.Library then
          if not Compile_Only then
@@ -867,10 +868,10 @@ package body Clean is
          end;
       end if;
 
-         --  For the main project, delete the executables and the
-         --  binder generated files.
+         --  For the main project, delete the executables and the binder
+         --  generated files.
 
-         --  The executables are deleted only if switch -c is not specified.
+         --  The executables are deleted only if switch -c is not specified
 
       if Project = Main_Project and then Data.Exec_Directory /= No_Name then
          declare
@@ -950,20 +951,28 @@ package body Clean is
       if Do_Nothing then
          Put_Line (Full_Name (1 .. Last));
 
-      --  Otherwise, delete the file
+      --  Otherwise, delete the file if it is writable
 
       else
-         Delete_File (Full_Name (1 .. Last), Success);
+         if Force_Deletions
+           or else Is_Writable_File (Full_Name (1 .. Last))
+         then
+            Delete_File (Full_Name (1 .. Last), Success);
+         else
+            Success := False;
+         end if;
 
-         if not Success then
-            Put ("Warning: """);
-            Put (Full_Name (1 .. Last));
-            Put_Line (""" could not be deleted");
+         if Verbose_Mode or else not Quiet_Output then
+            if not Success then
+               Put ("Warning: """);
+               Put (Full_Name (1 .. Last));
+               Put_Line (""" could not be deleted");
 
-         elsif Verbose_Mode or else not Quiet_Output then
-            Put ("""");
-            Put (Full_Name (1 .. Last));
-            Put_Line (""" has been deleted");
+            else
+               Put ("""");
+               Put (Full_Name (1 .. Last));
+               Put_Line (""" has been deleted");
+            end if;
          end if;
       end if;
    end Delete;
@@ -1032,7 +1041,7 @@ package body Clean is
       if not Copyright_Displayed then
          Copyright_Displayed := True;
          Put_Line ("GNATCLEAN " & Gnatvsn.Gnat_Version_String
-                   & " Copyright 2003-2004 Free Software Foundation, Inc.");
+                   & " Copyright 2003-2005 Free Software Foundation, Inc.");
       end if;
    end Display_Copyright;
 
@@ -1098,8 +1107,7 @@ package body Clean is
          Prj.Pars.Parse
            (Project           => Main_Project,
             Project_File_Name => Project_File_Name.all,
-            Packages_To_Check => Packages_To_Check_By_Gnatmake,
-            Process_Languages => All_Languages);
+            Packages_To_Check => Packages_To_Check_By_Gnatmake);
 
          if Main_Project = No_Project then
             Fail ("""" & Project_File_Name.all & """ processing failed");
@@ -1195,6 +1203,10 @@ package body Clean is
       Data : Project_Data;
 
    begin
+      if Prj = No_Project or else Of_Project = No_Project then
+         return False;
+      end if;
+
       if Of_Project = Prj then
          return True;
       end if;
@@ -1269,13 +1281,13 @@ package body Clean is
    begin
       --  Do not insert an empty name or an already marked source
 
-      if Lib_File /= No_Name and then not Is_Marked (Lib_File) then
+      if Lib_File /= No_Name and then not Makeutl.Is_Marked (Lib_File) then
          Q.Table (Q.Last) := Lib_File;
          Q.Increment_Last;
 
          --  Mark the source that has been just added to the Q
 
-         Mark (Lib_File);
+         Makeutl.Mark (Lib_File);
       end if;
    end Insert_Q;
 
@@ -1382,6 +1394,9 @@ package body Clean is
                               end if;
                            end;
                         end if;
+
+                     when 'f' =>
+                        Force_Deletions := True;
 
                      when 'F' =>
                         Full_Path_Name_For_Brief_Errors := True;
@@ -1591,6 +1606,7 @@ package body Clean is
 
          Put_Line ("  -c       Only delete compiler generated files");
          Put_Line ("  -D dir   Specify dir as the object library");
+         Put_Line ("  -f       Force deletions of unwritable files");
          Put_Line ("  -F       Full project path name " &
                    "in brief error messages");
          Put_Line ("  -h       Display this message");

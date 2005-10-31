@@ -29,6 +29,8 @@
 #include "IOUSBDeviceClass.h"
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBUserClient.h>
+
+
 #include <stdio.h>
 
 __BEGIN_DECLS
@@ -157,7 +159,7 @@ IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
     CFMutableDictionaryRef 	entryProperties = 0;
     kern_return_t 		kr;
     
-    DEBUGPRINT("IOUSBDeviceClass::start\n");
+	
     fService = inService;
     res = IOServiceOpen(fService, mach_task_self(), 0, &fConnection);
     if (res != kIOReturnSuccess)
@@ -256,6 +258,8 @@ IOUSBDeviceClass::CacheConfigDescriptor()
     int 	i;
     IOReturn	kr = kIOReturnSuccess;
     
+	DEBUGPRINT("+IOUSBDeviceClass::CacheConfigDescriptor\n");
+
     for (i = 0; i < fNumConfigurations; i++)
     {
         IOUSBConfigurationDescriptorPtr	config;
@@ -263,6 +267,7 @@ IOUSBDeviceClass::CacheConfigDescriptor()
         mach_msg_type_number_t		size;
 
         size = sizeof(configHdr);
+		DEBUGPRINT("+IOUSBDeviceClass::CacheConfigDescriptor asking for config = 0x%x\n", i);
         kr = io_connect_method_scalarI_structureO(fConnection, kUSBDeviceUserClientGetConfigDescriptor, &i, 1, (char *)&configHdr, &size);
         if (kr)
             break;
@@ -281,6 +286,7 @@ IOUSBDeviceClass::CacheConfigDescriptor()
     if ( kr == kIOReturnSuccess )
        fConfigDescCacheValid = TRUE;
         
+	DEBUGPRINT("-IOUSBDeviceClass::CacheConfigDescriptor returning 0x%x\n", kr);
     return kr;
 }
 
@@ -425,6 +431,7 @@ IOUSBDeviceClass::SetConfiguration(UInt8 configNum)
     IOReturn			ret;
 
     allChecks();
+    DEBUGPRINT("IOUSBDeviceClass::SetConfiguration\n");
     ret = io_connect_method_scalarI_scalarO(fConnection, kUSBDeviceUserClientSetConfig, &t, 1, NULL, &len);
     if (ret == MACH_SEND_INVALID_DEST)
     {
@@ -443,17 +450,23 @@ IOUSBDeviceClass::GetConfiguration(UInt8 *config)
     mach_msg_type_number_t	len = 1;
     IOReturn			ret;
     int				result;
-
+	
     connectCheck();
-    ret = io_connect_method_scalarI_scalarO(fConnection, kUSBDeviceUserClientGetConfig, NULL, 0, &result, &len);
-    if (ret == MACH_SEND_INVALID_DEST)
+	DEBUGPRINT("+IOUSBDeviceClass::GetConfiguration\n");
+	ret = io_connect_method_scalarI_scalarO(fConnection, kUSBDeviceUserClientGetConfig, NULL, 0, &result, &len);
+	DEBUGPRINT("IOUSBDeviceClass::GetConfiguration ret: 0x%x, result = 0x%x", ret, result);
+	if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
 		fConnection = MACH_PORT_NULL;
 		ret = kIOReturnNoDevice;
     }
     if (ret == kIOReturnSuccess)
-        *config = *(UInt8*)&result;
+	{
+		*config = *(UInt8*)&result;
+	}
+	
+	DEBUGPRINT("-IOUSBDeviceClass::GetConfiguration returning 0x%x, config = 0x%x\n", ret, *config);
     return ret;
 }
 
@@ -467,6 +480,7 @@ CreateDeviceAsyncEventSource(CFRunLoopSourceRef *source)
     CFMachPortContext 	context;
     Boolean 		shouldFreeInfo;
 
+	DEBUGPRINT("+IOUSBDeviceClass::CreateDeviceAsyncEventSource\n");
     if (!fAsyncPort) 
     {     
         ret = CreateDeviceAsyncPort(0);
@@ -492,6 +506,7 @@ CreateDeviceAsyncEventSource(CFRunLoopSourceRef *source)
     if (source)
         *source = fCFSource;
 
+	DEBUGPRINT("-IOUSBDeviceClass::CreateDeviceAsyncEventSource\n");
     return kIOReturnSuccess;
 }
 
@@ -622,8 +637,11 @@ IOUSBDeviceClass::GetBusFrameNumber(UInt64 *frame, AbsoluteTime *atTime)
     ret = io_connect_method_scalarI_structureO(fConnection, kUSBDeviceUserClientGetFrameNumber, NULL, 0, (char *)&stuff, &outSize);
     if(kIOReturnSuccess == ret) 
     {
-        *frame = stuff.frame;
-        *atTime = stuff.timeStamp;
+		{
+			*frame = stuff.frame;
+			*atTime = stuff.timeStamp;
+		}
+		DEBUGPRINT("IOUSBDeviceClass::GetBusFrameNumber frame: 0x%qx, time.hi: 0x%lx, time.lo: 0x%lx\n", *frame, (*atTime).hi, (*atTime).lo);
     }
     if (ret == MACH_SEND_INVALID_DEST)
     {
@@ -681,6 +699,16 @@ IOUSBDeviceClass::DeviceRequest(IOUSBDevRequestTO *req)
     
     connectCheck();
 
+	DEBUGPRINT("IOUSBDeviceClass::DeviceRequest: \n\tbmRequestType = 0x%2.2x\n\tbRequest = 0x%2.2x\n\twValue = 0x%4.4x\n\twIndex = 0x%4.4x\n\twLength = 0x%4.4x\n\tpData = %p\n\tnoDataTimeout = %ld\n\tcompletionTimeout = %ld\n",
+			   req->bmRequestType,
+			   req->bRequest,
+			   req->wValue,
+			   req->wIndex,
+			   req->wLength,
+			   req->pData,
+			   req->noDataTimeout,
+			   req->completionTimeout);
+
     if ( req->wLength <= sizeof(io_struct_inband_t))
     {
         // the buffer can be copied directly
@@ -691,6 +719,7 @@ IOUSBDeviceClass::DeviceRequest(IOUSBDevRequestTO *req)
         in[2] = req->noDataTimeout;
 		in[3] = req->completionTimeout;
 	
+		DEBUGPRINT("IOUSBDeviceClass::DeviceRequest: in[0] = 0x%8.8x, in[1] = 0x%8.8x, in[2] = 0x%8.8x, in[3] = 0x%8.8x\n", in[0], in[1], in[2], in[3]);
         switch ((req->bmRequestType >> kUSBRqDirnShift) & kUSBRqDirnMask)
         {
             case kUSBOut:
@@ -713,25 +742,31 @@ IOUSBDeviceClass::DeviceRequest(IOUSBDevRequestTO *req)
     {
     // too much data to push through the entire buffer directly. memory must be mapped, so just send the regular structure
         mach_msg_type_number_t 	outSize = 0;
+		UInt16					length = req->wLength;
+		
         switch ((req->bmRequestType >> kUSBRqDirnShift) & kUSBRqDirnMask)
         {
             case kUSBOut:
                 ret = io_connect_method_structureI_structureO(fConnection, kUSBDeviceUserClientDeviceRequestOutOOL, 
                                 (char *)req, sizeof(IOUSBDevRequestTO), NULL, &outSize);
                 if(kIOReturnSuccess == ret)
-                    req->wLenDone = req->wLength;
+                    req->wLenDone = length;
                 else
                     req->wLenDone = 0;
                 break;
                 
             case kUSBIn:
-                mach_msg_type_number_t 	reqSize = req->wLength;
+                mach_msg_type_number_t 	reqSize = length;  // The unswapped req->wLength
                 outSize = sizeof(reqSize);
-                ret = io_connect_method_structureI_structureO(fConnection, kUSBDeviceUserClientDeviceRequestInOOL, 
-                                (char *)&req, sizeof(IOUSBDevRequestTO), (char *)&reqSize, &outSize);
+				DEBUGPRINT("IOUSBDeviceClass::DeviceRequest reqSize = 0x%x, outSize = 0x%x\n", reqSize, outSize);
+				ret = io_connect_method_structureI_structureO(fConnection, kUSBDeviceUserClientDeviceRequestInOOL, 
+                                (char *)req, sizeof(IOUSBDevRequestTO), (char *)&reqSize, &outSize);
                 if(kIOReturnSuccess == ret)
-                    req->wLenDone = reqSize;
-                break;
+				{
+					// If we read the whole amount, then we can assume that we transferred the whole request, so just set wLenDone to the actual request size 
+                    req->wLenDone = length;
+				}
+					break;
         }
     }
     
@@ -758,11 +793,25 @@ IOUSBDeviceClass::DeviceRequestAsync(IOUSBDevRequestTO *req, IOAsyncCallback1 ca
     connectCheck();
 
     if (!fAsyncPort)
+	{
+		DEBUGPRINT("IOUSBDeviceClass::DeviceRequestAsync  NO async port\n");
         return kIOUSBNoAsyncPortErr;
+	}
+	
+	DEBUGPRINT("IOUSBDeviceClass::DeviceRequestAsync: \n\tbmRequestType = 0x%2.2x\n\tbRequest = 0x%2.2x\n\twValue = 0x%4.4x\n\twIndex = 0x%4.4x\n\twLength = 0x%4.4x\n\tpData = %p\n\tnoDataTimeout = %ld\n\tcompletionTimeout = %ld\n",
+			   req->bmRequestType,
+			   req->bRequest,
+			   req->wValue,
+			   req->wIndex,
+			   req->wLength,
+			   req->pData,
+			   req->noDataTimeout,
+			   req->completionTimeout);
 
     asyncRef[kIOAsyncCalloutFuncIndex] = (natural_t) callback;
     asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) refCon;
 
+	DEBUGPRINT("\tAsyncRef[0]: 0x%x, [1]: 0x%x, [2]: 0x%x, [3]: 0x%x, [4]: 0x%x, [5]:0x%x, [6]:0x%x, [7]:0x%x\n", asyncRef[0],  asyncRef[1],  asyncRef[2],  asyncRef[3],  asyncRef[4],  asyncRef[5],  asyncRef[6],  asyncRef[7]);
     switch ((req->bmRequestType >> kUSBRqDirnShift) & kUSBRqDirnMask)
     {
         case kUSBOut:
@@ -781,6 +830,7 @@ IOUSBDeviceClass::DeviceRequestAsync(IOUSBDevRequestTO *req, IOAsyncCallback1 ca
 		fConnection = MACH_PORT_NULL;
 		ret = kIOReturnNoDevice;
     }
+	DEBUGPRINT("IOUSBDeviceClass::DeviceRequestAsync returning 0x%x\n",ret);
     return ret;
 }
 
@@ -793,6 +843,12 @@ IOUSBDeviceClass::CreateInterfaceIterator(IOUSBFindInterfaceRequest *intfReq, io
     IOReturn			ret;
 
     connectCheck();
+	DEBUGPRINT("+IOUSBDeviceClass::CreateInterfaceIterator  bInterfaceClass 0x%x, bInterfaceSubClass = 0x%x, bInterfaceProtocol = 0x%x, bAlternateSetting = 0x%x\n",
+			   intfReq->bInterfaceClass,
+			   intfReq->bInterfaceSubClass,
+			   intfReq->bInterfaceProtocol,
+			   intfReq->bAlternateSetting);
+	
     ret = io_connect_method_structureI_structureO(fConnection, kUSBDeviceUserClientCreateInterfaceIterator, 
                                 (char *)intfReq, sizeof(IOUSBFindInterfaceRequest), (char*)iter, &outSize);
     if (ret == MACH_SEND_INVALID_DEST)
@@ -801,6 +857,8 @@ IOUSBDeviceClass::CreateInterfaceIterator(IOUSBFindInterfaceRequest *intfReq, io
 		fConnection = MACH_PORT_NULL;
 		ret = kIOReturnNoDevice;
     }
+	
+	DEBUGPRINT("-IOUSBDeviceClass::CreateInterfaceIterator reurning error 0x%x, iterator: 0x%x\n", ret, *iter);
     return ret;
 }
 
@@ -884,8 +942,11 @@ IOUSBDeviceClass::GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *atTim
     ret = io_connect_method_scalarI_structureO(fConnection, kUSBDeviceUserClientGetMicroFrameNumber, NULL, 0, (char *)&stuff, &outSize);
     if(kIOReturnSuccess == ret)
     {
-        *microFrame = stuff.frame;
-        *atTime = stuff.timeStamp;
+		{
+			*microFrame = stuff.frame;
+			*atTime = stuff.timeStamp;
+		}
+		DEBUGPRINT("IOUSBDeviceClass::GetBusMicroFrameNumber frame: 0x%qx, time.hi: 0x%lx, time.lo: 0x%lx\n", *microFrame, (*atTime).hi, (*atTime).lo);
     }
     if (ret == MACH_SEND_INVALID_DEST)
     {

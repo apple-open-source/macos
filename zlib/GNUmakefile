@@ -6,7 +6,7 @@
 
 Project        = zlib
 Name           = $(Project)
-Version        = 1.2.2
+Version        = 1.2.3
 Name_Vers      = $(Name)-$(Version)
 Compress_Type  = bz2
 Tarball        = $(Name_Vers).tar.$(Compress_Type)

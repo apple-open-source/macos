@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -960,7 +960,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
     if (CALL_P (last) && SIBLING_CALL_P (last))
       goto found;
 
-  maybe_dump_rtl_for_tree_stmt (stmt, last);
+  maybe_dump_rtl_for_tree_stmt (stmt, last2);
 
   *can_fallthru = true;
   return NULL;
@@ -1138,7 +1138,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
 
   do_pending_stack_adjust ();
 
-  /* Find the the block tail.  The last insn is the block is the insn
+  /* Find the block tail.  The last insn in the block is the insn
      before a barrier and/or table jump insn.  */
   last = get_last_insn ();
   if (BARRIER_P (last))
@@ -1310,8 +1310,8 @@ tree_expand_cfg (void)
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
 
-  /* Convert from NOTE_INSN_EH_REGION style notes, and do other
-     sorts of eh initialization.  */
+  /* Convert tree EH labels to RTL EH labels, and clean out any unreachable
+     EH regions.  */
   convert_from_eh_region_ranges ();
 
   rebuild_jump_labels (get_insns ());

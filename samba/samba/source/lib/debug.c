@@ -103,7 +103,7 @@ int     *DEBUGLEVEL_CLASS = &debug_all_class_hack;
 BOOL    *DEBUGLEVEL_CLASS_ISSET = &debug_all_class_isset_hack;
 
 /* DEBUGLEVEL is #defined to *debug_level */
-int     DEBUGLEVEL = &debug_all_class_hack;
+int     SAMBA_DEBUGLEVEL = &debug_all_class_hack;
 
 
 /* -------------------------------------------------------------------------- **
@@ -201,7 +201,7 @@ static char *debug_list_class_names_and_levels(void)
 		int l = asprintf(&list[i],
 				"%s:%d ",
 				classname_table[i],
-				DEBUGLEVEL_CLASS_ISSET[i]?DEBUGLEVEL_CLASS[i]:DEBUGLEVEL);
+				DEBUGLEVEL_CLASS_ISSET[i]?DEBUGLEVEL_CLASS[i]:SAMBA_DEBUGLEVEL);
 		if (l < 0 || l > MAX_CLASS_NAME_SIZE) {
 			err = True;
 			goto done;
@@ -301,7 +301,7 @@ int debug_add_class(const char *classname)
 	/* debug_level is the pointer used for the DEBUGLEVEL-thingy */
 	if (ndx==0) {
 		/* Transfer the initial level from debug_all_class_hack */
-		DEBUGLEVEL_CLASS[ndx] = DEBUGLEVEL;
+		DEBUGLEVEL_CLASS[ndx] = SAMBA_DEBUGLEVEL;
 	}
 	debug_level = DEBUGLEVEL_CLASS;
 

@@ -337,7 +337,7 @@ net_copy_fileattr(TALLOC_CTX *mem_ctx,
 			goto out;
 		}
 
-		if (opt_verbose && DEBUGLEVEL >= 3)
+		if (opt_verbose && SAMBA_DEBUGLEVEL >= 3)
 			display_sec_desc(sd);
 	}
 

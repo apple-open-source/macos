@@ -1,4 +1,4 @@
-#   Copyright (C) 1999, 2001, 2003 Free Software Foundation, Inc.
+#   Copyright (C) 1999, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,6 +18,39 @@
 # gcc-patches@gcc.gnu.org
 
 # This file defines procs for determining features supported by the target.
+
+# Try to compile some code and return the messages printed by the compiler.
+#
+# BASENAME is a basename to use for temporary files.
+# TYPE is the type of compilation to perform (see target_compile).
+# CONTENTS gives the contents of the input file.
+proc get_compiler_messages {basename type contents} {
+    global tool
+
+    set src ${basename}[pid].c
+    switch $type {
+	assembly { set output ${basename}[pid].s }
+	object { set output ${basename}[pid].o }
+    }
+    set f [open $src "w"]
+    puts $f $contents
+    close $f
+    set lines [${tool}_target_compile $src $output $type ""]
+    file delete $src
+    remote_file build delete $output
+
+    return $lines
+}
+
+proc current_target_name { } {
+    global target_info
+    if [info exists target_info(target,name)] {
+	set answer $target_info(target,name)
+    } else {
+	set answer ""
+    }
+    return $answer
+}
 
 ###############################
 # proc check_weak_available { }
@@ -48,6 +81,18 @@ proc check_weak_available { } {
 	return 1
     }
 
+    # Windows targets Cygwin and MingW32 support it
+
+    if { [regexp ".*mingw32|.*cygwin" $target_triplet] } {
+	return 1
+    }
+
+    # HP-UX 10.X doesn't support it
+
+    if { [regexp "hppa.*hpux10" $target_triplet] } {
+	return 0
+    }
+
     # ELF and ECOFF support it. a.out does with gas/gld but may also with
     # other linkers, so we should try it
 
@@ -58,40 +103,56 @@ proc check_weak_available { } {
         ecoff    { return 1 }
         a.out    { return 1 }
 	mach-o	 { return 1 }
+	som	 { return 1 }
         unknown  { return -1 }
         default  { return 0 }
     }
 }
 
+# APPLE LOCAL begin mainline 4.0 2005-03-25
 ###############################
-# proc check_visibility_available { }
+# proc check_visibility_available { what_kind }
 ###############################
 
 # The visibility attribute is only support in some object formats
-# This proc returns 1 if it is supported, 0 if not, -1 if unsure.
+# This proc returns 1 if it is supported, 0 if not.
+# The argument is the kind of visibility, default/protected/hidden/internal.
 
-proc check_visibility_available { } {
+proc check_visibility_available { what_kind } {
+    global visibility_available_saved
+    global tool
     global target_triplet
-    global target_cpu
 
     # On NetWare, support makes no sense.
-    
     if { [string match "*-*-netware*" $target_triplet] } {
         return 0
     }
 
-    # ELF supports it if the system has recent GNU ld and gas.
-    # As a start we return 1 for all ELF systems; we'll let people
-    # add exceptions as necessary.
+    if [string match "" $what_kind] { set what_kind "hidden" }
 
-    set objformat [gcc_target_object_format]
-
-    switch $objformat {
-        elf      { return 1 }
-        unknown  { return -1 }
-        default  { return 0 }
+    if { [info exists visibility_available_saved] } {
+	verbose "Saved result is <$visibility_available_saved>" 1
+	if { [ lsearch -exact $visibility_available_saved $what_kind ] != -1 } {
+	    return 1
+	} elseif { [ lsearch -exact $visibility_available_saved "!$what_kind" ] != -1 } {
+	    return 0
+	}
     }
+
+    set lines [get_compiler_messages visibility object "
+	void f() __attribute__((visibility(\"$what_kind\")));
+	void f() {}
+    "]
+    if [string match "" $lines] then {
+	set answer 1
+	lappend visibility_available_saved $what_kind
+    } else {
+	set answer 0
+	lappend visibility_available_saved "!$what_kind"
+    }
+    return $answer
 }
+# APPLE LOCAL end mainline 4.0 2005-03-25
 
 ###############################
 # proc check_alias_available { }
@@ -163,6 +224,14 @@ proc check_gc_sections_available { } {
     global tool
 
     if {![info exists gc_sections_available_saved]} {
+	# Some targets don't support gc-sections despite whatever's
+	# advertised by ld's options.
+	if { [istarget alpha*-*-*]
+	     || [istarget ia64-*-*] } {
+	    set gc_sections_available_saved 0
+	    return 0
+	}
+
 	# Check if the ld used by gcc supports --gc-sections.
 	set gcc_spec [${tool}_target_compile "-dumpspecs" "" "none" ""]
 	regsub ".*\n\*linker:\[ \t\]*\n(\[^ \t\n\]*).*" "$gcc_spec" {\1} linker
@@ -273,22 +342,11 @@ proc check_iconv_available { test_what } {
 # when cycling over subtarget options (e.g. irix o32/n32/n64) in
 # the same test run.
 proc check_named_sections_available { } {
-    global tool
-
-    set src named[pid].c
-    set obj named[pid].o
-    verbose "check_named_sections_available compiling testfile $src" 2
-    set f [open $src "w"]
-    # Compile a small test program.
-    puts $f "int __attribute__ ((section(\"whatever\"))) foo;"
-    close $f
-    set lines [${tool}_target_compile $src $obj object ""]
-    file delete $src
-    remote_file build delete $obj
-
-    # If we got no error messages, everything is OK.
-    set answer [string match "" $lines]
-    verbose "check_named_sections_available  returning $answer" 2
+    verbose "check_named_sections_available: compiling source" 2
+    set answer [string match "" [get_compiler_messages named object {
+	int __attribute__ ((section("whatever"))) foo;
+    }]]
+    verbose "check_named_sections_available: returning $answer" 2
     return $answer
 }
 
@@ -347,4 +405,425 @@ proc check_vmx_hw_available { } {
     }
 
     return $vmx_hw_available_saved
+}
+
+# GCC 3.4.0 for powerpc64-*-linux* included an ABI fix for passing
+# complex float arguments.  This affects gfortran tests that call cabsf
+# in libm built by an earlier compiler.  Return 1 if libm uses the same
+# argument passing as the compiler under test, 0 otherwise.
+#
+# When the target name changes, replace the cached result.
+
+proc check_effective_target_broken_cplxf_arg { } {
+    global et_broken_cplxf_arg_saved
+    global et_broken_cplxf_arg_target_name
+    global tool
+
+    # Skip the work for targets known not to be affected.
+    if { ![istarget powerpc64-*-linux*] } {
+	return 0
+    } elseif { [is-effective-target ilp32] } {
+	return 0
+    }
+
+    if { ![info exists et_broken_cplxf_arg_target_name] } {
+	set et_broken_cplxf_arg_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_broken_cplxf_arg_target_name } {
+	verbose "check_effective_target_broken_cplxf_arg: `$et_broken_cplxf_arg_target_name'" 2
+	set et_broken_cplxf_arg_target_name $current_target
+	if [info exists et_broken_cplxf_arg_saved] {
+	    verbose "check_effective_target_broken_cplxf_arg: removing cached result" 2
+	    unset et_broken_cplxf_arg_saved
+	}
+    }
+
+    if [info exists et_broken_cplxf_arg_saved] {
+	verbose "check_effective_target_broken_cplxf_arg: using cached result" 2
+    } else {
+	set et_broken_cplxf_arg_saved 0
+	# This is only known to affect one target.
+	if { ![istarget powerpc64-*-linux*] || ![is-effective-target lp64] } {
+	    set et_broken_cplxf_arg_saved 0
+	    verbose "check_effective_target_broken_cplxf_arg: caching 0" 2
+	    return $et_broken_cplxf_arg_saved
+	}
+
+	# Set up, compile, and execute a C test program that calls cabsf.
+	set src cabsf[pid].c
+	set exe cabsf[pid].x
+
+	set f [open $src "w"]
+	puts $f "#include <complex.h>"
+	puts $f "extern void abort (void);"
+	puts $f "float fabsf (float);"
+	puts $f "float cabsf (_Complex float);"
+	puts $f "int main ()"
+	puts $f "{"
+	puts $f "  _Complex float cf;"
+	puts $f "  float f;"
+	puts $f "  cf = 3 + 4.0fi;"
+	puts $f "  f = cabsf (cf);"
+	puts $f "  if (fabsf (f - 5.0) > 0.0001) abort ();"
+	puts $f "  return 0;"
+	puts $f "}"
+	close $f
+
+	set lines [${tool}_target_compile $src $exe executable "-lm"]
+	file delete $src
+
+	if [string match "" $lines] {
+	    # No error message, compilation succeeded.
+	    set result [${tool}_load "./$exe" "" ""]
+	    set status [lindex $result 0]
+	    remote_file build delete $exe
+
+	    verbose "check_effective_target_broken_cplxf_arg: status is <$status>" 2
+
+	    if { $status != "pass" } {
+		set et_broken_cplxf_arg_saved 1
+	    }
+	} else {
+	    verbose "check_effective_target_broken_cplxf_arg: compilation failed" 2
+	}
+    }
+    return $et_broken_cplxf_arg_saved
+}
+
+proc check_alpha_max_hw_available { } {
+    global alpha_max_hw_available_saved
+    global tool
+
+    if [info exists alpha_max_hw_available_saved] {
+	verbose "check_alpha_max_hw_available returning saved $alpha_max_hw_available_saved" 2
+    } else {
+	set alpha_max_hw_available_saved 0
+
+	# Set up, compile, and execute a test program probing bit 8 of the
+	# architecture mask, which indicates presence of MAX instructions.
+	set src max[pid].c
+	set exe max[pid].x
+
+	set f [open $src "w"]
+	puts $f "int main() { return __builtin_alpha_amask(1<<8) != 0; }"
+	close $f
+
+	verbose "check_alpha_max_hw_available compiling testfile $src" 2
+	set lines [${tool}_target_compile $src $exe executable ""]
+	file delete $src
+
+	if [string match "" $lines] then {
+	    # No error message, compilation succeeded.
+	    set result [${tool}_load "./$exe" "" ""]
+	    set status [lindex $result 0]
+	    remote_file build delete $exe
+	    verbose "check_alpha_max_hw_available testfile status is <$status>" 2
+
+	    if { $status == "pass" } then {
+		set alpha_max_hw_available_saved 1
+	    }
+	} else {
+	    verbose "check_alpha_max_hw_availalble testfile compilation failed" 2
+	}
+    }
+
+    return $alpha_max_hw_available_saved
+}
+
+# Return 1 if we're generating 32-bit code using default options, 0
+# otherwise.
+#
+# When the target name changes, replace the cached result.
+
+proc check_effective_target_ilp32 { } {
+    global et_ilp32_saved
+    global et_ilp32_target_name
+
+    if { ![info exists et_ilp32_target_name] } {
+	set et_ilp32_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_ilp32_target_name } {
+	verbose "check_effective_target_ilp32: `$et_ilp32_target_name' `$current_target'" 2
+	set et_ilp32_target_name $current_target
+	if { [info exists et_ilp32_saved] } {
+	    verbose "check_effective_target_ilp32: removing cached result" 2
+	    unset et_ilp32_saved
+	}
+    }
+
+    if [info exists et_ilp32_saved] {
+	verbose "check-effective_target_ilp32: using cached result" 2
+    } else {
+	verbose "check_effective_target_ilp32: compiling source" 2
+	set et_ilp32_saved [string match "" [get_compiler_messages ilp32 object {
+	    int dummy[(sizeof (int) == 4 && sizeof (void *) == 4 && sizeof (long) == 4 ) ? 1 : -1];
+	}]]
+    }
+    verbose "check_effective_target_ilp32: returning $et_ilp32_saved" 2
+    return $et_ilp32_saved
+}
+
+# Return 1 if we're generating 64-bit code using default options, 0
+# otherwise.
+#
+# When the target name changes, replace the cached result.
+
+proc check_effective_target_lp64 { } {
+    global et_lp64_saved
+    global et_lp64_target_name
+
+    if { ![info exists et_lp64_target_name] } {
+	set et_lp64_target_name ""
+    }
+
+    # If the target has changed since we set the cached value, clear it.
+    set current_target [current_target_name]
+    if { $current_target != $et_lp64_target_name } {
+	verbose "check_effective_target_lp64: `$et_lp64_target_name' `$current_target'" 2
+	set et_lp64_target_name $current_target
+	if [info exists et_lp64_saved] {
+	    verbose "check_effective_target_lp64: removing cached result" 2
+	    unset et_lp64_saved
+	}
+    }
+
+    if [info exists et_lp64_saved] {
+	verbose "check_effective_target_lp64: using cached result" 2
+    } else {
+	verbose "check_effective_target_lp64: compiling source" 2
+	set et_lp64_saved [string match "" [get_compiler_messages lp64 object {
+	    int dummy[(sizeof (int) == 4 && sizeof (void *) == 8 && sizeof (long) == 8 ) ? 1 : -1];
+	}]]
+    }
+    verbose "check_effective_target_lp64: returning $et_lp64_saved" 2
+    return $et_lp64_saved
+}
+
+# Return 1 if the target supports hardware vectors of int, 0 otherwise.
+#
+# This won't change for different subtargets so cache the result.
+
+proc check_effective_target_vect_int { } {
+    global et_vect_int_saved
+
+    if [info exists et_vect_int_saved] {
+	verbose "check_effective_target_vect_int: using cached result" 2
+    } else {
+	set et_vect_int_saved 0
+	if { [istarget i?86-*-*]
+	      || [istarget powerpc*-*-*]
+	      || [istarget x86_64-*-*]
+	      || [istarget sparc*-*-*]
+	      || [istarget alpha*-*-*]
+	      || [istarget ia64-*-*] } {
+	   set et_vect_int_saved 1
+	}
+    }
+
+    verbose "check_effective_target_vect_int: returning $et_vect_int_saved" 2
+    return $et_vect_int_saved
+}
+
+# APPLE LOCAL begin mainline 2005-04-05 3972515 
+# Return 1 if the target supports hardware vector shift operation.
+
+proc check_effective_target_vect_shift { } {
+    if { [istarget powerpc*-*-*] } {
+	set answer 1
+    } else {
+	set answer 0
+    }
+
+    verbose "check_effective_target_vect_shift: returning $answer" 2
+    return $answer
+}
+
+# APPLE LOCAL end mainline 2005-04-05 3972515 
+
+# Return 1 if the target supports hardware vectors of long, 0 otherwise.
+#
+# This can change for different subtargets so do not cache the result.
+
+proc check_effective_target_vect_long { } {
+    if { [istarget i?86-*-*]
+	 || ([istarget powerpc*-*-*] && [check_effective_target_ilp32])
+	 || [istarget x86_64-*-*]
+	 || ([istarget sparc*-*-*] && [check_effective_target_ilp32]) } {
+	set answer 1
+    } else {
+	set answer 0
+    }
+
+    verbose "check_effective_target_vect_long: returning $answer" 2
+    return $answer
+}
+
+# Return 1 if the target supports hardware vectors of float, 0 otherwise.
+#
+# This won't change for different subtargets so cache the result.
+
+proc check_effective_target_vect_float { } {
+    global et_vect_float_saved
+
+    if [info exists et_vect_float_saved] {
+	verbose "check_effective_target_vect_float: using cached result" 2
+    } else {
+	set et_vect_float_saved 0
+	if { [istarget i?86-*-*]
+	      || [istarget powerpc*-*-*]
+	      || [istarget mipsisa64*-*-*]
+	      || [istarget x86_64-*-*]
+	      || [istarget ia64-*-*] } {
+	   set et_vect_float_saved 1
+	}
+    }
+
+    verbose "check_effective_target_vect_float: returning $et_vect_float_saved" 2
+    return $et_vect_float_saved
+}
+
+# Return 1 if the target supports hardware vectors of double, 0 otherwise.
+#
+# This won't change for different subtargets so cache the result.
+
+proc check_effective_target_vect_double { } {
+    global et_vect_double_saved
+
+    if [info exists et_vect_double_saved] {
+	verbose "check_effective_target_vect_double: using cached result" 2
+    } else {
+	set et_vect_double_saved 0
+	if { [istarget i?86-*-*]
+	      || [istarget x86_64-*-*] } {
+	   set et_vect_double_saved 1
+	}
+    }
+
+    verbose "check_effective_target_vect_double: returning $et_vect_double_saved" 2
+    return $et_vect_double_saved
+}
+
+# Return 1 if the target plus current options does not support a vector
+# max instruction, 0 otherwise.
+#
+# This won't change for different subtargets so cache the result.
+
+proc check_effective_target_vect_no_max { } {
+    global et_vect_no_max_saved
+
+    if [info exists et_vect_no_max_saved] {
+	verbose "check_effective_target_vect_no_max: using cached result" 2
+    } else {
+	set et_vect_no_max_saved 0
+	if { [istarget i?86-*-*]
+	     || [istarget x86_64-*-*]
+	     || [istarget sparc*-*-*]
+	     || [istarget alpha*-*-*] } {
+	    set et_vect_no_max_saved 1
+	}
+    }
+    verbose "check_effective_target_vect_no_max: returning $et_vect_no_max_saved" 2
+    return $et_vect_no_max_saved
+}
+
+# Return 1 if the target plus current options does not support vector
+# bitwise instructions, 0 otherwise.
+#
+# This won't change for different subtargets so cache the result.
+
+proc check_effective_target_vect_no_bitwise { } {
+    global et_vect_no_bitwise_saved
+
+    if [info exists et_vect_no_bitwise_saved] {
+	verbose "check_effective_target_vect_no_bitwise: using cached result" 2
+    } else {
+	set et_vect_no_bitwise_saved 0
+    }
+    verbose "check_effective_target_vect_no_bitwise: returning $et_vect_no_bitwise_saved" 2
+    return $et_vect_no_bitwise_saved
+}
+
+# Return 1 if the target plus current options does not support a vector
+# alignment mechanism, 0 otherwise.
+#
+# This won't change for different subtargets so cache the result.
+
+proc check_effective_target_vect_no_align { } {
+    global et_vect_no_align_saved
+
+    if [info exists et_vect_no_align_saved] {
+	verbose "check_effective_target_vect_no_align: using cached result" 2
+    } else {
+	set et_vect_no_align_saved 0
+	if { [istarget mipsisa64*-*-*]
+	     || [istarget sparc*-*-*]
+	     || [istarget ia64-*-*] } {
+	    set et_vect_no_align_saved 1
+	}
+    }
+    verbose "check_effective_target_vect_no_align: returning $et_vect_no_align_saved" 2
+    return $et_vect_no_align_saved
+}
+
+# APPLE LOCAL begin 3972875 mainline 2005-04-18
+# Return 1 if the target supports vector int multiplication, 0 otherwise.
+
+proc check_effective_target_vect_int_mult { } {
+    global et_vect_int_mult_saved
+
+    if [info exists et_vect_int_mult] {
+ 	verbose "check_effective_target_vect_int_mult: using cached result" 2
+    } else {
+ 	set et_vect_int_mult_saved 0
+    if { [istarget powerpc*-*-*] } {
+	   set et_vect_int_mult_saved 1
+	}
+    }
+
+    verbose "check_effective_target_vect_int_mult: returning $et_vect_int_mult_saved" 2
+    return $et_vect_int_mult_saved
+}
+# APPLE LOCAL end 3972875 mainline 2005-04-18
+  
+# Return 1 if the target matches the effective target 'arg', 0 otherwise.
+# This can be used with any check_* proc that takes no argument and
+# returns only 1 or 0.  It could be used with check_* procs that take
+# arguments with keywords that pass particular arguments.
+
+proc is-effective-target { arg } {
+    set selected 0
+    if { [info procs check_effective_target_${arg}] != [list] } {
+	set selected [check_effective_target_${arg}]
+    } else {
+	switch $arg {
+	  "vmx_hw"         { set selected [check_vmx_hw_available] }
+	  "named_sections" { set selected [check_named_sections_available] }
+	  "gc_sections"    { set selected [check_gc_sections_available] }
+	  default          { error "unknown effective target keyword `$arg'" }
+	}
+    }
+    verbose "is-effective-target: $arg $selected" 2
+    return $selected
+}
+
+# Return 1 if the argument is an effective-target keyword, 0 otherwise.
+
+proc is-effective-target-keyword { arg } {
+    if { [info procs check_effective_target_${arg}] != [list] } {
+	return 1
+    } else {
+	# These have different names for their check_* procs.
+	switch $arg {
+	  "vmx_hw"         { return 1 }
+	  "named_sections" { return 1 }
+	  "gc_sections"    { return 1 }
+	  default          { return 0 }
+	}
+    }
 }

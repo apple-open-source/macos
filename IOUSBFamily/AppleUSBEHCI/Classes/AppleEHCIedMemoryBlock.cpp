@@ -47,7 +47,7 @@ AppleEHCIedMemoryBlock::NewMemoryBlock(void)
 	return NULL;
     }
     
-    USBLog(7, "AppleEHCIedMemoryBlock::NewMemoryBlock, sizeof (me) = %d, sizeof (super) = %d", sizeof(AppleEHCIedMemoryBlock), sizeof(super)); 
+    USBLog(7, "AppleEHCIedMemoryBlock::NewMemoryBlock, sizeof (me) = %d, sizeof (super) = %d", (int)sizeof(AppleEHCIedMemoryBlock), (int)sizeof(super)); 
     
     me->prepare();
     me->_sharedLogical = (EHCIQueueHeadSharedPtr)me->getBytesNoCopy();

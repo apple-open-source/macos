@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
@@ -380,7 +381,7 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
   /* Unswitch the loop on this condition.  */
   nloop = unswitch_loop (loops, loop, bbs[i], cond, cinsn);
   if (!nloop)
-    abort ();
+  abort ();
 
   /* Invoke itself on modified loops.  */
   unswitch_single_loop (loops, nloop, rconds, num + 1);

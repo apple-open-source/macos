@@ -47,8 +47,10 @@ load_lib dg.exp
 load_lib libgloss.exp
 # compiler routines, then ours
 load_gcc_lib target-supports.exp
+load_gcc_lib target-supports-dg.exp
 load_lib prune.exp
 load_lib dg-options.exp
+load_gcc_lib target-libpath.exp
 load_gcc_lib wrapper.exp
 
 # Useful for debugging.  Pass the name of a variable and the verbosity
@@ -81,8 +83,12 @@ proc libstdc++_init { testfile } {
     global cxx cxxflags
     global includes
     global gluefile wrap_flags
-    global original_ld_library_path
+    global ld_library_path
     global target_triplet
+
+    # We set LC_ALL and LANG to C so that we get the same error messages as expected.
+    setenv LC_ALL C
+    setenv LANG C
 
     set blddir [lookfor_file [get_multilibs] libstdc++-v3]
     set flags_file "${blddir}/scripts/testsuite_flags"
@@ -119,26 +125,6 @@ proc libstdc++_init { testfile } {
     v3-copy-files [glob -nocomplain "$srcdir/data/*.tst"]
     v3-copy-files [glob -nocomplain "$srcdir/data/*.txt"]
 
-    # Setup LD_LIBRARY_PATH so that libgcc_s, libstdc++ binaries can be found.
-    # Find the existing LD_LIBRARY_PATH.
-    if [info exists env(LD_LIBRARY_PATH)] {
-	set original_ld_library_path $env(LD_LIBRARY_PATH)
-	# For HP-UX
-    } elseif [info exists env(SHLIB_PATH)] {
-	set original_ld_library_path $env(SHLIB_PATH)
-	# For Darwin:
-    } elseif [info exists env(DYLD_LIBRARY_PATH)] {
-	set original_ld_library_path $env(DYLD_LIBRARY_PATH)
-	# For Solaris 32 bit:
-    } elseif [info exists env(LD_LIBRARY_PATH_32)] {
-	set original_ld_library_path $env(LD_LIBRARY_PATH_32)
-	# For Solaris 64 bit:
-    } elseif [info exists env(LD_LIBRARY_PATH_64)] {
-	set original_ld_library_path $env(LD_LIBRARY_PATH_64)
-    } else {
-	set original_ld_library_path ""
-    }
-
     # Locate libgcc.a so we don't need to account for different values of
     # SHLIB_EXT on different platforms
     set gccdir [lookfor_file $tool_root_dir gcc/libgcc.a]
@@ -148,41 +134,35 @@ proc libstdc++_init { testfile } {
     v3track gccdir 3
 
     # Compute what needs to be added to the existing LD_LIBRARY_PATH.
-    set ld_library_path ""
-    append ld_library_path ":${gccdir}"
-    set compiler ${gccdir}/g++
-    if { [is_remote host] == 0 && [which $compiler] != 0 } {
-      foreach i "[exec $compiler --print-multi-lib]" {
-        set mldir ""
-        regexp -- "\[a-z0-9=/\.-\]*;" $i mldir
-        set mldir [string trimright $mldir "\;@"]
-        if { "$mldir" == "." } {
-          continue
-        }
-        if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.so.*]] >= 1 } {
-          append ld_library_path ":${gccdir}/${mldir}"
-        }
-      }
-    }
-    append ld_library_path ":${blddir}/src/.libs"
+    # APPLE LOCAL begin mainline
+    if {$gccdir != ""} {
+	set ld_library_path ""
+	append ld_library_path ":${gccdir}"
+	set compiler ${gccdir}/g++
+	append ld_library_path ":${blddir}/src/.libs"
 
-    # On IRIX 6, we have to set variables akin to LD_LIBRARY_PATH, but
-    # called LD_LIBRARYN32_PATH (for the N32 ABI) and LD_LIBRARY64_PATH
-    # (for the 64-bit ABI).  The right way to do this would be to modify
-    # unix.exp -- but that's not an option since it's part of DejaGNU
-    # proper, so we do it here.
-    # The same applies to darwin (DYLD_LIBRARY_PATH), solaris 32 bit
-    # (LD_LIBRARY_PATH_32), solaris 64 bit (LD_LIBRARY_PATH_64), and HP-UX
-    # (SHLIB_PATH).
-    setenv  LD_LIBRARY_PATH     "$ld_library_path:$original_ld_library_path"
-    setenv  SHLIB_PATH          "$ld_library_path:$original_ld_library_path"
-    setenv  LD_LIBRARYN32_PATH  "$ld_library_path:$original_ld_library_path"
-    setenv  LD_LIBRARY64_PATH   "$ld_library_path:$original_ld_library_path"
-    setenv  LD_RUN_PATH         "$ld_library_path:$original_ld_library_path"
-    setenv  LD_LIBRARY_PATH_32  "$ld_library_path:$original_ld_library_path"
-    setenv  LD_LIBRARY_PATH_64  "$ld_library_path:$original_ld_library_path"
-    setenv  DYLD_LIBRARY_PATH   "$ld_library_path:$original_ld_library_path"
-    verbose -log "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
+	if { [is_remote host] == 0 && [which $compiler] != 0 } {
+	  foreach i "[exec $compiler --print-multi-lib]" {
+	    set mldir ""
+	    regexp -- "\[a-z0-9=/\.-\]*;" $i mldir
+	    set mldir [string trimright $mldir "\;@"]
+	    if { "$mldir" == "." } {
+	      continue
+	    }
+	    if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.so.*]] >= 1 } {
+	      append ld_library_path ":${gccdir}/${mldir}"
+	    }
+	  }
+	}
+
+	set_ld_library_path_env_vars
+	if [info exists env(LD_LIBRARY_PATH)] {
+	  verbose -log "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
+	}
+    } else {
+	set compiler [transform "g++"]
+	# APPLE LOCAL end mainline
+    }
 
     # Do a bunch of handstands and backflips for cross compiling and
     # finding simulators...
@@ -203,7 +183,15 @@ proc libstdc++_init { testfile } {
             set includes [exec sh $flags_file --build-includes]
         } else {
             set cxx [transform "g++"]
-            set cxxflags "-ggdb3"
+	    # APPLE LOCAL begin libstdc++ testing
+	    # For standalone libstdc++ testing, we need to provide all
+	    # the necessary compiler flags, since we do not have a 
+	    # testsuite_flags file to fall back on.
+	    set cxxflags [concat "-g -O2 -D_GLIBCXX_ASSERT" \
+		" -ffunction-sections" \
+		" -fdata-sections -fmessage-length=0 -DAPPLE_KEYMGR" \
+		" -DLOCALEDIR=\"/usr/share/locale\""]
+	    # APPLE LOCAL end libstdc++ testing
             set includes "-I${srcdir}"
         }
     }
@@ -305,6 +293,39 @@ proc v3_target_compile { source dest type options } {
 proc v3-list-tests { filename } {
     global srcdir
     global blddir
+    # APPLE LOCAL begin libstdc++ testing
+    global objdir
+    global libiconv
+
+    # If we are not running in a build directory, we will need to generate
+    # our own testsuite_files, and build our own libv3test.a as well.
+    if { $blddir == "" } {
+	set blddir ${objdir}
+	set libiconv "-liconv"
+	set tmp [exec mkdir ${blddir}/testsuite]
+	set tmp [exec touch ${blddir}/testsuite/testsuite_thread]
+	set tmp [exec touch ${blddir}/testsuite/testsuite_wchar_t]
+	set tmp [exec sh ${srcdir}/../scripts/create_testsuite_files \
+		${srcdir} ${blddir}/testsuite]
+	# Build the support objects.
+	foreach f [list testsuite_abi.cc testsuite_allocator.cc \
+		testsuite_hooks.cc] {
+	    set object_file ${blddir}/testsuite/[file rootname $f].o
+	    # Compile with "-w" so that warnings issued by the compiler
+	    # do not prevent compilation.
+	    if { [v3_target_compile $srcdir/$f $object_file "object" \
+		    [list "incdir=$srcdir" "additional_flags=-w"]]
+		    != "" } {
+		error "could not compile $f"
+	    }
+	}
+	set tmp [exec ar cru ${blddir}/testsuite/libv3test.a \
+		${blddir}/testsuite/testsuite_abi.o \
+		${blddir}/testsuite/testsuite_allocator.o \
+		${blddir}/testsuite/testsuite_hooks.o]
+	set tmp [exec ranlib -c ${blddir}/testsuite/libv3test.a]
+    }
+    # APPLE LOCAL end libstdc++ testing
 
     set tests_file "${blddir}/testsuite/${filename}"
     set sfiles ""

@@ -30,13 +30,13 @@ trap (void)
 
 asm(".text\n"
     "    .align 8\n"
-    "    .globl gdb1435\n"
-    "gdb1435:\n"
+    "    .globl _gdb1435\n"
+    "_gdb1435:\n"
     "    pushl %ebp\n"
     "    mov   %esp, %ebp\n"
-    "    call  trap\n"
-    "    .globl main\n"
-    "main:\n"
+    "    call  _trap\n"
+    "    .globl _main\n"
+    "_main:\n"
     "    pushl %ebp\n"
     "    mov   %esp, %ebp\n"
-    "    call  gdb1435\n");
+    "    call  _gdb1435\n");

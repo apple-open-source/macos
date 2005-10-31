@@ -923,7 +923,12 @@ msdosfs_sync_callback(vnode_t vp, void *cargs)
 	dep = VTODE(vp);
 
 	if ((dep->de_flag & (DE_ACCESS | DE_CREATE | DE_UPDATE | DE_MODIFIED)) || vnode_hasdirtyblks(vp)) {
-		error = msdosfs_fsync_internal(vp, args->waitfor==MNT_WAIT, args->context);
+		/*
+		 * Since directories are accessed via the device vnode, don't bother
+		 * flushing them here.  Instead, we'll flush them all at once when
+		 * we flush the device vnode.
+		 */
+		error = msdosfs_fsync_internal(vp, args->waitfor==MNT_WAIT, 0, args->context);
 
 		if (error)
 			args->error = error;
@@ -969,12 +974,8 @@ msdosfs_sync(mp, waitfor, context)
 	if (args.error)
 		allerror = args.error;
 
-	/*¥ Do we need to flush the FATs? */
-	
-	/*¥ Do we need to flush the boot sector or FSInfo sector? */
-
 	/*
-	 * Flush filesystem control info.
+	 * Flush filesystem control info, including the FATs, FSInfo sector, and directories.
 	 */
 	error = VNOP_FSYNC(pmp->pm_devvp, waitfor, context);
 	if (error)

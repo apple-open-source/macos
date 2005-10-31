@@ -1,5 +1,5 @@
 /* Default macros to initialize the lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -52,12 +52,6 @@ extern tree lhd_do_nothing_iii_return_null_tree (int, int, int);
 extern int lhd_safe_from_p (rtx, tree);
 extern tree lhd_staticp (tree);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
-/* APPLE LOCAL begin new tree dump */
-extern void lhd_dump_tree_do_nothing (FILE *, tree, int, int);
-extern int  lhd_dump_tree_blank_line_do_nothing (tree, tree);
-extern int  lhd_dump_tree_lineno_do_nothing (FILE *, tree);
-extern int lhd_dmp_tree3_do_nothing (FILE *, tree, int);
-/* APPLE LOCAL end new tree dump */
 /* APPLE LOCAL kext identify vtables */
 extern int lhd_vtable_p (tree);
 extern const char *lhd_decl_printable_name (tree, int);
@@ -75,9 +69,8 @@ extern void lhd_register_builtin_type (tree, const char *);
 extern bool lhd_decl_ok_for_sibcall (tree);
 extern const char *lhd_comdat_group (tree);
 extern tree lhd_expr_size (tree);
-extern bool lhd_decl_uninit (tree);
-extern tree lhd_get_callee_fndecl (tree);
 extern size_t lhd_tree_size (enum tree_code);
+extern HOST_WIDE_INT lhd_to_target_charset (HOST_WIDE_INT);
 
 /* Declarations of default tree inlining hooks.  */
 extern tree lhd_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
@@ -101,7 +94,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
 #define LANG_HOOKS_INIT			hook_bool_void_false
 #define LANG_HOOKS_FINISH		lhd_do_nothing
-/* APPLE LOCAL Objective-C++  */
+/* APPLE LOCAL mainline */
 #define LANG_HOOKS_FINISH_FILE		lhd_do_nothing
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
 #define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_do_nothing
@@ -127,14 +120,6 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_PRINT_DECL		lhd_print_tree_nothing
 #define LANG_HOOKS_PRINT_TYPE		lhd_print_tree_nothing
 #define LANG_HOOKS_PRINT_IDENTIFIER	lhd_print_tree_nothing
-/* APPLE LOCAL begin new tree dump */
-#define LANG_HOOKS_DUMP_DECL		lhd_dump_tree_do_nothing
-#define LANG_HOOKS_DUMP_TYPE		lhd_dump_tree_do_nothing
-#define LANG_HOOKS_DUMP_IDENTIFIER	lhd_dump_tree_do_nothing
-#define LANG_HOOKS_DUMP_BLANK_LINE_P	lhd_dump_tree_blank_line_do_nothing
-#define LANG_HOOKS_DUMP_LINENO_P	lhd_dump_tree_lineno_do_nothing
-#define LANG_HOOKS_DMP_TREE3		lhd_dmp_tree3_do_nothing
-/* APPLE LOCAL end new tree dump */
 /* APPLE LOCAL kext identify vtables */
 #define LANG_HOOKS_VTABLE_P		lhd_vtable_p
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION lhd_print_error_function
@@ -144,6 +129,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	builtin_function
+#define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
 
 #define LANG_HOOKS_FUNCTION_INIT	lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_FINAL	lhd_do_nothing_f
@@ -281,7 +267,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_POST_OPTIONS, \
   LANG_HOOKS_INIT, \
   LANG_HOOKS_FINISH, \
-  /* APPLE LOCAL Objective-C++  */ \
+  /* APPLE LOCAL mainline */ \
   LANG_HOOKS_FINISH_FILE, \
   LANG_HOOKS_PARSE_FILE, \
   LANG_HOOKS_CLEAR_BINDING_STACK, \
@@ -309,17 +295,10 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_GET_CALLEE_FNDECL, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \
+  LANG_HOOKS_TO_TARGET_CHARSET, \
   LANG_HOOKS_ATTRIBUTE_TABLE, \
   LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, \
   LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE, \
-/* APPLE LOCAL begin new tree dump */ \
-  LANG_HOOKS_DUMP_DECL, \
-  LANG_HOOKS_DUMP_TYPE, \
-  LANG_HOOKS_DUMP_IDENTIFIER, \
-  LANG_HOOKS_DUMP_BLANK_LINE_P, \
-  LANG_HOOKS_DUMP_LINENO_P, \
-  LANG_HOOKS_DMP_TREE3, \
-/* APPLE LOCAL end new tree dump */ \
 /* APPLE LOCAL kext identify vtables */ \
   LANG_HOOKS_VTABLE_P, \
   LANG_HOOKS_FUNCTION_INITIALIZER, \

@@ -594,7 +594,7 @@ void do_list(int argc, char *argv[])
 	void *domain;
 	ni_id dir;	
 	ni_status ret;
-	char listkey[256];
+	const char *listkey;
 
 	if ((ret = do_open(myname, argv[0], &domain, opt_tag, timeout,
 		(opt_user ? auth_user : NULL),
@@ -610,8 +610,8 @@ void do_list(int argc, char *argv[])
 
 	/* if there's a second argument, it's a property key */
 	/* by default, we'll list directories by name */
-	if (argc > 2) strcpy(listkey, argv[2]);
-	else strcpy(listkey, "name");
+	listkey = "name";
+	if (argc > 2) listkey = argv[2];
 
 	/* get the values of the specified key for all subdirectories */
 	NI_INIT(&el);

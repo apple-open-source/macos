@@ -367,13 +367,9 @@ UPrincipal::Clone () const
 }
 
 // Compare principals
-bool
-operator == (
-	const UPrincipal&		inLeft,
-	const UPrincipal&		inRight)
-{
-	ThrowIfInvalid (inLeft);
-	ThrowIfInvalid (inRight);
-	
-	return krb5_principal_compare (inLeft.mContext.Get (), inLeft.Get (), inRight.Get ());
+bool UPrincipal::operator == (const UPrincipal& inCompareTo) 
+{	
+	ThrowIfInvalid (inCompareTo);
+
+	return krb5_principal_compare (mContext.Get (), Get (), inCompareTo.Get ());
 }

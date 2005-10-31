@@ -1,7 +1,7 @@
 /* -*- c-file-style: "java"; indent-tabs-mode: nil -*- 
  *
  * distcc -- A simple distributed compiler system
- * $Header: /cvs/repository/devenv/pbxdev/distcc/src/filename.c,v 1.5 2003/11/21 04:33:33 rnielsen Exp $ 
+ * $Header: /cvs/karma/distcc/src/filename.c,v 1.1.1.1 2005/05/06 05:09:42 deatley Exp $ 
  *
  * Copyright (C) 2002 by Martin Pool <mbp@samba.org>
  *

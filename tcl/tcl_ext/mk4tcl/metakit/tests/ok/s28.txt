@@ -1,2 +1,0 @@
->>> Doubles added later
-<<< done.

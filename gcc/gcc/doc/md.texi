@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001,
-@c 2002, 2003, 2004 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -786,7 +786,7 @@ means exactly what
 would mean, if the machine-description reader accepted @samp{:P}
 mode suffixes.  Unfortunately, it cannot, because @code{Pmode} is an
 alias for some other mode, and might vary with machine-specific
-options. @xref{Misc}.
+options.  @xref{Misc}.
 @end defun
 
 @defun scratch_operand
@@ -919,7 +919,7 @@ logical operators, which have the semantics of the C operators
 @end table
 
 @item
-An optional block of C code, which should execute 
+An optional block of C code, which should execute
 @samp{@w{return true}} if the predicate is found to match and
 @samp{@w{return false}} if it does not.  It must not have any side
 effects.  The predicate arguments, @var{op} and @var{mode}, are
@@ -1307,9 +1307,9 @@ identical.  If we are considering an insn of the form
 @noindent
 the first pattern would not apply at all, because this insn does not
 contain two identical subexpressions in the right place.  The pattern would
-say, ``That does not look like an add instruction; try other patterns.''
+say, ``That does not look like an add instruction; try other patterns''.
 The second pattern would say, ``Yes, that's an add instruction, but there
-is something wrong with it.''  It would direct the reload pass of the
+is something wrong with it''.  It would direct the reload pass of the
 compiler to generate additional insns to make the constraint true.  The
 results might look like this:
 
@@ -1550,7 +1550,9 @@ instruction is defined:
 @end smallexample
 @end ifset
 GCC can only handle one commutative pair in an asm; if you use more,
-the compiler may fail.
+the compiler may fail.  Note that you need not use the modifier if
+the two alternatives are strictly identical; this would only waste
+time in the reload pass.
 
 @cindex @samp{#} in constraint
 @item #
@@ -1679,7 +1681,7 @@ A memory reference suitable for VFP load/store insns (reg+constant offset)
 A memory reference suitable for iWMMXt load/store instructions.
 
 @item Uq
-A memory reference suitable for for the ARMv4 ldrsb instruction.
+A memory reference suitable for the ARMv4 ldrsb instruction.
 
 @item AVR family---@file{avr.h}
 @table @code
@@ -1826,12 +1828,12 @@ System V Release 4 small data area reference
 @table @code
 @item q
 @samp{a}, @code{b}, @code{c}, or @code{d} register for the i386.
-For x86-64 it is equivalent to @samp{r} class. (for 8-bit instructions that
-do not use upper halves)
+For x86-64 it is equivalent to @samp{r} class (for 8-bit instructions that
+do not use upper halves).
 
 @item Q
-@samp{a}, @code{b}, @code{c}, or @code{d} register. (for 8-bit instructions,
-that do use upper halves)
+@samp{a}, @code{b}, @code{c}, or @code{d} register (for 8-bit instructions,
+that do use upper halves).
 
 @item R
 Legacy register---equivalent to @code{r} class in i386 mode.
@@ -1962,7 +1964,7 @@ Floating-point constant 0.0 or 1.0
 The constant zero
 
 @item P
-0 or -1 for @code{dep} instruction
+0 or @minus{}1 for @code{dep} instruction
 
 @item Q
 Non-volatile memory for floating-point loads and stores
@@ -2103,7 +2105,7 @@ Non-pointer registers (not @samp{SP}, @samp{DP}, @samp{IP})
 Non-SP registers (everything except @samp{SP})
 
 @item R
-Indirect through @samp{IP} - Avoid this except for @code{QImode}, since we
+Indirect through @samp{IP}---Avoid this except for @code{QImode}, since we
 can't access extra bytes
 
 @item S
@@ -2234,13 +2236,13 @@ Floating point constant that is not a 68881 constant
 @item Motorola 68HC11 & 68HC12 families---@file{m68hc11.h}
 @table @code
 @item a
-Register 'a'
+Register `a'
 
 @item b
-Register 'b'
+Register `b'
 
 @item d
-Register 'd'
+Register `d'
 
 @item q
 An 8-bit register
@@ -2255,13 +2257,13 @@ A soft register _.d1 to _.d31
 Stack pointer register
 
 @item x
-Register 'x'
+Register `x'
 
 @item y
-Register 'y'
+Register `y'
 
 @item z
-Pseudo register 'z' (replaced by 'x' or 'y' at the end)
+Pseudo register `z' (replaced by `x' or `y' at the end)
 
 @item A
 An address register: x, y or z
@@ -2297,7 +2299,7 @@ Floating-point register on the SPARC-V8 architecture and
 lower floating-point register on the SPARC-V9 architecture.
 
 @item e
-Floating-point register. It is equivalent to @samp{f} on the
+Floating-point register.  It is equivalent to @samp{f} on the
 SPARC-V8 architecture and contains both lower and upper
 floating-point registers on the SPARC-V9 architecture.
 
@@ -2305,11 +2307,11 @@ floating-point registers on the SPARC-V9 architecture.
 Floating-point condition code register.
 
 @item d
-Lower floating-point register. It is only valid on the SPARC-V9
+Lower floating-point register.  It is only valid on the SPARC-V9
 architecture when the Visual Instruction Set is available.
 
 @item b
-Floating-point register. It is only valid on the SPARC-V9 architecture
+Floating-point register.  It is only valid on the SPARC-V9 architecture
 when the Visual Instruction Set is available.
 
 @item h
@@ -2367,7 +2369,10 @@ Memory address aligned to an 8-byte boundary
 Even register
 
 @item W
-Memory address for @samp{e} constraint registers.
+Memory address for @samp{e} constraint registers
+
+@item Y
+Vector zero
 
 @end table
 
@@ -2458,6 +2463,9 @@ Symbolic address
 @item a
 Address register (general purpose register except r0)
 
+@item c
+Condition code register
+
 @item d
 Data register (arbitrary general purpose register)
 
@@ -2495,7 +2503,7 @@ Multiple letter constraint followed by 4 parameter letters.
          @item D,S,H:
          mode of the containing operand
          @item 0,F:
-         value of the other parts (F - all bits set)
+         value of the other parts (F---all bits set)
 @end table
 The constraint matches if the specified part of a constant
 has a value different from it's other parts.
@@ -2750,6 +2758,17 @@ with mode @var{m} of a register whose natural mode is wider,
 the @samp{movstrict@var{m}} instruction is guaranteed not to alter
 any of the register except the part which belongs to mode @var{m}.
 
+@cindex @code{movmisalign@var{m}} instruction pattern
+@item @samp{movmisalign@var{m}}
+This variant of a move pattern is designed to load or store a value
+from a memory address that is not naturally aligned for its mode.
+For a store, the memory will be in operand 0; for a load, the memory
+will be in operand 1.  The other operand is guaranteed not to be a
+memory, so that it's easy to tell whether this is a load or store.
+
+This pattern is used by the autovectorizer, and when expanding a
+@code{MISALIGNED_INDIRECT_REF} expression.
+
 @cindex @code{load_multiple} instruction pattern
 @item @samp{load_multiple}
 Load several consecutive memory locations into consecutive registers.
@@ -2815,25 +2834,24 @@ means of constraints requiring operands 1 and 0 to be the same location.
 @cindex @code{udiv@var{m}3} instruction pattern
 @cindex @code{mod@var{m}3} instruction pattern
 @cindex @code{umod@var{m}3} instruction pattern
-@cindex @code{smin@var{m}3} instruction pattern
-@cindex @code{smax@var{m}3} instruction pattern
 @cindex @code{umin@var{m}3} instruction pattern
 @cindex @code{umax@var{m}3} instruction pattern
 @cindex @code{and@var{m}3} instruction pattern
 @cindex @code{ior@var{m}3} instruction pattern
 @cindex @code{xor@var{m}3} instruction pattern
 @item @samp{sub@var{m}3}, @samp{mul@var{m}3}
-@itemx @samp{div@var{m}3}, @samp{udiv@var{m}3}, @samp{mod@var{m}3}, @samp{umod@var{m}3}
-@itemx @samp{smin@var{m}3}, @samp{smax@var{m}3}, @samp{umin@var{m}3}, @samp{umax@var{m}3}
+@itemx @samp{div@var{m}3}, @samp{udiv@var{m}3}
+@itemx @samp{mod@var{m}3}, @samp{umod@var{m}3}
+@itemx @samp{umin@var{m}3}, @samp{umax@var{m}3}
 @itemx @samp{and@var{m}3}, @samp{ior@var{m}3}, @samp{xor@var{m}3}
 Similar, for other arithmetic operations.
+
 @cindex @code{min@var{m}3} instruction pattern
 @cindex @code{max@var{m}3} instruction pattern
-@itemx @samp{min@var{m}3}, @samp{max@var{m}3}
-Floating point min and max operations.  If both operands are zeros,
-or if either operand is NaN, then it is unspecified which of the two
-operands is returned as the result.
-
+@item @samp{smin@var{m}3}, @samp{smax@var{m}3}
+Signed minimum and maximum operations.  When used with floating point,
+if both operands are zeros, or if either operand is @code{NaN}, then
+it is unspecified which of the two operands is returned as the result.
 
 @cindex @code{mulhisi3} instruction pattern
 @item @samp{mulhisi3}
@@ -3058,7 +3076,7 @@ generating the instruction.
 
 @cindex @code{parity@var{m}2} instruction pattern
 @item @samp{parity@var{m}2}
-Store into operand 0 the parity of @var{x}, i.@:e. the number of 1-bits
+Store into operand 0 the parity of @var{x}, i.e.@: the number of 1-bits
 in @var{x} modulo 2.  @var{m} is the mode of operand 0; operand 1's mode
 is specified by the instruction pattern, and the compiler will convert
 the operand to that mode before generating the instruction.
@@ -3492,11 +3510,6 @@ A label that precedes the table itself.
 
 @item
 A label to jump to if the index has a value outside the bounds.
-(If the machine-description macro @code{CASE_DROPS_THROUGH} is defined,
-then an out-of-bounds index drops through to the code following
-the jump table instead of jumping to this label.  In that case,
-this label is not actually used by the @samp{casesi} instruction,
-but it is always provided as an operand.)
 @end enumerate
 
 The table is a @code{addr_vec} or @code{addr_diff_vec} inside of a
@@ -4508,7 +4521,7 @@ on this machine.  So it must be copied into a register with
      = force_reg (SImode, GEN_INT (65535)); ")
 @end smallexample
 
-@strong{Note:} If the @code{define_expand} is used to serve a
+@emph{Note:} If the @code{define_expand} is used to serve a
 standard binary or unary arithmetic operation or a bit-field operation,
 then the last insn it generates must not be a @code{code_label},
 @code{barrier} or @code{note}.  It must be an @code{insn},
@@ -4665,9 +4678,9 @@ an equality comparison of a register and a large constant:
    (set (match_dup 0) (compare:CC (match_dup 3) (match_dup 5)))]
   "
 @{
-  /* Get the constant we are comparing against, C, and see what it
+  /* @r{Get the constant we are comparing against, C, and see what it
      looks like sign-extended to 16 bits.  Then see what constant
-     could be XOR'ed with C to get the sign-extended value.  */
+     could be XOR'ed with C to get the sign-extended value.}  */
 
   int c = INTVAL (operands[2]);
   int sextc = (c << 16) >> 16;
@@ -4761,7 +4774,7 @@ having to ensure the two patterns' templates match.
 @findex include
 The @code{include} pattern tells the compiler tools where to
 look for patterns that are in files other than in the file
-@file{.md}. This is used only at build time and there is no preprocessing allowed.
+@file{.md}.  This is used only at build time and there is no preprocessing allowed.
 
 It looks like:
 
@@ -4780,7 +4793,7 @@ For example:
 @end smallexample
 
 Where @var{pathname} is a string that specifies the location of the file,
-specifies the include file to be in @file{gcc/config/target/filestuff}. The
+specifies the include file to be in @file{gcc/config/target/filestuff}.  The
 directory @file{gcc/config/target} is regarded as the default directory.
 
 
@@ -5616,11 +5629,11 @@ full-word result.
 For many machines, multiple types of branch instructions are provided, each
 for different length branch displacements.  In most cases, the assembler
 will choose the correct instruction to use.  However, when the assembler
-cannot do so, GCC can when a special attribute, the @samp{length}
+cannot do so, GCC can when a special attribute, the @code{length}
 attribute, is defined.  This attribute must be defined to have numeric
 values by specifying a null string in its @code{define_attr}.
 
-In the case of the @samp{length} attribute, two additional forms of
+In the case of the @code{length} attribute, two additional forms of
 arithmetic terms are allowed in test expressions:
 
 @table @code
@@ -5640,7 +5653,7 @@ current insn is to be computed.
 @cindex @code{addr_vec}, length of
 @cindex @code{addr_diff_vec}, length of
 For normal insns, the length will be determined by value of the
-@samp{length} attribute.  In the case of @code{addr_vec} and
+@code{length} attribute.  In the case of @code{addr_vec} and
 @code{addr_diff_vec} insn patterns, the length is computed as
 the number of vectors multiplied by the size of each vector.
 
@@ -6098,7 +6111,7 @@ can be used for @acronym{RISC} processors, too.
 separated by commas.
 
 @var{patterns} is a string giving patterns of functional units
-separated by comma.  Currently pattern is is one unit or units
+separated by comma.  Currently pattern is one unit or units
 separated by white-spaces.
 
 The first construction (@samp{exclusion_set}) means that each

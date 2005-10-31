@@ -7,13 +7,13 @@
 
 
 /* Current release of ppp, MUST be changed before submission */
-#define CURRENT_RELEASE_TAG		"229-2"
+#define CURRENT_RELEASE_TAG		"233"
 
 /* Current working tag */
 #define CURRENT_DEVELOPMENT_TAG		"3468584"
 
 
-#if (DEVELOPMENT == 1)
+#if (!defined(DEVELOPMENT))
 
 /* Development version of ppp */
 #define PPP_VERSION		CURRENT_RELEASE_TAG " [Engineering build " CURRENT_DEVELOPMENT_TAG ", " __DATE__ " " __TIME__ "]"

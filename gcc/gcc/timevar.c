@@ -154,7 +154,7 @@ static double clocks_to_msec;
 #include "flags.h"
 #include "timevar.h"
 
-static bool timevar_enable;
+bool timevar_enable;
 
 /* See timevar.h for an explanation of timing variables.  */
 
@@ -305,14 +305,11 @@ timevar_init (void)
    TIMEVAR cannot be running as a standalone timer.  */
 
 void
-timevar_push (timevar_id_t timevar)
+timevar_push_1 (timevar_id_t timevar)
 {
   struct timevar_def *tv = &timevars[timevar];
   struct timevar_stack_def *context;
   struct timevar_time_def now;
-
-  if (!timevar_enable)
-    return;
 
   /* Mark this timing variable as used.  */
   tv->used = 1;
@@ -355,13 +352,10 @@ timevar_push (timevar_id_t timevar)
    timing variable.  */
 
 void
-timevar_pop (timevar_id_t timevar)
+timevar_pop_1 (timevar_id_t timevar)
 {
   struct timevar_time_def now;
   struct timevar_stack_def *popped = stack;
-
-  if (!timevar_enable)
-    return;
 
   gcc_assert (&timevars[timevar] == stack->timevar);
   
@@ -424,31 +418,6 @@ timevar_stop (timevar_id_t timevar)
 
   get_time (&now);
   timevar_accumulate (&tv->elapsed, &tv->start_time, &now);
-}
-
-/* Fill the elapsed time for TIMEVAR into ELAPSED.  Returns
-   update-to-date information even if TIMEVAR is currently running.  */
-
-void
-timevar_get (timevar_id_t timevar, struct timevar_time_def *elapsed)
-{
-  struct timevar_def *tv = &timevars[timevar];
-  struct timevar_time_def now;
-
-  *elapsed = tv->elapsed;
-
-  /* Is TIMEVAR currently running as a standalone timer?  */
-  if (tv->standalone)
-    {
-      get_time (&now);
-      timevar_accumulate (elapsed, &tv->start_time, &now);
-    }
-  /* Or is TIMEVAR at the top of the timer stack?  */
-  else if (stack->timevar == tv)
-    {
-      get_time (&now);
-      timevar_accumulate (elapsed, &start_time, &now);
-    }
 }
 
 /* Summarize timing variables to FP.  The timing variable TV_TOTAL has
@@ -538,7 +507,7 @@ timevar_print (FILE *fp)
 #ifdef HAVE_USER_TIME
   /* APPLE LOCAL time formatting */
   fprintf (fp, "%7.2f", total->user);
-#endif 
+#endif
 #ifdef HAVE_SYS_TIME
   /* APPLE LOCAL time formatting */
   fprintf (fp, "          %7.2f", total->sys);
@@ -549,7 +518,7 @@ timevar_print (FILE *fp)
 #endif
   /* APPLE LOCAL time formatting */
   putc ('\n', fp);
-  
+
 #ifdef ENABLE_CHECKING
   fprintf (fp, "Extra diagnostic checks enabled; compiler may run slowly.\n");
   fprintf (fp, "Configure with --disable-checking to disable checks.\n");

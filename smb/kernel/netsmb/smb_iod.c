@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_iod.c,v 1.32 2005/02/12 00:17:09 lindak Exp $
+ * $Id: smb_iod.c,v 1.32.80.1 2005/07/20 05:27:00 lindak Exp $
  */
  
 #include <sys/param.h>
@@ -44,8 +44,6 @@
 
 #include <sys/kauth.h>
 
-#include <IOKit/IOLib.h>
-
 #include <sys/smb_apple.h>
 
 #include <netsmb/smb.h>
@@ -56,6 +54,9 @@
 #include <smbfs/smbfs.h>
 
 #include <netsmb/smb_compat4.h>
+
+/* XXX make sure they fix IOLib.h */
+#include <IOKit/IOLib.h>
 
 #define SMBIOD_SLEEP_TIMO	2
 #define	SMBIOD_PING_TIMO	60	/* seconds */
@@ -798,7 +799,7 @@ smb_tickle(struct smbiod *iod)
 	 * the shares.  One success is good enough - needn't
 	 * tickle all the shares.
 	 */
-	SMBCO_FOREACH((struct smb_connobj*)ssp, VCTOCP(vcp)) {
+	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
 		/*
 		 * Make sure nobody deletes the share out from under
 		 * us.

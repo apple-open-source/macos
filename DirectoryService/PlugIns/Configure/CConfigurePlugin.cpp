@@ -2223,7 +2223,7 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 		AuthorizationItemSet rightSet = { sizeof(rights)/ sizeof(*rights), rights };
 		bufLen = inData->fInRequestData->fBufferLength;
 		
-		if ( aRequest == 111 )
+		if ( aRequest == eDSCustomCallConfigureGetAuthRef )
 		{
 			// we need to get an authref set up in this case
 			// support for Directory Setup over proxy
@@ -2279,7 +2279,7 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 			siResult = eDSNoErr;
 			authRef = 0;
 		}
-		else if (aRequest == 222)
+		else if (aRequest == eDSCustomCallConfigureCheckVersion)
 		{
 			// version check, no AuthRef required
 			uInt32 versLength = strlen( "1" );
@@ -2293,7 +2293,7 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 			current += versLength;
 			inData->fOutRequestResponse->fBufferLength += versLength;
 		}
-		else if (aRequest == 444 || aRequest == 445)
+		else if (aRequest == eDSCustomCallConfigureSCGetKeyPathValueSize || aRequest == eDSCustomCallConfigureSCGetKeyPathValueData)
 		{
 			// read SystemConfiguration key, no authref required
 			// for Remote Directory Setup
@@ -2320,7 +2320,7 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				CFRange	aRange;
 				aRange.location = 0;
 				aRange.length = CFDataGetLength(xmlData);
-				if (aRequest == 444)
+				if (aRequest == eDSCustomCallConfigureSCGetKeyPathValueSize)
 				{
 					if ( inData->fOutRequestResponse->fBufferSize < sizeof(CFIndex) ) throw( (sInt32)eDSBufferTooSmall );
 					memcpy(inData->fOutRequestResponse->fBufferData,&aRange.length,sizeof(CFIndex));
@@ -2342,7 +2342,7 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				key = NULL;
 			}
 		}
-		else if (aRequest == 446 || aRequest == 447)
+		else if (aRequest == eDSCustomCallConfigureSCGetKeyValueSize || aRequest == eDSCustomCallConfigureSCGetKeyValueData)
 		{
 			// read SystemConfiguration key, no authref required
 			// for Remote Directory Setup
@@ -2368,7 +2368,7 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				aRange.location = 0;
 				aRange.length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(stringValue),
 													  kCFStringEncodingUTF8);
-				if (aRequest == 446)
+				if (aRequest == eDSCustomCallConfigureSCGetKeyValueSize)
 				{
 					if ( inData->fOutRequestResponse->fBufferSize < sizeof(CFIndex) ) throw( (sInt32)eDSBufferTooSmall );
 					memcpy(inData->fOutRequestResponse->fBufferData,&aRange.length,sizeof(CFIndex));
@@ -2388,13 +2388,13 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 			}
 		}
 #ifdef BUILD_IN_PERFORMANCE
-		else if ( aRequest == 666 )
+		else if ( aRequest == eDSCustomCallActivatePerfMonitor )
 		{
 			// this is a request to turn on performance stat gathering - auth?
 			gSrvrCntl->ActivatePeformanceStatGathering();
 			
 		}
-		else if ( aRequest == 667 )
+		else if ( aRequest == eDSCustomCallDeactivatePerfMonitor )
 		{
 			// this is a request to turn off performance stat gathering - auth?
 			gSrvrCntl->DeactivatePeformanceStatGathering();			
@@ -2438,10 +2438,10 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 		}
         //request to toggle the active versus inactive state of a plugin comes in with the plugin table index plus 1000
         //index could be zero
-        if (aRequest > 999)
+        if (aRequest >= eDSCustomCallTogglePlugInStateBase)
         {
 			//might want to pass in the plugin name within the buffer and check it instead of using an offset from the 1000 value
-            pluginIndex = aRequest - 1000;
+            pluginIndex = aRequest - eDSCustomCallTogglePlugInStateBase;
             if (pluginIndex < CPlugInList::kMaxPlugIns)
             {
                 pPIInfo = gPlugins->GetPlugInInfo( pluginIndex );
@@ -2472,7 +2472,7 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
                 }
             }
         }
-		else if (aRequest == 333)
+		else if (aRequest == eDSCustomCallConfigureDestroyAuthRef)
 		{
 			// destroy the auth ref
 			if (authRef != 0)
@@ -2481,7 +2481,7 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				authRef = 0;
 			}			
 		}
-		else if (aRequest == 555)
+		else if (aRequest == eDSCustomCallConfigureWriteSCConfigData)
 		{
 			// write SystemConfiguration
 			// for Remote Directory Setup
@@ -2525,7 +2525,7 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 			CFRelease(xmlData);
 			xmlData = nil;
 		}
-		else if (aRequest == 777)
+		else if (aRequest == eDSCustomCallConfigureToggleDSProxy)
 		{
 			//toggle whether TCP Listener is active or not
 			struct stat		statResult;

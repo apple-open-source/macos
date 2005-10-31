@@ -35,11 +35,14 @@
 
 #include "CFNetworkInternal.h"
 #include "CFNetworkSchedule.h"
+// For _CFNetworkUserAgentString()
+#include "CFHTTPInternal.h" 
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/ioctl.h>
+#include <sys/fcntl.h>
 
 #include <CoreFoundation/CFStreamPriv.h>
 #include <CFNetwork/CFSocketStreamPriv.h>
@@ -213,13 +216,11 @@ static CONST_STRING_DECL(_kCFStreamPropertyBogusRunLoop, "_kCFStreamPropertyBogu
 #define _kCFStreamCONNECTURLFormat	CFSTR("%@:%d")
 #define _kCFStreamCONNECTMethod		CFSTR("CONNECT")
 #define _kCFStreamUserAgentHeader	CFSTR("User-Agent")
-#define _kCFStreamUserAgentValue	CFSTR("CFNetwork/1.1")
 #define _kCFStreamHostHeader		CFSTR("Host")
 #else
 static CONST_STRING_DECL(_kCFStreamCONNECTURLFormat, "%@:%d")
 static CONST_STRING_DECL(_kCFStreamCONNECTMethod, "CONNECT")
 static CONST_STRING_DECL(_kCFStreamUserAgentHeader, "User-Agent")
-static CONST_STRING_DECL(_kCFStreamUserAgentValue, "CFNetwork/1.1")
 static CONST_STRING_DECL(_kCFStreamHostHeader, "Host")
 #endif	/* __CONSTANT_CFSTRINGS__ */
 
@@ -4226,7 +4227,8 @@ _PerformSOCKSv5PostambleHandshake_NoLock(_CFSocketStreamContext* ctxt) {
 				
 				UInt8* ptr;
 				SInt32 value = 0;
-				
+				unsigned short prt;
+
 				/* Try to get the name for sending in the CONNECT request. */
 				CFHostRef host = (CFHostRef)CFDictionaryGetValue(ctxt->_properties, kCFStreamPropertySocketRemoteHost);
 				CFNumberRef port = (CFNumberRef)CFDictionaryGetValue(ctxt->_properties, _kCFStreamPropertySocketRemotePort);
@@ -4284,9 +4286,8 @@ _PerformSOCKSv5PostambleHandshake_NoLock(_CFSocketStreamContext* ctxt) {
 				CFNumberGetValue(port, kCFNumberSInt32Type, &value);
 				
 				/* Lay down the port. */
-				value = htons(value & 0x0000FFFF);
-				ptr[ptr[4] + 5] = ((value & 0x0000FF00) >> 8);
-				ptr[ptr[4] + 6] = (value & 0x000000FF);
+				prt = htons(value & 0x0000FFFF);
+				*((unsigned short*)(&ptr[ptr[4] + 5])) = prt;
 				
 				/* Trim down the buffer to the correct size. */
 				CFDataSetLength(to_send, 7 + ptr[4]);
@@ -5165,12 +5166,12 @@ _CreateNameAndPortForCONNECTProxy(CFDictionaryRef properties, CFStringRef* name,
 		switch (sa->sa_family) {
 			
 			case AF_INET:
-				p = ((struct sockaddr_in*)sa)->sin_port;
+				p = ntohs(((struct sockaddr_in*)sa)->sin_port);
 				*port = CFNumberCreate(alloc, kCFNumberSInt32Type, &p);
 				break;
 				
 			case AF_INET6:
-				p = ((struct sockaddr_in6*)sa)->sin6_port;
+				p = ntohs(((struct sockaddr_in6*)sa)->sin6_port);
 				*port = CFNumberCreate(alloc, kCFNumberSInt32Type, &p);
 				break;
 				
@@ -5297,7 +5298,7 @@ _PerformCONNECTHandshake_NoLock(_CFSocketStreamContext* ctxt) {
 				/* Check to see if "User-Agent:" need to be added and do so. */
 				value = (CFStringRef)CFDictionaryGetValue(headers, _kCFStreamUserAgentHeader);
 				if (!value)
-					CFHTTPMessageSetHeaderFieldValue(request, _kCFStreamUserAgentHeader, _kCFStreamUserAgentValue);
+					CFHTTPMessageSetHeaderFieldValue(request, _kCFStreamUserAgentHeader, _CFNetworkUserAgentString());
 				
 				/* Add all the other headers. */
 				CFDictionaryApplyFunction(headers, (CFDictionaryApplierFunction)_CONNECTHeaderApplier, request);
@@ -5305,7 +5306,7 @@ _PerformCONNECTHandshake_NoLock(_CFSocketStreamContext* ctxt) {
 			else {
 				/* CONNECT must have "Host:" and "User-Agent:" headers. */
 				CFHTTPMessageSetHeaderFieldValue(request, _kCFStreamHostHeader, name);
-				CFHTTPMessageSetHeaderFieldValue(request, _kCFStreamUserAgentHeader, _kCFStreamUserAgentValue);
+				CFHTTPMessageSetHeaderFieldValue(request, _kCFStreamUserAgentHeader, _CFNetworkUserAgentString());
 			}
 			
 			CFRelease(name);
@@ -5784,7 +5785,7 @@ _SocketStreamSecuritySend_NoLock(_CFSocketStreamContext* ctxt, const UInt8* buff
 																						   kCFStreamPropertySocketSSLContext)));
 	
     /* Try to write bytes on the socket. */
-	OSStatus result = SSLWrite(ssl, buffer, length, &bytesWritten);
+	OSStatus result = SSLWrite(ssl, buffer, length, (size_t*)(&bytesWritten));
     
 	/* Check to see if error was set during the write. */
     if (ctxt->_error.error)
@@ -5898,7 +5899,7 @@ _SocketStreamSecurityBufferedRead_NoLock(_CFSocketStreamContext* ctxt) {
 			CFIndex bytesRead = 0;
 			
 			/* Read out of the encrypted and into the unencrypted. */
-			status = SSLRead(ssl, ptr + *i, s - *i, &bytesRead);
+			status = SSLRead(ssl, ptr + *i, s - *i, (size_t*)(&bytesRead));
 		
 			/* If did read bytes, increase the count. */
 			if (bytesRead > 0)
@@ -6063,7 +6064,7 @@ _PerformSecuritySendHandshake_NoLock(_CFSocketStreamContext* ctxt) {
 																						   kCFStreamPropertySocketSSLContext)));
 	
 	/* Attempt to write. */
-	result = SSLWrite(ssl, NULL, 0, &bytesWritten);
+	result = SSLWrite(ssl, NULL, 0, (size_t*)(&bytesWritten));
 	
 	/* If didn't get a block, can do something. */
 	if (result == errSSLWouldBlock)
@@ -6320,7 +6321,7 @@ _SocketStreamSecuritySetInfo_NoLock(_CFSocketStreamContext* ctxt, CFDictionaryRe
 				buffer = _CFStringGetOrCreateCString(alloc, value, static_buffer, &buffer_size, kCFStringEncodingUTF8);
 				
 				/* After pulling out the bytes, set the peer name. */
-                err = SSLSetPeerDomainName(security, buffer, buffer_size);
+                err = SSLSetPeerDomainName(security, (const char*)buffer, *((size_t*)(&buffer_size)));
     
 				/* Clean up the allocation if made. */
                 if (buffer != &static_buffer[0])
@@ -6416,7 +6417,7 @@ _SocketStreamSecuritySetAuthenticatesServerCertificates_NoLock(_CFSocketStreamCo
 				
 			buffer = _CFStringGetOrCreateCString(alloc, value, static_buffer, &buffer_size, kCFStringEncodingUTF8);
 			
-			err = SSLSetPeerDomainName(ssl, buffer, buffer_size);
+			err = SSLSetPeerDomainName(ssl, (const char*)buffer, *((size_t*)(&buffer_size)));
 			
 			if (err)
 				break;

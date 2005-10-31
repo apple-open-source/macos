@@ -173,8 +173,9 @@ int ASN1_UTCTIME_set_string(ASN1_UTCTIME *s, char *str)
 		{
 		if (s != NULL)
 			{
-			ASN1_STRING_set((ASN1_STRING *)s,
-				(unsigned char *)str,t.length);
+			if (!ASN1_STRING_set((ASN1_STRING *)s,
+				(unsigned char *)str,t.length))
+				return 0;
 			s->type = V_ASN1_UTCTIME;
 			}
 		return(1);
@@ -188,6 +189,7 @@ ASN1_UTCTIME *ASN1_UTCTIME_set(ASN1_UTCTIME *s, time_t t)
 	char *p;
 	struct tm *ts;
 	struct tm data;
+	size_t len = 20;
 
 	if (s == NULL)
 		s=M_ASN1_UTCTIME_new();
@@ -199,17 +201,21 @@ ASN1_UTCTIME *ASN1_UTCTIME_set(ASN1_UTCTIME *s, time_t t)
 		return(NULL);
 
 	p=(char *)s->data;
-	if ((p == NULL) || (s->length < 14))
+	if ((p == NULL) || ((size_t)s->length < len))
 		{
-		p=OPENSSL_malloc(20);
-		if (p == NULL) return(NULL);
+		p=OPENSSL_malloc(len);
+		if (p == NULL)
+			{
+			ASN1err(ASN1_F_ASN1_UTCTIME_SET,ERR_R_MALLOC_FAILURE);
+			return(NULL);
+			}
 		if (s->data != NULL)
 			OPENSSL_free(s->data);
 		s->data=(unsigned char *)p;
 		}
 
-	sprintf(p,"%02d%02d%02d%02d%02d%02dZ",ts->tm_year%100,
-		ts->tm_mon+1,ts->tm_mday,ts->tm_hour,ts->tm_min,ts->tm_sec);
+	BIO_snprintf(p,len,"%02d%02d%02d%02d%02d%02dZ",ts->tm_year%100,
+		     ts->tm_mon+1,ts->tm_mday,ts->tm_hour,ts->tm_min,ts->tm_sec);
 	s->length=strlen(p);
 	s->type=V_ASN1_UTCTIME;
 #ifdef CHARSET_EBCDIC_not

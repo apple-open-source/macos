@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in arm.c and pe.c
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
@@ -89,6 +89,7 @@ extern rtx arm_gen_compare_reg (RTX_CODE, rtx, rtx);
 extern rtx arm_gen_return_addr_mask (void);
 extern void arm_reload_in_hi (rtx *);
 extern void arm_reload_out_hi (rtx *);
+extern int arm_const_double_inline_cost (rtx);
 extern const char *fp_immediate_constant (rtx);
 extern const char *output_call (rtx *);
 extern const char *output_call_mem (rtx *);
@@ -114,6 +115,7 @@ extern int    arm_emit_vector_const (FILE *, rtx);
 extern const char * arm_output_load_gr (rtx *);
 extern const char *vfp_output_fstmx (rtx *);
 extern void arm_set_return_address (rtx, rtx);
+extern int arm_eliminable_register (rtx);
 
 #if defined TREE_CODE
 extern rtx arm_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
@@ -121,6 +123,7 @@ extern void arm_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern bool arm_needs_doubleword_align (enum machine_mode, tree);
 extern rtx arm_function_value(tree, tree);
 #endif
+extern int arm_apply_result_size (void);
 
 #if defined AOF_ASSEMBLER
 extern rtx aof_pic_entry (rtx);
@@ -149,6 +152,7 @@ extern int thumb_shiftable_const (unsigned HOST_WIDE_INT);
 extern void thumb_final_prescan_insn (rtx);
 extern const char *thumb_load_double_from_address (rtx *);
 extern const char *thumb_output_move_mem_multiple (int, rtx *);
+extern const char *thumb_call_via_reg (rtx);
 extern void thumb_expand_movmemqi (rtx *);
 extern rtx *thumb_legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern int thumb_go_if_legitimate_address (enum machine_mode, rtx);

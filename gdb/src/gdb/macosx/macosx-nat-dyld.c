@@ -1,5 +1,5 @@
 /* Mac OS X support for GDB, the GNU debugger.
-   Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
 
    Contributed by Apple Computer, Inc.
@@ -394,7 +394,7 @@ macosx_lookup_dyld_name (bfd *abfd, const char **rname)
 {
   struct mach_o_data_struct *mdata = NULL;
   char *name = NULL;
-  unsigned int i;
+  int i;
 
   if (abfd == NULL)
     return -1;
@@ -629,7 +629,7 @@ macosx_set_start_breakpoint (macosx_dyld_thread_status *s, bfd *exec_bfd)
 static ULONGEST
 FETCH_ARGUMENT (int i)
 {
-  return read_register (3 + i);  /* FIXME: 64bit ? */
+  return read_register (3 + i);
 }
 #elif defined (__i386__)
 static ULONGEST
@@ -660,10 +660,11 @@ macosx_dyld_add_libraries (struct macosx_dyld_thread_status *dyld_status,
 
   for (i = 0; i < num; i++)
     {
-      struct dyld_objfile_entry *pentry = NULL;
+      struct dyld_objfile_entry *pentry;
       dyld_merge_shlib (dyld_status, &dyld_status->path_info,
                         &dyld_status->current_info, &entries[i]);
-      dyld_prune_shlib (&dyld_status->current_info, &entries[i]);
+      dyld_prune_shlib (&dyld_status->path_info, 
+			&dyld_status->current_info, &entries[i]);
 
       pentry = dyld_objfile_entry_alloc (&dyld_status->current_info);
       *pentry = entries[i];
@@ -867,7 +868,21 @@ macosx_init_dyld (struct macosx_dyld_thread_status *s,
 
   if (o != NULL)
     {
+      char *objfile_name = NULL;
       struct dyld_objfile_entry *e;
+
+      /* Canonicalize the name */
+      if (bfd_get_filename (o->obfd) != NULL)
+        {
+          char buf[PATH_MAX];
+          if (realpath (bfd_get_filename (o->obfd), buf) != NULL)
+            {
+              objfile_name = xstrdup (buf);
+            }
+          else
+            objfile_name = bfd_get_filename (o->obfd);
+        }
+
       e = dyld_objfile_entry_alloc (&s->current_info);
       e->text_name_valid = 1;
       e->reason = dyld_reason_executable;
@@ -876,8 +891,7 @@ macosx_init_dyld (struct macosx_dyld_thread_status *s,
           e->objfile = o;
           /* No need to set e->abfd, since e->objfile is present. */
           e->load_flag = o->symflags;
-          e->text_name = o->name;
-          e->text_name = xstrdup (bfd_get_filename (o->obfd));
+          e->text_name = objfile_name;
         }
       e->loaded_from_memory = 0;
       e->loaded_name = e->text_name;
@@ -1459,8 +1473,8 @@ static void
 dyld_generic_command_with_helper (char *args,
                                   int from_tty,
                                   void (*function) (struct dyld_path_info *,
-                                                    struct dyld_objfile_entry
-                                                    *, struct objfile *,
+                                                    struct dyld_objfile_entry *,
+                                                    struct objfile *,
                                                     const char *param))
 {
   struct dyld_objfile_info original_info, modified_info;
@@ -1562,7 +1576,6 @@ dyld_objfile_set_load_state (struct objfile *o, int load_state)
           }
         break;
       }
-
   return found_it;
 }
 
@@ -1592,7 +1605,7 @@ set_load_state_1 (struct dyld_objfile_entry *e,
 
   e->load_flag = load_state;
 
-  /* If there is no existing objfile, just load it (if appropriate) and return. */
+  /* If there is no existing objfile, load it (if appropriate) and return. */
 
   if (e->objfile == NULL)
     {
@@ -1638,7 +1651,6 @@ set_load_state_1 (struct dyld_objfile_entry *e,
 
   e->abfd = tmp_bfd;
   dyld_load_symfile (e);
-
 }
 
 static void
@@ -1663,7 +1675,7 @@ dyld_set_load_state_command (char *args, int from_tty)
                      &macosx_status->dyld_status.current_info);
   /* Since we've change the load state of some libraries, we should
      see if any of our pending breakpoints will now take.  */
-  re_enable_breakpoints_in_shlibs (0); 
+  re_enable_breakpoints_in_shlibs (0);
 
 }
 
@@ -2042,7 +2054,8 @@ update_section_tables_dyld (struct dyld_objfile_info *s)
   struct objfile *o;
   struct obj_section *osection;
   int nsections, csection, osections;
-  unsigned int i;
+  int i;
+  struct dyld_objfile_entry *j;
 
   target = &exec_ops;
 
@@ -2076,12 +2089,8 @@ update_section_tables_dyld (struct dyld_objfile_info *s)
      first, among other things).  When there are overlapping sections,
      GDB just uses the first one. */
 
-  for (i = 0; i < s->nents; i++)
+  DYLD_ALL_OBJFILE_INFO_ENTRIES (s, j, i)
     {
-
-      struct dyld_objfile_entry *j = &s->entries[i];
-      if (!j->allocated)
-        continue;
       if (j->objfile != NULL)
         ALL_OBJFILE_OSECTIONS (j->objfile, osection)
           ADD_SECTION (osection);
@@ -2096,23 +2105,19 @@ update_section_tables_dyld (struct dyld_objfile_info *s)
      dyld_print_shlib_info. */
 
   ALL_OBJFILES (o)
-  {
+    {
+      int found = 0;
 
-    int found = 0;
+      DYLD_ALL_OBJFILE_INFO_ENTRIES (s, j, i)
+        {
+          if (j->objfile == o || j->commpage_objfile == o)
+            found = 1;
+        }
 
-    for (i = 0; i < s->nents; i++)
-      {
-        struct dyld_objfile_entry *j = &s->entries[i];
-        if (!j->allocated)
-          continue;
-        if (j->objfile == o || j->commpage_objfile == o)
-          found = 1;
-      }
-
-    if (!found)
-      ALL_OBJFILE_OSECTIONS (o, osection)
-        ADD_SECTION (osection);
-  }
+      if (!found)
+        ALL_OBJFILE_OSECTIONS (o, osection)
+          ADD_SECTION (osection);
+    }
 
 #undef ADD_SECTION
 

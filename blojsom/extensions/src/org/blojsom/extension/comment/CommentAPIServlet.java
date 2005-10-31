@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,13 +41,14 @@ import org.blojsom.blog.BlogComment;
 import org.blojsom.blog.BlogUser;
 import org.blojsom.blog.BlojsomConfigurationException;
 import org.blojsom.plugin.comment.CommentUtils;
+import org.blojsom.plugin.comment.event.CommentAddedEvent;
 import org.blojsom.plugin.email.EmailMessage;
 import org.blojsom.plugin.email.EmailUtils;
 import org.blojsom.plugin.email.SendEmailPlugin;
 import org.blojsom.servlet.BlojsomBaseServlet;
 import org.blojsom.util.BlojsomConstants;
-import org.blojsom.util.BlojsomUtils;
 import org.blojsom.util.BlojsomProperties;
+import org.blojsom.util.BlojsomUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -72,14 +73,13 @@ import java.util.Properties;
 /**
  * blojsom Comment API Implementation
  * <p/>
- * Comment API Specification can be found at <a href="http://wellformedweb.org/story/9">http://wellformedweb.org/story/9</a>
+ * <a href="http://wellformedweb.org/story/9">Comment API specification</a>.
  * <p/>
- * For info on the <item/> fragment and it's content, thehe RSS 2.0 Spec can
- * be found at http://backend.userland.com/rss
+ * For more information on the &lt;item/&gt; fragment and its content, check the <a href="http://blogs.law.harvard.edu/tech/rss">RSS 2.0 specification</a>.
  *
  * @author Mark Lussier
  * @author David Czarnecki
- * @version $Id: CommentAPIServlet.java,v 1.2 2004/08/27 00:49:41 whitmore Exp $
+ * @version $Id: CommentAPIServlet.java,v 1.2.2.1 2005/07/21 04:30:22 johnan Exp $
  */
 public class CommentAPIServlet extends BlojsomBaseServlet implements BlojsomConstants {
 
@@ -147,6 +147,10 @@ public class CommentAPIServlet extends BlojsomBaseServlet implements BlojsomCons
         try {
             Properties userProperties = new BlojsomProperties();
             InputStream is = _servletConfig.getServletContext().getResourceAsStream(_baseConfigurationDirectory + userID + '/' + BLOG_DEFAULT_PROPERTIES);
+
+            if (is == null) {
+                return null;
+            }
 
             userProperties.load(is);
             is.close();
@@ -217,6 +221,9 @@ public class CommentAPIServlet extends BlojsomBaseServlet implements BlojsomCons
         }
 
         Blog blog = blogUser.getBlog();
+
+        // Check to see if we need to dynamically determine blog-base-url and blog-url?
+        BlojsomUtils.resolveDynamicBaseAndBlogURL(httpServletRequest, blog, user);
 
         _logger.info("Processing a comment for [" + user + "] in category [" + requestedCategory + "]");
 
@@ -346,6 +353,9 @@ public class CommentAPIServlet extends BlojsomBaseServlet implements BlojsomCons
                         bw.newLine();
                         bw.close();
                         _logger.debug("Added blog comment: " + commentFilename);
+
+                        _blojsomConfiguration.getEventBroadcaster().broadcastEvent(new CommentAddedEvent(this, new Date(), comment, blogUser));
+
 
                         // Send a Comment Email
                         sendCommentEmail(commentTitle, requestedCategory, permalink, commentAuthor, commentEmail,

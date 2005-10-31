@@ -95,16 +95,19 @@ bool AppleRAIDSet::init()
 	    getWorkLoop()->addEventSource(arSetCommandGate);
 	}
                 
-	arSetEventSource = AppleRAIDEventSource::withAppleRAIDSet(this,
-				(AppleRAIDEventSource::Action)&AppleRAIDSet::completeRAIDRequest);
+	AppleRAIDEventSource::Action completeRequestMethod = OSMemberFunctionCast(AppleRAIDEventSource::Action, this, &AppleRAIDSet::completeRAIDRequest);
+	arSetEventSource = AppleRAIDEventSource::withAppleRAIDSet(this, completeRequestMethod);
 	if (arSetEventSource != 0) {
 	    getWorkLoop()->addEventSource(arSetEventSource);
 	}
     }
 
-    arRecoveryThreadCall = thread_call_allocate((thread_call_func_t)&AppleRAIDSet::recover, (thread_call_param_t)this);
+    thread_call_func_t recoverMethod = OSMemberFunctionCast(thread_call_func_t, this, &AppleRAIDSet::recover);
+    arRecoveryThreadCall = thread_call_allocate(recoverMethod, (thread_call_param_t)this);
     if (arRecoveryThreadCall == 0) return false;
 
+    arAllocateRequestMethod = (IOCommandGate::Action)0xdeadbeef;
+    
     return true;
 }
 
@@ -488,6 +491,26 @@ bool AppleRAIDSet::resizeSet(UInt32 newMemberCount)
     return true;
 }
 
+
+UInt32 AppleRAIDSet::nextSetState(void)
+{
+    if (isSetComplete()) {
+	return kAppleRAIDSetStateOnline;
+    }
+
+    if (arActiveCount == 0 && arSpareCount == 0) {
+	IOLog1("AppleRAIDSet::nextSetState: %p is empty, setting state to terminating.\n", this);
+	return kAppleRAIDSetStateTerminating;
+    } 
+
+    if (getSetState() != kAppleRAIDSetStateInitializing) {
+	IOLog1("AppleRAIDSet::nextSetState: set \"%s\" failed to come online.\n", getSetNameString());
+    }
+
+    return kAppleRAIDSetStateInitializing;
+}
+
+
 bool AppleRAIDSet::startSet(void)
 {
     IOLog1("AppleRAIDSet::startSet %p called with %lu of %lu members (%lu spares).\n",
@@ -500,19 +523,9 @@ bool AppleRAIDSet::startSet(void)
     }
 
     // update set status
-
-    if (isSetComplete()) {
-	changeSetState(kAppleRAIDSetStateOnline);
-    } else {
-	if (arActiveCount == 0 && arSpareCount == 0) {
-	    IOLog1("AppleRAIDSet::startSet: %p is empty, setting state to terminating.\n", this);
-	    changeSetState(kAppleRAIDSetStateTerminating);
-	} else {
-	    if (getSetState() != kAppleRAIDSetStateInitializing) {
-		IOLog1("AppleRAIDSet::startSet: set \"%s\" failed to come online.\n", getSetNameString());
-	    }
-	    changeSetState(kAppleRAIDSetStateInitializing);
-	}
+    UInt32 nextState = nextSetState();
+    changeSetState(nextState);
+    if (nextState < kAppleRAIDSetStateOnline) {
 	IOLog1("AppleRAIDSet::startSet %p was unsuccessful.\n", this);
 	return false;
     }
@@ -697,8 +710,20 @@ bool AppleRAIDSet::destroySet(void)
 
     // take the set offline member by member
     for (UInt32 i = 0; i < arMemberCount; i++) {
-	if (arMembers[i]) arMembers[i]->stop(NULL);
-	if (arSpareMembers[i]) arSpareMembers[i]->stop(NULL);
+	if (arMembers[i]) {
+	    if (arMembers[i]->isRAIDSet()) {
+		arController->oldMember(arMembers[i]);
+	    } else {
+		arMembers[i]->stop(NULL);
+	    }
+	}
+	if (arSpareMembers[i]) {
+	    if (arSpareMembers[i]->isRAIDSet()) {
+		arController->oldMember(arSpareMembers[i]);
+	    } else {
+		arSpareMembers[i]->stop(NULL);
+	    }
+	}
     }
 
     IOLog1("AppleRAIDSet::destroySet(%p) was successful.\n", this);
@@ -738,9 +763,9 @@ bool AppleRAIDSet::reconfigureSet(OSDictionary * updateInfo)
 			// hack, this will cause the rebuild to abort 
 			arMembers[i]->changeMemberState(kAppleRAIDMemberStateSpare, true);
 			while (arMembers[i]->getMemberState() == kAppleRAIDMemberStateSpare) {
-			    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::unpauseSet);
+			    arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::unpauseSet));
 			    IOSleep(50);
-			    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::pauseSet, false);
+			    arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::pauseSet), (void *)false);
 			}
 		    } else {
 			arMembers[i]->stop(NULL);
@@ -1036,7 +1061,7 @@ bool AppleRAIDSet::changeSetState(UInt32 newState)
 	break;
 
     case kAppleRAIDSetStateDegraded:		// 4
-	swapState = arSetState >= kAppleRAIDSetStateOnline;
+	swapState = arSetState >= kAppleRAIDSetStateInitializing;
 	newStatus = kAppleRAIDStatusDegraded;
 	break;
 
@@ -1050,10 +1075,14 @@ bool AppleRAIDSet::changeSetState(UInt32 newState)
 	       this, arSetState, oldStatus, newState, newStatus);
 
 	if (isRAIDMember()) {
-	    if ((newState >= kAppleRAIDSetStateOnline) && (arSetState < kAppleRAIDSetStateOnline)) {
-		changeMemberState(kAppleRAIDMemberStateClosed);
+	    if ((newState >= kAppleRAIDSetStateOnline) && (newState > arSetState)) {
+		if (getMemberState() >= kAppleRAIDMemberStateClosing) {
+		    changeMemberState(kAppleRAIDMemberStateOpen);
+		} else {
+		    changeMemberState(kAppleRAIDMemberStateClosed);
+		}
 	    }
-	    if ((newState < kAppleRAIDSetStateOnline) && (arSetState >= kAppleRAIDSetStateOnline)) {
+	    if ((newState < kAppleRAIDSetStateOnline) && (newState < arSetState)) {
 		changeMemberState(kAppleRAIDMemberStateClosing);
 	    }
 	}
@@ -1220,6 +1249,9 @@ OSDictionary * AppleRAIDSet::getSetProperties(void)
 // We are guaranteed that no other opens or closes will be processed until
 // we make our decision, change our state, and return from this method.
 
+// XXX In reality, IOMedia does not understand stacked raid sets and we do
+// sometimes see two parallel opens on subordinate sets
+
 bool AppleRAIDSet::handleOpen(IOService *  client,
 			      IOOptionBits options,
 			      void *       argument)
@@ -1227,21 +1259,23 @@ bool AppleRAIDSet::handleOpen(IOService *  client,
     IOStorageAccess access = (IOStorageAccess) argument;
     IOStorageAccess level  = kIOStorageAccessNone;
 
+    IOLogOC("AppleRAIDSet::handleOpen(%p) called, client %p, access %lu, state %lu, client is a set = %s, raid member = %s.\n",
+	    this, client, access, arSetState, OSDynamicCast(AppleRAIDSet, client) ? "y" : "n", isRAIDMember() ? "y" : "n");
+
     assert(client);
 
-    IOLogOC("AppleRAIDSet::handleOpen(%p, %lu) called, this %p, state %lu\n", client, access, this, arSetState);
-
-    // if this set is a member of another set, only allow that set to open us
-    if ((client != this) && isRAIDMember() && (OSDynamicCast(AppleRAIDSet, client) == 0)) {
-	IOLogOC("AppleRAIDSet::handleOpen() open refused (set is stacked).\n");
-	IOLogOC("AppleRAIDSet::handleOpen() not this = %s, is member = %s, client is set = %s.\n",
-	       (client != this) ? "y" : "n", isRAIDMember() ? "y" : "n", (OSDynamicCast(AppleRAIDSet, client) == 0) ? "y" : "n");
+    // only allow "external" opens after we have published that we are online
+    if (!OSDynamicCast(AppleRAIDSet, client) && arPublishedSetState < kAppleRAIDSetStateOnline) {
+	IOLogOC("AppleRAIDSet::handleOpen(%p) open refused (set is not online (published)).\n", this);
 	return false;
     }
-    if ((client != this) && arPublishedSetState < kAppleRAIDSetStateOnline) {
-	IOLogOC("AppleRAIDSet::handleOpen() open refused (set is not online).\n");
+    // only allow the set that we are a member of to open us if we are stacked.
+    // however, until we open and read the header, "is member" will be false
+    if (!OSDynamicCast(AppleRAIDSet, client) && isRAIDMember()) {
+	IOLogOC("AppleRAIDSet::handleOpen(%p) open refused (set is stacked).\n", this);
 	return false;
     }
+    assert(arSetState >= kAppleRAIDSetStateOnline);
 
     switch (access)
     {
@@ -1267,13 +1301,14 @@ bool AppleRAIDSet::handleOpen(IOService *  client,
 
 	    if (arIsWritable == false)			// (is this member object writable?)
 	    {
-		IOLogOC("AppleRAIDSet::handleOpen(%p, %lu) arIsWriteable == false\n", client, access);    
+		IOLogOC("AppleRAIDSet::handleOpen(%p) client %p access %lu arIsWriteable == false\n", this, client, access);    
                 return false;	// XXX the level was bumped above?  get newer code from IOMedia 
 	    }
 
             if (arOpenReaderWriter)			// (does a reader-writer already exist?)
 	    {
-		IOLogOC("AppleRAIDSet::handleOpen(%p, %lu) arOpenReaderWriter already set %p\n", client, access, arOpenReaderWriter);    
+		IOLogOC("AppleRAIDSet::handleOpen(%p) client %p access %lu arOpenReaderWriter already set %p\n",
+			this, client, access, arOpenReaderWriter);    
                 return false;	// XXX the level was bumped above?  get newer code from IOMedia 
 	    }
 
@@ -1292,7 +1327,7 @@ bool AppleRAIDSet::handleOpen(IOService *  client,
 
     if (isInactive() && arOpenReaderWriter != client) // (dead? not a downgrade?)
     {
-	IOLogOC("AppleRAIDSet::handleOpen(%p, %lu) isInactive && arOpenReadWriter !=client\n", client, access);    
+	IOLogOC("AppleRAIDSet::handleOpen(%p) client %p access %lu isInactive && arOpenReadWriter !=client\n", this, client, access);    
         return false;
     }
     
@@ -1309,8 +1344,8 @@ bool AppleRAIDSet::handleOpen(IOService *  client,
 	for (UInt32 cnt = 0; cnt < arMemberCount; cnt++) {
 	    if (arMembers[cnt] != 0) {
 
-		IOLogOC("AppleRAIDSet::handleOpen setname=\"%s\", member=%lu access=%lu level=%lu\n",
-		      getUUIDString(), cnt, access, level);
+		IOLogOC("AppleRAIDSet::handleOpen(%p) opening %p member=%lu access=%lu level=%lu\n",
+			this, arMembers[cnt], cnt, access, level);
 
 		if (arMembers[cnt]->getMemberState() == kAppleRAIDMemberStateRebuilding) continue;
 		
@@ -1318,11 +1353,20 @@ bool AppleRAIDSet::handleOpen(IOService *  client,
 
 		success = arMembers[cnt]->open(this, options, level);
 		if (!success) {
-		    IOLog("AppleRAIDSet::handleOpen(%p) member %s failed to open for set \"%s\" (%s).\n",
-			  client, arMembers[cnt]->getUUIDString(),
-			  getSetNameString(), getUUIDString());
+		    IOLog("AppleRAIDSet::handleOpen(%p) client %p member %s failed to open for set \"%s\" (%s).\n",
+			  this, client, arMembers[cnt]->getUUIDString(), getSetNameString(), getUUIDString());
+		    IOLogOC("AppleRAIDSet::handleOpen() open failed on member %lu of %lu (active = %lu), state = %lu isOpen = %s",
+			  cnt, arMemberCount, arActiveCount, arSetState, arMembers[cnt]->isOpen(NULL) ? "t" : "f");
+
+		    // clean up any successfully opened members
+		    for (UInt32 cnt2 = 0; cnt2 < cnt; cnt2++) {
+			if (arMembers[cnt2] != 0) {
+			    if (arMembers[cnt]->getMemberState() == kAppleRAIDMemberStateRebuilding) continue;
+			    arMembers[cnt2]->close(this, 0);
+			}
+		    }
+		    
 		    return false;
-		    // XXX - need to clean up opened members
 		}
 	    }
 	}
@@ -1352,6 +1396,8 @@ bool AppleRAIDSet::handleOpen(IOService *  client,
 
     changeMemberState(kAppleRAIDMemberStateOpen);	// for stacked raid sets
 
+    IOLogOC("AppleRAIDSet::handleOpen(%p) successful, client %p, access %lu, state %lu\n", this, client, access, arSetState);
+
     return true;
 }
 
@@ -1361,7 +1407,7 @@ bool AppleRAIDSet::handleIsOpen(const IOService * client) const
 
     bool open = arOpenReaderWriter == client || arOpenReaders->containsObject(client);
 
-    IOLogOC("AppleRAIDSet::handleIsOpen(%p) is %s, this %p\n", client, open ? "true" : "false", this);
+    IOLogOC("AppleRAIDSet::handleIsOpen(%p) client %p is %s\n", this, client, open ? "true" : "false");
 
     return open;
 }
@@ -1369,7 +1415,7 @@ bool AppleRAIDSet::handleIsOpen(const IOService * client) const
 
 void AppleRAIDSet::handleClose(IOService * client, IOOptionBits options)
 {
-    IOLogOC("AppleRAIDSet::handleClose(%p) called, this %p, current state %lu\n", client, this, arSetState);
+    IOLogOC("AppleRAIDSet::handleClose(%p) called, client %p current state %lu\n", this, client, arSetState);
 
     //
     // A client is informing us that it is giving up access to our contents.
@@ -1459,7 +1505,7 @@ void AppleRAIDSet::read(IOService *client, UInt64 byteStart,
 
     IOLogRW("AppleRAIDSet::read(%p, %llu, 0x%lx) this %p, state %lu\n", client, byteStart, buffer ? buffer->getLength() : 0, this, arSetState);
 
-    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::allocateRAIDRequest, &storageRequest);
+    arSetCommandGate->runAction(arAllocateRequestMethod, &storageRequest);
     
     if (storageRequest != 0) {
         buffer->retain();
@@ -1477,7 +1523,7 @@ void AppleRAIDSet::write(IOService *client, UInt64 byteStart,
     
     IOLogRW("AppleRAIDSet::write(%p, %llu, 0x%lx) this %p, state %lu\n", client, byteStart, buffer ? buffer->getLength() : 0, this, arSetState);
 
-    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::allocateRAIDRequest, &storageRequest);
+    arSetCommandGate->runAction(arAllocateRequestMethod, &storageRequest);
     
     if (storageRequest != 0) {
         buffer->retain();
@@ -1496,7 +1542,8 @@ IOReturn AppleRAIDSet::synchronizeCache(IOService *client)
 {
     if (OSDynamicCast(AppleRAIDSet, client)) return synchronizeCacheGated(client);
     
-    return arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::synchronizeCacheGated, (void *)client);
+    IOCommandGate::Action syncCacheMethod = OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::synchronizeCacheGated);
+    return arSetCommandGate->runAction(syncCacheMethod, (void *)client);
 }
 
 IOReturn AppleRAIDSet::synchronizeCacheGated(IOService *client)
@@ -1540,7 +1587,7 @@ void AppleRAIDSet::synchronizeStarted(void)
 
 void AppleRAIDSet::synchronizeCompleted(void)
 {
-    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::synchronizeCompletedGated);
+    arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::synchronizeCompletedGated));
 }
 
 void AppleRAIDSet::synchronizeCompletedGated(void)
@@ -1742,7 +1789,7 @@ bool AppleRAIDSet::recover()
     if (arController->findSet(getUUID()) != this) return false;
 
     // wait for outstanding i/o
-    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::recoverWait);
+    arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::recoverWait));
 
     IOLog1("AppleRAID::recover wait for requests complete.\n");
 
@@ -1802,7 +1849,7 @@ bool AppleRAIDSet::recover()
     
     gAppleRAIDGlobals.unlock();
 
-    arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::unpauseSet);
+    arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::unpauseSet));
 
     release();  // from recoverStart
 

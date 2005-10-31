@@ -1,5 +1,5 @@
 /* Target macros for GCC for SPARC running System V.4
-   Copyright (C) 2003
+   Copyright (C) 2003, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -26,7 +26,6 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\
     {						\
-	builtin_define_std ("sparc");		\
 	builtin_define_std ("unix");		\
 	builtin_define ("__svr4__");		\
 	builtin_assert ("system=unix");		\

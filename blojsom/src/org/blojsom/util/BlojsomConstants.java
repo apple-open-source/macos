@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,14 +40,14 @@ package org.blojsom.util;
  * @author David Czarnecki
  * @author Mark Lussier
  * @author Dan Morrill
- * @version $Id: BlojsomConstants.java,v 1.6 2005/03/02 01:20:45 whitmore Exp $
+ * @version $Id: BlojsomConstants.java,v 1.6.2.1 2005/07/21 14:11:04 johnan Exp $
  */
 public interface BlojsomConstants {
 
     /**
      * blojsom version
      */
-    public static final String BLOJSOM_VERSION_NUMBER = "blojsom v2.17";
+    public static final String BLOJSOM_VERSION_NUMBER = "blojsom v2.25";
 
     /**
      * Key under which blog information will be placed
@@ -160,6 +160,18 @@ public interface BlojsomConstants {
     public static final String BLOJSOM_VERSION = "BLOJSOM_VERSION";
 
     /**
+     * Key under which the blojsom requested flavor string will be placed
+     * (example: in the context for the Velocity dispatcher)
+     */
+    public static final String BLOJSOM_REQUESTED_FLAVOR = "BLOJSOM_REQUESTED_FLAVOR";
+
+    /**
+     * Key under which the plugins will be places
+     * (example: in the context for the Velocity dispatcher)
+     */
+    public static final String BLOJSOM_PLUGINS = "BLOJSOM_PLUGINS";
+
+    /**
      * Default class for fetching blog entries
      */
     public static final String BLOG_DEFAULT_FETCHER = "org.blojsom.fetcher.StandardFetcher";
@@ -167,7 +179,7 @@ public interface BlojsomConstants {
     /**
      * UTF-8 encoding
      */
-    public static final String UTF8 = "UTF8";
+    public static final String UTF8 = "UTF-8";
 
     /**
      * Default flavor for blojsom if none is requested or the flavor requested is invalid
@@ -209,12 +221,10 @@ public interface BlojsomConstants {
      */
     public static final String PAGE_PARAM_ARCHIVE = "archive";
 
-
     /**
      * Request parameter value for not toggling LastModfied and ETag fromgetting generated
      */
     public static final String OVERRIDE_LASTMODIFIED_PARAM = "lastmodified";
-
 
     /**
      * Request parameter for the "category"
@@ -230,6 +240,16 @@ public interface BlojsomConstants {
      * Reserved file extension for blojsom trackbacks
      */
     public static final String TRACKBACK_EXTENSION = ".tb";
+
+    /**
+     * Default directory for adding pingbacks
+     */
+    public static final String DEFAULT_PINGBACKS_DIRECTORY = ".pingbacks";
+
+    /**
+     * Reserved file extension for blojsom pingbacks
+     */
+    public static final String PINGBACK_EXTENSION = ".pb";
 
     /**
      * Value indicating all subdirectories under the blog home should be searched
@@ -274,7 +294,7 @@ public interface BlojsomConstants {
     /**
      * RFC 822 style date format
      */
-    public static final String RFC_822_DATE_FORMAT = "EEE, d MMM yyyy kk:mm:ss Z";
+    public static final String RFC_822_DATE_FORMAT = "EEE, d MMM yyyy HH:mm:ss Z";
 
     /**
      * ISO 8601 style date format
@@ -300,9 +320,16 @@ public interface BlojsomConstants {
     public static final String DEFAULT_METADATA_EXTENSION = ".meta";
 
     /**
+     * Default extension for entries
+     */
+    public static final String DEFAULT_ENTRY_EXTENSION = ".html"; 
+
+    /**
      * Line separator for the system
      */
     public static final String LINE_SEPARATOR = System.getProperty("line.separator");
+
+    public static final String DEFAULT_DIGEST_ALGORITHM = "MD5";
 
     public static final String WHITESPACE = " \t\n\f\r";
 
@@ -334,13 +361,20 @@ public interface BlojsomConstants {
     public static final String BLOJSOM_RESOURCE_DIRECTORY_IP = "blojsom-resource-directory";
     public static final String BLOJSOM_DEFAULT_CONFIGURATION_BASE_DIRECTORY = "/WEB-INF/";
     public static final String BLOJSOM_DEFAULT_TEMPLATES_DIRECTORY = "/templates";
-    public static final String BLOJSOM_DEFAULT_RESOURCE_DIRECTORY = "/resources";
+    public static final String BLOJSOM_DEFAULT_RESOURCE_DIRECTORY = "/blojsom_resources/meta/";
     public static final String BLOJSOM_RESOURCE_MANAGER_IP = "blojsom-resource-manager";
     public static final String BLOJSOM_DEFAULT_RESOURCE_MANAGER = "org.blojsom.util.resources.ResourceBundleResourceManager";
     public static final String BLOJSOM_RESOURCE_MANAGER_BUNDLES_IP = "blojsom-resource-manager-bundles";
     public static final String BLOJSOM_RESOURCE_MANAGER_CONTEXT_KEY = "BLOJSOM_RESOURCE_MANAGER";
     public static final String BLOG_DEFAULT_PROPERTIES = "blog.properties";
     public static final String BLOJSOM_AUTHORIZATION_PROVIDER_IP = "blojsom-authorization-provider";
+    public static final String BLOJSOM_BLOG_HOME_IP = "blojsom-blog-home";
+    public static final String BLOJSOM_INSTALLED_LOCALES_IP = "blojsom-installed-locales";
+
+    // blojsom listener and event configuration parameters
+    public static final String BLOJSOM_LISTENER_CONFIGURATION_IP = "listener-configuration";
+    public static final String BLOJSOM_BROADCASTER_IP = "blojsom-broadcaster";
+    public static final String BLOJSOM_DEFAULT_BROADCASTER = "org.blojsom.event.SimpleBlojsomEventBroadcaster";
 
     // Blog initialization parameters from blog.properties
     public static final String BLOG_HOME_IP = "blog-home";
@@ -350,9 +384,11 @@ public interface BlojsomConstants {
     public static final String BLOG_COUNTRY_IP = "blog-country";
     public static final String BLOG_DESCRIPTION_IP = "blog-description";
     public static final String BLOG_URL_IP = "blog-url";
+    public static final String BLOG_ADMIN_URL_IP = "blog-admin-url"; 
     public static final String BLOG_BASE_URL_IP = "blog-base-url";
     public static final String BLOG_FILE_EXTENSIONS_IP = "blog-file-extensions";
     public static final String BLOG_PROPERTIES_EXTENSIONS_IP = "blog-properties-extensions";
+    public static final String[] DEFAULT_PROPERTIES_EXTENSIONS = {".properties"};
     public static final String BLOG_ENTRIES_DISPLAY_IP = "blog-entries-display";
     public static final String BLOG_DEFAULT_CATEGORY_MAPPING_IP = "blog-default-category-mapping";
     public static final String BLOG_DIRECTORY_FILTER_IP = "blog-directory-filter";
@@ -361,8 +397,10 @@ public interface BlojsomConstants {
     public static final String BLOG_OWNER_EMAIL = "blog-owner-email";
     public static final String BLOG_COMMENTS_DIRECTORY_IP = "blog-comments-directory";
     public static final String BLOG_TRACKBACK_DIRECTORY_IP = "blog-trackbacks-directory";
+    public static final String BLOG_PINGBACKS_DIRECTORY_IP = "blog-pingbacks-directory";
     public static final String BLOG_COMMENTS_ENABLED_IP = "blog-comments-enabled";
     public static final String BLOG_TRACKBACKS_ENABLED_IP = "blog-trackbacks-enabled";
+    public static final String BLOG_PINGBACKS_ENABLED_IP = "blog-pingbacks-enabled"; 
     public static final String BLOG_EMAIL_ENABLED_IP = "blog-email-enabled";
     public static final String BLOJSOM_PLUGIN_CHAIN = "blojsom-plugin-chain";
     public static final String BLOG_ENTRY_META_DATA_EXTENSION_IP = "blog-entry-meta-data-extension";
@@ -370,12 +408,26 @@ public interface BlojsomConstants {
     public static final String BLOG_BLACKLIST_FILE_IP = "blog-blacklist-file";
     public static final String BLOG_DEFAULT_FLAVOR_IP = "blog-default-flavor";
     public static final String LINEAR_NAVIGATION_ENABLED_IP = "linear-navigation-enabled";
+    public static final String XMLRPC_ENABLED_IP = "xmlrpc-enabled";
+    public static final String BLOG_ADMINISTRATION_LOCALE_IP = "blog-administration-locale";
+    public static final String USE_ENCRYPTED_PASSWORDS = "use-encrypted-passwords";
+    public static final String DIGEST_ALGORITHM = "digest-algorithm";
+    public static final String RECURSIVE_CATEGORIES = "recursive-categories";
+    public static final String PREFERRED_SYNDICATION_FLAVOR = "preferred-syndication-flavor";
 	public static final String BLOG_DEFAULT_STYLESHEET_IP = "blog-stylesheet";
 	public static final String BLOG_EXISTS = "blog-exists";
-    
+
     // Other generic properties
     public static final String ADMINISTRATORS_IP = "administrators";
-	
+
+    // Configuration filename defaults
+    public static final String DEFAULT_FLAVOR_CONFIGURATION_FILE = "flavor.properties";
+    public static final String DEFAULT_PLUGIN_CONFIGURATION_FILE = "plugin.properties";
+    public static final String DEFAULT_DISPATCHER_CONFIGURATION_FILE = "dispatcher.properties";
+
+    public static final String BLOG_PERMISSIONS_IP = "blog-permissions";
+    public static final String DEFAULT_PERMISSIONS_CONFIGURATION_FILE = "permissions.properties";
+
 	// Directory Service authentication
 	public static final String USE_DIRECTORY_SERVICES = "_USE_DIRECTORY_SERVICES_";
 	public static final String DIRECTORY_SERVICES_GROUP = "_DIRECTORY_SERVICES_GROUP_";

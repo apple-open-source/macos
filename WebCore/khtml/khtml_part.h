@@ -393,9 +393,10 @@ public:
   void scheduleRedirection(double delay, const QString &url, bool lockHistory = true);
 
   /**
-   * Schedules a location change.
-   * This is used for JavaScript-triggered location changes.
+   * Make a location change, or schedule one for later.
+   * These are used for JavaScript-triggered location changes.
    */
+  void changeLocation(const QString &URL, const QString &referrer, bool lockHistory = true, bool userGesture = false);
   void scheduleLocationChange(const QString &url, const QString &referrer, bool lockHistory = true, bool userGesture = false);
   bool isScheduledLocationChangePending() const;
 
@@ -625,6 +626,11 @@ public:
    * Sets the current drag cart.
    */
   void setDragCaret(const khtml::Selection &);
+  
+  /**
+   * Transposes characters either side of caret selection.
+   */
+  void transpose();
   
   /**
    * Clears the current selection.
@@ -1296,6 +1302,8 @@ public:
   // Call this after doing user-triggered selections to make it easy to delete the frame you entirely selected.
   void selectFrameElementInParentIfFullySelected();
   
+  void handleFallbackContent();
+
 private:
   khtml::ChildFrame *childFrame( const QObject *obj );
 
@@ -1315,13 +1323,13 @@ private:
  public:
 #endif
   KHTMLPart *opener();
+  void setOpener(KHTMLPart *_opener);
+  bool openedByJS();
+  void setOpenedByJS(bool _openedByJS);
 #if APPLE_CHANGES
  private:
 #endif
   long cacheId() const;
-  void setOpener(KHTMLPart *_opener);
-  bool openedByJS();
-  void setOpenedByJS(bool _openedByJS);
 
   void checkEmitLoadEvent();
   void emitLoadEvent();

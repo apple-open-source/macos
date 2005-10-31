@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,7 @@ SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store)
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
 	xmlDataOut_t			xmlDataRef;	/* serialized data */
-	int				xmlDataLen;
+	mach_msg_type_number_t		xmlDataLen;
 	int				sc_status;
 	CFArrayRef			allKeys;
 

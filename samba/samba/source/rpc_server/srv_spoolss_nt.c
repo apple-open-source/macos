@@ -5876,7 +5876,7 @@ static WERROR update_printer_sec(POLICY_HND *handle, uint32 level,
 
 	nt_printing_getsec(p->mem_ctx, Printer->sharename, &old_secdesc_ctr);
 
-	if (DEBUGLEVEL >= 10) {
+	if (SAMBA_DEBUGLEVEL >= 10) {
 		SEC_ACL *the_acl;
 		int i;
 

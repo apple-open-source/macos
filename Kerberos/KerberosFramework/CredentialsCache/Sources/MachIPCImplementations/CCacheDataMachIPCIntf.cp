@@ -41,6 +41,7 @@ kern_return_t CCacheIPC_Destroy (
 
         // Check to see if the ccache is now empty.  If it is, we should quit.
         if (CCIUniqueGlobally <CCICCacheData>::CountGloballyUniqueIDs () == 0) {
+            dprintf ("CCacheIPC_Destroy: destroying last ccache.... quitting.\n");
             mach_server_quit_self ();
         }
         

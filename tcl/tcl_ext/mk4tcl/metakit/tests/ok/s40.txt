@@ -1,2 +1,0 @@
->>> LoadFrom after commit
-<<< done.

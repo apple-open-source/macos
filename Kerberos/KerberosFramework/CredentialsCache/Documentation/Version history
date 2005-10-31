@@ -1,10 +1,22 @@
 ========================================================================
 Credentials Cache Library Version History
 ========================================================================
-Current version: 3.5fc5
-Date:            February 1, 2005
+Current version: 3.5.1fc5
+Date:            June 15, 2005
 Author:          meeroh@mit.edu, smcguire@mit.edu, fdabek@mit.edu, lxs@mit.edu
 ========================================================================
+
+CredentialsCache 3.5.1
+Released with KfM 5.5.1
+
+========================================================================
+
+	CCacheLib 3.5.1fc1
+	June 15, 2005
+	
+	[RT 3061] CCAPI server relaunch handling code can't handle on-demand servers
+	
+	========================================================================
 
 CredentialsCache 3.5
 Released with KfM 5.5

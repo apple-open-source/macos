@@ -136,6 +136,7 @@ static struct {
 	char		*name;
 	int		type;
 } acl_flags[] = {
+	{ACL_ENTRY_INHERITED,		"inherited",		ACL_TYPE_FILE | ACL_TYPE_DIR},
 	{ACL_FLAG_DEFER_INHERIT,	"defer_inherit",	ACL_TYPE_ACL},
 	{ACL_ENTRY_FILE_INHERIT,	"file_inherit",		ACL_TYPE_DIR},
 	{ACL_ENTRY_DIRECTORY_INHERIT,	"directory_inherit",	ACL_TYPE_DIR},
@@ -161,16 +162,16 @@ raosnprintf(char **buf, size_t *size, ssize_t *offset, char *fmt, ...)
 	    va_start(ap, fmt);
 	    ret = vsnprintf(*buf + *offset, *size - *offset, fmt, ap);
 	    va_end(ap);
-	    if (ret < *size)
+	    if (ret < (*size - *offset))
 	    {
 		*offset += ret;
 		return ret;
 	    }
 	}
-	*buf = realloc(*buf, (*size *= 2));
+	*buf = reallocf(*buf, (*size *= 2));
     } while (*buf);
 
-    //warn("realloc failure");
+    //warn("reallocf failure");
     return 0;
 }
 
@@ -198,7 +199,7 @@ uuid_to_name(uuid_t *uu, uid_t *id, int *isgid)
 errout:		;    //warn("Unable to translate qualifier on ACL\n");
 	}
     }
-    return "";
+    return strdup("");
 }
 
 acl_t
@@ -306,7 +307,9 @@ acl_from_text(const char *buf_p)
 	    need_tag = 0;
 	}
 	/* name */
-	if ((field = strtok_r(NULL, ":", &last_field)) != NULL && need_tag)
+	if (*last_field == ':')  // empty username field
+	    last_field++;
+	else if ((field = strtok_r(NULL, ":", &last_field)) != NULL && need_tag)
 	{
 	    switch(ug_tag)
 	    {
@@ -330,7 +333,9 @@ acl_from_text(const char *buf_p)
 	    need_tag = 0;
 	}
 	/* uid */
-	if ((field = strtok_r(NULL, ":", &last_field)) != NULL && need_tag)
+	if (*last_field == ':') // empty uid field
+	    last_field++;
+	else if ((field = strtok_r(NULL, ":", &last_field)) != NULL && need_tag)
 	{
 	    uid_t id;
 	    error = 0;
@@ -404,29 +409,25 @@ acl_from_text(const char *buf_p)
 	    }
 	}
 
-	if((field = strtok_r(NULL, ":", &last_field)) == NULL)
-	{
-	    error = EINVAL;
-	    goto exit;
-	}
-
-	for (sub = strtok_r(field, ",", &last_sub); sub;
-	     sub = strtok_r(NULL, ",", &last_sub))
-	{
-	    for (i = 0; acl_perms[i].name != NULL; i++)
+	if((field = strtok_r(NULL, ":", &last_field)) != NULL) {
+	    for (sub = strtok_r(field, ",", &last_sub); sub;
+		 sub = strtok_r(NULL, ",", &last_sub))
 	    {
-		if (acl_perms[i].type & (ACL_TYPE_FILE | ACL_TYPE_DIR)
-			&& !strcmp(acl_perms[i].name, sub))
+		for (i = 0; acl_perms[i].name != NULL; i++)
 		{
-		    acl_add_perm(perms, acl_perms[i].perm);
-		    break;
+		    if (acl_perms[i].type & (ACL_TYPE_FILE | ACL_TYPE_DIR)
+			    && !strcmp(acl_perms[i].name, sub))
+		    {
+			acl_add_perm(perms, acl_perms[i].perm);
+			break;
+		    }
 		}
-	    }
-	    if (acl_perms[i].name == NULL)
-	    {
-		/* couldn't find perm */
-		error = EINVAL;
-		goto exit;
+		if (acl_perms[i].name == NULL)
+		{
+		    /* couldn't find perm */
+		    error = EINVAL;
+		    goto exit;
+		}
 	    }
 	}
 	acl_set_tag_type(acl_entry, tag);
@@ -455,16 +456,21 @@ acl_to_text(acl_t acl, ssize_t *len_p)
 	char *str, uu_str[256];
 	int i, first;
 	int isgid;
-
 	size_t bufsize = 1024;
-	char *buf = malloc(bufsize);
+	char *buf;
 
+	if (!_ACL_VALID_ACL(acl)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	buf = malloc(bufsize);
 	if (len_p == NULL)
 	    len_p = alloca(sizeof(ssize_t));
 
 	*len_p = 0;
 
-	if(!raosnprintf(&buf, &bufsize, len_p, "!#acl %d", 1))
+	if (!raosnprintf(&buf, &bufsize, len_p, "!#acl %d", 1))
 	    return NULL;
 
 	if (acl_get_flagset_np(acl, &flags) == 0)
@@ -530,7 +536,7 @@ acl_to_text(acl_t acl, ssize_t *len_p)
 	    }
 	}
 	buf[(*len_p)++] = '\n';
-	buf[(*len_p)++] = 0;
+	buf[(*len_p)] = 0;
 	return buf;
 }
 

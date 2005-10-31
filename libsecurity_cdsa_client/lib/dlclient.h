@@ -243,6 +243,7 @@ public:
 
 	virtual void open();
 	virtual void create();
+	virtual void createWithBlob (CssmData &blob);
 	virtual void close();
 	virtual void deleteDb();
 	virtual void rename(const char *newName);

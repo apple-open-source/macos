@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,14 +43,15 @@ import org.blojsom.util.BlojsomUtils;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.io.Serializable;
 
 /**
  * BlogEntry
  *
  * @author David Czarnecki
- * @version $Id: BlogEntry.java,v 1.3 2004/08/27 01:13:55 whitmore Exp $
+ * @version $Id: BlogEntry.java,v 1.3.2.1 2005/07/21 14:11:02 johnan Exp $
  */
-public abstract class BlogEntry implements BlojsomConstants, BlojsomMetaDataConstants {
+public abstract class BlogEntry implements BlojsomConstants, BlojsomMetaDataConstants, Serializable {
 
     protected transient Log _logger = LogFactory.getLog(BlogEntry.class);
 
@@ -62,6 +63,7 @@ public abstract class BlogEntry implements BlojsomConstants, BlojsomMetaDataCons
     protected long _lastModified;
     protected List _comments;
     protected List _trackbacks;
+    protected List _pingbacks;
     protected BlogCategory _blogCategory;
     protected Map _metaData;
 
@@ -122,6 +124,44 @@ public abstract class BlogEntry implements BlojsomConstants, BlojsomMetaDataCons
     }
 
     /**
+     * Return the blog entry date formatted with a specified date format
+     *
+     * @param format Date format
+     * @return <code>null</code> if the entry date or format is null, otherwise returns the entry date formatted to the specified format. If the format is invalid, returns <tt>entryDate.toString()</tt>
+     * @since blojsom 1.9.3
+     */
+    public String getDateAsFormat(String format) {
+        return getDateAsFormat(format, (String)null);
+    }
+
+    /**
+     * Return the blog entry date formatted with a specified date format
+     *
+     * @param format Date format
+     * @param locale Locale for date formatting
+     * @return <code>null</code> if the entry date or format is null, otherwise returns the entry date formatted to the specified format. If the format is invalid, returns <tt>entryDate.toString()</tt>
+     * @since blojsom 2.25
+     */
+    public String getDateAsFormat(String format, Locale locale) {
+        if (_entryDate == null || format == null) {
+            return null;
+        }
+
+        SimpleDateFormat sdf = null;
+        try {
+            if (locale == null) {
+                sdf = new SimpleDateFormat(format);
+            } else {
+                sdf = new SimpleDateFormat(format, locale);
+            }
+
+            return sdf.format(_entryDate);
+        } catch (IllegalArgumentException e) {
+            return _entryDate.toString();
+        }
+    }
+
+    /**
      * Return the blog entry date formatted with a specified date format and time zone
      *
      * @since blojsom 2.1.4 (blojsom-6 Apple)
@@ -146,17 +186,6 @@ public abstract class BlogEntry implements BlojsomConstants, BlojsomMetaDataCons
         }
     }
     
-    /**
-     * Return the blog entry date formatted with a specified date format
-     *
-     * @since blojsom 1.9.3
-     * @param format Date format
-     * @return <code>null</code> if the entry date or format is null, otherwise returns the entry date formatted to the specified format. If the format is invalid, returns <tt>entryDate.toString()</tt>
-     */
-    public String getDateAsFormat(String format) {
-        return getDateAsFormat(format, null);
-    }
-
     /**
      * Title of the blog entry
      *
@@ -488,6 +517,67 @@ public abstract class BlogEntry implements BlojsomConstants, BlojsomMetaDataCons
      * @since blojsom 1.9
      */
     public void setAttributes(Map attributeMap) {
+    }
+
+    /**
+     * Determines whether or not this blog entry supports pingbacks.
+     *
+     * @return <code>true</code> if the blog entry supports pingbacks, <code>false</code> otherwise
+     * @since blojsom 2.23
+     */
+    public abstract boolean supportsPingbacks();
+
+    /**
+     * Get the pingbacks for this entry
+     *
+     * @return List of {@link Pingback}s
+     * @since blojsom 2.23
+     */
+    public List getPingbacks() {
+        if (_pingbacks == null) {
+            return new ArrayList();
+        }
+
+        return _pingbacks;
+    }
+
+    /**
+     * Set the pingbacks for this blog entry. The pingbacks must be a <code>List</code>
+     * of {@link Pingback}. This method will not writeback or change the pingbacks to disk.
+     *
+     * @param pingbacks {@link Pingback}s for this entry
+     * @since blojsom 2.23
+     */
+    public void setPingbacks(List pingbacks) {
+        _pingbacks = pingbacks;
+    }
+
+    /**
+     * Get the pingbacks as an array of {@link Pingback}s objects
+     *
+     * @return {@link Pingback}[] array
+     * @since blojsom 2.23
+     */
+    public Pingback[] getPingbacksAsArray() {
+        if (_pingbacks == null) {
+            return new Pingback[0];
+        } else {
+            return (Pingback[]) _pingbacks.toArray(new Pingback[_pingbacks.size()]);
+        }
+    }
+
+    /**
+     * Get the number of pingbacks for this entry
+     *
+     * @return 0 if pingbacks is <code>null</code>, or the number of pingbacks otherwise, which could be 0
+     * @since blojsom 2.23
+     */
+    public int getNumPingbacks() {
+        if (_pingbacks == null) {
+            return 0;
+        } else {
+            return _pingbacks.size();
+        }
     }
 
     /**

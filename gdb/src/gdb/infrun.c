@@ -46,8 +46,14 @@
 #include "observer.h"
 #include "language.h"
 #include "gdb_assert.h"
+
 /* APPLE LOCAL: need objfile.h for pc_set_load_state.  */
 #include "objfiles.h"
+
+/* APPLE LOCAL: for the $lr == $pc check in handle_inferior_event () */
+#if TM_NEXTSTEP && TARGET_POWERPC
+#include "ppc-macosx-regnums.h"
+#endif
 
 /* APPLE LOCAL: codewarrior support */
 int metrowerks_stepping = 0;
@@ -2885,12 +2891,12 @@ extern void macosx_print_extra_stop_info (int, CORE_ADDR);
      that behavior, but we can trap some common cases where we KNOW
      that we haven't just stepped into a function. */
   
-  /* The case we handle here is branching within current function.
-     To detect this case, we use the step_func ranges that were passed to
-     us from Metrowerks.  */
-  
   if (metrowerks_stepping)
     {
+      /* The case we handle here is branching within current function.
+	 To detect this case, we use the step_func ranges that were passed to
+	 us from Metrowerks.  */
+  
       if (stop_pc == step_range_end
 	  || ((metrowerks_step_func_start != 0)
 	      && (metrowerks_step_func_start < stop_pc
@@ -2900,8 +2906,37 @@ extern void macosx_print_extra_stop_info (int, CORE_ADDR);
 	  print_stop_reason (END_STEPPING_RANGE, 0);
 	  stop_stepping (ecs);
 	  return;
-
 	}
+
+      /* Check to see if we have just stepped out of a function.  If
+	 so, then we know we haven't just stepped *into* a function,
+	 so just trigger the usual stepped-out-of-stepping-range code.
+
+	 This code will triger whenever $pc == $lr, but it's hard to
+	 imagine where this could happen aside from function returns.
+	 One case is in the PIC code in function prologues, but
+	 CodeWarrior won't ever be doing metrowerks-steps across these
+	 addresses.  In any case, if we do trigger this check
+	 accidentally, the consequence will be that the step/next
+	 operation will stop too quickly --- which is much better than
+	 the current behavior of running away whenever we try to step
+	 out of a function. 
+
+	 Note that if/when we remove this code, we also want to remove
+	 the inclusion of "ppc-macosx-regnums.h" at the top of this
+	 source file.
+      */
+
+#if TM_NEXTSTEP && TARGET_POWERPC
+      if (stop_pc == read_register (PPC_MACOSX_LR_REGNUM))
+	{
+	  stop_step = 1;
+	  print_stop_reason (END_STEPPING_RANGE, 0);
+	  stop_stepping (ecs);
+	  return;
+	}
+#endif
+
     }
   /* APPLE LOCAL end  */
 

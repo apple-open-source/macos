@@ -1,14 +1,38 @@
 // !$*UTF8*$!
 {
-	3C561387FEEF59C211CA2CB3 = {
-		activeBuildStyle = 07B3C7DFFFA7A65311CA2CEA;
-		activeExecutable = 98D6987A00A2035405CA2923;
-		activeTarget = 3C5613D6FEEF59C211CA2CB3;
+	3C561387FEEF59C211CA2CB3 /* Project object */ = {
+		activeBuildConfigurationName = Development;
+		activeBuildStyle = 07B3C7DFFFA7A65311CA2CEA /* Development */;
+		activeExecutable = 98D6987A00A2035405CA2923 /* jam */;
+		activeTarget = 3C5613D6FEEF59C211CA2CB3 /* jam */;
+		codeSenseManager = 8D63E83C080DD0C300CAD98D /* Code sense */;
 		executables = (
-			98D6987A00A2035405CA2923,
+			98D6987A00A2035405CA2923 /* jam */,
 		);
 		perUserDictionary = {
-			PBXPerProjectTemplateStateSaveDate = 48111338;
+			PBXConfiguration.PBXFileTableDataSource3.PBXFileTableDataSource = {
+				PBXFileTableDataSourceColumnSortingDirectionKey = "-1";
+				PBXFileTableDataSourceColumnSortingKey = PBXFileDataSource_Filename_ColumnID;
+				PBXFileTableDataSourceColumnWidthsKey = (
+					20,
+					242,
+					20,
+					48.1626,
+					43,
+					43,
+					20,
+				);
+				PBXFileTableDataSourceColumnsKey = (
+					PBXFileDataSource_FiletypeID,
+					PBXFileDataSource_Filename_ColumnID,
+					PBXFileDataSource_Built_ColumnID,
+					PBXFileDataSource_ObjectSize_ColumnID,
+					PBXFileDataSource_Errors_ColumnID,
+					PBXFileDataSource_Warnings_ColumnID,
+					PBXFileDataSource_Target_ColumnID,
+				);
+			};
+			PBXPerProjectTemplateStateSaveDate = 135123136;
 			PBXWorkspaceContents = (
 				{
 					LeftSlideOut = {
@@ -329,32 +353,56 @@
 					WindowLocation = "{105, 130}";
 				},
 			);
-			PBXWorkspaceStateSaveDate = 48111338;
+			PBXWorkspaceStateSaveDate = 135123136;
 		};
-		projectwideBuildSettings = {
+		sourceControlManager = 8D63E83B080DD0C300CAD98D /* Source Control */;
+		userBuildSettings = {
 			OBJROOT = "$(SYMROOT)";
 			SYMROOT = "/Volumes/Hourman/Users/tooker/Developer/Products/Project Builder/TOT/";
 		};
-		wantsIndex = 1;
-		wantsSCM = -1;
 	};
-	3C5613D6FEEF59C211CA2CB3 = {
+	3C5613D6FEEF59C211CA2CB3 /* jam */ = {
 		activeExec = 0;
 		executables = (
-			98D6987A00A2035405CA2923,
+			98D6987A00A2035405CA2923 /* jam */,
 		);
 	};
-	98D6987A00A2035405CA2923 = {
+	8D63E83B080DD0C300CAD98D /* Source Control */ = {
+		fallbackIsa = XCSourceControlManager;
+		isSCMEnabled = 0;
+		isa = PBXSourceControlManager;
+		scmConfiguration = {
+		};
+		scmType = "";
+	};
+	8D63E83C080DD0C300CAD98D /* Code sense */ = {
+		indexTemplatePath = "";
+		isa = PBXCodeSenseManager;
+	};
+	98D6987A00A2035405CA2923 /* jam */ = {
 		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
 		argumentStrings = (
 		);
+		configStateDict = {
+		};
+		cppStopOnCatchEnabled = 0;
+		cppStopOnThrowEnabled = 0;
+		customDataFormattersEnabled = 1;
 		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
 		enableDebugStr = 1;
 		environmentEntries = (
 		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
 		isa = PBXExecutable;
+		libgmallocEnabled = 0;
 		name = jam;
 		shlibInfoDictList = (
+		);
+		shlibInfoDictList_v2 = (
 		);
 		sourceDirectories = (
 		);

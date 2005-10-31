@@ -1,0 +1,70 @@
+Index: UniNEnet.cpp
+===================================================================
+RCS file: /Volumes/CVS/src/AppleGMACEthernet/UniNEnet.cpp,v
+retrieving revision 1.68
+diff -r1.68 UniNEnet.cpp
+280c280
+< 	fCellClockEnabled	= true;
+---
+> 	fCellClockEnabled	= false;
+661c661
+< 		ALRT( this, interruptStatus, 'int-', "interruptOccurred - not ready" );
+---
+> 		ELG( this, interruptStatus, 'int-', "interruptOccurred - not ready" );
+1336,1342c1336
+< /*-------------------------------------------------------------------------
+<  *
+<  *
+<  *
+<  *-------------------------------------------------------------------------*/
+< 
+< IOReturn UniNEnet::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
+---
+> IOReturn UniNEnet::setMulticastList( IOEthernetAddress *addrs, UInt32 count )
+1350,1351c1344,1345
+< 		return kIOReturnSuccess;
+< 	
+---
+> 		enableCellClock();				// Leave the cell clocked when done.
+> 
+1355c1349
+<     for (UInt32 i = 0; i < count; i++) 
+---
+>     for ( UInt32 i = 0; i < count; i++ )
+1357c1351
+<         addToHashTableMask(addrs->bytes);
+---
+>         addToHashTableMask( addrs->bytes );
+1361c1355
+<     
+---
+> 
+1367,1371d1360
+< /*-------------------------------------------------------------------------
+<  *
+<  *
+<  *
+<  *-------------------------------------------------------------------------*/
+Index: AppleGMACEthernet.pbproj/project.pbxproj
+===================================================================
+RCS file: /Volumes/CVS/src/AppleGMACEthernet/AppleGMACEthernet.pbproj/project.pbxproj,v
+retrieving revision 1.73
+diff -r1.73 project.pbxproj
+169c169
+< 				MODULE_VERSION = 1.4.1b1;
+---
+> 				MODULE_VERSION = 1.4.2f1;
+204c204
+< 	<string>1.4.1</string>
+---
+> 	<string>1.4.2</string>
+208c208
+< 	<string>1.4.1b1</string>
+---
+> 	<string>1.4.2f1</string>
+Index: English.lproj/InfoPlist.strings
+===================================================================
+RCS file: /Volumes/CVS/src/AppleGMACEthernet/English.lproj/InfoPlist.strings,v
+retrieving revision 1.22
+diff -r1.22 InfoPlist.strings
+Binary files /tmp/cvs6PTro1 and InfoPlist.strings differ

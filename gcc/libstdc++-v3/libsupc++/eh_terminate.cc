@@ -67,8 +67,8 @@ std::terminate ()
   if (__keymgr_terminate_func)
      __terminate_handler = __keymgr_terminate_func;
 #endif /* APPLE_KEYMGR */
-  __terminate (__terminate_handler);
   /* APPLE LOCAL end keymgr */
+  __terminate (__terminate_handler);
 }
 
 void

@@ -1,4 +1,3 @@
-// -*- c-basic-offset: 2 -*-
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
@@ -54,6 +53,7 @@
 extern int kjsyyparse();
 
 using namespace KJS;
+using namespace kxmlcore;
 
 #if !APPLE_CHANGES
 
@@ -225,7 +225,7 @@ Object StringImp::toObject(ExecState *exec) const
 {
   List args;
   args.append(const_cast<StringImp*>(this));
-  return Object::dynamicCast(exec->lexicalInterpreter()->builtinString().construct(exec,args));
+  return Object(static_cast<ObjectImp *>(exec->lexicalInterpreter()->builtinString().construct(exec, args).imp()));
 }
 
 // ------------------------------ NumberImp ------------------------------------
@@ -435,20 +435,22 @@ void ContextImp::mark()
 
 // ------------------------------ Parser ---------------------------------------
 
-ProgramNode *Parser::progNode = 0;
+static SharedPtr<ProgramNode> *progNode;
 int Parser::sid = 0;
 
-ProgramNode *Parser::parse(const UString &sourceURL, int startingLineNumber,
-                           const UChar *code, unsigned int length, int *sourceId,
-			   int *errLine, UString *errMsg)
+SharedPtr<ProgramNode> Parser::parse(const UString &sourceURL, int startingLineNumber,
+                                     const UChar *code, unsigned int length, int *sourceId,
+                                     int *errLine, UString *errMsg)
 {
   if (errLine)
     *errLine = -1;
   if (errMsg)
     *errMsg = 0;
-  
+  if (!progNode)
+    progNode = new SharedPtr<ProgramNode>;
+
   Lexer::curr()->setCode(sourceURL, startingLineNumber, code, length);
-  progNode = 0;
+  *progNode = 0;
   sid++;
   if (sourceId)
     *sourceId = sid;
@@ -458,9 +460,9 @@ ProgramNode *Parser::parse(const UString &sourceURL, int startingLineNumber,
   int parseError = kjsyyparse();
   bool lexError = Lexer::curr()->sawError();
   Lexer::curr()->doneParsing();
-  ProgramNode *prog = progNode;
-  progNode = 0;
-  sid = -1;
+  SharedPtr<ProgramNode> prog = *progNode;
+  *progNode = 0;
+  //  sid = -1;
 
   if (parseError || lexError) {
     int eline = Lexer::curr()->lineNo();
@@ -468,17 +470,17 @@ ProgramNode *Parser::parse(const UString &sourceURL, int startingLineNumber,
       *errLine = eline;
     if (errMsg)
       *errMsg = "Parse error";
-    if (prog) {
-      // must ref and deref to clean up properly
-      prog->ref();
-      prog->deref();
-      delete prog;
-    }
-    return 0;
+    return SharedPtr<ProgramNode>();
   }
 
   return prog;
 }
+
+void Parser::accept(ProgramNode *prog)
+{
+  *progNode = prog;
+}
+
 
 // ------------------------------ InterpreterImp -------------------------------
 
@@ -540,11 +542,12 @@ void InterpreterImp::globalClear()
 }
 
 InterpreterImp::InterpreterImp(Interpreter *interp, const Object &glob)
-    : _context(0)
+    : globExec(0), _context(0)
 {
   // add this interpreter to the global chain
   // as a root set for garbage collection
-  lockInterpreter();
+  InterpreterLock lock;
+
   m_interpreter = interp;
   if (s_hook) {
     prev = s_hook;
@@ -568,7 +571,6 @@ InterpreterImp::InterpreterImp(Interpreter *interp, const Object &glob)
   initGlobalObject();
 
   recursion = 0;
-  unlockInterpreter();
 }
 
 void InterpreterImp::lock()
@@ -724,9 +726,8 @@ void InterpreterImp::clear()
 {
   //fprintf(stderr,"InterpreterImp::clear\n");
   // remove from global chain (see init())
-#if APPLE_CHANGES
-  lockInterpreter();
-#endif
+  InterpreterLock lock;
+
   next->prev = prev;
   prev->next = next;
   s_hook = next;
@@ -737,10 +738,6 @@ void InterpreterImp::clear()
     globalClear();
   }
   InterpreterMap::removeInterpreterForGlobalObject(global.imp());
-
-#if APPLE_CHANGES
-  unlockInterpreter();
-#endif
 }
 
 void InterpreterImp::mark()
@@ -764,74 +761,58 @@ void InterpreterImp::mark()
     m_interpreter->mark();
   if (_context)
     _context->mark();
+  if (globExec && !globExec->_exception.isNull())
+      globExec->_exception.imp()->mark();
 }
 
 bool InterpreterImp::checkSyntax(const UString &code)
 {
+  InterpreterLock lock;
+
   // Parser::parse() returns 0 in a syntax error occurs, so we just check for that
-  ProgramNode *progNode = Parser::parse(UString(), 0, code.data(),code.size(),0,0,0);
-  bool ok = (progNode != 0);
-  if (progNode) {
-    // must ref and deref to clean up properly
-    progNode->ref();
-    progNode->deref();
-    delete progNode;
-  }
-  return ok;
+  SharedPtr<ProgramNode> progNode = Parser::parse(UString(), 0, code.data(),code.size(),0,0,0);
+  return progNode;
 }
 
 Completion InterpreterImp::evaluate(const UString &code, const Value &thisV, const UString &sourceURL, int startingLineNumber)
 {
-#if APPLE_CHANGES
-  lockInterpreter();
-#endif
+  InterpreterLock lock;
+
   // prevent against infinite recursion
   if (recursion >= 20) {
 #if APPLE_CHANGES
     Completion result = Completion(Throw,Error::create(globExec,GeneralError,"Recursion too deep"));
-    unlockInterpreter();
     return result;
 #else
     return Completion(Throw,Error::create(globExec,GeneralError,"Recursion too deep"));
 #endif
   }
-  
+
   // parse the source code
   int sid;
   int errLine;
   UString errMsg;
-  ProgramNode *progNode = Parser::parse(sourceURL, startingLineNumber, code.data(),code.size(),&sid,&errLine,&errMsg);
+  SharedPtr<ProgramNode> progNode = Parser::parse(sourceURL, startingLineNumber, code.data(),code.size(),&sid,&errLine,&errMsg);
 
   // notify debugger that source has been parsed
   if (dbg) {
-    bool cont = dbg->sourceParsed(globExec,sid,code,errLine);
+    bool cont = dbg->sourceParsed(globExec,sid,sourceURL,code,errLine);
     if (!cont)
-#if APPLE_CHANGES
-      {
-	unlockInterpreter();
-	return Completion(Break);
-      }
-#else
       return Completion(Break);
-#endif
   }
   
   // no program node means a syntax error occurred
   if (!progNode) {
     Object err = Error::create(globExec,SyntaxError,errMsg.ascii(),errLine, -1, &sourceURL);
     err.put(globExec,"sid",Number(sid));
-#if APPLE_CHANGES
-    unlockInterpreter();
-#endif
     return Completion(Throw,err);
   }
 
   globExec->clearException();
 
   recursion++;
-  progNode->ref();
 
-  Object &globalObj = globalObject();
+  Object globalObj = globalObject();
   Object thisObj = globalObject();
 
   if (!thisV.isNull()) {
@@ -852,26 +833,14 @@ Completion InterpreterImp::evaluate(const UString &code, const Value &thisV, con
   else {
     // execute the code
     ContextImp ctx(globalObj, this, thisObj);
-    ExecState newExec(m_interpreter,&ctx);
+    ExecState newExec(m_interpreter, &ctx);
     progNode->processVarDecls(&newExec);
     res = progNode->execute(&newExec);
   }
 
-  if (progNode->deref())
-    delete progNode;
   recursion--;
 
-#if APPLE_CHANGES
-  unlockInterpreter();
-#endif
   return res;
-}
-
-void InterpreterImp::setDebugger(Debugger *d)
-{
-  if (d)
-    d->detach(m_interpreter);
-  dbg = d;
 }
 
 void InterpreterImp::saveBuiltins (SavedBuiltins &builtins) const

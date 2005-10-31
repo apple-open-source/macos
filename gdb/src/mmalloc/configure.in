@@ -26,7 +26,12 @@ AC_PROG_INSTALL
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 
-ac_cv_func_mmap_fixed_mapped=yes;
+# APPLE LOCAL:  mmap() always works right on Darwin.  Take our word for it.
+case "$host" in
+  *-apple-darwin* | *-apple-macos*)
+    ac_cv_func_mmap_fixed_mapped=yes
+  ;;
+esac
 AC_FUNC_MMAP
 
 AC_CHECK_HEADERS(limits.h stddef.h unistd.h)

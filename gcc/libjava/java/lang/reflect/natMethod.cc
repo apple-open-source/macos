@@ -1,6 +1,6 @@
 // natMethod.cc - Native code for Method class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001 , 2002, 2003 Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001 , 2002, 2003, 2004, 2005 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -30,6 +30,7 @@ details.  */
 #include <java/lang/Double.h>
 #include <java/lang/IllegalAccessException.h>
 #include <java/lang/IllegalArgumentException.h>
+#include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/NullPointerException.h>
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
 #include <java/lang/VirtualMachineError.h>
@@ -149,7 +150,6 @@ java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
     getType ();
     
   jmethodID meth = _Jv_FromReflectedMethod (this);
-  jclass objClass;
 
   if (Modifier::isStatic(meth->accflags))
     {
@@ -157,12 +157,10 @@ java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
       // here and not in _Jv_CallAnyMethodA because JNI initializes a
       // class whenever a method lookup is done.
       _Jv_InitClass (declaringClass);
-      objClass = declaringClass;
     }
   else
     {
-      objClass = JV_CLASS (obj);
-     
+      jclass objClass = JV_CLASS (obj);
       if (! _Jv_IsAssignableFrom (declaringClass, objClass))
         throw new java::lang::IllegalArgumentException;
     }
@@ -184,7 +182,7 @@ java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
 	{
 	}
 
-      if (! _Jv_CheckAccess(caller, objClass, meth->accflags))
+      if (! _Jv_CheckAccess(caller, declaringClass, meth->accflags))
 	throw new IllegalAccessException;
     }
 
@@ -483,7 +481,27 @@ _Jv_CallAnyMethodA (jobject obj,
     {
       _Jv_VTable *vtable = *(_Jv_VTable **) obj;
       if (iface == NULL)
-	ncode = vtable->get_method (meth->index);
+	{
+	  if (is_jni_call && Modifier::isAbstract (meth->accflags))
+	    {
+	      // With JNI we don't know if this is an interface call
+	      // or a call to an abstract method.  Look up the method
+	      // by name, the slow way.
+	      _Jv_Method *concrete_meth
+		= _Jv_LookupDeclaredMethod (vtable->clas,
+					    meth->name,
+					    meth->signature,
+					    NULL);
+	      if (concrete_meth == NULL
+		  || concrete_meth->ncode == NULL
+		  || Modifier::isAbstract(concrete_meth->accflags))
+		throw new java::lang::IncompatibleClassChangeError
+		  (_Jv_GetMethodString (vtable->clas, meth));
+	      ncode = concrete_meth->ncode;
+	    }
+	  else
+	    ncode = vtable->get_method (meth->index);
+	}
       else
 	ncode = _Jv_LookupInterfaceMethodIdx (vtable->clas, iface,
 					      meth->index);

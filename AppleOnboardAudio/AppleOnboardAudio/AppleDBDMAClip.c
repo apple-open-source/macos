@@ -639,7 +639,7 @@ void StereoLowPass4thOrder (Float32 *in, Float32 *low, UInt32 frames, UInt32 Sam
 static inline double __fctiw( register double B )
 {
 	register double result;
-	asm( "fctiw %0, %1" : "=f" (result) : "f" (B)  );
+	__asm__ ( "fctiw %0, %1" : "=f" (result) : "f" (B)  );
 	return result;
 }
 
@@ -2798,7 +2798,7 @@ void Float32ToSwapInt16( float *src, signed short *dst, unsigned int count )
 			//virtual cycle B
 //			  (dst++)[0] = copy2;
 			dst+=2;
-			__asm__ __volatile__ ( "sthbrx %0, %1, %2" : : "r" (copy2), "r" (-2), "r" (dst) );	
+			__asm__ __volatile__ ( "sthbrx %0, %1, %2" : : "r" (copy2), "b" (-2), "r" (dst) );	
 			__asm__ __volatile__ ( "fctiw %0, %1" : "=f" (converted) : "f" ( scaled2 ) );
 			copy = ((short*) buffer)[0];
 			__asm__ __volatile__ ( "fmadd %0, %1, %2, %3" : "=f" (scaled) : "f" ( startingFloat2), "f" (scale), "f" (round) );
@@ -2876,7 +2876,7 @@ void Float32ToNativeInt24( float *src, signed long *dst, unsigned int count )
 		register double newSetting;
 
 		//Read the the current FPSCR value
-		asm volatile ( "mffs %0" : "=f" ( oldSetting ) );
+		__asm__ volatile ( "mffs %0" : "=f" ( oldSetting ) );
 
 		//Store it to the stack
 		setting.d = oldSetting;
@@ -3680,6 +3680,23 @@ void Float32ToNativeInt32( float *src, signed long *dst, unsigned int count )
 #pragma mark ------------------------ 
 #pragma mark ••• Utility Routines
 #pragma mark ------------------------ 
+
+
+int validateSoftwareVolumes( float left, float right,UInt32 maxVolumedB, UInt32 minVolumedB)
+{
+	int result = TRUE;
+	
+	if ((left > maxVolumedB) || 
+		(left < minVolumedB) ||
+		(right > maxVolumedB) ||
+		(right < minVolumedB))
+	{
+		result = FALSE;
+	}
+
+	return result;
+}
+
 
 void inputGainConverter(UInt32 inGainIndex, float* ioGainPtr) {
     float out = 1.0f;

@@ -1,6 +1,6 @@
 /* Control flow graph analysis code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "obstack.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "insn-config.h"
@@ -50,7 +51,8 @@ typedef struct depth_first_search_dsS *depth_first_search_ds;
 static void flow_dfs_compute_reverse_init (depth_first_search_ds);
 static void flow_dfs_compute_reverse_add_bb (depth_first_search_ds,
 					     basic_block);
-static basic_block flow_dfs_compute_reverse_execute (depth_first_search_ds);
+static basic_block flow_dfs_compute_reverse_execute (depth_first_search_ds,
+						     basic_block);
 static void flow_dfs_compute_reverse_finish (depth_first_search_ds);
 static bool flow_active_insn_p (rtx);
 
@@ -306,11 +308,15 @@ find_unreachable_blocks (void)
       basic_block b = *--tos;
 
       FOR_EACH_EDGE (e, ei, b->succs)
-	if (!(e->dest->flags & BB_REACHABLE))
-	  {
-	    *tos++ = e->dest;
-	    e->dest->flags |= BB_REACHABLE;
-	  }
+	{
+	  basic_block dest = e->dest;
+
+	  if (!(dest->flags & BB_REACHABLE))
+	    {
+	      *tos++ = dest;
+	      dest->flags |= BB_REACHABLE;
+	    }
+	}
     }
 
   free (worklist);
@@ -478,9 +484,18 @@ find_edge (basic_block pred, basic_block succ)
   edge e;
   edge_iterator ei;
 
-  FOR_EACH_EDGE (e, ei, pred->succs)
-    if (e->dest == succ)
-      return e;
+  if (EDGE_COUNT (pred->succs) <= EDGE_COUNT (succ->preds))
+    {
+      FOR_EACH_EDGE (e, ei, pred->succs)
+	if (e->dest == succ)
+	  return e;
+    }
+  else
+    {
+      FOR_EACH_EDGE (e, ei, succ->preds)
+	if (e->src == pred)
+	  return e;
+    }
 
   return NULL;
 }
@@ -604,7 +619,7 @@ add_noreturn_fake_exit_edges (void)
 void
 connect_infinite_loops_to_exit (void)
 {
-  basic_block unvisited_block;
+  basic_block unvisited_block = EXIT_BLOCK_PTR;
   struct depth_first_search_dsS dfs_ds;
 
   /* Perform depth-first search in the reverse graph to find nodes
@@ -615,7 +630,8 @@ connect_infinite_loops_to_exit (void)
   /* Repeatedly add fake edges, updating the unreachable nodes.  */
   while (1)
     {
-      unvisited_block = flow_dfs_compute_reverse_execute (&dfs_ds);
+      unvisited_block = flow_dfs_compute_reverse_execute (&dfs_ds,
+							  unvisited_block);
       if (!unvisited_block)
 	break;
 
@@ -838,7 +854,8 @@ flow_dfs_compute_reverse_add_bb (depth_first_search_ds data, basic_block bb)
    available.  */
 
 static basic_block
-flow_dfs_compute_reverse_execute (depth_first_search_ds data)
+flow_dfs_compute_reverse_execute (depth_first_search_ds data,
+				  basic_block last_unvisited)
 {
   basic_block bb;
   edge e;
@@ -856,7 +873,7 @@ flow_dfs_compute_reverse_execute (depth_first_search_ds data)
     }
 
   /* Determine if there are unvisited basic blocks.  */
-  FOR_BB_BETWEEN (bb, EXIT_BLOCK_PTR, NULL, prev_bb)
+  FOR_BB_BETWEEN (bb, last_unvisited, NULL, prev_bb)
     if (!TEST_BIT (data->visited_blocks, bb->index - (INVALID_BLOCK + 1)))
       return bb;
 
@@ -920,80 +937,66 @@ dfs_enumerate_from (basic_block bb, int reverse,
 }
 
 
-/* Computing the Dominance Frontier:
+/* Compute dominance frontiers, ala Harvey, Ferrante, et al.
+   
+   This algorithm can be found in Timothy Harvey's PhD thesis, at
+   http://www.cs.rice.edu/~harv/dissertation.pdf in the section on iterative
+   dominance algorithms.
 
-   As described in Morgan, section 3.5, this may be done simply by
-   walking the dominator tree bottom-up, computing the frontier for
-   the children before the parent.  When considering a block B,
-   there are two cases:
+   First, we identify each join point, j (any node with more than one
+   incoming edge is a join point). 
 
-   (1) A flow graph edge leaving B that does not lead to a child
-   of B in the dominator tree must be a block that is either equal
-   to B or not dominated by B.  Such blocks belong in the frontier
-   of B.
+   We then examine each predecessor, p, of j and walk up the dominator tree
+   starting at p. 
+   
+   We stop the walk when we reach j's immediate dominator - j is in the
+   dominance frontier of each of  the nodes in the walk, except for j's
+   immediate dominator. Intuitively, all of the rest of j's dominators are
+   shared by j's predecessors as well.
+   Since they dominate j, they will not have j in their dominance frontiers.
 
-   (2) Consider a block X in the frontier of one of the children C
-   of B.  If X is not equal to B and is not dominated by B, it
-   is in the frontier of B.  */
+   The number of nodes touched by this algorithm is equal to the size 
+   of the dominance frontiers, no more, no less.
+*/
+
 
 static void
-compute_dominance_frontiers_1 (bitmap *frontiers, basic_block bb, sbitmap done)
+compute_dominance_frontiers_1 (bitmap *frontiers)
 {
-  edge e;
+  edge p;
   edge_iterator ei;
-  basic_block c;
-
-  SET_BIT (done, bb->index);
-
-  /* Do the frontier of the children first.  Not all children in the
-     dominator tree (blocks dominated by this one) are children in the
-     CFG, so check all blocks.  */
-  for (c = first_dom_son (CDI_DOMINATORS, bb);
-       c;
-       c = next_dom_son (CDI_DOMINATORS, c))
+  basic_block b;
+  FOR_EACH_BB (b)
     {
-      if (! TEST_BIT (done, c->index))
-    	compute_dominance_frontiers_1 (frontiers, c, done);
-    }
-      
-  /* Find blocks conforming to rule (1) above.  */
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      if (e->dest == EXIT_BLOCK_PTR)
-	continue;
-      if (get_immediate_dominator (CDI_DOMINATORS, e->dest) != bb)
-	bitmap_set_bit (frontiers[bb->index], e->dest->index);
-    }
-
-  /* Find blocks conforming to rule (2).  */
-  for (c = first_dom_son (CDI_DOMINATORS, bb);
-       c;
-       c = next_dom_son (CDI_DOMINATORS, c))
-    {
-      int x;
-      bitmap_iterator bi;
-
-      EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x, bi)
+      if (EDGE_COUNT (b->preds) >= 2)
 	{
-	  if (get_immediate_dominator (CDI_DOMINATORS, BASIC_BLOCK (x)) != bb)
-	    bitmap_set_bit (frontiers[bb->index], x);
+	  FOR_EACH_EDGE (p, ei, b->preds)
+	    {
+	      basic_block runner = p->src;
+	      basic_block domsb;
+	      if (runner == ENTRY_BLOCK_PTR)
+		continue;
+	      
+	      domsb = get_immediate_dominator (CDI_DOMINATORS, b);
+	      while (runner != domsb)
+		{
+		  bitmap_set_bit (frontiers[runner->index], 
+				  b->index);
+		  runner = get_immediate_dominator (CDI_DOMINATORS,
+						    runner);
+		}
+	    }
 	}
     }
-}
-
+}	      
+  
 
 void
 compute_dominance_frontiers (bitmap *frontiers)
 {
-  sbitmap done = sbitmap_alloc (last_basic_block);
-
   timevar_push (TV_DOM_FRONTIERS);
 
-  sbitmap_zero (done);
-
-  compute_dominance_frontiers_1 (frontiers, EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest, done);
-
-  sbitmap_free (done);
+  compute_dominance_frontiers_1 (frontiers);
 
   timevar_pop (TV_DOM_FRONTIERS);
 }

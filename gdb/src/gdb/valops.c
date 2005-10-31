@@ -269,7 +269,13 @@ value_cast (struct type *type, struct value *arg2)
 
   CHECK_TYPEDEF (type);
   code1 = TYPE_CODE (type);
-  COERCE_REF (arg2);
+  /* APPLE LOCAL: Don't call COERCE_REF on a reference,
+   since when we cast it later on when we print it,
+   we will print the address of the beginning of the
+   structure, not the address...  */
+  if (code1 != TYPE_CODE_REF)
+    COERCE_REF (arg2);
+  /* END APPLE LOCAL */
   type2 = check_typedef (VALUE_TYPE (arg2));
 
   /* A cast to an undetermined-length array_type, such as (TYPE [])OBJECT,
@@ -2475,7 +2481,18 @@ check_field (struct value *arg1, const char *name)
 
   if (TYPE_CODE (t) != TYPE_CODE_STRUCT
       && TYPE_CODE (t) != TYPE_CODE_UNION)
-    error ("Internal error: `this' is not an aggregate");
+    {
+      /* APPLE LOCAL: If 'this' is not an aggregate, it probably
+	 means the debug info is messed up somehow.  However,
+	 throwing an error here will mean that ANY type search in
+	 this frame will fail, which is adding insult to injury.
+	 Just warn, and return not found instead.  */
+      
+      warning ("Trying to look up \"%s\" in 'this' but "
+	       "'this' is not an aggregate", name);
+      return 0;
+      /* END APPLE LOCAL */
+    }
 
   return check_field_in (t, name);
 }

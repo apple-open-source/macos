@@ -13,7 +13,7 @@ main (void)
 
 asm(".text\n"
     "    .align 8\n"
-    "gdb1253:\n"
+    "_gdb1253:\n"
     "    pushl %ebp\n"
     "    xorl  %ecx, %ecx\n"
     "    movl  %esp, %ebp\n"
@@ -26,7 +26,7 @@ asm(".text\n"
 
 asm(".text\n"
     "    .align 8\n"
-    "gdb1338:\n"
+    "_gdb1338:\n"
     "    pushl %edi\n"
     "    pushl %esi\n"
     "    pushl %ebx\n"

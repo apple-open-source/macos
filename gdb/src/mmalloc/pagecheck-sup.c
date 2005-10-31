@@ -226,7 +226,7 @@ mfree_pagecheck (md, ptr)
   MACH_CHECK_ERROR (kret);
 
   if (mmalloc_pagecheck_zero_free)
-    fill (buffer, MAGIC_GUARD, size / 4);
+    fill ((void *) buffer, MAGIC_GUARD, size / 4);
 
   kret = vm_protect (mach_task_self(), buffer, size, 0, VM_PROT_NONE);
   MACH_CHECK_ERROR (kret);
@@ -252,7 +252,7 @@ mrealloc_pagecheck (md, ptr, nsize)
     memset (((unsigned char *) new) + size, 0, nsize - size);
   
   if (mmalloc_pagecheck_zero_free)
-    fill (buffer, MAGIC_GUARD, size / 4);
+    fill ((void *) buffer, MAGIC_GUARD, size / 4);
 
   kret = vm_protect (mach_task_self(), buffer, size, 0, VM_PROT_NONE);
   MACH_CHECK_ERROR (kret);

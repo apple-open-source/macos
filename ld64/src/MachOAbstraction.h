@@ -1,4 +1,5 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- 
+ *
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
@@ -1041,22 +1042,46 @@ void macho_routines_command::set_cmdsize(uint32_t _value) {
 
 inline  __attribute__((always_inline))
 uint64_t macho_routines_command::init_address() const {
+#if defined(ARCH_PPC64)
 	return ENDIAN_SWAP64(content.init_address);
+#elif defined(ARCH_PPC) || defined(ARCH_I386)
+	return ENDIAN_READ32(content.init_address);
+#else
+	#error unknown architecture
+#endif
 }
 
 inline  __attribute__((always_inline))
 void macho_routines_command::set_init_address(uint64_t _value) {
+#if defined(ARCH_PPC64)
 	content.init_address = ENDIAN_SWAP64(_value);
+#elif defined(ARCH_PPC) || defined(ARCH_I386)
+	ENDIAN_WRITE32(content.init_address, _value);
+#else
+	#error unknown architecture
+#endif
 }
 
 inline  __attribute__((always_inline))
 uint64_t macho_routines_command::init_module() const {
+#if defined(ARCH_PPC64)
 	return ENDIAN_SWAP64(content.init_module);
+#elif defined(ARCH_PPC) || defined(ARCH_I386)
+	return ENDIAN_READ32(content.init_module);
+#else
+	#error unknown architecture
+#endif
 }
 
 inline  __attribute__((always_inline))
 void macho_routines_command::set_init_module(uint64_t _value) {
+#if defined(ARCH_PPC64)
 	content.init_module = ENDIAN_SWAP64(_value);
+#elif defined(ARCH_PPC) || defined(ARCH_I386)
+	ENDIAN_WRITE32(content.init_module, _value);
+#else
+	#error unknown architecture
+#endif
 }
 
 
@@ -1670,7 +1695,13 @@ uint64_t macho_nlist::n_value() const {
 
 inline  __attribute__((always_inline))
 void macho_nlist::set_n_value(uint64_t _value) {
+#if defined(ARCH_PPC64)
 	content.n_value = ENDIAN_SWAP64(_value);
+#elif defined(ARCH_PPC) || defined(ARCH_I386)
+	ENDIAN_WRITE32(content.n_value, _value);
+#else
+	#error unknown architecture
+#endif
 }
 
 
@@ -1766,7 +1797,7 @@ void macho_relocation_info::set_r_pcrel(bool _value) {
 	if ( _value )
 		temp |= 0x00000080;
 #elif defined(ARCH_I386)
-	temp &= 0x7FFFFFFF;
+	temp &= 0xFEFFFFFF;
 	if ( _value )
 		temp |= 0x01000000;
 #else
@@ -1822,7 +1853,7 @@ void macho_relocation_info::set_r_extern(bool _value) {
 	if ( _value )
 		temp |= 0x00000010;
 #elif defined(ARCH_I386)
-	temp &= 0xEFFFFFFF;
+	temp &= 0xF7FFFFFF;
 	if ( _value )
 		temp |= 0x08000000;
 #else

@@ -1,5 +1,5 @@
 /* Array things
-   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -20,10 +20,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include "config.h"
+#include "system.h"
 #include "gfortran.h"
 #include "match.h"
-
-#include <string.h>
 
 /* This parameter is the size of the largest array constructor that we
    will expand to an array constructor without iterators.
@@ -458,7 +457,7 @@ gfc_set_array_spec (gfc_symbol * sym, gfc_array_spec * as, locus * error_loc)
   if (as == NULL)
     return SUCCESS;
 
-  if (gfc_add_dimension (&sym->attr, error_loc) == FAILURE)
+  if (gfc_add_dimension (&sym->attr, sym->name, error_loc) == FAILURE)
     return FAILURE;
 
   sym->as = as;
@@ -968,7 +967,7 @@ check_element_type (gfc_expr * expr)
 }
 
 
-/* Recursive work function for gfc_check_constructor_type(). */
+/* Recursive work function for gfc_check_constructor_type().  */
 
 static try
 check_constructor_type (gfc_constructor * c)
@@ -1490,7 +1489,7 @@ resolve_array_list (gfc_constructor * p)
   for (; p; p = p->next)
     {
       if (p->iterator != NULL
-	  && gfc_resolve_iterator (p->iterator) == FAILURE)
+	  && gfc_resolve_iterator (p->iterator, false) == FAILURE)
 	t = FAILURE;
 
       if (gfc_resolve_expr (p->expr) == FAILURE)
@@ -1500,9 +1499,45 @@ resolve_array_list (gfc_constructor * p)
   return t;
 }
 
+/* Resolve character array constructor. If it is a constant character array and
+   not specified character length, update character length to the maximum of
+   its element constructors' length.  */
 
-/* Resolve all of the expressions in an array list.
-   TODO: String lengths.  */
+static void
+resolve_character_array_constructor (gfc_expr * expr)
+{
+  gfc_constructor * p;
+  int max_length;
+
+  gcc_assert (expr->expr_type == EXPR_ARRAY);
+  gcc_assert (expr->ts.type == BT_CHARACTER);
+
+  max_length = -1;
+
+  if (expr->ts.cl == NULL || expr->ts.cl->length == NULL)
+    {
+      /* Find the maximum length of the elements. Do nothing for variable array
+	 constructor.  */
+      for (p = expr->value.constructor; p; p = p->next)
+	if (p->expr->expr_type == EXPR_CONSTANT)
+	  max_length = MAX (p->expr->value.character.length, max_length);
+	else
+	  return;
+
+      if (max_length != -1)
+	{
+	  /* Update the character length of the array constructor.  */
+	  if (expr->ts.cl == NULL)
+	    expr->ts.cl = gfc_get_charlen ();
+	  expr->ts.cl->length = gfc_int_expr (max_length);
+	  /* Update the element constructors.  */
+	  for (p = expr->value.constructor; p; p = p->next)
+	    gfc_set_constant_character_len (max_length, p->expr);
+	}
+    }
+}
+
+/* Resolve all of the expressions in an array list.  */
 
 try
 gfc_resolve_array_constructor (gfc_expr * expr)
@@ -1512,6 +1547,8 @@ gfc_resolve_array_constructor (gfc_expr * expr)
   t = resolve_array_list (expr->value.constructor);
   if (t == SUCCESS)
     t = gfc_check_constructor_type (expr);
+  if (t == SUCCESS && expr->ts.type == BT_CHARACTER)
+    resolve_character_array_constructor (expr);
 
   return t;
 }
@@ -1609,7 +1646,7 @@ gfc_get_array_element (gfc_expr * array, int element)
 
 /* These are needed just to accommodate RESHAPE().  There are no
    diagnostics here, we just return a negative number if something
-   goes wrong. */
+   goes wrong.  */
 
 
 /* Get the size of single dimension of an array specification.  The

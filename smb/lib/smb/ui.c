@@ -522,11 +522,11 @@ smb_browse_int(struct smb_ctx *ctx, int anon)
 	}
 	maxch = ch;
 
-	urlRef = CFURLCreateFromFileSystemRepresentation(NULL, SMB_LOCALIZATION_BUNDLE, strlen(SMB_LOCALIZATION_BUNDLE), true);
+	urlRef = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8 *)SMB_LOCALIZATION_BUNDLE, strlen(SMB_LOCALIZATION_BUNDLE), true);
 	CFDictionaryAddValue(d, kCFUserNotificationLocalizationURLKey,
 			     urlRef);
 	CFRelease(urlRef);
-	urlRef = CFURLCreateFromFileSystemRepresentation(NULL, SMB_SERVER_ICON_PATH, strlen(SMB_SERVER_ICON_PATH), true);
+	urlRef = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8 *)SMB_SERVER_ICON_PATH, strlen(SMB_SERVER_ICON_PATH), true);
 	CFDictionaryAddValue(d, kCFUserNotificationIconURLKey,
 			     urlRef);
 	CFRelease(urlRef);

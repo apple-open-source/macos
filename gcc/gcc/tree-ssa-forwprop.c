@@ -1,5 +1,5 @@
 /* Forward propagation of single use variables.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -329,7 +329,6 @@ substitute_single_use_vars (varray_type *cond_worklist,
       tree def = SSA_NAME_DEF_STMT (test_var);
       dataflow_t df;
       int j, num_uses, propagated_uses;
-      block_stmt_iterator bsi;
 
       VARRAY_POP (vars_worklist);
 
@@ -466,16 +465,10 @@ substitute_single_use_vars (varray_type *cond_worklist,
 	 Unfortunately, we have to find the defining statement in
 	 whatever block it might be in.  */
       if (num_uses && num_uses == propagated_uses)
-	for (bsi = bsi_start (bb_for_stmt (def));
-	     !bsi_end_p (bsi);
-	     bsi_next (&bsi))
-	  {
-	    if (def == bsi_stmt (bsi))
-	      {
-		bsi_remove (&bsi);
-		break;
-	      }
-	  }
+	{
+	  block_stmt_iterator bsi = bsi_for_stmt (def);
+	  bsi_remove (&bsi);
+	}
     }
 }
 
@@ -651,7 +644,7 @@ eliminate_unnecessary_casts (void)
   varray_type worklist;
 
   /* Memory allocation.  */
-  vars = BITMAP_XMALLOC ();
+  vars = BITMAP_ALLOC (NULL);
   VARRAY_TREE_INIT (worklist, 10, "worklist");
   FOR_EACH_BB (bb)
     {
@@ -701,7 +694,7 @@ eliminate_unnecessary_casts (void)
     }
   /* Cleanup */
   free_df ();
-  BITMAP_XFREE (vars);
+  BITMAP_FREE (vars);
 }
 
 /* APPLE LOCAL end cast removal.  */
@@ -714,10 +707,11 @@ tree_ssa_forward_propagate_single_use_vars (void)
   basic_block bb;
   varray_type vars_worklist, cond_worklist;
 
-  /* APPLE LOCAL cast removal.  */
+  /* APPLE LOCAL begin cast removal.  */
   eliminate_unnecessary_casts ();
+  /* APPLE LOCAL end cast removal.  */
 
-  vars = BITMAP_XMALLOC ();
+  vars = BITMAP_ALLOC (NULL);
   VARRAY_TREE_INIT (vars_worklist, 10, "VARS worklist");
   VARRAY_TREE_INIT (cond_worklist, 10, "COND worklist");
 
@@ -759,7 +753,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
     }
 
   /* All done.  Clean up.  */
-  BITMAP_XFREE (vars);
+  BITMAP_FREE (vars);
 }
 
 

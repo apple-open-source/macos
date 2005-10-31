@@ -48,6 +48,7 @@
 #include <CoreFoundation/CFData.h>
 #include <Security/SecureTransportPriv.h>
 #include <Security/oidsalg.h>
+#include <Security/SecKeychain.h>
 #include <Security/SecPolicySearch.h>
 #include <Security/SecPolicy.h>
 #include "EAPTLSUtil.h"
@@ -873,14 +874,33 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	}
     }
     my_CFRelease(&trusted_roots);
+
     status = SecTrustEvaluate(trust, &trust_result);
-    if (status != noErr) {
+    switch (status) {
+    case noErr:
+	break;
+    case errSecNoDefaultKeychain:
+	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
+	if (status != noErr) {
+	    syslog(LOG_NOTICE, 
+		   "EAPTLSVerifyServerCertificateChain: "
+		   "SecKeychainSetPreferenceDomain failed, %s (%d)",
+		   EAPSecurityErrorString(status), status);
+	    goto done;
+	}
+	status = SecTrustEvaluate(trust, &trust_result);
+	if (status == noErr) {
+	    break;
+	}
+	/* FALL THROUGH */
+    default:
 	*ret_status = status;
 	syslog(LOG_NOTICE, 
 	       "EAPTLSVerifyServerCertificateChain: "
 	       "SecTrustEvaluate failed, %s (%d)",
 	       EAPSecurityErrorString(status), status);
 	goto done;
+	break;
     }
     switch (trust_result) {
     case kSecTrustResultProceed:

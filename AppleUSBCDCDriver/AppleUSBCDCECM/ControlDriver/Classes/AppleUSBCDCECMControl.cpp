@@ -65,8 +65,6 @@ extern "C"
     com_apple_iokit_XTrace	*gXTrace = 0;
 #endif
 
-AppleUSBCDCECMData		*gDataDriver = NULL;
-
 static IOPMPowerState gOurPowerStates[kNumCDCStates] =
 {
     {1,0,0,0,0,0,0,0,0,0,0,0},
@@ -471,6 +469,7 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
     fPacketFilter = kPACKET_TYPE_DIRECTED | kPACKET_TYPE_BROADCAST | kPACKET_TYPE_MULTICAST;
     fpNetStats = NULL;
     fpEtherStats = NULL;
+	fDataDriver = NULL;
 	
 #if USE_ELG
     XTraceLogInfo	*logInfo;
@@ -616,7 +615,7 @@ bool AppleUSBCDCECMControl::getFunctionalDescriptors()
         
     do
     {
-        (IOUSBDescriptorHeader*)funcDesc = fControlInterface->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
+        funcDesc = (const HDRFunctionalDescriptor *)fControlInterface->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
         if (!funcDesc)
         {
             gotDescriptors = true;
@@ -627,12 +626,12 @@ bool AppleUSBCDCECMControl::getFunctionalDescriptors()
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Header Functional Descriptor");
                     break;
                 case ECM_Functional_Descriptor:
-                    (const FunctionalDescriptorHeader *)ENETFDesc = funcDesc;
+                    ENETFDesc = (ECMFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Ethernet Functional Descriptor");
                     enet = true;
                     break;
                 case Union_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader *)UNNFDesc = funcDesc;
+                    UNNFDesc = (UnionFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Union Functional Descriptor");
                     if (UNNFDesc->bFunctionLength > sizeof(FunctionalDescriptorHeader))
                     {
@@ -1098,7 +1097,7 @@ bool AppleUSBCDCECMControl::checkInterfaceNumber(AppleUSBCDCECMData *dataDriver)
     
         if (dataDriver->fDataInterfaceNumber == fDataInterfaceNumber)
         {
-            gDataDriver = dataDriver;
+            fDataDriver = dataDriver;
             return true;
         } else {
             XTRACE(this, dataDriver->fDataInterfaceNumber, fDataInterfaceNumber, "checkInterfaceNumber - Not correct interface number");
@@ -1153,39 +1152,6 @@ IOReturn AppleUSBCDCECMControl::checkPipe(IOUSBPipe *thePipe, bool devReq)
     return rtn;
 
 }/* end checkPipe */
-
-/****************************************************************************************************/
-//
-//		Method:		AppleUSBCDCECMControl::resetDevice
-//
-//		Inputs:		
-//
-//		Outputs:	
-//
-//		Desc:		Check to see if we need to reset the device on wake from sleep. 
-//
-/****************************************************************************************************/
-
-void AppleUSBCDCECMControl::resetDevice()
-{
-    IOReturn 	rtn = kIOReturnSuccess;
-    USBStatus	status;
-
-    XTRACE(this, 0, 0, "resetDevice");
-	
-	if ((fControlInterface == NULL) || (fTerminate))
-	{
-		return;
-	}
-    
-    rtn = fControlInterface->GetDevice()->GetDeviceStatus(&status);
-    if (rtn != kIOReturnSuccess)
-    {
-        XTRACE(this, 0, rtn, "resetDevice - Error getting device status, reset issued");
-        fControlInterface->GetDevice()->ResetDevice();
-    }
-        
-}/* end resetDevice */
 
 /****************************************************************************************************/
 //
@@ -1384,6 +1350,10 @@ IOReturn AppleUSBCDCECMControl::message(UInt32 type, IOService *provider, void *
     {
         case kIOMessageServiceIsTerminated:
             XTRACE(this, 0, type, "message - kIOMessageServiceIsTerminated");
+			if (fDataDriver)
+			{
+				fDataDriver->message(kIOMessageServiceIsTerminated, fControlInterface, NULL);
+			}
             fTerminate = true;		// we're being terminated (unplugged)
             releaseResources();
             return kIOReturnSuccess;			
@@ -1508,7 +1478,11 @@ IOReturn AppleUSBCDCECMControl::setPowerState(unsigned long powerStateOrdinal, I
         fPowerState = powerStateOrdinal;
         if (fPowerState == kCDCPowerOnState)
         {
-            resetDevice();
+			if (fDataDriver)
+			{
+				fDataDriver->fResetState = kResetNeeded;
+				fDataDriver->fReady = FALSE;
+			}
         }
     
         return IOPMNoErr;

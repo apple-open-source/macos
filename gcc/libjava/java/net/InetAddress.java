@@ -123,7 +123,7 @@ public class InetAddress implements Serializable
    */
   InetAddress(byte[] ipaddr, String hostname)
   {
-    addr = ipaddr;
+    addr = (null == ipaddr) ? null : (byte[]) ipaddr.clone();
     hostName = hostname;
     
     if (ipaddr != null)
@@ -322,8 +322,14 @@ public class InetAddress implements Serializable
       }
 
     // Try to find the FDQN now
-    // FIXME: This does not work with IPv6.
-    InetAddress address = new Inet4Address(getAddress(), null);
+    InetAddress address;
+    byte[] ipaddr = getAddress();
+
+    if (ipaddr.length == 16)
+      address = new Inet6Address(getAddress(), null);
+    else
+      address = new Inet4Address(getAddress(), null);
+
     return address.getHostName();
   }
 
@@ -488,9 +494,9 @@ public class InetAddress implements Serializable
    */
   public String toString()
   {
-    String address = getHostAddress();
-    String host = (hostName != null) ? hostName : address;
-    return host + "/" + address;
+    String addr = getHostAddress();
+    String host = (hostName != null) ? hostName : addr;
+    return host + "/" + addr;
   }
 
   /**
@@ -708,7 +714,7 @@ public class InetAddress implements Serializable
 	  }
       }
     
-    if (hostname != null)
+    if (hostname != null && hostname.length() != 0)
       {
 	try
 	  {
@@ -719,6 +725,8 @@ public class InetAddress implements Serializable
 	  {
 	  }
       }
+    else
+      throw new UnknownHostException();
     
     if (localhost == null)
       localhost = new InetAddress (loopbackAddress, "localhost");

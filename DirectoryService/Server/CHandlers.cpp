@@ -2730,6 +2730,14 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
 				}
 
+				//need these back in to determine possible endian byte swapping
+				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fInNodeRef, ktNodeRef );
+				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fInNodeRefMap, ktNodeRefMap );
+				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 3 );
+				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fInRequestCode, kCustomRequestCode );
+				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 4 );
+
 				break;
 			}
 
@@ -4139,6 +4147,10 @@ void* CRequestHandler::DoPlugInCustomCall ( sComData *inMsg, sInt32 *outStatus )
 
 		p->fOutRequestResponse = ::dsDataBufferAllocatePriv( uiBuffSize );
 		if ( p->fOutRequestResponse == nil ) throw( (sInt32)eServerReceiveError - 3 );
+
+		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRefMap, ktNodeRefMap );
+		//no error check here since only required for endian issues
+		//if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 4 );
 
 		*outStatus = eDSNoErr;
 	}

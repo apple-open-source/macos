@@ -1,0 +1,263 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		EE4E2EE007B2C4AA0003BA82 /* hex2c.h in Headers */ = {isa = PBXBuildFile; fileRef = 05F7745D00682FDF7F000001 /* hex2c.h */; };
+		EE4E2EE207B2C4AA0003BA82 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 08FB7796FE84155DC02AAC07 /* main.c */; settings = {ATTRIBUTES = (); }; };
+		EE4E2EE307B2C4AA0003BA82 /* bulktest.c in Sources */ = {isa = PBXBuildFile; fileRef = 05F7745F006830057F000001 /* bulktest.c */; };
+		EE4E2EE507B2C4AA0003BA82 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05F77461006830137F000001 /* IOKit.framework */; };
+		EE4E2EE607B2C4AA0003BA82 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F56748E5013EE86A01573190 /* CoreFoundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		014CEA520018CE5811CA2923 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		05F7745D00682FDF7F000001 /* hex2c.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = hex2c.h; sourceTree = "<group>"; };
+		05F7745F006830057F000001 /* bulktest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = bulktest.c; sourceTree = "<group>"; };
+		05F77461006830137F000001 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		08FB7796FE84155DC02AAC07 /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		EE4E2EE807B2C4AA0003BA82 /* USBNotificationExample */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = USBNotificationExample; sourceTree = BUILT_PRODUCTS_DIR; };
+		F56748E5013EE86A01573190 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		EE4E2EE407B2C4AA0003BA82 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE4E2EE507B2C4AA0003BA82 /* IOKit.framework in Frameworks */,
+				EE4E2EE607B2C4AA0003BA82 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* USBNotificationExample */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = USBNotificationExample;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7796FE84155DC02AAC07 /* main.c */,
+				05F7745D00682FDF7F000001 /* hex2c.h */,
+				05F7745F006830057F000001 /* bulktest.c */,
+				05F77461006830137F000001 /* IOKit.framework */,
+				F56748E5013EE86A01573190 /* CoreFoundation.framework */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				EE4E2EE807B2C4AA0003BA82 /* USBNotificationExample */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		EE4E2EDF07B2C4AA0003BA82 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE4E2EE007B2C4AA0003BA82 /* hex2c.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		EE4E2EDE07B2C4AA0003BA82 /* USBNotificationExample */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3EEA306108D71E4A002CBB49 /* Build configuration list for PBXNativeTarget "USBNotificationExample" */;
+			buildPhases = (
+				EE4E2EDF07B2C4AA0003BA82 /* Headers */,
+				EE4E2EE107B2C4AA0003BA82 /* Sources */,
+				EE4E2EE407B2C4AA0003BA82 /* Frameworks */,
+				EE4E2EE707B2C4AA0003BA82 /* Rez */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = (
+					"-W",
+					"-Wall",
+					"-Wno-unused",
+				);
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = USBNotificationExample;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = USBNotificationExample;
+			productInstallPath = "$(HOME)/bin";
+			productName = USBNotificationExample;
+			productReference = EE4E2EE807B2C4AA0003BA82 /* USBNotificationExample */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 3EEA306508D71E4A002CBB49 /* Build configuration list for PBXProject "USBNotificationExample" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA520018CE5811CA2923 /* Development */,
+				014CEA530018CE5811CA2923 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* USBNotificationExample */;
+			projectDirPath = "";
+			targets = (
+				EE4E2EDE07B2C4AA0003BA82 /* USBNotificationExample */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		EE4E2EE707B2C4AA0003BA82 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		EE4E2EE107B2C4AA0003BA82 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE4E2EE207B2C4AA0003BA82 /* main.c in Sources */,
+				EE4E2EE307B2C4AA0003BA82 /* bulktest.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		3EEA306208D71E4A002CBB49 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = USBNotificationExample;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		3EEA306308D71E4A002CBB49 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = USBNotificationExample;
+			};
+			name = Release;
+		};
+		3EEA306608D71E4A002CBB49 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Debug;
+		};
+		3EEA306708D71E4A002CBB49 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3EEA306108D71E4A002CBB49 /* Build configuration list for PBXNativeTarget "USBNotificationExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3EEA306208D71E4A002CBB49 /* Debug */,
+				3EEA306308D71E4A002CBB49 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3EEA306508D71E4A002CBB49 /* Build configuration list for PBXProject "USBNotificationExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3EEA306608D71E4A002CBB49 /* Debug */,
+				3EEA306708D71E4A002CBB49 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

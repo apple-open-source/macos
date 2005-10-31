@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -51,6 +51,7 @@ with Sem_Ch7;  use Sem_Ch7;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch10; use Sem_Ch10;
 with Sem_Ch13; use Sem_Ch13;
+with Sem_Disp; use Sem_Disp;
 with Sem_Elab; use Sem_Elab;
 with Sem_Elim; use Sem_Elim;
 with Sem_Eval; use Sem_Eval;
@@ -261,7 +262,11 @@ package body Sem_Ch12 is
       T   : Entity_Id;
       Def : Node_Id);
 
-   --  All the following need comments???
+   --  The following subprograms create abbreviated declarations for formal
+   --  scalar types. We introduce an anonymous base of the proper class for
+   --  each of them, and define the formals as constrained first subtypes of
+   --  their bases. The bounds are expressions that are non-static in the
+   --  generic.
 
    procedure Analyze_Formal_Decimal_Fixed_Point_Type
                                                 (T : Entity_Id; Def : Node_Id);
@@ -399,6 +404,11 @@ package body Sem_Ch12 is
    --  vening suprograms or concurrent units. If true, the freeze node
    --  of the instance can be placed after the freeze node of the parent,
    --  which it itself an instance.
+
+   function In_Main_Context (E : Entity_Id) return Boolean;
+   --  Check whether an instantiation is in the context of the main unit.
+   --  Used to determine whether its body should be elaborated to allow
+   --  front-end inlining.
 
    procedure Set_Instance_Env
      (Gen_Unit : Entity_Id;
@@ -874,7 +884,7 @@ package body Sem_Ch12 is
             case Nkind (Formal) is
 
                when N_Formal_Subprogram_Declaration =>
-                  exit when Kind = N_Formal_Subprogram_Declaration
+                  exit when Kind in N_Formal_Subprogram_Declaration
                     and then
                       Chars
                         (Defining_Unit_Name (Specification (Formal))) =
@@ -895,7 +905,7 @@ package body Sem_Ch12 is
                   --  unrecognized pragmas.
 
                   exit when
-                    Kind /= N_Formal_Subprogram_Declaration
+                    Kind not in N_Formal_Subprogram_Declaration
                       and then Kind /= N_Subprogram_Declaration
                       and then Kind /= N_Freeze_Entity
                       and then Kind /= N_Null_Statement
@@ -1033,7 +1043,7 @@ package body Sem_Ch12 is
                   then
                      Temp_Formal := First (Formals);
                      while Present (Temp_Formal) loop
-                        if Nkind (Temp_Formal) =
+                        if Nkind (Temp_Formal) in
                              N_Formal_Subprogram_Declaration
                           and then Temp_Formal /= Formal
                           and then
@@ -1207,14 +1217,19 @@ package body Sem_Ch12 is
       then
          Error_Msg_N ("premature usage of incomplete type", Def);
 
+      --  Check that range constraint is not allowed on the component type
+      --  of a generic formal array type (AARM 12.5.3(3))
+
       elsif Is_Internal (Component_Type (T))
+        and then Present (Subtype_Indication (Component_Definition (Def)))
         and then Nkind (Original_Node
                         (Subtype_Indication (Component_Definition (Def))))
-          /= N_Attribute_Reference
+          = N_Subtype_Indication
       then
          Error_Msg_N
-           ("only a subtype mark is allowed in a formal",
-              Subtype_Indication (Component_Definition (Def)));
+           ("in a formal, a subtype indication can only be "
+             & "a subtype mark ('R'M 12.5.3(3))",
+             Subtype_Indication (Component_Definition (Def)));
       end if;
 
    end Analyze_Formal_Array_Type;
@@ -1269,6 +1284,7 @@ package body Sem_Ch12 is
       Set_Delta_Value    (T, Delta_Val);
       Set_Small_Value    (T, Delta_Val);
       Set_Scalar_Range   (T, Scalar_Range (Base));
+      Set_Is_Constrained (T);
 
       Check_Restriction (No_Fixed_Point, Def);
    end Analyze_Formal_Decimal_Fixed_Point_Type;
@@ -1347,12 +1363,17 @@ package body Sem_Ch12 is
       Lo  : Node_Id;
       Hi  : Node_Id;
 
+      Base : constant Entity_Id :=
+               New_Internal_Entity
+                 (E_Floating_Point_Type, Current_Scope, Sloc (Def), 'G');
    begin
-      Enter_Name     (T);
-      Set_Ekind      (T, E_Enumeration_Type);
-      Set_Etype      (T, T);
-      Init_Size      (T, 8);
-      Init_Alignment (T);
+      Enter_Name          (T);
+      Set_Ekind           (T, E_Enumeration_Subtype);
+      Set_Etype           (T, Base);
+      Init_Size           (T, 8);
+      Init_Alignment      (T);
+      Set_Is_Generic_Type (T);
+      Set_Is_Constrained  (T);
 
       --  For semantic analysis, the bounds of the type must be set to some
       --  non-static value. The simplest is to create attribute nodes for
@@ -1376,6 +1397,14 @@ package body Sem_Ch12 is
           Low_Bound => Lo,
           High_Bound => Hi));
 
+      Set_Ekind           (Base, E_Enumeration_Type);
+      Set_Etype           (Base, Base);
+      Init_Size           (Base, 8);
+      Init_Alignment      (Base);
+      Set_Is_Generic_Type (Base);
+      Set_Scalar_Range    (Base, Scalar_Range (T));
+      Set_Parent          (Base, Parent (Def));
+
    end Analyze_Formal_Discrete_Type;
 
    ----------------------------------
@@ -1394,12 +1423,13 @@ package body Sem_Ch12 is
       --  the generic itself.
 
       Enter_Name (T);
-      Set_Ekind        (T, E_Floating_Point_Subtype);
-      Set_Etype        (T, Base);
-      Set_Size_Info    (T,              (Standard_Float));
-      Set_RM_Size      (T, RM_Size      (Standard_Float));
-      Set_Digits_Value (T, Digits_Value (Standard_Float));
-      Set_Scalar_Range (T, Scalar_Range (Standard_Float));
+      Set_Ekind          (T, E_Floating_Point_Subtype);
+      Set_Etype          (T, Base);
+      Set_Size_Info      (T,              (Standard_Float));
+      Set_RM_Size        (T, RM_Size      (Standard_Float));
+      Set_Digits_Value   (T, Digits_Value (Standard_Float));
+      Set_Scalar_Range   (T, Scalar_Range (Standard_Float));
+      Set_Is_Constrained (T);
 
       Set_Is_Generic_Type (Base);
       Set_Etype           (Base, Base);
@@ -1552,6 +1582,7 @@ package body Sem_Ch12 is
         Make_Range (Loc,
           Low_Bound  => Make_Real_Literal (Loc, Ureal_1),
           High_Bound => Make_Real_Literal (Loc, Ureal_1)));
+      Set_Is_Constrained   (T);
 
       Set_Is_Generic_Type (Base);
       Set_Etype           (Base, Base);
@@ -1763,11 +1794,12 @@ package body Sem_Ch12 is
    begin
       Enter_Name (T);
 
-      Set_Ekind        (T, E_Signed_Integer_Subtype);
-      Set_Etype        (T, Base);
-      Set_Size_Info    (T, Standard_Integer);
-      Set_RM_Size      (T, RM_Size (Standard_Integer));
-      Set_Scalar_Range (T, Scalar_Range (Standard_Integer));
+      Set_Ekind          (T, E_Signed_Integer_Subtype);
+      Set_Etype          (T, Base);
+      Set_Size_Info      (T, Standard_Integer);
+      Set_RM_Size        (T, RM_Size (Standard_Integer));
+      Set_Scalar_Range   (T, Scalar_Range (Standard_Integer));
+      Set_Is_Constrained (T);
 
       Set_Is_Generic_Type (Base);
       Set_Size_Info       (Base, Standard_Integer);
@@ -1800,6 +1832,25 @@ package body Sem_Ch12 is
       Analyze_Subprogram_Declaration (N);
       Set_Is_Formal_Subprogram (Nam);
       Set_Has_Completion (Nam);
+
+      if Nkind (N) = N_Formal_Abstract_Subprogram_Declaration then
+         Set_Is_Abstract (Nam);
+         Set_Is_Dispatching_Operation (Nam);
+
+         declare
+            Ctrl_Type : constant Entity_Id := Find_Dispatching_Type (Nam);
+
+         begin
+            if not Present (Ctrl_Type) then
+               Error_Msg_N
+                 ("abstract formal subprogram must have a controlling type",
+                  N);
+
+            else
+               Check_Controlling_Formals (Ctrl_Type, Nam);
+            end if;
+         end;
+      end if;
 
       --  Default name is resolved at the point of instantiation
 
@@ -2563,7 +2614,8 @@ package body Sem_Ch12 is
               and then Expander_Active
               and then (not Is_Child_Unit (Gen_Unit)
                          or else not Is_Generic_Unit (Scope (Gen_Unit)))
-              and then Is_In_Main_Unit (N)
+              and then (Is_In_Main_Unit (N)
+                          or else In_Main_Context (Current_Scope))
               and then Nkind (Parent (N)) /= N_Compilation_Unit
               and then Might_Inline_Subp
               and then not Is_Actual_Pack
@@ -2836,6 +2888,17 @@ package body Sem_Ch12 is
 
       if Inline_Now then
          Inline_Instance_Body (N, Gen_Unit, Act_Decl);
+      end if;
+
+      --  The following is a tree patch for ASIS: ASIS needs separate nodes
+      --  to be used as defining identifiers for a formal package and for the
+      --  corresponding expanded package
+
+      if Nkind (N) = N_Formal_Package_Declaration then
+         Act_Decl_Id := New_Copy (Defining_Entity (N));
+         Set_Comes_From_Source (Act_Decl_Id, True);
+         Set_Is_Generic_Instance (Act_Decl_Id, False);
+         Set_Defining_Identifier (N, Act_Decl_Id);
       end if;
 
    exception
@@ -5773,6 +5836,51 @@ package body Sem_Ch12 is
    end In_Same_Declarative_Part;
 
    ---------------------
+   -- In_Main_Context --
+   ---------------------
+
+   function In_Main_Context (E : Entity_Id) return Boolean is
+      Context : List_Id;
+      Clause  : Node_Id;
+      Nam     : Node_Id;
+
+   begin
+      if not Is_Compilation_Unit (E)
+        or else Ekind (E) /= E_Package
+        or else In_Private_Part (E)
+      then
+         return False;
+      end if;
+
+      Context := Context_Items (Cunit (Main_Unit));
+
+      Clause  := First (Context);
+      while Present (Clause) loop
+         if Nkind (Clause) = N_With_Clause then
+            Nam := Name (Clause);
+
+            --  If the current scope is part of the context of the main unit,
+            --  analysis of the corresponding with_clause is not complete, and
+            --  the entity is not set. We use the Chars field directly, which
+            --  might produce false positives in rare cases, but guarantees
+            --  that we produce all the instance bodies we will need.
+
+            if (Nkind (Nam) = N_Identifier
+                 and then Chars (Nam) = Chars (E))
+              or else (Nkind (Nam) = N_Selected_Component
+                        and then Chars (Selector_Name (Nam)) = Chars (E))
+            then
+               return True;
+            end if;
+         end if;
+
+         Next (Clause);
+      end loop;
+
+      return False;
+   end In_Main_Context;
+
+   ---------------------
    -- Inherit_Context --
    ---------------------
 
@@ -6899,10 +7007,12 @@ package body Sem_Ch12 is
 
       --  The generic instantiation freezes the actual. This can only be
       --  done once the actual is resolved, in the analysis of the renaming
-      --  declaration. To indicate that must be done, we set the corresponding
-      --  spec of the node to point to the formal subprogram entity.
+      --  declaration. To make the formal subprogram entity available, we set
+      --  Corresponding_Formal_Spec to point to the formal subprogram entity.
+      --  This is also needed in Analyze_Subprogram_Renaming for the processing
+      --  of formal abstract subprograms.
 
-      Set_Corresponding_Spec (Decl_Node, Analyzed_S);
+      Set_Corresponding_Formal_Spec (Decl_Node, Analyzed_S);
 
       --  We cannot analyze the renaming declaration, and thus find the
       --  actual, until the all the actuals are assembled in the instance.
@@ -8848,9 +8958,11 @@ package body Sem_Ch12 is
                  and then P /= Current_Scope
                then
                   --  We are within an instance of some sibling. Retain
-                  --  visibility of parent, for proper subsequent cleanup.
+                  --  visibility of parent, for proper subsequent cleanup,
+                  --  and reinstall private declarations as well.
 
                   Set_In_Private_Part (P);
+                  Install_Private_Declarations (P);
                end if;
 
             --  This looks incomplete: what about compilation units that

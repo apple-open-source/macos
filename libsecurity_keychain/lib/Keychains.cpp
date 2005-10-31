@@ -322,6 +322,29 @@ KeychainImpl::create()
 	create(&rcc);
 }
 
+void KeychainImpl::createWithBlob(CssmData &blob)
+{
+	mDb->dbInfo(&Schema::DBInfo);
+	AclFactory aclFactory;
+	AclFactory::AnyResourceContext rcc(aclFactory.unlockCred());
+	mDb->resourceControlContext (&rcc);
+	try
+	{
+		mDb->createWithBlob(blob);
+	}
+	catch (...)
+	{
+		mDb->resourceControlContext(NULL);
+		mDb->dbInfo(NULL);
+		throw;
+	}
+	mDb->resourceControlContext(NULL);
+	mDb->dbInfo(NULL); // Clear the schema (to not break an open call later)
+	globals().storageManager.created(Keychain(this));
+
+    KCEventNotifier::PostKeychainEvent (kSecKeychainListChangedEvent, this, NULL);
+}
+	
 void
 KeychainImpl::create(const ResourceControlContext *rcc)
 {

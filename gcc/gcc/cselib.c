@@ -1,6 +1,6 @@
 /* Common subexpression elimination library for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -704,8 +704,11 @@ new_cselib_val (unsigned int value, enum machine_mode mode)
   gcc_assert (value);
 
   e->value = value;
-  /* We use custom method to allocate this RTL construct because it accounts
-     about 8% of overall memory usage.  */
+  /* We use an alloc pool to allocate this RTL construct because it
+     accounts for about 8% of the overall memory usage.  We know
+     precisely when we can have VALUE RTXen (when cselib is active)
+     so we don't need to put them in garbage collected memory.
+     ??? Why should a VALUE be an RTX in the first place?  */
   e->u.val_rtx = pool_alloc (value_pool);
   memset (e->u.val_rtx, 0, RTX_HDR_SIZE);
   PUT_CODE (e->u.val_rtx, VALUE);
@@ -1145,8 +1148,9 @@ cselib_invalidate_mem (rtx mem_rtx)
 void
 cselib_invalidate_rtx (rtx dest)
 {
-  while (GET_CODE (dest) == STRICT_LOW_PART || GET_CODE (dest) == SIGN_EXTRACT
-	 || GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SUBREG)
+  while (GET_CODE (dest) == SUBREG
+	 || GET_CODE (dest) == ZERO_EXTRACT
+	 || GET_CODE (dest) == STRICT_LOW_PART)
     dest = XEXP (dest, 0);
 
   if (REG_P (dest))
@@ -1346,8 +1350,6 @@ cselib_process_insn (rtx insn)
 
   if (find_reg_note (insn, REG_LIBCALL, NULL))
     cselib_current_insn_in_libcall = true;
-  if (find_reg_note (insn, REG_RETVAL, NULL))
-    cselib_current_insn_in_libcall = false;
   cselib_current_insn = insn;
 
   /* Forget everything at a CODE_LABEL, a volatile asm, or a setjmp.  */
@@ -1358,12 +1360,16 @@ cselib_process_insn (rtx insn)
 	  && GET_CODE (PATTERN (insn)) == ASM_OPERANDS
 	  && MEM_VOLATILE_P (PATTERN (insn))))
     {
+      if (find_reg_note (insn, REG_RETVAL, NULL))
+        cselib_current_insn_in_libcall = false;
       clear_table ();
       return;
     }
 
   if (! INSN_P (insn))
     {
+      if (find_reg_note (insn, REG_RETVAL, NULL))
+        cselib_current_insn_in_libcall = false;
       cselib_current_insn = 0;
       return;
     }
@@ -1402,6 +1408,8 @@ cselib_process_insn (rtx insn)
       if (GET_CODE (XEXP (x, 0)) == CLOBBER)
 	cselib_invalidate_rtx (XEXP (XEXP (x, 0), 0));
 
+  if (find_reg_note (insn, REG_RETVAL, NULL))
+    cselib_current_insn_in_libcall = false;
   cselib_current_insn = 0;
 
   if (n_useless_values > MAX_USELESS_VALUES)

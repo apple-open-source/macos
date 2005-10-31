@@ -1,0 +1,88 @@
+#AdministrationHeader("#adminResource('edit.flavors.page.header' 'Edit Flavors')")
+
+<body>
+    <div id="wrap">
+
+        <h1>Blosjom Administration Interface</h1>
+
+        <div id="login">
+            <p>Logged in as: <a href="#" title="view info">$BLOJSOM_ADMIN_PLUGIN_USERNAME</a> : <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=logout" title="log out">#adminResource('logout.text' '')</a></p>
+            <p>Logged in to: <a href="$BLOJSOM_BLOG.getBlogURL()" title="view site info">$BLOJSOM_BLOG.getBlogName()</a></p>
+        </div>
+
+        <ul id="nav">
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="#">#adminResource('entries.page.header' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('add.entry.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=page">#adminResource('edit.and.delete.entries.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('weblog.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-permissions&action=page">#adminResource('permissions.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('plugin.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('configure.plugin.mappings.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
+                </ul>
+            </li>
+        </ul>
+
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
+
+                <!-- Update show me more plugin settings -->
+                <div class="mainClm">
+                    <h3>#adminResource('update.showmemore.settings.text' 'Update Show Me More settings')</h3>
+                    <table>
+                        <form name="update-showmemore-settings" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="update-showmemore-settings"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="show-me-more-admin"/>
+                            <tr>
+                                <td>#adminResource('entry.length.cutoff.text' 'Cutoff length (-1 to disable)')</td>
+                                <td><input type="text" size="5" name="entry-length-cutoff" value="$!SHOWMEMORE_CONFIGURATION.getCutoff()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('entry.text.cutoff.text' 'Entry text cutoff')</td>
+                                <td><input type="text" size="30" name="entry-text-cutoff" value="$!SHOWMEMORE_CONFIGURATION.getTextCutoff()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('show.me.more.text' 'Show Me More text')</td>
+                                <td><input type="text" size="30" name="show-me-more-text" value="$!SHOWMEMORE_CONFIGURATION.getMoreText()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('text.cutoff.start.text' 'Starting tag for text cuttoff')</td>
+                                <td><input type="text" size="30" name="entry-text-cutoff-start" value="$!SHOWMEMORE_CONFIGURATION.getTextCutoffStart()"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('text.cutoff.end.text' 'Ending tag for text cuttoff')</td>
+                                <td><input type="text" size="30" name="entry-text-cutoff-end" value="$!SHOWMEMORE_CONFIGURATION.getTextCutoffEnd()"/></td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('update.showmemore.settings.text' 'Update Show Me More settings')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+#AdministrationFooter()

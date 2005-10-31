@@ -1,5 +1,6 @@
 # Top level -*- makefile -*- fragment for GNU C++.
-#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+#   2005
 #   Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -94,17 +95,17 @@ CXX_AND_OBJCXX_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
  cp/cp-gimplify.o tree-mudflap.o $(CXX_C_OBJS)
 
 # Language-specific object files for C++.
-# APPLE LOCAL debugging
-CXX_OBJS = cp/cp-lang.o stub-objc.o $(CXX_AND_OBJCXX_OBJS)  cp/cp-idebug.o # cp/cp-dmp-tree.o
+CXX_OBJS = cp/cp-lang.o stub-objc.o $(CXX_AND_OBJCXX_OBJS)
 
 # Use strict warnings for this front end.
-cp-warn = $(STRICT_WARN) $(WERROR)
+cp-warn = $(STRICT_WARN)
 
-# APPLE LOCAL order files  --ilr
+# APPLE LOCAL begin order files  --ilr
 cc1plus$(exeext): $(CXX_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 	      $(CXX_OBJS) $(BACKEND) $(LIBS) \
 	      $(CC1PLUS_ORDER_FLAGS)
+# APPLE LOCAL end order files  --ilr
 
 # Special build rules.
 $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
@@ -239,12 +240,15 @@ cp/lex.o: cp/lex.c $(CXX_TREE_H) $(TM_H) flags.h \
 cp/cp-lang.o: cp/cp-lang.c $(CXX_TREE_H) $(TM_H) toplev.h debug.h langhooks.h \
   $(LANGHOOKS_DEF_H) c-common.h gtype-cp.h $(CXX_PRETTY_PRINT_H) $(DIAGNOSTIC_H) \
   cp/cp-objcp-common.h
-cp/decl.o: cp/decl.c $(CXX_TREE_H) $(TM_H) flags.h cp/decl.h stack.h \
+# APPLE LOCAL begin optimization pragmas 3124235/3420242
+cp/decl.o: cp/decl.c $(CXX_TREE_H) $(TM_H) flags.h cp/decl.h \
   output.h $(EXPR_H) except.h toplev.h $(HASHTAB_H) $(RTL_H) \
   cp/operators.def $(TM_P_H) tree-inline.h diagnostic.h c-pragma.h \
-  debug.h gt-cp-decl.h timevar.h $(TREE_FLOW_H)
+  debug.h gt-cp-decl.h timevar.h $(TREE_FLOW_H) opts.h
+# APPLE LOCAL end optimization pragmas 3124235/3420242
 cp/decl2.o: cp/decl2.c $(CXX_TREE_H) $(TM_H) flags.h cp/decl.h $(EXPR_H) \
-  output.h except.h toplev.h $(RTL_H) c-common.h gt-cp-decl2.h cgraph.h
+  output.h except.h toplev.h $(RTL_H) c-common.h gt-cp-decl2.h cgraph.h \
+  c-pragma.h
 cp/cp-objcp-common.o : cp/cp-objcp-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
   $(TM_H) $(TREE_H) $(CXX_TREE_H) c-common.h toplev.h langhooks.h \
   $(LANGHOOKS_DEF_H) $(DIAGNOSTIC_H) debug.h $(CXX_PRETTY_PRINT_H) \
@@ -262,21 +266,21 @@ cp/init.o: cp/init.c $(CXX_TREE_H) $(TM_H) flags.h $(RTL_H) $(EXPR_H) toplev.h \
 cp/method.o: cp/method.c $(CXX_TREE_H) $(TM_H) toplev.h $(RTL_H) $(EXPR_H) \
   $(TM_P_H) $(TARGET_H) gt-cp-method.h
 cp/cvt.o: cp/cvt.c $(CXX_TREE_H) $(TM_H) cp/decl.h flags.h toplev.h convert.h
-cp/search.o: cp/search.c $(CXX_TREE_H) $(TM_H) stack.h flags.h toplev.h $(RTL_H)
-# APPLE LOCAL begin Objective-C++
+cp/search.o: cp/search.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H)
+# APPLE LOCAL begin mainline
 cp/tree.o: cp/tree.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H) \
   insn-config.h integrate.h tree-inline.h real.h gt-cp-tree.h $(TARGET_H) debug.h
-# APPLE LOCAL end Objective-C++
+# APPLE LOCAL end mainline
 cp/ptree.o: cp/ptree.c $(CXX_TREE_H) $(TM_H)
 cp/rtti.o: cp/rtti.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h convert.h
 cp/except.o: cp/except.c $(CXX_TREE_H) $(TM_H) flags.h $(RTL_H) except.h toplev.h \
   cp/cfns.h $(EXPR_H) libfuncs.h tree-inline.h
 cp/expr.o: cp/expr.c $(CXX_TREE_H) $(TM_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
   except.h $(TM_P_H)
-# APPLE LOCAL begin Objective-C++
+# APPLE LOCAL begin mainline
 cp/pt.o: cp/pt.c $(CXX_TREE_H) $(TM_H) cp/decl.h cp/cp-objcp-common.h \
-  toplev.h $(RTL_H) except.h tree-inline.h pointer-set.h gt-cp-pt.h c-common.h
-# APPLE LOCAL end Objective-C++
+  toplev.h $(RTL_H) except.h tree-inline.h pointer-set.h gt-cp-pt.h
+# APPLE LOCAL end mainline
 cp/error.o: cp/error.c $(CXX_TREE_H) $(TM_H) toplev.h $(DIAGNOSTIC_H) \
   flags.h real.h $(LANGHOOKS_DEF_H) $(CXX_PRETTY_PRINT_H)
 cp/repo.o: cp/repo.c $(CXX_TREE_H) $(TM_H) toplev.h diagnostic.h \
@@ -287,26 +291,13 @@ cp/semantics.o: cp/semantics.c $(CXX_TREE_H) $(TM_H) except.h toplev.h \
 cp/dump.o: cp/dump.c $(CXX_TREE_H) $(TM_H) tree-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) $(TM_H) rtl.h integrate.h insn-config.h \
   input.h $(PARAMS_H) debug.h tree-inline.h tree-gimple.h $(TARGET_H)
-# APPLE LOCAL debugging
-# Suppress all warnings explicitly for the idebug builds since there can be
-# many when, and if, -traditional-cpp is used.
-cp/cp-idebug.o: cp/cp-idebug.c $(CXX_TREE_H) $(TM_H) $(RTL_H) flags.h idebug.c
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(BIG_SWITCHFLAG) \
-		-w -Wno-traditional $(srcdir)/cp/cp-idebug.c -o cp/cp-idebug.o
-
-# APPLE LOCAL new tree dump
-cp/cp-dmp-tree.o: cp/cp-dmp-tree.c $(CXX_TREE_H) $(SYSTEM_H) $(TM_H) coretypes.h \
-  dmp-tree.h c-dmp-tree.c
-
 cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h \
   $(TARGET_H) $(TM_P_H)
 
-# APPLE LOCAL begin Objective-C++
 cp/parser.o: cp/parser.c $(CXX_TREE_H) $(TM_H) diagnostic.h gt-cp-parser.h \
-  output.h c-common.h
-# APPLE LOCAL end Objective-C++
+  output.h
 cp/cp-gimplify.o: cp/cp-gimplify.c $(CXX_TREE_H) toplev.h c-common.h \
-	$(TM_H) coretypes.h
+	$(TM_H) coretypes.h pointer-set.h
 
 cp/name-lookup.o: cp/name-lookup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 	$(TM_H) $(CXX_TREE_H) timevar.h gt-cp-name-lookup.h toplev.h \

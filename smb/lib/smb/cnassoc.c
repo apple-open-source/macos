@@ -52,6 +52,7 @@
 #include <cncall.h>     /* NCA connection call service */
 #include <cnassoc.h>    
 #include <rpc_cleanup.h>
+#include <rpcdbg.h>
 
 /******************************************************************************/
 /*
@@ -305,7 +306,7 @@ PRIVATE rpc_cn_assoc_t *rpc__cn_assoc_request
     rpc_cn_assoc_grp_t  *volatile assoc_grp;
     rpc_addr_p_t        rpc_addr;
     volatile unsigned32 wait_interval, total_wait;
-    rpc_cn_local_id_t   grp_id;
+    volatile rpc_cn_local_id_t   grp_id;
     volatile rpc_cn_local_id_t rem_grp_id;
     struct timespec     timespec;
     struct timespec     abstime;
@@ -1738,7 +1739,7 @@ PRIVATE void rpc__cn_assoc_send_frag
 		dce_error_string_t error_text;
 		int temp_status;
 
-		dce_error_inq_text(*st, error_text, &temp_status);
+		dce_error_inq_text(*st, (unsigned char *)error_text, &temp_status);
 
 		/*
 		 * rpc_m_call_failed_s
@@ -1796,7 +1797,7 @@ PRIVATE void rpc__cn_assoc_send_frag
     }
     else
     {
-        requestbuf = iovp->base;
+        requestbuf = (char *)(iovp->base);
     }
 
     /*
@@ -3296,7 +3297,7 @@ PRIVATE rpc_cn_sec_context_t *rpc__cn_assoc_sec_alloc
             dce_error_string_t error_text;
             int temp_status;
 
-            dce_error_inq_text(*st, error_text, &temp_status);
+            dce_error_inq_text(*st, (unsigned char *)error_text, &temp_status);
 
 	    /*
 	     * rpc_m_call_failed_s
@@ -5131,7 +5132,11 @@ PRIVATE rpc_cn_local_id_t rpc__cn_assoc_grp_lkup_by_id
 )
 {
     rpc_cn_assoc_grp_t  *assoc_grp;
+#if 1 /* Temporary kludge for gcc4 bug: */
+    volatile rpc_cn_local_id_t   ret_grp_id;
+#else
     rpc_cn_local_id_t   ret_grp_id;
+#endif /* End gcc4 kludge */
 
     RPC_LOG_CN_GRP_ID_LKUP_NTR;
     RPC_CN_DBG_RTN_PRINTF(rpc__cn_assoc_grp_lkup_by_id);

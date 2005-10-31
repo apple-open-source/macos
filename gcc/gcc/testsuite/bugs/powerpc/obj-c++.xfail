@@ -10,6 +10,3 @@
 ### file and make sure the Radar is closed.
 ###
 ###------------------------------------------------------------------
-#3863563: obj-c++.dg/basic.mm (test for excess errors)
-#3869273: obj-c++.dg/cxx-ivars-2.mm execution test
-#3869280: obj-c++.dg/template-4.mm (test for excess errors)

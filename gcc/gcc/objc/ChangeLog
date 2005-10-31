@@ -1,3 +1,149 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-03-30  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/772
+	PR c/17913
+	* objc-act.c (objc_start_function): Push context on
+	label_context_stack.
+
+2005-01-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* lang-specs.h, objc-act.c, objc-act.h, objc-lang.c: Update
+	copyright.
+
+2005-01-27  Matt Austern  <austern@apple.com>
+
+	* objc-act.c (objc_finish_file): In ObjC++ mode, set at_eof before
+	calling instantiate_pending_templates.
+	
+2005-01-26  Alexander Malmberg  <alexander@malmberg.org>
+
+	PR objc/18862
+	* objc-act.c (build_selector_translation_table): Use
+	input_location in the diagnostic for the GNU runtime or if
+	TREE_PURPOSE (chain) is NULL.
+
+2005-01-25  Alexander Malmberg  <alexander@malmberg.org>
+
+	PR objc/18408
+	* objc-act.c (objc_types_compatible_p): New function.
+	* objc-act.h (objc_types_compatible_p): Declare.
+	* objc-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Define.
+
+2005-01-16  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_push_parm): Call c_type_promotes_to()
+	via a lang-hook.
+
+2005-01-15  Ziemowit Laski  <zlaski@apple.com>
+
+	PR objc/19321
+	* objc-act.c (get_arg_type_list): Decay function arguments into
+	pointers.
+	(objc_push_parm): Likewise; bring PARM_DECL construction closer
+	in line with what the C front-end does.
+	(objc_get_parm_info): Call pushdecl() and finish_decl() on
+	each PARM_DECL, like the C front-end does.
+	(start_method_def): Remove redundant ARRAY_TYPE decay.
+	(objc_start_function): Bring closer in line with what the
+	C front-end does for functions.
+
+2005-01-14  Mike Stump  <mrs@apple.com>
+
+	* lang-specs.h ("@objective-c"): Use cc1obj when -E is used so
+	that -fobjc-exceptions is accepted.
+
+2004-12-30  Ziemowit Laski  <zlaski@apple.com>
+
+	PR objc/18971
+	* objc-act.c (get_arg_type_list, start_method_def): Decay
+	array arguments into pointers.
+	(gen_type_name_0): Learn to pretty-print array types.
+
+2004-12-15  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (build_private_template): Change to return 'void'; do
+	not set ivar_context, uprivate_record or objc_instance_type.
+	(objc_comptypes, gen_type_name_0): For types 'id' and 'Class',
+	retrieve protocol list from the pointee rather than the pointer itself;
+	check TYPE_HAS_OBJC_INFO(...) precondition before accessing
+	TYPE_OBJC_PROTOCOL_LIST.
+	(objc_get_protocol_qualified_type): For types 'id' and 'Class',
+	construct a variant of the pointee as well as the pointer, and
+	store protocol information in the former.  When creating variants
+	of RECORD_TYPEs, clone their TYPE_LANG_SPECIFIC fields and propagate
+	TYPE_OBJC_INTERFACE information.
+	(objc_declare_class): If a TYPE_DECL is looked up, retrieve the
+	underlying RECORD_TYPE to check for presence of TYPE_OBJC_INTERFACE;
+	for newly-created RECORD_TYPEs, create a tentative TYPE_OBJC_INTERFACE
+	holding an IDENTIFIER_NODE.
+	(objc_finish_message_expr): Check TYPE_HAS_OBJC_INFO(...) before
+	accessing TYPE_OBJC_PROTOCOL_LIST; Use TYPE_OBJC_INTERFACE instead
+	of calling lookup_interface(); allow for TYPE_OBJC_INTERFACE holding
+	an IDENTIFIER_NODE (meaning a @class forward-declaration only).
+	(objc_is_public): Check TYPE_OBJC_INTERFACE instead of calling
+	lookup_interface().
+	(continue_class): For @implementations, set ivar_context,
+	uprivate_record and objc_instance_type, for @interfaces, call
+	build_private_template().
+	(encode_pointer): Check TYPE_HAS_OBJC_INFO(...) before accessing
+	TYPE_OBJC_INTERFACE.
+	(objc_types_are_equivalent): Check TYPE_HAS_OBJC_INFO(...) before
+	accessing TYPE_OBJC_PROTOCOL_LIST.
+	* objc-act.h (OBJC_INFO_SLOT_ELTS, TYPE_OBJC_INFO, INIT_TYPE_OBJC_INFO,
+	DUP_TYPE_OBJC_INFO, ALLOC_OBJC_TYPE_LANG_SPECIFIC, 
+	SIZEOF_OBJC_TYPE_LANG_SPECIFIC): New macros.
+	(TYPE_OBJC_INTERFACE): Replaces TREE_STATIC_INSTANCE and now points
+	to an actual @interface; stored in TYPE_LANG_SPECIFIC(...).
+	(TYPE_OBJC_PROTOCOL_LIST): Replaces TYPE_PROTOCOL_LIST; stored in
+	TYPE_LANG_SPECIFIC(...).
+	(TREE_STATIC_INSTANCE, TYPE_PROTOCOL_LIST): Delete.
+	(IS_ID, IS_CLASS, IS_PROTOCOL_QUALIFIED_UNTYPED, IS_SUPER,
+	TYPED_OBJECT): Check for POINTER_TYPE rather than POINTER_TYPE_P;
+	adjust for use of TYPE_OBJC_INTERFACE and TYPE_OBJC_PROTOCOL_LIST
+	instead of TREE_STATIC_INSTANCE and TYPE_PROTOCOL_LIST.
+
+2004-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/7544
+	* Make-lang.in (objc/objc-act.o): Update dependencies.
+	* objc-act.c (objc_finish_file): Call
+	maybe_apply_pending_pragma_weaks if not OBJCPLUS.
+
+2004-11-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/18406
+	* obj-act.c (encode_type): 96bits doubles are encoded the
+	same way as 64bit and 128bit doubles are.
+
+2004-11-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* objc-act.c: Use %q, %< and %> for quoting in diagnostics.
+
+2004-11-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/16546
+	* objc-act.c (generate_method_descriptors): Remove setting
+	the new decls' type to variable_length_type.
+	(generate_ivar_lists): Likewise.
+	(generate_dispatch_tables): Likewise.
+
+2004-10-30  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_lookup_ivar): The new OTHER parameter
+	contains the result of the ID lookup by the C or C++
+	front-end; in class methods, use OTHER if it exists;
+	in instance methods, use OTHER only if it is locally
+	declared.
+
+2004-10-26  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (finish_class): Do not synthesize bogus
+	'extern objc_object *_Foo;' declarations for @interface Foo.
+
 2004-10-25  Ziemowit Laski  <zlaski@apple.com>
 	    David Ayers  <d.ayers@inode.at>
 

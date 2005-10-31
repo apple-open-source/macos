@@ -1,58 +1,61 @@
-<!-- #bbinclude "header.html"
+<!-- #bbinclude "header.template"
    #PAGETITLE#="Kerberos Login and Logout Plugin API"
    #BASEHREF#=""
 -->
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML> 
-<HEAD>  
-	<TITLE> Kerberos Login and Logout Plugin API </TITLE>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/KerberosFramework/KerberosLogin/Documentation/LoginLogoutNotification.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Kerberos Login and Logout Plugin API</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../../Common/Documentation/templates/site.css);
+	</STYLE>
 </HEAD>
-<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
-<CENTER>
-	<TABLE BORDER=0 CELLSPACING=8>
-		<TR> 
-			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
-			<TD><BR><H1>Macintosh Development</H1></TD> 
-		</TR>
-	</TABLE> <P>
-	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
-	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] <BR>
-	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">Kerberos for Macintosh</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
-</CENTER> <HR>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
+<!-- end bbinclude -->
+<!-- #bbinclude "icon.template" #ICON#="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif" 
+	#TEXT#="<H2>Kerberos Login and Logout Plugin API</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Kerberos Login and Logout Plugin API</H2> </TD>
+   </TR>
+</TABLE>
 <!-- end bbinclude -->
 
-<TABLE BORDER=0 CELLSPACING=4>
-   <TR>
-      <TD>
-         <P><IMG
-         SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"
-         WIDTH=32 HEIGHT=32 X-SAS-UseImageWidth X-SAS-UseImageHeight
-         ALIGN=bottom>
-      </TD><TD>
-         <P><B><FONT SIZE="+3">Kerberos Login and Logout Plugin API</FONT></B>
-      </TD></TR>
-</TABLE></P>
+<P CLASS=small><I>This documentation applies to Mac OS X 10.2 and later.</I></P>
 
-<P>
-<B>This documentation applies to Mac OS X 10.2 and later.</B>
-</P>
-
-<H2><A NAME="Purpose"></A>Purpose of login and logout plugins</H2>
+<H3><A NAME="Purpose"></A>Purpose of login and logout plugins</H3>
 
 <P>Login and logout plugins are called whenever a user logs in or logs out. They can be used, for example, to communicate with other authentication systems which require
 Kerberos tickets, or to automatically mount network volumes which require Kerberos authentication.</P>
 
 <P>Login and logout plugins are invoked by the Kerberos Login API whenever any of the login and logout functions in the Kerberos Login API is called.</P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="Configuration"></A>Configuration of login and logout plugins</H2>
+<H3><A NAME="Configuration"></A>Configuration of login and logout plugins</H3>
 
 <P>In order to activate a login and logout plugin, the <CODE>libdefaults</CODE> section in the <code>edu.mit.Kerberos</code> file has to include a <CODE>login_logout_notification</CODE> line:</P>
 
@@ -66,11 +69,9 @@ Kerberos tickets, or to automatically mount network volumes which require Kerber
 
 <P>The plugin file itself has to be located in the directory <CODE>/Library/Kerberos Plug-Ins/</CODE> (note space and hyphen) - you may have to create this directory if it doesn't already exist.  
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="Format"></A>Format of login and logout plugins</H2>
+<H3><A NAME="Format"></A>Format of login and logout plugins</H3>
 
 <P>A login and logout plugin imust be a Mach-O bundle with a name ending in "<CODE>.loginLogout</CODE>".</P>
 
@@ -78,11 +79,9 @@ Kerberos tickets, or to automatically mount network volumes which require Kerber
 
 <P>The plugin can contain any other code, data, or resources, but be mindful that it can be executed by arbitrary applications, and therefore should be careful not to affect the application's resources or resource handling.</P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="Functions"></A>Functions exported by a login/logout plugin</H2>
+<H3><A NAME="Functions"></A>Functions exported by a login/logout plugin</H3>
 
 <P>All three of these functions must be exported by every login/logout plugin. All functions use C linkage and standard Mach-O calling conventions.</P>
 
@@ -259,28 +258,25 @@ void KerberosLoginNotification_Logout (
 }
 </CODE></PRE>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="Errors"></A>Error handling in login and logout plugins</H2>
+<H3><A NAME="Errors"></A>Error handling in login and logout plugins</H3>
 
 <P><CODE>KerberosLoginNotification_Login()</CODE> is allowed to return private error codes. This error code will be propagated into the Kerberos Login API, which in turn calls <CODE>KLGetErrorString()</CODE> to translate the error into a message for the user. The private error codes must not conflict with any existing Mac OS error codes.<P>
 
 <P>In order to allow the Kerberos Login API to translate the plugin's error codes into user messages, the plugin should register its errors with the <A HREF="../../KerberosErrors/Documentation/index.html">KerberosErrors API</A>.  After that, errors returned by the plugin will be mapped to the strings in the plugin's error table.</P>
 
-<P><!-- #bbinclude "footer.html" -->
-<HR> 
-<P> 
-	<FONT SIZE="+1"> <B> 
-		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
-	</B> </FONT> <BR>
-	Last updated on $Date: 2003/11/18 21:12:23 $ <BR> 
-	Last modified by $Author: smcguire $<BR>
-
-</P>
+<P><!-- #bbinclude "footer.template" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2005 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2005/05/04 18:24:28 $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
 <!-- Begin MIT-use only web reporting counter -->
 	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
 <!-- End MIT-use only web reporting counter -->
-</BODY> </HTML>
+</BODY></HTML>
 <!-- end bbinclude -->

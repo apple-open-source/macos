@@ -50,6 +50,7 @@
 #define kIOUSBMassStoragePreferredSubclass		"Preferred Subclass"
 #define kIOUSBMassStoragePreferredProtocol		"Preferred Protocol"
 #define kIOUSBMassStorageResetOnResume			"Reset On Resume"
+#define kIOUSBMassStorageUseStandardUSBReset    "Use Standard USB Reset"
 #define kIOUSBMassStorageMaxLogicalUnitNumber	"Max Logical Unit Number"
 
 #pragma mark -
@@ -157,13 +158,14 @@ protected:
 		bool		fResetInProgress;
 		OSSet *		fClients;
 		IOUSBPipe * fPotentiallyStalledPipe;
-		
+		bool        fUseUSBResetNotBOReset;
 	};
     ExpansionData *				reserved;
 	
 	#define fResetInProgress		reserved->fResetInProgress
 	#define fClients				reserved->fClients
 	#define fPotentiallyStalledPipe	reserved->fPotentiallyStalledPipe
+    #define fUseUSBResetNotBOReset  reserved->fUseUSBResetNotBOReset
 	
 	// Enumerated constants used to control various aspects of this
 	// driver.
@@ -408,6 +410,8 @@ protected:
 		                	IOReturn		status,
 		                	UInt32			bufferSizeRemaining );
 
+    void                ResetDeviceNow( void );
+    
 	// Space reserved for future expansion.
     OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 3 );
     OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 4 );

@@ -1,4 +1,5 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- 
+ *
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
@@ -20,7 +21,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- */
 
 
 namespace ObjectFileMachO {
@@ -34,20 +34,23 @@ public:
 	virtual					~Reference();
 	
 	
-	virtual bool			isUnbound() const;
+	virtual bool			isTargetUnbound() const;
+	virtual bool			isFromTargetUnbound() const;
 	virtual bool			isWeakReference() const;
-	virtual bool			requiresRuntimeFixUp() const;
+	virtual bool			requiresRuntimeFixUp(bool slideable) const;
 	virtual bool			isLazyReference() const;
 	virtual Kind			getKind() const;
 	virtual uint64_t		getFixUpOffset() const;
 	virtual const char*		getTargetName() const;
 	virtual ObjectFile::Atom& getTarget() const;
 	virtual uint64_t		getTargetOffset() const;
+	virtual bool			hasFromTarget() const;
 	virtual ObjectFile::Atom& getFromTarget() const;
 	virtual const char*		getFromTargetName() const;
-	virtual void			setTarget(ObjectFile::Atom&);
+	virtual void			setTarget(ObjectFile::Atom&, uint64_t offset);
 	virtual void			setFromTarget(ObjectFile::Atom&);
 	virtual void			setFromTargetName(const char*);
+	virtual void			setFromTargetOffset(uint64_t);
 	virtual const char*		getDescription() const;
 	virtual uint64_t		getFromTargetOffset() const;
 	
@@ -165,7 +168,7 @@ protected:
 											Atom(Reader&, uint32_t offset);
 	virtual									~Atom();
 	
-	const macho_section*					findSectionFromOffset(macho_uintptr_t offset);
+	const macho_section*					findSectionFromOffset(uint32_t offset);
 	const macho_section*					getCommonsSection();
 	void									setSize(macho_uintptr_t);
 	void									setFollowOnAtom(Atom&);
@@ -205,7 +208,7 @@ Reader::Reader(const macho_header* header, const char* path, const ObjectFile::R
 
 Reader::Reader(const char* path)
  : fPath(NULL), fOptions(*(new ObjectFile::ReaderOptions())), fHeader(NULL), fStrings(NULL), fSymbols(NULL), fSymbolCount(0), fSegment(NULL),
-	fNonAtomStabsStartIndex(0), fNonAtomStabsCount(0)
+	fIndirectTable(NULL), fNonAtomStabsStartIndex(0), fNonAtomStabsCount(0)
 {
 	struct stat stat_buf;
 	
@@ -340,7 +343,7 @@ void Reader::init(const macho_header* header, const char* path)
 	
 	for (std::set<uint32_t>::iterator it=cleavePoints.begin(); it != cleavePoints.end(); it++) {
 		uint32_t cleavePoint = *it;
-		//printf("cleave offset 0x%08X\n", cleavePoint);
+		//printf("cleave offset 0x%08X, don't cleave=%d, isSymbol=%d\n", cleavePoint, dontCleavePoints.count(cleavePoint), symbolAtomOffsets.count(cleavePoint));
 		// only create an atom if it is not a don't-cleave point and there is not already an atom at this offset
 		if ( (dontCleavePoints.count(cleavePoint) == 0) && (symbolAtomOffsets.count(cleavePoint) == 0) )
 			fAtoms.push_back(new Atom(*this, cleavePoint));
@@ -394,6 +397,7 @@ void Reader::init(const macho_header* header, const char* path)
 				}
 			}
 		}
+
 	}
 
 	// process stabs debugging info
@@ -688,27 +692,75 @@ void Reader::addRelocReference(const macho_section* sect, const macho_relocation
 				{
 					srcAddr = sect->addr() + reloc->r_address();
 					Atom* srcAtom = findAtomCoveringOffset(srcAddr);
-					// lazy pointers have references to dyld_stub_binding_helper which need to be ignored
-					if ( (srcAtom->fSection->flags() & SECTION_TYPE) != S_LAZY_SYMBOL_POINTERS ) {
-						uint32_t offsetInSrcAtom = srcAddr - srcAtom->fOffset;
-						macho_uintptr_t pointerValue = ENDIAN_SWAP_POINTER(*((macho_uintptr_t*)fixUpPtr));
-						if ( reloc->r_extern() ) {
-							const macho_nlist* targetSymbol = &fSymbols[reloc->r_symbolnum()];
-							uint8_t type = targetSymbol->n_type() & N_TYPE;
-							if ( type == N_UNDF ) {
-								const char* targetName = &fStrings[targetSymbol->n_strx()];
-								macho_uintptr_t addend = pointerValue;
-								srcAtom->addByNameReference(offsetInSrcAtom, Reference::pointer, targetName, addend, 0);
+					uint32_t offsetInSrcAtom = srcAddr - srcAtom->fOffset;
+					macho_uintptr_t pointerValue = ENDIAN_SWAP_POINTER(*((macho_uintptr_t*)fixUpPtr));
+					if ( reloc->r_extern() ) {
+						const macho_nlist* targetSymbol = &fSymbols[reloc->r_symbolnum()];
+						uint8_t type = targetSymbol->n_type() & N_TYPE;
+						if ( type == N_UNDF ) {
+							const char* targetName = &fStrings[targetSymbol->n_strx()];
+							macho_uintptr_t addend = pointerValue;
+							// ppc lazy pointers have initial reference to dyld_stub_binding_helper
+							if ( (srcAtom->fSection->flags() & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ) {
+								std::vector<ObjectFile::Reference*>&  refs = srcAtom->getReferences();
+								if ( refs.size() > 0 ) {
+									Reference* ref = (Reference*)refs[0];
+		#if defined(ARCH_PPC64)
+									 // hack to work around bad crt1.o in Mac OS X 10.4
+									targetName = "dyld_stub_binding_helper";
+		#endif
+									ref->setFromTargetName(targetName);
+								}
+								else {
+									fprintf(stderr, "lazy pointer (%s) should only have one reference - has %ld references\n", srcAtom->getDisplayName(), refs.size());
+								}
+							} 
+		#if defined(ARCH_PPC64)
+							// hack to work around bad crt1.o in Mac OS X 10.4
+							else if ( (srcAtom->fSection->flags() & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS ) {
+								// ignore extra relocation
 							}
+		#endif
 							else {
-								dstAddr = targetSymbol->n_value();
-								Atom* dstAtom = findAtomCoveringOffset(dstAddr);
-								macho_uintptr_t addend = pointerValue;
-								srcAtom->addReference(offsetInSrcAtom, Reference::pointer, *dstAtom, addend, 0);
+								srcAtom->addByNameReference(offsetInSrcAtom, Reference::pointer, targetName, addend, 0);
 							}
 						}
 						else {
-							Atom* dstAtom = findAtomCoveringOffset(pointerValue);	
+							dstAddr = targetSymbol->n_value();
+							Atom* dstAtom = findAtomCoveringOffset(dstAddr);
+							macho_uintptr_t addend = pointerValue;
+							// ppc lazy pointers have initial reference to dyld_stub_binding_helper
+							if ( (srcAtom->fSection->flags() & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ) {
+								std::vector<ObjectFile::Reference*>&  refs = srcAtom->getReferences();
+								if ( refs.size() > 0 ) {
+									Reference* ref = (Reference*)refs[0];
+									ref->setFromTarget(*dstAtom);
+									ref->setFromTargetOffset(dstAddr - dstAtom->fOffset);
+								}
+								else {
+									fprintf(stderr, "lazy pointer (%s) should only have one reference - has %ld references\n", srcAtom->getDisplayName(), refs.size());
+								}
+							} 
+							else {
+								srcAtom->addReference(offsetInSrcAtom, Reference::pointer, *dstAtom, addend, 0);
+							}
+						}
+					}
+					else {
+						Atom* dstAtom = findAtomCoveringOffset(pointerValue);
+						// lazy pointers have references to dyld_stub_binding_helper which need to be ignored
+						if ( (srcAtom->fSection->flags() & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ) {
+							std::vector<ObjectFile::Reference*>&  refs = srcAtom->getReferences();
+							if ( refs.size() > 0 ) {
+								Reference* ref = (Reference*)refs[0];
+								ref->setFromTarget(*dstAtom);
+								ref->setFromTargetOffset(pointerValue - dstAtom->fOffset);
+							}
+							else {
+								fprintf(stderr, "lazy pointer (%s) should only have one reference - has %ld references\n", srcAtom->getDisplayName(), refs.size());
+							}
+						}
+						else {
 							srcAtom->addReference(offsetInSrcAtom, Reference::pointer, *dstAtom, pointerValue-dstAtom->fOffset, 0);
 						}
 					}
@@ -723,39 +775,51 @@ void Reader::addRelocReference(const macho_section* sect, const macho_relocation
 				{
 					srcAddr = sect->addr() + reloc->r_address();
 					src = findAtomCoveringOffset(srcAddr);
-					// lazy pointers have references to dyld_stub_binding_helper which need to be ignored
-					if ( (src->fSection->flags() & SECTION_TYPE) != S_LAZY_SYMBOL_POINTERS ) {
-						if ( reloc->r_length() != 2 )
-							throw "bad vanilla relocation length";
-						Reference::Kind kind;
-						macho_uintptr_t pointerValue = ENDIAN_SWAP_POINTER(*((macho_uintptr_t*)fixUpPtr));
-						if ( reloc->r_pcrel() ) {
-							kind = Reference::x86FixupBranch32;
-							pointerValue += reloc->r_address() + sizeof(macho_uintptr_t);
+					if ( reloc->r_length() != 2 )
+						throw "bad vanilla relocation length";
+					Reference::Kind kind;
+					macho_uintptr_t pointerValue = ENDIAN_SWAP_POINTER(*((macho_uintptr_t*)fixUpPtr));
+					if ( reloc->r_pcrel() ) {
+						kind = Reference::x86FixupBranch32;
+						pointerValue += srcAddr + sizeof(macho_uintptr_t);
+					}
+					else {
+						kind = Reference::pointer;
+					}
+					uint32_t offsetInSrcAtom = srcAddr - src->fOffset;
+					if ( reloc->r_extern() ) {
+						const macho_nlist* targetSymbol = &fSymbols[reloc->r_symbolnum()];
+						uint8_t type = targetSymbol->n_type() & N_TYPE;
+						if ( type == N_UNDF ) {
+							const char* targetName = &fStrings[targetSymbol->n_strx()];
+							macho_uintptr_t addend = pointerValue;
+							src->addByNameReference(offsetInSrcAtom, kind, targetName, addend, 0);
 						}
 						else {
-							kind = Reference::pointer;
+							dstAddr = targetSymbol->n_value();
+							dst = findAtomCoveringOffset(dstAddr);
+							macho_uintptr_t addend = pointerValue - dstAddr;
+							src->addReference(offsetInSrcAtom, kind, *dst, addend, 0);
 						}
-						uint32_t offsetInSrcAtom = srcAddr - src->fOffset;
-						if ( reloc->r_extern() ) {
-							const macho_nlist* targetSymbol = &fSymbols[reloc->r_symbolnum()];
-							uint8_t type = targetSymbol->n_type() & N_TYPE;
-							if ( type == N_UNDF ) {
-								const char* targetName = &fStrings[targetSymbol->n_strx()];
-								macho_uintptr_t addend = pointerValue;
-								src->addByNameReference(offsetInSrcAtom, kind, targetName, addend, 0);
+					}
+					else {
+						dst = findAtomCoveringOffset(pointerValue);	
+						// lazy pointers have references to dyld_stub_binding_helper which need to be ignored
+						if ( (src->fSection->flags() & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ) {
+							std::vector<ObjectFile::Reference*>&  refs = src->getReferences();
+							if ( refs.size() == 1 ) {
+								Reference* ref = (Reference*)refs[0];
+								ref->setFromTarget(*dst);
+								ref->setFromTargetOffset(pointerValue - dst->fOffset);
 							}
 							else {
-								dstAddr = targetSymbol->n_value();
-								dst = findAtomCoveringOffset(dstAddr);
-								macho_uintptr_t addend = pointerValue - dstAddr;
-								src->addReference(offsetInSrcAtom, kind, *dst, addend, 0);
+								fprintf(stderr, "lazy pointer (%s) should only have one reference - has %ld references\n", src->getDisplayName(), refs.size());
 							}
 						}
-						else {
-							dst = findAtomCoveringOffset(pointerValue);	
+						else if ( ((uint8_t*)fixUpPtr)[-1] == 0xE8 )  // special case call instruction
+							this->addCallSiteReference(*src, offsetInSrcAtom, kind, *dst, 0, pointerValue - dst->fOffset);
+						else
 							src->addReference(offsetInSrcAtom, kind, *dst, 0, 0);
-						}
 					}
 				}
 				break;
@@ -1005,6 +1069,10 @@ Atom* Reader::findAtomCoveringOffset(uint32_t offset)
 			// keep same base
 		}
 	}
+	// possible that last atom is zero length
+	Atom* lastAtom = fAtoms.back();
+	if ( (lastAtom->fOffset == offset) && (lastAtom->fSize == 0) )
+		return lastAtom;
 #else
 	const uint32_t atomCount = fAtoms.size();
 	for (uint32_t i=0; i < atomCount; ++i) {
@@ -1013,7 +1081,7 @@ Atom* Reader::findAtomCoveringOffset(uint32_t offset)
 			return atom;
 	}
 #endif
-	return NULL;
+	throwf("address 0x%08X is not in any atom", offset);
 }
 
 uint32_t Reader::findAtomIndex(const Atom& atom)
@@ -1169,11 +1237,16 @@ void Reader::buildOffsetsSet(const macho_relocation_info* reloc, const macho_sec
 					if  ( reloc->r_length() != 2 )
 						throw "vanilla pointer relocation found that is not 4-bytes";
 #endif
-					//fprintf(stderr, "pcrel=%d, len=%d, extern=%d, type=%d\n", reloc->r_pcrel(), reloc->r_length(), reloc->r_extern(), reloc->r_type());
+					//fprintf(stderr, "addr=0x%08X, pcrel=%d, len=%d, extern=%d, type=%d\n", reloc->r_address(), reloc->r_pcrel(), reloc->r_length(), reloc->r_extern(), reloc->r_type());
 					if ( !reloc->r_extern() ) {
 						macho_uintptr_t pointerValue = ENDIAN_SWAP_POINTER(*((macho_uintptr_t*)fixUpPtr));
+#if defined(ARCH_I386)
+					// i386 stubs have internal relocs that should not cause a cleave
+					if ( (sect->flags() & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS )
+						break;
+#endif
 						if ( reloc->r_pcrel() )
-							pointerValue += reloc->r_address() + sizeof(macho_uintptr_t);
+							pointerValue += reloc->r_address() + sect->addr() + sizeof(macho_uintptr_t);
 						// a pointer into code does not cleave the code (gcc always pointers to labels)
 						insertOffsetIfNotText(cleavePoints, pointerValue);
 					}
@@ -1407,7 +1480,6 @@ Atom::Atom(Reader& owner, const macho_nlist* symbol)
 					Reference* ref = this->addByNameReference(0, Reference::pointer, name, 0, 0);
 					if ( type == S_LAZY_SYMBOL_POINTERS ) {
 						ref->setLazy(true);
-						ref->setFromTargetName("dyld_stub_binding_helper");
 					}
 				}
 				break;
@@ -1465,7 +1537,6 @@ Atom::Atom(Reader& owner, uint32_t offset)
 				Reference* ref = this->addByNameReference(0, Reference::pointer, name, 0, 0);
 				if ( type == S_LAZY_SYMBOL_POINTERS ) {
 					ref->setLazy(true);
-					ref->setFromTargetName("dyld_stub_binding_helper");
 				}
 				const macho_nlist* sym = &fOwner.fSymbols[symbolIndex];
 				if ( (sym->n_type() & N_TYPE) == N_UNDF ) {
@@ -1770,15 +1841,13 @@ void Atom::writeContent(bool finalLinkedImage, ObjectFile::ContentWriter& writer
 			case Reference::pointer:
 				{
 					//fprintf(stderr, "writeContent: %s reference to %s\n", this->getDisplayName(), target.getDisplayName());
-					if ( target.isImportProxy() ) {
-						if ( ref->isLazyReference() && finalLinkedImage ) {
-							// lazy-symbol ==> pointer contains address of dyld_stub_binding_helper (stored in "from" target)
-							*((macho_uintptr_t*)instructionPtr) = ENDIAN_SWAP_POINTER(ref->getFromTarget().getAddress());
-						}
-						else {
-							// external realocation ==> pointer contains addend
-							*((macho_uintptr_t*)instructionPtr) = ENDIAN_SWAP_POINTER(ref->getTargetOffset());
-						}
+					if ( ref->isLazyReference() && finalLinkedImage ) {
+						// lazy-symbol ==> pointer contains address of dyld_stub_binding_helper (stored in "from" target)
+						*((macho_uintptr_t*)instructionPtr) = ENDIAN_SWAP_POINTER(ref->getFromTarget().getAddress());
+					}
+					else if ( target.isImportProxy() ) {
+						// external realocation ==> pointer contains addend
+						*((macho_uintptr_t*)instructionPtr) = ENDIAN_SWAP_POINTER(ref->getTargetOffset());
 					}
 					else {
 						// internal relocation
@@ -1806,8 +1875,8 @@ void Atom::writeContent(bool finalLinkedImage, ObjectFile::ContentWriter& writer
 					else {
 						const int64_t bl_eightMegLimit = 0x00FFFFFF;
 						if ( (displacement > bl_eightMegLimit) || (displacement < (-bl_eightMegLimit)) ) {
-							//fprintf(stderr, "bl out of range from %s in %s to %s in %s\n", this->getDisplayName(), this->getFile()->getPath(), target.getDisplayName(), target.getFile()->getPath());
-							throw "bl out of range";
+							//fprintf(stderr, "bl out of range (%lld max is +/-16M) from %s in %s to %s in %s\n", displacement, this->getDisplayName(), this->getFile()->getPath(), target.getDisplayName(), target.getFile()->getPath());
+							throwf("bl out of range (%lld max is +/-16M) from %s in %s to %s in %s", displacement, this->getDisplayName(), this->getFile()->getPath(), target.getDisplayName(), target.getFile()->getPath());
 						}
 					}
 					instruction = OSReadBigInt32(instructionPtr, 0);
@@ -1942,7 +2011,7 @@ void Atom::writeContent(bool finalLinkedImage, ObjectFile::ContentWriter& writer
 
 
 
-const macho_section* Atom::findSectionFromOffset(macho_uintptr_t offset)
+const macho_section* Atom::findSectionFromOffset(uint32_t offset)
 {
 	const macho_section* const sectionsStart = (const macho_section*)( (char*)fOwner.fSegment + sizeof(macho_segment_command) );
 	const macho_section* const sectionsEnd   = &sectionsStart[fOwner.fSegment->nsects()];
@@ -1950,7 +2019,7 @@ const macho_section* Atom::findSectionFromOffset(macho_uintptr_t offset)
 		if ( (s->addr() <= offset) && (offset < (s->addr()+s->size())) ) 
 			return s;
 	}
-	throw "section not found";
+	throwf("address 0x%08X is not in any section", offset);
 }
 
 void Atom::setSize(macho_uintptr_t size)
@@ -2073,13 +2142,14 @@ Reference::~Reference()
 {
 }
 
-bool Reference::isUnbound() const
+bool Reference::isTargetUnbound() const
 {
-	if ( fTarget == NULL ) 
-		return true;
-	if ( (fFromTargetName!=NULL) && (fFromTarget==NULL) )
-		return true;
-	return false;
+	return ( fTarget == NULL );
+}
+
+bool Reference::isFromTargetUnbound() const
+{
+	return ( fFromTarget == NULL );
 }
 
 bool Reference::isWeakReference() const
@@ -2087,9 +2157,24 @@ bool Reference::isWeakReference() const
 	return fWeak;
 }
 
-bool Reference::requiresRuntimeFixUp() const
+bool Reference::requiresRuntimeFixUp(bool slideable) const
 {
-	return ( fKind == Reference::pointer );
+	// This static linker only supports pure code (no code fixups are runtime)
+#if defined(ARCH_PPC) || defined(ARCH_PPC64)
+	// Only data can be fixed up, and the codegen assures only "pointers" need runtime fixups
+	return ( (fKind == Reference::pointer) && (fTarget->isImportProxy() || fTarget->isWeakDefinition() || slideable) );
+#elif defined(ARCH_I386)
+	// For i386, Reference::pointer is used for both data pointers and instructions with 32-bit absolute operands
+	if ( fKind == Reference::pointer ) {
+		if ( fTarget->isImportProxy() )
+			return true;
+		else
+			return slideable;
+	}
+	return false; 
+#else
+	#error
+#endif
 }
 
 bool Reference::isLazyReference() const
@@ -2119,15 +2204,21 @@ ObjectFile::Atom& Reference::getTarget() const
 	return *fTarget;
 }
 
-void Reference::setTarget(ObjectFile::Atom& target)
+void Reference::setTarget(ObjectFile::Atom& target, uint64_t offset)
 {
 	fTarget = &target;
+	fTargetOffset = offset;
 }
 
 
 ObjectFile::Atom& Reference::getFromTarget() const
 {
 	return *fFromTarget;
+}
+
+bool Reference::hasFromTarget() const
+{
+	return ( (fFromTarget != NULL) || (fFromTargetName != NULL) );
 }
 
 const char* Reference::getFromTargetName() const
@@ -2145,6 +2236,11 @@ void Reference::setFromTarget(ObjectFile::Atom& target)
 void Reference::setFromTargetName(const char* name)
 {
 	fFromTargetName = name;
+}
+
+void Reference::setFromTargetOffset(uint64_t offset)
+{
+	fFromTargetOffset = offset;
 }
 
 uint64_t Reference::getTargetOffset() const
@@ -2237,7 +2333,7 @@ const char* Reference::getDescription() const
 				// handled above
 				break;
 			case x86FixupBranch32:
-				sprintf(temp, "offset 0x%04llX, call pc-rel fixup to ", this->getFixUpOffset());
+				sprintf(temp, "offset 0x%04llX, pc-rel fixup to ", this->getFixUpOffset());
 				break;
 		}
 		// always quote by-name references
@@ -2256,8 +2352,15 @@ const char* Reference::getDescription() const
 			sprintf(&temp[strlen(temp)], " plus 0x%08llX", this->getTargetOffset());
 		if ( (fKind==pointer) && fLazy ) {
 			strcat(temp, " initially bound to \"");
-			strcat(temp, this->getFromTargetName());
-			strcat(temp, "\"");
+			if ( (fFromTarget != NULL) || (fFromTargetName != NULL) ) {
+				strcat(temp, this->getFromTargetName());
+				strcat(temp, "\"");
+				if ( this->getFromTargetOffset() != 0 ) 
+					sprintf(&temp[strlen(temp)], " plus 0x%08llX", this->getFromTargetOffset());
+			}
+			else {
+				strcat(temp, "\" << missing >>");
+			}
 		}
 	}
 	return temp;

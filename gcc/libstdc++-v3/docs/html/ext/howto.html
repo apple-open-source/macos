@@ -53,7 +53,7 @@
    <li><a href="mt_allocator.html"><code>__mt_alloc</code> </a></li>
    <li><a href="#4">Compile-time checks</a></li>
    <li><a href="#5">LWG Issues</a></li>
-   <li><a href="../18_support/howto.html#5">Demangling</a></li>
+   <li><a href="../18_support/howto.html#6">Demangling</a></li>
 </ul>
 
 <hr />
@@ -406,10 +406,16 @@
         However, no specification is given what this constructor should do.
     </dd>
 
+    <dt><a href="lwg-defects.html#243">243</a>:
+        <em>get and getline when sentry reports failure</em>
+    </dt>
+    <dd>Store a null character only if the character array has a non-zero size.
+    </dd>
+
     <dt><a href="lwg-defects.html#251">251</a>:
         <em>basic_stringbuf missing allocator_type</em>
     </dt>
-    <dd>This nested typdef was originally not specified.
+    <dd>This nested typedef was originally not specified.
     </dd>
 
     <dt><a href="lwg-defects.html#253">253</a>:
@@ -495,6 +501,18 @@
         <em>Wrong new expression in [some_]allocator::construct</em>
     </dt>
     <dd>Replace &quot;new&quot; with &quot;::new&quot;.
+    </dd>
+
+    <dt><a href="lwg-active.html#409">409</a>:
+        <em>Closing an fstream should clear the error state</em>
+    </dt>
+    <dd>Have <code>open</code> clear the error flags.
+    </dd>
+
+    <dt><a href="lwg-active.html#434">434</a>:
+        <em>bitset::to_string() hard to use</em>
+    </dt>
+    <dd>Add three overloads, taking fewer template arguments.
     </dd>
 
     <dt><a href="lwg-active.html#453">453</a>:

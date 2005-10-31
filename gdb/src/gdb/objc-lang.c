@@ -2228,6 +2228,9 @@ should_lookup_objc_class ()
    isa pointer, and see if you can find the type for its
    dynamic class type.  Will resolve typedefs etc...  */
 
+/* APPLE LOCAL: This is from objc-class.h:  */
+#define CLS_META 0x2L
+
 struct type *
 value_objc_target_type (struct value *val, struct block *block)
 {
@@ -2280,9 +2283,17 @@ value_objc_target_type (struct value *val, struct block *block)
 	  char class_name[256];
 	  CORE_ADDR isa_addr;
 	  CORE_ADDR name_addr;
+	  long info_field;
 
 	  isa_addr = 
 	    read_memory_unsigned_integer (value_as_address (val), 4);
+	  /* APPLE LOCAL: Don't look up the dynamic type if the isa is the
+	     MetaClass class, since then we are looking at the Class object
+	     which doesn't have the fields of an object of the class.  */
+	  info_field = read_memory_unsigned_integer (isa_addr + 16, 4);
+	  if (info_field & CLS_META)
+	    return NULL;
+
 	  name_addr =  read_memory_unsigned_integer (isa_addr + 8, 4);
 
 	  read_memory_string (name_addr, class_name, 255);

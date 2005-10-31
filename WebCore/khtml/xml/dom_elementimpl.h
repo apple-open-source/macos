@@ -66,6 +66,8 @@ public:
         { };
     virtual ~AttributeImpl() {};
     
+    MAIN_THREAD_ALLOCATED;
+
     const AtomicString& value() const { return _value; }
     const AtomicString& prefix() const { return _prefix; }
     NodeImpl::Id id() const { return m_id; }
@@ -168,13 +170,15 @@ public:
     void removeAttribute( NodeImpl::Id id, int &exceptioncode );
     bool hasAttributes() const;
     
+    void scrollIntoView (bool alignToTop);
+    
     DOMString prefix() const { return m_prefix; }
     void setPrefix(const DOMString &_prefix, int &exceptioncode );
 
     // DOM methods overridden from  parent classes
     virtual DOMString tagName() const;
     virtual unsigned short nodeType() const;
-    virtual NodeImpl *cloneNode ( bool deep );
+    virtual NodeImpl *cloneNode ( bool deep ) = 0;
     virtual DOMString nodeName() const;
     virtual bool isElementNode() const { return true; }
     virtual void insertedIntoDocument();
@@ -250,7 +254,7 @@ public:
     ~XMLElementImpl();
 
     // DOM methods overridden from  parent classes
-
+    virtual DOMString namespaceURI() const;
     virtual DOMString localName() const;
     virtual NodeImpl *cloneNode ( bool deep );
 

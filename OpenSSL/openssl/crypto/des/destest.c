@@ -431,7 +431,7 @@ int main(int argc, char *argv[])
 
 #ifndef LIBDES_LIT
 	printf("Doing ede ecb\n");
-	for (i=0; i<(NUM_TESTS-1); i++)
+	for (i=0; i<(NUM_TESTS-2); i++)
 		{
 		DES_set_key_unchecked(&key_data[i],&ks);
 		DES_set_key_unchecked(&key_data[i+1],&ks2);
@@ -439,8 +439,8 @@ int main(int argc, char *argv[])
 		memcpy(in,plain_data[i],8);
 		memset(out,0,8);
 		memset(outin,0,8);
-		des_ecb2_encrypt(&in,&out,ks,ks2,DES_ENCRYPT);
-		des_ecb2_encrypt(&out,&outin,ks,ks2,DES_DECRYPT);
+		des_ecb2_encrypt(in,out,ks,ks2,DES_ENCRYPT);
+		des_ecb2_encrypt(out,outin,ks,ks2,DES_DECRYPT);
 
 		if (memcmp(out,cipher_ecb2[i],8) != 0)
 			{

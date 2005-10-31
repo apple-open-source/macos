@@ -3056,6 +3056,9 @@ OP_E (int bytemode, int sizeflag)
       int base;
       int index = 0;
       int scale = 0;
+       /* APPLE LOCAL: The normal behavior is to show disp8/disp32 as hex 
+          (e.g.  -12 as 0xfffffff4.)  Let's not do that */
+      int display_onebyte_offset_as_hex = 0;
 
       havesib = 0;
       havebase = 1;
@@ -3102,7 +3105,9 @@ OP_E (int bytemode, int sizeflag)
       if (!intel_syntax)
 	if (mod != 0 || (base & 7) == 5)
 	  {
-	    print_operand_value (scratchbuf, !riprel, disp);
+	    print_operand_value (scratchbuf, 
+                                 !riprel && display_onebyte_offset_as_hex, 
+                                 disp);
 	    oappend (scratchbuf);
 	    if (riprel)
 	      {

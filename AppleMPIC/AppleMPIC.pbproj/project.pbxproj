@@ -3,36 +3,35 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		06AA1265FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		06AA1266FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -41,11 +40,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -61,10 +56,13 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -81,6 +79,7 @@
 			isa = PBXGroup;
 			name = AppleMPIC;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -100,8 +99,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMPIC;
-				MODULE_VERSION = 1.2.3;
-				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				MODULE_VERSION = 1.5.2;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleMPIC;
@@ -116,7 +115,7 @@
 			name = AppleMPIC;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = AppleMPIC;
-			productReference = 0B81C263FFB7832611CA28AA;
+			productReference = 708C2DCB07CAB5FD00D5660D;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -126,7 +125,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMPIC</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMPIC version 1.2.3, Copyright 1999-2003 Apple Computer, Inc.</string>
+	<string>AppleMPIC version 1.5.2, Copyright 1999-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,11 +137,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.5.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.5.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Personality1</key>
@@ -176,6 +175,8 @@
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.1</string>
 		<key>com.apple.kernel.iokit</key>
 		<string>1.1</string>
 		<key>com.apple.kernel.libkern</key>
@@ -188,7 +189,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -235,6 +235,7 @@
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167DFE841241C02AAC07 = {
 			children = (
@@ -243,13 +244,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167EFE841241C02AAC07 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1680FE841241C02AAC07 = {
 			fileRef = 089C167DFE841241C02AAC07;
@@ -262,21 +266,6 @@
 //082
 //083
 //084
-//0B0
-//0B1
-//0B2
-//0B3
-//0B4
-		0B81C263FFB7832611CA28AA = {
-			isa = PBXBundleReference;
-			path = AppleMPIC.kext;
-			refType = 3;
-		};
-//0B0
-//0B1
-//0B2
-//0B3
-//0B4
 //190
 //191
 //192
@@ -284,11 +273,12 @@
 //194
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
-				0B81C263FFB7832611CA28AA,
+				708C2DCB07CAB5FD00D5660D,
 			);
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -309,6 +299,7 @@
 			name = Source;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //240
 //241
@@ -321,14 +312,20 @@
 //683
 //684
 		68FDC46AFFE5CB2711CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleMPIC.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		68FDC46BFFE5CB2711CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleMPIC.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		68FDC46CFFE5CB2711CA2A1B = {
 			fileRef = 68FDC46BFFE5CB2711CA2A1B;
@@ -343,6 +340,23 @@
 				ATTRIBUTES = (
 				);
 			};
+		};
+//680
+//681
+//682
+//683
+//684
+//700
+//701
+//702
+//703
+//704
+		708C2DCB07CAB5FD00D5660D = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = AppleMPIC.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

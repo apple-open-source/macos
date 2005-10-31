@@ -204,8 +204,9 @@ IOUSBCompositeDriver::ConfigureDevice()
     const IOUSBConfigurationDescriptor *    cd = NULL;
     const IOUSBConfigurationDescriptor *    cdTemp = NULL;
     UInt8                                   i;
-    UInt8                                   maxPower = 0;
+    SInt16                                  maxPower = -1;
     UInt8                                   numberOfConfigs = 0;
+	OSBoolean *								suspendPropertyRef;
     
    // Find if we have a Preferred Configuration
     //
@@ -242,11 +243,11 @@ IOUSBCompositeDriver::ConfigureDevice()
             
             // Get the MaxPower for this configuration.  If we have enough power for it AND it's greater than our previous power
             // then use this config
-            if( (fDevice->GetBusPowerAvailable() >= cdTemp->MaxPower) && (cdTemp->MaxPower > maxPower) )
+            if( (fDevice->GetBusPowerAvailable() >= cdTemp->MaxPower) && ( ((SInt16)cdTemp->MaxPower) > maxPower) )
             {
                 USBLog(5,"%s[%p](%s) ConfigureDevice Config %d with MaxPower %d", getName(), this, fDevice->getName(), i, cdTemp->MaxPower );
                 cd = cdTemp;
-                maxPower = cdTemp->MaxPower;
+                maxPower = (SInt16) cdTemp->MaxPower;
             }
             else
             {
@@ -256,10 +257,13 @@ IOUSBCompositeDriver::ConfigureDevice()
         
         if ( !cd )
         {
+			USBError(1,"USB Low Power Notice:  The device \"%s\" cannot be used because there is not enough power to configure it",fDevice->getName());
             USBLog(3, "%s[%p](%s) ConfigureDevice failed to find configuration by power", getName(), this, fDevice->getName() );
             err = kIOUSBNotEnoughPowerErr;
+        	fDevice->DisplayUserNotification(kUSBNotEnoughPowerNotificationType);
             goto ErrorExit;
-        }
+			
+		}
     }
     else
     {
@@ -331,6 +335,19 @@ IOUSBCompositeDriver::ConfigureDevice()
         }
     }
     
+	// If we have a property that tells us that we should suspend the port, do it now
+	//
+	suspendPropertyRef = OSDynamicCast( OSBoolean, fDevice->getProperty("kSuspendPort") );
+	if ( suspendPropertyRef && suspendPropertyRef->isTrue() )
+	{
+		USBLog(3, "%s[%p](%s) Need to suspend the port", getName(), this, fDevice->getName() );
+		err = fDevice->SuspendDevice(true);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(3, "%s[%p](%s) SuspendDevice returned 0x%x", getName(), this, fDevice->getName(), err );
+		}
+	}
+	
     // Let's close the device since we're done configuring it
     //
     fExpectingClose = true;
@@ -362,7 +379,7 @@ IOUSBCompositeDriver::ReConfigureDevice()
     IOUSBDevRequest                         request;
     UInt8                                   numberOfConfigs = 0;
     UInt32                                  i;
-    UInt8                                   maxPower = 0;
+	OSBoolean *								suspendPropertyRef;
     
     // Clear out the structure for the request
     //
@@ -419,6 +436,18 @@ IOUSBCompositeDriver::ReConfigureDevice()
         }
     }
     
+	// If we have a property that tells us that we should suspend the port, do it now
+	//
+	suspendPropertyRef = OSDynamicCast( OSBoolean, fDevice->getProperty("kSuspendPort") );
+	if ( suspendPropertyRef && suspendPropertyRef->isTrue() )
+	{
+		USBLog(3, "%s[%p](%s) Need to suspend the port", getName(), this, fDevice->getName() );
+		err = fDevice->SuspendDevice(true);
+		if ( err != kIOReturnSuccess )
+		{
+			USBLog(3, "%s[%p](%s) SuspendDevice returned 0x%x", getName(), this, fDevice->getName(), err );
+		}
+	}
     
 ErrorExit:
         

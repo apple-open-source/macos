@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,12 +24,14 @@
 #ifndef _SCNETWORKREACHABILITY_H
 #define _SCNETWORKREACHABILITY_H
 
+#include <AvailabilityMacros.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <AvailabilityMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCNetwork.h>
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
 
 /*!
 	@header SCNetworkReachability
@@ -237,5 +239,7 @@ SCNetworkReachabilityUnscheduleFromRunLoop	(
 						)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
 
 __END_DECLS
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 */
 
 #endif /* _SCNETWORKREACHABILITY_H */

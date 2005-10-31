@@ -1,3 +1,112 @@
+2005-04-29  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/r4098981.c, gdb.apple/rr4098981.exp:  New
+	testsuites to make sure we actually insert breakpoints
+	in functions run before the first gdb-dyld event.
+	
+2005-04-28  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/x86-frameless-crasher.c, gdb.apple/x86-frameless-crasher.exp:
+	New testsuite to test gdb's ability to backtrace from a frameless leaf function
+	that segfaults.
+
+2005-04-26  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/ostype.exp, gdb.apple/ostype.c: New files.  Written
+	by Klee Dienes.
+
+2005-04-21  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/file-statics-cpp.cpp: New file.
+	* gdb.apple/file-statics.exp: Add some C++ tests to make sure we
+	are handling variables in namespaces, C++ const's and demangling
+	correctly.
+	
+2005-04-20  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/gen-x86-prologues.rb: Generate a test source file and
+	test cases for x86 function prologues.
+	* gdb.apple/gen-x86-prologues-patterns.txt: Input file, based on
+	various optimized prologues that caused gdb problems.
+	* gdb.apple/gen-x86-prologues.c, gdb.apple/gen-x86-prologues.exp:
+	Generated.
+
+2005-04-19  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/prologue-x86.exp: Move architecture test before compile.
+
+2005-04-15  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/prologue-x86.exp: Add lots of new tests for the
+	backtrace-through-sigtramp-and-mach_wait_until() as well as
+	tests that stop execution in the actual functions with bad
+	prologues so we can be sure the 
+	default-behavior-when-we-don't-know-what's-up doesn't paper over
+	any regressions.
+
+2005-04-12  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/prologue-x86.c: Pacify the compiler.
+	* gdb.apple/prologue-x86.exp: Make sure we can correctly backtrace
+	to start() and stop backtracing right there.
+
+2005-04-11  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/prologue-x86.c (objc_msgForward_pattern): Prologue
+	mirroring the hand-written assembly found in _objc_msgForward.
+	* prologue-x86.exp: New test case to test it.
+
+2005-04-09  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/prologue-x86.c, prologue-x86.exp: Correct function 
+        names a bit.
+        * gdb.apple/fix-and-continue/small-c/fix-small-c.exp: Don't disable
+        these tests on x86 hosts.
+        * .../small-c/mi-fix-small-c.exp: Ditto.
+        * .../small-objc/fix-small-objc.exp: Ditto.
+        * .../small-objc/Makefile: Update.
+
+2005-04-04  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/prologue-x86.c: Sleep for two seconds while waiting for
+	alarm(1).
+	* gdb.apple/prologue-x86.exp: Fix nameo.
+
+2005-04-02  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/prologue-x86.c, prologue-x86.exp:  Write a few testcases
+	to catch regressions in the prologue analyzer.
+
+2005-03-31  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/file-statics.exp: Gcc 4.0 outputs the statics in a 
+	different order.
+	* gdb.apple/info-shared-addr.exp: Correct testcase.
+
+2005-03-23  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.arch/i386-prologue.c: We use underscores in our assembly, eh.
+	* gdb.arch/i386-unwind.c: Ditto.
+
+2005-03-23  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/pc-verify.exp: Generalize the expected output a bit.
+
+2005-02-23  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.apple/fix-and-continue/small-c/fix-small-c.exp: Only run on
+	powerpc-apple-*.  
+	* gdb.apple/fix-and-continue/small-c/mi-fix-small-c.exp: Only run on
+	powerpc-apple-*.
+	* gdb.apple/fix-and-continue/small-objc/fix-small-objc.exp: Only run
+	on powerpc-apple-*.
+
+2005-02-10  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/fix-and-continue/small-c/mi-fix-small-c.exp: Expect the
+	first line with code on it when we set the pc to the start of a
+	function (thread-set-pc will move the line over the function prologue).
+
 2005-01-21  Jim Ingham  <jingham@apple.com>
 
 	* gdb.base/maint.exp: We are now making breakpoints as -<n> 
@@ -6,8 +115,10 @@
 	
 2005-01-13  Jason Molenda  (jmolenda@apple.com)
 
-        * gdb.base/relocate.exp: Expect __TEXT, not __text as per the
-        recent changes to symfile.c.
+	* gdb.apple/weak.exp: Update breakpoint setting text to
+	match current gdb behavior.
+	* gdb.base/relocate.exp: Expect __TEXT, not __text as per the
+	recent changes to symfile.c.
 
 2004-12-06  Jason Molenda  (jmolenda@apple.com)
 

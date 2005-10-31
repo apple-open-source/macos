@@ -439,7 +439,7 @@ static void usage(void)
 
 	dbf = x_stderr;
 
-	DEBUGLEVEL = 0;
+	SAMBA_DEBUGLEVEL = 0;
 	AllowDebugChange = False;
 
 	if (argc < 2 || argv[1][0] == '-') {
@@ -471,7 +471,7 @@ static void usage(void)
 			NumLoops = atoi(optarg);
 			break;
 		case 'd':
-			DEBUGLEVEL = atoi(optarg);
+			SAMBA_DEBUGLEVEL = atoi(optarg);
 			break;
 		case 'E':
 			die_on_error = 1;

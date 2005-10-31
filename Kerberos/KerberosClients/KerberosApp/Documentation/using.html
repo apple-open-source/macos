@@ -1,36 +1,48 @@
-<!-- #bbinclude "header.html"
+<!-- #bbinclude "header.template"
   #PAGETITLE#="Using the Kerberos Control Panel on Mac OS 8.x &amp; 9.x"
   #BASEHREF#="" 
 -->
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML> 
-<HEAD>  
-	<TITLE> Using the Kerberos Control Panel on Mac OS 8.x &amp; 9.x </TITLE>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/KerberosClients/KerberosApp/Documentation/using.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Using the Kerberos Control Panel on Mac OS 8.x &amp; 9.x</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../../Common/Documentation/templates/site.css);
+	</STYLE>
 </HEAD>
-<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
-<CENTER>
-	<TABLE BORDER=0 CELLSPACING=8>
-		<TR> 
-			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
-			<TD><BR><H1>Macintosh Development</H1></TD> 
-		</TR>
-	</TABLE> <P>
-	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
-	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] <BR>
-	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">Kerberos for Macintosh</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
-</CENTER> <HR>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
 <!-- end bbinclude -->
-<TABLE BORDER=0 CELLSPACING=4>
-	<TR> 
-		<TD><IMG SRC="../../Common/Documentation/graphics/KerberosManager.gif"></TD>
-		
-    <TD><B><FONT SIZE="+3">Using the Kerberos Control Panel (v1.6) on Mac OS 8.x &amp; 9.x</FONT></B></TD>
-	</TR>
+<!-- #bbinclude "icon.template" #ICON#="../../../Common/Documentation/graphics/KerberosManager.gif" 
+	#TEXT#="<H2>Using the Kerberos Control Panel (v1.6) on Mac OS 8.x &amp; 9.x</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="../../../Common/Documentation/graphics/KerberosManager.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Using the Kerberos Control Panel (v1.6) on Mac OS 8.x &amp; 9.x</H2> </TD>
+   </TR>
 </TABLE>
+<!-- end bbinclude -->
 
 <p>This web page has instructions for the Kerberos 
   control panel released as part of Kerberos for Macintosh 4.0.</p>
@@ -38,787 +50,621 @@
 documentation, which reflects the currently supported version.</p>
 <p>If you are unsure what version of Kerberos for Macintosh you have installed, 
   see <a href="whatvers.html">Identifying the Version of Kerberos for Macintosh</a>.</p>
-<P>
-<hr>
-<TABLE BORDER=0 CELLSPACING=3 CELLPADDING=3>
-  <TR> 
-    <TD VALIGN=top WIDTH=100> 
-      <P><A NAME=toc></A> 
-      <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="100%">
-        <TR> 
-          <TD ALIGN=center VALIGN=top BGCOLOR="#99CCCC"> 
-            <P><FONT SIZE="+1"><B>Table of contents</B></FONT> 
-          </TD>
-        </TR>
-      </TABLE>
-    </TD>
-    <TD> 
-      <UL>
-        <LI><A HREF="#startup">Opening the Kerberos control panel</A></LI>
-        <LI><A HREF="#login">Obtaining Kerberos tickets</A> 
-          <UL>
-            <LI><A HREF="#short">Specifying ticket lifetime when logging in</A></LI>
-          </UL>
-        </LI>
-        <li><a href="#ticketlist">About the ticket list</a></li>
-        <LI><A HREF="#user">Changing active users</A></LI>
-        <LI><A HREF="#logout">Destroying tickets</A></LI>
-        <LI><A HREF="#renew">Renewing tickets (i.e., extending your login duration)</A></LI>
-        <LI><A HREF="#pwd">Changing your password</A></LI>
-        <LI><A HREF="#addrem">Adding and removing realms</A></LI>
-        <LI><a href="#ticketinfo">Displaying ticket information</a></LI>
-        <LI><A HREF="#prefs">Changing preferences</A></LI>
-        <LI><a href="whatvers.html">Identifying the Version of Kerberos for Macintosh</a></LI>
-      </UL>
-      <P>If you encounter bugs or problems using the Kerberos control panel, please 
-        send e-mail to <A HREF="mailto:krbdev@mit.edu">&lt;krbdev@mit.edu&gt;</A>. 
-      <P>If you're not familiar with Kerberos authentication and terms such as 
-        Kerberos tickets, go to <A HREF="http://web.mit.edu/is/help/kerberos/whatis.html">What Is Kerberos?</A> to learn the concepts and terms. 
-    </TD>
-  </TR>
-  <TR> 
-    <TD COLSPAN=2> 
-      <P> 
-      <HR>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top WIDTH=100> 
-      <P><A NAME=startup></A> 
-      <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="100%">
-        <TR> 
-          <TD ALIGN=center VALIGN=top BGCOLOR="#99CCCC"> 
-            <P><FONT SIZE="+1"><B>Opening the Kerberos control panel</B></FONT> 
-          </TD>
-        </TR>
-      </TABLE>
-    </TD>
-    <TD VALIGN=top> 
-      <P>To open the Kerberos control panel, 
-      <P>From the <STRONG>Apple</STRONG> menu, choose <STRONG>Control Panels--Kerberos</STRONG> 
-      <P><EM>Result: </EM>The Kerberos control panel window is displayed. 
-      <P><IMG SRC="Graphics/kerbmgr1.gif" ALT="Kerberos control panel dialog box illustration" ALIGN=bottom> 
-    </TD>
-  </TR>
-  <p> 
-  <TR> 
-    <TD COLSPAN=2> 
-      <P> 
-      <HR>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top WIDTH=100> 
-      <P><A NAME=login></A> 
-      <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="100%">
-        <TR> 
-          <TD ALIGN=center VALIGN=top BGCOLOR="#99CCCC"> 
-            <P><FONT SIZE="+1"><B>Obtaining Kerberos tickets</B></FONT> 
-          </TD>
-        </TR>
-      </TABLE>
-    </TD>
-    <TD VALIGN=top> 
-      <OL>
-        <LI>Click on the <STRONG>Get Tickets</STRONG> button, choose <STRONG>Get 
-          Tickets </STRONG> from <STRONG>Kerberos</STRONG> menu, or press <STRONG>&lt;command&gt;-N</STRONG>. 
-          <P><EM>Result:</EM> The Kerberos Login dialog box appears: 
-          <P><IMG ALT="Kerberos Login dialog illustration" ALIGN=bottom SRC="Graphics/krblogin.gif"> 
-          <P>The first time you use the Kerberos control panel to log in, the 
-            username box is blank. After that, the Kerberos Login dialog box displays 
-            the username of the person who last used it to log in, by default. 
-          <P>&nbsp; 
-        </LI>
-        <LI>Type your username in the username box. 
-          <P> 
-          <P>If you want to log in using a principal that contains an instance 
-            (if you are unfamiliar with this term, don't worry about it), choose 
-            &quot;Advanced&quot; from the popup menu above &quot;Username&quot;, 
-            and the instance field will be revealed. Typing your instance into 
-            the Username field will not work, you will get an error when you try to log in. 
-          <P> 
-        </LI>
-        <LI>Click once in the password box, or press the<STRONG> &lt;tab&gt;</STRONG> 
-          key, and type your password. 
-          <P>&nbsp; 
-        </LI>
-        <LI>If you need to change realms, click once in the Realm popup list and 
-          choose the desired realm. If the desired realm is not present in the 
-          list, you will have to add it using the <A HREF="#addrem"><STRONG>Edit 
-          Favorite Realms</STRONG></A> feature, and then return to the Kerberos Login dialog. 
-          <P>&nbsp; 
-        </LI>
-        <LI>Click on <STRONG>OK</STRONG>. 
-          <P><EM>Result:</EM> If authentication is successful, a ticket entry appears 
-            in the Kerberos control panel window: 
-          <P><IMG SRC="Graphics/kerbmgr2.gif" ALT="Single user logged in illustration" ALIGN=bottom> 
-          <P>The Active User box indicates your username, the realm for which 
-            your Kerberos tickets are valid, and the time remaining for which 
-            they are valid. An item also appears in the ticket list. 
-          <P>By default, Kerberos tickets are valid for 10 hours. You can shorten 
-            the duration for which tickets are valid at the time you log in. Refer 
-            to <A HREF="#short">Specifying ticket lifetime when logging in</A> 
-            for instructions on how to do this. You can also change the default 
-            ticket lifetime. Refer to <A HREF="#prefs">Changing Preferences</A> 
-            to find out how to do this. 
-          <P>If you get a Kerberos error, it may be for any of the following reasons: 
-          <P>&nbsp; 
-          <UL>
-            <LI>You've entered either your username or password incorrectly. Try 
-              again, making sure that the CAPS LOCK key is not turned on. 
-              <P>&nbsp; 
-            </LI>
-            <LI>You may not have authorization to log into the realm specified. 
-              If you're authorized to log into a different realm, refer to <A HREF="#addrem">Adding 
-              and removing realms</A> to make another realm available, and then 
-              choose it from the realms popup list when logging in. 
-              <P>&nbsp; 
-            </LI>
-            <LI>There is a problem with your authorization for the realm you're 
-              using. Contact your site administrator.</LI>
-          </UL>
-          <P>To see details about your tickets, click once on the triangle next 
-            to the username in the ticket list. See <a href="#ticketlist">About 
-            the ticket list</a> for more information. 
-          <P>The Kerberos control panel allows more than one person to log into 
-            the same Macintosh. An additional person can log in by completing 
-            steps 1 - 4. 
-          <P>Each additional person who has logged in has an entry in the ticket 
-            list: 
-          <P><IMG SRC="Graphics/actuser.gif" ALT="Multiple users logged in illustration" ALIGN=bottom> 
-          <P>The active user, i.e., the person whose tickets are used for authentication 
-            when you start a new Kerberos-using application, appears in the Active 
-            User box. This username is also underlined in the ticket list. 
-          <P>To change active users, follow the procedure in the next section, 
-            <A HREF="#user">Changing active users</A>. 
-          <P>Once the duration of your tickets has ended, an "expired" message 
-            appears: 
-          <P><IMG SRC="Graphics/kerbexp.gif" ALT="Tickets expired illustration" ALIGN=bottom> 
-          <H3><A NAME=short></A>Specifying ticket lifetime when logging in</H3>
-          <P>If you want to change the length of time that your tickets are valid 
-            upon logging in, you can do it through the Kerberos Login dialog box. 
-            To do this, 
-          <P>&nbsp; 
-          <OL>
-            <LI>Click on the <STRONG>Get Tickets</STRONG> button, choose <STRONG>Get 
-              Tickets </STRONG> from <STRONG>Kerberos</STRONG> menu, or press 
-              <STRONG>&lt;command&gt;-N</STRONG>. 
-              <P><EM>Result:</EM> The Kerberos Login dialog box appears. 
-              <P>&nbsp; 
-            </LI>
-            <LI>Click once on the <b>Options...</b> button. 
-              <P><EM>Result:</EM> The Kerberos Options dialog appears: 
-              <P><IMG SRC="Graphics/krbopts.gif" ALT="Change tickets lifetime illustration" WIDTH=468 HEIGHT=221 ALIGN=bottom> 
-              <P>&nbsp; 
-            </LI>
-            <LI>Place the mouse pointer on the Ticket Lifetime slider and drag 
-              it to the desired time indicated above the slider.</LI>
-            <P>&nbsp; 
-            <LI>Click on the <strong>OK</strong> button, returning you to the 
-              Kerberos Login dialog. 
-              <P>&nbsp; 
-            </LI>
-            <LI>Enter your username (if it's not already displayed) and password, 
-              then click on <STRONG>OK</STRONG>. 
-              <P><EM>Result:</EM>If your login is successful, you've obtained 
-                tickets that are valid for the lifetime you specified. 
-            </LI>
-          </OL>
-          <P>The next time you log in, the lifetime of the tickets you obtain 
-            will be the same as the time you specified during the previous login,
-            unless you repeat this procedure or force a constant 
-            default lifetime (see <A HREF="#prefs">Changing preferences</A> for 
-            instructions on how to do this). 
-        </LI>
-      </OL>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top COLSPAN=2> 
-      <hr>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top> <a name="ticketlist"></a> 
-      <table width="100%" border="0" cellpadding="2">
-        <tr> 
-          <td align=center valign=top bgcolor="#99CCCC"> 
-            <p><font size="+1"><b>About the ticket list</b></font> 
-          </td>
-        </tr>
-      </table>
-    </TD>
-    <TD VALIGN=top> 
-      <p>Below the Active User box and Renew Tickets, Destroy Tickets, and Change 
-        Password buttons is the <i>ticket list</i>. The ticket list shows all 
-        the principals that are currently authenticated on the Macintosh.</p>
-      <p>Each principal has a set of Kerberos tickets belonging to it. When you 
-        log in with Kerberos, you get a <i>ticket-granting ticket</i> which then 
-        allows you to get other tickets from other applications (also called services). 
-        Then for each application you run that requires Kerberos authentication, 
-        you get a <i>service ticket</i>.</p>
-      <p>By default, the principals and their tickets appear as a summary line 
-        in the ticket list. The summary lines are in bold text with a light gray 
-        background. Each summary line has three elements:</p>
-      <ul>
-        <li>The Kerberos versions supported by the realm the principal is authenticated 
-          in. This appears as &quot;(v4/v5)&quot;, &quot;(v4)&quot;, or &quot;(v5)&quot; 
-          before the principal. When you log in using Kerberos for Macintosh, 
-          it will attempt to get both Kerberos v4 and v5 tickets for your principal. 
-          However, not all Kerberos-using sites support both versions, or different 
-          realms at the same site may also support different versions, so you 
-          may see only one version listed.</li>
-        <li>The username of the authenticated principal.</li>
-        <li>The minimum remaining lifetime for the ticket-granting tickets belonging 
-          to the principal (displayed as hours:minutes). You receive one ticket-granting 
-          ticket for each Kerberos version the realm supports; these may have 
-          different expiration times (although Kerberos for Macintosh attempts 
-          to make them the same).</li>
-      </ul>
-	  <p>Instead of a time, you may see either &quot;expired&quot; or &quot;not valid&quot; in the Time
-		Remaining column.  &quot;Expired&quot; means that your tickets have no time remaining and
-		so are no longer valid; &quot;not valid&quot; means they are no longer valid for some
-		other reason, usually because your Mac's IP address has changed since you obtained
-		the tickets.  In either case, you need to renew your tickets (although Kerberos for
-		Macintosh will also prompt you automatically to renew if you try to use a service
-		requiring Kerberos tickets).</p>
-      <p>If you want to see details of tickets associated with each principal, 
-        click on the triangle at the left of the principal's summary line. The 
-        list will expand:</p>
-      <p><img src="Graphics/krbmgr4.gif" alt="Expanded ticket list illustration"></p>
-      <p>In the expanded list, you will see a list of the tickets (credentials) 
-        belonging to that principal. If the principal is authenticated for both 
-        versions of Kerberos, the tickets are grouped by version underneath a 
-        subheading for each version (see picture above). For Kerberos v5 tickets, 
-        an &quot;(F)&quot; after the ticket name means the ticket is forwardable, 
-        a &quot;(P)&quot; means the ticket is proxiable, and &quot;(F,P)&quot; 
-        means the ticket is both forwardable and proxiable (see <a href="#prefs">Changing 
-        preferences</a> for more information about forwardable and proxiable).</p>
-      <p>If you always want the ticket list to display expanded entries, you can 
-        set the &quot;Always expand new ticket list entries&quot; preference. 
-        See the <a href="#prefs">Changing preferences</a> section.</p>
-      <p>You can display even more detailed information about each ticket using 
-        the Ticket Info window. See the <a href="#ticketinfo">Displaying ticket 
-        information</a> section.</p>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top COLSPAN=2> 
-      <P> 
-      <HR>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top WIDTH=100> 
-      <P><A NAME=user></A> 
-      <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="100%">
-        <TR> 
-          <TD ALIGN=center VALIGN=top BGCOLOR="#99CCCC"> 
-            <P><FONT SIZE="+1"><B>Changing active users</B></FONT> 
-          </TD>
-        </TR>
-      </TABLE>
-    </TD>
-    <TD VALIGN=top> 
-      <P>The current, active user specifies which username will be used for authentication 
-        when you work with an application that requires Kerberos authentication. 
-        If more than one user is logged in, you may want to change the active 
-        user before using such an application. 
-      <P>Use one of the following techniques to change the active user: 
-      <UL>
-        <LI>Click once on the boldfaced username line in the list that you want 
-          to be the active user, then click on the <STRONG>Make User Active</STRONG> 
-          button. 
-          <P>&nbsp; 
-        </LI>
-        <LI>From the <strong>Kerberos</strong> menu, choose <STRONG>Change Active 
-          User &gt; <EM>username</EM></STRONG> where <EM>username</EM> is the 
-          user you want to make active. 
-          <P>&nbsp; 
-        </LI>
-        <LI>Double-click on the boldfaced username line in the Tickets list.</LI>
-      </UL>
-      <P><EM>Result:</EM> The new active user is displayed in the Active User 
-        box and also appears underlined in the ticket list. 
-      <P><IMG SRC="Graphics/chguser.gif" ALT="Changing active user illustration" ALIGN=bottom> 
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top COLSPAN=2> 
-      <P> 
-      <HR>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top WIDTH=100> 
-      <P><A NAME=logout></A> 
-      <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="100%">
-        <TR> 
-          <TD ALIGN=center VALIGN=top BGCOLOR="#99CCCC"> 
-            <P><FONT SIZE="+1"><B>Destroying tickets</B></FONT> 
-          </TD>
-        </TR>
-      </TABLE>
-    </TD>
-    <TD VALIGN=top> 
-      <P>To destroy tickets, select the boldfaced username line in the ticket 
-        list then click on the <STRONG>Destroy Tickets</STRONG> button, or choose 
-        <STRONG>Destroy Tickets</STRONG> from the <STRONG>Kerberos</STRONG> menu. 
-      <P><EM>Result:</EM> The ticket entry is removed from the ticket list. If other 
-        users are logged in, their usernames remain in the ticket list and their 
-        tickets are valid for the remaining time indicated. 
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top COLSPAN=2> 
-      <P> 
-      <HR>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top WIDTH=100> 
-      <P><A NAME=renew></A> 
-      <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="100%">
-        <TR> 
-          <TD ALIGN=center VALIGN=top BGCOLOR="#99CCCC"> 
-            <P><FONT SIZE="+1"><B>Renewing tickets </B></FONT> 
-          </TD>
-        </TR>
-      </TABLE>
-    </TD>
-    <TD VALIGN=top> 
-      <P>If your tickets have expired, or you want to extend the lifetime of existing 
-        tickets, use the <STRONG>Renew Tickets</STRONG> command: 
-      <OL>
-        <LI>Click once on your boldfaced username line in the ticket list to select 
-          it. 
-          <P><EM>Result:</EM> The <STRONG>Renew Tickets</STRONG> button is activated. 
-          <P><IMG SRC="Graphics/kerbmgr3.gif" ALT="Activated Renew button illustration" ALIGN=bottom> 
-          <P>&nbsp; 
-        </LI>
-        <LI>Click on the <STRONG>Renew Tickets</STRONG> button, choose <STRONG>Renew 
-          Tickets</STRONG> from the <STRONG>Kerberos</STRONG> menu, or press <STRONG>&lt;command&gt;-R</STRONG>. 
-          <P><EM>Result:</EM>The Kerberos Login dialog box is displayed. 
-          <P>&nbsp; 
-        </LI>
-        <LI>Enter your password. 
-          <P>&nbsp; 
-        </LI>
-        <LI>If you want to change the lifetime of the tickets you're obtaining, 
-          see <A HREF="#short">Specifying ticket lifetime when logging in</A> 
-          for instructions. 
-          <P>&nbsp; 
-        </LI>
-        <LI>Click on <STRONG>OK</STRONG>. 
-          <P><EM>Result:</EM> The tickets' lifetime is extended either to the 
-            lifetime you specified when logging in or to the maximum duration 
-            set under <STRONG>Preferences...</STRONG> (the default is 10 hours). 
-            To change the default tickets' lifetime, see <A HREF="#prefs">Changing 
-            Preferences</A>. 
-        </LI>
-      </OL>
-    </TD>
-  </TR>
-  <TR> 
-    <TD COLSPAN=2> 
-      <P> 
-      <HR>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top WIDTH=100> 
-      <P><A NAME=pwd></A> 
-      <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="100%">
-        <TR> 
-          <TD ALIGN=center VALIGN=top HEIGHT=26 BGCOLOR="#99CCCC"> 
-            <P><FONT SIZE="+1"><B>Changing your password</B></FONT> 
-          </TD>
-        </TR>
-      </TABLE>
-    </TD>
-    <TD VALIGN=top> 
-      <P>You can change your Kerberos password by using the <STRONG>Change Password...</STRONG> 
-        command. 
-      <P>To change your password, 
-      <OL>
-        <LI>Click on the boldfaced username line in the ticket list to select 
-          it. 
-          <P><EM>Result:</EM> The <STRONG>Change Password...</STRONG> button is 
-            activated: 
-          <P><IMG SRC="Graphics/kerbmgr3.gif" ALT="Activated Change Password button illustration" ALIGN=bottom> 
-          <P>&nbsp; 
-        </LI>
-        <LI>Click on the <STRONG>Change Password...</STRONG> button or choose 
-          <STRONG>Change Password...</STRONG> from the <STRONG>Kerberos</STRONG> 
-          menu. 
-          <P><EM>Result:</EM> The Kerberos Change Password dialog box appears 
-            with the name of the user selected previously at the top: 
-          <P><IMG ALT="Change password dialog box illustration" ALIGN=bottom SRC="Graphics/chngepwd.gif"> 
-          <P>&nbsp; 
-        </LI>
-        <LI>Enter the password you're using now in the "Enter your old password" 
-          box. 
-          <P>&nbsp; 
-        </LI>
-        <LI>Click once in the "Enter your new password" box, or press the <STRONG>&lt;tab&gt;</STRONG> 
-          key, and type the new password. 
-          <P>&nbsp; 
-        </LI>
-        <LI>Click once in the "Enter your new password again" box, or press the 
-          <STRONG>&lt;tab&gt;</STRONG> key, and type the new password a second 
-          time, exactly as you typed in the previous step. 
-          <P>&nbsp; 
-        </LI>
-        <LI>Click on <STRONG>OK</STRONG>. 
-          <P><EM>Result:</EM> Either you will receive a confirmation that your
-          	password hss been changed, if you entered either 
-            your old password incorrectly or the entries for the new password 
-            don't match exactly, you'll get an error. You may also receive an error
-            from the Kerberos server if you try to choose an insecure password.
-          <P>This password stays in effect until you change it again using either 
-            the Kerberos control panel or the equivalent procedure on another 
-            Kerberos client on another platform. 
-        </LI>
-      </OL>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top COLSPAN=2> 
-      <P> 
-      <HR>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top WIDTH=100> 
-      <P><A NAME=addrem></A> 
-      <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="100%">
-        <TR> 
-          <TD ALIGN=center VALIGN=top HEIGHT=26 BGCOLOR="#99CCCC"> 
-            <P><FONT SIZE="+1"><B>Adding and removing realms</B></FONT> 
-          </TD>
-        </TR>
-      </TABLE>
-    </TD>
-    <TD VALIGN=top> 
-      <P>A default Kerberos realm is specified by the Kerberos Preferences file 
-        (as distributed from MIT, this realm is ATHENA.MIT.EDU). When using the 
-        Kerberos control panel to log in, by default the Kerberos username and 
-        password entered are checked for authorization in this area of the network. 
-        You can add other realms, as described in this section, and change which 
-        one Kerberos Login uses by default. (For instructions on how to change 
-        the default realm, see <A HREF="#prefs">Changing Preferences</A>.) 
-      <P>Other realms listed in the Kerberos Preferences file can also be used 
-        for logging in, but must first be added to the list of &quot;favorite&quot; 
-        realms which are displayed in the Kerberos Login dialog. The Kerberos 
-        control panel has a feature called Edit Favorite Realms that provides 
-        the following options for making the other realms in Kerberos Preferences 
-        available for use: 
-      <UL>
-        <LI>You can add one or multiple realms from the Kerberos Preferences file 
-          to the Favorite Realms List. 
-          <P>&nbsp; 
-        </LI>
-        <LI>If you want to keep the list of Favorite realms to the minimum that 
-          you need, you can remove realms from the Favorite Realms List.</LI>
-      </UL>
-      <P>Although other realms may exist besides the ones through the Edit Favorite 
-        Realms feature, you can only add or remove realms listed in the Kerberos 
-        Preferences file. (For information on adding new realms to the Kerberos
-        preferences file, see the <A HREF="http://web.mit.edu/macdev/Development/MITKerberos/Common/Documentation/preferences.html">Kerberos Preferences Documentation</A>.
-        Generally you should not have to do this, consult with your system administrator
-        first!)
-      <P>To add and remove realms, 
-      <OL>
-        <LI>From the <STRONG>Edit</STRONG> menu, choose <STRONG>Edit Favorite 
-          Realms...</STRONG> or press <STRONG>&lt;command&gt;-E</STRONG>. 
-          <P><em>Result:</em> The Edit Favorite Realms dialog box appears: 
-          <P><IMG SRC="Graphics/realm.gif" ALT="Edit favorite realms dialog box illustration" WIDTH=400 HEIGHT=154 ALIGN=bottom> 
-          <P>&nbsp; 
-        </LI>
-        <LI>Do any of the following: 
-          <P>&nbsp; 
-          <UL>
-            <LI>Click once on the realm that you want to add in the All Available 
-              Realms side of the dialog box, then click on <STRONG>Add</STRONG> 
-              to add the selected realm to the Favorite Realms list. 
-              <P><EM>Result:</EM> The selected realm is moved to the Favorite 
-                Realms list: 
-              <P><IMG SRC="Graphics/addrlm.gif" ALT="Adding realms illustration" WIDTH=400 HEIGHT=154 ALIGN=bottom> 
-              <P>&nbsp; 
-            </LI>
-            <LI>Click on <STRONG>Add All</STRONG> to add all of the realms from 
-              the All Available Realms list to the Favorite Realms list. 
-              <P><EM>Result:</EM>The remaining realms in the All Available Realms 
-                list are moved to the Favorite Realms list: 
-              <P><IMG SRC="Graphics/allrlm.gif" ALT="Adding all realms illustration" WIDTH=400 HEIGHT=154 ALIGN=bottom> 
-              <P>&nbsp; 
-            </LI>
-            <LI>Click once on the realm that you want to remove in the Favorite 
-              Realms dialog box, then, click on <STRONG>Remove</STRONG> to remove 
-              the selected realm from the Favorite Realms list. 
-              <P><EM>Result:</EM> The selected realm is removed from the Favorite 
-                Realms list: 
-              <P><IMG SRC="Graphics/remrlm.gif" ALT="Removing realms illustration" WIDTH=400 HEIGHT=154 ALIGN=bottom> 
-              <P>NOTE: At least one realm is required in the Favorite Realms list. 
-            </LI>
-          </UL>
-          <P>&nbsp; 
-        </LI>
-        <LI>When you have finished adding and/or removing realms, click on <STRONG>Done</STRONG>. 
-          <P><EM>Result:</EM>If you've added one or more realms, they are now 
-            available from the Kerberos Login dialog box. If you've removed any 
-            realms, they are no longer available for use unless you add them again 
-            later on. 
-          <P>To find out how to change the default realm, refer to <A HREF="#prefs">Changing 
-            preferences</A>. 
-        </LI>
-      </OL>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top COLSPAN=2> 
-      <P> 
-      <HR>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top WIDTH=100>
-      <p><a name=ticketinfo></a> 
-      <table border=0 cellspacing=0 cellpadding=2 width="100%">
-        <tr> 
-          <td align=center valign=top bgcolor="#99CCCC"> 
-            <p><font size="+1"><b>Displaying ticket information</b></font> 
-          </td>
-        </tr>
-      </table>
-    </TD>
-    <TD VALIGN=top> 
-      <p>If you are interested in more ticket information, the Kerberos control 
-        panel can display detailed information about each Kerberos ticket by using 
-        the Get Ticket Info command. To display detailed ticket information:</p>
-      <ol>
-        <li>Select a ticket entry in the ticket list of the Kerberos control panel's 
-          ticket list. (Note that you can only get info about individual ticket items -
-          the non-bold lines.)</li>
-        <P>&nbsp; 
-        <li>From the <strong>Kerberos</strong> menu, choose<strong> Get Ticket 
-          Information</strong>, or press <strong>&lt;command&gt;-I</strong>.</li>
-        <P><em>Result:</em> The Ticket Info window appears: 
-        <p>&nbsp; <img src="Graphics/tixinfo.gif" width="390" height="409"> </p>
-        <p>At the top of the ticket info window is the principal who owns the 
-          ticket, the service that the ticket was obtained for, and the Kerberos 
-          version of the ticket. The rest of the information is divided into several 
-          panes for easier reading:</p>
-        <ul>
-          <li><strong>Times</strong> - The exact time the ticket was issued, and
-            the start and end time that the ticket is valid for, all in local time.
-            Also a status field to tell you if the ticket is valid, expired, or
-            not valid for another reason.</li>
-          <li><strong>Flags</strong> (for v5 tickets only) - The properties, such 
-            as forwardable and proxiable, of the ticket.</li>
-          <li><strong>IP Addresses</strong> - The IP addresses for which the ticket 
-            is valid. V4 tickets can only have one address, so you will only see 
-            one listed. V5 tickets may be valid for multiple or no addresses, 
-            so you may see more than one or none listed, although typically you 
-            will only see one listed.</li>
-          <li><strong>Encryption</strong> - For v4 tickets, lists the string to 
-            key type of the ticket. For v5 tickets, lists both the session key 
-            and service principal key encryption types of the ticket.</li>
-        </ul>
-        <P>&nbsp; 
-        <li>When you are done looking at the ticket information, you can close 
-          the Ticket Info window using its close box.</li>
-      </ol>
-      <p>You can have more than one ticket info window open at once.</p>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top colspan="2">
-      <hr>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top WIDTH=100> 
-      <P><A NAME=prefs></A> 
-      <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="100%">
-        <TR> 
-          <TD ALIGN=center VALIGN=top BGCOLOR="#99CCCC"> 
-            <P><FONT SIZE="+1"><B>Changing preferences</B></FONT> 
-          </TD>
-        </TR>
-      </TABLE>
-    </TD>
-    <TD VALIGN=top> 
-      <P>You can make certain customizations to the Kerberos control panel by 
-        using the <STRONG>Preferences...</STRONG> command. These customizations 
-        also affect the Kerberos Login dialog anytime another application brings 
-        it up, and the Kerberos Floating Window.
-      <OL>
-        <LI>From the <STRONG>Edit</STRONG> menu, choose <STRONG>Preferences...</STRONG> 
-          or press <b>&lt;command&gt;-Y </b> 
-          <P><EM>Result:</EM>The Preferences dialog box appears: 
-          <P><IMG ALT="Preferences dialog box illustration" ALIGN=bottom SRC="Graphics/krbprefs.gif"> 
-          <P>&nbsp; 
-        </LI>
-        <LI>The Kerberos preferences are divided into several groups, with a tab 
-          for each group. Click on the tab for the preferences you want to modify: 
-          <P>&nbsp; 
-          <ul>
-            <li><strong>Login Defaults</strong> - preferences that control the 
-              default username and ticket options for the Kerberos Login dialog</li>
-            <li><strong>Display</strong> - preferences that control the way the 
-              Kerberos control panel displays information</li>
-            <li><strong>Floating Window</strong> - preferences that control the 
-              Kerberos Floating Window</li>
-            <li><strong>Lifetimes</strong> - preferences that control the minimum, 
-              maximum, and default settings of the ticket lifetime slider in the 
-              Kerberos Login dialog</li>
-          </ul>
-        </LI>
-        <P>&nbsp; 
-        <LI>Make changes to any of the following: 
-          <P>&nbsp; 
-          <UL>
-            <LI><strong>Login Defaults</strong>: 
-              <ul>
-                <li><strong>Remember principal from last Kerberos login/Use this principal 
-                  information</strong> (default = &quot;Remember principal from 
-                  last login&quot;): This popup menu lets you chose whether to 
-                  retain the username, instance, and principal in the Kerberos 
-                  Login dialog box after each time you log in, or to use the options 
-                  specified in the Preferences dialog each time. 
-                  <ul>
-                    <li><strong>Always use blank username</strong> (default) (only 
-                      applies if &quot;Use this principal information&quot; is 
-                      selected): The username and instance fields will always 
-                      be blank in the Kerberos Login dialog. </li>
-                    <li><strong>Always use this username</strong> (only applies 
-                      if &quot;Use this principal information&quot; is selected): 
-                      The username field of the Kerberos dialog will always be 
-                      the specified username, and the instance field will always 
-                      be blank. (You can edit the username field to be something 
-                      different for a single login, but it will always return 
-                      to this user on next login.) </li>
-                    <li><strong>Always use this realm</strong> (only applies if 
-                      &quot;Use this principal information&quot; is selected): 
-                      The realm selected from this popup will always appear as 
-                      the selected realm in the Kerberos Login dialog's realm 
-                      popup. If the realm you want is not in the popup list, use 
-                      the <A HREF="#addrem"><STRONG>Edit Favorite Realms</STRONG></A> 
-                      to add realms, then return to the Preferences dialog and 
-                      choose the desired from the Realm popup list. </li>
-                  </ul>
-                </li>
-                <li><strong>Remember ticket options from last Kerberos login/Use these 
-                  ticket options</strong> (default = &quot;Remember ticket options 
-                  from last login&quot;): This popup menu lets you chose whether 
-                  to retain the forwardable, proxiable, and ticket lifetime options 
-                  in the Kerberos Login dialog box after each time you log in, 
-                  or to use the options specified in the Preferences dialog each 
-                  time. 
-                  <ul>
-                    <li><strong>Forwardable tickets always</strong> (default=on) 
-                      (only applies if &quot;Use these ticket options&quot; is 
-                      selected): Tickets that you've obtained on your machine 
-                      are valid on another machine to which you are connecting. 
-                      (We recommend that you leave this option turned on.) Only 
-                      applies to Kerberos v5 tickets. </li>
-                    <li><strong>Proxiable tickets always</strong> (default=off) 
-                      (only applies if &quot;Use these ticket options&quot; is 
-                      selected): Tickets are proxiable. Proxiable tickets are 
-                      used by some Windows 2000 Kerberos services, however, you 
-                      should not turn on proxiable tickets unless instructed to 
-                      do so by your system administrator. Only applies to Kerberos 
-                      v5 tickets. </li>
-                    <li><strong>Ticket lifetime always</strong> (default=10 hours) 
-                      (only applies if &quot;Use these ticket options&quot; is 
-                      selected): To change the duration for tickets to be valid, 
-                      place the mouse pointer on the Ticket Lifetime slider and 
-                      drag it to desired time indicated above the slider. NOTE: 
-                      Changes you make to this setting take effect the next time 
-                      you obtain tickets. Any tickets that you currently have 
-                      maintain the lifetime that was set when you obtained them</li>
-                  </ul>
-                </li>
-              </ul>
-            </LI>
-            <li><strong>Display</strong>: 
-            <ul>
-              <li><strong>Always expand new ticket list entries</strong> (default=off): 
-                To have the full list of your individual tickets displayed in 
-                the ticket list by default (as opposed to a summary of your tickets indicated 
-                by your username) click once in the checkbox to activate it. See 
-                <a href="#ticketlist">About the ticket list</a> for more details.</li>
-            </ul>
-            </li>
-            <li><strong>Floating Window</strong>: 
-              <ul>
-                <li><strong>Show floating window</strong> (default = off): If 
-                  this box is checked, the Kerberos Floating Window will be displayed.</li>
-                <li><strong>Floating window can be closed</strong> (default = 
-                  on): If this box is checked, the Kerberos Floating Window has a close 
-                  box and can be closed. (You'll have to use the &quot;show floating 
-                  window&quot; preference or tear the menu off the Kerberos Menu/Control Strip
-                  to display it again.) Note that unlike  in old versions of KClient,
-                  closing the floating window does not destroy any tickets, it simply
-                  hides the floating window.</li>
-                <li><strong>Show commands in floating window</strong> (default 
-                  = off): The Kerberos Floating Window has two states, a simple compact 
-                  state where only the usernames of the currently authenticated 
-                  users are displayed, or an expanded state where Get Ticket, 
-                  Destroy Tickets, and Renew Tickets commands are displayed along 
-                  with the authenticated users. If this box is checked, the floating window 
-                  is displayed in its expanded state with the commands. You can 
-                  also switch between the compact and expanded states of the floating window 
-                  by clicking on the zoom box in the floating window's title bar.</li>
-                <li><strong>Show remaining lifetime &quot;pie&quot; in floating 
-                  window</strong> (default = on): If this box is checked, a small 
-                  circle indicating the relative amount of time remaining until 
-                  the user's tickets expire is displayed next to each authenticated 
-                  user's name.</li>
-                <li>For more information about the Kerberos Floating Window, see the <a href="../../TicketKeeper/Documentation/using-floater.html">Using 
-                  the Kerberos Floating Window</a> documentation. </li>
-              </ul>
-            </li>
-            <li><strong>Lifetimes</strong>: 
-              <ul>
-                <li>Using the edit fields in this preferences panel, you can set 
-                  the minimum and maximum range of the ticket lifetime slider 
-                  displayed by the Kerberos Login dialog. You can also set the default 
-                  ticket lifetime (this is the same as the &quot;ticket lifetime 
-                  always&quot; option in the Login Defaults preferences). These 
-                  settings only control the minimum and maximum lifetimes your 
-                  Macintosh requests from the Kerberos server; the Kerberos server 
-                  may not allow tickets longer or shorter than certain lifetimes. 
-                  (Defaults are 0:10:00 minimum, 10:00:00 maximum, and 10:00:00 
-                  default.) </li>
-              </ul>
-            </li>
-          </UL>
-          <P>&nbsp; 
-        </LI>
-        <LI>Click on <STRONG>OK</STRONG> to save the changes you've made.</LI>
-      </OL>
-    </TD>
-  </TR>
-  <TR> 
-    <TD VALIGN=top COLSPAN=2> 
-      <P> 
-    </TD>
-  </TR>
-</TABLE>
-<!-- #bbinclude "footer.html" -->
-<HR> 
-<P> 
-	<FONT SIZE="+1"> <B> 
-		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
-	</B> </FONT> <BR>
-	Last updated on $Date: 2003/11/18 21:09:46 $ <BR> 
-	Last modified by $Author: smcguire $<BR>
 
-</P>
+
+<hr>
+
+<H3>Table of contents</H3> 
+
+<UL>
+	<LI><A HREF="#startup">Opening the Kerberos control panel</A></LI>
+	<LI><A HREF="#login">Obtaining Kerberos tickets</A> </LI>
+	<UL>
+		<LI><A HREF="#short">Specifying ticket lifetime when logging in</A></LI>
+	</UL>
+	<li><a href="#ticketlist">About the ticket list</a></li>
+	<LI><A HREF="#user">Changing active users</A></LI>
+	<LI><A HREF="#logout">Destroying tickets</A></LI>
+	<LI><A HREF="#renew">Renewing tickets (i.e., extending your login duration)</A></LI>
+	<LI><A HREF="#pwd">Changing your password</A></LI>
+	<LI><A HREF="#addrem">Adding and removing realms</A></LI>
+	<LI><a href="#ticketinfo">Displaying ticket information</a></LI>
+	<LI><A HREF="#prefs">Changing preferences</A></LI>
+	<LI><a href="whatvers.html">Identifying the Version of Kerberos for Macintosh</a></LI>
+</UL>
+<P>If you encounter bugs or problems using the Kerberos control panel, please 
+send e-mail to <A HREF="mailto:krbdev@mit.edu">&lt;krbdev@mit.edu&gt;</A>. </P>
+<P>If you're not familiar with Kerberos authentication and terms such as 
+Kerberos tickets, go to <A HREF="http://web.mit.edu/is/help/kerberos/whatis.html">What Is Kerberos?</A> to learn the concepts and terms. </P>
+
+<HR>
+
+<H3><A NAME="startup">Opening the Kerberos control panel</A></H3> 
+
+<P>To open the Kerberos control panel, </P>
+<P>From the <STRONG>Apple</STRONG> menu, choose <STRONG>Control Panels--Kerberos</STRONG> </P>
+<P><EM>Result: </EM>The Kerberos control panel window is displayed. </P>
+<P><IMG SRC="Graphics/kerbmgr1.gif" ALT="Kerberos control panel dialog box illustration" ALIGN=bottom> </P>
+
+<HR>
+
+<H3><A NAME="login">Obtaining Kerberos tickets</A></H3> 
+
+<OL>
+	<LI>Click on the <STRONG>Get Tickets</STRONG> button, choose <STRONG>Get 
+	  Tickets </STRONG> from <STRONG>Kerberos</STRONG> menu, or press <STRONG>&lt;command&gt;-N</STRONG>. 
+	  <P><EM>Result:</EM> The Kerberos Login dialog box appears: 
+	  <P><IMG ALT="Kerberos Login dialog illustration" ALIGN=bottom SRC="Graphics/krblogin.gif"> 
+	  <P>The first time you use the Kerberos control panel to log in, the 
+		username box is blank. After that, the Kerberos Login dialog box displays 
+		the username of the person who last used it to log in, by default. 
+	  <P>&nbsp; 
+	</LI>
+	<LI>Type your username in the username box. 
+	  <P> 
+	  <P>If you want to log in using a principal that contains an instance 
+		(if you are unfamiliar with this term, don't worry about it), choose 
+		&quot;Advanced&quot; from the popup menu above &quot;Username&quot;, 
+		and the instance field will be revealed. Typing your instance into 
+		the Username field will not work, you will get an error when you try to log in. 
+	  <P> 
+	</LI>
+	<LI>Click once in the password box, or press the<STRONG> &lt;tab&gt;</STRONG> 
+	  key, and type your password. 
+	  <P>&nbsp; 
+	</LI>
+	<LI>If you need to change realms, click once in the Realm popup list and 
+	  choose the desired realm. If the desired realm is not present in the 
+	  list, you will have to add it using the <A HREF="#addrem"><STRONG>Edit 
+	  Favorite Realms</STRONG></A> feature, and then return to the Kerberos Login dialog. 
+	  <P>&nbsp; 
+	</LI>
+	<LI>Click on <STRONG>OK</STRONG>. 
+	  <P><EM>Result:</EM> If authentication is successful, a ticket entry appears 
+		in the Kerberos control panel window: 
+	  <P><IMG SRC="Graphics/kerbmgr2.gif" ALT="Single user logged in illustration" ALIGN=bottom> 
+	  <P>The Active User box indicates your username, the realm for which 
+		your Kerberos tickets are valid, and the time remaining for which 
+		they are valid. An item also appears in the ticket list. 
+	  <P>By default, Kerberos tickets are valid for 10 hours. You can shorten 
+		the duration for which tickets are valid at the time you log in. Refer 
+		to <A HREF="#short">Specifying ticket lifetime when logging in</A> 
+		for instructions on how to do this. You can also change the default 
+		ticket lifetime. Refer to <A HREF="#prefs">Changing Preferences</A> 
+		to find out how to do this. 
+	  <P>If you get a Kerberos error, it may be for any of the following reasons: 
+	  <P>&nbsp; 
+	  <UL>
+		<LI>You've entered either your username or password incorrectly. Try 
+		  again, making sure that the CAPS LOCK key is not turned on. 
+		  <P>&nbsp; 
+		</LI>
+		<LI>You may not have authorization to log into the realm specified. 
+		  If you're authorized to log into a different realm, refer to <A HREF="#addrem">Adding 
+		  and removing realms</A> to make another realm available, and then 
+		  choose it from the realms popup list when logging in. 
+		  <P>&nbsp; 
+		</LI>
+		<LI>There is a problem with your authorization for the realm you're 
+		  using. Contact your site administrator.</LI>
+	  </UL>
+	  <P>To see details about your tickets, click once on the triangle next 
+		to the username in the ticket list. See <a href="#ticketlist">About 
+		the ticket list</a> for more information. 
+	  <P>The Kerberos control panel allows more than one person to log into 
+		the same Macintosh. An additional person can log in by completing 
+		steps 1 - 4. 
+	  <P>Each additional person who has logged in has an entry in the ticket 
+		list: 
+	  <P><IMG SRC="Graphics/actuser.gif" ALT="Multiple users logged in illustration" ALIGN=bottom> 
+	  <P>The active user, i.e., the person whose tickets are used for authentication 
+		when you start a new Kerberos-using application, appears in the Active 
+		User box. This username is also underlined in the ticket list. 
+	  <P>To change active users, follow the procedure in the next section, 
+		<A HREF="#user">Changing active users</A>. 
+	  <P>Once the duration of your tickets has ended, an "expired" message 
+		appears: 
+	  <P><IMG SRC="Graphics/kerbexp.gif" ALT="Tickets expired illustration" ALIGN=bottom> 
+	  <H3><A NAME=short></A>Specifying ticket lifetime when logging in</H3>
+	  <P>If you want to change the length of time that your tickets are valid 
+		upon logging in, you can do it through the Kerberos Login dialog box. 
+		To do this, 
+	  <P>&nbsp; 
+	  <OL>
+		<LI>Click on the <STRONG>Get Tickets</STRONG> button, choose <STRONG>Get 
+		  Tickets </STRONG> from <STRONG>Kerberos</STRONG> menu, or press 
+		  <STRONG>&lt;command&gt;-N</STRONG>. 
+		  <P><EM>Result:</EM> The Kerberos Login dialog box appears. 
+		  <P>&nbsp; 
+		</LI>
+		<LI>Click once on the <b>Options...</b> button. 
+		  <P><EM>Result:</EM> The Kerberos Options dialog appears: 
+		  <P><IMG SRC="Graphics/krbopts.gif" ALT="Change tickets lifetime illustration" WIDTH=468 HEIGHT=221 ALIGN=bottom> 
+		  <P>&nbsp; 
+		</LI>
+		<LI>Place the mouse pointer on the Ticket Lifetime slider and drag 
+		  it to the desired time indicated above the slider.</LI>
+		<P>&nbsp; 
+		<LI>Click on the <strong>OK</strong> button, returning you to the 
+		  Kerberos Login dialog. 
+		  <P>&nbsp; 
+		</LI>
+		<LI>Enter your username (if it's not already displayed) and password, 
+		  then click on <STRONG>OK</STRONG>. 
+		  <P><EM>Result:</EM>If your login is successful, you've obtained 
+			tickets that are valid for the lifetime you specified. 
+		</LI>
+	  </OL>
+	  <P>The next time you log in, the lifetime of the tickets you obtain 
+		will be the same as the time you specified during the previous login,
+		unless you repeat this procedure or force a constant 
+		default lifetime (see <A HREF="#prefs">Changing preferences</A> for 
+		instructions on how to do this). 
+	</LI>
+</OL>
+
+<hr>
+
+<H3><a name="ticketlist">About the ticket list</H3> 
+
+<p>Below the Active User box and Renew Tickets, Destroy Tickets, and Change 
+Password buttons is the <i>ticket list</i>. The ticket list shows all 
+the principals that are currently authenticated on the Macintosh.</p>
+<p>Each principal has a set of Kerberos tickets belonging to it. When you 
+log in with Kerberos, you get a <i>ticket-granting ticket</i> which then 
+allows you to get other tickets from other applications (also called services). 
+Then for each application you run that requires Kerberos authentication, 
+you get a <i>service ticket</i>.</p>
+<p>By default, the principals and their tickets appear as a summary line 
+in the ticket list. The summary lines are in bold text with a light gray 
+background. Each summary line has three elements:</p>
+<ul>
+<li>The Kerberos versions supported by the realm the principal is authenticated 
+  in. This appears as &quot;(v4/v5)&quot;, &quot;(v4)&quot;, or &quot;(v5)&quot; 
+  before the principal. When you log in using Kerberos for Macintosh, 
+  it will attempt to get both Kerberos v4 and v5 tickets for your principal. 
+  However, not all Kerberos-using sites support both versions, or different 
+  realms at the same site may also support different versions, so you 
+  may see only one version listed.</li>
+<li>The username of the authenticated principal.</li>
+<li>The minimum remaining lifetime for the ticket-granting tickets belonging 
+  to the principal (displayed as hours:minutes). You receive one ticket-granting 
+  ticket for each Kerberos version the realm supports; these may have 
+  different expiration times (although Kerberos for Macintosh attempts 
+  to make them the same).</li>
+</ul>
+<p>Instead of a time, you may see either &quot;expired&quot; or &quot;not valid&quot; in the Time
+Remaining column.  &quot;Expired&quot; means that your tickets have no time remaining and
+so are no longer valid; &quot;not valid&quot; means they are no longer valid for some
+other reason, usually because your Mac's IP address has changed since you obtained
+the tickets.  In either case, you need to renew your tickets (although Kerberos for
+Macintosh will also prompt you automatically to renew if you try to use a service
+requiring Kerberos tickets).</p>
+<p>If you want to see details of tickets associated with each principal, 
+click on the triangle at the left of the principal's summary line. The 
+list will expand:</p>
+<p><img src="Graphics/krbmgr4.gif" alt="Expanded ticket list illustration"></p>
+<p>In the expanded list, you will see a list of the tickets (credentials) 
+belonging to that principal. If the principal is authenticated for both 
+versions of Kerberos, the tickets are grouped by version underneath a 
+subheading for each version (see picture above). For Kerberos v5 tickets, 
+an &quot;(F)&quot; after the ticket name means the ticket is forwardable, 
+a &quot;(P)&quot; means the ticket is proxiable, and &quot;(F,P)&quot; 
+means the ticket is both forwardable and proxiable (see <a href="#prefs">Changing 
+preferences</a> for more information about forwardable and proxiable).</p>
+<p>If you always want the ticket list to display expanded entries, you can 
+set the &quot;Always expand new ticket list entries&quot; preference. 
+See the <a href="#prefs">Changing preferences</a> section.</p>
+<p>You can display even more detailed information about each ticket using 
+the Ticket Info window. See the <a href="#ticketinfo">Displaying ticket 
+information</a> section.</p>
+
+<HR>
+
+<H3><A NAME=user>Changing active users</A></H3> 
+
+<P>The current, active user specifies which username will be used for authentication 
+when you work with an application that requires Kerberos authentication. 
+If more than one user is logged in, you may want to change the active 
+user before using such an application. 
+<P>Use one of the following techniques to change the active user: 
+<UL>
+	<LI>Click once on the boldfaced username line in the list that you want 
+	  to be the active user, then click on the <STRONG>Make User Active</STRONG> 
+	  button. 
+	  <P>&nbsp; v
+	</LI>
+	<LI>From the <strong>Kerberos</strong> menu, choose <STRONG>Change Active 
+	  User &gt; <EM>username</EM></STRONG> where <EM>username</EM> is the 
+	  user you want to make active. 
+	  <P>&nbsp; v
+	</LI>
+	<LI>Double-click on the boldfaced username line in the Tickets list.</LI>
+</UL>
+<P><EM>Result:</EM> The new active user is displayed in the Active User 
+box and also appears underlined in the ticket list.  </P>
+<P><IMG SRC="Graphics/chguser.gif" ALT="Changing active user illustration" ALIGN=bottom>  </P>
+
+<HR>
+
+<H3><A NAME=logout>Destroying tickets</A></H3> 
+
+<P>To destroy tickets, select the boldfaced username line in the ticket 
+list then click on the <STRONG>Destroy Tickets</STRONG> button, or choose 
+<STRONG>Destroy Tickets</STRONG> from the <STRONG>Kerberos</STRONG> menu.  </P>
+<P><EM>Result:</EM> The ticket entry is removed from the ticket list. If other 
+users are logged in, their usernames remain in the ticket list and their 
+tickets are valid for the remaining time indicated. </P>
+
+<HR>
+
+<H3><A NAME=renew>Renewing tickets</A></H3> 
+
+<P>If your tickets have expired, or you want to extend the lifetime of existing 
+tickets, use the <STRONG>Renew Tickets</STRONG> command: 
+<OL>
+	<LI>Click once on your boldfaced username line in the ticket list to select 
+	it. 
+	<P><EM>Result:</EM> The <STRONG>Renew Tickets</STRONG> button is activated. 
+	<P><IMG SRC="Graphics/kerbmgr3.gif" ALT="Activated Renew button illustration" ALIGN=bottom> 
+	<P>&nbsp; 
+	</LI>
+	<LI>Click on the <STRONG>Renew Tickets</STRONG> button, choose <STRONG>Renew 
+	Tickets</STRONG> from the <STRONG>Kerberos</STRONG> menu, or press <STRONG>&lt;command&gt;-R</STRONG>. 
+	<P><EM>Result:</EM>The Kerberos Login dialog box is displayed. 
+	<P>&nbsp; 
+	</LI>
+	<LI>Enter your password. 
+	<P>&nbsp; 
+	</LI>
+	<LI>If you want to change the lifetime of the tickets you're obtaining, 
+	see <A HREF="#short">Specifying ticket lifetime when logging in</A> 
+	for instructions. 
+	<P>&nbsp; 
+	</LI>
+	<LI>Click on <STRONG>OK</STRONG>. 
+	<P><EM>Result:</EM> The tickets' lifetime is extended either to the 
+	lifetime you specified when logging in or to the maximum duration 
+	set under <STRONG>Preferences...</STRONG> (the default is 10 hours). 
+	To change the default tickets' lifetime, see <A HREF="#prefs">Changing 
+	Preferences</A>. 
+	</LI>
+</OL>
+
+<HR>
+
+<H3><A NAME=pwd>Changing your password</A></H3> 
+
+<P>You can change your Kerberos password by using the <STRONG>Change Password...</STRONG> 
+command. 
+<P>To change your password, 
+<OL>
+<LI>Click on the boldfaced username line in the ticket list to select 
+  it. 
+  <P><EM>Result:</EM> The <STRONG>Change Password...</STRONG> button is 
+	activated: 
+  <P><IMG SRC="Graphics/kerbmgr3.gif" ALT="Activated Change Password button illustration" ALIGN=bottom> 
+  <P>&nbsp; 
+</LI>
+<LI>Click on the <STRONG>Change Password...</STRONG> button or choose 
+  <STRONG>Change Password...</STRONG> from the <STRONG>Kerberos</STRONG> 
+  menu. 
+  <P><EM>Result:</EM> The Kerberos Change Password dialog box appears 
+	with the name of the user selected previously at the top: 
+  <P><IMG ALT="Change password dialog box illustration" ALIGN=bottom SRC="Graphics/chngepwd.gif"> 
+  <P>&nbsp; 
+</LI>
+<LI>Enter the password you're using now in the "Enter your old password" 
+  box. 
+  <P>&nbsp; 
+</LI>
+<LI>Click once in the "Enter your new password" box, or press the <STRONG>&lt;tab&gt;</STRONG> 
+  key, and type the new password. 
+  <P>&nbsp; 
+</LI>
+<LI>Click once in the "Enter your new password again" box, or press the 
+  <STRONG>&lt;tab&gt;</STRONG> key, and type the new password a second 
+  time, exactly as you typed in the previous step. 
+  <P>&nbsp; 
+</LI>
+<LI>Click on <STRONG>OK</STRONG>. 
+  <P><EM>Result:</EM> Either you will receive a confirmation that your
+	password hss been changed, if you entered either 
+	your old password incorrectly or the entries for the new password 
+	don't match exactly, you'll get an error. You may also receive an error
+	from the Kerberos server if you try to choose an insecure password.
+  <P>This password stays in effect until you change it again using either 
+	the Kerberos control panel or the equivalent procedure on another 
+	Kerberos client on another platform. 
+</LI>
+</OL>
+
+<HR>
+
+<H3><A NAME=addrem>Adding and removing realms</A></H3>
+
+<P>A default Kerberos realm is specified by the Kerberos Preferences file 
+(as distributed from MIT, this realm is ATHENA.MIT.EDU). When using the 
+Kerberos control panel to log in, by default the Kerberos username and 
+password entered are checked for authorization in this area of the network. 
+You can add other realms, as described in this section, and change which 
+one Kerberos Login uses by default. (For instructions on how to change 
+the default realm, see <A HREF="#prefs">Changing Preferences</A>.) 
+<P>Other realms listed in the Kerberos Preferences file can also be used 
+for logging in, but must first be added to the list of &quot;favorite&quot; 
+realms which are displayed in the Kerberos Login dialog. The Kerberos 
+control panel has a feature called Edit Favorite Realms that provides 
+the following options for making the other realms in Kerberos Preferences 
+available for use: 
+<UL>
+<LI>You can add one or multiple realms from the Kerberos Preferences file 
+  to the Favorite Realms List. 
+  <P>&nbsp; 
+</LI>
+<LI>If you want to keep the list of Favorite realms to the minimum that 
+  you need, you can remove realms from the Favorite Realms List.</LI>
+</UL>
+<P>Although other realms may exist besides the ones through the Edit Favorite 
+Realms feature, you can only add or remove realms listed in the Kerberos 
+Preferences file. (For information on adding new realms to the Kerberos
+preferences file, see the <A HREF="http://web.mit.edu/macdev/Development/MITKerberos/Common/Documentation/preferences.html">Kerberos Preferences Documentation</A>.
+Generally you should not have to do this, consult with your system administrator
+first!)
+<P>To add and remove realms, 
+<OL>
+<LI>From the <STRONG>Edit</STRONG> menu, choose <STRONG>Edit Favorite 
+  Realms...</STRONG> or press <STRONG>&lt;command&gt;-E</STRONG>. 
+  <P><em>Result:</em> The Edit Favorite Realms dialog box appears: 
+  <P><IMG SRC="Graphics/realm.gif" ALT="Edit favorite realms dialog box illustration" WIDTH=400 HEIGHT=154 ALIGN=bottom> 
+  <P>&nbsp; 
+</LI>
+<LI>Do any of the following: 
+  <P>&nbsp; 
+  <UL>
+	<LI>Click once on the realm that you want to add in the All Available 
+	  Realms side of the dialog box, then click on <STRONG>Add</STRONG> 
+	  to add the selected realm to the Favorite Realms list. 
+	  <P><EM>Result:</EM> The selected realm is moved to the Favorite 
+		Realms list: 
+	  <P><IMG SRC="Graphics/addrlm.gif" ALT="Adding realms illustration" WIDTH=400 HEIGHT=154 ALIGN=bottom> 
+	  <P>&nbsp; 
+	</LI>
+	<LI>Click on <STRONG>Add All</STRONG> to add all of the realms from 
+	  the All Available Realms list to the Favorite Realms list. 
+	  <P><EM>Result:</EM>The remaining realms in the All Available Realms 
+		list are moved to the Favorite Realms list: 
+	  <P><IMG SRC="Graphics/allrlm.gif" ALT="Adding all realms illustration" WIDTH=400 HEIGHT=154 ALIGN=bottom> 
+	  <P>&nbsp; 
+	</LI>
+	<LI>Click once on the realm that you want to remove in the Favorite 
+	  Realms dialog box, then, click on <STRONG>Remove</STRONG> to remove 
+	  the selected realm from the Favorite Realms list. 
+	  <P><EM>Result:</EM> The selected realm is removed from the Favorite 
+		Realms list: 
+	  <P><IMG SRC="Graphics/remrlm.gif" ALT="Removing realms illustration" WIDTH=400 HEIGHT=154 ALIGN=bottom> 
+	  <P>NOTE: At least one realm is required in the Favorite Realms list. 
+	</LI>
+  </UL>
+  <P>&nbsp; 
+</LI>
+<LI>When you have finished adding and/or removing realms, click on <STRONG>Done</STRONG>. 
+  <P><EM>Result:</EM>If you've added one or more realms, they are now 
+	available from the Kerberos Login dialog box. If you've removed any 
+	realms, they are no longer available for use unless you add them again 
+	later on. 
+  <P>To find out how to change the default realm, refer to <A HREF="#prefs">Changing 
+	preferences</A>. 
+</LI>
+</OL>
+
+<HR>
+
+<H3><A NAME=ticketinfo>Displaying ticket information</A></H3>
+
+<p>If you are interested in more ticket information, the Kerberos control 
+panel can display detailed information about each Kerberos ticket by using 
+the Get Ticket Info command. To display detailed ticket information:</p>
+<ol>
+<li>Select a ticket entry in the ticket list of the Kerberos control panel's 
+  ticket list. (Note that you can only get info about individual ticket items -
+  the non-bold lines.)</li>
+<P>&nbsp; 
+<li>From the <strong>Kerberos</strong> menu, choose<strong> Get Ticket 
+  Information</strong>, or press <strong>&lt;command&gt;-I</strong>.</li>
+<P><em>Result:</em> The Ticket Info window appears: 
+<p>&nbsp; <img src="Graphics/tixinfo.gif" width="390" height="409"> </p>
+<p>At the top of the ticket info window is the principal who owns the 
+  ticket, the service that the ticket was obtained for, and the Kerberos 
+  version of the ticket. The rest of the information is divided into several 
+  panes for easier reading:</p>
+<ul>
+  <li><strong>Times</strong> - The exact time the ticket was issued, and
+	the start and end time that the ticket is valid for, all in local time.
+	Also a status field to tell you if the ticket is valid, expired, or
+	not valid for another reason.</li>
+  <li><strong>Flags</strong> (for v5 tickets only) - The properties, such 
+	as forwardable and proxiable, of the ticket.</li>
+  <li><strong>IP Addresses</strong> - The IP addresses for which the ticket 
+	is valid. V4 tickets can only have one address, so you will only see 
+	one listed. V5 tickets may be valid for multiple or no addresses, 
+	so you may see more than one or none listed, although typically you 
+	will only see one listed.</li>
+  <li><strong>Encryption</strong> - For v4 tickets, lists the string to 
+	key type of the ticket. For v5 tickets, lists both the session key 
+	and service principal key encryption types of the ticket.</li>
+</ul>
+<P>&nbsp; 
+<li>When you are done looking at the ticket information, you can close 
+  the Ticket Info window using its close box.</li>
+</ol>
+<p>You can have more than one ticket info window open at once.</p>
+
+<HR>
+
+<H3><A NAME=prefs>Changing preferences</A></H3> 
+
+<P>You can make certain customizations to the Kerberos control panel by 
+using the <STRONG>Preferences...</STRONG> command. These customizations 
+also affect the Kerberos Login dialog anytime another application brings 
+it up, and the Kerberos Floating Window.
+<OL>
+<LI>From the <STRONG>Edit</STRONG> menu, choose <STRONG>Preferences...</STRONG> 
+  or press <b>&lt;command&gt;-Y </b> 
+  <P><EM>Result:</EM>The Preferences dialog box appears: 
+  <P><IMG ALT="Preferences dialog box illustration" ALIGN=bottom SRC="Graphics/krbprefs.gif"> 
+  <P>&nbsp; 
+</LI>
+<LI>The Kerberos preferences are divided into several groups, with a tab 
+  for each group. Click on the tab for the preferences you want to modify: 
+  <P>&nbsp; 
+  <ul>
+	<li><strong>Login Defaults</strong> - preferences that control the 
+	  default username and ticket options for the Kerberos Login dialog</li>
+	<li><strong>Display</strong> - preferences that control the way the 
+	  Kerberos control panel displays information</li>
+	<li><strong>Floating Window</strong> - preferences that control the 
+	  Kerberos Floating Window</li>
+	<li><strong>Lifetimes</strong> - preferences that control the minimum, 
+	  maximum, and default settings of the ticket lifetime slider in the 
+	  Kerberos Login dialog</li>
+  </ul>
+</LI>
+<P>&nbsp; 
+<LI>Make changes to any of the following: 
+  <P>&nbsp; 
+  <UL>
+	<LI><strong>Login Defaults</strong>: 
+	  <ul>
+		<li><strong>Remember principal from last Kerberos login/Use this principal 
+		  information</strong> (default = &quot;Remember principal from 
+		  last login&quot;): This popup menu lets you chose whether to 
+		  retain the username, instance, and principal in the Kerberos 
+		  Login dialog box after each time you log in, or to use the options 
+		  specified in the Preferences dialog each time. 
+		  <ul>
+			<li><strong>Always use blank username</strong> (default) (only 
+			  applies if &quot;Use this principal information&quot; is 
+			  selected): The username and instance fields will always 
+			  be blank in the Kerberos Login dialog. </li>
+			<li><strong>Always use this username</strong> (only applies 
+			  if &quot;Use this principal information&quot; is selected): 
+			  The username field of the Kerberos dialog will always be 
+			  the specified username, and the instance field will always 
+			  be blank. (You can edit the username field to be something 
+			  different for a single login, but it will always return 
+			  to this user on next login.) </li>
+			<li><strong>Always use this realm</strong> (only applies if 
+			  &quot;Use this principal information&quot; is selected): 
+			  The realm selected from this popup will always appear as 
+			  the selected realm in the Kerberos Login dialog's realm 
+			  popup. If the realm you want is not in the popup list, use 
+			  the <A HREF="#addrem"><STRONG>Edit Favorite Realms</STRONG></A> 
+			  to add realms, then return to the Preferences dialog and 
+			  choose the desired from the Realm popup list. </li>
+		  </ul>
+		</li>
+		<li><strong>Remember ticket options from last Kerberos login/Use these 
+		  ticket options</strong> (default = &quot;Remember ticket options 
+		  from last login&quot;): This popup menu lets you chose whether 
+		  to retain the forwardable, proxiable, and ticket lifetime options 
+		  in the Kerberos Login dialog box after each time you log in, 
+		  or to use the options specified in the Preferences dialog each 
+		  time. 
+		  <ul>
+			<li><strong>Forwardable tickets always</strong> (default=on) 
+			  (only applies if &quot;Use these ticket options&quot; is 
+			  selected): Tickets that you've obtained on your machine 
+			  are valid on another machine to which you are connecting. 
+			  (We recommend that you leave this option turned on.) Only 
+			  applies to Kerberos v5 tickets. </li>
+			<li><strong>Proxiable tickets always</strong> (default=off) 
+			  (only applies if &quot;Use these ticket options&quot; is 
+			  selected): Tickets are proxiable. Proxiable tickets are 
+			  used by some Windows 2000 Kerberos services, however, you 
+			  should not turn on proxiable tickets unless instructed to 
+			  do so by your system administrator. Only applies to Kerberos 
+			  v5 tickets. </li>
+			<li><strong>Ticket lifetime always</strong> (default=10 hours) 
+			  (only applies if &quot;Use these ticket options&quot; is 
+			  selected): To change the duration for tickets to be valid, 
+			  place the mouse pointer on the Ticket Lifetime slider and 
+			  drag it to desired time indicated above the slider. NOTE: 
+			  Changes you make to this setting take effect the next time 
+			  you obtain tickets. Any tickets that you currently have 
+			  maintain the lifetime that was set when you obtained them</li>
+		  </ul>
+		</li>
+	  </ul>
+	</LI>
+	<li><strong>Display</strong>: 
+	<ul>
+	  <li><strong>Always expand new ticket list entries</strong> (default=off): 
+		To have the full list of your individual tickets displayed in 
+		the ticket list by default (as opposed to a summary of your tickets indicated 
+		by your username) click once in the checkbox to activate it. See 
+		<a href="#ticketlist">About the ticket list</a> for more details.</li>
+	</ul>
+	</li>
+	<li><strong>Floating Window</strong>: 
+	  <ul>
+		<li><strong>Show floating window</strong> (default = off): If 
+		  this box is checked, the Kerberos Floating Window will be displayed.</li>
+		<li><strong>Floating window can be closed</strong> (default = 
+		  on): If this box is checked, the Kerberos Floating Window has a close 
+		  box and can be closed. (You'll have to use the &quot;show floating 
+		  window&quot; preference or tear the menu off the Kerberos Menu/Control Strip
+		  to display it again.) Note that unlike  in old versions of KClient,
+		  closing the floating window does not destroy any tickets, it simply
+		  hides the floating window.</li>
+		<li><strong>Show commands in floating window</strong> (default 
+		  = off): The Kerberos Floating Window has two states, a simple compact 
+		  state where only the usernames of the currently authenticated 
+		  users are displayed, or an expanded state where Get Ticket, 
+		  Destroy Tickets, and Renew Tickets commands are displayed along 
+		  with the authenticated users. If this box is checked, the floating window 
+		  is displayed in its expanded state with the commands. You can 
+		  also switch between the compact and expanded states of the floating window 
+		  by clicking on the zoom box in the floating window's title bar.</li>
+		<li><strong>Show remaining lifetime &quot;pie&quot; in floating 
+		  window</strong> (default = on): If this box is checked, a small 
+		  circle indicating the relative amount of time remaining until 
+		  the user's tickets expire is displayed next to each authenticated 
+		  user's name.</li>
+		<li>For more information about the Kerberos Floating Window, see the <a href="../../TicketKeeper/Documentation/using-floater.html">Using 
+		  the Kerberos Floating Window</a> documentation. </li>
+	  </ul>
+	</li>
+	<li><strong>Lifetimes</strong>: 
+	  <ul>
+		<li>Using the edit fields in this preferences panel, you can set 
+		  the minimum and maximum range of the ticket lifetime slider 
+		  displayed by the Kerberos Login dialog. You can also set the default 
+		  ticket lifetime (this is the same as the &quot;ticket lifetime 
+		  always&quot; option in the Login Defaults preferences). These 
+		  settings only control the minimum and maximum lifetimes your 
+		  Macintosh requests from the Kerberos server; the Kerberos server 
+		  may not allow tickets longer or shorter than certain lifetimes. 
+		  (Defaults are 0:10:00 minimum, 10:00:00 maximum, and 10:00:00 
+		  default.) </li>
+	  </ul>
+	</li>
+  </UL>
+  <P>&nbsp; 
+</LI>
+<LI>Click on <STRONG>OK</STRONG> to save the changes you've made.</LI>
+</OL>
+
+<!-- #bbinclude "footer.template" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2005 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2005/05/04 18:23:05 $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
 <!-- Begin MIT-use only web reporting counter -->
 	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
 <!-- End MIT-use only web reporting counter -->
-</BODY> </HTML>
+</BODY></HTML>
 <!-- end bbinclude -->

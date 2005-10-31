@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,7 +44,7 @@ import java.text.DateFormatSymbols;
  * VelocityHelper is a class used to help render a visual calendar using the VTL.
  * 
  * @author Mark Lussier
- * @version $Id: VelocityHelper.java,v 1.5 2005/01/10 21:52:34 johnan Exp $
+ * @version $Id: VelocityHelper.java,v 1.5.2.1 2005/07/21 04:30:26 johnan Exp $
  */
 public class VelocityHelper {
 
@@ -55,8 +55,9 @@ public class VelocityHelper {
 
     private static final String VTL_SPACER = "&nbsp;";
 
-    private static final String HREF_PREFIX = "<a href=\"";
-    private static final String HREF_SUFFIX = "</a>";
+    private String HREF_PREFIX = "<a href=\"";
+    private String HREF_SUFFIX = "</a>";
+    private String _today = "Today";
 
     /**
      * Public Constructor
@@ -83,10 +84,23 @@ public class VelocityHelper {
     }
 
     /**
+     * Retrieve the {@link BlogCalendar} object used to construct this object
+     *
+     * @return {@link BlogCalendar}
+     * @since blojsom 2.21
+     */
+    public BlogCalendar getBlogCalendar() {
+        return _calendar;
+    }
+
+    /**
      * Builds the visual calendar model
      */
     public void buildCalendar() {
-        int fdow = _calendar.getFirstDayOfMonth() - 1;
+        int fdow = _calendar.getFirstDayOfMonth() - _calendar.getCalendar().getFirstDayOfWeek();
+        if (fdow == -1) {
+            fdow = 6;
+        }
         int ldom = _calendar.getDaysInMonth();
         int dowoffset = 0;
         for (int x = 0; x < 6; x++) {
@@ -101,7 +115,7 @@ public class VelocityHelper {
                         StringBuffer _url = new StringBuffer(HREF_PREFIX);
                         String _calurl = BlojsomUtils.getCalendarNavigationUrl(_calendar.getCalendarUrl(), (_calendar.getCurrentMonth() + 1), dowoffset, _calendar.getCurrentYear());
                         _url.append(_calurl);
-                        _url.append("\">").append(dowoffset).append(HREF_SUFFIX);
+                        _url.append("\"><span>").append(dowoffset).append("</span>").append(HREF_SUFFIX);
                         visualcalendar[x][y] = _url.toString();
                     }
 
@@ -111,7 +125,19 @@ public class VelocityHelper {
     }
 
     /**
-     * Get the visual content for a given calendar row
+     * Get the visual content for a given calendar row. If <code>clazz</code> is null, no <code>class</code> attribute
+     * will be included in the &lt;td&gt; tag.
+     *
+     * @param row   the row
+     * @return the visual calendar row
+     */
+    public String getCalendarRow(int row) {
+        return getCalendarRow(row, null);
+    }
+
+    /**
+     * Get the visual content for a given calendar row. If <code>clazz</code> is null, no <code>class</code> attribute
+     * will be included in the &lt;td&gt; tag.  
      * 
      * @param row   the row
      * @param clazz the css style apply
@@ -121,17 +147,11 @@ public class VelocityHelper {
         StringBuffer result = new StringBuffer();
         if (row > 0 && row <= visualcalendar.length) {
             for (int x = 0; x < 7; x++) {
-				String dayOfMonthLink = visualcalendar[row - 1][x];
-				Integer currentDayInt = new Integer(_calendar.getCurrentDay());
-				String dayOfMonthText = dayOfMonthLink.replaceAll("<[^>]+>", "");
-				if (dayOfMonthLink.indexOf("<a") >= 0 && dayOfMonthText.equals(currentDayInt.toString())) {
-					result.append("<td class=\"").append(clazz).append("-h\">").append(dayOfMonthText).append("</td>");
-				}
-				else if (dayOfMonthLink.indexOf("<a") == (-1)) {
-					result.append("<td class=\"").append(clazz).append("\">").append(dayOfMonthLink).append("</td>");
-				} else {
-					result.append("<td class=\"").append(clazz).append("-a\">").append(dayOfMonthLink).append("</td>");
-				}
+                if (clazz != null) {
+                    result.append("<td class=\"").append(clazz).append("\">").append(visualcalendar[row - 1][x]).append("</td>");
+                } else {
+                    result.append("<td>").append(visualcalendar[row - 1][x]).append("</td>");
+                }
             }
         }
         return result.toString();
@@ -144,7 +164,7 @@ public class VelocityHelper {
      */
     public String getToday() {
         StringBuffer result = new StringBuffer();
-        result.append(HREF_PREFIX).append(_calendar.getCalendarUrl()).append("\">Today").append(HREF_SUFFIX);
+        result.append(HREF_PREFIX).append(_calendar.getCalendarUrl()).append("\">").append(_calendar.getShortMonthName(_calendar.getCurrentMonth())).append(HREF_SUFFIX);
         return result.toString();
     }
 
@@ -176,15 +196,6 @@ public class VelocityHelper {
         result.append(HREF_SUFFIX);
         _calendar.getCalendar().add(Calendar.MONTH, 1);
         return result.toString();
-    }
-
-    /**
-     * Get the visual control for navigating to the previous month
-     * 
-     * @return the previous month navigation control
-     */
-    public String getPreviousMonth() {
-		return getPreviousMonth(null);
     }
 
     /**
@@ -228,4 +239,129 @@ public class VelocityHelper {
     public String getNextMonth() {
 		return getNextMonth(null);
 	}
+
+    /**
+     * Get the link for navigating to the previous month
+     *
+     * @return the previous month link
+     * @since blojsom 2.21
+     */
+    public String getPreviousMonthLink() {
+
+        StringBuffer result = new StringBuffer();
+        _calendar.getCalendar().add(Calendar.MONTH, -1);
+
+        String prevurl =
+                BlojsomUtils.getCalendarNavigationUrl(_calendar.getCalendarUrl(),
+                        (_calendar.getCalendar().get(Calendar.MONTH) + 1),
+                        -1, _calendar.getCalendar().get(Calendar.YEAR));
+
+        result.append(prevurl);
+        _calendar.getCalendar().add(Calendar.MONTH, 1);
+
+        return result.toString();
+    }
+
+    /**
+     * Get the visual control for navigating to the previous month
+     *
+     * @return the previous month navigation control
+     * @since blojsom 2.21
+     */
+    public String getPreviousMonthName() {
+        StringBuffer result = new StringBuffer();
+        _calendar.getCalendar().add(Calendar.MONTH, -1);
+
+        result.append(_calendar.getMonthName(_calendar.getCalendar().get(Calendar.MONTH)));
+        _calendar.getCalendar().add(Calendar.MONTH, 1);
+
+        return result.toString();
+    }
+
+    /**
+     * Get the link for navigating to the current month
+     *
+     * @return the current month link
+     * @since blojsom 2.21
+     */
+    public String getCurrentMonthLink() {
+
+        StringBuffer result = new StringBuffer();
+        result.append(_calendar.getCalendarUrl());
+
+        return result.toString();
+    }
+
+    /**
+     * Get the link for navigating to the next month
+     *
+     * @return the next month link
+     * @since blojsom 2.21
+     */
+    public String getCurrentMonthName() {
+        StringBuffer result = new StringBuffer();
+
+        result.append(_calendar.getMonthName(_calendar.getCalendar().get(Calendar.MONTH)));
+
+        return result.toString();
+    }
+
+
+    /**
+     * Get the link for navigating to the next month
+     *
+     * @return the next month link
+     * @since blojsom 2.21
+     */
+    public String getNextMonthLink() {
+
+        StringBuffer result = new StringBuffer();
+        _calendar.getCalendar().add(Calendar.MONTH, 1);
+
+        String nexturl =
+                BlojsomUtils.getCalendarNavigationUrl(_calendar.getCalendarUrl(),
+                        (_calendar.getCalendar().get(Calendar.MONTH) + 1),
+                        -1, _calendar.getCalendar().get(Calendar.YEAR));
+
+        result.append(nexturl);
+        _calendar.getCalendar().add(Calendar.MONTH, -1);
+
+        return result.toString();
+    }
+
+    /**
+     * Get the name for navigating to the next month
+     *
+     * @return the next month name
+     * @since blojsom 2.21
+     */
+    public String getNextMonthName() {
+        StringBuffer result = new StringBuffer();
+        _calendar.getCalendar().add(Calendar.MONTH, 1);
+
+        result.append(_calendar.getMonthName(_calendar.getCalendar().get(Calendar.MONTH)));
+        _calendar.getCalendar().add(Calendar.MONTH, -1);
+
+        return result.toString();
+    }
+
+    /**
+     * Set the text displayed for the "Today" link
+     *
+     * @param today Text for "Today" link
+     * @since blojsom 2.22
+     */
+    public void setTodayText(String today) {
+        _today = today;
+    }
+
+    /**
+     * Retrieve the text displayed for the "Today" link
+     *
+     * @return Text for "Today link
+     * @since blojsom 2.25
+     */
+    public String getTodayText() {
+        return _today;
+    }
 }

@@ -1,5 +1,5 @@
-/* java.util.zip.ZipFile
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+/* ZipFile.java --
+   Copyright (C) 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,8 +42,8 @@ import java.io.BufferedInputStream;
 import java.io.DataInput;
 import java.io.EOFException;
 import java.io.File;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -117,8 +117,6 @@ public class ZipFile implements ZipConstants
    * 
    * The contents of the zip file will be accessible until it is closed.
    *
-   * The OPEN_DELETE mode is currently unimplemented in this library
-   * 
    * @since JDK1.3
    * @param mode Must be one of OPEN_READ or OPEN_READ | OPEN_DELETE
    *
@@ -128,11 +126,10 @@ public class ZipFile implements ZipConstants
    */
   public ZipFile(File file, int mode) throws ZipException, IOException
   {
+    if (mode != OPEN_READ && mode != (OPEN_READ | OPEN_DELETE))
+      throw new IllegalArgumentException("invalid mode");
     if ((mode & OPEN_DELETE) != 0)
-      {
-	throw new IllegalArgumentException
-	  ("OPEN_DELETE mode not supported yet in java.util.zip.ZipFile");
-      }
+      file.deleteOnExit();
     this.raf = new RandomAccessFile(file, "r");
     this.name = file.getPath();
   }
@@ -148,7 +145,7 @@ public class ZipFile implements ZipConstants
    * @exception IOException if a i/o error occured.
    * @exception EOFException if the file ends prematurely
    */
-  private final int readLeShort(DataInput di, byte[] b) throws IOException
+  private int readLeShort(DataInput di, byte[] b) throws IOException
   {
     di.readFully(b, 0, 2);
     return (b[0] & 0xff) | (b[1] & 0xff) << 8;
@@ -165,14 +162,13 @@ public class ZipFile implements ZipConstants
    * @exception IOException if a i/o error occured.
    * @exception EOFException if the file ends prematurely
    */
-  private final int readLeInt(DataInput di, byte[] b) throws IOException
+  private int readLeInt(DataInput di, byte[] b) throws IOException
   {
     di.readFully(b, 0, 4);
     return ((b[0] & 0xff) | (b[1] & 0xff) << 8)
 	    | ((b[2] & 0xff) | (b[3] & 0xff) << 8) << 16;
   }
 
-  
   /**
    * Read an unsigned short in little endian byte order from the given
    * byte buffer at the given offset.
@@ -181,7 +177,7 @@ public class ZipFile implements ZipConstants
    * @param off the offset to read from.
    * @return The value read.
    */
-  private final int readLeShort(byte[] b, int off)
+  private int readLeShort(byte[] b, int off)
   {
     return (b[off] & 0xff) | (b[off+1] & 0xff) << 8;
   }
@@ -194,7 +190,7 @@ public class ZipFile implements ZipConstants
    * @param off the offset to read from.
    * @return The value read.
    */
-  private final int readLeInt(byte[] b, int off)
+  private int readLeInt(byte[] b, int off)
   {
     return ((b[off] & 0xff) | (b[off+1] & 0xff) << 8)
 	    | ((b[off+2] & 0xff) | (b[off+3] & 0xff) << 8) << 16;

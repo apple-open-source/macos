@@ -876,7 +876,7 @@ void IOHIKeyboard::close(IOService * client, IOOptionBits)
 
     _keyboardSpecialEvent(  this, 
                             NX_SYSDEFINED, 
-                            _eventFlags, 
+                            0, 
                             NX_NOSPECIALKEY, 
                             NX_SUBTYPE_STICKYKEYS_RELEASE, 
                             _guid, 

@@ -528,14 +528,19 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 	if (NULL != (theRange = OSDynamicCast(OSDictionary, AOAprop->getObject("RangeOut")))) {
 		outputPort = IOAudioPort::withAttributes(kIOAudioPortTypeOutput, "Main Output port");
 		if (NULL != outputPort) {
+			debugIOLog ( 6, "  RangeOut: 0x%X", AOAprop->getObject("RangeOut") );
 			theNumber = OSDynamicCast(OSNumber, theRange->getObject("minLin"));
 			OutminLin = (SInt32) theNumber->unsigned32BitValue();
+			debugIOLog ( 6, "  OutminLin: 0x%X", OutminLin );
 			theNumber = OSDynamicCast(OSNumber, theRange->getObject("maxLin"));
 			OutmaxLin = (SInt32) theNumber->unsigned32BitValue();
+			debugIOLog ( 6, "  OutmaxLin: 0x%X", OutmaxLin );
 			theData = OSDynamicCast(OSData, theRange->getObject("minLog"));
 			OutminDB = *((IOFixed*) theData->getBytesNoCopy());
+			debugIOLog ( 6, "  OutminDB: 0x%X", OutminDB );
 			theData = OSDynamicCast(OSData, theRange->getObject("maxLog"));
 			OutmaxDB = *((IOFixed*) theData->getBytesNoCopy());
+			debugIOLog ( 6, "  OutmaxDB: 0x%X", OutmaxDB );
 			
 			fMaxVolume = OutmaxLin;
 			fMinVolume = OutminLin;

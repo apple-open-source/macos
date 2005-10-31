@@ -46,7 +46,7 @@
 - (OutlineViewNode *)rootNode;
 - (void)addProperty:(char *)property withValue:(char *)value atDepth:(int)depth;
 - (void)addNumberProperty:(char *)property value:(UInt32)value size:(int)sizeInBytes atDepth:(int)depth usingStyle:(int)style;
-- (void)addStringProperty:(char *)property fromStringIndex:(UInt8)strIndex fromDeviceInterface:(IOUSBDeviceInterface **)deviceIntf atDepth:(int)depth;
+- (void)addStringProperty:(char *)property fromStringIndex:(UInt8)strIndex fromDeviceInterface:(IOUSBDeviceRef)deviceIntf atDepth:(int)depth;
 
 - (NSString *)deviceName;
 - (void)setDeviceName:(NSString *)name;

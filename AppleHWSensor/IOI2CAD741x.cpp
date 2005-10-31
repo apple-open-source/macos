@@ -1,9 +1,12 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: IOI2CAD741x.cpp,v 1.3 2004/12/15 04:44:50 jlehrer Exp $
+ *  File: $Id: IOI2CAD741x.cpp,v 1.4 2005/04/11 23:39:19 dirty Exp $
  *
  *		$Log: IOI2CAD741x.cpp,v $
+ *		Revision 1.4  2005/04/11 23:39:19  dirty
+ *		[4078743] Properly handle negative temperatures.
+ *		
  *		Revision 1.3  2004/12/15 04:44:50  jlehrer
  *		[3867728] Support for failed hardware.
  *		
@@ -400,7 +403,7 @@ IOReturn IOI2CAD741x::getTemperature( SInt32 * temp )
 
 	reading = *((SInt16 *) bytes);
 	// temperature is fixed point 8.2 in most significant 10 bits of the two bytes that were read
-	*temp = (((SInt32)(reading & 0xFFC0)) << 8);
+	*temp = ( ( ( SInt16 ) ( reading & 0xFFC0 ) ) << 8 );
 	return status;
 }
 

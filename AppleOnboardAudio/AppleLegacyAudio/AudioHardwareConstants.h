@@ -115,6 +115,12 @@
 
 #define	kMiniumumPollsToAquireClockLock		3
 
+// [4189050]
+enum AutoClockLockState {
+    kAutoClockLockStateNormal               = 0,
+    kAutoClockLockStatePendingRelock
+};
+
 typedef enum {
 	kInternalSpeakerStatus			= 0,
 	kHeadphoneStatus,
@@ -265,9 +271,8 @@ enum AudioPortTypes {
 	kSndHWLineOutput			=	0x00001000,		// line output device present
 	kSndHWDigitalOutput			=	0x00002000,		// digital output device present
 	kSndHWDigitalInput			=	0x00004000,		// digital in device present
-    kSndHWInputDevices			=	0x000040B0,		// mask to get input devices (excluding modems)
-	kSndHWDigitalOutputDetect   =	0x00008000,		// digital output device has detect
-	kSndHWDigitalInputDetect	=	0x00010000,		// digital in device has detect
+    kSndHWInternalMicrophone    =   0x00008000,     // internal microphone present
+    kSndHWInputDevices			=	0x000040B0,		// mask to get input devices (excluding modems and internal mic)
     kSndHWAllDevices			=	0xFFFFFFFF		// all available devices
 };
 
@@ -352,6 +357,7 @@ enum GpioAddressSelector {
 	kComboInJackTypeSel			=	'dgIT',
 	kMasterMuteSel				=	'mstr',
 	kInternalSpeakerIDSel		=	'ispi',
+	kInternalMicrophoneIDSel	=	'imci',
 	kSpeakerDetectSel			=	'sdet'
 };
 //	END WARNING:

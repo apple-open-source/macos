@@ -1,7 +1,7 @@
 /*
  * mach_server_utilities.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/mach_server_utilities.h,v 1.15 2004/10/22 20:54:18 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/mach_server_utilities.h,v 1.16 2005/05/25 20:17:18 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -51,9 +51,6 @@ mach_server_demux (mach_msg_header_t *request, mach_msg_header_t *reply);
 
 mach_port_t
 mach_server_get_server_port ();
-
-boolean_t
-mach_server_become_user (uid_t inNewServerUID);
 
 boolean_t 
 mach_server_quit_self ();

@@ -1,4 +1,5 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- 
+ *
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
@@ -71,6 +72,14 @@ private:
 
 std::vector<class ObjectFile::Atom*>		Reader::fgEmptyList;
 
+#undef SwapArchToHostInt32
+#if defined(ARCH_PPC) || defined(ARCH_PPC64)
+	#define SwapArchToHostInt32(value) OSSwapBigToHostInt32(value)
+#elif defined(ARCH_I386)
+	#define SwapArchToHostInt32(value) OSSwapLittleToHostInt32(value)
+#endif
+
+
 
 bool Reader::Entry::hasLongName() const
 {
@@ -130,7 +139,7 @@ uint32_t Reader::Entry::getContentSize() const
 const Reader::Entry*	Reader::Entry::getNext() const
 {
 	const uint8_t* p = this->getContent() + getContentSize();
-	p = (const uint8_t*)(((uint32_t)p+3) & (-4));  // 4-byte align
+	p = (const uint8_t*)(((uintptr_t)p+3) & (-4));  // 4-byte align
 	return (Reader::Entry*)p;
 }
 
@@ -156,7 +165,7 @@ Reader::Reader(const uint8_t fileContent[], uint64_t fileLength, const char* pat
 		else
 			throw "archive has no table of contents";
 		const uint8_t* contents = firstMember->getContent();
-		uint32_t ranlibArrayLen = OSReadBigInt32((void *) contents, 0);
+		uint32_t ranlibArrayLen = SwapArchToHostInt32(*((uint32_t*)contents));
 		fTableOfContents = (const struct ranlib*)&contents[4];
 		fTableOfContentCount = ranlibArrayLen / sizeof(struct ranlib);
 		fStringPool = (const char*)&contents[ranlibArrayLen+8];
@@ -222,7 +231,7 @@ const struct ranlib* Reader::ranlibBinarySearch(const char* key)
 	const struct ranlib* base = fTableOfContents;
 	for (uint32_t n = fTableOfContentCount; n > 0; n /= 2) {
 		const struct ranlib* pivot = &base[n/2];
-		const char* pivotStr = &fStringPool[OSSwapBigToHostInt32(pivot->ran_un.ran_strx)];
+		const char* pivotStr = &fStringPool[SwapArchToHostInt32(pivot->ran_un.ran_strx)];
 		int cmp = strcmp(key, pivotStr);
 		if ( cmp == 0 )
 			return pivot;
@@ -244,7 +253,7 @@ const struct ranlib* Reader::ranlibLinearSearch(const char* key)
 {
 	for (uint32_t i = 0; i < fTableOfContentCount; ++i) {
 		const struct ranlib* entry = &fTableOfContents[i];
-		const char* entryName = &fStringPool[OSSwapBigToHostInt32(entry->ran_un.ran_strx)];
+		const char* entryName = &fStringPool[SwapArchToHostInt32(entry->ran_un.ran_strx)];
 		if ( strcmp(key, entryName) == 0 )
 			return entry;
 	}
@@ -256,7 +265,7 @@ void Reader::dumpTableOfContents()
 {
 	for (unsigned int i=0; i < fTableOfContentCount; ++i) {
 		const struct ranlib* e = &fTableOfContents[i];
-		printf("%s in %s\n", &fStringPool[OSSwapBigToHostInt32(e->ran_un.ran_strx)], ((Entry*)&fFileContent[OSSwapBigToHostInt32(e->ran_off)])->getName());
+		printf("%s in %s\n", &fStringPool[SwapArchToHostInt32(e->ran_un.ran_strx)], ((Entry*)&fFileContent[SwapArchToHostInt32(e->ran_off)])->getName());
 	}
 }
 
@@ -268,20 +277,20 @@ std::vector<class ObjectFile::Atom*>* Reader::getJustInTimeAtomsFor(const char* 
 	else {
 		const struct ranlib* result = NULL;
 		if ( fSorted ) {
-			// do a binary search of table of contents lookig for requested symbol
+			// do a binary search of table of contents looking for requested symbol
 			result = ranlibBinarySearch(name);
 		}
 		else {
-			// do a linear search of table of contents lookig for requested symbol
+			// do a linear search of table of contents looking for requested symbol
 			result = ranlibLinearSearch(name);
 		}
 		if ( result != NULL ) {
-			const Entry* member = (Entry*)&fFileContent[OSSwapBigToHostInt32(result->ran_off)];
-			//fprintf(stderr, "%s found in %s\n", name, member->getName());
+			const Entry* member = (Entry*)&fFileContent[SwapArchToHostInt32(result->ran_off)];
 			if ( fInstantiatedEntries.count(member) == 0 ) {
 				// only return these atoms once
 				fInstantiatedEntries.insert(member);
 				ObjectFile::Reader* r = makeObjectReaderForMember(member);
+				//fprintf(stderr, "%s found in %s\n", name, member->getName());
 				return new std::vector<class ObjectFile::Atom*>(r->getAtoms());
 			}
 		}

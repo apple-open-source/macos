@@ -12,5 +12,3 @@ void b(void)
 {
   a();
 }
-
-/* APPLE LOCAL put in 4.1 */

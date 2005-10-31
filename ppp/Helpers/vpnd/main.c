@@ -509,7 +509,7 @@ void vpnlog(int nSyslogPriority, char *format_str, ...)
 static void dump_params(struct vpn_params *params)
 {
     int	i;
-	char	*subtype = 0, *servertype;
+	char	*subtype = 0, *servertype = "Unknown";
     
 	switch (params->server_type) {
 		case SERVER_TYPE_IPSEC:

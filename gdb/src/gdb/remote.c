@@ -337,7 +337,8 @@ static CORE_ADDR remote_watch_data_address;
 static int remote_stopped_by_watchpoint_p;
 
 
-static struct target_ops remote_ops;
+/* APPLE LOCAL: classic-inferior-support */
+struct target_ops remote_ops;
 
 static struct target_ops extended_remote_ops;
 
@@ -5257,6 +5258,9 @@ Specify the serial device it is connected to\n\
   remote_ops.to_has_registers = 1;
   remote_ops.to_has_execution = 1;
   remote_ops.to_has_thread_control = tc_schedlock;	/* can lock scheduler */
+  /* APPLE LOCAL: Make sure this gets set to 0. */
+  remote_ops.to_async_mask_value = 0;
+  /* END APPLE LOCAL */
   remote_ops.to_magic = OPS_MAGIC;
 }
 

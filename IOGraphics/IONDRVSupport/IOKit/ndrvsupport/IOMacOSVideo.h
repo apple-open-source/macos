@@ -236,7 +236,8 @@ enum {
     kBuiltInConnection          = 11,                           /* Set when connection is KNOWN to be built-in (this is not the same as kHasDirectConnection). */
     kOverrideConnection         = 12,                           /* Set when the reported connection is not the true one, but is one that has been forced through a SetConnection call */
     kFastCheckForDDC            = 13,                           /* Set when all 3 are true: 1) sense codes indicate DDC display could be attached 2) attempted fast check 3) DDC failed */
-    kReportsHotPlugging         = 14                            /* Detects and reports hot pluggging on connector (via VSL also implies DDC will be up to date w/o force read) */
+    kReportsHotPlugging         = 14,                           /* Detects and reports hot pluggging on connector (via VSL also implies DDC will be up to date w/o force read) */
+    kStereoSyncConnection       = 15                            /* Connection supports stereo sync signalling */
 };
 
 
@@ -1211,7 +1212,8 @@ enum {
     kScaleCanDownSamplePixelsMask = (1<<2),			/* True means timings with fewer active clocks than pixels (ie 1600x1200  pixels on a 640x480 timing) */
     kScaleCanScaleInterlacedMask  = (1<<3),			/* True means can scale an interlaced timing */
     kScaleCanSupportInsetMask     = (1<<4),			/* True means can scale a timing with insets */
-    kScaleCanRotateMask           = (1<<5)			/* True means can rotate image */
+    kScaleCanRotateMask           = (1<<5),			/* True means can rotate image */
+    kScaleCanBorderInsetOnlyMask  = (1<<6)			/* True means can scale a timing with insets */
 };
 
 /* csScalerFlags */

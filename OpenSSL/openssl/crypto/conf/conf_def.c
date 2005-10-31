@@ -235,7 +235,7 @@ static int def_load_bio(CONF *conf, BIO *in, long *line)
 		CONFerr(CONF_F_CONF_LOAD_BIO,ERR_R_MALLOC_FAILURE);
 		goto err;
 		}
-	strcpy(section,"default");
+	BUF_strlcpy(section,"default",10);
 
 	if (_CONF_new_data(conf) == 0)
 		{
@@ -392,7 +392,7 @@ again:
 							ERR_R_MALLOC_FAILURE);
 				goto err;
 				}
-			strcpy(v->name,pname);
+			BUF_strlcpy(v->name,pname,strlen(pname)+1);
 			if (!str_copy(conf,psection,&(v->value),start)) goto err;
 
 			if (strcmp(psection,section) != 0)
@@ -447,7 +447,7 @@ err:
 	if (buff != NULL) BUF_MEM_free(buff);
 	if (section != NULL) OPENSSL_free(section);
 	if (line != NULL) *line=eline;
-	sprintf(btmp,"%ld",eline);
+	BIO_snprintf(btmp,sizeof btmp,"%ld",eline);
 	ERR_add_error_data(2,"line ",btmp);
 	if ((h != conf->data) && (conf->data != NULL))
 		{
@@ -632,6 +632,11 @@ static int str_copy(CONF *conf, char *section, char **pto, char *from)
 			BUF_MEM_grow_clean(buf,(strlen(p)+len-(e-from)));
 			while (*p)
 				buf->data[to++]= *(p++);
+
+			/* Since we change the pointer 'from', we also have
+			   to change the perceived length of the string it
+			   points at.  /RL */
+			len -= e-from;
 			from=e;
 			}
 		else

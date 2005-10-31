@@ -1318,7 +1318,7 @@ extern char *nettoa(u_int32_t net);
 
 	lu_xdr_free(inxdr);
 
-	ip.s_addr = i;
+	ip.s_addr = htonl(i);
 	str = malloc(16);
 	if (inet_ntop(AF_INET, &ip, str, 16) == NULL)
 	{

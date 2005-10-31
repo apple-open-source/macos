@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,6 +37,9 @@ package org.blojsom.extension.atomapi;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.blojsom.BlojsomException;
+import org.blojsom.plugin.admin.event.AddBlogEntryEvent;
+import org.blojsom.plugin.admin.event.DeletedBlogEntryEvent;
+import org.blojsom.plugin.admin.event.UpdatedBlogEntryEvent;
 import org.blojsom.authorization.AuthorizationProvider;
 import org.blojsom.blog.*;
 import org.blojsom.fetcher.BlojsomFetcher;
@@ -65,10 +68,7 @@ import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.util.*;
 
 /**
@@ -77,7 +77,7 @@ import java.util.*;
  * Implementation of J.C. Gregorio's <a href="http://bitworking.org/projects/atom/draft-gregorio-09.html">Atom API</a>.
  *
  * @author Mark Lussier
- * @version $Id: AtomAPIServlet.java,v 1.2 2004/08/27 00:49:41 whitmore Exp $
+ * @version $Id: AtomAPIServlet.java,v 1.2.2.1 2005/07/21 04:30:22 johnan Exp $
  * @since blojsom 2.0
  */
 public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstants, BlojsomMetaDataConstants, AtomAPIConstants {
@@ -86,6 +86,8 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
      * Logger instance
      */
     private Log _logger = LogFactory.getLog(AtomAPIServlet.class);
+
+    private static final String ATOM_API_PERMISSION = "post_via_atom_api";
 
     private AuthorizationProvider _authorizationProvider;
     private ServletConfig _servletConfig;
@@ -138,6 +140,51 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
     }
 
     /**
+     * Configure the flavors for the blog which map flavor values like "html" and "rss" to
+     * the proper template and content type
+     *
+     * @param servletConfig Servlet configuration information
+     * @param blogUser {@link BlogUser} information
+     * @since blojsom 2.22
+     */
+    protected void configureFlavorsForUser(ServletConfig servletConfig, BlogUser blogUser) throws ServletException {
+        String flavorConfiguration = servletConfig.getInitParameter(BLOJSOM_FLAVOR_CONFIGURATION_IP);
+        if (BlojsomUtils.checkNullOrBlank(flavorConfiguration)) {
+            flavorConfiguration = DEFAULT_FLAVOR_CONFIGURATION_FILE;
+        }
+
+        Map flavors = new HashMap();
+        Map flavorToTemplateMap = new HashMap();
+        Map flavorToContentTypeMap = new HashMap();
+        String user = blogUser.getId();
+
+        Properties flavorProperties = new Properties();
+        InputStream is = servletConfig.getServletContext().getResourceAsStream(_baseConfigurationDirectory + user + '/' + flavorConfiguration);
+        try {
+            flavorProperties.load(is);
+            is.close();
+            _logger.debug("Loaded flavor information for user: " + user);
+
+            Iterator flavorIterator = flavorProperties.keySet().iterator();
+            while (flavorIterator.hasNext()) {
+                String flavor = (String) flavorIterator.next();
+                String[] flavorMapping = BlojsomUtils.parseCommaList(flavorProperties.getProperty(flavor));
+                flavors.put(flavor, flavor);
+                flavorToTemplateMap.put(flavor, flavorMapping[0]);
+                flavorToContentTypeMap.put(flavor, flavorMapping[1]);
+
+            }
+
+            blogUser.setFlavors(flavors);
+            blogUser.setFlavorToTemplate(flavorToTemplateMap);
+            blogUser.setFlavorToContentType(flavorToContentTypeMap);
+        } catch (IOException e) {
+            _logger.error(e);
+            throw new ServletException(e);
+        }
+    }
+
+    /**
      * Loads a {@link BlogUser} object for a given user ID
      *
      * @param userID User ID
@@ -151,18 +198,39 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
             Properties userProperties = new BlojsomProperties();
             InputStream is = _servletConfig.getServletContext().getResourceAsStream(_baseConfigurationDirectory + userID + '/' + BLOG_DEFAULT_PROPERTIES);
 
+            if (is == null) {
+                return null;
+            }
+            
             userProperties.load(is);
             is.close();
             Blog userBlog = null;
 
+            // If a global blog-home directory has been defined, use it for each user
+            if (!BlojsomUtils.checkNullOrBlank(_blojsomConfiguration.getGlobalBlogHome()) &&
+                    !userProperties.containsKey(BLOG_HOME_IP)) {
+                String usersBlogHome = _blojsomConfiguration.getGlobalBlogHome() + userID + "/";
+                File blogHomeDirectory = new File(usersBlogHome);
+                if (!blogHomeDirectory.exists()) {
+                    _logger.error("Unable to use blog-home directory for user: " + blogHomeDirectory.toString());
+                    throw new BlojsomConfigurationException("Unable to use blog-home directory for user: " + blogHomeDirectory.toString());
+                }
+
+                userProperties.setProperty(BLOG_HOME_IP, usersBlogHome);
+                _logger.debug("Setting user blog-home directory: " + usersBlogHome);
+            }
+
             userBlog = new Blog(userProperties);
             blogUser.setBlog(userBlog);
-
+            configureFlavorsForUser(_servletConfig, blogUser);
             _logger.debug("Configured blojsom user: " + blogUser.getId());
         } catch (BlojsomConfigurationException e) {
             _logger.error(e);
             return null;
         } catch (IOException e) {
+            _logger.error(e);
+            return null;
+        } catch (ServletException e) {
             _logger.error(e);
             return null;
         }
@@ -194,13 +262,17 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
             Map authMap = blog.getAuthorization();
             if (authMap.containsKey(auth.getUsername())) {
                 try {
+                    _authorizationProvider.checkPermission(blogUser, new HashMap(), auth.getUsername(), ATOM_API_PERMISSION);
                     result = auth.authenticate(BlojsomUtils.parseCommaList((String) authMap.get(auth.getUsername()))[0]);
                 } catch (AuthenticationException e) {
                     _logger.error(e.getMessage(), e);
+                } catch (BlojsomException e) {
+                    _logger.error(e);
                 }
             } else {
                 _logger.info("Unable to locate user [" + auth.getUsername() + "] in authorization table");
             }
+
             if (!result) {
                 _logger.info("Unable to authenticate user [" + auth.getUsername() + "]");
             }
@@ -349,6 +421,9 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
                 //String nonce = AtomUtils.generateNextNonce(blogUser);
                 //httpServletResponse.setHeader(ATOMHEADER_AUTHENTICATION_INFO, ATOM_TOKEN_NEXTNONCE + nonce + "\"");
                 httpServletResponse.setStatus(200);
+
+                // Send out a deleted blog entry event
+                _blojsomConfiguration.getEventBroadcaster().broadcastEvent(new DeletedBlogEntryEvent(this, new Date(), entries[0], blogUser));
             } catch (BlojsomFetcherException e) {
                 _logger.error(e.getLocalizedMessage(), e);
                 httpServletResponse.setStatus(404);
@@ -443,6 +518,10 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
         }
 
         blog = blogUser.getBlog();
+
+        // Check to see if we need to dynamically determine blog-base-url and blog-url?
+        BlojsomUtils.resolveDynamicBaseAndBlogURL(httpServletRequest, blog, user);
+
         blogEntryExtension = blog.getBlogProperty(BLOG_ATOMAPI_ENTRY_EXTENSION_IP);
         if (BlojsomUtils.checkNullOrBlank(blogEntryExtension)) {
             blogEntryExtension = DEFAULT_BLOG_ATOMAPI_ENTRY_EXTENSION;
@@ -538,6 +617,13 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
     protected void doPost(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws ServletException, IOException {
         httpServletRequest.setCharacterEncoding(UTF8);
 
+        // Check for SOAP request
+        if (httpServletRequest.getHeader(HEADER_SOAPACTION) != null) {
+            handleSOAPRequest(httpServletRequest, httpServletResponse);
+
+            return;
+        }
+
         Blog blog = null;
         BlogUser blogUser = null;
         String blogEntryExtension = DEFAULT_BLOG_ATOMAPI_ENTRY_EXTENSION;
@@ -566,6 +652,10 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
         }
 
         blog = blogUser.getBlog();
+
+        // Check to see if we need to dynamically determine blog-base-url and blog-url?
+        BlojsomUtils.resolveDynamicBaseAndBlogURL(httpServletRequest, blog, user);
+
         blogEntryExtension = blog.getBlogProperty(BLOG_ATOMAPI_ENTRY_EXTENSION_IP);
         if (BlojsomUtils.checkNullOrBlank(blogEntryExtension)) {
             blogEntryExtension = DEFAULT_BLOG_ATOMAPI_ENTRY_EXTENSION;
@@ -580,10 +670,16 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
                 try {
                     Entry atomEntry = Sandler.unmarshallEntry(httpServletRequest.getInputStream(), new XPPBuilder());
 
-                    String filename = getBlogEntryFilename(atomEntry.getContent(0).getBody(), blogEntryExtension);
+                    String filename = BlojsomUtils.getBlogEntryFilename(atomEntry.getTitle().getBody(), atomEntry.getContent(0).getBody());
                     String outputfile = blogCategory.getAbsolutePath() + File.separator + filename;
 
-                    File sourceFile = new File(outputfile);
+                    File sourceFile = new File(outputfile + blogEntryExtension);
+                    int fileTag = 1;
+                    while (sourceFile.exists()) {
+                        sourceFile = new File(outputfile + "-" + fileTag + blogEntryExtension);
+                        fileTag++;
+                    }
+
                     BlogEntry entry = _fetcher.newBlogEntry();
                     Map attributeMap = new HashMap();
                     Map blogEntryMetaData = new HashMap();
@@ -608,6 +704,9 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
 
                     entry.save(blogUser);
                     entry.load(blogUser);
+
+                    // Send out an add blog entry event
+                    _blojsomConfiguration.getEventBroadcaster().broadcastEvent(new AddBlogEntryEvent(this, new Date(), entry, blogUser));
 
                     httpServletResponse.setContentType(CONTENTTYPE_ATOM);
                     httpServletResponse.setStatus(201);
@@ -683,6 +782,9 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
 
         blog = blogUser.getBlog();
 
+        // Check to see if we need to dynamically determine blog-base-url and blog-url?
+        BlojsomUtils.resolveDynamicBaseAndBlogURL(httpServletRequest, blog, user);
+
         if (isAuthorized(blogUser, httpServletRequest)) {
 
             Map fetchMap = new HashMap();
@@ -713,6 +815,9 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
                     //httpServletResponse.setHeader(x, ATOM_TOKEN_NEXTNONCE + nonce + "\"");
 
                     httpServletResponse.setStatus(204);
+
+                    // Send out an updated blog entry event
+                    _blojsomConfiguration.getEventBroadcaster().broadcastEvent(new UpdatedBlogEntryEvent(this, new Date(), entry, blogUser));
                 } else {
                     _logger.info("Unable to fetch " + permalink);
                 }
@@ -720,6 +825,205 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
                 _logger.error(e);
                 httpServletResponse.setStatus(404);
             } catch (BlojsomException e) {
+                _logger.error(e);
+                httpServletResponse.setStatus(404);
+            }
+        } else {
+            sendAuthenticationRequired(httpServletResponse, blogUser);
+        }
+    }
+
+    /**
+     * Handle a given SOAP request looking for the "SOAPAction" header to decide on which method to execute
+     *
+     * @param httpServletRequest  Request
+     * @param httpServletResponse Response
+     */
+    protected void handleSOAPRequest(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+        String soapAction = httpServletRequest.getHeader(HEADER_SOAPACTION);
+
+        if (SOAPACTION_PUT.equalsIgnoreCase(soapAction)) {
+            handleSOAPPut(httpServletRequest, httpServletResponse);
+        } else {
+            try {
+                httpServletResponse.sendError(404, "Unable to process SOAP request for unknown action: " + soapAction);
+            } catch (IOException e) {
+                _logger.error(e);
+
+                httpServletResponse.setStatus(404);
+            }
+        }
+    }
+
+    /**
+     * Retrieve an entry body (&lt;entry&gt;...&lt;/entry&gt;) from arbitrary content
+     *
+     * @param content Content
+     * @return Entry body with entry tags included or <code>null</code> if the entry body could not be found
+     */
+    protected String retrieveEntryBody(String content) {
+        String entryStart = "<entry";
+        String entryEnd = "</entry>";
+
+        int entryIndexStart = content.indexOf(entryStart);
+        int entryIndexEnd = content.indexOf(entryEnd);
+        if (entryIndexStart != -1 && entryIndexEnd != -1 && (entryIndexEnd > entryIndexStart)) {
+            return content.substring(entryIndexStart, entryIndexEnd + entryEnd.length());
+        }
+
+        return null;
+    }
+
+    /**
+     * Read all the content from a given input stream for a specified length. Content will be read in
+     * using UTF-8 as the character encoding. If an exception in reading occurs, a <code>null</code> value
+     * is returned.
+     *
+     * @param is     {@link InputStream}
+     * @param length Length of input stream to read
+     * @return Content from input stream up to specified length
+     */
+    protected String readContentFromInputStream(InputStream is, int length) {
+        char[] buffer = new char[0];
+        try {
+            InputStreamReader inputStreamReader = new InputStreamReader(is, UTF8);
+            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+            buffer = new char[length];
+            bufferedReader.read(buffer, 0, length);
+            bufferedReader.close();
+        } catch (IOException e) {
+            _logger.error(e);
+
+            return null;
+        }
+
+        return new String(buffer);
+    }
+
+    /**
+     * Handle a SOAP PUT request
+     *
+     * @param httpServletRequest  Request
+     * @param httpServletResponse Response
+     */
+    protected void handleSOAPPut(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+        Blog blog = null;
+        BlogUser blogUser = null;
+        String blogEntryExtension = DEFAULT_BLOG_ATOMAPI_ENTRY_EXTENSION;
+
+        String permalink = BlojsomUtils.getRequestValue(PERMALINK_PARAM, httpServletRequest);
+        String category = BlojsomUtils.getCategoryFromPath(httpServletRequest.getPathInfo());
+        category = BlojsomUtils.urlDecode(category);
+        String user = BlojsomUtils.getUserFromPath(httpServletRequest.getPathInfo());
+
+        _logger.info("AtomAPI SOAP PUT Called =================================================");
+        _logger.info("       Path: " + httpServletRequest.getPathInfo());
+        _logger.info("       User: " + user);
+        _logger.info("   Category: " + category);
+        _logger.info("  Permalink: " + permalink);
+
+        if (BlojsomUtils.checkNullOrBlank(user)) {
+            user = _blojsomConfiguration.getDefaultUser();
+        }
+
+        blogUser = loadBlogUser(user);
+        if (blogUser == null) {
+            _logger.error("Unable to configure user: " + user);
+            httpServletResponse.setStatus(404);
+
+            return;
+        }
+
+        blog = blogUser.getBlog();
+
+        // Check to see if we need to dynamically determine blog-base-url and blog-url?
+        BlojsomUtils.resolveDynamicBaseAndBlogURL(httpServletRequest, blog, user);
+
+        blogEntryExtension = blog.getBlogProperty(BLOG_ATOMAPI_ENTRY_EXTENSION_IP);
+        if (BlojsomUtils.checkNullOrBlank(blogEntryExtension)) {
+            blogEntryExtension = DEFAULT_BLOG_ATOMAPI_ENTRY_EXTENSION;
+        }
+
+        if (isAuthorized(blogUser, httpServletRequest)) {
+            try {
+                String content = readContentFromInputStream(httpServletRequest.getInputStream(), httpServletRequest.getContentLength());
+                if (content != null) {
+                    String entryContent = retrieveEntryBody(content);
+                    if (entryContent != null && entryContent.length() > 0) {
+                        Map fetchMap = new HashMap();
+                        BlogCategory blogCategory = _fetcher.newBlogCategory();
+                        blogCategory.setCategory(category);
+                        blogCategory.setCategoryURL(blog.getBlogURL() + category);
+                        fetchMap.put(BlojsomFetcher.FETCHER_CATEGORY, blogCategory);
+                        fetchMap.put(BlojsomFetcher.FETCHER_PERMALINK, permalink);
+                        try {
+                            BlogEntry[] entries = _fetcher.fetchEntries(fetchMap, blogUser);
+
+                            if (entries != null && entries.length > 0) {
+
+                                Entry atomEntry = Sandler.unmarshallEntry(entryContent, new XPPBuilder());
+
+                                BlogEntry entry = entries[0];
+                                Map blogEntryMetaData = entry.getMetaData();
+                                entry.setCategory(category);
+                                entry.setDescription(atomEntry.getContent(0).getBody());
+                                entry.setTitle(atomEntry.getTitle().getBody());
+                                if (atomEntry.getAuthor() != null) {
+                                    blogEntryMetaData.put(BLOG_ENTRY_METADATA_AUTHOR, atomEntry.getAuthor().getName());
+                                }
+                                entry.setMetaData(blogEntryMetaData);
+
+                                // Insert an escaped Link into the Blog Entry
+                                entry.setLink(blog.getBlogURL() + BlojsomUtils.removeInitialSlash(entry.getId()));
+
+                                entry.save(blogUser);
+                                entry.load(blogUser);
+
+                                httpServletResponse.setContentType(CONTENTTYPE_ATOM);
+                                httpServletResponse.setStatus(201);
+
+                                // Send out an add blog entry event
+                                _blojsomConfiguration.getEventBroadcaster().broadcastEvent(new AddBlogEntryEvent(this, new Date(), entry, blogUser));
+
+                                atomEntry = AtomUtils.fromBlogEntry(blog, blogUser, entry, httpServletRequest.getServletPath());
+
+                                // Extract the service.edit link to send for the Location: header
+                                Collection links = atomEntry.getLinks();
+                                Iterator linksIterator = links.iterator();
+                                while (linksIterator.hasNext()) {
+                                    Link link = (Link) linksIterator.next();
+                                    if (AtomConstants.Rel.SERVICE_EDIT.equals(link.getRelationship())) {
+                                        httpServletResponse.setHeader(HEADER_LOCATION, link.getEscapedHref());
+                                        break;
+                                    }
+                                }
+
+                                OutputStreamWriter osw = new OutputStreamWriter(httpServletResponse.getOutputStream(), UTF8);
+                                osw.write(Sandler.marshallEntry(atomEntry, true));
+                                osw.flush();
+                            } else {
+                                _logger.info("Unable to fetch " + permalink);
+                            }
+                        } catch (BlojsomFetcherException e) {
+                            _logger.error(e);
+                            httpServletResponse.setStatus(404);
+                        } catch (BlojsomException e) {
+                            _logger.error(e);
+                            httpServletResponse.setStatus(404);
+                        } catch (SerializationException e) {
+                            _logger.error(e);
+                            httpServletResponse.setStatus(404);
+                        } catch (MarshallException e) {
+                            _logger.error(e);
+                            httpServletResponse.setStatus(404);
+                        }
+                    } else {
+                        httpServletResponse.setStatus(404);
+                    }
+                } else {
+                    httpServletResponse.setStatus(404);
+                }
+            } catch (IOException e) {
                 _logger.error(e);
                 httpServletResponse.setStatus(404);
             }
@@ -756,25 +1060,6 @@ public class AtomAPIServlet extends BlojsomBaseServlet implements BlojsomConstan
         } else {
             return new File(blog.getBlogHome() + "/");
         }
-    }
-
-
-    /**
-     * Return a filename appropriate for the blog entry content
-     *
-     * @param content Blog entry content
-     * @return Filename for the new blog entry
-     */
-    protected String getBlogEntryFilename(String content, String extension) {
-        String hashable = content;
-
-        if (content.length() > MAX_HASHABLE_LENGTH) {
-            hashable = hashable.substring(0, MAX_HASHABLE_LENGTH);
-        }
-
-        String baseFilename = BlojsomUtils.digestString(hashable).toUpperCase();
-        String filename = baseFilename + extension;
-        return filename;
     }
 }
 

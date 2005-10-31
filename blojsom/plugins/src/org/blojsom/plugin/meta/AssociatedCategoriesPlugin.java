@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,7 +51,7 @@ import java.util.Map;
  * AssociatedCategoriesPlugin
  *
  * @author David Czarnecki
- * @version $Id: AssociatedCategoriesPlugin.java,v 1.2 2004/08/27 01:06:39 whitmore Exp $
+ * @version $Id: AssociatedCategoriesPlugin.java,v 1.2.2.1 2005/07/21 04:30:34 johnan Exp $
  * @since blojsom 1.9.6
  */
 public class AssociatedCategoriesPlugin implements BlojsomPlugin {
@@ -115,7 +115,7 @@ public class AssociatedCategoriesPlugin implements BlojsomPlugin {
                         }
                         FileBackedBlogCategory fbbc = new FileBackedBlogCategory(associatedCategory, blog.getBlogURL() + associatedCategory);
                         try {
-                            fbbc.load(blog);
+                            fbbc.load(user);
                         } catch (BlojsomException e) {
                             _logger.error(e);
                         }

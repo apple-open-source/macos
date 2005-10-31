@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /*  Macro definitions to used to support 32/64-bit code in Darwin's
  *  assembly files.
  *

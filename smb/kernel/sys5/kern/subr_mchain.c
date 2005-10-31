@@ -389,7 +389,7 @@ md_next_record(struct mdchain *mdp)
 PRIVSYM int
 md_get_uint8(struct mdchain *mdp, u_int8_t *x)
 {
-	return md_get_mem(mdp, x, 1, MB_MINLINE);
+	return md_get_mem(mdp, (caddr_t)x, 1, MB_MINLINE);
 }
 
 PRIVSYM int
@@ -497,7 +497,7 @@ md_get_mem(struct mdchain *mdp, caddr_t target, int size, int type)
 		if (count == 0) {
 			mdp->md_cur = m = m->m_next;
 			if (m)
-				s = mdp->md_pos = mtod(m, caddr_t);
+				s = mdp->md_pos = (u_char *)mtod(m, caddr_t);
 			continue;
 		}
 		if ((int)count > size)

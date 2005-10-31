@@ -398,6 +398,22 @@ fill_fpxregset (elf_fpxregset_t *fpxregsetp, int regno)
   i387_fill_fxsave ((char *) fpxregsetp, regno);
 }
 
+void
+swap_fpxregs (elf_fpxregset_t *fpxregs)
+{
+  int i, j;
+
+  for (i = 0; i < (sizeof (fpxregs->xmm_space) / 16); i++)
+    {
+      unsigned char *buf = (unsigned char *) &fpxregs->xmm_space + (i * 16);
+      for (j = 0; j < 8; j++) {
+	unsigned char c = buf[15 - j];
+	buf[15 - j] = buf[j];
+	buf[j] = c;
+      }
+    }
+}
+
 /* Fetch all registers covered by the PTRACE_GETFPXREGS request from
    process/thread TID and store their values in GDB's register array.
    Return non-zero if successful, zero otherwise.  */
@@ -421,6 +437,7 @@ fetch_fpxregs (int tid)
       perror_with_name ("Couldn't read floating-point and SSE registers");
     }
 
+  swap_fpxregs (&fpxregs);
   supply_fpxregset (&fpxregs);
   return 1;
 }
@@ -448,7 +465,9 @@ store_fpxregs (int tid, int regno)
       perror_with_name ("Couldn't read floating-point and SSE registers");
     }
 
+  swap_fpxregs (&fpxregs);
   fill_fpxregset (&fpxregs, regno);
+  swap_fpxregs (&fpxregs);
 
   if (ptrace (PTRACE_SETFPXREGS, tid, 0, &fpxregs) == -1)
     perror_with_name ("Couldn't write floating-point and SSE registers");

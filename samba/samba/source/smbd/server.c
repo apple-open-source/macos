@@ -620,12 +620,12 @@ void exit_server(const char *reason)
 #endif
 
 	if (!reason) {   
-		int oldlevel = DEBUGLEVEL;
-		DEBUGLEVEL = 10;
+		int oldlevel = SAMBA_DEBUGLEVEL;
+		SAMBA_DEBUGLEVEL = 10;
 		DEBUG(0,("Last message was %s\n",smb_fn_name(last_message)));
 		if (last_inbuf)
 			show_msg(last_inbuf);
-		DEBUGLEVEL = oldlevel;
+		SAMBA_DEBUGLEVEL = oldlevel;
 		DEBUG(0,("===============================================================\n"));
 #if DUMP_CORE
 		if (dump_core()) return;

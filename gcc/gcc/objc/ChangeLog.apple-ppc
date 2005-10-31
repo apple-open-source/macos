@@ -1,3 +1,23 @@
+2005-04-19  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4056870
+	* objc-act.c (start_class): Traverse @compatibility_alias
+	declaration when looking up super class; produce error
+	message if super class only has a @class declaration.
+
+2005-04-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4073569
+	* objc-act.c (objc_finish_message_expr): When sending
+	messages to classes that were _only_ forward-declared
+	(via '@class'), do not issue "may not respond" to
+	warnings.
+
+2005-04-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4055183
+	* objc-act.c (objc_rewrite_function_call): New function.
+
 2005-03-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3995882

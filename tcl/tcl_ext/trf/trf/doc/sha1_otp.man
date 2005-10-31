@@ -1,2 +1,0 @@
-[vset    digest sha1_otp]
-[include digest/main.inc]

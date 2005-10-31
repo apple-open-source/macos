@@ -1,5 +1,6 @@
 /* Part of CPP library.  (Precompiled header reading/writing.)
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -222,12 +223,6 @@ count_defs (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_hashnode *hn, void *ss_p)
       {
 	struct cpp_string news;
 	void **slot;
-
-        /* APPLE LOCAL begin Symbol Separation */
-        if (pfile->cinfo_state == CINFO_WRITE && pfile->cb.is_builtin_identifier)
-          if (pfile->cb.is_builtin_identifier (hn))
-            return 1;
-        /* APPLE LOCAL end Symbol Separation */
 	
 	news.len = NODE_LEN (hn);
 	news.text = NODE_NAME (hn);
@@ -268,12 +263,6 @@ write_defs (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_hashnode *hn, void *ss_p)
 	struct cpp_string news;
 	void **slot;
 	
-        /* APPLE LOCAL begin Symbol Separation */
-        if (pfile->cinfo_state == CINFO_WRITE && pfile->cb.is_builtin_identifier)
-          if (pfile->cb.is_builtin_identifier (hn))
-            return 1;
-        /* APPLE LOCAL end Symbol Separation */
-
 	news.len = NODE_LEN (hn);
 	news.text = NODE_NAME (hn);
 	slot = htab_find (ss->definedhash, &news);
@@ -420,8 +409,7 @@ collect_ht_nodes (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_hashnode *hn,
    - anything that was not defined then, but is defined now, was not
      used by the PCH.
 
-   APPLE LOCAL Symbol Separation
-   NAME is used to print warnings if `warn_invalid_pch' or `warn_invalid_sr'
+   NAME is used to print warnings if `warn_invalid_pch' is set in the
    reader's flags.
 */
 
@@ -486,8 +474,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
 	  || h->type != NT_MACRO
 	  || h->flags & NODE_POISONED)
 	{
-          /* APPLE LOCAL Symbol Separation */
-          if (CPP_OPTION (r, warn_invalid_pch) || CPP_OPTION (r, warn_invalid_sr))
+	  if (CPP_OPTION (r, warn_invalid_pch))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR,
 		       "%s: not used because `%.*s' not defined",
 		       name, m.name_length, namebuf);
@@ -499,8 +486,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
       if (m.definition_length != ustrlen (newdefn)
 	  || memcmp (namebuf, newdefn, m.definition_length) != 0)
 	{
-	  /* APPLE LOCAL Symbol Separation */
-	  if (CPP_OPTION (r, warn_invalid_pch) || CPP_OPTION (r, warn_invalid_sr))
+	  if (CPP_OPTION (r, warn_invalid_pch))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR,
 	       "%s: not used because `%.*s' defined as `%s' not `%.*s'",
 		       name, m.name_length, namebuf, newdefn + m.name_length,
@@ -549,8 +535,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
  	++i;
       else
 	{
-	  /* APPLE LOCAL Symbol Separation */
-	  if (CPP_OPTION (r, warn_invalid_pch) || CPP_OPTION (r, warn_invalid_sr))
+	  if (CPP_OPTION (r, warn_invalid_pch))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR, 
 		       "%s: not used because `%s' is defined",
 		       name, first);
@@ -665,11 +650,11 @@ cpp_read_state (cpp_reader *r, const char *name, FILE *f,
 		struct save_macro_data *data)
 {
   size_t i;
-  /* APPLE LOCAL pch distcc --mrs */
+  /* APPLE LOCAL begin pch distcc --mrs */
   void (*saved_line_change)  PARAMS ((cpp_reader *, const cpp_token *, int));
 
-  /* APPLE LOCAL pch distcc --mrs */
   saved_line_change = r->cb.line_change;
+  /* APPLE LOCAL end pch distcc --mrs */
 
   struct lexer_state old_state;
 
@@ -687,7 +672,6 @@ cpp_read_state (cpp_reader *r, const char *name, FILE *f,
   r->state.in_directive = 1;
   r->state.prevent_expansion = 1;
   r->state.angled_headers = 0;
-
   /* APPLE LOCAL pch distcc --mrs */
   r->cb.line_change = 0;
 
@@ -698,7 +682,7 @@ cpp_read_state (cpp_reader *r, const char *name, FILE *f,
       size_t namelen;
       uchar *defn;
 
-      namelen = strcspn (data->defns[i], "( \n");
+      namelen = ustrcspn (data->defns[i], "( \n");
       h = cpp_lookup (r, data->defns[i], namelen);
       defn = data->defns[i] + namelen;
 

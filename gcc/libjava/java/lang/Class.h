@@ -1,6 +1,6 @@
 // Class.h - Header file for java.lang.Class.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -42,13 +42,15 @@ enum
 
   JV_STATE_PRELOADING = 1,	// Can do _Jv_FindClass.
   JV_STATE_LOADING = 3,		// Has super installed.
-  JV_STATE_COMPILED = 5,	// This was a compiled class.
+  JV_STATE_READ = 4,		// Has been completely defined.
+  JV_STATE_LOADED = 5,		// Has Miranda methods defined.
 
-  JV_STATE_LOADED = 6,		// Is complete.
+  JV_STATE_COMPILED = 6,	// This was a compiled class.
+
   JV_STATE_PREPARED = 7,	// Layout & static init done.
   JV_STATE_LINKED = 9,		// Strings interned.
 
-  JV_STATE_IN_PROGRESS = 10,	// <Clinit> running.
+  JV_STATE_IN_PROGRESS = 10,	// <clinit> running.
 
   JV_STATE_ERROR = 12,
 
@@ -59,6 +61,10 @@ struct _Jv_Field;
 struct _Jv_VTable;
 union _Jv_word;
 struct _Jv_ArrayVTable;
+class _Jv_Linker;
+class _Jv_ExecutionEngine;
+class _Jv_CompiledEngine;
+class _Jv_InterpreterEngine;
 
 struct _Jv_Constants
 {
@@ -106,7 +112,7 @@ union _Jv_IDispatchTable
   } iface;
 };
 
-// Used by _Jv_GetInterfaces ()
+// Used by _Jv_Linker::get_interfaces ()
 struct _Jv_ifaces
 {
   jclass *list;
@@ -139,9 +145,111 @@ struct _Jv_CatchClass
   _Jv_Utf8Const *classname;
 };
 
+// Possible values for the assertion_code field in the type assertion table.
+enum
+{
+  JV_ASSERT_END_OF_TABLE = 0,
+  JV_ASSERT_TYPES_COMPATIBLE = 1,
+  JV_ASSERT_IS_INSTANTIABLE = 2
+};
+
+// Entry in the type assertion table, used to validate type constraints
+// for binary compatibility.
+struct _Jv_TypeAssertion
+{
+  jint assertion_code;
+  _Jv_Utf8Const *op1;
+  _Jv_Utf8Const *op2;
+};
+
 #define JV_PRIMITIVE_VTABLE ((_Jv_VTable *) -1)
 
 #define JV_CLASS(Obj) ((jclass) (*(_Jv_VTable **) Obj)->clas)
+
+// Forward declarations for friends of java::lang::Class
+
+// Friend functions implemented in natClass.cc.
+_Jv_Method *_Jv_GetMethodLocal (jclass klass, _Jv_Utf8Const *name,
+				_Jv_Utf8Const *signature);
+jboolean _Jv_IsAssignableFrom (jclass, jclass);
+jboolean _Jv_IsAssignableFromSlow (jclass, jclass);
+jboolean _Jv_InterfaceAssignableFrom (jclass, jclass);
+
+_Jv_Method* _Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
+				      _Jv_Utf8Const*, jclass * = NULL);
+jfieldID JvGetFirstInstanceField (jclass);
+jint JvNumInstanceFields (jclass);
+jfieldID JvGetFirstStaticField (jclass);
+jint JvNumStaticFields (jclass);
+
+jobject _Jv_AllocObject (jclass);
+void *_Jv_AllocObj (jint, jclass);
+void *_Jv_AllocPtrFreeObj (jint, jclass);
+void *_Jv_AllocArray (jint, jclass);
+
+bool _Jv_getInterfaceMethod(jclass, jclass&, int&, 
+			    const _Jv_Utf8Const*,
+			    const _Jv_Utf8Const*);
+
+jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv *, jclass, jfieldID,
+				  jboolean);
+jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID,
+				   jboolean);
+jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);
+
+jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);
+jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);
+jint JvNumMethods (jclass);
+jmethodID JvGetFirstMethod (jclass);
+
+// Friend classes and functions to implement the ClassLoader
+class java::lang::ClassLoader;
+class java::lang::VMClassLoader;
+
+class java::io::ObjectOutputStream;
+class java::io::ObjectInputStream;
+class java::io::ObjectStreamClass;
+
+void _Jv_RegisterClassHookDefault (jclass klass);
+void _Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+void _Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+void _Jv_UnregisterClass (jclass);
+jclass _Jv_FindClass (_Jv_Utf8Const *name,
+		      java::lang::ClassLoader *loader);
+jclass _Jv_FindClassInCache (_Jv_Utf8Const *name);
+jclass _Jv_PopClass (void);
+void _Jv_PushClass (jclass k);
+void _Jv_NewArrayClass (jclass element,
+			java::lang::ClassLoader *loader,
+			_Jv_VTable *array_vtable = 0);
+jclass _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
+		     java::lang::ClassLoader *loader);
+void _Jv_InitNewClassFields (jclass klass);
+
+// Friend functions and classes in prims.cc
+void _Jv_InitPrimClass (jclass, char *, char, int);
+jstring _Jv_GetMethodString (jclass, _Jv_Method *, jclass = NULL);
+
+jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
+			  jint flags);
+jclass _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader);
+
+jboolean _Jv_IsInterpretedClass (jclass);
+
+#ifdef INTERPRETER
+void _Jv_InitField (jobject, jclass, int);
+
+class _Jv_ClassReader;	
+class _Jv_InterpClass;
+class _Jv_InterpMethod;
+#endif
+
+class _Jv_BytecodeVerifier;
+class gnu::gcj::runtime::StackTrace;
+class java::io::VMObjectStreamClass;
+
+void _Jv_sharedlib_register_hook (jclass klass);
+
 
 class java::lang::Class : public java::lang::Object
 {
@@ -209,9 +317,14 @@ public:
   void setSigners(JArray<jobject> *);
 
   inline jclass getSuperclass (void)
-    {
-      return superclass;
-    }
+  {
+    return superclass;
+  }
+
+  inline jclass getInterface (jint n)
+  {
+    return interfaces[n];
+  }
 
   inline jboolean isArray (void)
     {
@@ -244,9 +357,16 @@ public:
 
   // FIXME: this probably shouldn't be public.
   jint size (void)
-    {
-      return size_in_bytes;
-    }
+  {
+    return size_in_bytes;
+  }
+
+  // The index of the first method we declare ourself (as opposed to
+  // inheriting).
+  inline jint firstMethodIndex (void)
+  {
+    return vtable_method_count - method_count;
+  }
     
   // finalization
   void finalize ();
@@ -265,44 +385,45 @@ private:
 
   static jstring getPackagePortion (jstring);
 
-  // Friend functions implemented in natClass.cc.
-  friend _Jv_Method *_Jv_GetMethodLocal (jclass klass, _Jv_Utf8Const *name,
-					 _Jv_Utf8Const *signature);
-  friend jboolean _Jv_IsAssignableFrom(jclass, jclass);
-  friend jboolean _Jv_InterfaceAssignableFrom (jclass, jclass);
-  friend void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
-					     int method_idx);
-
-  inline friend void 
-  _Jv_InitClass (jclass klass)
+  void set_state (jint nstate)
   {
-    if (__builtin_expect (klass->state == JV_STATE_DONE, true))
-      return;
-    klass->initializeClass ();  
+    state = nstate;
+    notifyAll ();
   }
 
-  friend _Jv_Method* _Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
-					       _Jv_Utf8Const*);
-  friend jfieldID JvGetFirstInstanceField (jclass);
-  friend jint JvNumInstanceFields (jclass);
-  friend jfieldID JvGetFirstStaticField (jclass);
-  friend jint JvNumStaticFields (jclass);
+  // Friend functions implemented in natClass.cc.
+  friend _Jv_Method *::_Jv_GetMethodLocal (jclass klass, _Jv_Utf8Const *name,
+					   _Jv_Utf8Const *signature);
+  friend jboolean (::_Jv_IsAssignableFrom) (jclass, jclass);
+  friend jboolean (::_Jv_IsAssignableFromSlow) (jclass, jclass);
+  friend jboolean (::_Jv_InterfaceAssignableFrom) (jclass, jclass);
+  friend void *::_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
+					       int method_idx);
 
-  friend jobject _Jv_AllocObject (jclass);
-  friend void *_Jv_AllocObj (jint, jclass);
-  friend void *_Jv_AllocPtrFreeObj (jint, jclass);
-  friend void *_Jv_AllocArray (jint, jclass);
+  friend void ::_Jv_InitClass (jclass klass);
 
-  friend jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv *, jclass, jfieldID,
-					   jboolean);
-  friend jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID,
-					    jboolean);
-  friend jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);
+  friend _Jv_Method* ::_Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
+						 _Jv_Utf8Const*, jclass *);
+  friend jfieldID (::JvGetFirstInstanceField) (jclass);
+  friend jint (::JvNumInstanceFields) (jclass);
+  friend jfieldID (::JvGetFirstStaticField) (jclass);
+  friend jint (::JvNumStaticFields) (jclass);
 
-  friend jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);
-  friend jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);
-  friend jint JvNumMethods (jclass);
-  friend jmethodID JvGetFirstMethod (jclass);
+  friend jobject (::_Jv_AllocObject) (jclass);
+  friend void *::_Jv_AllocObj (jint, jclass);
+  friend void *::_Jv_AllocPtrFreeObj (jint, jclass);
+  friend void *::_Jv_AllocArray (jint, jclass);
+
+  friend jobject (::_Jv_JNI_ToReflectedField) (_Jv_JNIEnv *, jclass, jfieldID,
+					       jboolean);
+  friend jobject (::_Jv_JNI_ToReflectedMethod) (_Jv_JNIEnv *, jclass, jmethodID,
+						jboolean);
+  friend jfieldID (::_Jv_FromReflectedField) (java::lang::reflect::Field *);
+
+  friend jmethodID (::_Jv_FromReflectedMethod) (java::lang::reflect::Method *);
+  friend jmethodID (::_Jv_FromReflectedConstructor) (java::lang::reflect::Constructor *);
+  friend jint (::JvNumMethods) (jclass);
+  friend jmethodID (::JvGetFirstMethod) (jclass);
 
   // Friends classes and functions to implement the ClassLoader
   friend class java::lang::ClassLoader;
@@ -312,91 +433,69 @@ private:
   friend class java::io::ObjectInputStream;
   friend class java::io::ObjectStreamClass;
 
-  friend void _Jv_WaitForState (jclass, int);
-  friend void _Jv_RegisterClasses (const jclass *classes);
-  friend void _Jv_RegisterClasses_Counted (const jclass *classes, 
-					   size_t count);
-  friend void _Jv_RegisterClassHookDefault (jclass klass);
-  friend void _Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
-  friend void _Jv_UnregisterClass (jclass);
-  friend jclass _Jv_FindClass (_Jv_Utf8Const *name,
-			       java::lang::ClassLoader *loader);
-  friend jclass _Jv_FindClassInCache (_Jv_Utf8Const *name,
-				      java::lang::ClassLoader *loader);
-  friend jclass _Jv_PopClass (void);
-  friend void _Jv_PushClass (jclass k);
-  friend void _Jv_NewArrayClass (jclass element,
-				 java::lang::ClassLoader *loader,
-				 _Jv_VTable *array_vtable = 0);
-  friend jclass _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
-			      java::lang::ClassLoader *loader);
-  friend void _Jv_InitNewClassFields (jclass klass);
+  friend void ::_Jv_RegisterClasses (const jclass *classes);
+  friend void ::_Jv_RegisterClasses_Counted (const jclass *classes, 
+					     size_t count);
+  friend void ::_Jv_RegisterClassHookDefault (jclass klass);
+  friend void ::_Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+  friend void ::_Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+  friend void ::_Jv_UnregisterClass (jclass);
+  friend jclass (::_Jv_FindClass) (_Jv_Utf8Const *name,
+				   java::lang::ClassLoader *loader);
+  friend jclass (::_Jv_FindClassInCache) (_Jv_Utf8Const *name);
+  friend jclass (::_Jv_PopClass) (void);
+  friend void ::_Jv_PushClass (jclass k);
+  friend void ::_Jv_NewArrayClass (jclass element,
+				   java::lang::ClassLoader *loader,
+				   _Jv_VTable *array_vtable);
+  friend jclass (::_Jv_NewClass) (_Jv_Utf8Const *name, jclass superclass,
+				  java::lang::ClassLoader *loader);
+  friend void ::_Jv_InitNewClassFields (jclass klass);
 
   // in prims.cc
-  friend void _Jv_InitPrimClass (jclass, char *, char, int);
+  friend void ::_Jv_InitPrimClass (jclass, char *, char, int);
 
-  friend void _Jv_PrepareCompiledClass (jclass);
-  friend void _Jv_PrepareConstantTimeTables (jclass);
-  friend jshort _Jv_GetInterfaces (jclass, _Jv_ifaces *);
-  friend void _Jv_GenerateITable (jclass, _Jv_ifaces *, jshort *);
-  friend jstring _Jv_GetMethodString(jclass, _Jv_Utf8Const *);
-  friend jshort _Jv_AppendPartialITable (jclass, jclass, void **, jshort);
-  friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
-  friend void _Jv_LinkSymbolTable (jclass);
-  friend void _Jv_LayoutInterfaceMethods (jclass);
-  friend void _Jv_LayoutVTableMethods (jclass klass);
-  friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
-  friend void _Jv_MakeVTable (jclass);
-  friend void _Jv_linkExceptionClassTable (jclass);
+  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Method *, jclass);
 
-  friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
+  friend jboolean (::_Jv_CheckAccess) (jclass self_klass, jclass other_klass,
 				   jint flags);
+  
+  friend bool (::_Jv_getInterfaceMethod) (jclass, jclass&, int&, 
+					  const _Jv_Utf8Const*,
+					  const _Jv_Utf8Const*);
 
-  // Return array class corresponding to element type KLASS, creating it if
-  // necessary.
-  inline friend jclass
-  _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader)
-  {
-    extern void _Jv_NewArrayClass (jclass element,
-				   java::lang::ClassLoader *loader,
-				   _Jv_VTable *array_vtable = 0);
-    if (__builtin_expect (!klass->arrayclass, false))
-      _Jv_NewArrayClass (klass, loader);
-    return klass->arrayclass;
-  }
+  friend jclass (::_Jv_GetArrayClass) (jclass klass,
+				       java::lang::ClassLoader *loader);
+
+  friend jboolean (::_Jv_IsInterpretedClass) (jclass);
 
 #ifdef INTERPRETER
-  friend jboolean _Jv_IsInterpretedClass (jclass);
-  friend void _Jv_InitField (jobject, jclass, _Jv_Field*);
-  friend void _Jv_InitField (jobject, jclass, int);
-  friend _Jv_word _Jv_ResolvePoolEntry (jclass, int);
-  friend _Jv_Method *_Jv_SearchMethodInClass (jclass cls, jclass klass, 
-                        		      _Jv_Utf8Const *method_name, 
-					      _Jv_Utf8Const *method_signature);
+  friend void ::_Jv_InitField (jobject, jclass, int);
 
-  friend void _Jv_PrepareClass (jclass);
-  friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
-
-  friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
-  
-  friend class _Jv_ClassReader;	
-  friend class _Jv_InterpClass;
-  friend class _Jv_InterpMethod;
+  friend class ::_Jv_ClassReader;	
+  friend class ::_Jv_InterpClass;
+  friend class ::_Jv_InterpMethod;
 #endif
 
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;
 #endif
 
-  friend class _Jv_BytecodeVerifier;
-  friend class _Jv_StackTrace;
+  friend class ::_Jv_BytecodeVerifier;
   friend class gnu::gcj::runtime::StackTrace;
   friend class java::io::VMObjectStreamClass;
 
-  friend void _Jv_sharedlib_register_hook (jclass klass);
+  friend class ::_Jv_Linker;
+  friend class ::_Jv_ExecutionEngine;
+  friend class ::_Jv_CompiledEngine;
+  friend class ::_Jv_InterpreterEngine;
 
-  // Chain for class pool.
-  jclass next;
+  friend void ::_Jv_sharedlib_register_hook (jclass klass);
+
+  // Chain for class pool.  This also doubles as the ABI version
+  // number.  It is only used for this purpose at class registration
+  // time, and only for precompiled classes.
+  jclass next_or_version;
   // Name of class.
   _Jv_Utf8Const *name;
   // Access flags for class.
@@ -427,8 +526,12 @@ private:
   _Jv_OffsetTable *otable;
   // Offset table symbols.
   _Jv_MethodSymbol *otable_syms;
+  // Address table
   _Jv_AddressTable *atable;
   _Jv_MethodSymbol *atable_syms;
+  // Interface table
+  _Jv_AddressTable *itable;
+  _Jv_MethodSymbol *itable_syms;
   _Jv_CatchClass *catch_classes;
   // Interfaces implemented by this class.
   jclass *interfaces;
@@ -451,13 +554,39 @@ private:
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).
   java::security::ProtectionDomain *protectionDomain;
+  // Pointer to the type assertion table for this class.
+  _Jv_TypeAssertion *assertion_table;
   // Signers of this class (or null).
   JArray<jobject> *hack_signers;
   // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.
   jclass chain;
-  // Additional data, specific to the generator (JIT, native, interpreter) of this 
-  // class.
+  // Additional data, specific to the generator (JIT, native,
+  // interpreter) of this class.
   void *aux_info;
+  // Execution engine.
+  _Jv_ExecutionEngine *engine;
 };
+
+// Inline functions that are friends of java::lang::Class
+
+inline void _Jv_InitClass (jclass klass)
+{
+  if (__builtin_expect (klass->state == JV_STATE_DONE, true))
+    return;
+  klass->initializeClass ();  
+}
+
+// Return array class corresponding to element type KLASS, creating it if
+// necessary.
+inline jclass
+_Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader)
+{
+  extern void _Jv_NewArrayClass (jclass element,
+				 java::lang::ClassLoader *loader,
+				 _Jv_VTable *array_vtable = 0);
+  if (__builtin_expect (!klass->arrayclass, false))
+    _Jv_NewArrayClass (klass, loader);
+  return klass->arrayclass;
+}
 
 #endif /* __JAVA_LANG_CLASS_H__ */

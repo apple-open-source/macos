@@ -136,10 +136,20 @@ bool IOHIDInterface::matchPropertyTable(
                                 OSDictionary *              table, 
                                 SInt32 *                    score)
 {
-    if ( !super::matchPropertyTable(table, score) )
+    IOService * provider;
+    bool        ret;
+    
+    if ( !super::matchPropertyTable(table, score) || !(provider = OSDynamicCast(IOService, copyParentEntry(gIOServicePlane))) )
         return false;
         
-    return _owner->matchPropertyTable(table, score);
+    // We should retain a reference to our provider while calling matchPropertyTable.
+    // This is necessary in a situation where a user space process could be searching
+    // the registry during termination.    
+    ret = provider->matchPropertyTable(table, score);
+    
+    provider->release();
+    
+    return ret;
 }
 
 //---------------------------------------------------------------------------
@@ -250,10 +260,9 @@ OSArray * IOHIDInterface::createMatchingElements (
     {
         if ( matching )
         {
-            elements = OSArray::withCapacity(count - 1);
+            elements = OSArray::withCapacity(count);
 
-            // Start at index 1 to avoid virtual collection element
-            for ( UInt32 i = 1; i < count; i ++)
+            for ( UInt32 i = 0; i < count; i ++)
             {
                 // Compare properties.
                 if (( element = (IOHIDElementPrivate *)_elementArray->getObject(i) )
@@ -264,13 +273,7 @@ OSArray * IOHIDInterface::createMatchingElements (
             }
         }
         else
-        {
             elements = OSArray::withArray(_elementArray);
-
-            // remove the virtual collection
-            if (elements)
-                elements->removeObject(0);
-        }
     }
 
     return elements;

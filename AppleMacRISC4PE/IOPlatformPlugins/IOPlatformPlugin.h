@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -133,6 +133,8 @@ enum {
 	kIOPPluginMessageError				= 8,
 	kIOPPluginMessageGetPlatformID		= 9
 };
+
+	bool safeBoot;
 
 	/* This lock protects _ALL_ of the internal state and instance data within the plugin and provides serialization for all entry points */
 	IORecursiveLock *	gate;
@@ -346,6 +348,37 @@ public:
 	@function coreDump
 	@abstract Sends current state description to IOLog. */
 	void 				coreDump(void);
+
+/*!
+	@function getSensorInfoDicts
+	@abstract returns a pointer to sensorInfoDicts array */
+	inline OSArray *getSensorInfoDicts ( void ) { return sensorInfoDicts; };
+
+/*!
+	@function getControlInfoDicts
+	@abstract returns a pointer to controlInfoDicts array */
+	inline OSArray *getControlInfoDicts ( void ) { return controlInfoDicts; };
+
+/*!
+	@function getCtrlLoopInfoDicts
+	@abstract returns a pointer to ctrlLoopInfoDicts array */
+	inline OSArray *getCtrlLoopInfoDicts ( void ) { return ctrlLoopInfoDicts; };
+
+/*!
+	@function setSensorInfoDicts
+	@abstract sets a new sensorInfoDicts array.  It also ensures the data is synchronized with the registry */
+	void setSensorInfoDicts ( OSArray *newSensorInfoDicts );
+
+/*!
+	@function setControlInfoDicts
+	@abstract sets a new controlInfoDicts array.  It also ensures the data is synchronized with the registry */
+	void setControlInfoDicts ( OSArray *newControlInfoDicts );
+
+/*!
+	@function setCtrlLoopInfoDicts
+	@abstract sets a new ctrlLoopInfoDicts array.  It also ensures the data is synchronized with the registry */
+	void setCtrlLoopInfoDicts ( OSArray *newCtrlLoopInfoDicts );
+
 
 };
 

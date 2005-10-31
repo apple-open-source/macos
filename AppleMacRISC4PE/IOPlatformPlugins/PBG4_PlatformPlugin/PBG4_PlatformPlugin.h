@@ -30,7 +30,7 @@
 #define _PBG4_PLATFORMPLUGIN_H_
 
 #include "IOPlatformPlugin.h"
-#include "IOKit/IOTimerEventSource.h"
+#include <IOKit/IOTimerEventSource.h>
 
 
 // Environmental interrupt bits.  Other bits we care about in kPMUEnvIntMask are defined 
@@ -44,6 +44,10 @@ enum {
 
 #define kCtrlLoopIsStateDrivenKey				"is-state-driven"
 #define kCtrlLoopPowerAdapterBaseline			"power-adapter-baseline"
+#define kCtrlLoopStepperDataArray				"StepDataArray"
+#define kCtrlLoopStepperData					"stepper-data"
+#define kIOPluginEnvStepperDataLoadRequest		"stepper-data-load-request"
+#define kIOPluginEnvStepControlState			"step-control-state"
 
 enum {
 	kMaxCtrlLoops = 16
@@ -59,6 +63,8 @@ private:
 				bool										fCtrlLoopStateFlagsArray[kMaxCtrlLoops];
 				UInt32										fLastPMUEnvIntData;
 
+				task_t										fTask;					// Userclient owning task
+
 protected:
 				IOPlatformPluginThermalProfile*				thermalProfile;
 				IOService									*thermalNub;
@@ -68,6 +74,8 @@ protected:
 			
 				virtual void environmentChanged( void );
 			
+				virtual void initSymbols( void );
+				
 				virtual bool initCtrlLoops( const OSArray * ctrlLoopDicts );
 			
 				static void handleEnvironmentalInterruptEvent(IOService *client, UInt8 interruptMask, UInt32 length, UInt8 *buffer);
@@ -80,9 +88,12 @@ public:
 				virtual bool start( IOService * provider );
 				virtual IOReturn setAggressiveness(unsigned long selector, unsigned long newLevel);
 
+				virtual void delEnv (const OSSymbol *aKey);
+
 };
 
 // Global pointer to our plugin for reference by sensors and control loops
 extern PBG4_PlatformPlugin*			gPlatformPlugin;
+
 
 #endif // _PBG4_PLATFORMPLUGIN_H_

@@ -81,6 +81,7 @@
 #define _kProxySupportPacSupportFileName	CFSTR("PACSupport")
 #define _kProxySupportJSExtension			CFSTR("js")
 #define _kProxySupportExpiresHeader			CFSTR("Expires")
+#define _kProxySupportNowHeader                 CFSTR("Date")
 #else
 static CONST_STRING_DECL(_kProxySupportCFNetworkBundleID, "com.apple.CFNetwork")
 static CONST_STRING_DECL(_kProxySupportLocalhost, "localhost")
@@ -114,6 +115,7 @@ static CONST_STRING_DECL(_kProxySupportLoadingPacPrivateMode, "_kProxySupportLoa
 static CONST_STRING_DECL(_kProxySupportPacSupportFileName, "PACSupport")
 static CONST_STRING_DECL(_kProxySupportJSExtension, "js")
 static CONST_STRING_DECL(_kProxySupportExpiresHeader, "Expires")
+static CONST_STRING_DECL(_kProxySupportNowHeader, "Date")
 #endif	/* __CONSTANT_CFSTRINGS__ */
 
 
@@ -291,7 +293,7 @@ _CFNetworkDoesNeedProxy(CFStringRef hostname, CFArrayRef bypasses, CFBooleanRef 
 		
 		buffer = _CFStringGetOrCreateCString(allocator, hostname, buffer, &bufferLength, kCFStringEncodingASCII);
 		
-		if (inet_pton(AF_INET, buffer, &ip) == 1)
+		if (inet_pton(AF_INET, (const char*)buffer, &ip) == 1)
 			is_ip = TRUE;
 			
 		if (buffer != stack_buffer)
@@ -357,7 +359,7 @@ _CFNetworkDoesNeedProxy(CFStringRef hostname, CFArrayRef bypasses, CFBooleanRef 
 								
 								buffer = _CFStringGetOrCreateCString(allocator, cp, buffer, &bufferLength, kCFStringEncodingASCII);
 								
-								if ((inet_pton(AF_INET, buffer, &bypassip) == 1) &&
+								if ((inet_pton(AF_INET, (const char*)buffer, &bypassip) == 1) &&
 									(((((1 << cidr) - 1) << (32 - cidr)) & ntohl(*((uint32_t*)(&ip)))) == ntohl(*((uint32_t*)(&bypassip)))))
 								{
 									result = FALSE;
@@ -659,7 +661,7 @@ _CFNetworkFindProxyForURLAsync(CFStringRef scheme, CFURLRef url, CFStringRef hos
                     CFRelease(url_str);
 
                     if (pac) {
-                        Boolean mustLoad;
+                        Boolean mustLoad = FALSE;
                         CFStringRef list;
                         if (callback) {
                             // Asynchronous
@@ -956,36 +958,52 @@ static CFReadStreamRef _streamForPACFile(CFAllocatorRef alloc, CFURLRef pac, Boo
 CFStringRef _stringFromLoadedPACStream(CFAllocatorRef alloc, CFMutableDataRef contents, CFReadStreamRef stream, CFAbsoluteTime *expires) {
     CFHTTPMessageRef msg = (CFHTTPMessageRef)CFReadStreamCopyProperty(stream, kCFStreamPropertyHTTPResponseHeader);
     CFStringRef result = NULL;
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    *expires = now > 1 ? now - 1 : now; // Just some number that's less than now.
 
     if (msg) {
 		
-		UInt32 code = CFHTTPMessageGetResponseStatusCode(msg);
-		
-		if (code > 299) {
-			CFDataSetLength(contents, 0);
-		}
-		
-		else {
-			
-			CFStringRef value = CFHTTPMessageCopyHeaderFieldValue(msg, _kProxySupportExpiresHeader);
+        UInt32 code = CFHTTPMessageGetResponseStatusCode(msg);
+        
+        if (code > 299) {
+            CFDataSetLength(contents, 0);
+        }
+        
+        else {
+            
+            CFStringRef expiryString = CFHTTPMessageCopyHeaderFieldValue(msg, _kProxySupportExpiresHeader);
+            
+            if (expiryString) {
+                CFGregorianDate expiryDate;
+                CFTimeZoneRef expiryTZ = NULL;
+                
+                if (_CFGregorianDateCreateWithString(alloc, expiryString, &expiryDate, &expiryTZ)) {
+                    CFStringRef nowString = CFHTTPMessageCopyHeaderFieldValue(msg, _kProxySupportNowHeader);
+		    if (nowString) {
+                        CFTimeZoneRef nowTZ;
+                        CFGregorianDate nowDate;
+                        if (_CFGregorianDateCreateWithString(alloc, nowString, &nowDate, &nowTZ)) {
+                            *expires = now + (CFGregorianDateGetAbsoluteTime(expiryDate, expiryTZ) - CFGregorianDateGetAbsoluteTime(nowDate, nowTZ));
+                        } else {
+                            *expires = CFGregorianDateGetAbsoluteTime(expiryDate, expiryTZ);
+                        }
+                        CFRelease(nowString);
+                    } else {
+                        *expires = CFGregorianDateGetAbsoluteTime(expiryDate, expiryTZ);
+                    }
+                }
 
-			if (value) {
-				
-				CFGregorianDate date;
-				CFTimeZoneRef tz = NULL;
-				
-				if (_CFGregorianDateCreateWithString(alloc, value, &date, &tz)) {
-					
-					*expires = CFGregorianDateGetAbsoluteTime(date, tz);
-				}
-
-				CFRelease(value);
-			}
-		}
-		
-		CFRelease(msg);
+                CFRelease(expiryString);
+            }
+        }
+        
+        CFRelease(msg);
     }
     
+    if (*expires < now) {
+        *expires = now + (24 * 60 * 60);
+    }
+
     CFIndex bytesRead = CFDataGetLength(contents);
     if (bytesRead) {
         result = CFStringCreateWithBytes(alloc, CFDataGetBytePtr(contents), bytesRead, kCFStringEncodingUTF8, TRUE);
@@ -995,7 +1013,6 @@ CFStringRef _stringFromLoadedPACStream(CFAllocatorRef alloc, CFMutableDataRef co
 
 /* static */ CFStringRef
 _loadPACFile(CFAllocatorRef alloc, CFURLRef pac, CFAbsoluteTime *expires, CFStreamError *err) {
-    *expires = 0;
     Boolean isFile;
     CFReadStreamRef stream = _streamForPACFile(alloc, pac, &isFile);
     CFStringRef result = NULL;
@@ -1876,7 +1893,9 @@ static CFURLRef _JSPacFileLocation = NULL;
 static CFAbsoluteTime _JSPacFileExpiration = 0;
 static JSRunRef _JSRuntime = NULL;
 
-/* Must be called while holding the _JSLock */
+/* Must be called while holding the _JSLock.  It is the caller's responsibility to verify that expires is a valid 
+   value; bad values can cause problems.  In general, the caller should make sure to successfully go through
+   _stringFromLoadedPACStream to produce the expiry value. */ 
 static void _JSSetEnvironmentForPAC(CFAllocatorRef alloc, CFURLRef url, CFAbsoluteTime expires, CFStringRef pacString) {
 
     if (_JSRuntime) {
@@ -1895,8 +1914,7 @@ static void _JSSetEnvironmentForPAC(CFAllocatorRef alloc, CFURLRef url, CFAbsolu
     if (js_support) {
         _JSRuntime = _createJSRuntime(alloc, js_support, pacString);
         if (_JSRuntime) {
-            // Expire in one day for anything that lacks an expiration.
-            _JSPacFileExpiration = expires ? expires : CFAbsoluteTimeGetCurrent() + (24*60*60);
+            _JSPacFileExpiration = expires;
             _JSPacFileLocation = CFRetain(url);
         }
     }
@@ -2128,7 +2146,7 @@ static void releasePACStreamContext(void *info) {
 }
 
 static void readBytesFromProxyStream(CFReadStreamRef proxyStream, _PACStreamContext *ctxt) {
-    char buf[BUF_SIZE];
+    UInt8 buf[BUF_SIZE];
     CFIndex bytesRead = CFReadStreamRead(proxyStream, buf, BUF_SIZE);
     if (bytesRead > 0) {
         CFDataAppendBytes(ctxt->data, buf, bytesRead);

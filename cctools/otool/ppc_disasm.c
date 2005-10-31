@@ -1103,7 +1103,7 @@ enum bool verbose)
 		break;
 	    case 0x00000120:
 		if(opcode & 0x00100000)
-		    printf("mtcrf\t0x%02x,r%lu\n",
+		    printf("mtocrf\t0x%02x,r%lu\n",
 			   (unsigned int)((opcode >> 12) & 0xff),
 			   RS(opcode));
 		else
@@ -1115,7 +1115,7 @@ enum bool verbose)
 		break;
 	    case 0x00000026:
 		if(opcode & 0x00100000)
-		    printf("mfcr\tr%lu,0x%02x\n", RS(opcode),
+		    printf("mfocrf\tr%lu,0x%02x\n", RS(opcode),
 			   (unsigned int)((opcode >> 12) & 0xff));
 		else
 		    printf("mfcr\tr%lu\n", RT(opcode));

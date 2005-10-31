@@ -31,7 +31,8 @@ enum varobj_display_formats
     FORMAT_DECIMAL,		/* Decimal display                   */
     FORMAT_HEXADECIMAL,		/* Hex display                       */
     FORMAT_OCTAL,		/* Octal display                     */
-    FORMAT_UNSIGNED		/* Unsigned decimal display          */
+    FORMAT_UNSIGNED,		/* APPLE LOCAL: Unsigned decimal display */
+    FORMAT_OSTYPE               /* APPLE LOCAL: OSType display       */
   };
 
 enum varobj_type

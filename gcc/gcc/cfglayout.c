@@ -25,21 +25,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "insn-config.h"
 #include "output.h"
 #include "function.h"
-#include "obstack.h"
 #include "cfglayout.h"
 #include "cfgloop.h"
 #include "target.h"
 #include "ggc.h"
 #include "alloc-pool.h"
 #include "flags.h"
-
-/* The contents of the current function definition are allocated
-   in this obstack, and all are freed at the end of the function.  */
-extern struct obstack flow_obstack;
 
 /* Holds the interesting trailing notes for the function.  */
 rtx cfg_layout_function_footer, cfg_layout_function_header;
@@ -347,7 +343,7 @@ set_block_levels (tree block, int level)
 }
 
 /* Return sope resulting from combination of S1 and S2.  */
-tree
+static tree
 choose_inner_scope (tree s1, tree s2)
 {
    if (!s1)
@@ -526,6 +522,12 @@ reemit_insn_block_notes (void)
   for (; insn; insn = next_active_insn (insn))
     {
       tree this_block;
+
+      /* Avoid putting scope notes between jump table and its label.  */
+      if (JUMP_P (insn)
+	  && (GET_CODE (PATTERN (insn)) == ADDR_VEC
+	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC))
+	continue;
 
       this_block = insn_scope (insn);
       /* For sequences compute scope resulting from merging all scopes
@@ -743,21 +745,11 @@ fixup_reorder_chain (void)
 	    }
 	  else
 	    {
-#ifndef CASE_DROPS_THROUGH
 	      /* Otherwise we have some return, switch or computed
 		 jump.  In the 99% case, there should not have been a
 		 fallthru edge.  */
 	      gcc_assert (returnjump_p (bb_end_insn) || !e_fall);
 	      continue;
-#else
-	      if (returnjump_p (bb_end_insn) || !e_fall)
-		continue;
-	      /* Except for VAX.  Since we didn't have predication for the
-		 tablejump, the fallthru block should not have moved.  */
-	      if (bb->rbi->next == e_fall->dest)
-		continue;
-	      bb_end_insn = skip_insns_after_block (bb);
-#endif
 	    }
 	}
       else
@@ -1122,8 +1114,8 @@ cfg_layout_duplicate_bb (basic_block bb)
 
   if (bb->global_live_at_start)
     {
-      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
-      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      new_bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      new_bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
       COPY_REG_SET (new_bb->global_live_at_start, bb->global_live_at_start);
       COPY_REG_SET (new_bb->global_live_at_end, bb->global_live_at_end);
     }

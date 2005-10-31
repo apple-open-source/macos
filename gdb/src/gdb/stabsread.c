@@ -797,6 +797,20 @@ define_symbol (CORE_ADDR valu, char *string, const char *prefix,
 	    SYMBOL_CLASS (sym) = LOC_CONST;
 	  }
 	  break;
+	case 'b':
+	  /* SYMBOL:c=b0, or SYMBOL:c=b1, for boolean constants. */
+	  SYMBOL_CLASS (sym) = LOC_CONST;
+	  SYMBOL_TYPE (sym) = init_type (TYPE_CODE_BOOL, 1, TYPE_FLAG_UNSIGNED, "bool", objfile);
+	  if (*p == '0')
+	    SYMBOL_VALUE (sym) = 0;
+	  else if (*p == '1')
+	    SYMBOL_VALUE (sym) = 1;
+	  else
+	    {
+	      SYMBOL_CLASS (sym) = LOC_CONST;
+	      SYMBOL_TYPE (sym) = error_type (&p, objfile);
+	    }
+	  break;
 	case 'e':
 	  /* SYMBOL:c=eTYPE,INTVALUE for a constant symbol whose value
 	     can be represented as integral.
@@ -1474,6 +1488,15 @@ read_type (char **pp, struct objfile *objfile)
   /* Used to distinguish vector from array. */
   int is_vector = 0;
 
+  /* APPLE LOCAL: For vectors, if a stride is being specified. */
+  int is_stride = 0;
+
+  /* APPLE LOCAL: The stride to use for the array.  Currently
+     supported values are 1 (the "standard"), -1 (starting with 0 at
+     the end of the array and moving backwards), and 0 (use the
+     default for endianness of the platform). */
+  int stride = 0;
+
   /* Read type number if present.  The type number may be omitted.
      for instance in a two-dimensional array declared with type
      "ar1;1;10;ar1;1;10;4".  */
@@ -1848,6 +1871,14 @@ again:
 		type_size = -1;
 	      break;
 
+	      /* APPLE LOCAL: Add support for array stride
+		 attributes. */
+	    case 'T':		/* Arrray stride attribute */
+	      /* FIXME: check to see if following type is array? */
+	      is_stride = 1;
+	      stride = atoi (attr + 2);
+	      break;
+
 	    case 'S':		/* String attribute */
 	      /* FIXME: check to see if following type is array? */
 	      is_string = 1;
@@ -1970,6 +2001,25 @@ again:
 	TYPE_CODE (type) = TYPE_CODE_STRING;
       if (is_vector)
 	TYPE_FLAGS (type) |= TYPE_FLAG_VECTOR;
+
+      /* APPLE LOCAL: If a stride was set, set it in the range type;
+	 else use the default. */
+      if (is_stride)
+	{
+	  if ((stride != 1) && (stride != -1))
+	    complaint (&symfile_complaints,
+		       "invalid stride: unsupported value %d at symtab pos %d.",
+		       stride, symnum);
+	  TYPE_STRIDE (TYPE_INDEX_TYPE (type)) = stride;
+	}
+      else
+	if (TYPE_VECTOR (type)
+	    && TYPE_OBJFILE (type)->obfd
+	    && (bfd_get_arch (TYPE_OBJFILE (type)->obfd) == bfd_arch_i386))
+	  TYPE_STRIDE (TYPE_INDEX_TYPE (type)) = -1;
+	else
+	  TYPE_STRIDE (TYPE_INDEX_TYPE (type)) = 1;
+
       break;
 
     case 'S':			/* Set or bitstring  type */
@@ -3409,8 +3459,15 @@ read_struct_type (char **pp, struct type *type, enum type_code type_code,
     {
       complain_about_struct_wipeout (type);
 
+      /* APPLE LOCAL: This is not a great idea.  The problem is
+	 that the type definition stab could contain other
+	 type definitions in the current context which we need
+	 to process or we will leave some other types dangling.  */
+#if 0
       /* It's probably best to return the type unchanged.  */
       return type;
+#endif
+      /* END APPLE LOCAL */
     }
 
   back_to = make_cleanup (null_cleanup, 0);
@@ -4569,30 +4626,54 @@ finish_global_stabs (struct objfile *objfile)
 }
 
 /* Find the end of the name, delimited by a ':', but don't match
-   ObjC symbols which look like -[Foo bar::]:bla.  */
+   ObjC symbols which look like -[Foo bar::]:bla.
+
+   APPLE LOCAL: I changed the implementation of this function
+   since it also has to be able to handle ObjC++ symbols
+   which look like _ZWhatever-[Foo bar::]:bla.  */
 char *
 find_name_end (char *name)
 {
   char *s = name;
-  if (s[0] == '-' || *s == '+')
+  char *first_colon, *first_lbrac, *first_rbrac;
+
+  
+  first_colon = strchr (name, ':');
+  if (first_colon == NULL)
+    return NULL;
+
+  /* It's tempting to use strchr to look for the
+     leftmost lbrac but that would mean scanning
+     the whole stab string, which can be quite
+     long.  Since we only care whether there is a
+     left square bracket BEFORE the first colon,
+     restrict the search to that.  */
+
+  first_lbrac = NULL;
+
+  for (s = name; s < first_colon; s++)
     {
-      /* Must be an ObjC method symbol.  */
-      if (s[1] != '[')
+      if (*s == '[')
 	{
-	  error ("invalid symbol name \"%s\"", name);
+	  first_lbrac = s;
+	  break;
 	}
-      s = strchr (s, ']');
-      if (s == NULL)
-	{
-	  error ("invalid symbol name \"%s\"", name);
-	}
-      return strchr (s, ':');
     }
+  
+  if (first_lbrac == NULL
+      || (first_lbrac == name
+	  || (first_lbrac[-1] != '-'
+	      && first_lbrac[-1] != '+')))
+    return first_colon;
   else
     {
-      return strchr (s, ':');
+      first_rbrac = strchr (name, ']');
+      if (first_rbrac == NULL)
+	error ("invalid symbol name \"%s\"", name);
+      return strchr (first_rbrac, ':');
     }
 }
+/* END APPLE LOCAL */      
 
 /* Initializer for this module */
 

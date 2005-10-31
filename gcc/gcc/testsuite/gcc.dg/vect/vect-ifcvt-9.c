@@ -1,4 +1,4 @@
-/* APPLE LOCAL file.  */
+/* APPLE LOCAL file AV data dependence */
 /* { dg-do run } */
 /* { dg-options "-O3 -funroll-loops -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
 

@@ -26,6 +26,8 @@
 #include "memberdServer.h"
 #include <c.h>
 
+#define kUseLoginTimeOutMask 1
+
 typedef struct ThreadStats
 {
 	time_t fStartTime;
@@ -48,3 +50,6 @@ void* StartListening(void* dummy);
 void StartListeningKernel(void);
 
 void CheckListener();
+
+int GetThreadFlags();
+void SetThreadFlags(int flags);

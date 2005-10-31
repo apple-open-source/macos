@@ -644,8 +644,22 @@ mmix_function_outgoing_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     return
       gen_rtx_REG (mode, MMIX_OUTGOING_RETURN_VALUE_REGNUM);
 
-  /* A complex type, made up of components.  */
-  cmode = TYPE_MODE (TREE_TYPE (valtype));
+  if (COMPLEX_MODE_P (mode))
+    /* A complex type, made up of components.  */
+    cmode = TYPE_MODE (TREE_TYPE (valtype));
+  else
+    {
+      /* Of the other larger-than-register modes, we only support
+	 scalar mode TImode.  (At least, that's the only one that's
+	 been rudimentally tested.)  Make sure we're alerted for
+	 unexpected cases.  */
+      if (mode != TImode)
+	sorry ("support for mode %qs", GET_MODE_NAME (mode));
+
+      /* In any case, we will fill registers to the natural size.  */
+      cmode = DImode;
+    }
+
   nregs = ((GET_MODE_BITSIZE (mode) + BITS_PER_WORD - 1) / BITS_PER_WORD);
 
   /* We need to take care of the effect of the register hole on return
@@ -1355,6 +1369,15 @@ mmix_asm_output_label (FILE *stream, const char *name)
   fprintf (stream, "\tIS @\n");
 }
 
+/* ASM_OUTPUT_INTERNAL_LABEL.  */
+
+void
+mmix_asm_output_internal_label (FILE *stream, const char *name)
+{
+  assemble_name_raw (stream, name);
+  fprintf (stream, "\tIS @\n");
+}
+
 /* ASM_DECLARE_REGISTER_GLOBAL.  */
 
 void
@@ -1585,7 +1608,7 @@ mmix_print_operand (FILE *stream, rtx x, int code)
 
     default:
       /* Presumably there's a missing case above if we get here.  */
-      internal_error ("MMIX Internal: Missing `%c' case in mmix_print_operand", code);
+      internal_error ("MMIX Internal: Missing %qc case in mmix_print_operand", code);
     }
 
   switch (GET_CODE (modified_x))
@@ -2079,11 +2102,8 @@ mmix_expand_epilogue (void)
        + current_function_pretend_args_size
        + locals_size + 7) & ~7;
 
-  /* The assumption that locals_size fits in an int is asserted in
-     mmix_expand_prologue.  */
-
   /* The first address to access is beyond the outgoing_args area.  */
-  int offset = current_function_outgoing_args_size;
+  HOST_WIDE_INT offset = current_function_outgoing_args_size;
 
   /* Add the space for global non-register-stack registers.
      It is assumed that the frame-pointer register can be one of these
@@ -2141,7 +2161,6 @@ mmix_expand_epilogue (void)
   /* Here is where the local variables were.  As in the prologue, they
      might be of an unaligned size.  */
   offset += (locals_size + 7) & ~7;
-
 
   /* The saved register stack pointer is just below the frame-pointer
      register.  We don't need to restore it "manually"; the POP

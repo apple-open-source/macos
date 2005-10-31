@@ -1,5 +1,5 @@
 /* Nested function decomposition for trees.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -155,8 +155,7 @@ build_addr (tree exp)
 {
   tree base = exp;
 
-  while (TREE_CODE (base) == REALPART_EXPR || TREE_CODE (base) == IMAGPART_EXPR
-	 || handled_component_p (base))
+  while (handled_component_p (base))
     base = TREE_OPERAND (base, 0);
 
   if (DECL_P (base))
@@ -377,6 +376,23 @@ tsi_gimplify_val (struct nesting_info *info, tree exp, tree_stmt_iterator *tsi)
     return init_tmp_var (info, exp, tsi);
 }
 
+/* Similarly, but copy from the temporary and insert the statement
+   after the iterator.  */
+
+static tree
+save_tmp_var (struct nesting_info *info, tree exp,
+	      tree_stmt_iterator *tsi)
+{
+  tree t, stmt;
+
+  t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
+  stmt = build (MODIFY_EXPR, TREE_TYPE (t), exp, t);
+  SET_EXPR_LOCUS (stmt, EXPR_LOCUS (tsi_stmt (*tsi)));
+  tsi_link_after (tsi, stmt, TSI_SAME_STMT);
+
+  return t;
+}
+
 /* Build or return the type used to represent a nested function trampoline.  */
 
 static GTY(()) tree trampoline_type;
@@ -519,6 +535,7 @@ struct walk_stmt_info
   tree_stmt_iterator tsi;
   struct nesting_info *info;
   bool val_only;
+  bool is_lhs;
   bool changed;
 };
 
@@ -569,12 +586,18 @@ walk_stmts (struct walk_stmt_info *wi, tree *tp)
       break;
 
     case MODIFY_EXPR:
-      /* The immediate arguments of a MODIFY_EXPR may use COMPONENT_REF.  */
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), wi->callback, wi, NULL);
-      wi->val_only = false;
+      /* A formal temporary lhs may use a COMPONENT_REF rhs.  */
+      wi->val_only = !is_gimple_formal_tmp_var (TREE_OPERAND (t, 0));
       walk_tree (&TREE_OPERAND (t, 1), wi->callback, wi, NULL);
+
+      /* If the rhs is appropriate for a memory, we may use a
+	 COMPONENT_REF on the lhs.  */
+      wi->val_only = !is_gimple_mem_rhs (TREE_OPERAND (t, 1));
+      wi->is_lhs = true;
+      walk_tree (&TREE_OPERAND (t, 0), wi->callback, wi, NULL);
+
       wi->val_only = true;
+      wi->is_lhs = false;
       break;
 
     default:
@@ -613,8 +636,49 @@ walk_all_functions (walk_tree_fn callback, struct nesting_info *root)
     }
   while (root);
 }
-
 
+/* We have to check for a fairly pathological case.  The operands of function
+   nested function are to be interpreted in the context of the enclosing
+   function.  So if any are variably-sized, they will get remapped when the
+   enclosing function is inlined.  But that remapping would also have to be
+   done in the types of the PARM_DECLs of the nested function, meaning the
+   argument types of that function will disagree with the arguments in the
+   calls to that function.  So we'd either have to make a copy of the nested
+   function corresponding to each time the enclosing function was inlined or
+   add a VIEW_CONVERT_EXPR to each such operand for each call to the nested
+   function.  The former is not practical.  The latter would still require
+   detecting this case to know when to add the conversions.  So, for now at
+   least, we don't inline such an enclosing function.
+
+   We have to do that check recursively, so here return indicating whether
+   FNDECL has such a nested function.  ORIG_FN is the function we were
+   trying to inline to use for checking whether any argument is variably
+   modified by anything in it.
+
+   It would be better to do this in tree-inline.c so that we could give
+   the appropriate warning for why a function can't be inlined, but that's
+   too late since the nesting structure has already been flattened and
+   adding a flag just to record this fact seems a waste of a flag.  */
+
+static bool
+check_for_nested_with_variably_modified (tree fndecl, tree orig_fndecl)
+{
+  struct cgraph_node *cgn = cgraph_node (fndecl);
+  tree arg;
+
+  for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
+    {
+      for (arg = DECL_ARGUMENTS (cgn->decl); arg; arg = TREE_CHAIN (arg))
+	if (variably_modified_type_p (TREE_TYPE (arg), 0), orig_fndecl)
+	  return true;
+
+      if (check_for_nested_with_variably_modified (cgn->decl, orig_fndecl))
+	return true;
+    }
+
+  return false;
+}
+
 /* Construct our local datastructure describing the function nesting
    tree rooted by CGN.  */
 
@@ -632,6 +696,11 @@ create_nesting_tree (struct cgraph_node *cgn)
       sub->next = info->inner;
       info->inner = sub;
     }
+
+  /* See discussion at check_for_nested_with_variably_modified for a
+     discussion of why this has to be here.  */
+  if (check_for_nested_with_variably_modified (info->context, info->context))
+    DECL_UNINLINABLE (info->context) = true;
 
   return info;
 }
@@ -745,8 +814,14 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	      x = init_tmp_var (info, x, &wi->tsi);
 	      x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
 	    }
+
 	  if (wi->val_only)
-	    x = init_tmp_var (info, x, &wi->tsi);
+	    {
+	      if (wi->is_lhs)
+		x = save_tmp_var (info, x, &wi->tsi);
+	      else
+		x = init_tmp_var (info, x, &wi->tsi);
+	    }
 
 	  *tp = x;
 	}
@@ -758,6 +833,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	{
 	  *walk_subtrees = 1;
 	  wi->val_only = true;
+	  wi->is_lhs = false;
 	}
       break;
 
@@ -774,8 +850,9 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       {
 	bool save_val_only = wi->val_only;
 
-	wi->changed = false;
 	wi->val_only = false;
+	wi->is_lhs = false;
+	wi->changed = false;
 	walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
 	wi->val_only = true;
 
@@ -804,9 +881,8 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	 anything that describes the references.  Otherwise, we lose track
 	 of whether a NOP_EXPR or VIEW_CONVERT_EXPR needs a simple value.  */
       wi->val_only = true;
-      for (; handled_component_p (t)
-	   || TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR;
-	   tp = &TREE_OPERAND (t, 0), t = *tp)
+      wi->is_lhs = false;
+      for (; handled_component_p (t); tp = &TREE_OPERAND (t, 0), t = *tp)
 	{
 	  if (TREE_CODE (t) == COMPONENT_REF)
 	    walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi,
@@ -838,6 +914,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	{
 	  *walk_subtrees = 1;
           wi->val_only = true;
+	  wi->is_lhs = false;
 	}
       break;
     }
@@ -880,8 +957,15 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	  wi->changed = true;
 
 	  x = get_frame_field (info, info->context, field, &wi->tsi);
+
 	  if (wi->val_only)
-	    x = init_tmp_var (info, x, &wi->tsi);
+	    {
+	      if (wi->is_lhs)
+		x = save_tmp_var (info, x, &wi->tsi);
+	      else
+		x = init_tmp_var (info, x, &wi->tsi);
+	    }
+
 	  *tp = x;
 	}
       break;
@@ -890,8 +974,9 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       {
 	bool save_val_only = wi->val_only;
 
-	wi->changed = false;
 	wi->val_only = false;
+	wi->is_lhs = false;
+	wi->changed = false;
 	walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
 	wi->val_only = save_val_only;
 
@@ -921,9 +1006,8 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	 anything that describes the references.  Otherwise, we lose track
 	 of whether a NOP_EXPR or VIEW_CONVERT_EXPR needs a simple value.  */
       wi->val_only = true;
-      for (; handled_component_p (t)
-	   || TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR;
-	   tp = &TREE_OPERAND (t, 0), t = *tp)
+      wi->is_lhs = false;
+      for (; handled_component_p (t); tp = &TREE_OPERAND (t, 0), t = *tp)
 	{
 	  if (TREE_CODE (t) == COMPONENT_REF)
 	    walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi,
@@ -955,6 +1039,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	{
 	  *walk_subtrees = 1;
 	  wi->val_only = true;
+	  wi->is_lhs = false;
 	}
       break;
     }

@@ -1,7 +1,7 @@
 /*
  * main.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/main.m,v 1.6 2005/01/23 17:53:20 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/main.m,v 1.7 2005/04/19 22:38:37 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -56,18 +56,26 @@ int main (int argc, const char *argv[])
     // Testing:
     if (0) {
         AuthenticationController *controller = NULL;
+        Principal *principal = NULL;
         
         if (!err) {
             controller = [[AuthenticationController alloc] init];
             if (controller == NULL) { err = ENOMEM; }
-        } 
+        }
+        
+        if (!err) {
+            principal = [[Principal alloc] initWithString: @"me@EXAMPLE.COM" klVersion: kerberosVersion_V5];
+        }
         
         if (!err) {
             //[controller setDoesMinimize: YES];
+            //[controller setCallerProvidedPrincipal: principal];
             err = [controller runWindow];
+            if (err) { NSLog (@"Got error %ld (%s)\n", err, error_message (err)); }
             err = 0;
         }
         
+        if (principal  != NULL) { [principal release]; }
         if (controller != NULL) { [controller release]; }
 
     } else if (0) {        

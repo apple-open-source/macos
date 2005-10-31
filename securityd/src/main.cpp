@@ -251,10 +251,9 @@ int main(int argc, char *argv[])
 	if (const char *s = getenv("TOKENCACHE"))
 		tokenCacheDir = s;
 #endif //NDEBUG
-	TokenCache tokenCache(tokenCacheDir);
 
 	// create a smartcard monitor to manage external token devices
-	PCSCMonitor secureCards(server, tokenCache, scOptions(smartCardOptions));
+	PCSCMonitor secureCards(server, tokenCacheDir, scOptions(smartCardOptions));
     
     // create the RootSession object (if -d, give it graphics and tty attributes)
     RootSession rootSession(server,

@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License as
@@ -165,9 +165,11 @@ check_version(const symbol& test, bool added)
       known_versions.push_back("GLIBCXX_3.4.1");
       known_versions.push_back("GLIBCXX_3.4.2");
       known_versions.push_back("GLIBCXX_3.4.3");
+      known_versions.push_back("GLIBCXX_3.4.4");
       known_versions.push_back("CXXABI_1.2");
       known_versions.push_back("CXXABI_1.2.1");
       known_versions.push_back("CXXABI_1.3");
+      known_versions.push_back("CXXABI_1.3.1");
     }
   compat_list::iterator begin = known_versions.begin();
   compat_list::iterator end = known_versions.end();
@@ -262,7 +264,7 @@ get_symbol(const string& mangled, const symbols& s)
     {
       ostringstream os;
       os << "get_symbol failed for symbol " << mangled;
-      throw symbol_error(os.str());
+      __throw_logic_error(os.str().c_str());
     }
 }
 
@@ -276,7 +278,7 @@ examine_symbol(const char* name, const char* file)
       sym.print();
     }
   catch(...)
-    { throw; }
+    { __throw_exception_again; }
 }
 
 void 
@@ -419,7 +421,7 @@ create_symbols(const char* file)
     {
       ostringstream os;
       os << "create_symbols failed for file " << file;
-      throw runtime_error(os.str());
+      __throw_runtime_error(os.str().c_str());
     }
   return s;
 }

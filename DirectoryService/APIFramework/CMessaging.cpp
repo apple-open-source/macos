@@ -56,6 +56,7 @@
 
 extern dsBool				gResetSession;
 extern sInt32				gProcessPID;
+extern uInt32				gTranslateBit;
 
 //------------------------------------------------------------------------------------
 //	* CMessaging
@@ -408,10 +409,7 @@ sInt32 CMessaging::SendInlineMessage ( uInt32 inMsgType )
 	aMsgData->type.msgt_name		= inMsgType;
 	aMsgData->type.msgt_size		= 32;
 	aMsgData->type.msgt_number		= 0;
-	aMsgData->type.msgt_inline		= true;
-	aMsgData->type.msgt_longform	= false;
-	aMsgData->type.msgt_deallocate	= false;
-	aMsgData->type.msgt_unused		= 0;
+	aMsgData->type.msgt_translate	= 0;
 	aMsgData->fPID					= 0; // set the pid to 0 so we know it was internal dispatch
 
     handler.HandleRequest(&aMsgData);
@@ -445,11 +443,8 @@ sInt32 CMessaging::SendInlineMessage ( uInt32 inMsgType )
 		fMsgData->type.msgt_name		= inMsgType;
 		fMsgData->type.msgt_size		= 32;
 		fMsgData->type.msgt_number		= 0;
-		fMsgData->type.msgt_inline		= true;
-		fMsgData->type.msgt_longform	= false;
-		fMsgData->type.msgt_deallocate	= false;
-		fMsgData->type.msgt_unused		= 0;
-	
+		fMsgData->type.msgt_translate	= gTranslateBit;
+		
 		result = this->SendServerMessage();
 	
 		//if the mach send was interrupted then we need to reset the entire session

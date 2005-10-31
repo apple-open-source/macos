@@ -104,7 +104,10 @@ enum
     kPB68MachineModel		= kPowerBookModel + 0x00000608,
 
     kPB56MachineModel		= kPowerBookModel + 0x00000506 + kUsesIOPlatformPlugin,
-    kPB57MachineModel		= kPowerBookModel + 0x00000507 + kUsesIOPlatformPlugin
+    kPB57MachineModel		= kPowerBookModel + 0x00000507 + kUsesIOPlatformPlugin,
+
+    kPB58MachineModel		= kPowerBookModel + 0x00000508 + kUsesIOPlatformPlugin,
+    kPB59MachineModel		= kPowerBookModel + 0x00000509 + kUsesIOPlatformPlugin
 };
 
 // Thermal sensor values and thresholds are 16.16 fixed point format

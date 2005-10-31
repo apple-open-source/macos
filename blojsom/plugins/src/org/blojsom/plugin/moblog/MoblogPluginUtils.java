@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,9 +41,7 @@ import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.util.BlojsomUtils;
 
 import javax.servlet.ServletConfig;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -52,7 +50,7 @@ import java.util.Properties;
  * Moblog Plugin Utils
  *
  * @author David Czarnecki
- * @version $Id: MoblogPluginUtils.java,v 1.1 2004/08/27 01:06:39 whitmore Exp $
+ * @version $Id: MoblogPluginUtils.java,v 1.1.2.1 2005/07/21 04:30:34 johnan Exp $
  * @since blojsom 2.16
  */
 public class MoblogPluginUtils {
@@ -95,10 +93,10 @@ public class MoblogPluginUtils {
      * Read in the mailbox settings for a given user
      *
      * @param blojsomConfiguration {@link BlojsomConfiguration}
-     * @param servletConfig {@link ServletConfig}
-     * @param blogUser {@link BlogUser}
+     * @param servletConfig        {@link ServletConfig}
+     * @param blogUser             {@link BlogUser}
      * @return {@link Mailbox} populated with settings and authorized e-mail addresses or <code>null</code> if there
-     * was an error reading any configuration information
+     *         was an error reading any configuration information
      */
     public static Mailbox readMailboxSettingsForUser(BlojsomConfiguration blojsomConfiguration, ServletConfig servletConfig,
                                                      BlogUser blogUser) {
@@ -230,6 +228,14 @@ public class MoblogPluginUtils {
 
                     // Configure authorized email addresses for moblog posting
                     mailbox.setAuthorizedAddresses(configureAuthorizedAddresses(servletConfig, blojsomConfiguration, user, authFile));
+
+                    // Configure ignore regular expression
+                    String ignoreExpression = moblogProperties.getProperty(MoblogPlugin.PLUGIN_MOBLOG_IGNORE_EXPRESSION);
+                    if (BlojsomUtils.checkNullOrBlank(ignoreExpression)) {
+                        mailbox.setIgnoreExpression(null);
+                    } else {
+                        mailbox.setIgnoreExpression(ignoreExpression);
+                    }
                 }
             } catch (IOException e) {
                 _logger.error(e);
@@ -239,5 +245,42 @@ public class MoblogPluginUtils {
         }
 
         return mailbox;
+    }
+
+    /**
+     * Save a file to disk
+     *
+     * @param filename  Base filename
+     * @param extension File extension
+     * @param input     Input from which to read and write a file
+     * @return # of bytes written to disk
+     * @throws IOException If there is an error writing the file
+     */
+    public static int saveFile(String filename, String extension, InputStream input) throws IOException {
+        int count = 0;
+        if (filename == null) {
+            return count;
+        }
+
+        // Do not overwrite existing file
+        File file = new File(filename + extension);
+        for (int i = 0; file.exists(); i++) {
+            file = new File(filename + i + extension);
+        }
+        FileOutputStream fos = new FileOutputStream(file);
+        BufferedOutputStream bos = new BufferedOutputStream(fos);
+
+        BufferedInputStream bis = new BufferedInputStream(input);
+        int aByte;
+        while ((aByte = bis.read()) != -1) {
+            bos.write(aByte);
+            count++;
+        }
+
+        bos.flush();
+        bos.close();
+        bis.close();
+
+        return count;
     }
 }

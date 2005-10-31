@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -109,10 +109,14 @@ array_base_name_differ_p (struct data_reference *a,
 {
   tree base_a = DR_BASE_NAME (a);
   tree base_b = DR_BASE_NAME (b);
-  tree ta = TREE_TYPE (base_a);
-  tree tb = TREE_TYPE (base_b);
+  tree ta, tb;
 
+  if (!base_a || !base_b)
+    return false;
 
+  ta = TREE_TYPE (base_a);
+  tb = TREE_TYPE (base_b);
+  
   /* Determine if same base.  Example: for the array accesses
      a[i], b[i] or pointer accesses *a, *b, bases are a, b.  */
   if (base_a == base_b)
@@ -174,24 +178,6 @@ array_base_name_differ_p (struct data_reference *a,
       || (TREE_CODE (base_b) == VAR_DECL
        && (TREE_CODE (base_a) == COMPONENT_REF
            && TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL)))
-    {
-      *differ_p = true;
-      return true;
-    }
-
-  if (!alias_sets_conflict_p (get_alias_set (base_a), get_alias_set (base_b)))
-    {
-      *differ_p = true;
-      return true;
-    }
-
-  /* An instruction writing through a restricted pointer is
-     "independent" of any instruction reading or writing through a
-     different pointer, in the same block/scope.  */
-  if ((TREE_CODE (ta) == POINTER_TYPE && TYPE_RESTRICT (ta)
-       && !DR_IS_READ(a))
-      || (TREE_CODE (tb) == POINTER_TYPE && TYPE_RESTRICT (tb)
-	  && !DR_IS_READ(b)))
     {
       *differ_p = true;
       return true;
@@ -512,7 +498,7 @@ estimate_niter_from_size_of_data (struct loop *loop,
 
   array_size = TYPE_SIZE (TREE_TYPE (opnd0));
   element_size = TYPE_SIZE (TREE_TYPE (TREE_TYPE (opnd0)));
-  if (array_size == NULL_TREE
+  if (array_size == NULL_TREE 
       || TREE_CODE (array_size) != INTEGER_CST
       || TREE_CODE (element_size) != INTEGER_CST)
     return;
@@ -664,10 +650,11 @@ all_chrecs_equal_p (tree chrec)
 /* Determine for each subscript in the data dependence relation DDR
    the distance.  */
 
-/* APPLE LOCAL AV data dependence. -dpatel */
+/* APPLE LOCAL begin AV data dependence. -dpatel */
 /* Patch is waiting FSF review since mid Sep, 2004.
    Make this function externally visible.  */
 void
+/* APPLE LOCAL end AV data dependence. -dpatel */
 compute_subscript_distance (struct data_dependence_relation *ddr)
 {
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
@@ -1114,7 +1101,7 @@ compute_overlap_steps_for_affine_univar (int niter, int step_a, int step_b,
    | y (t, u, v) = {{0, +, 1336}_u, +, 1}_v
    | z (t, u, v) = {{{0, +, 1}_t, +, 1335}_u, +, 1}_v
 
-   FORNOW: This is a specialized implementation for a case occuring in
+   FORNOW: This is a specialized implementation for a case occurring in
    a common benchmark.  Implement the general algorithm.  */
 
 static void
@@ -1445,7 +1432,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 
 		      x0 = i1 * tau1 + i0;
 		      y0 = j1 * tau1 + j0;
-		      
+
 		      /* At this point (x0, y0) is one of the
 			 solutions to the Diophantine equation.  The
 			 next step has to compute the smallest
@@ -1787,13 +1774,14 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
    FIRST_LOOP_DEPTH is the loop->depth of the first loop in the analyzed
    loop nest.  
    Return FALSE if the dependence relation is outside of the loop nest
-   starting at FIRST_LOOP_DEPTH.
+   starting at FIRST_LOOP_DEPTH. 
    Return TRUE otherwise.  */
 
-/* APPLE LOCAL AV data dependence. -dpatel */
+/* APPLE LOCAL begin AV data dependence. -dpatel */
 /* Patch is waiting FSF review since mid Sep, 2004.
    Make this function externally visible.  */
 bool
+/* APPLE LOCAL end AV data dependence. -dpatel */
 build_classic_dist_vector (struct data_dependence_relation *ddr, 
 			   int nb_loops, int first_loop_depth)
 {
@@ -2483,8 +2471,12 @@ free_data_refs (varray_type datarefs)
     {
       struct data_reference *dr = (struct data_reference *) 
 	VARRAY_GENERIC_PTR (datarefs, i);
-      if (dr && DR_ACCESS_FNS (dr))
-	varray_clear (DR_ACCESS_FNS (dr));
+      if (dr)
+	{
+	  if (DR_ACCESS_FNS (dr))
+	    varray_clear (DR_ACCESS_FNS (dr));
+	  free (dr);
+	}
     }
   varray_clear (datarefs);
 }

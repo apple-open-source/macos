@@ -1,6 +1,6 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -179,7 +179,7 @@ extern int errno;
    UPPER.  However the bounds themselves can be either positive or
    negative.  */
 #define IN_RANGE(VALUE, LOWER, UPPER) \
-  ((unsigned HOST_WIDE_INT) ((VALUE) - (LOWER)) <= ((UPPER) - (LOWER)))
+  ((unsigned HOST_WIDE_INT)((VALUE) - (LOWER)) <= ((UPPER) - (LOWER)))
 
 /* Infrastructure for defining missing _MAX and _MIN macros.  Note that
    macros defined with these cannot be used in #if.  */
@@ -614,7 +614,8 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	DEFAULT_SHORT_ENUMS SPLIT_COMPLEX_ARGS MD_ASM_CLOBBERS		\
 	HANDLE_PRAGMA_REDEFINE_EXTNAME HANDLE_PRAGMA_EXTERN_PREFIX	\
 	MUST_PASS_IN_STACK FUNCTION_ARG_PASS_BY_REFERENCE               \
-        VECTOR_MODE_SUPPORTED_P
+        VECTOR_MODE_SUPPORTED_P TARGET_SUPPORTS_HIDDEN 			\
+	FUNCTION_ARG_PARTIAL_NREGS
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -631,7 +632,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	BLOCK_PROFILER BLOCK_PROFILER_CODE FUNCTION_BLOCK_PROFILER	   \
 	FUNCTION_BLOCK_PROFILER_EXIT MACHINE_STATE_SAVE			   \
 	MACHINE_STATE_RESTORE SCCS_DIRECTIVE SECTION_ASM_OP		   \
-	ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL ASM_OUTPUT_INTERNAL_LABEL \
+	ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL \
 	OBJC_PROLOGUE ALLOCATE_TRAMPOLINE HANDLE_PRAGMA ROUND_TYPE_SIZE	   \
 	ROUND_TYPE_SIZE_UNIT CONST_SECTION_ASM_OP CRT_GET_RFIB_TEXT	   \
 	DBX_LBRAC_FIRST DBX_OUTPUT_ENUM DBX_OUTPUT_SOURCE_FILENAME	   \
@@ -656,7 +657,12 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	COLLECT_PARSE_FLAG DWARF2_GENERATE_TEXT_SECTION_LABEL WINNING_GDB  \
 	ASM_OUTPUT_FILENAME ASM_OUTPUT_SOURCE_LINE FILE_NAME_JOINER	   \
 	GDB_INV_REF_REGPARM_STABS_LETTER DBX_MEMPARM_STABS_LETTER	   \
-	PUT_SDB_SRC_FILE STABS_GCC_MARKER DBX_OUTPUT_FUNCTION_END
+	PUT_SDB_SRC_FILE STABS_GCC_MARKER DBX_OUTPUT_FUNCTION_END	   \
+	DBX_OUTPUT_GCC_MARKER DBX_FINISH_SYMBOL SDB_GENERATE_FAKE	   \
+	NON_SAVING_SETJMP TARGET_LATE_RTL_PROLOGUE_EPILOGUE		   \
+	CASE_DROPS_THROUGH TARGET_BELL TARGET_BS TARGET_CR TARGET_DIGIT0   \
+        TARGET_ESC TARGET_FF TARGET_NEWLINE TARGET_TAB TARGET_VT	   \
+        LINK_LIBGCC_SPECIAL
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

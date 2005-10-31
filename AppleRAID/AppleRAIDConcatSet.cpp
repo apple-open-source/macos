@@ -61,6 +61,8 @@ bool AppleRAIDConcatSet::init()
 
     setProperty(kAppleRAIDLevelNameKey, kAppleRAIDLevelNameConcat);
 
+    arAllocateRequestMethod = OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDSet::allocateRAIDRequest);
+    
     return true;
 }
 

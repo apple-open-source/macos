@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -441,8 +441,8 @@ CFDictionaryRef
 SCNetworkConnectionCopyStatistics(SCNetworkConnectionRef connection)
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
-	void				*data			= NULL;
-	int				datalen;
+	xmlDataOut_t			data			= NULL;
+	mach_msg_type_number_t		datalen;
 	int				error			= kSCStatusFailed;
 	CFPropertyListRef		statistics		= NULL;
 	kern_return_t			status;
@@ -452,7 +452,7 @@ SCNetworkConnectionCopyStatistics(SCNetworkConnectionRef connection)
 		return NULL;
 	}
 
-	status = pppcontroller_copystatistics(connectionPrivate->session_port, (xmlDataOut_t *)&data, &datalen, &error);
+	status = pppcontroller_copystatistics(connectionPrivate->session_port, &data, &datalen, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -509,8 +509,8 @@ CFDictionaryRef
 SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
-	void				*data			= NULL;
-	int				datalen;
+	xmlDataOut_t			data			= NULL;
+	mach_msg_type_number_t		datalen;
 	int				error			= kSCStatusFailed;
 	CFPropertyListRef		extstatus		= NULL;
 	kern_return_t			status;
@@ -520,7 +520,7 @@ SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
 		return NULL;
 	}
 
-	status = pppcontroller_copyextendedstatus(connectionPrivate->session_port, (xmlDataOut_t *)&data, &datalen, &error);
+	status = pppcontroller_copyextendedstatus(connectionPrivate->session_port, &data, &datalen, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -767,8 +767,8 @@ CFDictionaryRef
 SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
-	void				*data			= NULL;
-	int				datalen;
+	xmlDataOut_t			data			= NULL;
+	mach_msg_type_number_t		datalen;
 	int				error			= kSCStatusFailed;
 	kern_return_t			status;
 	CFPropertyListRef 		userOptions		= NULL;
@@ -778,7 +778,7 @@ SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 		return NULL;
 	}
 
-	status = pppcontroller_copyuseroptions(connectionPrivate->session_port, (xmlDataOut_t *)&data, &datalen, &error);
+	status = pppcontroller_copyuseroptions(connectionPrivate->session_port, &data, &datalen, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -922,7 +922,7 @@ static void addPasswordFromKeychain					(SCDynamicStoreRef session, CFStringRef 
 static CFStringRef copyPasswordFromKeychain				(CFStringRef uniqueID);
 static CFArrayRef copyKeychainEnumerator				(CFStringRef uniqueIdentifier);
 
-static uint32_t notify_userprefs_token	= -1;
+static int notify_userprefs_token	= -1;
 
 /*
  *	return TRUE if domain1 ends with domain2, and will check for trailing "."

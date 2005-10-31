@@ -184,6 +184,11 @@ serial_open (const char *name)
 
   if (strcmp (name, "pc") == 0)
     ops = serial_interface_lookup ("pc");
+  /* APPLE LOCAL: classic-inferior-support. 
+     Add a "unix" serial interface, or in other words a fifo socket on the 
+     filesystem somewhere, used for debugging classic applications. */
+  else if (strncmp (name, "unix:", 5) == 0)
+    ops = serial_interface_lookup ("unix");
   else if (strchr (name, ':'))
     ops = serial_interface_lookup ("tcp");
   else if (strncmp (name, "lpt", 3) == 0)

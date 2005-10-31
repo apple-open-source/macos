@@ -1142,17 +1142,28 @@ AppleKauaiATA::handleBusReset(void)
 	
 	
 	// once the ATAPI device has been reset, contact the device driver
-	if(isATAPIReset)
+	if(isATAPIReset)   // skip the callouts if in polling mode only
 	{			
-		executeEventCallouts( kATAPIResetEvent, _currentCommand->getUnit() );		
+		if( polledAdapter && polledAdapter->isPolling() )
+		{	
+			; // do nothing
+		} else {
+			executeEventCallouts( kATAPIResetEvent, _currentCommand->getUnit() );		
+		}
 	}		
 	
 
 	// Handle the ATA reset case
 	if(!isATAPIReset)
 	{	
-		err = softResetBus(); 	
-		executeEventCallouts( kATAResetEvent, kATAInvalidDeviceID );	
+		err = softResetBus();
+		if( polledAdapter && polledAdapter->isPolling() )
+		{	
+			; // do nothing if polling
+		} else {
+		
+			executeEventCallouts( kATAResetEvent, kATAInvalidDeviceID );		
+		}
 	}
 	
 	_currentCommand->state = IOATAController::kATAComplete;
@@ -1654,7 +1665,43 @@ AppleKauaiATA::pollEntry( void )
 	// make sure there is a current command before processing further.
 	if( 0 == _currentCommand )
 		return;
-		
+
+	if( _dmaIntExpected )
+	{
+		volatile IODBDMADescriptor*	descPtr 		= _descriptors; 
+	    
+		enum {
+			/* Command.cmd operations*/
+			OUTPUT_MORE		= 0x00000000,
+			OUTPUT_LAST		= 0x10000000,
+			INPUT_MORE		= 0x20000000,
+			INPUT_LAST		= 0x30000000,
+			STORE_QUAD		= 0x40000000,
+			LOAD_QUAD		= 0x50000000,
+			NOP_CMD			= 0x60000000,
+			STOP_CMD		= 0x70000000,
+			kdbdmaCmdMask		= (long)0xF0000000
+		};
+
+	       /*
+		*	Parse the chain for completion status. Normal completion is
+		*	indicated by all expected CC status words contain just the
+		*	"run" and "active" bits, indicating that the DMA has executed the
+		* 	chain element and updated the status. 
+		*/
+
+		while ((IOGetCCOperation(descPtr) & kdbdmaCmdMask) != NOP_CMD)
+		{
+			descPtr++;  /* Advance pointer to the next DMA command */
+			continue;
+		}
+		/* Check the "run" bit */
+		if ( !(IOGetCCResult(descPtr) & 0x80000000) )
+		{
+			return;
+		}
+	}
+
 	// check the int status in hardware
 	UInt32 intStatus = OSReadLittleInt32( (void*) _interruptPendingReg, 0x00);
 	

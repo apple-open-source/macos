@@ -213,18 +213,37 @@ static long MS_CALLBACK file_ctrl(BIO *b, int cmd, long num, void *ptr)
 		b->shutdown=(int)num&BIO_CLOSE;
 		b->ptr=(char *)ptr;
 		b->init=1;
-#if defined(OPENSSL_SYS_MSDOS) || defined(OPENSSL_SYS_WINDOWS)
+		{
+#if defined(OPENSSL_SYS_WINDOWS)
+		int fd = fileno((FILE*)ptr);
+		if (num & BIO_FP_TEXT)
+			_setmode(fd,_O_TEXT);
+		else
+			_setmode(fd,_O_BINARY);
+#elif defined(OPENSSL_SYS_MSDOS)
+		int fd = fileno((FILE*)ptr);
 		/* Set correct text/binary mode */
 		if (num & BIO_FP_TEXT)
-			_setmode(fileno((FILE *)ptr),_O_TEXT);
+			_setmode(fd,_O_TEXT);
+		/* Dangerous to set stdin/stdout to raw (unless redirected) */
 		else
-			_setmode(fileno((FILE *)ptr),_O_BINARY);
+			{
+			if (fd == STDIN_FILENO || fd == STDOUT_FILENO)
+				{
+				if (isatty(fd) <= 0)
+					_setmode(fd,_O_BINARY);
+				}
+			else
+				_setmode(fd,_O_BINARY);
+			}
 #elif defined(OPENSSL_SYS_OS2)
+		int fd = fileno((FILE*)ptr);
 		if (num & BIO_FP_TEXT)
-			setmode(fileno((FILE *)ptr), O_TEXT);
+			setmode(fd, O_TEXT);
 		else
-			setmode(fileno((FILE *)ptr), O_BINARY);
+			setmode(fd, O_BINARY);
 #endif
+		}
 		break;
 	case BIO_C_SET_FILENAME:
 		file_free(b);
@@ -232,22 +251,22 @@ static long MS_CALLBACK file_ctrl(BIO *b, int cmd, long num, void *ptr)
 		if (num & BIO_FP_APPEND)
 			{
 			if (num & BIO_FP_READ)
-				strcpy(p,"a+");
-			else	strcpy(p,"a");
+				BUF_strlcpy(p,"a+",sizeof p);
+			else	BUF_strlcpy(p,"a",sizeof p);
 			}
 		else if ((num & BIO_FP_READ) && (num & BIO_FP_WRITE))
-			strcpy(p,"r+");
+			BUF_strlcpy(p,"r+",sizeof p);
 		else if (num & BIO_FP_WRITE)
-			strcpy(p,"w");
+			BUF_strlcpy(p,"w",sizeof p);
 		else if (num & BIO_FP_READ)
-			strcpy(p,"r");
+			BUF_strlcpy(p,"r",sizeof p);
 		else
 			{
 			BIOerr(BIO_F_FILE_CTRL,BIO_R_BAD_FOPEN_MODE);
 			ret=0;
 			break;
 			}
-#if defined(OPENSSL_SYS_MSDOS) || defined(OPENSSL_SYS_WINDOWS) || defined(OPENSSL_SYS_OS2)
+#if defined(OPENSSL_SYS_MSDOS) || defined(OPENSSL_SYS_WINDOWS) || defined(OPENSSL_SYS_OS2) || defined(OPENSSL_SYS_WIN32_CYGWIN)
 		if (!(num & BIO_FP_TEXT))
 			strcat(p,"b");
 		else

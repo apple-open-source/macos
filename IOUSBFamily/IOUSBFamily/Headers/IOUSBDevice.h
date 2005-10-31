@@ -125,9 +125,10 @@ public:
     static IOUSBDevice *NewDevice(void);
     
     // IOService methods
+    virtual bool 	init();
     virtual bool 	attach(IOService *provider);
-    virtual bool 	start( IOService * provider );
-    virtual void 	stop( IOService * provider );
+    virtual bool 	start( IOService *provider );
+    virtual void 	stop( IOService *provider );
     virtual bool 	finalize(IOOptionBits options);
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
     virtual bool 	willTerminate( IOService * provider, IOOptionBits options );

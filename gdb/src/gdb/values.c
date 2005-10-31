@@ -682,9 +682,9 @@ unpack_long (struct type *type, const char *valaddr)
     case TYPE_CODE_CHAR:
     case TYPE_CODE_RANGE:
       if (nosign)
-	return extract_unsigned_integer (valaddr, len);
+	return extract_unsigned_integer_with_byte_order (valaddr, len, TYPE_BYTE_ORDER (type));
       else
-	return extract_signed_integer (valaddr, len);
+	return extract_signed_integer_with_byte_order (valaddr, len, TYPE_BYTE_ORDER (type));
 
     case TYPE_CODE_FLT:
       return extract_typed_floating (valaddr, type);

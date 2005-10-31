@@ -1,10 +1,13 @@
-/*	File: $Id: IOI2CLM7x.cpp,v 1.3 2004/12/15 04:44:51 jlehrer Exp $
+/*	File: $Id: IOI2CLM7x.cpp,v 1.4 2005/04/11 23:39:29 dirty Exp $
  *
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Tom Sherman
  *
  *		$Log: IOI2CLM7x.cpp,v $
+ *		Revision 1.4  2005/04/11 23:39:29  dirty
+ *		[4078743] Properly handle negative temperatures.
+ *		
  *		Revision 1.3  2004/12/15 04:44:51  jlehrer
  *		[3867728] Support for failed hardware.
  *		
@@ -157,14 +160,17 @@ IOReturn IOI2CLM7x::getTemperature(SInt32 *temperature)
     status = readI2C((UInt8)kTemperatureReg, bytes, 2);
     if(status != kIOReturnSuccess)
     {
-        ERRLOG("IOI2CLM7x::getTempertaure(0x%x) readI2C failed.\n", getI2CAddress());
+        ERRLOG("IOI2CLM7x::getTemperature(0x%x) readI2C failed.\n", getI2CAddress());
         return status;
     }
 
     reading = *((SInt16 *) bytes);
     // Temperature data is represented by a 9-bit, two’s complement word with 
-    // an LSB equal to 0.5C (least significat 7 bits are undefined).
-    *temperature = (((SInt32)(reading & 0xFF80)) << 8);
+    // an LSB equal to 0.5C (least significant 7 bits are undefined).
+
+	// Extra casting is required to make sure we sign-extend the temperature, to
+	// handle negative temperatures.
+	*temperature = ( ( ( SInt16 ) ( reading & 0xFF80 ) ) << 8 );
 
     return kIOReturnSuccess;
 }

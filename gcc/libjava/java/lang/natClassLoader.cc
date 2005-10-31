@@ -1,6 +1,6 @@
 // natClassLoader.cc - Implementation of java.lang.ClassLoader native methods.
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -18,6 +18,7 @@ details.  */
 
 #include <gcj/cni.h>
 #include <jvm.h>
+#include <execution.h>
 
 #include <java-threads.h>
 #include <java-interp.h>
@@ -25,7 +26,6 @@ details.  */
 #include <java/lang/Character.h>
 #include <java/lang/Thread.h>
 #include <java/lang/ClassLoader.h>
-#include <gnu/gcj/runtime/VMClassLoader.h>
 #include <java/lang/InternalError.h>
 #include <java/lang/IllegalAccessError.h>
 #include <java/lang/LinkageError.h>
@@ -33,6 +33,7 @@ details.  */
 #include <java/lang/ClassNotFoundException.h>
 #include <java/lang/ClassCircularityError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/ClassFormatError.h>
 #include <java/lang/VirtualMachineError.h>
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
@@ -40,169 +41,8 @@ details.  */
 #include <java/lang/StringBuffer.h>
 #include <java/io/Serializable.h>
 #include <java/lang/Cloneable.h>
-
-void
-_Jv_WaitForState (jclass klass, int state)
-{
-  if (klass->state >= state)
-    return;
-  
-  _Jv_MonitorEnter (klass) ;
-
-  if (klass->state == JV_STATE_COMPILED)
-    {
-      klass->state = JV_STATE_LOADED;
-      if (gcj::verbose_class_flag)
-	fprintf (stderr, "[Loaded (pre-compiled) %s]\n", klass->name->chars());
-    }
-  if (state == JV_STATE_LINKED)
-    {
-      // Must call _Jv_PrepareCompiledClass while holding the class
-      // mutex.
-#ifdef INTERPRETER
-      if (_Jv_IsInterpretedClass (klass))
-	_Jv_PrepareClass (klass);
-#endif
-      _Jv_PrepareCompiledClass (klass);
-      _Jv_MonitorExit (klass);
-      return;
-    }
-	
-  java::lang::Thread *self = java::lang::Thread::currentThread();
-
-  // this is similar to the strategy for class initialization.
-  // if we already hold the lock, just leave.
-  while (klass->state <= state
-	 && klass->thread 
-	 && klass->thread != self)
-    klass->wait ();
-
-  _Jv_MonitorExit (klass);
-
-  if (klass->state == JV_STATE_ERROR)
-    throw new java::lang::LinkageError;
-}
-
-typedef unsigned int uaddr __attribute__ ((mode (pointer)));
-
-/** This function does class-preparation for compiled classes.  
-    NOTE: It contains replicated functionality from
-    _Jv_ResolvePoolEntry, and this is intentional, since that function
-    lives in resolve.cc which is entirely conditionally compiled.
- */
-void
-_Jv_PrepareCompiledClass (jclass klass)
-{
-  jint state = klass->state;
-  if (state >= JV_STATE_LINKED)
-    return;
-
-  // Short-circuit, so that mutually dependent classes are ok.
-  klass->state = JV_STATE_LINKED;
-
-  _Jv_Constants *pool = &klass->constants;
-
-  // Resolve class constants first, since other constant pool
-  // entries may rely on these.
-  for (int index = 1; index < pool->size; ++index)
-    {
-      if (pool->tags[index] == JV_CONSTANT_Class)
-	{
-	  _Jv_Utf8Const *name = pool->data[index].utf8;
-	  
-	  jclass found;
-	  if (name->first() == '[')
-	    found = _Jv_FindClassFromSignature (name->chars(),
-						klass->loader);
-	  else
-	    found = _Jv_FindClass (name, klass->loader);
-		
-	  if (! found)
-	    {
-	      jstring str = name->toString();
-	      throw new java::lang::NoClassDefFoundError (str);
-	    }
-
-	  pool->data[index].clazz = found;
-	  pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
-	}
-    }
-
-  // If superclass looks like a constant pool entry,
-  // resolve it now.
-  if ((uaddr) klass->superclass < pool->size)
-    klass->superclass = pool->data[(uaddr) klass->superclass].clazz;
-
-  // Likewise for interfaces.
-  for (int i = 0; i < klass->interface_count; i++)
-    if ((uaddr) klass->interfaces[i] < pool->size)
-      klass->interfaces[i] = pool->data[(uaddr) klass->interfaces[i]].clazz;
-
-  // Resolve the remaining constant pool entries.
-  for (int index = 1; index < pool->size; ++index)
-    {
-      if (pool->tags[index] == JV_CONSTANT_String)
-	{
-	  jstring str;
-
-	  str = _Jv_NewStringUtf8Const (pool->data[index].utf8);
-	  pool->data[index].o = str;
-	  pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
-	}
-    }
-
-#ifdef INTERPRETER
-  // FIXME: although the comment up top says that this function is
-  // only called for compiled classes, it is actually called for every
-  // class.
-  if (! _Jv_IsInterpretedClass (klass))
-    {
-#endif /* INTERPRETER */
-      jfieldID f = JvGetFirstStaticField (klass);
-      for (int n = JvNumStaticFields (klass); n > 0; --n)
-	{
-	  int mod = f->getModifiers ();
-	  // If we have a static String field with a non-null initial
-	  // value, we know it points to a Utf8Const.
-	  _Jv_ResolveField(f, klass->loader);
-	  if (f->getClass () == &java::lang::String::class$
-	      && java::lang::reflect::Modifier::isStatic (mod))
-	    {
-	      jstring *strp = (jstring *) f->u.addr;
-	      if (*strp)
-		*strp = _Jv_NewStringUtf8Const ((_Jv_Utf8Const *) *strp);
-	    }
-	  f = f->getNextField ();
-	}
-#ifdef INTERPRETER
-    }
-#endif /* INTERPRETER */
-
-  if (klass->isInterface ())
-    _Jv_LayoutInterfaceMethods (klass);
-
-  if (state == JV_STATE_COMPILED && gcj::verbose_class_flag)
-    fprintf (stderr, "[Loaded (pre-compiled) %s]\n",
-	     klass->name->chars());
-
-  klass->notifyAll ();
-
-  _Jv_PushClass (klass);
-}
-
-
-//
-//  A single class can have many "initiating" class loaders,
-//  and a single "defining" class loader.  The Defining
-//  class loader is what is returned from Class.getClassLoader()
-//  and is used when loading dependent classes during resolution.
-//  The set of initiating class loaders are used to ensure
-//  safety of linking, and is maintained in the hash table
-//  "initiated_classes".  A defining classloader is by definition also
-//  initiating, so we only store classes in this table if they have more
-//  than one class loader associated.
-//
-
+#include <java/util/HashMap.h>
+#include <gnu/gcj/runtime/BootClassLoader.h>
 
 // Size of local hash table.
 #define HASH_LEN 1013
@@ -210,52 +50,46 @@ _Jv_PrepareCompiledClass (jclass klass)
 // Hash function for Utf8Consts.
 #define HASH_UTF(Utf) ((Utf)->hash16() % HASH_LEN)
 
-struct _Jv_LoaderInfo
-{
-  _Jv_LoaderInfo          *next;
-  java::lang::Class       *klass;
-  java::lang::ClassLoader *loader;
-};
-
-static _Jv_LoaderInfo *initiated_classes[HASH_LEN];
 static jclass loaded_classes[HASH_LEN];
 
 // This is the root of a linked list of classes
+static jclass stack_head;
+
+// While bootstrapping we keep a list of classes we found, so that we
+// can register their packages.  There aren't many of these so we
+// just keep a small buffer here and abort if we overflow.
+#define BOOTSTRAP_CLASS_LIST_SIZE 20
+static jclass bootstrap_class_list[BOOTSTRAP_CLASS_LIST_SIZE];
+static int bootstrap_index;
+
 
 
 
 jclass
-_Jv_FindClassInCache (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
+java::lang::ClassLoader::loadClassFromSig(jstring name)
+{
+  int len = _Jv_GetStringUTFLength (name);
+  char sig[len + 1];
+  _Jv_GetStringUTFRegion (name, 0, name->length(), sig);
+  return _Jv_FindClassFromSignature(sig, this);
+}
+
+
+
+// This tries to find a class in our built-in cache.  This cache is
+// used only for classes which are linked in to the executable or
+// loaded via dlopen().
+jclass
+_Jv_FindClassInCache (_Jv_Utf8Const *name)
 {
   JvSynchronize sync (&java::lang::Class::class$);
   jint hash = HASH_UTF (name);
 
-  if (loader && loader == java::lang::ClassLoader::getSystemClassLoader())
-    loader = NULL;
-
-  // first, if LOADER is a defining loader, then it is also initiating
   jclass klass;
-  for (klass = loaded_classes[hash]; klass; klass = klass->next)
+  for (klass = loaded_classes[hash]; klass; klass = klass->next_or_version)
     {
-      if (loader == klass->loader && _Jv_equalUtf8Consts (name, klass->name))
+      if (_Jv_equalUtf8Consts (name, klass->name))
 	break;
-    }
-
-  // otherwise, it may be that the class in question was defined
-  // by some other loader, but that the loading was initiated by 
-  // the loader in question.
-  if (!klass)
-    {
-      _Jv_LoaderInfo *info;
-      for (info = initiated_classes[hash]; info; info = info->next)
-	{
-	  if (loader == info->loader
-	      && _Jv_equalUtf8Consts (name, info->klass->name))
-	    {
-	      klass = info->klass;
-	      break;
-	    }
-	}
     }
 
   return klass;
@@ -268,46 +102,33 @@ _Jv_UnregisterClass (jclass the_class)
   jint hash = HASH_UTF(the_class->name);
 
   jclass *klass = &(loaded_classes[hash]);
-  for ( ; *klass; klass = &((*klass)->next))
+  for ( ; *klass; klass = &((*klass)->next_or_version))
     {
       if (*klass == the_class)
 	{
-	  *klass = (*klass)->next;
+	  *klass = (*klass)->next_or_version;
 	  break;
 	}
     }
-
-  _Jv_LoaderInfo **info = &(initiated_classes[hash]);
-  for ( ; ; info = &((*info)->next))
-    {
-      while (*info && (*info)->klass == the_class)
-	{
-	  _Jv_LoaderInfo *old = *info;
-	  *info = (*info)->next;
-	  _Jv_Free (old);
-	}
-
-      if (*info == NULL)
-	break;
-    }
 }
 
+// Register an initiating class loader for a given class.
 void
 _Jv_RegisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
 {
-  if (loader && loader == java::lang::ClassLoader::getSystemClassLoader())
-    loader = NULL;
+  if (! loader)
+    loader = java::lang::ClassLoader::systemClassLoader;
+  loader->loadedClasses->put(klass->name->toString(), klass);
+}
 
-  // This information can't be visible to the GC.
-  _Jv_LoaderInfo *info
-    = (_Jv_LoaderInfo *) _Jv_Malloc (sizeof(_Jv_LoaderInfo));
-  jint hash = HASH_UTF(klass->name);
-
-  JvSynchronize sync (&java::lang::Class::class$);
-  info->loader = loader;
-  info->klass  = klass;
-  info->next   = initiated_classes[hash];
-  initiated_classes[hash] = info;
+// If we found an error while defining an interpreted class, we must
+// go back and unregister it.
+void
+_Jv_UnregisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
+{
+  if (! loader)
+    loader = java::lang::ClassLoader::systemClassLoader;
+  loader->loadedClasses->remove(klass->name->toString());
 }
 
 // This function is called many times during startup, before main() is
@@ -322,12 +143,8 @@ _Jv_RegisterClasses (const jclass *classes)
     {
       jclass klass = *classes;
 
-      (*_Jv_RegisterClassHook) (klass);
-
-      // registering a compiled class causes
-      // it to be immediately "prepared".  
-      if (klass->state == JV_STATE_NOTHING)
-	klass->state = JV_STATE_COMPILED;
+      if (_Jv_CheckABIVersion ((unsigned long) klass->next_or_version))
+	(*_Jv_RegisterClassHook) (klass);
     }
 }
 
@@ -340,12 +157,8 @@ _Jv_RegisterClasses_Counted (const jclass * classes, size_t count)
     {
       jclass klass = classes[i];
 
-      (*_Jv_RegisterClassHook) (klass);
-
-      // registering a compiled class causes
-      // it to be immediately "prepared".  
-      if (klass->state == JV_STATE_NOTHING)
-	klass->state = JV_STATE_COMPILED;
+      if (_Jv_CheckABIVersion ((unsigned long) klass->next_or_version))
+	(*_Jv_RegisterClassHook) (klass);
     }
 }
 
@@ -354,10 +167,10 @@ _Jv_RegisterClassHookDefault (jclass klass)
 {
   jint hash = HASH_UTF (klass->name);
 
-  jclass check_class = loaded_classes[hash];
-
   // If the class is already registered, don't re-register it.
-  while (check_class != NULL)
+  for (jclass check_class = loaded_classes[hash];
+       check_class != NULL;
+       check_class = check_class->next_or_version)
     {
       if (check_class == klass)
 	{
@@ -378,11 +191,12 @@ _Jv_RegisterClassHookDefault (jclass klass)
 	      throw new java::lang::VirtualMachineError (str);
 	    }
 	}
-
-      check_class = check_class->next;
     }
 
-  klass->next = loaded_classes[hash];
+  // FIXME: this is really bogus!
+  if (! klass->engine)
+    klass->engine = &_Jv_soleCompiledEngine;
+  klass->next_or_version = loaded_classes[hash];
   loaded_classes[hash] = klass;
 }
 
@@ -405,47 +219,88 @@ _Jv_RegisterClass (jclass klass)
 jclass
 _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 {
-  jclass klass = _Jv_FindClassInCache (name, loader);
+  // See if the class was already loaded by this loader.  This handles
+  // initiating loader checks, as we register classes with their
+  // initiating loaders.
+
+  // Note: this is incorrect, but compatible with older GCJ usage.
+  java::lang::ClassLoader *boot = java::lang::ClassLoader::systemClassLoader;
+  java::lang::ClassLoader *real = loader;
+  if (! real)
+    real = boot;
+  jstring sname = name->toString();
+  // We might still be bootstrapping the VM, in which case there
+  // won't be a bootstrap class loader yet.
+  jclass klass = real ? real->findLoadedClass (sname) : NULL;
 
   if (! klass)
     {
-      jstring sname = name->toString();
-
-      java::lang::ClassLoader *sys
-	= java::lang::ClassLoader::getSystemClassLoader ();
-
       if (loader)
 	{
-	  // Load using a user-defined loader, jvmspec 5.3.2
-	  klass = loader->loadClass(sname, false);
+	  // Load using a user-defined loader, jvmspec 5.3.2.
+	  // Note that we explicitly must call the single-argument form.
+	  klass = loader->loadClass(sname);
 
 	  // If "loader" delegated the loadClass operation to another
 	  // loader, explicitly register that it is also an initiating
 	  // loader of the given class.
-	  java::lang::ClassLoader *delegate = (loader == sys
+	  java::lang::ClassLoader *delegate = (loader == boot
 					       ? NULL
 					       : loader);
 	  if (klass && klass->getClassLoaderInternal () != delegate)
 	    _Jv_RegisterInitiatingLoader (klass, loader);
 	}
-      else 
+      else if (boot)
 	{
 	  // Load using the bootstrap loader jvmspec 5.3.1.
-	  klass = sys->loadClass (sname, false); 
+	  // klass = java::lang::VMClassLoader::loadClass (sname, false); 
+	  // Note again that we're actually using the system loader here.
+	  klass = boot->loadClass (sname);
 
 	  // Register that we're an initiating loader.
 	  if (klass)
 	    _Jv_RegisterInitiatingLoader (klass, 0);
 	}
+      else
+	{
+	  // Not even a bootstrap loader, try the built-in cache.
+	  klass = _Jv_FindClassInCache (name);
+
+	  if (klass)
+	    {
+	      bool found = false;
+	      for (int i = 0; i < bootstrap_index; ++i)
+		{
+		  if (bootstrap_class_list[i] == klass)
+		    {
+		      found = true;
+		      break;
+		    }
+		}
+	      if (! found)
+		{
+		  if (bootstrap_index == BOOTSTRAP_CLASS_LIST_SIZE)
+		    abort ();
+		  bootstrap_class_list[bootstrap_index++] = klass;
+		}
+	    }
+	}
     }
   else
     {
-      // we need classes to be in the hash while
-      // we're loading, so that they can refer to themselves. 
-      _Jv_WaitForState (klass, JV_STATE_LOADED);
+      // We need classes to be in the hash while we're loading, so
+      // that they can refer to themselves.
+      _Jv_Linker::wait_for_state (klass, JV_STATE_LOADED);
     }
 
   return klass;
+}
+
+void
+_Jv_RegisterBootstrapPackages ()
+{
+  for (int i = 0; i < bootstrap_index; ++i)
+    java::lang::VMClassLoader::definePackageForNative(bootstrap_class_list[i]->getName());
 }
 
 jclass
@@ -555,7 +410,7 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   // cache one and reuse it. It is not necessary to synchronize this.
   if (!array_idt)
     {
-      _Jv_PrepareConstantTimeTables (array_class);
+      _Jv_Linker::wait_for_state(array_class, JV_STATE_PREPARED);
       array_idt = array_class->idt;
       array_depth = array_class->depth;
       array_ancestors = array_class->ancestors;
@@ -569,19 +424,19 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
 
   using namespace java::lang::reflect;
   {
-    // Array classes are "abstract final"...
-    _Jv_ushort accflags = Modifier::FINAL | Modifier::ABSTRACT;
-    // ... and inherit accessibility from element type, per vmspec 5.3.3.2
-    accflags |= (element->accflags & Modifier::PUBLIC);
-    accflags |= (element->accflags & Modifier::PROTECTED);
-    accflags |= (element->accflags & Modifier::PRIVATE);      
+    // Array classes are "abstract final" and inherit accessibility
+    // from element type, per vmspec 5.3.3.2
+    _Jv_ushort accflags = (Modifier::FINAL | Modifier::ABSTRACT
+			   | (element->accflags
+			      & (Modifier::PUBLIC | Modifier::PROTECTED
+				 | Modifier::PRIVATE)));
     array_class->accflags = accflags;
   }
 
   // An array class has no visible instance fields. "length" is invisible to 
   // reflection.
 
-  // say this class is initialized and ready to go!
+  // Say this class is initialized and ready to go!
   array_class->state = JV_STATE_DONE;
 
   // vmspec, section 5.3.3 describes this
@@ -590,8 +445,6 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
 
   element->arrayclass = array_class;
 }
-
-static jclass stack_head;
 
 // These two functions form a stack of classes.   When a class is loaded
 // it is pushed onto the stack by the class loader; this is so that

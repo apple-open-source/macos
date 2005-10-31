@@ -24,9 +24,12 @@
  *
  */
 //		$Log: AppleHWSensor.cpp,v $
-//		Revision 1.20.4.1  2005/02/28 23:47:24  townsle1
-//		Bug #4019053 (Kernel Panic on Q54 netboot): Add retries when we get a failed
-//		  sensor reading in start routine and updateValue (submitted for Raddog).
+//		Revision 1.22  2005/04/27 17:43:27  mpontil
+//		When failing to read a sensor value (and so failing to start) print the
+//		error code too.
+//		
+//		Revision 1.21  2005/03/01 01:02:53  raddog
+//		Bug #4019053 (Kernel Panic on Q54 netboot): Add retries when we get a failed sensor reading in start routine and updateValue
 //		
 //		Revision 1.20  2004/08/05 23:54:19  eem
 //		Merge in PR-3738382 branch to TOT.
@@ -389,7 +392,7 @@ bool IOHWSensor::start(IOService *provider)
 	//IOLog("read sensor %d, ret %x value is %d\n", fID, ret, val);
     if(ret != kIOReturnSuccess)
 	{
-		IOLog("AppleHWSensor::start failed to read initial sensor value!\n");
+		IOLog("AppleHWSensor::start failed to read initial sensor value! Got error %08lx\n", ret);
 
 		if (fCalloutEntry)
 		{
@@ -487,7 +490,7 @@ SInt32 IOHWSensor::updateCurrentValue()
 	 * just retry until a good value gets set
 	 */
 	do {
-		ret = updateValue(sGetSensorValue, sCurrentValue);
+    	ret = updateValue(sGetSensorValue, sCurrentValue);
 		if (num = (OSNumber *)getProperty(sCurrentValue))
 			break;
 		

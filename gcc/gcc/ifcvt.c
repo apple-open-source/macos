@@ -1,5 +1,6 @@
 /* If-conversion support.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -86,7 +87,7 @@ static bool life_data_ok;
 
 /* Forward references.  */
 static int count_bb_insns (basic_block);
-static int total_bb_rtx_cost (basic_block);
+static bool cheap_bb_rtx_cost_p (basic_block, int);
 static rtx first_active_insn (basic_block);
 static rtx last_active_insn (basic_block, int);
 static basic_block block_fallthru (basic_block);
@@ -162,12 +163,12 @@ count_bb_insns (basic_block bb)
   return count;
 }
 
-/* Count the total insn_rtx_cost of non-jump active insns in BB.
-   This function returns -1, if the cost of any instruction could
-   not be estimated.  */
+/* Determine whether the total insn_rtx_cost on non-jump insns in
+   basic block BB is less than MAX_COST.  This function returns
+   false if the cost of any instruction could not be estimated.  */
 
-static int
-total_bb_rtx_cost (basic_block bb)
+static bool
+cheap_bb_rtx_cost_p (basic_block bb, int max_cost)
 {
   int count = 0;
   rtx insn = BB_HEAD (bb);
@@ -178,18 +179,34 @@ total_bb_rtx_cost (basic_block bb)
 	{
 	  int cost = insn_rtx_cost (PATTERN (insn));
 	  if (cost == 0)
-	    return -1;
+	    return false;
+
+	  /* If this instruction is the load or set of a "stack" register,
+	     such as a floating point register on x87, then the cost of
+	     speculatively executing this instruction needs to include
+	     the additional cost of popping this register off of the
+	     register stack.  */
+#ifdef STACK_REGS
+	  {
+	    rtx set = single_set (insn);
+	    if (set && STACK_REG_P (SET_DEST (set)))
+	      cost += COSTS_N_INSNS (1);
+	  }
+#endif
+
 	  count += cost;
+	  if (count >= max_cost)
+	    return false;
 	}
       else if (CALL_P (insn))
-	return -1;
+	return false;
  
       if (insn == BB_END (bb))
 	break;
       insn = NEXT_INSN (insn);
     }
 
-  return count;
+  return true;
 }
 
 /* Return the first non-jump active insn in the basic block.  */
@@ -1212,6 +1229,7 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
   rtx a = if_info->a;
   rtx b = if_info->b;
   rtx x = if_info->x;
+  rtx orig_a, orig_b;
   rtx insn_a, insn_b;
   rtx tmp, target;
   int is_mem = 0;
@@ -1287,6 +1305,9 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 
   start_sequence ();
 
+  orig_a = a;
+  orig_b = b;
+
   /* If either operand is complex, load it into a register first.
      The best way to do this is to copy the original insn.  In this
      way we preserve any clobbers etc that the insn may have had.
@@ -1318,7 +1339,7 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
     }
   if (! general_operand (b, GET_MODE (b)))
     {
-      rtx set;
+      rtx set, last;
 
       if (no_new_pseudos)
 	goto end_seq_and_fail;
@@ -1326,9 +1347,7 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
       if (is_mem)
 	{
           tmp = gen_reg_rtx (GET_MODE (b));
-	  tmp = emit_insn (gen_rtx_SET (VOIDmode,
-				  	tmp,
-					b));
+	  tmp = gen_rtx_SET (VOIDmode, tmp, b);
 	}
       else if (! insn_b)
 	goto end_seq_and_fail;
@@ -1338,8 +1357,22 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 	  tmp = copy_rtx (insn_b);
 	  set = single_set (tmp);
 	  SET_DEST (set) = b;
-	  tmp = emit_insn (PATTERN (tmp));
+	  tmp = PATTERN (tmp);
 	}
+
+      /* If insn to set up A clobbers any registers B depends on, try to
+	 swap insn that sets up A with the one that sets up B.  If even
+	 that doesn't help, punt.  */
+      last = get_last_insn ();
+      if (last && modified_in_p (orig_b, last))
+	{
+	  tmp = emit_insn_before (tmp, get_insns ());
+	  if (modified_in_p (orig_a, tmp))
+	    goto end_seq_and_fail;
+	}
+      else
+	tmp = emit_insn (tmp);
+
       if (recog_memoized (tmp) < 0)
 	goto end_seq_and_fail;
     }
@@ -2445,8 +2478,6 @@ find_if_block (struct ce_if_block * ce_info)
   basic_block then_bb = ce_info->then_bb;
   basic_block else_bb = ce_info->else_bb;
   basic_block join_bb = NULL_BLOCK;
-  int then_predecessors;
-  int else_predecessors;
   edge cur_edge;
   basic_block next;
   edge_iterator ei;
@@ -2511,27 +2542,23 @@ find_if_block (struct ce_if_block * ce_info)
 	}
     }
 
-  /* Count the number of edges the THEN and ELSE blocks have.  */
-  then_predecessors = 0;
-  FOR_EACH_EDGE (cur_edge, ei, then_bb->preds)
-    {
-      then_predecessors++;
-      if (cur_edge->flags & EDGE_COMPLEX)
-	return FALSE;
-    }
-
-  else_predecessors = 0;
-  FOR_EACH_EDGE (cur_edge, ei, else_bb->preds)
-    {
-      else_predecessors++;
-      if (cur_edge->flags & EDGE_COMPLEX)
-	return FALSE;
-    }
-
   /* The THEN block of an IF-THEN combo must have exactly one predecessor,
      other than any || blocks which jump to the THEN block.  */
-  if ((then_predecessors - ce_info->num_or_or_blocks) != 1)
+  if ((EDGE_COUNT (then_bb->preds) - ce_info->num_or_or_blocks) != 1)
     return FALSE;
+    
+  /* The edges of the THEN and ELSE blocks cannot have complex edges.  */
+  FOR_EACH_EDGE (cur_edge, ei, then_bb->preds)
+    {
+      if (cur_edge->flags & EDGE_COMPLEX)
+	return FALSE;
+    }
+
+  FOR_EACH_EDGE (cur_edge, ei, else_bb->preds)
+    {
+      if (cur_edge->flags & EDGE_COMPLEX)
+	return FALSE;
+    }
 
   /* The THEN block of an IF-THEN combo must have zero or one successors.  */
   if (EDGE_COUNT (then_bb->succs) > 0
@@ -2859,7 +2886,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 {
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest, new_bb;
-  int then_bb_index, bb_cost;
+  int then_bb_index;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -2902,8 +2929,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 	     test_bb->index, then_bb->index);
 
   /* THEN is small.  */
-  bb_cost = total_bb_rtx_cost (then_bb);
-  if (bb_cost < 0 || bb_cost >= COSTS_N_INSNS (BRANCH_COST))
+  if (! cheap_bb_rtx_cost_p (then_bb, COSTS_N_INSNS (BRANCH_COST)))
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */
@@ -2914,11 +2940,26 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
   /* Conversion went ok, including moving the insns and fixing up the
      jump.  Adjust the CFG to match.  */
 
-  bitmap_operation (test_bb->global_live_at_end,
-		    else_bb->global_live_at_start,
-		    then_bb->global_live_at_end, BITMAP_IOR);
+  bitmap_ior (test_bb->global_live_at_end,
+	      else_bb->global_live_at_start,
+	      then_bb->global_live_at_end);
 
-  new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb), else_bb);
+
+  /* We can avoid creating a new basic block if then_bb is immediately
+     followed by else_bb, i.e. deleting then_bb allows test_bb to fall
+     thru to else_bb.  */
+
+  if (then_bb->next_bb == else_bb
+      && then_bb->prev_bb == test_bb
+      && else_bb != EXIT_BLOCK_PTR)
+    {
+      redirect_edge_succ (FALLTHRU_EDGE (test_bb), else_bb);
+      new_bb = 0;
+    }
+  else
+    new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb),
+                                             else_bb);
+
   then_bb_index = then_bb->index;
   delete_basic_block (then_bb);
 
@@ -2950,7 +2991,6 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest;
   edge else_succ;
-  int bb_cost;
   rtx note;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
@@ -3007,8 +3047,7 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
 	     test_bb->index, else_bb->index);
 
   /* ELSE is small.  */
-  bb_cost = total_bb_rtx_cost (else_bb);
-  if (bb_cost < 0 || bb_cost >= COSTS_N_INSNS (BRANCH_COST))
+  if (! cheap_bb_rtx_cost_p (else_bb, COSTS_N_INSNS (BRANCH_COST)))
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */
@@ -3018,9 +3057,9 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
   /* Conversion went ok, including moving the insns and fixing up the
      jump.  Adjust the CFG to match.  */
 
-  bitmap_operation (test_bb->global_live_at_end,
-		    then_bb->global_live_at_start,
-		    else_bb->global_live_at_end, BITMAP_IOR);
+  bitmap_ior (test_bb->global_live_at_end,
+	      then_bb->global_live_at_start,
+	      else_bb->global_live_at_end);
 
   delete_basic_block (else_bb);
 
@@ -3130,10 +3169,9 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	 that any registers modified are dead at the branch site.  */
 
       rtx insn, cond, prev;
-      regset_head merge_set_head, tmp_head, test_live_head, test_set_head;
       regset merge_set, tmp, test_live, test_set;
       struct propagate_block_info *pbi;
-      int i, fail = 0;
+      unsigned i, fail = 0;
       bitmap_iterator bi;
 
       /* Check for no calls or trapping operations.  */
@@ -3172,10 +3210,10 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	   TEST_SET  = set of registers set between EARLIEST and the
 		       end of the block.  */
 
-      tmp = INITIALIZE_REG_SET (tmp_head);
-      merge_set = INITIALIZE_REG_SET (merge_set_head);
-      test_live = INITIALIZE_REG_SET (test_live_head);
-      test_set = INITIALIZE_REG_SET (test_set_head);
+      tmp = ALLOC_REG_SET (&reg_obstack);
+      merge_set = ALLOC_REG_SET (&reg_obstack);
+      test_live = ALLOC_REG_SET (&reg_obstack);
+      test_set = ALLOC_REG_SET (&reg_obstack);
 
       /* ??? bb->local_set is only valid during calculate_global_regs_live,
 	 so we must recompute usage for MERGE_BB.  Not so bad, I suppose,
@@ -3217,14 +3255,9 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	   TEST_SET & merge_bb->global_live_at_start
 	 are empty.  */
 
-      bitmap_operation (tmp, test_set, test_live, BITMAP_IOR);
-      bitmap_operation (tmp, tmp, merge_set, BITMAP_AND);
-      if (bitmap_first_set_bit (tmp) >= 0)
-	fail = 1;
-
-      bitmap_operation (tmp, test_set, merge_bb->global_live_at_start,
-			BITMAP_AND);
-      if (bitmap_first_set_bit (tmp) >= 0)
+      if (bitmap_intersect_p (test_set, merge_set)
+	  || bitmap_intersect_p (test_live, merge_set)
+	  || bitmap_intersect_p (test_set, merge_bb->global_live_at_start))
 	fail = 1;
 
       FREE_REG_SET (tmp);

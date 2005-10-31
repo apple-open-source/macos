@@ -1,7 +1,7 @@
 /* lex.c -- lexer for timsieved
  * Tim Martin
  * 9/21/99
- * $Id: lex.c,v 1.4 2005/03/05 00:37:39 dasenbro Exp $
+ * $Id: lex.c,v 1.5 2005/06/17 20:16:29 dasenbro Exp $
  */
 /*
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -202,6 +202,7 @@ int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *strea
       }
       /* otherwise, life is bad */
       ERR_PUSHBACK();
+
     case LEXER_STATE_QSTR:
       if (ch == '\"') {
 	/* End of the string */
@@ -238,6 +239,7 @@ int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *strea
       }
       *buff_ptr++ = ch;
       break;
+
     case LEXER_STATE_LITERAL:
       if (('0' <= ch) && (ch <= '9')) {
 	unsigned long   newcount = count * 10 + (ch - '0');

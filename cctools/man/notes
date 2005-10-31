@@ -2,6 +2,16 @@ TODO:
 - Add -v description to checksyms.
 - The 4.4bsd a.out(5) man page is wrong for Rhapsody.
 
+Changes for the 5.18 release (the cctools-589 release):
+- Added support for the CPU_SUBTYPE_PENTIUM_4 cpusubtype.  Radar bug #4115802
+  - Added an entry in table for pentium4 on the arch(3) man page.
+
+Changes for the 5.18 release (the cctools-580 release):
+- Fixed the reference path to the assembler manual on the as(1) man page.
+  Radar bug #4088403.
+- Updated the ld(1) man page to say MACOSX_DEPLOYMENT_TARGET defaults to 10.4
+  for the i386 architecture and 10.1 otherwise.  Radar bug #4081062.
+
 Changes for the 5.17 release (the cctools-576 release):
 - Picked up changes to ld(1) man page noting 64-bit differences. Radar bug
   #3853561.

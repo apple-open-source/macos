@@ -132,7 +132,7 @@ copy_loop_headers (void)
   unsigned n_bbs;
 
   /* APPLE LOCAL lno */
-  loops = tree_loop_optimizer_init (dump_file, true);
+  loops = tree_loop_optimizer_init (dump_file);
   if (!loops)
     return;
   rewrite_into_loop_closed_ssa ();
@@ -153,6 +153,8 @@ copy_loop_headers (void)
       int limit = 20;
 
       loop = loops->parray[i];
+      if (!loop)
+	continue;
       header = loop->header;
 
       /* If the loop is already a do-while style one (either because it was

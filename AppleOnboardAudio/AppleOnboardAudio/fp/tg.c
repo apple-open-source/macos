@@ -446,6 +446,7 @@ static long indexTable[] =
     
 static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
 static const double kPiDiv4 = 0.7853980064392090732f;
+double tan (   double x  );
 
 double tan (   double x  )
 {
@@ -834,12 +835,13 @@ double tan (   double x  )
       }
 }
 #endif
-#ifdef notdef
+//#ifdef notdef
+float tanf( float x );
 float tanf( float x )
 {
     return (float)tan( x );
 }
-#endif
+//#endif
 
 #else       /* __APPLE_CC__ version */
 #warning A higher version than gcc-932 is required.

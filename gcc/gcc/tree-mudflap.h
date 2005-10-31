@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
 
 This file is part of GCC.
@@ -24,8 +24,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Instrumentation.  */
 extern void mudflap_init (void);
-extern void mudflap_c_function_decls (tree);
-extern void mudflap_c_function_ops (tree);
 extern void mudflap_enqueue_decl (tree);
 extern void mudflap_enqueue_constant (tree);
 extern void mudflap_finish_file (void);

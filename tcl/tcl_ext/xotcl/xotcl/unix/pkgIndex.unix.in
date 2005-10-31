@@ -1,4 +1,0 @@
-  package ifneeded XOTcl @VERSION@ [list load \
-    [file join $dir @xotcl_LIB_FILE@] XOTcl]
-
-

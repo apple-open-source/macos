@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,7 +54,7 @@ import java.util.Map;
  * GroovyPlugin
  *
  * @author David Czarnecki
- * @version $Id: GroovyPlugin.java,v 1.1 2004/08/27 00:48:40 whitmore Exp $
+ * @version $Id: GroovyPlugin.java,v 1.1.2.1 2005/07/21 04:30:21 johnan Exp $
  * @since blojsom 2.14
  */
 public class GroovyPlugin implements BlojsomPlugin {

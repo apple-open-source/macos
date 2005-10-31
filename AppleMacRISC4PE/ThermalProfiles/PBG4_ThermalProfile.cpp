@@ -22,12 +22,13 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: PBG4_ThermalProfile.cpp,v 1.1 2004/11/23 01:55:14 raddog Exp $
+ *  File: $Id: PBG4_ThermalProfile.cpp,v 1.3 2005/09/06 18:22:30 raddog Exp $
  */
 
 
 #include "IOPlatformPluginSymbols.h"
 #include "PBG4_PlatformPlugin.h"
+#include "PBG4_StepCtrlLoop.h"
 
 #include "PBG4_ThermalProfile.h"
 
@@ -36,16 +37,64 @@ OSDefineMetaClassAndStructors( PBG4_ThermalProfile, IOPlatformPluginThermalProfi
 
 UInt8 PBG4_ThermalProfile::getThermalConfig( void ) 
 {
+	OSDictionary		*dict, *configDict;
+	OSArray				*configArray;
+	IORegistryEntry     *cpu0RegEntry;
+	OSData				*clockFrequencyData;
+	OSNumber			*configFreqNum;
+	UInt32				count, clockFreq, configFreq;
+	SInt32				configDiff, thisDiff;
+	UInt8				config;
+	
 	DLOG ("PBG4_ThermalProfile::getThermalConfig entered\n");
-	/*
-	 * XXXX - this is a placeholder for now.  getThermalConfig needs to determine
-	 * which config is correct for the platform.  This value is used to determine
-	 * if a particular control is used on the config (based on values in the ValidConfigs)
-	 * field of the control or control loop.  
-	 *
-	 * For now there is only one config (0), so return that.
-	 */
-	return( 0 );
+	
+	config = 0;
+
+	dict = OSDynamicCast (OSDictionary, getProperty( kIOPPluginThermalProfileKey));
+	if (dict) {
+		configArray = OSDynamicCast (OSArray, dict->getObject (kIOPPluginThermalConfigsKey));
+		// See if we have more than one config to worry about
+		if (configArray && ((count = configArray->getCount()) > 1)) {
+			int				pstep;		// xxx temp
+		
+			pstep = 0;
+			if (PE_parse_boot_arg("pstep", &pstep) && ((pstep & kStepTableOverride) != 0)) {
+				IOLog ("Stepper table override - using 'better' table\n");
+				config = 1;				// Force "better" table
+			} else {
+				// Determine which table to use based on frequency
+				cpu0RegEntry = fromPath("/cpus/@0", gIODTPlane);
+				if (cpu0RegEntry && (clockFrequencyData = OSDynamicCast (OSData, cpu0RegEntry->getProperty ("clock-frequency")))) {
+					clockFreq = *(UInt32 *)clockFrequencyData->getBytesNoCopy();
+					
+					// Find the config with the associated clock-frequency closest to the clock-frequency reported by the bootROM
+					configDiff = INT32_MAX;
+					for (UInt32 i = 0; i < count; i++) {
+						configDict = OSDynamicCast (OSDictionary, configArray->getObject (i));
+						if (configDict &&
+							(configFreqNum = OSDynamicCast (OSNumber, configDict->getObject ("clock-frequency")))) {
+							configFreq = configFreqNum->unsigned32BitValue();
+							// Figure out the absolute difference
+							thisDiff = (configFreq > clockFreq) ? (configFreq - clockFreq) : (clockFreq - configFreq);
+							if (thisDiff < configDiff) {
+								configDiff = thisDiff;
+								config = i;
+							}
+						} else {
+							IOLog ("PBG4_ThermalProfile::getThermalConfig - no clock-frequency data for config %ld.  Defaulting to config 0\n", i);
+							DLOG ("PBG4_ThermalProfile::getThermalConfig - no clock-frequency data for config %d.  Defaulting to config 0\n", i);
+							config = 0;
+							break;
+						}
+					}
+				}
+
+				if (cpu0RegEntry) cpu0RegEntry->release();
+			}
+		}
+	}
+	
+	return( config );
 }
 
 

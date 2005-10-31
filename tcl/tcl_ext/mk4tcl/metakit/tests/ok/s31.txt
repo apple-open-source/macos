@@ -1,2 +1,0 @@
->>> Check sort buffer use
-<<< done.

@@ -1,9 +1,12 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDriveBayGPIO.h,v 1.1 2004/09/18 00:27:51 jlehrer Exp $
+ *	File: $Id: IOI2CDriveBayGPIO.h,v 1.2 2005/02/09 02:21:40 jlehrer Exp $
  *
  *		$Log: IOI2CDriveBayGPIO.h,v $
+ *		Revision 1.2  2005/02/09 02:21:40  jlehrer
+ *		Updated interrupt processing for mac-io gpio-16
+ *		
  *		Revision 1.1  2004/09/18 00:27:51  jlehrer
  *		Initial checkin
  *		
@@ -74,7 +77,7 @@ private:
 	UInt8 fOutputReg;
 
 	bool	fC3Mapping;
-	UInt32	fBayIndex;
+	UInt32	fReg;
 	UInt32	fIntAddrInfo;	// i2c address of consolidated register
 							// pmu polls this register and generates interrupts
 							// when it changes.  The value is as follows:
@@ -85,8 +88,8 @@ private:
 							//    +---------- ignored
 
 	IOLock				*fClientLock;
-	I2CGPIOCallbackInfo	*fClient[kNumGPIOs];
-	UInt32				 fClientsEnabled;
+	I2CGPIOCallbackInfo	fClient[kNumGPIOs];
+	UInt32				fClientsEnabled;
 
 	IOReturn registerGPIOClient(
 		UInt32				id,
@@ -117,8 +120,6 @@ private:
 	IOReturn publishChildren(IOService *nub);
 	
 	virtual void processPowerEvent(UInt32 eventType);
-	void doPowerDown(void);
-	void doPowerUp(void);
 };
 
 #endif // _IOI2CDriveBayGPIO_H

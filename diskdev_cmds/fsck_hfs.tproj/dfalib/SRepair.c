@@ -2705,8 +2705,8 @@ static OSErr MoveExtent(SGlobPtr GPtr, ExtentInfo *extentInfo)
 #define VOLUMEHEADER	2
 #define	EXTENTS_BTREE	3
 
-	UInt32 foundExtentIndex;
-	Boolean noMoreExtents;
+	UInt32 foundExtentIndex = 0;
+	Boolean noMoreExtents = true;
 	
 	isHFSPlus = VolumeObjectIsHFSPlus();
 
@@ -3193,7 +3193,7 @@ static OSErr SearchExtentInExtentBT(SGlobPtr GPtr, ExtentInfo *extentInfo, HFSPl
 {
 	OSErr err = noErr;
 	Boolean isHFSPlus;
-	Boolean noMoreExtents;
+	Boolean noMoreExtents = true;
 	UInt32 hint;
 
 	isHFSPlus = VolumeObjectIsHFSPlus();

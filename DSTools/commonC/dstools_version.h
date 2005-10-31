@@ -1,6 +1,6 @@
 #ifndef BUILD_VERSION
 #warning VERIFY BUILD_VERSION NUMBER BEFORE SUBMITTING!!
-#define BUILD_VERSION "60"
+#define BUILD_VERSION "60.1"
 
 
 #ifdef __cplusplus

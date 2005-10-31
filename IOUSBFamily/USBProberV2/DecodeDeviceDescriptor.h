@@ -32,6 +32,6 @@
 
 }
 
-+ (void)decodeBytes:(IOUSBDeviceDescriptor *)dev forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceInterface **)deviceIntf;
++ (void)decodeBytes:(IOUSBDeviceDescriptor *)dev forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf wasSuspended:(BOOL)wasSuspended;
 
 @end

@@ -6,19 +6,42 @@
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Ligbfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
+
+#include "libgfortran.h"
+
+extern void random_r4 (GFC_REAL_4 *);
+iexport_proto(random_r4);
+
+extern void random_r8 (GFC_REAL_8 *);
+iexport_proto(random_r8);
+
+extern void arandom_r4 (gfc_array_r4 *);
+export_proto(arandom_r4);
+
+extern void arandom_r8 (gfc_array_r8 *);
+export_proto(arandom_r8);
 
 #if 0
 
@@ -45,7 +68,6 @@ Boston, MA 02111-1307, USA.  */
 	Generation. ( Early in 1998 ).  */
 
 
-#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -55,8 +77,6 @@ Boston, MA 02111-1307, USA.  */
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-
-#include "libgfortran.h"
 
 /*Use the 'big' generator by default ( period -> 2**19937 ).  */
 
@@ -89,8 +109,7 @@ static unsigned int seed[N];
    and also reading and writing of the seed.  */
 
 void
-random_seed (GFC_INTEGER_4 * size, const gfc_array_i4 * put,
-	     const gfc_array_i4 * get)
+random_seed (GFC_INTEGER_4 *size, gfc_array_i4 *put, gfc_array_i4 *get)
 {
   /* Initialize the seed in system dependent manner.  */
   if (get == NULL && put == NULL && size == NULL)
@@ -167,6 +186,7 @@ random_seed (GFC_INTEGER_4 * size, const gfc_array_i4 * put,
 	get->data[i * get->dim[0].stride] = seed[i];
     }
 }
+iexport(random_seed);
 
 /* Here is the internal routine which generates the random numbers
    in 'batches' based upon the need for a new batch.
@@ -197,7 +217,6 @@ random_generate (void)
 
 /* A routine to return a REAL(KIND=4).  */
 
-#define random_r4 prefix(random_r4)
 void
 random_r4 (GFC_REAL_4 * harv)
 {
@@ -209,10 +228,10 @@ random_r4 (GFC_REAL_4 * harv)
   *harv = (GFC_REAL_4) ((GFC_REAL_4) (GFC_UINTEGER_4) seed[i++] /
 			(GFC_REAL_4) (~(GFC_UINTEGER_4) 0));
 }
+iexport(random_r4);
 
 /* A routine to return a REAL(KIND=8).  */
 
-#define random_r8 prefix(random_r8)
 void
 random_r8 (GFC_REAL_8 * harv)
 {
@@ -225,12 +244,12 @@ random_r8 (GFC_REAL_8 * harv)
 	  (GFC_REAL_8) (~(GFC_UINTEGER_8) 0);
   i += 2;
 }
+iexport(random_r8);
 
 /* Code to handle arrays will follow here.  */
 
 /* REAL(KIND=4) REAL array.  */
 
-#define arandom_r4 prefix(arandom_r4)
 void
 arandom_r4 (gfc_array_r4 * harv)
 {
@@ -304,7 +323,6 @@ arandom_r4 (gfc_array_r4 * harv)
 
 /* REAL(KIND=8) array.  */
 
-#define arandom_r8 prefix(arandom_r8)
 void
 arandom_r8 (gfc_array_r8 * harv)
 {
@@ -376,8 +394,8 @@ arandom_r8 (gfc_array_r8 * harv)
 	}
     }
 }
-#endif /* Mersenne Twister code */
 
+#else
 
 /* George Marsaglia's KISS (Keep It Simple Stupid) random number generator.
 
@@ -418,9 +436,6 @@ arandom_r8 (gfc_array_r8 * harv)
 "There is no copyright on the code below." included the original
 KISS algorithm.  */
 
-#include "config.h"
-#include "libgfortran.h"
-
 #define GFC_SL(k, n)	((k)^((k)<<(n)))
 #define GFC_SR(k, n)	((k)^((k)>>(n)))
 
@@ -436,7 +451,6 @@ static GFC_UINTEGER_4 kiss_seed[4] = KISS_DEFAULT_SEED;
 static GFC_UINTEGER_4
 kiss_random_kernel(void)
 {
-
   GFC_UINTEGER_4 kiss;
 
   kiss_seed[0] = 69069 * kiss_seed[0] + 1327217885;
@@ -446,16 +460,14 @@ kiss_random_kernel(void)
   kiss = kiss_seed[0] + kiss_seed[1] + (kiss_seed[2] << 16) + kiss_seed[3];
 
   return kiss;
-
 }
 
 /*  This function produces a REAL(4) value from the uniform distribution
     with range [0,1).  */
 
 void
-prefix(random_r4) (GFC_REAL_4 *x)
+random_r4 (GFC_REAL_4 *x)
 {
-
   GFC_UINTEGER_4 kiss;
 
   kiss = kiss_random_kernel ();
@@ -464,28 +476,28 @@ prefix(random_r4) (GFC_REAL_4 *x)
   kiss_random_kernel ();
   *x = normalize_r4_i4 (kiss, ~(GFC_UINTEGER_4) 0);
 }
+iexport(random_r4);
 
 /*  This function produces a REAL(8) value from the uniform distribution
     with range [0,1).  */
 
 void
-prefix(random_r8) (GFC_REAL_8 *x)
+random_r8 (GFC_REAL_8 *x)
 {
-
   GFC_UINTEGER_8 kiss;
 
   kiss = ((GFC_UINTEGER_8)kiss_random_kernel ()) << 32;
   kiss += kiss_random_kernel ();
   *x = normalize_r8_i8 (kiss, ~(GFC_UINTEGER_8) 0);
 }
+iexport(random_r8);
 
 /*  This function fills a REAL(4) array with values from the uniform
     distribution with range [0,1).  */
 
 void
-prefix(arandom_r4) (gfc_array_r4 *x)
+arandom_r4 (gfc_array_r4 *x)
 {
-
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
   index_type stride[GFC_MAX_DIMENSIONS - 1];
@@ -514,7 +526,7 @@ prefix(arandom_r4) (gfc_array_r4 *x)
 
   while (dest)
     {
-      prefix(random_r4) (dest);
+      random_r4 (dest);
 
       /* Advance to the next element.  */
       dest += stride0;
@@ -548,9 +560,8 @@ prefix(arandom_r4) (gfc_array_r4 *x)
     distribution with range [0,1).  */
 
 void
-prefix(arandom_r8) (gfc_array_r8 *x)
+arandom_r8 (gfc_array_r8 *x)
 {
-
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
   index_type stride[GFC_MAX_DIMENSIONS - 1];
@@ -579,7 +590,7 @@ prefix(arandom_r8) (gfc_array_r8 *x)
 
   while (dest)
     {
-      prefix(random_r8) (dest);
+      random_r8 (dest);
 
       /* Advance to the next element.  */
       dest += stride0;
@@ -609,15 +620,13 @@ prefix(arandom_r8) (gfc_array_r8 *x)
     }
 }
 
-/* prefix(random_seed) is used to seed the PRNG with either a default
-   set of seeds or user specified set of seeds.  prefix(random_seed) 
+/* random_seed is used to seed the PRNG with either a default
+   set of seeds or user specified set of seeds.  random_seed 
    must be called with no argument or exactly one argument.  */
 
 void
-random_seed (GFC_INTEGER_4 *size, gfc_array_i4 * put, 
-		     gfc_array_i4 * get)
+random_seed (GFC_INTEGER_4 *size, gfc_array_i4 *put, gfc_array_i4 *get)
 {
-
   int i;
 
   if (size == NULL && put == NULL && get == NULL)
@@ -670,5 +679,6 @@ random_seed (GFC_INTEGER_4 *size, gfc_array_i4 * put,
         get->data[i * get->dim[0].stride] = (GFC_INTEGER_4) kiss_seed[i];
     }
 }
+iexport(random_seed);
 
-
+#endif /* mersenne twister */

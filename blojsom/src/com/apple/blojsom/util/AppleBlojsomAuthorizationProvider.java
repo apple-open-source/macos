@@ -1,7 +1,7 @@
 /**
  * Contains:   Apple Authorization plug-in for blojsom.
  * Written by: Doug Whitmore (for addtl writers check CVS comments).
- * Copyright:  © 2004 Apple Computer, Inc., all rights reserved.
+ * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set XCode to "Editor uses tabs/width=4".
  *
  */ 
@@ -116,17 +116,13 @@ public class AppleBlojsomAuthorizationProvider implements AuthorizationProvider,
         boolean result = false;
 		boolean groupsContainUser = false;
 		
-        // find out the user's short name (if applicable)
-		String shortName = BlojsomAppleUtils.getShortNameFromFullName(username, ".");
-		
-		// if we didn't find it in the local machine record, look in the search path
-		if (shortName.equals(username)) 
-		{
-			shortName = BlojsomAppleUtils.getShortNameFromFullName(username, "/Search");
-		}
-		
-		if (!(shortName.equals(username))) 
-		{
+		// resolve aliases (if applicable)
+		String resolvedShortName = BlojsomAppleUtils.validateShortNameAndResolveAliases(username, "/Search");
+		// find out the user's short name (if applicable)
+		String shortName = BlojsomAppleUtils.getShortNameFromFullName(username, "/Search");
+		if (resolvedShortName != null) {
+			username = resolvedShortName;
+		} else if (!(shortName.equals(username))) {
 			username = shortName;
 		}
 		
@@ -190,5 +186,20 @@ public class AppleBlojsomAuthorizationProvider implements AuthorizationProvider,
             throw new BlojsomException("Authorization failed for blog user: " + blogUser.getId() + " for username: " + username);
         }
     }
+
+    /**
+     * Check a permission for the given {@link BlogUser}
+     *
+     * @param blogUser          {@link BlogUser}
+     * @param permissionContext {@link Map} to be used to provide other information for permission check. This will
+     *                          change depending on the authorization provider.
+     * @param username          Username
+     * @param permission        Permission
+     * @throws BlojsomException If there is an error checking the permission for the username and permission
+     */
+    public void checkPermission(BlogUser blogUser, Map permissionContext, String username, String permission) throws BlojsomException
+	{
+	
+	}
 
 }

@@ -332,4 +332,6 @@ int detrunc __P((struct denode *dep, u_long length, int flags, vfs_context_t con
 int doscheckpath __P(( struct denode *source, struct denode *target, vfs_context_t context));
 int findslots __P((struct denode *dep, struct componentname *cnp, u_int8_t *lower_case, u_long *offset, u_long *long_count, vfs_context_t context));
 u_long defileid(struct denode *dep);
+int msdosfs_dir_flush(struct denode *dep, int sync, vfs_context_t context);
+int msdosfs_dir_invalidate(struct denode *dep, vfs_context_t context);
 #endif	/* KERNEL */

@@ -1,11 +1,14 @@
 /*
  * Copyright (c) 2004-2005 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: IOI2CLM6x.cpp,v 1.2 2005/01/12 00:51:36 dirty Exp $
+ *  File: $Id: IOI2CLM6x.cpp,v 1.3 2005/04/11 23:39:25 dirty Exp $
  *
  *  DRI: Cameron Esfahani
  *
  *		$Log: IOI2CLM6x.cpp,v $
+ *		Revision 1.3  2005/04/11 23:39:25  dirty
+ *		[4078743] Properly handle negative temperatures.
+ *		
  *		Revision 1.2  2005/01/12 00:51:36  dirty
  *		Fix garbage character.
  *		
@@ -130,7 +133,7 @@ IOI2CLM6x::getLocalTemperature	(
 	// Local temperature data is represented by a 8-bit, two's complement word with 
 	// an LSB equal to 1.0C.  We need to shift it into a 16.16 format.
 
-	*temperature = ( SInt32 ) ( rawData << 16 );
+	*temperature = ( ( ( SInt8 ) rawData ) << 16 );
 
 IOI2CLM6x_getLocalTemperature_readI2CErr:
 	return( status );
@@ -153,7 +156,7 @@ IOI2CLM6x::getRemoteTemperature	(
 	// an LSB equal to 0.125C.  The data format is a left justified 16-bit word available in
 	// two 8-bit registers.
 
-	*temperature = ( SInt32 ) ( ( rawDataMsb << 16 ) | ( rawDataLsb << 8 ) );
+	*temperature = ( ( ( ( SInt8 ) rawDataMsb ) << 16 ) | ( rawDataLsb << 8 ) );
 
 IOI2CLM6x_getRemoteTemperature_readI2CErr2:
 IOI2CLM6x_getRemoteTemperature_readI2CErr1:

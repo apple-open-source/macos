@@ -50,9 +50,9 @@ import java.io.Serializable;
  * manner, it is your own fault when you get invalid results. Also, this
  * class is not threadsafe.
  *
- * @author Per Bothner <bothner@cygnus.com>
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Per Bothner (bothner@cygnus.com)
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.0
  * @status updated to 1.4
  */
@@ -95,7 +95,7 @@ public class Point extends Point2D implements Serializable
    * Initializes a new instance of <code>Point</code> with coordinates
    * identical to the coordinates of the specified points.
    *
-   * @param point the point to copy the coordinates from
+   * @param p the point to copy the coordinates from
    * @throws NullPointerException if p is null
    */
   public Point(Point p)

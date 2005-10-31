@@ -1,9 +1,12 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDriveBayGPIO.cpp,v 1.1 2004/09/18 00:27:51 jlehrer Exp $
+ *	File: $Id: IOI2CDriveBayGPIO.cpp,v 1.2 2005/02/09 02:21:40 jlehrer Exp $
  *
  *		$Log: IOI2CDriveBayGPIO.cpp,v $
+ *		Revision 1.2  2005/02/09 02:21:40  jlehrer
+ *		Updated interrupt processing for mac-io gpio-16
+ *		
  *		Revision 1.1  2004/09/18 00:27:51  jlehrer
  *		Initial checkin
  *		
@@ -20,7 +23,7 @@
 #endif
 
 // Uncomment for debug info
-//#define IOI2CDriveBayGPIO_DEBUG 1
+#define IOI2CDriveBayGPIO_DEBUG 1
 
 #ifdef IOI2CDriveBayGPIO_DEBUG
 #define DLOG(fmt, args...)  kprintf(fmt, ## args)
@@ -28,6 +31,8 @@
 #define DLOG(fmt, args...)
 #endif
 
+#define LOCK	IOLockLock(fClientLock)
+#define UNLOCK	IOLockUnlock(fClientLock)
 
 #define super IOI2CDevice
 
@@ -37,10 +42,6 @@ bool IOI2CDriveBayGPIO::start(IOService *provider)
 {
 	IOReturn				status;
 	OSData					*data;
-	UInt32					regProperty, index, length;
-	UInt32					*quadlet;
-	bool					found;
-	IOService				*service;
 	mach_timespec_t			timeout;
 
 	DLOG("IOI2CDriveBayGPIO::start\n");
@@ -51,8 +52,7 @@ bool IOI2CDriveBayGPIO::start(IOService *provider)
 		DLOG("IOI2CDriveBayGPIO::start -- no reg property\n");
 		return false;
 	}
-	regProperty = *((UInt32 *)data->getBytesNoCopy());
-	regProperty <<= 8; // shift to align with the "i2c-combined" array elements.
+	fReg = *((UInt32 *)data->getBytesNoCopy());
 
 	// Find the PCA9554M node. It provides our interrupt source...
 	timeout.tv_sec = 30;
@@ -60,48 +60,6 @@ bool IOI2CDriveBayGPIO::start(IOService *provider)
 	if (0 == (fPCA9554M = waitForService(serviceMatching("IOI2CDriveBayMGPIO"), &timeout)))
 	{
 		DLOG("IOI2CDriveBayGPIO::start -- timeout waiting for IOI2CDriveBayMGPIO\n");
-		return false;
-	}
-
-	// The PCA9554M node also indicates which drive freakin bay we're attached to...
-	if (0 == (service = OSDynamicCast(IOService, fPCA9554M->getParentEntry(gIOServicePlane))))
-	{
-		DLOG("IOI2CDriveBayGPIO::start -- no 9554M parent\n");
-		return false;
-	}
-
-	// We want the PCA9554M "i2c-combined" property. Its an array of 32-bit elements.
-	// and its got our "reg" property (i2c bus and address) buried inside it somewheres...
-	// Our drive bay index is the index into the array which has our "reg" in bits[19..8].
-	// G5 "i2c-combined" = <00014000 00014200 00014400>
-	// G4 "i2c-combined" = <00014000 00014200 00014400 00014600>
-	if (0 == (data = OSDynamicCast(OSData, service->getProperty(kI2CGPIOCombined))))
-	{
-		DLOG("IOI2CDriveBayGPIO::start -- no 9554M combined property\n");
-		return false;
-	}
-
-	length = data->getLength() / sizeof(UInt32);
-	quadlet = (UInt32 *)data->getBytesNoCopy();
-	found = false;
-
-	for (index = 0; index < length; index++)
-	{
-		if (regProperty == *quadlet)
-		{
-			fBayIndex = index;
-			found = true;
-			DLOG("IOI2CDriveBayGPIO::start we are: 0x%08x fBayIndex = %u\n", regProperty, fBayIndex);
-			break;
-		}
-
-		//DLOG("%x %08x != %08x\n", getI2CAddress(), fullAddr, *quadlet);
-		quadlet++;
-	}
-
-	if (!found)
-	{
-		DLOG("IOI2CDriveBayGPIO %x couldn't find combined gpio node, bailing...\n", regProperty);
 		return false;
 	}
 
@@ -116,24 +74,33 @@ bool IOI2CDriveBayGPIO::start(IOService *provider)
 	if (data = OSDynamicCast(OSData, provider->getProperty("polarity-reg")))
 		fPolarityReg = (UInt8)*((UInt32 *)data->getBytesNoCopy());
 
-	DLOG("IOI2CDriveBayGPIO@%lx::start fConfigReg = %02x fPolarityReg = %02x\n", regProperty, fConfigReg, fPolarityReg);
+	DLOG("IOI2CDriveBayGPIO(%x)::start fConfigReg = %02x fPolarityReg = %02x\n", (int)fReg, fConfigReg, fPolarityReg);
 
 	// allocate my lock
 	fClientLock = IOLockAlloc();
 
 	// Register with the combined PCA9554M
-	DLOG("IOI2CDriveBayGPIO::start - register9554MInterruptClient %u\n", fBayIndex);
+	DLOG("IOI2CDriveBayGPIO(%x)::start - register9554MInterruptClient\n", (int)fReg);
 	if (kIOReturnSuccess != (status = fPCA9554M->callPlatformFunction("register9554MInterruptClient", false,
-				(void *)fBayIndex, (void *)&sProcess9554MInterrupt, (void *)this, (void *)true)))
+				(void *)fReg, (void *)&sProcess9554MInterrupt, (void *)this, (void *)true)))
 	{
-		DLOG("IOI2CDriveBayGPIO::start failed to register\n");
+		DLOG("IOI2CDriveBayGPIO(%x)::start failed to register (%x)\n", (int)fReg, (int)status);
 		return false;
 	}
 
 	// Start IOI2C services...
 	if (false == super::start(provider))
 	{
-		DLOG("IOI2CDriveBayGPIO::start -- super::start returned error\n");
+		DLOG("IOI2CDriveBayGPIO(%x)::start -- super::start returned error\n", (int)fReg);
+		return false;
+	}
+
+	super::callPlatformFunction("IOI2CSetDebugFlags", false, (void *)kStateFlags_kprintf, (void *)true, (void *)NULL, (void *)NULL);
+
+	if (kIOReturnSuccess != readI2C(k9554OutputPort, &fOutputReg, 1))
+	{
+		DLOG("IOI2CDriveBayGPIO(%x)::start -- super::start returned error\n", (int)fReg);
+		freeI2CResources();
 		return false;
 	}
 
@@ -154,16 +121,15 @@ void IOI2CDriveBayGPIO::stop(IOService *provider)
 	
 	for (i = 0; i < kNumGPIOs; i++)
 	{
-		if (fClient[i] != 0)
-		{
-			IOFree(fClient[i], sizeof(I2CGPIOCallbackInfo));
-			fClient[i] = 0;
-		}
+		fClient[i].isEnabled = false;
+		fClient[i].self = 0;
+		fClient[i].handler = 0;
 	}
 
 	// Un-Register with the combined PCA9554M
-	fPCA9554M->callPlatformFunction("register9554MInterruptClient", false,
-				(void *)fBayIndex, (void *)&sProcess9554MInterrupt, (void *)this, (void *)false);
+	if (fPCA9554M)
+		fPCA9554M->callPlatformFunction("register9554MInterruptClient", false,
+				(void *)fReg, (void *)&sProcess9554MInterrupt, (void *)this, (void *)false);
 
 	if (fClientLock)	{ IOLockFree(fClientLock);		fClientLock = 0; }
 
@@ -293,44 +259,46 @@ IOI2CDriveBayGPIO::registerGPIOClient(
 	IOService			*client,
 	bool				isRegister)
 {
-	I2CGPIOCallbackInfo	*clientInfo;
+	IOReturn status = kIOReturnSuccess;
 
 	// Make sure the id is valid and not already registered
-	if (id >= kNumGPIOs)
+	if ( (id >= kNumGPIOs) || (handler == 0) )
 		return kIOReturnBadArgument;
 
+	LOCK;
 	if (isRegister)
 	{
-		if (fClient[id] != 0)
+		if (fClient[id].self != 0)
 		{
 			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%d already open\n", getI2CAddress(), id);
-			return kIOReturnStillOpen;
+			status = kIOReturnStillOpen;
 		}
-
-		if (0 == (clientInfo = (I2CGPIOCallbackInfo *)IOMalloc(sizeof(I2CGPIOCallbackInfo))))
+		else
 		{
-			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%d malloc err\n", getI2CAddress(), id);
-			return kIOReturnNoMemory;
+			fClient[id].handler		= handler;
+			fClient[id].isEnabled	= false;
+			fClient[id].self		= client;
+			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%d registered\n", getI2CAddress(), id);
 		}
-
-		clientInfo->handler		= handler;
-		clientInfo->self		= client;
-		clientInfo->isEnabled	= false;
-		fClient[id] = clientInfo;
 	}
 	else // unregister
 	{
-		if (fClient[id] == 0)
+		if (fClient[id].self == 0)
 		{
 			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient - unregister id:%d not open\n", getI2CAddress(), id);
-			return kIOReturnNotOpen;
+			status = kIOReturnNotOpen;
 		}
-
-		clientInfo = fClient[id];
-		fClient[id] = 0;
+		else
+		{
+			fClient[id].self = 0;
+			fClient[id].isEnabled = false;
+			fClient[id].handler = 0;
+			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%d un-registered\n", getI2CAddress(), id);
+		}
 	}
+	UNLOCK;
 
-	return kIOReturnSuccess;
+	return status;
 }
 
 IOReturn
@@ -338,21 +306,26 @@ IOI2CDriveBayGPIO::enableGPIOClient(
 	UInt32		id,
 	bool		isEnable)
 {
-	if ((id >= kNumGPIOs) || (fClient[id] == 0))
+	IOReturn status = kIOReturnSuccess;
+
+	if ( (id >= kNumGPIOs) || (fClient[id].self == 0) )
 	{
 		DLOG("IOI2CDriveBayGPIO@%lx::enableClient - error %d not registered\n", getI2CAddress(), id);
 		return kIOReturnBadArgument;
 	}
 
-	if (fClient[id]->isEnabled == isEnable)
+	if (fClient[id].isEnabled == isEnable)
 		return kIOReturnSuccess;
 
-	IOLockLock(fClientLock);
-	fClient[id]->isEnabled = isEnable;
+	LOCK;
+
+	DLOG("IOI2CDriveBayGPIO@%lx::enableGPIOClient %s client %d\n", getI2CAddress(), isEnable?"enable":"disable", id);
+
+	fClient[id].isEnabled = isEnable;
 	if (isEnable)
 	{
 		if (fClientsEnabled == 0) // Register with the combined PCA9554M
-			fPCA9554M->callPlatformFunction("enable9554MInterruptClient", false, (void *)fBayIndex, (void *)0, (void *)0, (void *)true);
+			status = fPCA9554M->callPlatformFunction("enable9554MInterruptClient", false, (void *)fReg, (void *)0, (void *)0, (void *)true);
 
 		fClientsEnabled |= (1 << id);
 	}
@@ -360,11 +333,12 @@ IOI2CDriveBayGPIO::enableGPIOClient(
 	{
 		fClientsEnabled &= ~(1 << id);
 		if (fClientsEnabled == 0) // Un-Register with the combined PCA9554M
-			fPCA9554M->callPlatformFunction("enable9554MInterruptClient", false, (void *)fBayIndex, (void *)0, (void *)0, (void *)false);
+			status = fPCA9554M->callPlatformFunction("enable9554MInterruptClient", false, (void *)fReg, (void *)0, (void *)0, (void *)false);
 	}
-	IOLockUnlock(fClientLock);
 
-	DLOG("IOI2CDriveBayGPIO@%lx::enableGPIOClient %s client %d\n", getI2CAddress(), isEnable?"enable":"disable", id);
+	DLOG("IOI2CDriveBayGPIO@%lx::enableGPIOClient %s client %d (%x)\n", getI2CAddress(), isEnable?"enable":"disable", id, (int)status);
+
+	UNLOCK;
 
 	return kIOReturnSuccess;
 }
@@ -391,11 +365,11 @@ IOI2CDriveBayGPIO::process9554MInterrupt(
 		DLOG("IOI2CDriveBayGPIO 0x%02x got switch event\n", getI2CAddress());
 
 		// I got a button event.  Pass it up.
-		if (fClient[kSwitch] && fClient[kSwitch]->isEnabled)
+		if (fClient[kSwitch].self && fClient[kSwitch].handler && fClient[kSwitch].isEnabled)
 		{
 			value = ((newState >> kSwitch) & 1);
 			value ^= 0x1; // correct for active-low nature of this signal
-			fClient[kSwitch]->handler((void *)fClient[kSwitch]->self, (void *)(UInt32)value, 0, 0);
+			fClient[kSwitch].handler((void *)fClient[kSwitch].self, (void *)(UInt32)value, 0, 0);
 		}
 	}
 
@@ -404,11 +378,11 @@ IOI2CDriveBayGPIO::process9554MInterrupt(
 		DLOG("IOI2CDriveBayGPIO 0x%02x got insertion/removal event\n", getI2CAddress());
 
 		// I got a insertion event.  Pass it up.
-		if (fClient[kPresent] && fClient[kPresent]->isEnabled)
+		if (fClient[kPresent].self && fClient[kPresent].handler && fClient[kPresent].isEnabled)
 		{
 			value = ((newState >> kPresent) & 1);
 			value ^= 0x1; // correct for active-low nature of this signal
-			fClient[kPresent]->handler((void *)fClient[kPresent]->self, (void *)(UInt32)value, 0, 0);
+			fClient[kPresent].handler((void *)fClient[kPresent].self, (void *)(UInt32)value, 0, 0);
 		}
 	}
 }
@@ -418,48 +392,38 @@ void
 IOI2CDriveBayGPIO::processPowerEvent(
 	UInt32		eventType)
 {
-//	DLOG("IOI2CDriveBayGPIO::setPowerState current = %u new = %u\n", fCurrentPowerState, powerStateOrdinal);
+	UInt8	data;
 
-//	if (eventType == kIOI2CPowerEvent_Off)
-//		doPowerDown();
-
-//				doPowerUp();
-}
-
-void IOI2CDriveBayGPIO::doPowerDown(void)
-{
-	DLOG("IOI2CDriveBayGPIO::doPowerDown %x\n", getI2CAddress());
-
-	// Save the output register state
-	if (kIOReturnSuccess != readI2C(k9554OutputPort, &fOutputReg, 1))
+	switch (eventType)
 	{
-		// if the read failed, assume all bits are at logic zero
-		fOutputReg = 0x00;
+		case kI2CPowerEvent_OFF:
+		case kI2CPowerEvent_SLEEP:
 
-		DLOG("IOI2CDriveBayGPIO::doPowerDown failed to save output state\n");
-	}
-}
+			if (kIOReturnSuccess == readI2C(k9554OutputPort, &data, 1))
+				fOutputReg = data;
+			break;
 
-void IOI2CDriveBayGPIO::doPowerUp(void)
-{
-	DLOG("IOI2CDriveBayGPIO::doPowerUp %x\n", getI2CAddress());
+		case kI2CPowerEvent_ON:
+		case kI2CPowerEvent_WAKE:
 
-	// Restore the output register
-	if (kIOReturnSuccess != writeI2C(k9554OutputPort, &fOutputReg, 1))
-	{
-		DLOG("IOI2CDriveBayGPIO::doPowerUp failed to restore outputs\n");
-	}
+			// Restore the output register
+			if (kIOReturnSuccess != writeI2C(k9554OutputPort, &fOutputReg, 1))
+			{
+				DLOG("IOI2CDriveBayGPIO::doPowerUp failed to restore outputs\n");
+			}
 
-	// program the polarity inversion register
-	if (kIOReturnSuccess != writeI2C(k9554PolarityInv, &fPolarityReg, 1))
-	{
-		DLOG("IOI2CDriveBayGPIO::doPowerUp failed to program polarity inversion reg\n");
-	}
+			// program the polarity inversion register
+			if (kIOReturnSuccess != writeI2C(k9554PolarityInv, &fPolarityReg, 1))
+			{
+				DLOG("IOI2CDriveBayGPIO::doPowerUp failed to program polarity inversion reg\n");
+			}
 
-	// configure 9554 (direction bits)
-	if (kIOReturnSuccess != writeI2C(k9554Config, &fConfigReg, 1))
-	{
-		DLOG("IOI2CDriveBayGPIO::doPowerUp failed to configure gpio\n");
+			// configure 9554 (direction bits)
+			if (kIOReturnSuccess != writeI2C(k9554Config, &fConfigReg, 1))
+			{
+				DLOG("IOI2CDriveBayGPIO::doPowerUp failed to configure gpio\n");
+			}
+			break;
 	}
 }
 

@@ -211,7 +211,7 @@ bool QWidget::hasFocus() const
 
     NSView *view = [getView() _webcore_effectiveFirstResponder];
 
-    NSView *firstResponder = [KWQKHTMLPart::bridgeForWidget(this) firstResponder];
+    id firstResponder = [KWQKHTMLPart::bridgeForWidget(this) firstResponder];
 
     if (!firstResponder) {
         return false;
@@ -378,7 +378,7 @@ QCursor QWidget::cursor()
     id view = data->view;
     while (view) {
         if ([view respondsToSelector:@selector(documentCursor)]) { 
-            cursor = QCursor([view documentCursor]);
+            cursor = QCursor::makeWithNSCursor([view documentCursor]);
             break;
         }
         view = [view superview];

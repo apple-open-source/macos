@@ -1,5 +1,0 @@
-<![IGNORE[
-<!ELEMENT Test (#PCDATA)>
-<!ELEMENT Test1 (#PCDATA)>
-<!ELEMENT Test2 (#PCDATA)>
-]]>

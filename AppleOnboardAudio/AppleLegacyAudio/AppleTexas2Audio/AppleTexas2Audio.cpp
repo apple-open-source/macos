@@ -1253,6 +1253,8 @@ IOReturn AppleTexas2Audio::AdjustControls (void) {
 	IOFixed							maxdBVol;
 	Boolean							mustUpdate;
 
+	debugIOLog ( 6, "+ AppleTexas2Audio::AdjustControls ()" );
+	
 	FailIf (NULL == driverDMAEngine, Exit);
 	mustUpdate = FALSE;
 
@@ -1297,6 +1299,7 @@ IOReturn AppleTexas2Audio::AdjustControls (void) {
 				}
 	
 				// Create the master control
+				debugIOLog ( 6, "  outVolMaster: lastMasterVol = 0x%lX, minVolume = %d, maxVolume = %d, mindBVol = 0x%lX, maxdBVol = 0x%lX", (lastLeftVol + lastRightVol) / 2, minVolume, maxVolume, mindBVol, maxdBVol );
 				outVolMaster = IOAudioLevelControl::createVolumeControl((lastLeftVol + lastRightVol) / 2, minVolume, maxVolume, mindBVol, maxdBVol,
 													kIOAudioControlChannelIDAll,
 													kIOAudioControlChannelNameAll,
@@ -1316,6 +1319,7 @@ IOReturn AppleTexas2Audio::AdjustControls (void) {
 				if (lastLeftVol > kMAXIMUM_LEGAL_VOLUME_VALUE && NULL != outVolMaster) {
 					lastLeftVol = outVolMaster->getIntValue ();
 				}
+				debugIOLog ( 6, "  outVolLeft: lastLeftVol = 0x%lX, minVolume = %d, maxVolume = %d, mindBVol = 0x%lX, maxdBVol = 0x%lX", lastLeftVol, kMinimumVolume, kMaximumVolume, mindBVol, maxdBVol );
 				outVolLeft = IOAudioLevelControl::createVolumeControl (lastLeftVol, kMinimumVolume, kMaximumVolume, mindBVol, maxdBVol,
 													kIOAudioControlChannelIDDefaultLeft,
 													kIOAudioControlChannelNameLeft,
@@ -1332,6 +1336,7 @@ IOReturn AppleTexas2Audio::AdjustControls (void) {
 				if (lastRightVol > kMAXIMUM_LEGAL_VOLUME_VALUE && NULL != outVolMaster) {
 					lastRightVol = outVolMaster->getIntValue ();
 				}
+				debugIOLog ( 6, "  outVolRight: lastRightVol = 0x%lX, minVolume = %d, maxVolume = %d, mindBVol = 0x%lX, maxdBVol = 0x%lX", lastRightVol, kMinimumVolume, kMaximumVolume, mindBVol, maxdBVol );
 				outVolRight = IOAudioLevelControl::createVolumeControl (lastRightVol, kMinimumVolume, kMaximumVolume, mindBVol, maxdBVol,
 													kIOAudioControlChannelIDDefaultRight,
 													kIOAudioControlChannelNameRight,
@@ -1387,6 +1392,7 @@ IOReturn AppleTexas2Audio::AdjustControls (void) {
 	}
 
 Exit:
+	debugIOLog ( 6, "- AppleTexas2Audio::AdjustControls () returns 0x%lX", kIOReturnSuccess );
 	return kIOReturnSuccess;
 }
 
@@ -1615,27 +1621,37 @@ IOReturn AppleTexas2Audio::performDeviceWake () {
 		}
 	}										//	} end [2949185]
 
-	if (FALSE == IsHeadphoneConnected ()) {
-		// [2931666] Not needed
-		SelectOutputAndLoadEQ();										//	[2878119]
-		if ( TRUE == hasVideo && kSndHWCPUHeadphone != GetDeviceMatch() ) {
-			// Tell the video driver about the jack state change in case a video connector was plugged in
-			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
-		}
-		if ( TRUE == hasSerial && kSndHWCPUHeadphone != GetDeviceMatch() ) {
-			// Tell the serial driver about the jack state change in case a serial connector was plugged in
-			publishResource (gAppleAudioSerialJackStateKey, kOSBooleanFalse);
-		}
-		if (NULL != dallasIntProvider) {
-			// Set the correct EQ
-			DallasInterruptHandlerTimer (this, 0);
+	if ( FALSE == IsLineOutConnected () )
+	{
+		if (FALSE == IsHeadphoneConnected ()) {
+			// [2931666] Not needed
+			SelectOutputAndLoadEQ();										//	[2878119]
+			if ( TRUE == hasVideo && kSndHWCPUHeadphone != GetDeviceMatch() ) {
+				// Tell the video driver about the jack state change in case a video connector was plugged in
+				publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
+			}
+			if ( TRUE == hasSerial && kSndHWCPUHeadphone != GetDeviceMatch() ) {
+				// Tell the serial driver about the jack state change in case a serial connector was plugged in
+				publishResource (gAppleAudioSerialJackStateKey, kOSBooleanFalse);
+			}
+			if (NULL != dallasIntProvider) {
+				// Set the correct EQ
+				DallasInterruptHandlerTimer (this, 0);
+			} else {
+				DeviceInterruptService ();
+			}
 		} else {
-			DeviceInterruptService ();
+			if (NULL != headphoneIntProvider) {
+				// Set amp mutes accordingly
+				RealHeadphoneInterruptHandler (0, 0);
+			}
 		}
-	} else {
-		if (NULL != headphoneIntProvider) {
+	}
+	else
+	{
+		if (NULL != lineOutIntProvider) {
 			// Set amp mutes accordingly
-			RealHeadphoneInterruptHandler (0, 0);
+			RealLineOutInterruptHandler (0, 0);
 		}
 	}
 
@@ -3323,7 +3339,6 @@ void AppleTexas2Audio::DeviceInterruptService (void) {
 	minVolume = kMinimumVolume;
 	maxVolume = kMaximumVolume + drc.maximumVolume;
 
-	debugIOLog (3, "DeviceInterruptService: minVolume = %ld, maxVolume = %ld", minVolume, maxVolume);
 	AdjustControls ();
 
 	// For [3252100]

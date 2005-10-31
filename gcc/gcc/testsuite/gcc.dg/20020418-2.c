@@ -2,6 +2,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -funroll-all-loops" } */
 /* { dg-options "-O2 -funroll-all-loops -march=pentium3" { target i?86-*-* } } */
+/* { dg-skip-if "" { i?86-*-* } { "-m64" } { "" } } */
 
 void bar (float);
 

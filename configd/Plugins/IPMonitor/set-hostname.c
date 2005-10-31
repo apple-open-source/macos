@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,7 @@
 static SCDynamicStoreRef	store		= NULL;
 static CFRunLoopSourceRef	rls		= NULL;
 
+static Boolean			dnsActive	= FALSE;
 static CFMachPortRef		dnsPort		= NULL;
 static CFRunLoopSourceRef	dnsRLS		= NULL;
 static struct timeval		dnsQueryStart;
@@ -538,6 +539,7 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 
 	if (host != NULL)	free(host);
 	if (serv != NULL)	free(serv);
+	dnsActive = FALSE;
 	return;
 }
 
@@ -545,9 +547,16 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 static void
 getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-	getnameinfo_async_handle_reply(msg);
+	int32_t	status;
+
+	status = getnameinfo_async_handle_reply(msg);
+	if ((status == 0) && dnsActive) {
+		// if request has been re-queued
+		return;
+	}
 
 	if (port == dnsPort) {
+		CFRunLoopSourceInvalidate(dnsRLS);
 		CFRelease(dnsRLS);
 		dnsRLS = NULL;
 		CFRelease(dnsPort);
@@ -607,15 +616,6 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 		mach_port_t		port;
 		int32_t			error;
 
-		if ((dnsPort != NULL) && (dnsRLS != NULL)) {
-			/* if we already have an active async DNS query */
-			lu_async_call_cancel(CFMachPortGetPort(dnsPort));
-			CFRelease(dnsRLS);
-			dnsRLS = NULL;
-			CFRelease(dnsPort);
-			dnsPort = NULL;
-		}
-
 		(void) gettimeofday(&dnsQueryStart, NULL);
 
 		error = getnameinfo_async_start(&port,
@@ -628,6 +628,7 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 			goto done;
 		}
 
+		dnsActive = TRUE;
 		dnsPort = CFMachPortCreateWithPort(NULL,
 						   port,
 						   getnameinfo_async_handleCFReply,
@@ -649,6 +650,18 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 	CFStringRef	address		= NULL;
 	CFStringRef	hostname	= NULL;
 	CFStringRef	serviceID	= NULL;
+
+	// if active, cancel any in-progress attempt to resolve the primary IP address
+
+	if (dnsPort != NULL) {
+		/* cancel the outstanding DNS query */
+		lu_async_call_cancel(CFMachPortGetPort(dnsPort));
+		CFRunLoopSourceInvalidate(dnsRLS);
+		CFRelease(dnsRLS);
+		dnsRLS = NULL;
+		CFRelease(dnsPort);
+		dnsPort = NULL;
+	}
 
 	// get static hostname, if available
 

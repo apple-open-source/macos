@@ -26,6 +26,10 @@
                 <integer>5</integer>
                 <key>Dynamic Power Step</key>
                 <integer>1</integer>
+                <key>Hibernate File</key>
+                <string>/var/vm/sleepimage</string>
+                <key>Hibernate Mode</key>
+                <integer>3</integer>
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -57,6 +61,10 @@
                 <integer>1</integer>
                 <key>Dynamic Power Step</key>
                 <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>1</integer>
                 <key>System Sleep Timer</key>
@@ -88,6 +96,10 @@
                 <integer>1</integer>
                 <key>Dynamic Power Step</key>
                 <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>1</integer>
                 <key>System Sleep Timer</key>
@@ -121,6 +133,10 @@
                 <integer>5</integer>
                 <key>Dynamic Power Step</key>
                 <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -152,6 +168,10 @@
                 <integer>2</integer>
                 <key>Dynamic Power Step</key>
                 <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -183,6 +203,10 @@
                 <integer>2</integer>
                 <key>Dynamic Power Step</key>
                 <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>1</integer>
                 <key>System Sleep Timer</key>
@@ -216,6 +240,10 @@
                 <integer>10</integer>
                 <key>Dynamic Power Step</key>
                 <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -247,6 +275,10 @@
                 <integer>5</integer>
                 <key>Dynamic Power Step</key>
                 <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -278,6 +310,10 @@
                 <integer>5</integer>
                 <key>Dynamic Power Step</key>
                 <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -311,6 +347,10 @@
                 <integer>20</integer>
                 <key>Dynamic Power Step</key>
                 <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -342,6 +382,10 @@
                 <integer>10</integer>
                 <key>Dynamic Power Step</key>
                 <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -373,6 +417,10 @@
                 <integer>10</integer>
                 <key>Dynamic Power Step</key>
                 <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -406,6 +454,10 @@
                 <integer>60</integer>
                 <key>Dynamic Power Step</key>
                 <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -437,6 +489,10 @@
                 <integer>30</integer>
                 <key>Dynamic Power Step</key>
                 <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>
@@ -468,6 +524,10 @@
                 <integer>30</integer>
                 <key>Dynamic Power Step</key>
                 <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
                 <key>Reduce Processor Speed</key>
                 <integer>0</integer>
                 <key>System Sleep Timer</key>

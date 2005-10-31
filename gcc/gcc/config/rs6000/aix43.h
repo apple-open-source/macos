@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX version 4.3.
-   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
@@ -116,10 +116,7 @@ do {									\
    defined.  */
 #undef CPLUSPLUS_CPP_SPEC			
 #define CPLUSPLUS_CPP_SPEC			\
-  "-D_XOPEN_SOURCE=500				\
-   -D_XOPEN_SOURCE_EXTENDED=1			\
-   -D_LARGE_FILE_API				\
-   -D_ALL_SOURCE				\
+  "-D_ALL_SOURCE				\
    %{maix64: -D__64BIT__}			\
    %{mpe: -I/usr/lpp/ppe.poe/include}		\
    %{pthread: -D_THREAD_SAFE}"
@@ -181,3 +178,8 @@ do {									\
 
 #undef LD_INIT_SWITCH
 #define LD_INIT_SWITCH "-binitfini"
+
+/* The IBM AIX 4.x assembler doesn't support forward references in
+   .set directives.  We handle this by deferring the output of .set
+   directives to the end of the compilation unit.  */
+#define TARGET_DEFERRED_OUTPUT_DEFS(DECL,TARGET) true

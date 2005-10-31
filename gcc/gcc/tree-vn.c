@@ -1,5 +1,5 @@
 /* Value Numbering routines for tree expressions.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>, Steven Bosscher
    <stevenb@suse.de> and Diego Novillo <dnovillo@redhat.com>
 
@@ -267,11 +267,16 @@ vn_lookup_or_add (tree expr, vuse_optype vuses)
 
 /* Get the value handle of EXPR.  This is the only correct way to get
    the value handle for a "thing".  If EXPR does not have a value
-   handle associated, it returns NULL_TREE.  */
+   handle associated, it returns NULL_TREE.  
+   NB: If EXPR is min_invariant, this function is *required* to return EXPR.  */
 
 tree
 get_value_handle (tree expr)
 {
+
+  if (is_gimple_min_invariant (expr))
+    return expr;
+
   if (TREE_CODE (expr) == SSA_NAME)
     return SSA_NAME_VALUE (expr);
   else if (EXPR_P (expr) || DECL_P (expr))
@@ -280,10 +285,7 @@ get_value_handle (tree expr)
       return ((ann) ? ann->common.value_handle : NULL_TREE);
     }
   else
-    {
-      gcc_assert (is_gimple_min_invariant (expr));
-      return expr;
-    }
+    gcc_unreachable ();
 }
 
 

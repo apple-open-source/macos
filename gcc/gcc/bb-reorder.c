@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -70,7 +70,7 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "basic-block.h"
+#include "regs.h"
 #include "flags.h"
 #include "timevar.h"
 #include "output.h"
@@ -81,7 +81,7 @@
 #include "tm_p.h"
 #include "obstack.h"
 #include "expr.h"
-#include "regs.h"
+#include "params.h"
 
 /* The number of rounds.  In most cases there will only be 4 rounds, but
    when partitioning hot and cold basic blocks into separate sections of
@@ -488,6 +488,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
       do
 	{
 	  int prob, freq;
+	  bool ends_in_call;
 
 	  /* The probability and frequency of the best edge.  */
 	  int best_prob = INT_MIN / 2;
@@ -500,6 +501,8 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 	  if (dump_file)
 	    fprintf (dump_file, "Basic block %d was visited in trace %d\n",
 		     bb->index, *n_traces - 1);
+
+          ends_in_call = block_ends_with_call_p (bb);
 
 	  /* Select the successor that will be placed after BB.  */
 	  FOR_EACH_EDGE (e, ei, bb->succs)
@@ -519,6 +522,19 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 
 	      prob = e->probability;
 	      freq = EDGE_FREQUENCY (e);
+
+	      /* The only sensible preference for a call instruction is the
+		 fallthru edge.  Don't bother selecting anything else.  */
+	      if (ends_in_call)
+		{
+		  if (e->flags & EDGE_CAN_FALLTHRU)
+		    {
+		      best_edge = e;
+		      best_prob = prob;
+		      best_freq = freq;
+		    }
+		  continue;
+		}
 
 	      /* Edge that cannot be fallthru or improbable or infrequent
 		 successor (i.e. it is unsuitable successor).  */
@@ -639,14 +655,8 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 			{
 			  /* The loop has less than 4 iterations.  */
 
-			  /* Check whether there is another edge from BB.  */
-			  edge another_edge;
-			  FOR_EACH_EDGE (another_edge, ei, bb->succs)
-			    if (another_edge != best_edge)
-			      break;
-
-			  if (!another_edge && copy_bb_p (best_edge->dest,
-							  !optimize_size))
+			  if (EDGE_COUNT (bb->succs) == 1
+			      && copy_bb_p (best_edge->dest, !optimize_size))
 			    {
 			      bb = copy_bb (best_edge->dest, best_edge, bb,
 					    *n_traces);
@@ -1196,8 +1206,7 @@ copy_bb_p (basic_block bb, int code_may_grow)
   if (code_may_grow && maybe_hot_bb_p (bb))
     max_size *= 8;
 
-  for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
-       insn = NEXT_INSN (insn))
+  FOR_BB_INSNS (bb, insn)
     {
       if (INSN_P (insn))
 	size += get_attr_length (insn);
@@ -1691,10 +1700,8 @@ fix_crossing_conditional_branches (void)
 		  
 		  /* Update register liveness information.  */
 		  
-		  new_bb->global_live_at_start = 
-		    OBSTACK_ALLOC_REG_SET (&flow_obstack);
-		  new_bb->global_live_at_end = 
-		    OBSTACK_ALLOC_REG_SET (&flow_obstack);
+		  new_bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+		  new_bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
 		  COPY_REG_SET (new_bb->global_live_at_end,
 				prev_bb->global_live_at_end);
 		  COPY_REG_SET (new_bb->global_live_at_start,
@@ -1929,7 +1936,7 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
       if (!HAS_LONG_UNCOND_BRANCH)
 	{
 	  fix_crossing_unconditional_branches ();
-	  reg_scan (get_insns(), max_reg_num (), 1);
+	  reg_scan (get_insns(), max_reg_num ());
 	}
 
       add_reg_crossing_jump_notes ();
@@ -1990,6 +1997,122 @@ reorder_basic_blocks (unsigned int flags)
     add_unlikely_executed_notes ();
 
   cfg_layout_finalize ();
+
+  timevar_pop (TV_REORDER_BLOCKS);
+}
+
+/* Duplicate the blocks containing computed gotos.  This basically unfactors
+   computed gotos that were factored early on in the compilation process to
+   speed up edge based data flow.  We used to not unfactoring them again,
+   which can seriously pessimize code with many computed jumps in the source
+   code, such as interpreters.  See e.g. PR15242.  */
+
+void
+duplicate_computed_gotos (void)
+{
+  basic_block bb, new_bb;
+  bitmap candidates;
+  int max_size;
+
+  if (n_basic_blocks <= 1)
+    return;
+
+  if (targetm.cannot_modify_jumps_p ())
+    return;
+
+  timevar_push (TV_REORDER_BLOCKS);
+
+  cfg_layout_initialize (0);
+
+  /* We are estimating the length of uncond jump insn only once
+     since the code for getting the insn length always returns
+     the minimal length now.  */
+  if (uncond_jump_length == 0)
+    uncond_jump_length = get_uncond_jump_length ();
+
+  max_size = uncond_jump_length * PARAM_VALUE (PARAM_MAX_GOTO_DUPLICATION_INSNS);
+  candidates = BITMAP_ALLOC (NULL);
+
+  /* Look for blocks that end in a computed jump, and see if such blocks
+     are suitable for unfactoring.  If a block is a candidate for unfactoring,
+     mark it in the candidates.  */
+  FOR_EACH_BB (bb)
+    {
+      rtx insn;
+      edge e;
+      edge_iterator ei;
+      int size, all_flags;
+
+      /* Build the reorder chain for the original order of blocks.  */
+      if (bb->next_bb != EXIT_BLOCK_PTR)
+	bb->rbi->next = bb->next_bb;
+
+      /* Obviously the block has to end in a computed jump.  */
+      if (!computed_jump_p (BB_END (bb)))
+	continue;
+
+      /* Only consider blocks that can be duplicated.  */
+      if (find_reg_note (BB_END (bb), REG_CROSSING_JUMP, NULL_RTX)
+	  || !can_duplicate_block_p (bb))
+	continue;
+
+      /* Make sure that the block is small enough.  */
+      size = 0;
+      FOR_BB_INSNS (bb, insn)
+	if (INSN_P (insn))
+	  {
+	    size += get_attr_length (insn);
+	    if (size > max_size)
+	       break;
+	  }
+      if (size > max_size)
+	continue;
+
+      /* Final check: there must not be any incoming abnormal edges.  */
+      all_flags = 0;
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	all_flags |= e->flags;
+      if (all_flags & EDGE_COMPLEX)
+	continue;
+
+      bitmap_set_bit (candidates, bb->index);
+    }
+
+  /* Nothing to do if there is no computed jump here.  */
+  if (bitmap_empty_p (candidates))
+    goto done;
+
+  /* Duplicate computed gotos.  */
+  FOR_EACH_BB (bb)
+    {
+      if (bb->rbi->visited)
+	continue;
+
+      bb->rbi->visited = 1;
+
+      /* BB must have one outgoing edge.  That edge must not lead to
+         the exit block or the next block.
+	 The destination must have more than one predecessor.  */
+      if (EDGE_COUNT(bb->succs) != 1
+	  || EDGE_SUCC(bb,0)->dest == EXIT_BLOCK_PTR
+	  || EDGE_SUCC(bb,0)->dest == bb->next_bb
+	  || EDGE_COUNT(EDGE_SUCC(bb,0)->dest->preds) <= 1)
+	continue;
+
+      /* The successor block has to be a duplication candidate.  */
+      if (!bitmap_bit_p (candidates, EDGE_SUCC(bb,0)->dest->index))
+	continue;
+
+      new_bb = duplicate_block (EDGE_SUCC(bb,0)->dest, EDGE_SUCC(bb,0));
+      new_bb->rbi->next = bb->rbi->next;
+      bb->rbi->next = new_bb;
+      new_bb->rbi->visited = 1;
+    }
+
+done:
+  cfg_layout_finalize ();
+
+  BITMAP_FREE (candidates);
 
   timevar_pop (TV_REORDER_BLOCKS);
 }

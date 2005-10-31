@@ -50,9 +50,8 @@ struct inferior_info
 };
 
 static bfd_size_type
-  inferior_read
-  (PTR iodata, PTR data, bfd_size_type size, bfd_size_type nitems, bfd *abfd,
-   bfd_vma where)
+inferior_read (PTR iodata, PTR data, bfd_size_type size, bfd_size_type nitems, 
+               bfd *abfd, bfd_vma where)
 {
   struct inferior_info *iptr = (struct inferior_info *) iodata;
   int ret;
@@ -83,9 +82,8 @@ static bfd_size_type
 }
 
 static bfd_size_type
-  mach_o_inferior_read
-  (PTR iodata, PTR data, bfd_size_type size, bfd_size_type nitems, bfd *abfd,
-   bfd_vma where)
+mach_o_inferior_read (PTR iodata, PTR data, bfd_size_type size, 
+                      bfd_size_type nitems, bfd *abfd, bfd_vma where)
 {
   struct inferior_info *iptr = (struct inferior_info *) iodata;
   unsigned int i;
@@ -145,9 +143,8 @@ static bfd_size_type
 }
 
 static bfd_size_type
-  inferior_write
-  (PTR iodata, const PTR data, bfd_size_type size, bfd_size_type nitems,
-   bfd *abfd, bfd_vma where)
+inferior_write (PTR iodata, const PTR data, bfd_size_type size, 
+                bfd_size_type nitems, bfd *abfd, bfd_vma where)
 {
   error ("unable to write to in-memory images");
 }
@@ -174,8 +171,9 @@ inferior_stat (PTR iodata, bfd *abfd, struct stat *statbuf)
   return 0;
 }
 
-static bfd *inferior_bfd_generic
-  (const char *name, CORE_ADDR addr, CORE_ADDR offset, CORE_ADDR len)
+static bfd *
+inferior_bfd_generic (const char *name, CORE_ADDR addr, CORE_ADDR offset, 
+                      CORE_ADDR len)
 {
   struct inferior_info *iptr = NULL;
   struct bfd_io_functions fdata;
@@ -274,8 +272,8 @@ static bfd *inferior_bfd_generic
   return ret;
 }
 
-bfd *inferior_bfd
-  (const char *name, CORE_ADDR addr, CORE_ADDR offset, CORE_ADDR len)
+bfd *
+inferior_bfd (const char *name, CORE_ADDR addr, CORE_ADDR offset, CORE_ADDR len)
 {
   bfd *ret = inferior_bfd_generic (name, addr, offset, len);
   if (ret == NULL)

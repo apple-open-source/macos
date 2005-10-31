@@ -165,6 +165,6 @@ u_int8_t winChksum __P((u_int8_t *name));
 int winSlotCnt __P((const u_int16_t *un, int unlen));
 void mac2sfmfn __P((u_int16_t *un, size_t unlen));
 void sfm2macfn __P((u_int16_t *un, u_int16_t unlen));
-int msdosfs_fsync_internal(vnode_t vp, int sync, vfs_context_t context);
+int msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context);
 
 #endif	/* KERNEL */

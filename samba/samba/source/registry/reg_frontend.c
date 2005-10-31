@@ -59,7 +59,7 @@ BOOL init_registry( void )
 			return False;
 	}
 
-	if ( DEBUGLEVEL >= 20 )
+	if ( SAMBA_DEBUGLEVEL >= 20 )
 		reghook_dump_cache(20);
 
 	return True;

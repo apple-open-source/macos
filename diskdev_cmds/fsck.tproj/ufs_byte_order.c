@@ -169,7 +169,7 @@ byte_swap_cgin(struct cg *cg, struct fs * fs)
 	byte_swap_int(cg->cg_nextfreeoff);
 	byte_swap_int(cg->cg_clusteroff);
 	byte_swap_int(cg->cg_nclusterblks);
-	byte_swap_ints(&cg->cg_sparecon, 13);
+	byte_swap_ints(cg->cg_sparecon, 13);
 
 	byte_swap_int(cg->cg_btotoff);
 	ulptr = ((int32_t *)((u_int8_t *)(cg) + (cg)->cg_btotoff));
@@ -215,7 +215,7 @@ byte_swap_cgout(struct cg *cg, struct fs * fs)
 	byte_swap_int(cg->cg_freeoff);
 	byte_swap_int(cg->cg_nextfreeoff);
 	byte_swap_int(cg->cg_nclusterblks);
-	byte_swap_ints(&cg->cg_sparecon, 13);
+	byte_swap_ints(cg->cg_sparecon, 13);
 
 	byte_swap_int(cg->cg_iusedoff);
 	byte_swap_int(cg->cg_clusteroff);

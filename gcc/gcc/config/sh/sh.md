@@ -1,6 +1,6 @@
 ;;- Machine description for Renesas / SuperH SH.
 ;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-;;  2003, 2004 Free Software Foundation, Inc.
+;;  2003, 2004, 2005 Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -1164,7 +1164,8 @@
 		(match_operand:SI 2 "arith_reg_operand" "z")))]
   "TARGET_SH2A"
   "divu	%2,%1"
-  [(set_attr "type" "arith")])
+  [(set_attr "type" "arith")
+   (set_attr "in_delay_slot" "no")])
 
 ;; We must use a pseudo-reg forced to reg 0 in the SET_DEST rather than
 ;; hard register 0.  If we used hard register 0, then the next instruction
@@ -1348,7 +1349,8 @@
 		(match_operand:SI 2 "arith_reg_operand" "z")))]
   "TARGET_SH2A"
   "divs	%2,%1"
-  [(set_attr "type" "arith")])
+  [(set_attr "type" "arith")
+   (set_attr "in_delay_slot" "no")])
 
 (define_insn "divsi3_i1"
   [(set (match_operand:SI 0 "register_operand" "=z")
@@ -9447,7 +9449,7 @@ mov.l\\t1f,r0\\n\\
 	(sign_extract:SI (match_operand:QI 1 "unaligned_load_operand" "")
 			 (match_operand 2 "const_int_operand" "")
 			 (match_operand 3 "const_int_operand" "")))]
-  ""
+  "TARGET_SH4A_ARCH"
 {
   if (TARGET_SH4A_ARCH
       && INTVAL (operands[2]) == 32
@@ -9467,7 +9469,7 @@ mov.l\\t1f,r0\\n\\
 	(zero_extract:SI (match_operand:QI 1 "unaligned_load_operand" "")
 			 (match_operand 2 "const_int_operand" "")
 			 (match_operand 3 "const_int_operand" "")))]
-  ""
+  "TARGET_SH4A_ARCH"
 {
   if (TARGET_SH4A_ARCH
       && INTVAL (operands[2]) == 32

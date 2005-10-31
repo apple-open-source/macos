@@ -313,7 +313,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS EXTRA_FILES CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT HAVE_GCC CPP LD KRB4_INCLUDES KRB4_LIBPATH KRB4_LIB KRB4_DEPLIB KRB_ERR_H_DEP DES425_DEPLIB DES425_LIB compile_et COM_ERR_VERSION SS_LIB SS_VERSION DB_HEADER DB_LIB DB_VERSION DB_HEADER_VERSION KDB5_DB_LIB HESIOD_DEFS HESIOD_LIBS MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT CONFIG_RELTOPDIR subdirs build build_cpu build_vendor build_os host host_cpu host_vendor host_os krb5_cv_host acx_pthread_config PTHREAD_CC PTHREAD_LIBS PTHREAD_CFLAGS AWK EGREP include_stdint OBJLISTS STOBJEXT SHOBJEXT PFOBJEXT PICFLAGS PROFFLAGS LN_S RANLIB ac_ct_RANLIB ARCHIVE ARADD INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA AR PERL LIBLIST LIBLINKS MAKE_SHLIB_COMMAND SHLIB_EXPFLAGS SHLIB_EXPORT_FILE_DEP INSTALL_SHLIB STLIBEXT SHLIBEXT SHLIBVEXT SHLIBSEXT DEPLIBEXT PFLIBEXT LIBINSTLIST LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS EXTRA_FILES CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT HAVE_GCC CPP LD KRB4_INCLUDES KRB4_LIBPATH KRB4_LIB KRB4_DEPLIB KRB_ERR_H_DEP DES425_DEPLIB DES425_LIB compile_et COM_ERR_VERSION SS_LIB SS_VERSION DB_HEADER DB_LIB DB_VERSION DB_HEADER_VERSION KDB5_DB_LIB HESIOD_DEFS HESIOD_LIBS MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT CONFIG_RELTOPDIR subdirs build build_cpu build_vendor build_os host host_cpu host_vendor host_os krb5_cv_host acx_pthread_config PTHREAD_CC PTHREAD_LIBS PTHREAD_CFLAGS AWK EGREP include_stdint include_xom OBJLISTS STOBJEXT SHOBJEXT PFOBJEXT PICFLAGS PROFFLAGS LN_S RANLIB ac_ct_RANLIB ARCHIVE ARADD INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA AR PERL LIBLIST LIBLINKS MAKE_SHLIB_COMMAND SHLIB_EXPFLAGS SHLIB_EXPORT_FILE_DEP INSTALL_SHLIB STLIBEXT SHLIBEXT SHLIBVEXT SHLIBSEXT DEPLIBEXT PFLIBEXT LIBINSTLIST LIBOBJS LTLIBOBJS'
 ac_subst_files='lib_frag libobj_frag'
 
 # Initialize some variables set by options.
@@ -7248,7 +7248,156 @@ echo "${ECHO_T}$ac_cv_header_stdint_h" >&6
 fi
 if test $ac_cv_header_stdint_h = yes; then
 
-	include_stdint="\\#include <stdint.h>"
+	include_stdint='awk '\''END{printf("%cinclude <stdint.h>\n", 35);}'\'' < /dev/null'
+else
+  include_stdint='echo "/* no stdint.h */"'
+fi
+
+
+
+if test "${ac_cv_header_xom_h+set}" = set; then
+  echo "$as_me:$LINENO: checking for xom.h" >&5
+echo $ECHO_N "checking for xom.h... $ECHO_C" >&6
+if test "${ac_cv_header_xom_h+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+fi
+echo "$as_me:$LINENO: result: $ac_cv_header_xom_h" >&5
+echo "${ECHO_T}$ac_cv_header_xom_h" >&6
+else
+  # Is the header compilable?
+echo "$as_me:$LINENO: checking xom.h usability" >&5
+echo $ECHO_N "checking xom.h usability... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#include <xom.h>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_header_compiler=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_header_compiler=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6
+
+# Is the header present?
+echo "$as_me:$LINENO: checking xom.h presence" >&5
+echo $ECHO_N "checking xom.h presence... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <xom.h>
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  ac_header_preproc=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  ac_header_preproc=no
+fi
+rm -f conftest.err conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
+  yes:no: )
+    { echo "$as_me:$LINENO: WARNING: xom.h: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: xom.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:$LINENO: WARNING: xom.h: proceeding with the compiler's result" >&5
+echo "$as_me: WARNING: xom.h: proceeding with the compiler's result" >&2;}
+    ac_header_preproc=yes
+    ;;
+  no:yes:* )
+    { echo "$as_me:$LINENO: WARNING: xom.h: present but cannot be compiled" >&5
+echo "$as_me: WARNING: xom.h: present but cannot be compiled" >&2;}
+    { echo "$as_me:$LINENO: WARNING: xom.h:     check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: xom.h:     check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:$LINENO: WARNING: xom.h: see the Autoconf documentation" >&5
+echo "$as_me: WARNING: xom.h: see the Autoconf documentation" >&2;}
+    { echo "$as_me:$LINENO: WARNING: xom.h:     section \"Present But Cannot Be Compiled\"" >&5
+echo "$as_me: WARNING: xom.h:     section \"Present But Cannot Be Compiled\"" >&2;}
+    { echo "$as_me:$LINENO: WARNING: xom.h: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: xom.h: proceeding with the preprocessor's result" >&2;}
+    { echo "$as_me:$LINENO: WARNING: xom.h: in the future, the compiler will take precedence" >&5
+echo "$as_me: WARNING: xom.h: in the future, the compiler will take precedence" >&2;}
+    (
+      cat <<\_ASBOX
+## ------------------------------------------ ##
+## Report this to the AC_PACKAGE_NAME lists.  ##
+## ------------------------------------------ ##
+_ASBOX
+    ) |
+      sed "s/^/$as_me: WARNING:     /" >&2
+    ;;
+esac
+echo "$as_me:$LINENO: checking for xom.h" >&5
+echo $ECHO_N "checking for xom.h... $ECHO_C" >&6
+if test "${ac_cv_header_xom_h+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_cv_header_xom_h=$ac_header_preproc
+fi
+echo "$as_me:$LINENO: result: $ac_cv_header_xom_h" >&5
+echo "${ECHO_T}$ac_cv_header_xom_h" >&6
+
+fi
+if test $ac_cv_header_xom_h = yes; then
+
+	include_xom='awk '\''END{printf("%cinclude <xom.h>\n", 35);}'\'' < /dev/null'
+else
+
+	include_xom='echo "/* no xom.h */"'
 fi
 
 
@@ -8413,6 +8562,7 @@ s,@PTHREAD_CFLAGS@,$PTHREAD_CFLAGS,;t t
 s,@AWK@,$AWK,;t t
 s,@EGREP@,$EGREP,;t t
 s,@include_stdint@,$include_stdint,;t t
+s,@include_xom@,$include_xom,;t t
 s,@OBJLISTS@,$OBJLISTS,;t t
 s,@STOBJEXT@,$STOBJEXT,;t t
 s,@SHOBJEXT@,$SHOBJEXT,;t t

@@ -1,5 +1,5 @@
-/* DefaultTableCellRenderer.java
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+/* DefaultTableCellRenderer.java --
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,12 +35,14 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.table;
 
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Rectangle;
 import java.io.Serializable;
+
 import javax.swing.JLabel;
 import javax.swing.JTable;
 import javax.swing.border.Border;
@@ -197,8 +199,8 @@ public class DefaultTableCellRenderer extends JLabel
    * <p>This method needs to be overridden in a subclass to actually
    * do something.</p>
    */
-  public void firePropertyChange(String propertyName, Object oldValue,
-                                 Object newValue)
+  protected void firePropertyChange(String propertyName, Object oldValue,
+                                    Object newValue)
   {
     // Does nothing.
   }

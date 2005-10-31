@@ -1,6 +1,6 @@
 ;;- Machine description for ARM for GNU compiler
 ;;  Copyright 1991, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999, 2000,
-;;  2001, 2002, 2003 2004  Free Software Foundation, Inc.
+;;  2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 ;;  Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
 ;;  and Martin Simmons (@harleqn.co.uk).
 ;;  More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -30,12 +30,15 @@
 
 ;; Register numbers
 (define_constants
-  [(IP_REGNUM	    12)		; Scratch register
+  [(R0_REGNUM        0)		; First CORE register
+   (IP_REGNUM	    12)		; Scratch register
    (SP_REGNUM	    13)		; Stack pointer
    (LR_REGNUM       14)		; Return address register
    (PC_REGNUM	    15)		; Program counter
    (CC_REGNUM       24)		; Condition code pseudo register
-   (LAST_ARM_REGNUM 15)
+   (LAST_ARM_REGNUM 15)		;
+   (FPA_F0_REGNUM   16)		; FIRST_FPA_REGNUM
+   (FPA_F7_REGNUM   23)		; LAST_FPA_REGNUM
   ]
 )
 ;; 3rd operand to select_dominance_cc_mode
@@ -297,11 +300,11 @@
 ;; True if the generic scheduling description should be used.
 
 (define_attr "generic_sched" "yes,no"
-        (if_then_else 
-         (eq_attr "tune" "arm926ejs,arm1026ejs,arm1136js,arm1136jfs") 
-         (const_string "no")
-         (const_string "yes")))
-	
+  (const (if_then_else 
+          (eq_attr "tune" "arm926ejs,arm1026ejs,arm1136js,arm1136jfs") 
+          (const_string "no")
+          (const_string "yes"))))
+
 (include "arm-generic.md")
 (include "arm926ejs.md")
 (include "arm1026ejs.md")
@@ -1097,7 +1100,7 @@
 			 (const_int 0)))
    (set (match_operand:SI 0 "s_register_operand" "=&r,&r")
 	(mult:SI (match_dup 2) (match_dup 1)))]
-  "TARGET_ARM && !arm_arch_xscale"
+  "TARGET_ARM"
   "mul%?s\\t%0, %2, %1"
   [(set_attr "conds" "set")
    (set_attr "insn" "muls")]
@@ -1110,7 +1113,7 @@
 			  (match_operand:SI 1 "s_register_operand" "%?r,0"))
 			 (const_int 0)))
    (clobber (match_scratch:SI 0 "=&r,&r"))]
-  "TARGET_ARM && !arm_arch_xscale"
+  "TARGET_ARM"
   "mul%?s\\t%0, %2, %1"
   [(set_attr "conds" "set")
    (set_attr "insn" "muls")]
@@ -1141,7 +1144,7 @@
    (set (match_operand:SI 0 "s_register_operand" "=&r,&r,&r,&r")
 	(plus:SI (mult:SI (match_dup 2) (match_dup 1))
 		 (match_dup 3)))]
-  "TARGET_ARM && !arm_arch_xscale"
+  "TARGET_ARM"
   "mla%?s\\t%0, %2, %1, %3"
   [(set_attr "conds" "set")
    (set_attr "insn" "mlas")]
@@ -1156,7 +1159,7 @@
 		  (match_operand:SI 3 "s_register_operand" "?r,r,0,0"))
 	 (const_int 0)))
    (clobber (match_scratch:SI 0 "=&r,&r,&r,&r"))]
-  "TARGET_ARM && !arm_arch_xscale"
+  "TARGET_ARM"
   "mla%?s\\t%0, %2, %1, %3"
   [(set_attr "conds" "set")
    (set_attr "insn" "mlas")]
@@ -1895,7 +1898,7 @@
 
 	emit_insn (gen_andsi3 (op1, operands[0], GEN_INT (~mask2)));
 	emit_insn (gen_iorsi3 (subtarget, op1,
-			       GEN_INT (op3_value << start_bit)));
+			       gen_int_mode (op3_value << start_bit, SImode)));
       }
     else if (start_bit == 0
 	     && !(const_ok_for_arm (mask)
@@ -4156,18 +4159,18 @@
 )
 
 (define_insn "*arm_movdi"
-  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r ,m")
-	(match_operand:DI 1 "di_operand"              "rIK,mi,r"))]
+  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,   r, r, r, m")
+	(match_operand:DI 1 "di_operand"              "rIKDa,Db,Dc,mi,r"))]
   "TARGET_ARM
   && !(TARGET_HARD_FLOAT && (TARGET_MAVERICK || TARGET_VFP))
   && !TARGET_IWMMXT"
   "*
   return (output_move_double (operands));
   "
-  [(set_attr "length" "8")
-   (set_attr "type" "*,load2,store2")
-   (set_attr "pool_range" "*,1020,*")
-   (set_attr "neg_pool_range" "*,1008,*")]
+  [(set_attr "length" "8,12,16,8,8")
+   (set_attr "type" "*,*,*,load2,store2")
+   (set_attr "pool_range" "*,*,*,1020,*")
+   (set_attr "neg_pool_range" "*,*,*,1008,*")]
 )
 
 ;; We can't actually do base+index doubleword loads if the index and
@@ -5165,13 +5168,13 @@
 )
 
 (define_insn "*movdf_soft_insn"
-  [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=r,r,m")
-	(match_operand:DF 1 "soft_df_operand" "r,mF,r"))]
+  [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=r,r,r,r,m")
+	(match_operand:DF 1 "soft_df_operand" "rDa,Db,Dc,mF,r"))]
   "TARGET_ARM && TARGET_SOFT_FLOAT
   "
   "* return output_move_double (operands);"
-  [(set_attr "length" "8,8,8")
-   (set_attr "type" "*,load2,store2")
+  [(set_attr "length" "8,12,16,8,8")
+   (set_attr "type" "*,*,*,load2,store2")
    (set_attr "pool_range" "1020")
    (set_attr "neg_pool_range" "1008")]
 )
@@ -5214,6 +5217,16 @@
   [(set_attr "length" "4,2,2,6,4,4")
    (set_attr "type" "*,load2,store2,load2,store2,*")
    (set_attr "pool_range" "*,*,*,1020,*,*")]
+)
+
+(define_expand "movxf"
+  [(set (match_operand:XF 0 "general_operand" "")
+	(match_operand:XF 1 "general_operand" ""))]
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  "
+  if (GET_CODE (operands[0]) == MEM)
+    operands[1] = force_reg (XFmode, operands[1]);
+  "
 )
 
 ;; Vector Moves
@@ -5286,6 +5299,24 @@
   "ldm%?ia\\t%1!, {%3, %4, %5, %6}"
   [(set_attr "type" "load4")
    (set_attr "predicable" "yes")]
+)
+
+(define_insn "*ldmsi_postinc4_thumb"
+  [(match_parallel 0 "load_multiple_operation"
+    [(set (match_operand:SI 1 "s_register_operand" "=l")
+	  (plus:SI (match_operand:SI 2 "s_register_operand" "1")
+		   (const_int 16)))
+     (set (match_operand:SI 3 "arm_hard_register_operand" "")
+	  (mem:SI (match_dup 2)))
+     (set (match_operand:SI 4 "arm_hard_register_operand" "")
+	  (mem:SI (plus:SI (match_dup 2) (const_int 4))))
+     (set (match_operand:SI 5 "arm_hard_register_operand" "")
+	  (mem:SI (plus:SI (match_dup 2) (const_int 8))))
+     (set (match_operand:SI 6 "arm_hard_register_operand" "")
+	  (mem:SI (plus:SI (match_dup 2) (const_int 12))))])]
+  "TARGET_THUMB && XVECLEN (operands[0], 0) == 5"
+  "ldmia\\t%1!, {%3, %4, %5, %6}"
+  [(set_attr "type" "load4")]
 )
 
 (define_insn "*ldmsi_postinc3"
@@ -5407,6 +5438,24 @@
   "stm%?ia\\t%1!, {%3, %4, %5, %6}"
   [(set_attr "predicable" "yes")
    (set_attr "type" "store4")]
+)
+
+(define_insn "*stmsi_postinc4_thumb"
+  [(match_parallel 0 "store_multiple_operation"
+    [(set (match_operand:SI 1 "s_register_operand" "=l")
+	  (plus:SI (match_operand:SI 2 "s_register_operand" "1")
+		   (const_int 16)))
+     (set (mem:SI (match_dup 2))
+	  (match_operand:SI 3 "arm_hard_register_operand" ""))
+     (set (mem:SI (plus:SI (match_dup 2) (const_int 4)))
+	  (match_operand:SI 4 "arm_hard_register_operand" ""))
+     (set (mem:SI (plus:SI (match_dup 2) (const_int 8)))
+	  (match_operand:SI 5 "arm_hard_register_operand" ""))
+     (set (mem:SI (plus:SI (match_dup 2) (const_int 12)))
+	  (match_operand:SI 6 "arm_hard_register_operand" ""))])]
+  "TARGET_THUMB && XVECLEN (operands[0], 0) == 5"
+  "stmia\\t%1!, {%3, %4, %5, %6}"
+  [(set_attr "type" "store4")]
 )
 
 (define_insn "*stmsi_postinc3"
@@ -7436,7 +7485,7 @@
   "*
   {
     if (!TARGET_CALLER_INTERWORKING)
-      return \"bl\\t%__call_via_%0\";
+      return thumb_call_via_reg (operands[0]);
     else if (operands[1] == const0_rtx)
       return \"bl\\t%__interwork_call_via_%0\";
     else if (frame_pointer_needed)
@@ -7530,7 +7579,7 @@
   "*
   {
     if (!TARGET_CALLER_INTERWORKING)
-      return \"bl\\t%__call_via_%1\";
+      return thumb_call_via_reg (operands[1]);
     else if (operands[2] == const0_rtx)
       return \"bl\\t%__interwork_call_via_%1\";
     else if (frame_pointer_needed)
@@ -7560,7 +7609,7 @@
 )
 
 (define_insn "*call_value_symbol"
-  [(set (match_operand 0 "s_register_operand" "")
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (match_operand:SI 1 "" ""))
 	(match_operand:SI 2 "" "")))
    (use (match_operand 3 "" ""))
@@ -7589,7 +7638,7 @@
 )
 
 (define_insn "*call_value_insn"
-  [(set (match_operand 0 "register_operand" "")
+  [(set (match_operand 0 "" "")
 	(call (mem:SI (match_operand 1 "" ""))
 	      (match_operand 2 "" "")))
    (use (match_operand 3 "" ""))
@@ -7617,7 +7666,7 @@
 )
 
 (define_expand "sibcall_value"
-  [(parallel [(set (match_operand 0 "register_operand" "")
+  [(parallel [(set (match_operand 0 "" "")
 		   (call (match_operand 1 "memory_operand" "")
 			 (match_operand 2 "general_operand" "")))
 	      (return)
@@ -7643,7 +7692,7 @@
 )
 
 (define_insn "*sibcall_value_insn"
- [(set (match_operand 0 "s_register_operand" "")
+ [(set (match_operand 0 "" "")
        (call (mem:SI (match_operand:SI 1 "" "X"))
 	     (match_operand 2 "" "")))
   (return)
@@ -7749,18 +7798,59 @@
 		    (const_int 0))
 	      (match_operand 1 "" "")
 	      (match_operand 2 "" "")])]
-  "TARGET_ARM"
+  "TARGET_EITHER"
   "
   {
     int i;
+    rtx par = gen_rtx_PARALLEL (VOIDmode,
+				rtvec_alloc (XVECLEN (operands[2], 0)));
+    rtx addr = gen_reg_rtx (Pmode);
+    rtx mem;
+    int size = 0;
 
-    emit_call_insn (GEN_CALL (operands[0], const0_rtx, NULL, const0_rtx));
+    emit_move_insn (addr, XEXP (operands[1], 0));
+    mem = change_address (operands[1], BLKmode, addr);
 
     for (i = 0; i < XVECLEN (operands[2], 0); i++)
       {
-	rtx set = XVECEXP (operands[2], 0, i);
+	rtx src = SET_SRC (XVECEXP (operands[2], 0, i));
 
-	emit_move_insn (SET_DEST (set), SET_SRC (set));
+	/* Default code only uses r0 as a return value, but we could
+	   be using anything up to 4 registers.  */
+	if (REGNO (src) == R0_REGNUM)
+	  src = gen_rtx_REG (TImode, R0_REGNUM);
+
+        XVECEXP (par, 0, i) = gen_rtx_EXPR_LIST (VOIDmode, src,
+						 GEN_INT (size));
+        size += GET_MODE_SIZE (GET_MODE (src));
+      }
+
+    emit_call_insn (GEN_CALL_VALUE (par, operands[0], const0_rtx, NULL,
+				    const0_rtx));
+
+    size = 0;
+
+    for (i = 0; i < XVECLEN (par, 0); i++)
+      {
+	HOST_WIDE_INT offset = 0;
+	rtx reg = XEXP (XVECEXP (par, 0, i), 0);
+
+	if (size != 0)
+	  emit_move_insn (addr, plus_constant (addr, size));
+
+	mem = change_address (mem, GET_MODE (reg), NULL);
+	if (REGNO (reg) == R0_REGNUM)
+	  {
+	    /* On thumb we have to use a write-back instruction.  */
+	    emit_insn (arm_gen_store_multiple (R0_REGNUM, 4, addr, TRUE,
+			TARGET_THUMB ? TRUE : FALSE, mem, &offset));
+	    size = TARGET_ARM ? 16 : 0;
+	  }
+	else
+	  {
+	    emit_move_insn (mem, reg);
+	    size = GET_MODE_SIZE (GET_MODE (reg));
+	  }
       }
 
     /* The optimizer does not know that the call sets the function value
@@ -7768,6 +7858,55 @@
        claiming that all hard registers are used and clobbered at this
        point.  */
     emit_insn (gen_blockage ());
+
+    DONE;
+  }"
+)
+
+(define_expand "untyped_return"
+  [(match_operand:BLK 0 "memory_operand" "")
+   (match_operand 1 "" "")]
+  "TARGET_EITHER"
+  "
+  {
+    int i;
+    rtx addr = gen_reg_rtx (Pmode);
+    rtx mem;
+    int size = 0;
+
+    emit_move_insn (addr, XEXP (operands[0], 0));
+    mem = change_address (operands[0], BLKmode, addr);
+
+    for (i = 0; i < XVECLEN (operands[1], 0); i++)
+      {
+	HOST_WIDE_INT offset = 0;
+	rtx reg = SET_DEST (XVECEXP (operands[1], 0, i));
+
+	if (size != 0)
+	  emit_move_insn (addr, plus_constant (addr, size));
+
+	mem = change_address (mem, GET_MODE (reg), NULL);
+	if (REGNO (reg) == R0_REGNUM)
+	  {
+	    /* On thumb we have to use a write-back instruction.  */
+	    emit_insn (arm_gen_load_multiple (R0_REGNUM, 4, addr, TRUE,
+			TARGET_THUMB ? TRUE : FALSE, mem, &offset));
+	    size = TARGET_ARM ? 16 : 0;
+	  }
+	else
+	  {
+	    emit_move_insn (reg, mem);
+	    size = GET_MODE_SIZE (GET_MODE (reg));
+	  }
+      }
+
+    /* Emit USE insns before the return.  */
+    for (i = 0; i < XVECLEN (operands[1], 0); i++)
+      emit_insn (gen_rtx_USE (VOIDmode,
+			      SET_DEST (XVECEXP (operands[1], 0, i))));
+
+    /* Construct the return.  */
+    expand_naked_return ();
 
     DONE;
   }"

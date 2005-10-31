@@ -56,8 +56,7 @@ routine		CCacheIPC_StoreCredentials (
                         inServerPort		: mach_port_t;
                         inCCache		: CCacheID;
                         inCredentials		: FlattenedInCredentials;
-                    out	outResult		: CCIResult;
-            UserSecToken outToken		: security_token_t);
+                    out	outResult		: CCIResult);
                     
 routine		CCacheIPC_RemoveCredentials (
                         inServerPort		: mach_port_t;

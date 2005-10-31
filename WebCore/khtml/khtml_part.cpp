@@ -52,6 +52,7 @@
 #include "html/html_baseimpl.h"
 #include "html/html_miscimpl.h"
 #include "html/html_imageimpl.h"
+#include "html/html_objectimpl.h"
 #include "rendering/render_block.h"
 #include "rendering/render_text.h"
 #include "rendering/render_frames.h"
@@ -580,6 +581,12 @@ void KHTMLPart::didExplicitOpen()
 {
   d->m_bComplete = false;
   d->m_bLoadEventEmitted = false;
+    
+  // Prevent window.open(url) -- eg window.open("about:blank") -- from blowing away results
+  // from a subsequent window.document.open / window.document.write call. 
+  // Cancelling redirection here works for all cases because document.open 
+  // implicitly precedes document.write.
+  cancelRedirection(); 
 }
 
 
@@ -2051,6 +2058,14 @@ void KHTMLPart::scheduleLocationChange(const QString &url, const QString &referr
     // Handle a location change of a page with no document as a special case.
     // This may happen when a frame changes the location of another frame.
     d->m_scheduledRedirection = d->m_doc ? locationChangeScheduled : locationChangeScheduledDuringLoad;
+    
+    // If a redirect was scheduled during a load, then stop the current load.
+    // Otherwise when the current load transitions from a provisional to a 
+    // committed state, pending redirects may be cancelled. 
+    if (d->m_scheduledRedirection == locationChangeScheduledDuringLoad) {
+        stopLoading(true);   
+    }
+    
     d->m_delayRedirect = 0;
     d->m_redirectURL = url;
     d->m_redirectReferrer = referrer;
@@ -2105,6 +2120,28 @@ void KHTMLPart::cancelRedirection(bool cancelWithLoadInProgress)
     }
 }
 
+void KHTMLPart::changeLocation(const QString &URL, const QString &referrer, bool lockHistory, bool userGesture)
+{
+    if (URL.find("javascript:", 0, false) == 0) {
+        QString script = KURL::decode_string(URL.mid(11));
+        QVariant result = executeScript(script, userGesture);
+        if (result.type() == QVariant::String) {
+            begin(url());
+            write(result.asString());
+            end();
+        }
+        return;
+    }
+
+    KParts::URLArgs args;
+
+    args.setLockHistory(lockHistory);
+    if (!referrer.isEmpty())
+        args.metaData()["referrer"] = referrer;
+
+    urlSelected(URL, 0, 0, "_self", args);
+}
+
 void KHTMLPart::slotRedirect()
 {
     if (d->m_scheduledRedirection == historyNavigationScheduled) {
@@ -2125,34 +2162,18 @@ void KHTMLPart::slotRedirect()
         }
         return;
     }
-  
-  QString u = d->m_redirectURL;
 
-  d->m_scheduledRedirection = noRedirectionScheduled;
-  d->m_delayRedirect = 0;
-  d->m_redirectURL = QString::null;
-  if ( u.find( QString::fromLatin1( "javascript:" ), 0, false ) == 0 )
-  {
-    QString script = KURL::decode_string( u.right( u.length() - 11 ) );
-    //kdDebug( 6050 ) << "KHTMLPart::slotRedirect script=" << script << endl;
-    QVariant res = executeScript( script, d->m_redirectUserGesture );
-    if ( res.type() == QVariant::String ) {
-      begin( url() );
-      write( res.asString() );
-      end();
-    }
-    return;
-  }
-  KParts::URLArgs args;
-  if ( urlcmp( u, m_url.url(), true, false ) )
-    args.reload = true;
+    QString URL = d->m_redirectURL;
+    QString referrer = d->m_redirectReferrer;
+    bool lockHistory = d->m_redirectLockHistory;
+    bool userGesture = d->m_redirectUserGesture;
 
-  args.setLockHistory( d->m_redirectLockHistory );
-  if (!d->m_redirectReferrer.isEmpty())
-    args.metaData()["referrer"] = d->m_redirectReferrer;
-  d->m_redirectReferrer = QString::null;
+    d->m_scheduledRedirection = noRedirectionScheduled;
+    d->m_delayRedirect = 0;
+    d->m_redirectURL = QString::null;
+    d->m_redirectReferrer = QString::null;
 
-  urlSelected( u, 0, 0, "_self", args );
+    changeLocation(URL, referrer, lockHistory, userGesture);
 }
 
 void KHTMLPart::slotRedirection(KIO::Job*, const KURL& url)
@@ -2859,7 +2880,8 @@ void KHTMLPart::urlSelected( const QString &url, int button, int state, const QS
 #endif
 
 #if APPLE_CHANGES
-  args.metaData()["referrer"] = d->m_referrer;
+  if (!d->m_referrer.isEmpty())
+    args.metaData()["referrer"] = d->m_referrer;
   KWQ(this)->urlSelected(cURL, button, state, args);
 #else
   if ( hasTarget )
@@ -3167,6 +3189,7 @@ bool KHTMLPart::requestObject( khtml::RenderPart *frame, const QString &url, con
   (*it).m_type = khtml::ChildFrame::Object;
   (*it).m_paramNames = paramNames;
   (*it).m_paramValues = paramValues;
+  (*it).m_hasFallbackContent = frame->hasFallbackContent();
 
   KURL completedURL;
   if (!url.isEmpty())
@@ -3281,12 +3304,7 @@ bool KHTMLPart::processObjectRequest( khtml::ChildFrame *child, const KURL &_url
     KParts::ReadOnlyPart *part = createPart( d->m_view->viewport(), child->m_name.ascii(), this, child->m_name.ascii(), mimetype, child->m_serviceName, child->m_services, child->m_params );
 #endif
 
-    if ( !part )
-    {
-        if ( child->m_frame )
-          if (child->m_frame->partLoadingErrorNotify( child, url, mimetype ))
-            return true; // we succeeded after all (a fallback was used)
-
+    if (!part) {
         checkEmitLoadEvent();
         return false;
     }
@@ -5447,6 +5465,13 @@ void KHTMLPart::pasteAndMatchStyle()
 #endif
 }
 
+void KHTMLPart::transpose()
+{
+#if APPLE_CHANGES
+    KWQ(this)->issueTransposeCommand();
+#endif
+}
+
 void KHTMLPart::redo()
 {
 #if APPLE_CHANGES
@@ -5907,6 +5932,23 @@ void KHTMLPart::selectFrameElementInParentIfFullySelected()
     // Focus on the parent frame, and then select from before this element to after.
     parentView->setFocus();
     parent->setSelection(Selection(beforeOwnerElement, afterOwnerElement));
+}
+
+void KHTMLPart::handleFallbackContent()
+{
+    KHTMLPart *parent = parentPart();
+    if (!parent)
+        return;
+    ChildFrame *childFrame = parent->childFrame(this);
+    if (!childFrame || childFrame->m_type != ChildFrame::Object)
+        return;
+    khtml::RenderPart *renderPart = childFrame->m_frame;
+    if (!renderPart)
+        return;
+    NodeImpl *node = renderPart->element();
+    if (!node || node->id() != ID_OBJECT)
+        return;
+    static_cast<HTMLObjectElementImpl *>(node)->renderFallbackContent();
 }
 
 using namespace KParts;

@@ -793,7 +793,7 @@ CDDA_VGetInternal ( mount_t					mountPtr,
 		
 	}
 	
-	else if ( ( ino > 100 ) && ( ino < 199 ) )
+	else if ( ( ino > 100 ) && ( ino < 200 ) )
 	{
 		
 		parentCDDANodePtr = VTOCDDA ( cddaMountPtr->root );

@@ -1,0 +1,28 @@
+#AdministrationHeader("#adminResource('bookmarklet.start.entry.header' 'Bookmarklet - Start')")
+
+<body>
+    <div id="wrap">
+
+        <h1>Blosjom Administration Interface</h1>
+
+        <ul id="nav">
+        </ul>
+
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
+                <div class="mainClm">
+                    <p>Drag the appropriate link into your browser toolbar. This will enable you to open this "Bookmarklet - Add Blog Entry" pop-up window from your bookmarks.
+
+                    <p>For Safari:
+                    <a href="javascript:void(window.open('$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=bookmarklet','_blank','scrollbars=yes,width=800,height=800,status=yes,resizable=yes,scrollbars=yes'))">blojsom IT! (Safari)</a>
+
+                    <p>For IE or Mozilla:
+                    <a href="javascript:d=document;q=location.href;t=d.selection?d.selection.createRange().text:d.getSelection();void(window.open('$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=bookmarklet&selection='+document.getSelection(),'_blank','scrollbars=yes,width=800,height=800,status=yes,resizable=yes,scrollbars=yes'))">blojsom IT! (IE or Mozilla)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+#AdministrationFooter()

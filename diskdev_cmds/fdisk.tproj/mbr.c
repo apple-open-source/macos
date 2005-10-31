@@ -63,7 +63,6 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/disklabel.h>
 #if 0
 #include <sys/dkio.h>
 #endif
@@ -230,18 +229,20 @@ MBR_pcopy(disk, mbr)
 	 */
 
 	int i, fd, offset = 0, reloff = 0;
-	mbr_t mbrd;
+	mbr_t *mbrd;
 	
+	mbrd = MBR_alloc(NULL);
 	fd = DISK_open(disk->name, O_RDONLY);
-	MBR_read(fd, offset, &mbrd);
+	MBR_read(fd, offset, mbrd);
 	DISK_close(fd);
-	MBR_parse(disk, offset, reloff, &mbrd);
+	MBR_parse(disk, offset, reloff, mbrd);
 	for (i = 0; i < NDOSPART; i++) {
-		PRT_parse(disk, &mbrd.buf[MBR_PART_OFF +
+		PRT_parse(disk, &mbrd->buf[MBR_PART_OFF +
 					 MBR_PART_SIZE * i], 
 			  offset, reloff, &mbr->part[i], i);
 		PRT_print(i, &mbr->part[i]);
 	}
+	MBR_free(mbrd);
 }
 
 

@@ -444,12 +444,28 @@ static const char *set_endian_string;
 static void
 show_endian (char *args, int from_tty)
 {
-  if (target_byte_order_auto)
-    printf_unfiltered ("The target endianness is set automatically (currently %s endian)\n",
-		       (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? "big" : "little"));
+  /* APPLE LOCAL: Output the endianness (both what is set by the user,
+     and the endianness currently effective) in MI format, if
+     appropriate. */
+
+  if (!ui_out_is_mi_like_p (uiout)) 
+    {
+      if (target_byte_order_auto)
+	printf_unfiltered ("The target endianness is set automatically (currently %s endian)\n",
+			   (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? "big" : "little"));
+      else
+	printf_unfiltered ("The target is assumed to be %s endian\n",
+			   (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? "big" : "little"));
+    }
   else
-    printf_unfiltered ("The target is assumed to be %s endian\n",
-		       (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? "big" : "little"));
+    {
+      if (target_byte_order_auto)
+	ui_out_field_string (uiout, "value", "auto");
+      else
+	ui_out_field_string (uiout, "value", (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? "big" : "little"));
+
+      ui_out_field_string (uiout, "current", (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? "big" : "little"));
+    }
 }
 
 static void

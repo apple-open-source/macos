@@ -1,7 +1,7 @@
 /* Program to write C++-suitable header files from a Java(TM) .class
    file.  This is similar to SUN's javah.
 
-Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -61,10 +61,10 @@ int flag_jni = 0;
 int flag_newer = 1;
 
 /* Directory to place resulting files in. Set by -d option. */
-const char *output_directory = "";
+static const char *output_directory = "";
 
 /* Directory to place temporary file.  Set by -td option.  Currently unused. */
-const char *temp_directory = "/tmp";
+static const char *temp_directory = "/tmp";
 
 /* Number of friend functions we have to declare.  */
 static int friend_count;
@@ -111,6 +111,9 @@ static JCF_u2 last_access;
    method is native.  */
 #define METHOD_IS_NATIVE(Method) \
    ((Method) & ACC_NATIVE)
+
+#define METHOD_IS_PRIVATE(Class, Method) \
+  (((Method) & ACC_PRIVATE) != 0)
 
 /* We keep a linked list of all method names we have seen.  This lets
    us determine if a method name and a field name are in conflict.  */
@@ -187,7 +190,7 @@ static int method_pass;
 #define HANDLE_END_FIELD()						      \
   if (field_pass)							      \
     {									      \
-      if (out && ! stubs && ! flag_jni)					      \
+      if (out && ! stubs)						      \
 	print_field_info (out, jcf, current_field_name,			      \
 			  current_field_signature,			      \
  			  current_field_flags);				      \
@@ -278,21 +281,25 @@ jni_print_float (FILE *stream, jfloat f)
      work in data initializers.  FIXME.  */
   if (JFLOAT_FINITE (f))
     {
-      fputs (" = ", stream);
-      if (f.negative)
-	putc ('-', stream);
-      if (f.exponent)
-	fprintf (stream, "0x1.%.6xp%+df",
-		 ((unsigned int)f.mantissa) << 1,
-		 f.exponent - JFLOAT_EXP_BIAS);
-      else
-	/* Exponent of 0x01 is -125; exponent of 0x00 is *also* -125,
-	   because the implicit leading 1 bit is no longer present.  */
-	fprintf (stream, "0x0.%.6xp%+df",
-		 ((unsigned int)f.mantissa) << 1,
-		 f.exponent + 1 - JFLOAT_EXP_BIAS);
+      if (flag_jni)
+        {
+          fputs (" ", out);
+          if (f.negative)
+            putc ('-', stream);
+          if (f.exponent)
+            fprintf (stream, "0x1.%.6xp%+df",
+                     ((unsigned int)f.mantissa) << 1,
+                     f.exponent - JFLOAT_EXP_BIAS);
+          else
+            /* Exponent of 0x01 is -125; exponent of 0x00 is *also* -125,
+               because the implicit leading 1 bit is no longer present.  */
+            fprintf (stream, "0x0.%.6xp%+df",
+                     ((unsigned int)f.mantissa) << 1,
+                     f.exponent + 1 - JFLOAT_EXP_BIAS);
+        }
     }
-  fputs (";\n", stream);
+  if (! flag_jni)
+    fputs (";\n", stream);
 }
 
 /* Print a double-precision float, suitable for parsing by g++.  */
@@ -303,21 +310,24 @@ jni_print_double (FILE *stream, jdouble f)
      work in data initializers.  FIXME.  */
   if (JDOUBLE_FINITE (f))
     {
-      fputs (" = ", stream);
-      if (f.negative)
-	putc ('-', stream);
-      if (f.exponent)
-	fprintf (stream, "0x1.%.5x%.8xp%+d",
-		 f.mantissa0, f.mantissa1,
-		 f.exponent - JDOUBLE_EXP_BIAS);
-      else
-	/* Exponent of 0x001 is -1022; exponent of 0x000 is *also* -1022,
-	   because the implicit leading 1 bit is no longer present.  */
-	fprintf (stream, "0x0.%.5x%.8xp%+d",
-		 f.mantissa0, f.mantissa1,
-		 f.exponent + 1 - JDOUBLE_EXP_BIAS);
+      if (flag_jni)
+        {
+          fputs (" ", out);
+          if (f.negative)
+            putc ('-', stream);
+          if (f.exponent)
+            fprintf (stream, "0x1.%.5x%.8xp%+d",
+                     f.mantissa0, f.mantissa1,
+                     f.exponent - JDOUBLE_EXP_BIAS);
+          else
+            /* Exponent of 0x001 is -1022; exponent of 0x000 is *also* -1022,
+               because the implicit leading 1 bit is no longer present.  */
+            fprintf (stream, "0x0.%.5x%.8xp%+d",
+                     f.mantissa0, f.mantissa1,
+                     f.exponent + 1 - JDOUBLE_EXP_BIAS);
+        }
     }
-  fputs (";\n", stream);
+  fputs (flag_jni ? "\n" : ";\n", stream);
 }
 
 /* Print a character, appropriately mangled for JNI.  */
@@ -696,6 +706,8 @@ get_field_name (JCF *jcf, int name_index, JCF_u2 flags)
       memcpy (override, name, length);
       strcpy (override + length, "__");
     }
+  else if (flag_jni)
+    override = NULL;
   else
     override = cxx_keyword_subst (name, length);
 
@@ -725,7 +737,8 @@ print_field_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
 {
   char *override = NULL;
 
-  generate_access (stream, flags);
+  if (! flag_jni)
+    generate_access (stream, flags);
   if (JPOOL_TAG (jcf, name_index) != CONSTANT_Utf8)
     {
       fprintf (stream, "<not a UTF8 constant>");
@@ -733,10 +746,38 @@ print_field_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
       return;
     }
 
-  fputs ("  ", out);
+  if (flag_jni)
+    {
+      /* For JNI we only want to print real constants.  */
+      int val;
+      if (! (flags & ACC_STATIC)
+	  || ! (flags & ACC_FINAL)
+	  || current_field_value <= 0)
+	return;
+      val = JPOOL_TAG (jcf, current_field_value);
+      if (val != CONSTANT_Integer && val != CONSTANT_Long
+	  && val != CONSTANT_Float && val != CONSTANT_Double)
+	return;
+    }
+  else
+    {
+      /* Initial indentation.  */
+      fputs ("  ", stream);
+    }
+
   if ((flags & ACC_STATIC))
     {
-      fputs ("static ", out);
+      if (flag_jni)
+	{
+	  print_cxx_classname (stream, "#undef ", jcf, jcf->this_class, 1);
+	  fputs ("_", stream);
+	  print_field_name (stream, jcf, name_index, 0);
+	  fputs ("\n", stream);
+	  print_cxx_classname (stream, "#define ", jcf, jcf->this_class, 1);
+	  fputs ("_", stream);
+	}
+      else
+	fputs ("static ", stream);
 
       if ((flags & ACC_FINAL) && current_field_value > 0)
 	{
@@ -749,9 +790,10 @@ print_field_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
 	      {
 		jint num;
 		int most_negative = 0;
-		fputs ("const jint ", out);
-		print_field_name (out, jcf, name_index, 0);
-		fputs (" = ", out);
+		if (! flag_jni)
+		  fputs ("const jint ", stream);
+		print_field_name (stream, jcf, name_index, 0);
+		fputs (flag_jni ? " " : " = ", stream);
 		num = JPOOL_INT (jcf, current_field_value);
 		/* We single out the most negative number to print
 		   specially.  This avoids later warnings from g++.  */
@@ -761,16 +803,19 @@ print_field_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
 		    ++num;
 		  }
 		format_int (buffer, (jlong) num, 10);
-		fprintf (out, "%sL%s;\n", buffer, most_negative ? " - 1" : "");
+		fprintf (stream, "%sL%s%s\n", buffer,
+			 most_negative ? " - 1" : "",
+			 flag_jni ? "" : ";");
 	      }
 	      break;
 	    case CONSTANT_Long:
 	      {
 		jlong num;
 		int most_negative = 0;
-		fputs ("const jlong ", out);
-		print_field_name (out, jcf, name_index, 0);
-		fputs (" = ", out);
+		if (! flag_jni)
+		  fputs ("const jlong ", stream);
+		print_field_name (stream, jcf, name_index, 0);
+		fputs (flag_jni ? " " : " = ", stream);
 		num = JPOOL_LONG (jcf, current_field_value);
 		/* We single out the most negative number to print
                    specially..  This avoids later warnings from g++.  */
@@ -780,23 +825,27 @@ print_field_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
 		    ++num;
 		  }
 		format_int (buffer, num, 10);
-		fprintf (out, "%sLL%s;\n", buffer, most_negative ? " - 1" :"");
+		fprintf (stream, "%sLL%s%s\n", buffer,
+			 most_negative ? " - 1" :"",
+			 flag_jni ? "" : ";");
 	      }
 	      break;
 	    case CONSTANT_Float:
 	      {
 		jfloat fnum = JPOOL_FLOAT (jcf, current_field_value);
-		fputs ("const jfloat ", out);
-		print_field_name (out, jcf, name_index, 0);
-		jni_print_float (out, fnum);
+		if (! flag_jni)
+		  fputs ("const jfloat ", stream);
+		print_field_name (stream, jcf, name_index, 0);
+		jni_print_float (stream, fnum);
 	      }
 	      break;
 	    case CONSTANT_Double:
 	      {
 		jdouble dnum = JPOOL_DOUBLE (jcf, current_field_value);
-		fputs ("const jdouble ", out);
-		print_field_name (out, jcf, name_index, 0);
-		jni_print_double (out, dnum);
+		if (! flag_jni)
+		  fputs ("const jdouble ", stream);
+		print_field_name (stream, jcf, name_index, 0);
+		jni_print_double (stream, dnum);
 	      }
 	      break;
 	    default:
@@ -811,9 +860,10 @@ print_field_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
 	}
     }
 
+  /* assert (! flag_jni);  */
   override = get_field_name (jcf, name_index, flags);
-  print_c_decl (out, jcf, name_index, sig_index, 0, override, flags);
-  fputs (";\n", out);
+  print_c_decl (stream, jcf, name_index, sig_index, 0, override, flags);
+  fputs (";\n", stream);
 
   if (override)
     free (override);
@@ -846,7 +896,7 @@ print_method_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
 	{
 	  /* FIXME: i18n bug here.  Order of prints should not be
 	     fixed.  */
-	  fprintf (stderr, _("ignored method `"));
+	  fprintf (stderr, _("ignored method '"));
 	  jcf_print_utf8 (stderr, str, length);
 	  fprintf (stderr, _("' marked virtual\n"));
 	  found_error = 1;
@@ -898,7 +948,7 @@ print_method_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
       fputs ("  ", out);
       if ((flags & ACC_STATIC))
 	fputs ("static ", out);
-      else if (! METHOD_IS_FINAL (jcf->access_flags, flags))
+      else if (! METHOD_IS_PRIVATE (jcf->access_flags, flags))
 	{
 	  /* Don't print `virtual' if we have a constructor.  */
 	  if (! is_init)
@@ -1429,7 +1479,7 @@ print_c_decl (FILE* stream, JCF* jcf, int name_index, int signature_index,
 	  next = decode_signature_piece (stream, str, limit, &need_space);
 	  if (! next)
 	    {
-	      error ("unparseable signature: `%s'", str0);
+	      error ("unparseable signature: '%s'", str0);
 	      return;
 	    }
 	}
@@ -1531,7 +1581,7 @@ print_full_cxx_name (FILE* stream, JCF* jcf, int name_index,
 	  next = decode_signature_piece (stream, str, limit, &need_space);
 	  if (! next)
 	    {
-	      error ("unparseable signature: `%s'", str0);
+	      error ("unparseable signature: '%s'", str0);
 	      return;
 	    }
 	  
@@ -1606,7 +1656,7 @@ print_stub_or_jni (FILE* stream, JCF* jcf, int name_index,
 	  next = decode_signature_piece (stream, str, limit, &need_space);
 	  if (! next)
 	    {
-	      error ("unparseable signature: `%s'", str0);
+	      error ("unparseable signature: '%s'", str0);
 	      return;
 	    }
 	}
@@ -2277,7 +2327,7 @@ static const struct option options[] =
 static void
 usage (void)
 {
-  fprintf (stderr, _("Try `gcjh --help' for more information.\n"));
+  fprintf (stderr, _("Try 'gcjh --help' for more information.\n"));
   exit (1);
 }
 
@@ -2291,7 +2341,7 @@ help (void)
   printf ("\n");
   printf (_("  -add TEXT               Insert TEXT into class body\n"));
   printf (_("  -append TEXT            Insert TEXT after class declaration\n"));
-  printf (_("  -friend TEXT            Insert TEXT as `friend' declaration\n"));
+  printf (_("  -friend TEXT            Insert TEXT as 'friend' declaration\n"));
   printf (_("  -prepend TEXT           Insert TEXT before start of class\n"));
   printf ("\n");
   printf (_("  --classpath PATH        Set path to find .class files\n"));
@@ -2435,7 +2485,7 @@ main (int argc, char** argv)
 	  break;
 
 	case OPT_MG:
-	  error ("`-MG' option is unimplemented");
+	  error ("'-MG' option is unimplemented");
 	  exit (1);
 
 	case OPT_MD:

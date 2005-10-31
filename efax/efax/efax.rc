@@ -4,13 +4,6 @@
 # Configuration file for fax(1)
 #
 
-DEV=cu.modem
-PAGE=letter
-PRTYPE=ps
-PRCMD="lpr"
-DIALPREFIX="T"
-DIALSUFFIX=""
-LOCK=''
 OWNER=
 MODE=
 DCMD=

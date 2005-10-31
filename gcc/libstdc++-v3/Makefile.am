@@ -35,18 +35,21 @@ doxygen:
 	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
 	  builddir=`${PWD_COMMAND}`; \
 	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
+	            --host_alias=${host_alias} \
 	            --mode=user $${srcdir} $${builddir})
 
 doxygen-maint:
 	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
 	  builddir=`${PWD_COMMAND}`; \
 	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
+	            --host_alias=${host_alias} \
 	            --mode=maint $${srcdir} $${builddir})
 
 doxygen-man:
 	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
 	  builddir=`${PWD_COMMAND}`; \
 	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
+	            --host_alias=${host_alias} \
 	            --mode=man $${srcdir} $${builddir})
 
 .PHONY: doxygen doxygen-maint doxygen-man
@@ -96,8 +99,6 @@ AM_MAKEFLAGS = \
 	"AR=$(AR)" \
 	"AS=$(AS)" \
 	"LD=$(LD)" \
-	"LIBCFLAGS=$(LIBCFLAGS)" \
-	"PICFLAG=$(PICFLAG)" \
 	"RANLIB=$(RANLIB)" \
 	"NM=$(NM)" \
 	"NM_FOR_BUILD=$(NM_FOR_BUILD)" \

@@ -1,19 +1,22 @@
 /**
  * Contains:   Inline administration plug-in for blojsom.
  * Written by: John Anderson (for addtl writers check CVS comments).
- * Copyright:  © 2004 Apple Computer, Inc., all rights reserved.
+ * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: UserDataPlugin.java,v 1.1 2005/01/27 01:46:49 johnan Exp $
+ * $Id: UserDataPlugin.java,v 1.1.2.2 2005/08/27 18:21:46 johnan Exp $
  */ 
 package com.apple.blojsom.plugin.userdata;
 
 import com.apple.blojsom.util.BlojsomAppleUtils;
+import org.blojsom.BlojsomException;
 import org.blojsom.blog.BlogEntry;
 import org.blojsom.blog.BlogUser;
 import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.plugin.BlojsomPlugin;
 import org.blojsom.plugin.BlojsomPluginException;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
@@ -24,13 +27,14 @@ import java.util.Map;
  * Convert Line Breaks plug-in
  *
  * @author John Anderson
- * @version $Id: UserDataPlugin.java,v 1.1 2005/01/27 01:46:49 johnan Exp $
+ * @version $Id: UserDataPlugin.java,v 1.1.2.2 2005/08/27 18:21:46 johnan Exp $
  */
 
 public class UserDataPlugin implements BlojsomPlugin {
 
 	protected static final String USER_DATA_PLUGIN = "USER_DATA_PLUGIN";
     protected BlojsomConfiguration _blojsomConfiguration;
+    protected static final Log _logger = LogFactory.getLog(UserDataPlugin.class);
 
     /**
      * Default constructor.
@@ -55,25 +59,34 @@ public class UserDataPlugin implements BlojsomPlugin {
      * @param username The short username.
      */
  	public String getFullNameFromShortName(String username) {
+		_logger.debug("UserDataPlugin.getFullNameFromShortName() called for username " + username);
  		String fullName = null;
- 		BlogUser user = (BlogUser)_blojsomConfiguration.getBlogUsers().get(username);
- 		
- 		if (user != null) {
- 			fullName = user.getBlog().getBlogOwner();
- 			
- 			if ("".equals(fullName)) {
- 				fullName = null;
- 			}
- 		}
- 		if (fullName == null) {
- 			fullName = BlojsomAppleUtils.getFullNameFromShortName(username, ".");
- 			
- 			if (fullName.equals(username)) {
- 				fullName = BlojsomAppleUtils.getFullNameFromShortName(username, "/Search");
- 			}
- 		}
- 		
- 		return fullName;
+		
+		try {
+			BlogUser user = _blojsomConfiguration.loadBlog(username);
+			
+			if (user != null) {
+				_logger.debug("found user " + user);
+				fullName = user.getBlog().getBlogOwner();
+				
+				if ("".equals(fullName)) {
+					fullName = null;
+				}
+			}
+			if (fullName == null) {
+				_logger.error("user not found: " + username);
+				fullName = BlojsomAppleUtils.getFullNameFromShortName(username, ".");
+				
+				if (fullName.equals(username)) {
+					fullName = BlojsomAppleUtils.getFullNameFromShortName(username, "/Search");
+				}
+			}
+			
+		} catch (BlojsomException e) {
+			_logger.error(e);
+		}
+		
+		return ((fullName == null) ? username : fullName);
  	}
  	
     /**
@@ -83,10 +96,14 @@ public class UserDataPlugin implements BlojsomPlugin {
      */
 	public String getEmailAddressFromShortName(String username) {
 		String emailAddress = "";
- 		BlogUser user = (BlogUser)_blojsomConfiguration.getBlogUsers().get(username);
 		
-		if (user != null) {
-			emailAddress = user.getBlog().getBlogOwnerEmail();
+		try {
+			BlogUser user = _blojsomConfiguration.loadBlog(username);
+			
+			if (user != null) {
+				emailAddress = user.getBlog().getBlogOwnerEmail();
+			}
+		} catch (BlojsomException e) {
 		}
 		
 		return emailAddress;

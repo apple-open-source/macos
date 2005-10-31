@@ -1,5 +1,5 @@
 /* Permissions.java -- a collection of permission collections
-   Copyright (C) 1998, 2001, 2002, 2004  Free Software Foundation, Inc.
+   Copyright (C) 1998, 2001, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -53,8 +53,8 @@ import java.util.NoSuchElementException;
  * collection type which stores its permissions in a hash table will be
  * used.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.1
  */
 public final class Permissions extends PermissionCollection
@@ -72,12 +72,13 @@ public final class Permissions extends PermissionCollection
    */
   private PermissionCollection allPermission;
 
+  // Package-private to avoid a trampoline.
   /**
    * This is the <code>Hashtable</code> that contains our collections.
    *
    * @serial maps Class to PermissionCollection
    */
-  private final Hashtable perms = new Hashtable();
+  final Hashtable perms = new Hashtable();
 
   /**
    * This method initializes a new instance of <code>Permissions</code>.
@@ -187,58 +188,67 @@ public final class Permissions extends PermissionCollection
       }
     };
   }
-} // class Permissions
-
-/**
- * Implements the permission collection for all permissions without one of
- * their own, and obeys serialization of JDK.
- *
- * @author Eric Blake <ebb9@email.byu.edu>
- */
-class PermissionsHash extends PermissionCollection
-{
-  /**
-   * Compatible with JDK 1.1+.
-   */
-  private static final long serialVersionUID = -8491988220802933440L;
 
   /**
-   * Hashtable where we store permissions.
+   * Implements the permission collection for all permissions without one of
+   * their own, and obeys serialization of JDK.
    *
-   * @serial the stored permissions, both as key and value
+   * @author Eric Blake (ebb9@email.byu.edu)
    */
-  private final Hashtable perms = new Hashtable();
-
-  /**
-   * Add a permission. We don't need to check for read-only, as this
-   * collection is never exposed outside of Permissions, which has already
-   * done that check.
-   *
-   * @param perm the permission to add
-   */
-  public void add(Permission perm)
+  private static final class PermissionsHash extends PermissionCollection
   {
-    perms.put(perm, perm);
-  }
+    /**
+     * Compatible with JDK 1.1+.
+     */
+    private static final long serialVersionUID = -8491988220802933440L;
 
-  /**
-   * Returns true if perm is in the collection.
-   *
-   * @param perm the permission to check
-   * @return true if it is implied
-   */
-  public boolean implies(Permission perm)
-  {
-    return perms.get(perm) != null;
-  }
+    /**
+     * Hashtable where we store permissions.
+     *
+     * @serial the stored permissions, both as key and value
+     */
+    private final Hashtable perms = new Hashtable();
 
-  /**
-   * Return the elements.
-   *
-   * @return the elements
-   */
-  public Enumeration elements()
-  {
-    return perms.elements();
-  }
+    /**
+     * Add a permission. We don't need to check for read-only, as this
+     * collection is never exposed outside of Permissions, which has already
+     * done that check.
+     *
+     * @param perm the permission to add
+     */
+    public void add(Permission perm)
+    {
+      perms.put(perm, perm);
+    }
+
+    /**
+     * Returns true if perm is in the collection.
+     *
+     * @param perm the permission to check
+     * @return true if it is implied
+     */
+    // FIXME: Should this method be synchronized?
+    public boolean implies(Permission perm)
+    {
+      Enumeration elements = elements();
+      
+      while (elements.hasMoreElements())
+	{
+	  Permission p = (Permission)elements.nextElement();
+	  if (p.implies(perm))
+	    return true;
+	}
+      return false;
+    }
+
+    /**
+     * Return the elements.
+     *
+     * @return the elements
+     */
+    public Enumeration elements()
+    {
+      return perms.elements();
+    }
+  } // class PermissionsHash
 } // class Permissions

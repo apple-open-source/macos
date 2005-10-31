@@ -1,6 +1,6 @@
 /* Control flow graph building code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -227,18 +227,6 @@ make_edges (basic_block min, basic_block max, int update_p)
   basic_block bb;
   sbitmap *edge_cache = NULL;
 
-  /* Assume no computed jump; revise as we create edges.  */
-  current_function_has_computed_jump = 0;
-
-  /* If we are partitioning hot and cold basic blocks into separate
-     sections, we cannot assume there is no computed jump (partitioning
-     sometimes requires the use of indirect jumps; see comments about
-     partitioning at the top of bb-reorder.c:partition_hot_cold_basic_blocks 
-     for complete details).  */
-
-  if (flag_reorder_blocks_and_partition)
-    current_function_has_computed_jump = 1;
-
   /* Heavy use of computed goto in machine-generated code can lead to
      nearly fully-connected CFGs.  In that case we spend a significant
      amount of time searching the edge lists for duplicates.  */
@@ -269,9 +257,7 @@ make_edges (basic_block min, basic_block max, int update_p)
     {
       rtx insn, x;
       enum rtx_code code;
-      int force_fallthru = 0;
       edge e;
-      edge_iterator ei;
 
       if (LABEL_P (BB_HEAD (bb))
 	  && LABEL_ALT_ENTRY_P (BB_HEAD (bb)))
@@ -321,20 +307,12 @@ make_edges (basic_block min, basic_block max, int update_p)
 		  && GET_CODE (XEXP (SET_SRC (tmp), 2)) == LABEL_REF)
 		make_label_edge (edge_cache, bb,
 				 XEXP (XEXP (SET_SRC (tmp), 2), 0), 0);
-
-#ifdef CASE_DROPS_THROUGH
-	      /* Silly VAXen.  The ADDR_VEC is going to be in the way of
-		 us naturally detecting fallthru into the next block.  */
-	      force_fallthru = 1;
-#endif
 	    }
 
 	  /* If this is a computed jump, then mark it as reaching
 	     everything on the forced_labels list.  */
 	  else if (computed_jump_p (insn))
 	    {
-	      current_function_has_computed_jump = 1;
-
 	      for (x = forced_labels; x; x = XEXP (x, 1))
 		make_label_edge (edge_cache, bb, XEXP (x, 0), EDGE_ABNORMAL);
 	    }
@@ -390,22 +368,20 @@ make_edges (basic_block min, basic_block max, int update_p)
 
       /* Find out if we can drop through to the next block.  */
       insn = NEXT_INSN (insn);
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
-	  {
-	    insn = 0;
-	    break;
-	  }
+      e = find_edge (bb, EXIT_BLOCK_PTR);
+      if (e && e->flags & EDGE_FALLTHRU)
+	insn = NULL;
+
       while (insn
 	     && NOTE_P (insn)
 	     && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK)
 	insn = NEXT_INSN (insn);
 
-      if (!insn || (bb->next_bb == EXIT_BLOCK_PTR && force_fallthru))
+      if (!insn)
 	cached_make_edge (edge_cache, bb, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
       else if (bb->next_bb != EXIT_BLOCK_PTR)
 	{
-	  if (force_fallthru || insn == BB_HEAD (bb->next_bb))
+	  if (insn == BB_HEAD (bb->next_bb))
 	    cached_make_edge (edge_cache, bb, bb->next_bb, EDGE_FALLTHRU);
 	}
     }
@@ -506,12 +482,10 @@ find_basic_blocks_1 (rtx f)
 
 
 /* Find basic blocks of the current function.
-   F is the first insn of the function and NREGS the number of register
-   numbers in use.  */
+   F is the first insn of the function.  */
 
 void
-find_basic_blocks (rtx f, int nregs ATTRIBUTE_UNUSED,
-		   FILE *file ATTRIBUTE_UNUSED)
+find_basic_blocks (rtx f)
 {
   basic_block bb;
 
@@ -569,14 +543,73 @@ enum state {BLOCK_NEW = 0, BLOCK_ORIGINAL, BLOCK_TO_SPLIT};
 #define STATE(BB) (enum state) ((size_t) (BB)->aux)
 #define SET_STATE(BB, STATE) ((BB)->aux = (void *) (size_t) (STATE))
 
+/* Used internally by purge_dead_tablejump_edges, ORed into state.  */
+#define BLOCK_USED_BY_TABLEJUMP		32
+#define FULL_STATE(BB) ((size_t) (BB)->aux)
+
+static void
+mark_tablejump_edge (rtx label)
+{
+  basic_block bb;
+
+  gcc_assert (LABEL_P (label));
+  /* See comment in make_label_edge.  */
+  if (INSN_UID (label) == 0)
+    return;
+  bb = BLOCK_FOR_INSN (label);
+  SET_STATE (bb, FULL_STATE (bb) | BLOCK_USED_BY_TABLEJUMP);
+}
+
+static void
+purge_dead_tablejump_edges (basic_block bb, rtx table)
+{
+  rtx insn = BB_END (bb), tmp;
+  rtvec vec;
+  int j;
+  edge_iterator ei;
+  edge e;
+
+  if (GET_CODE (PATTERN (table)) == ADDR_VEC)
+    vec = XVEC (PATTERN (table), 0);
+  else
+    vec = XVEC (PATTERN (table), 1);
+
+  for (j = GET_NUM_ELEM (vec) - 1; j >= 0; --j)
+    mark_tablejump_edge (XEXP (RTVEC_ELT (vec, j), 0));
+
+  /* Some targets (eg, ARM) emit a conditional jump that also
+     contains the out-of-range target.  Scan for these and
+     add an edge if necessary.  */
+  if ((tmp = single_set (insn)) != NULL
+       && SET_DEST (tmp) == pc_rtx
+       && GET_CODE (SET_SRC (tmp)) == IF_THEN_ELSE
+       && GET_CODE (XEXP (SET_SRC (tmp), 2)) == LABEL_REF)
+    mark_tablejump_edge (XEXP (XEXP (SET_SRC (tmp), 2), 0));
+
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
+    {
+      if (FULL_STATE (e->dest) & BLOCK_USED_BY_TABLEJUMP)
+        SET_STATE (e->dest, FULL_STATE (e->dest)
+                            & ~(size_t) BLOCK_USED_BY_TABLEJUMP);
+      else if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
+        {
+          remove_edge (e);
+          continue;
+        }
+      ei_next (&ei);
+    }
+}
+
 /* Scan basic block BB for possible BB boundaries inside the block
    and create new basic blocks in the progress.  */
 
 static void
 find_bb_boundaries (basic_block bb)
 {
+  basic_block orig_bb = bb;
   rtx insn = BB_HEAD (bb);
   rtx end = BB_END (bb);
+  rtx table;
   rtx flow_transfer_insn = NULL_RTX;
   edge fallthru = NULL;
 
@@ -633,6 +666,11 @@ find_bb_boundaries (basic_block bb)
      followed by cleanup at fallthru edge, so the outgoing edges may
      be dead.  */
   purge_dead_edges (bb);
+
+  /* purge_dead_edges doesn't handle tablejump's, but if we have split the
+     basic block, we might need to kill some edges.  */
+  if (bb != orig_bb && tablejump_p (BB_END (bb), NULL, &table))
+    purge_dead_tablejump_edges (bb, table);
 }
 
 /*  Assume that frequency of basic block B is known.  Compute frequencies

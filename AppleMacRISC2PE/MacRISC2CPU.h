@@ -42,6 +42,7 @@
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/platform/AppleMacIODevice.h>
+#include <IOKit/pci/IOAGPDevice.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 
 #define kNormal				0
@@ -67,6 +68,9 @@
 
 #endif
 
+#define	kIOFBPrepareDMAValueKey	"prepareDMATransaction"
+#define	kIOFBPerformDMAValueKey	"performDMATransaction"
+
 class MacRISC2PE;
 class MacRISC2CPUInterruptController;
 
@@ -82,6 +86,9 @@ private:
     bool				bootCPU;
     bool				flushOnLock;
     bool				haveSleptMPIC;
+	bool				resetOnWake;
+	IOPhysicalAddress	reserveMemPhys;
+	IOMemoryDescriptor	*reserveMemDesc;
     UInt32				l2crValue;
     MacRISC2PE			*macRISC2PE;
 	IOService			*uniN;
@@ -121,6 +128,10 @@ private:
     const OSSymbol 		*keyLargo_setPowerSupply;
     const OSSymbol 		*uniN_setPowerState;
     const OSSymbol		*uniN_setAACKDelay;
+    const OSSymbol		*pmu_cpuReset;
+    const OSSymbol		*ati_prepareDMATransaction;
+    const OSSymbol		*ati_performDMATransaction;
+	
 #if enableUserClientInterface
     IOWorkLoop			*fWorkLoop;
     IOTimerEventSource  *fDFSContTimer;

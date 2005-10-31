@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -276,6 +276,11 @@ setPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef entity)
 				CFRelease(newEntity);
 			} else {
 				CFDictionaryRemoveValue(newNode, element);
+				if (CFDictionaryGetCount(newNode) == 0) {
+					// prune the (now empty) parent
+					CFRelease(newNode);
+					newNode = NULL;
+				}
 			}
 			newEntity = newNode;
 		}

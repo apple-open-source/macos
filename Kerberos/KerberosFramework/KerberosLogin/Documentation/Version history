@@ -1,10 +1,28 @@
 ==============================================================================
 Kerberos Login Library Version History
 ==============================================================================
-Current version: 1.8fc7
-Date           : March 1, 2005
+Current version: 1.8.1fc1
+Date           : June 15, 2005
 Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 ========================================================================
+
+Kerberos Login 1.8.1
+Released with KfM 5.5.1
+
+========================================================================
+
+	Kerberos Login 1.8.1fc1
+	June 15, 2005
+	
+	[RT 3020] Authenticate dialog in "renew" mode has no cursor
+	[RT 3051] KerberosAgent should disable apple menu
+	[RT 3052] KerberosAgent should not have a services menu
+	[RT 3095] KerberosAgent dialog text fields should not have contextual menus
+	[RT 3055] KLL should not allow empty string password arguments
+	[RT 3062] NULL prompt string crashes graphical prompter
+	[RT 3069] KLL should inherit ticket_lifetime config option
+
+	========================================================================
 
 Kerberos Login 1.8
 Released with KfM 5.5

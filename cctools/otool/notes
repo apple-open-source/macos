@@ -3,6 +3,33 @@ TODO:
 - HPPA, bring the private version of mach/hppa/thread_status.h in sync with
   the kernel header and change ofile_print.c to recognize new thread states.
 
+Changes for the 5.18 release (the cctools-589 release):
+- Changed the Makefile and added a LEGACY macro with two defines to allow
+  the code to use the old field name "environ" from the i386 structs.
+  Radar bug #4113580.
+
+Changes for the 5.18 release (the cctools-583 release):
+- Changed the Makefile so that when RC_XBS is set to YES then the compiler
+  options -MD and -dependency-file as well as the md(1) program are not used.
+  Radar bug #4029936.
+
+Changes for the 5.18 release (the cctools-580 release):
+- Fixed the i386 opcode for the ud2 instruction.  It was disassembled from
+  0x0f 0xff. And should be disassembled from 0x0f 0x0b according to the Intel
+  manual.  The change was in i386_disasm.c . Radar bug #4085845.
+- Changed the PowerPC disassembler to use "mtocrf" instead of "mtcrf" when bit
+  11 is set and likewise "mfocrf" instead "mfcr" in ppc_disasm.c.  Radar bug #
+  4034280.
+- Changed the i386 disassembler to print constants so they would assemble
+  with the same width as they were in the object file.  The change was in
+  print_operand() in i386_disasm.c. To see if the the value_size is smaller
+  than 32-bits and signed, then sign extend it and force the size to be 32-bits.
+  Radar bug #4079507.
+
+Changes for the 5.18 release (the cctools-578 release):
+- Added support for sse3 instructions.  Changes were in i386_disasm.c .
+  Radar bug #4014327.
+
 Changes for the 5.17 release (the cctools-571 release):
 - Changed the Makefile to treat SUPanWheat the same as Panther to build for
   a Mac OS X 10.3 (Panther) system.  Radar bug #3979451.

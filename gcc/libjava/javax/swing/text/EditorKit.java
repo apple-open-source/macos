@@ -1,4 +1,4 @@
-/* EditorKit.java -- 
+/* EditorKit.java --
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -35,17 +35,18 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.text;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Serializable;
 import java.io.Writer;
+
 import javax.swing.Action;
 import javax.swing.JEditorPane;
-
 
 public abstract class EditorKit
   implements Cloneable, Serializable
@@ -53,31 +54,31 @@ public abstract class EditorKit
   private static final long serialVersionUID = -5044124649345887822L;
   
   public EditorKit()
-    {
-    }
+  {
+  }
 
   public Object clone()
-    {
+  {
     try
       {
 	return super.clone();
-    }
+      }
     catch (CloneNotSupportedException e)
-    {
+      {
 	return null;
-    }
+      }
   }
 
   /**
    * Called when the kit is being removed from the JEditorPane.
    */
   public void deinstall(JEditorPane c)
-    {
-    }
+  {
+  }
 
   public void install(JEditorPane c)
   {
-}
+  }
 
   public abstract Caret createCaret();
   public abstract Document createDefaultDocument();

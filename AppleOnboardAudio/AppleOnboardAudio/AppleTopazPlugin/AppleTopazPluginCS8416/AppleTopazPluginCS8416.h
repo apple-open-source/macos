@@ -342,7 +342,7 @@ enum CS8416_ID_Version {
 //					performing extensive stress testing!  The counter is seeded to kPollsToDelayReportingAfterWake
 //					and counts down resulting in restoration of RUN prior to checking the RATIO.
 #if 1
-#define kPollsToDelayReportingAfterWake  6												/*  [3678605]   */
+#define kPollsToDelayReportingAfterWake  5												/*  [3678605]   */
 #else
 #define kPollsToDelayReportingAfterWake  16												/*  [3678605]   */
 #define kPollsToRestoreRunAfterWake		 ( kPollsToDelayReportingAfterWake - 4 )		/*  [3678605]   */
@@ -353,6 +353,9 @@ enum CS8416_ID_Version {
 
 #define	kIRQ_HARDWARE_ACK_SEED_COUNT	 2
 
+#define kMAX_OMCK_RMCK_RATIO_STEP        2                                              /*  [4189050]   */
+
+
 class AppleTopazPluginCS8416 : public AppleTopazPlugin {
     OSDeclareDefaultStructors ( AppleTopazPluginCS8416 );
 
@@ -362,9 +365,8 @@ public:
 	virtual	bool			start ( IOService * provider );
     virtual void			free ( void );
 	
-	virtual bool			preDMAEngineInit ( void );
+    virtual bool            preDMAEngineInit ( UInt32 autoClockSelectionIsBeingUsed );
 	virtual IOReturn		initCodecRegisterCache ( void );
-	virtual IOReturn		setMute ( bool muteState );
 	virtual IOReturn		performDeviceSleep ( void );
 	virtual IOReturn		performDeviceWake ( void );
 	virtual IOReturn		setChannelStatus ( ChanStatusStructPtr channelStatus ) { return kIOReturnSuccess; }
@@ -394,6 +396,7 @@ public:
 
 	virtual void			poll ( void );
 	virtual void			notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue );
+    virtual void            decrementDelayPollAfterWakeCounter();
 	virtual UInt32			getClockLockTerminalCount ();
 	virtual bool			canOnlyMasterTheClock () { return TRUE; }
 
@@ -403,14 +406,13 @@ protected:
 private:
 
 	UInt32					mDelayPollAfterWakeCounter;			//  [3674345]
-	bool					mTopazCS8416isSLEEP;				//  [3678605]
-	UInt32					mUnlockFilterCounter;				//  [3678605]
+    UInt32                  mCached_OMCK_RMCK_Ratio;            //  [4189050]
 	UInt8					mRatioEnteringSleep;				//  [3678605]
+    UInt8                   mCachedReceiverChannelStatus;       //  [4176686]
+	bool					mTopazCS8416isSLEEP;				//  [3678605]
+    bool                    mOMCK_RMCK_RatioHasBeenCached;      //  [4189050]
+    bool                    mAutoClockSelectionIsBeingUsed;     //  [4244167, 4267209]
 };
 
 
-
 #endif
-
-
-

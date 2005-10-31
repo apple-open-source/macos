@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,26 +36,29 @@ package org.blojsom.blog;
 
 import org.blojsom.util.BlojsomUtils;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
+import java.io.Serializable;
 
 /**
  * BlogComment
  *
  * @author David Czarnecki
- * @version $Id: BlogComment.java,v 1.2 2004/08/27 01:13:55 whitmore Exp $
+ * @version $Id: BlogComment.java,v 1.2.2.1 2005/07/21 14:11:02 johnan Exp $
  */
-public class BlogComment {
+public class BlogComment implements Serializable{
 
-    private String _author;
-    private String _authorEmail;
-    private String _authorURL;
-    private String _comment;
-    private Date _commentDate;
-    private long _commentDateLong;
-    private String _id;
-    private Map _metaData;
+    protected String _author;
+    protected String _authorEmail;
+    protected String _authorURL;
+    protected String _comment;
+    protected Date _commentDate;
+    protected long _commentDateLong;
+    protected String _id;
+    protected Map _metaData;
+    protected BlogEntry _blogEntry;
 
     /**
      * Default constructor
@@ -115,6 +118,14 @@ public class BlogComment {
      */
     public void setAuthorURL(String authorURL) {
         _authorURL = authorURL;
+    }
+
+    /**
+     * Get the comment as a escaped string 
+     * @return Escaped Comment
+     */
+    public String getEscapedComment() {
+        return BlojsomUtils.escapeString(_comment);
     }
 
     /**
@@ -198,6 +209,7 @@ public class BlogComment {
 
     /**
      * Set the Comment Date as a Long
+     *
      * @param commentDateLong the comment file's lastModified()
      */
     public void setCommentDateLong(long commentDateLong) {
@@ -207,8 +219,8 @@ public class BlogComment {
     /**
      * Get the id of this blog comments
      *
-     * @since blojsom 2.07
      * @return Id
+     * @since blojsom 2.07
      */
     public String getId() {
         return _id;
@@ -217,8 +229,8 @@ public class BlogComment {
     /**
      * Set the id of this blog comment. This method can only be called if the id has not been set.
      *
-     * @since blojsom 2.07
      * @param id New id
+     * @since blojsom 2.07
      */
     public void setId(String id) {
         if (_id == null) {
@@ -234,5 +246,47 @@ public class BlogComment {
      */
     public void setMetaData(Map metaData) {
         _metaData = metaData;
+    }
+
+    /**
+     * Return the comment date formatted with a specified date format
+     *
+     * @param format Date format
+     * @return <code>null</code> if the comment date or format is null, otherwise returns the comment date
+     *         formatted to the specified format. If the format is invalid, returns <tt>commentDate.toString()</tt>
+     * @since blojsom 2.19
+     */
+    public String getDateAsFormat(String format) {
+        if (_commentDate == null || format == null) {
+            return null;
+        }
+
+        SimpleDateFormat sdf = null;
+        try {
+            sdf = new SimpleDateFormat(format);
+            return sdf.format(_commentDate);
+        } catch (IllegalArgumentException e) {
+            return _commentDate.toString();
+        }
+    }
+
+    /**
+     * Retrieve the {@link BlogEntry} associated with this comment
+     *
+     * @return {@link BlogEntry}
+     * @since blojsom 2.23
+     */
+    public BlogEntry getBlogEntry() {
+        return _blogEntry;
+    }
+
+    /**
+     * Set the {@link BlogEntry} associated with this comment
+     *
+     * @param blogEntry {@link BlogEntry}
+     * @since blojsom 2.23
+     */
+    public void setBlogEntry(BlogEntry blogEntry) {
+        _blogEntry = blogEntry;
     }
 }

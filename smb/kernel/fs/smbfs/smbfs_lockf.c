@@ -66,7 +66,8 @@
 #include <sys/vnode.h>
 #include <sys/malloc.h>
 #include <sys/fcntl.h>
-
+#define  _KERNEL
+#include "smb_subr.h"
 #include "smbfs_node.h"
 #include "smbfs_lockf.h"
 

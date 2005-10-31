@@ -1,5 +1,5 @@
 /* Variables and structures for declaration processing.
-   Copyright (C) 1993, 2000, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1993, 2000, 2002, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,8 +34,3 @@ enum decl_context
 extern tree grokdeclarator (const cp_declarator *, 
 			    const cp_decl_specifier_seq *, 
 			    enum decl_context, int, tree*);
-
-#ifdef DEBUG_CP_BINDING_LEVELS
-/* Purely for debugging purposes.  */
-extern int debug_bindings_indentation;
-#endif

@@ -1,4 +1,5 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- 
+ *
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
@@ -81,6 +82,7 @@ public:
 	
 protected:
 										Reader() {}
+	virtual								~Reader() {}
 };
 
 class Segment
@@ -93,9 +95,11 @@ public:
 	
 	uint64_t					getBaseAddress() const { return fBaseAddress; }
 	void						setBaseAddress(uint64_t addr) { fBaseAddress = addr; }
+	virtual bool				hasFixedAddress() const { return false; }
 
 protected:
-		Segment() : fBaseAddress(0) {}
+								Segment() : fBaseAddress(0) {}
+	virtual						~Segment() {}
 	uint64_t					fBaseAddress;
 };
 
@@ -120,6 +124,9 @@ class ContentWriter
 {
 public:
 	virtual void	write(uint64_t atomOffset, const void* buffer, uint64_t size) = 0;
+protected:
+								ContentWriter() {}
+	virtual						~ContentWriter() {}
 };
 
 class Atom 
@@ -168,7 +175,8 @@ public:
 			unsigned int					setSortOrder(unsigned int order); // recursively sets follow-on atoms
 
 protected:
-		Atom() : fSegmentOffset(0), fSectionOffset(0), fSortOrder(0), fSection(NULL) {}
+											Atom() : fSegmentOffset(0), fSectionOffset(0), fSortOrder(0), fSection(NULL) {}
+		virtual								~Atom() {}
 		
 		uint64_t							fSegmentOffset;
 		uint64_t							fSectionOffset;
@@ -201,22 +209,28 @@ public:
 				ppcFixupAbsLow16, ppcFixupAbsLow14, ppcFixupAbsHigh16, ppcFixupAbsHigh16AddLow,
 				pointer32Difference, pointer64Difference, x86FixupBranch32 };
 
-	virtual bool			isUnbound() const = 0;
+	virtual bool			isTargetUnbound() const = 0;
+	virtual bool			isFromTargetUnbound() const = 0;
+	virtual bool			requiresRuntimeFixUp(bool slideable) const = 0;
 	virtual bool			isWeakReference() const = 0;
-	virtual bool			requiresRuntimeFixUp() const = 0;
 	virtual bool			isLazyReference() const = 0;
 	virtual Kind			getKind() const = 0;
 	virtual uint64_t		getFixUpOffset() const = 0;
 	virtual const char*		getTargetName() const = 0;
 	virtual Atom&			getTarget() const = 0;
 	virtual uint64_t		getTargetOffset() const = 0;
+	virtual bool			hasFromTarget() const = 0;
 	virtual Atom&			getFromTarget() const = 0;
 	virtual const char*		getFromTargetName() const = 0;
 	virtual uint64_t		getFromTargetOffset() const = 0;
 
-	virtual void			setTarget(Atom&) = 0;
+	virtual void			setTarget(Atom&, uint64_t offset) = 0;
 	virtual void			setFromTarget(Atom&) = 0;
 	virtual const char*		getDescription() const = 0;
+	
+protected:
+							Reference() {}
+	virtual					~Reference() {}
 };
 
 

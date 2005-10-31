@@ -1,3 +1,4 @@
+/* APPLE LOCAL file Objective-C++ */
 /* A very simple @try-@catch example. */
 /* { dg-do compile } */
 /* { dg-options "-fobjc-exceptions" } */

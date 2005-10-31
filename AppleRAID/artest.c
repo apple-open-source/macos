@@ -35,16 +35,11 @@
 #include <IOKit/IOCFUnserialize.h>
 #include <IOKit/IOMessage.h>
 
-#include <MediaKit/legacy/Misc.h>
-#include <MediaKit/legacy/MediaDevice.h>
-#include <MediaKit/legacy/MediaErrors.h>
-#include <MediaKit/legacy/PartitionsII.h>
-#include <MediaKit/legacy/UnixIO.h>
-#include <MediaKit/legacy/StartupFile.h>
-#include <MediaKit/legacy/Checksums.h>
-#include <MediaKit/legacy/MediaLayout.h>
+#include <MediaKit/MKMedia.h>
+#include <MediaKit/MKMediaAccess.h>
 
 #include "AppleRAIDUserLib.h"
+#include "AppleRAIDMember.h"   // for V2 header
 
 #define AUTO_YES	1
 #define AUTO_NO		2
@@ -72,7 +67,8 @@ usage()
     printf("artest --spare <set uuid> disk1s3 ...\n");
     printf("artest --remove <set uuid> disk1s3 ...\n");
     printf("\n");
-    printf("artest --erase disk1s3 disk2s3 disk3s3 ...\n\n");
+    printf("artest --erase disk1s3 disk2s3 disk3s3 ...\n");
+    printf("artest --header disk1s3 disk2s3 disk3s3 ...\n");
     printf("\n");
     printf("parameters:\n");
     printf("	<volname> = \"the volume name\"\n");
@@ -128,39 +124,67 @@ switchPartition(char * diskName, char * partitionType)
     }
     if (!partitionNumber) return true;			// just assume it a raid disk
     
-    MediaDescriptor * mediaDescriptor;
-    int err = MKMediaDeviceOpen(wholeDevicePath, O_RDWR, &mediaDescriptor);
-    if (err) return false;
+    char * optionString = "<dict> <key>Writable</key> <true/> </dict>";
+    CFDictionaryRef options = IOCFUnserialize(optionString, kCFAllocatorDefault, 0, NULL);
+    if (!options) exit(1);
+
+    int32_t err;
+    MKMediaRef device = MKMediaCreateWithPath(nil, wholeDevicePath, options, &err);
+    CFRelease(options);
+    if (!device || err) return false;
     
-    PartitionsHdl partitions = NULL;
-    err = VReadPartitions(&partitions, PMROptions, mediaDescriptor, MKMediaDeviceIO);
-    if (err) return false;
+    optionString = "<dict> <key>Include all</key> <true/> </dict>";
+    options = IOCFUnserialize(optionString, kCFAllocatorDefault, 0, NULL);
+    if (!options) exit(1);
+	
+    MKStatus err2;
+    CFMutableDictionaryRef media = MKCFReadMedia(options, device, &err2);
+    CFRelease(options);
+    if (!media || err2) goto Failure;
 
-    Partitionlist *	pmlist;
-    PartitionRecord *	pmp;
-    SInt16		pmindex;
+    // find and extract the 'Schemes' array 
+    CFMutableArrayRef Schemes = (CFMutableArrayRef) CFDictionaryGetValue(media, CFSTR("Schemes"));
+    if (!Schemes) goto Failure;
 
-    pmlist = *partitions;
-    for (pmindex = 0; pmindex < pmlist->count; pmindex++)
-    {
-	pmp = &pmlist->partitions[pmindex];
-	// Need to make the partitions 0 based instead of 1 based
-	if (PMIndex2Slice(pmlist, pmindex) == partitionNumber) {
+    // Search for the Apple Partition Scheme in the schemes array:
+    // CFMutableDictionaryRef Scheme = (CFMutableDictionaryRef) CFArrayDictionarySearch(Schemes, CFSTR("ID"), CFSTR("APM"));
+    // DMTool just grabs the first "default" scheme, so do the same
+    CFMutableDictionaryRef Scheme = (CFMutableDictionaryRef) CFArrayGetValueAtIndex(Schemes, 0);
+    if (!Scheme) goto Failure;
 
-	    // set partition type (ident)
-	    strcpy(((*partitions)->partitions[pmindex]).PMMain.pmPartType, partitionType);
+    // Then find and extract the 'Sections' array of that scheme:
+    CFMutableArrayRef Sections = (CFMutableArrayRef) CFDictionaryGetValue(Scheme, CFSTR("Sections"));
+    if (!Sections) goto Failure;
 
-	    break;
-	}
-    }
+    // Every scheme can have multiple sections to it, we need to find the 'MAP' section:
+    CFMutableDictionaryRef Section = (CFMutableDictionaryRef) CFArrayDictionarySearch(Sections, CFSTR("ID"), CFSTR("MAP"));
+    if (!Section) goto Failure;
 
-    err = VWritePartitions(partitions, PMEXISTTYPE, PMFIXFINAL | PMFREEGENERATE | PMIGNORESHIMS, mediaDescriptor, MKMediaDeviceIO);
-    if (err) return false;
+    // Then find and extract the 'Partitions' array of that section:
+    CFMutableArrayRef Partitions = (CFMutableArrayRef) CFDictionaryGetValue(Section, CFSTR("Partitions"));
+    if (!Partitions) goto Failure;
 
-    // close device node
-    MKMediaDeviceClose(mediaDescriptor);
-    
-    return true;
+    CFNumberRef partitionIndex = CFNumberCreate(nil, kCFNumberSInt32Type, &partitionNumber);
+    if (!partitionIndex) goto Failure;
+    CFMutableDictionaryRef Partition = (CFMutableDictionaryRef) CFArrayDictionarySearch(Partitions, CFSTR("Partition ID"), partitionIndex);
+    if (!Partition) goto Failure;
+
+    // change the partition type (finally!)
+    CFStringRef Type = CFStringCreateWithCString(nil, partitionType, kCFStringEncodingUTF8);
+    if (!Type) goto Failure;
+    CFDictionarySetValue(Partition, CFSTR("Type"), Type);
+
+    err2 = MKCFWriteMedia(media, nil, nil, nil, device);
+
+    MKCFDisposeMedia(media);
+    CFRelease(device);
+    return !err2;
+
+Failure:
+    if (media) MKCFDisposeMedia(media);
+    if (device) CFRelease(device);
+
+    return false;
 }
 
 static void
@@ -180,9 +204,18 @@ addMember(char * uuid, CFStringRef type, int argc, char* argv[])
 	exit(1);
     }
 
+    int partitionCount = argc;
+    char **firstPartition = argv;
+
     while (argc--) {
 	printf("adding partition \"%s\"\n", *argv);
 	CFStringRef partitionName = CFStringCreateWithCString(kCFAllocatorDefault, *argv, kCFStringEncodingUTF8);
+
+	bool success = switchPartition(*argv, kRAID_OFFLINE);
+	if (!success) {
+	    printf("switching the partition on \"%s\" to %s FAILED.\n", *argv, kRAID_OFFLINE);
+	    exit(1);
+	}
 
 	AppleRAIDMemberRef member = AppleRAIDAddMember(setInfo, partitionName, type);
 	if (!member) {
@@ -197,7 +230,21 @@ addMember(char * uuid, CFStringRef type, int argc, char* argv[])
     AppleRAIDSetRef set = AppleRAIDUpdateSet(setInfo);
     CFRelease(setInfo);
 
-    if (!set) printf("something went wrong adding members to the set\n");
+    if (!set) {
+	printf("something went wrong adding members to the set\n");
+	exit(1);
+    }
+
+    while (partitionCount--) {
+	printf("switching the partition on \"%s\" to %s.\n", *firstPartition, kRAID_ONLINE);
+	bool success = switchPartition(*firstPartition, kRAID_ONLINE);
+	if (!success) {
+	    printf("switching the partition on \"%s\" to %s FAILED.\n", *firstPartition, kRAID_ONLINE);
+	    exit(1);
+	}
+
+	firstPartition++;
+    }
 
     // at this point the code should wait for notifications that members and the set are available
 }
@@ -337,6 +384,30 @@ erasePartition(int argc, char* argv[])
 	success = AppleRAIDRemoveHeaders(partitionName);
 	if (!success) {
 	    printf("erasing the raid headers on partition \"%s\" FAILED.\n", *argv);
+	}
+
+	argv++;
+    }
+}
+
+static void
+dumpHeader(int argc, char* argv[])
+{
+    if (argc < 1) {
+	usage();
+	exit(1);
+    }
+
+    while (argc--) {
+
+//	printf("dumping the raid header on \"%s\".\n", *argv);
+
+	CFStringRef partitionName = CFStringCreateWithCString(kCFAllocatorDefault, *argv, kCFStringEncodingUTF8);
+	CFDataRef data = AppleRAIDDumpHeader(partitionName);
+
+	if (data) {
+	    AppleRAIDHeaderV2 * header = (AppleRAIDHeaderV2 *)CFDataGetBytePtr(data);
+	    if (header) printf("%s\n", header->plist);
 	}
 
 	argv++;
@@ -502,6 +573,9 @@ removeMember(char * setUUIDCString, int argc, char* argv[])
 	exit(1);
     }
 
+    int partitionCount = argc;
+    char **firstPartition = argv;
+
     while (argc--) {
 	printf("removing member \"%s\"\n", *argv);
 
@@ -523,6 +597,16 @@ removeMember(char * setUUIDCString, int argc, char* argv[])
     if (set) CFRelease(set);
     CFRelease(setInfo);
     CFRelease(setUUID);
+
+    while (partitionCount--) {
+	printf("switching the partition on \"%s\" to %s.\n", *firstPartition, kRAID_OFFLINE);
+	bool success = switchPartition(*firstPartition, kRAID_OFFLINE);
+	if (!success) {
+	    printf("switching the partition on \"%s\" to %s FAILED.\n", *firstPartition, kRAID_OFFLINE);
+	}
+
+	firstPartition++;
+    }
 }
 
 static void
@@ -537,11 +621,13 @@ callBack(CFNotificationCenterRef center, void *observer, CFStringRef name, const
     printf("Notification for %s, event = %s.\n", setName, event); fflush(stdout);
 }
 
+static void signalHandler(int sigraised);
+
 int
 main(int argc, char* argv[])
 {
-    bool add = false, create = false, destroy = false, erase = false, list = false;
-    bool modify = false, remove = false, spare = false, watch = false;
+    bool add = false, create = false, destroy = false, erase = false, header = false;
+    bool list = false, modify = false, remove = false, spare = false, watch = false;
     char * setLevel = 0, * setName = 0;
 
     /* options descriptor */
@@ -557,6 +643,7 @@ main(int argc, char* argv[])
 	{ "create",	no_argument,		0,		'c' },
 	{ "destroy",	required_argument,	0,		'd' },
 	{ "erase",	optional_argument,	0,		'e' },
+	{ "header",	optional_argument,	0,		'h' },
 	{ "help",	no_argument,		0,		'?' },
 	{ "list",	no_argument,		0,		'l' },
 	{ "modify",	required_argument,	0,		'm' },
@@ -568,7 +655,7 @@ main(int argc, char* argv[])
     };
 
     int ch;
-    while ((ch = getopt_long(argc, argv, "A:B:H:L:N:T:a:cd:elm:r:s:vw?", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "A:B:H:L:N:T:a:cd:ehlm:r:s:vw?", longopts, NULL)) != -1) {
 	
 	switch(ch) {
 	case 'A':
@@ -604,6 +691,9 @@ main(int argc, char* argv[])
 	case 'e':
 	    erase = true;
 	    break;
+	case 'h':
+	    header = true;
+	    break;
 	case 'l':
 	    list = true;
 	    break;
@@ -635,7 +725,7 @@ main(int argc, char* argv[])
     argc -= optind;
     argv += optind;
 
-    if (!add && !create && !destroy && !erase && !list && !modify && !remove && !spare && !watch) {
+    if (!add && !create && !destroy && !erase && !header && !list && !modify && !remove && !spare && !watch) {
 	usage();
 	exit(0);
     }
@@ -655,12 +745,10 @@ main(int argc, char* argv[])
 	exit(0);
     };
 
-//XXX new for tiger - remove this
-//XXX new for tiger - remove this
-CF_EXPORT CFNotificationCenterRef CFNotificationCenterGetLocalCenter(void);
-//XXX new for tiger - remove this
-//XXX new for tiger - remove this
-
+    if (header) {
+	dumpHeader(argc, argv);
+	exit(0);
+    };
 
     if (watch) {
 
@@ -709,7 +797,6 @@ CF_EXPORT CFNotificationCenterRef CFNotificationCenterGetLocalCenter(void);
 
 	// Set up a signal handler so we can clean up when we're interrupted from the command line
 	// Otherwise we stay in our run loop forever.
-	static void signalHandler(int sigraised);
 	sig_t oldHandler = signal(SIGINT, signalHandler);
 	if (oldHandler == SIG_ERR) {
 	    printf("Could not establish new signal handler");

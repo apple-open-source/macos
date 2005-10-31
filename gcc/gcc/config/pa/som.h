@@ -1,5 +1,6 @@
 /* Definitions for SOM assembler support.
-   Copyright (C) 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -215,38 +216,47 @@ do {								\
    So, we force exception information into the data section.  */
 #define TARGET_ASM_EXCEPTION_SECTION data_section
 
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.
+/* This is how to output a command to make the user-level label
+   named NAME defined for reference from other files.  We use
+   assemble_name_raw instead of assemble_name since a symbol in
+   a .IMPORT directive that isn't otherwise referenced is not
+   placed in the symbol table of the assembled object.
 
-   We call assemble_name, which in turn sets TREE_SYMBOL_REFERENCED.  This
-   macro will restore the original value of TREE_SYMBOL_REFERENCED to avoid
-   placing useless function definitions in the output file.
+   Failure to import a function reference can cause the HP linker
+   to segmentation fault!
 
-   Also note that the SOM based tools need the symbol imported as a CODE
-   symbol, while the ELF based tools require the symbol to be imported as
-   an ENTRY symbol.  What a crock.  */
+   Note that the SOM based tools need the symbol imported as a
+   CODE symbol, while the ELF based tools require the symbol to
+   be imported as an ENTRY symbol.  */
 
-#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
-  do { int save_referenced;					\
-       save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL)); \
-       fputs ("\t.IMPORT ", FILE);				\
-       assemble_name (FILE, NAME);				\
-       if (FUNCTION_NAME_P (NAME))     				\
-	 fputs (",CODE\n", FILE);				\
-       else							\
-	 fputs (",DATA\n", FILE);				\
-       TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL)) = save_referenced; \
+#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
+  pa_hpux_asm_output_external ((FILE), (DECL), (NAME))
+#define ASM_OUTPUT_EXTERNAL_REAL(FILE, DECL, NAME) \
+  do { fputs ("\t.IMPORT ", FILE);					\
+       assemble_name_raw (FILE, NAME);					\
+       if (FUNCTION_NAME_P (NAME))					\
+	 fputs (",CODE\n", FILE);					\
+       else								\
+	 fputs (",DATA\n", FILE);					\
      } while (0)
 
 /* The bogus HP assembler requires ALL external references to be
-   "imported", even library calls. They look a bit different, so
+   "imported", even library calls.  They look a bit different, so
    here's this macro.
 
    Also note not all libcall names are passed to pa_encode_section_info
    (__main for example).  To make sure all libcall names have section
-   info recorded in them, we do it here.  We must also ensure that
-   we don't import a libcall that has been previously exported since
-   the HP assembler may change an ENTRY symbol to a CODE symbol.  */
+   info recorded in them, we do it here.
+
+   We must also ensure that a libcall that has been previously
+   exported is not subsequently imported since the HP assembler may
+   change the type from an ENTRY to a CODE symbol.  This would make
+   the symbol local.  We are forced to use the identifier node
+   associated with the real assembler name for this check as the
+   symbol_ref available in ASM_DECLARE_FUNCTION_NAME is not the
+   same as the one used here.  As a result, we can't use flags
+   in the symbol_ref for this check.  The identifier check assumes
+   assemble_external_libcall is called before the symbol is used.  */
 
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, RTL) \
   do { const char *name;						\
@@ -255,12 +265,12 @@ do {								\
        if (!function_label_operand (RTL, VOIDmode))			\
 	 hppa_encode_label (RTL);					\
 									\
-       name = (*targetm.strip_name_encoding) (XSTR ((RTL), 0));		\
+       name = targetm.strip_name_encoding (XSTR ((RTL), 0));		\
        id = maybe_get_identifier (name);				\
-       if (! id || ! TREE_SYMBOL_REFERENCED (id))			\
+       if (!id || !TREE_SYMBOL_REFERENCED (id))				\
 	 {								\
 	   fputs ("\t.IMPORT ", FILE);					\
-	   assemble_name (FILE, XSTR ((RTL), 0));		       	\
+	   assemble_name_raw (FILE, XSTR ((RTL), 0));		       	\
 	   fputs (",CODE\n", FILE);					\
 	 }								\
      } while (0)
@@ -287,11 +297,9 @@ do {						\
    The .align directive in the HP assembler allows alignments up to 4096
    bytes.  However, the maximum alignment of a global common symbol is 8
    bytes for objects smaller than the page size (4096 bytes).  For larger
-   objects, the linker provides an alignment of 32 bytes.  */
-#define MAX_OFILE_ALIGNMENT						\
-  (TREE_PUBLIC (decl) && DECL_COMMON (decl)				\
-   ? (host_integerp (DECL_SIZE_UNIT (decl), 1) >= 4096 ? 256 : 64)	\
-   : 32768)
+   objects, the linker provides an alignment of 32 bytes.  Unfortunately,
+   this macro doesn't provide a mechanism to test for common symbols.  */
+#define MAX_OFILE_ALIGNMENT 32768
 
 /* The SOM linker hardcodes paths into binaries.  As a result, dotdots
    must be removed from library prefixes to prevent binaries from depending
@@ -311,11 +319,30 @@ do {						\
 #define SUPPORTS_WEAK 0
 #endif
 
-/* We can support one only if we support weak.  */
-#define SUPPORTS_ONE_ONLY SUPPORTS_WEAK
+/* CVS GAS as of 4/28/04 supports a comdat parameter for the .nsubspa
+   directive.  This provides one-only linkage semantics even though we
+   don't have weak support.  */
+#ifdef HAVE_GAS_NSUBSPA_COMDAT
+#define SUPPORTS_SOM_COMDAT (TARGET_GAS)
+#else
+#define SUPPORTS_SOM_COMDAT 0
+#endif
 
-/* Use weak (secondary definitions) to make one only declarations.  */
-#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
+/* We can support one only if we support weak or comdat.  */
+#define SUPPORTS_ONE_ONLY (SUPPORTS_WEAK || SUPPORTS_SOM_COMDAT)
+
+/* We use DECL_COMMON for uninitialized one-only variables as we don't
+   have linkonce .bss.  We use SOM secondary definitions or comdat for
+   initialized variables and functions.  */
+#define MAKE_DECL_ONE_ONLY(DECL) \
+  do {									\
+    if (TREE_CODE (DECL) == VAR_DECL					\
+        && (DECL_INITIAL (DECL) == 0					\
+            || DECL_INITIAL (DECL) == error_mark_node))			\
+      DECL_COMMON (DECL) = 1;						\
+    else if (SUPPORTS_WEAK)						\
+      DECL_WEAK (DECL) = 1;						\
+  } while (0)
 
 /* This is how we tell the assembler that a symbol is weak.  The SOM
    weak implementation uses the secondary definition (sdef) flag.
@@ -340,12 +367,7 @@ do {						\
   do { fputs ("\t.weak\t", FILE);				\
        assemble_name (FILE, NAME);				\
        fputc ('\n', FILE);					\
-       if (! FUNCTION_NAME_P (NAME))				\
-	 {							\
-	   fputs ("\t.EXPORT ", FILE);				\
-	   assemble_name (FILE, NAME);				\
-	   fputs (",DATA\n", FILE);				\
-	 }							\
+       targetm.asm_out.globalize_label (FILE, NAME);		\
   } while (0)
 
 /* We can't handle weak aliases, and therefore can't support pragma weak.

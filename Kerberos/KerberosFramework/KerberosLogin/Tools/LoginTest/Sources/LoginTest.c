@@ -111,12 +111,26 @@ void TestHighLevelAPI (void)
     KLTime	expirationTime;
     char*	principalString;
     char	timeString[256];
-    Boolean	valid;
+    KLBoolean	valid;
 
-    err = KLCreatePrincipalFromTriplet ("systest", "", "ATHENA.MIT.EDU", &inPrincipal);
-    printf ("KLCreatePrincipalFromTriplet(systest@ATHENA.MIT.EDU) (err = %d)\n", err);
+    err = KLCreatePrincipalFromTriplet ("grail", "", "TESTV5-KERBEROS-1.3.1", &inPrincipal);
+    printf ("KLCreatePrincipalFromTriplet(grail@TESTV5-KERBEROS-1.3.1) (err = %d)\n", err);
     if (err == klNoErr) {
-        err = KLAcquireNewInitialTicketsWithPassword (inPrincipal, NULL, "!mwm_user", &outCredCacheName);
+        err = KLAcquireNewInitialTicketsWithPassword (inPrincipal, NULL, "liarg", &outCredCacheName);
+        if (err != klNoErr) {
+            printf ("KLAcquireNewInitialTicketsWithPassword() returned err = %d\n", err);
+        } else {
+            printf ("KLAcquireNewInitialTicketsWithPassword() returned '%s'\n", outCredCacheName);
+            KLDisposeString (outCredCacheName);
+        }
+        KLDisposePrincipal (inPrincipal);
+    }
+    exit (1);
+    
+    err = KLCreatePrincipalFromTriplet ("nobody", "", "TEST-KERBEROS-1.3.1", &inPrincipal);
+    printf ("KLCreatePrincipalFromTriplet(nobody@TEST-KERBEROS-1.3.1) (err = %d)\n", err);
+    if (err == klNoErr) {
+        err = KLAcquireNewInitialTicketsWithPassword (inPrincipal, NULL, "ydobon", &outCredCacheName);
         if (err != klNoErr) {
             printf ("KLAcquireNewInitialTicketsWithPassword() returned err = %d\n", err);
         } else {
@@ -139,11 +153,11 @@ void TestHighLevelAPI (void)
         KLDisposePrincipal (inPrincipal);
     }
 
-    err = KLSetDefaultLoginOption (loginOption_LoginName, "lxs", 3);
-    printf ("KLSetDefaultLoginOption(loginOption_LoginName) to lxs (err = %d)\n", err);
+    err = KLSetDefaultLoginOption (loginOption_LoginName, "testname", 3);
+    printf ("KLSetDefaultLoginOption(loginOption_LoginName) to testname (err = %d)\n", err);
     if (err == klNoErr) {
-        err = KLSetDefaultLoginOption (loginOption_LoginInstance, "dialup", 6);
-        printf ("KLSetDefaultLoginOption(loginOption_LoginInstance) to dialup (err = %d)\n", err);
+        err = KLSetDefaultLoginOption (loginOption_LoginInstance, "testinstance", 6);
+        printf ("KLSetDefaultLoginOption(loginOption_LoginInstance) to testinstance (err = %d)\n", err);
     }
 
     err = KLAcquireNewInitialTickets (NULL, NULL, &inPrincipal, &outCredCacheName);
@@ -182,11 +196,11 @@ void TestHighLevelAPI (void)
     }
 	
 
-    err = KLCreatePrincipalFromTriplet ("systest", "", "ATHENA.MIT.EDU", &inPrincipal);
-    printf ("KLCreatePrincipalFromTriplet(systest@ATHENA.MIT.EDU) (err = %d)\n", err);
+    err = KLCreatePrincipalFromTriplet ("nobody", "", "TEST-KERBEROS-1.3.1", &inPrincipal);
+    printf ("KLCreatePrincipalFromTriplet(nobody@TEST-KERBEROS-1.3.1) (err = %d)\n", err);
     if (err == klNoErr) {
         err = KLAcquireNewInitialTickets (inPrincipal, NULL, &outPrincipal, &outCredCacheName);
-        printf ("KLAcquireNewInitialTickets(systest@ATHENA.MIT.EDU) (err = %d)\n", err);
+        printf ("KLAcquireNewInitialTickets(nobody@TEST-KERBEROS-1.3.1) (err = %d)\n", err);
         if (err == klNoErr) {
             KLDisposeString (outCredCacheName);
             KLDisposePrincipal (outPrincipal);
@@ -196,11 +210,11 @@ void TestHighLevelAPI (void)
         KLDisposePrincipal (inPrincipal);
     }
 
-    err = KLCreatePrincipalFromTriplet ("lxs", "", "ATHENA.MIT.EDU", &inPrincipal);
-    printf ("KLCreatePrincipalFromTriplet(lxs@ATHENA.MIT.EDU) (err = %d)\n", err);
+    err = KLCreatePrincipalFromTriplet ("nobody", "", "TEST-KERBEROS-1.3.1", &inPrincipal);
+    printf ("KLCreatePrincipalFromTriplet(nobody@TEST-KERBEROS-1.3.1) (err = %d)\n", err);
     if (err == klNoErr) {
         err = KLAcquireInitialTickets (inPrincipal, NULL, &outPrincipal, &outCredCacheName);
-        printf ("KLAcquireInitialTickets(lxs@ATHENA.MIT.EDU) (err = %d)\n", err);
+        printf ("KLAcquireInitialTickets(nobody@TEST-KERBEROS-1.3.1) (err = %d)\n", err);
         if (err == klNoErr) {
             KLDisposeString (outCredCacheName);
             KLDisposePrincipal (outPrincipal);
@@ -236,10 +250,10 @@ void TestKLPrincipal (void)
 {
     KLStatus err = klNoErr;
     KLPrincipal extraLongPrincipal = NULL;
-    KLPrincipal	lxsPrincipal = NULL;
-    KLPrincipal lxsDialupPrincipal = NULL;
-    KLPrincipal lxsRootPrincipalV4 = NULL;
-    KLPrincipal lxsRootPrincipalV5 = NULL;
+    KLPrincipal	principal = NULL;
+    KLPrincipal adminPrincipal = NULL;
+    KLPrincipal adminPrincipalV4 = NULL;
+    KLPrincipal adminPrincipalV5 = NULL;
     char *principalString = NULL;
     char *user = NULL;
     char *instance = NULL;
@@ -248,191 +262,191 @@ void TestKLPrincipal (void)
     printf ("Entering TestKLPrincipal()\n");
     printf ("----------------------------------------------------------------\n");
 
-    err = KLCreatePrincipalFromString ("thisprincipalnameislongerthanissupportedbyKerberos4@ATHENA.MIT.EDU",
+    err = KLCreatePrincipalFromString ("thisprincipalnameislongerthanissupportedbyKerberos4@TEST-KERBEROS-1.3.1",
                                        kerberosVersion_V5, &extraLongPrincipal);
     printf ("KLCreatePrincipalFromString "
-            "('thisprincipalnameislongerthanissupportedbyKerberos4@ATHENA.MIT.EDU') "
+            "('thisprincipalnameislongerthanissupportedbyKerberos4@TEST-KERBEROS-1.3.1') "
             "(err = %s)\n", error_message(err));
 
     printf ("----------------------------------------------------------------\n");
 
-    err = KLCreatePrincipalFromTriplet ("lxs", "", "ATHENA.MIT.EDU", &lxsPrincipal);
-    printf ("KLCreatePrincipalFromTriplet ('lxs' '' 'ATHENA.MIT.EDU') (err = %s)\n",
+    err = KLCreatePrincipalFromTriplet ("nobody", "", "TEST-KERBEROS-1.3.1", &principal);
+    printf ("KLCreatePrincipalFromTriplet ('nobody' '' 'TEST-KERBEROS-1.3.1') (err = %s)\n",
             error_message(err));
 
     if (err == klNoErr) {
-        err = KLGetStringFromPrincipal (lxsPrincipal, kerberosVersion_V5, &principalString);
+        err = KLGetStringFromPrincipal (principal, kerberosVersion_V5, &principalString);
         if (err == klNoErr) {
-            printf ("KLGetStringFromPrincipal (lxs@ATHENA.MIT.EDU, v5) returned string '%s'\n", principalString);
+            printf ("KLGetStringFromPrincipal (nobody@TEST-KERBEROS-1.3.1, v5) returned string '%s'\n", principalString);
             KLDisposeString (principalString);
         } else {
-            printf ("KLGetStringFromPrincipal(lxs@ATHENA.MIT.EDU, v5) returned (err = %s)\n", error_message(err));
+            printf ("KLGetStringFromPrincipal(nobody@TEST-KERBEROS-1.3.1, v5) returned (err = %s)\n", error_message(err));
         }
 
-        err = KLGetStringFromPrincipal (lxsPrincipal, kerberosVersion_V4, &principalString);
+        err = KLGetStringFromPrincipal (principal, kerberosVersion_V4, &principalString);
         if (err == klNoErr) {
-            printf ("KLGetStringFromPrincipal (lxs@ATHENA.MIT.EDU, v4) returned string '%s'\n", principalString);
+            printf ("KLGetStringFromPrincipal (nobody@TEST-KERBEROS-1.3.1, v4) returned string '%s'\n", principalString);
             KLDisposeString (principalString);
         } else {
-            printf ("KLGetStringFromPrincipal(lxs@ATHENA.MIT.EDU, v4) returned (err = %s)\n", error_message(err));
+            printf ("KLGetStringFromPrincipal(nobody@TEST-KERBEROS-1.3.1, v4) returned (err = %s)\n", error_message(err));
         }
         
-        err = KLGetTripletFromPrincipal (lxsPrincipal, &user, &instance, &realm);
+        err = KLGetTripletFromPrincipal (principal, &user, &instance, &realm);
         if (err == klNoErr) {
-            printf ("KLGetTripletFromPrincipal (lxs@ATHENA.MIT.EDU) returned triplet %s' '%s' '%s'\n",
+            printf ("KLGetTripletFromPrincipal (nobody@TEST-KERBEROS-1.3.1) returned triplet %s' '%s' '%s'\n",
                     user, instance, realm);
             KLDisposeString (user);
             KLDisposeString (instance);
             KLDisposeString (realm);
         } else {
-            printf ("KLGetTripletFromPrincipal(lxs@ATHENA.MIT.EDU) returned (err = %s)\n", error_message(err));
+            printf ("KLGetTripletFromPrincipal(nobody@TEST-KERBEROS-1.3.1) returned (err = %s)\n", error_message(err));
         }            
     }
 
     printf ("----------------------------------------------------------------\n");
 
-    err = KLCreatePrincipalFromTriplet ("lxs", "dialup", "ATHENA.MIT.EDU", &lxsDialupPrincipal);
-    printf ("KLCreatePrincipalFromTriplet ('lxs' 'dialup' 'ATHENA.MIT.EDU') (err = %d)\n", err);
+    err = KLCreatePrincipalFromTriplet ("nobody", "admin", "TEST-KERBEROS-1.3.1", &adminPrincipal);
+    printf ("KLCreatePrincipalFromTriplet ('nobody' 'admin' 'TEST-KERBEROS-1.3.1') (err = %d)\n", err);
 
     if (err == klNoErr) {
-        err = KLGetStringFromPrincipal (lxsDialupPrincipal, kerberosVersion_V5, &principalString);
+        err = KLGetStringFromPrincipal (adminPrincipal, kerberosVersion_V5, &principalString);
         if (err == klNoErr) {
-            printf ("KLGetStringFromPrincipal (lxs/dialup@ATHENA.MIT.EDU, v5) returned string '%s'\n", principalString);
+            printf ("KLGetStringFromPrincipal (nobody/admin@TEST-KERBEROS-1.3.1, v5) returned string '%s'\n", principalString);
             KLDisposeString (principalString);
         } else {
-            printf ("KLGetStringFromPrincipal(lxs/dialup@ATHENA.MIT.EDU, v5) returned (err = %d)\n", err);
+            printf ("KLGetStringFromPrincipal(nobody/admin@TEST-KERBEROS-1.3.1, v5) returned (err = %d)\n", err);
         }
 
-        err = KLGetStringFromPrincipal (lxsDialupPrincipal, kerberosVersion_V4, &principalString);
+        err = KLGetStringFromPrincipal (adminPrincipal, kerberosVersion_V4, &principalString);
         if (err == klNoErr) {
-            printf ("KLGetStringFromPrincipal (lxs/dialup@ATHENA.MIT.EDU, v4) returned string '%s'\n", principalString);
+            printf ("KLGetStringFromPrincipal (nobody/admin@TEST-KERBEROS-1.3.1, v4) returned string '%s'\n", principalString);
             KLDisposeString (principalString);
         } else {
-            printf ("KLGetStringFromPrincipal(lxs/dialup@ATHENA.MIT.EDU, v4) returned (err = %d)\n", err);
+            printf ("KLGetStringFromPrincipal(nobody/admin@TEST-KERBEROS-1.3.1, v4) returned (err = %d)\n", err);
         }
 
-        err = KLGetTripletFromPrincipal (lxsDialupPrincipal, &user, &instance, &realm);
+        err = KLGetTripletFromPrincipal (adminPrincipal, &user, &instance, &realm);
         if (err == klNoErr) {
-            printf ("KLGetTripletFromPrincipal (lxs/dialup@ATHENA.MIT.EDU) returned triplet %s' '%s' '%s'\n",
+            printf ("KLGetTripletFromPrincipal (nobody/admin@TEST-KERBEROS-1.3.1) returned triplet %s' '%s' '%s'\n",
                     user, instance, realm);
             KLDisposeString (user);
             KLDisposeString (instance);
             KLDisposeString (realm);
         } else {
-            printf ("KLGetTripletFromPrincipal(lxs/dialup@ATHENA.MIT.EDU) returned (err = %d)\n", err);
+            printf ("KLGetTripletFromPrincipal(lxs/admin@TEST-KERBEROS-1.3.1) returned (err = %d)\n", err);
         }
     }
 
     printf ("----------------------------------------------------------------\n");
 
-    err = KLCreatePrincipalFromString ("lxs/root@ATHENA.MIT.EDU", kerberosVersion_V5, &lxsRootPrincipalV5);
-    printf ("KLCreatePrincipalFromString ('lxs/root@ATHENA.MIT.EDU', v5) (err = %d)\n", err);
+    err = KLCreatePrincipalFromString ("nobody/root@TEST-KERBEROS-1.3.1", kerberosVersion_V5, &adminPrincipalV5);
+    printf ("KLCreatePrincipalFromString ('nobody/root@TEST-KERBEROS-1.3.1', v5) (err = %d)\n", err);
     if (err == klNoErr) {
-        err = KLGetStringFromPrincipal (lxsRootPrincipalV5, kerberosVersion_V5, &principalString);
+        err = KLGetStringFromPrincipal (adminPrincipalV5, kerberosVersion_V5, &principalString);
         if (err == klNoErr) {
-            printf ("KLGetStringFromPrincipal (lxs/root@ATHENA.MIT.EDU, v5) returned string '%s'\n", principalString);
+            printf ("KLGetStringFromPrincipal (nobody/root@TEST-KERBEROS-1.3.1, v5) returned string '%s'\n", principalString);
             KLDisposeString (principalString);
         } else {
-            printf ("KLGetStringFromPrincipal(lxs/root@ATHENA.MIT.EDU, v5) returned (err = %d)\n", err);
+            printf ("KLGetStringFromPrincipal(nobody/root@TEST-KERBEROS-1.3.1, v5) returned (err = %d)\n", err);
         }
 
-        err = KLGetStringFromPrincipal (lxsRootPrincipalV5, kerberosVersion_V4, &principalString);
+        err = KLGetStringFromPrincipal (adminPrincipalV5, kerberosVersion_V4, &principalString);
         if (err == klNoErr) {
-            printf ("KLGetStringFromPrincipal (lxs/root@ATHENA.MIT.EDU, v4) returned string '%s'\n", principalString);
+            printf ("KLGetStringFromPrincipal (nobody/admin@TEST-KERBEROS-1.3.1, v4) returned string '%s'\n", principalString);
             KLDisposeString (principalString);
         } else {
-            printf ("KLGetStringFromPrincipal(lxs/root@ATHENA.MIT.EDU, v4) returned (err = %d)\n", err);
+            printf ("KLGetStringFromPrincipal(nobody/admin@TEST-KERBEROS-1.3.1, v4) returned (err = %d)\n", err);
         }
 
-        err = KLGetTripletFromPrincipal (lxsRootPrincipalV5, &user, &instance, &realm);
+        err = KLGetTripletFromPrincipal (adminPrincipalV5, &user, &instance, &realm);
         if (err == klNoErr) {
-            printf ("KLGetTripletFromPrincipal (lxs/root@ATHENA.MIT.EDU) returned triplet %s' '%s' '%s'\n",
+            printf ("KLGetTripletFromPrincipal (nobody/admin@TEST-KERBEROS-1.3.1) returned triplet %s' '%s' '%s'\n",
                     user, instance, realm);
             KLDisposeString (user);
             KLDisposeString (instance);
             KLDisposeString (realm);
         } else {
-            printf ("KLGetTripletFromPrincipal(lxs/root@ATHENA.MIT.EDU) returned (err = %d)\n", err);
+            printf ("KLGetTripletFromPrincipal(nobody/admin@TEST-KERBEROS-1.3.1) returned (err = %d)\n", err);
         }
     }
 
     printf ("----------------------------------------------------------------\n");
 
-    err = KLCreatePrincipalFromString ("lxs.root@ATHENA.MIT.EDU", kerberosVersion_V4, &lxsRootPrincipalV4);
-    printf ("KLCreatePrincipalFromString ('lxs.root@ATHENA.MIT.EDU') (err = %d)\n", err);
+    err = KLCreatePrincipalFromString ("nobody.admin@TEST-KERBEROS-1.3.1", kerberosVersion_V4, &adminPrincipalV4);
+    printf ("KLCreatePrincipalFromString ('nobody.admin@TEST-KERBEROS-1.3.1') (err = %d)\n", err);
     if (err == klNoErr) {
-        err = KLGetStringFromPrincipal (lxsRootPrincipalV4, kerberosVersion_V5, &principalString);
+        err = KLGetStringFromPrincipal (adminPrincipalV4, kerberosVersion_V5, &principalString);
         if (err == klNoErr) {
-            printf ("KLGetStringFromPrincipal (lxs.root@ATHENA.MIT.EDU, v5) returned string '%s'\n", principalString);
+            printf ("KLGetStringFromPrincipal (nobody.admin@TEST-KERBEROS-1.3.1, v5) returned string '%s'\n", principalString);
             KLDisposeString (principalString);
         } else {
-            printf ("KLGetStringFromPrincipal(lxs.root@ATHENA.MIT.EDU, v5) returned (err = %d)\n", err);
+            printf ("KLGetStringFromPrincipal(nobody.admin@TEST-KERBEROS-1.3.1, v5) returned (err = %d)\n", err);
         }
 
-        err = KLGetStringFromPrincipal (lxsRootPrincipalV4, kerberosVersion_V4, &principalString);
+        err = KLGetStringFromPrincipal (adminPrincipalV4, kerberosVersion_V4, &principalString);
         if (err == klNoErr) {
-            printf ("KLGetStringFromPrincipal (lxs.root@ATHENA.MIT.EDU, v4) returned string '%s'\n", principalString);
+            printf ("KLGetStringFromPrincipal (nobody.admin@TEST-KERBEROS-1.3.1, v4) returned string '%s'\n", principalString);
             KLDisposeString (principalString);
         } else {
-            printf ("KLGetStringFromPrincipal(lxs.root@ATHENA.MIT.EDU, v4) returned (err = %d)\n", err);
+            printf ("KLGetStringFromPrincipal(nobody.admin@TEST-KERBEROS-1.3.1, v4) returned (err = %d)\n", err);
         }
         
-        err = KLGetTripletFromPrincipal (lxsRootPrincipalV4, &user, &instance, &realm);
+        err = KLGetTripletFromPrincipal (adminPrincipalV4, &user, &instance, &realm);
         if (err == klNoErr) {
-            printf ("KLGetTripletFromPrincipal (lxs.root@ATHENA.MIT.EDU) returned triplet %s' '%s' '%s'\n",
+            printf ("KLGetTripletFromPrincipal (nobody.admin@TEST-KERBEROS-1.3.1) returned triplet %s' '%s' '%s'\n",
                     user, instance, realm);
             KLDisposeString (user);
             KLDisposeString (instance);
             KLDisposeString (realm);
         } else {
-            printf ("KLGetTripletFromPrincipal(lxs.root@ATHENA.MIT.EDU) returned (err = %d)\n", err);
+            printf ("KLGetTripletFromPrincipal(nobody.admin@TEST-KERBEROS-1.3.1) returned (err = %d)\n", err);
         }
     }
 
     printf ("----------------------------------------------------------------\n");
 
-    if (lxsRootPrincipalV4 != NULL && lxsRootPrincipalV5 != NULL) {
-        Boolean equivalent;
+    if (adminPrincipalV4 != NULL && adminPrincipalV5 != NULL) {
+        KLBoolean equivalent;
 
-        err = KLComparePrincipal (lxsRootPrincipalV5, lxsRootPrincipalV4, &equivalent);
+        err = KLComparePrincipal (adminPrincipalV5, adminPrincipalV4, &equivalent);
         if (err == klNoErr) {
-            printf ("KLComparePrincipal %s comparing lxs/root@ATHENA.MIT.EDU and lxs.root@ATHENA.MIT.EDU\n",
+            printf ("KLComparePrincipal %s comparing nobody/admin@TEST-KERBEROS-1.3.1 and nobody.admin@TEST-KERBEROS-1.3.1\n",
                     equivalent ? "passed" : "FAILED");
         } else {
             printf ("KLComparePrincipal returned (err = %d)\n", err);
         }
     }
     
-    if (lxsPrincipal != NULL && lxsRootPrincipalV5 != NULL) {
-        Boolean equivalent;
+    if (principal != NULL && adminPrincipalV5 != NULL) {
+        KLBoolean equivalent;
 
-        err = KLComparePrincipal (lxsPrincipal, lxsRootPrincipalV4, &equivalent);
+        err = KLComparePrincipal (principal, adminPrincipalV4, &equivalent);
         if (err == klNoErr) {
-            printf ("KLComparePrincipal %s comparing lxs@ATHENA.MIT.EDU and lxs.root@ATHENA.MIT.EDU\n",
+            printf ("KLComparePrincipal %s comparing nobody@TEST-KERBEROS-1.3.1 and nobody.admin@TEST-KERBEROS-1.3.1\n",
                     equivalent ? "FAILED" : "passed");
         } else {
             printf ("KLComparePrincipal returned (err = %d)\n", err);
         }
     }
 
-    if (lxsPrincipal != NULL && lxsRootPrincipalV5 != NULL) {
-        Boolean equivalent;
+    if (principal != NULL && adminPrincipalV5 != NULL) {
+        KLBoolean equivalent;
 
-        err = KLComparePrincipal (lxsPrincipal, lxsRootPrincipalV5, &equivalent);
+        err = KLComparePrincipal (principal, adminPrincipalV5, &equivalent);
         if (err == klNoErr) {
-            printf ("KLComparePrincipal %s comparing lxs@ATHENA.MIT.EDU and lxs/root@ATHENA.MIT.EDU\n",
+            printf ("KLComparePrincipal %s comparing nobody@TEST-KERBEROS-1.3.1 and nobody/admin@TEST-KERBEROS-1.3.1\n",
                     equivalent ? "FAILED" : "passed");
         } else {
             printf ("KLComparePrincipal returned (err = %d)\n", err);
         }
     }
 
-    if (lxsDialupPrincipal != NULL && lxsRootPrincipalV5 != NULL) {
-        Boolean equivalent;
+    if (adminPrincipal != NULL && adminPrincipalV5 != NULL) {
+        KLBoolean equivalent;
 
-        err = KLComparePrincipal (lxsDialupPrincipal, lxsRootPrincipalV5, &equivalent);
+        err = KLComparePrincipal (adminPrincipalV5, principal, &equivalent);
         if (err == klNoErr) {
-            printf ("KLComparePrincipal %s comparing lxs/dialup@ATHENA.MIT.EDU and lxs/root@ATHENA.MIT.EDU\n",
+            printf ("KLComparePrincipal %s comparing nobody/admin@TEST-KERBEROS-1.3.1 and nobody@TEST-KERBEROS-1.3.1\n",
                     equivalent ? "FAILED" : "passed");
         } else {
             printf ("KLComparePrincipal returned (err = %d)\n", err);
@@ -442,10 +456,10 @@ void TestKLPrincipal (void)
     printf ("----------------------------------------------------------------\n\n");
 
     if (extraLongPrincipal != NULL) KLDisposePrincipal (extraLongPrincipal);
-    if (lxsRootPrincipalV5 != NULL) KLDisposePrincipal (lxsRootPrincipalV5);
-    if (lxsRootPrincipalV4 != NULL) KLDisposePrincipal (lxsRootPrincipalV4);
-    if (lxsDialupPrincipal != NULL) KLDisposePrincipal (lxsDialupPrincipal);
-    if (lxsPrincipal       != NULL) KLDisposePrincipal (lxsPrincipal);
+    if (adminPrincipalV5   != NULL) KLDisposePrincipal (adminPrincipalV5);
+    if (adminPrincipalV4   != NULL) KLDisposePrincipal (adminPrincipalV4);
+    if (adminPrincipal     != NULL) KLDisposePrincipal (adminPrincipal);
+    if (principal          != NULL) KLDisposePrincipal (principal);
 }
 
 
@@ -474,11 +488,11 @@ void TestKerberosRealms (void)
     KLRemoveKerberosRealm (0);
     KLAcquireNewInitialTickets (NULL, NULL, NULL, NULL);
     
-    KLSetKerberosRealm (2, "ATHENA.MIT.EDU");
+    KLSetKerberosRealm (2, "TEST-KERBEROS-1.3.1");
     KLAcquireNewInitialTickets (NULL, NULL, NULL, NULL);
 
     KLRemoveAllKerberosRealms ();
-    KLInsertKerberosRealm (realmList_End, "ATHENA.MIT.EDU");
+    KLInsertKerberosRealm (realmList_End, "TEST-KERBEROS-1.3.1");
     KLInsertKerberosRealm (realmList_End, "TEST-KERBEROS-1.0.6");
     KLInsertKerberosRealm (realmList_End, "TESTV5-KERBEROS-1.0.6");
     KLInsertKerberosRealm (realmList_End, "TEST-KERBEROS-1.1.1");

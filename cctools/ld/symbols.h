@@ -78,11 +78,14 @@ struct merged_symbol {
 				   /*  only in the undefined list as a two- */
 				   /*  level namespace reference from a dylib.*/
 	weak_reference_mismatch:1, /* seen both a weak and non-weak reference */
+	seen_undef:1,		   /* seen an undefined reference from an */
+				   /*  object file. So the N_WEAK_REF bit */
+				   /*  does reflect the value for the output. */
 	define_a_way:1,		   /* set if this symbol was defined as a */
 				   /*  result of -undefined define_a_way */
 	live:1,			   /* TRUE if the symbol is not to be dead */
 				   /*  stripped. */
-	unused:22;
+	unused:21;
     unsigned long output_index;	/* the symbol table index this symbol will */
 				/*  have in the output file. */
     int undef_order;		/* if the symbol was undefined the order it */

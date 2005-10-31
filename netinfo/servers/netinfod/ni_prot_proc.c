@@ -965,7 +965,7 @@ _ni_statistics_2_svc(
 #ifdef _OS_NEXT_
 	wPropsN(P_CLEANUP, STATS_CLEANUP_TOGO, "%ld", cleanupwait < 0 ? -1 : (cleanuptime - now.tv_sec)/60);
 #else
-	wPropsN(P_CLEANUP, STATS_CLEANUP_TOGO, "%d", cleanupwait < 0 ? -1 : (cleanuptime - now.tv_sec)/60);
+	wPropsN(P_CLEANUP, STATS_CLEANUP_TOGO, "%ld", cleanupwait < 0 ? -1 : (cleanuptime - now.tv_sec)/60);
 #endif
 
 	/* current binding status */
@@ -2454,12 +2454,7 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 					stuff->bindings[i].server_tag);
 		}
 
-		stat = ni_multi_call(nlocal, addrs,
-			NIBIND_PROG, NIBIND_VERS, NIBIND_BIND,
-			xdr_nibind_bind_args, stuff->bindings, 
-			sizeof(nibind_bind_args),
-			xdr_void, stuff, 
-			catch, -1);
+		stat = ni_multi_call(nlocal, addrs, NIBIND_PROG, NIBIND_VERS, NIBIND_BIND, (void *)xdr_nibind_bind_args, stuff->bindings, sizeof(nibind_bind_args), (void *)xdr_void, stuff, catch, -1);
 	}
 
 	if (stat != RPC_SUCCESS && nnetwork > 0)
@@ -2478,12 +2473,7 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 					stuff->bindings[i].server_tag);
 		}
 
-		stat = ni_multi_call(nnetwork, addrs,
-			NIBIND_PROG, NIBIND_VERS, NIBIND_BIND,
-			xdr_nibind_bind_args, stuff->bindings, 
-			sizeof(nibind_bind_args),
-			xdr_void, stuff, 
-			catch, -1);
+		stat = ni_multi_call(nnetwork, addrs, NIBIND_PROG, NIBIND_VERS, NIBIND_BIND, (void *)xdr_nibind_bind_args, stuff->bindings, sizeof(nibind_bind_args), (void *)xdr_void, stuff,  catch, -1);
 	}
 
 	if (stat != RPC_SUCCESS && ((naddrs - nbcast) > 0))
@@ -2502,12 +2492,7 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 					stuff->bindings[i].server_tag);
 		}
 
-		stat = ni_multi_call(naddrs, addrs,
-			NIBIND_PROG, NIBIND_VERS, NIBIND_BIND,
-			xdr_nibind_bind_args, stuff->bindings, 
-			sizeof(nibind_bind_args),
-			xdr_void, stuff, 
-			catch, -1);
+		stat = ni_multi_call(naddrs, addrs, NIBIND_PROG, NIBIND_VERS, NIBIND_BIND, (void *)xdr_nibind_bind_args, stuff->bindings, sizeof(nibind_bind_args), (void *)xdr_void, stuff, catch, -1);
 	}
 
 binding_done:
@@ -2621,13 +2606,13 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 	 */
 	if (alert_aborted())
 	{
-		set_binding_status(NI_NETROOT);
+		set_binding_status(NI_NETROOT, 0);
 		return &res;
 	}
 
 	if (sys_is_standalone())
 	{
-		set_binding_status(NI_NETROOT);
+		set_binding_status(NI_NETROOT, 0);
 		return &res;
 	}
 
@@ -2677,7 +2662,7 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 		/*
 		 * Set status to NI_NORESPONSE while we are trying to bind. 
 		 */
-		set_binding_status(NI_NORESPONSE);
+		set_binding_status(NI_NORESPONSE, 0);
 
 		/*
 		 * If there is a binding file, get potential parent servers from it.
@@ -2693,7 +2678,7 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 		{
 			/* Can't get any potential parents! */
 			res.status = NI_NETROOT;
-			set_binding_status(NI_NETROOT);
+			set_binding_status(NI_NETROOT, 0);
 			return &res;
 		}
 
@@ -2724,7 +2709,7 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 		time(&root_time);
 	}
 
-	set_binding_status(res.status);
+	set_binding_status(res.status, 0);
 
 	return (&res);
 }
@@ -2999,7 +2984,7 @@ _ni_readall_2_svc(
 				 * to unlock it, we just sit forever, eating up bits
 				 * of CPU time.
 				 */
-				didit = svc_sendreply(req->rq_xprt, readall, db_ni);
+				didit = svc_sendreply(req->rq_xprt, (void *)readall, db_ni);
 				if (!didit)
 				{
 					system_log(LOG_ERR, "readall %s to %s:%hu failed",
@@ -3085,7 +3070,7 @@ _ni_readall_2_svc(
 	 * of the proxy failed.  Do it here, regardless.
 	 */
 	socket_lock();
-	didit = svc_sendreply(req->rq_xprt, readall, db_ni);
+	didit = svc_sendreply(req->rq_xprt, (void *)readall, db_ni);
 	socket_unlock();
 	syslock_lock(readall_syslock);
 	sending_all--;	/* Let writing resume (well, once we're at 0) */

@@ -402,8 +402,9 @@ ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 	}
     }
     else {
-	char 	uid_str[32];
-	char	gid_str[32];
+	char		gid_str[32];
+	boolean_t	on_console;
+	char 		uid_str[32];
 
 	char * argv[] = { eapolclient_path, 
 			  "-i", if_name,
@@ -411,12 +412,17 @@ ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 			  NULL,		/* 4 */
 			  "-g", 
 			  NULL,		/* 6 */
+			  NULL, 	/* 7 */
 			  NULL };
 
 	snprintf(uid_str, sizeof(uid_str), "%u", uid);
 	snprintf(gid_str, sizeof(gid_str), "%u", gid);
 	argv[4] = uid_str;
 	argv[6] = gid_str;
+	on_console = is_console_user(uid);
+	if (on_console == FALSE) {
+	    argv[7] = "-n";
+	}
 	if (client == NULL) {
 	    client = eapolClientAdd(if_name);
 	}
@@ -432,7 +438,7 @@ ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 	else {
 	    client->owner.uid = uid;
 	    client->owner.gid = gid;
-	    client->console_user = is_console_user(uid);
+	    client->console_user = on_console;
 	    client->config_dict = CFRetain(config_dict);
 	    client->bootstrap = bootstrap;
 	    eapolClientSetState(client, kEAPOLControlStateStarting);

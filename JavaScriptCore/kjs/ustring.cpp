@@ -35,6 +35,7 @@
 #include <strings.h>
 #endif
 
+#include "fast_malloc.h"
 #include "ustring.h"
 #include "operations.h"
 #include "identifier.h"
@@ -44,11 +45,6 @@
 #if APPLE_CHANGES
 
 #include <unicode/uchar.h>
-
-// malloc_good_size is not prototyped anywhere!
-extern "C" {
-  size_t malloc_good_size(size_t size);
-}
 
 #endif
 
@@ -136,7 +132,7 @@ CString &CString::operator=(const CString &str)
   return *this;
 }
 
-bool KJS::operator==(const KJS::CString& c1, const KJS::CString& c2)
+bool operator==(const CString& c1, const CString& c2)
 {
   int len = c1.size();
   return len == c2.size() && (len == 0 || memcmp(c1.c_str(), c2.c_str(), len) == 0);
@@ -195,6 +191,15 @@ UChar& UCharReference::ref() const
   }
 }
 
+UString::Rep *UString::Rep::createCopying(const UChar *d, int l)
+{
+  int sizeInBytes = l * sizeof(UChar);
+  UChar *copyD = static_cast<UChar *>(kjs_fast_malloc(sizeInBytes));
+  memcpy(copyD, d, sizeInBytes);
+
+  return create(copyD, l);
+}
+
 UString::Rep *UString::Rep::create(UChar *d, int l)
 {
   Rep *r = new Rep;
@@ -248,7 +253,7 @@ void UString::Rep::destroy()
   if (baseString) {
     baseString->deref();
   } else {
-    free(buf);
+    kjs_fast_free(buf);
   }
   delete this;
 }
@@ -330,9 +335,6 @@ unsigned UString::Rep::computeHash(const char *s)
 inline int UString::expandedSize(int size, int otherSize) const
 {
   int s = (size * 11 / 10) + 1 + otherSize;
-#if APPLE_CHANGES
-  s = malloc_good_size(s * sizeof(UChar)) / sizeof(UChar);
-#endif
   return s;
 }
 
@@ -352,7 +354,7 @@ void UString::expandCapacity(int requiredLength)
 
   if (requiredLength > r->capacity) {
     int newCapacity = expandedSize(requiredLength, r->preCapacity);
-    r->buf = static_cast<UChar *>(realloc(r->buf, newCapacity * sizeof(UChar)));
+    r->buf = static_cast<UChar *>(kjs_fast_realloc(r->buf, newCapacity * sizeof(UChar)));
     r->capacity = newCapacity - r->preCapacity;
   }
   if (requiredLength > r->usedCapacity) {
@@ -368,9 +370,9 @@ void UString::expandPreCapacity(int requiredPreCap)
     int newCapacity = expandedSize(requiredPreCap, r->capacity);
     int delta = newCapacity - r->capacity - r->preCapacity;
 
-    UChar *newBuf = static_cast<UChar *>(malloc(newCapacity * sizeof(UChar)));
+    UChar *newBuf = static_cast<UChar *>(kjs_fast_malloc(newCapacity * sizeof(UChar)));
     memcpy(newBuf + delta, r->buf, (r->capacity + r->preCapacity) * sizeof(UChar));
-    free(r->buf);
+    kjs_fast_free(r->buf);
     r->buf = newBuf;
 
     r->preCapacity = newCapacity - r->capacity;
@@ -388,7 +390,7 @@ UString::UString()
 
 UString::UString(char c)
 {
-    UChar *d = static_cast<UChar *>(malloc(sizeof(UChar)));
+    UChar *d = static_cast<UChar *>(kjs_fast_malloc(sizeof(UChar)));
     d[0] = c;
     rep = Rep::create(d, 1);
 }
@@ -404,7 +406,7 @@ UString::UString(const char *c)
     attach(&Rep::empty);
     return;
   }
-  UChar *d = static_cast<UChar *>(malloc(sizeof(UChar) * length));
+  UChar *d = static_cast<UChar *>(kjs_fast_malloc(sizeof(UChar) * length));
   for (int i = 0; i < length; i++)
     d[i].uc = c[i];
   rep = Rep::create(d, length);
@@ -416,9 +418,7 @@ UString::UString(const UChar *c, int length)
     attach(&Rep::empty);
     return;
   }
-  UChar *d = static_cast<UChar *>(malloc(sizeof(UChar) *length));
-  memcpy(d, c, length * sizeof(UChar));
-  rep = Rep::create(d, length);
+  rep = Rep::createCopying(c, length);
 }
 
 UString::UString(UChar *c, int length, bool copy)
@@ -427,13 +427,11 @@ UString::UString(UChar *c, int length, bool copy)
     attach(&Rep::empty);
     return;
   }
-  UChar *d;
   if (copy) {
-    d = static_cast<UChar *>(malloc(sizeof(UChar) * length));
-    memcpy(d, c, length * sizeof(UChar));
-  } else
-    d = c;
-  rep = Rep::create(d, length);
+    rep = Rep::createCopying(c, length);
+  } else {
+    rep = Rep::create(c, length);
+  }
 }
 
 UString::UString(const UString &a, const UString &b)
@@ -473,7 +471,7 @@ UString::UString(const UString &a, const UString &b)
   } else {
     // a does not qualify for append, and b does not qualify for prepend, gotta make a whole new string
     int newCapacity = expandedSize(length, 0);
-    UChar *d = static_cast<UChar *>(malloc(sizeof(UChar) * newCapacity));
+    UChar *d = static_cast<UChar *>(kjs_fast_malloc(sizeof(UChar) * newCapacity));
     memcpy(d, a.data(), aSize * sizeof(UChar));
     memcpy(d + aSize, b.data(), bSize * sizeof(UChar));
     rep = Rep::create(d, length);
@@ -619,7 +617,7 @@ UString UString::spliceSubstringsWithSeparators(const Range *substringRanges, in
     totalLength += separators[i].size();
   }
 
-  UChar *buffer = static_cast<UChar *>(malloc(totalLength * sizeof(UChar)));
+  UChar *buffer = static_cast<UChar *>(kjs_fast_malloc(totalLength * sizeof(UChar)));
 
   int maxCount = MAX(rangeCount, separatorCount);
   int bufferPos = 0;
@@ -672,7 +670,7 @@ UString &UString::append(const UString &t)
   } else {
     // this is shared with someone using more capacity, gotta make a whole new string
     int newCapacity = expandedSize(length, 0);
-    UChar *d = static_cast<UChar *>(malloc(sizeof(UChar) * newCapacity));
+    UChar *d = static_cast<UChar *>(kjs_fast_malloc(sizeof(UChar) * newCapacity));
     memcpy(d, data(), thisSize * sizeof(UChar));
     memcpy(const_cast<UChar *>(d + thisSize), t.data(), tSize * sizeof(UChar));
     release();
@@ -716,7 +714,7 @@ UString &UString::append(const char *t)
   } else {
     // this is shared with someone using more capacity, gotta make a whole new string
     int newCapacity = expandedSize(length, 0);
-    UChar *d = static_cast<UChar *>(malloc(sizeof(UChar) * newCapacity));
+    UChar *d = static_cast<UChar *>(kjs_fast_malloc(sizeof(UChar) * newCapacity));
     memcpy(d, data(), thisSize * sizeof(UChar));
     for (int i = 0; i < tSize; ++i)
       d[thisSize+i] = t[i];
@@ -737,7 +735,7 @@ UString &UString::append(unsigned short c)
   if (length == 0) {
     // this is empty - must make a new rep because we don't want to pollute the shared empty one 
     int newCapacity = expandedSize(1, 0);
-    UChar *d = static_cast<UChar *>(malloc(sizeof(UChar) * newCapacity));
+    UChar *d = static_cast<UChar *>(kjs_fast_malloc(sizeof(UChar) * newCapacity));
     d[0] = c;
     release();
     rep = Rep::create(d, 1);
@@ -760,7 +758,7 @@ UString &UString::append(unsigned short c)
   } else {
     // this is shared with someone using more capacity, gotta make a whole new string
     int newCapacity = expandedSize((length + 1), 0);
-    UChar *d = static_cast<UChar *>(malloc(sizeof(UChar) * newCapacity));
+    UChar *d = static_cast<UChar *>(kjs_fast_malloc(sizeof(UChar) * newCapacity));
     memcpy(d, data(), length * sizeof(UChar));
     d[length] = c;
     release();
@@ -822,7 +820,7 @@ UString &UString::operator=(const char *c)
     rep->_hash = 0;
   } else {
     release();
-    d = static_cast<UChar *>(malloc(sizeof(UChar) * l));
+    d = static_cast<UChar *>(kjs_fast_malloc(sizeof(UChar) * l));
     rep = Rep::create(d, l);
   }
   for (int i = 0; i < l; i++)
@@ -1049,8 +1047,10 @@ int UString::find(const UString &f, int pos) const
   const UChar *end = data() + sz - fsz;
   long fsizeminusone = (fsz - 1) * sizeof(UChar);
   const UChar *fdata = f.data();
+  unsigned short fchar = fdata->uc;
+  ++fdata;
   for (const UChar *c = data() + pos; c <= end; c++)
-    if (*c == *fdata && !memcmp(c + 1, fdata + 1, fsizeminusone))
+    if (c->uc == fchar && !memcmp(c + 1, fdata, fsizeminusone))
       return (c-data());
 
   return -1;
@@ -1127,29 +1127,18 @@ UString UString::substr(int pos, int len) const
   return result;
 }
 
-void UString::attach(Rep *r)
-{
-  rep = r;
-  rep->ref();
-}
-
 void UString::detach()
 {
   if (rep->rc > 1 || rep->baseString) {
     int l = size();
-    UChar *n = static_cast<UChar *>(malloc(sizeof(UChar) * l));
+    UChar *n = static_cast<UChar *>(kjs_fast_malloc(sizeof(UChar) * l));
     memcpy(n, data(), l * sizeof(UChar));
     release();
     rep = Rep::create(n, l);
   }
 }
 
-void UString::release()
-{
-  rep->deref();
-}
-
-bool KJS::operator==(const UString& s1, const UString& s2)
+bool operator==(const UString& s1, const UString& s2)
 {
   if (s1.rep->len != s2.rep->len)
     return false;
@@ -1158,7 +1147,7 @@ bool KJS::operator==(const UString& s1, const UString& s2)
 		 s1.rep->len * sizeof(UChar)) == 0);
 }
 
-bool KJS::operator==(const UString& s1, const char *s2)
+bool operator==(const UString& s1, const char *s2)
 {
   if (s2 == 0) {
     return s1.isEmpty();
@@ -1176,7 +1165,7 @@ bool KJS::operator==(const UString& s1, const char *s2)
   return u == uend && *s2 == 0;
 }
 
-bool KJS::operator<(const UString& s1, const UString& s2)
+bool operator<(const UString& s1, const UString& s2)
 {
   const int l1 = s1.size();
   const int l2 = s2.size();
@@ -1195,7 +1184,7 @@ bool KJS::operator<(const UString& s1, const UString& s2)
   return (l1 < l2);
 }
 
-int KJS::compare(const UString& s1, const UString& s2)
+int compare(const UString& s1, const UString& s2)
 {
   const int l1 = s1.size();
   const int l2 = s2.size();

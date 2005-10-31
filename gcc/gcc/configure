@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default set_gcc_lib_path GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_subdir host_subdir target_subdir gcc_version_trigger gcc_version_full gcc_version GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS cc_for_cross_gnattools CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default set_gcc_lib_path GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
 
 # Initialize some variables set by options.
@@ -1384,7 +1384,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 #Set to 1 on a release branch
-is_release=
+is_release=1
 
 # Determine the host, build, and target systems
 ac_aux_dir=
@@ -1601,6 +1601,23 @@ echo "$as_me: error:
    { (exit 1); exit 1; }; }
 fi
 
+
+if test "${with_gcc_version_trigger+set}" = set; then
+  gcc_version_trigger=$with_gcc_version_trigger
+else
+  gcc_version_trigger=$srcdir/../gcc/version.c
+fi
+if test -f "${gcc_version_trigger}"; then
+  gcc_version_full=`grep version_string "${gcc_version_trigger}" | sed -e 's/.*"\([^"]*\)".*/\1/'`
+else
+  gcc_version_full=`$CC -v 2>&1 | sed -n 's/^gcc version //p'`
+fi
+gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
+
+
+
+
+
 # -----------
 # Directories
 # -----------
@@ -1647,7 +1664,7 @@ if test x${gcc_gxx_include_dir} = x; then
   if test x${enable_version_specific_runtime_libs} = xyes; then
     gcc_gxx_include_dir='${libsubdir}/include/c++'
   else
-    topsrcdir=${srcdir}/.. . ${srcdir}/../config.if
+    libstdcxx_incdir=c++/${gcc_version}
     gcc_gxx_include_dir="\$(libsubdir)/\$(unlibsubdir)/..\`echo \$(exec_prefix) | sed -e 's|^\$(prefix)||' -e 's|/[^/]*|/..|g'\`/include/"${libstdcxx_incdir}
   fi
 fi
@@ -7524,7 +7541,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:7375: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:7392: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -11507,6 +11524,10 @@ _ACEOF
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 
+# On AIX 5.2, <ldfcn.h> conflicts with <fcntl.h>, as both define incompatible
+# FREAD and FWRITE macros.  Fortunately, for GCC's single usage of ldgetname
+# in collect2.c, <fcntl.h> isn't visible, but the configure test below needs
+# to undef these macros to get the correct value for HAVE_DECL_LDGETNAME.
 
 for ac_func in ldgetname
 do
@@ -11528,6 +11549,8 @@ cat >>conftest.$ac_ext <<_ACEOF
 #include "ansidecl.h"
 #include "system.h"
 #ifdef HAVE_LDFCN_H
+#undef FREAD
+#undef FWRITE
 #include <ldfcn.h>
 #endif
 
@@ -12128,7 +12151,7 @@ case ${enable_threads} in
     # default
     target_thread_file='single'
     ;;
-  aix | dce | gnat | irix | posix | rtems | \
+  aix | dce | gnat | irix | posix | posix95 | rtems | \
   single | solaris | vxworks | win32 )
     target_thread_file=${enable_threads}
     ;;
@@ -12157,9 +12180,11 @@ fi
 # UNSORTED
 # --------
 
+use_cxa_atexit=no
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
-   echo "$as_me:$LINENO: checking for __cxa_atexit" >&5
+  if test x$host = x$target; then
+    echo "$as_me:$LINENO: checking for __cxa_atexit" >&5
 echo $ECHO_N "checking for __cxa_atexit... $ECHO_C" >&6
 if test "${ac_cv_func___cxa_atexit+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
@@ -12250,15 +12275,23 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_func___cxa_atexit" >&5
 echo "${ECHO_T}$ac_cv_func___cxa_atexit" >&6
 if test $ac_cv_func___cxa_atexit = yes; then
+  use_cxa_atexit=yes
+else
+  echo "__cxa_atexit can't be enabled on this target"
+fi
+
+  else
+    # We can't check for __cxa_atexit when building a cross, so assume
+    # it is available
+    use_cxa_atexit=yes
+  fi
+  if test x$use_cxa_atexit = xyes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define DEFAULT_USE_CXA_ATEXIT 1
 _ACEOF
 
-else
-  echo "__cxa_atexit can't be enabled on this target"
-fi
-
+  fi
 fi
 
 # Look for a file containing extra machine modes.
@@ -12320,15 +12353,6 @@ xm_file="ansidecl.h ${xm_file}"
 # --------
 # UNSORTED
 # --------
-
-# Get the version trigger filename from the toplevel
-if test "${with_gcc_version_trigger+set}" = set; then
-	gcc_version_trigger=$with_gcc_version_trigger
-else
-	gcc_version_trigger=${srcdir}/version.c
-fi
-gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*"\([^"]*\)".*/\1/'`
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
 
 # Compile in configure arguments.
 if test -f configargs.h ; then
@@ -12661,6 +12685,11 @@ case "$LN_S" in
 		;;
 esac
 
+# This is a terrible hack which will go away when a gnattools directory
+# is created.
+cc_for_cross_gnattools=${CC}
+
+
 out_object_file=`basename $out_file .c`.o
 
 tm_file_list=
@@ -12883,9 +12912,9 @@ gcc_cv_gas_minor_version=
 gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
 if test -x "$DEFAULT_ASSEMBLER"; then
 	gcc_cv_as="$DEFAULT_ASSEMBLER"
-elif test -x as$host_exeext; then
+elif test -x as$build_exeext; then
 	# Build using assembler in the current directory.
-	gcc_cv_as=./as$host_exeext
+	gcc_cv_as=./as$build_exeext
 elif test -f $gcc_cv_as_gas_srcdir/configure.in \
      && test -f ../gas/Makefile \
      && test x$build = x$host; then
@@ -12913,8 +12942,8 @@ gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
 			    + $gcc_cv_gas_minor_version \) \* 1000 \
 			    + $gcc_cv_gas_patch_version`
 
-  rm -f as$host_exeext
-  $LN_S ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
+  rm -f as$build_exeext
+  $LN_S ../gas/as-new$build_exeext as$build_exeext 2>/dev/null
   in_tree_gas_is_elf=no
   if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      || (grep 'obj_format = multi' ../gas/Makefile \
@@ -12954,9 +12983,9 @@ if test "x$gcc_cv_as" = x; then
 	# one we can find in the users's path.
 	# user's path.
 	if test "x$program_prefix" != xNONE; then
-		gcc_cv_as=${program_prefix}as$host_exeext
+		gcc_cv_as=${program_prefix}as$build_exeext
 	else
-		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_as=`echo as | sed "${program_transform_name}"`$build_exeext
 	fi
 
 	if test x$host = x$build; then
@@ -12985,8 +13014,8 @@ if test "x$gcc_cv_as" = x; then
 	fi
 
 	for dir in $test_dirs; do
-		if test -x $dir/as$host_exeext; then
-			gcc_cv_as=$dir/as$host_exeext
+		if test -x $dir/as$build_exeext; then
+			gcc_cv_as=$dir/as$build_exeext
 			break;
 		fi
 	done
@@ -13019,9 +13048,9 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x collect-ld$host_exeext; then
+elif test -x collect-ld$build_exeext; then
 	# Build using linker in the current directory.
-	gcc_cv_ld=./collect-ld$host_exeext
+	gcc_cv_ld=./collect-ld$build_exeext
 elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
      && test -f ../ld/Makefile \
      && test x$build = x$host; then
@@ -13044,8 +13073,8 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
 	done
 	gcc_cv_gld_major_version=`expr "$gcc_cv_gld_version" : "VERSION=\([0-9]*\)"`
 	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
-	rm -f collect-ld$host_exeext
-	$LN_S ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
+	rm -f collect-ld$build_exeext
+	$LN_S ../ld/ld-new$build_exeext collect-ld$build_exeext 2>/dev/null
 elif test -x "$LD_FOR_TARGET"; then
         gcc_cv_ld="$LD_FOR_TARGET"
 elif test -x "$LD" && test x$host = x$target; then
@@ -13078,9 +13107,9 @@ if test "x$gcc_cv_ld" = x; then
 	# one we can find in the users's path.
 	# user's path.
 	if test "x$program_prefix" != xNONE; then
-		gcc_cv_ld=${program_prefix}ld$host_exeext
+		gcc_cv_ld=${program_prefix}ld$build_exeext
 	else
-		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$build_exeext
 	fi
 
 	if test x$host = x$build; then
@@ -13109,8 +13138,8 @@ if test "x$gcc_cv_ld" = x; then
 	fi
 
 	for dir in $test_dirs; do
-		if test -x $dir/ld$host_exeext; then
-			gcc_cv_ld=$dir/ld$host_exeext
+		if test -x $dir/ld$build_exeext; then
+			gcc_cv_ld=$dir/ld$build_exeext
 			break;
 		fi
 	done
@@ -13131,19 +13160,19 @@ gcc_cv_binutils_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/binutils
 echo "$as_me:$LINENO: checking what nm to use" >&5
 echo $ECHO_N "checking what nm to use... $ECHO_C" >&6
 in_tree_nm=no
-if test -x nm$host_exeext; then
-	gcc_cv_nm=./nm$host_exeext
+if test -x nm$build_exeext; then
+	gcc_cv_nm=./nm$build_exeext
 elif test -f $gcc_cv_binutils_srcdir/configure.in \
      && test -f ../binutils/Makefile; then
 	# Single tree build which includes binutils.
 	in_tree_nm=yes
-	gcc_cv_nm=./nm$host_exeext
-	rm -f nm$host_exeext
-	$LN_S ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
+	gcc_cv_nm=./nm$build_exeext
+	rm -f nm$build_exeext
+	$LN_S ../binutils/nm-new$build_exeext nm$build_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
-	gcc_cv_nm=${program_prefix}nm$host_exeext
+	gcc_cv_nm=${program_prefix}nm$build_exeext
 else
-	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$host_exeext
+	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$build_exeext
 fi
 case $in_tree_nm in
   yes) echo "$as_me:$LINENO: result: \"newly built nm\"" >&5
@@ -13156,20 +13185,20 @@ esac
 echo "$as_me:$LINENO: checking what objdump to use" >&5
 echo $ECHO_N "checking what objdump to use... $ECHO_C" >&6
 in_tree_objdump=no
-if test -x objdump$host_exeext; then
-	gcc_cv_objdump=./objdump$host_exeext
+if test -x objdump$build_exeext; then
+	gcc_cv_objdump=./objdump$build_exeext
 elif test -f $gcc_cv_binutils_srcdir/configure.in \
      && test -f ../binutils/Makefile; then
 	# Single tree build which includes binutils.
 	in_tree_objdump=yes
-	gcc_cv_objdump=./objdump$host_exeext
-	rm -f objdump$host_exeext
-	$LN_S ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
+	gcc_cv_objdump=./objdump$build_exeext
+	rm -f objdump$build_exeext
+	$LN_S ../binutils/objdump$build_exeext objdump$build_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
-	gcc_cv_objdump=${program_prefix}objdump$host_exeext
+	gcc_cv_objdump=${program_prefix}objdump$build_exeext
 else
 	gcc_cv_objdump=`echo objdump | \
-		sed "${program_transform_name}"`$host_exeext
+		sed "${program_transform_name}"`$build_exeext
 fi
 case $in_tree_objdump in
   yes) echo "$as_me:$LINENO: result: \"newly built objdump\"" >&5
@@ -13336,6 +13365,44 @@ if test $gcc_cv_as_weak = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_GAS_WEAK 1
+_ACEOF
+
+fi
+
+echo "$as_me:$LINENO: checking assembler for .nsubspa comdat" >&5
+echo $ECHO_N "checking assembler for .nsubspa comdat... $ECHO_C" >&6
+if test "${gcc_cv_as_nsubspa_comdat+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_nsubspa_comdat=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 15 \) \* 1000 + 91`
+  then gcc_cv_as_nsubspa_comdat=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo '	.SPACE $TEXT$
+	.NSUBSPA $CODE$,COMDAT' > conftest.s
+    if { ac_try='$gcc_cv_as  -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_nsubspa_comdat=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_nsubspa_comdat" >&5
+echo "${ECHO_T}$gcc_cv_as_nsubspa_comdat" >&6
+if test $gcc_cv_as_nsubspa_comdat = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_GAS_NSUBSPA_COMDAT 1
 _ACEOF
 
 fi
@@ -13780,6 +13847,15 @@ foo:	.long	25
 	tls_first_minor=13
 	tls_as_opt=--fatal-warnings
 	;;
+  frv*-*-*)
+    conftest_s='
+	.section ".tdata","awT",@progbits
+x:      .long   25
+        .text
+        call    #gettlsoff(x)'
+	tls_first_major=2
+	tls_first_minor=14
+	;;
   i[34567]86-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
@@ -14049,6 +14125,30 @@ fi
 fi
 
 # Target-specific assembler checks.
+
+echo "$as_me:$LINENO: checking linker -Bstatic/-Bdynamic option" >&5
+echo $ECHO_N "checking linker -Bstatic/-Bdynamic option... $ECHO_C" >&6
+gcc_cv_ld_static_dynamic=no
+if test $in_tree_ld = yes ; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 10; then
+    gcc_cv_ld_static_dynamic=yes
+  fi
+elif test x$gcc_cv_ld != x; then
+	# Check if linker supports -Bstatic/-Bdynamic option
+	if $gcc_cv_ld --help 2>/dev/null | grep -- -Bstatic > /dev/null \
+	  && $gcc_cv_ld --help 2>/dev/null | grep -- -Bdynamic > /dev/null; then
+		gcc_cv_ld_static_dynamic=yes
+	fi
+fi
+if test x"$gcc_cv_ld_static_dynamic" = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_LD_STATIC_DYNAMIC 1
+_ACEOF
+
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_ld_static_dynamic" >&5
+echo "${ECHO_T}$gcc_cv_ld_static_dynamic" >&6
 
 if test x"$demangler_in_ld" = xyes; then
   echo "$as_me:$LINENO: checking linker --demangle support" >&5
@@ -14350,7 +14450,7 @@ else
 	if test x$gcc_cv_objdump != x \
        && $gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
           | grep ' 82106000 82106000' > /dev/null 2>&1; then
-	 gcc_cv_as_offsetable_lo10=yes
+	 gcc_cv_as_sparc_offsetable_lo10=yes
        fi
     else
       echo "configure: failed program was" >&5
@@ -14580,7 +14680,39 @@ fi
     case $target in
       *-*-aix*) conftest_s='	.csect .text[PR]
 	mfcr 3,128';;
-      *-*-darwin*) conftest_s='	.text
+      *-*-darwin*)
+	echo "$as_me:$LINENO: checking assembler for .machine directive support" >&5
+echo $ECHO_N "checking assembler for .machine directive support... $ECHO_C" >&6
+if test "${gcc_cv_as_machine_directive+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_machine_directive=no
+  if test x$gcc_cv_as != x; then
+    echo '	.machine ppc7400' > conftest.s
+    if { ac_try='$gcc_cv_as  -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_machine_directive=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_machine_directive" >&5
+echo "${ECHO_T}$gcc_cv_as_machine_directive" >&6
+
+	if test x$gcc_cv_as_machine_directive != xyes; then
+	  echo "*** This target requires an assembler supporting \".machine\"" >&2
+	  echo you can get it from: ftp://gcc.gnu.org/pub/gcc/infrastructure/cctools-528.5.dmg >&2
+	  test x$build = x$target && exit 1
+	fi
+	conftest_s='	.text
 	mfcr r3,128';;
       *) conftest_s='	.machine power4
 	.text
@@ -14717,8 +14849,9 @@ fi
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }
     then
-	# ??? This fails with non-gnu grep.  Maybe use objdump?
-   if grep debug_line conftest.o > /dev/null 2>&1; then
+	if test x$gcc_cv_objdump != x \
+   && $gcc_cv_objdump -h conftest.o 2> /dev/null \
+      | grep debug_line > /dev/null 2>&1; then
      gcc_cv_as_dwarf2_debug_line=yes
    fi
     else
@@ -15302,9 +15435,6 @@ objdir=`${PWDCMD-pwd}`
 
 
 # Substitute configuration variables
-
-
-
 
 
 
@@ -16052,6 +16182,9 @@ s,@target_noncanonical@,$target_noncanonical,;t t
 s,@build_subdir@,$build_subdir,;t t
 s,@host_subdir@,$host_subdir,;t t
 s,@target_subdir@,$target_subdir,;t t
+s,@gcc_version_trigger@,$gcc_version_trigger,;t t
+s,@gcc_version_full@,$gcc_version_full,;t t
+s,@gcc_version@,$gcc_version,;t t
 s,@GENINSRC@,$GENINSRC,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
@@ -16120,6 +16253,7 @@ s,@XGETTEXT@,$XGETTEXT,;t t
 s,@GMSGFMT@,$GMSGFMT,;t t
 s,@POSUB@,$POSUB,;t t
 s,@CATALOGS@,$CATALOGS,;t t
+s,@cc_for_cross_gnattools@,$cc_for_cross_gnattools,;t t
 s,@CROSS@,$CROSS,;t t
 s,@ALL@,$ALL,;t t
 s,@SYSTEM_HEADER_DIR@,$SYSTEM_HEADER_DIR,;t t
@@ -16170,9 +16304,6 @@ s,@float_h_file@,$float_h_file,;t t
 s,@gcc_config_arguments@,$gcc_config_arguments,;t t
 s,@gcc_gxx_include_dir@,$gcc_gxx_include_dir,;t t
 s,@libstdcxx_incdir@,$libstdcxx_incdir,;t t
-s,@gcc_version@,$gcc_version,;t t
-s,@gcc_version_full@,$gcc_version_full,;t t
-s,@gcc_version_trigger@,$gcc_version_trigger,;t t
 s,@host_exeext@,$host_exeext,;t t
 s,@host_xm_file_list@,$host_xm_file_list,;t t
 s,@host_xm_include_list@,$host_xm_include_list,;t t

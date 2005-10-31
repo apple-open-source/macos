@@ -27,7 +27,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file ext/stdiostream.h
+/** @file ext/stdio_sync_filebuf.h
  *  This file is a GNU extension to the Standard C++ Library.
  */
 
@@ -46,6 +46,7 @@
 
 namespace __gnu_cxx
 {
+  /// @brief  class stdio_sync_filebuf.
   template<typename _CharT, typename _Traits = std::char_traits<_CharT> >
     class stdio_sync_filebuf : public std::basic_streambuf<_CharT, _Traits>
     {

@@ -36,6 +36,7 @@
 #import <IOKit/firewire/IOFWLocalIsochPort.h>
 #import <IOKit/firewire/IOFWDCLProgram.h>
 #import <IOKit/firewire/IOFireWirePowerManager.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 
 // protected
 #import <IOKit/firewire/IOFWWorkLoop.h>
@@ -630,6 +631,10 @@ bool IOFireWireController::start(IOService *provider)
 	
 #endif
 
+	// install power change handler
+	fPowerEventNotifier = registerPrioritySleepWakeInterest( systemShutDownHandler, this );
+	FWKLOGASSERT( fPowerEventNotifier != NULL );
+	
 	fIRM = IOFireWireIRM::create(this);
 	FWPANICASSERT( fIRM != NULL );
     
@@ -662,6 +667,12 @@ void IOFireWireController::stop( IOService * provider )
 	freeSecurity();
 		    
     PMstop();
+
+    if( fPowerEventNotifier ) 
+	{
+        fPowerEventNotifier->remove();
+        fPowerEventNotifier = NULL;
+    }
 
     if(fBusState == kAsleep) {
         IOReturn sleepRes;
@@ -820,6 +831,52 @@ IOReturn IOFireWireController::setPowerState( unsigned long powerStateOrdinal,
     }
 
     return res;
+}
+
+// systemShutDownHandler
+//
+//
+
+IOReturn IOFireWireController::systemShutDownHandler( void * target, void * refCon,
+                                    UInt32 messageType, IOService * service,
+                                    void * messageArgument, vm_size_t argSize )
+{
+	
+    IOReturn status = kIOReturnSuccess;
+
+	IOFireWireController * me = (IOFireWireController*)target;
+	
+	me->closeGate();
+
+    switch( messageType ) 
+	{
+        case kIOMessageSystemWillPowerOff:
+//			IOLog( "IOFireWireController::systemShutDownHandler - kIOMessageSystemWillPowerOff\n" );
+			
+			me->fFWIM->handleSystemShutDown( messageType );
+			status = kIOReturnSuccess;
+			break;
+			
+        case kIOMessageSystemWillRestart:
+//			IOLog( "IOFireWireController::systemShutDownHandler - kIOMessageSystemWillRestart\n" );
+			
+			me->fFWIM->handleSystemShutDown( messageType );
+			status = kIOReturnSuccess;
+            break;
+
+        default:
+            status = kIOReturnUnsupported;
+            break;
+    }
+
+	me->openGate();
+
+	 // 30 second delay for debugging
+	 // this will allow you to see IOLogs at shutdown when verbose booted
+	 
+//	IOSleep( 30000 ); 
+
+    return kIOReturnUnsupported;
 }
 
 // resetBus

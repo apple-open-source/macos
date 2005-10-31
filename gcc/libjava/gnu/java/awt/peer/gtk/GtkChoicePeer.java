@@ -1,5 +1,5 @@
 /* GtkChoicePeer.java -- Implements ChoicePeer with GTK
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,7 +38,6 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.AWTEvent;
 import java.awt.Choice;
 import java.awt.event.ItemEvent;
 import java.awt.peer.ChoicePeer;
@@ -59,6 +58,10 @@ public class GtkChoicePeer extends GtkComponentPeer
 	  
 	append (items);
       }
+
+    int selected = c.getSelectedIndex();
+    if (selected >= 0)
+      select(selected);
   }
 
   native void create ();
@@ -69,7 +72,7 @@ public class GtkChoicePeer extends GtkComponentPeer
   native void nativeRemove (int index);
   native void nativeRemoveAll ();
 
-  native public void select (int position);
+  public native void select (int position);
  
   public void add (String item, int index)
   {

@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,7 +54,7 @@ import java.util.Properties;
  *
  * @author David Czarnecki
  * @since blojsom 2.0
- * @version $Id: BlojsomBaseServlet.java,v 1.2 2004/08/27 01:13:56 whitmore Exp $
+ * @version $Id: BlojsomBaseServlet.java,v 1.2.2.1 2005/07/21 14:11:04 johnan Exp $
  */
 public class BlojsomBaseServlet extends HttpServlet implements BlojsomConstants {
 
@@ -63,6 +63,19 @@ public class BlojsomBaseServlet extends HttpServlet implements BlojsomConstants 
     protected String _baseConfigurationDirectory;
     protected BlojsomFetcher _fetcher;
     protected BlojsomConfiguration _blojsomConfiguration;
+    protected ServletConfig _servletConfig;
+
+    /**
+     * Servlet initialization
+     *
+     * @param servletConfig {@link ServletConfig}
+     * @throws ServletException If there is an error during initialization
+     */
+    public void init(ServletConfig servletConfig) throws ServletException {
+        super.init(servletConfig);
+
+        _servletConfig = servletConfig;
+    }
 
     /**
      * Configure the {@link BlojsomFetcher} that will be used to fetch categories and
@@ -102,7 +115,7 @@ public class BlojsomBaseServlet extends HttpServlet implements BlojsomConstants 
     protected void configureBlojsom(ServletConfig servletConfig) throws ServletException {
         try {
             // Configure blojsom's properties
-            Properties configurationProperties = BlojsomUtils.loadProperties(servletConfig, BLOJSOM_CONFIGURATION_IP, true);
+            Properties configurationProperties = BlojsomUtils.loadProperties(servletConfig, BLOJSOM_CONFIGURATION_IP, true, true);
 
             _blojsomConfiguration = new BlojsomConfiguration(servletConfig, BlojsomUtils.propertiesToMap(configurationProperties));
             _baseConfigurationDirectory = _blojsomConfiguration.getBaseConfigurationDirectory();

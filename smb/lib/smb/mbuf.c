@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: mbuf.c,v 1.3 2004/12/13 00:25:22 lindak Exp $
+ * $Id: mbuf.c,v 1.3.166.1 2005/07/20 05:27:02 lindak Exp $
  */
 
 #include <sys/types.h>
@@ -348,7 +348,7 @@ mb_put_pstring(struct mbdata *mbp, const char *s)
 int
 mb_get_uint8(struct mbdata *mbp, u_int8_t *x)
 {
-	return mb_get_mem(mbp, x, 1);
+	return mb_get_mem(mbp, (char *)x, 1);
 }
 
 int

@@ -113,6 +113,7 @@ HTMLDocumentImpl::HTMLDocumentImpl(DOMImplementationImpl *_implementation, KHTML
 //    kdDebug( 6090 ) << "HTMLDocumentImpl constructor this = " << this << endl;
     bodyElement = 0;
     htmlElement = 0;
+    hMode = Html4;
 
 /* dynamic history stuff to be fixed later (pfeiffer)
     connect( KHTMLFactory::vLinks(), SIGNAL( inserted( const QString& )),
