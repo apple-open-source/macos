@@ -1,2 +1,0 @@
->>> Resize compound derived view
-<<< done.

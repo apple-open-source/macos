@@ -1,7 +1,7 @@
 /*= -*- c-basic-offset: 4; indent-tabs-mode: nil; -*-
  *
  * librsync -- generate and apply network deltas
- * $Id: trace.h,v 1.3 2003/04/05 00:46:32 rwill Exp $
+ * $Id: trace.h,v 1.1.1.1 2005/05/06 05:09:42 deatley Exp $
  * 
  * Copyright (C) 2000, 2001, 2002, 2003 by Martin Pool <mbp@samba.org>
  * 

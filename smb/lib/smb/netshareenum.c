@@ -68,8 +68,9 @@ rpc_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 	static int exceptions_initialized;
 
 	sprintf(ctx_string, "%p", ctx);
-	rpc_string_binding_compose(NULL, "ncacn_np", ctx_string,
-	    "srvsvc", NULL, &binding, &binding_status);
+	rpc_string_binding_compose(NULL, (unsigned_char_p_t)"ncacn_np", 
+		(unsigned_char_p_t)ctx_string, (unsigned_char_p_t)"srvsvc", 
+		NULL, (unsigned_char_p_t *)&binding, (unsigned32 *)&binding_status);
 	if (binding_status != rpc_s_ok) {
 		smb_error("rpc_string_binding_compose failed with %d", 0,
 		    binding_status);

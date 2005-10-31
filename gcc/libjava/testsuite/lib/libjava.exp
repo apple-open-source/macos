@@ -1,6 +1,12 @@
 # Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation
 
-load_lib "libgloss.exp"
+proc load_gcc_lib { filename } {
+    global srcdir
+    load_file $srcdir/../../gcc/testsuite/lib/$filename
+}
+
+load_lib libgloss.exp
+load_gcc_lib target-libpath.exp
 
 # GCJ_UNDER_TEST is the compiler under test.
 
@@ -133,12 +139,15 @@ proc libjava_init { args } {
     global libjava_initialized libjava_uses_threads
     global GCJ_UNDER_TEST
     global TOOL_EXECUTABLE
-    global original_ld_library_path
     global env objdir
     global env libgcj_jar
     global tool_root_dir
     global libjava_libgcc_s_path
     global target_triplet
+
+    # We set LC_ALL and LANG to C so that we get the same error messages as expected.
+    setenv LC_ALL C
+    setenv LANG C
 
     if { $libjava_initialized == 1 } { return; }
 
@@ -173,24 +182,6 @@ proc libjava_init { args } {
     # Always set encoding used by gcj.
     append GCJ_UNDER_TEST " --encoding=UTF-8"
 
-    if [info exists env(LD_LIBRARY_PATH)] {
-	set original_ld_library_path $env(LD_LIBRARY_PATH)
-	# For HP-UX.
-    } elseif [info exists env(SHLIB_PATH)] {
-	set original_ld_library_path $env(SHLIB_PATH)
-	# For Darwin.
-    } elseif [info exists env(DYLD_LIBRARY_PATH)] {
-	set original_ld_library_path $env(DYLD_LIBRARY_PATH)
-	# For Solaris 32 bit.
-    } elseif [info exists env(LD_LIBRARY_PATH_32)] {
-	set original_ld_library_path $env(LD_LIBRARY_PATH_32)
-	# For Solaris 64 bit.
-    } elseif [info exists env(LD_LIBRARY_PATH_64)] {
-	set original_ld_library_path $env(LD_LIBRARY_PATH_64)
-    } else {
-	set original_ld_library_path ""
-    }
-
     set wrapper_file "";
     set wrap_compile_flags "";
     if [target_info exists needs_status_wrapper] {
@@ -206,8 +197,8 @@ proc libjava_init { args } {
     # Finally, add the gcc build directory so that we can find the
     # shared libgcc.  This, like much of dejagnu, is hideous.
     set libjava_libgcc_s_path {}
-    
-    if { [string match "powerpc-*-darwin*" $target_triplet] } {
+
+    if { [istarget "*-*-darwin*"] } {
 	set so_extension "dylib"
     } else {
 	set so_extension "so"
@@ -279,28 +270,18 @@ proc libjava_find_lib {dir name} {
 # is used with -B.
 proc libjava_find_spec {} {
     global objdir
-    set gp [get_multilibs]
-
-    if {[file exists $gp/libjava/libgcj.spec]} then {
-	return "$gp/libjava/"
-    }
     return "$objdir/../"
 }
 
-# Find `gij'.
+# Find `gij'.  Return empty string if not found.
 proc libjava_find_gij {} {
-    global base_dir
-    set gp [get_multilibs]
-    if {$gp != ""} {
-	set file $gp/libjava/gij
-    } else {
-	set file $base_dir/../gij
-    }
+    global base_dir objdir
 
-    if {[file exists $file]} {
-	return $file
+    set gijdir [lookfor_file [get_multilibs] libjava];
+    if {! [file exists $gijdir/gij]} {
+	return ""
     }
-    return gij
+    return $gijdir/gij
 }
 
 # Remove a bunch of files.
@@ -332,6 +313,9 @@ proc libjava_arguments {{mode compile}} {
     global tool_root_dir
     global libgcj_jar
     global libjava_libgcc_s_path
+    global libjava_ld_library_path
+    global ld_library_path
+    global target_triplet
 
     if [info exists LIBJAVA] {
 	set libjava $LIBJAVA;
@@ -345,7 +329,7 @@ proc libjava_arguments {{mode compile}} {
     # Basically we want to build up a colon separated path list from
     # the value of $libjava.
 
-    set lpath {}
+    set lpath "."
     foreach dir [list $libjava] {
 	foreach item [split $dir " "] {
 	    switch -glob -- $item {
@@ -359,21 +343,29 @@ proc libjava_arguments {{mode compile}} {
     set lpath [concat $lpath $libjava_libgcc_s_path]
     verbose "lpath = $lpath ; libgcc_s_path = $libjava_libgcc_s_path"
     set ld_library_path [join $lpath :]
+    set libjava_ld_library_path "$ld_library_path"
 
     # That's enough to make things work for the normal case.
     # If we wanted to handle an arbitrary value of libjava,
     # then we'd have to do a lot more work.
 
-    # Set variables the dynamic linker looks at.
-    global original_ld_library_path
-    setenv LD_LIBRARY_PATH "$ld_library_path:$original_ld_library_path"
+    set_ld_library_path_env_vars
+    if [info exists env(LD_LIBRARY_PATH)] {
+	verbose "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
+    }
 
-    verbose "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
+    # Determine CLASSPATH separator
+    if { [string match "i?86-pc-mingw32*" $target_triplet] } {
+	set sep ";"
+    } else {
+	set sep ":"
+    }
 
     # Set the CLASSPATH environment variable
-    verbose "CLASSPATH is .:$srcdir/$subdir:$objdir:$libgcj_jar"
     global env
-    set env(CLASSPATH) ".:$srcdir/$subdir:$objdir:$libgcj_jar"
+    set env(CLASSPATH) \
+	[join [list . $srcdir/$subdir $objdir $libgcj_jar] $sep]
+    verbose "CLASSPATH is $env(CLASSPATH)"
 
     if {$mode == "link"} {
 	global wrapper_file wrap_compile_flags
@@ -453,24 +445,25 @@ proc gcj_link {program main files {options {}}} {
 # Invoke the program and see what happens.  Return 0 on failure.
 proc gcj_invoke {program expectFile ld_library_additions} {
   global env
-  set lib_path $env(LD_LIBRARY_PATH)
+  global libjava_ld_library_path
+  global ld_library_path
 
-  set newval .
+  set ld_library_path "$libjava_ld_library_path"
   if {[llength $ld_library_additions] > 0} {
-    append newval :[join $ld_library_additions :]
+    append ld_library_path :[join $ld_library_additions :]
   }
-  append newval :$lib_path
 
-  setenv LD_LIBRARY_PATH $newval
-
-  verbose "LD_LIBRARY_PATH=$env(LD_LIBRARY_PATH)"
+  set_ld_library_path_env_vars
+  if [info exists env(LD_LIBRARY_PATH)] {
+    verbose "LD_LIBRARY_PATH=$env(LD_LIBRARY_PATH)"
+  }
 
   set result [libjava_load ./$program]
   set status [lindex $result 0]
   set output [lindex $result 1]
 
   # Restore setting
-  setenv LD_LIBRARY_PATH $lib_path
+  restore_ld_library_path_env_vars
 
   if {$status != "pass"} {
     verbose "got $output"
@@ -498,18 +491,19 @@ proc gcj_invoke {program expectFile ld_library_additions} {
 proc libjava_invoke {errname testName optName executable inpfile resultfile
 		      ld_library_additions args} {
     global env
-    set lib_path $env(LD_LIBRARY_PATH)
+    global libjava_ld_library_path
+    global ld_library_path
 
-    set newval .
+    set ld_library_path "$libjava_ld_library_path"
     if {[llength $ld_library_additions] > 0} {
-	append newval :[join $ld_library_additions :]
+	append ld_library_path :[join $ld_library_additions :]
     }
 
-    append newval :$lib_path
+    set_ld_library_path_env_vars
+    if [info exists env(LD_LIBRARY_PATH)] {
+	verbose "LD_LIBRARY_PATH=$env(LD_LIBRARY_PATH)"
+    }
 
-    setenv LD_LIBRARY_PATH $newval
-
-    verbose "LD_LIBRARY_PATH=$env(LD_LIBRARY_PATH)"
     upvar $optName opts
 
     if {[info exists opts(no-exec)]} {
@@ -528,7 +522,7 @@ proc libjava_invoke {errname testName optName executable inpfile resultfile
     set output [lindex $result 1]
 
     # Restore LD_LIBRARY_PATH setting.
-    setenv LD_LIBRARY_PATH $lib_path
+    restore_ld_library_path_env_vars
 
     if {[info exists opts(xfail-exec)]} then {
 	setup_xfail *-*-*
@@ -810,9 +804,9 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
     # We purposely ignore errors here; we still want to run the other
     # appropriate tests.
     set gij [libjava_find_gij]
-    # libjava_find_gij will return `gij' if it couldn't find the
+    # libjava_find_gij will return "" if it couldn't find the
     # program; in this case we want to skip the test.
-    if {$INTERPRETER == "yes" && $gij != "gij"} {
+    if {$INTERPRETER == "yes" && $gij != ""} {
 	libjava_invoke $errname "gij test" opts $gij \
 	  $inpfile $resultfile "" $main_name
     }
@@ -920,25 +914,6 @@ proc default_libjava_version {} {
 
 proc default_libjava_start { } {
 }
-
-# On IRIX 6, we have to set variables akin to LD_LIBRARY_PATH, but
-# called LD_LIBRARYN32_PATH (for the N32 ABI) and LD_LIBRARY64_PATH
-# (for the 64-bit ABI).  The right way to do this would be to modify
-# unix.exp -- but that's not an option since it's part of DejaGNU
-# proper, so we do it here, by trickery.
-# The same applies to darwin (DYLD_LIBRARY_PATH), solaris 32 bit
-# (LD_LIBRARY_PATH_32), solaris 64 bit (LD_LIBRARY_PATH_64), and HP-UX
-# (SHLIB_PATH).
-proc ${tool}_set_ld_library_path { name element op } {
-  setenv LD_LIBRARYN32_PATH [getenv LD_LIBRARY_PATH]
-  setenv LD_LIBRARY64_PATH [getenv LD_LIBRARY_PATH]
-  setenv SHLIB_PATH [getenv LD_LIBRARY_PATH]
-  setenv DYLD_LIBRARY_PATH [getenv LD_LIBRARY_PATH]
-  setenv LD_LIBRARY_PATH_32 [getenv LD_LIBRARY_PATH]
-  setenv LD_LIBRARY_PATH_64 [getenv LD_LIBRARY_PATH]
-}
-
-trace variable env(LD_LIBRARY_PATH) w ${tool}_set_ld_library_path
 
 # Local Variables:
 # tcl-indent-level:4

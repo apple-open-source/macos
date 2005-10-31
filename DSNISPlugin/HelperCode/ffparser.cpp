@@ -549,11 +549,13 @@ ff_parse_group(char *data)
 	if (listLength(tokens) < 4)
 	{
 		_set_value_for_key(itemRef, "", kDSNAttrGroupMembership);
+		_set_value_for_key(itemRef, "", kDSNAttrMember);
 	}
 	else
 	{
 		users = ff_tokens_from_line(tokens[3], ",", 0);
 		_set_values_for_key(itemRef, users, kDSNAttrGroupMembership);
+		_set_values_for_key(itemRef, users, kDSNAttrMember);
 		freeList(users);
 		users = NULL;
 	}

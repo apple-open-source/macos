@@ -157,7 +157,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     
     while (ioDeviceObj = IOIteratorNext(devIter)) {
         IOCFPlugInInterface 	**ioPlugin;
-        IOUSBDeviceInterface 	**deviceIntf = NULL;
+        IOUSBDeviceRef			deviceIntf = NULL;
         SInt32                  score;
         
         kr = IOCreatePlugInInterfaceForService(ioDeviceObj, kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID, &ioPlugin, &score);
@@ -189,7 +189,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     [_listener busProberInformationDidChange:self];
 }
 
-- (void)processDevice:(IOUSBDeviceInterface **)deviceIntf deviceNumber:(int)deviceNumber {
+- (void)processDevice:(IOUSBDeviceRef)deviceIntf deviceNumber:(int)deviceNumber {
     BusProbeDevice *        thisDevice;
     UInt32                  locationID = 0;
     UInt8                   speed = 0;
@@ -197,6 +197,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     IOUSBDeviceDescriptor   dev;
     int                     len;
     IOReturn                error;
+	BOOL					needToSuspend = FALSE;
 
     thisDevice = [[BusProbeDevice alloc] init];
     
@@ -225,14 +226,28 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
             locationID]];    
 
     error = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
-    if (error == kIOReturnSuccess) {
+    if (error == kIOReturnNotResponding) 
+	{
+		// The device did not respond to a request for its device descriptor, probably because it was suspended.  Attempt to resume it and 
+		// later on suspend it again.
+		needToSuspend = TRUE;
+		
+		error = SuspendDevice(deviceIntf,false);
+		if ( error == kIOReturnSuccess )
+		{
+			error = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
+		}
+	} 
+	
+	if ( error == kIOReturnSuccess )
+	{
         int iconfig;
-        [DecodeDeviceDescriptor decodeBytes:&dev forDevice:thisDevice deviceInterface:deviceIntf];
-
+        [DecodeDeviceDescriptor decodeBytes:&dev forDevice:thisDevice deviceInterface:deviceIntf wasSuspended:needToSuspend];
+		
         for (iconfig = 0; iconfig < dev.bNumConfigurations; ++iconfig) {
             IOUSBConfigurationDescHeader cfgHeader;
             IOUSBConfigurationDescriptor config;
-
+			
             // Get the Configuration descriptor.  We first get just the header and later we get the full
             // descriptor
             error = GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, &cfgHeader, sizeof(cfgHeader));
@@ -260,12 +275,14 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
             }
             [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:NO];
         }
-    } else {
-        // The device did not respond to a request for its device descriptor
-        // This description will be shown in the UI, to the right of the device's name
-        [thisDevice setDeviceDescription: [NSString stringWithFormat:@"Unknown device (did not respond to inquiry - 0x%x)", error]];
     }
-    
+	else 
+	{
+		// This description will be shown in the UI, to the right of the device's name
+		[thisDevice setDeviceDescription: [NSString stringWithFormat:@"Unknown device (did not respond to inquiry - 0x%x)", error]];
+	}
+	
+	
     // If the device is a hub, then dump the Hub descriptor
     //
     if ( dev.bDeviceClass == kUSBHubClass )
@@ -327,6 +344,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
         }
     }
     
+	if ( needToSuspend )
+		error = SuspendDevice(deviceIntf,true);
+	
     [thisDevice release];
 }
 

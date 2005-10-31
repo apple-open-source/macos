@@ -40,6 +40,8 @@ extern void _CFSocketStreamCreatePair(CFAllocatorRef alloc, CFStringRef host, UI
 #define _kCFHTTPSScheme							CFSTR("https")
 #define _kCFNTLMMethod							CFSTR("NTLM")
 #define _kCFHTTPStreamProxyAuthorizationHeader	CFSTR("Proxy-Authorization")
+#define _kCFHTTPStreamProxyConnectionHeader		CFSTR("Proxy-Connection")
+#define _kCFHTTPStreamConnectionKeepAlive		CFSTR("keep-alive")
 #else
 static CONST_STRING_DECL(_kCFStreamSocketCreatedCallBack, "_kCFStreamSocketCreatedCallBack")
 static CONST_STRING_DECL(_kCFHTTPConnectionHEADMethod, "HEAD")
@@ -48,6 +50,8 @@ static CONST_STRING_DECL(_kCFHTTPConnectionPrivateRunLoopMode, "_kCFHTTPConnecti
 static CONST_STRING_DECL(_kCFHTTPSScheme, "https")
 static CONST_STRING_DECL(_kCFNTLMMethod, "NTLM")
 static CONST_STRING_DECL(_kCFHTTPStreamProxyAuthorizationHeader, "Proxy-Authorization")
+static CONST_STRING_DECL(_kCFHTTPStreamProxyConnectionHeader, "Proxy-Connection")
+static CONST_STRING_DECL(_kCFHTTPStreamConnectionKeepAlive, "keep-alive")
 #endif	/* __CONSTANT_CFSTRINGS__ */
 
 
@@ -132,7 +136,7 @@ static _CFHTTPStreamInfo *createZombieDouble(CFAllocatorRef alloc, _CFHTTPStream
     // This is kinda ugly, but the zombie needs to know where it should schedule/unschedule, and the usual
     // way to do that is to look at its response stream.  So, we create a dummy response stream and schedule
     // it wherever orig->responseStream is scheduled.  Since we never open the stream, life should be good....
-    zombie->stream = CFReadStreamCreateWithBytesNoCopy(alloc, "dummy zombie stream", strlen("dummy zombie stream"), kCFAllocatorNull);
+    zombie->stream = CFReadStreamCreateWithBytesNoCopy(alloc, (const UInt8*)"dummy zombie stream", strlen("dummy zombie stream"), kCFAllocatorNull);
     origRLArray = _CFReadStreamGetRunLoopsAndModes(orig->stream);
     if (origRLArray) {
         CFIndex i, c = CFArrayGetCount(origRLArray);
@@ -304,6 +308,7 @@ static void prepareTransmission(_CFHTTPStreamInfo *streamInfo, CFWriteStreamRef 
 	_CFNetConnectionRef conn = streamInfo->conn;
 	Boolean persistent = _CFNetConnectionWillEnqueueRequests(conn);
 	_CFHTTPConnectionInfo* identifier = (_CFHTTPConnectionInfo*)_CFNetConnectionGetInfoPointer(conn);
+        Boolean forProxy = (identifier->type == kHTTPProxy) || (identifier->type == kHTTPSProxy);
 	
     CFStreamClientContext ctxt = {0, streamInfo, NULL, NULL, NULL};
     CFDataRef payload = NULL;
@@ -324,11 +329,11 @@ static void prepareTransmission(_CFHTTPStreamInfo *streamInfo, CFWriteStreamRef 
         }
             
         CFRelease(payload); // originalRequest is holding it for us
-        cleanUpRequest(streamInfo->request, length, TRUE);
+        cleanUpRequest(streamInfo->request, length, TRUE, forProxy);
     } else if (!streamInfo->requestPayload) {
-        cleanUpRequest(streamInfo->request, 0, TRUE);
+        cleanUpRequest(streamInfo->request, 0, TRUE, forProxy);
     } else {
-        cleanUpRequest(streamInfo->request, -1, TRUE);
+        cleanUpRequest(streamInfo->request, -1, TRUE, forProxy);
     }
     
 	
@@ -562,6 +567,8 @@ static void httpConnectionStateChanged(void *request, int newState, CFStreamErro
 								
 								CFDictionarySetValue(headers, _kCFHTTPStreamProxyAuthorizationHeader, header);
 								CFRelease(header);
+								
+								CFDictionarySetValue(headers, _kCFHTTPStreamProxyConnectionHeader, _kCFHTTPStreamConnectionKeepAlive);
 								
 								CFDictionarySetValue(new_value, kCFStreamPropertyCONNECTAdditionalHeaders, headers);
 								CFRelease(headers);

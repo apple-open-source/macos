@@ -922,7 +922,8 @@ string_instruction_bad_match:
 	      (md_cpusubtype != CPU_SUBTYPE_PENT && /* same as 586 */
 	       md_cpusubtype != CPU_SUBTYPE_PENTPRO &&
 	       md_cpusubtype != CPU_SUBTYPE_PENTII_M3 &&
-	       md_cpusubtype != CPU_SUBTYPE_PENTII_M5)){
+	       md_cpusubtype != CPU_SUBTYPE_PENTII_M5 &&
+	       md_cpusubtype != CPU_SUBTYPE_PENTIUM_4)){
 	if(md_cpusubtype != CPU_SUBTYPE_486SX)
 	   md_cpusubtype = CPU_SUBTYPE_486;
       }

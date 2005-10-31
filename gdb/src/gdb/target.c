@@ -460,7 +460,6 @@ update_current_target (void)
       INHERIT (to_can_async_p, t);
       INHERIT (to_is_async_p, t);
       INHERIT (to_async, t);
-      INHERIT (to_async_mask_value, t);
       INHERIT (to_find_memory_regions, t);
       INHERIT (to_make_corefile_notes, t);
       INHERIT (to_bind_function, t);
@@ -668,6 +667,15 @@ update_current_target (void)
      "current_target".  That way code looking for a non-inherited
      target method can quickly and simply find it.  */
   current_target.beneath = target_stack;
+
+  /* APPLE LOCAL: Some data values seem to have crept into the target
+     structure.  But the inherit method doesn't work for data values, 
+     since there is no way to say a target layer doesn't provide the 
+     value.  So we will pull them off the top target...  
+     FIXME: So far I have only done it for async_mask_value (the only
+     one I care about at present.  Go back & check all the others as well.  */
+
+  current_target.to_async_mask_value = target_stack->to_async_mask_value;
 
   /* APPLE LOCAL:  Call setup_target_debug () here.  FSF does it over
      in push_target, but we have other ways to get to this function
@@ -2434,6 +2442,20 @@ debug_to_core_file_to_sym_file (char *core)
 }
 #endif
 
+/* APPLE LOCAL */
+static int
+debug_check_is_objfile_loaded (struct objfile *objfile)
+{
+  int retval = debug_target.to_check_is_objfile_loaded (objfile);
+
+  if (objfile == NULL)
+    fprintf_unfiltered (gdb_stdlog, "dyld_is_objfile_loaded (NULL) == %d\n", retval);
+  else if (objfile->name)
+    fprintf_unfiltered (gdb_stdlog, "dyld_is_objfile_loaded (\"%s\") == %d\n", objfile->name, retval);
+
+  return retval;
+}
+
 static void
 setup_target_debug (void)
 {
@@ -2492,6 +2514,8 @@ setup_target_debug (void)
   current_target.to_find_new_threads = debug_to_find_new_threads;
   current_target.to_stop = debug_to_stop;
   current_target.to_xfer_partial = debug_to_xfer_partial;
+  /* APPLE LOCAL */
+  current_target.to_check_is_objfile_loaded = debug_check_is_objfile_loaded;
   current_target.to_rcmd = debug_to_rcmd;
   current_target.to_find_exception_catchpoints 
     = debug_to_find_exception_catchpoints;

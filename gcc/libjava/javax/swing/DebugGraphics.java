@@ -1,5 +1,5 @@
 /* DebugGraphics.java --
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -48,678 +48,838 @@ import java.awt.image.ImageObserver;
 import java.io.PrintStream;
 import java.text.AttributedCharacterIterator;
 
+
 /**
  * DebugGraphics
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public class DebugGraphics extends Graphics {
-
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * graphics
-	 */
-	Graphics graphics;
-
-	/**
-	 * buffer
-	 */
-	Image buffer;
-
-	/**
-	 * debugOptions
-	 */
-	int debugOptions;
-
-	/**
-	 * graphicsID
-	 */
-	int graphicsID;
-
-	/**
-	 * xOffset
-	 */
-	int xOffset;
-
-	/**
-	 * yOffset
-	 */
-	int yOffset;
-
-	/**
-	 * LOG_OPTION
-	 */
-	public static final int LOG_OPTION = 1;
-
-	/**
-	 * FLASH_OPTION
-	 */
-	public static final int FLASH_OPTION = 2;
-
-	/**
-	 * BUFFERED_OPTION
-	 */
-	public static final int BUFFERED_OPTION = 4;
-
-	/**
-	 * NONE_OPTION
-	 */
-	public static final int NONE_OPTION = -1;
-
-
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * Constructor DebugGraphics
-	 */
-	public DebugGraphics() {
-		// TODO
-	} // DebugGraphics()
-
-	/**
-	 * Constructor DebugGraphics
-	 * @param graphics TODO
-	 * @param component TODO
-	 */
-	public DebugGraphics(Graphics graphics, JComponent component) {
-		// TODO
-	} // DebugGraphics()
-
-	/**
-	 * Constructor DebugGraphics
-	 * @param graphics TODO
-	 */
-	public DebugGraphics(Graphics graphics) {
-		// TODO
-	} // DebugGraphics()
-
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * setColor
-	 * @param value0 TODO
-	 */
-	public void setColor(Color color) {
-		// TODO
-	} // setColor()
-
-	/**
-	 * create
-	 * @returns Graphics
-	 */
-	public Graphics create() {
-		return null; // TODO
-	} // create()
-
-	/**
-	 * create
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @returns Graphics
-	 */
-	public Graphics create(int valx, int y, int w, int h) {
-		return null; // TODO
-	} // create()
-
-	/**
-	 * flashColor
-	 * @returns Color
-	 */
-	public static Color flashColor() {
-		return null; // TODO
-	} // flashColor()
-
-	/**
-	 * setFlashColor
-	 * @param color TODO
-	 */
-	public static void setFlashColor(Color color) {
-		// TODO
-	} // setFlashColor()
-
-	/**
-	 * flashTime
-	 * @returns int
-	 */
-	public static int flashTime() {
-		return 0; // TODO
-	} // flashTime()
-
-	/**
-	 * setFlashTime
-	 * @param time TODO
-	 */
-	public static void setFlashTime(int time) {
-		// TODO
-	} // setFlashTime()
-
-	/**
-	 * flashCount
-	 * @returns int
-	 */
-	public static int flashCount() {
-		return 0; // TODO
-	} // flashCount()
-
-	/**
-	 * setFlashCount
-	 * @param count TODO
-	 */
-	public static void setFlashCount(int count) {
-		// TODO
-	} // setFlashCount()
-
-	/**
-	 * logStream
-	 * @returns PrintStream
-	 */
-	public static PrintStream logStream() {
-		return null; // TODO
-	} // logStream()
-
-	/**
-	 * setLogStream
-	 * @param stream TODO
-	 */
-	public static void setLogStream(PrintStream stream) {
-		// TODO
-	} // setLogStream()
-
-	/**
-	 * getFont
-	 * @returns Font
-	 */
-	public Font getFont() {
-		return null; // TODO
-	} // getFont()
-
-	/**
-	 * setFont
-	 * @param font TODO
-	 */
-	public void setFont(Font font) {
-		// TODO
-	} // setFont()
-
-	/**
-	 * getColor
-	 * @returns Color
-	 */
-	public Color getColor() {
-		return null; // TODO
-	} // getColor()
-
-	/**
-	 * getFontMetrics
-	 * @returns FontMetrics
-	 */
-	public FontMetrics getFontMetrics() {
-		return null; // TODO
-	} // getFontMetrics()
-
-	/**
-	 * getFontMetrics
-	 * @param font TODO
-	 * @returns FontMetrics
-	 */
-	public FontMetrics getFontMetrics(Font font) {
-		return null; // TODO
-	} // getFontMetrics()
-
-	/**
-	 * translate
-	 * @param x TODO
-	 * @param y TODO
-	 */
-	public void translate(int x, int y) {
-		// TODO
-	} // translate()
-
-	/**
-	 * setPaintMode
-	 */
-	public void setPaintMode() {
-		// TODO
-	} // setPaintMode()
-
-	/**
-	 * setXORMode
-	 * @param color TODO
-	 */
-	public void setXORMode(Color color) {
-		// TODO
-	} // setXORMode()
-
-	/**
-	 * getClipBounds
-	 * @returns Rectangle
-	 */
-	public Rectangle getClipBounds() {
-		return null; // TODO
-	} // getClipBounds()
-
-	/**
-	 * clipRect
-	 * @param value0 TODO
-	 * @param value1 TODO
-	 * @param value2 TODO
-	 * @param value3 TODO
-	 */
-	public void clipRect(int value0, int value1, int value2, int value3) {
-		// TODO
-	} // clipRect()
-
-	/**
-	 * setClip
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 */
-	public void setClip(int x, int y, int w, int h) {
-		// TODO
-	} // setClip()
-
-	/**
-	 * getClip
-	 * @returns Shape
-	 */
-	public Shape getClip() {
-		return null; // TODO
-	} // getClip()
-
-	/**
-	 * setClip
-	 * @param shape TODO
-	 */
-	public void setClip(Shape shape) {
-		// TODO
-	} // setClip()
-
-	/**
-	 * drawRect
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param valh TODO
-	 */
-	public void drawRect(int x, int y, int w, int h) {
-		// TODO
-	} // drawRect()
-
-	/**
-	 * fillRect
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 */
-	public void fillRect(int x, int y, int w, int h) {
-		// TODO
-	} // fillRect()
-
-	/**
-	 * clearRect
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 */
-	public void clearRect(int x, int y, int w, int h) {
-		// TODO
-	} // clearRect()
-
-	/**
-	 * drawRoundRect
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @param arcWidth TODO
-	 * @param arcHeight TODO
-	 */
-	public void drawRoundRect(int x, int y, int w, int h, 
-			int arcWidth, int arcHeight) {
-		// TODO
-	} // drawRoundRect()
-
-	/**
-	 * fillRoundRect
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @param arcWidth TODO
-	 * @param arcHeight TODO
-	 */
-	public void fillRoundRect(int x, int y, int w, int h, 
-			int arcWidth, int arcHeight) {
-		// TODO
-	} // fillRoundRect()
-
-	/**
-	 * drawLine
-	 * @param x1 TODO
-	 * @param y1 TODO
-	 * @param x2 TODO
-	 * @param y2 TODO
-	 */
-	public void drawLine(int x1, int y1, int x2, int y2) {
-		// TODO
-	} // drawLine()
-
-	/**
-	 * draw3DRect
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @param raised TODO
-	 */
-	public void draw3DRect(int x, int y, int w, int h, boolean raised) {
-		// TODO
-	} // draw3DRect()
-
-	/**
-	 * fill3DRect
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @param raised TODO
-	 */
-	public void fill3DRect(int x, int y, int w, int h, boolean raised) {
-		// TODO
-	} // fill3DRect()
-
-	/**
-	 * drawOval
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 */
-	public void drawOval(int x, int y, int w, int h) {
-		// TODO
-	} // drawOval()
-
-	/**
-	 * fillOval
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 */
-	public void fillOval(int x, int y, int w, int h) {
-		// TODO
-	} // fillOval()
-
-	/**
-	 * drawArc
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @param startAngle TODO
-	 * @param arcAngle TODO
-	 */
-	public void drawArc(int x, int y, int w, int h, 
-			int startAngle, int arcAngle) {
-		// TODO
-	} // drawArc()
-
-	/**
-	 * fillArc
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @param startAngle TODO
-	 * @param arcAngle TODO
-	 */
-	public void fillArc(int x, int y, int w, int h, 
-			int startAngle, int arcAngle) {
-		// TODO
-	} // fillArc()
-
-	/**
-	 * drawPolyline
-	 * @param xpoints TODO
-	 * @param ypoints TODO
-	 * @param npoints TODO
-	 */
-	public void drawPolyline(int[] xpoints, int[] ypoints, int npoints) {
-		// TODO
-	} // drawPolyline()
-
-	/**
-	 * drawPolygon
-	 * @param xpoints TODO
-	 * @param ypoints TODO
-	 * @param npoints TODO
-	 */
-	public void drawPolygon(int[] xpoints, int[] ypoints, int npoints) {
-		// TODO
-	} // drawPolygon()
-
-	/**
-	 * fillPolygon
-	 * @param xpoints TODO
-	 * @param ypoints TODO
-	 * @param npoints TODO
-	 */
-	public void fillPolygon(int[] xpoints, int[] ypoints, int npoints) {
-		// TODO
-	} // fillPolygon()
-
-	/**
-	 * drawString
-	 * @param string TODO
-	 * @param x TODO
-	 * @param y TODO
-	 */
-	public void drawString(String string, int s, int y) {
-		// TODO
-	} // drawString()
-
-	/**
-	 * drawString
-	 * @param iterator TODO
-	 * @param x TODO
-	 * @param y TODO
-	 */
-	public void drawString(AttributedCharacterIterator iterator,
-			int x, int y) {
-		// TODO
-	} // drawString()
-
-	/**
-	 * drawBytes
-	 * @param data TODO
-	 * @param offset TODO
-	 * @param length TODO
-	 * @param x TODO
-	 * @param y TODO
-	 */
-	public void drawBytes(byte[] data, int offset, int length,
-			int x, int y) {
-		// TODO
-	} // drawBytes()
-
-	/**
-	 * drawChars
-	 * @param data TODO
-	 * @param offset TODO
-	 * @param length TODO
-	 * @param value3 TODO
-	 * @param value4 TODO
-	 */
-	public void drawChars(char[] data, int offset, int value2, 
-			int x, int y) {
-		// TODO
-	} // drawChars()
-
-	/**
-	 * drawImage
-	 * @param image TODO
-	 * @param x TODO
-	 * @param y TODO
-	 * @param observer TODO
-	 * @returns boolean
-	 */
-	public boolean drawImage(Image image, int x, int y,
-			ImageObserver observer) {
-		return false; // TODO
-	} // drawImage()
-
-	/**
-	 * drawImage
-	 * @param image TODO
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @param observer TODO
-	 * @returns boolean
-	 */
-	public boolean drawImage(Image image, int x, int y, int w, 
-			int h, ImageObserver observer) {
-		return false; // TODO
-	} // drawImage()
-
-	/**
-	 * drawImage
-	 * @param image TODO
-	 * @param x TODO
-	 * @param y TODO
-	 * @param background TODO
-	 * @param observer TODO
-	 * @returns boolean
-	 */
-	public boolean drawImage(Image image, int x, int y, 
-			Color background, ImageObserver observer) {
-		return false; // TODO
-	} // drawImage()
-
-	/**
-	 * drawImage
-	 * @param image TODO
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @param background TODO
-	 * @param observer TODO
-	 * @returns boolean
-	 */
-	public boolean drawImage(Image image, int x, int y, int w, int h, 
-			Color background, ImageObserver observer) {
-		return false; // TODO
-	} // drawImage()
-
-	/**
-	 * drawImage
-	 * @param image TODO
-	 * @param dx1 TODO
-	 * @param dy1 TODO
-	 * @param dx2 TODO
-	 * @param dy2 TODO
-	 * @param sx1 TODO
-	 * @param sy1 TODO
-	 * @param sx2 TODO
-	 * @param sy2 TODO
-	 * @param observer TODO
-	 * @returns boolean
-	 */
-	public boolean drawImage(Image image, int dx1, int dy1,
-			int dx2, int dy2, int sx1, int sy1, int sx2, int sy2,
-			ImageObserver observer) {
-		return false; // TODO
-	} // drawImage()
-
-	/**
-	 * drawImage
-	 * @param image TODO
-	 * @param dx1 TODO
-	 * @param dy1 TODO
-	 * @param dx2 TODO
-	 * @param dy2 TODO
-	 * @param sx1 TODO
-	 * @param sy1 TODO
-	 * @param sx2 TODO
-	 * @param sy2 TODO
-	 * @param background TODO
-	 * @param observer TODO
-	 * @returns boolean
-	 */
-	public boolean drawImage(Image image, int dx1, int dy1,
-			int dx2, int dy2, int sx1, int sy1, int sx2, int sy2,
-			Color background, ImageObserver observer) {
-		return false; // TODO
-	} // drawImage()
-
-	/**
-	 * copyArea
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 * @param destx TODO
-	 * @param desty TODO
-	 */
-	public void copyArea(int x, int y, int w, int h, 
-			int destx, int desty) {
-		// TODO
-	} // copyArea()
-
-	/**
-	 * dispose
-	 */
-	public void dispose() {
-		// TODO
-	} // dispose()
-
-	/**
-	 * isDrawingBuffer
-	 * @returns boolean
-	 */
-	public boolean isDrawingBuffer() {
-		return false; // TODO
-	} // isDrawingBuffer()
-
-	/**
-	 * toShortString
-	 * @returns String
-	 */
-	String toShortString() {
-		return null; // TODO
-	} // toShortString()
-
-	/**
-	 * setDebugOptions
-	 * @param options TODO
-	 */
-	public void setDebugOptions(int options) {
-		// TODO
-	} // setDebugOptions()
-
-	/**
-	 * getDebugOptions
-	 * @returns int
-	 */
-	public int getDebugOptions() {
-		return 0; // TODO
-	} // getDebugOptions()
-
-
-} // DebugGraphics
+public class DebugGraphics extends Graphics
+{
+  /**
+   * LOG_OPTION
+   */
+  public static final int LOG_OPTION = 1;
+
+  /**
+   * FLASH_OPTION
+   */
+  public static final int FLASH_OPTION = 2;
+
+  /**
+   * BUFFERED_OPTION
+   */
+  public static final int BUFFERED_OPTION = 4;
+
+  /**
+   * NONE_OPTION
+   */
+  public static final int NONE_OPTION = -1;
+
+  static Color debugFlashColor = Color.RED;
+  static int debugFlashCount = 10;
+  static int debugFlashTime = 1000;
+  static PrintStream debugLogStream = System.out;
+
+  /**
+   * graphics
+   */
+  Graphics graphics;
+
+  /**
+   * color
+   */
+  Color color = Color.BLACK;
+  
+  /**
+   * buffer
+   */
+  Image buffer;
+
+  /**
+   * debugOptions
+   */
+  int debugOptions;
+
+  /**
+   * graphicsID
+   */
+  int graphicsID;
+
+  /**
+   * xOffset
+   */
+  int xOffset;
+
+  /**
+   * yOffset
+   */
+  int yOffset;
+
+  /**
+   * Creates a <code>DebugGraphics</code> object.
+   */
+  public DebugGraphics()
+  {
+    // TODO
+  }
+
+  /**
+   * Creates a <code>DebugGraphics</code> object.
+   *
+   * @param graphics The <code>Graphics</code> object to wrap
+   * @param component TODO
+   */
+  public DebugGraphics(Graphics graphics, JComponent component)
+  {
+    this.graphics = graphics;
+    // FIXME: What shall we do with component ?
+  }
+
+  /**
+   * Creates a <code>DebugGraphics</code> object.
+   *
+   * @param graphics The <code>Graphics</code> object to wrap
+   */
+  public DebugGraphics(Graphics graphics)
+  {
+    this.graphics = graphics;
+  }
+
+  /**
+   * Sets the color to draw stuff with.
+   * 
+   * @param color The color
+   */
+  public void setColor(Color color)
+  {
+    this.color = color;
+  }
+
+  /**
+   * Creates a overrides <code>Graphics.create</code> to create a
+   * <code>DebugGraphics</code> object.
+   *
+   * @return a new <code>DebugGraphics</code> object.
+   */
+  public Graphics create()
+  {
+    return new DebugGraphics(graphics.create());
+  }
+
+  /**
+   * Creates a overrides <code>Graphics.create</code> to create a
+   * <code>DebugGraphics</code> object.
+   *
+   * @param x the x coordinate
+   * @param y the y coordinate
+   * @param width the width
+   * @param height the height
+   *
+   * @return a new <code>DebugGraphics</code> object.
+   */
+  public Graphics create(int x, int y, int width, int height)
+  {
+    return new DebugGraphics(graphics.create(x, y, width, height));
+  }
+
+  /**
+   * flashColor
+   *
+   * @return Color
+   */
+  public static Color flashColor()
+  {
+    return debugFlashColor;
+  }
+
+  /**
+   * setFlashColor
+   *
+   * @param color the color to use for flashing
+   */
+  public static void setFlashColor(Color color)
+  {
+    debugFlashColor = color;
+  }
+
+  /**
+   * flashTime
+   *
+   * @return The time in milliseconds
+   */
+  public static int flashTime()
+  {
+    return debugFlashTime;
+  }
+
+  /**
+   * setFlashTime
+   *
+   * @param time The time in milliseconds
+   */
+  public static void setFlashTime(int time)
+  {
+    debugFlashTime = time;
+  }
+
+  /**
+   * flashCount
+   *
+   * @return The number of flashes
+   */
+  public static int flashCount()
+  {
+    return debugFlashCount;
+  }
+
+  /**
+   * setFlashCount
+   *
+   * @param count The number of flashes
+   */
+  public static void setFlashCount(int count)
+  {
+    debugFlashCount = count;
+  }
+
+  /**
+   * logStream
+   *
+   * @return The <code>PrintStream</code> to write logging messages to
+   */
+  public static PrintStream logStream()
+  {
+    return debugLogStream;
+  }
+
+  /**
+   * setLogStream
+   *
+   * @param stream The currently set <code>PrintStream</code>.
+   */
+  public static void setLogStream(PrintStream stream)
+  {
+    debugLogStream = stream;
+  }
+
+  /**
+   * getFont
+   *
+   * @return The font
+   */
+  public Font getFont()
+  {
+    return graphics.getFont();
+  }
+
+  /**
+   * setFont
+   *
+   * @param font The font to use for drawing text
+   */
+  public void setFont(Font font)
+  {
+    graphics.setFont(font);
+  }
+
+  /**
+   * Returns the color used for drawing.
+   * 
+   * @return The color.
+   */
+  public Color getColor()
+  {
+    return color;
+  }
+
+  /**
+   * Returns the font metrics of the current font.
+   *
+   * @return a <code>FontMetrics</code> object
+   */
+  public FontMetrics getFontMetrics()
+  {
+    return graphics.getFontMetrics();
+  }
+
+  /**
+   * Returns the font metrics for a given font.
+   *
+   * @param font the font to get the metrics for
+   *
+   * @return a <code>FontMetrics</code> object
+   */
+  public FontMetrics getFontMetrics(Font font)
+  {
+    return graphics.getFontMetrics(font);
+  }
+
+  /**
+   * translate
+   *
+   * @param x the x coordinate
+   * @param y the y coordinate
+   */
+  public void translate(int x, int y)
+  {
+    graphics.translate(x, y);
+  }
+
+  /**
+   * setPaintMode
+   */
+  public void setPaintMode()
+  {
+    graphics.setPaintMode();
+  }
+
+  /**
+   * setXORMode
+   *
+   * @param color the color
+   */
+  public void setXORMode(Color color)
+  {
+    graphics.setXORMode(color);
+  }
+
+  /**
+   * getClipBounds
+   *
+   * @return Rectangle
+   */
+  public Rectangle getClipBounds()
+  {
+    return graphics.getClipBounds();
+  }
+
+  /**
+   * Intersects the current clip region with the given region.
+   *
+   * @param x The x-position of the region
+   * @param y The y-position of the region
+   * @param width The width of the region
+   * @param height The height of the region
+   */
+  public void clipRect(int x, int y, int width, int height)
+  {
+    graphics.clipRect(x, y, width, height);
+  }
+
+  /**
+   * Sets the clipping region.
+   *
+   * @param x The x-position of the region
+   * @param y The y-position of the region
+   * @param width The width of the region
+   * @param height The height of the region
+   */
+  public void setClip(int x, int y, int width, int height)
+  {
+    graphics.setClip(x, y, width, height);
+  }
+
+  /**
+   * Returns the current clipping region.
+   *
+   * @return Shape
+   */
+  public Shape getClip()
+  {
+    return graphics.getClip();
+  }
+
+  /**
+   * Sets the current clipping region
+   *
+   * @param shape The clippin region
+   */
+  public void setClip(Shape shape)
+  {
+    graphics.setClip(shape);
+  }
+
+  private void sleep(int milliseconds)
+  {
+    try
+      {
+	Thread.sleep(milliseconds);
+      }
+    catch (InterruptedException e)
+      {
+	// Ignore this.
+      }
+  }
+  
+  /**
+   * Draws a rectangle.
+   *
+   * @param x The x-position of the rectangle
+   * @param y The y-position of the rectangle
+   * @param width The width of the rectangle
+   * @param height The height of the rectangle
+   */
+  public void drawRect(int x, int y, int width, int height)
+  {
+    for (int index = 0; index < (debugFlashCount - 1); ++index)
+      {
+	graphics.setColor(color);
+	graphics.drawRect(x, y, width, height);
+	sleep(debugFlashTime);
+	
+	graphics.setColor(debugFlashColor);
+	graphics.drawRect(x, y, width, height);
+	sleep(debugFlashTime);
+      }
+
+    graphics.setColor(color);
+    graphics.drawRect(x, y, width, height);
+  }
+
+  /**
+   * Draws a filled rectangle.
+   *
+   * @param x The x-position of the rectangle
+   * @param y The y-position of the rectangle
+   * @param width The width of the rectangle
+   * @param height The height of the rectangle
+   */
+  public void fillRect(int x, int y, int width, int height)
+  {
+    for (int index = 0; index < (debugFlashCount - 1); ++index)
+      {
+	graphics.setColor(color);
+	graphics.fillRect(x, y, width, height);
+	sleep(debugFlashTime);
+	
+	graphics.setColor(debugFlashColor);
+	graphics.fillRect(x, y, width, height);
+	sleep(debugFlashTime);
+      }
+
+    graphics.setColor(color);
+    graphics.fillRect(x, y, width, height);
+  }
+
+  /**
+   * clearRect
+   *
+   * @param x The x-position of the rectangle
+   * @param y The y-position of the rectangle
+   * @param width The width of the rectangle
+   * @param height The height of the rectangle
+   */
+  public void clearRect(int x, int y, int width, int height)
+  {
+    graphics.clearRect(x, y, width, height);
+  }
+
+  /**
+   * drawRoundRect
+   *
+   * @param x The x-position of the rectangle
+   * @param y The y-position of the rectangle
+   * @param width The width of the rectangle
+   * @param height The height of the rectangle
+   * @param arcWidth TODO
+   * @param arcHeight TODO
+   */
+  public void drawRoundRect(int x, int y, int width, int height, 
+			    int arcWidth, int arcHeight)
+  {
+    graphics.drawRoundRect(x, y, width, height, arcWidth, arcHeight);
+  }
+
+  /**
+   * fillRoundRect
+   *
+   * @param x The x-position of the rectangle
+   * @param y The y-position of the rectangle
+   * @param width The width of the rectangle
+   * @param height The height of the rectangle
+   * @param arcWidth TODO
+   * @param arcHeight TODO
+   */
+  public void fillRoundRect(int x, int y, int width, int height, 
+			    int arcWidth, int arcHeight)
+  {
+    graphics.fillRoundRect(x, y, width, height, arcWidth, arcHeight);
+  }
+
+  /**
+   * drawLine
+   *
+   * @param x1 The x-position of the start 
+   * @param y1 The y-position of the start
+   * @param x2 The x-position of the end
+   * @param y2 The y-position of the end
+   */
+  public void drawLine(int x1, int y1, int x2, int y2)
+  {
+    graphics.drawLine(x1, y1, x2, y2);
+  }
+
+  /**
+   * draw3DRect
+   *
+   * @param x The x-position of the rectangle
+   * @param y The y-position of the rectangle
+   * @param width The width of the rectangle
+   * @param height The height of the rectangle
+   * @param raised TODO
+   */
+  public void draw3DRect(int x, int y, int width, int height, boolean raised)
+  {
+    graphics.draw3DRect(x, y, width, height, raised);
+  }
+
+  /**
+   * fill3DRect
+   *
+   * @param x The x-position of the rectangle
+   * @param y The y-position of the rectangle
+   * @param width The width of the rectangle
+   * @param height The height of the rectangle
+   * @param raised TODO
+   */
+  public void fill3DRect(int x, int y, int width, int height, boolean raised)
+  {
+    graphics.fill3DRect(x, y, width, height, raised);
+  }
+
+  /**
+   * drawOval
+   *
+   * @param x the x coordinate
+   * @param y the y coordiante
+   * @param width the width
+   * @param height the height
+   */
+  public void drawOval(int x, int y, int width, int height)
+  {
+    graphics.drawOval(x, y, width, height);
+  }
+
+  /**
+   * fillOval
+   *
+   * @param x the x coordinate
+   * @param y the y coordinate
+   * @param width the width
+   * @param height the height
+   */
+  public void fillOval(int x, int y, int width, int height)
+  {
+    graphics.fillOval(x, y, width, height);
+  }
+
+  /**
+   * drawArc
+   *
+   * @param x the x coordinate
+   * @param y the y coordinate
+   * @param width the width
+   * @param height the height
+   * @param startAngle TODO
+   * @param arcAngle TODO
+   */
+  public void drawArc(int x, int y, int width, int height, 
+		      int startAngle, int arcAngle)
+  {
+    graphics.drawArc(x, y, width, height, startAngle, arcAngle);
+  }
+
+  /**
+   * fillArc
+   *
+   * @param x the coordinate
+   * @param y the y coordinate
+   * @param width the width
+   * @param height the height
+   * @param startAngle TODO
+   * @param arcAngle TODO
+   */
+  public void fillArc(int x, int y, int width, int height, 
+		      int startAngle, int arcAngle)
+  {
+    graphics.fillArc(x, y, width, height, startAngle, arcAngle);
+  }
+
+  /**
+   * drawPolyline
+   *
+   * @param xpoints TODO
+   * @param ypoints TODO
+   * @param npoints TODO
+   */
+  public void drawPolyline(int[] xpoints, int[] ypoints, int npoints)
+  {
+    graphics.drawPolyline(xpoints, ypoints, npoints);
+  }
+
+  /**
+   * drawPolygon
+   *
+   * @param xpoints TODO
+   * @param ypoints TODO
+   * @param npoints TODO
+   */
+  public void drawPolygon(int[] xpoints, int[] ypoints, int npoints)
+  {
+    graphics.drawPolygon(xpoints, ypoints, npoints);
+  }
+
+  /**
+   * fillPolygon
+   *
+   * @param xpoints TODO
+   * @param ypoints TODO
+   * @param npoints TODO
+   */
+  public void fillPolygon(int[] xpoints, int[] ypoints, int npoints)
+  {
+    graphics.fillPolygon(xpoints, ypoints, npoints);
+  }
+
+  /**
+   * drawString
+   *
+   * @param string the string
+   * @param x the x coordinate
+   * @param y the y coordinate
+   */
+  public void drawString(String string, int x, int y)
+  {
+    graphics.drawString(string, x, y);
+  }
+
+  /**
+   * drawString
+   *
+   * @param iterator TODO
+   * @param x the x coordinate
+   * @param y the y coordinate
+   */
+  public void drawString(AttributedCharacterIterator iterator,
+			 int x, int y)
+  {
+    graphics.drawString(iterator, x, y);
+  }
+
+  /**
+   * drawBytes
+   * 
+   * @param data TODO
+   * @param offset TODO
+   * @param length TODO
+   * @param x the x coordinate
+   * @param y the y coordinate
+   */
+  public void drawBytes(byte[] data, int offset, int length,
+			int x, int y)
+  {
+    graphics.drawBytes(data, offset, length, x, y);
+  }
+
+  /**
+   * drawChars
+   * 
+   * @param data array of characters to draw
+   * @param offset offset in array
+   * @param length number of characters in array to draw
+   * @param x x-position
+   * @param y y-position
+   */
+  public void drawChars(char[] data, int offset, int length, 
+			int x, int y)
+  {
+    for (int index = 0; index < (debugFlashCount - 1); ++index)
+      {
+	graphics.setColor(color);
+	graphics.drawChars(data, offset, length, x, y);
+	sleep(debugFlashTime);
+	
+	graphics.setColor(debugFlashColor);
+	graphics.drawChars(data, offset, length, x, y);
+	sleep(debugFlashTime);
+      }
+
+    graphics.setColor(color);
+    graphics.drawChars(data, offset, length, x, y);
+  }
+
+  /**
+   * drawImage
+   *
+   * @param image The image to draw
+   * @param x The x position
+   * @param y The y position
+   * @param observer The image observer
+   * @return boolean
+   */
+  public boolean drawImage(Image image, int x, int y,
+			   ImageObserver observer)
+  {
+    return graphics.drawImage(image, x, y, observer);
+  }
+
+  /**
+   * drawImage
+   * 
+   * @param image The image to draw
+   * @param x The x position
+   * @param y The y position
+   * @param width The width of the area to draw the image
+   * @param height The height of the area to draw the image
+   * @param observer The image observer
+   *
+   * @return boolean
+   */
+  public boolean drawImage(Image image, int x, int y, int width, 
+			   int height, ImageObserver observer)
+  {
+    return graphics.drawImage(image, x, y, width, height, observer);
+  }
+
+  /**
+   * drawImage
+   * 
+   * @param image The image to draw
+   * @param x The x position
+   * @param y The y position
+   * @param background The color for the background in the opaque regions
+   * of the image
+   * @param observer The image observer
+   *
+   * @return boolean
+   */
+  public boolean drawImage(Image image, int x, int y, 
+			   Color background, ImageObserver observer)
+  {
+    return graphics.drawImage(image, x, y, background, observer);
+  }
+
+  /**
+   * drawImage
+   * 
+   * @param image The image to draw
+   * @param x The x position
+   * @param y The y position
+   * @param width The width of the area to draw the image
+   * @param height The height of the area to draw the image
+   * @param background The color for the background in the opaque regions
+   * of the image
+   * @param observer The image observer
+   *
+   * @return boolean
+   */
+  public boolean drawImage(Image image, int x, int y, int width, int height, 
+			   Color background, ImageObserver observer)
+  {
+    return graphics.drawImage(image, x, y, width, height, background, observer);
+  }
+
+  /**
+   * drawImage
+   * 
+   * @param image The image to draw
+   * @param dx1 TODO
+   * @param dy1 TODO
+   * @param dx2 TODO
+   * @param dy2 TODO
+   * @param sx1 TODO
+   * @param sy1 TODO
+   * @param sx2 TODO
+   * @param sy2 TODO
+   * @param observer The image observer
+   * 
+   * @return boolean
+   */
+  public boolean drawImage(Image image, int dx1, int dy1,
+			   int dx2, int dy2, int sx1, int sy1, int sx2, int sy2,
+			   ImageObserver observer)
+  {
+    return graphics.drawImage(image, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2, observer);
+  }
+
+  /**
+   * drawImage
+   *
+   * @param image The image to draw
+   * @param dx1 TODO
+   * @param dy1 TODO
+   * @param dx2 TODO
+   * @param dy2 TODO
+   * @param sx1 TODO
+   * @param sy1 TODO
+   * @param sx2 TODO
+   * @param sy2 TODO
+   * @param background The color for the background in the opaque regions
+   * of the image
+   * @param observer The image observer
+   *
+   * @return boolean
+   */
+  public boolean drawImage(Image image, int dx1, int dy1,
+			   int dx2, int dy2, int sx1, int sy1, int sx2, int sy2,
+			   Color background, ImageObserver observer)
+  {
+    return graphics.drawImage(image, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2, background, observer);
+  }
+
+  /**
+   * copyArea
+   *
+   * @param x The x position of the source area
+   * @param y The y position of the source area
+   * @param width The width of the area
+   * @param height The height of the area
+   * @param destx The x position of the destination area
+   * @param desty The y posiiton of the destination area
+   */
+  public void copyArea(int x, int y, int width, int height, 
+		       int destx, int desty)
+  {
+    graphics.copyArea(x, y, width, height, destx, desty);
+  }
+
+  /**
+   * Releases all system resources that this <code>Graphics</code> is using.
+   */
+  public void dispose()
+  {
+    graphics.dispose();
+    graphics = null;
+  }
+
+  /**
+   * isDrawingBuffer
+   *
+   * @return boolean
+   */
+  public boolean isDrawingBuffer()
+  {
+    return false; // TODO
+  }
+
+  /**
+   * setDebugOptions
+   *
+   * @param options the debug options
+   */
+  public void setDebugOptions(int options)
+  {
+    debugOptions = options;
+  }
+
+  /**
+   * getDebugOptions
+   *
+   * @return the debug options
+   */
+  public int getDebugOptions()
+  {
+    return debugOptions;
+  }
+}

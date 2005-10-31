@@ -952,10 +952,33 @@ void AppleKeyLargo::saveKeyLargoState(void)
     savedKeyLargoMPICState->mpicSpuriousVector = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICSpuriousVector);
     savedKeyLargoMPICState->mpicTimerFrequencyReporting = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICTimeFreq);
 
-    savedKeyLargoMPICState->mpicTimers[0] = *(MPICTimers *)(mpicBaseAddr + kKeyLargoMPICTimerBase0);
-    savedKeyLargoMPICState->mpicTimers[1] = *(MPICTimers *)(mpicBaseAddr + kKeyLargoMPICTimerBase1);
-    savedKeyLargoMPICState->mpicTimers[2] = *(MPICTimers *)(mpicBaseAddr + kKeyLargoMPICTimerBase2);
-    savedKeyLargoMPICState->mpicTimers[3] = *(MPICTimers *)(mpicBaseAddr + kKeyLargoMPICTimerBase3);
+    // [4101414] timer registers in KeyLargo are on 16byte boundaries
+    UInt32 timerAddresses[kKeyLargoMPICTimerCount] = {kKeyLargoMPICTimerBase0,
+                                                      kKeyLargoMPICTimerBase1,
+                                                      kKeyLargoMPICTimerBase2,
+                                                      kKeyLargoMPICTimerBase3};
+    UInt32 *MPICRegPtr;
+    MPICTimers *SavedMPICReg;
+    
+    for (i = 0; i < kKeyLargoMPICTimerCount; i++)
+    {
+        SavedMPICReg = &savedKeyLargoMPICState->mpicTimers[i];
+        MPICRegPtr = (UInt32 *)(mpicBaseAddr + timerAddresses[i] - 0x10);   
+        // ???BaseX - 0x10 == CurrentCountRegister
+        
+        SavedMPICReg->currentCountRegister = *(MPICRegPtr + 0);
+        SavedMPICReg->baseCountRegister = *(MPICRegPtr + 0x4);
+        SavedMPICReg->vectorPriorityRegister = *(MPICRegPtr + 0x8);
+        SavedMPICReg->destinationRegister = *(MPICRegPtr + 0xc);
+ #if 1
+	kprintf("&KeyLargoMPICTimerBase0:                0x%08x    data: 0x%08x  0x%08x  0x%08x  0x%08x\n",
+			MPICRegPtr, *(MPICRegPtr + 0), *(MPICRegPtr + 4), *(MPICRegPtr + 8), *(MPICRegPtr + 12));
+			
+	kprintf("&savedKeyLargoMPICState->mpicTimers[0]: 0x%08x    data: 0x%08x  0x%08x  0x%08x  0x%08x\n", 
+			SavedMPICReg, SavedMPICReg->currentCountRegister, SavedMPICReg->baseCountRegister, 
+			SavedMPICReg->vectorPriorityRegister, SavedMPICReg->destinationRegister);
+#endif
+ }
 
     for (i = 0; i < kKeyLargoMPICVectorsCount; i++)
     {
@@ -1016,14 +1039,25 @@ void AppleKeyLargo::restoreKeyLargoState(void)
     *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICTimeFreq) = savedKeyLargoMPICState->mpicTimerFrequencyReporting;
     eieio();
 
-    *(MPICTimers *)(mpicBaseAddr + kKeyLargoMPICTimerBase0) = savedKeyLargoMPICState->mpicTimers[0];
-    eieio();
-    *(MPICTimers *)(mpicBaseAddr + kKeyLargoMPICTimerBase1) = savedKeyLargoMPICState->mpicTimers[1];
-    eieio();
-    *(MPICTimers *)(mpicBaseAddr + kKeyLargoMPICTimerBase2) = savedKeyLargoMPICState->mpicTimers[2];
-    eieio();
-    *(MPICTimers *)(mpicBaseAddr + kKeyLargoMPICTimerBase3) = savedKeyLargoMPICState->mpicTimers[3];
-    eieio();
+    // [4101414] timer registers in KeyLargo are on 16byte boundaries
+    UInt32 timerAddresses[kKeyLargoMPICTimerCount] = {kKeyLargoMPICTimerBase0,
+                     			             kKeyLargoMPICTimerBase1,
+                     			             kKeyLargoMPICTimerBase2,
+                     			             kKeyLargoMPICTimerBase3};
+    UInt32 *MPICRegPtr;
+    MPICTimers *savedMPICReg;
+    
+    for (i = 0; i < kKeyLargoMPICTimerCount; i++)
+    {
+        savedMPICReg = &savedKeyLargoMPICState->mpicTimers[i];
+        MPICRegPtr = (UInt32 *)(mpicBaseAddr + timerAddresses[i] - 0x10);   
+        // ???BaseX - 0x10 == CurrentCountRegister
+        
+         *(MPICRegPtr + 0x0) = savedMPICReg->currentCountRegister;   eieio();
+         *(MPICRegPtr + 0x4) = savedMPICReg->baseCountRegister;     eieio();
+         *(MPICRegPtr + 0x8) = savedMPICReg->vectorPriorityRegister;    eieio();
+         *(MPICRegPtr + 0xc) = savedMPICReg->destinationRegister;   eieio();
+    }
 
     for (i = 0; i < kKeyLargoMPICVectorsCount; i++)
     {

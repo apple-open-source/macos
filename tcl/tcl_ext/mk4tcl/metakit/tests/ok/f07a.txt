@@ -1,3 +1,0 @@
- VIEW     1 rows = dict:V
-    0: subview 'dict'
-   VIEW     0 rows = parent:I index:I view:V

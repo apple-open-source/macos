@@ -263,8 +263,13 @@ static void dcc_zc_process_messages(int clientFD)
         exitVal = select(fdCount, &readFDs, NULL, NULL, NULL);
 
         if ( exitVal == -1 ) {
-            rs_trace("Failure while processing messages: (%d) %s", exitVal,
-                     strerror(exitVal));
+            if (errno != EINTR) {
+                rs_trace("Failure while processing messages: (%d) %s", errno,
+                         strerror(errno));
+                dcc_exit(EXIT_DISTCC_FAILED);
+            } else {
+                rs_trace("select() returned EINTR.  Continuing.");
+            }
         } else if ( exitVal == 0 ) {
             rs_trace("No messages available to process");
         } else {
@@ -272,7 +277,7 @@ static void dcc_zc_process_messages(int clientFD)
             exitVal = dcc_zc_process_resolve_messages(&readFDs, exitVal);
 
             if ( exitVal > 0 && FD_ISSET(clientFD, &readFDs) &&
-                dcc_zc_should_process_client_requests() ) {
+                 dcc_zc_should_process_client_requests() ) {
                 dcc_zc_serve_connection(clientFD);
                 rs_log_info("waiting to accept more connections");
             }

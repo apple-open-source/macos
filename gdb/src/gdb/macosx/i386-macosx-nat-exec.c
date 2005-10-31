@@ -113,6 +113,7 @@ fetch_inferior_registers (int regno)
 {
   int current_pid;
   thread_t current_thread;
+  int fetched = 0;
 
   current_pid = ptid_get_pid (inferior_ptid);
   current_thread = ptid_get_tid (inferior_ptid);
@@ -126,23 +127,27 @@ fetch_inferior_registers (int regno)
          &gp_count);
       MACH_CHECK_ERROR (ret);
       i386_macosx_fetch_gp_registers (&gp_regs);
+      fetched++;
     }
 
-  if ((regno == -1) || IS_FP_REGNUM (regno))
+  if ((regno == -1) 
+      || IS_FP_REGNUM (regno)
+      || i386_sse_regnum_p (current_gdbarch, regno)
+      || i386_mxcsr_regnum_p (current_gdbarch, regno))
     {
       gdb_i386_thread_fpstate_t fp_regs;
       unsigned int fp_count = GDB_i386_THREAD_FPSTATE_COUNT;
       kern_return_t ret = thread_get_state
-        (current_thread, i386_FLOAT_STATE, (thread_state_t) & fp_regs,
+        (current_thread, GDB_i386_THREAD_FPSTATE, (thread_state_t) & fp_regs,
          &fp_count);
       MACH_CHECK_ERROR (ret);
       i386_macosx_fetch_fp_registers (&fp_regs);
+      fetched++;
     }
 
-  if (regno == -1
-      || i386_sse_regnum_p (current_gdbarch, regno)
-      || i386_mxcsr_regnum_p (current_gdbarch, regno))
+  if (! fetched)
     {
+      warning ("unknown register %d", regno);
       supply_register (regno, NULL);
     }
 }
@@ -173,16 +178,19 @@ store_inferior_registers (int regno)
       MACH_CHECK_ERROR (ret);
     }
 
-  if ((regno == -1) || IS_FP_REGNUM (regno))
+  if ((regno == -1)
+      || IS_FP_REGNUM (regno)
+      || i386_sse_regnum_p (current_gdbarch, regno)
+      || i386_mxcsr_regnum_p (current_gdbarch, regno))
     {
-#if 0
       gdb_i386_thread_fpstate_t fp_regs;
       kern_return_t ret;
-      i386_macosx_store_fp_registers (&fp_regs);
-      ret = thread_set_state (current_thread, GDB_i386_THREAD_FPSTATE,
-                              (thread_state_t) & fp_regs,
-                              GDB_i386_THREAD_FPSTATE_COUNT);
-      MACH_CHECK_ERROR (ret);
-#endif
+      if (i386_macosx_store_fp_registers (&fp_regs))
+        {
+           ret = thread_set_state (current_thread, GDB_i386_THREAD_FPSTATE,
+                                  (thread_state_t) & fp_regs,
+                                  GDB_i386_THREAD_FPSTATE_COUNT);
+           MACH_CHECK_ERROR (ret);
+        }
     }
 }

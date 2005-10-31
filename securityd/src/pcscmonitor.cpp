@@ -57,10 +57,12 @@ static const Time::Interval PCSCD_IDLE_SHUTDOWN(120);		// kill daemon if no devi
 // In fact, you should push all the hard work into a timer, so as not to hold up the
 // general startup process.
 //
-PCSCMonitor::PCSCMonitor(Server &srv, TokenCache &tc, ServiceLevel level)
+PCSCMonitor::PCSCMonitor(Server &server, const char* pathToCache, ServiceLevel level)
 	: Listener(kNotificationDomainPCSC, SecurityServer::kNotificationAllEvents),
 	  MachServer::Timer(true), // "heavy" timer task
-	  server(srv), cache(tc),
+	  server(server),
+	  cache (NULL),
+	  cachePath (pathToCache),
 	  mServiceLevel(level),
 	  mTimerAction(&PCSCMonitor::initialSetup),
 	  mGoingToSleep(false)
@@ -125,7 +127,7 @@ void PCSCMonitor::pollReaders()
 			// accounted for this reader
 			current.erase(reader);
 		} else {
-			RefPointer<Reader> newReader = new Reader(cache, state);
+			RefPointer<Reader> newReader = new Reader(getTokenCache (), state);
 			mReaders.insert(make_pair(state.name(), newReader));
 			Syslog::notice("Token reader %s inserted into system", state.name());
 			newReader->update(state);		// initial state setup
@@ -140,6 +142,17 @@ void PCSCMonitor::pollReaders()
 		mReaders.erase((*it)->name());		// remove from reader map
 	}
 }
+
+
+TokenCache& PCSCMonitor::getTokenCache ()
+{
+	if (cache == NULL) {
+		cache = new TokenCache(cachePath.c_str ());
+	}
+	
+	return *cache;
+}
+
 
 
 void PCSCMonitor::launchPcscd()

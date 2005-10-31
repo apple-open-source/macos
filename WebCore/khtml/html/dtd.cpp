@@ -514,6 +514,7 @@ static const ushort tag_list_7[] = {
     ID_OPTION,
     ID_COMMENT,
     ID_SCRIPT,
+    ID_HR,
     0
 };
 
@@ -553,7 +554,7 @@ bool check_array(ushort child, const ushort *tagList)
 }
 
 
-bool DOM::checkChild(ushort tagID, ushort childID)
+bool DOM::checkChild(ushort tagID, ushort childID, bool strict)
 {
     //kdDebug( 6030 ) << "checkChild: " << tagID << "/" << childID << endl;
 
@@ -597,7 +598,7 @@ bool DOM::checkChild(ushort tagID, ushort childID)
         return check_array(childID, tag_list_1);
     case ID_P:
         // P: ( _0 | TABLE ) *
-        return check_array(childID, tag_list_0) || childID == ID_TABLE;
+        return check_array(childID, tag_list_0) || (!strict && childID == ID_TABLE);
     case ID_H1:
     case ID_H2:
     case ID_H3:
@@ -686,7 +687,7 @@ bool DOM::checkChild(ushort tagID, ushort childID)
         return check_array(childID, tag_list_7);
     case ID_OPTGROUP:
         // OPTGROUP: OPTION +
-        if(childID == ID_OPTION) return true;
+        if(childID == ID_OPTION || childID == ID_HR) return true;
         return false;
     case ID_OPTION:
     case ID_TEXTAREA:

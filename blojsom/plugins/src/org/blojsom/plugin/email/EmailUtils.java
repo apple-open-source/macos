@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,7 @@ package org.blojsom.plugin.email;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.blojsom.util.BlojsomUtils;
 
 import javax.mail.Message;
 import javax.mail.MessagingException;
@@ -56,7 +57,7 @@ import java.util.Date;
  * plugin to get at
  *
  * @author Mark Lussier
- * @version $Id: EmailUtils.java,v 1.2 2004/08/27 01:06:37 whitmore Exp $
+ * @version $Id: EmailUtils.java,v 1.2.2.1 2005/07/21 04:30:30 johnan Exp $
  */
 public class EmailUtils {
 
@@ -90,11 +91,18 @@ public class EmailUtils {
      * @param subject Subject of the message being sent
      * @param message The message text
      * @param context The context Map for putting the messages
+     * @param recipient Recipient e-mail (if available)
      */
-    public static void notifyBlogAuthor(String subject, String message, Map context) {
+    public static void notifyBlogAuthor(String subject, String message, Map context, String recipient) {
         checkContext(context);
         List _messagelist = (List) context.get(BLOJSOM_OUTBOUNDMAIL);
-        _messagelist.add(new EmailMessage(subject, message));
+        EmailMessage emailMessage = new EmailMessage(subject, message);
+
+        if (!BlojsomUtils.checkNullOrBlank(recipient)) {
+            emailMessage.setTo(recipient);
+        }
+
+        _messagelist.add(emailMessage);
         context.put(BLOJSOM_OUTBOUNDMAIL, _messagelist);
     }
 
@@ -168,6 +176,11 @@ public class EmailUtils {
             _msgto = defaultaddress;
 
             message.setFrom(_msgfrom);
+            if (!BlojsomUtils.checkNullOrBlank(emailmessage.getTo())) {
+                _msgto = new InternetAddress(emailmessage.getTo());
+                _logger.debug("Constructing e-mail message to blog entry author: " + emailmessage.getTo());
+            }
+
             message.addRecipient(Message.RecipientType.TO, _msgto);
             message.setSubject(emailmessage.getSubject());
             message.setText(emailmessage.getMessage());

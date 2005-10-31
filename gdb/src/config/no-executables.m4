@@ -48,11 +48,17 @@ m4_defn([AC_LINK_IFELSE]))
 dnl This is a shame.  We have to provide a default for some link tests,
 dnl similar to the default for run tests.
 m4_define([AC_FUNC_MMAP],
-if test x$gcc_no_link = xyes; then
-  if test "x${ac_cv_func_mmap_fixed_mapped+set}" != xset; then
-    ac_cv_func_mmap_fixed_mapped=no
-  fi
-fi
+dnl APPLE LOCAL:  mmap() always works right on Darwin.  Take our word for it.
+case "$host" in
+  *-apple-darwin* | *-apple-macos*)
+    ac_cv_func_mmap_fixed_mapped=yes
+  ;;
+esac
+#if test x$gcc_no_link = xyes; then
+#  if test "x${ac_cv_func_mmap_fixed_mapped+set}" != xset; then
+#    ac_cv_func_mmap_fixed_mapped=no
+#  fi
+#fi
 if test "x${ac_cv_func_mmap_fixed_mapped+set}" != xset; then
   m4_defn([AC_FUNC_MMAP])
 fi)

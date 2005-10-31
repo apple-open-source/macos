@@ -1,13 +1,167 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/19475
+	* macro.c (create_iso_definition): For < ISO C99, don't
+	pedwarn if there is no whitespace between macro name and its
+	replacement, but the replacement starts with a basic character
+	set character.
+
+2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* configure.ac: Consistently use solaris2.1[0-9]* instead of
+	solaris2.1[0-9].
+	* configure: Regenerate.
+
+2005-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/20282
+	PR bootstrap/20305
+	* macro.c (replace_args, cpp_get_token): Copy whole
+	cpp_token_u instead of just cpp_string field from it.
+
+2005-02-28  Devang Patel  <dpatel@apple.com>
+
+	* directives.c (do_line): Save sysp early before line table is
+	realloc'ed.
+	
+2005-02-20  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 18785
+	* charset.c (LAST_POSSIBLY_BASIC_SOURCE_CHAR): New helper macro.
+	(cpp_host_to_exec_charset): New function.
+	* include/cpplib.h: Declare cpp_host_to_exec_charset.
+
+2005-02-19  Devang Patel  <dpatel@apple.com>
+
+	* charset.c (_cpp_convert_input): Check '\r' before inserting
+	'\n' at the end.
+
+2005-02-15  Eric Christopher  <echristo@redhat.com>
+
+	PR preprocessor/19077
+	* macro.c (cpp_macro_definition): Move handling of whitespace
+	to PREV_WHITE conditional. Remove overloading of len
+	variable.
+
+2005-02-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* directives.c, files.c, init.c, internal.h, macro.c, pch.c,
+	traditional.c: Update copyright.
+
+2005-02-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/19818
+	* configure.ac: Check for declaration of basename and getopt.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* internal.h (ustrcspn): New.
+	* macro.c (create_iso_definition): Fix allocation of memory.
+	(padding_token): Add cast to remove const-ness.
+	* pch.c (cpp_read_state): Use ustrcspn.
+
 2005-02-08  Mike Stump  <mrs@apple.com>
 
 	* files.c (pchf_adder): Remove.
 	(struct pchf_adder_info): Likewise.
 	(_cpp_save_file_entries): Write out all files so that #import works.
 
-2004-12-15  Geoffrey Keating  <geoffk@apple.com>
+2005-01-23  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* configure: Regenerate.
+
+2005-01-11  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* include/cpplib.h (c_lang): Fix comment to say cpp_create_reader.
+
+	* include/cpplib.h: Also update copyright years.
+
+2005-01-03  Geoffrey Keating  <geoffk@apple.com>
 
 	* files.c (_cpp_find_file): Add files found by search_path_exhausted
 	to the list of all files.
+
+2005-01-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* internal.h: Update references to Cpp lib filenames.
+	* directives.c: Likewise.
+	* init.c: Likewise.
+	* macro.c: Likewise.
+	* traditional.c: Likewise.
+
+2004-12-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR preprocessor/15167
+	* files.c (destroy_cpp_file): New function.
+	(should_stack_file): Make a new file if the
+	compared file is still stacked.
+
+2004-11-28  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR preprocessor/17610
+	* directives.c (do_include_common): Error out if an empty filename
+	is given for #include (or #include_next or #import).
+
+2004-11-27  Roger Sayle  <roger@eyesopen.com>
+	    Zack Weinberg  <zack@codesourcery.com>
+
+	* internal.h: Replace all uses of uchar with unsigned char.
+	* include/cpp-id-data.h: Likewise.  Guard typedef of uchar
+	with !IN_GCC, so uchar is only defined whilst building libcpp.
+
+2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* aclocal.m4: Regenerate.
+
+2004-11-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR preprocessor/15824
+	* configure.ac: Correct HAVE_UCHAR test to #include <sys/types.h>
+	directly, instead of the non-existant "system.h" and "ansidecl.h".
+	* configure: Regenerate.
+
+2004-11-23  Daniel Jacobowitz  <dan@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* internal.h (struct lexer_state): Add in_deferred_pragma.
+	* directives.c (struct pragma_entry): Add allow_expansion.
+	(insert_pragma_entry): Take allow_expansion flag.
+	(register_pragma): Likewise.
+	(cpp_register_pragma): Likewise.
+	(_cpp_init_internal_pragmas): Update calls to cpp_register_pragma.
+	(do_pragma): Honor allow_expansion.
+	(cpp_handle_deferred_pragma): Set in_deferred_pragma.
+	* include/cpplib.h (cpp_register_pragma): Update prototype.
+
+2004-11-18  Daniel Jacobowitz  <dan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.ac (i[34567]86-*-solaris2.1[0-9]*): Set
+	need_64bit_hwint=yes.
+	* configure: Regenerate.
+
+2004-11-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* Makefile.in ($(PACKAGE).pot): New rule.  Depend on
+	po/$(PACKAGE).pot.
+	(po/$(PACKAGE).pot): Use ":" instead of "," in --keyword
+	arguments.  Add keywords _, N_, SYNTAX_ERROR and SYNTAX_ERROR2.
+	Remove local srcdir path from generated file.
+
+2004-11-04  Zack Weinberg  <zack@codesourcery.com>
+	    Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* internal.h (HAVE_ICONV): Undefine if we do not have HAVE_ICONV_H
+	as well.
+
+2004-10-27  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 18075
+	* directives.c (do_pragma): Do not defer pragmas which are unknown.
+	(cpp_handle_deferred_pragma): Add cast to silence warning.
 
 2004-10-14  Joseph S. Myers  <jsm@polyomino.org.uk>
 

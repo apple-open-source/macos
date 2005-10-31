@@ -1,5 +1,5 @@
 /* FlavorTable.java -- A relaxed mapping between flavors
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -45,7 +45,7 @@ import java.util.List;
  * native can map to multiple flavors, and any flavor can map to multiple
  * natives; although the mappings are usually symmetric.
  *
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.4
  * @status updated to 1.4
  */
@@ -66,8 +66,8 @@ public interface FlavorTable extends FlavorMap
    * list should be sorted from best to worst. The list must be modifiable
    * without affecting this table.
    *
-   * @param native the native to look up, or null to return all flavors
+   * @param name the native name to look up, or null to return all flavors
    * @return the sorted list of flavors
    */
   List getFlavorsForNative(String name);
-} // interface FlavorTable
+}

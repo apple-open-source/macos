@@ -33,6 +33,6 @@
 
 }
 
-+ (void)decodeBytes:(IOUSBConfigurationDescHeader *)cfg forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceInterface **)deviceIntf configNumber:(int)iconfig isOtherSpeedDesc:(BOOL)isOtherSpeedDesc;
++ (void)decodeBytes:(IOUSBConfigurationDescHeader *)cfg forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf configNumber:(int)iconfig isOtherSpeedDesc:(BOOL)isOtherSpeedDesc;
 
 @end

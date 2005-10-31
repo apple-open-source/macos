@@ -118,8 +118,51 @@ AppleUSBUHCI::init(OSDictionary * propTable)
 bool
 AppleUSBUHCI::start( IOService * provider )
 {
+	OSIterator				*siblings = NULL;
+    mach_timespec_t			t;
+    OSDictionary			*matching;
+    IOService				*service;
+    IORegistryEntry			*entry;
+    bool					ehciPresent = false;
+    
+    // Check my provide (_device) parent (a PCI bridge) children (sibling PCI functions)
+    // to see if any of them is an EHCI controller - if so, wait for it..
+    
+	if (provider)
+		siblings = provider->getParentEntry(gIOServicePlane)->getChildIterator(gIOServicePlane);
+	
+	if( siblings ) 
+	{
+		while( (entry = OSDynamicCast(IORegistryEntry, siblings->getNextObject())))
+		{
+			UInt32			classCode;
+			OSData			*obj = OSDynamicCast(OSData, entry->getProperty("class-code"));
+			if (obj) 
+			{
+				classCode = *(UInt32 *)obj->getBytesNoCopy();
+				if (classCode == 0x0c0320) 
+				{
+					ehciPresent = true;
+					break;
+				}
+			}
+		}
+		siblings->release();
+	}
+
+    if (ehciPresent) 
+	{
+        t.tv_sec = 5;
+        t.tv_nsec = 0;
+        USBLog(3, "%s[%p]::start waiting for EHCI", getName(), this);
+		setProperty("Companion", "yes");
+        service = waitForService( serviceMatching("AppleUSBEHCI"), &t );
+        USBLog(3, "%s[%p]::start got EHCI service %p", getName(), this, service);
+    }
+    
     USBLog(3, "%s[%p]::start", getName(), this);
-    if (!super::start(provider)) {
+    if (!super::start(provider)) 
+	{
         return false;
     }
     
@@ -141,6 +184,24 @@ AppleUSBUHCI::finalize(IOOptionBits options)
     USBLog(3, "%s[%p]::finalize", getName(), this);
     return super::finalize(options);
 }
+
+
+void
+AppleUSBUHCI::EnableUSBInterrupt(bool enableInterrupt)
+{
+    UInt16 value;
+    USBLog(3, "%s[%p]::EnableUSBInterrupt - Legacy register: 0x%x", getName(), this, _device->configRead16(kUHCI_PCI_LEGKEY));
+    
+	// The master interrupt for the UHCI controller is actually in the Legacy Support register (section 5.2.1)
+    if (enableInterrupt) 
+	{
+        value = kUHCI_LEGKEY_INTR_ENABLE;
+    } else {
+        value = 0;
+    }
+    _device->configWrite16(kUHCI_PCI_LEGKEY, value);
+}
+
 
 IOReturn
 AppleUSBUHCI::HardwareInit(void)
@@ -337,6 +398,9 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
             return kIOReturnBadArgument;
         }
         
+        // Disable the master interrupt
+        EnableUSBInterrupt(false);
+        
         //      _device->configWrite32(0x20, 0xFFFFFFFF);
         //      UInt32 val = _device->configRead32(0x20);
         //
@@ -383,9 +447,9 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         SetDeviceName();
         
         /* Do not use standardized errata bits yet. */
-        //_errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
+        _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
         
-        USBLog(3, "%s[%p]: there are %d interrupt sources", getName(), this, _numInterruptSources);
+       USBLog(3, "%s[%p]: there are %d interrupt sources", getName(), this, _numInterruptSources);
         
         //_interruptSource = IOInterruptEventSource::interruptEventSource(this, &InterruptHandler, _device);
         
@@ -429,10 +493,8 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
             return kIOReturnError;
         }
                 
-        /* Turn off legacy support and enable interrupts. */
-        USBLog(3, "%s[%p]: Legacy register: %x", getName(), this,
-               _device->configRead16(kUHCI_PCI_LEGKEY));
-        _device->configWrite16(kUHCI_PCI_LEGKEY, kUHCI_LEGKEY_INTR_ENABLE);
+        // Enable interrupts
+        EnableUSBInterrupt(true);
         
         /* Note that the timer isn't scheduled to send events yet. */
         
@@ -474,6 +536,13 @@ AppleUSBUHCI::UIMFinalize()
         }
     }
 
+    // Clean up our power down notifier.  That will release it.
+    //
+    if ( _powerDownNotifier ) {
+        _powerDownNotifier->remove();
+        _powerDownNotifier = NULL;
+    }
+        
     USBLog(3, "%s[%p]::UIMFinalize freeing memory", getName(), this);
     
     // Free special root hub endpoint.
@@ -542,16 +611,12 @@ AppleUSBUHCI::UIMInitializeForPowerUp()
     UInt32 value;
     
     USBLog(3, "%s[%p]::UIMInitializeForPowerUp", getName(), this);
-    USBLog(3, "%s[%p]: before: frame address register is %x", getName(), this,
-           ioRead32(kUHCI_FRBASEADDR));
-    USBLog(3, "%s[%p]: frame number register is %x", getName(), this,
-           ReadFrameNumberRegister());
+    USBLog(3, "%s[%p]: before: frame address register is %x", getName(), this, ioRead32(kUHCI_FRBASEADDR));
+    USBLog(3, "%s[%p]: frame number register is %x", getName(), this, ReadFrameNumberRegister());
     ioWrite32(kUHCI_FRBASEADDR, _saveFrameAddress);
     ioWrite16(kUHCI_FRNUM, _saveFrameNumber);
-    USBLog(3, "%s[%p]: after: frame address register is %x", getName(), this,
-           ioRead32(kUHCI_FRBASEADDR));
-    USBLog(3, "%s[%p]: frame number register is %x", getName(), this,
-           ReadFrameNumberRegister());
+    USBLog(3, "%s[%p]: after: frame address register is %x", getName(), this, ioRead32(kUHCI_FRBASEADDR));
+    USBLog(3, "%s[%p]: frame number register is %x", getName(), this,  ReadFrameNumberRegister());
     
     Command(kUHCI_CMD_MAXP | kUHCI_CMD_CF);
     USBLog(3, "%s[%p]: Command register reports %x", getName(), this, ioRead16(kUHCI_CMD));
@@ -740,7 +805,7 @@ AppleUSBUHCI::GetFrameNumber()
     UInt32 newFrame;
     
     if (_lastFrameNumberLow >= (UInt32)(~kUHCI_FRNUM_MASK)) {
-        USBLog(3, "UHCI[%p]: locking to check frame number", this);
+        USBLog(7, "UHCI[%p]: locking to check frame number", this);
         IOLockLock(_frameLock);
         lastFrameNumber = _lastFrameNumberLow;
 
@@ -755,7 +820,7 @@ AppleUSBUHCI::GetFrameNumber()
             // 11-bit and 32-bit overflow
             _lastFrameNumberHigh++;
             newFrame = overflow + thisFrame + kUHCI_FRNUM_COUNT;
-            USBLog(3, "UHCI[%p]: 64-bit frame number overflow (low %x)", this, newFrame);
+            USBLog(7, "UHCI[%p]: 64-bit frame number overflow (low %x)", this, newFrame);
         }
         _lastFrameNumberLow = newFrame;
         IOLockUnlock(_frameLock);
@@ -772,12 +837,12 @@ AppleUSBUHCI::GetFrameNumber()
         } else /* if (overflow < (~kUHCI_FRNUM_MASK)) */ {
             // 11-bit overflow, but no 32-bit overflow
             newFrame = overflow + thisFrame + kUHCI_FRNUM_COUNT;
-            USBLog(3, "UHCI[%p]: 11-bit frame number overflow", this);
+            USBLog(7, "UHCI[%p]: 11-bit frame number overflow", this);
         }
         
     } while (!OSCompareAndSwap(lastFrameNumber, newFrame, &_lastFrameNumberLow));
     
-    USBLog(3, "UHCI[%p]: frame number is %qx", this, (UInt64)newFrame | ((UInt64)_lastFrameNumberHigh << 32));
+    USBLog(7, "UHCI[%p]: frame number is %qx", this, (UInt64)newFrame | ((UInt64)_lastFrameNumberHigh << 32));
     return (UInt64)newFrame | ((UInt64)_lastFrameNumberHigh << 32);
 }
 
@@ -939,7 +1004,19 @@ AppleUSBUHCI::InterruptHandler(OSObject *owner,
     AppleUSBUHCI *controller = (AppleUSBUHCI *)owner;
     
     //USBLog(7, "AppleUSBUHCI::InterruptHandler");
-    if (!controller->isInactive()) {
+
+    //
+    // Interrupt source callouts are not blocked by _workLoop->sleep()
+    // and driver checks _powerLevel to prevent touching hardware when
+    // UHCI has powered down, and another device sharing the interrupt
+    // line has it asserted.
+    //
+    // Driver must ensure that the device cannot generate an interrupt
+    // while in suspend state to prevent an interrupt storm.
+    //
+
+    if (!controller->isInactive() &&
+        (controller->_powerLevel != kUHCIPowerLevelSuspend)) {
         controller->HandleInterrupt();
     }
 }
@@ -1031,25 +1108,35 @@ AppleUSBUHCI::SetDeviceName(void)
 bool
 AppleUSBUHCI::FilterInterrupt(void)
 {
+    UInt16 hwIntrStatus;
     UHCITransaction *tp;
     TD *td;
     AbsoluteTime timeStamp;
     UInt32 status;
     UInt32 currentFrame;
-    UInt32 previousFrame;
+    UInt32 frame;
     UHCIAlignmentBuffer *bp;
     
-    clock_get_uptime(&timeStamp);
+    hwIntrStatus = ioRead16(kUHCI_STS) & kUHCI_STS_INTR_MASK;
     
-    if ((ioRead16(kUHCI_STS) & kUHCI_STS_MASK) == 0) {
+    if (hwIntrStatus == 0) {
         /* Not our interrupt. */
         return false;
     }
     
-    currentFrame = ReadFrameNumber();
-    previousFrame = (currentFrame - 1) & kUHCI_NVFRAMES_MASK;
+    /* Acknowledge interrupt. */
+    ioWrite16(kUHCI_STS, hwIntrStatus);
     
-    td = _vframes[previousFrame].td;
+    OSBitOrAtomic(hwIntrStatus, &_intrStatus);
+    
+    clock_get_uptime(&timeStamp);
+    
+    currentFrame = ReadFrameNumber() & kUHCI_NVFRAMES_MASK;
+    frame = (currentFrame - 2);
+    frame = frame & kUHCI_NVFRAMES_MASK;
+    
+    while (frame != currentFrame) {
+        td = _vframes[frame].td;
     
     while (td && (td->hw.ctrlStatus & HostToUSBLong(kUHCI_TD_ISO))) {
         status = USBToHostLong(td->hw.ctrlStatus);
@@ -1062,6 +1149,10 @@ AppleUSBUHCI::FilterInterrupt(void)
         }
         
         td = td->link;
+    }
+    
+        frame++;
+        if (frame == kUHCI_NVFRAMES) frame = 0;
     }
     
 #if AUDIO_HACK
@@ -1078,9 +1169,22 @@ AppleUSBUHCI::FilterInterrupt(void)
             bp->copyAtInterruptTime = 0;
         }
     }
+    }
 #endif
     
-    return true;
+    // We will return false from this filter routine,
+    // but will indicate that there the action routine should be called
+    // by calling _filterInterruptSource->signalInterrupt(). 
+    // This is needed because IOKit will disable interrupts for a level interrupt
+    // after the filter interrupt is run, until the action interrupt is called.
+    // We want to be able to have our filter interrupt routine called
+    // before the action routine runs, if needed.  That is what will enable
+    // low latency isoch transfers to work, as when the
+    // system is under heavy load, the action routine can be delayed for tens of ms.
+    //
+    _interruptSource->signalInterrupt();
+    
+    return false;
 }
 
 /* Called at software interrupt time. */
@@ -1088,24 +1192,27 @@ void
 AppleUSBUHCI::HandleInterrupt(void)
 {
     UInt16 status;
+    UInt32 intrStatus;
     bool needReset = false;
     UHCIAlignmentBuffer *bp;
     
+    do {
+        intrStatus = _intrStatus;
+    } while (!OSCompareAndSwap(intrStatus, 0, &_intrStatus));
+
     status = ioRead16(kUHCI_STS);
-    //USBLog(7, "%s[%p]: HandleInterrupt", getName(), this);
+    
+    //USBLog(7, "%s[%p]: HandleInterrupt frame %d value 0x%x intr 0x%x", getName(), this, ReadFrameNumber(), status, intrStatus);
     //USBLog(7, "%s[%p]: Controller status %x", getName(), this, status);
     //USBLog(7, "%s[%p]: Frame %d", getName(), this, ReadFrameNumber());
     
-    if ((status & kUHCI_STS_INTR_MASK) == 0) {
-        //USBLog(7, "%s[%p]: interrupt was not for us", getName(), this);
-        return;
-    }
-    //USBLog(7, "%s[%p]: Handle Interrupt status: %x", getName(), this, status);
-
-    /* Acknowledge interrupt. */
     if (status & kUHCI_STS_HCH) {
-        USBLog(1, "%s[%p]: Host controller halted", getName(), this);
-        needReset = true;
+        if (_powerLevel == kUHCIPowerLevelRunning) {
+            USBLog(1, "%s[%p]: Host controller halted when it should be running", getName(), this);
+            DumpFrame(ReadFrameNumber() % kUHCI_NVFRAMES, 5);
+            needReset = true;
+        }
+        
 #if DEBUG
         /* Disable interrupts for debugging */
         _workLoop->disableAllInterrupts();
@@ -1117,30 +1224,27 @@ AppleUSBUHCI::HandleInterrupt(void)
         }
 #endif
     }
-    if (status & kUHCI_STS_HCPE) {
+    if (intrStatus & kUHCI_STS_HCPE) {
         USBLog(1, "%s[%p]: Host controller process error", getName(), this);
         needReset = true;
     }
-    if (status & kUHCI_STS_HSE) {
+    if (intrStatus & kUHCI_STS_HSE) {
         USBLog(1, "%s[%p]: Host controller system error", getName(), this);
         needReset = true;
     }
-    if (status & kUHCI_STS_RD) {
+    if (intrStatus & kUHCI_STS_RD) {
         USBLog(7, "%s[%p]: Host controller resume detected", getName(), this);
         if (_powerLevel == kUHCIPowerLevelIdleSuspend) {
             ResumeController();
         }
     }
-    if (status & kUHCI_STS_EI) {
+    if (intrStatus & kUHCI_STS_EI) {
         USBLog(7, "%s[%p]: Host controller error interrupt", getName(), this);
     }
-    /* Acknowledge interrupts. */
-    //USBLog(7, "%s[%p]: writing back status %x", getName(), this, (status & kUHCI_STS_MASK));
-    ioWrite16(kUHCI_STS, (status & kUHCI_STS_MASK));
     
-    if (needReset && _powerLevel == kUHCIPowerLevelRunning) {
-        USBError(1, "%s[%p]: Resetting controller due to errors detected at interrupt time",
-                 getName(), this);
+    if (needReset) {
+        USBError(1, "%s[%p]: Resetting controller due to errors detected at interrupt time (0x%x)",
+                 getName(), this, status);
         Reset(true);
         Run(true);
     }
@@ -1175,7 +1279,7 @@ AppleUSBUHCI::HandleShortPacket(UHCITransaction *tp, TD *td)
         
         if (status & kUHCI_TD_ACTIVE) {
             /* Continue the last TD, which should be the ack. */
-            tp->qh->hw.elink = HostToUSBLong(last_td->paddr | kUHCI_VERTICAL_FLAG);
+            tp->qh->hw.elink = HostToUSBLong(last_td->paddr);
             IOSync();
             
             /* Mark previous TDs in the transaction as inactive. */
@@ -1209,12 +1313,18 @@ AppleUSBUHCI::IsTransactionComplete(UHCITransaction *tp)
         if (tp->isoc_num_frames == 0) {
             completed = true;
         } else {
-            completed = (tp->last_td->hw.ctrlStatus & HostToUSBLong(kUHCI_TD_ACTIVE)) == 0;
+            // The transaction is only complete after the filter interrupt routine
+            // has timestamped the last frame.
+            completed = (tp->last_td->fllp == NULL);
         }
     } else {
-        /* XXX It might be sufficient to examine the T bit in the HW queue header;
+        /* Examine the T bit in the HW queue header;
          * it should be set if the controller is done with the queue.
          */
+        if (USBToHostLong(tp->qh->hw.elink) & kUHCI_QH_T) {
+            USBLog(7, "%s[%p]: T bit set in queue header for tp %p", getName(), this, tp);
+            completed = true;
+        } else {
         /* Is the last TD in the chain done? */
         status = USBToHostLong(tp->last_td->hw.ctrlStatus);
         
@@ -1229,13 +1339,14 @@ AppleUSBUHCI::IsTransactionComplete(UHCITransaction *tp)
                     /* Active TD means transaction isn't complete. */
                     //USBLog(6, "%s[%p]: Active TD %p; transaction not complete.",
                     //       getName(), this, td);
+                        //DumpTD(td, 6);
                     completed = false;
                     break;
                 }
                 if (status & kUHCI_TD_STALLED) {
                     /* Transaction completed with an error. */
-                    USBLog(6, "%s[%p]: ======= Stall error TD %p ==============",
-                           getName(), this, td);
+                        USBLog(6, "%s[%p]: ======= Stall error TD %p tp %p ==============",
+                               getName(), this, td, tp);
                     completed = true;
                     break;
                 }
@@ -1243,8 +1354,8 @@ AppleUSBUHCI::IsTransactionComplete(UHCITransaction *tp)
                     UHCI_TD_GET_ACTLEN(status) <
                     UHCI_TD_GET_MAXLEN(USBToHostLong(td->hw.token))) {
                     /* Short packet; that is OK. */
-                    USBLog(6, "%s[%p]: ===============Short packet TD %p================",
-                           getName(), this, td);
+                        USBLog(6, "%s[%p]: ===============Short packet TD %p tp %p ================",
+                               getName(), this, td, tp);
                     completed = HandleShortPacket(tp, td);
                     break;
                 }
@@ -1253,7 +1364,10 @@ AppleUSBUHCI::IsTransactionComplete(UHCITransaction *tp)
                 }
             }
         } else {
-            completed = true;
+                /* The last TD in the chain is not active. */
+                //USBLog(6, "%s[%p]: last TD inactive for tp %p", getName(), this, tp);
+                completed = true;
+            }
         }        
     }
     
@@ -1297,17 +1411,12 @@ AppleUSBUHCI::ProcessCompletedTransactions(void)
         //USBLog(5, "%s[%p]: *** Processing transaction %p", getName(), this, tp);
         
         if (IsTransactionComplete(tp)) {
-            USBLog(5, "****** transaction %p finished completed **********", tp);
-            queue_remove(&_activeTransactions, tp, UHCITransaction *, active_chain);
+            USBLog(7, "****** transaction %p finished completed **********", tp);
+            RemoveTransaction(tp);
             tp->state = kUHCI_TP_STATE_COMPLETE;
             queue_enter(&complete, tp, UHCITransaction *, active_chain);
-            
-            /* Remove from endpoint queue also. */
-            queue_remove(&tp->endpoint->activeTransactions, tp, UHCITransaction *, endpoint_chain);
-                        
-            HWCompleteTransaction(tp);
         } else {
-            USBLog(5, "****** transaction %p not completed", tp);
+            USBLog(6, "****** transaction %p not completed", tp);
             //DumpTransaction(tp, 5);
         }
 #if DEBUG
@@ -1320,7 +1429,7 @@ AppleUSBUHCI::ProcessCompletedTransactions(void)
     completed = 0;
     while (!queue_empty(&complete)) {
         queue_remove_first(&complete, tp, UHCITransaction *, active_chain);
-        USBLog(5, "%s[%p]: *** Calling completion on transaction %p", getName(), this, tp);
+        USBLog(7, "%s[%p]: *** Calling completion on transaction %p", getName(), this, tp);
         DumpTransaction(tp);
 
         CompleteTransaction(tp, kIOReturnSuccess);
@@ -1340,304 +1449,6 @@ AppleUSBUHCI::ProcessCompletedTransactions(void)
 #endif
     
     return completed;
-}
-
-void
-AppleUSBUHCI::HWCompleteTransaction(UHCITransaction *tp)
-{
-    TD **isoc_tds;
-    TD *td;
-    unsigned int i, frame;
-    
-    /* Remove from hardware queue. */
-    switch (tp->type) {
-        case kUSBControl:
-            RemoveControl(tp);
-            break;
-            
-        case kUSBBulk:
-            RemoveBulk(tp);
-            break;
-            
-        case kUSBInterrupt:
-            RemoveInterrupt(tp);
-            break;
-                        
-        case kUSBIsoc:
-            /* Turn off ACTIVE and IOC bit in all transaction TDs. */
-            USBLog(7, "%s[%p]: disabling ACTIVE on isoc tp %p", getName(), this, tp);
-            isoc_tds = tp->endpoint->isoc_tds;
-            frame = tp->isoc_start_frame;
-            for (i=0; i < tp->isoc_num_frames; i++) {
-                td = isoc_tds[frame];
-                //USBLog(7, "%s[%p]: %d disabling ACTIVE and IOC bit on td %p", getName(), this, i, td);
-                td->fllp = NULL;
-                td->hw.ctrlStatus &= HostToUSBLong(~(kUHCI_TD_IOC | kUHCI_TD_ACTIVE));
-                IOSync();
-                frame++;
-                if (frame >= kUHCI_NVFRAMES) {
-                    frame = 0;
-                }
-            }
-            break;
-            
-        default:
-            USBError(1, "%s[%p]: unknown transaction type %d in interrupt handler", getName(), this, tp->type);
-            break;
-    }
-}
-
-
-// ========================================================================
-#pragma mark Queueing transactions
-// ========================================================================
-
-
-QH *
-AppleUSBUHCI::FindPrevQH(QH *head, QH *qh)
-{
-    while (head->hlink != qh) {
-        if (head->hlink == NULL) {
-            return NULL;
-        }
-        head = head->hlink;
-    }
-    return head;
-}
-
-void
-AppleUSBUHCI::QueueInterrupt(UHCITransaction *tp)
-{
-    QH *qh;
-
-    USBLog(3, "%s[%p]::QueueInterrupt %p", getName(), this, tp);
-    
-    qh = tp->endpoint->head_qh;
-
-    tp->qh->hlink = qh->hlink;
-    tp->qh->hw.hlink = qh->hw.hlink;
-    IOSync();
-    
-    qh->hlink = tp->qh;
-    qh->hw.hlink = HostToUSBLong(tp->qh->paddr | kUHCI_QH_Q);
-    IOSync();
-    
-    //_lsControlQHEnd = tp->qh;
-    USBLog(3, "%s[%p]::QueueInterrupt %p done", getName(), this, tp);
-}
-
-void
-AppleUSBUHCI::RemoveInterrupt(UHCITransaction *tp)
-{
-    QH *qh, *prev_qh;
-    
-    USBLog(3, "%s[%p]::RemoveInterrupt %p", getName(), this, tp);
-
-    qh = tp->qh;
-    
-    /* Ensure controller is not looking at this QH. */
-    if ((qh->hw.elink & HostToUSBLong(kUHCI_TD_T)) == 0) {
-        qh->hw.elink = HostToUSBLong(kUHCI_TD_T);
-        IODelay(kUHCI_QH_REMOVE_DELAY);
-    }
-    
-    prev_qh = FindPrevQH(tp->endpoint->head_qh, qh);
-
-    if (prev_qh != NULL) {
-        prev_qh->hlink = qh->hlink;
-        prev_qh->hw.hlink = qh->hw.hlink;
-        IOSync();
-        //IODelay(10);
-        //if (_lsControlQHEnd == qh) {
-        //_lsControlQHEnd = prev_qh;
-        //}
-    } else {
-        USBError(1, "%s[%p]: could not find previous QH when removing interrupt!", getName(), this);
-    }
-}
-
-void
-AppleUSBUHCI::QueueControl(UHCITransaction *tp)
-{
-    QH *qh;
-    int speed = tp->endpoint->speed;
-    
-    USBLog(3, "%s[%p]::QueueControl %p %s", getName(), this, tp,
-           speed == kUSBDeviceSpeedLow ? "Low" : "High");
-    
-    if (speed == kUSBDeviceSpeedLow) {
-        qh = _lsControlQHEnd;
-    } else {
-        qh = _hsControlQHEnd;
-    }
-    tp->qh->hlink = qh->hlink;
-    tp->qh->hw.hlink = qh->hw.hlink;
-    IOSync();
-    
-    qh->hlink = tp->qh;
-    qh->hw.hlink = HostToUSBLong(tp->qh->paddr | kUHCI_QH_Q);
-    IOSync();
-    if (speed == kUSBDeviceSpeedLow) {
-        _lsControlQHEnd = tp->qh;
-    } else {
-        _hsControlQHEnd = tp->qh;
-    }
-    USBLog(3, "%s[%p]::QueueControl %p done", getName(), this, tp);
-    
-#if DEBUG
-    IODelay(30);
-    DumpFrame();
-#endif
-}
-
-void
-AppleUSBUHCI::RemoveControl(UHCITransaction *tp)
-{
-    QH *qh, *prev_qh;
-    int speed = tp->endpoint->speed;
-    
-    USBLog(3, "%s[%p]::RemoveControl %p %s", getName(), this, tp,
-           speed == kUSBDeviceSpeedLow ? "Low" : "High");
-    qh = tp->qh;
-
-    /* Ensure controller is not looking at this QH. */
-    if ((USBToHostLong(qh->hw.elink) & kUHCI_TD_T) == 0) {
-        qh->hw.elink = HostToUSBLong(kUHCI_TD_T);
-        IOSync();
-        IODelay(kUHCI_QH_REMOVE_DELAY);
-    }
-    
-    if (speed == kUSBDeviceSpeedLow) {
-        prev_qh = FindPrevQH(_lsControlQHStart, qh);
-    } else {
-        prev_qh = FindPrevQH(_hsControlQHStart, qh);
-    }
-    if (prev_qh != NULL) {
-        prev_qh->hlink = qh->hlink;
-        prev_qh->hw.hlink = qh->hw.hlink;
-        IOSync();
-        IODelay(10);
-        if (speed == kUSBDeviceSpeedLow) {
-            if (_lsControlQHEnd == qh) {
-                _lsControlQHEnd = prev_qh;
-            }
-        } else {
-            if (_hsControlQHEnd == qh) {
-                _hsControlQHEnd = prev_qh;
-            }            
-        }
-    } else {
-        USBError(1, "%s[%p]: could not find previous QH when removing control!", getName(), this);
-    }
-#if DEBUG
-    IODelay(30);
-    DumpFrame(ReadFrameNumber() % kUHCI_NVFRAMES );
-#endif
-}
-
-
-void
-AppleUSBUHCI::QueueBulk(UHCITransaction *tp)
-{
-    QH *qh;
-    
-    USBLog(3, "%s[%p]::QueueBulk %p", getName(), this, tp);
-
-    qh = _bulkQHEnd;
-    tp->qh->hlink = qh->hlink;
-    tp->qh->hw.hlink = qh->hw.hlink;
-    IOSync();
-    
-    qh->hlink = tp->qh;
-    qh->hw.hlink = HostToUSBLong(tp->qh->paddr | kUHCI_QH_Q);
-    IOSync();
-    _bulkQHEnd = tp->qh;
-
-    USBLog(3, "%s[%p]::QueueBulk %p done", getName(), this, tp);
-}
-
-void
-AppleUSBUHCI::RemoveBulk(UHCITransaction *tp)
-{
-    QH *qh, *prev_qh;
-    
-    USBLog(3, "%s[%p]::RemoveBulk %p", getName(), this, tp);
-    qh = tp->qh;
-    
-    /* Ensure controller is not looking at this QH. */
-    if ((USBToHostLong(qh->hw.elink) & kUHCI_TD_T) == 0) {
-        qh->hw.elink = HostToUSBLong(kUHCI_TD_T);
-        IOSync();
-        IODelay(kUHCI_QH_REMOVE_DELAY);
-    }
-    
-    prev_qh = FindPrevQH(_bulkQHStart, qh);
-    if (prev_qh != NULL) {
-        prev_qh->hlink = qh->hlink;
-        prev_qh->hw.hlink = qh->hw.hlink;
-        IOSync();
-        IODelay(10);
-        if (_bulkQHEnd == qh) {
-            _bulkQHEnd = prev_qh;
-        }
-    } else {
-        USBError(1, "%s[%p]: Could not find previous QH when removing bulk!", getName(), this);
-    }
-}
-
-void
-AppleUSBUHCI::AddInterruptQH(QH *qh)
-{
-    VirtualFrame *vf;
-    QH *vqh;
-    
-    USBLog(7, "%s[%p]::AddInterruptQH %p at frame %d", getName(), this, qh, qh->vframe);
-    
-    vf = &_vframes[qh->vframe];
-    vqh = vf->last_qh;
-    
-    qh->hlink = vqh->hlink;
-    qh->hw.hlink = vqh->hw.hlink;
-    IOSync();
-    
-    vqh->hlink = qh;
-    vqh->hw.hlink = HostToUSBLong(qh->paddr | kUHCI_QH_Q);
-    IOSync();
-    vf->last_qh = qh;
-    vf->numIntr++;
-}
-
-void
-AppleUSBUHCI::RemoveInterruptQH(QH *qh)
-{
-    VirtualFrame *vf;
-    QH *prev_qh;
-    
-    USBLog(3, "%s[%p]::RemoveInterruptQH %p", getName(), this, qh);
-    
-    vf = &_vframes[qh->vframe];
-
-    /* Ensure controller is not looking at this QH. */
-    if ((USBToHostLong(qh->hw.elink) & kUHCI_TD_T) == 0) {
-        qh->hw.elink = HostToUSBLong(kUHCI_TD_T);
-        IOSync();
-        IODelay(kUHCI_QH_REMOVE_DELAY);
-    }
-
-    prev_qh = FindPrevQH(vf->first_qh, qh);
-    if (prev_qh != NULL) {
-        prev_qh->hlink = qh->hlink;
-        prev_qh->hw.hlink = qh->hw.hlink;
-        IOSync();
-        //IODelay(10);
-        if (vf->last_qh == qh) {
-            vf->last_qh = prev_qh;
-        }
-    } else {
-        USBError(1, "%s[%p]: Could not find previous QH when removing interrupt!", getName(), this);
-    }
-    
-    vf->numIntr--;
 }
 
 // ========================================================================
@@ -1749,14 +1560,16 @@ AppleUSBUHCI::AllocQH(void)
     IOSync();
     qh->hlink = NULL;
     qh->elink = NULL;
+    qh->qlink = NULL;
     return qh;
 }
 
 void 
 AppleUSBUHCI::FreeQH(QH *qh)
 {
-    /* Clearing the link is helpful for debugging. */
+    /* Clearing the links is helpful for debugging. */
     qh->hw.elink = HostToUSBLong(kUHCI_QH_T);
+    qh->hw.hlink = HostToUSBLong(kUHCI_QH_T);
     IOSync();
     
     qh->hlink = _freeQHs;
@@ -1810,7 +1623,7 @@ AppleUSBUHCI::FreeTransaction(UHCITransaction *tp)
 {
     TD *td, *next_td;
     
-    USBLog(5, "%s[%p]::FreeTransaction(%p)", getName(), this, tp);
+    USBLog(7, "%s[%p]::FreeTransaction(%p)", getName(), this, tp);
     
     if (tp->state == kUHCI_TP_STATE_ACTIVE) {
         // Freeing an active transaction is erroneous and will likely crash.
@@ -1872,7 +1685,6 @@ AppleUSBUHCI::FreeTransaction(UHCITransaction *tp)
     tp->endpoint = NULL;
     tp->state = kUHCI_TP_STATE_FREE;
     queue_enter(&_freeTransactions, tp, UHCITransaction *, active_chain);
-    USBLog(5, "transaction freed.");
 }
 
 
@@ -1895,7 +1707,6 @@ AppleUSBUHCI::AllocEndpoint(UInt16 functionNumber,
     
     bzero(ep, sizeof(UHCIEndpoint));
     
-    queue_init(&ep->pendingTransactions);
     queue_init(&ep->activeTransactions);
     queue_enter(&_endpoints, ep, UHCIEndpoint *, chain);
     queue_init(&ep->allocatedBuffers);
@@ -1934,6 +1745,13 @@ AppleUSBUHCI::AllocEndpoint(UInt16 functionNumber,
     /* Ensure first transaction is DATA0. */
     ep->lastDBit = true;
     
+    /* Queue head under which all transactions will go for this endpoint. */
+    ep->head_qh = AllocQH();
+    if (ep->head_qh == NULL) {
+        FreeEndpoint(ep);
+        return NULL;
+    }
+    
     return ep;
 }
 
@@ -1946,6 +1764,11 @@ AppleUSBUHCI::FreeEndpoint(UHCIEndpoint *ep)
         queue_remove(&_endpoints, ep, UHCIEndpoint *, chain);
     }
 
+    if (ep->head_qh) {
+        FreeQH(ep->head_qh);
+        ep->head_qh = NULL;
+    }
+
     if (ep->isoc_tds) {
         int i;
         for (i=0; i<kUHCI_NVFRAMES; i++) {
@@ -1954,6 +1777,7 @@ AppleUSBUHCI::FreeEndpoint(UHCIEndpoint *ep)
             }
         }
         IOFree(ep->isoc_tds, sizeof(TD *) * kUHCI_NVFRAMES);
+        ep->isoc_tds = NULL;
     }
     
     if (ep->buffersInUse > 0) {
@@ -2054,6 +1878,7 @@ AppleUSBUHCI::EndpointFreeAllBuffers(UHCIEndpoint *ep)
 void
 AppleUSBUHCI::DumpTransaction(UHCITransaction *tp, int level)
 {
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
     char *type_name;
     char *state_name;
     
@@ -2102,6 +1927,7 @@ AppleUSBUHCI::DumpTransaction(UHCITransaction *tp, int level)
     USBLog(level, "endpoint = %p", tp->endpoint);
     USBLog(level, "active_chain = %p,%p", tp->active_chain.prev, tp->active_chain.next);
     USBLog(level, "endpoint_chain = %p,%p", tp->endpoint_chain.prev, tp->endpoint_chain.next);
+    USBLog(level, "first_td = %p, last_td = %p", tp->first_td, tp->last_td);
     
     USBLog(level, "qh %p:", tp->qh);
     if (tp->type == kUSBIsoc) {
@@ -2131,12 +1957,14 @@ AppleUSBUHCI::DumpTransaction(UHCITransaction *tp, int level)
     USBLog(level, "first_td = %p, last_td = %p", tp->first_td, tp->last_td);
     
     USBLog(level, "==== END TP %p ====", tp);
+#endif
 }
 
 
 void
 AppleUSBUHCI::DumpTD(TD *td, int level)
 {
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
     UInt32 value;
     
     USBLog(level, "=== TD %p ====", td);
@@ -2188,13 +2016,20 @@ AppleUSBUHCI::DumpTD(TD *td, int level)
            (value & kUHCI_TD_D) ? "D" : "");
     USBLog(level, "      buffer %08x", USBToHostLong(td->hw.buffer));
     USBLog(level, "=== END TD %p ====", td);
+#endif
 }
 
 void
 AppleUSBUHCI::DumpTDChain(TD *td, bool qhOK, int level)
 {
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+    int td_count = 0;
     USBLog(level, "============  Dump TD chain ============");
     while (td) {
+        if (++td_count > 1024 * 1024) {
+            USBLog(level, "[too many TDs in chain, aborting]");
+            break;
+        }
         DumpTD(td, level);
         if (!qhOK && USBToHostLong(td->hw.link) & kUHCI_TD_Q) {
             USBLog(level, "QH found, chain ended");
@@ -2203,31 +2038,47 @@ AppleUSBUHCI::DumpTDChain(TD *td, bool qhOK, int level)
         td = td->link;
     }
     USBLog(level, "==========  End Dump TD chain ==========");
+#endif
 }
 
 void
 AppleUSBUHCI::DumpQH(QH *qh, int level)
 {
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
     UInt32 value;
     int i;
     
     USBLog(level, "=== QH %p ====", qh);
     if (qh == _lsControlQHStart) {
         USBLog(level, "++++ Low Speed QH Start ++++");
-    } else if (qh == _hsControlQHStart) {
+    } 
+    if (qh == _lsControlQHEnd) {
+        USBLog(level, "++++ Low Speed QH End ++++");
+    } 
+    if (qh == _hsControlQHStart) {
         USBLog(level, "++++ High Speed QH Start ++++");
-    } else if (qh == _bulkQHStart) {
+    } 
+    if (qh == _hsControlQHEnd) {
+        USBLog(level, "++++ High Speed QH End ++++");
+    } 
+    if (qh == _bulkQHStart) {
         USBLog(level, "++++ Bulk QH Start ++++");
-    } else {
+    }
+    if (qh == _bulkQHEnd) {
+        USBLog(level, "++++ Bulk QH End ++++");
+    }
+    if (qh == _lastQH) {
+        USBLog(level, "++++++++ Last QH ++++++++");
+    }
+    
         for (i=0; i<kUHCI_NINTR_QHS; i++) {
             if (qh == _intrQH[i]) {
                 USBLog(level, "++++ Interrupt QH %d ++++", i);
             }
         }
-    }
     
-    USBLog(level, "paddr %x, hlink %p, elink %p",
-           qh->paddr, qh->hlink, qh->elink);
+    USBLog(level, "paddr %x, hlink %p, elink %p qlink %p",
+           qh->paddr, qh->hlink, qh->elink, qh->qlink);
     value = USBToHostLong(qh->hw.hlink);
     USBLog(level, "HW: hlink    %08x %s %s", value,
            (value & kUHCI_QH_Q) ? "QH" : "TD",
@@ -2238,28 +2089,45 @@ AppleUSBUHCI::DumpQH(QH *qh, int level)
            (value & kUHCI_QH_T) ? "T" : "");
     USBLog(level, "==============");
     if (qh->elink) {
-        USBLog(level, "vvvvvvvvvvvv");
+        USBLog(level, "vvvvvv  ELINK  vvvvvv");
         DumpTDChain(qh->elink, false, level);
+        USBLog(level, "^^^^^^  ELINK  ^^^^^^");
     }
+#if 0
+    if (qh->qlink) {
+        USBLog(level, "vvvvvv QLINK  vvvvvvv");
+        DumpQHChain(qh->qlink, level);
+        USBLog(level, "^^^^^^ QLINK  ^^^^^^");
+    }
+#endif
     USBLog(level, "=== QH %p DONE ====", qh);
-
+#endif
 }
 
 void
 AppleUSBUHCI::DumpQHChain(QH *qh, int level)
 {
-    USBLog(level, "QH chain %p ---> ---> --->", qh);
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+    int qh_count = 0;
+    QH *start_qh = qh;
+    USBLog(level, "QH chain %p ---> ---> --->", start_qh);
     while (qh) {
+        if (++qh_count > 1024 * 1024) {
+            USBLog(level, "[too many QHs in chain, aborting]");
+            break;
+        }
         USBLog(level, "---> ---> continued");
         DumpQH(qh, level);
         qh = qh->hlink;
     }
-    USBLog(level, "<--- <--- <--- end of QH chain %p", qh);
+    USBLog(level, "<--- <--- <--- end of QH chain %p", start_qh);
+#endif
 }
 
 void
 AppleUSBUHCI::DumpFrame(UInt16 frame, int level)
 {
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
     if (frame >= kUHCI_NVFRAMES) {
         USBLog(level, "** Bogus request for frame %d", frame);
         frame = frame % kUHCI_NVFRAMES;
@@ -2273,7 +2141,24 @@ AppleUSBUHCI::DumpFrame(UInt16 frame, int level)
         USBLog(level, "NULL QH!");
     }
     USBLog(level, "======== Frame %d dump end ========", frame);
+#endif
 }
+
+void
+AppleUSBUHCI::DumpEndpoint(UHCIEndpoint *ep, int level)
+{
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+    UHCITransaction *tp;
+    USBLog(level, "\n======== Dumping endpoint %p ========", ep);
+    DumpQH(ep->head_qh, level);
+    USBLog(level, "\n======== transactions ========");
+    queue_iterate(&ep->activeTransactions, tp, UHCITransaction *, endpoint_chain) {
+        DumpTransaction(tp, level);
+    }
+    USBLog(level, "======== DONE dumping endpoint %p ========\n", ep);
+#endif
+}
+
 
 #if SINGLE_STEP
 

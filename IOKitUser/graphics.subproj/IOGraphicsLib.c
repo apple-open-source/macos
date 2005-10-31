@@ -55,10 +55,32 @@ enum {
 };
 
 #define kIOFirstBootFlagPath	"/var/db/.com.apple.iokit.graphics"
+#define kSafeBootFlagPath	"/private/tmp/.SafeBoot"
 
 #define kIOGraphicsLogfilePath	"/var/log/.com.apple.iokit.graphics.log"
 
 #define DEBUG_NO_DRIVER_MODES	0
+
+struct DMTimingOverrideRec {
+ UInt32 timingOverrideVersion;
+ UInt32 timingOverrideAttributes;   // flags
+ UInt32 timingOverrideSetFlags;	    // VDTimingInfoRec.csTimingFlags |= timingOverrideSetFlags
+ UInt32 timingOverrideClearFlags;   // VDTimingInfoRec.csTimingFlags &= (~timingOverrideClearFlags)
+ UInt32 timingOverrideReserved[16]; // reserved
+};
+typedef struct DMTimingOverrideRec      DMTimingOverrideRec;
+
+struct DMDisplayTimingInfoRec {
+ UInt32 timingInfoVersion;
+ UInt32 timingInfoAttributes;       // flags
+ SInt32 timingInfoRelativeQuality;  // quality of the timing
+ SInt32 timingInfoRelativeDefault;  // relative default of the timing
+ UInt32 timingInfoReserved[16];     // reserved
+};
+typedef struct DMDisplayTimingInfoRec   DMDisplayTimingInfoRec;
+
+#define desireDPI	(75.0)
+#define mmPerInch	(25.4)
 
 static kern_return_t 
 IOFramebufferServerOpen( mach_port_t connect );
@@ -242,6 +264,12 @@ IOFramebufferServerStart( void )
 		CFDictionarySetValue(gIOGraphicsProperties, CFSTR("timing-ids"), newDict);
 		CFRelease( newDict );
 	    }
+	    if ((newDict = IOFBMakeIntegerKeys(CFDictionaryGetValue(gIOGraphicsProperties, 
+							CFSTR("irb-timing-ids")), true)))
+	    {
+		CFDictionarySetValue(gIOGraphicsProperties, CFSTR("irb-timing-ids"), newDict);
+		CFRelease( newDict );
+	    }
 	}
 	else
 	    gIOGraphicsProperties = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
@@ -251,7 +279,10 @@ IOFramebufferServerStart( void )
 	gIOGraphicsPrefsService = IORegistryEntryFromPath(kIOMasterPortDefault, 
 					kIOServicePlane ":/IOResources/IODisplayWrangler");
 
-	prefs = readPlist(kIOFirstBootFlagPath, 0);
+	struct stat statResult;
+	Boolean safeBoot = (0 == stat(kSafeBootFlagPath, &statResult));
+	if (!safeBoot)
+	    prefs = readPlist(kIOFirstBootFlagPath, 0);
 	if (!prefs)
 	    prefs = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 						    &kCFTypeDictionaryKeyCallBacks,
@@ -292,7 +323,7 @@ IOFramebufferOpen(
 
 
 kern_return_t
-IOFBCreateSharedCursor( mach_port_t connect,
+IOFBCreateSharedCursor( io_connect_t connect,
 	unsigned int version,
 	unsigned int maxWidth, unsigned int maxHeight )
 {
@@ -308,7 +339,7 @@ IOFBCreateSharedCursor( mach_port_t connect,
 }
 
 extern kern_return_t
-IOFBGetFramebufferInformationForAperture( mach_port_t connect,
+IOFBGetFramebufferInformationForAperture( io_connect_t connect,
 	    IOPixelAperture		  aperture,
 	    IOFramebufferInformation	* info )
 {
@@ -349,7 +380,7 @@ IOFBGetFramebufferOffsetForAperture( mach_port_t connect,
 }
 
 extern kern_return_t
-IOFBSetBounds( mach_port_t connect,
+IOFBSetBounds( io_connect_t connect,
 	    IOGBounds	* rect )
 {
     IOByteCount	len = 0;
@@ -360,7 +391,7 @@ IOFBSetBounds( mach_port_t connect,
 }
 
 kern_return_t
-IOFBGetCurrentDisplayModeAndDepth( mach_port_t connect,
+IOFBGetCurrentDisplayModeAndDepth( io_connect_t connect,
 	IODisplayModeID * displayMode,
 	IOIndex 	* depth )
 {
@@ -374,7 +405,7 @@ IOFBGetCurrentDisplayModeAndDepth( mach_port_t connect,
 }
 
 extern kern_return_t
-IOFBGetPixelFormat( mach_port_t connect,
+IOFBGetPixelFormat( io_connect_t connect,
 	IODisplayModeID mode,
 	IOIndex 	depth,
         IOPixelAperture aperture,
@@ -393,7 +424,7 @@ IOFBGetPixelFormat( mach_port_t connect,
 }
 
 extern kern_return_t
-IOFBSetCLUT( mach_port_t connect,
+IOFBSetCLUT( io_connect_t connect,
 	UInt32		startIndex,
 	UInt32		numEntries,
 	IOOptionBits	options,
@@ -406,7 +437,7 @@ IOFBSetCLUT( mach_port_t connect,
 }
 
 extern kern_return_t
-IOFBSetGamma( mach_port_t connect,
+IOFBSetGamma( io_connect_t connect,
 	UInt32		channelCount,
 	UInt32		dataCount,
 	UInt32		dataWidth,
@@ -610,10 +641,13 @@ ratioOver( float a, float b )
 __private_extern__ Boolean
 ValidateTimingInformation( IOFBConnectRef connectRef, const IOTimingInformation * timingInfo )
 {
-    if (timingInfo->detailedInfo.v2.maxPixelClock
-     && timingInfo->detailedInfo.v2.minPixelClock
-     && ((timingInfo->detailedInfo.v2.pixelClock < timingInfo->detailedInfo.v2.minPixelClock)
-      || (timingInfo->detailedInfo.v2.pixelClock > timingInfo->detailedInfo.v2.maxPixelClock)))
+    if (
+	(timingInfo->detailedInfo.v2.maxPixelClock
+	 && timingInfo->detailedInfo.v2.minPixelClock
+	 && ((timingInfo->detailedInfo.v2.pixelClock < timingInfo->detailedInfo.v2.minPixelClock)
+	  || (timingInfo->detailedInfo.v2.pixelClock > timingInfo->detailedInfo.v2.maxPixelClock)))
+     || !timingInfo->detailedInfo.v2.horizontalActive
+     || !timingInfo->detailedInfo.v2.verticalActive )
     {
 #if RLOG
 	DEBG(connectRef, "!ValidateTimingInformation\n");
@@ -644,7 +678,8 @@ InvalidTiming( IOFBConnectRef connectRef, const IOTimingInformation * timingInfo
     return (false);
 }
 
-static float RefreshRateFromDetailedTiming( IODetailedTimingInformationV2 * detailed )
+__private_extern__ float
+RefreshRateFromDetailedTiming( IODetailedTimingInformationV2 * detailed )
 {
     float rate;
 
@@ -790,6 +825,36 @@ DetailedTimingsEqual( IODetailedTimingInformationV2 * newTimingInfo,
     return (kDetailedTimingsNotEqual);
 }
 
+static bool
+GetTovr( IOFBConnectRef connectRef, IOAppleTimingID appleTimingID,  UInt32 * flags, UInt32 * _maskFlags )
+{
+    CFDictionaryRef tovr;
+    CFDataRef	    modetovr;
+    UInt32	    maskFlags = 0xffffffff;
+    bool	    result    = false;
+
+    if (appleTimingID && connectRef->overrides)
+    {
+	tovr = CFDictionaryGetValue( connectRef->overrides, CFSTR("tovr") );
+	result = (tovr && (modetovr = CFDictionaryGetValue( tovr, (const void *) appleTimingID )));
+	if (result)
+	{
+	    DMTimingOverrideRec * tovrRec;
+	    tovrRec = (DMTimingOverrideRec *) CFDataGetBytePtr(modetovr);
+	    DEBG(connectRef, "tovr: clr %08x, set %08x\n", 
+		OSReadBigInt32(&tovrRec->timingOverrideClearFlags, 0),
+		OSReadBigInt32(&tovrRec->timingOverrideSetFlags, 0));
+	    maskFlags = ~OSReadBigInt32(&tovrRec->timingOverrideClearFlags, 0);
+	    *flags &= maskFlags;
+	    *flags |= OSReadBigInt32(&tovrRec->timingOverrideSetFlags, 0);
+	}
+    }
+    if (_maskFlags)
+	*_maskFlags = maskFlags;
+
+    return (result);
+}
+
 __private_extern__ kern_return_t
 IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
                  IOFBDisplayModeDescription * desc,
@@ -874,6 +939,10 @@ IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
 		CFIndex modeCount, i;
 		UInt32 eq;
 
+		UInt32 maskFlags;
+
+		GetTovr(connectRef, timingInfo->appleTimingID, &info->flags, &maskFlags);
+
 		// check driver modes for dups
 		for( i = 0, eq = false; i < connectRef->driverModeCount; i++)
 		{
@@ -909,6 +978,7 @@ IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
 					      modeGenFlags)))
 			break;
 		}
+
 		if (eq)
 		{
 		    DEBG(connectRef, "%ld(%lx) has a driver mode(%ld)\n", timingInfo->appleTimingID, 
@@ -924,7 +994,10 @@ IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
 			if (0 == (kIOFBGTFMode & modeGenFlags))
 			 /* && (!connectRef->overrides 
 				    || !CFDictionaryGetValue(connectRef->overrides, CFSTR("trng")))*/
+			{
 			    connectRef->driverModeInfo[i].info.flags |= info->flags;
+			    connectRef->driverModeInfo[i].info.flags &= maskFlags;
+			}
 
 			ret = kIOReturnPortExists;
 			continue;
@@ -1776,6 +1849,7 @@ IOFBProcessConnectChange( IOFBConnectRef connectRef )
 	}
     }
 
+    DEBG(connectRef, "setMode %lx, %ld \n", mode, depth);
     err = IOFBSetDisplayModeAndDepth( connectRef->connect, mode, depth );
 
     connectRef->clientCallbacks->ConnectionChange(connectRef->clientCallbackRef, (void *) NULL);
@@ -2005,28 +2079,6 @@ IOFBShouldDefaultDeep( IOFBConnectRef connectRef )
     
     return( vramBytes >= kIOFBSmallVRAMBytes );
 }
-
-struct DMTimingOverrideRec {
- UInt32 timingOverrideVersion;
- UInt32 timingOverrideAttributes;   // flags
- UInt32 timingOverrideSetFlags;	    // VDTimingInfoRec.csTimingFlags |= timingOverrideSetFlags
- UInt32 timingOverrideClearFlags;   // VDTimingInfoRec.csTimingFlags &= (~timingOverrideClearFlags)
- UInt32 timingOverrideReserved[16]; // reserved
-};
-typedef struct DMTimingOverrideRec      DMTimingOverrideRec;
-
-struct DMDisplayTimingInfoRec {
- UInt32 timingInfoVersion;
- UInt32 timingInfoAttributes;       // flags
- SInt32 timingInfoRelativeQuality;  // quality of the timing
- SInt32 timingInfoRelativeDefault;  // relative default of the timing
- UInt32 timingInfoReserved[16];     // reserved
-};
-typedef struct DMDisplayTimingInfoRec   DMDisplayTimingInfoRec;
-
-#define desireDPI	(75.0)
-#define mmPerInch	(25.4)
-
 
 static kern_return_t
 IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
@@ -2354,10 +2406,22 @@ UpdateTimingInfoForTransform(IOFBConnectRef connectRef,
     desc->timingInfo.detailedInfo.v2.verticalScaled   = height;
     if (doUnderscan)
     {
-        width  = desc->timingInfo.detailedInfo.v2.horizontalActive;
-        height = desc->timingInfo.detailedInfo.v2.verticalActive;
-        desc->timingInfo.detailedInfo.v2.horizontalScaledInset = (width  >> 4) & ~7;
-        desc->timingInfo.detailedInfo.v2.verticalScaledInset   = (height >> 4) & ~1;
+	if (kIOScaleCanBorderInsetOnly & connectRef->scalerInfo->scalerFeatures)
+	{
+	    width = (width  >> 4) & ~7;
+	    height = (height >> 4) & ~1;
+	    desc->timingInfo.detailedInfo.v2.horizontalScaledInset = width;
+	    desc->timingInfo.detailedInfo.v2.verticalScaledInset   = height;
+	    desc->timingInfo.detailedInfo.v2.horizontalScaled -= 2*width;
+	    desc->timingInfo.detailedInfo.v2.verticalScaled   -= 2*height;
+	}
+	else
+	{
+	    width  = desc->timingInfo.detailedInfo.v2.horizontalActive;
+	    height = desc->timingInfo.detailedInfo.v2.verticalActive;
+	    desc->timingInfo.detailedInfo.v2.horizontalScaledInset = (width  >> 4) & ~7;
+	    desc->timingInfo.detailedInfo.v2.verticalScaledInset   = (height >> 4) & ~1;
+	}
     }
 
     desc->timingInfo.detailedInfo.v2.scalerFlags |= (connectRef->transform & kIOScaleRotateFlags);
@@ -2757,8 +2821,6 @@ IOFBAdjustDisplayModeInformation(
     CFDataRef			edidData;
     EDID *			edid = 0;
     CFDictionaryRef		ovr = 0;
-    CFDictionaryRef		tovr;
-    CFDataRef			modetovr;
     IOAppleTimingID		appleTimingID;
     UInt8			manufacturerFlag;
 
@@ -2802,19 +2864,10 @@ IOFBAdjustDisplayModeInformation(
 	if( kDisplayModeBuiltInFlag & allInfo->info.flags)
 	    continue;
     
-	tovr = CFDictionaryGetValue( ovr, CFSTR("tovr") );
-	if( tovr && (0 == (kDisplayModeNeverShowFlag & allInfo->info.flags)))
+	if (0 == (kDisplayModeNeverShowFlag & allInfo->info.flags))
 	{
-	    if( appleTimingID && (modetovr = CFDictionaryGetValue( tovr, (const void *) appleTimingID ))) {
-		DMTimingOverrideRec * tovrRec;
-		tovrRec = (DMTimingOverrideRec *) CFDataGetBytePtr(modetovr);
-		DEBG(connectRef, "tovr: clr %08x, set %08x\n", 
-		    OSReadBigInt32(&tovrRec->timingOverrideClearFlags, 0),
-		    OSReadBigInt32(&tovrRec->timingOverrideSetFlags, 0));
-		allInfo->info.flags &= ~OSReadBigInt32(&tovrRec->timingOverrideClearFlags, 0);
-		allInfo->info.flags |= OSReadBigInt32(&tovrRec->timingOverrideSetFlags, 0);
+	    if (GetTovr(connectRef, appleTimingID, &allInfo->info.flags, NULL))
 		continue;
-	    }
 	}
     
 	if( kOvrFlagDisableNonScaled & connectRef->ovrFlags) {

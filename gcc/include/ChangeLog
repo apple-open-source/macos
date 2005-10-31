@@ -1,3 +1,17 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-02-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/19818
+	* ansidecl.h (PARAMS): Guard from redefinition.
+
+2004-12-11  Ben Elliston  <bje@au.ibm.com>
+
+	* fibheap.h (struct fibnode): Only use unsigned long bitfields
+	when __GNUC__ is defined and ints are less than 32-bits wide.
+
 2004-10-07  Bob Wilson  <bob.wilson@acm.org>
 
 	* xtensa-config.h (XSHAL_USE_ABSOLUTE_LITERALS,

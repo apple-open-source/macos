@@ -220,7 +220,6 @@ public class ObjectOutputStream extends OutputStream
 	      {
 		Class cl = (Class)obj;
 		ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(cl);
-		assignNewHandle(obj);
 		realOutput.writeByte(TC_CLASS);
 		if (!osc.isProxyClass)
 		  {
@@ -241,6 +240,7 @@ public class ObjectOutputStream extends OutputStream
 		    
 		    writeObject(osc.getSuper());
 		  }
+		assignNewHandle(obj);
 		break;
 	      }
 
@@ -250,6 +250,11 @@ public class ObjectOutputStream extends OutputStream
 		break;
 	      }
 
+	    Class clazz = obj.getClass();
+	    ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(clazz);
+	    if (osc == null)
+	      throw new NotSerializableException(clazz.getName());
+	    
 	    if ((replacementEnabled || obj instanceof Serializable)
 		&& ! replaceDone)
 	      {
@@ -257,19 +262,11 @@ public class ObjectOutputStream extends OutputStream
 		
 		if (obj instanceof Serializable)
 		  {
-		    Method m = null;
 		    try
 		      {
-			Class classArgs[] = {};
-			m = getMethod(obj.getClass(), "writeReplace",
-				      classArgs);
-			// m can't be null by definition since an
-			// exception would have been thrown so a check
-			// for null is not needed.
-			obj = m.invoke(obj, new Object[] {});
-		      }
-		    catch (NoSuchMethodException ignore)
-		      {
+                        Method m = osc.writeReplaceMethod;
+                        if (m != null)
+                            obj = m.invoke(obj, new Object[0]);
 		      }
 		    catch (IllegalAccessException ignore)
 		      {
@@ -294,11 +291,6 @@ public class ObjectOutputStream extends OutputStream
 		break;
 	      }
 
-	    Class clazz = obj.getClass();
-	    ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(clazz);
-	    if (osc == null)
-	      throw new NotSerializableException(clazz.getName());
-	    
 	    if (clazz.isArray ())
 	      {
 		realOutput.writeByte(TC_ARRAY);
@@ -360,8 +352,8 @@ public class ObjectOutputStream extends OutputStream
 		      {
 			if (dump)
 			  dumpElementln ("WRITE FIELDS CALLED FOR: " + obj);
-		      writeFields(obj, currentObjectStreamClass);
-		  }
+			writeFields(obj, currentObjectStreamClass);
+		      }
 		  }
 
 		this.currentObject = prevObject;
@@ -1239,7 +1231,8 @@ public class ObjectOutputStream extends OutputStream
 
 
   // Toggles writing primitive data to block-data buffer.
-  private boolean setBlockDataMode(boolean on) throws IOException
+  // Package-private to avoid a trampoline constructor.
+  boolean setBlockDataMode(boolean on) throws IOException
   {
     if (on == writeDataAsBlocks)
       return on;
@@ -1260,18 +1253,11 @@ public class ObjectOutputStream extends OutputStream
   private void callWriteMethod(Object obj, ObjectStreamClass osc)
     throws IOException
   {
-    Class klass = osc.forClass();
     currentPutField = null;
     try
       {
-	Class classArgs[] = {ObjectOutputStream.class};
-	Method m = getMethod(klass, "writeObject", classArgs);
-	Object args[] = {this};
-	m.invoke(obj, args);	
-      }
-    catch (NoSuchMethodException nsme)
-      {
-	// Nothing.
+        Object args[] = {this};
+        osc.writeObjectMethod.invoke(obj, args);
       }
     catch (InvocationTargetException x)
       {
@@ -1284,7 +1270,8 @@ public class ObjectOutputStream extends OutputStream
 
 	IOException ioe
 	  = new IOException("Exception thrown from writeObject() on " +
-			    klass + ": " + exception.getClass().getName());
+			    osc.forClass().getName() + ": " +
+                            exception.getClass().getName());
 	ioe.initCause(exception);
 	throw ioe;
       }
@@ -1292,7 +1279,8 @@ public class ObjectOutputStream extends OutputStream
       {
 	IOException ioe
 	  = new IOException("Failure invoking writeObject() on " +
-			    klass + ": " + x.getClass().getName());
+			    osc.forClass().getName() + ": " +
+			    x.getClass().getName());
 	ioe.initCause(x);
 	throw ioe;
       }
@@ -1534,15 +1522,6 @@ public class ObjectOutputStream extends OutputStream
       }
   }
 
-  private Method getMethod (Class klass, String name, Class[] args)
-    throws java.lang.NoSuchMethodException
-  {
-    final Method m = klass.getDeclaredMethod(name, args);
-    setAccessible.setMember(m);
-    AccessController.doPrivileged(setAccessible);
-    return m;
-  }
-
   private void dumpElementln (String msg)
   {
     for (int i = 0; i < depth; i++)
@@ -1563,7 +1542,8 @@ public class ObjectOutputStream extends OutputStream
   private byte[] blockData;
   private int blockDataCount;
   private Object currentObject;
-  private ObjectStreamClass currentObjectStreamClass;
+  // Package-private to avoid a trampoline.
+  ObjectStreamClass currentObjectStreamClass;
   private PutField currentPutField;
   private boolean fieldsAlreadyWritten;
   private boolean replacementEnabled;

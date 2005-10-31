@@ -420,7 +420,7 @@ static void SHA1Init(SHA1_CTX* context)
 
 static void SHA1Update(SHA1_CTX* context, void* data, size_t len)
 {
-	unsigned char *dataptr = (char *)data;
+	unsigned char *dataptr = data;
 	unsigned int i, j;
 
     j = (context->count[0] >> 3) & 63;

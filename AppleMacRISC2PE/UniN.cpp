@@ -19,6 +19,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+ 
+
 #include <IOKit/platform/ApplePlatformExpert.h>
 
 #include "UniN.h"
@@ -121,7 +123,7 @@ bool AppleUniN::start ( IOService * nub )
 					func->publishPlatformFunction (this);
 	}
 	
-	if (uniNVersion == kUniNVersionIntrepid) {
+	if (IsThisAnIntrepid(uniNVersion)) {
 		symReadIntrepidClockStopStatus = OSSymbol::withCString("readIntrepidClockStopStatus");
 		publishResource(symReadIntrepidClockStopStatus, this);
 	}
@@ -233,7 +235,7 @@ IOReturn AppleUniN::setupUATAforSleep ()
 	
 	// For Intrepid notebooks, locate ultra-ata entry so we can reset the ATA bus at sleep
 	// This is a gross, disgusting hack because I don't have time to figure out a better way
-	if ((!uATABaseAddress) && (uniNVersion == kUniNVersionIntrepid) && hostIsMobile) {
+	if ((!uATABaseAddress) && (IsThisAnIntrepid(uniNVersion)) && hostIsMobile) {
 		uATANub = OSDynamicCast (IOService, provider->fromPath("/pci@F4000000/ata-6@D", gIODTPlane));
 		if (uATANub) {
 			if (uATABaseAddressMap = uATANub->mapDeviceMemoryWithIndex(0)) {
@@ -256,7 +258,7 @@ IOReturn AppleUniN::setupUATAforSleep ()
 // **********************************************************************************
 IOReturn AppleUniN::readIntrepidClockStopStatus (UInt32 *status0, UInt32 *status1)
 {
-	if ((uniNVersion == kUniNVersionIntrepid) && (status0 || status1)) {
+	if (IsThisAnIntrepid(uniNVersion) && (status0 || status1)) {
 		IOInterruptState intState;
 	
 		if ( mutex  != NULL )
@@ -356,7 +358,12 @@ void AppleUniN::enableUniNEthernetClock(bool enable, IOService *nub)
 		
 	safeWriteRegUInt32 (kUniNClockControl, kUniNEthernetClockEnable, 
 		enable ? kUniNEthernetClockEnable : 0);
-
+	
+	// We need to wait a minimum of 4us for the clocks to come up and stabilize on Intrepid 2's
+	// The extra 8us delay is a buffer for machines with slow clocks or more ragged signals.
+	if (enable && IsThisAnIntrepid2(uniNVersion))
+		IODelay(12);
+	
 	return;
 }
 
@@ -430,7 +437,7 @@ void AppleUniN::uniNSetPowerState (UInt32 state)
 {
 	if (state == kUniNNormal) {
 		// Set normal mode
-		safeWriteRegUInt32(kUniNPowerMngmnt, ~0UL, kUniNNormal);
+		safeWriteRegUInt32(kUniNPowerMngmnt, kUniNPowerMask, kUniNNormal);
     
 		// Set the running state for HWInit.
 		safeWriteRegUInt32(kUniNHWInitState, ~0UL, kUniNHWInitStateRunning);
@@ -449,12 +456,12 @@ void AppleUniN::uniNSetPowerState (UInt32 state)
         safeWriteRegUInt32(kUniNHWInitState, ~0UL, kUniNHWInitStateSleeping);
 
         // Tell Uni-N to enter sleep mode.
-        safeWriteRegUInt32(kUniNPowerMngmnt, ~0UL, kUniNIdle2);
+        safeWriteRegUInt32(kUniNPowerMngmnt, kUniNPowerMask, kUniNIdle2);
 	} else if (state == kUniNSave) {		// save state
             saveVSPSoftReset = safeReadRegUInt32(kUniNVSPSoftReset);
 	} else if (state == kUniNSleep) {
 		// On Intrepid, put the UATA bus in reset for notebooks
-		if ((uniNVersion == kUniNVersionIntrepid) && hostIsMobile && uATABaseAddress) {
+		if (IsThisAnIntrepid(uniNVersion) && hostIsMobile && uATABaseAddress) {
 			uATAFCR = *(UInt32 *)(uATABaseAddress + 0);			// Read byte reversed data
 			uATAFCR &= ~(kUniNUATAReset | kUniNUATAEnable);		// Reset the bus
 			*(UInt32 *)(uATABaseAddress + 0) = uATAFCR;			// Do it
@@ -465,7 +472,7 @@ void AppleUniN::uniNSetPowerState (UInt32 state)
         safeWriteRegUInt32(kUniNHWInitState, ~0UL, kUniNHWInitStateSleeping);
 
         // Tell Uni-N to enter sleep mode.
-        safeWriteRegUInt32(kUniNPowerMngmnt, ~0UL, kUniNSleep);
+        safeWriteRegUInt32(kUniNPowerMngmnt, kUniNPowerMask, kUniNSleep);
 	}
 	
 	return;

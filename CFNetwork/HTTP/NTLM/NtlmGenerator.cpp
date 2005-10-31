@@ -55,7 +55,7 @@
 
 #include "NtlmGenerator.h"
 #include "ntlmBlobPriv.h"
-#include <CoreServices.framework/Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <CoreServices/CoreServices.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

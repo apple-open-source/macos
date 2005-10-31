@@ -1,5 +1,5 @@
 /* Maintain binary trees of symbols.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, 
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, 
    Inc.
    Contributed by Andy Vaught
 
@@ -22,10 +22,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #include "config.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-
+#include "system.h"
 #include "gfortran.h"
 #include "parse.h"
 
@@ -182,8 +179,7 @@ gfc_merge_new_implicit (gfc_typespec * ts)
 }
 
 
-/* Given a symbol, return a pointer to the typespec for it's default
-   type.  */
+/* Given a symbol, return a pointer to the typespec for its default type.  */
 
 gfc_typespec *
 gfc_get_default_type (gfc_symbol * sym, gfc_namespace * ns)
@@ -217,9 +213,12 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
 
   if (ts->type == BT_UNKNOWN)
     {
-      if (error_flag)
-	gfc_error ("Symbol '%s' at %L has no IMPLICIT type", sym->name,
-		   &sym->declared_at);
+      if (error_flag && !sym->attr.untyped)
+	{
+	  gfc_error ("Symbol '%s' at %L has no IMPLICIT type",
+		     sym->name, &sym->declared_at);
+	  sym->attr.untyped = 1; /* Ensure we only give an error once.  */
+	}
 
       return FAILURE;
     }
@@ -240,7 +239,7 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
 #define conf2(a) if (attr->a) { a2 = a; goto conflict; }
 
 static try
-check_conflict (symbol_attribute * attr, locus * where)
+check_conflict (symbol_attribute * attr, const char * name, locus * where)
 {
   static const char *dummy = "DUMMY", *save = "SAVE", *pointer = "POINTER",
     *target = "TARGET", *external = "EXTERNAL", *intent = "INTENT",
@@ -370,6 +369,7 @@ check_conflict (symbol_attribute * attr, locus * where)
 	{
 	case PROC_ST_FUNCTION:
 	  conf2 (in_common);
+	  conf2 (dummy);
 	  break;
 
 	case PROC_MODULE:
@@ -429,7 +429,13 @@ check_conflict (symbol_attribute * attr, locus * where)
   return SUCCESS;
 
 conflict:
-  gfc_error ("%s attribute conflicts with %s attribute at %L", a1, a2, where);
+  if (name == NULL)
+    gfc_error ("%s attribute conflicts with %s attribute at %L",
+	       a1, a2, where);
+  else
+    gfc_error ("%s attribute conflicts with %s attribute in '%s' at %L",
+	       a1, a2, name, where);
+
   return FAILURE;
 }
 
@@ -459,7 +465,7 @@ gfc_set_sym_referenced (gfc_symbol * sym)
    nonzero if not.  */
 
 static int
-check_used (symbol_attribute * attr, locus * where)
+check_used (symbol_attribute * attr, const char * name, locus * where)
 {
 
   if (attr->use_assoc == 0)
@@ -468,17 +474,21 @@ check_used (symbol_attribute * attr, locus * where)
   if (where == NULL)
     where = &gfc_current_locus;
 
-  gfc_error ("Cannot change attributes of USE-associated symbol at %L",
-             where);
+  if (name == NULL)
+    gfc_error ("Cannot change attributes of USE-associated symbol at %L",
+	       where);
+  else
+    gfc_error ("Cannot change attributes of USE-associated symbol %s at %L",
+	       name, where);
 
   return 1;
 }
 
 
 /* Used to prevent changing the attributes of a symbol after it has been
-   used.  This check is only done from dummy variable as only these can be
+   used.  This check is only done for dummy variables as only these can be
    used in specification expressions.  Applying this to all symbols causes
-   error when we reach the body of a contained function.  */
+   an error when we reach the body of a contained function.  */
 
 static int
 check_done (symbol_attribute * attr, locus * where)
@@ -514,7 +524,7 @@ try
 gfc_add_allocatable (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where) || check_done (attr, where))
     return FAILURE;
 
   if (attr->allocatable)
@@ -524,15 +534,15 @@ gfc_add_allocatable (symbol_attribute * attr, locus * where)
     }
 
   attr->allocatable = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, NULL, where);
 }
 
 
 try
-gfc_add_dimension (symbol_attribute * attr, locus * where)
+gfc_add_dimension (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, name, where) || check_done (attr, where))
     return FAILURE;
 
   if (attr->dimension)
@@ -542,7 +552,7 @@ gfc_add_dimension (symbol_attribute * attr, locus * where)
     }
 
   attr->dimension = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
@@ -550,7 +560,7 @@ try
 gfc_add_external (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where) || check_done (attr, where))
     return FAILURE;
 
   if (attr->external)
@@ -561,7 +571,7 @@ gfc_add_external (symbol_attribute * attr, locus * where)
 
   attr->external = 1;
 
-  return check_conflict (attr, where);
+  return check_conflict (attr, NULL, where);
 }
 
 
@@ -569,7 +579,7 @@ try
 gfc_add_intrinsic (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where) || check_done (attr, where))
     return FAILURE;
 
   if (attr->intrinsic)
@@ -580,7 +590,7 @@ gfc_add_intrinsic (symbol_attribute * attr, locus * where)
 
   attr->intrinsic = 1;
 
-  return check_conflict (attr, where);
+  return check_conflict (attr, NULL, where);
 }
 
 
@@ -588,7 +598,7 @@ try
 gfc_add_optional (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where) || check_done (attr, where))
     return FAILURE;
 
   if (attr->optional)
@@ -598,7 +608,7 @@ gfc_add_optional (symbol_attribute * attr, locus * where)
     }
 
   attr->optional = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, NULL, where);
 }
 
 
@@ -606,31 +616,31 @@ try
 gfc_add_pointer (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where) || check_done (attr, where))
     return FAILURE;
 
   attr->pointer = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, NULL, where);
 }
 
 
 try
-gfc_add_result (symbol_attribute * attr, locus * where)
+gfc_add_result (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, name, where) || check_done (attr, where))
     return FAILURE;
 
   attr->result = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
 try
-gfc_add_save (symbol_attribute * attr, locus * where)
+gfc_add_save (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, where))
+  if (check_used (attr, name, where))
     return FAILURE;
 
   if (gfc_pure (NULL))
@@ -648,7 +658,7 @@ gfc_add_save (symbol_attribute * attr, locus * where)
     }
 
   attr->save = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
@@ -656,7 +666,7 @@ try
 gfc_add_target (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where) || check_done (attr, where))
     return FAILURE;
 
   if (attr->target)
@@ -666,72 +676,73 @@ gfc_add_target (symbol_attribute * attr, locus * where)
     }
 
   attr->target = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, NULL, where);
 }
 
 
 try
-gfc_add_dummy (symbol_attribute * attr, locus * where)
+gfc_add_dummy (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, where))
+  if (check_used (attr, name, where))
     return FAILURE;
 
-  /* Duplicate dummy arguments are allow due to ENTRY statements.  */
+  /* Duplicate dummy arguments are allowed due to ENTRY statements.  */
   attr->dummy = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
 try
-gfc_add_in_common (symbol_attribute * attr, locus * where)
+gfc_add_in_common (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, name, where) || check_done (attr, where))
     return FAILURE;
 
   /* Duplicate attribute already checked for.  */
   attr->in_common = 1;
-  if (check_conflict (attr, where) == FAILURE)
+  if (check_conflict (attr, name, where) == FAILURE)
     return FAILURE;
 
   if (attr->flavor == FL_VARIABLE)
     return SUCCESS;
 
-  return gfc_add_flavor (attr, FL_VARIABLE, where);
+  return gfc_add_flavor (attr, FL_VARIABLE, name, where);
 }
 
 
 try
-gfc_add_data (symbol_attribute *attr, locus *where)
+gfc_add_data (symbol_attribute *attr, const char *name, locus *where)
 {
 
-  if (check_used (attr, where))
+  if (check_used (attr, name, where))
     return FAILURE;
 
   attr->data = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
 try
-gfc_add_in_namelist (symbol_attribute * attr, locus * where)
+gfc_add_in_namelist (symbol_attribute * attr, const char *name,
+		     locus * where)
 {
 
   attr->in_namelist = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
 try
-gfc_add_sequence (symbol_attribute * attr, locus * where)
+gfc_add_sequence (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, where))
+  if (check_used (attr, name, where))
     return FAILURE;
 
   attr->sequence = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
@@ -739,11 +750,11 @@ try
 gfc_add_elemental (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where) || check_done (attr, where))
     return FAILURE;
 
   attr->elemental = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, NULL, where);
 }
 
 
@@ -751,11 +762,11 @@ try
 gfc_add_pure (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where) || check_done (attr, where))
     return FAILURE;
 
   attr->pure = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, NULL, where);
 }
 
 
@@ -763,19 +774,19 @@ try
 gfc_add_recursive (symbol_attribute * attr, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, NULL, where) || check_done (attr, where))
     return FAILURE;
 
   attr->recursive = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, NULL, where);
 }
 
 
 try
-gfc_add_entry (symbol_attribute * attr, locus * where)
+gfc_add_entry (symbol_attribute * attr, const char *name, locus * where)
 {
 
-  if (check_used (attr, where))
+  if (check_used (attr, name, where))
     return FAILURE;
 
   if (attr->entry)
@@ -785,59 +796,60 @@ gfc_add_entry (symbol_attribute * attr, locus * where)
     }
 
   attr->entry = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
 try
-gfc_add_function (symbol_attribute * attr, locus * where)
+gfc_add_function (symbol_attribute * attr, const char *name, locus * where)
 {
 
   if (attr->flavor != FL_PROCEDURE
-      && gfc_add_flavor (attr, FL_PROCEDURE, where) == FAILURE)
+      && gfc_add_flavor (attr, FL_PROCEDURE, name, where) == FAILURE)
     return FAILURE;
 
   attr->function = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
 try
-gfc_add_subroutine (symbol_attribute * attr, locus * where)
+gfc_add_subroutine (symbol_attribute * attr, const char *name, locus * where)
 {
 
   if (attr->flavor != FL_PROCEDURE
-      && gfc_add_flavor (attr, FL_PROCEDURE, where) == FAILURE)
+      && gfc_add_flavor (attr, FL_PROCEDURE, name, where) == FAILURE)
     return FAILURE;
 
   attr->subroutine = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
 try
-gfc_add_generic (symbol_attribute * attr, locus * where)
+gfc_add_generic (symbol_attribute * attr, const char *name, locus * where)
 {
 
   if (attr->flavor != FL_PROCEDURE
-      && gfc_add_flavor (attr, FL_PROCEDURE, where) == FAILURE)
+      && gfc_add_flavor (attr, FL_PROCEDURE, name, where) == FAILURE)
     return FAILURE;
 
   attr->generic = 1;
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
-/* Flavors are special because some flavors are not what fortran
+/* Flavors are special because some flavors are not what Fortran
    considers attributes and can be reaffirmed multiple times.  */
 
 try
-gfc_add_flavor (symbol_attribute * attr, sym_flavor f, locus * where)
+gfc_add_flavor (symbol_attribute * attr, sym_flavor f, const char *name,
+		locus * where)
 {
 
   if ((f == FL_PROGRAM || f == FL_BLOCK_DATA || f == FL_MODULE
        || f == FL_PARAMETER || f == FL_LABEL || f == FL_DERIVED
-       || f == FL_NAMELIST) && check_used (attr, where))
+       || f == FL_NAMELIST) && check_used (attr, name, where))
     return FAILURE;
 
   if (attr->flavor == f && f == FL_VARIABLE)
@@ -857,19 +869,20 @@ gfc_add_flavor (symbol_attribute * attr, sym_flavor f, locus * where)
 
   attr->flavor = f;
 
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
 try
-gfc_add_procedure (symbol_attribute * attr, procedure_type t, locus * where)
+gfc_add_procedure (symbol_attribute * attr, procedure_type t,
+		   const char *name, locus * where)
 {
 
-  if (check_used (attr, where) || check_done (attr, where))
+  if (check_used (attr, name, where) || check_done (attr, where))
     return FAILURE;
 
   if (attr->flavor != FL_PROCEDURE
-      && gfc_add_flavor (attr, FL_PROCEDURE, where) == FAILURE)
+      && gfc_add_flavor (attr, FL_PROCEDURE, name, where) == FAILURE)
     return FAILURE;
 
   if (where == NULL)
@@ -889,11 +902,11 @@ gfc_add_procedure (symbol_attribute * attr, procedure_type t, locus * where)
 
   /* Statement functions are always scalar and functions.  */
   if (t == PROC_ST_FUNCTION
-      && ((!attr->function && gfc_add_function (attr, where) == FAILURE)
+      && ((!attr->function && gfc_add_function (attr, name, where) == FAILURE)
 	  || attr->dimension))
     return FAILURE;
 
-  return check_conflict (attr, where);
+  return check_conflict (attr, name, where);
 }
 
 
@@ -901,13 +914,13 @@ try
 gfc_add_intent (symbol_attribute * attr, sym_intent intent, locus * where)
 {
 
-  if (check_used (attr, where))
+  if (check_used (attr, NULL, where))
     return FAILURE;
 
   if (attr->intent == INTENT_UNKNOWN)
     {
       attr->intent = intent;
-      return check_conflict (attr, where);
+      return check_conflict (attr, NULL, where);
     }
 
   if (where == NULL)
@@ -924,13 +937,14 @@ gfc_add_intent (symbol_attribute * attr, sym_intent intent, locus * where)
 /* No checks for use-association in public and private statements.  */
 
 try
-gfc_add_access (symbol_attribute * attr, gfc_access access, locus * where)
+gfc_add_access (symbol_attribute * attr, gfc_access access,
+		const char *name, locus * where)
 {
 
   if (attr->access == ACCESS_UNKNOWN)
     {
       attr->access = access;
-      return check_conflict (attr, where);
+      return check_conflict (attr, name, where);
     }
 
   if (where == NULL)
@@ -946,7 +960,7 @@ gfc_add_explicit_interface (gfc_symbol * sym, ifsrc source,
 			    gfc_formal_arglist * formal, locus * where)
 {
 
-  if (check_used (&sym->attr, where))
+  if (check_used (&sym->attr, sym->name, where))
     return FAILURE;
 
   if (where == NULL)
@@ -1036,37 +1050,37 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
   if (src->allocatable && gfc_add_allocatable (dest, where) == FAILURE)
     goto fail;
 
-  if (src->dimension && gfc_add_dimension (dest, where) == FAILURE)
+  if (src->dimension && gfc_add_dimension (dest, NULL, where) == FAILURE)
     goto fail;
   if (src->optional && gfc_add_optional (dest, where) == FAILURE)
     goto fail;
   if (src->pointer && gfc_add_pointer (dest, where) == FAILURE)
     goto fail;
-  if (src->save && gfc_add_save (dest, where) == FAILURE)
+  if (src->save && gfc_add_save (dest, NULL, where) == FAILURE)
     goto fail;
   if (src->target && gfc_add_target (dest, where) == FAILURE)
     goto fail;
-  if (src->dummy && gfc_add_dummy (dest, where) == FAILURE)
+  if (src->dummy && gfc_add_dummy (dest, NULL, where) == FAILURE)
     goto fail;
-  if (src->result && gfc_add_result (dest, where) == FAILURE)
+  if (src->result && gfc_add_result (dest, NULL, where) == FAILURE)
     goto fail;
   if (src->entry)
     dest->entry = 1;
 
-  if (src->in_namelist && gfc_add_in_namelist (dest, where) == FAILURE)
+  if (src->in_namelist && gfc_add_in_namelist (dest, NULL, where) == FAILURE)
     goto fail;
 
-  if (src->in_common && gfc_add_in_common (dest, where) == FAILURE)
+  if (src->in_common && gfc_add_in_common (dest, NULL, where) == FAILURE)
     goto fail;
 
-  if (src->generic && gfc_add_generic (dest, where) == FAILURE)
+  if (src->generic && gfc_add_generic (dest, NULL, where) == FAILURE)
     goto fail;
-  if (src->function && gfc_add_function (dest, where) == FAILURE)
+  if (src->function && gfc_add_function (dest, NULL, where) == FAILURE)
     goto fail;
-  if (src->subroutine && gfc_add_subroutine (dest, where) == FAILURE)
+  if (src->subroutine && gfc_add_subroutine (dest, NULL, where) == FAILURE)
     goto fail;
 
-  if (src->sequence && gfc_add_sequence (dest, where) == FAILURE)
+  if (src->sequence && gfc_add_sequence (dest, NULL, where) == FAILURE)
     goto fail;
   if (src->elemental && gfc_add_elemental (dest, where) == FAILURE)
     goto fail;
@@ -1076,7 +1090,7 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     goto fail;
 
   if (src->flavor != FL_UNKNOWN
-      && gfc_add_flavor (dest, src->flavor, where) == FAILURE)
+      && gfc_add_flavor (dest, src->flavor, NULL, where) == FAILURE)
     goto fail;
 
   if (src->intent != INTENT_UNKNOWN
@@ -1084,14 +1098,14 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     goto fail;
 
   if (src->access != ACCESS_UNKNOWN
-      && gfc_add_access (dest, src->access, where) == FAILURE)
+      && gfc_add_access (dest, src->access, NULL, where) == FAILURE)
     goto fail;
 
   if (gfc_missing_attr (dest, where) == FAILURE)
     goto fail;
 
   /* The subroutines that set these bits also cause flavors to be set,
-     and that has already happened in the original, so don't let to
+     and that has already happened in the original, so don't let it
      happen again.  */
   if (src->external)
     dest->external = 1;
@@ -1136,7 +1150,7 @@ gfc_add_component (gfc_symbol * sym, const char *name, gfc_component ** componen
       tail = p;
     }
 
-  /* Allocate new component */
+  /* Allocate a new component.  */
   p = gfc_get_component ();
 
   if (tail == NULL)
@@ -1144,7 +1158,7 @@ gfc_add_component (gfc_symbol * sym, const char *name, gfc_component ** componen
   else
     tail->next = p;
 
-  strcpy (p->name, name);
+  p->name = gfc_get_string (name);
   p->loc = gfc_current_locus;
 
   *component = p;
@@ -1183,20 +1197,23 @@ switch_types (gfc_symtree * st, gfc_symbol * from, gfc_symbol * to)
    have to have a derived type in a parent unit.  We find the node in
    the other namespace and point the symtree node in this namespace to
    that node.  Further reference to this name point to the correct
-   node.  If we can't find the node in a parent namespace, then have
+   node.  If we can't find the node in a parent namespace, then we have
    an error.
 
    This subroutine takes a pointer to a symbol node and returns a
    pointer to the translated node or NULL for an error.  Usually there
    is no translation and we return the node we were passed.  */
 
-static gfc_symtree *
-gfc_use_ha_derived (gfc_symbol * sym)
+gfc_symbol *
+gfc_use_derived (gfc_symbol * sym)
 {
   gfc_symbol *s, *p;
   gfc_typespec *t;
   gfc_symtree *st;
   int i;
+
+  if (sym->components != NULL)
+    return sym;               /* Already defined.  */
 
   if (sym->ns->parent == NULL)
     goto bad;
@@ -1240,28 +1257,12 @@ gfc_use_ha_derived (gfc_symbol * sym)
      namelists, common lists and interface lists.  */
   gfc_free_symbol (sym);
 
-  return st;
+  return s;
 
 bad:
   gfc_error ("Derived type '%s' at %C is being used before it is defined",
 	     sym->name);
   return NULL;
-}
-
-
-gfc_symbol *
-gfc_use_derived (gfc_symbol * sym)
-{
-  gfc_symtree *st;
-
-  if (sym->components != NULL)
-    return sym;			/* Already defined */
-
-  st = gfc_use_ha_derived (sym);
-  if (st)
-    return st->n.sym;
-  else
-    return NULL;
 }
 
 
@@ -1523,7 +1524,7 @@ done:
    the internal subprograms must be read before we can start
    generating code for the host.
 
-   Given the tricky nature of the fortran grammar, we must be able to
+   Given the tricky nature of the Fortran grammar, we must be able to
    undo changes made to a symbol table if the current interpretation
    of a statement is found to be incorrect.  Whenever a symbol is
    looked up, we make a copy of it and link to it.  All of these
@@ -1534,10 +1535,11 @@ done:
    this case, that symbol has been used as a host associated variable
    at some previous time.  */
 
-/* Allocate a new namespace structure.  */
+/* Allocate a new namespace structure.  Copies the implicit types from
+   PARENT if PARENT_TYPES is set.  */
 
 gfc_namespace *
-gfc_get_namespace (gfc_namespace * parent)
+gfc_get_namespace (gfc_namespace * parent, int parent_types)
 {
   gfc_namespace *ns;
   gfc_typespec *ts;
@@ -1559,7 +1561,7 @@ gfc_get_namespace (gfc_namespace * parent)
       ns->set_flag[i - 'a'] = 0;
       ts = &ns->default_type[i - 'a'];
 
-      if (ns->parent != NULL)
+      if (parent_types && ns->parent != NULL)
 	{
 	  /* Copy parent settings */
 	  *ts = ns->parent->default_type[i - 'a'];
@@ -1612,7 +1614,7 @@ gfc_new_symtree (gfc_symtree ** root, const char *name)
   gfc_symtree *st;
 
   st = gfc_getmem (sizeof (gfc_symtree));
-  strcpy (st->name, name);
+  st->name = gfc_get_string (name);
 
   gfc_insert_bbt (root, st, compare_symtree);
   return st;
@@ -1628,7 +1630,7 @@ delete_symtree (gfc_symtree ** root, const char *name)
 
   st0 = gfc_find_symtree (*root, name);
 
-  strcpy (st.name, name);
+  st.name = gfc_get_string (name);
   gfc_delete_bbt (root, &st, compare_symtree);
 
   gfc_free (st0);
@@ -1673,7 +1675,7 @@ gfc_get_uop (const char *name)
   st = gfc_new_symtree (&gfc_current_ns->uop_root, name);
 
   uop = st->n.uop = gfc_getmem (sizeof (gfc_user_op));
-  strcpy (uop->name, name);
+  uop->name = gfc_get_string (name);
   uop->access = ACCESS_UNKNOWN;
   uop->ns = gfc_current_ns;
 
@@ -1742,7 +1744,7 @@ gfc_new_symbol (const char *name, gfc_namespace * ns)
   if (strlen (name) > GFC_MAX_SYMBOL_LEN)
     gfc_internal_error ("new_symbol(): Symbol name too long");
 
-  strcpy (p->name, name);
+  p->name = gfc_get_string (name);
   return p;
 }
 
@@ -1753,7 +1755,7 @@ static void
 ambiguous_symbol (const char *name, gfc_symtree * st)
 {
 
-  if (st->n.sym->module[0])
+  if (st->n.sym->module)
     gfc_error ("Name '%s' at %C is an ambiguous reference to '%s' "
 	       "from module '%s'", name, st->n.sym->name, st->n.sym->module);
   else
@@ -2246,7 +2248,7 @@ void
 gfc_symbol_init_2 (void)
 {
 
-  gfc_current_ns = gfc_get_namespace (NULL);
+  gfc_current_ns = gfc_get_namespace (NULL, 0);
 }
 
 
@@ -2329,7 +2331,7 @@ save_symbol (gfc_symbol * sym)
       || sym->attr.flavor != FL_VARIABLE)
     return;
 
-  gfc_add_save (&sym->attr, &sym->declared_at);
+  gfc_add_save (&sym->attr, sym->name, &sym->declared_at);
 }
 
 
@@ -2361,7 +2363,7 @@ gfc_symbol_state(void) {
 /* Search a tree for the global symbol.  */
 
 gfc_gsymbol *
-gfc_find_gsymbol (gfc_gsymbol *symbol, char *name)
+gfc_find_gsymbol (gfc_gsymbol *symbol, const char *name)
 {
   gfc_gsymbol *s;
 
@@ -2398,7 +2400,7 @@ gsym_compare (void * _s1, void * _s2)
 /* Get a global symbol, creating it if it doesn't exist.  */
 
 gfc_gsymbol *
-gfc_get_gsymbol (char *name)
+gfc_get_gsymbol (const char *name)
 {
   gfc_gsymbol *s;
 

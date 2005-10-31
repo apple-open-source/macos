@@ -97,6 +97,7 @@ RenderBlock::RenderBlock(DOM::NodeImpl* node)
     m_topMarginQuirk = m_bottomMarginQuirk = false;
     m_overflowHeight = m_overflowWidth = 0;
     m_overflowLeft = m_overflowTop = 0;
+    m_tabWidth = 0;
 }
 
 RenderBlock::~RenderBlock()
@@ -131,6 +132,7 @@ void RenderBlock::setStyle(RenderStyle* _style)
     }
 
     m_lineHeight = -1;
+    m_tabWidth = 0;
 
     // Update pseudos for :before and :after now.
     updatePseudoChild(RenderStyle::BEFORE, firstChild());
@@ -386,10 +388,18 @@ bool RenderBlock::isSelfCollapsingBlock() const
         style()->marginTopCollapse() == MSEPARATE || style()->marginBottomCollapse() == MSEPARATE)
         return false;
 
+    bool hasAutoHeight = style()->height().isVariable();
+    if (style()->height().isPercent() && !style()->htmlHacks()) {
+        hasAutoHeight = true;
+        for (RenderBlock* cb = containingBlock(); !cb->isCanvas(); cb = cb->containingBlock()) {
+            if (cb->style()->height().isFixed() || cb->isTableCell())
+                hasAutoHeight = false;
+        }
+    }
+
     // If the height is 0 or auto, then whether or not we are a self-collapsing block depends
     // on whether we have content that is all self-collapsing or not.
-    if (style()->height().isVariable() ||
-        (style()->height().isFixed() && style()->height().value == 0)) {
+    if (hasAutoHeight || ((style()->height().isFixed() || style()->height().isPercent()) && style()->height().value == 0)) {
         // If the block has inline children, see if we generated any line boxes.  If we have any
         // line boxes, then we can't be self-collapsing, since we have content.
         if (childrenInline())
@@ -526,7 +536,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
             m_height = m_overflowHeight + borderBottom() + paddingBottom();
     }
 
-    if (hasOverhangingFloats() && (isFloating() || isTableCell())) {
+    if (hasOverhangingFloats() && ((isFloating() && style()->height().isVariable()) || isTableCell())) {
         m_height = floatBottom();
         m_height += borderBottom() + paddingBottom();
     }
@@ -1535,7 +1545,8 @@ GapRects RenderBlock::fillBlockSelectionGaps(RenderBlock* rootBlock, int blockX,
         if (curr->isRelPositioned() && curr->layer()) {
             // If the relposition offset is anything other than 0, then treat this just like an absolute positioned element.
             // Just disregard it completely.
-            int x, y;
+            int x = 0;
+            int y = 0;
             curr->layer()->relativePositionOffset(x, y);
             if (x || y)
                 continue;
@@ -2787,7 +2798,7 @@ static void stripTrailingSpace(bool pre,
         RenderText* t = static_cast<RenderText *>(trailingSpaceChild);
         const Font *f = t->htmlFont( false );
         QChar space[1]; space[0] = ' ';
-        int spaceWidth = f->width(space, 1, 0);
+        int spaceWidth = f->width(space, 1, 0, 0);
         inlineMax -= spaceWidth;
         if (inlineMin > inlineMax)
             inlineMin = inlineMax;
@@ -2950,8 +2961,8 @@ void RenderBlock::calcInlineMinMaxWidth()
                 int beginMin, endMin;
                 bool beginWS, endWS;
                 int beginMax, endMax;
-                t->trimmedMinMaxWidth(beginMin, beginWS, endMin, endWS, hasBreakableChar,
-                                      hasBreak, beginMax, endMax,
+                t->trimmedMinMaxWidth(inlineMax, beginMin, beginWS, endMin, endWS,
+                                      hasBreakableChar, hasBreak, beginMax, endMax,
                                       childMin, childMax, stripFrontSpaces);
 
                 // This text object is insignificant and will not be rendered.  Just
@@ -3084,12 +3095,10 @@ void RenderBlock::calcBlockMinMaxWidth()
             marginLeft += ml.value;
         else if (ml.type == Percent)
             marginLeft += child->marginLeft();
-        marginLeft = kMax(0, marginLeft);
         if (mr.type == Fixed)
             marginRight += mr.value;
         else if (mr.type == Percent)
             marginRight += child->marginRight();
-        marginRight = kMax(0, marginRight);
         margin = marginLeft + marginRight;
 
         int w = child->minWidth() + margin;
@@ -3104,10 +3113,12 @@ void RenderBlock::calcBlockMinMaxWidth()
         if (!child->isFloating()) {
             if (child->avoidsFloats()) {
                 // Determine a left and right max value based off whether or not the floats can fit in the
-                // margins of the object.
-                int maxLeft = kMax(floatLeftWidth, marginLeft);
-                int maxRight = kMax(floatRightWidth, marginRight);
+                // margins of the object.  For negative margins, we will attempt to overlap the float if the negative margin
+                // is smaller than the float width.
+                int maxLeft = marginLeft > 0 ? kMax(floatLeftWidth, marginLeft) : floatLeftWidth + marginLeft;
+                int maxRight = marginRight > 0 ? kMax(floatRightWidth, marginRight) : floatRightWidth + marginRight;
                 w = child->maxWidth() + maxLeft + maxRight;
+                w = kMax(w, floatLeftWidth + floatRightWidth);
             }
             else
                 m_maxWidth = kMax(floatLeftWidth + floatRightWidth, m_maxWidth);
@@ -3147,7 +3158,11 @@ void RenderBlock::calcBlockMinMaxWidth()
         
         child = child->nextSibling();
     }
-    
+
+    // Always make sure these values are non-negative.
+    m_minWidth = kMax(0, m_minWidth);
+    m_maxWidth = kMax(0, m_maxWidth);
+
     m_maxWidth = kMax(floatLeftWidth + floatRightWidth, m_maxWidth);
 }
 

@@ -8,6 +8,15 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
+
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -146,7 +155,6 @@ free_fnode (fnode * f)
 void
 free_fnodes (void)
 {
-
   if (avail - array >= FARRAY_SIZE)
     free_fnode (&array[0]);
 
@@ -441,9 +449,8 @@ parse_format_list (void)
 
   head = tail = NULL;
 
-/* Get the next format item */
-
-format_item:
+  /* Get the next format item */
+ format_item:
   t = format_lex ();
   switch (t)
     {
@@ -557,6 +564,7 @@ format_item:
 
     case FMT_COLON:
       get_fnode (&head, &tail, FMT_COLON);
+      tail->repeat = 1;
       goto optional_comma;
 
     case FMT_SLASH:
@@ -631,10 +639,9 @@ format_item:
       goto finished;
     }
 
-/* In this state, t must currently be a data descriptor.  Deal with
- * things that can/must follow the descriptor */
-
-data_desc:
+  /* In this state, t must currently be a data descriptor.  Deal with
+     things that can/must follow the descriptor */
+ data_desc:
   switch (t)
     {
     case FMT_P:
@@ -726,8 +733,7 @@ data_desc:
 
       tail->u.real.e = -1;
 
-/* Look for optional exponent */
-
+      /* Look for optional exponent */
       t = format_lex ();
       if (t != FMT_E)
 	saved_token = t;
@@ -822,8 +828,8 @@ data_desc:
       goto finished;
     }
 
-/* Between a descriptor and what comes next */
-between_desc:
+  /* Between a descriptor and what comes next */
+ between_desc:
   t = format_lex ();
   switch (t)
     {
@@ -851,10 +857,9 @@ between_desc:
       goto finished;
     }
 
-/* Optional comma is a weird between state where we've just finished
- * reading a colon, slash or P descriptor. */
-
-optional_comma:
+  /* Optional comma is a weird between state where we've just finished
+     reading a colon, slash or P descriptor. */
+ optional_comma:
   t = format_lex ();
   switch (t)
     {
@@ -871,7 +876,7 @@ optional_comma:
 
   goto format_item;
 
-finished:
+ finished:
   return head;
 }
 
@@ -935,20 +940,19 @@ format_error (fnode * f, const char *message)
 void
 parse_format (void)
 {
-
   format_string = ioparm.format;
   format_string_len = ioparm.format_len;
 
   saved_token = FMT_NONE;
   error = NULL;
 
-/* Initialize variables used during traversal of the tree */
+  /* Initialize variables used during traversal of the tree */
 
   reversion_ok = 0;
   g.reversion_flag = 0;
   saved_format = NULL;
 
-/* Allocate the first format node as the root of the tree */
+  /* Allocate the first format node as the root of the tree */
 
   avail = array;
 
@@ -1082,8 +1086,7 @@ next_format (void)
     }
 
   /* If this is a data edit descriptor, then reversion has become OK. */
-
-done:
+ done:
   t = f->format;
 
   if (!reversion_ok &&
@@ -1105,7 +1108,6 @@ done:
 void
 unget_format (fnode * f)
 {
-
   saved_format = f;
 }
 
@@ -1248,7 +1250,6 @@ dump_format0 (fnode * f)
 static void
 dump_format1 (fnode * f)
 {
-
   for (; f; f = f->next)
     dump_format1 (f);
 }
@@ -1258,7 +1259,6 @@ dump_format1 (fnode * f)
 void
 dump_format (void)
 {
-
   st_printf ("format = ");
   dump_format0 (&array[0]);
   st_printf ("\n");

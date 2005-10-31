@@ -790,15 +790,15 @@ Boolean _CFHTTPAuthenticationParseHeader(CFStringRef headerValue, Boolean isInfo
                 key = CFRetain(value);
                 buffer++;
             } else {
-				// Appears to be a new scheme; or at least that's what it is now
-				CFStringRef canonName = _canonicalSchemeName(value);
-				current_scheme = CFDictionaryCreateMutable(alloc, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-				CFDictionarySetValue(schemes, canonName, current_scheme);
-				CFRelease(canonName);
-				CFRelease(current_scheme);
-				CFDictionarySetValue(current_scheme, kCFHTTPAuthenticationPropertyMethod, canonName);
-				expectingBase64 = (canonName == kCFHTTPAuthenticationSchemeNegotiate)
-					|| (canonName == kCFHTTPAuthenticationSchemeNTLM);
+                // Appears to be a new scheme; or at least that's what it is now
+                CFStringRef canonName = _canonicalSchemeName(value);
+                current_scheme = CFDictionaryCreateMutable(alloc, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                CFDictionarySetValue(schemes, canonName, current_scheme);
+                CFRelease(canonName);
+                CFRelease(current_scheme);
+                CFDictionarySetValue(current_scheme, kCFHTTPAuthenticationPropertyMethod, canonName);
+                expectingBase64 = (canonName == kCFHTTPAuthenticationSchemeNegotiate)
+                        || (canonName == kCFHTTPAuthenticationSchemeNTLM);
             }
         }
         
@@ -825,7 +825,7 @@ Boolean _CFHTTPAuthenticationParseHeader(CFStringRef headerValue, Boolean isInfo
                 if (expectingBase64) {
                     // Base64-style schemes must be followed by another scheme
                     current_scheme = NULL;
-					expectingBase64 = FALSE;  // Since the next is a scheme, no need to expect this.
+                    expectingBase64 = FALSE;  // Since the next is a scheme, no need to expect this.
                 } else {
                     // might get another key=value, might get another scheme
                     lookAheadForSchemeOrKey = TRUE;
@@ -1419,7 +1419,7 @@ CFStringRef _CFStringCreateDigestHashA2(CFAllocatorRef alloc, CFHTTPAuthenticati
         Boolean deallocBytes;
         pathBytes = _CFURLPortionForRequest(alloc, url, FALSE, &bytes, sizeof(buf)/sizeof(UInt8), &deallocBytes);
         CFRelease(path);
-        path = CFStringCreateWithBytes(alloc, pathBytes, strlen(pathBytes), kCFStringEncodingISOLatin1, FALSE);
+        path = CFStringCreateWithBytes(alloc, pathBytes, strlen((const char*)pathBytes), kCFStringEncodingISOLatin1, FALSE);
         if (deallocBytes) CFAllocatorDeallocate(alloc, bytes);
     }
     
@@ -1526,7 +1526,7 @@ CFStringRef _CFStringCreateDigestAuthenticationHeaderValueForRequest(CFAllocator
         Boolean deallocBytes;
         pathBytes = _CFURLPortionForRequest(alloc, url, FALSE, &bytes, sizeof(buf)/sizeof(UInt8), &deallocBytes);
         CFRelease(path);
-        path = CFStringCreateWithBytes(alloc, pathBytes, strlen(pathBytes), kCFStringEncodingISOLatin1, FALSE);
+        path = CFStringCreateWithBytes(alloc, pathBytes, strlen((const char*)pathBytes), kCFStringEncodingISOLatin1, FALSE);
         if (deallocBytes) CFAllocatorDeallocate(alloc, bytes);
     }
 	CFRelease(url);
@@ -1689,10 +1689,17 @@ _CFHTTPAuthenticationCreateNegotiateHeaderForRequest(CFHTTPAuthenticationRef aut
 			len = sizeof(buf2);
 			servicetype = _CFStringGetOrCreateCString(alloc, scheme, buf2, &len, kCFStringEncodingASCII);
 			
-			if (!strcmp(servicetype, "https"))
-				servicetype[4] = '\0';
-			
-			spnegoError = spnegoTokenInitFromPrincipal(hostname, servicetype, &blob, (unsigned*)&len);
+			// if this is http or https, we're going to try 2 forms of ticket retrieval
+			if (!strncmp("http", (const char*)servicetype, 4)) {
+
+				// first force try the uppercase
+				spnegoError = spnegoTokenInitFromPrincipal((const char*)hostname, "HTTP", &blob, (unsigned*)&len);
+				if( spnegoError ) {
+					spnegoError = spnegoTokenInitFromPrincipal((const char*)hostname, "http", &blob, (unsigned*)&len);
+				}
+			} else {
+				spnegoError = spnegoTokenInitFromPrincipal((const char*)hostname, (const char *)servicetype, &blob, (unsigned*)&len);
+			}
 			
 			if (hostname != buf1)
 				CFAllocatorDeallocate(alloc, hostname);
@@ -1705,7 +1712,7 @@ _CFHTTPAuthenticationCreateNegotiateHeaderForRequest(CFHTTPAuthenticationRef aut
 			
 			else {
 				
-				data = CFDataCreateWithBytesNoCopy(alloc, blob, len, kCFAllocatorNull);
+				data = CFDataCreateWithBytesNoCopy(alloc, (const UInt8*)blob, len, kCFAllocatorNull);
 				
 				if (specific->_negotiation) CFRelease(specific->_negotiation);
 				specific->_negotiation = _CFEncodeBase64(alloc, data);
@@ -2055,11 +2062,17 @@ CFHTTPAuthenticationRef CFHTTPAuthenticationCreateFromResponse(CFAllocatorRef al
 			len = sizeof(buf2);
 			servicetype = _CFStringGetOrCreateCString(alloc, scheme, buf2, &len, kCFStringEncodingASCII);
 				
-			if (!strcmp(servicetype, "https"))
-				servicetype[4] = '\0';
-			
-			if (!GetSvcTicketForHost(hostname, servicetype, &tktLen, &ticket)) {
-				result->_preferred = current_scheme;
+            // if this is http or https, we're going to try 2 forms of ticket retrieval
+			if (!strncmp("http", (const char*)servicetype, 4)) {
+                
+				// first force try the uppercase then try lowercase
+                if (!GetSvcTicketForHost((const char*)hostname, "HTTP", &tktLen, &ticket)) {
+                    result->_preferred = current_scheme;
+                } else if (!GetSvcTicketForHost((const char*)hostname, "http", &tktLen, &ticket)) {
+                    result->_preferred = current_scheme;
+                }
+			} else if (!GetSvcTicketForHost((const char*)hostname, (const char*)servicetype, &tktLen, &ticket)) {
+                result->_preferred = current_scheme;
 			}
 			
 			if (hostname != buf1)

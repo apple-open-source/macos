@@ -1,2 +1,0 @@
->>> Scripted string property tests
-<<< done.

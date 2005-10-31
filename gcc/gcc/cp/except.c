@@ -1,6 +1,6 @@
 /* Handle exceptional things in C++.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Michael Tiemann <tiemann@cygnus.com>
    Rewritten by Mike Stump <mrs@cygnus.com>, based upon an
    initial re-implementation courtesy Tad Hunt.
@@ -153,6 +153,9 @@ build_exc_ptr (void)
   return build0 (EXC_PTR_EXPR, ptr_type_node);
 }
 
+/* APPLE LOCAL 4093536 */
+/* Remove do_get_exception_ptr() function.  */
+
 /* Build up a call to __cxa_begin_catch, to tell the runtime that the
    exception has been handled.  */
 
@@ -182,8 +185,11 @@ dtor_nothrow (tree type)
   if (type == NULL_TREE)
     return 0;
 
-  if (! TYPE_HAS_DESTRUCTOR (type))
+  if (!CLASS_TYPE_P (type))
     return 1;
+
+  if (CLASSTYPE_LAZY_DESTRUCTOR (type))
+    lazily_declare_fn (sfk_destructor, type);
 
   return TREE_NOTHROW (CLASSTYPE_DESTRUCTORS (type));
 }
@@ -337,8 +343,7 @@ initialize_handler_parm (tree decl, tree exp)
      adjusted by value from __cxa_begin_catch.  Others are returned by 
      reference.  */
   init_type = TREE_TYPE (decl);
-  if (! TYPE_PTR_P (init_type)
-      && TREE_CODE (init_type) != REFERENCE_TYPE)
+  if (!POINTER_TYPE_P (init_type))
     init_type = build_reference_type (init_type);
 
   choose_personality_routine (decl_is_java_type (init_type, 0)
@@ -376,6 +381,8 @@ initialize_handler_parm (tree decl, tree exp)
 
 /* Call this to start a catch block.  DECL is the catch parameter.  */
 
+/* APPLE LOCAL begin 4093536  */
+/* Undo PR 10606 */
 tree
 expand_start_catch_block (tree decl)
 {
@@ -437,7 +444,7 @@ expand_start_catch_block (tree decl)
 
   return type;
 }
-
+/* APPLE LOCAL end 4093536  */
 
 /* Call this to end a catch block.  Its responsible for emitting the
    code to handle jumping back to the correct place, and for emitting
@@ -710,7 +717,7 @@ build_throw (tree exp)
 
       throw_type = build_eh_type_type (prepare_eh_type (TREE_TYPE (object)));
 
-      if (TYPE_HAS_DESTRUCTOR (TREE_TYPE (object)))
+      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (object)))
 	{
 	  cleanup = lookup_fnfields (TYPE_BINFO (TREE_TYPE (object)),
 				     complete_dtor_identifier, 0);

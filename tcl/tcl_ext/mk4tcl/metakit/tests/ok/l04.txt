@@ -1,2 +1,0 @@
->>> Modify sections in storage
-<<< done.

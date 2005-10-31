@@ -153,6 +153,8 @@ main(argc, argv)
 
 	openlog(getprogname(), LOG_PID | LOG_PERROR, LOG_DAEMON);
 
+	signal(SIGPIPE, SIG_IGN);
+	
 	if (1 == getppid()) {
 		use_launchd = true;
 	} else {

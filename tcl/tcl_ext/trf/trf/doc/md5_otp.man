@@ -1,2 +1,0 @@
-[vset    digest md5_otp]
-[include digest/main.inc]

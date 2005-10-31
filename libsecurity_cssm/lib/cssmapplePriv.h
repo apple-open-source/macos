@@ -85,6 +85,9 @@ enum
 	
 	// convert a record identifier to a CSSM_DB_RECORD_IDENTIFIER for the CSP/DL
 	CSSM_APPLECSPDL_DB_CONVERT_RECORD_IDENTIFIER = CSSM_APPLE_PRIVATE_CSPDL_CODE_14,
+	
+	// create the default records in a "blank" database
+	CSSM_APPLECSPDL_DB_CREATE_WITH_BLOB = CSSM_APPLE_PRIVATE_CSPDL_CODE_15,
 };
 
 typedef struct {
@@ -128,6 +131,16 @@ typedef struct cssm_applecspdl_db_get_without_encryption_parameters
 	CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes;
 } CSSM_APPLECSPDL_DB_GET_WITHOUT_ENCRYPTION_PARAMETERS;
 
+typedef struct cssm_applecspdl_db_create_with_blob_parameters
+{
+	const char *dbName;
+	const CSSM_NET_ADDRESS *dbLocation;
+	const CSSM_DBINFO *dbInfo;
+	CSSM_DB_ACCESS_TYPE accessRequest;
+	const CSSM_RESOURCE_CONTROL_CONTEXT *credAndAclEntry;
+	const void *openParameters;
+	const CSSM_DATA *blob;
+} CSSM_APPLE_CSPDL_DB_CREATE_WITH_BLOB_PARAMETERS;
 
 #ifdef __cplusplus
 }

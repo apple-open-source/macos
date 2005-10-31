@@ -1,6 +1,22 @@
-Changes picke up for the SUTiAtlanta release (the cctools-576.1 release):
+Changes for the 5.18 release (the cctools-589 release):
+- Added support for the CPU_SUBTYPE_PENTIUM_4 cpusubtype.  Radar bug #4115802
+  - Added an entry in the ArchInfoTable[] array in arch.c for pentium4 as:
+    {"pentium4", CPU_TYPE_I386, CPU_SUBTYPE_PENTIUM_4, NX_LittleEndian,
+	 "Intel Pentium 4" },
+- Changed the Makefile and added a LEGACY macro with two defines to allow
+  the code to use the old field name "environ" from the i386 structs.
+  Radar bug #4113580.
+
+Changes for the 5.18 release (the cctools-583 release):
+- Changed the Makefile so that when RC_XBS is set to YES then the compiler
+  options -MD and -dependency-file as well as the md(1) program are not used.
+  Radar bug #4029936.
+
+Changes for the 5.18 release (the cctools-580 release):
 - Changed the Makefile to set CC to gcc-3.5 when RC_USE_GCC35_FOR_PPC64 is YES.
   Radar bug #4066237.
+
+Changes for the 5.18 release (the cctools-579 release):
 - Changed the Makefile to set CC to gcc-3.5 when RC_RELEASE is Saffron.
   Radar bug #4064324.
 

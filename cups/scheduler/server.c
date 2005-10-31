@@ -1,5 +1,5 @@
 /*
- * "$Id: server.c,v 1.13 2005/01/06 01:26:12 jlovell Exp $"
+ * "$Id: server.c,v 1.13.2.2 2005/07/27 21:58:45 jlovell Exp $"
  *
  *   Server start/stop routines for the Common UNIX Printing System (CUPS).
  *
@@ -250,6 +250,7 @@ StopServer(void)
     LogMessage(L_DEBUG2, "StopServer: Removing fd %d from InputSet...",
                CGIPipes[0]);
 
+    FD_CLR(CGIPipes[0], InputFds);
     FD_CLR(CGIPipes[0], InputSet);
 
     cupsdClosePipe(CGIPipes);
@@ -361,6 +362,7 @@ void StopSysEventMonitor(void)
     LogMessage(L_DEBUG2, "StopServer: Removing fd %d from InputSet...",
 		SysEventPipes[0]);
 
+    FD_CLR(SysEventPipes[0], InputFds);
     FD_CLR(SysEventPipes[0], InputSet);
 
     SysEventPipes[0] = -1;
@@ -378,6 +380,7 @@ void UpdateSysEventMonitor(void)
   cups_sysevent_t	sysevent;	/* The system event */
   printer_t		*p,		/* Printer information */
 			*next;		/* Pointer to next printer in list */
+  int			num_printers;	/* Number of printers */
 
  /*
   * Drain the event pipe...
@@ -420,8 +423,19 @@ void UpdateSysEventMonitor(void)
 
 	if (p->type & CUPS_PRINTER_REMOTE)
 	{
+	 /*
+	  * Deleting a printer that is part of an implicit class can also cause 
+	  * a following class to be deleted (which our 'next' may be pointing at). 
+	  * In this case reset 'next' to the head of the list...
+	  */
+    
+	  num_printers = NumPrinters;
+
 	  LogMessage(L_INFO, "Deleting remote destination \"%s\"", p->name);
 	  DeletePrinter(p, 0);
+
+	  if (NumPrinters != num_printers - 1)
+	    next = Printers;
 	}
 	else
 	{
@@ -624,7 +638,10 @@ static void *sysEventThreadEntry()
   }
 
   if (threadData.sysevent.powerKernelPort)
+  {
     IODeregisterForSystemPower(&powerNotifierObj);
+    IOServiceClose(threadData.sysevent.powerKernelPort);
+  }
 
   if (storeRLS)
   {
@@ -761,5 +778,5 @@ static void sysEventTimerNotifier(CFRunLoopTimerRef timer, void *context)
 #endif	/* __APPLE__ */
 
 /*
- * End of "$Id: server.c,v 1.13 2005/01/06 01:26:12 jlovell Exp $".
+ * End of "$Id: server.c,v 1.13.2.2 2005/07/27 21:58:45 jlovell Exp $".
  */

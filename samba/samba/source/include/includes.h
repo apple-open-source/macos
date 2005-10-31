@@ -423,6 +423,7 @@
 #if defined(HPUX) && defined(TCP_MAXSEG)
 #undef TCP_MAXSEG
 #endif
+#define BOOL_DEFINED
 #include <rpcsvc/yp_prot.h>
 #endif
 #if defined(HAVE_RPCSVC_YPCLNT_H)
@@ -1233,7 +1234,7 @@ int vasprintf(char **ptr, const char *format, va_list ap);
 #endif
 #endif
 
-extern int DEBUGLEVEL;
+extern int SAMBA_DEBUGLEVEL;
 
 #define MAX_SEC_CTX_DEPTH 8    /* Maximum number of security contexts */
 

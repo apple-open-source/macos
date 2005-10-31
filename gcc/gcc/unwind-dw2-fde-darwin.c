@@ -1,4 +1,4 @@
-/* Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+/* Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -57,7 +57,6 @@ extern void _keymgr_set_and_unlock_processwide_ptr (int, void *);
 extern void _keymgr_unlock_processwide_ptr (int);
 
 struct mach_header;
-/* APPLE LOCAL 64-bit mainline */
 struct mach_header_64;
 extern char *getsectdatafromheader (struct mach_header*, const char*,
 			const char *, unsigned long *);
@@ -155,7 +154,6 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
 	char *fde;
 	unsigned long sz;
 
-/* APPLE LOCAL 64-bit mainline */
 #ifdef __ppc64__
 	fde = getsectdatafromheader_64 ((struct mach_header_64 *) image->mh,
 				     "__DATA", "__eh_frame", &sz);
@@ -164,7 +162,6 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
 #endif
 	if (fde == NULL)
 	  {
-/* APPLE LOCAL 64-bit mainline */
 #ifdef __ppc64__
 	    fde = getsectdatafromheader_64 ((struct mach_header_64 *) image->mh,
 					 "__TEXT", "__eh_frame", &sz);

@@ -75,6 +75,3 @@ $(OFILE_DIR)/%.ppc.o %.ppc.o $(OFILE_DIR)/%.ppc64.o %.ppc64.o $(OFILE_DIR)/%.i38
 #-------------------------------------------------------------------------
 
 LIBGCC = $(shell $(CC) -arch $(RC_ARCHS) -print-file-name=libgcc.a)
-
-$(OFILE_DIR)/libgcc.unexport:
-	nm -g -arch $(RC_ARCHS) $(LIBGCC) | grep ' [A-TV-Z] ' | sed 's/^.* [A-Z] //' > $(OFILE_DIR)/libgcc.unexport

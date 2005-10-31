@@ -42,6 +42,9 @@ __END_DECLS
 
 #define kMacRISC_GPIO_DIRECTION_BIT	2
 
+#ifndef kIOHibernateStateKey
+#define kIOHibernateStateKey	"IOHibernateState"
+#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -52,6 +55,7 @@ OSDefineMetaClassAndStructors(MacRISC2CPU, IOCPU);
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 static IOCPUInterruptController 	*gCPUIC;
+static UInt32	 					*gPHibernateState;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -91,6 +95,9 @@ bool MacRISC2CPU::start(IOService *provider)
     keyLargo_setPowerSupply = OSSymbol::withCString("setPowerSupply");
     uniN_setPowerState = OSSymbol::withCString(kUniNSetPowerState);
     uniN_setAACKDelay = OSSymbol::withCString(kUniNSetAACKDelay);
+	pmu_cpuReset = OSSymbol::withCString("cpuReset");
+	ati_prepareDMATransaction = OSSymbol::withCString(kIOFBPrepareDMAValueKey);
+    ati_performDMATransaction = OSSymbol::withCString(kIOFBPerformDMAValueKey);
     
     macRISC2PE = OSDynamicCast(MacRISC2PE, getPlatform());
     if (macRISC2PE == 0) return false;
@@ -180,7 +187,24 @@ bool MacRISC2CPU::start(IOService *provider)
     else
         timebase_enable_offset = *(long *)tmpData->getBytesNoCopy();
   
-    // On macines with a 'vmin' property in the CPU Node we need to make sure to tell the kernel to 
+	// See if reset is needed on wake
+	resetOnWake = (provider->getProperty ("reset-on-wake") != NULL);
+	
+	if (resetOnWake) {
+		vm_address_t reserveMem;
+		
+		reserveMem = (vm_address_t)IOMallocAligned (PAGE_SIZE, PAGE_SIZE);	// Get one page (which we keep forever)
+		if (reserveMem) {			
+			// map it
+			reserveMemDesc = IOMemoryDescriptor::withAddress (reserveMem, PAGE_SIZE, kIODirectionNone, NULL);
+			if (reserveMemDesc) {
+				// get the physical address
+				reserveMemPhys = reserveMemDesc->getPhysicalAddress();
+			} 
+		} 
+	}
+
+    // On machines with a 'vmin' property in the CPU Node we need to make sure to tell the kernel to 
     // ml_set_processor_voltage on needed processors.
     needVSetting = (provider->getProperty( "vmin" ) != 0);
 
@@ -257,7 +281,7 @@ bool MacRISC2CPU::start(IOService *provider)
         processor_info.l2cr_value       = l2crValue;
         processor_info.supports_nap     = !flushOnLock;
         processor_info.time_base_enable =
-        (time_base_enable_t)&MacRISC2CPU::enableCPUTimeBase;
+        OSMemberFunctionCast(time_base_enable_t, this, &MacRISC2CPU::enableCPUTimeBase);	// [4091924]
     
         // Register this CPU with mach.
         result = ml_processor_register(&processor_info, &machProcessor,	&ipi_handler);
@@ -362,6 +386,11 @@ bool MacRISC2CPU::start(IOService *provider)
 IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned long, IOService*)
 {
 
+    if (!gPHibernateState) {
+		OSData * data = OSDynamicCast(OSData, getPMRootDomain()->getProperty(kIOHibernateStateKey));
+		if (data)
+			gPHibernateState = (UInt32 *) data->getBytesNoCopy();
+    }
 
     if ( ! (theFlags & IOPMPowerOn) ) {
         // Sleep sequence:
@@ -619,6 +648,49 @@ void MacRISC2CPU::initCPU(bool boot)
 					// Got the driver - send the message
 					pciDriver->setDevicePowerState (NULL, 3);
 
+
+			if (resetOnWake && (!gPHibernateState || !*gPHibernateState)) {
+				bool		doAGPRecovery;
+				IOReturn	result;
+				
+				doAGPRecovery = false;
+				if (macRISC2PE->atiDriver) {
+					// Restore ATI config space
+					macRISC2PE->atiDriver->restoreDeviceState();
+					if (macRISC2PE->gpuSensor) {
+						// Call ATI through the sensor driver to prep for the DMA transaction
+						result = macRISC2PE->gpuSensor->callPlatformFunction (ati_prepareDMATransaction, false, (void *)reserveMemDesc, 0, 0, 0);
+												
+						if (result == kIOReturnSuccess) {
+							if (macRISC2PE->atiDriver && macRISC2PE->agpBridgeDriver) {
+								// Issue resetAGP to turn on AGP
+								macRISC2PE->atiDriver->resetAGP();
+								
+								// Turn off GART (turned on by resetAGP)
+								macRISC2PE->agpBridgeDriver->configWrite32(macRISC2PE->agpBridgeDriver->getBridgeSpace(), 0x94, 0);
+
+								// Call ATI to do the dummy DMA transfer as a test
+								result = macRISC2PE->gpuSensor->callPlatformFunction (ati_performDMATransaction, false, (void *)reserveMemDesc, 0, 0, 0);
+
+								// Issue resetAGP to turn off AGP (so it's in state later s/w expects)
+								macRISC2PE->atiDriver->resetAGP();
+
+								if (result == kIOReturnDMAError) 
+									// DMA failed, to the recovery procedure
+									doAGPRecovery = true;
+							} 
+						} 
+					} 
+				} 
+
+				if (doAGPRecovery) {
+					kprintf("MacRISC2CPU::initCPU - AGP recovery required, issuing cpuReset\n");
+					pmu->callPlatformFunction (pmu_cpuReset, false, 0, 0, 0, 0);
+					while (1) /* spin waiting for restart*/ ;
+				}
+			}
+
+			// Continue the wake process
 			keyLargo->callPlatformFunction(keyLargo_restoreRegisterState, false, 0, 0, 0, 0);
 	
 			// Enables the interrupts for this CPU.
@@ -644,7 +716,7 @@ void MacRISC2CPU::initCPU(bool boot)
 			panic ("MacRISC2CPU: gCPUIC uninitialized for CPU %d\n", getCPUNumber());
     
         // Register and enable IPIs.
-        cpuNub->registerInterrupt(0, this, (IOInterruptAction)&MacRISC2CPU::ipiHandler, 0);
+        cpuNub->registerInterrupt(0, this, OSMemberFunctionCast(IOInterruptAction, this, &MacRISC2CPU::ipiHandler), 0);		// [4091924]
         cpuNub->enableInterrupt(0);
     }
     else
@@ -666,6 +738,7 @@ void MacRISC2CPU::quiesceCPU(void)
         } else {
 			// Send PMU command to shutdown system before io is turned off
 
+			if (!gPHibernateState || !*gPHibernateState)
 				pmu->callPlatformFunction("sleepNow", false, 0, 0, 0, 0);
 	
 			// Disables the interrupts for this CPU.
@@ -681,6 +754,7 @@ void MacRISC2CPU::quiesceCPU(void)
 			keyLargo->callPlatformFunction(keyLargo_saveRegisterState, false, 0, 0, 0, 0);
 	
 			// Turn Off all KeyLargo I/O.
+			if (!gPHibernateState || !*gPHibernateState)
 			{
 			    kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->turnOffIO\n", getCPUNumber());
 				keyLargo->callPlatformFunction(keyLargo_turnOffIO, false, (void *)false, 0, 0, 0);
@@ -696,7 +770,7 @@ void MacRISC2CPU::quiesceCPU(void)
                 (void *)(kUniNSave),
                 (void *)0, (void *)0, (void *)0);
 
-	{
+        if (processorSpeedChange || (!gPHibernateState || !*gPHibernateState)) {
         	// Set the sleeping state for HWInit.
 			// Tell Uni-N to enter normal mode.
 			uniN->callPlatformFunction (uniN_setPowerState, false, 

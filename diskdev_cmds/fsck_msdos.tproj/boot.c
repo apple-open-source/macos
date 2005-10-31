@@ -81,7 +81,7 @@ readboot(dosfs, boot)
          * the maximum sector size (which may end up reading more than one sector).
          */
 	if (read(dosfs, block, MAX_SECTOR_SIZE) != MAX_SECTOR_SIZE) {
-		perror("could not read boot block");
+		perr("could not read boot block");
 		return FSFATAL;
 	}
 
@@ -142,7 +142,7 @@ readboot(dosfs, boot)
 		    != boot->FSInfo * boot->BytesPerSec
 		    || read(dosfs, fsinfo, boot->BytesPerSec)
 		    != boot->BytesPerSec) {
-			perror("could not read fsinfo block");
+			perr("could not read fsinfo block");
 			return FSFATAL;
 		}
 		if (memcmp(fsinfo, "RRaA", 4)
@@ -165,7 +165,7 @@ readboot(dosfs, boot)
 				    != boot->FSInfo * boot->BytesPerSec
 				    || write(dosfs, fsinfo, boot->BytesPerSec)
 				    != boot->BytesPerSec) {
-					perror("Unable to write FSInfo");
+					perr("Unable to write FSInfo");
 					return FSFATAL;
 				}
 				ret = FSBOOTMOD;
@@ -261,7 +261,7 @@ readboot(dosfs, boot)
 			if (lseek(dosfs, 0, SEEK_SET) != 0 ||
 				write(dosfs, block, boot->BytesPerSec) != boot->BytesPerSec)
 			{
-				perror("could not write boot sector");
+				perr("could not write boot sector");
 				return FSFATAL;
 			}
 			ret |= FSBOOTMOD;	/* This flag is currently ignored by checkfilesys() */
@@ -293,7 +293,7 @@ writefsinfo(dosfs, boot)
 	if (lseek(dosfs, boot->FSInfo * boot->BytesPerSec, SEEK_SET)
 	    != boot->FSInfo * boot->BytesPerSec
 	    || read(dosfs, fsinfo, boot->BytesPerSec) != boot->BytesPerSec) {
-		perror("could not read fsinfo block");
+		perr("could not read fsinfo block");
 		return FSFATAL;
 	}
 	fsinfo[0x1e8] = (u_char)boot->FSFree;
@@ -308,7 +308,7 @@ writefsinfo(dosfs, boot)
 	    != boot->FSInfo * boot->BytesPerSec
 	    || write(dosfs, fsinfo, boot->BytesPerSec)
 	    != boot->BytesPerSec) {
-		perror("Unable to write FSInfo");
+		perr("Unable to write FSInfo");
 		return FSFATAL;
 	}
 	/*

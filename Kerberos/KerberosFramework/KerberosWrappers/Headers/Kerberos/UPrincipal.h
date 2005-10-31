@@ -3,7 +3,7 @@
  *
  * Abstraction for a KClient principal
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosWrappers/Headers/Kerberos/UPrincipal.h,v 1.21 2004/10/22 20:54:21 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosWrappers/Headers/Kerberos/UPrincipal.h,v 1.22 2005/06/14 19:25:38 lxs Exp $
  */
  
 #ifndef UPrincipal_h_
@@ -27,8 +27,6 @@ typedef	UPrincipalAutoPtr::UAutoPtrRef									UPrincipalAutoPtrRef;
 
 class UPrincipal;
 
-bool operator == (const UPrincipal& inLeft, const UPrincipal& inRight);
-
 // UPrincipal is a stack based class which represents Kerberos principals,
 // both v4 and v5.
 
@@ -41,9 +39,12 @@ public:
 			kerberosV4And5 = cc_credentials_v4_v5
 		};
 	
-		UPrincipal (
+		explicit UPrincipal (
 			krb5_principal				inString = 0):
 			UPrincipalAutoPtr (inString) {}
+		UPrincipal (
+                         UPrincipal&				inOriginal):
+                    UPrincipalAutoPtr (inOriginal) {}
 		UPrincipal (
 			UPrincipalAutoPtrRef		inReference):
 			UPrincipalAutoPtr (inReference) {}
@@ -101,7 +102,7 @@ public:
 			
 		KLPrincipal GetKLPrincipal () const;
 											
-		friend bool operator == (const UPrincipal& inLeft, const UPrincipal& inRight);
+        bool operator == (const UPrincipal& inCompareTo);
 	private:
 		ULazyKerberos5Context		mContext;
 		friend class UPrincipalAutoPtrDeleter;		

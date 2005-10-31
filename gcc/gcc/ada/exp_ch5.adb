@@ -330,6 +330,24 @@ package body Exp_Ch5 is
       elsif Has_Controlled_Component (L_Type) then
          Loop_Required := True;
 
+         --  If object is atomic, we cannot tolerate a loop
+
+      elsif Is_Atomic_Object (Act_Lhs)
+              or else
+            Is_Atomic_Object (Act_Rhs)
+      then
+         return;
+
+      --  Loop is required if we have atomic components since we have to
+      --  be sure to do any accesses on an element by element basis.
+
+      elsif Has_Atomic_Components (L_Type)
+        or else Has_Atomic_Components (R_Type)
+        or else Is_Atomic (Component_Type (L_Type))
+        or else Is_Atomic (Component_Type (R_Type))
+      then
+         Loop_Required := True;
+
       --  Case where no slice is involved
 
       elsif not L_Slice and not R_Slice then
@@ -369,7 +387,7 @@ package body Exp_Ch5 is
          --       File.Storage := Contents;
          --    end Write_All;
 
-         --  We expand to a loop in either of these two cases.
+         --  We expand to a loop in either of these two cases
 
          --  Question for future thought. Another potentially more efficient
          --  approach would be to create the actual subtype, and then do an
@@ -1441,7 +1459,7 @@ package body Exp_Ch5 is
                end if;
             end loop;
 
-            --  Now we can insert and analyze the pre-assignment.
+            --  Now we can insert and analyze the pre-assignment
 
             --  If the right-hand side requires a transient scope, it has
             --  already been placed on the stack. However, the declaration is
@@ -2462,7 +2480,7 @@ package body Exp_Ch5 is
                            Enumeration_Rep (First_Literal (Btype))),
                       Right_Opnd => New_Reference_To (New_Id, Loc)));
             else
-               --  Use the constructed array Enum_Pos_To_Rep.
+               --  Use the constructed array Enum_Pos_To_Rep
 
                Expr :=
                  Make_Indexed_Component (Loc,
@@ -2649,7 +2667,7 @@ package body Exp_Ch5 is
       if No (Exp) then
          Kind := Ekind (Scope_Id);
 
-         --  If it is a return from procedures do no extra steps.
+         --  If it is a return from procedures do no extra steps
 
          if Kind = E_Procedure or else Kind = E_Generic_Procedure then
             return;

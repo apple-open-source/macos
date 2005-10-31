@@ -40,8 +40,6 @@ package gnu.java.awt.peer.gtk;
 
 import java.awt.Checkbox;
 import java.awt.CheckboxGroup;
-import java.awt.Component;
-import java.awt.Font;
 import java.awt.peer.CheckboxPeer;
 
 public class GtkCheckboxPeer extends GtkComponentPeer
@@ -55,7 +53,7 @@ public class GtkCheckboxPeer extends GtkComponentPeer
   public native void create (GtkCheckboxGroupPeer group);
   public native void nativeSetCheckboxGroup (GtkCheckboxGroupPeer group);
   public native void connectSignals ();
-  native void gtkSetFont (String name, int style, int size);
+  native void gtkWidgetModifyFont (String name, int style, int size);
   native void gtkButtonSetLabel (String label);
   native void gtkToggleButtonSetActive (boolean is_active);
 

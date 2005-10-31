@@ -2214,7 +2214,8 @@ evaluate_subexp_for_address (struct expression *exp, int *pos,
    with nonzero based arrays, coercion loses.  Use CAST_IS_CONVERSION
    to decide if coercion is appropriate.
 
- */
+   APPLE LOCAL: If this is a vector type, don't coerce it to a
+   pointer, as then we would lose the 'stride' attribute. */
 
 struct value *
 evaluate_subexp_with_coercion (struct expression *exp,
@@ -2232,7 +2233,9 @@ evaluate_subexp_with_coercion (struct expression *exp,
     {
     case OP_VAR_VALUE:
       var = exp->elts[pc + 2].symbol;
+      /* APPLE LOCAL: Don't coerce to pointer if it's a vector type. */
       if (TYPE_CODE (check_typedef (SYMBOL_TYPE (var))) == TYPE_CODE_ARRAY
+	  && (! TYPE_FLAGS (check_typedef (SYMBOL_TYPE (var))) & TYPE_FLAG_VECTOR)
 	  && CAST_IS_CONVERSION)
 	{
 	  (*pos) += 4;

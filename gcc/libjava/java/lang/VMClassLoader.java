@@ -1,6 +1,6 @@
 /* VMClassLoader.java -- Reference implementation of native interface
    required by ClassLoader
-   Copyright (C) 1998, 2001, 2002, 2003, 2004 Free Software Foundation
+   Copyright (C) 1998, 2001, 2002, 2003, 2004, 2005 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -40,15 +40,21 @@ package java.lang;
 
 import gnu.java.util.EmptyEnumeration;
 import java.lang.reflect.Constructor;
+import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.security.AllPermission;
 import java.security.Permission;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.StringTokenizer;
+import gnu.gcj.runtime.BootClassLoader;
 
 /**
  * java.lang.VMClassLoader is a package-private helper for VMs to implement
@@ -76,6 +82,23 @@ final class VMClassLoader
     unknownProtectionDomain = new ProtectionDomain(null, permissions);  
   }
 
+  static final HashMap definedPackages = new HashMap();
+
+  // This is a helper for handling java.endorsed.dirs.  It is null
+  // until we've initialized the system, at which point it is created.
+  static BootClassLoader bootLoader;
+
+  // This keeps track of shared libraries we've already tried to load.
+  private static HashSet tried_libraries;
+
+  // Holds one of the LIB_* constants; used to determine how shared
+  // library loads are done.
+  private static int lib_control;
+
+  private static final int LIB_FULL = 0;
+  private static final int LIB_CACHE = 1;
+  private static final int LIB_NEVER = 2;
+
   /**
    * Helper to define a class using a string of bytes. This assumes that
    * the security checks have already been performed, if necessary.
@@ -97,44 +120,31 @@ final class VMClassLoader
 					ProtectionDomain pd)
     throws ClassFormatError;
 
-  static final native void linkClass0 (Class klass);
-  static final native void markClassErrorState0 (Class klass);
-
   /**
    * Helper to resolve all references to other classes from this class.
    *
    * @param c the class to resolve
    */
-  static final void resolveClass(Class clazz)
-  {
-    synchronized (clazz)
-      {
-	try
-	  {
-	    linkClass0 (clazz);
-	  }
-	catch (Throwable x)
-	  {
-	    markClassErrorState0 (clazz);
+  static final native void resolveClass(Class clazz);
 
-	    LinkageError e;
-	    if (x instanceof LinkageError)
-	      e = (LinkageError) x;
-	    else if (x instanceof ClassNotFoundException)
-	      {
-		e = new NoClassDefFoundError("while resolving class: "
-					     + clazz.getName());
-		e.initCause (x);
-	      }
-	    else
-	      {
-		e = new LinkageError ("unexpected exception during linking: "
-				      + clazz.getName());
-		e.initCause (x);
-	      }
-	    throw e;
-	  }
+  static final void transformException(Class clazz, Throwable x)
+  {
+    LinkageError e;
+    if (x instanceof LinkageError)
+      e = (LinkageError) x;
+    else if (x instanceof ClassNotFoundException)
+      {
+	e = new NoClassDefFoundError("while resolving class: "
+				     + clazz.getName());
+	e.initCause (x);
       }
+    else
+      {
+	e = new LinkageError ("unexpected exception during linking: "
+			      + clazz.getName());
+	e.initCause (x);
+      }
+    throw e;
   }
 
   /**
@@ -160,6 +170,8 @@ final class VMClassLoader
    */
   static URL getResource(String name)
   {
+    if (bootLoader != null)
+      return bootLoader.bootGetResource(name);
     return null;
   }
 
@@ -175,6 +187,8 @@ final class VMClassLoader
    */
   static Enumeration getResources(String name) throws IOException
   {
+    if (bootLoader != null)
+      return bootLoader.bootGetResources(name);
     return EmptyEnumeration.getInstance();
   }
 
@@ -186,9 +200,9 @@ final class VMClassLoader
    * @param name the name to find
    * @return the named package, if it exists
    */
-  static Package getPackage(String name)
+  static synchronized Package getPackage(String name)
   {
-    return null;
+    return (Package) definedPackages.get(name);
   }
 
   /**
@@ -198,9 +212,33 @@ final class VMClassLoader
    *
    * @return all named packages, if any exist
    */
-  static Package[] getPackages()
+  static synchronized Package[] getPackages()
   {
-    return new Package[0];
+    Package[] packages = new Package[definedPackages.size()];
+    return (Package[]) definedPackages.values().toArray(packages);
+  }
+
+  // Define a package for something loaded natively.
+  static synchronized void definePackageForNative(String className)
+  {
+    int lastDot = className.lastIndexOf('.');
+    if (lastDot != -1)
+      {
+	String packageName = className.substring(0, lastDot);
+	if (getPackage(packageName) == null)
+	  {
+	    // FIXME: this assumes we're defining the core, which
+	    // isn't necessarily so.  We could detect this and set up
+	    // appropriately.  We could also look at a manifest file
+	    // compiled into the .so.
+	    Package p = new Package(packageName,
+				    "Java Platform API Specification",
+				    "GNU", "1.4", "gcj", "GNU",
+				    null, // FIXME: gcj version.
+				    null);
+	    definedPackages.put(packageName, p);
+	  }
+      }
   }
 
   /**
@@ -270,6 +308,32 @@ final class VMClassLoader
 
   static native ClassLoader getSystemClassLoaderInternal();
 
+  static native void initBootLoader(String libdir);
+
+  static void initialize(String libdir)
+  {
+    initBootLoader(libdir);
+
+    String p
+      = System.getProperty ("gnu.gcj.runtime.VMClassLoader.library_control",
+			    "");
+    if ("never".equals(p))
+      lib_control = LIB_NEVER;
+    else if ("cache".equals(p))
+      lib_control = LIB_CACHE;
+    else if ("full".equals(p))
+      lib_control = LIB_FULL;
+    else
+      lib_control = LIB_CACHE;
+
+    tried_libraries = new HashSet();
+  }
+
+  /**
+   * Possibly load a .so and search it for classes.
+   */
+  static native Class nativeFindClass(String name);
+
   static ClassLoader getSystemClassLoader()
   {
     // This method is called as the initialization of systemClassLoader,
@@ -287,14 +351,13 @@ final class VMClassLoader
 	    default_sys
 	      = (ClassLoader) c.newInstance(new Object[] { default_sys });
 	  }
-	catch (Exception e)
+	catch (Exception ex)
 	  {
-	    System.err.println("Requested system classloader "
-			       + loader + " failed, using "
-			       + "gnu.gcj.runtime.VMClassLoader");
-	    e.printStackTrace();
+	    throw new Error("Failed to load requested system classloader "
+			       + loader, ex);
 	  }
       }
+
     return default_sys;
   }
 }

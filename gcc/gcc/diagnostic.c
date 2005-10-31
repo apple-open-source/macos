@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
@@ -61,13 +61,15 @@ static void real_abort (void) ATTRIBUTE_NORETURN;
 static diagnostic_context global_diagnostic_context;
 diagnostic_context *global_dc = &global_diagnostic_context;
 
-/* APPLE LOCAL error-colon */
+/* APPLE LOCAL begin error-colon */
 static int gcc_error_colon = 0;
+/* APPLE LOCAL end error-colon */
 
-/* APPLE LOCAL insert assembly ".abort" directive on fatal error   */
+/* APPLE LOCAL begin insert assembly ".abort" directive on fatal error   */
 #ifdef EXIT_FROM_FATAL_DIAGNOSTIC
 #define exit(status)	EXIT_FROM_FATAL_DIAGNOSTIC (status)
 #endif
+/* APPLE LOCAL end insert assembly ".abort" directive on fatal error   */
 
 /* Return a malloc'd string containing MSG formatted a la printf.  The
    caller is responsible for freeing the memory.  */
@@ -330,7 +332,7 @@ default_diagnostic_starter (diagnostic_context *context,
 
 static void
 default_diagnostic_finalizer (diagnostic_context *context,
-			      diagnostic_info *diagnostic __attribute__((unused)))
+			      diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
 {
   pp_destroy_prefix (context->printer);
 }

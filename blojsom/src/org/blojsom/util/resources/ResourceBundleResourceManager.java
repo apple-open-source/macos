@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,16 +41,17 @@ import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.util.BlojsomConstants;
 import org.blojsom.util.BlojsomUtils;
 
+import java.text.MessageFormat;
 import java.util.Locale;
-import java.util.ResourceBundle;
 import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 /**
  * ResourceBundleResourceManager
  *
- * @version $Id: ResourceBundleResourceManager.java,v 1.2 2004/08/27 01:13:56 whitmore Exp $
- * @since blojsom 2.13
  * @author David Czarnecki
+ * @version $Id: ResourceBundleResourceManager.java,v 1.2.2.1 2005/07/21 14:11:05 johnan Exp $
+ * @since blojsom 2.13
  */
 public class ResourceBundleResourceManager implements BlojsomConstants, ResourceManager {
 
@@ -67,6 +68,7 @@ public class ResourceBundleResourceManager implements BlojsomConstants, Resource
      * <p/>
      * Resource bundles to pre-load are specified in a comma-separated list under the key
      * <code>blojsom-resource-manager-bundles</code>.
+     *
      * @param blojsomConfiguration Blojsom configuration information
      */
     public void init(BlojsomConfiguration blojsomConfiguration) throws BlojsomException {
@@ -93,8 +95,8 @@ public class ResourceBundleResourceManager implements BlojsomConstants, Resource
      * Retrieve a string from a given resource bundle for the default locale.
      *
      * @param resourceID Resource ID to retrieve from the resource bundle
-     * @param resource Full-qualified resource bundle from which to retrieve the resource ID
-     * @param fallback Fallback string to use if the given resource ID cannot be found
+     * @param resource   Full-qualified resource bundle from which to retrieve the resource ID
+     * @param fallback   Fallback string to use if the given resource ID cannot be found
      * @return <code>resourceID</code> from resource bundle <code>resource</code> or <code>fallback</code> if the given resource ID cannot be found
      */
     public String getString(String resourceID, String resource, String fallback) {
@@ -112,10 +114,23 @@ public class ResourceBundleResourceManager implements BlojsomConstants, Resource
      * Retrieve a string from a given resource bundle for the particular language and country locale.
      *
      * @param resourceID Resource ID to retrieve from the resource bundle
-     * @param resource Full-qualified resource bundle from which to retrieve the resource ID
-     * @param fallback Fallback string to use if the given resource ID cannot be found
-     * @param language Language code
-     * @param country Country code
+     * @param resource   Full-qualified resource bundle from which to retrieve the resource ID
+     * @param fallback   Fallback string to use if the given resource ID cannot be found
+     * @param language   Language code
+     * @return <code>resourceID</code> from resource bundle <code>resource</code> or <code>fallback</code> if the given resource ID cannot be found
+     */
+    public String getString(String resourceID, String resource, String fallback, String language) {
+        return getString(resourceID, resource, fallback, new Locale(language));
+    }
+
+    /**
+     * Retrieve a string from a given resource bundle for the particular language and country locale.
+     *
+     * @param resourceID Resource ID to retrieve from the resource bundle
+     * @param resource   Full-qualified resource bundle from which to retrieve the resource ID
+     * @param fallback   Fallback string to use if the given resource ID cannot be found
+     * @param language   Language code
+     * @param country    Country code
      * @return <code>resourceID</code> from resource bundle <code>resource</code> or <code>fallback</code> if the given resource ID cannot be found
      */
     public String getString(String resourceID, String resource, String fallback, String language, String country) {
@@ -126,9 +141,9 @@ public class ResourceBundleResourceManager implements BlojsomConstants, Resource
      * Retrieve a string from a given resource bundle for the particular language and country locale.
      *
      * @param resourceID Resource ID to retrieve from the resource bundle
-     * @param resource Full-qualified resource bundle from which to retrieve the resource ID
-     * @param fallback Fallback string to use if the given resource ID cannot be found
-     * @param locale Locale object to use when retrieving the resource bundle
+     * @param resource   Full-qualified resource bundle from which to retrieve the resource ID
+     * @param fallback   Fallback string to use if the given resource ID cannot be found
+     * @param locale     Locale object to use when retrieving the resource bundle
      * @return <code>resourceID</code> from resource bundle <code>resource</code> or <code>fallback</code> if the given resource ID cannot be found
      */
     public String getString(String resourceID, String resource, String fallback, Locale locale) {
@@ -140,5 +155,26 @@ public class ResourceBundleResourceManager implements BlojsomConstants, Resource
         }
 
         return fallback;
+    }
+
+    /**
+     * Wrapper for {@link java.text.MessageFormat#format(String, Object[])}
+     *
+     * @param pattern   Pattern
+     * @param arguments Arguments to apply to pattern
+     * @return String where {@link java.text.MessageFormat#format(String, Object[])} has been applied or <code>null</code>
+     *         if there is an error applying the arguments to the pattern
+     * @since blojsom 2.21
+     */
+    public String format(String pattern, Object[] arguments) {
+        String value = null;
+
+        try {
+            value = MessageFormat.format(pattern, arguments);
+        } catch (Exception e) {
+            _logger.error(e);
+        }
+
+        return value;
     }
 }

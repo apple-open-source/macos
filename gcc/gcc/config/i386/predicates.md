@@ -1,5 +1,5 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -319,12 +319,6 @@
 	 (and (match_operand 0 "const_double_operand")
 	      (match_test "GET_MODE_SIZE (mode) <= 8")))))
 
-;; Return nonzero if OP is CONST_INT >= 1 and <= 31 (a valid operand
-;; for shift & compare patterns, as shifting by 0 does not change flags).
-(define_predicate "const_int_1_31_operand"
-  (and (match_code "const_int")
-       (match_test "INTVAL (op) >= 1 && INTVAL (op) <= 31")))
-
 ;; Returns nonzero if OP is either a symbol reference or a sum of a symbol
 ;; reference and a constant.
 (define_predicate "symbolic_operand"
@@ -474,11 +468,10 @@
 {
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
-  return !(op == stack_pointer_rtx
-	   || op == arg_pointer_rtx
-	   || op == frame_pointer_rtx
-	   || (REGNO (op) >= FIRST_PSEUDO_REGISTER
-	       && REGNO (op) <= LAST_VIRTUAL_REGISTER));
+  if (reload_in_progress || reload_completed)
+    return REG_OK_FOR_INDEX_STRICT_P (op);
+  else
+    return REG_OK_FOR_INDEX_NONSTRICT_P (op);
 })
 
 ;; Return false if this is any eliminable register.  Otherwise general_operand.
@@ -499,15 +492,19 @@
        (ior (match_operand 0 "register_no_elim_operand")
 	    (match_operand 0 "memory_operand"))))
 
-;; Simiarly, but for tail calls, in which we cannot allow memory references.
+;; Similarly, but for tail calls, in which we cannot allow memory references.
 (define_predicate "sibcall_insn_operand"
   (ior (match_operand 0 "constant_call_address_operand")
        (match_operand 0 "register_no_elim_operand")))
 
 ;; Match exactly zero.
 (define_predicate "const0_operand"
-  (and (match_code "const_int,const_double,const_vector")
-       (match_test "op == CONST0_RTX (mode)")))
+  (match_code "const_int,const_double,const_vector")
+{
+  if (mode == VOIDmode)
+    mode = GET_MODE (op);
+  return op == CONST0_RTX (mode);
+})
 
 ;; Match exactly one.
 (define_predicate "const1_operand"
@@ -521,6 +518,11 @@
   HOST_WIDE_INT i = INTVAL (op);
   return i == 2 || i == 4 || i == 8;
 })
+
+;; Match 0 or 1.
+(define_predicate "const_0_to_1_operand"
+  (and (match_code "const_int")
+       (match_test "op == const0_rtx || op == const1_rtx")))
 
 ;; Match 0 to 3.
 (define_predicate "const_0_to_3_operand"
@@ -537,10 +539,55 @@
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 15")))
 
+;; Match 0 to 63.
+(define_predicate "const_0_to_63_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 63")))
+
 ;; Match 0 to 255.
 (define_predicate "const_0_to_255_operand"
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 255")))
+
+;; Match (0 to 255) * 8
+(define_predicate "const_0_to_255_mul_8_operand"
+  (match_code "const_int")
+{
+  unsigned HOST_WIDE_INT val = INTVAL (op);
+  return val <= 255*8 && val % 8 == 0;
+})
+
+;; Return nonzero if OP is CONST_INT >= 1 and <= 31 (a valid operand
+;; for shift & compare patterns, as shifting by 0 does not change flags).
+(define_predicate "const_1_to_31_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 1 && INTVAL (op) <= 31")))
+
+;; Match 2 or 3.
+(define_predicate "const_2_to_3_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) == 2 || INTVAL (op) == 3")))
+
+;; Match 4 to 7.
+(define_predicate "const_4_to_7_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 4 && INTVAL (op) <= 7")))
+
+;; Match exactly one bit in 4-bit mask.
+(define_predicate "const_pow2_1_to_8_operand"
+  (match_code "const_int")
+{
+  unsigned int log = exact_log2 (INTVAL (op));
+  return log <= 3;
+})
+
+;; Match exactly one bit in 8-bit mask.
+(define_predicate "const_pow2_1_to_128_operand"
+  (match_code "const_int")
+{
+  unsigned int log = exact_log2 (INTVAL (op));
+  return log <= 7;
+})
 
 ;; True if this is a constant appropriate for an increment or decrement.
 (define_predicate "incdec_operand"
@@ -596,6 +643,11 @@
 ;; Return 1 when OP is operand acceptable for standard SSE move.
 (define_predicate "vector_move_operand"
   (ior (match_operand 0 "nonimmediate_operand")
+       (match_operand 0 "const0_operand")))
+
+;; Return true if OP is a register or a zero.
+(define_predicate "reg_or_0_operand"
+  (ior (match_operand 0 "register_operand")
        (match_operand 0 "const0_operand")))
 
 ;; Return true if op if a valid address, and does not contain
@@ -711,9 +763,7 @@
 ;; predicate.
 
 (define_special_predicate "sse_comparison_operator"
-  (ior (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered")
-       (and (match_code "uneq,unlt,unle,ltgt,ge,gt")
-	    (match_code "!TARGET_IEEE_FP"))))
+  (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered"))
 
 ;; Return 1 if OP is a valid comparison operator in valid mode.
 (define_predicate "ix86_comparison_operator"
@@ -795,10 +845,14 @@
 (define_predicate "div_operator"
   (match_code "div"))
 
+;; Return true if this is a float extend operation.
+(define_predicate "float_operator"
+  (match_code "float"))
+
 ;; Return true for ARITHMETIC_P.
 (define_predicate "arith_or_logical_operator"
-  (match_code "PLUS,MULT,AND,IOR,XOR,SMIN,SMAX,UMIN,UMAX,COMPARE,MINUS,DIV,
-	       MOD,UDIV,UMOD,ASHIFT,ROTATE,ASHIFTRT,LSHIFTRT,ROTATERT"))
+  (match_code "plus,mult,and,ior,xor,smin,smax,umin,umax,compare,minus,div,
+	       mod,udiv,umod,ashift,rotate,ashiftrt,lshiftrt,rotatert"))
 
 ;; Return 1 if OP is a binary operator that can be promoted to wider mode.
 ;; Modern CPUs have same latency for HImode and SImode multiply,
@@ -829,3 +883,9 @@
 (define_predicate "cmpsi_operand"
   (ior (match_operand 0 "nonimmediate_operand")
        (match_operand 0 "cmpsi_operand_1")))
+
+(define_predicate "compare_operator"
+  (match_code "compare"))
+
+(define_predicate "absneg_operator"
+  (match_code "abs,neg"))

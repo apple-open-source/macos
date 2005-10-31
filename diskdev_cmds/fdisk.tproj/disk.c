@@ -90,6 +90,34 @@ DISK_open(disk, mode)
 }
 
 int
+DISK_openshared(disk, mode, shared)
+	char *disk;
+	int mode;
+	int *shared;
+{
+	int fd;
+	struct stat st;
+	*shared = 0;
+
+	fd = open(disk, mode|O_EXLOCK);
+	if (fd == -1) {
+	  // if we can't have exclusive access, attempt
+	  // to gracefully degrade to shared access
+	  fd = open(disk, mode|O_SHLOCK);
+	  if(fd == -1)
+		err(1, "%s", disk);
+
+	  *shared = 1;
+	}
+
+	if (fstat(fd, &st) == -1)
+		err(1, "%s", disk);
+	if (!S_ISCHR(st.st_mode) && !S_ISREG(st.st_mode))
+		errx(1, "%s is not a character device or a regular file", disk);
+	return (fd);
+}
+
+int
 DISK_close(fd)
 	int fd;
 {

@@ -147,8 +147,8 @@ void exit_server(const char *reason)
 
 	if (!reason) {   
 		int oldlevel = DEBUGLEVEL;
-		DEBUGLEVEL = 10;
-		DEBUGLEVEL = oldlevel;
+		SAMBA_DEBUGLEVEL = 10;
+		SAMBA_DEBUGLEVEL = oldlevel;
 		DEBUG(0,("===============================================================\n"));
 #if DUMP_CORE
 		if (dump_core()) return;

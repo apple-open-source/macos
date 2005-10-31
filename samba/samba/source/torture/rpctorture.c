@@ -247,7 +247,7 @@ enum client_action
 		fprintf(stderr, "Can't load %s - run testparm to debug it\n", dyn_CONFIGFILE);
 	}
 
-	DEBUGLEVEL = 0;
+	SAMBA_DEBUGLEVEL = 0;
 
 	cli_info.put_total_size = 0;
 	cli_info.put_total_time_ms = 0;
@@ -431,9 +431,9 @@ enum client_action
 			case 'd':
 			{
 				if (*optarg == 'A')
-					DEBUGLEVEL = 10000;
+					SAMBA_DEBUGLEVEL = 10000;
 				else
-					DEBUGLEVEL = atoi(optarg);
+					SAMBA_DEBUGLEVEL = atoi(optarg);
 				break;
 			}
 

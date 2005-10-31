@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,8 @@
 #define __DNSINFO_PRIVATE_H__
 
 
+#include <AvailabilityMacros.h>
+#include <sys/cdefs.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,6 +35,7 @@
 
 #include "dnsinfo.h"
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
 
 /*
  * What's all of this stuff about???
@@ -178,7 +181,13 @@ typedef struct {
 } _dns_resolver_buf_t;
 
 
-const char *    _dns_configuration_notify_key();
-mach_port_t	_dns_configuration_server_port();
+__BEGIN_DECLS
 
-#endif __DNSINFO_PRIVATE_H__
+const char *    _dns_configuration_notify_key()		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+mach_port_t	_dns_configuration_server_port()	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+__END_DECLS
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
+
+#endif	/* __DNSINFO_PRIVATE_H__ */

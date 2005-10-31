@@ -1,6 +1,6 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -47,6 +47,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "target.h"
+#include "version.h"
 
 #if defined (DEBUG_JAVA_BINDING_LEVELS)
 extern void indent (void);
@@ -58,6 +59,13 @@ static tree push_promoted_type (const char *, tree);
 static struct binding_level *make_binding_level (void);
 static tree create_primitive_vtable (const char *);
 static tree check_local_unnamed_variable (tree, tree, tree);
+static void parse_version (void);
+
+/* Used when computing the ABI version.  */
+#define GCJ_BINARYCOMPAT_ADDITION 5
+
+/* The ABI version number.  */
+tree gcj_abi_version;
 
 /* Name of the Cloneable class.  */
 tree java_lang_cloneable_identifier_node;
@@ -141,7 +149,10 @@ update_aliases (tree decl, int index, int pc)
 	  && LOCAL_SLOT_P (tmp) == 0
 	  && (pc == -1
 	      || (pc >= DECL_LOCAL_START_PC (tmp)
-		  && pc <= DECL_LOCAL_END_PC (tmp)))
+		  && pc < DECL_LOCAL_END_PC (tmp)))
+	  /* This test is < (rather than <=) because there's no point
+	     updating an alias that's about to die at the end of this
+	     instruction.  */
 	  && (tmp_type == decl_type
 	      || (INTEGRAL_TYPE_P (tmp_type)
 		  && INTEGRAL_TYPE_P (decl_type)
@@ -242,17 +253,34 @@ check_local_unnamed_variable (tree best, tree decl, tree type)
       || (INTEGRAL_TYPE_P (decl_type)
 	  && INTEGRAL_TYPE_P (type)
 	  && TYPE_PRECISION (decl_type) <= 32
-	    && TYPE_PRECISION (type) <= 32
+	  && TYPE_PRECISION (type) <= 32
 	  && TYPE_PRECISION (decl_type) >= TYPE_PRECISION (type))      
-	|| (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE
-	    && type == ptr_type_node))
-      {
-	if (best == NULL_TREE
-	  || (decl_type == type && TREE_TYPE (best) != type))
-	  return decl;
-      }
+      /*  ptr_type_node is used for null pointers, which are
+	  assignment compatible with everything.  */
+      || (TREE_CODE (decl_type) == POINTER_TYPE
+	  && type == ptr_type_node)
+      /* Whenever anyone wants to use a slot that is initially
+	 occupied by a PARM_DECL of pointer type they must get that
+	 decl, even if they asked for a pointer to a different type.
+	 However, if someone wants a scalar variable in a slot that
+	 initially held a pointer arg -- or vice versa -- we create a
+	 new VAR_DECL.  
 
-    return best;
+      	 ???: As long as verification is correct, this will be a
+	 compatible type.  But maybe we should create a dummy variable
+	 and replace all references to it with the DECL and a
+	 NOP_EXPR.  
+      */
+      || (TREE_CODE (decl_type) == POINTER_TYPE
+	  && TREE_CODE (decl) == PARM_DECL
+	  && TREE_CODE (type) == POINTER_TYPE))
+    {
+      if (best == NULL_TREE
+	  || (decl_type == type && TREE_TYPE (best) != type))
+	return decl;
+    }
+
+  return best;
 }
 
 
@@ -277,6 +305,16 @@ find_local_variable (int index, tree type, int pc ATTRIBUTE_UNUSED)
       tmp = DECL_LOCAL_SLOT_CHAIN (tmp);
     }
 
+  /* gcj has a function called promote_type(), which is used by both
+     the bytecode compiler and the source compiler.  Unfortunately,
+     the type systems for the Java VM and the Java language are not
+     the same: a boolean in the VM promotes to an int, not to a wide
+     boolean.  If our caller wants something to hold a boolean, that
+     had better be an int, because that slot might be re-used
+     later in integer context.  */
+  if (TREE_CODE (type) == BOOLEAN_TYPE)
+    type = integer_type_node;
+
   /* If we don't find a match, create one with the type passed in.
      The name of the variable is #n#m, which n is the variable index
      in the local variable area and m is a dummy identifier for
@@ -286,9 +324,9 @@ find_local_variable (int index, tree type, int pc ATTRIBUTE_UNUSED)
      variable that is used for every reference in that local variable
      slot.  */
   if (! decl)
-  {
-    char buf[64];
-    tree name;
+    {
+      char buf[64];
+      tree name;
       sprintf (buf, "#slot#%d#%d", index, uniq++);
       name = get_identifier (buf);
       decl = build_decl (VAR_DECL, name, type);
@@ -532,6 +570,49 @@ do_nothing (tree t)
   return t;
 }
 
+/* Parse the version string and compute the ABI version number.  */
+static void
+parse_version (void)
+{
+  const char *p = version_string;
+  unsigned int major = 0, minor = 0;
+  unsigned int abi_version;
+
+  /* Skip leading junk.  */
+  while (*p && !ISDIGIT (*p))
+    ++p;
+  gcc_assert (*p);
+
+  /* Extract major version.  */
+  while (ISDIGIT (*p))
+    {
+      major = major * 10 + *p - '0';
+      ++p;
+    }
+
+  gcc_assert (*p == '.' && ISDIGIT (p[1]));
+  ++p;
+
+  /* Extract minor version.  */
+  while (ISDIGIT (*p))
+    {
+      minor = minor * 10 + *p - '0';
+      ++p;
+    }
+
+  /* Implicit in this computation is the idea that we won't break the
+     old-style binary ABI in a sub-minor release (e.g., from 4.0.0 to
+     4.0.1).  */
+  abi_version = 10000 * major + 10 * minor;
+  /* It is helpful to distinguish BC ABI from ordinary ABI at this
+     level, since at some point we will recognize a variety of BC ABIs
+     (objects generated by different version of gcj), but will
+     probably always require strict matching for ordinary ABI.  */
+  if (flag_indirect_dispatch)
+    abi_version += GCJ_BINARYCOMPAT_ADDITION;
+
+  gcj_abi_version = build_int_cstu (ptr_type_node, abi_version);
+}
 
 void
 java_init_decl_processing (void)
@@ -616,7 +697,11 @@ java_init_decl_processing (void)
   void_type_node = make_node (VOID_TYPE);
   pushdecl (build_decl (TYPE_DECL, get_identifier ("void"), void_type_node));
   layout_type (void_type_node);	/* Uses size_zero_node */
+
   ptr_type_node = build_pointer_type (void_type_node);
+  const_ptr_type_node
+    = build_pointer_type (build_type_variant (void_type_node, 1, 0));
+
   t = make_node (VOID_TYPE);
   layout_type (t); /* Uses size_zero_node */
   return_address_type_node = build_pointer_type (t);
@@ -690,6 +775,11 @@ java_init_decl_processing (void)
   TYPE_NONALIASED_COMPONENT (atable_type) = 1;
   atable_ptr_type = build_pointer_type (atable_type);
 
+  itable_type = build_array_type (ptr_type_node, 
+				  one_elt_array_domain_type);
+  TYPE_NONALIASED_COMPONENT (itable_type) = 1;
+  itable_ptr_type = build_pointer_type (itable_type);
+
   symbol_type = make_node (RECORD_TYPE);
   PUSH_FIELD (symbol_type, field, "clname", utf8const_ptr_type);
   PUSH_FIELD (symbol_type, field, "name", utf8const_ptr_type);
@@ -699,6 +789,15 @@ java_init_decl_processing (void)
   symbols_array_type = build_array_type (symbol_type, 
 					 one_elt_array_domain_type);
   symbols_array_ptr_type = build_pointer_type (symbols_array_type);
+
+  assertion_entry_type = make_node (RECORD_TYPE);
+  PUSH_FIELD (assertion_entry_type, field, "assertion_code", integer_type_node);
+  PUSH_FIELD (assertion_entry_type, field, "op1", utf8const_ptr_type);
+  PUSH_FIELD (assertion_entry_type, field, "op2", utf8const_ptr_type);
+  FINISH_RECORD (assertion_entry_type);
+  
+  assertion_table_type = build_array_type (assertion_entry_type,
+                                           one_elt_array_domain_type);
 
   /* As you're adding items here, please update the code right after
      this section, so that the filename containing the source code of
@@ -796,7 +895,7 @@ java_init_decl_processing (void)
   set_super_info (0, string_type_node, object_type_node, 0);
   class_ptr_type = build_pointer_type (class_type_node);
 
-  PUSH_FIELD (class_type_node, field, "next", class_ptr_type);
+  PUSH_FIELD (class_type_node, field, "next_or_version", class_ptr_type);
   PUSH_FIELD (class_type_node, field, "name", utf8const_ptr_type);
   PUSH_FIELD (class_type_node, field, "accflags", access_flags_type_node);
   PUSH_FIELD (class_type_node, field, "superclass", class_ptr_type);
@@ -815,6 +914,9 @@ java_init_decl_processing (void)
   PUSH_FIELD (class_type_node, field, "atable", atable_ptr_type);
   PUSH_FIELD (class_type_node, field, "atable_syms", 
   	      symbols_array_ptr_type);
+  PUSH_FIELD (class_type_node, field, "itable", itable_ptr_type);
+  PUSH_FIELD (class_type_node, field, "itable_syms", 
+  	      symbols_array_ptr_type);
   PUSH_FIELD (class_type_node, field, "catch_classes", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "interfaces",
 	      build_pointer_type (class_ptr_type));
@@ -827,9 +929,11 @@ java_init_decl_processing (void)
   PUSH_FIELD (class_type_node, field, "idt", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "arrayclass", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "protectionDomain", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "assertion_table", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "hack_signers", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "chain", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "aux_info", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "engine", ptr_type_node);
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   push_super_field (class_type_node, object_type_node);
@@ -861,9 +965,6 @@ java_init_decl_processing (void)
   FINISH_RECORD (dtable_type);
   build_decl (TYPE_DECL, get_identifier ("dispatchTable"), dtable_type);
 
-#define jint_type int_type_node
-#define jint_ptr_type ptr_type_node
-
   jexception_type = make_node (RECORD_TYPE);
   PUSH_FIELD (jexception_type, field, "start_pc", ptr_type_node);
   PUSH_FIELD (jexception_type, field, "end_pc", ptr_type_node);
@@ -882,10 +983,6 @@ java_init_decl_processing (void)
   PUSH_FIELD (lineNumbers_type, field, "length", unsigned_int_type_node);
   FINISH_RECORD (lineNumbers_type);
 
-#define instn_ptr_type_node ptr_type_node	/* XXX JH */
-
-#define lineNumbers_ptr_type_node build_pointer_type(lineNumbers_type)
-
   PUSH_FIELD (method_type_node, field, "name", utf8const_ptr_type);
   PUSH_FIELD (method_type_node, field, "signature", utf8const_ptr_type);
   PUSH_FIELD (method_type_node, field, "accflags", access_flags_type_node);
@@ -897,8 +994,7 @@ java_init_decl_processing (void)
 
   endlink = end_params_node = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
 
-  t = tree_cons (NULL_TREE, class_ptr_type,
-		 tree_cons (NULL_TREE, int_type_node, endlink));
+  t = tree_cons (NULL_TREE, class_ptr_type, endlink);
   alloc_object_node = builtin_function ("_Jv_AllocObject",
 					build_function_type (ptr_type_node, t),
 					0, NOT_BUILT_IN, NULL, NULL_TREE);
@@ -916,31 +1012,33 @@ java_init_decl_processing (void)
 					  0, NOT_BUILT_IN, NULL, NULL_TREE);
 
   throw_node = builtin_function ("_Jv_Throw",
-				 build_function_type (ptr_type_node, t),
+				 build_function_type (void_type_node, t),
 				 0, NOT_BUILT_IN, NULL, NULL_TREE);
   /* Mark throw_nodes as `noreturn' functions with side effects.  */
   TREE_THIS_VOLATILE (throw_node) = 1;
   TREE_SIDE_EFFECTS (throw_node) = 1;
 
-  t = build_function_type (int_type_node, endlink);
+  t = build_function_type (void_type_node, tree_cons (NULL_TREE, ptr_type_node,
+						      endlink));
   soft_monitorenter_node 
     = builtin_function ("_Jv_MonitorEnter", t, 0, NOT_BUILT_IN,
 			NULL, NULL_TREE);
   soft_monitorexit_node 
     = builtin_function ("_Jv_MonitorExit", t, 0, NOT_BUILT_IN,
 			NULL, NULL_TREE);
-  
-  t = tree_cons (NULL_TREE, int_type_node, 
+
+  t = tree_cons (NULL_TREE, ptr_type_node, 
 		 tree_cons (NULL_TREE, int_type_node, endlink));
   soft_newarray_node
       = builtin_function ("_Jv_NewPrimArray",
-			  build_function_type(ptr_type_node, t),
+			  build_function_type (ptr_type_node, t),
 			  0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (soft_newarray_node) = 1;
 
   t = tree_cons (NULL_TREE, int_type_node,
 		 tree_cons (NULL_TREE, class_ptr_type,
-			    tree_cons (NULL_TREE, object_ptr_type_node, endlink)));
+			    tree_cons (NULL_TREE, object_ptr_type_node,
+				       endlink)));
   soft_anewarray_node
       = builtin_function ("_Jv_NewObjectArray",
 			  build_function_type (ptr_type_node, t),
@@ -1002,8 +1100,14 @@ java_init_decl_processing (void)
     = builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			build_function_type (ptr_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
-
   DECL_IS_PURE (soft_lookupinterfacemethod_node) = 1;
+  t = tree_cons (NULL_TREE, ptr_type_node,
+		 tree_cons (NULL_TREE, ptr_type_node,
+			    tree_cons (NULL_TREE, ptr_type_node, endlink)));
+  soft_lookupinterfacemethodbyname_node 
+    = builtin_function ("_Jv_LookupInterfaceMethod",
+			build_function_type (ptr_type_node, t),
+			0, NOT_BUILT_IN, NULL, NULL_TREE);
   t = tree_cons (NULL_TREE, object_ptr_type_node,
 		 tree_cons (NULL_TREE, ptr_type_node,
 			    tree_cons (NULL_TREE, ptr_type_node, 
@@ -1020,9 +1124,11 @@ java_init_decl_processing (void)
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
   soft_jnipopsystemframe_node
     = builtin_function ("_Jv_JNI_PopSystemFrame",
-			build_function_type (ptr_type_node, t),
+			build_function_type (void_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
 
+  t = tree_cons (NULL_TREE, int_type_node,
+		 tree_cons (NULL_TREE, int_type_node, endlink));
   soft_idiv_node
     = builtin_function ("_Jv_divI",
 			build_function_type (int_type_node, t),
@@ -1033,6 +1139,8 @@ java_init_decl_processing (void)
 			build_function_type (int_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
 
+  t = tree_cons (NULL_TREE, long_type_node,
+		 tree_cons (NULL_TREE, long_type_node, endlink));
   soft_ldiv_node
     = builtin_function ("_Jv_divJ",
 			build_function_type (long_type_node, t),
@@ -1057,6 +1165,8 @@ java_init_decl_processing (void)
 #if 0
   soft_fmodf_node = built_in_decls[BUILT_IN_FMODF];
 #endif
+
+  parse_version ();
 }
 
 
@@ -1641,6 +1751,12 @@ maybe_poplevels (int pc)
   current_pc = pc;
 #endif
 
+  /* FIXME: I'm pretty sure that this is wrong.  Variable scopes are
+     inclusive, so a variable is live if pc == end_pc.  Here, we
+     terminate a range if the current pc is equal to the end of the
+     range, and this is *before* we have generated code for the
+     instruction at end_pc.  We're closing a binding level one
+     instruction too early.  */
   while (current_binding_level->end_pc <= pc)
     poplevel (1, 0, 0);
 }
@@ -1888,18 +2004,21 @@ end_java_method (void)
   poplevel (1, 0, 1);
 
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+  
+  if (DECL_SAVED_TREE (fndecl))
+    {
+      tree fbody, block_body;
+      /* Before we check initialization, attached all class initialization
+	 variable to the block_body */
+      fbody = DECL_SAVED_TREE (fndecl);
+      block_body = BIND_EXPR_BODY (fbody);
+      htab_traverse (DECL_FUNCTION_INIT_TEST_TABLE (fndecl),
+		     attach_init_test_initialization_flags, block_body);
+    }
 
   flag_unit_at_a_time = 0;
   finish_method (fndecl);
 
-  if (! flag_unit_at_a_time)
-    {
-      /* Nulling these fields when we no longer need them saves
-	 memory.  */
-      DECL_SAVED_TREE (fndecl) = NULL;
-      DECL_STRUCT_FUNCTION (fndecl) = NULL;
-      DECL_INITIAL (fndecl) = NULL_TREE;
-    }
   if (! flag_unit_at_a_time)
     {
       /* Nulling these fields when we no longer need them saves

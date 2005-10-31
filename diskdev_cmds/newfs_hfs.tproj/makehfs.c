@@ -76,8 +76,8 @@ typedef HFSMasterDirectoryBlock HFS_MDB;
 struct filefork {
 	UInt16	startBlock;
 	UInt16	blockCount;
-	SInt32	logicalSize;
-	SInt32	physicalSize;
+	UInt32	logicalSize;
+	UInt32	physicalSize;
 };
 
 struct filefork	gDTDBFork, gSystemFork, gReadMeFork;
@@ -138,7 +138,7 @@ static UInt32 DivideAndRoundUp __P((UInt32 numerator, UInt32 denominator));
 static int ConvertUTF8toUnicode __P((const UInt8* source, UInt32 bufsize,
 		UniChar* unibuf, UInt16 *charcount));
 
-static int getencodinghint(char *name);
+static int getencodinghint(unsigned char *name);
 
 #define VOLUMEUUIDVALUESIZE 2
 typedef union VolumeUUID {
@@ -251,12 +251,10 @@ make_hfs(const DriveInfo *driveInfo,
 		gSystemFork.blockCount = BYTESTOBLKS(gSystemFork.logicalSize, mdbp->drAlBlkSiz);
 		gSystemFork.physicalSize = gSystemFork.blockCount * mdbp->drAlBlkSiz;
 
-		(UInt16)mdbp->drFreeBks -= gDTDBFork.blockCount +
-				   	gReadMeFork.blockCount +
-				   	gSystemFork.blockCount;
+		mdbp->drFreeBks -= gDTDBFork.blockCount + gReadMeFork.blockCount + gSystemFork.blockCount;
 		mdbp->drEmbedExtent.startBlock = mdbp->drNmAlBlks - (UInt16)mdbp->drFreeBks;
 		mdbp->drEmbedExtent.blockCount = (UInt16)mdbp->drFreeBks;
-		(UInt16)mdbp->drFreeBks = 0;
+		mdbp->drFreeBks = 0;
 	}
 
 
@@ -524,7 +522,7 @@ InitMDB(hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp)
 	mdbp->drAlBlkSiz = alBlkSize;
 	mdbp->drClpSiz = defaults->dataClumpSize;
 	mdbp->drNxtCNID = defaults->nextFreeFileID;
-	(UInt16)mdbp->drFreeBks = numAlBlks;
+	mdbp->drFreeBks = numAlBlks;
 	
 	/*
 	 * Map UTF-8 input into a Mac encoding.
@@ -536,7 +534,7 @@ InitMDB(hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp)
 		CFIndex maxchars;
 		Boolean cfOK;
 	
-		cfstr = CFStringCreateWithCString(kCFAllocatorDefault, defaults->volumeName, kCFStringEncodingUTF8);
+		cfstr = CFStringCreateWithCString(kCFAllocatorDefault, (char *)defaults->volumeName, kCFStringEncodingUTF8);
 
 		/* Find out what Mac encoding to use: */
 		maxchars = MIN(sizeof(unibuf)/sizeof(UniChar), CFStringGetLength(cfstr));
@@ -563,13 +561,13 @@ InitMDB(hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp)
 	mdbp->drXTFlSize = mdbp->drXTClpSiz = defaults->extentsClumpSize;
 	mdbp->drXTExtRec[0].startBlock = 0;
 	mdbp->drXTExtRec[0].blockCount = mdbp->drXTFlSize / alBlkSize;
-	(UInt16)mdbp->drFreeBks -= mdbp->drXTExtRec[0].blockCount;
+	mdbp->drFreeBks -= mdbp->drXTExtRec[0].blockCount;
 
 	mdbp->drCTFlSize = mdbp->drCTClpSiz = defaults->catalogClumpSize;
 	mdbp->drCTExtRec[0].startBlock = mdbp->drXTExtRec[0].startBlock +
 					 mdbp->drXTExtRec[0].blockCount;
 	mdbp->drCTExtRec[0].blockCount = mdbp->drCTFlSize / alBlkSize;
-	(UInt16)mdbp->drFreeBks -= mdbp->drCTExtRec[0].blockCount;
+	mdbp->drFreeBks -= mdbp->drCTExtRec[0].blockCount;
 
 	if (defaults->flags & kMakeHFSWrapper) {
 		mdbp->drFilCnt = mdbp->drNmFls = kWapperFileCount;
@@ -1126,14 +1124,14 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, const HFSPlusVolumeHeader *header
 	ckp = (HFSPlusCatalogKey *)((UInt8 *)buffer + offset);
 	
 	/* Use CFString functions to get a HFSPlus Canonical name */
-	cfstr = CFStringCreateWithCString(kCFAllocatorDefault, dp->volumeName, kCFStringEncodingUTF8);
+	cfstr = CFStringCreateWithCString(kCFAllocatorDefault, (char *)dp->volumeName, kCFStringEncodingUTF8);
 	cfOK = _CFStringGetFileSystemRepresentation(cfstr, canonicalName, sizeof(canonicalName));
 
 	if (!cfOK || ConvertUTF8toUnicode(canonicalName, sizeof(ckp->nodeName.unicode),
 		ckp->nodeName.unicode, &ckp->nodeName.length)) {
 
 		/* On conversion errors "untitled" is used as a fallback. */
-		(void) ConvertUTF8toUnicode(kDefaultVolumeNameStr,
+		(void) ConvertUTF8toUnicode((UInt8 *)kDefaultVolumeNameStr,
 									sizeof(ckp->nodeName.unicode),
 									ckp->nodeName.unicode,
 									&ckp->nodeName.length);
@@ -1192,7 +1190,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, const HFSPlusVolumeHeader *header
 
 		/* File record #1 */
 		ckp = (HFSPlusCatalogKey *)((UInt8 *)buffer + offset);
-		(void) ConvertUTF8toUnicode(HFS_JOURNAL_FILE, sizeof(ckp->nodeName.unicode),
+		(void) ConvertUTF8toUnicode((UInt8 *)HFS_JOURNAL_FILE, sizeof(ckp->nodeName.unicode),
 		                            ckp->nodeName.unicode, &ckp->nodeName.length);
 		ckp->nodeName.length = SWAP_BE16 (ckp->nodeName.length);
 		uBytes1 = sizeof(UniChar) * SWAP_BE16 (ckp->nodeName.length);
@@ -1225,7 +1223,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, const HFSPlusVolumeHeader *header
 
 		/* File record #2 */
 		ckp = (HFSPlusCatalogKey *)((UInt8 *)buffer + offset);
-		(void) ConvertUTF8toUnicode(HFS_JOURNAL_INFO, sizeof(ckp->nodeName.unicode),
+		(void) ConvertUTF8toUnicode((UInt8 *)HFS_JOURNAL_INFO, sizeof(ckp->nodeName.unicode),
 		                            ckp->nodeName.unicode, &ckp->nodeName.length);
 		ckp->nodeName.length = SWAP_BE16 (ckp->nodeName.length);
 		uBytes2 = sizeof(UniChar) * SWAP_BE16 (ckp->nodeName.length);
@@ -1321,7 +1319,7 @@ InitFirstCatalogLeaf(const hfsparams_t *dp, void * buffer, int wrapper)
 	 * First record is always the root directory...
 	 */
 	ckp = (HFSCatalogKey *)((UInt8 *)buffer + offset);
-	ckp->nodeName[0]	= strlen(dp->volumeName);
+	ckp->nodeName[0]	= strlen((char *)dp->volumeName);
 	bcopy(dp->volumeName, &ckp->nodeName[1], ckp->nodeName[0]);
 	ckp->keyLength		= 1 + 4 + ((ckp->nodeName[0] + 2) & 0xFE);  /* pad to word */
 	ckp->parentID		= SWAP_BE32 (kHFSRootParentID);
@@ -1543,7 +1541,7 @@ InitCatalogRoot_HFS(const hfsparams_t *dp, void * buffer)
 	ckp = (HFSCatalogKey *)((UInt8 *)buffer + offset);
 	ckp->keyLength		= kHFSCatalogKeyMaximumLength;
 	ckp->parentID		= SWAP_BE32 (kHFSRootParentID);
-	ckp->nodeName[0]	= strlen(dp->volumeName);
+	ckp->nodeName[0]	= strlen((char *)dp->volumeName);
 	bcopy(dp->volumeName, &ckp->nodeName[1], ckp->nodeName[0]);
 	offset += ckp->keyLength + 1;
 
@@ -2006,7 +2004,7 @@ ConvertUTF8toUnicode(const UInt8* source, UInt32 bufsize, UniChar* unibuf,
  * Derive the encoding hint for the given name.
  */
 static int
-getencodinghint(char *name)
+getencodinghint(unsigned char *name)
 {
         int mib[3];
         size_t buflen = sizeof(int);
@@ -2020,7 +2018,7 @@ getencodinghint(char *name)
         mib[1] = vfc.vfc_typenum;
         mib[2] = HFS_ENCODINGHINT;
  
-	if (sysctl(mib, 3, &hint, &buflen, name, strlen(name) + 1) < 0)
+	if (sysctl(mib, 3, &hint, &buflen, name, strlen((char *)name) + 1) < 0)
  		goto error;
 	return (hint);
 error:

@@ -66,6 +66,8 @@ public:
 	virtual IOReturn					setInputDataMux (GpioAttributes muxState)  { return kIOReturnSuccess; }
 	virtual GpioAttributes				getInputDataMux () { return kGPIO_Unknown; }
 
+	virtual GpioAttributes				getInternalMicrophoneID () { return kGPIO_Unknown; }
+	
 	virtual GpioAttributes				getInternalSpeakerID () { return kGPIO_Unknown; }
 
 	virtual	GpioAttributes				getLineInConnected () { return kGPIO_Unknown; }

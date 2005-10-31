@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,21 +39,17 @@
 #include <SystemConfiguration/SCPrivate.h>
 
 
-#ifndef	kSCPropUsersConsoleUserName
+#undef	kSCPropUsersConsoleUserName
 #define	kSCPropUsersConsoleUserName	CFSTR("Name")
-#endif
 
-#ifndef	kSCPropUsersConsoleUserUID
+#undef	kSCPropUsersConsoleUserUID
 #define	kSCPropUsersConsoleUserUID	CFSTR("UID")
-#endif
 
-#ifndef	kSCPropUsersConsoleUserGID
+#undef	kSCPropUsersConsoleUserGID
 #define	kSCPropUsersConsoleUserGID	CFSTR("GID")
-#endif
 
-#ifndef	kSCPropUsersConsoleSessionInfo
+#undef	kSCPropUsersConsoleSessionInfo
 #define	kSCPropUsersConsoleSessionInfo	CFSTR("SessionInfo")
-#endif
 
 
 // from CoreGraphics (CGSession.h)
@@ -66,7 +62,7 @@ const CFStringRef kSCConsoleSessionLoginDone		= CFSTR("kCGSessionLoginDoneKey");
 // from CoreGraphics (CGSSession.h)
 const CFStringRef kSCConsoleSessionID			= CFSTR("kCGSSessionIDKey");			/* value is CFNumber */
 
-// from loginwindow
+// for loginwindow
 const CFStringRef kSCConsoleSessionSystemSafeBoot	= CFSTR("kCGSSessionSystemSafeBoot");		/* value is CFBoolean */
 const CFStringRef kSCConsoleSessionLoginwindowSafeLogin	= CFSTR("kCGSSessionLoginwindowSafeLogin");	/* value is CFBoolean */
 

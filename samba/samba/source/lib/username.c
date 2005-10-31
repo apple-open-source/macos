@@ -408,7 +408,7 @@ static BOOL user_in_winbind_group_list(const char *user, const char *gname, BOOL
 	else 
 		DEBUG(10,("user_in_winbind_group_list: using cached user groups for [%s]\n", user));
  
- 	if ( DEBUGLEVEL >= 10 ) {
+ 	if ( SAMBA_DEBUGLEVEL >= 10 ) {
 		DEBUG(10,("user_in_winbind_group_list: using groups -- "));
 	 	for ( i=0; i<num_groups; i++ )
 			DEBUGADD(10,("%lu ", (unsigned long)groups[i]));

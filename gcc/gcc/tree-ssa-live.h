@@ -1,5 +1,5 @@
 /* Routines for liveness in SSA trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -64,12 +64,11 @@ extern void dump_var_map (FILE *, var_map);
 extern int var_union (var_map, tree, tree);
 extern void change_partition_var (var_map, tree, int);
 extern void compact_var_map (var_map, int);
-extern tree make_ssa_temp (tree);
 #ifdef ENABLE_CHECKING
 extern void register_ssa_partition_check (tree ssa_var);
 #endif
 
-static inline int num_var_partitions (var_map);
+static inline unsigned num_var_partitions (var_map);
 static inline tree var_to_partition_to_var (var_map, tree);
 static inline tree partition_to_var (var_map, int);
 static inline int var_to_partition (var_map, tree);
@@ -82,7 +81,7 @@ extern var_map create_ssa_var_map (int);
 
 /* Number of partitions in MAP.  */
 
-static inline int 
+static inline unsigned
 num_var_partitions (var_map map)
 {
   return map->num_partitions;
@@ -309,7 +308,7 @@ live_var_map (tree_live_info_p live)
 static inline void 
 live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 {
-  bitmap_a_or_b (live->livein[p1], live->livein[p1], live->livein[p2]);
+  bitmap_ior_into (live->livein[p1], live->livein[p2]);
   bitmap_zero (live->livein[p2]);
 }
 
@@ -356,7 +355,6 @@ static inline int tpa_next_partition (tpa_p, int);
 static inline int tpa_num_trees (tpa_p);
 static inline int tpa_find_tree (tpa_p, int);
 static inline void tpa_decompact (tpa_p);
-extern tpa_p tpa_init (var_map);
 extern void tpa_delete (tpa_p);
 extern void tpa_dump (FILE *, tpa_p);
 extern void tpa_remove_partition (tpa_p, int, int);
@@ -430,7 +428,7 @@ tpa_decompact(tpa_p tpa)
 }
 
 
-/* Once a var_map has been created and compressed, a complimentary root_var
+/* Once a var_map has been created and compressed, a complementary root_var
    object can be built.  This creates a list of all the root variables from
    which ssa version names are derived.  Each root variable has a list of 
    which partitions are versions of that root.  
@@ -707,7 +705,6 @@ extern void dump_coalesce_list (FILE *, coalesce_list_p);
 extern void delete_coalesce_list (coalesce_list_p);
 
 #define NO_BEST_COALESCE	-1
-extern int pop_best_coalesce (coalesce_list_p, int *, int *);
 
 extern conflict_graph build_tree_conflict_graph (tree_live_info_p, tpa_p,
 						 coalesce_list_p);

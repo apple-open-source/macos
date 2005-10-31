@@ -27,7 +27,7 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/admin.h,v 1.54 2004/08/21 02:31:09 tlyu Exp $
+ * $Header: /cvs/krbdev/krb5/src/lib/kadm5/admin.h,v 1.54.4.1 2005/03/22 23:53:57 tlyu Exp $
  */
 
 #ifndef __KADM5_ADMIN_H__
@@ -123,6 +123,7 @@ typedef long		kadm5_ret_t;
 #define KADM5_CONFIG_KPASSWD_PORT	0x080000
 #define KADM5_CONFIG_OLD_AUTH_GSSAPI	0x100000
 #define KADM5_CONFIG_NO_AUTH		0x200000
+#define KADM5_CONFIG_AUTH_NOFALLBACK	0x400000
 
 /*
  * permission bits

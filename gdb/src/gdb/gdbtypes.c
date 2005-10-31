@@ -123,6 +123,9 @@ struct type *builtin_type_voidptrfuncptr;
 int opaque_type_resolution = 1;
 int overload_debug = 0;
 
+/* APPLE LOCAL: referenced by get_array_bounds */
+int use_stride = 1;
+
 struct extra
   {
     char str[128];
@@ -168,6 +171,7 @@ alloc_type (struct objfile *objfile)
   /* Initialize the fields that might not be zero. */
 
   TYPE_CODE (type) = TYPE_CODE_UNDEF;
+  TYPE_BYTE_ORDER (type) = BFD_ENDIAN_UNKNOWN;
   TYPE_OBJFILE (type) = objfile;
   TYPE_VPTR_FIELDNO (type) = -1;
   TYPE_CHAIN (type) = type;	/* Chain back to itself.  */
@@ -626,7 +630,12 @@ allocate_stub_method (struct type *type)
    HIGH_BOUND, inclusive.
 
    FIXME:  Maybe we should check the TYPE_CODE of RESULT_TYPE to make
-   sure it is TYPE_CODE_UNDEF before we bash it into a range type? */
+   sure it is TYPE_CODE_UNDEF before we bash it into a range type?
+
+   APPLE LOCAL: Add a third field, to store the stride used for array
+   types, defaulting to 1 ('normal').  We could make a new constructor
+   specifically for range types used as array bounds, and save a bit
+   of memory, but I'm not sure it's worth the extra complexity. */
 
 struct type *
 create_range_type (struct type *result_type, struct type *index_type,
@@ -642,14 +651,18 @@ create_range_type (struct type *result_type, struct type *index_type,
     TYPE_FLAGS (result_type) |= TYPE_FLAG_TARGET_STUB;
   else
     TYPE_LENGTH (result_type) = TYPE_LENGTH (check_typedef (index_type));
-  TYPE_NFIELDS (result_type) = 2;
+  TYPE_NFIELDS (result_type) = 3;
   TYPE_FIELDS (result_type) = (struct field *)
-    TYPE_ALLOC (result_type, 2 * sizeof (struct field));
-  memset (TYPE_FIELDS (result_type), 0, 2 * sizeof (struct field));
+    TYPE_ALLOC (result_type, 3 * sizeof (struct field));
+  memset (TYPE_FIELDS (result_type), 0, 3 * sizeof (struct field));
+
   TYPE_FIELD_BITPOS (result_type, 0) = low_bound;
   TYPE_FIELD_BITPOS (result_type, 1) = high_bound;
-  TYPE_FIELD_TYPE (result_type, 0) = builtin_type_int;	/* FIXME */
-  TYPE_FIELD_TYPE (result_type, 1) = builtin_type_int;	/* FIXME */
+  TYPE_FIELD_BITPOS (result_type, 2) = 1;
+
+  TYPE_FIELD_TYPE (result_type, 0) = builtin_type_int; /* FIXME */
+  TYPE_FIELD_TYPE (result_type, 1) = builtin_type_int; /* FIXME */
+  TYPE_FIELD_TYPE (result_type, 2) = builtin_type_int; /* FIXME */
 
   if (low_bound >= 0)
     TYPE_FLAGS (result_type) |= TYPE_FLAG_UNSIGNED;
@@ -724,6 +737,36 @@ get_discrete_bounds (struct type *type, LONGEST *lowp, LONGEST *highp)
     default:
       return -1;
     }
+}
+
+/* APPLE LOCAL: A special case of get_discrete_bounds.  Set *LOWP and
+   *HIGHP to the lower and upper bounds of discrete type TYPE, and
+   *STRIDE to the array stride.  Return 1 if type is a range type;
+   otherwise generate an internal error (the type should already have
+   been checked before this function was called).  If the range type
+   has the stride set to 'default', choose a value based on the
+   array type and the byte ordering of the platform. */
+
+int
+get_array_bounds (struct type *array, LONGEST *lowp, LONGEST *highp, LONGEST *stride)
+{
+  struct type *range = TYPE_INDEX_TYPE (array);
+
+  CHECK_TYPEDEF (range);
+  if (TYPE_CODE (range) != TYPE_CODE_RANGE)
+    internal_error (__FILE__, __LINE__, "invalid type code");
+  if (TYPE_STRIDE (range) == 0)
+    internal_error (__FILE__, __LINE__, "range type did not set stride");
+
+  *lowp = TYPE_LOW_BOUND (range);
+  *highp = TYPE_HIGH_BOUND (range);
+
+  if (use_stride)
+    *stride = TYPE_STRIDE (range);
+  else
+    *stride = 1;
+
+  return 1;
 }
 
 /* Create an array type using either a blank type supplied in RESULT_TYPE,
@@ -3557,4 +3600,11 @@ _initialize_gdbtypes (void)
 			  When enabled, ranking of the functions\n\
 			  is displayed.", &setdebuglist),
 		     &showdebuglist);
+
+  /* APPLE LOCAL: referenced by get_array_bounds */
+  add_show_from_set
+    (add_set_cmd ("use-array-stride", no_class, var_zinteger, (char *) &use_stride,
+		  "Set if GDB should honor the 'stride' parameter of array types.",
+		  &setlist),
+     &showlist);
 }

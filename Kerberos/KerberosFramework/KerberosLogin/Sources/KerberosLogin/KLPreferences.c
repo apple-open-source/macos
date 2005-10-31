@@ -1,7 +1,7 @@
 /*
  * KLPreferences.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLPreferences.c,v 1.19 2004/12/10 21:18:07 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLPreferences.c,v 1.20 2005/05/25 20:31:32 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -99,7 +99,7 @@ static KLStatus __KLPreferencesSetBooleanWithKey (const CFStringRef inKey, KLBoo
 static KLBoolean __KLPreferencesGetStringArrayWithKey (const CFStringRef inKey, const KLStringArray inDefaultStringArray, KLStringArray *outStringArray);
 static KLStatus __KLPreferencesSetStringArrayWithKey (const CFStringRef inKey, const KLStringArray inStringArray);
 
-static KLTime __KLPreferencesGetLibDefaultTime (const char *inLibdefaultName, KLTime inDefaultTime);
+static KLLifetime __KLPreferencesGetLibDefaultTime (const char *inLibdefaultName, KLLifetime inDefaultTime);
 
 static KLStatus __KLPreferencesGetFavoriteRealmList (KLStringArray *outRealmList);
 static KLStatus __KLPreferencesSetFavoriteRealmList (KLStringArray inRealmList);
@@ -502,10 +502,10 @@ KLBoolean __KLPreferencesGetLibDefaultBoolean (const char *inLibDefaultName, KLB
 
 // ---------------------------------------------------------------------------
 
-static KLTime __KLPreferencesGetLibDefaultTime (const char *inLibDefaultName, KLTime inDefaultTime)
+static KLLifetime __KLPreferencesGetLibDefaultTime (const char *inLibDefaultName, KLLifetime inDefaultTime)
 {
     KLStatus     err = klNoErr;
-    KLTime       libDefaultTime = inDefaultTime;
+    KLLifetime   libDefaultTime = inDefaultTime;
     krb5_context context = NULL;
     profile_t    profile = NULL;
     const char  *names[3] = {"libdefaults", inLibDefaultName, NULL};
@@ -588,7 +588,12 @@ KLStatus __KLPreferencesSetKerberosLoginInstance (const char *inInstance)
 
 KLStatus __KLPreferencesGetKerberosLoginMinimumTicketLifetime (KLLifetime *outMinimumTicketLifetime)
 {
-	return __KLPreferencesGetNumberWithKey (kKLMinimumTicketLifetime, kDefaultMinimumTicketLifetime, outMinimumTicketLifetime);
+    // Make sure KLL defaults don't conflict with Kerberos defaults
+    KLLifetime defaultMinLifetime = kDefaultMinimumTicketLifetime;
+    KLLifetime defaultLifetime = __KLPreferencesGetLibDefaultTime ("ticket_lifetime", kDefaultTicketLifetime);
+    if (defaultMinLifetime > defaultLifetime) { defaultMinLifetime = defaultLifetime; }
+    
+    return __KLPreferencesGetNumberWithKey (kKLMinimumTicketLifetime, defaultMinLifetime, outMinimumTicketLifetime);
 }
 
 // ---------------------------------------------------------------------------
@@ -602,7 +607,12 @@ KLStatus __KLPreferencesSetKerberosLoginMinimumTicketLifetime (KLLifetime inMini
 
 KLStatus __KLPreferencesGetKerberosLoginMaximumTicketLifetime (KLLifetime *outMaximumTicketLifetime)
 {
-    return __KLPreferencesGetNumberWithKey (kKLMaximumTicketLifetime, kDefaultMaximumTicketLifetime, outMaximumTicketLifetime);
+    // Make sure KLL defaults don't conflict with Kerberos defaults
+    KLLifetime defaultMaxLifetime = kDefaultMaximumTicketLifetime;
+    KLLifetime defaultLifetime = __KLPreferencesGetLibDefaultTime ("ticket_lifetime", kDefaultTicketLifetime);
+    if (defaultMaxLifetime < defaultLifetime) { defaultMaxLifetime = defaultLifetime; }
+    
+    return __KLPreferencesGetNumberWithKey (kKLMaximumTicketLifetime, defaultMaxLifetime, outMaximumTicketLifetime);
 }
 
 // ---------------------------------------------------------------------------
@@ -616,7 +626,9 @@ KLStatus __KLPreferencesSetKerberosLoginMaximumTicketLifetime (KLLifetime inMaxi
 
 KLStatus __KLPreferencesGetKerberosLoginDefaultTicketLifetime (KLLifetime *outDefaultTicketLifetime)
 {
-    return __KLPreferencesGetNumberWithKey (kKLDefaultTicketLifetime, kDefaultTicketLifetime, outDefaultTicketLifetime);
+    KLLifetime defaultLifetime = __KLPreferencesGetLibDefaultTime ("ticket_lifetime", kDefaultTicketLifetime);
+    
+    return __KLPreferencesGetNumberWithKey (kKLDefaultTicketLifetime, defaultLifetime, outDefaultTicketLifetime);
 }
 
 
@@ -647,7 +659,12 @@ KLStatus __KLPreferencesSetKerberosLoginDefaultRenewableTicket (KLBoolean inDefa
 
 KLStatus __KLPreferencesGetKerberosLoginMinimumRenewableLifetime (KLLifetime *outMinimumRenewableLifetime)
 {
-	return __KLPreferencesGetNumberWithKey (kKLMinimumRenewableLifetime, kDefaultMinimumRenewableLifetime, outMinimumRenewableLifetime);
+    // Make sure KLL defaults don't conflict with Kerberos defaults
+    KLLifetime defaultMinRenewableLifetime = kDefaultMinimumRenewableLifetime;
+    KLLifetime defaultRenewLifetime = __KLPreferencesGetLibDefaultTime ("renew_lifetime", kDefaultRenewableLifetime);
+    if (defaultMinRenewableLifetime > defaultRenewLifetime) { defaultMinRenewableLifetime = defaultRenewLifetime; }
+    
+    return __KLPreferencesGetNumberWithKey (kKLMinimumRenewableLifetime, defaultMinRenewableLifetime, outMinimumRenewableLifetime);
 }
 
 // ---------------------------------------------------------------------------
@@ -661,23 +678,28 @@ KLStatus __KLPreferencesSetKerberosLoginMinimumRenewableLifetime (KLLifetime inM
 
 KLStatus __KLPreferencesGetKerberosLoginMaximumRenewableLifetime (KLLifetime *outMaximumRenewableifetime)
 {
-    return __KLPreferencesGetNumberWithKey (kKLMaximumRenewableLifetime, kDefaultMaximumRenewableLifetime, outMaximumRenewableifetime);
+    // Make sure KLL defaults don't conflict with Kerberos defaults
+    KLLifetime defaultMaxRenewableLifetime = kDefaultMaximumRenewableLifetime;
+    KLLifetime defaultRenewLifetime = __KLPreferencesGetLibDefaultTime ("renew_lifetime", kDefaultRenewableLifetime);
+    if (defaultMaxRenewableLifetime < defaultRenewLifetime) { defaultMaxRenewableLifetime = defaultRenewLifetime; }
+    
+    return __KLPreferencesGetNumberWithKey (kKLMaximumRenewableLifetime, defaultMaxRenewableLifetime, outMaximumRenewableifetime);
 }
 
 // ---------------------------------------------------------------------------
 
 KLStatus __KLPreferencesSetKerberosLoginMaximumRenewableLifetime (KLLifetime inMaximumRenewableLifetime)
 {
-	return __KLPreferencesSetNumberWithKey (kKLMaximumRenewableLifetime, inMaximumRenewableLifetime);
+    return __KLPreferencesSetNumberWithKey (kKLMaximumRenewableLifetime, inMaximumRenewableLifetime);
 }
 
 // ---------------------------------------------------------------------------
 
 KLStatus __KLPreferencesGetKerberosLoginDefaultRenewableLifetime (KLLifetime *outDefaultRenewableLifetime)
 {
-    KLTime defaultTime = __KLPreferencesGetLibDefaultTime ("renew_lifetime", kDefaultRenewableLifetime);
+    KLLifetime defaultRenewLifetime = __KLPreferencesGetLibDefaultTime ("renew_lifetime", kDefaultRenewableLifetime);
     
-    return __KLPreferencesGetNumberWithKey (kKLDefaultRenewableLifetime, defaultTime, outDefaultRenewableLifetime);
+    return __KLPreferencesGetNumberWithKey (kKLDefaultRenewableLifetime, defaultRenewLifetime, outDefaultRenewableLifetime);
 }
 
 
@@ -685,7 +707,7 @@ KLStatus __KLPreferencesGetKerberosLoginDefaultRenewableLifetime (KLLifetime *ou
 
 KLStatus __KLPreferencesSetKerberosLoginDefaultRenewableLifetime (KLLifetime inDefaultRenewableLifetime)
 {
-	return __KLPreferencesSetNumberWithKey (kKLDefaultRenewableLifetime, inDefaultRenewableLifetime);
+    return __KLPreferencesSetNumberWithKey (kKLDefaultRenewableLifetime, inDefaultRenewableLifetime);
 }
 
 #pragma mark -

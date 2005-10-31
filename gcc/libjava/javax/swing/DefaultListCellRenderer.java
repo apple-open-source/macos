@@ -35,14 +35,15 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.awt.Component;
 import java.awt.Rectangle;
 import java.io.Serializable;
+
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
-
 
 /**
  * DefaultListCellRenderer. This class is responsible for rendering  list
@@ -51,10 +52,10 @@ import javax.swing.border.EmptyBorder;
  * @author Andrew Selkirk
  * @version 1.0
  */
-public class DefaultListCellRenderer extends JLabel implements ListCellRenderer,
-                                                               Serializable
+public class DefaultListCellRenderer extends JLabel
+  implements ListCellRenderer, Serializable
 {
-  static final long serialVersionUID = 7708947179685189462L;
+  private static final long serialVersionUID = 7708947179685189462L;
 
   public static class UIResource extends DefaultListCellRenderer
     implements javax.swing.plaf.UIResource
@@ -88,6 +89,7 @@ public class DefaultListCellRenderer extends JLabel implements ListCellRenderer,
     String s = value.toString();
     setText(s);
     setOpaque(true);
+    setHorizontalAlignment(LEFT);
 
     if (isSelected)
       {

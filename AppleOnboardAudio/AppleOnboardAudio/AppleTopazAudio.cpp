@@ -29,6 +29,7 @@ bool AppleTopazAudio::init ( OSDictionary *properties )
 	mUnlockStatus = false;
 	mRecoveryInProcess = false;
 	mDigitalInStatus = kGPIO_Connected;
+	mDisableStateMachine2 = false;
 	
 	mClockSource = kTRANSPORT_MASTER_CLOCK;
 	
@@ -107,7 +108,7 @@ bool AppleTopazAudio::requestTerminate ( IOService * provider, IOOptionBits opti
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-bool AppleTopazAudio::preDMAEngineInit () {
+bool AppleTopazAudio::preDMAEngineInit (UInt32 autoClockSelectionIsBeingUsed) {
 	UInt8			data;
 	bool			result = false;
 	
@@ -136,6 +137,13 @@ bool AppleTopazAudio::preDMAEngineInit () {
 	
 	mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT;
 
+	if ( autoClockSelectionIsBeingUsed ) {
+		mDisableStateMachine2 = true;
+	}
+	else {
+		mDisableStateMachine2 = false;
+	}
+	
 	CODEC_Reset ();
 	data = CODEC_ReadID();
 	FailIf ( 0 == data, Exit );
@@ -163,7 +171,7 @@ bool AppleTopazAudio::preDMAEngineInit () {
 	mTopazPlugin->initPlugin ( mPlatformInterface, mAudioDeviceProvider, mCodecID );   //  [3648867]
 	
 	mTopazPlugin->initCodecRegisterCache ();
-	result = mTopazPlugin->preDMAEngineInit ();
+	result = mTopazPlugin->preDMAEngineInit ( autoClockSelectionIsBeingUsed );
 	
 Exit:
 	debugIOLog (3,  "- AppleTopazAudio::preDMAEngineInit () returns %d", result );
@@ -304,10 +312,18 @@ IOReturn AppleTopazAudio::performDeviceWake () {
 	//	clock source since failure is associated with the sample rate converter 
 	//	and the sample rate converter is not in use when running on the external 
 	//	clock source.
-	if ( kTRANSPORT_MASTER_CLOCK == mClockSource ) {
+	//	[4176829]	The CS8416 does not have a sample rate converter, so we should
+	//	not employ the state machine for it.  If we do, the transition to
+	//	kMachine2_setRxd_ILRCK, which calls useInternalCLK, and the transition to
+	//	kMachine2_setRxd_AES3, which calls useExternalCLK, will cause two pops
+	//	if things are un-muted.	
+	if ( ( kTRANSPORT_MASTER_CLOCK == mClockSource ) && ( false == mDisableStateMachine2 ) ) {
 		mCurrentMachine2State = kMachine2_startState;
 	}
-
+	else {
+		mCurrentMachine2State = kMachine2_idleState;
+	}
+	
 	mOptimizePollForUserClient_counter = kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT; //  [3686032]   initialize so log will show register dump a while longer
 
 	switch ( mCodecID ) {
@@ -567,7 +583,13 @@ IOReturn	AppleTopazAudio::makeClockSelect ( UInt32 clockSource ) {
 		if ( mUnlockStatus ) {
 			mUnlockStatus = false;
 		}
-		mCurrentMachine2State = kMachine2_startState;
+		
+		if ( false == mDisableStateMachine2 ) {
+			mCurrentMachine2State = kMachine2_startState;
+		}
+		else {
+			mCurrentMachine2State = kMachine2_idleState;
+		}
 	}
 	
 	mClockSource = clockSource;
@@ -601,7 +623,14 @@ void AppleTopazAudio::generalRecovery ( void ) {
 		CODEC_Reset();
 		mTopazPlugin->flushControlRegisters ();
 		mTopazPlugin->setRunMode ( data );
-		mCurrentMachine2State = kMachine2_startState;
+		
+		if ( false == mDisableStateMachine2 ) {
+			mCurrentMachine2State = kMachine2_startState;
+		}
+		else {
+			mCurrentMachine2State = kMachine2_idleState;
+		}
+		
 		mGeneralRecoveryInProcess = FALSE;
 	}
 Exit:
@@ -658,7 +687,8 @@ IOReturn AppleTopazAudio::requestSleepTime ( UInt32 * microsecondsUntilComplete 
 //  platform interface object.  The 'codecErrorInterruptHandler' may be invoked
 //  through GPIO hardware interrupt dispatch services or throught timer polled
 //  services.
-void AppleTopazAudio::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) {
+void AppleTopazAudio::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue )
+{
 	UInt8					saveMAP = 0;
 	
 	switch ( mCodecID ) {
@@ -681,25 +711,32 @@ void AppleTopazAudio::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newVal
 	//	object of the current digital input detect status and the source of these messages may be from a broadcast message conveyed from
 	//  another AppleOnboardAudio instance!
 	
-	if ( kDigitalInStatus == statusSelector ) {
+	if ( kDigitalInStatus == statusSelector )
+	{
 		mDigitalInStatus = newValue;
 		debugIOLog ( 6, "  AppleTopazAudio::notifyHardwareEvent ( %d, %d ) updates mDigitalInStatus to %d", statusSelector, newValue, mDigitalInStatus );
 	}
 	
-	if ( ( kCodecErrorInterruptStatus == statusSelector ) || ( kCodecInterruptStatus == statusSelector ) ) {
-		switch ( mDigitalInStatus ) {
-			case kGPIO_Unknown:			mTopazPlugin->notifyHardwareEvent ( statusSelector, newValue );						break;
-			case kGPIO_Connected:		mTopazPlugin->notifyHardwareEvent ( statusSelector, newValue );						break;
-			case kGPIO_Disconnected:	mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );		break;
+	if ( ( kCodecErrorInterruptStatus == statusSelector ) || ( kCodecInterruptStatus == statusSelector ) )
+	{
+		if ( kGPIO_Disconnected == mDigitalInStatus )
+		{
+			//	Override the CODEC status if the detect indicates that nothing is connected.
+			mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );
+		}
+		else
+		{
+			mTopazPlugin->notifyHardwareEvent ( statusSelector, newValue );
 		}
 	}
-	
+
 	if ( saveMAP != (UInt8)mPlatformInterface->getSavedMAP ( mCodecID ) )
 	{
 		mPlatformInterface->setMAP ( mCodecID, saveMAP );
 	}
 Exit:
-	switch ( mCodecID ) {
+	switch ( mCodecID )
+	{
 		case kCodec_CS8406:		debugIOLog ( 5,  "- AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginCS8406", statusSelector, newValue );		break;
 		case kCodec_CS8416:		debugIOLog ( 5,  "- AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginCS8416", statusSelector, newValue );		break;
 		case kCodec_CS8420:		debugIOLog ( 5,  "- AppleTopazAudio::notifyHardwareEvent ( %d, %d ) using AppleTopazPluginCS8420", statusSelector, newValue );		break;
@@ -721,6 +758,11 @@ void AppleTopazAudio::poll ( void ) {
 		}
 		mOptimizePollForUserClient_counter--;
 	}
+	
+	if ( mTopazPlugin ) {
+		mTopazPlugin->decrementDelayPollAfterWakeCounter();
+	}
+	
 	stateMachine1 ();
 	stateMachine2 ();
 }
@@ -781,6 +823,7 @@ void AppleTopazAudio::stateMachine1 ( void ) {
 void AppleTopazAudio::stateMachine2 ( void ) {
 	switch ( mCurrentMachine2State ) {
 		case kMachine2_idleState:
+			debugIOLog ( 5, "± AppleTopazAudio::stateMachine2 remaining in kMachine2_idleState" );
 			break;
 		case kMachine2_startState:
 			debugIOLog ( 5, "± AppleTopazAudio::stateMachine2 advancing from kMachine2_startState to kMachine2_delay1State" );

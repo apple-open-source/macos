@@ -1,8 +1,6 @@
-/* { dg-do run { target powerpc*-*-* } } */
-/* { dg-do run { target i?86-*-* x86_64-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
-
+/* { dg-require-effective-target vect_int } */
+/* APPLE LOCAL 3972875 mainline 2005-04-18  */
+/* { dg-require-effective-target vect_int_mult } */
 #include <stdarg.h>
 #include "tree-vect.h"
 
@@ -15,7 +13,7 @@ int main1 ()
   int ic[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
   int ib[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
 
-  /* Not vetorizable yet (integer mult).  */
+  /* Not vectorizable yet (integer mult).  */
   for (i = 0; i < N; i++)
     {
       ia[i] = ib[i] * ic[i];
@@ -38,4 +36,5 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" } } */
+/* APPLE LOCAL 3972875 mainline 2005-04-18 */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */

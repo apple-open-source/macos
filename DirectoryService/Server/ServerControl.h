@@ -34,6 +34,7 @@
 
 #include "PrivateTypes.h"
 #include "DSSemaphore.h"
+#include "DSMutexSemaphore.h"
 #include "SharedConsts.h"
 
 const uInt32 kMaxHandlerThreads			= 8; // this is used for both mach and TCP handler thread max
@@ -181,14 +182,14 @@ private:
 	DSSemaphore		   *fTCPHandlerSemaphore;
 	SCDynamicStoreRef	fSCDStore;
 	bool				fPerformanceStatGatheringActive;
-	double				fTimeToCheckSearchPolicyChange;
-	double				fTimeToCheckNIAutoSwitch;
-	double				fTimeToCheckLookupDaemonCacheFlush;
 	uInt32				fLookupDaemonFlushCacheRequestCount;
-	double				fTimeToCheckMemberDaemonCacheFlush;
 	uInt32				fMemberDaemonFlushCacheRequestCount;
 	SCDynamicStoreRef	fHoldStore;
 	CFStringRef			fServiceNameString;
+	static	CFRunLoopTimerRef	fNSPCTimerRef; //NSPC = Node Search Policy Change
+	static	CFRunLoopTimerRef	fLDFCTimerRef; //LDFC = lookupd daemon flush cache
+	static	CFRunLoopTimerRef	fMDFCTimerRef; //MDFC = memberd daemon flush cache
+	static	CFRunLoopTimerRef	fNIASTimerRef; //NIAS = netinfo auto switch
 
 };
 

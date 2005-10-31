@@ -1,6 +1,6 @@
 /* actions.c -- executes the commands for timsieved
  * Tim Martin
- * $Id: actions.c,v 1.5 2005/03/05 00:37:39 dasenbro Exp $
+ * $Id: actions.c,v 1.6 2005/06/17 20:16:29 dasenbro Exp $
  */
 /*
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -223,7 +223,7 @@ int capabilities(struct protstream *conn, sasl_conn_t *saslconn,
 			strcat( str, "GSSAPI");
 		}
 
-		strcpy( str, "\"\r\n" );
+		strcat( str, "\"\r\n" );
 
 		prot_printf( conn,"%s", str );
 	}

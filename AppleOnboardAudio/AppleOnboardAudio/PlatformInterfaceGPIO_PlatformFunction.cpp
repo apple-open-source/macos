@@ -71,6 +71,8 @@ const char * 	PlatformInterfaceGPIO_PlatformFunction::kAppleGPIO_UnregisterHeadp
 const char * 	PlatformInterfaceGPIO_PlatformFunction::kAppleGPIO_SetHeadphoneMute					= kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_SetHeadphoneMute;				
 const char * 	PlatformInterfaceGPIO_PlatformFunction::kAppleGPIO_GetHeadphoneMute					= kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetHeadphoneMute;				
 
+const char *	PlatformInterfaceGPIO_PlatformFunction::kAppleGPIO_GetInternalMicrophoneID			= kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetInternalMicrophoneID;
+
 const char *	PlatformInterfaceGPIO_PlatformFunction::kAppleGPIO_GetInternalSpeakerID				= kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetInternalSpeakerID;
 
 const char * 	PlatformInterfaceGPIO_PlatformFunction::kAppleGPIO_DisableLineInDetect				= kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_DisableLineInDetect;			
@@ -387,6 +389,13 @@ GpioAttributes	PlatformInterfaceGPIO_PlatformFunction::getInputDataMux ()
 }
 
 //	----------------------------------------------------------------------------------------------------
+GpioAttributes	PlatformInterfaceGPIO_PlatformFunction:: getInternalMicrophoneID ()
+{
+	return readGpioState ( kGPIO_Selector_InternalMicrophoneID );
+}
+
+
+//	----------------------------------------------------------------------------------------------------
 GpioAttributes	PlatformInterfaceGPIO_PlatformFunction:: getInternalSpeakerID ()
 {
 	return readGpioState ( kGPIO_Selector_InternalSpeakerID );
@@ -468,7 +477,7 @@ void PlatformInterfaceGPIO_PlatformFunction::enableAmplifierMuteRelease ( void )
 //	--------------------------------------------------------------------------------
 IOReturn PlatformInterfaceGPIO_PlatformFunction::disableInterrupt ( IOService * device, PlatformInterruptSource source )
 {
-	const OSSymbol * 		selector = OSSymbol::withCString ( kIOPFInterruptRegister );
+	const OSSymbol * 		selector = OSSymbol::withCString ( kIOPFInterruptDisable );
 	const OSSymbol *		enFuncSymbolName = 0;
 	void *					interruptHandler = 0;
 	IOReturn				result;
@@ -557,7 +566,7 @@ Exit:
 //	--------------------------------------------------------------------------------
 IOReturn PlatformInterfaceGPIO_PlatformFunction::enableInterrupt ( IOService * device, PlatformInterruptSource source )
 {
-	const OSSymbol * 		selector = OSSymbol::withCString ( kIOPFInterruptRegister );
+	const OSSymbol * 		selector = OSSymbol::withCString ( kIOPFInterruptEnable );
 	const OSSymbol *		enFuncSymbolName = 0;
 	void *					interruptHandler = 0;
 	IOReturn				result;
@@ -747,7 +756,7 @@ IOReturn	PlatformInterfaceGPIO_PlatformFunction::registerInterruptHandler ( IOSe
 			FailIf ( 0 == funcSymbolName, Exit );
 			FailIf ( 0 == selector, Exit );
 			
-			
+            
 			result = mSystemIOControllerService->callPlatformFunction ( funcSymbolName, true, interruptHandler, device, (void*)source, (void*)selector);
 			if ( kIOReturnSuccess != result )
 			{
@@ -1007,6 +1016,7 @@ GpioAttributes  PlatformInterfaceGPIO_PlatformFunction::GetCachedAttribute ( GPI
 		case kGPIO_Selector_HeadphoneDetect:		/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
 		case kGPIO_Selector_HeadphoneMute:			result = mAppleGPIO_HeadphoneMute;																					break;
 		case kGPIO_Selector_InputDataMux:			result = mAppleGPIO_CodecInputDataMux;																				break;
+		case kGPIO_Selector_InternalMicrophoneID:	result = mAppleGPIO_InternalMicrophoneID;																			break;
 		case kGPIO_Selector_InternalSpeakerID:		result = mAppleGPIO_InternalSpeakerID;																				break;
 		case kGPIO_Selector_LineInDetect:			/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
 		case kGPIO_Selector_LineOutDetect:			/*	NO CACHE AVAILABLE ON READ ONLY GPIO	*/																		break;
@@ -1042,6 +1052,7 @@ GpioAttributes PlatformInterfaceGPIO_PlatformFunction::readGpioState ( GPIOSelec
 			case kGPIO_Selector_HeadphoneDetect:		err = makeSymbolAndCallPlatformFunctionNoWait ( kAppleGPIO_GetHeadphoneDetect, (void*)&value, (void*)0, (void*)0, (void*)0 );		break;
 			case kGPIO_Selector_HeadphoneMute:			err = makeSymbolAndCallPlatformFunctionNoWait ( kAppleGPIO_GetHeadphoneMute, (void*)&value, (void*)0, (void*)0, (void*)0 );			break;
 			case kGPIO_Selector_InputDataMux:			err = makeSymbolAndCallPlatformFunctionNoWait ( kAppleGPIO_GetCodecInputDataMux, (void*)&value, (void*)0, (void*)0, (void*)0 );		break;
+			case kGPIO_Selector_InternalMicrophoneID:	err = makeSymbolAndCallPlatformFunctionNoWait ( kAppleGPIO_GetInternalMicrophoneID, (void*)&value, (void*)0, (void*)0, (void*)0 );	break;
 			case kGPIO_Selector_InternalSpeakerID:		err = makeSymbolAndCallPlatformFunctionNoWait ( kAppleGPIO_GetInternalSpeakerID, (void*)&value, (void*)0, (void*)0, (void*)0 );		break;
 			case kGPIO_Selector_LineInDetect:			err = makeSymbolAndCallPlatformFunctionNoWait ( kAppleGPIO_GetLineInDetect, (void*)&value, (void*)0, (void*)0, (void*)0 );			break;
 			case kGPIO_Selector_LineOutDetect:			err = makeSymbolAndCallPlatformFunctionNoWait ( kAppleGPIO_GetLineOutDetect, (void*)&value, (void*)0, (void*)0, (void*)0 );			break;
@@ -1073,6 +1084,7 @@ GpioAttributes PlatformInterfaceGPIO_PlatformFunction::readGpioState ( GPIOSelec
 				case kGPIO_Selector_HeadphoneDetect:		result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;
 				case kGPIO_Selector_HeadphoneMute:			result = value ? kGPIO_Muted : kGPIO_Unmuted ;																	break;
 				case kGPIO_Selector_InputDataMux:			result = value ? kGPIO_MuxSelectAlternate : kGPIO_MuxSelectDefault;												break;
+				case kGPIO_Selector_InternalMicrophoneID:	result = value ? kGPIO_IsDefault : kGPIO_IsAlternate;															break;
 				case kGPIO_Selector_InternalSpeakerID:		result = value ? kGPIO_IsDefault : kGPIO_IsAlternate;															break;
 				case kGPIO_Selector_LineInDetect:			result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;
 				case kGPIO_Selector_LineOutDetect:			result = value ? kGPIO_Connected : kGPIO_Disconnected;															break;

@@ -628,12 +628,6 @@ maybe ac0 ? - as option someday! */
   FUNCTION_ARG (CUM, MODE, TYPE, NAMED)
 */
 
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -1144,8 +1138,6 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
 {									\
   if (LEVEL >= 3)							\
     {									\
-      if (! SIZE)							\
-        flag_inline_functions		= 1;				\
       flag_omit_frame_pointer		= 1;				\
       /* flag_unroll_loops			= 1; */			\
     }									\

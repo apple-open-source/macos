@@ -1,4 +1,4 @@
-// APPLE LOCAL preserve CR2 for save_world prologues
+// APPLE LOCAL file preserve CR2 for save_world prologues
 // This testcase failed at -O2 due to a missing EH note describing the PowerPC Condition Register.
 // Thanks to Dale Johannesen.
 

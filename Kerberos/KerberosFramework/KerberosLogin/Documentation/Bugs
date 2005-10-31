@@ -1,8 +1,8 @@
 ==============================================================================
 Kerberos Login Library Bug List
 ==============================================================================
-Current version: 1.8fc7
-Date           : March 1, 2005
+Current version: 1.8.1fc1
+Date           : June 15, 2005
 Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 ==============================================================================
 
@@ -10,6 +10,13 @@ Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 Bug #       Bug description                                           Fixed in
 ==============================================================================
 
+[RT 3020] Authenticate dialog in "renew" mode has no cursor                     1.8.1fc1
+[RT 3051] KerberosAgent should disable apple menu                               1.8.1fc1
+[RT 3052] KerberosAgent should not have a services menu                         1.8.1fc1
+[RT 3095] KerberosAgent dialog text fields should not have contextual menus     1.8.1fc1
+[RT 3055] KLL should not allow empty string password arguments                  1.8.1fc1
+[RT 3062] NULL prompt string crashes graphical prompter                         1.8.1fc1
+[RT 3069] KLL should inherit ticket_lifetime config option                      1.8.1fc1
 [RT 2947] Memory leaks in __KLGetCCacheByName                                   1.8fc7
 [RT 2946] Can't get tickets for v4-only realm                                   1.8fc7
 [RT 2900] incomplete ticket cache confuses KLL                                  1.8fc6

@@ -1,5 +1,6 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -58,6 +59,7 @@ enum darwin_builtins
 };
 /* APPLE LOCAL end constant cfstrings */
 
+/* APPLE LOCAL begin mainline 5 nops */
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
    -mfix-and-continue flag, two changes are made to the generated code
@@ -71,8 +73,8 @@ enum darwin_builtins
    existed in the unit to be replaced, and from the new translation
    unit, for new data.
 
-   The changes are to insert 4 nops at the beginning of all functions
-   and to use indirection to get at static duration data.  The 4 nops
+   The changes are to insert 5 nops at the beginning of all functions
+   and to use indirection to get at static duration data.  The 5 nops
    are required by consumers of the generated code.  Currently, gdb
    uses this to patch in a jump to the overriding function, this
    allows all uses of the old name to forward to the replacement,
@@ -87,11 +89,16 @@ enum darwin_builtins
    the code that handles the extra indirection, and
    machopic_output_indirection and its use of MACHO_SYMBOL_STATIC for
    the code that handles @code{static} data indirection.  */
-
+/* APPLE LOCAL end mainline 5 nops */
 
 /* Nonzero if the user passes the -mone-byte-bool switch, which forces
    sizeof(bool) to be 1. */
 const char *darwin_one_byte_bool = 0;
+
+/* APPLE LOCAL begin pragma reverse_bitfields */
+/* Shouldn't there be a comment here?  */
+int darwin_reverse_bitfields = 0;
+/* APPLE LOCAL end pragma reverse_bitfields */
 
 int
 name_needs_quotes (const char *name)
@@ -103,9 +110,9 @@ name_needs_quotes (const char *name)
   return 0;
 }
 
-/* APPLE LOCAL begin mainline 3924162 */
 /* Return true if SYM_REF can be used without an indirection.  */
-static int
+/* APPLE LOCAL what is this change for? */
+int
 machopic_symbol_defined_p (rtx sym_ref)
 {
   if (SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED)
@@ -129,7 +136,6 @@ machopic_symbol_defined_p (rtx sym_ref)
     }
   return false;
 }
-/* APPLE LOCAL end mainline 3924162 */
 
 /* This module assumes that (const (symbol_ref "foo")) is a legal pic
    reference, which will not be changed.  */
@@ -156,7 +162,7 @@ machopic_classify_symbol (rtx sym_ref)
 
 /* Indicate when fix-and-continue style code generation is being used
    and when a reference to data should be indirected so that it can be
-   rebound in a new translation unit to refernce the original instance
+   rebound in a new translation unit to reference the original instance
    of that data.  Symbol names that are for code generation local to
    the translation unit are bound to the new translation unit;
    currently this means symbols that begin with L or _OBJC_;
@@ -183,7 +189,8 @@ indirect_data (rtx sym_ref)
 
   lprefix = (((name[0] == '*' || name[0] == '&')
               && (name[1] == 'L' || (name[1] == '"' && name[2] == 'L')))
-             || (strncmp (name, "_OBJC_", 6)));
+	     /* APPLE LOCAL mainline */
+             || (strncmp (name, "_OBJC_", 6) == 0));
 
   return ! lprefix;
 }
@@ -320,43 +327,42 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
   size_t namelen = strlen (name);
   machopic_indirection *p;
   void ** slot;
+  /* APPLE LOCAL begin mainline */
+  bool saw_star = false;
+  bool needs_quotes;
+  const char *suffix;
+  const char *prefix = user_label_prefix;
+  const char *quote = "";
   
-  /* Construct the name of the non-lazy pointer or stub.  */
-  if (stub_p)
+  if (name[0] == '*')
     {
-      int needs_quotes = name_needs_quotes (name);
-      buffer = alloca (strlen ("&L")
-		       + namelen
-		       + strlen (STUB_SUFFIX)
-		       + 2 /* possible quotes */
-		       + 1 /* '\0' */);
+      saw_star = true;
+      prefix = "";
+      ++name;
+      --namelen;
+    }
 
-      if (needs_quotes)
-	{
-	  if (name[0] == '*')
-	    sprintf (buffer, "&\"L%s" STUB_SUFFIX "\"", name + 1);
-	  else
-	    sprintf (buffer, "&\"L%s%s" STUB_SUFFIX "\"", user_label_prefix, 
-		     name);
-	}
-      else if (name[0] == '*')
-	sprintf (buffer, "&L%s" STUB_SUFFIX, name + 1);
-      else
-	sprintf (buffer, "&L%s%s" STUB_SUFFIX, user_label_prefix, name);
-    }
-  else
+  needs_quotes = name_needs_quotes (name);
+  if (needs_quotes)
     {
-      buffer = alloca (strlen ("&L")
-		       + strlen (user_label_prefix)
-		       + namelen
-		       + strlen (NON_LAZY_POINTER_SUFFIX)
-		       + 1 /* '\0' */);
-      if (name[0] == '*')
-	sprintf (buffer, "&L%s" NON_LAZY_POINTER_SUFFIX, name + 1);
-      else
-	sprintf (buffer, "&L%s%s" NON_LAZY_POINTER_SUFFIX, 
-		 user_label_prefix, name);
+      quote = "\"";
     }
+
+  if (stub_p)
+    suffix = STUB_SUFFIX;
+  else
+    suffix = NON_LAZY_POINTER_SUFFIX;
+
+  buffer = alloca (strlen ("&L")
+		   + strlen (prefix)
+		   + namelen
+		   + strlen (suffix)
+		   + 2 * strlen (quote)
+		   + 1 /* '\0' */);
+
+  /* Construct the name of the non-lazy pointer or stub.  */
+  sprintf (buffer, "&%sL%s%s%s%s", quote, prefix, name, suffix, quote);
+  /* APPLE LOCAL end mainline */
 
   if (!machopic_indirections)
     machopic_indirections = htab_create_ggc (37, 
@@ -435,22 +441,25 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
   if (! MACHOPIC_INDIRECT)
     return orig;
 
-  if (GET_CODE (orig) == SYMBOL_REF)
+  /* APPLE LOCAL begin dynamic-no-pic  */
+  switch (GET_CODE (orig))
     {
-      int defined = machopic_data_defined_p (orig);
+    case SYMBOL_REF:
+      {
+	int defined = machopic_data_defined_p (orig);
 
       if (defined && MACHO_DYNAMIC_NO_PIC_P)
 	{
 #if defined (TARGET_TOC)
- 	  emit_insn (GET_MODE (orig) == DImode
-		     ? gen_macho_high_di (reg, orig)
-		     : gen_macho_high (reg, orig));
- 	  emit_insn (GET_MODE (orig) == DImode
-		     ? gen_macho_low_di (reg, reg, orig)
-		     : gen_macho_low (reg, reg, orig));
+ 	  emit_insn (gen_macho_high (reg, orig));
+ 	  emit_insn (gen_macho_low (reg, reg, orig));
 #else
-	   /* some other cpu -- writeme!  */
-	   abort ();
+#if defined (TARGET_386)
+	    return orig;
+#else /* defined (TARGET_386) */
+	    /* some other cpu -- writeme!  */
+	    abort ();
+#endif /* defined (TARGET_386) */
 #endif
 	   return reg;
 	}
@@ -500,63 +509,86 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
       ptr_ref = gen_const_mem (Pmode, ptr_ref);
       machopic_define_symbol (ptr_ref);
 
+#ifdef TARGET_386
+	if (reg && TARGET_DYNAMIC_NO_PIC)
+	  {
+	    emit_insn (gen_rtx_SET (Pmode, reg, ptr_ref));
+	    ptr_ref = reg;
+	  }
+#endif	/* TARGET_386 */
+
       return ptr_ref;
     }
-  else if (GET_CODE (orig) == CONST)
-    {
-      rtx base, result;
+      break;
+  
+    case CONST:
+      {
+	/* If "(const (plus ...", walk the PLUS and return that result.
+	   PLUS processing (below) will restore the "(const ..." if
+	   appropriate.  */
+	if (GET_CODE (XEXP (orig, 0)) == PLUS)
+	  return machopic_indirect_data_reference (XEXP (orig, 0), reg);
+	else 
+	  return orig;
+      }
+      break;
+  
+    case MEM:
+      {
+	XEXP (ptr_ref, 0) = machopic_indirect_data_reference (XEXP (orig, 0), reg);
+	return ptr_ref;
+      }
+      break;
+  
+    case PLUS:
+      {
+	rtx base, result;
 
-      /* legitimize both operands of the PLUS */
-      if (GET_CODE (XEXP (orig, 0)) == PLUS)
-	{
-	  base = machopic_indirect_data_reference (XEXP (XEXP (orig, 0), 0),
-						   reg);
-	  orig = machopic_indirect_data_reference (XEXP (XEXP (orig, 0), 1),
-						   (base == reg ? 0 : reg));
-	}
-      else
-	return orig;
-
-      if (MACHOPIC_PURE && GET_CODE (orig) == CONST_INT)
-	result = plus_constant (base, INTVAL (orig));
-      else
-	result = gen_rtx_PLUS (Pmode, base, orig);
-
-      if (MACHOPIC_JUST_INDIRECT && GET_CODE (base) == MEM)
-	{
-	  if (reg)
-	    {
-	      emit_move_insn (reg, result);
-	      result = reg;
-	    }
-	  else
-	    {
-	      result = force_reg (GET_MODE (result), result);
-	    }
-	}
-
-      return result;
-
-    }
-  else if (GET_CODE (orig) == MEM)
-    XEXP (ptr_ref, 0) = machopic_indirect_data_reference (XEXP (orig, 0), reg);
-  /* When the target is i386, this code prevents crashes due to the
-     compiler's ignorance on how to move the PIC base register to
-     other registers.  (The reload phase sometimes introduces such
-     insns.)  */
-  else if (GET_CODE (orig) == PLUS
-	   && GET_CODE (XEXP (orig, 0)) == REG
-	   && REGNO (XEXP (orig, 0)) == PIC_OFFSET_TABLE_REGNUM
-#ifdef I386
-	   /* Prevent the same register from being erroneously used
-	      as both the base and index registers.  */
-	   && GET_CODE (XEXP (orig, 1)) == CONST
+	/* When the target is i386, this code prevents crashes due to the
+	   compiler's ignorance on how to move the PIC base register to
+	   other registers.  (The reload phase sometimes introduces such
+	   insns.)  */
+	if (GET_CODE (XEXP (orig, 0)) == REG
+	    && REGNO (XEXP (orig, 0)) == PIC_OFFSET_TABLE_REGNUM
+#ifdef TARGET_386
+	    /* Prevent the same register from being erroneously used
+	       as both the base and index registers.  */
+	    && GET_CODE (XEXP (orig, 1)) == CONST
 #endif
-	   && reg)
-    {
-      emit_move_insn (reg, XEXP (orig, 0));
-      XEXP (ptr_ref, 0) = reg;
-    }
+	    && reg)
+	  {
+	    emit_move_insn (reg, XEXP (orig, 0));
+	    XEXP (ptr_ref, 0) = reg;
+	    return ptr_ref;
+	  }
+
+	/* Legitimize both operands of the PLUS.  */
+	base = machopic_indirect_data_reference (XEXP (orig, 0), reg);
+	orig = machopic_indirect_data_reference (XEXP (orig, 1),
+						 (base == reg ? 0 : reg));
+	if (MACHOPIC_INDIRECT && GET_CODE (orig) == CONST_INT)
+	  result = plus_constant (base, INTVAL (orig));
+	else
+	  result = gen_rtx_PLUS (Pmode, base, orig);
+
+	if (MACHOPIC_JUST_INDIRECT && GET_CODE (base) == MEM)
+	  {
+	    if (reg)
+	      {
+		emit_move_insn (reg, result);
+		result = reg;
+	      }
+	    else
+	      result = force_reg (GET_MODE (result), result);
+	  }
+	return result;
+      }
+      break;
+
+    default:
+      break;
+    }	/* End switch (GET_CODE (orig)) */
+  /* APPLE LOCAL end dynamic-no-pic */
   return ptr_ref;
 }
 
@@ -643,9 +675,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      rtx asym = XEXP (orig, 0);
 	      rtx mem;
 
-	      emit_insn (mode == DImode
-			 ? gen_macho_high_di (temp_reg, asym)
-			 : gen_macho_high (temp_reg, asym));
+	      emit_insn (gen_macho_high (temp_reg, asym));
 	      mem = gen_const_mem (GET_MODE (orig),
 				   gen_rtx_LO_SUM (Pmode, temp_reg, asym));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
@@ -775,7 +805,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	  else
 #endif  /*  HAVE_lo_sum  */
 	    {
-	      if (GET_CODE (orig) == REG)
+	      if (REG_P (orig)
+	          || GET_CODE (orig) == SUBREG)
 		{
 		  return orig;
 		}
@@ -1056,10 +1087,10 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 	      && DECL_INITIAL (decl) != error_mark_node)))
     SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_FLAG_DEFINED;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && indirect_data (sym_ref)
-      && ! TREE_PUBLIC (decl))
+  /* APPLE LOCAL begin mainline */
+  if (! TREE_PUBLIC (decl))
     SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_STATIC;
+  /* APPLE LOCAL end mainline */
 
   /* APPLE LOCAL begin fix OBJC codegen */
   if (TREE_CODE (decl) == VAR_DECL)
@@ -1084,13 +1115,15 @@ machopic_select_section (tree exp, int reloc,
 {
   void (*base_function)(void);
   bool weak_p = DECL_P (exp) && DECL_WEAK (exp);
+  /* APPLE LOCAL begin mainline 2005-04-15 <radar 4078608> */
   static void (* const base_funs[][2])(void) = {
     { text_section, text_coal_section },
-    { text_unlikely_section, text_unlikely_coal_section },
+    { unlikely_text_section, text_unlikely_coal_section },
     { readonly_data_section, const_coal_section },
     { const_data_section, const_data_coal_section },
     { data_section, data_coal_section }
   };
+  /* APPLE LOCAL end mainline 2005-04-15 <radar 4078608> */
 
   if (TREE_CODE (exp) == FUNCTION_DECL)
     base_function = base_funs[reloc][weak_p];
@@ -1111,7 +1144,7 @@ machopic_select_section (tree exp, int reloc,
   else if ((TREE_CODE (exp) == INTEGER_CST || TREE_CODE (exp) == REAL_CST)
 	   && flag_merge_constants)
     {
-      tree size = TYPE_SIZE (TREE_TYPE (exp));
+      tree size = TYPE_SIZE_UNIT (TREE_TYPE (exp));
 
       if (TREE_CODE (size) == INTEGER_CST &&
 	  TREE_INT_CST_LOW (size) == 4 &&
@@ -1230,11 +1263,9 @@ void
 machopic_select_rtx_section (enum machine_mode mode, rtx x,
 			     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
-  /* APPLE LOCAL begin 64-bit mainline */
   if (GET_MODE_SIZE (mode) == 8
       && (GET_CODE (x) == CONST_INT
 	  || GET_CODE (x) == CONST_DOUBLE))
-    /* APPLE LOCAL end 64-bit mainline */
     literal8_section ();
   else if (GET_MODE_SIZE (mode) == 4
 	   && (GET_CODE (x) == CONST_INT
@@ -1454,10 +1485,9 @@ darwin_handle_weak_import_attribute (tree *node, tree name,
 				     int ARG_UNUSED (flags),
 				     bool * no_add_attrs)
 {
-  /* APPLE LOCAL put in 4.1 */
   if (TREE_CODE (*node) != FUNCTION_DECL && TREE_CODE (*node) != VAR_DECL)
     {
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else
@@ -1484,8 +1514,9 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
     ? DECL_ASSEMBLER_NAME (decl)
     : DECL_NAME (decl);
 
-  const char *prefix = "_";
-  const int prefix_len = 1;
+  /* APPLE LOCAL begin mainline */
+  const char *prefix = user_label_prefix;
+  /* APPLE LOCAL end mainline */
 
   const char *base = IDENTIFIER_POINTER (id);
   unsigned int base_len = IDENTIFIER_LENGTH (id);
@@ -1499,7 +1530,10 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
   if (! for_eh)
     suffix = ".eh1";
 
-  lab = xmalloc (prefix_len + base_len + strlen (suffix) + quotes_len + 1);
+  /* APPLE LOCAL begin mainline */
+  lab = xmalloc (strlen (prefix)
+		 + base_len + strlen (suffix) + quotes_len + 1);
+  /* APPLE LOCAL end mainline */
   lab[0] = '\0';
 
   if (need_quotes)
@@ -1571,7 +1605,7 @@ darwin_assemble_visibility (tree decl, int vis)
       fputs ("\n", asm_out_file);
     }
   else
-    warning ("internal and protected visibility attributes not supported"
+    warning ("internal and protected visibility attributes not supported "
 	     "in this configuration; ignored");
 }
 
@@ -1585,7 +1619,6 @@ darwin_assemble_visibility (tree decl, int vis)
 static int darwin_dwarf_label_counter;
 
 void
-/* APPLE LOCAL 64-bit mainline */
 darwin_asm_output_dwarf_delta (FILE *file, int size,
 			       const char *lab1, const char *lab2)
 {
@@ -1597,9 +1630,9 @@ darwin_asm_output_dwarf_delta (FILE *file, int size,
     fprintf (file, "\t.set L$set$%d,", darwin_dwarf_label_counter);
   else
     fprintf (file, "\t%s\t", directive);
-  assemble_name (file, lab1);
+  assemble_name_raw (file, lab1);
   fprintf (file, "-");
-  assemble_name (file, lab2);
+  assemble_name_raw (file, lab2);
   if (islocaldiff)
     fprintf (file, "\n\t%s L$set$%d", directive, darwin_dwarf_label_counter++);
 }

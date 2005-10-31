@@ -72,6 +72,7 @@
 #include <paths.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 /* the optimization warning string template */
 #define	OPTWARN	"should optimize for %s with minfree %s %d%%"

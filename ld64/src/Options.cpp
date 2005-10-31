@@ -1,4 +1,5 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- 
+ *
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
@@ -25,6 +26,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <vector>
 
 
 #include "Options.h"
@@ -52,7 +54,7 @@ Options::Options(int argc, const char* argv[])
 	fUndefinedTreatment(kUndefinedError), fMessagesPrefixedWithArchitecture(false), fPICTreatment(kPICError),
 	fWeakReferenceMismatchTreatment(kWeakReferenceMismatchError), 
 	fUmbrellaName(NULL), fInitFunctionName(NULL), fZeroPageSize(0x1000), fStackSize(0), fStackAddr(0), fMinimumHeaderPad(0),
-	fCommonsMode(kCommonsIgnoreDylibs), fWarnCommons(false)
+	fCommonsMode(kCommonsIgnoreDylibs), fWarnCommons(false), fVerbose(false)
 {
 	this->parsePreCommandLineEnvironmentSettings();
 	this->parse(argc, argv);
@@ -251,7 +253,6 @@ bool Options::warnCommons()
 	return fWarnCommons;
 }
 
-
 bool Options::shouldExport(const char* symbolName)
 {
 	switch (fExportMode) {
@@ -364,20 +365,39 @@ Options::FileInfo Options::findFramework(const char* rootName)
 	throwf("framework not found %s", rootName);
 }
 
-
-Options::FileInfo Options::makeFileInfo(const char* path)
+Options::FileInfo Options::findFile(const char* path)
 {
+	FileInfo result;
 	struct stat statBuffer;
+	
+	// if absolute path and not a .o file, the use SDK prefix
+	if ( (path[0] == '/') && (strcmp(&path[strlen(path)-2], ".o") != 0) ) {
+		const int pathLen = strlen(path);
+		for (std::vector<const char*>::iterator it = fSDKPaths.begin(); it != fSDKPaths.end(); it++) {
+			const char* sdkPathDir = *it;
+			const int sdkPathDirLen = strlen(sdkPathDir);
+			char possiblePath[sdkPathDirLen+pathLen+4];
+			strcpy(possiblePath, sdkPathDir);
+			if ( possiblePath[sdkPathDirLen-1] == '/' )
+				possiblePath[sdkPathDirLen-1] = '\0';
+			strcat(possiblePath, path);
+			if ( stat(possiblePath, &statBuffer) == 0 ) {
+				result.path = strdup(possiblePath);
+				result.fileLen = statBuffer.st_size;
+				return result;
+			}
+		}
+	}
+	// try raw path
 	if ( stat(path, &statBuffer) == 0 ) {
-		FileInfo result;
 		result.path = strdup(path);
 		result.fileLen = statBuffer.st_size;
 		return result;
 	}
-	else {
-		throwf("file not found: %s", path);
-	}
+	// not found
+	throwf("file not found: %s", path);
 }
+
 
 void Options::loadFileList(const char* fileOfPaths)
 {
@@ -392,7 +412,7 @@ void Options::loadFileList(const char* fileOfPaths)
 		if ( eol != NULL )
 			*eol = '\0';
 			
-		fInputFiles.push_back(makeFileInfo(path));
+		fInputFiles.push_back(findFile(path));
 	}
 	fclose(file);
 }
@@ -641,7 +661,7 @@ void Options::parse(int argc, const char* argv[])
 		
 		if ( arg[0] == '-' ) {
 			if ( (arg[1] == 'L') || (arg[1] == 'F') ) {
-				// previously handled
+				// previously handled by buildSearchPaths()
 			}
 			else if ( strcmp(arg, "-arch") == 0 ) {
 				parseArch(argv[++i]);
@@ -755,7 +775,7 @@ void Options::parse(int argc, const char* argv[])
 				 fForceSubtypeAll = true;
 			}
 			else if ( strcmp(arg, "-weak_library") == 0 ) {
-				FileInfo info = makeFileInfo(argv[++i]);
+				FileInfo info = findFile(argv[++i]);
 				info.options.fWeakImport = true;
 				fInputFiles.push_back(info);
 			}
@@ -930,13 +950,6 @@ void Options::parse(int argc, const char* argv[])
 				 // FIX FIX
 				 fprintf(stderr, "ld64: warning -dead_strip not yet supported for 64-bit code\n");
 			}
-			else if ( strcmp(arg, "-v") == 0 ) {
-				extern const char ld64VersionString[];
-				fprintf(stderr, "%s", ld64VersionString);
-				 // if only -v specified, exit cleanly
-				 if ( argc == 2 )
-					exit(0);
-			}
 			else if ( strcmp(arg, "-w") == 0 ) {
 				// FIX FIX
 			}
@@ -1003,36 +1016,141 @@ void Options::parse(int argc, const char* argv[])
 			else if ( strcmp(arg, "-commons") == 0 ) {
 				fCommonsMode = parseCommonsTreatment(argv[++i]);
 			}
-			
+			else if ( strcmp(arg, "-v") == 0 ) {
+				// previously handled by buildSearchPaths()
+			}
+			else if ( strcmp(arg, "-Z") == 0 ) {
+				// previously handled by buildSearchPaths()
+			}
+			else if ( strcmp(arg, "-syslibroot") == 0 ) {
+				++i;
+				// previously handled by buildSearchPaths()
+			}
 			else {
 				fprintf(stderr, "unknown option: %s\n", arg);
 			}
 		}
 		else {
-			fInputFiles.push_back(makeFileInfo(arg));
+			fInputFiles.push_back(findFile(arg));
 		}
 	}
 }
 
+
+
+// 
+// -syslibroot <path> is used for SDK support.  
+// The rule is that all search paths (both explicit and default) are
+// checked to see if they exist in the SDK.  If so, that path is
+// replaced with the sdk prefixed path.  If not, that search path
+// is used as is.  If multiple -syslibroot options are specified
+// their directory structures are logically overlayed and files
+// from sdks specified earlier on the command line used before later ones.
+// 
 void Options::buildSearchPaths(int argc, const char* argv[])
 {
 	bool addStandardLibraryDirectories = true;
-	// scan through argv looking for -L and -F options
+	std::vector<const char*> libraryPaths;
+	std::vector<const char*> frameworkPaths;
+	// scan through argv looking for -L, -F, -Z, and -syslibroot options
 	for(int i=0; i < argc; ++i) {
 		if ( (argv[i][0] == '-') && (argv[i][1] == 'L') )
-			fLibrarySearchPaths.push_back(&argv[i][2]);
+			libraryPaths.push_back(&argv[i][2]);
 		else if ( (argv[i][0] == '-') && (argv[i][1] == 'F') )
-			fFrameworkSearchPaths.push_back(&argv[i][2]);
+			frameworkPaths.push_back(&argv[i][2]);
 		else if ( strcmp(argv[i], "-Z") == 0 )
 			addStandardLibraryDirectories = false;
+		else if ( strcmp(argv[i], "-v") == 0 ) {
+			fVerbose = true;
+			extern const char ld64VersionString[];
+			fprintf(stderr, "%s", ld64VersionString);
+			 // if only -v specified, exit cleanly
+			 if ( argc == 2 )
+				exit(0);
+		}
+		else if ( strcmp(argv[i], "-syslibroot") == 0 ) {
+			const char* path = argv[++i];
+			if ( path == NULL )
+				throw "-syslibroot missing argument";
+			fSDKPaths.push_back(path);
+		}
 	}
 	if ( addStandardLibraryDirectories ) {
-		fLibrarySearchPaths.push_back("/usr/lib");
-		fLibrarySearchPaths.push_back("/usr/local/lib");
+		libraryPaths.push_back("/usr/lib");
+		libraryPaths.push_back("/usr/local/lib");
 		
-		fFrameworkSearchPaths.push_back("/Library/Frameworks/");
-		fFrameworkSearchPaths.push_back("/Network/Library/Frameworks/");
-		fFrameworkSearchPaths.push_back("/System/Library/Frameworks/");
+		frameworkPaths.push_back("/Library/Frameworks/");
+		frameworkPaths.push_back("/Network/Library/Frameworks/");
+		frameworkPaths.push_back("/System/Library/Frameworks/");
+	}
+	
+	// now merge sdk and library paths to make real search paths
+	for (std::vector<const char*>::iterator it = libraryPaths.begin(); it != libraryPaths.end(); it++) {
+		const char* libDir = *it;
+		bool sdkOverride = false;
+		if ( libDir[0] == '/' ) {
+			char betterLibDir[PATH_MAX];
+			if ( strstr(libDir, "/..") != NULL ) {
+				if ( realpath(libDir, betterLibDir) != NULL )
+					libDir = betterLibDir;
+			}
+			const int libDirLen = strlen(libDir);
+			for (std::vector<const char*>::iterator sdkit = fSDKPaths.begin(); sdkit != fSDKPaths.end(); sdkit++) {
+				const char* sdkDir = *sdkit;
+				const int sdkDirLen = strlen(sdkDir);
+				char newPath[libDirLen + sdkDirLen+4];
+				strcpy(newPath, sdkDir);
+				if ( newPath[sdkDirLen-1] == '/' )
+					newPath[sdkDirLen-1] = '\0';
+				strcat(newPath, libDir);
+				struct stat statBuffer;
+				if ( stat(newPath, &statBuffer) == 0 ) {
+					fLibrarySearchPaths.push_back(strdup(newPath));
+					sdkOverride = true;
+				}
+			}
+		}
+		if ( !sdkOverride ) 
+			fLibrarySearchPaths.push_back(libDir);
+	}
+	
+	// now merge sdk and framework paths to make real search paths
+	for (std::vector<const char*>::iterator it = frameworkPaths.begin(); it != frameworkPaths.end(); it++) {
+		const char* frameworkDir = *it;
+		bool sdkOverride = false;
+		if ( frameworkDir[0] == '/' ) {
+			char betterFrameworkDir[PATH_MAX];
+			if ( strstr(frameworkDir, "/..") != NULL ) {
+				if ( realpath(frameworkDir, betterFrameworkDir) != NULL )
+					frameworkDir = betterFrameworkDir;
+			}
+			const int frameworkDirLen = strlen(frameworkDir);
+			for (std::vector<const char*>::iterator sdkit = fSDKPaths.begin(); sdkit != fSDKPaths.end(); sdkit++) {
+				const char* sdkDir = *sdkit;
+				const int sdkDirLen = strlen(sdkDir);
+				char newPath[frameworkDirLen + sdkDirLen+4];
+				strcpy(newPath, sdkDir);
+				if ( newPath[sdkDirLen-1] == '/' )
+					newPath[sdkDirLen-1] = '\0';
+				strcat(newPath, frameworkDir);
+				struct stat statBuffer;
+				if ( stat(newPath, &statBuffer) == 0 ) {
+					fFrameworkSearchPaths.push_back(strdup(newPath));
+					sdkOverride = true;
+				}
+			}
+		}
+		if ( !sdkOverride ) 
+			fFrameworkSearchPaths.push_back(frameworkDir);
+	}
+	
+	if ( fVerbose ) {
+		fprintf(stderr,"Library search paths:\n");
+		for (std::vector<const char*>::iterator it = fLibrarySearchPaths.begin(); it != fLibrarySearchPaths.end(); it++)
+			fprintf(stderr,"\t%s\n", *it);
+		fprintf(stderr,"Framework search paths:\n");
+		for (std::vector<const char*>::iterator it = fFrameworkSearchPaths.begin(); it != fFrameworkSearchPaths.end(); it++)
+			fprintf(stderr,"\t%s\n", *it);
 	}
 }
 
@@ -1169,6 +1287,11 @@ void Options::checkIllegalOptionCombinations()
 	// check -init is only used when building a dylib
 	if ( (fInitFunctionName != NULL) && (fOutputKind != Options::kDynamicLibrary) )
 		throw "-init can only be used with -dynamiclib";
+		
+	// make sure all required exported symbols exist
+	for (NameSet::iterator it=fExportSymbols.begin(); it != fExportSymbols.end(); it++)
+		fInitialUndefines.push_back(*it);
+		
 }
 
 

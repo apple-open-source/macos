@@ -1,5 +1,5 @@
 /* FileInputStream.java -- An input stream that reads from disk files.
-   Copyright (C) 1998, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -51,8 +51,8 @@ import java.nio.channels.FileChannel;
 /**
  * This class is a stream that reads its bytes from a file. 
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Warren Levy <warrenl@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Warren Levy (warrenl@cygnus.com)
  */
 public class FileInputStream extends InputStream
 {
@@ -122,7 +122,7 @@ public class FileInputStream extends InputStream
    * An exception is 
    * thrown if reading is not allowed.
    *
-   * @param fd The <code>FileDescriptor</code> object this stream 
+   * @param fdObj The <code>FileDescriptor</code> object this stream 
    * should read from
    *
    * @exception SecurityException If read access to the file is not allowed

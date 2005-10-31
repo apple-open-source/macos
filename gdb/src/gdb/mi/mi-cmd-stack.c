@@ -1000,10 +1000,10 @@ print_syms_for_block (struct block *block,
       if (print_me)
 	{
           struct symbol *sym2;
-	  int len = strlen (DEPRECATED_SYMBOL_NAME (sym));
+	  int len = strlen (SYMBOL_NATURAL_NAME (sym));
 
 	  /* If we are about to print, compare against the regexp.  */
-	  if (filter && re_search (filter, DEPRECATED_SYMBOL_NAME (sym), 
+	  if (filter && re_search (filter, SYMBOL_NATURAL_NAME (sym), 
 				   len, 0, len, 
 				   (struct re_registers *) 0) >= 0)
 	    continue;
@@ -1012,7 +1012,7 @@ print_syms_for_block (struct block *block,
 	    {
 	      struct cleanup *tuple_cleanup;
 	      tuple_cleanup = make_cleanup_ui_out_tuple_begin_end (uiout, NULL);
-	      ui_out_field_string (uiout, "name", DEPRECATED_SYMBOL_NAME (sym));
+	      ui_out_field_string (uiout, "name", SYMBOL_NATURAL_NAME (sym));
 	      do_cleanups (tuple_cleanup);
 	      continue;
 	    }
@@ -1027,21 +1027,46 @@ print_syms_for_block (struct block *block,
 	  
 	  if (values == PRINT_MAKE_VAROBJ)
 	    {
+	      /* APPLE LOCAL: If you pass an expression with a "::" in
+		 it down to parse_expression, it will choke on it.  So
+		 we need to add a ' before and after the
+		 expression.  Only do it if there is a "::" however, just
+	         to keep the uglification to a minimum.  */
 	      struct varobj *new_var;
-	      struct cleanup *tuple_cleanup;
+	      struct cleanup *tuple_cleanup, *expr_cleanup;
+	      char *expr = SYMBOL_NATURAL_NAME (sym2);
+	      if (strstr (expr, "::") != NULL) 
+		{
+		  char *tmp;
+		  int len = strlen (expr);
+		  tmp = xmalloc (len + 3);
+		  tmp[0] = '\'';
+		  memcpy (tmp + 1, expr, len);
+		  tmp[len + 1] = '\'';
+		  tmp[len + 2] = '\0';
+		  expr = tmp;
+		  expr_cleanup = make_cleanup (xfree, expr);
+		}
+	      else
+		{
+		  expr_cleanup = make_cleanup (null_cleanup, NULL);
+		}
 
+	      /* END APPLE LOCAL */
 	      if (fi)
 		new_var = varobj_create (varobj_gen_name (), 
-				       DEPRECATED_SYMBOL_NAME (sym2),
+				       expr,
 				       get_frame_base (fi),
 				       block,
 				       USE_BLOCK_IN_FRAME);
 	      else
 		new_var = varobj_create (varobj_gen_name (), 
-				       DEPRECATED_SYMBOL_NAME (sym2),
+				       expr,
 				       0,
 				       block,
 				       NO_FRAME_NEEDED);
+
+	      do_cleanups (expr_cleanup);
 
 	      /* FIXME: There should be a better way to report an error in 
 		 creating a variable here, but I am not sure how to do it,
@@ -1051,7 +1076,7 @@ print_syms_for_block (struct block *block,
 		continue;
 
 	      tuple_cleanup = make_cleanup_ui_out_tuple_begin_end (uiout, "varobj");
-	      ui_out_field_string (uiout, "exp", DEPRECATED_SYMBOL_NAME (sym));
+	      ui_out_field_string (uiout, "exp", SYMBOL_NATURAL_NAME (sym));
 	      if (new_var != NULL)
 		{
 		  char *value_str;

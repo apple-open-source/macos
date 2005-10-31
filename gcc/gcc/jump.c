@@ -114,7 +114,7 @@ cleanup_barriers (void)
 	{
 	  prev = prev_nonnote_insn (insn);
 	  if (BARRIER_P (prev))
-	    delete_barrier (insn);
+	    delete_insn (insn);
 	  else if (prev != PREV_INSN (insn))
 	    reorder_insns (insn, insn, prev);
 	}
@@ -248,6 +248,10 @@ squeeze_notes (rtx* startp, rtx* endp)
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END))
 	{
+	  /* BLOCK_BEG or BLOCK_END notes only exist in the `final' pass.  */
+	  gcc_assert (NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_BEG
+		      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_END);
+
 	  if (insn == start)
 	    start = next;
 	  else
@@ -766,8 +770,6 @@ condjump_p (rtx insn)
 		|| (GET_CODE (XEXP (x, 1)) == PC
 		    && (GET_CODE (XEXP (x, 2)) == LABEL_REF
 			|| GET_CODE (XEXP (x, 2)) == RETURN))));
-
-  return 0;
 }
 
 /* Return nonzero if INSN is a (possibly) conditional jump inside a
@@ -1165,17 +1167,6 @@ delete_jump (rtx insn)
 
   if (set && GET_CODE (SET_DEST (set)) == PC)
     delete_computation (insn);
-}
-
-/* Verify INSN is a BARRIER and delete it.  */
-
-void
-delete_barrier (rtx insn)
-{
-  if (!BARRIER_P (insn))
-    abort ();
-
-  delete_insn (insn);
 }
 
 /* Recursively delete prior insns that compute the value (used only by INSN

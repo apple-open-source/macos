@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -280,7 +280,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 	/*
 	 * get "global" system preferences
 	 */
-	(CFPropertyListRef)global = SCPreferencesGetValue(prefs, kSCPrefSystem);
+	global = SCPreferencesGetValue(prefs, kSCPrefSystem);
 	if (!global) {
 		/* if no global preferences are defined */
 		goto getSet;
@@ -301,7 +301,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 	/*
 	 * get current set name
 	 */
-	(CFPropertyListRef)current = SCPreferencesGetValue(prefs, kSCPrefCurrentSet);
+	current = SCPreferencesGetValue(prefs, kSCPrefCurrentSet);
 	if (!current) {
 		/* if current set not defined */
 		goto done;
@@ -317,7 +317,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 	/*
 	 * get current set
 	 */
-	(CFPropertyListRef)set = SCPreferencesPathGetValue(prefs, current);
+	set = SCPreferencesPathGetValue(prefs, current);
 	if (!set) {
 		/* if error with path */
 		SCLog(TRUE, LOG_ERR,

@@ -4922,7 +4922,7 @@ static void usage(void)
 			torture_numops = atoi(optarg);
 			break;
 		case 'd':
-			DEBUGLEVEL = atoi(optarg);
+			SAMBA_DEBUGLEVEL = atoi(optarg);
 			break;
 		case 'O':
 			sockops = optarg;

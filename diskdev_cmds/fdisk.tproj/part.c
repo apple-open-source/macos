@@ -61,7 +61,6 @@
 #include <sys/fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/disklabel.h>
 #include <machine/param.h>
 #include "disk.h"
 #include "misc.h"
@@ -236,7 +235,11 @@ PRT_parse(disk, prt, offset, reloff, partn, pn)
 	partn->bs = getlong(p) + off;
 	partn->ns = getlong(p+4);
 
-	PRT_fix_CHS(disk, partn, pn);
+
+	/* Zero out entry if not used */
+        if (partn->id == DOSPTYP_UNUSED ) {
+	  memset(partn, 0, sizeof(*partn));
+        }
 }
 
 int
@@ -378,8 +381,8 @@ PRT_fix_CHS(disk, part, pn)
 	prt_t *part;
 	int pn;
 {
-	int spt, tpc, spc;
-	int start, end, size;
+        int spt, tpc, spc;
+        int start;
 	int cyl, head, sect;
 
 	/* Zero out entry if not used */
@@ -394,29 +397,28 @@ PRT_fix_CHS(disk, part, pn)
 	spc = spt * tpc;
 
 	start = part->bs;
-	size = part->ns;
-	end = (start + size) - 1;
 
-	/* Figure out starting CHS values */
-	cyl = (start / spc); start -= (cyl * spc);
-	head = (start / spt); start -= (head * spt);
-	sect = (start + 1);
-
-	if (cyl > 1023) {
-		cyl = 1023;
+	if(start <= spt) {
+	  /* Figure out "real" starting CHS values */
+	  cyl = (start / spc); start -= (cyl * spc);
+	  head = (start / spt); start -= (head * spt);
+	  sect = (start + 1);
+	} else {
+	  cyl = 1023;
+	  head = 254;
+	  sect =  63;
 	}
+
 	part->scyl = cyl;
 	part->shead = head;
 	part->ssect = sect;
 
-	/* Figure out ending CHS values */
-	cyl = (end / spc); end -= (cyl * spc);
-	head = (end / spt); end -= (head * spt);
-	sect = (end + 1);
+	/* use fake geometry to trigger LBA mode */
 
-	if (cyl > 1023) {
-		cyl = 1023;
-	}
+	cyl = 1023;
+	head = 254;
+	sect =  63;
+
 	part->ecyl = cyl;
 	part->ehead = head;
 	part->esect = sect;

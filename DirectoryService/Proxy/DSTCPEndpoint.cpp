@@ -1154,9 +1154,11 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 			inBuffer = nil;
 		}//if (inBuffer != nil)
 	}
-	
-	DSTCPEndian swapper(pOutProxyMsg, DSTCPEndian::kSwapToHost);
+#ifndef __BIG_ENDIAN__
+	DSTCPEndian swapper(pOutProxyMsg, kDSSwapToHost);
+	swapper.AddIPAndPort( mRemoteHostIPAddr, ntohs( mRemoteSockAddr.sin_port ));
     swapper.SwapMessage();
+#endif
     
 	pOutMsg = AllocFromProxyStruct( pOutProxyMsg );
 	if (pOutProxyMsg != nil)
@@ -1325,8 +1327,11 @@ sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 	//let us only send the data that is present and not the entire buffer
 	inProxyMsg->fDataSize = inProxyMsg->fDataLength;
 	messageSize = sizeof(sComProxyData) + inProxyMsg->fDataLength;
-	DSTCPEndian swapper(inProxyMsg, DSTCPEndian::kSwapToBig);
+#ifndef __BIG_ENDIAN__
+	DSTCPEndian swapper(inProxyMsg, kDSSwapToBig);
+	swapper.AddIPAndPort( mRemoteHostIPAddr, ntohs( mRemoteSockAddr.sin_port ));
 	swapper.SwapMessage();
+#endif
 	sendResult = SendBuffer(inProxyMsg, messageSize);
 	free(inProxyMsg);
 	inProxyMsg = nil;
@@ -1350,8 +1355,10 @@ sInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
 	//let us only send the data that is present and not the entire buffer
 	inProxyMsg->fDataSize = inProxyMsg->fDataLength;
 	messageSize = sizeof(sComProxyData) + inProxyMsg->fDataLength;
-	DSTCPEndian swapper(inProxyMsg, DSTCPEndian::kSwapToBig);
+#ifndef __BIG_ENDIAN__
+	DSTCPEndian swapper(inProxyMsg, kDSSwapToBig);
 	swapper.SwapMessage();
+#endif
 	sendResult = SendBuffer(inProxyMsg, messageSize);
 	free(inProxyMsg);
 	inProxyMsg = nil;
@@ -1497,8 +1504,10 @@ sInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 	
     if (outProxyMsg != nil)
     {
-        DSTCPEndian swapper(outProxyMsg, DSTCPEndian::kSwapToHost);
+#ifndef __BIG_ENDIAN__
+        DSTCPEndian swapper(outProxyMsg, kDSSwapToHost);
         swapper.SwapMessage();
+#endif
 		*outMsg = AllocFromProxyStruct( outProxyMsg );
 		free(outProxyMsg);
 		outProxyMsg = nil;

@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,24 +41,30 @@ import org.blojsom.blog.BlogUser;
 import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.plugin.BlojsomPlugin;
 import org.blojsom.plugin.BlojsomPluginException;
+import org.blojsom.util.BlojsomUtils;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * ExcerptPlugin
  *
  * @author Mark Lussier
- * @version $Id: ExcerptPlugin.java,v 1.2 2004/08/27 01:06:37 whitmore Exp $
+ * @version $Id: ExcerptPlugin.java,v 1.2.2.1 2005/07/21 04:30:30 johnan Exp $
  * @since blojsom 2.13
  */
 public class ExcerptPlugin implements BlojsomPlugin {
 
+    private static final String SHOWME_PARAM = "smm";
+
     private static final String EXCERPT_EXPRESSION = "(^|\\s).*<div class=\"excerpt\">(.*)</div>.*";
-    private static final String SHOWME_START = "$2 &nbsp;<a href=\"";
-    private static final String SHOWME_FINISH = "&amp;smm=y\">Read More</a>";
+    private static final String SHOWME_START = "$2 &nbsp;<a class=\"smm\" href=\"";
+    private static final String SHOWME_FINISH = "&amp;" + SHOWME_PARAM + "=y\">Read More</a>";
+
 
     private Log _logger = LogFactory.getLog(ExcerptPlugin.class);
 
@@ -92,20 +98,38 @@ public class ExcerptPlugin implements BlojsomPlugin {
      *          If there is an error processing the blog entries
      */
     public BlogEntry[] process(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, BlogUser user, Map context, BlogEntry[] entries) throws BlojsomPluginException {
+        String showme = BlojsomUtils.getRequestValue(SHOWME_PARAM, httpServletRequest);
+        if (showme == null) {
+            _logger.debug("Processing all entries");
+            processEntries(entries);
+        } else {
+            _logger.debug("Not processing because request param was set");
+        }
+        return entries;
+    }
+
+    /**
+     * Process entries
+     *
+     * @param entries Array of {@link BlogEntry} objects
+     */
+    private void processEntries(BlogEntry[] entries) {
+        Pattern p = Pattern.compile(EXCERPT_EXPRESSION, Pattern.DOTALL);
 
         for (int i = 0; i < entries.length; i++) {
             BlogEntry entry = entries[i];
-            String updatedDescription = entry.getDescription();
-            if (updatedDescription.matches(EXCERPT_EXPRESSION)) {
+            String originalDescription = entry.getDescription();
+            Matcher m = p.matcher(originalDescription);
+            if (m.matches()) {
                 _logger.info("Performing excerpt on " + entry.getTitle());
-                entry.setDescription(updatedDescription.replaceAll(EXCERPT_EXPRESSION, SHOWME_START) + entry.getLink() + SHOWME_FINISH);
+                StringBuffer newDescription = new StringBuffer(m.replaceAll(SHOWME_START));
+                newDescription.append(entry.getLink());
+                newDescription.append(SHOWME_FINISH);
+                entry.setDescription(newDescription.toString());
             } else {
                 _logger.info("Nothing to excerpt on " + entry.getTitle());
-                entry.setDescription(updatedDescription.replaceAll(EXCERPT_EXPRESSION, SHOWME_START) + entry.getLink() + SHOWME_FINISH);
             }
         }
-
-        return entries;
     }
 
     /**

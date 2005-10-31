@@ -24,6 +24,7 @@
 /*!
  *  @header BSDDirNodeRep
  */
+#include "BSDHeaders.h"
 
 #include <DirectoryService/DirServices.h>
 #include <DirectoryService/DirServicesUtils.h>
@@ -31,8 +32,6 @@
 
 #include <DirectoryServiceCore/DSUtils.h>
 #include <DirectoryServiceCore/ServerModuleLib.h>
-
-#include "BSDHeaders.h"
 
 CFStringRef NISResultNotifierCopyDesctriptionCallback( const void *item )
 {

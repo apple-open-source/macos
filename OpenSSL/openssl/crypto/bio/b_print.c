@@ -576,12 +576,12 @@ abs_val(LDOUBLE value)
 }
 
 static LDOUBLE
-pow10(int exp)
+pow10(int in_exp)
 {
     LDOUBLE result = 1;
-    while (exp) {
+    while (in_exp) {
         result *= 10;
-        exp--;
+        in_exp--;
     }
     return result;
 }
@@ -641,7 +641,7 @@ fmtfp(
        multiplying by a factor of 10 */
     fracpart = roundv((pow10(max)) * (ufvalue - intpart));
 
-    if (fracpart >= pow10(max)) {
+    if (fracpart >= (long)pow10(max)) {
         intpart++;
         fracpart -= (long)pow10(max);
     }
@@ -652,8 +652,8 @@ fmtfp(
             (caps ? "0123456789ABCDEF"
               : "0123456789abcdef")[intpart % 10];
         intpart = (intpart / 10);
-    } while (intpart && (iplace < sizeof iplace));
-    if (iplace == sizeof iplace)
+    } while (intpart && (iplace < sizeof iconvert));
+    if (iplace == sizeof iconvert)
         iplace--;
     iconvert[iplace] = 0;
 
@@ -664,7 +664,7 @@ fmtfp(
               : "0123456789abcdef")[fracpart % 10];
         fracpart = (fracpart / 10);
     } while (fplace < max);
-    if (fplace == sizeof fplace)
+    if (fplace == sizeof fconvert)
         fplace--;
     fconvert[fplace] = 0;
 
@@ -836,5 +836,5 @@ int BIO_vsnprintf(char *buf, size_t n, const char *format, va_list args)
 		 * had the buffer been large enough.) */
 		return -1;
 	else
-		return (retlen <= INT_MAX) ? retlen : -1;
+		return (retlen <= INT_MAX) ? (int)retlen : -1;
 	}

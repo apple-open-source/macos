@@ -13,9 +13,9 @@ extern int panic(void);
 namespace std {
   typedef void (*new_handler)();
   struct nothrow_t { };
-  const std::nothrow_t std::nothrow = { };
+  const nothrow_t nothrow = { };
   new_handler
-    std::set_new_handler (new_handler handler) ;
+    set_new_handler (new_handler handler) ;
 }
 
 

@@ -34,7 +34,7 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $Id: urestubs.c,v 1.4 2004/03/30 01:32:51 jtownsen Exp $" */
+/* $Id: urestubs.c,v 1.6 2005/07/21 03:29:11 jtownsen Exp $" */
 
 #include "portable.h"
 #include <ac/bytes.h>

@@ -2,6 +2,7 @@
    with stdcall functions.  */
 
 /* { dg-do run { target i?86-*-* } } */
+/* { dg-skip-if "" { i?86-*-* } { "-m64" } { "" } } */
 /* { dg-options -mpreferred-stack-boundary=4 } */
 
 void __attribute__((stdcall)) foo(int a, int b, int c);

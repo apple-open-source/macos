@@ -317,10 +317,10 @@ iconv_codepage_conv(void *d2p, const char **inbuf,
 	if (dp->d_type == ICONV_TOLOCAL) {
 		codepage_to_ucs2((const u_int16_t *)dp->d_convtbl, (u_int8_t *)*inbuf,
 				inlen, sizeof(buf), buf, &outlen);
-		error = utf8_encodestr(buf, outlen, *outbuf, &outlen, *outbytesleft,
+		error = utf8_encodestr(buf, outlen, (u_int8_t *)*outbuf, &outlen, *outbytesleft,
 				0, UTF_DECOMPOSED | UTF_NO_NULL_TERM);
 	} else if (dp->d_type == ICONV_TOSERVER) {
-		error = utf8_decodestr(*inbuf, inlen, buf, &outlen, sizeof(buf),
+		error = utf8_decodestr((u_int8_t *)*inbuf, inlen, buf, &outlen, sizeof(buf),
 				0, UTF_PRECOMPOSED);
 		if (error == 0) {
 			ucs2_to_codepage((const u_int16_t *)dp->d_convtbl, buf, outlen,

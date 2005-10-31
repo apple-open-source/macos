@@ -61,7 +61,6 @@
 #include <paths.h>
 #include <sys/types.h>
 #include <sys/fcntl.h>
-#include <sys/disklabel.h>
 #include "disk.h"
 #include "user.h"
 #include "auto.h"

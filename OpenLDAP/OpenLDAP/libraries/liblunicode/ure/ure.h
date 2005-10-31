@@ -33,7 +33,7 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $Id: ure.h,v 1.4 2004/03/30 01:32:51 jtownsen Exp $ */
+/* $Id: ure.h,v 1.6 2005/07/21 03:29:11 jtownsen Exp $ */
 
 #ifndef _h_ure
 #define _h_ure

@@ -16,6 +16,7 @@ type	GloballyUniqueID	= unsigned32;
 type	String			= array [] of char;
 type	RawData			= array [] of char;
 type	CCITime			= CCIUInt32;
+type    CCIPID                  = CCIInt32;
 type	CCIResult		= CCIInt32;
  
 type	ContextID		= GloballyUniqueID;

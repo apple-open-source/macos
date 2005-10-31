@@ -40,7 +40,7 @@
  *
  */
 
-/* $Id: quota.c,v 1.9 2005/03/05 00:37:03 dasenbro Exp $ */
+/* $Id: quota.c,v 1.10 2005/08/10 21:38:44 dasenbro Exp $ */
 
 
 #include <config.h>
@@ -750,7 +750,6 @@ void
 genquotareport(void)
 {
     int				i = 0;
-	char		   *p = NULL;
 	char		   *partition = NULL;
 	int				type = 0;
 	const char	   *dbDir = libcyrus_config_getstring( CYRUSOPT_CONFIG_DIR );

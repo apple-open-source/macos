@@ -268,7 +268,7 @@ void AppleUSBCDCDMM::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
             }
         }
         LocBuf[(llen + Asciistart) + 1] = 0x00;
-        IOLog(LocBuf);
+        IOLog("%s", LocBuf);
         IOLog("\n");
         IOSleep(Sleep_Time);					// Try and keep the log from overflowing
        
@@ -762,7 +762,9 @@ void AppleUSBCDCDMM::intReadComplete(void *obj, void *param, IOReturn rc, UInt32
 
 void AppleUSBCDCDMM::merWriteComplete(void *obj, void *param, IOReturn rc, UInt32 remaining)
 {
-//	AppleUSBCDCDMM	*me = (AppleUSBCDCDMM*)obj;
+#if LDEBUG
+	AppleUSBCDCDMM	*me = (AppleUSBCDCDMM*)obj;
+#endif
     IOUSBDevRequest		*MER = (IOUSBDevRequest *)param;
     UInt16			dataLen;
     
@@ -871,7 +873,7 @@ void AppleUSBCDCDMM::rspComplete(void *obj, void *param, IOReturn rc, UInt32 rem
 IOService* AppleUSBCDCDMM::probe( IOService *provider, SInt32 *score )
 { 
     IOService   *res;
-	
+		
 		// If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
 		// to bail.  See rdar://3716623
     
@@ -1123,7 +1125,7 @@ bool AppleUSBCDCDMM::getFunctionalDescriptors()
 
     do
     {
-        (IOUSBDescriptorHeader*)funcDesc = fInterface->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
+        funcDesc = (const FunctionalDescriptorHeader *)fInterface->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
         if (!funcDesc)
         {
             gotDescriptors = true;				// We're done
@@ -1131,7 +1133,7 @@ bool AppleUSBCDCDMM::getFunctionalDescriptors()
             switch (funcDesc->bDescriptorSubtype)
             {
                 case Header_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)HDRFDesc = funcDesc;
+                    HDRFDesc = (HDRFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Header Functional Descriptor");
                     hdrVers = (UInt16 *)&HDRFDesc->bcdCDC1;
                     vers = USBToHostWord(*hdrVers);
@@ -1141,7 +1143,7 @@ bool AppleUSBCDCDMM::getFunctionalDescriptors()
                     }
                     break;
 				case DMM_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)DMMFDesc = funcDesc;
+                    DMMFDesc = (DMMFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - ACM Functional Descriptor");
                     fMax_Command = USBToHostWord(DMMFDesc->wMaxCommand);
                     break;
@@ -1303,6 +1305,8 @@ bool AppleUSBCDCDMM::createSerialStream()
     {		
         pNub->setProperty(kIOTTYSuffixKey, suffix);
     }
+	
+	pNub->setProperty((const char *)hiddenTag, true);
 
     pNub->registerService();
 
@@ -3183,7 +3187,11 @@ void AppleUSBCDCDMM::releaseResources()
         fIntPipeMDP = 0; 
     }
 	
-	IOFree(fInBuffer, fMax_Command);
+	if (fInBuffer)
+	{
+		IOFree(fInBuffer, fMax_Command);
+		fInBuffer = 0;
+	}
 	    
     if (fWorkLoop)
     {

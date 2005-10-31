@@ -1,8 +1,7 @@
 \input texinfo  @c -*-texinfo-*-
 @c %**start of header
 @setfilename gfortran.info
-@set last-update 13 May 2004
-@set copyrights-gfortran 1999-2004
+@set copyrights-gfortran 1999-2005
 
 @include gcc-common.texi
 
@@ -83,10 +82,6 @@ Contributed by Steven Bosscher (@email{s.bosscher@@gcc.gnu.org}).
 @title Using GNU Fortran 95
 @sp 2
 @center Steven Bosscher
-@sp 3 
-@center Last updated @value{last-update}
-@sp 1
-@center for version @value {version-GCC}
 @page
 @vskip 0pt plus 1filll
 For the @value{version-GCC} Version*
@@ -114,25 +109,31 @@ the GNU Fortran 95 compiler. You can find in this manual how to invoke
 
 @ifset DEVELOPMENT
 @emph{Warning:} This document, and the compiler it describes, are still
-under development.  While efforts are made too keep it up-to-date it might
+under development.  While efforts are made to keep it up-to-date, it might
 not accurately reflect the status of the most recent @command{gfortran}.
 @end ifset
 
+@comment
+@comment  When you add a new menu item, please keep the right hand
+@comment  aligned to the same column.  Do not use tabs.  This provides
+@comment  better formatting.
+@comment
 @menu
-* Copying::         GNU General Public License says
-                    how you can copy and share GNU Fortran.
+* Copying::              GNU General Public License says
+                         how you can copy and share GNU Fortran.
 * GNU Free Documentation License::
-		    How you can copy and share this manual.
-* Funding::         How to help assure continued work for free software.
-* Getting Started:: What you should know about @command{gfortran}.
-* GFORTRAN and GCC::	    You can compile Fortran, C, or other programs.
-* GFORTRAN and G77::     Why we choose to start from scratch.
+		         How you can copy and share this manual.
+* Funding::              How to help assure continued work for free software.
+* Getting Started::      What you should know about @command{gfortran}.
+* GFORTRAN and GCC::     You can compile Fortran, C, or other programs.
+* GFORTRAN and G77::     Why we chose to start from scratch.
 * Invoking GFORTRAN::    Command options supported by @command{gfortran}.
-* Project Status::  Status of @command{gfortran}, Roadmap, proposed extensions.
-* Contributing::    Helping you can help.
-* Standards::	    Standards supported by @command{gfortran}
-* Extensions::      Language extensions implemented by @command{gfortran}
-* Index::	    Index of this documentation.
+* Project Status::       Status of @command{gfortran}, roadmap, proposed extensions.
+* Contributing::         How you can help.
+* Standards::	         Standards supported by @command{gfortran}
+* Extensions::           Language extensions implemented by @command{gfortran}
+* Intrinsic Procedures:: Intrinsic procedures supported by @command{gfortran}
+* Index::                Index of this documentation.
 @end menu
 
 
@@ -173,9 +174,18 @@ designed initially as a free replacement for,
 or alternative to, the unix @command{f95} command;
 @command{gfortran} is command you'll use to invoke the compiler.
 
-Gfortran is still in an early state of development.
-@command{gfortran} can generate code for most constructs and expressions,
-but much work remains to be done.
+@emph{Gfortran is not yet a fully conformant Fortran 95 compiler}.
+It can generate code for most constructs and expressions,
+but work remains to be done.  In particular, there are known
+deficiencies with ENTRY, NAMELIST, and sophisticated use of
+MODULES, POINTERS and DERIVED TYPES.  For those whose Fortran
+codes conform to either the Fortran 77 standard or the
+GNU Fortran 77 language, we recommend to use @command{g77}
+from GCC 3.4.  We recommend that distributors continue to provide
+packages of g77-3.4 until we announce that @command{gfortran}
+fully replaces @command{g77}.
+The gfortran developers welcome any feedback on user experience
+with @command{gfortran} at @email{fortran@@gcc.gnu.org}.
 
 When @command{gfortran} is finished,
 it will do everything you expect from any decent compiler: 
@@ -374,7 +384,6 @@ because it was expected to be easier to maintain code we
 develop ourselves than to do a major overhaul of @command{g77} first,
 and then build a Fortran 95 compiler out of it.
 
-
 @include invoke.texi
 
 @c ---------------------------------------------------------------------
@@ -470,7 +479,7 @@ Not recommended:
 @end itemize
 
 Many Fortran programs only use a small subset of the available IO
-capabilities, so your milage may vary.
+capabilities, so your mileage may vary.
 
 @node Proposed Extensions
 @section Proposed Extensions
@@ -675,6 +684,7 @@ Examples of standard conforming code equivalent to the above example, are:
       DATA i,j,x /1,2,3*0.,1./
 @end smallexample
 
+@include intrinsic.texi
 @c ---------------------------------------------------------------------
 @c Contributing
 @c ---------------------------------------------------------------------

@@ -1,2 +1,0 @@
->>> Rename property
-<<< done.

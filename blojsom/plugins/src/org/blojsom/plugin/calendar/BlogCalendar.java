@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,13 +37,16 @@ package org.blojsom.plugin.calendar;
 import org.blojsom.util.BlojsomUtils;
 
 import java.text.DateFormatSymbols;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 
 /**
  * BlogCalendar
  *
  * @author Mark Lussier
- * @version $Id: BlogCalendar.java,v 1.3 2004/08/27 01:06:36 whitmore Exp $
+ * @version $Id: BlogCalendar.java,v 1.3.2.1 2005/07/21 04:30:26 johnan Exp $
  */
 public class BlogCalendar {
 
@@ -59,12 +62,11 @@ public class BlogCalendar {
     private int currentday;
     private String _requestedDateKey;
 
-
     /**
      * Public Constructor
      *
      * @param calendar Caledar instance
-     * @param blogurl The blog's url for calendar navigation
+     * @param blogurl  The blog's url for calendar navigation
      */
     public BlogCalendar(Calendar calendar, String blogurl) {
         this(calendar, blogurl, Locale.getDefault());
@@ -74,13 +76,13 @@ public class BlogCalendar {
      * Public Constructor
      *
      * @param calendar Caledar instance
-     * @param blogurl The blog's url for calendar navigation
-     * @param locale Locale for the Calendar
+     * @param blogurl  The blog's url for calendar navigation
+     * @param locale   Locale for the Calendar
      */
     public BlogCalendar(Calendar calendar, String blogurl, Locale locale) {
         _locale = locale;
         _calendar = calendar;
-        _today = new GregorianCalendar(_locale);
+        _today = Calendar.getInstance(_locale);
         _today.setTime(new Date());
         _symbols = new DateFormatSymbols(_locale);
         _blogURL = blogurl;
@@ -94,8 +96,17 @@ public class BlogCalendar {
 
         _shortdownames = new String[7];
         String[] downames = _symbols.getShortWeekdays();
-        for (int x = 0; x < _shortdownames.length; x++) {
-            _shortdownames[x] = downames[x + 1];
+
+        if (_calendar.getFirstDayOfWeek() == Calendar.SUNDAY) {
+            for (int x = 0; x < _shortdownames.length; x++) {
+                _shortdownames[x] = downames[x + 1];
+            }
+        } else {
+            for (int x = 2; x <= _shortdownames.length; x++) {
+                _shortdownames[x - 2] = downames[x];
+            }
+
+            _shortdownames[6] = downames[1];
         }
     }
 
@@ -115,7 +126,7 @@ public class BlogCalendar {
      * @return the current month and year as a string
      */
     public String getCaption() {
-        return BlojsomUtils.getFormattedDate(_calendar.getTime(), AbstractCalendarPlugin.BLOJSOM_CALENDAR_FORMAT);
+        return BlojsomUtils.getFormattedDate(_calendar.getTime(), AbstractCalendarPlugin.BLOJSOM_CALENDAR_FORMAT, _locale);
     }
 
     /**

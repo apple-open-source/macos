@@ -42,9 +42,18 @@ AC_CANONICAL_SYSTEM
 # 2.5x.
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 
+dnl APPLE LOCAL:  mmap() always works right on Darwin.  Take our word for it. 
+dnl CY_GNU_GETTEXT will call AC_FUNC_MMAP for us.
+case "$host" in
+  *-apple-darwin* | *-apple-macos*)
+    ac_cv_func_mmap_fixed_mapped=yes
+  ;;
+esac
+
 dnl Set up for gettext.  PACKAGE is used when we call bindtextdomain.
 ALL_LINGUAS=
 CY_GNU_GETTEXT
+
 AC_DEFINE(PACKAGE, "gdb", [Name of this package. ])
 
 debugdir=${libdir}/debug
@@ -69,7 +78,6 @@ CONFIG_INSTALL=
 CONFIG_UNINSTALL=
 
 AC_CONFIG_SUBDIRS(doc testsuite)
-configdirs=
 
 . $srcdir/configure.host
 
@@ -1122,7 +1130,6 @@ AC_SUBST(MMALLOC_CFLAGS)
 AC_SUBST(MMALLOC)
 
 # APPLE LOCAL:  We need to use mmalloc all the time on our platform.
-
 case "$host" in
   *-apple-darwin* | *-apple-macos*)
     mmalloc_default_value="true" ;;
@@ -1290,7 +1297,7 @@ if test "${enable_gdbtk}" = "yes"; then
 	fi
     fi
 
-    configdirs="${configdirs} gdbtk"
+   AC_CONFIG_SUBDIRS(gdbtk)
 fi
 
 AC_SUBST(X_CFLAGS)
@@ -1429,21 +1436,19 @@ AC_ARG_ENABLE(multi-ice,
     *) AC_MSG_ERROR([bad value $enableval for --enable-multi-ice]) ;;
   esac])
 if test "x$enable_multi_ice" = xyes; then
-  configdirs="$configdirs multi-ice"
+  AC_CONFIG_SUBDIRS(multi-ice)
 fi
 
 # We only build gdbserver automatically if host and target are the same.
 if test "x$target" = "x$host"; then
   AC_MSG_CHECKING(whether gdbserver is supported on this host)
   if test "x$build_gdbserver" = xyes; then
-    configdirs="$configdirs gdbserver"
+    AC_CONFIG_SUBDIRS(gdbserver)
     AC_MSG_RESULT(yes)
   else
     AC_MSG_RESULT(no)
   fi
 fi
-
-AC_CONFIG_SUBDIRS($configdirs)
 
 # If hostfile (XM_FILE) and/or targetfile (TM_FILE) and/or nativefile
 # (NAT_FILE) is not set in config/*/*.m[ht] files, we link to an empty

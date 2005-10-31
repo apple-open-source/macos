@@ -61,14 +61,16 @@ public:
 		externalDaemon				// use externally launched daemon if present (do not manage pcscd)
 	};
 
-	PCSCMonitor(Server &server, TokenCache &cache, ServiceLevel level = conservative);
+	PCSCMonitor(Server &server, const char* pathToCache, ServiceLevel level = conservative);
 
 protected:
 	void pollReaders();
 	
 	Server &server;
-	TokenCache &cache;
-	
+	TokenCache *cache;
+	std::string cachePath;
+	TokenCache& getTokenCache ();
+
 protected:
 	// Listener
 	void notifyMe(SecurityServer::NotificationDomain domain,

@@ -1,5 +1,6 @@
 /* Character scanner.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -42,11 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    new characters and do a lot of jumping backwards.  */
 
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-
+#include "system.h"
 #include "gfortran.h"
 
 /* Structure for holding module and include file search path.  */
@@ -360,7 +357,7 @@ skip_free_comments (void)
 
 /* Skip comment lines in fixed source mode.  We have the same rules as
    in skip_free_comment(), except that we can have a 'c', 'C' or '*'
-   in column 1. and a '!' cannot be in* column 6.  */
+   in column 1, and a '!' cannot be in column 6.  */
 
 static void
 skip_fixed_comments (void)
@@ -468,7 +465,7 @@ restart:
 	goto done;
 
       /* If the next nonblank character is a ! or \n, we've got a
-         continuation line. */
+         continuation line.  */
       old_loc = gfc_current_locus;
 
       c = next_char ();
@@ -981,7 +978,7 @@ include_line (char *line)
   if (*c != '\0' && *c != '!')
     return false;
 
-  /* We have an include line at this point. */
+  /* We have an include line at this point.  */
 
   *stop = '\0'; /* It's ok to trash the buffer, as this line won't be
 		   read by anything else.  */
@@ -1093,7 +1090,7 @@ load_file (char *filename, bool initial)
 
 
 /* Determine the source form from the filename extension.  We assume
-   case insensitivity. */
+   case insensitivity.  */
 
 static gfc_source_form
 form_from_filename (const char *filename)

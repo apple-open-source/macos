@@ -137,7 +137,7 @@ static BOOL fill_grent_mem(struct winbindd_domain *domain,
 
 	DEBUG(10, ("looked up %d names\n", num_names));
 
-	if (DEBUGLEVEL >= 10) {
+	if (SAMBA_DEBUGLEVEL >= 10) {
 		for (i = 0; i < num_names; i++)
 			DEBUG(10, ("\t%20s %s %d\n", names[i], sid_to_string(sid_string, sid_mem[i]),
 				   name_types[i]));

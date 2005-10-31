@@ -1,5 +1,5 @@
 /* Const/copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -44,7 +44,7 @@ Boston, MA 02111-1307, USA.  */
    annotations up-to-date.
 
    We require that for any copy operation where the RHS and LHS have
-   a non-null memory tag that the memory tag be the same.   It is OK
+   a non-null memory tag the memory tag be the same.   It is OK
    for one or both of the memory tags to be NULL.
 
    We also require tracking if a variable is dereferenced in a load or
@@ -181,6 +181,7 @@ merge_alias_info (tree orig, tree new)
 
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (orig)));
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (new)));
+
 #if defined ENABLE_CHECKING
   gcc_assert (lang_hooks.types_compatible_p (TREE_TYPE (orig),
 					     TREE_TYPE (new)));
@@ -192,14 +193,40 @@ merge_alias_info (tree orig, tree new)
 	      == get_alias_set (TREE_TYPE (TREE_TYPE (orig_sym))));
 #endif
 
-  /* Merge type-based alias info.  */
+  /* Synchronize the type tags.  If both pointers had a tag and they
+     are different, then something has gone wrong.  */
   if (new_ann->type_mem_tag == NULL_TREE)
     new_ann->type_mem_tag = orig_ann->type_mem_tag;
   else if (orig_ann->type_mem_tag == NULL_TREE)
     orig_ann->type_mem_tag = new_ann->type_mem_tag;
   else
     gcc_assert (new_ann->type_mem_tag == orig_ann->type_mem_tag);
-}
+
+#if defined ENABLE_CHECKING
+  {
+    struct ptr_info_def *orig_ptr_info = SSA_NAME_PTR_INFO (orig);
+    struct ptr_info_def *new_ptr_info = SSA_NAME_PTR_INFO (new);
+
+    if (orig_ptr_info
+	&& new_ptr_info
+	&& orig_ptr_info->name_mem_tag
+	&& new_ptr_info->name_mem_tag
+	&& orig_ptr_info->pt_vars
+	&& new_ptr_info->pt_vars)
+    {
+      /* Note that pointer NEW may actually have a different set of
+	 pointed-to variables.  However, since NEW is being
+	 copy-propagated into ORIG, it must always be true that the
+	 pointed-to set for pointer NEW is the same, or a subset, of
+	 the pointed-to set for pointer ORIG.  If this isn't the case,
+	 we shouldn't have been able to do the propagation of NEW into
+	 ORIG.  */
+      gcc_assert (bitmap_intersect_p (new_ptr_info->pt_vars,
+				      orig_ptr_info->pt_vars));
+    }
+  }
+#endif
+}   
 
 
 /* Common code for propagate_value and replace_exp.

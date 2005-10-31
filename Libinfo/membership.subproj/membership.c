@@ -28,6 +28,7 @@
 #include <servers/bootstrap.h>
 #include <mach/mach.h>
 #include <stdlib.h>
+#import <libkern/OSByteOrder.h>
 
 static mach_port_t GetServerPort()
 {
@@ -184,6 +185,30 @@ int mbr_check_membership(uuid_t user, uuid_t group, int* ismember)
 	return error;
 }
 
+int mbr_check_membership_refresh(uuid_t user, uuid_t group, int* ismember)
+{
+	struct kauth_identity_extlookup request;
+	kern_return_t result;
+	int error = 0;
+
+	request.el_flags = KAUTH_EXTLOOKUP_VALID_UGUID | KAUTH_EXTLOOKUP_VALID_GGUID |
+						KAUTH_EXTLOOKUP_WANT_MEMBERSHIP | (1<<15);
+	memcpy(&request.el_uguid, user, sizeof(guid_t));
+	memcpy(&request.el_gguid, group, sizeof(guid_t));
+	result = _mbr_DoMembershipCall(GetServerPort(), &request);
+	if (result != KERN_SUCCESS)
+		return EIO;
+		
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_MEMBERSHIP) != 0)
+	{
+		*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
+	}
+	else
+		error = ENOENT;
+		
+	return error;
+}
+
 int mbr_check_membership_by_id(uuid_t user, gid_t group, int* ismember)
 {
 	struct kauth_identity_extlookup request;
@@ -257,7 +282,7 @@ int mbr_check_service_membership(const uuid_t user, const char* servicename, int
 	char* all_services = "com.apple.access_all_services";
 	char groupName[256];
 	uuid_t group_uu;
-	int result;
+	int result, dummy;
 	
 	if (strlen(servicename) > 255 - strlen(prefix))
 		return EINVAL;
@@ -274,7 +299,13 @@ int mbr_check_service_membership(const uuid_t user, const char* servicename, int
 	}
 	
 	if (result == 0)
-		result = mbr_check_membership(user, group_uu, ismember);
+		result = mbr_check_membership_refresh(user, group_uu, ismember);
+	else
+	{
+		// just force cache update with bogus membership check
+		memset(group_uu, 0, sizeof(group_uu));
+		mbr_check_membership_refresh(user, group_uu, &dummy);
+	}
 		
 	return result;
 }
@@ -309,7 +340,8 @@ int mbr_sid_to_string(const nt_sid_t* sid, char* string)
 	if (sid->sid_authcount > NTSID_MAX_AUTHORITIES)
 		return EINVAL;
 	
-	memcpy(((char*)&temp)+2, sid->sid_authority, 6);
+	for (i = 0; i < 6; i++)
+		temp = (temp << 8) | sid->sid_authority[i];
 	
 	current[0] = 'S';
 	current[1] = '-';
@@ -344,6 +376,8 @@ int mbr_string_to_sid(const char* string, nt_sid_t* sid)
 	if (*current == '\0') return EINVAL;
 	current++;
 	temp = strtoll(current, &current, 10);
+	// convert to BigEndian before copying
+	temp = OSSwapHostToBigInt64(temp);
 	memcpy(sid->sid_authority, ((char*)&temp)+2, 6);
 	while (*current != '\0' && count < NTSID_MAX_AUTHORITIES)
 	{

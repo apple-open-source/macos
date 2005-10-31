@@ -1,6 +1,6 @@
 /* Generate code to initialize optabs from machine description.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -102,10 +102,8 @@ static const char * const optabs[] =
   "lshr_optab->handlers[$A].insn_code = CODE_FOR_$(lshr$a3$)",
   "rotl_optab->handlers[$A].insn_code = CODE_FOR_$(rotl$a3$)",
   "rotr_optab->handlers[$A].insn_code = CODE_FOR_$(rotr$a3$)",
-  "smin_optab->handlers[$A].insn_code = CODE_FOR_$(smin$I$a3$)",
-  "smin_optab->handlers[$A].insn_code = CODE_FOR_$(min$F$a3$)",
-  "smax_optab->handlers[$A].insn_code = CODE_FOR_$(smax$I$a3$)",
-  "smax_optab->handlers[$A].insn_code = CODE_FOR_$(max$F$a3$)",
+  "smin_optab->handlers[$A].insn_code = CODE_FOR_$(smin$a3$)",
+  "smax_optab->handlers[$A].insn_code = CODE_FOR_$(smax$a3$)",
   "umin_optab->handlers[$A].insn_code = CODE_FOR_$(umin$I$a3$)",
   "umax_optab->handlers[$A].insn_code = CODE_FOR_$(umax$I$a3$)",
   "pow_optab->handlers[$A].insn_code = CODE_FOR_$(pow$a3$)",
@@ -118,6 +116,7 @@ static const char * const optabs[] =
   "absv_optab->handlers[$A].insn_code =\n\
     abs_optab->handlers[$A].insn_code = CODE_FOR_$(abs$F$a2$)",
   "absv_optab->handlers[$A].insn_code = CODE_FOR_$(absv$I$a2$)",
+  "copysign_optab->handlers[$A].insn_code = CODE_FOR_$(copysign$F$a3$)",
   "sqrt_optab->handlers[$A].insn_code = CODE_FOR_$(sqrt$a2$)",
   "floor_optab->handlers[$A].insn_code = CODE_FOR_$(floor$a2$)",
   "ceil_optab->handlers[$A].insn_code = CODE_FOR_$(ceil$a2$)",
@@ -134,6 +133,7 @@ static const char * const optabs[] =
   "exp10_optab->handlers[$A].insn_code = CODE_FOR_$(exp10$a2$)",
   "exp2_optab->handlers[$A].insn_code = CODE_FOR_$(exp2$a2$)",
   "expm1_optab->handlers[$A].insn_code = CODE_FOR_$(expm1$a2$)",
+  "ldexp_optab->handlers[$A].insn_code = CODE_FOR_$(ldexp$a3$)",
   "logb_optab->handlers[$A].insn_code = CODE_FOR_$(logb$a2$)",
   "ilogb_optab->handlers[$A].insn_code = CODE_FOR_$(ilogb$a2$)",
   "log_optab->handlers[$A].insn_code = CODE_FOR_$(log$a2$)",
@@ -151,6 +151,7 @@ static const char * const optabs[] =
   "parity_optab->handlers[$A].insn_code = CODE_FOR_$(parity$a2$)",
   "mov_optab->handlers[$A].insn_code = CODE_FOR_$(mov$a$)",
   "movstrict_optab->handlers[$A].insn_code = CODE_FOR_$(movstrict$a$)",
+  "movmisalign_optab->handlers[$A].insn_code = CODE_FOR_$(movmisalign$a$)",
   "cmp_optab->handlers[$A].insn_code = CODE_FOR_$(cmp$a$)",
   "tst_optab->handlers[$A].insn_code = CODE_FOR_$(tst$a$)",
   "addcc_optab->handlers[$A].insn_code = CODE_FOR_$(add$acc$)",
@@ -170,7 +171,6 @@ static const char * const optabs[] =
   "vec_set_optab->handlers[$A].insn_code = CODE_FOR_$(vec_set$a$)",
   "vec_extract_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract$a$)",
   "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)",
-  "vec_realign_store_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_store_$a$)",
   "vec_realign_load_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_load_$a$)",
   "vcond_gen_code[$A] = CODE_FOR_$(vcond$a$)",
   "vcondu_gen_code[$A] = CODE_FOR_$(vcondu$a$)" };

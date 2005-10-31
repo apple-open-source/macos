@@ -147,7 +147,7 @@ static int process_options(int argc, char **argv, int local_flags)
 			lp_set_name_resolve_order(optarg);
 			break;
 		case 'D':
-			DEBUGLEVEL = atoi(optarg);
+			SAMBA_DEBUGLEVEL = atoi(optarg);
 			break;
 		case 'U': {
 			got_username = True;

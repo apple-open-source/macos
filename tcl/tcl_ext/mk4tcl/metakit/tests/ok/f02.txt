@@ -1,2 +1,0 @@
->>> Remove view from format
-<<< done.

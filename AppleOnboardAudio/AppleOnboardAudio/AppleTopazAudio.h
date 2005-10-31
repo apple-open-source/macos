@@ -57,7 +57,7 @@ public:
 	virtual	bool			start(IOService * provider);
     virtual void			free();
 	virtual void			initPlugin(PlatformInterface* inPlatformObject);
-	virtual bool			preDMAEngineInit ();
+	virtual bool			preDMAEngineInit (UInt32 autoClockSelectionIsBeingUsed);
 	virtual UInt32			getActiveOutput (void) { return kSndHWOutput1; }
 	virtual IOReturn		setActiveOutput (UInt32 outputPort) { return kIOReturnSuccess; }
 	virtual UInt32			getActiveInput (void) { return kSndHWInput1; }
@@ -126,6 +126,8 @@ private:
 	bool					mUnlockStatus;
 	bool					mAES3detected;
 	bool					mAttemptingExternalLock;
+    
+    bool                    mDisableStateMachine2;
 	
 	UInt32 					mClockSource;
 	UInt32					mDigitalInStatus;

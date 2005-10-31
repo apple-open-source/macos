@@ -170,6 +170,14 @@ is a synonym for
 .Fl ro
 in an effort to be backward compatible with older export file formats.
 .Pp
+The
+.Fl 32bitclients
+option causes the NFS server to guarantee that directory cookies
+will fit within 32 bits even though directory cookies are 64 bits in
+NFSv3.  This option may be required with NFS clients that do not
+properly support 64 bit directory cookies.  Use of this option
+may result in sub-optimal performance of the exported file system.
+.Pp
 The third component of a line specifies the host set to which the line applies.
 The set may be specified in three ways.
 The first way is to list the host name(s) separated by white space.

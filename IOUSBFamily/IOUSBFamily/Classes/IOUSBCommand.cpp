@@ -241,6 +241,12 @@ IOUSBCommand::SetTimeStamp(AbsoluteTime timeStamp)
     _expansionData->_timeStamp = timeStamp;
 }
 
+void
+IOUSBCommand::SetIsSyncTransfer(bool isSync)
+{
+    _expansionData->_isSyncTransfer = isSync;
+}
+
 
 usbCommand 
 IOUSBCommand::GetSelector(void) 
@@ -374,6 +380,11 @@ bool IOUSBCommand::GetUseTimeStamp(void)
 AbsoluteTime IOUSBCommand::GetTimeStamp(void)
 {
     return _expansionData->_timeStamp;
+}
+
+bool IOUSBCommand::GetIsSyncTransfer(void)
+{
+    return _expansionData->_isSyncTransfer;
 }
 
 

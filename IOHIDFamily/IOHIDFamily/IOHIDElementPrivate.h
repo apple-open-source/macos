@@ -93,6 +93,8 @@ protected:
     
     bool                 _isInterruptReportHandler;
     
+    bool                _shouldTickleActivity;
+    
     virtual bool init( IOHIDDevice * owner, IOHIDElementType type );
 
     virtual void free();
@@ -185,6 +187,9 @@ public:
     virtual bool getReportType( IOHIDReportType * reportType ) const;
 
     virtual UInt32 setReportSize( UInt32 numberOfBits );
+    
+    inline bool shouldTickleActivity() const
+    { return _shouldTickleActivity; }
 
     virtual bool addEventQueue( IOHIDEventQueue * queue );
     virtual bool removeEventQueue( IOHIDEventQueue * queue );

@@ -1,5 +1,5 @@
 /* Channels.java --
-   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,10 +35,12 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.nio.channels;
 
 import gnu.java.nio.ChannelInputStream;
 import gnu.java.nio.ChannelOutputStream;
+import gnu.java.nio.ChannelReader;
 import gnu.java.nio.InputStreamChannel;
 import gnu.java.nio.OutputStreamChannel;
 import gnu.java.nio.channels.FileChannelImpl;
@@ -59,6 +61,14 @@ import java.nio.charset.CharsetEncoder;
  */
 public final class Channels
 {
+  /**
+   * This class isn't intended to be instantiated.
+   */
+  private Channels()
+  {
+    // Do nothing here.
+  }
+
   /**
    * Constructs a stream that reads bytes from the given channel.
    */
@@ -106,7 +116,7 @@ public final class Channels
   public static Reader newReader(ReadableByteChannel ch, CharsetDecoder dec,
                                  int minBufferCap)
   {
-    throw new Error("not implemented");
+    return new ChannelReader(ch, dec, minBufferCap);
   }
 
   /**
@@ -128,6 +138,7 @@ public final class Channels
   public static Writer newWriter(WritableByteChannel ch, CharsetEncoder enc,
                                  int minBufferCap)
   {
+    // FIXME: implement java.nio.channels.Channel.newWriter(WritableByteChannel, CharsetEncoder, int) 
     throw new Error("not implemented");
   }
 

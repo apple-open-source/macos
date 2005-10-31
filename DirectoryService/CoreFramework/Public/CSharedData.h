@@ -50,11 +50,34 @@ typedef enum {
 	eDSCustomCallLDAPv2ReadConfigData				= 77,
 	eDSCustomCallLDAPv2WriteConfigData				= 88,
 	eDSCustomCallLDAPv2Reinitialize					= 99,
-	
+
 // LDAPv3 Plugin Request Codes
+	eDSCustomCallLDAPv3WriteServerMappings			= 55,
+	//eDSCustomCallLDAPv3ReadServerMappingsSize		= 56,
+	//eDSCustomCallLDAPv3ReadServerMappingsData		= 57,
 	eDSCustomCallLDAPv3ReadConfigSize				= 66,
 	eDSCustomCallLDAPv3ReadConfigData				= 77,
 	eDSCustomCallLDAPv3WriteConfigData				= 88,
+	eDSCustomCallLDAPv3Reinitialize					= 99,
+	eDSCustomCallLDAPv3AddServerConfig				= 111,
+	eDSCustomCallLDAPv3NewServerDiscovery			= 200,
+	eDSCustomCallLDAPv3NewServerDiscoveryNoDupes	= 201,
+	eDSCustomCallLDAPv3NewServerVerifySettings		= 202,
+	eDSCustomCallLDAPv3NewServerGetConfig			= 203,
+	eDSCustomCallLDAPv3NewServerBind				= 204,
+	eDSCustomCallLDAPv3NewServerForceBind			= 205,
+	eDSCustomCallLDAPv3NewServerAddConfig			= 206,
+	eDSCustomCallLDAPv3UnbindServerConfig			= 207,
+	eDSCustomCallLDAPv3ForceUnbindServerConfig		= 208,
+	eDSCustomCallLDAPv3RemoveServerConfig			= 209,
+	eDSCustomCallLDAPv3NewServerBindOther			= 210,
+	eDSCustomCallLDAPv3NewServerForceBindOther		= 211,
+	
+// Extended Record Calls - can be used by multiple plug-ins
+	eDSCustomCallExtendedRecordCallsAvailable		= 1000,
+	eDSCustomCallCreateRecordWithAttributes			= 1001,
+	eDSCustomCallSetAttributes						= 1002,
+	eDSCustomCallDeleteRecordAndCredentials			= 1003,
 	
 // Search Plugin Request Codes
 	eDSCustomCallSearchSetPolicyAutomatic			= 111,
@@ -67,6 +90,7 @@ typedef enum {
 	
 // Configure Plugin Request Codes
 	eDSCustomCallConfigureGetAuthRef				= 111,
+	eDSCustomCallConfigureCheckVersion				= 222,
 	eDSCustomCallConfigureCheckAuthRef				= 223,
 	eDSCustomCallConfigureDestroyAuthRef			= 333,
 	eDSCustomCallConfigureSCGetKeyPathValueSize		= 444,
@@ -76,8 +100,9 @@ typedef enum {
 	eDSCustomCallConfigureWriteSCConfigData			= 555,
 	eDSCustomCallActivatePerfMonitor				= 666,
 	eDSCustomCallDeactivatePerfMonitor				= 667,
-	eDSCustomCallDumpStatsPerfMonitor				= 668,
-	eDSCustomCallFlushStatsPerfMonitor				= 669,
+        eDSCustomCallDumpStatsPerfMonitor                               = 668,
+        eDSCustomCallFlushStatsPerfMonitor                              = 669,
+	eDSCustomCallConfigureToggleDSProxy				= 777,
 	eDSCustomCallTogglePlugInStateBase				= 1000
 } tPluginCustomCallRequestCode;
 

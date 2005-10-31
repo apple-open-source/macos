@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,26 +24,23 @@
 #ifndef __DNSINFO_CREATE_H__
 #define __DNSINFO_CREATE_H__
 
-
 /*
  * These routines provide access to the systems DNS configuration
  */
 
-
+#include <AvailabilityMacros.h>
+#include <sys/cdefs.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#include <sys/cdefs.h>
-
-
 #include <dnsinfo.h>
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
 
 typedef const struct __dns_create_config *      dns_create_config_t;
 typedef const struct __dns_create_resolver *    dns_create_resolver_t;
-
 
 __BEGIN_DECLS
 
@@ -71,4 +68,6 @@ void			_dns_resolver_free		(dns_create_resolver_t *_resolver);
 
 __END_DECLS
 
-#endif __DNSINFO_CREATE_H__
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
+
+#endif	/* __DNSINFO_CREATE_H__ */

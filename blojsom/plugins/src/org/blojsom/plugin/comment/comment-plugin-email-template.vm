@@ -4,6 +4,12 @@ Comment by: <a href="mailto:$!BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getAuthorEmail
    Left on: $!BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getCommentDate()
 IP Address: $!BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getMetaData().get("BLOJSOM_COMMENT_PLUGIN_METADATA_IP")
 
+==[ Comment Administration ]===================================================
+
+Administration login: <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">Login</a>
+     Approve comment: <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=approve-blog-comments&plugins=edit-blog-entries&blog-category-name=$BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getBlogEntry().getEncodedCategory()&blog-entry-id=$BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getBlogEntry().getPermalink()&blog-comment-id=$BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getId()">Approve comment</a>
+      Delete comment: <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=delete-blog-comments&plugins=edit-blog-entries&blog-category-name=$BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getBlogEntry().getEncodedCategory()&blog-entry-id=$BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getBlogEntry().getPermalink()&blog-comment-id=$BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getId()">Delete comment</a>
+
 ==[ Comment ]==========================================================
 
 $!BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT.getComment()

@@ -48,6 +48,8 @@ static const OSSymbol *symUniNPrepareForSleep;
 #define super IOService
 OSDefineMetaClassAndStructors(AppleU3,ApplePlatformExpert)
 
+
+
 // **********************************************************************************
 // start
 //
@@ -60,6 +62,7 @@ bool AppleU3::start ( IOService * nub )
 	const OSSymbol			*functionSymbol = OSSymbol::withCString(kInstantiatePlatformFunctions);
 	SInt32					retval;
 	
+		
 	// If our PE isn't MacRISC4PE, we shouldn't be here
 	if (!OSDynamicCast (MacRISC4PE, getPlatform())) return false;
 	
@@ -83,7 +86,8 @@ bool AppleU3::start ( IOService * nub )
     // Set a lock for tuning UniN (currently nothing to tune)
 	if ( mutex  != NULL )
 		intState = IOSimpleLockLockDisableInterrupt(mutex);
-  
+		
+				
     uniNVersion = readUniNReg(kUniNVersion);
 
     if (uniNVersion < kUniNVersion3) {
@@ -138,7 +142,8 @@ bool AppleU3::start ( IOService * nub )
   	
 	// Come and get it...
 	registerService();
-
+	
+			
 	// If we have a chip fault interrupt, install the handler and enable notifications.  It's normal for
 	// this to fail on some platforms, since U3.1 and U3.2 don't have a chip fault pin.
 	//
@@ -169,6 +174,9 @@ void AppleU3::free ()
 
 	if (dimmLock)
 		IOSimpleLockFree( dimmLock );
+
+	if (dimmErrorCountsTotal)
+		IOFree( dimmErrorCountsTotal, dimmCount * sizeof(UInt32) );
 
 	super::free();
 	
@@ -351,7 +359,8 @@ void AppleU3::uniNSetPowerState (UInt32 state)
 {
 	UInt32 data;
 
-	if (state == kUniNNormal) {		// start and wake
+	if (state == kUniNNormal)		// start and wake
+	{		
 		// Set MPIC interrupt enable bits in U3 toggle register, but only if MPIC is present
 		if (mpicRegEntry)
 			//safeWriteRegUInt32(kU3ToggleRegister, kU3MPICEnableOutputs | kU3MPICReset, 
@@ -363,18 +372,32 @@ void AppleU3::uniNSetPowerState (UInt32 state)
 		safeWriteRegUInt32(kUniNHWInitState, ~0UL, kUniNHWInitStateRunning);
 
 		safeWriteRegUInt32(kU3DARTCntlRegister, ~0UL, saveDARTCntl);
-		safeWriteRegUInt32(kU3PMClockControl, ~0UL, saveClockCntl);
-		safeWriteRegUInt32(kUniNVSPSoftReset, ~0UL, saveVSPSoftReset);
 
-	} else if (state == kUniNIdle2) {
+		// ClockControl moved (and is saved by the SPU), and VSPSoftReset no longer exists, so
+		// don't touch them on Kodiak machines.
+
+		if (!IS_U4(uniNVersion))
+		{
+			safeWriteRegUInt32(kU3PMClockControl, ~0UL, saveClockCntl);
+			safeWriteRegUInt32(kUniNVSPSoftReset, ~0UL, saveVSPSoftReset);
+		}
+	}
+	else if (state == kUniNIdle2)
+	{
 		IOLog ("AppleU3: Idle 2 state not supported\n");
-
-	} else if (state == kUniNSave) {		// save state
+	}
+	else if (state == kUniNSave)		// save state
+	{
 		saveDARTCntl = safeReadRegUInt32(kU3DARTCntlRegister);
-		saveClockCntl = safeReadRegUInt32(kU3PMClockControl);
-		saveVSPSoftReset = safeReadRegUInt32(kUniNVSPSoftReset);
 
-	} else if (state == kUniNSleep) {		// sleep
+		if (!IS_U4(uniNVersion))
+		{
+			saveClockCntl = safeReadRegUInt32(kU3PMClockControl);
+			saveVSPSoftReset = safeReadRegUInt32(kUniNVSPSoftReset);
+		}
+	}
+	else if (state == kUniNSleep)		// sleep
+	{
 		if (spu)	// Only call spu if present [3448210]
 			spu->callPlatformFunction (symSetSPUSleep, false, (void *)false, (void *)0, (void *)0, (void *)0);
 			
@@ -437,7 +460,7 @@ bool AppleU3::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 					offset = param1;
 					value = param2;
 					mask  = param3;
-		// XXX This code is wrong  - it just just call safeWriteRegUInt32(offset, mask, value)
+		// XXX This code is wrong  - it should just call safeWriteRegUInt32(offset, mask, value)
 		// XXX see also kCommandRMWConfig
 					// If mask isn't all ones, read data and mask it
 					if (mask != 0xFFFFFFFF) {
@@ -656,7 +679,7 @@ void AppleU3::u3APIPhyDisableProcessor1 ( void )
 {
 
 
-	safeWriteRegUInt32 (kU3APIPhyConfigRegister1, ~0UL, 0);
+	safeWriteRegUInt32 (kU3APIPhyConfigRegister1, ~0UL, 0);		// еее not correct for dual-core (but not fatal)
 	return;
 }
 
@@ -683,10 +706,10 @@ IOReturn AppleU3::installChipFaultHandler ( IOService * provider )
 
 	symChipFaultFunc = symPFIntRegister = symPFIntEnable = symPFIntDisable = NULL;
 
-	// We should have a chip fault signal on U3 lite and heavy
+	// We should have a chip fault signal on U3-Lite, U3-Heavy and U4
 	if (provider->getProperty(kChipFaultFuncName) == NULL)
 	{
-		if (IS_U3_HEAVY(uniNVersion))
+		if ( IS_U3_HEAVY(uniNVersion) || IS_U4(uniNVersion) )
 			IOLog("AppleU3: WARNING: platform-chip-fault expected, but not found\n");
 	
 		return kIOReturnUnsupported;
@@ -705,7 +728,10 @@ IOReturn AppleU3::installChipFaultHandler ( IOService * provider )
 	symChipFaultFunc = OSSymbol::withCString(stringBuf); 
 
 	// Mask all chip fault sources.  Bits that we want unmasked will be handled separately.
-	safeWriteRegUInt32 ( kU3ChipFaultMaskRegister, ~0UL, 0 );
+	if ( IS_U4(uniNVersion) )
+		safeWriteRegUInt32 ( kU4APIMask1Register, ~0UL, 0 );
+	else
+		safeWriteRegUInt32 ( kU3ChipFaultMaskRegister, ~0UL, 0 );
 
 	// register for notifications
 	return callPlatformFunction(symChipFaultFunc, TRUE,
@@ -719,58 +745,126 @@ IOReturn AppleU3::installChipFaultHandler ( IOService * provider )
 //
 // **********************************************************************************
 
+// Use this Syndrome Table to match against the MESR to determine exactly
+// which bit was corrected [0:127].  Note: this only works for correctable 1-bit
+// errors -- with uncorrectable errors, we can only know the rank.
+#define kECCAllBits 144
+UInt32 SyndromeTable[kECCAllBits] =
+{
+        0x0849 , 0x0428 , 0x0214 , 0x01C2 , 0x9084 , 0x8042 , 0x4021 , 0x201C , 0x4908 ,
+        0x2804 , 0x1402 , 0xC201 , 0x8490 , 0x4280 , 0x2140 , 0x1C20 , 0x0894 , 0x0482 ,
+        0x0241 , 0x012C , 0x4089 , 0x2048 , 0x1024 , 0xC012 , 0x9408 , 0x8204 , 0x4102 ,
+        0x2C01 , 0x8940 , 0x4820 , 0x2410 , 0x12C0 , 0x0881 , 0x044C , 0x0226 , 0x0113 ,
+        0x1088 , 0xC044 , 0x6022 , 0x3011 , 0x8108 , 0x4C04 , 0x2602 , 0x1301 , 0x8810 ,
+        0x44C0 , 0x2260 , 0x1130 , 0x0288 , 0x0144 , 0x0C22 , 0x0611 , 0x8028 , 0x4014 ,
+        0x20C2 , 0x1061 , 0x8802 , 0x4401 , 0x220C , 0x1106 , 0x2880 , 0x1440 , 0xC220 ,
+        0x6110 , 0x0B48 , 0x0924 , 0x0812 , 0x04C1 , 0x80B4 , 0x4092 , 0x2081 , 0x104C ,
+        0x480B , 0x2409 , 0x1208 , 0xC104 , 0xB480 , 0x9240 , 0x8120 , 0x4C10 , 0x0198 ,
+        0x0C84 , 0x0642 , 0x0321 , 0x8019 , 0x40C8 , 0x2064 , 0x1032 , 0x9801 , 0x840C ,
+        0x4206 , 0x2103 , 0x1980 , 0xC840 , 0x6420 , 0x3210 , 0x0868 , 0x0434 , 0x02D2 ,
+        0x01A1 , 0x8086 , 0x4043 , 0x202D , 0x101A , 0x6808 , 0x3404 , 0xD202 , 0xA101 ,
+        0x8680 , 0x4340 , 0x2D20 , 0x1A10 , 0x8884 , 0x4442 , 0x2221 , 0x111C , 0x4888 ,
+        0x2444 , 0x1222 , 0xC111 , 0x8488 , 0x4244 , 0x2122 , 0x1C11 , 0x8848 , 0x4424 ,
+        0x2212 , 0x11C1 , 0x8000 , 0x4000 , 0x2000 , 0x1000 , 0x0800 , 0x0400 , 0x0200 ,
+        0x0100 , 0x0080 , 0x0040 , 0x0020 , 0x0010 , 0x0008 , 0x0004 , 0x0002 , 0x0001
+};
+
 /* static */	/* executing on system workloop */
 void AppleU3::sHandleChipFault( void * vSelf, void * vRefCon, void * /* NULL */, void * /* unused */ )
 {
-	UInt32 apiexcp;
+	UInt32 apiexcp, mear, mear1, mesr, rank, dimmloc, savedMaskRegister;
 
 	AppleU3 * me = OSDynamicCast( AppleU3, (OSMetaClassBase *) vSelf );
 
-	// kprintf( "AppleU3::sHandleChipFault\n" );
-
+	// Mask all chip fault sources.
+	if ( IS_U4(me->uniNVersion) )
+	{
+		savedMaskRegister = me->safeReadRegUInt32( kU4APIMask1Register );
+		me->safeWriteRegUInt32 ( kU4APIMask1Register, ~0UL, 0 );
+	}
+	else
+	{
+		savedMaskRegister = me->safeReadRegUInt32( kU3ChipFaultMaskRegister );
+		me->safeWriteRegUInt32 ( kU3ChipFaultMaskRegister, ~0UL, 0 );
+	}
+	
 	if (!me) return;
 
 	// read the APIEXCP register to find out the source of this event.  the read operation
 	// causes the faults to be cleared.
-	apiexcp = me->safeReadRegUInt32( kU3APIExceptionRegister );
-
-	// kprintf( "AppleU3 Got Chip Fault! APIEXCP = %08lX\n", apiexcp );
+	if ( IS_U4(me->uniNVersion) )
+		apiexcp = me->safeReadRegUInt32( kU4APIExceptionRegister );
+	else
+		apiexcp = me->safeReadRegUInt32( kU3APIExceptionRegister );
 
 	// Catch DART exceptions
-	if (apiexcp & kU3API_DARTExcp)
+	if ( (apiexcp & kU3API_DARTExcp) || (apiexcp & kU4API_DARTExcp) )
 	{
-		UInt32 dartexcp = me->safeReadRegUInt32( kU3DARTExceptionRegister );
-		
-		// [4020166] Only panic on the DART exception if it is on a write
-		if ( dartexcp & kU3DARTExcpRQOPMask ) {
-			char errstr[128];
+		char errstr[128];
+		UInt32 dartexcp = 0;
 
-			sprintf( errstr, "DART %s%s%s %s logical page 0x%05lX\n",
-				( dartexcp & kU3DARTExcpXBEMask ) ? "out-of-bounds exception: " : "",
-				( dartexcp & kU3DARTExcpXEEMask ) ? "entry exception: " : "",
-				( dartexcp & kU3DARTExcpRQSRCMask ) ? "HyperTransport" : "PCI0",
-				( dartexcp & kU3DARTExcpRQOPMask ) ? "write" : "read",
-				( dartexcp & kU3DARTExcpLogAdrsMask ) >> kU3DARTExcpLogAdrsShift );
-	
-			// kaboom!
-			panic( errstr );
+		if( IS_U4(me->uniNVersion) )
+		{
+			dartexcp = me->safeReadRegUInt32( kU4DARTExceptionRegister );
+			if ( dartexcp & kU4DARTExcpRQOPMask ) {
+				char	xcdString[40];
+				switch((dartexcp & kU4DARTExcpXCDMask))
+				{
+					case 0:
+						sprintf(xcdString, "XBE DART out of bounds Exception: ");
+						break;
+					case 1:
+						sprintf(xcdString, "XBE DART Entry Exception: ");
+						break;
+					case 2:
+						sprintf(xcdString, "XBE DART Read Protection Exception: ");
+						break;
+					case 3:
+						sprintf(xcdString, "XBE DART Write Protection Exception: ");
+						break;
+					case 4:
+						sprintf(xcdString, "XBE DART Addressing Exception: ");
+						break;
+					case 5:
+						sprintf(xcdString, "XBE DART TLB Parity Error: ");
+						break;
+				}
+				sprintf( errstr, "DART %s%s %s logical page 0x%05lX\n",
+					xcdString,
+					( dartexcp & kU4DARTExcpRQSRCMask ) ? "HyperTransport" : "PCI0",
+					( dartexcp & kU4DARTExcpRQOPMask ) ? "write" : "read",
+					( dartexcp & kU4DARTExcpLogAdrsMask ) >> kU4DARTExcpLogAdrsShift );
+				// kaboom!
+				panic( errstr );
+			}
+
+		}
+		else
+		{
+			dartexcp = me->safeReadRegUInt32( kU3DARTExceptionRegister );
+			if ( dartexcp & kU3DARTExcpRQOPMask ) {
+				sprintf( errstr, "DART %s%s%s %s logical page 0x%05lX\n",
+					( dartexcp & kU3DARTExcpXBEMask ) ? "out-of-bounds exception: " : "",
+					( dartexcp & kU3DARTExcpXEEMask ) ? "entry exception: " : "",
+					( dartexcp & kU3DARTExcpRQSRCMask ) ? "HyperTransport" : "PCI0",
+					( dartexcp & kU3DARTExcpRQOPMask ) ? "write" : "read",
+					( dartexcp & kU3DARTExcpLogAdrsMask ) >> kU3DARTExcpLogAdrsShift );
+
+				// kaboom!
+				panic( errstr );
+			}
+			
 		}
 
-		// Read exceptions are usually the result of prefetch running off the 
-		// end of a buffer, so for now, ignore the exception
-		return;
 	}
 
 	// if this is U3 Heavy, Check for ECC error
-	if (IS_U3_HEAVY(me->uniNVersion) &&
-	    (apiexcp & (kU3API_ECC_UE_H | kU3API_ECC_UE_L | kU3API_ECC_CE_H | kU3API_ECC_CE_L)))
+	if ( IS_U3_HEAVY(me->uniNVersion) && (apiexcp & (kU3API_ECC_UE_H | kU3API_ECC_UE_L | kU3API_ECC_CE_H | kU3API_ECC_CE_L)) )
 	{
-		UInt32 mear, mesr, rank, dimmloc;
-
 		// interrogate U3 ECC registers
 		mear = me->safeReadRegUInt32( kU3MemErrorAddressRegister );
 		mesr = me->safeReadRegUInt32( kU3MemErrorSyndromeRegister );
-
+		
 		// get the dimm slot index
 		rank = (mear & kU3MEAR_RNK_A_mask) >> kU3MEAR_RNK_A_shift;
 
@@ -782,29 +876,81 @@ void AppleU3::sHandleChipFault( void * vSelf, void * vRefCon, void * /* NULL */,
 			panic("Uncorrectable parity error detected in %s (MEAR=0x%08lX MESR=0x%08lX)\n",
 					me->dimmErrors[dimmloc].slotName, mear, mesr);
 		}
-
-		// must be a correctable error.  increment the count for this DIMM
-		else // if (apiexcp & (kU3API_ECC_CE_H | kU3API_ECC_CE_L))
-		{
+		else
 			dimmloc = rank - (rank%2) + (apiexcp & kU3API_ECC_CE_H ? 0 : 1);
 
-			//kprintf("AppleU3 got correctable error dimm %u\n", dimmloc);
+		//kprintf("AppleU3 got correctable error dimm %u\n", dimmloc);
 
-			IOSimpleLockLock( me->dimmLock );
-			me->dimmErrors[dimmloc].count++;
-			IOSimpleLockUnlock( me->dimmLock );
+		IOSimpleLockLock( me->dimmLock );
+		me->dimmErrors[dimmloc].count++;
+		IOSimpleLockUnlock( me->dimmLock );
 
-			// schedule a notification thread callout (if not already scheduled)
-			if (thread_call_is_delayed( me->eccErrorCallout, NULL ) == FALSE)
-			{
-				// kprintf("AppleU3 scheduling notifier thread\n");
+		// schedule a notification thread callout (if not already scheduled)
+		if (thread_call_is_delayed( me->eccErrorCallout, NULL ) == FALSE)
+		{
+			// kprintf("AppleU3 scheduling notifier thread\n");
 
-				AbsoluteTime deadline;
-				clock_interval_to_deadline( kU3ECCNotificationIntervalMS, kMillisecondScale, &deadline );
-				thread_call_enter1_delayed( me->eccErrorCallout, vRefCon, deadline);
-			}
+			AbsoluteTime deadline;
+			clock_interval_to_deadline( kU3ECCNotificationIntervalMS, kMillisecondScale, &deadline );
+			thread_call_enter1_delayed( me->eccErrorCallout, vRefCon, deadline);
 		}
 	}
+
+	// if this is U4, Check for ECC error
+	if ( IS_U4(me->uniNVersion) && (apiexcp & (kU4API_ECC_UEExcp | kU4API_ECC_CEExcp)) )
+	{
+		// interrogate U4 ECC registers
+		mear = me->safeReadRegUInt32( kU4MemErrorAddressRegister1 );
+		mear1 = me->safeReadRegUInt32( kU4MemErrorAddressRegister2 );
+		mesr = me->safeReadRegUInt32( kU4MemErrorSyndromeRegister );
+
+		// get the dimm slot index
+		dimmloc = rank = (mear & kU4MEAR_RK_mask) >> kU4MEAR_RK_shift;
+
+		// Check for an uncorrectable error
+		if (apiexcp & kU4API_ECC_UEExcp)
+		{
+			panic("Uncorrectable parity error detected in rank %d [%s, %s] (MEAR0=0x%08lX MEAR1=0x%08lX MESR=0x%08lX)\n",
+				rank, me->dimmErrors[dimmloc].slotName, me->dimmErrors[dimmloc+1].slotName, mear, mear1, mesr);
+		}
+		else
+		{
+			int i; 
+
+			// Search Syndrome Table to find exact bit which caused CE.  Use bit to determine if the error occurred
+			// on the lower/upper DIMM in the rank.  In general, using the rank and syndrome we can determine which
+			// DIMM caused the correctable error.  For uncorrectable errors, we can only know the rank (pair of DIMMs).
+			for ( i = 0; i <= 127; i++ )
+			{
+				if ( SyndromeTable[i] == (mesr & 0xFFFF) )
+				{
+					if( i > 63 ) // if low bit, then pick then next dimm in the rank.
+						dimmloc++;
+
+					break;
+
+				}
+			}
+		}
+
+		IOSimpleLockLock( me->dimmLock );
+		me->dimmErrors[dimmloc].count++;
+		IOSimpleLockUnlock( me->dimmLock );
+
+		// schedule a notification thread callout (if not already scheduled)
+		if (thread_call_is_delayed( me->eccErrorCallout, NULL ) == FALSE)
+		{
+			AbsoluteTime deadline;
+			clock_interval_to_deadline( kU3ECCNotificationIntervalMS, kMillisecondScale, &deadline );
+			thread_call_enter1_delayed( me->eccErrorCallout, vRefCon, deadline);
+		}
+	}
+
+	// Restore mask register.
+	if ( IS_U4(me->uniNVersion) )
+		me->safeWriteRegUInt32 ( kU4APIMask1Register, savedMaskRegister, savedMaskRegister );
+	else
+		me->safeWriteRegUInt32 ( kU3ChipFaultMaskRegister, savedMaskRegister, savedMaskRegister );
 }
 
 // **********************************************************************************
@@ -836,7 +982,9 @@ void AppleU3::eccNotifier( void * refcon )
 	UInt32 slot;
 	UInt32 * dimmErrorCounts;
 	u3_parity_error_msg_t msg;
-
+	IORegistryEntry * memoryNode;
+	OSData *eccCeCounts = NULL;
+	
 	// kprintf("AppleU3::eccNotifier\n");
 
 	// allocate memory for a copy of the dimm error counts
@@ -848,16 +996,26 @@ void AppleU3::eccNotifier( void * refcon )
 		return;
 	}
 
-	// get a copy of the dimm error counts, and zero out the live array
+	// get a copy of the dimm error counts and zero out the live array
 	IOSimpleLockLock( dimmLock );
 
 	for (slot=0; slot<dimmCount; slot++)
 	{
+		dimmErrorCountsTotal[slot] += dimmErrors[slot].count;
 		dimmErrorCounts[slot] = dimmErrors[slot].count;
 		dimmErrors[slot].count = 0;
 	}
 
 	IOSimpleLockUnlock( dimmLock );
+
+	if ((memoryNode = fromPath("/memory", gIODTPlane, 0, 0, 0)) != NULL)
+	{
+		eccCeCounts = OSData::withBytes(dimmErrorCountsTotal, 4 * dimmCount);
+		memoryNode->setProperty("ecc-ce-counts", eccCeCounts);
+
+		eccCeCounts->release();
+		memoryNode->release();
+	}
 
 	// post a notification for each slot that's encountered errors
 	for (slot=0; slot<dimmCount; slot++)
@@ -897,8 +1055,8 @@ void AppleU3::setupECC( void )
 	const char * slotNames;
 	UInt32 bits, i, slotBitField;
 
-	// If it's not U3 Heavy, we don't have ECC
-	if (!IS_U3_HEAVY(uniNVersion)) return;
+	// If it's not U3 Heavy or U4, we don't have ECC
+	if ( !IS_U3_HEAVY(uniNVersion) && !IS_U4(uniNVersion) ) return;
 
 	// ECC is initialized and enabled by HWInit if possible.  Check if it is turned on.
 	if ( ! ( kU3MCCR_ECC_EN & safeReadRegUInt32( kU3MemCheckCtrlRegister ) )) return;
@@ -925,6 +1083,9 @@ void AppleU3::setupECC( void )
 	}
 
 	if (dimmCount > kU3MaxDIMMSlots) return;
+
+	// initialize 
+	dimmErrorCountsTotal = (UInt32 *) IOMalloc( dimmCount * sizeof(UInt32) );
 
 	// kprintf("AppleU3::setupECC dimmCount is %u\n", dimmCount);
 
@@ -954,7 +1115,7 @@ void AppleU3::setupECC( void )
 		strncpy( dimmErrors[i].slotName, slotNames, 31 );	// copy the slot name
 		dimmErrors[i].slotName[31] = '\0';	// guarantee a terminating null
 		dimmErrors[i].count = 0;	// zero the error count
-
+		dimmErrorCountsTotal[i] = 0;	// zero the total error count
 		slotNames += strlen(slotNames) + 1;	// advance to the next dimm name
 	}
 
@@ -963,13 +1124,26 @@ void AppleU3::setupECC( void )
 	// flag that this is an ecc supported memory controller
 	setProperty("ecc-supported", "true" );
 
-	// Clear the mask bits in the MCCR to enable error propogation
-	bits = kU3MCCR_ECC_UE_MASK_H | kU3MCCR_ECC_CE_MASK_H | kU3MCCR_ECC_UE_MASK_L | kU3MCCR_ECC_CE_MASK_L;
-	safeWriteRegUInt32( kU3MemCheckCtrlRegister, bits, ~bits );
+	if ( IS_U4(uniNVersion) )
+	{
+		// Clear the mask bits in the MCCR to enable error propogation
+		bits = kU4MCCR_ECC_UE_MASK | kU4MCCR_ECC_CE_MASK;
+		safeWriteRegUInt32( kU4MemCheckCtrlRegister, bits, ~bits );
 
-	// Set the mask bits in the CFMR to enable chip fault generation
-	bits = kU3API_ECC_UE_H | kU3API_ECC_CE_H | kU3API_ECC_UE_L | kU3API_ECC_CE_L;
-	safeWriteRegUInt32( kU3ChipFaultMaskRegister, bits, bits );
+		// Set the mask bits in the CFMR to enable chip fault generation
+		bits = kU4API_ECC_UEExcp | kU4API_ECC_CEExcp;
+		safeWriteRegUInt32( kU4APIMask1Register, bits, bits );
+	}
+	else
+	{
+		// Clear the mask bits in the MCCR to enable error propogation
+		bits = kU3MCCR_ECC_UE_MASK_H | kU3MCCR_ECC_CE_MASK_H | kU3MCCR_ECC_UE_MASK_L | kU3MCCR_ECC_CE_MASK_L;
+		safeWriteRegUInt32( kU3MemCheckCtrlRegister, bits, ~bits );
+
+		// Set the mask bits in the CFMR to enable chip fault generation
+		bits = kU3API_ECC_UE_H | kU3API_ECC_CE_H | kU3API_ECC_UE_L | kU3API_ECC_CE_L;
+		safeWriteRegUInt32( kU3ChipFaultMaskRegister, bits, bits );
+	}
 }
 
 // **********************************************************************************
@@ -982,5 +1156,9 @@ void AppleU3::setupECC( void )
 void AppleU3::setupDARTExcp( void )
 {
 	// Set the mask bit in the CFMR to enable chip fault generation
-	safeWriteRegUInt32( kU3ChipFaultMaskRegister, kU3API_DARTExcp, kU3API_DARTExcp );
+	if ( IS_U4(uniNVersion) )
+		safeWriteRegUInt32( kU4APIMask1Register, kU3API_DARTExcp, kU3API_DARTExcp );
+	else
+		safeWriteRegUInt32( kU3ChipFaultMaskRegister, kU3API_DARTExcp, kU3API_DARTExcp );
 }
+

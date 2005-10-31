@@ -1,8 +1,8 @@
 ========================================================================
 KerberosErrors Bug List
 ========================================================================
-Current version: 1.6fc1
-Date:            December 6, 2004
+Current version: 1.6.1fc1
+Date:            June 15, 2005
 Authors:         lxs@mit.edu, meeroh@mit.edu
 ========================================================================
 
@@ -10,6 +10,7 @@ Authors:         lxs@mit.edu, meeroh@mit.edu
 Bug #       Bug description                                     Fixed in
 ========================================================================
 
+[RT 3093] compile_et fails on strings containing " index "         1.6.1fc1
 [RT 2717] CFBundleGetValueForInfoDictionaryKey() accesses homedir  1.6b3
 [RT 2732] com_err should be thread-safe                            1.6b3
 [RT 2701] compile_et needs a man page                              1.6b2

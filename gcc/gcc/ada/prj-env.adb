@@ -32,7 +32,8 @@ with Prj.Com;  use Prj.Com;
 with Table;
 with Tempdir;
 
-with GNAT.OS_Lib; use GNAT.OS_Lib;
+with GNAT.Directory_Operations; use GNAT.Directory_Operations;
+with GNAT.OS_Lib;               use GNAT.OS_Lib;
 
 package body Prj.Env is
 
@@ -134,6 +135,9 @@ package body Prj.Env is
    procedure Add_To_Object_Path (Object_Dir : Name_Id);
    --  Add Object_Dir to object path table. Make sure it is not duplicate
    --  and it is the last one in the current table.
+
+   function Contains_ALI_Files (Dir : Name_Id) return Boolean;
+   --  Return True if there is at least one ALI file in the directory Dir
 
    procedure Create_New_Path_File
      (Path_FD   : out File_Descriptor;
@@ -276,10 +280,18 @@ package body Prj.Env is
                    and then
                    (not Including_Libraries or else not Data.Library))
                then
-                  --  For a library project, add the library directory
+                  --  For a library project, add the library directory,
+                  --  if there is no object directory or if it contains ALI
+                  --  files; otherwise add the object directory.
 
                   if Data.Library then
-                     Add_To_Path (Get_Name_String (Data.Library_Dir));
+                     if Data.Object_Directory = No_Name
+                       or else Contains_ALI_Files (Data.Library_Dir)
+                     then
+                        Add_To_Path (Get_Name_String (Data.Library_Dir));
+                     else
+                        Add_To_Path (Get_Name_String (Data.Object_Directory));
+                     end if;
 
                   else
                      --  For a non library project, add the object directory
@@ -546,6 +558,45 @@ package body Prj.Env is
       return Namet.Get_Name_String (Data.File_Names (Body_Part).Path);
    end Body_Path_Name_Of;
 
+   ------------------------
+   -- Contains_ALI_Files --
+   ------------------------
+
+   function Contains_ALI_Files (Dir : Name_Id) return Boolean is
+      Dir_Name : constant String := Get_Name_String (Dir);
+      Direct : Dir_Type;
+      Name   : String (1 .. 1_000);
+      Last   : Natural;
+      Result : Boolean := False;
+
+   begin
+      Open (Direct, Dir_Name);
+
+      --  For each file in the directory, check if it is an ALI file
+
+      loop
+         Read (Direct, Name, Last);
+         exit when Last = 0;
+         Canonical_Case_File_Name (Name (1 .. Last));
+         Result := Last >= 5 and then Name (Last - 3 .. Last) = ".ali";
+         exit when Result;
+      end loop;
+
+      Close (Direct);
+      return Result;
+
+   exception
+      --  If there is any problem, close the directory if open and return
+      --  True; the library directory will be added to the path.
+
+      when others =>
+         if Is_Open (Direct) then
+            Close (Direct);
+         end if;
+
+         return True;
+   end Contains_ALI_Files;
+
    --------------------------------
    -- Create_Config_Pragmas_File --
    --------------------------------
@@ -652,7 +703,7 @@ package body Prj.Env is
                  (File, "pragma Source_File_Name_Project");
                Put_Line
                  (File, "  (Spec_File_Name  => ""*" &
-                  Namet.Get_Name_String (Data.Naming.Current_Spec_Suffix) &
+                  Namet.Get_Name_String (Data.Naming.Ada_Spec_Suffix) &
                   """,");
                Put_Line
                  (File, "   Casing          => " &
@@ -668,7 +719,7 @@ package body Prj.Env is
                  (File, "pragma Source_File_Name_Project");
                Put_Line
                  (File, "  (Body_File_Name  => ""*" &
-                  Namet.Get_Name_String (Data.Naming.Current_Body_Suffix) &
+                  Namet.Get_Name_String (Data.Naming.Ada_Body_Suffix) &
                   """,");
                Put_Line
                  (File, "   Casing          => " &
@@ -681,7 +732,7 @@ package body Prj.Env is
                --  and maybe separate
 
                if
-                 Data.Naming.Current_Body_Suffix /= Data.Naming.Separate_Suffix
+                 Data.Naming.Ada_Body_Suffix /= Data.Naming.Separate_Suffix
                then
                   Put_Line
                     (File, "pragma Source_File_Name_Project");
@@ -1135,10 +1186,10 @@ package body Prj.Env is
 
       Extended_Spec_Name : String :=
                              Name & Namet.Get_Name_String
-                                      (Data.Naming.Current_Spec_Suffix);
+                                      (Data.Naming.Ada_Spec_Suffix);
       Extended_Body_Name : String :=
                              Name & Namet.Get_Name_String
-                                      (Data.Naming.Current_Body_Suffix);
+                                      (Data.Naming.Ada_Body_Suffix);
 
       Unit : Unit_Data;
 
@@ -1623,10 +1674,10 @@ package body Prj.Env is
 
       Extended_Spec_Name : String :=
                              Name & Namet.Get_Name_String
-                                     (Data.Naming.Current_Spec_Suffix);
+                                     (Data.Naming.Ada_Spec_Suffix);
       Extended_Body_Name : String :=
                              Name & Namet.Get_Name_String
-                                     (Data.Naming.Current_Body_Suffix);
+                                     (Data.Naming.Ada_Body_Suffix);
 
       First   : Unit_Id := Units.First;
       Current : Unit_Id;
@@ -1811,10 +1862,10 @@ package body Prj.Env is
 
       Extended_Spec_Name : String :=
                              Name & Namet.Get_Name_String
-                                      (Data.Naming.Current_Spec_Suffix);
+                                      (Data.Naming.Ada_Spec_Suffix);
       Extended_Body_Name : String :=
                              Name & Namet.Get_Name_String
-                                      (Data.Naming.Current_Body_Suffix);
+                                      (Data.Naming.Ada_Body_Suffix);
 
       Unit : Unit_Data;
 
@@ -1966,9 +2017,18 @@ package body Prj.Env is
                             (not Including_Libraries or else not Data.Library))
                      then
                         --  For a library project, add the library directory
+                        --  if there is no object directory or if the library
+                        --  directory contains ALI files; otherwise add the
+                        --  object directory.
 
                         if Data.Library then
-                           Add_To_Object_Path (Data.Library_Dir);
+                           if Data.Object_Directory = No_Name
+                             or else Contains_ALI_Files (Data.Library_Dir)
+                           then
+                              Add_To_Object_Path (Data.Library_Dir);
+                           else
+                              Add_To_Object_Path (Data.Object_Directory);
+                           end if;
 
                         --  For a non-library project, add the object
                         --  directory, if it is not a virtual project.

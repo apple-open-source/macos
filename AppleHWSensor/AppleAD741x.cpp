@@ -22,11 +22,17 @@
 /*
  * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: AppleAD741x.cpp,v 1.7 2004/01/30 23:52:00 eem Exp $
+ *  File: $Id: AppleAD741x.cpp,v 1.9 2005/04/26 23:20:22 mpontil Exp $
  *
  *  DRI: Eric Muehlhausen
  *
  *		$Log: AppleAD741x.cpp,v $
+ *		Revision 1.9  2005/04/26 23:20:22  mpontil
+ *		Fixed a build problem when logging was enabled.
+ *		
+ *		Revision 1.8  2005/04/11 23:38:44  dirty
+ *		[4078743] Properly handle negative temperatures.
+ *		
  *		Revision 1.7  2004/01/30 23:52:00  eem
  *		[3542678] IOHWSensor/IOHWControl should use "reg" with version 2 thermal parameters
  *		Remove AppleSMUSensor/AppleSMUFan since that code will be in AppleSMUDevice class.
@@ -358,9 +364,9 @@ bool AppleAD741x::performFunction(IOPlatformFunction *func, void *pfParam1 = 0,
 						sprintf(byteDump, " %02X", fI2CReadBuffer[i]);
 						strcat(bufDump, byteDump);
 					}
-#endif
-					DLOG("%s\n", bufDump);
 
+					DLOG("%s\n", bufDump);
+#endif
 					// close the bus
 					closeI2C();
 
@@ -401,9 +407,9 @@ bool AppleAD741x::performFunction(IOPlatformFunction *func, void *pfParam1 = 0,
 						sprintf(byteDump, " %02X", ((UInt8 *)param3)[i]);
 						strcat(bufDump, byteDump);
 					}
-#endif
+					
 					DLOG("%s\n", bufDump);
-	
+#endif
 					// perform the write
 					success = writeI2C( (UInt8) param1, (UInt8 *) param3, (UInt16) param2 );
 
@@ -487,9 +493,9 @@ bool AppleAD741x::performFunction(IOPlatformFunction *func, void *pfParam1 = 0,
 						sprintf(byteDump, " %02X", scratchBuffer[i]);
 						strcat(bufDump, byteDump);
 					}
-#endif
+					
 					DLOG("%s\n", bufDump);
-
+#endif
 					// write out data
 					success = writeI2C( (UInt8) param1, scratchBuffer, (UInt16) param4 );
 
@@ -840,7 +846,7 @@ IOReturn AppleAD741x::getTemperature( SInt32 * temp )
 
 		reading = *((SInt16 *) bytes);
 		// temperature is fixed point 8.2 in most significant 10 bits of the two bytes that were read
-		*temp = (((SInt32)(reading & 0xFFC0)) << 8);
+		*temp = ( ( ( SInt16 ) ( reading & 0xFFC0 ) ) << 8 );
 		return(kIOReturnSuccess);
 	}
 	else

@@ -1,12 +1,12 @@
-CC := gcc
+CC := gcc-4.0
 override CFLAGS :=
 
-MAINPROG_CFLAGS := -g -ffix-and-continue
+MAINPROG_CFLAGS := -g -mfix-and-continue
 
 MAINPROG_LDFLAGS := -framework Foundation \
      -L/System/Library/PrivateFrameworks/ZeroLink.framework/Versions/A/Resources
 
-FIX_CFLAGS := $(MAINPROG_CFLAGS) -findirect-data -mno-dynamic-no-pic -freplace-objc-classes
+FIX_CFLAGS := $(MAINPROG_CFLAGS) -mno-dynamic-no-pic -freplace-objc-classes
 
 MAKE_A_BUNDLE_FLAGS := -bundle -flat_namespace -undefined suppress
 
@@ -23,35 +23,32 @@ B4SUFFIX=4
 
 # Build the main application
 stage1:
-	gcc -v
-	gcc $(MAINPROG_CFLAGS) -c main.m
+	gcc-4.0 -v
+	gcc-4.0 $(MAINPROG_CFLAGS) -c main.m
 	cp class-v1.m class.m
-	gcc $(MAINPROG_CFLAGS) -c class.m
-	gcc $(MAINPROG_LDFLAGS) -o a.out main.o class.o
+	gcc-4.0 $(MAINPROG_CFLAGS) -c class.m
+	gcc-4.0 $(MAINPROG_LDFLAGS) -o a.out main.o class.o
 
 # First rebuild of class.o
 stage2:
-	gcc -v
+	gcc-4.0 -v
 	cp class-v2.m class.m
-	gcc $(FIX_CFLAGS) -c class.m
-	gcc -c -o reload-stub.o reload-stub.s
-	gcc $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B2SUFFIX) class.o
+	gcc-4.0 $(FIX_CFLAGS) -c class.m
+	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B2SUFFIX) class.o
 
 # Second rebuild of class.o
 stage3:
-	gcc -v
+	gcc-4.0 -v
 	cp class-v3.m class.m
-	gcc $(FIX_CFLAGS) -c class.m
-	gcc -c -o reload-stub.o reload-stub.s
-	gcc $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B3SUFFIX) class.o
+	gcc-4.0 $(FIX_CFLAGS) -c class.m
+	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B3SUFFIX) class.o
 
 # Third rebuild of class.o
 stage4:
-	gcc -v
+	gcc-4.0 -v
 	cp class-v4.m class.m
-	gcc $(FIX_CFLAGS) -c class.m
-	gcc -c -o reload-stub.o reload-stub.s
-	gcc $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B4SUFFIX) class.o
+	gcc-4.0 $(FIX_CFLAGS) -c class.m
+	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B4SUFFIX) class.o
 
 clean:
 	rm -f a.out a.o b.o b-v1.o b-v2.o b-v3.o b.o.[0-9]*

@@ -48,7 +48,7 @@ proc do_libsystem_checks { run_name } {
 
   send_gdb "info sharedlibrary\n"
   gdb_expect {
-    -re ".* ($decimal) libSystem.* at ($hex).*$gdb_prompt $" {
+    -re ".* ($decimal) libSystem.*libSystem.B.dylib at ($hex).*$gdb_prompt $" {
       pass "get libSystem's shlib number and load addr $run_name"
       set libsystem_shlib_num $expect_out(1,string)
       set libsystem_load_addr $expect_out(2,string)

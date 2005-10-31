@@ -1,4 +1,4 @@
-@c Copyright (C) 2004
+@c Copyright (C) 2004,2005
 @c Free Software Foundation, Inc.
 @c This is part of the GFORTRAN manual.   
 @c For copying conditions, see the file gfortran.texi.
@@ -69,6 +69,19 @@ GFORTRAN@.
 The @command{gfortran} command supports all the options supported by the
 @command{gcc} command.  Only options specific to gfortran are documented here.
 
+@emph{Gfortran is not yet a fully conformant Fortran 95 compiler}.
+It can generate code for most constructs and expressions,
+but work remains to be done.  In particular, there are known
+deficiencies with ENTRY, NAMELIST, and sophisticated use of
+MODULES, POINTERS and DERIVED TYPES.  For those whose Fortran
+codes conform to either the Fortran 77 standard or the
+GNU Fortran 77 language, we recommend to use @command{g77}
+from GCC 3.4.  We recommend that distributors continue to provide
+packages of g77-3.4 until we announce that @command{gfortran}
+fully replaces @command{g77}.
+The gfortran developers welcome any feedback on user experience
+with @command{gfortran} at @email{fortran@@gcc.gnu.org}.
+
 @xref{Invoking GCC,,GCC Command Options,gcc,Using the GNU Compiler
 Collection (GCC)}, for information
 on the non-Fortran-specific aspects of the @command{gcc} command (and,
@@ -119,15 +132,15 @@ by type.  Explanations are in the following sections.
 -fdollar-ok  -fimplicit-none  -fmax-identifier-length @gol
 -std=@var{std}
 -ffixed-line-length-@var{n}  -ffixed-line-length-none @gol
--i8  -r8  -d8}
+-fdefault-double-8  -fdefault-integer-8  -fdefault-real-8 }
 
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{
 -fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -Wall  -Waliasing  -Wconversion @gol
--Wimplicit-interface  -Wsurprising  -Wunderflow -Wunused-labels @gol
--Wline-truncation @gol
+-Wimplicit-interface  -Wnonstd-intrinsics  -Wsurprising  -Wunderflow @gol
+-Wunused-labels -Wline-truncation @gol
 -Werror  -W}
 
 @item Debugging Options
@@ -179,9 +192,26 @@ that the compiler accepts:
 @cindex Fortran 90, features
 @item -ffree-form
 @item -ffixed-form
-Specify the layout used by the the source file. The tree form layout
+Specify the layout used by the the source file. The free form layout
 was introduced in Fortran 90.  Fixed form was traditionally used in
 older Fortran programs.
+
+@cindex option, -fdefault-double-8
+@cindex -fdefault-double-8, option
+@item -fdefault-double-8
+Set the "DOUBLE PRECISION" type to an 8 byte wide.
+
+@cindex option, -fdefault-integer-8
+@cindex -fdefault-integer-8, option
+@item -fdefault-integer-8
+Set the default integer and logical types to an 8 byte wide type.
+Do nothing if this is already the default.
+
+@cindex option, -fdefault-real-8
+@cindex -fdefault-real-8, option
+@item -fdefault-real-8
+Set the default real type to an 8 byte wide type.
+Do nothing if this is already the default.
 
 @cindex -fdollar-ok option
 @cindex options, -fdollar-ok
@@ -231,24 +261,7 @@ Specify that no implicit typing is allowed, unless overridden by explicit
 @cindex option, -std=@var{std}
 @item -std=@var{std}
 Conform to the specified standard.  Allowed values for @var{std} are
-@samp{gnu}, @samp{f95} and @samp{f90}.
-
-@cindex option, -i8
-@cindex -i8, option
-@cindex option, -r8
-@cindex -r8, option
-@cindex option, -d8
-@cindex -d8, option
-@item -i8
-@item -r8
-@item -d8
-The @option{-i8} and @option{-r8} options set the default @code{INTEGER}
-and @code{REAL} kinds to @code{KIND=8}.  The @option{-d8} option is
-equivalent to specifying both @option{-i8} and @option{-r8}.
-
-When @option{-r8} is specified, the @code{DOUBLE PRECISION} kind is set
-to @code{KIND=16} if the target supports a 16 byte floating point format.
-If no such format exists, the @code{DOUBLE PRECISION} kind is unchanged.
+@samp{gnu} and @samp{f95}.
 
 @end table
 
@@ -321,7 +334,8 @@ Inhibit all warning messages.
 Enables commonly used warning options that which pertain to usage that
 we recommend avoiding and that we believe is easy to avoid.
 This currently includes @option{-Wunused-labels}, @option{-Waliasing},
-@option{-Wsurprising} and @option{-Wline-truncation}.
+@option{-Wsurprising}, @option{-Wnonstd-intrinsic} and
+@option{-Wline-truncation}.
 
 
 @cindex -Waliasing option
@@ -352,6 +366,13 @@ Note this only checks that an explicit interface is present.  It does not
 check that the declared interfaces are consistent across program units.
 
 
+@cindex -Wnonstd-intrinsic option
+@cindex options, -Wnonstd-intrinsic
+@item -Wnonstd-intrinsic
+Warn if the user tries to use an intrinsic that does not belong to the 
+standard the user has chosen via the -std option.
+
+
 @cindex -Wsurprising
 @cindex options, -Wsurprising
 @item -Wsurprising
@@ -363,8 +384,8 @@ This currently produces a warning under the following circumstances:
 
 @itemize @bullet
 @item
-An INTEGER SELECT construct has a CASE the can never be matched as it's
-lower value that is greater than its upper value.
+An INTEGER SELECT construct has a CASE that can never be matched as its
+lower value is greater than its upper value.
 
 @item
 A LOGICAL SELECT construct has three CASE statements.

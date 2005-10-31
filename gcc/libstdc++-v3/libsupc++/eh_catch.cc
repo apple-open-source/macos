@@ -33,6 +33,15 @@
 
 using namespace __cxxabiv1;
 
+extern "C" void *
+__cxxabiv1::__cxa_get_exception_ptr(void *exc_obj_in) throw()
+{
+  _Unwind_Exception *exceptionObject
+    = reinterpret_cast <_Unwind_Exception *>(exc_obj_in);
+  __cxa_exception *header = __get_exception_header_from_ue (exceptionObject);
+
+  return header->adjustedPtr;
+}
 
 extern "C" void *
 __cxxabiv1::__cxa_begin_catch (void *exc_obj_in) throw()
@@ -61,15 +70,14 @@ __cxxabiv1::__cxa_begin_catch (void *exc_obj_in) throw()
     }
 
   int count = header->handlerCount;
+  // Count is less than zero if this exception was rethrown from an
+  // immediately enclosing region.
   if (count < 0)
-    // This exception was rethrown from an immediately enclosing region.
     count = -count + 1;
   else
-    {
-      count += 1;
-      globals->uncaughtExceptions -= 1;
-    }
+    count += 1;
   header->handlerCount = count;
+  globals->uncaughtExceptions -= 1;
 
   if (header != prev)
     {
@@ -107,10 +115,7 @@ __cxxabiv1::__cxa_end_catch ()
       // This exception was rethrown.  Decrement the (inverted) catch
       // count and remove it from the chain when it reaches zero.
       if (++count == 0)
-	{
-	  globals->uncaughtExceptions += 1;
-	  globals->caughtExceptions = header->nextException;
-	}
+	globals->caughtExceptions = header->nextException;
     }
   else if (--count == 0)
     {

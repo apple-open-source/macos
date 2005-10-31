@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
@@ -114,11 +114,8 @@ static bool nonoverlapping_component_refs_p (tree, tree);
 static tree decl_for_component_ref (tree);
 static rtx adjust_offset_for_component_ref (tree, rtx);
 static int nonoverlapping_memrefs_p (rtx, rtx);
-
-/* APPLE LOCAL begin aliasing improvement */
+/* APPLE LOCAL aliasing improvement */
 static int overlapping_memrefs_p (rtx, rtx);
-/* APPLE LOCAL end */
-
 static int write_dependence_p (rtx, rtx, int);
 
 static int nonlocal_mentioned_p_1 (rtx *, void *);
@@ -128,6 +125,7 @@ static int nonlocal_referenced_p (rtx);
 static int nonlocal_set_p_1 (rtx *, void *);
 static int nonlocal_set_p (rtx);
 static void memory_modified_1 (rtx, rtx, void *);
+static void record_alias_subset (HOST_WIDE_INT, HOST_WIDE_INT);
 
 /* Set up all info needed to perform alias analysis on memory references.  */
 
@@ -383,36 +381,51 @@ find_base_decl (tree t)
     }
 }
 
-/* Return 1 if all the nested component references handled by
-   get_inner_reference in T are such that we can address the object in T.  */
+/* Return true if all nested component references handled by
+   get_inner_reference in T are such that we should use the alias set
+   provided by the object at the heart of T.
 
-int
-can_address_p (tree t)
+   This is true for non-addressable components (which don't have their
+   own alias set), as well as components of objects in alias set zero.
+   This later point is a special case wherein we wish to override the
+   alias set used by the component, but we don't have per-FIELD_DECL
+   assignable alias sets.  */
+
+bool
+component_uses_parent_alias_set (tree t)
 {
-  /* If we're at the end, it is vacuously addressable.  */
-  if (! handled_component_p (t))
-    return 1;
+  while (1)
+    {
+      /* If we're at the end, it vacuously uses its own alias set.  */
+      if (!handled_component_p (t))
+	return false;
 
-  /* Bitfields are never addressable.  */
-  else if (TREE_CODE (t) == BIT_FIELD_REF)
-    return 0;
+      switch (TREE_CODE (t))
+	{
+	case COMPONENT_REF:
+	  if (DECL_NONADDRESSABLE_P (TREE_OPERAND (t, 1)))
+	    return true;
+	  break;
 
-  /* Fields are addressable unless they are marked as nonaddressable or
-     the containing type has alias set 0.  */
-  else if (TREE_CODE (t) == COMPONENT_REF
-	   && ! DECL_NONADDRESSABLE_P (TREE_OPERAND (t, 1))
-	   && get_alias_set (TREE_TYPE (TREE_OPERAND (t, 0))) != 0
-	   && can_address_p (TREE_OPERAND (t, 0)))
-    return 1;
+	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
+	  if (TYPE_NONALIASED_COMPONENT (TREE_TYPE (TREE_OPERAND (t, 0))))
+	    return true;
+	  break;
 
-  /* Likewise for arrays.  */
-  else if ((TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
-	   && ! TYPE_NONALIASED_COMPONENT (TREE_TYPE (TREE_OPERAND (t, 0)))
-	   && get_alias_set (TREE_TYPE (TREE_OPERAND (t, 0))) != 0
-	   && can_address_p (TREE_OPERAND (t, 0)))
-    return 1;
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
+	  break;
 
-  return 0;
+	default:
+	  /* Bitfields and casts are never addressable.  */
+	  return true;
+	}
+
+      t = TREE_OPERAND (t, 0);
+      if (get_alias_set (TREE_TYPE (t)) == 0)
+	return true;
+    }
 }
 
 /* Return the alias set for T, which may be either a type or an
@@ -514,7 +527,7 @@ get_alias_set (tree t)
 
       /* Otherwise, pick up the outermost object that we could have a pointer
 	 to, processing conversions as above.  */
-      while (handled_component_p (t) && ! can_address_p (t))
+      while (component_uses_parent_alias_set (t))
 	{
 	  t = TREE_OPERAND (t, 0);
 	  STRIP_NOPS (t);
@@ -601,7 +614,7 @@ new_alias_set (void)
    It is illegal for SUPERSET to be zero; everything is implicitly a
    subset of alias set zero.  */
 
-void
+static void
 record_alias_subset (HOST_WIDE_INT superset, HOST_WIDE_INT subset)
 {
   alias_set_entry superset_entry;
@@ -1568,7 +1581,7 @@ get_addr (rtx x)
     where SIZE is the size in bytes of the memory reference.  If ADDR
     is not modified by the memory reference then ADDR is returned.  */
 
-rtx
+static rtx
 addr_side_effect_eval (rtx addr, int size, int n_refs)
 {
   int offset = 0;
@@ -1897,7 +1910,7 @@ static int
 aliases_everything_p (rtx mem)
 {
   if (GET_CODE (XEXP (mem, 0)) == AND)
-    /* If the address is an AND, its very hard to know at what it is
+    /* If the address is an AND, it's very hard to know at what it is
        actually pointing.  */
     return 1;
 
@@ -2299,8 +2312,8 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
   x_addr = canon_rtx (x_addr);
   mem_addr = canon_rtx (mem_addr);
 
-  /* APPLE LOCAL nop on true-dependence. */
   if (! memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
+			    /* APPLE LOCAL nop on true-dependence. */
 			    SIZE_FOR_MODE (x), x_addr, 0, 1))
     return 0;
 
@@ -2366,8 +2379,8 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
     return 0;
 
   x_addr = canon_rtx (x_addr);
-  /* APPLE LOCAL nop on true-dependence. */
   if (! memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
+			    /* APPLE LOCAL nop on true-dependence. */
 			    SIZE_FOR_MODE (x), x_addr, 0, 1))
     return 0;
 
@@ -2455,8 +2468,8 @@ write_dependence_p (rtx mem, rtx x, int writep)
   x_addr = canon_rtx (x_addr);
   mem_addr = canon_rtx (mem_addr);
 
-  /* APPLE LOCAL nop on true-dependence. */
   if (!memrefs_conflict_p (SIZE_FOR_MODE (mem), mem_addr,
+			   /* APPLE LOCAL nop on true-dependence. */
 			   SIZE_FOR_MODE (x), x_addr, 0, 1))
     return 0;
 

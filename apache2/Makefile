@@ -1,11 +1,11 @@
 ##
 # Apple wrapper Makefile for Apache 2
-# Copyright (c) 2003-2004 by Apple Computer, Inc.
+# Copyright (c) 2003-2005 by Apple Computer, Inc.
 ##
 # Untar, build, create a binary distribution, install into /opt/apache2
 #
 PROJECT_NAME=httpd
-PROJECT_VERSION=2.0.53
+PROJECT_VERSION=2.0.54
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
 FINAL_DIR=/opt/apache2
@@ -13,7 +13,7 @@ VERSIONS_DIR=/usr/local/OpenSourceVersions
 LICENSE_DIR=/usr/local/OpenSourceLicenses
 DST_DIR=$(DSTROOT)/opt/apache2
 
-PROJECT_FILES=Makefile apache2.plist apache2.txt htdigest.c.patch
+PROJECT_FILES=Makefile apache2.plist apache2.txt htdigest.c.patch httpd-std.conf.in.patch
 
 # These includes provide the proper paths to system utilities
 
@@ -48,6 +48,8 @@ do_untar:
 do_patch:
 	$(ECHO) "Applying security patch to htdigest.c"
 	$(CD) $(PROJECT_DIR)/support; patch -i ../../htdigest.c.patch
+	$(ECHO) "Applying comment patch to httpd-std.conf.in"
+	$(CD) $(PROJECT_DIR)/docs/conf; patch -i ../../../httpd-std.conf.in.patch
 
 # Custom configuration:
 #
@@ -56,6 +58,7 @@ do_configure:
 	$(CD) $(PROJECT_DIR); export LIBTOOL_CMD_SEP=; \
 				./buildconf
 	$(CD) $(PROJECT_DIR); export LIBTOOL_CMD_SEP=; \
+			export ac_cv_func_poll=no; \
 			./configure \
 			LDFLAGS="$$RC_CFLAGS" \
 			CFLAGS="$$RC_CFLAGS" \

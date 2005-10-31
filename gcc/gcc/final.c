@@ -1,6 +1,7 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+     Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -835,7 +836,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	      max_log = log;
 	      max_skip = LABEL_ALIGN_MAX_SKIP;
 	    }
-	  next = NEXT_INSN (insn);
+	  next = next_nonnote_insn (insn);
 	  /* ADDR_VECs only take room if read-only data goes into the text
 	     section.  */
 	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
@@ -956,6 +957,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  XEXP (pat, 3) = gen_rtx_LABEL_REF (VOIDmode, max_lab);
 	  insn_shuid = INSN_SHUID (insn);
 	  rel = INSN_SHUID (XEXP (XEXP (pat, 0), 0));
+	  memset (&flags, 0, sizeof (flags));
 	  flags.min_align = min_align;
 	  flags.base_after_vec = rel > insn_shuid;
 	  flags.min_after_vec  = min > insn_shuid;
@@ -1333,7 +1335,8 @@ asm_insn_count (rtx body)
 
 void
 final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
-		      int optimize ATTRIBUTE_UNUSED)
+		    /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+		      int optimizing ATTRIBUTE_UNUSED)
 {
   block_depth = 0;
 
@@ -1365,7 +1368,7 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
 #if defined (DWARF2_UNWIND_INFO) && defined (HAVE_prologue)
   if (dwarf2out_do_frame ())
-    dwarf2out_frame_debug (NULL_RTX);
+    dwarf2out_frame_debug (NULL_RTX, false);
 #endif
 
   /* If debugging, assign block numbers to all of the blocks in this
@@ -1500,7 +1503,8 @@ final_end_function (void)
    Prescanning is done only on certain machines.  */
 
 void
-final (rtx first, FILE *file, int optimize, int prescan)
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+final (rtx first, FILE *file, int optimizing, int prescan)
 {
   rtx insn;
   int max_uid = 0;
@@ -1542,7 +1546,8 @@ final (rtx first, FILE *file, int optimize, int prescan)
 #ifdef HAVE_cc0
       /* If CC tracking across branches is enabled, record the insn which
 	 jumps to each branch only reached from one place.  */
-      if (optimize && JUMP_P (insn))
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+      if (optimizing && JUMP_P (insn))
 	{
 	  rtx lab = JUMP_LABEL (insn);
 	  if (lab && LABEL_NUSES (lab) == 1)
@@ -1572,7 +1577,8 @@ final (rtx first, FILE *file, int optimize, int prescan)
 	insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
 #endif /* HAVE_ATTR_length */
 
-      insn = final_scan_insn (insn, file, optimize, prescan, 0, &seen);
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+      insn = final_scan_insn (insn, file, optimizing, prescan, 0, &seen);
     }
 }
 
@@ -1669,13 +1675,15 @@ scan_ahead_for_unlikely_executed_note (rtx insn)
    first.  */
 
 rtx
-final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 		 int prescan, int nopeepholes ATTRIBUTE_UNUSED,
 		 int *seen)
 {
 #ifdef HAVE_cc0
   rtx set;
 #endif
+  rtx next;
 
   insn_counter++;
 
@@ -1701,17 +1709,17 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
-
+	  
 	  /* The presence of this note indicates that this basic block
 	     belongs in the "cold" section of the .o file.  If we are
 	     not already writing to the cold section we need to change
 	     to it.  */
-
+	  
 	  unlikely_text_section ();
 	  break;
-
-  	case NOTE_INSN_BASIC_BLOCK:
-
+	  
+	case NOTE_INSN_BASIC_BLOCK:
+	  
 	  /* If we are performing the optimization that partitions
 	     basic blocks into hot & cold sections of the .o file,
 	     then at the start of each new basic block, before
@@ -1847,7 +1855,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
     case BARRIER:
 #if defined (DWARF2_UNWIND_INFO)
       if (dwarf2out_do_frame ())
-	dwarf2out_frame_debug (insn);
+	dwarf2out_frame_debug (insn, false);
 #endif
       break;
 
@@ -1881,7 +1889,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
       /* Disabled because some insns set cc_status in the C output code
 	 and NOTICE_UPDATE_CC alone can set incorrect status.  */
-      if (0 /* optimize && LABEL_NUSES (insn) == 1*/)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+      if (0 /* optimizing && LABEL_NUSES (insn) == 1*/)
 	{
 	  rtx jump = LABEL_REFS (insn);
 	  rtx barrier = prev_nonnote_insn (insn);
@@ -1931,10 +1940,11 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  fputs (ASM_APP_OFF, file);
 	  app_on = 0;
 	}
-      if (NEXT_INSN (insn) != 0
-	  && JUMP_P (NEXT_INSN (insn)))
+
+      next = next_nonnote_insn (insn);
+      if (next != 0 && JUMP_P (next))
 	{
-	  rtx nextbody = PATTERN (NEXT_INSN (insn));
+	  rtx nextbody = PATTERN (next);
 
 	  /* If this label is followed by a jump-table,
 	     make sure we put the label in the read-only section.  Also
@@ -1955,7 +1965,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		  targetm.asm_out.function_rodata_section (current_function_decl);
 
 #ifdef ADDR_VEC_ALIGN
-		  log_align = ADDR_VEC_ALIGN (NEXT_INSN (insn));
+		  log_align = ADDR_VEC_ALIGN (next);
 #else
 		  log_align = exact_log2 (BIGGEST_ALIGNMENT / BITS_PER_UNIT);
 #endif
@@ -1966,7 +1976,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 #ifdef ASM_OUTPUT_CASE_LABEL
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
-				     NEXT_INSN (insn));
+				     next);
 #else
 	      targetm.asm_out.internal_label (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
@@ -2020,6 +2030,11 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    if (prescan > 0)
 	      break;
+
+	    if (! JUMP_TABLES_IN_TEXT_SECTION)
+	      targetm.asm_out.function_rodata_section (current_function_decl);
+	    else
+	      function_section (current_function_decl);
 
 	    if (app_on)
 	      {
@@ -2156,7 +2171,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  {
 	    /* A delayed-branch sequence */
 	    int i;
-	    rtx next;
 
 	    if (prescan > 0)
 	      break;
@@ -2167,7 +2181,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #if defined (DWARF2_UNWIND_INFO)
 	    if (dwarf2out_do_frame ())
 	      for (i = 1; i < XVECLEN (body, 0); i++)
-		dwarf2out_frame_debug (XVECEXP (body, 0, i));
+		dwarf2out_frame_debug (XVECEXP (body, 0, i), false);
 #endif
 
 	    /* The first insn in this SEQUENCE might be a JUMP_INSN that will
@@ -2224,7 +2238,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	   and the next statement should reexamine the variable
 	   to compute the condition codes.  */
 
-	if (optimize)
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+	if (optimizing)
 	  {
 	    if (set
 		&& GET_CODE (SET_DEST (set)) == CC0
@@ -2382,7 +2397,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef HAVE_peephole
 	/* Do machine-specific peephole optimizations if desired.  */
 
-	if (optimize && !flag_no_peephole && !nopeepholes)
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+	if (optimizing && !flag_no_peephole && !nopeepholes)
 	  {
 	    rtx next = peephole (insn);
 	    /* When peepholing, if there were notes within the peephole,
@@ -2393,7 +2409,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 		for (note = NEXT_INSN (insn); note != next;
 		     note = NEXT_INSN (note))
-		  final_scan_insn (note, file, optimize, prescan, nopeepholes, seen);
+		  /* APPLE LOCAL optimization pragmas 3124235/3420242 */
+		  final_scan_insn (note, file, optimizing, prescan, nopeepholes, seen);
 
 		/* In case this is prescan, put the notes
 		   in proper position for later rescan.  */
@@ -2459,7 +2476,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 #if defined (DWARF2_UNWIND_INFO)
 	if (CALL_P (insn) && dwarf2out_do_frame ())
-	  dwarf2out_frame_debug (insn);
+	  dwarf2out_frame_debug (insn, false);
 #endif
 
 	/* Find the proper template for this insn.  */
@@ -2526,13 +2543,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	   the unwind info.   We've already done this for delay slots
 	   and call instructions.  */
 #if defined (DWARF2_UNWIND_INFO)
-	if (NONJUMP_INSN_P (insn)
+	if (final_sequence == 0
 #if !defined (HAVE_prologue)
 	    && !ACCUMULATE_OUTGOING_ARGS
 #endif
-	    && final_sequence == 0
 	    && dwarf2out_do_frame ())
-	  dwarf2out_frame_debug (insn);
+	  dwarf2out_frame_debug (insn, true);
 #endif
 
 	current_output_insn = debug_insn = 0;
@@ -2632,12 +2648,10 @@ alter_subreg (rtx *xp)
 
       if (new != 0)
 	*xp = new;
-      else
+      else if (REG_P (y))
 	{
 	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
-	  unsigned int regno = subreg_hard_regno (x, 1);
-	  
-	  gcc_assert (REG_P (y));
+	  unsigned int regno = subreg_regno (x);
 	  *xp = gen_rtx_REG_offset (y, GET_MODE (x), regno, SUBREG_BYTE (x));
 	}
     }
@@ -2849,7 +2863,7 @@ output_operand_lossage (const char *msgid, ...)
 
   va_start (ap, msgid);
 
-  pfx_str = this_is_asm_operands ? _("invalid `asm': ") : "output_operand: ";
+  pfx_str = this_is_asm_operands ? _("invalid 'asm': ") : "output_operand: ";
   asprintf (&fmt_string, "%s%s", pfx_str, _(msgid));
   vasprintf (&new_message, fmt_string, ap);
 
@@ -3201,7 +3215,7 @@ output_asm_label (rtx x)
 	  && NOTE_LINE_NUMBER (x) == NOTE_INSN_DELETED_LABEL))
     ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));
   else
-    output_operand_lossage ("`%%l' operand isn't a label");
+    output_operand_lossage ("'%%l' operand isn't a label");
 
   assemble_name (asm_out_file, buf);
 }

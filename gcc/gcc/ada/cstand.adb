@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -189,35 +189,78 @@ package body CStand is
    procedure Create_Operators is
       Op_Node : Entity_Id;
 
-      --  Following list has two entries for concatenation, to include
-      --  explicitly the operation on wide strings.
+      --  The following tables define the binary and unary operators and their
+      --  corresponding result type.
 
       Binary_Ops : constant array (S_Binary_Ops) of Name_Id :=
-        (Name_Op_Add,      Name_Op_And,   Name_Op_Concat,   Name_Op_Concat,
-         Name_Op_Divide,   Name_Op_Eq,    Name_Op_Expon,    Name_Op_Ge,
-         Name_Op_Gt,       Name_Op_Le,    Name_Op_Lt,       Name_Op_Mod,
-         Name_Op_Multiply, Name_Op_Ne,    Name_Op_Or,       Name_Op_Rem,
-         Name_Op_Subtract, Name_Op_Xor);
+
+         --  There is one entry here for each binary operator, except for the
+         --  case of concatenation, where there are three entries, one for a
+         --  String result, one for Wide_String, and one for Wide_Wide_String.
+
+        (Name_Op_Add,
+         Name_Op_And,
+         Name_Op_Concat,
+         Name_Op_Concat,
+         Name_Op_Concat,
+         Name_Op_Divide,
+         Name_Op_Eq,
+         Name_Op_Expon,
+         Name_Op_Ge,
+         Name_Op_Gt,
+         Name_Op_Le,
+         Name_Op_Lt,
+         Name_Op_Mod,
+         Name_Op_Multiply,
+         Name_Op_Ne,
+         Name_Op_Or,
+         Name_Op_Rem,
+         Name_Op_Subtract,
+         Name_Op_Xor);
 
       Bin_Op_Types : constant array (S_Binary_Ops) of Entity_Id :=
-        (Universal_Integer, Standard_Boolean,
-         Standard_String,   Standard_Wide_String,
-         Universal_Integer, Standard_Boolean,
-         Universal_Integer, Standard_Boolean,
-         Standard_Boolean,  Standard_Boolean,
-         Standard_Boolean,  Universal_Integer,
-         Universal_Integer, Standard_Boolean,
-         Standard_Boolean,  Universal_Integer,
-         Universal_Integer, Standard_Boolean);
+
+         --  This table has the corresponding result types. The entries are
+         --  ordered so they correspond to the Binary_Ops array above.
+
+        (Universal_Integer,         -- Add
+         Standard_Boolean,          -- And
+         Standard_String,           -- Concat (String)
+         Standard_Wide_String,      -- Concat (Wide_String)
+         Standard_Wide_Wide_String, -- Concat (Wide_Wide_String)
+         Universal_Integer,         -- Divide
+         Standard_Boolean,          -- Eq
+         Universal_Integer,         -- Expon
+         Standard_Boolean,          -- Ge
+         Standard_Boolean,          -- Gt
+         Standard_Boolean,          -- Le
+         Standard_Boolean,          -- Lt
+         Universal_Integer,         -- Mod
+         Universal_Integer,         -- Multiply
+         Standard_Boolean,          -- Ne
+         Standard_Boolean,          -- Or
+         Universal_Integer,         -- Rem
+         Universal_Integer,         -- Subtract
+         Standard_Boolean);         -- Xor
 
       Unary_Ops : constant array (S_Unary_Ops) of Name_Id :=
-        (Name_Op_Abs, Name_Op_Subtract, Name_Op_Not, Name_Op_Add);
+
+         --  There is one entry here for each unary operator
+
+        (Name_Op_Abs,
+         Name_Op_Subtract,
+         Name_Op_Not,
+         Name_Op_Add);
 
       Unary_Op_Types : constant array (S_Unary_Ops) of Entity_Id :=
-        (Universal_Integer, Universal_Integer,
-         Standard_Boolean,  Universal_Integer);
 
-      --  Corresponding to Abs, Minus, Not, and Plus.
+         --  This table has the corresponding result types. The entries are
+         --  ordered so they correspond to the Unary_Ops array above.
+
+        (Universal_Integer,     -- Abs
+         Universal_Integer,     -- Subtract
+         Standard_Boolean,      -- Not
+         Universal_Integer);    -- Add
 
    begin
       for J in S_Binary_Ops loop
@@ -236,13 +279,20 @@ package body CStand is
       --  For concatenation, we create a separate operator for each
       --  array type. This simplifies the resolution of the component-
       --  component concatenation operation. In Standard, we set the types
-      --  of the formals for string and wide string concatenation.
+      --  of the formals for string, wide [wide]_string, concatenations.
 
       Set_Etype (First_Entity (Standard_Op_Concat),  Standard_String);
       Set_Etype (Last_Entity  (Standard_Op_Concat),  Standard_String);
 
       Set_Etype (First_Entity (Standard_Op_Concatw), Standard_Wide_String);
       Set_Etype (Last_Entity  (Standard_Op_Concatw), Standard_Wide_String);
+
+      Set_Etype (First_Entity (Standard_Op_Concatww),
+                  Standard_Wide_Wide_String);
+
+      Set_Etype (Last_Entity (Standard_Op_Concatww),
+                   Standard_Wide_Wide_String);
+
    end Create_Operators;
 
    ---------------------
@@ -496,8 +546,8 @@ package body CStand is
       B_Node := New_Node (N_Character_Literal, Stloc);
       Set_Is_Static_Expression (B_Node);
       Set_Chars                (B_Node, No_Name);
-      Set_Char_Literal_Value   (B_Node, 16#00#);
-      Set_Entity               (B_Node,  Empty);
+      Set_Char_Literal_Value   (B_Node, Uint_0);
+      Set_Entity               (B_Node, Empty);
       Set_Etype                (B_Node, Standard_Character);
       Set_Low_Bound (R_Node, B_Node);
 
@@ -506,8 +556,8 @@ package body CStand is
       B_Node := New_Node (N_Character_Literal, Stloc);
       Set_Is_Static_Expression (B_Node);
       Set_Chars                (B_Node, No_Name);
-      Set_Char_Literal_Value   (B_Node, 16#FF#);
-      Set_Entity               (B_Node,  Empty);
+      Set_Char_Literal_Value   (B_Node, UI_From_Int (16#FF#));
+      Set_Entity               (B_Node, Empty);
       Set_Etype                (B_Node, Standard_Character);
       Set_High_Bound (R_Node, B_Node);
 
@@ -541,8 +591,8 @@ package body CStand is
       B_Node := New_Node (N_Character_Literal, Stloc);
       Set_Is_Static_Expression (B_Node);
       Set_Chars                (B_Node, No_Name);    --  ???
-      Set_Char_Literal_Value   (B_Node, 16#0000#);
-      Set_Entity               (B_Node,  Empty);
+      Set_Char_Literal_Value   (B_Node, Uint_0);
+      Set_Entity               (B_Node, Empty);
       Set_Etype                (B_Node, Standard_Wide_Character);
       Set_Low_Bound (R_Node, B_Node);
 
@@ -551,14 +601,62 @@ package body CStand is
       B_Node := New_Node (N_Character_Literal, Stloc);
       Set_Is_Static_Expression (B_Node);
       Set_Chars                (B_Node, No_Name);    --  ???
-      Set_Char_Literal_Value   (B_Node, 16#FFFF#);
-      Set_Entity               (B_Node,  Empty);
+      Set_Char_Literal_Value   (B_Node, UI_From_Int (16#FFFF#));
+      Set_Entity               (B_Node, Empty);
       Set_Etype                (B_Node, Standard_Wide_Character);
       Set_High_Bound           (R_Node, B_Node);
 
       Set_Scalar_Range (Standard_Wide_Character, R_Node);
       Set_Etype (R_Node, Standard_Wide_Character);
       Set_Parent (R_Node, Standard_Wide_Character);
+
+      --  Create type definition for type Wide_Wide_Character. Note that we
+      --  do not set the Literals field, since type Wide_Wide_Character is
+      --  handled with special routines that do not need a literal list.
+
+      Tdef_Node := New_Node (N_Enumeration_Type_Definition, Stloc);
+      Set_Type_Definition (Parent (Standard_Wide_Wide_Character), Tdef_Node);
+
+      Set_Ekind (Standard_Wide_Wide_Character, E_Enumeration_Type);
+      Set_Etype (Standard_Wide_Wide_Character,
+                 Standard_Wide_Wide_Character);
+      Init_Size (Standard_Wide_Wide_Character,
+                 Standard_Wide_Wide_Character_Size);
+
+      Set_Elem_Alignment             (Standard_Wide_Wide_Character);
+      Set_Is_Unsigned_Type           (Standard_Wide_Wide_Character);
+      Set_Is_Character_Type          (Standard_Wide_Wide_Character);
+      Set_Is_Known_Valid             (Standard_Wide_Wide_Character);
+      Set_Size_Known_At_Compile_Time (Standard_Wide_Wide_Character);
+      Set_Is_Ada_2005                (Standard_Wide_Wide_Character);
+
+      --  Create the bounds for type Wide_Wide_Character
+
+      R_Node := New_Node (N_Range, Stloc);
+
+      --  Low bound for type Wide_Wide_Character
+
+      B_Node := New_Node (N_Character_Literal, Stloc);
+      Set_Is_Static_Expression (B_Node);
+      Set_Chars                (B_Node, No_Name);    --  ???
+      Set_Char_Literal_Value   (B_Node, Uint_0);
+      Set_Entity               (B_Node, Empty);
+      Set_Etype                (B_Node, Standard_Wide_Wide_Character);
+      Set_Low_Bound (R_Node, B_Node);
+
+      --  High bound for type Wide_Wide_Character
+
+      B_Node := New_Node (N_Character_Literal, Stloc);
+      Set_Is_Static_Expression (B_Node);
+      Set_Chars                (B_Node, No_Name);    --  ???
+      Set_Char_Literal_Value   (B_Node, UI_From_Int (16#7FFF_FFFF#));
+      Set_Entity               (B_Node, Empty);
+      Set_Etype                (B_Node, Standard_Wide_Wide_Character);
+      Set_High_Bound           (R_Node, B_Node);
+
+      Set_Scalar_Range (Standard_Wide_Wide_Character, R_Node);
+      Set_Etype (R_Node, Standard_Wide_Wide_Character);
+      Set_Parent (R_Node, Standard_Wide_Wide_Character);
 
       --  Create type definition node for type String
 
@@ -568,9 +666,9 @@ package body CStand is
          CompDef_Node : Node_Id;
       begin
          CompDef_Node := New_Node (N_Component_Definition, Stloc);
-         Set_Aliased_Present    (CompDef_Node, False);
-         Set_Access_Definition  (CompDef_Node, Empty);
-         Set_Subtype_Indication (CompDef_Node, Identifier_For (S_Character));
+         Set_Aliased_Present      (CompDef_Node, False);
+         Set_Access_Definition    (CompDef_Node, Empty);
+         Set_Subtype_Indication   (CompDef_Node, Identifier_For (S_Character));
          Set_Component_Definition (Tdef_Node, CompDef_Node);
       end;
 
@@ -596,6 +694,7 @@ package body CStand is
       --  Create type definition node for type Wide_String
 
       Tdef_Node := New_Node (N_Unconstrained_Array_Definition, Stloc);
+
       declare
          CompDef_Node : Node_Id;
       begin
@@ -606,6 +705,7 @@ package body CStand is
                                  Identifier_For (S_Wide_Character));
          Set_Component_Definition (Tdef_Node, CompDef_Node);
       end;
+
       Set_Subtype_Marks (Tdef_Node, New_List);
       Append (Identifier_For (S_Positive), Subtype_Marks (Tdef_Node));
       Set_Type_Definition (Parent (Standard_Wide_String), Tdef_Node);
@@ -621,6 +721,42 @@ package body CStand is
       E_Id := First
         (Subtype_Marks (Type_Definition (Parent (Standard_Wide_String))));
       Set_First_Index (Standard_Wide_String, E_Id);
+      Set_Entity (E_Id, Standard_Positive);
+      Set_Etype (E_Id, Standard_Positive);
+
+      --  Create type definition node for type Wide_Wide_String
+
+      Tdef_Node := New_Node (N_Unconstrained_Array_Definition, Stloc);
+
+      declare
+         CompDef_Node : Node_Id;
+      begin
+         CompDef_Node := New_Node (N_Component_Definition, Stloc);
+         Set_Aliased_Present    (CompDef_Node, False);
+         Set_Access_Definition  (CompDef_Node, Empty);
+         Set_Subtype_Indication (CompDef_Node,
+                                 Identifier_For (S_Wide_Wide_Character));
+         Set_Component_Definition (Tdef_Node, CompDef_Node);
+      end;
+
+      Set_Subtype_Marks (Tdef_Node, New_List);
+      Append (Identifier_For (S_Positive), Subtype_Marks (Tdef_Node));
+      Set_Type_Definition (Parent (Standard_Wide_Wide_String), Tdef_Node);
+
+      Set_Ekind          (Standard_Wide_Wide_String, E_String_Type);
+      Set_Etype          (Standard_Wide_Wide_String,
+                          Standard_Wide_Wide_String);
+      Set_Component_Type (Standard_Wide_Wide_String,
+                          Standard_Wide_Wide_Character);
+      Set_Component_Size (Standard_Wide_Wide_String, Uint_32);
+      Init_Size_Align    (Standard_Wide_Wide_String);
+      Set_Is_Ada_2005    (Standard_Wide_Wide_String);
+
+      --  Set index type of Wide_Wide_String
+
+      E_Id := First
+        (Subtype_Marks (Type_Definition (Parent (Standard_Wide_Wide_String))));
+      Set_First_Index (Standard_Wide_Wide_String, E_Id);
       Set_Entity (E_Id, Standard_Positive);
       Set_Etype (E_Id, Standard_Positive);
 
@@ -719,7 +855,7 @@ package body CStand is
             Set_Is_Static_Expression (Expr_Decl);
             Set_Chars                (Expr_Decl, No_Name);
             Set_Etype                (Expr_Decl, Standard_Character);
-            Set_Char_Literal_Value   (Expr_Decl, Ccode);
+            Set_Char_Literal_Value   (Expr_Decl, UI_From_Int (Int (Ccode)));
          end;
 
          Append (Decl, Decl_A);
@@ -1045,7 +1181,7 @@ package body CStand is
             Delta_Val := UR_From_Components (UI_From_Int (20), Uint_3, 10);
 
          --  In standard 64-bit mode, the size is 64-bits and the delta and
-         --  amll values are set to nanoseconds (1.0**(10.0**(-9))
+         --  small values are set to nanoseconds (1.0**(10.0**(-9))
 
          else
             Dlo := Intval (Type_Low_Bound (Standard_Integer_64));
@@ -1662,6 +1798,12 @@ package body CStand is
       P ("   --  See RM A.1(36) for details of this type");
       Write_Eol;
 
+      P ("   type Wide_Wide_Character is (...)");
+      Write_Str ("   for Wide_Character'Size use ");
+      Write_Int (Standard_Wide_Wide_Character_Size);
+      P (";");
+      P ("   --  See RM A.1(36) for details of this type");
+
       P ("   type String is array (Positive range <>) of Character;");
       P ("   pragma Pack (String);");
       Write_Eol;
@@ -1669,6 +1811,11 @@ package body CStand is
       P ("   type Wide_String is array (Positive range <>)" &
          " of Wide_Character;");
       P ("   pragma Pack (Wide_String);");
+      Write_Eol;
+
+      P ("   type Wide_Wide_String is array (Positive range <>)" &
+         "  of Wide_Wide_Character;");
+      P ("   pragma Pack (Wide_Wide_String);");
       Write_Eol;
 
       --  Here it's OK to use the Duration type of the host compiler since

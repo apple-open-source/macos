@@ -55,7 +55,7 @@
 #include <stdint.h>
 #include <Security/cssmtype.h>
 #include <Security/SecBase.h>
-#include <CoreServices.framework/Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <CoreServices/CoreServices.h>
 
 #ifdef  __cplusplus
 extern "C" {

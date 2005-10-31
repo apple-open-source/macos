@@ -90,6 +90,7 @@ enum
 #define defaultName		"USB Modem"
 #define productNameLength	32						// Arbitrary length
 #define propertyTag		"Product Name"
+#define hiddenTag		"HiddenPort"
 
 #define kDefaultBaudRate	9600
 #define kMaxBaudRate		230400

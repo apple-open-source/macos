@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  
    Vitesse IQ2000 processors
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -437,9 +437,6 @@ enum reg_class
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (& CUM, MODE, TYPE, NAMED)
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
-  function_arg_partial_nregs (& CUM, MODE, TYPE, NAMED)
 
 #define MAX_ARGS_IN_REGISTERS 8
 
@@ -929,17 +926,13 @@ extern void		sbss_section  (void);
 
 
 #undef ASM_SPEC
-#define ASM_SPEC "%{march=iq2000: -m2000} %{march=iq10: -m10} %{!march=*: -m2000}"
 
 
-/* The mapping from gcc register number to DWARF 2 CFA column number.
-   This mapping does not allow for tracking register 0, since
-   register 0 is fixed.  */
-#define DWARF_FRAME_REGNUM(REG)				\
-  (REG == GP_REG_FIRST + 31 ? DWARF_FRAME_RETURN_COLUMN : REG)
+/* The mapping from gcc register number to DWARF 2 CFA column number.  */
+#define DWARF_FRAME_REGNUM(REG)        (REG)
 
 /* The DWARF 2 CFA column which tracks the return address.  */
-#define DWARF_FRAME_RETURN_COLUMN ( GP_REG_FIRST + 26)
+#define DWARF_FRAME_RETURN_COLUMN (GP_REG_FIRST + 31)
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + GP_ARG_FIRST : INVALID_REGNUM)

@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -55,7 +55,7 @@ import java.io.*;
  * Moblog Admin Plugin
  *
  * @author David Czarnecki
- * @version $Id: MoblogAdminPlugin.java,v 1.1 2004/08/27 01:06:39 whitmore Exp $
+ * @version $Id: MoblogAdminPlugin.java,v 1.1.2.1 2005/07/21 04:30:35 johnan Exp $
  * @since blojsom 2.16
  */
 public class MoblogAdminPlugin extends WebAdminPlugin {
@@ -75,11 +75,14 @@ public class MoblogAdminPlugin extends WebAdminPlugin {
     private static final String MOBLOG_ATTACHMENT_MIME_TYPES = "moblog-attachment-mime-types";
     private static final String MOBLOG_TEXT_MIME_TYPES = "moblog-text-mime-types";
     private static final String MOBLOG_AUTHORIZED_ADDRESS = "moblog-authorized-address";
+    private static final String MOBLOG_IGNORE_EXPRESSION = "moblog-ignore-expression";
 
     // Actions
     private static final String UPDATE_MOBLOG_SETTINGS_ACTIONS = "update-moblog-settings";
     private static final String ADD_AUTHORIZED_ADDRESS_ACTION = "add-authorized-address";
     private static final String DELETE_AUTHORIZED_ADDRESS_ACTION = "delete-authorized-address";
+
+    private static final String MOBLOG_ADMIN_PERMISSION = "moblog_admin";
 
     private static final String BLOJSOM_PLUGIN_MOBLOG_MAILBOX = "BLOJSOM_PLUGIN_MOBLOG_MAILBOX";
 
@@ -122,6 +125,14 @@ public class MoblogAdminPlugin extends WebAdminPlugin {
     public BlogEntry[] process(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, BlogUser user, Map context, BlogEntry[] entries) throws BlojsomPluginException {
         entries = super.process(httpServletRequest, httpServletResponse, user, context, entries);
         String page = BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest);
+
+        String username = getUsernameFromSession(httpServletRequest, user.getBlog());
+        if (!checkPermission(user, null, username, MOBLOG_ADMIN_PERMISSION)) {
+            httpServletRequest.setAttribute(PAGE_PARAM, ADMIN_LOGIN_PAGE);
+            addOperationResultMessage(context, "You are not allowed to edit moblog settings");
+
+            return entries;
+        }
 
         if (ADMIN_LOGIN_PAGE.equals(page)) {
             return entries;
@@ -170,6 +181,8 @@ public class MoblogAdminPlugin extends WebAdminPlugin {
                 }
                 String secretWord = BlojsomUtils.getRequestValue(MOBLOG_SECRET_WORD, httpServletRequest);
                 mailbox.setSecretWord(secretWord);
+                String ignoreExpression = BlojsomUtils.getRequestValue(MOBLOG_IGNORE_EXPRESSION, httpServletRequest);
+                mailbox.setIgnoreExpression(ignoreExpression);
 
                 try {
                     writeMoblogConfiguration(user.getId(), moblogConfigurationFile, mailbox);
@@ -284,6 +297,10 @@ public class MoblogAdminPlugin extends WebAdminPlugin {
         bw.write(MoblogPlugin.PLUGIN_MOBLOG_SECRET_WORD);
         bw.write("=");
         bw.write(BlojsomUtils.nullToBlank(mailbox.getSecretWord()));
+        bw.write(BlojsomUtils.LINE_SEPARATOR);        
+        bw.write(MoblogPlugin.PLUGIN_MOBLOG_IGNORE_EXPRESSION);
+        bw.write("=");
+        bw.write(BlojsomUtils.nullToBlank(mailbox.getIgnoreExpression()));
         bw.write(BlojsomUtils.LINE_SEPARATOR);
         bw.close();
     }

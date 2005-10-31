@@ -1,12 +1,16 @@
 #include "MachIPCStub.h"
 #include "CCache.MachIPC.h"
 
+extern "C" {
+#include "CCacheIPC.h"
+};
+
 #include <Kerberos/mach_client_utilities.h>
 
-mach_port_t CCIMachIPCStub::sLastServerPort = MACH_PORT_NULL;
+pid_t CCIMachIPCStub::sLastServerPID = -1;
 CCIChangeTimeStub CCIMachIPCStub::sServerStateChangedTime;
 
-CCIMachIPCStub::CCIMachIPCStub () : mPort (NULL)
+CCIMachIPCStub::CCIMachIPCStub () : mPort (MACH_PORT_NULL)
 {
     // Removed OS check because we ship with the OS
     // The check was causing problems in B&I during configure checks
@@ -15,68 +19,89 @@ CCIMachIPCStub::CCIMachIPCStub () : mPort (NULL)
 
 CCIMachIPCStub::~CCIMachIPCStub ()
 {
-    if (mPort != NULL) {
-        delete mPort; 
-    }
+    if (mPort != MACH_PORT_NULL) { mach_port_deallocate (mach_task_self(), mPort); }
 }
 
 mach_port_t 
 CCIMachIPCStub::GetPort () const
 { 
-    mach_port_t serverPort;
-    
-    if (mPort == NULL) {
+    if (mPort == MACH_PORT_NULL) {
+        kern_return_t err = KERN_SUCCESS;
+        mach_port_t   port = MACH_PORT_NULL;
+        
         // Haven't tried to talk to the server yet. lookup or launch it.
-        mPort = new MachServerPort (kCCacheServerBundleID, kCCacheServerPath, TRUE);
+        err = mach_client_lookup_and_launch_server (kCCacheServerBundleID, kCCacheServerPath, &port);
+        
+        if (!err) {
+            mPort = port;
+            port = MACH_PORT_NULL;
+        }
+        
+        if (port != MACH_PORT_NULL) { mach_port_deallocate (mach_task_self(), port); }
     }
-    serverPort = mPort->Get ();
-    
-    UpdateServerPortState (serverPort);
-    return serverPort; 
+
+    UpdateServerPortState (mPort);
+    //dprintf ("CCIMachIPCStub::GetPort () returning server port %ld", mPort);
+    return mPort; 
 } 
 
 mach_port_t 
 CCIMachIPCStub::GetPortNoLaunch () const
 {
-    mach_port_t serverPort;
-    
-    if (mPort != NULL) {
-        serverPort = mPort->Get ();
-    } else {
-        // lookup but don't launch
-        mPort = new MachServerPort (kCCacheServerBundleID, kCCacheServerPath, FALSE);
-        if (mPort->Get () != MACH_PORT_NULL) {
-            serverPort = mPort->Get ();
-        } else {
-            delete mPort; // port is no good
-            mPort = NULL;
-            serverPort = MACH_PORT_NULL;
+    if (mPort == MACH_PORT_NULL) {
+        kern_return_t err = KERN_SUCCESS;
+        mach_port_t   port = MACH_PORT_NULL;
+        
+        // Haven't tried to talk to the server yet. lookup or launch it.
+        err = mach_client_lookup_server (kCCacheServerBundleID, &port);
+        
+        if (!err) {
+            mPort = port;
+            port = MACH_PORT_NULL;
         }
+        
+        if (port != MACH_PORT_NULL) { mach_port_deallocate (mach_task_self(), port); }
     }
-
-    UpdateServerPortState (serverPort);
-    return serverPort;
+    
+    UpdateServerPortState (mPort);
+    //dprintf ("CCIMachIPCStub::GetPortNoLaunch () returning server port %ld", mPort);
+    return mPort; 
 }
 
 void
 CCIMachIPCStub::InvalidatePort () const
 {
-    if (mPort != NULL) {
-        delete mPort;
-        mPort = NULL;
+    if (mPort != MACH_PORT_NULL) { 
+        mach_port_deallocate (mach_task_self(), mPort); 
+        mPort = MACH_PORT_NULL;
     }
-    UpdateServerPortState (MACH_PORT_NULL);
+    UpdateServerPortState (mPort);
+}
+
+pid_t
+CCIMachIPCStub::GetServerPID (mach_port_t serverPort)
+{
+    pid_t serverPID = -1;
+    if (serverPort != MACH_PORT_NULL) {
+        cc_int32 result = ccNoError;
+        kern_return_t err = InternalIPC_GetServerPID (serverPort, &serverPID, &result);
+        if (err) { serverPID = -1; }
+    }
+    
+    return serverPID;
 }
 
 void 
 CCIMachIPCStub::UpdateServerPortState (mach_port_t newServerPort) 
 { 
-    if ((sLastServerPort != newServerPort)) {
-        if (newServerPort == MACH_PORT_NULL) {
-            // We knew a server, but now it quit.  Update change time.
+    pid_t newServerPID = GetServerPID (newServerPort);
+    
+    if (sLastServerPID != newServerPID) {
+        if (newServerPID < 0) {
+            // The server quit.  Update change time.
             sServerStateChangedTime.UpdateWhenServerDies ();
         }
-        sLastServerPort = newServerPort;
+        sLastServerPID = newServerPID;
     }
 }
 
@@ -92,8 +117,8 @@ CCIMachIPCStub::UpdateStateChangedTimeFromServer (CCITime newTime)
     sServerStateChangedTime.UpdateFromServer (newTime);
 }
 
-mach_port_t
-CCIMachIPCStub::GetLastServerPort ()
+pid_t
+CCIMachIPCStub::GetLastServerPID ()
 { 
-    return sLastServerPort; 
+    return sLastServerPID; 
 }

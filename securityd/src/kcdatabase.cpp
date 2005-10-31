@@ -570,9 +570,9 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 			case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
 			{
 				secdebug("KCdb", "%p attempting interactive unlock", this);
+				QueryUnlock query(*this);
 				// Holding DB common lock during UI will deadlock securityd
 				StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
-				QueryUnlock query(*this);
 				query.inferHints(Server::process());
 				if (query() == SecurityAgent::noReason)
 					return;
@@ -622,9 +622,9 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 				return;
 		}
 		
+		QueryUnlock query(*this);
 		// attempt interactive unlock
 		StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
-		QueryUnlock query(*this);
 		query.inferHints(Server::process());
 		if (query() == SecurityAgent::noReason)
 			return;
@@ -650,8 +650,8 @@ void KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 			case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
 				{
 				secdebug("KCdb", "%p specified interactive passphrase", this);
-				StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 				QueryNewPassphrase query(*this, reason);
+				StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 				query.inferHints(Server::process());
 				CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
 				if (query(passphrase) == SecurityAgent::noReason) {
@@ -690,8 +690,8 @@ void KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 		}
 	} else {
 		// default action -- interactive (only)
-		StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 		QueryNewPassphrase query(*this, reason);
+		StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
         query.inferHints(Server::process());
 		CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
 		if (query(passphrase) == SecurityAgent::noReason) {

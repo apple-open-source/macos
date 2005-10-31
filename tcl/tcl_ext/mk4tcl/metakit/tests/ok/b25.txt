@@ -1,2 +1,0 @@
->>> Copy row from derived
-<<< done.

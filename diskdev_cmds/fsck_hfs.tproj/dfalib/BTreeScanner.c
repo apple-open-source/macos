@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1996-2002, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,7 @@
 #include "BTreeScanner.h"
 #include "Scavenger.h"
 #include "../cache.h"
+#include "../fsck_hfs.h"
 
 static int FindNextLeafNode(	BTScanState *scanState );
 static int ReadMultipleNodes( 	BTScanState *scanState );
@@ -133,9 +134,7 @@ int BTScanNextRecord(	BTScanState *	scanState,
 static int FindNextLeafNode(	BTScanState *scanState )
 {
 	int					err;
-#if BYTE_ORDER == LITTLE_ENDIAN
     BlockDescriptor		myBlockDescriptor;
-#endif
 	
 	err = noErr;		// Assume everything will be OK
 	
@@ -161,21 +160,14 @@ static int FindNextLeafNode(	BTScanState *scanState )
 			scanState->currentNodePtr = (BTNodeDescriptor *)((UInt8 *)scanState->currentNodePtr + scanState->btcb->nodeSize);
 		}
 		
-#if BYTE_ORDER == LITTLE_ENDIAN
         // need to manufacture a BlockDescriptor since hfs_swap_BTNode expects one as input
         myBlockDescriptor.buffer = (void *) scanState->currentNodePtr;
         myBlockDescriptor.blockHeader = NULL;
+        myBlockDescriptor.blockNum = scanState->nodeNum;
         myBlockDescriptor.blockSize = scanState->btcb->nodeSize;
         myBlockDescriptor.blockReadFromDisk = false;
         myBlockDescriptor.fragmented = false;
-        SWAP_BT_NODE( &myBlockDescriptor, 
-                      (scanState->btcb->fcbPtr->fcbVolume->vcbSignature == kHFSPlusSigWord),
-                      scanState->btcb->fcbPtr->fcbFileID, 
-                      0 );
-#endif
-
-		// Make sure this is a valid node
-		err = CheckNode( scanState->btcb, scanState->currentNodePtr );
+        err = hfs_swap_BTNode(&myBlockDescriptor, scanState->btcb->fcbPtr, kSwapBTNodeBigToHost);
 		if ( err != noErr )
 		{
 			err = noErr;

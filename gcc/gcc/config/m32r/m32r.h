@@ -1099,22 +1099,6 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
    ? gen_rtx_REG ((MODE), ROUND_ADVANCE_CUM ((CUM), (MODE), (TYPE)))	\
    : 0)
 
-/* A C expression for the number of words, at the beginning of an
-   argument, must be put in registers.  The value must be zero for
-   arguments that are passed entirely in registers or that are entirely
-   pushed on the stack.
-
-   On some machines, certain arguments must be passed partially in
-   registers and partially in memory.  On these machines, typically the
-   first @var{n} words of arguments are passed in registers, and the rest
-   on the stack.  If a multi-word argument (a @code{double} or a
-   structure) crosses that boundary, its first few words must be passed
-   in registers and the rest must be pushed.  This macro tells the
-   compiler when this occurs, and how many of the words should go in
-   registers.  */
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
-  function_arg_partial_nregs (&CUM, (int)MODE, TYPE, NAMED)
-
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be available.)  */
@@ -1517,26 +1501,26 @@ L2:     .word STATIC
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.global\t"
 
-/* If -Os, don't force line number labels to begin at the beginning of
-   the word; we still want the assembler to try to put things in parallel,
-   should that be possible.
-   For m32r/d, instructions are never in parallel (other than with a nop)
-   and the simulator and stub both handle a breakpoint in the middle of
-   a word so don't ever force line number labels to begin at the beginning
-   of a word.  */
+/* We do not use DBX_LINES_FUNCTION_RELATIVE or
+   dbxout_stab_value_internal_label_diff here because
+   we need to use .debugsym for the line label.  */
 
 #define DBX_OUTPUT_SOURCE_LINE(file, line, counter)			\
   do									\
     {									\
-      fprintf (file, ".stabn 68,0,%d,.LM%d-",				\
-	       line, counter);						\
-      assemble_name							\
-	(file, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));	\
-      fprintf (file, (optimize_size || TARGET_M32R)			\
-	       ? "\n\t.debugsym .LM%d\n"				\
-	       : "\n.LM%d:\n",						\
-	       counter);						\
-    }									\
+      rtx begin_label = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);\
+      char label[64];							\
+      ASM_GENERATE_INTERNAL_LABEL (label, "LM", counter);		\
+									\
+      dbxout_begin_stabn_sline (line);					\
+      assemble_name (file, label);					\
+      putc ('-', file);							\
+      assemble_name (file, begin_label);				\
+      fputs ("\n\t.debugsym ", file);					\
+      assemble_name (file, label);					\
+      putc ('\n', file);						\
+      counter += 1;							\
+     }									\
   while (0)
 
 /* How to refer to registers in assembler output.
@@ -1696,9 +1680,9 @@ extern char m32r_punct_chars[256];
 #define DBX_DEBUGGING_INFO    1
 #define DWARF2_DEBUGGING_INFO 1
 
-/* Prefer STABS (for now).  */
+/* Use DWARF2 debugging info by default.  */
 #undef  PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
 /* Turn off splitting of long stabs.  */
 #define DBX_CONTIN_LENGTH 0

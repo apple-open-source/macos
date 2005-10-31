@@ -307,7 +307,7 @@ ppc_push_argument (struct ppc_stack_abi *abi,
       else 
 	{
 	  /* If we've filled up the registers, then just write it on the stack. */
-	
+
 	  if (do_copy)
 	    write_memory (c->sp + c->argoffset, value_contents, len);
 	  c->argoffset += (nregs * 4);

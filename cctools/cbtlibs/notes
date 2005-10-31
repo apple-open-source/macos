@@ -1,3 +1,12 @@
+Changes for the 5.18 release (the cctools-586 release):
+- Fixed a bug in the Makefile that had -static which should not have been there.
+  Radar bug #4105797.
+
+Changes for the 5.18 release (the cctools-583 release):
+- Changed the Makefile so that when RC_XBS is set to YES then the compiler
+  options -MD and -dependency-file as well as the md(1) program are not used.
+  Radar bug #4029936.
+
 Changes for the 5.17 release (the cctools-550 release):
 - Ported and cleaned up the code to work with 32-bit and 64-bit Mach-O files.
   Radar bug #3854972.

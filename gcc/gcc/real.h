@@ -1,6 +1,6 @@
 /* Definitions of floating-point access for GNU compiler.
    Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -157,10 +157,16 @@ extern const struct real_format *
 
 #define REAL_MODE_FORMAT(MODE) (real_format_for_mode[(MODE) - MIN_MODE_FLOAT])
 
+/* The following macro determines whether the floating point format is
+   composite, i.e. may contain non-consecutive mantissa bits, in which
+   case compile-time FP overflow may not model run-time overflow.  */
+#define REAL_MODE_FORMAT_COMPOSITE_P(MODE) \
+	((REAL_MODE_FORMAT(MODE))->pnan < (REAL_MODE_FORMAT (MODE))->p)
+
 /* Declare functions in real.c.  */
 
 /* Binary or unary arithmetic on tree_code.  */
-extern void real_arithmetic (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
+extern bool real_arithmetic (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
 			     const REAL_VALUE_TYPE *);
 
 /* Compare reals by tree_code.  */

@@ -28,7 +28,7 @@
 
 @implementation DescriptorDecoder
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceInterface **)deviceIntf userInfo:(void *)userInfo isOtherSpeedDesc:(BOOL)isOtherSpeedDesc 
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf userInfo:(void *)userInfo isOtherSpeedDesc:(BOOL)isOtherSpeedDesc 
 {
     switch ((UInt8)p[1]) {
         case kUSBInterfaceDesc:

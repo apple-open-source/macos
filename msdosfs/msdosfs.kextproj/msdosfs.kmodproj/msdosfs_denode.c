@@ -473,7 +473,7 @@ deupdat(dep, waitfor, context)
             DE_EXTERNALIZE_ROOT(dirp, dep);
         else
             DE_EXTERNALIZE(dirp, dep);
-	return ((int)buf_bwrite(bp));
+	return ((int)buf_bdwrite(bp));
 }
 
 /*
@@ -542,25 +542,6 @@ detrunc(dep, length, flags, context)
 	allerror = buf_invalidateblks(vp, ((length > 0) ? BUF_WRITE_DATA : 0), 0, 0);
 	
     dep->de_FileSize = length;
-   /*
-     * If the new length is not a multiple of the cluster size then we
-     * must zero the tail end of the new last cluster in case it
-     * becomes part of the file again because of a seek.
-     */
-    if ((isadir) && (boff = length & pmp->pm_crbomask) != 0) {
-        bn = cntobn(pmp, eofentry);
-        error = (int)buf_meta_bread(pmp->pm_devvp, bn, pmp->pm_bpcluster,
-                           vfs_context_ucred(context), &bp);
-        if (error) {
-            buf_brelse(bp);
-            return error;
-        }
-        /*
-         * is this the right place for it?
-         */
-        bzero((char *)buf_dataptr(bp) + boff, pmp->pm_bpcluster - boff);
-		buf_bwrite(bp);
-    }
 
     /*
      * Write out the updated directory entry.  Even if the update fails
@@ -723,6 +704,7 @@ msdosfs_inactive(ap)
 	vfs_context_t context = ap->a_context;
 	struct denode *dep = VTODE(vp);
 	int error = 0;
+	int needs_flush = 0;
 
 	/*
 	 * Skip everything if there was no denode.  This can happen
@@ -744,18 +726,23 @@ msdosfs_inactive(ap)
 	 */
 	if (dep->de_refcnt <= 0 && ( !vnode_vfsisrdonly(vp))) {
 		error = detrunc(dep, (u_long) 0, 0, context);
+		needs_flush = 1;
 		dep->de_flag |= DE_UPDATE;
 		dep->de_Name[0] = SLOT_DELETED;
 	}
-	deupdat(dep, 0, context);
+	deupdat(dep, 1, context);
 
 out:
+	if (needs_flush)
+		msdosfs_meta_flush(dep->de_pmp);
+
 	/*
 	 * If we are done with the denode, reclaim it
 	 * so that it can be reused immediately.
 	 */
 	if (dep->de_Name[0] == SLOT_DELETED)
 		vnode_recycle(vp);
+
 	return (error);
 }
 

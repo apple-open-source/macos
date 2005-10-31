@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
@@ -186,11 +186,13 @@ static rtx gen_movdi_x (rtx, rtx, rtx);
 static rtx gen_fr_spill_x (rtx, rtx, rtx);
 static rtx gen_fr_restore_x (rtx, rtx, rtx);
 
-static enum machine_mode hfa_element_mode (tree, int);
+static enum machine_mode hfa_element_mode (tree, bool);
 static void ia64_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static bool ia64_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
+static int ia64_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
+				   tree, bool);
 static bool ia64_function_ok_for_sibcall (tree, tree);
 static bool ia64_return_in_memory (tree, tree);
 static bool ia64_rtx_costs (rtx, int, int, int *);
@@ -256,9 +258,7 @@ static void ia64_rwreloc_unique_section (tree, int)
 static void ia64_rwreloc_select_rtx_section (enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
-static unsigned int ia64_rwreloc_section_type_flags (tree, const char *, int)
-     ATTRIBUTE_UNUSED;
-
+static unsigned int ia64_section_type_flags (tree, const char *, int);
 static void ia64_hpux_add_extern_decl (tree decl)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_file_end (void)
@@ -277,6 +277,7 @@ static void ia64_encode_section_info (tree, rtx, int);
 static rtx ia64_struct_value_rtx (tree, int);
 static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
+static bool ia64_vector_mode_supported_p (enum machine_mode mode);
 
 
 /* Table of valid machine attributes.  */
@@ -362,6 +363,8 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_FUNCTION_OK_FOR_SIBCALL ia64_function_ok_for_sibcall
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE ia64_pass_by_reference
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES ia64_arg_partial_bytes
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK ia64_output_mi_thunk
@@ -381,6 +384,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO ia64_encode_section_info
+
+#undef  TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS  ia64_section_type_flags
 
 /* ??? ABI doesn't allow us to define this.  */
 #if 0
@@ -419,6 +425,13 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P ia64_scalar_mode_supported_p
+#undef TARGET_VECTOR_MODE_SUPPORTED_P
+#define TARGET_VECTOR_MODE_SUPPORTED_P ia64_vector_mode_supported_p
+
+/* ia64 architecture manual 4.4.7: ... reads, writes, and flushes may occur
+   in an order different from the specified program order.  */
+#undef TARGET_RELAXED_ORDERING
+#define TARGET_RELAXED_ORDERING true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -463,7 +476,8 @@ ia64_get_addr_area (tree decl)
 }
 
 static tree
-ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+ia64_handle_model_attribute (tree *node, tree name, tree args,
+			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
   ia64_addr_area addr_area = ADDR_AREA_NORMAL;
   ia64_addr_area area;
@@ -477,7 +491,7 @@ ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBU
     }
   else
     {
-      warning ("invalid argument of `%s' attribute",
+      warning ("invalid argument of %qs attribute",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -509,7 +523,7 @@ ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBU
       break;
 
     default:
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
       break;
     }
@@ -543,6 +557,103 @@ ia64_encode_section_info (tree decl, rtx rtl, int first)
       && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF
       && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
     ia64_encode_addr_area (decl, XEXP (rtl, 0));
+}
+
+/* Implement CONST_OK_FOR_LETTER_P.  */
+
+bool
+ia64_const_ok_for_letter_p (HOST_WIDE_INT value, char c)
+{
+  switch (c)
+    {
+    case 'I':
+      return CONST_OK_FOR_I (value);
+    case 'J':
+      return CONST_OK_FOR_J (value);
+    case 'K':
+      return CONST_OK_FOR_K (value);
+    case 'L':
+      return CONST_OK_FOR_L (value);
+    case 'M':
+      return CONST_OK_FOR_M (value);
+    case 'N':
+      return CONST_OK_FOR_N (value);
+    case 'O':
+      return CONST_OK_FOR_O (value);
+    case 'P':
+      return CONST_OK_FOR_P (value);
+    default:
+      return false;
+    }
+}
+
+/* Implement CONST_DOUBLE_OK_FOR_LETTER_P.  */
+
+bool
+ia64_const_double_ok_for_letter_p (rtx value, char c)
+{
+  switch (c)
+    {
+    case 'G':
+      return CONST_DOUBLE_OK_FOR_G (value);
+    default:
+      return false;
+    }
+}
+
+/* Implement EXTRA_CONSTRAINT.  */
+
+bool
+ia64_extra_constraint (rtx value, char c)
+{
+  switch (c)
+    {
+    case 'Q':
+      /* Non-volatile memory for FP_REG loads/stores.  */
+      return memory_operand(value, VOIDmode) && !MEM_VOLATILE_P (value);
+
+    case 'R':
+      /* 1..4 for shladd arguments.  */
+      return (GET_CODE (value) == CONST_INT
+	      && INTVAL (value) >= 1 && INTVAL (value) <= 4);
+
+    case 'S':
+      /* Non-post-inc memory for asms and other unsavory creatures.  */
+      return (GET_CODE (value) == MEM
+	      && GET_RTX_CLASS (GET_CODE (XEXP (value, 0))) != RTX_AUTOINC
+	      && (reload_in_progress || memory_operand (value, VOIDmode)));
+
+    case 'T':
+      /* Symbol ref to small-address-area.  */
+      return (GET_CODE (value) == SYMBOL_REF
+	      && SYMBOL_REF_SMALL_ADDR_P (value));
+
+    case 'U':
+      /* Vector zero.  */
+      return value == CONST0_RTX (GET_MODE (value));
+
+    case 'W':
+      /* An integer vector, such that conversion to an integer yields a
+	 value appropriate for an integer 'J' constraint.  */
+      if (GET_CODE (value) == CONST_VECTOR
+	  && GET_MODE_CLASS (GET_MODE (value)) == MODE_VECTOR_INT)
+	{
+	  value = simplify_subreg (DImode, value, GET_MODE (value), 0);
+	  return ia64_const_ok_for_letter_p (INTVAL (value), 'J');
+	}
+      return false;
+
+    case 'Y':
+      /* A V2SF vector containing elements that satisfy 'G'.  */
+      return
+	(GET_CODE (value) == CONST_VECTOR
+	 && GET_MODE (value) == V2SFmode
+	 && ia64_const_double_ok_for_letter_p (XVECEXP (value, 0, 0), 'G')
+	 && ia64_const_double_ok_for_letter_p (XVECEXP (value, 0, 1), 'G'));
+
+    default:
+      return false;
+    }
 }
 
 /* Return 1 if the operands of a move are ok.  */
@@ -1155,6 +1266,264 @@ ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
     }
 
   return gen_rtx_fmt_ee (code, mode, cmp, const0_rtx);
+}
+
+/* Generate an integral vector comparison.  */
+
+static bool
+ia64_expand_vecint_compare (enum rtx_code code, enum machine_mode mode,
+			    rtx dest, rtx op0, rtx op1)
+{
+  bool negate = false;
+  rtx x;
+
+  switch (code)
+    {
+    case EQ:
+    case GT:
+      break;
+
+    case NE:
+      code = EQ;
+      negate = true;
+      break;
+
+    case LE:
+      code = GT;
+      negate = true;
+      break;
+
+    case GE:
+      negate = true;
+      /* FALLTHRU */
+
+    case LT:
+      x = op0;
+      op0 = op1;
+      op1 = x;
+      code = GT;
+      break;
+
+    case GTU:
+    case GEU:
+    case LTU:
+    case LEU:
+      {
+	rtx w0h, w0l, w1h, w1l, ch, cl;
+	enum machine_mode wmode;
+	rtx (*unpack_l) (rtx, rtx, rtx);
+	rtx (*unpack_h) (rtx, rtx, rtx);
+	rtx (*pack) (rtx, rtx, rtx);
+
+	/* We don't have native unsigned comparisons, but we can generate
+	   them better than generic code can.  */
+
+	if (mode == V2SImode)
+	  abort ();
+	else if (mode == V8QImode)
+	  {
+	    wmode = V4HImode;
+	    pack = gen_pack2_sss;
+	    unpack_l = gen_unpack1_l;
+	    unpack_h = gen_unpack1_h;
+	  }
+	else if (mode == V4HImode)
+	  {
+	    wmode = V2SImode;
+	    pack = gen_pack4_sss;
+	    unpack_l = gen_unpack2_l;
+	    unpack_h = gen_unpack2_h;
+	  }
+	else
+	  abort ();
+
+	/* Unpack into wider vectors, zero extending the elements.  */
+
+	w0l = gen_reg_rtx (wmode);
+	w0h = gen_reg_rtx (wmode);
+	w1l = gen_reg_rtx (wmode);
+	w1h = gen_reg_rtx (wmode);
+	emit_insn (unpack_l (gen_lowpart (mode, w0l), op0, CONST0_RTX (mode)));
+	emit_insn (unpack_h (gen_lowpart (mode, w0h), op0, CONST0_RTX (mode)));
+	emit_insn (unpack_l (gen_lowpart (mode, w1l), op1, CONST0_RTX (mode)));
+	emit_insn (unpack_h (gen_lowpart (mode, w1h), op1, CONST0_RTX (mode)));
+
+	/* Compare in the wider mode.  */
+
+	cl = gen_reg_rtx (wmode);
+	ch = gen_reg_rtx (wmode);
+	code = signed_condition (code);
+	ia64_expand_vecint_compare (code, wmode, cl, w0l, w1l);
+	negate = ia64_expand_vecint_compare (code, wmode, ch, w0h, w1h);
+
+	/* Repack into a single narrower vector.  */
+
+	emit_insn (pack (dest, cl, ch));
+      }
+      return negate;
+
+    default:
+      abort ();
+    }
+
+  x = gen_rtx_fmt_ee (code, mode, op0, op1);
+  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+
+  return negate;
+}
+
+static void
+ia64_expand_vcondu_v2si (enum rtx_code code, rtx operands[])
+{
+  rtx dl, dh, bl, bh, op1l, op1h, op2l, op2h, op4l, op4h, op5l, op5h, x;
+
+  /* In this case, we extract the two SImode quantities and generate
+     normal comparisons for each of them.  */
+
+  op1l = gen_lowpart (SImode, operands[1]);
+  op2l = gen_lowpart (SImode, operands[2]);
+  op4l = gen_lowpart (SImode, operands[4]);
+  op5l = gen_lowpart (SImode, operands[5]);
+
+  op1h = gen_reg_rtx (SImode);
+  op2h = gen_reg_rtx (SImode);
+  op4h = gen_reg_rtx (SImode);
+  op5h = gen_reg_rtx (SImode);
+
+  emit_insn (gen_lshrdi3 (gen_lowpart (DImode, op1h),
+			  gen_lowpart (DImode, operands[1]), GEN_INT (32)));
+  emit_insn (gen_lshrdi3 (gen_lowpart (DImode, op2h),
+			  gen_lowpart (DImode, operands[2]), GEN_INT (32)));
+  emit_insn (gen_lshrdi3 (gen_lowpart (DImode, op4h),
+			  gen_lowpart (DImode, operands[4]), GEN_INT (32)));
+  emit_insn (gen_lshrdi3 (gen_lowpart (DImode, op5h),
+			  gen_lowpart (DImode, operands[5]), GEN_INT (32)));
+
+  bl = gen_reg_rtx (BImode);
+  x = gen_rtx_fmt_ee (code, BImode, op4l, op5l);
+  emit_insn (gen_rtx_SET (VOIDmode, bl, x));
+
+  bh = gen_reg_rtx (BImode);
+  x = gen_rtx_fmt_ee (code, BImode, op4h, op5h);
+  emit_insn (gen_rtx_SET (VOIDmode, bh, x));
+
+  /* With the results of the comparisons, emit conditional moves.  */
+
+  dl = gen_reg_rtx (SImode);
+  x = gen_rtx_IF_THEN_ELSE (SImode, bl, op1l, op2l);
+  emit_insn (gen_rtx_SET (VOIDmode, dl, x));
+
+  dh = gen_reg_rtx (SImode);
+  x = gen_rtx_IF_THEN_ELSE (SImode, bh, op1h, op2h);
+  emit_insn (gen_rtx_SET (VOIDmode, dh, x));
+
+  /* Merge the two partial results back into a vector.  */
+
+  x = gen_rtx_VEC_CONCAT (V2SImode, dl, dh);
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+}
+
+/* Emit an integral vector conditional move.  */
+
+void
+ia64_expand_vecint_cmov (rtx operands[])
+{
+  enum machine_mode mode = GET_MODE (operands[0]);
+  enum rtx_code code = GET_CODE (operands[3]);
+  bool negate;
+  rtx cmp, x, ot, of;
+
+  /* Since we don't have unsigned V2SImode comparisons, it's more efficient
+     to special-case them entirely.  */
+  if (mode == V2SImode
+      && (code == GTU || code == GEU || code == LEU || code == LTU))
+    {
+      ia64_expand_vcondu_v2si (code, operands);
+      return;
+    }
+
+  cmp = gen_reg_rtx (mode);
+  negate = ia64_expand_vecint_compare (code, mode, cmp,
+				       operands[4], operands[5]);
+
+  ot = operands[1+negate];
+  of = operands[2-negate];
+
+  if (ot == CONST0_RTX (mode))
+    {
+      if (of == CONST0_RTX (mode))
+	{
+	  emit_move_insn (operands[0], ot);
+	  return;
+	}
+
+      x = gen_rtx_NOT (mode, cmp);
+      x = gen_rtx_AND (mode, x, of);
+      emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+    }
+  else if (of == CONST0_RTX (mode))
+    {
+      x = gen_rtx_AND (mode, cmp, ot);
+      emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+    }
+  else
+    {
+      rtx t, f;
+
+      t = gen_reg_rtx (mode);
+      x = gen_rtx_AND (mode, cmp, operands[1+negate]);
+      emit_insn (gen_rtx_SET (VOIDmode, t, x));
+
+      f = gen_reg_rtx (mode);
+      x = gen_rtx_NOT (mode, cmp);
+      x = gen_rtx_AND (mode, x, operands[2-negate]);
+      emit_insn (gen_rtx_SET (VOIDmode, f, x));
+
+      x = gen_rtx_IOR (mode, t, f);
+      emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+    }
+}
+
+/* Emit an integral vector min or max operation.  Return true if all done.  */
+
+bool
+ia64_expand_vecint_minmax (enum rtx_code code, enum machine_mode mode,
+			   rtx operands[])
+{
+  rtx xops[5];
+
+  /* These four combinations are supported directly.  */
+  if (mode == V8QImode && (code == UMIN || code == UMAX))
+    return false;
+  if (mode == V4HImode && (code == SMIN || code == SMAX))
+    return false;
+
+  /* Everything else implemented via vector comparisons.  */
+  xops[0] = operands[0];
+  xops[4] = xops[1] = operands[1];
+  xops[5] = xops[2] = operands[2];
+
+  switch (code)
+    {
+    case UMIN:
+      code = LTU;
+      break;
+    case UMAX:
+      code = GTU;
+      break;
+    case SMIN:
+      code = LT;
+      break;
+    case SMAX:
+      code = GT;
+      break;
+    default:
+      abort ();
+    }
+  xops[3] = gen_rtx_fmt_ee (code, VOIDmode, operands[1], operands[2]);
+
+  ia64_expand_vecint_cmov (xops);
+  return true;
 }
 
 /* Emit the appropriate sequence for a call.  */
@@ -2604,10 +2973,13 @@ ia64_expand_epilogue (int sibcall_p)
 	 preserve those input registers used as arguments to the sibling call.
 	 It is unclear how to compute that number here.  */
       if (current_frame_info.n_input_regs != 0)
-	emit_insn (gen_alloc (gen_rtx_REG (DImode, fp),
-			      const0_rtx, const0_rtx,
-			      GEN_INT (current_frame_info.n_input_regs),
-			      const0_rtx));
+	{
+	  rtx n_inputs = GEN_INT (current_frame_info.n_input_regs);
+	  insn = emit_insn (gen_alloc (gen_rtx_REG (DImode, fp),
+				const0_rtx, const0_rtx,
+				n_inputs, const0_rtx));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
     }
 }
 
@@ -2733,15 +3105,16 @@ static bool
 ia64_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
   if (size == POINTER_SIZE / BITS_PER_UNIT
-      && aligned_p
       && !(TARGET_NO_PIC || TARGET_AUTO_PIC)
       && GET_CODE (x) == SYMBOL_REF
       && SYMBOL_REF_FUNCTION_P (x))
     {
-      if (POINTER_SIZE == 32)
-	fputs ("\tdata4\t@fptr(", asm_out_file);
-      else
-	fputs ("\tdata8\t@fptr(", asm_out_file);
+      static const char * const directive[2][2] = {
+	  /* 64-bit pointer */  /* 32-bit pointer */
+	{ "\tdata8.ua\t@fptr(", "\tdata4.ua\t@fptr("},	/* unaligned */
+	{ "\tdata8\t@fptr(",    "\tdata4\t@fptr("}	/* aligned */
+      };
+      fputs (directive[(aligned_p != 0)][POINTER_SIZE == 32], asm_out_file);
       output_addr_const (asm_out_file, x);
       fputs (")\n", asm_out_file);
       return true;
@@ -2955,10 +3328,14 @@ ia64_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
    An aggregate is a homogeneous floating point aggregate is if all
    fields/elements in it have the same floating point type (e.g,
-   SFmode).  128-bit quad-precision floats are excluded.  */
+   SFmode).  128-bit quad-precision floats are excluded.
+
+   Variable sized aggregates should never arrive here, since we should
+   have already decided to pass them by reference.  Top-level zero-sized
+   aggregates are excluded because our parallels crash the middle-end.  */
 
 static enum machine_mode
-hfa_element_mode (tree type, int nested)
+hfa_element_mode (tree type, bool nested)
 {
   enum machine_mode element_mode = VOIDmode;
   enum machine_mode mode;
@@ -2966,13 +3343,15 @@ hfa_element_mode (tree type, int nested)
   int know_element_mode = 0;
   tree t;
 
+  if (!nested && (!TYPE_SIZE (type) || integer_zerop (TYPE_SIZE (type))))
+    return VOIDmode;
+
   switch (code)
     {
     case VOID_TYPE:	case INTEGER_TYPE:	case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:	case CHAR_TYPE:		case POINTER_TYPE:
     case OFFSET_TYPE:	case REFERENCE_TYPE:	case METHOD_TYPE:
-    case FILE_TYPE:	case SET_TYPE:		case LANG_TYPE:
-    case FUNCTION_TYPE:
+    case FILE_TYPE:	case LANG_TYPE:		case FUNCTION_TYPE:
       return VOIDmode;
 
       /* Fortran complex types are supposed to be HFAs, so we need to handle
@@ -3242,13 +3621,13 @@ ia64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
     }
 }
 
-/* Return number of words, at the beginning of the argument, that must be
+/* Return number of bytes, at the beginning of the argument, that must be
    put in registers.  0 is the argument is entirely in registers or entirely
    in memory.  */
 
-int
-ia64_function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-				 tree type, int named ATTRIBUTE_UNUSED)
+static int
+ia64_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+			tree type, bool named ATTRIBUTE_UNUSED)
 {
   int words = ia64_function_arg_words (type, mode);
   int offset = ia64_function_arg_offset (cum, type, words);
@@ -3265,7 +3644,7 @@ ia64_function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (words + cum->words + offset <= MAX_ARGUMENT_SLOTS)
     return 0;
 
-  return MAX_ARGUMENT_SLOTS - cum->words - offset;
+  return (MAX_ARGUMENT_SLOTS - cum->words - offset) * UNITS_PER_WORD;
 }
 
 /* Update CUM to point after this argument.  This is patterned after
@@ -3510,8 +3889,24 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     return gen_rtx_REG (mode, FR_ARG_FIRST);
   else
     {
+      bool need_parallel = false;
+
+      /* In big-endian mode, we need to manage the layout of aggregates
+	 in the registers so that we get the bits properly aligned in
+	 the highpart of the registers.  */
       if (BYTES_BIG_ENDIAN
 	  && (mode == BLKmode || (valtype && AGGREGATE_TYPE_P (valtype))))
+	need_parallel = true;
+
+      /* Something like struct S { long double x; char a[0] } is not an
+	 HFA structure, and therefore doesn't go in fp registers.  But
+	 the middle-end will give it XFmode anyway, and XFmode values
+	 don't normally fit in integer registers.  So we need to smuggle
+	 the value inside a parallel.  */
+      else if (mode == XFmode || mode == XCmode)
+	need_parallel = true;
+
+      if (need_parallel)
 	{
 	  rtx loc[8];
 	  int offset;
@@ -3520,6 +3915,10 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 
 	  offset = 0;
 	  bytesize = int_size_in_bytes (valtype);
+	  /* An empty PARALLEL is invalid here, but the return value
+	     doesn't matter for empty structs.  */
+	  if (bytesize == 0)
+	    return gen_rtx_REG (mode, GR_RET_FIRST);
 	  for (i = 0; offset < bytesize; i++)
 	    {
 	      loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
@@ -3530,8 +3929,8 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 	    }
 	  return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
 	}
-      else
-	return gen_rtx_REG (mode, GR_RET_FIRST);
+
+      return gen_rtx_REG (mode, GR_RET_FIRST);
     }
 }
 
@@ -3578,7 +3977,9 @@ ia64_print_operand_address (FILE * stream ATTRIBUTE_UNUSED,
    U	Print an 8-bit sign extended number (K) as a 64-bit unsigned number
 	for Intel assembler.
    r	Print register name, or constant 0 as r0.  HP compatibility for
-	Linux kernel.  */
+	Linux kernel.
+   v    Print vector constant value as an 8-byte integer value.  */
+
 void
 ia64_print_operand (FILE * file, rtx x, int code)
 {
@@ -3735,6 +4136,11 @@ ia64_print_operand (FILE * file, rtx x, int code)
       else
 	output_operand_lossage ("invalid %%r value");
       return;
+
+    case 'v':
+      gcc_assert (GET_CODE (x) == CONST_VECTOR);
+      x = simplify_subreg (DImode, x, GET_MODE (x), 0);
+      break;
 
     case '+':
       {
@@ -3957,6 +4363,39 @@ ia64_register_move_cost (enum machine_mode mode, enum reg_class from,
     }
 
   return 2;
+}
+
+/* Implement PREFERRED_RELOAD_CLASS.  Place additional restrictions on CLASS
+   to use when copying X into that class.  */
+
+enum reg_class
+ia64_preferred_reload_class (rtx x, enum reg_class class)
+{
+  switch (class)
+    {
+    case FR_REGS:
+      /* Don't allow volatile mem reloads into floating point registers.
+	 This is defined to force reload to choose the r/m case instead
+	 of the f/f case when reloading (set (reg fX) (mem/v)).  */
+      if (MEM_P (x) && MEM_VOLATILE_P (x))
+	return NO_REGS;
+      
+      /* Force all unrecognized constants into the constant pool.  */
+      if (CONSTANT_P (x))
+	return NO_REGS;
+      break;
+
+    case AR_M_REGS:
+    case AR_I_REGS:
+      if (!OBJECT_P (x))
+	return NO_REGS;
+      break;
+
+    default:
+      break;
+    }
+
+  return class;
 }
 
 /* This function returns the register class required for a secondary
@@ -4764,17 +5203,27 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
       for (i = XVECLEN (x, 0) - 1; i >= 0; --i)
 	{
 	  rtx pat = XVECEXP (x, 0, i);
-	  if (GET_CODE (pat) == SET)
+	  switch (GET_CODE (pat))
 	    {
+	    case SET:
 	      update_set_flags (pat, &new_flags, &pred, &cond);
-	      need_barrier |= set_src_needs_barrier (pat, new_flags, pred, cond);
+	      need_barrier |= set_src_needs_barrier (pat, new_flags,
+						     pred, cond);
+	      break;
+
+	    case USE:
+	    case CALL:
+	    case ASM_OPERANDS:
+	      need_barrier |= rtx_needs_barrier (pat, flags, pred);
+	      break;
+
+	    case CLOBBER:
+	    case RETURN:
+	      break;
+
+	    default:
+	      gcc_unreachable ();
 	    }
-	  else if (GET_CODE (pat) == USE
-		   || GET_CODE (pat) == CALL
-		   || GET_CODE (pat) == ASM_OPERANDS)
-	    need_barrier |= rtx_needs_barrier (pat, flags, pred);
-	  else if (GET_CODE (pat) != CLOBBER && GET_CODE (pat) != RETURN)
-	    abort ();
 	}
       for (i = XVECLEN (x, 0) - 1; i >= 0; --i)
 	{
@@ -4794,8 +5243,8 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
       break;
 
     case SUBREG:
-      x = SUBREG_REG (x);
-      /* FALLTHRU */
+      need_barrier |= rtx_needs_barrier (SUBREG_REG (x), flags, pred);
+      break;
     case REG:
       if (REGNO (x) == AR_UNAT_REGNUM)
 	{
@@ -4812,7 +5261,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
       need_barrier = rtx_needs_barrier (XEXP (x, 0), new_flags, pred);
       break;
 
-    case CONST_INT:   case CONST_DOUBLE:
+    case CONST_INT:   case CONST_DOUBLE:  case CONST_VECTOR:
     case SYMBOL_REF:  case LABEL_REF:     case CONST:
       break;
 
@@ -4856,6 +5305,14 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
       need_barrier = rtx_needs_barrier (XEXP (x, 0), flags, pred);
       break;
 
+    case VEC_SELECT:
+      /* VEC_SELECT's second argument is a PARALLEL with integers that
+	 describe the elements selected.  On ia64, those integers are
+	 always constants.  Avoid walking the PARALLEL so that we don't
+	 get confused with "normal" parallels and abort.  */
+      need_barrier = rtx_needs_barrier (XEXP (x, 0), flags, pred);
+      break;
+
     case UNSPEC:
       switch (XINT (x, 1))
 	{
@@ -4880,7 +5337,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	    HOST_WIDE_INT bit = (offset >> 3) & 63;
 
 	    need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
-	    new_flags.is_write = (XINT (x, 1) == 1);
+	    new_flags.is_write = (XINT (x, 1) == UNSPEC_GR_SPILL);
 	    need_barrier |= rws_access_regno (AR_UNAT_BIT_0 + bit,
 					      new_flags, pred);
 	    break;
@@ -4896,6 +5353,8 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	  break;
 
 	case UNSPEC_FR_RECIP_APPROX:
+	case UNSPEC_SHRP:
+	case UNSPEC_COPYSIGN:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  break;
@@ -5229,147 +5688,6 @@ emit_all_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 }
 
 
-static int errata_find_address_regs (rtx *, void *);
-static void errata_emit_nops (rtx);
-static void fixup_errata (void);
-
-/* This structure is used to track some details about the previous insns
-   groups so we can determine if it may be necessary to insert NOPs to
-   workaround hardware errata.  */
-static struct group
-{
-  HARD_REG_SET p_reg_set;
-  HARD_REG_SET gr_reg_conditionally_set;
-} last_group[2];
-
-/* Index into the last_group array.  */
-static int group_idx;
-
-/* Called through for_each_rtx; determines if a hard register that was
-   conditionally set in the previous group is used as an address register.
-   It ensures that for_each_rtx returns 1 in that case.  */
-static int
-errata_find_address_regs (rtx *xp, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *xp;
-  if (GET_CODE (x) != MEM)
-    return 0;
-  x = XEXP (x, 0);
-  if (GET_CODE (x) == POST_MODIFY)
-    x = XEXP (x, 0);
-  if (GET_CODE (x) == REG)
-    {
-      struct group *prev_group = last_group + (group_idx ^ 1);
-      if (TEST_HARD_REG_BIT (prev_group->gr_reg_conditionally_set,
-			     REGNO (x)))
-	return 1;
-      return -1;
-    }
-  return 0;
-}
-
-/* Called for each insn; this function keeps track of the state in
-   last_group and emits additional NOPs if necessary to work around
-   an Itanium A/B step erratum.  */
-static void
-errata_emit_nops (rtx insn)
-{
-  struct group *this_group = last_group + group_idx;
-  struct group *prev_group = last_group + (group_idx ^ 1);
-  rtx pat = PATTERN (insn);
-  rtx cond = GET_CODE (pat) == COND_EXEC ? COND_EXEC_TEST (pat) : 0;
-  rtx real_pat = cond ? COND_EXEC_CODE (pat) : pat;
-  enum attr_type type;
-  rtx set = real_pat;
-
-  if (GET_CODE (real_pat) == USE
-      || GET_CODE (real_pat) == CLOBBER
-      || GET_CODE (real_pat) == ASM_INPUT
-      || GET_CODE (real_pat) == ADDR_VEC
-      || GET_CODE (real_pat) == ADDR_DIFF_VEC
-      || asm_noperands (PATTERN (insn)) >= 0)
-    return;
-
-  /* single_set doesn't work for COND_EXEC insns, so we have to duplicate
-     parts of it.  */
-
-  if (GET_CODE (set) == PARALLEL)
-    {
-      int i;
-      set = XVECEXP (real_pat, 0, 0);
-      for (i = 1; i < XVECLEN (real_pat, 0); i++)
-	if (GET_CODE (XVECEXP (real_pat, 0, i)) != USE
-	    && GET_CODE (XVECEXP (real_pat, 0, i)) != CLOBBER)
-	  {
-	    set = 0;
-	    break;
-	  }
-    }
-
-  if (set && GET_CODE (set) != SET)
-    set = 0;
-
-  type  = get_attr_type (insn);
-
-  if (type == TYPE_F
-      && set && REG_P (SET_DEST (set)) && PR_REGNO_P (REGNO (SET_DEST (set))))
-    SET_HARD_REG_BIT (this_group->p_reg_set, REGNO (SET_DEST (set)));
-
-  if ((type == TYPE_M || type == TYPE_A) && cond && set
-      && REG_P (SET_DEST (set))
-      && GET_CODE (SET_SRC (set)) != PLUS
-      && GET_CODE (SET_SRC (set)) != MINUS
-      && (GET_CODE (SET_SRC (set)) != ASHIFT
-	  || !shladd_operand (XEXP (SET_SRC (set), 1), VOIDmode))
-      && (GET_CODE (SET_SRC (set)) != MEM
-	  || GET_CODE (XEXP (SET_SRC (set), 0)) != POST_MODIFY)
-      && GENERAL_REGNO_P (REGNO (SET_DEST (set))))
-    {
-      if (!COMPARISON_P (cond)
-	  || !REG_P (XEXP (cond, 0)))
-	abort ();
-
-      if (TEST_HARD_REG_BIT (prev_group->p_reg_set, REGNO (XEXP (cond, 0))))
-	SET_HARD_REG_BIT (this_group->gr_reg_conditionally_set, REGNO (SET_DEST (set)));
-    }
-  if (for_each_rtx (&real_pat, errata_find_address_regs, NULL))
-    {
-      emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
-      emit_insn_before (gen_nop (), insn);
-      emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
-      group_idx = 0;
-      memset (last_group, 0, sizeof last_group);
-    }
-}
-
-/* Emit extra nops if they are required to work around hardware errata.  */
-
-static void
-fixup_errata (void)
-{
-  rtx insn;
-
-  if (! TARGET_B_STEP)
-    return;
-
-  group_idx = 0;
-  memset (last_group, 0, sizeof last_group);
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      if (!INSN_P (insn))
-	continue;
-
-      if (ia64_safe_type (insn) == TYPE_S)
-	{
-	  group_idx ^= 1;
-	  memset (last_group + group_idx, 0, sizeof last_group[group_idx]);
-	}
-      else
-	errata_emit_nops (insn);
-    }
-}
-
 
 /* Instruction scheduling support.  */
 
@@ -5397,7 +5715,7 @@ static const char *bundle_name [NR_BUNDLES] =
 
 int ia64_final_schedule = 0;
 
-/* Codes of the corresponding quieryied units: */
+/* Codes of the corresponding queried units: */
 
 static int _0mii_, _0mmi_, _0mfi_, _0mmf_;
 static int _0bbb_, _0mbb_, _0mib_, _0mmb_, _0mfb_, _0mlx_;
@@ -6115,6 +6433,17 @@ issue_nops_and_insn (struct bundle_state *originator, int before_nops_num,
     }
   else
     {
+      /* If this is an insn that must be first in a group, then don't allow
+	 nops to be emitted before it.  Currently, alloc is the only such
+	 supported instruction.  */
+      /* ??? The bundling automatons should handle this for us, but they do
+	 not yet have support for the first_insn attribute.  */
+      if (before_nops_num > 0 && get_attr_first_insn (insn) == FIRST_INSN_YES)
+	{
+	  free_bundle_state (curr_state);
+	  return;
+	}
+
       state_transition (curr_state->dfa_state, dfa_pre_cycle_insn);
       state_transition (curr_state->dfa_state, NULL);
       curr_state->cost++;
@@ -7128,7 +7457,6 @@ ia64_reorg (void)
 	}
     }
 
-  fixup_errata ();
   emit_predicate_relation_info ();
 
   if (ia64_flag_var_tracking)
@@ -7229,8 +7557,13 @@ ia64_in_small_data_p (tree exp)
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
     {
       const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+
       if (strcmp (section, ".sdata") == 0
-	  || strcmp (section, ".sbss") == 0)
+	  || strncmp (section, ".sdata.", 7) == 0
+	  || strncmp (section, ".gnu.linkonce.s.", 16) == 0
+	  || strcmp (section, ".sbss") == 0
+	  || strncmp (section, ".sbss.", 6) == 0
+	  || strncmp (section, ".gnu.linkonce.sb.", 17) == 0)
 	return true;
     }
   else
@@ -7266,7 +7599,8 @@ process_epilogue (void)
 
   if (!last_block)
     {
-      fprintf (asm_out_file, "\t.label_state 1\n");
+      fprintf (asm_out_file, "\t.label_state %d\n",
+	       ++cfun->machine->state_num);
       need_copy_state = true;
     }
 
@@ -7290,13 +7624,24 @@ process_set (FILE *asm_out_file, rtx pat)
     {
       dest_regno = REGNO (dest);
 
-      /* If this isn't the final destination for ar.pfs, the alloc
-	 shouldn't have been marked frame related.  */
-      if (dest_regno != current_frame_info.reg_save_ar_pfs)
-	abort ();
-
-      fprintf (asm_out_file, "\t.save ar.pfs, r%d\n",
-	       ia64_dbx_register_number (dest_regno));
+      /* If this is the final destination for ar.pfs, then this must
+	 be the alloc in the prologue.  */
+      if (dest_regno == current_frame_info.reg_save_ar_pfs)
+	fprintf (asm_out_file, "\t.save ar.pfs, r%d\n",
+		 ia64_dbx_register_number (dest_regno));
+      else
+	{
+	  /* This must be an alloc before a sibcall.  We must drop the
+	     old frame info.  The easiest way to drop the old frame
+	     info is to ensure we had a ".restore sp" directive
+	     followed by a new prologue.  If the procedure doesn't
+	     have a memory-stack frame, we'll issue a dummy ".restore
+	     sp" now.  */
+	  if (current_frame_info.total_size == 0 && !frame_pointer_needed)
+	    /* if haven't done process_epilogue() yet, do it now */
+	    process_epilogue ();
+	  fprintf (asm_out_file, "\t.prologue\n");
+	}
       return 1;
     }
 
@@ -7503,7 +7848,8 @@ process_for_unwind_directive (FILE *asm_out_file, rtx insn)
 	  if (need_copy_state)
 	    {
 	      fprintf (asm_out_file, "\t.body\n");
-	      fprintf (asm_out_file, "\t.copy_state 1\n");
+	      fprintf (asm_out_file, "\t.copy_state %d\n",
+		       cfun->machine->state_num);
 	      need_copy_state = false;
 	    }
 	}
@@ -8327,10 +8673,27 @@ ia64_rwreloc_select_rtx_section (enum machine_mode mode, rtx x,
   flag_pic = save_pic;
 }
 
+#ifndef TARGET_RWRELOC
+#define TARGET_RWRELOC flag_pic
+#endif
+
 static unsigned int
-ia64_rwreloc_section_type_flags (tree decl, const char *name, int reloc)
+ia64_section_type_flags (tree decl, const char *name, int reloc)
 {
-  return default_section_type_flags_1 (decl, name, reloc, true);
+  unsigned int flags = 0;
+
+  if (strcmp (name, ".sdata") == 0
+      || strncmp (name, ".sdata.", 7) == 0
+      || strncmp (name, ".gnu.linkonce.s.", 16) == 0
+      || strncmp (name, ".sdata2.", 8) == 0
+      || strncmp (name, ".gnu.linkonce.s2.", 17) == 0
+      || strcmp (name, ".sbss") == 0
+      || strncmp (name, ".sbss.", 6) == 0
+      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
+    flags = SECTION_SMALL;
+
+  flags |= default_section_type_flags_1 (decl, name, reloc, TARGET_RWRELOC);
+  return flags;
 }
 
 /* Returns true if FNTYPE (a FUNCTION_TYPE or a METHOD_TYPE) returns a
@@ -8534,6 +8897,24 @@ ia64_scalar_mode_supported_p (enum machine_mode mode)
 
     case TFmode:
       return TARGET_HPUX;
+
+    default:
+      return false;
+    }
+}
+
+static bool
+ia64_vector_mode_supported_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case V8QImode:
+    case V4HImode:
+    case V2SImode:
+      return true;
+
+    case V2SFmode:
+      return true;
 
     default:
       return false;

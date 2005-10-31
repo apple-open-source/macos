@@ -83,6 +83,10 @@ using DOM::StyleSheetListImpl;
 + (DOMCSSValue *)_valueWithImpl:(CSSValueImpl *)impl;
 @end
 
+@interface DOMCSSPrimitiveValue (WebCoreInternal)
++ (DOMCSSPrimitiveValue *)_valueWithImpl:(CSSValueImpl *)impl;
+@end
+
 @interface DOMRGBColor (WebCoreInternal)
 + (DOMRGBColor *)_RGBColorWithRGB:(QRgb)value;
 @end
@@ -977,6 +981,11 @@ static inline int getPropertyID(NSString *string)
 // DOMCSSPrimitiveValue
 
 @implementation DOMCSSPrimitiveValue
+
++ (DOMCSSPrimitiveValue *)_valueWithImpl:(CSSValueImpl *)impl
+{
+    return (DOMCSSPrimitiveValue *)([DOMCSSValue _valueWithImpl: impl]);
+}
 
 - (CSSPrimitiveValueImpl *)_primitiveValueImpl
 {

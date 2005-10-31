@@ -3,7 +3,7 @@
  * project 2000.
  */
 /* ====================================================================
- * Copyright (c) 2000 The OpenSSL Project.  All rights reserved.
+ * Copyright (c) 2000-2004 The OpenSSL Project.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -279,13 +279,13 @@ static int do_dump(unsigned long lflags, char_io *io_ch, void *arg, ASN1_STRING 
  * otherwise it is the number of bytes per character
  */
 
-const static char tag2nbyte[] = {
+const static signed char tag2nbyte[] = {
 	-1, -1, -1, -1, -1,	/* 0-4 */
 	-1, -1, -1, -1, -1,	/* 5-9 */
 	-1, -1, 0, -1,		/* 10-13 */
 	-1, -1, -1, -1,		/* 15-17 */
 	-1, 1, 1,		/* 18-20 */
-	-1, 1, -1,-1,		/* 21-24 */
+	-1, 1, 1, 1,		/* 21-24 */
 	-1, 1, -1,		/* 25-27 */
 	4, -1, 2		/* 28-30 */
 };
@@ -553,7 +553,12 @@ int ASN1_STRING_to_UTF8(unsigned char **out, ASN1_STRING *in)
 	if((type < 0) || (type > 30)) return -1;
 	mbflag = tag2nbyte[type];
 	if(mbflag == -1) return -1;
-	mbflag |= MBSTRING_FLAG;
+	if (mbflag == 0)
+		mbflag = MBSTRING_UTF8;
+	else if (mbflag == 4)
+		mbflag = MBSTRING_UNIV;
+	else		
+		mbflag |= MBSTRING_FLAG;
 	stmp.data = NULL;
 	ret = ASN1_mbstring_copy(&str, in->data, in->length, mbflag, B_ASN1_UTF8STRING);
 	if(ret < 0) return ret;

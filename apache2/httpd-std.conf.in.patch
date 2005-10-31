@@ -1,0 +1,23 @@
+--- httpd-std.conf.in.orig	Thu Jun 30 21:01:25 2005
++++ httpd-std.conf.in	Thu Jun 30 21:01:54 2005
+@@ -403,7 +403,19 @@
+ 
+ #
+ # The following lines prevent .htaccess and .htpasswd files from being 
+-# viewed by Web clients. 
++# viewed by Web clients, as long as content is served from UFS volumes.
++# But note the following for Mac OS X:
++# 
++# 1. HFS volumes are case-insensitive by default, so browsers can easily 
++# bypass realm protection or <Files> blocks like the one below simply by
++# using alternative case in URLs.
++#     
++# 2. HFS volumes allow files to be accessed by their fork names, which
++# also allows browsers to bypass file protection.
++#  
++# Because of these issues, it is recommended that content be served from
++# UFS volumes. See the following for details:
++# http://docs.info.apple.com/article.html?artnum=300422
+ #
+ <Files ~ "^\.ht">
+     Order allow,deny

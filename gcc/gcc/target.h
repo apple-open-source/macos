@@ -48,10 +48,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define GCC_TARGET_H
 
 #include "tm.h"
-/* APPLE LOCAL begin AV vmul_uch --haifa  */
-#include "tree.h"
-#include "tree-flow.h"
-/* APPLE LOCAL end AV vmul_uch --haifa  */
 #include "insn-modes.h"
 
 struct gcc_target
@@ -290,17 +286,9 @@ struct gcc_target
   struct vectorize
   {
     /* The following member value is a pointer to a function called
-       by the vectorizer, and when expanding a MISALIGNED_INDIREC_REF
-       expression.  If the hook returns true (false) then a move* pattern
-       to/from memory can (cannot) be generated for this mode even if the
-       memory location is unaligned.  */
-    bool (* misaligned_mem_ok) (enum machine_mode);
-
-    /* The following member values are pointers to functions called
        by the vectorizer, and return the decl of the target builtin
        function.  */
     tree (* builtin_mask_for_load) (void);
-    tree (* builtin_mask_for_store) (void);
   } vectorize;
 
   /* Return machine mode for filter value.  */
@@ -334,6 +322,12 @@ struct gcc_target
   /* Return true if bitfields in RECORD_TYPE should follow the
      Microsoft Visual C++ bitfield layout rules.  */
   bool (* ms_bitfield_layout_p) (tree record_type);
+
+  /* APPLE LOCAL begin pragma reverse_bitfields */
+  /* Return true if bitfields in RECORD_TYPE should be allocated
+     reversed (e.g. right to left on a big-endian machine).  */
+  bool (* reverse_bitfields_p) (tree record_type);
+  /* APPLE LOCAL end pragma reverse_bitfields */
 
   /* Return true if anonymous bitfields affect structure alignment.  */
   bool (* align_anon_bitfield) (void);
@@ -478,64 +472,7 @@ struct gcc_target
   /* Create the __builtin_va_list type.  */
   tree (* build_builtin_va_list) (void);
 
-  /* APPLE LOCAL begin AV misaligned --haifa  */
-  /* Functions relating to vectorization.  */
-  struct vect
-  {
-    /* True if loads from misaligned addresses are supported.  */
-    bool (* support_misaligned_loads) (void);
-
-    /* True if loads from misaligned addresses are permuted.  */
-    bool (* permute_misaligned_loads) (void);
-
-    /* Function decl for mask used to shift left by vperm.  */
-    tree (* build_builtin_lvsl) (void);
-
-    /* Function decl for mask used to shift right by vperm.  */
-    tree (* build_builtin_lvsr) (void);
-
-    /* Function decl for vector permute.  */
-    tree (* build_builtin_vperm) (enum machine_mode);
-
-    /* APPLE LOCAL begin AV vmul_uch --haifa  */
-    /* True if vector "mult_uch" can be supported (see below).  */
-    bool (* support_vmul_uch_p) (void);
-
-    /* Generate a sequence that vectorizes the following functionality:
-	  uchar x' = (ushort) x;
-	  uchar y' = (ushort) y;
-	  ushort prod = mul (x`, y`);
-	  ushort z` = prod >> 8;
-	  uchar z = (uchar) z`;
-       This sequence is modelled by a single scalar_stmt "mul_uch".
-       The function generates a vectorized sequence that multiplies two vectors
-       of unsigned chars, vx and vy, and converts the (vector of unsigned 
-       shorts) result back to a vector of unsigned chars, vz. The vectorized
-       sequence will replace the scalar_stmt "mul_uch".
-       The arguments are: tree vx, tree vy, tree vz, edge pe - where code can 
-       be inserted at the loop preheader), and a block_stmt_iterator that 
-       points to the place where the vectorized sequence should be inserted. 
-       The output: Generate a sequence of vectorized stmts; all the stmts but 
-       the last are inserted either at the preheader edge or at bsi; the last 
-       stmt is returned.  */
-    tree (* build_vmul_uch) (tree, tree, tree, edge, block_stmt_iterator *);
-    /* APPLE LOCAL end AV vmul_uch --haifa  */
-
-    /* APPLE LOCAL begin AV vector_init --haifa  */
-    /* True if the target supports vector initialization with a non-immediate 
-       value, of a certain type (passed as argument).  */
-    bool (* support_vector_init_p) (tree);
-
-    /* Generate a sequence to initialize a vector with a non-immediate value.
-       The arguments are: tree vectype - type of stmts to be generated, 
-       tree def - the scalar value to be put into the vector variable,
-       edge pe - the preheader edge where this code sequence is to be inserted,
-       struct bitmap_head_def - bitmap of variables to be renamed.  */
-    tree (* build_vector_init) (tree, tree, edge, struct bitmap_head_def *);
-    /* APPLE LOCAL end AV vector_init --haifa  */
-  } vect;
-  /* APPLE LOCAL end AV misaligned --haifa  */
-
+  /* Gimplifies a VA_ARG_EXPR.  */
   tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
 				 tree *post_p);
 
@@ -567,6 +504,15 @@ struct gcc_target
      and not wanting to include dwarf2.h everywhere target.h is included
      the function is being declared as an int.  */
   int (* dwarf_calling_convention) (tree);
+
+  /* This target hook allows the backend to emit frame-related insns that
+     contain UNSPECs or UNSPEC_VOLATILEs.  The call frame debugging info
+     engine will invoke it on insns of the form
+       (set (reg) (unspec [...] UNSPEC_INDEX))
+     and
+       (set (reg) (unspec_volatile [...] UNSPECV_INDEX))
+     to let the backend emit the call frame instructions.  */
+  void (* dwarf_handle_frame_unspec) (const char *, rtx, int);
 
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
@@ -612,6 +558,18 @@ struct gcc_target
        the caller.  It is never called for TYPE requiring constructors.  */
     bool (* callee_copies) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 			    tree type, bool named);
+
+    /* Return zero for arguments passed entirely on the stack or entirely
+       in registers.  If passed in both, return the number of bytes passed
+       in registers; the balance is therefore passed on the stack.  */
+    int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			       tree type, bool named);
+    /* APPLE LOCAL begin mainline 2005-04-14 */
+    /* Return the diagnostic message string if function without a prototype
+       is not allowed for this 'val' argument; NULL otherwise. */
+    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist,
+                                                    tree funcdecl, tree val);
+    /* APPLE LOCAL end mainline 2005-04-14 */
   } calls;
 
   /* Functions specific to the C++ frontend.  */
@@ -684,10 +642,9 @@ struct gcc_target
   /* True if #pragma extern_prefix is to be supported.  */
   bool handle_pragma_extern_prefix;
 
-  /* True if the RTL prologue and epilogue should be expanded after all
-     passes that modify the instructions (and not merely reorder them)
-     have been run.  */
-  bool late_rtl_prologue_epilogue;
+  /* True if the target is allowed to reorder memory accesses unless
+     synchronization is explicitly requested.  */
+  bool relaxed_ordering;
 
   /* Leave the boolean fields at the end.  */
 };

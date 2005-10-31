@@ -17,7 +17,7 @@ void granted_failed(nlm4_res *arg);
 
 void notify(const char *hostname, const int state);
 
-void monitor_lock_host_by_name(const char *hostname);
+void monitor_lock_host_by_name(const char *, const struct sockaddr *);
 void monitor_lock_host_by_addr(const struct sockaddr *addr);
 void unmonitor_lock_host(const char *hostname);
 

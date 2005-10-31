@@ -193,13 +193,6 @@ extern char double_reg_address_ok;
 
 extern int num_not_at_initial_offset;
 
-struct needs
-{
-  /* [0] is normal, [1] is nongroup.  */
-  short regs[2][N_REG_CLASSES];
-  short groups[N_REG_CLASSES];
-};
-
 #if defined SET_HARD_REG_BIT && defined CLEAR_REG_SET
 /* This structure describes instructions which are relevant for reload.
    Apart from all regular insns, this also includes CODE_LABELs, since they
@@ -228,9 +221,6 @@ struct insn_chain
 
   /* Indicates which registers have already been used for spills.  */
   HARD_REG_SET used_spill_regs;
-
-  /* Describe the needs for reload registers of this insn.  */
-  struct needs need;
 
   /* Nonzero if find_reloads said the insn requires reloading.  */
   unsigned int need_reload:1;
@@ -308,18 +298,8 @@ extern void move_replacements (rtx *x, rtx *y);
    Otherwise, return *LOC.  */
 extern rtx find_replacement (rtx *);
 
-/* Return nonzero if register in range [REGNO, ENDREGNO)
-   appears either explicitly or implicitly in X
-   other than being stored into.  */
-extern int refers_to_regno_for_reload_p (unsigned int, unsigned int,
-					 rtx, rtx *);
-
 /* Nonzero if modifying X will affect IN.  */
 extern int reg_overlap_mentioned_for_reload_p (rtx, rtx);
-
-/* Return nonzero if anything in X contains a MEM.  Look also for pseudo
-   registers.  */
-extern int refers_to_mem_for_reload_p (rtx);
 
 /* Check the insns before INSN to see if there is a suitable register
    containing the same value as GOAL.  */
@@ -341,7 +321,6 @@ extern int push_reload (rtx, rtx, rtx *, rtx *, enum reg_class,
 extern void reload_cse_regs (rtx);
 
 /* Functions in reload1.c:  */
-extern int reloads_conflict (int, int);
 
 /* Initialize the reload pass once per compilation.  */
 extern void init_reload (void);
@@ -356,11 +335,6 @@ extern void mark_home_live (int);
 /* Scan X and replace any eliminable registers (such as fp) with a
    replacement (such as sp), plus an offset.  */
 extern rtx eliminate_regs (rtx, enum machine_mode, rtx);
-
-/* Emit code to perform a reload from IN (which may be a reload register) to
-   OUT (which may also be a reload register).  IN or OUT is from operand
-   OPNUM with reload type TYPE.  */
-extern rtx gen_reload (rtx, rtx, int, enum reload_type);
 
 /* Deallocate the reload register used by reload number R.  */
 extern void deallocate_reload_reg (int r);

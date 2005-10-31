@@ -1,6 +1,6 @@
 /* DefaultBoundedRangeModel.java -- Default implementation
    of BoundedRangeModel.
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -36,20 +36,21 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.io.Serializable;
 import java.util.EventListener;
+
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.EventListenerList;
 
-
 /**
- * A default implementation of BoundedRangeModel.
+ * A default implementation of <code>BoundedRangeModel</code>.
  *
- * @author <a href="mailto:aselkirk@sympatico.ca">Andrew Selkirk</a>
- * @author <a href="mailto:brawer@dandelis.ch">Sascha Brawer</a>
+ * @author Andrew Selkirk (aselkirk@sympatico.ca)
+ * @author Sascha Brawer (brawer@dandelis.ch)
  */
 public class DefaultBoundedRangeModel
   implements BoundedRangeModel, Serializable
@@ -58,7 +59,7 @@ public class DefaultBoundedRangeModel
    * The identifier of this class in object serialization. Verified
    * using the serialver tool of Sun J2SE 1.4.1_01.
    */
-  static final long serialVersionUID = 5034068491295259790L;
+  private static final long serialVersionUID = 5034068491295259790L;
 
 
   /**
@@ -66,7 +67,7 @@ public class DefaultBoundedRangeModel
    * when the state of this range model has changed.
    *
    * <p>The event object is created on demand, the first time it
-   * is actually needed.
+   * is actually needed.</p>
    *
    * @see #fireStateChanged()
    */
@@ -154,7 +155,7 @@ public class DefaultBoundedRangeModel
    * @param maximum the initial maximal value of the range model.
    *
    * @throws IllegalArgumentException if the following condition is
-   * not satisfied: <code>minimum <= value <= value + extent <=
+   * not satisfied: <code>minimum &lt;= value &lt;= value + extent &lt;=
    * maximum</code>.
    */
   public DefaultBoundedRangeModel(int value, int extent, int minimum,
@@ -175,6 +176,8 @@ public class DefaultBoundedRangeModel
   /**
    * Returns a string with all relevant properties of this range
    * model.
+   *
+   * @return a string representing the object
    */
   public String toString()
   {
@@ -192,6 +195,8 @@ public class DefaultBoundedRangeModel
    * Returns the current value of this bounded range model.  In a
    * scroll bar visualization of a {@link BoundedRangeModel}, the
    * <code>value</code> is displayed as the position of the thumb.
+   *
+   * @return the value
    */
   public int getValue()
   {
@@ -205,6 +210,8 @@ public class DefaultBoundedRangeModel
    * <code>value</code> is displayed as the position of the thumb;
    * changing the <code>value</code> of a scroll bar's model
    * thus moves the thumb to a different position.
+   *
+   * @param value the value
    */
   public void setValue(int value)
   {
@@ -225,6 +232,8 @@ public class DefaultBoundedRangeModel
    * a number greater than or equal to zero. In a scroll bar
    * visualization of a {@link BoundedRangeModel}, the
    * <code>extent</code> is displayed as the size of the thumb.
+   *
+   * @return the extent
    */
   public int getExtent()
   {
@@ -281,6 +290,8 @@ public class DefaultBoundedRangeModel
 
   /**
    * Returns the current maximal value of this bounded range model.
+   *
+   * @return the maximum
    */
   public int getMaximum()
   {
@@ -312,7 +323,7 @@ public class DefaultBoundedRangeModel
    * around; when the mouse is relased, they set the property to
    * <code>false</code> and post a final {@link ChangeEvent}.
    *
-   * @returns <code>true</code> if the value will change soon again;
+   * @return <code>true</code> if the value will change soon again;
    * <code>false</code> if the value will probably not change soon.
    */
   public boolean getValueIsAdjusting()
@@ -343,7 +354,7 @@ public class DefaultBoundedRangeModel
 
 
   /**
-   * setRangeProperties
+   * Sets all properties.
    *
    * @param value the new value of the range model.  In a scroll bar
    * visualization of a {@link BoundedRangeModel}, the
@@ -421,16 +432,13 @@ public class DefaultBoundedRangeModel
    */
   protected void fireStateChanged()
   {
-    Object[] listeners;
+    ChangeListener[] listeners = getChangeListeners();
+    
+    if (changeEvent == null)
+      changeEvent = new ChangeEvent(this);
 
-    listeners = listenerList.getListenerList();
-    for (int i = listeners.length - 2; i >= 0; i -= 2)
-      if (listeners[i] == ChangeListener.class)
-        {
-          if (changeEvent == null)
-            changeEvent = new ChangeEvent(this);
-          ((ChangeListener) listeners[i + 1]).stateChanged(changeEvent);
-        }
+    for (int i = listeners.length - 1; i >= 0; --i)
+      listeners[i].stateChanged(changeEvent);
   }
 
 

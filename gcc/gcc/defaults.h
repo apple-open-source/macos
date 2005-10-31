@@ -1,5 +1,6 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -35,19 +36,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 		  obstack_chunk_alloc,			\
 		  obstack_chunk_free)
 
-/* Define default standard character escape sequences.  */
-#ifndef TARGET_BELL
-#  define TARGET_BELL 007
-#  define TARGET_BS 010
-#  define TARGET_CR 015
-#  define TARGET_DIGIT0 060
-#  define TARGET_ESC 033
-#  define TARGET_FF 014
-#  define TARGET_NEWLINE 012
-#  define TARGET_TAB 011
-#  define TARGET_VT 013
-#endif
-
 /* Store in OUTPUT a string (made with alloca) containing an
    assembler-name for a local static variable or function named NAME.
    LABELNO is an integer which is different for each call.  */
@@ -71,10 +59,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	 (char *) alloca (strlen (name_) + 32); \
        sprintf (output_, ASM_PN_FORMAT, name_, (unsigned long)(LABELNO)); \
   } while (0)
-#endif
-
-#ifndef ASM_STABD_OP
-#define ASM_STABD_OP "\t.stabd\t"
 #endif
 
 /* This is how to output an element of a case-vector that is absolute.
@@ -141,12 +125,27 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 #endif
 
+/* Decide whether to defer emitting the assembler output for an equate
+   of two values.  The default is to not defer output.  */
+#ifndef TARGET_DEFERRED_OUTPUT_DEFS
+#define TARGET_DEFERRED_OUTPUT_DEFS(DECL,TARGET) false
+#endif
+
 /* This is how to output the definition of a user-level label named
    NAME, such as the label on a static function or variable NAME.  */
 
 #ifndef ASM_OUTPUT_LABEL
 #define ASM_OUTPUT_LABEL(FILE,NAME) \
   do { assemble_name ((FILE), (NAME)); fputs (":\n", (FILE)); } while (0)
+#endif
+
+/* Output the definition of a compiler-generated label named NAME.  */
+#ifndef ASM_OUTPUT_INTERNAL_LABEL
+#define ASM_OUTPUT_INTERNAL_LABEL(FILE,NAME)	\
+  do {						\
+    assemble_name_raw ((FILE), (NAME));		\
+    fputs (":\n", (FILE));			\
+  } while (0)
 #endif
 
 /* This is how to output a reference to a user-level label named NAME.  */
@@ -274,17 +273,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 # endif
 #endif
 
-/* This determines whether this target supports hidden visibility.
-   This is a weaker condition than HAVE_GAS_HIDDEN, which probes for
-   specific assembler syntax.  */
-#ifndef TARGET_SUPPORTS_HIDDEN
-# ifdef HAVE_GAS_HIDDEN
-#  define TARGET_SUPPORTS_HIDDEN 1
-# else
-#  define TARGET_SUPPORTS_HIDDEN 0
-# endif
-#endif
-
 /* Determines whether we may use common symbols to represent one-only
    semantics (a.k.a. "vague linkage").  */
 #ifndef USE_COMMON_FOR_ONE_ONLY
@@ -325,12 +313,44 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 #endif
 
+/* On many systems, different EH table encodings are used under
+   difference circumstances.  Some will require runtime relocations;
+   some will not.  For those that do not require runtime relocations,
+   we would like to make the table read-only.  However, since the
+   read-only tables may need to be combined with read-write tables
+   that do require runtime relocation, it is not safe to make the
+   tables read-only unless the linker will merge read-only and
+   read-write sections into a single read-write section.  If your
+   linker does not have this ability, but your system is such that no
+   encoding used with non-PIC code will ever require a runtime
+   relocation, then you can define EH_TABLES_CAN_BE_READ_ONLY to 1 in
+   your target configuration file.  */
+#ifndef EH_TABLES_CAN_BE_READ_ONLY
+#ifdef HAVE_LD_RO_RW_SECTION_MIXING
+#define EH_TABLES_CAN_BE_READ_ONLY 1
+#else
+#define EH_TABLES_CAN_BE_READ_ONLY 0
+#endif
+#endif
+
 /* If we have named section and we support weak symbols, then use the
    .jcr section for recording java classes which need to be registered
    at program start-up time.  */
 #if defined (TARGET_ASM_NAMED_SECTION) && SUPPORTS_WEAK
 #ifndef JCR_SECTION_NAME
 #define JCR_SECTION_NAME ".jcr"
+#endif
+#endif
+
+/* This decision to use a .jcr section can be overridden by defining
+   USE_JCR_SECTION to 0 in target file.  This is necessary if target
+   can define JCR_SECTION_NAME but does not have crtstuff or
+   linker support for .jcr section.  */
+#ifndef TARGET_USE_JCR_SECTION
+#ifdef JCR_SECTION_NAME
+#define TARGET_USE_JCR_SECTION 1
+#else
+#define TARGET_USE_JCR_SECTION 0
 #endif
 #endif
 
@@ -735,7 +755,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define REGISTER_MOVE_COST(m, x, y) 2
 #endif
 
-/* Determine whether the the entire c99 runtime
+/* Determine whether the entire c99 runtime
    is present in the runtime library.  */
 #ifndef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS 0

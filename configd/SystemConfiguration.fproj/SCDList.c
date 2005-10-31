@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,7 +48,7 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	xmlData_t			myPatternRef;
 	CFIndex				myPatternLen;
 	xmlDataOut_t			xmlDataRef;	/* serialized data */
-	int				xmlDataLen;
+	mach_msg_type_number_t		xmlDataLen;
 	int				sc_status;
 	CFArrayRef			allKeys;
 

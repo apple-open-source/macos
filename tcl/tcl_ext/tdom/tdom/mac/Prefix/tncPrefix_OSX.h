@@ -1,1 +1,0 @@
-#pragma once on#define USE_TDOM_STUBS 1#include "tDOMPrefix_OSX.h"#undef VERSION#define VERSION "0.3"

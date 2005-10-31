@@ -191,24 +191,21 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
     // Lookup the function object.
     ExecState *exec = [self _executionContext]->interpreter()->globalExec();
 
-    Interpreter::lock();
+    InterpreterLock lock;
     
     Value v = convertObjcValueToValue(exec, &name, ObjcObjectType);
     Identifier identifier(v.toString(exec));
     Value func = [self _imp]->get (exec, identifier);
-    Interpreter::unlock();
     if (func.isNull() || func.type() == UndefinedType) {
         // Maybe throw an exception here?
         return 0;
     }
 
     // Call the function object.    
-    Interpreter::lock();
     ObjectImp *funcImp = static_cast<ObjectImp*>(func.imp());
     Object thisObj = Object(const_cast<ObjectImp*>([self _imp]));
     List argList = listFromNSArray(exec, args);
-    Value result = funcImp->call (exec, thisObj, argList);
-    Interpreter::unlock();
+    Value result = Object(funcImp).call (exec, thisObj, argList);
 
     if (exec->hadException()) {
         LOG_EXCEPTION (exec);
@@ -227,16 +224,16 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
 {
     if (![self _executionContext])
         return nil;
-
+    
     if (![self _isSafeScript])
 	return nil;
-
+    
     ExecState *exec = [self _executionContext]->interpreter()->globalExec();
-
+    
     Object thisObj = Object(const_cast<ObjectImp*>([self _imp]));
     Value result;
     
-    Interpreter::lock();
+    InterpreterLock lock;
     
     Value v = convertObjcValueToValue(exec, &script, ObjcObjectType);
     Completion completion = [self _executionContext]->interpreter()->evaluate(UString(), 0, v.toString(exec));
@@ -244,22 +241,18 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
     
     if (type == Normal) {
         result = completion.value();
-        if (result.isNull()) {
+        if (result.isNull())
             result = Undefined();
-        }
-    }
-    else
+    } else
         result = Undefined();
-
-    Interpreter::unlock();
     
     if (exec->hadException()) {
         LOG_EXCEPTION (exec);
         result = Undefined();
     }
-
+    
     id resultObj = [WebScriptObject _convertValueToObjcValue:result originExecutionContext:[self _originExecutionContext] executionContext:[self _executionContext]];
-
+    
     _didExecute(self);
     
     return resultObj;
@@ -275,10 +268,9 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
 
     ExecState *exec = [self _executionContext]->interpreter()->globalExec();
 
-    Interpreter::lock();
+    InterpreterLock lock;
     Value v = convertObjcValueToValue(exec, &key, ObjcObjectType);
     [self _imp]->put (exec, Identifier (v.toString(exec)), (convertObjcValueToValue(exec, &value, ObjcObjectType)));
-    Interpreter::unlock();
 
     if (exec->hadException()) {
         LOG_EXCEPTION (exec);
@@ -297,10 +289,9 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
 
     ExecState *exec = [self _executionContext]->interpreter()->globalExec();
 
-    Interpreter::lock();
+    InterpreterLock lock;
     Value v = convertObjcValueToValue(exec, &key, ObjcObjectType);
     Value result = [self _imp]->get (exec, Identifier (v.toString(exec)));
-    Interpreter::unlock();
     
     if (exec->hadException()) {
         LOG_EXCEPTION (exec);
@@ -324,10 +315,9 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
 
     ExecState *exec = [self _executionContext]->interpreter()->globalExec();
 
-    Interpreter::lock();
+    InterpreterLock lock;
     Value v = convertObjcValueToValue(exec, &key, ObjcObjectType);
     [self _imp]->deleteProperty (exec, Identifier (v.toString(exec)));
-    Interpreter::unlock();
 
     if (exec->hadException()) {
         LOG_EXCEPTION (exec);
@@ -341,14 +331,12 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
     if (![self _isSafeScript])
 	return @"Undefined";
 
-    Interpreter::lock();
+    InterpreterLock lock;
     Object thisObj = Object(const_cast<ObjectImp*>([self _imp]));
     ExecState *exec = [self _executionContext]->interpreter()->globalExec();
     
     id result = convertValueToObjcValue(exec, thisObj, ObjcObjectType).objectValue;
 
-    Interpreter::unlock();
-    
     id resultObj = [result description];
 
     _didExecute(self);
@@ -365,9 +353,8 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
 	return nil;
 
     ExecState *exec = [self _executionContext]->interpreter()->globalExec();
-    Interpreter::lock();
+    InterpreterLock lock;
     Value result = [self _imp]->get (exec, (unsigned)index);
-    Interpreter::unlock();
 
     if (exec->hadException()) {
         LOG_EXCEPTION (exec);
@@ -390,9 +377,8 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
 	return;
 
     ExecState *exec = [self _executionContext]->interpreter()->globalExec();
-    Interpreter::lock();
+    InterpreterLock lock;
     [self _imp]->put (exec, (unsigned)index, (convertObjcValueToValue(exec, &value, ObjcObjectType)));
-    Interpreter::unlock();
 
     if (exec->hadException()) {
         LOG_EXCEPTION (exec);
@@ -413,15 +399,14 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
 
 + (id)_convertValueToObjcValue:(KJS::Value)value originExecutionContext:(const Bindings::RootObject *)originExecutionContext executionContext:(const Bindings::RootObject *)executionContext
 {
-    id result = 0;
-
     // First see if we have a ObjC instance.
     if (value.type() == KJS::ObjectType){
         ObjectImp *objectImp = static_cast<ObjectImp*>(value.imp());
 	Interpreter *intepreter = executionContext->interpreter();
 	ExecState *exec = intepreter->globalExec();
-
-	if (objectImp->classInfo() != &KJS::RuntimeObjectImp::info) {
+        InterpreterLock lock;
+	
+        if (objectImp->classInfo() != &KJS::RuntimeObjectImp::info) {
 	    Value runtimeObject = objectImp->get(exec, "__apple_runtime_object");
 	    if (!runtimeObject.isNull() && runtimeObject.type() == KJS::ObjectType)
 		objectImp = static_cast<RuntimeObjectImp*>(runtimeObject.imp());
@@ -431,11 +416,11 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
             RuntimeObjectImp *imp = static_cast<RuntimeObjectImp *>(objectImp);
             ObjcInstance *instance = static_cast<ObjcInstance*>(imp->getInternalInstance());
             if (instance)
-                result = instance->getObject();
+                return instance->getObject();
         }
         // Convert to a WebScriptObject
         else {
-	    result = (id)intepreter->createLanguageInstanceForValue (exec, Instance::ObjectiveCLanguage, value.toObject(exec), originExecutionContext, executionContext);
+	    return (id)intepreter->createLanguageInstanceForValue (exec, Instance::ObjectiveCLanguage, value.toObject(exec), originExecutionContext, executionContext);
         }
     }
     
@@ -445,28 +430,27 @@ static KJS::List listFromNSArray(ExecState *exec, NSArray *array)
         UString u = s->value();
         
         NSString *string = [NSString stringWithCharacters:(const unichar*)u.data() length:u.size()];
-        result = string;
+        return string;
     }
     
     // Convert JavaScript Number value to NSNumber?
     else if (value.type() == KJS::NumberType) {
         Number n = Number::dynamicCast(value);
-        result = [NSNumber numberWithDouble:n.value()];
+        return [NSNumber numberWithDouble:n.value()];
     }
     
     else if (value.type() == KJS::BooleanType) {
         KJS::BooleanImp *b = static_cast<KJS::BooleanImp*>(value.imp());
-        result = [NSNumber numberWithBool:b->value()];
+        return [NSNumber numberWithBool:b->value()];
     }
     
     // Convert JavaScript Undefined types to WebUndefined
     else if (value.type() == KJS::UndefinedType) {
-        result = [WebUndefined undefined];
+        return [WebUndefined undefined];
     }
     
     // Other types (UnspecifiedType and NullType) converted to 0.
-    
-    return result;
+    return 0;
 }
 
 @end

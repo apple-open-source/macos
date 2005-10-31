@@ -986,6 +986,30 @@ OSStatus SecKeychainCopyBlob(SecKeychainRef keychainRef, CFDataRef *dbBlob)
 	END_SECAPI
 }
 
+// make a new keychain with pre-existing secrets
+OSStatus SecKeychainCreateWithBlob(const char* fullPathName, CFDataRef dbBlob, SecKeychainRef *kcRef)
+{
+	BEGIN_SECAPI
+	
+	secdebug("kc", "SecKeychainCreateWithBlob(\"%s\", %p, %p)", fullPathName, dbBlob, kcRef);
+	KCThrowParamErrIf_(!fullPathName);
+	KCThrowParamErrIf_(!dbBlob);
+	
+	Keychain keychain = globals().storageManager.make(fullPathName);
+
+	CssmData blob(const_cast<unsigned char *>(CFDataGetBytePtr(dbBlob)), CFDataGetLength(dbBlob));
+
+	// @@@ the call to StorageManager::make above leaves keychain the the cache.
+	// If the create below fails we should probably remove it.
+	keychain->createWithBlob(blob);
+
+	RequiredParam(kcRef)=keychain->handle();
+
+	//
+
+	END_SECAPI
+}
+
 // add a non-file based DB to the keychain list
 OSStatus SecKeychainAddDBToKeychainList (SecPreferencesDomain domain, const char* dbName,
 										 const CSSM_GUID *guid, uint32 subServiceType)

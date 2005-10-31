@@ -63,7 +63,6 @@ private:
     IOLock					*pmmutex;
 	bool					isPortable,
 							cannotSleep;
-	
 	IOService				*ioPPluginNub;
 	IOService				*plFuncNub;
 

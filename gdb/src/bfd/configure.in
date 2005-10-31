@@ -103,6 +103,14 @@ bfd_default_target_size=32
 
 AC_PROG_CC
 
+dnl APPLE LOCAL:  mmap() always works right on Darwin.  Take our word for it.
+dnl CY_GNU_GETTEXT will call AC_FUNC_MMAP for us.
+case "$host" in
+  *-apple-darwin* | *-apple-macos*)
+    ac_cv_func_mmap_fixed_mapped=yes
+  ;;
+esac
+
 ALL_LINGUAS="fr tr ja es sv da zh_CN ro"
 CY_GNU_GETTEXT
 
@@ -950,6 +958,13 @@ test -n "${selarchs}" && tdefaults="${tdefaults} -DSELECT_ARCHITECTURES='${selar
 test -n "${havevecs}" && tdefaults="${tdefaults} ${havevecs}"
 AC_SUBST(tdefaults)
 
+
+# APPLE LOCAL:  mmap() always works right on Darwin.  Take our word for it.
+case "$host" in
+  *-apple-darwin* | *-apple-macos*)
+    ac_cv_func_mmap_fixed_mapped=yes
+  ;;
+esac
 dnl AC_CHECK_HEADERS(sys/mman.h)
 AC_FUNC_MMAP
 AC_CHECK_FUNCS(madvise mprotect)

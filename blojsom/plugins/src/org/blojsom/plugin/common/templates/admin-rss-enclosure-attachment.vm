@@ -1,0 +1,8 @@
+                    <tr>
+                        <td>#adminResource('rss.enclosure.text' 'RSS Enclosure')</td>
+                        <td><select name="rss-enclosure"><option value="">#adminResource('enclosure.selection.text' '-- Select a file as an enclosure --')</option>
+                            #foreach ($filename in $PLUGIN_RSS_ENCLOSURE_FILES.keySet())
+                                <option value="$filename" #if($filename.equals($RSS_ENCLOSURE_ATTACHMENT)) SELECTED #end>$filename</option>
+                            #end
+                        </select></td>
+                    </tr>

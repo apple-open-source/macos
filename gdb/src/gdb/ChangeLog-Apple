@@ -1,3 +1,328 @@
+2005-05-16  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_find_picbase_setup):  i386_frame_setup_skip_insns
+	now matches the CALL rel32 instruction we're searching for; check
+	the matched instructions to see if this one was matched.
+
+2005-05-10  Klee Dienes <kdienes@apple.com>
+
+        * stabsread.c (define_symbol): Add support for
+        CodeWarrior-style boolean constants.
+
+2005-05-10  Klee Dienes <kdienes@apple.com>
+
+        * dbxread.c (end_fun_absolute_p): New variable.
+        (process_one_symbol): Add support for absolute-address N_FUN
+        stabs.
+        (_initialize_dbxread): Add "function-end-absolute" GDB variable.
+
+2005-05-10  Jim Ingham  <jingham@apple.com>
+
+	* breakpoint.c (breakpoint_create): Don't let the condition setting
+	for a pending breakpoint "error", catch the error and issue a warning
+	instead.
+
+	* objc-exp.y: Use find_template_name_end to step over a template 
+	rather than doing it by hand.
+	
+2005-05-09  Jason Molenda  (jmolenda@apple.com)
+
+        * i386-tdep.c (i386_analyze_frame_setup): Remove FIXME comment
+        I'd added - I believe I was mistaken.
+
+2005-05-03  Ronnie Misra  (rgmisra@apple.com)
+        Edited by Jason Molenda (jmolenda@apple.com)
+
+	* remote.c (remote_ops): Make global so we can access it from
+	macosx-nat.c.
+	* serials.c (serial_open): Recognize "unix" style serial connections
+	(socket connections).
+
+2005-05-02  Jim Ingham  <jingham@apple.com>
+
+	* breakpoint.c (tell_breakpoints_objfile_changed): Always check the
+	bp_objfile against the one passed in, regardless of whether the 
+	breakpoint is set or not.
+	
+2005-04-29  Klee Dienes  <kdienes@apple.com>
+
+	* valarith.c (value_subscripted_rvalue): Fix comparison
+	against upper bound.
+
+2005-04-29  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_find_esp_adjustments): New function, necessary
+	for finding our way in -momit-leaf-frame-pointer frames.
+	(i386_frame_cache): Add new case to handle genuinely frameless
+	functions.
+
+2005-04-29  Klee Dienes  <kdienes@apple.com>
+
+	* infrun.c: Include "ppc-macosx-regnums.h" when necessary.
+	(handle_inferior_event): If we are doing a metrowerks-step,
+	use ($pc == $lr) to determine if we have just returned from a
+	function, since we won't have any other symbol information
+	available.
+
+2005-04-29  Klee Dienes  <kdienes@apple.com>
+
+	* eval.c (evaluate_subexp_with_coercion): Don't coerce vectors to
+	pointers, even though they are nominally arrays.
+
+	* gdbtypes.c (use_stride): New variable.
+	(create_range_type): Add new 'stride' field.
+	(get_array_bounds): New function.
+	(_initialize_gdbtypes): Add 'use-array-stride' GDB variable.
+
+	* gdbtypes.h (TYPE_STRIDE): New accessor.
+	(get_array_bounds): Add prototype.
+
+	* stabsread.c (read_type): Add support for the @T= (stride)
+	parameter.  Set the stride to -1 if we notice the @V (vectory)
+	parameter on an Intel target.
+
+	* valarith.c (value_subscripted_rvalue): No longer pass the lower
+	bound explicitly; we can calculate it from the range type.  Add
+	support for reverse array strides.
+	(value_subscript): Use get_array_bounds and the new prototype for
+	value_subscripted_rvalue.  Pull in the change from FSF that
+	doesn't print a "out of range" warning if the array is declared to
+	be of unspecified size.  Add support for reverse strides.
+
+	* valprint.c (val_elt_addr):  New function.
+	(val_print_array_elements): Update to use val_elt_addr.
+
+2005-04-29  Jim Ingham  <jingham@apple.com>
+
+	* valops.c (value_cast): Don't COERCE_REF a reference type, since
+	that turns it into a struct and then when we go to cast it back
+	to a reference, we cast the value not the address.
+	
+2005-04-26  Jim Ingham  <jingham@apple.com>
+
+	* breakpoint.c (resolve_pending_breakpoint): Pass a choices array
+	with -1, so if there are multiple hits we will choose all the
+	hits.
+	(re_enable_breakpoints_in_shlibs): catch errors from 
+	resolve_pending_breakpoint.
+	* stabsread.c (read_struct_type): If we see a redefined type,
+	read the new stab in.  Otherwise we may miss some in-line
+	type definitions that we might need.
+	(find_name_end): gcc emits some ObjC++ symbol names with the ObjC bit
+	AFTER the _ZWhatever.  find_name_end should skip over the ObjC part
+	of these symbols.
+	* valops.c (check_field): If "this" is not a aggregate, warn and return
+	not a member of this, rather than error-ing.  Otherwise you will halt 
+	searches whenever you are in a frame with bad stabs for "this".
+
+2005-04-26  Jason Molenda  (jmolenda@apple.com)
+
+	* printcmd.c (decode_format): Recognize "T".
+	(print_formatted): Call print_ostype for "T".
+	(print_scalar_formatted): Ditto.
+	(do_examine): Recognize "T".
+	(_initialize_printcmd): Add "T" to "help x" documentation.
+	* valprint.c (print_ostype): Print out an OSType variable's contents.
+	* valprint.h (print_ostype): Add prototype.
+	* varobj.c (varobj_format_string): Add "unsigned" and "OSType".
+	(format_code): Matching update.
+	(varobj_set_display_format): Handle FORMAT_OSTYPE.
+	* varobj.h (enum varobj_display_formats): Add FORMAT_OSTYPE.
+
+2005-04-25  Jason Molenda  (jmolenda@apple.com)
+
+	* target.c (debug_check_is_objfile_loaded): A "debug target" printer
+	function.
+	(setup_target_debug): Add it to the vector.
+
+2005-04-21  Jim Ingham  <jingham@apple.com>
+
+	* breakpoint.c (resolve_pending_breakpoint): move the 
+	delete_breakpoint call into this function, it's much
+	cleaner that way.
+	(re_enable_breakpoints_in_shlibs): Take delete_breakpoint
+	out of here.
+	(do_enable_breakpoint): Ditto
+	(create_breakpoints): Swap the resolved breakpoint for
+	the pending breakpoint in the list (if there is only one
+	resolved breakpoint.)
+	
+2005-04-20  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_match_insn): New parameter, to indicate that
+	we should avoid matching a prologue instruction or not.
+	(i386_frame_setup_skip_insns): Add all the instructions that
+	were scheduled into prologues in any dylib/framework on a gcc 3.3
+	compiled system.
+	(i386_analyze_frame_setup): Return the instruction following the
+	last frame-setup instruction we saw.  Update call of i386_match_insn.
+	(i386_find_picbase_setup): Update calls to i386_match_insn.
+	(maintenance_i386_prologue_parser): Look 48 bytes into the function
+	before giving up, by default.  Fix status printing statements a bit.
+
+2005-04-18  Klee Dienes  <kdienes@apple.com>
+	
+	* minsyms.c (lookup_minimal_symbol): Don't crash if a minsym
+	doesn't have filename set in the SOFUN_ADDRESS_MAYBE_MISSING
+	code-path.
+
+2005-04-18  Klee Dienes  <kdienes@apple.com>
+
+	* arch-utils.c (show_endian): Add MI support.
+
+2005-04-15  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (maintenance_i386_prologue_parser): Add a new maint
+	command to run gdb's prologue analyzer on a selected address/function
+	and report how far it got.
+
+2005-04-14  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_analyze_frame_setup): Don't scan into the
+	following function by accident.
+	(i386_frame_cache): Detect frames that cannot possibly be frameless,
+	so we can make assumptions about the stack setup, regardless of our
+	ability to parse the function's prologue.
+
+2005-04-14  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_analyze_frame_setup): Recognize the push $0x0
+	as an alternative to push %ebp in a prolgoue.
+
+2005-04-14  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_frame_setup_skip_insns): Add instructions
+	found in hand-written assembly in objc_msgForward.
+	(i386_analyze_frame_setup): Allow for any of the non-prologue
+	instructions to occur before push %ebp.
+
+2005-04-09  Jason Molenda  (jmolenda@apple.com)
+
+        * fix-and-continue.c (redirect_old_function): Write an x86
+        Fix and Continue trampoline.
+        (decode_fix_and_continue_trampoline): Recognize an x86 F&C trampoline.
+        (update_picbase_register): CAll out to i386_find_picbase_setup() (new
+        function) to find the picbase for a function, if any is used.
+        (fix_and_continue_supported): F&C is now supported on x86.
+
+        * i386-tdep.c (I386_MAX_INSN_LEN, struct i386_insn, i386_match_insn,
+        i386_frame_setup_skip_insns, i386_analyze_frame_setup):  Import FSF
+        gdb TOT sources for these structs/variables/functions (2005-04-07).
+        I ended up modifying all of these with minor Apple Local changes.
+        (i386_frame_setup_insns): New array, a list of instructions that
+        are expected in a function prologue.
+        (i386_find_picbase_setup): New function; skip over instructions that
+        are expected in a prologue, and instructions that sometimes get
+        scheduled into a prologue, looking for the CALL insn that will set up
+        the PIC base for this function.
+        * i386-tdep.h: Prototype for i386_find_picbase_setup.
+
+2005-04-06  Klee Dienes  <kdienes@gdbrulez.apple.com>
+
+        * findvar.c (extract_signed_integer_with_byte_order): Construct
+        from extract_signed_integer.
+        (extract_signed_integer): Update to use
+        extract_signed_integer_with_byte_order.
+        (extract_unsigned_integer_with_byte_order): Ditto.
+        (extract_unsigned_integer): Ditto.
+        (extract_long_unsigned_integer_with_byte_order): Ditto.
+        (extract_long_unsigned_integer): Ditto.
+        (store_signed_integer_with_byte_order): Ditto.
+        (store_signed_integer): Ditto.
+
+        * gdbtypes.h (struct main_type): Use the last two bits of the
+        'type' field, for the new field 'byte_order', to store the byte
+        order of the given type.
+        (TYPE_BYTE_ORDER): Add accessor for 'byte_order'.
+
+        * gdbtypes.c (alloc_type): Initialize the byte order to
+        BFD_ENDIAN_UNKNOWN.
+
+        * i386-linux-nat.c (swap_fpxregs): New function.  Byte-reverses
+        the xmm register sections of a fxsave region.
+        (fetch_fpxregs): Call swap_fpxregs on the xmm data.
+        (store_fpxregs): Call swap_fpxregs on the xmm data.
+
+        * i386-tdep.c (builtin_type_vec128i_big): New type, for big-endian
+        128-bit vectors (used by the XMM register store).
+        (init_vector_type): Taken from gdbtypes.c.
+        (build_builtin_type_vec128i_big): Create the big-endian XMM
+        register type.
+        (i386_register_type): Return builtin_type_vec128i_big for XMM
+        registers.
+        (_initialize_i386_tdep): Call build_builtin_type_vec128i_big.
+
+        * i387-tdep.c (i387_swap_fxsave): New function.  Byte-reverses the
+        xmm register sections of a fxsave region.
+
+        * i387-tdep.h (i387_swap_fxsave): Add prototype.
+
+        * valprint.c (val_print_type_code_int): Update to use the
+        _with_byte_order variants of the print/extract functions.
+        (print_hex_chars_with_byte_order): Construct from print_hex_chars.
+        (print_hex_chars): Update to use print_hex_chars_with_byte_order.
+        (print_char_chars_with_byte_order): Ditto.
+        (print_char_chars): Ditto.
+
+        * valprint.h (print_hex_chars_with_byte_order): Add prototype.
+	(print_char_chars_with_byte_order): Add prototype.
+
+        * values.c (unpack_long): Update to use the _with_byte_order
+        variants of the print/extract functions.
+
+2005-03-31  Jim Ingham  <jingham@apple.com>
+
+	* i386-tdep.c (i386_analyze_frame_setup): Really look for
+	    mov $XXX, reg
+	rather than just doing it when reg == %ecx
+	
+	* fork-child.c (_initialize_fork_child): Typo in the help string.
+	
+2005-03-30  Jim Ingham  <jingham@apple.com>
+
+	* fix-and-continue.c (decode_fix_and_continue_trampoline): Make this 
+	a no-op for anything other than PPC.
+
+	* i386-tdep.c (i386_analyze_frame_setup): Add cmpl to the list of
+	instructions we might find after the push %ebp, since the compiler
+	sometimes puts it there.
+
+	* config/i386/tm-i386-macosx.h: Remove definitions for the
+	skip_trampoline functions - they are now generic macosx functions.
+	
+2005-03-24  Jason Molenda  (jmolenda@apple.com)
+
+        * configure.in: Force AC_FUNC_MMAP's result to 'yes' - it
+        needs to run a test case to say 'yes' so cross-host builds
+        end up with mmap support turned off.
+	Replaced the configdirs variable with separate invocations of
+        AC_CONFIG_SUBDIRS as the new autoconf wants to have done.
+	(matches FSF TOT)
+        * acloal.m4, configure, */configure: Regenerated.
+
+2005-03-18  Jim Ingham  <jingham@apple.com>
+
+	* remote.c (init_remote_ops): Make sure that the asyn_mask_value
+	is 0 for asynchronous remote target.
+	* target.c (update_current_target): Inheriting data values doesn't
+	work with the INHERIT method, since 0 means "doesn't provide a
+	value".
+
+2005-03-18  Jason Molenda  (jmolenda@apple.com)
+
+	* objfiles.c (_initialize_objfiles): Don't put the 
+	auto-raise-load-levels in a #if HAVE_MMAP section of code.
+
+2005-03-11  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_frame_cache): Revert a bit of Klee's 2005-02-23
+	patch that was causing problems with source-level 'next'ing.
+
+2005-03-11  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.c (symfile_bfd_open): Mark symbol files as cacheable so
+	we don't fill the bfd cache.
+
 2005-03-04  Jim Ingham  <jingham@apple.com>
 
 	* objfiles.c (objfile_name_set_load_state): New function.
@@ -35,12 +360,41 @@
 
 	* stack.c (symbol_file_add_main_1): Obey the load rules for the
 	main executable.
+
+	* thread.c (thread_apply_all_command): Don't report the thread switch
+	back to the original thread, it is just confusing spam.
+	
+2005-02-23  Klee Dienes  <kdienes@apple.com>
+
+	* i386-tdep.c (i386_frame_cache): Use 0(%ebp) as the default value
+	for the previous %ebp when not on the top of the stack.  Don't try
+	to be too clever about deciding a function is frameless, or
+	partially constructed, unless we were able to parse the prologue.
+	(i386_frame_this_id): Truncate the backtrace when we reach a NULL
+	%ebp for the previous frame.
+
+2005-02-23  Klee Dienes  <kdienes@apple.com>
+
+	* corefile.c (captured_read_memory_integer_arguments): Allow
+	either a signed or unsigned result.  Add 'signedp' to determine
+	which field to use.
+	(do_captured_read_memory_integer): Honor the value of 'signedp'.
+	(safe_read_memory_integer): Update to set signedp, and retrieve
+	the signed value.
+	(safe_read_memory_unsigned_integer): New function.
+
+	* gdbcore.h (safe_read_memory_unsigned_integer): Add prototype.
 	
 2005-02-21  Jason Molenda  (jmolenda@apple.com)
 
-        * fix-and-continue.c (fix_and_continue_supported): New function
-        to determine if F&C is supported for the given executable or not.
-        * defs.h: Prototype for above.
+	* fix-and-continue.c (fix_and_continue_supported): New function
+	to determine if F&C is supported for the given executable or not.
+	* defs.h: Prototype for above.
+
+2005-02-18  Klee Dienes  <kdienes@apple.com>
+
+	* symfile.c (symbol_file_add_main_1): Check the load rules when
+	loading symfile_objfile as well.
 
 2005-02-17  Jim Ingham  <jingham@apple.com>
 
@@ -58,24 +412,19 @@
 
 2005-02-10  Jim Ingham  <jingham@apple.com>
 
-        * breakpoint.h: Add the bp_set_state enum, use it
-        for the bp_set_state element of struct breakpoint.
-        * breakpoint.c: First, revert the changes of 
-        2005-01-21, this is a better way to do it.
-        Second, everywhere bp_set_p appears, convert to
-        bp_set_state, and use the enum.
-        (breakpoint_re_set_one): If we fail to set the breakpoint
-        all the way because it's objfile isn't loaded yet,
-        don't delete it, mark it as bp_state_waiting_load.
-        (breakpoint_update): If there are any bp_state_waiting_load
-        breakpoints, try to set them in the objfile they were found
-        in.
-
-2005-02-10  Jason Molenda  (jmolenda@apple.com)
-
-	* fix-and-continue.c (check_restriction_cxx_zerolink):
-	Fix grammar mistake.
-
+	* breakpoint.h: Add the bp_set_state enum, use it
+	for the bp_set_state element of struct breakpoint.
+	* breakpoint.c: First, revert the changes of 
+	2005-01-21, this is a better way to do it.
+	Second, everywhere bp_set_p appears, convert to
+	bp_set_state, and use the enum.
+	(breakpoint_re_set_one): If we fail to set the breakpoint
+	all the way because it's objfile isn't loaded yet,
+	don't delete it, mark it as bp_state_waiting_load.
+	(breakpoint_update): If there are any bp_state_waiting_load
+	breakpoints, try to set them in the objfile they were found
+	in.
+	
 2005-02-01  Jim Ingham  <jingham@apple.com>
 
 	* ppc-sysv-tdep.c (ppc_push_argument): Follow the 
@@ -83,6 +432,16 @@
 	
 	* breakpoint.c (breakpoint_re_set_all): Continue after
 	deleting longjmp breakpoint.
+	
+2005-02-01  Jason Molenda  (jmolenda@apple.com)
+
+        * fix-and-continue.c (check_restriction_cxx_zerolink): Correct
+        error message syntax.
+
+2005-01-31  Jim Ingham  <jingham@apple.com>
+
+	* printcmd.c (address_info): Check for a NULL block before
+	accessing it.
 	
 2005-01-28  Jim Ingham  <jingham@apple.com>
 
@@ -119,54 +478,100 @@
 	
 2005-01-13  Jason Molenda  (jmolenda@apple.com)
 
-        * fix-and-continue.c (fix_command_1): Raise the load level of
-        the original dylib AFTER we tell zerolink to page it in, not
-        before.
+	* symfile.h: Include symtab.h to pick up domain_enum decl.
 
 2005-01-13  Jason Molenda  (jmolenda@apple.com)
 
-        * fix-and-continue.c (do_final_fix_fixups_static_syms): This func does
-        nothing if oldobj is null; skip out early.
-        (check_restrictions_locals): Move expensive loop invariant out of
-        the loop.
+	* jv-lang.c (get_dynamics_objfile): Proper # of args to 
+	allocate_objfile().
+	* objfiles.h: Add prototype for cached symfile version of
+	allocate_objfile() so all callers are using the right prototype.
+	* symfile.c: Don't include macosx/cached-symfile for allocate_objfile
+	prototype.
+	(TEXT_SEGMENT_NAME): Provide default for non-macosx platforms.
 
-2005-01-13  Jason Molenda  (jmolenda@apple.com)
+2005-01-12  Jason Molenda  (jmolenda@apple.com)
 
-        * config/tm-macosx.h (TEXT_SEGMENT_NAME): Define.
-        * objfiles.h: Add prototype for cached symfile version of
-        allocate_objfile() so all callers are using the right prototype.
-        (struct objfile): New field, syms_only_objfile.
-        * objfiles.c (allocate_objfile): Set SYMS_ONLY_OBJFILE field of
-        struct objfile to 0 by default.
-        * symfile.c (TEXT_SEGMENT_NAME): Provide default for non-macosx 
-        platforms.
-        (add_symbol_file_command): Mark objfile that we add via
-        add-symbol-file as such so breakpoint insertion isn't
-        confused.
-        (syms_from_objfile): Use the text segment name, not the
-        text section name, to find the load address of the file.
+	* objfiles.h (struct objfile): New field, syms_only_objfile.
+	* objfiles.c (allocate_objfile): Set SYMS_ONLY_OBJFILE field of
+	struct objfile to 0 by default.
+	* symfile.c (add_symbol_file_command): Mark objfile that we add
+	via add-symbol-file as such so breakpoint insertion isn't confused.
+
+2005-01-12  Jason Molenda  (jmolenda@apple.com)
+
+	* fix-and-continue.c (fix_command_1): Raise the load level of
+	the original dylib AFTER we tell zerolink to page it in, not
+	before.
+
+2005-01-11  Jason Molenda  (jmolenda@apple.com)
+
+        * symfile.c (syms_from_objfile): Use the text segment name,
+        not the text section name, to find the load address of the 
+        file.
         (add_symbol_file_command): Ditto.
-        * symfile.h: Include symtab.h to pick up domain_enum decl.
-        * jv-lang.c (get_dynamics_objfile): Proper # of args to 
-        allocate_objfile().
+        * config/tm-macosx.h (TEXT_SEGMENT_NAME): Define.
 
-2005-01-12  Jim Ingham  <jingham@apple.com>
+2005-01-04  Jason Molenda  (jmolenda@apple.com)
 
-	Merge accepted bugs from TOT.
-	* source.c: Remove unused copy of ambiguous_line_spec.
-	* cli/cli-cmds.c (ambiguous_line_spec): Check for a NULL
-	symtab before accessing it.
-	
-        * objfiles.c (free_objfile): Move the call to
-        delete_objfile_from_ordered_sections to before we close the bfd.
-        We use the bfd sections in that call...
+	* breakpoint.c: Don't include macosx-nat-dyld-process.h here any
+	more; we're going through the target vector as of 2004-12-22.
+
+2005-01-04  Jason Molenda  (jmolenda@apple.com)
+
+	* breakpoint.c (insert_bp_location): Skip objfile-loaded check if
+	we're evaluating a watchpoint.  Those are considerably more complicated
+	to handle correctly.
+	(set_raw_breakpoint): Find the appropriate objfile for a breakpoint
+	and stash that away for the is-objfile-loaded check in 
+	insert_bp_location.
+	* objfiles.c (objfile_purge_solibs): Revert 2004-12-21 change and 
+	#if 0 out the code that clears the object_files chain when we
+	mourn the inferior.
 
 2004-12-22  Jim Ingham  <jingham@apple.com>
 
-	* target.h: Add to_check_is_objfile_loaded to target vector.
-	* target.c: INHERIT & de_fault to_check_is_objfile_loaded. 
-	* breakpoint.c (insert_bp_location): Switch to using
-	target_check_is_objfile_loaded.
+       * target.h: Add to_check_is_objfile_loaded to target vector.
+       * target.c: INHERIT & de_fault to_check_is_objfile_loaded. 
+       * breakpoint.c (insert_bp_location): Switch to using
+       target_check_is_objfile_loaded.
+
+2004-12-21  Jason Molenda  (jmolenda@apple.com)
+
+	* objfiles.c (objfile_purge_solibs): Remove Apple Local #if 0 around the
+	purgy bits of this function.
+
+2004-12-17  Jason Molenda  (jmolenda@apple.com)
+
+	* breakpoint.c: Conditionally include macosx-nat-dyld-process.h at the
+	top of the file.
+	* infcall.c: Ditto.
+	* objfiles.c: Ditto.
+
+2004-12-15  Jim Ingham  <jingham@apple.com>
+
+	* objfiles.c (free_objfile): Move the call to
+	delete_objfile_from_ordered_sections to before we close the bfd.
+	We use the bfd sections in that call...
+
+	* minsyms.c (lookup_minimal_symbol_by_pc_section_from_objfile): If
+	we don't find a minsym in the correct section, return NULL rather
+	than the last minsym we looked at.
+	
+2004-12-14  Jason Molenda  (jmolenda@apple.com)
+
+	* fix-and-continue.c (do_final_fix_fixups_static_syms): This func does
+	nothing if oldobj is null; skip out early.
+	(check_restrictions_locals): Move expensive loop invariant out of
+	the loop.
+
+2004-12-13  Jim Ingham  <jingham@apple.com)
+
+	* cli/cli-cmds.c (ambiguous_line_spec): Handle the case where
+	one of the line specs has a NULL symtab.
+	* source.c (ambiguous_line_spec): This copy of the function is
+	never used, and is gone from the FSF tree.  Delete it from here
+	so we don't waste time maintaining it...
 	
 2004-12-09  Jason Molenda  (jmolenda@apple.com)
 
@@ -175,7 +580,8 @@
 
 2004-12-08  Jason Molenda  (jmolenda@apple.com)
 
-	* fix-and-continue.c (get_fixed_file): Include macosx-nat-dyld-process.h	to get prototype.
+	* fix-and-continue.c (get_fixed_file): Include macosx-nat-dyld-process.h	
+	to get prototype.
 	* infcall.c (hand_function_call): Include macosx-nat-infthread.h to 
 	get prototype.
 	* objfiles.c (objfile_purge_solib): Add comment.

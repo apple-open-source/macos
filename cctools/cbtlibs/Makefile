@@ -10,7 +10,8 @@ ifeq "macos" "$(RC_OS)"
 endif
 
 
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
+				  [ "$(RC_XBS)" != "YES" ]; then \
 	     echo YES ; else echo NO ; \
 	     fi; )
 	
@@ -70,7 +71,7 @@ $(SYMROOT):
 
 libsyminfo.o: libsyminfo.c
 ifeq "NO" "$(USE_DEPENDENCY_FILE)"
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -static \
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c \
 		-o $(OFILE_DIR)/$*.o $(SRCROOT)/libsyminfo.c -DLIBRARY_API
 else
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c \

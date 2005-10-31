@@ -156,7 +156,6 @@ client_request(void)
 	/* Setup. */
 	(void)time(&owner.tod);
 	owner.pid = getpid();
-	(void)gethostname(hostname, sizeof(hostname) - 1);
 
 	/* Open the fifo for reading. */
 	if ((fd = open(_PATH_LCKFIFO, O_RDONLY | O_NONBLOCK)) == -1) {
@@ -177,6 +176,14 @@ client_request(void)
 		FD_ZERO(&rdset);
 		FD_SET(fd, &rdset);
 		(void)select(fd + 1, &rdset, NULL, NULL, NULL);
+
+		/*
+		 * Hold off getting hostname until first
+		 * lock request. Otherwise we risk getting
+		 * an initial ".local" name.
+		 */
+		if (hostname[0] == '\0')
+			(void)gethostname(hostname, sizeof(hostname) - 1);
 
 		/* Read the fixed length message. */
 		if ((nr = read(fd, &msg, sizeof(msg))) == sizeof(msg)) {

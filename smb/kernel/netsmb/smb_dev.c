@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_dev.c,v 1.21 2004/12/13 00:25:18 lindak Exp $
+ * $Id: smb_dev.c,v 1.21.166.1 2005/07/20 05:27:00 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/kernel.h>
@@ -53,7 +53,7 @@
 #include <sys/kauth.h>
 
 #include <net/if.h>
-
+#define	__APPLE_API_PRIVATE
 #include <sys/smb_apple.h>
 #include <sys/mchain.h>		/* for "htoles()" */
 

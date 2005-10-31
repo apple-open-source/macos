@@ -40,6 +40,7 @@ package javax.swing;
 
 import java.io.Serializable;
 import java.util.EventObject;
+
 import javax.swing.event.CellEditorListener;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.EventListenerList;
@@ -52,7 +53,7 @@ import javax.swing.event.EventListenerList;
 public abstract class AbstractCellEditor
   implements CellEditor, Serializable
 {
-  static final long serialVersionUID = -1048006551406220959L;
+  private static final long serialVersionUID = -1048006551406220959L;
 
   /**
    * listenerList

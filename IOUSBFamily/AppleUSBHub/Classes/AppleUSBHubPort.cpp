@@ -52,46 +52,63 @@ static portStatusChangeVector defaultPortVectors[kNumChangeHandlers] =
 IOReturn 
 AppleUSBHubPort::init( AppleUSBHub *parent, int portNum, UInt32 powerAvailable, bool captive )
 {
-    _hub		= parent;
-    _bus		= parent->_bus;
-    _hubDesc		= &parent->_hubDescriptor;
-    _portNum		= portNum;
-    _portDevice		= 0;
-    _portPowerAvailable	= powerAvailable;
-    _captive 		= captive;
-    _state 		= hpsNormal;
-    _retryPortStatus	= false;
+    _hub						= parent;
+    _bus						= parent->_bus;
+    _hubDesc					= &parent->_hubDescriptor;
+    _portNum					= portNum;
+    _portDevice					= 0;
+    _portPowerAvailable			= powerAvailable;
+    _captive					= captive;
+    _state						= hpsNormal;
+    _retryPortStatus			= false;
     _statusChangedThreadActive	= false;
-    _initThreadActive	= false;
-    _inCommandSleep	= false;
-    _attachRetry 	= 0;
-    _devZeroCounter	= 0;
-	_attachMessageDisplayed = false;
+    _initThreadActive			= false;
+    _inCommandSleep				= false;
+    _attachRetry				= 0;
+    _devZeroCounter				= 0;
+	_attachMessageDisplayed		= false;
     _overCurrentNoticeDisplayed = false;
 	
     if (!_hub || !_bus || !_hubDesc || (portNum < 1) || (portNum > 64))
-        return kIOReturnError;
-    
+	{
+		USBLog(2,"AppleUSBHubPort[%p]::init failure (Parent: %p, Bus: %ld, Desc: 0x%x, PortNum: %ld", this, parent, _bus, _hubDesc, portNum); 
+        return kIOReturnBadArgument;
+    }
     _runLock = IOLockAlloc();
     if (!_runLock)
-        return kIOReturnError;
-        
+	{
+		USBLog(2,"AppleUSBHubPort[%p]::init Could not allocate the _runLock", this);
+        return kIOReturnNoMemory;
+	}
+	
+    _initLock = IOLockAlloc();
+    if (!_initLock)
+	{
+		USBLog(2,"AppleUSBHubPort[%p]::init Could not allocate the _initLock", this);
+        IOLockFree(_runLock);
+        return kIOReturnNoMemory;
+	}
+	
     _initThread = thread_call_allocate((thread_call_func_t)PortInitEntry, (thread_call_param_t)this);
     if (!_initThread)
     {
+		USBLog(2,"AppleUSBHubPort[%p]::init Could not allocate the _initThread", this);
         IOLockFree(_runLock);
-        return kIOReturnError;
+        IOLockFree(_initLock);
+        return kIOReturnNoMemory;
     }
     
     _portStatusChangedHandlerThread = thread_call_allocate((thread_call_func_t)PortStatusChangedHandlerEntry, (thread_call_param_t)this);
     
     if (!_portStatusChangedHandlerThread)
     {
+		USBLog(2,"AppleUSBHubPort[%p]::init Could not allocate the _portStatusChangedHandlerThread", this);
         thread_call_free(_initThread);
         IOLockFree(_runLock);
-        return kIOReturnError;
+        IOLockFree(_initLock);
+        return kIOReturnNoMemory;
     }
-        
+	
     InitPortVectors();
     
     return kIOReturnSuccess;
@@ -111,6 +128,20 @@ AppleUSBHubPort::start(void)
     return kIOReturnSuccess;
 }
 
+
+void
+AppleUSBHubPort::free(void)
+{
+	if (_runLock) {
+		IOLockFree(_runLock);
+	       _runLock = 0;
+	}
+	if (_initLock) {
+		IOLockFree(_initLock);
+		_initLock = 0;
+	}
+	super::free();
+}
 
 
 void 
@@ -219,30 +250,30 @@ AppleUSBHubPort::PortInit()
     IOUSBHubPortStatus	status;
     IOReturn		err;
     
-    USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p beginning INIT (getting _runLock)", this, _portNum, _hub);
+    USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p beginning INIT (getting _initLock)", this, _portNum, _hub);
     _initThreadActive = true;
-    IOLockLock(_runLock);
+    IOLockLock(_initLock);
     
     // turn on Power to the port
     USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p enabling port power", this, _portNum, _hub);
     if ((err = _hub->SetPortFeature(kUSBHubPortPowerFeature, _portNum)))
     {
         USBLog(3, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p could not (err = %x) enable port power", this, _portNum, _hub, err);
-       FatalError(err, "setting port power");
+		FatalError(err, "setting port power");
         goto errorExit;
     }
-
+	
     // non captive devices will come in through the status change handler
     if (!_captive)
     {
         USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p non-captive device - leaving PortInit", this, _portNum, _hub);
         goto errorExit;
     }
-        
+	
     // wait for the power on good time
     USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p waiting %d ms for power on", this, _portNum, _hub, _hubDesc->powerOnToGood * 2);
     IOSleep(_hubDesc->powerOnToGood * 2);
-
+	
     USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p about to get port status #1", this, _portNum, _hub);
     if ((err = _hub->GetPortStatus(&status, _portNum)))
     {
@@ -250,9 +281,9 @@ AppleUSBHubPort::PortInit()
         FatalError(err, "getting port status (2)");
         goto errorExit;
     }
-
+	
     USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p - status(%8x), change(%8x) bits detected", this, _portNum, _hub, status.statusFlags, status.changeFlags);
-
+	
     // we now have port status 
     if (status.changeFlags & kHubPortConnection)
     {
@@ -263,7 +294,7 @@ AppleUSBHubPort::PortInit()
             FatalError(err, "clearing port connection change");
             goto errorExit;
         }
-
+		
         // We should now be in the disconnected state 
         // Do a port request on current port 
         USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p about to get port status #2", this, _portNum, _hub);
@@ -274,7 +305,7 @@ AppleUSBHubPort::PortInit()
             goto errorExit;
         }
     }
-
+	
     if (status.statusFlags & kHubPortConnection)
     {
         // We have a connection on this port
@@ -282,22 +313,22 @@ AppleUSBHubPort::PortInit()
         if ((err = AddDevice()))
             FatalError(err, "adding device");
     }
-
-errorExit:
 	
-    USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p - done - releasing _runLock", this, _portNum, _hub);
-    IOLockUnlock(_runLock);
+errorExit:
+		
+	USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p - done - releasing _initLock", this, _portNum, _hub);
+    IOLockUnlock(_initLock);
     _initThreadActive = false;
     if (_inCommandSleep)
     {
-	IOCommandGate *gate = NULL;
-	if (_bus)
-	    gate = _bus->GetCommandGate();
-	if (gate)
-	{
-	    USBLog(2,"AppleUSBHubPort[%p]::PortInit -  calling commandWakeup", this);
-	    gate->commandWakeup(&_initThreadActive, true);
-	}
+		IOCommandGate *gate = NULL;
+		if (_bus)
+			gate = _bus->GetCommandGate();
+		if (gate)
+		{
+			USBLog(2,"AppleUSBHubPort[%p]::PortInit -  calling commandWakeup", this);
+			gate->commandWakeup(&_initThreadActive, true);
+		}
     }
 }
 
@@ -330,7 +361,7 @@ AppleUSBHubPort::AddDevice(void)
             USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - bus %p - already owned devZero lock", this, _portNum, _hub, _bus);
         }
 
-        USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - resetting port", this, _portNum, _hub);
+        USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d @ 0x%x - resetting port", this, _portNum, _hub->_locationID);
         SetPortVector(&AppleUSBHubPort::AddDeviceResetChangeHandler, kHubPortBeingReset);
         err = _hub->SetPortFeature(kUSBHubPortResetFeature, _portNum);
         if (err)
@@ -435,8 +466,11 @@ AppleUSBHubPort::SuspendPort( bool suspend)
 
         if (!suspend && !(status.statusFlags & kHubPortSuspend) )
         {
-            // We were trying to resume but the port was not supended.  Just ignore the
-            // request.
+			USBLog(3,"AppleUSBHubPort[%p]::SuspendPort Port was NOT suspended", this);
+           // We were trying to resume but the port was not supended.  Just ignore the
+            // request, but send a message
+            if ( _portDevice )
+                _portDevice->message(kIOUSBMessagePortWasNotSuspended, NULL, &err);
             break;
         }
         
@@ -661,15 +695,18 @@ AppleUSBHubPort::ResetPort()
 void 
 AppleUSBHubPort::FatalError(IOReturn err, char *str)
 {
-    // Don't USBError if we are a HS Root hub and the error is not responding.  Prevents us from showing false errors in GM builds in the system.log
+    // Don't USBError if we are a HS Root hub and the error is kIOUSBDeviceNotHighSpeed.  Prevents us from showing false errors in GM builds in the system.log
     //
-    if ( (_hub->IsHSRootHub() && (err == kIOReturnNotResponding)) )
+    if (_hub->IsHSRootHub())
     {
-	USBLog(1, "AppleUSBHubPort[%p]: Port %d of Hub at 0x%x: error 0x%x: %s",this, _portNum, _hub->_locationID, err, str);
+		if (err != kIOUSBDeviceNotHighSpeed)
+		{
+			USBLog(1, "AppleUSBHubPort[%p]: Port %d of Hub at 0x%x: error 0x%x: %s",this, _portNum, _hub->_locationID, err, str);
+		}
     }
     else
     {
-	USBError(1, "AppleUSBHubPort: Port %d of Hub at 0x%x reported error 0x%x while doing %s", _portNum, _hub->_locationID, err, str);
+		USBError(1, "AppleUSBHubPort: Port %d of Hub at 0x%x reported error 0x%x while doing %s", _portNum, _hub->_locationID, err, str);
     }
     
     if (_portDevice != 0)
@@ -1580,7 +1617,7 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
     IOReturn	err = kIOReturnSuccess;
     bool	skipOverGetPortStatus = false;
 
-
+	// If we're already processing a status change, then just indicate so and return
     if (!IOLockTryLock(_runLock))
     {
         USBLog(5, "AppleUSBHubPort[%p]::PortStatusChangedHandler: port %d already in PSCH, setting _retryPortStatus to true", this, _portNum);
@@ -1588,6 +1625,17 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
         return;
     }
     
+	// Need to wait until the init routine is finished
+	if ( !IOLockTryLock(_initLock) )
+	{
+        USBLog(3, "AppleUSBHubPort[%p]::PortStatusChangedHandler: _initLock for port %d @ 0x%x held! Waiting...", this, _portNum, _hub->_locationID);
+		
+		// Block while we wait for the PortInit routine to finish
+		IOLockLock(_initLock);
+		
+        USBLog(3, "AppleUSBHubPort[%p]::PortStatusChangedHandler: _initLock for port %d released!", this, _portNum);
+	}
+	
     USBLog(5, "AppleUSBHubPort[%p]::PortStatusChangedHandler: port %d obtained runLock", this, _portNum);
 
     // Indicate that our thread is running
@@ -1608,7 +1656,7 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
                 _statusChangedState = 1;
                 
                 FatalError(err, "get status (first in port status change)");
-                goto errorExit;
+               goto errorExit;
             }
 
             // If a PC Card has been ejected, we might receive 0xff as our status
@@ -1663,6 +1711,7 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
         if ((err = _hub->GetPortStatus(&_portStatus, _portNum)))
         {
             USBLog(3, "AppleUSBHubPort[%p]::PortStatusChangedHandler: error %x getting port status", this, err);
+			
             FatalError(err, "get status (second in port status change)");
             goto errorExit;
         }
@@ -1724,6 +1773,7 @@ errorExit:
         
     USBLog(5,"AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - err = %x - done, releasing _runLock", this, _portNum, err);
     IOLockUnlock(_runLock);
+    IOLockUnlock(_initLock);
     _statusChangedThreadActive = false;
     if (_inCommandSleep)
     {
@@ -1839,7 +1889,7 @@ AppleUSBHubPort::DetachDevice()
 	//
 	if ( !_attachMessageDisplayed )
 	{
-        USBError(1,"[%p] The IOUSBFamily is having trouble enumerating a USB device that has been plugged in.  It will keep retrying.", this);
+        USBError(1,"[%p] The IOUSBFamily is having trouble enumerating a USB device that has been plugged in.  It will keep retrying.  (Port %d of hub @ location: 0x%x)", this, _portNum, _hub->_locationID);
 		_attachMessageDisplayed = true;
 	}
     

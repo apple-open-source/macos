@@ -3,6 +3,7 @@
  * distcc -- A simple distributed compiler system
  *
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
+ * Copyright (C)2005 by Apple Computer, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -55,6 +56,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include <sys/types.h>
 #include <sys/stat.h>
 
 #include "distcc.h"
@@ -495,3 +497,132 @@ char *dcc_argv_tostr(char **a)
 }
 
 
+static char **_dcc_allowed_compilers(void) {
+    static char **allowedCompilers = NULL;
+    static char *allowedCompilersStrings = NULL;
+    if (allowedCompilersStrings == NULL) {
+#define COMPILERS_FILE_PATH "/etc/compilers"
+        rs_trace("parsing %s", COMPILERS_FILE_PATH);
+        
+        int allowedCompilersFile = open(COMPILERS_FILE_PATH, O_RDONLY, 0);
+        if ( allowedCompilersFile < 0 ) {
+            rs_log_crit("failed to open() '%s'", COMPILERS_FILE_PATH);
+            exit(EXIT_DISTCC_FAILED);
+        }
+        
+        struct stat allowedCompilersFileStatB;
+        if ( fstat( allowedCompilersFile, &allowedCompilersFileStatB) == -1 ) {
+            close( allowedCompilersFile );
+            rs_log_crit("failed to fstat() '%s'", COMPILERS_FILE_PATH);
+            exit(EXIT_DISTCC_FAILED);
+        }
+        
+        allowedCompilersStrings = malloc( allowedCompilersFileStatB.st_size + 1 );
+        if ( allowedCompilersStrings == NULL ) {
+            rs_log_crit("failed to allocate buffer for '%s' content.", COMPILERS_FILE_PATH);
+            exit(EXIT_OUT_OF_MEMORY);
+        }
+        allowedCompilersStrings[allowedCompilersFileStatB.st_size] = '\0';
+        
+        int maximumNumberOfCompilers = 10;
+        int currentCompilerSlot = 0;
+        allowedCompilers = calloc( maximumNumberOfCompilers + 1, sizeof(char *) );
+        if ( allowedCompilers == NULL ) {
+            close( allowedCompilersFile );
+            free( allowedCompilersStrings );
+            rs_log_crit("failed to allocate buffer for '%s' content [slots].", COMPILERS_FILE_PATH);
+            exit(EXIT_OUT_OF_MEMORY);
+        }
+        
+        int dataRead = read( allowedCompilersFile, allowedCompilersStrings, allowedCompilersFileStatB.st_size );
+        if ( dataRead != allowedCompilersFileStatB.st_size ) {
+            close( allowedCompilersFile );
+            free( allowedCompilersStrings );
+            free( allowedCompilers );
+            rs_log_crit("failed to read '%s' content (read %d of %d bytes).", COMPILERS_FILE_PATH, (int)dataRead, (int)allowedCompilersFileStatB.st_size);
+            exit(EXIT_DISTCC_FAILED);
+        }
+        
+        char *currentCharacterPtr = allowedCompilersStrings;
+        char *endOfBuffer = allowedCompilersStrings + allowedCompilersFileStatB.st_size;
+        while ( currentCharacterPtr < endOfBuffer ) {
+            // are we at the start of a compiler?
+            if ( ( *currentCharacterPtr != '#' ) && ( *currentCharacterPtr != '\n' ) ) {
+                // yes -- store it away.
+                if ( currentCompilerSlot == maximumNumberOfCompilers ) {
+#define SLOTS_TO_EXPAND_BY 10
+                    maximumNumberOfCompilers = maximumNumberOfCompilers + SLOTS_TO_EXPAND_BY;
+                    allowedCompilers = realloc( allowedCompilers,  sizeof( char * ) * (maximumNumberOfCompilers + 1) );
+                    bzero(allowedCompilers + currentCompilerSlot, (SLOTS_TO_EXPAND_BY + 1) * sizeof( char * ));
+                    if ( allowedCompilers == NULL ) {
+                        close( allowedCompilersFile );
+                        free( allowedCompilers );
+                        free( allowedCompilersStrings );
+                        rs_log_crit("failed to reallocate buffer for '%s' content.", COMPILERS_FILE_PATH);
+                        exit(EXIT_OUT_OF_MEMORY);
+                    }
+                }
+                
+                allowedCompilers[currentCompilerSlot] = currentCharacterPtr;
+                currentCompilerSlot++;
+            }
+            
+            // Advance to EOL.
+            while ( ( currentCharacterPtr < endOfBuffer ) && ( *currentCharacterPtr != '\n' ) )
+                currentCharacterPtr++;
+            
+            // stop if at EOF.
+            if ( currentCharacterPtr == endOfBuffer )
+                break;
+            
+            // Terminate string at EOL.
+            *currentCharacterPtr = '\0';
+
+            // Go to next line (or EOF).
+            currentCharacterPtr++;
+        }
+        close( allowedCompilersFile );
+        
+        if (rs_trace_enabled()) {
+            char **compilers = allowedCompilers;
+            int i = 0;
+            while ( *compilers != NULL ) {
+                rs_trace("allowed compiler: %s", *compilers);
+                i++;
+                compilers++;
+            }
+            rs_trace("allowed compilers count: %d", i);
+        }
+    }
+    
+    return allowedCompilers;    
+}
+
+/**
+ * Ensure that aPath is one of the allowed compilers.
+ *
+ * @note The file /etc/compilers will be read once.  It should
+ * contain a list of executables that are allowed to be launched.
+ *
+ * @retval 0 if it is OK to launch the specified compiler.
+ *
+ * @retval -1 if the specified compiler is not in /etc/compilers
+ *
+ */
+int dcc_validate_compiler(char *aPath)
+{
+    rs_trace("validating compiler %s", aPath);
+    
+    char **allowedCompilers = _dcc_allowed_compilers();
+    while ( *allowedCompilers != NULL ) {
+        rs_trace("testing %s against %s", *allowedCompilers, aPath);
+        if ( !strcmp(*allowedCompilers, aPath) ) {
+            rs_trace("compiler '%s' is allowed", aPath);
+            return 0;
+        }
+        allowedCompilers++;
+    }
+    
+    rs_log_crit("compiler '%s' not allowed by '%s'.", aPath, COMPILERS_FILE_PATH);
+    return -1;
+}

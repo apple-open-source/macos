@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,9 +45,9 @@ import java.util.*;
 
 /**
  * FileBackedBlogEntry
- * 
+ *
  * @author David Czarnecki
- * @version $Id: FileBackedBlogEntry.java,v 1.2 2004/08/27 01:13:55 whitmore Exp $
+ * @version $Id: FileBackedBlogEntry.java,v 1.2.2.1 2005/07/21 14:11:02 johnan Exp $
  * @since blojsom 1.8
  */
 public class FileBackedBlogEntry extends BlogEntry {
@@ -57,6 +57,7 @@ public class FileBackedBlogEntry extends BlogEntry {
     private transient File _source;
     private transient String _commentsDirectory;
     private transient String _trackbacksDirectory;
+    private transient String _pingbacksDirectory;
     private transient String _blogFileEncoding;
 
     /**
@@ -65,12 +66,13 @@ public class FileBackedBlogEntry extends BlogEntry {
     public FileBackedBlogEntry() {
         _commentsDirectory = DEFAULT_COMMENTS_DIRECTORY;
         _trackbacksDirectory = DEFAULT_TRACKBACK_DIRECTORY;
+        _pingbacksDirectory = DEFAULT_PINGBACKS_DIRECTORY;
         _blogFileEncoding = UTF8;
     }
 
     /**
      * Create a new blog entry
-     * 
+     *
      * @param title       Entry title
      * @param link        Permalink to the entry
      * @param description Entry description
@@ -87,7 +89,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * Set the file encoding to use when loading the blog entry
-     * 
+     *
      * @param blogFileEncoding File encoding
      * @since blojsom 1.9
      */
@@ -97,7 +99,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * File containing the blog entry
-     * 
+     *
      * @return Blog entry file
      */
     public File getSource() {
@@ -106,7 +108,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * Set the file of the blog entry
-     * 
+     *
      * @param source File for the blog entry
      */
     public void setSource(File source) {
@@ -115,7 +117,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * Returns the BlogId  for this entry
-     * 
+     *
      * @return Blog Id
      */
     public String getId() {
@@ -129,7 +131,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * Return the permalink name for this blog entry
-     * 
+     *
      * @return Permalink name
      */
     public String getPermalink() {
@@ -173,7 +175,7 @@ public class FileBackedBlogEntry extends BlogEntry {
     /**
      * Determines whether or not this blog entry supports comments by testing to see if
      * the blog entry is writable.
-     * 
+     *
      * @return <code>true</code> if the blog entry is writable, <code>false</code> otherwise
      */
     public boolean supportsComments() {
@@ -182,7 +184,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * Determines whether or not this blog entry supports trackbacks.
-     * 
+     *
      * @return <code>true</code> if the blog entry supports trackbacks, <code>false</code> otherwise
      * @since blojsom 2.05
      */
@@ -191,8 +193,18 @@ public class FileBackedBlogEntry extends BlogEntry {
     }
 
     /**
+     * Determines whether or not this blog entry supports pingbacks.
+     *
+     * @return <code>true</code> if the blog entry supports pingbacks, <code>false</code> otherwise
+     * @since blojsom 2.23
+     */
+    public boolean supportsPingbacks() {
+        return _source.canWrite() && (!BlojsomUtils.checkMapForKey(_metaData, BLOG_METADATA_PINGBACKS_DISABLED));
+    }
+
+    /**
      * Set the directory for comments
-     * 
+     *
      * @param commentsDirectory Comments directory
      */
     public void setCommentsDirectory(String commentsDirectory) {
@@ -235,8 +247,8 @@ public class FileBackedBlogEntry extends BlogEntry {
      * author e-mail address<br />
      * author url<br />
      * everything else after is the comment
-     * 
-     * @param commentFile Comment file
+     *
+     * @param commentFile      Comment file
      * @param blogFileEncoding Encoding for blog files
      * @return BlogComment Blog comment loaded from disk
      */
@@ -285,18 +297,23 @@ public class FileBackedBlogEntry extends BlogEntry {
             if (commentMetaData.exists()) {
                 _logger.debug("Loading comment meta-data: " + commentMetaData.toString());
                 Properties commentMetaDataProperties = new BlojsomProperties();
-                commentMetaDataProperties.load(new FileInputStream(commentMetaData));
+                FileInputStream fis = new FileInputStream(commentMetaData);
+                commentMetaDataProperties.load(fis);
+                fis.close();
                 comment.setMetaData(BlojsomUtils.propertiesToMap(commentMetaDataProperties));
             }
         } catch (IOException e) {
             _logger.error(e);
         }
+
+        comment.setBlogEntry(this);
+
         return comment;
     }
 
     /**
      * Set the directory for trackbacks
-     * 
+     *
      * @param trackbacksDirectory Trackbacks directory
      */
     public void setTrackbacksDirectory(String trackbacksDirectory) {
@@ -335,8 +352,8 @@ public class FileBackedBlogEntry extends BlogEntry {
      * excerpt<br />
      * url<br />
      * blog_name
-     * 
-     * @param trackbackFile Trackback file
+     *
+     * @param trackbackFile    Trackback file
      * @param blogFileEncoding Encoding for blog files
      * @return Trackback Trackback loaded from disk
      */
@@ -383,6 +400,7 @@ public class FileBackedBlogEntry extends BlogEntry {
                         }
                 }
             }
+
             trackback.setId(trackbackFile.getName());
             br.close();
 
@@ -391,18 +409,137 @@ public class FileBackedBlogEntry extends BlogEntry {
             if (trackbackMetaData.exists()) {
                 _logger.debug("Loading trackback meta-data: " + trackbackMetaData.toString());
                 Properties trackbackMetaDataProperties = new BlojsomProperties();
-                trackbackMetaDataProperties.load(new FileInputStream(trackbackMetaData));
+                FileInputStream fis = new FileInputStream(trackbackMetaData);
+                trackbackMetaDataProperties.load(fis);
+                fis.close();
                 trackback.setMetaData(BlojsomUtils.propertiesToMap(trackbackMetaDataProperties));
             }
         } catch (IOException e) {
             _logger.error(e);
         }
+
+        trackback.setBlogEntry(this);
+        
         return trackback;
     }
 
     /**
+     * Set the directory for pingbacks
+     *
+     * @param pingbacksDirectory Pingbacks directory
+     * @since blojsom 2.23
+     */
+    public void setPingbacksDirectory(String pingbacksDirectory) {
+        _pingbacksDirectory = pingbacksDirectory;
+    }
+
+    /**
+     * Convenience method to load the pingbacks for this blog entry.
+     *
+     * @param blog {@link Blog} information
+     * @since blojsom 2.23
+     */
+    protected void loadPingbacks(Blog blog) {
+        String pingbacksDirectoryPath;
+        if (_source.getParent() == null) {
+            pingbacksDirectoryPath = File.separator + _pingbacksDirectory + File.separator + _source.getName();
+        } else {
+            pingbacksDirectoryPath = _source.getParent() + File.separator + _pingbacksDirectory + File.separator + _source.getName();
+        }
+
+        File pingbacksDirectory = new File(pingbacksDirectoryPath);
+        File[] pingbacks = pingbacksDirectory.listFiles(BlojsomUtils.getExtensionFilter(PINGBACK_EXTENSION));
+        if ((pingbacks != null) && (pingbacks.length > 0)) {
+            _logger.debug("Adding " + pingbacks.length + " pingbacks to blog entry: " + getPermalink());
+            Arrays.sort(pingbacks, BlojsomUtils.FILE_TIME_ASCENDING_COMPARATOR);
+            _pingbacks = new ArrayList(pingbacks.length);
+            for (int i = 0; i < pingbacks.length; i++) {
+                File pingbackFile = pingbacks[i];
+                _pingbacks.add(loadPingback(pingbackFile, blog.getBlogFileEncoding()));
+            }
+        }
+    }
+
+    /**
+     * Load a pingback for this blog entry from disk
+     * Pingbacks must always have the form:<br />
+     * title<br>
+     * url<br />
+     * blog_name<br/>
+     * excerpt<br />
+     *
+     * @param pingbackFile    Pingback file
+     * @param blogFileEncoding Encoding for blog files
+     * @return {@link Pingback} loaded from disk
+     * @since blojsom 2.23
+     */
+    protected Pingback loadPingback(File pingbackFile, String blogFileEncoding) {
+        int pingbackSwitch = 0;
+        Pingback pingback = new Pingback();
+        pingback.setTrackbackDateLong(pingbackFile.lastModified());
+        StringBuffer pingbackExcerpt = new StringBuffer();
+        String pingbackLine;
+        try {
+            BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(pingbackFile), blogFileEncoding));
+            while (((pingbackLine = br.readLine()) != null) && (pingbackSwitch < 4)) {
+                switch (pingbackSwitch) {
+                    case 0:
+                        {
+                            if (!"".equals(pingbackLine.trim())) {
+                                pingback.setTitle(pingbackLine);
+                            }
+                            pingbackSwitch++;
+                            break;
+                        }
+                    case 1:
+                        {
+                            if (!"".equals(pingbackLine.trim())) {
+                                pingback.setUrl(pingbackLine);
+                            }
+                            pingbackSwitch++;
+                            break;
+                        }
+                    case 2:
+                        {
+                            if (!"".equals(pingbackLine.trim())) {
+                                pingback.setBlogName(pingbackLine);
+                            }
+                            pingbackSwitch++;
+                            break;
+                        }
+                    default:
+                        {
+                            pingbackExcerpt.append(pingbackLine).append(BlojsomUtils.LINE_SEPARATOR);
+                        }
+                }
+            }
+
+            pingback.setExcerpt(pingbackExcerpt.toString());
+            pingback.setId(pingbackFile.getName());
+            br.close();
+
+            // Load pingback meta-data if available
+            File pingbackMetaData = new File(BlojsomUtils.getFilename(pingbackFile.toString()) + ".meta");
+            if (pingbackMetaData.exists()) {
+                _logger.debug("Loading pingback meta-data: " + pingbackMetaData.toString());
+                Properties pingbackMetaDataProperties = new BlojsomProperties(true);
+                FileInputStream fis = new FileInputStream(pingbackMetaData);
+                pingbackMetaDataProperties.load(fis);
+                fis.close();
+                pingback.setMetaData(BlojsomUtils.propertiesToMap(pingbackMetaDataProperties));
+            }
+        } catch (IOException e) {
+            _logger.error(e);
+        }
+
+        pingback.setBlogEntry(this);
+
+        return pingback;
+    }
+
+    /**
      * Load the meta data for the entry
-     * 
+     *
      * @param blog Blog information
      * @since blojsom 1.9
      */
@@ -458,7 +595,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * Store the meta data for the entry
-     * 
+     *
      * @param blog Blog information
      * @since blojsom 1.9
      */
@@ -474,16 +611,8 @@ public class FileBackedBlogEntry extends BlogEntry {
         File blogEntryMetaData = new File(blogHome + BlojsomUtils.removeInitialSlash(_category) + File.separator + entryFilename + blogEntryMetaDataExtension);
 
         try {
-            Properties entryMetaData = new BlojsomProperties(blog.getBlogFileEncoding());
+            Properties entryMetaData = BlojsomUtils.mapToProperties(_metaData, UTF8);
             FileOutputStream fos = new FileOutputStream(blogEntryMetaData);
-            Iterator keys = _metaData.keySet().iterator();
-            String key;
-
-            while (keys.hasNext()) {
-                key = (String) keys.next();
-                entryMetaData.put(key, _metaData.get(key));
-            }
-
             entryMetaData.store(fos, null);
             fos.close();
 
@@ -494,8 +623,41 @@ public class FileBackedBlogEntry extends BlogEntry {
     }
 
     /**
+     * Load the blog category information for this entry
+     *
+     * @param blogUser {@link BlogUser} information
+     * @since blojsom 2.23
+     */
+    protected void loadBlogCategory(BlogUser blogUser) {
+        if (_category != null) {
+            Blog blog = blogUser.getBlog();
+            FileBackedBlogCategory blogCategoryForEntry;
+
+            blogCategoryForEntry = new FileBackedBlogCategory();
+            blogCategoryForEntry.setCategory(_category);
+            blogCategoryForEntry.setCategoryURL(blog.getBlogURL() + BlojsomUtils.removeInitialSlash(_category));
+
+            try {
+                blogCategoryForEntry.load(blogUser);
+            } catch (BlojsomException e) {
+                _logger.error(e);
+            }
+
+
+            if ("/".equals(_category)) {
+                setLink(blog.getBlogURL() + '?' + PERMALINK_PARAM + '=' + BlojsomUtils.urlEncode(_source.getName()));
+            } else {
+                setLink(blog.getBlogURL() + BlojsomUtils.urlEncodeForLink(_category.substring(0, _category.length() - 1)) + "/?" + PERMALINK_PARAM + '=' + BlojsomUtils.urlEncode(_source.getName()));
+            }
+
+            blogCategoryForEntry.setBlogEntry(this);
+            _blogCategory = blogCategoryForEntry;
+        }
+    }
+
+    /**
      * Load a blog entry.
-     * 
+     *
      * @param blogUser User information
      * @throws BlojsomException If there is an error loading the entry
      * @since blojsom 1.9
@@ -509,9 +671,11 @@ public class FileBackedBlogEntry extends BlogEntry {
 
         try {
             reloadSource(blog);
+            loadBlogCategory(blogUser);
             if (blog.getBlogCommentsEnabled().booleanValue()) {
                 loadComments(blog);
                 loadTrackbacks(blog);
+                loadPingbacks(blog);
             }
             loadMetaData(blog);
         } catch (IOException e) {
@@ -522,7 +686,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * Save the blog entry. This method does not write out the comments or trackbacks to disk.
-     * 
+     *
      * @param blogUser User information
      * @throws BlojsomException If there is an error saving the entry
      * @since blojsom 1.9
@@ -569,7 +733,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * Delete the blog entry.
-     * 
+     *
      * @param blogUser User information
      * @throws BlojsomException If there is an error deleting the entry
      * @since blojsom 1.9
@@ -597,6 +761,11 @@ public class FileBackedBlogEntry extends BlogEntry {
                 + File.separatorChar + _source.getName() + File.separatorChar);
         BlojsomUtils.deleteDirectory(_trackbacks);
 
+         // Delete pingbacks
+        File _pingbacks = new File(blog.getBlogHome() + _category + blog.getBlogPingbacksDirectory()
+                + File.separatorChar + _source.getName() + File.separatorChar);
+        BlojsomUtils.deleteDirectory(_pingbacks);
+
         // Delete meta-data
         File metaFile = new File(blog.getBlogHome() + _category + BlojsomUtils.getFilename(_source.getName())
                 + blog.getBlogEntryMetaDataExtension());
@@ -607,7 +776,7 @@ public class FileBackedBlogEntry extends BlogEntry {
 
     /**
      * Set any attributes of the blog entry using data from the map.
-     * 
+     *
      * @param attributeMap Attributes
      */
     public void setAttributes(Map attributeMap) {

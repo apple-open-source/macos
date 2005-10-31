@@ -43,7 +43,7 @@ namespace KJS {
 
     virtual Value get(ExecState *exec, const Identifier &propertyName) const;
     virtual void put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
-    virtual bool hasProperty(ExecState *exec, const Identifier &propertyName) const;
+    virtual bool hasOwnProperty(ExecState *exec, const Identifier &propertyName) const;
     virtual bool deleteProperty(ExecState *exec, const Identifier &propertyName);
 
     virtual bool implementsCall() const;
@@ -72,14 +72,13 @@ namespace KJS {
   public:
     DeclaredFunctionImp(ExecState *exec, const Identifier &n,
 			FunctionBodyNode *b, const ScopeChain &sc);
-    ~DeclaredFunctionImp();
 
     bool implementsConstruct() const;
     Object construct(ExecState *exec, const List &args);
 
     virtual Completion execute(ExecState *exec);
     CodeType codeType() const { return FunctionCode; }
-    FunctionBodyNode *body;
+    kxmlcore::SharedPtr<FunctionBodyNode> body;
 
     virtual const ClassInfo *classInfo() const { return &info; }
     static const ClassInfo info;
@@ -105,7 +104,7 @@ namespace KJS {
 
     virtual Value get(ExecState *exec, const Identifier &propertyName) const;
     virtual void put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
-    virtual bool hasProperty(ExecState *exec, const Identifier &propertyName) const;
+    virtual bool hasOwnProperty(ExecState *exec, const Identifier &propertyName) const;
     virtual bool deleteProperty(ExecState *exec, const Identifier &propertyName);
 
     virtual const ClassInfo *classInfo() const { return &info; }

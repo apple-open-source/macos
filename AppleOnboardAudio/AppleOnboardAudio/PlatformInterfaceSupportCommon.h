@@ -75,7 +75,8 @@ typedef enum GPIOSelector {
 	kGPIO_Selector_SpeakerDetect,
 	kGPIO_Selector_SpeakerMute,
 	kGPIO_Selector_ExternalMicDetect,
-	kGPIO_Selector_NotAssociated
+	kGPIO_Selector_NotAssociated,
+	kGPIO_Selector_InternalMicrophoneID,		// Needs to be added to DiagnosticSupport/AOA Viewer sources
 };
 
 //	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.

@@ -591,7 +591,6 @@
 				A1AB1BC105DD88C700526345,
 				A1AB1BC205DD88C700526345,
 				A1AB1BC305DD88C700526345,
-				A1F43C88076F9DBD006E2729,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1202,12 +1201,6 @@
 			path = CredentialsCacheErrors.jam;
 			refType = 4;
 			sourceTree = "<group>";
-		};
-		A1F43C88076F9DBD006E2729 = {
-			fileRef = A1F43C87076F9DBD006E2729;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //A10
 //A11

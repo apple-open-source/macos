@@ -81,6 +81,28 @@ macosx_resize_window (int *lines_per_page, int *chars_per_line)
 }
 
 void
+update_command (char *args, int from_tty)
+{
+  registers_changed ();
+  reinit_frame_cache ();
+}
+
+void
+stack_flush_command (char *args, int from_tty)
+{
+  reinit_frame_cache ();
+  if (from_tty)
+    printf_filtered ("Stack cache flushed.\n");
+}
+
+void
 _initialize_macosx_xdep ()
 {
+  add_com ("flushstack", class_maintenance, stack_flush_command,
+           "Force gdb to flush its stack-frame cache (maintainer command)");
+
+  add_com_alias ("flush", "flushregs", class_maintenance, 1);
+
+  add_com ("update", class_obscure, update_command,
+           "Re-read current state information from inferior.");
 }

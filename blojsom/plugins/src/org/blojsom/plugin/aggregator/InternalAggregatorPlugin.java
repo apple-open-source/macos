@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,7 @@ import org.blojsom.blog.Blog;
 import org.blojsom.util.BlojsomUtils;
 import org.blojsom.fetcher.BlojsomFetcher;
 import org.blojsom.fetcher.BlojsomFetcherException;
+import org.blojsom.BlojsomException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -55,7 +56,7 @@ import java.util.*;
  * Internal Aggregator Plugin
  *
  * @author David Czarnecki
- * @version $Id: InternalAggregatorPlugin.java,v 1.1 2004/08/27 01:06:36 whitmore Exp $
+ * @version $Id: InternalAggregatorPlugin.java,v 1.1.2.1 2005/07/21 04:30:26 johnan Exp $
  * @since blojsom 2.17
  */
 public class InternalAggregatorPlugin implements BlojsomPlugin {
@@ -125,50 +126,54 @@ public class InternalAggregatorPlugin implements BlojsomPlugin {
      *          If there is an error processing the blog entries
      */
     public BlogEntry[] process(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, BlogUser user, Map context, BlogEntry[] entries) throws BlojsomPluginException {
-        Map users = _blojsomConfiguration.getBlogUsers();
-        Iterator userIterator = users.keySet().iterator();
-        String userID;
+        String[] blogs = _blojsomConfiguration.getBlojsomUsers();
+        String blogID;
         Blog blogInformation;
         ArrayList aggregatedEntries = new ArrayList(50);
         BlogEntry[] entriesFromBlog = null;
         BlogEntry[] entriesToSort = null;
 
-        while (userIterator.hasNext()) {
-            userID = (String) userIterator.next();
-            BlogUser blogUser = (BlogUser) users.get(userID);
+        for (int blogCounter = 0; blogCounter < blogs.length; blogCounter++) {
+            blogID = blogs[blogCounter];
+            BlogUser blogUser = null;
+            try {
+                blogUser = _blojsomConfiguration.loadBlog(blogID);
 
-            blogInformation = blogUser.getBlog();
-            Boolean optOut = Boolean.valueOf(blogInformation.getBlogProperty(BLOJSOM_PLUGIN_INTERNAL_AGGREGATOR_OPT_OUT));
-            if (!optOut.booleanValue()) {
-                Map fetchParameters = new HashMap();
-                fetchParameters.put(BlojsomFetcher.FETCHER_FLAVOR, blogInformation.getBlogDefaultFlavor());
-                fetchParameters.put(BlojsomFetcher.FETCHER_NUM_POSTS_INTEGER, new Integer(blogInformation.getBlogDisplayEntries()));
+                blogInformation = blogUser.getBlog();
+                Boolean optOut = Boolean.valueOf(blogInformation.getBlogProperty(BLOJSOM_PLUGIN_INTERNAL_AGGREGATOR_OPT_OUT));
+                if (!optOut.booleanValue()) {
+                    Map fetchParameters = new HashMap();
+                    fetchParameters.put(BlojsomFetcher.FETCHER_FLAVOR, blogInformation.getBlogDefaultFlavor());
+                    fetchParameters.put(BlojsomFetcher.FETCHER_NUM_POSTS_INTEGER, new Integer(blogInformation.getBlogDisplayEntries()));
 
-                try {
-                    entriesFromBlog = _fetcher.fetchEntries(fetchParameters, blogUser);
-                } catch (BlojsomFetcherException e) {
-                    _logger.error(e);
-                }
+                    try {
+                        entriesFromBlog = _fetcher.fetchEntries(fetchParameters, blogUser);
+                    } catch (BlojsomFetcherException e) {
+                        _logger.error(e);
+                    }
 
-                if (entriesFromBlog != null && entriesFromBlog.length > 0) {
-                    String blogName = blogInformation.getBlogName();
-                    String blogURL = blogInformation.getBlogURL();
+                    if (entriesFromBlog != null && entriesFromBlog.length > 0) {
+                        String blogName = blogInformation.getBlogName();
+                        String blogURL = blogInformation.getBlogURL();
 
-                    int counter = (entriesFromBlog.length > DEFAULT_MOST_RECENT_ENTRIES_SIZE) ? DEFAULT_MOST_RECENT_ENTRIES_SIZE : entriesFromBlog.length;
-                    for (int i = 0; i < counter; i++) {
-                        BlogEntry blogEntry = entriesFromBlog[i];
-                        Map blogEntryMetaData = blogEntry.getMetaData();
+                        int counter = (entriesFromBlog.length > DEFAULT_MOST_RECENT_ENTRIES_SIZE) ? DEFAULT_MOST_RECENT_ENTRIES_SIZE : entriesFromBlog.length;
+                        for (int i = 0; i < counter; i++) {
+                            BlogEntry blogEntry = entriesFromBlog[i];
+                            Map blogEntryMetaData = blogEntry.getMetaData();
 
-                        if (blogEntryMetaData == null) {
-                            blogEntryMetaData = new HashMap();
+                            if (blogEntryMetaData == null) {
+                                blogEntryMetaData = new HashMap();
+                            }
+
+                            blogEntryMetaData.put(BLOJSOM_PLUGIN_INTERNAL_AGGREGATOR_BLOG_NAME, blogName);
+                            blogEntryMetaData.put(BLOJSOM_PLUGIN_INTERNAL_AGGREGATOR_BLOG_URL, blogURL);
+                            blogEntry.setMetaData(blogEntryMetaData);
+                            aggregatedEntries.add(blogEntry);
                         }
-
-                        blogEntryMetaData.put(BLOJSOM_PLUGIN_INTERNAL_AGGREGATOR_BLOG_NAME, blogName);
-                        blogEntryMetaData.put(BLOJSOM_PLUGIN_INTERNAL_AGGREGATOR_BLOG_URL, blogURL);
-                        blogEntry.setMetaData(blogEntryMetaData);
-                        aggregatedEntries.add(blogEntry);
                     }
                 }
+            } catch (BlojsomException e) {
+                _logger.error(e);
             }
         }
 
@@ -177,7 +182,7 @@ public class InternalAggregatorPlugin implements BlojsomPlugin {
             Arrays.sort(entriesToSort, BlojsomUtils.FILE_TIME_COMPARATOR);
             context.put(BLOJSOM_PLUGIN_INTERNAL_AGGREGATOR_ENTRIES, entriesToSort);
         }
-        
+
         return entries;
     }
 

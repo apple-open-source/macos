@@ -1,22 +1,31 @@
 /* Implementation of the GETARG and IARGC g77, and
    corresponding F2003, intrinsics. 
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Bud Davis and Janne Blomqvist.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfor; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -28,8 +37,11 @@ Boston, MA 02111-1307, USA.  */
 
 /* Get a commandline argument.  */
 
+extern void getarg_i4 (GFC_INTEGER_4 *, char *, gfc_charlen_type);
+iexport_proto(getarg_i4);
+
 void 
-prefix(getarg_i4) (GFC_INTEGER_4 *pos, char  *val, gfc_charlen_type val_len)
+getarg_i4 (GFC_INTEGER_4 *pos, char  *val, gfc_charlen_type val_len)
 {
   int argc;
   int arglen;
@@ -50,31 +62,38 @@ prefix(getarg_i4) (GFC_INTEGER_4 *pos, char  *val, gfc_charlen_type val_len)
       memcpy (val, argv[*pos], arglen);
     }
 }
+iexport(getarg_i4);
 
 
 /* INTEGER*8 wrapper of getarg.  */
 
-void 
-prefix(getarg_i8) (GFC_INTEGER_8 *pos, char  *val, gfc_charlen_type val_len)
-{
-  GFC_INTEGER_4 pos4;
+extern void getarg_i8 (GFC_INTEGER_8 *, char *, gfc_charlen_type);
+export_proto (getarg_i8);
 
-  pos4 = (GFC_INTEGER_4) *pos;
-  prefix(getarg_i4) (&pos4, val, val_len);
+void 
+getarg_i8 (GFC_INTEGER_8 *pos, char  *val, gfc_charlen_type val_len)
+{
+  GFC_INTEGER_4 pos4 = (GFC_INTEGER_4) *pos;
+  getarg_i4 (&pos4, val, val_len);
 }
 
 
-/* Return the number of commandline arguments.  */
+/* Return the number of commandline arguments.  The g77 info page 
+   states that iargc does not include the specification of the
+   program name itself.  */
+
+extern GFC_INTEGER_4 iargc (void);
+export_proto(iargc);
 
 GFC_INTEGER_4
-prefix(iargc) (void)
+iargc (void)
 {
   int argc;
   char **argv;
 
   get_args (&argc, &argv);
 
-  return argc;
+  return (argc - 1);
 } 
 
 
@@ -96,14 +115,16 @@ prefix(iargc) (void)
 #define GFC_GC_FAILURE 42
 
 
+extern void get_command_argument_i4 (GFC_INTEGER_4 *, char *, GFC_INTEGER_4 *,
+				     GFC_INTEGER_4 *, gfc_charlen_type);
+iexport_proto(get_command_argument_i4);
+
 /* Get a single commandline argument.  */
 
 void
-prefix(get_command_argument_i4) (GFC_INTEGER_4 *number, 
-				 char *value, 
-				 GFC_INTEGER_4 *length, 
-				 GFC_INTEGER_4 *status, 
-				 gfc_charlen_type value_len)
+get_command_argument_i4 (GFC_INTEGER_4 *number, char *value, 
+			 GFC_INTEGER_4 *length, GFC_INTEGER_4 *status, 
+			 gfc_charlen_type value_len)
 {
   int argc, arglen = 0, stat_flag = GFC_GC_SUCCESS;
   char **argv;
@@ -146,24 +167,26 @@ prefix(get_command_argument_i4) (GFC_INTEGER_4 *number,
   if (status != NULL)
     *status = stat_flag;
 }
+iexport(get_command_argument_i4);
 
 
 /* INTEGER*8 wrapper for get_command_argument.  */
 
+extern void get_command_argument_i8 (GFC_INTEGER_8 *, char *, GFC_INTEGER_8 *, 
+				     GFC_INTEGER_8 *, gfc_charlen_type);
+export_proto(get_command_argument_i8);
+
 void
-prefix(get_command_argument_i8) (GFC_INTEGER_8 *number, 
-				 char *value, 
-				 GFC_INTEGER_8 *length, 
-				 GFC_INTEGER_8 *status, 
-				 gfc_charlen_type value_len)
+get_command_argument_i8 (GFC_INTEGER_8 *number, char *value, 
+			 GFC_INTEGER_8 *length, GFC_INTEGER_8 *status, 
+			 gfc_charlen_type value_len)
 {
   GFC_INTEGER_4 number4;
   GFC_INTEGER_4 length4;
   GFC_INTEGER_4 status4;
 
   number4 = (GFC_INTEGER_4) *number;
-  prefix (get_command_argument_i4) (&number4, value, &length4, &status4,
-				    value_len);
+  get_command_argument_i4 (&number4, value, &length4, &status4, value_len);
   if (length)
     *length = length4;
   if (status)
@@ -173,11 +196,13 @@ prefix(get_command_argument_i8) (GFC_INTEGER_8 *number,
 
 /* Return the whole commandline.  */
 
+extern void get_command_i4 (char *, GFC_INTEGER_4 *, GFC_INTEGER_4 *,
+			    gfc_charlen_type);
+iexport_proto(get_command_i4);
+
 void
-prefix(get_command_i4) (char *command, 
-			GFC_INTEGER_4 *length, 
-			GFC_INTEGER_4 *status,
-			gfc_charlen_type command_len)
+get_command_i4 (char *command, GFC_INTEGER_4 *length, GFC_INTEGER_4 *status,
+		gfc_charlen_type command_len)
 {
   int i, argc, arglen, thisarg;
   int stat_flag = GFC_GC_SUCCESS;
@@ -229,20 +254,23 @@ prefix(get_command_i4) (char *command,
   if (status != NULL)
     *status = stat_flag;
 }
+iexport(get_command_i4);
 
 
 /* INTEGER*8 wrapper for get_command.  */
 
+extern void get_command_i8 (char *, GFC_INTEGER_8 *, GFC_INTEGER_8 *,
+			    gfc_charlen_type);
+export_proto(get_command_i8);
+
 void
-prefix(get_command_i8) (char *command, 
-			GFC_INTEGER_8 *length, 
-			GFC_INTEGER_8 *status,
-			gfc_charlen_type command_len)
+get_command_i8 (char *command, GFC_INTEGER_8 *length, GFC_INTEGER_8 *status,
+		gfc_charlen_type command_len)
 {
   GFC_INTEGER_4 length4;
   GFC_INTEGER_4 status4;
 
-  prefix (get_command_i4) (command, &length4, &status4, command_len);
+  get_command_i4 (command, &length4, &status4, command_len);
   if (length)
     *length = length4;
   if (status)

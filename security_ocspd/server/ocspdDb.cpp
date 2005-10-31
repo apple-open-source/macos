@@ -508,6 +508,12 @@ void OcspdDatabase::addResponse(
 		ocspdDbDebug("addResponse: error parsing response");
 		return;
 	}
+	if(resp->responseStatus() != RS_Success) {
+		/* e.g., RS_Unauthorized */
+		ocspdDbDebug("addResponse: responseStatus %d, aborting", (int)resp->responseStatus());
+		delete resp;
+		return;
+	}
 	
 	/*
 	 * Get expiration date in the form of the latest of all of the enclosed
@@ -537,12 +543,16 @@ void OcspdDatabase::addResponse(
 	SecAsn1CoderCreate(&coder);
 	const SecAsn1OCSPResponseData &respData = resp->responseData();
 	unsigned numSingleResps = ocspdArraySize((const void **)respData.responses);
-	
 	CSSM_DB_ATTRIBUTE_INFO oneAttr = OCSPD_DBATTR_CERT_ID;
 	CSSM_DB_ATTRIBUTE_INFO twoAttr = OCSPD_DBATTR_URI;
 	CSSM_DB_ATTRIBUTE_INFO threeAttr = OCSPD_DBATTR_EXPIRATION;
 	attrData[0].Info = oneAttr;
 	attrData[0].NumberOfValues = numSingleResps;
+	#ifndef	NDEBUG
+	if(numSingleResps > 1) {
+		ocspdDbDebug("addResponse: MULTIPLE SINGLE RESPONSES (%u)", numSingleResps);
+	}
+	#endif
 	attrData[0].Value = (CSSM_DATA_PTR)SecAsn1Malloc(coder, 
 		numSingleResps * sizeof(CSSM_DATA));
 	memset(attrData[0].Value, 0, numSingleResps * sizeof(CSSM_DATA));
@@ -569,11 +579,11 @@ void OcspdDatabase::addResponse(
 	}
 
 	attrData[1].Info = twoAttr;
-	attrData[1].NumberOfValues = numSingleResps;
+	attrData[1].NumberOfValues = 1;
 	attrData[1].Value = const_cast<CSSM_DATA_PTR>(&URI);	
 	
 	attrData[2].Info = threeAttr;
-	attrData[2].NumberOfValues = numSingleResps;
+	attrData[2].NumberOfValues = 1;
 	attrData[2].Value = &expireData;	
 
 	crtn = CSSM_DL_DataInsert(mDlDbHandle,

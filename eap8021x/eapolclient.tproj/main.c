@@ -194,6 +194,7 @@ main(int argc, char * argv[1])
     char *			if_name = NULL;
     LinkAddressesRef		link_addrs = NULL;
     struct sockaddr_dl *	link = NULL;
+    bool			n_flag = FALSE;
     bool			u_flag = FALSE;
     uid_t			uid = 0;
 
@@ -202,7 +203,7 @@ main(int argc, char * argv[1])
 	printf("Could not build interface list\n");
 	exit(EX_OSERR);
     }
-    while ((ch = getopt(argc, argv, "c:di:u:g:")) != EOF) {
+    while ((ch = getopt(argc, argv, "c:di:nu:g:")) != EOF) {
 	switch ((char) ch) {
 	case 'c':
 	    config_file = optarg;
@@ -230,6 +231,9 @@ main(int argc, char * argv[1])
 	    }
 	    gid = strtoul(optarg, NULL, 0);
 	    g_flag = TRUE;
+	    break;
+	case 'n':
+	    n_flag = TRUE;
 	    break;
 	default:
 	    usage(argv[0]);
@@ -285,6 +289,9 @@ main(int argc, char * argv[1])
     if (supp == NULL) {
 	syslog(LOG_NOTICE, "Supplicant_create failed");
 	exit(EX_UNAVAILABLE);
+    }
+    if (n_flag) {
+	Supplicant_set_no_ui(supp);
     }
     if (Supplicant_attached(supp)) {
 	(void)setsid();

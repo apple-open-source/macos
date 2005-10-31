@@ -133,6 +133,7 @@ public:
 
     // Keychain calls
 	void create(UInt32 passwordLength, const void *inPassword);
+	void createWithBlob(CssmData &blob);
     void create(ConstStringPtr inPassword);
     void create();
     void create(const ResourceControlContext *rcc);

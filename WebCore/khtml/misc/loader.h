@@ -297,6 +297,8 @@ namespace khtml
 	void checkNotify();
 
         bool isLoaded() const { return !m_loading; }
+        
+        virtual bool isImage() const { return false; }
 
     protected:
 	DOM::DOMString m_script;
@@ -359,8 +361,9 @@ namespace khtml
         virtual bool schedule() const { return true; }
 
 	void checkNotify();
+        
+        virtual bool isImage() const { return true; }
 
-    protected:
 	void clear();
 
     private slots:
@@ -524,6 +527,7 @@ protected:
 	QBuffer m_buffer;
 	CachedObject *object;
         DocLoader* m_docLoader;
+        bool multipart;
      };
 
     /**

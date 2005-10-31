@@ -87,7 +87,7 @@
 
 @implementation DecodeInterfaceAssociationDescriptor
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceInterface **)deviceIntf{
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceRef)deviceIntf{
     /*	struct IOUSBInterfaceAssociationDescriptor
 {
     UInt8 			bLength;

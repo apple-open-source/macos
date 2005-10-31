@@ -71,6 +71,7 @@ void Float32ToSwapInt32( float *src, signed long *dst, unsigned int count );
 #pragma mark ••• Utilities
 #pragma mark ---------------------------------------- 
 
+int 	validateSoftwareVolumes( float left, float right,UInt32 maxVolumedB, UInt32 minVolumedB);
 void 	inputGainConverter (UInt32 inGainIndex, float* ioGainPtr);
 void 	volumeConverter (UInt32 inVolume, UInt32 inMinLinear, UInt32 inMaxLinear, SInt32 inMindB, SInt32 inMaxdB, float* outVolume);
 void 	convertToFourDotTwenty(FourDotTwenty* ioFourDotTwenty, float* inFloatPtr);

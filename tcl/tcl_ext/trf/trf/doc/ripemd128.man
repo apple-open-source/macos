@@ -1,2 +1,0 @@
-[vset    digest 128]
-[include digest/ripemd.inc]

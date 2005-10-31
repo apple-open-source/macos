@@ -1,5 +1,5 @@
 /* FileOutputStream.java -- Writes to a file on disk.
-   Copyright (C) 1998, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2001, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -51,8 +51,8 @@ import java.nio.channels.FileChannel;
  * This classes allows a stream of data to be written to a disk file or
  * any open <code>FileDescriptor</code>.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Tom Tromey <tromey@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Tom Tromey (tromey@cygnus.com)
  */
 public class FileOutputStream extends OutputStream
 {
@@ -72,7 +72,7 @@ public class FileOutputStream extends OutputStream
    * one exists) with the name of the file to be opened.  An exception is
    * thrown if writing is not allowed. 
    *
-   * @param name The name of the file this stream should write to
+   * @param path The name of the file this stream should write to
    * @param append <code>true</code> to append bytes to the end of the file,
    * or <code>false</code> to write bytes to the beginning
    *
@@ -95,7 +95,7 @@ public class FileOutputStream extends OutputStream
    * one exists) with the name of the file to be opened.  An exception is
    * thrown if writing is not allowed. 
    *
-   * @param name The name of the file this stream should write to
+   * @param path The name of the file this stream should write to
    *
    * @exception SecurityException If write access to the file is not allowed
    * @exception FileNotFoundException If a non-security error occurs
@@ -176,7 +176,7 @@ public class FileOutputStream extends OutputStream
    * one exists) with the specified <code>FileDescriptor</code> as an argument.
    * An exception is thrown if writing is not allowed. 
    *
-   * @param file The <code>FileDescriptor</code> this stream should write to
+   * @param fdObj The <code>FileDescriptor</code> this stream should write to
    *
    * @exception SecurityException If write access to the file is not allowed
    */

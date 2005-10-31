@@ -598,7 +598,7 @@ PRIVATE rpc_socket_error_t rpc__socket_receive
     	}
     	else
     	{
-            bytes_rcvd = smb_read(sock->ctx, sock->fid, 0, len, buf);
+            bytes_rcvd = smb_read(sock->ctx, sock->fid, 0, len, (char *)buf);
             if (bytes_rcvd == -1)
             {
                 bytes_rcvd = 0;

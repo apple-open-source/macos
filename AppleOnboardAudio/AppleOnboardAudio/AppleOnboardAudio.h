@@ -34,6 +34,8 @@ enum invokeInternalFunctionSelectors {
 #define kiSubMaxVolume					60
 #define kiSubVolumePercent				92
 
+#define kRelockToExternalClockMaxNumPolls        4                  /* [4189050] */
+
 #define	kAOAPropertyHeadphoneExclusive	'hpex'						/*	Needs to be added to IOAudioTypes.h and then removed from here	*/
 
 typedef struct {
@@ -142,9 +144,10 @@ typedef struct AOAStateUserClientStruct {
 #define kHardwareObjects				"HardwareObjects"
 #define kPlatformObject					"PlatformObject"
 #define kAmpRecoveryTime				"AmpRecoveryTime"
+#define kInputAutoSelect                "InputAutoSelect"
 #define kMicrosecsToSleep				"microsecsToSleep"				/*	[3938771]		*/
 #define kExternalClockSelect			"ExternalClockSelect"
-#define kExternalClockSelectAuto		"ExternalClockSelectAuto"		/*  For S/DIF input with no hardware Sample Rate Converter	*/
+#define kExternalClockAutoSelect		"ExternalClockAutoSelect"		/*  For S/DIF input with no hardware Sample Rate Converter	*/
 #define kTransportObject				"TransportObject"
 #define kControls						"Controls"
 #define kFormats						"Formats"
@@ -179,7 +182,10 @@ typedef struct AOAStateUserClientStruct {
 #define kMuteAmpWhenClockInterrupted    "MuteAmpWhenClockInterrupted"
 #define kInputsBitmap					"InputsBitmap"
 #define kOutputsBitmap					"OutputsBitmap"
-#define kSuppressBootChimeLevelCtrl		"suppressBootChimeLevelControl" /*  3730863]	*/
+#define kSuppressBootChimeLevelCtrl		"suppressBootChimeLevelControl" /*  [3730863]	*/
+
+#define kComboInNoIrq                   "ComboInNoIrq"                  /*  [4073140,4079688] */
+#define kComboOutNoIrq                  "ComboOutNoIrq"                 /*  [4073140,4079688] */
 
 #define kTransportIndex					"TransportIndex"				/*  [3648867]   Provides an association between the 'i2s' IO Module and the I2C address of device attached to it.	*/
 																		/*				Used as a <key>TransportIndex</key><integer></integer> value pair where values represent:			*/
@@ -314,7 +320,11 @@ protected:
 	OSString *							mLineOutputString;
 	OSString *							mDigitalOutputString;
 	OSString *							mHeadphoneOutputString;
-		
+    OSString *                          mInternalMicrophoneInputString;
+    OSString *                          mExternalMicrophoneInputString;
+    OSString *                          mLineInputString;
+    OSString *                          mDigitalInputString;
+    
 	// we keep the engines around to have a cleaner initHardware
     AppleDBDMAAudio *					mDriverDMAEngine;
 
@@ -380,7 +390,16 @@ protected:
 	UInt32								mDigitalInsertStatus;
 	
 	bool								mUIMutesAmps;
+    bool                                mAutoSelectInput;
+    bool                                mAutoSelectClock;
+    bool                                mDisableAutoSelectClock;
 	bool								mMuteAmpWhenClockInterrupted;
+    
+    bool                                mRelockToExternalClockInProgress;   // [4189050]
+    UInt32                              mRelockToExternalClockPollCount;    // [4189050]
+	
+	bool								mHasSPDIFControl;			// [3639956] Remember we have a selection of SPDIF, we need to know that after wakeup
+	SInt32								mOutputSelectorLastValue;	// [3639956] Remember the last user-selected value, so we can restore SPDIF after sleep 
 	
 public:
 	IOInterruptEventSource *			mSoftwareInterruptHandler;
@@ -587,7 +606,7 @@ protected:
 	void				initializeDetectCollection ( void );
 	UInt32				getValueForDetectCollection ( UInt32 currentDetectCollection );
 	UInt32				parseOutputDetectCollection (void);
-	void				updateOutputDetectCollection (UInt32 statusSelector, UInt32 newValue);
+	void				updateAllDetectCollection (UInt32 statusSelector, UInt32 newValue);
 	UInt32				parseInputDetectCollection (void);
 	void				selectOutputAmplifiers (const UInt32 inSelection, const bool inMuteState, const bool inUpdateAll = TRUE);
 	void				muteAllAmps();

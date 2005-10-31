@@ -6,21 +6,21 @@ use Encode;
 Encode::perlio_ok ("utf16") or die ("can't read utf16");
 
 my $kfm = "KfM";
-my $version;
-my $versionString;
+my $buildVersion;
+my $marketingVersion;
 my $copyright = "Copyright 2004 Massachusetts Institute of Technology";
 my $shortCopyright = "Copyright 2004 MIT";
 my $root;
 
-my $usage = "Usage: KerberosVersion --version version --versionString string <root>\n";
+my $usage = "Usage: KerberosVersion --build buildVersion --version versionString <root>\n";
 while ($_ = shift @ARGV) {
-    if    (/^--version$/)       { $version = shift @ARGV; }
-    elsif (/^--versionString$/) { $versionString = shift @ARGV; }
-    else                        { $root = $_; }
+    if    (/^--build/)   { $buildVersion = shift @ARGV; }
+    elsif (/^--version/) { $marketingVersion = shift @ARGV; }
+    else                 { $root = $_; }
 }
 
-$version or die $usage;
-$versionString or die $usage;
+$buildVersion or die $usage;
+$marketingVersion or die $usage;
 
 find (\&fixplists, $root); 
 
@@ -40,10 +40,12 @@ sub fixplists {
         close $input;
         
 # replace version strings
-        $plist =~ s@(<key>CFBundleVersion</key>\s*<string>)[^<]*(</string>)@${1}${versionString}${2}@xg;
-        $plist =~ s@(<key>CFBundleShortVersionString</key>\s*<string>)[^<]*(</string>)@${1}${version}${2}@xg;
-        $plist =~ s@(<key>CFBundleGetInfoString</key>\s*<string>)[^<]*(</string>)@${1}${versionString} ${copyright}${2}@xg;
-        $plist =~ s@(<key>KfMDisplayVersion</key>\s*<string>)[^<]*(</string>)@${1}${versionString}${2}@xg;
+        
+        $plist =~ s@(<key>CFBundleVersion</key>\s*<string>)[^<]*(</string>)@${1}${buildVersion}${2}@xg;
+# FIXME: CFBundleShortVersionString should be marketingVersion for next major release:
+        $plist =~ s@(<key>CFBundleShortVersionString</key>\s*<string>)[^<]*(</string>)@${1}${buildVersion}${2}@xg;
+        $plist =~ s@(<key>CFBundleGetInfoString</key>\s*<string>)[^<]*(</string>)@${1}${marketingVersion} ${copyright}${2}@xg;
+        $plist =~ s@(<key>KfMDisplayVersion</key>\s*<string>)[^<]*(</string>)@${1}${marketingVersion}${2}@xg;
         $plist =~ s@(<key>KfMDisplayCopyright</key>\s*<string>)[^<]*(</string>)@${1}${shortCopyright}${2}@xg;
         $plist =~ s@(<key>NSHumanReadableCopyright</key>\s*<string>)[^<]*(</string>)@${1}${copyright}${2}@xg;
         

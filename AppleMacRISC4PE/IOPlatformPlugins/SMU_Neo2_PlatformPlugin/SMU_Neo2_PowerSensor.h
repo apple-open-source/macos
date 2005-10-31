@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_PowerSensor.h,v 1.2 2004/06/16 22:13:30 murph Exp $
+ *  File: $Id: SMU_Neo2_PowerSensor.h,v 1.3 2005/01/27 00:22:53 dirty Exp $
  */
 
 
@@ -42,8 +42,6 @@ protected:
 
 	IOPlatformSensor*						currentSensor;
 	IOPlatformSensor*						voltageSensor;
-	
-	bool									fOnEVTOrEarlier;
 
 	bool									fUseQuadraticTransform;
 	sdb_thermal_pos_adc_constants_2_part_t	fThermalPosConstantsPart;

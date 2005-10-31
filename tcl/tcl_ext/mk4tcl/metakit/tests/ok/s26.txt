@@ -1,2 +1,0 @@
->>> Bitwise autosizing
-<<< done.

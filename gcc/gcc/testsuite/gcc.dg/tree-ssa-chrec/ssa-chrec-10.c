@@ -1,6 +1,6 @@
 /* APPLE LOCAL file lno */
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -floop-test -fdump-tree-lptest  " } */
+/* { dg-options "-O1 -floop-test -fdump-tree-lptest-details" } */
 
 void bar (int);
 
@@ -28,4 +28,3 @@ int foo (void)
 */
 
 /* { dg-final { scan-tree-dump-times "set_nb_iterations_in_loop = 39" 1 "lptest"} } */
-/* { dg-final { diff-tree-dumps "ddall" } } */

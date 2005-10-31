@@ -267,7 +267,8 @@ dircheck(idesc, dp)
 {
 	register int size;
 	register char *cp;
-	u_char namlen, type;
+	u_char type;
+	u_int namlen;
 	int spaceleft;
 
 	spaceleft = DIRBLKSIZ - (idesc->id_loc % DIRBLKSIZ);

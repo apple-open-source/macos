@@ -1,5 +1,5 @@
 /* Natural loop discovery code for GNU compiler.
-   Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,6 +24,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
+#include "function.h"
 #include "basic-block.h"
 #include "toplev.h"
 #include "cfgloop.h"
@@ -45,7 +47,7 @@ static int flow_loop_nodes_find (basic_block, struct loop *);
 static void flow_loop_pre_header_scan (struct loop *);
 static basic_block flow_loop_pre_header_find (basic_block);
 static int flow_loop_level_compute (struct loop *);
-static int flow_loops_level_compute (struct loops *);
+static void flow_loops_level_compute (struct loops *);
 static void establish_preds (struct loop *);
 static void canonicalize_loop_headers (void);
 static bool glb_enum_p (basic_block, void *);
@@ -172,8 +174,7 @@ flow_loops_dump (const struct loops *loops, FILE *file, void (*loop_dump_aux) (c
   if (! num_loops || ! file)
     return;
 
-  fprintf (file, ";; %d loops found, %d levels\n",
-	   num_loops, loops->levels);
+  fprintf (file, ";; %d loops found\n", num_loops);
 
   for (i = 0; i < num_loops; i++)
     {
@@ -510,6 +511,10 @@ establish_preds (struct loop *loop)
   struct loop *ploop, *father = loop->outer;
 
   loop->depth = father->depth + 1;
+
+  /* Remember the current loop depth if it is the largest seen so far.  */
+  cfun->max_loop_depth = MAX (cfun->max_loop_depth, loop->depth);
+
   if (loop->pred)
     free (loop->pred);
   loop->pred = xmalloc (sizeof (struct loop *) * loop->depth);
@@ -591,10 +596,10 @@ flow_loop_level_compute (struct loop *loop)
    hierarchy tree specified by LOOPS.  Return the maximum enclosed loop
    level.  */
 
-static int
+static void
 flow_loops_level_compute (struct loops *loops)
 {
-  return flow_loop_level_compute (loops->tree_root);
+  flow_loop_level_compute (loops->tree_root);
 }
 
 /* Scan a single natural loop specified by LOOP collecting information
@@ -819,6 +824,10 @@ flow_loops_find (struct loops *loops, int flags)
 
   memset (loops, 0, sizeof *loops);
 
+  /* We are going to recount the maximum loop depth,
+     so throw away the last count.  */
+  cfun->max_loop_depth = 0;
+
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
   if (n_basic_blocks == 0)
@@ -952,7 +961,7 @@ flow_loops_find (struct loops *loops, int flags)
 
       /* Assign the loop nesting depth and enclosed loop level for each
 	 loop.  */
-      loops->levels = flow_loops_level_compute (loops);
+      flow_loops_level_compute (loops);
 
       /* Scan the loops.  */
       for (i = 1; i < num_loops; i++)
@@ -977,20 +986,6 @@ flow_loops_find (struct loops *loops, int flags)
 #endif
 
   return loops->num;
-}
-
-/* Update the information regarding the loops in the CFG
-   specified by LOOPS.  */
-
-int
-flow_loops_update (struct loops *loops, int flags)
-{
-  /* One day we may want to update the current loop data.  For now
-     throw away the old stuff and rebuild what we need.  */
-  if (loops->parray)
-    flow_loops_free (loops);
-
-  return flow_loops_find (loops, flags);
 }
 
 /* Return nonzero if basic block BB belongs to LOOP.  */
@@ -1123,7 +1118,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
   blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
-  visited = BITMAP_XMALLOC ();
+  visited = BITMAP_ALLOC (NULL);
 
   bb = loop->header;
   while (i < loop->num_nodes)
@@ -1155,7 +1150,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
       bb = blocks[vc++];
     }
   
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
   return blocks;
 }
 
@@ -1233,7 +1228,7 @@ remove_bb_from_loops (basic_block bb)
      loop->pred[i]->num_nodes--;
    bb->loop_father = NULL;
    bb->loop_depth = 0;
- }
+}
 
 /* Finds nearest common ancestor in loop tree for given loops.  */
 struct loop *
@@ -1518,14 +1513,7 @@ verify_loop_structure (struct loops *loops)
 edge
 loop_latch_edge (const struct loop *loop)
 {
-  edge e;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, loop->header->preds)
-    if (e->src == loop->latch)
-      break;
-
-  return e;
+  return find_edge (loop->latch, loop->header);
 }
 
 /* Returns preheader edge of LOOP.  */

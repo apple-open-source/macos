@@ -106,7 +106,7 @@ AppleUSBEHCI::PlacePortInMode(UInt32 port, UInt32 mode)
     UInt32	portStat;
     UInt8	numPorts;
     
-    USBLog(1, "%s[%p]::PlacePortinMode(port %d, mode %d)", getName(), this, port, mode);
+    USBLog(1, "%s[%p]::PlacePortinMode(port %d, mode %d)", getName(), this, (int)port, (int)mode);
     // see section 4.14 of the EHCI spec
     if (!_testModeEnabled)
     {
@@ -118,21 +118,21 @@ AppleUSBEHCI::PlacePortInMode(UInt32 port, UInt32 mode)
     numPorts = USBToHostLong(_pEHCICapRegisters->HCSParams) & kEHCINumPortsMask;
     if (port >= numPorts)
     {
-	USBLog(1, "%s[%p]::PlacePortinMode - ERROR invalid port %d", getName(), this, port);
+	USBLog(1, "%s[%p]::PlacePortinMode - ERROR invalid port %d", getName(), this, (int)port);
 	return kIOReturnInternalError;
     }
 	
     portStat = USBToHostLong(_pEHCIRegisters->PortSC[port]);
     if (portStat & kEHCIPortSC_Owner)
     {
-	USBLog(1, "%s[%p]::PlacePortinMode - ERROR port %d owned by OHCI", getName(), this, port);
+	USBLog(1, "%s[%p]::PlacePortinMode - ERROR port %d owned by OHCI", getName(), this, (int)port);
 	return kIOReturnInternalError;
     }
    
-    USBLog(1, "%s[%p]::PlacePortinMode - old portStat = %x", getName(), this, portStat);
+    USBLog(1, "%s[%p]::PlacePortinMode - old portStat = %x", getName(), this, (int)portStat);
     portStat &= ~kEHCIPortSC_TestControl;
     portStat |= (mode << kEHCIPortSC_TestControlPhase);
-    USBLog(1, "%s[%p]::PlacePortinMode - new portStat = %x", getName(), this, portStat);
+    USBLog(1, "%s[%p]::PlacePortinMode - new portStat = %x", getName(), this, (int)portStat);
     _pEHCIRegisters->PortSC[port] = HostToUSBLong(portStat);
     
     return kIOReturnSuccess;
@@ -173,7 +173,7 @@ AppleUSBEHCI::UIMSetTestMode(UInt32 mode, UInt32 port)
 {
     IOReturn ret = kIOReturnInternalError;
     
-    USBLog(1, "%s[%p]::UIMSetTestMode(%d, %d)", getName(), this, mode, port);
+    USBLog(1, "%s[%p]::UIMSetTestMode(%d, %d)", getName(), this, (int)mode, (int)port);
     
     switch (mode)
     {

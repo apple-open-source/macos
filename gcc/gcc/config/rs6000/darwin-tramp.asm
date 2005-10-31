@@ -1,6 +1,6 @@
 /*  Special support for trampolines
  *
- *   Copyright (C) 1996, 1997, 2000, 2004 Free Software Foundation, Inc.
+ *   Copyright (C) 1996, 1997, 2000, 2004, 2005 Free Software Foundation, Inc.
  *   Written By Michael Meissner
  * 
  * This file is free software; you can redistribute it and/or modify it
@@ -32,8 +32,6 @@
  *  This exception does not however invalidate any other reasons why the
  *  executable file might be covered by the GNU General Public License.
  */ 
-
-/* APPLE LOCAL mainline throughout this file */
 
 #include "darwin-asm.h"
 

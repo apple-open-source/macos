@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -435,18 +435,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Werror:
-      /* APPLE LOCAL begin QA_DISABLE_WERROR 2002-21-01 --dpatel */
-      if (getenv ("QA_DISABLE_WERROR"))
-	{
-	  warning ("-Werror ignored because QA_DISABLE_WERROR is set.");
-	  warning ("Warnings will not be treated as errors.");
-	}
-      else
-	{
-	  cpp_opts->warnings_are_errors = value;
-	  global_dc->warning_as_error_requested = value;
-	}
-      /* APPLE LOCAL end QA_DISABLE_WERROR 2002-21-01 --dpatel */
+      cpp_opts->warnings_are_errors = value;
+      global_dc->warning_as_error_requested = value;
       break;
 
       /* APPLE LOCAL begin -Wextra-tokens */
@@ -506,6 +496,21 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
       /* APPLE LOCAL end -Wnewline-eof */
 
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+    case OPT_Wnormalized_:
+      if (!value || (arg && strcasecmp (arg, "none") == 0))
+	cpp_opts->warn_normalize = normalized_none;
+      else if (!arg || strcasecmp (arg, "nfkc") == 0)
+	cpp_opts->warn_normalize = normalized_KC;
+      else if (strcasecmp (arg, "id") == 0)
+	cpp_opts->warn_normalize = normalized_identifier_C;
+      else if (strcasecmp (arg, "nfc") == 0)
+	cpp_opts->warn_normalize = normalized_C;
+      else
+	error ("argument %qs to %<-Wnormalized%> not recognized", arg);
+      break;
+
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
     case OPT_Wreturn_type:
       warn_return_type = value;
       break;
@@ -616,11 +621,11 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	disable_builtin_function (arg);
       break;
 
-      /* BEGIN APPLE LOCAL disable_typechecking_for_spec_flag */
+      /* APPLE LOCAL begin disable_typechecking_for_spec_flag */
     case OPT_fdisable_typechecking_for_spec:
       disable_typechecking_for_spec_flag = value;
       break;
-      /* END APPLE LOCAL disable_typechecking_for_spec_flag */
+      /* APPLE LOCAL end disable_typechecking_for_spec_flag */
 
     case OPT_fdollars_in_identifiers:
       cpp_opts->dollars_in_ident = value;
@@ -651,7 +656,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fsigned_bitfields:
       flag_signed_bitfields = value;
-      explicit_flag_signed_bitfields = 1;
       break;
 
     case OPT_fsigned_char:
@@ -660,7 +664,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_funsigned_bitfields:
       flag_signed_bitfields = !value;
-      explicit_flag_signed_bitfields = 1;
       break;
 
     case OPT_funsigned_char:
@@ -753,11 +756,11 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_no_nonansi_builtin = !value;
       break;
 
-    /* APPLE LOCAL begin ObjC C++ ivars */
+    /* APPLE LOCAL begin mainline */
     case OPT_fobjc_call_cxx_cdtors:
       flag_objc_call_cxx_cdtors = value;
       break;
-    /* APPLE LOCAL end ObjC C++ ivars */
+    /* APPLE LOCAL end mainline */
 
     case OPT_fobjc_exceptions:
       flag_objc_exceptions = value;
@@ -1035,10 +1038,7 @@ c_common_post_options (const char **pfilename)
   if (!flag_no_inline)
     flag_no_inline = 1;
   if (flag_inline_functions)
-    {
-      flag_inline_trees = 2;
-      flag_inline_functions = 0;
-    }
+    flag_inline_trees = 2;
 
   /* If we are given more than one input file, we must use
      unit-at-a-time mode.  */
@@ -1072,6 +1072,11 @@ c_common_post_options (const char **pfilename)
     warning ("-Wformat-security ignored without -Wformat");
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
+
+  /* C99 requires special handling of complex multiplication and division;
+     -ffast-math and -fcx-limited-range are handled in process_options.  */
+  if (flag_isoc99)
+    flag_complex_method = 2;
 
   if (flag_preprocess_only)
     {
@@ -1179,13 +1184,18 @@ c_common_parse_file (int set_yydebug)
   i = 0;
   for (;;)
     {
+      /* Start the main input file, if the debug writer wants it.  */
+      if (debug_hooks->start_end_main_source_file)
+        (*debug_hooks->start_source_file) (0, this_input_filename);
       finish_options ();
       pch_init ();
       push_file_scope ();
       c_parse_file ();
       finish_file ();
       pop_file_scope ();
-
+      /* And end the main input file, if the debug writer wants it */
+      if (debug_hooks->start_end_main_source_file)
+        (*debug_hooks->end_source_file) (0);
       if (++i >= num_in_fnames)
 	break;
       cpp_undef_all (parse_in);
@@ -1271,6 +1281,7 @@ check_deps_environment_vars (void)
 	deps_file = spec;
 
       deps_append = 1;
+      deps_seen = true;
     }
 }
 
@@ -1315,11 +1326,13 @@ sanitize_cpp_opts (void)
 
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
+  /* Also, flag_no_output implies flag_no_line_commands, always. */
   if (flag_no_output)
     {
       if (flag_dump_macros != 'M')
 	flag_dump_macros = 0;
       flag_dump_includes = 0;
+      flag_no_line_commands = 1;
     }
 
   cpp_opts->unsigned_char = !flag_signed_char;
@@ -1480,8 +1493,8 @@ set_std_c89 (int c94, int iso)
   /* APPLE LOCAL begin preprocess .s files (radar #3191171) */
   /* Do not override CLK_ASM if set */
   if (cpp_opts->lang != CLK_ASM)
-  /* APPLE LOCAL end */
-    cpp_set_lang (parse_in, c94 ? CLK_STDC94: iso ? CLK_STDC89: CLK_GNUC89);
+     cpp_set_lang (parse_in, c94 ? CLK_STDC94: iso ? CLK_STDC89: CLK_GNUC89);
+  /* APPLE LOCAL end preprocess .s files (radar #3191171) */
   flag_iso = iso;
   flag_no_asm = iso;
   flag_no_gnu_keywords = iso;

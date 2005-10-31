@@ -265,9 +265,6 @@ bool Portable_PlatformMonitor::start ( IOService * nub )
         case kPB67MachineModel:		thermalLimits = limits_Q72B;	break;
         case kPB68MachineModel:		thermalLimits = limits_Q54B;	break;
 
-        case kPB56MachineModel:		thermalLimits = limits_Q16A;	break;		// For now, same values as Q16A
-        case kPB57MachineModel:		thermalLimits = limits_Q41A;	break;		// For now, same values as Q41A
-
         default:	thermalLimits = NULL;
     }
 
@@ -301,13 +298,11 @@ bool Portable_PlatformMonitor::start ( IOService * nub )
     //  Powerbook6,1 ( P99 )					YES										    NO
     
     machineUtilizes65W = (( machineModel == kPB52MachineModel ) || ( machineModel == kPB53MachineModel ) || 			// Q16, Q41
-                          ( machineModel == kPB54MachineModel ) || ( machineModel == kPB55MachineModel ) ||				// Q41A, Q16A
-                          ( machineModel == kPB56MachineModel ) || ( machineModel == kPB57MachineModel ));				// Q41A, Q16A
+                          ( machineModel == kPB54MachineModel ) || ( machineModel == kPB55MachineModel ));				// Q41A, Q16A
     
 	machineReducesOnNoBattery = (( machineModel == kPB51MachineModel ) || ( machineModel == kPB52MachineModel ) || 		// P84, Q16
                                  ( machineModel == kPB53MachineModel ) || ( machineModel == kPB54MachineModel ) ||		// Q41, Q16A
-                                 ( machineModel == kPB55MachineModel ) || ( machineModel == kPB56MachineModel ) ||		// Q41, Q16B
-                                 ( machineModel == kPB57MachineModel ) || ( machineModel == kPB61MachineModel ) ||		// Q41B, P99
+                                 ( machineModel == kPB55MachineModel ) || ( machineModel == kPB61MachineModel ) ||		// Q41, P99
                                  ( machineModel == kPB62MachineModel ) || ( machineModel == kPB64MachineModel ));		// Q54, Q54A
 
     needs2003Fixes = (( machineModel == kPB52MachineModel ) || ( machineModel == kPB53MachineModel ) || 				// Q16, Q41

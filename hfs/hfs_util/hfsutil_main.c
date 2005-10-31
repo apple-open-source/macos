@@ -193,7 +193,7 @@ static int	SetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr
 static int	SetVolumeUUIDAttr(const char *path, VolumeUUID *volumeUUIDPtr);
 static int	SetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr);
 static int	GetEmbeddedHFSPlusVol(HFSMasterDirectoryBlock * hfsMasterDirectoryBlockPtr, off_t * startOffsetPtr);
-static int	GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * name_o);
+static int	GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned char * name_o);
 static int	GetBTreeNodeInfo(int fd, off_t hfsPlusVolumeOffset, u_int32_t blockSize,
 							u_int32_t extentCount, const HFSPlusExtentDescriptor *extentList,
 							u_int32_t *nodeSize, u_int32_t *firstLeafNode);
@@ -683,7 +683,7 @@ DoProbe(char *deviceNamePtr)
 
 		/* Some poorly mastered HFS CDs have an empty MDB name field! */
 		if (mdbPtr->drVN[0] == '\0') {
-			strcpy(&mdbPtr->drVN[1], gHFS_FS_NAME_NAME);
+			strcpy((char *)&mdbPtr->drVN[1], gHFS_FS_NAME_NAME);
 			mdbPtr->drVN[0] = strlen(gHFS_FS_NAME_NAME);
 		}
 
@@ -744,7 +744,7 @@ DoProbe(char *deviceNamePtr)
 	}
 
 	if (FSUR_IO_SUCCESS == result) {
-		char *s;
+		unsigned char *s;
 		
 		/* Change slashes to colons in the volume name */
 		for (s=volnameUTF8; *s; ++s) {
@@ -753,7 +753,7 @@ DoProbe(char *deviceNamePtr)
 		}
 
 		/* Print the volume name to standard output */
-		write(1, volnameUTF8, strlen(volnameUTF8));
+		write(1, volnameUTF8, strlen((char *)volnameUTF8));
 		result = FSUR_RECOGNIZED;
 	}
 
@@ -1631,7 +1631,7 @@ Return:
  */
 
 static int
-GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * name_o)
+GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned char * name_o)
 {
     int					result = FSUR_IO_SUCCESS;
     u_int32_t				blockSize;
@@ -1768,7 +1768,7 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, char * nam
 	    }
 	    swapped->unicode[i] = 0;
 	    cfstr = CFStringCreateWithCharacters(kCFAllocatorDefault, swapped->unicode, swapped->length);
-	    (void) CFStringGetCString(cfstr, name_o, NAME_MAX, kCFStringEncodingUTF8);
+	    (void) CFStringGetCString(cfstr, (char *)name_o, NAME_MAX, kCFStringEncodingUTF8);
 	    CFRelease(cfstr);
 	    free(swapped);
 	}

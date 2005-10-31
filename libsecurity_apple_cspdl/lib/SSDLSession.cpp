@@ -121,6 +121,28 @@ SSDLSession::DbCreate(const char *inDbName,
 }
 
 void
+SSDLSession::CreateWithBlob(const char *DbName,
+							const CSSM_NET_ADDRESS *DbLocation,
+							const CSSM_DBINFO &DBInfo,
+							CSSM_DB_ACCESS_TYPE AccessRequest,
+							const void *OpenParameters,
+							const CSSM_DATA &blob,
+							CSSM_DB_HANDLE &DbHandle)
+{
+	SSDatabase db(mClientSession, mDL, DbName, DbLocation);
+	db->dbInfo(&DBInfo);
+	db->accessRequest(AccessRequest);
+	db->resourceControlContext(NULL);
+	db->openParameters(OpenParameters);
+	db->createWithBlob(DLDbIdentifier(CssmSubserviceUid(plugin.myGuid(), &version(), subserviceId(),
+									  CSSM_SERVICE_DL | CSSM_SERVICE_CSP),
+									  DbName, DbLocation),
+					   blob);
+	db->dbInfo(NULL);
+	DbHandle = makeDbHandle(db);
+}
+
+void
 SSDLSession::DbOpen(const char *inDbName,
 					const CSSM_NET_ADDRESS *inDbLocation,
 					CSSM_DB_ACCESS_TYPE inAccessRequest,
@@ -688,7 +710,25 @@ SSDLSession::getWrappedAttributesAndData (SSDatabase &db,
 			appendUInt32ToData (attributes[i].Value[j].Length, output);
 			if (attributes[i].Value[j].Length != 0)
 			{
-				output.append (CssmPolyData (attributes[i].Value[j]));
+				switch (attributes[i].Info.AttributeFormat)
+				{
+					default:
+					{
+						output.append (CssmPolyData (attributes[i].Value[j]));
+						break;
+					}
+					
+					case CSSM_DB_ATTRIBUTE_FORMAT_SINT32:
+					case CSSM_DB_ATTRIBUTE_FORMAT_UINT32:
+					{
+						uint32 n = htonl (*(uint32*) attributes[i].Value[j].Data);
+						CSSM_DATA d;
+						d.Length = sizeof (uint32);
+						d.Data = (uint8*) &n;
+						output.append (CssmPolyData (d));
+						break;
+					}
+				}
 			}
 		}
 	}
@@ -1095,6 +1135,14 @@ SSDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 						 const void *inInputParams,
 						 void **outOutputParams)
 {
+	if (inPassThroughId == CSSM_APPLECSPDL_DB_CREATE_WITH_BLOB)
+	{
+		CSSM_APPLE_CSPDL_DB_CREATE_WITH_BLOB_PARAMETERS* params = (CSSM_APPLE_CSPDL_DB_CREATE_WITH_BLOB_PARAMETERS*) inInputParams;
+		CreateWithBlob(params->dbName, params->dbLocation, *params->dbInfo, params->accessRequest, params->openParameters, *params->blob,
+					   * (CSSM_DB_HANDLE*) outOutputParams);
+		return;
+	}
+	
 	SSDatabase db = findDbHandle(inDbHandle);
 	switch (inPassThroughId)
 	{

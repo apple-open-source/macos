@@ -59,6 +59,13 @@ public:
                   const CSSM_RESOURCE_CONTROL_CONTEXT *CredAndAclEntry,
                   const void *OpenParameters,
                   CSSM_DB_HANDLE &DbHandle);
+    void CreateWithBlob(const char *DbName,
+						const CSSM_NET_ADDRESS *DbLocation,
+						const CSSM_DBINFO &DBInfo,
+						CSSM_DB_ACCESS_TYPE AccessRequest,
+						const void *OpenParameters,
+						const CSSM_DATA &blob,
+						CSSM_DB_HANDLE &DbHandle);
     void DbOpen(const char *DbName,
                 const CSSM_NET_ADDRESS *DbLocation,
                 CSSM_DB_ACCESS_TYPE AccessRequest,

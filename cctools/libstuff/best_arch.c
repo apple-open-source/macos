@@ -675,6 +675,7 @@ cpu_subtype_t exec_cpusubtype) /* can be the ALL type */
 	    case CPU_SUBTYPE_PENTPRO:
 	    case CPU_SUBTYPE_PENTII_M3:
 	    case CPU_SUBTYPE_PENTII_M5:
+	    case CPU_SUBTYPE_PENTIUM_4:
 		return(TRUE);
 	    default:
 		return(FALSE);

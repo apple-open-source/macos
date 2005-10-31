@@ -1,3 +1,0 @@
-EXPORTS
-	Img_Init			@1
-	Img_SafeInit			@2

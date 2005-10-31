@@ -96,6 +96,7 @@ typedef void (*ScrollWheelEventCallback)(
 
 /* End Action Definitions */
 class IOHIDPointingDevice;
+struct ScrollAccelInfo;
 
 class IOHIPointing : public IOHIDevice
 {
@@ -125,55 +126,11 @@ private:
     OSObject *                 _scrollWheelEventTarget;
     ScrollWheelEventAction     _scrollWheelEventAction;
     
-    #define SCROLL_TIME_DELTA_COUNT		8
-
     struct ExpansionData { 
-    
-        // Added for scroll wheel accel support
-        void *		scrollScaleSegments;
-        IOItemCount	scrollScaleSegCount;
-        UInt8 		scrollDeltaIndex;
-        IOFixed		scrollDeltaTime[SCROLL_TIME_DELTA_COUNT];
-        IOFixed		scrollDeltaAxis[SCROLL_TIME_DELTA_COUNT];
-        AbsoluteTime	scrollLastEventTime;
-
-        // Added for scroll wheel to pixel accel support
-        void *		scrollPixelScaleSegments;
-        IOItemCount	scrollPixelScaleSegCount;
-        UInt8 		scrollPixelDeltaIndex;
-        IOFixed		scrollPixelDeltaTime[SCROLL_TIME_DELTA_COUNT];
-        IOFixed		scrollPixelDeltaAxis[SCROLL_TIME_DELTA_COUNT];
-        AbsoluteTime	scrollPixelLastEventTime;
-        
-        // Added for pointer to scroll wheel accel support
-        void *		scrollPointerScaleSegments;
-        IOItemCount	scrollPointerScaleSegCount;
-        UInt8 		scrollPointerDeltaIndex;
-        IOFixed		scrollPointerDeltaTime[SCROLL_TIME_DELTA_COUNT];
-        IOFixed		scrollPointerDeltaAxis[SCROLL_TIME_DELTA_COUNT];
-        AbsoluteTime	scrollPointerLastEventTime;
-        
-        UInt32          scrollType;
-        UInt8           scrollPointerCoalesceXCount;
-        UInt8           scrollPointerCoalesceYCount;
-        SInt32          scrollPointerCoalesceLastDx;
-        SInt32          scrollPointerCoalesceLastDy;
-        IOFixed         scrollPointerPixelFractionAxis1;
-        IOFixed         scrollPointerPixelFractionAxis2;
-        IOFixed         scrollPixelFraction1;
-        IOFixed         scrollPixelFraction2;
-        IOFixed         scrollPixelFraction3;
-        SInt32          scrollLastDA1;
-        SInt32          scrollLastDA2;
-        SInt32          scrollLastDA3;
-        
-        // Added for pointer to scroll pixel accel support
-        void *		scrollPointerPixelScaleSegments;
-        IOItemCount	scrollPointerPixelScaleSegCount;
-        UInt8 		scrollPointerPixelDeltaIndex;
-        IOFixed		scrollPointerPixelDeltaTime[SCROLL_TIME_DELTA_COUNT];
-        IOFixed		scrollPointerPixelDeltaAxis[SCROLL_TIME_DELTA_COUNT];
-        AbsoluteTime	scrollPointerPixelLastEventTime;
+        UInt32      scrollType;
+                
+        ScrollAccelInfo * scrollWheelInfo;
+        ScrollAccelInfo * scrollPointerInfo;
 
         IOFixed		scrollFixedDeltaAxis1;
         IOFixed		scrollFixedDeltaAxis2;
@@ -195,6 +152,13 @@ private:
     
     void    setPointingMode(UInt32 accelerateMode);
     UInt32  getPointingMode ();
+
+    void dispatchScrollWheelEventWithAccelInfo(
+                                SInt32              deltaAxis1,
+                                SInt32              deltaAxis2,
+                                SInt32              deltaAxis3,
+                                ScrollAccelInfo *   info,
+                                AbsoluteTime        ts);
     
     
 protected:
@@ -274,6 +238,7 @@ private:
   // take advantage of this have their defined resolution 
   // in their property table.
   /*virtual*/ IOFixed	scrollResolution();
+  /*virtual*/ IOFixed   scrollReportRate();
   
 private:
   static void _relativePointerEvent( IOHIPointing * self,

@@ -567,9 +567,9 @@ mi_cmd_thread_set_pc (char *command, char **argv, int argc)
       sal = find_function_start_sal (new_fun, 1);
       new_pc = sal.pc;
     }
+  old_fun = get_frame_function (get_current_frame ());
   if (stay_in_function)
     {
-      old_fun = get_frame_function (get_current_frame());
       if (old_fun == NULL)
 	error ("Can't find the function for old_pc: 0x%s",
 	       paddr_nz (get_frame_pc (get_current_frame ())));

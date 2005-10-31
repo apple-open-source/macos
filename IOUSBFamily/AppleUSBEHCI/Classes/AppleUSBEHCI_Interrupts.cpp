@@ -22,10 +22,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "AppleUSBEHCI.h"
 #include <libkern/OSByteOrder.h>
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
+#include "AppleUSBEHCI.h"
 
 #define super IOUSBControllerV2
 #define self this
@@ -51,6 +51,9 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 			USBLog(1, "%s[%p]::PollInterrupts - Host System Error Occurred - not restarted", getName(), this);
 			_errors.displayed++;
 		}
+
+#if 0
+		// We should only attempt this once...
 		
 		// Cardbus cards can generate spurious interrupts while ejecting, so don't try to recover on cardbus cards
 		//
@@ -87,6 +90,7 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 				}
 			}
         }
+#endif
     }
 	
     if (_errorInterrupt & kEHCIErrorIntBit)
@@ -230,24 +234,41 @@ AppleUSBEHCI::FilterInterrupt(int index)
 		{
 			_asyncAdvanceInterrupt = kEHCIAAEIntBit;
 			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIAAEIntBit);				// clear the interrupt
+            IOSync();
 			needSignal = true;
 		}
         if (activeInterrupts & kEHCIHostErrorIntBit)
 		{
 			_hostErrorInterrupt = kEHCIHostErrorIntBit;
 			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIHostErrorIntBit);				// clear the interrupt
+            IOSync();
 			needSignal = true;
 		}
         if (activeInterrupts & kEHCIPortChangeIntBit)
 		{
 			_portChangeInterrupt = kEHCIPortChangeIntBit;
 			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIPortChangeIntBit);				// clear the interrupt
+            IOSync();
+			if (_errataBits & kErrataNECIncompleteWrite)
+			{
+				UInt32		newValue = 0, count = 0;
+				newValue = USBToHostLong(_pEHCIRegisters->USBSTS);						// this bit SHOULD now be cleared
+				while ((count++ < 10) && (newValue & kEHCIPortChangeIntBit))
+				{
+					// can't log in the FilterInterrupt routine
+					// USBError(1, "EHCI driver: FilterInterrupt - PCD bit not sticking. Retrying.");
+					_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIPortChangeIntBit);				// clear the bit again
+					IOSync();
+					newValue = USBToHostLong(_pEHCIRegisters->USBSTS);
+				}
+			}
 			needSignal = true;
 		}
         if (activeInterrupts & kEHCIErrorIntBit)
 		{
 			_errorInterrupt = kEHCIErrorIntBit;
 			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIErrorIntBit);				// clear the interrupt
+            IOSync();
 			needSignal = true;
 		}
         if (activeInterrupts & kEHCICompleteIntBit)
@@ -265,13 +286,13 @@ AppleUSBEHCI::FilterInterrupt(int index)
 			// and potentially have their frame lists updated (for Low Latency) we will place them in reverse
 			// order on a "done queue" which will be looked at by the isoch scavanger
 			// only do this if the periodic schedule is enabled
-			if ((_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDPeriodicEnable)) && (_outSlot < kEHCIPeriodicListEntries))
+			if (!_inAbortIsochEP && (_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDPeriodicEnable)) && (_outSlot < kEHCIPeriodicListEntries))
 			{
 				AppleEHCIIsochListElement *		cachedHead;
-				UInt32					cachedProducer;
-				UInt32					frIndex;
-				UInt16					curSlot, testSlot, nextSlot;
-				UInt16					curMicroFrame;
+				UInt32							cachedProducer;
+				UInt32							frIndex;
+				UInt16							curSlot, testSlot, nextSlot;
+				UInt16							curMicroFrame;
 				
 				frIndex = USBToHostLong(_pEHCIRegisters->FRIndex);
 				curSlot = (frIndex >> 3) & (kEHCIPeriodicListEntries-1);
@@ -318,7 +339,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 						if (!prevThing)
 						{
 							_logicalPeriodicList[testSlot] = nextThing;
-							_periodicList[_outSlot] = thing->GetPhysicalLink();
+							_periodicList[testSlot] = thing->GetPhysicalLink();
 						}
 						else
 						{
@@ -334,9 +355,12 @@ AppleUSBEHCI::FilterInterrupt(int index)
 						isochEl->_doneQueueLink = cachedHead;
 						cachedHead = isochEl;
 						cachedProducer++;
+						if (isochEl->_pEndpoint)
+						{
+							isochEl->_pEndpoint->onProducerQ++;
+							isochEl->_pEndpoint->scheduledTDs--;
+						}
 						
-						if (prevThing)
-							prevThing = thing;
 						thing = nextThing;
 					}
 					testSlot = nextSlot;

@@ -98,16 +98,16 @@ extern KernelDebugLevel	    gKernelDebugLevel;
 class IOUSBInterfaceIterator : public OSIterator 
 {
     OSDeclareDefaultStructors(IOUSBInterfaceIterator)
-
+	
 protected:
     IOUSBFindInterfaceRequest 	fRequest;
     IOUSBDevice *		fDevice;
     IOUSBInterface *		fCurrent;
-
+	
     virtual void free();
-
+	
 public:
-    virtual bool 	init(IOUSBDevice *dev, IOUSBFindInterfaceRequest *reqIn);
+		virtual bool 	init(IOUSBDevice *dev, IOUSBFindInterfaceRequest *reqIn);
     virtual void 	reset();
     virtual bool 	isValid();
     virtual OSObject *	getNextObject();
@@ -125,7 +125,7 @@ bool
 IOUSBInterfaceIterator::init(IOUSBDevice *dev, IOUSBFindInterfaceRequest *reqIn)
 {
     if(!OSIterator::init())
-	return false;
+		return false;
     fDevice = dev;
     fDevice->retain();
     fRequest = *reqIn;
@@ -139,8 +139,8 @@ void
 IOUSBInterfaceIterator::free()
 {
     if(fCurrent)
-	fCurrent->release();
-        
+		fCurrent->release();
+	
     fDevice->release();
     OSIterator::free();
 }
@@ -152,7 +152,7 @@ IOUSBInterfaceIterator::reset()
 {
     if(fCurrent)
         fCurrent->release();
-        
+	
     fCurrent = NULL;
 }
 
@@ -170,10 +170,10 @@ OSObject *
 IOUSBInterfaceIterator::getNextObject()
 {
     IOUSBInterface *next;
-
+	
     next = fDevice->FindNextInterface(fCurrent, &fRequest);
     if (next)
-	next->retain();
+		next->retain();
     if(fCurrent)
         fCurrent->release();
     fCurrent = next;
@@ -280,42 +280,48 @@ IOUSBDevice::GetChildLocationID(UInt32 parentLocationID, int port)
     return location;
 }
 
+// IOKit init
+bool
+IOUSBDevice::init()
+{
+	return super::init();
+}
 
 
 //================================================================================================
 //
-//   init
+//   init - not the IOKit version
 //
 //================================================================================================
 //
 bool 
 IOUSBDevice::init(USBDeviceAddress deviceAddress, UInt32 powerAvailable, UInt8 speed, UInt8 maxPacketSize)
 {
-
+	
     if(!super::init())
     {
         USBLog(3,"%s[%p]::init super->init failed", getName(), this);
-	return false;
+		return false;
     }
-
+	
     // allocate our expansion data
     if (!_expansionData)
     {
-	_expansionData = (ExpansionData *)IOMalloc(sizeof(ExpansionData));
-	if (!_expansionData)
-	    return false;
-	bzero(_expansionData, sizeof(ExpansionData));
+		_expansionData = (ExpansionData *)IOMalloc(sizeof(ExpansionData));
+		if (!_expansionData)
+			return false;
+		bzero(_expansionData, sizeof(ExpansionData));
     }
     
     _getConfigLock = IORecursiveLockAlloc();
     if (!_getConfigLock)
     {
-	IOFree(_expansionData, sizeof(ExpansionData));
+		IOFree(_expansionData, sizeof(ExpansionData));
         _expansionData = NULL;
         USBError(1, "%s[%p]::init - Error allocating getConfigLock", getName(), this);
         return false;
     }
-
+	
     _address = deviceAddress;
     _descriptor.bMaxPacketSize0 = maxPacketSize;
     _busPowerAvailable = powerAvailable;
@@ -340,12 +346,12 @@ IOUSBDevice::finalize(IOOptionBits options)
     if(_pipeZero) 
     {
         _pipeZero->Abort();
-	_pipeZero->ClosePipe();
+		_pipeZero->ClosePipe();
         _pipeZero->release();
         _pipeZero = NULL;
     }
     _currentConfigValue = 0;
-
+	
     if (_doPortResetThread)
     {
         thread_call_cancel(_doPortResetThread);
@@ -360,7 +366,7 @@ IOUSBDevice::finalize(IOOptionBits options)
     
     if ( _usbPlaneParent )
         _usbPlaneParent->release();
-        
+	
     return(super::finalize(options));
 }
 
@@ -371,17 +377,17 @@ IOUSBDevice::free()
 {
     if(_configList) 
     {
-	int 	i;
+		int 	i;
         for(i=0; i<_descriptor.bNumConfigurations; i++) 
             if(_configList[i])
-	    {
-		_configList[i]->release();
-		_configList[i] = NULL;
-	    }
-        IODelete(_configList, IOBufferMemoryDescriptor*, _descriptor.bNumConfigurations);
-	_configList = NULL;
+			{
+				_configList[i]->release();
+				_configList[i] = NULL;
+			}
+				IODelete(_configList, IOBufferMemoryDescriptor*, _descriptor.bNumConfigurations);
+		_configList = NULL;
     }
-
+	
 	if (_interfaceList && _numInterfaces)
     {
 		IODelete(_interfaceList, IOUSBInterface*, _numInterfaces);
@@ -390,7 +396,7 @@ IOUSBDevice::free()
     }
 	
     _currentConfigValue = 0;
-
+	
     //  This needs to be the LAST thing we do, as it disposes of our "fake" member
     //  variables.
     //
@@ -398,13 +404,13 @@ IOUSBDevice::free()
     {
         if ( _getConfigLock )
             IORecursiveLockFree(_getConfigLock);
-    
+		
         if (_workLoop)
         {
             _workLoop->release();
             _workLoop = NULL;
         }
-
+		
         IOFree(_expansionData, sizeof(ExpansionData));
         _expansionData = NULL;
     }
@@ -418,19 +424,19 @@ bool
 IOUSBDevice::start( IOService * provider )
 {
     IOReturn 		err;
-    char 		name[256];
-    UInt32		delay = 30;
-    UInt32		retries = 4;
-    bool		allowNumConfigsOfZero = false;
+    char			name[256];
+    UInt32			delay = 30;
+    UInt32			retries = 4;
+    bool			allowNumConfigsOfZero = false;
     AbsoluteTime	currentTime;
-    UInt64		elapsedTime;
-
+    UInt64			elapsedTime;
+	
     if( !super::start(provider))
         return false;
-
+	
     if (_controller == NULL)
         return false;
-
+	
     // Don't do this until we have a controller
     //
     _endpointZero.bLength = sizeof(_endpointZero);
@@ -439,9 +445,9 @@ IOUSBDevice::start( IOService * provider )
     _endpointZero.bmAttributes = kUSBControl;
     _endpointZero.wMaxPacketSize = HostToUSBWord(_descriptor.bMaxPacketSize0);
     _endpointZero.bInterval = 0;
-
+	
     _pipeZero = IOUSBPipe::ToEndpoint(&_endpointZero, this, _controller);
-
+	
     // See if we have the allowNumConfigsOfZero errata. Some devices have an incorrect device descriptor
     // that specifies a bNumConfigurations value of 0.  We allow those devices to enumerate if we know
     // about them.
@@ -449,16 +455,16 @@ IOUSBDevice::start( IOService * provider )
     OSBoolean * boolObj = OSDynamicCast( OSBoolean, getProperty(kAllowNumConfigsOfZero) );
     if ( boolObj && boolObj->isTrue() )
         allowNumConfigsOfZero = true;
-
+	
     // Attempt to read the full device descriptor.  We will attempt 5 times with a 30ms delay between each (that's
     // what we do on MacOS 9
     //
     do
     {
         bzero(&_descriptor,sizeof(_descriptor));
-
+		
         err = GetDeviceDescriptor(&_descriptor, sizeof(_descriptor));
-
+		
         // If the error is kIOReturnOverrun, we still received our 8 bytes, so signal no error.
         //
         if ( err == kIOReturnOverrun )
@@ -472,7 +478,7 @@ IOUSBDevice::start( IOService * provider )
                 USBLog(3,"%s[%p]::start GetDeviceDescriptor returned overrun and is not a device desc (%d ­ kUSBDeviceDesc)", getName(), this, _descriptor.bDescriptorType );
             }
         }
-
+		
         if ( (err != kIOReturnSuccess) || (_descriptor.bcdUSB == 0) )
         {
             // The check for bcdUSB is a workaround for some devices that send the data with an incorrect
@@ -482,7 +488,7 @@ IOUSBDevice::start( IOService * provider )
             // will not correctly enumerate.
             //
             USBLog(3, "IOUSBDevice::start, GetDeviceDescriptor -- retrying. err = 0x%x", err);
-
+			
             if ( err == kIOReturnSuccess)
                 err = kIOUSBPipeStalled;
             
@@ -513,13 +519,13 @@ IOUSBDevice::start( IOService * provider )
         }
     }
     while ( err && retries > 0 );
-
+	
     if ( err )
     {
         USBLog(3,"%s[%p]::start Couldn't get full device descriptor (0x%x)",getName(),this, err);
         return false;
     }
-
+	
     if(_descriptor.bNumConfigurations || allowNumConfigsOfZero)
     {
         _configList = IONew(IOBufferMemoryDescriptor*, _descriptor.bNumConfigurations);
@@ -534,7 +540,7 @@ IOUSBDevice::start( IOService * provider )
         //
         USBLog(3,"%s[%p]::start USB Device specified bNumConfigurations of 0, which is not legal", getName(), this);
     }
-
+	
     if(_descriptor.iProduct)
     {
         err = GetStringDescriptor(_descriptor.iProduct, name, sizeof(name));
@@ -561,7 +567,7 @@ IOUSBDevice::start( IOService * provider )
             case (kUSBVendorSpecificClass):	setName("IOUSBVendorSpecificDevice"); break;
         }
     }
-
+	
     if(_descriptor.iManufacturer)
     {
         err = GetStringDescriptor(_descriptor.iManufacturer, name, sizeof(name));
@@ -590,65 +596,65 @@ IOUSBDevice::start( IOService * provider )
     setProperty(kUSBProductStringIndex, (unsigned long long) _descriptor.iProduct, (sizeof(_descriptor.iProduct) * 8));
     setProperty(kUSBSerialNumberStringIndex, (unsigned long long) _descriptor.iSerialNumber, (sizeof(_descriptor.iSerialNumber) * 8));
     setProperty(kUSBDeviceNumConfigs, (unsigned long long) _descriptor.bNumConfigurations, (sizeof(_descriptor.bNumConfigurations) * 8));
-
+	
     // these properties are not in the device descriptor, but they are useful
     setProperty(kUSBDevicePropertySpeed, (unsigned long long) _speed, (sizeof(_speed) * 8));
     setProperty(kUSBDevicePropertyBusPowerAvailable, (unsigned long long) _busPowerAvailable, (sizeof(_busPowerAvailable) * 8));
     setProperty(kUSBDevicePropertyAddress, (unsigned long long) _address, (sizeof(_address) * 8));
-
+	
     // Create a "SessionID" property for this device
     clock_get_uptime(&currentTime);
     absolutetime_to_nanoseconds(currentTime, &elapsedTime);
     setProperty("sessionID", elapsedTime, 64);
-
+	
     // allocate a thread_call structure for reset and suspend
     //
     _doPortResetThread = thread_call_allocate((thread_call_func_t)ProcessPortResetEntry, (thread_call_param_t)this);
     _doPortSuspendThread = thread_call_allocate((thread_call_func_t)ProcessPortSuspendEntry, (thread_call_param_t)this);
     _doPortReEnumerateThread = thread_call_allocate((thread_call_func_t)ProcessPortReEnumerateEntry, (thread_call_param_t)this);
-
+	
     // for now, we have no interfaces, so make sure the list is NULL and zero out other counts
     _interfaceList = NULL;
     _currentConfigValue	= 0;		// unconfigured device
     _numInterfaces = 0;			// so no active interfaces
-
+	
     _notifierHandlerTimer = IOTimerEventSource::timerEventSource(this, (IOTimerEventSource::Action) DisplayUserNotificationForDeviceEntry);
-
+	
     if ( _notifierHandlerTimer == NULL )
     {
         USBError(1, "%s::start Couldn't allocate timer event source", getName());
         goto ErrorExit;
     }
-
+	
     _workLoop = getWorkLoop();
     if ( !_workLoop )
     {
         USBError(1, "%s::start Couldn't get provider's workloop", getName());
         goto ErrorExit;
     }
-
+	
     // Keep a reference to our workloop
     //
     _workLoop->retain();
-
+	
     if ( _workLoop->addEventSource( _notifierHandlerTimer ) != kIOReturnSuccess )
     {
         USBError(1, "%s::start Couldn't add timer event source", getName());
         goto ErrorExit;
     }
-
+	
     return true;
-
+	
 ErrorExit:
-
-    if ( _notifierHandlerTimer )
-    {
-        if ( _workLoop )
-            _workLoop->removeEventSource(_notifierHandlerTimer);
-        _notifierHandlerTimer->release();
-        _notifierHandlerTimer = NULL;
-    }
-
+		
+		if ( _notifierHandlerTimer )
+		{
+			if ( _workLoop )
+				_workLoop->removeEventSource(_notifierHandlerTimer);
+			_notifierHandlerTimer->release();
+			_notifierHandlerTimer = NULL;
+		}
+	
     if ( _workLoop != NULL )
     {
         _workLoop->release();
@@ -666,15 +672,15 @@ IOUSBDevice::attach(IOService *provider)
 {
     if( !super::attach(provider))
         return (false);
-
+	
     // Set controller if we weren't given one earlier.
     //
     if(_controller == NULL)
 		_controller = OSDynamicCast(IOUSBController, provider);
-        
+	
     if(_controller == NULL)
 		return false;
-
+	
     return true;
 }
 
@@ -684,13 +690,13 @@ IOReturn
 IOUSBDevice::ResetDevice()
 {
     UInt32	retries = 0;
-
+	
     if ( _resetInProgress )
     {
         USBLog(5, "%s[%p] ResetDevice(%d) while in progress", getName(), this, _portNumber );
-       return kIOReturnNotPermitted;
+		return kIOReturnNotPermitted;
     }
-
+	
     _resetInProgress = true;
     
     if ( isInactive() )
@@ -698,19 +704,19 @@ IOUSBDevice::ResetDevice()
         USBLog(1, "%s[%p]::ResetDevice - while terminating!", getName(), this);
         return kIOReturnNotResponding;
     }
-
+	
     retain();
-   _portHasBeenReset = false;
+	_portHasBeenReset = false;
     
     USBLog(5, "+%s[%p] ResetDevice for port %d", getName(), this, _portNumber );
     thread_call_enter( _doPortResetThread );
-
+	
     // Should we do a commandSleep/Wakeup here?
     //
     while ( !_portHasBeenReset && retries < 100 )
     {
         IOSleep(100);
-
+		
         if ( isInactive() )
         {
             USBLog(3, "+%s[%p] isInactive() while waiting for reset to finish", getName(), this );
@@ -721,24 +727,24 @@ IOUSBDevice::ResetDevice()
     }
     
     USBLog(5, "-%s[%p] ResetDevice for port %d", getName(), this, _portNumber );
-
+	
     _resetInProgress = false;
     release();
     return kIOReturnSuccess;
 }
 
 /******************************************************
- * Helper Methods
- ******************************************************/
+* Helper Methods
+******************************************************/
 
 const IOUSBConfigurationDescriptor *
 IOUSBDevice::FindConfig(UInt8 configValue, UInt8 *configIndex)
 {
     int i;
     const IOUSBConfigurationDescriptor *cd = NULL;
-
+	
     USBLog(6, "%s[%p]:FindConfig (%d)",getName(), this, configValue);
-   
+	
     for(i = 0; i < _descriptor.bNumConfigurations; i++) 
     {
         cd = GetFullConfigurationDescriptor(i);
@@ -748,8 +754,8 @@ IOUSBDevice::FindConfig(UInt8 configValue, UInt8 *configIndex)
             break;
     }
     if(cd && configIndex)
-	*configIndex = i;
-
+		*configIndex = i;
+	
     return cd;
 }
 
@@ -773,58 +779,58 @@ IOUSBDevice::FindNextDescriptor(const void *cur, UInt8 descType)
     IOUSBConfigurationDescriptor	*curConfDesc;
     UInt16				curConfLength;
     UInt8				curConfig;
-   
+	
     if (!_configList)
-	return NULL;
+		return NULL;
     
     if (!_currentConfigValue)
     {
-	GetConfiguration(&curConfig);
-	if (!_currentConfigValue && !_allowConfigValueOfZero)
-	    return NULL;
+		GetConfiguration(&curConfig);
+		if (!_currentConfigValue && !_allowConfigValueOfZero)
+			return NULL;
     }
-
+	
     curConfDesc = (IOUSBConfigurationDescriptor	*)FindConfig(_currentConfigValue, &configIndex);
     if (!curConfDesc)
-	return NULL;
-
+		return NULL;
+	
     if (!_configList[configIndex])		// have seen this happen - causes a panic!
-	return NULL;
-
+		return NULL;
+	
     curConfLength = _configList[configIndex]->getLength();
     if (!cur)
-	hdr = (IOUSBDescriptorHeader*)curConfDesc;
+		hdr = (IOUSBDescriptorHeader*)curConfDesc;
     else
     {
-	if ((cur < curConfDesc) || (((int)cur - (int)curConfDesc) >= curConfLength))
-	{
-	    return NULL;
-	}
-	hdr = (IOUSBDescriptorHeader *)cur;
+		if ((cur < curConfDesc) || (((int)cur - (int)curConfDesc) >= curConfLength))
+		{
+			return NULL;
+		}
+		hdr = (IOUSBDescriptorHeader *)cur;
     }
-
+	
     do 
     {
-	IOUSBDescriptorHeader 		*lasthdr = hdr;
-	hdr = NextDescriptor(hdr);
-	if (lasthdr == hdr)
-	{
-	    return NULL;
-	}
-	
+		IOUSBDescriptorHeader 		*lasthdr = hdr;
+		hdr = NextDescriptor(hdr);
+		if (lasthdr == hdr)
+		{
+			return NULL;
+		}
+		
         if(((int)hdr - (int)curConfDesc) >= curConfLength)
-	{
+		{
             return NULL;
-	}
+		}
         if(descType == 0)
-	{
+		{
             return hdr;			// type 0 is wildcard.
-	}
+		}
 	    
         if(hdr->bDescriptorType == descType)
-	{
+		{
             return hdr;
-	}
+		}
     } while(true);
 }
 
@@ -832,9 +838,9 @@ IOUSBDevice::FindNextDescriptor(const void *cur, UInt8 descType)
 
 IOReturn
 IOUSBDevice::FindNextInterfaceDescriptor(const IOUSBConfigurationDescriptor *configDescIn, 
-					 const IOUSBInterfaceDescriptor *intfDesc,
+										 const IOUSBInterfaceDescriptor *intfDesc,
                                          const IOUSBFindInterfaceRequest *request,
-					 IOUSBInterfaceDescriptor **descOut)
+										 IOUSBInterfaceDescriptor **descOut)
 {
     IOUSBConfigurationDescriptor *configDesc = (IOUSBConfigurationDescriptor *)configDescIn;
     IOUSBInterfaceDescriptor *interface, *end;
@@ -843,34 +849,34 @@ IOUSBDevice::FindNextInterfaceDescriptor(const IOUSBConfigurationDescriptor *con
         configDesc = (IOUSBConfigurationDescriptor*)FindConfig(_currentConfigValue, NULL);
     
     if (!configDesc || (configDesc->bDescriptorType != kUSBConfDesc))
-	return kIOReturnBadArgument;
+		return kIOReturnBadArgument;
     
     end = (IOUSBInterfaceDescriptor *)(((UInt8*)configDesc) + USBToHostWord(configDesc->wTotalLength));
     
     if (intfDesc != NULL)
     {
-	if (((void*)intfDesc < (void*)configDesc) || (intfDesc->bDescriptorType != kUSBInterfaceDesc))
-	    return kIOReturnBadArgument;
-	interface = (IOUSBInterfaceDescriptor *)NextDescriptor(intfDesc);
+		if (((void*)intfDesc < (void*)configDesc) || (intfDesc->bDescriptorType != kUSBInterfaceDesc))
+			return kIOReturnBadArgument;
+		interface = (IOUSBInterfaceDescriptor *)NextDescriptor(intfDesc);
     }
     else
-	interface = (IOUSBInterfaceDescriptor *)NextDescriptor(configDesc);
+		interface = (IOUSBInterfaceDescriptor *)NextDescriptor(configDesc);
     while (interface < end)
     {
-	if (interface->bDescriptorType == kUSBInterfaceDesc)
-	{
-	    if (((request->bInterfaceClass == kIOUSBFindInterfaceDontCare) || (request->bInterfaceClass == interface->bInterfaceClass)) &&
-	    ((request->bInterfaceSubClass == kIOUSBFindInterfaceDontCare)  || (request->bInterfaceSubClass == interface->bInterfaceSubClass)) &&
-	    ((request->bInterfaceProtocol == kIOUSBFindInterfaceDontCare)  || (request->bInterfaceProtocol == interface->bInterfaceProtocol)) &&
-	    ((request->bAlternateSetting == kIOUSBFindInterfaceDontCare)   || (request->bAlternateSetting == interface->bAlternateSetting)))
-	    {
-		*descOut = interface;
-		return kIOReturnSuccess;
-	    }
-	}
-	interface = (IOUSBInterfaceDescriptor *)NextDescriptor(interface);
+		if (interface->bDescriptorType == kUSBInterfaceDesc)
+		{
+			if (((request->bInterfaceClass == kIOUSBFindInterfaceDontCare) || (request->bInterfaceClass == interface->bInterfaceClass)) &&
+				((request->bInterfaceSubClass == kIOUSBFindInterfaceDontCare)  || (request->bInterfaceSubClass == interface->bInterfaceSubClass)) &&
+				((request->bInterfaceProtocol == kIOUSBFindInterfaceDontCare)  || (request->bInterfaceProtocol == interface->bInterfaceProtocol)) &&
+				((request->bAlternateSetting == kIOUSBFindInterfaceDontCare)   || (request->bAlternateSetting == interface->bAlternateSetting)))
+			{
+				*descOut = interface;
+				return kIOReturnSuccess;
+			}
+		}
+		interface = (IOUSBInterfaceDescriptor *)NextDescriptor(interface);
     }
-   return kIOUSBInterfaceNotFound; 
+	return kIOUSBInterfaceNotFound; 
 }
 
 
@@ -898,23 +904,23 @@ IOUSBDevice::FindNextInterface(IOUSBInterface *current, IOUSBFindInterfaceReques
         // make sure it is really an authentic IOUSBInterface
         if (!OSDynamicCast(IOUSBInterface, current))
             return NULL;
-	while (true)
-	{
-	    if (FindNextInterfaceDescriptor(NULL, id, request, &id) != kIOReturnSuccess)
-		return NULL;
-	    if (GetInterface(id) == current)
-		break;
-	}
+		while (true)
+		{
+			if (FindNextInterfaceDescriptor(NULL, id, request, &id) != kIOReturnSuccess)
+				return NULL;
+			if (GetInterface(id) == current)
+				break;
+		}
     }
     
     while (!intf)
     {
-	// now find either the first interface descriptor which matches, or the first one after current
-	if (FindNextInterfaceDescriptor(NULL, id, request, &id) != kIOReturnSuccess)
-	    return NULL;
-    
-	intf =  GetInterface(id);
-	// since not all interfaces (e.g. alternate) are instantiated, we only terminate if we find one that is
+		// now find either the first interface descriptor which matches, or the first one after current
+		if (FindNextInterfaceDescriptor(NULL, id, request, &id) != kIOReturnSuccess)
+			return NULL;
+		
+		intf =  GetInterface(id);
+		// since not all interfaces (e.g. alternate) are instantiated, we only terminate if we find one that is
     }
     return intf;
     
@@ -927,12 +933,12 @@ IOUSBDevice::CreateInterfaceIterator(IOUSBFindInterfaceRequest *request)
 {
     IOUSBInterfaceIterator *iter = new IOUSBInterfaceIterator;
     if(!iter)
-	return NULL;
-
+		return NULL;
+	
     if(!iter->init(this, request)) 
     {
-	iter->release();
-	iter = NULL;
+		iter->release();
+		iter = NULL;
     }
     return iter;
 }
@@ -998,7 +1004,7 @@ IOUSBDevice::GetFullConfigurationDescriptor(UInt8 index)
 					USBError(1, "%s[%p]::GetFullConfigurationDescriptor - Error (%x) getting first %d bytes of config descriptor", getName(), this, err, 9);
 					goto Exit;
 				}
-
+				
 				USBError(1, "USB Device %s is violating Section 9.3.5 of the USB Specification -- Error in GetConfigDescriptor( wLength = 4)", getName());
 				if ( kIOReturnOverrun == err )
 				{
@@ -1072,26 +1078,26 @@ IOUSBDevice::GetDeviceDescriptor(IOUSBDeviceDescriptor *desc, UInt32 size)
 {
     IOUSBDevRequest	request;
     IOReturn		err;
-
+	
     USBLog(5, "%s[%p]::GetDeviceDescriptor (size %d)", getName(), this, size);
-
+	
     if (!desc)
         return  kIOReturnBadArgument;
-
+	
     request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqGetDescriptor;
     request.wValue = kUSBDeviceDesc << 8;
     request.wIndex = 0;
     request.wLength = size;
     request.pData = desc;
-
+	
     err = DeviceRequest(&request, 5000, 0);
     
     if (err)
     {
         USBError(1,"%s[%p]: Error (0x%x) getting device device descriptor", getName(), this, err);
     }
-
+	
     return err;
 }
 
@@ -1107,28 +1113,28 @@ IOUSBDevice::GetConfigDescriptor(UInt8 configIndex, void *desc, UInt32 len)
 {
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
-
+	
     USBLog(5, "%s[%p]::GetConfigDescriptor (length: %d)", getName(), this, len);
-
+	
     /*
      * with config descriptors, the device will send back all descriptors,
      * if the request is big enough.
      */
-
+	
     request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqGetDescriptor;
     request.wValue = (kUSBConfDesc << 8) + configIndex;
     request.wIndex = 0;
     request.wLength = len;
     request.pData = desc;
-
+	
     err = DeviceRequest(&request, 5000, 0);
-
+	
     if (err)
     {
         USBLog(1,"%s[%p]: Error (0x%x) getting device config descriptor", getName(), this, err);
     }
-
+	
     return err;
 }
 
@@ -1141,23 +1147,23 @@ IOUSBDevice::TerminateInterfaces()
     
     if (_interfaceList && _numInterfaces)
     {
-	// Go through the list of interfaces and release them
+		// Go through the list of interfaces and release them
         //
-	for (i=0; i < _numInterfaces; i++)
-	{
-	    IOUSBInterface *intf = _interfaceList[i];
-	    if (intf)
-	    {
-		// this call should do everything, including detaching the interface from us
+		for (i=0; i < _numInterfaces; i++)
+		{
+			IOUSBInterface *intf = _interfaceList[i];
+			if (intf)
+			{
+				// this call should do everything, including detaching the interface from us
                 //
-		intf->terminate(kIOServiceSynchronous);
-	    }
-	}
-	// free the interface list memory
+				intf->terminate(kIOServiceSynchronous);
+			}
+		}
+		// free the interface list memory
         //
-	IODelete(_interfaceList, IOUSBInterface*, _numInterfaces);
-	_interfaceList = NULL;
-	_numInterfaces = 0;
+		IODelete(_interfaceList, IOUSBInterface*, _numInterfaces);
+		_interfaceList = NULL;
+		_numInterfaces = 0;
     }
     
 }
@@ -1169,53 +1175,53 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
     IOUSBDevRequest	request;
     const IOUSBConfigurationDescriptor *confDesc;
     bool		allowConfigValueOfZero = false;
- 
+	
     // See if we have the _allowConfigValueOfZero errata
     //
     OSBoolean * boolObj = OSDynamicCast( OSBoolean, getProperty(kAllowConfigValueOfZero) );
     if ( boolObj && boolObj->isTrue() )
         _allowConfigValueOfZero = true;
-
+	
     boolObj = OSDynamicCast( OSBoolean, getProperty("kNeedsExtraResetTime") );
     if ( boolObj && boolObj->isTrue() )
     {
         USBLog(3,"%s[%p]::SetConfiguration  kNeedsExtraResetTime is true",getName(), this);
         _addExtraResetTime = true;
     }
-
+	
     // If we're not opened by our client, we can't set the configuration
     //
     if (!isOpen(forClient))
     {
-	USBLog(3,"%s[%p]::SetConfiguration  Error: Client does not have device open",getName(), this);
-	return kIOReturnExclusiveAccess;
+		USBLog(3,"%s[%p]::SetConfiguration  Error: Client does not have device open",getName(), this);
+		return kIOReturnExclusiveAccess;
     }
     
     confDesc = FindConfig(configNumber);
-
+	
     if ( (configNumber || allowConfigValueOfZero) && !confDesc)
     {
-	USBLog(3,"%s[%p]::SetConfiguration  Error: Could not find configuration (%d)",getName(), this, configNumber);
-	return kIOUSBConfigNotFound;
+		USBLog(3,"%s[%p]::SetConfiguration  Error: Could not find configuration (%d)",getName(), this, configNumber);
+		return kIOUSBConfigNotFound;
     }
     
     // Do we need to check if the device is self_powered?
     if (confDesc && (confDesc->MaxPower > _busPowerAvailable))
     {
-	DisplayUserNotification(kUSBNotEnoughPowerNotificationType);
+		DisplayUserNotification(kUSBNotEnoughPowerNotificationType);
         USBLog(1,"%s[%p]::SetConfiguration  Not enough bus power to configure device",getName(), this);
         IOLog("USB Low Power Notice:  The device \"%s\" cannot be used because there is not enough power to configure it\n",getName());
-
+		
         return kIOUSBNotEnoughPowerErr;
     }
-
+	
     //  Go ahead and remove all the interfaces that are attached to this
     //  device.
     //
     TerminateInterfaces();
     
     USBLog(5,"%s[%p]::SetConfiguration to %d",getName(), this, configNumber);
-
+	
     request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqSetConfig;
     request.wValue = configNumber;
@@ -1223,17 +1229,17 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
     request.wLength = 0;
     request.pData = 0;
     err = DeviceRequest(&request, 5000, 0);
-
+	
     if (err)
     {
         USBError(1,"%s[%p]: error setting config. err=0x%x", getName(), this, err);
-	return err;
+		return err;
     }
-
+	
     // Update our global now that we've set the configuration successfully
     //
     _currentConfigValue = configNumber;
-
+	
     // If the device is now configured (non zero) then instantiate interfaces and begin interface
     // matching if appropriate.  Here's how we deal with alternate settings:  We will look for the first
     // interface description and then instantiate all other interfaces that match the alternate setting
@@ -1242,31 +1248,31 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
     //
     if (configNumber || _allowConfigValueOfZero)
     {
-	int 		i;
-	Boolean 	gotAlternateSetting = false;
+		int 		i;
+		Boolean 	gotAlternateSetting = false;
         UInt8		altSetting = 0;
         
-	if (!confDesc || !confDesc->bNumInterfaces)
+		if (!confDesc || !confDesc->bNumInterfaces)
         {
             USBLog(5,"%s[%p]::SetConfiguration  No confDesc (%p) or no bNumInterfaces",getName(), this, confDesc);
-	    return kIOReturnNoResources;
+			return kIOReturnNoResources;
         }
-                
-	_interfaceList = IONew(IOUSBInterface*, confDesc->bNumInterfaces);
-	if (!_interfaceList)
+		
+		_interfaceList = IONew(IOUSBInterface*, confDesc->bNumInterfaces);
+		if (!_interfaceList)
         {
             USBLog(3,"%s[%p]::SetConfiguration  Could not create IOUSBInterface list",getName(), this );
-	    return kIOReturnNoResources;
+			return kIOReturnNoResources;
         }
         
-	_numInterfaces = confDesc->bNumInterfaces;
-	
-	const IOUSBInterfaceDescriptor *intfDesc = NULL;
+		_numInterfaces = confDesc->bNumInterfaces;
+		
+		const IOUSBInterfaceDescriptor *intfDesc = NULL;
         
-	for (i=0; i<_numInterfaces; i++)
-	{
-	    _interfaceList[i] = NULL;
-	    intfDesc = (IOUSBInterfaceDescriptor *)FindNextDescriptor(intfDesc, kUSBInterfaceDesc);
+		for (i=0; i<_numInterfaces; i++)
+		{
+			_interfaceList[i] = NULL;
+			intfDesc = (IOUSBInterfaceDescriptor *)FindNextDescriptor(intfDesc, kUSBInterfaceDesc);
             
             USBLog(5,"%s[%p]::SetConfiguration  Found an interface (%p) ",getName(), this, intfDesc );
             
@@ -1277,8 +1283,8 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
             {
                 intfDesc = (IOUSBInterfaceDescriptor *)FindNextDescriptor(intfDesc, kUSBInterfaceDesc);
             }
-
-	    if (intfDesc)
+			
+			if (intfDesc)
             {
                 if ( !gotAlternateSetting )
                 {
@@ -1288,7 +1294,7 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
                     gotAlternateSetting = true;
                 }
                 
-		_interfaceList[i] = IOUSBInterface::withDescriptors(confDesc, intfDesc);
+				_interfaceList[i] = IOUSBInterface::withDescriptors(confDesc, intfDesc);
                 if (_interfaceList[i])
                 {
                     USBLog(5,"%s[%p]::SetConfiguration  Attaching an interface (%p) ",getName(), this, _interfaceList[i] );
@@ -1302,32 +1308,32 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
                             _interfaceList[i]->detach(this);
                             _interfaceList[i] = NULL;
                         }
-                     }
+					}
                     else
                     {
                         USBLog(3,"%s[%p]::SetConfiguration  Attaching an interface (%p) failed",getName(), this, _interfaceList[i] );
                         return kIOReturnNoResources;
                     }
-
+					
                 }
                 else
                 {
                     USBLog(3,"%s[%p]::SetConfiguration  Could not init IOUSBInterface",getName(), this );
                     return kIOReturnNoMemory;
                 }
-
+				
             }
-	    else
+			else
             {
-		USBLog(3,"%s[%p]: SetConfiguration(%d): could not find interface (%d)", getName(), this, configNumber, i);
+				USBLog(3,"%s[%p]: SetConfiguration(%d): could not find interface (%d)", getName(), this, configNumber, i);
             }
-	}
-	if (startMatchingInterfaces)
-	{
+		}
+		if (startMatchingInterfaces)
+		{
             retain();	// retain ourselves because registerService could block
-	    for (i=0; i<_numInterfaces; i++)
-	    {
-		if (_interfaceList[i])
+			for (i=0; i<_numInterfaces; i++)
+			{
+				if (_interfaceList[i])
                 {
                     IOUSBInterface *theInterface = _interfaceList[i];
                     
@@ -1335,12 +1341,12 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
                     
                     // need to do an extra retain in case we get terminated while loading a driver
                     theInterface->retain();
-		    theInterface->registerService(kIOServiceSynchronous);
+					theInterface->registerService(kIOServiceSynchronous);
                     theInterface->release();
                 }
-	    }
+			}
             release();
-	}
+		}
     }
     else
     {
@@ -1359,23 +1365,23 @@ IOUSBDevice::SetFeature(UInt8 feature)
 {
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
-
+	
     USBLog(5, "%s[%p]::SetFeature (%d)", getName(), this, feature);
-
+	
     request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqSetFeature;
     request.wValue = feature;
     request.wIndex = 0;
     request.wLength = 0;
     request.pData = 0;
-
+	
     err = DeviceRequest(&request, 5000, 0);
-
+	
     if (err)
     {
         USBError(1, "%s[%p]: error setting feature (%d). err=0x%x", getName(), this, feature, err);
     }
-
+	
     return(err);
 }
 
@@ -1388,16 +1394,16 @@ IOUSBInterface*
 IOUSBDevice::GetInterface(const IOUSBInterfaceDescriptor *intfDesc)
 {
     int				i;
-
+	
     if (!_interfaceList)
         return NULL;
-        
+	
     for (i=0; i < _numInterfaces; i++)
     {
         if (!_interfaceList[i])
             continue;
         if ( (_interfaceList[i]->GetInterfaceNumber() == intfDesc->bInterfaceNumber) &&
-                (_interfaceList[i]->GetAlternateSetting() == intfDesc->bAlternateSetting) )
+			 (_interfaceList[i]->GetAlternateSetting() == intfDesc->bAlternateSetting) )
             return _interfaceList[i];
     }
     return NULL;
@@ -1415,10 +1421,10 @@ IOUSBDevice::GetConfigurationDescriptor(UInt8 configValue, void *data, UInt32 le
     cd = FindConfig(configValue);
     if(!cd)
         return kIOUSBConfigNotFound;
-
+	
     toCopy = USBToHostWord(cd->wTotalLength);
     if(len < toCopy)
-	toCopy = len;
+		toCopy = len;
     bcopy(cd, data, toCopy);
     return kIOReturnSuccess;
 }
@@ -1426,7 +1432,7 @@ IOUSBDevice::GetConfigurationDescriptor(UInt8 configValue, void *data, UInt32 le
 
 
 /**
- ** Matching methods
+** Matching methods
  **/
 bool 
 IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
@@ -1449,7 +1455,7 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     {
         return false;
     }
-
+	
     bool	vendorPropertyExists = table->getObject(kUSBVendorID) ? true : false ;
     bool	productPropertyExists = table->getObject(kUSBProductID) ? true : false ;
     bool	deviceReleasePropertyExists = table->getObject(kUSBDeviceReleaseNumber) ? true : false ;
@@ -1457,7 +1463,7 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     bool	deviceSubClassPropertyExists = table->getObject(kUSBDeviceSubClass) ? true : false ;
     bool	deviceProtocolPropertyExists= table->getObject(kUSBDeviceProtocol) ? true : false ;
     bool        productIDMaskExists = table->getObject(kUSBProductIDMask) ? true : false;
-
+	
     // USBComparePropery() will return false if the property does NOT exist, or if it exists and it doesn't match
     //
     bool	vendorPropertyMatches = USBCompareProperty(table, kUSBVendorID);
@@ -1466,59 +1472,59 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     bool	deviceClassPropertyMatches = USBCompareProperty(table, kUSBDeviceClass);
     bool	deviceSubClassPropertyMatches = USBCompareProperty(table, kUSBDeviceSubClass);
     bool	deviceProtocolPropertyMatches= USBCompareProperty(table, kUSBDeviceProtocol);
-
+	
     // Now, let's look and see whether any of the properties were OSString's AND their value was "*".  This indicates that
     // we should match to all the values for that category -- i.e. a wild card match
     //
     if ( !vendorPropertyMatches )               
     { 
-	vendorPropertyMatches = IsWildCardMatch(table, kUSBVendorID); 
-	if ( vendorPropertyMatches ) 
-	    vendorIsWildCard++; 
+		vendorPropertyMatches = IsWildCardMatch(table, kUSBVendorID); 
+		if ( vendorPropertyMatches ) 
+			vendorIsWildCard++; 
     }
     
     if ( !productPropertyMatches )              
     { 
-	productPropertyMatches = IsWildCardMatch(table, kUSBProductID); 
-	if ( productPropertyMatches ) 
-	    productIsWildCard++; 
+		productPropertyMatches = IsWildCardMatch(table, kUSBProductID); 
+		if ( productPropertyMatches ) 
+			productIsWildCard++; 
     }
-	 
+	
     if ( !deviceReleasePropertyMatches )              
     { 
-	deviceReleasePropertyMatches = IsWildCardMatch(table, kUSBDeviceReleaseNumber); 
-	if ( deviceReleasePropertyMatches ) 
-	    deviceReleaseIsWildCard++; 
+		deviceReleasePropertyMatches = IsWildCardMatch(table, kUSBDeviceReleaseNumber); 
+		if ( deviceReleasePropertyMatches ) 
+			deviceReleaseIsWildCard++; 
     }
-	 
+	
     if ( !deviceClassPropertyMatches )              
     { 
-	deviceClassPropertyMatches = IsWildCardMatch(table, kUSBDeviceClass); 
-	if ( deviceClassPropertyMatches ) 
-	    classIsWildCard++; 
+		deviceClassPropertyMatches = IsWildCardMatch(table, kUSBDeviceClass); 
+		if ( deviceClassPropertyMatches ) 
+			classIsWildCard++; 
     }
-	 
+	
     if ( !deviceSubClassPropertyMatches )            
     { 
-	deviceSubClassPropertyMatches = IsWildCardMatch(table, kUSBDeviceSubClass); 
-	if ( deviceSubClassPropertyMatches ) 
-	    subClassIsWildCard++; 
+		deviceSubClassPropertyMatches = IsWildCardMatch(table, kUSBDeviceSubClass); 
+		if ( deviceSubClassPropertyMatches ) 
+			subClassIsWildCard++; 
     }
-	 
+	
     if ( !deviceProtocolPropertyMatches )          
     { 
-	deviceProtocolPropertyMatches = IsWildCardMatch(table, kUSBDeviceProtocol); 
-	if ( deviceProtocolPropertyMatches ) 
-	    protocolIsWildCard++; 
+		deviceProtocolPropertyMatches = IsWildCardMatch(table, kUSBDeviceProtocol); 
+		if ( deviceProtocolPropertyMatches ) 
+			protocolIsWildCard++; 
     }
-
+	
     // If the productID didn't match, then see if there is a kProductIDMask property.  If there is, mask this device's prodID and the dictionary's prodID with it and see
     // if they are equal and if so, then we say we productID matches.
     //
     if ( productIDMaskExists && !productPropertyMatches )
     {
-	productPropertyMatches = USBComparePropertyWithMask( table, kUSBProductID, kUSBProductIDMask);
-	usedMaskForProductID = productPropertyMatches;
+		productPropertyMatches = USBComparePropertyWithMask( table, kUSBProductID, kUSBProductIDMask);
+		usedMaskForProductID = productPropertyMatches;
     }
     
     // If the service object wishes to compare some of its properties in its
@@ -1527,7 +1533,7 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     //
     if (!super::matchPropertyTable(table))  
         return false;
-
+	
     // something of a hack. We need the IOUSBUserClientInit "driver" to match in order
     // for us to be able to find the user mode plugin. However, that driver can't
     // effectively match using the USB Common Class Spec, so we special case it as a
@@ -1549,20 +1555,20 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     // Do the Device Matching algorithm
     //
     OSNumber *	deviceClass = (OSNumber *) getProperty(kUSBDeviceClass);
-
+	
     if ( vendorPropertyMatches && productPropertyMatches && deviceReleasePropertyMatches &&
-        (!deviceClassPropertyExists || deviceClassPropertyMatches) && 
-        (!deviceSubClassPropertyExists || deviceSubClassPropertyMatches) && 
-        (!deviceProtocolPropertyExists || deviceProtocolPropertyMatches) )
+		 (!deviceClassPropertyExists || deviceClassPropertyMatches) && 
+		 (!deviceSubClassPropertyExists || deviceSubClassPropertyMatches) && 
+		 (!deviceProtocolPropertyExists || deviceProtocolPropertyMatches) )
     {
         *score = 100000;
         wildCardMatches = vendorIsWildCard + productIsWildCard + deviceReleaseIsWildCard;
     }
     else if ( vendorPropertyMatches && productPropertyMatches  && 
-            (!deviceReleasePropertyExists || deviceReleasePropertyMatches) && 
-            (!deviceClassPropertyExists || deviceClassPropertyMatches) && 
-            (!deviceSubClassPropertyExists || deviceSubClassPropertyMatches) && 
-            (!deviceProtocolPropertyExists || deviceProtocolPropertyMatches) )
+			  (!deviceReleasePropertyExists || deviceReleasePropertyMatches) && 
+			  (!deviceClassPropertyExists || deviceClassPropertyMatches) && 
+			  (!deviceSubClassPropertyExists || deviceSubClassPropertyMatches) && 
+			  (!deviceProtocolPropertyExists || deviceProtocolPropertyMatches) )
     {
         *score = 90000;
         wildCardMatches = vendorIsWildCard + productIsWildCard;
@@ -1570,16 +1576,16 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     else if ( deviceClass && deviceClass->unsigned32BitValue() == kUSBVendorSpecificClass )
     {
         if (  vendorPropertyMatches && deviceSubClassPropertyMatches && deviceProtocolPropertyMatches &&
-                (!deviceClassPropertyExists || deviceClassPropertyMatches) && 
-                !deviceReleasePropertyExists &&  !productPropertyExists )
+			  (!deviceClassPropertyExists || deviceClassPropertyMatches) && 
+			  !deviceReleasePropertyExists &&  !productPropertyExists )
         {
             *score = 80000;
             wildCardMatches = vendorIsWildCard + subClassIsWildCard + protocolIsWildCard;
         }
         else if ( vendorPropertyMatches && deviceSubClassPropertyMatches &&
-                    (!deviceClassPropertyExists || deviceClassPropertyMatches) && 
-                    !deviceProtocolPropertyExists && !deviceReleasePropertyExists && 
-                    !productPropertyExists )
+				  (!deviceClassPropertyExists || deviceClassPropertyMatches) && 
+				  !deviceProtocolPropertyExists && !deviceReleasePropertyExists && 
+				  !productPropertyExists )
         {
             *score = 70000;
             wildCardMatches = vendorIsWildCard + subClassIsWildCard;
@@ -1591,14 +1597,14 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
         }
     }
     else if (  deviceClassPropertyMatches && deviceSubClassPropertyMatches && deviceProtocolPropertyMatches &&
-                !deviceReleasePropertyExists &&  !vendorPropertyExists && !productPropertyExists )
+			   !deviceReleasePropertyExists &&  !vendorPropertyExists && !productPropertyExists )
     {
         *score = 60000;
         wildCardMatches = classIsWildCard + subClassIsWildCard + protocolIsWildCard;
     }
     else if (  deviceClassPropertyMatches && deviceSubClassPropertyMatches &&
-                !deviceProtocolPropertyExists && !deviceReleasePropertyExists &&  !vendorPropertyExists && 
-                !productPropertyExists )
+			   !deviceProtocolPropertyExists && !deviceReleasePropertyExists &&  !vendorPropertyExists && 
+			   !productPropertyExists )
     {
         *score = 50000;
         wildCardMatches = classIsWildCard + subClassIsWildCard;
@@ -1608,7 +1614,7 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
         *score = 0;
         returnValue = false;
     }
-
+	
     // Add in the xml probe score if it's available.
     //
     if ( *score != 0 )
@@ -1621,91 +1627,91 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     // Subtract 500 if the usedMaskForProductID was set
     //
     if ( usedMaskForProductID )
-	*score -= 500;
+		*score -= 500;
     
     //  Only execute the debug code if we are logging at higher than level 4
     //
     if ( gKernelDebugLevel > 4 )
     {
-	OSString *	identifier = OSDynamicCast(OSString, table->getObject("CFBundleIdentifier"));
-	OSNumber *	vendor = (OSNumber *) getProperty(kUSBVendorID);
-	OSNumber *	product = (OSNumber *) getProperty(kUSBProductID);
-	OSNumber *	release = (OSNumber *) getProperty(kUSBDeviceReleaseNumber);
-	OSNumber *	deviceSubClass = (OSNumber *) getProperty(kUSBDeviceSubClass);
-	OSNumber *	protocol = (OSNumber *) getProperty(kUSBDeviceProtocol);
-	OSNumber *	dictVendor = (OSNumber *) table->getObject(kUSBVendorID);
-	OSNumber *	dictProduct = (OSNumber *) table->getObject(kUSBProductID);
-	OSNumber *	dictRelease = (OSNumber *) table->getObject(kUSBDeviceReleaseNumber);
-	OSNumber *	dictDeviceClass = (OSNumber *) table->getObject(kUSBDeviceClass);
-	OSNumber *	dictDeviceSubClass = (OSNumber *) table->getObject(kUSBDeviceSubClass);
-	OSNumber *	dictProtocol = (OSNumber *) table->getObject(kUSBDeviceProtocol);
-	OSNumber *	dictMask = (OSNumber *) table->getObject(kUSBProductIDMask);
-	bool		match = false;
-	
-	if (identifier)
-	    USBLog(5,"Finding device driver for %s, matching personality using %s, score: %ld", getName(), identifier->getCStringNoCopy(), *score);
-	else
-	    USBLog(6,"Finding device driver for %s, matching user client dictionary, score: %ld", getName(), *score);
-	
-	if ( vendor && product && release && deviceClass && deviceSubClass && protocol )
-	{
-	    char tempString[256]="";
-	    
-	    sprintf(logString,"\tMatched: ");
-	    if ( vendorPropertyMatches ) { match = true; sprintf(tempString,"idVendor (%d) ", vendor->unsigned32BitValue()); strcat(logString, tempString); }
-	    if ( productPropertyMatches ) { match = true; sprintf(tempString,"idProduct (%d) ", product->unsigned32BitValue());  strcat(logString, tempString);}
-	    if ( usedMaskForProductID && dictMask && dictProduct ) { sprintf(tempString,"to (%d) with mask (0x%x), ", dictProduct->unsigned32BitValue(), dictMask->unsigned32BitValue()); strcat(logString, tempString);}
-	    if ( deviceReleasePropertyMatches ) { match = true; sprintf(tempString,"bcdDevice (%d) ", release->unsigned32BitValue());  strcat(logString, tempString);}
-	    if ( deviceClassPropertyMatches ) { match = true; sprintf(tempString,"bDeviceClass (%d) ", deviceClass->unsigned32BitValue());  strcat(logString, tempString);}
-	    if ( deviceSubClassPropertyMatches ) { match = true; sprintf(tempString,"bDeviceSubClass (%d) ", deviceSubClass->unsigned32BitValue());  strcat(logString, tempString);}
-	    if ( deviceProtocolPropertyMatches ) { match = true; sprintf(tempString,"bDeviceProtocol (%d) ", protocol->unsigned32BitValue());  strcat(logString, tempString);}
-	    if ( !match ) strcat(logString,"no properties");
-	    
-	    USBLog(6,logString);
-	    
-	    sprintf(logString,"\tDidn't Match: ");
-	    
-	    match = false;
-	    if ( vendorPropertyExists && !vendorPropertyMatches && dictVendor ) 
-	    { 
-		match = true; 
-		sprintf(tempString,"idVendor (%d,%d) ", dictVendor->unsigned32BitValue(), vendor->unsigned32BitValue());
-		strcat(logString, tempString);
-	    }
-	    if ( productPropertyExists && !productPropertyMatches && dictProduct) 
-	    { 
-		match = true; 
-		sprintf(tempString,"idProduct (%d,%d) ", dictProduct->unsigned32BitValue(), product->unsigned32BitValue());
-		strcat(logString, tempString); 
-	    }
-	    if ( deviceReleasePropertyExists && !deviceReleasePropertyMatches && dictRelease) 
-	    { 
-		match = true; 
-		sprintf(tempString,"bcdDevice (%d,%d) ", dictRelease->unsigned32BitValue(), release->unsigned32BitValue());
-		strcat(logString, tempString); 
-	    }
-	    if ( deviceClassPropertyExists && !deviceClassPropertyMatches && dictDeviceClass) 
-	    { 
-		match = true; 
-		sprintf(tempString,"bDeviceClass (%d,%d) ", dictDeviceClass->unsigned32BitValue(), deviceClass->unsigned32BitValue());
-		strcat(logString, tempString);
-	    }
-	    if ( deviceSubClassPropertyExists && !deviceSubClassPropertyMatches && dictDeviceSubClass) 
-	    { 
-		match = true; 
-		sprintf(tempString,"bDeviceSubClass (%d,%d) ", dictDeviceSubClass->unsigned32BitValue(), deviceSubClass->unsigned32BitValue());
-		strcat(logString, tempString); 
-	    }
-	    if ( deviceProtocolPropertyExists && !deviceProtocolPropertyMatches && dictProtocol) 
-	    { 
-		match = true; 
-		sprintf(tempString,"bDeviceProtocol (%d,%d) ", dictProtocol->unsigned32BitValue(), protocol->unsigned32BitValue());
-		strcat(logString, tempString); 
-	    }
-	    if ( !match ) strcat(logString,"nothing");
-	    
-	    USBLog(6,logString);
-	}
+		OSString *	identifier = OSDynamicCast(OSString, table->getObject("CFBundleIdentifier"));
+		OSNumber *	vendor = (OSNumber *) getProperty(kUSBVendorID);
+		OSNumber *	product = (OSNumber *) getProperty(kUSBProductID);
+		OSNumber *	release = (OSNumber *) getProperty(kUSBDeviceReleaseNumber);
+		OSNumber *	deviceSubClass = (OSNumber *) getProperty(kUSBDeviceSubClass);
+		OSNumber *	protocol = (OSNumber *) getProperty(kUSBDeviceProtocol);
+		OSNumber *	dictVendor = (OSNumber *) table->getObject(kUSBVendorID);
+		OSNumber *	dictProduct = (OSNumber *) table->getObject(kUSBProductID);
+		OSNumber *	dictRelease = (OSNumber *) table->getObject(kUSBDeviceReleaseNumber);
+		OSNumber *	dictDeviceClass = (OSNumber *) table->getObject(kUSBDeviceClass);
+		OSNumber *	dictDeviceSubClass = (OSNumber *) table->getObject(kUSBDeviceSubClass);
+		OSNumber *	dictProtocol = (OSNumber *) table->getObject(kUSBDeviceProtocol);
+		OSNumber *	dictMask = (OSNumber *) table->getObject(kUSBProductIDMask);
+		bool		match = false;
+		
+		if (identifier)
+			USBLog(5,"Finding device driver for %s, matching personality using %s, score: %ld", getName(), identifier->getCStringNoCopy(), *score);
+		else
+			USBLog(6,"Finding device driver for %s, matching user client dictionary, score: %ld", getName(), *score);
+		
+		if ( vendor && product && release && deviceClass && deviceSubClass && protocol )
+		{
+			char tempString[256]="";
+			
+			sprintf(logString,"\tMatched: ");
+			if ( vendorPropertyMatches ) { match = true; sprintf(tempString,"idVendor (%d) ", vendor->unsigned32BitValue()); strcat(logString, tempString); }
+			if ( productPropertyMatches ) { match = true; sprintf(tempString,"idProduct (%d) ", product->unsigned32BitValue());  strcat(logString, tempString);}
+			if ( usedMaskForProductID && dictMask && dictProduct ) { sprintf(tempString,"to (%d) with mask (0x%x), ", dictProduct->unsigned32BitValue(), dictMask->unsigned32BitValue()); strcat(logString, tempString);}
+			if ( deviceReleasePropertyMatches ) { match = true; sprintf(tempString,"bcdDevice (%d) ", release->unsigned32BitValue());  strcat(logString, tempString);}
+			if ( deviceClassPropertyMatches ) { match = true; sprintf(tempString,"bDeviceClass (%d) ", deviceClass->unsigned32BitValue());  strcat(logString, tempString);}
+			if ( deviceSubClassPropertyMatches ) { match = true; sprintf(tempString,"bDeviceSubClass (%d) ", deviceSubClass->unsigned32BitValue());  strcat(logString, tempString);}
+			if ( deviceProtocolPropertyMatches ) { match = true; sprintf(tempString,"bDeviceProtocol (%d) ", protocol->unsigned32BitValue());  strcat(logString, tempString);}
+			if ( !match ) strcat(logString,"no properties");
+			
+			USBLog(6,logString);
+			
+			sprintf(logString,"\tDidn't Match: ");
+			
+			match = false;
+			if ( vendorPropertyExists && !vendorPropertyMatches && dictVendor ) 
+			{ 
+				match = true; 
+				sprintf(tempString,"idVendor (%d,%d) ", dictVendor->unsigned32BitValue(), vendor->unsigned32BitValue());
+				strcat(logString, tempString);
+			}
+			if ( productPropertyExists && !productPropertyMatches && dictProduct) 
+			{ 
+				match = true; 
+				sprintf(tempString,"idProduct (%d,%d) ", dictProduct->unsigned32BitValue(), product->unsigned32BitValue());
+				strcat(logString, tempString); 
+			}
+			if ( deviceReleasePropertyExists && !deviceReleasePropertyMatches && dictRelease) 
+			{ 
+				match = true; 
+				sprintf(tempString,"bcdDevice (%d,%d) ", dictRelease->unsigned32BitValue(), release->unsigned32BitValue());
+				strcat(logString, tempString); 
+			}
+			if ( deviceClassPropertyExists && !deviceClassPropertyMatches && dictDeviceClass) 
+			{ 
+				match = true; 
+				sprintf(tempString,"bDeviceClass (%d,%d) ", dictDeviceClass->unsigned32BitValue(), deviceClass->unsigned32BitValue());
+				strcat(logString, tempString);
+			}
+			if ( deviceSubClassPropertyExists && !deviceSubClassPropertyMatches && dictDeviceSubClass) 
+			{ 
+				match = true; 
+				sprintf(tempString,"bDeviceSubClass (%d,%d) ", dictDeviceSubClass->unsigned32BitValue(), deviceSubClass->unsigned32BitValue());
+				strcat(logString, tempString); 
+			}
+			if ( deviceProtocolPropertyExists && !deviceProtocolPropertyMatches && dictProtocol) 
+			{ 
+				match = true; 
+				sprintf(tempString,"bDeviceProtocol (%d,%d) ", dictProtocol->unsigned32BitValue(), protocol->unsigned32BitValue());
+				strcat(logString, tempString); 
+			}
+			if ( !match ) strcat(logString,"nothing");
+			
+			USBLog(6,logString);
+		}
     }
     
     return returnValue;
@@ -1727,13 +1733,13 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *completion
         return kIOReturnNotResponding;
     }
     theRequest = (request->bRequest << 8) | request->bmRequestType;
-
+	
     if (theRequest == kSetAddress) 
     {
         USBLog(3, "%s[%p]:DeviceRequest ignoring kSetAddress", getName(), this);
         return kIOReturnNotPermitted;
     }
-
+	
     if ( _pipeZero )
     {
         err = _pipeZero->ControlRequest(request, completion);
@@ -1765,13 +1771,13 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *comple
         return kIOReturnNotResponding;
     }
     theRequest = (request->bRequest << 8) | request->bmRequestType;
-
+	
     if (theRequest == kSetAddress) 
     {
         USBLog(3, "%s[%p]:DeviceRequest ignoring kSetAddress", getName(), this);
         return kIOReturnNotPermitted;
     }
-
+	
     if ( _pipeZero )
     {
         err = _pipeZero->ControlRequest(request, completion);
@@ -1795,23 +1801,23 @@ IOUSBDevice::GetConfiguration(UInt8 *configNumber)
 {
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
- 
+	
     USBLog(5, "%s[%p]::GetConfiguration", getName(), this);
-
+	
     request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqGetConfig;
     request.wValue = 0;
     request.wIndex = 0;
     request.wLength = sizeof(*configNumber);
     request.pData = configNumber;
-
+	
     err = DeviceRequest(&request, 5000, 0);
-
+	
     if (err)
     {
         USBError(1,"%s[%p]: error getting config. err=0x%x", getName(), this, err);
     }
-
+	
     return(err);
 }
 
@@ -1822,21 +1828,21 @@ IOUSBDevice::GetDeviceStatus(USBStatus *status)
 {
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
-
+	
     USBLog(5, "%s[%p]::GetDeviceStatus", getName(), this);
-
+	
     request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqGetStatus;
     request.wValue = 0;
     request.wIndex = 0;
     request.wLength = sizeof(*status);
     request.pData = status;
-
+	
     err = DeviceRequest(&request, 5000, 0);
-
+	
     if (err)
         USBError(1,"%s[%p]: error getting device status. err=0x%x", getName(), this, err);
-
+	
     return(err);
 }
 
@@ -1849,12 +1855,12 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *utf8Buffer, int utf8BufferSi
     UInt8 		desc[256]; // Max possible descriptor length
     IOUSBDevRequest	request;
     int			i, len;
-
+	
     // The buffer needs to be > 5 (One UTF8 character could be 4 bytes long, plus length byte)
     //
     if ( utf8BufferSize < 6 )
         return kIOReturnBadArgument;
-        
+	
     // Clear our buffer
     //
     bzero(utf8Buffer, utf8BufferSize);
@@ -1868,13 +1874,13 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *utf8Buffer, int utf8BufferSi
     request.wLength = 2;
     bzero(desc, 2);
     request.pData = &desc;
-
+	
     err = DeviceRequest(&request, 5000, 0);
-
+	
     if ( (err != kIOReturnSuccess) && (err != kIOReturnOverrun) )
     {
         USBLog(5,"%s[%p]::GetStringDescriptor reading string length returned error (0x%x) - retrying with max length",getName(), this, err );
-
+		
         // Let's try again full length.  Here's why:  On USB 2.0 controllers, we will not get an overrun error.  We just get a "babble" error
         // and no valid data.  So, if we ask for the max size, we will either get it, or we'll get an underrun.  It looks like we get it w/out an underrun
         //
@@ -1885,7 +1891,7 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *utf8Buffer, int utf8BufferSi
         request.wLength = 256;
         bzero(desc, 256);
         request.pData = &desc;
-
+		
         err = DeviceRequest(&request, 5000, 0);
         if ( (err != kIOReturnSuccess) && (err != kIOReturnUnderrun) )
         {
@@ -1893,7 +1899,7 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *utf8Buffer, int utf8BufferSi
             return err;
         }
     }
-
+	
     request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqGetDescriptor;
     request.wValue = (kUSBStringDesc << 8) | index;
@@ -1915,7 +1921,7 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *utf8Buffer, int utf8BufferSi
         USBLog(3,"%s[%p]::GetStringDescriptor descriptor is not a string (%d ­ kUSBStringDesc)", getName(), this, desc[1] );
         return kIOReturnDeviceError;
     }
-
+	
     if ( (desc[0] & 1) != 0)
     {
         // Odd length for the string descriptor!  That is odd.  Truncate it to an even #
@@ -1927,15 +1933,15 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *utf8Buffer, int utf8BufferSi
     request.wLength = len;
     bzero(desc, len);
     request.pData = &desc;
-
+	
     err = DeviceRequest(&request, 5000, 0);
-
+	
     if (err != kIOReturnSuccess)
     {
         USBLog(3,"%s[%p]::GetStringDescriptor reading entire string returned error (0x%x)",getName(), this, err);
         return err;
     }
-
+	
     // Make sure that desc[1] == kUSBStringDesc
     //
     if ( desc[1] != kUSBStringDesc )
@@ -1943,7 +1949,7 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *utf8Buffer, int utf8BufferSi
         USBLog(3,"%s[%p]::GetStringDescriptor descriptor is not a string (%d ­ kUSBStringDesc)", getName(), this, desc[1] );
         return kIOReturnDeviceError;
     }
-
+	
     if ( (desc[0] & 1) != 0)
     {
         // Odd length for the string descriptor!  That is odd.  Truncate it to an even #
@@ -1951,10 +1957,10 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *utf8Buffer, int utf8BufferSi
         USBLog(3,"%s[%p]::GetStringDescriptor(2) descriptor length (%d) is odd, which is illegal", getName(), this, desc[0]);
         desc[0] &= 0xfe;
     }
-
+	
     USBLog(5, "%s[%p]::GetStringDescriptor Got string descriptor %d, length %d, got %d", getName(), this,
            index, desc[0], request.wLength);
-
+	
     // The string descriptor is in "Unicode".  We need to convert it to UTF-8.
     //
     SInt32              length = 0;
@@ -2007,7 +2013,7 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
     {
         case kIOUSBMessagePortHasBeenReset:
             resetErr = * (IOReturn *) argument;
-
+			
             USBLog(4,"%s[%p] received kIOUSBMessagePortHasBeenReset with error = 0x%x",getName(), this, resetErr);
             
             // When we get this message, we need to forward it to our clients
@@ -2033,7 +2039,7 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
             break;
             
         case kIOUSBMessageHubIsDeviceConnected:
-        
+			
             // We need to send a message to all our clients (we are looking for the Hub driver) asking
             // them if the device for the given port is connected.  The hub driver will return the kIOReturnNoDevice
             // as an error.  However, any client that does not implement the message method will return
@@ -2052,7 +2058,7 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
                     //
                     err = _usbPlaneParent->message(kIOUSBMessageHubIsDeviceConnected, NULL, 0);
                 }
-            
+				
                 if ( err == kIOReturnSuccess )
                 {
                     iter = _usbPlaneParent->getClientIterator();
@@ -2061,15 +2067,15 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
                         IOSleep(1);
                         
                         err = client->message(kIOUSBMessageHubIsDeviceConnected, this, &_portNumber);
-        
+						
                         // If we get a kIOReturnUnsupported error, treat it as no error
                         //
                         if ( err == kIOReturnUnsupported )
                             err = kIOReturnSuccess;
                         else
-                        
-                        if ( err != kIOReturnSuccess )
-                            break;
+							
+							if ( err != kIOReturnSuccess )
+								break;
                     }
                     iter->release();
                 }
@@ -2080,13 +2086,26 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
                 err = kIOReturnNoDevice;
             }
             
-           break;
+			break;
             
+        case kIOUSBMessagePortWasNotSuspended:
+            // Forward the message to our clients
+            //
+            USBLog(5,"%s[%p]: kIOUSBMessagePortWasNotSuspended",getName(),this);
+			
+            // Note that we set the following so that the SuspendDevice() loop breaks out on a resume
+            // as well.  This vaiable should be called _portHasBeenSuspendedOrResumed
+            //
+            _portHasBeenSuspended = true;
+            
+            messageClients( kIOUSBMessagePortWasNotSuspended, this, _portNumber);
+            break;
+			
         case kIOUSBMessagePortHasBeenResumed:
             // Forward the message to our clients
             //
             USBLog(5,"%s[%p]: kIOUSBMessagePortHasBeenResumed",getName(),this);
-
+			
             // Note that we set the following so that the SuspendDevice() loop breaks out on a resume
             // as well.  This vaiable should be called _portHasBeenSuspendedOrResumed
             //
@@ -2094,16 +2113,16 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
             
             messageClients( kIOUSBMessagePortHasBeenResumed, this, _portNumber);
             break;
-
+			
         case kIOUSBMessagePortHasBeenSuspended:
             USBLog(5,"%s[%p]: kIOUSBMessagePortHasBeenSuspended with error: 0x%x",getName(),this, * (IOReturn *) argument);
             _portHasBeenSuspended = true;
-
+			
             // Forward the message to our clients
             //
             messageClients( kIOUSBMessagePortHasBeenSuspended, this, _portNumber);
             break;
-
+			
         case kIOMessageServiceIsTerminated:
             USBLog(5,"%s[%p]: kIOMessageServiceIsTerminated",getName(),this);
             _deviceterminating = true;
@@ -2125,18 +2144,18 @@ void
 IOUSBDevice::stop( IOService * provider )
 {
     USBLog(5, "%s[%p]::stop isInactive = %d", getName(), this, isInactive());
-
+	
     if (_notifierHandlerTimer)
     {
         if ( _workLoop )
             _workLoop->removeEventSource(_notifierHandlerTimer);
-
+		
         _notifierHandlerTimer->release();
         _notifierHandlerTimer = NULL;
     }
-
+	
     super::stop(provider);
-
+	
 }
 
 
@@ -2149,7 +2168,7 @@ IOUSBDevice::willTerminate( IOService * provider, IOOptionBits options )
     // isInactive flag is set, so we really are marked as being done. we will do in here
     // what we used to do in the message method (this happens first)
     USBLog(3, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
-
+	
     return super::willTerminate(provider, options);
 }
 
@@ -2161,7 +2180,7 @@ IOUSBDevice::didTerminate( IOService * provider, IOOptionBits options, bool * de
     // in which case we can just close our provider and IOKit will take care of the rest. Otherwise, we need to 
     // hold on to the device and IOKit will terminate us when we close it later
     USBLog(3, "%s[%p]::didTerminate isInactive = %d", getName(), this, isInactive());
-
+	
     return super::didTerminate(provider, options, defer);
 }
 
@@ -2187,10 +2206,10 @@ void
 IOUSBDevice::DisplayUserNotificationForDeviceEntry(OSObject *owner, IOTimerEventSource *sender)
 {
     IOUSBDevice *	me = OSDynamicCast(IOUSBDevice, owner);
-
+	
     if (!me)
         return;
-
+	
     me->retain();
     me->DisplayUserNotificationForDevice();
     me->release();
@@ -2200,12 +2219,21 @@ void
 IOUSBDevice::DisplayUserNotificationForDevice ()
 {
     kern_return_t	notificationError = kIOReturnSuccess;
-
+    OSNumber *		locationIDProperty;
+    UInt32			locationID = 0;
+	
+    // Get our locationID as an unsigned 32 bit number so we can
+    locationIDProperty = (OSNumber *) getProperty(kUSBDevicePropertyLocationID);
+    if ( locationIDProperty )
+    {
+        locationID = locationIDProperty->unsigned32BitValue();
+    }
+	
     // We will attempt to display the notification.  If we get an error, we will use a timer to fire the notification again
     // at some other point, until we don't get an error.
     //
     USBLog(3,"%s[%p]DisplayUserNotificationForDevice notificationType: %d",getName(), this, _notificationType );
-
+	
 #if 0
     switch ( _notificationType )
     {
@@ -2221,7 +2249,7 @@ IOUSBDevice::DisplayUserNotificationForDevice ()
                                                                       (KUNCUserNotificationCallBack) NULL,
                                                                       0);
             break;
-
+			
         case kUSBIndividualOverCurrentNotificationType:
             IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The port it is attached to has been disabled\n",getName());
             notificationError = KUNCUserNotificationDisplayFromBundle(
@@ -2234,7 +2262,7 @@ IOUSBDevice::DisplayUserNotificationForDevice ()
                                                                       (KUNCUserNotificationCallBack) NULL,
                                                                       0);
             break;
-
+			
         case kUSBGangOverCurrentNotificationType:
             IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The hub it is attached to has been disabled\n",getName());
             notificationError = KUNCUserNotificationDisplayFromBundle(
@@ -2253,7 +2281,7 @@ IOUSBDevice::DisplayUserNotificationForDevice ()
     switch ( _notificationType )
     {
         case kUSBNotEnoughPowerNotificationType:
-            IOLog("USB Notification:  The device \"%s\" cannot operate because there is not enough power available\n",getName());
+            IOLog("USB Notification:  The device \"%s\" @ 0x%lx cannot operate because there is not enough power available\n",getName(), locationID);
             notificationError = KUNCUserNotificationDisplayNotice(
                                                                   0,		// Timeout in seconds
                                                                   0,		// Flags (for later usage)
@@ -2266,7 +2294,7 @@ IOUSBDevice::DisplayUserNotificationForDevice ()
             break;
 			
         case kUSBIndividualOverCurrentNotificationType:
-            IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The port it is attached to has been disabled\n",getName());
+            IOLog("USB Notification:  The device \"%s\" @ 0x%lx has caused an overcurrent condition.  The port it is attached to has been disabled\n",getName(), locationID);
             notificationError = KUNCUserNotificationDisplayNotice(
                                                                   0,		// Timeout in seconds
                                                                   0,		// Flags (for later usage)
@@ -2279,7 +2307,7 @@ IOUSBDevice::DisplayUserNotificationForDevice ()
             break;
 			
         case kUSBGangOverCurrentNotificationType:
-            IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The hub it is attached to has been disabled\n",getName());
+            IOLog("USB Notification:  The device \"%s\" @ 0x%lx has caused an overcurrent condition.  The hub it is attached to has been disabled\n",getName(), locationID);
             notificationError = KUNCUserNotificationDisplayNotice(
                                                                   0,		// Timeout in seconds
                                                                   0,		// Flags (for later usage)
@@ -2299,10 +2327,10 @@ IOUSBDevice::DisplayUserNotificationForDevice ()
         // Bummer, we couldn't do it.  Set the time so that we try again later
         //
         USBLog(3,"%s[%p]DisplayUserNotificationForDevice returned error 0x%x", getName(), this, notificationError);
-
+		
         _notifierHandlerTimer->setTimeoutMS (kNotifyTimerDelay);	// No one logged in yet (except maybe root) reset the timer to fire later.
     }
-
+	
     return;
 }
 
@@ -2387,15 +2415,15 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt3
         USBLog(1, "%s[%p]::DeviceRequest - while terminating!", getName(), this);
         return kIOReturnNotResponding;
     }
-
+	
     theRequest = (request->bRequest << 8) | request->bmRequestType;
-
+	
     if (theRequest == kSetAddress) 
     {
         USBLog(3, "%s[%p]:DeviceRequest ignoring kSetAddress", getName(), this);
         return kIOReturnNotPermitted;
     }
-
+	
     if ( _pipeZero )
     {
         err = _pipeZero->ControlRequest(request, noDataTimeout, completionTimeout, completion);
@@ -2427,15 +2455,15 @@ IOUSBDevice::DeviceRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, U
         USBLog(1, "%s[%p]::DeviceRequest - while terminating!", getName(), this);
         return kIOReturnNotResponding;
     }
-
+	
     theRequest = (request->bRequest << 8) | request->bmRequestType;
-
+	
     if (theRequest == kSetAddress) 
     {
         USBLog(3, "%s[%p]:DeviceRequest ignoring kSetAddress", getName(), this);
         return kIOReturnNotPermitted;
     }
-
+	
     if ( _pipeZero )
     {
         err = _pipeZero->ControlRequest(request, noDataTimeout, completionTimeout, completion);
@@ -2459,46 +2487,46 @@ IOReturn
 IOUSBDevice::SuspendDevice( bool suspend )
 {
     UInt32	retries = 0;
-
+	
     if ( _suspendInProgress )
     {
         USBLog(5, "%s[%p]::SuspendDevice(%d) while in progress", getName(), this, _portNumber );
         return kIOReturnNotPermitted;
     }
-
+	
     if ( isInactive() )
     {
         USBLog(1, "%s[%p]::SuspendDevice - while inactive!", getName(), this);
         return kIOReturnNotResponding;
     }
-
+	
     _suspendInProgress = true;
     
     retain();
     _portHasBeenSuspended = false;
-
+	
     USBLog(5, "+%s[%p]::SuspendDevice for port %d", getName(), this, _portNumber );
     thread_call_enter1( _doPortSuspendThread, (thread_call_param_t) suspend );
-
+	
     // Should we do a commandSleep/Wakeup here?
     //
     while ( !_portHasBeenSuspended && retries < 200 )
     {
         IOSleep(50);
-
+		
         if ( isInactive() )
         {
             USBLog(3, "+%s[%p]::SuspendDevice isInactive() while waiting for suspend to finish", getName(), this );
             break;
         }
-
+		
         retries++;
     }
-
+	
     USBLog(5, "-%s[%p]::SuspendDevice for port %d", getName(), this, _portNumber );
-
+	
     _suspendInProgress = false;
-
+	
     return kIOReturnSuccess;
 }
 
@@ -2511,7 +2539,7 @@ IOUSBDevice::ReEnumerateDevice( UInt32 options )
         USBLog(1, "%s[%p]::ReEnumerateDevice - while terminating!", getName(), this);
         return kIOReturnNotResponding;
     }
-
+	
     // If we have the _addExtraResetTime, set bit 31 of the options
     //
     if ( _addExtraResetTime )
@@ -2527,7 +2555,7 @@ IOUSBDevice::ReEnumerateDevice( UInt32 options )
     USBLog(3, "+%s[%p] ReEnumerateDevice for port %d, options 0x%x", getName(), this, _portNumber, options );
     retain();
     thread_call_enter1( _doPortReEnumerateThread, (thread_call_param_t) options );
-
+	
     USBLog(3, "-%s[%p] ReEnumerateDevice for port %d", getName(), this, _portNumber );
     
     return kIOReturnSuccess;
@@ -2580,7 +2608,7 @@ IOUSBDevice::ProcessPortResetEntry(OSObject *target)
     
     if (!me)
         return;
-
+	
     me->retain();
     me->ProcessPortReset();
     me->release();
@@ -2592,7 +2620,7 @@ void
 IOUSBDevice::ProcessPortReset()
 {
     IOReturn			err = kIOReturnSuccess;
-   
+	
 	// if we are already resetting the port, then just return ( Perhaps we should do this atomically)?
 	//
 	if ( _portResetThreadActive )
@@ -2601,7 +2629,7 @@ IOUSBDevice::ProcessPortReset()
 	    _portResetThreadActive = true;
 	
     USBLog(6,"+%s[%p]::ProcessPortReset",getName(),this); 
-
+	
     if( _pipeZero) 
     {
         _pipeZero->Abort();
@@ -2609,7 +2637,7 @@ IOUSBDevice::ProcessPortReset()
         _pipeZero->release();
         _pipeZero = NULL;
     }
-   
+	
     // In the past, we "terminated" all the interfaces at this point.  As of 9/17/01, we will not do 
     // that anymore.  10/30/01:  We will do it in the case that we want to reenumerate devices:
     //
@@ -2627,18 +2655,18 @@ IOUSBDevice::ProcessPortReset()
         _usbPlaneParent->release();
     }
     
-   // Recreate pipe 0 object
+	// Recreate pipe 0 object
     _pipeZero = IOUSBPipe::ToEndpoint(&_endpointZero, this, _controller);
     if (!_pipeZero)
     {
         USBError(1,"%s[%p]::ProcessPortReset DANGER could not recreate pipe Zero after reset");
         err = kIOReturnNoMemory;
     }
-
+	
     _currentConfigValue = 0;
     // USBLog(3, "-%s[%p]::ProcessPortReset", getName(), this);
-   
-     _portResetThreadActive = false;
+	
+	_portResetThreadActive = false;
     USBLog(5,"-%s[%p]::ProcessPortReset",getName(),this); 
 }
 
@@ -2660,7 +2688,7 @@ IOUSBDevice::ProcessPortReEnumerateEntry(OSObject *target,thread_call_param_t op
     
     if (!me)
         return;
-        
+	
     me->ProcessPortReEnumerate( (UInt32) options);
     me->release();
 }
@@ -2674,7 +2702,7 @@ IOUSBDevice::ProcessPortReEnumerate(UInt32 options)
     IOUSBHubPortReEnumerateParam	params;
     
     USBLog(5,"+%s[%p]::ProcessPortReEnumerate",getName(),this); 
-
+	
     // Set the parameters for our message call
     //
     params.portNumber = _portNumber;
@@ -2683,11 +2711,11 @@ IOUSBDevice::ProcessPortReEnumerate(UInt32 options)
     if( _pipeZero) 
     {
         _pipeZero->Abort();
-	_pipeZero->ClosePipe();
+		_pipeZero->ClosePipe();
         _pipeZero->release();
         _pipeZero = NULL;
     }
-   
+	
     // Remove any interfaces and their drivers
     //
     TerminateInterfaces();
@@ -2722,7 +2750,7 @@ IOUSBDevice::ProcessPortSuspendEntry(OSObject *target, thread_call_param_t suspe
     
     if (!me)
         return;
-        
+	
     me->ProcessPortSuspend( (bool) suspend );
     me->release();
 }
@@ -2733,7 +2761,7 @@ void
 IOUSBDevice::ProcessPortSuspend(bool suspend)
 {
     IOReturn			err = kIOReturnSuccess;
-
+	
     _portSuspendThreadActive = true;
     
     // Now, we need to tell our parent to issue a port suspend to our port.  Our parent is an IOUSBDevice
@@ -2750,8 +2778,8 @@ IOUSBDevice::ProcessPortSuspend(bool suspend)
             err = _usbPlaneParent->messageClients(kIOUSBMessageHubResumePort, &_portNumber, sizeof(_portNumber));
         _usbPlaneParent->release();
     }
-   
-     _portSuspendThreadActive = false;
+	
+	_portSuspendThreadActive = false;
 }
 
 // Obsolete, do NOT use
@@ -2791,7 +2819,7 @@ IOUSBDevice::GetMaxPacketSize(void)
 { 
     return _descriptor.bMaxPacketSize0; 
 }
-	
+
 UInt16 
 IOUSBDevice::GetVendorID(void) 
 { 

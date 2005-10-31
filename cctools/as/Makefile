@@ -14,7 +14,8 @@ ifneq "mwccppc" "$(notdir $(CC))"
   GCC_FLAGS = -Wall $(X_CFLAGS) -mdynamic-no-pic
 endif
 
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
+				  [ "$(RC_XBS)" != "YES" ]; then \
 	     echo YES ; else echo NO ; \
 	     fi; )
 

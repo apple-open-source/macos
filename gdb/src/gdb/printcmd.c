@@ -213,6 +213,9 @@ decode_format (char **string_ptr, int oformat, int osize)
 	val.size = *p++;
       else if (*p >= 'a' && *p <= 'z')
 	val.format = *p++;
+      /* APPLE LOCAL: OSType formatting */
+      else if (*p == 'T')
+        val.format = *p++;
       else
 	break;
     }
@@ -299,7 +302,14 @@ print_formatted (struct value *val, int format, int size,
 	+ val_print_string (VALUE_ADDRESS (val), -1, 1, stream);
       next_section = VALUE_BFD_SECTION (val);
       break;
-
+    /* APPLE LOCAL: OSType formatting */
+    case 'T':
+      {
+        printf_filtered ("'");
+        print_ostype (gdb_stdout, (unsigned char *) VALUE_CONTENTS (val));
+        printf_filtered ("'");
+        break;
+      }
     case 'i':
       /* The old comment says
          "Force output out, print_insn not using _filtered".
@@ -375,6 +385,13 @@ print_scalar_formatted (void *valaddr, struct type *type, int format, int size,
 	default:
 	  break;
 	};
+    }
+
+  /* APPLE LOCAL: OSType formatting */
+  if (format == 'T')
+    {
+      print_ostype (stream, valaddr);
+      return;
     }
 
   if (format != 'f')
@@ -795,6 +812,9 @@ do_examine (struct format_data fmt, CORE_ADDR addr, asection *sect)
      regardless of the specified size.  */
   if (format == 's' || format == 'i')
     size = 'b';
+  /* APPLE LOCAL: OSType formatting */
+  if (format == 'T')
+    size = 'w';
 
   if (format == 'i')
     val_type = examine_i_type;
@@ -1225,18 +1245,26 @@ address_info (char *exp, int from_tty)
       break;
 
     case LOC_BLOCK:
-      printf_filtered ("a function at address ");
-      print_address_numeric (load_addr = BLOCK_START (SYMBOL_BLOCK_VALUE (sym)),
-			     1, gdb_stdout);
-      if (section_is_overlay (section))
-	{
-	  load_addr = overlay_unmapped_address (load_addr, section);
-	  printf_filtered (",\n -- loaded at ");
-	  print_address_numeric (load_addr, 1, gdb_stdout);
-	  printf_filtered (" in overlay section %s", section->name);
-	}
+      {
+	struct block *block_ptr;
+	block_ptr = SYMBOL_BLOCK_VALUE (sym);
+	if (block_ptr != NULL)
+	  {
+	    printf_filtered ("a function at address ");
+	    print_address_numeric (load_addr = BLOCK_START (block_ptr),
+				   1, gdb_stdout);
+	    if (section_is_overlay (section))
+	      {
+		load_addr = overlay_unmapped_address (load_addr, section);
+		printf_filtered (",\n -- loaded at ");
+		print_address_numeric (load_addr, 1, gdb_stdout);
+		printf_filtered (" in overlay section %s", section->name);
+	      }
+	  }
+	else
+	  printf_filtered ("a function with unknown block.");
       break;
-
+      }
     case LOC_UNRESOLVED:
       {
 	struct minimal_symbol *msym;
@@ -2025,12 +2053,14 @@ _initialize_printcmd (void)
 	    "Describe what symbol is at location ADDR.\n\
 Only for symbols with fixed locations (global or static scope).");
 
+/* APPLE LOCAL: OSType */
   add_com ("x", class_vars, x_command,
 	   concat ("Examine memory: x/FMT ADDRESS.\n\
 ADDRESS is an expression for the memory address to examine.\n\
 FMT is a repeat count followed by a format letter and a size letter.\n\
 Format letters are o(octal), x(hex), d(decimal), u(unsigned decimal),\n\
-  t(binary), f(float), a(address), i(instruction), c(char) and s(string).\n",
+  t(binary), f(float), a(address), i(instruction), c(char) and s(string),\n\
+  T(OSType).\n",
 		   "Size letters are b(byte), h(halfword), w(word), g(giant, 8 bytes).\n\
 The specified number of objects of the specified size are printed\n\
 according to the format.\n\n\

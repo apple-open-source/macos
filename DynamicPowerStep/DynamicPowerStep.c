@@ -87,6 +87,14 @@ void load(CFBundleRef bundle, Boolean bundleVerbose)
     CFMutableArrayRef		arrayRef;
     Boolean			ok;
     
+    if( !IOPMFeatureIsAvailable(CFSTR(kIOPMDynamicPowerStepKey), NULL)
+     && !IOPMFeatureIsAvailable(CFSTR(kIOPMReduceSpeedKey), NULL) )
+    {
+        // Return immediately if neither DPS or Reduced is supported.
+        // Do not register for notifications or operate plugin at all.
+        return;    
+    }    
+    
     gIOPMDynamicStoreSettingsKey = CFSTR(kIOPMDynamicStoreSettingsKey);
     
     // Set up some defaults: DPS off and assume full speed.

@@ -302,11 +302,20 @@ void HTMLElementImpl::destroyInlineStyleDecl()
 
 NodeImpl *HTMLElementImpl::cloneNode(bool deep)
 {
-    HTMLElementImpl *n = static_cast<HTMLElementImpl *>(ElementImpl::cloneNode(deep));
-    if (n && m_inlineStyleDecl) {
-        *n->getInlineStyleDecl() = *m_inlineStyleDecl;
-    }
-    return n;
+    HTMLElementImpl *clone = static_cast<HTMLElementImpl *>(getDocument()->createHTMLElement(localNamePart(id())));
+    if (!clone)
+        return 0;
+
+    if (namedAttrMap)
+        *clone->attributes() = *namedAttrMap;
+
+    if (m_inlineStyleDecl)
+        *clone->getInlineStyleDecl() = *m_inlineStyleDecl;
+
+    if (deep)
+        cloneChildNodes(clone);
+
+    return clone;
 }
 
 void HTMLElementImpl::attributeChanged(AttributeImpl* attr, bool preserveDecls)
@@ -851,7 +860,12 @@ bool HTMLElementImpl::setInnerHTML( const DOMString &html )
 
 bool HTMLElementImpl::setOuterHTML( const DOMString &html )
 {
-    DocumentFragmentImpl *fragment = createContextualFragment( html );
+    NodeImpl *p = parent();
+    if (!p || !p->isHTMLElement())
+        return false;
+    HTMLElementImpl *parent = static_cast<HTMLElementImpl *>(p);
+    DocumentFragmentImpl *fragment = parent->createContextualFragment( html );
+
     if (fragment == NULL) {
 	return false;
     }

@@ -141,6 +141,8 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 	if(attributeList == NULL) {
 		return;
 	}
+	
+	bool doPendingRequest = false;
 	for(unsigned dex=0; dex<attributeList->count; dex++) {
 		const SecCertificateRequestAttribute *attr = &attributeList->attr[dex];
 		if((attr->oid.Data == NULL) || (attr->value.Data == NULL)) {
@@ -163,6 +165,10 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 			/* any nonzero value means true */
 			mIsAsync = attrBoolValue(attr);
 		}
+		else if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_VALUE_IS_PENDING, &attr->oid)) {
+			/* any nonzero value means true */
+			doPendingRequest = attrBoolValue(attr);
+		}
 		
 		else {
 			certReqDbg("CertificateRequest(): unknown name/value oid");
@@ -177,6 +183,11 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 		}
 		else if(mRefId.data() != NULL) {
 			mCertState = CRS_HaveRefId;
+		}
+		else if(doPendingRequest) {
+			/* ask the server if there's a request pending */
+			postPendingRequest();
+			/* NOT REACHED - that always throws */
 		}
 		else {
 			certReqDbg("CertificateRequest(): nothing in prefs");
@@ -668,5 +679,101 @@ void CertificateRequest::removeResults()
 	assert(mPolicy.data() != NULL);
 	assert(mUserName.data() != NULL);
 	storeResults(NULL, NULL);
+}
+
+/* 
+ * Have the TP ping the server to see of there's a request pending for the current
+ * user. Always throws: either 
+ * CSSMERR_APPLE_DOTMAC_REQ_IS_PENDING  -- request pending
+ * CSSMERR_APPLE_DOTMAC_NO_REQ_PENDING  -- no request pending
+ * paramErr -- no user, no password
+ * other gross errors, e.g. ioErr for server connection failure
+ *
+ * The distinguishing features about this TP request are:
+ *
+ * policy OID doesn't matter
+ * CSSM_TP_AUTHORITY_REQUEST_TYPE = CSSM_TP_AUTHORITY_REQUEST_CERTLOOKUP
+ * CSSM_APPLE_DOTMAC_TP_CERT_REQUEST.flags = CSSM_DOTMAC_TP_IS_REQ_PENDING
+ * must have userName and password
+ * hostname optional as usual 
+ */
+void CertificateRequest::postPendingRequest()
+{
+	CSSM_RETURN							crtn;
+	CSSM_TP_AUTHORITY_ID				tpAuthority;
+	CSSM_TP_AUTHORITY_ID				*tpAuthPtr = NULL;
+	CSSM_NET_ADDRESS					tpNetAddrs;
+	CSSM_APPLE_DOTMAC_TP_CERT_REQUEST	certReq;
+	CSSM_TP_REQUEST_SET					reqSet;
+	CSSM_TP_CALLERAUTH_CONTEXT			callerAuth;
+	CSSM_FIELD							policyField;
+	CSSM_DATA							refId = {0, NULL};
+	
+	assert(mCertState == CRS_Reconstructed);
+	if((mUserName.data() == NULL) || (mPassword.data() == NULL)) {
+		certReqDbg("postPendingRequest: user name and password required");
+		MacOSError::throwMe(paramErr);
+	}
+	
+	/* Fill in the CSSM_APPLE_DOTMAC_TP_CERT_REQUEST */
+	memset(&certReq, 0, sizeof(certReq));
+	certReq.version = CSSM_DOT_MAC_TP_REQ_VERSION;
+	certReq.userName = mUserName.get();
+	certReq.password = mPassword.get();
+	certReq.flags = CSSM_DOTMAC_TP_IS_REQ_PENDING;
+	
+	/* now the rest of the args for CSSM_TP_SubmitCredRequest() */
+	reqSet.Requests = &certReq;	
+	reqSet.NumberOfRequests = 1;
+	/* 
+	 * This OID actually doesn't matter - right? This RPC doesn't know about 
+	 * which request we seek... 
+	 */
+	policyField.FieldOid = mPolicy;
+	policyField.FieldValue.Data = NULL;
+	policyField.FieldValue.Length = 0;
+	memset(&callerAuth, 0, sizeof(callerAuth));
+	callerAuth.Policy.NumberOfPolicyIds = 1;
+	callerAuth.Policy.PolicyIds = &policyField;
+	/* no other creds here */
+
+	if(mHostName.data() != NULL) {
+		tpAuthority.AuthorityCert = NULL;
+		tpAuthority.AuthorityLocation = &tpNetAddrs;
+		tpNetAddrs.AddressType = CSSM_ADDR_NAME;
+		tpNetAddrs.Address = mHostName.get();
+		tpAuthPtr = &tpAuthority;
+	}
+
+	/* go */
+	crtn = CSSM_TP_SubmitCredRequest(mTP->handle(),
+		tpAuthPtr,		
+		CSSM_TP_AUTHORITY_REQUEST_CERTLOOKUP,	
+		&reqSet,	
+		&callerAuth,
+		&mEstTime,   
+		&refId);	// CSSM_DATA_PTR ReferenceIdentifier
+
+	if(refId.Data) {
+		/* shouldn't be any but just in case.... */
+		free(refId.Data);
+	}
+	switch(crtn) {
+		case CSSMERR_APPLE_DOTMAC_REQ_IS_PENDING:
+			certReqDbg("postPendingRequest: REQ_IS_PENDING");
+			break;
+		case CSSMERR_APPLE_DOTMAC_NO_REQ_PENDING:
+			certReqDbg("postPendingRequest: NO_REQ_PENDING");
+			break;
+		case CSSM_OK:
+			/* should never happen */
+			certReqDbg("postPendingRequest: unexpected success!");
+			crtn = internalComponentErr;
+			break;
+		default:
+			certReqDbg("postPendingRequest: unexpected rtn %lu", crtn);
+			break;
+	}
+	CssmError::throwMe(crtn);
 }
 

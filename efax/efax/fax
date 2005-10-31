@@ -30,9 +30,23 @@ EFIX=efix
 #
 # To support port sharing the answer mode device may be different
 # than the send or receive device.
+#
+# The alternate devices are used when a primary device doesn't exist.
+# This can be useful when supporting multiple kinds of modems.
 
-DEV=cu.modem
-DEVANSWER=tty.modem
+DEV=cu.usbmodem
+DEVANSWER=tty.usbmodem
+
+ALTDEV=cu.modem
+ALTDEVANSWER=tty.modem
+
+if [ ! -e /dev/$DEV -a "x$ALTDEV" != "x" ]; then
+    DEV=$ALTDEV
+fi
+
+if [ ! -e /dev/$DEVANSWER -a "x$ALTDEVANSWER" != "x" ]; then
+    DEVANSWER=$ALTDEVANSWER
+fi
 
 # Your fax number in international format, 20 characters maximum.
 # Use only digits, spaces, and the "+" character.

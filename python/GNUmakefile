@@ -32,6 +32,14 @@ EXTRASPYTHON = $(DSTROOT)$(EXTRAS)/lib/python
 PYTHON = $(DSTROOT)/usr/bin/python
 PYTHONENV = DYLD_FRAMEWORK_PATH=$(DSTROOT)$(FRAMEWORKS) DYLD_NEW_LOCAL_SHARED_REGIONS=1 PYTHONPATH="$(DSTROOT)$(LIBPYTHONVERS):$(EXTRASPYTHON)"
 
+# This file, along with the "strip" perl script, works around a verification
+# error caused by a UFS bug (stripping a multi-link file breaks the link, and
+# sometimes causes the wrong file to be stripped/unstripped).  By using the
+# "strip" perl script, it not only causes the correct file to be stripped, but
+# also preserves the link.
+
+export PATH:=$(SRCROOT)/bin:$(PATH)
+
 no_target: extras
 
 python: $(OBJROOT)/$(PROJECT)
@@ -63,10 +71,14 @@ $(OBJROOT)/$(PROJECT):
 	mv $(NAMEVERS) $(PROJECT) && \
 	echo ed - $(PROJECT)/configure \< $(FIX)/configure.ed && \
 	ed - $(PROJECT)/configure < $(FIX)/configure.ed && \
+	echo ed - $(PROJECT)/Makefile.pre.in \< $(FIX)/Makefile.pre.in.ed && \
+	ed - $(PROJECT)/Makefile.pre.in < $(FIX)/Makefile.pre.in.ed && \
 	echo ed - $(PROJECT)/Lib/distutils/unixccompiler.py \< $(FIX)/unixccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/unixccompiler.py < $(FIX)/unixccompiler.py.ed && \
 	echo ed - $(PROJECT)/Lib/locale.py \< $(FIX)/locale.py.ed && \
 	ed - $(PROJECT)/Lib/locale.py < $(FIX)/locale.py.ed && \
+	echo ed - $(PROJECT)/Mac/OSX/PythonLauncher/PythonLauncher.pbproj/project.pbxproj \< $(FIX)/ProjectLauncher.pbproj-project.pbxproj.ed && \
+	ed - $(PROJECT)/Mac/OSX/PythonLauncher/PythonLauncher.pbproj/project.pbxproj < $(FIX)/ProjectLauncher.pbproj-project.pbxproj.ed && \
 	echo ed - $(PROJECT)/Modules/_localemodule.c \< $(FIX)/_localemodule.c.ed && \
 	ed - $(PROJECT)/Modules/_localemodule.c < $(FIX)/_localemodule.c.ed
 

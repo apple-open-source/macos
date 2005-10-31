@@ -234,8 +234,9 @@ public:
     virtual bool isActivatedSubmit() const;
     virtual void setActivatedSubmit(bool flag);
 
-    virtual void click(bool sendMouseEvents);
     virtual void accessKeyAction(bool sendToAnyElement);
+    void blur();
+    void focus();
     
 protected:
     DOMString m_value;
@@ -492,7 +493,7 @@ public:
 
     void setRecalcListItems();
 
-    QMemArray<HTMLGenericFormElementImpl*> listItems() const
+    QMemArray<HTMLElementImpl*> listItems() const
      {
          if (m_recalcListItems) const_cast<HTMLSelectElementImpl*>(this)->recalcListItems();
          return m_listItems;
@@ -510,7 +511,7 @@ private:
     void recalcListItems();
 
 protected:
-    mutable QMemArray<HTMLGenericFormElementImpl*> m_listItems;
+    mutable QMemArray<HTMLElementImpl*> m_listItems;
     HTMLOptionsCollectionImpl *m_options;
     short m_minwidth;
     short m_size;

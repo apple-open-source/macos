@@ -1,3 +1,11 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* aclocal.m4: Regenerate.
+
 2004-09-23  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Makefile.in (config.h.in): Correct dependencies.

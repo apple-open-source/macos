@@ -34,6 +34,15 @@ if (cref->logfile) { 					\
 #define DEBG(cref, fmt, args...)  {}
 #endif
 
+
+#if IOGRAPHICSTYPES_REV < 9
+
+enum { kIORangeSupportsInterlacedCEATimingWithConfirm = 0x00000008 };
+
+#define kIODisplayOverrideMatchingKey  "IODisplayOverrideMatching"
+
+#endif
+
 enum {
     kDisplayAppleVendorID	= 0x610
 };
@@ -81,8 +90,9 @@ enum {
 };
 
 enum {
-    kResSpecNeedInterlace = 0x00000001,
-    kResSpecReducedBlank  = 0x00000002
+    kResSpecNeedInterlace	  = 0x00000001,
+    kResSpecReducedBlank	  = 0x00000002,
+    kResSpecInternalReducedBlank  = 0x00000004
 };
 
 struct IOFBResolutionSpec {
@@ -407,3 +417,5 @@ IOFBLogTiming(IOFBConnectRef connectRef, const IOTimingInformation * timing);
 __private_extern__ void
 IOFBLogRange(IOFBConnectRef connectRef, const IODisplayTimingRange * range);
 
+__private_extern__ float
+RefreshRateFromDetailedTiming( IODetailedTimingInformationV2 * detailed );

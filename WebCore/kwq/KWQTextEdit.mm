@@ -213,7 +213,7 @@ void QTextEdit::setAlignment(AlignmentFlags alignment)
 {
     KWQ_BLOCK_EXCEPTIONS;
 
-    KWQTextArea *textArea = getView();
+    KWQTextArea *textArea = static_cast<KWQTextArea *>(getView());
     [textArea setAlignment:KWQNSTextAlignmentForAlignmentFlags(alignment)];
 
     KWQ_UNBLOCK_EXCEPTIONS;
@@ -223,7 +223,7 @@ void QTextEdit::setWritingDirection(QPainter::TextDirection direction)
 {
     KWQ_BLOCK_EXCEPTIONS;
 
-    KWQTextArea *textArea = getView();
+    KWQTextArea *textArea = static_cast<KWQTextArea *>(getView());
     [textArea setBaseWritingDirection:(direction == QPainter::RTL ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight)];
 
     KWQ_UNBLOCK_EXCEPTIONS;
@@ -231,7 +231,7 @@ void QTextEdit::setWritingDirection(QPainter::TextDirection direction)
  
 QSize QTextEdit::sizeWithColumnsAndRows(int numColumns, int numRows) const
 {
-    KWQTextArea *textArea = getView();
+    KWQTextArea *textArea = static_cast<KWQTextArea *>(getView());
     NSSize size = {0,0};
 
     KWQ_BLOCK_EXCEPTIONS;
@@ -256,7 +256,7 @@ void QTextEdit::setPalette(const QPalette &palette)
 {
     QWidget::setPalette(palette);
 
-    KWQTextArea *textArea = getView();
+    KWQTextArea *textArea = static_cast<KWQTextArea *>(getView());
 
     KWQ_BLOCK_EXCEPTIONS;
     

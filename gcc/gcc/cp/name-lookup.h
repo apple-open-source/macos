@@ -1,5 +1,5 @@
 /* Declarations for C++ name lookup routines.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -46,10 +46,8 @@ struct binding_entry_s GTY(())
 #define NAMESPACE_STD_HT_SIZE                        (1 << 8)
 #define GLOBAL_SCOPE_HT_SIZE                         (1 << 8)
 
-extern void binding_table_remove_anonymous_types (binding_table);
 extern void binding_table_foreach (binding_table, bt_foreach_proc, void *);
 extern binding_entry binding_table_find (binding_table, tree);
-extern void cxx_remember_type_decls (binding_table);
 
 /* Datatype that represents binding established by a declaration between
    a name and a C++ entity.  */
@@ -96,7 +94,6 @@ DEF_VEC_GC_O(cxx_saved_binding);
 extern tree identifier_type_value (tree);
 extern void set_identifier_type_value (tree, tree);
 extern void pop_binding (tree, tree);
-extern tree constructor_name_full (tree);
 extern tree constructor_name (tree);
 extern bool constructor_name_p (tree, tree);
 
@@ -124,6 +121,22 @@ typedef enum scope_kind {
 			explicit specialization is introduced by
 			"template <>", this scope is always empty.  */
 } scope_kind;
+
+/* The scope where the class/struct/union/enum tag applies.  */
+typedef enum tag_scope {
+  ts_current = 0,	/* Current scope only.  This is for the
+			     class-key identifier;
+			   case mentioned in [basic.lookup.elab]/2,
+			   or the class/enum definition
+			     class-key identifier { ... };  */
+  ts_global = 1,	/* All scopes.  This is the 3.4.1
+			   [basic.lookup.unqual] lookup mentioned
+			   in [basic.lookup.elab]/2.  */
+  ts_within_enclosing_non_class = 2	/* Search within enclosing non-class
+					   only, for friend class lookup
+					   according to [namespace.memdef]/3
+					   and [class.friend]/9.  */
+} tag_scope;
 
 typedef struct cp_class_binding GTY(())
 {
@@ -177,9 +190,6 @@ struct cp_binding_level GTY(())
 
     /* A chain of VTABLE_DECL nodes.  */
     tree vtables; 
-
-    /* A dictionary for looking up user-defined-types.  */
-    binding_table type_decls;
 
     /* A list of USING_DECL nodes.  */
     tree usings;
@@ -282,14 +292,15 @@ extern bool template_parm_scope_p (void);
 extern scope_kind innermost_scope_kind (void);
 extern cxx_scope *begin_scope (scope_kind, tree);
 extern void print_binding_stack	(void);
-extern void print_binding_level	(cxx_scope *);
 extern void push_to_top_level (void);
 extern void pop_from_top_level (void);
 extern void pop_everything (void);
 extern void keep_next_level (bool);
 extern bool is_ancestor (tree, tree);
-extern bool push_scope (tree);
+extern tree push_scope (tree);
 extern void pop_scope (tree);
+extern tree push_inner_scope (tree);
+extern void pop_inner_scope (tree, tree);
 extern void push_binding_level (struct cp_binding_level *);
 
 extern void push_namespace (tree);
@@ -299,10 +310,9 @@ extern void pop_nested_namespace (tree);
 extern void pushlevel_class (void);
 extern void poplevel_class (void);
 extern tree pushdecl_with_scope (tree, cxx_scope *);
-extern tree lookup_tag (enum tree_code, tree, cxx_scope *, int);
-extern tree lookup_tag_reverse (tree, tree);
 extern tree lookup_name	(tree, int);
 extern tree lookup_name_real (tree, int, int, bool, int, int);
+extern tree lookup_type_scope (tree, tag_scope);
 extern tree namespace_binding (tree, tree);
 extern void set_namespace_binding (tree, tree, tree);
 extern tree lookup_namespace_name (tree, tree);
@@ -313,17 +323,15 @@ extern void push_local_binding (tree, tree, int);
 extern bool pushdecl_class_level (tree);
 extern tree pushdecl_namespace_level (tree);
 extern bool push_class_level_binding (tree, tree);
-extern void storetags (tree);
 extern tree getdecls (void);
 extern tree cp_namespace_decls (tree);
 extern void set_decl_namespace (tree, tree, bool);
-extern tree current_decl_namespace (void);
 extern void push_decl_namespace (tree);
 extern void pop_decl_namespace (void);
 extern void do_namespace_alias (tree, tree);
 extern void do_toplevel_using_decl (tree, tree, tree);
 extern void do_local_using_decl (tree, tree, tree);
-extern tree do_class_using_decl (tree);
+extern tree do_class_using_decl (tree, tree);
 extern void do_using_directive (tree);
 extern tree lookup_arg_dependent (tree, tree, tree);
 extern bool is_associated_namespace (tree, tree);

@@ -168,7 +168,7 @@ int MAIN(int argc, char **argv)
 	char *CAkeyfile=NULL,*CAserial=NULL;
 	char *alias=NULL;
 	int text=0,serial=0,hash=0,subject=0,issuer=0,startdate=0,enddate=0;
-	int ocspid=0;
+	int next_serial=0,ocspid=0;
 	int noout=0,sign_flag=0,CA_flag=0,CA_createserial=0,email=0;
 	int trustout=0,clrtrust=0,clrreject=0,aliasout=0,clrext=0;
 	int C=0;
@@ -179,7 +179,7 @@ int MAIN(int argc, char **argv)
 	X509_REQ *rq=NULL;
 	int fingerprint=0;
 	char buf[256];
-	const EVP_MD *md_alg,*digest=EVP_md5();
+	const EVP_MD *md_alg,*digest;
 	CONF *extconf = NULL;
 	char *extsect = NULL, *extfile = NULL, *passin = NULL, *passargin = NULL;
 	int need_rand = 0;
@@ -215,6 +215,13 @@ int MAIN(int argc, char **argv)
 	ctx=X509_STORE_new();
 	if (ctx == NULL) goto end;
 	X509_STORE_set_verify_cb_func(ctx,callb);
+
+#ifdef  OPENSSL_FIPS
+	if (FIPS_mode())
+		digest = EVP_sha1();
+	else
+#endif
+		digest = EVP_md5();
 
 	argc--;
 	argv++;
@@ -371,6 +378,8 @@ int MAIN(int argc, char **argv)
 			email= ++num;
 		else if (strcmp(*argv,"-serial") == 0)
 			serial= ++num;
+		else if (strcmp(*argv,"-next_serial") == 0)
+			next_serial= ++num;
 		else if (strcmp(*argv,"-modulus") == 0)
 			modulus= ++num;
 		else if (strcmp(*argv,"-pubkey") == 0)
@@ -591,12 +600,19 @@ bad:
 		if ((x=X509_new()) == NULL) goto end;
 		ci=x->cert_info;
 
-		if (sno)
+		if (sno == NULL)
 			{
-			if (!X509_set_serialNumber(x, sno))
+			sno = ASN1_INTEGER_new();
+			if (!sno || !rand_serial(NULL, sno))
 				goto end;
+			if (!X509_set_serialNumber(x, sno)) 
+				goto end;
+			ASN1_INTEGER_free(sno);
+			sno = NULL;
 			}
-		else if (!ASN1_INTEGER_set(X509_get_serialNumber(x),0)) goto end;
+		else if (!X509_set_serialNumber(x, sno)) 
+			goto end;
+
 		if (!X509_set_issuer_name(x,req->req_info->subject)) goto end;
 		if (!X509_set_subject_name(x,req->req_info->subject)) goto end;
 
@@ -617,7 +633,7 @@ bad:
 		if (xca == NULL) goto end;
 		}
 
-	if (!noout || text)
+	if (!noout || text || next_serial)
 		{
 		OBJ_create("2.99999.3",
 			"SET.ex3","SET x509v3 extension 3");
@@ -690,6 +706,24 @@ bad:
 				BIO_printf(STDout,"serial=");
 				i2a_ASN1_INTEGER(STDout,x->cert_info->serialNumber);
 				BIO_printf(STDout,"\n");
+				}
+			else if (next_serial == i)
+				{
+				BIGNUM *bnser;
+				ASN1_INTEGER *ser;
+				ser = X509_get_serialNumber(x);
+				bnser = ASN1_INTEGER_to_BN(ser, NULL);
+				if (!bnser)
+					goto end;
+				if (!BN_add_word(bnser, 1))
+					goto end;
+				ser = BN_to_ASN1_INTEGER(bnser, NULL);
+				if (!ser)
+					goto end;
+				BN_free(bnser);
+				i2a_ASN1_INTEGER(out, ser);
+				ASN1_INTEGER_free(ser);
+				BIO_puts(out, "\n");
 				}
 			else if (email == i) 
 				{
@@ -947,9 +981,9 @@ bad:
 
 	if (checkend)
 		{
-		time_t tnow=time(NULL);
+		time_t tcheck=time(NULL) + checkoffset;
 
-		if (ASN1_UTCTIME_cmp_time_t(X509_get_notAfter(x), tnow+checkoffset) == -1)
+		if (X509_cmp_time(X509_get_notAfter(x), &tcheck) < 0)
 			{
 			BIO_printf(out,"Certificate will expire\n");
 			ret=1;
@@ -1022,105 +1056,44 @@ end:
 	OPENSSL_EXIT(ret);
 	}
 
-static ASN1_INTEGER *load_serial(char *CAfile, char *serialfile, int create)
+static ASN1_INTEGER *x509_load_serial(char *CAfile, char *serialfile, int create)
 	{
 	char *buf = NULL, *p;
-	MS_STATIC char buf2[1024];
-	ASN1_INTEGER *bs = NULL, *bs2 = NULL;
-	BIO *io = NULL;
+	ASN1_INTEGER *bs = NULL;
 	BIGNUM *serial = NULL;
+	size_t len;
 
-	buf=OPENSSL_malloc( ((serialfile == NULL)
-			?(strlen(CAfile)+strlen(POSTFIX)+1)
-			:(strlen(serialfile)))+1);
+	len = ((serialfile == NULL)
+		?(strlen(CAfile)+strlen(POSTFIX)+1)
+		:(strlen(serialfile)))+1;
+	buf=OPENSSL_malloc(len);
 	if (buf == NULL) { BIO_printf(bio_err,"out of mem\n"); goto end; }
 	if (serialfile == NULL)
 		{
-		strcpy(buf,CAfile);
+		BUF_strlcpy(buf,CAfile,len);
 		for (p=buf; *p; p++)
 			if (*p == '.')
 				{
 				*p='\0';
 				break;
 				}
-		strcat(buf,POSTFIX);
+		BUF_strlcat(buf,POSTFIX,len);
 		}
 	else
-		strcpy(buf,serialfile);
-	serial=BN_new();
-	bs=ASN1_INTEGER_new();
-	if ((serial == NULL) || (bs == NULL))
-		{
-		ERR_print_errors(bio_err);
-		goto end;
-		}
+		BUF_strlcpy(buf,serialfile,len);
 
-	io=BIO_new(BIO_s_file());
-	if (io == NULL)
-		{
-		ERR_print_errors(bio_err);
-		goto end;
-		}
-	
-	if (BIO_read_filename(io,buf) <= 0)
-		{
-		if (!create)
-			{
-			perror(buf);
-			goto end;
-			}
-		else
-			{
-			ASN1_INTEGER_set(bs,1);
-			BN_one(serial);
-			}
-		}
-	else 
-		{
-		if (!a2i_ASN1_INTEGER(io,bs,buf2,sizeof buf2))
-			{
-			BIO_printf(bio_err,"unable to load serial number from %s\n",buf);
-			ERR_print_errors(bio_err);
-			goto end;
-			}
-		else
-			{
-			serial=BN_bin2bn(bs->data,bs->length,serial);
-			if (serial == NULL)
-				{
-				BIO_printf(bio_err,"error converting bin 2 bn");
-				goto end;
-				}
-			}
-		}
+	serial = load_serial(buf, create, NULL);
+	if (serial == NULL) goto end;
 
 	if (!BN_add_word(serial,1))
 		{ BIO_printf(bio_err,"add_word failure\n"); goto end; }
-	if (!(bs2 = BN_to_ASN1_INTEGER(serial, NULL)))
-		{ BIO_printf(bio_err,"error converting bn 2 asn1_integer\n"); goto end; }
-	if (BIO_write_filename(io,buf) <= 0)
-		{
-		BIO_printf(bio_err,"error attempting to write serial number file\n");
-		perror(buf);
-		goto end;
-		}
-	i2a_ASN1_INTEGER(io,bs2);
-	BIO_puts(io,"\n");
 
-	BIO_free(io);
+	if (!save_serial(buf, NULL, serial, &bs)) goto end;
+
+ end:
 	if (buf) OPENSSL_free(buf);
-	ASN1_INTEGER_free(bs2);
 	BN_free(serial);
-	io=NULL;
 	return bs;
-
-	end:
-	if (buf) OPENSSL_free(buf);
-	BIO_free(io);
-	ASN1_INTEGER_free(bs);
-	BN_free(serial);
-	return NULL;
-
 	}
 
 static int x509_certify(X509_STORE *ctx, char *CAfile, const EVP_MD *digest,
@@ -1142,10 +1115,10 @@ static int x509_certify(X509_STORE *ctx, char *CAfile, const EVP_MD *digest,
 		goto end;
 		}
 	if (sno) bs = sno;
-	else if (!(bs = load_serial(CAfile, serialfile, create)))
+	else if (!(bs = x509_load_serial(CAfile, serialfile, create)))
 		goto end;
 
-	if (!X509_STORE_add_cert(ctx,x)) goto end;
+/*	if (!X509_STORE_add_cert(ctx,x)) goto end;*/
 
 	/* NOTE: this certificate can/should be self signed, unless it was
 	 * a certificate request in which case it is not. */

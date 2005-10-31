@@ -322,7 +322,7 @@ INTERNAL void init_once(void)
         dce_error_string_t error_text;
         int temp_status;
 
-        dce_error_inq_text(status, error_text, &temp_status);
+        dce_error_inq_text(status, (unsigned char *)error_text, &temp_status);
 
 	/*
 	 * rpc_m_call_failed
@@ -347,7 +347,7 @@ INTERNAL void init_once(void)
         dce_error_string_t error_text;
         int temp_status;
 
-        dce_error_inq_text(status, error_text, &temp_status);
+        dce_error_inq_text(status, (unsigned char *)error_text, &temp_status);
 
 	/*
 	 * rpc_m_call_failed
@@ -440,7 +440,7 @@ INTERNAL void init_once(void)
                     dce_error_string_t error_text;
                     int temp_status;
 
-                    dce_error_inq_text(status, error_text, &temp_status);
+                    dce_error_inq_text(status, (unsigned char *)error_text, &temp_status);
 
 		    /*
 		     * rpc_m_call_failed
@@ -514,7 +514,7 @@ INTERNAL void init_once(void)
         dce_error_string_t error_text;
         int temp_status;
 
-        dce_error_inq_text(status, error_text, &temp_status);
+        dce_error_inq_text(status, (unsigned char *)error_text, &temp_status);
 
 	/*
 	 * rpc_m_call_failed
@@ -675,7 +675,7 @@ INTERNAL void init_once(void)
         dce_error_string_t error_text;
         int temp_status;
 
-        dce_error_inq_text(status, error_text, &temp_status);
+        dce_error_inq_text(status, (unsigned char *)error_text, &temp_status);
 
 	/*
 	 * rpc_m_call_failed

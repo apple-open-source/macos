@@ -507,7 +507,7 @@ package body Exp_Ch7 is
       --  of a single component of the array.
 
       function Free_One_Dimension (Dim : Int) return List_Id;
-      --  Generate a loop over one dimension of the array.
+      --  Generate a loop over one dimension of the array
 
       --------------------
       -- Free_Component --
@@ -721,7 +721,7 @@ package body Exp_Ch7 is
          Next_Entity (E);
       end loop;
 
-      --   Analyze inserted cleanup statements.
+      --   Analyze inserted cleanup statements
 
       if Present (Stmt) then
          Stmt := Next (Stmt);
@@ -1050,77 +1050,13 @@ package body Exp_Ch7 is
       if No (Wrap_Node) then
          null;
 
+      --  If the node to wrap is an iteration_scheme, the expression is
+      --  one of the bounds, and the expansion will make an explicit
+      --  declaration for it (see Analyze_Iteration_Scheme, sem_ch5.adb),
+      --  so do not apply any transformations here.
+
       elsif Nkind (Wrap_Node) = N_Iteration_Scheme then
-
-         --  Create a declaration followed by an assignment, so that
-         --  the assignment can have its own transient scope.
-         --  We generate the equivalent of:
-
-         --  type Ptr is access all expr_type;
-         --  Var : Ptr;
-         --  begin
-         --     Var := Expr'reference;
-         --  end;
-
-         --  This closely resembles what is done in Remove_Side_Effect,
-         --  but it has to be done here, before the analysis of the call
-         --  is completed.
-
-         declare
-            Ptr_Typ : constant Entity_Id :=
-                        Make_Defining_Identifier (Loc,
-                          Chars => New_Internal_Name ('A'));
-            Ptr     : constant Entity_Id :=
-                        Make_Defining_Identifier (Loc,
-                          Chars => New_Internal_Name ('T'));
-
-            Expr_Type    : constant Entity_Id := Etype (N);
-            New_Expr     : constant Node_Id := Relocate_Node (N);
-            Decl         : Node_Id;
-            Ptr_Typ_Decl : Node_Id;
-            Stmt         : Node_Id;
-
-         begin
-            Ptr_Typ_Decl :=
-              Make_Full_Type_Declaration (Loc,
-                Defining_Identifier => Ptr_Typ,
-                Type_Definition =>
-                  Make_Access_To_Object_Definition (Loc,
-                    All_Present => True,
-                    Subtype_Indication =>
-                      New_Reference_To (Expr_Type, Loc)));
-
-            Decl :=
-              Make_Object_Declaration (Loc,
-                 Defining_Identifier => Ptr,
-                 Object_Definition => New_Occurrence_Of (Ptr_Typ, Loc));
-
-            Set_Etype (Ptr, Ptr_Typ);
-            Stmt :=
-               Make_Assignment_Statement (Loc,
-                  Name => New_Occurrence_Of (Ptr, Loc),
-                  Expression => Make_Reference (Loc, New_Expr));
-
-            Set_Analyzed (New_Expr, False);
-
-            Insert_List_Before_And_Analyze
-              (Parent (Wrap_Node),
-                 New_List (
-                   Ptr_Typ_Decl,
-                   Decl,
-                   Make_Block_Statement (Loc,
-                     Handled_Statement_Sequence =>
-                       Make_Handled_Sequence_Of_Statements (Loc,
-                         New_List (Stmt)))));
-
-            Rewrite (N,
-              Make_Explicit_Dereference (Loc,
-                Prefix => New_Reference_To (Ptr, Loc)));
-            Analyze_And_Resolve (N, Expr_Type);
-
-         end;
-
-      --  Transient scope is required
+         null;
 
       else
          New_Scope (New_Internal_Entity (E_Block, Current_Scope, Loc, 'B'));
@@ -1170,6 +1106,7 @@ package body Exp_Ch7 is
       Mark      : Entity_Id := Empty;
       New_Decls : constant List_Id := New_List;
       Blok      : Node_Id;
+      End_Lab   : Node_Id;
       Wrapped   : Boolean;
       Chain     : Entity_Id := Empty;
       Decl      : Node_Id;
@@ -1297,11 +1234,16 @@ package body Exp_Ch7 is
       --  exception handlers and an AT END call in the same scope.
 
       if Present (Exception_Handlers (Handled_Statement_Sequence (N))) then
+
+         --  Preserve end label to provide proper cross-reference information
+
+         End_Lab := End_Label (Handled_Statement_Sequence (N));
          Blok :=
            Make_Block_Statement (Loc,
              Handled_Statement_Sequence => Handled_Statement_Sequence (N));
          Set_Handled_Statement_Sequence (N,
            Make_Handled_Sequence_Of_Statements (Loc, New_List (Blok)));
+         Set_End_Label (Handled_Statement_Sequence (N), End_Lab);
          Wrapped := True;
 
       --  Otherwise we do not wrap
@@ -1370,7 +1312,7 @@ package body Exp_Ch7 is
       Set_Declarations (N, New_Decls);
       Analyze_Declarations (New_Decls);
 
-      --  The At_End call is attached to the sequence of statements.
+      --  The At_End call is attached to the sequence of statements
 
       declare
          HSS : Node_Id;
@@ -2204,7 +2146,7 @@ package body Exp_Ch7 is
          --  NOTE: This cleanup handler references _object, a parameter
          --        to the procedure.
 
-         --  Find the _object parameter representing the protected object.
+         --  Find the _object parameter representing the protected object
 
          Spec := Parent (Corresponding_Spec (N));
 

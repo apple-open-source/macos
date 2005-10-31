@@ -695,11 +695,11 @@ Value DOMNodeList::toPrimitive(ExecState *exec, Type /*preferred*/) const
 
 // We have to implement hasProperty since we don't use a hashtable for 'length' and 'item'
 // ## this breaks "for (..in..)" though.
-bool DOMNodeList::hasProperty(ExecState *exec, const Identifier &p) const
+bool DOMNodeList::hasOwnProperty(ExecState *exec, const Identifier &p) const
 {
   if (p == lengthPropertyName || p == "item")
     return true;
-  return ObjectImp::hasProperty(exec, p);
+  return ObjectImp::hasOwnProperty(exec, p);
 }
 
 Value DOMNodeList::tryGet(ExecState *exec, const Identifier &p) const
@@ -857,6 +857,7 @@ void DOMAttr::putValue(ExecState *exec, int token, const Value& value, int /*att
   createProcessingInstruction DOMDocument::CreateProcessingInstruction DontDelete|Function 1
   createAttribute DOMDocument::CreateAttribute                 DontDelete|Function 1
   createEntityReference DOMDocument::CreateEntityReference     DontDelete|Function 1
+  elementFromPoint     DOMDocument::ElementFromPoint           DontDelete|Function 1
   getElementsByTagName  DOMDocument::GetElementsByTagName      DontDelete|Function 1
   importNode           DOMDocument::ImportNode                 DontDelete|Function 2
   createElementNS      DOMDocument::CreateElementNS            DontDelete|Function 2
@@ -1011,6 +1012,8 @@ Value DOMDocumentProtoFunc::tryCall(ExecState *exec, Object &thisObj, const List
     return getDOMNode(exec,doc.createAttribute(s));
   case DOMDocument::CreateEntityReference:
     return getDOMNode(exec,doc.createEntityReference(args[0].toString(exec).string()));
+  case DOMDocument::ElementFromPoint:
+    return getDOMNode(exec,doc.elementFromPoint((int)args[0].toNumber(exec), (int)args[1].toNumber(exec)));
   case DOMDocument::GetElementsByTagName:
     return getDOMNodeList(exec,doc.getElementsByTagName(s));
   case DOMDocument::ImportNode: // DOM2
@@ -1104,6 +1107,8 @@ Value DOMDocumentProtoFunc::tryCall(ExecState *exec, Object &thisObj, const List
   setAttributeNodeNS	DOMElement::SetAttributeNodeNS	DontDelete|Function 1
   getElementsByTagNameNS DOMElement::GetElementsByTagNameNS	DontDelete|Function 2
   hasAttributeNS	DOMElement::HasAttributeNS	DontDelete|Function 2
+  scrollIntoView        DOMElement::ScrollIntoView      DontDelete|Function 1
+
 # extension for Safari RSS
   scrollByLines         DOMElement::ScrollByLines       DontDelete|Function 1
   scrollByPages         DOMElement::ScrollByPages       DontDelete|Function 1
@@ -1155,7 +1160,8 @@ Value DOMElement::tryGet(ExecState *exec, const Identifier &propertyName) const
   // We have to check in DOMNode before giving access to attributes, otherwise
   // onload="..." would make onload return the string (attribute value) instead of
   // the listener object (function).
-  if (DOMNode::hasProperty(exec, propertyName))
+  ValueImp *proto = prototype().imp();
+  if (DOMNode::hasOwnProperty(exec, propertyName) || (proto->dispatchType() == ObjectType && static_cast<ObjectImp *>(proto)->hasProperty(exec, propertyName)))
     return DOMNode::tryGet(exec, propertyName);
 
   DOM::DOMString attr = element.getAttribute( propertyName.string() );
@@ -1213,6 +1219,9 @@ Value DOMElementProtoFunc::tryCall(ExecState *exec, Object &thisObj, const List 
       return getDOMNodeList(exec,element.getElementsByTagNameNS(args[0].toString(exec).string(),args[1].toString(exec).string()));
     case DOMElement::HasAttributeNS: // DOM2
       return Boolean(element.hasAttributeNS(args[0].toString(exec).string(),args[1].toString(exec).string()));
+    case DOMElement::ScrollIntoView: 
+      (args[0].type() != UndefinedType && args[0].type() != NullType) ? element.scrollIntoView(args[0].toBoolean(exec)) : element.scrollIntoView(true);
+      return Undefined();
     case DOMElement::ScrollByLines:
     case DOMElement::ScrollByPages:
     {
@@ -1373,11 +1382,11 @@ DOMNamedNodeMap::~DOMNamedNodeMap()
 
 // We have to implement hasProperty since we don't use a hashtable for 'length'
 // ## this breaks "for (..in..)" though.
-bool DOMNamedNodeMap::hasProperty(ExecState *exec, const Identifier &p) const
+bool DOMNamedNodeMap::hasOwnProperty(ExecState *exec, const Identifier &p) const
 {
   if (p == lengthPropertyName)
     return true;
-  return DOMObject::hasProperty(exec, p);
+  return DOMObject::hasOwnProperty(exec, p);
 }
 
 Value DOMNamedNodeMap::tryGet(ExecState* exec, const Identifier &p) const
@@ -2007,9 +2016,7 @@ Value DOMTextProtoFunc::tryCall(ExecState *exec, Object &thisObj, const List &ar
   switch(id) {
     case DOMText::SplitText:
       return getDOMNode(exec,text.splitText(args[0].toInt32(exec)));
-      break;
-    default:
-      return Undefined();
   }
+  return Undefined();
 }
 

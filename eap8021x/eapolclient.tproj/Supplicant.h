@@ -53,8 +53,12 @@ Supplicant_attached(SupplicantRef supp);
 
 void
 Supplicant_set_debug(SupplicantRef supp, bool debug);
+
 bool
 Supplicant_update_configuration(SupplicantRef supp, 
 				CFDictionaryRef config_dict);
+
+void
+Supplicant_set_no_ui(SupplicantRef supp);
 #endif _S_SUPPLICANT_H
 

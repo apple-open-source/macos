@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,10 @@ package org.blojsom.blog;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.blojsom.BlojsomException;
+import org.blojsom.authorization.AuthorizationProvider;
+import org.blojsom.event.BlojsomEventBroadcaster;
+import org.blojsom.event.BlojsomListener;
 import org.blojsom.util.BlojsomConstants;
 import org.blojsom.util.BlojsomProperties;
 import org.blojsom.util.BlojsomUtils;
@@ -44,16 +48,13 @@ import javax.servlet.ServletConfig;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 /**
  * BlojsomConfiguration
- * 
+ *
  * @author David Czarnecki
- * @version $Id: BlojsomConfiguration.java,v 1.2 2004/08/27 01:13:55 whitmore Exp $
+ * @version $Id: BlojsomConfiguration.java,v 1.2.2.1 2005/07/21 14:11:02 johnan Exp $
  * @since blojsom 2.0
  */
 public class BlojsomConfiguration implements BlojsomConstants {
@@ -69,19 +70,26 @@ public class BlojsomConfiguration implements BlojsomConstants {
     private String _resourceDirectory;
     private String _qualifiedResourceDirectory;
     private String _resourceManager;
-    private String _authorizationProvider;
+    private String _authorizationProviderClass;
+    private static AuthorizationProvider _authorizationProvider = null;
+    private String _globalBlogHome;
+    private static BlojsomEventBroadcaster _eventBroadcaster = null;
+    private String _installedLocales;
+    private ServletConfig _servletConfig;
 
     private Map _blogUsers;
     private Map _blojsomConfiguration;
+    private Map _blogIDs;
 
     /**
      * Initialize the BlojsomConfiguration object
-     * 
+     *
      * @param servletConfig        Servlet configuration information
      * @param blojsomConfiguration Map of loaded blojsom properties
      */
     public BlojsomConfiguration(ServletConfig servletConfig, Map blojsomConfiguration) throws BlojsomConfigurationException {
         _blojsomConfiguration = blojsomConfiguration;
+        _servletConfig = servletConfig;
 
         _installationDirectory = servletConfig.getServletContext().getRealPath("/");
         if (BlojsomUtils.checkNullOrBlank(_installationDirectory)) {
@@ -92,6 +100,11 @@ public class BlojsomConfiguration implements BlojsomConstants {
                 _installationDirectory += "/";
             }
         }
+        try {
+            System.setProperty("blojsom.installation.directory", _installationDirectory);
+        } catch (Exception e) {
+            _logger.error(e);
+        }
         _logger.debug("Using installation directory: " + _installationDirectory);
 
         _baseConfigurationDirectory = getBlojsomPropertyAsString(BLOJSOM_CONFIGURATION_BASE_DIRECTORY_IP);
@@ -100,6 +113,7 @@ public class BlojsomConfiguration implements BlojsomConstants {
         } else {
             _baseConfigurationDirectory = BlojsomUtils.checkStartingAndEndingSlash(_baseConfigurationDirectory);
         }
+        _baseConfigurationDirectory = _baseConfigurationDirectory.trim();
         _logger.debug("Using base configuration directory: " + _baseConfigurationDirectory);
 
         _templatesDirectory = getBlojsomPropertyAsString(BLOJSOM_TEMPLATES_DIRECTORY_IP);
@@ -111,6 +125,7 @@ public class BlojsomConfiguration implements BlojsomConstants {
             }
 
         }
+        _templatesDirectory = _templatesDirectory.trim();
         _logger.debug("Using templates directory: " + _templatesDirectory);
 
         _resourceDirectory = getBlojsomPropertyAsString(BLOJSOM_RESOURCE_DIRECTORY_IP);
@@ -122,54 +137,112 @@ public class BlojsomConfiguration implements BlojsomConstants {
             }
 
         }
+        _resourceDirectory = _resourceDirectory.trim();
         _logger.debug("Using resources directory: " + _resourceDirectory);
+
+        String eventBroadcaster = getBlojsomPropertyAsString(BLOJSOM_BROADCASTER_IP);
+        if (BlojsomUtils.checkNullOrBlank(eventBroadcaster)) {
+            eventBroadcaster = BLOJSOM_DEFAULT_BROADCASTER;
+        }
+
+        try {
+            Class broadcasterClass = Class.forName(eventBroadcaster);
+            if (_eventBroadcaster == null) {
+                _eventBroadcaster = (BlojsomEventBroadcaster) broadcasterClass.newInstance();
+            }
+            _logger.debug("Using event broadcaster: " + eventBroadcaster);
+
+            String listenerConfiguration = servletConfig.getInitParameter(BLOJSOM_LISTENER_CONFIGURATION_IP);
+            if (!BlojsomUtils.checkNullOrBlank(listenerConfiguration)) {
+                Properties listenerProperties = BlojsomUtils.loadProperties(servletConfig, BLOJSOM_LISTENER_CONFIGURATION_IP, true);
+                Iterator listenerIterator = listenerProperties.keySet().iterator();
+                while (listenerIterator.hasNext()) {
+                    Object key = listenerIterator.next();
+                    String listenerClassname = listenerProperties.getProperty(key.toString());
+                    Class listenerClass = Class.forName(listenerClassname);
+                    BlojsomListener listener = (BlojsomListener) listenerClass.newInstance();
+                    _eventBroadcaster.addListener(listener);
+                }
+            }
+        } catch (BlojsomException e) {
+            _logger.error(e);
+            throw new BlojsomConfigurationException(e);
+        } catch (ClassNotFoundException e) {
+            _logger.error(e);
+            throw new BlojsomConfigurationException("Unable to instantiate event broadcaster: " + eventBroadcaster, e);
+        } catch (InstantiationException e) {
+            _logger.error(e);
+            throw new BlojsomConfigurationException("Unable to instantiate event broadcaster: " + eventBroadcaster, e);
+        } catch (IllegalAccessException e) {
+            _logger.error(e);
+            throw new BlojsomConfigurationException("Unable to instantiate event broadcaster: " + eventBroadcaster, e);
+        }
 
         // Ensure the resource directory physically exists
         _qualifiedResourceDirectory = servletConfig.getServletContext().getRealPath(_resourceDirectory);
         _logger.debug("Using qualified resource directory: " + _qualifiedResourceDirectory);
 
-        _blojsomUsers = getBlojsomPropertyAsString(BLOJSOM_USERS_IP);
-        String[] users = BlojsomUtils.parseCommaList(_blojsomUsers);
-        InputStream is;
+        // Configure a global blog home directory
+        _globalBlogHome = getBlojsomPropertyAsString(BLOJSOM_BLOG_HOME_IP);
+        if (!BlojsomUtils.checkNullOrBlank(_globalBlogHome)) {
+            if (_globalBlogHome.startsWith("{")) {
+                int closingBraceIndex = _globalBlogHome.indexOf("}");
+                String property = _globalBlogHome.substring(1, closingBraceIndex);
+                property = System.getProperty(property);
+                if (BlojsomUtils.checkNullOrBlank(property)) {
+                    _logger.error("Global blog home directory property not found: " + property);
+                    _globalBlogHome = null;
+                } else {
+                    String afterProperty = _globalBlogHome.substring(closingBraceIndex + 1);
+                    _globalBlogHome = property + afterProperty;
+                    // Normalize the blog-home path
+                    _globalBlogHome = BlojsomUtils.replace(_globalBlogHome, "\\", "/");
+                }
+            }
+
+            if (!BlojsomUtils.checkNullOrBlank(_globalBlogHome)) {
+                _globalBlogHome = _globalBlogHome.trim();
+                if (!_globalBlogHome.endsWith("/")) {
+                    _globalBlogHome += "/";
+                }
+
+                File blogHomeDirectory = new File(_globalBlogHome);
+                if (!blogHomeDirectory.exists()) {
+                    if (!blogHomeDirectory.mkdirs()) {
+                        _logger.error("Unable to create global blog home directory: " + _globalBlogHome);
+                        _globalBlogHome = null;
+                    }
+                }
+            }
+
+            if (!BlojsomUtils.checkNullOrBlank(_globalBlogHome)) {
+                _logger.debug("Using global blog-home directory: " + _globalBlogHome);
+            }
+        } else {
+            _globalBlogHome = "";
+        }
+
+        String[] users;
+        Object listOfUsers = getBlojsomProperty(BLOJSOM_USERS_IP);
+        if (listOfUsers instanceof List) {
+            List blojsomUsers = getBlojsomPropertyAsList(BLOJSOM_USERS_IP);
+            users = (String[]) blojsomUsers.toArray(new String[blojsomUsers.size()]);
+            _blojsomUsers = BlojsomUtils.arrayOfStringsToString(users);
+        } else {
+            _blojsomUsers = getBlojsomPropertyAsString(BLOJSOM_USERS_IP);
+            users = BlojsomUtils.parseCommaList(_blojsomUsers);
+        }
+
         if (users.length == 0) {
             _logger.error("No users defined for this blojsom blog");
             throw new BlojsomConfigurationException("No users defined for this blojsom blog");
         } else {
-            _blogUsers = new HashMap(users.length);
+            _blogUsers = new HashMap();
+            _blogIDs = new HashMap();
             for (int i = 0; i < users.length; i++) {
                 String user = users[i];
-                BlogUser blogUser = new BlogUser();
-                blogUser.setId(user);
 
-                Properties userProperties = new BlojsomProperties();
-                is = servletConfig.getServletContext().getResourceAsStream(_baseConfigurationDirectory + user + '/' + BLOG_DEFAULT_PROPERTIES);
-                try {
-                    userProperties.load(is);
-                    is.close();
-                } catch (IOException e) {
-                    _logger.error(e);
-                    throw new BlojsomConfigurationException(e);
-                }
-
-                Blog userBlog = null;
-                try {
-                    userBlog = new Blog(userProperties);
-                    blogUser.setBlog(userBlog);
-
-                    _blogUsers.put(user, blogUser);
-                    _logger.debug("Added blojsom user: " + blogUser.getId());
-                } catch (BlojsomConfigurationException e) {
-                    _logger.error(e);
-                    _logger.error("Marking user as invalid: " + blogUser.getId());
-                }
-
-
-                // Ensure the resource directory for the user physically exists
-                File resourceDirectory = new File(_qualifiedResourceDirectory + File.separator + user);
-                if (!resourceDirectory.exists()) {
-                    _logger.debug("Creating resource directory for user " + user);
-                    resourceDirectory.mkdirs();
-                }
+                _blogIDs.put(user, user);
             }
 
             // Determine and set the default user
@@ -179,7 +252,7 @@ public class BlojsomConfiguration implements BlojsomConstants {
                 throw new BlojsomConfigurationException("No default user defined in configuration property: " + BLOJSOM_DEFAULT_USER_IP);
             }
 
-            if (!_blogUsers.containsKey(defaultUser)) {
+            if (!_blogIDs.containsKey(defaultUser)) {
                 _logger.error("Default user does not match any of the registered blojsom users: " + defaultUser);
                 throw new BlojsomConfigurationException("Default user does not match any of the registered blojsom users: " + defaultUser);
             }
@@ -199,16 +272,36 @@ public class BlojsomConfiguration implements BlojsomConstants {
         }
         _logger.debug("Using resource manager: " + _resourceManager);
 
-        _authorizationProvider = getBlojsomPropertyAsString(BLOJSOM_AUTHORIZATION_PROVIDER_IP);
-        if (BlojsomUtils.checkNullOrBlank(_authorizationProvider)) {
-            _authorizationProvider = DEFAULT_AUTHORIZATION_PROVIDER;
+        _installedLocales = getBlojsomPropertyAsString(BLOJSOM_INSTALLED_LOCALES_IP);
+        if (BlojsomUtils.checkNullOrBlank(_installedLocales)) {
+            _installedLocales = BLOG_LANGUAGE_DEFAULT + "_" + BLOG_COUNTRY_DEFAULT;
         }
-        _logger.debug("Using authorization provider: " + _authorizationProvider);
+        _logger.debug("Using installed locales: " + _installedLocales);
+
+        _authorizationProviderClass = getBlojsomPropertyAsString(BLOJSOM_AUTHORIZATION_PROVIDER_IP);
+        if (BlojsomUtils.checkNullOrBlank(_authorizationProviderClass)) {
+            _authorizationProviderClass = DEFAULT_AUTHORIZATION_PROVIDER;
+        }
+        _logger.debug("Using authorization provider: " + _authorizationProviderClass);
+
+         try {
+            Class authorizationProviderClass = Class.forName(_authorizationProviderClass);
+            _authorizationProvider = (AuthorizationProvider) authorizationProviderClass.newInstance();
+            _authorizationProvider.init(_servletConfig, this);
+        } catch (ClassNotFoundException e) {
+            throw new BlojsomConfigurationException(e);
+        } catch (InstantiationException e) {
+            throw new BlojsomConfigurationException(e);
+        } catch (IllegalAccessException e) {
+            throw new BlojsomConfigurationException(e);
+        } catch (BlojsomConfigurationException e) {
+            throw new BlojsomConfigurationException(e);
+        }
     }
 
     /**
      * Returns an unmodifiable map of the blojsom configuration properties
-     * 
+     *
      * @return Unmodifiable map of the blojsom configuration properties
      */
     public Map getBlojsomConfiguration() {
@@ -217,7 +310,7 @@ public class BlojsomConfiguration implements BlojsomConstants {
 
     /**
      * Retrieve a blojsom property as a string
-     * 
+     *
      * @param propertyKey Property key
      * @return Value of blojsom property as a string or <code>null</code> if no property key is found
      */
@@ -230,8 +323,30 @@ public class BlojsomConfiguration implements BlojsomConstants {
     }
 
     /**
+     * Retrieve a property from <code>blojsom.properties</code> as a {@link List}
+     *
+     * @param propertyKey Key
+     * @return {@link List} for property or <code>null</code> if property does not exist
+     */
+    public List getBlojsomPropertyAsList(String propertyKey) {
+        if (_blojsomConfiguration.containsKey(propertyKey)) {
+            Object value = _blojsomConfiguration.get(propertyKey);
+            if (value instanceof List) {
+                return (List) value;
+            } else {
+                ArrayList values = new ArrayList();
+                values.add(value);
+
+                return values;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Return a blojsom configuration property
-     * 
+     *
      * @param propertyKey Property key
      * @return Value of blojsom property
      */
@@ -241,7 +356,7 @@ public class BlojsomConfiguration implements BlojsomConstants {
 
     /**
      * Get the default user for this blojsom instance
-     * 
+     *
      * @return Default user
      */
     public String getDefaultUser() {
@@ -250,7 +365,7 @@ public class BlojsomConfiguration implements BlojsomConstants {
 
     /**
      * Get the base directory for obtaining configuration information
-     * 
+     *
      * @return Configuration base directory (e.g. /WEB-INF)
      */
     public String getBaseConfigurationDirectory() {
@@ -259,7 +374,7 @@ public class BlojsomConfiguration implements BlojsomConstants {
 
     /**
      * Get the classname of the fetcher used for this blojsom instance
-     * 
+     *
      * @return Fetcher classname
      */
     public String getFetcherClass() {
@@ -269,7 +384,7 @@ public class BlojsomConfiguration implements BlojsomConstants {
     /**
      * Get the installation directory for blojsom. This is the directory where the blojsom WAR file will
      * be unpacked.
-     * 
+     *
      * @return Installation directory
      * @since blojsom 2.01
      */
@@ -279,7 +394,7 @@ public class BlojsomConfiguration implements BlojsomConstants {
 
     /**
      * Get the directory where templates will be located off the user's directory.
-     * 
+     *
      * @return Templates directory
      * @since blojsom 2.04
      */
@@ -307,20 +422,28 @@ public class BlojsomConfiguration implements BlojsomConstants {
         return _qualifiedResourceDirectory;
     }
 
-
     /**
      * Get the list of users for this blojsom instance returned as a String[]
-     * 
+     *
      * @return List of users as a String[]
      */
     public String[] getBlojsomUsers() {
-        return BlojsomUtils.parseCommaList(_blojsomUsers);
+        Iterator blogs = _blogIDs.keySet().iterator();
+        ArrayList blogsList = new ArrayList();
+        while (blogs.hasNext()) {
+            String blogID = (String) blogs.next();
+            blogsList.add(blogID);
+        }
+
+        return (String[]) blogsList.toArray(new String[blogsList.size()]);
     }
 
     /**
      * Get a map of the {@link BlogUser} objects
-     * 
+     *
      * @return Map of {@link BlogUser} objects
+     * @deprecated
+     * @see {@link #getBlojsomUsers()}  
      */
     public Map getBlogUsers() {
         return _blogUsers;
@@ -343,6 +466,165 @@ public class BlojsomConfiguration implements BlojsomConstants {
      * @since blojsom 2.16
      */
     public String getAuthorizationProvider() {
-        return _authorizationProvider;
+        return _authorizationProviderClass;
+    }
+
+    /**
+     * Get the name of the global blog home directory
+     *
+     * @return Global blog home directory
+     * @since blojsom 2.18
+     */
+    public String getGlobalBlogHome() {
+        return _globalBlogHome;
+    }
+
+    /**
+     * Get the {@link BlojsomEventBroadcaster} in use to broadcast events
+     *
+     * @return {@link BlojsomEventBroadcaster}
+     * @since blojsom 2.18
+     */
+    public BlojsomEventBroadcaster getEventBroadcaster() {
+        return _eventBroadcaster;
+    }
+
+    /**
+     * Get the installed locales for this blojsom installation
+     *
+     * @return Array of locale strings installed for this blojsom installation
+     * @since blojsom 2.21
+     */
+    public String[] getInstalledLocalesAsStrings() {
+        return BlojsomUtils.parseCommaList(_installedLocales);
+    }
+
+    /**
+     * Get the installed locales as {@link Locale} objects
+     *
+     * @return Array of {@link Locale} objects
+     * @since blojsom 2.21
+     */
+    public Locale[] getInstalledLocales() {
+        String[] localeStrings = getInstalledLocalesAsStrings();
+        Locale[] locales = new Locale[localeStrings.length];
+
+        for (int i = 0; i < localeStrings.length; i++) {
+            String localeString = localeStrings[i];
+            locales[i] = BlojsomUtils.getLocaleFromString(localeString);
+        }
+
+        return locales;
+    }
+
+    /**
+     * Check to see if a blog ID exists in the known blog IDs
+     *
+     * @param blogID Blog ID
+     * @return <code>true</code> if the blog ID exists, <code>false</code> otherwise
+     * @since blojsom 2.24
+     */
+    public boolean checkBlogIDExists(String blogID) {
+        return _blogIDs.containsKey(blogID);
+    }
+
+    /**
+     * Load a {@link BlogUser} for a given blog ID
+     *
+     * @param blogID Blog ID
+     * @return {@link BlogUser} object
+     * @throws BlojsomException If there is an exception loading the {@link BlogUser object}
+     * @since blojsom 2.24
+     */
+    public BlogUser loadBlog(String blogID) throws BlojsomException {
+        InputStream is;
+
+        BlogUser blogUser = new BlogUser();
+        blogUser.setId(blogID);
+
+        Properties userProperties = new BlojsomProperties();
+        _logger.info("Attemping to load " + _baseConfigurationDirectory + blogID + '/' + BLOG_DEFAULT_PROPERTIES);
+        is = _servletConfig.getServletContext().getResourceAsStream(_baseConfigurationDirectory + blogID + '/' + BLOG_DEFAULT_PROPERTIES);
+        if (is != null) {
+            try {
+                userProperties.load(is);
+                is.close();
+            } catch (IOException e) {
+                _logger.error(e);
+                throw new BlojsomConfigurationException(e);
+            }
+
+            Blog userBlog = null;
+            try {
+                // If a global blog-home directory has been defined, use it for each user
+                if (!BlojsomUtils.checkNullOrBlank(_globalBlogHome) &&
+                        !userProperties.containsKey(BLOG_HOME_IP)) {
+                    String usersBlogHome = _globalBlogHome + blogID + "/";
+                    File blogHomeDirectory = new File(usersBlogHome);
+                    if (!blogHomeDirectory.exists()) {
+                        if (!blogHomeDirectory.mkdirs()) {
+                            _logger.error("Unable to create blog-home directory for blog: " + blogHomeDirectory.toString());
+                            throw new BlojsomConfigurationException("Unable to create blog-home directory for blog: " + blogHomeDirectory.toString());
+                        }
+                    }
+
+                    userProperties.setProperty(BLOG_HOME_IP, usersBlogHome);
+                    _logger.debug("Setting blog blog-home directory: " + usersBlogHome);
+                }
+
+                userBlog = new Blog(userProperties);
+                blogUser.setBlog(userBlog);
+
+                _authorizationProvider.loadAuthenticationCredentials(blogUser);
+                
+                _logger.debug("Added blojsom blog: " + blogUser.getId());
+
+                // Ensure the resource directory for the user physically exists
+                File resourceDirectory = new File(_qualifiedResourceDirectory + File.separator + blogID);
+                if (!resourceDirectory.exists()) {
+                    _logger.debug("Creating resource directory for blog " + blogID);
+                    resourceDirectory.mkdirs();
+                }
+            } catch (BlojsomConfigurationException e) {
+                _logger.error(e);
+                _logger.error("Marking blog as invalid: " + blogUser.getId());
+
+                throw new BlojsomConfigurationException(e);
+            }
+        } else {
+            throw new BlojsomConfigurationException("Unable to load blog configuration for blog: " + blogUser.getId());
+        }
+
+        return blogUser;
+    }
+
+    /**
+     * Retrieve a {@link Map} of the known blog IDs
+     *
+     * @return {@link Map} of the known blog IDs
+     * @since blojsom 2.24
+     */
+    public Map getBlogIDs() {
+        return Collections.unmodifiableMap(_blogIDs);
+    }
+
+    /**
+     * Add a blog ID to the known blog IDs
+     *
+     * @param blogID Blog ID
+     * @since blojsom 2.24
+     */
+    public void addBlogID(String blogID) {
+        _blogIDs.put(blogID, blogID);
+    }
+
+    /**
+     * Remove a blog ID from the known blog IDs
+     *
+     * @param blogID Blog ID
+     * @since blojsom 2.24
+     */
+    public void removeBlogID(String blogID) {
+        _blogIDs.remove(blogID);
     }
 }

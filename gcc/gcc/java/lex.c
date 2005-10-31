@@ -1,5 +1,5 @@
 /* Language lexer for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -108,10 +108,12 @@ java_init_lex (FILE *finput, const char *encoding)
 
   if (!wfl_operator)
     {
+#ifndef JC1_LITE
 #ifdef USE_MAPPED_LOCATION
       wfl_operator = build_expr_wfl (NULL_TREE, input_location);
 #else
       wfl_operator = build_expr_wfl (NULL_TREE, ctxp->filename, 0, 0);
+#endif
 #endif
     }
   if (!label_id)
@@ -134,7 +136,9 @@ java_init_lex (FILE *finput, const char *encoding)
   ctxp->package = NULL_TREE;
 #endif
 
+#ifndef JC1_LITE
   ctxp->save_location = input_location;
+#endif
   ctxp->java_error_flag = 0;
   ctxp->lexer = java_new_lexer (finput, encoding);
 }
@@ -1471,7 +1475,6 @@ do_java_lex (YYSTYPE *java_lval)
 #ifndef JC1_LITE
       java_lval->operator.token = OCB_TK;
       java_lval->operator.location = BUILD_LOCATION();
-#endif
 #ifdef USE_MAPPED_LOCATION
       if (ctxp->ccb_indent == 1)
 	ctxp->first_ccb_indent1 = input_location;
@@ -1479,20 +1482,21 @@ do_java_lex (YYSTYPE *java_lval)
       if (ctxp->ccb_indent == 1)
 	ctxp->first_ccb_indent1 = input_line;
 #endif
+#endif
       ctxp->ccb_indent++;
       return OCB_TK;
     case '}':
+      ctxp->ccb_indent--;
 #ifndef JC1_LITE
       java_lval->operator.token = CCB_TK;
       java_lval->operator.location = BUILD_LOCATION();
-#endif
-      ctxp->ccb_indent--;
 #ifdef USE_MAPPED_LOCATION
       if (ctxp->ccb_indent == 1)
         ctxp->last_ccb_indent1 = input_location;
 #else
       if (ctxp->ccb_indent == 1)
         ctxp->last_ccb_indent1 = input_line;
+#endif
 #endif
       return CCB_TK;
     case '[':

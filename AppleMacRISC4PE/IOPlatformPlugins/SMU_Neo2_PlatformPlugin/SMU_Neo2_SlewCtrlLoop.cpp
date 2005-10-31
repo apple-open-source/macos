@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_SlewCtrlLoop.cpp,v 1.15 2004/12/03 23:19:46 raddog Exp $
+ *  File: $Id: SMU_Neo2_SlewCtrlLoop.cpp,v 1.16 2005/06/30 23:52:01 galcher Exp $
  *
  */
 
@@ -196,23 +196,46 @@ IOReturn SMU_Neo2_SlewCtrlLoop::initPlatformCtrlLoop(const OSDictionary *dict)
 
 	/*
 	 *
-	 *	Check conditions that processor stepping depends on. We need the power-mode-data
-	 *	property present. We need the ability to switch voltage; if Open Firmware has left
-	 *	the machine at low voltage, we can't step to high frequency without switching
-	 *	voltage.
+	 *      Check conditions that processor stepping depends on. We need the power-mode-data
+	 *      property present. We need the ability to switch voltage; if Open Firmware has left
+	 *      the machine at low voltage, we can't step to high frequency without switching
+	 *      voltage.
 	 *
+	 *      FYI - we can't JUST check for the existence of the 'power-mode-data' property to
+	 *      determine whether or not we can do processor stepping.  There must be more than
+	 *      one 32-bit value in the property - otherwise if there are zero or one entries,
+	 *      We can only run at whatever speed the processor is currently running at.
 	 */
 
-	IORegistryEntry*							cpusRegEntry;
-    cpusRegEntry = platformPlugin->fromPath("/cpus/@0", gIODTPlane);
+	IORegistryEntry         * cpusRegEntry;
+	cpusRegEntry = platformPlugin->fromPath("/cpus/@0", gIODTPlane);
 
-	if ( _numSlewPoints != 0 &&
-	     ( _appleSMU = gPlatformPlugin->getAppleSMU() ) != NULL &&
-		 cpusRegEntry->getProperty( "power-mode-data" ) != NULL )
+	// does the FVT say that we have at least one slew point, and do we have an SMU to talk to?
+
+	if ( (_numSlewPoints > 0) && (( _appleSMU = gPlatformPlugin->getAppleSMU() ) != NULL ) )
 	{
-		_canStepProcessor = true;
+	OSData  * powerModeData;
+
+		// do we have a 'power-mode-data' property?
+		// It must also exist, as OS SW elsewhere may be atttempting to tell us not to
+		// do processor stepping even though there are FVT entries by deleting this property.
+		if ( cpusRegEntry->getProperty( "power-mode-data" ) != NULL )
+		{
+			// not only must the property exist, but it must contain more than 1 32-bit entry.
+			// if it doesn't, then the machine can only run at whatever speed it's currently running at,
+			// as we do not have enough (valid) information to be able for other "steps".
+			if ( (powerModeData = OSDynamicCast( OSData, cpusRegEntry->getProperty( "power-mode-data" ))) != NULL )
+			{
+				// you must have at least 2 entries to believe you can actually attemp to do processor stepping
+				if ( powerModeData->getLength() >= (2 * sizeof( uint32_t )) )
+				{
+					_canStepProcessor = true;	// yes, we think we can do processor stepping
+				}
+			}
+		}
 	}
-	else
+
+	if ( ! _canStepProcessor )	// if we can't do processor stepping, say so
 	{
 		IOLog( "SMU_Neo2_SlewCtrlLoop::initPlatformCtrlLoop CPU stepping disabled\n" );
 	}

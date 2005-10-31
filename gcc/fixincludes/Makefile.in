@@ -102,15 +102,15 @@ oneprocess : full-stamp
 twoprocess : test-stamp $(AF)
 
 full-stamp : $(ALLOBJ) $(LIBIBERTY)
-	$(CC) $(LDFLAGS) -o $(FI) $(ALLOBJ) $(LIBIBERTY)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(FI) $(ALLOBJ) $(LIBIBERTY)
 	$(STAMP) $@
 
 test-stamp : $(TESTOBJ) $(LIBIBERTY)
-	$(CC) $(LDFLAGS) -o $(FI) $(TESTOBJ) $(LIBIBERTY)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(FI) $(TESTOBJ) $(LIBIBERTY)
 	$(STAMP) $@
 
 $(AF): $(FIXOBJ) $(LIBIBERTY)
-	$(CC) $(LDFLAGS) -o $@ $(FIXOBJ) $(LIBIBERTY)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(FIXOBJ) $(LIBIBERTY)
 
 $(ALLOBJ)   : $(HDR)
 fixincl.o   : fixincl.c  $(srcdir)/fixincl.x
@@ -126,11 +126,19 @@ fixinc.sh : fixinc.in mkfixinc.sh Makefile
 $(srcdir)/fixincl.x: @MAINT@ fixincl.tpl inclhack.def
 	cd $(srcdir) ; $(SHELL) ./genfixes
 
-clean:
-	rm -f *.o *-stamp $(AF) $(FI) *~
+mostlyclean : 
+	rm -f *.o *-stamp $(AF) $(FI) *~ fixinc.sh
 
-maintainer-clean : clean
+clean: mostlyclean
+	rm -f mkheaders
+
+distclean: clean
+	rm -f Makefile config.h config.log config.status stamp-h
+
+maintainer-clean: distclean
 	rm -f $(srcdir)/fixincl.x
+
+distclean : clean
 
 Makefile: $(srcdir)/Makefile.in config.status
 	$(SHELL) ./config.status Makefile
@@ -166,6 +174,11 @@ install : all
 	$(INSTALL_DATA) $(srcdir)/README-fixinc \
 	  $(DESTDIR)$(itoolsdatadir)/include/README
 	$(INSTALL_SCRIPT) fixinc.sh $(DESTDIR)$(itoolsdir)/fixinc.sh
-	$(INSTALL_PROGRAM) fixincl$(build_exeext) \
-	  $(DESTDIR)$(itoolsdir)/fixincl
+	$(INSTALL_PROGRAM) fixincl@EXEEXT@ \
+	  $(DESTDIR)$(itoolsdir)/fixincl@EXEEXT@
 	$(INSTALL_SCRIPT) mkheaders $(DESTDIR)$(itoolsdir)/mkheaders
+
+dvi :
+info :
+html :
+installcheck :

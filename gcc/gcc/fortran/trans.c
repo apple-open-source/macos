@@ -1,5 +1,5 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -24,12 +24,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-gimple.h"
-#include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
 #include "defaults.h"
 #include "real.h"
-#include <gmp.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-stmt.h"
@@ -479,8 +477,6 @@ gfc_trans_code (gfc_code * code)
      the end of this gfc_code branch.  */
   for (; code; code = code->next)
     {
-      gfc_set_backend_locus (&code->loc);
-
       if (code->here != 0)
 	{
 	  res = gfc_trans_label_here (code);
@@ -625,14 +621,16 @@ gfc_trans_code (gfc_code * code)
 	  internal_error ("gfc_trans_code(): Bad statement code");
 	}
 
+      gfc_set_backend_locus (&code->loc);
+
       if (res != NULL_TREE && ! IS_EMPTY_STMT (res))
 	{
 	  if (TREE_CODE (res) == STATEMENT_LIST)
 	    annotate_all_with_locus (&res, input_location);
 	  else
 	    SET_EXPR_LOCATION (res, input_location);
-
-	  /* Add the new statemment to the block.  */
+	    
+	  /* Add the new statement to the block.  */
 	  gfc_add_expr_to_block (&block, res);
 	}
     }

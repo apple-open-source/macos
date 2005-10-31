@@ -1,7 +1,7 @@
 /*
  * LoginSessions.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/LoginSessions.h,v 1.15 2005/01/27 22:35:03 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/LoginSessions.h,v 1.16 2005/06/15 20:59:14 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -51,6 +51,8 @@ boolean_t LoginSessionIsRootSession (void);
 LoginSessionAttributes LoginSessionGetSessionAttributes (void);
 
 uid_t LoginSessionGetSessionUID (void);
+
+uid_t LoginSessionGetSecurityAgentUID (void);
 
 #if __cplusplus
 }

@@ -1,4 +1,3 @@
-/* APPLE LOCAL file in FSF */
 /* Target definitions for Darwin 8.0 and above (Mac OS X) systems.
    Copyright (C) 2004, 2005
    Free Software Foundation, Inc.
@@ -23,7 +22,6 @@ Boston, MA 02111-1307, USA.  */
 /* Darwin 7.0 and above have C99 functions.   */
 #define TARGET_C99_FUNCTIONS 1
 
-/* APPLE LOCAL begin mainline */
 /* Machine dependent libraries.  Include libmx when compiling on
    Darwin 7.0 and above, but before libSystem, since the functions are
    actually in libSystem but for 7.x compatibility we want them to be
@@ -34,4 +32,3 @@ Boston, MA 02111-1307, USA.  */
 #define LIB_SPEC "%{!static:\
   %{!mlong-double-64:%{pg:-lSystemStubs_profile;:-lSystemStubs}} \
   -lmx -lSystem}"
-/* APPLE LOCAL end mainline */

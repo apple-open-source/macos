@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_SlotsPowerSensor.cpp,v 1.4 2004/06/16 22:14:09 murph Exp $
+ *  File: $Id: SMU_Neo2_SlotsPowerSensor.cpp,v 1.5 2005/01/27 00:23:33 dirty Exp $
  */
 
 
@@ -50,12 +50,12 @@ IOReturn SMU_Neo2_SlotsPowerSensor::initPlatformSensor(const OSDictionary* dict)
 
 	if (!gPlatformPlugin->getSDBPartitionData(kSlotsPowerADCConstantsPartID, 4, 2, (UInt8 *) &scalingValue))
 	{
-		scalingValue = 0x19A;
+		return( kIOReturnError );
 	}
 
 	if (!gPlatformPlugin->getSDBPartitionData(kSlotsPowerADCConstantsPartID, 6, 2, (UInt8 *) &offsetValue))
 	{
-		offsetValue = 0;
+		return( kIOReturnError );
 	}
 
 	scalingFactor = scalingValue;

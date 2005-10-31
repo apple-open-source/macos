@@ -1,0 +1,104 @@
+#AdministrationHeader("#adminResource('bookmarklet.blog.entry.header' 'Bookmarklet - Add Blog Entry')")
+
+<body>
+    <div id="wrap">
+
+        <h1>Blosjom Administration Interface</h1>
+
+        <ul id="nav">
+        </ul>
+
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
+                <div class="mainClm">
+                    <table>
+                        <form name="bookmarklet-add-blog-entry" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="bookmarklet-blog-entry"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="bookmarklet"/>
+                            <tr>
+                                <td>#adminResource('username.text' 'Username')</td>
+                                <td><input name="username" type="text" size="25"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('password.text' 'Password')</td>
+                                <td><input name="password" type="password" size="25"/></td>
+                            </tr>
+                            <tr></tr>
+                            <tr>
+                                <td>#adminResource('blog.entry.title.text' 'Blog entry title')</td>
+                                <td><input type="text" size="50" name="blog-entry-title"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.entry.text.text' 'Blog entry text')</td>
+                                <td><textarea rows="10" cols="70" name="blog-entry-description" id="blog-entry-description" onkeyup="reloadPreviewDiv();">$!BOOKMARKLET_PLUGIN_SELECTION</textarea></td>
+                            </tr>
+                            <tr><td></td><td>
+                                <div id="quicktags">
+                                Quicktags: <script src="$BLOJSOM_BLOG.getBlogBaseURL()/quicktags.js" language="JavaScript" type="text/javascript"></script>
+                                <script language="JavaScript" type="text/javascript">edToolbar();</script>
+                                </div></td>
+                            </tr>
+                            <script type="text/javascript">var edCanvas = document.getElementById('blog-entry-description');</script>
+                            <tr></tr>
+                            <tr>
+                                <td colspan="2"><h4>Preview</h4></td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <div id="blog-entry-preview">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr></tr>
+                            <tr>
+                                <td>#adminResource('category.text' 'Category')</td>
+                                <td>
+                                    <select name="blog-category-name">
+                                    #foreach ($blogCategory in $BLOJSOM_ALL_CATEGORIES)
+                                        <option value="$blogCategory.getCategory()" #if ($blogCategory.getCategory().equals($BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY)) selected #end>#if ($blogCategory.getName())$blogCategory.getName()#else$blogCategory.getCategory()#end</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.entry.trackbackURLs.text' 'Blog trackback URLs')</td>
+                                <td><textarea rows="3" cols="70" name="blog-trackback-urls"></textarea></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.entry.pingURLs.text' 'Ping blog notification URLs?')</td>
+                                <td><input type="checkbox" name="ping-blog-urls" CHECKED/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.disable.comments.text' 'Disable comments?')</td>
+                                <td><input type="checkbox" name="blog-entry-comments-disabled" value="y"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.disable.trackbacks.text' 'Disable trackbacks?')</td>
+                                <td><input type="checkbox" name="blog-entry-trackbacks-disabled" value="y"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.publish.text' 'Blog entry publish date and time') <br />(MM/dd/yyyy HH:mm:ss)</td>
+                                <td><input type="text" size="30" name="blog-entry-publish-datetime"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.proposed.name.text' 'Proposed name')</td>
+                                <td><input type="text" size="30" name="blog-entry-proposed-name"/></td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('add.blog.entry.text' 'Add blog entry')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+#AdministrationFooter()

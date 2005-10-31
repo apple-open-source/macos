@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: ctx.c,v 1.32.70.2 2005/06/02 00:55:40 lindak Exp $
+ * $Id: ctx.c,v 1.32.70.5.14.1 2005/09/09 22:15:02 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -165,6 +165,8 @@ smb_ctx_done(struct smb_ctx *ctx)
 		nb_snbfree(ctx->ct_ssn.ioc_local);
 	if (ctx->ct_srvaddr)
 		free(ctx->ct_srvaddr);
+	if (ctx->ct_utf8_servname)
+		free(ctx->ct_utf8_servname);
 	if (ctx->ct_nb)
 		nb_ctx_done(ctx->ct_nb);
 	if (ctx->ct_secblob)
@@ -199,7 +201,7 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 	const char **next)
 {
 	const char *p = unc;
-	char *p1, *colon, *servername;
+	char *p1, *colon, *servername, *tmp_utf8_servername;
 	char tmp[1024];
 	char tmp2[1024];
 	int error ;
@@ -235,6 +237,7 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 			error = smb_ctx_setpassword(ctx, unpercent(p1));
 			if (error)
 				return error;
+			ctx->ct_flags |= SMBCF_EXPLICITPWD;
 			if (p - colon > 2)
 				memset(colon+1, '*', p - colon - 2);
 		}
@@ -261,7 +264,6 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 		return EINVAL;
 	}
 
-	
 	/* 
 	 * It's safe to uppercase this string, which
 	 * consists of ascii characters that should
@@ -282,11 +284,10 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 
 	if (strchr(tmp2,'%')) {
 		/* use the 1st buffer, we don't need the old string */
-		servername = tmp; 
-		if (!(servername = convert_utf8_to_wincs(unpercent(tmp2)))) {
-			smb_error("bad server name", 0);
-			return EINVAL;
-		}
+		tmp_utf8_servername = unpercent(tmp2);
+		/* Save original server component */
+		ctx->ct_utf8_servname = strdup(tmp_utf8_servername);
+		
 		/* 
 		 * Converts utf8 to win equivalent of 
 		 * what is configured on this machine. 
@@ -297,9 +298,16 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 		 * move to use port 445 to avoid having
 		 * to worry about server codepages.
 		 */
+		if (!(servername = convert_utf8_to_wincs(tmp_utf8_servername))) {
+			smb_error("bad server name", 0);
+			return EINVAL;
+		}
 	}
-	else /* no conversion needed */
+	else { /* no conversion needed */
 		servername = tmp2;
+		/* Save original server component */
+		ctx->ct_utf8_servname = strdup(servername);
+	}
 
 	smb_ctx_setserver(ctx, servername);
 	error = smb_ctx_setfullserver(ctx, servername);
@@ -706,17 +714,10 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 	if (ctx->ct_srvaddr) {
 		error = nb_resolvehost_in(ctx->ct_srvaddr, &sap);
 	} else {
-	    if (ssn->ioc_srvname[0]) {
-		error = nbns_resolvename(ssn->ioc_srvname, ctx->ct_nb, &sap);
-		if (!error && !ctx->ct_ssn.ioc_workgroup[0]) {
-			char wkgrp[SMB_MAXUSERNAMELEN + 1];
-
-			wkgrp[0] = '\0';
-			if (!nbns_getnodestatus(sap, ctx->ct_nb, NULL, wkgrp) &&
-			    wkgrp[0])
-				smb_ctx_setworkgroup(ctx, wkgrp, SETWG_NOT_FROMUSER);
-		}
-	    } else
+	    if (ssn->ioc_srvname[0]) 
+		error = nbns_resolvename(ssn->ioc_srvname, 
+			ctx->ct_nb, ctx, &sap);
+	    else
 	    	error = -1;
 	    if (error && ctx->ct_fullserver) {
 		    error = nb_resolvehost_in(ctx->ct_fullserver, &sap);
@@ -728,9 +729,9 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 		smb_error("can't get server address", error);
 		return error;
 	}
-	nn.nn_scope = ctx->ct_nb->nb_scope;
+	nn.nn_scope = (u_char *)(ctx->ct_nb->nb_scope);
 	nn.nn_type = NBT_SERVER;
-	strcpy(nn.nn_name, ssn->ioc_srvname);
+	strcpy((char *)(nn.nn_name), ssn->ioc_srvname);
 	error = nb_sockaddr(sap, &nn, &saserver);
 	memcpy(&ctx->ct_srvinaddr, sap, sizeof (struct sockaddr_in));
 	nb_snbfree(sap);
@@ -747,9 +748,9 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 		}
 		nls_str_upper(ctx->ct_locname, ctx->ct_locname);
 	}
-	strcpy(nn.nn_name, ctx->ct_locname);
+	strcpy((char *)nn.nn_name, (ctx->ct_locname));
 	nn.nn_type = NBT_WKSTA;
-	nn.nn_scope = ctx->ct_nb->nb_scope;
+	nn.nn_scope = (u_char *)(ctx->ct_nb->nb_scope);
 	error = nb_sockaddr(NULL, &nn, &salocal);
 	if (error) {
 		nb_snbfree((struct sockaddr*)saserver);
@@ -791,6 +792,7 @@ reauth:
 		error = smb_ctx_setpassword(ctx, cp);
 		if (error)
 			return error;
+		ctx->ct_flags |= SMBCF_EXPLICITPWD;
 	}
 	/*
 	 * if we have a session it is either anonymous
@@ -978,7 +980,7 @@ smb_ctx_principal2tkt(char *prin, u_char **tktp, u_long *tktlenp)
 	krb5_creds	kcreds, *kcredsp = NULL;
 	krb5_auth_context	kauth = NULL;
 	krb5_data	kdata, kdata0;
-	char *		tkt;
+	u_char *	tkt;
 
 	memset((char *)&kcreds, 0, sizeof(kcreds));
 	kdata0.length = 0;
@@ -1124,8 +1126,9 @@ prblob(u_char *b, size_t len)
 char *
 smb_ctx_blob2principal(size_t *blob, u_char **prinp)
 {
-	size_t		len = *blob - SMB_GUIDLEN;
-	u_char *	start = (char *)blob + sizeof(size_t) + SMB_GUIDLEN;
+	/* Why does gcc4.0 require this cast ??? */
+	size_t		len = (size_t)(*blob - SMB_GUIDLEN);
+	u_char *	start = (u_char *)blob + sizeof(size_t) + SMB_GUIDLEN;
 	int		rc = 0;
 	SPNEGO_TOKEN_HANDLE	stok = NULL;
 	int		indx = 0;
@@ -1221,7 +1224,7 @@ smb_ctx_negotiate(struct smb_ctx *ctx, int level, int flags, char *workgroup)
 	else if (!(failure = smb_ctx_blob2principal(rq.ioc_ssn.ioc_outtok,
 						    &principal)) &&
 		 !(failure = smb_ctx_principal2blob(&rq.ioc_ssn.ioc_intok,
-						    principal))) {
+						    (char *)principal))) {
 		ctx->ct_secblob = rq.ioc_ssn.ioc_intok;
 		rq.ioc_ssn.ioc_intok = NULL;
 	}
@@ -1402,11 +1405,11 @@ smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
 
 	if ((ctx->ct_flags & SMBCF_RESOLVED) == 0) {
 		smb_error("smb_ctx_lookup() data is not resolved", 0);
-		return EINVAL;
+		return (EINVAL);
 	}
 	if (ctx->ct_fd < 0) {
 		smb_error("handle from smb_ctx_nego() gone?!", 0);
-		return EINVAL;
+		return (EINVAL);
 	}
 	if (!(flags & SMBLK_CREATE))
 		return (0);
@@ -1415,7 +1418,7 @@ smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
 	bcopy(&ctx->ct_sh, &rq.ioc_sh, sizeof(struct smbioc_oshare));
 	rq.ioc_flags = flags;
 	rq.ioc_level = level;
-	if (ctx->ct_secblob) {
+	if (ctx->ct_secblob) { /* kerberos path... */
 		rq.ioc_ssn.ioc_opt |= SMBVOPT_EXT_SEC;
 		if (!(ctx->ct_flags & SMBCF_SSNACTIVE)) {
 			rq.ioc_ssn.ioc_intok = ctx->ct_secblob;
@@ -1439,6 +1442,19 @@ smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
 		/* unwise to failback to NTLM now */
 		return (error);
 	}
+	/*
+	 * The point here is to avoid trying defaulted passwords against
+	 * people's accounts, as that can result in account lockout.
+	 * We make an exception for null users as that's anonymous login
+	 * and is expected to have a null/defaulted password.
+	 */
+	if (!(ctx->ct_flags & SMBCF_EXPLICITPWD) &&
+	    ctx->ct_ssn.ioc_user[0] != '\0') {
+		error = EINVAL;
+		smb_error("no password specified for user %s", error,
+			  ctx->ct_ssn.ioc_user);
+		return (error);
+	}
 	seteuid(eff_uid); /* restore setuid root briefly */
 	if (!(ctx->ct_flags & SMBCF_SSNACTIVE) &&
 	    ioctl(ctx->ct_fd, SMBIOC_SSNSETUP, &rq) == -1)
@@ -1453,7 +1469,7 @@ smb_ctx_lookup(struct smb_ctx *ctx, int level, int flags)
 		error = errno;
 		smb_error("%s phase failed", error, failure);
 	}
-	return error;
+	return (error);
 }
 
 /*
@@ -1560,6 +1576,8 @@ smb_ctx_readrcsection(struct smb_ctx *ctx, const char *sname, int level)
 			error = smb_ctx_setpassword(ctx, p);
 			if (error)
 				smb_error("password specification in the section '%s' ignored", error, sname);
+			else
+				ctx->ct_flags |= SMBCF_EXPLICITPWD;
 		}
 	}
 	rc_getstringptr(smb_rc, sname, "workgroup", &p);

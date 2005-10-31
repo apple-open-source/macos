@@ -207,6 +207,11 @@ void TransferJob::setLoader(KWQResourceLoader *loader)
     d->loader = loader;
 }
 
+void TransferJob::cancel()
+{
+    [d->loader jobCanceledLoad];
+}
+
 KURL TransferJob::url() const
 {
     return d->URL;
@@ -234,7 +239,7 @@ void TransferJob::emitRedirection(const KURL &url)
 
 void TransferJob::emitResult(NSData *allData)
 {
-    m_deliverAllData ? m_result.call(this, allData) : m_result.call(this);
+    m_deliverAllData ? m_result.callWithData(this, allData) : m_result.call(this);
 }
 
 void TransferJob::emitReceivedResponse(NSURLResponse *response)
@@ -244,7 +249,7 @@ void TransferJob::emitReceivedResponse(NSURLResponse *response)
     d->response = response;
     KWQRetain(d->response);
 
-    m_receivedResponse.call(this, response);
+    m_receivedResponse.callWithResponse(this, response);
 }
 
 } // namespace KIO

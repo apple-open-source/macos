@@ -547,18 +547,23 @@ mi_interp_delete_breakpoint_hook (struct breakpoint *bpt)
 }
 
 void
-mi_async_breakpoint_resolve_event (int b, int pending_b)
+mi_async_breakpoint_resolve_event (int pending_b, int new_b)
 {
   struct cleanup *old_chain;
+  struct breakpoint *bpt;
 
-  if (pending_b > 0)
-    {
-      old_chain = make_cleanup_ui_out_notify_begin_end (uiout, 
-							"resolve-pending-breakpoint");
-      ui_out_field_int (uiout, "new_bp", b);
-      ui_out_field_int (uiout, "pended_bp", pending_b);
+  /* Don't notify about internal breakpoint changes.  */
+  if (pending_b <= 0)
+    return;
 
-      do_cleanups (old_chain);
-    }
+  old_chain = make_cleanup_ui_out_notify_begin_end (uiout, 
+						    "resolve-pending-breakpoint");
+  ui_out_field_int (uiout, "new_bp", new_b);
+  ui_out_field_int (uiout, "pended_bp", pending_b);
+  bpt = find_breakpoint (new_b);
+  if (bpt->addr_string != NULL)
+    ui_out_field_string (uiout, "new_expr", bpt->addr_string);
+  gdb_breakpoint_query (uiout, new_b);
+  
+  do_cleanups (old_chain);
 }
-

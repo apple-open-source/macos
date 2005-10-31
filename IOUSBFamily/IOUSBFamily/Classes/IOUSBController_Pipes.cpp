@@ -242,7 +242,6 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 	return kIOReturnBadArgument; // timeouts only on bulk pipes
     }
     
-	
     // Validate the completion
     if (!completion)
     {
@@ -259,6 +258,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
     
     // allocate the command
     command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+	
     // If we couldn't get a command, increase the allocation and try again
     //
     if ( command == NULL )
@@ -273,6 +273,13 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
         }
     }
 
+	// Set up a flag indicating that we have a synchronous request in this command
+	//
+    if (  (UInt32) completion->action == (UInt32) &IOUSBSyncCompletion )
+		command->SetIsSyncTransfer(true);
+	else
+		command->SetIsSyncTransfer(false);
+	
     command->SetUseTimeStamp(false);
     command->SetSelector(READ);
     command->SetRequest(0);            	// Not a device request
@@ -286,21 +293,34 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
     command->SetNoDataTimeout(noDataTimeout);
     command->SetCompletionTimeout(completionTimeout);
     for (i=0; i < 10; i++)
-	command->SetUIMScratch(i, 0);
-
+		command->SetUIMScratch(i, 0);
+	
     nullCompletion.target = (void *) NULL;
     nullCompletion.action = (IOUSBCompletionAction) NULL;
     nullCompletion.parameter = (void *) NULL;
     command->SetDisjointCompletion(nullCompletion);
     
     err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
-    if (!err)
-	err = _commandGate->runAction(DoIOTransfer, command);
+    if (kIOReturnSuccess == err)
+	{
+		err = _commandGate->runAction(DoIOTransfer, command);
+		
+		// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
+		// we get an immediate error
+		//
+		if ( command->GetIsSyncTransfer() ||  (!command->GetIsSyncTransfer() && (kIOReturnSuccess != err)) )
+		{
+			_freeUSBCommandPool->returnCommand(command);
+		}
+	}
+	else
+	{
+		// CheckFordDisjoint returned an error, so free up the comand
+		//
+		_freeUSBCommandPool->returnCommand(command);
+	}
 	
-    if (err)
-        _freeUSBCommandPool->returnCommand(command);
-
-    return (err);
+    return err;
 }
 
 
@@ -358,8 +378,8 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
     // Validate the command gate
     if (!_commandGate)
     {
-        USBLog(5, "%s[%p]::Wrtie #3 - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
-	return kIOReturnInternalError;
+        USBLog(5, "%s[%p]::Write #3 - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
+		return kIOReturnInternalError;
     }
 
     // allocate the command
@@ -374,11 +394,18 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
         command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
         if ( command == NULL )
         {
-            USBLog(3,"%s[%p]::DeviceRequest Could not get a IOUSBCommand",getName(),this);
+            USBLog(3,"%s[%p]::Write #3 Could not get a IOUSBCommand",getName(),this);
             return kIOReturnNoResources;
         }
     }
 
+	// Set up a flag indicating that we have a synchronous request in this command
+	//
+    if (  (UInt32) completion->action == (UInt32) &IOUSBSyncCompletion )
+		command->SetIsSyncTransfer(true);
+	else
+		command->SetIsSyncTransfer(false);
+	
     command->SetUseTimeStamp(false);
     command->SetSelector(WRITE);
     command->SetRequest(0);            // Not a device request
@@ -400,29 +427,67 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
     command->SetDisjointCompletion(nullCompletion);
 
     err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
-    if (!err)
-        err = _commandGate->runAction(DoIOTransfer, command);
-
-    if (err)
-        _freeUSBCommandPool->returnCommand(command);
-
-    return (err);
+    if (kIOReturnSuccess == err)
+	{
+		err = _commandGate->runAction(DoIOTransfer, command);
+		
+		// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
+		// we get an immediate error
+		//
+		if ( command->GetIsSyncTransfer() ||  (!command->GetIsSyncTransfer() && (kIOReturnSuccess != err)) )
+		{
+			_freeUSBCommandPool->returnCommand(command);
+		}
+	}
+	else
+	{
+		// CheckFordDisjoint returned an error, so free up the comand
+		//
+		_freeUSBCommandPool->returnCommand(command);
+	}
+	
+    return err;
 }
 
 
 
 IOReturn 
-IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
-                               UInt64 frameStart,
-                               UInt32 numFrames,
-                               IOUSBIsocFrame *frameList,
+IOUSBController::IsocIO(	IOMemoryDescriptor *	buffer,
+							UInt64					frameStart,
+							UInt32					numFrames,
+							IOUSBIsocFrame *		frameList,
                                USBDeviceAddress address,
                                Endpoint * endpoint,
                                IOUSBIsocCompletion * completion)
 {
     IOReturn	 err = kIOReturnSuccess;
-    IOUSBIsocCommand *command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
+    IOUSBIsocCommand *	command;
     
+	// Validate the completion
+	//
+        if (completion == 0)
+        {
+            USBLog(5, "%s[%p]::IsocIO - No completion.  Returning kIOReturnNoCompletion(0x%x)", getName(), this, kIOReturnNoCompletion);
+		return kIOReturnNoCompletion;
+	}
+	
+	// Validate the commandGate
+	//
+	if (_commandGate == 0)
+	{
+		USBLog(5, "%s[%p]::IsocIO - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
+		return kIOReturnInternalError;
+	}
+	
+	// Validate the direction of the endpoint -- it has to be kUSBIn or kUSBOut
+	if ( (endpoint->direction != kUSBOut) && ( endpoint->direction != kUSBIn) )
+	{		
+		USBLog(5, "%s[%p]::IsocIO - Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
+		return kIOReturnBadArgument;
+	}
+
+	command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
+	
     // If we couldn't get a command, increase the allocation and try again
     //
     if ( command == NULL )
@@ -432,34 +497,28 @@ IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
         command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
         if ( command == NULL )
         {
-            USBLog(3,"%s[%p]::DeviceRequest Could not get a IOUSBIsocCommand",getName(),this);
+            USBLog(3,"%s[%p]::IsocIO Could not get a IOUSBIsocCommand",getName(),this);
             return kIOReturnNoResources;
         }
     }
     
-    do
-    {
-        /* Validate the completion */
-        if (completion == 0)
-        {
-            USBLog(5, "%s[%p]::IsocIO - No completion.  Returning kIOReturnNoCompletion(0x%x)", getName(), this, kIOReturnNoCompletion);
-            err = kIOReturnNoCompletion;
-            break;
-        }
-
-        /* Set up direction */
-        if (endpoint->direction == kUSBOut) {
-            command->SetSelector(WRITE);
-            command->SetDirection(kUSBOut);
+	// Set up a flag indicating that we have a synchronous request in this command
+	//
+    if (  (UInt32) completion->action == (UInt32) &IOUSBSyncIsoCompletion )
+		command->SetIsSyncTransfer(true);
+	else
+		command->SetIsSyncTransfer(false);
+	
+	// Setup the direction
+	if (endpoint->direction == kUSBOut) 
+	{
+		command->SetSelector(WRITE);
+		command->SetDirection(kUSBOut);
 	}
-        else if (endpoint->direction == kUSBIn) {
-            command->SetSelector(READ);
-            command->SetDirection(kUSBIn);
-	}
-	else {
-            USBLog(5, "%s[%p]::IsocIO - Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnNoCompletion(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
-            err = kIOReturnBadArgument;
-            break;
+	else if (endpoint->direction == kUSBIn) 
+	{
+		command->SetSelector(READ);
+		command->SetDirection(kUSBIn);
         }
 
         command->SetUseTimeStamp(false);
@@ -472,43 +531,57 @@ IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
         command->SetFrameList(frameList);
         command->SetStatus(kIOReturnBadArgument);
 
-        if (_commandGate == 0)
-        {
-            USBLog(5, "%s[%p]::IsocIO - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
-            err = kIOReturnInternalError;
-            break;
-        }
+	err = _commandGate->runAction(DoIsocTransfer, command);
 
-        if ((err = _commandGate->runAction(DoIsocTransfer, command)))
-            break;
-
-        if ( err )
-            USBLog(5, "%s[%p]::IsocIO - runAction returned: (0x%x)", getName(), this, err);
-
-        return(err);
-
-    } while (0);
-
-    // Free/give back the command 
-    _freeUSBIsocCommandPool->returnCommand(command);
-
-    return (err);
+	// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( command->GetIsSyncTransfer() || (!command->GetIsSyncTransfer() && (kIOReturnSuccess != err)) )
+	{
+		_freeUSBIsocCommandPool->returnCommand(command);
+	}
+	
+    return err;
 }
 
 OSMetaClassDefineReservedUsed(IOUSBController,  15);
 IOReturn 
-IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
-                               UInt64 frameStart,
-                               UInt32 numFrames,
-                               IOUSBLowLatencyIsocFrame *frameList,
+IOUSBController::IsocIO(	IOMemoryDescriptor *			buffer,
+							UInt64							frameStart,
+							UInt32							numFrames,
+							IOUSBLowLatencyIsocFrame *		frameList,
                                USBDeviceAddress address,
                                Endpoint * endpoint,
                                IOUSBLowLatencyIsocCompletion * completion,
                                UInt32 updateFrequency)
 {
     IOReturn	 err = kIOReturnSuccess;
-    IOUSBIsocCommand *command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
+    IOUSBIsocCommand *	command;
     
+	// Validate the completion
+	//
+	if (completion == 0)
+	{
+		USBLog(5, "%s[%p]::IsocIO(LL) - No completion.  Returning kIOReturnNoCompletion(0x%x)", getName(), this, kIOReturnNoCompletion);
+		return kIOReturnNoCompletion;
+	}
+	
+	// Validate the commandGate
+	//
+	if (_commandGate == 0)
+	{
+		USBLog(5, "%s[%p]::IsocIO(LL) - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
+		return kIOReturnInternalError;
+	}
+	
+	// Validate the direction of the endpoint -- it has to be kUSBIn or kUSBOut
+	if ( (endpoint->direction != kUSBOut) && ( endpoint->direction != kUSBIn) )
+	{		
+		USBLog(5, "%s[%p]::IsocIO(LL) - Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
+		return kIOReturnBadArgument;
+	}
+	
+	command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
     // If we couldn't get a command, increase the allocation and try again
     //
     if ( command == NULL )
@@ -518,32 +591,26 @@ IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
         command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
         if ( command == NULL )
         {
-            USBLog(3,"%s[%p]::DeviceRequest Could not get a IOUSBIsocCommand",getName(),this);
+            USBLog(3,"%s[%p]::IsocIO(LL) Could not get a IOUSBIsocCommand",getName(),this);
             return kIOReturnNoResources;
         }
     }
-    
-    do
-    {
-        /* Validate the completion */
-        if (completion == 0)
-        {
-            err = kIOReturnNoCompletion;
-            break;
-        }
-
-        /* Set up direction */
-        if (endpoint->direction == kUSBOut) {
-            command->SetSelector(WRITE);
-            command->SetDirection(kUSBOut);
+	
+	// Set up a flag indicating that we have a synchronous request in this command
+	//
+    if (  (UInt32) completion->action == (UInt32) &IOUSBSyncIsoCompletion )
+		command->SetIsSyncTransfer(true);
+	else
+		command->SetIsSyncTransfer(false);
+	
+	// Setup the direction
+	if (endpoint->direction == kUSBOut) {
+		command->SetSelector(WRITE);
+		command->SetDirection(kUSBOut);
 	}
-        else if (endpoint->direction == kUSBIn) {
-            command->SetSelector(READ);
-            command->SetDirection(kUSBIn);
-	}
-	else {
-            err = kIOReturnBadArgument;
-            break;
+	else if (endpoint->direction == kUSBIn) {
+		command->SetSelector(READ);
+		command->SetDirection(kUSBIn);
         }
 
         command->SetUseTimeStamp(false);
@@ -557,21 +624,15 @@ IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
         command->SetStatus(kIOReturnBadArgument);
         command->SetUpdateFrequency(updateFrequency);
 
-        if (_commandGate == 0)
-        {
-            err = kIOReturnInternalError;
-            break;
-        }
-
-        if ((err = _commandGate->runAction(DoLowLatencyIsocTransfer, command)))
-            break;
-
-        return err;
-
-    } while (0);
-
-    // Free/give back the command 
-    _freeUSBIsocCommandPool->returnCommand(command);
+	err = _commandGate->runAction(DoLowLatencyIsocTransfer, command);
+	
+	// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( command->GetIsSyncTransfer() || (!command->GetIsSyncTransfer() && (kIOReturnSuccess != err)) )
+	{
+		_freeUSBIsocCommandPool->returnCommand(command);
+	}
 
     return err;
 }

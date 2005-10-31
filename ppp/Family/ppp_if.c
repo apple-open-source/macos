@@ -91,8 +91,8 @@ static int  ppp_if_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
 static int  ppp_if_add_proto(ifnet_t ifp, protocol_family_t protocol_family,
 			const struct ifnet_demux_desc *demux_list, u_int32_t demux_count);
 static int  ppp_if_del_proto(ifnet_t ifp, protocol_family_t protocol_family);
-static int  ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
-                     struct sockaddr *ndest, char *edst, char *ppp_type);
+static errno_t  ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
+                     const struct sockaddr *ndest, const char *edst, const char *ppp_type);
 
 static int 	ppp_if_detach(ifnet_t ifp);
 static struct ppp_if *ppp_if_findunit(u_short unit);
@@ -1007,8 +1007,8 @@ a network packet needs to be send through the interface.
 add the ppp header to the packet (as a network interface, we only worry
 about adding our protocol number)
 ----------------------------------------------------------------------------- */
-int ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
-                     struct sockaddr *ndest, char *edst, char *ppp_type)
+errno_t ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
+                     const struct sockaddr *ndest, const char *edst, const char *ppp_type)
 {
 	struct		ifnet_stat_increment_param statsinc;
 
@@ -1109,7 +1109,7 @@ int ppp_if_send(ifnet_t ifp, mbuf_t m)
                     mp = mbuf_next(mp);
                     if (!mp)
                         break;
-                    ip = mbuf_data(m);
+                    ip = mbuf_data(mp);
                 }
                 // this code assumes the IP/TCP header is in one non-shared mbuf 
                 if (ip->ip_p == IPPROTO_TCP) {

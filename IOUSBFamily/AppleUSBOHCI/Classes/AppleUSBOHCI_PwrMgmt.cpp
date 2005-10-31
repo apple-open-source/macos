@@ -59,71 +59,71 @@ enum {
 // Power States for devices without a clock,ID property (e.g. B&W G3, PC Cards, PCI Cards)
 //
 static IOPMPowerState ourPowerStates[number_of_power_states] = {
-            { 	
-            // State 0
-                1,	// version
-                0,	// capabilityFlags
-                0,	// outputPowerCharacter
-                0,	// inputPowerRequirement
-                0,	// staticPower
-                0,	// unbudgeted Power
-                0,	// power to attain
-                0,	// time to attain
-                0,	// settle up time
-                0,	// time to lower
-                0,	// settle down time
-                0	// power domain budget
-            },
-            { 	
-            // State 1
-                1,			// version
-                IOPMDeviceUsable,	// capabilityFlags
-                IOPMPowerOn,		// outputPowerCharacter
-                IOPMPowerOn,		// inputPowerRequirement
-                0,			// staticPower
-                0,			// unbudgeted Power
-                0,			// power to attain
-                0,			// time to attain
-                0,			// settle up time
-                0,			// time to lower
-                0,			// settle down time
-                0			// power domain budget
-            }
+	{ 	
+		// State 0
+		1,	// version
+		0,	// capabilityFlags
+		0,	// outputPowerCharacter
+		0,	// inputPowerRequirement
+		0,	// staticPower
+		0,	// unbudgeted Power
+		0,	// power to attain
+		0,	// time to attain
+		0,	// settle up time
+		0,	// time to lower
+		0,	// settle down time
+		0	// power domain budget
+	},
+	{ 	
+		// State 1
+		1,			// version
+		IOPMDeviceUsable,	// capabilityFlags
+		IOPMPowerOn,		// outputPowerCharacter
+		IOPMPowerOn,		// inputPowerRequirement
+		0,			// staticPower
+		0,			// unbudgeted Power
+		0,			// power to attain
+		0,			// time to attain
+		0,			// settle up time
+		0,			// time to lower
+		0,			// settle down time
+		0			// power domain budget
+	}
 };
 
 // Power States for Key Largo systems
 //
 static IOPMPowerState ourPowerStatesKL[number_of_power_states] = {
-            { 	
-            // State 0
-                1,	// version
-                0,	// capabilityFlags
-                0,	// outputPowerCharacter
-                0,	// inputPowerRequirement
-                0,	// staticPower
-                0,	// unbudgeted Power
-                0,	// power to attain
-                0,	// time to attain
-                0,	// settle up time
-                0,	// time to lower
-                0,	// settle down time
-                0	// power domain budget
-            },
-            { 	
-            // State 1
-                1,				// version
-                IOPMDeviceUsable,		// capabilityFlags
-                IOPMPowerOn,			// outputPowerCharacter
-                IOPMPowerOn | IOPMClockNormal,	// inputPowerRequirement
-                0,				// staticPower
-                0,				// unbudgeted Power
-                0,				// power to attain
-                0,				// time to attain
-                0,				// settle up time
-                0,				// time to lower
-                0,				// settle down time
-                0				// power domain budget
-            }
+	{ 	
+		// State 0
+		1,	// version
+		0,	// capabilityFlags
+		0,	// outputPowerCharacter
+		0,	// inputPowerRequirement
+		0,	// staticPower
+		0,	// unbudgeted Power
+		0,	// power to attain
+		0,	// time to attain
+		0,	// settle up time
+		0,	// time to lower
+		0,	// settle down time
+		0	// power domain budget
+	},
+	{ 	
+		// State 1
+		1,				// version
+		IOPMDeviceUsable,		// capabilityFlags
+		IOPMPowerOn,			// outputPowerCharacter
+		IOPMPowerOn | IOPMClockNormal,	// inputPowerRequirement
+		0,				// staticPower
+		0,				// unbudgeted Power
+		0,				// power to attain
+		0,				// time to attain
+		0,				// settle up time
+		0,				// time to lower
+		0,				// settle down time
+		0				// power domain budget
+	}
 };
 
 
@@ -154,22 +154,22 @@ void AppleUSBOHCI::initForPM (IOPCIDevice *provider)
     //  if a controller does not have the "AAPL,clock-id" property, then it means that it cannot survive sleep.  We
     //  might need to refine this later once we figure how to deal with PCI cards that can go into PCI sleep mode.
     //  An exception is the B&W G3, that does not have this property but can sleep.  Sigh...
-
+	
     //  Deal with CardBus USB cards.  Their provider will be a "IOCardBusDevice", as opposed to a "IOPCIDevice"
     //
     _onCardBus = (0 != provider->metaCast("IOCardBusDevice"));
-
+	
     //  Now, look at PCI cards.  Note that the onboard controller's provider is an IOPCIDevice so we cannot use that
     //  to distinguish between USB PCI cards and the on board controller.  Instead, we use the existence of the
     //  "AAPL,clock-id" property in the provider.  If it does not exist, then we are a OHCI controller on a USB PCI card.
     //
     if ( !provider->getProperty("AAPL,clock-id") && !_onCardBus && !((getPlatform()->getChipSetType() == kChipSetTypeGossamer) && getPlatform()->getMachineType() == kGossamerTypeYosemite) )
     {
-	if (provider->hasPCIPowerManagement() && (provider->enablePCIPowerManagement() == kIOReturnSuccess))
-	{
-	    _hasPCIPwrMgmt = true;
+		if (provider->hasPCIPowerManagement() && (provider->enablePCIPowerManagement() == kIOReturnSuccess))
+		{
+			_hasPCIPwrMgmt = true;
             setProperty("Card Type","Built-in");
-	}
+		}
         else
         {
             USBError(1, "%s[%p]::start OHCI controller will be unloaded across sleep",getName(),this);
@@ -191,16 +191,16 @@ void AppleUSBOHCI::initForPM (IOPCIDevice *provider)
     // callPlatformFunction symbols
     _usb_remote_wakeup = OSSymbol::withCString("usb_remote_wakeup");
     registerService();  //needed to find ::callPlatformFunction and then to wake Yosemite
-
+	
     // register ourselves with superclass policy-maker
     if ( provider->getProperty("AAPL,clock-id")) 
     {
-	USBLog(2, "%s[%p]:: registering controlling driver with clock", getName(), this);
+		USBLog(2, "%s[%p]:: registering controlling driver with clock", getName(), this);
         registerPowerDriver(this,ourPowerStatesKL,number_of_power_states);
     }
     else 
     {
-	USBLog(2, "%s[%p]:: registering controlling driver without clock", getName(), this);
+		USBLog(2, "%s[%p]:: registering controlling driver without clock", getName(), this);
         registerPowerDriver(this,ourPowerStates,number_of_power_states);
     }
     changePowerStateTo(1);
@@ -219,7 +219,7 @@ unsigned long AppleUSBOHCI::maxCapabilityForDomainState ( IOPMPowerFlags domainS
 {
     if ( getProvider()->getProperty("AAPL,clock-id")) {
         if ( ((domainState & IOPMPowerOn) && (domainState & IOPMClockNormal) ) ||
-                (domainState & kIOPMDoze) && (domainState & IOPMClockNormal) ) {
+			 (domainState & kIOPMDoze) && (domainState & IOPMClockNormal) ) {
             return 1;
         }
         else {
@@ -228,7 +228,7 @@ unsigned long AppleUSBOHCI::maxCapabilityForDomainState ( IOPMPowerFlags domainS
     }
     else {					// non-keylargo system
         if ( (domainState & IOPMPowerOn) ||
-                (domainState & kIOPMDoze) ) {
+			 (domainState & kIOPMDoze) ) {
             return 1;
         }
         else {
@@ -271,10 +271,14 @@ IOReturn
 AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDevice )
 {
     IOReturn			sleepRes;
+#ifndef kIOHibernateStateKey
+#define kIOHibernateStateKey	"IOHibernateState"
+#endif
+    static uint32_t *		pHibernateState;
     
     USBLog(4,"%s[%p]::setPowerState (%ld) bus %d", getName(), this, powerStateOrdinal, _busNumber );
     IOSleep(5);
-
+	
     //	If we are not going to sleep, then we need to take the gate, otherwise, we need to wake up    
     //
     if (_ohciBusState != kOHCIBusStateSuspended)
@@ -296,7 +300,13 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
     
     if ( powerStateOrdinal == kOHCISetPowerLevelSuspend ) 
     {
-
+		if ( !pHibernateState )
+		{
+			OSData * data = OSDynamicCast(OSData, (IOService::getPMRootDomain())->getProperty(kIOHibernateStateKey));
+			if (data)
+				pHibernateState = (uint32_t *) data->getBytesNoCopy();
+		}
+		
         if ( _unloadUIMAcrossSleep )
         {
             USBLog(3,"%s[%p] Unloading UIM for bus %d before going to sleep",getName(),this, _busNumber );
@@ -318,13 +328,13 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         {
             USBLog(2, "%s[%p] suspending the bus", getName(), this);
             _remote_wakeup_occurred = false;
-    
+			
             SuspendUSBBus();
             USBLog(2, "%s[%p] The bus is now suspended", getName(), this);
         }
         _ohciBusState = kOHCIBusStateSuspended;
         _idleSuspend = false;
-
+		
         // on PCI PM machines, arm the PME and go to state D3
         if (_hasPCIPwrMgmt)
         {
@@ -339,14 +349,13 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         _idleSuspend = true;
         
         SuspendUSBBus();
-
+		
         USBLog(2, "%s[%p] The bus is now suspended due to inactivity", getName(), this);
-
+		
     }
     
     if ( powerStateOrdinal == kOHCISetPowerLevelRunning ) 
     {
-
         // If we were just idle suspended, we did not unload the UIM, so we need to check that here
         //
         if ( !_uimInitialized )
@@ -361,15 +370,16 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             else
             {
                 IOReturn	err = kIOReturnSuccess;
-
+				
                 USBLog(5, "%s[%p]: Re-loading UIM if necessary (%d)", getName(), this, _uimInitialized );
-
+				
                 // Initialize the hardware
                 //
                 UIMInitializeForPowerUp();
-
+				
                 _ohciAvailable = true;                          // tell the interrupt filter routine that we are on
-		_ohciBusState = kOHCIBusStateRunning;
+				_ohciBusState = kOHCIBusStateRunning;
+				
                 if ( _rootHubDevice == NULL )
                 {
                     err = CreateRootHubDevice( _device, &_rootHubDevice );
@@ -387,7 +397,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         else 
         {
             USBLog(2, "%s[%p] setPowerState powering on USB", getName(), this);
-	
+			
 			// at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
 			// then it is likely that we are responsible for the system issuing the wakeup
 			if (USBToHostLong(_pOHCIRegisters->hcInterruptStatus) & kOHCIHcInterrupt_RD)
@@ -396,7 +406,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 			}
 			
             _remote_wakeup_occurred = true;	//doesn't matter how we woke up
-
+			
             if (_hasPCIPwrMgmt)
             {
                 _ohciAvailable = true;										// tell the interrupt filter routine that we are on
@@ -405,12 +415,37 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             }
             ResumeUSBBus();
             _ohciBusState = kOHCIBusStateRunning;
-        }
+
+			// If we woke from hibernate, unload the UIM
+			
+			if ( _uimInitialized && pHibernateState && *pHibernateState )
+			{
+				USBLog(3,"%s[%p] Unloading UIM for bus %d after hibernate",getName(),this, _busNumber );
+				
+				if ( _rootHubDevice )
+				{
+					USBLog(2, "%s[%p] Terminating root hub in setPowerState()", getName(), this);
+					_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
+					_rootHubDevice->detachAll(gIOUSBPlane);
+					_rootHubDevice->release();
+					_rootHubDevice = NULL;
+					USBLog(2, "%s[%p] Terminated root hub in setPowerState()", getName(), this);
+				}
+				SuspendUSBBus();
+				UIMFinalizeForPowerDown();
+				_ohciAvailable = false;					// tell the interrupt filter routine that we are off
+
+				USBLog(3,"%s[%p] Would create root hub here, postponing it! (%d)",getName(), this, _needToCreateRootHub);
+				_needToCreateRootHub = TRUE;
+				
+			}
+		}
+
         LastRootHubPortStatusChanged(true);
         _idleSuspend = false;
     }
-
-
+	
+	
     // if we are now suspended, then we need to sleep our workloop, otherwise, we need to release the gate on it
     //
     if (_ohciBusState == kOHCIBusStateSuspended)
@@ -421,7 +456,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             USBError(1, "%s[%p] setPowerState - Can't sleep workloop, error 0x%x", getName(), this, sleepRes);
         }
         else
-       {
+		{
             USBLog(5, "%s[%p :setPowerState - workLoop successfully slept", getName(), this);
         }
     }
@@ -429,7 +464,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
     {
         _workLoop->OpenGate();
     }
-
+	
     USBLog(4,"%s[%p]::setPowerState done", getName(), this );
     return IOPMAckImplied;
 }
@@ -437,27 +472,27 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 
 IOReturn 
 AppleUSBOHCI::callPlatformFunction(const OSSymbol *functionName,
-						    bool waitForFunction,
-						    void *param1, void *param2,
-						    void *param3, void *param4)
+								   bool waitForFunction,
+								   void *param1, void *param2,
+								   void *param3, void *param4)
 {  
     if (functionName == _usb_remote_wakeup)
     {
-	bool	*wake;
-	
-	wake = (bool *)param1;
+		bool	*wake;
+		
+		wake = (bool *)param1;
         
-	if (_remote_wakeup_occurred)
-	{
-	    *wake = true;
-	}
-	else
-	{
-	    *wake = false;
-	}
+		if (_remote_wakeup_occurred)
+		{
+			*wake = true;
+		}
+		else
+		{
+			*wake = false;
+		}
     	return kIOReturnSuccess;
     }
-
+	
     return kIOReturnBadArgument;
 }
 
@@ -467,12 +502,12 @@ AppleUSBOHCI::SuspendUSBBus()
 {
     UInt32			something;
     UInt32			hcControl;
-
+	
     // 1st turn off all list processing
     //
     hcControl = USBToHostLong(_pOHCIRegisters->hcControl);
     hcControl &= ~(kOHCIHcControl_CLE | kOHCIHcControl_BLE | kOHCIHcControl_PLE | kOHCIHcControl_IE);
-            
+	
     _pOHCIRegisters->hcControl = HostToUSBLong(hcControl);
     
     // We used to wait for a SOF interrupt here.  Now just sleep for 1 ms.
@@ -494,29 +529,29 @@ AppleUSBOHCI::SuspendUSBBus()
     // now tell the controller to put the bus into suspend mode
     hcControl = kOHCIFunctionalState_Suspend << kOHCIHcControl_HCFSPhase;
     if (_hasPCIPwrMgmt)
-	hcControl |= kOHCIHcControl_RWC | kOHCIHcControl_RWE;
+		hcControl |= kOHCIHcControl_RWC | kOHCIHcControl_RWE;
     _pOHCIRegisters->hcControl = HostToUSBLong(hcControl);
     IOSleep(3);	// wait 3 milliseconds for things to settle
     
     /*
-    switch ((USBToHostLong(_pOHCIRegisters->hcControl) & kOHCIHcControl_HCFS) >> kOHCIHcControl_HCFSPhase )
-    {
-            case kOHCIFunctionalState_Suspend:
-                    // Place the USB bus into the resume State
-                    kprintf("AppleUSBOHCI: Bus in suspend mode as expected\n");
-                    break;
-            case kOHCIFunctionalState_Resume:
-                    kprintf("AppleUSBOHCI: Bus in Resume state???\n");
-                    break;
-            case kOHCIFunctionalState_Reset:
-                    // Place the USB bus into the operational State
-                    kprintf("AppleUSBOHCI: Bus in reset state???\n");
-                    break;
-            default:
-                kprintf("AppleUSBOHCI: Bus operational???\n");
-                break;
-    }
-        */
+	 switch ((USBToHostLong(_pOHCIRegisters->hcControl) & kOHCIHcControl_HCFS) >> kOHCIHcControl_HCFSPhase )
+	 {
+		 case kOHCIFunctionalState_Suspend:
+			 // Place the USB bus into the resume State
+			 kprintf("AppleUSBOHCI: Bus in suspend mode as expected\n");
+			 break;
+		 case kOHCIFunctionalState_Resume:
+			 kprintf("AppleUSBOHCI: Bus in Resume state???\n");
+			 break;
+		 case kOHCIFunctionalState_Reset:
+			 // Place the USB bus into the operational State
+			 kprintf("AppleUSBOHCI: Bus in reset state???\n");
+			 break;
+		 default:
+			 kprintf("AppleUSBOHCI: Bus operational???\n");
+			 break;
+	 }
+	 */
 }
 
 void
@@ -525,36 +560,36 @@ AppleUSBOHCI::ResumeUSBBus()
     switch ((USBToHostLong(_pOHCIRegisters->hcControl) & kOHCIHcControl_HCFS) >> kOHCIHcControl_HCFSPhase )
     {
         case kOHCIFunctionalState_Suspend:
-                // Place the USB bus into the resume State
-                USBLog(2, "%s[%p]:: Resuming bus from Suspend state", getName(), this);
-                _pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Resume << kOHCIHcControl_HCFSPhase);
-        // intentional fall through
+			// Place the USB bus into the resume State
+			USBLog(2, "%s[%p]:: Resuming bus from Suspend state", getName(), this);
+			_pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Resume << kOHCIHcControl_HCFSPhase);
+			// intentional fall through
         case kOHCIFunctionalState_Resume:
-                // Complete the resume by waiting for the required delay
-                if(_errataBits & kErrataLucentSuspendResume)
+			// Complete the resume by waiting for the required delay
+			if(_errataBits & kErrataLucentSuspendResume)
                 // JRH 08-27-99
                 // this is a very simple yet clever hack for working around a bug in the Lucent controller
                 // By using 35 instead of 20, we overflow an internal 5 bit counter by exactly 3ms, which 
                 // stops an errant 3ms suspend from appearing on the bus
-                {
-                    USBLog(2, "%s[%p]:: Delaying 35 milliseconds in resume state", getName(), this);
-                    IOSleep(35);
-                }
-                else
-                {
-                    USBLog(2, "%s[%p]:: Delaying 20 milliseconds in resume state", getName(), this);
-                    IOSleep(20);
-                }
-        // intentional fall through
+			{
+				USBLog(2, "%s[%p]:: Delaying 35 milliseconds in resume state", getName(), this);
+				IOSleep(35);
+			}
+			else
+			{
+				USBLog(2, "%s[%p]:: Delaying 20 milliseconds in resume state", getName(), this);
+				IOSleep(20);
+			}
+			// intentional fall through
         case kOHCIFunctionalState_Reset:
-                // Place the USB bus into the operational State
-                USBLog(2, "%s[%p]: Changing bus to operational", getName(), this);
-                _pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase);
-                IOSleep(3);			// wait the required 3 ms before turning on the lists
-                _pOHCIRegisters->hcControl =  HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase)
-                                                    | kOHCIHcControl_CLE | (_OptiOn ? kOHCIHcControl_Zero : kOHCIHcControl_BLE) 
-                                                    | kOHCIHcControl_PLE | kOHCIHcControl_IE);
-                break;
+			// Place the USB bus into the operational State
+			USBLog(2, "%s[%p]: Changing bus to operational", getName(), this);
+			_pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase);
+			IOSleep(3);			// wait the required 3 ms before turning on the lists
+			_pOHCIRegisters->hcControl =  HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase)
+														| kOHCIHcControl_CLE | (_OptiOn ? kOHCIHcControl_Zero : kOHCIHcControl_BLE) 
+														| kOHCIHcControl_PLE | kOHCIHcControl_IE);
+			break;
         default:
             USBLog(2, "%s[%p]: Bus already operational", getName(), this);
             break;

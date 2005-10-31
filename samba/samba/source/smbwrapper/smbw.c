@@ -54,7 +54,7 @@ void smbw_init(void)
 
 	smbw_busy++;
 
-	DEBUGLEVEL = 0;
+	SAMBA_DEBUGLEVEL = 0;
 	setup_logging("smbsh",True);
 
 	dbf = x_stderr;
@@ -82,7 +82,7 @@ void smbw_init(void)
 		exit(1);
 
 	if ((p=smbw_getshared("DEBUG"))) {
-		DEBUGLEVEL = atoi(p);
+		SAMBA_DEBUGLEVEL = atoi(p);
 	}
 
 	if ((p=smbw_getshared("RESOLVE_ORDER"))) {

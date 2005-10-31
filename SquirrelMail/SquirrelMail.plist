@@ -4,13 +4,13 @@
         <key>OpenSourceProject</key>
         <string>SquirrelMail</string>
         <key>OpenSourceVersion</key>
-        <string>1.4.4</string>
+        <string>1.4.5</string>
         <key>OpenSourceURL</key>
-        <string>http://umn.dl.sourceforge.net/sourceforge/squirrelmail/squirrelmail-1.4.4.tar.gz</string>
+        <string>http://easynews.dl.sourceforge.net/sourceforge/squirrelmail/squirrelmail-1.4.5.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>0e51e293f8f3e27e8ae35ef5b34248e19f0f5075</string>
+        <string>ec40e613bd39543fa4d0a772d59fed5485b645fc</string>
         <key>OpenSourceImportDate</key>
-        <string>2005-01-24</string>
+        <string>2005-07-13</string>
         <key>OpenSourceModifications</key>
         <array/>
         <key>OpenSourceLicense</key>

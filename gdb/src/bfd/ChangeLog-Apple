@@ -1,3 +1,10 @@
+2005-03-24  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.in: Force AC_FUNC_MMAP's result to 'yes' - it
+	needs to run a test case to say 'yes' so cross-host builds
+	end up with mmap support turned off.
+	* aclocal.m4, config.in, configure, po/SRC-POTFILES.in: Regenerated.
+
 2004-12-02  Jim Ingham  <jingham@apple.com>
 
 	* mach-o.h: Reset BFD_MACH_O_CPU_TYPE_POWERPC_64 to the real

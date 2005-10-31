@@ -1,6 +1,6 @@
 // Bits and pieces used in algorithms -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -155,7 +155,14 @@ namespace std
 				  _ValueType2>)
       __glibcxx_function_requires(_ConvertibleConcept<_ValueType2,
 				  _ValueType1>)
-      std::__iter_swap<__are_same<_ValueType1, _ValueType2>::_M_type>::
+
+      typedef typename iterator_traits<_ForwardIterator1>::reference
+	_ReferenceType1;
+      typedef typename iterator_traits<_ForwardIterator2>::reference
+	_ReferenceType2;
+      std::__iter_swap<__are_same<_ValueType1, _ValueType2>::__value &&
+	__are_same<_ValueType1 &, _ReferenceType1>::__value &&
+	__are_same<_ValueType2 &, _ReferenceType2>::__value>::
 	iter_swap(__a, __b);
     }
 
@@ -302,10 +309,10 @@ namespace std
       typedef typename iterator_traits<_II>::value_type _ValueTypeI;
       typedef typename iterator_traits<_OI>::value_type _ValueTypeO;
       typedef typename iterator_traits<_II>::iterator_category _Category;
-      const bool __simple = (__is_scalar<_ValueTypeI>::_M_type
-	                     && __is_pointer<_II>::_M_type
-	                     && __is_pointer<_OI>::_M_type
-			     && __are_same<_ValueTypeI, _ValueTypeO>::_M_type);
+      const bool __simple = (__is_scalar<_ValueTypeI>::__value
+	                     && __is_pointer<_II>::__value
+	                     && __is_pointer<_OI>::__value
+			     && __are_same<_ValueTypeI, _ValueTypeO>::__value);
 
       return std::__copy<__simple, _Category>::copy(__first, __last, __result);
     }
@@ -374,8 +381,8 @@ namespace std
 	    typename iterator_traits<_InputIterator>::value_type>)
       __glibcxx_requires_valid_range(__first, __last);
 
-       const bool __in = __is_normal_iterator<_InputIterator>::_M_type;
-       const bool __out = __is_normal_iterator<_OutputIterator>::_M_type;
+       const bool __in = __is_normal_iterator<_InputIterator>::__value;
+       const bool __out = __is_normal_iterator<_OutputIterator>::__value;
        return std::__copy_normal<__in, __out>::copy_n(__first, __last,
 						      __result);
     }
@@ -427,10 +434,10 @@ namespace std
       typedef typename iterator_traits<_BI1>::value_type _ValueType1;
       typedef typename iterator_traits<_BI2>::value_type _ValueType2;
       typedef typename iterator_traits<_BI1>::iterator_category _Category;
-      const bool __simple = (__is_scalar<_ValueType1>::_M_type
-	                     && __is_pointer<_BI1>::_M_type
-	                     && __is_pointer<_BI2>::_M_type
-			     && __are_same<_ValueType1, _ValueType2>::_M_type);
+      const bool __simple = (__is_scalar<_ValueType1>::__value
+	                     && __is_pointer<_BI1>::__value
+	                     && __is_pointer<_BI2>::__value
+			     && __are_same<_ValueType1, _ValueType2>::__value);
 
       return std::__copy_backward<__simple, _Category>::copy_b(__first, __last,
 							       __result);
@@ -504,8 +511,8 @@ namespace std
 	    typename iterator_traits<_BI2>::value_type>)
       __glibcxx_requires_valid_range(__first, __last);
 
-      const bool __bi1 = __is_normal_iterator<_BI1>::_M_type;
-      const bool __bi2 = __is_normal_iterator<_BI2>::_M_type;
+      const bool __bi1 = __is_normal_iterator<_BI1>::__value;
+      const bool __bi2 = __is_normal_iterator<_BI2>::__value;
       return std::__copy_backward_normal<__bi1, __bi2>::copy_b_n(__first, __last,
 								 __result);
     }
@@ -557,7 +564,7 @@ namespace std
 				  _ForwardIterator>)
       __glibcxx_requires_valid_range(__first, __last);
 
-      const bool __scalar = __is_scalar<_Tp>::_M_type;
+      const bool __scalar = __is_scalar<_Tp>::__value;
       std::__fill<__scalar>::fill(__first, __last, __value);
     }
 
@@ -631,7 +638,7 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_OutputIteratorConcept<_OutputIterator, _Tp>)
 
-      const bool __scalar = __is_scalar<_Tp>::_M_type;
+      const bool __scalar = __is_scalar<_Tp>::__value;
       return std::__fill_n<__scalar>::fill_n(__first, __n, __value);
     }
 
@@ -679,9 +686,8 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
-      __glibcxx_function_requires(_EqualityComparableConcept<
-	    typename iterator_traits<_InputIterator1>::value_type>)
-      __glibcxx_function_requires(_EqualityComparableConcept<
+      __glibcxx_function_requires(_EqualOpConcept<
+	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
       __glibcxx_requires_valid_range(__first1, __last1);
 
@@ -809,10 +815,12 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator1>)
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator2>)
-      __glibcxx_function_requires(_LessThanComparableConcept<
-	    typename iterator_traits<_InputIterator1>::value_type>)
-      __glibcxx_function_requires(_LessThanComparableConcept<
+      __glibcxx_function_requires(_LessThanOpConcept<
+	    typename iterator_traits<_InputIterator1>::value_type,
 	    typename iterator_traits<_InputIterator2>::value_type>)
+      __glibcxx_function_requires(_LessThanOpConcept<
+	    typename iterator_traits<_InputIterator2>::value_type,
+	    typename iterator_traits<_InputIterator1>::value_type>)
       __glibcxx_requires_valid_range(__first1, __last1);
       __glibcxx_requires_valid_range(__first2, __last2);
 

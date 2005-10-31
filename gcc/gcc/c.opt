@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -102,7 +102,7 @@ C ObjC C++ ObjC++ Undocumented
 
 F
 C ObjC C++ ObjC++ Joined Separate
--F <dir>	Add <dir> to the end of the main framework include path  
+-F <dir>	Add <dir> to the end of the main framework include path
 
 H
 C ObjC C++ ObjC++
@@ -156,10 +156,11 @@ U
 C ObjC C++ ObjC++ Joined Separate
 -U<macro>	Undefine <macro>
 
-; APPLE LOCAL -Wno-#warnings
+; APPLE LOCAL begin -Wno-#warnings
 W#warnings
 C ObjC C++ ObjC++
 Enable #warning
+; APPLE LOCAL end -Wno-#warnings
 
 Wabi
 C++ ObjC++ Var(warn_abi)
@@ -169,11 +170,11 @@ Wall
 C ObjC C++ ObjC++
 Enable most warning messages
 
-; APPLE LOCAL begin ObjC GC
+; APPLE LOCAL begin mainline
 Wassign-intercept
 ObjC ObjC++ Var(warn_assign_intercept)
 Warn whenever an ObjC assignment is being intercepted by the garbage collector
-; APPLE LOCAL end ObjC GC
+; APPLE LOCAL end mainline
 
 Wbad-function-cast
 C ObjC Var(warn_bad_function_cast)
@@ -203,6 +204,7 @@ Warn about possibly confusing type conversions
 Wshorten-64-to-32
 C ObjC C++ ObjC++ Var(warn_shorten_64_to_32)
 Warn if a value is implicitly converted from a 64 bit type to a 32 bit type
+; APPLE LOCAL end 64bit shorten warning 3865314
 
 Wctor-dtor-privacy
 C++ ObjC++ Var(warn_ctor_dtor_privacy)
@@ -215,6 +217,12 @@ Warn when a declaration is found after a statement
 Wdeprecated
 C++ ObjC++ Var(warn_deprecated) Init(1)
 Warn about deprecated compiler features
+
+; APPLE LOCAL begin 4086969
+Wdiscard-qual
+C ObjC Var(warn_discard_qual) Init(1)
+Warn about discarded qualifiers
+; APPLE LOCAL end 4086969
 
 Wdiv-by-zero
 C ObjC Var(warn_div_by_zero) Init(1)
@@ -236,10 +244,11 @@ Werror-implicit-function-declaration
 C ObjC RejectNegative
 Make implicit function declarations an error
 
-; APPLE LOCAL -Wextra-tokens
+; APPLE LOCAL begin -Wextra-tokens
 Wextra-tokens
 C ObjC C++ ObjC++
 Warn about extra tokens at the end of prepreprocessor directives
+; APPLE LOCAL end -Wextra-tokens
 
 Wfloat-equal
 C ObjC C++ ObjC++ Var(warn_float_equal)
@@ -272,10 +281,11 @@ Warn about zero-length formats
 Wformat=
 C ObjC C++ ObjC++ Joined
 
-; APPLE LOCAL -Wfour-char-constants
+; APPLE LOCAL begin -Wfour-char-constants
 Wfour-char-constants
 C ObjC C++ ObjC++
 Warn about multicharacter constants containing exactly four characters
+; APPLE LOCAL end -Wfour-char-constants
 
 Winit-self
 C ObjC C++ ObjC++ Var(warn_init_self)
@@ -304,10 +314,11 @@ Winvalid-pch
 C ObjC C++ ObjC++
 Warn about PCH files that are found but not used
 
-; APPLE LOCAL -Wlong-double
+; APPLE LOCAL begin -Wlong-double
 Wlong-double
 C ObjC C++ ObjC++
 Warn about \"long double\"
+; APPLE LOCAL end -Wlong-double
 
 Wlong-long
 C ObjC C++ ObjC++ Var(warn_long_long) Init(1)
@@ -341,10 +352,11 @@ Wmissing-prototypes
 C ObjC Var(warn_missing_prototypes)
 Warn about global functions without prototypes
 
-; APPLE LOCAL -Wmost
+; APPLE LOCAL begin -Wmost
 Wmost
 C ObjC C++ ObjC++ 
 Like -Wall but without -Wparentheses
+; APPLE LOCAL end -Wmost
 
 Wmultichar
 C ObjC C++ ObjC++
@@ -354,10 +366,11 @@ Wnested-externs
 C ObjC Var(warn_nested_externs)
 Warn about \"extern\" declarations not at file scope
 
-; APPLE LOCAL -Wnewline-eof
+; APPLE LOCAL begin -Wnewline-eof
 Wnewline-eof
 C ObjC C++ ObjC++
 Warn about files missing a newline at the end of the file
+; APPLE LOCAL end -Wnewline-eof
 
 ; APPLE LOCAL begin non lvalue assign
 Wnon-lvalue-assign
@@ -376,6 +389,12 @@ Warn about non-virtual destructors
 Wnonnull
 C ObjC Var(warn_nonnull)
 Warn about NULL being passed to argument slots marked as requiring non-NULL
+
+; APPLE LOCAL begin mainline UCNs 2005-04-17 3892809
+Wnormalized=
+C ObjC C++ ObjC++ Joined
+-Wnormalized=<id|nfc|nfkc>	Warn about non-normalised Unicode strings
+; APPLE LOCAL end mainline UCNs 2005-04-17 3892809
 
 Wold-style-cast
 C++ ObjC++ Var(warn_old_style_cast)
@@ -437,11 +456,11 @@ Wstrict-prototypes
 C ObjC Var(warn_strict_prototypes)
 Warn about unprototyped function declarations
 
-; APPLE LOCAL begin Objective-C
+; APPLE LOCAL begin mainline
 Wstrict-selector-match
 ObjC ObjC++ Var(warn_strict_selector_match)
 Warn if type signatures of candidate methods do not match exactly
-; APPLE LOCAL end Objective-C
+; APPLE LOCAL end mainline
 
 Wsynth
 C++ ObjC++ Var(warn_synth)
@@ -489,12 +508,13 @@ Warn when a pointer differs in signedness in an assignment.
 
 ansi
 C ObjC C++ ObjC++
-A synonym for -std=c89.  In a future version of GCC it will become synonymous with -std=c99 instead
+A synonym for -std=c89 (for C) or -std=c++98 (for C++).
 
-; APPLE LOCAL fat builds
+; APPLE LOCAL begin fat builds
 arch
 C ObjC C++ ObjC++ Separate
 The architecture to build for.
+; APPLE LOCAL end fat builds
 
 d
 C ObjC C++ ObjC++ Joined
@@ -521,12 +541,13 @@ fasm
 C ObjC C++ ObjC++
 Recognize the \"asm\" keyword
 
-; APPLE LOCAL CW asm blocks
+; APPLE LOCAL begin CW asm blocks
 fasm-blocks
 C ObjC C++ ObjC++
 Handle CW-style assembly blocks
+; APPLE LOCAL end CW asm blocks
 
-; APPLE LOCAL -fast or -fastf or -fastcp
+; APPLE LOCAL begin -fast or -fastf or -fastcp
 fast
 C C++
 Used for c or c++ optimization
@@ -538,6 +559,7 @@ Used when C++ specific optimization is needed
 fastf
 C
 Used when c is generated from NAG fortran
+; APPLE LOCAL end -fast or -fastf or -fastcp
 
 fbuiltin
 C ObjC C++ ObjC++
@@ -550,10 +572,11 @@ fcheck-new
 C++ ObjC++
 Check the return value of new
 
-; APPLE LOCAL structor decloning
+; APPLE LOCAL begin structor decloning
 fclone-structors
 C++ ObjC++
 Factor out certain duplicate code in constructors and destructors
+; APPLE LOCAL end structor decloning
 
 fcond-mismatch
 C ObjC C++ ObjC++
@@ -575,10 +598,11 @@ fdefault-inline
 C++ ObjC++
 Inline member functions by default
 
-; APPLE LOCAL disable_typechecking_for_spec_flag */
+; APPLE LOCAL begin disable_typechecking_for_spec_flag
 fdisable-typechecking-for-spec
 C C++
 Make crossfile type mismatches warnings not errors (for SPEC)
+; APPLE LOCAL end disable_typechecking_for_spec_flag
 
 fdollars-in-identifiers
 C ObjC C++ ObjC++
@@ -600,7 +624,7 @@ C ObjC C++ ObjC++ Joined RejectNegative
 
 finput-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
--finput-charset=<cset>      Specify the default character set for source files.
+-finput-charset=<cset>	Specify the default character set for source files.
 
 
 fexternal-templates
@@ -690,27 +714,27 @@ C++ ObjC++
 fnonnull-objects
 C++ ObjC++
 
-; APPLE LOCAL begin ObjC C++ ivars
+; APPLE LOCAL begin mainline
 fobjc-call-cxx-cdtors
 ObjC++
 Generate special ObjC methods to initialize/destroy non-POD C++ ivars, if needed
-; APPLE LOCAL end ObjC C++ ivars
+; APPLE LOCAL end mainline
 
-; APPLE LOCAL begin ObjC direct dispatch
+; APPLE LOCAL begin mainline
 fobjc-direct-dispatch
 ObjC ObjC++ Var(flag_objc_direct_dispatch)
 Allow fast jumps (via comm page) to the message dispatcher
-; APPLE LOCAL end ObjC direct dispatch
+; APPLE LOCAL end mainline
 
 fobjc-exceptions
 ObjC ObjC++
 Enable Objective-C exception and synchronization syntax
 
-; APPLE LOCAL begin ObjC GC
+; APPLE LOCAL begin mainline
 fobjc-gc
 ObjC ObjC++ Var(flag_objc_gc)
 Enable garbage collection (GC) in ObjC/ObjC++ programs
-; APPLE LOCAL end ObjC GC
+; APPLE LOCAL end mainline
 
 fobjc-sjlj-exceptions
 ObjC ObjC++
@@ -811,9 +835,11 @@ fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
 
+; APPLE LOCAL begin mainline 4.0 2005-03-25
 fvisibility-inlines-hidden
-C++
+C++ ObjC++
 Marks all inlined methods as having hidden visibility
+; APPLE LOCAL end mainline 4.0 2005-03-25
 
 fvtable-gc
 C++ ObjC++
@@ -951,7 +977,7 @@ Deprecated in favor of -std=gnu99
 
 std=iso9899:1990
 C ObjC
-Deprecated in favor of -std=c89
+Conform to the ISO 1990 C standard
 
 std=iso9899:199409
 C ObjC
@@ -959,11 +985,11 @@ Conform to the ISO 1990 C standard as amended in 1994
 
 std=iso9899:1999
 C ObjC
-Deprecated in favor of -std=c99
+Conform to the ISO 1999 C standard
 
 std=iso9899:199x
 C ObjC
-Deprecated in favor of -std=c99
+Deprecated in favor of -std=iso9899:1999
 
 traditional-cpp
 C ObjC C++ ObjC++

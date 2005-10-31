@@ -1,5 +1,5 @@
 /* DWARF2 EH unwinding support for PA Linux.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -7,6 +7,14 @@ GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file with other programs, and to distribute
+those programs without any restriction coming from the use of this
+file.  (The General Public License restrictions do apply in other
+respects; for example, they cover modification of the file, and
+distribution when not linked into another program.)
 
 GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -78,7 +86,22 @@ pa32_fallback_frame_state (struct _Unwind_Context *context,
       off = 10 * 4;
     }
   else
-    return _URC_END_OF_STACK;
+    {
+      /* We may have to unwind through an alternate signal stack.
+	 We assume that the alignment of the alternate signal stack
+	 is BIGGEST_ALIGNMENT (i.e., that it has been allocated using
+	 malloc).  As a result, we can't distinguish trampolines
+	 used prior to 2.6.5-rc2-pa4.  However after 2.6.5-rc2-pa4,
+	 the return address of a signal trampoline will be on an odd
+	 word boundary and we can then determine the frame offset.  */
+      sp = (unsigned long)context->ra;
+      pc = (unsigned int *)sp;
+      if ((pc[0] == 0x34190000 || pc[0] == 0x34190002) && (sp & 4))
+	off = 5 * 4;
+      else
+	return _URC_END_OF_STACK;
+    }
+
   if (pc[1] != 0x3414015a
       || pc[2] != 0xe4008200
       || pc[3] != 0x08000240)

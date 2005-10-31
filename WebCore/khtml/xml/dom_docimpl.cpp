@@ -264,6 +264,9 @@ QPtrList<DocumentImpl> * DocumentImpl::changedDocuments = 0;
 DocumentImpl::DocumentImpl(DOMImplementationImpl *_implementation, KHTMLView *v)
     : NodeBaseImpl( new DocumentPtr() )
       , m_domtree_version(0)
+      , m_title("")
+      , m_titleSetExplicitly(false)
+      , m_titleElement(0)
       , m_imageLoadEventTimer(0)
 #ifndef KHTML_NO_XBL
       , m_bindingManager(new XBLBindingManager(this))
@@ -365,6 +368,9 @@ DocumentImpl::DocumentImpl(DOMImplementationImpl *_implementation, KHTMLView *v)
     m_jsEditor = 0;
 
     m_markers.setAutoDelete(true);
+    
+    static int docID = 0;
+    m_docID = docID++;
 }
 
 DocumentImpl::~DocumentImpl()
@@ -408,7 +414,10 @@ DocumentImpl::~DocumentImpl()
         m_focusNode->deref();
     if (m_hoverNode)
         m_hoverNode->deref();
-    
+
+    if (m_titleElement)
+        m_titleElement->deref();
+
     if (m_renderArena){
         delete m_renderArena;
         m_renderArena = 0;
@@ -529,72 +538,80 @@ CSSStyleDeclarationImpl *DocumentImpl::createCSSStyleDeclaration()
 
 NodeImpl *DocumentImpl::importNode(NodeImpl *importedNode, bool deep, int &exceptioncode)
 {
-	NodeImpl *result = 0;
+    exceptioncode = 0;
 
-	if(importedNode->nodeType() == Node::ELEMENT_NODE)
-	{
-		ElementImpl *tempElementImpl = createElementNS(getDocument()->namespaceURI(id()), importedNode->nodeName(), exceptioncode);
-                if (exceptioncode)
-                    return 0;
-		result = tempElementImpl;
+    switch (importedNode->nodeType()) {
+        case Node::TEXT_NODE:
+            return createTextNode(importedNode->nodeValue());
+        case Node::CDATA_SECTION_NODE:
+            return createCDATASection(importedNode->nodeValue());
+        case Node::ENTITY_REFERENCE_NODE:
+            return createEntityReference(importedNode->nodeName());
+        case Node::PROCESSING_INSTRUCTION_NODE:
+            return createProcessingInstruction(importedNode->nodeName(), importedNode->nodeValue());
+        case Node::COMMENT_NODE:
+            return createComment(importedNode->nodeValue());
+        case Node::ELEMENT_NODE: {
+            ElementImpl *oldElement = static_cast<ElementImpl *>(importedNode);
+            DocumentImpl *oldDoc = oldElement->getDocument();
+            static DOMString HTMLNamespace(XHTML_NAMESPACE);
+            DOMString elementNamespace = oldElement->isHTMLElement() ? HTMLNamespace : oldElement->namespaceURI();
+            ElementImpl *newElement = createElementNS(elementNamespace.implementation(), oldElement->tagName(), exceptioncode);
+            if (exceptioncode != 0)
+                return 0;
 
-		if(static_cast<ElementImpl *>(importedNode)->attributes(true) && static_cast<ElementImpl *>(importedNode)->attributes(true)->length())
-		{
-			NamedNodeMapImpl *attr = static_cast<ElementImpl *>(importedNode)->attributes();
+            newElement->ref();
 
-			for(unsigned int i = 0; i < attr->length(); i++)
-			{
-				DOMString qualifiedName = attr->item(i)->nodeName();
-				DOMString value = attr->item(i)->nodeValue();
+            NamedAttrMapImpl *attrs = oldElement->attributes(true);
+            if (attrs) {
+                unsigned length = attrs->length();
+                for (unsigned i = 0; i < length; i++) {
+                    AttrImpl *attr = attrs->item(i);
+                    DOMString qualifiedName = attr->nodeName();
+                    DOMString value = attr->nodeValue();
 
-				int colonpos = qualifiedName.find(':');
-				DOMString localName = qualifiedName;
-				if(colonpos >= 0)
-				{
-					localName.remove(0, colonpos + 1);
-					// ### extract and set new prefix
-				}
+                    int colonpos = qualifiedName.find(':');
+                    DOMString localName = qualifiedName;
+                    if (colonpos >= 0) {
+                        localName.remove(0, colonpos + 1);
+                        // ### extract and set new prefix
+                    }
 
-				NodeImpl::Id nodeId = getDocument()->attrId(getDocument()->namespaceURI(id()), localName.implementation(), false /* allocate */);
-				tempElementImpl->setAttribute(nodeId, value.implementation(), exceptioncode);
+                    NodeImpl::Id nodeId = attrId(oldDoc->namespaceURI(attr->attrImpl()->id()), localName.implementation(), false /* allocate */);
+                    newElement->setAttribute(nodeId, value.implementation(), exceptioncode);
+                    if (exceptioncode != 0) {
+                        newElement->deref();
+                        return 0;
+                    }
+                }
+            }
 
-				if(exceptioncode != 0)
-					break;
-			}
-		}
-	}
-	else if(importedNode->nodeType() == Node::TEXT_NODE)
-	{
-		result = createTextNode(importedNode->nodeValue());
-		deep = false;
-	}
-	else if(importedNode->nodeType() == Node::CDATA_SECTION_NODE)
-	{
-		result = createCDATASection(importedNode->nodeValue());
-		deep = false;
-	}
-	else if(importedNode->nodeType() == Node::ENTITY_REFERENCE_NODE)
-		result = createEntityReference(importedNode->nodeName());
-	else if(importedNode->nodeType() == Node::PROCESSING_INSTRUCTION_NODE)
-	{
-		result = createProcessingInstruction(importedNode->nodeName(), importedNode->nodeValue());
-		deep = false;
-	}
-	else if(importedNode->nodeType() == Node::COMMENT_NODE)
-	{
-		result = createComment(importedNode->nodeValue());
-		deep = false;
-	}
-	else
-		exceptioncode = DOMException::NOT_SUPPORTED_ERR;
+            if (deep) {
+                for (NodeImpl *oldChild = oldElement->firstChild(); oldChild; oldChild = oldChild->nextSibling()) {
+                    NodeImpl *newChild = importNode(oldChild, true, exceptioncode);
+                    if (exceptioncode != 0) {
+                        newElement->deref();
+                        return 0;
+                    }
+                    newElement->appendChild(newChild, exceptioncode);
+                    if (exceptioncode != 0) {
+                        newElement->deref();
+                        return 0;
+                    }
+                }
+            }
 
-	if(deep)
-	{
-		for(Node n = importedNode->firstChild(); !n.isNull(); n = n.nextSibling())
-			result->appendChild(importNode(n.handle(), true, exceptioncode), exceptioncode);
-	}
+            // Trick to get the result back to the floating state, with 0 refs but not destroyed.
+            newElement->setParent(this);
+            newElement->deref();
+            newElement->setParent(0);
 
-	return result;
+            return newElement;
+        }
+    }
+
+    exceptioncode = DOMException::NOT_SUPPORTED_ERR;
+    return 0;
 }
 
 ElementImpl *DocumentImpl::createElementNS( const DOMString &_namespaceURI, const DOMString &_qualifiedName, int &exceptioncode)
@@ -632,6 +649,20 @@ ElementImpl *DocumentImpl::getElementById( const DOMString &elementId ) const
     return m_elementsById.find(elementId.string());
 }
 
+ElementImpl *DocumentImpl::elementFromPoint( const int _x, const int _y ) const
+{
+    if (!m_render) return 0;
+    
+    RenderObject::NodeInfo nodeInfo(true, true);
+    m_render->layer()->hitTest(nodeInfo, _x, _y); 
+    NodeImpl* n = nodeInfo.innerNode();
+
+    while ( n && !n->isElementNode() ) {
+        n = n->parentNode();
+    }
+    
+    return static_cast<ElementImpl*>(n);
+}
 
 void DocumentImpl::addElementById(const DOMString &elementId, ElementImpl *element)
 {
@@ -679,15 +710,14 @@ ElementImpl *DocumentImpl::getElementByAccessKey( const DOMString &key )
     return m_elementsByAccessKey.find(k);
 }
 
-void DocumentImpl::setTitle(DOMString _title)
+void DocumentImpl::updateTitle()
 {
-    m_title = _title;
-
-    if (!part())
+    KHTMLPart *p = part();
+    if (!p)
         return;
 
 #if APPLE_CHANGES
-    KWQ(part())->setTitle(_title);
+    KWQ(p)->setTitle(m_title);
 #else
     QString titleStr = m_title.string();
     for (int i = 0; i < titleStr.length(); ++i)
@@ -695,7 +725,7 @@ void DocumentImpl::setTitle(DOMString _title)
             titleStr[i] = ' ';
     titleStr = titleStr.stripWhiteSpace();
     titleStr.compose();
-    if ( !part()->parentPart() ) {
+    if ( !p->parentPart() ) {
 	if (titleStr.isNull() || titleStr.isEmpty()) {
 	    // empty title... set window caption as the URL
 	    KURL url = m_url;
@@ -704,9 +734,50 @@ void DocumentImpl::setTitle(DOMString _title)
 	    titleStr = url.url();
 	}
 
-	emit part()->setWindowCaption( KStringHandler::csqueeze( titleStr, 128 ) );
+	emit p->setWindowCaption( KStringHandler::csqueeze( titleStr, 128 ) );
     }
 #endif
+}
+
+void DocumentImpl::setTitle(DOMString title, NodeImpl *titleElement)
+{
+    if (!titleElement) {
+        // Title set by JavaScript -- overrides any title elements.
+        m_titleSetExplicitly = true;
+        if (m_titleElement) {
+            m_titleElement->deref();
+            m_titleElement = 0;
+        }
+    } else if (titleElement != m_titleElement) {
+        if (m_titleElement) {
+            // Only allow the first title element to change the title -- others have no effect.
+            return;
+        }
+        m_titleElement = titleElement;
+        titleElement->ref();
+    }
+
+    if (m_title == title)
+        return;
+
+    m_title = title;
+    updateTitle();
+}
+
+void DocumentImpl::removeTitle(NodeImpl *titleElement)
+{
+    if (m_titleElement != titleElement)
+        return;
+
+    // FIXME: Ideally we might want this to search for the first remaining title element, and use it.
+    m_titleElement = 0;
+
+    titleElement->deref();
+
+    if (!m_title.isEmpty()) {
+        m_title = "";
+        updateTitle();
+    }
 }
 
 DOMString DocumentImpl::nodeName() const
@@ -1241,6 +1312,7 @@ void DocumentImpl::removeAllDisconnectedNodeEventListeners()
          ++iter) {
         iter.current()->removeAllEventListeners();
     }
+    m_disconnectedNodesWithEventListeners.clear();
 }
 
 #if APPLE_CHANGES
@@ -1886,7 +1958,7 @@ void DocumentImpl::processHttpEquiv(const DOMString &equiv, const DOMString &con
 {
     assert(!equiv.isNull() && !content.isNull());
 
-    KHTMLPart *part = getDocument()->part();
+    KHTMLPart *part = this->part();
 
     if (strcasecmp(equiv, "default-style") == 0) {
         // The preferred style set has been overridden as per section 
@@ -1933,9 +2005,9 @@ void DocumentImpl::processHttpEquiv(const DOMString &equiv, const DOMString &con
             if ( ok && part )
 #if APPLE_CHANGES
                 // We want a new history item if the refresh timeout > 1 second
-                part->scheduleRedirection(delay, getDocument()->completeURL( str ), delay <= 1);
+                part->scheduleRedirection(delay, completeURL( str ), delay <= 1);
 #else
-                part->scheduleRedirection(delay, getDocument()->completeURL( str ));
+                part->scheduleRedirection(delay, completeURL( str ));
 #endif
         }
     }
@@ -2114,8 +2186,7 @@ DOMString DocumentImpl::attrName(NodeImpl::Id _id) const
 
     // Attribute names are always lowercase in the DOM for both
     // HTML and XHTML.
-    if (getDocument()->isHTMLDocument() ||
-        getDocument()->htmlMode() == DocumentImpl::XHtml)
+    if (isHTMLDocument() || htmlMode() == XHtml)
         return result.lower();
 
     return result;
@@ -2190,7 +2261,7 @@ DOMString DocumentImpl::tagName(NodeImpl::Id _id) const
         return m_elementNames[localNamePart(_id) - (ID_LAST_TAG + 1)];
     else {
         // ### put them in a cache
-        if (getDocument()->htmlMode() == DocumentImpl::XHtml)
+        if (htmlMode() == XHtml)
             return getTagName(_id).lower();
         else
             return getTagName(_id);
@@ -2215,14 +2286,12 @@ StyleSheetListImpl* DocumentImpl::styleSheets()
     return m_styleSheets;
 }
 
-DOMString 
-DocumentImpl::preferredStylesheetSet()
+DOMString DocumentImpl::preferredStylesheetSet()
 {
   return m_preferredStylesheetSet;
 }
 
-DOMString 
-DocumentImpl::selectedStylesheetSet()
+DOMString DocumentImpl::selectedStylesheetSet()
 {
   return view() ? view()->part()->d->m_sheetUsed : DOMString();
 }
@@ -2491,8 +2560,8 @@ bool DocumentImpl::setFocusNode(NodeImpl *newFocusNode)
     // Remove focus from the existing focus node (if any)
     if (oldFocusNode) {
         // This goes hand in hand with the Qt focus setting below.
-        if (!newFocusNode && getDocument()->view()) {
-            getDocument()->view()->setFocus();
+        if (!newFocusNode && view()) {
+            view()->setFocus();
         }
 
         if (oldFocusNode->active())
@@ -2554,20 +2623,20 @@ bool DocumentImpl::setFocusNode(NodeImpl *newFocusNode)
         m_focusNode->setFocus();
         // eww, I suck. set the qt focus correctly
         // ### find a better place in the code for this
-        if (getDocument()->view()) {
+        if (view()) {
             QWidget *focusWidget = widgetForNode(m_focusNode);
             if (focusWidget) {
                 // Make sure a widget has the right size before giving it focus.
                 // Otherwise, we are testing edge cases of the QWidget code.
                 // Specifically, in WebCore this does not work well for text fields.
-                getDocument()->updateLayout();
+                updateLayout();
                 // Re-get the widget in case updating the layout changed things.
                 focusWidget = widgetForNode(m_focusNode);
             }
             if (focusWidget)
                 focusWidget->setFocus();
             else
-                getDocument()->view()->setFocus();
+                view()->setFocus();
         }
    }
 

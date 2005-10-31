@@ -1,3 +1,35 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-03-11  James A. Morrison  <phython@gcc.gnu.org>
+
+	Backport recent test cases added to mainline:
+	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+
+	* compile/var_defs: Add uninitialized variables.
+
+	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+
+	* compile/extrafunc.tree, compile/extravar.tree: New tests.
+
+	2005-02-26  James A. Morrison  <phython@gcc.gnu.org>
+
+	* compile/unsigned.tree: New test.
+
+2005-02-24  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR other/19896
+        * execute/execute.exp: New file.
+        * execute/funccall.tree, execute/funccall-2.tree, execute/initial.tree,
+        execute/main.tree, execute/static.tree: New tests.
+
+2005-02-24  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR other/19897
+	* compile/exit.tree, compile/extref.tree, compile/function-1.tree,
+	compile/syntax-1.tree: New tests.
+
 2004-10-02  James A. Morrison  <phython@gcc.gnu.org>
 
 	* compile/autofunc.tree: New File.

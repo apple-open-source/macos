@@ -1,2 +1,0 @@
->>> Intersect operation
-<<< done.

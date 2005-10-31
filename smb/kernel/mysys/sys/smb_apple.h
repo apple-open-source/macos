@@ -6,7 +6,14 @@
 #include <sys/mount.h>
 #include <sys/namei.h>
 #include <sys/ubc.h>
+#ifdef   __APPLE_API_PRIVATE
+#undef   __APPLE_API_PRIVATE
+#define  SMB_RESTORE_API_PRIVATE
+#endif
 #include <miscfs/specfs/specdev.h>
+#ifdef	  SMB_RESTORE_API_PRIVATE
+#define  __APPLE_API_PRIVATE
+#endif
 #include <miscfs/devfs/devfs.h>
 #include <machine/spl.h>
 #include <kern/thread.h>

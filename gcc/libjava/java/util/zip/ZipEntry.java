@@ -1,5 +1,5 @@
-/* java.util.zip.ZipEntry
-   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
+/* ZipEntry.java --
+   Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -51,16 +51,16 @@ import java.util.Date;
  */
 public class ZipEntry implements ZipConstants, Cloneable
 {
-  private static int KNOWN_SIZE   = 1;
-  private static int KNOWN_CSIZE  = 2;
-  private static int KNOWN_CRC    = 4;
-  private static int KNOWN_TIME   = 8;
+  private static final int KNOWN_SIZE   = 1;
+  private static final int KNOWN_CSIZE  = 2;
+  private static final int KNOWN_CRC    = 4;
+  private static final int KNOWN_TIME   = 8;
 
   private static Calendar cal;
 
   private String name;
   private int size;
-  private int compressedSize;
+  private long compressedSize = -1;
   private int crc;
   private int dostime;
   private short known = 0;
@@ -71,15 +71,14 @@ public class ZipEntry implements ZipConstants, Cloneable
   int flags;              /* used by ZipOutputStream */
   int offset;             /* used by ZipFile and ZipOutputStream */
 
-
   /**
    * Compression method.  This method doesn't compress at all.
    */
-  public final static int STORED      =  0;
+  public static final int STORED = 0;
   /**
    * Compression method.  This method uses the Deflater.
    */
-  public final static int DEFLATED    =  8;
+  public static final int DEFLATED = 8;
 
   /**
    * Creates a zip entry with the given name.
@@ -243,14 +242,10 @@ public class ZipEntry implements ZipConstants, Cloneable
 
   /**
    * Sets the size of the compressed data.
-   * @exception IllegalArgumentException if size is not in 0..0xffffffffL
    */
   public void setCompressedSize(long csize)
   {
-    if ((csize & 0xffffffff00000000L) != 0)
-	throw new IllegalArgumentException();
-    this.compressedSize = (int) csize;
-    this.known |= KNOWN_CSIZE;
+    this.compressedSize = csize;
   }
 
   /**
@@ -259,7 +254,7 @@ public class ZipEntry implements ZipConstants, Cloneable
    */
   public long getCompressedSize()
   {
-    return (known & KNOWN_CSIZE) != 0 ? compressedSize & 0xffffffffL : -1L;
+    return compressedSize;
   }
 
   /**

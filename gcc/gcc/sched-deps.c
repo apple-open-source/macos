@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -30,7 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -44,10 +43,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cselib.h"
 #include "df.h"
 
-
-static regset_head reg_pending_sets_head;
-static regset_head reg_pending_clobbers_head;
-static regset_head reg_pending_uses_head;
 
 static regset reg_pending_sets;
 static regset reg_pending_clobbers;
@@ -94,14 +89,15 @@ static bitmap_head *forward_dependency_cache;
 static int deps_may_trap_p (rtx);
 static void add_dependence_list (rtx, rtx, enum reg_note);
 static void add_dependence_list_and_free (rtx, rtx *, enum reg_note);
-static void set_sched_group_p (rtx);
+static void delete_all_dependences (rtx);
+static void fixup_sched_groups (rtx);
 
 static void flush_pending_lists (struct deps *, rtx, int, int);
 static void sched_analyze_1 (struct deps *, rtx, rtx);
 static void sched_analyze_2 (struct deps *, rtx, rtx);
 static void sched_analyze_insn (struct deps *, rtx, rtx, rtx);
 
-static rtx get_condition (rtx);
+static rtx sched_get_condition (rtx);
 static int conditions_mutex_p (rtx, rtx);
 
 /* Return nonzero if a load of the memory reference MEM can cause a trap.  */
@@ -138,7 +134,7 @@ find_insn_list (rtx insn, rtx list)
 /* Find the condition under which INSN is executed.  */
 
 static rtx
-get_condition (rtx insn)
+sched_get_condition (rtx insn)
 {
   rtx pat = PATTERN (insn);
   rtx src;
@@ -218,8 +214,8 @@ add_dependence (rtx insn, rtx elem, enum reg_note dep_type)
      be dependent.  */
   if (!CALL_P (insn) && !CALL_P (elem))
     {
-      cond1 = get_condition (insn);
-      cond2 = get_condition (elem);
+      cond1 = sched_get_condition (insn);
+      cond2 = sched_get_condition (elem);
       if (cond1 && cond2
 	  && conditions_mutex_p (cond1, cond2)
 	  /* Make sure first instruction doesn't affect condition of second
@@ -369,18 +365,54 @@ add_dependence_list_and_free (rtx insn, rtx *listp, enum reg_note dep_type)
     }
 }
 
-/* Set SCHED_GROUP_P and care for the rest of the bookkeeping that
-   goes along with that.  */
+/* Clear all dependencies for an insn.  */
 
 static void
-set_sched_group_p (rtx insn)
+delete_all_dependences (rtx insn)
 {
-  rtx prev;
+  /* Clear caches, if they exist, as well as free the dependence.  */
 
-  SCHED_GROUP_P (insn) = 1;
+#ifdef INSN_SCHEDULING
+  if (true_dependency_cache != NULL)
+    {
+      bitmap_clear (&true_dependency_cache[INSN_LUID (insn)]);
+      bitmap_clear (&anti_dependency_cache[INSN_LUID (insn)]);
+      bitmap_clear (&output_dependency_cache[INSN_LUID (insn)]);
+    }
+#endif
 
-  prev = prev_nonnote_insn (insn);
-  add_dependence (insn, prev, REG_DEP_ANTI);
+  free_INSN_LIST_list (&LOG_LINKS (insn));
+}
+
+/* All insns in a scheduling group except the first should only have
+   dependencies on the previous insn in the group.  So we find the
+   first instruction in the scheduling group by walking the dependence
+   chains backwards. Then we add the dependencies for the group to
+   the previous nonnote insn.  */
+
+static void
+fixup_sched_groups (rtx insn)
+{
+  rtx link;
+
+  for (link = LOG_LINKS (insn); link ; link = XEXP (link, 1))
+    {
+      rtx i = insn;
+      do
+	{
+	  i = prev_nonnote_insn (i);
+
+	  if (XEXP (link, 0) == i)
+	    goto next_link;
+	} while (SCHED_GROUP_P (i));
+      add_dependence (i, XEXP (link, 0), REG_NOTE_KIND (link));
+    next_link:;
+    }
+
+  delete_all_dependences (insn);
+
+  if (BLOCK_FOR_INSN (insn) == BLOCK_FOR_INSN (prev_nonnote_insn (insn)))
+    add_dependence (insn, prev_nonnote_insn (insn), REG_DEP_ANTI);
 }
 
 /* Process an insn's memory dependencies.  There are four kinds of
@@ -398,7 +430,7 @@ set_sched_group_p (rtx insn)
    The MEM is a memory reference contained within INSN, which we are saving
    so that we can do memory aliasing on it.  */
 
-void
+static void
 add_insn_mem_dependence (struct deps *deps, rtx *insn_list, rtx *mem_list,
 			 rtx insn, rtx mem)
 {
@@ -475,11 +507,10 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
     }
 
   while (GET_CODE (dest) == STRICT_LOW_PART || GET_CODE (dest) == SUBREG
-	 || GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SIGN_EXTRACT)
+	 || GET_CODE (dest) == ZERO_EXTRACT)
     {
       if (GET_CODE (dest) == STRICT_LOW_PART
 	 || GET_CODE (dest) == ZERO_EXTRACT
-	 || GET_CODE (dest) == SIGN_EXTRACT
 	 || read_modify_subreg_p (dest))
         {
 	  /* These both read and modify the result.  We must handle
@@ -490,7 +521,7 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 
 	  sched_analyze_2 (deps, XEXP (dest, 0), insn);
 	}
-      if (GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SIGN_EXTRACT)
+      if (GET_CODE (dest) == ZERO_EXTRACT)
 	{
 	  /* The second and third arguments are values read by this insn.  */
 	  sched_analyze_2 (deps, XEXP (dest, 1), insn);
@@ -643,7 +674,7 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 #ifdef HAVE_cc0
     case CC0:
       /* User of CC0 depends on immediately preceding insn.  */
-      set_sched_group_p (insn);
+      SCHED_GROUP_P (insn) = 1;
        /* Don't move CC0 setter to another block (it can set up the
         same flag for previous CC0 users which is safe).  */
       CANT_MOVE (prev_nonnote_insn (insn)) = 1;
@@ -821,7 +852,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 {
   RTX_CODE code = GET_CODE (x);
   rtx link;
-  int i;
+  unsigned i;
   reg_set_iterator rsi;
 
   if (code == COND_EXEC)
@@ -845,8 +876,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
     }
   else if (code == PARALLEL)
     {
-      int i;
-      for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+      for (i = XVECLEN (x, 0); i--;)
 	{
 	  rtx sub = XVECEXP (x, 0, i);
 	  code = GET_CODE (sub);
@@ -945,18 +975,14 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
     {
       rtx link;
 
-      /* Update loop_notes with any notes from this insn.  Also determine
-	 if any of the notes on the list correspond to instruction scheduling
-	 barriers (loop, eh & setjmp notes, but not range notes).  */
+      /* Update loop_notes with any notes from this insn.  */
       link = loop_notes;
       while (XEXP (link, 1))
 	{
-	  if (INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_BEG
-	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_END
-	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_BEG
-	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_END)
-	    reg_pending_barrier = MOVE_BARRIER;
+	  gcc_assert (INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_BEG
+		      || INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_END);
 
+	  reg_pending_barrier = MOVE_BARRIER;
 	  link = XEXP (link, 1);
 	}
       XEXP (link, 1) = REG_NOTES (insn);
@@ -1006,7 +1032,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	    }
 	}
 
-      for (i = 0; i < deps->max_reg; i++)
+      for (i = 0; i < (unsigned)deps->max_reg; i++)
 	{
 	  struct deps_reg *reg_last = &deps->reg_last[i];
 	  reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
@@ -1113,7 +1139,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 
   if (deps->libcall_block_tail_insn)
     {
-      set_sched_group_p (insn);
+      SCHED_GROUP_P (insn) = 1;
       CANT_MOVE (insn) = 1;
     }
 
@@ -1159,15 +1185,10 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
       if (src_regno < FIRST_PSEUDO_REGISTER
 	  || dest_regno < FIRST_PSEUDO_REGISTER)
 	{
-	  /* If we are inside a post-call group right at the start of the
-	     scheduling region, we must not add a dependency.  */
 	  if (deps->in_post_call_group_p == post_call_initial)
-	    {
-	      SCHED_GROUP_P (insn) = 1;
-	      deps->in_post_call_group_p = post_call;
-	    }
-	  else
-	    set_sched_group_p (insn);
+	    deps->in_post_call_group_p = post_call;
+
+	  SCHED_GROUP_P (insn) = 1;
 	  CANT_MOVE (insn) = 1;
 	}
       else
@@ -1176,6 +1197,10 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	  deps->in_post_call_group_p = not_post_call;
 	}
     }
+
+  /* Fixup the dependencies in the sched group.  */
+  if (SCHED_GROUP_P (insn))
+    fixup_sched_groups (insn);
 }
 
 /* Analyze every insn between HEAD and TAIL inclusive, creating LOG_LINKS
@@ -1293,26 +1318,19 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 	    deps->in_post_call_group_p = post_call;
 	}
 
+      /* EH_REGION insn notes can not appear until well after we complete
+	 scheduling.  */
+      if (NOTE_P (insn))
+	gcc_assert (NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
+		    && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_END);
+
       /* See comments on reemit_notes as to why we do this.
 	 ??? Actually, the reemit_notes just say what is done, not why.  */
 
       if (NOTE_P (insn)
-	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
-		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
-		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
-		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END))
+	  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END))
 	{
-	  rtx rtx_region;
-
-	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)
-	    rtx_region = GEN_INT (NOTE_EH_HANDLER (insn));
-	  else
-	    rtx_region = const0_rtx;
-
-	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE,
-					rtx_region,
-					loop_notes);
 	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE,
 					GEN_INT (NOTE_LINE_NUMBER (insn)),
 					loop_notes);
@@ -1461,7 +1479,7 @@ init_deps (struct deps *deps)
 void
 free_deps (struct deps *deps)
 {
-  int i;
+  unsigned i;
   reg_set_iterator rsi;
 
   free_INSN_LIST_list (&deps->pending_read_insns);
@@ -1561,9 +1579,9 @@ free_dependency_caches (void)
 void
 init_deps_global (void)
 {
-  reg_pending_sets = INITIALIZE_REG_SET (reg_pending_sets_head);
-  reg_pending_clobbers = INITIALIZE_REG_SET (reg_pending_clobbers_head);
-  reg_pending_uses = INITIALIZE_REG_SET (reg_pending_uses_head);
+  reg_pending_sets = ALLOC_REG_SET (&reg_obstack);
+  reg_pending_clobbers = ALLOC_REG_SET (&reg_obstack);
+  reg_pending_uses = ALLOC_REG_SET (&reg_obstack);
   reg_pending_barrier = NOT_A_BARRIER;
 }
 

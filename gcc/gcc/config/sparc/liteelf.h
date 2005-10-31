@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC, for SPARClite w/o FPU, ELF.
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2005 Free Software Foundation, Inc.
    Contributed by Stan Cox (scox@cygnus.com).
 
 This file is part of GCC.
@@ -19,23 +19,16 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#undef TARGET_SUB_OS_CPP_BUILTINS
-#define TARGET_SUB_OS_CPP_BUILTINS()		\
+#undef TARGET_VERSION
+#define TARGET_VERSION fprintf (stderr, " (sparclite)");
+
+#undef TARGET_OS_CPP_BUILTINS
+#define TARGET_OS_CPP_BUILTINS()		\
   do						\
     {						\
 	builtin_define ("__sparclite__");	\
     }						\
   while (0)
-
-/* Default to dwarf2 in ELF.  */
-
-#define DWARF2_DEBUGGING_INFO 1
-
-#undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-
-#undef TARGET_VERSION
-#define TARGET_VERSION fprintf (stderr, " (sparclite)");
 
 /* Enable app-regs and epilogue options.  Do not enable the fpu.  */
 

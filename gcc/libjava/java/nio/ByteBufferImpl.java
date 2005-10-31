@@ -1,5 +1,5 @@
 /* ByteBufferImpl.java -- 
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -112,12 +112,19 @@ final class ByteBufferImpl extends ByteBuffer
 
   public ByteBuffer compact ()
   {
+    checkIfReadOnly();
+    mark = -1;
     int pos = position();
     if (pos > 0)
       {
 	int count = remaining();
 	shiftDown(0, pos, count);
 	position(count);
+	limit(capacity());
+      }
+    else
+      {
+	position(limit());
 	limit(capacity());
       }
     return this;
@@ -178,7 +185,7 @@ final class ByteBufferImpl extends ByteBuffer
   }
   
   /**
-   * Absolute put method. Writes <code>value</value> to position
+   * Absolute put method. Writes <code>value</code> to position
    * <code>index</code> in the buffer.
    *
    * @exception IndexOutOfBoundsException If index is negative or not smaller

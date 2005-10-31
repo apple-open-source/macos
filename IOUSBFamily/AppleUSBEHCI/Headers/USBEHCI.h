@@ -134,20 +134,29 @@ enum
 	kEHCIPortSC_TestControlPhase	= EHCIBitRangePhase(16, 19),
 	kEHCIPortSC_WKCNNT_E		= kEHCIBit20,
 	kEHCIPortSC_WKDSCNNT_E		= kEHCIBit21,
-
-	
 	kEHCILine_Low			= 1
 };
 
 
+// these are for the HCSPARAMS register
 enum
 {
-	kEHCINumPortsMask	= EHCIBitRange (0, 3),
-	kEHCIPPCMask 		= kEHCIBit4,	
-
-	kx = 0
+	kEHCINumPortsMask	= EHCIBitRange (0, 3),				// Number of ports (4 bits)
+	kEHCIPPCMask 		= kEHCIBit4,						// Power Port Control
 };
 
+
+// these are for the HCCPARAMS register
+enum
+{
+	kEHCIEECPMask		= EHCIBitRange (8, 15),				// EECP offset
+	kEHCIEECPPhase		= EHCIBitRangePhase(8, 15),			// EECP shift amount
+	kEHCI64Bit			= kEHCIBit0							// whether we use 64 bit addressing
+};
+
+
+
+// This is for various transfer desciptors 
 enum{
 	kEHCITermFlag = 1
 	};
@@ -586,6 +595,13 @@ enum
     // please note: if the Frame List Size in the USBCMD register changes, this needs to change as well
     kEHCIFRIndexRolloverBit		= kEHCIBit13,
     kEHCIMicroFrameNumberIncrement	= kEHCIBit14		// ok, not really in the register, but related to the above
+};
+
+// bits in USBLEGSUP extended EHCI/PCI capability
+enum {
+    kEHCI_USBLEGSUP_ID        = 0x01,
+    kEHCI_USBLEGSUP_BIOSOwned = kEHCIBit16,
+    kEHCI_USBLEGSUP_OSOwned   = kEHCIBit24
 };
 
 #pragma mark ---end----

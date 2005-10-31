@@ -26,7 +26,7 @@
 			<corcoran@linuxnet.com>
 	Purpose: This handles abstract system level calls. 
 
-$Id: sys_unix.c,v 1.2 2003/02/13 20:06:29 ghoo Exp $
+$Id: sys_unix.c,v 1.2.80.1 2005/06/17 22:40:12 mb Exp $
 
 ********************************************************************/
 
@@ -200,6 +200,11 @@ void *SYS_PublicMemoryMap(int iSize, int iFid, int iOffset)
 int SYS_MMapSynchronize(void *begin, int length)
 {
 	return msync(begin, length, MS_SYNC | MS_INVALIDATE);
+}
+
+int SYS_MUnmap(void *begin, int length)
+{
+	return munmap(begin, length);
 }
 
 int SYS_Fork()

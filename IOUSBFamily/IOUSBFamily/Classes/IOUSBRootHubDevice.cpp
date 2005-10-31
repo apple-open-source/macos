@@ -23,13 +23,14 @@
  */
 
 #include <libkern/OSByteOrder.h>
+#include <IOKit/usb/IOUSBLog.h>
 
 #include "IOUSBRootHubDevice.h"
 
 #define super	IOUSBDevice
 #define self	this
-#define DEBUGGING_LEVEL 0
-#define DEBUGLOG IOLog
+
+#define _commandGate	_expansionData->_commandGate
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -40,8 +41,103 @@ OSDefineMetaClassAndStructors( IOUSBRootHubDevice, IOUSBDevice )
 IOUSBRootHubDevice*
 IOUSBRootHubDevice::NewRootHubDevice()
 {
-    return (new IOUSBRootHubDevice);
+	IOUSBRootHubDevice *me = new IOUSBRootHubDevice;
+	
+	if (!me)
+		return NULL;
+	
+	if (!me->init())
+	{
+		me->release();
+		me = NULL;
+	}
+	
+	return me;
 }
+
+
+bool 
+IOUSBRootHubDevice::init()
+{
+    if (!super::init())
+        return false;
+		
+    // allocate our expansion data
+    if (!_expansionData)
+    {
+		_expansionData = (ExpansionData *)IOMalloc(sizeof(ExpansionData));
+		if (!_expansionData)
+			return false;
+		
+		bzero(_expansionData, sizeof(ExpansionData));
+    }
+	
+    return true;
+ }
+
+
+
+bool
+IOUSBRootHubDevice::start(IOService *provider)
+{
+	IOWorkLoop	*wl;
+	
+	_commandGate = IOCommandGate::commandGate(this, NULL);
+	if (!_commandGate)
+		return false;
+	
+	wl = getWorkLoop();
+	
+	if (!wl || (wl->addEventSource(_commandGate) != kIOReturnSuccess))
+	{
+		_commandGate->release();
+		_commandGate = NULL;
+		return false;
+	}
+	// we need to do all of the above before we start our superclass, because IOUSBDevice::start
+	// will make DeviceRequests, which require the command gate now
+	return super::start(provider);
+}
+
+
+
+void
+IOUSBRootHubDevice::stop( IOService *provider )
+{
+    if ( _commandGate )
+    {
+		getWorkLoop()->removeEventSource( _commandGate );
+        _commandGate->release();
+        _commandGate = NULL;
+    }
+	super::stop(provider);
+}
+
+
+
+void
+IOUSBRootHubDevice::free()
+{
+    if (_expansionData)
+    {
+        IOFree(_expansionData, sizeof(ExpansionData));
+        _expansionData = NULL;
+    }
+    super::free();
+}
+
+
+
+IOReturn
+IOUSBRootHubDevice::GatedDeviceRequest (OSObject *owner,  void *arg0,  void *arg1,  void *arg2,  void *arg3 )
+{
+	IOUSBRootHubDevice *me = (IOUSBRootHubDevice*)owner;
+	
+	if (!me)
+		return kIOReturnNotResponding;
+	return me->DeviceRequestWorker((IOUSBDevRequest*)arg0, (UInt32)arg1, (UInt32)arg2, (IOUSBCompletion*)arg3);
+}
+
 
 
 // intercept regular hub requests since the controller simulates the root hub
@@ -57,21 +153,25 @@ OSMetaClassDefineReservedUsed(IOUSBRootHubDevice,  0);
 IOReturn 
 IOUSBRootHubDevice::DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion)
 {
-    IOReturn		err = 0;
+	if (!_commandGate)
+		return kIOReturnNotResponding;
+		
+	return _commandGate->runAction(GatedDeviceRequest, request, (void*)noDataTimeout, (void*)completionTimeout, completion);
+}
+
+
+
+
+IOReturn 
+IOUSBRootHubDevice::DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion)
+{
+	IOReturn	err = 0;
     UInt16		theRequest;
     UInt8		dType, dIndex;
 
     
     if (!request)
         return(kIOReturnBadArgument);
-
-#if (DEBUGGING_LEVEL > 0)
-    DEBUGLOG("%s: deviceRequest([%x,%x],[%x,%x],[%x,%lx])", getName(),
-             request->bmRequestType,
-             request->bRequest,
-             request->wValue, request->wIndex, 
-	     request->wLength, (UInt32)request->pData);
-#endif
 
     theRequest = (request->bRequest << 8) | request->bmRequestType;
 

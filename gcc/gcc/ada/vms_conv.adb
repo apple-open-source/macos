@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -89,10 +89,10 @@ package body VMS_Conv is
    --  the allocated result on the heap.
 
    function Is_Extensionless (F : String) return Boolean;
-   --  Returns true if the filename has no extension.
+   --  Returns true if the filename has no extension
 
    function Match (S1, S2 : String) return Boolean;
-   --  Determines whether S1 and S2 match. This is a case insensitive match.
+   --  Determines whether S1 and S2 match (this is a case insensitive match)
 
    function Match_Prefix (S1, S2 : String) return Boolean;
    --  Determines whether S1 matches a prefix of S2. This is also a case
@@ -661,8 +661,8 @@ package body VMS_Conv is
    procedure Output_Version is
    begin
       Put ("GNAT ");
-      Put (Gnatvsn.Gnat_Version_String);
-      Put_Line (" Copyright 1996-2004 Free Software Foundation, Inc.");
+      Put_Line (Gnatvsn.Gnat_Version_String);
+      Put_Line ("Copyright 1996-2005 Free Software Foundation, Inc.");
    end Output_Version;
 
    -----------

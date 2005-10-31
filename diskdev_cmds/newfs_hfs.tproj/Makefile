@@ -34,7 +34,7 @@ PROF_LIBS = $(LIBS)
 FRAMEWORKS = -framework CoreFoundation
 
 HEADER_PATHS = -I ${MOUNT}
-NEXTSTEP_PB_CFLAGS = -D_LONG_LONG -Wno-four-char-constants
+NEXTSTEP_PB_CFLAGS = -D_LONG_LONG -Wno-four-char-constants -Wall -Werror
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/BUILD
 

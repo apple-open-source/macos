@@ -62,6 +62,8 @@ public:
 	virtual IOReturn					setInputDataMux (GpioAttributes muxState);
 	virtual GpioAttributes				getInputDataMux ();
 
+	virtual GpioAttributes				getInternalMicrophoneID ();
+
 	virtual GpioAttributes				getInternalSpeakerID ();
 
 	virtual	GpioAttributes				getLineInConnected ();
@@ -191,6 +193,8 @@ protected:
 	static const char *					kAppleGPIO_SetCodecInputDataMux;
 	static const char *					kAppleGPIO_GetCodecInputDataMux;
 	
+	static const char *					kAppleGPIO_GetInternalMicrophoneID;
+	
 	static const char *					kAppleGPIO_GetInternalSpeakerID;
 
 	GpioAttributes						mAppleGPIO_AmpMute;
@@ -200,6 +204,7 @@ protected:
 	GpioAttributes						mAppleGPIO_DigitalCodecReset;
 	GpioAttributes						mAppleGPIO_HeadphoneMute;
 	GpioAttributes						mAppleGPIO_LineOutMute;
+	GpioAttributes						mAppleGPIO_InternalMicrophoneID;
 	GpioAttributes						mAppleGPIO_InternalSpeakerID;
 	GpioAttributes						mAppleGPIO_SpeakerID;
 	

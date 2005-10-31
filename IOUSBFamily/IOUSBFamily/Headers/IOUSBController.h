@@ -57,13 +57,15 @@ enum
     kErrataCMDDisableTestMode		= (1 << 0),		// turn off UHCI test mode
     kErrataOnlySinglePageTransfers	= (1 << 1),		// Don't cross page boundaries in a single transfer
     kErrataRetryBufferUnderruns		= (1 << 2),		// Don't cross page boundaries in a single transfer
-    kErrataLSHSOpti			= (1 << 3),		// Don't cross page boundaries in a single transfer
+    kErrataLSHSOpti					= (1 << 3),		// Don't cross page boundaries in a single transfer
     kErrataDisableOvercurrent		= (1 << 4),		// Always set the NOCP bit in rhDescriptorA register
     kErrataLucentSuspendResume		= (1 << 5),		// Don't allow port suspend at the root hub
     kErrataNeedsWatchdogTimer		= (1 << 6),		// Use Watchdog timer to reset confused controllers
     kErrataNeedsPortPowerOff		= (1 << 7),		// Power off the ports and back on again to clear weird status.
     kErrataAgereEHCIAsyncSched		= (1 << 8),		// needs workaround for Async Sched bug
-    kErrataNECOHCIIsochWraparound	= (1 << 9)		// needs workaround for NEC isoch buffer wraparound problem
+    kErrataNECOHCIIsochWraparound	= (1 << 9),		// needs workaround for NEC isoch buffer wraparound problem
+	kErrataNECIncompleteWrite		= (1 << 10),	// needs workaround for NEC bits not sticking (errata IBB-2UE-00030 Jun 23 2005)
+	kErrataICH6PowerSequencing		= (1 << 11)		// needs special power sequencing for early Transition machines
 };
 
 enum

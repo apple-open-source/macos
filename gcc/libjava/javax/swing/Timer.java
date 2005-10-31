@@ -35,14 +35,15 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.Serializable;
 import java.util.EventListener;
-import javax.swing.event.EventListenerList;
 
+import javax.swing.event.EventListenerList;
 
 /**
  * DOCUMENT ME!
@@ -71,6 +72,14 @@ public class Timer implements Serializable
   /** DOCUMENT ME! */
   private Waker waker;
 
+  private Runnable drainer = new Runnable() 
+    {
+      public void run()
+      {
+        drainEvents();
+      }
+    };
+
   /**
    * DOCUMENT ME!
    */
@@ -80,14 +89,7 @@ public class Timer implements Serializable
       {
 	queue++;
 	if (queue == 1)
-	  SwingUtilities.invokeLater(new Runnable()
-	      {
-		public void run()
-		{
-		  drainEvents();
-		}
-	      });
-
+	  SwingUtilities.invokeLater(drainer);
       }
   }
 

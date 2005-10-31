@@ -11,10 +11,10 @@
 # to appropriate places in the file system, and makes symlinks where necessary.
 
 PROJECT_NAME=squirrelmail
-PROJECT_VERSION=1.4.4
+PROJECT_VERSION=1.4.5
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
-PROJECT_LOCALE_ARCHIVE=all_locales-1.4.4-20050122.tar.gz
+PROJECT_LOCALE_ARCHIVE=all_locales-1.4.5-20050713.tar.gz
 VERSIONS_DIR=/usr/local/OpenSourceVersions
 LICENSE_DIR=/usr/local/OpenSourceLicenses
 
@@ -80,12 +80,8 @@ installsrc:: do_installsrc
 
 do_untar:
 	$(SILENT) $(ECHO) "Untarring $(PROJECT_NAME)..."
-	$(SILENT) if [ ! -e $(PROJECT_DIR)/README ]; then\
-		$(GNUTAR) -xzf $(PROJECT_ARCHIVE);\
-	fi
-	$(SILENT) if [ ! -e locale ]; then\
-		$(GNUTAR) -xzf $(PROJECT_LOCALE_ARCHIVE);\
-	fi
+	$(GNUTAR) -xzf $(PROJECT_ARCHIVE)
+	$(GNUTAR) -xzf $(PROJECT_LOCALE_ARCHIVE)
 
 # Custom configuration:
 #

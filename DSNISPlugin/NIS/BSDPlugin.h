@@ -71,6 +71,8 @@
 
 #define kMaxTimeForMapCacheToLive	5*60*60		// 5 hours
 
+#define kMinTimeBetweenRPCInfoRequests	60		// one minute
+
 Boolean ExceptionInResult( const char* resultPtr );
 int IsIPAddress(const char* adrsStr, long *ipAdrs);
 Boolean IsDNSName(char* theName);
@@ -185,6 +187,9 @@ public:
 	virtual sInt32				ProcessRequest					( void *inData );
 	virtual sInt32				SetPluginState					( const uInt32 inState );
 
+			void				SetNISUnavailable				( void );
+			void				SetNISAvailable					( void );
+
 #pragma mark
             void				AddNode							( const char* nodeName, Boolean isLocalNode = false );
             void				RemoveNode						( CFStringRef nodeNameRef );
@@ -203,10 +208,12 @@ public:
 			void				UnlockFFCache					( void ) { pthread_mutex_unlock( &mFFCache ); }
 			pthread_mutex_t		mFFCache;
 #endif			
+#ifdef USE_CACHE
 			void				ResetMapCache					( void );
             void				LockMapCache					( void ) { pthread_mutex_lock( &mMapCache ); }
             void				UnlockMapCache					( void ) { pthread_mutex_unlock( &mMapCache ); }
             pthread_mutex_t		mMapCache;
+#endif
 
             void				StartNodeLookup					( void );			// this should fire off some threads in the subclass
 
@@ -223,7 +230,12 @@ protected:
 
 			void				ConfigureLookupdIfNeeded		( void );
 			Boolean				LookupdIsConfigured				( void );
-			void				SaveDefaultLookupdConfiguration	( void );
+			
+			void				SaveDefaultLookupdConfigurationWithNISEnabled ( void );
+			void				SaveDefaultLookupdConfigurationWithNISDisabled ( void );
+			void				SaveDefaultLookupdConfiguration	( Boolean enableNIS );
+			
+			sInt32				FlushLookupdCache				( void );
 
 			CFStringRef			CopyDomainFromFile				( void );
 			void				SaveDomainToFile				( CFStringRef domainNameRef );
@@ -236,6 +248,9 @@ protected:
 
 			sInt32				FillOutCurrentState				( sDoPlugInCustomCall *inData );
 
+			Boolean				NISAvailable					( void );
+			Boolean				AreNISServersReachable			( void );
+			
 			CFMutableDictionaryRef	CopyRecordLookup			( Boolean isFFRecord, const char* recordTypeName, char* recordName );
             void					DoRecordsLookup				(	CFMutableArrayRef	resultArrayRef,
 																	Boolean				isFFRecord,
@@ -267,12 +282,17 @@ protected:
 			
 			sInt32				ReleaseContinueData				( sNISContinueData* continueData );
 			
+			sInt32				GetRecRefInfo				( sGetRecRefInfo *inData );
+			sInt32 				GetRecordEntry 				( sGetRecordEntry *inData );
 			sInt32				GetAttributeEntry				( sGetAttributeEntry *inData );
 			sInt32				GetAttributeValue				( sGetAttributeValue *inData );
             sInt32				GetRecordList					( sGetRecordList *inData );
             
 			sInt32				OpenRecord						( sOpenRecord *inData );
+			sInt32				GetRecordAttributeInfo		( sGetRecAttribInfo *inData );
 			sInt32				GetRecordAttributeValueByIndex	( sGetRecordAttributeValueByIndex *inData );
+                        sInt32                          GetRecordAttributeValueByID  ( sGetRecordAttributeValueByID *inData );
+                        sInt32                          GetRecordAttributeValueByValue  ( sGetRecordAttributeValueByValue *inData );
 			sInt32				DoAttributeValueSearch			( sDoAttrValueSearch* inData );
 			sInt32				CloseRecord						( sCloseRecord *inData );
 			
@@ -352,6 +372,11 @@ private:
 		CFMutableDictionaryRef	mCachedFFRef;
 		time_t					mModTimes[14];
 #endif
+		CFArrayRef				mNISServersRef;
+		Boolean					mNISOK;
+		Boolean					mNISAgentIsConfigured;
+		CFAbsoluteTime			mLastTimeCheckedServerAvailabilityViaRPC;
+		CFAbsoluteTime			mLastTimeOfNetworkTransition;
 };
 
 NodeData * AllocateNodeData();

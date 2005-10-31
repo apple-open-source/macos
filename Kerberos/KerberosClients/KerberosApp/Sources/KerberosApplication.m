@@ -1,7 +1,7 @@
 /*
  * KerberosApplication.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/KerberosApplication.m,v 1.2 2004/10/13 16:06:46 lxs Exp $
+ * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/KerberosApplication.m,v 1.3 2005/03/04 23:03:42 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

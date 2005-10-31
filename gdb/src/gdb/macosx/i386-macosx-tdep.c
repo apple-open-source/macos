@@ -1,5 +1,5 @@
 /* Mac OS X support for GDB, the GNU debugger.
-   Copyright 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2005
    Free Software Foundation, Inc.
 
    Contributed by Apple Computer, Inc.
@@ -97,101 +97,198 @@ i386_macosx_store_gp_registers (gdb_i386_thread_state_t *sp_regs)
   collect_unsigned_int (15, &sp_regs->gs);
 }
 
+/* When we get the FPU registers from the inferior we will either get
+   valid register contents or we will get a block of 0's if the FPU has
+   no register state.  In the latter case we don't want to push that 
+   block of 0's into the FPU as valid state, so remember whether we got
+   anything.  */
+
+static int fpu_initialized_p = 0;
+
+/* Fetching the the registers from the inferior into our reg cache.
+   FP_REGS is a structure that mirrors the Mach structure
+   struct i386_float_state.  The "hw_state" buffer inside that
+   structure mirrors the Mach struct i386_fx_save, which is identical
+   to the FXSAVE/FXRSTOR instructions' format.  */
+
 void
 i386_macosx_fetch_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 {
-#if 0                           /* FIXME FIXME FIXME */
-  if ((fp_regs->fpkind == GDB_i386_FP_387) && (fp_regs->initialized))
-    i387_supply_fsave ((unsigned char *) &fp_regs->hw_state);
-  else if ((fp_regs->fpkind == GDB_i386_FP_SSE2) && (fp_regs->initialized))
-    i387_supply_fxsave ((unsigned char *) &fp_regs->hw_state);
+  /* If fp_regs->initialized is 0, the kernel has returned a big bucket of
+     0's and we wouldn't want to push those back into the FPU when we
+     restore them.  */
+  if (fp_regs->initialized)
+    fpu_initialized_p = 1;
   else
-    i387_supply_fxsave (NULL);
-#endif
+    {
+      fpu_initialized_p = 0;
+      /* There are some cases were gdb gets tricky and pushes the all-0's
+         fpu reg state into the inferior despite our best efforts.  If the
+         FPU control word aka FCW (IA32) aka fx_control (Mach) aka 
+         I387_FCTRL_REGNUM (gdb) gets pushed to the inferior process with all
+         0's, the exception mask is set so that all exceptions are thrown.
+         Most notably, the Inexact-Result (Precision) Exception (#P), cf
+         Volume 1 of the Intel docs, sec 8.5.6.  The Precision exception is
+         very likely to be hit the next time you do any FP operation. 
+
+         To prevent this problem, instead of saving a 0 value as the FCW's
+         contents, save 0x37f which is the documented initial value when
+         FINIT/FNINIT or FSAVE/FNSAVE instruction is executed to initialize
+         the FPU (cf Intel docs Volume 1, 8.1.4, "x87 FPU Control Word")  */
+      fp_regs->hw_state[1] = 0x03;
+      fp_regs->hw_state[0] = 0x3f;
+
+      /* Yeah, and the same thing in the MXCSR.  All the exception masks
+         should be enabled.  */
+      fp_regs->hw_state[25] = 0x1f;
+      fp_regs->hw_state[24] = 0x80;
+    }
+
+  /* Either way, store the buffer (either valid registers or 0's) into the
+     local register cache.  In the 0's case, we don't want to accidentally
+     display old data--better off displaying all 0's so the user can figure
+     out what's up. */
+
+  i387_swap_fxsave (current_regcache, &fp_regs->hw_state);
+  i387_supply_fxsave (current_regcache, -1, &fp_regs->hw_state);
 }
 
-void
+/* Get the floating point registers from our local register cache
+   and stick them in FP_REGS in for sending to the inferior via a
+   syscall.  If the local register cache has valid FP values, this
+   function returns 1.  If the local register cache does not have
+   valid FP values -- and so FP_REGS should not be pushed into the
+   inferior -- this function returns 0.  */
+
+int
 i386_macosx_store_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 {
-#if 0
-  fp_regs->fpkind = GDB_i386_FP_SSE2;
+  if (fpu_initialized_p == 0)
+    return 0;
+    
+  memset (fp_regs, 0, sizeof (gdb_i386_thread_fpstate_t));
+  fp_regs->fpkind = GDB_i386_FP_SSE2; /* Corresponds to Mach's FP_FXSR */
   fp_regs->initialized = 1;
+  fp_regs->exc_status = 0;
   i387_fill_fxsave ((unsigned char *) &fp_regs->hw_state, -1);
-  fp_regs->exc_status = 0;
-#else
-  fp_regs->fpkind = GDB_i386_FP_387;
-  fp_regs->initialized = 1;
-  i387_fill_fsave ((unsigned char *) &fp_regs->hw_state, -1);
-  fp_regs->exc_status = 0;
-#endif
+  i387_swap_fxsave (current_regcache, &fp_regs->hw_state);
+
+  return 1;
 }
 
-/* mread -- read memory (unsigned) and apply a bitmask */
-
-static unsigned long
-mread (CORE_ADDR addr, unsigned long len, unsigned long mask)
-{
-  long ret = read_memory_unsigned_integer (addr, len);
-  if (mask)
-    {
-      ret &= mask;
-    }
-  return ret;
-}
-
-CORE_ADDR
-i386_macosx_skip_trampoline_code (CORE_ADDR pc)
-{
-  unsigned char opcode1 = (unsigned char) mread (pc, 1, 0);
-  CORE_ADDR new_pc = pc;
-
-  /* first test:  static shlib jumptable */
-  if (opcode1 == 0xe9)          /* jmpl xxxx */
-    return (pc + mread (pc + 1, 4, 0) + 5);
-
-  /* second test: dynamic shlib jumptable (1st entry point) */
-  if (opcode1 == 0xe8 && mread (pc + 1, 4, 0) == 0 &&   /* calll pc+5 */
-      mread (pc + 5, 1, 0) == 0x58 &&   /* popl  %eax */
-      mread (pc + 6, 2, 0) == 0x908b && /* movl y(%eax),%edx */
-      mread (pc + 12, 2, 0) == 0xe2ff)  /* jmpl  %edx */
-    pc = new_pc = mread (pc + mread (pc + 8, 4, 0) + 5, 4, 0);
-  /* and fall thru to do next test (both might succeed) */
-
-#if 0
-  /* third test: dynamic shlib table (as yet unresolved entry) */
-  if (mread (pc, 2, 0) == 0x808d &&     /* leal y(%eax),%eax */
-      mread (pc + 6, 1, 0) == 0x50 &&   /* pushl %eax */
-      mread (pc + 7, 1, 0) == 0xe9)     /* jmpl dyld */
-    pc = new_pc = (CORE_ADDR) get_symbol_stub_real_address (pc, NULL);
-#endif
-
-  return new_pc;
-}
-
-int
-i386_macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name)
-{
-  return 0;
-}
-
-int
-i386_macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name)
-{
-  if (i386_macosx_skip_trampoline_code (pc) != pc)
-    {
-      return 1;
-    }
-  return 0;
-}
+/* The sigcontext (struct sigcontext) is put on the stack by the kernel
+   and then _sigtramp() is called with an ESP below the sigcontext.
+   This function exists to tell gdb how to find the start of the sigcontext
+   when the PC is somewhere in the middle of _sigtramp(). 
+   Because it's on the stack, its exact offset is different depending on
+   whether you're before, in-the-middle-of, or after the _sigtramp 
+   prologue frame-setting-up instructions. */
 
 static CORE_ADDR
 i386_macosx_sigcontext_addr (struct frame_info *frame)
 {
-  int sigcontext_offset = 24;
+  CORE_ADDR start_of_func = get_frame_func (frame);
+  int offset = 0;
+  CORE_ADDR push_ebp_addr = 0;
+  CORE_ADDR mov_esp_ebp_addr = 0;
+  CORE_ADDR pointer_to_ucontext, esp, ebp, pc, ucontext, uc_mcontext;
+  char buf[4];
+  int limit;
 
-  return read_memory_unsigned_integer (get_frame_base (frame) +
-                                       sigcontext_offset, 4);
+  pc = get_frame_pc (frame);
+
+  /* We begin our function with a fun little hand-rolled prologue parser.
+     These sorts of things NEVER come back to bite us years down the road,
+     no sir-ee bob.  The only saving grace is that _sigtramp() is a tough
+     function to screw up as it stands today.  Oh, and if we get this wrong,
+     signal backtraces should break outright and we get nice little testsuite 
+     failures. */
+
+  limit = min (pc - start_of_func + 1, 16);
+  while (offset < limit)
+    {
+      if (!push_ebp_addr)
+        {
+          /* push   %ebp   [ 0x55 ] */
+          if (read_memory_unsigned_integer (start_of_func + offset, 1) == 0x55)
+            {
+              push_ebp_addr = start_of_func + offset;
+              offset++;
+            }
+          else
+            {
+              /* If this isn't the push %ebp, and we haven't seen push %ebp yet,
+                 skip whatever insn we're sitting on and keep looking for 
+                 push %ebp.  It must occur before mov %esp, %ebp.  */
+              offset++;
+              continue;
+            }
+        }
+
+      /* We've already seen push %ebp */
+      /* Look for mov %esp, %ebp  [ 0x89 0xe5 || 0x8b 0xec ] */
+      if (read_memory_unsigned_integer (start_of_func + offset, 2) == 0xe589
+          || read_memory_unsigned_integer (start_of_func + offset, 2) == 0xec8b)
+        {
+          mov_esp_ebp_addr = start_of_func + offset;
+          break;
+        }
+      offset++;  /* I'm single byte stepping through unknown instructions.  
+                    SURELY this won't cause an improper match, cough cough. */
+    }
+  if (!push_ebp_addr || !mov_esp_ebp_addr)
+    error ("Unable to analyze the prologue of _sigtramp(), giving up.");
+
+  frame_unwind_register (frame, I386_ESP_REGNUM, buf);
+  esp = extract_unsigned_integer (buf, 4);
+  frame_unwind_register (frame, I386_EBP_REGNUM, buf);
+  ebp = extract_unsigned_integer (buf, 4);
+
+  if (pc <= push_ebp_addr)
+    pointer_to_ucontext = esp + 20;
+
+  if (pc > push_ebp_addr && pc <= mov_esp_ebp_addr)
+    pointer_to_ucontext = esp + 24;
+
+  if (pc > mov_esp_ebp_addr)
+    pointer_to_ucontext = ebp + 24;
+
+  ucontext = read_memory_unsigned_integer (pointer_to_ucontext, 4);
+  /* 'uc_mcontext' is 28 bytes into the 'struct ucontext' */
+  uc_mcontext = read_memory_unsigned_integer (ucontext + 28, 4); 
+  return uc_mcontext; /* uc_mcontext is a pointer to the struct sigcontext */
 }
+
+static CORE_ADDR
+i386_integer_to_address (struct type *type, void *buf)
+{
+  char *tmp = alloca (TYPE_LENGTH (builtin_type_void_data_ptr));
+  LONGEST val = unpack_long (type, buf);
+  store_unsigned_integer (tmp, TYPE_LENGTH (builtin_type_void_data_ptr), val);
+  return extract_unsigned_integer (tmp,
+                                   TYPE_LENGTH (builtin_type_void_data_ptr));
+}
+
+/* From /usr/include/i386/signal.h and i386-tdep.h */
+static int i386_macosx_sc_reg_offset[] =
+{
+   2 * 4,   /* EAX */
+   4 * 4,   /* ECX */
+   5 * 4,   /* EDX */
+   3 * 4,   /* EBX */
+   9 * 4,   /* ESP */
+   8 * 4,   /* EBP */
+   7 * 4,   /* ESI */
+   6 * 4,   /* EDI */
+  12 * 4,   /* EIP */
+  11 * 4,   /* EFLAGS */
+  13 * 4,   /* CS */
+  -1,       /* SS */
+  14 * 4,   /* DS */
+  15 * 4,   /* ES */
+  16 * 4,   /* FS */
+  17 * 4    /* GS */
+};
 
 static void
 i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
@@ -202,13 +299,23 @@ i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   tdep->num_xmm_regs = I386_NUM_XREGS - 1;
   set_gdbarch_num_regs (gdbarch, I386_SSE_NUM_REGS);
 
+  set_gdbarch_skip_trampoline_code (gdbarch, macosx_skip_trampoline_code);
+  set_gdbarch_dynamic_trampoline_nextpc (gdbarch,
+                                         macosx_dynamic_trampoline_nextpc);
+
+  set_gdbarch_in_solib_call_trampoline (gdbarch,
+                                        macosx_in_solib_call_trampoline);
+  set_gdbarch_in_solib_return_trampoline (gdbarch,
+                                          macosx_in_solib_return_trampoline);
+
   tdep->struct_return = reg_struct_return;
 
   tdep->sigcontext_addr = i386_macosx_sigcontext_addr;
-  tdep->sc_pc_offset = 12 * 4;
-  tdep->sc_sp_offset = 9 * 4;
+  tdep->sc_reg_offset = i386_macosx_sc_reg_offset;
+  tdep->sc_num_regs = 16;
 
   tdep->jb_pc_offset = 20;
+  set_gdbarch_integer_to_address (gdbarch, i386_integer_to_address);
 }
 
 static enum gdb_osabi
@@ -221,6 +328,7 @@ i386_mach_o_osabi_sniffer (bfd *abfd)
   return GDB_OSABI_UNKNOWN;
 }
 
+
 void
 _initialize_i386_macosx_tdep (void)
 {
@@ -229,4 +337,5 @@ _initialize_i386_macosx_tdep (void)
 
   gdbarch_register_osabi (bfd_arch_i386, 0, GDB_OSABI_DARWIN,
                           i386_macosx_init_abi);
+
 }

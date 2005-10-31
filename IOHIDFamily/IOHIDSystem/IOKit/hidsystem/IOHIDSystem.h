@@ -203,7 +203,8 @@ private:
           /* atTime */   AbsoluteTime  ts,
           /* withData */ NXEventData * myData,
           /* sender */   OSObject *    sender   = 0,
-          /* pid */      UInt32        extPID   = 0);
+          /* pid */      UInt32        extPID   = 0,
+          /* processKEQ*/bool          processKEQ = true);
   /* Dispatch mechanisms for screen state changes */
   void evDispatch(
             /* command */ EvCmd evcmd);
@@ -223,6 +224,7 @@ private:
   static void doKickEventConsumer(IOHIDSystem * self);
 
   static void doProcessKeyboardEQ(IOHIDSystem * self);
+  static void processKeyboardEQ(IOHIDSystem * self, AbsoluteTime * deadline = 0);
  
   static bool genericNotificationHandler( void * target, 
 				void * ref, IOService * newService );

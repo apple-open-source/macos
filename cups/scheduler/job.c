@@ -1,5 +1,5 @@
 /*
- * "$Id: job.c,v 1.55 2005/03/04 01:20:00 jlovell Exp $"
+ * "$Id: job.c,v 1.55.2.1 2005/07/27 18:22:02 jlovell Exp $"
  *
  *   Job management routines for the Common UNIX Printing System (CUPS).
  *
@@ -2197,6 +2197,7 @@ StopJob(int id,			/* I - Job ID */
 	             current->pipe);
 
           close(current->pipe);
+	  FD_CLR(current->pipe, InputFds);
 	  FD_CLR(current->pipe, InputSet);
 	  current->pipe = -1;
         }
@@ -2457,6 +2458,7 @@ UpdateJob(job_t *job)		/* I - Job to check */
                  job->pipe);
 
       close(job->pipe);
+      FD_CLR(job->pipe, InputFds);
       FD_CLR(job->pipe, InputSet);
       job->pipe = -1;
     }
@@ -3171,5 +3173,5 @@ remove_unused_attrs(job_t *job)			/* I - Job attributes */
 
 
 /*
- * End of "$Id: job.c,v 1.55 2005/03/04 01:20:00 jlovell Exp $".
+ * End of "$Id: job.c,v 1.55.2.1 2005/07/27 18:22:02 jlovell Exp $".
  */

@@ -1,7 +1,7 @@
 /*
  * KLEnvironment.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLEnvironment.c,v 1.14 2004/06/17 22:26:12 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLEnvironment.c,v 1.15 2005/03/22 18:31:48 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -26,14 +26,15 @@
  * or implied warranty.
  */
 
-#define kKerberos5UDPServicePrefix "_kerberos._udp."
-#define kKerberos5TCPServicePrefix "_kerberos._tcp."
-#define kKerberos4UDPServicePrefix "_kerberos-iv._udp."
-#ifndef T_SRV
-#define T_SRV 33
-#endif /* T_SRV */
+#define kUDPServicePrefix "_udp"
+#define kTCPServicePrefix "_tcp"
+#define kKerberos5ServicePrefix "_kerberos"
+#define kKerberos4ServicePrefix "_kerberos-iv"
 
-static KLBoolean __KLRealmHasDNSServiceRecord (const char *inService, const char *inRealm);
+#include "k5-int.h"
+#include "os-proto.h"
+
+static KLBoolean __KLRealmHasDNSServiceRecord (const char *inService, const char *inProtocol, const char *inRealm);
 static KLBoolean __KLRealmHasKerberos4DNSServiceRecord (const char *inRealm);
 static KLBoolean __KLRealmHasKerberos5DNSServiceRecord (const char *inRealm);
 
@@ -167,97 +168,32 @@ KLBoolean __KLRealmHasKerberos5Profile (const char *inRealm)
 
 // ---------------------------------------------------------------------------
 
-static KLBoolean __KLRealmHasDNSServiceRecord (const char *inService, const char *inRealm)
+static KLBoolean __KLRealmHasDNSServiceRecord (const char *inService, const char *inProtocol, const char *inRealm)
 {
-    KLBoolean hasDNS = false;
-
-    // Only check SRV records if the config doesn't explicitly say not to.
-    if (__KLPreferencesGetLibDefaultBoolean ("dns_fallback", true)) {
-        KLStatus err = klNoErr;
-        char *domain = NULL;
-        char host [MAXDNAME];
-        unsigned char reply[2048];
-        unsigned char *replyEnd = NULL;
-        unsigned char *replyPtr = NULL;
-        int replyLength = 0;
-        int queryCount = 0;
-        int replyCount = 0;
-        
-        if (inRealm   == NULL) { err = KLError_ (klParameterErr); }
-        if (inService == NULL) { err = KLError_ (klParameterErr); }
-        
-        if (err == klNoErr) {
-            err = __KLCreateString (inRealm, &domain);
-        }
+    KLStatus err = klNoErr;
+    KLBoolean hasDNS = FALSE;
+    krb5_context context = NULL;
     
-        if (err == klNoErr) {
-            err = __KLAddPrefixToString (inService, &domain);
-        }
-    
-        if (err == klNoErr) {
-            if (domain [strlen (domain) - 1] != '.') {
-                err = __KLAppendToString (".", &domain);
-            }
-        }
-        
-        if (err == klNoErr) {
-            replyLength = res_search (domain, C_IN, T_SRV, reply, sizeof (reply));
-            if ((replyLength < sizeof (HEADER)) || (replyLength > sizeof (reply))) { err = KLError_ (klParameterErr); }
-        }
-    
-        if (err == klNoErr) {
-            queryCount = ntohs (((HEADER *) &reply)->qdcount);
-            replyCount = ntohs (((HEADER *) &reply)->ancount);
-            replyEnd = reply + replyLength;
-            replyPtr = reply + sizeof (HEADER); // start of the buffer
-        }
-    
-        if (err == klNoErr) {        
-            // skip all the queries:
-            while (queryCount--) {
-                int length = dn_expand (reply, replyEnd, replyPtr, host, sizeof (host));
-                if (length < 0) { err = KLError_ (klParameterErr); break; }
-    
-                replyPtr += length + 4;
-                if (replyPtr > replyEnd) { err = KLError_ (klParameterErr); break; }
-            }                   
-        }
-    
-        if (err == klNoErr) {
-            while (replyCount--) {
-                int type, class, length;
-                
-                length = dn_expand (reply, replyEnd, replyPtr, host, sizeof (host));
-                if (length < 0) { err = KLError_ (klParameterErr); break; }
-    
-                replyPtr += length;
-                if (replyPtr > replyEnd) { err = KLError_ (klParameterErr); break; }
-    
-                type = (replyPtr[0] << 8 | replyPtr[1]);
-                replyPtr += 2;
-                if (replyPtr > replyEnd) { err = KLError_ (klParameterErr); break; }
-                
-                class = (replyPtr[0] << 8 | replyPtr[1]);
-                replyPtr += 2;
-                replyPtr += 12;  // skip ttl (4), length (2), priority (2), weight (2) and port (2)
-                if (replyPtr > replyEnd) { err = KLError_ (klParameterErr); break; }
-    
-                if (type == T_SRV && class == C_IN) {
-                    length = dn_expand (reply, replyEnd, replyPtr, host, sizeof (host));
-                    if (length < 0) { err = KLError_ (klParameterErr); break; }
-    
-                    // Got a real SRV record (not a CNAME)
-                    dprintf ("Got SRV record '%s' for '%s'\n", host, domain);
-                    if (strncmp (host, ".", 2) != 0) {
-                        hasDNS = true;
-                        break;
-                    }
-                }
-            }
-        }    
-        
-        if (domain != NULL) { KLDisposeString (domain); }
+    if (!err) {
+        err = krb5_init_context (&context);
     }
+
+    if (!err && _krb5_use_dns_kdc (context)) {
+        struct srv_dns_entry *entries = NULL;
+        krb5_data realm = { KV5M_DATA, strlen (inRealm), (char *)inRealm };
+    
+        err = krb5int_make_srv_query_realm (&realm, inService, inProtocol, &entries);
+        
+        if (!err) {
+            // Make sure there is at least one valid entry in the list
+            if ((entries != NULL) && (entries->host[0] != 0)) {
+                hasDNS = TRUE;
+            }
+            krb5int_free_srv_dns_data (entries);
+        }
+    }
+    
+    if (context != NULL) { krb5_free_context (context); }
     
     return hasDNS;
 }
@@ -274,7 +210,7 @@ static KLBoolean __KLRealmHasKerberos4DNSServiceRecord (const char *inRealm)
     if (inRealm == NULL) { err = KLError_ (klParameterErr); }
 
     if (err == klNoErr) {
-        hasDNS = __KLRealmHasDNSServiceRecord (kKerberos4UDPServicePrefix, inRealm);
+        hasDNS = __KLRealmHasDNSServiceRecord (kKerberos4ServicePrefix, kUDPServicePrefix, inRealm);
     }
 
     return hasDNS;
@@ -290,9 +226,9 @@ static KLBoolean __KLRealmHasKerberos5DNSServiceRecord (const char *inRealm)
     if (inRealm == NULL) { err = KLError_ (klParameterErr); }
 
     if (err == klNoErr) {
-        hasDNS = __KLRealmHasDNSServiceRecord (kKerberos5UDPServicePrefix, inRealm);
+        hasDNS = __KLRealmHasDNSServiceRecord (kKerberos5ServicePrefix, kUDPServicePrefix, inRealm);
         if (!hasDNS) {
-            hasDNS = __KLRealmHasDNSServiceRecord (kKerberos5TCPServicePrefix, inRealm);
+            hasDNS = __KLRealmHasDNSServiceRecord (kKerberos5ServicePrefix, kTCPServicePrefix, inRealm);
         }
     }
 

@@ -340,6 +340,7 @@ int dir_only = 1;
 #define	OP_ISO		0x00000020	/* ISO address specified */
 #define	OP_ALLDIRS	0x00000040	/* allow mounting subdirs */
 #define	OP_READONLY	0x00000080	/* export read-only */
+#define	OP_32BITCLIENTS	0x00000100	/* use 32-bit directory cookies */
 #define	OP_DEFEXP	0x40000000	/* default export for everyone (else) */
 #define	OP_EXOPTMASK	0x000000C7	/* export options mask */
 
@@ -1215,7 +1216,7 @@ find_uuid(u_char *uuid)
 }
 
 /*
- * find UUID list entry with the given UUID
+ * find UUID list entry with the given FSID
  */
 struct uuidlist *
 find_uuid_by_fsid(u_int32_t fsid)
@@ -1309,9 +1310,17 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 			else
 				uuidchanged = 0;
 		} else {
-			if (ulp->ul_davalid)
-				uuidchanged = 1;
-			else
+			if (ulp->ul_davalid) {
+				/*
+				 * We had a UUID before, but now we don't?
+				 * Assume this is just a transient error,
+				 * issue a warning, and stick with the old UUID.
+				 */
+				uuidstring(ulp->ul_dauuid, buf);
+				log(LOG_WARNING, "lost UUID for %s, was %s, keeping old UUID",
+					fsb->f_mntonname, buf);
+				uuidchanged = 0;
+			} else
 				uuidchanged = 0;
 		}
 		if (uuidchanged) {
@@ -1320,6 +1329,25 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 				uuidstring(dauuid, buf2);
 			else
 				strcpy(buf2, "------------------------------------");
+			if (ulp->ul_exported) {
+				/*
+				 * Woah!  We already have this file system exported with
+				 * a different UUID (UUID changed while processing the
+				 * exports list).  Ignore the UUID change for now so that
+				 * all the exports for this file system will be registered
+				 * using the same UUID/FSID.
+				 *
+				 * XXX Should we do something like set gothup=1 so that
+				 * we will reregister all the exports (with the new UUID)?
+				 * If so, what's to prevent an infinite loop if we always
+				 * seem to be hitting this problem?
+				 */
+				log(LOG_WARNING, "ignoring UUID change for already exported file system %s, was %s now %s",
+					fsb->f_mntonname, buf, buf2);
+				uuidchanged = 0;
+			}
+		}
+		if (uuidchanged) {
 			log(LOG_WARNING, "UUID changed for %s, was %s now %s",
 				fsb->f_mntonname, buf, buf2);
 			bcopy(dauuid, uuid, sizeof(dauuid));
@@ -1614,7 +1642,7 @@ uuidlist_restore(void)
 		    strcmp(ulp->ul_mntonname, fsb.f_mntonname)) {
 			/* don't drop the UUID record if the volume isn't currently mounted! */
 			/* If it's mounted/exported later, we want to use the same record. */
-			log(LOG_WARNING, "stale export entry for %s at line %d of %s",
+			log(LOG_DEBUG, "export entry for non-existent file system %s at line %d of %s",
 				ulp->ul_mntonname, linenum, _PATH_MOUNTEXPLIST);
 			ulp->ul_mntfromname[0] = '\0';
 			TAILQ_INSERT_TAIL(&ulhead, ulp, ul_list);
@@ -1638,9 +1666,17 @@ uuidlist_restore(void)
 			else
 				uuidchanged = 0;
 		} else {
-			if (ulp->ul_davalid)
-				uuidchanged = 1;
-			else
+			if (ulp->ul_davalid) {
+				/*
+				 * We had a UUID before, but now we don't?
+				 * Assume this is just a transient error,
+				 * issue a warning, and stick with the old UUID.
+				 */
+				uuidstring(ulp->ul_dauuid, buf);
+				log(LOG_WARNING, "lost UUID for %s, was %s, keeping old UUID",
+					fsb.f_mntonname, buf);
+				uuidchanged = 0;
+			} else
 				uuidchanged = 0;
 		}
 		if (uuidchanged) {
@@ -1681,7 +1717,7 @@ get_export_id(struct uuidlist *ulp, u_char *path)
 	u_int32_t maxid = 0;
 
 	LIST_FOREACH(xid, &ulp->ul_exportids, xid_list) {
-		if (!strcmp(xid->xid_path, path))
+		if (!strcmp(xid->xid_path, (char *)path))
 			break;
 		if (maxid < xid->xid_id)
 			maxid = xid->xid_id;
@@ -1695,7 +1731,7 @@ get_export_id(struct uuidlist *ulp, u_char *path)
 		return (NULL);
 	}
 	bzero(xid, sizeof(*xid));
-	strcpy(xid->xid_path, path);
+	strcpy(xid->xid_path, (char *)path);
 	xid->xid_id = maxid + 1;
 	while (find_export_id(ulp, xid->xid_id)) {
 		xid->xid_id++;
@@ -1722,7 +1758,7 @@ void
 get_exportlist(void)
 {
 	struct expfs *xf, *xf2, *xf3;
-	struct grouplist *grp, *tgrp;
+	struct grouplist *grp, *tgrp, *pgrp;
 	struct expdir *xd, *xd2, *xd3;
 	struct dirlist *dirhead, *dirl, *dirl2;
 	struct dirlist *reghead, *reg;
@@ -1771,26 +1807,17 @@ get_exportlist(void)
 	/*
 	 * Delete exports that are in the kernel for all local file systems.
 	 */
-	nxa.nxa_flags = NXA_DELETE;
+	nxa.nxa_flags = NXA_DELETE_ALL;
 	nxa.nxa_expid = 0;
 	nxa.nxa_exppath = NULL;
 	nxa.nxa_netcount = 0;
 	nxa.nxa_nets = NULL;
-	for (i = 0, fsp = firstfsp; i < num; i++, fsp++) {
-		/* 
-		 * First look for UUID in our list, then check DiskArb.
-		 * If not found in either, it can't be exported.
-		 */
-		ulp = get_uuid_from_list(fsp, uuid, UL_CHECK_MNTON);
-		if (!ulp && !get_uuid_from_diskarb(fsp->f_mntfromname, uuid))
-			continue;
-		nxa.nxa_fsid = UUID2FSID(uuid);
-		nxa.nxa_fspath = fsp->f_mntonname;
-		error = nfssvc(NFSSVC_EXPORT, &nxa);
-		if (error && (errno != ENOENT))
-			log(LOG_ERR, "Can't delete exports for %s, %d",
-			    fsp->f_mntonname, errno);
-	}
+	nxa.nxa_fsid = 0;
+	nxa.nxa_fspath = NULL;
+	error = nfssvc(NFSSVC_EXPORT, &nxa);
+	if (error && (errno != ENOENT))
+		log(LOG_ERR, "Can't delete all exports, %d", errno);
+	uuidlist_clearexport();
 
 	if ((exp_file = fopen(exportsfilepath, "r")) != NULL) {
 		source = EXPORT_FROM_FILE;
@@ -1828,6 +1855,7 @@ get_exportlist(void)
 		ulp = NULL;
 
 		/* grab a group */
+		pgrp = NULL;
 		tgrp = grp = get_grp();
 		if (!tgrp) {
 			log(LOG_ERR, "can't allocate initial group for export");
@@ -1971,13 +1999,14 @@ get_exportlist(void)
 			    setnetgrent(cp);
 			    netgrp = getnetgrent(&hst, &usr, &dom);
 			    do {
-				if (hostcount) {
+				if (hostcount && (grp->gr_type != GT_NULL)) {
 					grp->gr_next = get_grp();
 					if (!grp->gr_next) {
 						log(LOG_ERR, "can't allocate next group for export");
 						getexp_err(xf, tgrp);
 						goto nextline;
 					}
+					pgrp = grp;
 					grp = grp->gr_next;
 				}
 				if (netgrp) {
@@ -2050,6 +2079,14 @@ get_exportlist(void)
 			log(LOG_ERR, "can't specify both network and hosts on same line");
 			getexp_err(xf, tgrp);
 			goto nextline;
+		} else if (badhostcount && pgrp && (grp->gr_type == GT_NULL)) {
+			/*
+			 * We ended with a bad host, so the final grp wasn't used.
+			 * Remove that unused grp from the end of the list.
+			 */
+			pgrp->gr_next = NULL;
+			free_grp(grp);
+			grp = pgrp;
 		}
 
 		/*
@@ -2742,6 +2779,9 @@ do_opt( char **cpp,
 			usedarg++;
 			*opt_flagsp |= OP_ISO;
 #endif /* ISO */
+		} else if (!strcmp(cpopt, "32bitclients")) {
+			*exflagsp |= NX_32BITCLIENTS;
+			*opt_flagsp |= OP_32BITCLIENTS;
 		} else {
 			log(LOG_ERR, "Bad opt %s", cpopt);
 			return (1);
@@ -2974,7 +3014,7 @@ do_export(
 	char *subdir;
 
 	nxa.nxa_flags = NXA_ADD;
-	nxa.nxa_fsid = UUID2FSID(xf->xf_uuid);
+	nxa.nxa_fsid = ulp->ul_fsid;
 	nxa.nxa_fspath = fsb->f_mntonname;
 
 	/* get export path and ID */
@@ -2986,7 +3026,7 @@ do_export(
 	/* skip "/" between mount and subdir */
 	while (*subdir && (*subdir == '/'))
 		subdir++;
-	xid = get_export_id(ulp, subdir);
+	xid = get_export_id(ulp, (u_char *)subdir);
 	if (!xid) {
 		log(LOG_ERR, "do_export(): unable to get export ID for %s", dir);
 		return (1);

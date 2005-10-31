@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,12 @@ package org.blojsom.dispatcher;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.velocity.VelocityContext;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.app.VelocityEngine;
+import org.apache.velocity.exception.MethodInvocationException;
+import org.apache.velocity.exception.ParseErrorException;
+import org.apache.velocity.exception.ResourceNotFoundException;
+import org.apache.velocity.util.EnumerationIterator;
 import org.blojsom.BlojsomException;
 import org.blojsom.blog.BlogUser;
 import org.blojsom.blog.BlojsomConfiguration;
@@ -47,10 +52,11 @@ import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringWriter;
 import java.io.Writer;
-import java.io.File;
 import java.util.Map;
 import java.util.Properties;
 
@@ -58,11 +64,12 @@ import java.util.Properties;
  * VelocityDispatcher
  *
  * @author David Czarnecki
- * @version $Id: VelocityDispatcher.java,v 1.3 2004/08/27 01:13:55 whitmore Exp $
+ * @version $Id: VelocityDispatcher.java,v 1.3.2.1 2005/07/21 14:11:02 johnan Exp $
  */
 public class VelocityDispatcher implements BlojsomDispatcher {
 
     private static final String BLOG_VELOCITY_PROPERTIES_IP = "velocity-properties";
+    private static final String BLOJSOM_RENDER_TOOL = "BLOJSOM_RENDER_TOOL";
 
     private Log _logger = LogFactory.getLog(VelocityDispatcher.class);
     private String _installationDirectory;
@@ -110,28 +117,43 @@ public class VelocityDispatcher implements BlojsomDispatcher {
      * @param userId User ID
      * @return blojsom installation directory + base configuration directory + user id + templates directory
      */
-    private String getVelocityFileLoaderPath(String userId) {
+    protected String getVelocityFileLoaderPath(String userId) {
         StringBuffer fileLoaderPath = new StringBuffer();
         fileLoaderPath.append(_installationDirectory);
         fileLoaderPath.append(BlojsomUtils.removeInitialSlash(_baseConfigurationDirectory));
         fileLoaderPath.append(userId).append("/");
         fileLoaderPath.append(BlojsomUtils.removeInitialSlash(_templatesDirectory));
-		
-		// check for the existence of this templates folder
-		File fileLoaderDir = new File(fileLoaderPath.toString());
-		
-		_logger.debug("looking for " + fileLoaderPath.toString());
-		
-		// if it doesn't exist, use the base config dir's templates folder
-		if ( ! fileLoaderDir.exists() )
-		{
-			fileLoaderPath = new StringBuffer();
-			fileLoaderPath.append(_installationDirectory);
-			fileLoaderPath.append(BlojsomUtils.removeInitialSlash(_templatesDirectory));
-			_logger.debug("looking for " + fileLoaderPath.toString());
-		}
+        fileLoaderPath.append(", ");
+        fileLoaderPath.append(_installationDirectory);
+        fileLoaderPath.append(BlojsomUtils.removeInitialSlash(_baseConfigurationDirectory));
+        fileLoaderPath.append(BlojsomUtils.removeInitialSlash(_templatesDirectory));
 
         return fileLoaderPath.toString();
+    }
+
+    /**
+     * Populate the Velocity context with the request and session attributes
+     *
+     * @param httpServletRequest Request
+     * @param context            Context
+     */
+    protected void populateVelocityContext(HttpServletRequest httpServletRequest, Map context) {
+        EnumerationIterator iterator = new EnumerationIterator(httpServletRequest.getAttributeNames());
+        while (iterator.hasNext()) {
+            Object key = iterator.next();
+            Object value = httpServletRequest.getAttribute(key.toString());
+            context.put(key, value);
+        }
+
+        HttpSession httpSession = httpServletRequest.getSession();
+        if (httpSession != null) {
+            iterator = new EnumerationIterator(httpSession.getAttributeNames());
+            while (iterator.hasNext()) {
+                Object key = iterator.next();
+                Object value = httpSession.getAttribute(key.toString());
+                context.put(key, value);
+            }
+        }
     }
 
     /**
@@ -165,6 +187,7 @@ public class VelocityDispatcher implements BlojsomDispatcher {
             Properties updatedVelocityProperties = (Properties) _velocityProperties.clone();
             updatedVelocityProperties.setProperty(VelocityEngine.FILE_RESOURCE_LOADER_PATH, getVelocityFileLoaderPath(user.getId()));
             velocityEngine.init(updatedVelocityProperties);
+            updatedVelocityProperties = null;
         } catch (Exception e) {
             _logger.error(e);
             return;
@@ -172,45 +195,125 @@ public class VelocityDispatcher implements BlojsomDispatcher {
 
         Writer responseWriter = httpServletResponse.getWriter();
         String flavorTemplateForPage = null;
+        String pageParameter = BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest, true);
 
-        if (BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest) != null) {
-            flavorTemplateForPage = BlojsomUtils.getTemplateForPage(flavorTemplate, BlojsomUtils.getRequestValue(PAGE_PARAM, httpServletRequest));
+        if (pageParameter != null) {
+            flavorTemplateForPage = BlojsomUtils.getTemplateForPage(flavorTemplate, pageParameter);
             _logger.debug("Retrieved template for page: " + flavorTemplateForPage);
         }
 
         // Setup the VelocityContext
+        populateVelocityContext(httpServletRequest, context);
         VelocityContext velocityContext = new VelocityContext(context);
+        velocityContext.put(BLOJSOM_RENDER_TOOL, new BlojsomRenderTool(velocityEngine, velocityContext));
 
         if (flavorTemplateForPage != null) {
             // Try and look for the flavor page template for the individual user
             if (!velocityEngine.templateExists(flavorTemplateForPage)) {
                 _logger.error("Could not find flavor page template for user: " + flavorTemplateForPage);
+                responseWriter.flush();
+                velocityEngine = null;
+
                 return;
             } else {
                 try {
                     velocityEngine.mergeTemplate(flavorTemplateForPage, UTF8, velocityContext, responseWriter);
                 } catch (Exception e) {
                     _logger.error(e);
+                    responseWriter.flush();
+                    velocityEngine = null;
+
                     return;
                 }
             }
+
             _logger.debug("Dispatched to flavor page template: " + flavorTemplateForPage);
         } else {
             // Otherwise, fallback and look for the flavor template for the individual user
             if (!velocityEngine.templateExists(flavorTemplate)) {
                 _logger.error("Could not find flavor template for user: " + flavorTemplate);
+                responseWriter.flush();
+                velocityEngine = null;
+
                 return;
             } else {
                 try {
                     velocityEngine.mergeTemplate(flavorTemplate, UTF8, velocityContext, responseWriter);
                 } catch (Exception e) {
                     _logger.error(e);
+                    responseWriter.flush();
+                    velocityEngine = null;
+
                     return;
                 }
             }
+
             _logger.debug("Dispatched to flavor template: " + flavorTemplate);
         }
 
         responseWriter.flush();
+        velocityEngine = null;
+    }
+
+    /**
+     * Blojsom render tool mimics the functionality of the Velocity render tool to parse VTL markup added to a
+     * template
+     *
+     * @since blojsom 2.24
+     */
+    public class BlojsomRenderTool {
+
+        private static final String LOG_TAG = "BlojsomRenderTool";
+
+        private VelocityEngine _velocityEngine;
+        private VelocityContext _velocityContext;
+
+        /**
+         * Create a new instance of the render tool
+         *
+         * @param velocityEngine  {@link VelocityEngine}
+         * @param velocityContext {@link VelocityContext}
+         */
+        public BlojsomRenderTool(VelocityEngine velocityEngine, VelocityContext velocityContext) {
+            _velocityEngine = velocityEngine;
+            _velocityContext = velocityContext;
+        }
+
+        /**
+         * Evaluate a string containing VTL markup
+         *
+         * @param template VTL markup
+         * @return Processed VTL or <code>null</code> if an error in evaluation
+         */
+        public String evaluate(String template) {
+            if (BlojsomUtils.checkNullOrBlank(template)) {
+                return null;
+            }
+
+            StringWriter sw = new StringWriter();
+            boolean success = false;
+
+            try {
+                if (_velocityEngine == null) {
+                    success = Velocity.evaluate(_velocityContext, sw, LOG_TAG, template);
+                } else {
+                    success = _velocityEngine.evaluate(_velocityContext, sw, LOG_TAG, template);
+                }
+            } catch (ParseErrorException e) {
+                _logger.error(e);
+            } catch (MethodInvocationException e) {
+                _logger.error(e);
+            } catch (ResourceNotFoundException e) {
+                _logger.error(e);
+            } catch (IOException e) {
+                _logger.error(e);
+            }
+
+            if (success) {
+                return sw.toString();
+            }
+
+            return null;
+        }
     }
 }

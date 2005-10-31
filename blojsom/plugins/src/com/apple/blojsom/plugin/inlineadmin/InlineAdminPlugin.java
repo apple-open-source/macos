@@ -1,10 +1,10 @@
 /**
  * Contains:   Inline administration plug-in for blojsom.
  * Written by: John Anderson (for addtl writers check CVS comments).
- * Copyright:  © 2004 Apple Computer, Inc., all rights reserved.
+ * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: InlineAdminPlugin.java,v 1.40 2005/02/24 21:33:01 johnan Exp $
+ * $Id: InlineAdminPlugin.java,v 1.40.2.4 2005/09/23 20:56:51 johnan Exp $
  */ 
 package com.apple.blojsom.plugin.inlineadmin;
 
@@ -14,6 +14,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.blojsom.BlojsomException;
 import org.blojsom.blog.*;
+import org.blojsom.plugin.common.RSSEnclosurePlugin;
 import org.blojsom.plugin.BlojsomPlugin;
 import org.blojsom.plugin.BlojsomPluginException;
 import org.blojsom.util.BlojsomConstants;
@@ -25,6 +26,7 @@ import org.blojsom.fetcher.BlojsomFetcherException;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import javax.servlet.ServletConfig;
 import java.io.*;
 import java.util.*;
@@ -34,7 +36,7 @@ import java.util.*;
  *
  * @author John Anderson
  * @since blojsom 2.14
- * @version $Id: InlineAdminPlugin.java,v 1.40 2005/02/24 21:33:01 johnan Exp $
+ * @version $Id: InlineAdminPlugin.java,v 1.40.2.4 2005/09/23 20:56:51 johnan Exp $
  */
 public class InlineAdminPlugin extends EditBlogEntriesPlugin {
 
@@ -58,6 +60,7 @@ public class InlineAdminPlugin extends EditBlogEntriesPlugin {
 	private static final String NEWCAT_SUPER = "newcat_super";
 	private static final String NEWCAT_PARENT_LABEL = "new_category_parent_label";
 	private static final String NEWCAT_CATEGORY_NAME = "newcat_category_name";
+	private static final String RSS_ENCLOSURE = "rss_enclosure";
 	private static final String ALL_STYLESHEETS = "all_stylesheets";
 	private static final String BLOG_SETTING_STYLESHEET = "blog_setting_stylesheet";
 	private static final String INLINE_BLOG_ENTRY_EXTENSION = ".html";
@@ -67,6 +70,7 @@ public class InlineAdminPlugin extends EditBlogEntriesPlugin {
     private static final String BLOG_TRACKBACK_URLS = "blog-trackback-urls";
     private static final String DELETING_CATEGORY_NAME = "deleting_category_name";
 	private static final String CATEGORY_PROPERTIES_FILE = "blojsom.properties";
+	private static final String STOP_ADMIN_PARAM = "stop-admin";
     private static final int MAXIMUM_FILENAME_LENGTH = 28;
 
     // Actions
@@ -84,6 +88,25 @@ public class InlineAdminPlugin extends EditBlogEntriesPlugin {
      * Default constructor.
      */
     public InlineAdminPlugin() {
+    }
+
+    /**
+     * Return a filename appropriate for the blog entry content
+     *
+     * @param content            Blog entry content
+     * @param blogEntryExtension Extension to be used for the blog entry filename
+     * @return Filename for the new blog entry
+     */
+    protected String getBlogEntryFilename(String content, String blogEntryExtension) {
+        String hashable = content;
+
+        if (content.length() > MAX_HASHABLE_LENGTH) {
+            hashable = hashable.substring(0, MAX_HASHABLE_LENGTH);
+        }
+
+        String baseFilename = BlojsomUtils.digestString(hashable).toUpperCase();
+        String filename = baseFilename + blogEntryExtension;
+        return filename;
     }
 
     /**
@@ -135,6 +158,11 @@ public class InlineAdminPlugin extends EditBlogEntriesPlugin {
         String action = BlojsomUtils.getRequestValue(ACTION_PARAM, httpServletRequest);		
 		String messageToShow = BlojsomUtils.getRequestValue(SHOW_MESSAGE_PARAM, httpServletRequest);
 		
+		if (context.get(STOP_ADMIN_PARAM) != null) {
+			_logger.debug("admin stopped");
+			action = null;
+		}
+		
 		// if there's a message to show, show it
 		if (messageToShow != null) {
 			addOperationResultMessage(context, messageToShow);
@@ -169,7 +197,7 @@ public class InlineAdminPlugin extends EditBlogEntriesPlugin {
 				context.put(PREV_ADDING_CATEGORY_NAME, BlojsomUtils.escapeString(BlojsomUtils.getRequestValue(ADDING_CATEGORY_NAME, httpServletRequest)));
 				context.put(PREV_ADDING_ENTRY_TITLE, BlojsomUtils.escapeString(BlojsomUtils.getRequestValue(ADDING_ENTRY_TITLE, httpServletRequest)));
 				context.put(PREV_ADDING_ENTRY_DESC, BlojsomUtils.escapeString(BlojsomUtils.getRequestValue(ADDING_ENTRY_DESC, httpServletRequest)));
-				redirectWithMessage(httpServletResponse, " message.nosession.entry");
+				addOperationResultMessage(context, " message.nosession.entry");
 			}
 			else if ((action != null) && (!("".equals(action)))) {
 				redirectWithMessage(httpServletResponse, " message.nosession");
@@ -434,9 +462,16 @@ public class InlineAdminPlugin extends EditBlogEntriesPlugin {
             entryToAdd.setDescription(blogEntryDescription);
 
             Map entryMetaData = new HashMap();
-            String username = (String) httpServletRequest.getSession().getAttribute(user.getBlog().getBlogURL() + "_" + BLOJSOM_ADMIN_PLUGIN_USERNAME_KEY);
+			HttpSession httpSession = httpServletRequest.getSession();
+			String username = (String)httpSession.getAttribute(blog.getBlogAdminURL() + "_" + BLOJSOM_ADMIN_PLUGIN_USERNAME_KEY);
+			String resolvedUsername = BlojsomAppleUtils.validateShortNameAndResolveAliases(username, "/Search");
+			username = ((resolvedUsername != null) ? resolvedUsername : BlojsomAppleUtils.getShortNameFromFullName(username, "/Search"));
             entryMetaData.put(BlojsomMetaDataConstants.BLOG_ENTRY_METADATA_AUTHOR, username);
 			entryMetaData.put(BlojsomMetaDataConstants.BLOG_ENTRY_METADATA_TIMESTAMP, new Long(new Date().getTime()).toString());
+			String rssEnclosure = (String)context.get(RSSEnclosurePlugin.METADATA_RSS_ENCLOSURE);
+			if (!BlojsomUtils.checkNullOrBlank(rssEnclosure)) {
+				entryMetaData.put(RSSEnclosurePlugin.METADATA_RSS_ENCLOSURE, rssEnclosure);
+			}
 			entryToAdd.setMetaData(entryMetaData);
 			
 			String filename = blogEntryTitle;
@@ -509,6 +544,23 @@ public class InlineAdminPlugin extends EditBlogEntriesPlugin {
                 entries = _fetcher.fetchEntries(fetchMap, user);
                 if (entries != null) {
                     _logger.debug("Retrieved " + entries.length + " entries from category: " + blogCategoryName);
+					// delete the RSS enclosure, if any
+					if (entries[0].getMetaData() != null && entries[0].getMetaData().get(RSSEnclosurePlugin.METADATA_RSS_ENCLOSURE) != null) {
+						String enclosureName = BlojsomUtils.getFilenameFromPath((String)
+								entries[0].getMetaData().get(RSSEnclosurePlugin.METADATA_RSS_ENCLOSURE));
+						File enclosure = new
+								File(_blojsomConfiguration.getInstallationDirectory()
+								+ _blojsomConfiguration.getResourceDirectory() +
+								user.getId() + "/" + enclosureName);
+						if (enclosure.exists()) {
+							try {
+								enclosure.delete();
+							} catch (SecurityException e) {
+								_logger.error(e);
+							}
+						}
+					}
+					// delete the entry itself
                     String deletedEntryTitle = entries[0].getTitle();
 					entries[0].delete(user);
 

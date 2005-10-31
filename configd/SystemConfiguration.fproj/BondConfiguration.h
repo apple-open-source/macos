@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,10 +28,12 @@
 	@header BONDCONFIGURATION
 */
 
+#include <AvailabilityMacros.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCNetworkConfiguration.h>
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
 
 typedef const struct __BondInterface *		BondInterfaceRef;
 
@@ -142,5 +144,7 @@ BondStatusGetDeviceStatus		(BondStatusRef		bondStatus,
 					 CFStringRef		device)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 __END_DECLS
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
 
 #endif /* _BONDCONFIGURATION_H */

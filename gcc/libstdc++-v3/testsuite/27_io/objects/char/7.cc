@@ -1,6 +1,6 @@
 // 2003-04-26 Petur Runolfsson  <peturr02@ru.is>
 
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,26 +42,26 @@ void test07()
 
   unlink(name);  
   try_mkfifo(name, S_IRWXU);
-  
+  semaphore s1;
+
   int child = fork();
   VERIFY( child != -1 );
 
   if (child == 0)
     {
       filebuf fbout;
-      sleep(1);
       fbout.open(name, ios_base::in|ios_base::out);
+      s1.wait ();
       VERIFY ( fbout.is_open() );
       cout.rdbuf(&fbout);
       fbout.sputc('a');
-      sleep(2);
       // NB: fbout is *not* destroyed here!
       exit(0);
     }
   
   filebuf fbin;
   fbin.open(name, ios_base::in);
-  sleep(2);
+  s1.signal ();
   filebuf::int_type c = fbin.sbumpc();
   VERIFY( c != filebuf::traits_type::eof() );
   VERIFY( c == filebuf::traits_type::to_int_type('a') );

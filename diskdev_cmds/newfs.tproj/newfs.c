@@ -101,6 +101,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <err.h>
 
 #ifdef __APPLE__
 int dkdisklabel __P((int fd, struct disklabel * lp));
@@ -231,6 +232,7 @@ int	unlabeled;
 char	device[MAXPATHLEN];
 char	*progname;
 
+extern void mkfs(char *, int, int);
 void usage();
 
 int
@@ -248,7 +250,7 @@ main(argc, argv)
 	struct stat st;
 	struct statfs *mp;
 	int fsi, fso, len, n;
-	char *cp, *s1, *s2, *special, *opstring, buf[BUFSIZ];
+	char *cp, *s1, *s2, *special, *opstring;
 #ifdef __APPLE__
 	char *	filesystem_name = "untitled"; /* filesystem name */
 #endif __APPLE__

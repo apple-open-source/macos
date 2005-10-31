@@ -1,5 +1,5 @@
-/* gtklistpeer.c -- Native implementation of GtkListPeer
-   Copyright (C) 1998, 1999, 2004 Free Software Foundation, Inc.
+/* GtkListPeer.c -- implements GtkListPeer's native methods
+   Copyright (C) 1998, 1999, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GNU Classpath.
 
@@ -117,22 +117,6 @@ Java_gnu_java_awt_peer_gtk_GtkListPeer_create
 }
 
 JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkListPeer_connectJObject
-  (JNIEnv *env, jobject obj)
-{
-  void *ptr;
-
-  ptr = NSA_GET_PTR (env, obj);
-
-  gdk_threads_enter ();
-
-  gtk_widget_realize (GTK_WIDGET (ptr));
-  connect_awt_hook (env, obj, 1, GTK_WIDGET (ptr)->window);
-
-  gdk_threads_leave ();
-}
-
-JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkListPeer_connectSignals
   (JNIEnv *env, jobject obj)
 {
@@ -148,8 +132,6 @@ Java_gnu_java_awt_peer_gtk_GtkListPeer_connectSignals
 
   g_assert (gref);
 
-  gtk_widget_realize (GTK_WIDGET (ptr));
-
   list = TREE_VIEW_FROM_SW (ptr);
 
   g_signal_connect (G_OBJECT (list), "event",
@@ -163,7 +145,7 @@ Java_gnu_java_awt_peer_gtk_GtkListPeer_connectSignals
 }
 
 JNIEXPORT void JNICALL
-Java_gnu_java_awt_peer_gtk_GtkListPeer_gtkSetFont
+Java_gnu_java_awt_peer_gtk_GtkListPeer_gtkWidgetModifyFont
   (JNIEnv *env, jobject obj, jstring name, jint style, jint size)
 {
   const char *font_name;
@@ -516,12 +498,12 @@ item_highlighted (GtkTreeSelection *selection __attribute__((unused)),
       row = indices ? indices[0] : -1;
 
       if (!path_currently_selected)
-        (*gdk_env)->CallVoidMethod (gdk_env, peer,
+        (*gdk_env())->CallVoidMethod (gdk_env(), peer,
                                     postListItemEventID,
                                     row,
                                     (jint) AWT_ITEM_SELECTED);
       else
-        (*gdk_env)->CallVoidMethod (gdk_env, peer,
+        (*gdk_env())->CallVoidMethod (gdk_env(), peer,
                                     postListItemEventID,
                                     row,
                                     (jint) AWT_ITEM_DESELECTED);

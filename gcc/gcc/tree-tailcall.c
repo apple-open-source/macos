@@ -1,5 +1,5 @@
 /* Tail call optimization on trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -159,6 +159,8 @@ suitable_for_tail_opt_p (void)
 static bool
 suitable_for_tail_call_opt_p (void)
 {
+  tree param;
+
   /* alloca (until we have stack slot life analysis) inhibits
      sibling call optimizations, but not tail recursion.  */
   if (current_function_calls_alloca)
@@ -175,6 +177,14 @@ suitable_for_tail_call_opt_p (void)
      properly in the CFG so that this needn't be special cased.  */
   if (current_function_calls_setjmp)
     return false;
+
+  /* ??? It is OK if the argument of a function is taken in some cases,
+     but not in all cases.  See PR15387 and PR19616.  Revisit for 4.1.  */
+  for (param = DECL_ARGUMENTS (current_function_decl);
+       param;
+       param = TREE_CHAIN (param))
+    if (TREE_ADDRESSABLE (param))
+      return false;
 
   return true;
 }
@@ -589,7 +599,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 	if (PHI_RESULT (phi) == a_acc)
 	  break;
 
-      add_phi_arg (&phi, a_acc_arg, back);
+      add_phi_arg (phi, a_acc_arg, back);
     }
 
   if (m_acc)
@@ -598,7 +608,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 	if (PHI_RESULT (phi) == m_acc)
 	  break;
 
-      add_phi_arg (&phi, m_acc_arg, back);
+      add_phi_arg (phi, m_acc_arg, back);
     }
 }
 
@@ -736,7 +746,7 @@ eliminate_tail_call (struct tailcall *t)
       if (!phi)
 	continue;
 
-      add_phi_arg (&phi, TREE_VALUE (args), e);
+      add_phi_arg (phi, TREE_VALUE (args), e);
     }
 
   /* Add phi nodes for the call clobbered variables.  */
@@ -766,7 +776,7 @@ eliminate_tail_call (struct tailcall *t)
 	  var_ann (param)->default_def = new_name;
 	  phi = create_phi_node (name, first);
 	  SSA_NAME_DEF_STMT (name) = phi;
-	  add_phi_arg (&phi, new_name, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
+	  add_phi_arg (phi, new_name, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
 
 	  /* For all calls the same set of variables should be clobbered.  This
 	     means that there always should be the appropriate phi node except
@@ -774,7 +784,7 @@ eliminate_tail_call (struct tailcall *t)
 	  gcc_assert (EDGE_COUNT (first->preds) <= 2);
 	}
 
-      add_phi_arg (&phi, V_MAY_DEF_OP (v_may_defs, i), e);
+      add_phi_arg (phi, V_MAY_DEF_OP (v_may_defs, i), e);
     }
 
   /* Update the values of accumulators.  */
@@ -884,7 +894,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	      var_ann (param)->default_def = new_name;
 	      phi = create_phi_node (name, first);
 	      SSA_NAME_DEF_STMT (name) = phi;
-	      add_phi_arg (&phi, new_name, EDGE_PRED (first, 0));
+	      add_phi_arg (phi, new_name, EDGE_PRED (first, 0));
 	    }
 	  phis_constructed = true;
 	}
@@ -897,7 +907,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi,
+	  add_phi_arg (phi,
 		       /* RET_TYPE can be a float when -ffast-maths is
 			  enabled.  */
 		       fold_convert (ret_type, integer_zero_node),
@@ -913,7 +923,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi,
+	  add_phi_arg (phi,
 		       /* RET_TYPE can be a float when -ffast-maths is
 			  enabled.  */
 		       fold_convert (ret_type, integer_one_node),

@@ -89,4 +89,13 @@ enum
     kDataOther,
     kDataNone
 };
+
+	// Reset states
+
+enum
+{
+    kResetNormal	= 0,
+    kResetNeeded,
+    kResetDone
+};
 #endif

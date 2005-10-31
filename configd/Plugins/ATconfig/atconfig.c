@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -139,12 +139,15 @@ updateDefaults(const void *key, const void *val, void *context)
 			 * set the "default zone" for this interface
 			 */
 			bzero(&zone, sizeof(zone));
-			if (!_SC_cfstring_to_cstring(defaultZone, zone.str, sizeof(zone.str), kCFStringEncodingASCII)) {
+			if (!_SC_cfstring_to_cstring(defaultZone,
+						     (char *)zone.str,
+						     sizeof(zone.str),
+						     kCFStringEncodingASCII)) {
 				SCLog(TRUE, LOG_ERR, CFSTR("could not convert default zone to C string"));
 				return;
 			}
 
-			zone.len = strlen(zone.str);
+			zone.len = strlen((const char *)zone.str);
 			status = at_setdefaultzone(ifr_name, &zone);
 			if (status == -1) {
 				SCLog(TRUE, LOG_ERR, CFSTR("at_setdefaultzone() failed"));

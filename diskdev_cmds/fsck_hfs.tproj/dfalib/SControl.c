@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -746,7 +746,8 @@ static int ScavSetUp( SGlob *GPtr)
 		}
 	
 		GPtr->calculatedVCB = vcb	= &pointer->vcb;
-		
+		vcb->vcbGPtr = GPtr;
+
 		GPtr->FCBAPtr				= (Ptr) &pointer->fcbList;
 		GPtr->calculatedExtentsFCB		= &pointer->fcbList[0];
 		GPtr->calculatedCatalogFCB		= &pointer->fcbList[1];

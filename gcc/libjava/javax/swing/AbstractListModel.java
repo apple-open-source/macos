@@ -1,5 +1,5 @@
 /* AbstractListModel.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,14 +35,15 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.io.Serializable;
 import java.util.EventListener;
+
 import javax.swing.event.EventListenerList;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
-
 
 /**
  * AbstractListModel
@@ -53,7 +54,7 @@ import javax.swing.event.ListDataListener;
  */
 public abstract class AbstractListModel implements ListModel, Serializable
 {
-  static final long serialVersionUID = -3285184064379168730L;
+  private static final long serialVersionUID = -3285184064379168730L;
 
   /** List of ListDataListeners called for each change to the list. */
   protected EventListenerList listenerList;
@@ -99,25 +100,12 @@ public abstract class AbstractListModel implements ListModel, Serializable
   protected void fireContentsChanged(Object source, int startIndex,
                                      int endIndex)
   {
-    // Variables
-    ListDataEvent event;
-    ListDataListener[] listeners;
-    ListDataListener listener;
-    int index;
+    ListDataEvent event = new ListDataEvent(source, ListDataEvent.CONTENTS_CHANGED,
+                                            startIndex, endIndex);
+    ListDataListener[] listeners = getListDataListeners();
 
-    // Create Event
-    event = new ListDataEvent(source, ListDataEvent.CONTENTS_CHANGED,
-                              startIndex, endIndex);
-
-    // Get Listeners
-    listeners = getListDataListeners();
-
-    // Process Listeners
-    for (index = 0; index < listeners.length; index++)
-      {
-        listener = (ListDataListener) listeners[index];
-        listener.contentsChanged(event);
-      }
+    for (int index = 0; index < listeners.length; index++)
+      listeners[index].contentsChanged(event);
   }
 
   /**
@@ -133,25 +121,13 @@ public abstract class AbstractListModel implements ListModel, Serializable
    */
   protected void fireIntervalAdded(Object source, int startIndex, int endIndex)
   {
-    // Variables
-    ListDataEvent event;
-    ListDataListener[] listeners;
-    ListDataListener listener;
-    int index;
+    ListDataEvent event =
+      new ListDataEvent(source, ListDataEvent.INTERVAL_ADDED,
+			startIndex, endIndex);
+    ListDataListener[] listeners = getListDataListeners();
 
-    // Create Event
-    event = new ListDataEvent(source, ListDataEvent.INTERVAL_ADDED,
-                              startIndex, endIndex);
-
-    // Get Listeners
-    listeners = getListDataListeners();
-
-    // Process Listeners
-    for (index = 0; index < listeners.length; index++)
-      {
-        listener = listeners[index];
-        listener.intervalAdded(event);
-      }
+    for (int index = 0; index < listeners.length; index++)
+      listeners[index].intervalAdded(event);
   }
 
   /**
@@ -168,25 +144,13 @@ public abstract class AbstractListModel implements ListModel, Serializable
   protected void fireIntervalRemoved(Object source, int startIndex,
                                      int endIndex)
   {
-    // Variables
-    ListDataEvent event;
-    ListDataListener[] listeners;
-    ListDataListener listener;
-    int index;
+    ListDataEvent event =
+      new ListDataEvent(source, ListDataEvent.INTERVAL_REMOVED,
+			startIndex, endIndex);
+    ListDataListener[] listeners = getListDataListeners();
 
-    // Create Event
-    event = new ListDataEvent(source, ListDataEvent.INTERVAL_REMOVED,
-                              startIndex, endIndex);
-
-    // Get Listeners
-    listeners = getListDataListeners();
-
-    // Process Listeners
-    for (index = 0; index < listeners.length; index++)
-      {
-        listener = listeners[index];
-        listener.intervalRemoved(event);
-      }
+    for (int index = 0; index < listeners.length; index++)
+      listeners[index].intervalRemoved(event);
   }
 
   /**

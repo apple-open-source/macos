@@ -30,9 +30,9 @@
 
 +(void)decodeBytes:(UInt8 *)descriptor forDevice:(BusProbeDevice *)thisDevice {
 
-    static unsigned char			buf[256];
-    static unsigned char			buf2[256];
-	static unsigned char			dump[256];
+    static  char			buf[256];
+    static  char			buf2[256];
+	static  char			dump[256];
     auto AudioCtrlHdrDescriptorPtr		pAudioHdrDesc;
     auto AudioCtrlInTermDescriptorPtr		pAudioInTermDesc;
     auto AudioCtrlOutTermDescriptorPtr		pAudioOutTermDesc;
@@ -67,7 +67,7 @@
         strcat((char *)buf, (char *)buf2);
         sprintf((char *)buf2, "%s", (pEndpointDesc->bEndpointAddress & 0x80) ? "input" : "output");
         strcat((char *)buf, (char *)buf2);
-        [thisDevice addProperty:buf withValue:"" atDepth:INTERFACE_LEVEL];
+        [thisDevice addProperty:buf withValue:"" atDepth:(int)INTERFACE_LEVEL];
 
         sprintf((char *)buf, "0x%02x  %s %s %s", pEndpointDesc->bmAttributes,
                 ((pEndpointDesc->bmAttributes & 0x01) == 0x01) ? "Sample Frequency,":"",
@@ -170,6 +170,17 @@
                     sprintf((char *)buf, "%u", *p );
                     [thisDevice addProperty:"Audio Interface Number:" withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
+
+				dump[0] = 0;
+				for (tempIndex = 0; tempIndex < pAudioHdrDesc->descLen; tempIndex++)
+				{
+					buf2[0] = ((char *)pAudioHdrDesc)[tempIndex];
+					buf2[1] = '\0';
+					sprintf ((char *)buf, "%02X ", buf2[0]);
+					strcat ((char *)dump, (char *)buf);
+				}
+				
+				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
                     break;
 
             case ACS_INPUT_TERMINAL:
@@ -419,9 +430,20 @@
                 {
 
                     sprintf((char *)buf2,	"Source ID Pin[%d]:", i+1);
-                    sprintf((char *)buf,	"%u", pAudioMixerDesc->descSourcePID[i+1] );
+                    sprintf((char *)buf,	"%u", pAudioMixerDesc->descSourcePID[i] );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
+
+				dump[0] = 0;
+				for (tempIndex = 0; tempIndex < pAudioMixerDesc->descLen; tempIndex++)
+				{
+					buf2[0] = ((char *)pAudioMixerDesc)[tempIndex];
+					buf2[1] = '\0';
+					sprintf ((char *)buf, "%02X ", buf2[0]);
+					strcat ((char *)dump, (char *)buf);
+				}
+				
+				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
                     break;
 
             case ACS_SELECTOR_UNIT:
@@ -437,9 +459,20 @@
                 for( i=0; i < pAudioSelectorDesc->descNumPins; i++ )
                 {
                     sprintf((char *)buf2,	"Source ID Pin[%d]:", i);
-                    sprintf((char *)buf,	"%u", pAudioSelectorDesc->descSourcePID[i+1] );
+                    sprintf((char *)buf,	"%u", pAudioSelectorDesc->descSourcePID[i] );
                     [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
                 }
+
+				dump[0] = 0;
+				for (tempIndex = 0; tempIndex < pAudioSelectorDesc->descLen; tempIndex++)
+				{
+					buf2[0] = ((char *)pAudioSelectorDesc)[tempIndex];
+					buf2[1] = '\0';
+					sprintf ((char *)buf, "%02X ", buf2[0]);
+					strcat ((char *)dump, (char *)buf);
+				}
+				
+				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
                     break;
 
             case ACS_FEATURE_UNIT:
@@ -561,6 +594,25 @@
 
                 // The feature descriptor length equals len=13+descNumPins+bControlSize
                 //    from Audio Class Devices p. 56.
+
+                // Add parsing for other pin IDs and channel configurations.
+                for( i=0; i < pAudioExtDesc->descNumPins; i++ )
+                {
+                    sprintf((char *)buf2,	"Source ID Pin[%d]:", i);
+                    sprintf((char *)buf,	"%u", pAudioExtDesc->descSourcePID[i] );
+                    [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
+                }
+
+				dump[0] = 0;
+				for (tempIndex = 0; tempIndex < pAudioExtDesc->descLen; tempIndex++)
+				{
+					buf2[0] = ((char *)pAudioExtDesc)[tempIndex];
+					buf2[1] = '\0';
+					sprintf ((char *)buf, "%02X ", buf2[0]);
+					strcat ((char *)dump, (char *)buf);
+				}
+				
+				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
                 break;
             case ACS_PROCESSING_UNIT:
                 pAudioProcDesc = (acProcessingDescriptorPtr)desc;
@@ -599,6 +651,16 @@
                 sprintf((char *)buf, "%u", pAudioProcContDesc->iProcessing );
                 [thisDevice addProperty:"Process Unit Name:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
+				dump[0] = 0;
+				for (tempIndex = 0; tempIndex < pAudioProcDesc->bLength; tempIndex++)
+				{
+					buf2[0] = ((char *)pAudioProcDesc)[tempIndex];
+					buf2[1] = '\0';
+					sprintf ((char *)buf, "%02X ", buf2[0]);
+					strcat ((char *)dump, (char *)buf);
+				}
+				
+				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+1];
                 break;
 	}
             else            if ( [[thisDevice lastInterfaceClassInfo] subclassNum]==0x02 /*AudioStreaming*/ )

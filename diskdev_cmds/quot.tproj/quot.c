@@ -53,7 +53,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: quot.c,v 1.1.1.2 2000/01/11 00:40:37 wsanchez Exp $";
+static char rcsid[] = "$Id: quot.c,v 1.1.1.2.296.1 2005/07/20 04:56:00 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -208,7 +208,7 @@ static int nusers;
 
 static void inituser()
 {
-	register i;
+	register int i;
 	register struct user *usr;
 	
 	if (!nusers) {
@@ -228,7 +228,7 @@ static void inituser()
 
 static void usrrehash()
 {
-	register i;
+	register int i;
 	register struct user *usr, *usrn;
 	struct user *svusr;
 	
@@ -252,7 +252,7 @@ static struct user *user(uid)
 	uid_t uid;
 {
 	register struct user *usr;
-	register i;
+	register int i;
 	struct passwd *pwd;
 	
 	while (1) {
@@ -333,7 +333,7 @@ struct fsizes {
 static void initfsizes()
 {
 	register struct fsizes *fp;
-	register i;
+	register int i;
 	
 	for (fp = fsizes; fp; fp = fp->fsz_next) {
 		for (i = FSZCNT; --i >= 0;) {
@@ -352,7 +352,7 @@ static void dofsizes(fd,super,name)
 	struct dinode *ip;
 	daddr_t sz, ksz;
 	struct fsizes *fp, **fsp;
-	register i;
+	register int i;
 	
 	maxino = super->fs_ncg * super->fs_ipg - 1;
 #ifdef	COMPAT
@@ -429,7 +429,7 @@ static void douser(fd,super,name)
 	ino_t inode, maxino;
 	struct user *usr, *usrs;
 	struct dinode *ip;
-	register n;
+	register int n;
 	
 	maxino = super->fs_ncg * super->fs_ipg - 1;
 	for (inode = 0; inode < maxino; inode++) {

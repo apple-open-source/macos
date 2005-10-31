@@ -65,7 +65,8 @@ protected:
     UInt32			arStorageRequestsPending;
 
     thread_call_t		arRecoveryThreadCall;
-
+    IOCommandGate::Action	arAllocateRequestMethod;
+    
     UInt32			arActiveCount;
     UInt32			arMemberCount;
     UInt32			arLastAllocCount;
@@ -131,6 +132,7 @@ protected:
     virtual UInt64 getSize(void) const;
     virtual IOWorkLoop *getWorkLoop(void);
     virtual bool changeSetState(UInt32 newState);
+    virtual UInt32 nextSetState(void);
 
     inline  UInt32 getActiveCount(void) const	{ return arActiveCount; };
     inline  UInt32 getMemberCount(void)	const	{ return arMemberCount; };

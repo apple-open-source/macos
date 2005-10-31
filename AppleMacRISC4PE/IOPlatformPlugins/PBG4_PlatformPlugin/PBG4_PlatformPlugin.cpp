@@ -31,8 +31,15 @@
 #include "PBG4_PlatformPlugin.h"
 
 // Global pointer to our plugin for reference by sensors and control loops
-PBG4_PlatformPlugin*			gPlatformPlugin;
+PBG4_PlatformPlugin				*gPlatformPlugin;
 
+const OSSymbol					*gIOPluginEnvStepperDataLoadRequest,
+								*gIOPluginEnvStepControlState;
+
+// Uncomment to enable listing contents of dictionaries
+//#define PLUGIN_DEBUG_DICT
+
+#ifdef PLUGIN_DEBUG_DICT
 //*********************************************************************************
 // printDictionaryKeys
 //
@@ -67,6 +74,7 @@ static void printDictionaryKeys (OSDictionary * inDictionary, char * inMsg)
 #endif	// PLUGIN_DEBUG
   return;
 }
+#endif	// PLUGIN_DEBUG_DICT
 
 #define super IOPlatformPlugin
 OSDefineMetaClassAndStructors(PBG4_PlatformPlugin, IOPlatformPlugin)
@@ -128,8 +136,7 @@ bool PBG4_PlatformPlugin::start( IOService * provider )
 // virtual
 bool PBG4_PlatformPlugin::initCtrlLoops( const OSArray * ctrlLoopDicts )
 {
-	IOPlatformCtrlLoop	*loop;
-	OSNumber			*flag, *watts;
+	OSNumber			*flag;
 	OSDictionary		*dict;
 	int					count, i;
 	bool				result;
@@ -148,12 +155,7 @@ bool PBG4_PlatformPlugin::initCtrlLoops( const OSArray * ctrlLoopDicts )
 					continue;
 				}
 				
-				// Make the baseline wattage available to the control loop
-				if (watts = OSDynamicCast (OSNumber, dict->getObject(kCtrlLoopPowerAdapterBaseline)))
-					if ((loop = OSDynamicCast(IOPlatformCtrlLoop, ctrlLoops->getObject(i))) != NULL)
-						loop->getInfoDict()->setObject(kCtrlLoopPowerAdapterBaseline, watts);
-				
-#if 0
+#ifdef PLUGIN_DEBUG_DICT
 				char s[64];
 				
 				sprintf (s, "ctrlLoopDict[%d]", i);
@@ -279,8 +281,187 @@ void PBG4_PlatformPlugin::environmentChanged( void )
 	return;
 }
 
+// **********************************************************************************
+// delEnv
+//
+//          -- delete an environmental object - this should be moved to superclass 
+//
+// **********************************************************************************
+void PBG4_PlatformPlugin::delEnv (const OSSymbol *aKey)
+{
+	envInfo->removeObject (aKey);
+	return;
+}
 
+// **********************************************************************************
+// initSymbols
+//
+//          -- init symbols used by this plugin 
+//
+// **********************************************************************************
+void PBG4_PlatformPlugin::initSymbols( void )
+{
+	gIOPluginEnvStepperDataLoadRequest		= OSSymbol::withCString (kIOPluginEnvStepperDataLoadRequest);
+	gIOPluginEnvStepControlState			= OSSymbol::withCString (kIOPluginEnvStepControlState);
+	
+	super::initSymbols ();		// Let our parent do the same
+	return;
+}
 
+IOReturn PBG4_PlatformPlugin::loadStepDataEventDispatch (UInt32 baseTableAddr, UInt32 baseTableLength, UInt32 secondaryTableAddr, UInt32 secondaryTableLength)
+{
+	LoadDataStruct		loadData;
+	IOPPluginEventData	event;
+	
+	// Don't allow loading new data in a safe boot.  Stepping behavior is constrained and probably not what user expects
+	if (safeBoot)
+		return kIOReturnError;
+	
+	// Pass along user data
+	loadData.baseTableAddr			= baseTableAddr;
+	loadData.baseTableLength		= baseTableLength;
+	loadData.secondaryTableAddr		= secondaryTableAddr;
+	loadData.secondaryTableLength	= secondaryTableLength;
+	
+	// dispatch a (serialized) event
+	event.eventType = IOPPluginEventMisc;
+	event.param1 = (void *)this;				// Pass self
+	event.param2 = (void *)&loadData;			// Pass user data
+	event.param3 = (void *)NULL;				// Unused param
+	event.param4 = (void *)PBG4_PlatformPlugin::loadStepDataHandler;
+
+	DLOG("PBG4_PluginUserClient::loadStepDataEventDispatch - dispatching data\n");
+	
+	return (dispatchEvent (&event));
+}
+
+// **********************************************************************************
+// loadStepDataHandler
+//
+//
+// **********************************************************************************
+/* static */
+IOReturn PBG4_PlatformPlugin::loadStepDataHandler ( void * p1, void * p2, void * p3 )
+{
+	PBG4_PlatformPlugin		*localThis;
+
+	DLOG("PBG4_PlatformPlugin::loadStepDataHandler - entered\n");
+	
+	localThis = OSDynamicCast(PBG4_PlatformPlugin, (OSObject *)p1);
+    if (localThis == NULL)
+        return kIOReturnBadArgument;
+	
+	return localThis->loadStepData ((LoadDataStruct *) p2);
+}
+
+// **********************************************************************************
+// loadStepData
+//
+//
+// **********************************************************************************
+IOReturn PBG4_PlatformPlugin::loadStepData (LoadDataStruct *userStepData)
+{
+	OSData				*baseTableData;
+	UInt8				*baseTablePtr;
+	UInt32				bytesRead;
+	IOMemoryDescriptor	*baseTableMemDesc;
+	//IOMemoryDescriptor	*secondaryTableMemDesc;		// currently unused
+	IOReturn			status;
+
+	DLOG("PBG4_PlatformPlugin::loadStepData - entered\n");
+	
+	status = kIOReturnBadArgument;
+	if (userStepData && (userStepData->baseTableAddr != NULL)) {
+		
+		// Map in user memory
+		baseTableMemDesc = IOMemoryDescriptor::withAddress((vm_address_t)userStepData->baseTableAddr, userStepData->baseTableLength, 
+			kIODirectionOut, fTask);
+
+		if (!baseTableMemDesc)
+			return kIOReturnNoResources;
+		
+		baseTablePtr = (UInt8 *)IOMalloc (userStepData->baseTableLength);
+		if (!baseTablePtr)
+			return kIOReturnNoMemory;
+		
+		if (baseTableMemDesc->prepare() == kIOReturnSuccess) {
+			// read the data from user buffer
+			bytesRead = baseTableMemDesc->readBytes (0, (void *)baseTablePtr, userStepData->baseTableLength);
+			
+			if (bytesRead == userStepData->baseTableLength) {
+				baseTableData = OSData::withBytes (baseTablePtr, userStepData->baseTableLength);
+				if (baseTableData != NULL) {
+					// Update property in registry
+					setProperty(gIOPluginEnvStepperDataLoadRequest, (OSObject *)baseTableData);
+					// And notify clients
+					setEnv (gIOPluginEnvStepperDataLoadRequest, kOSBooleanTrue);
+					
+					status = kIOReturnSuccess;
+				}
+			}
+			
+			baseTableMemDesc->complete();
+		}
+		baseTableMemDesc->release();
+		IOFree (baseTablePtr, userStepData->baseTableLength);
+		
+		// xxx repeat this process with secondary table data when available
+		// secondaryTableMemDesc is unused until then
+	}
+	
+	return status;
+}
+
+// **********************************************************************************
+// stepperControlEventDispatch
+//
+//
+// **********************************************************************************
+IOReturn PBG4_PlatformPlugin::stepperControlEventDispatch (UInt32 stepLevel)
+{
+	IOPPluginEventData	event;
+	
+	// Don't allow changing state in a safe boot.
+	if (safeBoot)
+		return kIOReturnError;
+	
+	// dispatch a (serialized) event
+	event.eventType = IOPPluginEventMisc;
+	event.param1 = (void *)this;				// Pass self
+	event.param2 = (void *)stepLevel;			// Pass user data
+	event.param3 = (void *)NULL;				// Unused param
+	event.param4 = (void *)PBG4_PlatformPlugin::stepperControlHandler;
+
+	DLOG("PBG4_PluginUserClient::loadStepDataEventDispatch - dispatching data\n");
+	
+	return (dispatchEvent (&event));
+}
+
+// **********************************************************************************
+// stepperControlHandler
+//
+//
+// **********************************************************************************
+/* static */
+IOReturn PBG4_PlatformPlugin::stepperControlHandler ( void * p1, void * p2, void * p3 )
+{
+	PBG4_PlatformPlugin		*localThis;
+	UInt32					stepLevel;
+	OSNumber				*stepNum;
+
+	DLOG("PBG4_PlatformPlugin::stepperControlHandler - entered\n");
+	
+	localThis = OSDynamicCast(PBG4_PlatformPlugin, (OSObject *)p1);
+    if (localThis == NULL)
+        return kIOReturnBadArgument;
+	
+	stepLevel = (UInt32)p2;
+	
+	stepNum = OSNumber::withNumber( (unsigned long long) stepLevel, 32);
+	localThis->setEnv (gIOPluginEnvStepControlState, stepNum);
+	
+	return kIOReturnSuccess;
+}
 
 // **********************************************************************************
 // handleEnvironmentalInterruptEvent

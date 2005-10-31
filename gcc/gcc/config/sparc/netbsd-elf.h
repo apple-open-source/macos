@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC, for ELF on NetBSD/sparc
    and NetBSD/sparc64.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Matthew Green (mrg@eterna.com.au).
 
 This file is part of GCC.
@@ -51,9 +51,6 @@ Boston, MA 02111-1307, USA.  */
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE "long int"
 
-#undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-
 /* This is the char to use for continuation (in case we need to turn
    continuation back on).  */
 #undef DBX_CONTIN_CHAR
@@ -61,13 +58,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX  "."
-
-/* This is how to output a reference to an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef  ASM_OUTPUT_INTERNAL_LABELREF
-#define ASM_OUTPUT_INTERNAL_LABELREF(FILE,PREFIX,NUM)	\
-  fprintf (FILE, ".L%s%d", PREFIX, NUM)
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where

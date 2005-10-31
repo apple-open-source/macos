@@ -2031,7 +2031,7 @@ CFMutableDictionaryRef
 IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, char *dst_hostName, CFStringRef authenticationMethod, int isClient) 
 {
 	CFStringRef				src_string, dst_string, hostname_string = NULL;
-	CFMutableDictionaryRef	ipsec_dict, proposal_dict, policy0, policy1;
+	CFMutableDictionaryRef	ipsec_dict, proposal_dict, policy0, policy1 = NULL;
 	CFMutableArrayRef		policy_array, proposal_array, encryption_array, hash_array;
 	CFNumberRef				src_port_num, dst_port_num, dst_port1_num, proto_num;
 	int						zero = 0, udpproto = IPPROTO_UDP, val;

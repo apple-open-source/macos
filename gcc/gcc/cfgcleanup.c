@@ -1,6 +1,6 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,7 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
+#include "regs.h"
 #include "timevar.h"
 #include "output.h"
 #include "insn-config.h"
@@ -48,7 +48,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "tm_p.h"
 #include "target.h"
-#include "regs.h"
 #include "cfglayout.h"
 #include "emit-rtl.h"
 
@@ -279,7 +278,7 @@ thread_jump (int mode, edge e, basic_block b)
   rtx set1, set2, cond1, cond2, insn;
   enum rtx_code code1, code2, reversed_code2;
   bool reverse1 = false;
-  int i;
+  unsigned i;
   regset nonequal;
   bool failed = false;
   reg_set_iterator rsi;
@@ -348,19 +347,21 @@ thread_jump (int mode, edge e, basic_block b)
   cselib_init (false);
 
   /* First process all values computed in the source basic block.  */
-  for (insn = NEXT_INSN (BB_HEAD (e->src)); insn != NEXT_INSN (BB_END (e->src));
+  for (insn = NEXT_INSN (BB_HEAD (e->src));
+       insn != NEXT_INSN (BB_END (e->src));
        insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       cselib_process_insn (insn);
 
-  nonequal = BITMAP_XMALLOC();
+  nonequal = BITMAP_ALLOC (NULL);
   CLEAR_REG_SET (nonequal);
 
   /* Now assume that we've continued by the edge E to B and continue
      processing as if it were same basic block.
      Our goal is to prove that whole block is an NOOP.  */
 
-  for (insn = NEXT_INSN (BB_HEAD (b)); insn != NEXT_INSN (BB_END (b)) && !failed;
+  for (insn = NEXT_INSN (BB_HEAD (b));
+       insn != NEXT_INSN (BB_END (b)) && !failed;
        insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
@@ -369,7 +370,7 @@ thread_jump (int mode, edge e, basic_block b)
 
 	  if (GET_CODE (pat) == PARALLEL)
 	    {
-	      for (i = 0; i < XVECLEN (pat, 0); i++)
+	      for (i = 0; i < (unsigned)XVECLEN (pat, 0); i++)
 		failed |= mark_effect (XVECEXP (pat, 0, i), nonequal);
 	    }
 	  else
@@ -400,7 +401,7 @@ thread_jump (int mode, edge e, basic_block b)
   EXECUTE_IF_SET_IN_REG_SET (nonequal, 0, i, rsi)
     goto failed_exit;
 
-  BITMAP_XFREE (nonequal);
+  BITMAP_FREE (nonequal);
   cselib_finish ();
   if ((comparison_dominates_p (code1, code2) != 0)
       != (XEXP (SET_SRC (set2), 1) == pc_rtx))
@@ -409,7 +410,7 @@ thread_jump (int mode, edge e, basic_block b)
     return FALLTHRU_EDGE (b);
 
 failed_exit:
-  BITMAP_XFREE (nonequal);
+  BITMAP_FREE (nonequal);
   cselib_finish ();
   return NULL;
 }
@@ -819,7 +820,7 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
 	  || BB_PARTITION (b) != BB_PARTITION (c)))
     return NULL;
       
-
+    
 
   /* If B has a fallthru edge to C, no need to move anything.  */
   if (e->flags & EDGE_FALLTHRU)
@@ -1352,7 +1353,6 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   /* Generic case - we are seeing a computed jump, table jump or trapping
      instruction.  */
 
-#ifndef CASE_DROPS_THROUGH
   /* Check whether there are tablejumps in the end of BB1 and BB2.
      Return true if they are identical.  */
     {
@@ -1426,7 +1426,6 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	  return false;
 	}
     }
-#endif
 
   /* First ensure that the instructions match.  There may be many outgoing
      edges so this test is generally cheaper.  */
@@ -1564,7 +1563,6 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
       && (newpos1 != BB_HEAD (src1)))
     return false;
 
-#ifndef CASE_DROPS_THROUGH
   /* Here we know that the insns in the end of SRC1 which are common with SRC2
      will be deleted.
      If we have tablejumps in the end of SRC1 and SRC2
@@ -1595,7 +1593,6 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 	    }
 	}
     }
-#endif
 
   /* Avoid splitting if possible.  */
   if (newpos2 == BB_HEAD (src2))
@@ -1708,6 +1705,13 @@ try_crossjump_bb (int mode, basic_block bb)
 
   /* Nothing to do if there is not at least two incoming edges.  */
   if (EDGE_COUNT (bb->preds) < 2)
+    return false;
+
+  /* Don't crossjump if this block ends in a computed jump,
+     unless we are optimizing for size.  */
+  if (!optimize_size
+      && bb != EXIT_BLOCK_PTR
+      && computed_jump_p (BB_END (bb)))
     return false;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to

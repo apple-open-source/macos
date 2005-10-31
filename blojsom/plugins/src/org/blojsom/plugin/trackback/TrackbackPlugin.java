@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,8 @@ import org.blojsom.blog.*;
 import org.blojsom.fetcher.BlojsomFetcher;
 import org.blojsom.fetcher.BlojsomFetcherException;
 import org.blojsom.plugin.BlojsomPluginException;
+import org.blojsom.plugin.trackback.event.TrackbackAddedEvent;
+import org.blojsom.plugin.trackback.event.TrackbackResponseSubmissionEvent;
 import org.blojsom.plugin.common.VelocityPlugin;
 import org.blojsom.plugin.email.EmailUtils;
 import org.blojsom.util.BlojsomMetaDataConstants;
@@ -55,7 +57,7 @@ import java.util.*;
  * TrackbackPlugin
  *
  * @author David Czarnecki
- * @version $Id: TrackbackPlugin.java,v 1.4 2005/01/15 20:39:08 johnan Exp $
+ * @version $Id: TrackbackPlugin.java,v 1.4.2.1 2005/07/21 04:30:43 johnan Exp $
  */
 public class TrackbackPlugin extends VelocityPlugin implements BlojsomMetaDataConstants {
 
@@ -94,7 +96,7 @@ public class TrackbackPlugin extends VelocityPlugin implements BlojsomMetaDataCo
     /**
      * Request parameter to indicate a trackback "tb"
      */
-    private static final String TRACKBACK_PARAM = "tb";
+    public static final String TRACKBACK_PARAM = "tb";
 
     /**
      * Request parameter for the trackback "title"
@@ -159,7 +161,12 @@ public class TrackbackPlugin extends VelocityPlugin implements BlojsomMetaDataCo
      */
     public static final String BLOJSOM_TRACKBACK_PLUGIN_TRACKBACK = "BLOJSOM_TRACKBACK_PLUGIN_TRACKBACK";
 
+    public static final String BLOJSOM_PLUGIN_TRACKBACK_METADATA = "BLOJSOM_PLUGIN_TRACKBACK_METADATA";
+
+    public static final String BLOJSOM_PLUGIN_TRACKBACK_METADATA_DESTROY = "BLOJSOM_PLUGIN_TRACKBACK_METADATA_DESTROY";
+
     private Map _ipAddressTrackbackTimes;
+    private BlojsomConfiguration _blojsomConfiguration;
     private BlojsomFetcher _fetcher;
 
     /**
@@ -178,6 +185,7 @@ public class TrackbackPlugin extends VelocityPlugin implements BlojsomMetaDataCo
     public void init(ServletConfig servletConfig, BlojsomConfiguration blojsomConfiguration) throws BlojsomPluginException {
         super.init(servletConfig, blojsomConfiguration);
 
+        _blojsomConfiguration = blojsomConfiguration;
         _ipAddressTrackbackTimes = new HashMap(10);
         String fetcherClassName = blojsomConfiguration.getFetcherClass();
         try {
@@ -411,25 +419,51 @@ public class TrackbackPlugin extends VelocityPlugin implements BlojsomMetaDataCo
             Map trackbackMetaData = new HashMap();
             trackbackMetaData.put(BLOJSOM_TRACKBACK_PLUGIN_METADATA_IP, remoteIPAddress);
 
+            // Check to see if a previous plugin populated meta-data for the comment
+            if (context.containsKey(BLOJSOM_PLUGIN_TRACKBACK_METADATA)) {
+                Map metaData = (Map) context.get(BLOJSOM_PLUGIN_TRACKBACK_METADATA);
+
+                Iterator metaDataKeys = metaData.keySet().iterator();
+                Object key;
+                Object value;
+                while (metaDataKeys.hasNext()) {
+                    key = metaDataKeys.next();
+                    value = metaData.get(key);
+                    trackbackMetaData.put(key, value);
+                }
+            }
+
             Trackback trackback = new Trackback();
-            Integer code = addTrackback(context, category, permalink, title, excerpt, url, blogName,
-                    _blogFileExtensions, _blogHome, _blogTrackbackDirectory,
-                    _blogFileEncoding, trackbackMetaData, trackback);
+            Integer code = new Integer(1);
 
-            // For persisting the Last-Modified time
-            context.put(BLOJSOM_LAST_MODIFIED, new Long(new Date().getTime()));
+            _blojsomConfiguration.getEventBroadcaster().processEvent(new TrackbackResponseSubmissionEvent(this, new Date(), user, httpServletRequest, httpServletResponse, blogName, title, url, excerpt, trackbackMetaData));                
 
-            // Merge the template e-mail
-            Map emailTemplateContext = new HashMap();
-            emailTemplateContext.put(BLOJSOM_BLOG, blog);
-            emailTemplateContext.put(BLOJSOM_USER, user);
-            emailTemplateContext.put(BLOJSOM_TRACKBACK_PLUGIN_BLOG_ENTRY, entries[0]);
-            emailTemplateContext.put(BLOJSOM_TRACKBACK_PLUGIN_TRACKBACK, trackback);
 
-            String emailTrackback = mergeTemplate(TRACKBACK_PLUGIN_EMAIL_TEMPLATE, user, emailTemplateContext);
+            // Check to see if the trackback should be destroyed (not saved) automatically
+            if (!trackbackMetaData.containsKey(BLOJSOM_PLUGIN_TRACKBACK_METADATA_DESTROY)) {
+                code = addTrackback(context, category, permalink, title, excerpt, url, blogName,
+                        _blogFileExtensions, _blogHome, _blogTrackbackDirectory,
+                        _blogFileEncoding, trackbackMetaData, trackback);
 
-            if (_blogEmailEnabled.booleanValue()) {
-                sendTrackbackEmail(_emailPrefix, entries[0].getTitle(), emailTrackback, context);
+                // For persisting the Last-Modified time
+                context.put(BLOJSOM_LAST_MODIFIED, new Long(new Date().getTime()));
+
+                trackback.setBlogEntry(entries[0]);
+
+                // Merge the template e-mail
+                Map emailTemplateContext = new HashMap();
+                emailTemplateContext.put(BLOJSOM_BLOG, blog);
+                emailTemplateContext.put(BLOJSOM_USER, user);
+                emailTemplateContext.put(BLOJSOM_TRACKBACK_PLUGIN_BLOG_ENTRY, entries[0]);
+                emailTemplateContext.put(BLOJSOM_TRACKBACK_PLUGIN_TRACKBACK, trackback);
+
+                String emailTrackback = mergeTemplate(TRACKBACK_PLUGIN_EMAIL_TEMPLATE, user, emailTemplateContext);
+
+                if (_blogEmailEnabled.booleanValue()) {
+                    sendTrackbackEmail(_emailPrefix, entries[0].getTitle(), emailTrackback, context, (String) entries[0].getMetaData().get(BlojsomMetaDataConstants.BLOG_ENTRY_METADATA_AUTHOR), blog);
+                }
+            } else {
+                _logger.info("Trackback meta-data contained destroy key. Trackback was not saved");
             }
 
             context.put(BLOJSOM_TRACKBACK_RETURN_CODE, code);
@@ -441,8 +475,11 @@ public class TrackbackPlugin extends VelocityPlugin implements BlojsomMetaDataCo
                 if (trackbacks == null) {
                     trackbacks = new ArrayList();
                 }
+
                 trackbacks.add(trackback);
                 entries[0].setTrackbacks(trackbacks);
+
+                _blojsomConfiguration.getEventBroadcaster().broadcastEvent(new TrackbackAddedEvent(this, new Date(), trackback, user));
             } else {
                 httpServletRequest.setAttribute(PAGE_PARAM, TRACKBACK_FAILURE_PAGE);
             }
@@ -534,7 +571,6 @@ public class TrackbackPlugin extends VelocityPlugin implements BlojsomMetaDataCo
         return new Integer(0);
     }
 
-
     /**
      * Send the trackback e-mail to the blog author
      *
@@ -542,11 +578,14 @@ public class TrackbackPlugin extends VelocityPlugin implements BlojsomMetaDataCo
      * @param title       Entry title
      * @param trackback   Trackback text
      * @param context     Context
+     * @param author Author of entry
+     * @param blog {@link Blog} information
      */
-    public void sendTrackbackEmail(String emailPrefix, String title, String trackback, Map context) {
-        EmailUtils.notifyBlogAuthor(emailPrefix + title, trackback, context);
-    }
+    public void sendTrackbackEmail(String emailPrefix, String title, String trackback, Map context, String author, Blog blog) {
+        String recipientEmail = blog.getAuthorizedUserEmail(author);
 
+        EmailUtils.notifyBlogAuthor(emailPrefix + title, trackback, context, recipientEmail);
+    }
 
     /**
      * Perform any cleanup for the plugin. Called after {@link #process}.

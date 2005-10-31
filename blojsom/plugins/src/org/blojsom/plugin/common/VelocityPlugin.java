@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,24 +36,24 @@ package org.blojsom.plugin.common;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.VelocityContext;
-import org.blojsom.blog.BlojsomConfiguration;
+import org.apache.velocity.app.VelocityEngine;
 import org.blojsom.blog.BlogUser;
+import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.plugin.BlojsomPluginException;
 import org.blojsom.util.BlojsomUtils;
 
 import javax.servlet.ServletConfig;
-import java.util.Properties;
-import java.util.Map;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.util.Map;
+import java.util.Properties;
 
 /**
  * VelocityPlugin
  *
  * @author David Czarnecki
- * @version $Id: VelocityPlugin.java,v 1.1 2004/08/27 01:06:37 whitmore Exp $
+ * @version $Id: VelocityPlugin.java,v 1.1.2.1 2005/07/21 04:30:28 johnan Exp $
  */
 public abstract class VelocityPlugin extends IPBanningPlugin {
 

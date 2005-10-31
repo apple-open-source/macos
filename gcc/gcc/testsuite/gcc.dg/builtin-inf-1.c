@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+
 float fi = __builtin_inff();
 double di = __builtin_inf();
 long double li = __builtin_infl();

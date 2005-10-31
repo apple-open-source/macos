@@ -1,7 +1,7 @@
 /*
  * CacheCollection.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/CacheCollection.m,v 1.8 2005/01/31 20:51:28 lxs Exp $
+ * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/CacheCollection.m,v 1.9 2005/05/25 20:42:15 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -30,6 +30,8 @@
 #import "Cache.h"
 #import "Credential.h"
 #import "Utilities.h"
+
+#define kCacheCollectionUpdateTimerInterval 5
 
 // ---------------------------------------------------------------------------
 
@@ -77,7 +79,7 @@ static int SortCaches (Cache *cache1, Cache *cache2, void *context)
             return NULL;
         }
         
-        updateTimer = [[TargetOwnedTimer scheduledTimerWithTimeInterval: 5 // checks for ticket state changes
+        updateTimer = [[TargetOwnedTimer scheduledTimerWithTimeInterval: kCacheCollectionUpdateTimerInterval
                                                                  target: self 
                                                                selector: @selector (updateTimer:) 
                                                                userInfo: NULL

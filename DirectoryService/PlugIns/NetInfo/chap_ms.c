@@ -118,9 +118,9 @@ ChallengeResponse(const u_char *challenge,
 	   sizeof(ZPasswordHash), ZPasswordHash);
 #endif
 
-    DesEncrypt(challenge, ZPasswordHash +  0, &response[0]);
-    DesEncrypt(challenge, ZPasswordHash +  7, &response[8]);
-    DesEncrypt(challenge, ZPasswordHash + 14, &response[16]);
+    DesEncrypt(challenge, (unsigned char *)(ZPasswordHash +  0), &response[0]);
+    DesEncrypt(challenge, (unsigned char *)(ZPasswordHash +  7), &response[8]);
+    DesEncrypt(challenge, (unsigned char *)(ZPasswordHash + 14), &response[16]);
 
 #if 0
     dbglog("ChallengeResponse - response %.24B", response);
@@ -318,7 +318,7 @@ ChapMS_NT(u_char *rchallenge, char *secret, int secret_len,
 
     /* Hash the Unicode version of the secret (== password). */
     ascii2unicode(secret, secret_len, unicodePassword);
-    NTPasswordHash(unicodePassword, secret_len * 2, PasswordHash);
+    NTPasswordHash((char *)unicodePassword, secret_len * 2, PasswordHash);
 
     ChallengeResponse(rchallenge, PasswordHash, NTResponse);
 }

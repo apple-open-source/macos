@@ -87,6 +87,7 @@ struct IOUSBInterfaceUserClientISOAsyncParamBlock {
     void *                      frameBase;	// In user task
     IOMemoryDescriptor *        dataMem;
     IOMemoryDescriptor *        countMem;
+	UInt32						numFrames;
     IOUSBIsocFrame              frames[0];
 };
 
@@ -141,7 +142,7 @@ public:
     void                                SetFrameBase(void * frameBase)              { fFrameBase = frameBase; }
     void                                SetDataBuffer(IOMemoryDescriptor * dataMem) { fDataBufferDescriptor = dataMem; }
 
-    void                                GetAsyncReference(OSAsyncReference *ref)    { *ref = fAsyncRef; }
+	void                                GetAsyncReference(OSAsyncReference *ref)    { bcopy (&fAsyncRef, ref, kOSAsyncRefCount * sizeof(natural_t)); }
     IOByteCount                         GetFrameLength(void)                        { return fFrameLength; }
     void *                              GetFrameBase(void)                          { return fFrameBase; }
     IOMemoryDescriptor *                GetDataBuffer(void)                         { return fDataBufferDescriptor; }
@@ -183,24 +184,25 @@ class IOUSBInterfaceUserClient : public IOUserClient
     OSDeclareDefaultStructors(IOUSBInterfaceUserClient)
 
 private:
-    IOUSBInterface *			        fOwner;
-    task_t				        fTask;
-    mach_port_t 			        fWakePort;
+    IOUSBInterface *							fOwner;
+    task_t										fTask;
+    mach_port_t									fWakePort;
     const IOExternalMethod *                    fMethods;
     const IOExternalAsyncMethod *               fAsyncMethods;
     IOCommandGate *                             fGate;
     IOWorkLoop	*                               fWorkLoop;
-    IOUSBLowLatencyUserClientBufferInfo *	fUserClientBufferInfoListHead;
+    IOUSBLowLatencyUserClientBufferInfo *		fUserClientBufferInfoListHead;
     IOCommandPool *                             fFreeUSBLowLatencyCommandPool;
-    UInt32				        fNumMethods;
-    UInt32				        fNumAsyncMethods;
-    UInt32				        fOutstandingIO;
+    UInt32										fNumMethods;
+    UInt32										fNumAsyncMethods;
+    UInt32										fOutstandingIO;
     bool                                        fDead;
     bool                                        fNeedToClose;
     UInt32                                      fCurrentSizeOfCommandPool;
 
     struct IOUSBInterfaceUserClientExpansionData 
     {
+		bool									clientRunningUnderRosetta;				// True if our user space client is running PPC code under Rosetta
     };
     
     IOUSBInterfaceUserClientExpansionData *        fIOUSBInterfaceUserClientExpansionData;
@@ -227,7 +229,7 @@ public:
 
     // IOUserClient methods
     //
-    virtual bool                                initWithTask(task_t owningTask, void *security_id, UInt32 type);
+    virtual bool								initWithTask(task_t owningTask, void *security_id, UInt32 type, OSDictionary *properties);
     virtual IOExternalMethod *                  getTargetAndMethodForIndex(IOService **target, UInt32 index);
     virtual IOExternalAsyncMethod *             getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
     virtual IOReturn                            clientClose( void );

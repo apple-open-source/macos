@@ -20,9 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: RackMac3_1_PlatformPlugin.cpp,v 1.8 2004/03/18 02:18:52 eem Exp $
+ *  File: $Id: RackMac3_1_PlatformPlugin.cpp,v 1.10 2005/09/11 22:40:11 raddog Exp $
  */
 
 
@@ -116,6 +116,9 @@ bool RackMac3_1_PlatformPlugin::start( IOService * provider )
     if (powerSensor)
         sensorInfoDicts->setObject( powerSensor->getInfoDict() );
     sensorID->release();
+
+	// Publish a copy of sensorInfoDicts in the registry
+	setSensorInfoDicts (sensorInfoDicts);
 
     return(true);
 }

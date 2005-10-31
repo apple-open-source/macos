@@ -138,6 +138,8 @@ public:
     DOMImplementationImpl();
     ~DOMImplementationImpl();
 
+    MAIN_THREAD_ALLOCATED;
+
     // DOM methods & attributes for DOMImplementation
     bool hasFeature ( const DOMString &feature, const DOMString &version );
     DocumentTypeImpl *createDocumentType( const DOMString &qualifiedName, const DOMString &publicId,
@@ -197,10 +199,12 @@ public:
     NodeImpl *importNode( NodeImpl *importedNode, bool deep, int &exceptioncode );
     virtual ElementImpl *createElementNS ( const DOMString &_namespaceURI, const DOMString &_qualifiedName, int &exceptioncode );
     ElementImpl *getElementById ( const DOMString &elementId ) const;
+    ElementImpl *elementFromPoint ( const int _x, const int _y ) const;
 
     // Actually part of HTMLDocument, but used for giving XML documents a window title as well
     DOMString title() const { return m_title; }
-    void setTitle(DOMString _title);
+    void setTitle(DOMString, NodeImpl *titleElement = 0);
+    void removeTitle(NodeImpl *titleElement);
 
     // DOM methods overridden from  parent classes
 
@@ -569,6 +573,8 @@ public:
     DocumentImpl *parentDocument() const;
     DocumentImpl *topDocument() const;
 
+    int docID() const { return m_docID; }
+
 #ifdef KHTML_XSLT
     void applyXSLTransform(ProcessingInstructionImpl* pi);
     void setTransformSource(void* doc) { m_transformSource = doc; }
@@ -672,6 +678,8 @@ protected:
     bool m_usesSiblingRules;
 
     DOMString m_title;
+    bool m_titleSetExplicitly;
+    NodeImpl *m_titleElement;
     
     RenderArena* m_renderArena;
 
@@ -705,6 +713,8 @@ protected:
     DOMString m_policyBaseURL;
 
     QPtrDict<NodeImpl> m_disconnectedNodesWithEventListeners;
+
+    int m_docID; // A unique document identifier used for things like document-specific mapped attributes.
 
 #if APPLE_CHANGES
 public:
@@ -743,6 +753,7 @@ public:
     void unregisterDisconnectedNodeWithEventListeners(NodeImpl *node);
 
 private:
+    void updateTitle();
     void removeAllDisconnectedNodeEventListeners();
 
     JSEditor *jsEditor();

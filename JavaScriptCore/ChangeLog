@@ -1,3 +1,1006 @@
+=== JavaScriptCore-416.13 ===
+
+2005-10-03  Geoffrey Garen  <ggaren@apple.com>
+
+        - Fixed <rdar://problem/4244084> Denver Regression: setUTC() functions don't take 
+          into account Daylight Savings Time
+          
+        Reviewed by kevin.
+        
+        Fix was to roll in this change from TOT:
+
+                2005-08-11  Maciej Stachowiak  <mjs@apple.com>
+        
+                Reviewed by Geoff.
+                
+                * kjs/date_object.cpp:
+                (timetUsingCF): Fix one of the date tests my making the CF version of mktime
+                have the same quirk about the DST field as the real mktime.
+                * tests/mozilla/expected.html: Updated for newly fixed test.
+
+=== JavaScriptCore-416.12 ===
+
+2005-09-30  Timothy Hatcher  <timothy@apple.com>
+
+		<rdar://problem/4277521> JS exceptions don't carry file/line information (3327)
+		
+		Fixed by Geoffrey Garen.
+        Reviewed by Andrew Wooster.
+
+		Sends file and line numbers with JS exceptions.
+
+        * kjs/nodes.cpp:
+        (Node::setExceptionDetailsIfNeeded):
+        * kjs/nodes.h:
+
+=== JavaScriptCore-416.11 ===
+
+2005-09-30  Timothy Hatcher  <timothy@apple.com>
+
+	    Merges fixes from TOT to Safari-Den-branch
+
+    2005-09-29  Geoffrey Garen  <ggaren@apple.com>
+
+		- Second cut at fixing <rdar://problem/4275206> Denver Regression: Seed: 
+		Past Editions of Opinions display "NAN/Undefined" for www.washingtonpost.com
+		
+        Reviewed by mjs.
+
+        * kjs/date_object.cpp:
+        (KJS::KRFCDate_parseDate): Intead of creating a timezone when one isn't specified,
+        just rely on the fallback logic, which will do it for you. Also, return invalidDate
+        if the date includes trailing garbage. (Somewhat accidentally, the timezone logic
+        used to catch trailing garbage.)
+
+=== JavaScriptCore-416.10 ===
+
+2005-09-28  Timothy Hatcher  <timothy@apple.com>
+
+	    Merges fixes from TOT to Safari-Den-branch
+
+    2005-09-28  Geoffrey Garen  <ggaren@apple.com>
+
+	    - Fixed <rdar://problem/4275206> Denver Regression: Seed: Past Editions of Opinions display 
+	     "NAN/Undefined" for www.washingtonpost.com
+
+        Reviewed by darin.
+
+        * kjs/date_object.cpp:
+        (KJS::KRFCDate_parseDate): If the timezone isn't specified, rather than returning
+        invalidDate, substitute the local timezone. This matches the behavior of FF/IE.
+
+2005-09-27  Timothy Hatcher  <timothy@apple.com>
+
+	    Merges fixes from TOT to Safari-Den-branch
+
+    2005-09-26  Geoffrey Garen  <ggaren@apple.com>
+
+        - Fixed <rdar://problem/4244084> Denver Regression: Date.setUTCFullYear() broken
+
+        Reviewed by John.
+
+        * kjs/date_object.cpp:
+        (KJS::makeTime): Changed to use localtime_r to avoid blowing away the results from
+        a previous call to localtime farther up the stack.
+
+=== JavaScriptCore-416.9 ===
+
+2005-09-22  Timothy Hatcher  <timothy@apple.com>
+
+	    Merges fixes from TOT to Safari-Den-branch
+
+    2005-09-20  Geoffrey Garen  <ggaren@apple.com>
+
+        - More changes needed to fix <rdar://problem/4214783> 8F29 REGRESSION(Denver/Chardonnay):
+          kjs_fast_malloc crash due to lack of locking on multiple threads (seen selecting volumes in
+          the installer)
+          
+        Added InterpreterLocks in some places in the bindings we missed before.
+        
+        Reviewed by john.
+
+        * bindings/runtime_root.cpp:
+        (KJS::Bindings::addNativeReference):
+        (KJS::Bindings::removeNativeReference):
+        (RootObject::removeAllNativeReferences):
+        * bindings/runtime_root.h:
+        (KJS::Bindings::RootObject::~RootObject):
+        (KJS::Bindings::RootObject::setRootObjectImp):
+
+2005-09-21  Timothy Hatcher  <timothy@apple.com>
+
+          - Fixed <rdar://problem/4263434> <rdar://problem/4263434> Denver 8F29 Regression:
+            KJS::InterpreterImp::mark() crash
+
+          Fix by mjs, review by Geoff.
+
+          * kjs/internal.cpp:
+          (KJS::InterpreterImp::mark): Added a null check on globExec in case a
+          garbage collection occurs inside InterpreterImp::globalInit (called
+          from InterpreterImp::InterpreterImp), at which point globExec has not yet been initialized.
+
+=== Safari-416.8 ===
+
+2005-09-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Geoff.
+
+	- fixed <rdar://problem/4214783> REGRESSION: kjs_fast_malloc crash due to lack of locking on multiple threads (seen selecting volumes in the installer)
+
+	Make sure to lock using the InterpreterLock class in all places that need it
+	(including anything that uses the collector, the parser, the protect count hash table,
+	and anything that allocates via fast_malloc).
+
+	Also added assertions to ensure that the locking rules are followed for the relevant
+	resources.
+
+        * Makefile.am:
+        * bindings/NP_jsobject.cpp:
+        (identifierFromNPIdentifier):
+        (_NPN_Invoke):
+        (_NPN_Evaluate):
+        (_NPN_GetProperty):
+        (_NPN_SetProperty):
+        (_NPN_RemoveProperty):
+        (_NPN_HasProperty):
+        (_NPN_HasMethod):
+        (_NPN_SetException):
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::call):
+        (JSObject::eval):
+        (JSObject::getMember):
+        (JSObject::setMember):
+        (JSObject::removeMember):
+        (JSObject::getSlot):
+        (JSObject::setSlot):
+        (JSObject::toString):
+        (JSObject::convertJObjectToValue):
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject callWebScriptMethod:withArguments:]):
+        (-[WebScriptObject evaluateWebScript:]):
+        (-[WebScriptObject setValue:forKey:]):
+        (-[WebScriptObject valueForKey:]):
+        (-[WebScriptObject removeWebScriptKey:]):
+        (-[WebScriptObject stringRepresentation]):
+        (-[WebScriptObject webScriptValueAtIndex:]):
+        (-[WebScriptObject setWebScriptValueAtIndex:value:]):
+        (+[WebScriptObject _convertValueToObjcValue:KJS::originExecutionContext:Bindings::executionContext:Bindings::]):
+        * bindings/runtime.cpp:
+        (Instance::createRuntimeObject):
+        * bindings/runtime_root.h:
+        * bindings/testbindings.cpp:
+        (main):
+        * bindings/testbindings.mm:
+        (main):
+        * kjs/fast_malloc.cpp:
+        (KJS::kjs_fast_malloc):
+        (KJS::kjs_fast_calloc):
+        (KJS::kjs_fast_free):
+        (KJS::kjs_fast_realloc):
+        * kjs/fast_malloc.h:
+        * kjs/identifier.h:
+        * kjs/internal.cpp:
+        (InterpreterImp::InterpreterImp):
+        (InterpreterImp::clear):
+        (InterpreterImp::mark):
+        (InterpreterImp::checkSyntax):
+        (InterpreterImp::evaluate):
+        * kjs/internal.h:
+        (KJS::InterpreterImp::globalObject):
+        * kjs/interpreter.cpp:
+        (Interpreter::evaluate):
+        * kjs/interpreter.h:
+        (KJS::InterpreterLock::InterpreterLock):
+        (KJS::InterpreterLock::~InterpreterLock):
+        * kjs/nodes.h:
+        * kjs/protect.h:
+        (KJS::ProtectedValue::ProtectedValue):
+        (KJS::ProtectedValue::~ProtectedValue):
+        (KJS::ProtectedValue::operator=):
+        (KJS::ProtectedObject::ProtectedObject):
+        (KJS::ProtectedObject::~ProtectedObject):
+        (KJS::ProtectedObject::operator=):
+        (KJS::ProtectedReference::ProtectedReference):
+        (KJS::ProtectedReference::~ProtectedReference):
+        (KJS::ProtectedReference::operator=):
+        * kjs/protected_object.h:
+        * kjs/protected_values.cpp:
+        (KJS::ProtectedValues::getProtectCount):
+        (KJS::ProtectedValues::increaseProtectCount):
+        (KJS::ProtectedValues::decreaseProtectCount):
+        * kjs/string_object.cpp:
+        (StringObjectImp::StringObjectImp):
+        * kjs/testkjs.cpp:
+        (main):
+
+=== Safari-416.6 ===
+
+2005-09-02  Adele Peterson  <adele@apple.com>
+
+       Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-02  Beth Dakin  <bdakin@apple.com>
+
+        Fix for <rdar://problem/4235531> Regression: Safari crash in KWQStringData::makeUnicode
+	The other half of the fix is in WebCore.
+
+	Fix written by Maciej and Darin.
+	Reviewed by me/Maciej
+
+	As Maciej said in Radar: These problems was caused by a conflict between some of our custom 
+	allocators, causing them to return null. Symptom is typically a null pointer dereference in 
+	a place where it might be expected an allocation has just occurred.
+
+        * kjs/fast_malloc.cpp: 	Added #define for MORECORE_CONTIGUOUS, MORECORE_CANNOT_TRIM, 
+				and MALLOC_FAILURE_ACTION.
+
+=== Safari-416.5 ===
+
+2005-08-28  Adele Peterson  <adele@apple.com>
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: 
+        Adding shared_ptr.h as private header.  It didn't make it in the last merge.
+
+2005-08-28  Maciej Stachowiak  <mjs@apple.com>
+
+	Merges fixes from HEAD to Safari-2-0-branch
+
+    2005-08-26  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	<rdar://problem/4224911> many many leaks in kjsyyparse with malformed Javascript        
+
+	Record all nodes that are created during parsing, and delete any
+	that are left floating with a refcount of 0.
+	
+	* kjs/internal.cpp:
+        (KJS::Parser::saveNewNode):
+        (KJS::clearNewNodes):
+        (KJS::Parser::parse):
+        * kjs/internal.h:
+        * kjs/nodes.cpp:
+        (Node::Node):
+        * kjs/nodes.h:
+        (KJS::Node::refcount):
+
+    2005-08-26  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	- fixed <rdar://problem/4232452> many many leaks in kjsyyparse on some well-formed JavaScript (can repro on sony.com, webkit tests)
+        
+	Fixed by changing the refcounting scheme for nodes. Instead of each node implementing a custom ref and
+	deref for all its children (and being responsible for deleting them), nodes use a smart pointer to
+	hold their children, and smart pointers are used outside the node tree as well. This change mostly
+	removes code.
+	
+	* JavaScriptCore.xcodeproj/project.pbxproj:
+        * kjs/function.cpp:
+        (KJS::DeclaredFunctionImp::DeclaredFunctionImp):
+        (KJS::GlobalFuncImp::callAsFunction):
+        * kjs/function.h:
+        * kjs/function_object.cpp:
+        (FunctionObjectImp::construct):
+        * kjs/grammar.y:
+        * kjs/internal.cpp:
+        (KJS::Parser::parse):
+        (KJS::Parser::accept):
+        (KJS::InterpreterImp::checkSyntax):
+        (KJS::InterpreterImp::evaluate):
+        * kjs/internal.h:
+        * kjs/nodes.cpp:
+        (Node::Node):
+        (Node::~Node):
+        (ElementNode::evaluate):
+        (PropertyValueNode::evaluate):
+        (ArgumentListNode::evaluateList):
+        (NewExprNode::evaluate):
+        (FunctionCallValueNode::evaluate):
+        (FunctionCallBracketNode::evaluate):
+        (FunctionCallDotNode::evaluate):
+        (RelationalNode::evaluate):
+        (StatListNode::execute):
+        (StatListNode::processVarDecls):
+        (VarDeclListNode::evaluate):
+        (VarDeclListNode::processVarDecls):
+        (ForInNode::ForInNode):
+        (ClauseListNode::processVarDecls):
+        (CaseBlockNode::evalBlock):
+        (FuncDeclNode::processFuncDecl):
+        (FuncExprNode::evaluate):
+        (SourceElementsNode::execute):
+        (SourceElementsNode::processFuncDecl):
+        (SourceElementsNode::processVarDecls):
+        * kjs/nodes.h:
+        (KJS::Node::ref):
+        (KJS::Node::deref):
+        (KJS::NumberNode::NumberNode):
+        (KJS::GroupNode::GroupNode):
+        (KJS::ElementNode::ElementNode):
+        (KJS::ArrayNode::ArrayNode):
+        (KJS::PropertyValueNode::PropertyValueNode):
+        (KJS::ObjectLiteralNode::ObjectLiteralNode):
+        (KJS::BracketAccessorNode::BracketAccessorNode):
+        (KJS::DotAccessorNode::DotAccessorNode):
+        (KJS::ArgumentListNode::ArgumentListNode):
+        (KJS::ArgumentsNode::ArgumentsNode):
+        (KJS::NewExprNode::NewExprNode):
+        (KJS::FunctionCallValueNode::FunctionCallValueNode):
+        (KJS::FunctionCallResolveNode::FunctionCallResolveNode):
+        (KJS::FunctionCallBracketNode::FunctionCallBracketNode):
+        (KJS::FunctionCallDotNode::FunctionCallDotNode):
+        (KJS::PostfixNode::PostfixNode):
+        (KJS::DeleteNode::DeleteNode):
+        (KJS::VoidNode::VoidNode):
+        (KJS::TypeOfNode::TypeOfNode):
+        (KJS::PrefixNode::PrefixNode):
+        (KJS::UnaryPlusNode::UnaryPlusNode):
+        (KJS::NegateNode::NegateNode):
+        (KJS::BitwiseNotNode::BitwiseNotNode):
+        (KJS::LogicalNotNode::LogicalNotNode):
+        (KJS::MultNode::MultNode):
+        (KJS::AddNode::AddNode):
+        (KJS::ShiftNode::ShiftNode):
+        (KJS::RelationalNode::RelationalNode):
+        (KJS::EqualNode::EqualNode):
+        (KJS::BitOperNode::BitOperNode):
+        (KJS::BinaryLogicalNode::BinaryLogicalNode):
+        (KJS::ConditionalNode::ConditionalNode):
+        (KJS::AssignResolveNode::AssignResolveNode):
+        (KJS::AssignBracketNode::AssignBracketNode):
+        (KJS::AssignDotNode::AssignDotNode):
+        (KJS::CommaNode::CommaNode):
+        (KJS::AssignExprNode::AssignExprNode):
+        (KJS::VarDeclListNode::VarDeclListNode):
+        (KJS::VarStatementNode::VarStatementNode):
+        (KJS::ExprStatementNode::ExprStatementNode):
+        (KJS::IfNode::IfNode):
+        (KJS::DoWhileNode::DoWhileNode):
+        (KJS::WhileNode::WhileNode):
+        (KJS::ForNode::ForNode):
+        (KJS::ReturnNode::ReturnNode):
+        (KJS::WithNode::WithNode):
+        (KJS::CaseClauseNode::CaseClauseNode):
+        (KJS::ClauseListNode::ClauseListNode):
+        (KJS::ClauseListNode::clause):
+        (KJS::ClauseListNode::next):
+        (KJS::SwitchNode::SwitchNode):
+        (KJS::LabelNode::LabelNode):
+        (KJS::ThrowNode::ThrowNode):
+        (KJS::CatchNode::CatchNode):
+        (KJS::FinallyNode::FinallyNode):
+        (KJS::TryNode::TryNode):
+        (KJS::ParameterNode::ParameterNode):
+        (KJS::ParameterNode::nextParam):
+        (KJS::FuncDeclNode::FuncDeclNode):
+        (KJS::FuncExprNode::FuncExprNode):
+        * kjs/nodes2string.cpp:
+        (KJS::SourceStream::operator<<):
+        (ElementNode::streamTo):
+        (PropertyValueNode::streamTo):
+        (ArgumentListNode::streamTo):
+        (StatListNode::streamTo):
+        (VarDeclListNode::streamTo):
+        (CaseBlockNode::streamTo):
+        (ParameterNode::streamTo):
+        (SourceElementsNode::streamTo):
+        * kjs/shared_ptr.h: Added.
+        (kxmlcore::SharedPtr::SharedPtr):
+        (kxmlcore::SharedPtr::~SharedPtr):
+        (kxmlcore::SharedPtr::isNull):
+        (kxmlcore::SharedPtr::notNull):
+        (kxmlcore::SharedPtr::reset):
+        (kxmlcore::SharedPtr::get):
+        (kxmlcore::SharedPtr::operator*):
+        (kxmlcore::SharedPtr::operator->):
+        (kxmlcore::SharedPtr::operator!):
+        (kxmlcore::SharedPtr::operator bool):
+        (kxmlcore::SharedPtr::operator==):
+        (kxmlcore::::operator):
+        (kxmlcore::operator!=):
+        (kxmlcore::static_pointer_cast):
+        (kxmlcore::const_pointer_cast):
+		
+=== Safari-416.3 ===
+
+=== Safari-416.2 ===
+
+2005-08-18  Adele Peterson  <adele@apple.com>
+
+	Checked "Inline Functions Hidden" box.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+=== Safari-416.1 ===
+
+2005-08-10  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-08-10  Geoffrey Garen  <ggaren@apple.com>
+
+        -fixed <rdar://problem/4151132> REGRESSION: Some applet liveconnect calls 
+        throws privilege exception.
+        
+        Reviewed by richard and mjs.
+
+        -I removed the global static JavaClass cache, since it violated Java
+        security to cache classes between websites and applets.
+        
+        * bindings/jni/jni_class.cpp: 
+            -removed global static cache dictionary
+            -instance constructor and destructor now do the work that used to 
+            be done by static factory methods
+            -removed obsolete functions
+        (JavaClass::JavaClass):
+        (JavaClass::~JavaClass):
+        * bindings/jni/jni_class.h:
+            -removed obsolete function declarations
+            -made copying private since it's unused and it's also not clear
+            excatly how copying would work with Java security
+            -made default construction private since it's meaningless
+        * bindings/jni/jni_instance.cpp:
+            -removed obsolete functions
+        (JavaInstance::~JavaInstance):
+        (JavaInstance::getClass):
+        * bindings/jni/jni_instance.h:
+           -made copying private since it's unused and it's also not clear
+            excatly how copying would work with Java security
+            -made default construction private since it's meaningless
+
+2005-08-09  Geoffrey Garen  <ggaren@apple.com>
+        
+        -fixed <rdar://problem/4197421> crash in ObjectImp::findPropertyHashEntry at ifilm.com
+        [due to JS infinite recursion]
+        
+        More changes in WebCore.
+        
+        Reviewed by darin.
+
+        All calls to FunctionImp::call now go through ObjectImp::call to preserve 
+        stack depth checking.
+        
+        * bindings/NP_jsobject.cpp:
+        (_NPN_Invoke):
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::call):
+        * bindings/objc/WebScriptObject.mm:
+        (-[WebScriptObject callWebScriptMethod:withArguments:]):
+        * kjs/function.cpp:
+        (KJS::DeclaredFunctionImp::construct):
+        * kjs/nodes.cpp:
+        (FunctionCallNode::evaluate):
+
+2005-08-09  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-07-14  Geoffrey Garen  <ggaren@apple.com>
+
+        -fixed http://bugzilla.opendarwin.org/show_bug.cgi?id=3970
+        throw statements fail inside eval statements
+        
+        Reviewed by mjs.
+
+        * kjs/function.cpp:
+        (KJS::GlobalFuncImp::call):
+        Big change since I fixed the tabbing. The important part is:
+        if (c.complType() == Throw)
+          exec->setException(c.value());
+
+        * kjs/nodes.cpp:
+        (ThrowNode::execute): removed duplicate KJS_CHECKEXCEPTION
+        (TryNode::execute): 
+        try now clears the exception state before the finally block executes,
+        and checks the state after the block executes, so that exceptions in
+        finally code get caught.
+
+2005-08-08  Adele Peterson  <adele@apple.com>
+
+         Merged fix from TOT to Safari-2-0-branch
+
+ 2005-08-05  Geoffrey Garen  <ggaren@apple.com>
+ 
+         Fix by darin, reviewed by me.
+         
+         - rolled in fix for: <rdar://problem/4161606> JavaScript regular 
+         expressions with certain ranges of Unicode characters cause a crash
+   
+         Test cases added:
+  
+         * layout-tests/fast/js/regexp-big-unicode-ranges-expected.txt: Added.
+         * layout-tests/fast/js/regexp-big-unicode-ranges.html: Added.
+  
+         * pcre/pcre.c:
+         (compile_branch): added checks for characters > 255
+
+2005-08-08  Adele Peterson  <adele@apple.com>
+
+          Merged fix from TOT to Safari-2-0-branch
+          <rdar://problem/3444900> some US-centric date formats not parsed by JavaScript (clock at news8austin.com) (bugzilla 3477)
+
+    2005-07-01  Geoffrey Garen  <ggaren@apple.com
+
+          -landed patch by Carsten Guenther <cguenther@gmail.com>
+
+          -fixes http://bugzilla.opendarwin.org/show_bug.cgi?id=3477
+          some US-centric date formats not parsed by JavaScript (clock at news8austin.com)
+
+          -relevant tests:
+                 mozilla/ecma_3/Date/15.9.5.5.js
+                 layout-tests/fast/js/date-parse-test.html
+
+          Reviewed by darin.
+
+        * kjs/date_object.cpp:
+        (day):
+        (dayFromYear):
+        (daysInYear):
+        (timeFromYear):
+        (yearFromTime):
+        (weekDay):
+        (timeZoneOffset):
+        (DateProtoFuncImp::call):
+        (DateObjectImp::construct):
+        (KJS::parseDate):
+        (ymdhms_to_seconds):
+        (KJS::makeTime):
+        (findMonth):
+        (KJS::KRFCDate_parseDate):
+        * kjs/date_object.h:
+
+=== Safari-416 ===
+
+2005-08-05  Adele Peterson  <adele@apple.com>
+
+         Merged fix from TOT to Safari-2-0-branch
+
+    2005-08-05  Geoffrey Garen  <ggaren@apple.com>
+
+         -fixed <rdar://problem/4207220> REGRESSION (DENVER): Crash occurs 
+         after clicking on Hangman applet
+ 
+         Reviewed by darin.
+ 
+         * kjs/object.cpp:
+         (KJS::ObjectImp::hasProperty): added check for null prototype.
+ 
+         FIXME: The long-term plan is to make runtime objects use JS Null()
+         instead of null pointers, which will allow us to eliminate null
+         checks, improving performance.
+
+2005-08-05  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Darin.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: Unchecked 'statics are thread safe' option.
+
+=== JavaScriptCore-412.7 ===
+
+2005-08-04  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+        Submitted by: rjw@apple.com
+        Reviewed by: cblu@apple.com
+        Fixed hard capacity limit on the method and field cache use for the ObjC bindings.
+
+        <rdar://problem/4204416> Dashboard client crashes when too many ObjC methods are called
+
+        * bindings/objc/objc_class.mm: (ObjcClass::_commonInit):
+
+2005-08-02  Geoffrey Garen  <ggaren@apple.com>
+        - minor tweak to last checkin
+        
+        * kjs/debugger.h: restored a comment I shouldn't have deleted
+
+2005-08-02  Geoffrey Garen  <ggaren@apple.com>
+        Merged from TOT to Safari-2-0-branch.
+
+        2005-07-27  Maciej Stachowiak  <mjs@apple.com>
+        
+                Changes by Michael Kahl, reviewed by me.
+        
+                - fixed <rdar://problem/4194278> Need better debugging support in JavaScriptCore
+            
+                * JavaScriptCore.xcodeproj/project.pbxproj:
+                * kjs/debugger.cpp:
+                (KJS::AttachedInterpreter::AttachedInterpreter):
+                (KJS::AttachedInterpreter::~AttachedInterpreter):
+                (Debugger::~Debugger):
+                (Debugger::attach):
+                (Debugger::detach):
+                (Debugger::sourceParsed):
+                * kjs/debugger.h:
+                * kjs/function.cpp:
+                (KJS::FunctionImp::call):
+                (KJS::GlobalFuncImp::call):
+                * kjs/function_object.cpp:
+                (FunctionObjectImp::construct):
+                * kjs/grammar.y:
+                * kjs/internal.cpp:
+                (Parser::parse):
+                (InterpreterImp::evaluate):
+                * kjs/internal.h:
+                (KJS::InterpreterImp::setDebugger):
+                * kjs/interpreter.cpp:
+                * kjs/interpreter.h:
+                (KJS::Interpreter::imp):
+                * kjs/nodes.cpp:
+
+2005-08-02  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-06-20  Maciej Stachowiak  <mjs@apple.com>
+
+        Patch from Mark Rowe <opendarwin.org@bdash.net.nz>, reviewed by me.
+
+	- fixed http://bugzilla.opendarwin.org/show_bug.cgi?id=3293
+        
+        Test cases added: 
+        * tests/mozilla/expected.html: Updated for two fixed tests.
+	- also added a layout test
+
+	* bindings/objc/objc_runtime.h:
+        * bindings/objc/objc_runtime.mm:
+        (ObjcFallbackObjectImp::hasOwnProperty):
+        * bindings/runtime_array.cpp:
+        (RuntimeArrayImp::hasOwnProperty):
+        * bindings/runtime_array.h:
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::hasOwnProperty):
+        * bindings/runtime_object.h:
+        * kjs/array_instance.h:
+        * kjs/array_object.cpp:
+        (ArrayInstanceImp::hasOwnProperty):
+        * kjs/function.cpp:
+        (KJS::FunctionImp::hasOwnProperty):
+        (KJS::ActivationImp::hasOwnProperty):
+        * kjs/function.h:
+        * kjs/object.cpp:
+        (KJS::ObjectImp::hasProperty):
+        (KJS::ObjectImp::hasOwnProperty):
+        * kjs/object.h:
+        (KJS::Object::hasOwnProperty):
+        * kjs/object_object.cpp:
+        (ObjectPrototypeImp::ObjectPrototypeImp):
+        (ObjectProtoFuncImp::call):
+        * kjs/object_object.h:
+        (KJS::ObjectProtoFuncImp::):
+        * kjs/string_object.cpp:
+        (StringInstanceImp::hasOwnProperty):
+        * kjs/string_object.h:
+
+2005-08-02  Adele Peterson  <adele@apple.com>
+
+        Merged from TOT to Safari-2-0-branch.
+
+    2005-06-30  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by rjw.
+
+	fixed: <rdar://problem/4166838> failed assertion in`Interpreter::lockCount() > 0
+
+	no layout test added; this is in the bindings code.
+
+        * bindings/objc/WebScriptObject.mm:
+        (+[WebScriptObject _convertValueToObjcValue:KJS::originExecutionContext:Bindings::executionContext:Bindings::]): make sure to lock and unlock the interpreter around allocations. 
+
+=== JavaScriptCore-412.6 ===
+
+2005-07-21  Adele Peterson  <adele@apple.com>
+
+        Merge from TOT to Safari-2-0-branch
+        <rdar://problem/4164147>
+
+    2005-04-26  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Chris.
+
+	<rdar://problem/4092136> reproducible crash in KJS::kjs_fast_realloc loading maps.google.com
+        
+	* kjs/string_object.cpp:
+        (StringObjectFuncImp::call): Allocate adopted ustring buffer properly.
+
+    2005-04-22  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        * kjs/ustring.cpp: (KJS::UString::UTF8String): Fix off-by-one error in surrogate pair logic.
+
+    2005-04-22  Darin Adler  <darin@apple.com>
+
+        Reviewed by John.
+
+        - fixed <rdar://problem/4090046> JavaScript throw statement causes parse error when no semicolon is present
+
+        * kjs/grammar.y: Added an additional rule for throw like the ones we have for all the other semicolon rules.
+        Not sure why we missed this one earlier.
+
+        * kjs/grammar.cpp: Regenerated.
+
+    2005-04-20  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - speedups, total 12% on JavaScript iBench
+
+        I ran the benchmark under Shark and followed its advice a lot, mainly.
+
+        * kjs/collector.cpp:
+        (KJS::Collector::allocate): Take out special case for 0; costing speed but unexercised.
+        Use numLiveObjectsAtLastCollect instead of numAllocationsSinceLastCollect so we don't
+        have to bump it each time we call allocate. Put numLiveObjects into a local variable to
+        cut down on global variable accesses. Make "next" cell pointer be a byte offset rather
+        than a pointer so we don't need a special case for NULL. Allow freeList to point to some
+        bogus item when the entire block is full rather than going out of our way to make it
+        point to NULL.
+        (KJS::Collector::markProtectedObjects): Get table size and pointer into locals outside
+        the loop to avoid re-loading them over and over again.
+        (KJS::Collector::collect): Put numLiveObjects into a local variable to cut down on global
+        variable accesses. Make "next" cell pointer be a byte offset as above. Put numLiveObjects
+        into a local variable to cut down on global variable accesses. Set numLiveObjectsAtLastCollect
+        rather than numAllocationsSinceLastCollect.
+        (KJS::Collector::numReferencedObjects): Get table size and pointer into locals outside
+        the loop to avoid re-loading them over and over again.
+        (KJS::Collector::rootObjectClasses): Ditto.
+
+        * kjs/internal.h: Make Value be a friend of NumberImp so it can construct number objects
+        directly, avoiding the conversion from Number to Value.
+
+        * kjs/internal.cpp: (StringImp::toObject): Don't use Object::dynamicCast, because we know
+        the thing is an object and we don't want to do all the extra work; just cast directly.
+
+        * kjs/list.cpp: (KJS::List::List): Construct valueRefCount in a way that avoids the need for
+        a branch -- in the hot case this just meant avoiding checking a variable we just set to false.
+
+        * kjs/lookup.cpp: (keysMatch): Marked this inline.
+
+        * kjs/nodes.cpp: Disabled KJS_BREAKPOINT, to avoid calling hitStatement all the time.
+        (BooleanNode::evaluate): Make a Value directly, rather than making a Boolean which is converted
+        into a Value.
+        (NumberNode::evaluate): Ditto.
+        (StringNode::evaluate): Ditto.
+        (ArrayNode::evaluate): Ditto.
+        (FunctionCallNode::evaluate): Use new inline baseIfMutable to avoid unnecessary getBase function.
+        Also just use a pointer for func, rather than an Object.
+        (PostfixNode::evaluate): Change code so that it doesn't make an excess Number, and so that it
+        passes a "known to be integer" boolean in, often avoiding a conversion from floating point to
+        integer and back.
+        (DeleteNode::evaluate): Make a Value directly.
+        (TypeOfNode::evaluate): Use new inline baseIfMutable and make Value directly.
+        (PrefixNode::evaluate): Change code so that it doesn't make an excess Number, and so that it
+        passes a "known to be integer" boolean in, often avoiding a conversion from floating point to
+        integer and back.
+        (UnaryPlusNode::evaluate): Make a Value directly.
+        (NegateNode::evaluate): Change code so that it doesn't make an excess Number, and so that it
+        passes a "known to be integer" boolean in, often avoiding a conversion from floating point to
+        integer and back.
+        (BitwiseNotNode::evaluate): Make a Value directly.
+        (LogicalNotNode::evaluate): Ditto.
+        (ShiftNode::evaluate): Don't convert to a double before making a Value.
+        (RelationalNode::evaluate): Make a Value directly.
+        (EqualNode::evaluate): Ditto.
+        (BitOperNode::evaluate): Ditto.
+        (AssignNode::evaluate): Make a Value directly. Change code so that it passes a "known to be integer"
+        boolean in, often avoiding a conversion from floating point to integer and back.
+        (VarDeclNode::evaluate): Make a Value directly.
+        (ForNode::execute): Remove unused local variable.
+
+        * kjs/operations.h:
+        (KJS::isNaN): Inlined.
+        (KJS::isInf): Ditto.
+        (KJS::isPosInf): Ditto.
+        (KJS::isNegInf): Ditto.
+
+        * kjs/operations.cpp: Change isNaN, isInf, isPosInf, and isNegInf to be inlines.
+        (KJS::equal): Rewrite to avoid creating values and recursing back into the function.
+        (KJS::relation): Rearranged code so that we don't need explicit isNaN checks.
+        (KJS::add): Changed code to make Value directly, and so that it passes a "known to be integer"
+        boolean in, often avoiding a conversion from floating point to integer and back.
+        (KJS::mult): Ditto.
+
+        * kjs/property_map.cpp:
+        (KJS::PropertyMap::~PropertyMap): Get size and entries pointer outside loop to avoid
+        re-getting them inside the loop.
+        (KJS::PropertyMap::clear): Ditto. Clear value pointer in addition to key, so we can just
+        look at the value pointer in the mark function.
+        (KJS::PropertyMap::get): Get sizeMask and entries pointer outside loop to avoid
+        re-getting them inside the loop.
+        (KJS::PropertyMap::put): Ditto.
+        (KJS::PropertyMap::insert): Ditto.
+        (KJS::PropertyMap::remove): Ditto.
+        (KJS::PropertyMap::mark): Get size and entries pointer outside loop to avoid
+        re-getting them inside the loop. Don't bother checking key for 0, since we already have
+        to check value for 0. (Also had to change clear() to set value to 0.)
+        (KJS::PropertyMap::addEnumerablesToReferenceList): Get size and entries pointer outside
+        loop to avoid re-getting them inside the loop.
+        (KJS::PropertyMap::addSparseArrayPropertiesToReferenceList): Ditto.
+        (KJS::PropertyMap::save): Ditto.
+
+        - other changes
+
+        * kjs/protected_values.h: Remove unneeded class name qualifiers.
+
+        * kjs/reference.h:
+        (KJS::Reference::baseIfMutable): New inline function: replaces isMutable().
+        (KJS::Reference::Reference): Inlined.
+        * kjs/reference.cpp:
+        (KJS::Reference::getValue): Rewrite to not use getBase.
+        (KJS::Reference::putValue): Ditto.
+        (KJS::Reference::deleteValue): Dittol
+
+        * kjs/simple_number.h:
+        (KJS::SimpleNumber::integerFits): Added. For use when the parameter is known to be integral.
+
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): Create the number without first converting
+        to double in various cases that involve integers.
+
+        * kjs/ustring.h:
+        (KJS::UString::attach): Inlined.
+        (KJS::UString::release): Inlined.
+        * kjs/ustring.cpp:
+        (KJS::UString::find): Get first character outside the loop instead of re-fetching it each time.
+
+        * kjs/value.cpp:
+        (Value::Value): Added overloads for all the various specific types of values, so you don't have
+        to convert from, say, Number to Value, just to create one.
+        (Number::Number): Added an overload that takes a boolean to indicate the number is already
+        known to be an integer.
+
+        * kjs/value.h: Added more Value constructors, added a version of toNumber that returns
+        a boolean to indicate if the number is known to be an integer (because it was a "simple number").
+        (KJS::ValueImp::marked): Inlined.
+        (KJS::ValueImp::dispatchType): Inlined.
+        (KJS::ValueImp::dispatchToPrimitive): Inlined.
+        (KJS::ValueImp::dispatchToBoolean): Inlined.
+        (KJS::ValueImp::dispatchToNumber): Inlined.
+        (KJS::ValueImp::dispatchToString): Inlined.
+        (KJS::ValueImp::dispatchToUInt32): Inlined.
+
+    2005-04-14  Maciej Stachowiak  <mjs@apple.com>
+
+        - make fast_malloc.h a private header, not project
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+
+    2005-04-12  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Richard.
+
+	<rdar://problem/4089734> JavaScript iBench can be sped up ~10% with custom allocator
+
+	- use custom single-threaded malloc for all non-GC JavaScriptCore
+	allocations, for a 9.1% speedup on JavaScript iBench
+	
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * kjs/collector.cpp:
+        (KJS::Collector::allocate): Use dlmalloc to allocate the collector blocks.
+        (KJS::Collector::collect): And dlfree to free it.
+        * kjs/fast_malloc.cpp: Added, just the standard dlmalloc here.
+        * kjs/fast_malloc.h: Added. Declarations for the functions. Also added a handy
+	macro to give a class custom operator new/delete
+        * kjs/identifier.cpp:
+        (KJS::Identifier::add): Use dlmalloc/dlfree.
+        * kjs/nodes.h: make nodes KJS_FAST_ALLOCATED.
+        * kjs/property_map.cpp:
+        (KJS::PropertyMap::~PropertyMap): Use dlmalloc/dlfree.
+        (KJS::PropertyMap::rehash): ditto
+        * kjs/scope_chain.h:
+        * kjs/ustring.cpp:
+        (KJS::UString::Rep::createCopying): New named constructor that copies a passed-in
+	buffer, to hide allocation details from webcore.
+        (KJS::UString::UString): use createCopying when appropriate.
+        (KJS::UString::Rep::destroy): Use dlmalloc/dlfree.
+        (KJS::UString::expandedSize): likewise
+        (KJS::UString::expandCapacity): likewise
+        (KJS::UString::expandPreCapacity): likewise
+        (KJS::UString::spliceSubstringsWithSeparators): likewise
+        (KJS::UString::append): likewise
+        (KJS::UString::operator=): likewise
+        (KJS::UString::detach): likewise
+        * kjs/ustring.h: make UString and UString::Rep KJS_FAST_ALLOCATED.
+
+    2005-04-11  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	<rdar://problem/4086819> Avoid using protect count hash table so much for 5.6% JS iBench speedup
+
+	- Avoid using protected values hash for the two most common cases
+	- Bump up ListImp high water mark, new testing shows 508 ListImps are
+	created during JS iBench.
+
+	Net result is a 5.6% speedup on JavaScript iBench
+	
+        * kjs/collector.cpp:
+        (KJS::Collector::collect): mark protected lists as appropriate.
+        * kjs/context.h:
+        * kjs/list.cpp:
+        (KJS::ListImp::markValues): Moved implementation from List::markValues
+        (KJS::List::markProtectedLists): Implemented - scan pool and overflow
+	list.
+        (KJS::allocateListImp): link lists outside the pool into a separate
+	doubly linked list to be able to mark protected lists
+        (KJS::deallocateListImp): do the corresponding delinking
+        (KJS::List::derefValues): do nothing in conservative GC mode
+        (KJS::List::refValues): do nothing in conservative GC mode
+        (KJS::List::markValues): call ListImp version
+        (KJS::List::append):
+        * kjs/list.h:
+
+2005-07-21  Adele Peterson  <adele@apple.com>
+
+       Merge from TOT to Safari-2-0-branch to build with gcc 4.0 
+       <rdar://problem/4164127>
+
+    2005-05-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adele.
+
+        - fixed issues preventing us from compiling with newer versions of gcc 4.0
+
+        * kjs/ustring.cpp:
+        (KJS::operator==): Remove redundant and illegal KJS:: prefix on this function's definition.
+        (KJS::operator<): Ditto.
+        (KJS::compare): Ditto.
+
+    2005-05-04  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        - another gcc-4.0-related fix
+
+        * bindings/runtime_root.h: Take off extra namespace prefixes that apparently cause problems
+        compiling with gcc 4.0, although I have not observed the problems.
+
+    2005-04-28  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dave Harrison.
+
+        - fixed problems preventing us from compiling with gcc 4.0
+
+        * JavaScriptCore.pbproj/project.pbxproj: Removed -Wmissing-prototypes from
+        WARNING_CPLUSPLUSFLAGS since it's now a C-only warning.
+
+        * bindings/jni/jni_jsobject.cpp:
+        (JSObject::getSlot): Changed some %d to %ld where the parameters where long ints.
+        (JSObject::setSlot): Ditto.
+        * bindings/jni/jni_utility.cpp:
+        (KJS::Bindings::getJavaVM): Ditto.
+        (KJS::Bindings::getJNIEnv): Ditto.
+        * bindings/objc/objc_utility.mm: Fixed include of <JavascriptCore/internal.h> that needed the
+        letter "S" capitalized.
+        * kjs/bool_object.cpp: (BooleanProtoFuncImp::call): Rearranged how this function returns to
+        avoid incorrect gcc 4.0 warning.
+        * kjs/collector.cpp: (KJS::Collector::markStackObjectsConservatively): Changed code to check
+        the alignment of the passed-in pointers to only require pointer-level alignment, not 8-byte alignment.
+        Prevents a crash on garbage collect when compiled with gcc 4.0.
+        * kjs/nodes.cpp:
+        (WhileNode::execute): Added a redundant return after an infinite loop to work around incorrect gcc 4.0 warning.
+        (ForNode::execute): Ditto.
+        (SwitchNode::execute):Rearranged how this function returns to avoid incorrect gcc 4.0 warning.
+        (LabelNode::execute): Ditto.
+        * kjs/string_object.cpp: (replace): Ditto.
+
+=== JavaScriptCore-412.5 ===
+
+2005-07-12  Adele Peterson  <adele@apple.com>
+
+        Merging fix from TOT to Safari-2-0-branch
+        <rdar://problem/4164929> String.replace() method not working when regex pattern contains {n, m}
+
+    2005-06-21  Adele Peterson  <adele@apple.com>
+
+        Patch from Anders Carlsson <andersca@mac.com>, reviewed by Darin.
+
+        Fixed: <http://bugzilla.opendarwin.org/show_bug.cgi?id=3450>
+        <rdar://problem/3881901> String.replace() method not working when regex pattern contains {n, m}
+
+        * pcre/pcre.c: (pcre_compile): Remember the last char length so it can be subtracted correctly if needed.
+
 === JavaScriptCore-412.3 ===
 
 2005-05-26  Chris Petersen  <cpetersen@apple.com>

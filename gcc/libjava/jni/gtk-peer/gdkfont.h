@@ -38,7 +38,7 @@
    obligated to do so.  If you do not wish to do so, delete this
    exception statement from your version. */
 
-#include "gtkcairopeer.h"
+#include "gtkpeer.h"
 
 #include <pango/pango.h>
 #include <pango/pango-context.h>
@@ -47,6 +47,7 @@
 
 extern struct state_table *native_font_state_table;
 extern struct state_table *native_glyphvector_state_table;
+extern struct state_table *native_text_layout_state_table;
 
 #define NSA_FONT_INIT(env, clazz) \
   native_font_state_table = init_state_table (env, clazz)
@@ -73,21 +74,69 @@ extern struct state_table *native_glyphvector_state_table;
 #define NSA_DEL_GV_PTR(env, obj) \
   remove_state_slot (env, obj, native_glyphvector_state_table)
 
+
+#define NSA_TEXT_LAYOUT_INIT(env, clazz) \
+  native_text_layout_state_table = init_state_table (env, clazz)
+
+#define NSA_GET_TEXT_LAYOUT_PTR(env, obj) \
+  get_state (env, obj, native_text_layout_state_table)
+
+#define NSA_SET_TEXT_LAYOUT_PTR(env, obj, ptr) \
+  set_state (env, obj, native_text_layout_state_table, (void *)ptr)
+
+#define NSA_DEL_TEXT_LAYOUT_PTR(env, obj) \
+  remove_state_slot (env, obj, native_text_layout_state_table)
+
+#define FONT_METRICS_ASCENT      0
+#define FONT_METRICS_MAX_ASCENT  1
+#define FONT_METRICS_DESCENT     2
+#define FONT_METRICS_MAX_DESCENT 3
+#define FONT_METRICS_MAX_ADVANCE 4
+#define NUM_FONT_METRICS 5
+
+#define TEXT_METRICS_X_BEARING 0
+#define TEXT_METRICS_Y_BEARING 1
+#define TEXT_METRICS_WIDTH     2
+#define TEXT_METRICS_HEIGHT    3
+#define TEXT_METRICS_X_ADVANCE 4
+#define TEXT_METRICS_Y_ADVANCE 5
+#define NUM_TEXT_METRICS 6
+
+#define NUM_GLYPH_METRICS 10
+
+#define GLYPH_LOG_X(i)      (NUM_GLYPH_METRICS * (i)    )
+#define GLYPH_LOG_Y(i)      (NUM_GLYPH_METRICS * (i) + 1)
+#define GLYPH_LOG_WIDTH(i)  (NUM_GLYPH_METRICS * (i) + 2)
+#define GLYPH_LOG_HEIGHT(i) (NUM_GLYPH_METRICS * (i) + 3)
+
+#define GLYPH_INK_X(i)      (NUM_GLYPH_METRICS * (i) + 4)
+#define GLYPH_INK_Y(i)      (NUM_GLYPH_METRICS * (i) + 5)
+#define GLYPH_INK_WIDTH(i)  (NUM_GLYPH_METRICS * (i) + 6)
+#define GLYPH_INK_HEIGHT(i) (NUM_GLYPH_METRICS * (i) + 7)
+
+#define GLYPH_POS_X(i)      (NUM_GLYPH_METRICS * (i) + 8)
+#define GLYPH_POS_Y(i)      (NUM_GLYPH_METRICS * (i) + 9)
+
 struct peerfont
 {
   PangoFont *font;
   PangoFontDescription *desc;
   PangoContext *ctx;
+  PangoLayout *layout;
+  /* 
+   * The GdkGraphics2D (using cairo) may store a pointer to a
+   * cairo_font_t here; since we want to work equally well with
+   * the GdkGraphics class (using GDK) we do not explicitly mention
+   * cairo types here; it is up to the higher level driver routine
+   * in GdkClasspathFontPeer.java to decide which backend functions
+   * to invoke. 
+   */
+  void *graphics_resource;
 };
 
-struct glyphvec 
+struct textlayout
 {
-  /* the GList is list of PangoGlyphItems, each of which is a pair of 1
-     PangoItem and 1 PangoGlyphString. */
-  GList *glyphitems;
-  PangoFontDescription *desc;
-  PangoFont *font;
-  PangoContext *ctx;
+  PangoLayout *pango_layout;
 };
 
 #endif /* __GDKFONT_H__ */

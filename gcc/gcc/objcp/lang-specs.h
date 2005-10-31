@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Definitions for specs for Objective-C++.
    Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>

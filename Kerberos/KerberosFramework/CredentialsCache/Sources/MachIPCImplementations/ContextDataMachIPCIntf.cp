@@ -129,6 +129,7 @@ kern_return_t ContextIPC_CreateCCache (
         // Check to see if the ccache is empty (we launched to add this and failed).  
         // If it is, we should quit.
         if (CCIUniqueGlobally <CCICCacheData>::CountGloballyUniqueIDs () == 0) {
+            dprintf ("CCacheIPC_CreateCCache: creating first ccache failed.... quitting.\n");
             mach_server_quit_self ();
         }
 	}
@@ -174,6 +175,7 @@ kern_return_t ContextIPC_CreateDefaultCCache (
         // Check to see if the ccache is empty (we launched to add this and failed).  
         // If it is, we should quit.
         if (CCIUniqueGlobally <CCICCacheData>::CountGloballyUniqueIDs () == 0) {
+            dprintf ("CCacheIPC_CreateDefaultCCache: creating first ccache failed.... quitting.\n");
             mach_server_quit_self ();
         }
 	}
@@ -222,6 +224,7 @@ kern_return_t ContextIPC_CreateNewCCache (
         // Check to see if the ccache is empty (we launched to add this and failed).  
         // If it is, we should quit.
         if (CCIUniqueGlobally <CCICCacheData>::CountGloballyUniqueIDs () == 0) {
+            dprintf ("CCacheIPC_CreateNewCCache: creating first ccache failed.... quitting.\n");
             mach_server_quit_self ();
         }
 	}

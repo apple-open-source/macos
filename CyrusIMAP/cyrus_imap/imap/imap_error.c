@@ -48,6 +48,7 @@ static const char * const text[] = {
 	   "This mailbox hierarchy does not exist on a single backend server.",
 	   "Unrecognized character set",
 	   "Invalid user",
+	   "Auto-Forward user",
 	   "Login incorrect",
 	   "Anonymous login is not permitted",
 	   "Unsupported quota resource",
@@ -77,9 +78,9 @@ struct et_list {
     struct et_list *next;
     const struct error_table * table;
 };
-extern struct et_list *_et_list;
+struct et_list *_et_list;
 
-const struct error_table et_imap_error_table = { text, -1904809472L, 55 };
+const struct error_table et_imap_error_table = { text, -1904809472L, 56 };
 
 static struct et_list link = { 0, 0 };
 

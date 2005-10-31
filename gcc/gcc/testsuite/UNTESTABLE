@@ -9,49 +9,49 @@ Note that if a local change fixes a bug that is exposed by an existing
 test, then by definition the local change should go into FSF GCC
 instead of being listed here.
 
-APPLE LOCAL MW compatibility
-APPLE LOCAL Mach time
-APPLE LOCAL OS pragma hook
-APPLE LOCAL RTX_COST for multiply
-APPLE LOCAL Stripped encodings ('!T_' and '!t_') should match.
-APPLE LOCAL branch cost
-APPLE LOCAL code size reduction / performance enhancement
-APPLE LOCAL combine hoisted consts
-APPLE LOCAL compare >= 0, not > 0.
-APPLE LOCAL darwin host
-APPLE LOCAL darwin mmap bug workaround
-APPLE LOCAL darwin_set_section_for_var_p
-APPLE LOCAL debugging
-APPLE LOCAL default to ppro
-APPLE LOCAL do not extern fp save/restore
-APPLE LOCAL don't define SAVE_FP_PREFIX and friends
-APPLE LOCAL fat builds readability
-APPLE LOCAL finish file hook
-APPLE LOCAL fix prototypes
-APPLE LOCAL fix redundant add?
-APPLE LOCAL flag_objc
-APPLE LOCAL include guard for darwin.h
-APPLE LOCAL interrupt signal handler (radar 2941633)
-APPLE LOCAL keep tables in sync comment
-APPLE LOCAL make easy_vector_constant globally visible (rs6000-protos.h)
-APPLE LOCAL manual
-APPLE LOCAL more orphaned code
-APPLE LOCAL move is_class_name to stub-objc.c
-APPLE LOCAL move lookup_interface to stub-objc.c
-APPLE LOCAL move lookup_objc_ivar to stub-objc.c
-APPLE LOCAL multiply cost pulled into function
-APPLE LOCAL objc finish file
-APPLE LOCAL order files
-APPLE LOCAL parsedir
-APPLE LOCAL prototypes
-APPLE LOCAL prune man page
-APPLE LOCAL reduce code size
-APPLE LOCAL remove a stub tweak
-APPLE LOCAL remove machopic_output_possible_stub_label
-APPLE LOCAL rename for HFS
-APPLE LOCAL separate outputdir
-APPLE LOCAL setrlimit
-APPLE LOCAL time formatting
-APPLE LOCAL try to improve ggc
-APPLE LOCAL work around a makeinfo complaint
-APPLE LOCAL cp_binding_level
+MW compatibility
+Mach time
+OS pragma hook
+RTX_COST for multiply
+Stripped encodings ('!T_' and '!t_') should match.
+branch cost
+code size reduction / performance enhancement
+combine hoisted consts
+compare >= 0, not > 0.
+darwin host
+darwin mmap bug workaround
+darwin_set_section_for_var_p
+debugging
+default to ppro
+do not extern fp save/restore
+don't define SAVE_FP_PREFIX and friends
+fat builds readability
+finish file hook
+fix prototypes
+fix redundant add?
+flag_objc
+include guard for darwin.h
+interrupt signal handler (radar 2941633)
+keep tables in sync comment
+make easy_vector_constant globally visible (rs6000-protos.h)
+manual
+more orphaned code
+move is_class_name to stub-objc.c
+move lookup_interface to stub-objc.c
+move lookup_objc_ivar to stub-objc.c
+multiply cost pulled into function
+objc finish file
+order files
+parsedir
+prototypes
+prune man page
+reduce code size
+remove a stub tweak
+remove machopic_output_possible_stub_label
+rename for HFS
+separate outputdir
+setrlimit
+time formatting
+try to improve ggc
+work around a makeinfo complaint
+cp_binding_level

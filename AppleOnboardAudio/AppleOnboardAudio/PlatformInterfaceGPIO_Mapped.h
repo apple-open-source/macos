@@ -65,6 +65,8 @@ public:
 	virtual IOReturn					setInputDataMux (GpioAttributes muxState);
 	virtual GpioAttributes				getInputDataMux ();
 
+	virtual GpioAttributes				getInternalMicrophoneID ();
+
 	virtual GpioAttributes				getInternalSpeakerID ();
 
 	virtual	GpioAttributes				getLineInConnected ();
@@ -167,6 +169,7 @@ protected:
 	GpioPtr								mHeadphoneDetectGpio;
 	GpioPtr								mHeadphoneMuteGpio;
 	GpioPtr								mInputDataMuxGpio;
+	GpioPtr								mInternalMicrophoneIDGpio;
 	GpioPtr								mInternalSpeakerIDGpio;
 	GpioPtr								mLineInDetectGpio;								
 	GpioPtr								mLineOutDetectGpio;	
@@ -186,6 +189,7 @@ protected:
 	GpioActiveState						mHeadphoneDetectActiveState;
 	GpioActiveState						mHeadphoneMuteActiveState;	
 	GpioActiveState						mInputDataMuxActiveState;							
+	GpioActiveState						mInternalMicrophoneIDActiveState;
 	GpioActiveState						mInternalSpeakerIDActiveState;					
 	GpioActiveState						mLineInDetectActiveState;						
 	GpioActiveState						mLineOutDetectActiveState;						
@@ -240,6 +244,7 @@ protected:
 	static const char*  kDigitalOutDetectEntry;
 	static const char*  kHeadphoneDetectInt;
 	static const char* 	kHeadphoneMuteEntry;
+	static const char*	kInternalMicrophoneIDEntry;
 	static const char*	kInternalSpeakerIDEntry;
 	static const char*  kLineInDetectInt;
 	static const char*  kLineOutDetectInt;

@@ -1,5 +1,5 @@
 /* GtkCheckboxMenuItemPeer.java -- Implements CheckboxMenuItemPeer with GTK+
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,8 +39,9 @@ exception statement from your version. */
 package gnu.java.awt.peer.gtk;
 
 import java.awt.CheckboxMenuItem;
+import java.awt.ItemSelectable;
+import java.awt.event.ItemEvent;
 import java.awt.peer.CheckboxMenuItemPeer;
-import java.awt.peer.MenuItemPeer;
 
 public class GtkCheckboxMenuItemPeer extends GtkMenuItemPeer
   implements CheckboxMenuItemPeer
@@ -53,5 +54,16 @@ public class GtkCheckboxMenuItemPeer extends GtkMenuItemPeer
     setState (menu.getState ());
   }
 
-  native public void setState (boolean t);
+  public native void setState(boolean t);
+
+  protected void postMenuActionEvent ()
+  {
+    CheckboxMenuItem item = (CheckboxMenuItem)awtWidget;
+    q().postEvent (new ItemEvent ((ItemSelectable)awtWidget,
+      ItemEvent.ITEM_STATE_CHANGED,
+      item.getActionCommand(),
+      item.getState() ? ItemEvent.DESELECTED : ItemEvent.SELECTED));
+
+    super.postMenuActionEvent();
+  }
 }

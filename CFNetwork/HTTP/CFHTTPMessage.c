@@ -376,7 +376,7 @@ static CFStringRef createRequestLine(CFAllocatorRef alloc, CFStringRef method, C
     CFStringAppendCString(line, " ", kCFStringEncodingASCII);
 
     urlPortion = _CFURLPortionForRequest(alloc, url, useCompleteURL, &urlBytes, sizeof(buf)/sizeof(UInt8), &freeBytes);
-    CFStringAppendCString(line, urlPortion, kCFStringEncodingISOLatin1);
+    CFStringAppendCString(line, (const char*)urlPortion, kCFStringEncodingISOLatin1);
     if (freeBytes) CFAllocatorDeallocate(alloc, urlBytes);
 
     CFStringAppendCString(line, " ", kCFStringEncodingASCII);
@@ -631,7 +631,7 @@ CFStringRef _CFCapitalizeHeader(CFStringRef headerString) {
         if (useUniCharPtr) {
             return CFStringCreateWithCharactersNoCopy(alloc, uniCharPtr, len, alloc);
         } else {
-            return CFStringCreateWithCStringNoCopy(alloc, charPtr, kCFStringEncodingISOLatin1, alloc);
+            return CFStringCreateWithCStringNoCopy(alloc, (const char*)charPtr, kCFStringEncodingISOLatin1, alloc);
         }
     } else {
         CFRetain(headerString);
@@ -1108,7 +1108,7 @@ static Boolean _parseHeadersFromData(CFHTTPMessageRef message) {
                 for (i = 0; i < kHTTPMessageNumItems; i++) {
                     const struct MessageHeaderMap* map = &kHTTPMessageHeaderMap[i];
                     if (((colon - start) == map->_length) &&
-                        !strncmp(map->_header, start, map->_length))
+                        !strncmp(map->_header, (const char*)start, map->_length))
                     {
                         key = CFRetain(kHTTPMessageHeaderMap2[i]);
                         break;

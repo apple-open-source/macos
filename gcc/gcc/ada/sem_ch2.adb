@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,6 +32,7 @@ with Rident;   use Rident;
 with Sem_Ch8;  use Sem_Ch8;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
+with Uintp;    use Uintp;
 
 package body Sem_Ch2 is
 
@@ -41,7 +42,6 @@ package body Sem_Ch2 is
 
    procedure Analyze_Character_Literal (N : Node_Id) is
    begin
-
       --  The type is eventually inherited from the context. If expansion
       --  has already established the proper type, do not modify it.
 
@@ -52,7 +52,7 @@ package body Sem_Ch2 is
       Set_Is_Static_Expression (N);
 
       if Comes_From_Source (N)
-        and then not In_Character_Range (Char_Literal_Value (N))
+        and then not In_Character_Range (UI_To_CC (Char_Literal_Value (N)))
       then
          Check_Restriction (No_Wide_Characters, N);
       end if;

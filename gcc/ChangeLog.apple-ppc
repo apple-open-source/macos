@@ -1,3 +1,19 @@
+2005-08-18  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4220152
+	* build_gcc: Remove dylibs in /usr/lib.
+
+2005-04-13  Geoff Keating  <dalej@apple.com>
+
+	Radar 4071716
+	* build_gcc (I386_CPU):  Make prescott the default.
+
+2005-04-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* build_gcc: Use I386_CPU each time something is configured 
+	to target x86.
+	(I386_CPU): New.
+
 2005-02-28  Stan Shebs  <shebs@apple.com>
 	    Ian Ollmann <iano@apple.com>
 

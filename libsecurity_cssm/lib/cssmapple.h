@@ -503,7 +503,11 @@ enum
 	/* server-reported already exists */
 	CSSMERR_APPLE_DOTMAC_REQ_SERVER_ALREADY_EXIST = CSSM_TP_PRIVATE_ERROR + 107,
 	/* server-reported service error */
-	CSSMERR_APPLE_DOTMAC_REQ_SERVER_SERVICE_ERROR = CSSM_TP_PRIVATE_ERROR + 108
+	CSSMERR_APPLE_DOTMAC_REQ_SERVER_SERVICE_ERROR = CSSM_TP_PRIVATE_ERROR + 108,
+	/* request already pending for specified user */
+	CSSMERR_APPLE_DOTMAC_REQ_IS_PENDING	=			CSSM_TP_PRIVATE_ERROR + 109,
+	/* no request pending for specified user */
+	CSSMERR_APPLE_DOTMAC_NO_REQ_PENDING	=			CSSM_TP_PRIVATE_ERROR + 110
 };
 
 enum
@@ -617,6 +621,7 @@ enum
 	CSSM_APPLE_PRIVATE_CSPDL_CODE_12 = 12,
 	CSSM_APPLE_PRIVATE_CSPDL_CODE_13 = 13,
 	CSSM_APPLE_PRIVATE_CSPDL_CODE_14 = 14,
+	CSSM_APPLE_PRIVATE_CSPDL_CODE_15 = 15,
 	
 	/* Given a CSSM_KEY_PTR in any format, obtain the SHA-1 hash of the 
 	 * associated key blob. 

@@ -51,6 +51,26 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <AvailabilityMacros.h>
+
+#define MACH64 (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+
+#if MACH64
+
+#include <mach/mach_vm.h>
+
+#else /* ! MACH64 */
+
+#define mach_vm_size_t vm_size_t
+#define mach_vm_address_t vm_address_t
+#define mach_vm_read vm_read
+#define mach_vm_write vm_write
+#define mach_vm_region vm_region
+#define VM_REGION_BASIC_INFO_COUNT_64 VM_REGION_BASIC_INFO_COUNT
+#define VM_REGION_BASIC_INFO_64 VM_REGION_BASIC_INFO
+
+#endif /* MACH64 */
+
 FILE *inferior_stderr = NULL;
 int inferior_debug_flag = 0;
 int timestamps_debug_flag = 0;
@@ -141,18 +161,18 @@ unparse_inheritance (vm_inherit_t i)
 }
 
 void
-macosx_debug_region (task_t task, vm_address_t address)
+macosx_debug_region (task_t task, mach_vm_address_t address)
 {
   macosx_debug_regions (task, address, 1);
 }
 
 void
-macosx_debug_regions (task_t task, vm_address_t address, int max)
+macosx_debug_regions (task_t task, mach_vm_address_t address, int max)
 {
   kern_return_t kret;
-  struct vm_region_basic_info info, prev_info;
-  vm_address_t prev_address;
-  vm_size_t size, prev_size;
+  vm_region_basic_info_data_64_t info, prev_info;
+  mach_vm_address_t prev_address;
+  mach_vm_size_t size, prev_size;
 
   mach_port_t object_name;
   mach_msg_type_number_t count;
@@ -160,16 +180,15 @@ macosx_debug_regions (task_t task, vm_address_t address, int max)
   int nsubregions = 0;
   int num_printed = 0;
 
-  count = VM_REGION_BASIC_INFO_COUNT;
-  kret =
-    vm_region (task, &address, &size, VM_REGION_BASIC_INFO,
-               (vm_region_info_t) & info, &count, &object_name);
+  count = VM_REGION_BASIC_INFO_COUNT_64;
+  kret = mach_vm_region (task, &address, &size, VM_REGION_BASIC_INFO_64,
+			 (vm_region_info_t) &info, &count, &object_name);
   if (kret != KERN_SUCCESS)
     {
       printf_filtered ("No memory regions.");
       return;
     }
-  memcpy (&prev_info, &info, sizeof (struct vm_region_basic_info));
+  memcpy (&prev_info, &info, sizeof (vm_region_basic_info_data_64_t));
   prev_address = address;
   prev_size = size;
   nsubregions = 1;
@@ -187,10 +206,10 @@ macosx_debug_regions (task_t task, vm_address_t address, int max)
 
       if (!done)
         {
-          count = VM_REGION_BASIC_INFO_COUNT;
+          count = VM_REGION_BASIC_INFO_COUNT_64;
           kret =
-            vm_region (task, &address, &size, VM_REGION_BASIC_INFO,
-                       (vm_region_info_t) & info, &count, &object_name);
+            mach_vm_region (task, &address, &size, VM_REGION_BASIC_INFO_64,
+                 	      (vm_region_info_t) &info, &count, &object_name);
           if (kret != KERN_SUCCESS)
             {
               size = 0;
@@ -231,7 +250,7 @@ macosx_debug_regions (task_t task, vm_address_t address, int max)
 
           prev_address = address;
           prev_size = size;
-          memcpy (&prev_info, &info, sizeof (struct vm_region_basic_info));
+          memcpy (&prev_info, &info, sizeof (vm_region_basic_info_data_64_t));
           nsubregions = 1;
 
           num_printed++;

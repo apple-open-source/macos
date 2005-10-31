@@ -354,6 +354,9 @@ char *dcc_get_system_version(void)
     int    typeMib[2];
     size_t typeLen;
     char *ret;
+    int cputype;
+    int cputtypesize = sizeof(typeof(cputype));
+
 
     typeMib[0] = CTL_KERN;
     typeMib[1] = KERN_OSTYPE;
@@ -383,9 +386,17 @@ char *dcc_get_system_version(void)
         rs_log_error("Unable to get kern.osrelease: (%d) %s", errno,
                      strerror(errno));
     }
+    
+    if (sysctlbyname ("hw.cputype", &cputype, &cputtypesize, NULL, 0)) {
+        rs_log_error("Unable to get hw.cputype: (%d) %s", errno,
+                     strerror(errno));
+    }
 
-    ret = malloc(releaseLen + typeLen + 4);
-    sprintf(ret, "%s %s", osRelease, osType);
+    ret = malloc(releaseLen + typeLen + 12);
+    sprintf(ret, "%s %s (%d)", osRelease, osType, cputype);
+    free(osRelease);
+    free(osType);
+
     return ret;
 }
 

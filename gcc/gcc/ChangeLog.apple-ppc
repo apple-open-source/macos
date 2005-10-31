@@ -1,26 +1,648 @@
-2005-03-11  Ziemowit Laski  <zlaski@apple.com>
+2005-05-19  Devang Patel  <dpatel@apple.com>
 
-	Radar 3995882
-	* c-decl.c (objc_mark_locals_volatile): Mark local variables and
-	parameters 'volatile' in ways expected by the C front-end.
+	Radar 4123684
+	* config/rs6000/rs6000.md (insvsi_internal1): Remove.
 
-2005-03-11  Dale Johannesen  <dalej@apple.com>
+2005-05-19  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4124883, 4122515
+	* gcc/simplify-rtx.c(simplify_binary_operation): Can't simplify vector shifts yet.
+	(simplify_immed_subreg): Fail instead of asserting when asked for a TImode constant.
+	* gcc/config/i386/i386.md(UNSPEC_LDQ, UNSPEC_MOVQ, UNSPEC_STOQ): New.
+	* gcc/config/i386/sse.md(sse_loadqv4si, sse_storeqv4si, sse_movqv4si):
+	Move UNSPECs inside patterns, incorporate new UNSPEC_ constants.
+
+2005-05-12  Dale Johannesen <dalej@apple.com>
+	    Stuart Hastings <stuart@apple.com>
+
+	* stor-layout.c (compute_record_mode):  Put back 8-byte struct
+	"hack", merged with FSF and 64-bit ABI changes.
+
+2005-05-11  Stan Shebs  <shebs@apple.com>
+
+	Fix 64-bit varargs for Darwin (Radar 4028089).
+	* config/rs6000/rs6000.h (rs6000_args): New field floats_in_gpr.
+	* config/rs6000/rs6000.c (rs6000_darwin64_record_arg_advance_flush):
+	Add argument, add case for 8-byte register half-filled with a float.
+	(rs6000_darwin64_record_arg_advance_recurse): Detect and handle
+	single-precision floats specially.
+
+2005-05-11  Devang Patel  <dpatel@apple.com>
+
+	Radar 4110735
+	* config/rs6000/rs6000.md (insvsi_internal1): Fix operand[1].
+
+2005-05-10  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4111151
+	* toplev.c (backend_init): Call init_caller_save unconditionally.
+
+2005-05-10  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4099020
+	Reinstall patch, omitting simplify-rtx change.
+	* gcc/config/i386/sse.md (sse_loadqv4s, sse_storeqv4si, sse_movqv4si): New.
+	* gcc/config/i386/i386.c: (IX86_BUILTIN_MOVQ,
+	IX86_BUILTIN_LOADQ, IX86_BUILTIN_STOREQ): New.
+	(__builtin_ia32_movqv4si, __builtin_ia32_loadlv4si, __builtin_ia32_storelv4si): New.
+	* emmintrin.h (_mm_loadl_epi64, _mm_storel_epi64, _mm_move_epi64): Use them.
+	* gcc/config/i386/mmx.md: Exempt SSE subregs from multiword split.
+
+2005-05-10  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4078600
+	* gcc/stor-layout.c(compute_record_mode): Delete the "8-byte struct hack".
+
+2005-05-10  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4095567
+	* passes.c (rest_of_compilation): Readjust default stack boundaries for
+	leaf functions with no vector code.
+
+2005-05-09  Jon Ziegler  <jonz@apple.com>
+
+	Radar 4099020
+	Revert Stuart's patch for 4099020.
+
+2005-05-09  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4113078
+	* tree-inline.c (expand_call_inline):  Propagate uses_vector bit correctly.
+
+2005-05-07  Stuart Hastings  <stuart@apple.com>
+
+        Radar 4099020
+        * gcc/config/i386/sse.md (sse_loadqv4s, sse_storeqv4si, sse_movqv4si): New.
+        * gcc/config/i386/i386.c: (IX86_BUILTIN_MOVQ,
+        IX86_BUILTIN_LOADQ, IX86_BUILTIN_STOREQ): New.
+        (__builtin_ia32_movqv4si, __builtin_ia32_loadlv4si, __builtin_ia32_storelv4si): New.
+        * emmintrin.h (_mm_loadl_epi64, _mm_storel_epi64, _mm_move_epi64): Use them.
+        * gcc/config/i386/mmx.md: Exempt SSE subregs from multiword split.
+        * gcc/simplify-rtx.c(simplify_immed_subreg): Exit cleanly if outermode too wide.
+
+2005-05-06  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4090661
+	* config/i386/i386.c (ix86_constant_alignment):  Max out
+	alignment of string constants at 4 bytes.
+
+2005-05-05  Stuart Hastings  <stuart@apple.com>
+
+	* Radar 4078600
+	* gcc/stor-layout.c(compute_record_mode): Revert previous patch.
+
+2005-04-04  Devang Patel  <dpatel@apple.com>
+
+	* Radar 4095052
+	* varasm.c (replace_weak): New.
+	(merge_weak): Use replace_weak.
+
+2005-05-04  Stuart Hastings  <stuart@apple.com>
+
+	* Radar 4078600
+	* gcc/stor-layout.c(compute_record_mode): Remove flag_pic from "8-byte struct hack" test.
+
+2005-05-03  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4104248
+	* objc/objc-act.c:  Include opts.h.
+	* objc/Make-lang.in (objc-act.o):  Ditto.
+	* config/darwin-protos.h (machopic_picsymbol_stub2_section):  New.
+	* config/i386/i386.c:  Include params.h.
+	* config/i386/i386.md (movqi_1):  Handle ESI/EDI destination.
+
+2005-05-02  Mike Stump  <mrs@apple.com>
+
+	* Radar 4099000
+	* config/i386/lib1funcs.asm: Add ___i686.get_pc_thunk.<reg> to
+	libgcc.
+	* config/i386/t-darwin: Add.
+	* config.gcc: Add i386/t-darwin.
+
+2005-05-02  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4102133  (PR 21293, Zdenek's patch)
+	* tree-cfg.c (find_taken_edge_cond_expr): Use zero_p instead of
+        integer_zerop.
+        * tree-gimple.c (is_gimple_min_invariant): Consider overflowed
+        constants invariant.
+        * fortran/trans-intrinsic.c (gfc_conv_intrinsic_ishft): Convert
+        the argument of the shift to the unsigned type.
+
+2005-04-28  Devang Patel  <dpatel@apple.com>
+
+	Radar 4086969
+	* c-typeck.c (convert_for_assignment): Fix warn_discard_qual.
+
+2005-04-28  Devang Patel  <dpatel@apple.com>
+
+	Radar 4086969
+	* c-typeck.c (convert_for_assignment): Check warn_discard_qual.
+	* c.opt (Wdiscard-qual): New.
+	* doc/invoke.texi: Dcoument -Wdiscard-qual.
+
+2005-04-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4101687
+	* i386.c (legitimize_address):  Canonicalize shifts correctly.
+
+2005-04-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4100712 (PR 21173, Dan Berlin's patch)
+	* tree-ssa-pre.c (create_expression_by_pieces): Call unshare_expr
+	on things we pass to force_gimple_operand.  Don't try to special
+	case min_invariants.
+
+2005-04-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4101973
+	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS):
+	Back out patch for 4096578.
+	* config/i386/i386.c (reset_optimization_options):  Ditto.
+
+2005-04-26  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4099768
+	* config/i386/i386.c (ix86_split_long_mode):  Adjust
+	stack offsets for 128-bit long doubles correctly.
+
+2005-04-26  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4096578
+	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS):
+	Default omit-frame-pointer on with optimization.
+	* config/i386/i386.c (reset_optimization_options):  Ditto.
+
+2005-04-26  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4010496
+	* gcc/config/i386/x-darwin: Add -mdynamic-no-pic.
+
+2005-04-25  Devang Patel  <dpatel@apple.com>
+
+	Radar 4095956
+	* config/rs6000/darwin.h (REAL_LIBGCC_GCC): Use -lgcc_static.
+
+2005-04-26  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4096118
+	* build_gcc: Default to --with-arch=pentium4 --with-tune=prescott.
+	* gcc/config/i386/darwin.h: Override OPTIONS_DEFAULT_SPECS.
+
+2005-04-25  Devang Patel  <dpatel@apple.com>
+
+	Radar 4095956
+	* config/darwin.h (REAL_LIBGCC_GCC): Use -lgcc_static.
+
+2005-04-25  Devang Patel  <dpatel@apple.com>
+
+	Radar 3954848
+	* dbxout.c (dbxout_type): Emit attribute vector.
+
+2005-04-23  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4097111
+	* opts.c (decode_options):  Move cl_pf_opts_cooked setup...
+	* toplev.c (process_options):  ...to here.
+
+2005-04-22  Dale Johannesen   <dalej@apple.com>
+
+	* common.opt (falign-functions=):  Fix it.
+
+2005-04-22  Devang Patel  <dpatel@apple.com>
+
+	* config/rs6000/darwin.h: Update APPLE LOCAL markers to reflect
+	FSF mainline check-in.
+
+2005-04-21  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3124235
+	* Makefile.in (options.o):  New dependencies.
+	(tree-optimize.o):  Ditto.
+	* c-decl.c (start_function):  Record perfunc flags.
+	* common.opt (falign-jumps, falign-labels, falign-loops):
+	Add PerFunc, VarUint, VarExists.
+	(fbranch-count-reg, fbranch-target-load-optimize,
+	fbranch-target-load-optimize2, fbtr-bb-exclusive, 
+	fcaller-saves, fcprop-registers, fcrossjumping,
+	fcse-follow-jumps, fcse-skip-blocks, fcx-limited-range,
+	fdefer-pop, fdelayed-branch, fdelete-null-pointer-checks,
+	fexpensive-optimizations, ffinite-math-only, ffloat-store,
+	fforce-addr, fforce-mem, ffunction-cse, fgcse, fgcse-lm,
+	fgcse-sm, fgcse-las, fgcse-after-reload, 
+	fguess-branch-probability, fif-conversion, fif-conversion2,
+	fivopts, floop-optimize, floop-optimize2, fmath-errno,
+	fmodulo-sched, fmove-loop-invariants, 
+	freschedule-modulo-scheduled-loops, fomit-frame-pointer,
+	foptimize-register-move, foptimize-sibling-calls, fpeel-loops,
+	fpeephole, fpeephole2, fprefetch-loop-arrays, fregmove,
+	frename-registers, freorder-blocks, freorder-blocks-and-partition,
+	frerun-cse-after-loop, frerun-loop-opt, frounding-math,
+	fsched-interblock, fsched-spec, fsched-spec-load, 
+	fsched-spec-load-dangerous, fsched2-use-superblocks,
+	fsched2-use-traces, fschedule-insns, fschedule-insns2,
+	fsignaling-nans, fsplit-ivs-in-unroller, 
+	fvariable-expansion-in-unroller, fstrength-reduce,
+	fthread-jumps, ftracer, ftrapping-math, ftrapv, ftree-ccp,
+	ftree-ch, ftree-combine-temps, ftree-copyrename, ftree-dce,
+	ftree-dominator-opts, ftree-dse, ftree-fre, ftree-loop-im,
+	ftree-loop-linear, ftree-loop-ivcanon, ftree-loop-memset,
+	ftree-loop-optimize, ftree-pre, ftree-sra, ftree-ter,
+	ftree-lrs, funroll-loops, funroll-all-loops, 
+	funsafe-math-optimizations, funswitch-loops, ftree-vectorize,
+	fweb, fwrapv): Add PerFunc.
+	(fsched-verbose):  Add Var, UInteger, PerFunc, VarUint.
+	(fsched-stalled-insns-dep):  Add PerFunc, VarUint.
+	(p): Add VarExists.
+	* final.c (asm_insn_count):  Replace "optimize" by "optimizing".
+	(final):  Ditto.
+	(final_scan_insn):  Ditto.
+	* flags.h (optimize, optimize_size):  Remove.
+	* haifa-sched.c (sched_verbose_param):  Remove.
+	(fix_sched_param):  Remove.
+	* loop.c (struct loop_mem_info): Replace "optimize" by "optimizable".
+	(insert_loop_mem, load_mems):  Adjust references.
+	* opt-functions.awk (flag_set_p):  New.
+	(switch_flags):  Add VarUint, PerFunc.
+	(var_ref):  Handle them.
+	(access_ref):  New.
+	* optc-gen.awk (END):  Substantial rewrite to handle PerFunc,
+	VarUint.
+	* opth-gen.awk (END):  Ditto.
+	* opts.c (hashtab.h):  New include.
+	(handle_option):  Use access_flag.
+	(set_flags_from_O):  New.
+	(decode_options):  Split out set_flags_from_O. Save
+	cl_pf_opts_cooked.
+	(common_handle_options):  Remove special cases for
+	align-functions, align-jumps, align-labels, 
+	align-loops, sched-verbose, sched-stalled-insns-dep.
+	Use access_flag.
+	(cl_perfunc_opts_hash_table, hash_cl_perfunc_opts,
+	cmp_cl_perfunc_opts, make_perfunc_opts, 
+	func_cl_pf_opts_mapping_hash_table, struct func_cl_pf_opts_mapping,
+	func_cl_pf_opts_mapping_hash, func_cl_pf_opts_mapping_eq,
+	record_func_cl_pf_opts_mapping, restore_func_cl_pf_opts_mapping, 
+	copy_func_cl_pf_opts_mapping):  New.
+	* opts.h (set_flags_from_O, record_func_cl_pf_opts_mapping,
+	restore_func_cl_pf_opts_mapping, copy_func_cl_pf_opts_mapping):  New.
+	(struct cl_option):  Add access_flag.
+	(CL_VARUINT, CL_PERFUNC):  New.
+	* toplev.c (optimize, optimize_size):  Remove.
+	(print_switch_values):  Use access_flag.
+	* toplev.h (flag_loop_optimize, flag_crossjumping, flag_if_conversion,
+	flag_if_conversion2, flag_peel_loops, flag_rerun_cse_after_loops,
+	flag_thread_jumps, flag_tracer, flag_unroll_loops, 
+	flag_unroll_all_loops, flag_unswitch_loops, flag_cprop_registers,
+	flag_loop_optimize2):  Remove.
+	* tree-optimize.c (opts.h):  New include.
+	(tree_rest_of_compilation):  Restore saved opts from definition.
+	* config/darwin-c.c (flags.h, opts.h, varray.h):  New includes.
+	(darwin_pragma_reverse_bitfields):  Fix obvious spelling bug.
+	(va_opt, push_opt_level, pop_opt_level, darwin_pragma_opt_level,
+	darwin_pragma_opt_size):  New.
+	* config/darwin-protos.h (darwin_pragma_opt_level,
+	darwin_pragma_opt_size, reset_optimization_options):  New.
+	* config/darwin.h (DARWIN_REGISTER_TARGET_PRAGMAS):
+	Add optimization_level, optimize_for_size.
+	* config/t-darwin (darwin-c.o):  New dependencies.
+	* config/i386/i386.c (reset_optimization_options):  New.
+	* config/rs6000/rs6000.c (reset_optimization_options):  New.
+	* config/rs6000/rs6000.h (optimize, flag_expensive_optimizations):  Remove.
+	* cp/Make-lang.in (cp/decl.o):  New dependency.
+	* cp/decl.c (opts.h):  New include.
+	(build_library_fn_1):  Record perfunc opts.
+	(start_preparsed_function): Propagate saved opts to existing forward decl.
+	(start_function):  Record perfunc opts.
+	* doc/extend.texi (pragma optimization_level, optimize_for_size):
+	Document.
+	* objc/objc-act.c (objc_start_function):  Record perfunc opts.
+
+2005-04-21  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4080945
+	PR 20742
+	* params.def (PARAM_SCEV_MAX_EXPR_SIZE):  New.
+	* tree-chrec.c (params.h):  New include.
+	(chrec_fold_plus_1):  Avoid too deep recursion.
+	(reset_evolution_in_loop):  Use build2 not build.
+	(tree_contains_chrecs):  Add size argument.
+	* tree-chrec.h (tree_constains_chrecs):  Add size argument.
+	(tree_does_not_contain_chrecs):  Adjust call to it.
+	* tree-scalar-evolution.c (simple_iv):  Ditto.
+	* doc/invoke.texi (scev-max-expr-size):  Document.
+
+2005-04-21  Devang Patel  <dpatel@apple.com>
+
+	Radar 4080840
+	* config/rs6000/darwin.h (ASM_OUTPUT_MAX_SKIP_ALIGN): New.
+
+2005-04-20  Mike Stump  <mrs@apple.com>
+
+	Radar 4077104
+	* c-common.c (print_cw_asm_operand): Handle -40(sp) in C++ CW asms better.
+
+2005-04-20  Stuart Hastings  <stuart@apple.com>
+
+	* Radar 4067496
+	* gcc/config/i386/i386.c (optimization_options): Raise inlining limits under -Os.
+
+2005-04-20 Fariborz Jahanian <fjahanian@apple.com>
+
+	* expr.c (emit_single_push_insn): Radar 4087332.
+
+2005-04-18  Devang Patel  <dpatel@apple.com>
+
+	* config/rs6000/atlivec.md (mulv4si3): Update APPLE LOCAL markers to
+	reflect check-in on mainline.
+
+2005-04-15  Devang Patel  <dpatel@apple.com>
+
+	Radar 3972875
+	* config/rs6000/atlivec.md (mulv4si3): New pattern.
+
+2005-04-15  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4087864
+	* config/darwin-protos.h: Extern for machopic_symbol_stub2_section.
+	* config/i386/i386.c (machopic_output_stub): Fix stubs targeted for
+	deeply-pipelined CPUs.
+
+2005-04-15  Caroline Tice  <ctice@apple.com>
+
+	Radar 4078608
+	* config/darwin.c (machopic_select_section): Change name for function 
+	to switch to cold text section to unlikely_text_section 
+	(the correct function name, in varasm.c).
+        * config/darwin.h (SECTION_FUNCTION): Remove code that created a second
+        (incorrect) function for switching to cold text section.
+
+2005-04-14  Devang Patel  <dpatel@apple.com>
+
+	Radar 4080840
+        * common.opt (falign-jumps-max-skip, falign-jumps-max-skip=,
+        falign-loops-max-skip, falign-loops-max-skip=): New.
+        * opts.c (common_handle_option): Handle new falign-loops-max-skip
+        and falign-jumps-max-skip options.
+        * doc/invoke.texi: Document -falign-jumps-max-skip and
+        -falign-loops-max-skip.
+	* toplev.c (align_jumps_max_skip, align_loops_max_skip): Remove.
+
+2005-04-14  Devang Patel  <dpatel@apple.com>
+
+	Radar 3972515
+        * config/rs600/altivec.md (altivec_vsr<VI_char>): Rename to ..
+        (lhsr<mode>3): ... new name.
+        (altivec_vsra<VI_char>): Rename to ..
+        (ashr<mode>3): ... new name.
+        * config/rs6000/rs6000.c (builtin_description): Rename shift
+        operations.
+
+2005-04-12  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4087079
+	* rtlanal.c (subreg_regno_offset): Compute offset into float
+	subregs on x86 properly.
+	(subreg_offset_representable_p): Likewise.
+
+2005-04-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4055183
+	* c-common.h (objc_rewrite_function_call): New prototype.
+	* c-typeck.c (build_function_call):
+	Call objc_rewrite_function_call() to handle casts.
+	* stub-objc.c (objc_rewrite_function_call): New stub.
+
+2005-04-08  Devang Patel  <dpatel@apple.com>
+
+	Radar 4044861
+	* config/darwin-drver.c (save_temps_seen): New.
+	(main): Reject -save-temps with multiple -arch options.
+
+2005-04-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4063657 (part 2).
+	* c-common.c (cw_process_arg): Remove from 'uses' list any 
+	register which ends up on an output or input list.
+	(cw_asm_stmt): New 'uses' argument is passed to cw_process_arg.
+	'uses' list is added to 'clobber' list.
+	(print_cw_asm_operand): When building 'uses' list do not
+	duplicate a hard register on this list.
+
+2005-04-07  Devang Patel  <dpatel@apple.com>
+
+	Radar 4069922
+        * tree-sra.c (decide_block_copy): Disable scalarization of sub-elements.
+
+2005-04-05  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4063657 (part 1).
+	* c-common.c (print_cw_asm_operand): Added a new argument to
+	track use of hard registers. Return any use of hard register
+	to caller in a tree-list form.
+	(cw_asm_stmt): Add tree-list of hard register register uses to 
+	ASM_EXPR statement tree.
+	(cw_asm_label): Add the extra argument when building ASM_EXPR.
+	(cw_asm_entry): Ditto.
+	* c-typeck.c (build_asm_expr): Ditto.
+	* cp/semantics.c (finish_asm_stmt): Ditto.
+	* recog.c (asm_noperands): Bypass USE seen in asm_operand.
+	(decode_asm_operands): Ditto.
+	* stmt.c (expand_asm_operands): Insert list of use of hard 
+	registers in the asm_operand rtl following the clobber list.
+	(expand_asm_expr): Pass hard register usage tree-list to
+	expand_asm_operands.
+	* tree.def (ASM_EXPR): Tree now takes an extra argument.
+	* tree.h (ASM_USES): New macro defined.
+	
+2005-04-02  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4072153
+	* tree.c (build2_stat): Never mark tcc_expression-class nodes
+	as constant, unless AltiVec PIM support has been selected
+	and we have a compound expression with constant elements.
+
+2005-04-01  Jon Ziegler  <jonz@apple.com>
+
+	Radar 4075524
+	* ginclude/tgmath.h (scalbn) Change to use __TGMATH_REAL_1_2 macro.
+	(scalbln) Likewise.
+
+2005-03-31  Dale Johannesen  <dalej@apple.com>
+
+	* print-tree.c (print_node):  Handle STATEMENT_LIST (mainline).
+
+2005-03-29  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3955567
+	* stor-layout.c (place_field):  Reverse bitfields if pragma was set.
+	* target-def.h (TARGET_REVERSE_BITFIELDS_P):  New, defaults to false.
+	* target.h (struct gcc_target):  Add reverse_bitfields_p.
+	* config/darwin-c.c (darwin_pragma_reverse_bitfields):  New.
+	* config/darwin-protos.h:  Declare it.
+	* config/darwin.c (darwin_reverse_bitfields):  Define, initialize to 0.
+	* config/darwin.h:  Declare it.
+	(DARWIN_REGISTER_TARGET_PRAGMAS):  Add reverse_bitfields.
+	* config/rs6000/rs6000.c (rs6000_reverse_bitfields_p):  New.
+	(TARGET_REVERSE_BITFIELDS_P):  Use it.
+	(rs6000_override_options):  Set darwin_reverse_bitfields to 0.
+
+2005-03-24  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3982365
+	* cp/tree.c (cp_tree_equal):  Fix from mainline.
+
+2005-03-22  Devang Patel  <dpatel@apple.com>
+
+        Radar 4023104 
+        * config/darwin-driver.c (dash_capital_m_seen): Remove. 
+        (main) : Do not handle -M options.
+
+2005-03-21  Stuart Hastings  <stuart@apple.com>
+
+	Radars 3805723 4010664 3965893 4010496 4015764
+	* config/mh-x86-darwin: New; now bootstraps with -mdynamic-no-pic on Darwin/x86.
+	* configure.in: Now bootstraps with -mdynamic-no-pic on Darwin/x86.
+	* configure: Re-autoconfiscated with above.
+	* gcc/config/darwin-protos.h (machopic_lazy_symbol_ptr2, machopic_lazy_symbol_ptr3):
+	New lazy_symbol_ptr sections for new Darwin/x86 stubs.
+	(darwin_texcoal_nt_section): New section for set_pc_thunk pic-base settors.
+	* gcc/config/darwin.c (machopic_symbol_defined_p): No longer static.
+	(machopic_indirect_data_reference): Revise to support -mdynamic-no-pic for x86.
+	* gcc/config/darwin.h (machopic_lazy_symbol_ptr2, machopic_lazy_symbol_ptr3,
+	machopic_picsymbol_stub2, darwin_textcoal_nt): New sections.
+	* gcc/config/i386/darwin.h (CC1_SPEC): Un-disable -mdynamic-no-pic option.
+	(TARGET_ASM_FILE_END): Use darwin_x86_file_end.  (darwin_x86_file_end): New.
+	(TARGET_DEEP_BRANCH_PREDICTION, MASK_MACHO_DYNAMIC_NO_PIC, TARGET_DYNAMIC_NO_PIC):
+	Un-disable for x86. (SUBTARGET_OVERRIDE_OPTIONS): New arch/tune/fpmath defaults for Darwin/x86.
+	* gcc/config/i386/i386.c (override_options): New diagnostic for "-fPIC -mdynamic-no-pic."
+	(get_pc_thunk_name): Mach-O support.  (ix86_output_function_epilogue): Isolate labels
+	from the end of Mach-O sections with a NOP.
+	(legitimate_constant_p, legitimze_address, print_operand, ix86_expand_move,
+	machopic_output_stub):	Darwin -mdynamic-no-pic support.
+	(darwin_x86_file_end): New; appends set_pc_thunks at end of compilation.
+	* gcc/config/i386/i386.h: Update unused-bits comment.
+	* gcc/cp/optimize.c: Wire the decloner OFF.
+
+2005-03-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/include/sourcecode.texi: Update branch name.
+
+2005-03-17  Geoffrey Keating  <geoffk@apple.com>
+
+	* c-parse.in: Change number of expected conflicts to 15.
+
+2005-03-14  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4045984
 	* rtlanal.c (find_first_parameter_load):  Rewrite to
 	return actual first param load or the call if none,
 	instead of first in block, when not all loads exist.
 
-2005-03-04  Devang Patel  <dpatel@apple.com>
+2005-03-11  Devang Patel  <dpatel@apple.com>
 
-	Radar 4028625
-	* doc/invoke.texi: Remove reference to webpage that does not exist.
+        * target.h: Reinsert one line comment.
 
-2005-03-04  Devang Patel  <dpatel@apple.com>
+2005-03-11  Ziemowit Laski  <zlaski@apple.com>
 
-	Radar 4017230
-	* doc/invoke.texi: Use 4.0 instead of 3.4 at the beginning of manual.
+	Radar 3995882
+	* c-decl.c (objc_mark_locals_volatile): Mark local variables and
+	parameters 'volatile' in ways expected by the C front-end.
 
+2005-03-10  Devang Patel  <dpatel@apple.com>
+
+	Radar 4040918
+	* c-opts.c (set_std_c89): Do not set lang if it is already set as CLK_ASM.
+
+2005-03-09  Devang Patel  <dpatel@apple.com>
+
+	* tree-vectorizer.c (vect_analyze_loop): Reorder data refs alignment analysis.
+	
+2005-03-08  Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in:  Remove useless code from LNO branch.
+	* tree-ssa-loop-ch.c:  Local marker cleanup.
+	* tree-pass.h:  Ditto.
+	* tree-ssa-loop.c:  Ditto both the above.
+
+2005-03-08  Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in:  Remove useless code from LNO branch.
+	* cfgloop.h: Ditto.
+	* cfgloopmanip.c: Ditto.
+	* common.opt: Ditto.
+	* lambda-trans.c: Ditto.
+	* opts.c: Ditto.
+	* rtl.h: Ditto.
+	* timevar.def: Ditto.
+	* toplev.c: Ditto.
+	* toplev.h: Ditto.
+	* tree-flow.h: Ditto.
+	* tree-optimize.c: Ditto.
+	* tree-pass.h: Ditto.
+	* tree-ssa-loop-ch.c: Ditto.
+	* tree-ssa-loop.c: Ditto.
+	* tree.h: Ditto.
+	* varray.h: Ditto.
+
+2005-03-07  Devang Patel  <dpatel@apple.com>
+
+	* target-def.h (TARGET_VECT): Remove.
+	* target.h (tree.h, tree-flow.h): Do not include.
+	(struct gcc_target): Remove struct vect.
+	* config/rs6000/rs6000.c (cfgloop.h): Do not include.
+	(rs6000_support_misaligned_vloads, rs6000_permute_misaligned_vloads,
+	rs6000_build_builtin_lvsl, rs6000_build_builtin_lvsr,
+	rs6000_build_builtin_vperm, rs6000_support_vmul_uch_p,
+	rs6000_build_vmul_uch, rs6000_support_vector_init_p,
+	get_vector_init_fns_for_type, rs6000_build_vector_init): Remove.
+	(TARGET_VECT_SUPPORT_MISALIGNED_LOADS, TARGET_VECT_PERMUTE_MISALIGNED_LOADS,
+	TARGET_VECT_BUILD_BUILTIN_LVSL, TARGET_VECT_BUILD_BUILTIN_LVSR,
+	TARGET_VECT_BUILD_BUILTIN_VPERM, TARGET_VECT_SUPPORT_VMUL_UCH_P,
+	TARGET_VECT_BUILD_VMUL_UCH, TARGET_VECT_SUPPORT_VECTOR_INIT_P,
+	TARGET_VECT_BUILD_VECTOR_INIT, TARGET_GIMPLIFY_VA_ARG_EXPR): Remove.
+	* c-incpath.c (errors.h): Include.
+	
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	* config/darwin.h (LINK_COMMAND_SPEC): Remove foutput-dbg.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	* target-def.h (TARGET_VECT_SUPPORT_MISALIGNED_LOADS,  
+	TARGET_VECT_PERMUTE_MISALIGNED_LOADS, TARGET_VECT_BUILD_BUILTIN_LVSL,
+	TARGET_VECT_BUILD_BUILTIN_LVSR, TARGET_VECT_BUILD_BUILTIN_VPERM,
+	TARGET_VECT_SUPPORT_VMUL_UCH_P, TARGET_VECT_BUILD_VMUL_UCH, 
+	TARGET_VECT_SUPPORT_VECTOR_INIT_P, TARGET_VECT_BUILD_VECTOR_INIT): Remove 
+	redundant macros.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	Radar 4025991
+        * tree-vectorizer.c (vect_is_simple_cond): Now second parameter is
+        loop_vec_info instead of loop *.
+        (vectorizable_select): Supply loop_vec_info to vect_is_simple_use.
+        (vect_build_dist_vector): Use loop nest's depth.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	* c-opts.c (c_common_handle_option): Remove QA_DISABLE_WERROR.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	* tree-ssa-operands.h (add_vdef): Remove.
+	* tree.h (get_array_base): Remove.
+	(swap_tree_comparison): Remove redundant decl.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
+	* varray.h (VARRAY_DG_INIT, VARRAY_DG): Remove.
+	
+2005-03-04  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4025985 (partial)
+	* config/rs6000/rs6000.c:  Restore 64-bit ABI from mainline.
+	* config/rs6000/rs6000.h:  Ditto.
 
 2005-03-03  Dale Johannesen  <dalej@apple.com>
 

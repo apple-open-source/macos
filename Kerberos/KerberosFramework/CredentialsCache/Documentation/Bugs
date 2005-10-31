@@ -1,14 +1,16 @@
 ========================================================================
 CCache Library Bug List
 ========================================================================
-Current version: 3.5fc5
-Date:            February 1, 2005
+Current version: 3.5.1fc1
+Date:            June 15, 2005
 Author:          meeroh@mit.edu, smcguire@mit.edu, fdabek@mit.edu, lxs@mit.edu
 ========================================================================
 
 ========================================================================
 Bug #     Bug description                                       Fixed in
 ========================================================================
+[RT 3061] CCAPI server relaunch handling code can't handle 
+          on-demand servers                                     3.5.1fc1
 [RT 2904] gcc-4.0 fixes for CCAPI -- just let it figure out to 
           instantiate the globals                               3.5fc5
 [RT 2896] CCacheServer should not manually link against 

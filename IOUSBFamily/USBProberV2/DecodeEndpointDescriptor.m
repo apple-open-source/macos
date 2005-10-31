@@ -129,8 +129,23 @@
     
     [thisDevice addProperty:"Attributes:" withValue:str atDepth:ENDPOINT_LEVEL];
 
-    
-    sprintf(temporaryString, "%d", endpointDescriptor.wMaxPacketSize);
+	sprintf(temporaryString, "%d", endpointDescriptor.wMaxPacketSize);
+
+	if (useHighSpeedDefinition)
+    {
+        // If we have a USB 2.0 compliant device running at high speed, then the wMaxPacketSize calculation is funky
+        //
+        if ( interrupt || isoch)
+		{
+			UInt32	transPerMicroFrame = (endpointDescriptor.wMaxPacketSize & 0x1800) >> 11;
+			// If bits 15..13 are not 0, it's illegal.  If bits 12..11 are 11b, it's illegal
+            if ( ( (endpointDescriptor.wMaxPacketSize & 0xe000) != 0) || ( transPerMicroFrame == 3) )
+                sprintf(temporaryString, "0x%x: Illegal value for wMaxPacketSize for a hi-speed Interrupt endpoint", endpointDescriptor.bInterval);
+            else
+                sprintf(temporaryString, "%d  (%d x %ld  transactions opportunities per microframe)", endpointDescriptor.wMaxPacketSize, endpointDescriptor.wMaxPacketSize & 0x07ff,  transPerMicroFrame + 1);
+        }
+    }
+	
     [thisDevice addProperty:"Max Packet Size:" withValue:temporaryString atDepth:ENDPOINT_LEVEL];
     
     if (useHighSpeedDefinition)
@@ -149,13 +164,15 @@
             if ( (endpointDescriptor.bInterval == 0) || (endpointDescriptor.bInterval > 16) )
                 sprintf(temporaryString, "%d: Illegal value for bInterval for a hi-speed Interrupt endpoint", endpointDescriptor.bInterval);
             else
-                sprintf(temporaryString, "%d ( %d microframes (%d ms) )", endpointDescriptor.bInterval, (1 << (endpointDescriptor.bInterval-1)), (1 << (endpointDescriptor.bInterval-4)));
+                sprintf(temporaryString, "%d (%d %s (%d %s) )", endpointDescriptor.bInterval, (1 << (endpointDescriptor.bInterval-1)), endpointDescriptor.bInterval==1?"microframe":"microframes", 
+						(endpointDescriptor.bInterval > 3 ? (1 << (endpointDescriptor.bInterval-1))/8 : endpointDescriptor.bInterval * 125), endpointDescriptor.bInterval > 3?"msecs":"microsecs" );
         
         if ( isoch )
             if ( (endpointDescriptor.bInterval == 0) || (endpointDescriptor.bInterval > 16) )
                 sprintf(temporaryString, "Illegal value for bInterval for a hi-speed isoch endpoint: %d", endpointDescriptor.bInterval);
             else
-                sprintf(temporaryString, "%d ( %d microframes (%d ms) )", endpointDescriptor.bInterval, (1 << (endpointDescriptor.bInterval-1)), (1 << (endpointDescriptor.bInterval-4)));
+                sprintf(temporaryString, "%d (%d %s (%d %s) )", endpointDescriptor.bInterval, (1 << (endpointDescriptor.bInterval-1)), endpointDescriptor.bInterval==1?"microframe":"microframes", 
+						endpointDescriptor.bInterval > 3 ? (1 << (endpointDescriptor.bInterval-1))/8 : endpointDescriptor.bInterval * 125, endpointDescriptor.bInterval > 3?"msecs":"microsecs" );
     }
     else
     {

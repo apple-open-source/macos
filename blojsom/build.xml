@@ -10,7 +10,7 @@
 <project name="blojsom" default="compile" basedir=".">
 
     <property name="name" value="blojsom"/>
-    <property name="version" value="2.14"/>
+    <property name="version" value="2.25"/>
 
     <property name="distro.dir" value="${OBJROOT}/${PRODUCT_NAME}.build/${PRODUCT_NAME}.build"/>
     <property name="war.file" value="${distro.dir}/${name}.war"/>

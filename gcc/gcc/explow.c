@@ -1,6 +1,6 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
    Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -390,44 +390,6 @@ convert_memory_address (enum machine_mode to_mode ATTRIBUTE_UNUSED,
 			x, POINTERS_EXTEND_UNSIGNED);
 #endif /* defined(POINTERS_EXTEND_UNSIGNED) */
 }
-
-/* Given a memory address or facsimile X, construct a new address,
-   currently equivalent, that is stable: future stores won't change it.
-
-   X must be composed of constants, register and memory references
-   combined with addition, subtraction and multiplication:
-   in other words, just what you can get from expand_expr if sum_ok is 1.
-
-   Works by making copies of all regs and memory locations used
-   by X and combining them the same way X does.
-   You could also stabilize the reference to this address
-   by copying the address to a register with copy_to_reg;
-   but then you wouldn't get indexed addressing in the reference.  */
-
-rtx
-copy_all_regs (rtx x)
-{
-  if (REG_P (x))
-    {
-      if (REGNO (x) != FRAME_POINTER_REGNUM
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
-	  && REGNO (x) != HARD_FRAME_POINTER_REGNUM
-#endif
-	  )
-	x = copy_to_reg (x);
-    }
-  else if (MEM_P (x))
-    x = copy_to_reg (x);
-  else if (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS
-	   || GET_CODE (x) == MULT)
-    {
-      rtx op0 = copy_all_regs (XEXP (x, 0));
-      rtx op1 = copy_all_regs (XEXP (x, 1));
-      if (op0 != XEXP (x, 0) || op1 != XEXP (x, 1))
-	x = gen_rtx_fmt_ee (GET_CODE (x), Pmode, op0, op1);
-    }
-  return x;
-}
 
 /* Return something equivalent to X but valid as a memory address
    for something of mode MODE.  When X is not itself valid, this
@@ -576,22 +538,6 @@ validize_mem (rtx ref)
   return replace_equiv_address (ref, XEXP (ref, 0));
 }
 
-/* Return a modified copy of X with its memory address copied
-   into a temporary register to protect it from side effects.
-   If X is not a MEM, it is returned unchanged (and not copied).
-   Perhaps even if it is a MEM, if there is no need to change it.  */
-
-rtx
-stabilize (rtx x)
-{
-  if (!MEM_P (x)
-      || ! rtx_unstable_p (XEXP (x, 0)))
-    return x;
-
-  return
-    replace_equiv_address (x, force_reg (Pmode, copy_all_regs (XEXP (x, 0))));
-}
-
 /* Copy the value or contents of X to a new temp reg and return that reg.  */
 
 rtx
@@ -634,8 +580,8 @@ copy_to_mode_reg (enum machine_mode mode, rtx x)
 
   gcc_assert (GET_MODE (x) == mode || GET_MODE (x) == VOIDmode);
   if (x != temp)
-  {
     /* APPLE LOCAL begin Don't assign PARALLEL pattern to psuedo register */
+  {
     tree exp = (current_function_decl != NULL_TREE) ? 
 	       DECL_RESULT (current_function_decl) : NULL_TREE;
     if (exp != NULL_TREE && DECL_RTL_IF_SET (exp) == x
@@ -647,9 +593,9 @@ copy_to_mode_reg (enum machine_mode mode, rtx x)
 	emit_group_store (memloc, x, type, int_size_in_bytes (type));
 	x = memloc;
       }
-    /* APPLE LOCAL end Don't assign PARALLEL pattern to psuedo register */
     emit_move_insn (temp, x);
   }
+  /* APPLE LOCAL end Don't assign PARALLEL pattern to psuedo register */
   return temp;
 }
 
@@ -890,7 +836,7 @@ anti_adjust_stack (rtx adjust)
 /* Round the size of a block to be pushed up to the boundary required
    by this machine.  SIZE is the desired size, which need not be constant.  */
 
-rtx
+static rtx
 round_push (rtx size)
 {
   int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;

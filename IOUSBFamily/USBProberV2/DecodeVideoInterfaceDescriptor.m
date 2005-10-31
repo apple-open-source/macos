@@ -28,11 +28,11 @@
 
 @implementation DecodeVideoInterfaceDescriptor
 
-+(void)decodeBytes:(UInt8 *)descriptor forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceInterface **)deviceIntf
++(void)decodeBytes:(UInt8 *)descriptor forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceRef)deviceIntf
 {
 
-    static unsigned char			buf[256];
-    static unsigned char			buf2[256];
+    static  char			buf[256];
+    static  char			buf2[256];
     auto IOUSBVCInterfaceDescriptor *		pVideoControlHeader = NULL;
     auto IOUSBVCInputTerminalDescriptor *	pVideoInTermDesc = NULL;
     auto IOUSBVCCameraTerminalDescriptor *	pCameraTermDesc = NULL;

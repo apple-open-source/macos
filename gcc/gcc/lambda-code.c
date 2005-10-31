@@ -1,5 +1,5 @@
 /*  Loop transformation code generation
-    Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+    Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
     Contributed by Daniel Berlin <dberlin@dberlin.org>
 
     This file is part of GCC.
@@ -1873,6 +1873,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       tree newupperbound, newlowerbound;
       lambda_linear_expression offset;
       tree type;
+      bool insert_after;
 
       oldiv = VEC_index (tree, old_ivs, i);
       type = TREE_TYPE (oldiv);
@@ -1901,7 +1902,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 					     new_ivs,
 					     invariants, MAX_EXPR, &stmts);
       bsi_insert_on_edge (loop_preheader_edge (temp), stmts);
-      bsi_commit_edge_inserts (NULL);
+      bsi_commit_edge_inserts ();
       /* Build the new upper bound and insert its statements in the
          basic block of the exit condition */
       newupperbound = lle_to_gcc_expression (LL_UPPER_BOUND (newloop),
@@ -1915,14 +1916,12 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       bsi = bsi_start (bb);
       bsi_insert_after (&bsi, stmts, BSI_NEW_STMT);
 
-      /* Create the new iv, and insert it's increment on the latch
-         block.  */
+      /* Create the new iv.  */
 
-      bb = EDGE_PRED (temp->latch, 0)->src;
-      bsi = bsi_last (bb);
+      standard_iv_increment_position (temp, &bsi, &insert_after);
       create_iv (newlowerbound,
 		 build_int_cst (type, LL_STEP (newloop)),
-		 ivvar, temp, &bsi, false, &ivvar,
+		 ivvar, temp, &bsi, insert_after, &ivvar,
 		 &ivvarinced);
 
       /* Replace the exit condition with the new upper bound
@@ -2189,9 +2188,10 @@ can_convert_to_perfect_nest (struct loop *loop,
 			     VEC (tree) *loopivs)
 {
   basic_block *bbs;
-  tree exit_condition;
+  tree exit_condition, phi;
   size_t i;
   block_stmt_iterator bsi;
+  basic_block exitdest;
 
   /* Can't handle triply nested+ loops yet.  */
   if (!loop->inner || loop->inner->inner)
@@ -2233,6 +2233,16 @@ can_convert_to_perfect_nest (struct loop *loop,
 	    }
 	}
     }  
+
+  /* We also need to make sure the loop exit only has simple copy phis in it,
+     otherwise we don't know how to transform it into a perfect nest right
+     now.  */
+  exitdest = loop->single_exit->dest;
+  
+  for (phi = phi_nodes (exitdest); phi; phi = PHI_CHAIN (phi))
+    if (PHI_NUM_ARGS (phi) != 1)
+      return false;
+
   return true;
 }
 
@@ -2286,6 +2296,7 @@ perfect_nestify (struct loops *loops,
   basic_block preheaderbb, headerbb, bodybb, latchbb, olddest;
   size_t i;
   block_stmt_iterator bsi;
+  bool insert_after;
   edge e;
   struct loop *newloop;
   tree phi;
@@ -2303,26 +2314,23 @@ perfect_nestify (struct loops *loops,
   preheaderbb =  loop_split_edge_with (loop->single_exit, NULL);
   headerbb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
   
-  /* This is done because otherwise, it will release the ssa_name too early
-     when the edge gets redirected and it will get reused, causing the use of
-     the phi node to get rewritten.  */
-
+  /* Push the exit phi nodes that we are moving.  */
   for (phi = phi_nodes (olddest); phi; phi = PHI_CHAIN (phi))
     {
-      /* These should be simple exit phi copies.  */
-      if (PHI_NUM_ARGS (phi) != 1)
-	return false;
       VEC_safe_push (tree, phis, PHI_RESULT (phi));
       VEC_safe_push (tree, phis, PHI_ARG_DEF (phi, 0));
-      mark_for_rewrite (PHI_RESULT (phi));
     }
   e = redirect_edge_and_branch (EDGE_SUCC (preheaderbb, 0), headerbb);
 
-  /* Remove the exit phis from the old basic block.  */
+  /* Remove the exit phis from the old basic block.  Make sure to set
+     PHI_RESULT to null so it doesn't get released.  */
   while (phi_nodes (olddest) != NULL)
-    remove_phi_node (phi_nodes (olddest), NULL, olddest);
+    {
+      SET_PHI_RESULT (phi_nodes (olddest), NULL);
+      remove_phi_node (phi_nodes (olddest), NULL, olddest);
+    }      
 
-  /* and add them to the new basic block.  */
+  /* and add them back to the new basic block.  */
   while (VEC_length (tree, phis) != 0)
     {
       tree def;
@@ -2330,10 +2338,9 @@ perfect_nestify (struct loops *loops,
       def = VEC_pop (tree, phis);
       phiname = VEC_pop (tree, phis);      
       phi = create_phi_node (phiname, preheaderbb);
-      add_phi_arg (&phi, def, EDGE_PRED (preheaderbb, 0));
+      add_phi_arg (phi, def, EDGE_PRED (preheaderbb, 0));
     }       
   flush_pending_stmts (e);
-  unmark_all_for_rewrite ();
 
   bodybb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
   latchbb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
@@ -2369,10 +2376,10 @@ perfect_nestify (struct loops *loops,
   /* Create the new iv.  */
   ivvar = create_tmp_var (integer_type_node, "perfectiv");
   add_referenced_tmp_var (ivvar);
-  bsi = bsi_last (EDGE_PRED (newloop->latch, 0)->src);
+  standard_iv_increment_position (newloop, &bsi, &insert_after);
   create_iv (VEC_index (tree, lbounds, 0),
 	     build_int_cst (integer_type_node, VEC_index (int, steps, 0)),
-	     ivvar, newloop, &bsi, false, &ivvar, &ivvarinced);	     
+	     ivvar, newloop, &bsi, insert_after, &ivvar, &ivvarinced);	     
 
   /* Create the new upper bound.  This may be not just a variable, so we copy
      it to one just in case.  */
@@ -2384,7 +2391,12 @@ perfect_nestify (struct loops *loops,
 		VEC_index (tree, ubounds, 0));
   uboundvar = make_ssa_name (uboundvar, stmt);
   TREE_OPERAND (stmt, 0) = uboundvar;
-  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
+
+  if (insert_after)
+    bsi_insert_after (&bsi, stmt, BSI_SAME_STMT);
+  else
+    bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
+
   COND_EXPR_COND (exit_condition) = build (GE_EXPR, 
 					   boolean_type_node,
 					   uboundvar,

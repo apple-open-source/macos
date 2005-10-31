@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -41,37 +41,14 @@ Boston, MA 02111-1307, USA.  */
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
  "%{melinux:crt0.o%s}\
-  %{!melinux:\
-   %{sim2:s2crt0.o%s}\
-   %{!sim2:\
-    %{sim:scrt0.o%s}\
-    %{!sim:%{pg:gcrt0.o%s}\
-     %{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}}"
+  %{!melinux:%{sim*:crt1.o%s}%{!sim*:crt0.o%s}}"
 
 /* Override cris.h define.  */
 #undef ENDFILE_SPEC
 
-/* Which library to get.  The only difference from the default is to get
-   libsc.a if -sim is given to the driver.  Repeat -lc -lsysX
-   {X=sim,linux}, because libsysX needs (at least) errno from libc, and
-   then we want to resolve new unknowns in libc against libsysX, not
-   libnosys.  Assume everything is in libc for -mlinux.  */
-#undef LIB_SPEC
-#define LIB_SPEC \
- "%{melinux:-lc -lsyslinux -lc -lsyslinux -lic}\
-  %{!melinux:\
-   %{sim*:-lc -lsyssim -lc -lsyssim}\
-   %{!sim*:%{g*:-lg}\
-     %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p} -lbsp}\
-   -lnosys}"
-
 #undef CRIS_CPP_SUBTARGET_SPEC
 #define CRIS_CPP_SUBTARGET_SPEC \
  "%{melinux:-D__gnu_linux__ -D__linux__ -D__unix__ -D__elinux__ -D__uclinux__\
-    %{!nostdinc:\
-      %{!mbest-lib-options:%{isystem*}}\
-      -isystem elinux/include%s\
-      %{mbest-lib-options:%{isystem*}}}\
     %{!ansi:%{!std=*:%{!undef:-Dlinux -Dunix -Delinux -Duclinux}}}}\
   %{mbest-lib-options:\
    %{!moverride-best-lib-options:\
@@ -135,8 +112,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* Node: Storage Layout */
 
-/* We can align to 16 bits (only) with CRIS a.out.  */
-#define MAX_OFILE_ALIGNMENT 16
+/* All sections but the .bss is rounded up to a 4-byte multiple size.  */
+#define MAX_OFILE_ALIGNMENT 32
 
 
 /* Node: Data Output */

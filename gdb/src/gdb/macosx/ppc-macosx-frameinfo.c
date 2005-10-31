@@ -181,40 +181,6 @@ ppc_print_properties (ppc_function_properties * props)
     }
 }
 
-struct read_memory_unsigned_int_args
-{
-  CORE_ADDR addr;
-  int len;
-  ULONGEST ret_val;
-};
-
-int
-wrap_read_memory_unsigned_integer (void *in_args)
-{
-  struct read_memory_unsigned_int_args *args
-    = (struct read_memory_unsigned_int_args *) in_args;
-
-  args->ret_val = read_memory_unsigned_integer (args->addr, args->len);
-  return 1;
-}
-
-int
-safe_read_memory_unsigned_integer (CORE_ADDR addr, int len, ULONGEST * val)
-{
-  struct read_memory_unsigned_int_args args;
-
-  args.addr = addr;
-  args.len = len;
-
-  if (!catch_errors (wrap_read_memory_unsigned_integer,
-                     &args, "", RETURN_MASK_ERROR))
-    {
-      return 0;
-    }
-  *val = args.ret_val;
-  return 1;
-}
-
 /* Return $pc value after skipping a function prologue and also return
    information about a function frame. */
 
@@ -351,7 +317,7 @@ ppc_parse_instructions (CORE_ADDR start, CORE_ADDR end,
               /* branch_target |= 0xfc000000; */
             }
 
-          branch_target += pc + 4;
+          branch_target += pc;
 
           msymbol = lookup_minimal_symbol_by_pc (branch_target);
           if (msymbol)

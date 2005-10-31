@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_PowerSensor.cpp,v 1.7 2004/06/18 23:08:18 dirty Exp $
+ *  File: $Id: SMU_Neo2_PowerSensor.cpp,v 1.8 2005/01/27 00:22:32 dirty Exp $
  */
 
 
@@ -49,7 +49,6 @@ IOReturn SMU_Neo2_PowerSensor::initPlatformSensor( const OSDictionary* dict )
 {
 
 	sdb_partition_header_t		partHeader;
-	UInt8						dvtState;
 	OSString*					type;
 	OSArray*					inputs;
 	IOReturn					result;
@@ -92,41 +91,28 @@ IOReturn SMU_Neo2_PowerSensor::initPlatformSensor( const OSDictionary* dict )
 		infoDict->setObject( kIOPPluginTypeKey, dict->getObject( kIOPPluginTypeKey ) );
 		}
 
-	// Prior to DVT Q78 and Q45, the current and voltage sensors were in the wrong place, so we ended up hard-coding
-	// the voltage part of the calculation. If we have a debug partition present that says we're on an EVT or earlier,
-	// use the dumb algorithm. This can go away soon.
+	// The thermal profile tells us if we should use the quadratic transform so that the power sensor can be used
+	// by both CPU sensors that need the transform, and generic "I*V" sensors that don't. fUseQuadraticTransform
+	// may get overridden if the thermal positioning constants partition is not present or too old.
 
-	if ( ( gPlatformPlugin->getSDBPartitionData( kDebugSwitchesPartID, 4, 1, &dvtState ) ) && ( dvtState & 0x80 ) )
+	fUseQuadraticTransform = (OSDynamicCast(OSBoolean, dict->getObject("cpu-power-quadratic-transform")) == kOSBooleanTrue);
+
+	SENSOR_DLOG("SMU_Neo2_PowerSensor::initPlatformSensor - fUseQuadraticTransform %d\n", fUseQuadraticTransform);
+
+	if (fUseQuadraticTransform)
 	{
-		fOnEVTOrEarlier = true;
-	}
-	else
-	{
-		fOnEVTOrEarlier = false;
-	
-		// The thermal profile tells us if we should use the quadratic transform so that the power sensor can be used
-		// by both CPU sensors that need the transform, and generic "I*V" sensors that don't. fUseQuadraticTransform
-		// may get overridden if the thermal positioning constants partition is not present or too old.
-	
-		fUseQuadraticTransform = (OSDynamicCast(OSBoolean, dict->getObject("cpu-power-quadratic-transform")) == kOSBooleanTrue);
+		fUseQuadraticTransform = false;							// assume this will fail as it makes the logic below much simpler
 
-		SENSOR_DLOG("SMU_Neo2_PowerSensor::initPlatformSensor - fUseQuadraticTransform %d\n", fUseQuadraticTransform);
-
-		if (fUseQuadraticTransform)
+		// If we can't read the power conversion constants partition it's not fatal. Also make sure the version is 2 or later.
+	
+		if (gPlatformPlugin->getSDBPartitionData(kThermalPositioningADCConstantsPartID, 0, sizeof(sdb_partition_header_t), (UInt8 *) &partHeader)
+				&& (partHeader.pVER >= 2))
 		{
-			fUseQuadraticTransform = false;							// assume this will fail as it makes the logic below much simpler
-
-			// If we can't read the power conversion constants partition it's not fatal. Also make sure the version is 2 or later.
+			// The version is new, so read the entire thing.
 		
-			if (gPlatformPlugin->getSDBPartitionData(kThermalPositioningADCConstantsPartID, 0, sizeof(sdb_partition_header_t), (UInt8 *) &partHeader)
-					&& (partHeader.pVER >= 2))
+			if (gPlatformPlugin->getSDBPartitionData(kThermalPositioningADCConstantsPartID, 0, sizeof(sdb_thermal_pos_adc_constants_2_part_t), (UInt8 *) &fThermalPosConstantsPart))
 			{
-				// The version is new, so read the entire thing.
-			
-				if (gPlatformPlugin->getSDBPartitionData(kThermalPositioningADCConstantsPartID, 0, sizeof(sdb_thermal_pos_adc_constants_2_part_t), (UInt8 *) &fThermalPosConstantsPart))
-				{
-					fUseQuadraticTransform = true;
-				}
+				fUseQuadraticTransform = true;
 			}
 		}
 	}
@@ -163,56 +149,41 @@ SensorValue SMU_Neo2_PowerSensor::fetchCurrentValue( void )
 	currentValue = currentSensor->forceAndFetchCurrentValue();
 	currentSensor->setCurrentValue( currentValue );
 
-	// Can remove the below conditional when we don't need to support preDVT machines...
+	// Accumulate into a 64-bit buffer.
 
-	if (fOnEVTOrEarlier)
+	SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - voltageValue 0x%08X  currentValue 0x%08X\n", (unsigned int) voltageValue.sensValue, (unsigned int) currentValue.sensValue);
+
+	power = ( ( UInt64 ) voltageValue.sensValue ) * ( ( UInt64 ) currentValue.sensValue );
+
+	// Shift right by 16 to convert back to 16.16 fixed point format.
+
+	power = power >> 16;
+
+	// If we didn't get the needed version of the thermal constants partition, or we aren't a CPU power sensor, just return the raw I*V value.
+	
+	if (fUseQuadraticTransform == false)
 	{
-		// EVT or earlier
+		result.sensValue = (SInt32) power;
 
-		// Just cheat and use ( currentValue * 12 ) - 3 to determine power.
-
-		result.sensValue = ( SInt32 ) ( ( currentValue.sensValue * 12 ) - ( 3 << 16 ) );
+		SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - NOT applying quadratic transform\n");
 	}
 	else
 	{
-		// DVT or later
-
-		// Accumulate into a 64-bit buffer.
-
-		SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - voltageValue 0x%08X  currentValue 0x%08X\n", (unsigned int) voltageValue.sensValue, (unsigned int) currentValue.sensValue);
-
-		power = ( ( UInt64 ) voltageValue.sensValue ) * ( ( UInt64 ) currentValue.sensValue );
-
-		// Shift right by 16 to convert back to 16.16 fixed point format.
-
-		power = power >> 16;
-
-		// If we didn't get the needed version of the thermal constants partition, or we aren't a CPU power sensor, just return the raw I*V value.
+		// The equation below is a*x^2 + b*x + c (a quadratic equation). This equation, in concert with the input values for A, B, and C from the data block
+		// describes a curve for the effeciency of the power supply. Since it's non-linear, the I * V power value doesn't correctly represent
+		// the actual power consumed by the processor.
 		
-		if (fUseQuadraticTransform == false)
-		{
-			result.sensValue = (SInt32) power;
+		SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - a_Value 0x%08X  b_Value 0x%08X  c_Value 0x%08X\n", (unsigned int) fThermalPosConstantsPart.a_Value, (unsigned int) fThermalPosConstantsPart.b_Value, (unsigned int) fThermalPosConstantsPart.c_Value);
 
-			SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - NOT applying quadratic transform\n");
-		}
-		else
-		{
-			// The equation below is a*x^2 + b*x + c (a quadratic equation). This equation, in concert with the input values for A, B, and C from the data block
-			// describes a curve for the effeciency of the power supply. Since it's non-linear, the I * V power value doesn't correctly represent
-			// the actual power consumed by the processor.
-			
-			SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - a_Value 0x%08X  b_Value 0x%08X  c_Value 0x%08X\n", (unsigned int) fThermalPosConstantsPart.a_Value, (unsigned int) fThermalPosConstantsPart.b_Value, (unsigned int) fThermalPosConstantsPart.c_Value);
+		powerSquared = (power * power) >> 16;
 
-			powerSquared = (power * power) >> 16;
-	
-			a_Component = (fThermalPosConstantsPart.a_Value * powerSquared) >> 28;
-			b_Component = (fThermalPosConstantsPart.b_Value * power) >> 28;
-	
-			result.sensValue = ( SInt32 ) (a_Component + b_Component + (fThermalPosConstantsPart.c_Value >> 12));
-	
-			SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - power = 0x%016LX  powerSquared = 0x%016LX\n", power, powerSquared);
-			SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - a_Component = 0x%016LX  b_Component = 0x%016LX\n", a_Component, b_Component);
-		}
+		a_Component = (fThermalPosConstantsPart.a_Value * powerSquared) >> 28;
+		b_Component = (fThermalPosConstantsPart.b_Value * power) >> 28;
+
+		result.sensValue = ( SInt32 ) (a_Component + b_Component + (fThermalPosConstantsPart.c_Value >> 12));
+
+		SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - power = 0x%016LX  powerSquared = 0x%016LX\n", power, powerSquared);
+		SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - a_Component = 0x%016LX  b_Component = 0x%016LX\n", a_Component, b_Component);
 	}
 
 	SENSOR_DLOG("SMU_Neo2_PowerSensor::fetchCurrentValue - result.sensValue = 0x%08X (%d)\n", (unsigned int) result.sensValue, (int) result.sensValue >> 16);

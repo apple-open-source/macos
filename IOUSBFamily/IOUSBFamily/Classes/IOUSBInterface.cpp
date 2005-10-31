@@ -506,8 +506,6 @@ IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
     if (!res)
         USBLog(1,"%s[%p]::open super::open failed (0x%x)", getName(), this, res);
 
-    USBLog(3, "-%s[%p]::open returns %d", getName(), this, res);
-    
     return res;
 }
 
@@ -520,7 +518,7 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
     IOReturn		err = kIOReturnSuccess;
         
 
-    USBLog(3, "+%s[%p]::handleOpen (device %s)", getName(), this, _device->getName());
+    USBLog(6, "+%s[%p]::handleOpen (device %s)", getName(), this, _device->getName());
     if(!super::handleOpen(forClient, options, arg))
     {
         USBLog(1,"%s[%p]::handleOpen failing because super::handleOpen failed (someone already has it open)", getName(), this);
@@ -552,7 +550,6 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
         return false;
     }
 
-    USBLog(3, "-%s[%p]::handleOpen (device %s): successful", getName(), this, _device->getName());
     return true;
 }
 
@@ -574,7 +571,7 @@ IOUSBInterface::close( IOService *forClient, IOOptionBits options)
    
     if ( _gate && useGate )
     {
-        USBLog(3,"%+s[%p]::open calling super::close with gate", getName(), this);
+        USBLog(6,"%+s[%p]::close calling super::close with gate", getName(), this);
         (void) _gate->runAction( CallSuperClose, (void *)forClient, (void *)options);
     }
     else
@@ -582,9 +579,6 @@ IOUSBInterface::close( IOService *forClient, IOOptionBits options)
         USBLog(6,"%+s[%p]::close calling super::close with NO gate", getName(), this);
         super::close(forClient, options);
     }
-    
-    USBLog(3, "%s[%p]::close returns", getName(), this);
-    
 }
 
 
@@ -1328,7 +1322,6 @@ IOUSBInterface::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpointNumb
     UInt8				endpointAddress = endpointNumber | ((direction == kUSBIn) ? 0x80 : 0x00);
 
     next = (const IOUSBDescriptorHeader *)_configDesc;
-    USBLog(2, "%s[%p]::GetEndpointProperties - looking for address %x in altSetting %d", getName(), this, endpointAddress, alternateSetting);
 
     while( (next = _device->FindNextDescriptor(next, kUSBInterfaceDesc))) 
     {
@@ -1344,7 +1337,7 @@ IOUSBInterface::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpointNumb
 		    *transferType = endp->bmAttributes & 0x03;
 		    *maxPacketSize = mungeMaxPacketSize(USBToHostWord(endp->wMaxPacketSize));
 		    *interval = endp->bInterval;
-		    USBLog(3, "%s[%p]::GetEndpointProperties - tt=%d, mps=%d, int=%d", getName(), this, *transferType, *maxPacketSize, *interval);
+		    USBLog(6, "%s[%p]::GetEndpointProperties - tt=%d, mps=%d, int=%d", getName(), this, *transferType, *maxPacketSize, *interval);
 		    return kIOReturnSuccess;
 		}
 	    }

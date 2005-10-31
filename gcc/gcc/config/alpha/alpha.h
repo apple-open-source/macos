@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -156,99 +156,99 @@ extern int alpha_tls_size;
 /* This means that floating-point support exists in the target implementation
    of the Alpha architecture.  This is usually the default.  */
 #define MASK_FP		(1 << 0)
-#define TARGET_FP	(target_flags & MASK_FP)
+#define TARGET_FP	((target_flags & MASK_FP) != 0)
 
 /* This means that floating-point registers are allowed to be used.  Note
    that Alpha implementations without FP operations are required to
    provide the FP registers.  */
 
 #define MASK_FPREGS	(1 << 1)
-#define TARGET_FPREGS	(target_flags & MASK_FPREGS)
+#define TARGET_FPREGS	((target_flags & MASK_FPREGS) != 0)
 
 /* This means that gas is used to process the assembler file.  */
 
 #define MASK_GAS	(1 << 2)
-#define TARGET_GAS	(target_flags & MASK_GAS)
+#define TARGET_GAS	((target_flags & MASK_GAS) != 0)
 
 /* This means that we should mark procedures as IEEE conformant.  */
 
 #define MASK_IEEE_CONFORMANT (1 << 3)
-#define TARGET_IEEE_CONFORMANT	(target_flags & MASK_IEEE_CONFORMANT)
+#define TARGET_IEEE_CONFORMANT	((target_flags & MASK_IEEE_CONFORMANT) != 0)
 
 /* This means we should be IEEE-compliant except for inexact.  */
 
 #define MASK_IEEE	(1 << 4)
-#define TARGET_IEEE	(target_flags & MASK_IEEE)
+#define TARGET_IEEE	((target_flags & MASK_IEEE) != 0)
 
 /* This means we should be fully IEEE-compliant.  */
 
 #define MASK_IEEE_WITH_INEXACT (1 << 5)
-#define TARGET_IEEE_WITH_INEXACT (target_flags & MASK_IEEE_WITH_INEXACT)
+#define TARGET_IEEE_WITH_INEXACT ((target_flags & MASK_IEEE_WITH_INEXACT) != 0)
 
 /* This means we must construct all constants rather than emitting
    them as literal data.  */
 
 #define MASK_BUILD_CONSTANTS (1 << 6)
-#define TARGET_BUILD_CONSTANTS (target_flags & MASK_BUILD_CONSTANTS)
+#define TARGET_BUILD_CONSTANTS ((target_flags & MASK_BUILD_CONSTANTS) != 0)
 
 /* This means we handle floating points in VAX F- (float)
    or G- (double) Format.  */
 
 #define MASK_FLOAT_VAX	(1 << 7)
-#define TARGET_FLOAT_VAX (target_flags & MASK_FLOAT_VAX)
+#define TARGET_FLOAT_VAX ((target_flags & MASK_FLOAT_VAX) != 0)
 
 /* This means that the processor has byte and half word loads and stores
    (the BWX extension).  */
 
 #define MASK_BWX	(1 << 8)
-#define TARGET_BWX	(target_flags & MASK_BWX)
+#define TARGET_BWX	((target_flags & MASK_BWX) != 0)
 
 /* This means that the processor has the MAX extension.  */
 #define MASK_MAX	(1 << 9)
-#define TARGET_MAX	(target_flags & MASK_MAX)
+#define TARGET_MAX	((target_flags & MASK_MAX) != 0)
 
 /* This means that the processor has the FIX extension.  */
 #define MASK_FIX	(1 << 10)
-#define TARGET_FIX	(target_flags & MASK_FIX)
+#define TARGET_FIX	((target_flags & MASK_FIX) != 0)
 
 /* This means that the processor has the CIX extension.  */
 #define MASK_CIX	(1 << 11)
-#define TARGET_CIX	(target_flags & MASK_CIX)
+#define TARGET_CIX	((target_flags & MASK_CIX) != 0)
 
 /* This means use !literal style explicit relocations.  */
 #define MASK_EXPLICIT_RELOCS (1 << 12)
-#define TARGET_EXPLICIT_RELOCS (target_flags & MASK_EXPLICIT_RELOCS)
+#define TARGET_EXPLICIT_RELOCS ((target_flags & MASK_EXPLICIT_RELOCS) != 0)
 
 /* This means use 16-bit relocations to .sdata/.sbss.  */
 #define MASK_SMALL_DATA (1 << 13)
-#define TARGET_SMALL_DATA (target_flags & MASK_SMALL_DATA)
+#define TARGET_SMALL_DATA ((target_flags & MASK_SMALL_DATA) != 0)
 
 /* This means emit thread pointer loads for kernel not user.  */
 #define MASK_TLS_KERNEL	(1 << 14)
-#define TARGET_TLS_KERNEL (target_flags & MASK_TLS_KERNEL)
+#define TARGET_TLS_KERNEL ((target_flags & MASK_TLS_KERNEL) != 0)
 
 /* This means use direct branches to local functions.  */
 #define MASK_SMALL_TEXT (1 << 15)
-#define TARGET_SMALL_TEXT (target_flags & MASK_SMALL_TEXT)
+#define TARGET_SMALL_TEXT ((target_flags & MASK_SMALL_TEXT) != 0)
 
 /* This means use IEEE quad-format for long double.  Assumes the
    presence of the GEM support library routines.  */
 #define MASK_LONG_DOUBLE_128 (1 << 16)
-#define TARGET_LONG_DOUBLE_128 (target_flags & MASK_LONG_DOUBLE_128)
+#define TARGET_LONG_DOUBLE_128 ((target_flags & MASK_LONG_DOUBLE_128) != 0)
 
 /* This means that the processor is an EV5, EV56, or PCA56.
    Unlike alpha_cpu this is not affected by -mtune= setting.  */
 #define MASK_CPU_EV5	(1 << 28)
-#define TARGET_CPU_EV5	(target_flags & MASK_CPU_EV5)
+#define TARGET_CPU_EV5	((target_flags & MASK_CPU_EV5) != 0)
 
 /* Likewise for EV6.  */
 #define MASK_CPU_EV6	(1 << 29)
-#define TARGET_CPU_EV6	(target_flags & MASK_CPU_EV6)
+#define TARGET_CPU_EV6	((target_flags & MASK_CPU_EV6) != 0)
 
 /* This means we support the .arch directive in the assembler.  Only
    defined in TARGET_CPU_DEFAULT.  */
 #define MASK_SUPPORT_ARCH (1 << 30)
-#define TARGET_SUPPORT_ARCH	(target_flags & MASK_SUPPORT_ARCH)
+#define TARGET_SUPPORT_ARCH	((target_flags & MASK_SUPPORT_ARCH) != 0)
 
 /* These are for target os support and cannot be changed at runtime.  */
 #define TARGET_ABI_WINDOWS_NT 0
@@ -884,10 +884,10 @@ enum reg_class {
    reduce the impact of not being able to allocate a pseudo to a
    hard register.  */
 
-#define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2)	\
-  (((CLASS1) == FLOAT_REGS) == ((CLASS2) == FLOAT_REGS)	\
-   ? 2							\
-   : TARGET_FIX ? 3 : 4+2*alpha_memory_latency)
+#define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2)		\
+  (((CLASS1) == FLOAT_REGS) == ((CLASS2) == FLOAT_REGS)	? 2	\
+   : TARGET_FIX ? ((CLASS1) == FLOAT_REGS ? 6 : 8)		\
+   : 4+2*alpha_memory_latency)
 
 /* A C expressions returning the cost of moving data of MODE from a register to
    or from memory.
@@ -1067,14 +1067,6 @@ extern int alpha_memory_latency;
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
   function_arg((CUM), (MODE), (TYPE), (NAMED))
 
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)	\
-((CUM) < 6 && 6 < (CUM) + ALPHA_ARG_SIZE (MODE, TYPE, NAMED)	\
- ? 6 - (CUM) : 0)
-
 /* Try to output insns to set TARGET equal to the constant C if it can be
    done in less than N insns.  Do all computations in MODE.  Returns the place
    where the output has been placed if it can be done and the insns have been
@@ -1221,9 +1213,7 @@ do {						\
 /* Include all constant integers and constant doubles, but not
    floating-point, except for floating-point zero.  */
 
-#define LEGITIMATE_CONSTANT_P(X)  		\
-  (GET_MODE_CLASS (GET_MODE (X)) != MODE_FLOAT	\
-   || (X) == CONST0_RTX (GET_MODE (X)))
+#define LEGITIMATE_CONSTANT_P  alpha_legitimate_constant_p
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -1662,13 +1652,15 @@ extern long alpha_auto_offset;
 #define DEBUGGER_ARG_OFFSET(OFFSET, X) (OFFSET + alpha_arg_offset)
 
 /* mips-tfile doesn't understand .stabd directives.  */
-#define DBX_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER)			\
-  fprintf (STREAM, "$LM%d:\n%s%d,0,%d,$LM%d\n", COUNTER, ASM_STABN_OP,	\
-           N_SLINE, LINE, COUNTER)
+#define DBX_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER) do {	\
+  dbxout_begin_stabn_sline (LINE);				\
+  dbxout_stab_value_internal_label ("LM", &COUNTER);		\
+} while (0)
 
 /* We want to use MIPS-style .loc directives for SDB line numbers.  */
+extern int num_source_filenames;
 #define SDB_OUTPUT_SOURCE_LINE(STREAM, LINE)	\
-  fprintf (STREAM, "\t.loc\t%d %d", num_source_filenames, LINE)
+  fprintf (STREAM, "\t.loc\t%d %d\n", num_source_filenames, LINE)
 
 #define ASM_OUTPUT_SOURCE_FILENAME(STREAM, NAME)			\
   alpha_output_filename (STREAM, NAME)

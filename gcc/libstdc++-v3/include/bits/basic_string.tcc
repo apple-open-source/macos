@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,12 +28,14 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file basic_string.tcc
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 //
 // ISO C++ 14882: 21  Strings library
 //
-
-// This file is included by <string>.  It is not meant to be included
-// separately.
 
 // Written by Jason Merrill based upon the specification by Takanori Adachi
 // in ANSI X3J16/94-0013R2.  Rewritten by Nathan Myers to ISO-14882.
@@ -242,6 +244,22 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
     basic_string<_CharT, _Traits, _Alloc>::
+    assign(const basic_string& __str)
+    {
+      if (_M_rep() != __str._M_rep())
+	{
+	  // XXX MT
+	  const allocator_type __a = this->get_allocator();
+	  _CharT* __tmp = __str._M_rep()->_M_grab(__a, __str.get_allocator());
+	  _M_rep()->_M_dispose(__a);
+	  _M_data(__tmp);
+	}
+      return *this;
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
     assign(const _CharT* __s, size_type __n)
     {
       __glibcxx_requires_string_len(__s, __n);
@@ -260,6 +278,23 @@ namespace std
 	  return *this;
 	}
      }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    append(size_type __n, _CharT __c)
+    {
+      if (__n)
+	{
+	  _M_check_length(size_type(0), __n, "basic_string::append");	  
+	  const size_type __len = __n + this->size();
+	  if (__len > this->capacity() || _M_rep()->_M_is_shared())
+	    this->reserve(__len);
+	  _M_assign(_M_data() + this->size(), __n, __c);
+	  _M_rep()->_M_set_length_and_sharable(__len);
+	}
+      return *this;
+    }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
@@ -287,6 +322,23 @@ namespace std
 	}
       return *this;
     }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    append(const basic_string& __str)
+    {
+      const size_type __size = __str.size();
+      if (__size)
+	{
+	  const size_type __len = __size + this->size();
+	  if (__len > this->capacity() || _M_rep()->_M_is_shared())
+	    this->reserve(__len);
+	  _M_copy(_M_data() + this->size(), __str._M_data(), __size);
+	  _M_rep()->_M_set_length_and_sharable(__len);
+	}
+      return *this;
+    }    
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
@@ -373,10 +425,6 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::_Rep::
     _M_destroy(const _Alloc& __a) throw ()
     {
-#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
-      if (this == &_S_empty_rep())
-	return;
-#endif
       const size_type __size = sizeof(_Rep_base) +
 	                       (this->_M_capacity + 1) * sizeof(_CharT);
       _Raw_bytes_alloc(__a).deallocate(reinterpret_cast<char*>(this), __size);
@@ -525,7 +573,7 @@ namespace std
       size_type __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
 
       const size_type __adj_size = __size + __malloc_header_size;
-      if (__adj_size > __pagesize)
+      if (__adj_size > __pagesize && __capacity > __old_capacity)
 	{
 	  const size_type __extra = __pagesize - __adj_size % __pagesize;
 	  __capacity += __extra / sizeof(_CharT);
@@ -586,7 +634,32 @@ namespace std
 	return _M_replace_safe(__i1 - _M_ibegin(), __n1, __s._M_data(),
 			       __s.size());
       }
- 
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    _M_replace_aux(size_type __pos1, size_type __n1, size_type __n2,
+		   _CharT __c)
+    {
+      _M_check_length(__n1, __n2, "basic_string::_M_replace_aux");
+      _M_mutate(__pos1, __n1, __n2);
+      if (__n2)
+	_M_assign(_M_data() + __pos1, __n2, __c);
+      return *this;
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    _M_replace_safe(size_type __pos1, size_type __n1, const _CharT* __s,
+		    size_type __n2)
+    {
+      _M_mutate(__pos1, __n1, __n2);
+      if (__n2)
+	_M_copy(_M_data() + __pos1, __s, __n2);
+      return *this;
+    }
+   
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>
     operator+(const _CharT* __lhs,

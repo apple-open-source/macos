@@ -314,7 +314,6 @@ long BeginServerSession( sPSContextData *inContext, int inSock )
 		if ( inSock != -1 )
 		{
 			inContext->fd = inSock;
-			inContext->serverIn = fdopen(inSock, "r");
 			inContext->serverOut = fdopen(inSock, "w");
 			
 			// discard the greeting message
@@ -434,11 +433,6 @@ long EndServerSession( sPSContextData *inContext, bool inSendQuit )
         }
 	}
 	
-	if ( inContext->serverIn != NULL ) {
-		fpurge( inContext->serverIn );
-		fclose( inContext->serverIn );
-		inContext->serverIn = NULL;
-	}
 	if ( inContext->serverOut != NULL ) {
 		fpurge( inContext->serverOut );
 		fclose( inContext->serverOut );
@@ -855,13 +849,7 @@ int CleanContextData ( sPSContextData *inContext )
             sasl_dispose(&inContext->conn);
             inContext->conn = NULL;
         }
-        
-        if (inContext->serverIn != NULL)
-        {
-            fclose(inContext->serverIn);
-            inContext->serverIn = NULL;
-        }
-        
+                
         if (inContext->serverOut != NULL)
         {
             fclose(inContext->serverOut);

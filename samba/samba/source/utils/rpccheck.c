@@ -36,7 +36,7 @@ main()
 	ZERO_STRUCT(rpc_stub);
 
 	setup_logging("", True);
-	DEBUGLEVEL=10;
+	SAMBA_DEBUGLEVEL=10;
 
 	ctx=talloc_init("main");
 	if (!ctx) exit(1);

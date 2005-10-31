@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,7 +38,7 @@ package org.blojsom.extension.atomapi;
  * AtomAPIConstants
  *
  * @author Mark Lussier
- * @version $Id: AtomAPIConstants.java,v 1.2 2004/08/27 00:49:41 whitmore Exp $
+ * @version $Id: AtomAPIConstants.java,v 1.2.2.1 2005/07/21 04:30:22 johnan Exp $
  * @since blojsom 2.0
  */
 public interface AtomAPIConstants {
@@ -46,7 +46,7 @@ public interface AtomAPIConstants {
     /**
      * Default file extension for blog entries written via AtomAPI
      */
-    static final String DEFAULT_BLOG_ATOMAPI_ENTRY_EXTENSION = ".txt";
+    static final String DEFAULT_BLOG_ATOMAPI_ENTRY_EXTENSION = ".html";
 
     /**
      * Initialization parameter for setting blog entries written via AtomAPI
@@ -137,5 +137,10 @@ public interface AtomAPIConstants {
     /**
      * SOAPAction header for SOAP AtomAPI client
      */
-    static final String HEADER_SOAPACTION = "SOAPAction";
+    static final String HEADER_SOAPACTION = "Soapaction";
+
+    /**
+     * SOAP action for a PUT request
+     */
+    public static final String SOAPACTION_PUT = "\"http://schemas.xmlsoap.org/wsdl/http/PUT\"";
 }

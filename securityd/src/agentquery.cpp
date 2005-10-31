@@ -72,6 +72,8 @@ using namespace Authorization;
 
 SecurityAgentQuery::SecurityAgentQuery(const AuthHostType type, Session &session) : mAuthHostType(type), mHostInstance(session.authhost(mAuthHostType)), mConnection(&Server::connection())
 {
+	// this may take a while
+	Server::active().longTermActivity();
     secdebug("SecurityAgentQuery", "new SecurityAgentQuery(%p)", this);
 }
 
@@ -94,8 +96,6 @@ SecurityAgentQuery::~SecurityAgentQuery()
 void
 SecurityAgentQuery::activate()
 {
-	// this may take a while
-	Server::active().longTermActivity();
 	mConnection->useAgent(this);
 
 	try {

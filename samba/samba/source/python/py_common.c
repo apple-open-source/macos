@@ -67,7 +67,7 @@ PyObject *get_debuglevel(PyObject *self, PyObject *args)
 	if (!PyArg_ParseTuple(args, ""))
 		return NULL;
 
-	debuglevel = PyInt_FromLong(DEBUGLEVEL);
+	debuglevel = PyInt_FromLong(SAMBA_DEBUGLEVEL);
 
 	return debuglevel;
 }
@@ -79,7 +79,7 @@ PyObject *set_debuglevel(PyObject *self, PyObject *args)
 	if (!PyArg_ParseTuple(args, "i", &debuglevel))
 		return NULL;
 
-	DEBUGLEVEL = debuglevel;
+	SAMBA_DEBUGLEVEL = debuglevel;
 
 	Py_INCREF(Py_None);
 	return Py_None;

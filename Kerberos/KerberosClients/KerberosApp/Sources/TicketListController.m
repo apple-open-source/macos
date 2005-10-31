@@ -1,7 +1,7 @@
 /*
  * TicketListController.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/TicketListController.m,v 1.18 2005/01/31 20:51:34 lxs Exp $
+ * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/TicketListController.m,v 1.19 2005/05/25 20:41:43 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -190,8 +190,8 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
     
     // Automatically resize columns in the tables.  
     // Do not move columns when disclosure triangles are selected
-    [cacheCollectionTableView setAutoresizesAllColumnsToFit: YES];
-    [ticketsOutlineView       setAutoresizesAllColumnsToFit: YES];
+    [cacheCollectionTableView setColumnAutoresizingStyle: NSTableViewSequentialColumnAutoresizingStyle];
+    [ticketsOutlineView       setColumnAutoresizingStyle: NSTableViewSequentialColumnAutoresizingStyle];
     [ticketsOutlineView       setAutoresizesOutlineColumn: NO];
     
     [[NSNotificationCenter defaultCenter] addObserver: self

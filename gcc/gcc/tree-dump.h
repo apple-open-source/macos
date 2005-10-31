@@ -1,5 +1,5 @@
 /* Tree-dumping functionality for intermediate representation.
-   Copyright (C) 1999, 2000, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
 This file is part of GCC.
@@ -88,6 +88,7 @@ extern void queue_and_dump_type (dump_info_p, tree);
 extern void dump_function (enum tree_dump_index, tree);
 extern void dump_function_to_file (tree, FILE *, int);
 
-extern unsigned int dump_register (const char *, const char *, int, unsigned int, int);
+extern unsigned int dump_register (const char *, const char *, const char *, 
+				   int, unsigned int, int);
 
 #endif /* ! GCC_TREE_DUMP_H */

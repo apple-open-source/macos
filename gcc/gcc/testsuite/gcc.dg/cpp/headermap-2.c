@@ -1,7 +1,8 @@
 /* APPLE LOCAL file headermaps */
 /* Copyright (C) 2005 Free Software Foundation, Inc.  */
 
-/* { dg-do compile } */
+/* { dg-do compile { target powerpc*-*-darwin* } } */
+/* This test is ppc specific, as the headermap binary was generated for ppc.  */
 /* { dg-options "-I $srcdir/gcc.dg/cpp/headermap.hmap" } */
 
 #define COUNT 1

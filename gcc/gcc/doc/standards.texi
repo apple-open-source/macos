@@ -79,13 +79,13 @@ as @dfn{AMD1}; the amended standard is sometimes known as @dfn{C94} or
 A new edition of the ISO C standard was published in 1999 as ISO/IEC
 9899:1999, and is commonly known as @dfn{C99}.  GCC has incomplete
 support for this standard version; see
-@uref{http://gcc.gnu.org/c99status.html} for details.  To select this
+@uref{http://gcc.gnu.org/gcc-4.0/c99status.html} for details.  To select this
 standard, use @option{-std=c99} or @option{-std=iso9899:1999}.  (While in
 development, drafts of this standard version were referred to as
 @dfn{C9X}.)
 
-Errors in the 1999 ISO C standard were corrected in a Technical
-Corrigendum published in 2001.  GCC does not support the uncorrected
+Errors in the 1999 ISO C standard were corrected in two Technical
+Corrigenda published in 2001 and 2004.  GCC does not support the uncorrected
 version.
 
 By default, GCC provides some extensions to the C language that on
@@ -179,8 +179,8 @@ have additional useful information.
 
 @cindex treelang
 There is no standard for treelang, which is a sample language front end
-for GCC. Its only purpose is as a sample for people wishing to write a
-new language for GCC. The language is documented in
+for GCC@.  Its only purpose is as a sample for people wishing to write a
+new language for GCC@.  The language is documented in
 @file{gcc/treelang/treelang.texi} which can be turned into info or
 HTML format.
 

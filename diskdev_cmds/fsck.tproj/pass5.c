@@ -74,7 +74,7 @@ extern void		ffs_fragacct __P((struct fs *, int, int32_t [], int));
 void
 pass5()
 {
-	int c, blk, frags, basesize, sumsize, mapsize, savednrpos;
+	int c, blk, frags, basesize, sumsize, mapsize, savednrpos = 0;
 	struct fs *fs = &sblock;
 	struct cg *cg = &cgrp;
 	ufs_daddr_t dbase, dmax;

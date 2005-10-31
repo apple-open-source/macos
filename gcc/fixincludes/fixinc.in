@@ -488,18 +488,6 @@ if $LINKS; then
   done 2> /dev/null
 fi
 
-# APPLE LOCAL begin 64bit allow building on older Tiger systems 3872664
-# Only fix older Tiger systems or Tiger systems that use 3.3 as the
-# default compiler, on newer systems, this will be ok already.
-if grep -q -s ppc64 /usr/include/machine/limits.h; then
-    :
-else
-    echo want to mkdir $LIB/machine
-    mkdir $LIB/machine
-    sed -e 's/defined *(__ppc__)/defined (__ppc__) || defined (__ppc64__)/' /usr/include/machine/limits.h >$LIB/machine/limits.h
-fi
-# APPLE LOCAL end 64bit allow building on older Tiger systems 3872664
-
 if test $VERBOSE -gt 0
 then echo fixincludes is done ; fi
 

@@ -48,6 +48,7 @@ public:
 	virtual ~SSDatabaseImpl();
 
 	void create(const DLDbIdentifier &dlDbIdentifier);
+	void createWithBlob(const DLDbIdentifier &dlDbIdentifier, const CSSM_DATA &blob);
 	void open(const DLDbIdentifier &dlDbIdentifier);
 	SSUniqueRecord insert(CSSM_DB_RECORDTYPE recordType,
 						  const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
@@ -75,6 +76,7 @@ public:
 	
 protected:
 	CssmClient::DbUniqueRecord getDbBlobId(CssmDataContainer *dbb = NULL);
+	void commonCreate (const DLDbIdentifier &dlDbIdentifier, bool &autocommit);
 
 private:
 	// 5 minute default autolock time

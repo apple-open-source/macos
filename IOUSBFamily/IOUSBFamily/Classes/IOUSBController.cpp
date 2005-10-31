@@ -797,10 +797,13 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
 	{
 	    USBLog(2, "%s[%p]::ControlPacketHandler, returning status of %x", me->getName(), me, command->GetStatus());
 	}
+        
         // Call the clients handler
         me->Complete(command->GetClientCompletion(), command->GetStatus(), command->GetDataRemaining());
 
-	// Free/give back the command 
+		// Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
+		//
+		if ( !command->GetIsSyncTransfer() )
 	me->_freeUSBCommandPool->returnCommand(command);
     }
     else
@@ -872,7 +875,9 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
     else
         me->Complete(command->GetClientCompletion(), status, bufferSizeRemaining);
 
-    // Free/give back the command 
+    // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
+	//
+	if ( !command->GetIsSyncTransfer() )
     me->_freeUSBCommandPool->returnCommand(command);
 }
 
@@ -927,7 +932,9 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
      /* Call the clients handler */
     me->Complete(command->GetClientCompletion(), status, bufferSizeRemaining);
 
-    // Free/give back the command 
+    // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
+	//
+	if ( !command->GetIsSyncTransfer() )
     me->_freeUSBCommandPool->returnCommand(command);
 }
 
@@ -940,7 +947,7 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
  */
 IOReturn 
 IOUSBController::DoIsocTransfer(OSObject *owner, void *cmd,
-                        void */*field2*/, void */*field3*/, void */*field4*/)
+                        void *, void *, void *)
 {
     IOUSBController *		controller = (IOUSBController *)owner;
     IOUSBIsocCommand *		command = (IOUSBIsocCommand *) cmd;
@@ -1008,7 +1015,7 @@ IOUSBController::DoIsocTransfer(OSObject *owner, void *cmd,
 
 IOReturn 
 IOUSBController::DoLowLatencyIsocTransfer(OSObject *owner, void *cmd,
-                        void */*field2*/, void */*field3*/, void */*field4*/)
+                        void *, void *, void *)
 {
     IOUSBController *		controller = (IOUSBController *)owner;
     IOUSBIsocCommand *		command = (IOUSBIsocCommand *) cmd;
@@ -1157,7 +1164,9 @@ IOUSBController::IsocCompletionHandler(OSObject *target,
     if (completion.action)  
 	(*completion.action)(completion.target, completion.parameter, status, pFrames);
 
-    // Free/give back the command 
+    // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
+	//
+	if ( !command->GetIsSyncTransfer() )
     me->_freeUSBIsocCommandPool->returnCommand(command);
 }
 
@@ -1194,7 +1203,7 @@ IOUSBController::WatchdogTimer(OSObject *target, IOTimerEventSource *source)
 IOReturn 
 IOUSBController::DoIOTransfer(OSObject *owner,
                            void *cmd,
-                           void */*field2*/, void */*field3*/, void */*field4*/)
+                           void *, void *, void *)
 {
     IOUSBController *	controller = (IOUSBController *)owner;
     IOUSBCommand *	command = (IOUSBCommand *) cmd;
@@ -1226,8 +1235,9 @@ IOUSBController::DoIOTransfer(OSObject *owner,
     completion = command->GetClientCompletion();
     disjointCompletion = command->GetDisjointCompletion();
 
-    if ( ( (UInt32) completion.action == (UInt32) &IOUSBSyncCompletion) ||
-         ( (UInt32) disjointCompletion.action == (UInt32) &IOUSBSyncCompletion) )
+   // if ( ( (UInt32) completion.action == (UInt32) &IOUSBSyncCompletion) ||
+   //      ( (UInt32) disjointCompletion.action == (UInt32) &IOUSBSyncCompletion) )
+	if ( command->GetIsSyncTransfer() )
     {
         IOUSBSyncCompletionTarget	syncTarget;
         bool				inCommandSleep = true;
@@ -2209,10 +2219,26 @@ OSMetaClassDefineReservedUsed(IOUSBController,  5);
 IOReturn 
 IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *completion, USBDeviceAddress address, UInt8 ep, UInt32 noDataTimeout, UInt32 completionTimeout)
 {
-    IOUSBCommand *command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-    IOReturn	err = kIOReturnSuccess; 
-    IOUSBCompletion nullCompletion;
-
+    IOUSBCommand *			command;
+    IOReturn				err = kIOReturnSuccess; 
+    IOUSBCompletion			nullCompletion;
+	int						i;
+	
+	USBLog(7,"%s[%p]::DeviceRequest [%x,%x],[%x,%x],[%x,%lx]",getName(),this, 
+             request->bmRequestType,
+             request->bRequest,
+             request->wValue,
+             request->wIndex,
+             request->wLength,
+             (UInt32)request->pData);
+	
+	if ( GetCommandGate() == 0)
+		return kIOReturnInternalError;
+	
+	// Allocate the command
+	//
+	command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+	
     // If we couldn't get a command, increase the allocation and try again
     //
     if ( command == NULL )
@@ -2227,9 +2253,12 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
         }
     }
 
-    do
-    {
-	int	i;
+	// Set up a flag indicating that we have a synchronous request in this command
+	//
+    if (  (UInt32) completion->action == (UInt32) &IOUSBSyncCompletion )
+		command->SetIsSyncTransfer(true);
+	else
+		command->SetIsSyncTransfer(false);
 
         command->SetUseTimeStamp(false);
         command->SetSelector(DEVICE_REQUEST);
@@ -2252,23 +2281,17 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
 	for (i=0; i < 10; i++)
 	    command->SetUIMScratch(i, 0);
 	    
-        if ( GetCommandGate() == 0)
-        {
-            err = kIOReturnInternalError;
-            break;
-        }
-
-        err = GetCommandGate()->runAction(DoControlTransfer, command);
-        if ( err)
-            break;
-            
-        return (err);
-    } while (0);
-
-    // Free/give back the command 
-    _freeUSBCommandPool->returnCommand(command);
-
-    return(err);
+	err = GetCommandGate()->runAction(DoControlTransfer, command);
+	
+	// If we have a sync request, then we always return the command after the DoControlTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( command->GetIsSyncTransfer() ||  (!command->GetIsSyncTransfer() && (kIOReturnSuccess != err)) )
+	{
+		_freeUSBCommandPool->returnCommand(command);
+	}
+	
+    return err;
 }
 
 
@@ -2277,10 +2300,26 @@ OSMetaClassDefineReservedUsed(IOUSBController,  6);
 IOReturn 
 IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *	completion, USBDeviceAddress address, UInt8 ep, UInt32 noDataTimeout, UInt32 completionTimeout)
 {
-    IOUSBCommand *command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-    IOReturn	err = kIOReturnSuccess;
-    IOUSBCompletion nullCompletion;
-
+    IOUSBCommand *			command;
+    IOReturn				err = kIOReturnSuccess; 
+    IOUSBCompletion			nullCompletion;
+	int						i;
+	
+	USBLog(7,"%s[%p]::DeviceRequestDesc [%x,%x],[%x,%x],[%x,%lx]",getName(),this, 
+		   request->bmRequestType,
+		   request->bRequest,
+		   request->wValue,
+		   request->wIndex,
+		   request->wLength,
+		   (UInt32)request->pData);
+	
+	if ( GetCommandGate() == 0)
+		return kIOReturnInternalError;
+	
+	// Allocate the command
+	//
+	command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+	
     // If we couldn't get a command, increase the allocation and try again
     //
     if ( command == NULL )
@@ -2295,9 +2334,12 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *	c
         }
     }
 
-    do
-    {
-	int		i;
+	// Set up a flag indicating that we have a synchronous request in this command
+	//
+    if (  (UInt32) completion->action == (UInt32) &IOUSBSyncCompletion )
+		command->SetIsSyncTransfer(true);
+	else
+		command->SetIsSyncTransfer(false);
 
         command->SetUseTimeStamp(false);
         command->SetSelector(DEVICE_REQUEST_DESC);
@@ -2322,23 +2364,17 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *	c
 	for (i=0; i < 10; i++)
 	    command->SetUIMScratch(i, 0);
 
-        if (GetCommandGate() == 0)
-        {
-            err = kIOReturnInternalError;
-            break;
-        }
-
-        err = GetCommandGate()->runAction(DoControlTransfer, command);
-        if ( err)
-            break;
-
-        return (err);
-    } while (0);
-
-    // Free/give back the command 
-    _freeUSBCommandPool->returnCommand(command);
-
-    return(err);
+	err = GetCommandGate()->runAction(DoControlTransfer, command);
+	
+	// If we have a sync request, then we always return the command after the DoControlTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( command->GetIsSyncTransfer() ||  (!command->GetIsSyncTransfer() && (kIOReturnSuccess != err)) )
+	{
+		_freeUSBCommandPool->returnCommand(command);
+	}
+	
+    return err;
 }
 
 

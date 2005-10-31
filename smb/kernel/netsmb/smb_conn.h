@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_conn.h,v 1.32.42.1 2005/05/27 02:35:29 lindak Exp $
+ * $Id: smb_conn.h,v 1.32.42.2 2005/07/20 05:27:00 lindak Exp $
  */
 #ifndef _NETINET_IN_H_
 #include <sys/socket.h>
@@ -240,7 +240,12 @@ struct smb_connobj {
 
 #define SMBFS_CO_LOCK_WAIT 1
 
-#define	SMBCO_FOREACH(var, cp)	SLIST_FOREACH((var), &(cp)->co_children, co_next)
+#define SMBLIST_FOREACH(var, head, field) \
+	for((var) = (typeof (var))((head)->slh_first);(var);  \
+		(var) = (typeof(var))(((struct smb_connobj*)var)->field.sle_next))
+
+#define	SMBCO_FOREACH(var, cp)	SMBLIST_FOREACH((var), &(cp)->co_children, co_next)
+
 
 /*
  * Virtual Circuit (session) to a server.

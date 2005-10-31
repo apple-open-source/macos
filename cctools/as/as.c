@@ -593,6 +593,16 @@ char **envp)
 				archflag_cpusubtype =
 				    CPU_SUBTYPE_PENTII_M5;
 			    }
+			    else if(strcmp(*work_argv, "pentium4") ==0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_PENTIUM_4)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_PENTIUM_4;
+			    }
 			    else if(strcmp(*work_argv, "i386") != 0)
 				as_fatal("I expected 'i386', 'i486', 'i486SX', "
 				   "'i586', 'pentium', 'i686', 'pentpro', "

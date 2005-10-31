@@ -1,4 +1,4 @@
-# Copyright (c) 1999-2003 Apple Computer, Inc.
+# Copyright (c) 1999-2005 Apple Computer, Inc.
 # All rights reserved.
 
 # Built-in definitions of common build settings.  These can be
@@ -18,7 +18,8 @@ export deferred BUILD_ROOT = $(SYMROOT) ;
 export deferred INSTALL_ROOT = $(DSTROOT) ;
 
 # more specific directories inside the TEMP_ROOT
-export deferred TEMP_DIR = $(OBJROOT)/$(PROJECT_NAME).build/$(TARGET_NAME).build ;
+export deferred TARGET_TEMP_DIR = $(CONFIGURATION_TEMP_DIR)/$(TARGET_NAME).build ;
+export deferred TEMP_DIR = $(TARGET_TEMP_DIR) ;
 export deferred DERIVED_FILE_DIR = $(TEMP_DIR)/DerivedSources ;
        deferred OBJECT_FILE_DIR = $(TEMP_DIR)/Objects ;
        deferred CLASS_FILE_DIR = $(TEMP_DIR)/JavaClasses ;
@@ -59,6 +60,7 @@ export deferred INSTALL_MODE_FLAG = "ugo-w,o+rX" ;
 # miscellaneous
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred FRAMEWORK_VERSION = A ;
+       deferred PER_STYLE_BUILD_DIRECTORIES = YES ;
        deferred REMOVE_CVS_FROM_RESOURCES = YES ;
        deferred REMOVE_SVN_FROM_RESOURCES = YES ;
        deferred COPY_PHASE_STRIP = NO ;
@@ -78,52 +80,28 @@ rule ConditionalDefinitions
         case copyhdrs : deferred BUILD_COMPONENTS = headers ;
         case copyrsrcs : deferred BUILD_COMPONENTS = resources ;
         case install : deferred BUILD_COMPONENTS = headers build ; 
-         deferred DEPLOYMENT_LOCATION = YES ;
-         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+            deferred DEPLOYMENT_LOCATION = YES ;
+            deferred DEPLOYMENT_POSTPROCESSING = YES ;
         case installdebugonly : deferred BUILD_COMPONENTS = build ;
-         deferred DEPLOYMENT_LOCATION = YES ;
-         deferred DEPLOYMENT_POSTPROCESSING = YES ;
-         deferred BUILD_VARIANTS = debug ;
+             deferred DEPLOYMENT_LOCATION = YES ;
+             deferred DEPLOYMENT_POSTPROCESSING = YES ;
+             deferred BUILD_VARIANTS = debug ;
         case installprofileonly : deferred BUILD_COMPONENTS = build ;
-         deferred DEPLOYMENT_LOCATION = YES ;
-         deferred DEPLOYMENT_POSTPROCESSING = YES ;
-         deferred BUILD_VARIANTS = profile ;
+             deferred DEPLOYMENT_LOCATION = YES ;
+             deferred DEPLOYMENT_POSTPROCESSING = YES ;
+             deferred BUILD_VARIANTS = profile ;
         case installdebugprofileonly : deferred BUILD_COMPONENTS = build ;
-         deferred DEPLOYMENT_LOCATION = YES ;
-         deferred DEPLOYMENT_POSTPROCESSING = YES ;
-         deferred BUILD_VARIANTS = debug profile ;
+             deferred DEPLOYMENT_LOCATION = YES ;
+             deferred DEPLOYMENT_POSTPROCESSING = YES ;
+             deferred BUILD_VARIANTS = debug profile ;
         case installhdrs : deferred BUILD_COMPONENTS = headers ;
-         deferred DEPLOYMENT_LOCATION = YES ;
-         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+             deferred DEPLOYMENT_LOCATION = YES ;
+             deferred DEPLOYMENT_POSTPROCESSING = YES ;
         case installsrc : deferred BUILD_COMPONENTS = source ;
-         deferred DEPLOYMENT_LOCATION = YES ;
-         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+             deferred DEPLOYMENT_LOCATION = YES ;
+             deferred DEPLOYMENT_POSTPROCESSING = YES ;
         case installrsrcs : deferred BUILD_COMPONENTS = resources ;
-         deferred DEPLOYMENT_LOCATION = YES ;
-         deferred DEPLOYMENT_POSTPROCESSING = YES ;
-    }
-
-    # conditional locations enabling install-in-place
-    if $(DEPLOYMENT_LOCATION) = YES {
-        if $(SKIP_INSTALL) || ! $(INSTALL_PATH) {
-            export deferred TARGET_BUILD_DIR = $(TEMP_ROOT)/UninstalledProducts ;
-        }
-        else {
-            export deferred TARGET_BUILD_DIR = $(INSTALL_ROOT)/$(INSTALL_PATH) ;
-        }
-        deferred BASE_PROJECT_HEADER_DIR = $(TEMP_ROOT)/ProjectHeaders ;
-        if $(INSTALLED_PRODUCT_ASIDES) = YES {
-            # built products go in subfolder when there are asides
-            export deferred BUILT_PRODUCTS_DIR = $(BUILD_ROOT)/BuiltProducts ;
-        }
-        else {
-            # built products go in build folder when there are no asides
-            export deferred BUILT_PRODUCTS_DIR = $(BUILD_ROOT) ;
-        }
-    }
-    else {
-        export deferred TARGET_BUILD_DIR = $(BUILD_DIR) ;
-        export deferred BUILT_PRODUCTS_DIR = $(BUILD_DIR) ;
-        deferred BASE_PROJECT_HEADER_DIR = $(BUILD_ROOT)/ProjectHeaders ;
-    }
+             deferred DEPLOYMENT_LOCATION = YES ;
+             deferred DEPLOYMENT_POSTPROCESSING = YES ;
+    } 
 }

@@ -1,5 +1,5 @@
 /* DefaultSwatchChooserPanel.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.colorchooser;
 
 import java.awt.BorderLayout;
@@ -48,11 +49,11 @@ import java.awt.LayoutManager;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+
 import javax.swing.Icon;
 import javax.swing.JColorChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-
 
 /**
  * This class is the DefaultSwatchChooserPanel. This chooser panel displays a
@@ -431,7 +432,7 @@ class DefaultSwatchChooserPanel extends AbstractColorChooserPanel
   /**
    * This class is the recent swatch panel. It holds recently selected colors.
    */
-  public static class RecentSwatchPanel extends SwatchPanel
+  static class RecentSwatchPanel extends SwatchPanel
   {
     /** The array for storing recently stored colors. */
     Color[] colors;

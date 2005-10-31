@@ -16,23 +16,10 @@ kern_return_t  InternalIPC_TellServerToQuit (
 	mach_port_t inServerPort,
 	CCIResult *outResult) 
 {
+    dprintf ("InternalIPC_TellServerToQuit: quitting server.\n");
     mach_server_quit_self ();
      
     *outResult = ccNoError;  
-    return KERN_SUCCESS;
-}
-
-// Function to rename the CCache Server to a different uid:
-kern_return_t  InternalIPC_TellServerToBecomeUser (
-	mach_port_t inServerPort,
-    CCIUInt32	inServerUID,
-	CCIResult *outResult) 
-{
-    if (mach_server_become_user (inServerUID)) {
-        *outResult = ccNoError;  
-    } else {
-        *outResult = ccErrServerCantBecomeUID;
-    }
     return KERN_SUCCESS;
 }
 
@@ -104,7 +91,6 @@ kern_return_t	InternalIPC_FabricateInitialDiffs (
     
     return KERN_SUCCESS;
 }
-#endif
 
 kern_return_t	InternalIPC_CheckServerID (
 	mach_port_t				inServerPort,
@@ -121,6 +107,19 @@ kern_return_t	InternalIPC_CheckServerID (
             *outResult = ccNoError;
         }
         
+    } CatchForIPCReturn_ (outResult)
+    
+    return KERN_SUCCESS;
+}
+#endif
+
+kern_return_t	InternalIPC_GetServerPID (mach_port_t inServerPort,
+                                          CCIPID*     outPID,
+                                          CCIResult*  outResult)
+{
+    try {
+        *outPID = getpid ();
+        *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
     
     return KERN_SUCCESS;

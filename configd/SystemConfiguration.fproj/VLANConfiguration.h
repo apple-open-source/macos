@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,13 +24,15 @@
 #ifndef _VLANCONFIGURATION_H
 #define _VLANCONFIGURATION_H
 
-/*!
-	@header VLANConfiguration
-*/
-
+#include <AvailabilityMacros.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+
+/*!
+	@header VLANConfiguration
+*/
 
 typedef const struct __VLANInterface *		VLANInterfaceRef;
 
@@ -98,5 +100,7 @@ VLANPreferencesApplyChanges	(VLANPreferencesRef	prefs);
 // ----------
 
 __END_DECLS
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 */
 
 #endif /* _VLANCONFIGURATION_H */

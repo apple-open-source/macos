@@ -1,4 +1,5 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- 
+ *
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
@@ -25,6 +26,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <mach-o/loader.h>
 #include <mach-o/fat.h>
 
@@ -283,21 +285,13 @@ private:
 	void				writeOutput();
 	
 	void				resolve(ObjectFile::Reference* reference);
+	void				resolveFrom(ObjectFile::Reference* reference);
 	void				addJustInTimeAtoms(const char* name);
 	
 	void				addDylib(ObjectFile::Reader* reader, const Options::FileInfo& info);
 	void				addIndirectLibraries(ObjectFile::Reader* reader);
 	bool				haveIndirectLibrary(const char* path, ObjectFile::Reader* reader);
 	bool				haveDirectLibrary(const char* path);
-
-	struct SegmentAndItsAtoms
-	{
-		class Segment*						fSegment;
-		uint64_t							fSegmentSize;
-		uint64_t							fSegmentBaseAddress;
-		std::vector<class ObjectFile::Atom*>	fAtoms;
-	};
-	
 	
 	class SymbolTable
 	{
@@ -338,7 +332,6 @@ private:
 	std::vector<ExecutableFile::DyLibUsed>				fDynamicLibraries;
 	std::list<IndirectLibrary>							fIndirectDynamicLibraries;
 	std::vector<class ObjectFile::Atom*>				fAllAtoms;
-	std::vector< SegmentAndItsAtoms >					fAllAtomsBySegment;
 	std::set<class ObjectFile::Atom*>					fDeadAtoms;
 	SectionOrder										fSectionOrder;
 	unsigned int										fNextSortOrder;
@@ -363,7 +356,7 @@ void Linker::setOutputFile(ExecutableFile::Writer* writer)
 }
 
 void Linker::link()
-{		
+{	
 	this->buildAtomList();
 	this->loadUndefines();
 	this->resolveReferences();
@@ -382,9 +375,11 @@ inline void Linker::addAtom(ObjectFile::Atom& atom)
 	std::vector<class ObjectFile::Reference*>& references = atom.getReferences();
 	for (std::vector<ObjectFile::Reference*>::iterator it=references.begin(); it != references.end(); it++) {
 		ObjectFile::Reference* reference = *it;
-		if ( reference->isUnbound() ) {
+		if ( reference->isTargetUnbound() ) {
 			fGlobalSymbolTable.require(reference->getTargetName());
 		}
+		if ( reference->hasFromTarget() && reference->isFromTargetUnbound() )
+			fGlobalSymbolTable.require(reference->getFromTargetName());
 	}
 	
 	// if in global namespace, add atom itself to symbol table
@@ -479,6 +474,7 @@ void Linker::loadUndefines()
 		std::vector<const char*> unresolvableUndefines;
 		fGlobalSymbolTable.getNeededNames(false, unresolvableUndefines);
 		const int unresolvableCount = unresolvableUndefines.size();
+		int unresolvableExportsCount  = 0;
 		if ( unresolvableCount != 0 ) {
 			if ( doPrint ) {
 				fprintf(stderr, "can't resolve symbols:\n");
@@ -494,12 +490,14 @@ void Linker::loadUndefines()
 					strcat(nonLazyName, "$non_lazy_ptr");
 					ObjectFile::Atom* lastStubAtomWithUnresolved = NULL;
 					ObjectFile::Atom* lastNonLazyAtomWithUnresolved = NULL;
+					// scan all atoms for references
+					bool foundAtomReference = false;
 					for (std::vector<ObjectFile::Atom*>::iterator it=fAllAtoms.begin(); it != fAllAtoms.end(); it++) {
 						ObjectFile::Atom* atom = *it;
 						std::vector<class ObjectFile::Reference*>& references = atom->getReferences();
 						for (std::vector<ObjectFile::Reference*>::iterator rit=references.begin(); rit != references.end(); rit++) {
 							ObjectFile::Reference* reference = *rit;
-							if ( reference->isUnbound() ) {
+							if ( reference->isTargetUnbound() ) {
 								if ( (atom != lastStubAtomWithUnresolved) && (strcmp(reference->getTargetName(), stubName) == 0) ) {
 									const char* path = atom->getFile()->getPath();
 									const char* shortPath = strrchr(path, '/');
@@ -509,6 +507,7 @@ void Linker::loadUndefines()
 										shortPath = &shortPath[1];
 									fprintf(stderr, "      %s in %s\n", atom->getDisplayName(), shortPath);
 									lastStubAtomWithUnresolved = atom;
+									foundAtomReference = true;
 								}
 								else if ( (atom != lastNonLazyAtomWithUnresolved) && (strcmp(reference->getTargetName(), nonLazyName) == 0) ) {
 									const char* path = atom->getFile()->getPath();
@@ -519,13 +518,43 @@ void Linker::loadUndefines()
 										shortPath = &shortPath[1];
 									fprintf(stderr, "      %s in %s\n", atom->getDisplayName(), shortPath);
 									lastNonLazyAtomWithUnresolved = atom;
+									foundAtomReference = true;
+								}
+							}
+							if ( reference->hasFromTarget() && reference->isFromTargetUnbound() ) {
+								if ( (atom != lastStubAtomWithUnresolved) && (strcmp(reference->getFromTargetName(), stubName) == 0) ) {
+									const char* path = atom->getFile()->getPath();
+									const char* shortPath = strrchr(path, '/');
+									if ( shortPath == NULL )
+										shortPath = path;
+									else
+										shortPath = &shortPath[1];
+									fprintf(stderr, "      %s in %s\n", atom->getDisplayName(), shortPath);
+									lastStubAtomWithUnresolved = atom;
+									foundAtomReference = true;
+								}
+								else if ( (atom != lastNonLazyAtomWithUnresolved) && (strcmp(reference->getFromTargetName(), nonLazyName) == 0) ) {
+									const char* path = atom->getFile()->getPath();
+									const char* shortPath = strrchr(path, '/');
+									if ( shortPath == NULL )
+										shortPath = path;
+									else
+										shortPath = &shortPath[1];
+									fprintf(stderr, "      %s in %s\n", atom->getDisplayName(), shortPath);
+									lastNonLazyAtomWithUnresolved = atom;
+									foundAtomReference = true;
 								}
 							}
 						}
 					}
+					// scan command line options
+					if  ( !foundAtomReference && fOptions.hasExportRestrictList() && fOptions.shouldExport(name) ) {
+						fprintf(stderr, "     -exported_symbols_list command line option\n");
+						++unresolvableExportsCount;
+					}
 				}
 			}
-			if ( doError )
+			if ( doError && (unresolvableCount > unresolvableExportsCount) ) // last check should be removed.  It exists so broken projects still build
 				throw "symbol(s) not found";
 		}
 		
@@ -541,40 +570,52 @@ void Linker::loadUndefines()
 
 void Linker::addJustInTimeAtoms(const char* name)
 {
-	// give writer a crack at it
-	ObjectFile::Atom* atom = fOutputFile->getUndefinedProxyAtom(name);
-	if ( atom != NULL ) {
-		this->addAtom(*atom);
+	// when creating final linked image, write gets first chance
+	if ( fOptions.outputKind() != Options::kObjectFile ) {
+		ObjectFile::Atom* atom = fOutputFile->getUndefinedProxyAtom(name);
+		if ( atom != NULL ) {
+			this->addAtom(*atom);\
+			return;
+		}
 	}
-	else {
-		// give direct readers a chance
-		const int readerCount = fInputFiles.size();
-		for (int i=0; i < readerCount; ++i) {
-			// if this reader is a static archive that has the symbol we need, pull in all atoms in that module
-			// if this reader is a dylib that exports the symbol we need, have it synthesize an atom for us.
-			std::vector<class ObjectFile::Atom*>* atoms = fInputFiles[i]->getJustInTimeAtomsFor(name);
+	
+	// give direct readers a chance
+	const int readerCount = fInputFiles.size();
+	for (int i=0; i < readerCount; ++i) {
+		// if this reader is a static archive that has the symbol we need, pull in all atoms in that module
+		// if this reader is a dylib that exports the symbol we need, have it synthesize an atom for us.
+		std::vector<class ObjectFile::Atom*>* atoms = fInputFiles[i]->getJustInTimeAtomsFor(name);
+		if ( atoms != NULL ) {
+			this->addAtoms(*atoms);
+			delete atoms;
+			return;  // found a definition, no need to search anymore
+			//fprintf(stderr, "addJustInTimeAtoms(%s) => found in file #%d\n", name, i);
+		}
+	}
+	
+	// give indirect readers a chance
+	for (std::list<IndirectLibrary>::iterator it=fIndirectDynamicLibraries.begin(); it != fIndirectDynamicLibraries.end(); it++) {
+		ObjectFile::Reader* reader = it->reader;
+		if ( reader != NULL ) {
+			std::vector<class ObjectFile::Atom*>* atoms = reader->getJustInTimeAtomsFor(name);
 			if ( atoms != NULL ) {
 				this->addAtoms(*atoms);
 				delete atoms;
-				return;  // found a definition, no need to search anymore
+				break;
 				//fprintf(stderr, "addJustInTimeAtoms(%s) => found in file #%d\n", name, i);
 			}
 		}
-		
-		// give indirect readers a chance
-		for (std::list<IndirectLibrary>::iterator it=fIndirectDynamicLibraries.begin(); it != fIndirectDynamicLibraries.end(); it++) {
-			ObjectFile::Reader* reader = it->reader;
-			if ( reader != NULL ) {
-				std::vector<class ObjectFile::Atom*>* atoms = reader->getJustInTimeAtomsFor(name);
-				if ( atoms != NULL ) {
-					this->addAtoms(*atoms);
-					delete atoms;
-					break;
-					//fprintf(stderr, "addJustInTimeAtoms(%s) => found in file #%d\n", name, i);
-				}
-			}
+	}
+	
+	// when creating .o file, writer goes last (this is so any static archives will be searched above)
+	if ( fOptions.outputKind() == Options::kObjectFile ) {
+		ObjectFile::Atom* atom = fOutputFile->getUndefinedProxyAtom(name);
+		if ( atom != NULL ) {
+			this->addAtom(*atom);
+			return;
 		}
 	}
+
 }
 
 void Linker::resolve(ObjectFile::Reference* reference)
@@ -592,7 +633,7 @@ void Linker::resolve(ObjectFile::Reference* reference)
 			target = fGlobalSymbolTable.find(nonStubTarget);	
 			// also need indirection to all exported weak symbols for C++ support
 			if ( (target != NULL) && !target->isImportProxy() && (!target->isWeakDefinition() || (target->getScope() != ObjectFile::Atom::scopeGlobal)) ) {
-				reference->setTarget(*target);
+				reference->setTarget(*target, reference->getTargetOffset());
 				// mark stub as no longer being needed
 				ObjectFile::Atom* stub = fGlobalSymbolTable.find(targetName);
 				if ( stub != NULL ) {
@@ -614,7 +655,7 @@ void Linker::resolve(ObjectFile::Reference* reference)
 	if ( target == NULL ) {
 		fprintf(stderr, "can't resolve: %s\n", targetName);
 	}
-	reference->setTarget(*target);
+	reference->setTarget(*target, reference->getTargetOffset());
 	
 	// handle weak-imports
 	if ( target->isImportProxy() ) {
@@ -622,8 +663,8 @@ void Linker::resolve(ObjectFile::Reference* reference)
 		if ( reference->isWeakReference() ) {
 			switch(target->getImportWeakness()) {
 				case ObjectFile::Atom::kWeakUnset:
-					target->setImportWeakness(true);
-                    break;	
+					target->setImportWeakness(true);	
+					break;
 				case ObjectFile::Atom::kWeakImport:
 					break;
 				case ObjectFile::Atom::kNonWeakImport:
@@ -634,8 +675,8 @@ void Linker::resolve(ObjectFile::Reference* reference)
 		else {
 			switch(target->getImportWeakness()) {
 				case ObjectFile::Atom::kWeakUnset:
-					target->setImportWeakness(false);	
-                    break;	
+					target->setImportWeakness(false);
+					break;	
 				case ObjectFile::Atom::kWeakImport:
 					mismatch = true;
 					break;
@@ -656,16 +697,17 @@ void Linker::resolve(ObjectFile::Reference* reference)
 			}
 		}
 	}
-	
+}
+
+void Linker::resolveFrom(ObjectFile::Reference* reference)
+{	
 	// handle references that have two (from and to) targets
-	if ( reference->isUnbound() ) {
-		const char* fromTargetName = reference->getFromTargetName();
-		ObjectFile::Atom* fromTarget = fGlobalSymbolTable.find(fromTargetName);
-		if ( target == NULL ) {
-			fprintf(stderr, "can't resolve: %s\n", fromTargetName);
-		}
-		reference->setFromTarget(*fromTarget);
+	const char* fromTargetName = reference->getFromTargetName();
+	ObjectFile::Atom* fromTarget = fGlobalSymbolTable.find(fromTargetName);
+	if ( fromTarget == NULL ) {
+		fprintf(stderr, "can't resolve: %s\n", fromTargetName);
 	}
+	reference->setFromTarget(*fromTarget);
 }
 
 
@@ -677,9 +719,10 @@ void Linker::resolveReferences()
 		std::vector<class ObjectFile::Reference*>& references = atom->getReferences();
 		for (std::vector<ObjectFile::Reference*>::iterator it=references.begin(); it != references.end(); it++) {
 			ObjectFile::Reference* reference = *it;
-			if ( reference->isUnbound() ) {
+			if ( reference->isTargetUnbound() ) 
 				this->resolve(reference);
-			}
+			if ( reference->hasFromTarget() && reference->isFromTargetUnbound() ) 
+				this->resolveFrom(reference);
 		}
 	}
 }
@@ -715,6 +758,10 @@ void Linker::sortAtoms()
 {
 	Section::assignIndexes();
 	std::sort(fAllAtoms.begin(), fAllAtoms.end(), Linker::AtomSorter());
+	//fprintf(stderr, "Sorted atoms:\n");
+	//for (std::vector<ObjectFile::Atom*>::iterator it=fAllAtoms.begin(); it != fAllAtoms.end(); it++) {
+	//	fprintf(stderr, "\t%s\n", (*it)->getDisplayName());
+	//}
 }
 
 
@@ -722,16 +769,12 @@ void Linker::sortAtoms()
 // make sure given addresses are within reach of branches, etc
 void Linker::tweakLayout()
 {
-	
-
-
 }
-
 
 void Linker::writeOutput()
 {
 	// if main executable, find entry point atom
-	ObjectFile::Atom* entryPoint;
+	ObjectFile::Atom* entryPoint = NULL;
 	switch ( fOptions.outputKind() ) {
 		case Options::kDynamicExecutable:
 		case Options::kStaticExecutable:
@@ -749,8 +792,10 @@ void Linker::writeOutput()
 				}
 			}
 			break;
-		default:
+		case Options::kObjectFile:
+		case Options::kDynamicBundle:
 			entryPoint = NULL;
+			break;
 	}
 	
 	// tell writer about each segment's atoms
@@ -766,12 +811,13 @@ ObjectFile::Reader* Linker::createReader(const Options::FileInfo& info)
 	uint64_t len = info.fileLen;
 	int fd = ::open(info.path, O_RDONLY, 0);
 	if ( fd == -1 )
-		throw "can't open file";
+		throwf("can't open file, errno=%d", errno);
 	if ( info.fileLen < 20 )
 		throw "file too small";
-	char* p = (char*)::mmap(NULL, info.fileLen, PROT_READ, MAP_FILE, fd, 0);
+		
+	char* p = (char*)::mmap(NULL, info.fileLen, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0);
 	if ( p == (char*)(-1) )
-		throw "can't map file";
+		throwf("can't map file, errno=%d", errno);
 	::close(fd);
 	
 	// if fat file, skip to architecture we want
@@ -855,7 +901,7 @@ ObjectFile::Reader* Linker::createReader(const Options::FileInfo& info)
 					throw "wrong architecture in object file";
 			}
 		}
-		else if ( fileType == MH_DYLIB ) {
+		else if ( (fileType == MH_DYLIB) || (fileType == MH_DYLIB_STUB) ) {
 			ObjectFile::Reader* dylibReader = NULL;
 			switch ( cpuType ) {
 				case CPU_TYPE_POWERPC:
@@ -925,18 +971,11 @@ void Linker::createReaders()
 			// with flat namespace, blindly load all indirect libraries
 			// the indirect list will grow as indirect libraries are loaded
 			for (std::list<IndirectLibrary>::iterator it=fIndirectDynamicLibraries.begin(); it != fIndirectDynamicLibraries.end(); it++) {
-				struct stat statBuffer;
-				if ( stat(it->path, &statBuffer) == 0 ) {
-					Options::FileInfo info;
-					info.path = it->path;
-					info.fileLen = statBuffer.st_size;
-					info.options.fWeakImport = false;
-					info.options.fReExport = false;
-					info.options.fInstallPathOverride = NULL;
-					it->reader = this->createReader(info);
+				try {
+					it->reader = this->createReader(fOptions.findFile(it->path));
 				}
-				else {
-					fprintf(stderr, "ld64 warning: indirect library not found: %s\n", it->path);
+				catch (const char* msg) {
+					fprintf(stderr, "ld64 warning: indirect library %s could not be loaded: %s\n", it->path, msg);
 				}
 			}
 			break;
@@ -951,17 +990,7 @@ void Linker::createReaders()
 					for (std::list<IndirectLibrary>::iterator it=fIndirectDynamicLibraries.begin(); it != fIndirectDynamicLibraries.end(); it++) {
 						if ( it->reader == NULL ) {
 							try {
-								struct stat statBuffer;
-								if ( stat(it->path, &statBuffer) != 0 ) 
-									throw "file not found";
-									
-								Options::FileInfo info;
-								info.path = it->path;
-								info.fileLen = statBuffer.st_size;
-								info.options.fWeakImport = false;
-								info.options.fReExport = false;
-								info.options.fInstallPathOverride = NULL;
-								it->reader = this->createReader(info);
+								it->reader = this->createReader(fOptions.findFile(it->path));
 								indirectAdded = true;
 							}
 							catch (const char* msg) {
@@ -996,7 +1025,7 @@ void Linker::createReaders()
 			dylibInfo.directReader = it->reExportParent;
 			fDynamicLibraries.push_back(dylibInfo);
 			if ( fOptions.readerOptions().fTraceIndirectDylibs )
-				printf("[Logging for Build & Integration] Used indirect dynamic library: %s\n", it->path);
+				printf("[Logging for Build & Integration] Used indirect dynamic library: %s\n", it->reader->getPath());
 		}
 	}
 }

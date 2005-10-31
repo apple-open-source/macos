@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -422,7 +422,7 @@
  * Note: For Cocoa/Obj-C/Foundation applications accessing these preference
  *       keys you may want to consider the following :
  *
- *       #define SC_SCHEMA_DECLARATION(k,q)	extern NSString * k
+ *       #define SC_SCHEMA_DECLARATION(k,q)	extern NSString * k;
  *       #import <SystemConfiguration/SystemConfiguration.h>
  */
 
@@ -430,8 +430,8 @@
  * Note: For CFM applications using these schema keys you may want to
  *       consider the following :
  *
- *       #define SC_SCHEMA_KV(k,v,t)	lookup_SC_key( CFSTR( #k ) )
  *       #define SC_SCHEMA_DECLARATION(k,q)
+ *       #define SC_SCHEMA_KV(k,v,t)	lookup_SC_key( CFSTR( #k ) )
  *       #include <SystemConfiguration/SystemConfiguration.h>
  *
  *       CFStringRef lookup_SC_key(CFStringRef key)
@@ -446,7 +446,7 @@
  * Note: Earlier versions of this header file defined a "SCSTR" macro
  *       which helped to facilitate Obj-C development. Use of this macro
  *       has been deprecated (in Mac OS X 10.4) in favor of the newer
- *       "SC_SCHEMA_KV" and "SC_SCHEMA_DECLARATION" macros
+ *       "SC_SCHEMA_DECLARATION" and "SC_SCHEMA_KV" macros
  */
 
 
@@ -459,20 +459,18 @@
 
 /*
  * let's "do the right thing" for those wishing to build for
- * Mac OS X 10.1 and 10.2
+ * Mac OS X 10.1.0 ... 10.2.x
  */
-#if MAC_OS_X_VERSION_10_3 > MAC_OS_X_VERSION_MIN_REQUIRED
-  #if MAC_OS_X_VERSION_10_1 <= MAC_OS_X_VERSION_MIN_REQUIRED
+#if MAC_OS_X_VERSION_MIN_REQUIRED <= 1020
     #ifndef SCSTR
       #include <CoreFoundation/CFString.h>
       #define SCSTR(s) CFSTR(s)
     #endif
-    #ifndef SC_SCHEMA_KV
-      #define SC_SCHEMA_KV(k,v,t)	SCSTR( v )
+  #ifndef SC_SCHEMA_DECLARATION
+    #define SC_SCHEMA_DECLARATION(k,q)	extern const CFStringRef k q;
     #endif
-    #ifndef SC_SCHEMA_DECLARATION
-      #define SC_SCHEMA_DECLARATION(k,q)
-    #endif
+  #ifndef SC_SCHEMA_KV
+    #define SC_SCHEMA_KV(k,v,t)	SCSTR( v )
   #endif
 #endif
 
@@ -489,19 +487,17 @@
 #ifndef SC_SCHEMA_DECLARATION
   #ifndef SCSTR
     #include <CoreFoundation/CFString.h>
-    #define SC_SCHEMA_DECLARATION(k,q)	extern const CFStringRef k q
+    #define SC_SCHEMA_DECLARATION(k,q)	extern const CFStringRef k q;
   #else
     #import <Foundation/NSString.h>
-    #define SC_SCHEMA_DECLARATION(k,q)	extern NSString * k q
+    #define SC_SCHEMA_DECLARATION(k,q)	extern NSString * k q;
   #endif
 #endif
-#if MAC_OS_X_VERSION_10_4 >= MAC_OS_X_VERSION_MIN_REQUIRED
-  #if MAC_OS_X_VERSION_10_1 <= MAC_OS_X_VERSION_MIN_REQUIRED
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) && (MAC_OS_X_VERSION_MAX_ALLOWED <= 1040)
     #ifndef SCSTR
       #include <CoreFoundation/CFString.h>
       #define SCSTR(s) CFSTR(s)
     #endif
-  #endif
 #endif
 
 
@@ -2117,1663 +2113,2474 @@ extern const CFStringRef kSCPropUsersConsoleUserGID;
 /* -------------------- Schema declarations -------------------- */
 
 
-#define kSCResvLink                                                   \
-	SC_SCHEMA_KV(kSCResvLink                                      \
-	            ,"__LINK__"                                       \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCResvLink,);
-
-#define kSCResvInactive                                               \
-	SC_SCHEMA_KV(kSCResvInactive                                  \
-	            ,"__INACTIVE__"                                   \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCResvInactive,);
-
-#define kSCPropInterfaceName                                          \
-	SC_SCHEMA_KV(kSCPropInterfaceName                             \
-	            ,"InterfaceName"                                  \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropInterfaceName,);
-
-#define kSCPropMACAddress                                             \
-	SC_SCHEMA_KV(kSCPropMACAddress                                \
-	            ,"MACAddress"                                     \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropMACAddress,);
-
-#define kSCPropUserDefinedName                                        \
-	SC_SCHEMA_KV(kSCPropUserDefinedName                           \
-	            ,"UserDefinedName"                                \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropUserDefinedName,);
-
-#define kSCPropVersion                                                \
-	SC_SCHEMA_KV(kSCPropVersion                                   \
-	            ,"Version"                                        \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropVersion,);
-
-#define kSCPrefCurrentSet                                             \
-	SC_SCHEMA_KV(kSCPrefCurrentSet                                \
-	            ,"CurrentSet"                                     \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPrefCurrentSet,);
-
-#define kSCPrefNetworkServices                                        \
-	SC_SCHEMA_KV(kSCPrefNetworkServices                           \
-	            ,"NetworkServices"                                \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCPrefNetworkServices,);
-
-#define kSCPrefSets                                                   \
-	SC_SCHEMA_KV(kSCPrefSets                                      \
-	            ,"Sets"                                           \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCPrefSets,);
-
-#define kSCPrefSystem                                                 \
-	SC_SCHEMA_KV(kSCPrefSystem                                    \
-	            ,"System"                                         \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCPrefSystem,);
-
-#define kSCCompNetwork                                                \
-	SC_SCHEMA_KV(kSCCompNetwork                                   \
-	            ,"Network"                                        \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCCompNetwork,);
-
-#define kSCCompService                                                \
-	SC_SCHEMA_KV(kSCCompService                                   \
-	            ,"Service"                                        \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCCompService,);
-
-#define kSCCompGlobal                                                 \
-	SC_SCHEMA_KV(kSCCompGlobal                                    \
-	            ,"Global"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCCompGlobal,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCCompHostNames                                              \
-	SC_SCHEMA_KV(kSCCompHostNames                                 \
-	            ,"HostNames"                                      \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCCompHostNames, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCCompInterface                                              \
-	SC_SCHEMA_KV(kSCCompInterface                                 \
-	            ,"Interface"                                      \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCCompInterface,);
-
-#define kSCCompSystem                                                 \
-	SC_SCHEMA_KV(kSCCompSystem                                    \
-	            ,"System"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCCompSystem,);
-
-#define kSCCompUsers                                                  \
-	SC_SCHEMA_KV(kSCCompUsers                                     \
-	            ,"Users"                                          \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCCompUsers,);
-
-#define kSCCompAnyRegex                                               \
-	SC_SCHEMA_KV(kSCCompAnyRegex                                  \
-	            ,"[^/]+"                                          \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCCompAnyRegex,);
-
-#define kSCEntNetAirPort                                              \
-	SC_SCHEMA_KV(kSCEntNetAirPort                                 \
-	            ,"AirPort"                                        \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetAirPort,);
-
-#define kSCEntNetAppleTalk                                            \
-	SC_SCHEMA_KV(kSCEntNetAppleTalk                               \
-	            ,"AppleTalk"                                      \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetAppleTalk,);
-
-#define kSCEntNetDHCP                                                 \
-	SC_SCHEMA_KV(kSCEntNetDHCP                                    \
-	            ,"DHCP"                                           \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetDHCP,);
-
-#define kSCEntNetDNS                                                  \
-	SC_SCHEMA_KV(kSCEntNetDNS                                     \
-	            ,"DNS"                                            \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetDNS,);
-
-#define kSCEntNetEthernet                                             \
-	SC_SCHEMA_KV(kSCEntNetEthernet                                \
-	            ,"Ethernet"                                       \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetEthernet,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCEntNetFireWire                                             \
-	SC_SCHEMA_KV(kSCEntNetFireWire                                \
-	            ,"FireWire"                                       \
-	            ,CFDictionary                                     )
-#endif
-	SC_SCHEMA_DECLARATION(kSCEntNetFireWire, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCEntNetInterface                                            \
-	SC_SCHEMA_KV(kSCEntNetInterface                               \
-	            ,"Interface"                                      \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetInterface,);
-
-#define kSCEntNetIPv4                                                 \
-	SC_SCHEMA_KV(kSCEntNetIPv4                                    \
-	            ,"IPv4"                                           \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetIPv4,);
-
-#define kSCEntNetIPv6                                                 \
-	SC_SCHEMA_KV(kSCEntNetIPv6                                    \
-	            ,"IPv6"                                           \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetIPv6,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCEntNetL2TP                                                 \
-	SC_SCHEMA_KV(kSCEntNetL2TP                                    \
-	            ,"L2TP"                                           \
-	            ,CFDictionary                                     )
-#endif
-	SC_SCHEMA_DECLARATION(kSCEntNetL2TP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCEntNetLink                                                 \
-	SC_SCHEMA_KV(kSCEntNetLink                                    \
-	            ,"Link"                                           \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetLink,);
-
-#define kSCEntNetModem                                                \
-	SC_SCHEMA_KV(kSCEntNetModem                                   \
-	            ,"Modem"                                          \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetModem,);
-
-#define kSCEntNetNetInfo                                              \
-	SC_SCHEMA_KV(kSCEntNetNetInfo                                 \
-	            ,"NetInfo"                                        \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetNetInfo,);
-
-#define kSCEntNetPPP                                                  \
-	SC_SCHEMA_KV(kSCEntNetPPP                                     \
-	            ,"PPP"                                            \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetPPP,);
-
-#define kSCEntNetPPPoE                                                \
-	SC_SCHEMA_KV(kSCEntNetPPPoE                                   \
-	            ,"PPPoE"                                          \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetPPPoE,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCEntNetPPPSerial                                            \
-	SC_SCHEMA_KV(kSCEntNetPPPSerial                               \
-	            ,"PPPSerial"                                      \
-	            ,CFDictionary                                     )
-#endif
-	SC_SCHEMA_DECLARATION(kSCEntNetPPPSerial, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCEntNetPPTP                                                 \
-	SC_SCHEMA_KV(kSCEntNetPPTP                                    \
-	            ,"PPTP"                                           \
-	            ,CFDictionary                                     )
-#endif
-	SC_SCHEMA_DECLARATION(kSCEntNetPPTP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCEntNetProxies                                              \
-	SC_SCHEMA_KV(kSCEntNetProxies                                 \
-	            ,"Proxies"                                        \
-	            ,CFDictionary                                     )
-	SC_SCHEMA_DECLARATION(kSCEntNetProxies,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCEntNet6to4                                                 \
-	SC_SCHEMA_KV(kSCEntNet6to4                                    \
-	            ,"6to4"                                           \
-	            ,CFDictionary                                     )
-#endif
-	SC_SCHEMA_DECLARATION(kSCEntNet6to4, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetOverridePrimary                                     \
-	SC_SCHEMA_KV(kSCPropNetOverridePrimary                        \
-	            ,"OverridePrimary"                                \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetOverridePrimary, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetServiceOrder                                        \
-	SC_SCHEMA_KV(kSCPropNetServiceOrder                           \
-	            ,"ServiceOrder"                                   \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetServiceOrder,);
-
-#define kSCPropNetPPPOverridePrimary                                  \
-	SC_SCHEMA_KV(kSCPropNetPPPOverridePrimary                     \
-	            ,"PPPOverridePrimary"                             \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPOverridePrimary,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetInterfaces                                          \
-	SC_SCHEMA_KV(kSCPropNetInterfaces                             \
-	            ,"Interfaces"                                     \
-	            ,CFArray[CFString]                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetInterfaces, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetLocalHostName                                       \
-	SC_SCHEMA_KV(kSCPropNetLocalHostName                          \
-	            ,"LocalHostName"                                  \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetLocalHostName, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetAirPortAllowNetCreation                             \
-	SC_SCHEMA_KV(kSCPropNetAirPortAllowNetCreation                \
-	            ,"AllowNetCreation"                               \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetAirPortAllowNetCreation, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetAirPortAuthPassword                                 \
-	SC_SCHEMA_KV(kSCPropNetAirPortAuthPassword                    \
-	            ,"AuthPassword"                                   \
-	            ,CFData                                           )
-	SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPassword,);
-
-#define kSCPropNetAirPortAuthPasswordEncryption                       \
-	SC_SCHEMA_KV(kSCPropNetAirPortAuthPasswordEncryption          \
-	            ,"AuthPasswordEncryption"                         \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPasswordEncryption,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetAirPortJoinMode                                     \
-	SC_SCHEMA_KV(kSCPropNetAirPortJoinMode                        \
-	            ,"JoinMode"                                       \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetAirPortJoinMode, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetAirPortPowerEnabled                                 \
-	SC_SCHEMA_KV(kSCPropNetAirPortPowerEnabled                    \
-	            ,"PowerEnabled"                                   \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetAirPortPowerEnabled,);
-
-#define kSCPropNetAirPortPreferredNetwork                             \
-	SC_SCHEMA_KV(kSCPropNetAirPortPreferredNetwork                \
-	            ,"PreferredNetwork"                               \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetAirPortPreferredNetwork,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetAirPortSavePasswords                                \
-	SC_SCHEMA_KV(kSCPropNetAirPortSavePasswords                   \
-	            ,"SavePasswords"                                  \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetAirPortSavePasswords, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetAirPortJoinModeAutomatic                             \
-	SC_SCHEMA_KV(kSCValNetAirPortJoinModeAutomatic                \
-	            ,"Automatic"                                      \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeAutomatic, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCValNetAirPortJoinModePreferred                             \
-	SC_SCHEMA_KV(kSCValNetAirPortJoinModePreferred                \
-	            ,"Preferred"                                      \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModePreferred, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCValNetAirPortJoinModeRecent                                \
-	SC_SCHEMA_KV(kSCValNetAirPortJoinModeRecent                   \
-	            ,"Recent"                                         \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRecent, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCValNetAirPortJoinModeStrongest                             \
-	SC_SCHEMA_KV(kSCValNetAirPortJoinModeStrongest                \
-	            ,"Strongest"                                      \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeStrongest, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetAirPortAuthPasswordEncryptionKeychain                \
-	SC_SCHEMA_KV(kSCValNetAirPortAuthPasswordEncryptionKeychain   \
-	            ,"Keychain"                                       \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetAirPortAuthPasswordEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCPropNetAppleTalkComputerName                               \
-	SC_SCHEMA_KV(kSCPropNetAppleTalkComputerName                  \
-	            ,"ComputerName"                                   \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerName,);
-
-#define kSCPropNetAppleTalkComputerNameEncoding                       \
-	SC_SCHEMA_KV(kSCPropNetAppleTalkComputerNameEncoding          \
-	            ,"ComputerNameEncoding"                           \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerNameEncoding,);
-
-#define kSCPropNetAppleTalkConfigMethod                               \
-	SC_SCHEMA_KV(kSCPropNetAppleTalkConfigMethod                  \
-	            ,"ConfigMethod"                                   \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkConfigMethod,);
-
-#define kSCPropNetAppleTalkDefaultZone                                \
-	SC_SCHEMA_KV(kSCPropNetAppleTalkDefaultZone                   \
-	            ,"DefaultZone"                                    \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkDefaultZone,);
-
-#define kSCPropNetAppleTalkNetworkID                                  \
-	SC_SCHEMA_KV(kSCPropNetAppleTalkNetworkID                     \
-	            ,"NetworkID"                                      \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkID,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetAppleTalkNetworkRange                               \
-	SC_SCHEMA_KV(kSCPropNetAppleTalkNetworkRange                  \
-	            ,"NetworkRange"                                   \
-	            ,CFArray[CFNumber]                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkRange, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetAppleTalkNodeID                                     \
-	SC_SCHEMA_KV(kSCPropNetAppleTalkNodeID                        \
-	            ,"NodeID"                                         \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNodeID,);
-
-#define kSCPropNetAppleTalkSeedNetworkRange                           \
-	SC_SCHEMA_KV(kSCPropNetAppleTalkSeedNetworkRange              \
-	            ,"SeedNetworkRange"                               \
-	            ,CFArray[CFNumber]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedNetworkRange,);
-
-#define kSCPropNetAppleTalkSeedZones                                  \
-	SC_SCHEMA_KV(kSCPropNetAppleTalkSeedZones                     \
-	            ,"SeedZones"                                      \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedZones,);
-
-#define kSCValNetAppleTalkConfigMethodNode                            \
-	SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodNode               \
-	            ,"Node"                                           \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodNode,);
-
-#define kSCValNetAppleTalkConfigMethodRouter                          \
-	SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodRouter             \
-	            ,"Router"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodRouter,);
-
-#define kSCValNetAppleTalkConfigMethodSeedRouter                      \
-	SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodSeedRouter         \
-	            ,"SeedRouter"                                     \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodSeedRouter,);
-
-#define kSCPropNetDNSDomainName                                       \
-	SC_SCHEMA_KV(kSCPropNetDNSDomainName                          \
-	            ,"DomainName"                                     \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSDomainName,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetDNSOptions                                          \
-	SC_SCHEMA_KV(kSCPropNetDNSOptions                             \
-	            ,"Options"                                        \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSOptions, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#define kSCPropNetDNSSearchDomains                                    \
-	SC_SCHEMA_KV(kSCPropNetDNSSearchDomains                       \
-	            ,"SearchDomains"                                  \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchDomains,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetDNSSearchOrder                                      \
-	SC_SCHEMA_KV(kSCPropNetDNSSearchOrder                         \
-	            ,"SearchOrder"                                    \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchOrder, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#define kSCPropNetDNSServerAddresses                                  \
-	SC_SCHEMA_KV(kSCPropNetDNSServerAddresses                     \
-	            ,"ServerAddresses"                                \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSServerAddresses,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetDNSServerPort                                       \
-	SC_SCHEMA_KV(kSCPropNetDNSServerPort                          \
-	            ,"ServerPort"                                     \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSServerPort, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetDNSServerTimeout                                    \
-	SC_SCHEMA_KV(kSCPropNetDNSServerTimeout                       \
-	            ,"ServerTimeout"                                  \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSServerTimeout, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#define kSCPropNetDNSSortList                                         \
-	SC_SCHEMA_KV(kSCPropNetDNSSortList                            \
-	            ,"SortList"                                       \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSSortList,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetDNSSupplementalMatchDomains                         \
-	SC_SCHEMA_KV(kSCPropNetDNSSupplementalMatchDomains            \
-	            ,"SupplementalMatchDomains"                       \
-	            ,CFArray[CFString]                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchDomains, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetDNSSupplementalMatchOrders                          \
-	SC_SCHEMA_KV(kSCPropNetDNSSupplementalMatchOrders             \
-	            ,"SupplementalMatchOrders"                        \
-	            ,CFArray[CFNumber]                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchOrders, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetEthernetMediaSubType                                \
-	SC_SCHEMA_KV(kSCPropNetEthernetMediaSubType                   \
-	            ,"MediaSubType"                                   \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaSubType, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetEthernetMediaOptions                                \
-	SC_SCHEMA_KV(kSCPropNetEthernetMediaOptions                   \
-	            ,"MediaOptions"                                   \
-	            ,CFArray[CFString]                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaOptions, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetEthernetMTU                                         \
-	SC_SCHEMA_KV(kSCPropNetEthernetMTU                            \
-	            ,"MTU"                                            \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetEthernetMTU, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetInterfaceDeviceName                                 \
-	SC_SCHEMA_KV(kSCPropNetInterfaceDeviceName                    \
-	            ,"DeviceName"                                     \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetInterfaceDeviceName,);
-
-#define kSCPropNetInterfaceHardware                                   \
-	SC_SCHEMA_KV(kSCPropNetInterfaceHardware                      \
-	            ,"Hardware"                                       \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetInterfaceHardware,);
-
-#define kSCPropNetInterfaceType                                       \
-	SC_SCHEMA_KV(kSCPropNetInterfaceType                          \
-	            ,"Type"                                           \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetInterfaceType,);
-
-#define kSCPropNetInterfaceSubType                                    \
-	SC_SCHEMA_KV(kSCPropNetInterfaceSubType                       \
-	            ,"SubType"                                        \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSubType,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetInterfaceSupportsModemOnHold                        \
-	SC_SCHEMA_KV(kSCPropNetInterfaceSupportsModemOnHold           \
-	            ,"SupportsModemOnHold"                            \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSupportsModemOnHold, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCValNetInterfaceTypeEthernet                                \
-	SC_SCHEMA_KV(kSCValNetInterfaceTypeEthernet                   \
-	            ,"Ethernet"                                       \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeEthernet,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetInterfaceTypeFireWire                                \
-	SC_SCHEMA_KV(kSCValNetInterfaceTypeFireWire                   \
-	            ,"FireWire"                                       \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeFireWire, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCValNetInterfaceTypePPP                                     \
-	SC_SCHEMA_KV(kSCValNetInterfaceTypePPP                        \
-	            ,"PPP"                                            \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypePPP,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetInterfaceType6to4                                    \
-	SC_SCHEMA_KV(kSCValNetInterfaceType6to4                       \
-	            ,"6to4"                                           \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetInterfaceType6to4, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCValNetInterfaceSubTypePPPoE                                \
-	SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPPoE                   \
-	            ,"PPPoE"                                          \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPoE,);
-
-#define kSCValNetInterfaceSubTypePPPSerial                            \
-	SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPPSerial               \
-	            ,"PPPSerial"                                      \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPSerial,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCValNetInterfaceSubTypePPTP                                 \
-	SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPTP                    \
-	            ,"PPTP"                                           \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPTP, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetInterfaceSubTypeL2TP                                 \
-	SC_SCHEMA_KV(kSCValNetInterfaceSubTypeL2TP                    \
-	            ,"L2TP"                                           \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypeL2TP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCPropNetIPv4Addresses                                       \
-	SC_SCHEMA_KV(kSCPropNetIPv4Addresses                          \
-	            ,"Addresses"                                      \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv4Addresses,);
-
-#define kSCPropNetIPv4ConfigMethod                                    \
-	SC_SCHEMA_KV(kSCPropNetIPv4ConfigMethod                       \
-	            ,"ConfigMethod"                                   \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv4ConfigMethod,);
-
-#define kSCPropNetIPv4DHCPClientID                                    \
-	SC_SCHEMA_KV(kSCPropNetIPv4DHCPClientID                       \
-	            ,"DHCPClientID"                                   \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv4DHCPClientID,);
-
-#define kSCPropNetIPv4Router                                          \
-	SC_SCHEMA_KV(kSCPropNetIPv4Router                             \
-	            ,"Router"                                         \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv4Router,);
-
-#define kSCPropNetIPv4SubnetMasks                                     \
-	SC_SCHEMA_KV(kSCPropNetIPv4SubnetMasks                        \
-	            ,"SubnetMasks"                                    \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv4SubnetMasks,);
-
-#define kSCPropNetIPv4DestAddresses                                   \
-	SC_SCHEMA_KV(kSCPropNetIPv4DestAddresses                      \
-	            ,"DestAddresses"                                  \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv4DestAddresses,);
-
-#define kSCPropNetIPv4BroadcastAddresses                              \
-	SC_SCHEMA_KV(kSCPropNetIPv4BroadcastAddresses                 \
-	            ,"BroadcastAddresses"                             \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv4BroadcastAddresses,);
-
-#define kSCValNetIPv4ConfigMethodBOOTP                                \
-	SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodBOOTP                   \
-	            ,"BOOTP"                                          \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodBOOTP,);
-
-#define kSCValNetIPv4ConfigMethodDHCP                                 \
-	SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodDHCP                    \
-	            ,"DHCP"                                           \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodDHCP,);
-
-#define kSCValNetIPv4ConfigMethodINFORM                               \
-	SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodINFORM                  \
-	            ,"INFORM"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodINFORM,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCValNetIPv4ConfigMethodLinkLocal                            \
-	SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodLinkLocal               \
-	            ,"LinkLocal"                                      \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodLinkLocal, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCValNetIPv4ConfigMethodManual                               \
-	SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodManual                  \
-	            ,"Manual"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodManual,);
-
-#define kSCValNetIPv4ConfigMethodPPP                                  \
-	SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodPPP                     \
-	            ,"PPP"                                            \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodPPP,);
-
-#define kSCPropNetIPv6Addresses                                       \
-	SC_SCHEMA_KV(kSCPropNetIPv6Addresses                          \
-	            ,"Addresses"                                      \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv6Addresses,);
-
-#define kSCPropNetIPv6ConfigMethod                                    \
-	SC_SCHEMA_KV(kSCPropNetIPv6ConfigMethod                       \
-	            ,"ConfigMethod"                                   \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv6ConfigMethod,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetIPv6DestAddresses                                   \
-	SC_SCHEMA_KV(kSCPropNetIPv6DestAddresses                      \
-	            ,"DestAddresses"                                  \
-	            ,CFArray[CFString]                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv6DestAddresses, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetIPv6Flags                                           \
-	SC_SCHEMA_KV(kSCPropNetIPv6Flags                              \
-	            ,"Flags"                                          \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv6Flags, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetIPv6PrefixLength                                    \
-	SC_SCHEMA_KV(kSCPropNetIPv6PrefixLength                       \
-	            ,"PrefixLength"                                   \
-	            ,CFArray[CFNumber]                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv6PrefixLength, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetIPv6Router                                          \
-	SC_SCHEMA_KV(kSCPropNetIPv6Router                             \
-	            ,"Router"                                         \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetIPv6Router, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetIPv6ConfigMethodAutomatic                            \
-	SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodAutomatic               \
-	            ,"Automatic"                                      \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodAutomatic, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetIPv6ConfigMethodManual                               \
-	SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodManual                  \
-	            ,"Manual"                                         \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodManual, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetIPv6ConfigMethodRouterAdvertisement                  \
-	SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodRouterAdvertisement     \
-	            ,"RouterAdvertisement"                            \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodRouterAdvertisement, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetIPv6ConfigMethod6to4                                 \
-	SC_SCHEMA_KV(kSCValNetIPv6ConfigMethod6to4                    \
-	            ,"6to4"                                           \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethod6to4, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNet6to4Relay                                           \
-	SC_SCHEMA_KV(kSCPropNet6to4Relay                              \
-	            ,"Relay"                                          \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNet6to4Relay, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCPropNetLinkActive                                          \
-	SC_SCHEMA_KV(kSCPropNetLinkActive                             \
-	            ,"Active"                                         \
-	            ,CFBoolean                                        )
-	SC_SCHEMA_DECLARATION(kSCPropNetLinkActive,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetLinkDetaching                                       \
-	SC_SCHEMA_KV(kSCPropNetLinkDetaching                          \
-	            ,"Detaching"                                      \
-	            ,CFBoolean                                        )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetLinkDetaching, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetModemConnectionScript                               \
-	SC_SCHEMA_KV(kSCPropNetModemConnectionScript                  \
-	            ,"ConnectionScript"                               \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetModemConnectionScript,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetModemConnectSpeed                                   \
-	SC_SCHEMA_KV(kSCPropNetModemConnectSpeed                      \
-	            ,"ConnectSpeed"                                   \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetModemConnectSpeed, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetModemDataCompression                                \
-	SC_SCHEMA_KV(kSCPropNetModemDataCompression                   \
-	            ,"DataCompression"                                \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetModemDataCompression,);
-
-#define kSCPropNetModemDialMode                                       \
-	SC_SCHEMA_KV(kSCPropNetModemDialMode                          \
-	            ,"DialMode"                                       \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetModemDialMode,);
-
-#define kSCPropNetModemErrorCorrection                                \
-	SC_SCHEMA_KV(kSCPropNetModemErrorCorrection                   \
-	            ,"ErrorCorrection"                                \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetModemErrorCorrection,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetModemHoldCallWaitingAudibleAlert                    \
-	SC_SCHEMA_KV(kSCPropNetModemHoldCallWaitingAudibleAlert       \
-	            ,"HoldCallWaitingAudibleAlert"                    \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetModemHoldCallWaitingAudibleAlert, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetModemHoldDisconnectOnAnswer                         \
-	SC_SCHEMA_KV(kSCPropNetModemHoldDisconnectOnAnswer            \
-	            ,"HoldDisconnectOnAnswer"                         \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetModemHoldDisconnectOnAnswer, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetModemHoldEnabled                                    \
-	SC_SCHEMA_KV(kSCPropNetModemHoldEnabled                       \
-	            ,"HoldEnabled"                                    \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetModemHoldEnabled, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetModemHoldReminder                                   \
-	SC_SCHEMA_KV(kSCPropNetModemHoldReminder                      \
-	            ,"HoldReminder"                                   \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminder, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetModemHoldReminderTime                               \
-	SC_SCHEMA_KV(kSCPropNetModemHoldReminderTime                  \
-	            ,"HoldReminderTime"                               \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminderTime, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetModemNote                                           \
-	SC_SCHEMA_KV(kSCPropNetModemNote                              \
-	            ,"Note"                                           \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetModemNote, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetModemPulseDial                                      \
-	SC_SCHEMA_KV(kSCPropNetModemPulseDial                         \
-	            ,"PulseDial"                                      \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetModemPulseDial,);
-
-#define kSCPropNetModemSpeaker                                        \
-	SC_SCHEMA_KV(kSCPropNetModemSpeaker                           \
-	            ,"Speaker"                                        \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetModemSpeaker,);
-
-#define kSCPropNetModemSpeed                                          \
-	SC_SCHEMA_KV(kSCPropNetModemSpeed                             \
-	            ,"Speed"                                          \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetModemSpeed,);
-
-#define kSCValNetModemDialModeIgnoreDialTone                          \
-	SC_SCHEMA_KV(kSCValNetModemDialModeIgnoreDialTone             \
-	            ,"IgnoreDialTone"                                 \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetModemDialModeIgnoreDialTone,);
-
-#define kSCValNetModemDialModeManual                                  \
-	SC_SCHEMA_KV(kSCValNetModemDialModeManual                     \
-	            ,"Manual"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetModemDialModeManual,);
-
-#define kSCValNetModemDialModeWaitForDialTone                         \
-	SC_SCHEMA_KV(kSCValNetModemDialModeWaitForDialTone            \
-	            ,"WaitForDialTone"                                \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetModemDialModeWaitForDialTone,);
-
-#define kSCPropNetNetInfoBindingMethods                               \
-	SC_SCHEMA_KV(kSCPropNetNetInfoBindingMethods                  \
-	            ,"BindingMethods"                                 \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBindingMethods,);
-
-#define kSCPropNetNetInfoServerAddresses                              \
-	SC_SCHEMA_KV(kSCPropNetNetInfoServerAddresses                 \
-	            ,"ServerAddresses"                                \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerAddresses,);
-
-#define kSCPropNetNetInfoServerTags                                   \
-	SC_SCHEMA_KV(kSCPropNetNetInfoServerTags                      \
-	            ,"ServerTags"                                     \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerTags,);
-
-#define kSCPropNetNetInfoBroadcastServerTag                           \
-	SC_SCHEMA_KV(kSCPropNetNetInfoBroadcastServerTag              \
-	            ,"BroadcastServerTag"                             \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBroadcastServerTag,);
-
-#define kSCValNetNetInfoBindingMethodsBroadcast                       \
-	SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsBroadcast          \
-	            ,"Broadcast"                                      \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsBroadcast,);
-
-#define kSCValNetNetInfoBindingMethodsDHCP                            \
-	SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsDHCP               \
-	            ,"DHCP"                                           \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsDHCP,);
-
-#define kSCValNetNetInfoBindingMethodsManual                          \
-	SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsManual             \
-	            ,"Manual"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsManual,);
-
-#define kSCValNetNetInfoDefaultServerTag                              \
-	SC_SCHEMA_KV(kSCValNetNetInfoDefaultServerTag                 \
-	            ,"network"                                        \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCValNetNetInfoDefaultServerTag,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetPPPACSPEnabled                                      \
-	SC_SCHEMA_KV(kSCPropNetPPPACSPEnabled                         \
-	            ,"ACSPEnabled"                                    \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPACSPEnabled, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetPPPConnectTime                                      \
-	SC_SCHEMA_KV(kSCPropNetPPPConnectTime                         \
-	            ,"ConnectTime"                                    \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPConnectTime, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetPPPDeviceLastCause                                  \
-	SC_SCHEMA_KV(kSCPropNetPPPDeviceLastCause                     \
-	            ,"DeviceLastCause"                                \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPDeviceLastCause, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetPPPDialOnDemand                                     \
-	SC_SCHEMA_KV(kSCPropNetPPPDialOnDemand                        \
-	            ,"DialOnDemand"                                   \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPDialOnDemand,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetPPPDisconnectOnFastUserSwitch                       \
-	SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnFastUserSwitch          \
-	            ,"DisconnectOnFastUserSwitch"                     \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnFastUserSwitch, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#define kSCPropNetPPPDisconnectOnIdle                                 \
-	SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnIdle                    \
-	            ,"DisconnectOnIdle"                               \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdle,);
-
-#define kSCPropNetPPPDisconnectOnIdleTimer                            \
-	SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnIdleTimer               \
-	            ,"DisconnectOnIdleTimer"                          \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdleTimer,);
-
-#define kSCPropNetPPPDisconnectOnLogout                               \
-	SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnLogout                  \
-	            ,"DisconnectOnLogout"                             \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnLogout,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetPPPDisconnectOnSleep                                \
-	SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnSleep                   \
-	            ,"DisconnectOnSleep"                              \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnSleep, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetPPPDisconnectTime                                   \
-	SC_SCHEMA_KV(kSCPropNetPPPDisconnectTime                      \
-	            ,"DisconnectTime"                                 \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectTime, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCPropNetPPPIdleReminderTimer                                \
-	SC_SCHEMA_KV(kSCPropNetPPPIdleReminderTimer                   \
-	            ,"IdleReminderTimer"                              \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminderTimer,);
-
-#define kSCPropNetPPPIdleReminder                                     \
-	SC_SCHEMA_KV(kSCPropNetPPPIdleReminder                        \
-	            ,"IdleReminder"                                   \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminder,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetPPPLastCause                                        \
-	SC_SCHEMA_KV(kSCPropNetPPPLastCause                           \
-	            ,"LastCause"                                      \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLastCause, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetPPPLogfile                                          \
-	SC_SCHEMA_KV(kSCPropNetPPPLogfile                             \
-	            ,"Logfile"                                        \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLogfile,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetPPPPlugins                                          \
-	SC_SCHEMA_KV(kSCPropNetPPPPlugins                             \
-	            ,"Plugins"                                        \
-	            ,CFArray[CFString]                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPPlugins, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetPPPRetryConnectTime                                 \
-	SC_SCHEMA_KV(kSCPropNetPPPRetryConnectTime                    \
-	            ,"RetryConnectTime"                               \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPRetryConnectTime, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCPropNetPPPSessionTimer                                     \
-	SC_SCHEMA_KV(kSCPropNetPPPSessionTimer                        \
-	            ,"SessionTimer"                                   \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPSessionTimer,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetPPPStatus                                           \
-	SC_SCHEMA_KV(kSCPropNetPPPStatus                              \
-	            ,"Status"                                         \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPStatus, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetPPPUseSessionTimer                                  \
-	SC_SCHEMA_KV(kSCPropNetPPPUseSessionTimer                     \
-	            ,"UseSessionTimer"                                \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPUseSessionTimer, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#define kSCPropNetPPPVerboseLogging                                   \
-	SC_SCHEMA_KV(kSCPropNetPPPVerboseLogging                      \
-	            ,"VerboseLogging"                                 \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPVerboseLogging,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetPPPAuthEAPPlugins                                   \
-	SC_SCHEMA_KV(kSCPropNetPPPAuthEAPPlugins                      \
-	            ,"AuthEAPPlugins"                                 \
-	            ,CFArray[CFString]                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthEAPPlugins, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCPropNetPPPAuthName                                         \
-	SC_SCHEMA_KV(kSCPropNetPPPAuthName                            \
-	            ,"AuthName"                                       \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthName,);
-
-#define kSCPropNetPPPAuthPassword                                     \
-	SC_SCHEMA_KV(kSCPropNetPPPAuthPassword                        \
-	            ,"AuthPassword"                                   \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPassword,);
-
-#define kSCPropNetPPPAuthPasswordEncryption                           \
-	SC_SCHEMA_KV(kSCPropNetPPPAuthPasswordEncryption              \
-	            ,"AuthPasswordEncryption"                         \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPasswordEncryption,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetPPPAuthPrompt                                       \
-	SC_SCHEMA_KV(kSCPropNetPPPAuthPrompt                          \
-	            ,"AuthPrompt"                                     \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPrompt, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCPropNetPPPAuthProtocol                                     \
-	SC_SCHEMA_KV(kSCPropNetPPPAuthProtocol                        \
-	            ,"AuthProtocol"                                   \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthProtocol,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetPPPAuthPasswordEncryptionKeychain                    \
-	SC_SCHEMA_KV(kSCValNetPPPAuthPasswordEncryptionKeychain       \
-	            ,"Keychain"                                       \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPasswordEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetPPPAuthPromptBefore                                  \
-	SC_SCHEMA_KV(kSCValNetPPPAuthPromptBefore                     \
-	            ,"Before"                                         \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptBefore, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetPPPAuthPromptAfter                                   \
-	SC_SCHEMA_KV(kSCValNetPPPAuthPromptAfter                      \
-	            ,"After"                                          \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptAfter, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCValNetPPPAuthProtocolCHAP                                  \
-	SC_SCHEMA_KV(kSCValNetPPPAuthProtocolCHAP                     \
-	            ,"CHAP"                                           \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolCHAP,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetPPPAuthProtocolEAP                                   \
-	SC_SCHEMA_KV(kSCValNetPPPAuthProtocolEAP                      \
-	            ,"EAP"                                            \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolEAP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetPPPAuthProtocolMSCHAP1                               \
-	SC_SCHEMA_KV(kSCValNetPPPAuthProtocolMSCHAP1                  \
-	            ,"MSCHAP1"                                        \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP1, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetPPPAuthProtocolMSCHAP2                               \
-	SC_SCHEMA_KV(kSCValNetPPPAuthProtocolMSCHAP2                  \
-	            ,"MSCHAP2"                                        \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP2, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCValNetPPPAuthProtocolPAP                                   \
-	SC_SCHEMA_KV(kSCValNetPPPAuthProtocolPAP                      \
-	            ,"PAP"                                            \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolPAP,);
-
-#define kSCPropNetPPPCommAlternateRemoteAddress                       \
-	SC_SCHEMA_KV(kSCPropNetPPPCommAlternateRemoteAddress          \
-	            ,"CommAlternateRemoteAddress"                     \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCommAlternateRemoteAddress,);
-
-#define kSCPropNetPPPCommConnectDelay                                 \
-	SC_SCHEMA_KV(kSCPropNetPPPCommConnectDelay                    \
-	            ,"CommConnectDelay"                               \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCommConnectDelay,);
-
-#define kSCPropNetPPPCommDisplayTerminalWindow                        \
-	SC_SCHEMA_KV(kSCPropNetPPPCommDisplayTerminalWindow           \
-	            ,"CommDisplayTerminalWindow"                      \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCommDisplayTerminalWindow,);
-
-#define kSCPropNetPPPCommRedialCount                                  \
-	SC_SCHEMA_KV(kSCPropNetPPPCommRedialCount                     \
-	            ,"CommRedialCount"                                \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialCount,);
-
-#define kSCPropNetPPPCommRedialEnabled                                \
-	SC_SCHEMA_KV(kSCPropNetPPPCommRedialEnabled                   \
-	            ,"CommRedialEnabled"                              \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialEnabled,);
-
-#define kSCPropNetPPPCommRedialInterval                               \
-	SC_SCHEMA_KV(kSCPropNetPPPCommRedialInterval                  \
-	            ,"CommRedialInterval"                             \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialInterval,);
-
-#define kSCPropNetPPPCommRemoteAddress                                \
-	SC_SCHEMA_KV(kSCPropNetPPPCommRemoteAddress                   \
-	            ,"CommRemoteAddress"                              \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRemoteAddress,);
-
-#define kSCPropNetPPPCommTerminalScript                               \
-	SC_SCHEMA_KV(kSCPropNetPPPCommTerminalScript                  \
-	            ,"CommTerminalScript"                             \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCommTerminalScript,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetPPPCommUseTerminalScript                            \
-	SC_SCHEMA_KV(kSCPropNetPPPCommUseTerminalScript               \
-	            ,"CommUseTerminalScript"                          \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCommUseTerminalScript, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2
-#define kSCPropNetPPPCCPEnabled                                       \
-	SC_SCHEMA_KV(kSCPropNetPPPCCPEnabled                          \
-	            ,"CCPEnabled"                                     \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPEnabled, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetPPPCCPMPPE40Enabled                                 \
-	SC_SCHEMA_KV(kSCPropNetPPPCCPMPPE40Enabled                    \
-	            ,"CCPMPPE40Enabled"                               \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE40Enabled, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetPPPCCPMPPE128Enabled                                \
-	SC_SCHEMA_KV(kSCPropNetPPPCCPMPPE128Enabled                   \
-	            ,"CCPMPPE128Enabled"                              \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE128Enabled, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#define kSCPropNetPPPIPCPCompressionVJ                                \
-	SC_SCHEMA_KV(kSCPropNetPPPIPCPCompressionVJ                   \
-	            ,"IPCPCompressionVJ"                              \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPCompressionVJ,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetPPPIPCPUsePeerDNS                                   \
-	SC_SCHEMA_KV(kSCPropNetPPPIPCPUsePeerDNS                      \
-	            ,"IPCPUsePeerDNS"                                 \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPUsePeerDNS, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#define kSCPropNetPPPLCPEchoEnabled                                   \
-	SC_SCHEMA_KV(kSCPropNetPPPLCPEchoEnabled                      \
-	            ,"LCPEchoEnabled"                                 \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoEnabled,);
-
-#define kSCPropNetPPPLCPEchoFailure                                   \
-	SC_SCHEMA_KV(kSCPropNetPPPLCPEchoFailure                      \
-	            ,"LCPEchoFailure"                                 \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoFailure,);
-
-#define kSCPropNetPPPLCPEchoInterval                                  \
-	SC_SCHEMA_KV(kSCPropNetPPPLCPEchoInterval                     \
-	            ,"LCPEchoInterval"                                \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoInterval,);
-
-#define kSCPropNetPPPLCPCompressionACField                            \
-	SC_SCHEMA_KV(kSCPropNetPPPLCPCompressionACField               \
-	            ,"LCPCompressionACField"                          \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionACField,);
-
-#define kSCPropNetPPPLCPCompressionPField                             \
-	SC_SCHEMA_KV(kSCPropNetPPPLCPCompressionPField                \
-	            ,"LCPCompressionPField"                           \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionPField,);
-
-#define kSCPropNetPPPLCPMRU                                           \
-	SC_SCHEMA_KV(kSCPropNetPPPLCPMRU                              \
-	            ,"LCPMRU"                                         \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMRU,);
-
-#define kSCPropNetPPPLCPMTU                                           \
-	SC_SCHEMA_KV(kSCPropNetPPPLCPMTU                              \
-	            ,"LCPMTU"                                         \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMTU,);
-
-#define kSCPropNetPPPLCPReceiveACCM                                   \
-	SC_SCHEMA_KV(kSCPropNetPPPLCPReceiveACCM                      \
-	            ,"LCPReceiveACCM"                                 \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPReceiveACCM,);
-
-#define kSCPropNetPPPLCPTransmitACCM                                  \
-	SC_SCHEMA_KV(kSCPropNetPPPLCPTransmitACCM                     \
-	            ,"LCPTransmitACCM"                                \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPTransmitACCM,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetL2TPIPSecSharedSecret                               \
-	SC_SCHEMA_KV(kSCPropNetL2TPIPSecSharedSecret                  \
-	            ,"IPSecSharedSecret"                              \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecret, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetL2TPIPSecSharedSecretEncryption                     \
-	SC_SCHEMA_KV(kSCPropNetL2TPIPSecSharedSecretEncryption        \
-	            ,"IPSecSharedSecretEncryption"                    \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecretEncryption, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCPropNetL2TPTransport                                       \
-	SC_SCHEMA_KV(kSCPropNetL2TPTransport                          \
-	            ,"Transport"                                      \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetL2TPTransport, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetL2TPIPSecSharedSecretEncryptionKeychain              \
-	SC_SCHEMA_KV(kSCValNetL2TPIPSecSharedSecretEncryptionKeychain \
-	            ,"Keychain"                                       \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetL2TPIPSecSharedSecretEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetL2TPTransportIP                                      \
-	SC_SCHEMA_KV(kSCValNetL2TPTransportIP                         \
-	            ,"IP"                                             \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3
-#define kSCValNetL2TPTransportIPSec                                   \
-	SC_SCHEMA_KV(kSCValNetL2TPTransportIPSec                      \
-	            ,"IPSec"                                          \
-	            ,                                                 )
-#endif
-	SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIPSec, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);
-
-#define kSCPropNetProxiesExceptionsList                               \
-	SC_SCHEMA_KV(kSCPropNetProxiesExceptionsList                  \
-	            ,"ExceptionsList"                                 \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesExceptionsList,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetProxiesExcludeSimpleHostnames                       \
-	SC_SCHEMA_KV(kSCPropNetProxiesExcludeSimpleHostnames          \
-	            ,"ExcludeSimpleHostnames"                         \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesExcludeSimpleHostnames, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#define kSCPropNetProxiesFTPEnable                                    \
-	SC_SCHEMA_KV(kSCPropNetProxiesFTPEnable                       \
-	            ,"FTPEnable"                                      \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPEnable,);
-
-#define kSCPropNetProxiesFTPPassive                                   \
-	SC_SCHEMA_KV(kSCPropNetProxiesFTPPassive                      \
-	            ,"FTPPassive"                                     \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPassive,);
-
-#define kSCPropNetProxiesFTPPort                                      \
-	SC_SCHEMA_KV(kSCPropNetProxiesFTPPort                         \
-	            ,"FTPPort"                                        \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPort,);
-
-#define kSCPropNetProxiesFTPProxy                                     \
-	SC_SCHEMA_KV(kSCPropNetProxiesFTPProxy                        \
-	            ,"FTPProxy"                                       \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPProxy,);
-
-#define kSCPropNetProxiesGopherEnable                                 \
-	SC_SCHEMA_KV(kSCPropNetProxiesGopherEnable                    \
-	            ,"GopherEnable"                                   \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherEnable,);
-
-#define kSCPropNetProxiesGopherPort                                   \
-	SC_SCHEMA_KV(kSCPropNetProxiesGopherPort                      \
-	            ,"GopherPort"                                     \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherPort,);
-
-#define kSCPropNetProxiesGopherProxy                                  \
-	SC_SCHEMA_KV(kSCPropNetProxiesGopherProxy                     \
-	            ,"GopherProxy"                                    \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherProxy,);
-
-#define kSCPropNetProxiesHTTPEnable                                   \
-	SC_SCHEMA_KV(kSCPropNetProxiesHTTPEnable                      \
-	            ,"HTTPEnable"                                     \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPEnable,);
-
-#define kSCPropNetProxiesHTTPPort                                     \
-	SC_SCHEMA_KV(kSCPropNetProxiesHTTPPort                        \
-	            ,"HTTPPort"                                       \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPPort,);
-
-#define kSCPropNetProxiesHTTPProxy                                    \
-	SC_SCHEMA_KV(kSCPropNetProxiesHTTPProxy                       \
-	            ,"HTTPProxy"                                      \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPProxy,);
-
-#define kSCPropNetProxiesHTTPSEnable                                  \
-	SC_SCHEMA_KV(kSCPropNetProxiesHTTPSEnable                     \
-	            ,"HTTPSEnable"                                    \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSEnable,);
-
-#define kSCPropNetProxiesHTTPSPort                                    \
-	SC_SCHEMA_KV(kSCPropNetProxiesHTTPSPort                       \
-	            ,"HTTPSPort"                                      \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSPort,);
-
-#define kSCPropNetProxiesHTTPSProxy                                   \
-	SC_SCHEMA_KV(kSCPropNetProxiesHTTPSProxy                      \
-	            ,"HTTPSProxy"                                     \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSProxy,);
-
-#define kSCPropNetProxiesRTSPEnable                                   \
-	SC_SCHEMA_KV(kSCPropNetProxiesRTSPEnable                      \
-	            ,"RTSPEnable"                                     \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPEnable,);
-
-#define kSCPropNetProxiesRTSPPort                                     \
-	SC_SCHEMA_KV(kSCPropNetProxiesRTSPPort                        \
-	            ,"RTSPPort"                                       \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPPort,);
-
-#define kSCPropNetProxiesRTSPProxy                                    \
-	SC_SCHEMA_KV(kSCPropNetProxiesRTSPProxy                       \
-	            ,"RTSPProxy"                                      \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPProxy,);
-
-#define kSCPropNetProxiesSOCKSEnable                                  \
-	SC_SCHEMA_KV(kSCPropNetProxiesSOCKSEnable                     \
-	            ,"SOCKSEnable"                                    \
-	            ,CFNumber (0 or 1)                                )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSEnable,);
-
-#define kSCPropNetProxiesSOCKSPort                                    \
-	SC_SCHEMA_KV(kSCPropNetProxiesSOCKSPort                       \
-	            ,"SOCKSPort"                                      \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSPort,);
-
-#define kSCPropNetProxiesSOCKSProxy                                   \
-	SC_SCHEMA_KV(kSCPropNetProxiesSOCKSProxy                      \
-	            ,"SOCKSProxy"                                     \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSProxy,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetProxiesProxyAutoConfigEnable                        \
-	SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoConfigEnable           \
-	            ,"ProxyAutoConfigEnable"                          \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigEnable, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetProxiesProxyAutoConfigURLString                     \
-	SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoConfigURLString        \
-	            ,"ProxyAutoConfigURLString"                       \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigURLString, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4
-#define kSCPropNetProxiesProxyAutoDiscoveryEnable                     \
-	SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoDiscoveryEnable        \
-	            ,"ProxyAutoDiscoveryEnable"                       \
-	            ,CFNumber (0 or 1)                                )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoDiscoveryEnable, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);
-
-#define kSCEntUsersConsoleUser                                        \
-	SC_SCHEMA_KV(kSCEntUsersConsoleUser                           \
-	            ,"ConsoleUser"                                    \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCEntUsersConsoleUser,);
-
-#define kSCPropSystemComputerName                                     \
-	SC_SCHEMA_KV(kSCPropSystemComputerName                        \
-	            ,"ComputerName"                                   \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCPropSystemComputerName,);
-
-#define kSCPropSystemComputerNameEncoding                             \
-	SC_SCHEMA_KV(kSCPropSystemComputerNameEncoding                \
-	            ,"ComputerNameEncoding"                           \
-	            ,CFNumber                                         )
-	SC_SCHEMA_DECLARATION(kSCPropSystemComputerNameEncoding,);
-
-#define kSCDynamicStoreDomainFile                                     \
-	SC_SCHEMA_KV(kSCDynamicStoreDomainFile                        \
-	            ,"File:"                                          \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainFile,);
-
-#define kSCDynamicStoreDomainPlugin                                   \
-	SC_SCHEMA_KV(kSCDynamicStoreDomainPlugin                      \
-	            ,"Plugin:"                                        \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPlugin,);
-
-#define kSCDynamicStoreDomainSetup                                    \
-	SC_SCHEMA_KV(kSCDynamicStoreDomainSetup                       \
-	            ,"Setup:"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainSetup,);
-
-#define kSCDynamicStoreDomainState                                    \
-	SC_SCHEMA_KV(kSCDynamicStoreDomainState                       \
-	            ,"State:"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainState,);
-
-#define kSCDynamicStoreDomainPrefs                                    \
-	SC_SCHEMA_KV(kSCDynamicStoreDomainPrefs                       \
-	            ,"Prefs:"                                         \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPrefs,);
-
-#define kSCDynamicStorePropSetupCurrentSet                            \
-	SC_SCHEMA_KV(kSCDynamicStorePropSetupCurrentSet               \
-	            ,"CurrentSet"                                     \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupCurrentSet,);
-
-#define kSCDynamicStorePropSetupLastUpdated                           \
-	SC_SCHEMA_KV(kSCDynamicStorePropSetupLastUpdated              \
-	            ,"LastUpdated"                                    \
-	            ,                                                 )
-	SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupLastUpdated,);
-
-#define kSCDynamicStorePropNetInterfaces                              \
-	SC_SCHEMA_KV(kSCDynamicStorePropNetInterfaces                 \
-	            ,"Interfaces"                                     \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetInterfaces,);
-
-#define kSCDynamicStorePropNetPrimaryInterface                        \
-	SC_SCHEMA_KV(kSCDynamicStorePropNetPrimaryInterface           \
-	            ,"PrimaryInterface"                               \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryInterface,);
-
-#define kSCDynamicStorePropNetPrimaryService                          \
-	SC_SCHEMA_KV(kSCDynamicStorePropNetPrimaryService             \
-	            ,"PrimaryService"                                 \
-	            ,CFString                                         )
-	SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryService,);
-
-#define kSCDynamicStorePropNetServiceIDs                              \
-	SC_SCHEMA_KV(kSCDynamicStorePropNetServiceIDs                 \
-	            ,"ServiceIDs"                                     \
-	            ,CFArray[CFString]                                )
-	SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetServiceIDs,);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_1 && \
-    MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_3
-#define kSCPropUsersConsoleUserName                                   \
-	SC_SCHEMA_KV(kSCPropUsersConsoleUserName                      \
-	            ,"Name"                                           \
-	            ,CFString                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_1 && \
-    MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_3
-#define kSCPropUsersConsoleUserUID                                    \
-	SC_SCHEMA_KV(kSCPropUsersConsoleUserUID                       \
-	            ,"UID"                                            \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserUID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4);
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_1 && \
-    MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_3
-#define kSCPropUsersConsoleUserGID                                    \
-	SC_SCHEMA_KV(kSCPropUsersConsoleUserGID                       \
-	            ,"GID"                                            \
-	            ,CFNumber                                         )
-#endif
-	SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserGID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4);
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCResvLink, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCResvLink                                                   \
+          SC_SCHEMA_KV(kSCResvLink                                      \
+                      ,"__LINK__"                                       \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCResvInactive, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCResvInactive                                               \
+          SC_SCHEMA_KV(kSCResvInactive                                  \
+                      ,"__INACTIVE__"                                   \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropInterfaceName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropInterfaceName                                          \
+          SC_SCHEMA_KV(kSCPropInterfaceName                             \
+                      ,"InterfaceName"                                  \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropMACAddress, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropMACAddress                                             \
+          SC_SCHEMA_KV(kSCPropMACAddress                                \
+                      ,"MACAddress"                                     \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropUserDefinedName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropUserDefinedName                                        \
+          SC_SCHEMA_KV(kSCPropUserDefinedName                           \
+                      ,"UserDefinedName"                                \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropVersion, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropVersion                                                \
+          SC_SCHEMA_KV(kSCPropVersion                                   \
+                      ,"Version"                                        \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPrefCurrentSet, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPrefCurrentSet                                             \
+          SC_SCHEMA_KV(kSCPrefCurrentSet                                \
+                      ,"CurrentSet"                                     \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPrefNetworkServices, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPrefNetworkServices                                        \
+          SC_SCHEMA_KV(kSCPrefNetworkServices                           \
+                      ,"NetworkServices"                                \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPrefSets, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPrefSets                                                   \
+          SC_SCHEMA_KV(kSCPrefSets                                      \
+                      ,"Sets"                                           \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPrefSystem, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPrefSystem                                                 \
+          SC_SCHEMA_KV(kSCPrefSystem                                    \
+                      ,"System"                                         \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCCompNetwork, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCCompNetwork                                                \
+          SC_SCHEMA_KV(kSCCompNetwork                                   \
+                      ,"Network"                                        \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCCompService, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCCompService                                                \
+          SC_SCHEMA_KV(kSCCompService                                   \
+                      ,"Service"                                        \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCCompGlobal, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCCompGlobal                                                 \
+          SC_SCHEMA_KV(kSCCompGlobal                                    \
+                      ,"Global"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCCompHostNames, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCCompHostNames                                              \
+          SC_SCHEMA_KV(kSCCompHostNames                                 \
+                      ,"HostNames"                                      \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCCompInterface, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCCompInterface                                              \
+          SC_SCHEMA_KV(kSCCompInterface                                 \
+                      ,"Interface"                                      \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCCompSystem, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCCompSystem                                                 \
+          SC_SCHEMA_KV(kSCCompSystem                                    \
+                      ,"System"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCCompUsers, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCCompUsers                                                  \
+          SC_SCHEMA_KV(kSCCompUsers                                     \
+                      ,"Users"                                          \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCCompAnyRegex, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCCompAnyRegex                                               \
+          SC_SCHEMA_KV(kSCCompAnyRegex                                  \
+                      ,"[^/]+"                                          \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetAirPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetAirPort                                              \
+          SC_SCHEMA_KV(kSCEntNetAirPort                                 \
+                      ,"AirPort"                                        \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetAppleTalk, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetAppleTalk                                            \
+          SC_SCHEMA_KV(kSCEntNetAppleTalk                               \
+                      ,"AppleTalk"                                      \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetDHCP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetDHCP                                                 \
+          SC_SCHEMA_KV(kSCEntNetDHCP                                    \
+                      ,"DHCP"                                           \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetDNS, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetDNS                                                  \
+          SC_SCHEMA_KV(kSCEntNetDNS                                     \
+                      ,"DNS"                                            \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetEthernet, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetEthernet                                             \
+          SC_SCHEMA_KV(kSCEntNetEthernet                                \
+                      ,"Ethernet"                                       \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetFireWire, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCEntNetFireWire                                             \
+          SC_SCHEMA_KV(kSCEntNetFireWire                                \
+                      ,"FireWire"                                       \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetInterface, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetInterface                                            \
+          SC_SCHEMA_KV(kSCEntNetInterface                               \
+                      ,"Interface"                                      \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetIPv4, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetIPv4                                                 \
+          SC_SCHEMA_KV(kSCEntNetIPv4                                    \
+                      ,"IPv4"                                           \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetIPv6, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetIPv6                                                 \
+          SC_SCHEMA_KV(kSCEntNetIPv6                                    \
+                      ,"IPv6"                                           \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetL2TP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCEntNetL2TP                                                 \
+          SC_SCHEMA_KV(kSCEntNetL2TP                                    \
+                      ,"L2TP"                                           \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetLink, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetLink                                                 \
+          SC_SCHEMA_KV(kSCEntNetLink                                    \
+                      ,"Link"                                           \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetModem, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetModem                                                \
+          SC_SCHEMA_KV(kSCEntNetModem                                   \
+                      ,"Modem"                                          \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetNetInfo, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetNetInfo                                              \
+          SC_SCHEMA_KV(kSCEntNetNetInfo                                 \
+                      ,"NetInfo"                                        \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetPPP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetPPP                                                  \
+          SC_SCHEMA_KV(kSCEntNetPPP                                     \
+                      ,"PPP"                                            \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetPPPoE, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetPPPoE                                                \
+          SC_SCHEMA_KV(kSCEntNetPPPoE                                   \
+                      ,"PPPoE"                                          \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetPPPSerial, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCEntNetPPPSerial                                            \
+          SC_SCHEMA_KV(kSCEntNetPPPSerial                               \
+                      ,"PPPSerial"                                      \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetPPTP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCEntNetPPTP                                                 \
+          SC_SCHEMA_KV(kSCEntNetPPTP                                    \
+                      ,"PPTP"                                           \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNetProxies, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntNetProxies                                              \
+          SC_SCHEMA_KV(kSCEntNetProxies                                 \
+                      ,"Proxies"                                        \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntNet6to4, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCEntNet6to4                                                 \
+          SC_SCHEMA_KV(kSCEntNet6to4                                    \
+                      ,"6to4"                                           \
+                      ,CFDictionary                                     )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetOverridePrimary, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetOverridePrimary                                     \
+          SC_SCHEMA_KV(kSCPropNetOverridePrimary                        \
+                      ,"OverridePrimary"                                \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetServiceOrder, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetServiceOrder                                        \
+          SC_SCHEMA_KV(kSCPropNetServiceOrder                           \
+                      ,"ServiceOrder"                                   \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPOverridePrimary, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPOverridePrimary                                  \
+          SC_SCHEMA_KV(kSCPropNetPPPOverridePrimary                     \
+                      ,"PPPOverridePrimary"                             \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaces, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetInterfaces                                          \
+          SC_SCHEMA_KV(kSCPropNetInterfaces                             \
+                      ,"Interfaces"                                     \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetLocalHostName, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetLocalHostName                                       \
+          SC_SCHEMA_KV(kSCPropNetLocalHostName                          \
+                      ,"LocalHostName"                                  \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAllowNetCreation, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetAirPortAllowNetCreation                             \
+          SC_SCHEMA_KV(kSCPropNetAirPortAllowNetCreation                \
+                      ,"AllowNetCreation"                               \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPassword, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAirPortAuthPassword                                 \
+          SC_SCHEMA_KV(kSCPropNetAirPortAuthPassword                    \
+                      ,"AuthPassword"                                   \
+                      ,CFData                                           )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPasswordEncryption, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAirPortAuthPasswordEncryption                       \
+          SC_SCHEMA_KV(kSCPropNetAirPortAuthPasswordEncryption          \
+                      ,"AuthPasswordEncryption"                         \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortJoinMode, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetAirPortJoinMode                                     \
+          SC_SCHEMA_KV(kSCPropNetAirPortJoinMode                        \
+                      ,"JoinMode"                                       \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPowerEnabled, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAirPortPowerEnabled                                 \
+          SC_SCHEMA_KV(kSCPropNetAirPortPowerEnabled                    \
+                      ,"PowerEnabled"                                   \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPreferredNetwork, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAirPortPreferredNetwork                             \
+          SC_SCHEMA_KV(kSCPropNetAirPortPreferredNetwork                \
+                      ,"PreferredNetwork"                               \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortSavePasswords, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetAirPortSavePasswords                                \
+          SC_SCHEMA_KV(kSCPropNetAirPortSavePasswords                   \
+                      ,"SavePasswords"                                  \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeAutomatic, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetAirPortJoinModeAutomatic                             \
+          SC_SCHEMA_KV(kSCValNetAirPortJoinModeAutomatic                \
+                      ,"Automatic"                                      \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModePreferred, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCValNetAirPortJoinModePreferred                             \
+          SC_SCHEMA_KV(kSCValNetAirPortJoinModePreferred                \
+                      ,"Preferred"                                      \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRecent, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCValNetAirPortJoinModeRecent                                \
+          SC_SCHEMA_KV(kSCValNetAirPortJoinModeRecent                   \
+                      ,"Recent"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeStrongest, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCValNetAirPortJoinModeStrongest                             \
+          SC_SCHEMA_KV(kSCValNetAirPortJoinModeStrongest                \
+                      ,"Strongest"                                      \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortAuthPasswordEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetAirPortAuthPasswordEncryptionKeychain                \
+          SC_SCHEMA_KV(kSCValNetAirPortAuthPasswordEncryptionKeychain   \
+                      ,"Keychain"                                       \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAppleTalkComputerName                               \
+          SC_SCHEMA_KV(kSCPropNetAppleTalkComputerName                  \
+                      ,"ComputerName"                                   \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerNameEncoding, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAppleTalkComputerNameEncoding                       \
+          SC_SCHEMA_KV(kSCPropNetAppleTalkComputerNameEncoding          \
+                      ,"ComputerNameEncoding"                           \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkConfigMethod, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAppleTalkConfigMethod                               \
+          SC_SCHEMA_KV(kSCPropNetAppleTalkConfigMethod                  \
+                      ,"ConfigMethod"                                   \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkDefaultZone, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAppleTalkDefaultZone                                \
+          SC_SCHEMA_KV(kSCPropNetAppleTalkDefaultZone                   \
+                      ,"DefaultZone"                                    \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAppleTalkNetworkID                                  \
+          SC_SCHEMA_KV(kSCPropNetAppleTalkNetworkID                     \
+                      ,"NetworkID"                                      \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkRange, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetAppleTalkNetworkRange                               \
+          SC_SCHEMA_KV(kSCPropNetAppleTalkNetworkRange                  \
+                      ,"NetworkRange"                                   \
+                      ,CFArray[CFNumber]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNodeID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAppleTalkNodeID                                     \
+          SC_SCHEMA_KV(kSCPropNetAppleTalkNodeID                        \
+                      ,"NodeID"                                         \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedNetworkRange, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAppleTalkSeedNetworkRange                           \
+          SC_SCHEMA_KV(kSCPropNetAppleTalkSeedNetworkRange              \
+                      ,"SeedNetworkRange"                               \
+                      ,CFArray[CFNumber]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedZones, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetAppleTalkSeedZones                                  \
+          SC_SCHEMA_KV(kSCPropNetAppleTalkSeedZones                     \
+                      ,"SeedZones"                                      \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodNode, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetAppleTalkConfigMethodNode                            \
+          SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodNode               \
+                      ,"Node"                                           \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodRouter, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetAppleTalkConfigMethodRouter                          \
+          SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodRouter             \
+                      ,"Router"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodSeedRouter, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetAppleTalkConfigMethodSeedRouter                      \
+          SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodSeedRouter         \
+                      ,"SeedRouter"                                     \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSDomainName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetDNSDomainName                                       \
+          SC_SCHEMA_KV(kSCPropNetDNSDomainName                          \
+                      ,"DomainName"                                     \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSOptions, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetDNSOptions                                          \
+          SC_SCHEMA_KV(kSCPropNetDNSOptions                             \
+                      ,"Options"                                        \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchDomains, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetDNSSearchDomains                                    \
+          SC_SCHEMA_KV(kSCPropNetDNSSearchDomains                       \
+                      ,"SearchDomains"                                  \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchOrder, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetDNSSearchOrder                                      \
+          SC_SCHEMA_KV(kSCPropNetDNSSearchOrder                         \
+                      ,"SearchOrder"                                    \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerAddresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetDNSServerAddresses                                  \
+          SC_SCHEMA_KV(kSCPropNetDNSServerAddresses                     \
+                      ,"ServerAddresses"                                \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerPort, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetDNSServerPort                                       \
+          SC_SCHEMA_KV(kSCPropNetDNSServerPort                          \
+                      ,"ServerPort"                                     \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerTimeout, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetDNSServerTimeout                                    \
+          SC_SCHEMA_KV(kSCPropNetDNSServerTimeout                       \
+                      ,"ServerTimeout"                                  \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSortList, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetDNSSortList                                         \
+          SC_SCHEMA_KV(kSCPropNetDNSSortList                            \
+                      ,"SortList"                                       \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchDomains, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetDNSSupplementalMatchDomains                         \
+          SC_SCHEMA_KV(kSCPropNetDNSSupplementalMatchDomains            \
+                      ,"SupplementalMatchDomains"                       \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchOrders, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetDNSSupplementalMatchOrders                          \
+          SC_SCHEMA_KV(kSCPropNetDNSSupplementalMatchOrders             \
+                      ,"SupplementalMatchOrders"                        \
+                      ,CFArray[CFNumber]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaSubType, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetEthernetMediaSubType                                \
+          SC_SCHEMA_KV(kSCPropNetEthernetMediaSubType                   \
+                      ,"MediaSubType"                                   \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaOptions, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetEthernetMediaOptions                                \
+          SC_SCHEMA_KV(kSCPropNetEthernetMediaOptions                   \
+                      ,"MediaOptions"                                   \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMTU, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetEthernetMTU                                         \
+          SC_SCHEMA_KV(kSCPropNetEthernetMTU                            \
+                      ,"MTU"                                            \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceDeviceName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetInterfaceDeviceName                                 \
+          SC_SCHEMA_KV(kSCPropNetInterfaceDeviceName                    \
+                      ,"DeviceName"                                     \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceHardware, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetInterfaceHardware                                   \
+          SC_SCHEMA_KV(kSCPropNetInterfaceHardware                      \
+                      ,"Hardware"                                       \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceType, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetInterfaceType                                       \
+          SC_SCHEMA_KV(kSCPropNetInterfaceType                          \
+                      ,"Type"                                           \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSubType, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetInterfaceSubType                                    \
+          SC_SCHEMA_KV(kSCPropNetInterfaceSubType                       \
+                      ,"SubType"                                        \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSupportsModemOnHold, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetInterfaceSupportsModemOnHold                        \
+          SC_SCHEMA_KV(kSCPropNetInterfaceSupportsModemOnHold           \
+                      ,"SupportsModemOnHold"                            \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeEthernet, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetInterfaceTypeEthernet                                \
+          SC_SCHEMA_KV(kSCValNetInterfaceTypeEthernet                   \
+                      ,"Ethernet"                                       \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeFireWire, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetInterfaceTypeFireWire                                \
+          SC_SCHEMA_KV(kSCValNetInterfaceTypeFireWire                   \
+                      ,"FireWire"                                       \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypePPP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetInterfaceTypePPP                                     \
+          SC_SCHEMA_KV(kSCValNetInterfaceTypePPP                        \
+                      ,"PPP"                                            \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceType6to4, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetInterfaceType6to4                                    \
+          SC_SCHEMA_KV(kSCValNetInterfaceType6to4                       \
+                      ,"6to4"                                           \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPoE, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetInterfaceSubTypePPPoE                                \
+          SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPPoE                   \
+                      ,"PPPoE"                                          \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPSerial, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetInterfaceSubTypePPPSerial                            \
+          SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPPSerial               \
+                      ,"PPPSerial"                                      \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPTP, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCValNetInterfaceSubTypePPTP                                 \
+          SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPTP                    \
+                      ,"PPTP"                                           \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypeL2TP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetInterfaceSubTypeL2TP                                 \
+          SC_SCHEMA_KV(kSCValNetInterfaceSubTypeL2TP                    \
+                      ,"L2TP"                                           \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4Addresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetIPv4Addresses                                       \
+          SC_SCHEMA_KV(kSCPropNetIPv4Addresses                          \
+                      ,"Addresses"                                      \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4ConfigMethod, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetIPv4ConfigMethod                                    \
+          SC_SCHEMA_KV(kSCPropNetIPv4ConfigMethod                       \
+                      ,"ConfigMethod"                                   \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4DHCPClientID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetIPv4DHCPClientID                                    \
+          SC_SCHEMA_KV(kSCPropNetIPv4DHCPClientID                       \
+                      ,"DHCPClientID"                                   \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4Router, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetIPv4Router                                          \
+          SC_SCHEMA_KV(kSCPropNetIPv4Router                             \
+                      ,"Router"                                         \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4SubnetMasks, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetIPv4SubnetMasks                                     \
+          SC_SCHEMA_KV(kSCPropNetIPv4SubnetMasks                        \
+                      ,"SubnetMasks"                                    \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4DestAddresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetIPv4DestAddresses                                   \
+          SC_SCHEMA_KV(kSCPropNetIPv4DestAddresses                      \
+                      ,"DestAddresses"                                  \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4BroadcastAddresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetIPv4BroadcastAddresses                              \
+          SC_SCHEMA_KV(kSCPropNetIPv4BroadcastAddresses                 \
+                      ,"BroadcastAddresses"                             \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodBOOTP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetIPv4ConfigMethodBOOTP                                \
+          SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodBOOTP                   \
+                      ,"BOOTP"                                          \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodDHCP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetIPv4ConfigMethodDHCP                                 \
+          SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodDHCP                    \
+                      ,"DHCP"                                           \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodINFORM, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetIPv4ConfigMethodINFORM                               \
+          SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodINFORM                  \
+                      ,"INFORM"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodLinkLocal, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCValNetIPv4ConfigMethodLinkLocal                            \
+          SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodLinkLocal               \
+                      ,"LinkLocal"                                      \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodManual, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetIPv4ConfigMethodManual                               \
+          SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodManual                  \
+                      ,"Manual"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodPPP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetIPv4ConfigMethodPPP                                  \
+          SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodPPP                     \
+                      ,"PPP"                                            \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Addresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetIPv6Addresses                                       \
+          SC_SCHEMA_KV(kSCPropNetIPv6Addresses                          \
+                      ,"Addresses"                                      \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6ConfigMethod, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetIPv6ConfigMethod                                    \
+          SC_SCHEMA_KV(kSCPropNetIPv6ConfigMethod                       \
+                      ,"ConfigMethod"                                   \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6DestAddresses, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetIPv6DestAddresses                                   \
+          SC_SCHEMA_KV(kSCPropNetIPv6DestAddresses                      \
+                      ,"DestAddresses"                                  \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Flags, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetIPv6Flags                                           \
+          SC_SCHEMA_KV(kSCPropNetIPv6Flags                              \
+                      ,"Flags"                                          \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6PrefixLength, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetIPv6PrefixLength                                    \
+          SC_SCHEMA_KV(kSCPropNetIPv6PrefixLength                       \
+                      ,"PrefixLength"                                   \
+                      ,CFArray[CFNumber]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Router, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetIPv6Router                                          \
+          SC_SCHEMA_KV(kSCPropNetIPv6Router                             \
+                      ,"Router"                                         \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodAutomatic, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetIPv6ConfigMethodAutomatic                            \
+          SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodAutomatic               \
+                      ,"Automatic"                                      \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodManual, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetIPv6ConfigMethodManual                               \
+          SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodManual                  \
+                      ,"Manual"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodRouterAdvertisement, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetIPv6ConfigMethodRouterAdvertisement                  \
+          SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodRouterAdvertisement     \
+                      ,"RouterAdvertisement"                            \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethod6to4, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetIPv6ConfigMethod6to4                                 \
+          SC_SCHEMA_KV(kSCValNetIPv6ConfigMethod6to4                    \
+                      ,"6to4"                                           \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNet6to4Relay, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNet6to4Relay                                           \
+          SC_SCHEMA_KV(kSCPropNet6to4Relay                              \
+                      ,"Relay"                                          \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetLinkActive, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetLinkActive                                          \
+          SC_SCHEMA_KV(kSCPropNetLinkActive                             \
+                      ,"Active"                                         \
+                      ,CFBoolean                                        )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetLinkDetaching, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetLinkDetaching                                       \
+          SC_SCHEMA_KV(kSCPropNetLinkDetaching                          \
+                      ,"Detaching"                                      \
+                      ,CFBoolean                                        )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectionScript, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetModemConnectionScript                               \
+          SC_SCHEMA_KV(kSCPropNetModemConnectionScript                  \
+                      ,"ConnectionScript"                               \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectSpeed, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetModemConnectSpeed                                   \
+          SC_SCHEMA_KV(kSCPropNetModemConnectSpeed                      \
+                      ,"ConnectSpeed"                                   \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemDataCompression, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetModemDataCompression                                \
+          SC_SCHEMA_KV(kSCPropNetModemDataCompression                   \
+                      ,"DataCompression"                                \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemDialMode, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetModemDialMode                                       \
+          SC_SCHEMA_KV(kSCPropNetModemDialMode                          \
+                      ,"DialMode"                                       \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemErrorCorrection, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetModemErrorCorrection                                \
+          SC_SCHEMA_KV(kSCPropNetModemErrorCorrection                   \
+                      ,"ErrorCorrection"                                \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldCallWaitingAudibleAlert, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetModemHoldCallWaitingAudibleAlert                    \
+          SC_SCHEMA_KV(kSCPropNetModemHoldCallWaitingAudibleAlert       \
+                      ,"HoldCallWaitingAudibleAlert"                    \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldDisconnectOnAnswer, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetModemHoldDisconnectOnAnswer                         \
+          SC_SCHEMA_KV(kSCPropNetModemHoldDisconnectOnAnswer            \
+                      ,"HoldDisconnectOnAnswer"                         \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldEnabled, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetModemHoldEnabled                                    \
+          SC_SCHEMA_KV(kSCPropNetModemHoldEnabled                       \
+                      ,"HoldEnabled"                                    \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminder, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetModemHoldReminder                                   \
+          SC_SCHEMA_KV(kSCPropNetModemHoldReminder                      \
+                      ,"HoldReminder"                                   \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminderTime, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetModemHoldReminderTime                               \
+          SC_SCHEMA_KV(kSCPropNetModemHoldReminderTime                  \
+                      ,"HoldReminderTime"                               \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemNote, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetModemNote                                           \
+          SC_SCHEMA_KV(kSCPropNetModemNote                              \
+                      ,"Note"                                           \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemPulseDial, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetModemPulseDial                                      \
+          SC_SCHEMA_KV(kSCPropNetModemPulseDial                         \
+                      ,"PulseDial"                                      \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemSpeaker, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetModemSpeaker                                        \
+          SC_SCHEMA_KV(kSCPropNetModemSpeaker                           \
+                      ,"Speaker"                                        \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetModemSpeed, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetModemSpeed                                          \
+          SC_SCHEMA_KV(kSCPropNetModemSpeed                             \
+                      ,"Speed"                                          \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeIgnoreDialTone, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetModemDialModeIgnoreDialTone                          \
+          SC_SCHEMA_KV(kSCValNetModemDialModeIgnoreDialTone             \
+                      ,"IgnoreDialTone"                                 \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeManual, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetModemDialModeManual                                  \
+          SC_SCHEMA_KV(kSCValNetModemDialModeManual                     \
+                      ,"Manual"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeWaitForDialTone, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetModemDialModeWaitForDialTone                         \
+          SC_SCHEMA_KV(kSCValNetModemDialModeWaitForDialTone            \
+                      ,"WaitForDialTone"                                \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBindingMethods, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetNetInfoBindingMethods                               \
+          SC_SCHEMA_KV(kSCPropNetNetInfoBindingMethods                  \
+                      ,"BindingMethods"                                 \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerAddresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetNetInfoServerAddresses                              \
+          SC_SCHEMA_KV(kSCPropNetNetInfoServerAddresses                 \
+                      ,"ServerAddresses"                                \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerTags, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetNetInfoServerTags                                   \
+          SC_SCHEMA_KV(kSCPropNetNetInfoServerTags                      \
+                      ,"ServerTags"                                     \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBroadcastServerTag, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetNetInfoBroadcastServerTag                           \
+          SC_SCHEMA_KV(kSCPropNetNetInfoBroadcastServerTag              \
+                      ,"BroadcastServerTag"                             \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsBroadcast, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetNetInfoBindingMethodsBroadcast                       \
+          SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsBroadcast          \
+                      ,"Broadcast"                                      \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsDHCP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetNetInfoBindingMethodsDHCP                            \
+          SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsDHCP               \
+                      ,"DHCP"                                           \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsManual, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetNetInfoBindingMethodsManual                          \
+          SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsManual             \
+                      ,"Manual"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetNetInfoDefaultServerTag, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetNetInfoDefaultServerTag                              \
+          SC_SCHEMA_KV(kSCValNetNetInfoDefaultServerTag                 \
+                      ,"network"                                        \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPACSPEnabled, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetPPPACSPEnabled                                      \
+          SC_SCHEMA_KV(kSCPropNetPPPACSPEnabled                         \
+                      ,"ACSPEnabled"                                    \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPConnectTime, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetPPPConnectTime                                      \
+          SC_SCHEMA_KV(kSCPropNetPPPConnectTime                         \
+                      ,"ConnectTime"                                    \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDeviceLastCause, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetPPPDeviceLastCause                                  \
+          SC_SCHEMA_KV(kSCPropNetPPPDeviceLastCause                     \
+                      ,"DeviceLastCause"                                \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDialOnDemand, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPDialOnDemand                                     \
+          SC_SCHEMA_KV(kSCPropNetPPPDialOnDemand                        \
+                      ,"DialOnDemand"                                   \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnFastUserSwitch, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetPPPDisconnectOnFastUserSwitch                       \
+          SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnFastUserSwitch          \
+                      ,"DisconnectOnFastUserSwitch"                     \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdle, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPDisconnectOnIdle                                 \
+          SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnIdle                    \
+                      ,"DisconnectOnIdle"                               \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdleTimer, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPDisconnectOnIdleTimer                            \
+          SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnIdleTimer               \
+                      ,"DisconnectOnIdleTimer"                          \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnLogout, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPDisconnectOnLogout                               \
+          SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnLogout                  \
+                      ,"DisconnectOnLogout"                             \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnSleep, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetPPPDisconnectOnSleep                                \
+          SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnSleep                   \
+                      ,"DisconnectOnSleep"                              \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectTime, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetPPPDisconnectTime                                   \
+          SC_SCHEMA_KV(kSCPropNetPPPDisconnectTime                      \
+                      ,"DisconnectTime"                                 \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminderTimer, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPIdleReminderTimer                                \
+          SC_SCHEMA_KV(kSCPropNetPPPIdleReminderTimer                   \
+                      ,"IdleReminderTimer"                              \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminder, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPIdleReminder                                     \
+          SC_SCHEMA_KV(kSCPropNetPPPIdleReminder                        \
+                      ,"IdleReminder"                                   \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLastCause, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetPPPLastCause                                        \
+          SC_SCHEMA_KV(kSCPropNetPPPLastCause                           \
+                      ,"LastCause"                                      \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLogfile, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLogfile                                          \
+          SC_SCHEMA_KV(kSCPropNetPPPLogfile                             \
+                      ,"Logfile"                                        \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPPlugins, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetPPPPlugins                                          \
+          SC_SCHEMA_KV(kSCPropNetPPPPlugins                             \
+                      ,"Plugins"                                        \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPRetryConnectTime, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetPPPRetryConnectTime                                 \
+          SC_SCHEMA_KV(kSCPropNetPPPRetryConnectTime                    \
+                      ,"RetryConnectTime"                               \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPSessionTimer, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPSessionTimer                                     \
+          SC_SCHEMA_KV(kSCPropNetPPPSessionTimer                        \
+                      ,"SessionTimer"                                   \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPStatus, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetPPPStatus                                           \
+          SC_SCHEMA_KV(kSCPropNetPPPStatus                              \
+                      ,"Status"                                         \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPUseSessionTimer, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetPPPUseSessionTimer                                  \
+          SC_SCHEMA_KV(kSCPropNetPPPUseSessionTimer                     \
+                      ,"UseSessionTimer"                                \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPVerboseLogging, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPVerboseLogging                                   \
+          SC_SCHEMA_KV(kSCPropNetPPPVerboseLogging                      \
+                      ,"VerboseLogging"                                 \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthEAPPlugins, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetPPPAuthEAPPlugins                                   \
+          SC_SCHEMA_KV(kSCPropNetPPPAuthEAPPlugins                      \
+                      ,"AuthEAPPlugins"                                 \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPAuthName                                         \
+          SC_SCHEMA_KV(kSCPropNetPPPAuthName                            \
+                      ,"AuthName"                                       \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPassword, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPAuthPassword                                     \
+          SC_SCHEMA_KV(kSCPropNetPPPAuthPassword                        \
+                      ,"AuthPassword"                                   \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPasswordEncryption, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPAuthPasswordEncryption                           \
+          SC_SCHEMA_KV(kSCPropNetPPPAuthPasswordEncryption              \
+                      ,"AuthPasswordEncryption"                         \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPrompt, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetPPPAuthPrompt                                       \
+          SC_SCHEMA_KV(kSCPropNetPPPAuthPrompt                          \
+                      ,"AuthPrompt"                                     \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthProtocol, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPAuthProtocol                                     \
+          SC_SCHEMA_KV(kSCPropNetPPPAuthProtocol                        \
+                      ,"AuthProtocol"                                   \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPasswordEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetPPPAuthPasswordEncryptionKeychain                    \
+          SC_SCHEMA_KV(kSCValNetPPPAuthPasswordEncryptionKeychain       \
+                      ,"Keychain"                                       \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptBefore, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetPPPAuthPromptBefore                                  \
+          SC_SCHEMA_KV(kSCValNetPPPAuthPromptBefore                     \
+                      ,"Before"                                         \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptAfter, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetPPPAuthPromptAfter                                   \
+          SC_SCHEMA_KV(kSCValNetPPPAuthPromptAfter                      \
+                      ,"After"                                          \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolCHAP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetPPPAuthProtocolCHAP                                  \
+          SC_SCHEMA_KV(kSCValNetPPPAuthProtocolCHAP                     \
+                      ,"CHAP"                                           \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolEAP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetPPPAuthProtocolEAP                                   \
+          SC_SCHEMA_KV(kSCValNetPPPAuthProtocolEAP                      \
+                      ,"EAP"                                            \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP1, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetPPPAuthProtocolMSCHAP1                               \
+          SC_SCHEMA_KV(kSCValNetPPPAuthProtocolMSCHAP1                  \
+                      ,"MSCHAP1"                                        \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP2, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetPPPAuthProtocolMSCHAP2                               \
+          SC_SCHEMA_KV(kSCValNetPPPAuthProtocolMSCHAP2                  \
+                      ,"MSCHAP2"                                        \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolPAP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCValNetPPPAuthProtocolPAP                                   \
+          SC_SCHEMA_KV(kSCValNetPPPAuthProtocolPAP                      \
+                      ,"PAP"                                            \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommAlternateRemoteAddress, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPCommAlternateRemoteAddress                       \
+          SC_SCHEMA_KV(kSCPropNetPPPCommAlternateRemoteAddress          \
+                      ,"CommAlternateRemoteAddress"                     \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommConnectDelay, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPCommConnectDelay                                 \
+          SC_SCHEMA_KV(kSCPropNetPPPCommConnectDelay                    \
+                      ,"CommConnectDelay"                               \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommDisplayTerminalWindow, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPCommDisplayTerminalWindow                        \
+          SC_SCHEMA_KV(kSCPropNetPPPCommDisplayTerminalWindow           \
+                      ,"CommDisplayTerminalWindow"                      \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialCount, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPCommRedialCount                                  \
+          SC_SCHEMA_KV(kSCPropNetPPPCommRedialCount                     \
+                      ,"CommRedialCount"                                \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialEnabled, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPCommRedialEnabled                                \
+          SC_SCHEMA_KV(kSCPropNetPPPCommRedialEnabled                   \
+                      ,"CommRedialEnabled"                              \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialInterval, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPCommRedialInterval                               \
+          SC_SCHEMA_KV(kSCPropNetPPPCommRedialInterval                  \
+                      ,"CommRedialInterval"                             \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRemoteAddress, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPCommRemoteAddress                                \
+          SC_SCHEMA_KV(kSCPropNetPPPCommRemoteAddress                   \
+                      ,"CommRemoteAddress"                              \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommTerminalScript, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPCommTerminalScript                               \
+          SC_SCHEMA_KV(kSCPropNetPPPCommTerminalScript                  \
+                      ,"CommTerminalScript"                             \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommUseTerminalScript, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetPPPCommUseTerminalScript                            \
+          SC_SCHEMA_KV(kSCPropNetPPPCommUseTerminalScript               \
+                      ,"CommUseTerminalScript"                          \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPEnabled, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  #define kSCPropNetPPPCCPEnabled                                       \
+          SC_SCHEMA_KV(kSCPropNetPPPCCPEnabled                          \
+                      ,"CCPEnabled"                                     \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE40Enabled, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetPPPCCPMPPE40Enabled                                 \
+          SC_SCHEMA_KV(kSCPropNetPPPCCPMPPE40Enabled                    \
+                      ,"CCPMPPE40Enabled"                               \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE128Enabled, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetPPPCCPMPPE128Enabled                                \
+          SC_SCHEMA_KV(kSCPropNetPPPCCPMPPE128Enabled                   \
+                      ,"CCPMPPE128Enabled"                              \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPCompressionVJ, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPIPCPCompressionVJ                                \
+          SC_SCHEMA_KV(kSCPropNetPPPIPCPCompressionVJ                   \
+                      ,"IPCPCompressionVJ"                              \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPUsePeerDNS, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetPPPIPCPUsePeerDNS                                   \
+          SC_SCHEMA_KV(kSCPropNetPPPIPCPUsePeerDNS                      \
+                      ,"IPCPUsePeerDNS"                                 \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoEnabled, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLCPEchoEnabled                                   \
+          SC_SCHEMA_KV(kSCPropNetPPPLCPEchoEnabled                      \
+                      ,"LCPEchoEnabled"                                 \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoFailure, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLCPEchoFailure                                   \
+          SC_SCHEMA_KV(kSCPropNetPPPLCPEchoFailure                      \
+                      ,"LCPEchoFailure"                                 \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoInterval, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLCPEchoInterval                                  \
+          SC_SCHEMA_KV(kSCPropNetPPPLCPEchoInterval                     \
+                      ,"LCPEchoInterval"                                \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionACField, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLCPCompressionACField                            \
+          SC_SCHEMA_KV(kSCPropNetPPPLCPCompressionACField               \
+                      ,"LCPCompressionACField"                          \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionPField, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLCPCompressionPField                             \
+          SC_SCHEMA_KV(kSCPropNetPPPLCPCompressionPField                \
+                      ,"LCPCompressionPField"                           \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMRU, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLCPMRU                                           \
+          SC_SCHEMA_KV(kSCPropNetPPPLCPMRU                              \
+                      ,"LCPMRU"                                         \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMTU, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLCPMTU                                           \
+          SC_SCHEMA_KV(kSCPropNetPPPLCPMTU                              \
+                      ,"LCPMTU"                                         \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPReceiveACCM, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLCPReceiveACCM                                   \
+          SC_SCHEMA_KV(kSCPropNetPPPLCPReceiveACCM                      \
+                      ,"LCPReceiveACCM"                                 \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPTransmitACCM, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetPPPLCPTransmitACCM                                  \
+          SC_SCHEMA_KV(kSCPropNetPPPLCPTransmitACCM                     \
+                      ,"LCPTransmitACCM"                                \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecret, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetL2TPIPSecSharedSecret                               \
+          SC_SCHEMA_KV(kSCPropNetL2TPIPSecSharedSecret                  \
+                      ,"IPSecSharedSecret"                              \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecretEncryption, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetL2TPIPSecSharedSecretEncryption                     \
+          SC_SCHEMA_KV(kSCPropNetL2TPIPSecSharedSecretEncryption        \
+                      ,"IPSecSharedSecretEncryption"                    \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetL2TPTransport, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCPropNetL2TPTransport                                       \
+          SC_SCHEMA_KV(kSCPropNetL2TPTransport                          \
+                      ,"Transport"                                      \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetL2TPIPSecSharedSecretEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetL2TPIPSecSharedSecretEncryptionKeychain              \
+          SC_SCHEMA_KV(kSCValNetL2TPIPSecSharedSecretEncryptionKeychain \
+                      ,"Keychain"                                       \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetL2TPTransportIP                                      \
+          SC_SCHEMA_KV(kSCValNetL2TPTransportIP                         \
+                      ,"IP"                                             \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIPSec, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  #define kSCValNetL2TPTransportIPSec                                   \
+          SC_SCHEMA_KV(kSCValNetL2TPTransportIPSec                      \
+                      ,"IPSec"                                          \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesExceptionsList, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesExceptionsList                               \
+          SC_SCHEMA_KV(kSCPropNetProxiesExceptionsList                  \
+                      ,"ExceptionsList"                                 \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesExcludeSimpleHostnames, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetProxiesExcludeSimpleHostnames                       \
+          SC_SCHEMA_KV(kSCPropNetProxiesExcludeSimpleHostnames          \
+                      ,"ExcludeSimpleHostnames"                         \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesFTPEnable                                    \
+          SC_SCHEMA_KV(kSCPropNetProxiesFTPEnable                       \
+                      ,"FTPEnable"                                      \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPassive, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesFTPPassive                                   \
+          SC_SCHEMA_KV(kSCPropNetProxiesFTPPassive                      \
+                      ,"FTPPassive"                                     \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesFTPPort                                      \
+          SC_SCHEMA_KV(kSCPropNetProxiesFTPPort                         \
+                      ,"FTPPort"                                        \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesFTPProxy                                     \
+          SC_SCHEMA_KV(kSCPropNetProxiesFTPProxy                        \
+                      ,"FTPProxy"                                       \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesGopherEnable                                 \
+          SC_SCHEMA_KV(kSCPropNetProxiesGopherEnable                    \
+                      ,"GopherEnable"                                   \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesGopherPort                                   \
+          SC_SCHEMA_KV(kSCPropNetProxiesGopherPort                      \
+                      ,"GopherPort"                                     \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesGopherProxy                                  \
+          SC_SCHEMA_KV(kSCPropNetProxiesGopherProxy                     \
+                      ,"GopherProxy"                                    \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesHTTPEnable                                   \
+          SC_SCHEMA_KV(kSCPropNetProxiesHTTPEnable                      \
+                      ,"HTTPEnable"                                     \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesHTTPPort                                     \
+          SC_SCHEMA_KV(kSCPropNetProxiesHTTPPort                        \
+                      ,"HTTPPort"                                       \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesHTTPProxy                                    \
+          SC_SCHEMA_KV(kSCPropNetProxiesHTTPProxy                       \
+                      ,"HTTPProxy"                                      \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesHTTPSEnable                                  \
+          SC_SCHEMA_KV(kSCPropNetProxiesHTTPSEnable                     \
+                      ,"HTTPSEnable"                                    \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesHTTPSPort                                    \
+          SC_SCHEMA_KV(kSCPropNetProxiesHTTPSPort                       \
+                      ,"HTTPSPort"                                      \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesHTTPSProxy                                   \
+          SC_SCHEMA_KV(kSCPropNetProxiesHTTPSProxy                      \
+                      ,"HTTPSProxy"                                     \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesRTSPEnable                                   \
+          SC_SCHEMA_KV(kSCPropNetProxiesRTSPEnable                      \
+                      ,"RTSPEnable"                                     \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesRTSPPort                                     \
+          SC_SCHEMA_KV(kSCPropNetProxiesRTSPPort                        \
+                      ,"RTSPPort"                                       \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesRTSPProxy                                    \
+          SC_SCHEMA_KV(kSCPropNetProxiesRTSPProxy                       \
+                      ,"RTSPProxy"                                      \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesSOCKSEnable                                  \
+          SC_SCHEMA_KV(kSCPropNetProxiesSOCKSEnable                     \
+                      ,"SOCKSEnable"                                    \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesSOCKSPort                                    \
+          SC_SCHEMA_KV(kSCPropNetProxiesSOCKSPort                       \
+                      ,"SOCKSPort"                                      \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropNetProxiesSOCKSProxy                                   \
+          SC_SCHEMA_KV(kSCPropNetProxiesSOCKSProxy                      \
+                      ,"SOCKSProxy"                                     \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigEnable, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetProxiesProxyAutoConfigEnable                        \
+          SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoConfigEnable           \
+                      ,"ProxyAutoConfigEnable"                          \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigURLString, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetProxiesProxyAutoConfigURLString                     \
+          SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoConfigURLString        \
+                      ,"ProxyAutoConfigURLString"                       \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoDiscoveryEnable, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  #define kSCPropNetProxiesProxyAutoDiscoveryEnable                     \
+          SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoDiscoveryEnable        \
+                      ,"ProxyAutoDiscoveryEnable"                       \
+                      ,CFNumber (0 or 1)                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCEntUsersConsoleUser, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCEntUsersConsoleUser                                        \
+          SC_SCHEMA_KV(kSCEntUsersConsoleUser                           \
+                      ,"ConsoleUser"                                    \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropSystemComputerName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropSystemComputerName                                     \
+          SC_SCHEMA_KV(kSCPropSystemComputerName                        \
+                      ,"ComputerName"                                   \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropSystemComputerNameEncoding, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropSystemComputerNameEncoding                             \
+          SC_SCHEMA_KV(kSCPropSystemComputerNameEncoding                \
+                      ,"ComputerNameEncoding"                           \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainFile, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStoreDomainFile                                     \
+          SC_SCHEMA_KV(kSCDynamicStoreDomainFile                        \
+                      ,"File:"                                          \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPlugin, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStoreDomainPlugin                                   \
+          SC_SCHEMA_KV(kSCDynamicStoreDomainPlugin                      \
+                      ,"Plugin:"                                        \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainSetup, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStoreDomainSetup                                    \
+          SC_SCHEMA_KV(kSCDynamicStoreDomainSetup                       \
+                      ,"Setup:"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainState, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStoreDomainState                                    \
+          SC_SCHEMA_KV(kSCDynamicStoreDomainState                       \
+                      ,"State:"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPrefs, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStoreDomainPrefs                                    \
+          SC_SCHEMA_KV(kSCDynamicStoreDomainPrefs                       \
+                      ,"Prefs:"                                         \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupCurrentSet, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStorePropSetupCurrentSet                            \
+          SC_SCHEMA_KV(kSCDynamicStorePropSetupCurrentSet               \
+                      ,"CurrentSet"                                     \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupLastUpdated, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStorePropSetupLastUpdated                           \
+          SC_SCHEMA_KV(kSCDynamicStorePropSetupLastUpdated              \
+                      ,"LastUpdated"                                    \
+                      ,                                                 )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetInterfaces, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStorePropNetInterfaces                              \
+          SC_SCHEMA_KV(kSCDynamicStorePropNetInterfaces                 \
+                      ,"Interfaces"                                     \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryInterface, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStorePropNetPrimaryInterface                        \
+          SC_SCHEMA_KV(kSCDynamicStorePropNetPrimaryInterface           \
+                      ,"PrimaryInterface"                               \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryService, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStorePropNetPrimaryService                          \
+          SC_SCHEMA_KV(kSCDynamicStorePropNetPrimaryService             \
+                      ,"PrimaryService"                                 \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetServiceIDs, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCDynamicStorePropNetServiceIDs                              \
+          SC_SCHEMA_KV(kSCDynamicStorePropNetServiceIDs                 \
+                      ,"ServiceIDs"                                     \
+                      ,CFArray[CFString]                                )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropUsersConsoleUserName                                   \
+          SC_SCHEMA_KV(kSCPropUsersConsoleUserName                      \
+                      ,"Name"                                           \
+                      ,CFString                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserUID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropUsersConsoleUserUID                                    \
+          SC_SCHEMA_KV(kSCPropUsersConsoleUserUID                       \
+                      ,"UID"                                            \
+                      ,CFNumber                                         )
+#endif
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserGID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)
+#endif
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  #define kSCPropUsersConsoleUserGID                                    \
+          SC_SCHEMA_KV(kSCPropUsersConsoleUserGID                       \
+                      ,"GID"                                            \
+                      ,CFNumber                                         )
+#endif
 
 #endif /* _SCSCHEMADEFINITIONS_H */

@@ -1,7 +1,7 @@
 /*
  * KerberosAgentController.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/KerberosAgentController.m,v 1.8 2005/01/23 17:53:20 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/KerberosAgentController.m,v 1.10 2005/06/07 23:42:01 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -27,6 +27,9 @@
  */
 
 #import "KerberosAgentController.h"
+#include <Carbon/Carbon.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <SystemConfiguration/SystemConfiguration.h>
 
 @implementation KerberosAgentController
 
@@ -66,6 +69,41 @@
     [aboutVersionTextField setStringValue: [NSString stringWithFormat: @"%@ %@", 
                                                (name != NULL) ? name : @"", (version != NULL) ? version : @""]];    
     [aboutCopyrightTextField setStringValue: (copyright != NULL) ? copyright : @""];
+
+    // Delete the services menu
+    NSMenu *mainMenu = [NSApp mainMenu];
+    if ((mainMenu != NULL) && ([mainMenu numberOfItems] > 1)) {
+        NSMenuItem *appMenuItem = [mainMenu itemAtIndex: 0];
+        if ((appMenuItem != NULL) && [appMenuItem hasSubmenu]) {
+            NSMenu *appMenu = [appMenuItem submenu];
+            if ((appMenu != NULL) && ([appMenu numberOfItems] == 7)) {
+                [appMenu removeItemAtIndex: 2]; // services
+                [appMenu removeItemAtIndex: 2]; // separator after services
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+- (void) applicationDidFinishLaunching: (NSNotification *) notification
+{
+    OSStatus err = 0;
+    uid_t uid = 0;
+    uid_t gid = 0;
+    
+    NSString *consoleUserName = (NSString *) SCDynamicStoreCopyConsoleUser(NULL, &uid, &gid);
+    dprintf ("applicationDidFinishLaunching: SCDynamicStoreCopyConsoleUser returned '%s' (uid = %d, gid = %d)", 
+             ((consoleUserName == NULL) ? "(null)" : [consoleUserName UTF8String]), uid, gid);
+    
+    if (consoleUserName == NULL) {
+        // We are running under the loginwindow
+        err = SetSystemUIMode (kUIModeAllHidden, 
+                               kUIOptionDisableProcessSwitch|kUIOptionDisableForceQuit|kUIOptionDisableSessionTerminate);
+    } else {
+        err = SetSystemUIMode (kUIModeNormal, kUIOptionDisableAppleMenu);
+    }
+    dprintf ("applicationDidFinishLaunching: SetSystemUIMode returned err %ld", err);
 }
 
 // ---------------------------------------------------------------------------
@@ -74,6 +112,7 @@
 {
     [aboutWindow center];
     [aboutWindow makeKeyAndOrderFront: self];
+    [NSApp mainMenu];
 }
 
 // ---------------------------------------------------------------------------

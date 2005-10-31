@@ -1,10 +1,22 @@
 ========================================================================
 KerberosErrors Version History
 ========================================================================
-Current version: 1.6fc1
-Date:            December 6, 2004
+Current version: 1.6.1fc1
+Date:            June 15, 2005
 Author:          lxs@mit.edu, meeroh@mit.edu
 ========================================================================
+
+KerberosErrors 1.6.1
+Released with KfM 5.5.1
+
+========================================================================
+
+	KerberosErrors 1.6.1fc1
+	June 15, 2005
+
+	[RT 3093] compile_et fails on strings containing " index "
+
+	========================================================================
 
 KerberosErrors 1.6
 Released with KfM 5.5

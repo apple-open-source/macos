@@ -74,9 +74,11 @@ extern uint32_t notify_register_plain(const char *name, int *out_token);
 
 #define NETINFO_NOTIFY_PREFIX "com.apple.system.netinfo"
 #define NETINFO_NOTIFY_SUFFIX "binding_change"
-static char *notification_name = NULL;
 
 static ni_status binding_status = NI_FAILED;
+static int notify_set_binding_status = 0;
+static int notify_token = -1;
+static char *notification_name = NULL;
 
 /*
  * Lookup "name"s address - returns it in net format
@@ -657,9 +659,37 @@ get_port(void *ni, char *proto)
 	return p;
 }
 
+#define BINDING_STATE_UNBOUND 0
+#define BINDING_STATE_BOUND 1
+#define BINDING_STATE_NETROOT 2
+
 ni_status
 get_binding_status(void)
 {
+	int state;
+
+	if (notify_set_binding_status != 0)
+	{
+		if ((notification_name == NULL) && (db_tag != NULL)) 
+		{
+			asprintf(&notification_name, "%s.%s.%s", NETINFO_NOTIFY_PREFIX, db_tag, NETINFO_NOTIFY_SUFFIX);
+		}
+		
+		if (notify_token == -1)
+		{
+			notify_register_plain(notification_name, &notify_token);
+		}
+
+		state = BINDING_STATE_UNBOUND;
+		if (binding_status == NI_OK) state = BINDING_STATE_BOUND;
+		else if (binding_status == NI_NETROOT) state = BINDING_STATE_NETROOT;
+	
+		notify_set_state(notify_token, state);
+		notify_post(notification_name);
+
+		notify_set_binding_status = 0;
+	}
+		
 	return binding_status;
 }
 
@@ -676,20 +706,24 @@ get_binding_status(void)
  * 2 - netroot
  */
  
-#define BINDING_STATE_UNBOUND 0
-#define BINDING_STATE_BOUND 1
-#define BINDING_STATE_NETROOT 2
-
 void
-set_binding_status(ni_status stat)
+set_binding_status(ni_status stat, int from_sighup)
 {
-	static int token = -1;
 	int old_state, new_state;
 
-	if ((notification_name == NULL) && (db_tag != NULL))
+	notify_set_binding_status = 0;
+
+	if (from_sighup == 0)
 	{
-		asprintf(&notification_name, "%s.%s.%s", NETINFO_NOTIFY_PREFIX, db_tag, NETINFO_NOTIFY_SUFFIX);
-		notify_register_plain(notification_name, &token);
+		if ((notification_name == NULL) && (db_tag != NULL)) 
+		{
+			asprintf(&notification_name, "%s.%s.%s", NETINFO_NOTIFY_PREFIX, db_tag, NETINFO_NOTIFY_SUFFIX);
+		}
+	
+		if (notify_token == -1)
+		{
+			notify_register_plain(notification_name, &notify_token);
+		}
 	}
 
 	old_state = BINDING_STATE_UNBOUND;
@@ -700,10 +734,17 @@ set_binding_status(ni_status stat)
 	if (stat == NI_OK) new_state = BINDING_STATE_BOUND;
 	else if (stat == NI_NETROOT) new_state = BINDING_STATE_NETROOT;
 
-	if ((old_state != new_state) && (notification_name != NULL))
+	if ((old_state != new_state) && (notify_token != -1))
 	{
-		notify_set_state(token, new_state);
-		notify_post(notification_name);
+		if (from_sighup == 0)
+		{
+			notify_set_state(notify_token, new_state);
+			notify_post(notification_name);
+		}
+		else
+		{
+			notify_set_binding_status = 1;
+		}
 	}
 
 	binding_status = stat;

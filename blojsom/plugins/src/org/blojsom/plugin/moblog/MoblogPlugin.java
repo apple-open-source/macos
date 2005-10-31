@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,11 +37,17 @@ package org.blojsom.plugin.moblog;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.blojsom.BlojsomException;
-import org.blojsom.blog.*;
+import org.blojsom.blog.Blog;
+import org.blojsom.blog.BlogEntry;
+import org.blojsom.blog.BlogUser;
+import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.fetcher.BlojsomFetcher;
 import org.blojsom.fetcher.BlojsomFetcherException;
-import org.blojsom.plugin.BlojsomPlugin;
 import org.blojsom.plugin.BlojsomPluginException;
+import org.blojsom.plugin.admin.event.AddBlogEntryEvent;
+import org.blojsom.plugin.email.EmailConstants;
+import org.blojsom.plugin.email.SimpleAuthenticator;
+import org.blojsom.plugin.velocity.StandaloneVelocityPlugin;
 import org.blojsom.util.BlojsomConstants;
 import org.blojsom.util.BlojsomMetaDataConstants;
 import org.blojsom.util.BlojsomUtils;
@@ -49,24 +55,40 @@ import org.blojsom.util.BlojsomUtils;
 import javax.mail.*;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMultipart;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.ConnectException;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Moblog Plugin
  *
  * @author David Czarnecki
  * @author Mark Lussier
- * @version $Id: MoblogPlugin.java,v 1.1 2004/08/27 01:06:39 whitmore Exp $
+ * @version $Id: MoblogPlugin.java,v 1.1.2.1 2005/07/21 04:30:34 johnan Exp $
  * @since blojsom 2.14
  */
-public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
+public class MoblogPlugin extends StandaloneVelocityPlugin implements EmailConstants {
 
     private Log _logger = LogFactory.getLog(MoblogPlugin.class);
+
+    private static final String MOBLOG_ENTRY_TEMPLATE = "org/blojsom/plugin/moblog/moblog-plugin-template.vm";
+
+    private static final String MOBLOG_SUBJECT = "MOBLOG_SUBJECT";
+    private static final String MOBLOG_BODY_TEXT = "MOBLOG_BODY_TEXT";
+    private static final String MOBLOG_IMAGES = "MOBLOG_IMAGES";
+    private static final String MOBLOG_ATTACHMENTS = "MOBLOG_ATTACHMENTS";
+    private static final String MOBLOG_ATTACHMENT = "MOBLOG_ATTACHMENT";
+    private static final String MOBLOG_ATTACHMENT_URL = "MOBLOG_ATTACHMENT_URL";
+    private static final String MOBLOG_IMAGE = "MOBLOG_IMAGE";
+    private static final String MOBLOG_IMAGE_URL = "MOBLOG_IMAGE_URL";
 
     /**
      * Multipart/alternative mime-type
@@ -96,12 +118,12 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
     /**
      * Default store
      */
-    private static final String POP3_STORE = "pop3";
+    private static final String DEFAULT_MESSAGE_STORE = "pop3";
 
     /**
-     * Default poll time (5 minutes)
+     * Default poll time (10 minutes)
      */
-    private static final int DEFAULT_POLL_TIME = 360;
+    private static final int DEFAULT_POLL_TIME = 720;
 
     /**
      * Moblog confifguration parameter for web.xml
@@ -112,6 +134,11 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
      * Moblog configuration parameter for mailbox polling time (5 minutes)
      */
     public static final String PLUGIN_MOBLOG_POLL_TIME = "plugin-moblog-poll-time";
+
+    /**
+     * Moblog configuration parameter for message store provider
+     */
+    public static final String PLUGIN_MOBLOG_STORE_PROVIDER = "plugin-moblog-store-provider";
 
     /**
      * Default moblog authorization properties file which lists valid e-mail addresses who can moblog entries
@@ -148,6 +175,7 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
      */
     public static final String PROPERTY_ENABLED = "moblog-enabled";
 
+
     /**
      * Configuration property for the secret word that must be present at the beginning of the subject
      */
@@ -168,16 +196,21 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
      */
     public static final String PLUGIN_MOBLOG_TEXT_MIME_TYPES = "moblog-text-mime-types";
 
+    /**
+     * Configuration property for regular expression to ignore a certain portion of text
+     */
+    public static final String PLUGIN_MOBLOG_IGNORE_EXPRESSION = "moblog-ignore-expression";
+
     private int _pollTime;
 
-    private Session _popSession;
+    private Session _storeSession;
     private boolean _finished = false;
     private MailboxChecker _checker;
     private ServletConfig _servletConfig;
     private BlojsomConfiguration _blojsomConfiguration;
+    private String _storeProvider;
 
     private BlojsomFetcher _fetcher;
-
 
     /**
      * Initialize this plugin. This method only called when the plugin is
@@ -193,6 +226,7 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
      */
     public void init(ServletConfig servletConfig, BlojsomConfiguration
             blojsomConfiguration) throws BlojsomPluginException {
+        super.init(servletConfig, blojsomConfiguration);
 
         String fetcherClassName = blojsomConfiguration.getFetcherClass();
         try {
@@ -226,10 +260,40 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
             }
         }
 
+        _storeProvider = servletConfig.getInitParameter(PLUGIN_MOBLOG_STORE_PROVIDER);
+        if (BlojsomUtils.checkNullOrBlank(_storeProvider)) {
+            _storeProvider = DEFAULT_MESSAGE_STORE;
+        }
+
         _servletConfig = servletConfig;
         _blojsomConfiguration = blojsomConfiguration;
         _checker = new MailboxChecker();
-        _popSession = Session.getDefaultInstance(System.getProperties(), null);
+        _checker.setDaemon(true);
+
+        String hostname = servletConfig.getInitParameter(SMTPSERVER_IP);
+        if (hostname != null) {
+            if (hostname.startsWith("java:comp/env")) {
+                try {
+                    Context context = new InitialContext();
+                    _storeSession = (Session) context.lookup(hostname);
+                } catch (NamingException e) {
+                    _logger.error(e);
+                    throw new BlojsomPluginException(e);
+                }
+            } else {
+                String username = servletConfig.getInitParameter(SMTPSERVER_USERNAME_IP);
+                String password = servletConfig.getInitParameter(SMTPSERVER_PASSWORD_IP);
+
+                Properties props = new Properties();
+                props.put(SESSION_NAME, hostname);
+                if (BlojsomUtils.checkNullOrBlank(username) || BlojsomUtils.checkNullOrBlank(password)) {
+                    _storeSession = Session.getInstance(props, null);
+                } else {
+                    _storeSession = Session.getInstance(props, new SimpleAuthenticator(username, password));
+                }
+            }
+        }
+
         _checker.start();
 
         _logger.debug("Initialized moblog plugin.");
@@ -301,7 +365,7 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
             Store store = null;
             String subject = null;
             try {
-                store = _popSession.getStore(POP3_STORE);
+                store = _storeSession.getStore(_storeProvider);
                 store.connect(mailbox.getHostName(), mailbox.getUserId(), mailbox.getPassword());
 
                 // -- Try to get hold of the default folder --
@@ -342,6 +406,15 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
                         StringBuffer entry = new StringBuffer();
                         StringBuffer description = new StringBuffer();
                         Part messagePart = email;
+                        Pattern pattern = null;
+                        List moblogImages = new ArrayList();
+                        List moblogAttachments = new ArrayList();
+                        Map moblogContext = new HashMap();
+
+                        if (mailbox.getIgnoreExpression() != null) {
+                            pattern = Pattern.compile(mailbox.getIgnoreExpression(), Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.UNICODE_CASE | Pattern.DOTALL);
+                        }
+
                         if (subject == null) {
                             subject = "";
                         } else {
@@ -364,6 +437,7 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
                             // Check for multipart/alternative
                             String overallType = email.getContentType();
                             overallType = sanitizeContentType(overallType);
+
                             boolean isMultipartAlternative = false;
                             if (MULTIPART_ALTERNATIVE_MIME_TYPE.equals(overallType)) {
                                 isMultipartAlternative = true;
@@ -378,7 +452,6 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
                                 String type = bp.getContentType();
                                 if (type != null) {
                                     type = sanitizeContentType(type);
-
                                     Map imageMimeTypes = mailbox.getImageMimeTypes();
                                     Map attachmentMimeTypes = mailbox.getAttachmentMimeTypes();
                                     Map textMimeTypes = mailbox.getTextMimeTypes();
@@ -409,7 +482,16 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
                                                         }
 
                                                         reader.close();
-                                                        entry.append(description);
+                                                        if (pattern != null) {
+                                                            Matcher matcher = pattern.matcher(description);
+                                                            if (!matcher.find() && !matcher.matches()) {
+                                                                //entry.append(description);
+                                                                moblogContext.put(MOBLOG_BODY_TEXT, description.toString());
+                                                            }
+                                                        } else {
+                                                            //entry.append(description);
+                                                            moblogContext.put(MOBLOG_BODY_TEXT, description.toString());
+                                                        }
                                                     } else {
                                                         _logger.debug("Skipping non-HTML part of multipart/alternative block");
                                                     }
@@ -421,13 +503,8 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
                                             _logger.debug("Multipart alternative block not instance of MimeMultipart");
                                         }
                                     } else {
-
                                         if (imageMimeTypes.containsKey(type)) {
                                             _logger.debug("Creating image of type: " + type);
-                                            InputStream is = bp.getInputStream();
-                                            byte[] imageFile = new byte[is.available()];
-                                            is.read(imageFile, 0, is.available());
-                                            is.close();
                                             String outputFilename =
                                                     BlojsomUtils.digestString(bp.getFileName() + "-" + new Date().getTime());
                                             String extension = BlojsomUtils.getFileExtension(bp.getFileName());
@@ -437,18 +514,21 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
 
                                             _logger.debug("Writing to: " + mailbox.getOutputDirectory() + File.separator +
                                                     outputFilename + "." + extension);
-                                            FileOutputStream fos = new
-                                                    FileOutputStream(new File(mailbox.getOutputDirectory() + File.separator + outputFilename + "." + extension));
-                                            fos.write(imageFile);
-                                            fos.close();
+                                            MoblogPluginUtils.saveFile(mailbox.getOutputDirectory() + File.separator + outputFilename, "." + extension, bp.getInputStream());
                                             String baseurl = mailbox.getBlogUser().getBlog().getBlogBaseURL();
-                                            entry.append("<p /><img src=\"").append(baseurl).append(mailbox.getUrlPrefix()).append(outputFilename + "." + extension).append("\" border=\"0\" />");
+                                            /*
+                                            entry.append("<p /><img src=\"").append(baseurl).
+                                                    append(mailbox.getUrlPrefix()).
+                                                    append(outputFilename + "." + extension).
+                                                    append("\" border=\"0\" alt=\"").append(outputFilename).
+                                                    append("\" />");
+                                                    */
+                                            Map moblogImageInformation = new HashMap();
+                                            moblogImageInformation.put(MOBLOG_IMAGE, new String(outputFilename + "." + extension));
+                                            moblogImageInformation.put(MOBLOG_IMAGE_URL, new String(baseurl + mailbox.getUrlPrefix() + outputFilename + "." + extension));
+                                            moblogImages.add(moblogImageInformation);
                                         } else if (attachmentMimeTypes.containsKey(type)) {
                                             _logger.debug("Creating attachment of type: " + type);
-                                            InputStream is = bp.getInputStream();
-                                            byte[] attachmentFile = new byte[is.available()];
-                                            is.read(attachmentFile, 0, is.available());
-                                            is.close();
                                             String outputFilename =
                                                     BlojsomUtils.digestString(bp.getFileName() + "-" + new Date().getTime());
                                             String extension = BlojsomUtils.getFileExtension(bp.getFileName());
@@ -458,12 +538,13 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
 
                                             _logger.debug("Writing to: " + mailbox.getOutputDirectory() + File.separator +
                                                     outputFilename + "." + extension);
-                                            FileOutputStream fos = new
-                                                    FileOutputStream(new File(mailbox.getOutputDirectory() + File.separator + outputFilename + "." + extension));
-                                            fos.write(attachmentFile);
-                                            fos.close();
+                                            MoblogPluginUtils.saveFile(mailbox.getOutputDirectory() + File.separator + outputFilename, "." + extension, bp.getInputStream());
                                             String baseurl = mailbox.getBlogUser().getBlog().getBlogBaseURL();
-                                            entry.append("<p /><a href=\"").append(baseurl).append(mailbox.getUrlPrefix()).append(outputFilename + "." + extension).append("\">").append(bp.getFileName()).append("</a>");
+                                            //entry.append("<p /><a href=\"").append(baseurl).append(mailbox.getUrlPrefix()).append(outputFilename + "." + extension).append("\">").append(bp.getFileName()).append("</a>");
+                                            Map moblogAttachmentInformation = new HashMap();
+                                            moblogAttachmentInformation.put(MOBLOG_ATTACHMENT, bp.getFileName());
+                                            moblogAttachmentInformation.put(MOBLOG_ATTACHMENT_URL, new String(baseurl + mailbox.getUrlPrefix() + outputFilename + "." + extension));
+                                            moblogAttachments.add(moblogAttachmentInformation);
                                         } else if (textMimeTypes.containsKey(type)) {
                                             if ((isMultipartAlternative && (TEXT_HTML_MIME_TYPE.equals(type))) || !isMultipartAlternative) {
                                                 _logger.debug("Using text part of type: " + type);
@@ -480,7 +561,16 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
                                                 }
 
                                                 reader.close();
-                                                entry.append(description);
+                                                if (pattern != null) {
+                                                    Matcher matcher = pattern.matcher(description);
+                                                    if (!matcher.find() && !matcher.matches()) {
+                                                        //entry.append(description);
+                                                        moblogContext.put(MOBLOG_BODY_TEXT, description.toString());
+                                                    }
+                                                } else {
+                                                    //entry.append(description);
+                                                    moblogContext.put(MOBLOG_BODY_TEXT, description.toString());
+                                                }
                                             }
                                         } else {
                                             _logger.info("Unknown mimetype for multipart: " + type);
@@ -510,14 +600,20 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
                                 }
 
                                 reader.close();
-                                entry.append(description);
+                                if (pattern != null) {
+                                    Matcher matcher = pattern.matcher(description);
+                                    if (!matcher.find() && !matcher.matches()) {
+                                        //entry.append(description);
+                                        moblogContext.put(MOBLOG_BODY_TEXT, description.toString());
+                                    }
+                                } else {
+                                    //entry.append(description);
+                                    moblogContext.put(MOBLOG_BODY_TEXT, description.toString());
+                                }
                             } else {
                                 _logger.info("Unknown mimetype: " + mimeType);
                             }
                         }
-
-                        String filename = BlojsomUtils.digestString(entry.toString());
-                        filename += ".txt";
 
                         // Process subject to change category for moblog post
                         boolean categoryInSubject = false;
@@ -542,16 +638,29 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
                             }
                         }
 
-
                         BlogUser blogUser = mailbox.getBlogUser();
                         String categoryName = categoryInSubject ? categoryFromSubject : mailbox.getCategoryName();
                         File blogCategory = getBlogCategoryDirectory(blogUser.getBlog(), categoryName);
 
                         if (blogCategory.exists() && blogCategory.isDirectory()) {
+                            String extension = DEFAULT_ENTRY_EXTENSION;
+
+                            moblogContext.put(MOBLOG_SUBJECT, subject);
+                            moblogContext.put(MOBLOG_IMAGES, moblogImages);
+                            moblogContext.put(MOBLOG_ATTACHMENTS, moblogAttachments);
+                            String moblogText = mergeTemplate(MOBLOG_ENTRY_TEMPLATE, blogUser, moblogContext);
+
+                            String filename = BlojsomUtils.getBlogEntryFilename(subject, moblogText);
                             String outputfile = blogCategory.getAbsolutePath() + File.separator + filename;
 
                             try {
-                                File sourceFile = new File(outputfile);
+                                File sourceFile = new File(outputfile + extension);
+                                int fileTag = 1;
+                                while (sourceFile.exists()) {
+                                    sourceFile = new File(outputfile + "-" + fileTag + extension);
+                                    fileTag++;
+                                }
+
                                 BlogEntry blogEntry;
                                 blogEntry = _fetcher.newBlogEntry();
 
@@ -562,13 +671,16 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
 
                                 blogEntry.setTitle(subject);
                                 blogEntry.setCategory(categoryName);
-                                blogEntry.setDescription(entry.toString());
+                                blogEntry.setDescription(moblogText);
                                 blogEntryMetaData.put(BlojsomMetaDataConstants.BLOG_ENTRY_METADATA_TIMESTAMP, new Long(new Date().getTime()).toString());
                                 blogEntryMetaData.put(BlojsomMetaDataConstants.BLOG_ENTRY_METADATA_AUTHOR_EXT, from);
                                 blogEntry.setMetaData(blogEntryMetaData);
                                 blogEntry.save(mailbox.getBlogUser());
+                                blogEntry.load(mailbox.getBlogUser());
 
                                 msgs[msgNum].setFlag(Flags.Flag.DELETED, true);
+
+                                _blojsomConfiguration.getEventBroadcaster().broadcastEvent(new AddBlogEntryEvent(this, new Date(), blogEntry, mailbox.getBlogUser()));
                             } catch (BlojsomException e) {
                                 _logger.error(e);
                             }
@@ -619,17 +731,22 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
                 while (!_finished) {
                     _logger.debug("Moblog plugin waking up and looking for new messages");
 
-                    Iterator userIterator = _blojsomConfiguration.getBlogUsers().keySet().iterator();
-                    while (userIterator.hasNext()) {
-                        String user = (String) userIterator.next();
-                        BlogUser blogUser = (BlogUser) _blojsomConfiguration.getBlogUsers().get(user);
+                    String[] users = _blojsomConfiguration.getBlojsomUsers();
+                    for (int i = 0; i < users.length; i++) {
+                        String user = users[i];
+                        BlogUser blogUser = null;
+                        try {
+                            blogUser = (BlogUser) _blojsomConfiguration.loadBlog(user);
 
-                        Mailbox mailbox = MoblogPluginUtils.readMailboxSettingsForUser(_blojsomConfiguration, _servletConfig, blogUser);
-                        if (mailbox != null) {
-                            if (mailbox.isEnabled()) {
-                                _logger.debug("Checking mailbox: " + mailbox.getUserId() + " for user: " + mailbox.getBlogUser().getId());
-                                processMailbox(mailbox);
+                            Mailbox mailbox = MoblogPluginUtils.readMailboxSettingsForUser(_blojsomConfiguration, _servletConfig, blogUser);
+                            if (mailbox != null) {
+                                if (mailbox.isEnabled()) {
+                                    _logger.debug("Checking mailbox: " + mailbox.getUserId() + " for user: " + mailbox.getBlogUser().getId());
+                                    processMailbox(mailbox);
+                                }
                             }
+                        } catch (BlojsomException e) {
+                            _logger.error(e);
                         }
                     }
 
@@ -690,6 +807,6 @@ public class MoblogPlugin implements BlojsomPlugin, BlojsomConstants {
             return contentType.substring(0, semicolonIndex);
         }
 
-        return contentType;
+        return contentType.toLowerCase();
     }
 }

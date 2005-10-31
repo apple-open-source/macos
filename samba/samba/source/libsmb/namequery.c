@@ -1131,7 +1131,7 @@ static BOOL internal_resolve_name(const char *name, int name_type,
 		}
  
 		/* Save in name cache */
-		if ( DEBUGLEVEL >= 100 ) {
+		if ( SAMBA_DEBUGLEVEL >= 100 ) {
 			for (i = 0; i < *return_count && DEBUGLEVEL == 100; i++)
 				DEBUG(100, ("Storing name %s of type %d (%s:%d)\n", name,
 					name_type, inet_ntoa((*return_iplist)[i].ip), (*return_iplist)[i].port));
@@ -1141,7 +1141,7 @@ static BOOL internal_resolve_name(const char *name, int name_type,
 
 		/* Display some debugging info */
 
-		if ( DEBUGLEVEL >= 10 ) {
+		if ( SAMBA_DEBUGLEVEL >= 10 ) {
 			DEBUG(10, ("internal_resolve_name: returning %d addresses: ", *return_count));
 
 			for (i = 0; i < *return_count; i++) {
@@ -1401,7 +1401,7 @@ static BOOL get_dc_list(const char *domain, struct ip_service **ip_list,
 			local_count = remove_duplicate_addrs2( return_iplist, local_count );
 		}
 		
-		if ( DEBUGLEVEL >= 4 ) {
+		if ( SAMBA_DEBUGLEVEL >= 4 ) {
 			DEBUG(4,("get_dc_list: returning %d ip addresses in an %sordered list\n", local_count, 
 				*ordered ? "":"un"));
 			DEBUG(4,("get_dc_list: "));

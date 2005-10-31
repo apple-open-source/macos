@@ -1,6 +1,7 @@
 /* Perform various loop optimizations, including strength reduction.
-   Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995,
+   1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -275,7 +276,8 @@ typedef struct loop_mem_info
 {
   rtx mem;      /* The MEM itself.  */
   rtx reg;      /* Corresponding pseudo, if any.  */
-  int optimize; /* Nonzero if we can optimize access to this MEM.  */
+  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+  int optimizable; /* Nonzero if we can optimize access to this MEM.  */
 } loop_mem_info;
 
 
@@ -665,6 +667,14 @@ static void record_giv (const struct loop *, struct induction *, rtx, rtx,
 			rtx, rtx, rtx, rtx, int, enum g_types, int, int,
 			rtx *);
 static void update_giv_derive (const struct loop *, rtx);
+static HOST_WIDE_INT get_monotonic_increment (struct iv_class *);
+static bool biased_biv_fits_mode_p (const struct loop *, struct iv_class *,
+				    HOST_WIDE_INT, enum machine_mode,
+				    unsigned HOST_WIDE_INT);
+static bool biv_fits_mode_p (const struct loop *, struct iv_class *,
+			     HOST_WIDE_INT, enum machine_mode, bool);
+static bool extension_within_bounds_p (const struct loop *, struct iv_class *,
+				       HOST_WIDE_INT, rtx);
 static void check_ext_dependent_givs (const struct loop *, struct iv_class *);
 static int basic_induction_var (const struct loop *, rtx, enum machine_mode,
 				rtx, rtx, rtx *, rtx *, rtx **);
@@ -862,7 +872,7 @@ loop_optimize (rtx f, FILE *dumpfile, int flags)
   /* Now find all register lifetimes.  This must be done after
      find_and_verify_loops, because it might reorder the insns in the
      function.  */
-  reg_scan (f, max_reg_before_loop, 1);
+  reg_scan (f, max_reg_before_loop);
 
   /* This must occur after reg_scan so that registers created by gcse
      will have entries in the register tables.
@@ -1132,6 +1142,9 @@ scan_loop (struct loop *loop, int flags)
 	in_libcall--;
       if (NONJUMP_INSN_P (p))
 	{
+	  /* Do not scan past an optimization barrier.  */
+	  if (GET_CODE (PATTERN (p)) == ASM_INPUT)
+	    break;
 	  temp = find_reg_note (p, REG_LIBCALL, NULL_RTX);
 	  if (temp)
 	    in_libcall++;
@@ -3860,7 +3873,6 @@ count_one_set (struct loop_regs *regs, rtx insn, rtx x, rtx *last_set)
       rtx dest = SET_DEST (x);
       while (GET_CODE (dest) == SUBREG
 	     || GET_CODE (dest) == ZERO_EXTRACT
-	     || GET_CODE (dest) == SIGN_EXTRACT
 	     || GET_CODE (dest) == STRICT_LOW_PART)
 	dest = XEXP (dest, 0);
       if (REG_P (dest))
@@ -4128,7 +4140,7 @@ emit_prefetch_instructions (struct loop *loop)
   struct prefetch_info info[MAX_PREFETCHES];
   struct loop_ivs *ivs = LOOP_IVS (loop);
 
-  if (!HAVE_prefetch)
+  if (!HAVE_prefetch || PREFETCH_BLOCK == 0)
     return;
 
   /* Consider only loops w/o calls.  When a call is done, the loop is probably
@@ -4659,12 +4671,18 @@ for_each_insn_in_loop (struct loop *loop, loop_insn_callback fncall)
   int not_every_iteration = 0;
   int maybe_multiple = 0;
   int past_loop_latch = 0;
+  bool exit_test_is_entry = false;
   rtx p;
 
-  /* If loop_scan_start points to the loop exit test, we have to be wary of
-     subversive use of gotos inside expression statements.  */
+  /* If loop_scan_start points to the loop exit test, the loop body
+     cannot be counted on running on every iteration, and we have to
+     be wary of subversive use of gotos inside expression
+     statements.  */
   if (prev_nonnote_insn (loop->scan_start) != prev_nonnote_insn (loop->start))
-    maybe_multiple = back_branch_in_range_p (loop, loop->scan_start);
+    {
+      exit_test_is_entry = true;
+      maybe_multiple = back_branch_in_range_p (loop, loop->scan_start);
+    }
 
   /* Scan through loop and update NOT_EVERY_ITERATION and MAYBE_MULTIPLE.  */
   for (p = next_insn_in_loop (loop, loop->scan_start);
@@ -4722,10 +4740,12 @@ for_each_insn_in_loop (struct loop *loop, loop_insn_callback fncall)
          beginning, don't set not_every_iteration for that.
          This can be any kind of jump, since we want to know if insns
          will be executed if the loop is executed.  */
-	  && !(JUMP_LABEL (p) == loop->top
-	       && ((NEXT_INSN (NEXT_INSN (p)) == loop->end
-		    && any_uncondjump_p (p))
-		   || (NEXT_INSN (p) == loop->end && any_condjump_p (p)))))
+	  && (exit_test_is_entry
+	      || !(JUMP_LABEL (p) == loop->top
+		   && ((NEXT_INSN (NEXT_INSN (p)) == loop->end
+			&& any_uncondjump_p (p))
+		       || (NEXT_INSN (p) == loop->end
+			   && any_condjump_p (p))))))
 	{
 	  rtx label = 0;
 
@@ -5474,9 +5494,20 @@ loop_givs_rescan (struct loop *loop, struct iv_class *bl, rtx *reg_map)
 	mark_reg_pointer (v->new_reg, 0);
 
       if (v->giv_type == DEST_ADDR)
-	/* Store reduced reg as the address in the memref where we found
-	   this giv.  */
-	validate_change (v->insn, v->location, v->new_reg, 0);
+	{
+	  /* Store reduced reg as the address in the memref where we found
+	     this giv.  */
+	  if (!validate_change (v->insn, v->location, v->new_reg, 0))
+	    {
+	      if (loop_dump_stream)
+		fprintf (loop_dump_stream,
+			 "unable to reduce iv to register in insn %d\n",
+			 INSN_UID (v->insn));
+	      bl->all_reduced = 0;
+	      v->ignore = 1;
+	      continue;
+	    }
+	}
       else if (v->replaceable)
 	{
 	  reg_map[REGNO (v->dest_reg)] = v->new_reg;
@@ -7622,9 +7653,8 @@ basic_induction_var (const struct loop *loop, rtx x, enum machine_mode mode,
 					dest_reg, insn,
 					inc_val, mult_val, location);
 
-	  while (GET_CODE (dest) == SIGN_EXTRACT
+	  while (GET_CODE (dest) == SUBREG
 		 || GET_CODE (dest) == ZERO_EXTRACT
-		 || GET_CODE (dest) == SUBREG
 		 || GET_CODE (dest) == STRICT_LOW_PART)
 	    dest = XEXP (dest, 0);
 	  if (dest == x)
@@ -8637,6 +8667,173 @@ combine_givs_p (struct induction *g1, struct induction *g2)
   return NULL_RTX;
 }
 
+/* See if BL is monotonic and has a constant per-iteration increment.
+   Return the increment if so, otherwise return 0.  */
+
+static HOST_WIDE_INT
+get_monotonic_increment (struct iv_class *bl)
+{
+  struct induction *v;
+  rtx incr;
+
+  /* Get the total increment and check that it is constant.  */
+  incr = biv_total_increment (bl);
+  if (incr == 0 || GET_CODE (incr) != CONST_INT)
+    return 0;
+
+  for (v = bl->biv; v != 0; v = v->next_iv)
+    {
+      if (GET_CODE (v->add_val) != CONST_INT)
+	return 0;
+
+      if (INTVAL (v->add_val) < 0 && INTVAL (incr) >= 0)
+	return 0;
+
+      if (INTVAL (v->add_val) > 0 && INTVAL (incr) <= 0)
+	return 0;
+    }
+  return INTVAL (incr);
+}
+
+
+/* Subroutine of biv_fits_mode_p.  Return true if biv BL, when biased by
+   BIAS, will never exceed the unsigned range of MODE.  LOOP is the loop
+   to which the biv belongs and INCR is its per-iteration increment.  */
+
+static bool
+biased_biv_fits_mode_p (const struct loop *loop, struct iv_class *bl,
+			HOST_WIDE_INT incr, enum machine_mode mode,
+			unsigned HOST_WIDE_INT bias)
+{
+  unsigned HOST_WIDE_INT initial, maximum, span, delta;
+
+  /* We need to be able to manipulate MODE-size constants.  */
+  if (HOST_BITS_PER_WIDE_INT < GET_MODE_BITSIZE (mode))
+    return false;
+
+  /* The number of loop iterations must be constant.  */
+  if (LOOP_INFO (loop)->n_iterations == 0)
+    return false;
+
+  /* So must the biv's initial value.  */
+  if (bl->initial_value == 0 || GET_CODE (bl->initial_value) != CONST_INT)
+    return false;
+
+  initial = bias + INTVAL (bl->initial_value);
+  maximum = GET_MODE_MASK (mode);
+
+  /* Make sure that the initial value is within range.  */
+  if (initial > maximum)
+    return false;
+
+  /* Set up DELTA and SPAN such that the number of iterations * DELTA
+     (calculated to arbitrary precision) must be <= SPAN.  */
+  if (incr < 0)
+    {
+      delta = -incr;
+      span = initial;
+    }
+  else
+    {
+      delta = incr;
+      /* Handle the special case in which MAXIMUM is the largest
+	 unsigned HOST_WIDE_INT and INITIAL is 0.  */
+      if (maximum + 1 == initial)
+	span = LOOP_INFO (loop)->n_iterations * delta;
+      else
+	span = maximum + 1 - initial;
+    }
+  return (span / LOOP_INFO (loop)->n_iterations >= delta);
+}
+
+
+/* Return true if biv BL will never exceed the bounds of MODE.  LOOP is
+   the loop to which BL belongs and INCR is its per-iteration increment.
+   UNSIGNEDP is true if the biv should be treated as unsigned.  */
+
+static bool
+biv_fits_mode_p (const struct loop *loop, struct iv_class *bl,
+		 HOST_WIDE_INT incr, enum machine_mode mode, bool unsignedp)
+{
+  struct loop_info *loop_info;
+  unsigned HOST_WIDE_INT bias;
+
+  /* A biv's value will always be limited to its natural mode.
+     Larger modes will observe the same wrap-around.  */
+  if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (bl->biv->src_reg)))
+    mode = GET_MODE (bl->biv->src_reg);
+
+  loop_info = LOOP_INFO (loop);
+
+  bias = (unsignedp ? 0 : (GET_MODE_MASK (mode) >> 1) + 1);
+  if (biased_biv_fits_mode_p (loop, bl, incr, mode, bias))
+    return true;
+
+  if (mode == GET_MODE (bl->biv->src_reg)
+      && bl->biv->src_reg == loop_info->iteration_var
+      && loop_info->comparison_value
+      && loop_invariant_p (loop, loop_info->comparison_value))
+    {
+      /* If the increment is +1, and the exit test is a <, the BIV
+         cannot overflow.  (For <=, we have the problematic case that
+         the comparison value might be the maximum value of the range.)  */
+      if (incr == 1)
+	{
+	  if (loop_info->comparison_code == LT)
+	    return true;
+	  if (loop_info->comparison_code == LTU && unsignedp)
+	    return true;
+	}
+
+      /* Likewise for increment -1 and exit test >.  */
+      if (incr == -1)
+	{
+	  if (loop_info->comparison_code == GT)
+	    return true;
+	  if (loop_info->comparison_code == GTU && unsignedp)
+	    return true;
+	}
+    }
+  return false;
+}
+
+
+/* Given that X is an extension or truncation of BL, return true
+   if it is unaffected by overflow.  LOOP is the loop to which
+   BL belongs and INCR is its per-iteration increment.  */
+
+static bool
+extension_within_bounds_p (const struct loop *loop, struct iv_class *bl,
+			   HOST_WIDE_INT incr, rtx x)
+{
+  enum machine_mode mode;
+  bool signedp, unsignedp;
+
+  switch (GET_CODE (x))
+    {
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      mode = GET_MODE (XEXP (x, 0));
+      signedp = (GET_CODE (x) == SIGN_EXTEND);
+      unsignedp = (GET_CODE (x) == ZERO_EXTEND);
+      break;
+
+    case TRUNCATE:
+      /* We don't know whether this value is being used as signed
+	 or unsigned, so check the conditions for both.  */
+      mode = GET_MODE (x);
+      signedp = unsignedp = true;
+      break;
+
+    default:
+      abort ();
+    }
+
+  return ((!signedp || biv_fits_mode_p (loop, bl, incr, mode, false))
+	  && (!unsignedp || biv_fits_mode_p (loop, bl, incr, mode, true)));
+}
+
+
 /* Check each extension dependent giv in this class to see if its
    root biv is safe from wrapping in the interior mode, which would
    make the giv illegal.  */
@@ -8644,185 +8841,30 @@ combine_givs_p (struct induction *g1, struct induction *g2)
 static void
 check_ext_dependent_givs (const struct loop *loop, struct iv_class *bl)
 {
-  struct loop_info *loop_info = LOOP_INFO (loop);
-  int ze_ok = 0, se_ok = 0, info_ok = 0;
-  enum machine_mode biv_mode = GET_MODE (bl->biv->src_reg);
-  HOST_WIDE_INT start_val;
-  unsigned HOST_WIDE_INT u_end_val = 0;
-  unsigned HOST_WIDE_INT u_start_val = 0;
-  rtx incr = pc_rtx;
   struct induction *v;
+  HOST_WIDE_INT incr;
 
-  /* Make sure the iteration data is available.  We must have
-     constants in order to be certain of no overflow.  */
-  if (loop_info->n_iterations > 0
-      && bl->initial_value
-      && GET_CODE (bl->initial_value) == CONST_INT
-      && (incr = biv_total_increment (bl))
-      && GET_CODE (incr) == CONST_INT
-      /* Make sure the host can represent the arithmetic.  */
-      && HOST_BITS_PER_WIDE_INT >= GET_MODE_BITSIZE (biv_mode))
-    {
-      unsigned HOST_WIDE_INT abs_incr, total_incr;
-      HOST_WIDE_INT s_end_val;
-      int neg_incr;
-
-      info_ok = 1;
-      start_val = INTVAL (bl->initial_value);
-      u_start_val = start_val;
-
-      neg_incr = 0, abs_incr = INTVAL (incr);
-      if (INTVAL (incr) < 0)
-	neg_incr = 1, abs_incr = -abs_incr;
-      total_incr = abs_incr * loop_info->n_iterations;
-
-      /* Check for host arithmetic overflow.  */
-      if (total_incr / loop_info->n_iterations == abs_incr)
-	{
-	  unsigned HOST_WIDE_INT u_max;
-	  HOST_WIDE_INT s_max;
-
-	  u_end_val = start_val + (neg_incr ? -total_incr : total_incr);
-	  s_end_val = u_end_val;
-	  u_max = GET_MODE_MASK (biv_mode);
-	  s_max = u_max >> 1;
-
-	  /* Check zero extension of biv ok.  */
-	  if (start_val >= 0
-	      /* Check for host arithmetic overflow.  */
-	      && (neg_incr
-		  ? u_end_val < u_start_val
-		  : u_end_val > u_start_val)
-	      /* Check for target arithmetic overflow.  */
-	      && (neg_incr
-		  ? 1 /* taken care of with host overflow */
-		  : u_end_val <= u_max))
-	    {
-	      ze_ok = 1;
-	    }
-
-	  /* Check sign extension of biv ok.  */
-	  /* ??? While it is true that overflow with signed and pointer
-	     arithmetic is undefined, I fear too many programmers don't
-	     keep this fact in mind -- myself included on occasion.
-	     So leave alone with the signed overflow optimizations.  */
-	  if (start_val >= -s_max - 1
-	      /* Check for host arithmetic overflow.  */
-	      && (neg_incr
-		  ? s_end_val < start_val
-		  : s_end_val > start_val)
-	      /* Check for target arithmetic overflow.  */
-	      && (neg_incr
-		  ? s_end_val >= -s_max - 1
-		  : s_end_val <= s_max))
-	    {
-	      se_ok = 1;
-	    }
-	}
-    }
-
-  /* If we know the BIV is compared at run-time against an 
-     invariant value, and the increment is +/- 1, we may also 
-     be able to prove that the BIV cannot overflow.  */
-  else if (bl->biv->src_reg == loop_info->iteration_var
-           && loop_info->comparison_value
-           && loop_invariant_p (loop, loop_info->comparison_value)
-           && (incr = biv_total_increment (bl))
-           && GET_CODE (incr) == CONST_INT)
-    {
-      /* If the increment is +1, and the exit test is a <,
-         the BIV cannot overflow.  (For <=, we have the 
-         problematic case that the comparison value might
-         be the maximum value of the range.)  */
-       if (INTVAL (incr) == 1)
-         {
-           if (loop_info->comparison_code == LT)
-             se_ok = ze_ok = 1;
-           else if (loop_info->comparison_code == LTU)
-             ze_ok = 1;
-         }
-
-       /* Likewise for increment -1 and exit test >.  */
-       if (INTVAL (incr) == -1)
-         {
-           if (loop_info->comparison_code == GT)
-             se_ok = ze_ok = 1;
-           else if (loop_info->comparison_code == GTU)
-             ze_ok = 1;
-         }
-    }
+  incr = get_monotonic_increment (bl);
 
   /* Invalidate givs that fail the tests.  */
   for (v = bl->giv; v; v = v->next_iv)
     if (v->ext_dependent)
       {
-	enum rtx_code code = GET_CODE (v->ext_dependent);
-	int ok = 0;
-
-	switch (code)
-	  {
-	  case SIGN_EXTEND:
-	    ok = se_ok;
-	    break;
-	  case ZERO_EXTEND:
-	    ok = ze_ok;
-	    break;
-
-	  case TRUNCATE:
-	    /* We don't know whether this value is being used as either
-	       signed or unsigned, so to safely truncate we must satisfy
-	       both.  The initial check here verifies the BIV itself;
-	       once that is successful we may check its range wrt the
-	       derived GIV.  This works only if we were able to determine
-	       constant start and end values above.  */
-	    if (se_ok && ze_ok && info_ok)
-	      {
-		enum machine_mode outer_mode = GET_MODE (v->ext_dependent);
-		unsigned HOST_WIDE_INT max = GET_MODE_MASK (outer_mode) >> 1;
-
-		/* We know from the above that both endpoints are nonnegative,
-		   and that there is no wrapping.  Verify that both endpoints
-		   are within the (signed) range of the outer mode.  */
-		if (u_start_val <= max && u_end_val <= max)
-		  ok = 1;
-	      }
-	    break;
-
-	  default:
-	    abort ();
-	  }
-
-	if (ok)
+	if (incr != 0
+	    && extension_within_bounds_p (loop, bl, incr, v->ext_dependent))
 	  {
 	    if (loop_dump_stream)
-	      {
-		fprintf (loop_dump_stream,
-			 "Verified ext dependent giv at %d of reg %d\n",
-			 INSN_UID (v->insn), bl->regno);
-	      }
+	      fprintf (loop_dump_stream,
+		       "Verified ext dependent giv at %d of reg %d\n",
+		       INSN_UID (v->insn), bl->regno);
 	  }
 	else
 	  {
 	    if (loop_dump_stream)
-	      {
-		const char *why;
+	      fprintf (loop_dump_stream,
+		       "Failed ext dependent giv at %d\n",
+		       INSN_UID (v->insn));
 
-		if (info_ok)
-		  why = "biv iteration values overflowed";
-		else
-		  {
-		    if (incr == pc_rtx)
-		      incr = biv_total_increment (bl);
-		    if (incr == const1_rtx)
-		      why = "biv iteration info incomplete; incr by 1";
-		    else
-		      why = "biv iteration info incomplete";
-		  }
-
-		fprintf (loop_dump_stream,
-			 "Failed ext dependent giv at %d, %s\n",
-			 INSN_UID (v->insn), why);
-	      }
 	    v->ignore = 1;
 	    bl->all_reduced = 0;
 	  }
@@ -9233,7 +9275,9 @@ product_cheap_p (rtx a, rtx b)
   end_sequence ();
 
   win = 1;
-  if (INSN_P (tmp))
+  if (tmp == NULL_RTX)
+    ;
+  else if (INSN_P (tmp))
     {
       n_insns = 0;
       while (tmp != NULL_RTX)
@@ -10469,319 +10513,8 @@ update_reg_last_use (rtx x, rtx insn)
     }
 }
 
-/* Given an insn INSN and condition COND, return the condition in a
-   canonical form to simplify testing by callers.  Specifically:
-
-   (1) The code will always be a comparison operation (EQ, NE, GT, etc.).
-   (2) Both operands will be machine operands; (cc0) will have been replaced.
-   (3) If an operand is a constant, it will be the second operand.
-   (4) (LE x const) will be replaced with (LT x <const+1>) and similarly
-       for GE, GEU, and LEU.
-
-   If the condition cannot be understood, or is an inequality floating-point
-   comparison which needs to be reversed, 0 will be returned.
-
-   If REVERSE is nonzero, then reverse the condition prior to canonizing it.
-
-   If EARLIEST is nonzero, it is a pointer to a place where the earliest
-   insn used in locating the condition was found.  If a replacement test
-   of the condition is desired, it should be placed in front of that
-   insn and we will be sure that the inputs are still valid.
-
-   If WANT_REG is nonzero, we wish the condition to be relative to that
-   register, if possible.  Therefore, do not canonicalize the condition
-   further.  If ALLOW_CC_MODE is nonzero, allow the condition returned 
-   to be a compare to a CC mode register.
-
-   If VALID_AT_INSN_P, the condition must be valid at both *EARLIEST
-   and at INSN.  */
-
-rtx
-canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
-			rtx want_reg, int allow_cc_mode, int valid_at_insn_p)
-{
-  enum rtx_code code;
-  rtx prev = insn;
-  rtx set;
-  rtx tem;
-  rtx op0, op1;
-  int reverse_code = 0;
-  enum machine_mode mode;
-
-  code = GET_CODE (cond);
-  mode = GET_MODE (cond);
-  op0 = XEXP (cond, 0);
-  op1 = XEXP (cond, 1);
-
-  if (reverse)
-    code = reversed_comparison_code (cond, insn);
-  if (code == UNKNOWN)
-    return 0;
-
-  if (earliest)
-    *earliest = insn;
-
-  /* If we are comparing a register with zero, see if the register is set
-     in the previous insn to a COMPARE or a comparison operation.  Perform
-     the same tests as a function of STORE_FLAG_VALUE as find_comparison_args
-     in cse.c  */
-
-  while ((GET_RTX_CLASS (code) == RTX_COMPARE
-	  || GET_RTX_CLASS (code) == RTX_COMM_COMPARE)
-	 && op1 == CONST0_RTX (GET_MODE (op0))
-	 && op0 != want_reg)
-    {
-      /* Set nonzero when we find something of interest.  */
-      rtx x = 0;
-
-#ifdef HAVE_cc0
-      /* If comparison with cc0, import actual comparison from compare
-	 insn.  */
-      if (op0 == cc0_rtx)
-	{
-	  if ((prev = prev_nonnote_insn (prev)) == 0
-	      || !NONJUMP_INSN_P (prev)
-	      || (set = single_set (prev)) == 0
-	      || SET_DEST (set) != cc0_rtx)
-	    return 0;
-
-	  op0 = SET_SRC (set);
-	  op1 = CONST0_RTX (GET_MODE (op0));
-	  if (earliest)
-	    *earliest = prev;
-	}
-#endif
-
-      /* If this is a COMPARE, pick up the two things being compared.  */
-      if (GET_CODE (op0) == COMPARE)
-	{
-	  op1 = XEXP (op0, 1);
-	  op0 = XEXP (op0, 0);
-	  continue;
-	}
-      else if (!REG_P (op0))
-	break;
-
-      /* Go back to the previous insn.  Stop if it is not an INSN.  We also
-	 stop if it isn't a single set or if it has a REG_INC note because
-	 we don't want to bother dealing with it.  */
-
-      if ((prev = prev_nonnote_insn (prev)) == 0
-	  || !NONJUMP_INSN_P (prev)
-	  || FIND_REG_INC_NOTE (prev, NULL_RTX))
-	break;
-
-      set = set_of (op0, prev);
-
-      if (set
-	  && (GET_CODE (set) != SET
-	      || !rtx_equal_p (SET_DEST (set), op0)))
-	break;
-
-      /* If this is setting OP0, get what it sets it to if it looks
-	 relevant.  */
-      if (set)
-	{
-	  enum machine_mode inner_mode = GET_MODE (SET_DEST (set));
-#ifdef FLOAT_STORE_FLAG_VALUE
-	  REAL_VALUE_TYPE fsfv;
-#endif
-
-	  /* ??? We may not combine comparisons done in a CCmode with
-	     comparisons not done in a CCmode.  This is to aid targets
-	     like Alpha that have an IEEE compliant EQ instruction, and
-	     a non-IEEE compliant BEQ instruction.  The use of CCmode is
-	     actually artificial, simply to prevent the combination, but
-	     should not affect other platforms.
-
-	     However, we must allow VOIDmode comparisons to match either
-	     CCmode or non-CCmode comparison, because some ports have
-	     modeless comparisons inside branch patterns.
-
-	     ??? This mode check should perhaps look more like the mode check
-	     in simplify_comparison in combine.  */
-
-	  if ((GET_CODE (SET_SRC (set)) == COMPARE
-	       || (((code == NE
-		     || (code == LT
-			 && GET_MODE_CLASS (inner_mode) == MODE_INT
-			 && (GET_MODE_BITSIZE (inner_mode)
-			     <= HOST_BITS_PER_WIDE_INT)
-			 && (STORE_FLAG_VALUE
-			     & ((HOST_WIDE_INT) 1
-				<< (GET_MODE_BITSIZE (inner_mode) - 1))))
-#ifdef FLOAT_STORE_FLAG_VALUE
-		     || (code == LT
-			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
-			     REAL_VALUE_NEGATIVE (fsfv)))
-#endif
-		     ))
-		   && COMPARISON_P (SET_SRC (set))))
-	      && (((GET_MODE_CLASS (mode) == MODE_CC)
-		   == (GET_MODE_CLASS (inner_mode) == MODE_CC))
-		  || mode == VOIDmode || inner_mode == VOIDmode))
-	    x = SET_SRC (set);
-	  else if (((code == EQ
-		     || (code == GE
-			 && (GET_MODE_BITSIZE (inner_mode)
-			     <= HOST_BITS_PER_WIDE_INT)
-			 && GET_MODE_CLASS (inner_mode) == MODE_INT
-			 && (STORE_FLAG_VALUE
-			     & ((HOST_WIDE_INT) 1
-				<< (GET_MODE_BITSIZE (inner_mode) - 1))))
-#ifdef FLOAT_STORE_FLAG_VALUE
-		     || (code == GE
-			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
-			     REAL_VALUE_NEGATIVE (fsfv)))
-#endif
-		     ))
-		   && COMPARISON_P (SET_SRC (set))
-		   && (((GET_MODE_CLASS (mode) == MODE_CC)
-			== (GET_MODE_CLASS (inner_mode) == MODE_CC))
-		       || mode == VOIDmode || inner_mode == VOIDmode))
-
-	    {
-	      reverse_code = 1;
-	      x = SET_SRC (set);
-	    }
-	  else
-	    break;
-	}
-
-      else if (reg_set_p (op0, prev))
-	/* If this sets OP0, but not directly, we have to give up.  */
-	break;
-
-      if (x)
-	{
-	  /* If the caller is expecting the condition to be valid at INSN,
-	     make sure X doesn't change before INSN.  */
-	  if (valid_at_insn_p)
-	    if (modified_in_p (x, prev) || modified_between_p (x, prev, insn))
-	      break;
-	  if (COMPARISON_P (x))
-	    code = GET_CODE (x);
-	  if (reverse_code)
-	    {
-	      code = reversed_comparison_code (x, prev);
-	      if (code == UNKNOWN)
-		return 0;
-	      reverse_code = 0;
-	    }
-
-	  op0 = XEXP (x, 0), op1 = XEXP (x, 1);
-	  if (earliest)
-	    *earliest = prev;
-	}
-    }
-
-  /* If constant is first, put it last.  */
-  if (CONSTANT_P (op0))
-    code = swap_condition (code), tem = op0, op0 = op1, op1 = tem;
-
-  /* If OP0 is the result of a comparison, we weren't able to find what
-     was really being compared, so fail.  */
-  if (!allow_cc_mode
-      && GET_MODE_CLASS (GET_MODE (op0)) == MODE_CC)
-    return 0;
-
-  /* Canonicalize any ordered comparison with integers involving equality
-     if we can do computations in the relevant mode and we do not
-     overflow.  */
-
-  if (GET_MODE_CLASS (GET_MODE (op0)) != MODE_CC
-      && GET_CODE (op1) == CONST_INT
-      && GET_MODE (op0) != VOIDmode
-      && GET_MODE_BITSIZE (GET_MODE (op0)) <= HOST_BITS_PER_WIDE_INT)
-    {
-      HOST_WIDE_INT const_val = INTVAL (op1);
-      unsigned HOST_WIDE_INT uconst_val = const_val;
-      unsigned HOST_WIDE_INT max_val
-	= (unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (op0));
-
-      switch (code)
-	{
-	case LE:
-	  if ((unsigned HOST_WIDE_INT) const_val != max_val >> 1)
-	    code = LT, op1 = gen_int_mode (const_val + 1, GET_MODE (op0));
-	  break;
-
-	/* When cross-compiling, const_val might be sign-extended from
-	   BITS_PER_WORD to HOST_BITS_PER_WIDE_INT */
-	case GE:
-	  if ((HOST_WIDE_INT) (const_val & max_val)
-	      != (((HOST_WIDE_INT) 1
-		   << (GET_MODE_BITSIZE (GET_MODE (op0)) - 1))))
-	    code = GT, op1 = gen_int_mode (const_val - 1, GET_MODE (op0));
-	  break;
-
-	case LEU:
-	  if (uconst_val < max_val)
-	    code = LTU, op1 = gen_int_mode (uconst_val + 1, GET_MODE (op0));
-	  break;
-
-	case GEU:
-	  if (uconst_val != 0)
-	    code = GTU, op1 = gen_int_mode (uconst_val - 1, GET_MODE (op0));
-	  break;
-
-	default:
-	  break;
-	}
-    }
-
-  /* Never return CC0; return zero instead.  */
-  if (CC0_P (op0))
-    return 0;
-
-  return gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
-}
-
-/* Given a jump insn JUMP, return the condition that will cause it to branch
-   to its JUMP_LABEL.  If the condition cannot be understood, or is an
-   inequality floating-point comparison which needs to be reversed, 0 will
-   be returned.
-
-   If EARLIEST is nonzero, it is a pointer to a place where the earliest
-   insn used in locating the condition was found.  If a replacement test
-   of the condition is desired, it should be placed in front of that
-   insn and we will be sure that the inputs are still valid.  If EARLIEST
-   is null, the returned condition will be valid at INSN.
-
-   If ALLOW_CC_MODE is nonzero, allow the condition returned to be a
-   compare CC mode register.
-
-   VALID_AT_INSN_P is the same as for canonicalize_condition.  */
-
-rtx
-get_condition (rtx jump, rtx *earliest, int allow_cc_mode, int valid_at_insn_p)
-{
-  rtx cond;
-  int reverse;
-  rtx set;
-
-  /* If this is not a standard conditional jump, we can't parse it.  */
-  if (!JUMP_P (jump)
-      || ! any_condjump_p (jump))
-    return 0;
-  set = pc_set (jump);
-
-  cond = XEXP (SET_SRC (set), 0);
-
-  /* If this branches to JUMP_LABEL when the condition is false, reverse
-     the condition.  */
-  reverse
-    = GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
-      && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump);
-
-  return canonicalize_condition (jump, cond, reverse, earliest, NULL_RTX,
-				 allow_cc_mode, valid_at_insn_p);
-}
-
-/* Similar to above routine, except that we also put an invariant last
-   unless both operands are invariants.  */
+/* Similar to rtlanal.c:get_condition, except that we also put an
+   invariant last unless both operands are invariants.  */
 
 static rtx
 get_condition_for_loop (const struct loop *loop, rtx x)
@@ -10860,7 +10593,8 @@ insert_loop_mem (rtx *mem, void *data ATTRIBUTE_UNUSED)
 	  /* The modes of the two memory accesses are different.  If
 	     this happens, something tricky is going on, and we just
 	     don't optimize accesses to this MEM.  */
-	  loop_info->mems[i].optimize = 0;
+	  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	  loop_info->mems[i].optimizable = 0;
 
 	return 0;
       }
@@ -10883,7 +10617,8 @@ insert_loop_mem (rtx *mem, void *data ATTRIBUTE_UNUSED)
      because we can't put it in a register.  We still store it in the
      table, though, so that if we see the same address later, but in a
      non-BLK mode, we'll not think we can optimize it at that point.  */
-  loop_info->mems[loop_info->mems_idx].optimize = (GET_MODE (m) != BLKmode);
+  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+  loop_info->mems[loop_info->mems_idx].optimizable = (GET_MODE (m) != BLKmode);
   loop_info->mems[loop_info->mems_idx].reg = NULL_RTX;
   ++loop_info->mems_idx;
 
@@ -11130,7 +10865,8 @@ load_mems (const struct loop *loop)
       if (MEM_VOLATILE_P (mem)
 	  || loop_invariant_p (loop, XEXP (mem, 0)) != 1)
 	/* There's no telling whether or not MEM is modified.  */
-	loop_info->mems[i].optimize = 0;
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
 
       /* Go through the MEMs written to in the loop to see if this
 	 one is aliased by one of them.  */
@@ -11143,7 +10879,8 @@ load_mems (const struct loop *loop)
 				    mem, rtx_varies_p))
 	    {
 	      /* MEM is indeed aliased by this store.  */
-	      loop_info->mems[i].optimize = 0;
+	      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	      loop_info->mems[i].optimizable = 0;
 	      break;
 	    }
 	  mem_list_entry = XEXP (mem_list_entry, 1);
@@ -11151,11 +10888,13 @@ load_mems (const struct loop *loop)
 
       if (flag_float_store && written
 	  && GET_MODE_CLASS (GET_MODE (mem)) == MODE_FLOAT)
-	loop_info->mems[i].optimize = 0;
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
 
       /* If this MEM is written to, we must be sure that there
 	 are no reads from another MEM that aliases this one.  */
-      if (loop_info->mems[i].optimize && written)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+      if (loop_info->mems[i].optimizable && written)
 	{
 	  int j;
 
@@ -11171,7 +10910,8 @@ load_mems (const struct loop *loop)
 		  /* It's not safe to hoist loop_info->mems[i] out of
 		     the loop because writes to it might not be
 		     seen by reads from loop_info->mems[j].  */
-		  loop_info->mems[i].optimize = 0;
+		  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+		  loop_info->mems[i].optimizable = 0;
 		  break;
 		}
 	    }
@@ -11180,9 +10920,11 @@ load_mems (const struct loop *loop)
       if (maybe_never && may_trap_p (mem))
 	/* We can't access the MEM outside the loop; it might
 	   cause a trap that wouldn't have happened otherwise.  */
-	loop_info->mems[i].optimize = 0;
+        /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
 
-      if (!loop_info->mems[i].optimize)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+      if (!loop_info->mems[i].optimizable)
 	/* We thought we were going to lift this MEM out of the
 	   loop, but later discovered that we could not.  */
 	continue;
@@ -11245,7 +10987,8 @@ load_mems (const struct loop *loop)
 				      CALL_INSN_FUNCTION_USAGE (p)))
 		{
 		  cancel_changes (0);
-		  loop_info->mems[i].optimize = 0;
+		  /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+		  loop_info->mems[i].optimizable = 0;
 		  break;
 		}
 	      else
@@ -11259,11 +11002,13 @@ load_mems (const struct loop *loop)
 	    maybe_never = 1;
 	}
 
-      if (! loop_info->mems[i].optimize)
+      /* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+      if (! loop_info->mems[i].optimizable)
 	; /* We found we couldn't do the replacement, so do nothing.  */
       else if (! apply_change_group ())
 	/* We couldn't replace all occurrences of the MEM.  */
-	loop_info->mems[i].optimize = 0;
+	/* APPLE LOCAL optimization pragmas 3124235/3420242 */  
+	loop_info->mems[i].optimizable = 0;
       else
 	{
 	  /* Load the memory immediately before LOOP->START, which is
@@ -11271,7 +11016,7 @@ load_mems (const struct loop *loop)
 	  cselib_val *e = cselib_lookup (mem, VOIDmode, 0);
 	  rtx set;
 	  rtx best = mem;
-	  int j;
+	  unsigned j;
 	  struct elt_loc_list *const_equiv = 0;
 	  reg_set_iterator rsi;
 

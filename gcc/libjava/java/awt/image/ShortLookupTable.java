@@ -1,5 +1,5 @@
 /* ShortLookupTable.java -- Java class for a pixel translation table.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,7 +44,7 @@ package java.awt.image;
  * Alpha, R, G, and B.  When doing translation, the offset is subtracted from
  * the pixel values to allow a subset of an array to be used.
  *
- * @author <a href="mailto:jlquinn@optonline.net">Jerry Quinn</a>
+ * @author Jerry Quinn (jlquinn@optonline.net)
  * @version 1.0
  */
 public class ShortLookupTable extends LookupTable
@@ -61,7 +61,7 @@ public class ShortLookupTable extends LookupTable
    * 
    * @param offset Offset to be subtracted.
    * @param data Array of lookup tables.
-   * @exception IllegalArgumentException if offset < 0 or data.length < 1.
+   * @exception IllegalArgumentException if offset &lt; 0 or data.length &lt; 1.
    */
   public ShortLookupTable(int offset, short[][] data)
     throws IllegalArgumentException
@@ -78,7 +78,7 @@ public class ShortLookupTable extends LookupTable
    * 
    * @param offset Offset to be subtracted.
    * @param data Lookup table for all components.
-   * @exception IllegalArgumentException if offset < 0.
+   * @exception IllegalArgumentException if offset &lt; 0.
    */
   public ShortLookupTable(int offset, short[] data)
     throws IllegalArgumentException
@@ -107,14 +107,14 @@ public class ShortLookupTable extends LookupTable
    * translation arrays.
    *
    * @param src Component values of a pixel.
-   * @param dest Destination array for values, or null.
+   * @param dst Destination array for values, or null.
    * @return Translated values for the pixel.
    */
   public int[] lookupPixel(int[] src, int[] dst)
     throws ArrayIndexOutOfBoundsException
   {
     if (dst == null)
-      dst = new int[numComponents];
+      dst = new int[src.length];
 
     if (data.length == 1)
       for (int i=0; i < src.length; i++)
@@ -140,14 +140,14 @@ public class ShortLookupTable extends LookupTable
    * translation arrays.
    *
    * @param src Component values of a pixel.
-   * @param dest Destination array for values, or null.
+   * @param dst Destination array for values, or null.
    * @return Translated values for the pixel.
    */
   public short[] lookupPixel(short[] src, short[] dst)
     throws ArrayIndexOutOfBoundsException
   {
     if (dst == null)
-      dst = new short[numComponents];
+      dst = new short[src.length];
 
     if (data.length == 1)
       for (int i=0; i < src.length; i++)

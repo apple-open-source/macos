@@ -625,7 +625,7 @@ old_postuninstall_cmds=
 
 if test -n "$RANLIB"; then
   old_archive_cmds="$old_archive_cmds~\$RANLIB \$oldlib"
-  # APPLE LOCAL begin handle ~ in pathnames 2002-01-14 --sts
+  # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts
   old_postinstall_cmds="\$RANLIB \$oldlib@$old_postinstall_cmds"
 fi
 

@@ -320,6 +320,8 @@ IOHIDElementPrivate::collectionElement( IOHIDDevice *         owner,
     element->_usageMin      = collection->collectionUsage;
     element->_usageMax      = collection->collectionUsage;
     element->_collectionType = (IOHIDElementCollectionType)collection->data;
+    
+    element->_shouldTickleActivity = (element->_usagePage == kHIDPage_GenericDesktop);
 
     // Register with owner and parent.
 
@@ -580,6 +582,10 @@ bool IOHIDElementPrivate::addChildElement( IOHIDElementPrivate * child, bool arr
 
     _childArray->setObject( child );
     child->_parent = this;
+    
+    // RY: only override the child if you are not the root element
+    if ( _cookie != 0 )
+        child->_shouldTickleActivity = _shouldTickleActivity;
 
     return true;
 }
@@ -1031,7 +1037,6 @@ bool IOHIDElementPrivate::processReport(
 {
     IOHIDEventQueue *   queue;
     UInt32              previousValue;
-	AbsoluteTime		previousTimeStamp;
     bool				changed = false;
         
     // Set next pointer to the next report handler in the chain.
@@ -1076,7 +1081,6 @@ bool IOHIDElementPrivate::processReport(
         _elementValue->generation++;
 
         previousValue		= _elementValue->value[0];
-		previousTimeStamp   = _elementValue->timestamp;
 		
         // Get the element value from the report.
 
@@ -1094,18 +1098,19 @@ bool IOHIDElementPrivate::processReport(
         do {
             if (!changed && ((_flags & kHIDDataRelativeBit) == 0) && !_isInterruptReportHandler) break;
 
-            if ((_flags & kHIDDataRelativeBit) 
+            if (!((_flags & kHIDDataRelativeBit) 
                 && (_reportBits <= 32) 
                 && (previousValue == 0)
-                && (_elementValue->value[0] == 0)) break;
-                
-            _elementValue->timestamp = *timestamp;
-                
+                && (_elementValue->value[0] == 0)))
+            {
+                _elementValue->timestamp = *timestamp;
+            }
+
             if (IsArrayElement(this))
             {
                 if (IsArrayReportHandler(this))
                 {
-                    processArrayReport(reportID, reportData, reportBits, timestamp);
+                    processArrayReport(reportID, reportData, reportBits, &(_elementValue->timestamp));
                 }
             }
     

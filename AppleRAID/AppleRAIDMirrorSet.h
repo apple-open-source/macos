@@ -64,6 +64,7 @@ public:
 
     virtual bool isSetComplete(void);
     virtual bool bumpOnError(void);
+    virtual UInt32 nextSetState(void);
 
     virtual void setCompleteTimeout(void);
 

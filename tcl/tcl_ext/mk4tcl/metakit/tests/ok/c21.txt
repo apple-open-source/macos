@@ -1,2 +1,0 @@
->>> Join on compound key
-<<< done.

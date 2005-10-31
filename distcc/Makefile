@@ -1,6 +1,7 @@
 # Top-level Makefile(.in) for distcc
 
 # Copyright (C) 2002, 2003 by Martin Pool
+# Copyright (C)2005 by Apple Computer, Inc.
 
 # Note that distcc no longer uses automake, but this file is still
 # structured in a somewhat similar way.
@@ -23,7 +24,7 @@ VERSION = 2.0.1-zeroconf
 PACKAGE_TARNAME = distcc
 SHELL = /bin/sh
 
-CFLAGS = -g -O2 -W -Wall -W -Wimplicit -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -DDARWIN -D_REENTRANT -D__FreeBSD__ $(RC_CFLAGS)
+CFLAGS = -g -W -O2 -Wall -W -Wimplicit -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -DDARWIN -D_REENTRANT -D__FreeBSD__ $(RC_CFLAGS)
 LDFLAGS = -lcrypto
 CC = gcc
 CPP = gcc -E
@@ -49,6 +50,7 @@ includedir = ${prefix}/include
 oldincludedir = /usr/include
 docdir = ${datadir}/doc
 pkgdocdir = $(docdir)/distcc
+etcdir = /private/etc
 
 LIBS = 
 
@@ -106,6 +108,8 @@ mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 man1dir = $(mandir)/man1
 man8dir = $(mandir)/man8
 man1_MANS = man/distcc.1 man/distccd.1
+
+etc_FILES = etc/compilers
 
 # Contains HTML user manual
 linuxdoc_DOCS = linuxdoc/distcc.ps.gz linuxdoc/distcc.pdf
@@ -474,7 +478,7 @@ showpaths:
 # tricky features so mkinstalldirs and cp will do
 
 #install: showpaths install-doc install-man install-programs try-install-linuxdoc
-install: showpaths install-programs install-man
+install: showpaths install-programs install-man install-etc-files
 
 installhdrs:
 	@echo NO INSTALLHDRS
@@ -494,6 +498,12 @@ install-man: $(man1_MANS)
 	$(mkinstalldirs) $(DESTDIR)$(man1dir)
 	for p in $(man1_MANS); do				\
 	$(INSTALL_DATA)	$$p $(DESTDIR)$(man1dir) || exit 1;	\
+	done
+
+install-etc-files:
+	$(mkinstalldirs) $(DESTDIR)$(etcdir)
+	for p in $(etc_FILES); do                               \
+	$(INSTALL_DATA) $$p $(DESTDIR)$(etcdir) || exit 1;   \
 	done
 
 install-doc: $(pkgdoc_DOCS)

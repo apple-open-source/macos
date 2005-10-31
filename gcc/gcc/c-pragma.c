@@ -49,197 +49,7 @@ typedef struct align_stack GTY(())
 static GTY(()) struct align_stack * alignment_stack;
 
 /* APPLE LOCAL Macintosh alignment */
-/* Cut out all of this so the compiler doesn't complain.  */
-#if 0
-#ifdef HANDLE_PRAGMA_PACK
-static void handle_pragma_pack (cpp_reader *);
-
-#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
-/* If we have a "global" #pragma pack(<n>) in effect when the first
-   #pragma pack(push,<n>) is encountered, this stores the value of 
-   maximum_field_alignment in effect.  When the final pop_alignment() 
-   happens, we restore the value to this, not to a value of 0 for
-   maximum_field_alignment.  Value is in bits.  */
-static int default_alignment;
-#define SET_GLOBAL_ALIGNMENT(ALIGN) (maximum_field_alignment = *(alignment_stack == NULL \
-	? &default_alignment \
-	: &alignment_stack->alignment) = (ALIGN))
-
-static void push_alignment (int, tree);
-static void pop_alignment (tree);
-
-/* Push an alignment value onto the stack.  */
-static void
-push_alignment (int alignment, tree id)
-{
-  align_stack * entry;
-
-  entry = ggc_alloc (sizeof (* entry));
-
-  entry->alignment  = alignment;
-  entry->id         = id;
-  entry->prev       = alignment_stack;
-       
-  /* The current value of maximum_field_alignment is not necessarily 
-     0 since there may be a #pragma pack(<n>) in effect; remember it 
-     so that we can restore it after the final #pragma pop().  */
-  if (alignment_stack == NULL)
-    default_alignment = maximum_field_alignment;
- 
-  alignment_stack = entry;
-
-  maximum_field_alignment = alignment;
-}
-
-/* Undo a push of an alignment onto the stack.  */
-static void
-pop_alignment (tree id)
-{
-  align_stack * entry;
-      
-  if (alignment_stack == NULL)
-    GCC_BAD ("#pragma pack (pop) encountered without matching #pragma pack (push)");
-
-  /* If we got an identifier, strip away everything above the target
-     entry so that the next step will restore the state just below it.  */
-  if (id)
-    {
-      for (entry = alignment_stack; entry; entry = entry->prev)
-	if (entry->id == id)
-	  {
-	    alignment_stack = entry;
-	    break;
-	  }
-      if (entry == NULL)
-	warning ("\
-#pragma pack(pop, %s) encountered without matching #pragma pack(push, %s)"
-		 , IDENTIFIER_POINTER (id), IDENTIFIER_POINTER (id));
-    }
-
-  entry = alignment_stack->prev;
-
-  maximum_field_alignment = entry ? entry->alignment : default_alignment;
-
-  alignment_stack = entry;
-}
-#else  /* not HANDLE_PRAGMA_PACK_PUSH_POP */
-#define SET_GLOBAL_ALIGNMENT(ALIGN) (maximum_field_alignment = (ALIGN))
-#define push_alignment(ID, N) \
-    GCC_BAD ("#pragma pack(push[, id], <n>) is not supported on this target")
-#define pop_alignment(ID) \
-    GCC_BAD ("#pragma pack(pop[, id], <n>) is not supported on this target")
-#endif /* HANDLE_PRAGMA_PACK_PUSH_POP */
-
-/* #pragma pack ()
-   #pragma pack (N)
-   
-   #pragma pack (push)
-   #pragma pack (push, N)
-   #pragma pack (push, ID)
-   #pragma pack (push, ID, N)
-   #pragma pack (pop)
-   #pragma pack (pop, ID) */
-static void
-handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
-{
-  tree x, id = 0;
-  int align = -1;
-  enum cpp_ttype token;
-  enum { set, push, pop } action;
-
-  if (c_lex (&x) != CPP_OPEN_PAREN)
-    GCC_BAD ("missing %<(%> after %<#pragma pack%> - ignored");
-
-  token = c_lex (&x);
-  if (token == CPP_CLOSE_PAREN)
-    {
-      action = set;
-      align = initial_max_fld_align;
-    }
-  else if (token == CPP_NUMBER)
-    {
-      align = TREE_INT_CST_LOW (x);
-      action = set;
-      if (c_lex (&x) != CPP_CLOSE_PAREN)
-	GCC_BAD ("malformed %<#pragma pack%> - ignored");
-    }
-  else if (token == CPP_NAME)
-    {
-#define GCC_BAD_ACTION do { if (action != pop) \
-	  GCC_BAD ("malformed %<#pragma pack(push[, id][, <n>])%> - ignored"); \
-	else \
-	  GCC_BAD ("malformed %<#pragma pack(pop[, id])%> - ignored"); \
-	} while (0)
-
-      const char *op = IDENTIFIER_POINTER (x);
-      if (!strcmp (op, "push"))
-	action = push;
-      else if (!strcmp (op, "pop"))
-	action = pop;
-      else
-	GCC_BAD2 ("unknown action %qs for %<#pragma pack%> - ignored", op);
-
-      while ((token = c_lex (&x)) == CPP_COMMA)
-	{
-	  token = c_lex (&x);
-	  if (token == CPP_NAME && id == 0)
-	    {
-	      id = x;
-	    }
-	  else if (token == CPP_NUMBER && action == push && align == -1)
-	    {
-	      align = TREE_INT_CST_LOW (x);
-	      if (align == -1)
-		action = set;
-	    }
-	  else
-	    GCC_BAD_ACTION;
-	}
-
-      if (token != CPP_CLOSE_PAREN)
-	GCC_BAD_ACTION;
-#undef GCC_BAD_ACTION
-    }
-  else
-    GCC_BAD ("malformed %<#pragma pack%> - ignored");
-
-  if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of %<#pragma pack%>");
-
-  if (flag_pack_struct)
-    GCC_BAD ("#pragma pack has no effect with -fpack-struct - ignored");
-
-  if (action != pop)
-    switch (align)
-      {
-      case 0:
-      case 1:
-      case 2:
-      case 4:
-      case 8:
-      case 16:
-	align *= BITS_PER_UNIT;
-	break;
-      case -1:
-	if (action == push)
-	  {
-	    align = maximum_field_alignment;
-	    break;
-	  }
-      default:
-	GCC_BAD2 ("alignment must be a small power of two, not %d", align);
-      }
-
-  switch (action)
-    {
-    case set:   SET_GLOBAL_ALIGNMENT (align);  break;
-    case push:  push_alignment (align, id);    break;
-    case pop:   pop_alignment (id);            break;
-    }
-}
-#endif  /* HANDLE_PRAGMA_PACK */
-/* APPLE LOCAL Macintosh alignment */
-#endif /* 0 */
+/* Lots of stuff deleted here.  */
 
 static GTY(()) tree pending_weaks;
 
@@ -299,6 +109,33 @@ maybe_apply_pragma_weak (tree decl)
       }
 }
 
+/* Process all "#pragma weak A = B" directives where we have not seen
+   a decl for A.  */
+void
+maybe_apply_pending_pragma_weaks (void)
+{
+  tree *p, t, alias_id, id, decl, *next;
+
+  for (p = &pending_weaks; (t = *p) ; p = next)
+    {
+      next = &TREE_CHAIN (t);
+      alias_id = TREE_PURPOSE (t);
+      id = TREE_VALUE (t);
+
+      if (TREE_VALUE (t) == NULL)
+	continue;
+
+      decl = build_decl (FUNCTION_DECL, alias_id, default_function_type);
+
+      DECL_ARTIFICIAL (decl) = 1;
+      TREE_PUBLIC (decl) = 1;
+      DECL_EXTERNAL (decl) = 1;
+      DECL_WEAK (decl) = 1;
+
+      assemble_alias (decl, id);
+    }
+}
+
 /* #pragma weak name [= value] */
 static void
 handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
@@ -333,6 +170,11 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
 #else
 void
 maybe_apply_pragma_weak (tree ARG_UNUSED (decl))
+{
+}
+
+void
+maybe_apply_pending_pragma_weaks (void)
 {
 }
 #endif /* HANDLE_PRAGMA_WEAK */
@@ -623,7 +465,7 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
               visibility_options.inpragma = 1;
             }
           if (c_lex (&x) != CPP_CLOSE_PAREN)
-            GCC_BAD ("missing '(' after %<#pragma GCC visibility push%> - ignored");
+            GCC_BAD ("missing %<(%> after %<#pragma GCC visibility push%> - ignored");
         }
     }
   if (c_lex (&x) != CPP_EOF)
@@ -632,29 +474,30 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
 
 #endif
 
-/* Front-end wrapper for pragma registration to avoid dragging
+/* Front-end wrappers for pragma registration to avoid dragging
    cpplib.h in almost everywhere.  */
 void
 c_register_pragma (const char *space, const char *name,
 		   void (*handler) (struct cpp_reader *))
 {
-  cpp_register_pragma (parse_in, space, name, handler);
+  cpp_register_pragma (parse_in, space, name, handler, 0);
+}
+
+void
+c_register_pragma_with_expansion (const char *space, const char *name,
+				  void (*handler) (struct cpp_reader *))
+{
+  cpp_register_pragma (parse_in, space, name, handler, 1);
 }
 
 /* Set up front-end pragmas.  */
 void
 init_pragma (void)
 {
-/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
-#if 0
-/* We disable the handling of pragma pack here because it is handled
-   in config/darwin-c.c.  */
-/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
-#ifdef HANDLE_PRAGMA_PACK
-  c_register_pragma (0, "pack", handle_pragma_pack);
-#endif
-/* APPLE LOCAL Macintosh alignment 2002-1-22 --ff */
-#endif /* 0 */
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff
+   Remove the handling of pragma pack here because it is handled
+   in config/darwin-c.c.
+   APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 #ifdef HANDLE_PRAGMA_WEAK
   c_register_pragma (0, "weak", handle_pragma_weak);
 #endif
@@ -668,7 +511,7 @@ init_pragma (void)
   /* APPLE LOCAL begin OS pragma hook */
   /* Allow registration of OS-specific but arch-independent pragmas.  */
 #ifdef REGISTER_OS_PRAGMAS
-  REGISTER_OS_PRAGMAS (parse_in);
+  REGISTER_OS_PRAGMAS ();
 #endif
   /* APPLE LOCAL end OS pragma hook */
 

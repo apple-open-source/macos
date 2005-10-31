@@ -1,5 +1,5 @@
 /* Liveness for SSA trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -433,17 +433,17 @@ static tree_live_info_p
 new_tree_live_info (var_map map)
 {
   tree_live_info_p live;
-  int x;
+  unsigned x;
 
   live = (tree_live_info_p) xmalloc (sizeof (struct tree_live_info_d));
   live->map = map;
   live->num_blocks = last_basic_block;
 
-  live->global = BITMAP_XMALLOC ();
+  live->global = BITMAP_ALLOC (NULL);
 
   live->livein = (bitmap *)xmalloc (num_var_partitions (map) * sizeof (bitmap));
   for (x = 0; x < num_var_partitions (map); x++)
-    live->livein[x] = BITMAP_XMALLOC ();
+    live->livein[x] = BITMAP_ALLOC (NULL);
 
   /* liveout is deferred until it is actually requested.  */
   live->liveout = NULL;
@@ -460,17 +460,17 @@ delete_tree_live_info (tree_live_info_p live)
   if (live->liveout)
     {
       for (x = live->num_blocks - 1; x >= 0; x--)
-        BITMAP_XFREE (live->liveout[x]);
+        BITMAP_FREE (live->liveout[x]);
       free (live->liveout);
     }
   if (live->livein)
     {
       for (x = num_var_partitions (live->map) - 1; x >= 0; x--)
-        BITMAP_XFREE (live->livein[x]);
+        BITMAP_FREE (live->livein[x]);
       free (live->livein);
     }
   if (live->global)
-    BITMAP_XFREE (live->global);
+    BITMAP_FREE (live->global);
   
   free (live);
 }
@@ -483,7 +483,7 @@ delete_tree_live_info (tree_live_info_p live)
 static void
 live_worklist (tree_live_info_p live, varray_type stack, int i)
 {
-  int b;
+  unsigned b;
   tree var;
   basic_block def_bb = NULL;
   edge e;
@@ -557,7 +557,7 @@ tree_live_info_p
 calculate_live_on_entry (var_map map)
 {
   tree_live_info_p live;
-  int i;
+  unsigned i;
   basic_block bb;
   bitmap saw_def;
   tree phi, var, stmt;
@@ -573,7 +573,7 @@ calculate_live_on_entry (var_map map)
   edge_iterator ei;
 #endif
 
-  saw_def = BITMAP_XMALLOC ();
+  saw_def = BITMAP_ALLOC (NULL);
 
   live = new_tree_live_info (map);
 
@@ -583,13 +583,13 @@ calculate_live_on_entry (var_map map)
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	  for (i = 0; i < (unsigned)PHI_NUM_ARGS (phi); i++)
 	    {
 	      var = PHI_ARG_DEF (phi, i);
 	      if (!phi_ssa_name_p (var))
 	        continue;
 	      stmt = SSA_NAME_DEF_STMT (var);
-	      e = PHI_ARG_EDGE (phi, i);
+	      e = EDGE_PRED (bb, i);
 
 	      /* Any uses in PHIs which either don't have def's or are not
 	         defined in the block from which the def comes, will be live
@@ -648,7 +648,7 @@ calculate_live_on_entry (var_map map)
       int entry_block = e->dest->index;
       if (e->dest == EXIT_BLOCK_PTR)
         continue;
-      for (i = 0; i < num_var_partitions (map); i++)
+      for (i = 0; i < (unsigned)num_var_partitions (map); i++)
 	{
 	  basic_block tmp;
 	  tree d;
@@ -720,7 +720,7 @@ calculate_live_on_entry (var_map map)
   gcc_assert (num <= 0);
 #endif
 
-  BITMAP_XFREE (saw_def);
+  BITMAP_FREE (saw_def);
 
   return live;
 }
@@ -732,7 +732,7 @@ void
 calculate_live_on_exit (tree_live_info_p liveinfo)
 {
   unsigned b;
-  int i, x;
+  unsigned i, x;
   bitmap *on_exit;
   basic_block bb;
   edge e;
@@ -741,14 +741,14 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
   var_map map = liveinfo->map;
 
   on_exit = (bitmap *)xmalloc (last_basic_block * sizeof (bitmap));
-  for (x = 0; x < last_basic_block; x++)
-    on_exit[x] = BITMAP_XMALLOC ();
+  for (x = 0; x < (unsigned)last_basic_block; x++)
+    on_exit[x] = BITMAP_ALLOC (NULL);
 
   /* Set all the live-on-exit bits for uses in PHIs.  */
   FOR_EACH_BB (bb)
     {
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	for (i = 0; i < (unsigned)PHI_NUM_ARGS (phi); i++)
 	  { 
 	    t = PHI_ARG_DEF (phi, i);
 	    e = PHI_ARG_EDGE (phi, i);
@@ -779,7 +779,7 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
 
 /* Initialize a tree_partition_associator object using MAP.  */
 
-tpa_p
+static tpa_p
 tpa_init (var_map map)
 {
   tpa_p tpa;
@@ -1168,7 +1168,7 @@ int compare_pairs (const void *p1, const void *p2)
 void
 sort_coalesce_list (coalesce_list_p cl)
 {
-  int x, num, count;
+  unsigned x, num, count;
   partition_pair_p chain, p;
   partition_pair_p  *list;
 
@@ -1233,7 +1233,7 @@ sort_coalesce_list (coalesce_list_p cl)
    partitions via P1 and P2.  Their calculated cost is returned by the function.
    NO_BEST_COALESCE is returned if the coalesce list is empty.  */
 
-int 
+static int
 pop_best_coalesce (coalesce_list_p cl, int *p1, int *p2)
 {
   partition_pair_p node;
@@ -1296,7 +1296,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
   conflict_graph graph;
   var_map map;
   bitmap live;
-  int x, y, i;
+  unsigned x, y, i;
   basic_block bb;
   varray_type partition_link, tpa_to_clear, tpa_nodes;
   unsigned l;
@@ -1309,7 +1309,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
   if (tpa_num_trees (tpa) == 0)
     return graph;
 
-  live = BITMAP_XMALLOC ();
+  live = BITMAP_ALLOC (NULL);
 
   VARRAY_INT_INIT (partition_link, num_var_partitions (map) + 1, "part_link");
   VARRAY_INT_INIT (tpa_nodes, tpa_num_trees (tpa), "tpa nodes");
@@ -1421,7 +1421,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
       EXECUTE_IF_SET_IN_BITMAP (live, 0, x, bi)
         {
 	  i = tpa_find_tree (tpa, x);
-	  if (i != TPA_NONE)
+	  if (i != (unsigned)TPA_NONE)
 	    {
 	      int start = VARRAY_INT (tpa_nodes, i);
 	      /* If start is 0, a new root reference list is being started.
@@ -1443,7 +1443,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	VARRAY_POP_ALL (tpa_to_clear);
     }
 
-  BITMAP_XFREE (live);
+  BITMAP_FREE (live);
   return graph;
 }
 
@@ -1750,7 +1750,7 @@ void
 dump_live_info (FILE *f, tree_live_info_p live, int flag)
 {
   basic_block bb;
-  int i;
+  unsigned i;
   var_map map = live->map;
   bitmap_iterator bi;
 

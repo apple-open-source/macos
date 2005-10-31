@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -119,8 +119,6 @@ package body Debug is
    --  d.x  No exception handlers
    --  d.y
    --  d.z
-
-
 
    --  d1   Error msgs have node numbers where possible
    --  d2   Eliminate error flags in verbose form error messages
@@ -345,7 +343,8 @@ package body Debug is
    --  dA   Forces output of representation information, including full
    --       information for all internal type and object entities, as well
    --       as all user defined type and object entities including private
-   --       and incomplete types.
+   --       and incomplete types. This debug switch also automatically sets
+   --       the equivalent of -gnatR3m.
 
    --  dB   Output debug encodings for types and variants. See Exp_Dbug for
    --       exact form of the generated output.

@@ -1,0 +1,4 @@
+                    <tr>
+                        <td>#adminResource('technorati.tags.text' 'Technorati Tags')</td>
+                        <td><input type="text" name="technorati-tags" size="50" value="$!TECHNORATI_TAGS"/></td>
+                    </tr>

@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "real.h"
 #include "insn-config.h"
+#include "insn-codes.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
@@ -48,6 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "cfglayout.h"
 #include "tree-gimple.h"
+#include "langhooks.h"
 
 /* Processor costs */
 static const
@@ -309,7 +311,8 @@ static rtx sparc_builtin_saveregs (void);
 static int epilogue_renumber (rtx *, int);
 static bool sparc_assemble_integer (rtx, unsigned int, int);
 static int set_extends (rtx);
-static void load_pic_register (void);
+static void emit_pic_helper (void);
+static void load_pic_register (bool);
 static int save_or_restore_regs (int, int, rtx, int, int);
 static void emit_save_regs (void);
 static void emit_restore_regs (void);
@@ -332,6 +335,9 @@ static void emit_hard_tfmode_operation (enum rtx_code, rtx *);
 
 static bool sparc_function_ok_for_sibcall (tree, tree);
 static void sparc_init_libfuncs (void);
+static void sparc_init_builtins (void);
+static void sparc_vis_init_builtins (void);
+static rtx sparc_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void sparc_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				   HOST_WIDE_INT, tree);
 static bool sparc_can_output_mi_thunk (tree, HOST_WIDE_INT,
@@ -348,8 +354,13 @@ static rtx sparc_struct_value_rtx (tree, int);
 static bool sparc_return_in_memory (tree, tree);
 static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
 static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
+static bool sparc_vector_mode_supported_p (enum machine_mode);
 static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
 				     enum machine_mode, tree, bool);
+static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
+				    enum machine_mode, tree, bool);
+static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
+static void sparc_file_end (void);
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
 #endif
@@ -416,6 +427,11 @@ enum processor_type sparc_cpu;
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS sparc_init_libfuncs
+#undef TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS sparc_init_builtins
+
+#undef TARGET_EXPAND_BUILTIN
+#define TARGET_EXPAND_BUILTIN sparc_expand_builtin
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_HAVE_TLS
@@ -457,6 +473,8 @@ enum processor_type sparc_cpu;
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE sparc_pass_by_reference
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES sparc_arg_partial_bytes
 
 #undef TARGET_EXPAND_BUILTIN_SAVEREGS
 #define TARGET_EXPAND_BUILTIN_SAVEREGS sparc_builtin_saveregs
@@ -465,6 +483,12 @@ enum processor_type sparc_cpu;
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR sparc_gimplify_va_arg
+
+#undef TARGET_VECTOR_MODE_SUPPORTED_P
+#define TARGET_VECTOR_MODE_SUPPORTED_P sparc_vector_mode_supported_p
+
+#undef TARGET_DWARF_HANDLE_FRAME_UNSPEC
+#define TARGET_DWARF_HANDLE_FRAME_UNSPEC sparc_dwarf_handle_frame_unspec
 
 #ifdef SUBTARGET_INSERT_ATTRIBUTES
 #undef TARGET_INSERT_ATTRIBUTES
@@ -475,6 +499,12 @@ enum processor_type sparc_cpu;
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE sparc_attribute_table
 #endif
+
+#undef TARGET_RELAXED_ORDERING
+#define TARGET_RELAXED_ORDERING SPARC_RELAXED_ORDERING
+
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END sparc_file_end
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -769,7 +799,8 @@ const1_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 fp_zero_operand (rtx op, enum machine_mode mode)
 {
-  if (GET_MODE_CLASS (GET_MODE (op)) != MODE_FLOAT)
+  enum mode_class mclass = GET_MODE_CLASS (GET_MODE (op));
+  if (mclass != MODE_FLOAT && mclass != MODE_VECTOR_INT)
     return 0;
   return op == CONST0_RTX (mode);
 }
@@ -1498,6 +1529,8 @@ clobbered_register (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 input_operand (rtx op, enum machine_mode mode)
 {
+  enum mode_class mclass;
+
   /* If both modes are non-void they must be the same.  */
   if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
     return 0;
@@ -1538,8 +1571,9 @@ input_operand (rtx op, enum machine_mode mode)
   if (register_operand (op, mode))
     return 1;
 
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
-      && GET_CODE (op) == CONST_DOUBLE)
+  mclass = GET_MODE_CLASS (mode);
+  if ((mclass == MODE_FLOAT && GET_CODE (op) == CONST_DOUBLE)
+      || (mclass == MODE_VECTOR_INT && GET_CODE (op) == CONST_VECTOR))
     return 1;
 
   /* If this is a SUBREG, look inside so that we handle
@@ -3293,6 +3327,7 @@ sparc_cannot_force_const_mem (rtx x)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
       /* Accept all non-symbolic constants.  */
       return false;
 
@@ -3321,12 +3356,11 @@ sparc_cannot_force_const_mem (rtx x)
     }
 }
 
-/* The table we use to reference PIC data.  */
+/* PIC support.  */
+static GTY(()) char pic_helper_symbol_name[256];
+static GTY(()) rtx pic_helper_symbol;
+static GTY(()) bool pic_helper_emitted_p = false;
 static GTY(()) rtx global_offset_table;
-
-/* The function we use to get at it.  */
-static GTY(()) rtx add_pc_to_pic_symbol;
-static GTY(()) char add_pc_to_pic_symbol_name[256];
 
 /* Ensure that we are not using patterns that are not OK with PIC.  */
 
@@ -3462,7 +3496,7 @@ legitimate_pic_operand_p (rtx x)
 int
 legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 {
-  rtx rs1 = NULL, rs2 = NULL, imm1 = NULL, imm2;
+  rtx rs1 = NULL, rs2 = NULL, imm1 = NULL;
 
   if (REG_P (addr) || GET_CODE (addr) == SUBREG)
     rs1 = addr;
@@ -3526,7 +3560,6 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	       && ! TARGET_CM_MEDMID
 	       && RTX_OK_FOR_OLO10_P (rs2))
 	{
-	  imm2 = rs2;
 	  rs2 = NULL;
 	  imm1 = XEXP (rs1, 1);
 	  rs1 = XEXP (rs1, 0);
@@ -3542,25 +3575,10 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
       if (! CONSTANT_P (imm1) || tls_symbolic_operand (rs1))
 	return 0;
 
-      if (USE_AS_OFFSETABLE_LO10)
-	{
-	  /* We can't allow TFmode, because an offset greater than or equal to
-	     the alignment (8) may cause the LO_SUM to overflow if !v9.  */
-	  if (mode == TFmode && ! TARGET_V9)
-	    return 0;
-	}
-      else
-        {
-	  /* We prohibit LO_SUM for TFmode when there are no quad move insns
-	     and we consequently need to split.  We do this because LO_SUM
-	     is not an offsettable address.  If we get the situation in reload
-	     where source and destination of a movtf pattern are both MEMs with
-	     LO_SUM address, then only one of them gets converted to an
-	     offsettable address.  */
-	  if (mode == TFmode
-	      && ! (TARGET_FPU && TARGET_ARCH64 && TARGET_HARD_QUAD))
-	    return 0;
-	}
+      /* We can't allow TFmode in 32-bit mode, because an offset greater
+	 than the alignment (8) may cause the LO_SUM to overflow.  */
+      if (mode == TFmode && TARGET_ARCH32)
+	return 0;
     }
   else if (GET_CODE (addr) == CONST_INT && SMALL_INT (addr))
     return 1;
@@ -3917,42 +3935,57 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
   return x;
 }
 
-/* Emit the special PIC prologue.  */
+/* Emit the special PIC helper function.  */
 
 static void
-load_pic_register (void)
+emit_pic_helper (void)
+{
+  const char *pic_name = reg_names[REGNO (pic_offset_table_rtx)];
+  int align;
+
+  text_section ();
+
+  align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
+  if (align > 0)
+    ASM_OUTPUT_ALIGN (asm_out_file, align);
+  ASM_OUTPUT_LABEL (asm_out_file, pic_helper_symbol_name);
+  if (flag_delayed_branch)
+    fprintf (asm_out_file, "\tjmp\t%%o7+8\n\t add\t%%o7, %s, %s\n",
+	    pic_name, pic_name);
+  else
+    fprintf (asm_out_file, "\tadd\t%%o7, %s, %s\n\tjmp\t%%o7+8\n\t nop\n",
+	    pic_name, pic_name);
+
+  pic_helper_emitted_p = true;
+}
+
+/* Emit code to load the PIC register.  */
+
+static void
+load_pic_register (bool delay_pic_helper)
 {
   int orig_flag_pic = flag_pic;
 
-  /* If we haven't emitted the special helper function, do so now.  */
-  if (add_pc_to_pic_symbol_name[0] == 0)
+  /* If we haven't initialized the special PIC symbols, do so now.  */
+  if (!pic_helper_symbol_name[0])
     {
-      const char *pic_name = reg_names[REGNO (pic_offset_table_rtx)];
-      int align;
-
-      ASM_GENERATE_INTERNAL_LABEL (add_pc_to_pic_symbol_name, "LADDPC", 0);
-      text_section ();
-
-      align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
-      if (align > 0)
-	ASM_OUTPUT_ALIGN (asm_out_file, align);
-      ASM_OUTPUT_LABEL (asm_out_file, add_pc_to_pic_symbol_name);
-      if (flag_delayed_branch)
-	fprintf (asm_out_file, "\tjmp %%o7+8\n\t add\t%%o7, %s, %s\n",
-		 pic_name, pic_name);
-      else
-	fprintf (asm_out_file, "\tadd\t%%o7, %s, %s\n\tjmp %%o7+8\n\t nop\n",
-		 pic_name, pic_name);
+      ASM_GENERATE_INTERNAL_LABEL (pic_helper_symbol_name, "LADDPC", 0);
+      pic_helper_symbol = gen_rtx_SYMBOL_REF (Pmode, pic_helper_symbol_name);
+      global_offset_table = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
     }
 
-  /* Initialize every time through, since we can't easily
-     know this to be permanent.  */
-  global_offset_table = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
-  add_pc_to_pic_symbol = gen_rtx_SYMBOL_REF (Pmode, add_pc_to_pic_symbol_name);
+  /* If we haven't emitted the special PIC helper function, do so now unless
+     we are requested to delay it.  */
+  if (!delay_pic_helper && !pic_helper_emitted_p)
+    emit_pic_helper ();
 
   flag_pic = 0;
-  emit_insn (gen_load_pcrel_sym (pic_offset_table_rtx, global_offset_table,
-				 add_pc_to_pic_symbol));
+  if (TARGET_ARCH64)
+    emit_insn (gen_load_pcrel_symdi (pic_offset_table_rtx, global_offset_table,
+				     pic_helper_symbol));
+  else
+    emit_insn (gen_load_pcrel_symsi (pic_offset_table_rtx, global_offset_table,
+				     pic_helper_symbol));
   flag_pic = orig_flag_pic;
 
   /* Need to emit this whether or not we obey regdecls,
@@ -3974,6 +4007,12 @@ mem_min_alignment (rtx mem, int desired)
   if (GET_CODE (mem) != MEM)
     return 0;
 
+  /* Obviously...  */
+  if (MEM_ALIGN (mem) / BITS_PER_UNIT >= (unsigned)desired)
+    return 1;
+
+  /* ??? The rest of the function predates MEM_ALIGN so
+     there is probably a bit of redundancy.  */
   addr = XEXP (mem, 0);
   base = offset = NULL_RTX;
   if (GET_CODE (addr) == PLUS)
@@ -4180,6 +4219,12 @@ sparc_init_modes (void)
 	    sparc_mode_class[i] = 1 << (int) O_MODE;
 	  else 
 	    sparc_mode_class[i] = 0;
+	  break;
+	case MODE_VECTOR_INT:
+	  if (GET_MODE_SIZE (i) <= 4)
+	    sparc_mode_class[i] = 1 << (int)SF_MODE;
+	  else if (GET_MODE_SIZE (i) == 8)
+	    sparc_mode_class[i] = 1 << (int)DF_MODE;
 	  break;
 	case MODE_FLOAT:
 	case MODE_COMPLEX_FLOAT:
@@ -4447,26 +4492,37 @@ emit_restore_regs (void)
   save_or_restore_regs (32, TARGET_V9 ? 96 : 64, base, offset, SORR_RESTORE);
 }
 
-/* Emit an increment for the stack pointer.  */
+/* Generate a save_register_window insn.  */
 
-static void
-emit_stack_pointer_increment (rtx increment)
+static rtx
+gen_save_register_window (rtx increment)
 {
   if (TARGET_ARCH64)
-    emit_insn (gen_adddi3 (stack_pointer_rtx, stack_pointer_rtx, increment));
+    return gen_save_register_windowdi (increment);
   else
-    emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, increment));
+    return gen_save_register_windowsi (increment);
 }
 
-/* Emit a decrement for the stack pointer.  */
+/* Generate an increment for the stack pointer.  */
 
-static void
-emit_stack_pointer_decrement (rtx decrement)
+static rtx
+gen_stack_pointer_inc (rtx increment)
 {
   if (TARGET_ARCH64)
-    emit_insn (gen_subdi3 (stack_pointer_rtx, stack_pointer_rtx, decrement));
+    return gen_adddi3 (stack_pointer_rtx, stack_pointer_rtx, increment);
   else
-    emit_insn (gen_subsi3 (stack_pointer_rtx, stack_pointer_rtx, decrement));
+    return gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, increment);
+}
+
+/* Generate a decrement for the stack pointer.  */
+
+static rtx
+gen_stack_pointer_dec (rtx decrement)
+{
+  if (TARGET_ARCH64)
+    return gen_subdi3 (stack_pointer_rtx, stack_pointer_rtx, decrement);
+  else
+    return gen_subsi3 (stack_pointer_rtx, stack_pointer_rtx, decrement);
 }
 
 /* Expand the function prologue.  The prologue is responsible for reserving
@@ -4476,6 +4532,9 @@ emit_stack_pointer_decrement (rtx decrement)
 void
 sparc_expand_prologue (void)
 {
+  rtx insn;
+  int i;
+
   /* Compute a snapshot of current_function_uses_only_leaf_regs.  Relying
      on the final value of the flag means deferring the prologue/epilogue
      expansion until just before the second scheduling pass, which is too
@@ -4525,34 +4584,48 @@ sparc_expand_prologue (void)
   else if (sparc_leaf_function_p)
     {
       if (actual_fsize <= 4096)
-	emit_stack_pointer_increment (GEN_INT (- actual_fsize));
+	insn = emit_insn (gen_stack_pointer_inc (GEN_INT (-actual_fsize)));
       else if (actual_fsize <= 8192)
 	{
-	  emit_stack_pointer_increment (GEN_INT (-4096));
-	  emit_stack_pointer_increment (GEN_INT (4096 - actual_fsize));
+	  insn = emit_insn (gen_stack_pointer_inc (GEN_INT (-4096)));
+	  /* %sp is still the CFA register.  */
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  insn
+	    = emit_insn (gen_stack_pointer_inc (GEN_INT (4096-actual_fsize)));
 	}
       else
 	{
 	  rtx reg = gen_rtx_REG (Pmode, 1);
 	  emit_move_insn (reg, GEN_INT (-actual_fsize));
-	  emit_stack_pointer_increment (reg);
+	  insn = emit_insn (gen_stack_pointer_inc (reg));
+	  REG_NOTES (insn) =
+	    gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+			       PATTERN (gen_stack_pointer_inc (GEN_INT (-actual_fsize))),
+			       REG_NOTES (insn));
 	}
+
+      RTX_FRAME_RELATED_P (insn) = 1;
     }
   else
     {
       if (actual_fsize <= 4096)
-        emit_insn (gen_save_register_window (GEN_INT (-actual_fsize)));
+	insn = emit_insn (gen_save_register_window (GEN_INT (-actual_fsize)));
       else if (actual_fsize <= 8192)
 	{
-	  emit_insn (gen_save_register_window (GEN_INT (-4096)));
-	  emit_stack_pointer_increment (GEN_INT (4096 - actual_fsize));
+	  insn = emit_insn (gen_save_register_window (GEN_INT (-4096)));
+	  /* %sp is not the CFA register anymore.  */
+	  emit_insn (gen_stack_pointer_inc (GEN_INT (4096-actual_fsize)));
 	}
       else
 	{
 	  rtx reg = gen_rtx_REG (Pmode, 1);
 	  emit_move_insn (reg, GEN_INT (-actual_fsize));
-	  emit_insn (gen_save_register_window (reg));
+	  insn = emit_insn (gen_save_register_window (reg));
 	}
+
+      RTX_FRAME_RELATED_P (insn) = 1;
+      for (i=0; i < XVECLEN (PATTERN (insn), 0); i++)
+        RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, i)) = 1;
     }
 
   /* Call-saved registers are saved just above the outgoing argument area.  */
@@ -4561,12 +4634,11 @@ sparc_expand_prologue (void)
 
   /* Load the PIC register if needed.  */
   if (flag_pic && current_function_uses_pic_offset_table)
-    load_pic_register ();
+    load_pic_register (false);
 }
  
 /* This function generates the assembly code for function entry, which boils
-   down to emitting the necessary .register directives.  It also informs the
-   DWARF-2 back-end on the layout of the frame.
+   down to emitting the necessary .register directives.
 
    ??? Historical cruft: "On SPARC, move-double insns between fpu and cpu need
    an 8-byte block of memory.  If any fpu reg is used in the function, we
@@ -4581,29 +4653,6 @@ sparc_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
     abort();
 
   sparc_output_scratch_registers (file);
-
-  if (dwarf2out_do_frame () && actual_fsize)
-    {
-      char *label = dwarf2out_cfi_label ();
-
-      /* The canonical frame address refers to the top of the frame.  */
-      dwarf2out_def_cfa (label,
-			 sparc_leaf_function_p
-			 ? STACK_POINTER_REGNUM
-			 : HARD_FRAME_POINTER_REGNUM,
-			 frame_base_offset);
-
-      if (! sparc_leaf_function_p)
-	{
-	  /* Note the register window save.  This tells the unwinder that
-	     it needs to restore the window registers from the previous
-	     frame's window save area at 0(cfa).  */
-	  dwarf2out_window_save (label);
-
-	  /* The return address (-8) is now in %i7.  */
-	  dwarf2out_return_reg (label, 31);
-	}
-    }
 }
 
 /* Expand the function epilogue, either normal or part of a sibcall.
@@ -4620,17 +4669,17 @@ sparc_expand_epilogue (void)
   else if (sparc_leaf_function_p)
     {
       if (actual_fsize <= 4096)
-	emit_stack_pointer_decrement (GEN_INT (- actual_fsize));
+	emit_insn (gen_stack_pointer_dec (GEN_INT (- actual_fsize)));
       else if (actual_fsize <= 8192)
 	{
-	  emit_stack_pointer_decrement (GEN_INT (-4096));
-	  emit_stack_pointer_decrement (GEN_INT (4096 - actual_fsize));
+	  emit_insn (gen_stack_pointer_dec (GEN_INT (-4096)));
+	  emit_insn (gen_stack_pointer_dec (GEN_INT (4096 - actual_fsize)));
 	}
       else
 	{
 	  rtx reg = gen_rtx_REG (Pmode, 1);
 	  emit_move_insn (reg, GEN_INT (-actual_fsize));
-	  emit_stack_pointer_decrement (reg);
+	  emit_insn (gen_stack_pointer_dec (reg));
 	}
     }
 }
@@ -4928,8 +4977,7 @@ output_sibcall (rtx insn, rtx call_operand)
       _Complex double            16        memory         FP reg.
       _Complex long double       32        memory         FP reg.
 
-      vector float             <=32        memory         FP reg.
-      vector float              >32        memory         memory
+      vector float              any        memory         memory
 
       aggregate                 any        memory         memory
 
@@ -4974,8 +5022,8 @@ implemented by the Sun compiler.
 Note #2: integral vector types follow the scalar floating-point types
 conventions to match what is implemented by the Sun VIS SDK.
 
-Note #3: floating-point vector types follow the complex floating-point
-types conventions.  */
+Note #3: floating-point vector types follow the aggregate types 
+conventions.  */
 
 
 /* Maximum number of int regs for args.  */
@@ -5037,7 +5085,9 @@ scan_record_type (tree type, int *intregs_p, int *fpregs_p, int *packed_p)
 	{
 	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
 	    scan_record_type (TREE_TYPE (field), intregs_p, fpregs_p, 0);
-	  else if (FLOAT_TYPE_P (TREE_TYPE (field)) && TARGET_FPU)
+	  else if ((FLOAT_TYPE_P (TREE_TYPE (field))
+		   || TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE)
+		  && TARGET_FPU)
 	    *fpregs_p = 1;
 	  else
 	    *intregs_p = 1;
@@ -5072,6 +5122,7 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
 		 ? SPARC_INCOMING_INT_ARG_FIRST
 		 : SPARC_OUTGOING_INT_ARG_FIRST);
   int slotno = cum->words;
+  enum mode_class mclass;
   int regno;
 
   *ppadding = 0;
@@ -5091,12 +5142,37 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
       && (slotno & 1) != 0)
     slotno++, *ppadding = 1;
 
-  switch (GET_MODE_CLASS (mode))
+  mclass = GET_MODE_CLASS (mode);
+  if (type && TREE_CODE (type) == VECTOR_TYPE)
+    {
+      /* Vector types deserve special treatment because they are
+	 polymorphic wrt their mode, depending upon whether VIS
+	 instructions are enabled.  */
+      if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
+	{
+	  /* The SPARC port defines no floating-point vector modes.  */
+	  if (mode != BLKmode)
+	    abort ();
+	}
+      else
+	{
+	  /* Integral vector types should either have a vector
+	     mode or an integral mode, because we are guaranteed
+	     by pass_by_reference that their size is not greater
+	     than 16 bytes and TImode is 16-byte wide.  */
+	  if (mode == BLKmode)
+	    abort ();
+
+	  /* Vector integers are handled like floats according to
+	     the Sun VIS SDK.  */
+	  mclass = MODE_FLOAT;
+	}
+    }
+
+  switch (mclass)
     {
     case MODE_FLOAT:
     case MODE_COMPLEX_FLOAT:
-    case MODE_VECTOR_INT:
-    case MODE_VECTOR_FLOAT:
       if (TARGET_ARCH64 && TARGET_FPU && named)
 	{
 	  if (slotno >= SPARC_FP_ARG_MAX)
@@ -5132,18 +5208,21 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
 	  && (slotno & 1) != 0)
 	slotno++, *ppadding = 1;
 
-      if (TARGET_ARCH32 || (type && TREE_CODE (type) == UNION_TYPE))
+      if (TARGET_ARCH32 || !type || (TREE_CODE (type) == UNION_TYPE))
 	{
 	  if (slotno >= SPARC_INT_ARG_MAX)
 	    return -1;
 	  regno = regbase + slotno;
 	}
-      else  /* TARGET_ARCH64 && type && TREE_CODE (type) == RECORD_TYPE */
+      else  /* TARGET_ARCH64 && type */
 	{
 	  int intregs_p = 0, fpregs_p = 0, packed_p = 0;
 
 	  /* First see what kinds of registers we would need.  */
-	  scan_record_type (type, &intregs_p, &fpregs_p, &packed_p);
+	  if (TREE_CODE (type) == VECTOR_TYPE)
+	    fpregs_p = 1;
+	  else
+	    scan_record_type (type, &intregs_p, &fpregs_p, &packed_p);
 
 	  /* The ABI obviously doesn't specify how packed structures
 	     are passed.  These are defined to be passed in int regs
@@ -5196,7 +5275,7 @@ static void function_arg_record_value_2
 static void function_arg_record_value_1
  (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
 static rtx function_arg_record_value (tree, enum machine_mode, int, int, int);
-static rtx function_arg_union_value (int, enum machine_mode, int);
+static rtx function_arg_union_value (int, enum machine_mode, int, int);
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
    recursively and determine how many registers will be required.  */
@@ -5232,9 +5311,14 @@ function_arg_record_value_1 (tree type, HOST_WIDE_INT startbitpos,
 	{
 	  HOST_WIDE_INT bitpos = startbitpos;
 
-	  if (DECL_SIZE (field) != 0
-	      && host_integerp (bit_position (field), 1))
-	    bitpos += int_bit_position (field);
+	  if (DECL_SIZE (field) != 0)
+	    {
+	      if (integer_zerop (DECL_SIZE (field)))
+		continue;
+
+	      if (host_integerp (bit_position (field), 1))
+		bitpos += int_bit_position (field);
+	    }
 
 	  /* ??? FIXME: else assume zero offset.  */
 
@@ -5274,8 +5358,12 @@ function_arg_record_value_1 (tree type, HOST_WIDE_INT startbitpos,
 
 	      /* There's no need to check this_slotno < SPARC_FP_ARG MAX.
 		 If it wasn't true we wouldn't be here.  */
-	      parms->nregs += 1;
-	      if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
+	      if (TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE
+		  && DECL_MODE (field) == BLKmode)
+		parms->nregs += TYPE_VECTOR_SUBPARTS (TREE_TYPE (field));
+	      else if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
+		parms->nregs += 2;
+	      else
 		parms->nregs += 1;
 	    }
 	  else
@@ -5321,8 +5409,8 @@ function_arg_record_value_3 (HOST_WIDE_INT bitpos,
      at the moment but may wish to revisit.  */
 
   if (intoffset % BITS_PER_WORD != 0)
-    mode = mode_for_size (BITS_PER_WORD - intoffset % BITS_PER_WORD,
-			  MODE_INT, 0);
+    mode = smallest_mode_for_size (BITS_PER_WORD - intoffset % BITS_PER_WORD,
+			  	   MODE_INT);
   else
     mode = word_mode;
 
@@ -5371,9 +5459,14 @@ function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
 	{
 	  HOST_WIDE_INT bitpos = startbitpos;
 
-	  if (DECL_SIZE (field) != 0
-	      && host_integerp (bit_position (field), 1))
-	    bitpos += int_bit_position (field);
+	  if (DECL_SIZE (field) != 0)
+	    {
+	      if (integer_zerop (DECL_SIZE (field)))
+		continue;
+
+	      if (host_integerp (bit_position (field), 1))
+		bitpos += int_bit_position (field);
+	    }
 
 	  /* ??? FIXME: else assume zero offset.  */
 
@@ -5389,34 +5482,41 @@ function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
 		   && ! packed_p)
 	    {
 	      int this_slotno = parms->slotno + bitpos / BITS_PER_WORD;
-	      int regno;
+	      int regno, nregs, pos;
 	      enum machine_mode mode = DECL_MODE (field);
 	      rtx reg;
 
 	      function_arg_record_value_3 (bitpos, parms);
-	      switch (mode)
-		{
-		case SCmode: mode = SFmode; break;
-		case DCmode: mode = DFmode; break;
-		case TCmode: mode = TFmode; break;
-		default: break;
+
+	      if (TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE
+		  && mode == BLKmode)
+	        {
+		  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (field)));
+		  nregs = TYPE_VECTOR_SUBPARTS (TREE_TYPE (field));
 		}
+	      else if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
+	        {
+		  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (field)));
+		  nregs = 2;
+		}
+	      else
+	        nregs = 1;
+
 	      regno = SPARC_FP_ARG_FIRST + this_slotno * 2;
 	      if (GET_MODE_SIZE (mode) <= 4 && (bitpos & 32) != 0)
 		regno++;
 	      reg = gen_rtx_REG (mode, regno);
+	      pos = bitpos / BITS_PER_UNIT;
 	      XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
-		= gen_rtx_EXPR_LIST (VOIDmode, reg,
-			   GEN_INT (bitpos / BITS_PER_UNIT));
+		= gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (pos));
 	      parms->nregs += 1;
-	      if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
+	      while (--nregs > 0)
 		{
 		  regno += GET_MODE_SIZE (mode) / 4;
 	  	  reg = gen_rtx_REG (mode, regno);
+		  pos += GET_MODE_SIZE (mode);
 		  XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
-		    = gen_rtx_EXPR_LIST (VOIDmode, reg,
-			GEN_INT ((bitpos + GET_MODE_BITSIZE (mode))
-				 / BITS_PER_UNIT));
+		    = gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (pos));
 		  parms->nregs += 1;
 		}
 	    }
@@ -5513,7 +5613,7 @@ function_arg_record_value (tree type, enum machine_mode mode,
   /* If at least one field must be passed on the stack, generate
      (parallel [(expr_list (nil) ...) ...]) so that all fields will
      also be passed on the stack.  We can't do much better because the
-     semantics of FUNCTION_ARG_PARTIAL_NREGS doesn't handle the case
+     semantics of TARGET_ARG_PARTIAL_BYTES doesn't handle the case
      of structures for which the fields passed exclusively in registers
      are not at the beginning of the structure.  */
   if (parms.stack)
@@ -5542,19 +5642,60 @@ function_arg_record_value (tree type, enum machine_mode mode,
    REGNO is the hard register the union will be passed in.  */
 
 static rtx
-function_arg_union_value (int size, enum machine_mode mode, int regno)
+function_arg_union_value (int size, enum machine_mode mode, int slotno,
+			  int regno)
 {
   int nwords = ROUND_ADVANCE (size), i;
   rtx regs;
 
-  /* Unions are passed left-justified.  */
+  /* See comment in previous function for empty structures.  */
+  if (nwords == 0)
+    return gen_rtx_REG (mode, regno);
+
+  if (slotno == SPARC_INT_ARG_MAX - 1)
+    nwords = 1;
+
   regs = gen_rtx_PARALLEL (mode, rtvec_alloc (nwords));
 
   for (i = 0; i < nwords; i++)
-    XVECEXP (regs, 0, i)
-      = gen_rtx_EXPR_LIST (VOIDmode,
-			   gen_rtx_REG (word_mode, regno + i),
-			   GEN_INT (UNITS_PER_WORD * i));
+    {
+      /* Unions are passed left-justified.  */
+      XVECEXP (regs, 0, i)
+	= gen_rtx_EXPR_LIST (VOIDmode,
+			     gen_rtx_REG (word_mode, regno),
+			     GEN_INT (UNITS_PER_WORD * i));
+      regno++;
+    }
+
+  return regs;
+}
+
+/* Used by function_arg and function_value to implement the conventions
+   for passing and returning large (BLKmode) vectors.
+   Return an expression valid as a return value for the two macros
+   FUNCTION_ARG and FUNCTION_VALUE.
+
+   SIZE is the size in bytes of the vector.
+   BASE_MODE is the argument's base machine mode.
+   REGNO is the FP hard register the vector will be passed in.  */
+
+static rtx
+function_arg_vector_value (int size, enum machine_mode base_mode, int regno)
+{
+  unsigned short base_mode_size = GET_MODE_SIZE (base_mode);
+  int nregs = size / base_mode_size, i;
+  rtx regs;
+
+  regs = gen_rtx_PARALLEL (BLKmode, rtvec_alloc (nregs));
+
+  for (i = 0; i < nregs; i++)
+    {
+      XVECEXP (regs, 0, i)
+	= gen_rtx_EXPR_LIST (VOIDmode,
+			     gen_rtx_REG (base_mode, regno),
+			     GEN_INT (base_mode_size * i));
+      regno += base_mode_size / 4;
+    }
 
   return regs;
 }
@@ -5582,6 +5723,7 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
 		 ? SPARC_INCOMING_INT_ARG_FIRST
 		 : SPARC_OUTGOING_INT_ARG_FIRST);
   int slotno, regno, padding;
+  enum mode_class mclass = GET_MODE_CLASS (mode);
   rtx reg;
 
   slotno = function_arg_slotno (cum, mode, type, named, incoming_p,
@@ -5613,16 +5755,31 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
       if (size > 16)
 	abort (); /* shouldn't get here */
 
-      return function_arg_union_value (size, mode, regno);
+      return function_arg_union_value (size, mode, slotno, regno);
     }
+  else if (type && TREE_CODE (type) == VECTOR_TYPE)
+    {
+      /* Vector types deserve special treatment because they are
+	 polymorphic wrt their mode, depending upon whether VIS
+	 instructions are enabled.  */
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+
+      if (size > 16)
+	abort (); /* shouldn't get here */
+
+      if (mode == BLKmode)
+	return function_arg_vector_value (size,
+					  TYPE_MODE (TREE_TYPE (type)),
+					  SPARC_FP_ARG_FIRST + 2*slotno);
+      else
+	mclass = MODE_FLOAT;
+    }
+
   /* v9 fp args in reg slots beyond the int reg slots get passed in regs
      but also have the slot allocated for them.
      If no prototype is in scope fp values in register slots get passed
      in two places, either fp regs and int regs or fp regs and memory.  */
-  else if ((GET_MODE_CLASS (mode) == MODE_FLOAT
-	    || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
-	    || GET_MODE_CLASS (mode) == MODE_VECTOR_INT
-	    || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+  if ((mclass == MODE_FLOAT || mclass == MODE_COMPLEX_FLOAT)
       && SPARC_FP_REG_P (regno))
     {
       reg = gen_rtx_REG (mode, regno);
@@ -5695,9 +5852,8 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
   return reg;
 }
 
-/* Handle the FUNCTION_ARG_PARTIAL_NREGS macro.
-   For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
+/* For an arg passed partly in registers and partly in memory,
+   this is the number of bytes of registers used.
    For args passed entirely in registers or entirely in memory, zero.
 
    Any arg that starts in the first 6 regs but won't entirely fit in them
@@ -5706,9 +5862,9 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
    values that begin in the last fp reg [where "last fp reg" varies with the
    mode] will be split between that reg and memory.  */
 
-int
-function_arg_partial_nregs (const struct sparc_args *cum,
-			    enum machine_mode mode, tree type, int named)
+static int
+sparc_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+			 tree type, bool named)
 {
   int slotno, regno, padding;
 
@@ -5724,13 +5880,13 @@ function_arg_partial_nregs (const struct sparc_args *cum,
 		     ? ROUND_ADVANCE (int_size_in_bytes (type))
 		     : ROUND_ADVANCE (GET_MODE_SIZE (mode))))
 	  > SPARC_INT_ARG_MAX)
-	return SPARC_INT_ARG_MAX - slotno;
+	return (SPARC_INT_ARG_MAX - slotno) * UNITS_PER_WORD;
     }
   else
     {
       /* We are guaranteed by pass_by_reference that the size of the
-	 argument is not greater than 16 bytes, so we only need to
-	 return 1 if the argument is partially passed in registers.  */
+	 argument is not greater than 16 bytes, so we only need to return
+	 one word if the argument is partially passed in registers.  */
 
       if (type && AGGREGATE_TYPE_P (type))
 	{
@@ -5738,7 +5894,7 @@ function_arg_partial_nregs (const struct sparc_args *cum,
 
 	  if (size > UNITS_PER_WORD
 	      && slotno == SPARC_INT_ARG_MAX - 1)
-	    return 1;
+	    return UNITS_PER_WORD;
 	}
       else if (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
 	       || (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
@@ -5747,24 +5903,21 @@ function_arg_partial_nregs (const struct sparc_args *cum,
 	  /* The complex types are passed as packed types.  */
 	  if (GET_MODE_SIZE (mode) > UNITS_PER_WORD
 	      && slotno == SPARC_INT_ARG_MAX - 1)
-	    return 1;
+	    return UNITS_PER_WORD;
 	}
       else if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
 	{
 	  if ((slotno + GET_MODE_SIZE (mode) / UNITS_PER_WORD)
 	      > SPARC_FP_ARG_MAX)
-	    return 1;
+	    return UNITS_PER_WORD;
 	}
     }
 
   return 0;
 }
 
-/* Return true if the argument should be passed by reference.
-   !v9: The SPARC ABI stipulates passing struct arguments (of any size) and
-   quad-precision floats by invisible reference.
-   v9: Aggregates greater than 16 bytes are passed by reference.
-   For Pascal, also pass arrays by reference.  */
+/* Handle the TARGET_PASS_BY_REFERENCE target hook.
+   Specify whether to pass the argument by reference.  */
 
 static bool
 sparc_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
@@ -5773,23 +5926,48 @@ sparc_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 {
   if (TARGET_ARCH32)
     {
-      return ((type && AGGREGATE_TYPE_P (type))
-	      /* Extended ABI (as implemented by the Sun compiler) says
-		 that all complex floats are passed in memory.  */
+    /* Original SPARC 32-bit ABI says that structures and unions,
+       and quad-precision floats are passed by reference.  For Pascal,
+       also pass arrays by reference.  All other base types are passed
+       in registers.
+
+       Extended ABI (as implemented by the Sun compiler) says that all
+       complex floats are passed by reference.  Pass complex integers
+       in registers up to 8 bytes.  More generally, enforce the 2-word
+       cap for passing arguments in registers.
+
+       Vector ABI (as implemented by the Sun VIS SDK) says that vector
+       integers are passed like floats of the same size, that is in
+       registers up to 8 bytes.  Pass all vector floats by reference
+       like structure and unions.  */
+      return ((type && (AGGREGATE_TYPE_P (type) || VECTOR_FLOAT_TYPE_P (type)))
 	      || mode == SCmode
-	      /* Enforce the 2-word cap for passing arguments in registers.
-		 This affects CDImode, TFmode, DCmode, TCmode and large
-		 vector modes.  */
-	      || GET_MODE_SIZE (mode) > 8);
+	      /* Catch CDImode, TFmode, DCmode and TCmode.  */
+	      || GET_MODE_SIZE (mode) > 8
+	      || (type
+		  && TREE_CODE (type) == VECTOR_TYPE
+		  && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8));
     }
   else
     {
+    /* Original SPARC 64-bit ABI says that structures and unions
+       smaller than 16 bytes are passed in registers, as well as
+       all other base types.  For Pascal, pass arrays by reference.
+       
+       Extended ABI (as implemented by the Sun compiler) says that
+       complex floats are passed in registers up to 16 bytes.  Pass
+       all complex integers in registers up to 16 bytes.  More generally,
+       enforce the 2-word cap for passing arguments in registers.
+
+       Vector ABI (as implemented by the Sun VIS SDK) says that vector
+       integers are passed like floats of the same size, that is in
+       registers (up to 16 bytes).  Pass all vector floats like structure
+       and unions.  */
       return ((type && TREE_CODE (type) == ARRAY_TYPE)
 	      || (type
-		  && AGGREGATE_TYPE_P (type)
+		  && (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == VECTOR_TYPE)
 		  && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 16)
-	      /* Enforce the 2-word cap for passing arguments in registers.
-		 This affects CTImode, TCmode and large vector modes.  */
+	      /* Catch CTImode and TCmode.  */
 	      || GET_MODE_SIZE (mode) > 16);
     }
 }
@@ -5861,30 +6039,40 @@ static bool
 sparc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
   if (TARGET_ARCH32)
-    /* Original SPARC 32-bit ABI says that quad-precision floats
-       and all structures are returned in memory.  Extended ABI
-       (as implemented by the Sun compiler) says that all complex
-       floats are returned in registers (8 FP registers at most
-       for '_Complex long double').  Return all complex integers
-       in registers (4 at most for '_Complex long long').  */
+    /* Original SPARC 32-bit ABI says that structures and unions,
+       and quad-precision floats are returned in memory.  All other
+       base types are returned in registers.
+
+       Extended ABI (as implemented by the Sun compiler) says that
+       all complex floats are returned in registers (8 FP registers
+       at most for '_Complex long double').  Return all complex integers
+       in registers (4 at most for '_Complex long long').
+
+       Vector ABI (as implemented by the Sun VIS SDK) says that vector
+       integers are returned like floats of the same size, that is in
+       registers up to 8 bytes and in memory otherwise.  Return all
+       vector floats in memory like structure and unions; note that
+       they always have BLKmode like the latter.  */
     return (TYPE_MODE (type) == BLKmode
 	    || TYPE_MODE (type) == TFmode
-	    /* Integral vector types follow the scalar FP types conventions.  */
-	    || (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_VECTOR_INT
-		&& GET_MODE_SIZE (TYPE_MODE (type)) > 8)
-	    /* FP vector types follow the complex FP types conventions.  */
-	    || (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_VECTOR_FLOAT
-		&& GET_MODE_SIZE (TYPE_MODE (type)) > 32));
+	    || (TREE_CODE (type) == VECTOR_TYPE
+		&& (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8));
   else
     /* Original SPARC 64-bit ABI says that structures and unions
-       smaller than 32 bytes are returned in registers.  Extended
-       ABI (as implemented by the Sun compiler) says that all complex
-       floats are returned in registers (8 FP registers at most
-       for '_Complex long double').  Return all complex integers
-       in registers (4 at most for '_Complex TItype').  */
+       smaller than 32 bytes are returned in registers, as well as
+       all other base types.
+       
+       Extended ABI (as implemented by the Sun compiler) says that all
+       complex floats are returned in registers (8 FP registers at most
+       for '_Complex long double').  Return all complex integers in
+       registers (4 at most for '_Complex TItype').
+
+       Vector ABI (as implemented by the Sun VIS SDK) says that vector
+       integers are returned like floats of the same size, that is in
+       registers.  Return all vector floats like structure and unions;
+       note that they always have BLKmode like the latter.  */
     return ((TYPE_MODE (type) == BLKmode
-	     && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 32)
-	    || GET_MODE_SIZE (TYPE_MODE (type)) > 32);
+	     && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 32));
 }
 
 /* Handle the TARGET_STRUCT_VALUE target hook.
@@ -5917,9 +6105,27 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
   int regbase = (incoming_p
 		 ? SPARC_OUTGOING_INT_ARG_FIRST
 		 : SPARC_INCOMING_INT_ARG_FIRST);
+  enum mode_class mclass = GET_MODE_CLASS (mode);
   int regno;
 
-  if (TARGET_ARCH64 && type)
+  if (type && TREE_CODE (type) == VECTOR_TYPE)
+    {
+      /* Vector types deserve special treatment because they are
+	 polymorphic wrt their mode, depending upon whether VIS
+	 instructions are enabled.  */
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+
+      if ((TARGET_ARCH32 && size > 8) || (TARGET_ARCH64 && size > 32))
+	abort (); /* shouldn't get here */
+
+      if (mode == BLKmode)
+	return function_arg_vector_value (size,
+					  TYPE_MODE (TREE_TYPE (type)),
+					  SPARC_FP_ARG_FIRST);
+      else
+	mclass = MODE_FLOAT;
+    }
+  else if (type && TARGET_ARCH64)
     {
       if (TREE_CODE (type) == RECORD_TYPE)
 	{
@@ -5938,7 +6144,7 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	  if (size > 32)
 	    abort (); /* shouldn't get here */
 
-	  return function_arg_union_value (size, mode, regbase);
+	  return function_arg_union_value (size, mode, 0, regbase);
 	}
       else if (AGGREGATE_TYPE_P (type))
 	{
@@ -5961,14 +6167,17 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	     try to be unduly clever, and simply follow the ABI
 	     for unions in that case.  */
 	  if (mode == BLKmode)
-	    return function_arg_union_value (bytes, mode, regbase);
+	    return function_arg_union_value (bytes, mode, 0, regbase);
+	  else
+	    mclass = MODE_INT;
 	}
-      else if (GET_MODE_CLASS (mode) == MODE_INT
+      else if (mclass == MODE_INT
 	       && GET_MODE_SIZE (mode) < UNITS_PER_WORD)
 	mode = word_mode;
     }
 
-  if (TARGET_FPU && (FLOAT_MODE_P (mode) || VECTOR_MODE_P (mode)))
+  if ((mclass == MODE_FLOAT || mclass == MODE_COMPLEX_FLOAT)
+      && TARGET_FPU)
     regno = SPARC_FP_ARG_FIRST;
   else
     regno = regbase;
@@ -6104,6 +6313,15 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   gimplify_and_add (incr, post_p);
 
   return build_va_arg_indirect_ref (addr);
+}
+
+/* Implement the TARGET_VECTOR_MODE_SUPPORTED_P target hook.
+   Specify whether the vector mode is supported by the hardware.  */
+
+static bool
+sparc_vector_mode_supported_p (enum machine_mode mode)
+{
+  return TARGET_VIS && VECTOR_MODE_P (mode) ? true : false;
 }
 
 /* Return the string to output an unconditional branch to LABEL, which is
@@ -7500,7 +7718,6 @@ sparc_type_code (register tree type)
 	case CHAR_TYPE:		/* GNU Pascal CHAR type.  Not used in C.  */
 	case BOOLEAN_TYPE:	/* GNU Fortran BOOLEAN type.  */
 	case FILE_TYPE:		/* GNU Pascal FILE type.  */
-	case SET_TYPE:		/* GNU Pascal SET type.  */
 	case LANG_TYPE:		/* ? */
 	  return qualifiers;
   
@@ -8255,6 +8472,163 @@ sparc_init_libfuncs (void)
   gofast_maybe_init_libfuncs ();
 }
 
+#define def_builtin(NAME, CODE, TYPE) \
+  lang_hooks.builtin_function((NAME), (TYPE), (CODE), BUILT_IN_MD, NULL, \
+                              NULL_TREE)
+
+/* Implement the TARGET_INIT_BUILTINS target hook.
+   Create builtin functions for special SPARC instructions.  */
+
+static void
+sparc_init_builtins (void)
+{
+  if (TARGET_VIS)
+    sparc_vis_init_builtins ();
+}
+
+/* Create builtin functions for VIS 1.0 instructions.  */
+
+static void
+sparc_vis_init_builtins (void)
+{
+  tree v4qi = build_vector_type (unsigned_intQI_type_node, 4);
+  tree v8qi = build_vector_type (unsigned_intQI_type_node, 8);
+  tree v4hi = build_vector_type (intHI_type_node, 4);
+  tree v2hi = build_vector_type (intHI_type_node, 2);
+  tree v2si = build_vector_type (intSI_type_node, 2);
+
+  tree v4qi_ftype_v4hi = build_function_type_list (v4qi, v4hi, 0);
+  tree v8qi_ftype_v2si_v8qi = build_function_type_list (v8qi, v2si, v8qi, 0);
+  tree v2hi_ftype_v2si = build_function_type_list (v2hi, v2si, 0);
+  tree v4hi_ftype_v4qi = build_function_type_list (v4hi, v4qi, 0);
+  tree v8qi_ftype_v4qi_v4qi = build_function_type_list (v8qi, v4qi, v4qi, 0);
+  tree v4hi_ftype_v4qi_v4hi = build_function_type_list (v4hi, v4qi, v4hi, 0);
+  tree v4hi_ftype_v4qi_v2hi = build_function_type_list (v4hi, v4qi, v2hi, 0);
+  tree v2si_ftype_v4qi_v2hi = build_function_type_list (v2si, v4qi, v2hi, 0);
+  tree v4hi_ftype_v8qi_v4hi = build_function_type_list (v4hi, v8qi, v4hi, 0);
+  tree v4hi_ftype_v4hi_v4hi = build_function_type_list (v4hi, v4hi, v4hi, 0);
+  tree v2si_ftype_v2si_v2si = build_function_type_list (v2si, v2si, v2si, 0);
+  tree v8qi_ftype_v8qi_v8qi = build_function_type_list (v8qi, v8qi, v8qi, 0);
+  tree di_ftype_v8qi_v8qi_di = build_function_type_list (intDI_type_node,
+							 v8qi, v8qi,
+							 intDI_type_node, 0);
+  tree di_ftype_di_di = build_function_type_list (intDI_type_node,
+						  intDI_type_node,
+						  intDI_type_node, 0);
+  tree ptr_ftype_ptr_si = build_function_type_list (ptr_type_node,
+		        			    ptr_type_node,
+					            intSI_type_node, 0);
+  tree ptr_ftype_ptr_di = build_function_type_list (ptr_type_node,
+		        			    ptr_type_node,
+					            intDI_type_node, 0);
+
+  /* Packing and expanding vectors.  */
+  def_builtin ("__builtin_vis_fpack16", CODE_FOR_fpack16_vis, v4qi_ftype_v4hi);
+  def_builtin ("__builtin_vis_fpack32", CODE_FOR_fpack32_vis,
+	       v8qi_ftype_v2si_v8qi);
+  def_builtin ("__builtin_vis_fpackfix", CODE_FOR_fpackfix_vis,
+	       v2hi_ftype_v2si);
+  def_builtin ("__builtin_vis_fexpand", CODE_FOR_fexpand_vis, v4hi_ftype_v4qi);
+  def_builtin ("__builtin_vis_fpmerge", CODE_FOR_fpmerge_vis,
+	       v8qi_ftype_v4qi_v4qi);
+
+  /* Multiplications.  */
+  def_builtin ("__builtin_vis_fmul8x16", CODE_FOR_fmul8x16_vis,
+	       v4hi_ftype_v4qi_v4hi);
+  def_builtin ("__builtin_vis_fmul8x16au", CODE_FOR_fmul8x16au_vis,
+	       v4hi_ftype_v4qi_v2hi);
+  def_builtin ("__builtin_vis_fmul8x16al", CODE_FOR_fmul8x16al_vis,
+	       v4hi_ftype_v4qi_v2hi);
+  def_builtin ("__builtin_vis_fmul8sux16", CODE_FOR_fmul8sux16_vis,
+	       v4hi_ftype_v8qi_v4hi);
+  def_builtin ("__builtin_vis_fmul8ulx16", CODE_FOR_fmul8ulx16_vis,
+	       v4hi_ftype_v8qi_v4hi);
+  def_builtin ("__builtin_vis_fmuld8sux16", CODE_FOR_fmuld8sux16_vis,
+	       v2si_ftype_v4qi_v2hi);
+  def_builtin ("__builtin_vis_fmuld8ulx16", CODE_FOR_fmuld8ulx16_vis,
+	       v2si_ftype_v4qi_v2hi);
+
+  /* Data aligning.  */
+  def_builtin ("__builtin_vis_faligndatav4hi", CODE_FOR_faligndatav4hi_vis,
+	       v4hi_ftype_v4hi_v4hi);
+  def_builtin ("__builtin_vis_faligndatav8qi", CODE_FOR_faligndatav8qi_vis,
+	       v8qi_ftype_v8qi_v8qi);
+  def_builtin ("__builtin_vis_faligndatav2si", CODE_FOR_faligndatav2si_vis,
+	       v2si_ftype_v2si_v2si);
+  def_builtin ("__builtin_vis_faligndatadi", CODE_FOR_faligndatadi_vis,
+               di_ftype_di_di);
+  if (TARGET_ARCH64)
+    def_builtin ("__builtin_vis_alignaddr", CODE_FOR_alignaddrdi_vis,
+	         ptr_ftype_ptr_di);
+  else
+    def_builtin ("__builtin_vis_alignaddr", CODE_FOR_alignaddrsi_vis,
+	         ptr_ftype_ptr_si);
+
+  /* Pixel distance.  */
+  def_builtin ("__builtin_vis_pdist", CODE_FOR_pdist_vis,
+	       di_ftype_v8qi_v8qi_di);
+}
+
+/* Handle TARGET_EXPAND_BUILTIN target hook.
+   Expand builtin functions for sparc instrinsics.  */
+
+static rtx
+sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
+		      enum machine_mode tmode, int ignore ATTRIBUTE_UNUSED)
+{
+  tree arglist;
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  unsigned int icode = DECL_FUNCTION_CODE (fndecl);
+  rtx pat, op[4];
+  enum machine_mode mode[4];
+  int arg_count = 0;
+
+  mode[arg_count] = tmode;
+
+  if (target == 0
+      || GET_MODE (target) != tmode
+      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+    op[arg_count] = gen_reg_rtx (tmode);
+  else
+    op[arg_count] = target;
+
+  for (arglist = TREE_OPERAND (exp, 1); arglist;
+       arglist = TREE_CHAIN (arglist))
+    {
+      tree arg = TREE_VALUE (arglist);
+
+      arg_count++;
+      mode[arg_count] = insn_data[icode].operand[arg_count].mode;
+      op[arg_count] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+
+      if (! (*insn_data[icode].operand[arg_count].predicate) (op[arg_count],
+							      mode[arg_count]))
+	op[arg_count] = copy_to_mode_reg (mode[arg_count], op[arg_count]);
+    }
+
+  switch (arg_count)
+    {
+    case 1:
+      pat = GEN_FCN (icode) (op[0], op[1]);
+      break;
+    case 2:
+      pat = GEN_FCN (icode) (op[0], op[1], op[2]);
+      break;
+    case 3:
+      pat = GEN_FCN (icode) (op[0], op[1], op[2], op[3]);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  if (!pat)
+    return NULL_RTX;
+
+  emit_insn (pat);
+
+  return op[0];
+}
+
 int
 sparc_extra_constraint_check (rtx op, int c, int strict)
 {
@@ -8287,6 +8661,9 @@ sparc_extra_constraint_check (rtx op, int c, int strict)
     case 'W':
     case 'T':
       break;
+
+    case 'Y':
+      return fp_zero_operand (op, GET_MODE (op));
 
     default:
       return 0;
@@ -8500,6 +8877,18 @@ sparc_rtx_costs (rtx x, int code, int outer_code, int *total)
 	*total = sparc_costs->int_cmove;
       return false;
 
+    case IOR:
+      /* Handle the NAND vector patterns.  */
+      if (sparc_vector_mode_supported_p (GET_MODE (x))
+	  && GET_CODE (XEXP (x, 0)) == NOT
+	  && GET_CODE (XEXP (x, 1)) == NOT)
+	{
+	  *total = COSTS_N_INSNS (1);
+	  return true;
+	}
+      else
+        return false;
+
     default:
       return false;
     }
@@ -8513,11 +8902,11 @@ emit_and_preserve (rtx seq, rtx reg)
   rtx slot = gen_rtx_MEM (word_mode,
 			  plus_constant (stack_pointer_rtx, SPARC_STACK_BIAS));
 
-  emit_stack_pointer_decrement (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT));
+  emit_insn (gen_stack_pointer_dec (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT)));
   emit_insn (gen_rtx_SET (VOIDmode, slot, reg));
   emit_insn (seq);
   emit_insn (gen_rtx_SET (VOIDmode, reg, slot));
-  emit_stack_pointer_increment (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT));
+  emit_insn (gen_stack_pointer_inc (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT)));
 }
 
 /* Output the assembler code for a thunk function.  THUNK_DECL is the
@@ -8662,7 +9051,9 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
         {
 	  spill_reg = gen_rtx_REG (word_mode, 15);  /* %o7 */
 	  start_sequence ();
-	  load_pic_register ();  /* clobbers %o7 */
+	  /* Delay emitting the PIC helper function because it needs to
+	     change the section and we are emitting assembly code.  */
+	  load_pic_register (true);  /* clobbers %o7 */
 	  scratch = legitimize_pic_address (funexp, Pmode, scratch);
 	  seq = get_insns ();
 	  end_sequence ();
@@ -8780,6 +9171,18 @@ get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
   return 0;
 }
 
+/* Handle the TARGET_DWARF_HANDLE_FRAME_UNSPEC hook.
+   This is called from dwarf2out.c to emit call frame instructions
+   for frame-related insns containing UNSPECs and UNSPEC_VOLATILEs. */
+static void
+sparc_dwarf_handle_frame_unspec (const char *label,
+				 rtx pattern ATTRIBUTE_UNUSED,
+				 int index ATTRIBUTE_UNUSED)
+{
+  gcc_assert (index == UNSPECV_SAVEW);
+  dwarf2out_window_save (label);
+}
+
 /* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
@@ -8799,6 +9202,17 @@ sparc_output_dwarf_dtprel (FILE *file, int size, rtx x)
     }
   output_addr_const (file, x);
   fputs (")", file);
+}
+
+static
+void sparc_file_end (void)
+{
+  /* If we haven't emitted the special PIC helper function, do so now.  */
+  if (pic_helper_symbol_name[0] && !pic_helper_emitted_p)
+    emit_pic_helper ();
+
+  if (NEED_INDICATE_EXEC_STACK)
+    file_end_indicate_exec_stack ();
 }
 
 #include "gt-sparc.h"

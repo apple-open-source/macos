@@ -1,2 +1,0 @@
-#!/bin/sh
-tclsh ../tools/genStubs.tcl . tcl.decls tclInt.decls

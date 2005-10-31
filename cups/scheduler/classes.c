@@ -1,5 +1,5 @@
 /*
- * "$Id: classes.c,v 1.13 2005/02/09 23:12:13 jlovell Exp $"
+ * "$Id: classes.c,v 1.13.2.1 2005/07/27 21:58:45 jlovell Exp $"
  *
  *   Printer class routines for the Common UNIX Printing System (CUPS).
  *
@@ -255,8 +255,9 @@ DeletePrinterFromClasses(printer_t *p)	/* I - Printer to delete */
 void
 DeleteAllClasses(void)
 {
-  printer_t	*c,	/* Pointer to current printer/class */
-		*next;	/* Pointer to next printer in list */
+  printer_t	*c,		/* Pointer to current printer/class */
+		*next;		/* Pointer to next printer in list */
+  int		num_printers;	/* Number of printers */
 
 
   for (c = Printers; c != NULL; c = next)
@@ -264,7 +265,20 @@ DeleteAllClasses(void)
     next = c->next;
 
     if (c->type & CUPS_PRINTER_CLASS)
+    {
+     /*
+      * Deleting a printer that is part of an implicit class can also cause 
+      * a following class to be deleted (which our 'next' may be pointing at). 
+      * In this case reset 'next' to the head of the list...
+      */
+
+      num_printers = NumPrinters;
+
       DeletePrinter(c, 0);
+
+      if (NumPrinters != num_printers - 1)
+	next = Printers;
+    }
   }
 }
 
@@ -749,5 +763,5 @@ UpdateImplicitClasses(void)
 
 
 /*
- * End of "$Id: classes.c,v 1.13 2005/02/09 23:12:13 jlovell Exp $".
+ * End of "$Id: classes.c,v 1.13.2.1 2005/07/27 21:58:45 jlovell Exp $".
  */

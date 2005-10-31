@@ -1,6 +1,6 @@
 /* RTL reader for GCC.
    Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004
+   2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1253,6 +1253,9 @@ read_rtx_1 (FILE *infile)
 	      memcpy (&return_vec->elem[0], obstack_finish (&vector_stack),
 		      list_counter * sizeof (rtx));
 	    }
+	  else if (format_ptr[i] == 'E')
+	    fatal_with_file_and_line (infile,
+				      "vector must have at least one element");
 	  XVEC (return_rtx, i) = return_vec;
 	  obstack_free (&vector_stack, NULL);
 	  /* close bracket gotten */

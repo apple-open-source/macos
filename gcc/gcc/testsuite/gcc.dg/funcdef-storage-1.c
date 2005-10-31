@@ -7,8 +7,3 @@ flarm(void)
 
   foo();
 }
-
-static void
-foo(void)
-{
-}

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: rap.c,v 1.5 2004/12/13 00:25:23 lindak Exp $
+ * $Id: rap.c,v 1.5.166.1 2005/07/20 05:27:02 lindak Exp $
  *
  * This is very simple implementation of RAP protocol.
  */
@@ -385,7 +385,7 @@ smb_rap_NetShareEnum(struct smb_ctx *ctx, int sLevel, void *pbBuffer,
 	int cbBuffer, int *pcEntriesRead, int *pcTotalAvail)
 {
 	struct smb_rap *rap;
-	long lval;
+	long lval = 0;
 	int error;
 
 	error = smb_rap_create(0, "WrLeh", "B13BWz", &rap);

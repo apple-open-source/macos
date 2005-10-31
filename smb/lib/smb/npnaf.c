@@ -843,7 +843,7 @@ INTERNAL void addr_set_netaddr
     ** The string is assumed to be a hex string giving a pointer
     ** value that points to an smb_ctx.
     */
-    if (sscanf(netaddr, "%p", &p) != 1)
+    if (sscanf((char *)netaddr, "%p", &p) != 1)
     {
         *status = rpc_s_inval_net_addr;
         return;

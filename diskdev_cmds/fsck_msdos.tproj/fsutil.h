@@ -50,7 +50,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-void perror __P((const char *));
+void perr __P((const char *));
 void errexit __P((const char *, ...))
     __attribute__((__noreturn__,__format__(__printf__,1,2)));  
 void pfatal __P((const char *, ...))
@@ -63,7 +63,7 @@ const char *rawname __P((const char *));
 const char *unrawname __P((const char *));
 const char *blockcheck __P((const char *));
 const char *cdevname __P((void));
-void setcdevname __P((const char *, int));
+void setcdevname __P((const char *));
 int  hotroot __P((void));
 void *emalloc __P((size_t));
 void *erealloc __P((void *, size_t));

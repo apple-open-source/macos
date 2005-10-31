@@ -8,7 +8,10 @@
 
 struct astruct {
   float a, b;
-} glob = { 1.0, 2.0 };
+  /* APPLE LOCAL begin testing */
+  char c;
+} glob = { 1.0, 2.0, 'a' };
+/* APPLE LOCAL end testing */
 
 struct bstruct {
   float a, b, c, d, e, f;

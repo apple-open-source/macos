@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_conn.c,v 1.27.166.1 2005/05/27 02:35:29 lindak Exp $
+ * $Id: smb_conn.c,v 1.27.166.2 2005/07/20 05:27:00 lindak Exp $
  */
 
 /*
@@ -137,7 +137,8 @@ smb_sm_lookupint(struct smb_vcspec *vcspec, struct smb_sharespec *shspec,
 
 	vcspec->shspec = shspec;
 	error = ENOENT;
-	SMBCO_FOREACH((struct smb_connobj*)vcp, &smb_vclist) {
+	SMBCO_FOREACH(vcp, &smb_vclist) {
+
 		if (*vcpp && vcp != *vcpp)
 			continue;
 		error = smb_vc_lock(vcp, p);
@@ -689,7 +690,8 @@ smb_vc_lookupshare(struct smb_vc *vcp, struct smb_sharespec *dp,
 
 	*sspp = NULL;
 	dp->scred = scred;
-	SMBCO_FOREACH((struct smb_connobj*)ssp, VCTOCP(vcp)) {
+	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
+
 		error = smb_share_lock(ssp, p);
 		if (error)
 			continue;
@@ -905,8 +907,10 @@ smb_share_count(void)
 	int nshares;
 
 	nshares = 0;
-	SMBCO_FOREACH((struct smb_connobj*)vcp, &smb_vclist) {
-		SMBCO_FOREACH((struct smb_connobj*)ssp, VCTOCP(vcp))
+	SMBCO_FOREACH(vcp, &smb_vclist) {
+
+		SMBCO_FOREACH(ssp, VCTOCP(vcp))
+
 			nshares++;
 	}
 	return nshares;

@@ -636,11 +636,23 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 					{
 						// The device reported a phase error on the command, perform the 
 						// bulk reset on the device.
-						status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
-						if( status == kIOReturnSuccess )
-						{
-							commandInProgress = true;
-						}
+                        
+                        if ( fUseUSBResetNotBOReset )
+                        {
+                            ResetDeviceNow();
+                            
+                            boRequestBlock->currentState = kBulkOnlyClearBulkInCompleted;
+                            status = ClearFeatureEndpointStall( GetBulkInPipe(), &boRequestBlock->boCompletion );
+                        }
+                        else
+                        {
+                            status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
+                        }
+                        
+                        if( status == kIOReturnSuccess )
+                        {
+                            commandInProgress = true;
+                        }
 					}
 					break;
 					
@@ -668,11 +680,22 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 			// Second try for the CSW is done, if an error occurred, reset device.
 			if ( resultingStatus != kIOReturnSuccess)
 			{
-				status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
-				if ( status == kIOReturnSuccess )
-				{
-					commandInProgress = true;
-				}
+                if ( fUseUSBResetNotBOReset )
+                {
+                    ResetDeviceNow();
+                    
+                    boRequestBlock->currentState = kBulkOnlyClearBulkInCompleted;
+                    status = ClearFeatureEndpointStall( GetBulkInPipe(), &boRequestBlock->boCompletion );
+                }
+                else
+                {
+                    status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
+                }
+                
+                if( status == kIOReturnSuccess )
+                {
+                    commandInProgress = true;
+                }
 			}
 			else
 			{

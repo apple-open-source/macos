@@ -116,7 +116,7 @@ static void winbindd_status(void)
 	
 	DEBUG(0, ("\t%d clients currently active\n", winbindd_num_clients()));
 	
-	if (DEBUGLEVEL >= 2 && winbindd_num_clients()) {
+	if (SAMBA_DEBUGLEVEL >= 2 && winbindd_num_clients()) {
 		DEBUG(2, ("\tclient list:\n"));
 		for(tmp = winbindd_client_list(); tmp; tmp = tmp->next) {
 			DEBUG(2, ("\t\tpid %lu, sock %d, rbl %d, wbl %d\n",

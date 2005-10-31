@@ -672,7 +672,7 @@ typedef struct IOUSBVDC_ColorFormatDescriptor IOUSBVDC_ColorFormatDescriptor;
 
 }
 
-+(void)decodeBytes:(UInt8 *)descriptor forDevice:(BusProbeDevice *)thisDevice  withDeviceInterface:(IOUSBDeviceInterface **)deviceIntf;
++(void)decodeBytes:(UInt8 *)descriptor forDevice:(BusProbeDevice *)thisDevice  withDeviceInterface:(IOUSBDeviceRef)deviceIntf;
     char MapNumberToVersion( int i );
 
 @end

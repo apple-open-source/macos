@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -144,12 +144,7 @@ extern void leaf_renumber_regs_insn (rtx);
 /* Locate the proper template for the given insn-code.  */
 extern const char *get_insn_template (int, rtx);
 
-/* Add function NAME to the weak symbols list.  VALUE is a weak alias
-   associated with NAME.  */
-extern int add_weak (tree, const char *, const char *);
-
 /* Functions in flow.c */
-extern void allocate_for_life_analysis (void);
 extern int regno_clobbered_at_setjmp (int);
 
 /* Functions in varasm.c.  */
@@ -282,7 +277,6 @@ extern void assemble_zeros (unsigned HOST_WIDE_INT);
 
 /* Assemble an alignment pseudo op for an ALIGN-bit boundary.  */
 extern void assemble_align (int);
-extern void assemble_eh_align (int);
 
 /* Assemble a string constant with the specified C string as contents.  */
 extern void assemble_string (const char *, int);
@@ -292,13 +286,17 @@ extern void assemble_external_libcall (rtx);
 
 /* Assemble a label named NAME.  */
 extern void assemble_label (const char *);
-extern void assemble_eh_label (const char *);
 
-/* Output to FILE a reference to the assembler name of a C-level name NAME.
-   If NAME starts with a *, the rest of NAME is output verbatim.
-   Otherwise NAME is transformed in an implementation-defined way
-   (usually by the addition of an underscore).
-   Many macros in the tm file are defined to call this function.  */
+/* Output to FILE (an assembly file) a reference to NAME.  If NAME
+   starts with a *, the rest of NAME is output verbatim.  Otherwise
+   NAME is transformed in a target-specific way (usually by the
+   addition of an underscore).  */
+extern void assemble_name_raw (FILE *, const char *);
+
+/* Like assemble_name_raw, but should be used when NAME might refer to
+   an entity that is also represented as a tree (like a function or
+   variable).  If NAME does refer to such an entity, that entity will
+   be marked as referenced.  */
 extern void assemble_name (FILE *, const char *);
 
 /* Return the assembler directive for creating a given kind of integer
@@ -476,7 +474,6 @@ extern void no_asm_to_stream (FILE *);
 #define SECTION_NOTYPE	 0x80000	/* don't output @progbits */
 #define SECTION_MACH_DEP 0x100000	/* subsequent bits reserved for target */
 
-extern unsigned int get_named_section_flags (const char *);
 extern bool set_named_section_flags (const char *, unsigned int);
 #define named_section_flags(NAME, FLAGS) \
   named_section_real((NAME), (FLAGS), /*decl=*/NULL_TREE)
@@ -521,5 +518,25 @@ extern void file_end_indicate_exec_stack (void);
 extern bool default_valid_pointer_mode (enum machine_mode);
 
 extern int default_address_cost (rtx);
+
+/* dbxout helper functions */
+#if defined DBX_DEBUGGING_INFO || defined XCOFF_DEBUGGING_INFO
+
+extern void dbxout_int (int);
+extern void dbxout_stabd (int, int);
+extern void dbxout_begin_stabn (int);
+extern void dbxout_begin_stabn_sline (int);
+extern void dbxout_begin_empty_stabs (int);
+extern void dbxout_begin_simple_stabs (const char *, int);
+extern void dbxout_begin_simple_stabs_desc (const char *, int, int);
+
+extern void dbxout_stab_value_zero (void);
+extern void dbxout_stab_value_label (const char *);
+extern void dbxout_stab_value_label_diff (const char *, const char *);
+extern void dbxout_stab_value_internal_label (const char *, int *);
+extern void dbxout_stab_value_internal_label_diff (const char *, int *,
+						   const char *);
+
+#endif
 
 #endif /* ! GCC_OUTPUT_H */

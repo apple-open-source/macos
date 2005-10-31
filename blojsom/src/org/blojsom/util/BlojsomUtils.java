@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,9 @@
 package org.blojsom.util;
 
 import org.blojsom.BlojsomException;
-import org.blojsom.blog.FileBackedBlogEntry;
+import org.blojsom.fetcher.BlojsomFetcher;
+import org.blojsom.fetcher.BlojsomFetcherException;
+import org.blojsom.blog.*;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
@@ -43,17 +45,19 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
+import java.text.Collator;
 import java.util.*;
 
 /**
  * BlojsomUtils
  *
  * @author David Czarnecki
- * @version $Id: BlojsomUtils.java,v 1.7 2005/02/24 20:55:31 johnan Exp $
+ * @version $Id: BlojsomUtils.java,v 1.7.2.1 2005/07/21 14:11:04 johnan Exp $
  */
 public class BlojsomUtils implements BlojsomConstants {
 
@@ -106,7 +110,7 @@ public class BlojsomUtils implements BlojsomConstants {
      */
     private static final ThreadLocal RFC_822_DATE_FORMAT_OBJECT = new ThreadLocal() {
         protected Object initialValue() {
-            return new SimpleDateFormat(RFC_822_DATE_FORMAT);
+            return new SimpleDateFormat(RFC_822_DATE_FORMAT, Locale.US);
         }
     };
 
@@ -192,7 +196,7 @@ public class BlojsomUtils implements BlojsomConstants {
      */
     public static String getFormattedDate(Date date, String format, String localeName) {
 		if (localeName == null) {
-			return getFormattedDate(date, format);
+			return getFormattedDate(date, format, Locale.US);
 		}
 		Locale locale = new Locale(localeName);
         SimpleDateFormat sdf = new SimpleDateFormat(format, locale);
@@ -201,13 +205,14 @@ public class BlojsomUtils implements BlojsomConstants {
 
     /**
      * Return a date formatted date
-     * 
+     *
      * @param date   Date
      * @param format Date Format String
+     * @param locale Locale Locale for retrieving proper date symbols
      * @return Date formatted date
      */
-    public static String getFormattedDate(Date date, String format) {
-        SimpleDateFormat sdf = new SimpleDateFormat(format);
+    public static String getFormattedDate(Date date, String format, Locale locale) {
+        SimpleDateFormat sdf = new SimpleDateFormat(format, locale);
         return sdf.format(date);
     }
 
@@ -245,10 +250,11 @@ public class BlojsomUtils implements BlojsomConstants {
             private Date today = new Date();
 
             public boolean accept(File pathname) {
+                if (pathname.isDirectory()) {
+                    return false;
+                }
+
                 for (int i = 0; i < expressions.length; i++) {
-                    if (pathname.isDirectory()) {
-                        return false;
-                    }
                     String expression = expressions[i];
                     if (pathname.getName().matches(expression)) {
                         if (pathname.lastModified() <= today.getTime()) {
@@ -272,15 +278,52 @@ public class BlojsomUtils implements BlojsomConstants {
     public static FileFilter getExtensionsFilter(final String[] extensions) {
         return new FileFilter() {
             public boolean accept(File pathname) {
+                if (pathname.isDirectory()) {
+                    return false;
+                }
+
                 for (int i = 0; i < extensions.length; i++) {
-                    if (pathname.isDirectory()) {
-                        return false;
-                    }
                     String extension = extensions[i];
                     if (pathname.getName().endsWith(extension)) {
                         return true;
                     }
                 }
+                return false;
+            }
+        };
+    }
+
+    /**
+     * Return a file filter which takes a list of file extensions to look for
+     *
+     * @param extensions        List of file extensions
+     * @param returnDirectories Whether or not to return
+     * @return File filter appropriate for filtering out a set of file extensions
+     * @since blojsom 2.20
+     */
+    public static FileFilter getExtensionsFilter(final String[] extensions, final String[] excludedDirectories, final boolean returnDirectories) {
+        return new FileFilter() {
+            public boolean accept(File pathname) {
+                if (pathname.isDirectory() && returnDirectories) {
+                    String path = pathname.toString();
+
+                    for (int i = 0; i < excludedDirectories.length; i++) {
+                        String excludedDirectory = excludedDirectories[i];
+                        if (path.matches(excludedDirectory)) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+
+                for (int i = 0; i < extensions.length; i++) {
+                    String extension = extensions[i];
+                    if (pathname.getName().matches(extension)) {
+                        return true;
+                    }
+                }
+
                 return false;
             }
         };
@@ -297,6 +340,28 @@ public class BlojsomUtils implements BlojsomConstants {
     }
 
     /**
+     * Visit a set of directories and add items to a list matching a list of extensions
+     *
+     * @param extensions          Extensions to match
+     * @param excludedDirectories Directories to exclude
+     * @param directoryOrFile     Starting directory
+     * @param items               List of items
+     * @since blojsom 2.20
+     */
+    public static void visitFilesAndDirectories(final Date today, final String[] extensions, final String[] excludedDirectories, final File directoryOrFile, List items) {
+        File[] subDirectories = directoryOrFile.listFiles(getExtensionsFilter(extensions, excludedDirectories, true));
+        for (int i = 0; i < subDirectories.length; i++) {
+            if (subDirectories[i].isDirectory()) {
+                visitFilesAndDirectories(today, extensions, excludedDirectories, subDirectories[i], items);
+            } else {
+                if (subDirectories[i].lastModified() <= today.getTime()) {
+                    items.add(subDirectories[i]);
+                }
+            }
+        }
+    }
+
+    /**
      * Parse a comma-separated list of values; also parses over internal spaces
      *
      * @param commaList Comma-separated list
@@ -304,6 +369,37 @@ public class BlojsomUtils implements BlojsomConstants {
      */
     public static String[] parseCommaList(String commaList) {
         return parseDelimitedList(commaList, ", ");
+    }
+
+    /**
+     * Parse a comma-separated list of values
+     *
+     * @param commaList Comma-separated list
+     * @return Individual strings from the comma-separated list
+     * @since blojsom 2.21
+     */
+    public static String[] parseOnlyCommaList(String commaList) {
+        return parseDelimitedList(commaList, ",");
+    }
+
+    /**
+     * Parse a string into two separate strings based on the last comma in the input value
+     *
+     * @param value Input
+     * @return Parsed string
+     * @since blojsom 2.24
+     */
+    public static String[] parseLastComma(String value) {
+        if (checkNullOrBlank(value)) {
+            return new String[] {value};
+        }
+
+        int lastCommaIndex = value.lastIndexOf(",");
+        if (lastCommaIndex == -1) {
+            return new String[] {value};
+        } else {
+            return new String[] {value.substring(0, lastCommaIndex), value.substring(lastCommaIndex + 1)};
+        }
     }
 
     /**
@@ -329,7 +425,6 @@ public class BlojsomUtils implements BlojsomConstants {
         return (String[]) list.toArray(new String[list.size()]);
     }
 
-
     /**
      * Convert the request parameters to a string
      *
@@ -352,7 +447,6 @@ public class BlojsomUtils implements BlojsomConstants {
         }
         return buffer.toString();
     }
-
 
     /**
      * Strip off the blog home directory for a requested blog category
@@ -597,7 +691,6 @@ public class BlojsomUtils implements BlojsomConstants {
         }
     }
 
-
     /**
      * Extracts the first line in a given string, otherwise returns the first n bytes
      *
@@ -652,10 +745,31 @@ public class BlojsomUtils implements BlojsomConstants {
      * @return Value of the key as a string, or <code>null</code> if there is no parameter/attribute
      */
     public static final String getRequestValue(String key, HttpServletRequest httpServletRequest) {
-        if (httpServletRequest.getParameter(key) != null) {
-            return httpServletRequest.getParameter(key);
-        } else if (httpServletRequest.getAttribute(key) != null) {
-            return httpServletRequest.getAttribute(key).toString();
+        return getRequestValue(key, httpServletRequest, false);
+    }
+
+    /**
+     * Tries to retrieve a given key using getParameter(key) and if not available, will
+     * use getAttribute(key) from the servlet request
+     *
+     * @param key                Parameter to retrieve
+     * @param httpServletRequest Request
+     * @param preferAttributes   If request attributes should be checked before request parameters
+     * @return Value of the key as a string, or <code>null</code> if there is no parameter/attribute
+     */
+    public static final String getRequestValue(String key, HttpServletRequest httpServletRequest, boolean preferAttributes) {
+        if (!preferAttributes) {
+            if (httpServletRequest.getParameter(key) != null) {
+                return httpServletRequest.getParameter(key);
+            } else if (httpServletRequest.getAttribute(key) != null) {
+                return httpServletRequest.getAttribute(key).toString();
+            }
+        } else {
+            if (httpServletRequest.getAttribute(key) != null) {
+                return httpServletRequest.getAttribute(key).toString();
+            } else if (httpServletRequest.getParameter(key) != null) {
+                return httpServletRequest.getParameter(key);
+            }
         }
 
         return null;
@@ -681,11 +795,16 @@ public class BlojsomUtils implements BlojsomConstants {
                 break;
             }
         }
+
         if (!matchesExtension) {
             return null;
         }
 
         int indexOfSlash = permalink.lastIndexOf("/");
+        if (indexOfSlash == -1) {
+            indexOfSlash = permalink.lastIndexOf("\\");
+        }
+
         if (indexOfSlash == -1) {
             return permalink;
         } else {
@@ -704,7 +823,8 @@ public class BlojsomUtils implements BlojsomConstants {
      * Return an input string URL encoded
      *
      * @param input Input string
-     * @return URL encoded string or <code>null</code> if either the input was null or there is a encoding exception
+     * @return URL encoded string, <code>null</code> if the input was null,
+     *         or <code>input</code> unmodified there is an encoding exception
      */
     public static final String urlEncode(String input) {
         if (input == null) {
@@ -722,7 +842,8 @@ public class BlojsomUtils implements BlojsomConstants {
      * Return an input string URL encoded for a URL link where '/' show as '/'
      *
      * @param input Input string
-     * @return URL encoded string or <code>null</code> if either the input was null or there is a encoding exception
+     * @return URL encoded string, <code>null</code> if the input was null,
+     *         or <code>input</code> unmodified there is an encoding exception
      * @since blojsom 2.09
      */
     public static final String urlEncodeForLink(String input) {
@@ -863,7 +984,7 @@ public class BlojsomUtils implements BlojsomConstants {
      * @return The Hash as Hex String
      */
     public static String digestString(String data) {
-        return digestString(data, "MD5");
+        return digestString(data, DEFAULT_DIGEST_ALGORITHM);
     }
 
     /**
@@ -884,12 +1005,10 @@ public class BlojsomUtils implements BlojsomConstants {
                 result = _ds;
             } catch (NoSuchAlgorithmException e) {
                 result = null;
-                result = null;
             }
         }
         return result;
     }
-
 
     /**
      * Convert Byte Array to Hex Value
@@ -939,10 +1058,28 @@ public class BlojsomUtils implements BlojsomConstants {
      */
     public static Properties loadProperties(ServletConfig servletConfig, String configurationIP, boolean required)
             throws BlojsomException {
+        return loadProperties(servletConfig, configurationIP, required, false);
+    }
+
+    /**
+     * Try to load a properties file from disk
+     *
+     * @param servletConfig       Servlet configuration
+     * @param configurationIP     Name of the file to load the properties from
+     * @param required            If the properties file is required
+     * @param allowMultipleValues If the {@link BlojsomProperties} object should allow multiple values
+     * @return Properties from the file. NEVER returns null.
+     * @throws BlojsomException If there is an I/O error or if configurationIP is
+     *                          not set and required == true.
+     * @since blojsom 1.9
+     */
+    public static Properties loadProperties(ServletConfig servletConfig, String configurationIP,
+                                            boolean required, boolean allowMultipleValues)
+            throws BlojsomException {
         String configuration =
                 servletConfig.getInitParameter(configurationIP);
 
-        Properties properties = new BlojsomProperties();
+        Properties properties = new BlojsomProperties(allowMultipleValues);
 
         if (configuration == null || "".equals(configuration)) {
             if (required) {
@@ -953,6 +1090,9 @@ public class BlojsomUtils implements BlojsomConstants {
         }
 
         InputStream is = servletConfig.getServletContext().getResourceAsStream(configuration);
+        if (is == null) {
+            throw new BlojsomException("Could not load configuration file: " + configuration);
+        }
 
         try {
             properties.load(is);
@@ -987,6 +1127,9 @@ public class BlojsomUtils implements BlojsomConstants {
         Properties properties = new BlojsomProperties();
 
         InputStream is = servletConfig.getServletContext().getResourceAsStream(configurationFile);
+        if (is == null) {
+            throw new BlojsomException("Unable to load configuration file: " + configurationFile);
+        }
 
         try {
             properties.load(is);
@@ -1044,13 +1187,45 @@ public class BlojsomUtils implements BlojsomConstants {
             return new HashMap();
         } else {
             Iterator keyIterator = properties.keySet().iterator();
-            String key;
-            String value;
+            Object key;
+            Object value;
             HashMap convertedProperties = new HashMap();
             while (keyIterator.hasNext()) {
                 key = (String) keyIterator.next();
-                value = properties.getProperty(key);
+                value = properties.get(key);
                 convertedProperties.put(key, value);
+            }
+
+            return convertedProperties;
+        }
+    }
+
+    /**
+     * Convert a {@link BlojsomProperties} object to a {@link Map}. If the properties object is <code>null</code>
+     * an emtpy {@link Map} is returned.
+     *
+     * @param properties {@link BlojsomProperties}
+     * @return {@link Map} containing keys and values from the properties
+     * @since blojsom 2.23
+     */
+    public static Map blojsomPropertiesToMap(Properties properties) {
+        if (properties == null) {
+            return new HashMap();
+        } else {
+            Iterator keyIterator = properties.keySet().iterator();
+            Object key;
+            Object value;
+            HashMap convertedProperties = new HashMap();
+            while (keyIterator.hasNext()) {
+                key = (String) keyIterator.next();
+                value = properties.get(key);
+                if (value instanceof List) {
+                    convertedProperties.put(key, value);
+                } else {
+                    ArrayList values = new ArrayList();
+                    values.add(value.toString());
+                    convertedProperties.put(key, values);
+                }
             }
 
             return convertedProperties;
@@ -1072,12 +1247,12 @@ public class BlojsomUtils implements BlojsomConstants {
         }
 
         StringBuffer result = new StringBuffer();
-        String element;
-        for (int i = 0; i < array.length; i++) {
-            element = array[i];
-            result.append(element);
-            if (i < array.length - 1) {
+        if (array.length > 0) {
+            result.append(array[0]);
+            // now loop over the rest of the array, appending separators first
+            for (int i = 1; i < array.length; i++) {
                 result.append(separator);
+                result.append(array[i]);
             }
         }
 
@@ -1119,7 +1294,35 @@ public class BlojsomUtils implements BlojsomConstants {
                     convertedProperties.put(key, arrayOfStringsToString((String[]) value));
                 } else if (key != null && value != null) {
                     convertedProperties.put(key, value.toString());
+                } else if (key != null && value == null) {
+                    convertedProperties.put(key, "");
                 }
+            }
+
+            return convertedProperties;
+        }
+    }
+
+    /**
+     * Convert a {@link Map} to a {@link BlojsomProperties}. If the map is <code>null</code> an empty
+     * {@link BlojsomProperties} object is returned.
+     *
+     * @param map {@link Map}
+     * @return {@link BlojsomProperties} object containing keys and values from the map
+     * @since blojsom 2.23
+     */
+    public static Properties mapToBlojsomProperties(Map map) {
+        if (map == null) {
+            return new BlojsomProperties();
+        } else {
+            Iterator keyIterator = map.keySet().iterator();
+            Object key;
+            Object value;
+            Properties convertedProperties = new BlojsomProperties(true);
+            while (keyIterator.hasNext()) {
+                key = keyIterator.next();
+                value = map.get(key);
+                convertedProperties.put(key, value);
             }
 
             return convertedProperties;
@@ -1135,7 +1338,7 @@ public class BlojsomUtils implements BlojsomConstants {
      * @since blojsom 2.04
      */
     public static Properties mapToProperties(Map map) {
-        return mapToProperties(map, null);
+        return mapToProperties(map, UTF8);
     }
 
     /**
@@ -1183,12 +1386,24 @@ public class BlojsomUtils implements BlojsomConstants {
     }
 
     /**
-     * Delete a directory (or file) and any subdirectories underneath the directory
+     * Delete a directory (or file) and any sub-directories underneath the directory
      *
      * @param directoryOrFile Directory or file to be deleted
-     * @return <code>true</code> if the directory (or file) could be deleted, <code>falde</code> otherwise
+     * @return <code>true</code> if the directory (or file) could be deleted, <code>false</code> otherwise
      */
     public static boolean deleteDirectory(File directoryOrFile) {
+        return deleteDirectory(directoryOrFile, true);
+    }
+
+    /**
+     * Delete a directory (or file) and any sub-directories underneath the directory
+     *
+     * @param directoryOrFile       Directory or file to be deleted
+     * @param removeDirectoryOrFile If the directory of file should be deleted in addition to the sub-directories
+     * @return <code>true</code> if the directory (or file) could be deleted, <code>false</code> otherwise
+     * @since blojsom 2.21
+     */
+    public static boolean deleteDirectory(File directoryOrFile, boolean removeDirectoryOrFile) {
         if (directoryOrFile.isDirectory()) {
             File[] children = directoryOrFile.listFiles();
             if (children != null && children.length > 0) {
@@ -1201,7 +1416,11 @@ public class BlojsomUtils implements BlojsomConstants {
             }
         }
 
-        return directoryOrFile.delete();
+        if (removeDirectoryOrFile) {
+            return directoryOrFile.delete();
+        }
+
+        return true;
     }
 
     /**
@@ -1228,7 +1447,17 @@ public class BlojsomUtils implements BlojsomConstants {
                 FileChannel fcin = fis.getChannel();
                 FileChannel fcout = fos.getChannel();
 
-                fcin.transferTo(0, fcin.size(), fcout);
+                ByteBuffer buf = ByteBuffer.allocateDirect(8192);
+                long size = fcin.size();
+                long n = 0;
+                while (n < size) {
+                    buf.clear();
+                    if (fcin.read(buf) < 0) {
+                        break;
+                    }
+                    buf.flip();
+                    n += fcout.write(buf);
+                }
 
                 fcin.close();
                 fcout.close();
@@ -1423,5 +1652,425 @@ public class BlojsomUtils implements BlojsomConstants {
         }
 
         return result.toString();
+    }
+
+    /**
+     * Convert a list to a comma-separated string. If values in the list are <code>null</code>, a
+     * space is printed. If the input is null or there are no items in the list, an empty
+     * string is returned.
+     *
+     * @param values List of values
+     * @return Comma-separated string
+     * @since blojsom 2.18
+     */
+    public static String listToCSV(List values) {
+        StringBuffer result = new StringBuffer();
+
+        if (values != null && values.size() > 0) {
+            for (int i = 0; i < values.size(); i++) {
+                if (values.get(i) == null) {
+                    result.append(" ");
+                } else {
+                    result.append(values.get(i));
+                }
+
+                if (i < values.size() - 1) {
+                    result.append(", ");
+                }
+            }
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * Convert a list of values to a {@link Map}. <code>null</code> values are not placed
+     * in the returned <code>Map</code>.
+     *
+     * @param values List of values
+     * @return {@link Map} where each key and value pair is from the list of values
+     * @since blojsom 2.23
+     */
+    public static Map listToMap(List values) {
+        Map valueMap = new HashMap();
+
+        if (values != null && values.size() > 0) {
+            Iterator valueIterator = values.iterator();
+            Object value;
+            while (valueIterator.hasNext()) {
+                value = valueIterator.next();
+                if (value != null) {
+                    valueMap.put(value, value);
+                }
+            }
+        }
+
+        return valueMap;
+    }
+
+    /**
+     * Return a comma-separated list of Strings as a {@link List}; trims space around value
+     *
+     * @param valuesAsString Comma-separated values
+     * @return Comma-separated list of Strings as a {@link List}
+     * @since blojsom 2.21
+     */
+    public static List csvToList(String valuesAsString) {
+        String[] values = parseOnlyCommaList(valuesAsString);
+        ArrayList updated = new ArrayList();
+        for (int i = 0; i < values.length; i++) {
+            String value = values[i].trim();
+            updated.add(value);
+        }
+
+        return updated;
+    }
+
+    /**
+     * Construct a blog base URL from the request
+     *
+     * @param httpServletRequest Request
+     * @return URL of the form <code>http://server:port/context_path</code>
+     * @since blojsom 2.20
+     */
+    public static String constructBaseURL(HttpServletRequest httpServletRequest) {
+        StringBuffer result = new StringBuffer();
+
+        result.append(httpServletRequest.getScheme()).append("://");
+        result.append(httpServletRequest.getServerName());
+        if (httpServletRequest.getServerPort() != 80) {
+            result.append(":").append(httpServletRequest.getServerPort());
+        }
+        result.append(httpServletRequest.getContextPath());
+
+        return result.toString();
+    }
+
+    /**
+     * Construct a blog URL from the request
+     *
+     * @param httpServletRequest Request
+     * @param blogID             Blog ID
+     * @return URL of the form <code>http://server:port/context_path/servlet_path/blog_id/</code>
+     * @since blojsom 2.20
+     */
+    public static String constructBlogURL(HttpServletRequest httpServletRequest, String blogID) {
+        StringBuffer result = new StringBuffer(constructBaseURL(httpServletRequest));
+
+        result.append(httpServletRequest.getServletPath()).append("/").append(blogID).append("/");
+
+        return result.toString();
+    }
+
+    /**
+     * Check to see if the blog base URL or blog URL are present. If not, construct them dynamically by calling
+     * {@link #constructBaseURL(javax.servlet.http.HttpServletRequest)} and {@link #constructBlogURL(javax.servlet.http.HttpServletRequest, String)}.
+     *
+     * @param httpServletRequest Request
+     * @param blog               {@link Blog}
+     * @param blogID             Blog ID
+     * @since blojsom 2.20
+     */
+    public static void resolveDynamicBaseAndBlogURL(HttpServletRequest httpServletRequest, Blog blog, String blogID) {
+        if (checkNullOrBlank(blog.getBlogBaseURL())) {
+            blog.setBlogBaseURL(constructBaseURL(httpServletRequest));
+        }
+
+        if (checkNullOrBlank(blog.getBlogURL())) {
+            blog.setBlogURL(constructBlogURL(httpServletRequest, blogID));
+        }
+
+        if (checkNullOrBlank(blog.getBlogAdminURL())) {
+            blog.setBlogAdminURL(constructBlogURL(httpServletRequest, blogID));
+        }
+    }
+
+    /**
+     * Return a digested string of some content
+     *
+     * @param content Content from which to generate a hashed digest
+     * @return {@link BlojsomUtils#digestString(String)}
+     * @since blojsom 2.21
+     */
+    public static String getHashableContent(String content) {
+        String hashable = content;
+
+        if (content.length() > MAX_HASHABLE_LENGTH) {
+            hashable = hashable.substring(0, MAX_HASHABLE_LENGTH);
+        }
+
+        return digestString(hashable).toUpperCase();
+    }
+
+    /**
+     * Return a filename appropriate for the blog entry content
+     *
+     * @param title   Blog entry title
+     * @param content Blog entry content
+     * @return Filename for the new blog entry
+     * @since blojsom 2.21
+     */
+    public static String getBlogEntryFilename(String title, String content) {
+        String filename;
+
+        if (!checkNullOrBlank(title)) {
+            filename = title.replaceAll("\\s", "_");
+            filename = filename.replaceAll("'", "");
+            filename = filename.replaceAll("\\p{Punct}", "_");
+            filename = filename.replaceAll("_{2,}", "_");
+            String backup = filename;
+            filename = filename.replaceAll("^_{1,}", "");
+            filename = filename.replaceAll("_{1,}$", "");
+            if (checkNullOrBlank(filename)) {
+                filename = backup;
+            }
+        } else {
+            filename = getHashableContent(content);
+        }
+
+        return filename;
+    }
+
+    /**
+     * Create a {@link Locale} object from a string of form <code>language_country_variant</code>
+     *
+     * @param locale Locale string of form <code>language_country_variant</code>
+     * @return {@link Locale} object with language, country, variant settings or {@link java.util.Locale#getDefault()}
+     *         if <code>locale</code> input is <code>null</code> or blank
+     * @since blojsom 2.21
+     */
+    public static Locale getLocaleFromString(String locale) {
+        if (checkNullOrBlank(locale)) {
+            return Locale.getDefault();
+        }
+
+        String language = locale;
+        String country = "";
+        String variant = "";
+
+        // Check for language
+        int index = language.indexOf('_');
+        if (index >= 0) {
+            country = language.substring(index + 1);
+            language = language.substring(0, index);
+        }
+
+        // Check for country and variant
+        index = country.indexOf('_');
+        if (index >= 0) {
+            variant = country.substring(index + 1);
+            country = country.substring(0, index);
+        }
+
+        return new Locale(language, country, variant);
+    }
+
+    /**
+     * Return of a list of locale languages supported on this system (JVM)
+     *
+     * @param locale {@link Locale} used for sorting
+     * @return List of locale languages supported on this system (JVM)
+     * @since blojsom 2.21
+     */
+    public static String[] getLanguagesForSystem(Locale locale) {
+        Locale[] installedLocales = Locale.getAvailableLocales();
+        ArrayList languageList = new ArrayList(installedLocales.length);
+        String[] languages = null;
+        String language;
+
+        for (int i = 0; i < installedLocales.length; i++) {
+            Locale installedLocale = installedLocales[i];
+            language = installedLocale.getLanguage();
+            if (!languageList.contains(language) && !checkNullOrBlank(language)) {
+                languageList.add(language);
+            }
+        }
+
+        languages = (String[]) languageList.toArray(new String[languageList.size()]);
+        Collator collator = Collator.getInstance(locale);
+        Arrays.sort(languages, collator);
+
+        return languages;
+    }
+
+    /**
+     * Return of a list of locale countries supported on this system (JVM)
+     *
+     * @param locale {@link Locale} used for sorting
+     * @return Return of a list of locale countries supported on this system (JVM)
+     * @since blojsom 2.21
+     */
+    public static String[] getCountriesForSystem(Locale locale) {
+        Locale[] installedLocales = Locale.getAvailableLocales();
+        ArrayList countryList = new ArrayList(installedLocales.length);
+        String[] countries = null;
+        String country;
+
+        for (int i = 0; i < installedLocales.length; i++) {
+            Locale installedLocale = installedLocales[i];
+            country = installedLocale.getCountry();
+            if (!countryList.contains(country) && !checkNullOrBlank(country)) {
+                countryList.add(country);
+            }
+        }
+
+        countries = (String[]) countryList.toArray(new String[countryList.size()]);
+        Collator collator = Collator.getInstance(locale);
+        Arrays.sort(countries, collator);
+
+        return countries;
+    }
+
+    /**
+     * Return of a list of time zone IDs supported on this system (JVM)
+     *
+     * @param locale {@link Locale} used for sorting
+     * @return Return of a list of time zone IDs supported on this system (JVM)
+     * @since blojsom 2.21
+     */
+    public static String[] getTimeZonesForSystem(Locale locale) {
+        String[] timezones = TimeZone.getAvailableIDs();
+
+        Collator collator = Collator.getInstance(locale);
+        Arrays.sort(timezones, collator);
+
+        return timezones;
+    }
+
+    /**
+     * List the files in a sub-directory of a given directory and strip the parent directory from the path
+     * of the files added to the list.
+     *
+     * @param directory       Sub-directory to start looking for files
+     * @param parentDirectory Parent directory to strip
+     * @param files           List of files to add to
+     * @since blojsom 2.23
+     */
+    public static void listFilesInSubdirectories(File directory, String parentDirectory, List files) {
+        if (directory.isDirectory()) {
+            String[] children = directory.list();
+            for (int i = 0; i < children.length; i++) {
+                listFilesInSubdirectories(new File(directory, children[i]), parentDirectory, files);
+            }
+        } else {
+            if (directory.getPath().startsWith(parentDirectory)) {
+                files.add(new File(directory.getPath().substring(parentDirectory.length() + 1)));
+            }
+        }
+    }
+
+    /**
+     * List the sub-directories in a sub-directory of a given directory and strip the parent directory from the path
+     * of the directories added to the list.
+     *
+     * @param directory       Sub-directory to start looking for files
+     * @param parentDirectory Parent directory to strip
+     * @param directories     List of directories to add to
+     * @since blojsom 2.23
+     */
+    public static void listDirectoriesInSubdirectories(File directory, String parentDirectory, List directories) {
+        if (directory.isDirectory()) {
+            String[] children = directory.list();
+            for (int i = 0; i < children.length; i++) {
+                listDirectoriesInSubdirectories(new File(directory, children[i]), parentDirectory, directories);
+            }
+
+            if (directory.getPath().startsWith(parentDirectory)) {
+                directories.add(new File(directory.getPath().substring(parentDirectory.length())));
+            }
+        }
+    }
+
+    /**
+     * Fetch an {@link org.blojsom.blog.BlogEntry} given a category and permalink
+     *
+     * @param fetcher   {@link org.blojsom.fetcher.BlojsomFetcher}
+     * @param blogUser  {@link org.blojsom.blog.BlogUser}
+     * @param category  Category
+     * @param permalink Entry
+     * @return {@link org.blojsom.blog.BlogEntry}
+     * @throws BlojsomFetcherException If there is an error loading the entry
+     * @since blojsom 2.23
+     */
+    public static BlogEntry fetchEntry(BlojsomFetcher fetcher, BlogUser blogUser, String category, String permalink) throws BlojsomFetcherException {
+        BlogEntry fetchedEntry = null;
+
+        BlogCategory blogCategory;
+        blogCategory = fetcher.newBlogCategory();
+        blogCategory.setCategory(category);
+        blogCategory.setCategoryURL(blogUser.getBlog().getBlogURL() + BlojsomUtils.removeInitialSlash(category));
+
+        Map fetchMap = new HashMap();
+        fetchMap.put(BlojsomFetcher.FETCHER_CATEGORY, blogCategory);
+        fetchMap.put(BlojsomFetcher.FETCHER_PERMALINK, permalink);
+
+        BlogEntry[] entries = fetcher.fetchEntries(fetchMap, blogUser);
+        if (entries != null && entries.length == 1) {
+            fetchedEntry = entries[0];
+        } else {
+            throw new BlojsomFetcherException("Unable to retrieve entry: " + permalink + " from category: " + category);
+        }
+
+        return fetchedEntry;
+    }
+
+    /**
+     * Strip all HTML from a given piece of text
+     *
+     * @param text Text
+     * @return text stripped of HTML between &lt; and &gt; tags or <code>null</code> if input was null or blank if input was blank
+     * @since blojsom 2.23
+     */
+    public static String stripHTML(String text) {
+        if (checkNullOrBlank(text)) {
+            return text;
+        }
+
+        return text.replaceAll("\\<.*?\\>","");
+    }
+
+    /**
+     * Convert a <code>String[]</code> to a <code>List</code>
+     *
+     * @param input <code>String[]</code>
+     * @return <code>List</code> from string array
+     * @since blojsom 2.24
+     */
+    public static List arrayToList(String[] input) {
+        if (input == null || input.length == 0) {
+            return new ArrayList();
+        } else {
+            ArrayList value = new ArrayList(input.length);
+            
+            for (int i = 0; i < input.length; i++) {
+                String s = input[i];
+                value.add(s);
+            }
+
+            return value;
+        }
+    }
+
+    /**
+     * Remove <code>null</code> values from a given list
+     *
+     * @param input List
+     * @return List with <code>null</code> values removed
+     * @since blojsom 2.25
+     */
+    public static List removeNullValues(List input) {
+        if (input == null) {
+            return new ArrayList();
+        } else {
+            ArrayList sanitizedList = new ArrayList(input.size());
+
+            for (int i = 0; i < input.size(); i++) {
+                if (input.get(i) != null) {
+                    sanitizedList.add(input.get(i));
+                }
+            }
+
+            return sanitizedList;
+        }
     }
 }

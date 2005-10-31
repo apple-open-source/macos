@@ -28,10 +28,10 @@
 
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
-#include <IOKit/hidsystem/IOHIDParameter.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 
+#include "IOHIDParameter.h"
 #include "IOHIDPointing.h"
 #include "IOHIDKeys.h"
 #include "IOHIDElement.h"
@@ -261,6 +261,7 @@ void IOHIDPointing::setupProperties()
     setProperty(kIOHIDScrollAccelerationTableKey, _provider->getProperty( kIOHIDScrollAccelerationTableKey ));
     
     setProperty(kIOHIDPointerResolutionKey, _provider->getProperty( kIOHIDPointerResolutionKey ));
+    setProperty(kIOHIDScrollReportRateKey, _provider->getProperty( kIOHIDScrollReportRateKey ));
 
     setProperty( kIOHIDScrollMouseButtonKey, _provider->getProperty( kIOHIDScrollMouseButtonKey ));
 }

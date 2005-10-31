@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,7 +54,7 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	xmlData_t			myPatternsRef	= NULL;	/* patterns (serialized) */
 	CFIndex				myPatternsLen	= 0;
 	xmlDataOut_t			xmlDictRef;		/* dict (serialized) */
-	CFIndex				xmlDictLen;
+	mach_msg_type_number_t		xmlDictLen;
 	CFDictionaryRef			dict		= NULL;	/* dict (un-serialized) */
 	CFDictionaryRef			expDict		= NULL;	/* dict (un-serialized / expanded) */
 	int				sc_status;
@@ -94,7 +94,7 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 			     myPatternsRef,
 			     myPatternsLen,
 			     &xmlDictRef,
-			     (int *)&xmlDictLen,
+			     &xmlDictLen,
 			     (int *)&sc_status);
 
 	/* clean up */
@@ -146,7 +146,7 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	xmlData_t			myKeyRef;	/* key (serialized) */
 	CFIndex				myKeyLen;
 	xmlDataOut_t			xmlDataRef;	/* data (serialized) */
-	CFIndex				xmlDataLen;
+	mach_msg_type_number_t		xmlDataLen;
 	CFPropertyListRef		data;		/* data (un-serialized) */
 	int				newInstance;
 	int				sc_status;
@@ -173,7 +173,7 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 			   myKeyRef,
 			   myKeyLen,
 			   &xmlDataRef,
-			   (int *)&xmlDataLen,
+			   &xmlDataLen,
 			   &newInstance,
 			   (int *)&sc_status);
 

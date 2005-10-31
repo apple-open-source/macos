@@ -10,43 +10,12 @@
 ### file and make sure the Radar is closed.
 ###
 ###------------------------------------------------------------------
-#3664851: objc/execute/string1.m compilation,  -O0
-#3664851: objc/execute/string1.m compilation,  -O1
-#3664851: objc/execute/string1.m compilation,  -O2
-#3664851: objc/execute/string1.m compilation,  -O3 -fomit-frame-pointer
-#3664851: objc/execute/string1.m compilation,  -O3 -g
-#3664851: objc/execute/string1.m compilation,  -Os
-#3664851: objc/execute/string1.m compilation,  -fast
-#3664851: objc/execute/string2.m compilation,  -O0
-#3664851: objc/execute/string2.m compilation,  -O1
-#3664851: objc/execute/string2.m compilation,  -O2
-#3664851: objc/execute/string2.m compilation,  -O3 -fomit-frame-pointer
-#3664851: objc/execute/string2.m compilation,  -O3 -g
-#3664851: objc/execute/string2.m compilation,  -Os
-#3664851: objc/execute/string2.m compilation,  -fast
-#3664851: objc/execute/string3.m compilation,  -O0
-#3664851: objc/execute/string3.m compilation,  -O1
-#3664851: objc/execute/string3.m compilation,  -O2
-#3664851: objc/execute/string3.m compilation,  -O3 -fomit-frame-pointer
-#3664851: objc/execute/string3.m compilation,  -O3 -g
-#3664851: objc/execute/string3.m compilation,  -Os
-#3664851: objc/execute/string3.m compilation,  -fast
-#3664851: objc/execute/string4.m compilation,  -O0
-#3664851: objc/execute/string4.m compilation,  -O1
-#3664851: objc/execute/string4.m compilation,  -O2
-#3664851: objc/execute/string4.m compilation,  -O3 -fomit-frame-pointer
-#3664851: objc/execute/string4.m compilation,  -O3 -g
-#3664851: objc/execute/string4.m compilation,  -Os
-#3664851: objc/execute/string4.m compilation,  -fast
-#3664999: objc.dg/const-cfstring-1.m execution test
-#3665002: objc.dg/const-str-3.m (test for excess errors)
-#3665002: objc.dg/const-str-4.m (test for excess errors)
-#3691708: objc.dg/const-str-3.m execution test
-#3691708: objc.dg/const-str-4.m execution test
-#3753413: objc.dg/const-cfstring-1.m (test for excess errors)
-#3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 21)
-#3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 22)
-#3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 24)
-#3753413: objc.dg/const-cfstring-2.m  (test for warnings, line 25)
-#3753413: objc.dg/const-cfstring-2.m (test for excess errors)
-#3753413: objc.dg/const-str-5.m (test for excess errors)
+#4055183: objc.dg/stubify-1.m scan-assembler (bl|call)\tL_objc_msgSend\\$stub\n
+#4055183: objc.dg/stubify-1.m scan-assembler (bl|call)\tL_bogonic\\$stub\n
+#4055183: objc.dg/stubify-1.m scan-assembler-not \\$non_lazy_ptr
+#4055183: objc.dg/stubify-2.m scan-file-not symbol_ref.*"objc_msgSend"
+4087344: objc.dg/stret-2.m scan-assembler objc_msgSend_stret
+4087344: objc.dg/stret-2.m scan-assembler-not objc_msgSend[^_S]
+4087344: objc.dg/stret-2.m scan-assembler-not objc_msgSendSuper[^_]
+4087344: objc.dg/symtab-1.m scan-assembler L_OBJC_SYMBOLS.*:\n\t.long\t0\n\t.long\t0\n\t.short\t2\n\t.short\t0\n\t.long\tL_OBJC_CLASS_Derived.*\n\t.long\tL_OBJC_CLASS_Base.*\n
+

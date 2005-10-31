@@ -1,6 +1,6 @@
 /* Implements exception handling.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
@@ -260,14 +260,8 @@ static hashval_t t2r_hash (const void *);
 static void add_type_for_runtime (tree);
 static tree lookup_type_for_runtime (tree);
 
-static void resolve_fixup_regions (void);
-static void remove_fixup_regions (void);
 static void remove_unreachable_regions (rtx);
-static void convert_from_eh_region_ranges_1 (rtx *, int *, int);
 
-static struct eh_region *duplicate_eh_region_1 (struct eh_region *,
-						struct inline_remap *);
-static void duplicate_eh_region_2 (struct eh_region *, struct eh_region **);
 static int ttypes_filter_eq (const void *, const void *);
 static hashval_t ttypes_filter_hash (const void *);
 static int ehspec_filter_eq (const void *, const void *);
@@ -671,123 +665,6 @@ collect_eh_region_array (void)
     }
 }
 
-static void
-resolve_one_fixup_region (struct eh_region *fixup)
-{
-  struct eh_region *cleanup, *real;
-  int j, n;
-
-  n = cfun->eh->last_region_number;
-  cleanup = 0;
-
-  for (j = 1; j <= n; ++j)
-    {
-      cleanup = cfun->eh->region_array[j];
-      if (cleanup && cleanup->type == ERT_CLEANUP
-	  && cleanup->u.cleanup.exp == fixup->u.fixup.cleanup_exp)
-	break;
-    }
-  gcc_assert (j <= n);
-
-  real = cleanup->outer;
-  if (real && real->type == ERT_FIXUP)
-    {
-      if (!real->u.fixup.resolved)
-	resolve_one_fixup_region (real);
-      real = real->u.fixup.real_region;
-    }
-
-  fixup->u.fixup.real_region = real;
-  fixup->u.fixup.resolved = true;
-}
-
-static void
-resolve_fixup_regions (void)
-{
-  int i, n = cfun->eh->last_region_number;
-
-  for (i = 1; i <= n; ++i)
-    {
-      struct eh_region *fixup = cfun->eh->region_array[i];
-
-      if (!fixup || fixup->type != ERT_FIXUP || fixup->u.fixup.resolved)
-	continue;
-
-      resolve_one_fixup_region (fixup);
-    }
-}
-
-/* Now that we've discovered what region actually encloses a fixup,
-   we can shuffle pointers and remove them from the tree.  */
-
-static void
-remove_fixup_regions (void)
-{
-  int i;
-  rtx insn, note;
-  struct eh_region *fixup;
-
-  /* Walk the insn chain and adjust the REG_EH_REGION numbers
-     for instructions referencing fixup regions.  This is only
-     strictly necessary for fixup regions with no parent, but
-     doesn't hurt to do it for all regions.  */
-  for (insn = get_insns(); insn ; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
-	&& (note = find_reg_note (insn, REG_EH_REGION, NULL))
-	&& INTVAL (XEXP (note, 0)) > 0
-	&& (fixup = cfun->eh->region_array[INTVAL (XEXP (note, 0))])
-	&& fixup->type == ERT_FIXUP)
-      {
-	if (fixup->u.fixup.real_region)
-	  XEXP (note, 0) = GEN_INT (fixup->u.fixup.real_region->region_number);
-	else
-	  remove_note (insn, note);
-      }
-
-  /* Remove the fixup regions from the tree.  */
-  for (i = cfun->eh->last_region_number; i > 0; --i)
-    {
-      fixup = cfun->eh->region_array[i];
-      if (! fixup)
-	continue;
-
-      /* Allow GC to maybe free some memory.  */
-      if (fixup->type == ERT_CLEANUP)
-	fixup->u.cleanup.exp = NULL_TREE;
-
-      if (fixup->type != ERT_FIXUP)
-	continue;
-
-      if (fixup->inner)
-	{
-	  struct eh_region *parent, *p, **pp;
-
-	  parent = fixup->u.fixup.real_region;
-
-	  /* Fix up the children's parent pointers; find the end of
-	     the list.  */
-	  for (p = fixup->inner; ; p = p->next_peer)
-	    {
-	      p->outer = parent;
-	      if (! p->next_peer)
-		break;
-	    }
-
-	  /* In the tree of cleanups, only outer-inner ordering matters.
-	     So link the children back in anywhere at the correct level.  */
-	  if (parent)
-	    pp = &parent->inner;
-	  else
-	    pp = &cfun->eh->region_tree;
-	  p->next_peer = *pp;
-	  *pp = fixup->inner;
-	  fixup->inner = NULL;
-	}
-
-      remove_eh_handler (fixup);
-    }
-}
-
 /* Remove all regions whose labels are not reachable from insns.  */
 
 static void
@@ -871,113 +748,23 @@ remove_unreachable_regions (rtx insns)
   free (uid_region_num);
 }
 
-/* Turn NOTE_INSN_EH_REGION notes into REG_EH_REGION notes for each
-   can_throw instruction in the region.  */
-
-static void
-convert_from_eh_region_ranges_1 (rtx *pinsns, int *orig_sp, int cur)
-{
-  int *sp = orig_sp;
-  rtx insn, next;
-
-  for (insn = *pinsns; insn ; insn = next)
-    {
-      next = NEXT_INSN (insn);
-      if (NOTE_P (insn))
-	{
-	  int kind = NOTE_LINE_NUMBER (insn);
-	  if (kind == NOTE_INSN_EH_REGION_BEG
-	      || kind == NOTE_INSN_EH_REGION_END)
-	    {
-	      if (kind == NOTE_INSN_EH_REGION_BEG)
-		{
-		  struct eh_region *r;
-
-		  *sp++ = cur;
-		  cur = NOTE_EH_HANDLER (insn);
-
-		  r = cfun->eh->region_array[cur];
-		  if (r->type == ERT_FIXUP)
-		    {
-		      r = r->u.fixup.real_region;
-		      cur = r ? r->region_number : 0;
-		    }
-		  else if (r->type == ERT_CATCH)
-		    {
-		      r = r->outer;
-		      cur = r ? r->region_number : 0;
-		    }
-		}
-	      else
-		cur = *--sp;
-
-	      if (insn == *pinsns)
-		*pinsns = next;
-	      remove_insn (insn);
-	      continue;
-	    }
-	}
-      else if (INSN_P (insn))
-	{
-	  if (cur > 0
-	      && ! find_reg_note (insn, REG_EH_REGION, NULL_RTX)
-	      /* Calls can always potentially throw exceptions, unless
-		 they have a REG_EH_REGION note with a value of 0 or less.
-		 Which should be the only possible kind so far.  */
-	      && (CALL_P (insn)
-		  /* If we wanted exceptions for non-call insns, then
-		     any may_trap_p instruction could throw.  */
-		  || (flag_non_call_exceptions
-		      && GET_CODE (PATTERN (insn)) != CLOBBER
-		      && GET_CODE (PATTERN (insn)) != USE
-		      && may_trap_p (PATTERN (insn)))))
-	    {
-	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_EH_REGION, GEN_INT (cur),
-						  REG_NOTES (insn));
-	    }
-	}
-    }
-
-  gcc_assert (sp == orig_sp);
-}
-
-static void
-collect_rtl_labels_from_trees (void)
-{
-  int i, n = cfun->eh->last_region_number;
-  for (i = 1; i <= n; ++i)
-    {
-      struct eh_region *reg = cfun->eh->region_array[i];
-      if (reg && reg->tree_label)
-	reg->label = DECL_RTL_IF_SET (reg->tree_label);
-    }
-}
+/* Set up EH labels for RTL.  */
 
 void
 convert_from_eh_region_ranges (void)
 {
   rtx insns = get_insns ();
+  int i, n = cfun->eh->last_region_number;
 
-  if (cfun->eh->region_array)
+  /* Most of the work is already done at the tree level.  All we need to
+     do is collect the rtl labels that correspond to the tree labels that
+     collect the rtl labels that correspond to the tree labels
+     we allocated earlier.  */
+  for (i = 1; i <= n; ++i)
     {
-      /* If the region array already exists, assume we're coming from
-	 optimize_function_tree.  In this case all we need to do is
-	 collect the rtl labels that correspond to the tree labels
-	 that we allocated earlier.  */
-      collect_rtl_labels_from_trees ();
-    }
-  else
-    {
-      int *stack;
-
-      collect_eh_region_array ();
-      resolve_fixup_regions ();
-
-      stack = xmalloc (sizeof (int) * (cfun->eh->last_region_number + 1));
-      convert_from_eh_region_ranges_1 (&insns, stack, 0);
-      free (stack);
-
-      remove_fixup_regions ();
+      struct eh_region *region = cfun->eh->region_array[i];
+      if (region && region->tree_label)
+	region->label = DECL_RTL_IF_SET (region->tree_label);
     }
 
   remove_unreachable_regions (insns);
@@ -1064,150 +851,6 @@ current_function_has_exception_handlers (void)
 
   return false;
 }
-
-static struct eh_region *
-duplicate_eh_region_1 (struct eh_region *o, struct inline_remap *map)
-{
-  struct eh_region *n = ggc_alloc_cleared (sizeof (struct eh_region));
-
-  n->region_number = o->region_number + cfun->eh->last_region_number;
-  n->type = o->type;
-
-  switch (n->type)
-    {
-    case ERT_CLEANUP:
-    case ERT_MUST_NOT_THROW:
-      break;
-
-    case ERT_TRY:
-      if (o->u.try.continue_label)
-	n->u.try.continue_label
-	  = get_label_from_map (map,
-				CODE_LABEL_NUMBER (o->u.try.continue_label));
-      break;
-
-    case ERT_CATCH:
-      n->u.catch.type_list = o->u.catch.type_list;
-      break;
-
-    case ERT_ALLOWED_EXCEPTIONS:
-      n->u.allowed.type_list = o->u.allowed.type_list;
-      break;
-
-    case ERT_THROW:
-      n->u.throw.type = o->u.throw.type;
-
-    default:
-      gcc_unreachable ();
-    }
-
-  if (o->label)
-    n->label = get_label_from_map (map, CODE_LABEL_NUMBER (o->label));
-  if (o->resume)
-    {
-      n->resume = map->insn_map[INSN_UID (o->resume)];
-      gcc_assert (n->resume);
-    }
-
-  return n;
-}
-
-static void
-duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
-{
-  struct eh_region *n = n_array[o->region_number];
-
-  switch (n->type)
-    {
-    case ERT_TRY:
-      n->u.try.catch = n_array[o->u.try.catch->region_number];
-      n->u.try.last_catch = n_array[o->u.try.last_catch->region_number];
-      break;
-
-    case ERT_CATCH:
-      if (o->u.catch.next_catch)
-	n->u.catch.next_catch = n_array[o->u.catch.next_catch->region_number];
-      if (o->u.catch.prev_catch)
-	n->u.catch.prev_catch = n_array[o->u.catch.prev_catch->region_number];
-      break;
-
-    default:
-      break;
-    }
-
-  if (o->outer)
-    n->outer = n_array[o->outer->region_number];
-  if (o->inner)
-    n->inner = n_array[o->inner->region_number];
-  if (o->next_peer)
-    n->next_peer = n_array[o->next_peer->region_number];
-}
-
-int
-duplicate_eh_regions (struct function *ifun, struct inline_remap *map)
-{
-  int ifun_last_region_number = ifun->eh->last_region_number;
-  struct eh_region **n_array, *root, *cur;
-  int i;
-
-  if (ifun_last_region_number == 0)
-    return 0;
-
-  n_array = xcalloc (ifun_last_region_number + 1, sizeof (*n_array));
-
-  for (i = 1; i <= ifun_last_region_number; ++i)
-    {
-      cur = ifun->eh->region_array[i];
-      if (!cur || cur->region_number != i)
-	continue;
-      n_array[i] = duplicate_eh_region_1 (cur, map);
-    }
-  for (i = 1; i <= ifun_last_region_number; ++i)
-    {
-      cur = ifun->eh->region_array[i];
-      if (!cur || cur->region_number != i)
-	continue;
-      duplicate_eh_region_2 (cur, n_array);
-    }
-
-  root = n_array[ifun->eh->region_tree->region_number];
-  cur = cfun->eh->cur_region;
-  if (cur)
-    {
-      struct eh_region *p = cur->inner;
-      if (p)
-	{
-	  while (p->next_peer)
-	    p = p->next_peer;
-	  p->next_peer = root;
-	}
-      else
-	cur->inner = root;
-
-      for (i = 1; i <= ifun_last_region_number; ++i)
-	if (n_array[i] && n_array[i]->outer == NULL)
-	  n_array[i]->outer = cur;
-    }
-  else
-    {
-      struct eh_region *p = cfun->eh->region_tree;
-      if (p)
-	{
-	  while (p->next_peer)
-	    p = p->next_peer;
-	  p->next_peer = root;
-	}
-      else
-	cfun->eh->region_tree = root;
-    }
-
-  free (n_array);
-
-  i = cfun->eh->last_region_number;
-  cfun->eh->last_region_number = i + ifun_last_region_number;
-  return i;
-}
-
 
 static int
 t2r_eq (const void *pentry, const void *pdata)
@@ -1451,7 +1094,7 @@ emit_to_new_bb_before (rtx seq, rtx insn)
   edge e;
   edge_iterator ei;
 
-  /* If there happens to be an fallthru edge (possibly created by cleanup_cfg
+  /* If there happens to be a fallthru edge (possibly created by cleanup_cfg
      call), we don't want it to go into newly created landing pad or other EH 
      construct.  */
   for (ei = ei_start (BLOCK_FOR_INSN (insn)->preds); (e = ei_safe_edge (ei)); )
@@ -2279,7 +1922,7 @@ remove_eh_handler (struct eh_region *region)
   cfun->eh->region_array[region->region_number] = outer;
   if (region->aka)
     {
-      int i;
+      unsigned i;
       bitmap_iterator bi;
 
       EXECUTE_IF_SET_IN_BITMAP (region->aka, 0, i, bi)
@@ -2293,7 +1936,7 @@ remove_eh_handler (struct eh_region *region)
       if (!outer->aka)
         outer->aka = BITMAP_GGC_ALLOC ();
       if (region->aka)
-	bitmap_a_or_b (outer->aka, outer->aka, region->aka);
+	bitmap_ior_into (outer->aka, region->aka);
       bitmap_set_bit (outer->aka, region->region_number);
     }
 
@@ -3565,16 +3208,18 @@ default_exception_section (void)
   if (targetm.have_named_sections)
     {
       int flags;
-#ifdef HAVE_LD_RO_RW_SECTION_MIXING
-      int tt_format = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/1);
 
-      flags = (! flag_pic
-	       || ((tt_format & 0x70) != DW_EH_PE_absptr
-		   && (tt_format & 0x70) != DW_EH_PE_aligned))
-	      ? 0 : SECTION_WRITE;
-#else
-      flags = SECTION_WRITE;
-#endif
+      if (EH_TABLES_CAN_BE_READ_ONLY)
+	{
+	  int tt_format = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/1);
+	  
+	  flags = (! flag_pic
+		   || ((tt_format & 0x70) != DW_EH_PE_absptr
+		       && (tt_format & 0x70) != DW_EH_PE_aligned))
+	    ? 0 : SECTION_WRITE;
+	}
+      else
+	flags = SECTION_WRITE;
       named_section_flags (".gcc_except_table", flags);
     }
   else if (flag_pic)
@@ -3603,6 +3248,7 @@ output_function_exception_table (void)
 
 #ifdef TARGET_UNWIND_INFO
   /* TODO: Move this into target file.  */
+  assemble_external_libcall (eh_personality_libfunc);
   fputs ("\t.personality\t", asm_out_file);
   output_addr_const (asm_out_file, eh_personality_libfunc);
   fputs ("\n\t.handlerdata\n", asm_out_file);

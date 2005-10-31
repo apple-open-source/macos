@@ -83,6 +83,16 @@ See remaining rules for examples.
 			<key>comment</key>
 			<string>wildcard right for deleting system rights.</string>
 		</dict>
+		<key>com.apple.</key>
+		<dict>
+			<key>rule</key>
+			<string>default</string>
+		</dict>
+		<key>system.</key>
+		<dict>
+			<key>rule</key>
+			<string>default</string>
+		</dict>
 		<key>sys.openfile.</key>
 		<dict>
 			<key>class</key>

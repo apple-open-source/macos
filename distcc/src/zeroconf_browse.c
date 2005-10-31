@@ -337,11 +337,11 @@ static void dcc_zc_build_resolved_services_list(void)
 
                 if ( service != NULL && service->description != NULL ) {
                     strcat(serviceList, service->description);
-                    strcat(serviceList, " ");
+                    if ( i != (capacity - 1) ) {
+                        strcat(serviceList, " ");
+                    }
                 }
             }
-
-            serviceList[listLength-1] = '\0';
 
             zcResolvedSvcs = serviceList;
 

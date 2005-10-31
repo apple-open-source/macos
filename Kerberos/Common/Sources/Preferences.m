@@ -1,7 +1,7 @@
 /*
  * Preferences.m
  *
- * $Header: /cvs/kfm/Common/Sources/Preferences.m,v 1.6 2005/01/12 16:24:52 lxs Exp $
+ * $Header: /cvs/kfm/Common/Sources/Preferences.m,v 1.7 2005/03/04 23:04:40 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

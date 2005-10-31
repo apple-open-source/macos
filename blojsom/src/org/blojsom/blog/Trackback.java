@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,25 +34,28 @@
  */
 package org.blojsom.blog;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
+import java.io.Serializable;
 
 /**
  * Trackback
  *
  * @author David Czarnecki
- * @version $Id: Trackback.java,v 1.2 2004/08/27 01:13:55 whitmore Exp $
+ * @version $Id: Trackback.java,v 1.2.2.1 2005/07/21 14:11:02 johnan Exp $
  */
-public class Trackback {
+public class Trackback implements Serializable {
 
-    private String _title;
-    private String _excerpt;
-    private String _url;
-    private String _blogName;
-    private long _trackbackDateLong;
-    private String _id;
-    private Map _metaData;
+    protected String _title;
+    protected String _excerpt;
+    protected String _url;
+    protected String _blogName;
+    protected long _trackbackDateLong;
+    protected String _id;
+    protected Map _metaData;
+    protected BlogEntry _blogEntry;
 
     /**
      * Default constructor
@@ -63,9 +66,9 @@ public class Trackback {
     /**
      * Trackback constructor to take a title, excerpt, url, and blog name
      *
-     * @param title Title of the trackback
-     * @param excerpt Excerpt from the trackback
-     * @param url Url for the trackback
+     * @param title    Title of the trackback
+     * @param excerpt  Excerpt from the trackback
+     * @param url      Url for the trackback
      * @param blogName Blog name of the trackback
      */
     public Trackback(String title, String excerpt, String url, String blogName) {
@@ -148,7 +151,7 @@ public class Trackback {
         if (_metaData == null) {
             return new HashMap();
         }
-        
+
         return _metaData;
     }
 
@@ -191,8 +194,8 @@ public class Trackback {
     /**
      * Get the id of this blog comments
      *
-     * @since blojsom 2.07
      * @return Id
+     * @since blojsom 2.07
      */
     public String getId() {
         return _id;
@@ -201,8 +204,8 @@ public class Trackback {
     /**
      * Set the id of this blog comment. This method can only be called if the id has not been set.
      *
-     * @since blojsom 2.07
      * @param id New id
+     * @since blojsom 2.07
      */
     public void setId(String id) {
         if (_id == null) {
@@ -218,5 +221,48 @@ public class Trackback {
      */
     public void setMetaData(Map metaData) {
         _metaData = metaData;
+    }
+
+    /**
+     * Return the trackback date formatted with a specified date format
+     *
+     * @param format Date format
+     * @return <code>null</code> if the format is null, otherwise returns the trackback date formatted to
+     *         the specified format. If the format is invalid, returns <tt>trackbackDate.toString()</tt>
+     * @since blojsom 2.19
+     */
+    public String getDateAsFormat(String format) {
+        if (format == null) {
+            return null;
+        }
+
+        SimpleDateFormat sdf = null;
+        Date trackbackDate = new Date(_trackbackDateLong);
+        try {
+            sdf = new SimpleDateFormat(format);
+            return sdf.format(trackbackDate);
+        } catch (IllegalArgumentException e) {
+            return trackbackDate.toString();
+        }
+    }
+
+    /**
+     * Retrieve the {@link BlogEntry} associated with this trackback
+     *
+     * @return {@link BlogEntry}
+     * @since blojsom 2.23
+     */
+    public BlogEntry getBlogEntry() {
+        return _blogEntry;
+    }
+
+    /**
+     * Set the {@link BlogEntry} associated with this trackback
+     *
+     * @param blogEntry {@link BlogEntry}
+     * @since blojsom 2.23
+     */
+    public void setBlogEntry(BlogEntry blogEntry) {
+        _blogEntry = blogEntry;
     }
 }

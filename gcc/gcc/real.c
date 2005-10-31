@@ -1,6 +1,6 @@
 /* real.c - software floating point emulation.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
    Re-written by Richard Henderson <rth@redhat.com>
 
@@ -640,6 +640,9 @@ do_add (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a,
   r->cl = rvc_normal;
   r->sign = sign;
   SET_REAL_EXP (r, exp);
+  /* Zero out the remaining fields.  */
+  r->signalling = 0;
+  r->canonical = 0;
 
   /* Re-normalize the result.  */
   normalize (r);
@@ -972,9 +975,10 @@ do_fix_trunc (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a)
 }
 
 /* Perform the binary or unary operation described by CODE.
-   For a unary operation, leave OP1 NULL.  */
+   For a unary operation, leave OP1 NULL.  This function returns
+   true if the result may be inexact due to loss of precision.  */
 
-void
+bool
 real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
 		 const REAL_VALUE_TYPE *op1)
 {
@@ -983,20 +987,16 @@ real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
   switch (code)
     {
     case PLUS_EXPR:
-      do_add (r, op0, op1, 0);
-      break;
+      return do_add (r, op0, op1, 0);
 
     case MINUS_EXPR:
-      do_add (r, op0, op1, 1);
-      break;
+      return do_add (r, op0, op1, 1);
 
     case MULT_EXPR:
-      do_multiply (r, op0, op1);
-      break;
+      return do_multiply (r, op0, op1);
 
     case RDIV_EXPR:
-      do_divide (r, op0, op1);
-      break;
+      return do_divide (r, op0, op1);
 
     case MIN_EXPR:
       if (op1->cl == rvc_nan)
@@ -1033,6 +1033,7 @@ real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
     default:
       gcc_unreachable ();
     }
+  return false;
 }
 
 /* Legacy.  Similar, but return the result directly.  */
@@ -1959,6 +1960,7 @@ real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
     get_zero (r, 0);
   else
     {
+      memset (r, 0, sizeof (*r));
       r->cl = rvc_normal;
       r->sign = high < 0 && !unsigned_p;
       SET_REAL_EXP (r, 2 * HOST_BITS_PER_WIDE_INT);
@@ -1976,7 +1978,6 @@ real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
 	{
 	  r->sig[SIGSZ-1] = high;
 	  r->sig[SIGSZ-2] = low;
-	  memset (r->sig, 0, sizeof(long)*(SIGSZ-2));
 	}
       else
 	{
@@ -1985,8 +1986,6 @@ real_from_integer (REAL_VALUE_TYPE *r, enum machine_mode mode,
 	  r->sig[SIGSZ-2] = high;
 	  r->sig[SIGSZ-3] = low >> (HOST_BITS_PER_LONG - 1) >> 1;
 	  r->sig[SIGSZ-4] = low;
-	  if (SIGSZ > 4)
-	    memset (r->sig, 0, sizeof(long)*(SIGSZ-4));
 	}
 
       normalize (r);
@@ -3292,8 +3291,7 @@ const struct real_format ieee_extended_intel_96_round_53_format =
    range as an IEEE double precision value, but effectively 106 bits of
    significand precision.  Infinity and NaN are represented by their IEEE
    double precision value stored in the first number, the second number is
-   ignored.  Zeroes, Infinities, and NaNs are set in both doubles
-   due to precedent.  */
+   +0.0 or -0.0 for Infinity and don't-care for NaN.  */
 
 static void encode_ibm_extended (const struct real_format *fmt,
 				 long *, const REAL_VALUE_TYPE *);
@@ -4626,6 +4624,8 @@ real_floor (REAL_VALUE_TYPE *r, enum machine_mode mode,
     do_add (&t, &t, &dconstm1, 0);
   if (mode != VOIDmode)
     real_convert (r, mode, &t);
+  else
+    *r = t;
 }
 
 /* Round X to the smallest integer not less then argument, i.e. round
@@ -4642,6 +4642,8 @@ real_ceil (REAL_VALUE_TYPE *r, enum machine_mode mode,
     do_add (&t, &t, &dconst1, 0);
   if (mode != VOIDmode)
     real_convert (r, mode, &t);
+  else
+    *r = t;
 }
 
 /* Round X to the nearest integer, but round halfway cases away from

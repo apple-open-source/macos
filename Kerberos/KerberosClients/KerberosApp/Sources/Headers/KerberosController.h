@@ -1,7 +1,7 @@
 /*
  * KerberosController.h
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/KerberosController.h,v 1.13 2005/01/31 20:51:30 lxs Exp $
+ * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/KerberosController.h,v 1.14 2005/05/25 20:39:55 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -98,6 +98,7 @@
 
 - (void) applicationDidBecomeActive: (NSNotification *) notification;
 - (void) applicationWillTerminate: (NSNotification *) notification;
+- (void) preferencesDidChange: (NSNotification *) notification;
 - (void) cacheCollectionDidChange: (NSNotification *) notification;
 - (void) ticketListDidChange: (NSNotification *) notification;
 - (void) listSelectionDidChange: (NSNotification *) notification;

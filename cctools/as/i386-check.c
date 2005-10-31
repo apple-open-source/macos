@@ -96,6 +96,14 @@ main(void)
 			strcmp(suffix, "l") == 0)
 			suffix = "";
 
+		    /*
+		     * This is to avoid the problems with the
+		     * fisttpl opcode and the fisttpll opcodes.
+		     */
+		    if((strcmp(t->name, "fisttpl") == 0 ||
+			strcmp(t->name, "fisttpll") == 0))
+			continue;
+		
 		    /* fwait prefixed instructions */
 		    if((t->base_opcode & 0xff00) == 0x9b00 &&
 		       strcmp(suffix, "w") == 0)

@@ -29,6 +29,7 @@
 
 #include "khtmlview.h"
 #include "khtml_part.h"
+#include "kjs_proxy.h"
 
 #include "misc/htmlhashes.h"
 #include "misc/loader.h"
@@ -113,7 +114,7 @@ HTMLLinkElementImpl::HTMLLinkElementImpl(DocumentPtr *doc)
     m_sheet = 0;
     m_loading = false;
     m_cachedSheet = 0;
-    m_alternate = false;
+    m_isStyleSheet = m_isIcon = m_alternate = false;
     m_disabledState = 0;
 }
 
@@ -171,7 +172,7 @@ void HTMLLinkElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
     switch (attr->id())
     {
     case ATTR_REL:
-        m_rel = attr->value();
+        tokenizeRelAttribute(attr->value());
         process();
         break;
     case ATTR_HREF:
@@ -194,43 +195,59 @@ void HTMLLinkElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
     }
 }
 
+void HTMLLinkElementImpl::tokenizeRelAttribute(const AtomicString& relStr)
+{
+    m_isStyleSheet = m_isIcon = m_alternate = false;
+    QString rel = relStr.string().lower();
+    if (rel == "stylesheet")
+        m_isStyleSheet = true;
+    else if (rel == "icon" || rel == "shortcut icon")
+        m_isIcon = true;
+    else if (rel == "alternate stylesheet" || rel == "stylesheet alternate")
+        m_isStyleSheet = m_alternate = true;
+    else {
+        // Tokenize the rel attribute and set bits based on specific keywords that we find.
+        rel.replace('\n', ' ');
+        QStringList list = QStringList::split(' ', rel);        
+        for (QStringList::Iterator i = list.begin(); i != list.end(); ++i) {
+            if (*i == "stylesheet")
+                m_isStyleSheet = true;
+            else if (*i == "alternate")
+                m_alternate = true;
+            else if (*i == "icon")
+                m_isIcon = true;
+        }
+    }
+}
+
 void HTMLLinkElementImpl::process()
 {
     if (!inDocument())
         return;
 
     QString type = m_type.string().lower();
-    QString rel = m_rel.string().lower();
-
+    
     KHTMLPart* part = getDocument()->part();
 
     // IE extension: location of small icon for locationbar / bookmarks
-#if APPLE_CHANGES
-    if ( part && rel == "shortcut icon" && !m_url.isEmpty() && !part->parentPart())
-    	part->browserExtension()->setIconURL( KURL(m_url.string()) );
-
-    // Mozilla extension to IE extension: icon specified with type
-    if ( part && rel == "icon" && !m_url.isEmpty() && !part->parentPart())
-    	part->browserExtension()->setTypedIconURL( KURL(m_url.string()), type );
-#else
-    // Uses both "shortcut icon" and "icon"
-   
-    if ( part && rel.contains("icon") && !m_url.isEmpty() && !part->parentPart())
-        part->browserExtension()->setIconURL( KURL(m_url.string()) );
-#endif
+    if (part && m_isIcon && !m_url.isEmpty() && !part->parentPart()) {
+        if (!type.isEmpty()) // Mozilla extension to IE extension: icon specified with type
+            part->browserExtension()->setTypedIconURL(KURL(m_url.string()), type);
+        else 
+            part->browserExtension()->setIconURL(KURL(m_url.string()));
+    }
 
     // Stylesheet
     // This was buggy and would incorrectly match <link rel="alternate">, which has a different specified meaning. -dwh
-    if(m_disabledState != 2 && (type.contains("text/css") || rel == "stylesheet" || (rel.contains("alternate") && rel.contains("stylesheet"))) && getDocument()->part()) {
+    if (m_disabledState != 2 && (type.contains("text/css") || m_isStyleSheet) && getDocument()->part()) {
         // no need to load style sheets which aren't for the screen output
         // ### there may be in some situations e.g. for an editor or script to manipulate
 	// also, don't load style sheets for standalone documents
-        if( m_media.isNull() || m_media.contains("screen") || m_media.contains("all") || m_media.contains("print") ) {
+        if (m_media.isNull() || m_media.contains("screen") || m_media.contains("all") || m_media.contains("print")) {
             m_loading = true;
 
             // Add ourselves as a pending sheet, but only if we aren't an alternate 
             // stylesheet.  Alternate stylesheets don't hold up render tree construction.
-            m_alternate = rel.contains("alternate");
             if (!isAlternate())
                 getDocument()->addPendingSheet();
             
@@ -354,12 +371,78 @@ void HTMLMetaElementImpl::process()
 
 // -------------------------------------------------------------------------
 
-HTMLScriptElementImpl::HTMLScriptElementImpl(DocumentPtr *doc) : HTMLElementImpl(doc)
+HTMLScriptElementImpl::HTMLScriptElementImpl(DocumentPtr *doc)
+    : HTMLElementImpl(doc), m_cachedScript(0), m_createdByParser(false)
 {
 }
 
 HTMLScriptElementImpl::~HTMLScriptElementImpl()
 {
+    if (m_cachedScript)
+        m_cachedScript->deref(this);
+}
+
+void HTMLScriptElementImpl::insertedIntoDocument()
+{
+    HTMLElementImpl::insertedIntoDocument();
+
+    assert(!m_cachedScript);
+
+    if (m_createdByParser)
+        return;
+    
+    QString url = getAttribute(ATTR_SRC).string();
+    if (!url.isEmpty()) {
+        QString charset = getAttribute(ATTR_CHARSET).string();
+        m_cachedScript = getDocument()->docLoader()->requestScript(DOMString(url), charset);
+        m_cachedScript->ref(this);
+        return;
+    }
+
+    DOMString scriptString = "";
+    for (NodeImpl *n = firstChild(); n; n = n->nextSibling())
+        if (n->isTextNode()) 
+            scriptString += static_cast<TextImpl*>(n)->data();
+
+    DocumentImpl *doc = getDocument();
+    KHTMLPart *part = doc->part();
+    if (!part)
+        return;
+    KJSProxy *proxy = KJSProxy::proxy(part);
+    if (!proxy)
+        return;
+
+    proxy->evaluate(doc->URL(), 0, scriptString.string(), Node());
+    DocumentImpl::updateDocumentsRendering();
+}
+
+void HTMLScriptElementImpl::removedFromDocument()
+{
+    HTMLElementImpl::removedFromDocument();
+
+    if (m_cachedScript) {
+        m_cachedScript->deref(this);
+        m_cachedScript = 0;
+    }
+}
+
+void HTMLScriptElementImpl::notifyFinished(CachedObject* o)
+{
+    CachedScript *cs = static_cast<CachedScript *>(o);
+
+    assert(cs == m_cachedScript);
+
+    KHTMLPart *part = getDocument()->part();
+    if (part) {
+        KJSProxy *proxy = KJSProxy::proxy(part);
+        if (proxy) {
+            proxy->evaluate(cs->url().string(), 0, cs->script().string(), Node()); 
+            DocumentImpl::updateDocumentsRendering();
+        }
+    }
+
+    cs->deref(this);
+    m_cachedScript = 0;
 }
 
 NodeImpl::Id HTMLScriptElementImpl::id() const
@@ -471,7 +554,7 @@ void HTMLStyleElementImpl::sheetLoaded()
 // -------------------------------------------------------------------------
 
 HTMLTitleElementImpl::HTMLTitleElementImpl(DocumentPtr *doc)
-    : HTMLElementImpl(doc)
+    : HTMLElementImpl(doc), m_title("")
 {
 }
 
@@ -487,21 +570,13 @@ NodeImpl::Id HTMLTitleElementImpl::id() const
 void HTMLTitleElementImpl::insertedIntoDocument()
 {
     HTMLElementImpl::insertedIntoDocument();
-#if APPLE_CHANGES
-    // Only allow title to be set by first <title> encountered.
-    if (getDocument()->title().isEmpty())
-        getDocument()->setTitle(m_title);
-#else
-        getDocument()->setTitle(m_title);
-#endif
+    getDocument()->setTitle(m_title, this);
 }
 
 void HTMLTitleElementImpl::removedFromDocument()
 {
     HTMLElementImpl::removedFromDocument();
-    // Title element removed, so we have no title... we ignore the case of multiple title elements, as it's invalid
-    // anyway (?)
-    getDocument()->setTitle(DOMString());
+    getDocument()->removeTitle(this);
 }
 
 void HTMLTitleElementImpl::childrenChanged()
@@ -512,11 +587,35 @@ void HTMLTitleElementImpl::childrenChanged()
 	if ((c->nodeType() == Node::TEXT_NODE) || (c->nodeType() == Node::CDATA_SECTION_NODE))
 	    m_title += c->nodeValue();
     }
-#if APPLE_CHANGES
-    // Only allow title to be set by first <title> encountered.
-    if (inDocument() && getDocument()->title().isEmpty())
-#else
-    if (inDocument()))
-#endif
-	getDocument()->setTitle(m_title);
+    if (inDocument())
+        getDocument()->setTitle(m_title, this);
 }
+
+DOMString HTMLTitleElementImpl::text() const
+{
+    DOMString val = "";
+
+    for (NodeImpl *n = firstChild(); n; n = n->nextSibling()) {
+        if (n->isTextNode())
+            val += static_cast<TextImpl *>(n)->data();
+    }
+
+    return val;
+}
+
+void HTMLTitleElementImpl::setText(const DOMString &value)
+{
+    int exceptioncode = 0;
+    int numChildren = childNodeCount();
+
+    if (numChildren == 1 && firstChild()->isTextNode()) {
+        static_cast<DOM::TextImpl *>(firstChild())->setData(value, exceptioncode);
+    } else {  
+        if (numChildren > 0) {
+            removeChildren();
+        }
+        
+        appendChild(getDocument()->createTextNode(value.implementation()), exceptioncode);
+    }
+}
+

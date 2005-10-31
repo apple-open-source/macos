@@ -1,5 +1,5 @@
 /* SecurityManager.java -- security checks for privileged actions
-   Copyright (C) 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -101,7 +101,7 @@ import java.util.PropertyPermission;
  * subclassing this class.
  *
  * @author John Keiser
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see ClassLoader
  * @see SecurityException
  * @see #checkTopLevelWindow(Object)
@@ -324,7 +324,7 @@ public class SecurityManager
   public void checkPermission(Permission perm)
   {
     // XXX Should be: AccessController.checkPermission(perm);
-    throw new SecurityException("Operation not allowed");
+    //.throw new SecurityException("Operation not allowed");
   }
 
   /**
@@ -553,7 +553,7 @@ public class SecurityManager
     //   throw new SecurityException("Missing context");
     // AccessControlContext ac = (AccessControlContext) context;
     // ac.checkPermission(new FilePermission(filename, "read"));
-    throw new SecurityException("Cannot read files via file names.");
+    // throw new SecurityException("Cannot read files via file names.");
   }
 
   /**
@@ -677,7 +677,7 @@ public class SecurityManager
     //   // Use the toString() hack to do the null check.
     //   ac.checkPermission(new SocketPermission(host.toString + ":" +port,
     //                                           "connect"));
-    throw new SecurityException("Cannot make network connections.");
+    // throw new SecurityException("Cannot make network connections.");
   }
 
   /**

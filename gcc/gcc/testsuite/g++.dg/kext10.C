@@ -1,4 +1,4 @@
-// APPLE LOCAL entire file
+// APPLE LOCAL file
 // Radar 3988061
 // { dg-do compile { target powerpc*-*-darwin* } }
 // { dg-options "-Os -static -fapple-kext" }

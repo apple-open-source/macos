@@ -290,7 +290,7 @@ void AppleRAID::recoverMember(IORegistryEntry * child)
     AppleRAIDMember * member = OSDynamicCast(AppleRAIDMember, child);
     if (member) {
 	AppleRAIDSet * set = findSet(member);
-	if (set) set->arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::recoverStart);
+	if (set) set->arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, set, &AppleRAIDSet::recoverStart));
     }
 }
 
@@ -310,7 +310,8 @@ void AppleRAID::startSet(AppleRAIDSet * set)
 
 	IOLog1("AppleRAID::startSet: the set %p is started.\n", set);
 	    
-	// check for a "stacked" raid header
+	// check for a "stacked" raid header, the first time
+	// we get here we don't know if the set is a raid member
 	if (!set->isRAIDMember()) set->start(NULL);
     }
 
@@ -440,8 +441,18 @@ IOReturn AppleRAID::updateSet(char * setInfoBuffer, char * retBuffer, IOByteCoun
 	// for each remaining prop that has changed call a specific set function or merge in
 	if (updateInfo->getCount()) {
 
-	    IOLog1("AppleRAID::updateSet() pausing set.\n");
-	    set->arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::pauseSet, false);
+	    // we only need to go one level higher since we are not changing
+	    // the state of any of member sets at that level
+	    AppleRAIDSet * parentSet = 0;
+	    if (set->isRAIDMember()) {
+		parentSet = findSet((AppleRAIDMember *)set);
+		IOLog1("AppleRAID::updateSet() pausing parent set %p.\n", parentSet);
+		IOCommandGate::Action pauseSetMethod = OSMemberFunctionCast(IOCommandGate::Action, parentSet, &AppleRAIDSet::pauseSet);
+		if (parentSet) parentSet->arSetCommandGate->runAction(pauseSetMethod, (void *)false);
+	    }
+	    IOLog1("AppleRAID::updateSet() pausing set %p.\n", set);
+	    IOCommandGate::Action pauseSetMethod = OSMemberFunctionCast(IOCommandGate::Action, set, &AppleRAIDSet::pauseSet);
+	    set->arSetCommandGate->runAction(pauseSetMethod, (void *)false);
 	    
 	    if (!set->reconfigureSet(updateInfo)) rc = kIOReturnError;
 
@@ -451,9 +462,8 @@ IOReturn AppleRAID::updateSet(char * setInfoBuffer, char * retBuffer, IOByteCoun
 	    // if the set is waiting for a new added disk leave it paused
 	    IOLog1("AppleRAID::updateSet() unpausing set.\n");
 
-	    // XXX this calls the wrong method
-//	    set->arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAIDSet::unpauseSet);
-	    set->unpauseSet();
+	    set->arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, set, &AppleRAIDSet::unpauseSet));
+	    if (parentSet) parentSet->arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, parentSet, &AppleRAIDSet::unpauseSet));
 	}
 
 	*(UInt32 *)retBuffer = set->getSequenceNumber();

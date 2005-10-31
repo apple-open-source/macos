@@ -74,7 +74,6 @@ extern tree chrec_type (tree);
 /* Operations.  */
 extern tree chrec_apply (unsigned, tree, tree);
 extern tree chrec_replace_initial_condition (tree, tree);
-extern tree update_initial_condition_to_origin (tree);
 extern tree initial_condition (tree);
 extern tree initial_condition_in_loop_num (tree, unsigned);
 extern tree evolution_part_in_loop_num (tree, unsigned);
@@ -88,7 +87,8 @@ extern bool chrec_is_positive (tree, bool *);
 extern bool chrec_contains_symbols (tree);
 extern bool chrec_contains_symbols_defined_in_loop (tree, unsigned);
 extern bool chrec_contains_undetermined (tree);
-extern bool tree_contains_chrecs (tree);
+/* APPLE LOCAL mainline 4080945/ PR 20742 */
+extern bool tree_contains_chrecs (tree, int *);
 extern bool evolution_function_is_affine_multivariate_p (tree);
 extern bool evolution_function_is_univariate_p (tree);
 extern unsigned nb_vars_in_chrec (tree);
@@ -184,7 +184,8 @@ evolution_function_is_affine_or_constant_p (tree chrec)
 static inline bool
 tree_does_not_contain_chrecs (tree expr)
 {
-  return !tree_contains_chrecs (expr);
+/* APPLE LOCAL mainline 4080945/ PR 20742 */
+  return !tree_contains_chrecs (expr, NULL);
 }
 
 /* Determines whether CHREC is a loop invariant with respect to LOOP_NUM.  

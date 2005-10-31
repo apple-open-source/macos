@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,7 +59,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " * \n"
@@ -86,15 +86,15 @@ typedef enum {
 	COMMENT,
 	GROUP,
 	SC_10_1,
+	SC_10_1_10_4,	// deprecated in 10.4
 	SC_10_2,
-	SC_10_1_10_3,	// deprecated in 10.4
 	SC_10_3,
 	SC_10_4,
 	END
 } controlType;
 
-#define SC_SCHEMA_KV		"SC_SCHEMA_KV"
 #define SC_SCHEMA_DECLARATION	"SC_SCHEMA_DECLARATION"
+#define SC_SCHEMA_KV		"SC_SCHEMA_KV"
 
 #define KEY_PREFIX		"kSC"
 
@@ -758,9 +758,9 @@ struct {
 
 //{ GROUP, "DEPRECATED", "Deprecated schema definition keys", NULL, NULL },
 
-    { SC_10_1_10_3, USERSPROP CONSOLEUSER, NAME, NULL, CFSTRING },
-    { SC_10_1_10_3, USERSPROP CONSOLEUSER, UID, NULL, CFNUMBER },
-    { SC_10_1_10_3, USERSPROP CONSOLEUSER, GID, NULL, CFNUMBER },
+    { SC_10_1_10_4, USERSPROP CONSOLEUSER, NAME, NULL, CFSTRING },
+    { SC_10_1_10_4, USERSPROP CONSOLEUSER, UID, NULL, CFNUMBER },
+    { SC_10_1_10_4, USERSPROP CONSOLEUSER, GID, NULL, CFNUMBER },
 //  { COMMENT, "", NULL, NULL, NULL },
 
     { END, NULL, NULL, NULL, NULL },
@@ -861,7 +861,7 @@ dump_names(int type)
 		        break;
 		    case gen_comments_e:
 		        switch (names[i].control) {
-			    case SC_10_1_10_3:
+			    case SC_10_1_10_4:
 			        // don't report deprecated keys
 			        break;
 			    default:
@@ -900,7 +900,7 @@ dump_names(int type)
 			    case SC_10_2:
 				printf("  @availability Introduced in Mac OS X 10.2.\n");
 				break;
-			    case SC_10_1_10_3:
+			    case SC_10_1_10_4:
 				printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.4.\n");
 				break;
 			    case SC_10_3:
@@ -926,54 +926,70 @@ dump_names(int type)
 			printf("\n");
 
 			switch (names[i].control) {
-			    case SC_10_2:
-				printf("#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_2\n");
+			    case SC_10_1:
+				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)\n", kbuf);
+				printf("#endif\n");
 				break;
-			    case SC_10_1_10_3:
-				printf("#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_1 && \\\n");
-				printf("    MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_3\n");
+			    case SC_10_2:
+				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)\n", kbuf);
+				printf("#endif\n");
 				break;
 			    case SC_10_3:
-				printf("#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_3\n");
+				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)\n", kbuf);
+				printf("#endif\n");
+				break;
+			    case SC_10_1_10_4:
+				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)\n", kbuf);
+				printf("#endif\n");
 				break;
 			    case SC_10_4:
-				printf("#if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4\n");
+				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040\n");
+				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)\n", kbuf);
+				printf("#endif\n");
 				break;
-			}
-
-			printf("#define %-48s              \\\n",
-			       kbuf);
-			printf("\tSC_SCHEMA_KV(%-48s \\\n",
-			       kbuf);
-			printf("\t            ,%-48s \\\n",
-			       vbuf);
-			printf("\t            ,%-48s )\n",
-			       names[i].type ? names[i].type : "");
-
-			switch (names[i].control) {
-			    case SC_10_2:
-			    case SC_10_3:
-			    case SC_10_1_10_3:
-			    case SC_10_4:
+			    default:
+				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+				printf("  " SC_SCHEMA_DECLARATION "(%s,)\n", kbuf);
 				printf("#endif\n");
 				break;
 			}
 
 			switch (names[i].control) {
+			    case SC_10_1:
+			    case SC_10_1_10_4:
+				printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)\n");
+				break;
 			    case SC_10_2:
-				printf("\tSC_SCHEMA_DECLARATION(%s, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER);\n", kbuf);
+				printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)\n");
 				break;
 			    case SC_10_3:
-				printf("\tSC_SCHEMA_DECLARATION(%s, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER);\n", kbuf);
-				break;
-			    case SC_10_1_10_3:
-				printf("\tSC_SCHEMA_DECLARATION(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4);\n", kbuf);
+				printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)\n");
 				break;
 			    case SC_10_4:
-				printf("\tSC_SCHEMA_DECLARATION(%s, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER);\n", kbuf);
+				printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)\n");
 				break;
-			    default:
-				printf("\tSC_SCHEMA_DECLARATION(%s,);\n", kbuf);
+			}
+
+			printf("  #define %-48s              \\\n",
+			       kbuf);
+			printf("          " SC_SCHEMA_KV "(%-48s \\\n",
+			       kbuf);
+			printf("                      ,%-48s \\\n",
+			       vbuf);
+			printf("                      ,%-48s )\n",
+			       names[i].type ? names[i].type : "");
+
+			switch (names[i].control) {
+			    case SC_10_1:
+			    case SC_10_1_10_4:
+			    case SC_10_2:
+			    case SC_10_3:
+			    case SC_10_4:
+				printf("#endif\n");
 				break;
 			}
 
@@ -1064,7 +1080,7 @@ main(int argc, char * argv[])
 	printf(" * Note: For Cocoa/Obj-C/Foundation applications accessing these preference\n");
 	printf(" *       keys you may want to consider the following :\n");
 	printf(" *\n");
-	printf(" *       #define " SC_SCHEMA_DECLARATION "(k,q)\textern NSString * k\n");
+	printf(" *       #define " SC_SCHEMA_DECLARATION "(k,q)\textern NSString * k;\n");
 	printf(" *       #import <SystemConfiguration/SystemConfiguration.h>\n");
 	printf(" */\n\n");
 
@@ -1072,8 +1088,8 @@ main(int argc, char * argv[])
 	printf(" * Note: For CFM applications using these schema keys you may want to\n");
 	printf(" *       consider the following :\n");
 	printf(" *\n");
-	printf(" *       #define SC_SCHEMA_KV(k,v,t)\tlookup_SC_key( CFSTR( #k ) )\n");
-	printf(" *       #define SC_SCHEMA_DECLARATION(k,q)\n");
+	printf(" *       #define " SC_SCHEMA_DECLARATION "(k,q)\n");
+	printf(" *       #define " SC_SCHEMA_KV "(k,v,t)\tlookup_SC_key( CFSTR( #k ) )\n");
 	printf(" *       #include <SystemConfiguration/SystemConfiguration.h>\n");
 	printf(" *\n");
 	printf(" *       CFStringRef lookup_SC_key(CFStringRef key)\n");
@@ -1088,7 +1104,7 @@ main(int argc, char * argv[])
 	printf(" * Note: Earlier versions of this header file defined a \"SCSTR\" macro\n");
 	printf(" *       which helped to facilitate Obj-C development. Use of this macro\n");
 	printf(" *       has been deprecated (in Mac OS X 10.4) in favor of the newer\n");
-	printf(" *       \"SC_SCHEMA_KV\" and \"SC_SCHEMA_DECLARATION\" macros\n");
+	printf(" *       \"" SC_SCHEMA_DECLARATION "\" and \"" SC_SCHEMA_KV "\" macros\n");
 	printf(" */\n\n\n");
 
 	printf("#ifndef _SCSCHEMADEFINITIONS_H\n#define _SCSCHEMADEFINITIONS_H\n\n");
@@ -1099,52 +1115,48 @@ main(int argc, char * argv[])
 
 	printf("/*\n");
 	printf(" * let's \"do the right thing\" for those wishing to build for\n");
-	printf(" * Mac OS X 10.1 and 10.2\n");
+	printf(" * Mac OS X 10.1.0 ... 10.2.x\n");
 	printf(" */\n");
 
-	printf("#if MAC_OS_X_VERSION_10_3 > MAC_OS_X_VERSION_MIN_REQUIRED\n");
-	printf("  #if MAC_OS_X_VERSION_10_1 <= MAC_OS_X_VERSION_MIN_REQUIRED\n");
+	printf("#if MAC_OS_X_VERSION_MIN_REQUIRED <= 1020\n");
 	printf("    #ifndef SCSTR\n");
 	printf("      #include <CoreFoundation/CFString.h>\n");
 	printf("      #define SCSTR(s) CFSTR(s)\n");
 	printf("    #endif\n");
-	printf("    #ifndef SC_SCHEMA_KV\n");
-	printf("      #define SC_SCHEMA_KV(k,v,t)\tSCSTR( v )\n");
+	printf("  #ifndef " SC_SCHEMA_DECLARATION "\n");
+	printf("    #define " SC_SCHEMA_DECLARATION "(k,q)\textern const CFStringRef k q;\n");
 	printf("    #endif\n");
-	printf("    #ifndef SC_SCHEMA_DECLARATION\n");
-	printf("      #define SC_SCHEMA_DECLARATION(k,q)\n");
-	printf("    #endif\n");
+	printf("  #ifndef " SC_SCHEMA_KV "\n");
+	printf("    #define " SC_SCHEMA_KV "(k,v,t)\tSCSTR( v )\n");
 	printf("  #endif\n");
 	printf("#endif\n\n");
 
 	printf("/*\n");
 	printf(" * Define a schema key/value/type tuple\n");
 	printf(" */\n");
-	printf("#ifndef SC_SCHEMA_KV\n");
+	printf("#ifndef " SC_SCHEMA_KV "\n");
 	printf("  #define " SC_SCHEMA_KV "(k,v,t)\tk\n");
 	printf("#endif\n\n");
 
 	printf("/*\n");
 	printf(" * Provide an \"extern\" for the key/value\n");
 	printf(" */\n");
-	printf("#ifndef SC_SCHEMA_DECLARATION\n");
+	printf("#ifndef " SC_SCHEMA_DECLARATION "\n");
 	printf("  #ifndef SCSTR\n");
 	printf("    #include <CoreFoundation/CFString.h>\n");
-	printf("    #define " SC_SCHEMA_DECLARATION "(k,q)\textern const CFStringRef k q\n");
+	printf("    #define " SC_SCHEMA_DECLARATION "(k,q)\textern const CFStringRef k q;\n");
 	printf("  #else\n");
 	printf("    #import <Foundation/NSString.h>\n");
-	printf("    #define " SC_SCHEMA_DECLARATION "(k,q)\textern NSString * k q\n");
+	printf("    #define " SC_SCHEMA_DECLARATION "(k,q)\textern NSString * k q;\n");
 	printf("  #endif\n");
 	printf("#endif\n");
 
-	// The SCSTR() macro should be availble for 10.1 ... 10.4
-	printf("#if MAC_OS_X_VERSION_10_4 >= MAC_OS_X_VERSION_MIN_REQUIRED\n");
-	printf("  #if MAC_OS_X_VERSION_10_1 <= MAC_OS_X_VERSION_MIN_REQUIRED\n");
+	// The SCSTR() macro should only be availble for Mac OS X 10.1.0 ... 10.4.x
+	printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) && (MAC_OS_X_VERSION_MAX_ALLOWED <= 1040)\n");
 	printf("    #ifndef SCSTR\n");
 	printf("      #include <CoreFoundation/CFString.h>\n");
 	printf("      #define SCSTR(s) CFSTR(s)\n");
 	printf("    #endif\n");
-	printf("  #endif\n");
 	printf("#endif\n\n\n");
 
 	printf("/* -------------------- HeaderDoc comments -------------------- */\n\n\n");

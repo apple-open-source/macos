@@ -49,7 +49,8 @@ IOUSBWorkLoop * IOUSBWorkLoop::workLoop()
 void IOUSBWorkLoop::closeGate()
 {
     IOWorkLoop::closeGate();
-    if(fSleepToken) 
+    // do not do this if we are on the actual workloop/interrupt thread
+    if(fSleepToken && !onThread()) 
     {
         IOReturn res;
         do 

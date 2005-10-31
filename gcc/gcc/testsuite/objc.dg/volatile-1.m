@@ -16,3 +16,5 @@
 @end
 
 /* { dg-final { scan-assembler "li r\[0-9\]+,1" { target powerpc*-*-darwin* } } } */
+/* APPLE LOCAL testing */
+/* { dg-final { scan-assembler "movl\t\\\$1, 16\\(%ebp\\)" { target i?86*-*-darwin* } } } */

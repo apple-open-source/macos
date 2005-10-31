@@ -4440,7 +4440,7 @@ SMBCCTX * smbc_init_context(SMBCCTX * context)
                 /* Do some library wide intialisations the first time we get called */
 
                 /* Set this to what the user wants */
-                DEBUGLEVEL = context->debug;
+                SAMBA_DEBUGLEVEL = context->debug;
                 
                 setup_logging( "libsmbclient", True);
 

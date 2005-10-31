@@ -109,7 +109,7 @@
 ;; offset.  By using separate patterns for push and pop we ensure that
 ;; insns like this one are never generated.
 
-(define_insn "pushqi"
+(define_insn "pushqi1"
   [(set (mem:QI (post_inc (reg:HI 15)))
 	(match_operand:QI 0 "register_operand" "r"))]
   ""
@@ -117,7 +117,7 @@
   [(set_attr "psw_operand" "nop")
    (set_attr "length" "2")])
 
-(define_insn "popqi"
+(define_insn "popqi1"
   [(set (match_operand:QI 0 "register_operand" "=r")
 	(mem:QI (pre_dec (reg:HI 15))))]
   ""
@@ -161,7 +161,7 @@
 	      (const_int 2)])
    (set_attr "psw_operand" "0,0,0,0,nop,0,nop,0,0")])
 
-(define_insn "pushhi"
+(define_insn "pushhi1"
   [(set (mem:HI (post_inc (reg:HI 15)))
 	(match_operand:HI 0 "register_operand" "r"))]
   ""
@@ -169,7 +169,7 @@
   [(set_attr "psw_operand" "nop")
    (set_attr "length" "2")])
 
-(define_insn "pophi"
+(define_insn "pophi1"
   [(set (match_operand:HI 0 "register_operand" "=r")
 	(mem:HI (pre_dec (reg:HI 15))))]
   ""
@@ -1268,6 +1268,19 @@
   [(set_attr "length" "4")
    (set_attr "psw_operand" "nop")])
 
+(define_insn "*bclrx3"
+  [(set (pc) 
+	(if_then_else (eq:HI (and:HI (zero_extend:HI (match_operand:QI 1 "xstormy16_below100_operand" "W"))
+				     (match_operand:HI 2 "immediate_operand" "i"))
+			     (const_int 0))
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))
+   (clobber (match_operand:BI 3 "" "=y"))]
+  ""
+  "bn %1,%B2,%l0"
+  [(set_attr "length" "4")
+   (set_attr "psw_operand" "nop")])
+
 (define_insn "*bclr7"
   [(set (pc) 
 	(if_then_else (xor:HI (lshiftrt:HI (subreg:HI
@@ -1317,6 +1330,19 @@
    (clobber (match_operand:BI 3 "" "=y"))]
   ""
   "bp %1,%b2,%l0"
+  [(set_attr "length" "4")
+   (set_attr "psw_operand" "nop")])
+
+(define_insn "*bsetx3"
+  [(set (pc) 
+	(if_then_else (ne:HI (and:HI (zero_extend:HI (match_operand:QI 1 "xstormy16_below100_operand" "W"))
+				     (match_operand:HI 2 "immediate_operand" "i"))
+			     (const_int 0))
+		      (label_ref (match_operand 0 "" ""))
+		      (pc)))
+   (clobber (match_operand:BI 3 "" "=y"))]
+  ""
+  "bp %1,%B2,%l0"
   [(set_attr "length" "4")
    (set_attr "psw_operand" "nop")])
 

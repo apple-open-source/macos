@@ -1,5 +1,5 @@
 /* JTextComponent.java --
-   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,19 +35,24 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.text;
 
 import java.awt.AWTEvent;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.event.ActionEvent;
 import java.awt.event.InputMethodListener;
 import java.awt.event.KeyEvent;
-
+import java.io.IOException;
 import java.util.Enumeration;
 import java.util.Hashtable;
 
@@ -58,12 +63,12 @@ import javax.accessibility.AccessibleStateSet;
 import javax.accessibility.AccessibleText;
 import javax.swing.Action;
 import javax.swing.ActionMap;
-import javax.swing.Icon;
 import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JViewport;
 import javax.swing.KeyStroke;
 import javax.swing.Scrollable;
+import javax.swing.TransferHandler;
 import javax.swing.UIManager;
 import javax.swing.event.CaretEvent;
 import javax.swing.event.CaretListener;
@@ -72,7 +77,6 @@ import javax.swing.event.DocumentListener;
 import javax.swing.plaf.ActionMapUIResource;
 import javax.swing.plaf.InputMapUIResource;
 import javax.swing.plaf.TextUI;
-
 
 public abstract class JTextComponent extends JComponent
   implements Scrollable, Accessible
@@ -298,7 +302,7 @@ public abstract class JTextComponent extends JComponent
    * report</a>, a pair of private classes wraps a {@link
    * javax.swing.text.Keymap} in the new {@link InputMap} / {@link
    * ActionMap} interfaces, such that old Keymap-using code can make use of
-   * the new framework.</p>
+   * the new framework.
    *
    * <p>A little bit of experimentation with these classes reveals the following
    * structure:
@@ -550,7 +554,92 @@ public abstract class JTextComponent extends JComponent
     {
       parent = p;
     }
+  }
 
+  class DefaultTransferHandler
+    extends TransferHandler
+  {
+    public boolean canImport(JComponent component, DataFlavor[] flavors)
+    {
+      JTextComponent textComponent = (JTextComponent) component;
+      
+      if (! (textComponent.isEnabled()
+	     && textComponent.isEditable()
+	     && flavors != null))
+        return false;
+
+      for (int i = 0; i < flavors.length; ++i)
+	if (flavors[i].equals(DataFlavor.stringFlavor))
+	   return true;
+
+      return false;
+    }
+    
+    public void exportToClipboard(JComponent component, Clipboard clipboard,
+				  int action)
+    {
+      JTextComponent textComponent = (JTextComponent) component;
+      int start = textComponent.getSelectionStart();
+      int end = textComponent.getSelectionEnd();
+
+      if (start == end)
+	return;
+
+      try
+	{
+	  // Copy text to clipboard.
+	  String data = textComponent.getDocument().getText(start, end);
+	  StringSelection selection = new StringSelection(data);
+	  clipboard.setContents(selection, null);
+
+	  // Delete selected text on cut action.
+	  if (action == MOVE)
+	    doc.remove(start, end - start);
+	}
+      catch (BadLocationException e)
+	{
+	  // Ignore this and do nothing.
+	}
+    }
+    
+    public int getSourceActions()
+    {
+      return NONE;
+    }
+
+    public boolean importData(JComponent component, Transferable transferable)
+    {
+      DataFlavor flavor = null;
+      DataFlavor[] flavors = transferable.getTransferDataFlavors();
+
+      if (flavors == null)
+	return false;
+
+      for (int i = 0; i < flavors.length; ++i)
+	if (flavors[i].equals(DataFlavor.stringFlavor))
+	   flavor = flavors[i];
+      
+      if (flavor == null)
+	return false;
+
+      try
+	{
+	  JTextComponent textComponent = (JTextComponent) component;
+	  String data = (String) transferable.getTransferData(flavor);
+	  textComponent.replaceSelection(data);
+	  return true;
+	}
+      catch (IOException e)
+	{
+	  // Ignored.
+	}
+      catch (UnsupportedFlavorException e)
+	{
+	  // Ignored.
+	}
+
+      return false;
+    }
   }
 
   private static final long serialVersionUID = -8796518220218978795L;
@@ -558,8 +647,11 @@ public abstract class JTextComponent extends JComponent
   public static final String DEFAULT_KEYMAP = "default";
   public static final String FOCUS_ACCELERATOR_KEY = "focusAcceleratorKey";
   
+  private static DefaultTransferHandler defaultTransferHandler;
   private static Hashtable keymaps = new Hashtable();
   private Keymap keymap;
+  private char focusAccelerator = '\0';
+  private NavigationFilter navigationFilter;
   
   /**
    * Get a Keymap from the global keymap table, by name.
@@ -629,7 +721,7 @@ public abstract class JTextComponent extends JComponent
    * @see #setKeymap()
    * @see #keymap
    */
-  Keymap getKeymap() 
+  public Keymap getKeymap() 
   {
     return keymap;
   }
@@ -751,7 +843,7 @@ public abstract class JTextComponent extends JComponent
    * <code>b</code>, if there exists a provided action <code>a</code> such
    * that <code>a.getValue(Action.NAME) == b.ActionName</code> then an
    * entry is added to the Keymap mapping <code>b</code> to
-   * </code>a</code>.
+   * <code>a</code>.
    *
    * @param map The Keymap to add new mappings to
    * @param bindings The set of bindings to add to the Keymap
@@ -800,6 +892,7 @@ public abstract class JTextComponent extends JComponent
   private Color selectionColor;
   private boolean editable;
   private Insets margin;
+  private boolean dragEnabled;
 
   /**
    * Creates a new <code>JTextComponent</code> instance.
@@ -850,7 +943,7 @@ public abstract class JTextComponent extends JComponent
   }
 
   /**
-   * Get the <code>AccessibleContext<code> of this object.
+   * Get the <code>AccessibleContext</code> of this object.
    *
    * @return an <code>AccessibleContext</code> object
    */
@@ -878,6 +971,7 @@ public abstract class JTextComponent extends JComponent
       }
     catch (BadLocationException e)
       {
+	// This can never happen.
       }
   }
 
@@ -918,6 +1012,26 @@ public abstract class JTextComponent extends JComponent
     throws BadLocationException
   {
     return getDocument().getText(offset, length);
+  }
+
+  /**
+   * Retrieves the currently selected text in this text document.
+   *
+   * @return the selected text
+   *
+   * @exception NullPointerException if the underlaying document is null
+   */
+  public String getSelectedText()
+  {
+    try
+      {
+	return doc.getText(getSelectionStart(), getSelectionEnd());
+      }
+    catch (BadLocationException e)
+      {
+	// This should never happen.
+	return null;
+      }
   }
 
   /**
@@ -998,12 +1112,16 @@ public abstract class JTextComponent extends JComponent
   /**
    * Enables/disabled this text component's editability.
    *
-   * @param editable true to make it editable, false otherwise.
+   * @param newValue true to make it editable, false otherwise.
    */
-  public void setEditable(boolean editable)
+  public void setEditable(boolean newValue)
   {
-    firePropertyChange("editable", this.editable, editable);
-    this.editable = editable;
+    if (editable == newValue)
+      return;
+
+    boolean oldValue = editable;
+    editable = newValue;
+    firePropertyChange("editable", oldValue, newValue);
   }
 
   /**
@@ -1225,17 +1343,22 @@ public abstract class JTextComponent extends JComponent
 
     try
       {
+	int start = getSelectionStart();
+	int end = getSelectionEnd();
+	
 	// Remove selected text.
 	if (dot != mark)
-	  doc.remove(Math.min(dot, mark), Math.max(dot, mark));
+	  doc.remove(start, end - start);
 
 	// Insert new text.
-	doc.insertString(Math.min(dot, mark), content, null);
+	doc.insertString(start, content, null);
+
+	// Set dot to new position.
+	setCaretPosition(start + content.length());
       }
     catch (BadLocationException e)
       {
 	// This should never happen.
-	System.out.println("Michael: JTextComponent.replaceSelection: Error");
       }
   }
 
@@ -1332,5 +1455,83 @@ public abstract class JTextComponent extends JComponent
   public Rectangle modelToView(int position) throws BadLocationException
   {
     return getUI().modelToView(this, position);
+  }
+
+  public boolean getDragEnabled()
+  {
+    return dragEnabled;
+  }
+
+  public void setDragEnabled(boolean enabled)
+  {
+    dragEnabled = enabled;
+  }
+
+  public int viewToModel(Point pt)
+  {
+    return getUI().viewToModel(this, pt);
+  }
+
+  public void copy()
+  {
+    doTransferAction("copy", TransferHandler.getCopyAction());
+  }
+
+  public void cut()
+  {
+    doTransferAction("cut", TransferHandler.getCutAction());
+  }
+
+  public void paste()
+  {
+    doTransferAction("paste", TransferHandler.getPasteAction());
+  }
+
+  private void doTransferAction(String name, Action action)
+  {
+    // Install default TransferHandler if none set.
+    if (getTransferHandler() == null)
+      {
+	if (defaultTransferHandler == null)
+	  defaultTransferHandler = new DefaultTransferHandler();
+	
+	setTransferHandler(defaultTransferHandler);
+      }
+
+    // Perform action.
+    ActionEvent event = new ActionEvent(this, ActionEvent.ACTION_PERFORMED,
+					action.getValue(Action.NAME).toString());
+    action.actionPerformed(event);
+  }
+
+  public void setFocusAccelerator(char newKey)
+  {
+    if (focusAccelerator == newKey)
+      return;
+
+    char oldKey = focusAccelerator;
+    focusAccelerator = newKey;
+    firePropertyChange(FOCUS_ACCELERATOR_KEY, oldKey, newKey);
+  }
+  
+  public char getFocusAccelerator()
+  {
+    return focusAccelerator;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public NavigationFilter getNavigationFilter()
+  {
+    return navigationFilter;
+  }
+
+  /**
+   * @since 1.4
+   */
+  public void setNavigationFilter(NavigationFilter filter)
+  {
+    navigationFilter = filter;
   }
 }

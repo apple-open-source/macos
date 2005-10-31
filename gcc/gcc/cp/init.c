@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -214,7 +214,6 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      tree index;
       tree max_index;
       tree inits;
 
@@ -222,20 +221,31 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       init = build_constructor (type, NULL_TREE);
       /* Iterate over the array elements, building initializations.  */
       inits = NULL_TREE;
-      max_index = nelts ? nelts : array_type_nelts (type);
+      if (nelts)
+	max_index = fold (build2 (MINUS_EXPR, TREE_TYPE (nelts),
+				  nelts, integer_one_node));
+      else
+	max_index = array_type_nelts (type);
       gcc_assert (TREE_CODE (max_index) == INTEGER_CST);
 
       /* A zero-sized array, which is accepted as an extension, will
 	 have an upper bound of -1.  */
       if (!tree_int_cst_equal (max_index, integer_minus_one_node))
-	for (index = size_zero_node;
-	     !tree_int_cst_lt (max_index, index);
-	     index = size_binop (PLUS_EXPR, index, size_one_node))
-	  inits = tree_cons (index,
-			     build_zero_init (TREE_TYPE (type),
-					      /*nelts=*/NULL_TREE,
-					      static_storage_p),
-			     inits);
+	{
+	  tree elt_init = build_zero_init (TREE_TYPE (type),
+					   /*nelts=*/NULL_TREE,
+					   static_storage_p);
+	  tree range;
+	  
+	  /* If this is a one element array, we just use a regular init.  */
+	  if (tree_int_cst_equal (size_zero_node, max_index))
+	    range = size_zero_node;
+	  else
+	   range = build2 (RANGE_EXPR, sizetype, size_zero_node, max_index);
+	  
+	  inits = tree_cons (range, elt_init, inits);
+	}
+      
       CONSTRUCTOR_ELTS (init) = nreverse (inits);
     }
   else
@@ -645,6 +655,11 @@ sort_mem_initializers (tree t, tree mem_inits)
 void
 emit_mem_initializers (tree mem_inits)
 {
+  /* We will already have issued an error message about the fact that
+     the type is incomplete.  */
+  if (!COMPLETE_TYPE_P (current_class_type))
+    return;
+  
   /* Sort the mem-initializers into the order in which the
      initializations should be performed.  */
   mem_inits = sort_mem_initializers (current_class_type, mem_inits);
@@ -1407,14 +1422,6 @@ build_offset_ref (tree type, tree name, bool address_p)
       return error_mark_node;
     }
 
-  if (processing_template_decl)
-    {
-      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
-	return build_min (SCOPE_REF, TREE_TYPE (member), type, orig_name);
-      else
-	return build_min (SCOPE_REF, TREE_TYPE (member), type, name);
-    }
-
   if (TREE_CODE (member) == TYPE_DECL)
     {
       TREE_USED (member) = 1;
@@ -1544,54 +1551,53 @@ build_offset_ref (tree type, tree name, bool address_p)
       return member;
     }
 
-  /* In member functions, the form `type::name' is no longer
-     equivalent to `this->type::name', at least not until
-     resolve_offset_ref.  */
   member = build2 (OFFSET_REF, TREE_TYPE (member), decl, member);
   PTRMEM_OK_P (member) = 1;
   return member;
 }
 
-/* If DECL is a `const' declaration, and its value is a known
-   constant, then return that value.  */
+/* If DECL is a CONST_DECL, or a constant VAR_DECL initialized by
+   constant of integral or enumeration type, then return that value.
+   These are those variables permitted in constant expressions by
+   [5.19/1].  FIXME:If we did lazy folding, this could be localized.  */
+
+tree
+integral_constant_value (tree decl)
+{
+  while ((TREE_CODE (decl) == CONST_DECL
+	  || (TREE_CODE (decl) == VAR_DECL
+	      /* And so are variables with a 'const' type -- unless they
+		 are also 'volatile'.  */
+	      && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)))
+	 && DECL_INITIAL (decl)
+	 && DECL_INITIAL (decl) != error_mark_node
+	 && TREE_TYPE (DECL_INITIAL (decl))
+	 && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
+    decl = DECL_INITIAL (decl);
+  return decl;
+}
+
+/* A more relaxed version of integral_constant_value, for which type
+   is not considered.  This is used by the common C/C++ code, and not
+   directly by the C++ front end.  */
 
 tree
 decl_constant_value (tree decl)
 {
-  /* When we build a COND_EXPR, we don't know whether it will be used
-     as an lvalue or as an rvalue.  If it is an lvalue, it's not safe
-     to replace the second and third operands with their
-     initializers.  So, we do that here.  */
-  if (TREE_CODE (decl) == COND_EXPR)
-    {
-      tree d1;
-      tree d2;
-
-      d1 = decl_constant_value (TREE_OPERAND (decl, 1));
-      d2 = decl_constant_value (TREE_OPERAND (decl, 2));
-
-      if (d1 != TREE_OPERAND (decl, 1) || d2 != TREE_OPERAND (decl, 2))
-	return build3 (COND_EXPR,
-		       TREE_TYPE (decl),
-		       TREE_OPERAND (decl, 0), d1, d2);
-    }
-
-  if (DECL_P (decl)
-      && (/* Enumeration constants are constant.  */
-	  TREE_CODE (decl) == CONST_DECL
+  if ((TREE_CODE (decl) == CONST_DECL
+      || (TREE_CODE (decl) == VAR_DECL
 	  /* And so are variables with a 'const' type -- unless they
-	     are also 'volatile'.  */
-	  || CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl)))
-      && TREE_CODE (decl) != PARM_DECL
+             are also 'volatile'.  */
+	  && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))))
       && DECL_INITIAL (decl)
       && DECL_INITIAL (decl) != error_mark_node
-      /* This is invalid if initial value is not constant.
-	 If it has either a function call, a memory reference,
-	 or a variable, then re-evaluating it could give different results.  */
-      && TREE_CONSTANT (DECL_INITIAL (decl))
-      /* Check for cases where this is sub-optimal, even though valid.  */
-      && TREE_CODE (DECL_INITIAL (decl)) != CONSTRUCTOR)
+      /* This is invalid if initial value is not constant.  If it has
+       	 either a function call, a memory reference, or a variable,
+       	 then re-evaluating it could give different results.  */
+      && TREE_CONSTANT (DECL_INITIAL (decl)))
     return DECL_INITIAL (decl);
+  
   return decl;
 }
 
@@ -1631,6 +1637,15 @@ build_new (tree placement, tree type, tree nelts, tree init,
       NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
       TREE_SIDE_EFFECTS (rval) = 1;
       return rval;
+    }
+
+  if (nelts)
+    {
+      if (!build_expr_type_conversion (WANT_INT | WANT_ENUM, nelts, false))
+	pedwarn ("size in array new must have integral type");
+      nelts = save_expr (cp_convert (sizetype, nelts));
+      if (nelts == integer_zero_node)
+	warning ("zero size array reserves no space");
     }
 
   /* ``A reference cannot be created by the new operator.  A reference
@@ -1741,7 +1756,7 @@ build_new_1 (tree exp)
      from ELT_TYPE for a multi-dimensional array; ELT_TYPE is never an
      ARRAY_TYPE, but TYPE may be an ARRAY_TYPE.  */
   tree type;
-  /* A pointer type pointing to to the FULL_TYPE.  */
+  /* A pointer type pointing to the FULL_TYPE.  */
   tree full_pointer_type;
   tree outer_nelts = NULL_TREE;
   tree nelts = NULL_TREE;
@@ -2320,8 +2335,8 @@ create_temporary_var (tree type)
   decl = build_decl (VAR_DECL, NULL_TREE, type);
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  DECL_SOURCE_LOCATION (decl) = input_location;
   DECL_IGNORED_P (decl) = 1;
+  DECL_SOURCE_LOCATION (decl) = input_location;
   DECL_CONTEXT (decl) = current_function_decl;
 
   return decl;
@@ -2375,6 +2390,9 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
   tree atype = TREE_TYPE (base);
   /* The type of an element in the array.  */
   tree type = TREE_TYPE (atype);
+  /* The element type reached after removing all outer array 
+     types.  */
+  tree inner_elt_type;
   /* The type of a pointer to an element in the array.  */
   tree ptype;
   tree stmt_expr;
@@ -2390,15 +2408,17 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
   if (maxindex == NULL_TREE || maxindex == error_mark_node)
     return error_mark_node;
 
+  inner_elt_type = strip_array_types (atype);
   if (init
       && (from_array == 2
-	  ? (!CLASS_TYPE_P (type) || !TYPE_HAS_COMPLEX_ASSIGN_REF (type))
+	  ? (!CLASS_TYPE_P (inner_elt_type) 
+	     || !TYPE_HAS_COMPLEX_ASSIGN_REF (inner_elt_type))
 	  : !TYPE_NEEDS_CONSTRUCTING (type))
       && ((TREE_CODE (init) == CONSTRUCTOR
 	   /* Don't do this if the CONSTRUCTOR might contain something
 	      that might throw and require us to clean up.  */
 	   && (CONSTRUCTOR_ELTS (init) == NULL_TREE
-	       || ! TYPE_HAS_NONTRIVIAL_DESTRUCTOR (target_type (type))))
+	       || ! TYPE_HAS_NONTRIVIAL_DESTRUCTOR (inner_elt_type)))
 	  || from_array))
     {
       /* Do non-default initialization of POD arrays resulting from
@@ -2589,14 +2609,12 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
       /* Flatten multi-dimensional array since build_vec_delete only
 	 expects one-dimensional array.  */
       if (TREE_CODE (type) == ARRAY_TYPE)
-	{
-	  m = cp_build_binary_op (MULT_EXPR, m,
-				  array_type_nelts_total (type));
-	  type = strip_array_types (type);
-	}
+	m = cp_build_binary_op (MULT_EXPR, m,
+				array_type_nelts_total (type));
 
       finish_cleanup_try_block (try_block);
-      e = build_vec_delete_1 (rval, m, type, sfk_base_destructor,
+      e = build_vec_delete_1 (rval, m, 
+			      inner_elt_type, sfk_base_destructor,
 			      /*use_global_delete=*/0);
       finish_cleanup (e, try_block);
     }
@@ -2666,8 +2684,6 @@ build_dtor_call (tree exp, special_function_kind dtor_kind, int flags)
     default:
       gcc_unreachable ();
     }
-
-  exp = convert_from_reference (exp);
   fn = lookup_fnfields (TREE_TYPE (exp), name, /*protect=*/2);
   return build_new_method_call (exp, fn, 
 				/*args=*/NULL_TREE,
@@ -2777,7 +2793,8 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
       tree do_delete = NULL_TREE;
       tree ifexp;
 
-      gcc_assert (TYPE_HAS_DESTRUCTOR (type));
+      if (CLASSTYPE_LAZY_DESTRUCTOR (type))
+	lazily_declare_fn (sfk_destructor, type);
 
       /* For `::delete x', we must not use the deleting destructor
 	 since then we would not be sure to get the global `operator
@@ -2924,34 +2941,6 @@ push_base_cleanups (void)
 	  finish_decl_cleanup (NULL_TREE, expr);
 	}
     }
-}
-
-/* For type TYPE, delete the virtual baseclass objects of DECL.  */
-
-tree
-build_vbase_delete (tree type, tree decl)
-{
-  unsigned ix;
-  tree binfo;
-  tree result;
-  VEC (tree) *vbases;
-  tree addr = build_unary_op (ADDR_EXPR, decl, 0);
-
-  gcc_assert (addr != error_mark_node);
-
-  result = convert_to_void (integer_zero_node, NULL);
-  for (vbases = CLASSTYPE_VBASECLASSES (type), ix = 0;
-       VEC_iterate (tree, vbases, ix, binfo); ix++)
-    {
-      tree base_addr = convert_force
-	(build_pointer_type (BINFO_TYPE (binfo)), addr, 0);
-      tree base_delete = build_delete
-	(TREE_TYPE (base_addr), base_addr, sfk_base_destructor,
-	 LOOKUP_NORMAL|LOOKUP_DESTRUCTOR, 0);
-      
-      result = build_compound_expr (result, base_delete);
-    }
-  return result;
 }
 
 /* Build a C++ vector delete expression.

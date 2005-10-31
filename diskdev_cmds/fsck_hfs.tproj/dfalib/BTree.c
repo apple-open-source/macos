@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -458,14 +458,12 @@ OSStatus	BTOpenPath			(SFCB					*filePtr,
 
 	//ее set kBadClose attribute bit, and UpdateNode
 
-	// if nodeSize is 512 then we don't need to release, just CheckNode
-
-	if ( btreePtr->nodeSize == kMinNodeSize )
-	{
-		err = CheckNode (btreePtr, nodeRec.buffer);
-		M_ExitOnError (err);
-	}
-	else
+	/*
+	 * If the actual node size is different than the amount we read,
+	 * then release and trash this block, and re-read with the correct
+	 * node size.
+	 */
+	if ( btreePtr->nodeSize != kMinNodeSize )
 	{
 		err = setBlockSizeProc (btreePtr->fcbPtr, btreePtr->nodeSize);
 		M_ExitOnError (err);

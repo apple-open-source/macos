@@ -187,15 +187,14 @@ const ClassInfo KJS::HTMLDocument::info =
 # ids
 @end
 */
-bool KJS::HTMLDocument::hasProperty(ExecState *exec, const Identifier &p) const
+bool HTMLDocument::hasOwnProperty(ExecState *exec, const Identifier &p) const
 {
 #ifdef KJS_VERBOSE
   //kdDebug(6070) << "KJS::HTMLDocument::hasProperty " << p.qstring() << endl;
 #endif
   DOM::HTMLDocumentImpl *docImpl = static_cast<DOM::HTMLDocumentImpl *>(node.handle());
 
-  return (DOMDocument::hasProperty(exec, p) ||  
-	  docImpl->haveNamedImageOrForm(p.qstring()));
+  return DOMDocument::hasOwnProperty(exec, p) || docImpl->haveNamedImageOrForm(p.qstring());
 }
 
 Value KJS::HTMLDocument::tryGet(ExecState *exec, const Identifier &propertyName) const
@@ -305,7 +304,8 @@ Value KJS::HTMLDocument::tryGet(ExecState *exec, const Identifier &propertyName)
     }
   }
 
-  if (DOMDocument::hasProperty(exec, propertyName))
+  ValueImp *proto = prototype().imp();
+  if (DOMDocument::hasOwnProperty(exec, propertyName) || (proto->dispatchType() == ObjectType && static_cast<ObjectImp *>(proto)->hasProperty(exec, propertyName)))
     return DOMDocument::tryGet(exec, propertyName);
 
   //kdDebug(6070) << "KJS::HTMLDocument::tryGet " << propertyName.qstring() << " not found, returning element" << endl;
@@ -818,6 +818,8 @@ const ClassInfo* KJS::HTMLElement::classInfo() const
   tabIndex	KJS::HTMLElement::ButtonTabIndex	DontDelete
   type		KJS::HTMLElement::ButtonType		DontDelete|ReadOnly
   value		KJS::HTMLElement::ButtonValue		DontDelete
+  blur		KJS::HTMLElement::ButtonBlur		DontDelete|Function 0
+  focus		KJS::HTMLElement::ButtonFocus		DontDelete|Function 0
 @end
 @begin HTMLLabelElementTable 3
   form		KJS::HTMLElement::LabelForm		DontDelete|ReadOnly
@@ -1253,7 +1255,7 @@ Value KJS::HTMLElement::call(ExecState *exec, Object &thisObj, const List&args)
 		Value runtimeObject = getRuntimeObject(exec,element);
 		if (!runtimeObject.isNull()) {
 		    ObjectImp *imp = static_cast<ObjectImp *>(runtimeObject.imp());
-		    return imp->call (exec, thisObj, args);
+		    return Object(imp).call (exec, thisObj, args);
 		}
 	    }
 	    break;
@@ -1976,7 +1978,7 @@ Value KJS::HTMLElement::getValueProperty(ExecState *exec, int token) const
   return Undefined();
 }
 
-bool KJS::HTMLElement::hasProperty(ExecState *exec, const Identifier &propertyName) const
+bool KJS::HTMLElement::hasOwnProperty(ExecState *exec, const Identifier &propertyName) const
 {
 #ifdef KJS_VERBOSE
   //kdDebug(6070) << "HTMLElement::hasProperty " << propertyName.qstring() << endl;
@@ -2006,7 +2008,7 @@ bool KJS::HTMLElement::hasProperty(ExecState *exec, const Identifier &propertyNa
       break;
   }
 
-  return DOMElement::hasProperty(exec, propertyName);
+  return DOMElement::hasOwnProperty(exec, propertyName);
 }
 
 UString KJS::HTMLElement::toString(ExecState *exec) const
@@ -2165,6 +2167,19 @@ Value KJS::HTMLElementFunction::tryCall(ExecState *exec, Object &thisObj, const 
       }
       else if (id == KJS::HTMLElement::InputClick) {
         input.click();
+        return Undefined();
+      }
+    }
+    break;
+    case ID_BUTTON: {
+      DOM::HTMLButtonElement button = element;
+      
+      if (id == KJS::HTMLElement::ButtonBlur) {
+        button.blur();
+        return Undefined();
+      }
+      else if (id == KJS::HTMLElement::ButtonFocus) {
+        button.focus();
         return Undefined();
       }
     }
@@ -3063,11 +3078,11 @@ HTMLCollection::~HTMLCollection()
 
 // We have to implement hasProperty since we don't use a hashtable for 'selectedIndex' and 'length'
 // ## this breaks "for (..in..)" though.
-bool KJS::HTMLCollection::hasProperty(ExecState *exec, const Identifier &p) const
+bool KJS::HTMLCollection::hasOwnProperty(ExecState *exec, const Identifier &p) const
 {
   if (p == "selectedIndex" || p == lengthPropertyName)
     return true;
-  return DOMObject::hasProperty(exec, p);
+  return DOMObject::hasOwnProperty(exec, p);
 }
 
 Value KJS::HTMLCollection::tryGet(ExecState *exec, const Identifier &propertyName) const
@@ -3887,8 +3902,8 @@ Value KJS::Context2DFunction::tryCall(ExecState *exec, Object &thisObj, const Li
             float cp1y = (float)args[1].toNumber(exec);
             float cp2x = (float)args[2].toNumber(exec);
             float cp2y = (float)args[3].toNumber(exec);
-            float x = (float)args[2].toNumber(exec);
-            float y = (float)args[3].toNumber(exec);
+            float x = (float)args[4].toNumber(exec);
+            float y = (float)args[5].toNumber(exec);
             CGContextAddCurveToPoint (drawingContext, cp1x, cp1y, cp2x, cp2y, x, y);
             renderer->setNeedsImageUpdate();
             break;
@@ -4113,8 +4128,8 @@ Value KJS::Context2DFunction::tryCall(ExecState *exec, Object &thisObj, const Li
                 return err;
             }
 
-            float w;
-            float h;
+            float w = 0; // quiet incorrect gcc 4.0 warning
+            float h = 0; // quiet incorrect gcc 4.0 warning
             QPixmap pixmap;
             CGContextRef sourceContext = 0;
             
@@ -4381,7 +4396,7 @@ const ClassInfo KJS::Context2D::info = { "Context2D", 0, &Context2DTable, 0 };
   stroke                   Context2D::Stroke                      DontDelete|Function 0
   moveTo                   Context2D::MoveTo                      DontDelete|Function 2
   lineTo                   Context2D::LineTo                      DontDelete|Function 2
-  quadraticCurveToPoint    Context2D::QuadraticCurveTo            DontDelete|Function 4
+  quadraticCurveTo         Context2D::QuadraticCurveTo            DontDelete|Function 4
   bezierCurveTo            Context2D::BezierCurveTo               DontDelete|Function 6
   arcTo                    Context2D::ArcTo                       DontDelete|Function 5
   arc                      Context2D::Arc                         DontDelete|Function 6

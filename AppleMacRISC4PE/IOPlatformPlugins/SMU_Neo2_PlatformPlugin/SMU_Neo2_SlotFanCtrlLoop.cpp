@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_SlotFanCtrlLoop.cpp,v 1.4 2004/08/19 18:32:56 eem Exp $
+ *  File: $Id: SMU_Neo2_SlotFanCtrlLoop.cpp,v 1.6 2005/07/15 22:01:12 mpontil Exp $
  *
  */
 

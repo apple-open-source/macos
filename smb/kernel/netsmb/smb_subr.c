@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_subr.c,v 1.27.108.1 2005/06/02 00:55:39 lindak Exp $
+ * $Id: smb_subr.c,v 1.27.108.2 2005/07/20 05:27:00 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -41,6 +41,7 @@
 #include <sys/socket.h>
 #include <sys/signalvar.h>
 #include <sys/mbuf.h>
+#include <sys/vnode.h>
 
 #include <sys/smb_apple.h>
 #include <sys/utfconv.h>
@@ -179,7 +180,7 @@ smb_strtouni(u_int16_t *dst, const char *src, size_t inlen, int flags)
                  inlen = strlen(src);
 	if (BYTE_ORDER != LITTLE_ENDIAN)
 		flags |= UTF_REVERSE_ENDIAN;
-	if (utf8_decodestr(src, inlen, dst, &outlen, inlen * 2, 0, flags) != 0)
+	if (utf8_decodestr((u_int8_t *)src, inlen, dst, &outlen, inlen * 2, 0, flags) != 0)
                 outlen = 0;
         if (!(flags & UTF_NO_NULL_TERM)) {
                 dst[outlen/2] = 0;

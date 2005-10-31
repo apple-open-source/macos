@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -80,6 +80,7 @@ GetVolumeBlock (SVCB *volume, UInt64 blockNum, GetBlockOptions options, BlockDes
 	if (result == 0) {
 		block->blockHeader = buffer;
 		block->buffer = buffer->Buffer;
+		block->blockNum = blockNum;
 		block->blockSize = blockSize;
 		block->blockReadFromDisk = 0;
 		block->fragmented = 0;
@@ -179,6 +180,7 @@ GetFileBlock (SFCB *file, UInt32 blockNum, GetBlockOptions options, BlockDescrip
 
 	block->blockHeader = buffer;
 	block->buffer = buffer->Buffer;
+	block->blockNum = blockNum;
 	block->blockSize = file->fcbBlockSize;
 	block->blockReadFromDisk = 0;
 	block->fragmented = 0;
@@ -275,6 +277,7 @@ ReadFragmentedBlock (SFCB *file, UInt32 blockNum, BlockDescriptor *block)
 	
 	block->buffer = buffer;
 	block->blockHeader = bufs;
+	block->blockNum = blockNum;
 	block->blockSize = blockSize;
 	block->blockReadFromDisk = false;
 	block->fragmented = true;

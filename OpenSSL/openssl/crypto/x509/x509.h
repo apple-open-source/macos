@@ -410,6 +410,7 @@ typedef struct X509_crl_info_st
 	ASN1_TIME *nextUpdate;
 	STACK_OF(X509_REVOKED) *revoked;
 	STACK_OF(X509_EXTENSION) /* [0] */ *extensions;
+	ASN1_ENCODING enc;
 	} X509_CRL_INFO;
 
 struct X509_crl_st
@@ -810,10 +811,6 @@ X509_REQ *X509_REQ_dup(X509_REQ *req);
 X509_ALGOR *X509_ALGOR_dup(X509_ALGOR *xn);
 X509_NAME *X509_NAME_dup(X509_NAME *xn);
 X509_NAME_ENTRY *X509_NAME_ENTRY_dup(X509_NAME_ENTRY *ne);
-#ifndef OPENSSL_NO_RSA
-RSA *RSAPublicKey_dup(RSA *rsa);
-RSA *RSAPrivateKey_dup(RSA *rsa);
-#endif
 
 #endif /* !SSLEAY_MACROS */
 
@@ -1041,18 +1038,18 @@ int X509_NAME_add_entry_by_OBJ(X509_NAME *name, ASN1_OBJECT *obj, int type,
 int X509_NAME_add_entry_by_NID(X509_NAME *name, int nid, int type,
 			unsigned char *bytes, int len, int loc, int set);
 X509_NAME_ENTRY *X509_NAME_ENTRY_create_by_txt(X509_NAME_ENTRY **ne,
-		char *field, int type, unsigned char *bytes, int len);
+		const char *field, int type, const unsigned char *bytes, int len);
 X509_NAME_ENTRY *X509_NAME_ENTRY_create_by_NID(X509_NAME_ENTRY **ne, int nid,
 			int type,unsigned char *bytes, int len);
-int X509_NAME_add_entry_by_txt(X509_NAME *name, char *field, int type,
-			unsigned char *bytes, int len, int loc, int set);
+int X509_NAME_add_entry_by_txt(X509_NAME *name, const char *field, int type,
+			const unsigned char *bytes, int len, int loc, int set);
 X509_NAME_ENTRY *X509_NAME_ENTRY_create_by_OBJ(X509_NAME_ENTRY **ne,
-			ASN1_OBJECT *obj, int type,unsigned char *bytes,
+			ASN1_OBJECT *obj, int type,const unsigned char *bytes,
 			int len);
 int 		X509_NAME_ENTRY_set_object(X509_NAME_ENTRY *ne,
 			ASN1_OBJECT *obj);
 int 		X509_NAME_ENTRY_set_data(X509_NAME_ENTRY *ne, int type,
-			unsigned char *bytes, int len);
+			const unsigned char *bytes, int len);
 ASN1_OBJECT *	X509_NAME_ENTRY_get_object(X509_NAME_ENTRY *ne);
 ASN1_STRING *	X509_NAME_ENTRY_get_data(X509_NAME_ENTRY *ne);
 

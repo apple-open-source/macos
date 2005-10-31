@@ -229,6 +229,7 @@ class IOFireWireLink : public IOService
 		
 		virtual IOReturn					handleAsyncCompletion( IOFWCommand *cmd, IOReturn status );
 
+		virtual void handleSystemShutDown( UInt32 messageType );
 
 	private:
 	

@@ -34,6 +34,8 @@
 #include "selection.h"
 #include "shared.h"
 
+#define NON_BREAKING_SPACE 0xa0
+
 namespace DOM {
     class CSSMutableStyleDeclarationImpl;
     class CSSProperty;
@@ -402,6 +404,7 @@ private:
     DOM::NodeImpl *m_endBlock;
     DOM::NodeImpl *m_startNode;
     DOM::CSSMutableStyleDeclarationImpl *m_typingStyle;
+    DOM::CSSMutableStyleDeclarationImpl *m_deleteIntoBlockquoteStyle;
 };
 
 //------------------------------------------------------------------------------------------
@@ -520,7 +523,8 @@ public:
 private:
     virtual bool isInsertTextCommand() const;
 
-    DOM::Position prepareForTextInsertion(bool adjustDownstream);
+    DOM::Position prepareForTextInsertion(const DOM::Position& pos);
+    DOM::Position insertTab(DOM::Position pos);
     void insertSpace(DOM::TextImpl *textNode, unsigned long offset);
 
     unsigned long m_charactersAdded;
@@ -957,12 +961,20 @@ private:
 
 //------------------------------------------------------------------------------------------
 
+bool isSpecialElement(const DOM::NodeImpl *n);
+
 DOM::ElementImpl *floatRefdElement(DOM::ElementImpl *element);
 DOM::ElementImpl *createDefaultParagraphElement(DOM::DocumentImpl *document);
 DOM::ElementImpl *createBlockPlaceholderElement(DOM::DocumentImpl *document);
 DOM::ElementImpl *createBreakElement(DOM::DocumentImpl *document);
 DOM::ElementImpl *createFontElement(DOM::DocumentImpl *document);
 DOM::ElementImpl *createStyleSpanElement(DOM::DocumentImpl *document);
+
+bool isTabSpanNode(const DOM::NodeImpl *node);
+bool isTabSpanTextNode(const DOM::NodeImpl *node);
+DOM::Position positionBeforeTabSpan(const DOM::Position& pos);
+DOM::ElementImpl *createTabSpanElement(DOM::DocumentImpl *document, DOM::NodeImpl *tabTextNode=0);
+DOM::ElementImpl *createTabSpanElement(DOM::DocumentImpl *document, QString *tabText);
 
 bool isNodeRendered(const DOM::NodeImpl *);
 bool isProbablyBlock(const DOM::NodeImpl *);

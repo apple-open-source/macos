@@ -1,12 +1,27 @@
 ==============================================================================
 Kerberos.app/Control Panel Version History
 ==============================================================================
-Current version:	2.0fc3
-Date:				February 1, 2005
+Current version:	2.0.1fc1
+Date:				June 15, 2005
 Authors:			smcguire@mit.edu, lxs@mit.edu
 ==============================================================================
 
 ============================================================================
+
+Kerberos.app 2.0.1
+Released as part of Kerberos for Macintosh 5.5.1
+
+	========================================================================
+
+	Kerberos.app 2.0.1fc1
+	June 15, 2005
+
+	[RT 2973] Kerberos.app should not specify menu item coloring
+	[RT 3070] Deleting empty realm/server/domain from Realms Editor should not ask if ok
+	[RT 3072] Use setColumnAutoresizingStyle, not setAutoresizesAllColumnsToFit
+	[RT 3071] Dock icon doesn't update when pref to show time in dock icon changes.
+
+	========================================================================
 
 Kerberos.app 2.0
 Released as part of Kerberos for Macintosh 5.5

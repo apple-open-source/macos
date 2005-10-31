@@ -32,6 +32,7 @@ extern "C" {
 #include <IOKit/IOMemoryCursor.h>
 
 #include <IOKit/usb/IOUSBLog.h>
+#include <IOKit/usb/IOUSBRootHubDevice.h>
 
 #include "AppleUSBOHCI.h"
 #include "AppleUSBOHCIMemoryBlocks.h"
@@ -1980,13 +1981,48 @@ AppleUSBOHCI::UIMCheckForTimeouts(void)
 {
     AbsoluteTime	currentTime;
     AbsoluteTime	lastRootHubChangeTime;
-    UInt64		elapsedTime = 0;
-    bool		allPortsDisconnected = false;
+    UInt64			elapsedTime = 0;
+    bool			allPortsDisconnected = false;
+	IOReturn		err;
 
+	// Check to see if we need to recreate our root hub device
+	if (_needToCreateRootHub)
+	{
+		USBLog(5,"%s[%p] Need to recreate root hub on bus %d, sleeping", getName(), this, _busNumber);
+		_needToCreateRootHub = false;
+		
+		IOSleep(4000);  // Sleep for 4s
+		
+		USBLog(5,"%s[%p] Need to recreate root hub on bus %d, powering up hardware", getName(), this, _busNumber);
+
+		// Initialize the hardware
+		//
+		UIMInitializeForPowerUp();
+		
+		_ohciAvailable = true;                          // tell the interrupt filter routine that we are on
+		_ohciBusState = kOHCIBusStateRunning;
+		
+		if ( _rootHubDevice == NULL )
+		{
+			err = CreateRootHubDevice( _device, &_rootHubDevice );
+			if ( err != kIOReturnSuccess )
+			{
+				USBError(1,"%s[%p] Could not create root hub device upon wakeup (%x)!",getName(), this, err);
+			}
+			else
+			{
+				_rootHubDevice->registerService(kIOServiceRequired | kIOServiceSynchronous);
+			}
+		}
+	}
+	
     // If we are not active anymore or if we're in ohciBusStateOff, then don't check for timeouts 
     //
     if ( isInactive() || (_onCardBus && _pcCardEjected) || !_ohciAvailable || (_ohciBusState != kOHCIBusStateRunning))
+	{
+		USBLog(5,"%s[%p]  UIMCheckForTimeouts for bus %d -- not appropriate", getName(), this, _busNumber);
         return;
+	}
     
     // Check to see if our control or bulk lists have a TD that has timed out
     //
@@ -2076,7 +2112,11 @@ AppleUSBOHCI::UIMCheckForTimeouts(void)
             _pOHCIRegisters->hcControlHeadED = controlHead;
             _pOHCIRegisters->hcHCCA = hcca;
             _pOHCIRegisters->hcFmInterval = fmInterval;
-            
+            IOSync();
+			// i did not put the NEC incomplete write check in here
+			// because this is the _needsWatchdog errata and they are
+			// two different errata bits
+						
             _pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Resume << kOHCIHcControl_HCFSPhase);
             
             if (_errataBits & kErrataLucentSuspendResume)

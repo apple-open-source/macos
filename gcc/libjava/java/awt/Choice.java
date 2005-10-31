@@ -1,5 +1,5 @@
 /* Choice.java -- Java choice button widget.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -45,12 +45,18 @@ import java.io.Serializable;
 import java.util.EventListener;
 import java.util.Vector;
 
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleAction;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+
 /**
   * This class implements a drop down choice list.
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
-public class Choice extends Component implements ItemSelectable, Serializable
+public class Choice extends Component
+  implements ItemSelectable, Serializable, Accessible
 {
 
 /*
@@ -78,6 +84,108 @@ private int selectedIndex = -1;
 
 // Listener chain
 private ItemListener item_listeners;
+
+/**
+ * This class provides accessibility support for the
+ * combo box.
+ *
+ * @author Jerry Quinn  (jlquinn@optonline.net)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
+ */
+  protected class AccessibleAWTChoice
+  extends AccessibleAWTComponent
+  implements AccessibleAction
+  {
+
+    /**
+     * Serialization constant to match JDK 1.5
+     */
+    private static final long serialVersionUID = 7175603582428509322L;
+
+    /**
+     * Default constructor which simply calls the
+     * super class for generic component accessibility
+     * handling.
+     */
+    public AccessibleAWTChoice()
+    {
+      super();
+    }
+
+    /**
+     * Returns an implementation of the <code>AccessibleAction</code>
+     * interface for this accessible object.  In this case, the
+     * current instance is simply returned (with a more appropriate
+     * type), as it also implements the accessible action as well as
+     * the context.
+     *
+     * @return the accessible action associated with this context.
+     * @see javax.accessibility.AccessibleAction
+     */
+    public AccessibleAction getAccessibleAction()
+    {
+      return this;
+    }
+
+    /**
+     * Returns the role of this accessible object.
+     *
+     * @return the instance of <code>AccessibleRole</code>,
+     *         which describes this object.
+     * @see javax.accessibility.AccessibleRole
+     */
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.COMBO_BOX;
+    }
+	  
+    /**
+     * Returns the number of actions associated with this accessible
+     * object.  In this case, it is the number of choices available.
+     *
+     * @return the number of choices available.
+     * @see javax.accessibility.AccessibleAction#getAccessibleActionCount()
+     */
+    public int getAccessibleActionCount()
+    {
+      return pItems.size();
+    }
+
+    /**
+     * Returns a description of the action with the supplied id.
+     * In this case, it is the text used in displaying the particular
+     * choice on-screen.
+     *
+     * @param i the id of the choice whose description should be
+     *          retrieved.
+     * @return the <code>String</code> used to describe the choice.
+     * @see javax.accessibility.AccessibleAction#getAccessibleActionDescription(int)
+     */
+    public String getAccessibleActionDescription(int i)
+    {
+      return (String) pItems.get(i);
+    }
+	  
+    /**
+     * Executes the action with the specified id.  In this case,
+     * calling this method provides the same behaviour as would
+     * choosing a choice from the list in a visual manner.
+     *
+     * @param i the id of the choice to select.
+     * @return true if a valid choice was specified.
+     * @see javax.accessibility.AccessibleAction#doAccessibleAction(int)
+     */
+    public boolean doAccessibleAction(int i)
+    {
+      if (i < 0 || i >= pItems.size())
+	return false;
+	    
+      Choice.this.processItemEvent(new ItemEvent(Choice.this,
+						 ItemEvent.ITEM_STATE_CHANGED,
+						 this, ItemEvent.SELECTED));
+      return true;
+    }
+  }
 
 /*************************************************************************/
 
@@ -169,6 +277,8 @@ add(String item)
       ChoicePeer cp = (ChoicePeer) peer;
       cp.add (item, i);
     }
+  else if (selectedIndex == -1) 
+    select(0);
 }
 
 /*************************************************************************/
@@ -218,6 +328,8 @@ insert(String item, int index)
       ChoicePeer cp = (ChoicePeer) peer;
       cp.add (item, index);
     }
+  else if (selectedIndex == -1 || selectedIndex >= index)
+    select(0);
 }
 
 /*************************************************************************/
@@ -260,6 +372,13 @@ remove(int index)
     {
       ChoicePeer cp = (ChoicePeer) peer;
       cp.remove (index);
+    }
+  else
+    {
+      if (getItemCount() == 0)
+	selectedIndex = -1;
+      else if (index == selectedIndex)
+	select(0);
     }
 
   if (selectedIndex > index)
@@ -500,5 +619,19 @@ paramString()
   public ItemListener[] getItemListeners ()
   {
     return (ItemListener[]) getListeners (ItemListener.class);
+  }
+
+  /**
+   * Gets the AccessibleContext associated with this <code>Choice</code>.
+   * The context is created, if necessary.
+   *
+   * @return the associated context
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    /* Create the context if this is the first request */
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleAWTChoice();
+    return accessibleContext;
   }
 } // class Choice 

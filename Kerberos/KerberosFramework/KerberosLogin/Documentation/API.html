@@ -1,51 +1,58 @@
-<!-- #bbinclude "header.html"
+<!-- #bbinclude "header.template"
   #PAGETITLE#="Kerberos Login API"
   #BASEHREF#="" 
 -->
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML> 
-<HEAD>  
-	<TITLE> Kerberos Login API </TITLE>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/KerberosFramework/KerberosLogin/Documentation/API.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Kerberos Login API</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../../Common/Documentation/templates/site.css);
+	</STYLE>
 </HEAD>
-<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
-<CENTER>
-	<TABLE BORDER=0 CELLSPACING=8>
-		<TR> 
-			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
-			<TD><BR><H1>Macintosh Development</H1></TD> 
-		</TR>
-	</TABLE> <P>
-	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
-	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] <BR>
-	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">Kerberos for Macintosh</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
-</CENTER> <HR>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
 <!-- end bbinclude -->
-<P><TABLE BORDER=0 CELLSPACING=4>
-   <TR>
-      <TD>
-         <P><IMG ALT=""
-         SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"
-         WIDTH=32 HEIGHT=32 ALIGN=bottom>
-      </TD><TD>
-         <P><B><FONT SIZE="+3">Kerberos Login API</FONT></B>
-      </TD></TR>
-</TABLE></P>
+<!-- #bbinclude "icon.template" #ICON#="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif" 
+	#TEXT#="<H2>Kerberos Login API</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Kerberos Login API</H2> </TD>
+   </TR>
+</TABLE>
+<!-- end bbinclude -->
 
-<BLOCKQUOTE>
+<P><I>This document applies to Mac OS X 10.2 and later.</I></P>
 
-<P>
-<B>This documentation applies to Mac OS X 10.2 and later.</B>
-</P>
+<HR>
 
-<H2>Table of Contents</H2>
+<H3>Table of Contents</H3>
 
 <P><A HREF="#Types">Types</A></P>
 
-<UL>
+<UL CLASS=small>
    <LI><A HREF="#PrincipalInfo">KLPrincipal</A>
    
    <LI><A HREF="#KLLoginOptions">KLLoginOptions</A>
@@ -75,7 +82,7 @@
 
 <P><A HREF="#Constants">Constants</A></P>
 
-<UL>
+<UL CLASS=small>
    <LI><A HREF="#KerberosLoginApplicationOptions">Kerberos Version
    Constants</A>
    
@@ -98,7 +105,7 @@
    <LI><A HREF="#HighLevelLoginFunctions">High-Level Login
    Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#KLAcquireInitialTickets">KLAcquireInitialTickets</A>
       
       <LI><A HREF="#KLAcquireNewInitialTickets">KLAcquireNewInitialTickets</A>
@@ -110,7 +117,7 @@
    
    <LI><A HREF="#LowLevelLoginFunctions">Low-Level Login Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#KLAcquireInitialTicketsWithPassword">KLAcquireInitialTicketsWithPassword</A>
 
       <LI><A HREF="#KLAcquireNewInitialTicketsWithPassword">KLAcquireNewInitialTicketsWithPassword</A>
@@ -149,20 +156,20 @@
    <LI><A HREF="#LowLevelChangePasswordFunctions">Low-Level Change
    Password Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#KLChangePasswordWithPasswords">KLChangePasswordWithPasswords</A>
    
    </UL>
    
    <LI><A HREF="#ApplicationDefinedFunctions">Application Defined Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#KerberosLoginIdleCallback">KerberosLoginIdleCallback</A>
    </UL>
    
    <LI><A HREF="#ApplicationConfigurationFunctions">Application Configuration Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#KLSetIdleCallback">KLSetIdleCallback</A>
       
       <LI><A HREF="#KLGetIdleCallback">KLGetIdleCallback</A>
@@ -171,7 +178,7 @@
    
    <LI><A HREF="#LibraryConfigurationFunctions">Library Configuration Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#LibraryConfigurationFunctions">Description of configuration options, types, and allowed values</A>
       
       <LI><A HREF="#GetKerberosLoginOption">KLGetDefaultLoginOption</A>
@@ -182,7 +189,7 @@
    
    <LI><A HREF="#RealmsConfigurationFunctions">Realms Configuration Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#KLFindKerberosRealmByName">KLFindKerberosRealmByName</A>
       
       <LI><A HREF="#KLGetKerberosRealm">KLGetKerberosRealm</A>
@@ -214,7 +221,7 @@
    
    <LI><A HREF="#KLPrincipalInfoFunctions">KLPrincipal Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#KLCreatePrincipalFromTriplet">KLCreatePrincipalFromTriplet</A>
       
 
@@ -235,7 +242,7 @@
    
    <LI><A HREF="#KLLoginOptionsFunctions">KLLoginOptions Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#KLCreateLoginOptions">KLCreateLoginOptions</A>
       
       <LI><A HREF="#KLLoginOptionsSetTicketLifetime">KLLoginOptionsSetTicketLifetime</A>
@@ -257,24 +264,22 @@
    
    <LI><A HREF="#MiscFunctions">Miscellaneous Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#KLDisposeString">KLDisposeString</A>
    </UL>
    
    <LI><A HREF="#InternalUseFunctions">Internal Use Functions</A>
    
-   <UL>
+   <UL CLASS=small>
       <LI><A HREF="#__KLInternalAcquireTicketsForCache">__KLInternalAcquireTicketsForCache</A>
    
       <LI><A HREF="#__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets">__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets</A>
    </UL>
 </UL>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="Types"></A>Types</H2>
+<H3><A NAME="Types"></A>Types</H3>
 
 <H3><A NAME="PrincipalInfo"></A>KLPrincipal</H3>
 
@@ -353,11 +358,9 @@ true.</P>
 
 <P>&nbsp;</P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="Constants"></A>Constants</H2>
+<H3><A NAME="Constants"></A>Constants</H3>
 
 <H3><A NAME="KerberosVersionConstants"></A>Kerberos Version Constants
 </H3>
@@ -438,25 +441,22 @@ Functions</A>.</P>
 };</CODE>
 &nbsp;</PRE>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="LoginLibraryBehavior"></A>Login Library Behavior</H2>
+<H3><A NAME="LoginLibraryBehavior"></A>Login Library Behavior</H3>
 
-<P><TABLE BORDER=1>
+<H3><CODE>KLAcquireInitialTickets()</CODE></H3>
+<P CLASS=small>(primarily for applications that need service tickets)</P>
+
+<TABLE CLASS=small BORDER=1>
    <TR>
-      <TD>
-         <P>
-      </TD><TD COLSPAN=2>
+      <TD COLSPAN=2>
          <P><CENTER>Principal specified</CENTER>
       </TD><TD COLSPAN=2>
          <P><CENTER>No principal specified</CENTER>
       </TD></TR>
    <TR>
       <TD>
-         <P>
-      </TD><TD>
          <P><CENTER>Valid tickets exist for it</CENTER>
       </TD><TD>
          <P><CENTER>No valid tickets exist for it</CENTER>
@@ -469,122 +469,136 @@ Functions</A>.</P>
       </TD></TR>
    <TR>
       <TD>
-         <P><CODE>KLAcquireInitialTickets()</CODE></P>
-         
-         <P><FONT SIZE="-1">(primarily for applications that need
-         service tickets)</FONT>
-      </TD><TD>
          <UL>
-            <LI><FONT SIZE="-1">No user interface displayed</FONT>
+            <LI>No user interface displayed</LI>
             
-            <LI><FONT SIZE="-1">No new tickets obtained</FONT>
+            <LI>No new tickets obtained</LI>
             
-            <LI><FONT SIZE="-1">System default cache unchanged</FONT>
+            <LI>System default cache unchanged</LI>
             
-            <LI><FONT SIZE="-1">Name of credential cache
-            corresponding to principal is returned</FONT>
+            <LI>Name of credential cache
+            corresponding to principal is returned</LI>
          </UL>
       </TD><TD>
          <UL>
-            <LI><FONT SIZE="-1">Displays user interface (with
-            non-editable principal)</FONT>
+            <LI>Displays user interface (with
+            non-editable principal)</LI>
             
-            <LI><FONT SIZE="-1">New tickets obtained</FONT>
+            <LI>New tickets obtained</LI>
             
-            <LI><FONT SIZE="-1">Credential cache corresponding to
+            <LI>Credential cache corresponding to
             principal is made system default if no other tickets
-            exist in cache collection</FONT>
+            exist in cache collection</LI>
             
-            <LI><FONT SIZE="-1">Name of new credential cache
-            corresponding to principal is returned</FONT>
+            <LI>Name of new credential cache
+            corresponding to principal is returned</LI>
          </UL>
       </TD><TD>
          <UL>
-            <LI><FONT SIZE="-1">No user interface displayed</FONT>
+            <LI>No user interface displayed</LI>
             
-            <LI><FONT SIZE="-1">No new tickets obtained</FONT>
+            <LI>No new tickets obtained</LI>
             
-            <LI><FONT SIZE="-1">System default cache unchanged</FONT>
+            <LI>System default cache unchanged</LI>
             
-            <LI><FONT SIZE="-1">Name of system default cache is
-            returned</FONT>
+            <LI>Name of system default cache is
+            returned</LI>
          </UL>
       </TD><TD>
          <UL>
-            <LI><FONT SIZE="-1">Displays user interface(with editable
-            principal)</FONT>
+            <LI>Displays user interface(with editable
+            principal)</LI>
             
-            <LI><FONT SIZE="-1">New tickets obtained</FONT>
+            <LI>New tickets obtained</LI>
             
-            <LI><FONT SIZE="-1">Credential cache corresponding to
-            principal is made system default</FONT>
+            <LI>Credential cache corresponding to
+            principal is made system default</LI>
             
-            <LI><FONT SIZE="-1">Name of new credential cache
-            corresponding to principal is returned</FONT>
+            <LI>Name of new credential cache
+            corresponding to principal is returned</LI>
          </UL>
+      </TD></TR>
+</TABLE>
+
+<H3><CODE>KLAcquireNewInitialTickets()</CODE></H3>
+<P CLASS=small>(primarily for management applications)</P>
+      
+<TABLE CLASS=small BORDER=1>
+   <TR>
+      <TD COLSPAN=2>
+         <P><CENTER>Principal specified</CENTER>
+      </TD><TD COLSPAN=2>
+         <P><CENTER>No principal specified</CENTER>
       </TD></TR>
    <TR>
       <TD>
-         <P><CODE>KLAcquireNewInitialTickets()</CODE></P>
-         
-         <P><FONT SIZE="-1">(primarily for management
-         applications)</FONT>
+         <P><CENTER>Valid tickets exist for it</CENTER>
       </TD><TD>
+         <P><CENTER>No valid tickets exist for it</CENTER>
+      </TD><TD>
+         <P><CENTER>Valid tickets exist in system default cache
+         </CENTER>
+      </TD><TD>
+         <P><CENTER>No valid tickets in system default cache
+         </CENTER>
+      </TD></TR>
+   <TR>
+      <TD>
          <UL>
-            <LI><FONT SIZE="-1">Displays user interface (with
-            non-editable principal)</FONT>
+            <LI>Displays user interface (with
+            non-editable principal)</LI>
             
-            <LI><FONT SIZE="-1">New tickets obtained, replacing
-            existing tickets</FONT>
+            <LI>New tickets obtained, replacing
+            existing tickets</LI>
             
-            <LI><FONT SIZE="-1">System default cache unchanged</FONT>
+            <LI>System default cache unchanged</LI>
             
-            <LI><FONT SIZE="-1">Name of new credential cache
-            corresponding to principal is returned</FONT>
+            <LI>Name of new credential cache
+            corresponding to principal is returned</LI>
          </UL>
       </TD><TD>
          <UL>
-            <LI><FONT SIZE="-1">Displays user interface (with
-            non-editable principal)</FONT>
+            <LI>Displays user interface (with
+            non-editable principal)</LI>
             
-            <LI><FONT SIZE="-1">New tickets obtained</FONT>
+            <LI>New tickets obtained</LI>
             
-            <LI><FONT SIZE="-1">Credential cache corresponding to
+            <LI>Credential cache corresponding to
             principal is made system default if no other tickets
-            exist in cache collection</FONT>
+            exist in cache collection</LI>
             
-            <LI><FONT SIZE="-1">Name of new credential cache
-            corresponding to principal is returned</FONT>
+            <LI>Name of new credential cache
+            corresponding to principal is returned</LI>
          </UL>
       </TD><TD>
          <UL>
-            <LI><FONT SIZE="-1">Displays user interface(with editable
-            principal)</FONT>
+            <LI>Displays user interface(with editable
+            principal)</LI>
             
-            <LI><FONT SIZE="-1">New tickets obtained - if they are
+            <LI>New tickets obtained - if they are
             for a principal already in the cache, they replace the
-            existing tickets</FONT>
+            existing tickets</LI>
             
-            <LI><FONT SIZE="-1">Name of new credential cache
-            corresponding to principal is returned</FONT>
+            <LI>Name of new credential cache
+            corresponding to principal is returned</LI>
          </UL>
       </TD><TD>
          <UL>
-            <LI><FONT SIZE="-1">Displays user interface(with editable
-            principal)</FONT>
+            <LI>Displays user interface(with editable
+            principal)</LI>
             
-            <LI><FONT SIZE="-1">New tickets obtained - if they are
+            <LI>New tickets obtained - if they are
             for a principal already in the cache, they replace the
-            existing tickets</FONT>
+            existing tickets</LI>
             
-            <LI><FONT SIZE="-1">Credential cache corresponding to
-            principal is made system default</FONT>
+            <LI>Credential cache corresponding to
+            principal is made system default</LI>
             
-            <LI><FONT SIZE="-1">Name of new credential cache
-            corresponding to principal is returned</FONT>
+            <LI>Name of new credential cache
+            corresponding to principal is returned</LI>
          </UL>
       </TD></TR>
-</TABLE></P>
+</TABLE>
 
 <P><CODE>KLAcquireInitialTicketsWithPassword()</CODE> behaves identically to
 <CODE>KLAcquireInitialTickets()</CODE> with "principal specified," but the
@@ -618,11 +632,9 @@ So instead a credentials cache name is returned by functions that
 attempt to acquire tickets, and it is up to the caller to change the
 application or context defaults using that information.</P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="TerminologyNotes"></A>Terminology Notes</H2>
+<H3><A NAME="TerminologyNotes"></A>Terminology Notes</H3>
 
 <P>The multiple uses of the word "cache" may be confusing. We have
 tried to distinguish between them by using different phrases. They
@@ -641,12 +653,10 @@ will be set to the system default cache when the application is first
 launched; in v5 a context's default cache will be set the system
 default cache when the context is first created)</P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="HighLevelLoginFunctions"></A>High-Level Login Functions
-</H2>
+<H3><A NAME="HighLevelLoginFunctions"></A>High-Level Login Functions
+</H3>
 
 <H3><A NAME="KLAcquireInitialTickets"></A>KLAcquireInitialTickets</H3>
 
@@ -1170,12 +1180,10 @@ following error codes:</P>
       </TD></TR>
 </TABLE></P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="LowLevelLoginFunctions"></A>Low-Level Login Functions
-</H2>
+<H3><A NAME="LowLevelLoginFunctions"></A>Low-Level Login Functions
+</H3>
 
 <H3><A NAME="KLAcquireInitialTicketsWithPassword"></A>KLAcquireInitialTicketsWithPassword
 </H3>
@@ -2949,12 +2957,10 @@ error codes:</P>
       </TD></TR>
 </TABLE></P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="LowLevelChangePasswordFunctions"></A>Low-Level Password
-Dialog Functions</H2>
+<H3><A NAME="LowLevelChangePasswordFunctions"></A>Low-Level Password
+Dialog Functions</H3>
 
 <H3><A NAME="KLChangePasswordWithPasswords"></A>KLChangePasswordWithPasswords
 </H3>
@@ -3044,12 +3050,10 @@ following error codes:</P>
       </TD></TR>
 </TABLE></P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="ApplicationDefinedFunctions"></A>Application-Defined
-Functions</H2>
+<H3><A NAME="ApplicationDefinedFunctions"></A>Application-Defined
+Functions</H3>
 
 <H3><A NAME="KerberosLoginIdleCallback"></A>KerberosLoginIdleCallback</H3>
 
@@ -3093,12 +3097,10 @@ controlling terminal (ie: stdin, stdout and stderr).  The Kerberos
 Login library may be in the middle of reading a password from the
 controlling terminal.</P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="ApplicationConfigurationFunctions"></A>Application
-Configuration Functions</H2>
+<H3><A NAME="ApplicationConfigurationFunctions"></A>Application
+Configuration Functions</H3>
 
 <H3><A NAME="KLSetIdleCallback"></A>KLSetIdleCallback
 </H3>
@@ -3215,12 +3217,10 @@ error codes:</P>
 </TABLE></P>
 
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="LibraryConfigurationFunctions"></A>Library Configuration
-Functions</H2>
+<H3><A NAME="LibraryConfigurationFunctions"></A>Library Configuration
+Functions</H3>
 
 <P>Library configuration consists of a set of options and their
 values; all options are global. The options and their types and
@@ -3516,12 +3516,10 @@ following error codes is returned instead:</P>
       </TD></TR>
 </TABLE></P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="RealmsConfigurationFunctions"></A>Realms Configuration
-Functions</H2>
+<H3><A NAME="RealmsConfigurationFunctions"></A>Realms Configuration
+Functions</H3>
 
 <P>The functions below manipulate the list of realms displayed by the
 Login Library in pop-up menu of the login dialog. This list may be a
@@ -4145,12 +4143,10 @@ following error codes is returned instead:</P>
       </TD></TR>
 </TABLE></P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="KLPrincipalInfoFunctions"></A>KLPrincipal Functions
-</H2>
+<H3><A NAME="KLPrincipalInfoFunctions"></A>KLPrincipal Functions
+</H3>
 
 <H3><A NAME="KLCreatePrincipalFromTriplet"></A>KLCreatePrincipalFromTriplet
 </H3>
@@ -4582,12 +4578,10 @@ following error codes is returned instead:</P>
       </TD></TR>
 </TABLE></P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="KLLoginOptionsFunctions"></A>KLLoginOptions Functions
-</H2>
+<H3><A NAME="KLLoginOptionsFunctions"></A>KLLoginOptions Functions
+</H3>
 
 <H3><A NAME="KLCreateLoginOptions"></A>KLCreateLoginOptions</H3>
 
@@ -5049,11 +5043,9 @@ following error codes is returned instead:</P>
       </TD></TR>
 </TABLE></P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="MiscFunctions"></A>Miscellaneous Functions</H2>
+<H3><A NAME="MiscFunctions"></A>Miscellaneous Functions</H3>
 
 <H3><A NAME="KLDisposeString"></A>KLDisposeString</H3>
 
@@ -5099,11 +5091,9 @@ following error codes is returned instead:</P>
       </TD></TR>
 </TABLE></P>
 
-<P>
 <HR>
-</P>
 
-<H2><A NAME="InternalUseFunctions"></A>Internal Use Functions</H2>
+<H3><A NAME="InternalUseFunctions"></A>Internal Use Functions</H3>
 
 <H3><A NAME="__KLInternalAcquireTicketsForCache"></A>__KLInternalAcquireTicketsForCache
 </H3>
@@ -5399,18 +5389,17 @@ one of the following error codes:</P>
 
 </BLOCKQUOTE>
 
-<!-- #bbinclude "footer.html" -->
-<HR> 
-<P> 
-	<FONT SIZE="+1"> <B> 
-		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
-	</B> </FONT> <BR>
-	Last updated on $Date: 2003/11/18 21:11:48 $ <BR> 
-	Last modified by $Author: smcguire $<BR>
-
-</P>
+<!-- #bbinclude "footer.template" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2005 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2005/05/04 18:24:11 $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
 <!-- Begin MIT-use only web reporting counter -->
 	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
 <!-- End MIT-use only web reporting counter -->
-</BODY> </HTML>
+</BODY></HTML>
 <!-- end bbinclude -->

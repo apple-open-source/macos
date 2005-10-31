@@ -704,6 +704,64 @@ OSGetNotificationFromMessage(
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#if __ppc__
+static void swapOSNotification(
+       OSNotificationHeader * header,
+       unsigned int leftOver )
+{
+    // Do some conditional byte-swapping if we're running a ppc binary, 
+    // under Rosetta on x86 HW.
+    // We expect this function to be called ONLY when running in Rosetta, not
+    // when running on native ppc HW.
+    
+    header->size = OSSwapInt32(header->size);
+    header->type = OSSwapInt32(header->type);
+    
+    int i;
+    for (i = 0; i < sizeof(header->reference) / sizeof(header->reference[0]); i++) {
+           header->reference[i] = OSSwapInt32(header->reference[i]);
+    }
+    
+    switch (header->type) {
+        case kIOServicePublishNotificationType:
+        case kIOServiceMatchedNotificationType:
+        case kIOServiceTerminatedNotificationType:
+               // only need to swap the reference field
+               break;
+        case kIOAsyncCompletionNotificationType:
+        {
+            IOAsyncCompletionContent *asyncHdr = 
+                    (IOAsyncCompletionContent *)(header + 1);
+            leftOver = (leftOver - sizeof(*asyncHdr)) / sizeof(void *);
+            
+            asyncHdr->result = OSSwapInt32(asyncHdr->result);
+            for (i = 0; i < leftOver; i++) {
+                asyncHdr->args[i] = OSSwapInt32(asyncHdr->args[i]);
+            }
+            break;
+        }
+        case kIOServiceMessageNotificationType:
+        {
+            IOServiceInterestContent *interestHdr = 
+                    (IOServiceInterestContent *)(header + 1);
+            leftOver = (leftOver - sizeof(*interestHdr) + 
+                    sizeof(interestHdr->messageArgument)) / sizeof(void *);
+            
+            interestHdr->messageType = OSSwapInt32(interestHdr->messageType);
+            for (i = 0; i < leftOver; i++) {
+                interestHdr->messageArgument[i] = 
+                        OSSwapInt32(interestHdr->messageArgument[i]);
+            }
+            break;
+        }
+        default:
+               printf("unknown OSNotificationHeader type %d\n", header->type);
+               break;
+    }
+}
+#endif
+
+
 void
 IODispatchCalloutFromMessage(void *cfPort, mach_msg_header_t *msg, void *info)
 {
@@ -740,6 +798,15 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, voi
 	header = (OSNotificationHeader *) (msg + 1);
 
     leftOver = msg->msgh_size - (((vm_address_t) (header + 1)) - ((vm_address_t) msg));
+
+#if __ppc__
+    // If this is ppc code running under Rosetta over an x86 kernel,
+    // we may need to do some byte swapping. The magic cookie in the
+    // inline asm makes Rosetta ignore this branch command.
+    asm volatile ("b L_SkipSwap_label \n .long 0x14400004");
+    swapOSNotification(header, leftOver);
+    asm volatile ("L_SkipSwap_label:");
+#endif
 
     // remote port is the notification (an iterator_t) that fired
     notifier = msg->msgh_remote_port;
@@ -1002,7 +1069,7 @@ IOConnectSetNotificationPort(
 
 kern_return_t
 IOConnectMapMemory(
-	mach_port_t	connect,
+	io_connect_t	connect,
 	unsigned int	memoryType,
 	task_port_t	intoTask,
 	vm_address_t *	atAddress,
@@ -1015,7 +1082,7 @@ IOConnectMapMemory(
 
 kern_return_t
 IOConnectUnmapMemory(
-	mach_port_t	connect,
+	io_connect_t	connect,
 	unsigned int	memoryType,
 	task_port_t	intoTask,
 	vm_address_t	atAddress )
@@ -1876,14 +1943,14 @@ IORegisterClient(
 
 kern_return_t
 IORegistryDisposeEnumerator(
-	mach_port_t	enumerator )
+	io_enumerator_t	enumerator )
 {
     return( IOObjectRelease( enumerator ));
 }
 
 kern_return_t
 IOMapMemory(
-	mach_port_t	connect,
+	io_connect_t	connect,
 	unsigned int	memoryType,
 	task_port_t	intoTask,
 	vm_address_t *	atAddress,

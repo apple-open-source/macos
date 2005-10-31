@@ -128,8 +128,8 @@ bool AppleRAIDMember::start(IOService * provider)
 	arNativeBlockSize = arTarget->getPreferredBlockSize();
 
 	if (!arSyncronizeCacheThreadCall) {
-	    arSyncronizeCacheThreadCall = thread_call_allocate((thread_call_func_t)&AppleRAIDMember::synchronizeCacheCallout,
-							       (thread_call_param_t)this);
+	    thread_call_func_t syncCacheMethod = OSMemberFunctionCast(thread_call_func_t, this, &AppleRAIDMember::synchronizeCacheCallout);
+	    arSyncronizeCacheThreadCall = thread_call_allocate(syncCacheMethod, (thread_call_param_t)this);
 	    if (arSyncronizeCacheThreadCall == 0) return false;
 	}
     }
@@ -581,12 +581,31 @@ IOReturn AppleRAIDMember::buildOnDiskHeaderV2(void)
 {
     IOLog2("AppleRAIDMember::buildOnDiskHeaderV2(%p) entered\n", this);
 
+    // make a copy of incore header and filter out the internal stuff
+    OSDictionary * copy = OSDictionary::withCapacity(arHeader->getCount());
+    if (!copy) return kIOReturnNoMemory;
+    OSCollectionIterator * iter = OSCollectionIterator::withCollection(arHeader);
+    if (!iter) return kIOReturnNoMemory;
+
+    while (const OSString * key = OSDynamicCast(OSString, iter->getNextObject())) {
+
+	// if the key starts with "AppleRAID-" copy it
+	char * match = "AppleRAID-";
+	int matchSize = sizeof(match) - 1;
+    
+	if (!strncmp(match, key->getCStringNoCopy(), matchSize)) {
+	    copy->setObject(key, arHeader->getObject(key));
+	}
+    }
+    iter->release();
+
     // serialize header to on-disk format
     OSSerialize * s = OSSerialize::withCapacity(kAppleRAIDHeaderSize);
     if (!s) return kIOReturnNoMemory;
 
     s->clearText();
-    if (!arHeader->serialize(s)) return kIOReturnInternalError;
+    if (!copy->serialize(s)) return kIOReturnInternalError;
+    copy->release();
 
     if (s->getLength() >= (kAppleRAIDHeaderSize - sizeof(AppleRAIDHeaderV2))) return kIOReturnNoResources;
 
@@ -606,12 +625,12 @@ IOReturn AppleRAIDMember::buildOnDiskHeaderV2(void)
     if (!number) return kIOReturnInternalError;
     headerBuffer->size *= number->unsigned64BitValue();
     if (headerBuffer->size == 0) return kIOReturnInternalError;
-        
+
     bcopy(s->text(), headerBuffer->plist, s->getLength());
+    UInt32 bzSize = kAppleRAIDHeaderSize - (UInt32)((char *)headerBuffer->plist - (char *)headerBuffer) - s->getLength();
+    bzero(headerBuffer->plist + s->getLength(), bzSize);
 
-    // XXX bzero the rest
-
-    if (s) s->release();
+    s->release();
 
     IOLog2("AppleRAIDMember::buildOnDiskHeaderV2(%p) successful.\n", this);
     return kIOReturnSuccess;
@@ -920,16 +939,16 @@ bool AppleRAIDMember::changeMemberState(UInt32 newState, bool force)
     
     if (swapState) {
 
-	IOLog2("AppleRAIDMember::changeMemberState(%p) from %lu (%s) to %lu (%s).\n",
-	       this, arMemberState, oldStatus, newState, newStatus);
+	IOLog2("AppleRAIDMember::changeMemberState(%p) from %lu (%s) to %lu (%s) isSet = %s.\n",
+	       this, arMemberState, oldStatus, newState, newStatus, isRAIDSet() ? "yes":"no");
 	arMemberState = newState;
 
     } else {
 
 #ifdef DEBUG
 	if (arMemberState != newState) {
-	    IOLog1("AppleRAIDMember::changeMemberState(%p) %s from %lu (%s) to %lu (%s).\n",
-		   this, force ? "FORCED" : "FAILED", arMemberState, oldStatus, newState, newStatus);
+	    IOLog1("AppleRAIDMember::changeMemberState(%p) %s from %lu (%s) to %lu (%s) isSet = %s.\n",
+		   this, force ? "FORCED" : "FAILED", arMemberState, oldStatus, newState, newStatus, isRAIDSet() ? "yes":"no");
 	}
 #endif
 	if (force) arMemberState = newState;

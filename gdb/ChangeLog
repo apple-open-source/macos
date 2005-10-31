@@ -1,7 +1,14 @@
-2005-01-19  Jason Molenda  (jmolenda@apple.com)
+2005-05-03  Jason Molenda  (jmolenda@apple.com)
 
-	* Makefile (GDB_VERSION): Update to reflect the actual date of the
-	last FSF merge.
+	* gdb.sh: Add --oah750 command line option.
+
+2005-04-14  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Add a -arch command line option.
+
+2005-01-18  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (GDB_VERSION): Update to the last merge.
 
 2004-12-06  Jason Molenda  (jmolenda@apple.com)
 

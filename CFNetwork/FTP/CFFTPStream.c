@@ -517,6 +517,7 @@ static Boolean _ReadSize(const UInt8* str, UInt64* size);
 static CFStringRef _CFStringCreateCopyWithStrippedHTML(CFAllocatorRef alloc, CFStringRef theString);
 static const UInt8* _CFFTPGetDateTimeFunc(CFAllocatorRef alloc, const UInt8* str, CFIndex length, CFDateRef* date);
 static void _ProxyStreamCallBack(CFReadStreamRef proxyStream, _CFFTPStreamContext* ctxt);
+static CFIndex _FindLine(const UInt8 *buffer, CFIndex bufferLength, const UInt8** start, const UInt8** end);
 
 static void _AdvanceStateMachine(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt, const UInt8* line, CFIndex length, Boolean isMultiLine);
 static void _HandleConnect(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt, const UInt8* line, CFIndex length);
@@ -2132,7 +2133,7 @@ _FTPConnectionCacheCreate(void) {
 		
 		_kFTPConnectionCallBacks = (_CFNetConnectionCallBacks*)CFAllocatorAllocate(kCFAllocatorDefault, sizeof(_kFTPConnectionCallBacks[0]), 0);
 		
-		assert(_kFTPConnectionCallBacks);
+		assert(_kFTPConnectionCallBacks != NULL);
 		
 		_kFTPConnectionCallBacks->version = 0;
 		_kFTPConnectionCallBacks->create = (const void* (*)(CFAllocatorRef, const void*))_CFFTPNetConnectionContextCreate;
@@ -2634,7 +2635,7 @@ _PASVAddressParser(const UInt8* buffer, struct sockaddr_in* saddr)
         if (isdigit(*walk)) {
             unsigned	temp;
 
-            sscanf(walk, "%ud", &temp);
+            sscanf((const char*)walk, "%ud", &temp);
             // WARNING: "clever" code follows..
             if (byteCount < 4) {
                 host |= (temp << (24 - (8 * byteCount)));
@@ -2675,8 +2676,8 @@ _EPSVPortParser(const UInt8* buffer, struct sockaddr_in6* saddr)
         if (!isdigit(*walk)) walk++;
         else {
             unsigned tmp;
-            sscanf(walk, "%ud", &tmp);
-            saddr->sin6_port = tmp;
+            sscanf((const char*)walk, "%ud", &tmp);
+            saddr->sin6_port = htons((tmp & 0x0000FFFF));
             return TRUE;
         }
     }
@@ -2688,7 +2689,7 @@ _EPSVPortParser(const UInt8* buffer, struct sockaddr_in6* saddr)
 _GetProtocolFamily(_CFFTPStreamContext* ctxt, UInt8* buffer)
 {
     CFDataRef native = NULL;
-    int addrlen = SOCK_MAXADDRLEN;
+    socklen_t addrlen = SOCK_MAXADDRLEN;
     struct sockaddr* addr = (struct sockaddr*)&(buffer[0]);
     u_char result = 255;
     
@@ -2714,7 +2715,7 @@ _CreateListenerForContext(CFAllocatorRef alloc, _CFFTPStreamContext* ctxt) {
     do {
         int yes = 1;
         UInt8 buffer[SOCK_MAXADDRLEN];
-        int addrlen = sizeof(buffer);
+        socklen_t addrlen = sizeof(buffer);
         struct sockaddr* addr = (struct sockaddr*)&(buffer[0]);
         struct sockaddr_in* addr4 = (struct sockaddr_in*)&(buffer[0]);
         struct sockaddr_in6* addr6 = (struct sockaddr_in6*)&(buffer[0]);
@@ -3114,7 +3115,7 @@ _ReadSize(const UInt8* str, UInt64* size) {
 #if defined(__WIN32__)
     *size = _atoi64(str);
 #else
-    *size = strtouq(str, NULL, 10);
+    *size = strtouq((const char*)str, NULL, 10);
 #endif
 
     return TRUE;
@@ -3344,6 +3345,82 @@ _CFFTPCleanup(void) {
     __CFSpinUnlock(&gFTPSpinLock);
 }
 #endif
+
+
+/* static */ CFIndex
+_FindLine(const UInt8 *buffer, CFIndex bufferLength, const UInt8** start, const UInt8** end) {
+/*
+ * This function finds lines delimited on either side by CR or LF characters.
+*/
+	CFIndex consumed;
+	
+	*start = NULL;
+	*end = NULL;
+	consumed = 0;
+	
+	if ( (buffer != NULL) && (bufferLength != 0) ) {
+		const UInt8* lastBufChar;
+		const UInt8* startOfLine;
+		
+		lastBufChar = buffer + bufferLength - 1;
+		
+		/* find the start of the line... the first non CR or LF character */
+		startOfLine = buffer;
+		while ( startOfLine <= lastBufChar ) {
+			if ( *startOfLine != '\r' && *startOfLine != '\n' ) {
+				break;
+			}
+			++startOfLine;
+		}
+		
+		/* if there characters left, see if there's a line */
+		if ( startOfLine <= lastBufChar ) {
+			const UInt8* endOfLine;
+			const UInt8* firstend = NULL;
+			
+			/* find the end of the line... the character before the next CR or LF character (if any) */
+			endOfLine = startOfLine;
+			while ( endOfLine <= lastBufChar ) {
+				if ( *endOfLine == '\r' || *endOfLine == '\n' ) {
+					break;
+				}
+				++endOfLine;
+			}
+			firstend = endOfLine;
+			
+			/* if endOfLine is still within buffer, we have a line */
+			if ( endOfLine <= lastBufChar ) {
+				const UInt8* lastend;
+				
+				/* return the first and last characters of the line */
+				*start = startOfLine;
+				*end = endOfLine;
+				
+				/* find the last CR or LF character after the line */
+				lastend = firstend;
+				while ( lastend <= lastBufChar ) {
+					if ( *lastend != '\r' && *lastend != '\n' ) {
+						break;
+					}
+					++lastend;
+				}
+				
+				/* consume everthing up through the last CR or LF character */
+				consumed = lastend - buffer;
+			}
+			else {
+				/* no line -- just consume the CR and LF characters at the beginning of the buffer */
+				consumed = startOfLine - buffer;
+			}
+		}
+		else {
+			/* the buffer is all CR or LF characters -- consume them */
+			consumed = bufferLength;
+		}
+	}
+	
+	return ( consumed );
+}
 
 
 #if 0
@@ -3841,15 +3918,15 @@ _HandleChangeDirectory(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ft
                     cmd = CFStringCreateWithFormat(alloc,
                                                    NULL,
                                                    kCFFTPEPRTCommandString,
-                                                   (unsigned int)((UInt16*)(&(sa6->sin6_addr)))[0],
-                                                   (unsigned int)((UInt16*)(&(sa6->sin6_addr)))[1],
-                                                   (unsigned int)((UInt16*)(&(sa6->sin6_addr)))[2],
-                                                   (unsigned int)((UInt16*)(&(sa6->sin6_addr)))[3],
-                                                   (unsigned int)((UInt16*)(&(sa6->sin6_addr)))[4],
-                                                   (unsigned int)((UInt16*)(&(sa6->sin6_addr)))[5],
-                                                   (unsigned int)((UInt16*)(&(sa6->sin6_addr)))[6],
-                                                   (unsigned int)((UInt16*)(&(sa6->sin6_addr)))[7],
-                                                   (unsigned int)((UInt16*)(&(sa6->sin6_port)))[0]);
+                                                   (unsigned int)ntohs(((UInt16*)(&(sa6->sin6_addr)))[0]),
+                                                   (unsigned int)ntohs(((UInt16*)(&(sa6->sin6_addr)))[1]),
+                                                   (unsigned int)ntohs(((UInt16*)(&(sa6->sin6_addr)))[2]),
+                                                   (unsigned int)ntohs(((UInt16*)(&(sa6->sin6_addr)))[3]),
+                                                   (unsigned int)ntohs(((UInt16*)(&(sa6->sin6_addr)))[4]),
+                                                   (unsigned int)ntohs(((UInt16*)(&(sa6->sin6_addr)))[5]),
+                                                   (unsigned int)ntohs(((UInt16*)(&(sa6->sin6_addr)))[6]),
+                                                   (unsigned int)ntohs(((UInt16*)(&(sa6->sin6_addr)))[7]),
+                                                   (unsigned int)ntohs(((UInt16*)(&(sa6->sin6_port)))[0]));
                 } else { // bail out for unknown protocol
                     CFStreamError error = {kCFStreamErrorDomainFTP, 522}; //unkown protocol
                     _ReportError(ftpCtxt, &error);
@@ -4052,7 +4129,7 @@ _HandleSize(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt, cons
 	#if defined(__WIN32__)
 				long long s = _atoi64(&line[i]);
 	#else
-				long long s = strtouq(&line[i], (char**)&end, 0);
+				long long s = strtouq((const char*)&line[i], (char**)&end, 0);
 	#endif
 				if (!(((s == ULLONG_MAX) && (errno)) || ((s == 0) && (end == &line[i])))) {
 					const void *keys[1], *values[1];
@@ -4627,351 +4704,335 @@ CFReadStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
 CFFTPCreateParsedResourceListing(CFAllocatorRef alloc, const UInt8 *buffer, 
                                  CFIndex bufferLength, CFDictionaryRef *parsed)
 {
-    const UInt8* newline;
-    const UInt8* eol;
-    const UInt8* first = buffer;
-    const UInt8* last = first + bufferLength - 1;
+	CFIndex totalConsumed;	// total characters consumed from buffer
 
     *parsed = NULL;
+	totalConsumed = 0;
 
     // Bail if a null or empty buffer.
-    if (!first || (first == last))
-        return 0;
-
-    do {
-		const UInt8* ret = memchr(first, '\r', last - first + 1);
+    if ( (buffer != NULL) && (bufferLength != 0) ) {
+		const UInt8* scanStart;	// starting location to scan for line
+		CFIndex scanLength;		// length to scan for line
 		
-        // Find the end of the line
-        eol = newline = memchr(first, '\n', last - first + 1);
-
-        // If no line was found, bail.
-        if (!newline && !ret)
-            return 0;
-
-		if (ret && ((ret < newline) || !newline)) {
-			eol = newline = ret;
-			while (newline < (last - 1)) {
-				if ((*newline == '\r') || (*newline == '\n'))
-					newline++;
-				else {
-					newline--;
-					break;
-				}
+		scanStart = buffer;
+		scanLength = bufferLength;
+		do {
+			CFIndex consumed;	// number of characters consumed by _FindLine
+			const UInt8* first;	// if not NULL, the beginning of the line to parse
+			const UInt8* eol;	// if not NULL, the first EOL character after the line (more may have been consumed)
+			
+			/* find a line (if possible) and consume as many characters as possible */
+			consumed = _FindLine(scanStart, scanLength, &first, &eol);
+			totalConsumed += consumed;
+			scanStart += consumed;
+			scanLength -= consumed;
+			
+			if ( first == NULL ) {
+				/* a line was not found so break */
+				break;
 			}
-		}
+			
+			// If it's not the summary line, parse it.
+			if (memcmp("total ", first, 6)) {
+
+				int count = 0;
+				const UInt8* fields[16];
+
+				// This is an example of the intended target listing:
+				//    drwxrwxrwx  linkcount  user  group  size  month  day  yearOrTime  name
+
+				memset(fields, 0, sizeof(fields));
+
+				// Parse out each field.  If more than the number of fields
+				// are parsed, assume they're all part of the name.
+				while ((count < (sizeof(fields) / sizeof(fields[0]))) && (first < eol)) {
+
+					// Skip leading space
+					while ((first < eol) && isspace(*first))
+						first++;
+
+					// No more parsing if at the end of the line.
+					if (first >= eol)
+						break;
+
+					// Save the location of the field.
+					fields[count++] = first;
+
+					// Skip over the field.
+					while ((first < eol) && !isspace(*first))
+						first++;
+				}
+
+				// If nothing parsed see if the next line does.
+				if (count) {
+
+					int type, mode;
+					Boolean hadModeBits = TRUE;
+					Boolean foundSize = FALSE;
+
+					// Get the file type.
+					switch (fields[0][0]) {
+						case 'b': type = DT_BLK; break;		// Block special file.
+						case 'c': type = DT_CHR; break;		// Character special file.
+						case 'd': type = DT_DIR; break;		// Directory.
+						case 'l': type = DT_LNK; break;		// Symbolic link.
+						case 's': type = DT_SOCK; break;		// Socket link.
+						case 'p': type = DT_FIFO; break;		// FIFO.
+						case '-': type = DT_REG; break;		// Regular file.
+						default: type = DT_UNKNOWN; break;
+					}
 		
-        // Roll back over CR and LF to find the actual end of line
-        while ((eol != first) && ((*eol == '\r') || (*eol == '\n')))
-            eol--;
-
-        // Only CR's and LF's, don't parse anything.
-        if (eol == first)
-            return 0;
-
-        eol++;	// Point to the end-of-line
-        
-        // If it's not the summary line, parse it.
-        if (memcmp("total ", first, 6)) {
-
-            int count = 0;
-            const UInt8* fields[16];
-
-            // This is an example of the intended target listing:
-            //    drwxrwxrwx  linkcount  user  group  size  month  day  yearOrTime  name
-
-            memset(fields, 0, sizeof(fields));
-
-            // Parse out each field.  If more than the number of fields
-            // are parsed, assume they're all part of the name.
-            while ((count < (sizeof(fields) / sizeof(fields[0]))) && (first < eol)) {
-
-                // Skip leading space
-                while ((first < eol) && isspace(*first))
-                    first++;
-
-                // No more parsing if at the end of the line.
-                if (first >= eol)
-                    break;
-
-                // Save the location of the field.
-                fields[count++] = first;
-
-                // Skip over the field.
-                while ((first < eol) && !isspace(*first))
-                    first++;
-            }
-
-            // If nothing parsed see if the next line does.
-            if (count) {
-
-                int type, mode;
-                Boolean hadModeBits = TRUE;
-                Boolean foundSize = FALSE;
-
-                // Get the file type.
-                switch (fields[0][0]) {
-                    case 'b': type = DT_BLK; break;		// Block special file.
-                    case 'c': type = DT_CHR; break;		// Character special file.
-                    case 'd': type = DT_DIR; break;		// Directory.
-                    case 'l': type = DT_LNK; break;		// Symbolic link.
-                    case 's': type = DT_SOCK; break;		// Socket link.
-                    case 'p': type = DT_FIFO; break;		// FIFO.
-                    case '-': type = DT_REG; break;		// Regular file.
-                    default: type = DT_UNKNOWN; break;
-                }
-    
-                mode = 0;
-    
-                // Enough bytes to consider the mode field?
-                if ((eol - fields[0]) < 11)
-                    hadModeBits = FALSE;
-                
-                else
-                    hadModeBits = _ReadModeBits(&fields[0][1], &mode);
-				
-				// Continue establishing the other information if room.  Start with date as the next anchor.
-				if (fields[3] && fields[4]) {
+					mode = 0;
+		
+					// Enough bytes to consider the mode field?
+					if ((eol - fields[0]) < 11)
+						hadModeBits = FALSE;
 					
-                    int i = 3;
-                    UInt64 size = 0;
-                    const UInt8* user = NULL;
-                    const UInt8* group = NULL;
-					CFDateRef date = NULL;
+					else
+						hadModeBits = _ReadModeBits(&fields[0][1], &mode);
 					
-					// Shoot to establish the next anchor, the date/time.
-					while (fields[i]) {
+					// Continue establishing the other information if room.  Start with date as the next anchor.
+					if (fields[3] && fields[4]) {
 						
-						// Try to get the date/time.
-						const UInt8* end = _CFFTPGetDateTimeFunc(alloc, fields[i], eol - fields[i], &date);
+						int i = 3;
+						UInt64 size = 0;
+						const UInt8* user = NULL;
+						const UInt8* group = NULL;
+						CFDateRef date = NULL;
 						
-						// If built one, find out where it ended and the name begins.
-						if (date) {
+						// Shoot to establish the next anchor, the date/time.
+						while (fields[i]) {
 							
-							int j = i - 1;
+							// Try to get the date/time.
+							const UInt8* end = _CFFTPGetDateTimeFunc(alloc, fields[i], eol - fields[i], &date);
 							
-							// Walk backwards from the date to find the size.
-							while (j >= 0) {
+							// If built one, find out where it ended and the name begins.
+							if (date) {
 								
-								// Allow "mode" field to be the size if no mode bits were there.
-								if (!j && hadModeBits)
-									break;
+								int j = i - 1;
 								
-								// Try to convert to size.
-								if (_ReadSize(fields[j], &size)) {
+								// Walk backwards from the date to find the size.
+								while (j >= 0) {
 									
-									foundSize = TRUE;
+									// Allow "mode" field to be the size if no mode bits were there.
+									if (!j && hadModeBits)
+										break;
 									
-									j--;	// Assume the previous field to be group.
-									
-									// If it's not the first field or the mode bits
-									// weren't in the first field, call it the group.
-									if (j || !hadModeBits) {
+									// Try to convert to size.
+									if (_ReadSize(fields[j], &size)) {
 										
-										group = fields[j];
+										foundSize = TRUE;
 										
-										j--;	// Assume the previous field to be user.
+										j--;	// Assume the previous field to be group.
 										
-										// If there is another field and it's not the
-										// mode bits, use it for the user field, otherwise
-										// assume the user and group were a single field.
-										if (!j && hadModeBits)
-											user = group;
-										
-										else {
+										// If it's not the first field or the mode bits
+										// weren't in the first field, call it the group.
+										if (j || !hadModeBits) {
 											
-											UInt64 linkcount = 0;
-											if (hadModeBits && (j == 1) && _ReadSize(fields[j], &linkcount))
+											group = fields[j];
+											
+											j--;	// Assume the previous field to be user.
+											
+											// If there is another field and it's not the
+											// mode bits, use it for the user field, otherwise
+											// assume the user and group were a single field.
+											if (!j && hadModeBits)
 												user = group;
-											else
-												user = fields[j];
+											
+											else {
+												
+												UInt64 linkcount = 0;
+												if (hadModeBits && (j == 1) && _ReadSize(fields[j], &linkcount))
+													user = group;
+												else
+													user = fields[j];
+											}
 										}
+										
+										// Found size so break out of here.
+										break;
+									}
+								}
+								
+								// Find out what the next field is.
+								while (fields[i] && (end > fields[i]))
+									i++;
+								break;
+							}
+							
+							// Try the next field as a date/time.
+							i++;
+						}
+						
+						// Found a date but is there a name field?
+						if (fields[i] && date) {
+							
+							int j = 0;
+							const UInt8* tmp = NULL;
+							const UInt8* name = fields[i];
+							const UInt8* link = NULL;
+							const void *keys[kResourceInfoItemCount], *values[kResourceInfoItemCount];
+							
+							// If it's a link, find the link information.
+							if (type == DT_LNK) {
+								
+								// Hunt for the "->" separator.
+								while (fields[i]) {
+									
+									// If found, save the link.
+									if (!memcmp(fields[i++], "->", 2)) {
+										link = fields[i];
+										break;
+									}
+								}
+							}
+							
+							// If there were mode bits, save them in the values.
+							if (hadModeBits) {
+								keys[j] = kCFFTPResourceMode;
+								values[j] = CFNumberCreate(alloc, kCFNumberSInt32Type, &mode);
+								if (values[j]) j++;
+							}
+							
+							// Save the name in the values.
+							keys[j] = kCFFTPResourceName;						
+							values[j] = CFStringCreateWithBytes(alloc, name, !link ? eol - name : (fields[i - 1] - 1) - name, kCFStringEncodingMacRoman, FALSE);
+							if (values[j]) {
+								CFStringRef temp = _CFStringCreateCopyWithStrippedHTML(alloc, values[j]);
+								if (temp) {
+									CFRelease(values[j]);
+									values[j] = temp;
+								}
+								j++;
+							}
+							
+							// If there was a link, save it.
+							if (link) {
+								keys[j]   = kCFFTPResourceLink;
+								values[j] = CFStringCreateWithBytes(alloc, link, eol - link, kCFStringEncodingMacRoman, FALSE);
+								if (values[j]) j++;
+							}
+							else {
+								keys[j]   = kCFFTPResourceLink;
+								values[j] = CFStringCreateWithCString(alloc, "", kCFStringEncodingUTF8);
+								if (values[j]) j++;
+							}
+							
+							// If the size was found, save the other bits.
+							if (foundSize) {
+								
+								if (group && (group == user)) {
+									
+									const char kUserGroupSeparators[] = {'|', ':', '/', '\\'};
+									const UInt8* sep = NULL;
+									const UInt8* end = user;
+									
+									while (!isspace(*end))
+										end++;
+									
+									for (i = 0; !sep && (i < (sizeof(kUserGroupSeparators) / sizeof(kUserGroupSeparators[0]))); i++)
+										sep = memchr(user, kUserGroupSeparators[i], end - user);
+									
+									if (sep) {
+										tmp = sep;		// Set tmp so length of user is properly calculated.
+										group = sep + 1;
 									}
 									
-									// Found size so break out of here.
-									break;
-								}
-							}
-							
-							// Find out what the next field is.
-							while (fields[i] && (end > fields[i]))
-								i++;
-							break;
-						}
-						
-						// Try the next field as a date/time.
-						i++;
-					}
-					
-					// Found a date but is there a name field?
-					if (fields[i] && date) {
-						
-						int j = 0;
-						const UInt8* tmp = NULL;
-						const UInt8* name = fields[i];
-						const UInt8* link = NULL;
-						const void *keys[kResourceInfoItemCount], *values[kResourceInfoItemCount];
-						
-						// If it's a link, find the link information.
-						if (type == DT_LNK) {
-							
-							// Hunt for the "->" separator.
-							while (fields[i]) {
-								
-								// If found, save the link.
-								if (!memcmp(fields[i++], "->", 2)) {
-									link = fields[i];
-									break;
-								}
-							}
-						}
-						
-						// If there were mode bits, save them in the values.
-						if (hadModeBits) {
-							keys[j] = kCFFTPResourceMode;
-							values[j] = CFNumberCreate(alloc, kCFNumberSInt32Type, &mode);
-							if (values[j]) j++;
-						}
-						
-						// Save the name in the values.
-						keys[j] = kCFFTPResourceName;						
-						values[j] = CFStringCreateWithBytes(alloc, name, !link ? eol - name : (fields[i - 1] - 1) - name, kCFStringEncodingMacRoman, FALSE);
-						if (values[j]) {
-							CFStringRef temp = _CFStringCreateCopyWithStrippedHTML(alloc, values[j]);
-							if (temp) {
-								CFRelease(values[j]);
-								values[j] = temp;
-							}
-							j++;
-						}
-						
-						// If there was a link, save it.
-						if (link) {
-							keys[j]   = kCFFTPResourceLink;
-							values[j] = CFStringCreateWithBytes(alloc, link, eol - link, kCFStringEncodingMacRoman, FALSE);
-							if (values[j]) j++;
-						}
-						else {
-							keys[j]   = kCFFTPResourceLink;
-							values[j] = CFStringCreateWithCString(alloc, "", kCFStringEncodingUTF8);
-							if (values[j]) j++;
-						}
-						
-						// If the size was found, save the other bits.
-						if (foundSize) {
-							
-							if (group && (group == user)) {
-								
-								const char kUserGroupSeparators[] = {'|', ':', '/', '\\'};
-								const UInt8* sep = NULL;
-								const UInt8* end = user;
-								
-								while (!isspace(*end))
-									end++;
-								
-								for (i = 0; !sep && (i < (sizeof(kUserGroupSeparators) / sizeof(kUserGroupSeparators[0]))); i++)
-									sep = memchr(user, kUserGroupSeparators[i], end - user);
-								
-								if (sep) {
-									tmp = sep;		// Set tmp so length of user is properly calculated.
-									group = sep + 1;
+									// NOTE that if no separator is found, user and group will get the
+									// same value.
 								}
 								
-								// NOTE that if no separator is found, user and group will get the
-								// same value.
-							}
-							
-							if (user) {
+								if (user) {
+									
+									if (!tmp) {
+										for (tmp = user; !isspace(*tmp); tmp++)
+											/* Do nothing. */ ;
+									}
+									
+									// Save the owner.  There is only one if a size was found.
+									keys[j]   = kCFFTPResourceOwner;
+									values[j] = CFStringCreateWithBytes(alloc, user, tmp - user, kCFStringEncodingMacRoman, FALSE);
+									if (values[j]) j++;
+								}
 								
-								if (!tmp) {
-									for (tmp = user; !isspace(*tmp); tmp++)
+								if (group) {
+									
+									for (tmp = group; !isspace(*tmp); tmp++)
 										/* Do nothing. */ ;
+									
+									// Save the group.  There is only one if a size was found.
+									keys[j]   = kCFFTPResourceGroup;
+									values[j] = CFStringCreateWithBytes(alloc, group, tmp - group, kCFStringEncodingMacRoman, FALSE);
+									if (values[j]) j++;
 								}
 								
-								// Save the owner.  There is only one if a size was found.
-								keys[j]   = kCFFTPResourceOwner;
-								values[j] = CFStringCreateWithBytes(alloc, user, tmp - user, kCFStringEncodingMacRoman, FALSE);
+								// Save the size.
+								keys[j]   = kCFFTPResourceSize;
+								values[j] = CFNumberCreate(alloc, kCFNumberLongLongType, &size);
 								if (values[j]) j++;
 							}
 							
-							if (group) {
-								
-								for (tmp = group; !isspace(*tmp); tmp++)
-									/* Do nothing. */ ;
-								
-								// Save the group.  There is only one if a size was found.
-								keys[j]   = kCFFTPResourceGroup;
-								values[j] = CFStringCreateWithBytes(alloc, group, tmp - group, kCFStringEncodingMacRoman, FALSE);
-								if (values[j]) j++;
-							}
-							
-							// Save the size.
-							keys[j]   = kCFFTPResourceSize;
-							values[j] = CFNumberCreate(alloc, kCFNumberLongLongType, &size);
+							// Save the file type.
+							keys[j]   = kCFFTPResourceType;
+							values[j] = CFNumberCreate(alloc, kCFNumberIntType, &type);
 							if (values[j]) j++;
-						}
-						
-						// Save the file type.
-						keys[j]   = kCFFTPResourceType;
-						values[j] = CFNumberCreate(alloc, kCFNumberIntType, &type);
-						if (values[j]) j++;
-						
-						// Save the date.
-						keys[j]   = kCFFTPResourceModDate;
-						values[j++] = CFRetain(date);		// Extra retain because it's released twice.
-						
-						// Create the dictionary of information for the user.
-						*parsed = CFDictionaryCreate(alloc, keys, values, j, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-						
-						// Release all the items that had been created.
-						for (--j; j >= 0; j--)
-							CFRelease(values[j]);
-						
-						// Did the parse, so bail.
-						break;
-					}
-					
-					// If date was allocated, release it.
-					if (date)
-						CFRelease(date);
-				}
-    
-                // No mode bits, so deal with only a name.
-                if (!hadModeBits) {
-                    const void *keys[1], *values[1];
-
-                    // Save the name in the values.
-                    keys[0] = kCFFTPResourceName;
-                    values[0] = CFStringCreateWithBytes(alloc, fields[0], eol - fields[0], kCFStringEncodingMacRoman, FALSE);
-					
-
-                    // Create the dictionary of information for the user.
-					if (values[0]) {
-						
-						if (!CFStringHasPrefix(values[0], kHTMLTagOpen) || !CFStringHasSuffix(values[0], kHTMLTagClose)) {
 							
-							*parsed = CFDictionaryCreate(alloc, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+							// Save the date.
+							keys[j]   = kCFFTPResourceModDate;
+							values[j++] = CFRetain(date);		// Extra retain because it's released twice.
 							
-							CFRelease(values[0]);
+							// Create the dictionary of information for the user.
+							*parsed = CFDictionaryCreate(alloc, keys, values, j, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+							
+							// Release all the items that had been created.
+							for (--j; j >= 0; j--)
+								CFRelease(values[j]);
 							
 							// Did the parse, so bail.
 							break;
 						}
 						
-						CFRelease(values[0]);
+						// If date was allocated, release it.
+						if (date)
+							CFRelease(date);
 					}
-                }
-            }
-        }
-        
-        // Go to the next line
-        first = newline + 1;
+		
+					// No mode bits, so deal with only a name.
+					if (!hadModeBits) {
+						const void *keys[1], *values[1];
 
-        // Bail if at the end or beyond.
-        if (first >= last)
-            return 0;
-        
-    } while (1);
+						// Save the name in the values.
+						keys[0] = kCFFTPResourceName;
+						values[0] = CFStringCreateWithBytes(alloc, fields[0], eol - fields[0], kCFStringEncodingMacRoman, FALSE);
+						
 
+						// Create the dictionary of information for the user.
+						if (values[0]) {
+							
+							if (!CFStringHasPrefix(values[0], kHTMLTagOpen) || !CFStringHasSuffix(values[0], kHTMLTagClose)) {
+								
+								*parsed = CFDictionaryCreate(alloc, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+								
+								CFRelease(values[0]);
+								
+								// Did the parse, so bail.
+								break;
+							}
+							
+							CFRelease(values[0]);
+						}
+					}
+				}
+			}
+			
+			// Bail if at the end or beyond.
+			if ( totalConsumed >= bufferLength ) {
+				break;
+			}
+			
+		} while (1);
+	}
+	
     // Return the number of bytes parsed.
-    return (newline - buffer + 1);
+    return ( totalConsumed );
 }

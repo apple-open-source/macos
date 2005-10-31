@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_trantcp.c,v 1.39 2005/03/02 01:27:44 lindak Exp $
+ * $Id: smb_trantcp.c,v 1.39.64.1 2005/07/20 05:27:00 lindak Exp $
  */
 
 #define ABSOLUTETIME_SCALAR_TYPE
@@ -141,7 +141,7 @@ nb_put_name(struct mbchain *mbp, struct sockaddr_nb *snb)
 	NBDEBUG("[%s]\n", cp);
 	for (;;) {
 		seglen = (*cp) + 1;
-		error = mb_put_mem(mbp, cp, seglen, MB_MSYSTEM);
+		error = mb_put_mem(mbp, (c_caddr_t)cp, seglen, MB_MSYSTEM);
 		if (error)
 			return (error);
 		if (seglen == 1)
@@ -293,7 +293,7 @@ nbssn_recvhdr(struct nbpcb *nbp, int *lenp,
 	struct smbiod *iod = nbp->nbp_vc->vc_iod;
 
 	resid = sizeof(len);
-	bytep = (char *)&len;
+	bytep = (u_int8_t *)&len;
 	while (resid != 0) {
 		aio.iov_base = bytep;
 		aio.iov_len = resid;

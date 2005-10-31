@@ -1,7 +1,7 @@
 /*
  * AuthenticationController.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/AuthenticationController.m,v 1.10 2005/01/23 17:53:17 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/AuthenticationController.m,v 1.11 2005/04/19 22:38:37 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -126,6 +126,11 @@
     // Default Principal
     BOOL callerProvidedPrincipal = (state.callerProvidedPrincipal != NULL);
     
+    [callerProvidedNameTextField  setEnabled: callerProvidedPrincipal];
+    [callerProvidedRealmTextField setEnabled: callerProvidedPrincipal];
+    [nameTextField                setEnabled: !callerProvidedPrincipal];
+    [realmComboBox                setEnabled: !callerProvidedPrincipal];
+    
     [callerProvidedNameTextField  setHidden: !callerProvidedPrincipal];
     [callerProvidedRealmTextField setHidden: !callerProvidedPrincipal];
     [nameTextField                setHidden: callerProvidedPrincipal];
@@ -154,10 +159,11 @@
         [realmComboBox setCompletes: YES];
     }   
 
-    if (callerProvidedPrincipal && ([[nameTextField stringValue] length] == 0) &&
-        ([nameTextField acceptsFirstResponder])) {
+    // If we have no username and the username field is editable, put the cursor there;
+    // otherwise put in in the password text field.
+    if (!callerProvidedPrincipal && ([[nameTextField stringValue] length] == 0)) {
         [[self window] setInitialFirstResponder: nameTextField];
-    } else if ([passwordSecureTextField acceptsFirstResponder]) {
+    } else {
         [[self window] setInitialFirstResponder: passwordSecureTextField];
     }
 }

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-1998 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +31,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  Subprograms for manipulation of wide character sequences
+--  Subprograms for manipulation of wide character sequences. Note that in
+--  this package, wide character and wide wide character are not distinguished
+--  since this package is basically concerned with syntactic notions, and it
+--  deals with Char_Code values, rather than values of actual Ada types.
 
 with Types; use Types;
 
@@ -40,7 +43,8 @@ package Widechar is
    function Length_Wide return Nat;
    --  Returns the maximum length in characters for the escape sequence that
    --  is used to encode wide character literals outside the ASCII range. Used
-   --  only in the implementation of the attribute Width for Wide_Character.
+   --  only in the implementation of the attribute Width for Wide_Character
+   --  and Wide_Wide_Character.
 
    procedure Scan_Wide
      (S   : Source_Buffer_Ptr;
@@ -76,10 +80,88 @@ package Widechar is
    --  checking is done, since this is only used on escape sequences generated
    --  by Set_Wide, which are known to be correct.
 
+   procedure Skip_Wide (S : Source_Buffer_Ptr; P : in out Source_Ptr);
+   --  Similar to the above procedure, but operates on a source buffer
+   --  instead of a string, with P being a Source_Ptr referencing the
+   --  contents of the source buffer.
+
    function Is_Start_Of_Wide_Char
-     (S    : Source_Buffer_Ptr;
-      P    : Source_Ptr)
-      return Boolean;
+     (S : Source_Buffer_Ptr;
+      P : Source_Ptr) return Boolean;
    --  Determines if S (P) is the start of a wide character sequence
+
+   function Is_UTF_32_Letter (U : Char_Code) return Boolean;
+   pragma Inline (Is_UTF_32_Letter);
+   --  Returns true iff U is a letter that can be used to start an identifier.
+   --  This means that it is in one of the following categories:
+   --    Letter, Uppercase (Lu)
+   --    Letter, Lowercase (Ll)
+   --    Letter, Titlecase (Lt)
+   --    Letter, Modifier  (Lm)
+   --    Letter, Other     (Lo)
+   --    Number, Letter    (Nl)
+
+   function Is_UTF_32_Digit (U : Char_Code) return Boolean;
+   pragma Inline (Is_UTF_32_Digit);
+   --  Returns true iff U is a digit that can be used to extend an identifer,
+   --  which means it is in one of the following categories:
+   --    Number, Decimal_Digit (Nd)
+
+   function Is_UTF_32_Line_Terminator (U : Char_Code) return Boolean;
+   pragma Inline (Is_UTF_32_Line_Terminator);
+   --  Returns true iff U is an allowed line terminator for source programs,
+   --  which means it is in one of the following categories:
+   --    Separator, Line (Zl)
+   --    Separator, Paragraph (Zp)
+   --  or that it is a conventional line terminator (CR, LF, VT, FF)
+
+   function Is_UTF_32_Mark (U : Char_Code) return Boolean;
+   pragma Inline (Is_UTF_32_Mark);
+   --  Returns true iff U is a mark character which can be used to extend
+   --  an identifier. This means it is in one of the following categories:
+   --    Mark, Non-Spacing (Mn)
+   --    Mark, Spacing Combining (Mc)
+
+   function Is_UTF_32_Other (U : Char_Code) return Boolean;
+   pragma Inline (Is_UTF_32_Other);
+   --  Returns true iff U is an other format character, which means that it
+   --  can be used to extend an identifier, but is ignored for the purposes of
+   --  matching of identiers. This means that it is in one of the following
+   --  categories:
+   --    Other, Format (Cf)
+
+   function Is_UTF_32_Punctuation (U : Char_Code) return Boolean;
+   pragma Inline (Is_UTF_32_Punctuation);
+   --  Returns true iff U is a punctuation character that can be used to
+   --  separate pices of an identifier. This means that it is in one of the
+   --  following categories:
+   --    Punctuation, Connector (Pc)
+
+   function Is_UTF_32_Space (U : Char_Code) return Boolean;
+   pragma Inline (Is_UTF_32_Space);
+   --  Returns true iff U is considered a space to be ignored, which means
+   --  that it is in one of the following categories:
+   --    Separator, Space (Zs)
+
+   function Is_UTF_32_Non_Graphic (U : Char_Code) return Boolean;
+   pragma Inline (Is_UTF_32_Non_Graphic);
+   --  Returns true iff U is considered to be a non-graphic character,
+   --  which means that it is in one of the following categories:
+   --    Other, Control (Cc)
+   --    Other, Private Use (Co)
+   --    Other, Surrogate (Cs)
+   --    Other, Format (Cf)
+   --    Separator, Line (Zl)
+   --    Separator, Paragraph (Zp)
+   --
+   --  Note that the Ada category format effector is subsumed by the above
+   --  list of Unicode categories.
+
+   function UTF_32_To_Upper_Case (U : Char_Code) return Char_Code;
+   pragma Inline (UTF_32_To_Upper_Case);
+   --  If U represents a lower case letter, returns the corresponding upper
+   --  case letter, otherwise U is returned unchanged. The folding is locale
+   --  independent as defined by documents referenced in the note in section
+   --  1 of ISO/IEC 10646:2003
 
 end Widechar;

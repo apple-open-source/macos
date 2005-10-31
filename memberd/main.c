@@ -45,12 +45,16 @@
 
 #define kMaxGUIDSInCacheClient 500
 #define kMaxGUIDSInCacheServer 2500
-#define kDefaultExpiration 8*60*60
-#define kDefaultNegativeExpiration 2*60*60
+#define kDefaultExpirationServer 1*60*60
+#define kDefaultNegativeExpirationServer 30*60
+#define kDefaultExpirationClient 4*60*60
+#define kDefaultNegativeExpirationClient 2*60*60
+#define kDefaultLoginExpiration 2*60
 #define kDefaultLogSize 250
 #define kMaxItemsInCacheStr "MaxItemsInCache"
 #define kDefaultExpirationStr "DefaultExpirationInSecs"
 #define kDefaultNegativeExpirationStr "DefaultFailureExpirationInSecs"
+#define kDefaultLoginExpirationStr "DefaultLoginExpirationInSecs"
 #define kDefaultLogSizeStr "NumLogEntries"
 
 static const char * const	_PidPath = _PATH_VARRUN DAEMON_NAME ".pid";
@@ -214,31 +218,53 @@ int IsServer()
 	return (stat("/System/Library/CoreServices/ServerVersion.plist", &sb) == 0);
 }
 
-void ReadConfigFile(int* maxCache, int* defaultExpiration, int* defaultNegExpiration, int* logSize)
+void ReadConfigFile(int* maxCache, int* defaultExpiration, int* defaultNegExpiration, int* logSize, int* loginExpiration)
 {
 	char* path = "/etc/memberd.conf";
 	struct stat sb;
 	char buffer[1024];
 	int fd;
 	size_t len;
+	int rewriteConfig = 0;
 	
 	if (IsServer())
+	{
 		*maxCache = kMaxGUIDSInCacheServer;
+		*defaultExpiration = kDefaultExpirationServer;
+		*defaultNegExpiration = kDefaultNegativeExpirationServer;
+	}
 	else
+	{
 		*maxCache = kMaxGUIDSInCacheClient;
-	*defaultExpiration = kDefaultExpiration;
-	*defaultNegExpiration = kDefaultNegativeExpiration;
+		*defaultExpiration = kDefaultExpirationClient;
+		*defaultNegExpiration = kDefaultNegativeExpirationClient;
+	}
 	*logSize = kDefaultLogSize;
+	*loginExpiration = kDefaultLoginExpiration;
 	
 	int result = stat(path, &sb);
+	
 	if ((result != 0) || (sb.st_size > 1023))
+		rewriteConfig = 1;
+	else
+	{
+		fd = open(path, O_RDONLY, 0);
+		if (fd < 0) return;
+		len = read(fd, buffer, sb.st_size);
+		close(fd);
+		if (strncmp(buffer, "#1.1", 4) != 0)
+			rewriteConfig = 1;
+	}
+	
+	if (rewriteConfig)
 	{
 		fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0755);
 		if (fd < 0) return;
-		sprintf(buffer, "%s %d\n%s %d\n%s %d\n%s %d\n", kMaxItemsInCacheStr, *maxCache, 
+		sprintf(buffer, "#1.1\n%s %d\n%s %d\n%s %d\n%s %d\n%s %d\n", kMaxItemsInCacheStr, *maxCache, 
 												kDefaultExpirationStr, *defaultExpiration, 
 												kDefaultNegativeExpirationStr, *defaultNegExpiration,
-												kDefaultLogSizeStr, *logSize);
+												kDefaultLogSizeStr, *logSize,
+												kDefaultLoginExpirationStr, *loginExpiration);
 		len = write(fd, buffer, strlen(buffer));
 		close(fd);
 	}
@@ -247,9 +273,6 @@ void ReadConfigFile(int* maxCache, int* defaultExpiration, int* defaultNegExpira
 		char* temp;
 		int i;
 	
-		fd = open(path, O_RDONLY, 0);
-		if (fd < 0) return;
-		len = read(fd, buffer, sb.st_size);
 		if (len != sb.st_size) return;
 		buffer[len] = '\0';
 		
@@ -296,10 +319,18 @@ void ReadConfigFile(int* maxCache, int* defaultExpiration, int* defaultNegExpira
 				else if (*defaultNegExpiration > 24 * 60 * 60)
 					*defaultNegExpiration = 24 * 60 * 60;
 			}
+			else if (strncmp(temp, kDefaultLoginExpirationStr, strlen(kDefaultLoginExpirationStr)) == 0)
+			{
+				temp += strlen(kDefaultLoginExpirationStr);
+				*loginExpiration = strtol(temp, &temp, 10);
+				if (*loginExpiration < 30)
+					*loginExpiration = 30;
+				else if (*loginExpiration > 1 * 60 * 60)
+					*loginExpiration = 1 * 60 * 60;
+			}
 			
 			i += strlen(temp) + 1;
 		}
-		close(fd);
 	}
 }
 
@@ -308,7 +339,7 @@ int main (int argc, char * const argv[]) {
 	static const char * const	argString = "dhvxsctru:g:lL";
 	char		c;
 	bool				daemonize = !gDebug;
-	int maxCache, defExp, defNegExp, logSize;
+	int maxCache, defExp, defNegExp, logSize, loginExp;
 	int mib[6];
 	int oldstate;
 	size_t oldsize;
@@ -398,8 +429,8 @@ int main (int argc, char * const argv[]) {
 		syslog(LOG_INFO, "cannot mark pid for delayed termination");
 	}
 
-	ReadConfigFile(&maxCache, &defExp, &defNegExp, &logSize);
-	InitializeUserGroup(maxCache, defExp, defNegExp, logSize);
+	ReadConfigFile(&maxCache, &defExp, &defNegExp, &logSize, &loginExp);
+	InitializeUserGroup(maxCache, defExp, defNegExp, logSize, loginExp);
 	InitializeListener();
 	
 	StartListeningKernel();

@@ -65,6 +65,8 @@ class IOPlatformCtrlLoop : public OSObject
 
 protected:
 
+	bool	safeBoot;
+
 /*! @var sensors An array of IOPlatformSensor references, indicating the sensor or sensors that provide input to this control loop */
 	OSArray *sensors;
 

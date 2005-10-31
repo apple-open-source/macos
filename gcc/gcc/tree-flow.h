@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -65,6 +65,9 @@ struct ptr_info_def GTY(())
 
   /* Nonzero if this pointer points to a global variable.  */
   unsigned int pt_global_mem : 1;
+
+  /* Nonzero if this pointer points to NULL.  */
+  unsigned int pt_null : 1;
 
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
@@ -166,6 +169,14 @@ struct var_ann_d GTY(())
      states.  */
   ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
+  /* Used during operand processing to determine if this variable is already 
+     in the vuse list.  */
+  unsigned in_vuse_list : 1;
+
+  /* Used during operand processing to determine if this variable is already 
+     in the v_may_def list.  */
+  unsigned in_v_may_def_list : 1;
+
   /* An artificial variable representing the memory location pointed-to by
      all the pointers that TBAA (type-based alias analysis) considers
      to be aliased.  If the variable is not a pointer or if it is never
@@ -240,6 +251,7 @@ struct dataflow_d GTY(())
 
 typedef struct dataflow_d *dataflow_t;
 
+
 struct stmt_ann_d GTY(())
 {
   struct tree_ann_common_d common;
@@ -285,6 +297,8 @@ union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
   struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
 };
 
+extern GTY(()) VEC(tree) *modified_noreturn_calls;
+
 typedef union tree_ann_d *tree_ann_t;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
@@ -298,6 +312,7 @@ static inline stmt_ann_t get_stmt_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline basic_block bb_for_stmt (tree);
 extern void set_bb_for_stmt (tree, basic_block);
+static inline bool noreturn_call_p (tree);
 static inline void modify_stmt (tree);
 static inline void unmodify_stmt (tree);
 static inline bool stmt_modified_p (tree);
@@ -335,10 +350,6 @@ struct bb_ann_d GTY(())
 {
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
-
-  /* Nonzero if this block is forwardable during cfg cleanups.  This is also
-     used to detect loops during cfg cleanups.  */
-  unsigned forwardable: 1;
 
   /* Nonzero if this block contains an escape point (see is_escape_site).  */
   unsigned has_escape_site : 1;
@@ -462,6 +473,7 @@ extern void dump_tree_cfg (FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
+extern void debug_loop_ir (void);
 /* APPLE LOCAL begin lno */
 extern void tree_debug_loop (struct loop *);
 extern void tree_debug_loops (void);
@@ -476,12 +488,11 @@ extern tree *last_stmt_ptr (basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern void cfg_remove_useless_stmts (void);
-extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
-extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern void bsi_insert_on_edge (edge, tree);
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
-extern void bsi_commit_edge_inserts (int *);
+extern void bsi_commit_one_edge_insert (edge, basic_block *);
+extern void bsi_commit_edge_inserts (void);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void verify_stmts (void);
@@ -511,12 +522,13 @@ extern void dump_generic_bb (FILE *, basic_block, int, int);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
 extern tree_ann_t create_tree_ann (tree);
+extern void reserve_phi_args_for_new_edge (basic_block);
 extern tree create_phi_node (tree, basic_block);
-extern void add_phi_arg (tree *, tree, edge);
-extern void remove_phi_arg (tree, basic_block);
-extern void remove_phi_arg_num (tree, int);
+extern void add_phi_arg (tree, tree, edge);
+extern void remove_phi_args (edge);
 extern void remove_phi_node (tree, tree, basic_block);
 extern void remove_all_phi_nodes_for (bitmap);
+extern tree phi_reverse (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
 extern void debug_referenced_vars (void);
@@ -534,6 +546,7 @@ extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree);
 extern void mark_new_vars_to_rename (tree, bitmap);
 extern void find_new_referenced_vars (tree *);
+void mark_call_clobbered_vars_to_rename (void);
 
 extern void redirect_immediate_uses (tree, tree);
 extern tree make_rename_temp (tree, const char *);
@@ -558,30 +571,32 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
+extern struct ptr_info_def *get_ptr_info (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
+typedef tree tree_on_heap;
+DEF_VEC_MALLOC_P (tree_on_heap);
+
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void dump_reaching_defs (FILE *);
-extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
 extern void debug_tree_ssa (void);
 extern void debug_def_blocks (void);
 extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
-extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
-extern void register_new_def (tree, varray_type *);
+extern void register_new_def (tree, VEC (tree_on_heap) **);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern void kill_redundant_phi_nodes (void);
+extern bool stmt_references_memory_p (tree);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
@@ -659,6 +674,7 @@ void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
 				struct tree_niter_desc *);
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter);
+tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
@@ -695,18 +711,14 @@ enum move_pos
   };
 extern enum move_pos movement_possibility (tree);
 
-/* In tree-if-conv.c  */
-bool tree_if_conversion (struct loop *, bool);
-
 /* APPLE LOCAL begin lno */
 /* In tree-ssa-loop*.c  */
-struct loops *tree_loop_optimizer_init (FILE *, bool);
+struct loops *tree_loop_optimizer_init (FILE *);
 void tree_ssa_prefetch_arrays (struct loops *);
 void mark_maybe_infinite_loops (struct loops *);
 /* APPLE LOCAL end lno */
 
 /* In tree-flow-inline.h  */
-static inline int phi_arg_from_edge (tree, edge);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
 static inline void set_is_used (tree);
@@ -742,16 +754,11 @@ void vn_delete (void);
 /* In tree-sra.c  */
 void insert_edge_copies (tree, basic_block);
 
-/* In tree-ssa-operands.c  */
-extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p, 
-				stmt_operands_p);
-
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (struct loops *);
 
 /* In tree-ssa-loop-ivopts.c  */
 extern bool expr_invariant_in_loop_p (struct loop *, tree);
-
 /* In gimplify.c  */
 
 tree force_gimple_operand (tree, tree *, bool, tree);

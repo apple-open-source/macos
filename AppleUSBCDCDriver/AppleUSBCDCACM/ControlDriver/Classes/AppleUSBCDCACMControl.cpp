@@ -611,7 +611,7 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
     
     do
     {
-        (IOUSBDescriptorHeader*)funcDesc = fControlInterface->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
+        funcDesc = (const FunctionalDescriptorHeader *)fControlInterface->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
         if (!funcDesc)
         {
             gotDescriptors = true;				// We're done
@@ -619,7 +619,7 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
             switch (funcDesc->bDescriptorSubtype)
             {
                 case Header_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)HDRFDesc = funcDesc;
+                    HDRFDesc = (HDRFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Header Functional Descriptor");
                     hdrVers = (UInt16 *)&HDRFDesc->bcdCDC1;
                     vers = USBToHostWord(*hdrVers);
@@ -629,7 +629,7 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
                     }
                     break;
                 case CM_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)CMFDesc = funcDesc;
+                    CMFDesc = (CMFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - CM Functional Descriptor");
                     if (fDataInterfaceNumber != 0xFF)
                     {
@@ -655,12 +655,12 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
                     }
                     break;
                 case ACM_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)ACMFDesc = funcDesc;
+                    ACMFDesc = (ACMFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - ACM Functional Descriptor");
                     fACMCapabilities = ACMFDesc->bmCapabilities;
                     break;
                 case Union_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)UNNFDesc = funcDesc;
+                    UNNFDesc = (UnionFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Union Functional Descriptor");
                     if (UNNFDesc->bFunctionLength > sizeof(FunctionalDescriptorHeader))
                     {
@@ -1181,6 +1181,7 @@ void AppleUSBCDCACMControl::resetDevice(void)
     IOReturn 	rtn = kIOReturnSuccess;
     USBStatus	status;
     bool	reset = false;
+	bool	reenum = false;
 
     XTRACE(this, 0, 0, "resetDevice");
 	
@@ -1202,21 +1203,43 @@ void AppleUSBCDCACMControl::resetDevice(void)
     } else {
         status = USBToHostWord(status);
         XTRACE(this, 0, status, "resetDevice - Device status");
-        if (status & kDeviceSelfPowered)			// Self powered devices will be reset
+        if (status & kDeviceSelfPowered)			// Self powered devices that need "reset on close" will also be reset
         {
-            reset = true;
+			if (fDataDriver)
+			{
+				if (fDataDriver->fResetOnClose)
+				{
+					reset = true;
+				}
+				if (fDataDriver->fEnumOnWake)
+				{
+					reenum = true;
+				}
+			}
         }
     }
-    
-    if (reset)
+	
+		// Enumeration takes precedent
+	
+	if (reenum)
     {
-        XTRACE(this, 0, 0, "resetDevice - Device is being reset");
-        rtn = fControlInterface->GetDevice()->ResetDevice();
+		fDataDriver->fTerminate = true;				// Warn the data driver early
+        XTRACE(this, 0, 0, "resetDevice - Device is being re-enumerated");
+        rtn = fControlInterface->GetDevice()->ReEnumerateDevice(0);
 		if (rtn != kIOReturnSuccess)
 		{
-			XTRACE(this, 0, rtn, "resetDevice - ResetDevice failed");
+			XTRACE(this, 0, rtn, "resetDevice - ReEnumerateDevice failed");
 		}
-//		IOSleep(100);
+    } else {
+		if (reset)
+		{
+			XTRACE(this, 0, 0, "resetDevice - Device is being reset");
+			rtn = fControlInterface->GetDevice()->ResetDevice();
+			if (rtn != kIOReturnSuccess)
+			{
+				XTRACE(this, 0, rtn, "resetDevice - ResetDevice failed");
+			}
+		}
     }
     
 }/* end resetDevice */

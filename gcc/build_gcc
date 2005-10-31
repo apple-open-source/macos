@@ -70,6 +70,9 @@ VERS=`sed -n -e '/version_string/s/.*\"\([^ \"]*\)[ \"].*/\1/p' \
 # to be built.  It's VERS but only up to the second '.' (if there is one).
 MAJ_VERS=`echo $VERS | sed 's/\([0-9]*\.[0-9]*\)[.-].*/\1/'`
 
+# This is the default architecture for i386 configurations.
+I386_CPU="--with-arch=pentium4 --with-tune=prescott"
+
 # Sniff to see if we can do ppc64 building.
 DARWIN_VERS=8
 if [ x"`file /usr/lib/crt1.o | grep 'architecture ppc64'`" == x ]; then
@@ -89,6 +92,8 @@ rm -rf $SRC_DIR || exit 1
 mkdir $SRC_DIR || exit 1
 ln -s $ORIG_SRC_DIR/* $SRC_DIR/ || exit 1
 rm -rf $SRC_DIR/tcl $SRC_DIR/expect $SRC_DIR/dejagnu || exit 1
+# Clean out old specs files
+rm -f /usr/lib/gcc/*/4.0.0/specs
 
 # These are the configure and build flags that are used.
 CONFIGFLAGS="--disable-checking \
@@ -128,10 +133,12 @@ mkdir -p $DIR/obj-$BUILD-$BUILD $DIR/dst-$BUILD-$BUILD || exit 1
 cd $DIR/obj-$BUILD-$BUILD || exit 1
 if [ \! -f $DIR/$BUILD-configured ] ; then
  $SRC_DIR/configure $CONFIGFLAGS \
+   `if [ $BUILD = i686 ] ; then echo $I386_CPU ; fi` \
    --host=$BUILD-apple-darwin$DARWIN_VERS --target=$BUILD-apple-darwin$DARWIN_VERS || exit 1
  touch $DIR/$BUILD-configured || exit 1
 fi
 make $MAKEFLAGS $BOOTSTRAP CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
+make $MAKEFLAGS html CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
 make $MAKEFLAGS DESTDIR=$DIR/dst-$BUILD-$BUILD install-gcc install-target \
   CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
 
@@ -155,6 +162,13 @@ for prog in ar nm ranlib ; do
     chmod a+x $P || exit 1
   done
 done
+for t in `echo $1 $2 | sort -u`; do
+  gt=`echo $t | $TRANSLATE_ARCH`
+  P=$DIR/bin/${gt}-apple-darwin$DARWIN_VERS-as
+  echo '#!/bin/sh' > $P || exit 1
+  echo 'exec /usr/bin/as -arch '${t}' $*' >> $P || exit 1
+  chmod a+x $P || exit 1
+done
 PATH=$DIR/bin:$PATH
 
 # Build the cross-compilers, using the compiler we just built.
@@ -163,6 +177,7 @@ for t in $TARGETS ; do
   mkdir -p $DIR/obj-$BUILD-$t $DIR/dst-$BUILD-$t || exit 1
    cd $DIR/obj-$BUILD-$t || exit 1
    $SRC_DIR/configure $CONFIGFLAGS  \
+    `if [ $t = i686 ] ; then echo $I386_CPU ; fi` \
      --program-prefix=$t-apple-darwin$DARWIN_VERS- \
      --host=$BUILD-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
    make $MAKEFLAGS all CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
@@ -228,6 +243,7 @@ for h in $HOSTS ; do
       fi
 
       $SRC_DIR/configure $CONFIGFLAGS \
+	`if [ $t = i686 ] ; then echo $I386_CPU ; fi` \
         --program-prefix=$pp \
         --host=$h-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
       make $MAKEFLAGS all-gcc CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
@@ -249,7 +265,7 @@ rm -rf * || exit 1
 # HTML documentation
 HTMLDIR="/Developer/ADC Reference Library/documentation/DeveloperTools"
 mkdir -p ".$HTMLDIR" || exit 1
-cp -Rp $DIR/obj-$BUILD-$BUILD/gcc/doc/HTML/* ".$HTMLDIR/" || exit 1
+cp -Rp $DIR/obj-$BUILD-$BUILD/gcc/HTML/* ".$HTMLDIR/" || exit 1
 
 # Manual pages
 mkdir -p .$DEST_ROOT/share || exit 1
@@ -466,6 +482,8 @@ ln -f $DEST_DIR/$DEST_ROOT/bin/g++-$MAJ_VERS $DEST_DIR/$DEST_ROOT/bin/c++-$MAJ_V
 rm $DEST_DIR/$DEST_ROOT/bin/tmp-*-gcc-$MAJ_VERS || exit 1 
 rm $DEST_DIR/$DEST_ROOT/bin/tmp-*-g++-$MAJ_VERS || exit 1
 
+# Remove the dylibs, they are produced elsewhere.
+rm -f $DEST_DIR$DEST_ROOT/lib/*.dylib
 
 ########################################
 # Save the source files and objects needed for debugging

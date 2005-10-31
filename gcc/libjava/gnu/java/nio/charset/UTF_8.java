@@ -1,5 +1,5 @@
 /* UTF_8.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -62,7 +62,15 @@ final class UTF_8 extends Charset
 {
   UTF_8 ()
   {
-    super ("UTF-8", null);
+    super ("UTF-8", new String[] {
+        /* These names are provided by
+         * http://oss.software.ibm.com/cgi-bin/icu/convexp?s=ALL
+         */
+        "ibm-1208", "ibm-1209", "ibm-5304", "ibm-5305",
+        "windows-65001", "cp1208",
+        // see http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html
+        "UTF8"
+    });
   }
 
   public boolean contains (Charset cs)
@@ -84,7 +92,8 @@ final class UTF_8 extends Charset
 
   private static final class Decoder extends CharsetDecoder
   {
-    private Decoder (Charset cs)
+    // Package-private to avoid a trampoline constructor.
+    Decoder (Charset cs)
     {
       super (cs, 1.0f, 1.0f);
     }
@@ -92,7 +101,7 @@ final class UTF_8 extends Charset
     protected CoderResult decodeLoop (ByteBuffer in, CharBuffer out)
     {
       // TODO: Optimize this in the case in.hasArray() / out.hasArray()
-      int inPos = 0;
+      int inPos = in.position(); 
       try
         {
           while (in.hasRemaining ())
@@ -171,7 +180,8 @@ final class UTF_8 extends Charset
 
   private static final class Encoder extends CharsetEncoder
   {
-    private Encoder (Charset cs)
+    // Package-private to avoid a trampoline constructor.
+    Encoder (Charset cs)
     {
       // According to
       // http://www-106.ibm.com/developerworks/unicode/library/utfencodingforms/index.html
@@ -186,7 +196,7 @@ final class UTF_8 extends Charset
 
     protected CoderResult encodeLoop (CharBuffer in, ByteBuffer out)
     {
-      int inPos = 0;
+      int inPos = in.position();
       try
         {
           // TODO: Optimize this in the case in.hasArray() / out.hasArray()

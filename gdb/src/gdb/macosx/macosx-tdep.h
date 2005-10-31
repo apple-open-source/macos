@@ -17,4 +17,10 @@ void macosx_internalize_symbol (struct internal_nlist * in,
 const char *dyld_symbol_stub_function_name (CORE_ADDR pc);
 CORE_ADDR dyld_symbol_stub_function_address (CORE_ADDR pc, const char **name);
 
+CORE_ADDR macosx_skip_trampoline_code (CORE_ADDR pc);
+int macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name);
+int macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name);
+
+CORE_ADDR macosx_dynamic_trampoline_nextpc (CORE_ADDR pc);
+
 #endif /* __GDB_MACOSX_TDEP_H__ */

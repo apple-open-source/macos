@@ -1,5 +1,5 @@
 /* Image.java -- superclass for images
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,7 +38,6 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.image.AreaAveragingScaleFilter;
 import java.awt.image.FilteredImageSource;
 import java.awt.image.ImageObserver;
 import java.awt.image.ImageProducer;
@@ -47,7 +46,7 @@ import java.awt.image.ReplicateScaleFilter;
 /**
  * This is the abstract superclass of all image objects in Java.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
  * @since 1.0
  * @status updated to 1.4
  */

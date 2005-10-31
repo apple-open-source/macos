@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: PBG4_DPSCtrlLoop.cpp,v 1.12 2005/01/21 23:11:59 yee1 Exp $
+ *  File: $Id: PBG4_DPSCtrlLoop.cpp,v 1.14 2005/07/11 23:10:32 raddog Exp $
  *
  */
 
@@ -121,8 +121,11 @@ IOReturn PBG4_DPSCtrlLoop::initPlatformCtrlLoop(const OSDictionary *dict)
 	fPMRootDomain = OSDynamicCast(IOPMrootDomain, 
 		gPlatformPlugin->waitForService(gPlatformPlugin->serviceMatching("IOPMrootDomain")));
 				
-	if (result == kIOReturnSuccess)
+	if (result == kIOReturnSuccess) {
 		(void) setInitialState ();
+		fPMRootDomain->publishFeature( "Reduce Processor Speed" );
+		fPMRootDomain->publishFeature( "Dynamic Power Step" );
+	}
 	
 	CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::initPlatformCtrlLoop done\n" );
 	return result;
@@ -346,11 +349,14 @@ bool PBG4_DPSCtrlLoop::setInitialState( void )
 	
 	CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::setInitialState entered\n" );
 
-	fPreviousMetaState = gIOPPluginOne;			// Start out in low state
+	if (safeBoot)
+		fPreviousMetaState = gIOPPluginZero;		// Start out in high state
+	else
+		fPreviousMetaState = gIOPPluginOne;			// Start out in low state
 	
-	setMetaState( fPreviousMetaState );			// Remember the initial state
+	setMetaState( fPreviousMetaState );				// Remember the initial state
 
-	fPreviousGPUMetaState = gIOPPluginZero;		// Graphics starts out high
+	fPreviousGPUMetaState = gIOPPluginZero;			// Graphics starts out high
 
 	ctrlloopState = kIOPCtrlLoopFirstAdjustment;
 
@@ -408,87 +414,92 @@ bool PBG4_DPSCtrlLoop::updateMetaState( void )
 	
 	//CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState entered\n" );
 
-	// fetch the current Dynamic Power Step setting
-	tmpNumber = OSDynamicCast( OSNumber, gPlatformPlugin->getEnv( gIOPPluginEnvDynamicPowerStep ) );
-	dpsTarget = tmpNumber ? tmpNumber->unsigned32BitValue() : 0;
+	if (safeBoot) {	
+		newMetaState = gIOPPluginOne;		// Safe boot means we're never in any state other than slowest
+		newGPUMetaState = gIOPPluginZero;	// Ignore graphics state changes
+	} else {	// Check current conditions
+		// fetch the current Dynamic Power Step setting
+		tmpNumber = OSDynamicCast( OSNumber, gPlatformPlugin->getEnv( gIOPPluginEnvDynamicPowerStep ) );
+		dpsTarget = tmpNumber ? tmpNumber->unsigned32BitValue() : 0;
+		
+		/*
+		 * Check idle state - based on no events happening in kIdleInterval when we're on battery
+		 * Only do this if we are DFS low and not in an overcurrent situation, i.e., the idleTimer is active
+		 * Once the deadline reaches zero, we consider ourselves in the idle state until fIdleTimerActive is cleared
+		 */
+		isIdle = false;
+		if ((gPlatformPlugin->getEnv(gIOPPluginEnvACPresent) == kOSBooleanFalse) && fIdleTimerActive)
+			isIdle = (AbsoluteTime_to_scalar(&deadline) == 0); 
 	
-	/*
-	 * Check idle state - based on no events happening in kIdleInterval when we're on battery
-	 * Only do this if we are DFS low and not in an overcurrent situation, i.e., the idleTimer is active
-	 * Once the deadline reaches zero, we consider ourselves in the idle state until fIdleTimerActive is cleared
-	 */
-	isIdle = false;
-	if ((gPlatformPlugin->getEnv(gIOPPluginEnvACPresent) == kOSBooleanFalse) && fIdleTimerActive)
-		isIdle = (AbsoluteTime_to_scalar(&deadline) == 0); 
-
-	/*
-	 * gIOPPluginEnvUserPowerAuto being true indicates user set "Automatic" in Energy Saver Preferences
-	 * If it's false then the user has chosen either "Highest" or "Reduced".  If it's "Reduced", then
-	 * our response to that is to request the graphics processor run slower
-	 *
-	 * If fUsePowerPlay is false we never go slow on graphics
-	 */
-	if ((gPlatformPlugin->getEnv(gIOPPluginEnvUserPowerAuto) == kOSBooleanTrue) || !fUsePowerPlay) {
-		if (!fUsePowerPlay)
-			// Stay with highest
-			newGPUMetaState = gIOPPluginZero;
-		else {
-			if (isIdle)
-				CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState GPU low based on idle\n");
-
-			// Base it on the idle state
-			newGPUMetaState = isIdle ? gIOPPluginOne : gIOPPluginZero;
+		/*
+		 * gIOPPluginEnvUserPowerAuto being true indicates user set "Automatic" in Energy Saver Preferences
+		 * If it's false then the user has chosen either "Highest" or "Reduced".  If it's "Reduced", then
+		 * our response to that is to request the graphics processor run slower
+		 *
+		 * If fUsePowerPlay is false we never go slow on graphics
+		 */
+		if ((gPlatformPlugin->getEnv(gIOPPluginEnvUserPowerAuto) == kOSBooleanTrue) || !fUsePowerPlay) {
+			if (!fUsePowerPlay)
+				// Stay with highest
+				newGPUMetaState = gIOPPluginZero;
+			else {
+				if (isIdle)
+					CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState GPU low based on idle\n");
+	
+				// Base it on the idle state
+				newGPUMetaState = isIdle ? gIOPPluginOne : gIOPPluginZero;
+			}
+		} else
+			// Use whatever user set
+			newGPUMetaState = dpsTarget ? gIOPPluginOne : gIOPPluginZero;
+		
+		// Start out in 0 - the highest metaState or 1 if DFS requests it
+		newMetaState = dpsTarget ? gIOPPluginOne : gIOPPluginZero;
+		
+		if (!fIdleTimerActive && batteryIsOvercurrent()) {
+			CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState - battery overcurrent forced metastate 1\n");
+			newMetaState = gIOPPluginOne;
 		}
-	} else
-		// Use whatever user set
-		newGPUMetaState = dpsTarget ? gIOPPluginOne : gIOPPluginZero;
+		
+		/*
+		 * Get thermal sensor states.  The current model here is that if *any* sensors report a thermal
+		 * state >= 1 then we DFS low.  There is more resolution than states 0 & 1 in the state sensors
+		 * but for now all the two states are all we care about
+		 */
+		// fetch the current cpu0 temperature state
+		if (safeGetState(fCpuTempSensor) >= 1) {
+			newMetaState = gIOPPluginOne;
+			CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState CPU0 non-zero temp state 0x%lx\n", safeGetState(fCpuTempSensor));
+		}
 	
-	// Start out in 0 - the highest metaState or 1 if DFS requests it
-	newMetaState = dpsTarget ? gIOPPluginOne : gIOPPluginZero;
+		// fetch the current batt temperature state
+		if (safeGetState(fBattTempSensor) >= 1) {
+			newMetaState = gIOPPluginOne;
+			CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState battery non-zero temp state 0x%lx\n", safeGetState(fBattTempSensor));
+		}
 	
-	if (!fIdleTimerActive && batteryIsOvercurrent()) {
-		CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState - battery overcurrent forced metastate 1\n");
-		newMetaState = gIOPPluginOne;
-	}
-	
-	/*
-	 * Get thermal sensor states.  The current model here is that if *any* sensors report a thermal
-	 * state >= 1 then we DFS low.  There is more resolution than states 0 & 1 in the state sensors
-	 * but for now all the two states are all we care about
-	 */
-	// fetch the current cpu0 temperature state
-	if (safeGetState(fCpuTempSensor) >= 1) {
-		newMetaState = gIOPPluginOne;
-		CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState CPU0 non-zero temp state 0x%lx\n", safeGetState(fCpuTempSensor));
-	}
-
-	// fetch the current batt temperature state
-	if (safeGetState(fBattTempSensor) >= 1) {
-		newMetaState = gIOPPluginOne;
-		CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState battery non-zero temp state 0x%lx\n", safeGetState(fBattTempSensor));
-	}
-
-	// fetch the current trackpad temperature state
-	if (safeGetState(fTPadTempSensor) >= 1) {
-		newMetaState = gIOPPluginOne;
-		CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState trackpad non-zero temp state 0x%lx\n", safeGetState(fTPadTempSensor));
-	}
-	
-	// fetch the current Uni-N temperature state
-	if (safeGetState(fUniNTempSensor) >= 1) {
-		newMetaState = gIOPPluginOne;
-		CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState Uni-N non-zero temp state 0x%lx\n", safeGetState(fUniNTempSensor));
-	}
-	
-	// fetch the current power supply temperature state
-	if (safeGetState(fPwrSupTempSensor) >= 1) {
-		newMetaState = gIOPPluginOne;
-		CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState power supply non-zero temp state 0x%lx\n", safeGetState(fPwrSupTempSensor));
-	}
-	
-	// Check for low power conditions
-	if (lowPowerForcedDPS ()) {
-		newMetaState = gIOPPluginOne;
+		// fetch the current trackpad temperature state
+		if (safeGetState(fTPadTempSensor) >= 1) {
+			newMetaState = gIOPPluginOne;
+			CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState trackpad non-zero temp state 0x%lx\n", safeGetState(fTPadTempSensor));
+		}
+		
+		// fetch the current Uni-N temperature state
+		if (safeGetState(fUniNTempSensor) >= 1) {
+			newMetaState = gIOPPluginOne;
+			CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState Uni-N non-zero temp state 0x%lx\n", safeGetState(fUniNTempSensor));
+		}
+		
+		// fetch the current power supply temperature state
+		if (safeGetState(fPwrSupTempSensor) >= 1) {
+			newMetaState = gIOPPluginOne;
+			CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState power supply non-zero temp state 0x%lx\n", safeGetState(fPwrSupTempSensor));
+		}
+		
+		// Check for low power conditions
+		if (lowPowerForcedDPS ()) {
+			newMetaState = gIOPPluginOne;
+		}
 	}
 
 	//CTRLLOOP_DLOG( "PBG4_DPSCtrlLoop::updateMetaState - final metaState %d\n", newMetaState->unsigned32BitValue() );

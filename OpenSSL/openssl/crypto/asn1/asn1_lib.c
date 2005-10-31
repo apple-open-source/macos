@@ -109,7 +109,7 @@ int ASN1_get_object(unsigned char **pp, long *plength, int *ptag, int *pclass,
 		l<<=7L;
 		l|= *(p++)&0x7f;
 		tag=(int)l;
-		if (l > (INT_MAX >> 7L)) goto err;
+		if (--max == 0) goto err;
 		}
 	else
 		{ 
@@ -349,6 +349,7 @@ int ASN1_STRING_set(ASN1_STRING *str, const void *_data, int len)
 
 		if (str->data == NULL)
 			{
+			ASN1err(ASN1_F_ASN1_STRING_SET,ERR_R_MALLOC_FAILURE);
 			str->data=c;
 			return(0);
 			}
@@ -414,8 +415,8 @@ void asn1_add_error(unsigned char *address, int offset)
 	{
 	char buf1[DECIMAL_SIZE(address)+1],buf2[DECIMAL_SIZE(offset)+1];
 
-	sprintf(buf1,"%lu",(unsigned long)address);
-	sprintf(buf2,"%d",offset);
+	BIO_snprintf(buf1,sizeof buf1,"%lu",(unsigned long)address);
+	BIO_snprintf(buf2,sizeof buf2,"%d",offset);
 	ERR_add_error_data(4,"address=",buf1," offset=",buf2);
 	}
 

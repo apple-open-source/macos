@@ -159,8 +159,8 @@ Boston, MA 02111-1307, USA.  */
 #define remquo(x,y,z)    __TGMATH_REAL_2_3(x, y, z, remquo)
 #define rint(x)          __TGMATH_REAL(x, rint)
 #define round(x)         __TGMATH_REAL(x, round)
-#define scalbn(x,y)      __TGMATH_REAL_2(x, y, scalbn)
-#define scalbln(x,y)     __TGMATH_REAL_2(x, y, scalbln)
+#define scalbn(x,y)      __TGMATH_REAL_1_2(x, y, scalbn)
+#define scalbln(x,y)     __TGMATH_REAL_1_2(x, y, scalbln)
 #define tgamma(x)        __TGMATH_REAL(x, tgamma)
 #define trunc(x)         __TGMATH_REAL(x, trunc)
 

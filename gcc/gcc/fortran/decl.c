@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -21,13 +21,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #include "config.h"
+#include "system.h"
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
-#include <string.h>
 
 
-/* This flag is set if a an old-style length selector is matched
+/* This flag is set if an old-style length selector is matched
    during a type-declaration statement.  */
 
 static int old_char_selector;
@@ -198,7 +198,7 @@ var_element (gfc_data_variable * new)
 	}
 #endif
 
-  if (gfc_add_data (&sym->attr, &new->expr->where) == FAILURE)
+  if (gfc_add_data (&sym->attr, sym->name, &new->expr->where) == FAILURE)
     return MATCH_ERROR;
 
   return MATCH_YES;
@@ -401,7 +401,7 @@ match_old_style_init (const char *name)
 /* Match the stuff following a DATA statement. If ERROR_FLAG is set,
    we are matching a DATA statement and are therefore issuing an error
    if we encounter something unexpected, if not, we're trying to match 
-   an old-style intialization expression of the form INTEGER I /2/.   */
+   an old-style intialization expression of the form INTEGER I /2/.  */
 
 match
 gfc_match_data (void)
@@ -598,7 +598,8 @@ get_proc_name (const char *name, gfc_symbol ** result)
   if (sym->ns->proc_name != NULL
       && sym->ns->proc_name->attr.flavor == FL_MODULE
       && sym->attr.proc != PROC_MODULE
-      && gfc_add_procedure (&sym->attr, PROC_MODULE, NULL) == FAILURE)
+      && gfc_add_procedure (&sym->attr, PROC_MODULE,
+			    sym->name, NULL) == FAILURE)
     rc = 2;
 
   return rc;
@@ -645,6 +646,30 @@ build_sym (const char *name, gfc_charlen * cl,
   return SUCCESS;
 }
 
+/* Set character constant to the given length. The constant will be padded or
+   truncated.  */
+
+void
+gfc_set_constant_character_len (int len, gfc_expr * expr)
+{
+  char * s;
+  int slen;
+
+  gcc_assert (expr->expr_type == EXPR_CONSTANT);
+  gcc_assert (expr->ts.type == BT_CHARACTER && expr->ts.kind == 1);
+
+  slen = expr->value.character.length;
+  if (len != slen)
+    {
+      s = gfc_getmem (len);
+      memcpy (s, expr->value.character.string, MIN (len, slen));
+      if (len > slen)
+	memset (&s[slen], ' ', len - slen);
+      gfc_free (expr->value.character.string);
+      expr->value.character.string = s;
+      expr->value.character.length = len;
+    }
+}
 
 /* Function called by variable_decl() that adds an initialization
    expression to a symbol.  */
@@ -709,6 +734,35 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
       if (sym->ts.type != BT_DERIVED && init->ts.type != BT_DERIVED
 	  && gfc_check_assign_symbol (sym, init) == FAILURE)
 	return FAILURE;
+
+      if (sym->ts.type == BT_CHARACTER && sym->ts.cl)
+	{
+	  /* Update symbol character length according initializer.  */
+	  if (sym->ts.cl->length == NULL)
+	    {
+	      if (init->expr_type == EXPR_CONSTANT)
+		sym->ts.cl->length =
+			gfc_int_expr (init->value.character.length);
+	      else if (init->expr_type == EXPR_ARRAY)
+		sym->ts.cl->length = gfc_copy_expr (init->ts.cl->length);
+	    }
+	  /* Update initializer character length according symbol.  */
+	  else if (sym->ts.cl->length->expr_type == EXPR_CONSTANT)
+	    {
+	      int len = mpz_get_si (sym->ts.cl->length->value.integer);
+	      gfc_constructor * p;
+
+	      if (init->expr_type == EXPR_CONSTANT)
+		gfc_set_constant_character_len (len, init);
+	      else if (init->expr_type == EXPR_ARRAY)
+		{
+		  gfc_free_expr (init->ts.cl->length);
+		  init->ts.cl->length = gfc_copy_expr (sym->ts.cl->length);
+		  for (p = init->value.constructor; p; p = p->next)
+		    gfc_set_constant_character_len (len, p->expr);
+		}
+	    }
+	}
 
       /* Add initializer.  Make sure we keep the ranks sane.  */
       if (sym->attr.dimension && init->rank == 0)
@@ -818,8 +872,9 @@ gfc_match_null (gfc_expr ** result)
   gfc_intrinsic_symbol (sym);
 
   if (sym->attr.proc != PROC_INTRINSIC
-      && (gfc_add_procedure (&sym->attr, PROC_INTRINSIC, NULL) == FAILURE
-	  || gfc_add_function (&sym->attr, NULL) == FAILURE))
+      && (gfc_add_procedure (&sym->attr, PROC_INTRINSIC,
+			     sym->name, NULL) == FAILURE
+	  || gfc_add_function (&sym->attr, sym->name, NULL) == FAILURE))
     return MATCH_ERROR;
 
   e = gfc_get_expr ();
@@ -1369,7 +1424,7 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
     }
 
   if (sym->attr.flavor != FL_DERIVED
-      && gfc_add_flavor (&sym->attr, FL_DERIVED, NULL) == FAILURE)
+      && gfc_add_flavor (&sym->attr, FL_DERIVED, sym->name, NULL) == FAILURE)
     return MATCH_ERROR;
 
   ts->type = BT_DERIVED;
@@ -1801,7 +1856,7 @@ match_attr_spec (void)
 	  break;
 
 	case DECL_DIMENSION:
-	  t = gfc_add_dimension (&current_attr, &seen_at[d]);
+	  t = gfc_add_dimension (&current_attr, NULL, &seen_at[d]);
 	  break;
 
 	case DECL_EXTERNAL:
@@ -1829,7 +1884,7 @@ match_attr_spec (void)
 	  break;
 
 	case DECL_PARAMETER:
-	  t = gfc_add_flavor (&current_attr, FL_PARAMETER, &seen_at[d]);
+	  t = gfc_add_flavor (&current_attr, FL_PARAMETER, NULL, &seen_at[d]);
 	  break;
 
 	case DECL_POINTER:
@@ -1837,15 +1892,17 @@ match_attr_spec (void)
 	  break;
 
 	case DECL_PRIVATE:
-	  t = gfc_add_access (&current_attr, ACCESS_PRIVATE, &seen_at[d]);
+	  t = gfc_add_access (&current_attr, ACCESS_PRIVATE, NULL,
+			      &seen_at[d]);
 	  break;
 
 	case DECL_PUBLIC:
-	  t = gfc_add_access (&current_attr, ACCESS_PUBLIC, &seen_at[d]);
+	  t = gfc_add_access (&current_attr, ACCESS_PUBLIC, NULL,
+			      &seen_at[d]);
 	  break;
 
 	case DECL_SAVE:
-	  t = gfc_add_save (&current_attr, &seen_at[d]);
+	  t = gfc_add_save (&current_attr, NULL, &seen_at[d]);
 	  break;
 
 	case DECL_TARGET:
@@ -2080,7 +2137,7 @@ gfc_match_formal_arglist (gfc_symbol * progname, int st_flag, int null_flag)
          dummy procedure.  We don't apply these attributes to formal
          arguments of statement functions.  */
       if (sym != NULL && !st_flag
-	  && (gfc_add_dummy (&sym->attr, NULL) == FAILURE
+	  && (gfc_add_dummy (&sym->attr, sym->name, NULL) == FAILURE
 	      || gfc_missing_attr (&sym->attr, NULL) == FAILURE))
 	{
 	  m = MATCH_ERROR;
@@ -2180,8 +2237,8 @@ match_result (gfc_symbol * function, gfc_symbol ** result)
   if (gfc_get_symbol (name, NULL, &r))
     return MATCH_ERROR;
 
-  if (gfc_add_flavor (&r->attr, FL_VARIABLE, NULL) == FAILURE
-      || gfc_add_result (&r->attr, NULL) == FAILURE)
+  if (gfc_add_flavor (&r->attr, FL_VARIABLE, r->name, NULL) == FAILURE
+      || gfc_add_result (&r->attr, r->name, NULL) == FAILURE)
     return MATCH_ERROR;
 
   *result = r;
@@ -2251,7 +2308,7 @@ gfc_match_function_decl (void)
   /* Make changes to the symbol.  */
   m = MATCH_ERROR;
 
-  if (gfc_add_function (&sym->attr, NULL) == FAILURE)
+  if (gfc_add_function (&sym->attr, sym->name, NULL) == FAILURE)
     goto cleanup;
 
   if (gfc_missing_attr (&sym->attr, NULL) == FAILURE
@@ -2326,13 +2383,13 @@ gfc_match_entry (void)
 
   if (state == COMP_SUBROUTINE)
     {
-      /* And entry in a subroutine.  */
+      /* An entry in a subroutine.  */
       m = gfc_match_formal_arglist (entry, 0, 1);
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      if (gfc_add_entry (&entry->attr, NULL) == FAILURE
-	  || gfc_add_subroutine (&entry->attr, NULL) == FAILURE)
+      if (gfc_add_entry (&entry->attr, entry->name, NULL) == FAILURE
+	  || gfc_add_subroutine (&entry->attr, entry->name, NULL) == FAILURE)
 	return MATCH_ERROR;
     }
   else
@@ -2346,8 +2403,8 @@ gfc_match_entry (void)
 
       if (gfc_match_eos () == MATCH_YES)
 	{
-	  if (gfc_add_entry (&entry->attr, NULL) == FAILURE
-	      || gfc_add_function (&entry->attr, NULL) == FAILURE)
+	  if (gfc_add_entry (&entry->attr, entry->name, NULL) == FAILURE
+	      || gfc_add_function (&entry->attr, entry->name, NULL) == FAILURE)
 	    return MATCH_ERROR;
 
 	  entry->result = proc->result;
@@ -2361,9 +2418,10 @@ gfc_match_entry (void)
 	  if (m != MATCH_YES)
 	    return MATCH_ERROR;
 
-	  if (gfc_add_result (&result->attr, NULL) == FAILURE
-	      || gfc_add_entry (&entry->attr, NULL) == FAILURE
-	      || gfc_add_function (&entry->attr, NULL) == FAILURE)
+	  if (gfc_add_result (&result->attr, result->name, NULL) == FAILURE
+	      || gfc_add_entry (&entry->attr, result->name, NULL) == FAILURE
+	      || gfc_add_function (&entry->attr, result->name,
+				   NULL) == FAILURE)
 	    return MATCH_ERROR;
 	}
 
@@ -2426,7 +2484,7 @@ gfc_match_subroutine (void)
     return MATCH_ERROR;
   gfc_new_block = sym;
 
-  if (gfc_add_subroutine (&sym->attr, NULL) == FAILURE)
+  if (gfc_add_subroutine (&sym->attr, sym->name, NULL) == FAILURE)
     return MATCH_ERROR;
 
   if (gfc_match_formal_arglist (sym, 0, 1) != MATCH_YES)
@@ -2576,8 +2634,8 @@ gfc_match_end (gfc_statement * st)
       if (!eos_ok)
 	{
 	  /* We would have required END [something]  */
-	  gfc_error ("%s statement expected at %C",
-		     gfc_ascii_statement (*st));
+	  gfc_error ("%s statement expected at %L",
+		     gfc_ascii_statement (*st), &old_loc);
 	  goto cleanup;
 	}
 
@@ -2713,7 +2771,7 @@ attr_decl1 (void)
 
   if ((current_attr.external || current_attr.intrinsic)
       && sym->attr.flavor != FL_PROCEDURE
-      && gfc_add_flavor (&sym->attr, FL_PROCEDURE, NULL) == FAILURE)
+      && gfc_add_flavor (&sym->attr, FL_PROCEDURE, sym->name, NULL) == FAILURE)
     {
       m = MATCH_ERROR;
       goto cleanup;
@@ -2840,7 +2898,7 @@ gfc_match_dimension (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_dimension (&current_attr, NULL);
+  gfc_add_dimension (&current_attr, NULL, NULL);
 
   return attr_decl ();
 }
@@ -2893,7 +2951,7 @@ access_attr_decl (gfc_statement st)
 	  if (gfc_add_access (&sym->attr,
 			      (st ==
 			       ST_PUBLIC) ? ACCESS_PUBLIC : ACCESS_PRIVATE,
-			      NULL) == FAILURE)
+			      sym->name, NULL) == FAILURE)
 	    return MATCH_ERROR;
 
 	  break;
@@ -3036,7 +3094,7 @@ do_parm (void)
     }
 
   if (gfc_check_assign_symbol (sym, init) == FAILURE
-      || gfc_add_flavor (&sym->attr, FL_PARAMETER, NULL) == FAILURE)
+      || gfc_add_flavor (&sym->attr, FL_PARAMETER, sym->name, NULL) == FAILURE)
     {
       m = MATCH_ERROR;
       goto cleanup;
@@ -3120,7 +3178,8 @@ gfc_match_save (void)
       switch (m)
 	{
 	case MATCH_YES:
-	  if (gfc_add_save (&sym->attr, &gfc_current_locus) == FAILURE)
+	  if (gfc_add_save (&sym->attr, sym->name,
+			    &gfc_current_locus) == FAILURE)
 	    return MATCH_ERROR;
 	  goto next_item;
 
@@ -3189,7 +3248,8 @@ gfc_match_modproc (void)
 	return MATCH_ERROR;
 
       if (sym->attr.proc != PROC_MODULE
-	  && gfc_add_procedure (&sym->attr, PROC_MODULE, NULL) == FAILURE)
+	  && gfc_add_procedure (&sym->attr, PROC_MODULE,
+				sym->name, NULL) == FAILURE)
 	return MATCH_ERROR;
 
       if (gfc_add_interface (sym) == FAILURE)
@@ -3236,7 +3296,7 @@ loop:
 	  return MATCH_ERROR;
 	}
 
-      if (gfc_add_access (&attr, ACCESS_PRIVATE, NULL) == FAILURE)
+      if (gfc_add_access (&attr, ACCESS_PRIVATE, NULL, NULL) == FAILURE)
 	return MATCH_ERROR;
       goto loop;
     }
@@ -3249,7 +3309,7 @@ loop:
 	  return MATCH_ERROR;
 	}
 
-      if (gfc_add_access (&attr, ACCESS_PUBLIC, NULL) == FAILURE)
+      if (gfc_add_access (&attr, ACCESS_PUBLIC, NULL, NULL) == FAILURE)
 	return MATCH_ERROR;
       goto loop;
     }
@@ -3292,9 +3352,9 @@ loop:
      components.  The ways this can happen is via a function
      definition, an INTRINSIC statement or a subtype in another
      derived type that is a pointer.  The first part of the AND clause
-     is true if a the symbol is not the return value of a function. */
+     is true if a the symbol is not the return value of a function.  */
   if (sym->attr.flavor != FL_DERIVED
-      && gfc_add_flavor (&sym->attr, FL_DERIVED, NULL) == FAILURE)
+      && gfc_add_flavor (&sym->attr, FL_DERIVED, sym->name, NULL) == FAILURE)
     return MATCH_ERROR;
 
   if (sym->components != NULL)
@@ -3306,7 +3366,7 @@ loop:
     }
 
   if (attr.access != ACCESS_UNKNOWN
-      && gfc_add_access (&sym->attr, attr.access, NULL) == FAILURE)
+      && gfc_add_access (&sym->attr, attr.access, sym->name, NULL) == FAILURE)
     return MATCH_ERROR;
 
   gfc_new_block = sym;

@@ -1,3 +1,8 @@
+Changes for the 5.18 release (the cctools-583 release):
+- Changed the Makefile so that when RC_XBS is set to YES then the compiler
+  options -MD and -dependency-file as well as the md(1) program are not used.
+  Radar bug #4029936.
+
 Changes for the 5.12 release (the cctools-552 release):
 - Changed ar(1) to update or add a table of contents when in UNIX standard
   conformance mode (the default). To do this and not hose archives with fat

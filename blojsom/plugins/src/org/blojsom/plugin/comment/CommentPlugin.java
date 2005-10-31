@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,8 @@ import org.blojsom.blog.*;
 import org.blojsom.fetcher.BlojsomFetcher;
 import org.blojsom.fetcher.BlojsomFetcherException;
 import org.blojsom.plugin.BlojsomPluginException;
+import org.blojsom.plugin.comment.event.CommentAddedEvent;
+import org.blojsom.plugin.comment.event.CommentResponseSubmissionEvent;
 import org.blojsom.plugin.common.VelocityPlugin;
 import org.blojsom.plugin.email.EmailUtils;
 import org.blojsom.util.BlojsomConstants;
@@ -58,7 +60,7 @@ import java.util.*;
  * CommentPlugin
  *
  * @author David Czarnecki
- * @version $Id: CommentPlugin.java,v 1.3 2005/01/15 20:39:08 johnan Exp $
+ * @version $Id: CommentPlugin.java,v 1.3.2.1 2005/07/21 04:30:27 johnan Exp $
  */
 public class CommentPlugin extends VelocityPlugin implements BlojsomMetaDataConstants {
 
@@ -107,27 +109,27 @@ public class CommentPlugin extends VelocityPlugin implements BlojsomMetaDataCons
     /**
      * Request parameter for the "comment"
      */
-    private static final String COMMENT_PARAM = "comment";
+    public static final String COMMENT_PARAM = "comment";
 
     /**
      * Request parameter for the "author"
      */
-    private static final String AUTHOR_PARAM = "author";
+    public static final String AUTHOR_PARAM = "author";
 
     /**
      * Request parameter for the "authorEmail"
      */
-    private static final String AUTHOR_EMAIL_PARAM = "authorEmail";
+    public static final String AUTHOR_EMAIL_PARAM = "authorEmail";
 
     /**
      * Request parameter for the "authorURL"
      */
-    private static final String AUTHOR_URL_PARAM = "authorURL";
+    public static final String AUTHOR_URL_PARAM = "authorURL";
 
     /**
      * Request parameter for the "commentText"
      */
-    private static final String COMMENT_TEXT_PARAM = "commentText";
+    public static final String COMMENT_TEXT_PARAM = "commentText";
 
     /**
      * Request parameter to "remember" the poster
@@ -204,9 +206,14 @@ public class CommentPlugin extends VelocityPlugin implements BlojsomMetaDataCons
      */
     public static final String BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT = "BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT";
 
+    public static final String BLOJSOM_PLUGIN_COMMENT_METADATA = "BLOJSOM_PLUGIN_COMMENT_METADATA";
+
+    public static final String BLOJSOM_PLUGIN_COMMENT_METADATA_DESTROY = "BLOJSOM_PLUGIN_COMMENT_METADATA_DESTROY";
 
     private Map _ipAddressCommentTimes;
     private BlojsomFetcher _fetcher;
+
+    private BlojsomConfiguration _configuration;
 
     /**
      * Initialize this plugin. This method only called when the plugin is instantiated.
@@ -217,6 +224,8 @@ public class CommentPlugin extends VelocityPlugin implements BlojsomMetaDataCons
      */
     public void init(ServletConfig servletConfig, BlojsomConfiguration blojsomConfiguration) throws BlojsomPluginException {
         super.init(servletConfig, blojsomConfiguration);
+
+        _configuration = blojsomConfiguration;
 
         _ipAddressCommentTimes = new HashMap(10);
         String fetcherClassName = blojsomConfiguration.getFetcherClass();
@@ -368,6 +377,7 @@ public class CommentPlugin extends VelocityPlugin implements BlojsomMetaDataCons
             String commentText = httpServletRequest.getParameter(COMMENT_TEXT_PARAM);
             String permalink = httpServletRequest.getParameter(BlojsomConstants.PERMALINK_PARAM);
             String category = httpServletRequest.getParameter(BlojsomConstants.CATEGORY_PARAM);
+            category = BlojsomUtils.urlDecode(category);
             String remember = httpServletRequest.getParameter(REMEMBER_ME_PARAM);
 
             String title = entries[0].getTitle();
@@ -450,7 +460,7 @@ public class CommentPlugin extends VelocityPlugin implements BlojsomMetaDataCons
 
                 try {
                     BlogEntry[] fetchedEntries = _fetcher.fetchEntries(fetchMap, user);
-                    if (entries.length > 0) {
+                    if (fetchedEntries.length > 0) {
                         BlogEntry entry = fetchedEntries[0];
                         if (BlojsomUtils.checkMapForKey(entry.getMetaData(), BLOG_METADATA_COMMENTS_DISABLED)) {
                             _logger.debug("Comments have been disabled for blog entry: " + entry.getId());
@@ -481,33 +491,58 @@ public class CommentPlugin extends VelocityPlugin implements BlojsomMetaDataCons
                 Map commentMetaData = new HashMap();
                 commentMetaData.put(BLOJSOM_COMMENT_PLUGIN_METADATA_IP, remoteIPAddress);
 
-                BlogComment _comment = addBlogComment(category, permalink, author, authorEmail, authorURL,
-                        commentText, _blogCommentsEnabled.booleanValue(), _blogFileExtensions, _blogHome,
-                        _blogCommentsDirectory, _blogFileEncoding, commentMetaData);
+                // Check to see if a previous plugin populated meta-data for the comment
+                if (context.containsKey(BLOJSOM_PLUGIN_COMMENT_METADATA)) {
+                    Map metaData = (Map) context.get(BLOJSOM_PLUGIN_COMMENT_METADATA);
 
-                // For persisting the Last-Modified time
-                context.put(BlojsomConstants.BLOJSOM_LAST_MODIFIED, new Long(new Date().getTime()));
-
-                if (_comment != null) {
-                    List blogComments = entries[0].getComments();
-                    if (blogComments == null) {
-                        blogComments = new ArrayList(1);
+                    Iterator metaDataKeys = metaData.keySet().iterator();
+                    Object key;
+                    Object value;
+                    while (metaDataKeys.hasNext()) {
+                        key = metaDataKeys.next();
+                        value = metaData.get(key);
+                        commentMetaData.put(key, value);
                     }
-                    blogComments.add(_comment);
-                    entries[0].setComments(blogComments);
+                }
 
-                    // Merge the template e-mail
-                    Map emailTemplateContext = new HashMap();
-                    emailTemplateContext.put(BLOJSOM_BLOG, blog);
-                    emailTemplateContext.put(BLOJSOM_USER, user);
-                    emailTemplateContext.put(BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT, _comment);
-                    emailTemplateContext.put(BLOJSOM_COMMENT_PLUGIN_BLOG_ENTRY, entries[0]);
+                _configuration.getEventBroadcaster().processEvent(new CommentResponseSubmissionEvent(this, new Date(), user, httpServletRequest, httpServletResponse, author, authorEmail, authorURL, commentText, commentMetaData));                
 
-                    String emailComment = mergeTemplate(COMMENT_PLUGIN_EMAIL_TEMPLATE, user, emailTemplateContext);
+                // Check to see if the comment should be destroyed (not saved) automatically
+                if (!commentMetaData.containsKey(BLOJSOM_PLUGIN_COMMENT_METADATA_DESTROY)) {
+                    BlogComment _comment = addBlogComment(category, permalink, author, authorEmail, authorURL,
+                            commentText, _blogCommentsEnabled.booleanValue(), _blogFileExtensions, _blogHome,
+                            _blogCommentsDirectory, _blogFileEncoding, commentMetaData);
 
-                    if (_blogEmailEnabled.booleanValue()) {
-                        sendCommentEmail(_emailPrefix, title, emailComment, context);
+                    // For persisting the Last-Modified time
+                    context.put(BlojsomConstants.BLOJSOM_LAST_MODIFIED, new Long(new Date().getTime()));
+
+                    if (_comment != null) {
+                        List blogComments = entries[0].getComments();
+                        if (blogComments == null) {
+                            blogComments = new ArrayList(1);
+                        }
+
+                        _comment.setBlogEntry(entries[0]);
+                        blogComments.add(_comment);
+                        entries[0].setComments(blogComments);
+
+                        _configuration.getEventBroadcaster().broadcastEvent(new CommentAddedEvent(this, new Date(), _comment, user));
+
+                        // Merge the template e-mail
+                        Map emailTemplateContext = new HashMap();
+                        emailTemplateContext.put(BLOJSOM_BLOG, blog);
+                        emailTemplateContext.put(BLOJSOM_USER, user);
+                        emailTemplateContext.put(BLOJSOM_COMMENT_PLUGIN_BLOG_COMMENT, _comment);
+                        emailTemplateContext.put(BLOJSOM_COMMENT_PLUGIN_BLOG_ENTRY, entries[0]);
+
+                        String emailComment = mergeTemplate(COMMENT_PLUGIN_EMAIL_TEMPLATE, user, emailTemplateContext);
+
+                        if (_blogEmailEnabled.booleanValue()) {
+                            sendCommentEmail(_emailPrefix, title, emailComment, context, (String) entries[0].getMetaData().get(BlojsomMetaDataConstants.BLOG_ENTRY_METADATA_AUTHOR), blog);
+                        }
                     }
+                } else {
+                    _logger.info("Comment meta-data contained destroy key. Comment was not saved");
                 }
 
                 // If we're asked to remember the person, then add the appropriate cookies
@@ -535,9 +570,13 @@ public class CommentPlugin extends VelocityPlugin implements BlojsomMetaDataCons
      * @param title Entry title
      * @param comment Comment text
      * @param context Context
+     * @param author Author of entry
+     * @param blog {@link Blog} information
      */
-    public void sendCommentEmail(String emailPrefix, String title, String comment, Map context) {
-        EmailUtils.notifyBlogAuthor(emailPrefix + title, comment, context);
+    public void sendCommentEmail(String emailPrefix, String title, String comment, Map context, String author, Blog blog) {
+        String recipientEmail = blog.getAuthorizedUserEmail(author);
+
+        EmailUtils.notifyBlogAuthor(emailPrefix + title, comment, context, recipientEmail);
     }
 
 
@@ -622,9 +661,9 @@ public class CommentPlugin extends VelocityPlugin implements BlojsomMetaDataCons
 
                     Properties commentMetaDataProperties = BlojsomUtils.mapToProperties(commentMetaData, UTF8);
                     String commentMetaDataFilename = BlojsomUtils.getFilename(commentEntry.toString()) + DEFAULT_METADATA_EXTENSION;
-					FileOutputStream fos = new FileOutputStream(new File(commentMetaDataFilename));
-					commentMetaDataProperties.store(fos, null);
-					fos.close();
+                    FileOutputStream fos = new FileOutputStream(new File(commentMetaDataFilename));
+                    commentMetaDataProperties.store(fos, null);
+                    fos.close();
                     _logger.debug("Wrote comment meta-data: " + commentMetaDataFilename);
                 } catch (IOException e) {
                     _logger.error(e);

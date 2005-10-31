@@ -56,11 +56,14 @@ HTMLCollectionImpl::HTMLCollectionImpl(NodeImpl *_base, int _type)
     base->ref();
     type = _type;
     idsDone = false;
+    m_ownsInfo = false;
     info = base->isDocumentNode() && base->getDocument()->isHTMLDocument() ? static_cast<HTMLDocumentImpl*>(base->getDocument())->collectionInfo(type) : 0;
 }
 
 HTMLCollectionImpl::~HTMLCollectionImpl()
 {
+    if (m_ownsInfo)
+        delete info;
     base->deref();
 }
 
@@ -90,6 +93,7 @@ void HTMLCollectionImpl::resetCollectionInfo() const
 
     if (!info) {
         info = new CollectionInfo;
+        m_ownsInfo = true;
         info->version = docversion;
         return;
     }

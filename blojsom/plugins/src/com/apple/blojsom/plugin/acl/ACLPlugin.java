@@ -1,10 +1,10 @@
 /**
  * Contains:   ACL plug-in for blojsom.
  * Written by: John Anderson (for addtl writers check CVS comments).
- * Copyright:  © 2004 Apple Computer, Inc., all rights reserved.
+ * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: ACLPlugin.java,v 1.9 2005/03/02 22:58:02 johnan Exp $
+ * $Id: ACLPlugin.java,v 1.9.2.1 2005/07/21 04:30:23 johnan Exp $
  */ 
 package com.apple.blojsom.plugin.acl;
 
@@ -33,7 +33,7 @@ import java.util.*;
  * ACL plug-in
  *
  * @author John Anderson
- * @version $Id: ACLPlugin.java,v 1.9 2005/03/02 22:58:02 johnan Exp $
+ * @version $Id: ACLPlugin.java,v 1.9.2.1 2005/07/21 04:30:23 johnan Exp $
  */
 
 public class ACLPlugin implements BlojsomPlugin, BlojsomConstants {
@@ -124,7 +124,7 @@ public class ACLPlugin implements BlojsomPlugin, BlojsomConstants {
         }
         
         // if they're authenticated against the admin plug-in then we're good too
-        String adminAttributeKey = blog.getBlogURL() + "_" + BLOJSOM_ADMIN_PLUGIN_AUTHENTICATED_KEY;
+        String adminAttributeKey = blog.getBlogAdminURL() + "_" + BLOJSOM_ADMIN_PLUGIN_AUTHENTICATED_KEY;
         if ((httpSession.getAttribute(adminAttributeKey) != null) && (((Boolean)httpSession.getAttribute(adminAttributeKey)).booleanValue())) {
         	return true;
         }
@@ -161,6 +161,15 @@ public class ACLPlugin implements BlojsomPlugin, BlojsomConstants {
                 return false;
             }
             
+			// try to resolve shortname aliases and full names
+			String resolvedShortName = BlojsomAppleUtils.validateShortNameAndResolveAliases(username, "/Search");
+			
+			if (resolvedShortName != null) {
+				username = resolvedShortName;
+			} else {
+				username = BlojsomAppleUtils.getShortNameFromFullName(username, "/Search");
+			}
+
             // first, make sure they typed the correct password
             if (!BlojsomAppleUtils.checkUserPassword(username, password)) {
                 _logger.debug("Failed authentication for username: " + username);
@@ -249,7 +258,7 @@ public class ACLPlugin implements BlojsomPlugin, BlojsomConstants {
         String aclUsersRequestValue = BlojsomUtils.getRequestValue(ACL_USERS_FORM_PROPERTY, httpServletRequest);
 
         // figure out whether they're authenticated as an admin
-        String adminAttributeKey = blog.getBlogURL() + "_" + BLOJSOM_ADMIN_PLUGIN_AUTHENTICATED_KEY;
+        String adminAttributeKey = blog.getBlogAdminURL() + "_" + BLOJSOM_ADMIN_PLUGIN_AUTHENTICATED_KEY;
         if ((httpSession.getAttribute(adminAttributeKey) != null) && (((Boolean)httpSession.getAttribute(adminAttributeKey)).booleanValue())) {
         	if (aclUsersRequestValue != null) {
 				String [] newUsersAndGroups = new String[0];
@@ -264,9 +273,10 @@ public class ACLPlugin implements BlojsomPlugin, BlojsomConstants {
 				
 				for (int i = 0; i < newUsersAndGroups.length; i++) {
 					String currentUserOrGroup = newUsersAndGroups[i];
-					if (BlojsomAppleUtils.doesUserExistInDS(currentUserOrGroup, ".") || BlojsomAppleUtils.doesUserExistInDS(currentUserOrGroup, "/Search")) {
+					String currentUser = BlojsomAppleUtils.validateShortNameAndResolveAliases(currentUserOrGroup, "/Search");
+					if (currentUser != null) {
 						aclUsers = BlojsomAppleUtils.addSlotToStringArray(aclUsers);
-						aclUsers[aclUsers.length-1] = currentUserOrGroup;
+						aclUsers[aclUsers.length-1] = currentUser;
 					}
 					else if (BlojsomAppleUtils.doesGroupExistInDS(currentUserOrGroup, ".") || BlojsomAppleUtils.doesGroupExistInDS(currentUserOrGroup, "/Search")) {
 						aclGroups = BlojsomAppleUtils.addSlotToStringArray(aclGroups);

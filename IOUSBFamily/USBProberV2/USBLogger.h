@@ -74,6 +74,12 @@ enum
     kKernelDebugOutputKextLoggerType	= 0x00000002
 };
 
+@protocol USBLoggerListener <NSObject>
+
+- (void)usbLoggerTextAvailable:(NSString *)text forLevel:(int)level;
+
+@end
+
 @interface USBLogger : NSObject {
     id              _listener;
     int             _loggingLevel;
@@ -85,7 +91,7 @@ enum
     IODataQueueMemory *	_gMyQueue;
 }
 
-- initWithListener:(id)listener level:(int)level;
+- initWithListener:(id <USBLoggerListener>)listener level:(int)level;
 
 - (kern_return_t)OpenUSBControllerUserClient;
 - (kern_return_t)setDebuggerOptions:(int)shouldLogFlag setLevel:(bool)setLevel level:(UInt32)level setType:(bool)setType type:(UInt32)type;
@@ -96,9 +102,4 @@ enum
 
 @end
 
-@protocol USBLoggerListener <NSObject>
-
-- (void)usbLoggerTextAvailable:(NSString *)text forLevel:(int)level;
-
-@end
 

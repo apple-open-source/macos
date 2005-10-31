@@ -175,7 +175,7 @@ struct resword
    _true_.  */
 #define D_EXT		0x01	/* GCC extension */
 #define D_ASM		0x02	/* in C99, but has a switch to turn it off */
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 #define D_OBJC		0x08	/* Objective C++ only */
 
 CONSTRAINT(ridbits_fit, RID_LAST_MODIFIER < sizeof(unsigned long) * CHAR_BIT);
@@ -283,7 +283,7 @@ static const struct resword reswords[] =
   { "wchar_t",          RID_WCHAR,	0 },
   { "while",		RID_WHILE,	0 },
 
-  /* APPLE LOCAL begin Objective-C++ */
+  /* APPLE LOCAL begin mainline */
   /* The remaining keywords are specific to Objective-C++.  NB:
      All of them will remain _disabled_, since they are context-
      sensitive.  */
@@ -309,7 +309,7 @@ static const struct resword reswords[] =
   { "inout",		RID_INOUT,		D_OBJC },
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
-  /* APPLE LOCAL end Objective-C++ */
+  /* APPLE LOCAL end mainline */
 };
 
 void
@@ -318,9 +318,9 @@ init_reswords (void)
   unsigned int i;
   tree id;
   int mask = ((flag_no_asm ? D_ASM : 0)
-	      | (flag_no_gnu_keywords ? D_EXT : 0)
-	      /* APPLE LOCAL Objective-C++ */
-	      | D_OBJC);
+	      /* APPLE LOCAL mainline */
+	      | D_OBJC
+	      | (flag_no_gnu_keywords ? D_EXT : 0));
 
   ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
   for (i = 0; i < ARRAY_SIZE (reswords); i++)
@@ -401,7 +401,7 @@ cxx_init (void)
   cxx_init_decl_processing ();
 
   /* Create the built-in __null node.  It is important that this is
-     not shared. */
+     not shared.  */
   null_node = make_node (INTEGER_CST);
   TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
 
@@ -668,8 +668,8 @@ unqualified_fn_lookup_error (tree name)
 	  static bool hint;
 	  if (!hint)
 	    {
-	      error ("(if you use `-fpermissive', G++ will accept your code, "
-		     "but allowing the use of an undeclared name is "
+	      error ("(if you use %<-fpermissive%>, G++ will accept your "
+		     "code, but allowing the use of an undeclared name is "
 		     "deprecated)");
 	      hint = true;
 	    }
@@ -847,21 +847,4 @@ make_aggr_type (enum tree_code code)
     SET_IS_AGGR_TYPE (t, 1);
 
   return t;
-}
-
-/* Return the type-qualifier corresponding to the identifier given by
-   RID.  */
-
-int
-cp_type_qual_from_rid (tree rid)
-{
-  if (rid == ridpointers[(int) RID_CONST])
-    return TYPE_QUAL_CONST;
-  else if (rid == ridpointers[(int) RID_VOLATILE])
-    return TYPE_QUAL_VOLATILE;
-  else if (rid == ridpointers[(int) RID_RESTRICT])
-    return TYPE_QUAL_RESTRICT;
-
-  gcc_unreachable ();
-  return TYPE_UNQUALIFIED;
 }

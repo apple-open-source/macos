@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: imapd.c,v 1.12 2005/03/05 00:36:55 dasenbro Exp $ */
+/* $Id: imapd.c,v 1.17 2005/10/14 19:03:21 dasenbro Exp $ */
 
 #include <config.h>
 
@@ -146,6 +146,9 @@ int imapd_exists = -1;
 
 /* current namespace */
 static struct namespace imapd_namespace;
+
+/* current user mail options */
+static struct od_user_opts	*gUserOpts = NULL;
 
 static const char *monthname[] = {
     "jan", "feb", "mar", "apr", "may", "jun",
@@ -619,6 +622,9 @@ int service_main(int argc __attribute__((unused)),
     imapd_in = prot_new(0, 0);
     imapd_out = prot_new(1, 1);
 
+	if ( gUserOpts == NULL )
+		gUserOpts = xzmalloc( sizeof(struct od_user_opts) );
+	
     /* Find out name of client host */
     salen = sizeof(imapd_remoteaddr);
     if (getpeername(0, (struct sockaddr *)&imapd_remoteaddr, &salen) == 0 &&
@@ -761,6 +767,12 @@ void shut_down(int code)
 
     annotatemore_close();
     annotatemore_done();
+
+	if (gUserOpts) {
+	odFreeUserOpts(gUserOpts, 1);
+	free(gUserOpts);
+	gUserOpts = NULL;
+	}
 
     if (imapd_in) {
 	/* Flush the incoming buffer */
@@ -1724,7 +1736,6 @@ void cmd_login(char *tag, char *user)
     int plaintextloginpause;
     int r;
     char mailboxname[ MAX_MAILBOX_NAME + 1 ] = "\0";
-    struct od_user_opts	useropts;
     
     if (imapd_userid) {
 	eatline(imapd_in, ' ');
@@ -1740,13 +1751,15 @@ void cmd_login(char *tag, char *user)
 		return;
 	}
 
-	odGetUserOpts( user, &useropts );
-	if ( useropts.fRecName[ 0 ] == '\0' )
+	/* get user record name and email options */
+	odGetUserOpts( user, gUserOpts );
+	if ( gUserOpts->fRecNamePtr == NULL )
 	{
-		strlcpy( useropts.fRecName, user, sizeof(useropts.fRecName) );
+		gUserOpts->fRecNamePtr = xmalloc( strlen( user ) + 1 );
+		strlcpy( gUserOpts->fRecNamePtr, user, strlen( user ) + 1 );
 	}
 	
-    r = imapd_canon_user(imapd_saslconn, NULL, useropts.fRecName, 0,
+    r = imapd_canon_user(imapd_saslconn, NULL, gUserOpts->fRecNamePtr, 0,
 			 SASL_CU_AUTHID | SASL_CU_AUTHZID, NULL,
 			 userbuf, sizeof(userbuf), &userlen);
 
@@ -1755,6 +1768,7 @@ void cmd_login(char *tag, char *user)
 	       imapd_clienthost, beautify_string(user));
 	prot_printf(imapd_out, "%s NO %s\r\n", tag, 
 		    error_message(IMAP_INVALID_USER));
+	odFreeUserOpts( gUserOpts, 0 );
 	return;
     }
 
@@ -1765,6 +1779,7 @@ void cmd_login(char *tag, char *user)
 	eatline(imapd_in, ' ');
 	prot_printf(imapd_out, "%s NO Login only available under a layer\r\n",
 		    tag);
+	odFreeUserOpts( gUserOpts, 0 );
 	return;
     }
 
@@ -1778,6 +1793,7 @@ void cmd_login(char *tag, char *user)
 		    "%s BAD Unexpected extra arguments to LOGIN\r\n",
 		    tag);
 	eatline(imapd_in, c);
+	odFreeUserOpts( gUserOpts, 0 );
 	return;
     }
 
@@ -1786,29 +1802,29 @@ void cmd_login(char *tag, char *user)
     if ( !is_userid_anonymous( user ) )
 	{
 		/* do we know this user */
-		if ( useropts.fRecName[ 0 ] == '\0' )
+		if ( gUserOpts->fRecNamePtr == NULL )
 		{
 			syslog( LOG_NOTICE, "badlogin from: %s plaintext user: %s. unknown user",
 					imapd_clienthost, beautify_string( user ) );
 
 			prot_printf( imapd_out, "%s NO unknown user or bad password\r\n", tag);
 
+			odFreeUserOpts( gUserOpts, 0 );
 			freebuf( &passwdbuf );
-
 			return;
 		}
 
 		/* is their account enabled */
-		if ( useropts.fAcctState != eAcctEnabled )
+		if ( !(gUserOpts->fAccountState & eAccountEnabled) )
 		{
-			if ( useropts.fAcctState == eAcctNotMember )
+			if ( gUserOpts->fAccountState & eACLNotMember )
 			{
 				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
 						imapd_clienthost, beautify_string( user ) );
 
 				prot_printf( imapd_out, "%s NO Mail service ACL is not enabled for this user\r\n", tag );
 			}
-			else if ( useropts.fAcctState == eAcctForwarded )
+			else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
 			{
 				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
 						imapd_clienthost, beautify_string( user ) );
@@ -1823,21 +1839,21 @@ void cmd_login(char *tag, char *user)
 				prot_printf( imapd_out, "%s NO Mail is not enabled for this user\r\n", tag);
 			}
 
+			odFreeUserOpts( gUserOpts, 0 );
 			freebuf( &passwdbuf );
-
 			return;
 		}
 
 		/* is their imap login enabled */
-		if ( useropts.fIMAPLogin != eAcctProtocolEnabled )
+		if ( !(gUserOpts->fAccountState & eIMAPEnabled) )
 		{
 			syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. IMAP access is not enabled for this user",
 					imapd_clienthost, beautify_string( user ) );
 
 			prot_printf( imapd_out, "%s NO IMAP access is not enabled for this user\r\n", tag );
 
+			odFreeUserOpts( gUserOpts, 0 );
 			freebuf( &passwdbuf );
-
 			return;
 		}
 	}
@@ -1856,6 +1872,7 @@ void cmd_login(char *tag, char *user)
 		   imapd_clienthost);
 	    prot_printf(imapd_out, "%s NO %s\r\n", tag,
 		   error_message(IMAP_ANONYMOUS_NOT_PERMITTED));
+		odFreeUserOpts( gUserOpts, 0 );
 	    freebuf(&passwdbuf);
 	    return;
 	}
@@ -1885,9 +1902,8 @@ void cmd_login(char *tag, char *user)
     }
 	else if ( config_getswitch( IMAPOPT_APPLE_AUTH ) )
 	{
-		const char *canon_user = auth_canonifyid( useropts.fRecName, 0 );
-
-		if ( r = odCheckPass( canon_user, passwd ) )
+		const char *canon_user = auth_canonifyid( gUserOpts->fRecNamePtr, 0 );
+		if ( r = odCheckPass( passwd, gUserOpts ) )
 		{
 			syslog( LOG_NOTICE, "badlogin from: %s. login user: %s (error = %d)",
 					imapd_clienthost, canon_user, r );
@@ -1900,8 +1916,8 @@ void cmd_login(char *tag, char *user)
 								 VARIABLE_AUTH, 0,
 								 VARIABLE_LISTEND );
 
+			odFreeUserOpts( gUserOpts, 0 );
 			freebuf(&passwdbuf);
-
 			return;
 		}
 		else
@@ -1938,6 +1954,7 @@ void cmd_login(char *tag, char *user)
 	    snmp_increment_args(AUTHENTICATION_NO, 1,
 				VARIABLE_AUTH, 0 /* hash_simple("LOGIN") */,
 				VARIABLE_LISTEND);
+		odFreeUserOpts( gUserOpts, 0 );
 	    freebuf(&passwdbuf);
 	    return;
 	}
@@ -1987,19 +2004,39 @@ void cmd_login(char *tag, char *user)
 		if ( !r )
 		{
 			char *partition	= NULL;
-			if ( useropts.fAltDataLoc[ 0 ] != '\0' )
+			if ( gUserOpts->fAltDataLocPtr != NULL )
 			{
-				partition = useropts.fAltDataLoc;
+				partition = gUserOpts->fAltDataLocPtr;
 			}
-			r = mboxlist_createmailbox( mailboxname, MAILBOX_FORMAT_NORMAL,  partition, 1, imapd_userid, imapd_authstate, 0, 0, 0 );
-			if ( r && (r !=IMAP_MAILBOX_EXISTS) )
+			r = mboxlist_createmailbox( mailboxname, MAILBOX_FORMAT_NORMAL, partition, 1, imapd_userid, imapd_authstate, 0, 0, 0 );
+			if ( !r )
 			{
-				syslog( LOG_DEBUG, "mboxlist_createmailbox error(%d) for mailbox(%s)", r, mailboxname);
+				if ( partition != NULL )
+				{
+					syslog( LOG_DEBUG, "created mailbox: %s on partition: %s", mailboxname, partition );
+				}
+				else
+				{
+					syslog( LOG_DEBUG, "created mailbox: %s", mailboxname );
+				}
+			}
+			else if ( r && (r != IMAP_MAILBOX_EXISTS) )
+			{
+				if ( partition != NULL )
+				{
+					syslog( LOG_DEBUG, "mboxlist_createmailbox error: %d  for mailbox: %s on partition: %s", r, mailboxname, partition );
+				}
+				else
+				{
+					syslog( LOG_DEBUG, "mboxlist_createmailbox error(%d) for mailbox(%s)", r, mailboxname );
+				}
 			}
 		}
+
+		/* set user quota if needed */
 		if ( r == IMAP_MAILBOX_EXISTS )
 		{
-			if ( useropts.fDiskQuota == 0 )
+			if ( gUserOpts->fDiskQuota == 0 )
 			{
 				/* make sure that quotas are set so that the /quota tool works */
 				mboxlist_setquota( mailboxname, INT32_MAX, 0 );
@@ -2007,8 +2044,8 @@ void cmd_login(char *tag, char *user)
 			}
 			else
 			{
-				mboxlist_setquota( mailboxname, useropts.fDiskQuota * 1024, 0 );
-				syslog( LOG_DEBUG, "quota set to %lu for mailbox %s ", useropts.fDiskQuota * 1024, mailboxname);
+				mboxlist_setquota( mailboxname, gUserOpts->fDiskQuota * 1024, 0 );
+				syslog( LOG_DEBUG, "quota set to %lu KB for mailbox %s ", gUserOpts->fDiskQuota * 1024, mailboxname);
 			}
 		}
 	}
@@ -2029,8 +2066,6 @@ cmd_authenticate(char *tag, char *authtype, char *resp)
     
     const int *ssfp;
     char *ssfmsg=NULL;
-    struct od_user_opts	useropts;
-    const char *auth_user;
 
     const char *canon_user;
 
@@ -2038,7 +2073,8 @@ cmd_authenticate(char *tag, char *authtype, char *resp)
 
     char mailboxname[ MAX_MAILBOX_NAME + 1 ] = "\0";
 
-	if ( config_getswitch( IMAPOPT_APPLE_AUTH ) == 0 )
+	if ( (config_getswitch( IMAPOPT_APPLE_AUTH ) == 0) ||
+		 (strcasecmp( authtype, "GSSAPI" ) == 0) )
 	{
 		r = saslserver(imapd_saslconn, authtype, resp, "", "+ ", "",
 			   imapd_in, imapd_out, &sasl_result, NULL);
@@ -2096,6 +2132,63 @@ cmd_authenticate(char *tag, char *authtype, char *resp)
 		reset_saslconn(&imapd_saslconn);
 		return;
 		}
+
+		if ( (config_getswitch( IMAPOPT_APPLE_AUTH ) != 0) &&
+			 (strcasecmp( authtype, "GSSAPI" ) == 0) )
+		{
+			/* get user options */
+			odGetUserOpts( canon_user, gUserOpts );
+
+			/* do we know this user */
+			if ( gUserOpts->fRecNamePtr == NULL )
+			{
+				syslog( LOG_NOTICE, "badlogin from: %s plaintext user: %s. unknown user",
+						imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
+
+				prot_printf( imapd_out, "%s NO unknown user or bad password\r\n", tag);
+				odFreeUserOpts( gUserOpts, 0 );
+				return;
+			}
+
+			/* is their account enabled */
+			if ( !(gUserOpts->fAccountState & eAccountEnabled) )
+			{
+				if ( gUserOpts->fAccountState & eACLNotMember )
+				{
+					syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
+							imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
+
+					prot_printf( imapd_out, "%s NO Mail service ACL is not enabled for this user\r\n", tag );
+				}
+				else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
+				{
+					syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
+							imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
+
+					prot_printf( imapd_out, "%s NO Auto-forwarding is enabled for this user\r\n", tag);
+				}
+				else
+				{
+					syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
+							imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
+
+					prot_printf( imapd_out, "%s NO Mail is not enabled for this user\r\n", tag);
+				}
+				odFreeUserOpts( gUserOpts, 0 );
+				return;
+			}
+
+			/* is their imap login enabled */
+			if ( !(gUserOpts->fAccountState & eIMAPEnabled) )
+			{
+				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. IMAP access is not enabled for this user",
+						imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
+
+				prot_printf( imapd_out, "%s NO IMAP access is not enabled for this user\r\n", tag );
+				odFreeUserOpts( gUserOpts, 0 );
+				return;
+			}
+		}
 	}
 	else
 	{
@@ -2123,89 +2216,86 @@ cmd_authenticate(char *tag, char *authtype, char *resp)
 		if ( r == 1 )
 		{
 			prot_printf( imapd_out, "%s NO Auth method (%s) not enabled\r\n", tag, authtype );
+			odFreeUserOpts( gUserOpts, 0 );
 			return;
 		}
 
-		r = odDoAuthenticate( authtype, NULL, "+ ", kXMLIMAP_Principal, imapd_in, imapd_out, (char **)&auth_user );
+		r = odDoAuthenticate( authtype, resp, "+ ", kXMLIMAP_Principal, imapd_in, imapd_out, gUserOpts );
 		if ( r )
 		{
 			switch ( r )
 			{
-				case ODA_AUTH_CANCEL:
+				case eAODAuthCanceled:
 					prot_printf(imapd_out, "%s NO Client canceled authentication\r\n", tag );
 					break;
 
-				case ODA_PROTOCOL_ERROR:
+				case eAODProtocolError:
 					prot_printf( imapd_out, "%s NO Error reading client response\r\n", tag );
 					break;
 
 				default:
 					syslog( LOG_NOTICE, "badlogin: %s %s", imapd_clienthost, authtype );
-
-					snmp_increment_args( AUTHENTICATION_NO, 1, VARIABLE_AUTH, 0, /* hash_simple(authtype) */  VARIABLE_LISTEND );
-
+					snmp_increment_args( AUTHENTICATION_NO, 1, VARIABLE_AUTH, 0,
+										 /* hash_simple(authtype) */  VARIABLE_LISTEND );
 					prot_printf( imapd_out, "%s NO Error authenticating\r\n", tag );
-
 					sleep( 3 );
 			}
-
+			odFreeUserOpts( gUserOpts, 0 );
 			return;
 		}
 
-		odGetUserOpts( auth_user, &useropts );
-
 		/* do we know this user */
-		if ( useropts.fRecName[ 0 ] == '\0' )
+		if ( gUserOpts->fRecNamePtr == NULL )
 		{
 			syslog( LOG_NOTICE, "badlogin from: %s plaintext user: %s. unknown user",
-					imapd_clienthost, beautify_string( auth_user ) );
+					imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 			prot_printf( imapd_out, "%s NO unknown user or bad password\r\n", tag);
-
+			odFreeUserOpts( gUserOpts, 0 );
 			return;
 		}
 
 		/* is their account enabled */
-		if ( useropts.fAcctState != eAcctEnabled )
+		if ( !(gUserOpts->fAccountState & eAccountEnabled) )
 		{
-			if ( useropts.fAcctState == eAcctNotMember )
+			if ( gUserOpts->fAccountState & eACLNotMember )
 			{
 				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
-						imapd_clienthost, beautify_string( auth_user ) );
+						imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 				prot_printf( imapd_out, "%s NO Mail service ACL is not enabled for this user\r\n", tag );
 			}
-			else if ( useropts.fAcctState == eAcctForwarded )
+			else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
 			{
 				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
-						imapd_clienthost, beautify_string( auth_user ) );
+						imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 				prot_printf( imapd_out, "%s NO Auto-forwarding is enabled for this user\r\n", tag);
 			}
 			else
 			{
 				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
-						imapd_clienthost, beautify_string( auth_user ) );
+						imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 				prot_printf( imapd_out, "%s NO Mail is not enabled for this user\r\n", tag);
 			}
-
+			odFreeUserOpts( gUserOpts, 0 );
 			return;
 		}
 
 		/* is their imap login enabled */
-		if ( useropts.fIMAPLogin != eAcctProtocolEnabled )
+		if ( !(gUserOpts->fAccountState & eIMAPEnabled) )
 		{
 			syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. IMAP access is not enabled for this user",
-					imapd_clienthost, beautify_string( auth_user ) );
+					imapd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 			prot_printf( imapd_out, "%s NO IMAP access is not enabled for this user\r\n", tag );
-
+			odFreeUserOpts( gUserOpts, 0 );
 			return;
 		}
 
 		/* successful authentication */
-		canon_user = auth_canonifyid( useropts.fRecName, 0 );
+		canon_user = auth_canonifyid( gUserOpts->fRecNamePtr, 0 );
 	}
 
     /* If we're proxying, the authzid may contain a magic plus,
@@ -2222,6 +2312,7 @@ cmd_authenticate(char *tag, char *authtype, char *resp)
 			"%s NO SASL canonification error %d\r\n", 
 			tag, sasl_result);
 	    reset_saslconn(&imapd_saslconn);
+		odFreeUserOpts( gUserOpts, 0 );
 	    return;
 	}
 
@@ -2289,21 +2380,39 @@ cmd_authenticate(char *tag, char *authtype, char *resp)
 		if ( !r )
 		{
 			char *partition	= NULL;
-			struct od_user_opts	useropts;
-			odGetUserOpts( imapd_userid, &useropts );
-			if ( useropts.fAltDataLoc[ 0 ] != '\0' )
+			if ( gUserOpts->fAltDataLocPtr != NULL )
 			{
-				partition = useropts.fAltDataLoc;
+				partition = gUserOpts->fAltDataLocPtr;
 			}
 			r = mboxlist_createmailbox( mailboxname, MAILBOX_FORMAT_NORMAL, partition, 1, imapd_userid, imapd_authstate, 0, 0, 0 );
-			if ( r && (r !=IMAP_MAILBOX_EXISTS) )
+			if ( !r )
 			{
-				syslog( LOG_DEBUG, "mboxlist_createmailbox error(%d) for mailbox(%s)", r, mailboxname);
+				if ( partition != NULL )
+				{
+					syslog( LOG_DEBUG, "created mailbox: %s on partition: %s", mailboxname, partition );
+				}
+				else
+				{
+					syslog( LOG_DEBUG, "created mailbox: %s", mailboxname );
+				}
+			}
+			else if ( r && (r != IMAP_MAILBOX_EXISTS) )
+			{
+				if ( partition != NULL )
+				{
+					syslog( LOG_DEBUG, "mboxlist_createmailbox error: %d  for mailbox: %s on partition: %s", r, mailboxname, partition );
+				}
+				else
+				{
+					syslog( LOG_DEBUG, "mboxlist_createmailbox error(%d) for mailbox(%s)", r, mailboxname );
+				}
 			}
 		}
+
+		/* set user quota if needed */
 		if ( r == IMAP_MAILBOX_EXISTS )
 		{
-			if ( useropts.fDiskQuota == 0 )
+			if ( gUserOpts->fDiskQuota == 0 )
 			{
 				/* make sure that quotas are set so that the /quota tool works */
 				mboxlist_setquota( mailboxname, INT32_MAX, 0 );
@@ -2311,8 +2420,8 @@ cmd_authenticate(char *tag, char *authtype, char *resp)
 			}
 			else
 			{
-				mboxlist_setquota( mailboxname, useropts.fDiskQuota * 1024, 0 );
-				syslog( LOG_DEBUG, "quota set to %lu for mailbox %s ", useropts.fDiskQuota * 1024, mailboxname);
+				mboxlist_setquota( mailboxname, gUserOpts->fDiskQuota * 1024, 0 );
+				syslog( LOG_DEBUG, "quota set to %lu KB for mailbox %s ", gUserOpts->fDiskQuota * 1024, mailboxname);
 			}
 		}
 	}
@@ -4013,7 +4122,6 @@ cmd_create(char *tag, char *name, char *partition, int localonly)
     char mailboxname[MAX_MAILBOX_NAME+1];
     int autocreatequota;
 	char *mbox_partition	= NULL;
-	struct od_user_opts	useropts;
 
     if (partition && !imapd_userisadmin) {
 	r = IMAP_PERMISSION_DENIED;
@@ -4026,10 +4134,9 @@ cmd_create(char *tag, char *name, char *partition, int localonly)
 	
 	if ( !mbox_partition )
 	{
-		odGetUserOpts( imapd_userid, &useropts );
-		if ( useropts.fAltDataLoc[ 0 ] != '\0' )
+		if ( (gUserOpts != NULL) && gUserOpts->fAltDataLocPtr != NULL )
 		{
-			mbox_partition = useropts.fAltDataLoc;
+			mbox_partition = gUserOpts->fAltDataLocPtr;
 		}
 	}
 

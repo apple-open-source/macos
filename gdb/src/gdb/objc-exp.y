@@ -1566,11 +1566,22 @@ yylex ()
     {
        if (c == '<')
 	 {
-	   int i = namelen;
-	   while (tokstart[++i] && tokstart[i] != '>');
-	   if (tokstart[i] == '>')
-	     namelen = i;
-	  }
+	   /* APPLE LOCAL: Make the template search code match the 
+	      version in c-exp.y.  */
+	   /* Template parameter lists are part of the name.
+	      FIXME: This mishandles `print $a<4&&$a>3'.  */
+	   
+	   /* Scan ahead to get rest of the template specification.  Note
+	      that we look ahead only when the '<' adjoins non-whitespace
+	      characters; for comparison expressions, e.g. "a < b > c",
+	      there must be spaces before the '<', etc. */
+	   
+	   char * p = find_template_name_end (tokstart + namelen);
+	   if (p)
+	     namelen = p - tokstart;
+	   break;
+	   /* END APPLE LOCAL */
+	 }
        c = tokstart[++namelen];
      }
 

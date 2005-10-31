@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 
 #include "BTreePrivate.h"
 #include "hfs_endian.h"
+#include "../fsck_hfs.h"
 
 
 ///////////////////////// BTree Module Node Operations //////////////////////////
@@ -44,7 +45,6 @@
 //	ReleaseNode			- Call FS Agent to release node obtained by GetNode.
 //	UpdateNode			- Mark a node as dirty and call FS Agent to release it.
 //
-//	CheckNode			- Checks the validity of a node.
 //	ClearNode			- Clear a node to all zeroes.
 //
 //	InsertRecord		- Inserts a record into a BTree node.
@@ -95,7 +95,6 @@ void		DeleteOffset		(BTreeControlBlockPtr	 btreePtr,
 
 #define GetRecordOffset(btreePtr,node,index)		(*(short *) ((UInt8 *)(node) + (btreePtr)->nodeSize - ((index) << 1) - kOffsetSize))
 
-static void PrintNode(const NodeDescPtr node, UInt16 nodeSize, UInt32 nodeNumber);
 
 /*-------------------------------------------------------------------------------
 
@@ -145,55 +144,13 @@ OSStatus	GetNode		(BTreeControlBlockPtr	 btreePtr,
 	}
 	++btreePtr->numGetNodes;
 	
-	SWAP_BT_NODE(nodePtr, (btreePtr->fcbPtr->fcbVolume->vcbSignature == kHFSPlusSigWord),
-			btreePtr->fcbPtr->fcbFileID, 0);
-
-	//
-	// Optimization
-	// Only call CheckNode if the node came from disk.
-	// If it was in the cache, we'll assume its already a valid node.
-	//
-	
-	if ( nodePtr->blockReadFromDisk )	// if we read it from disk then check it
+	err = hfs_swap_BTNode(nodePtr, btreePtr->fcbPtr, kSwapBTNodeBigToHost);
+	if (err != noErr)
 	{
-		err = CheckNode (btreePtr, nodePtr->buffer);
-		if (err != noErr)
-		{
-			if (DEBUG_BUILD && ((NodeDescPtr)nodePtr->buffer)->numRecords != 0)
-				PrintNode(nodePtr->buffer, btreePtr->nodeSize, nodeNum);
-
-			if (DEBUG_BUILD)
-			{
-				// With the removal of bounds checking in IsItAHint(), it's possible that
-				// GetNode() will be called to fetch a clear (all zeroes) node. We want
-				// CheckNode() to fail in this case (it does), however we don't want to assert
-				// this case because it is note really an "error". Returning an error from GetNode()
-				// in this case will cause the hint checking code to ignore the hint and revert to
-				// the full search mode.
-				
-				{
-					UInt32	*cur;
-					UInt32	*lastPlusOne;
-					
-					cur 		= nodePtr->buffer;
-					lastPlusOne = (UInt32 *) ((UInt8 *) cur + btreePtr->nodeSize);
-					
-					while( cur < lastPlusOne )
-					{
-						if( *cur++ != 0 )
-						{
-							Panic ("\pGetNode: CheckNode returned error.");
-							break;
-						}
-					}
-				}
-			}
-			
-			(void) ReleaseNode (btreePtr, nodePtr);			// ignore error
-			goto ErrorExit;
-		}
+		(void) TrashNode (btreePtr, nodePtr);			// ignore error
+		goto ErrorExit;
 	}
-
+	
 //	LogEndTime(kTraceGetNode, noErr);
 
 	return noErr;
@@ -285,7 +242,7 @@ OSStatus	ReleaseNode	(BTreeControlBlockPtr	 btreePtr,
 {
 	OSStatus			 err;
 	ReleaseBlockProcPtr	 releaseNodeProc;
-	
+	ReleaseBlockOptions	 options = kReleaseBlock;
 	
 //	LogStartTime(kTraceReleaseNode);
 
@@ -296,13 +253,16 @@ OSStatus	ReleaseNode	(BTreeControlBlockPtr	 btreePtr,
 		/*
 		 * The nodes must remain in the cache as big endian!
 		 */
-		SWAP_BT_NODE(nodePtr, (btreePtr->fcbPtr->fcbVolume->vcbSignature == kHFSPlusSigWord),
-			btreePtr->fcbPtr->fcbFileID, 1);
-
+		err = hfs_swap_BTNode(nodePtr, btreePtr->fcbPtr, kSwapBTNodeHostToBig);
+		if (err)
+		{
+			options |= kTrashBlock;
+		}
+		
 		releaseNodeProc = btreePtr->releaseBlockProc;
 		err = releaseNodeProc (btreePtr->fcbPtr,
 							   nodePtr,
-							   kReleaseBlock );
+							   options );
 		PanicIf (err, "\pReleaseNode: releaseNodeProc returned error.");
 		++btreePtr->numReleaseNodes;
 	}
@@ -362,9 +322,6 @@ Routine:	UpdateNode	-	Mark a node as dirty and call FS Agent to release it.
 
 Function:	Marks a BTree node dirty and informs the FS Agent that it may be released.
 
-			//ее have another routine that clears & writes a node, so we can call
-			CheckNode from this routine.
-
 Input:		btreePtr		- pointer to BTree control block
 			nodeNum			- number of node to release
 						
@@ -377,26 +334,23 @@ OSStatus	UpdateNode	(BTreeControlBlockPtr	 btreePtr,
 {
 	OSStatus			 err;
 	ReleaseBlockProcPtr	 releaseNodeProc;
-	
+	ReleaseBlockOptions	 options = kMarkBlockDirty;	
 	
 	err = noErr;
 		
 	if (nodePtr->buffer != nil)			//ее why call UpdateNode if nil ?!?
 	{
-		if (DEBUG_BUILD)
-		{
-			if ( btreePtr->attributes & kBTVariableIndexKeysMask )
-				(void) CheckNode (btreePtr, nodePtr->buffer);
-		}
-
 	//	LogStartTime(kTraceReleaseNode);
-		SWAP_BT_NODE(nodePtr, (btreePtr->fcbPtr->fcbVolume->vcbSignature == kHFSPlusSigWord),
-			btreePtr->fcbPtr->fcbFileID, 1);
+		err = hfs_swap_BTNode(nodePtr, btreePtr->fcbPtr, kSwapBTNodeHostToBig);
+		if (err != noErr)
+		{
+			options = kReleaseBlock | kTrashBlock;
+		}
 
 		releaseNodeProc = btreePtr->releaseBlockProc;
 		err = releaseNodeProc (btreePtr->fcbPtr,
 							   nodePtr,
-							   kMarkBlockDirty );
+							   options );
 							   
 	//	LogEndTime(kTraceReleaseNode, err);
 
@@ -414,119 +368,6 @@ ErrorExit:
 	return	err;
 }
 
-
-
-/*-------------------------------------------------------------------------------
-
-Routine:	CheckNode	-	Checks the validity of a node.
-
-Function:	Checks the validity of a node by verifying that the fLink and bLink fields
-			are within the forks EOF. The node type must be one of the four known
-			types. The node height must be less than or equal to the tree height. The
-			node must not have more than the maximum number of records, and the record
-			offsets must make sense.
-
-Input:		btreePtr		- pointer to BTree control block
-			node			- pointer to node to check
-						
-Result:		noErr		- success
-			fsBTInvalidNodeErr		- failure
--------------------------------------------------------------------------------*/
-
-OSStatus	CheckNode	(BTreeControlBlockPtr	 btreePtr, NodeDescPtr	 node )
-{
-	SInt32		index;
-	SInt32		maxRecords;
-	UInt32		maxNode;
-	UInt16		nodeSize;
-	UInt16		offset;
-	UInt16		prevOffset;
-
-	nodeSize = btreePtr->nodeSize;
-
-	///////////////////// are fLink and bLink within EOF ////////////////////////
-	
-	maxNode = (btreePtr->fcbPtr->fcbLogicalSize / nodeSize) - 1;
-	
-	if ( (node->fLink > maxNode) || (node->bLink > maxNode) )
-		return fsBTInvalidNodeErr;
-	
-	
-	/////////////// check node type (leaf, index, header, map) //////////////////
-	
-	if ( (node->kind < kBTLeafNode) || (node->kind > kBTMapNode) )
-		return fsBTInvalidNodeErr;
-	
-
-	///////////////////// is node height > tree depth? //////////////////////////
-
-	if ( node->height > btreePtr->treeDepth )
-		return fsBTInvalidNodeErr;
-	
-
-	//////////////////////// check number of records ////////////////////////////
-		
-	//XXX can we calculate a more accurate minimum record size?
-	maxRecords = ( nodeSize - sizeof (BTNodeDescriptor) ) >> 3;
-	
-	if (node->numRecords > maxRecords)
-		return fsBTInvalidNodeErr;
-
-
-	////////////////////////// check record offsets /////////////////////////////
-
-	index = node->numRecords;		/* start index at free space */
-	prevOffset = nodeSize - (index << 1);	/* use 2 bytes past end of free space */
-
-	do {
-		offset = GetRecordOffset (btreePtr, node, index);
-			
-		if (offset & 1)								// offset is odd
-			return fsBTInvalidNodeErr;
-		
-		if (offset >= prevOffset)					// offset >= previous offset
-			return fsBTInvalidNodeErr;
-		
-		/* reject keys that overflow record slot */
-		if ((node->kind == kBTLeafNode) &&
-		    (index < node->numRecords) &&	/* ignore free space record */
-		    (CalcKeySize(btreePtr, (KeyPtr) ((Ptr)node + offset)) > (prevOffset - offset))) {
-			return fsBTInvalidNodeErr;
-		}
-		
-		prevOffset = offset;
-	} while ( --index >= 0 );
-	
-	if (offset < sizeof (BTNodeDescriptor) )	// first offset < minimum ?
-		return fsBTInvalidNodeErr;
-	
-	return noErr;
-}
-
-
-#if BSD
-static void PrintNode(const NodeDescPtr node, UInt16 nodeSize, UInt32 nodeNumber)
-{
-	struct row {
-		UInt16	word[8];
-	};
-	struct row	*offset;
-	UInt16	rows;
-	UInt32	*lp;
-
-	printf("Dump of B-tree node #%d ($%08X)\n", nodeNumber, nodeNumber);
-
-	rows = nodeSize/16;
-	lp = (UInt32*) node;
-	offset = 0;
-	
-	while (rows-- > 0) {
-		printf( "%04X: %08X %08X %08X %08X\n", (u_int)offset++, 
-				*(lp + 0), *(lp + 1), *(lp + 2), *(lp + 3) );
-		lp += 4;
-	}
-}
-#endif
 
 
 /*-------------------------------------------------------------------------------

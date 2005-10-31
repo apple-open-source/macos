@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -283,14 +283,22 @@ OSErr	GetBTreeHeader( SGlobPtr GPtr, SFCB *fcb, BTHeaderRec *header )
 	err = GetFileBlock(fcb, kHeaderNodeNum, kGetBlock, &block);
 	ReturnIfError(err);
 
-	SWAP_BT_NODE(&block, (fcb->fcbVolume->vcbSignature == kHFSPlusSigWord),
-		fcb->fcbFileID, 3);
+	err = hfs_swap_BTNode(&block, fcb, kSwapBTNodeHeaderRecordOnly);
+	if (err != noErr)
+	{
+		(void) ReleaseFileBlock(fcb, &block, kReleaseBlock | kTrashBlock);
+		return err;
+	}
 
 	headerRec = (BTHeaderRec *)((char*)block.buffer + sizeof(BTNodeDescriptor));
 	CopyMemory(headerRec, header, sizeof(BTHeaderRec));
 
-	SWAP_BT_NODE(&block, (fcb->fcbVolume->vcbSignature == kHFSPlusSigWord),
-		fcb->fcbFileID, 3);
+	err = hfs_swap_BTNode(&block, fcb, kSwapBTNodeHeaderRecordOnly);
+	if (err != noErr)
+	{
+		(void) ReleaseFileBlock(fcb, &block, kReleaseBlock | kTrashBlock);
+		return err;
+	}
 	
 	err = ReleaseFileBlock (fcb, &block, kReleaseBlock);
 	ReturnIfError(err);

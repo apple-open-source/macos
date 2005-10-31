@@ -1,15 +1,23 @@
 ========================================================================
 kinit Version History
 ========================================================================
-Current version:	1.1fc1
-Date:				December 6, 2004
-Author:				lxs@mit.edu
+Current version:        1.1fc2
+Date:                   March 21, 2005
+Authors:                lxs@mit.edu
 ========================================================================
 
 kinit 1.1
 Released as part of KfM 5.5
 
 ========================================================================
+
+	kinit 1.1fc2
+	March 21, 2005
+
+	[RT 2954] kinit -P and -p flags should apply to proxiability, 
+                  not forwardability
+	
+	========================================================================
 
 	kinit 1.1fc1
 	December 6, 2004

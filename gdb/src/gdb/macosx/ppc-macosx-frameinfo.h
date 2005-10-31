@@ -130,7 +130,4 @@ struct ppc_function_properties *ppc_frame_function_properties (struct
 CORE_ADDR *ppc_frame_saved_regs (struct frame_info *next_frame,
                                  void **this_cache);
 
-int safe_read_memory_unsigned_integer (CORE_ADDR addr, int len,
-                                       ULONGEST * val);
-
 #endif /* __GDB_PPC_MACOSX_FRAMEINFO_H__ */

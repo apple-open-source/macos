@@ -1,3 +1,8 @@
+Changes for the 5.18 release (the cctools-583 release):
+- Changed the Makefile so that when RC_XBS is set to YES then the compiler
+  options -MD and -dependency-file as well as the md(1) program are not used.
+  Radar bug #4029936.
+
 Changes for the 5.16 release (the cctools-499.1 release):
 - Added recognition of ppc64 architecture, interim file format.
   Radar bug  #3562133 and #3562232.

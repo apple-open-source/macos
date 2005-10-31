@@ -139,9 +139,8 @@
 			buildPhases = (
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 17;
+				CURRENT_PROJECT_VERSION = 24977;
 				PRODUCT_NAME = security_certificates;
-				VERSIONING_SYSTEM = "apple-generic";
 			};
 			buildToolPath = /usr/bin/make;
 			buildWorkingDirectory = "";
@@ -425,18 +424,6 @@
 		};
 		4C89977F06309F2C007CB487 = {
 			fileRef = 4CFDFC6806309AFC00519F96;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		4C89978006309F2C007CB487 = {
-			fileRef = 4CFDFC6906309AFC00519F96;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		4C89978106309F2C007CB487 = {
-			fileRef = 4CFDFC6A06309AFC00519F96;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -787,6 +774,7 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Keychains/Certificates";
 			dstSubfolderSpec = 0;
 			files = (
+				52AADF0708ABC17E00654A97,
 				5298925F084E36DF0049FF6A,
 				523B509807BC3E92004F47BA,
 				523B509907BC3E92004F47BA,
@@ -836,12 +824,8 @@
 				C2F9CFAA07BB049D000111FE,
 			);
 			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				CURRENT_PROJECT_VERSION = 24977;
 				PRODUCT_NAME = "copy certs";
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 				4C4BE3B806309CE8002EF4B3,
@@ -852,6 +836,7 @@
 		};
 		4CFDFC2C06309AFB00519F96 = {
 			children = (
+				52AADF0508ABBEED00654A97,
 				5298925D084E357C0049FF6A,
 				523B509407BC3E3D004F47BA,
 				523B509507BC3E3D004F47BA,
@@ -1101,6 +1086,11 @@
 		};
 		4CFDFC4E06309AFB00519F96 = {
 			children = (
+				52AADF1808ABC76900654A97,
+				52AADF0F08ABC6B700654A97,
+				52AADEFF08ABBECB00654A97,
+				52AADF0008ABBECB00654A97,
+				52AADF0108ABBECB00654A97,
 				5298925B084E35670049FF6A,
 				52D8CBCD07C51BF60074667F,
 				52D8CBCE07C51BF60074667F,
@@ -1143,8 +1133,6 @@
 				4CFDFC6606309AFC00519F96,
 				4CFDFC6706309AFC00519F96,
 				4CFDFC6806309AFC00519F96,
-				4CFDFC6906309AFC00519F96,
-				4CFDFC6A06309AFC00519F96,
 				4CFDFC6B06309AFC00519F96,
 				4CFDFC6C06309AFC00519F96,
 				4CFDFC6D06309AFC00519F96,
@@ -1367,22 +1355,6 @@
 			isa = PBXFileReference;
 			lastKnownFileType = file;
 			path = Equifax_Secure_Certificate_Auth;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		4CFDFC6906309AFC00519F96 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = "Equifax_Secure_eBusiness_CA-1.c";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		4CFDFC6A06309AFC00519F96 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = "Equifax_Secure_eBusiness_CA-2.c";
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -1678,6 +1650,11 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Keychains/Anchors";
 			dstSubfolderSpec = 0;
 			files = (
+				52AADF1908ABC76900654A97,
+				52AADF1008ABC6B700654A97,
+				52AADF0208ABBECB00654A97,
+				52AADF0308ABBECB00654A97,
+				52AADF0408ABBECB00654A97,
 				5298925C084E35670049FF6A,
 				52D8CBD407C51BF60074667F,
 				52D8CBD507C51BF60074667F,
@@ -1719,8 +1696,6 @@
 				4C89977D06309F2C007CB487,
 				4C89977E06309F2C007CB487,
 				4C89977F06309F2C007CB487,
-				4C89978006309F2C007CB487,
-				4C89978106309F2C007CB487,
 				4C89978206309F2C007CB487,
 				4C89978306309F2C007CB487,
 				4C89978406309F2C007CB487,
@@ -2074,6 +2049,86 @@
 		};
 		5298925F084E36DF0049FF6A = {
 			fileRef = 5298925D084E357C0049FF6A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		52AADEFF08ABBECB00654A97 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "a-cert-advanced.crt";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52AADF0008ABBECB00654A97 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "a-cert-globaltrust.crt";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52AADF0108ABBECB00654A97 = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = belgiumrca.crt;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52AADF0208ABBECB00654A97 = {
+			fileRef = 52AADEFF08ABBECB00654A97;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		52AADF0308ABBECB00654A97 = {
+			fileRef = 52AADF0008ABBECB00654A97;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		52AADF0408ABBECB00654A97 = {
+			fileRef = 52AADF0108ABBECB00654A97;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		52AADF0508ABBEED00654A97 = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = belgiumrs.crt;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52AADF0708ABC17E00654A97 = {
+			fileRef = 52AADF0508ABBEED00654A97;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		52AADF0F08ABC6B700654A97 = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = "Equifax_Secure_eBusiness_CA-1.cer";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52AADF1008ABC6B700654A97 = {
+			fileRef = 52AADF0F08ABC6B700654A97;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		52AADF1808ABC76900654A97 = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = "Equifax_Secure_eBusiness_CA-2.cer";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		52AADF1908ABC76900654A97 = {
+			fileRef = 52AADF1808ABC76900654A97;
 			isa = PBXBuildFile;
 			settings = {
 			};

@@ -33,12 +33,15 @@ void	AppleTopazPluginCS8416::free ( void ) {
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-bool	AppleTopazPluginCS8416::preDMAEngineInit ( void ) {
+bool	AppleTopazPluginCS8416::preDMAEngineInit ( UInt32 autoClockSelectionIsBeingUsed ) {
 	bool			result = false;
+    UInt8           regVal;
 	IOReturn		err;
-	
-	mUnlockFilterCounter = kUnlockFilterCounterSeed;				//  [3678605]
-
+    
+    mDelayPollAfterWakeCounter = kPollsToDelayReportingAfterWake;  // make sure we let things stabilize at start-up before posting clock lock/unlock status
+    mOMCK_RMCK_RatioHasBeenCached = false;
+    mAutoClockSelectionIsBeingUsed = autoClockSelectionIsBeingUsed;
+    
 	debugIOLog ( 6, "+ AppleToapzPluginCS8416::preDMAEngineInit ()" );
 	err = CODEC_WriteRegister ( mapControl_0, kControl_0_INIT );
 	FailIf ( kIOReturnSuccess != err, Exit );
@@ -58,10 +61,24 @@ bool	AppleTopazPluginCS8416::preDMAEngineInit ( void ) {
 	err = CODEC_WriteRegister ( mapSerialAudioDataFormat, kSerialAudioDataFormat_INIT );
 	FailIf ( kIOReturnSuccess != err, Exit );
 	
-	err = CODEC_WriteRegister ( mapReceiverErrorMask, kReceiverErrorMask_ENABLE );
+    if ( mAutoClockSelectionIsBeingUsed ) {
+        regVal = kReceiverErrorMask_ENABLE | ( bvInterruptEnabled << baINVALID );
+    }
+    else {
+        regVal = kReceiverErrorMask_ENABLE;
+    }
+    
+	err = CODEC_WriteRegister ( mapReceiverErrorMask, regVal );
 	FailIf ( kIOReturnSuccess != err, Exit );
-	
-	err = CODEC_WriteRegister ( mapInterruptMask, kInterruptMask_INIT );
+    
+    if ( mAutoClockSelectionIsBeingUsed ) {
+        regVal = kInterruptMask_INIT | ( bvInterruptEnabled << baRERR );
+    }
+    else {
+        regVal = kInterruptMask_INIT;
+    }
+    
+	err = CODEC_WriteRegister ( mapInterruptMask, regVal );
 	FailIf ( kIOReturnSuccess != err, Exit );
 	
 	err = CODEC_WriteRegister ( mapInterruptModeMSB, kInterruptModeMSB_INIT );
@@ -73,6 +90,12 @@ bool	AppleTopazPluginCS8416::preDMAEngineInit ( void ) {
 	err = CODEC_WriteRegister ( mapControl_4, kControl_4_RUN );
 	FailIf ( kIOReturnSuccess != err, Exit );
 	
+    // [4176686]
+    // Store receiver channel status to detect changes in bit depth across calls to 
+    // notifyHardwareEvent.
+    err = CODEC_ReadRegister ( mapReceiverChannelStatus, &mCachedReceiverChannelStatus, 1 );
+    FailIf ( kIOReturnSuccess != err, Exit );
+    
 	result = true;
 Exit:
 	debugIOLog ( 6, "- AppleToapzPluginCS8416::preDMAEngineInit () returns %d", result );
@@ -96,18 +119,6 @@ IOReturn	AppleTopazPluginCS8416::initCodecRegisterCache ( void ) {
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-IOReturn	AppleTopazPluginCS8416::setMute ( bool muteState ) {
-	IOReturn		result = kIOReturnError;
-	
-	mShadowRegs[mapControl_1] &= ~( 1 << baMUTSAO );
-	mShadowRegs[mapControl_1] |= muteState ? ( bvSDOUTmuted << baMUTSAO ) : ( bvSDOUTnotMuted << baMUTSAO ) ;
-	result = CODEC_WriteRegister ( mapControl_1, mShadowRegs[mapControl_1] );
-	FailIf ( kIOReturnSuccess != result, Exit );
-Exit:
-	return result;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn	AppleTopazPluginCS8416::performDeviceSleep ( void ) {
 	IOReturn		result = kIOReturnError;
 	
@@ -115,6 +126,7 @@ IOReturn	AppleTopazPluginCS8416::performDeviceSleep ( void ) {
 
 	mTopazCS8416isSLEEP = TRUE;																	//  [3678605]
 	mDelayPollAfterWakeCounter = kPollsToDelayReportingAfterWake;								//  [3678605]
+    mOMCK_RMCK_RatioHasBeenCached = false;
 	
 	//  [3678605]   begin {
 	//  Preserve the state of the RATIO register when sleeping so that
@@ -149,7 +161,8 @@ IOReturn	AppleTopazPluginCS8416::performDeviceWake ( void ) {
 	debugIOLog (3,  "+ AppleTopazPluginCS8416::performDeviceWake()" );
 
 	mDelayPollAfterWakeCounter = kPollsToDelayReportingAfterWake;								//  [3678605]
-
+    mOMCK_RMCK_RatioHasBeenCached = false;
+    
 	mShadowRegs[mapControl_4] &= ~( 1 << baRun );
 	result = CODEC_WriteRegister ( mapControl_4, mShadowRegs[mapControl_4] );					//  [3678605]
 	FailIf ( kIOReturnSuccess != result, Exit );
@@ -174,9 +187,6 @@ IOReturn	AppleTopazPluginCS8416::breakClockSelect ( UInt32 clockSource ) {
 	UInt8			regData;
 
 	debugIOLog ( 5, "+ AppleTopazPluginCS8416::breakClockSelect ( 0x%0.8X )", clockSource );
-	//	Mute
-	result = setMute ( TRUE );
-	FailIf ( kIOReturnSuccess != result, Exit );
 	
 	//	Stop the codec while switching clocks
 	FailIf ( kIOReturnSuccess != CODEC_ReadRegister ( mapControl_4, &regData, 1 ), Exit );
@@ -256,10 +266,8 @@ Exit:
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn	AppleTopazPluginCS8416::makeClockSelectPostLock ( UInt32 clockSource ) {
-	IOReturn		result = kIOReturnError;
+	IOReturn result = kIOReturnSuccess;
 	
-	//	Restore the CODEC mute state according to 'mMuteState'
-	setMute ( mMuteState );
 	return result;
 }
 
@@ -395,15 +403,23 @@ void AppleTopazPluginCS8416::poll ( void ) {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //  This method is invoked from the 'codecErrorInterruptHandler' residing in the
 //  platform interface object.  The 'codecErrorInterruptHandler' may be invoked
-//  through GPIO hardware interrupt dispatch services or throught timer polled
+//  through GPIO hardware interrupt dispatch services or through timer polled
 //  services.  Section 7.1.1 of the CS8416 DS578PP4 Data Sheet indicates that the
 //  codec interrupt status bits are "sticky" and require two transactions to
 //  validate the current interrupt status and clear the interrupt.
 void AppleTopazPluginCS8416::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) {
 	IOReturn		error = kIOReturnError;
-	bool			unlockStatusDetected = FALSE;																//  [3678605]
-	UInt32			hwInterruptAckLoopCounter = kIRQ_HARDWARE_ACK_SEED_COUNT;									//  [3678605]
-
+    UInt32          autoClockLockState;                                                                         //  [4189050]
+    UInt32          maxSlewRatio;                                                                               //  [4189050]
+    UInt32          minSlewRatio;                                                                               //  [4189050]
+    UInt32          ratio;                                                                                      //  [4073140]
+    UInt8           receiverChannelStatus;                                                                      //  [4176686]
+    bool            validRatioDetected;                                                                         //  [4073140]
+    bool            lastRatioWasValid;                                                                          //  [4189050]
+    bool            ratioStepDetected;                                                                          //  [4189050]
+    bool            bitDepthChangeDetected;                                                                     //  [4176686]
+    bool            dataIsValid;                                                                                //  [4244167, 4267209]
+    
 	switch ( statusSelector ) {
 		case kCodecErrorInterruptStatus:	debugIOLog ( 4, "+ AppleTopazPluginCS8416::notifyHardwareEvent ( %d = kCodecErrorInterruptStatus, %d ), mDelayPollAfterWakeCounter %ld", statusSelector, newValue, mDelayPollAfterWakeCounter );	break;
 		case kCodecInterruptStatus:			debugIOLog ( 5, "+ AppleTopazPluginCS8416::notifyHardwareEvent ( %d = kCodecInterruptStatus, %d )", statusSelector, newValue );			break;
@@ -412,57 +428,115 @@ void AppleTopazPluginCS8416::notifyHardwareEvent ( UInt32 statusSelector, UInt32
 	
 	if ( !mTopazCS8416isSLEEP ) {																				//  [3678605]
 		switch ( statusSelector ) {
-			case kCodecErrorInterruptStatus:
-				//  Interaction exists between sleep / wake cycles and the ability to obtain a valid UNLOCK
-				//  status from the CODEC receiver error register.  During wake the CODEC is restarted and
-				//  then the RATIO register is checked to see if the sample rate as determined by the AES3
-				//  receiver has changed.  Any change in AES3 recovered sample rate is assumed to be due to
-				//  a loss of external clock and a 'kClockUnLockStatus' message will be posted.  If the RATIO
-				//  remains constant through a sleep / wake cycle then normal handling of the UNLOCK status
-				//  obtained from the receiver error register will resume.
-				if ( 0 != mDelayPollAfterWakeCounter )
+			case kCodecErrorInterruptStatus:                
+				if ( ( 0 == mDelayPollAfterWakeCounter ) && mOMCK_RMCK_RatioHasBeenCached )  // assumes decrementDelayPollAfterWakeCounter() is always called prior to notifyHardwareEvent()
 				{																								//  [3678605]
-					mDelayPollAfterWakeCounter--;
+                    // [4073140] - validate OMCK/RMCK ratio register
+                    error = CODEC_ReadRegister ( mapOMCK_RMCK_Ratio, &mShadowRegs[mapOMCK_RMCK_Ratio], 1 );
+                    FailIf ( kIOReturnSuccess != error, Exit );
+                    
+                    ratio = (UInt32) mShadowRegs[mapOMCK_RMCK_Ratio];
+                    validRatioDetected = ( kCS84XX_OMCK_RMCK_RATIO_LOCKED_MIN <= ratio ) && ( kCS84XX_OMCK_RMCK_RATIO_LOCKED_MAX >= ratio );
+                    lastRatioWasValid = ( kCS84XX_OMCK_RMCK_RATIO_LOCKED_MIN <= mCached_OMCK_RMCK_Ratio ) && ( kCS84XX_OMCK_RMCK_RATIO_LOCKED_MAX >= mCached_OMCK_RMCK_Ratio );
+                    
+                    // [4189050] - check for a step change in the ratio (ratio and max/min slew ratios must be wider than 8 bits to prevent overflow here)
+                    maxSlewRatio = mCached_OMCK_RMCK_Ratio + kMAX_OMCK_RMCK_RATIO_STEP;
+                    minSlewRatio = mCached_OMCK_RMCK_Ratio - kMAX_OMCK_RMCK_RATIO_STEP;
+                    
+                    ratioStepDetected = ( ratio > maxSlewRatio ) || ( ratio < minSlewRatio );
+                    
+                    // [4176686]
+                    // Force posting of an unlock message if we detect a change in bit depth by reading the 
+                    // receiver channel status and comparing it to our cached value and noting that the two differ.
+                    error = CODEC_ReadRegister ( mapReceiverChannelStatus, &mShadowRegs[mapReceiverChannelStatus], 1 );
+                    FailIf ( kIOReturnSuccess != error, Exit );
+                    
+                    receiverChannelStatus = mShadowRegs[mapReceiverChannelStatus];
+                    bitDepthChangeDetected = receiverChannelStatus != mCachedReceiverChannelStatus;
+                    
+                    // [4189050]
+                    // Post unlock and a pending relock message if...
+                    //      - a ratio step was detected and at least one of the step endpoints corresponds to a valid ratio
+                    //      - a bit depth change was detected and the ratio is valid
+                    if ( ratioStepDetected && ( validRatioDetected || lastRatioWasValid ) ) {
+                        debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent about to post kClockUnLockStatus due to step in sampling rate ..." );
+                        mCodecHasLocked = FALSE;
+                        autoClockLockState = kAutoClockLockStatePendingRelock;
+                    }
+                    else if ( validRatioDetected ) {
+                        if ( bitDepthChangeDetected ) {
+                            debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent about to post kClockUnLockStatus due to change in bit depth ..." );
+                            mCodecHasLocked = FALSE;
+                            autoClockLockState = kAutoClockLockStatePendingRelock;
+                        }
+                        else {
+                            // [4244167, 4267209]
+                            // It could be the case that the CS8416 PLL locks to "noise", thinking that it has external clock, when in fact, there is no
+                            // external clock present.  When auto locking to external clock, we don't want this to happen, as we'll try to run on an
+                            // invalid external clock.  So, we must further check to make sure that the data we're receiving is valid.
+                            if ( mAutoClockSelectionIsBeingUsed ) {
+                                UInt8 tempRegData;
+                                
+                                // clear the "sticky" error bits
+                                error = CODEC_ReadRegister ( mapReceiverError, &tempRegData, 1 );
+                                FailIf ( kIOReturnSuccess != error, Exit );
+                                
+                                // check to see if a "V" receiver error, i.e. AES3 validity error, has occurred
+                                error = CODEC_ReadRegister ( mapReceiverError, &mShadowRegs[mapReceiverError], 1 );
+                                FailIf ( kIOReturnSuccess != error, Exit );
+                                
+                                dataIsValid = ( 0 == ( ( 1 << baINVALID ) & mShadowRegs[mapReceiverError] ) );
+                                
+                                if ( dataIsValid ) {
+                                    mCodecHasLocked = TRUE;
+                                    autoClockLockState = kAutoClockLockStateNormal;
+                                }
+                                else {
+                                    debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent about to post kClockUnLockStatus due to invalid AES3 data ..." );
+                                    mCodecHasLocked = FALSE;
+                                    autoClockLockState = kAutoClockLockStateNormal;
+                                }
+                            }
+                            else {
+                                mCodecHasLocked = TRUE;
+                                autoClockLockState = kAutoClockLockStateNormal;
+                            }
+                        }
+                    }
+                    else {
+                        debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent about to post kClockUnLockStatus due to stable but invalid clock ratio ..." );
+                        mCodecHasLocked = FALSE;
+                        autoClockLockState = kAutoClockLockStateNormal;
+                    }
+                    
+                    // [4189050] - By caching the ratio on every poll, we can differentiate between smooth slewing of the sampling rate and steps
+                    mCached_OMCK_RMCK_Ratio = ratio;
+                    
+                    // [4176686]
+                    mCachedReceiverChannelStatus = receiverChannelStatus;
+                    
+                    if (TRUE == mCodecHasLocked) {
+                        debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent posts kClockLockStatus, OMCK/RMCK ratio = 0x%0.2X, receiver channel status = 0x%0.2X, auto clock lock state = %lu", ratio, receiverChannelStatus, autoClockLockState );
+                        mAudioDeviceProvider->interruptEventHandler ( kClockLockStatus, autoClockLockState );
+                    }
+                    else {
+                        debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent posts kClockUnLockStatus, OMCK/RMCK ratio = 0x%0.2X, receiver channel status = 0x%0.2X, auto clock lock state = %lu", ratio, receiverChannelStatus, autoClockLockState );
+                        mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, autoClockLockState );
+                    }
 				}
-				if ( 0 == mDelayPollAfterWakeCounter )
-				{																								//  [3678605]
-					do {																						//  [3678605]
-						error = CODEC_ReadRegister ( mapReceiverError, &mShadowRegs[mapReceiverError], 1 );
-						FailIf ( kIOReturnSuccess != error, Exit );
-						
-						debugIOLog ( 4, "  AppleTopazPluginCS8416::CODEC_ReadRegister ( mapReceiverError, &mShadowRegs[mapReceiverError], 1 ) returns data 0x%0.2X", mShadowRegs[mapReceiverError] );
-						
-						if ( ( 1 << baUNLOCK ) == ( ( 1 << baUNLOCK ) & mShadowRegs[mapReceiverError] ) ) {
-							unlockStatusDetected = TRUE;
-						}
-						//	If no interrupt occurred then a second access is not required to clear the interrupt status.
-						//	If an interrupt occurred then a second access is needed to clear the interrupt status.
-						hwInterruptAckLoopCounter = 0 == mShadowRegs[mapReceiverError] ? 0 : hwInterruptAckLoopCounter - 1 ;
-						if ( 0 != hwInterruptAckLoopCounter )
-						{
-							IOSleep ( 1 );
-						}
-					} while ( 0 != hwInterruptAckLoopCounter );													//  [3678605]
-					if ( unlockStatusDetected ) {
-						if ( 0 != mUnlockFilterCounter ) {														//  [3678605]
-							mUnlockFilterCounter--;
-						}
-						if ( 0 == mUnlockFilterCounter ) {														//  [3678605]
-							debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent posts kClockUnLockStatus, mShadowRegs[mapReceiverError] = 0x%0.2X", mShadowRegs[mapReceiverError] );
-							mAudioDeviceProvider->interruptEventHandler ( kClockUnLockStatus, (UInt32)0 );
-						}
-					} else {
-						mUnlockFilterCounter = kUnlockFilterCounterSeed;										//  [3678605]
-						debugIOLog ( 4, "  AppleTopazPluginCS8416::notifyHardwareEvent posts kClockLockStatus, mShadowRegs[mapReceiverError] = 0x%0.2X, mUnlockFilterCounter = %ld", mShadowRegs[mapReceiverError], mUnlockFilterCounter );
-						mAudioDeviceProvider->interruptEventHandler ( kClockLockStatus, (UInt32)0 );
-					}
-				}
+                else if ( ( 0 == mDelayPollAfterWakeCounter ) && ( false == mOMCK_RMCK_RatioHasBeenCached ) )  // implies kPollsToDelayReportingAfterWake + 1 polls before we start reporting clock lock status
+                {   // [4189050]
+                    // Load ratio into cache for comparison upon next poll
+                    error = CODEC_ReadRegister ( mapOMCK_RMCK_Ratio, &mShadowRegs[mapOMCK_RMCK_Ratio], 1 );
+                    FailIf ( kIOReturnSuccess != error, Exit );
+                    
+                    mCached_OMCK_RMCK_Ratio = (UInt32) mShadowRegs[mapOMCK_RMCK_Ratio];
+                    mOMCK_RMCK_RatioHasBeenCached = true;
+                }
 				break;
 			case kCodecInterruptStatus:
 				break;
 		}
-	} else {
-		mUnlockFilterCounter = kUnlockFilterCounterSeed;												//  [3678605]
 	}
 	
 Exit:
@@ -472,6 +546,17 @@ Exit:
 		default:							debugIOLog ( 5, "- AppleTopazPluginCS8416::notifyHardwareEvent ( %d, %d )", statusSelector, newValue );									break;
 	}
 	return;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void AppleTopazPluginCS8416::decrementDelayPollAfterWakeCounter() {
+    debugIOLog(5, "+ AppleTopazPluginCS8416::decrementDelayPollAfterWakeCounter()");
+    
+    if ((FALSE == mTopazCS8416isSLEEP) && (mDelayPollAfterWakeCounter > 0)) {
+        mDelayPollAfterWakeCounter--;
+    }
+    
+    debugIOLog(5, "- AppleTopazPluginCS8416::decrementDelayPollAfterWakeCounter()");
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -210,10 +210,8 @@ private:
 	AppleUSBCDC		*fCDCDriver;			// The CDC driver
 	AppleUSBCDCACMControl   *fControlDriver;			// Our Control Driver
     UInt16			fSessions;				// Number of active sessions
-    bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
-	bool			fSuppressWarning;		// Are we supressing the warning
+	bool			fSuppressWarning;		// Are we suppressing the unplug warning dialog
     bool			fStopping;				// Are we being "stopped"
-	bool			fResetOnClose;			// Do we need to reset the device on closing
     UInt8			fProductName[productNameLength];	// Product String from the Device
     
     static void			dataReadComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
@@ -230,6 +228,10 @@ public:
     UInt16			fOutBufPool;
     
     UInt8			fConfigAttributes;			// Configuration descriptor attributes
+	
+	bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
+	bool			fResetOnClose;				// Do we need to reset the device on closing
+	bool			fEnumOnWake;				// Do we need to re-enumerate on wake
 
         // IOKit methods:
 		

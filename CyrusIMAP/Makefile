@@ -104,9 +104,6 @@ clean_src :
 	$(SILENT) if [ -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make distclean)\
 	fi
-	$(SILENT) if [ -d "$(SRCROOT)/$(EXPORT_TOOL_NAME)/build" ]; then\
-		$(SILENT) ($(RM) -r "$(SRCROOT)/$(EXPORT_TOOL_NAME)/build")\
-	fi
 
 configure_imap : $(SRCROOT)/$(BUILD_EXTRAS)
 	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) -------------- configure_imap"
@@ -141,11 +138,10 @@ install_imap :  $(DSTROOT)$(TOOLSDIR) $(DSTROOT)$(TESTDIR) $(DSTROOT)$(ADMINDIR)
 	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) --------------"
 	$(SILENT) $(ECHO) "Installing $(PROJECT_NAME)..."
 	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make install DESTDIR="$(DSTROOT)")
-
 	$(SILENT) if [ -d "$(DSTROOT)/usr/local/lib/perl5/site_perl" ]; then\
 		$(SILENT) ($(CD) "$(DSTROOT)/usr/local/lib/perl5/site_perl/" && $(CP) -rpf * "$(DSTROOT)$(LIB_PERL)$(PERL_VER)")\
 	fi
-#	$(SILENT) ($(CD) "$(DSTROOT)/usr/local/bin" && $(CP) -rpf * "$(DSTROOT)$(TESTDIR)")
+	$(SILENT) ($(CD) "$(DSTROOT)/usr/local/bin" && $(CP) -rpf sieveshell "$(DSTROOT)$(TESTDIR)")
 	$(SILENT) ($(CP) -rpf "$(DSTROOT)/usr/local/usr/bin/cyradm" "$(DSTROOT)$(ADMINDIR)/")
 	$(SILENT) ($(CD) "$(DSTROOT)/usr/local/man" && $(CP) -r * "$(DSTROOT)/$(SHAREDIR)/")
 	$(SILENT) ($(MV) "$(DSTROOT)/$(SHAREDIR)/man8/master.8" "$(DSTROOT)/$(SHAREDIR)/man8/cyrus-master.8")
@@ -165,7 +161,6 @@ install_imap :  $(DSTROOT)$(TOOLSDIR) $(DSTROOT)$(TESTDIR) $(DSTROOT)$(ADMINDIR)
 	do \
 		$(SILENT) install -m 755 "$(SRCROOT)/$(PROJECT_NAME)/tools/$$file" "$(DSTROOT)$(TOOLSDIR)" ; \
 	done
-
 	$(SILENT) $(ECHO) "---- Installing $(PROJECT_NAME) complete."
 
 strip_imap_binaries:

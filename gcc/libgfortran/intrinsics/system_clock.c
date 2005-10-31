@@ -4,17 +4,26 @@
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
+modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
+version 2 of the License, or (at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combine
+executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with libgfortran; see the file COPYING.LIB.  If not,
+You should have received a copy of the GNU General Public
+License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -41,14 +50,22 @@ static struct timeval tp0 = {-1, 0};
 static time_t t0 = (time_t) -2;
 #endif
 
+
+extern void system_clock_4 (GFC_INTEGER_4 *, GFC_INTEGER_4 *, GFC_INTEGER_4 *);
+export_proto(system_clock_4);
+
+extern void system_clock_8 (GFC_INTEGER_8 *, GFC_INTEGER_8 *, GFC_INTEGER_8 *);
+export_proto(system_clock_8);
+
+
 /* prefix(system_clock_4) is the INTEGER(4) version of the SYSTEM_CLOCK
    intrinsic subroutine.  It returns the number of clock ticks for the current
    system time, the number of ticks per second, and the maximum possible value
    for COUNT.  On the first call to SYSTEM_CLOCK, COUNT is set to zero. */
 
 void
-prefix(system_clock_4)(GFC_INTEGER_4 *count, GFC_INTEGER_4 *count_rate,
-		       GFC_INTEGER_4 *count_max)
+system_clock_4(GFC_INTEGER_4 *count, GFC_INTEGER_4 *count_rate,
+	       GFC_INTEGER_4 *count_max)
 {
   GFC_INTEGER_4 cnt;
   GFC_INTEGER_4 rate;
@@ -123,8 +140,8 @@ prefix(system_clock_4)(GFC_INTEGER_4 *count, GFC_INTEGER_4 *count_rate,
 /* INTEGER(8) version of the above routine.  */
 
 void
-prefix(system_clock_8)(GFC_INTEGER_8 *count, GFC_INTEGER_8 *count_rate,
-		       GFC_INTEGER_8 *count_max)
+system_clock_8 (GFC_INTEGER_8 *count, GFC_INTEGER_8 *count_rate,
+	        GFC_INTEGER_8 *count_max)
 {
   GFC_INTEGER_8 cnt;
   GFC_INTEGER_8 rate;
@@ -197,4 +214,3 @@ prefix(system_clock_8)(GFC_INTEGER_8 *count, GFC_INTEGER_8 *count_rate,
   if (count_max != NULL)
     *count_max = mx;
 }
-

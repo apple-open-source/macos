@@ -87,6 +87,8 @@
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_SetHeadphoneMute						"platform-headphone-mute"			
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetHeadphoneMute						"platform-rd-headphone-mute"		
 
+#define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetInternalMicrophoneID				"platform-internal-mic-id"
+
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetInternalSpeakerID					"platform-internal-speaker-id"				
 
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_DisableLineInDetect					"disable-linein-detect"				

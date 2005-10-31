@@ -1,6 +1,6 @@
 // Deque implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -702,7 +702,7 @@ namespace _GLIBCXX_STD
 	: _Base(__a)
         {
 	  // Check whether it's an integral type.  If so, it's not an iterator.
-	  typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
+	  typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	  _M_initialize_dispatch(__first, __last, _Integral());
 	}
 
@@ -755,7 +755,7 @@ namespace _GLIBCXX_STD
         void
         assign(_InputIterator __first, _InputIterator __last)
         {
-	  typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
+	  typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	  _M_assign_dispatch(__first, __last, _Integral());
 	}
 
@@ -970,7 +970,7 @@ namespace _GLIBCXX_STD
        */
       reference
       front()
-      { return *this->_M_impl._M_start; }
+      { return *begin(); }
 
       /**
        *  Returns a read-only (constant) reference to the data at the first
@@ -978,7 +978,7 @@ namespace _GLIBCXX_STD
        */
       const_reference
       front() const
-      { return *this->_M_impl._M_start; }
+      { return *begin(); }
 
       /**
        *  Returns a read/write reference to the data at the last element of the
@@ -987,7 +987,7 @@ namespace _GLIBCXX_STD
       reference
       back()
       {
-	iterator __tmp = this->_M_impl._M_finish;
+	iterator __tmp = end();
 	--__tmp;
 	return *__tmp;
       }
@@ -999,7 +999,7 @@ namespace _GLIBCXX_STD
       const_reference
       back() const
       {
-	const_iterator __tmp = this->_M_impl._M_finish;
+	const_iterator __tmp = end();
 	--__tmp;
 	return *__tmp;
       }
@@ -1131,7 +1131,7 @@ namespace _GLIBCXX_STD
 	       _InputIterator __last)
         {
 	  // Check whether it's an integral type.  If so, it's not an iterator.
-	  typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
+	  typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	  _M_insert_dispatch(__position, __first, __last, _Integral());
 	}
 

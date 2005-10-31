@@ -32,6 +32,7 @@
 #include <IOKit/i2c/IOI2CInterface.h>
 #include <IOKit/pci/IOAGPDevice.h>
 #include <IOKit/IOTimerEventSource.h>
+#include <IOKit/IOHibernatePrivate.h>
 #include <IOKit/assert.h>
 
 #include <libkern/c++/OSContainers.h>
@@ -536,6 +537,8 @@ IOReturn IONDRVFramebuffer::enableController( void )
         initForPM();
         device->setProperty(kIOPMIsPowerManagedKey, true);
 
+        if ((data = OSDynamicCast(OSData, getPMRootDomain()->getProperty(kIOHibernateStateKey))))
+            device->setProperty(kIOHibernateStateKey, data);
     }
     while (false);
 

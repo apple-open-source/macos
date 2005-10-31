@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -166,7 +166,7 @@ addBundle(CFBundleRef bundle)
 {
 	CFDictionaryRef		bundleDict;
 	bundleInfoRef		bundleInfo;
-	
+
 	bundleInfo = CFAllocatorAllocate(NULL, sizeof(*bundleInfo), 0);
 	bundleInfo->bundle	= (CFBundleRef)CFRetain(bundle);
 	bundleInfo->loaded	= FALSE;
@@ -176,7 +176,7 @@ addBundle(CFBundleRef bundle)
 	bundleInfo->start	= NULL;
 	bundleInfo->prime	= NULL;
 	bundleInfo->stop	= NULL;
-	
+
 	bundleDict = CFBundleGetInfoDictionary(bundle);
 	if (isA_CFDictionary(bundleDict)) {
 		CFBooleanRef	bVal;
@@ -724,7 +724,7 @@ plugin_exec(void *arg)
 			strcat(path, BUNDLE_DIRECTORY);
 			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("searching for bundles in \".\""));
 			url = CFURLCreateFromFileSystemRepresentation(NULL,
-								      path,
+								      (UInt8 *)path,
 								      strlen(path),
 								      TRUE);
 			bundles = CFBundleCreateBundlesFromDirectory(NULL, url, CFSTR(".bundle"));
@@ -737,7 +737,7 @@ plugin_exec(void *arg)
 				n = CFArrayGetCount(bundles);
 				for (i = 0; i < n; i++) {
 					CFBundleRef	bundle;
-					
+
 					bundle = (CFBundleRef)CFArrayGetValueAtIndex(bundles, i);
 					addBundle(bundle);
 				}
@@ -754,7 +754,7 @@ plugin_exec(void *arg)
 		 * load (only) the specified bundle
 		 */
 		url = CFURLCreateFromFileSystemRepresentation(NULL,
-							      (char *)arg,
+							      (UInt8 *)arg,
 							      strlen((char *)arg),
 							      TRUE);
 		bundle = CFBundleCreate(NULL, url);

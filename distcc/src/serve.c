@@ -3,6 +3,7 @@
  * distcc -- A simple distributed compiler system
  *
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
+ * Copyright (C)2005 by Apple Computer, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -317,7 +318,8 @@ int dcc_accept_job(int netfd)
 
     if ((ret = dcc_r_request_header(netfd))
         || (ret = dcc_r_argv(netfd, &argv))
-        || (ret = dcc_scan_args(argv, &orig_input, &orig_output, &argv)))
+        || (ret = dcc_scan_args(argv, &orig_input, &orig_output, &argv))
+        || (ret = dcc_validate_compiler(argv[0])))
         return ret;
     
     /* TODO: Make sure cleanup is called in case of error.

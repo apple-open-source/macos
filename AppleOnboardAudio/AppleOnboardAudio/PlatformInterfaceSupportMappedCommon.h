@@ -113,6 +113,7 @@ enum FCR3_FieldWidth {
 #define kPlatformInterfaceSupportMappedCommon_DigitalOutDetectEntry			"digital-output-detect";
 #define kPlatformInterfaceSupportMappedCommon_HeadphoneDetectInt			"headphone-detect";
 #define kPlatformInterfaceSupportMappedCommon_HeadphoneMuteEntry 			"headphone-mute";
+#define kPlatformInterfaceSupportMappedCommon_InternalMicrophoneIDEntry		"internal-mic-id";
 #define kPlatformInterfaceSupportMappedCommon_InternalSpeakerIDEntry		"internal-speaker-id";
 #define kPlatformInterfaceSupportMappedCommon_LineInDetectInt				"line-input-detect";
 #define kPlatformInterfaceSupportMappedCommon_LineOutDetectInt				"line-output-detect";

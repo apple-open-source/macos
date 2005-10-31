@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -153,12 +153,15 @@ bool IOPlatformPlugin::start(IOService *nub)
 	const OSArray * tempArray;
 	IONotifier * restartNotifier;
 	mach_timespec_t waitTimeout;
+	int x;
 	OSDictionary *envCopy;			// [4024330] this is what's in the registry
 		
 	//DLOG("IOPlatformPlugin::start - entered\n");
 
 	if (!super::start (nub)) goto failOnly;
 
+	safeBoot = PE_parse_boot_arg("-x", &x);
+	
 	// store a pointer to ME!!
 	platformPlugin = this;
 
@@ -520,7 +523,6 @@ bool IOPlatformPlugin::initControls( const OSArray * controlDicts )
 	// Allocate the control lists and add the control info array to the registry
 	controls = OSArray::withCapacity(0);
 	controlInfoDicts = OSArray::withCapacity(0);
-	setProperty(gIOPPluginControlDataKey, controlInfoDicts);
 
 	if (controlDicts == NULL)
 	{
@@ -582,6 +584,9 @@ bool IOPlatformPlugin::initControls( const OSArray * controlDicts )
 		controls->setObject(control);
 	}
 
+	// Publish a copy to the registry
+	setControlInfoDicts (controlInfoDicts);
+
 	return(true);
 }
 
@@ -597,7 +602,6 @@ bool IOPlatformPlugin::initSensors( const OSArray * sensorDicts )
 	// Allocate the sensor info array and put it in the registry
 	sensors = OSArray::withCapacity(0);
 	sensorInfoDicts = OSArray::withCapacity(0);
-	setProperty(gIOPPluginSensorDataKey, sensorInfoDicts);
 
 	if (sensorDicts == NULL)
 	{
@@ -659,6 +663,9 @@ bool IOPlatformPlugin::initSensors( const OSArray * sensorDicts )
 		sensors->setObject( sensor );
 	}
 
+	// Publish a copy to the registry
+	setSensorInfoDicts (sensorInfoDicts);
+
 	return(true);
 }
 
@@ -674,7 +681,6 @@ bool IOPlatformPlugin::initCtrlLoops( const OSArray * ctrlLoopDicts )
 	// allocate the ctrlloop lists and add the ctrlloop info array to the registry
 	ctrlLoops = OSArray::withCapacity(0);
 	ctrlLoopInfoDicts = OSArray::withCapacity(0);
-	setProperty( gIOPPluginCtrlLoopDataKey, ctrlLoopInfoDicts );
 
 	if (ctrlLoopDicts == NULL)
 	{
@@ -734,6 +740,9 @@ bool IOPlatformPlugin::initCtrlLoops( const OSArray * ctrlLoopDicts )
 		// control loops don't register, so just add this to the registry now
 		ctrlLoopInfoDicts->setObject( ctrlLoop->getInfoDict() );
 	}
+
+	// Publish a copy to the registry
+	setCtrlLoopInfoDicts (ctrlLoopInfoDicts);
 
 	return(true);
 }
@@ -1562,8 +1571,13 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 
 			status = sensor->registerDriver( sender, dict );
 
-			if (status == kIOReturnSuccess)
+			if (status == kIOReturnSuccess) {
+				// Add it to sensors
 				sensorInfoDicts->setObject( sensor->getInfoDict() );
+				
+				// Publish a copy in the registry
+				setSensorInfoDicts (sensorInfoDicts);
+			}
 
 			return(status);
 		}
@@ -1601,6 +1615,9 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 			{
 				// add this sensor to the I/O registry
 				sensorInfoDicts->setObject( sensor->getInfoDict() );
+
+				// Publish a copy in the registry
+				setSensorInfoDicts (sensorInfoDicts);
 
 				// notify all the control loops about this sensor
 				int count;
@@ -1655,8 +1672,13 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 			}
 #endif
 
-			if (status == kIOReturnSuccess)
+			if (status == kIOReturnSuccess) {
+				// Add it to controls
 				controlInfoDicts->setObject( control->getInfoDict() );
+				
+				// Publish a copy in the registry
+				setControlInfoDicts (controlInfoDicts);
+			}
 
 			return status;
 		}
@@ -1693,6 +1715,9 @@ IOReturn IOPlatformPlugin::registrationHandler( IOService *sender, OSDictionary 
 			{
 				// add this control to the I/O registry
 				controlInfoDicts->setObject( control->getInfoDict() );
+
+				// Publish a copy in the registry
+				setControlInfoDicts (controlInfoDicts);
 
 				// notify all the control loops about this control
 				int count;
@@ -1847,6 +1872,58 @@ IOReturn IOPlatformPlugin::restartHandler(void)
 
 	return(IOPMAckImplied);
 }
+
+void IOPlatformPlugin::setSensorInfoDicts ( OSArray *newSensorInfoDicts )
+{
+	OSArray	*arrayCopy;
+	
+	if (sensorInfoDicts != newSensorInfoDicts) {		// Is this a different reference?
+		if (sensorInfoDicts) sensorInfoDicts->release();
+		sensorInfoDicts = newSensorInfoDicts;			// Set the new reference
+	}
+	
+	// Publish a copy to the registry
+	arrayCopy = (OSArray *)sensorInfoDicts->copyCollection();
+	setProperty(gIOPPluginSensorDataKey, arrayCopy);
+	arrayCopy->release();
+
+	return;
+}
+
+void IOPlatformPlugin::setControlInfoDicts ( OSArray *newControlInfoDicts )
+{
+	OSArray	*arrayCopy;
+	
+	if (controlInfoDicts != newControlInfoDicts) {		// Is this a different reference?
+		if (controlInfoDicts) controlInfoDicts->release();
+		controlInfoDicts = newControlInfoDicts;			// Set the new reference
+	}
+	
+	// Publish a copy to the registry
+	arrayCopy = (OSArray *)controlInfoDicts->copyCollection();
+	setProperty(gIOPPluginControlDataKey, arrayCopy);
+	arrayCopy->release();
+
+	return;
+}
+
+void IOPlatformPlugin::setCtrlLoopInfoDicts ( OSArray *newCtrlLoopInfoDicts )
+{
+	OSArray	*arrayCopy;
+	
+	if (ctrlLoopInfoDicts != newCtrlLoopInfoDicts) {	// Is this a different reference?
+		if (ctrlLoopInfoDicts) ctrlLoopInfoDicts->release();
+		ctrlLoopInfoDicts = newCtrlLoopInfoDicts;		// Set the new reference
+	}
+	
+	// Publish a copy to the registry
+	arrayCopy = (OSArray *)ctrlLoopInfoDicts->copyCollection();
+	setProperty(gIOPPluginCtrlLoopDataKey, arrayCopy);
+	arrayCopy->release();
+
+	return;
+}
+
 
 void IOPlatformPlugin::coreDump(void)
 {

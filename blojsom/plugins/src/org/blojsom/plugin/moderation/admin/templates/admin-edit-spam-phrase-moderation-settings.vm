@@ -1,0 +1,113 @@
+#AdministrationHeader("#adminResource('spam.phrase.moderation.page.header' 'Spam Phrase Moderation Settings')")
+
+<body>
+    <div id="wrap">
+
+        <h1>Blosjom Administration Interface</h1>
+
+        <div id="login">
+            <p>Logged in as: <a href="#" title="view info">$BLOJSOM_ADMIN_PLUGIN_USERNAME</a> : <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=logout" title="log out">#adminResource('logout.text' '')</a></p>
+            <p>Logged in to: <a href="$BLOJSOM_BLOG.getBlogURL()" title="view site info">$BLOJSOM_BLOG.getBlogName()</a></p>
+        </div>
+
+        <ul id="nav">
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="#">#adminResource('entries.page.header' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('add.entry.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=page">#adminResource('edit.and.delete.entries.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('weblog.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-permissions&action=page">#adminResource('permissions.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('plugin.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('configure.plugin.mappings.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
+                </ul>
+            </li>
+        </ul>
+
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
+
+                <!-- Add spam phrase form -->
+                <div class="mainClm">
+                    <h3>#adminResource('add.spam.phrase.text' 'Add a spam phrase (regular expressions allowed)')</h3>
+                    <table>
+                        <form name="add-spam-phrase" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="add-spam-phrase"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="spamphrase-moderation-admin"/>
+                            <tr>
+                                <td>#adminResource('spam.phrase.text' 'Spam phrase')</td>
+                                <td><input type="text" size="25" name="spam-phrase"/></td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('add.spam.phrase.short.text' 'Add spam phrase')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Delete spam phrase form -->
+                <div class="mainClm">
+                    <h3>#adminResource('delete.spam.phrase.text' 'Delete a spam phrase (multiple selections allowed)')</h3>
+                    <table>
+                        <form name="delete-spam-phrase" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="delete-spam-phrase"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="spamphrase-moderation-admin"/>
+                            <tr>
+                                <td>#adminResource('spam.phrase.text' 'Spam phrase')</td>
+                                <td>
+                                    #set ($counter = 0)
+                                    <select name="spam-phrase" multiple>
+                                        #foreach ($spamPhrase in $BLOJSOM_PLUGIN_SPAM_PHRASES)
+                                        <option value="$counter">$spamPhrase</option>
+                                        #set($counter = $counter + 1)
+                                        #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('delete.spam.phrase.short.text' 'Delete spam phrase(s)')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Current spam phrase moderation settings -->
+            <div id="sidebar">
+                <h4>#adminResource('current.spam.phrase.moderation.settings.text' 'Current spam phrase moderation settings')</h4>
+                #foreach ($spamPhrase in $BLOJSOM_PLUGIN_SPAM_PHRASES)
+                   <a href="#">$spamPhrase&nbsp;</a><br/>
+                #end
+            </div>
+        </div>
+    </div>
+</body>
+
+#AdministrationFooter()

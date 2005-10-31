@@ -40,7 +40,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-//#include <sys/sysctl.h>				// for struct kinfo_proc and sysctl()
+#include <sys/sysctl.h>				// for sysctl()
 
 #include <mach/mach.h>				// mach ipc approach to IsDirServiceRunning
 									// versus searching entire process space
@@ -62,6 +62,8 @@ dsBool				gResetSession   		= true;	//ability to invalidate/reset all mach endpo
 DSMutexSemaphore   *gLock					= nil;	//lock on modifying these globals
 CDSRefTable		   *gFWRefTable				= nil;	//ref table for client side buffer parsing
 CDSRefMap		   *gFWRefMap				= nil;	//ref table for mapping remote daemon refs
+uInt32				gTranslateBit			= 0;	//bit set so server knows if FW is running on Intel translated to big endian
+dsBool				gCheckForOffset			= true;	//do this only once
 
 void CheckToCleanUpLostTCPConnection ( tDirStatus *inStatus, uInt32 inMessageIndex, uInt32 lineNumber );
 
@@ -145,6 +147,26 @@ tDirStatus dsOpenDirService ( tDirReference *outDirRef )
 
 		gMessageTable[0]->ClearMessageBlock();
 		
+#if __BIG_ENDIAN__
+		if (gCheckForOffset)
+		{
+			gCheckForOffset = false;
+			// Check to see if we are running translated.
+			int mib[] = { CTL_KERN, KERN_CLASSIC, getpid() };
+			size_t len = sizeof(int);
+			int ret = 0;
+			if (sysctl (mib, 3, &ret, &len, NULL, 0) == 0 && ret == 1)
+			{
+				// Running on Intel under translation
+				gTranslateBit = 1;
+			}
+			else
+			{
+				// Running on PowerPC
+			}
+		}
+#endif
+
 
 		// **************** Send the message ****************
 		siStatus = gMessageTable[0]->SendInlineMessage( kOpenDirService );
@@ -1278,13 +1300,25 @@ tDirStatus dsOpenDirNode (	tDirReference		inDirRef,
 
 		if ( outDirNodeRef != nil )
 		{
-			tDirNodeReference	aRef = 0;
+			tDirNodeReference	aRef	= 0;
+			tDataNodePtr		nodePtr	= nil;
 			// Get the Node reference
 			siStatus = gMessageTable[messageIndex]->Get_Value_FromMsg( &aRef, ktNodeRef );
 			LogThenThrowThisIfDSErrorMacro( siStatus, eDataReceiveErr_NoDirRef );
 			if (messageIndex != 0)
 			{
-				CDSRefMap::NewNodeRefMap( outDirNodeRef, inDirRef, gProcessPID, aRef, messageIndex );
+				//we will assume that the plugin name is the first segment of the inDirNodeName
+				//need to save this in the FW RefMap for use in endian swapping for CustomCalls to the node
+				dsDataListGetNodeAlloc( 0, inDirNodeName, 1, &nodePtr );
+				char* pluginNameValue = nil;
+				if ( (nodePtr != nil) && (nodePtr->fBufferLength > 0) )
+				{
+					uInt32 pluginNameLength = nodePtr->fBufferLength;
+					pluginNameValue = (char *) calloc(1, 1 + pluginNameLength);
+					memcpy(pluginNameValue, nodePtr->fBufferData, pluginNameLength);
+					dsDataBufferDeAllocate( 0, nodePtr ); //dir ref not needed and don't check return
+				}
+				CDSRefMap::NewNodeRefMap( outDirNodeRef, inDirRef, gProcessPID, aRef, messageIndex, pluginNameValue );
 			}
 			else
 			{
@@ -4773,6 +4807,7 @@ tDirStatus	dsDoPlugInCustomCall (	tDirNodeReference	inNodeRef,
 	sInt32			siStatus	= eDSNoErr;
 	uInt32			blockLen	= 0;
 	uInt32			messageIndex= 0;
+	uInt32			serverNodeRef = 0;
 
 	try
 	{
@@ -4800,23 +4835,32 @@ tDirStatus	dsDoPlugInCustomCall (	tDirNodeReference	inNodeRef,
 			blockLen = inDataBuff->fBufferSize + outDataBuff->fBufferSize;
 		}
 
+		//set up the server ref to FW ref mapping
+		serverNodeRef = gFWRefMap->GetRefNum(inNodeRef, eNodeRefType, gProcessPID);
+#ifdef __LITTLE_ENDIAN__
+		gFWRefMap->MapServerRefToLocalRef(serverNodeRef, inNodeRef);
+#endif
 		// Add the node reference
-		siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( gFWRefMap->GetRefNum(inNodeRef, eNodeRefType, gProcessPID), ktNodeRef );
+		siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( serverNodeRef, ktNodeRef );
 		LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError );
+
+		//Add the node map reference
+		siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( inNodeRef, ktNodeRefMap );
+		LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 1 );
 
 		// Add the request code
 		siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( inRequestCode, kCustomRequestCode );
-		LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError );
+		LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 2 );
 
 		// Add the incoming data buffer
 		siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( inDataBuff, ktDataBuff );
-		LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 1 );
+		LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 3 );
 
 		if ( outDataBuff != nil )
 		{
 			// Add the return buffer length
 			siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( outDataBuff->fBufferSize, kOutBuffLen );
-			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 1 );
+			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 4 );
 		}
 
 		// **************** Send the message ****************

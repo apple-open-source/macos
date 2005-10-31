@@ -61,7 +61,6 @@
 #include <sys/fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/disklabel.h>
 #include <machine/param.h>
 #include "user.h"
 #include "disk.h"
@@ -119,8 +118,10 @@ USER_write(disk, tt, preserve, force)
 
 	if (yn) {
 	  if (preserve) {
+	    int shared;
 	    /* Only write the first one, if there's more than one in an extended partition chain */
-	    fd = DISK_open(disk->name, O_RDWR);
+	    /* Since we're updating boot code, we don't require exclusive access */
+	    fd = DISK_openshared(disk->name, O_RDWR, &shared);
 	    MBR_make(tt);
 	    MBR_write(fd, tt);
 	    DISK_close(fd);
@@ -143,7 +144,7 @@ USER_modify(disk, tt, offset, reloff)
 	off_t reloff;
 {
 	static int editlevel;
-	mbr_t mbr;
+	mbr_t *mbr;
 	cmd_t cmd;
 	int i, st, fd;
 	int modified = 0;	
@@ -155,19 +156,20 @@ USER_modify(disk, tt, offset, reloff)
 	cmd.table = cmd_table;
 
 	/* Read MBR & partition */
+	mbr = MBR_alloc(NULL);
 	fd = DISK_open(disk->name, O_RDONLY);
-	MBR_read(fd, offset, &mbr);
+	MBR_read(fd, offset, mbr);
 	DISK_close(fd);
 
 	/* Parse the sucker */
-	MBR_parse(disk, offset, reloff, &mbr);
+	MBR_parse(disk, offset, reloff, mbr);
 
-	if (mbr.signature != MBR_SIGNATURE) {
+	if (mbr->signature != MBR_SIGNATURE) {
 	    int yn = ask_yn("The signature for this MBR is invalid.\nWould you like to initialize the partition table?", 1);
 	    if (yn) {
 	      strcpy(cmd.cmd, "erase");
 	      cmd.args[0] = '\0';
-	      st = Xerase(&cmd, disk, &mbr, tt, offset);
+	      st = Xerase(&cmd, disk, mbr, tt, offset);
 	      modified = 1;
 	    }
 	}
@@ -199,7 +201,7 @@ again:
 			strcpy(cmd.cmd, cmd_table[i].cmd);
 
 		/* Call function */
-		st = cmd_table[i].fcn(&cmd, disk, &mbr, tt, offset);
+		st = cmd_table[i].fcn(&cmd, disk, mbr, tt, offset);
 
 		/* Update status */
 		if (st == CMD_EXIT)
@@ -215,10 +217,18 @@ again:
 	/* Write out MBR */
 	if (modified) {
 		if (st == CMD_SAVE) {
+		  	int shared = 0;
 			printf("Writing current MBR to disk.\n");
-			fd = DISK_open(disk->name, O_RDWR);
-			MBR_make(&mbr);
-			MBR_write(fd, &mbr);
+			fd = DISK_openshared(disk->name, O_RDWR, &shared);
+			if(shared) {
+       			  if(!ask_yn("Device could not be accessed exclusively.\nA reboot will be needed for changes to take effect. OK?", 0)) {
+			    close(fd);
+			    goto again;
+			  }
+			}
+
+			MBR_make(mbr);
+			MBR_write(fd, mbr);
 			close(fd);
 		} else {
 	                int yn = ask_yn("MBR was modified; really quit without saving?", 0);
@@ -233,6 +243,8 @@ again:
 	/* One level less */
 	editlevel -= 1;
 
+	MBR_free(mbr);
+	
 	return (0);
 }
 

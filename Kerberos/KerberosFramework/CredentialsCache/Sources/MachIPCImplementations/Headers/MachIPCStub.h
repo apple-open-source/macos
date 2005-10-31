@@ -201,19 +201,21 @@ class CCIMachIPCStub {
 
         void InvalidatePort () const;
         
+        static pid_t GetServerPID (mach_port_t serverPort);
+        
         static void UpdateServerPortState (mach_port_t newServerPort);
         
         static CCITime GetServerStateChangedTime ();
         
         void UpdateStateChangedTimeFromServer (CCITime newTime);
 
-        static mach_port_t GetLastServerPort ();
+        static pid_t GetLastServerPID ();
         
     private:
         // mutable so GetPort and GetPortNoLaunch can modify them
-        mutable MachServerPort 		*mPort;
-        static bool					sSeenServerPort;
-        static mach_port_t			sLastServerPort;
+        mutable mach_port_t		mPort;
+        static bool			sSeenServerPID;
+        static pid_t			sLastServerPID;
         static CCIChangeTimeStub	sServerStateChangedTime;
 };
 

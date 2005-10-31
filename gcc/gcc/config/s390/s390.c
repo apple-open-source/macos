@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM S/390 and zSeries
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
@@ -81,6 +81,111 @@ static bool s390_function_ok_for_sibcall (tree, tree);
 static bool s390_call_saved_register_used (tree);
 static bool s390_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 				    tree, bool);
+static bool s390_fixed_condition_code_regs (unsigned int *, unsigned int *);
+static enum machine_mode s390_cc_modes_compatible (enum machine_mode,
+ 						   enum machine_mode);
+
+
+/* Define the specific costs for a given cpu.  */
+
+struct processor_costs 
+{
+  /* multiplication */
+  const int m;        /* cost of an M instruction.  */
+  const int mghi;     /* cost of an MGHI instruction.  */
+  const int mh;       /* cost of an MH instruction.  */
+  const int mhi;      /* cost of an MHI instruction.  */
+  const int ml;       /* cost of an ML instruction.  */
+  const int mr;       /* cost of an MR instruction.  */
+  const int ms;       /* cost of an MS instruction.  */
+  const int msg;      /* cost of an MSG instruction.  */
+  const int msgf;     /* cost of an MSGF instruction.  */
+  const int msgfr;    /* cost of an MSGFR instruction.  */
+  const int msgr;     /* cost of an MSGR instruction.  */
+  const int msr;      /* cost of an MSR instruction.  */
+  const int mult_df;  /* cost of multiplication in DFmode.  */
+  /* square root */
+  const int sqdbr;    /* cost of square root in DFmode.  */
+  const int sqebr;    /* cost of square root in SFmode.  */
+  /* multiply and add */
+  const int madbr;    /* cost of multiply and add in DFmode.  */
+  const int maebr;    /* cost of multiply and add in SFmode.  */
+  /* division */
+  const int ddbr;
+  const int ddr;
+  const int debr;
+  const int der;
+  const int dlgr;
+  const int dlr;
+  const int dr;
+  const int dsgfr;
+  const int dsgr;
+};
+
+const struct processor_costs *s390_cost;
+
+static const
+struct processor_costs z900_cost = 
+{
+  COSTS_N_INSNS (5),     /* M     */
+  COSTS_N_INSNS (10),    /* MGHI  */
+  COSTS_N_INSNS (5),     /* MH    */
+  COSTS_N_INSNS (4),     /* MHI   */
+  COSTS_N_INSNS (5),     /* ML    */
+  COSTS_N_INSNS (5),     /* MR    */
+  COSTS_N_INSNS (4),     /* MS    */
+  COSTS_N_INSNS (15),    /* MSG   */
+  COSTS_N_INSNS (7),     /* MSGF  */
+  COSTS_N_INSNS (7),     /* MSGFR */
+  COSTS_N_INSNS (10),    /* MSGR  */
+  COSTS_N_INSNS (4),     /* MSR   */
+  COSTS_N_INSNS (7),     /* multiplication in DFmode */
+  COSTS_N_INSNS (44),    /* SQDBR */
+  COSTS_N_INSNS (35),    /* SQEBR */
+  COSTS_N_INSNS (18),    /* MADBR */
+  COSTS_N_INSNS (13),    /* MAEBR */
+  COSTS_N_INSNS (30),    /* DDBR */
+  COSTS_N_INSNS (30),    /* DDR  */
+  COSTS_N_INSNS (27),    /* DEBR */
+  COSTS_N_INSNS (26),    /* DER  */
+  COSTS_N_INSNS (220),   /* DLGR */
+  COSTS_N_INSNS (34),    /* DLR */
+  COSTS_N_INSNS (34),    /* DR */
+  COSTS_N_INSNS (32),    /* DSGFR */
+  COSTS_N_INSNS (32),    /* DSGR */
+};
+
+static const
+struct processor_costs z990_cost = 
+{
+  COSTS_N_INSNS (4),     /* M     */
+  COSTS_N_INSNS (2),     /* MGHI  */
+  COSTS_N_INSNS (2),     /* MH    */
+  COSTS_N_INSNS (2),     /* MHI   */
+  COSTS_N_INSNS (4),     /* ML    */
+  COSTS_N_INSNS (4),     /* MR    */
+  COSTS_N_INSNS (5),     /* MS    */
+  COSTS_N_INSNS (6),     /* MSG   */
+  COSTS_N_INSNS (4),     /* MSGF  */
+  COSTS_N_INSNS (4),     /* MSGFR */
+  COSTS_N_INSNS (4),     /* MSGR  */
+  COSTS_N_INSNS (4),     /* MSR   */
+  COSTS_N_INSNS (1),     /* multiplication in DFmode */
+  COSTS_N_INSNS (66),    /* SQDBR */
+  COSTS_N_INSNS (38),    /* SQEBR */
+  COSTS_N_INSNS (1),     /* MADBR */
+  COSTS_N_INSNS (1),     /* MAEBR */
+  COSTS_N_INSNS (40),    /* DDBR */
+  COSTS_N_INSNS (44),    /* DDR  */
+  COSTS_N_INSNS (26),    /* DDBR */
+  COSTS_N_INSNS (28),    /* DER  */
+  COSTS_N_INSNS (176),   /* DLGR */
+  COSTS_N_INSNS (31),    /* DLR */
+  COSTS_N_INSNS (31),    /* DR */
+  COSTS_N_INSNS (31),    /* DSGFR */
+  COSTS_N_INSNS (31),    /* DSGR */
+};
+
 
 #undef  TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
@@ -156,6 +261,12 @@ static bool s390_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL s390_function_ok_for_sibcall
 
+#undef TARGET_FIXED_CONDITION_CODE_REGS
+#define TARGET_FIXED_CONDITION_CODE_REGS s390_fixed_condition_code_regs
+
+#undef TARGET_CC_MODES_COMPATIBLE
+#define TARGET_CC_MODES_COMPATIBLE s390_cc_modes_compatible
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 extern int reload_completed;
@@ -194,10 +305,6 @@ enum processor_flags s390_arch_flags;
 /* Strings to hold which cpu and instruction set architecture  to use.  */
 const char *s390_tune_string;		/* for -mtune=<xxx> */
 const char *s390_arch_string;		/* for -march=<xxx> */
-
-/* String to specify backchain mode: 
-   "" no-backchain, "1" backchain, "2" kernel-backchain.  */
-const char *s390_backchain_string = TARGET_DEFAULT_BACKCHAIN;
 
 const char *s390_warn_framesize_string;
 const char *s390_warn_dynamicstack_string;
@@ -240,9 +347,6 @@ struct s390_frame_layout GTY (())
 
   /* Set if return address needs to be saved.  */
   bool save_return_addr_p;
-
-  /* Set if backchain needs to be saved.  */
-  bool save_backchain_p;
 
   /* Size of stack frame.  */
   HOST_WIDE_INT frame_size;
@@ -411,15 +515,20 @@ s390_tm_ccmode (rtx op1, rtx op2, int mixed)
   if (GET_CODE (op1) != CONST_INT || GET_CODE (op2) != CONST_INT)
     return VOIDmode;
 
-  /* Selected bits all zero: CC0.  */
+  /* Selected bits all zero: CC0.
+     e.g.: int a; if ((a & (16 + 128)) == 0) */
   if (INTVAL (op2) == 0)
     return CCTmode;
 
-  /* Selected bits all one: CC3.  */
+  /* Selected bits all one: CC3. 
+     e.g.: int a; if ((a & (16 + 128)) == 16 + 128) */
   if (INTVAL (op2) == INTVAL (op1))
     return CCT3mode;
 
-  /* Exactly two bits selected, mixed zeroes and ones: CC1 or CC2.  */
+  /* Exactly two bits selected, mixed zeroes and ones: CC1 or CC2. e.g.:
+     int a;
+     if ((a & (16 + 128)) == 16)         -> CCT1
+     if ((a & (16 + 128)) == 128)        -> CCT2  */
   if (mixed)
     {
       bit1 = exact_log2 (INTVAL (op2));
@@ -442,6 +551,9 @@ s390_select_ccmode (enum rtx_code code, rtx op0, rtx op1)
     {
       case EQ:
       case NE:
+	if ((GET_CODE (op0) == NEG || GET_CODE (op0) == ABS)
+	    && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT)
+	  return CCAPmode;
 	if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 1)) == CONST_INT
 	    && CONST_OK_FOR_CONSTRAINT_P (INTVAL (XEXP (op0, 1)), 'K', "K"))
 	  return CCAPmode;
@@ -478,14 +590,28 @@ s390_select_ccmode (enum rtx_code code, rtx op0, rtx op1)
       case LT:
       case GE:
       case GT:
-	  if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 1)) == CONST_INT
-	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (XEXP (op0, 1)), 'K', "K"))
-            {
-	      if (INTVAL (XEXP((op0), 1)) < 0)
-	        return CCANmode;
-              else
-	        return CCAPmode;
-	    }
+	/* The only overflow condition of NEG and ABS happens when
+	   -INT_MAX is used as parameter, which stays negative. So
+	   we have an overflow from a positive value to a negative. 
+	   Using CCAP mode the resulting cc can be used for comparisons.  */
+	if ((GET_CODE (op0) == NEG || GET_CODE (op0) == ABS)
+	    && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT)
+	  return CCAPmode;
+
+ 	/* If constants are involved in an add instruction it is possible to use
+ 	   the resulting cc for comparisons with zero. Knowing the sign of the
+	   constant the overflow behavior gets predictable. e.g.:
+ 	     int a, b; if ((b = a + c) > 0)  
+ 	   with c as a constant value: c < 0 -> CCAN and c >= 0 -> CCAP  */
+	if (GET_CODE (op0) == PLUS && GET_CODE (XEXP (op0, 1)) == CONST_INT
+	    && CONST_OK_FOR_CONSTRAINT_P (INTVAL (XEXP (op0, 1)), 'K', "K"))
+	  {
+	    if (INTVAL (XEXP((op0), 1)) < 0)
+	      return CCANmode;
+	    else
+	      return CCAPmode;
+	  }
+	/* Fall through.  */
       case UNORDERED:
       case ORDERED:
       case UNEQ:
@@ -620,10 +746,10 @@ s390_canonicalize_comparison (enum rtx_code *code, rtx *op0, rtx *op1)
 	{
 	  case EQ: new_code = EQ;  break;
 	  case NE: new_code = NE;  break;
-	  case LT: new_code = LTU; break;
-	  case GT: new_code = GTU; break;
-	  case LE: new_code = LEU; break;
-	  case GE: new_code = GEU; break;
+	  case LT: new_code = GTU; break;
+	  case GT: new_code = LTU; break;
+	  case LE: new_code = GEU; break;
+	  case GE: new_code = LEU; break;
 	  default: break;
 	}
 
@@ -1305,6 +1431,18 @@ override_options (void)
   if (TARGET_64BIT && !TARGET_ZARCH)
     error ("64-bit ABI not supported in ESA/390 mode.");
 
+
+  /* Set processor cost function.  */
+  if (s390_tune == PROCESSOR_2084_Z990) 
+    s390_cost = &z990_cost;
+  else
+    s390_cost = &z900_cost;
+
+
+  if (TARGET_BACKCHAIN && TARGET_PACKED_STACK && TARGET_HARD_FLOAT)
+    error ("-mbackchain -mpacked-stack -mhard-float are not supported "
+	   "in combination.");
+
   if (s390_warn_framesize_string)
     {
       if (sscanf (s390_warn_framesize_string, HOST_WIDE_INT_PRINT_DEC,
@@ -1355,7 +1493,8 @@ const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
   FP_REGS,      FP_REGS,   FP_REGS,   FP_REGS,
   FP_REGS,      FP_REGS,   FP_REGS,   FP_REGS,
   FP_REGS,      FP_REGS,   FP_REGS,   FP_REGS,
-  ADDR_REGS,    NO_REGS,   ADDR_REGS, ADDR_REGS
+  ADDR_REGS,    CC_REGS,   ADDR_REGS, ADDR_REGS,
+  ACCESS_REGS,	ACCESS_REGS
 };
 
 /* Return attribute type of insn.  */
@@ -1496,41 +1635,6 @@ s_operand (rtx op, enum machine_mode mode)
   return 1;
 }
 
-/* Return true if OP is a memory operand pointing to the
-   literal pool, or an immediate operand.  */
-
-bool
-s390_pool_operand (rtx op)
-{
-  struct s390_address addr;
-
-  /* Just like memory_operand, allow (subreg (mem ...))
-     after reload.  */
-  if (reload_completed
-      && GET_CODE (op) == SUBREG
-      && GET_CODE (SUBREG_REG (op)) == MEM)
-    op = SUBREG_REG (op);
-
-  switch (GET_CODE (op))
-    {
-    case CONST_INT:
-    case CONST_DOUBLE:
-      return true;
-
-    case MEM:
-      if (!s390_decompose_address (XEXP (op, 0), &addr))
-	return false;
-      if (addr.base && REG_P (addr.base) && REGNO (addr.base) == BASE_REGNUM)
-	return true;
-      if (addr.indx && REG_P (addr.indx) && REGNO (addr.indx) == BASE_REGNUM)
-	return true;
-      return false;
-
-    default:
-      return false;
-    }
-}
-
 /* Return true if OP a valid shift count operand.
    OP is the current operation.
    MODE is the current operation mode.  */
@@ -1586,7 +1690,8 @@ s390_short_displacement (rtx disp)
   /* GOT offset is not OK, the GOT can be large.  */
   if (GET_CODE (disp) == CONST
       && GET_CODE (XEXP (disp, 0)) == UNSPEC
-      && XINT (XEXP (disp, 0), 1) == UNSPEC_GOT)
+      && (XINT (XEXP (disp, 0), 1) == UNSPEC_GOT
+          || XINT (XEXP (disp, 0), 1) == UNSPEC_GOTNTPOFF))
     return 0;
 
   /* All other symbolic constants are literal pool references,
@@ -1617,6 +1722,21 @@ s390_extra_constraint_str (rtx op, int c, const char * str)
       if ((reload_completed || reload_in_progress)
 	  ? !offsettable_memref_p (op)
 	  : !offsettable_nonstrict_memref_p (op))
+	return 0;
+
+      c = str[1];
+    }
+
+  /* Check for non-literal-pool variants of memory constraints.  */
+  else if (c == 'B')
+    {
+      if (GET_CODE (op) != MEM)
+	return 0;
+      if (!s390_decompose_address (XEXP (op, 0), &addr))
+	return 0;
+      if (addr.base && REG_P (addr.base) && REGNO (addr.base) == BASE_REGNUM)
+	return 0;
+      if (addr.indx && REG_P (addr.indx) && REGNO (addr.indx) == BASE_REGNUM)
 	return 0;
 
       c = str[1];
@@ -1787,7 +1907,9 @@ s390_const_ok_for_constraint_p (HOST_WIDE_INT value,
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
-   scanned.  In either case, *TOTAL contains the cost result.  */
+   scanned.  In either case, *TOTAL contains the cost result.  
+   CODE contains GET_CODE (x), OUTER_CODE contains the code 
+   of the superexpression of x.  */
 
 static bool
 s390_rtx_costs (rtx x, int code, int outer_code, int *total)
@@ -1795,60 +1917,183 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
   switch (code)
     {
     case CONST:
-      if (GET_CODE (XEXP (x, 0)) == MINUS
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) != CONST_INT)
-	*total = 1000;
-      else
-	*total = 0;
-      return true;
-
     case CONST_INT:
-      /* Force_const_mem does not work out of reload, because the
-	 saveable_obstack is set to reload_obstack, which does not
-	 live long enough.  Because of this we cannot use force_const_mem
-	 in addsi3.  This leads to problems with gen_add2_insn with a
-	 constant greater than a short. Because of that we give an
-	 addition of greater constants a cost of 3 (reload1.c 10096).  */
-      /* ??? saveable_obstack no longer exists.  */
-      if (outer_code == PLUS
-	  && (INTVAL (x) > 32767 || INTVAL (x) < -32768))
-	*total = COSTS_N_INSNS (3);
-      else
-	*total = 0;
-      return true;
-
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST_DOUBLE:
+    case MEM:
       *total = 0;
       return true;
 
     case ASHIFT:
     case ASHIFTRT:
     case LSHIFTRT:
-    case PLUS:
+    case ROTATE:
+    case ROTATERT:
     case AND:
     case IOR:
     case XOR:
-    case MINUS:
     case NEG:
     case NOT:
       *total = COSTS_N_INSNS (1);
-      return true;
+      return false;
 
-    case MULT:
-      if (GET_MODE (XEXP (x, 0)) == DImode)
-        *total = COSTS_N_INSNS (40);
-      else
-        *total = COSTS_N_INSNS (7);
-      return true;
+    case PLUS:
+    case MINUS:
+      /* Check for multiply and add.  */
+      if ((GET_MODE (x) == DFmode || GET_MODE (x) == SFmode)
+	  && GET_CODE (XEXP (x, 0)) == MULT
+	  && TARGET_HARD_FLOAT && TARGET_IEEE_FLOAT && TARGET_FUSED_MADD)
+	{
+	  /* This is the multiply and add case.  */
+	  if (GET_MODE (x) == DFmode)
+	    *total = s390_cost->madbr;
+	  else
+	    *total = s390_cost->maebr;
+	  *total += rtx_cost (XEXP (XEXP (x, 0), 0), MULT) 
+	    + rtx_cost (XEXP (XEXP (x, 0), 1), MULT) 
+	    + rtx_cost (XEXP (x, 1), code);
+	  return true;  /* Do not do an additional recursive descent.  */
+	}
+      *total = COSTS_N_INSNS (1);
+      return false;
+
+    case MULT:      
+      switch (GET_MODE (x))
+	{
+	case SImode:
+	  {
+	    rtx left = XEXP (x, 0);
+	    rtx right = XEXP (x, 1);
+	    if (GET_CODE (right) == CONST_INT
+		&& CONST_OK_FOR_CONSTRAINT_P (INTVAL (right), 'K', "K"))
+	      *total = s390_cost->mhi;
+	    else if (GET_CODE (left) == SIGN_EXTEND)
+	      *total = s390_cost->mh;
+	    else
+	      *total = s390_cost->ms;  /* msr, ms, msy */
+	    break;
+	  }
+	case DImode:
+	  {
+	    rtx left = XEXP (x, 0);
+	    rtx right = XEXP (x, 1);
+	    if (TARGET_64BIT)
+	      {
+		if (GET_CODE (right) == CONST_INT
+		    && CONST_OK_FOR_CONSTRAINT_P (INTVAL (right), 'K', "K"))
+		  *total = s390_cost->mghi;
+		else if (GET_CODE (left) == SIGN_EXTEND)
+		  *total = s390_cost->msgf;
+		else
+		  *total = s390_cost->msg;  /* msgr, msg */
+	      }
+	    else /* TARGET_31BIT */
+	      {
+		if (GET_CODE (left) == SIGN_EXTEND
+		    && GET_CODE (right) == SIGN_EXTEND)
+		  /* mulsidi case: mr, m */
+		  *total = s390_cost->m;
+		else if (GET_CODE (left) == ZERO_EXTEND
+			 && GET_CODE (right) == ZERO_EXTEND
+			 && TARGET_CPU_ZARCH)
+		  /* umulsidi case: ml, mlr */
+		  *total = s390_cost->ml;
+		else
+		  /* Complex calculation is required.  */
+		  *total = COSTS_N_INSNS (40);
+	      }
+	    break;
+	  }
+	case SFmode:
+	case DFmode:
+	  *total = s390_cost->mult_df;
+	  break;
+	default:
+	  return false;
+	}
+      return false;
+
+    case UDIV:
+    case UMOD:
+      if (GET_MODE (x) == TImode) 	       /* 128 bit division */
+	*total = s390_cost->dlgr;
+      else if (GET_MODE (x) == DImode)
+	{
+	  rtx right = XEXP (x, 1);
+	  if (GET_CODE (right) == ZERO_EXTEND) /* 64 by 32 bit division */
+	    *total = s390_cost->dlr;
+	  else 	                               /* 64 by 64 bit division */
+	    *total = s390_cost->dlgr;
+	}
+      else if (GET_MODE (x) == SImode)         /* 32 bit division */
+	*total = s390_cost->dlr;
+      return false;
 
     case DIV:
-    case UDIV:
     case MOD:
-    case UMOD:
-      *total = COSTS_N_INSNS (33);
-      return true;
+      if (GET_MODE (x) == DImode)
+	{
+	  rtx right = XEXP (x, 1);
+	  if (GET_CODE (right) == ZERO_EXTEND) /* 64 by 32 bit division */
+	    if (TARGET_64BIT)
+	      *total = s390_cost->dsgfr;
+	    else
+	      *total = s390_cost->dr;
+	  else 	                               /* 64 by 64 bit division */
+	    *total = s390_cost->dsgr;
+	}
+      else if (GET_MODE (x) == SImode)         /* 32 bit division */
+	*total = s390_cost->dlr;
+      else if (GET_MODE (x) == SFmode)
+	{
+	  if (TARGET_IEEE_FLOAT)
+	    *total = s390_cost->debr;
+	  else /* TARGET_IBM_FLOAT */
+	    *total = s390_cost->der;
+	}
+      else if (GET_MODE (x) == DFmode)
+	{
+	  if (TARGET_IEEE_FLOAT)
+	    *total = s390_cost->ddbr;
+	  else /* TARGET_IBM_FLOAT */
+	    *total = s390_cost->ddr;
+	}
+      return false;
+
+    case SQRT:
+      if (GET_MODE (x) == SFmode)
+	*total = s390_cost->sqebr;
+      else /* DFmode */
+	*total = s390_cost->sqdbr;
+      return false;
+
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      if (outer_code == MULT || outer_code == DIV || outer_code == MOD
+	  || outer_code == PLUS || outer_code == MINUS
+	  || outer_code == COMPARE)
+	*total = 0;
+      return false;
+
+    case COMPARE:
+      *total = COSTS_N_INSNS (1);
+      if (GET_CODE (XEXP (x, 0)) == AND
+	  && GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+	{
+	  rtx op0 = XEXP (XEXP (x, 0), 0);
+	  rtx op1 = XEXP (XEXP (x, 0), 1);
+	  rtx op2 = XEXP (x, 1);
+
+	  if (memory_operand (op0, GET_MODE (op0))
+	      && s390_tm_ccmode (op1, op2, 0) != VOIDmode)
+	    return true;
+	  if (register_operand (op0, GET_MODE (op0))
+	      && s390_tm_ccmode (op1, op2, 1) != VOIDmode)
+	    return true;
+	}
+      return false;
 
     default:
       return false;
@@ -2019,6 +2264,22 @@ store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   return 1;
 }
 
+/* Split DImode access register reference REG (on 64-bit) into its constituent
+   low and high parts, and store them into LO and HI.  Note that gen_lowpart/
+   gen_highpart cannot be used as they assume all registers are word-sized,
+   while our access registers have only half that size.  */
+
+void
+s390_split_access_reg (rtx reg, rtx *lo, rtx *hi)
+{
+  gcc_assert (TARGET_64BIT);
+  gcc_assert (ACCESS_REG_P (reg));
+  gcc_assert (GET_MODE (reg) == DImode);
+  gcc_assert (!(REGNO (reg) & 1));
+
+  *lo = gen_rtx_REG (SImode, REGNO (reg) + 1);
+  *hi = gen_rtx_REG (SImode, REGNO (reg));
+}
 
 /* Return true if OP contains a symbol reference */
 
@@ -2270,11 +2531,14 @@ s390_preferred_reload_class (rtx op, enum reg_class class)
    is not a legitimate operand of the LOAD ADDRESS instruction.  */
 
 enum reg_class
-s390_secondary_input_reload_class (enum reg_class class ATTRIBUTE_UNUSED,
+s390_secondary_input_reload_class (enum reg_class class,
 				   enum machine_mode mode, rtx in)
 {
   if (s390_plus_operand (in, mode))
     return ADDR_REGS;
+
+  if (reg_classes_intersect_p (CC_REGS, class))
+    return GENERAL_REGS;
 
   return NO_REGS;
 }
@@ -2293,9 +2557,15 @@ s390_secondary_output_reload_class (enum reg_class class,
                     : (mode == DImode || mode == DFmode))
       && reg_classes_intersect_p (GENERAL_REGS, class)
       && GET_CODE (out) == MEM
-      && !offsettable_memref_p (out)
-      && !s_operand (out, VOIDmode))
+      && GET_CODE (XEXP (out, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (out, 0), 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (out, 0), 1)) == CONST_INT
+      && !DISP_IN_RANGE (INTVAL (XEXP (XEXP (out, 0), 1))
+			 + GET_MODE_SIZE (mode) - 1))
     return ADDR_REGS;
+
+  if (reg_classes_intersect_p (CC_REGS, class))
+    return GENERAL_REGS;
 
   return NO_REGS;
 }
@@ -2794,7 +3064,7 @@ legitimize_pic_address (rtx orig, rtx reg)
           new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, temp);
           if (reg != 0)
             {
-              emit_move_insn (reg, new);
+              s390_load_address (reg, new);
               new = reg;
             }
         }
@@ -2903,7 +3173,7 @@ legitimize_pic_address (rtx orig, rtx reg)
                         new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, temp);
                         if (reg != 0)
                           {
-                            emit_move_insn (reg, new);
+                            s390_load_address (reg, new);
                             new = reg;
                           }
                       }
@@ -2947,7 +3217,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 
                       if (reg != 0)
                         {
-                          emit_move_insn (reg, new);
+                          s390_load_address (reg, new);
                           new = reg;
                         }
                     }
@@ -2976,7 +3246,7 @@ legitimize_pic_address (rtx orig, rtx reg)
                   new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, temp);
                   if (reg != 0)
                     {
-                      emit_move_insn (reg, new);
+                      s390_load_address (reg, new);
                       new = reg;
                     }
                 }
@@ -3027,10 +3297,9 @@ legitimize_pic_address (rtx orig, rtx reg)
 static rtx
 get_thread_pointer (void)
 {
-  rtx tp;
+  rtx tp = gen_reg_rtx (Pmode);
 
-  tp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx), UNSPEC_TP);
-  tp = force_reg (Pmode, tp);
+  emit_move_insn (tp, gen_rtx_REG (Pmode, TP_REGNUM));
   mark_reg_pointer (tp, BITS_PER_WORD);
 
   return tp;
@@ -3567,28 +3836,27 @@ void
 s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 {
   rtx ccreg = gen_rtx_REG (CCUmode, CC_REGNUM);
-  rtx result = gen_rtx_UNSPEC (SImode, gen_rtvec (1, ccreg), UNSPEC_CMPINT);
+  rtx tmp;
+
+  /* As the result of CMPINT is inverted compared to what we need,
+     we have to swap the operands.  */
+  tmp = op0; op0 = op1; op1 = tmp;
 
   if (GET_CODE (len) == CONST_INT && INTVAL (len) >= 0 && INTVAL (len) <= 256)
     {
       if (INTVAL (len) > 0)
         {
           emit_insn (gen_cmpmem_short (op0, op1, GEN_INT (INTVAL (len) - 1)));
-          emit_move_insn (target, result);
+          emit_insn (gen_cmpint (target, ccreg));
         }
       else
         emit_move_insn (target, const0_rtx);
     }
-
-  else /* if (TARGET_MVCLE) */
+  else if (TARGET_MVCLE)
     {
       emit_insn (gen_cmpmem_long (op0, op1, convert_to_mode (Pmode, len, 1)));
-      emit_move_insn (target, result);
+      emit_insn (gen_cmpint (target, ccreg));
     }
-
-#if 0
-  /* Deactivate for now as profile code cannot cope with
-     CC being live across basic block boundaries.  */
   else
     {
       rtx addr0, addr1, count, blocks, temp;
@@ -3654,16 +3922,29 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 				   convert_to_mode (Pmode, count, 1)));
       emit_label (end_label);
 
-      emit_move_insn (target, result);
+      emit_insn (gen_cmpint (target, ccreg));
     }
-#endif
 }
 
 
 /* Expand conditional increment or decrement using alc/slb instructions.
    Should generate code setting DST to either SRC or SRC + INCREMENT,
    depending on the result of the comparison CMP_OP0 CMP_CODE CMP_OP1.
-   Returns true if successful, false otherwise.  */
+   Returns true if successful, false otherwise.
+
+   That makes it possible to implement some if-constructs without jumps e.g.:
+   (borrow = CC0 | CC1 and carry = CC2 | CC3)
+   unsigned int a, b, c;
+   if (a < b)  c++; -> CCU  b > a  -> CC2;    c += carry;
+   if (a < b)  c--; -> CCL3 a - b  -> borrow; c -= borrow;
+   if (a <= b) c++; -> CCL3 b - a  -> borrow; c += carry;
+   if (a <= b) c--; -> CCU  a <= b -> borrow; c -= borrow;
+
+   Checks for EQ and NE with a nonzero value need an additional xor e.g.:
+   if (a == b) c++; -> CCL3 a ^= b; 0 - a  -> borrow;    c += carry;
+   if (a == b) c--; -> CCU  a ^= b; a <= 0 -> CC0 | CC1; c -= borrow;
+   if (a != b) c++; -> CCU  a ^= b; a > 0  -> CC2;       c += carry;
+   if (a != b) c--; -> CCL3 a ^= b; 0 - a  -> borrow;    c -= borrow; */
 
 bool
 s390_expand_addcc (enum rtx_code cmp_code, rtx cmp_op0, rtx cmp_op1,
@@ -5159,7 +5440,7 @@ s390_alloc_pool (void)
   pool->label = gen_label_rtx ();
   pool->first_insn = NULL_RTX;
   pool->pool_insn = NULL_RTX;
-  pool->insns = BITMAP_XMALLOC ();
+  pool->insns = BITMAP_ALLOC (NULL);
   pool->size = 0;
 
   return pool;
@@ -5186,7 +5467,7 @@ s390_free_pool (struct constant_pool *pool)
       free (c);
     }
 
-  BITMAP_XFREE (pool->insns);
+  BITMAP_FREE (pool->insns);
   free (pool);
 }
 
@@ -5543,7 +5824,7 @@ s390_chunkify_start (void)
   /* Find all labels that are branched into
      from an insn belonging to a different chunk.  */
 
-  far_labels = BITMAP_XMALLOC ();
+  far_labels = BITMAP_ALLOC (NULL);
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
@@ -5640,7 +5921,7 @@ s390_chunkify_start (void)
       }
 
 
-  BITMAP_XFREE (far_labels);
+  BITMAP_FREE (far_labels);
 
 
   /* Recompute insn addresses.  */
@@ -6066,7 +6347,7 @@ s390_return_addr_rtx (int count, rtx frame ATTRIBUTE_UNUSED)
 
   /* Without backchain, we fail for all but the current frame.  */
 
-  if (!TARGET_BACKCHAIN && !TARGET_KERNEL_BACKCHAIN && count > 0)
+  if (!TARGET_BACKCHAIN && count > 0)
     return NULL_RTX;
 
   /* For the current frame, we need to make sure the initial
@@ -6078,10 +6359,10 @@ s390_return_addr_rtx (int count, rtx frame ATTRIBUTE_UNUSED)
       return gen_rtx_MEM (Pmode, return_address_pointer_rtx);
     }
 
-  if (TARGET_BACKCHAIN)
-    offset = RETURN_REGNUM * UNITS_PER_WORD;
-  else
+  if (TARGET_PACKED_STACK)
     offset = -2 * UNITS_PER_WORD;
+  else
+    offset = RETURN_REGNUM * UNITS_PER_WORD;
 
   addr = plus_constant (frame, offset);
   addr = memory_address (Pmode, addr);
@@ -6096,13 +6377,13 @@ s390_back_chain_rtx (void)
 {
   rtx chain;
 
-  gcc_assert (TARGET_BACKCHAIN || TARGET_KERNEL_BACKCHAIN);
+  gcc_assert (TARGET_BACKCHAIN);
 
-  if (TARGET_BACKCHAIN)
-    chain = stack_pointer_rtx;
-  else
+  if (TARGET_PACKED_STACK)
     chain = plus_constant (stack_pointer_rtx,
 			   STACK_POINTER_OFFSET - UNITS_PER_WORD);
+  else
+    chain = stack_pointer_rtx;
 
   chain = gen_rtx_MEM (Pmode, chain);
   return chain;
@@ -6270,10 +6551,7 @@ s390_frame_info (void)
   if (!TARGET_64BIT && cfun_frame_layout.frame_size > 0x7fff0000)
     fatal_error ("Total size of local variables exceeds architecture limit.");
   
-  cfun_frame_layout.save_backchain_p = (TARGET_BACKCHAIN 
-					|| TARGET_KERNEL_BACKCHAIN);
-
-  if (TARGET_BACKCHAIN)
+  if (!TARGET_PACKED_STACK)
     {
       cfun_frame_layout.backchain_offset = 0;
       cfun_frame_layout.f0_offset = 16 * UNITS_PER_WORD;
@@ -6282,7 +6560,7 @@ s390_frame_info (void)
       cfun_frame_layout.gprs_offset = (cfun_frame_layout.first_save_gpr
 				       * UNITS_PER_WORD);
     }
-  else if (TARGET_KERNEL_BACKCHAIN)
+  else if (TARGET_BACKCHAIN) /* kernel stack layout */
     {
       cfun_frame_layout.backchain_offset = (STACK_POINTER_OFFSET
 					    - UNITS_PER_WORD);
@@ -6337,13 +6615,13 @@ s390_frame_info (void)
       && !current_function_stdarg)
     return;
 
-  if (TARGET_BACKCHAIN)
+  if (!TARGET_PACKED_STACK)
     cfun_frame_layout.frame_size += (STARTING_FRAME_OFFSET
 				     + cfun_frame_layout.high_fprs * 8);
   else
     {
-      cfun_frame_layout.frame_size += (cfun_frame_layout.save_backchain_p
-				       * UNITS_PER_WORD);
+      if (TARGET_BACKCHAIN)
+	cfun_frame_layout.frame_size += UNITS_PER_WORD;
 
       /* No alignment trouble here because f8-f15 are only saved under 
 	 64 bit.  */
@@ -6736,7 +7014,7 @@ s390_emit_prologue (void)
 	  save_fpr (stack_pointer_rtx, offset, i + 16);
 	  offset += 8;
 	}
-      else if (TARGET_BACKCHAIN)
+      else if (!TARGET_PACKED_STACK)
 	  offset += 8;
     }
 
@@ -6754,11 +7032,11 @@ s390_emit_prologue (void)
 	  if (!call_really_used_regs[i + 16])
 	    RTX_FRAME_RELATED_P (insn) = 1;
 	}
-      else if (TARGET_BACKCHAIN)
+      else if (!TARGET_PACKED_STACK)
 	offset += 8;
     }
 
-  if (!TARGET_BACKCHAIN 
+  if (TARGET_PACKED_STACK
       && cfun_save_high_fprs_p
       && cfun_frame_layout.f8_offset + cfun_frame_layout.high_fprs * 8 > 0)
     {
@@ -6777,7 +7055,7 @@ s390_emit_prologue (void)
 	next_fpr = i + 16;
     }
   
-  if (TARGET_BACKCHAIN)
+  if (!TARGET_PACKED_STACK)
     next_fpr = cfun_save_high_fprs_p ? 31 : 0;
 
   /* Decrement stack pointer.  */
@@ -6807,14 +7085,14 @@ s390_emit_prologue (void)
 
       if (s390_warn_framesize > 0 
 	  && cfun_frame_layout.frame_size >= s390_warn_framesize)
-	warning ("frame size of `%s' is " HOST_WIDE_INT_PRINT_DEC " bytes", 
+	warning ("frame size of %qs is " HOST_WIDE_INT_PRINT_DEC " bytes", 
 		 current_function_name (), cfun_frame_layout.frame_size);
 
       if (s390_warn_dynamicstack_p && cfun->calls_alloca)
-	warning ("`%s' uses dynamic stack allocation", current_function_name ());
+	warning ("%qs uses dynamic stack allocation", current_function_name ());
 
       /* Save incoming stack pointer into temp reg.  */
-      if (cfun_frame_layout.save_backchain_p || next_fpr)
+      if (TARGET_BACKCHAIN || next_fpr)
 	insn = emit_insn (gen_move_insn (temp_reg, stack_pointer_rtx));
 
       /* Subtract frame size from stack pointer.  */
@@ -6845,7 +7123,7 @@ s390_emit_prologue (void)
 
       /* Set backchain.  */
 
-      if (cfun_frame_layout.save_backchain_p)
+      if (TARGET_BACKCHAIN)
 	{
 	  if (cfun_frame_layout.backchain_offset)
 	    addr = gen_rtx_MEM (Pmode, 
@@ -6861,7 +7139,7 @@ s390_emit_prologue (void)
 	 we need to make sure the backchain pointer is set up
 	 before any possibly trapping memory access.  */
 
-      if (cfun_frame_layout.save_backchain_p && flag_non_call_exceptions)
+      if (TARGET_BACKCHAIN && flag_non_call_exceptions)
 	{
 	  addr = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode));
 	  emit_insn (gen_rtx_CLOBBER (VOIDmode, addr));
@@ -7033,7 +7311,7 @@ s390_emit_epilogue (bool sibcall)
 			   offset + next_offset, i);
 	      next_offset += 8;
 	    }
-	  else if (TARGET_BACKCHAIN)
+	  else if (!TARGET_PACKED_STACK)
 	    next_offset += 8;
 	}
       
@@ -7499,15 +7777,9 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 
   /* Find the register save area.  */
   t = make_tree (TREE_TYPE (sav), return_address_pointer_rtx);
-  if (TARGET_KERNEL_BACKCHAIN)
-    t = build (PLUS_EXPR, TREE_TYPE (sav), t,
-	       build_int_cst (NULL_TREE,
-			      -(RETURN_REGNUM - 2) * UNITS_PER_WORD
-			      - (TARGET_64BIT ? 4 : 2) * 8));
-  else
-    t = build (PLUS_EXPR, TREE_TYPE (sav), t,
-	       build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD));
-
+  t = build (PLUS_EXPR, TREE_TYPE (sav), t,
+	     build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD));
+  
   t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -7572,11 +7844,10 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       reg = gpr;
       n_reg = 1;
 
-      /* TARGET_KERNEL_BACKCHAIN on 31 bit: It is assumed here that no padding
+      /* kernel stack layout on 31 bit: It is assumed here that no padding
 	 will be added by s390_frame_info because for va_args always an even
 	 number of gprs has to be saved r15-r2 = 14 regs.  */
-      sav_ofs = (TARGET_KERNEL_BACKCHAIN
-		 ? (TARGET_64BIT ? 4 : 2) * 8 : 2 * UNITS_PER_WORD);
+      sav_ofs = 2 * UNITS_PER_WORD;
       sav_scale = UNITS_PER_WORD;
       size = UNITS_PER_WORD;
       max_reg = 4;
@@ -7593,7 +7864,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       indirect_p = 0;
       reg = fpr;
       n_reg = 1;
-      sav_ofs = TARGET_KERNEL_BACKCHAIN ? 0 : 16 * UNITS_PER_WORD;
+      sav_ofs = 16 * UNITS_PER_WORD;
       sav_scale = 8;
       /* TARGET_64BIT has up to 4 parameter in fprs */
       max_reg = TARGET_64BIT ? 3 : 1;
@@ -7611,11 +7882,10 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       reg = gpr;
       n_reg = (size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
-      /* TARGET_KERNEL_BACKCHAIN on 31 bit: It is assumed here that no padding
-	will be added by s390_frame_info because for va_args always an even
-	number of gprs has to be saved r15-r2 = 14 regs.  */
-      sav_ofs = TARGET_KERNEL_BACKCHAIN ? 
-	(TARGET_64BIT ? 4 : 2) * 8 : 2*UNITS_PER_WORD;
+      /* kernel stack layout on 31 bit: It is assumed here that no padding
+	 will be added by s390_frame_info because for va_args always an even
+	 number of gprs has to be saved r15-r2 = 14 regs.  */
+      sav_ofs = 2 * UNITS_PER_WORD;
 
       if (size < UNITS_PER_WORD)
 	sav_ofs += UNITS_PER_WORD - size;
@@ -7632,6 +7902,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
   lab_false = create_artificial_label ();
   lab_over = create_artificial_label ();
   addr = create_tmp_var (ptr_type_node, "addr");
+  DECL_POINTER_ALIAS_SET (addr) = s390_sr_alias_set;
 
   t = fold_convert (TREE_TYPE (reg), size_int (max_reg));
   t = build2 (GT_EXPR, boolean_type_node, reg, t);
@@ -8314,6 +8585,51 @@ s390_function_ok_for_sibcall (tree decl, tree exp)
       return false;
 
   return true;
+}
+
+/* Return the fixed registers used for condition codes.  */
+
+static bool
+s390_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
+{
+  *p1 = CC_REGNUM;
+  *p2 = INVALID_REGNUM;
+ 
+  return true;
+}
+
+/* If two condition code modes are compatible, return a condition code
+   mode which is compatible with both.  Otherwise, return
+   VOIDmode.  */
+
+static enum machine_mode
+s390_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
+{
+  if (m1 == m2)
+    return m1;
+
+  switch (m1)
+    {
+    case CCZmode:
+      if (m2 == CCUmode || m2 == CCTmode
+	  || m2 == CCSmode || m2 == CCSRmode || m2 == CCURmode)
+        return m2;
+      return VOIDmode;
+
+    case CCSmode:
+    case CCUmode:
+    case CCTmode:
+    case CCSRmode:
+    case CCURmode:
+      if (m2 == CCZmode)
+	return m1;
+      
+      return VOIDmode;
+
+    default:
+      return VOIDmode;
+    }
+  return VOIDmode;
 }
 
 /* This function is used by the call expanders of the machine description.

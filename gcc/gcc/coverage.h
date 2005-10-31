@@ -1,5 +1,5 @@
 /* coverage.h - Defines data exported from coverage.c
-   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -26,7 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 extern void coverage_init (const char *);
 extern void coverage_finish (void);
-extern void coverage_read_counts_file (void);
 
 /* Complete the coverage information for the current function. Once
    per function.  */

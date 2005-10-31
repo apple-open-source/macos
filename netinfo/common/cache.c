@@ -285,7 +285,7 @@ cache_delete_datum(cache_t *cin, void *d)
 		{
 			x = n->next;
 			if (n->datum == d) cache_remove_node(c, b, p, n);
-			p = n;
+			else p = n;
 		}
 	}
 }

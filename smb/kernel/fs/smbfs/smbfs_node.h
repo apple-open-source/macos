@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.h,v 1.31.52.1 2005/05/27 02:35:28 lindak Exp $
+ * $Id: smbfs_node.h,v 1.31.52.2 2005/07/20 05:26:59 lindak Exp $
  */
 #ifndef _FS_SMBFS_NODE_H_
 #define _FS_SMBFS_NODE_H_
@@ -113,7 +113,7 @@ int  smbfs_writevnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx, int ioflag, 
 void smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap);
 int  smbfs_attr_cachelookup(vnode_t, struct vnode_attr *, struct smb_cred *);
 void smbfs_attr_touchdir(struct smbnode *dnp);
-char	*smbfs_name_alloc(const u_char *name, int nmlen);
+u_char	*smbfs_name_alloc(const u_char *name, int nmlen);
 void	smbfs_name_free(const u_char *name);
 void	smbfs_setsize(vnode_t , off_t);
 

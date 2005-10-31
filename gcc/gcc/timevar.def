@@ -1,6 +1,7 @@
 /* This file contains the definitions for timing variables used to
    measure run-time performance of the compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -76,17 +77,19 @@ DEFTIMEVAR (TV_TREE_SRA              , "tree SRA")
 DEFTIMEVAR (TV_TREE_CCP		     , "tree CCP")
 DEFTIMEVAR (TV_TREE_SPLIT_EDGES      , "tree split crit edges")
 DEFTIMEVAR (TV_TREE_PRE		     , "tree PRE")
+DEFTIMEVAR (TV_TREE_REDPHI	     , "tree remove redundant PHIs")
 DEFTIMEVAR (TV_TREE_FRE		     , "tree FRE")
 DEFTIMEVAR (TV_TREE_PHIOPT	     , "tree linearize phis")
 DEFTIMEVAR (TV_TREE_FORWPROP	     , "tree forward propagate")
 DEFTIMEVAR (TV_TREE_DCE		     , "tree conservative DCE")
 DEFTIMEVAR (TV_TREE_CD_DCE	     , "tree aggressive DCE")
 DEFTIMEVAR (TV_TREE_DSE		     , "tree DSE")
+DEFTIMEVAR (TV_TREE_MERGE_PHI	     , "PHI merge")
 DEFTIMEVAR (TV_TREE_LOOP	     , "tree loop optimization")
+DEFTIMEVAR (TV_TREE_LOOP_BOUNDS	     , "tree record loop bounds")
 /* APPLE LOCAL begin lno */
 DEFTIMEVAR (TV_MARK_MILOOPS	     , "mark maybe infinite loops")
 DEFTIMEVAR (TV_TREE_PREFETCH	     , "tree prefetching")
-DEFTIMEVAR (TV_TREE_ELIM_CHECKS      , "chrec eliminate checks")
 DEFTIMEVAR (TV_DEP_GRAPH             , "data dependences graph")
 /* APPLE LOCAL end lno */
 DEFTIMEVAR (TV_LIM                   , "loop invariant motion")
@@ -98,6 +101,8 @@ DEFTIMEVAR (TV_COMPLETE_UNROLL       , "complete unrolling")
 DEFTIMEVAR (TV_TREE_VECTORIZATION    , "tree loop vectorization")
 DEFTIMEVAR (TV_TREE_LINEAR_TRANSFORM , "tree loop linear transforms")
 DEFTIMEVAR (TV_TREE_LOOP_IVOPTS	     , "tree iv optimization")
+DEFTIMEVAR (TV_TREE_LOOP_INIT	     , "tree loop init")
+DEFTIMEVAR (TV_TREE_LOOP_FINI	     , "tree loop fini")
 DEFTIMEVAR (TV_TREE_CH		     , "tree copy headers")
 DEFTIMEVAR (TV_TREE_SSA_TO_NORMAL    , "tree SSA to normal")
 DEFTIMEVAR (TV_TREE_NRV		     , "tree NRV optimization")

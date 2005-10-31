@@ -227,7 +227,7 @@ char *smb_dos_errstr(char *inbuf)
 				err_code_struct *err = err_classes[i].err_msgs;
 				for (j=0;err[j].name;j++)
 					if (num == err[j].code) {
-						if (DEBUGLEVEL > 0)
+						if (SAMBA_DEBUGLEVEL > 0)
 							slprintf(ret, sizeof(ret) - 1, "%s - %s (%s)",
 								 err_classes[i].class,
 								 err[j].name,err[j].message);

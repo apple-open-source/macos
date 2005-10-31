@@ -29,9 +29,17 @@ extern const char *machopic_mcount_stub_name (void);
 
 extern void machopic_picsymbol_stub_section (void);
 extern void machopic_picsymbol_stub1_section (void);
+/* APPLE LOCAL dynamic-no-pic */
+extern void machopic_picsymbol_stub2_section (void);
 extern void machopic_symbol_stub_section (void);
 extern void machopic_symbol_stub1_section (void);
+/* APPLE LOCAL deep branch prediction */
+extern void machopic_symbol_stub2_section (void);
 extern void machopic_lazy_symbol_ptr_section (void);
+/* APPLE LOCAL begin -mdynamic-no-pic */
+extern void machopic_lazy_symbol_ptr2_section (void);
+extern void machopic_lazy_symbol_ptr3_section (void);
+/* APPLE LOCAL end -mdynamic-no-pic */
 extern void machopic_nl_symbol_ptr_section (void);
 
 extern void constructor_section (void);
@@ -81,6 +89,12 @@ extern void darwin_pragma_options (struct cpp_reader *);
 extern void darwin_pragma_unused (struct cpp_reader *);
 /* APPLE LOCAL pragma fenv */
 extern void darwin_pragma_fenv (struct cpp_reader *);
+/* APPLE LOCAL pragma reverse_bitfields */
+extern void darwin_pragma_reverse_bitfields (struct cpp_reader *);
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+extern void darwin_pragma_opt_level (struct cpp_reader *);
+extern void darwin_pragma_opt_size (struct cpp_reader *);
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
 extern void darwin_pragma_pack (struct cpp_reader *);
@@ -153,12 +167,16 @@ extern void machopic_nl_symbol_ptr_section (void);
 extern void machopic_symbol_stub_section (void);
 extern void machopic_picsymbol_stub_section (void);
 extern void machopic_output_stub (FILE *, const char *, const char *);
+/* APPLE LOCAL deep branch prediction.  */
+extern void darwin_textcoal_nt_section (void);
 extern void darwin_exception_section (void);
 extern void darwin_eh_frame_section (void);
 extern void darwin_globalize_label (FILE *, const char *);
 extern void darwin_assemble_visibility (tree, int);
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 					   const char *);
+/* APPLE LOCAL optimization pragmas 3124235/3420242 */
+extern void reset_optimization_options (int, int);
 /* APPLE LOCAL C++ EH */
 extern void darwin_non_lazy_pcrel (FILE *file, rtx addr);
 

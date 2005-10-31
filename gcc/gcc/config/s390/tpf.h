@@ -58,10 +58,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    Also, enable TPF profiling support and the standard backchain by default.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT		(MASK_64BIT | MASK_ZARCH | MASK_HARD_FLOAT \
-				 | MASK_TPF_PROFILING)
-#undef TARGET_DEFAULT_BACKCHAIN
-#define TARGET_DEFAULT_BACKCHAIN "1"
-
+				 | MASK_TPF_PROFILING | MASK_BACKCHAIN)
 /* Exception handling.  */
 
 /* Select a format to encode pointers in exception handling data.  */
@@ -103,6 +100,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* The GNU C++ standard library requires that these macros be defined.  */
 #undef CPLUSPLUS_CPP_SPEC
 #define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
+
+#undef  ASM_SPEC
+#define ASM_SPEC "%{m31&m64}%{mesa&mzarch}%{march=*}"
 
 #undef  LIB_SPEC
 #define LIB_SPEC "%{pthread:-lpthread} -lc"

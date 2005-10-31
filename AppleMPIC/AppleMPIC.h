@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2005 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -31,6 +31,8 @@
 
 #include <IOKit/IOInterrupts.h>
 #include <IOKit/IOInterruptController.h>
+
+#include <IOKit/pci/IOPCIDevice.h>
 
 // Offsets and strides to MPIC registers.
 
@@ -87,62 +89,132 @@
 #define kIntnVPRVectorMask     (0x000000FF)
 #define kIntnVPRVectorShift    (0)
 
-#define LWBRX(a)	(accessBigEndian ? *(UInt32 *)(a)       : lwbrx(a))
-//#define STWBRX(v,a) (accessBigEndian ? (*(UInt32 *)(a) = (v)) : (stwbrx((v),(a))))
-//The compiler doesn't like the ? : form of the macro for STWBRX.  Don't ask me why.
-#define STWBRX(v,a) if (accessBigEndian)  (*(UInt32 *)(a) = (v)); else stwbrx((v),(a))
+// Interrupt type bits
+#define kIntrTypeMask			(0x1)		// edge/level
+#define kIntrHTMask				(0x2)		// 1 means interrupt comes over HyperTransport
+
+// Hypertransport interrupt defines
+enum {
+	kHTIntCapID			= 0x08,			// HyperTransport LDT capability block ID
+	kHTIntCapType		= 0x80,			// HyperTransport LDT capability block type
+
+	kHTIntRequestEOI	= 0x20,			// Request EOI (aka Interrupt Info bit 5)
+	kHTIntPolarity		= 0x02,			// Interrupt polarity
+	kHTIntMask			= 0x01,			// Interrupt mask
+	kHTIntDefRegMask	= (kHTIntRequestEOI | kHTIntPolarity | kHTIntMask),
+	kHTWaitEOIBase		= 0x60,			// WaitEOI base register offset
+	kHTIntIndexBase		= 0x10,			// Interrupt definition registers start at index 0x10
+	kHTMaxInterrupt		= 85
+};
+
+enum {
+	kMPICIPICount				= 4,
+	kMPICTaskPriorityCount		= 4,
+	kMPICTimerCount				= 4
+};
+
+struct MPICTimers {
+	UInt32			currentCountRegister;
+	UInt32			baseCountRegister;
+	UInt32			vectorPriorityRegister;
+	UInt32			destinationRegister;
+};
+typedef struct MPICTimers MPICTimers;
+typedef volatile MPICTimers *MPICTimersPtr;
+
+struct MPICState {
+	UInt32			mpicGlobal0;
+	UInt32 			mpicIPI[kMPICIPICount];
+	UInt32 			mpicSpuriousVector;
+	UInt32 			mpicTimerFrequencyReporting;
+	MPICTimers 		mpicTimers[kMPICTimerCount];
+	UInt32 			*mpicInterruptSourceVectorPriority;
+	UInt32 			*mpicInterruptSourceDestination;
+	UInt32			mpicCurrentTaskPriorities[kMPICTaskPriorityCount];
+};
+typedef struct MPICState MPICState;
+typedef volatile MPICState *MPICStatePtr;
+
+#if defined( __ppc__ )
+
+#	define LWBRX(a)	(accessBigEndian ? *(UInt32 *)(a)       : lwbrx(a))
+	//#define STWBRX(v,a) (accessBigEndian ? (*(UInt32 *)(a) = (v)) : (stwbrx((v),(a))))
+	//The compiler doesn't like the ? : form of the macro for STWBRX.  Don't ask me why.
+#	define STWBRX(v,a) if (accessBigEndian)  (*(UInt32 *)(a) = (v)); else stwbrx((v),(a))
+
+#		define EIEIO()		eieio()
+#else
+	// make them NO-OPs
+#	define LWBRX(a) (0)
+#	define STWBRX(v,a)
+#
+	// sync & isync are ppc only so make them NOOPs as well
+#	define sync()
+#	define isync()
+#	define EIEIO()
+#endif	// defined( __ppc__ )
 
 class AppleMPICInterruptController : public IOInterruptController
 {
-  OSDeclareDefaultStructors(AppleMPICInterruptController);
+	OSDeclareDefaultStructors(AppleMPICInterruptController);
   
 private:
-  IOLogicalAddress       mpicBaseAddress;
-  IOMemoryMap            *mpicMemoryMap;
-  int                    numCPUs;
-  int                    numVectors;
-  OSSymbol               *interruptControllerName;
-  IOService              *parentNub;
-  long                   *senses;
-  bool					 isHostMPIC, accessBigEndian;
-
-  // callPlatformFunction symbols
-  const OSSymbol 	*mpic_dispatchIPI;
-  const OSSymbol 	*mpic_getProvider;
-  const OSSymbol 	*mpic_getIPIVector;
-  const OSSymbol 	*mpic_setCurrentTaskPriority;
-  const OSSymbol 	*mpic_setUpForSleep;
-
-  // sleep variables:
-  UInt32 *originalIpivecPriOffsets;
-  UInt32 *originalCurrentTaskPris;
+	IOLogicalAddress		mpicBaseAddress;
+	IOMemoryMap				*mpicMemoryMap;
+	int						numCPUs;
+	int						numVectors;
+	OSSymbol				*interruptControllerName;
+	IOService				*parentNub;
+	UInt32					*senses;
+	MPICStatePtr			mpicSavedStatePtr;
+	bool					isHostMPIC, accessBigEndian, resetOnWake;
   
+	// callPlatformFunction symbols
+	const OSSymbol 	*mpic_dispatchIPI;
+	const OSSymbol 	*mpic_getProvider;
+	const OSSymbol 	*mpic_getIPIVector;
+	const OSSymbol 	*mpic_setCurrentTaskPriority;
+	const OSSymbol 	*mpic_setUpForSleep;
+
+	// sleep variables:
+	UInt32 *originalIpivecPriOffsets;
+	UInt32 *originalCurrentTaskPris;
   
+	// HyperTransport interrupt support variables	
+	IOPCIDevice			*fHTInterruptProvider;
+	UInt32				fHTIntCapabilities;			// Interrupt capabilities ID register offset
+	UInt32				fHTIntDataPort;					// Offset to data port phantom register to read/write interrupt definition registers
+  
+	// HyperTransport interrupt support routines
+	IOPCIDevice		*configureHTInterruptProvider ( UInt32 *htIntCapOffset, UInt32 *htIntDataPort );
+	IOReturn		initHTVector (UInt32 vectorType, bool waking);
+	void			htWaitEOI (UInt32 source);
+	IOLock			*htIntLock;
+
+
 public:
-  virtual bool start(IOService *provider);
-  virtual bool matchPropertyTable(OSDictionary * table);
-  
-  virtual IOReturn getInterruptType(IOService *nub, int source,
-				    int *interruptType);
-  
-  virtual IOInterruptAction getInterruptHandlerAddress(void);
-  virtual IOReturn handleInterrupt(void *refCon,
-				   IOService *nub, int source);
-  
-  virtual bool vectorCanBeShared(long vectorNumber, IOInterruptVector *vector);
-  virtual void initVector(long vectorNumber, IOInterruptVector *vector);
-  virtual void disableVectorHard(long vectorNumber, IOInterruptVector *vector);
-  virtual void enableVector(long vectorNumber, IOInterruptVector *vector);
+	virtual bool start(IOService *provider);
+	virtual bool matchPropertyTable(OSDictionary * table);
 
-  virtual OSData *getIPIVector(long physCPU);
-  virtual void   dispatchIPI(long source, long targetMask);
-  virtual void   setCurrentTaskPriority(long priority);
-  virtual void   setUpForSleep(bool goingToSleep, int cpuNum);
+	virtual IOReturn getInterruptType(IOService *nub, int source,
+		int *interruptType);
   
-  virtual IOReturn callPlatformFunction(const OSSymbol *functionName,
-					bool waitForFunction,
-                                        void *param1, void *param2,
-                                        void *param3, void *param4);
+	virtual IOInterruptAction getInterruptHandlerAddress(void);
+	virtual IOReturn handleInterrupt(void *refCon,
+		IOService *nub, int source);
+  
+	virtual bool vectorCanBeShared(long vectorNumber, IOInterruptVector *vector);
+	virtual void initVector(long vectorNumber, IOInterruptVector *vector);
+	virtual void disableVectorHard(long vectorNumber, IOInterruptVector *vector);
+	virtual void enableVector(long vectorNumber, IOInterruptVector *vector);
+
+	virtual OSData *getIPIVector(long physCPU);
+	virtual void   dispatchIPI(long source, long targetMask);
+	virtual void   setCurrentTaskPriority(long priority);
+	virtual void   setUpForSleep(bool goingToSleep, int cpuNum);
+
+	virtual IOReturn callPlatformFunction(const OSSymbol *functionName,
+		bool waitForFunction, void *param1, void *param2, void *param3, void *param4);
 
 };
 

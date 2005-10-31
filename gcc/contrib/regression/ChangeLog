@@ -1,3 +1,21 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2004-11-07  James A. Morrison  <phython@gcc.gnu.org>
+
+	* README: Update website URL.
+
+2004-10-27  Geoffrey Keating  <geoffk@apple.com>
+
+	* btest-gcc.sh (TESTLOGS): The libstdc++-v3 test log is called
+	libstd++.sum not libstdc++-v3.sum.
+
+2004-10-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* btest-gcc.sh (TESTLOGS): Examine regressions in libstdc++,
+	libffi, and libjava.
+
 2004-05-13  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* btest-gcc.sh: Remove g77.sum from TESTLOGS.

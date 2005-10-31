@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -171,7 +171,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	result = GetNode( calculatedBTCB, kHeaderNodeNum, &node );
 	if ( result != noErr )
 	{
-		if ( result == fsBTInvalidNodeErr )	/* CheckNode failed */
+		if ( result == fsBTInvalidNodeErr )	/* hfs_swap_BTNode failed */
 		{
 			RcdError( GPtr, E_BadNode );
 			result	= E_BadNode;
@@ -277,7 +277,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 		result = GetNode( calculatedBTCB, nodeNum, &node );
 		if ( result != noErr )
 		{
-			if ( result == fsBTInvalidNodeErr )	/* CheckNode failed */
+			if ( result == fsBTInvalidNodeErr )	/* hfs_swap_BTNode failed */
 			{
 				RcdError( GPtr, E_BadNode );
 				result	= E_BadNode;
@@ -556,7 +556,7 @@ int BTMapChk( SGlobPtr GPtr, short fileRefNum )
 		result = GetNode( calculatedBTCB, nodeNum, &node );
 		if ( result != noErr )
 		{
-			if ( result == fsBTInvalidNodeErr )	/* CheckNode failed */
+			if ( result == fsBTInvalidNodeErr )	/* hfs_swap_BTNode failed */
 			{
 				RcdError( GPtr, E_BadNode );
 				result	= E_BadNode;

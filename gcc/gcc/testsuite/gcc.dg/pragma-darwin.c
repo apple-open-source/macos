@@ -23,6 +23,7 @@ extern void abort(void);
 #ifndef __LP64__
 #pragma options align=mac68k
 struct s1 { short f1; int f2; };
+/* APPLE LOCAL 64-bit mainline */
 #endif
 #pragma options align=power
 struct s2 { short f1; int f2; };
@@ -30,6 +31,7 @@ struct s2 { short f1; int f2; };
 #ifndef __LP64__
 #pragma options align=mac68k
 struct s3 { short f1; int f2; };
+/* APPLE LOCAL 64-bit mainline */
 #endif
 #pragma options align=reset
 struct s4 { short f1; int f2; };
@@ -51,6 +53,7 @@ main ()
 #ifndef __LP64__
   if (sizeof (struct s1) != 6)
     abort ();
+/* APPLE LOCAL 64-bit mainline */
 #endif
   if (sizeof (struct s2) != 8)
     abort ();
@@ -58,6 +61,7 @@ main ()
 #ifndef __LP64__
   if (sizeof (struct s3) != 6)
     abort ();
+/* APPLE LOCAL 64-bit mainline */
 #endif
   if (sizeof (struct s4) != 8)
     abort ();

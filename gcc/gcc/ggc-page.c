@@ -1,5 +1,5 @@
 /* "Bag-of-pages" garbage collector for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1139,8 +1139,14 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
 	  word = bit = 0;
 	  while (~entry->in_use_p[word] == 0)
 	    ++word;
+
+#if GCC_VERSION >= 3004
+	  bit = __builtin_ctzl (~entry->in_use_p[word]);
+#else
 	  while ((entry->in_use_p[word] >> bit) & 1)
 	    ++bit;
+#endif
+
 	  hint = word * HOST_BITS_PER_LONG + bit;
 	}
 
@@ -2212,8 +2218,7 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
       /* To speed small writes, we use a nulled-out array that's larger
          than most padding requests as the source for our null bytes.  This
          permits us to do the padding with fwrite() rather than fseek(), and
-         limits the chance the the OS may try to flush any outstanding
-         writes.  */
+         limits the chance the OS may try to flush any outstanding writes.  */
       if (padding <= sizeof(emptyBytes))
         {
           if (fwrite (emptyBytes, 1, padding, f) != padding)

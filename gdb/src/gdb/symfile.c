@@ -1497,7 +1497,7 @@ symfile_bfd_open (const char *name, int mainline)
 	}
     }
 
-  bfd_set_cacheable (sym_bfd, 0);
+  bfd_set_cacheable (sym_bfd, 1);
 
   if (!bfd_check_format (sym_bfd, bfd_object))
     {

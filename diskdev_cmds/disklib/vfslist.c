@@ -58,6 +58,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <err.h>
 
 int		  checkvfsname __P((const char *, const char **));
 const char	**makevfslist __P((char *));

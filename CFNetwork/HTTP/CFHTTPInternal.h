@@ -75,9 +75,10 @@ extern void _CFHTTPReadStreamReadMark(CFReadStreamRef filteredStream);
 extern void _CFHTTPWriteStreamWriteMark(CFWriteStreamRef filteredStream);
 
 /* Utilities in CFHTTPStream.c */
-extern void cleanUpRequest(CFHTTPMessageRef req, int length, Boolean forPersistentConnection);
+extern void cleanUpRequest(CFHTTPMessageRef req, int length, Boolean forPersistentConnection, Boolean forProxy);
 extern Boolean canKeepAlive(CFHTTPMessageRef responseHeaders, CFHTTPMessageRef request);
 extern void emptyPerform(void *info);
+extern CFStringRef _CFNetworkUserAgentString(void);
 
 extern CFStringRef _CFEncodeBase64(CFAllocatorRef allocator, CFDataRef inputData);
 extern CFDataRef _CFDecodeBase64(CFAllocatorRef allocator, CFStringRef inputStr);

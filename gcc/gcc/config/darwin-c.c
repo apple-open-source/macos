@@ -34,6 +34,11 @@ Boston, MA 02111-1307, USA.  */
 #include "prefix.h"
 /* APPLE LOCAL include options.h */
 #include "options.h"
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+#include "flags.h"
+#include "opts.h"
+#include "varray.h"
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* Pragmas.  */
 
@@ -43,8 +48,9 @@ Boston, MA 02111-1307, USA.  */
 
 static bool using_frameworks = false;
 
-/* APPLE LOCAL CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
+/* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
 static void directive_with_named_function (const char *, void (*sec_f)(void));
+/* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
 
 /* Maintain a small stack of alignments.  This is similar to pragma
    pack's stack, but simpler.  */
@@ -294,6 +300,132 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
     warning ("junk at end of '#pragma unused'");
 }
 
+/* APPLE LOCAL begin pragma reverse_bitfields */
+/* Handle the reverse_bitfields pragma.  */
+
+void
+darwin_pragma_reverse_bitfields (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  const char* arg;
+  tree t;
+
+  if (c_lex (&t) != CPP_NAME)
+    BAD ("malformed '#pragma reverse_bitfields', ignoring");
+  arg = IDENTIFIER_POINTER (t);
+
+  if (!strcmp (arg, "on"))
+    darwin_reverse_bitfields = true;
+  else if (!strcmp (arg, "off") || !strcmp (arg, "reset"))
+    darwin_reverse_bitfields = false;
+  else
+    warning ("malformed '#pragma reverse_bitfields {on|off|reset}', ignoring");
+  if (c_lex (&t) != CPP_EOF)
+    warning ("junk at end of '#pragma reverse_bitfields'");
+}
+/* APPLE LOCAL end pragma reverse_bitfields */
+
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
+varray_type va_opt;
+
+static void
+push_opt_level (int level, int size)
+{
+  if (!va_opt)
+    VARRAY_INT_INIT (va_opt, 5, "va_opt");
+  VARRAY_PUSH_INT (va_opt, size << 16 | level);
+}
+
+static void
+pop_opt_level (void)
+{
+  int level;
+  if (!va_opt)
+    VARRAY_INT_INIT (va_opt, 5, "va_opt");
+  if (!VARRAY_ACTIVE_SIZE (va_opt))
+    {
+      warning ("optimization pragma stack underflow");
+      return;
+    }
+  level = VARRAY_TOP_INT (va_opt);
+  VARRAY_POP (va_opt);
+
+  optimize_size = level >> 16;
+  optimize = level & 0xffff;
+}
+
+void
+darwin_pragma_opt_level  (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  tree t;
+  enum cpp_ttype argtype = c_lex (&t);
+
+  if (argtype == CPP_NAME)
+    {
+      const char* arg = IDENTIFIER_POINTER (t);
+      if (strcmp (arg, "reset") != 0)
+	BAD ("malformed '#pragma optimization_level [GCC] {0|1|2|3|reset}', ignoring");
+      pop_opt_level ();
+    }
+  else if (argtype == CPP_NUMBER)
+    {
+      if (TREE_CODE (t) != INTEGER_CST
+	  || INT_CST_LT (t, integer_zero_node)
+	  || TREE_INT_CST_HIGH (t) != 0)
+	BAD ("malformed '#pragma optimization_level [GCC] {0|1|2|3|reset}', ignoring");
+
+      push_opt_level (optimize, optimize_size);
+      optimize = TREE_INT_CST_LOW (t);
+      if (optimize > 3)
+	optimize = 3;
+      optimize_size = 0;
+    }
+  else
+    BAD ("malformed '#pragma optimization_level [GCC] {0|1|2|3|reset}', ignoring");
+
+  set_flags_from_O (false);
+
+  /* This is expected to be defined in each target. */
+  reset_optimization_options (optimize, optimize_size);
+
+  if (c_lex (&t) != CPP_EOF)
+    warning ("junk at end of '#pragma optimization_level'");
+}
+
+void
+darwin_pragma_opt_size  (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  const char* arg;
+  tree t;
+
+  if (c_lex (&t) != CPP_NAME)
+    BAD ("malformed '#pragma optimize_for_size { on | off | reset}', ignoring");
+  arg = IDENTIFIER_POINTER (t);
+
+  if (!strcmp (arg, "on"))
+    {
+      push_opt_level (optimize, optimize_size);
+      optimize_size = 1;
+      optimize = 2;
+    }
+  else if (!strcmp (arg, "off"))
+    /* Not clear what this should do exactly.  CW does not do a pop so
+       we don't either.  */
+    optimize_size = 0;
+  else if (!strcmp (arg, "reset"))
+    pop_opt_level ();
+  else
+    BAD ("malformed '#pragma optimize_for_size { on | off | reset }', ignoring");
+
+  set_flags_from_O (false);
+
+  /* This is expected to be defined in each target. */
+  reset_optimization_options (optimize, optimize_size);
+
+  if (c_lex (&t) != CPP_EOF)
+    warning ("junk at end of '#pragma optimize_for_size'");
+}
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
+
 static struct {
   size_t len;
   const char *name;
@@ -407,6 +539,28 @@ framework_construct_pathname (const char *fname, cpp_dir *dir)
   strncpy (&frname[frname_len], ".framework/", strlen (".framework/"));
   frname_len += strlen (".framework/");
 
+  /* APPLE LOCAL begin mainline */
+  if (fast_dir == 0)
+    {
+      frname[frname_len-1] = 0;
+      if (stat (frname, &st) == 0)
+	{
+	  /* As soon as we find the first instance of the framework,
+	     we stop and never use any later instance of that
+	     framework.  */
+	  add_framework (fname, fname_len, dir);
+	}
+      else
+	{
+	  /* If we can't find the parent directory, no point looking
+	     further.  */
+	  free (frname);
+	  return 0;
+	}
+      frname[frname_len-1] = '/';
+    }
+  /* APPLE LOCAL end mainline */
+
   /* Append framework_header_dirs and header file name */
   for (i = 0; framework_header_dirs[i].dirName; i++)
     {
@@ -417,11 +571,8 @@ framework_construct_pathname (const char *fname, cpp_dir *dir)
 	      &fname[fname_len]);
 
       if (stat (frname, &st) == 0)
-	{
-	  if (fast_dir == 0)
-	    add_framework (fname, fname_len, dir);
-	  return frname;
-	}
+	/* APPLE LOCAL mainline */
+	return frname;
     }
 
   free (frname);
@@ -604,9 +755,6 @@ darwin_register_objc_includes (const char *sysroot, const char *iprefix,
    the missing_header callback for subframework searching if any
    frameworks had been registered.  */
 
-/* APPLE LOCAL begin SDK 3886137 */ 
-/* Patch is waiting FSF review. Use sysroot value. */ 
-
 void
 darwin_register_frameworks (const char *sysroot,
 			    const char *iprefix ATTRIBUTE_UNUSED, int stdinc)
@@ -620,7 +768,7 @@ darwin_register_frameworks (const char *sysroot,
 	{
 	  char *str;
 	  if (sysroot)
-	    str = concat (sysroot, xstrdup (framework_defaults[i]), NULL);
+	    str = concat (sysroot, xstrdup (framework_defaults [i]), NULL);
 	  else
 	    str = xstrdup (framework_defaults[i]);
 	  /* System Framework headers are cxx aware.  */
@@ -631,7 +779,6 @@ darwin_register_frameworks (const char *sysroot,
   if (using_frameworks)
     cpp_get_callbacks (parse_in)->missing_header = find_subframework_header;
 }
-/* APPLE LOCAL end SDK 3886137 */ 
 
 /* Search for HEADER in context dependent way.  The return value is
    the malloced name of a header to try and open, if any, or NULL

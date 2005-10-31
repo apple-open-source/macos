@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_smb.c,v 1.73.38.1 2005/05/27 02:35:28 lindak Exp $
+ * $Id: smbfs_smb.c,v 1.73.38.3 2005/07/20 05:26:59 lindak Exp $
  */
 #include <stdint.h>
 #include <sys/param.h>
@@ -71,7 +71,7 @@ smbfs_getino(struct smbnode *dnp, const char *name, int nmlen)
 {
 	u_int32_t ino;
 
-	ino = dnp->n_ino + smbfs_hash(name, nmlen);
+	ino = dnp->n_ino + smbfs_hash((u_char *)name, nmlen);
 	if (ino <= 2)
 		ino += 3;
 	return ino;
@@ -476,7 +476,7 @@ smbfs_smb_qfsattr(struct smb_share *ssp, u_int32_t *attrp,
 		fs_name = malloc(ctx.f_nmlen+1, M_SMBSTR, M_WAITOK);
 		bcopy(ctx.f_name, fs_name, ctx.f_nmlen);
 		fs_name[ctx.f_nmlen] = '\0';
-		ssp->ss_fsname = fs_name;
+		ssp->ss_fsname = (char *)fs_name;
 		free(ctx.f_name, M_SMBFSDATA);
 		/* 
 		 * If fs_name isn't NTFS they probably require resume keys.
@@ -484,7 +484,7 @@ smbfs_smb_qfsattr(struct smb_share *ssp, u_int32_t *attrp,
 		 * bug. This code uses the logic created by PR-3983209. See
 		 * long block comment in smbfs_smb_findnextLM2. 
 		 */
-		if (strcmp(fs_name, "NTFS"))
+		if (strcmp((char *)fs_name, "NTFS"))
 			ssp->ss_flags |= SMBS_RESUMEKEYS;
 		SMBERROR("(fyi) share '%s', attr 0x%x, maxfilename %d\n",
 			 ssp->ss_fsname, *attrp, ssp->ss_maxfilenamelen);
@@ -1569,8 +1569,15 @@ smbfs_smb_close(struct smb_share *ssp, u_int16_t fid, struct timespec *mtime,
 	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
 	if (mtime) {
 		smb_time_local2server(mtime, SSTOVC(ssp)->vc_sopt.sv_tz, &time);
-	} else
-		time = 0;
+	} else {
+		/*
+		 * Leach and SNIA docs say to send zero here.  X/Open says
+		 * 0 and -1 both are leaving timestamp up to the server.
+		 * Win9x treats zero as a real time-to-be-set!  We send -1,
+		 * same as observed with smbclient.
+		 */
+		time = -1;
+	}
 	mb_put_uint32le(mbp, time);
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
@@ -1882,7 +1889,7 @@ smbfs_smb_search(struct smbfs_fctx *ctx)
 		mb_put_uint8(mbp, 0);
 		mb_put_uint8(mbp, SMB_DT_VARIABLE);
 		mb_put_uint16le(mbp, SMB_SKEYLEN);
-		mb_put_mem(mbp, ctx->f_skey, SMB_SKEYLEN, MB_MSYSTEM);
+		mb_put_mem(mbp, (caddr_t)(ctx->f_skey), SMB_SKEYLEN, MB_MSYSTEM);
 	}
 	smb_rq_bend(rqp);
 	error = smb_rq_simple(rqp);
@@ -1931,7 +1938,7 @@ smbfs_smb_findopenLM1(struct smbfs_fctx *ctx, struct smbnode *dnp,
 		ctx->f_wildcard = NULL;
 		ctx->f_wclen = 0;
 	}
-	ctx->f_name = ctx->f_fname;
+	ctx->f_name = (char *)(ctx->f_fname);
 	return 0;
 }
 
@@ -1959,7 +1966,7 @@ smbfs_smb_findnextLM1(struct smbfs_fctx *ctx, int limit)
 	}
 	rqp = ctx->f_rq;
 	smb_rq_getreply(rqp, &mdp);
-	md_get_mem(mdp, ctx->f_skey, SMB_SKEYLEN, MB_MSYSTEM);
+	md_get_mem(mdp, (caddr_t)(ctx->f_skey), SMB_SKEYLEN, MB_MSYSTEM);
 	md_get_uint8(mdp, &battr);
 	md_get_uint16le(mdp, &time);
 	md_get_uint16le(mdp, &date);
@@ -2398,9 +2405,9 @@ smbfs_smb_findnext(struct smbfs_fctx *ctx, int limit, struct smb_cred *scrp)
 			return error;
 		if (SMB_UNICODE_STRINGS(SSTOVC(ctx->f_ssp))) {
 			if ((ctx->f_nmlen == 2 &&
-			     *(u_int16_t *)ctx->f_name == 0x2e00) ||
+			     letohs(*(u_int16_t *)ctx->f_name) == 0x002e) ||
 			    (ctx->f_nmlen == 4 &&
-			     *(u_int32_t *)ctx->f_name == 0x2e002e00))
+			     letohl(*(u_int32_t *)ctx->f_name) == 0x002e002e))
 				continue;
 		} else {
 			if ((ctx->f_nmlen == 1 && ctx->f_name[0] == '.') ||
@@ -2485,7 +2492,7 @@ smbfs_smb_lookup(struct smbnode *dnp, const char **namep, int *nmlenp,
 		if (name == NULL)
 			fap->fa_ino = dnp->n_ino;
 		if (namep)
-			*namep = smbfs_name_alloc(ctx->f_name, ctx->f_nmlen);
+			*namep = (char *)smbfs_name_alloc((u_char *)(ctx->f_name), ctx->f_nmlen);
 		if (nmlenp)
 			*nmlenp = ctx->f_nmlen;
 	}
@@ -2523,7 +2530,7 @@ smbfs_smb_getsec_int(struct smb_share *ssp, u_int16_t fid,
 	 * is where we pick up the length of it
 	 */
 	mdp = &ntp->nt_rparam;
-	md_get_uint32le(mdp, reslen);
+	md_get_uint32le(mdp, (u_int32_t *)reslen);
 
 	mdp = &ntp->nt_rdata;
 	if (mdp->md_top) {	/* XXX md_cur safer than md_top */

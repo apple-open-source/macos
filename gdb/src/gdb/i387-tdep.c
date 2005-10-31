@@ -523,6 +523,29 @@ static int fxsave_offset[] =
 static int i387_tag (const unsigned char *raw);
 
 
+void
+i387_swap_fxsave (struct regcache *regcache, const void *fxsave)
+{
+  struct gdbarch_tdep *tdep = gdbarch_tdep (get_regcache_arch (regcache));
+  int i, j;
+
+#define I387_ST0_REGNUM tdep->st0_regnum
+#define I387_NUM_XMM_REGS tdep->num_xmm_regs
+
+  for (i = 0; i < tdep->num_xmm_regs; i++)
+    {
+      unsigned char *buf = (unsigned char *) FXSAVE_ADDR (fxsave, I387_XMM0_REGNUM + i);
+      for (j = 0; j < 8; j++) {
+       unsigned char c = buf[15 - j];
+       buf[15 - j] = buf[j];
+       buf[j] = c;
+      }
+    }
+
+#undef I387_ST0_REGNUM
+#undef I387_NUM_XMM_REGS
+}
+
 /* Fill register REGNUM in REGCACHE with the appropriate
    floating-point or SSE register value from *FXSAVE.  This function
    masks off any of the reserved bits in *FXSAVE.  */

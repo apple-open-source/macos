@@ -1,0 +1,130 @@
+#AdministrationHeader("#adminResource('permissions.page.header' 'Permissions')")
+
+<body>
+    <div id="wrap">
+
+        <h1>Blosjom Administration Interface</h1>
+
+        <div id="login">
+            <p>Logged in as: <a href="#" title="view info">$BLOJSOM_ADMIN_PLUGIN_USERNAME</a> : <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=logout" title="log out">#adminResource('logout.text' '')</a></p>
+            <p>Logged in to: <a href="$BLOJSOM_BLOG.getBlogURL()" title="view site info">$BLOJSOM_BLOG.getBlogName()</a></p>
+        </div>
+
+        <ul id="nav">
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="#">#adminResource('entries.page.header' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('add.entry.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=page">#adminResource('edit.and.delete.entries.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('weblog.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-permissions&action=page">#adminResource('permissions.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('plugin.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('configure.plugin.mappings.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
+                </ul>
+            </li>
+        </ul>
+
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
+
+                <!-- Current permissions -->
+                <div class="mainClm">
+                    <h3>#adminResource('current.permissions.text' 'Current permissions')</h3>
+
+                    #foreach ($userID in $BLOJSOM_PLUGIN_EDIT_BLOG_PERMISSIONS_MAP.keySet())
+                    #set ($permissionsList = $BLOJSOM_PLUGIN_EDIT_BLOG_PERMISSIONS_MAP.get($userID))
+                    <table>
+                        <tr><td>$userID</td><td>#foreach ($permission in $permissionsList) $permission #end</td></tr>
+                    </table>
+                #end
+                </div>
+
+
+                <!-- Add blog user permission form -->
+                <div class="mainClm">
+                    <h3>#adminResource('add.user.permission.text' 'Add a new permission for a user of the current blog')</h3>
+                    <table>
+                        <form name="add-blog-permission" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="add-blog-permission"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-permissions"/>
+                            <tr>
+                                <td>#adminResource('authorized.user.id.text' 'Authorized user ID')</td>
+                                <td>
+                                    <select name="blog-user-id">
+                                    #foreach ($blogUserID in $BLOJSOM_PLUGIN_EDIT_BLOG_PERMISSIONS_USER_MAP.keySet())
+                                        <option value="$blogUserID">$blogUserID</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('permission.to.add.text' 'Permission to add')</td>
+                                <td><input type="text" size="25" name="blog-permission"/></td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('add.permission.text' 'Add permission')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Delete blog user permission form -->
+                <div class="mainClm">
+                    <h3>#adminResource('delete.user.permission.text' 'Delete a permission for a user of the current blog')</h3>
+                    <table>
+                        <form name="delete-blog-permission" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="delete-blog-permission"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-permissions"/>
+                            <tr>
+                                <td>#adminResource('authorized.user.id.text' 'Authorized user ID')</td>
+                                <td>
+                                    <select name="blog-user-id">
+                                    #foreach ($blogUserID in $BLOJSOM_PLUGIN_EDIT_BLOG_PERMISSIONS_USER_MAP.keySet())
+                                        <option value="$blogUserID">$blogUserID</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('permission.to.delete.text' 'Permission to delete')</td>
+                                <td><input type="text" size="25" name="blog-permission"/></td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('delete.permission.text' 'Delete permission')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+#AdministrationFooter()

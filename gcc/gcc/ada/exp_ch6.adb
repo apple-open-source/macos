@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -955,8 +955,13 @@ package body Exp_Ch6 is
             then
                Add_Call_By_Copy_Code;
 
+            --  If the actual is not a scalar and is marked for volatile
+            --  treatment, whereas the formal is not volatile, then pass
+            --  by copy unless it is a by-reference type.
+
             elsif Is_Entity_Name (Actual)
               and then Treat_As_Volatile (Entity (Actual))
+              and then not Is_By_Reference_Type (Etype (Actual))
               and then not Is_Scalar_Type (Etype (Entity (Actual)))
               and then not Treat_As_Volatile (E_Formal)
             then
@@ -1046,7 +1051,7 @@ package body Exp_Ch6 is
          end if;
       end if;
 
-      --  The call node itself is re-analyzed in Expand_Call.
+      --  The call node itself is re-analyzed in Expand_Call
 
    end Expand_Actuals;
 
@@ -1728,7 +1733,7 @@ package body Exp_Ch6 is
         and then Present (Controlling_Argument (N))
         and then not Java_VM
       then
-         Expand_Dispatch_Call (N);
+         Expand_Dispatching_Call (N);
 
          --  The following return is worrisome. Is it really OK to
          --  skip all remaining processing in this procedure ???
@@ -1968,6 +1973,10 @@ package body Exp_Ch6 is
       --  If this is a call to an intrinsic subprogram, then perform the
       --  appropriate expansion to the corresponding tree node and we
       --  are all done (since after that the call is gone!)
+
+      --  In the case where the intrinsic is to be processed by the back end,
+      --  the call to Expand_Intrinsic_Call will do nothing, which is fine,
+      --  since the idea in this case is to pass the call unchanged.
 
       if Is_Intrinsic_Subprogram (Subp) then
          Expand_Intrinsic_Call (N, Subp);
@@ -2295,7 +2304,7 @@ package body Exp_Ch6 is
       Temp_Typ : Entity_Id;
 
       procedure Make_Exit_Label;
-      --  Build declaration for exit label to be used in Return statements.
+      --  Build declaration for exit label to be used in Return statements
 
       function Process_Formals (N : Node_Id) return Traverse_Result;
       --  Replace occurrence of a formal with the corresponding actual, or
@@ -2326,7 +2335,7 @@ package body Exp_Ch6 is
 
       procedure Make_Exit_Label is
       begin
-         --  Create exit label for subprogram, if one doesn't exist yet.
+         --  Create exit label for subprogram if one does not exist yet
 
          if No (Exit_Lab) then
             Lab_Id := Make_Identifier (Loc, New_Internal_Name ('L'));
@@ -2504,15 +2513,13 @@ package body Exp_Ch6 is
          elsif Nkind (N) = N_Identifier
            and then Nkind (Parent (Entity (N))) = N_Object_Declaration
          then
-
-            --  The block assigns the result of the call to the temporary.
+            --  The block assigns the result of the call to the temporary
 
             Insert_After (Parent (Entity (N)), Blk);
 
          elsif Nkind (Parent (N)) = N_Assignment_Statement
            and then Is_Entity_Name (Name (Parent (N)))
          then
-
             --  Replace assignment with the block
 
             declare
@@ -2655,7 +2662,7 @@ package body Exp_Ch6 is
          Set_Declarations (Blk, New_List);
       end if;
 
-      --  If this is a derived function, establish the proper return type.
+      --  If this is a derived function, establish the proper return type
 
       if Present (Orig_Subp)
         and then Orig_Subp /= Subp
@@ -2792,7 +2799,7 @@ package body Exp_Ch6 is
             Targ := Name (Parent (N));
 
          else
-            --  Replace call with temporary, and create its declaration.
+            --  Replace call with temporary and create its declaration
 
             Temp :=
               Make_Defining_Identifier (Loc, New_Internal_Name ('C'));
@@ -2810,7 +2817,7 @@ package body Exp_Ch6 is
          end if;
       end if;
 
-      --  Traverse the tree and replace  formals with actuals or their thunks.
+      --  Traverse the tree and replace formals with actuals or their thunks.
       --  Attach block to tree before analysis and rewriting.
 
       Replace_Formals (Blk);
@@ -2874,7 +2881,7 @@ package body Exp_Ch6 is
 
       Restore_Env;
 
-      --  Cleanup mapping between formals and actuals, for other expansions.
+      --  Cleanup mapping between formals and actuals for other expansions
 
       F := First_Formal (Subp);
 
@@ -2895,6 +2902,11 @@ package body Exp_Ch6 is
       --  If the return type is returned through the secondary stack. that is
       --  by reference, we don't want to create a temp to force stack checking.
       --  Shouldn't this function be moved to exp_util???
+
+      function Rhs_Of_Assign_Or_Decl (N : Node_Id) return Boolean;
+      --  If the call is the right side of an assignment or the expression in
+      --  an object declaration, we don't need to create a temp as the left
+      --  side will already trigger stack checking if necessary.
 
       ---------------------------
       -- Returned_By_Reference --
@@ -2925,6 +2937,33 @@ package body Exp_Ch6 is
          end if;
       end Returned_By_Reference;
 
+      ---------------------------
+      -- Rhs_Of_Assign_Or_Decl --
+      ---------------------------
+
+      function Rhs_Of_Assign_Or_Decl (N : Node_Id) return Boolean is
+      begin
+         if (Nkind (Parent (N)) = N_Assignment_Statement
+               and then Expression (Parent (N)) = N)
+           or else
+             (Nkind (Parent (N)) = N_Qualified_Expression
+                and then Nkind (Parent (Parent (N))) = N_Assignment_Statement
+                  and then Expression (Parent (Parent (N))) = Parent (N))
+           or else
+             (Nkind (Parent (N)) = N_Object_Declaration
+                and then Expression (Parent (N)) = N)
+           or else
+             (Nkind (Parent (N)) = N_Component_Association
+                and then Expression (Parent (N)) = N
+                  and then Nkind (Parent (Parent (N))) = N_Aggregate
+                    and then Rhs_Of_Assign_Or_Decl (Parent (Parent (N))))
+         then
+            return True;
+         else
+            return False;
+         end if;
+      end Rhs_Of_Assign_Or_Decl;
+
    --  Start of processing for Expand_N_Function_Call
 
    begin
@@ -2941,13 +2980,7 @@ package body Exp_Ch6 is
       --  the instance itself is installed.
 
       if May_Generate_Large_Temp (Typ)
-        and then Nkind (Parent (N)) /= N_Assignment_Statement
-        and then
-          (Nkind (Parent (N)) /= N_Qualified_Expression
-             or else Nkind (Parent (Parent (N))) /= N_Assignment_Statement)
-        and then
-          (Nkind (Parent (N)) /= N_Object_Declaration
-             or else Expression (Parent (N)) /= N)
+        and then not Rhs_Of_Assign_Or_Decl (N)
         and then not Returned_By_Reference
         and then Current_Scope /= Standard_Standard
       then
@@ -3462,9 +3495,9 @@ package body Exp_Ch6 is
             end loop;
          end if;
 
-      --  For a function, we must deal with the case where there is at
-      --  least one missing return. What we do is to wrap the entire body
-      --  of the function in a block:
+      --  For a function, we must deal with the case where there is at least
+      --  one missing return. What we do is to wrap the entire body of the
+      --  function in a block:
 
       --    begin
       --      ...
@@ -3701,7 +3734,7 @@ package body Exp_Ch6 is
       if Is_Subprogram (Proc)
         and then Proc /= Corr
       then
-         --  Protected function or procedure.
+         --  Protected function or procedure
 
          Set_Entity (Rec, Param);
 

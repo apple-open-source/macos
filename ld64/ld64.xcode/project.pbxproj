@@ -83,6 +83,8 @@
 				F97F5025070D0B6300B9FCD7,
 			);
 			buildRules = (
+				F9E8D4BE07FCAF2A00FD5801,
+				F9E8D4BD07FCAF2000FD5801,
 			);
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
@@ -417,6 +419,22 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		F9E8D4BD07FCAF2000FD5801 = {
+			compilerSpec = com.apple.compilers.gcc.4_0;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			isa = PBXBuildRule;
+			outputFiles = (
+			);
+		};
+		F9E8D4BE07FCAF2A00FD5801 = {
+			compilerSpec = com.apple.compilers.gcc.4_0;
+			fileType = sourcecode.cpp;
+			isEditable = 1;
+			isa = PBXBuildRule;
+			outputFiles = (
+			);
 		};
 	};
 	rootObject = F9023C3006D5A227001BBF46;

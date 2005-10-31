@@ -724,7 +724,7 @@ editit(tmpfile)
 		setuid(getuid());
 		if ((ed = getenv("EDITOR")) == (char *)0)
 			ed = _PATH_VI;
-		execlp(ed, ed, tmpfile, 0);
+		execlp(ed, ed, tmpfile, NULL);
 		perror(ed);
 		exit(1);
 	}

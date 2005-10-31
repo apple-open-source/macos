@@ -161,10 +161,11 @@ void KJS::Bindings::addNativeReference (const Bindings::RootObject *root, Object
         unsigned int numReferences = (unsigned int)CFDictionaryGetValue (referencesDictionary, imp);
         if (numReferences == 0) {
 #if !USE_CONSERVATIVE_GC
-	    imp->ref();
+            imp->ref();
 #endif
 #if USE_CONSERVATIVE_GC | TEST_CONSERVATIVE_GC
-	    gcProtect(imp);
+            InterpreterLock lock;
+            gcProtect(imp);
 #endif 
             CFDictionaryAddValue (referencesDictionary, imp,  (const void *)1);
         }
@@ -185,10 +186,11 @@ void KJS::Bindings::removeNativeReference (ObjectImp *imp)
         unsigned int numReferences = (unsigned int)CFDictionaryGetValue (referencesDictionary, imp);
         if (numReferences == 1) {
 #if !USE_CONSERVATIVE_GC
-	    imp->deref();
+            imp->deref();
 #endif
 #if USE_CONSERVATIVE_GC | TEST_CONSERVATIVE_GC
-	    gcUnprotect(imp);
+            InterpreterLock lock;
+            gcUnprotect(imp);
 #endif 
             CFDictionaryRemoveValue (referencesDictionary, imp);
         }
@@ -335,12 +337,15 @@ void RootObject::removeAllNativeReferences ()
         allImps = (void **)malloc (sizeof(void *) * count);
         CFDictionaryGetKeysAndValues (referencesDictionary, (const void **)allImps, NULL);
         for(i = 0; i < count; i++) {
+#if USE_CONSERVATIVE_GC | TEST_CONSERVATIVE_GC
+            InterpreterLock lock;
+#endif
             ObjectImp *anImp = static_cast<ObjectImp*>(allImps[i]);
 #if !USE_CONSERVATIVE_GC
             anImp->deref();
 #endif
 #if USE_CONSERVATIVE_GC | TEST_CONSERVATIVE_GC
-	    gcUnprotect(anImp);
+            gcUnprotect(anImp);
 #endif
         }
         free ((void *)allImps);

@@ -291,7 +291,7 @@ mach_xfer_memory (CORE_ADDR memaddr, char *myaddr,
   mach_vm_address_t r_start;
   mach_vm_address_t r_end;
   mach_vm_size_t r_size;
-  port_t r_object_name;
+  mach_port_t r_object_name;
 
   vm_region_basic_info_data_64_t r_data;
   mach_msg_type_number_t r_info_size;
@@ -327,7 +327,7 @@ mach_xfer_memory (CORE_ADDR memaddr, char *myaddr,
     r_info_size = VM_REGION_BASIC_INFO_COUNT_64;
     kret = mach_vm_region (macosx_status->task, &r_start, &r_size,
                            VM_REGION_BASIC_INFO_64,
-                           (vm_region_info_t) & r_data, &r_info_size,
+                           (vm_region_info_t) &r_data, &r_info_size,
                            &r_object_name);
     if (kret != KERN_SUCCESS)
       {

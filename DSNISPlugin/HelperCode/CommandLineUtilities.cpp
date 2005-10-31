@@ -63,7 +63,7 @@ int executecommand(char *command, char **output)
 }
 
 
-int myexecutecommandas(const char *command, const char* path, const char * argv[], Boolean useSHELL, size_t timeout_delay, char **output, Boolean* canceledFlag,
+int myexecutecommandas(const char *command, const char* path, char *const argv[], Boolean useSHELL, size_t timeout_delay, char **output, Boolean* canceledFlag,
 	uid_t uid, gid_t gid, int* has_timedout )
 {
 	FILE	*pipe = NULL;
@@ -155,6 +155,9 @@ int myexecutecommandas(const char *command, const char* path, const char * argv[
 				{
 					output_size += line_output_size;
 					*output = (char*)realloc(*output, output_size);
+					
+					if ( !*output )
+						syslog(LOG_ALERT, "realloc failed!");
 				}
 				
 				if (*output != NULL) 
@@ -162,6 +165,9 @@ int myexecutecommandas(const char *command, const char* path, const char * argv[
 					memcpy(&(*output)[output_count], line, line_output_size);
 					output_count += line_output_size;
 					(*output)[output_count] = 0;
+					
+					// reset our starting time since we are getting data
+					starting_time = time(NULL);
 				}
 			}
 		}
@@ -221,7 +227,7 @@ executecommand_exit:
  *	ec_popen
  *	Mimic the popen(cmdstring, "r") function.
  *---------------------------------------------------------------------------*/
-FILE *ec_popen(const char *cmdstring, const char* path, const char * argv[], Boolean useSHELL, uid_t uid, gid_t gid)
+FILE *ec_popen(const char *cmdstring, const char* path, char *const argv[], Boolean useSHELL, uid_t uid, gid_t gid)
 {
 	int		pfd[2] = {0,};
 	pid_t	pid = 0;

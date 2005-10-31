@@ -405,7 +405,8 @@ typedef enum
   KDP_LOG_ERROR = 1,
   KDP_LOG_WARNING = 2,
   KDP_LOG_INFO = 3,
-  KDP_LOG_DEBUG = 4
+  KDP_LOG_DEBUG = 4,
+  KDP_LOG_PACKET = 5
 } kdp_log_level;
 
 typedef enum

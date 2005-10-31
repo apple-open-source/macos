@@ -169,7 +169,7 @@ void
 newtapebuf(size)
 	long size;
 {
-	static tapebufsize = -1;
+	static int tapebufsize = -1;
 
 	ntrec = size;
 	if (size <= tapebufsize)
@@ -300,7 +300,7 @@ void
 getvol(nextvol)
 	long nextvol;
 {
-	long newvol, savecnt, wantnext, i;
+	long newvol = 0, savecnt = 0, wantnext = 0, i;
 	union u_spcl tmpspcl;
 #	define tmpbuf tmpspcl.s_spcl
 	char buf[TP_BSIZE];

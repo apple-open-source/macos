@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,13 +24,12 @@
 #ifndef _VLANCONFIGURATIONPRIVATE_H
 #define _VLANCONFIGURATIONPRIVATE_H
 
-
+#include <AvailabilityMacros.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
-
-
 #include <SystemConfiguration/VLANConfiguration.h>
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
 
 /*!
 	@header VLANConfigurationPrivate
@@ -49,5 +48,7 @@ Boolean
 _VLANPreferencesUpdateConfiguration	(VLANPreferencesRef	prefs);
 
 __END_DECLS
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 */
 
 #endif /* _VLANCONFIGURATIONPRIVATE_H */

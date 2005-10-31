@@ -1,5 +1,5 @@
 /* Main for jv-scan
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -96,7 +96,7 @@ static const struct option options[] =
 static void
 usage (void)
 {
-  fprintf (stderr, _("Try `jv-scan --help' for more information.\n"));
+  fprintf (stderr, _("Try 'jv-scan --help' for more information.\n"));
   exit (1);
 }
 
@@ -108,7 +108,7 @@ help (void)
   printf (_("  --no-assert             Don't recognize the assert keyword\n"));
   printf (_("  --complexity            Print cyclomatic complexity of input file\n"));
   printf (_("  --encoding NAME         Specify encoding of input file\n"));
-  printf (_("  --print-main            Print name of class containing `main'\n"));
+  printf (_("  --print-main            Print name of class containing 'main'\n"));
   printf (_("  --list-class            List all classes defined in file\n"));
   printf (_("  --list-filename         Print input filename when listing class names\n"));
   printf (_("  -o FILE                 Set output file name\n"));
@@ -130,29 +130,6 @@ version (void)
 	    "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"));
   exit (0);
 }
-
-#ifdef USE_MAPPED_LOCATION
-/* FIXME - this is the same as the function in tree.c, which is awkward.
-   Probably the cleanest solution is to move the function to line-map.c.
-   This is difficult as long as we still support --disable-mapped-location,
-   since whether expanded_location has a column fields depends on
-   USE_MAPPED_LOCATION. */
-
-expanded_location
-expand_location (source_location loc)
-{
-  expanded_location xloc;
-  if (loc == 0) { xloc.file = NULL; xloc.line = 0;  xloc.column = 0; }
-  else
-    {
-      const struct line_map *map = linemap_lookup (&line_table, loc);
-      xloc.file = map->to_file;
-      xloc.line = SOURCE_LINE (map, loc);
-      xloc.column = SOURCE_COLUMN (map, loc);
-    };
-  return xloc;
-}
-#endif
 
 /* jc1-lite main entry point */
 int
@@ -210,10 +187,10 @@ main (int argc, char **argv)
   /* Check on bad usage */
   if (flag_find_main + flag_dump_class + flag_complexity > 1)
     fatal_error
-      ("only one of `--print-main', `--list-class', and `--complexity' allowed");
+      ("only one of '--print-main', '--list-class', and '--complexity' allowed");
 
   if (output_file && !(out = fopen (output_file, "w")))
-    fatal_error ("can't open output file `%s'", output_file);
+    fatal_error ("can't open output file '%s'", output_file);
 
   ft = ftell (out);
 
@@ -237,6 +214,7 @@ main (int argc, char **argv)
 	    if (encoding == NULL || *encoding == '\0')
 	      encoding = DEFAULT_ENCODING;
 
+            main_input_filename = filename;
 	    java_init_lex (finput, encoding);
 	    ctxp->filename = filename;
 	    yyparse ();
@@ -248,7 +226,7 @@ main (int argc, char **argv)
 	    reset_report ();
 	  }
 	else
-	  fatal_error ("file not found `%s'", argv [i]);
+	  fatal_error ("file not found '%s'", argv [i]);
       }
 
   /* Flush and close */

@@ -31,6 +31,7 @@ const char *	PlatformInterfaceGPIO_Mapped::kDigitalInDetectEntry			= kPlatformIn
 const char *	PlatformInterfaceGPIO_Mapped::kDigitalOutDetectEntry		= kPlatformInterfaceSupportMappedCommon_DigitalOutDetectEntry;
 const char *	PlatformInterfaceGPIO_Mapped::kHeadphoneDetectInt			= kPlatformInterfaceSupportMappedCommon_HeadphoneDetectInt;
 const char *	PlatformInterfaceGPIO_Mapped::kHeadphoneMuteEntry 			= kPlatformInterfaceSupportMappedCommon_HeadphoneMuteEntry;
+const char *	PlatformInterfaceGPIO_Mapped::kInternalMicrophoneIDEntry	= kPlatformInterfaceSupportMappedCommon_InternalMicrophoneIDEntry;
 const char *	PlatformInterfaceGPIO_Mapped::kInternalSpeakerIDEntry		= kPlatformInterfaceSupportMappedCommon_InternalSpeakerIDEntry;
 const char *	PlatformInterfaceGPIO_Mapped::kLineInDetectInt				= kPlatformInterfaceSupportMappedCommon_LineInDetectInt;
 const char *	PlatformInterfaceGPIO_Mapped::kLineOutDetectInt				= kPlatformInterfaceSupportMappedCommon_LineOutDetectInt;
@@ -233,6 +234,7 @@ bool	PlatformInterfaceGPIO_Mapped::init (IOService* device, AppleOnboardAudio* p
 		initAudioGpioPtr ( gpio, kDigitalOutDetectEntry, &mDigitalOutDetectGpio, &mDigitalOutDetectActiveState, &mDigitalOutDetectIntProvider );	//	detect  - does interrupt
 		initAudioGpioPtr ( gpio, kHeadphoneDetectInt, &mHeadphoneDetectGpio, &mHeadphoneDetectActiveState, &mHeadphoneDetectIntProvider );			//	detect  - does interrupt
 		initAudioGpioPtr ( gpio, kHeadphoneMuteEntry, &mHeadphoneMuteGpio, &mHeadphoneMuteActiveState, 0 );											//	control - no interrupt
+		initAudioGpioPtr ( gpio, kInternalMicrophoneIDEntry, &mInternalMicrophoneIDGpio, &mInternalMicrophoneIDActiveState, 0 );					//	control - no interrupt
 		initAudioGpioPtr ( gpio, kInternalSpeakerIDEntry, &mInternalSpeakerIDGpio, &mInternalSpeakerIDActiveState, 0 );								//	control - no interrupt
 		initAudioGpioPtr ( gpio, kLineInDetectInt, &mLineInDetectGpio, &mLineInDetectActiveState, &mLineInDetectIntProvider );						//	detect  - does interrupt
 		initAudioGpioPtr ( gpio, kLineOutDetectInt, &mLineOutDetectGpio, &mLineOutDetectActiveState, &mLineOutDetectIntProvider );					//	detect  - does interrupt
@@ -364,6 +366,12 @@ IOReturn	PlatformInterfaceGPIO_Mapped::setInputDataMux (GpioAttributes muxState)
 GpioAttributes	PlatformInterfaceGPIO_Mapped::getInputDataMux () 
 {
 	return getGpioAttributes ( kGPIO_Selector_InputDataMux );
+}
+
+//	----------------------------------------------------------------------------------------------------
+GpioAttributes	PlatformInterfaceGPIO_Mapped:: getInternalMicrophoneID () 
+{
+	return getGpioAttributes ( kGPIO_Selector_InternalMicrophoneID );
 }
 
 //	----------------------------------------------------------------------------------------------------
@@ -1015,14 +1023,15 @@ IOReturn PlatformInterfaceGPIO_Mapped::getGpioPtrAndActiveState ( GPIOSelector t
 			case kGPIO_Selector_ClockMux:				*gpioPtrPtr = mClockMuxGpio;				*activeStatePtr = mClockMuxActiveState;				break;
 			case kGPIO_Selector_CodecErrorInterrupt:	*gpioPtrPtr = mCodecErrorInterruptGpio;		*activeStatePtr = mCodecErrorInterruptActiveState;	break;
 			case kGPIO_Selector_CodecInterrupt:			*gpioPtrPtr = mCodecInterruptGpio;			*activeStatePtr = mCodecInterruptActiveState;		break;
-			case kGPIO_Selector_ComboInJackType:		*gpioPtrPtr = mComboInJackTypeGpio;			*activeStatePtr = mDigitalOutDetectActiveState;		break;
-			case kGPIO_Selector_ComboOutJackType:		*gpioPtrPtr = mComboOutJackTypeGpio;		*activeStatePtr = mDigitalResetActiveState;			break;
-			case kGPIO_Selector_DigitalCodecReset:		*gpioPtrPtr = mDigitalResetGpio;			*activeStatePtr = mDigitalInDetectActiveState;		break;
-			case kGPIO_Selector_DigitalInDetect:		*gpioPtrPtr = mDigitalInDetectGpio;			*activeStatePtr = mComboInJackTypeActiveState;		break;
-			case kGPIO_Selector_DigitalOutDetect:		*gpioPtrPtr = mDigitalOutDetectGpio;		*activeStatePtr = mComboOutJackTypeActiveState;		break;
+			case kGPIO_Selector_ComboInJackType:		*gpioPtrPtr = mComboInJackTypeGpio;			*activeStatePtr = mComboInJackTypeActiveState;		break;
+			case kGPIO_Selector_ComboOutJackType:		*gpioPtrPtr = mComboOutJackTypeGpio;		*activeStatePtr = mComboOutJackTypeActiveState;		break;
+			case kGPIO_Selector_DigitalCodecReset:		*gpioPtrPtr = mDigitalResetGpio;			*activeStatePtr = mDigitalResetActiveState;         break;
+			case kGPIO_Selector_DigitalInDetect:		*gpioPtrPtr = mDigitalInDetectGpio;			*activeStatePtr = mDigitalInDetectActiveState;		break;
+			case kGPIO_Selector_DigitalOutDetect:		*gpioPtrPtr = mDigitalOutDetectGpio;		*activeStatePtr = mDigitalOutDetectActiveState;		break;
 			case kGPIO_Selector_HeadphoneDetect:		*gpioPtrPtr = mHeadphoneDetectGpio;			*activeStatePtr = mHeadphoneDetectActiveState;		break;
 			case kGPIO_Selector_HeadphoneMute:			*gpioPtrPtr = mHeadphoneMuteGpio;			*activeStatePtr = mHeadphoneMuteActiveState;		break;
 			case kGPIO_Selector_InputDataMux:			*gpioPtrPtr = mInputDataMuxGpio;			*activeStatePtr = mInputDataMuxActiveState;			break;
+			case kGPIO_Selector_InternalMicrophoneID:	*gpioPtrPtr = mInternalMicrophoneIDGpio;	*activeStatePtr = mInternalMicrophoneIDActiveState;	break;
 			case kGPIO_Selector_InternalSpeakerID:		*gpioPtrPtr = mInternalSpeakerIDGpio;		*activeStatePtr = mInternalSpeakerIDActiveState;	break;
 			case kGPIO_Selector_LineInDetect:			*gpioPtrPtr = mLineInDetectGpio;			*activeStatePtr = mLineInDetectActiveState;			break;
 			case kGPIO_Selector_LineOutDetect:			*gpioPtrPtr = mLineOutDetectGpio;			*activeStatePtr = mLineOutDetectActiveState;		break;
@@ -1094,6 +1103,7 @@ GpioAttributes PlatformInterfaceGPIO_Mapped::getGpioAttributes ( GPIOSelector th
 			case kGPIO_Selector_DigitalOutDetect:
 			case kGPIO_Selector_ComboOutJackType:
 			case kGPIO_Selector_HeadphoneDetect:
+			case kGPIO_Selector_InternalMicrophoneID:
 			case kGPIO_Selector_InternalSpeakerID:
 			case kGPIO_Selector_LineInDetect:
 			case kGPIO_Selector_LineOutDetect:
@@ -1179,6 +1189,7 @@ IOReturn PlatformInterfaceGPIO_Mapped::setGpioAttributes ( GPIOSelector theGpio,
 			case kGPIO_Selector_DigitalInDetect:		//	Fall through to kGPIO_Selector_SpeakerDetect
 			case kGPIO_Selector_DigitalOutDetect:		//	Fall through to kGPIO_Selector_SpeakerDetect
 			case kGPIO_Selector_HeadphoneDetect:		//	Fall through to kGPIO_Selector_SpeakerDetect
+			case kGPIO_Selector_InternalMicrophoneID:	//	Fall through to kGPIO_Selector_SpeakerDetect
 			case kGPIO_Selector_InternalSpeakerID:		//	Fall through to kGPIO_Selector_SpeakerDetect
 			case kGPIO_Selector_LineInDetect:			//	Fall through to kGPIO_Selector_SpeakerDetect
 			case kGPIO_Selector_LineOutDetect:			//	Fall through to kGPIO_Selector_SpeakerDetect

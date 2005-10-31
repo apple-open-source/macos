@@ -1,4 +1,4 @@
-<!-- #bbinclude "header.html"
+<!-- #bbinclude "header.template"
 	#PAGETITLE#="Mac OS X Kerberos Extras"
 	#BASEHREF#="<BASE HREF=\"http://web.mit.edu/macdev/KfM/Common/Documentation/index.html\">
   	<META NAME=\"keywords\" CONTENT=\"Kerberos, Macintosh, Mac OS X, Jaguar, Panther, Extras, Eudora, Fetch, CFM,
@@ -6,189 +6,138 @@
 	<META NAME=\"description\" CONTENT=\"The Mac OS X Kerberos Extras provide Kerberos support
 	 								for CFM applications such as Eudora and Fetch.\">" 
 -->
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML> 
-<HEAD> <BASE HREF="http://web.mit.edu/macdev/KfM/Common/Documentation/index.html">
-  	<META NAME="keywords" CONTENT="Kerberos, Macintosh, Mac OS X, Jaguar, Panther, Extras, Eudora, Fetch, CFM,
-  									MIT, Kerberos for Macintosh, KfM">
-	<META NAME="description" CONTENT="The Mac OS X Kerberos Extras provide Kerberos support
-	 								for CFM applications such as Eudora and Fetch."> 
-	<TITLE> Mac OS X Kerberos Extras </TITLE>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/Common/Documentation/osx-kerberos-extras.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Mac OS X Kerberos Extras</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../Common/Documentation/templates/site.css);
+	</STYLE>
 </HEAD>
-<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
-<CENTER>
-	<TABLE BORDER=0 CELLSPACING=8>
-		<TR> 
-			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
-			<TD><BR><H1>Macintosh Development</H1></TD> 
-		</TR>
-	</TABLE> <P>
-	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
-	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] <BR>
-	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">Kerberos for Macintosh</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
-</CENTER> <HR>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
 <!-- end bbinclude -->
-<TABLE BORDER=0 CELLSPACING=4>
-	<TR>
-		<TD><P><IMG SRC="../../KerberosInstaller/VISE/Graphics/KfMOSXInstallerIcon.gif" ALT="Kerberos for Macintosh Installer Icon"></P></TD>
-		<TD><P><B><FONT SIZE="+3">Mac OS X Kerberos Extras</FONT></B></P></TD>
-	</TR>
+<!-- #bbinclude "icon.template" #ICON#="../../KerberosInstaller/VISE/Graphics/KfMOSXInstallerIcon.gif" 
+	#TEXT#="<H2>Mac OS X Kerberos Extras</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="../../KerberosInstaller/VISE/Graphics/KfMOSXInstallerIcon.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Mac OS X Kerberos Extras</H2> </TD>
+   </TR>
 </TABLE>
+<!-- end bbinclude -->
 
-<BLOCKQUOTE>
+<H3>Important Notes:</H3>
 
-<P><B><FONT SIZE="+1">Important Note</FONT></B></P>
-
-<BLOCKQUOTE>
+<P>If you are installing the extras on a fresh install of Tiger, you will need to get the latest installer.  The Tiger installer was release on April 29th.  Any installer downloaded before that date will not run on Tiger.  However, if you upgraded from Panther and already had the extras installed, you do not need to reinstall the extras. </P>
 
 <P>If you have just upgraded from Mac OS X 10.2 to Mac OS X 10.3 (Panther), you must download
 and install a new copy of the Kerberos Extras.  Kerberos Extras that were installed before July 2003
 are not compatible with Mac OS X 10.3.  If in doubt, download a new copy and reinstall.</P>
 
 <P>You can tell if you have the latest version of the Kerberos Extras the following ways:
-the installer's read me says "Rev 12" in the first line, and if you perform <B>Get Info</B> on the
+the installer's read me says "Rev 13" in the first line, and if you perform <B>Get Info</B> on the
 CFM support file <CODE>/System/Library/CFMSupport/Kerberos</CODE> , the version number will be 4.2.</P>
 
-</BLOCKQUOTE>
+<HR>
 
-<P><B><FONT SIZE="+2">Mac OS X Kerberos Extras for OS X 10.2 and 10.3</FONT></B></P>
+<H3>Mac OS X Kerberos Extras for OS X 10.2 and later</H3>
 
-<BLOCKQUOTE>
+<UL>
+	<LI>What are the Mac OS X Kerberos Extras?</LI>
+	
+	<DD CLASS=small> While Mac OS X 10.2 (Jaguar), Mac OS X 10.3 (Panther) and Mac OS X 10.4 (Tiger) ship with most parts of Kerberos for Macintosh, they do not include support for CFM-based Kerberos-using applications (such as Eudora and Fetch), and the GUI Kerberos management application is in a hard-to-find location.
+	
+	<BR><BR>The Mac OS X Kerberos Extras installer will install the Kerberos CFM support library and
+	make an alias to the GUI Kerberos Management application in <code>/Applications/Utilities</code>
+	(the Kerberos application ships in <CODE>/System/Library/CoreSevices</CODE> ).  By default the installer will
+	also install a sample configuration file (<CODE>edu.mit.Kerberos</CODE>) if one does not already exist, or
+	you can choose a custom install to force install a new (MIT-based) configuration file.
+	
+	<BR><BR>If you have just upgraded from an older Mac OS X to a newer version (such as from Mac OS X 10.1 to 10.2, or 10.2 to 10.3),
+	you <B>must</B> install the latest Mac OS X Kerberos Extras even if you had Eudora and/or Fetch working previously.  
+	You do not need to do this if you are upgrading from 10.3 to 10.4.
+	
+	<BR><BR>However, the current release is compatible with Mac OS X 10.2 through 10.4.</DD>
+	
+	<LI>Where can I get Mac OS X Kerberos Extras?</LI>
+	
+	<DD CLASS=small>You can download the Mac OS X Kerberos Extras installer, Rev 13, from <a href="http://web.mit.edu/macdev/Download/Mac_OS_X_Kerberos_Extras.dmg">here</A> (disk image, 715KB, contains no crypto code).</DD>
+	
+	<LI>Important Note for Eudora Users</LI>
+	
+	<DD CLASS=small>There is an issue with one of the Eudora 5.1.1 plug-ins that causes Eudora to fail to launch after you've installed the Mac OS X Kerberos Extras.  The best way to fix this is to upgrade to Eudora 5.2 or later.
+	
+	<BR><BR>However, if you cannot upgrade to Eudora 5.2 or later, you can do the following: in the Finder, bring up the Finder contextual menu by control-clicking on the Eudora application icon and select "Show Package Contents".  When the window pops up with the Contents folders in it,  navigate to the Eudora Stuff folder:
+	
+	<BR><BR><CODE>Contents -> MacOS -> Eudora Stuff</CODE>
+	
+	<BR><BR>and remove the <CODE>UPPERlower Carbon</CODE> plug-in (drag it to the desktop or some other storage place).
+	Close up the Eudora contents window and try again, Eudora should now work.  Removing this plug-in removes the
+	ability to change the selected text to all lowercase, all uppercase, etc. from the Edit menu in Eudora.  This
+	bug will be fixed in a future release of Eudora.</DD>
+</UL>
 
-<P><B>What is Mac OS X Kerberos Extras?</B></P>
+<HR>
 
-<BLOCKQUOTE>
-<P>
-While Mac OS X 10.2 (Jaguar) and Mac OS X 10.3 (Panther) ship with most parts of Kerberos for Macintosh, they
-do not include support for CFM-based Kerberos-using applications (such as Eudora and Fetch), and the
-GUI Kerberos management application is in a hard-to-find location.
-</P>
+<H3>Mac OS X 10.1 Kerberos Extras</H3>
 
-<P>
-The Mac OS X Kerberos Extras installer will install the Kerberos CFM support library and
-make an alias to the GUI Kerberos Management application in <code>/Applications/Utilities</code>
-(the Kerberos application ships in <CODE>/System/Library/CoreSevices</CODE> ).  By default the installer will
-also install a sample configuration file (<CODE>edu.mit.Kerberos</CODE>) if one does not already exist, or
-you can choose a custom install to force install a new (MIT-based) configuration file.
-</P>
-<P>
-If you have just upgraded from an older Mac OS X to a newer version (such as from Mac OS X 10.1 to 10.2, or 10.2 to 10.3),
-you <B>must</B> install the latest Mac OS X Kerberos Extras even if you had Eudora and/or Fetch working previously.
-</P>
-
-<P>
-However, the current release is compatible with both Mac OS X 10.3 and 10.2.
-</P>
-
-</BLOCKQUOTE>
-
-</BLOCKQUOTE>
-
-<BLOCKQUOTE>
-
-<P><B>Where can I get Mac OS X Kerberos Extras?</B></P>
-
-<BLOCKQUOTE>
-<P>
-You can download the Mac OS X Kerberos Extras installer, Rev 12,
-from <a href="http://web.mit.edu/macdev/Download/Mac_OS_X_Kerberos_Extras.dmg">here</A> (disk image, 715KB, contains no crypto code).
-</P>
-
-</BLOCKQUOTE>
-
-<P><B>Important Note for Eudora Users</B>
-
-<BLOCKQUOTE>
-  <P>There is an issue with one of the Eudora 5.1.1 plug-ins that causes Eudora to fail to launch
-  after you've installed the Mac OS X Kerberos Extras.  The best way to fix this is to upgrade to Eudora 5.2 or later.
-  
-  <P>However, if you cannot upgrade to Eudora 5.2 or later, you can do the following:
-  in the Finder, bring up the 
-  Finder contextual menu by control-clicking on the Eudora application icon and select "Show Package Contents".
-  When the window pops up with the Contents folders in it,  navigate to the Eudora Stuff folder:
-
-<BLOCKQUOTE>
-   <P><CODE>Contents -> MacOS -> Eudora Stuff</CODE>
-</BLOCKQUOTE>
-   
-   <P>and remove the <CODE>UPPERlower Carbon</CODE> plug-in (drag it to the desktop or some other storage place).
-   Close up the Eudora contents window and try again, Eudora should now work.  Removing this plug-in removes the
-   ability to change the selected text to all lowercase, all uppercase, etc. from the Edit menu in Eudora.  This
-   bug will be fixed in a future release of Eudora.
-</BLOCKQUOTE>
-
-</BLOCKQUOTE>
-
-</BLOCKQUOTE>
-
-<BLOCKQUOTE>
-
-<P><B><FONT SIZE="+2">Mac OS X 10.1 Kerberos Extras</FONT></B></P>
-
-<BLOCKQUOTE>
-
-<B>Important</B>:  In most cases, you should not use the Mac OS X 10.1 Extras installer.  It is not compatible
+<P><B>Important</B>:  In most cases, you should not use the Mac OS X 10.1 Extras installer.  It is not compatible
 with Mac OS X 10.2 or later (use the Mac OS X 10.2 Kerberos Extras, see above), and has been superseded by
 Kerberos for Macintosh 4.0.x on Mac OS X 10.1.  It is still provided for certain special circumstances only
-(see below).
+(see below).</P>
 
-<P><B>What is Mac OS X 10.1 Kerberos Extras?</B></P>
+<UL>
+	<LI>What is Mac OS X 10.1 Kerberos Extras?</LI>
+	
+	<DD CLASS=small> While Mac OS X 10.1 as shipped includes Kerberos support in the form of a Mach-O framework and command line utilities,
+	it does not include support for CFM-based Kerberos-using applications (such as Eudora and Fetch) nor a GUI
+	Kerberos management application.
+	
+	<BR><BR>The Mac OS X 10.1 Kerberos Extras installer was created to install both CFM support bridge libraries and
+	the GUI Kerberos management application to the built-in Kerberos of Mac OS X 10.1.  However, both the
+	Kerberos in Mac OS X 10.1 and the Kerberos Extras have been superseded by the full final release of
+	Kerberos for Macintosh 4.0.3, which includes updated base components as well as the CFM bridge libraries and
+	the GUI Kerberos management application, and we recommend that you install <A HREF="release-4.0.3.html">Kerberos for Macintosh 4.0.3</A> instead of the Mac OS X 10.1 Kerberos Extras.
+	
+	<BR><BR>However, Kerberos for Macintosh 4.0.3 is not available for download outside of North America, whereas the
+	Mac OS X 10.1 Kerberos Extras are, so the Kerberos Extras remain available for those users.
+	
+	<BR><BR>The Mac OS X 10.1 Kerberos Extras installer will add both CFM support bridge libraries and
+	the GUI Kerberos Management application to the built-in Kerberos of Mac OS X 10.1.  The components installed
+	are equivalent to those included with Kerberos for Macintosh 4.0a19. The Mac OS X 10.1 Kerberos Extras installer
+	will also install a sample preferences file (<CODE>edu.mit.Kerberos</CODE>) if one does not already exist.</DD>
+	
+	<LI>Where can I get Mac OS X 10.1 Kerberos Extras?</LI>
+	
+	<DD CLASS=small>You can download the Mac OS X 10.1 Kerberos Extras installer
+	from <a href="http://web.mit.edu/macdev/Download/Mac_OS_X_10.1_Kerberos_Xtrs.hqx">here</A> (a binhexed self mounting disk image, approx. 3.0MB, contains no crypto code).</DD>
+</UL>
 
-<BLOCKQUOTE>
-<P>
-While Mac OS X 10.1 as shipped includes Kerberos support in the form of a Mach-O framework and command line utilities,
-it does not include support for CFM-based Kerberos-using applications (such as Eudora and Fetch) nor a GUI
-Kerberos management application.
-</P>
+<HR>
 
-<P>
-The Mac OS X 10.1 Kerberos Extras installer was created to install both CFM support bridge libraries and
-the GUI Kerberos management application to the built-in Kerberos of Mac OS X 10.1.  However, both the
-Kerberos in Mac OS X 10.1 and the Kerberos Extras have been superseded by the full final release of
-Kerberos for Macintosh 4.0.3, which includes updated base components as well as the CFM bridge libraries and
-the GUI Kerberos management application, and we recommend that you install <A HREF="release-4.0.3.html">Kerberos for Macintosh 4.0.3</A> instead
-of the Mac OS X 10.1 Kerberos Extras.
-</P>
-
-<P>
-However, Kerberos for Macintosh 4.0.3 is not available for download outside of North America, whereas the
-Mac OS X 10.1 Kerberos Extras are, so the Kerberos Extras remain available for those users.</P>
-
-<P>
-The Mac OS X 10.1 Kerberos Extras installer will add both CFM support bridge libraries and
-the GUI Kerberos Management application to the built-in Kerberos of Mac OS X 10.1.  The components installed
-are equivalent to those included with Kerberos for Macintosh 4.0a19. The Mac OS X 10.1 Kerberos Extras installer
-will also install a sample preferences file (<CODE>edu.mit.Kerberos</CODE>) if one does not already exist.
-</P>
-
-</BLOCKQUOTE>
-
-</BLOCKQUOTE>
-
-<BLOCKQUOTE>
-
-<P><B>Where can I get Mac OS X 10.1 Kerberos Extras?</B></P>
-
-<BLOCKQUOTE>
-<P>
-You can download the Mac OS X 10.1 Kerberos Extras installer
-from <a href="http://web.mit.edu/macdev/Download/Mac_OS_X_10.1_Kerberos_Xtrs.hqx">here</A> ( binhexed self mounting disk image, 3.0MB, contains no crypto code ) .
-
-</P>
-
-</BLOCKQUOTE>
-
-</BLOCKQUOTE>
-
-</BLOCKQUOTE>
-
-<BLOCKQUOTE>
-
-<P><B>Related Webpages</B></P>
+<H3>Related Webpages</H3>
 
 <UL>
 	<LI><A HREF="download.html">Getting Kerberos for Macintosh</A>
@@ -197,18 +146,17 @@ from <a href="http://web.mit.edu/macdev/Download/Mac_OS_X_10.1_Kerberos_Xtrs.hqx
 
 </BLOCKQUOTE>
 
-<!-- #bbinclude "footer.html" -->
-<HR> 
-<P> 
-	<FONT SIZE="+1"> <B> 
-		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
-	</B> </FONT> <BR>
-	Last updated on $Date: 2004/06/11 18:42:23 $ <BR> 
-	Last modified by $Author: lxs $<BR>
-
-</P>
+<!-- #bbinclude "footer.template" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2005 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2005/05/04 18:24:29 $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
 <!-- Begin MIT-use only web reporting counter -->
 	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
 <!-- End MIT-use only web reporting counter -->
-</BODY> </HTML>
+</BODY></HTML>
 <!-- end bbinclude -->

@@ -1,7 +1,7 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2004
+   1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -214,7 +214,7 @@ complete_type_check_abstract (tree type)
 
 	  /* Tweak input_location so that the diagnostic appears at the correct
 	    location. Notice that this is only needed if the decl is an
-	    IDENTIFIER_NODE, otherwise cp_error_at. */
+	    IDENTIFIER_NODE, otherwise cp_error_at.  */
 	  input_location = pat->locus;
 	  abstract_virtuals_error (pat->decl, pat->type);
 	  pat = pat->next;
@@ -506,8 +506,9 @@ split_nonconstant_init_1 (tree dest, tree init)
     case VECTOR_TYPE:
       if (!initializer_constant_valid_p (init, type))
 	{
+	  tree cons = copy_node (init);
 	  CONSTRUCTOR_ELTS (init) = NULL;
-	  code = build2 (MODIFY_EXPR, type, dest, init);
+	  code = build2 (MODIFY_EXPR, type, dest, cons);
 	  code = build_stmt (EXPR_STMT, code);
 	  add_stmt (code);
 	}
@@ -604,24 +605,16 @@ store_init_value (tree decl, tree init)
 
   /* Digest the specified initializer into an expression.  */
   value = digest_init (type, init, (tree *) 0);
-
-  /* Store the expression if valid; else report error.  */
-
-  if (TREE_CODE (value) == ERROR_MARK)
-    ;
-  /* Other code expects that initializers for objects of types that need
-     constructing never make it into DECL_INITIAL, and passes 'init' to
-     build_aggr_init without checking DECL_INITIAL.  So just return.  */
-  else if (TYPE_NEEDS_CONSTRUCTING (type))
-    return build2 (INIT_EXPR, type, decl, value);
-  else if (TREE_STATIC (decl)
-	   && (TREE_SIDE_EFFECTS (value)
-	       || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
+  /* If the initializer is not a constant, fill in DECL_INITIAL with
+     the bits that are constant, and then return an expression that
+     will perform the dynamic initialization.  */
+  if (value != error_mark_node
+      && (TREE_SIDE_EFFECTS (value)
+	   || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
     return split_nonconstant_init (decl, value);
-  
-  /* Store the VALUE in DECL_INITIAL.  If we're building a
-     statement-tree we will actually expand the initialization later
-     when we output this function.  */
+  /* If the value is a constant, just put it in DECL_INITIAL.  If DECL
+     is an automatic variable, the middle end will turn this into a
+     dynamic initialization later.  */
   DECL_INITIAL (decl) = value;
   return NULL_TREE;
 }
@@ -819,8 +812,8 @@ digest_init (tree type, tree init, tree* tail)
 	  && vector_types_convertible_p (TREE_TYPE (init), type)
 	  && TREE_CONSTANT (init))
         return build_vector (type, CONSTRUCTOR_ELTS (init));
-      /* APPLE LOCAL end AltiVec */
       else if (code != ARRAY_TYPE)
+      /* APPLE LOCAL end AltiVec */
 	{
 	  int flags = LOOKUP_NORMAL;
 	  /* Initialization from { } is copy-initialization.  */
@@ -1154,7 +1147,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 
   result = build_constructor (type, nreverse (members));
   if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == NULL_TREE)
-    complete_array_type (type, result, /*do_default=*/0);
+    cp_complete_array_type (&TREE_TYPE (result), result, /*do_default=*/0);
   if (init)
     TREE_HAS_CONSTRUCTOR (result) = TREE_HAS_CONSTRUCTOR (init);
   if (allconstant)
@@ -1242,12 +1235,6 @@ build_x_arrow (tree expr)
       if (type_dependent_expression_p (expr))
 	return build_min_nt (ARROW_EXPR, expr);
       expr = build_non_dependent_expr (expr);
-    }
-
-  if (TREE_CODE (type) == REFERENCE_TYPE)
-    {
-      expr = convert_from_reference (expr);
-      type = TREE_TYPE (expr);
     }
 
   if (IS_AGGR_TYPE (type))

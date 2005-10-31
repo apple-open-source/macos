@@ -1,3 +1,4 @@
+/* APPLE LOCAL file why is this local? */
 /* { dg-do compile } */
 /* { dg-options "-O1" } */
 

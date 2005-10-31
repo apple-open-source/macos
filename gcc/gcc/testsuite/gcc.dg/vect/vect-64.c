@@ -1,7 +1,4 @@
-/* { dg-do run { target powerpc*-*-* } } */
-/* { dg-do run { target i?86-*-* x86_64-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
+/* { dg-require-effective-target vect_int } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -16,7 +13,7 @@ int main1 ()
   int ic[N][N][3][13];
   int id[N][N][N];
 
-  /* Multidimensional array. Not aligned: not vectorizable. */
+  /* Multidimensional array. Not aligned: vectorizable. */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -34,7 +31,7 @@ int main1 ()
         }
     }
 
-  /* Multidimensional array. Not aligned: not vectorizable. */
+  /* Multidimensional array. Not aligned: vectorizable. */
   for (i = 0; i < N; i++)
     {
       for (j = 0; j < N; j++)
@@ -84,3 +81,5 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 2 "vect" } } */

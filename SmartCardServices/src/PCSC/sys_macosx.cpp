@@ -26,7 +26,7 @@
 			<corcoran@linuxnet.com>
 	Purpose: This handles abstract system level calls. 
 
-$Id: sys_macosx.cpp,v 1.5 2004/09/21 02:43:57 mb Exp $
+$Id: sys_macosx.cpp,v 1.5.40.1 2005/06/17 22:40:12 mb Exp $
 
 ********************************************************************/
 
@@ -239,6 +239,11 @@ int SYS_MMapSynchronize(void *begin, int length)
 		secdebug("pcscd", "trouble sending security notification (ignored)");
 	}
 	return rc;
+}
+
+int SYS_MUnmap(void *begin, int length)
+{
+	return munmap(begin, length);
 }
 
 int SYS_Fork()

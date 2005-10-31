@@ -14,7 +14,7 @@ proc gcj_jni_compile_c_to_so {file {options {}}} {
 # so we check against powerpc-apple-darwin and set them to
 # dylib, else we assume it's .so
 
-  if { [ regexp {powerpc-apple-darwin} $host_triplet] } {
+  if { [istarget "*-*-darwin*"] } {
       set so_extension "dylib"
       set so_flag "-dynamiclib"
   } else {
@@ -77,10 +77,10 @@ proc gcj_jni_test_one {file} {
   global INTERPRETER
 
 # apple uses a different extension for shared/dynamic libraries
-# so we check against powerpc-apple-darwin and set them to 
+# so we check against powerpc-apple-darwin and set them to
 # dylib, else we assume it's .so
 
-  if { [ regexp {powerpc-apple-darwin} $host_triplet] } {
+  if { [istarget "*-*-darwin*"] } {
       set so_extension "dylib"
   } else {
       set so_extension "so"
@@ -134,12 +134,12 @@ proc gcj_jni_test_one {file} {
     # Darwin does not yet have a libgcc_s.dylib library.
     # So we add it here. If the libgcc_s is installed, the libstdc++
     # would pick it up.
-    if { [ regexp {powerpc-apple-darwin} $host_triplet] } {
+    if { [istarget "*-*-darwin*"] } {
 	lappend cxxflaglist "-lgcc_s -lstdc++"
     } else {
 	lappend cxxflaglist "-lstdc++"
     }
-  
+
     set cxxflags [join $cxxflaglist]
   }
 
@@ -165,17 +165,115 @@ proc gcj_jni_test_one {file} {
   # appropriate tests.
   set errname [file rootname [file tail $file]]
   set gij [libjava_find_gij]
-  # libjava_find_gij will return `gij' if it couldn't find the
+  # libjava_find_gij will return "" if it couldn't find the
   # program; in this case we want to skip the test.
   # If the libraries are not installed yet, we have to pass them via
   # cxxldlibflags to libjava_invoke.
-    if {$INTERPRETER == "yes" && $gij != "gij"} {
-	libjava_invoke $errname "gij test" opts $gij \
-	    "" $resultfile $cxxldlibflags $main
+  if {$INTERPRETER == "yes" && $gij != ""} {
+    libjava_invoke $errname "gij test" opts $gij \
+      "" $resultfile $cxxldlibflags $main
   }
 
   # When we succeed we remove all our clutter.
-  eval gcj_cleanup [glob -nocomplain -- ${main}.*] [list $main lib${main}.${so_extension}]
+  eval gcj_cleanup [glob -nocomplain -- ${main}.*] \
+    [list $main lib${main}.${so_extension}]
+
+  return 1
+}
+
+# Compile a single C file and produce a binary.  OPTIONS is a list of
+# options to pass to the compiler.  Returns 0 on failure, 1 on
+# success.
+proc gcj_jni_invocation_compile_c_to_binary {file {options {}}} {
+  global srcdir
+  global host_triplet
+  verbose "options: $options"
+  set options_cxx $options
+  set options ""
+
+  set filename [file tail $file]
+  set name [file rootname $filename]
+
+  # Set some darwin specific options
+  if { [istarget "*-*-darwin*"] } {
+      lappend options "additional_flags=-multiply_defined suppress"
+  }
+  # Find the generated header.
+  lappend options "additional_flags=-I. -I.."
+
+  # Find jni.h.
+  lappend options "additional_flags=-I$srcdir/../include"
+
+  # Append C++ options
+  lappend options "additional_flags=$options_cxx"
+
+  set x [libjava_prune_warnings \
+	   [target_compile $file $name executable $options]]
+  if {$x != ""} {
+    verbose "target_compile failed: $x" 2
+    fail "$filename compilation"
+    return 0
+  }
+
+  pass "$filename compilation"
+  return 1
+}
+
+# Do all the work for a single invocation API test.  Return 0 on
+# failure.
+proc gcj_jni_invocation_test_one {file} {
+  global runtests
+  global host_triplet
+  global INTERPRETER
+
+  # The base name.  We use it for several purposes.
+  set main [file rootname [file tail $file]]
+  if {! [runtest_file_p $runtests $main]} {
+    # Simply skip it.
+    return 1
+  }
+
+  if {! [bytecompile_file $file [pwd]]} {
+    fail "bytecompile $file"
+    # FIXME - should use `untested' on all remaining tests.
+    # But that is hard.
+    return 0
+  }
+  pass "bytecompile $file"
+
+  set cfile [file rootname $file].c
+  # Darwin needs -liconv linked, otherwise we get some unresolved.
+  # Also, like in the cxxtest we need to add -lgcc_s since Darwin
+  # has no libgcc_s.dylib installed yet.
+  if { [istarget "*-*-darwin*"] } {
+      set cxxflags "-L../.libs -lgcc_s -lgcj -liconv"
+  } else {
+      set cxxflags "-L../.libs -lgcj"
+  }
+
+  if { [istarget "*-*-solaris*"] } {
+    lappend cxxflags "-lsocket"
+  }
+
+  if {! [gcj_jni_invocation_compile_c_to_binary $cfile $cxxflags]} {
+    # FIXME
+    return 0
+  }
+
+  set resultfile [file rootname $file].out
+
+  if {! [gcj_invoke $main $resultfile ""]} {
+    # FIXME
+    return 0
+  }
+
+  # We purposely ignore errors here; we still want to run the other
+  # appropriate tests.
+  set errname [file rootname [file tail $file]]
+
+  # When we succeed we remove all our clutter.
+  eval gcj_cleanup [glob -nocomplain -- ${main}.*] \
+    [list $main]
 
   return 1
 }
@@ -191,6 +289,13 @@ proc gcj_jni_run {} {
 
     foreach x $srcfiles {
       gcj_jni_test_one $x
+    }
+
+    # Run JNI invocation API tests
+    catch { lsort [glob -nocomplain ${srcdir}/${subdir}/invocation/*.java] } srcfiles
+
+    foreach x $srcfiles {
+      gcj_jni_invocation_test_one $x
     }
   } else {
     verbose "JNI tests not run in cross-compilation environment"

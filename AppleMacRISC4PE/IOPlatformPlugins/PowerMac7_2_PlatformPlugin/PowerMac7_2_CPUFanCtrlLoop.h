@@ -122,7 +122,6 @@ public:
 	//virtual void deadlinePassed( void );
 
 	virtual IOReturn initPlatformCtrlLoop(const OSDictionary *dict);
-	virtual void adjustControls( void ); // [4001211] Override to prevent calculateNewTarget() from being called from when the environment changes.
 	virtual bool updateMetaState( void );
 	virtual void deadlinePassed( void );
 	bool acquireSample( void );		// gets a sample (using clock_get_uptime() and getAggregateSensorValue()) and stores it at 

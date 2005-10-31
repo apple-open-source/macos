@@ -351,7 +351,11 @@ void read_cb_mem(socket_info_t *s, u_char fn, int space,
 
 int cb_alloc(socket_info_t *s)
 {
+#ifdef __MACOSX__
+    u_short vend, dev;
+#else
     u_short vend, v, dev;
+#endif __MACOSX__
     u_char hdr, fn, bus = s->cap.cardbus;
     cb_config_t *c;
     struct pci_dev tmp;
@@ -359,13 +363,14 @@ int cb_alloc(socket_info_t *s)
 
     if (s->cb_config)
 	return CS_SUCCESS;
-
 #ifdef __MACOSX__
     tmp.nub = IOPCCardCreateCardBusNub(s->cap.pccard_nub, s->sock, 0);
     if (!tmp.nub) {
 	printk(KERN_INFO "cs: cb_alloc(bus %d): unable to create cardbus nub for socket %d\n", bus, s->sock);
 	return CS_NO_CARD;
     }
+    s->cap.cardbus_nub[0] = tmp.nub;
+    IOPCCardRetainNub(s->cap.cardbus_nub[0]);
 #else
     tmp.bus = s->cap.cb_bus; tmp.devfn = 0;
 #ifdef NEWER_LINUX_PCI
@@ -383,36 +388,32 @@ int cb_alloc(socket_info_t *s)
 
     pci_readb(&tmp, PCI_HEADER_TYPE, &hdr);
 #ifdef __MACOSX__
-    s->cap.cardbus_nub[0] = tmp.nub;
-    IOPCCardRetainNub(s->cap.cardbus_nub[0]);
-#endif
+    fn = 1;  // already have func 0 from above
     if (hdr & 0x80) {
 	/* Count functions */
-#ifdef __MACOSX__
-	// start at one
-	fn = 1;
 	for (i = 1; i < 8; i++) {
 	    tmp.nub = IOPCCardCreateCardBusNub(s->cap.pccard_nub, s->sock, i);
-	    if (!tmp.nub) continue;
-	    pci_readw(&tmp, PCI_VENDOR_ID, &v);
-	    if (v != vend) {
-		IOPCCardReleaseNub(tmp.nub);
+	    if (tmp.nub) {
+		s->cap.cardbus_nub[fn] = tmp.nub;
+		IOPCCardRetainNub(s->cap.cardbus_nub[fn]);
+	    } else {
 		s->cap.cardbus_nub[fn] = 0;
 		continue;
 	    }
-	    s->cap.cardbus_nub[fn] = tmp.nub;
-	    IOPCCardRetainNub(s->cap.cardbus_nub[fn]);
 	    fn++;
 	}
-	printk(KERN_INFO "cs: cb_alloc(bus %d): found %d functions\n", bus, fn);
+    }
+    printk(KERN_INFO "cs: cb_alloc(bus %d): found %d functions\n", bus, fn);
 #else
+    if (hdr & 0x80) {
+	/* Count functions */
 	for (fn = 0; fn < 8; fn++) {
 	    tmp.devfn = fn;
 	    pci_readw(&tmp, PCI_VENDOR_ID, &v);
 	    if (v != vend) break;
 	}
-#endif __MACOSX__
     } else fn = 1;
+#endif __MACOSX__
     s->functions = fn;
     
     c = kmalloc(fn * sizeof(struct cb_config_t), GFP_ATOMIC);

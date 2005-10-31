@@ -41,8 +41,7 @@
  */
 
 /** @file bitset
- *  This is a Standard C++ Library header.  You should @c #include this header
- *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
+ *  This is a Standard C++ Library header.
  */
 
 #ifndef _GLIBCXX_BITSET
@@ -1013,12 +1012,6 @@ namespace _GLIBCXX_STD
        *  Note the ordering of the bits:  decreasing character positions
        *  correspond to increasing bit positions (see the main class notes for
        *  an example).
-       *
-       *  Also note that you must specify the string's template parameters
-       *  explicitly.  Given a bitset @c bs and a string @s:
-       *  @code
-       *     s = bs.to_string<char,char_traits<char>,allocator<char> >();
-       *  @endcode
        */
       template<class _CharT, class _Traits, class _Alloc>
 	basic_string<_CharT, _Traits, _Alloc>
@@ -1028,6 +1021,22 @@ namespace _GLIBCXX_STD
 	  _M_copy_to_string(__result);
 	  return __result;
 	}
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 434. bitset::to_string() hard to use.
+      template<class _CharT, class _Traits>
+	basic_string<_CharT, _Traits, allocator<_CharT> >
+	to_string() const
+	{ return to_string<_CharT, _Traits, allocator<_CharT> >(); }
+
+      template<class _CharT>
+	basic_string<_CharT, char_traits<_CharT>, allocator<_CharT> >
+	to_string() const
+	{ return to_string<_CharT, char_traits<_CharT>, allocator<_CharT> >(); }
+
+      basic_string<char, char_traits<char>, allocator<char> >
+      to_string() const
+      { return to_string<char, char_traits<char>, allocator<char> >(); }
 
       // Helper functions for string operations.
       template<class _CharT, class _Traits, class _Alloc>

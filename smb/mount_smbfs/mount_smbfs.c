@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: mount_smbfs.c,v 1.28.44.2 2005/06/02 00:55:41 lindak Exp $
+ * $Id: mount_smbfs.c,v 1.28.44.3 2005/08/12 23:18:35 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -373,6 +373,18 @@ lookup:
 					exit(error);
 				continue;
 			}
+	                /*      
+                	 * Name + null  must fit in mdata.utf8_servname.
+			 * strncpy() won't work because a truncated 
+			 * server name will cause problems. If the 
+			 * string is null smbfs_mount will use the 
+			 * netbios name instead. 
+                 	 */      
+			mdata.utf8_servname[0] = 0;
+                	if (strlen(ctx->ct_utf8_servname) < sizeof(mdata.utf8_servname))
+				strcpy (mdata.utf8_servname, ctx->ct_utf8_servname);
+			else
+				smb_error("warning: server name too long: %s", 0, ctx->ct_utf8_servname);
 			error = mount(SMBFS_VFSNAME, mdata.mount_point,
 				      mntflags, (void*)&mdata);
 			if (error) {
@@ -391,6 +403,19 @@ lookup:
 		smb_ctx_done(ctx);
 		return error;
 	}
+	
+        /*      
+         * Name + null  must fit in mdata.utf8_servname.
+	 * strncpy() won't work because a truncated 
+	 * server name will cause problems. If the 
+	 * string is null smbfs_mount will use the 
+	 * netbios name instead. 
+         */      
+	mdata.utf8_servname[0] = 0;
+        if (strlen(ctx->ct_utf8_servname) < sizeof(mdata.utf8_servname))
+		strcpy (mdata.utf8_servname, ctx->ct_utf8_servname);
+	else
+		smb_error("warning: server name too long: %s", 0, ctx->ct_utf8_servname);
 	error = mount(SMBFS_VFSNAME, mdata.mount_point, mntflags,
 		      (void*)&mdata);
 	if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {

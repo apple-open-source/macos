@@ -29,6 +29,8 @@
 #include <IOKit/IORangeAllocator.h>
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/IOLib.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/IOMessage.h>
 #include <IOKit/assert.h>
 #include <IOKit/IOCatalogue.h>
 
@@ -85,6 +87,13 @@ OSMetaClassDefineReservedUnused(IOPCIBridge, 31);
 int gIOPCIDebug = 0;
 
 #ifdef __i386__
+__BEGIN_DECLS
+#include <i386/cpu_number.h>
+extern void mp_rendezvous_no_intrs(
+               void (*action_func)(void *),
+               void *arg);
+__END_DECLS
+
 static void resolvePCIInterrupt( IOService * provider, IOPCIDevice * nub );
 #endif
 
@@ -104,9 +113,14 @@ enum { kIOPCIMaxPCI2PCIBridges = 32 };
 static IOPCI2PCIBridge * gIOAllPCI2PCIBridges[kIOPCIMaxPCI2PCIBridges];
 IOSimpleLock *  	 gIOAllPCI2PCIBridgesLock;
 UInt32			 gIOAllPCI2PCIBridgeState;
+const OSSymbol *	 gIOPlatformDeviceMessageKey;
 
 /* Expansion data fields */
 #define cardBusMemoryRanges	  reserved->cardBusMemoryRanges
+
+#ifndef kIOPlatformDeviceMessageKey
+#define kIOPlatformDeviceMessageKey     "IOPlatformDeviceMessage"
+#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // stub driver has two power states, off and on
@@ -119,6 +133,8 @@ void IOPCIBridge::initialize(void)
 {
     if (!gIOAllPCI2PCIBridgesLock)
 	gIOAllPCI2PCIBridgesLock = IOSimpleLockAlloc();
+
+    gIOPlatformDeviceMessageKey = OSSymbol::withCStringNoCopy(kIOPlatformDeviceMessageKey);
 }
 
 bool IOPCIBridge::start( IOService * provider )
@@ -203,12 +219,24 @@ IOReturn IOPCIBridge::setDevicePowerState( IOPCIDevice * device,
 {
     if ((kSaveDeviceState == whatToDo) || (kRestoreDeviceState == whatToDo))
     {
-        if (kOSBooleanFalse == device->getProperty(kIOPMPCIConfigSpaceVolatileKey))
-            return (kIOReturnSuccess);
-        if (kRestoreDeviceState == whatToDo)
-            return (restoreDeviceState(device));
-        else
-            return (saveDeviceState(device));
+	IOReturn ret = kIOReturnSuccess;
+	void * p3    = (kSaveDeviceState == whatToDo) ? (void *) 0 : (void *) 3;
+
+	device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
+	    (void *) kIOMessageDeviceWillPowerOff, device, p3, (void *) 0);
+
+        if (kOSBooleanFalse != device->getProperty(kIOPMPCIConfigSpaceVolatileKey))
+	{
+	    if (kRestoreDeviceState == whatToDo)
+		ret = restoreDeviceState(device);
+	    else
+		ret = saveDeviceState(device);
+	}
+
+	device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
+	    (void *) kIOMessageDeviceHasPoweredOn, device, p3, (void *) 0);
+
+	return (ret);
     }
 
     // Special for pci/pci-bridge devices - 2 to save immediately, 3 to restore immediately
@@ -289,7 +317,7 @@ bool IOPCIBridge::configure( IOService * provider )
     return (true);
 }
 
-static SInt32 PCICompare( UInt32 /* cellCount */, UInt32 cleft[], UInt32 cright[] )
+SInt32 IOPCIBridge::compareAddressCell( UInt32 /* cellCount */, UInt32 cleft[], UInt32 cright[] )
 {
     IOPCIPhysicalAddress *  left 	= (IOPCIPhysicalAddress *) cleft;
     IOPCIPhysicalAddress *  right 	= (IOPCIPhysicalAddress *) cright;
@@ -362,6 +390,7 @@ bool IOPCIBridge::checkProperties( IOPCIDevice * entry )
 {
     UInt32	vendor, product, classCode, revID;
     UInt32	subVendor = 0, subProduct = 0;
+    IOByteCount offset;
     OSData *	data;
     OSData *	nameData;
     char	compatBuf[128];
@@ -410,6 +439,14 @@ bool IOPCIBridge::checkProperties( IOPCIDevice * entry )
 	out += sprintf(out, "pciclass,%06lx", classCode) + 1;
     
 	entry->setProperty("compatible", compatBuf, out - compatBuf);
+    }
+
+    offset = 0;
+    if (entry->extendedFindPCICapability(kIOPCIPCIExpressCapability, &offset))
+    {
+	UInt16 linkStatus = entry->configRead16(offset + 0x12);
+
+	entry->setProperty(kIOPCIExpressLinkStatusKey, linkStatus, 32);
     }
 
     return (true);
@@ -960,8 +997,9 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
     UInt32		index = 0;
     UInt32		yentaIndices[8];
     UInt32		yentaCount = 0;
+    UInt32		i = 0;
 
-    IODTSetResolving( provider, PCICompare, nvLocation );
+    IODTSetResolving(provider, &compareAddressCell, &nvLocation);
 
     if (2 & gIOPCIDebug)
         kidsIter = 0;
@@ -1054,25 +1092,27 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 
     checkCardBusNumbering(nubs);
 
-    UInt32 i = 0;
-    while (nub = (IOPCIDevice *)nubs->getObject(i++)) {
-
 #ifdef __i386__
-    resolvePCIInterrupt( provider, nub );
-    if ((nub->configRead8(kIOPCIConfigHeaderType) & 0x7) == 0x2)
-    {
-        if (yentaCount < 8) yentaIndices[yentaCount++] = i;
-        continue;  // skip cardbus bridges
+    // probe all device BAR's before publishing nubs
+    i = 0;
+    while (nub = (IOPCIDevice *)nubs->getObject(i++)) {
+        resolvePCIInterrupt( provider, nub );
+        if ((nub->configRead8(kIOPCIConfigHeaderType) & 0x7) == 0x2)
+        {
+            if (yentaCount < 8) yentaIndices[yentaCount++] = i;
+                continue;  // skip cardbus bridges
+        }
+        getNubResources( nub );
     }
-    getNubResources( nub );
 #endif
 
-	publishNub(nub , i);
-
-	if (1 & gIOPCIDebug)
-	    IOLog("%08lx = 0:%08lx 4:%08lx  ", nub->space.bits,
-		  nub->configRead32(kIOPCIConfigVendorID),
-		  nub->configRead32(kIOPCIConfigCommand) );
+    i = 0;
+    while (nub = (IOPCIDevice *)nubs->getObject(i++)) {
+        publishNub(nub , i);
+        if (1 & gIOPCIDebug)
+            IOLog("%08lx = 0:%08lx 4:%08lx  ", nub->space.bits,
+                nub->configRead32(kIOPCIConfigVendorID),
+                nub->configRead32(kIOPCIConfigCommand) );
     }
 
     checkCardBusResources( nubs, yentaIndices, yentaCount );
@@ -1225,6 +1265,53 @@ IOReturn IOPCIBridge::getDTNubAddressing( IOPCIDevice * regEntry )
     return (kIOReturnSuccess);
 }
 
+struct SafeProbeParam {
+    IOPCIDevice *   nub;
+    UInt8           regNum;
+    UInt32          value;
+    UInt32          save;
+};
+
+static void probeBAR( void * refcon )
+{
+    SafeProbeParam *    param = (SafeProbeParam *)refcon;
+    IOPCIDevice *       nub;
+
+    nub = param->nub;
+    param->save = nub->configRead32( param->regNum );
+    nub->configWrite32( param->regNum, 0xffffffff );
+    param->value = nub->configRead32( param->regNum );
+    nub->configWrite32( param->regNum, param->save );
+}
+
+#ifdef __i386__
+static void safeProbeBAR( void * refcon )
+{
+    assert(refcon);
+    if (cpu_number() == 0)
+        probeBAR(refcon);
+}
+#else /* !__i386__ */
+static void safeProbeBAR( void * refcon )
+{
+    SafeProbeParam *    param = (SafeProbeParam *)refcon;
+    IOPCIDevice *       nub;
+    bool                memEna, ioEna;
+    boolean_t           s;
+
+    nub = param->nub;
+    s = ml_set_interrupts_enabled(FALSE);
+    memEna = nub->setMemoryEnable( false );
+    ioEna = nub->setIOEnable( false );
+
+    probeBAR(refcon);
+
+    nub->setMemoryEnable( memEna );
+    nub->setIOEnable( ioEna );
+    ml_set_interrupts_enabled( s );
+}
+#endif /* !__i386__ */
+
 IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
 {
     OSArray *		array;
@@ -1235,8 +1322,11 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
     IOPCIAddressSpace	reg;
     UInt8		regNum;
     UInt8       headerType;
-    bool		memEna, ioEna;
-    boolean_t		s;
+    SafeProbeParam	probeParam;
+
+    value = nub->configRead32( kIOPCIConfigRevisionID );
+    if ((value >> 8) == 0x060000)	// skip host bridge aliases
+        return (kIOReturnSuccess);
 
     value = nub->configRead32( kIOPCIConfigVendorID );
     if (0x0003106b == value)		// control doesn't play well
@@ -1260,20 +1350,16 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
         if ( (2 == headerType) && (regNum > 0x10) )
             break;
 
-        // begin scary
-        s = ml_set_interrupts_enabled(FALSE);
-        memEna = nub->setMemoryEnable( false );
-        ioEna = nub->setIOEnable( false );
-
-        save = nub->configRead32( regNum );
-
-        nub->configWrite32( regNum, 0xffffffff );
-        value = nub->configRead32( regNum );
-
-        nub->configWrite32( regNum, save );
-        nub->setMemoryEnable( memEna );
-        nub->setIOEnable( ioEna );
-        ml_set_interrupts_enabled( s );
+		// begin scary
+        probeParam.nub = nub;
+        probeParam.regNum = regNum;
+#ifdef __i386__
+        mp_rendezvous_no_intrs(&safeProbeBAR, &probeParam);
+#else
+        safeProbeBAR(&probeParam);
+#endif
+        value = probeParam.value;
+        save = probeParam.save;
         // end scary
 
         if (0 == value)
@@ -1474,7 +1560,7 @@ UInt32 IOPCIBridge::findPCICapability( IOPCIAddressSpace space,
                                        UInt8 capabilityID, UInt8 * found )
 {
     UInt32	data = 0;
-    UInt8	offset = 0;
+    UInt8	offset;
 
     if (found)
         *found = 0;
@@ -1483,7 +1569,9 @@ UInt32 IOPCIBridge::findPCICapability( IOPCIAddressSpace space,
               & (configRead32(space, kIOPCIConfigCommand))))
         return (0);
 
-    offset = configRead32( space, kIOPCIConfigCapabilitiesPtr );
+    offset = (0xff & configRead32(space, kIOPCIConfigCapabilitiesPtr));
+    if (offset & 3)
+	offset = 0;
     while (offset)
     {
         data = configRead32( space, offset );
@@ -1493,7 +1581,9 @@ UInt32 IOPCIBridge::findPCICapability( IOPCIAddressSpace space,
                 *found = offset;
             break;
         }
-        offset = (data >> 8) & 0xfc;
+	offset = (data >> 8) & 0xff;
+	if (offset & 3)
+	    offset = 0;
     }
 
     return (offset ? data : 0);
@@ -1503,8 +1593,7 @@ UInt32 IOPCIBridge::extendedFindPCICapability( IOPCIAddressSpace space,
 						UInt32 capabilityID, IOByteCount * found )
 {
     UInt32	data = 0;
-    IOByteCount	offset = 0;
-    IOByteCount	firstOffset = 0;
+    IOByteCount	offset, firstOffset = 0;
 
     if (found)
     {
@@ -1516,17 +1605,43 @@ UInt32 IOPCIBridge::extendedFindPCICapability( IOPCIAddressSpace space,
               & (configRead32(space, kIOPCIConfigCommand))))
         return (0);
 
-    offset = configRead32( space, kIOPCIConfigCapabilitiesPtr );
-    while (offset)
+    if (capabilityID >= 0x100)
     {
-        data = configRead32( space, offset );
-        if (offset > firstOffset && (capabilityID == (data & 0xff)))
-        {
-            if (found)
-                *found = offset;
-            break;
-        }
-        offset = (data >> 8) & 0xfc;
+	capabilityID =- capabilityID;
+	offset = 0x100;
+	while (offset)
+	{
+	    space.es.registerNumExtended = (offset >> 8);
+	    data = configRead32( space, offset );
+	    if ((offset > firstOffset) && (capabilityID == (data & 0xffff)))
+	    {
+		if (found)
+		    *found = offset;
+		break;
+	    }
+	    offset = (data >> 20) & 0xfff;
+	    if ((offset < 0x100) || (offset & 3))
+		offset = 0;
+	}
+    }
+    else
+    {
+	offset = (0xff & configRead32(space, kIOPCIConfigCapabilitiesPtr));
+	if (offset & 3)
+	    offset = 0;
+	while (offset)
+	{
+	    data = configRead32( space, offset );
+	    if ((offset > firstOffset) && (capabilityID == (data & 0xff)))
+	    {
+		if (found)
+		    *found = offset;
+		break;
+	    }
+	    offset = (data >> 8) & 0xff;
+	    if (offset & 3)
+		offset = 0;
+	}
     }
 
     return (offset ? data : 0);

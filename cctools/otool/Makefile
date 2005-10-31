@@ -1,6 +1,8 @@
 RC_OS = macos
 export USE_APPLE_PB_SUPPORT = all
 OFLAG = -O
+LEGACY = -D_MACH_I386_THREAD_STATUS_FPSTATE_LEGACY_FIELD_NAMES_ \
+	 -D_ARCHITECTURE_I386_FPU_FPSTATE_LEGACY_FIELD_NAMES_
 ifeq "macos" "$(RC_OS)"
   X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
@@ -12,13 +14,14 @@ endif
 
 STATIC = -static
 ifeq "mwccppc" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -I$(SRCROOT)
+  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -I$(SRCROOT) $(LEGACY)
 else
   CFLAGS = $(STATIC) $(OFLAG) -g -Wall -I$(SRCROOT)/../include -I$(SRCROOT) \
-	   $(X_CFLAGS)
+	   $(X_CFLAGS) $(LEGACY)
 endif
 
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
+				  [ "$(RC_XBS)" != "YES" ]; then \
 	     echo YES ; else echo NO ; \
 	     fi; )
 

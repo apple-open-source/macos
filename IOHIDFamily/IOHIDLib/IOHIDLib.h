@@ -253,11 +253,11 @@ typedef struct IOHIDDeviceInterface122
     IOReturn (*getEventCallout)(void * self, IOHIDCallbackFunction * outCallback,	\
                                 void ** outCallbackTarget, void ** outCallbackRefcon)
 
-typedef struct IOHIDQueueInterface
+struct IOHIDQueueInterface
 {
     IUNKNOWN_C_GUTS;
     IOHIDQUEUEINTERFACE_FUNCS_100;
-} IOHIDQueueInterface;
+};
 
 //
 // IOHIDOutputTransactionInterface Functions available in version 1.2 (10.2) and higher of Mac OS X
@@ -284,11 +284,11 @@ typedef struct IOHIDQueueInterface
                                 void * callbackTarget, void * callbackRefcon);		\
     IOReturn (*clear)(void * self)
 
-typedef struct IOHIDOutputTransactionInterface
+struct IOHIDOutputTransactionInterface
 {
     IUNKNOWN_C_GUTS;
     IOHIDOUTPUTTRANSACTIONINTERFACE_FUNCS_120;
-}IOHIDOutputTransactionInterface;
+};
 
 
 //

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,6 +34,8 @@ with Lib;      use Lib;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
+with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch8;  use Sem_Ch8;
@@ -83,7 +85,7 @@ package body Sem_Ch13 is
    --  operational attributes.
 
    function Address_Aliased_Entity (N : Node_Id) return Entity_Id;
-   --  If expression N is of the form E'Address, return E.
+   --  If expression N is of the form E'Address, return E
 
    procedure Mark_Aliased_Address_As_Volatile (N : Node_Id);
    --  This is used for processing of an address representation clause. If
@@ -203,6 +205,8 @@ package body Sem_Ch13 is
 
    procedure Analyze_At_Clause (N : Node_Id) is
    begin
+      Check_Restriction (No_Obsolescent_Features, N);
+
       if Warn_On_Obsolescent_Feature then
          Error_Msg_N
            ("at clause is an obsolescent feature ('R'M 'J.7(2))?", N);
@@ -297,7 +301,6 @@ package body Sem_Ch13 is
       then
          Error_Msg_N ("cannot specify attribute for subtype", Nam);
          return;
-
       end if;
 
       --  Switch on particular attribute
@@ -354,6 +357,8 @@ package body Sem_Ch13 is
                   Error_Msg_N
                     ("\?only one task can be declared of this type", N);
                end if;
+
+               Check_Restriction (No_Obsolescent_Features, N);
 
                if Warn_On_Obsolescent_Feature then
                   Error_Msg_N
@@ -1187,6 +1192,8 @@ package body Sem_Ch13 is
 
          begin
             if Is_Task_Type (U_Ent) then
+               Check_Restriction (No_Obsolescent_Features, N);
+
                if Warn_On_Obsolescent_Feature then
                   Error_Msg_N
                     ("storage size clause for task is an " &
@@ -1250,6 +1257,7 @@ package body Sem_Ch13 is
 
          when Attribute_Storage_Pool => Storage_Pool : declare
             Pool : Entity_Id;
+            T    : Entity_Id;
 
          begin
             if Ekind (U_Ent) /= E_Access_Type
@@ -1275,6 +1283,26 @@ package body Sem_Ch13 is
 
             Analyze_And_Resolve
               (Expr, Class_Wide_Type (RTE (RE_Root_Storage_Pool)));
+
+            if Nkind (Expr) = N_Type_Conversion then
+               T := Etype (Expression (Expr));
+            else
+               T := Etype (Expr);
+            end if;
+
+            --  The Stack_Bounded_Pool is used internally for implementing
+            --  access types with a Storage_Size. Since it only work
+            --  properly when used on one specific type, we need to check
+            --  that it is not highjacked improperly:
+            --    type T is access Integer;
+            --    for T'Storage_Size use n;
+            --    type Q is access Float;
+            --    for Q'Storage_Size use T'Storage_Size; -- incorrect
+
+            if Base_Type (T) = RTE (RE_Stack_Bounded_Pool) then
+               Error_Msg_N ("non-sharable internal Pool", Expr);
+               return;
+            end if;
 
             --  If the argument is a name that is not an entity name, then
             --  we construct a renaming operation to define an entity of
@@ -1320,39 +1348,59 @@ package body Sem_Ch13 is
                   Pool := Entity (Expression (Renamed_Object (Pool)));
                end if;
 
-               if Present (Etype (Pool))
-                 and then Etype (Pool) /= RTE (RE_Stack_Bounded_Pool)
-                 and then Etype (Pool) /= RTE (RE_Unbounded_Reclaim_Pool)
-               then
-                  Set_Associated_Storage_Pool (U_Ent, Pool);
-               else
-                  Error_Msg_N ("Non sharable GNAT Pool", Expr);
-               end if;
-
-            --  The pool may be specified as the Storage_Pool of some other
-            --  type. It is rewritten as a class_wide conversion of the
-            --  corresponding pool entity.
+               Set_Associated_Storage_Pool (U_Ent, Pool);
 
             elsif Nkind (Expr) = N_Type_Conversion
               and then Is_Entity_Name (Expression (Expr))
               and then Nkind (Original_Node (Expr)) = N_Attribute_Reference
             then
                Pool := Entity (Expression (Expr));
-
-               if Present (Etype (Pool))
-                 and then Etype (Pool) /= RTE (RE_Stack_Bounded_Pool)
-                 and then Etype (Pool) /= RTE (RE_Unbounded_Reclaim_Pool)
-               then
-                  Set_Associated_Storage_Pool (U_Ent, Pool);
-               else
-                  Error_Msg_N ("Non sharable GNAT Pool", Expr);
-               end if;
+               Set_Associated_Storage_Pool (U_Ent, Pool);
 
             else
                Error_Msg_N ("incorrect reference to a Storage Pool", Expr);
                return;
             end if;
          end Storage_Pool;
+
+         -----------------
+         -- Stream_Size --
+         -----------------
+
+         when Attribute_Stream_Size => Stream_Size : declare
+            Size : constant Uint := Static_Integer (Expr);
+
+         begin
+            if Has_Stream_Size_Clause (U_Ent) then
+               Error_Msg_N ("Stream_Size already given for &", Nam);
+
+            elsif Is_Elementary_Type (U_Ent) then
+               if Size /= System_Storage_Unit
+                    and then
+                  Size /= System_Storage_Unit * 2
+                    and then
+                  Size /= System_Storage_Unit * 4
+                     and then
+                  Size /= System_Storage_Unit * 8
+               then
+                  Error_Msg_Uint_1 := UI_From_Int (System_Storage_Unit);
+                  Error_Msg_N
+                    ("stream size for elementary type must be a"
+                       & " power of 2 and at least ^", N);
+
+               elsif RM_Size (U_Ent) > Size then
+                  Error_Msg_Uint_1 := RM_Size (U_Ent);
+                  Error_Msg_N
+                    ("stream size for elementary type must be a"
+                       & " power of 2 and at least ^", N);
+               end if;
+
+               Set_Has_Stream_Size_Clause (U_Ent);
+
+            else
+               Error_Msg_N ("Stream_Size cannot be given for &", Nam);
+            end if;
+         end Stream_Size;
 
          ----------------
          -- Value_Size --
@@ -1489,7 +1537,6 @@ package body Sem_Ch13 is
          when others =>
             Error_Msg_N
               ("attribute& cannot be set with definition clause", N);
-
       end case;
 
       --  The test for the type being frozen must be performed after
@@ -1659,10 +1706,11 @@ package body Sem_Ch13 is
          Error_Msg_N ("duplicate enumeration rep clause ignored", N);
          return;
 
-      --  Don't allow rep clause if root type is standard [wide_]character
+      --  Don't allow rep clause for standard [wide_[wide_]]character
 
       elsif Root_Type (Enumtype) = Standard_Character
         or else Root_Type (Enumtype) = Standard_Wide_Character
+        or else Root_Type (Enumtype) = Standard_Wide_Wide_Character
       then
          Error_Msg_N ("enumeration rep clause not allowed for this type", N);
          return;
@@ -1953,6 +2001,8 @@ package body Sem_Ch13 is
             pragma Warnings (Off, Mod_Val);
 
          begin
+            Check_Restriction (No_Obsolescent_Features, Mod_Clause (N));
+
             if Warn_On_Obsolescent_Feature then
                Error_Msg_N
                  ("mod clause is an obsolescent feature ('R'M 'J.8)?", N);
@@ -2129,7 +2179,7 @@ package body Sem_Ch13 is
                        ("component clause previously given#", CC);
 
                   else
-                     --  Update Fbit and Lbit to the actual bit number.
+                     --  Update Fbit and Lbit to the actual bit number
 
                      Fbit := Fbit + UI_From_Int (SSU) * Posit;
                      Lbit := Lbit + UI_From_Int (SSU) * Posit;
@@ -2645,7 +2695,7 @@ package body Sem_Ch13 is
                   return;
                end if;
 
-               --  Otherwise look at the identifier and see if it is OK.
+               --  Otherwise look at the identifier and see if it is OK
 
                if Ekind (Ent) = E_Named_Integer
                     or else
@@ -3204,7 +3254,7 @@ package body Sem_Ch13 is
          raise Program_Error;
       end if;
 
-      --  Fall through with Hi and Lo set. Deal with biased case.
+      --  Fall through with Hi and Lo set. Deal with biased case
 
       if (Biased and then not Is_Fixed_Point_Type (T))
         or else Has_Biased_Representation (T)
@@ -3408,16 +3458,6 @@ package body Sem_Ch13 is
          Copy_TSS (Subp_Id, Base_Type (Ent));
       end if;
    end New_Stream_Procedure;
-
-   ---------------------
-   -- Record_Rep_Item --
-   ---------------------
-
-   procedure Record_Rep_Item (T : Entity_Id; N : Node_Id) is
-   begin
-      Set_Next_Rep_Item (N, First_Rep_Item (T));
-      Set_First_Rep_Item (T, N);
-   end Record_Rep_Item;
 
    ------------------------
    -- Rep_Item_Too_Early --

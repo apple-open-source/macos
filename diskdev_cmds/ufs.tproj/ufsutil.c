@@ -145,7 +145,7 @@ main(int argc, const char *argv[])
 	if (ufslabel_get(fd, &ul) == FALSE) {
 	    exit(FSUR_RECOGNIZED);
 	}
-	ufslabel_get_name(&ul, name, &len);
+	ufslabel_get_name(&ul, (char *)name, &len);
 	name[len] = '\0';
 	close(fd);
 
@@ -159,7 +159,7 @@ main(int argc, const char *argv[])
 	}
 
 	/* dump the name to stdout */
-	write(1, name, strlen(name));
+	write(1, name, strlen((char *)name));
 
 	/* write the ufs.name file */
 	sprintf(filename, "%s/ufs%s/ufs.name", FS_DIR_LOCATION,

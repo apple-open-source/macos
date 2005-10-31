@@ -1,0 +1,9 @@
+                    <tr>
+                        <td>#adminResource('text.markup.selection.text' 'Text Markup Selection')</td>
+                        <td><select name="markup-selections" multiple><option value="">#adminResource('text.markup.apply.text' '-- Select text markup to apply --')</option>
+                            #foreach ($markup in $BLOJSOM_PLUGIN_MARKUP_SELECTIONS.keySet())
+                                #set($markupValue = $BLOJSOM_PLUGIN_MARKUP_SELECTIONS.get($markup))
+                                <option value="$markupValue" #if($!BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY.getMetaData().containsKey($markupValue)) SELECTED #end>$markup</option>
+                            #end
+                        </select></td>
+                    </tr>

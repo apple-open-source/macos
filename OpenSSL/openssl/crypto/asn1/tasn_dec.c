@@ -799,11 +799,11 @@ int asn1_ex_c2i(ASN1_VALUE **pval, unsigned char *cont, int len, int utype, char
 	ret = 1;
 	err:
 	if(!ret)
-	{
+		{
 		ASN1_TYPE_free(typ);
-		if(opval)
+		if (opval)
 			*opval = NULL;
-	}
+		}
 	return ret;
 }
 

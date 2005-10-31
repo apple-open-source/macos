@@ -38,8 +38,8 @@ namespace __cxxabiv1
 #ifdef __ARM_EABI__
   // The ARM EABI uses the least significant bit of a 32-bit
   // guard variable.  */
-#define _GLIBCXX_GUARD_ACQUIRE(x) (!(*(x) & 1))
-#define _GLIBCXX_GUARD_RELEASE(x) *(x) = 1
+#define _GLIBCXX_GUARD_TEST(x) ((*(x) & 1) != 0)
+#define _GLIBCXX_GUARD_SET(x) *(x) = 1
   typedef int __guard;
 
   // We also want the element size in array cookies.
@@ -54,8 +54,8 @@ namespace __cxxabiv1
 #else // __ARM_EABI__
 
   // The generic ABI uses the first byte of a 64-bit guard variable.
-#define _GLIBCXX_GUARD_ACQUIRE(x) (!*(char *) (x))
-#define _GLIBCXX_GUARD_RELEASE(x) *(char *) (x) = 1
+#define _GLIBCXX_GUARD_TEST(x) (*(char *) (x) != 0)
+#define _GLIBCXX_GUARD_SET(x) *(char *) (x) = 1
   __extension__ typedef int __guard __attribute__((mode (__DI__)));
 
   // __cxa_vec_ctor has void return type.

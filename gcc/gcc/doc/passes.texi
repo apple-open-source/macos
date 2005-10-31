@@ -1,7 +1,7 @@
 @c markers: CROSSREF BUG TODO
 
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -12,7 +12,7 @@
 @cindex compiler passes and files
 
 This chapter is dedicated to giving an overview of the optimization and
-code generation passes of the compiler.  In the process, it describes 
+code generation passes of the compiler.  In the process, it describes
 some of the language front end interface, though this description is no
 where near complete.
 
@@ -30,7 +30,7 @@ where near complete.
 @findex lang_hooks.parse_file
 The language front end is invoked only once, via
 @code{lang_hooks.parse_file}, to parse the entire input.  The language
-front end may use any intermediate language representation deemed 
+front end may use any intermediate language representation deemed
 appropriate.  The C front end uses GENERIC trees (CROSSREF), plus
 a double handful of language specific tree codes defined in
 @file{c-common.def}.  The Fortran front end uses a completely different
@@ -43,10 +43,10 @@ private representation.
 @cindex intermediate representation lowering
 @cindex lowering, language-dependent intermediate representation
 At some point the front end must translate the representation used in the
-front end to a representation understood by the language-independent 
+front end to a representation understood by the language-independent
 portions of the compiler.  Current practice takes one of two forms.
 The C front end manually invokes the gimplifier (CROSSREF) on each function,
-and uses the gimplifier callbacks to convert the language-specific tree 
+and uses the gimplifier callbacks to convert the language-specific tree
 nodes directly to GIMPLE (CROSSREF) before passing the function off to
 be compiled.
 The Fortran front end converts from a private representation to GENERIC,
@@ -68,11 +68,11 @@ invoked when (1) it is certain that the function is used, (2)
 warning flags specified by the user require some amount of
 compilation in order to honor, (3) the language indicates that
 semantic analysis is not complete until gimplification occurs.
-Hum... this sounds overly complicated.  Perhaps we should just
+Hum@dots{} this sounds overly complicated.  Perhaps we should just
 have the front end gimplify always; in most cases it's only one
 function call.
 
-The front end needs to pass all function definitions and top level 
+The front end needs to pass all function definitions and top level
 declarations off to the middle-end so that they can be compiled and
 emitted to the object file.  For a simple procedural language, it is
 usually most convenient to do this as each top level declaration or
@@ -80,14 +80,14 @@ definition is seen.  There is also a distinction to be made between
 generating functional code and generating complete debug information.
 The only thing that is absolutely required for functional code is that
 function and data @emph{definitions} be passed to the middle-end.  For
-complete debug information, function, data and type declarations 
+complete debug information, function, data and type declarations
 should all be passed as well.
 
 @findex rest_of_decl_compilation
 @findex rest_of_type_compilation
 @findex cgraph_finalize_function
 In any case, the front end needs each complete top-level function or
-data declaration, and each data definition should be passed to 
+data declaration, and each data definition should be passed to
 @code{rest_of_decl_compilation}.  Each complete type definition should
 be passed to @code{rest_of_type_compilation}.  Each function definition
 should be passed to @code{cgraph_finalize_function}.
@@ -100,7 +100,7 @@ as the official interface?  Possibly we should rename all three
 interfaces such that the names match in some meaningful way and
 that is more descriptive than "rest_of".
 
-The middle-end will, at its option, emit the function and data 
+The middle-end will, at its option, emit the function and data
 definitions immediately or queue them for later processing.
 
 @node Gimplification pass
@@ -110,13 +110,13 @@ definitions immediately or queue them for later processing.
 @cindex GIMPLE
 @dfn{Gimplification} is a whimsical term for the process of converting
 the intermediate representation of a function into the GIMPLE language
-(CROSSREF).  The term stuck, and so words like ``gimplification,''
-``gimplify,'' ``gimplifier'' and the like are sprinkled throughout this
+(CROSSREF).  The term stuck, and so words like ``gimplification'',
+``gimplify'', ``gimplifier'' and the like are sprinkled throughout this
 section of code.
 
 @cindex GENERIC
 While a front end may certainly choose to generate GIMPLE directly if
-it chooses, this can be a moderately complex process unless the 
+it chooses, this can be a moderately complex process unless the
 intermediate language used by the front end is already fairly simple.
 Usually it is easier to generate GENERIC trees plus extensions
 and let the language-independent gimplifier do most of the work.
@@ -125,7 +125,7 @@ and let the language-independent gimplifier do most of the work.
 @findex gimplify_expr
 @findex lang_hooks.gimplify_expr
 The main entry point to this pass is @code{gimplify_function_tree}
-located in @file{gimplify.c}.  From here we process the entire 
+located in @file{gimplify.c}.  From here we process the entire
 function gimplifying each statement in turn.  The main workhorse
 for this pass is @code{gimplify_expr}.  Approximately everything
 passes through here at least once, and it is from here that we
@@ -135,7 +135,7 @@ The callback should examine the expression in question and return
 @code{GS_UNHANDLED} if the expression is not a language specific
 construct that requires attention.  Otherwise it should alter the
 expression in some way to such that forward progress is made toward
-producing valid GIMPLE.  If the callback is certain that the 
+producing valid GIMPLE@.  If the callback is certain that the
 transformation is complete and the expression is valid GIMPLE, it
 should return @code{GS_ALL_DONE}.  Otherwise it should return
 @code{GS_OK}, which will cause the expression to be processed again.
@@ -146,13 +146,14 @@ semantic checks), it should return @code{GS_ERROR}.
 @node Pass manager
 @section Pass manager
 
-The pass manager is located in @file{passes.c} and @file{passes.h}.
+The pass manager is located in @file{passes.c}, @file{tree-optimize.c}
+and @file{tree-pass.h}.
 Its job is to run all of the individual passes in the correct order,
 and take care of standard bookkeeping that applies to every pass.
 
 The theory of operation is that each pass defines a structure that
-represents everything we need to know about that pass --- when it
-should be run, how it should be run, what intermediate language 
+represents everything we need to know about that pass---when it
+should be run, how it should be run, what intermediate language
 form or on-the-side data structures it needs.  We register the pass
 to be run in some particular order, and the pass manager arranges
 for everything to happen in the correct order.
@@ -203,13 +204,13 @@ by @code{pass_mudflap_1}.
 
 @item Lower control flow
 
-This pass flattens @code{if} statements (@code{COND_EXPR}) and 
+This pass flattens @code{if} statements (@code{COND_EXPR}) and
 and moves lexical bindings (@code{BIND_EXPR}) out of line.  After
 this pass, all @code{if} statements will have exactly two @code{goto}
 statements in its @code{then} and @code{else} arms.  Lexical binding
 information for each statement will be found in @code{TREE_BLOCK} rather
 than being inferred from its position under a @code{BIND_EXPR}.  This
-pass is found in @file{gimple-low.c} and is described by 
+pass is found in @file{gimple-low.c} and is described by
 @code{pass_lower_cf}.
 
 @item Lower exception handling control flow
@@ -233,7 +234,7 @@ is described by @code{pass_build_cfg}.
 
 @item Find all referenced variables
 
-This pass walks the entire function and collects an array of all 
+This pass walks the entire function and collects an array of all
 variables referenced in the function, @code{referenced_vars}.  The
 index at which a variable is found in the array is used as a UID
 for the variable within this function.  This data is needed by the
@@ -244,8 +245,8 @@ and is described by @code{pass_referenced_vars}.
 
 This pass rewrites the function such that it is in SSA form.  After
 this pass, all @code{is_gimple_reg} variables will be referenced by
-@code{SSA_NAME}, and all occurrences of other variables will be 
-annotated with @code{VDEFS} and @code{VUSES}; phi nodes will have 
+@code{SSA_NAME}, and all occurrences of other variables will be
+annotated with @code{VDEFS} and @code{VUSES}; phi nodes will have
 been inserted as necessary for each basic block.  This pass is
 located in @file{tree-ssa.c} and is described by @code{pass_build_ssa}.
 
@@ -287,23 +288,23 @@ described by @code{pass_redundant_phi}.o
 
 This pass attempts to remove redundant computation by substituting
 variables that are used once into the expression that uses them and
-seeing if the result can be simplified.  It is located in 
+seeing if the result can be simplified.  It is located in
 @file{tree-ssa-forwprop.c} and is described by @code{pass_forwprop}.
 
 @item Copy Renaming
 
-This pass attempts to change the name of compiler temporaries involved in 
-copy operations such that SSA->normal can coalesce the copy away. When compiler
+This pass attempts to change the name of compiler temporaries involved in
+copy operations such that SSA->normal can coalesce the copy away.  When compiler
 temporaries are copies of user variables, it also renames the compiler
-temporary to the user variable resulting in better use of user symbols.  It is 
-located in @file{tree-ssa-copyrename.c} and is described by 
+temporary to the user variable resulting in better use of user symbols.  It is
+located in @file{tree-ssa-copyrename.c} and is described by
 @code{pass_copyrename}.
 
 @item PHI node optimizations
 
 This pass recognizes forms of phi inputs that can be represented as
 conditional expressions and rewrites them into straight line code.
-It is located in @file{tree-ssa-phiopt.c} and is described by 
+It is located in @file{tree-ssa-phiopt.c} and is described by
 @code{pass_phiopt}.
 
 @item May-alias optimization
@@ -333,7 +334,7 @@ and is described by @code{pass_lower_complex}.
 @item Scalar replacement of aggregates
 
 This pass rewrites suitable non-aliased local aggregate variables into
-a set of scalar variables.  The resulting scalar variables are 
+a set of scalar variables.  The resulting scalar variables are
 rewritten into SSA form, which allows subsequent optimization passes
 to do a significantly better job with them.  The pass is located in
 @file{tree-sra.c} and is described by @code{pass_sra}.
@@ -396,10 +397,10 @@ The optimizations also use various utility functions contained in
 
 This pass applies if-conversion to simple loops to help vectorizer.
 We identify if convertable loops, if-convert statements and merge
-basic blocks in one big block. The idea is to present loop in such
+basic blocks in one big block.  The idea is to present loop in such
 form so that vectorizer can have one to one mapping between statements
-and available vector operations. This patch re-introduces COND_EXPR
-at GIMPLE level. This pass is located in @file{tree-if-conv.c}.
+and available vector operations.  This patch re-introduces COND_EXPR
+at GIMPLE level.  This pass is located in @file{tree-if-conv.c}.
 
 @item Conditional constant propagation
 
@@ -410,7 +411,7 @@ by @code{pass_ccp}.
 
 @item Folding builtin functions
 
-This pass simplifies builtin functions, as applicable, with constant 
+This pass simplifies builtin functions, as applicable, with constant
 arguments or with inferrable string lengths.  It is located in
 @file{tree-ssa-ccp.c} and is described by @code{pass_fold_builtins}.
 
@@ -437,10 +438,10 @@ in @file{tree-ssa-dce.c} and is described by @code{pass_cd_dce}.
 This pass identifies function calls that may be rewritten into
 jumps.  No code transformation is actually applied here, but the
 data and control flow problem is solved.  The code transformation
-requires target support, and so is delayed until RTL.  In the
+requires target support, and so is delayed until RTL@.  In the
 meantime @code{CALL_EXPR_TAILCALL} is set indicating the possibility.
 The pass is located in @file{tree-tailcall.c} and is described by
-@code{pass_tail_calls}.  The RTL transformation is handled by 
+@code{pass_tail_calls}.  The RTL transformation is handled by
 @code{fixup_tail_calls} in @file{calls.c}.
 
 @item Warn for function return without value
@@ -468,7 +469,7 @@ is described by @code{pass_mudflap_2}.
 
 This pass rewrites the function such that it is in normal form.  At
 the same time, we eliminate as many single-use temporaries as possible,
-so the intermediate language is no longer GIMPLE, but GENERIC.  The
+so the intermediate language is no longer GIMPLE, but GENERIC@.  The
 pass is located in @file{tree-ssa.c} and is described by @code{pass_del_ssa}.
 @end itemize
 
@@ -516,13 +517,13 @@ for this pass is located within @file{except.c}.
 This pass removes unreachable code, simplifies jumps to next, jumps to
 jump, jumps across jumps, etc.  The pass is run multiple times.
 For historical reasons, it is occasionally referred to as the ``jump
-optimization pass''.  The bulk of the code for this pass is in 
+optimization pass''.  The bulk of the code for this pass is in
 @file{cfgcleanup.c}, and there are support routines in @file{cfgrtl.c}
 and @file{jump.c}.
 
 @item Common subexpression elimination
 
-This pass removes redundant computation within basic blocks, and 
+This pass removes redundant computation within basic blocks, and
 optimizes addressing modes based on cost.  The pass is run twice.
 The source is located in @file{cse.c}.
 
@@ -555,7 +556,7 @@ This pass is seriously out-of-date and is supposed to be replaced by
 a new one described below in near future.
 
 A second loop optimization pass takes care of basic block level
-optimizations---unrolling, peeling and unswitching loops. The source
+optimizations---unrolling, peeling and unswitching loops.  The source
 files are @file{cfgloopanal.c} and @file{cfgloopmanip.c} containing
 generic loop analysis and manipulation code, @file{loop-init.c} with
 initialization and finalization code, @file{loop-unswitch.c} for loop
@@ -617,12 +618,12 @@ completely target-specific.  The source is located in @file{lcm.c}.
 
 @cindex modulo scheduling
 @cindex sms, swing, software pipelining
-@item Modulo scheduling 
+@item Modulo scheduling
 
-This pass looks at innermost loops and reorders their instructions 
-by overlapping different iterations.  Modulo scheduling is performed 
+This pass looks at innermost loops and reorders their instructions
+by overlapping different iterations.  Modulo scheduling is performed
 immediately before instruction scheduling.
-The pass is located in (@file{modulo-sched.c}).  
+The pass is located in (@file{modulo-sched.c}).
 
 @item Instruction scheduling
 
@@ -659,13 +660,6 @@ do a decent job.  The source is located in @file{local-alloc.c}.
 Global register allocation.  This pass allocates hard registers for
 the remaining pseudo registers (those whose life spans are not
 contained in one basic block).  The pass is located in @file{global.c}.
-
-@item
-Graph coloring register allocator.  The files @file{ra.c}, @file{ra-build.c},
-@file{ra-colorize.c}, @file{ra-debug.c}, @file{ra-rewrite.c} together with
-the header @file{ra.h} contain another register allocator, which is used
-when the option @option{-fnew-ra} is given.  In that case it is run instead
-of the above mentioned local and global register allocation passes.
 
 @cindex reloading
 @item

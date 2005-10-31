@@ -1,2 +1,0 @@
-[vset    digest md2]
-[include digest/main.inc]

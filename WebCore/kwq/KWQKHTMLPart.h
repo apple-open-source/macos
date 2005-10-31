@@ -340,6 +340,7 @@ public:
     void issueCopyCommand();
     void issuePasteCommand();
     void issuePasteAndMatchStyleCommand();
+    void issueTransposeCommand();
     void respondToChangedSelection(const khtml::Selection &oldSelection, bool closeTyping);
     void respondToChangedContents();
     virtual bool isContentEditable() const;
@@ -399,6 +400,8 @@ private:
     void setPolicyBaseURL(const DOM::DOMString &);
     
     NSView *mouseDownViewIfStillGood();
+
+    bool userGestureHint();
 
     QString generateFrameName();
 

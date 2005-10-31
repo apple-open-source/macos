@@ -1,5 +1,5 @@
 /* GtkMenuBarPeer.java -- Implements MenuBarPeer with GTK+
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,8 +38,10 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
+import java.awt.Font;
 import java.awt.Menu;
 import java.awt.MenuBar;
+import java.awt.MenuComponent;
 import java.awt.peer.MenuBarPeer;
 import java.awt.peer.MenuPeer;
 
@@ -53,16 +55,26 @@ public class GtkMenuBarPeer extends GtkMenuComponentPeer
   public GtkMenuBarPeer (MenuBar target)
   {
     super (target);
-    create ();
   }
 
+  void setFont ()
+  {
+    MenuComponent mc = (MenuComponent) awtWidget;
+    Font f = mc.getFont ();
+
+    if (f == null)
+      mc.setFont (new Font ("Dialog", Font.PLAIN, 12));
+  }
+
+  // FIXME: remove this method or replace it with one that does
+  // something useful.
+  /* In Gnome, help menus are no longer right flushed. */
   native void nativeSetHelpMenu(MenuPeer menuPeer);
 
-  /* In Gnome, help menus are no longer right flushed. */
   public void addHelpMenu (Menu menu)
   {
-    nativeSetHelpMenu((MenuPeer) menu.getPeer());
+    // nativeSetHelpMenu((MenuPeer) menu.getPeer());
   }
 
-  native public void delMenu (int index);
+  public native void delMenu(int index);
 }

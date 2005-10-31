@@ -1,0 +1,55 @@
+# Copyright 2005 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+if $tracelevel then {
+        strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set testfile "x86-frameless-crasher"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+# This test depends on the -momit-leaf-frame-pointer codegen flag,
+# which is implemented for x86 but not all architectures.
+
+if ![istarget "i\[3-6\]86-apple-darwin*"] {
+    verbose "Skipping x86-frameless-crasher tests."
+    return
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable [list debug "-fomit-leaf-frame-pointer"]] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+
+# Start with a fresh gdb
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Program received signal EXC_BAD_ACCESS.*$hex in foo3 \\(arg=.*" "run to program crash"
+
+gdb_test "bt" "#0  $hex in foo3 \\(arg=1\\) at .*#1  $hex in foo2 \\(arg=1\\) at .*#2  $hex in foo1 \\(arg=1\\) at .*#3  $hex in main \\(argc=1.*" "backtrace from crashed frameless func"
+
+gdb_test "p i" ".* = 10\[^0-9\].*" "print a local variable"
+
+gdb_exit
+return 0

@@ -1,10 +1,25 @@
 ========================================================================
 KerberosIPC Version History
 ========================================================================
-Current version: 1.2fc3
-Date:            January 28, 2005
+Current version: 1.2.1fc1
+Date:            June 15, 2005
 Author:          lxs@mit.edu
 ========================================================================
+
+KerberosIPC 1.2.1
+Released with KfM 5.5.1
+
+========================================================================
+
+	KerberosIPC 1.2.1fc1
+	June 15, 2005
+
+	[RT 3053] mach_server_become_user does not reregister the service as the new user
+	[RT 3068] remove mach_server_become_user
+	[RT 3085] MachIPC servers should shed root privileges if necessary
+	[RT 3067] Stop checking security trailers
+	
+	========================================================================
 
 KerberosIPC 1.2
 Released with KfM 5.5

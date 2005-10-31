@@ -297,6 +297,9 @@
    skip when using the GAS .p2align command. */
 #undef HAVE_GAS_MAX_SKIP_P2ALIGN
 
+/* Define if your assembler supports .nsubspa comdat option. */
+#undef HAVE_GAS_NSUBSPA_COMDAT
+
 /* Define if your assembler and linker support 32-bit section relative relocs
    via '.secrel32 label'. */
 #undef HAVE_GAS_PE_SECREL32_RELOC
@@ -367,6 +370,9 @@
    a read-write section. */
 #undef HAVE_LD_RO_RW_SECTION_MIXING
 
+/* Define if your linker supports -Bstatic/-Bdynamic option. */
+#undef HAVE_LD_STATIC_DYNAMIC
+
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
@@ -375,9 +381,6 @@
 
 /* Define if your compiler supports the \`long long' type. */
 #undef HAVE_LONG_LONG
-
-/* Define to 1 if you have the <mach/mach_time.h> header file. */
-#undef HAVE_MACH_MACH_TIME_H
 
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H
@@ -578,10 +581,6 @@
 
 /* Define if your assembler mis-optimizes .eh_frame data. */
 #undef USE_AS_TRADITIONAL_FORMAT
-
-/* Define to 1 if the 'long long' (or '__int64') is wider than 'long' but
-   still efficiently supported by the host hardware. */
-#undef USE_LONG_LONG_FOR_WIDEST_FAST_INT
 
 /* Define to 1 if the 'long long' (or '__int64') is wider than 'long' but
    still efficiently supported by the host hardware. */

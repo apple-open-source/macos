@@ -23,26 +23,6 @@
  * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
  *
  */
-//		$Log: AppleHWMonitor.cpp,v $
-//		Revision 1.4  2004/02/12 01:17:01  eem
-//		Merge Rohan changes from tag MERGED-FROM-rohan-branch-TO-TOT-1
-//		
-//		Revision 1.3  2004/01/30 23:52:00  eem
-//		[3542678] IOHWSensor/IOHWControl should use "reg" with version 2 thermal parameters
-//		Remove AppleSMUSensor/AppleSMUFan since that code will be in AppleSMUDevice class.
-//		Fix IOHWMonitor, AppleMaxim6690, AppleAD741x to use setPowerState() API instead of
-//		unsynchronized powerStateWIllChangeTo() API.
-//		
-//		Revision 1.2.4.1  2004/02/10 09:58:01  eem
-//		3548562, 3554178 - prevent extra OSNumber allocations
-//		
-//		Revision 1.2  2003/12/02 02:02:28  tsherman
-//		3497295 - Q42 Task - AppleHWSensor's AppleLM8x (NEW) driver needs to be revised to comply with Thermal API
-//		
-//		Revision 1.1  2003/10/23 20:08:18  wgulland
-//		Adding IOHWControl and a base class for IOHWSensor and IOHWControl
-//		
-//		
 
 #include <sys/cdefs.h>
 
@@ -206,8 +186,8 @@ bool IOHWMonitor::start(IOService *provider)
 	DLOG("IOHWMonitor::start(%s) - waiting for pmon\n", fDebugID);
 
 	// find the platform monitor and tell it that we exist
-	// Use a 10 second timeout when calling waitForService()
-    WaitTimeOut.tv_sec = 10;
+	// Use a 60 second timeout when calling waitForService()
+    WaitTimeOut.tv_sec = 60;
     WaitTimeOut.tv_nsec = 0;
 
 	service = waitForService(resourceMatching("IOPlatformMonitor"), &WaitTimeOut);

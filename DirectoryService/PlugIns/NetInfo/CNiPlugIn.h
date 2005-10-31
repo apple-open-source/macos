@@ -77,7 +77,7 @@ class	CString;
 #define		kHashSecureLength					20
 #define		kHashCramLength						32
 #define		kHashSaltedSHA1Length				24
-#define		kHashRecoverableLength				512
+#define		kHashRecoverableLength				512 //also used to limit size of password to 511 chars
 
 #define		kHashOffsetToNT						(0)
 #define		kHashOffsetToLM						(kHashShadowOneLength)

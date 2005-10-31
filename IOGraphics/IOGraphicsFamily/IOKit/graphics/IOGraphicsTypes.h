@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV	8
+#define IOGRAPHICSTYPES_REV	9
 
 typedef SInt32	IOIndex;
 typedef UInt32	IOSelect;
@@ -428,6 +428,7 @@ typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
 	Field 2 vertical blanking = vertical blanking lines + 1 line. <br>
 	Field 1 vertical offset = specified vertical sync offset. <br>
 	Field 2 vertical offset = specified vertical sync offset + 0.5 lines. <br>
+    kIORangeSupportsInterlacedCEATimingWithConfirm Supports CEA style interlaced timing, but require a confirm.
  * @field minFrameRate minimum frame rate (vertical refresh frequency) in range, in Hz.
  * @field maxFrameRate maximum frame rate (vertical refresh frequency) in range, in Hz.
  * @field minLineRate minimum line rate (horizontal refresh frequency) in range, in Hz.
@@ -579,7 +580,8 @@ enum {
 };
 enum {
     // supportedSignalConfigs
-    kIORangeSupportsInterlacedCEATiming	 = 0x00000004
+    kIORangeSupportsInterlacedCEATiming	           = 0x00000004,
+    kIORangeSupportsInterlacedCEATimingWithConfirm = 0x00000008
 };
 
 enum {
@@ -618,6 +620,7 @@ enum {
     kIOScaleCanScaleInterlaced If set framebuffer can scale an interlaced detailed timing.<br>
     kIOScaleCanSupportInset If set framebuffer can support scaled modes with non-zero horizontalScaledInset, verticalScaledInset fields.<br>
     kIOScaleCanRotate If set framebuffer can support some of the flags in the kIOScaleRotateFlags mask.<br>
+    kIOScaleCanBorderInsetOnly If set framebuffer can support scaled modes with non-zero horizontalScaledInset, verticalScaledInset fields, but requires the active pixels to be equal in size to the inset area, ie. can do insets with a border versus scaling an image.<br>
  * @field maxHorizontalPixels Maximum number of horizontal source pixels (horizontalScaled).<br>
  * @field maxVerticalPixels Maximum number of vertical source pixels (verticalScaled).<br>
  * @field __reservedC Set to zero.
@@ -642,7 +645,8 @@ enum {
     kIOScaleCanDownSamplePixels   = 0x00000004,
     kIOScaleCanScaleInterlaced    = 0x00000008,
     kIOScaleCanSupportInset       = 0x00000010,
-    kIOScaleCanRotate    	  = 0x00000020
+    kIOScaleCanRotate    	  = 0x00000020,
+    kIOScaleCanBorderInsetOnly    = 0x00000040
 };
 
 //// Connections
@@ -671,7 +675,8 @@ enum {
 
 // kConnectionFlags values
 enum {
-    kIOConnectionBuiltIn		= 0x00000800
+    kIOConnectionBuiltIn		= 0x00000800,
+    kIOConnectionStereoSync		= 0x00008000
 };
 
 // kConnectionSyncControl values
@@ -1006,6 +1011,8 @@ enum {
 #define kDisplaySubPixelLayout		"DisplaySubPixelLayout"
 #define kDisplaySubPixelConfiguration	"DisplaySubPixelConfiguration"
 #define kDisplaySubPixelShape		"DisplaySubPixelShape"
+
+#define kIODisplayOverrideMatchingKey   "IODisplayOverrideMatching"
 
 // Display parameters
 

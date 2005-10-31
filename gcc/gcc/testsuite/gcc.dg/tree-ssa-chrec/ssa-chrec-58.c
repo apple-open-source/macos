@@ -1,6 +1,6 @@
 /* APPLE LOCAL file lno */
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -floop-test -ftree-elim-checks -fdump-tree-elck-details -fdump-tree-optimized" } */
+/* { dg-options "-O1 -floop-test -fdump-tree-optimized" } */
 
 void remove_me (void);
 

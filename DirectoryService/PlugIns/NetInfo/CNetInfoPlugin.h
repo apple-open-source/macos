@@ -88,13 +88,14 @@ private:
 
 	// static private
     static	FourCharCode		fToken; //dupe of the signature
+	static	CFRunLoopTimerRef	fTimerRef;
+	static	bool				fHandlingNINetworkTransition;
 
 	// non-static private
 			CNodeRegister	   *fRegisterNodePtr;
 			DSMutexSemaphore	fRegisterMutex;
 			uInt32				fState;
 			CFRunLoopRef		fServerRunLoop;
-			time_t				fTransitionCheckTime;
 			bool				bFirstNetworkTransition;
 };
 

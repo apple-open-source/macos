@@ -294,9 +294,13 @@ msdosfs_create(ap)
 	DETIMES(&ndirent, &ts, &ts, &ts);
 	error = createde(&ndirent, pdep, &dep, cnp, offset, long_count, context);
 	if (error == 0)
+	{
 		*ap->a_vpp = DETOV(dep);
+		cache_purge_negatives(dvp);
+	}
 
 exit:
+	msdosfs_meta_flush(pdep->de_pmp);
 	return (error);
 }
 
@@ -335,12 +339,11 @@ msdosfs_close(ap)
 {
 	vnode_t vp = ap->a_vp;
 	struct denode *dep = VTODE(vp);
-	struct timespec ts;
 
-	getnanotime(&ts);
-	DETIMES(dep, &ts, &ts, &ts);
-	
-	/*¥ Should we cluster_push(vp, IO_CLOSE) here? */
+	cluster_push(vp, IO_CLOSE);
+	deupdat(dep, 0, ap->a_context);
+	msdosfs_meta_flush(dep->de_pmp);
+
 	return 0;
 }
 
@@ -421,9 +424,13 @@ msdosfs_setattr(struct vnop_setattr_args *ap)
 	int error = 0;
 
 	if (VATTR_IS_ACTIVE(vap, va_data_size)) {
-		error = detrunc(dep, vap->va_data_size, 0, ap->a_context);
-		if (error)
-			goto exit;
+		if (dep->de_FileSize != vap->va_data_size) {
+			if (dep->de_Attributes & ATTR_DIRECTORY)
+				return EPERM;	/* Cannot change size of a directory! */
+			error = detrunc(dep, vap->va_data_size, 0, ap->a_context);
+			if (error)
+				goto exit;
+		}
 		VATTR_SET_SUPPORTED(vap, va_data_size);
 	}
 	
@@ -489,6 +496,7 @@ msdosfs_setattr(struct vnop_setattr_args *ap)
 	}
 
 	error = deupdat(dep, 1, ap->a_context);
+	msdosfs_meta_flush(dep->de_pmp);
 
 exit:
 	return error;
@@ -669,8 +677,8 @@ msdosfs_write(ap)
 		zero_off = 0;
 	
 	/*
-	 * if the write starts beyond the current EOF then
-	 * we we'll zero fill from the current EOF to where the write begins
+	 * if the write starts beyond the current EOF then we'll
+	 * zero fill from the current EOF to where the write begins
 	 */
 	error = cluster_write(vp, uio, (off_t)original_size, (off_t)filesize,
 				(off_t)zero_off,
@@ -701,6 +709,7 @@ errexit:
 		}
 	} else if (ioflag & IO_SYNC)
 		error = deupdat(dep, 1, context);
+	msdosfs_meta_flush(pmp);
 
 	return error;
 }
@@ -752,7 +761,7 @@ msdosfs_pageout(ap)
 }
 
 __private_extern__ int
-msdosfs_fsync_internal(vnode_t vp, int sync, vfs_context_t context)
+msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context)
 {
 	/*
 	 * First of all, write out any clusters.
@@ -763,6 +772,9 @@ msdosfs_fsync_internal(vnode_t vp, int sync, vfs_context_t context)
 	 * Flush all dirty buffers associated with a vnode.
 	 */
 	buf_flushdirtyblks(vp, sync, 0, (char *)"msdosfs_fsync_internal");
+
+	if (do_dirs && vnode_isdir(vp))
+		(void) msdosfs_dir_flush(VTODE(vp), sync, context);
 
 	return deupdat(VTODE(vp), sync, context);
 }
@@ -784,7 +796,9 @@ msdosfs_fsync(ap)
 	int error;
 	vnode_t vp = ap->a_vp;
 	
-	error = msdosfs_fsync_internal(vp, ap->a_waitfor == MNT_WAIT, ap->a_context);
+	error = msdosfs_fsync_internal(vp, ap->a_waitfor == MNT_WAIT, 1, ap->a_context);
+
+	msdosfs_meta_flush(VTODE(vp)->de_pmp);
 
 	return error;
 }
@@ -833,6 +847,7 @@ msdosfs_remove(ap)
     error = removede(ddep, dep->de_diroffset, ap->a_context);
 
 exit:
+	msdosfs_meta_flush(ddep->de_pmp);
 
 	return error;
 }
@@ -953,8 +968,6 @@ msdosfs_rename(ap)
 	tddep = VTODE(tdvp);
 	tdep = tvp ? VTODE(tvp) : NULL;
 	pmp = fddep->de_pmp;
-
-	pmp = VFSTOMSDOSFS(vnode_mount(fdvp));
 
 	/*
 	 * If source and dest are the same, then it is a rename
@@ -1140,11 +1153,17 @@ msdosfs_rename(ap)
 		fdep->de_Attributes &= ~ATTR_HIDDEN;
 
 	error = createde(fdep, tddep, NULL, tcnp, to_diroffset, to_long_count, context);
-	if (error) {
+	if (error)
+	{
 		bcopy(oldname, fdep->de_Name, 11);
 		/*¥ What if we already deleted the target? */
 		goto exit;
 	}
+	else
+	{
+		cache_purge_negatives(tdvp);
+	}
+	
 	/* For directories, restore the name to "." */
 	if (doingdirectory)
 		bcopy(oldname, fdep->de_Name, 11);	/* Change it back to "." */
@@ -1191,7 +1210,7 @@ msdosfs_rename(ap)
 		if (FAT32(pmp))
 			putushort(dotdotp->deHighClust, tddep->de_StartCluster >> 16);
 
-		error = (int)buf_bwrite(bp);
+		error = (int)buf_bdwrite(bp);
 		if (error) {
 			/* XXX should really panic here, fs is corrupt */
 			goto exit;
@@ -1199,6 +1218,7 @@ msdosfs_rename(ap)
 	}
 
 exit:
+	msdosfs_meta_flush(pmp);
 	return (error);
 
 }
@@ -1322,7 +1342,7 @@ msdosfs_mkdir(ap)
 		putushort(denp[1].deHighClust, pdep->de_StartCluster >> 16);
 	}
 
-	error = (int)buf_bwrite(bp);
+	error = (int)buf_bdwrite(bp);
 	if (error)
 		goto exit;
 
@@ -1351,9 +1371,13 @@ msdosfs_mkdir(ap)
 	if (error)
 		clusterfree(pmp, newcluster, NULL, context);
 	else
+	{
 		*ap->a_vpp = DETOV(dep);
+		cache_purge_negatives(dvp);
+	}
 
 exit:
+	msdosfs_meta_flush(pmp);
 	return error;
 }
 
@@ -1436,12 +1460,21 @@ msdosfs_rmdir(ap)
 	if (error) goto exit;
 
 	/*
+	 * Invalidate the directory's contents.  If directory I/O went through
+	 * the directory's vnode, this wouldn't be needed; the invalidation
+	 * done in detrunc would be sufficient.
+	 */
+	error = msdosfs_dir_invalidate(ip, context);
+	if (error) goto exit;
+
+	/*
 	 * Truncate the directory that is being deleted.
 	 */
 	error = detrunc(ip, (u_long)0, IO_SYNC, context);
 	cache_purge(vp);
 
 exit:
+	msdosfs_meta_flush(dp->de_pmp);
 	return (error);
 }
 
@@ -2180,6 +2213,7 @@ static int msdosfs_symlink(struct vnop_symlink_args /* {
 	/* Write out the symlink */
 	error = buf_bwrite(bp);
 	if (error) goto exit;
+	buf_markinvalid(bp);
 	bp = NULL;
 
 	/* Start setting up new directory entry */
@@ -2210,7 +2244,10 @@ static int msdosfs_symlink(struct vnop_symlink_args /* {
 	/* Create a new directory entry pointing at the newly allocated clusters */
 	error = createde(&ndirent, dep, &new_dep, cnp, offset, long_count, context);
 	if (error == 0)
+	{
 		*ap->a_vpp = DETOV(new_dep);
+		cache_purge_negatives(dvp);
+	}
 
 exit:
 	if (bp)
@@ -2226,6 +2263,7 @@ exit:
 	if (error != 0 && cn != 0)
 		(void) freeclusterchain(pmp, cn, context);
 
+	msdosfs_meta_flush(pmp);
 	return error;
 }
 

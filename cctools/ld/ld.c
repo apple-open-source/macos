@@ -1852,6 +1852,31 @@ unknown_flag:
 		standard_framework_dirs[i] = p;
 	    }
 	}
+ 	/*
+	 * If -syslibroot is specified, prepend it to the user-specified
+	 * paths *if* the prepended version exists.
+	 */
+	if(syslibroot_specified == TRUE){
+	    for(i = 0; i < nsearch_dirs; i++){
+		if(search_dirs[i][0] == '/'){
+		    p = mkstr(next_root, search_dirs[i], NULL);
+		    if(stat(p, &stat_buf) == 0)
+			search_dirs[i] = p;
+		    else
+			free(p);
+		}
+	    }
+	    for(i = 0; i < nframework_dirs; i++){
+		if(framework_dirs[i][0] == '/'){
+		    p = mkstr(next_root, framework_dirs[i], NULL);
+		    if(stat(p, &stat_buf) == 0)
+			framework_dirs[i] = p;
+		    else
+			free(p);
+		}
+	    }
+	}
+
 	/*
          * Test to see if the various RC_* or XBS_* environment variables
 	 * are set.
@@ -1929,10 +1954,64 @@ unknown_flag:
 	}
 
 	/*
-	 * Pick up the Mac OS X deployment target.
+	 * If there was a -arch flag two things needed to be done in reguard to
+	 * the handling of the cpusubtypes.
 	 */
-	get_macosx_deployment_target(&macosx_deployment_target,
-				     &macosx_deployment_target_name);
+	if(arch_flag.name != NULL){
+	    family_arch_flag = get_arch_family_from_cputype(arch_flag.cputype);
+	    if(family_arch_flag == NULL)
+		fatal("internal error: unknown cputype (%d) for -arch %s (this "
+		      "program out of sync with get_arch_family_from_cputype())"
+		      ,arch_flag.cputype, arch_flag.name);
+	    /*
+	     * Pick up the Mac OS X deployment target.
+	     */
+	    get_macosx_deployment_target(&macosx_deployment_target,
+					 &macosx_deployment_target_name,
+					 arch_flag.cputype);
+	    /*
+	     * If for this cputype we are to always output the ALL cpusubtype
+	     * then set force_cpusubtype_ALL.
+	     */
+	    if(force_cpusubtype_ALL_for_cputype(arch_flag.cputype) == TRUE)
+		force_cpusubtype_ALL = TRUE;
+	    /*
+	     * First, if -force_cpusubtype_ALL is set and an -arch flag was
+	     * specified set the cpusubtype to the _ALL type for that cputype 
+	     * since the specified flag may not have the _ALL type and the
+	     * -force_cpusubtype_ALL has precedence over an -arch flags for a
+	     * specific implementation of an architecture.
+	     */
+	    if(force_cpusubtype_ALL == TRUE){
+		arch_flag.cpusubtype = family_arch_flag->cpusubtype;
+	    }
+	    else{
+		/*
+		 * Second, if no -force_cpusubtype_ALL is specified and an -arch
+		 * flag for a specific implementation of an architecture was
+		 * specified then the resulting cpusubtype will be for that
+		 * specific implementation of that architecture and all
+		 * cpusubtypes must combine with the cpusubtype for the -arch
+		 * flag to the cpusubtype for the -arch flag else an error must
+		 * be flaged.  This is done check_cur_obj() where cpusubtypes
+		 * are combined.  What needs to be done here is to determine if
+		 * the -arch flag is for a specific implementation of an
+		 * architecture.
+		 */
+		if(arch_flag.cpusubtype != family_arch_flag->cpusubtype)
+		    specific_arch_flag = TRUE;
+	    }
+	}
+	else{
+	    /*
+	     * We need to pick up the Mac OS X deployment target even if the
+	     * target architecture is not yet known so we can check to see if
+	     * the flags specified are valid.
+	     */
+	    get_macosx_deployment_target(&macosx_deployment_target,
+					 &macosx_deployment_target_name,
+					 CPU_TYPE_ANY);
+	}
 
 	/*
 	 * If the -sect_diff_relocs is specified check to see it can be used
@@ -2461,49 +2540,6 @@ unknown_flag:
 	}
 	if(prebinding == TRUE && dynamic == FALSE){
 	    prebinding = FALSE;
-	}
-	/*
-	 * If there was a -arch flag two things needed to be done in reguard to
-	 * the handling of the cpusubtypes.
-	 */
-	if(arch_flag.name != NULL){
-	    family_arch_flag = get_arch_family_from_cputype(arch_flag.cputype);
-	    if(family_arch_flag == NULL)
-		fatal("internal error: unknown cputype (%d) for -arch %s (this "
-		      "program out of sync with get_arch_family_from_cputype())"
-		      ,arch_flag.cputype, arch_flag.name);
-	    /*
-	     * If for this cputype we are to always output the ALL cpusubtype
-	     * then set force_cpusubtype_ALL.
-	     */
-	    if(force_cpusubtype_ALL_for_cputype(arch_flag.cputype) == TRUE)
-		force_cpusubtype_ALL = TRUE;
-	    /*
-	     * First, if -force_cpusubtype_ALL is set and an -arch flag was
-	     * specified set the cpusubtype to the _ALL type for that cputype 
-	     * since the specified flag may not have the _ALL type and the
-	     * -force_cpusubtype_ALL has precedence over an -arch flags for a
-	     * specific implementation of an architecture.
-	     */
-	    if(force_cpusubtype_ALL == TRUE){
-		arch_flag.cpusubtype = family_arch_flag->cpusubtype;
-	    }
-	    else{
-		/*
-		 * Second, if no -force_cpusubtype_ALL is specified and an -arch
-		 * flag for a specific implementation of an architecture was
-		 * specified then the resulting cpusubtype will be for that
-		 * specific implementation of that architecture and all
-		 * cpusubtypes must combine with the cpusubtype for the -arch
-		 * flag to the cpusubtype for the -arch flag else an error must
-		 * be flaged.  This is done check_cur_obj() where cpusubtypes
-		 * are combined.  What needs to be done here is to determine if
-		 * the -arch flag is for a specific implementation of an
-		 * architecture.
-		 */
-		if(arch_flag.cpusubtype != family_arch_flag->cpusubtype)
-		    specific_arch_flag = TRUE;
-	    }
 	}
 
 	/*

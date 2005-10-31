@@ -1,5 +1,5 @@
 /* X11Application.m -- subclass of NSApplication to multiplex events
-   $Id: X11Application.m,v 1.55 2004/10/22 00:59:33 jharper Exp $
+   $Id: X11Application.m,v 1.55.2.1 2005/08/10 18:12:46 jharper Exp $
 
    Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
 
@@ -314,6 +314,9 @@ message_kit_thread (SEL selector, NSObject *arg)
 		_appFlags._active = YES;
 
 		[self activateX:YES];
+
+		if ([e data2] & 0x10)
+		    QuartzMessageMainThread (kXquartzBringAllToFront, 0);
 	    }
 	    break;
 
@@ -993,7 +996,8 @@ send_nsevent (NSEventType type, NSEvent *e)
 	NSRect screen;
 	NSPoint location;
 	NSWindow *window;
-	int pointer_x, pointer_y, count;
+	int pointer_x, pointer_y;
+	float count;
 
     case NSLeftMouseDown:
 	xe.u.u.type = ButtonPress;
@@ -1087,8 +1091,8 @@ send_nsevent (NSEventType type, NSEvent *e)
     case NSScrollWheel:
 	xe.u.keyButtonPointer.state = convert_flags ([e modifierFlags]);
 	count = [e deltaY];
-	xe.u.u.detail = count > 0 ? 4 : 5;
-	for (count = abs (count); count-- > 0;)
+	xe.u.u.detail = count > 0.0f ? 4 : 5;
+	for (count = fabs (count); count > 0.0; count = count - 1.0f)
 	{
 	    xe.u.u.type = ButtonPress;
 	    DarwinEnqueueEvent (&xe);

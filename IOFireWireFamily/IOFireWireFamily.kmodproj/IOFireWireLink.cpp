@@ -173,3 +173,8 @@ IOReturn IOFireWireLink::handleAsyncCompletion( IOFWCommand *cmd, IOReturn statu
 	return kIOReturnSuccess;
 }
 
+void IOFireWireLink::handleSystemShutDown( UInt32 messageType )
+{
+	// nothing to do
+}
+

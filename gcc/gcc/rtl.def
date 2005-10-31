@@ -1,7 +1,8 @@
 /* This file contains the definitions and documentation for the
    Register Transfer Expressions (rtx's) that make up the
    Register Transfer Language (rtl) used in the Back End of the GNU compiler.
-   Copyright (C) 1987, 1988, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2004
+   Copyright (C) 1987, 1988, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2004,
+   2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -314,7 +315,7 @@ DEF_RTL_EXPR(CONST_INT, "const_int", "w", RTX_CONST_OBJ)
 DEF_RTL_EXPR(CONST_DOUBLE, "const_double", CONST_DOUBLE_FORMAT, RTX_CONST_OBJ)
 
 /* Describes a vector constant.  */
-DEF_RTL_EXPR(CONST_VECTOR, "const_vector", "E", RTX_EXTRA)
+DEF_RTL_EXPR(CONST_VECTOR, "const_vector", "E", RTX_CONST_OBJ)
 
 /* String constant.  Used for attributes in machine descriptions and
    for special cases in DWARF2 debug output.  NOT used for source-
@@ -331,7 +332,9 @@ DEF_RTL_EXPR(CONST, "const", "e", RTX_CONST_OBJ)
    by a SET whose first operand is (PC).  */
 DEF_RTL_EXPR(PC, "pc", "", RTX_OBJ)
 
-/* Used in the cselib routines to describe a value.  */
+/* Used in the cselib routines to describe a value.  Objects of this
+   kind are only allocated in cselib.c, in an alloc pool instead of
+   in GC memory.  The only operand of a VALUE is a cselib_val_struct.  */
 DEF_RTL_EXPR(VALUE, "value", "0", RTX_OBJ)
 
 /* A register.  The "operand" is the register number, accessed with
@@ -387,9 +390,8 @@ DEF_RTL_EXPR(MEM, "mem", "e0", RTX_OBJ)
 
 /* Reference to an assembler label in the code for this function.
    The operand is a CODE_LABEL found in the insn chain.
-   The unprinted fields 1 and 2 are used in flow.c for the
-   LABEL_NEXTREF and CONTAINING_INSN.  */
-DEF_RTL_EXPR(LABEL_REF, "label_ref", "u00", RTX_CONST_OBJ)
+   The unprinted field 1 is used in flow.c for the LABEL_NEXTREF.  */
+DEF_RTL_EXPR(LABEL_REF, "label_ref", "u0", RTX_CONST_OBJ)
 
 /* Reference to a named label: 
    Operand 0: label name
@@ -442,11 +444,8 @@ DEF_RTL_EXPR(UMOD, "umod", "ee", RTX_BIN_ARITH)
 
 /* Bitwise operations.  */
 DEF_RTL_EXPR(AND, "and", "ee", RTX_COMM_ARITH)
-
 DEF_RTL_EXPR(IOR, "ior", "ee", RTX_COMM_ARITH)
-
 DEF_RTL_EXPR(XOR, "xor", "ee", RTX_COMM_ARITH)
-
 DEF_RTL_EXPR(NOT, "not", "e", RTX_UNARY)
 
 /* Operand:
@@ -460,7 +459,10 @@ DEF_RTL_EXPR(ROTATERT, "rotatert", "ee", RTX_BIN_ARITH) /* rotate right */
 
 /* Minimum and maximum values of two operands.  We need both signed and
    unsigned forms.  (We cannot use MIN for SMIN because it conflicts
-   with a macro of the same name.) */
+   with a macro of the same name.)   The signed variants should be used
+   with floating point.  Further, if both operands are zeros, or if either
+   operand is NaN, then it is unspecified which of the two operands is
+   returned as the result.  */
 
 DEF_RTL_EXPR(SMIN, "smin", "ee", RTX_COMM_ARITH)
 DEF_RTL_EXPR(SMAX, "smax", "ee", RTX_COMM_ARITH)
@@ -586,10 +588,12 @@ DEF_RTL_EXPR(PARITY, "parity", "e", RTX_UNARY)
    If BITS_BIG_ENDIAN is defined, the first bit is the msb and
    operand 2 counts from the msb of the memory unit.
    Otherwise, the first bit is the lsb and operand 2 counts from
-   the lsb of the memory unit.  */
+   the lsb of the memory unit.
+   This kind of expression can not appear as an lvalue in RTL.  */
 DEF_RTL_EXPR(SIGN_EXTRACT, "sign_extract", "eee", RTX_BITFIELD_OPS)
 
-/* Similar for unsigned bit-field.  */
+/* Similar for unsigned bit-field.
+   But note!  This kind of expression _can_ appear as an lvalue.  */
 DEF_RTL_EXPR(ZERO_EXTRACT, "zero_extract", "eee", RTX_BITFIELD_OPS)
 
 /* For RISC machines.  These save memory when splitting insns.  */

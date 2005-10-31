@@ -30,10 +30,10 @@
 			);
 			buildSettings = {
 				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
-				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers\" \"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl\"";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
-				LIBRARY_SEARCH_PATHS = "/usr/local/lib \"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
 				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder -gfull  -fconstant-cfstrings";
 				OTHER_LDFLAGS = "-lcrypto -bundle -undefined error -dead_strip -bundle_loader /usr/sbin/DirectoryService";
 				OTHER_REZFLAGS = "";
@@ -76,11 +76,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -160,11 +160,11 @@
 		7743A2A401D1562505DD284B = {
 			buildActionMask = 2147483647;
 			files = (
-				A4A09E83021C680303DD2834,
+				FE4AD2FE04F40D4300365AE8,
 				A4533E2F02A4583D03DD2834,
 				A421727902A9724403DD2834,
 				8432289F04ABCB34007D0E6B,
-				FE4AD2FE04F40D4300365AE8,
+				A4A09E83021C680303DD2834,
 				FE79F936074FBE8700588B8B,
 			);
 			isa = PBXFrameworksBuildPhase;
@@ -183,6 +183,7 @@
 			buildStyles = (
 				774A93FF01D12BAB05DD284B,
 				774A940001D12BAB05DD284B,
+				FEB55FE707AAF15B00845C96,
 			);
 			hasScannedForEncodings = 1;
 			isa = PBXProject;
@@ -216,7 +217,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O -gfull";
-				ZERO_LINK = YES;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -689,6 +690,13 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		FEB55FE707AAF15B00845C96 = {
+			buildSettings = {
+				OTHER_CFLAGS = "-DLOG_ALWAYS=1";
+			};
+			isa = PBXBuildStyle;
+			name = "Debug Logging Enabled";
 		};
 	};
 	rootObject = 774A93FD01D12BAB05DD284B;

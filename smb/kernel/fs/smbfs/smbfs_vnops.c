@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vnops.c,v 1.128.36.1 2005/05/27 02:35:28 lindak Exp $
+ * $Id: smbfs_vnops.c,v 1.128.36.3 2005/07/20 05:26:59 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -43,6 +43,10 @@
 #include <sys/unistd.h>
 #include <sys/lockf.h>
 #include <sys/mman.h>
+#define   _KERN_LOCK_H_
+#undef	 _VFS_VFS_SUPPORT_H_
+#undef thread_sleep_simple_lock
+#define	 BSD_KERNEL_PRIVATE
 
 #include <sys/kauth.h>
 
@@ -60,7 +64,18 @@
 #include <fs/smbfs/smbfs_lockf.h>
 
 #include <sys/buf.h>
+#define	__APPLE_API_PRIVATE
 #include <sys/md5.h>
+
+/* externs needed for compiling with gcc 4.0: */
+
+extern int err_searchfs(struct vnop_searchfs_args *ap);
+extern int nop_rename(struct vnop_rename_args *ap);
+extern int err_link(struct vnop_link_args *ap);
+extern int nop_create(struct vnop_create_args *ap);
+extern int err_mknod(struct vnop_mknod_args *ap);
+extern int nop_fsync(struct vnop_fsync_args *ap);
+extern int err_advlock(struct vnop_advlock_args *ap);
 
 /*
  * Prototypes for SMBFS vnode operations
@@ -1249,12 +1264,14 @@ smb_flushvp(vnode_t  vp, vfs_context_t vfsctx, int inval)
 {
 	struct smb_cred scred;
 	int error = 0, error2;
+	off_t size;
 
 	/* XXX provide nowait option? */
 	if (inval)
 		inval = UBC_INVALIDATE;
-	if (!ubc_sync_range(vp, (off_t)0, smb_ubc_getsize(vp),
-			    UBC_PUSHALL | UBC_SYNC | inval)) {
+	size = smb_ubc_getsize(vp);
+	if (size && !ubc_sync_range(vp, (off_t)0, size,
+				    UBC_PUSHALL | UBC_SYNC | inval)) {
 		SMBERROR("ubc_sync_range failure\n");
 		error = EIO;
 	}
@@ -1814,7 +1831,7 @@ smbfs_create(ap, wdata, wlen)
 	error = 0;
 bad:
 	if (name != cnp->cn_nameptr)
-		smbfs_name_free(name);
+		smbfs_name_free((u_char *)name);
 	/* if success, blow away statfs cache */
 	if (!error)
 		smp->sm_statfstime = 0;
@@ -2152,7 +2169,7 @@ smbfs_symlink(ap)
 	(void)sprintf(wp, "%04d\n", targlen);
 	wp += SMB_SYMLENLEN;
 	MD5Init(&md5);
-	MD5Update(&md5, ap->a_target, targlen);
+	MD5Update(&md5, (unsigned char *)(ap->a_target), targlen);
 	MD5Final((u_char *)state, &md5);
 	(void)sprintf(wp, "%08x%08x%08x%08x\n", state[0], state[1],
 		      state[2], state[3]);
@@ -2240,7 +2257,7 @@ smbfs_readlink(ap)
 		np->n_size = len;
 	}
 	cp = wbuf + SMB_SYMHDRLEN;
-	error = uiomove(cp, len, ap->a_uio);
+	error = uiomove((caddr_t)cp, (int)len, ap->a_uio);
 out:;
 	FREE(wbuf, M_TEMP);
 	return (error);
@@ -2312,7 +2329,7 @@ smbfs_mkdir(ap)
 	error = 0;
 bad:
 	if (name != cnp->cn_nameptr)
-		smbfs_name_free(name);
+		smbfs_name_free((u_char *)name);
 	/* if success, blow away statfs cache */
 	smp->sm_statfstime = 0;
 	return (error);
@@ -2938,7 +2955,7 @@ smbfs_lookup(ap)
 out:
 #endif
 	if (name != cnp->cn_nameptr)
-		smbfs_name_free(name);
+		smbfs_name_free((u_char *)name);
 	return (error);
 }
 

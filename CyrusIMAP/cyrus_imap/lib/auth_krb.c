@@ -1,5 +1,5 @@
 /* auth_krb.c -- Kerberos authorization
- * $Id: auth_krb.c,v 1.5 2005/03/05 00:37:11 dasenbro Exp $
+ * $Id: auth_krb.c,v 1.6 2005/08/10 21:41:29 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,6 +63,11 @@
 #include "xmalloc.h"
 #include "auth.h"
 
+#include <unistd.h>
+#include <membershipPriv.h>
+
+#include <syslog.h>
+
 const char *auth_method_desc = "krb";
 
 #ifndef KRB_MAPNAME
@@ -86,6 +91,29 @@ static int parse_krbequiv_line (const char *src,
 				  char *principal, char *localuser);
 char *auth_map_krbid (const char *real_aname, const char *real_inst,
 		      const char *real_realm);
+
+/*
+ * Check for group membership
+ * Supports nested groups
+ */
+
+int isMember ( const char *inUser, const char *inGroup )
+{
+	int isMember;
+	uuid_t userID;
+	uuid_t groupID;
+
+	if ((inUser == NULL)||(inGroup == NULL)) return( 0 );
+
+	if (mbr_group_name_to_uuid( inGroup, groupID) != 0)return( 0 );
+
+	if (mbr_user_name_to_uuid(inUser,userID) != 0 )return( 0 );
+
+	if (mbr_check_membership(userID, groupID, &isMember) != 0 )return( 0 );
+
+	return( isMember );
+
+} /* isMember */
 
 /*
  * Determine if the user is a member of 'identifier'
@@ -112,6 +140,9 @@ const char *identifier;
 
     /* "anonymous" is not a member of any group */
     if (strcmp(auth_state->userid, "anonymous") == 0) return 0;
+
+	/* lookup group membership using memberd */
+	if (isMember(auth_state->userid, identifier) != 0) return 2;
 
     aname[0] = inst[0] = realm[0] = '\0';
     if (kname_parse(aname, inst, realm, (char *) identifier) != 0) {

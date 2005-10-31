@@ -1,5 +1,5 @@
 /* Handle errors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
@@ -28,12 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
-
-#include <string.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "flags.h"
 #include "gfortran.h"
 
@@ -92,7 +86,20 @@ error_char (char c)
   else
     {
       if (c != 0)
-	fputc (c, stderr);
+	{
+	  /* We build up complete lines before handing things
+	     over to the library in order to speed up error printing.  */
+	  static char line[MAX_ERROR_MESSAGE + 1];
+	  static int index = 0;
+
+	  line[index++] = c;
+	  if (c == '\n' || index == MAX_ERROR_MESSAGE)
+	    {
+	      line[index] = '\0';
+	      fputs (line, stderr);
+	      index = 0;
+	    }
+	}
     }
 }
 

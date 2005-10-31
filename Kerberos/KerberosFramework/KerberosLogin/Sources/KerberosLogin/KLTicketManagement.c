@@ -1,7 +1,7 @@
 /*
  * KLTicketManagement.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLTicketManagement.c,v 1.27 2004/11/30 23:06:33 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLTicketManagement.c,v 1.28 2005/05/16 22:02:38 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -374,8 +374,8 @@ KLStatus KLAcquireInitialTicketsWithPassword (KLPrincipal     inPrincipal,
     dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
 
     if (err == klNoErr) {
-        if (inPrincipal == NULL) { err = KLError_ (klBadPrincipalErr); }
-        if (inPassword  == NULL) { err = KLError_ (klBadPasswordErr); }
+        if (inPrincipal == NULL)                             { err = KLError_ (klBadPrincipalErr); }
+        if ((inPassword == NULL) || (inPassword[0] == '\0')) { err = KLError_ (klBadPasswordErr); }
     }
     
     if (err == klNoErr) {
@@ -427,8 +427,8 @@ KLStatus KLAcquireNewInitialTicketsWithPassword (KLPrincipal     inPrincipal,
     dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
     
     if (err == klNoErr) {
-        if (inPrincipal == NULL) { err = KLError_ (klBadPrincipalErr); }
-        if (inPassword  == NULL) { err = KLError_ (klBadPasswordErr); }
+        if (inPrincipal == NULL)                             { err = KLError_ (klBadPrincipalErr); }
+        if ((inPassword == NULL) || (inPassword[0] == '\0')) { err = KLError_ (klBadPasswordErr); }
     }
 
     if (err == klNoErr) {
@@ -484,10 +484,10 @@ KLStatus KLAcquireNewInitialTicketCredentialsWithPassword (KLPrincipal         i
     dprintf ("Entering %s(): session is %s", __FUNCTION__, LoginSessionGetSecuritySessionName ());
     
     // Parameter check
-    if (inPrincipal  == NULL) { err = KLError_ (klBadPrincipalErr); }
-    if (inPassword   == NULL) { err = KLError_ (klBadPasswordErr); }
+    if (inPrincipal  == NULL)                                { err = KLError_ (klBadPrincipalErr); }
+    if ((inPassword  == NULL) || (inPassword[0] == '\0'))    { err = KLError_ (klBadPasswordErr); }
     if ((inV5Context == NULL) && (outV5Credentials != NULL)) { err = KLError_ (klBadV5ContextErr); }
-    if (!getKrb4 && !getKrb5) { err = KLError_ (klRealmDoesNotExistErr); }
+    if (!getKrb4 && !getKrb5)                                { err = KLError_ (klRealmDoesNotExistErr); }
 
     // Create the login options if the caller didn't pass one in
     if (err == klNoErr) {

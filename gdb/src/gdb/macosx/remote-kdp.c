@@ -305,16 +305,16 @@ kdp_attach (char *args, int from_tty)
              kdp_return_string (kdpret));
     }
 
-  c.seqno = old_seqno;
-  c.exc_seqno = old_exc_seqno;
-
-#if TARGET_POWERPC
+#if KDP_TARGET_POWERPC
   kdp_set_little_endian (&c);
-#elif TARGET_I386
+#elif KDP_TARGET_I386
   kdp_set_big_endian (&c);
 #else
 #error "unsupported architecture"
 #endif
+
+  c.seqno = old_seqno;
+  c.exc_seqno = old_exc_seqno;
 
   kdpret = kdp_connect (&c);
   if (kdpret != RR_SUCCESS)
@@ -487,20 +487,20 @@ kdp_reattach_command (char *args, int from_tty)
 
   kdp_reset (&c);
 
-#if TARGET_POWERPC
-  kdp_set_little_endian (&c);
-#elif TARGET_I386
-  kdp_set_big_endian (&c);
-#else
-#error "unsupported architecture"
-#endif
-
   kdpret =
     kdp_create (&c, logger, argv[0], kdp_default_port, kdp_timeout,
                 kdp_retries);
   if (kdpret != RR_SUCCESS)
     error ("unable to create connection for host \"%s\": %s", args,
            kdp_return_string (kdpret));
+
+#if KDP_TARGET_POWERPC
+  kdp_set_little_endian (&c);
+#elif KDP_TARGET_I386
+  kdp_set_big_endian (&c);
+#else
+#error "unsupported architecture"
+#endif
 
   kdpret = kdp_reattach (&c);
 
@@ -547,9 +547,9 @@ kdp_reboot_command (char *args, int from_tty)
 
   kdp_reset (&c);
 
-#if TARGET_POWERPC
+#if KDP_TARGET_POWERPC
   kdp_set_little_endian (&c);
-#elif TARGET_I386
+#elif KDP_TARGET_I386
   kdp_set_big_endian (&c);
 #else
 #error "unsupported architecture"
@@ -669,7 +669,7 @@ kdp_set_trace_bit (int step)
 
     case bfd_arch_i386:
       {
-#ifdef KDP_TARGET_I386
+#if KDP_TARGET_I386
         LONGEST eflags = read_register (PS_REGNUM);
         if (step)
           {
@@ -1076,7 +1076,8 @@ kdp_store_registers_i386 (int regno)
       gdb_i386_thread_fpstate_t fp_regs;
       kdp_return_t kdpret;
 
-      i386_macosx_store_fp_registers (&fp_regs);
+      if (i386_macosx_store_fp_registers (&fp_regs) == 0)
+        return;
 
       memcpy (c.response->readregs_reply.data, &fp_regs.hw_state,
               (GDB_i386_THREAD_FPSTATE_COUNT * 4));

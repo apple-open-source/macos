@@ -132,6 +132,21 @@ void MDSAttrParser::parseAttrs(CFStringRef subdir)
 			continue;
 		}
 		
+		// skip any filename beginning with "._"
+		CFStringRef lastComponent = CFURLCopyLastPathComponent(infoUrl);
+		if (lastComponent) {
+			CFStringRef resFilePfx = CFSTR("._");
+			Boolean skip = CFStringFindWithOptions(lastComponent, 
+												   resFilePfx, 
+												   CFRangeMake(0, CFStringGetLength(resFilePfx)), // search from the start of the string to the length of the forbidden prefix--this permits, e.g., ".foo.mdsinfo" to be valid
+												   0/*options*/,
+												   NULL/*returned substr*/);
+			if (skip == true) {
+				Syslog::warning("MDSAttrParser: ignoring resource file");
+				continue;
+			}
+		}
+		
 		parseFile(infoUrl, subdir);
 	} /* for each mdsinfo */
 	/* FIXME - do we have to release each element of the array? */
@@ -150,10 +165,18 @@ void MDSAttrParser::parseFile(CFURLRef infoUrl, CFStringRef subdir)
 	CFStringRef infoType = NULL;
 	
 	/* Get contents of mdsinfo file as dictionary */
-	mdsDict = new MDSDictionary(infoUrl, subdir, mPath);
-	if(mdsDict == NULL) {
+	try {
+		mdsDict = new MDSDictionary(infoUrl, subdir, mPath);
+		if(mdsDict == NULL) {
+			goto abortInfoFile;
+		}
+	}
+	catch (const CssmError &err) {
+		// ???  Check err?
+		// @@@  Clean up plugin; might have been loaded already
 		goto abortInfoFile;
 	}
+	
 	mdsDict->setDefaults(mDefaults);
 	MPDebug("Parsing mdsinfo file %s", mdsDict->fileDesc());
 	

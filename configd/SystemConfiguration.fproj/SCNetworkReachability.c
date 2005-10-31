@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1350,12 +1350,18 @@ rankReachability(SCNetworkConnectionFlags flags)
 static void
 getaddrinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
+	int32_t				status;
 	SCNetworkReachabilityRef	target		= (SCNetworkReachabilityRef)info;
 	SCNetworkReachabilityPrivateRef	targetPrivate	= (SCNetworkReachabilityPrivateRef)target;
 
 	pthread_mutex_lock(&targetPrivate->lock);
 
-	getaddrinfo_async_handle_reply(msg);
+	status = getaddrinfo_async_handle_reply(msg);
+	if ((status == 0) &&
+	    (targetPrivate->resolvedAddress == NULL) && (targetPrivate->resolvedAddressError == NETDB_SUCCESS)) {
+		// if request has been re-queued
+		goto again;
+	}
 
 	if (port == targetPrivate->dnsPort) {
 		CFRunLoopSourceInvalidate(targetPrivate->dnsRLS);
@@ -1364,6 +1370,8 @@ getaddrinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, voi
 		CFRelease(targetPrivate->dnsPort);
 		targetPrivate->dnsPort = NULL;
 	}
+
+    again :
 
 	pthread_mutex_unlock(&targetPrivate->lock);
 

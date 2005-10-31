@@ -1,7 +1,7 @@
 /*
  * com_err_threads.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosErrors/Sources/com_err_threads.c,v 1.1 2004/10/04 17:48:25 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosErrors/Sources/com_err_threads.c,v 1.2 2005/03/22 18:33:22 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -34,6 +34,7 @@
 #include "com_err_threads.h"
 
 // If only pthread_once propagated an error from the initializer
+static boolean_t g_com_err_thread_initialized = FALSE;
 static errcode_t g_com_err_thread_init_error = 0;
 static pthread_once_t g_com_err_thread_init_once = PTHREAD_ONCE_INIT;
 
@@ -72,6 +73,7 @@ static void com_err_thread_init_hook ()
         dprintf ("%s: Warning!  Pthread initialization failed with error %d (%s)", 
                  __FUNCTION__, err, strerror (err)); 
     } else {
+        g_com_err_thread_initialized = TRUE;  // Never write to this variable from anywhere else!
         dprintf ("%s: successfully initialized pthread keys", __FUNCTION__);
     }
 }
@@ -92,14 +94,20 @@ static errcode_t com_err_thread_init ()
 
 // ---------------------------------------------------------------------------
 
-#warning com_err pthread destructor not called
+static void com_err_thread_destroy () __attribute__((destructor));
 static void com_err_thread_destroy ()
 {
     errcode_t err = 0;
     
+    if (!g_com_err_thread_initialized) {
+        return;  // Either never initialized or failed to initialize
+    }
+    
     if (!err) {
         err = pthread_key_delete (g_com_err_hook_key);
     }
+    
+#warning "Destructor doesn't free thread-specific data, only keys"
     
     if (!err) {
         err = pthread_key_delete (g_error_message_key);

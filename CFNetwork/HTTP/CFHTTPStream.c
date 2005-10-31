@@ -31,6 +31,7 @@
 #include "CFHTTPInternal.h"
 #include <CFNetwork/CFHTTPConnectionPriv.h>
 #include <CoreFoundation/CFStreamPriv.h>
+#include <CoreFoundation/CFBundlePriv.h>
 #include <CFNetwork/CFSocketStreamPriv.h>
 #if defined(__MACH__)
 #include <SystemConfiguration/SCSchemaDefinitions.h> /* For the HTTP proxy keys */
@@ -121,12 +122,12 @@ static void advanceToNextProxyFromProxyArray(CFMutableArrayRef proxyArray);
 #define _kCFHTTPStreamSOCKS4Scheme				CFSTR("socks4")
 #define _kCFHTTPStreamSOCKS5Scheme				CFSTR("socks5")
 #define _kCFHTTPStreamUserAgentHeader			CFSTR("User-Agent")
-#define _kCFHTTPStreamUserAgentCFNetwork		CFSTR("CFNetwork/1.1")
 #define _kCFHTTPStreamProxyAuthorizationHeader	CFSTR("Proxy-Authorization")
 #define _kCFHTTPStreamDescribeFormat			CFSTR("<HTTP request stream %p>{url = %@, state = %d, flags=%d}")
 #define _kCFHTTPStreamContentLengthHeader		CFSTR("Content-Length")
 #define _kCFHTTPStreamContentLengthFormat		CFSTR("%d")
 #define _kCFHTTPStreamConnectionHeader			CFSTR("Connection")
+#define _kCFHTTPStreamProxyConnectionHeader		CFSTR("Proxy-Connection")
 #define _kCFHTTPStreamConnectionKeepAlive		CFSTR("keep-alive")
 #define _kCFHTTPStreamConnectionClose			CFSTR("close")
 #define _kCFHTTPStreamConnectionSeparator		CFSTR(",")
@@ -146,12 +147,12 @@ static CONST_STRING_DECL(_kCFHTTPStreamHTTPSScheme, "https")
 static CONST_STRING_DECL(_kCFHTTPStreamSOCKS4Scheme, "socks4")
 static CONST_STRING_DECL(_kCFHTTPStreamSOCKS5Scheme, "socks5")
 static CONST_STRING_DECL(_kCFHTTPStreamUserAgentHeader, "User-Agent")
-static CONST_STRING_DECL(_kCFHTTPStreamUserAgentCFNetwork, "CFNetwork/1.1")
 static CONST_STRING_DECL(_kCFHTTPStreamProxyAuthorizationHeader, "Proxy-Authorization")
 static CONST_STRING_DECL(_kCFHTTPStreamDescribeFormat, "<HTTP request stream %p>{url = %@, state = %d, flags=%d}")
 static CONST_STRING_DECL(_kCFHTTPStreamContentLengthHeader, "Content-Length")
 static CONST_STRING_DECL(_kCFHTTPStreamContentLengthFormat, "%d")
 static CONST_STRING_DECL(_kCFHTTPStreamConnectionHeader, "Connection")
+static CONST_STRING_DECL(_kCFHTTPStreamProxyConnectionHeader, "Proxy-Connection")
 static CONST_STRING_DECL(_kCFHTTPStreamConnectionKeepAlive, "keep-alive")
 static CONST_STRING_DECL(_kCFHTTPStreamConnectionClose, "close")
 static CONST_STRING_DECL(_kCFHTTPStreamConnectionSeparator, ",")
@@ -312,7 +313,7 @@ static CFDictionaryRef newConnPropsForHTTPSProxy(CFAllocatorRef alloc, CFHTTPMes
     keys[0] = _kCFHTTPStreamUserAgentHeader;
     values[0] = CFHTTPMessageCopyHeaderFieldValue(req, _kCFHTTPStreamUserAgentHeader);
     if (!values[0])
-        values[0] = _kCFHTTPStreamUserAgentCFNetwork;
+        values[0] = CFRetain( _CFNetworkUserAgentString() );
 
     keys[1] = _kCFHTTPStreamProxyAuthorizationHeader;
     values[1] = CFHTTPMessageCopyHeaderFieldValue(req, _kCFHTTPStreamProxyAuthorizationHeader);
@@ -589,7 +590,7 @@ _CFHTTPRequest *createZombieDouble1(CFAllocatorRef alloc, _CFHTTPRequest *orig, 
     // This is kinda ugly, but the zombie needs to know where it should schedule/unschedule, and the usual
     // way to do that is to look at its response stream.  So, we create a dummy response stream and schedule
     // it wherever orig->responseStream is scheduled.  Since we never open the stream, life should be good....
-    zombie->responseStream = CFReadStreamCreateWithBytesNoCopy(alloc, "dummy zombie stream", strlen("dummy zombie stream"), kCFAllocatorNull);
+    zombie->responseStream = CFReadStreamCreateWithBytesNoCopy(alloc, (const UInt8*)"dummy zombie stream", strlen("dummy zombie stream"), kCFAllocatorNull);
     origRLArray = _CFReadStreamGetRunLoopsAndModes(orig->responseStream);
     if (origRLArray) {
         CFIndex i, c = CFArrayGetCount(origRLArray);
@@ -741,7 +742,24 @@ static void closeRequestResources1(_CFHTTPRequest *req) {
     }
 }
 
-extern void cleanUpRequest(CFHTTPMessageRef req, int length, Boolean forPersistentConnection) {
+extern CFStringRef _CFNetworkUserAgentString(void) {
+    static CFStringRef userAgentString = NULL;
+    if (!userAgentString) {
+        CFBundleRef bundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.CFNetwork"));
+        if (bundle) {
+            CFMutableStringRef mutableString = CFStringCreateMutable(NULL, 0);
+            CFStringAppendCString(mutableString, "CFNetwork/", kCFStringEncodingASCII);
+            CFStringAppend(mutableString, CFBundleGetValueForInfoDictionaryKey(bundle, _kCFBundleShortVersionStringKey));
+            userAgentString = CFStringCreateCopy(NULL, mutableString);
+            CFRelease(mutableString);
+        } else {
+            userAgentString = CFSTR("CFNetwork (unknown version)");
+        }
+    }
+    return userAgentString;
+}
+
+extern void cleanUpRequest(CFHTTPMessageRef req, int length, Boolean forPersistentConnection, Boolean forProxy) {
     // Perform basic house-keeping on the request: make sure a valid user-agent is set, make sure the Host: parameter is set, and make sure the Content-Length is set if there is data.
     CFURLRef dest;
     CFStringRef host;
@@ -749,7 +767,7 @@ extern void cleanUpRequest(CFHTTPMessageRef req, int length, Boolean forPersiste
     val = CFHTTPMessageCopyHeaderFieldValue(req, _kCFHTTPStreamUserAgentHeader);
     if (val == NULL) {
         // Some servers require that the User-Agent be listed first.
-        _CFHTTPMessageSetHeader(req, _kCFHTTPStreamUserAgentHeader, _kCFHTTPStreamUserAgentCFNetwork, 0);
+        _CFHTTPMessageSetHeader(req, _kCFHTTPStreamUserAgentHeader, _CFNetworkUserAgentString(), 0);
     } else {
         CFRelease(val);
     }
@@ -762,8 +780,14 @@ extern void cleanUpRequest(CFHTTPMessageRef req, int length, Boolean forPersiste
     
     if (forPersistentConnection) {
         CFHTTPMessageSetHeaderFieldValue(req, _kCFHTTPStreamConnectionHeader, _kCFHTTPStreamConnectionKeepAlive);
+		if (forProxy) {
+			CFHTTPMessageSetHeaderFieldValue(req, _kCFHTTPStreamProxyConnectionHeader, _kCFHTTPStreamConnectionKeepAlive);
+        }
     } else {
         CFHTTPMessageSetHeaderFieldValue(req, _kCFHTTPStreamConnectionHeader, _kCFHTTPStreamConnectionClose);
+		if (forProxy) {
+			CFHTTPMessageSetHeaderFieldValue(req, _kCFHTTPStreamProxyConnectionHeader, _kCFHTTPStreamConnectionClose);
+        }
     }
 
     dest = CFHTTPMessageCopyRequestURL(req);
@@ -786,11 +810,25 @@ extern void cleanUpRequest(CFHTTPMessageRef req, int length, Boolean forPersiste
     if (dest) CFRelease(dest);
 }
 
-static void prepareTransmission1(_CFHTTPRequest *req, CFWriteStreamRef requestStream) {
+static inline Boolean isConnectionToProxy(_CFNetConnectionRef conn) {
+    _CFNetConnectionCacheKey key = (_CFNetConnectionCacheKey)_CFNetConnectionGetInfoPointer(conn);
+    CFStringRef host;
+    SInt32 port;
+    UInt32 type;
+    CFDictionaryRef props;
+    
+    getValuesFromKey(key, &host, &port, &type, &props);
+    return (type == kHTTPProxy) || (type == kHTTPSProxy);
+    
+}
+
+static void prepareTransmission1(_CFHTTPRequest *req, CFWriteStreamRef requestStream, _CFNetConnectionRef conn) {
     // req->responseStream should never be NULL at this point; that can only happen if req is a zombie, and zombies are only created for requests whose transmission has already begun
     Boolean reqIsPersistent = isPersistent(req);
     CFStreamClientContext ctxt = {0, req, NULL, NULL, NULL};
     CFDataRef payload = NULL;
+    Boolean forProxy = isConnectionToProxy(conn);
+    
     
     // Set requestPayload properly; clean up the request
     if (__CFBitIsSet(req->flags, PAYLOAD_IS_DATA) && (payload = CFHTTPMessageCopyBody(req->originalRequest)) != NULL) {
@@ -808,11 +846,11 @@ static void prepareTransmission1(_CFHTTPRequest *req, CFWriteStreamRef requestSt
             req->requestPayload = NULL;
             
         CFRelease(payload); // originalRequest is holding it for us
-        cleanUpRequest(req->currentRequest, length, reqIsPersistent);
+        cleanUpRequest(req->currentRequest, length, reqIsPersistent, forProxy);
     } else if (!req->requestPayload) {
-        cleanUpRequest(req->currentRequest, 0, reqIsPersistent);
+        cleanUpRequest(req->currentRequest, 0, reqIsPersistent, forProxy);
     } else {
-        cleanUpRequest(req->currentRequest, -1, reqIsPersistent);
+        cleanUpRequest(req->currentRequest, -1, reqIsPersistent, forProxy);
     }
     
     // Set client on both streams and schedule.  Open payload (requestStream is already open)
@@ -1002,7 +1040,7 @@ static void httpRequestStateChanged(void *request, int newState, CFStreamError *
     case kQueued:
         break;
     case kTransmittingRequest:
-        prepareTransmission1(req, _CFNetConnectionGetRequestStream(conn));
+        prepareTransmission1(req, _CFNetConnectionGetRequestStream(conn), conn);
         break;
     case kWaitingForResponse:
         concludeTransmission1(req, _CFNetConnectionGetRequestStream(conn));
@@ -1451,6 +1489,8 @@ static _CFNetConnectionRef getConnectionForRequest(_CFHTTPRequest *req, Boolean 
 							
 							CFDictionarySetValue(headers, _kCFHTTPStreamProxyAuthorizationHeader, header);
 							CFRelease(header);
+
+							CFDictionarySetValue(headers, _kCFHTTPStreamProxyConnectionHeader, _kCFHTTPStreamConnectionKeepAlive);
 							
 							CFDictionarySetValue(new_value, kCFStreamPropertyCONNECTAdditionalHeaders, headers);
 							CFRelease(headers);
@@ -1657,7 +1697,8 @@ static CFHTTPMessageRef constructRedirectedRequest(CFURLRef newDest, CFHTTPMessa
         }
         CFRelease(reqHeaders);
     }
-    cleanUpRequest(newRequest, -1, false);
+    // Use false for isPersistent and forProxy flag because whatever header we need is already present on newRequest (copied from origRequest)
+    cleanUpRequest(newRequest, -1, false, false);
     return newRequest;
 }
 
@@ -2360,7 +2401,10 @@ extern Boolean canKeepAlive(CFHTTPMessageRef responseHeaders, CFHTTPMessageRef r
         // 0.9 server
         return FALSE;
     } 
-    connectionHeader = CFHTTPMessageCopyHeaderFieldValue(responseHeaders, _kCFHTTPStreamConnectionHeader);
+    connectionHeader = CFHTTPMessageCopyHeaderFieldValue(responseHeaders, _kCFHTTPStreamProxyConnectionHeader);
+	if (!connectionHeader) {
+		connectionHeader = CFHTTPMessageCopyHeaderFieldValue(responseHeaders, _kCFHTTPStreamConnectionHeader);
+    }
     if (connectionHeader) {
         // According to the HTTP/1.1 spec, this can actually be a comma-delimited list of values, specifying keep-alive or close, then a list of headers that should be removed when propagating the message across a proxy.  But I don't think anyone actually sets it to anything other than "keep-alive" or "close", so we check for those before doing the exhaustive case.
         if (CFStringCompare(connectionHeader, _kCFHTTPStreamConnectionClose, kCFCompareCaseInsensitive) == kCFCompareEqualTo) {

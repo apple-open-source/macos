@@ -674,6 +674,8 @@
 				0035DAFD00AB584900DD2B59,
 				0035DAFF00AB584900DD2B59,
 				0035DB0000AB584900DD2B59,
+				6156DA1608AAB66B0089C89A,
+				6156DA2C08AAC0B80089C89A,
 				0035DB0100AB584900DD2B59,
 			);
 			isa = PBXGroup;
@@ -696,6 +698,8 @@
 				0035DB0F00AB584900DD2B59,
 				0035DB1100AB584900DD2B59,
 				0035DB1200AB584900DD2B59,
+				6156DA1708AAB66B0089C89A,
+				6156DA2D08AAC0B80089C89A,
 				0035DB1300AB584900DD2B59,
 			);
 			isa = PBXGroup;
@@ -1008,11 +1012,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0</string>
+	<string>2.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0</string>
+	<string>2.0.1</string>
 </dict>
 </plist>
 ";
@@ -1168,11 +1172,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0</string>
+	<string>2.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0</string>
+	<string>2.0.1</string>
 </dict>
 </plist>
 ";
@@ -1240,6 +1244,7 @@
 				F530523F035F586301DD2930,
 				6BD626CD073E705A00B918BB,
 				6B23F1480762BA8B00209EB1,
+				61F9FF0D08AD6E1B0064AD9B,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1284,7 +1289,7 @@
 				HEADER_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl\"";
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "-DSSERVERTCP -DSERVERINTERNAL -fconstant-cfstrings -gfull";
+				OTHER_CFLAGS = "-DDSSERVERTCP -DSERVERINTERNAL -fconstant-cfstrings -gfull";
 				OTHER_LDFLAGS = "-twolevel_namespace -dead_strip -exported_symbols_list Server/DirectoryServiceDaemon.exp";
 				PRODUCT_NAME = DirectoryService;
 				SECTORDER_FLAGS = "-sectorder __TEXT __text Server/DirectoryServiceDaemon.order -e start";
@@ -1357,6 +1362,8 @@
 				613D2B5F06FB4B6C006321AB,
 				616C082F07D031990094E437,
 				6109D03C07D57FAF00DE9297,
+				6156DA1908AAB66B0089C89A,
+				6156DA2F08AAC0B80089C89A,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1414,6 +1421,8 @@
 				613D2B6006FB4B6C006321AB,
 				61C4366F06FBA3FE00E5D211,
 				6BD626CF073E709900B918BB,
+				6156DA2E08AAC0B80089C89A,
+				6156DA1808AAB66B0089C89A,
 				6B23F1490762BA8B00209EB1,
 				616C082E07D031990094E437,
 				6109D03B07D57FAF00DE9297,
@@ -1437,6 +1446,7 @@
 				AA42EF4406498B83008153D6,
 				6B64B2150649630F00B26269,
 				6B3DBE9E0763C3060041EE49,
+				61B316C008872EDE00C14A27,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1688,6 +1698,7 @@
 		};
 		0035DBFB00AC584500DD2B59 = {
 			children = (
+				61B316BF08872EDE00C14A27,
 				0035DBFC00AC584500DD2B59,
 				00CB9FE900B065BB00DD2B59,
 				6B64B2140649630F00B26269,
@@ -3399,6 +3410,66 @@
 			target = 0035DB2500AB596200DD2B59;
 			targetProxy = 61455FE706653D33004226D6;
 		};
+		6156DA1608AAB66B0089C89A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = DSMachEndian.cpp;
+			path = Server/DSMachEndian.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		6156DA1708AAB66B0089C89A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = DSMachEndian.h;
+			path = Server/DSMachEndian.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		6156DA1808AAB66B0089C89A = {
+			fileRef = 6156DA1608AAB66B0089C89A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6156DA1908AAB66B0089C89A = {
+			fileRef = 6156DA1708AAB66B0089C89A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6156DA2C08AAC0B80089C89A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = DSSwapUtils.c;
+			path = Server/DSSwapUtils.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		6156DA2D08AAC0B80089C89A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = DSSwapUtils.h;
+			path = Server/DSSwapUtils.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		6156DA2E08AAC0B80089C89A = {
+			fileRef = 6156DA2C08AAC0B80089C89A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6156DA2F08AAC0B80089C89A = {
+			fileRef = 6156DA2D08AAC0B80089C89A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		615CED7C053B42D5008BD144 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -3787,6 +3858,20 @@
 			refType = 0;
 			sourceTree = "<absolute>";
 		};
+		61B316BF08872EDE00C14A27 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = Foundation.framework;
+			path = /System/Library/Frameworks/Foundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		61B316C008872EDE00C14A27 = {
+			fileRef = 61B316BF08872EDE00C14A27;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		61BEF3BC048D778A00B72E1B = {
 			fileRef = 61ADDD2403F74F7A00BD54C7;
 			isa = PBXBuildFile;
@@ -3935,6 +4020,12 @@
 		};
 		61F5A6B3040C23DB00DD2B5C = {
 			fileRef = 61F5A6B2040C23DB00DD2B5C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		61F9FF0D08AD6E1B0064AD9B = {
+			fileRef = 6156DA2C08AAC0B80089C89A;
 			isa = PBXBuildFile;
 			settings = {
 			};

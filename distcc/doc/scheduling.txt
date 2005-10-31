@@ -1,4 +1,4 @@
-$Header: /cvs/repository/devenv/pbxdev/distcc/doc/scheduling.txt,v 1.2 2003/03/22 02:16:49 rwill Exp $
+$Header: /cvs/karma/distcc/doc/scheduling.txt,v 1.1.1.1 2005/05/06 05:09:42 deatley Exp $
 
 
 What's the best way to schedule jobs?  Multiprocessor machines present

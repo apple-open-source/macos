@@ -311,10 +311,13 @@ AuthorizationDBPlist::getRuleDefinition(string &key)
 bool
 AuthorizationDBPlist::existRule(string &ruleName) const
 {
-	map<string,Rule>::const_iterator rule = mRules.find(ruleName);
-	if (rule != mRules.end())
+	AuthItemRef candidateRule(ruleName.c_str());
+	string ruleForCandidate = getRule(candidateRule)->name();
+	// same name or covered by wildcard right -> modification.
+	if ( (ruleName == ruleForCandidate) ||
+		 (*(ruleForCandidate.rbegin()) == '.') )
 		return true;
-		
+
 	return false;
 }
 

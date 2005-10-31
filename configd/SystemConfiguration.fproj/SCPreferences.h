@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,9 +24,8 @@
 #ifndef _SCPREFERENCES_H
 #define _SCPREFERENCES_H
 
-
-#include <sys/cdefs.h>
 #include <AvailabilityMacros.h>
+#include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
 
@@ -62,6 +61,8 @@
 		accessing system configuration preferences.
  */
 typedef const struct __SCPreferences *	SCPreferencesRef;
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
 
 /*!
 	@enum SCPreferencesNotification
@@ -120,6 +121,8 @@ typedef void (*SCPreferencesCallBack)   (
 					SCPreferencesNotification	notificationType,
 					void				*info
 					);
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
 
 
 __BEGIN_DECLS
@@ -333,6 +336,8 @@ SCPreferencesRemoveValue	(
 				CFStringRef		key
 				);
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+
 /*!
 	@function SCPreferencesSetCallback
 	@discussion Assigns a callback to a preferences session.  The function
@@ -408,6 +413,8 @@ void
 SCPreferencesSynchronize		(
 					SCPreferencesRef	prefs
 					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
 
 __END_DECLS
 

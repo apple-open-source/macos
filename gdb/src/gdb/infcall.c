@@ -36,6 +36,10 @@
 #include "gdb_string.h"
 #include "infcall.h"
 
+#if defined (NM_NEXTSTEP)
+#include "macosx-nat-infthread.h"
+#endif
+
 /* NOTE: cagney/2003-04-16: What's the future of this code?
 
    GDB needs an asynchronous expression evaluator, that means an
@@ -436,7 +440,6 @@ hand_function_call (struct value *function, struct type *expect_type,
   retbuf_cleanup = make_cleanup_regcache_xfree (retbuf);
 
 #if defined (NM_NEXTSTEP)
-#include "macosx-nat-infthread.h"
   macosx_setup_registers_before_hand_call ();
 #endif
 

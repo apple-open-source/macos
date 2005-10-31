@@ -89,5 +89,5 @@ bool AppleRAIDEventSource::checkForWork(void)
 
 IOStorageCompletionAction AppleRAIDEventSource::getStorageCompletionAction(void)
 {
-    return (IOStorageCompletionAction)&AppleRAIDEventSource::memberCompleteRequest;
+    return OSMemberFunctionCast(IOStorageCompletionAction, this, &AppleRAIDEventSource::memberCompleteRequest);
 }

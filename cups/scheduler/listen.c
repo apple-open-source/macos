@@ -1,5 +1,5 @@
 /*
- * "$Id: listen.c,v 1.13 2005/01/04 22:10:46 jlovell Exp $"
+ * "$Id: listen.c,v 1.13.2.1 2005/07/27 18:22:02 jlovell Exp $"
  *
  *   Server listening routines for the Common UNIX Printing System (CUPS)
  *   scheduler.
@@ -65,6 +65,7 @@ PauseListening(void)
     LogMessage(L_DEBUG2, "PauseListening: Removing fd %d from InputSet...",
                lis->fd);
 
+    FD_CLR(lis->fd, InputFds);
     FD_CLR(lis->fd, InputSet);
   }
 }
@@ -300,5 +301,5 @@ StopListening(void)
 
 
 /*
- * End of "$Id: listen.c,v 1.13 2005/01/04 22:10:46 jlovell Exp $".
+ * End of "$Id: listen.c,v 1.13.2.1 2005/07/27 18:22:02 jlovell Exp $".
  */

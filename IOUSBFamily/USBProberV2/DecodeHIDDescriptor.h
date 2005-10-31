@@ -180,7 +180,7 @@ enum
 
 }
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceInterface **)deviceIntf;
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceRef)deviceIntf;
 
 +(void)decodeHIDReport:(UInt8 *)reportDesc forDevice:(BusProbeDevice *)thisDevice atDepth:(UInt16)depth reportLen:(UInt16)length;
 

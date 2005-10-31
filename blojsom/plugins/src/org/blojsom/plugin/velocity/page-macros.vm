@@ -1,0 +1,318 @@
+###############################################
+## Blog Information Macros
+###############################################
+
+#macro(BlogName)$BLOJSOM_BLOG.getBlogName()#end
+
+#macro(EscapedBlogName)$BLOJSOM_BLOG.getEscapedBlogName()#end
+
+#macro(BlogDescription)$BLOJSOM_BLOG.getBlogDescription()#end
+
+#macro(EscapedBlogDescription)$BLOJSOM_BLOG.getEscapedBlogDescription()#end
+
+#macro(BlogURL)$BLOJSOM_BLOG.getBlogURL()#end
+
+#macro(BlogAdminURL)$BLOJSOM_BLOG.getBlogAdminURL()#end
+
+#macro(BlogBaseURL)$BLOJSOM_BLOG.getBlogBaseURL()#end
+
+#macro(BlogLanguage)$BLOJSOM_BLOG.getBlogLanguage()#end
+
+#macro(BlogCountry)$BLOJSOM_BLOG.getBlogCountry()#end
+
+#macro(BlogOwner)$BLOJSOM_BLOG.getBlogOwner()#end
+
+#macro(BlogOwnerEmail)$BLOJSOM_BLOG.getBlogOwnerEmail()#end
+
+#macro(BlogDefaultFlavor)$BLOJSOM_BLOG.getBlogDefaultFlavor()#end
+
+###############################################
+##  Entry Macros
+###############################################
+
+#macro(TotalCommentsPendingModeration $entry)
+#set($totalCommentsPendingModeration = 0)
+#foreach ($entryComment in $entry.getComments())
+    #if ($!entryComment.getMetaData().get("BLOJSOM_COMMENT_MODERATION_PLUGIN_APPROVED").equals("false"))
+        #set($totalCommentsPendingModeration = $totalCommentsPendingModeration + 1)
+    #end
+#end
+#end
+
+#macro(TotalCommentsApproved $entry)
+#set($totalCommentsApproved = 0)
+#foreach ($entryComment in $entry.getComments())
+    #if ($!entryComment.getMetaData().get("BLOJSOM_COMMENT_MODERATION_PLUGIN_APPROVED").equals("true"))
+        #set($totalCommentsApproved = $totalCommentsApproved + 1)
+    #end
+#end
+#end
+
+#macro(TotalTrackbacksPendingModeration $entry)
+#set($totalTrackbacksPendingModeration = 0)
+#foreach ($entryTrackback in $entry.getTrackbacks())
+    #if ($!$entryTrackback.getMetaData().get("BLOJSOM_TRACKBACK_MODERATION_PLUGIN_APPROVED").equals("false"))
+        #set($totalTrackbacksPendingModeration = $totalTrackbacksPendingModeration + 1)
+    #end
+#end
+#end
+
+#macro(TotalTrackbacksApproved $entry)
+#set($totalTrackbacksApproved = 0)
+#foreach ($entryTrackback in $entry.getTrackbacks())
+    #if ($!$entryTrackback.getMetaData().get("BLOJSOM_TRACKBACK_MODERATION_PLUGIN_APPROVED").equals("false"))
+        #set($totalTrackbacksApproved = $totalTrackbacksApproved + 1)
+    #end
+#end
+#end
+
+#macro(Author $entry)#if ($entry.getMetaData() && $entry.getMetaData().get("blog-entry-author"))$entry.getMetaData().get("blog-entry-author")#end#end
+
+#macro(CommentsAllowed $entry)
+#if ($BLOJSOM_COMMENTS_ENABLED.booleanValue() && $entry.supportsComments() && ($entry.getMetaData() && !$entry.getMetaData().containsKey("blog-entry-comments-disabled")))
+    #set($commentsAllowed = true)
+#end
+#end
+
+#macro(TrackbacksAllowed $entry)
+#if ($BLOJSOM_TRACKBACK_PLUGIN_ENABLED.booleanValue() && $entry.supportsTrackbacks() && ($entry.getMetaData() && !$entry.getMetaData().containsKey("blog-entry-trackbacks-disabled")))
+    #set($trackbacksAllowed = true)
+#end
+#end
+
+#macro(PingbacksAllowed $entry)
+#if ($BLOJSOM_BLOG.getBlogPingbacksEnabled.booleanValue() && $entry.supportsPingbacks())
+    #set($pingbacksAllowed = true)
+#end
+#end
+
+#macro(DaysSincePosted $entry)$!entry.getMetaData().get("blojsom-plugin-days-since-posted")#end
+
+#macro(FormatDate $entry $format)$entry.getDateAsFormat($format)#end
+
+#macro(EntryCategoryName $entry)#if ($entry.getBlogCategory().getName()) $entry.getBlogCategory().getName() #else $entry.getBlogCategory().getCategory()#end#end
+
+#macro(TrackbackAutoDiscovery $entry $runFriendlyPermalink)
+<!-- Trackback Auto Discovery -->
+#if ($runFriendlyPermalink)
+    #friendlyPermalink($entry)
+#end
+#set( $blogDescription = $entry.getEscapedDescription() )
+#if ($blogDescription.length() > 255 )
+    #set( $ellipses = "..." )
+    #set( $blogDescription = "$blogDescription.substring(0,252)$ellipses" )
+#end
+<!--
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+             xmlns:dc="http://purl.org/dc/elements/1.1/"
+             xmlns:trackback="http://madskills.com/public/xml/rss/module/trackback/">
+        <rdf:Description
+             rdf:about="$entryLink"
+             dc:identifier="$entryLink"
+             dc:title="$entry.getTitle()"
+             dc:subject="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()"
+             dc:description="$blogDescription"
+             dc:creator="$BLOJSOM_BLOG.getBlogOwner()"
+             dc:date="$entry.getISO8601Date()"
+             trackback:ping="$entryLink?tb=y" />
+     </rdf:RDF>
+-->
+#end
+
+#macro(XMLRPCLink $entry $xmlrpcurl)
+    #set ($categoryForEntry = $entry.getBlogCategory().getEncodedCategory())
+    #if ($categoryForEntry == "/") #set($categoryForEntry = "") #end
+    #if ("" == $xmlrpcurl)
+        #set($xmlrpcurl = "xmlrpc")
+    #end
+    #set ($xmlrpcLink = "$BLOJSOM_BLOG.getBlogBaseURL()/$xmlrpcurl/$BLOJSOM_USER/$categoryForEntry$entry.getDateAsFormat('yyyy')/$entry.getDateAsFormat('MM')/$entry.getDateAsFormat('dd')/$entry.getPermalink()")
+#end
+
+#macro(DatelessFriendlyPermalink $entry)
+    #set ($categoryForEntry = $entry.getBlogCategory().getEncodedCategory())
+    #if ($categoryForEntry == "/") #set($categoryForEntry = "") #end
+    #set ($entryLink = "$BLOJSOM_BLOG.getBlogURL()$categoryForEntry$entry.getPermalink()")
+#end
+
+#macro(FriendlyPermalink $entry)
+    #set ($categoryForEntry = $entry.getBlogCategory().getEncodedCategory())
+    #if ($categoryForEntry == "/") #set($categoryForEntry = "") #end
+    #set ($entryLink = "$BLOJSOM_BLOG.getBlogURL()$categoryForEntry$entry.getDateAsFormat('yyyy')/$entry.getDateAsFormat('MM')/$entry.getDateAsFormat('dd')/$entry.getPermalink()")
+#end
+
+
+###############################################
+## Comment/Trackback Macros
+###############################################
+
+###############################################
+## Category Macros
+###############################################
+
+#macro(CategoryName $blogCategory)#if ($blogCategory.getName()) $blogCategory.getName() #else $blogCategory.getCategory()#end#end
+
+#macro(SanitizedCategory $category)
+#set($categoryLength = $category.length())
+#set($lengthMinusOne = $categoryLength - 1)
+#if ($categoryLength > 1)
+#if ($category.startsWith("/") && $category.endsWith("/"))
+    #set($sanitizedCategory = $category.substring(1, $lengthMinusOne))
+#elseif ($category.startsWith("/"))
+    #set($sanitizedCategory = $category.substring(1))
+#else
+    #set($sanitizedCategory = $category.substring(0, $lengthMinusOne))
+#end
+#else
+    #set($sanitizedCategory = "")
+#end
+#end
+
+###############################################
+## Template Snippet Macros
+###############################################
+
+#macro(Calendar)
+<div id="calendar">
+    <table>
+        <caption>$BLOJSOM_CALENDAR.getCaption()</caption>
+        <thead>
+            <tr>#foreach( $downame in $BLOJSOM_CALENDAR.getShortDayOfWeekNames())#if($downame)<th>$downame&nbsp;</th>#end#end</tr>
+        </thead>
+        <tfoot>
+            <tr><td colspan="7">$BLOJSOM_CALENDAR_VTLHELPER.getPreviousMonth()&nbsp;|&nbsp;$BLOJSOM_CALENDAR_VTLHELPER.getToday()&nbsp;|&nbsp;$BLOJSOM_CALENDAR_VTLHELPER.getNextMonth()</td></tr>
+        </tfoot>
+        <tbody>
+            #foreach( $number in [1..6] )
+            <tr>$BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow($number,"calendarcolumn")</tr>
+            #end
+        </tbody>
+    </table>
+</div>
+#end
+
+#macro(CommentFormWithPreview $entry)
+#if ($BLOJSOM_COMMENTS_ENABLED.booleanValue() && $entry.supportsComments())
+    <form id="commentform" method="post" action=".">
+        <p>
+            <input type="hidden" name="comment" value="y" />
+            <input type="hidden" name="page" value="comments" />
+            <input type="hidden" name="category" value="$BLOJSOM_REQUESTED_CATEGORY.getCategory()" />
+            <input type="hidden" name="permalink" value="$entry.getPermalink()" />
+        </p>
+
+        <p class="label">Author (<span class="red">*</span>):</p>
+        <p class="input"><input type="text" name="author" value="#if ($BLOJSOM_COMMENT_PLUGIN_AUTHOR)$BLOJSOM_COMMENT_PLUGIN_AUTHOR#end" class="fixed" /></p>
+
+        <p class="label">E-mail:</p>
+        <p class="input"><input type="text" name="authorEmail" value="#if ($BLOJSOM_COMMENT_PLUGIN_AUTHOR_EMAIL)$BLOJSOM_COMMENT_PLUGIN_AUTHOR_EMAIL#end" class="fixed" /></p>
+
+        <p class="label">URL: </p>
+        <p class="input"><input type="text" name="authorURL" value="#if ($BLOJSOM_COMMENT_PLUGIN_AUTHOR_URL)$BLOJSOM_COMMENT_PLUGIN_AUTHOR_URL#end" class="fixed" /></p>
+
+        <p class="label">Comment (<span class="red">*</span>):</p>
+        <p class="input"><textarea name="commentText" id="commentText" rows="7" cols="55" onkeyup="reloadPreviewDiv();" class="fixed"></textarea></p>
+
+        <p class="label">&nbsp;</p>
+        <p class="input"><input type="checkbox" name="remember" #if ($BLOJSOM_COMMENT_PLUGIN_REMEMBER_ME)checked #end /> Remember me?</p>
+
+        <p />
+
+        <p class="label">&nbsp;</p>
+        <p class="input"><input type="submit" name="submit" value="Comment" class="button" /><input type="reset" name="reset" value="Reset" class="button" /></p>
+    </form>
+
+    <h3>Live Comment Preview:</h3>
+    <div id="commentPreview">&nbsp;</div>
+#end
+#end
+
+#macro(NavigationLinks $homeText)#if ($BLOJSOM_PERMALINK && $BLOJSOM_BLOG.getLinearNavigationEnabled()) #if ($BLOJSOM_PERMALINK_PREVIOUS_ENTRY) #friendlyPermalink($BLOJSOM_PERMALINK_PREVIOUS_ENTRY) <a href="$entryLink">&lt; $!BLOJSOM_PERMALINK_PREVIOUS_ENTRY.getTitle()</a> | #end <a href="$BLOJSOM_BLOG.getBlogURL()">$homeText</a> #if ($BLOJSOM_PERMALINK_NEXT_ENTRY) | #friendlyPermalink($BLOJSOM_PERMALINK_NEXT_ENTRY) <a href="$entryLink">$!BLOJSOM_PERMALINK_NEXT_ENTRY.getTitle() &gt;</a>#end#end#end
+
+#macro(SearchBox)
+<div id="searchbox">
+    <form method="post" action="$BLOJSOM_BLOG.getBlogURL()">
+        <p id="searchlabel"><label for="query">Search:</label></p>
+        <p id="searchfield"><input type="text" name="query" value="" /></p>
+        <p id="searchimg"><input type="image" src="$BLOJSOM_BLOG.getBlogBaseURL()/search.png" value="submit" alt="Search" /></p>
+    </form>
+</div>
+#end
+
+#macro(Resource $item)$BLOJSOM_BLOG.getBlogBaseURL()/blojsom_resources/$BLOJSOM_USER/$item#end
+
+#macro(MonthlyArchive $startingMonth $startingYear)
+<ul>
+    #set ($currentMonth = $BLOJSOM_CALENDAR.getCurrentMonth() + 1)
+    #set ($totalMonths = 12)
+    #set ($currentYear = $BLOJSOM_CALENDAR.getCurrentYear())
+    #set ($padding = 0)
+    #foreach ($year in [$currentYear..$startingYear])
+        #set ($monthIndex = 1)
+        #if ($year == $startingYear)
+            #set($monthIndex = $startingMonth)
+        #end
+        #if ($year == $currentYear)
+            #set($totalMonths = $currentMonth)
+        #else
+            #set ($totalMonths = 12)
+        #end
+        #foreach ($month in [$totalMonths..$monthIndex])
+            #set ($calMonth = $month - 1)
+    <li><a href="#BlogURL()$year/#if($month < 10)$padding#end$month/">$BLOJSOM_CALENDAR.getMonthName($calMonth) $year</a></li>
+        #end
+    #end
+</ul>
+#end
+
+###############################################
+## Plugin Macros
+###############################################
+
+#macro(DisplayWeatherForecast $weatherInfo)
+<p><span>$weatherInfo.getLocation()</span></p>
+<p>Temperature: &nbsp;<span>$weatherInfo.getFahrenheit() / $weatherInfo.getCelcius()</span></p>
+<p>Visibility: &nbsp;<spam>$weatherInfo.getVisibility()</span></p>
+<p>Qind: &nbsp;<span>$weatherInfo.getWind()</span></p>
+<p><a href="$weatherInfo.getHistoryUrl()" class="rounded" title="Detailed Weather History"><span>Detailed Weather History</span></a></p>
+#end
+
+#macro(MathCommentQuestion)$!BLOJSOM_MATH_AUTHENTICATOR_PLUGIN_VALUE1 $!BLOJSOM_MATH_AUTHENTICATOR_PLUGIN_OPERATION $!BLOJSOM_MATH_AUTHENTICATOR_PLUGIN_VALUE2#end
+
+#macro(MathCommentFormItem)
+<p class="label">Answer $!BLOJSOM_MATH_AUTHENTICATOR_PLUGIN_VALUE1 $!BLOJSOM_MATH_AUTHENTICATOR_PLUGIN_OPERATION $!BLOJSOM_MATH_AUTHENTICATOR_PLUGIN_VALUE2 =</p>
+<p class="input"><input type="text" name="mathAnswerCheck" value="" class="fixed" /></p>
+#end
+
+#macro(MultiBlogFriendlyPermalink $entry)
+    #set ($categoryForEntry = $entry.getBlogCategory().getCategory())
+    #if ($categoryForEntry == "/") #set($categoryForEntry = "") #end
+    #set ($entryLink = "$entry.getMetaData().get('BLOJSOM_PLUGIN_INTERNAL_AGGREGATOR_BLOG_URL')$categoryForEntry$entry.getDateAsFormat('yyyy')/$entry.getDateAsFormat('MM')/$entry.getDateAsFormat('dd')/$entry.getPermalink()")
+#end
+
+#macro(Obfuscate $text)$!BLOJSOM_PLUGIN_SIMPLE_OBFUSCATION.obfuscate($text)#end
+
+#macro(RSSEnclosure $entry)$!entry.getMetaData().get("rss-enclosure")#end
+
+#macro(TechnoratiTags $entry)
+#if ($entry.getMetaData().get("TECHNORATI_TAG_LINKS"))
+#set($technoratiTags = $entry.getMetaData().get("TECHNORATI_TAG_LINKS"))
+<!-- technorati tags start --><p style="text-align:right;font-size:10px;">Technorati Tags:
+#foreach($technoratiTag in $technoratiTags)
+$technoratiTag
+#end
+</p><!-- technorati tags end -->
+#end
+#end
+
+###############################################
+## Administrative Macros
+###############################################
+
+#macro(EditEntry $entry)#if ($BLOJSOM_USER_AUTHENTICATED)<a href="#BlogAdminURL()?action=edit-blog-entry&flavor=admin&plugins=edit-blog-entries&blog-category-name=$entry.getCategory()&blog-entry-id=$entry.getPermalink()">Edit Entry</a>#end#end
+
+#macro(DeleteEntry $entry)#if ($BLOJSOM_USER_AUTHENTICATED)<a href="#BlogAdminURL()?action=delete-blog-entry&flavor=admin&plugins=edit-blog-entries&blog-category-name=$entry.getCategory()&blog-entry-id=$entry.getPermalink()">Delete Entry</a>#end#end
+
+#macro(DeleteComment $entry $blogComment)#if ($BLOJSOM_USER_AUTHENTICATED)<a href="#BlogAdminURL()?action=delete-blog-comments&flavor=admin&plugins=edit-blog-entries&blog-category-name=$entry.getCategory()&blog-entry-id=$entry.getPermalink()&blog-comment-id=$blogComment.getId()">Delete Comment</a>#end#end
+
+#macro(DeleteTrackback $entry $trackback)#if ($BLOJSOM_USER_AUTHENTICATED)<a href="#BlogAdminURL()?action=delete-blog-trackbacks&flavor=admin&plugins=edit-blog-entries&blog-category-name=$entry.getCategory()&blog-entry-id=$entry.getPermalink()&blog-trackback-id=$trackback.getId()">Delete Trackback</a>#end#end
+

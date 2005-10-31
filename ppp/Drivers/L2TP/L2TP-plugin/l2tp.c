@@ -753,9 +753,11 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                                     error("L2TP received Result Code AVP with invalid length\n");
                                     return -1;
                             }
-                            params->result_code = ntohs(*(((u_int16_t*)value_buf)++));
+                            params->result_code = ntohs(*((u_int16_t*)value_buf));
+							value_buf += sizeof(u_int16_t);
                             if (value_len >= sizeof(u_int32_t)) {
-                                    params->error_code = ntohs(*(((u_int16_t*)value_buf)++));
+                                    params->error_code = ntohs(*((u_int16_t*)value_buf));
+									value_buf += sizeof(u_int16_t);
                                     if (value_len -= sizeof(u_int32_t)) {
                                             if (value_len > MAX_ERROR_MSG_SIZE)
                                                     value_len = MAX_ERROR_MSG_SIZE;
@@ -770,13 +772,19 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                                     error("L2TP received Call Errors AVP with invalid length\n");
                                     return -1;
                             }
-                            ((u_int16_t*)value_buf)++;	/* increment past reserved field */
-                            params->crc_errors = ntohl(*(((u_int32_t*)value_buf)++));
-                            params->framing_errors = ntohl(*(((u_int32_t*)value_buf)++));
-                            params->hardware_overruns = ntohl(*(((u_int32_t*)value_buf)++));
-                            params->buffer_overruns = ntohl(*(((u_int32_t*)value_buf)++));
-                            params->timeout_errors = ntohl(*(((u_int32_t*)value_buf)++));
-                            params->alignment_errors = ntohl(*(((u_int32_t*)value_buf)++));
+                            value_buf += sizeof(u_int16_t);	/* increment past reserved field */
+                            params->crc_errors = ntohl(*((u_int32_t*)value_buf));
+							value_buf += sizeof(u_int32_t);
+                            params->framing_errors = ntohl(*((u_int32_t*)value_buf));
+							value_buf += sizeof(u_int32_t);
+                            params->hardware_overruns = ntohl(*((u_int32_t*)value_buf));
+							value_buf += sizeof(u_int32_t);
+                            params->buffer_overruns = ntohl(*((u_int32_t*)value_buf));
+							value_buf += sizeof(u_int32_t);
+                            params->timeout_errors = ntohl(*((u_int32_t*)value_buf));
+							value_buf += sizeof(u_int32_t);
+                            params->alignment_errors = ntohl(*((u_int32_t*)value_buf));
+							value_buf += sizeof(u_int32_t);
                             break;
 
 
@@ -785,7 +793,8 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                                     error("L2TP received Cause Code AVP with invalid length\n");
                                     return -1;
                             }
-                            params->cause_code = ntohs(*(((u_int16_t*)value_buf)++));
+                            params->cause_code = ntohs(*((u_int16_t*)value_buf));
+							value_buf += sizeof(u_int16_t);
                             params->cause_message = *value_buf++;
                             if (value_len -= (sizeof(u_int16_t) + sizeof(u_int8_t))) {
                                     if (value_len > MAX_CAUSE_MSG_SIZE)
@@ -1078,10 +1087,12 @@ int prepare_StopCCN(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
             avp_size += (sizeof(u_int16_t) + (str_size = strlen(params->error_message)));
     if (make_avp_hdr(&buf, &free_space, L2TP_AVP_RESULT_CODE, avp_size, L2TP_AVP_FLAGS_M))
             return 0;
-    *(((u_int16_t*)buf)++) = params->result_code;
+    *((u_int16_t*)buf) = params->result_code;
+	buf += sizeof(u_int16_t);
     if (params->error_code)
     {
-            *(((u_int16_t*)buf)++) = params->error_code;
+            *((u_int16_t*)buf) = params->error_code;
+			buf += sizeof(u_int16_t);
             bcopy(params->error_message, buf, str_size);
             buf += str_size;
     }
@@ -1208,10 +1219,12 @@ size_t prepare_CDN(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
             avp_size += (sizeof(u_int16_t) + (str_size = strlen(params->error_message)));
     if (make_avp_hdr(&buf, &free_space, L2TP_AVP_RESULT_CODE, avp_size, L2TP_AVP_FLAGS_M))
             return 0;
-    *(((u_int16_t*)buf)++) = params->result_code;
+    *((u_int16_t*)buf) = params->result_code;
+	buf += sizeof(u_int16_t);
     if (params->error_code)
     {
-            *(((u_int16_t*)buf)++) = params->error_code;
+            *((u_int16_t*)buf) = params->error_code;
+			buf += sizeof(u_int16_t);
             bcopy(params->error_message, buf, str_size);
             buf += str_size;
     }
@@ -1275,9 +1288,12 @@ int make_avp_hdr(u_int8_t** buf, size_t* len, u_int16_t type, size_t value_size,
             return -1;
     
     *len -= (L2TP_AVP_HDR_SIZE + value_size);
-    *(((u_int16_t*)(*buf))++) = htons((L2TP_AVP_HDR_SIZE + value_size) | flags);
-    *(((u_int16_t*)(*buf))++) = 0;
-    *(((u_int16_t*)(*buf))++) = htons(type);
+    *((u_int16_t*)(*buf)) = htons((L2TP_AVP_HDR_SIZE + value_size) | flags);
+	*buf += sizeof(u_int16_t);
+    *((u_int16_t*)(*buf)) = 0;
+	*buf += sizeof(u_int16_t);
+    *((u_int16_t*)(*buf)) = htons(type);
+	*buf += sizeof(u_int16_t);
     
     return 0;
 }
@@ -1293,10 +1309,14 @@ int make_avp_short(u_int8_t** buf, size_t* len, u_int16_t type, u_int16_t value,
             return -1;
 
     *len -= (L2TP_AVP_HDR_SIZE + sizeof(u_int16_t));
-    *(((u_int16_t*)(*buf))++) = htons((L2TP_AVP_HDR_SIZE + sizeof(u_int16_t)) | flags);
-    *(((u_int16_t*)(*buf))++) = 0;
-    *(((u_int16_t*)(*buf))++) = htons(type);
-    *(((u_int16_t*)(*buf))++) = htons(value);
+    *((u_int16_t*)(*buf)) = htons((L2TP_AVP_HDR_SIZE + sizeof(u_int16_t)) | flags);
+	*buf += sizeof(u_int16_t);
+    *((u_int16_t*)(*buf)) = 0;
+	*buf += sizeof(u_int16_t);
+    *((u_int16_t*)(*buf)) = htons(type);
+	*buf += sizeof(u_int16_t);
+    *((u_int16_t*)(*buf)) = htons(value);
+	*buf += sizeof(u_int16_t);
     
     return 0;
 }
@@ -1312,10 +1332,14 @@ int make_avp_long(u_int8_t** buf, size_t* len, u_int16_t type, u_int32_t value, 
             return -1;
     
     *len -= (L2TP_AVP_HDR_SIZE + sizeof(u_int32_t));
-    *(((u_int16_t*)(*buf))++) = htons((L2TP_AVP_HDR_SIZE + sizeof(u_int32_t)) | flags);
-    *(((u_int16_t*)(*buf))++) = 0;
-    *(((u_int16_t*)(*buf))++) = htons(type);
-    *(((u_int32_t*)(*buf))++) = htonl(value);
+    *((u_int16_t*)(*buf)) = htons((L2TP_AVP_HDR_SIZE + sizeof(u_int32_t)) | flags);
+	*buf += sizeof(u_int16_t);
+    *((u_int16_t*)(*buf)) = 0;
+	*buf += sizeof(u_int16_t);
+    *((u_int16_t*)(*buf)) = htons(type);
+	*buf += sizeof(u_int16_t);
+    *((u_int32_t*)(*buf)) = htonl(value);
+	*buf += sizeof(u_int32_t);
     
     return 0;
 }

@@ -108,7 +108,7 @@ static struct opt {
 	{ MNT_AUTOMOUNTED,	"automounted" },
 	{ MNT_JOURNALED,	"journaled" },
 	{ MNT_DEFWRITE, 	"defwrite" },
-	{ NULL }
+	{ 0, 				NULL }
 };
 
 int
@@ -289,7 +289,7 @@ main(argc, argv)
 	 */
 	if (rval == 0 && getuid() == 0 && hup &&
 	    (mountdfp = fopen(_PATH_MOUNTDPID, "r")) != NULL) {
-		if (fscanf(mountdfp, "%ld", &pid) == 1 &&
+		if (fscanf(mountdfp, "%d", &pid) == 1 &&
 		     pid > 0 && kill(pid, SIGHUP) == -1 && errno != ESRCH)
 			err(1, "signal mountd");
 		(void)fclose(mountdfp);

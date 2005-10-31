@@ -1,5 +1,5 @@
 /* toplev.h - Various declarations for functions found in toplev.c
-   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -75,7 +75,6 @@ extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
 extern void rest_of_decl_compilation (tree, int, int);
 extern void rest_of_type_compilation (tree, int);
-extern void rest_of_compilation (void);
 extern void tree_rest_of_compilation (tree);
 extern void init_tree_optimization_passes (void);
 extern void finish_optimization_passes (void);
@@ -123,26 +122,11 @@ extern int target_flags_explicit;
 extern bool user_defined_section_attribute;
 
 /* See toplev.c.  */
-extern int flag_loop_optimize;
-/* APPLE LOCAL lno */
-extern int flag_loop_optimize2;
-extern int flag_crossjumping;
-extern int flag_if_conversion;
-extern int flag_if_conversion2;
+/* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
 extern int flag_keep_static_consts;
-extern int flag_peel_loops;
-extern int flag_rerun_cse_after_loop;
-extern int flag_thread_jumps;
-extern int flag_tracer;
-/* APPLE LOCAL lno */
-/* extern int flag_unroll_loops; */
-extern int flag_unroll_all_loops;
-/* APPLE LOCAL lno */
-/* extern int flag_unswitch_loops; */
-extern int flag_cprop_registers;
 extern int time_report;
-extern int flag_new_regalloc;
 extern int flag_tree_based_profiling;
+/* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* Things to do with target switches.  */
 extern void display_target_options (void);
@@ -165,38 +149,37 @@ extern void decode_d_option		(const char *);
 /* Return true iff flags are set as if -ffast-math.  */
 extern bool fast_math_flags_set_p	(void);
 
-/* The following functions accept a wide integer argument.  Rather
-   than having to cast on every function call, we use a macro instead.  */
+/* Return log2, or -1 if not exact.  */
+extern int exact_log2                  (unsigned HOST_WIDE_INT);
 
-#ifndef exact_log2
-#define exact_log2(N) exact_log2_wide ((unsigned HOST_WIDE_INT) (N))
+/* Return floor of log2, with -1 for zero.  */
+extern int floor_log2                  (unsigned HOST_WIDE_INT);
 
-#if (__GNUC__ * 1000 + __GNUC_MINOR__) >= 3004
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONGLONG
-#define FL2T__ HOST_WIDE_INT
-#define FL2T_CLZ__ __builtin_clzll
-#else
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
-#define FL2T__ HOST_WIDE_INT
-#define FL2T_CLZ__ __builtin_clzl
-#else
-#define FL2T__ int
-#define FL2T_CLZ__ __builtin_clz
-#endif
-#endif
-static inline int floor_log2(FL2T__ n)
+/* Inline versions of the above for speed.  */
+#if GCC_VERSION >= 3004
+# if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
+#  define CLZ_HWI __builtin_clzl
+#  define CTZ_HWI __builtin_ctzl
+# elif HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONGLONG
+#  define CLZ_HWI __builtin_clzll
+#  define CTZ_HWI __builtin_ctzll
+# else
+#  define CLZ_HWI __builtin_clz
+#  define CTZ_HWI __builtin_ctz
+# endif
+
+extern inline int
+floor_log2 (unsigned HOST_WIDE_INT x)
 {
-  if (n)
-    return (sizeof(FL2T__)*8-1) - (int)FL2T_CLZ__(n);
-  return -1;
+  return x ? HOST_BITS_PER_WIDE_INT - 1 - (int) CLZ_HWI (x) : -1;
 }
-#else
-#define floor_log2(N) floor_log2_wide ((unsigned HOST_WIDE_INT) (N))
-#endif
 
-#endif
-extern int exact_log2_wide             (unsigned HOST_WIDE_INT);
-extern int floor_log2_wide             (unsigned HOST_WIDE_INT);
+extern inline int
+exact_log2 (unsigned HOST_WIDE_INT x)
+{
+  return x == (x & -x) && x ? (int) CTZ_HWI (x) : -1;
+}
+#endif /* GCC_VERSION >= 3004 */
 
 /* Functions used to get and set GCC's notion of in what directory
    compilation was started.  */

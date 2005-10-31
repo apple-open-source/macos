@@ -363,150 +363,295 @@ IOReturn AppleUSBOHCI::GetRootHubPortState(UInt8 */*state*/, UInt16 /*port*/)
 }
 
 
-IOReturn AppleUSBOHCI::SetHubAddress(UInt16 wValue)
+IOReturn 
+AppleUSBOHCI::SetHubAddress(UInt16 wValue)
 {
     USBLog(3,"%s: Setting RootHub Address to %d", getName(), wValue);
     _rootHubFuncAddress = wValue;
     return (kIOReturnSuccess);
 }
 
-void AppleUSBOHCI::OHCIRootHubPower(bool on)
+
+
+void 
+AppleUSBOHCI::OHCIRootHubPower(bool on)
 {
 
     USBLog(5,"%s: OHCIRootHubPower (%d)",getName(), on);
     if(on)
     {
-	_pOHCIRegisters->hcRhStatus |= HostToUSBLong(kOHCIHcRhStatus_LPSC); // turn on global power
+		_pOHCIRegisters->hcRhStatus |= HostToUSBLong(kOHCIHcRhStatus_LPSC);			// turn on global power
     }
     else
     {
-	_pOHCIRegisters->hcRhStatus |= HostToUSBLong(kOHCIHcRhStatus_LPS); // turn off global power
+		_pOHCIRegisters->hcRhStatus |= HostToUSBLong(kOHCIHcRhStatus_LPS);			// turn off global power
     }
     IOSync();
     return;
 }
 
-void AppleUSBOHCI::OHCIRootHubResetChangeConnection(UInt16 port)
+
+
+void 
+AppleUSBOHCI::OHCIRootHubResetChangeConnection(UInt16 port)
 {
     UInt32		value = 0;
     
-    value |= kOHCIHcRhPortStatus_CSC; /* clear status change */
+    value |= kOHCIHcRhPortStatus_CSC;												// clear connect status change
 
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
+
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		UInt32		newValue = 0, count = 0;
+		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
+		while ((count++ < 10) && (newValue & kOHCIHcRhPortStatus_CSC))
+		{
+			USBError(1, "OHCI driver: OHCIRootHubResetChangeConnection bit not sticking. Retrying.");
+			_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+			IOSync();
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		}
+	}
 
     return;
 }
 
 
-void AppleUSBOHCI::OHCIRootHubResetResetChange(UInt16 port)
+void 
+AppleUSBOHCI::OHCIRootHubResetResetChange(UInt16 port)
 {
     UInt32		value = 0;
     
-    value |= kOHCIHcRhPortStatus_PRSC; /* clear reset status change */
+    value |= kOHCIHcRhPortStatus_PRSC;											// clear reset status change
 
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
+
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		UInt32		newValue = 0, count = 0;
+		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
+		while ((count++ < 10) && (newValue & kOHCIHcRhPortStatus_PRSC))
+		{
+			USBError(1, "OHCI driver: OHCIRootHubResetResetChange bit not sticking. Retrying.");
+			_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+			IOSync();
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		}
+	}
 
     return;
 }
 
-void AppleUSBOHCI::OHCIRootHubResetSuspendChange(UInt16 port)
+
+
+void 
+AppleUSBOHCI::OHCIRootHubResetSuspendChange(UInt16 port)
 {
     UInt32		value = 0;
 
-    value |= kOHCIHcRhPortStatus_PSSC; /* clear suspend status change */
+    value |= kOHCIHcRhPortStatus_PSSC;											// clear suspend status change
 
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
+
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		UInt32		newValue = 0, count = 0;
+		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
+		while ((count++ < 10) && (newValue & kOHCIHcRhPortStatus_PSSC))
+		{
+			USBError(1, "OHCI driver: OHCIRootHubResetSuspendChange bit not sticking. Retrying.");
+			_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+			IOSync();
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		}
+	}
 
     return;
 }
 
-void AppleUSBOHCI::OHCIRootHubResetEnableChange(UInt16 port)
+
+
+void 
+AppleUSBOHCI::OHCIRootHubResetEnableChange(UInt16 port)
 {
     UInt32		value = 0;
 
-    value |= kOHCIHcRhPortStatus_PESC; /* clear enable status change */
+    value |= kOHCIHcRhPortStatus_PESC;								// clear enable status change
 
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
+
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		UInt32		newValue = 0, count = 0;
+		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
+		while ((count++ < 10) && (newValue & kOHCIHcRhPortStatus_PESC))
+		{
+			USBError(1, "OHCI driver: OHCIRootHubResetEnableChange bit not sticking. Retrying.");
+			_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+			IOSync();
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		}
+	}
 
     return;
 }
 
     
 
-void AppleUSBOHCI::OHCIRootHubResetOverCurrentChange(UInt16 port)
+void 
+AppleUSBOHCI::OHCIRootHubResetOverCurrentChange(UInt16 port)
 {
     UInt32		value = 0;
 
-    value |= kOHCIHcRhPortStatus_OCIC; /* clear over current status change */
+    value |= kOHCIHcRhPortStatus_OCIC;											// clear over current status change
 
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
+
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		UInt32		newValue = 0, count = 0;
+		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);			// this bit SHOULD now be cleared
+		while ((count++ < 10) && (newValue & kOHCIHcRhPortStatus_OCIC))
+		{
+			USBError(1, "OHCI driver: OHCIRootHubResetOverCurrentChange bit not sticking. Retrying.");
+			_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+			IOSync();
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		}
+	}
 
     return;
 }
 
 
-void AppleUSBOHCI::OHCIRootHubResetPort (UInt16 port)
+// 05-11-05 JRH
+// We found a bug where sometimes the OHCI controller will "miss" the reset  bit when we set it
+// So now we will re-read the bit and re-set it if it does not remain set.
+// Q - should we also do this for other bits in this register? A - yes, according to an NEC errata which came Jun 23 2005
+void 
+AppleUSBOHCI::OHCIRootHubResetPort (UInt16 port)
 {
-    UInt32		value = 0;
-
-    value |= kOHCIHcRhPortStatus_PRS; /* sets Bit 8 in port root hub register */
-    _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+	UInt32		value = 0;
+	
+    value = kOHCIHcRhPortStatus_PRS;												// sets Bit 8 in port root hub register
+    _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(kOHCIHcRhPortStatus_PRS);
     IOSync();
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		UInt32		count = 0;
+		value = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		while ((count++ < 10) && !(value & kOHCIHcRhPortStatus_PRS))
+		{
+			USBError(1, "OHCI driver: SetPortReset bit not sticking. Retrying.");
+			value = kOHCIHcRhPortStatus_PRS;
+			_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+			IOSync();
+			value = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		}
+	}
     return;
-
 }
 
-void AppleUSBOHCI::OHCIRootHubPortEnable(UInt16	port,
-                                      bool	on)
+
+
+void 
+AppleUSBOHCI::OHCIRootHubPortEnable(UInt16	port, bool	on)
 {
     UInt32		value = 0;
 
     if(on)
-        value |= kOHCIHcRhPortStatus_PES; /* enable port */
+        value |= kOHCIHcRhPortStatus_PES;					// enable port
     else
-        value |= kOHCIHcRhPortStatus_CCS; /* disable port */
+        value |= kOHCIHcRhPortStatus_CCS;					// disable port
 
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
 
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		UInt32		newValue = 0, count = 0;
+		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		while ((count++ < 10) && (on ? !(newValue & kOHCIHcRhPortStatus_PES) : (newValue & kOHCIHcRhPortStatus_PES)))
+		{
+			USBError(1, "OHCI driver: OHCIRootHubPortEnable bit not sticking (%d). Retrying.", on);
+			_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+			IOSync();
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		}
+	}
+
     return;
 }
 
-void AppleUSBOHCI::OHCIRootHubPortSuspend(UInt16	port,
-                                       bool	on)
+
+
+void 
+AppleUSBOHCI::OHCIRootHubPortSuspend(UInt16 port, bool	on)
 {
     UInt32		value = 0;
 
     if(on)
-        value |= kOHCIHcRhPortStatus_PSS;  /* suspend port */
+        value |= kOHCIHcRhPortStatus_PSS;									// suspend port
     else
-        value |= kOHCIHcRhPortStatus_POCI; /* resume port */
+        value |= kOHCIHcRhPortStatus_POCI;									// resume port
 
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
 
+	// we can only check to see that we went into suspend state, not that we went into resume
+	if ((_errataBits & kErrataNECIncompleteWrite) && on)
+	{
+		UInt32		newValue = 0, count = 0;
+		IOSleep(1);									// wait for the write to settle
+		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		while ((count++ < 10) && !(newValue & kOHCIHcRhPortStatus_PSS))
+		{
+			USBError(1, "OHCI driver: OHCIRootHubPortSuspend bit not sticking (on). Retrying.");
+			_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+			IOSync();
+			IOSleep(count);
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		}
+	}
+
     return;
 }
 
-void AppleUSBOHCI::OHCIRootHubPortPower(UInt16	port,
-                                     bool	on)
+
+
+void 
+AppleUSBOHCI::OHCIRootHubPortPower(UInt16	port, bool	on)
 {
     UInt32		value = 0;
 
     USBLog(5,"%s: OHCIRootHubPortPower for port %d",getName(),port);
     
     if(on)
-        value |= kOHCIHcRhPortStatus_PPS;  /* enable port power */
+        value |= kOHCIHcRhPortStatus_PPS;							// enable port power 
     else
-        value |= kOHCIHcRhPortStatus_LSDA; /* disable port power */
+        value |= kOHCIHcRhPortStatus_LSDA;							// disable port power
 
     _pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
     IOSync();
+
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		UInt32		newValue = 0, count = 0;
+		newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		while ((count++ < 10) && (on ? !(newValue & kOHCIHcRhPortStatus_PPS) : (newValue & kOHCIHcRhPortStatus_PPS)))
+		{
+			USBError(1, "OHCI driver: OHCIRootHubPortPower bit not sticking (%d). Retrying.", on);
+			_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(value);
+			IOSync();
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+		}
+	}
 
     return;
 }
@@ -525,10 +670,13 @@ void AppleUSBOHCI::OHCIRootHubPortPower(UInt16	port,
  * interrupt should only be turned off if there is no one else in the queue,
  * or, all clients should be responded to with the one interrupt.
  */
-void AppleUSBOHCI::UIMRootHubStatusChange(void)
+void 
+AppleUSBOHCI::UIMRootHubStatusChange(void)
 {
     UIMRootHubStatusChange(false);
 }
+
+
 
 OSMetaClassDefineReservedUsed(IOUSBController,  10);
 void 

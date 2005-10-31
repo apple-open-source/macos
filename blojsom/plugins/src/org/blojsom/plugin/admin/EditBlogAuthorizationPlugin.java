@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,31 +34,32 @@
  */
 package org.blojsom.plugin.admin;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.blojsom.blog.Blog;
 import org.blojsom.blog.BlogEntry;
 import org.blojsom.blog.BlogUser;
 import org.blojsom.blog.BlojsomConfiguration;
-import org.blojsom.blog.Blog;
 import org.blojsom.plugin.BlojsomPluginException;
 import org.blojsom.util.BlojsomUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 
+import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.ServletConfig;
-import java.util.Map;
-import java.util.Collections;
-import java.util.Properties;
-import java.io.IOException;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Properties;
+import java.util.TreeMap;
 
 /**
  * EditBlogAuthorizationPlugin
- * 
+ *
  * @author czarnecki
+ * @version $Id: EditBlogAuthorizationPlugin.java,v 1.2.2.1 2005/07/21 04:30:23 johnan Exp $
  * @since blojsom 2.06
- * @version $Id: EditBlogAuthorizationPlugin.java,v 1.2 2004/08/27 01:06:35 whitmore Exp $
  */
 public class EditBlogAuthorizationPlugin extends BaseAdminPlugin {
 
@@ -80,6 +81,9 @@ public class EditBlogAuthorizationPlugin extends BaseAdminPlugin {
     private static final String BLOG_USER_PASSWORD = "blog-user-password";
     private static final String BLOG_USER_PASSWORD_CHECK = "blog-user-password-check";
     private static final String BLOG_USER_EMAIL = "blog-user-email";
+
+    // Permissions
+    private static final String EDIT_BLOG_AUTHORIZATION_PERMISSION = "edit_blog_authorization";
 
     private String _authorizationConfiguration;
 
@@ -122,6 +126,14 @@ public class EditBlogAuthorizationPlugin extends BaseAdminPlugin {
             return entries;
         }
 
+        String username = getUsernameFromSession(httpServletRequest, user.getBlog());
+        if (!checkPermission(user, null, username, EDIT_BLOG_AUTHORIZATION_PERMISSION)) {
+            httpServletRequest.setAttribute(PAGE_PARAM, ADMIN_LOGIN_PAGE);
+            addOperationResultMessage(context, "You are not allowed to edit blog authorizations");
+
+            return entries;
+        }
+
         String action = BlojsomUtils.getRequestValue(ACTION_PARAM, httpServletRequest);
         if (BlojsomUtils.checkNullOrBlank(action)) {
             _logger.debug("User did not request edit authorization action");
@@ -141,10 +153,14 @@ public class EditBlogAuthorizationPlugin extends BaseAdminPlugin {
             String blogUserEmail = BlojsomUtils.getRequestValue(BLOG_USER_EMAIL, httpServletRequest);
 
             if (!BlojsomUtils.checkNullOrBlank(blogUserID) && !BlojsomUtils.checkNullOrBlank(blogUserPassword)
-                && !BlojsomUtils.checkNullOrBlank(blogUserPasswordCheck)) {
+                    && !BlojsomUtils.checkNullOrBlank(blogUserPasswordCheck)) {
                 if (blogUserPassword.equals(blogUserPasswordCheck)) {
                     if (BlojsomUtils.checkNullOrBlank(blogUserEmail)) {
                         blogUserEmail = "";
+                    }
+
+                    if (user.getBlog().getUseEncryptedPasswords().booleanValue()) {
+                        blogUserPassword = BlojsomUtils.digestString(blogUserPassword, user.getBlog().getDigestAlgorithm());
                     }
 
                     Blog blog = user.getBlog();
@@ -201,7 +217,7 @@ public class EditBlogAuthorizationPlugin extends BaseAdminPlugin {
             }
         }
 
-        context.put(BLOJSOM_PLUGIN_EDIT_BLOG_AUTHORIZATION_MAP, Collections.unmodifiableMap(user.getBlog().getAuthorization()));
+        context.put(BLOJSOM_PLUGIN_EDIT_BLOG_AUTHORIZATION_MAP, Collections.unmodifiableMap(new TreeMap(user.getBlog().getAuthorization())));
         httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_AUTHORIZATION_PAGE);
 
         return entries;
@@ -211,7 +227,7 @@ public class EditBlogAuthorizationPlugin extends BaseAdminPlugin {
      * Write out the authorization configuration information for a particular user
      *
      * @param authorizationMap Authorization usernames/passwords
-     * @param user User id
+     * @param user             User id
      * @throws IOException If there is an error writing the authorization file
      */
     private void writeAuthorizationConfiguration(Map authorizationMap, String user) throws IOException {

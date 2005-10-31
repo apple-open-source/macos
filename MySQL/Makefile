@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2001-2004 Apple Computer, Inc.
+# Copyright (c) 2001-2005 Apple Computer, Inc.
 #
 # Starting with MySQL 3.23.54, the source patch to handle installation
 # directories with tildes no longer works. Going forward, this Makefile
@@ -7,7 +7,7 @@
 # and then dittoing that into DSTROOT.
 #
 # The patch for config.h.in is needed regardless of MySQL version; it
-# makes MySQL generate correct code for PPC when building fat.
+# makes MySQL generate correct code for PPC  but not i386 when building fat.
 #
 
 # These includes provide the proper paths to system utilities
@@ -16,7 +16,7 @@ include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 PROJECT_NAME	= MySQL
-MYSQL_VERSION	= mysql-4.1.10a
+MYSQL_VERSION	= mysql-4.1.13a
 BUILD_DIR	= /usr
 STAGING_DIR 	:= $(shell mktemp -d /tmp/mysql-tmp-XXXXXX)
 SHARE_DIR	= /usr/share
@@ -27,7 +27,7 @@ INSTALL		= /usr/bin/install
 DITTO		= /usr/bin/ditto
 
 FILES		= $(MYSQL_VERSION).tar.gz mysqlman.1 Makefile \
-config.h.in.patch MySQL.plist MySQL.txt
+MySQL.plist MySQL.txt 
 
 FILES_TO_REMOVE = \
 /usr/share/info/dir \
@@ -101,14 +101,12 @@ mysql: $(OBJROOT)
 untar: mysql 
 
 mysql/config.status: untar
-	$(SILENT) $(ECHO) "Patching..."
-	$(SILENT) $(CD) mysql; patch -i ../config.h.in.patch
 	$(SILENT) $(ECHO) "Configuring mysql..."
 	$(SILENT) $(CD) mysql;\
 	CFLAGS="-O3 -fno-omit-frame-pointer $$RC_CFLAGS" \
-	CXX=gcc \
 	CXXFLAGS="-O3 -fno-omit-frame-pointer -felide-constructors -fno-exceptions -fno-rtti $$RC_CFLAGS" \
 	LDFLAGS="$$RC_CFLAGS" \
+	ac_cv_c_bigendian=yes \
 	./configure --infodir=/usr/share/info \
 		--with-extra-charsets=complex \
 		--with-low-memory \
@@ -121,6 +119,7 @@ mysql/config.status: untar
 		--without-bench \
 		--without-debug \
 		--disable-shared \
+		--disable-dependency-tracking \
 		--with-unix-socket-path=/var/mysql/mysql.sock \
 		--prefix=$(BUILD_DIR)
 

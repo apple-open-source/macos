@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,12 +24,12 @@
 #ifndef _SCNETWORKCONFIGURATION_H
 #define _SCNETWORKCONFIGURATION_H
 
-
-#include <sys/cdefs.h>
 #include <AvailabilityMacros.h>
+#include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
 
 /*!
 	@header SCNetworkConfiguration
@@ -749,5 +749,7 @@ SCNetworkSetSetServiceOrder			(SCNetworkSetRef		set,
 
 
 __END_DECLS
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
 
 #endif	/* _SCNETWORKCONFIGURATION_H */

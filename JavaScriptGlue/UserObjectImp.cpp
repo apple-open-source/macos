@@ -129,14 +129,32 @@ ReferenceList UserObjectImp::propList(ExecState *exec, bool recursive)
 	return propList;
 }
 
-bool UserObjectImp::hasProperty(ExecState *exec, const Identifier &propertyName) const
+bool UserObjectImp::hasOwnProperty(ExecState *exec, const Identifier &propertyName) const
 {
-	Value prop = get(exec, propertyName);
-	if (prop.type() != UndefinedType)
-	{
-		return true;
-	}
-	return ObjectImp::hasProperty(exec, propertyName);
+    bool hasProperty = false;
+
+    CFStringRef	cfPropName = IdentifierToCFString(propertyName);
+    JSUserObject* jsResult = fJSUserObject->CopyProperty(cfPropName);
+    if (jsResult) {
+        Value result = JSObjectKJSValue(jsResult);
+        jsResult->Release();
+        if (result.type() != UndefinedType) {
+            hasProperty = true;
+        }
+    } else {
+        Value kjsValue = toPrimitive(exec);
+        if (kjsValue.type() != NullType && kjsValue.type() != UndefinedType) {
+            Object kjsObject = kjsValue.toObject(exec);
+            hasProperty = kjsObject.hasOwnProperty(exec, propertyName);
+        }
+    }
+
+    CFRelease(cfPropName);
+
+    if (hasProperty)
+        return true;
+
+    return ObjectImp::hasOwnProperty(exec, propertyName);
 }
 
 #if JAG_PINK_OR_LATER

@@ -34,6 +34,7 @@
 
 #include <syslog.h>		// for syslog()
 #include <stdlib.h>		// for calloc()
+#include <sys/time.h>	// for struct timespec and gettimeofday()
 
 #include "CLog.h"
 #include "DSTCPListener.h"

@@ -767,7 +767,7 @@ AppleUSBHub::AllocatePortMemory(void)
         /* determine if the port is a captive port */
         if ((_hubDescriptor.removablePortFlags[portByte] & portMask) != 0)
         {
-            power = _powerForCaptive;
+            power = _selfPowerGood ? (UInt32)kUSB500mAAvailable : _powerForCaptive;
             captive = true;
         }
         else
@@ -1150,7 +1150,7 @@ AppleUSBHub::SetPortFeature(UInt16 feature, UInt16 port)
 
     err = DoDeviceRequest(&request);
 
-    if (err)
+    if (err && (err != kIOUSBDeviceNotHighSpeed))
     {
         USBLog(1, "%s[%p]::SetPortFeature (%d) to port %d got error (%x) from DoDeviceRequest", getName(), this, feature, port, err);
     }
@@ -1501,12 +1501,15 @@ AppleUSBHub::ProcessStatusChanged()
                     if ((statusChangedBitmapPtr[portByte] & portMask) != 0)
                     {
                         port = _ports[portIndex-1];
-                        USBLog(5,"%s[%p]::ProcessStatusChanged port number %d, calling port->StatusChanged", getName(), this, portIndex);
-                        portSuccess = port->StatusChanged();
-                        if (! portSuccess )
-                        {
-                            USBLog(1,"%s[%p]::ProcessStatusChanged port->StatusChanged() returned false", getName(), this);
-                        }
+						if ( port )
+						{
+							USBLog(5,"%s[%p]::ProcessStatusChanged port number %d, calling port->StatusChanged", getName(), this, portIndex);
+							portSuccess = port->StatusChanged();
+							if (! portSuccess )
+							{
+								USBLog(1,"%s[%p]::ProcessStatusChanged port->StatusChanged() returned false", getName(), this);
+							}
+						}
                     }
 
                     portMask <<= 1;

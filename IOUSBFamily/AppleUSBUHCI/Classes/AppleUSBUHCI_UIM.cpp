@@ -119,8 +119,9 @@ AppleUSBUHCI::UIMCreateControlEndpoint(
                                        UInt8				speed)
 {
     UHCIEndpoint *ep;
+    QH *qh;
     
-    USBLog(3, "%s[%p]::UIMCreateControlEndpoint (f %d ep %d) max %d spd %d", getName(), this,
+    USBLog(5, "%s[%p]::UIMCreateControlEndpoint (f %d ep %d) max %d spd %d", getName(), this,
            functionNumber, endpointNumber, maxPacketSize, speed);
     
     if (functionNumber == _rootFunctionNumber) {
@@ -131,10 +132,42 @@ AppleUSBUHCI::UIMCreateControlEndpoint(
         return kIOReturnBadArgument;
     }
     
+    USBLog(5, "%s[%p]::UIMCreateControlEndpoint allocating endpoint", getName(), this);
     ep = AllocEndpoint(functionNumber, endpointNumber, kUSBNone, speed, maxPacketSize, kUSBControl);
     
     if (ep == NULL)
         return kIOReturnNoMemory;
+    
+    /* Queue element link is NULL. */
+    ep->head_qh->elink = NULL;
+    ep->head_qh->qlink = NULL;
+    ep->head_qh->hw.elink = HostToUSBLong(kUHCI_QH_T);
+    
+    /* Now link the endpoint's queue head into the schedule. */
+    if (speed == kUSBDeviceSpeedLow) {
+        qh = _lsControlQHEnd;
+    } else {
+        qh = _hsControlQHEnd;
+    }
+    USBLog(3, "%s[%p]::UIMCreateControlEndpoint linking qh %p into schedule after %p", getName(), this, ep->head_qh, qh);
+
+    ep->head_qh->hlink = qh->hlink;
+    ep->head_qh->hw.hlink = qh->hw.hlink;
+    IOSync();
+    
+    qh->hlink = ep->head_qh;
+    qh->hw.hlink = HostToUSBLong(ep->head_qh->paddr | kUHCI_QH_Q);
+    IOSync();
+    if (speed == kUSBDeviceSpeedLow) {
+        _lsControlQHEnd = ep->head_qh;
+    } else {
+        _hsControlQHEnd = ep->head_qh;
+    }
+    
+    USBLog(5, "%s[%p]::UIMCreateControlEndpoint done", getName(), this);
+#if DEBUG
+    DumpFrame();
+#endif
     
     return kIOReturnSuccess;
 }
@@ -155,7 +188,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
     TD *td, *last_td;
     IOReturn status;
     
-    USBLog(4, "%s[%p]::UIMCreateControlTransfer (f %d ep %d dir %d) size %d", getName(), this, functionNumber, endpointNumber, direction, bufferSize);
+    USBLog(7, "%s[%p]::UIMCreateControlTransfer (f %d ep %d dir %d) size %d", getName(), this, functionNumber, endpointNumber, direction, bufferSize);
     
     ep = FindEndpoint(functionNumber, endpointNumber, kUSBAnyDirn);
     if (ep == NULL) {
@@ -174,7 +207,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
      * assemble the parts in a queue but don't start it yet.
      */
     tp = (UHCITransaction *)command->GetUIMScratch(0);
-    USBLog(4, "%s[%p]: scratch TP is %p, stall %d", getName(), this, tp, ep->stalled);
+    USBLog(7, "%s[%p]: scratch TP is %p, stall %d", getName(), this, tp, ep->stalled);
     
     if (tp == NULL) {
         /* This is a new transaction. */
@@ -182,7 +215,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
         if (tp == NULL) {
             return kIOReturnNoMemory;
         }
-        USBLog(4, "%s[%p]: creating new transaction %p", getName(), this, tp);
+        USBLog(7, "%s[%p]: creating new transaction %p", getName(), this, tp);
         tp->command = command;
         tp->buf = CBP;
         tp->bufLen = command->GetDataRemaining();
@@ -190,7 +223,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
         if (tp->timeout == 0) {
             tp->timeout = command->GetNoDataTimeout();
         }
-        USBLog(4, "%s[%p]: Data timeout is %d, completion timeout is %d",
+        USBLog(7, "%s[%p]: Data timeout is %d, completion timeout is %d",
                getName(), this,
                command->GetNoDataTimeout(), command->GetCompletionTimeout());
         // XXX should deal separately with GetDataTimeout()
@@ -217,7 +250,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
 
     qh = tp->qh;
 
-    USBLog(4, "%s[%p]: allocating TD chain", getName(), this);
+    USBLog(7, "%s[%p]: allocating TD chain", getName(), this);
     status = AllocTDChain(ep, CBP, bufferSize, bufferRounding, direction, &td, &last_td, false, true);
     if (status != kIOReturnSuccess) {
         return status;
@@ -225,10 +258,11 @@ AppleUSBUHCI::UIMCreateControlTransfer(
     
     if (tp->last_td != NULL) {
         tp->last_td->link = td;
-        tp->last_td->hw.link = HostToUSBLong(td->paddr | kUHCI_VERTICAL_FLAG);
+        tp->last_td->hw.link = HostToUSBLong(td->paddr);
     } else {
         tp->qh->elink = td;
-        tp->qh->hw.elink = HostToUSBLong(td->paddr | kUHCI_VERTICAL_FLAG);
+        tp->qh->qlink = NULL;
+        tp->qh->hw.elink = HostToUSBLong(td->paddr);
         tp->first_td = td;
     }
     IOSync();
@@ -240,24 +274,13 @@ AppleUSBUHCI::UIMCreateControlTransfer(
          * Mark the TD to interrupt on completion, and
          * start transaction.
          */
-        //DumpTD(td, 2);
         last_td->hw.ctrlStatus |= HostToUSBLong(kUHCI_TD_IOC);
         IOSync();
 
-        // XXX It doesn't go on the pending list until the final transfer is received.
-        //queue_remove(&ep->pendingTransactions, tp, UHCITransation *, endpoint_chain);
-
-        if (ep->stalled == false && queue_empty(&ep->activeTransactions)) {
-            USBLog(4, "%s[%p]: activating transaction %p", getName(), this, tp);
-            
-            StartTransaction(tp);
-            // Put on either HS or LS queue here.
-            QueueControl(tp);
-            
-        } else {
-            USBLog(4, "%s[%p]: pending transaction %p", getName(), this, tp);
-            queue_enter(&ep->pendingTransactions, tp, UHCITransaction *, endpoint_chain);
-        }
+        USBLog(7, "%s[%p]: starting transaction %p", getName(), this, tp);
+        DumpTransaction(tp, 7);
+        
+        StartTransaction(tp);
     } 
 
     return kIOReturnSuccess;
@@ -291,8 +314,10 @@ AppleUSBUHCI::UIMCreateBulkEndpoint(
                                     UInt8				maxPacketSize)
 {
     UHCIEndpoint *ep;
+    TD *td;
+    QH *qh;
     
-    USBLog(3, "%s[%p]::UIMCreateBulkEndpoint (fn %d ep %d dir %d) speed %d mp %d", getName(), this,
+    USBLog(5, "%s[%p]::UIMCreateBulkEndpoint (fn %d ep %d dir %d) speed %d mp %d", getName(), this,
            functionNumber, endpointNumber, direction, speed, maxPacketSize);
     
     if (maxPacketSize == 0) {
@@ -304,6 +329,24 @@ AppleUSBUHCI::UIMCreateBulkEndpoint(
     if (ep == NULL) {
         return kIOReturnNoMemory;
     }
+    
+    /* Queue element link is NULL. */
+    ep->head_qh->elink = NULL;
+    ep->head_qh->qlink = NULL;
+    ep->head_qh->hw.elink = HostToUSBLong(kUHCI_QH_T);
+    
+    /* Now link the endpoint's queue head into the schedule. */
+    qh = _bulkQHEnd;
+    ep->head_qh->hlink = qh->hlink;
+    ep->head_qh->hw.hlink = qh->hw.hlink;
+    IOSync();
+    
+    qh->hlink = ep->head_qh;
+    qh->hw.hlink = HostToUSBLong(ep->head_qh->paddr | kUHCI_QH_Q);
+    IOSync();
+    _bulkQHEnd = ep->head_qh;
+    
+    DumpFrame(ReadFrameNumber() % kUHCI_NVFRAMES, 5 );
     
     return kIOReturnSuccess;
 }
@@ -318,13 +361,13 @@ AppleUSBUHCI::UIMCreateBulkTransfer(IOUSBCommand* command)
     IOReturn status;
     QH *qh;
     
-    USBLog(4, "%s[%p]::UIMCreateBulkTransfer (%d, %d, %d) size %d", getName(), this,
+    USBLog(7, "%s[%p]::UIMCreateBulkTransfer (%d, %d, %d) size %d", getName(), this,
            command->GetAddress(), command->GetEndpoint(), command->GetDirection(),
            command->GetReqCount());
     
     ep = FindEndpoint(command);
     if (ep == NULL) {
-        USBLog(4, "%s[%p]: endpoint (fn %d, ep %d, dir %d) not found", getName(), this,
+        USBLog(2, "%s[%p]: endpoint (fn %d, ep %d, dir %d) not found", getName(), this,
                command->GetAddress(),
                command->GetEndpoint(),
                command->GetDirection()
@@ -368,22 +411,17 @@ AppleUSBUHCI::UIMCreateBulkTransfer(IOUSBCommand* command)
     IOSync();
     
     qh->elink = tp->first_td;
+    qh->qlink = NULL;
     qh->hw.elink = HostToUSBLong(tp->first_td->paddr);
     IOSync();
     
-    USBLog(4, "%s[%p]: activating bulk transaction %p", getName(), this, tp);
+    USBLog(7, "%s[%p]: dumping bulk transaction %p", getName(), this, tp);
+    DumpTransaction(tp, 7);
+
+    USBLog(7, "%s[%p]: activating bulk transaction %p", getName(), this, tp);
     
-    if (ep->stalled == false && queue_empty(&ep->activeTransactions)) {
-        USBLog(4, "%s[%p]: activating transaction %p", getName(), this, tp);
-        
-        StartTransaction(tp);
-        // Put on either HS or LS queue here.
-        QueueBulk(tp);
-        
-    } else {
-        USBLog(4, "%s[%p]: pending bulk transaction %p", getName(), this, tp);
-        queue_enter(&ep->pendingTransactions, tp, UHCITransaction *, endpoint_chain);
-    }
+    // Put transaction in schedule.
+    StartTransaction(tp);
     
     return kIOReturnSuccess;
 }
@@ -417,9 +455,10 @@ AppleUSBUHCI::UIMCreateInterruptEndpoint(
                                          short				pollingRate)
 {
     UHCIEndpoint *ep;
+    QH *qh;
     int i;
     
-    USBLog(3, "%s[%p]::UIMCreateInterruptEndpoint (fn %d, ep %d, dir %d) spd %d pkt %d rate %d", getName(), this,
+    USBLog(7, "%s[%p]::UIMCreateInterruptEndpoint (fn %d, ep %d, dir %d) spd %d pkt %d rate %d", getName(), this,
            functionNumber, endpointNumber, direction, speed,
            maxPacketSize, pollingRate );
     
@@ -446,7 +485,7 @@ AppleUSBUHCI::UIMCreateInterruptEndpoint(
         }
     }
     else
-        USBLog(3, "%s[%p]: UIMCreateInterruptEndpoint endpoint does NOT exist",getName(), this);
+        USBLog(7, "%s[%p]: UIMCreateInterruptEndpoint endpoint does NOT exist",getName(), this);
 
     
     ep = AllocEndpoint(functionNumber, endpointNumber,
@@ -467,11 +506,31 @@ AppleUSBUHCI::UIMCreateInterruptEndpoint(
     if (i<0) {
         i = 0;
     }
-    USBLog(3, "%s[%p]: we will use interrupt queue %d, which corresponds to a rate of %d",
+    USBLog(5, "%s[%p]: we will use interrupt queue %d, which corresponds to a rate of %d",
            getName(), this, i, (1 << i));
     
-    ep->head_qh = _intrQH[i];
+    /* Remember which interrupt queue we are using. */
+    ep->intr_queue = i;
+
+    /* Queue element link is NULL. */
+    ep->head_qh->elink = NULL;
+    ep->head_qh->qlink = NULL;
+    ep->head_qh->hw.elink = HostToUSBLong(kUHCI_TD_T);
+
+    /* Now link the endpoint's queue head into the schedule. */
+    qh = _intrQH[i];
+    ep->head_qh->hlink = qh->hlink;
+    ep->head_qh->hw.hlink = qh->hw.hlink;
+    IOSync();
+    
+    qh->hlink = ep->head_qh;
+    qh->hw.hlink = HostToUSBLong(ep->head_qh->paddr | kUHCI_QH_Q);
+    IOSync();
             
+    USBLog(7, "%s[%p]::UIMCreateInterruptEndpoint done", getName(), this);
+#if DEBUG
+    DumpFrame();
+#endif
     return kIOReturnSuccess;
 }
 
@@ -487,7 +546,7 @@ AppleUSBUHCI::UIMCreateInterruptTransfer(IOUSBCommand* command)
     IOMemoryDescriptor *mp;
     IOByteCount len;
 
-    USBLog(5, "%s[%p]::UIMCreateInterruptTransfer adr=(%d,%d) len %d rounding %d", getName(), this,
+    USBLog(7, "%s[%p]::UIMCreateInterruptTransfer adr=(%d,%d) len %d rounding %d", getName(), this,
            command->GetAddress(), command->GetEndpoint(), command->GetReqCount(),
            command->GetBufferRounding());
     
@@ -546,12 +605,12 @@ AppleUSBUHCI::UIMCreateInterruptTransfer(IOUSBCommand* command)
     IOSync();
         
     qh->elink = tp->first_td;
+    qh->qlink = NULL;
     qh->hw.elink = HostToUSBLong(tp->first_td->paddr);
     IOSync();
 
+    // Put transaction in schedule.
     StartTransaction(tp);
-
-    QueueInterrupt(tp);
     
     return kIOReturnSuccess;
 }
@@ -586,7 +645,7 @@ AppleUSBUHCI::UIMCreateIsochEndpoint(
     UInt32 token;
     UHCIEndpoint *ep;
     
-    USBLog(3, "%s[%p]::UIMCreateIsochEndpoint (fn %d, ep %d, dir %d) mp %d", getName(), this,
+    USBLog(7, "%s[%p]::UIMCreateIsochEndpoint (fn %d, ep %d, dir %d) mp %d", getName(), this,
            functionNumber, endpointNumber, direction, maxPacketSize);
     
     ep = FindEndpoint(functionNumber, endpointNumber, direction);
@@ -634,7 +693,7 @@ AppleUSBUHCI::UIMCreateIsochEndpoint(
             ep->maxBufferSize = maxPacketSize;
         }
         
-        USBLog(3, "%s[%p]: packet size adjusted from %d to %d", 
+        USBLog(5, "%s[%p]: packet size adjusted from %d to %d", 
                getName(), this, ep->maxPacketSize, maxPacketSize);
         ep->maxPacketSize = maxPacketSize;
 
@@ -682,7 +741,7 @@ AppleUSBUHCI::UIMCreateIsochEndpoint(
         if (td == NULL) {
             /* This should never happen */
             /* XXX should release remaining TDs. */
-            USBError(1, "%s[%p]: NULL td in isoc frame %d", frame);
+            USBError(1, "%s[%p]: NULL td in isoc frame %d", getName(), this, frame);
             return kIOReturnNoMemory;
         }
         USBLog(7, "%s[%p]: inserting isoc td %p in frame %d", getName(), this, td, frame);
@@ -816,16 +875,6 @@ AppleUSBUHCI::StartIsochTransfer(
         }
     }
     
-    if (frameCount == 0) {
-        /* No work to do. */
-        //CompleteIsoc(tp->isoc_completion, kIOReturnSuccess, tp->isoc_frames);
-        //FreeTransaction(tp);
-        tp->isoc_num_frames = 0;
-        StartTransaction(tp);
-        _interruptSource->signalInterrupt();
-        return kIOReturnSuccess;
-    }
-        
     tp->isoc_start_frame = frame;
     
     // Normally, isochronous requests should not have a timeout,
@@ -839,12 +888,14 @@ AppleUSBUHCI::StartIsochTransfer(
     phys_len = 0;
     offset = 0;
     paddr = 0;
+    td = NULL;
     tp->first_td = NULL;
     
     for (i=0; i<frameCount; i++, requestFrameIndex++) {
         td = ep->isoc_tds[frame];
         
         if (USBToHostLong(td->hw.ctrlStatus) & kUHCI_TD_ACTIVE) {
+#if DEBUG
             UHCITransaction *tp2;
             int count = 0;
             
@@ -869,6 +920,7 @@ AppleUSBUHCI::StartIsochTransfer(
                     DumpTransaction(tp2, 2);
                 }
             }
+#endif
             
             //FreeTransaction(tp);
             return kIOReturnIsoTooNew;
@@ -1006,9 +1058,21 @@ AppleUSBUHCI::StartIsochTransfer(
     }
 #endif /* DEBUG */
     
-    StartTransaction(tp);
+    /* Mark start time of transaction. */
+    clock_get_uptime(&tp->timestamp);
+    clock_get_uptime(&tp->endpoint->timestamp);
+    tp->state = kUHCI_TP_STATE_ACTIVE;
+    queue_enter(&_activeTransactions, tp, UHCITransaction *, active_chain);
+    queue_enter(&tp->endpoint->activeTransactions, tp, UHCITransaction *, endpoint_chain);
+
+    if (frameCount == 0) {
+        // Force the transaction to complete, even though there's no work to do,
+        // so the completion will happen on the correct thread.
+        tp->isoc_num_frames = 0;
+        _interruptSource->signalInterrupt();
+    }
+
     USBLog(6, "%s[%p]: activated transaction %p", getName(), this, tp);
-    
     USBLog(6, "%s[%p]: all isoc TDs activated", getName(), this);
     
     return kIOReturnSuccess;    
@@ -1139,6 +1203,13 @@ AppleUSBUHCI::UIMCreateIsochTransfer(
 
 
 void
+AppleUSBUHCI::StopEndpoint(UHCIEndpoint *ep)
+{
+    ep->head_qh->hw.elink = HostToUSBLong(kUHCI_QH_T);
+    IOSync();
+}
+
+void
 AppleUSBUHCI::ReturnEndpointTransactions(
                                UHCIEndpoint                     *ep,
                                IOReturn                         status)
@@ -1148,26 +1219,17 @@ AppleUSBUHCI::ReturnEndpointTransactions(
 
     queue_init(&complete);
     
-    /* Move pending transactions to queue to be completed. */
-    while (!queue_empty(&ep->pendingTransactions)) {
-        queue_remove_first(&ep->pendingTransactions, tp, UHCITransaction *, endpoint_chain);
-        queue_enter(&complete, tp, UHCITransaction *, active_chain);
-    }
-    
-    while (!queue_empty(&ep->activeTransactions)) {
-        queue_remove_first(&ep->activeTransactions, tp, UHCITransaction *, endpoint_chain);
-        
-        if (tp->state == kUHCI_TP_STATE_ACTIVE) {
-            queue_remove(&_activeTransactions, tp, UHCITransaction *, active_chain);
-            tp->state = kUHCI_TP_STATE_ABORTED;
-            /* Remove from hardware queue. */
-            HWCompleteTransaction(tp);
-        }
-        queue_enter(&complete, tp, UHCITransaction *, active_chain);
-    }
+    StopEndpoint(ep);
     
     /* Allow time for the hardware to finish the frame. */
     IOSleep(2);
+    
+    while (!queue_empty(&ep->activeTransactions)) {
+        tp = (UHCITransaction *)queue_first(&ep->activeTransactions);
+        RemoveTransaction(tp);
+        tp->state = kUHCI_TP_STATE_ABORTED;
+        queue_enter(&complete, tp, UHCITransaction *, active_chain);
+    }
     
     while (!queue_empty(&complete)) {
         queue_remove_first(&complete, tp, UHCITransaction *, active_chain);
@@ -1202,13 +1264,13 @@ AppleUSBUHCI::UIMAbortEndpoint(
         return kIOUSBEndpointNotFound;
     }
     
-    USBLog(3, "%s[%p]: aborting endpoint %p type %d", getName(), this, ep, ep->type);
+    USBLog(5, "%s[%p]: aborting endpoint %p type %d", getName(), this, ep, ep->type);
     
     ReturnEndpointTransactions(ep, (ep->type == kUSBIsoc) ? kIOReturnAborted : kIOUSBTransactionReturned);
     
     ep->stalled = false;
     
-    USBLog(3, "%s[%p]: finished aborting endpoint %p", getName(), this, ep);
+    USBLog(5, "%s[%p]: finished aborting endpoint %p", getName(), this, ep);
     
     return kIOReturnSuccess;
 }
@@ -1223,7 +1285,7 @@ AppleUSBUHCI::UIMDeleteEndpoint(
     UHCIEndpoint *ep;
     int i;
     
-    USBLog(3, "%s[%p]::UIMDeleteEndpoint %d %d %d", getName(), this,
+    USBLog(5, "%s[%p]::UIMDeleteEndpoint %d %d %d", getName(), this,
            functionNumber, endpointNumber, direction);
     
 #if DEBUG
@@ -1243,7 +1305,40 @@ AppleUSBUHCI::UIMDeleteEndpoint(
         return kIOUSBEndpointNotFound;
     }
 
-    USBLog(3, "%s[%p]: deleting endpoint %p", getName(), this, ep);
+    StopEndpoint(ep);
+
+    USBLog(5, "%s[%p]: deleting endpoint %p", getName(), this, ep);
+    
+    if (ep->type != kUSBIsoc) {
+        QH *qh, *prev_qh;
+
+        /* Unlink the endpoint's queue head from the schedule. */
+        qh = ep->head_qh;
+        if (ep->type == kUSBInterrupt) {
+            prev_qh = _intrQH[ep->intr_queue];
+        } else {
+            prev_qh = _lsControlQHStart;
+        }
+        while (prev_qh != NULL) {
+            if (prev_qh->hlink == ep->head_qh)
+                break;
+            prev_qh = prev_qh->hlink;
+        }
+        if (prev_qh != NULL) {
+            USBLog(5, "%s[%p]::UIMDeleteEndpoint linking %p->hlink to %p", getName(), this, qh, ep->head_qh->hlink);
+            prev_qh->hlink = ep->head_qh->hlink;
+            prev_qh->hw.hlink= ep->head_qh->hw.hlink;
+            IOSync();
+            if (_lsControlQHEnd == qh)
+                _lsControlQHEnd = prev_qh;
+            else if (_hsControlQHEnd == qh)
+                _hsControlQHEnd = prev_qh;
+            else if (_bulkQHEnd == qh)
+                _bulkQHEnd = prev_qh;
+        } else {
+            USBError(1, "%s[%p]::UIMDeleteEndpoint couldn't find previous QH for endpoint %p", getName(), this, ep);
+        }
+    }
     
     ReturnEndpointTransactions(ep, kIOUSBTransactionReturned);
     
@@ -1301,7 +1396,7 @@ AppleUSBUHCI::UIMClearEndpointStall(
 {
     UHCIEndpoint *ep;
     
-    USBLog(3, "%s[%p]::UIMClearEndpointStall %d %d %d", getName(), this,
+    USBLog(5, "%s[%p]::UIMClearEndpointStall %d %d %d", getName(), this,
            functionNumber, endpointNumber, direction);
     
     ep = FindEndpoint(functionNumber, endpointNumber, direction);
@@ -1328,7 +1423,7 @@ AppleUSBUHCI::UIMClearEndpointStall(
     }
 #endif
     
-    USBLog(3, "%s[%p]::UIMClearEndpointStall done ep %p", getName(), this, ep);
+    USBLog(5, "%s[%p]::UIMClearEndpointStall done ep %p", getName(), this, ep);
     
     return kIOReturnSuccess;
 }
@@ -1392,6 +1487,9 @@ void AppleUSBUHCI::UIMCheckForTimeouts(void)
         return;
     }
 
+    USBLog(6, "%s[%p]: UIMCheckForTimeouts", getName(), this);
+
+
     // Check to see if we missed an interrupt.
     completed = ProcessCompletedTransactions();
     if (completed > 0) {
@@ -1452,17 +1550,11 @@ void AppleUSBUHCI::UIMCheckForTimeouts(void)
 
         if (elapsedTime > tp->timeout) {
             USBLog(4, "%s[%p]: stale transaction %p", getName(), this, tp);
-            queue_remove(&_activeTransactions, tp, UHCITransaction *, active_chain);
+            
+            RemoveTransaction(tp);
             tp->state = kUHCI_TP_STATE_ABORTED;
 
-            /* Remove it from endpoint queue also. */
-            queue_remove(&tp->endpoint->activeTransactions, tp, UHCITransaction *, endpoint_chain);
-            
             queue_enter(&complete, tp, UHCITransaction *, active_chain);
-            
-            /* Remove from hardware queue. */
-            HWCompleteTransaction(tp);
-            
 #if DEBUG
             if (tp->type == kUSBIsoc) {
                 static int dump_count = 0;
@@ -1556,20 +1648,162 @@ AppleUSBUHCI::TDToUSBError(UInt32 status)
     return result;
 }
 
+/* Link a transaction into the schedule and mark it as started. */
 
 void
 AppleUSBUHCI::StartTransaction(UHCITransaction *tp)
 {
-    USBLog(3, "%s[%p]::StartTransaction %p", getName(), this, tp);
-    DumpTransaction(tp);
+    UHCIEndpoint *ep;
+    UHCITransaction *last_tp;
     
+    USBLog(7, "%s[%p]::StartTransaction %p", getName(), this, tp);
+
+    ep = tp->endpoint;
+    assert(ep != NULL);
+    
+    if (queue_empty(&ep->activeTransactions)) {
+        last_tp = NULL;
+        USBLog(7, "%s[%p]::StartTransaction queue is empty", getName(), this);
+    } else {
+        last_tp = (UHCITransaction *)queue_last(&ep->activeTransactions);
+        USBLog(7, "%s[%p]::StartTransaction queue has transactions, last_tp = %p", getName(), this, last_tp);
+    }
+    
+    /* This transaction's horizontal-next points to the endpoint's next. */
+    tp->qh->hlink = ep->head_qh->hlink;
+    tp->qh->hw.hlink = ep->head_qh->hw.hlink;
+    IOSync();
+    
+    /* This transaction's vertical next (the last TD) is already NULL. */
+    tp->last_td->link = NULL;
+    tp->last_td->hw.link = HostToUSBLong(kUHCI_TD_T);
+    IOSync();
+    
+    if (last_tp == NULL) {
+        /* Queue head element pointer points to us. */
+        ep->head_qh->qlink = tp->qh;
+        ep->head_qh->elink = NULL;
+        ep->head_qh->hw.elink = HostToUSBLong(tp->qh->paddr | kUHCI_QH_Q);
+        IOSync();
+    } else {
+        /* Previous queue's vertical pointer (last TD link) points to us. */
+        //last_tp->qh->qlink = tp->qh;
+        last_tp->last_td->hw.link = HostToUSBLong(tp->qh->paddr | kUHCI_TD_Q);
+        IOSync();
+        
+#if 0 // XXX depend on transaction completion to take care of this
+        /* Check to see if previous queue is stopped. */
+        if (USBToHostLong(last_tp->qh->hw.elink) & kUHCI_QH_T) {
+            /* It won't look at the last TD, so link the QH to our new QH. */
+            USBLog(7, "%s[%p]::StartTransaction XXX restarting previous qh %p", getName(), this, last_tp->qh);
+            last_tp->qh->hw.elink = HostToUSBLong(tp->qh->paddr | kUHCI_TD_Q);
+            IOSync();
+        }
+#endif
+    }
+
+    /* Now add to endpoint and controller active queue and mark active. */
     clock_get_uptime(&tp->timestamp);
     clock_get_uptime(&tp->endpoint->timestamp);
     tp->state = kUHCI_TP_STATE_ACTIVE;
     queue_enter(&_activeTransactions, tp, UHCITransaction *, active_chain);
     queue_enter(&tp->endpoint->activeTransactions, tp, UHCITransaction *, endpoint_chain);
+    
+    //DumpTransaction(tp, 5);
+    //DumpFrame(ReadFrameNumber() % kUHCI_NVFRAMES, 6);
+    DumpEndpoint(ep, 7);
+    USBLog(7, "%s[%p]::StartTransaction %p done", getName(), this, tp);
 }
 
+
+
+/* Remove a transaction from the schedule. */
+void
+AppleUSBUHCI::RemoveTransaction(UHCITransaction *tp)
+{
+    UHCIEndpoint *ep;
+    UHCITransaction *last_tp, *next_tp;
+    TD *td;
+        
+    USBLog(7, "%s[%p]::RemoveTransaction %p", getName(), this, tp);
+    ep = tp->endpoint;
+    
+    DumpEndpoint(ep, 7);
+    
+    if (tp == (UHCITransaction *)queue_first(&ep->activeTransactions)) {
+        /* This was the first transaction on the endpoint's active queue. */
+        last_tp = NULL;
+        assert(tp == (UHCITransaction *)queue_prev(&tp->endpoint_chain));
+    } else {
+        /* Get the previous transaction's qh on the endpoint. */
+        last_tp = (UHCITransaction *)queue_prev(&tp->endpoint_chain);
+    }
+    next_tp = (UHCITransaction *)queue_next(&tp->endpoint_chain);
+    if (next_tp == tp) {
+        next_tp = NULL;
+    }
+    USBLog(7, "%s[%p]::RemoveTransaction last_tp = %p", getName(), this, last_tp);
+    
+    /* Remove from endpoint and controller active queue. */
+    queue_remove(&ep->activeTransactions, tp, UHCITransaction *, endpoint_chain);
+    queue_remove(&_activeTransactions, tp, UHCITransaction *, active_chain);
+    
+    if (tp->type == kUSBIsoc) {
+        TD **isoc_tds;
+        unsigned int i, frame;
+        
+        // Don't actually remove the TDs from the schedule;
+        // just turn off the ACTIVE and IOC bit in all the TDs.
+        USBLog(7, "%s[%p]: disabling ACTIVE on isoc tp %p", getName(), this, tp);
+        isoc_tds = ep->isoc_tds;
+        frame = tp->isoc_start_frame;
+        for (i=0; i < tp->isoc_num_frames; i++) {
+            td = isoc_tds[frame];
+            //USBLog(7, "%s[%p]: %d disabling ACTIVE and IOC bit on td %p", getName(), this, i, td);
+            td->fllp = NULL;
+            td->hw.ctrlStatus &= HostToUSBLong(~(kUHCI_TD_IOC | kUHCI_TD_ACTIVE));
+            IOSync();
+            frame++;
+            if (frame >= kUHCI_NVFRAMES) {
+                frame = 0;
+            }
+        }
+    } else {
+        /* Set previous queue's vertical next to this queue's vertical next. */
+        
+        if (last_tp == NULL) {
+            /* This was the first transaction on the queue. */
+            USBLog(7, "%s[%p]:: setting qlink %p, elink %p, hw.elink %p", getName(), this,
+                   tp->qh->qlink, tp->qh->elink, tp->last_td->hw.link);
+            ep->head_qh->elink = NULL;
+            ep->head_qh->hw.elink = tp->last_td->hw.link;
+        } else {
+            /* This transaction was not the first on the queue. */
+            last_tp->last_td->hw.link = tp->last_td->hw.link;
+            IOSync();
+        }
+        if (next_tp == NULL) {
+            ep->head_qh->hw.elink = HostToUSBLong(kUHCI_QH_T);
+        } else {
+            if (ep->head_qh->hw.elink == HostToUSBLong(tp->qh->paddr)) {
+                ep->head_qh->hw.elink = tp->last_td->hw.link;
+                // This should be the same as next_tp->qh->paddr
+            }
+        }
+        IOSync();
+        
+        /* Set my vertical next to null. */
+        //tp->qh->elink = NULL; // XXX leave for debugging
+        //tp->qh->qlink = NULL;
+        tp->qh->hw.elink = HostToUSBLong(kUHCI_QH_T);
+        assert(tp->last_td != NULL);
+        tp->last_td->hw.link = HostToUSBLong(kUHCI_TD_T);
+        IOSync();
+    }
+
+    DumpEndpoint(ep, 7);
+    USBLog(7, "%s[%p]::RemoveTransaction %p done", getName(), this, tp);
+}
 
 /* Completion for isochronous transactions. */
 
@@ -1614,8 +1848,8 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
     UHCIAlignmentBuffer *bp;
     bool needsReset = false;
 
-    USBLog(5, "%s[%p]::CompleteTransaction(%p, %d)", getName(), this, tp, returnCode);
-    DumpTransaction(tp, 5);
+    USBLog(7, "%s[%p]::CompleteTransaction(%p, %d)", getName(), this, tp, returnCode);
+    DumpTransaction(tp, 7);
     
     /* This counts as activity on the endpoint. */
     clock_get_uptime (&currentTime);
@@ -1651,6 +1885,7 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
             } else {
                 req_length = fp[i].frReqCount;
             }
+            assert(req_length > 0 && td->hw.buffer != 0);
             
             /* Check for alignment buffer */
             pid = UHCI_TD_GET_PID(token);
@@ -1663,8 +1898,7 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
             /* XXX Debugging log */
             if (bp != NULL && pid == kUHCI_TD_PID_OUT) {
                 if (bp->userAddr != 0) {
-                    USBLog(2, "%s[%p]: isoc data out for frame %d wasn't copied at interrupt time",
-                           getName(), this, frame);
+                    USBLog(2, "%s[%p]: isoc data out for frame %d wasn't copied at interrupt time", getName(), this, frame);
                 }
             }
 #endif
@@ -1747,12 +1981,13 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
             tp->isoc_map = NULL;
         }
     } else /* Non-Isoc transaction */ {
-        bool d_bit_of_last_td = ep->lastDBit;
+        TD *last_dbit_td = NULL;
+        bool d_bit_of_last_td;
         
         for (td = tp->first_td; td; td = td->link) {
             td_status = USBToHostLong(td->hw.ctrlStatus);
             token = USBToHostLong(td->hw.token);
-            USBLog(5, "Checking TD %p", td);
+            USBLog(7, "Checking TD %p", td);
             
             //DumpTD(td);
             
@@ -1761,6 +1996,8 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
             if ((_errataBits & kUHCIResetAfterBabble) != 0 && (td_status & kUHCI_TD_BABBLE) != 0)
                 needsReset = true;
 
+            assert((UHCI_TD_GET_MAXLEN(td_status) == 0 && td->hw.buffer == 0) ||
+                   (UHCI_TD_GET_MAXLEN(td_status) > 0 && td->hw.buffer != 0));
             if (td_status & kUHCI_TD_ACTIVE) {
                 //USBLog(5, "%s[%p]: TD is active, not updating status", getName(), this);
                 /* Status returned is that from the last finished TD.
@@ -1777,8 +2014,12 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
                         USBLog(5, "%s[%p]: writing to alignment buffer at %p", getName(), this, bp->vaddr);
                         bp->userBuffer->writeBytes(bp->userOffset, (const void *)bp->vaddr, length);
                     }
-                    if (length > 0 && UHCI_TD_GET_MAXLEN(token) > 0) {
-                        d_bit_of_last_td = (token & kUHCI_TD_D) ? true : false;
+                    /* If transfer was successful and the requested length was > 0,
+                     * then this counts towards toggling the D bit.
+                     */
+                    if ((status & kUHCI_TD_ERROR_MASK) == 0 &&
+                        UHCI_TD_GET_MAXLEN(token) > 0) {
+                        last_dbit_td = td;
                     }
                 } else {
                     length = 0;
@@ -1796,8 +2037,12 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
             }
         }
         
+        // Only need to change endpoint D bit if a transfer ended before the last TD.
+        if (last_dbit_td && last_dbit_td != tp->last_td) {
         /* Fix data toggle bit, if necessary. */
-        ep->lastDBit = d_bit_of_last_td;
+            ep->lastDBit = (USBToHostLong(last_dbit_td->hw.token) & kUHCI_TD_D) ? true : false;
+            FixEndpointDBits(ep);
+        }
     }
 
     /* Convert TD status to USB error. */
@@ -1815,10 +2060,10 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
         tp->endpoint->stalled = true;
     }
     
-    USBLog(5, "%s[%p]: tp %p final result %d (%s), bufLen %d, length %d", getName(), this,
+    USBLog(7, "%s[%p]: tp %p final result %d (%s), bufLen %d, length %d", getName(), this,
            tp, result, USBErrorToString(result), tp->bufLen, total_length);
     if (result != kIOReturnSuccess && result != kIOReturnUnderrun) {
-        DumpTransaction(tp, 5);
+        DumpTransaction(tp, 6);
     }
     
     count = tp->nCompletions;
@@ -1826,7 +2071,7 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
         if (tp->type == kUSBIsoc) {
             CompleteIsoc(tp->isoc_completion, result, tp->isoc_frames);
         } else {
-            USBLog(5, "%s[%p]: Calling %d Complete(x, 0x%x (%s), %d) tp %p", getName(), this,
+            USBLog(6, "%s[%p]: Calling %d Complete(x, 0x%x (%s), %d) tp %p", getName(), this,
                    i, result, USBErrorToString(result), (tp->bufLen - total_length), tp);
             Complete(tp->completion, result, tp->bufLen - total_length);
 #if DEBUG
@@ -1841,24 +2086,39 @@ AppleUSBUHCI::CompleteTransaction(UHCITransaction *tp, IOReturn returnCode )
         Reset(true);
         Run(true);
     }
-    
-    /* Check to see if there are any other transactions to start on this endpoint. */
-    if (!queue_empty(&ep->pendingTransactions)) {
-        queue_remove_last(&ep->pendingTransactions, tp, UHCITransaction *, endpoint_chain);
-        
-        USBLog(5, "%s[%p]: starting pended control transaction %p", getName(), this, tp);
-        
-        StartTransaction(tp);
+}
 
-        if (tp->type == kUSBControl) {
-            QueueControl(tp);
-        } else if (tp->type == kUSBBulk) {
-            QueueBulk(tp);
-        } else {
-            USBError(1, "%s[%p]: Unexpected transaction type %d on pending queue!",
-                     getName(), this, tp->type);
-        }
+
+/* Fix up the D bits in the queued transactions.
+ * We presume the endpoint queue is stopped.
+ */
+void 
+AppleUSBUHCI::FixEndpointDBits(UHCIEndpoint *ep)
+{
+    bool d_bit;
+    UHCITransaction *tp;
+    TD *td;
+    UInt32 token;
+   
+    if (ep->type != kUSBBulk && ep->type != kUSBInterrupt) {
+        // Don't alter control or isoc endpoint D bits
+        return;
     }
+    
+    d_bit = !ep->lastDBit;
+    queue_iterate(&ep->activeTransactions, tp, UHCITransaction *, endpoint_chain) {
+        for (td = tp->first_td; td != NULL; td = td->link) {
+            token = td->hw.token;
+            if (d_bit)
+                token |= HostToUSBLong(kUHCI_TD_D);
+            else
+                token &= ~HostToUSBLong(kUHCI_TD_D);
+            td->hw.token = token;
+            d_bit = !d_bit;
+        }
+        IOSync();
+    }
+    ep->lastDBit = !d_bit;
 }
 
 
@@ -2042,7 +2302,6 @@ AppleUSBUHCI::AllocTDChain(UHCIEndpoint *ep,
             }
             td->hw.token = HostToUSBLong(token);
             td->hw.ctrlStatus = HostToUSBLong(status);
-            IOSync();
             
             USBLog(7, "%s[%p]: TD paddr %p len 0x%x", getName(), this, paddr, pkt_len);
             /* Update data pointers and lengths. */

@@ -53,6 +53,7 @@ class AppleUSBCDCECMControl : public IOService
     OSDeclareDefaultStructors(AppleUSBCDCECMControl);	// Constructor & Destructor stuff
 
 private:
+	AppleUSBCDCECMData		*fDataDriver;		// Our data interface driver
     bool			fdataAcquired;				// Has the data port been acquired
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
     UInt8			fPowerState;				// Ordinal for power management
@@ -118,7 +119,6 @@ public:
     void			releaseResources(void);
     virtual bool		checkInterfaceNumber(AppleUSBCDCECMData *dataDriver);
     IOReturn			checkPipe(IOUSBPipe *thePipe, bool devReq);
-    void			resetDevice(void);
     virtual bool		USBSetMulticastFilter(IOEthernetAddress *addrs, UInt32 count);
     virtual bool		USBSetPacketFilter(void);
     virtual bool		statsProcessing(void);

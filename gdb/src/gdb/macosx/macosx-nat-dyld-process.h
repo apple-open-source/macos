@@ -46,7 +46,8 @@ void dyld_merge_libraries (struct dyld_objfile_info * old,
                            struct dyld_objfile_info * new,
                            struct dyld_objfile_info * result);
 
-void dyld_prune_shlib (struct dyld_objfile_info * old,
+void dyld_prune_shlib (struct dyld_path_info * d,
+		       struct dyld_objfile_info * old,
                        struct dyld_objfile_entry * n);
 
 void dyld_merge_shlibs (const struct macosx_dyld_thread_status *s,
@@ -84,7 +85,7 @@ int dyld_libraries_compatible (struct dyld_path_info *d,
 
 int dyld_objfile_allocated (struct objfile * o);
 
-unsigned int dyld_parse_load_level (const char *s);
+int dyld_parse_load_level (const char *s);
 
 int dyld_minimal_load_flag (const struct dyld_path_info * d,
                             struct dyld_objfile_entry * e);
@@ -92,7 +93,7 @@ int dyld_minimal_load_flag (const struct dyld_path_info * d,
 int dyld_default_load_flag (const struct dyld_path_info * d,
                             struct dyld_objfile_entry * e);
 
-char *dyld_find_dylib_name (CORE_ADDR addr, unsigned int ncmds);
+char *dyld_find_dylib_name (CORE_ADDR addr, int ncmds);
 
 void dyld_load_symfile (struct dyld_objfile_entry *e);
 

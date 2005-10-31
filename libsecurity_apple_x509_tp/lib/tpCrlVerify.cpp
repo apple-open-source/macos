@@ -162,8 +162,6 @@ static CSSM_RETURN tpFindCrlForCert(
 	/* Search inputCrls for a CRL for subject cert */
 	if(vfyCtx.inputCrls != NULL) {
 		crl = vfyCtx.inputCrls->findCrlForCert(subject);
-		tpCrlDebug("...tpFindCrlForCert found CRL in CRLGroup, "
-			"calling verifyWithContext");
 		if(crl && (crl->verifyWithContext(vfyCtx, &subject) == CSSM_OK)) {
 			foundCrl = crl;
 			crl->mFromWhere = CFW_InGroup;

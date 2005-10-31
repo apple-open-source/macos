@@ -1,2 +1,0 @@
->>> Blocked view multi-row deletion
-<<< done.

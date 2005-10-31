@@ -1,5 +1,5 @@
 /* GtkFileDialogPeer.java -- Implements FileDialogPeer with GTK
-   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,15 +38,13 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.AWTEvent;
 import java.awt.Dialog;
 import java.awt.FileDialog;
 import java.awt.Graphics;
 import java.awt.Window;
-import java.awt.event.WindowEvent;
 import java.awt.peer.FileDialogPeer;
-import java.io.FilenameFilter;
 import java.io.File;
+import java.io.FilenameFilter;
 
 public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
 {
@@ -57,14 +55,14 @@ public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
   private FilenameFilter filter;
 
   native void create (GtkContainerPeer parent);
-  native void connectJObject ();
   native void connectSignals ();
   native void nativeSetFile (String file);
-  native public String nativeGetDirectory();
-  native public void nativeSetDirectory(String directory);
+  public native String nativeGetDirectory();
+  public native void nativeSetDirectory(String directory);
   native void nativeSetFilenameFilter (FilenameFilter filter);
 
-  public void create() {
+  public void create()
+  {
     create((GtkContainerPeer) awtComponent.getParent().getPeer());
 
     FileDialog fd = (FileDialog) awtComponent;
@@ -94,6 +92,7 @@ public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
                                                       awtComponent.getY (),
                                                       dims[0], dims[1]);
       }
+    super.setComponentBounds ();
   }
 
   public void setFile (String fileName)
@@ -114,7 +113,7 @@ public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
 
     // GtkFileChooser requires absolute filenames. If the given filename
     // is not absolute, let's construct it based on current directory.
-        currentFile = fileName;
+    currentFile = fileName;
     if (fileName.indexOf(FS) == 0)
       {
         nativeSetFile (fileName);

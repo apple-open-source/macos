@@ -69,7 +69,7 @@ unpercent(char * component)
         unsigned hi, lo; 
 
         if (component)
-                for (s = component; (c = *s); s++) {
+                for (s = (unsigned char *)component; (c = (unsigned char)*s); s++) {
                         if (c != '%') 
                                 continue;
                         if ((hi = xtoi(s[1])) > 15 || (lo = xtoi(s[2])) > 15)
@@ -81,7 +81,7 @@ unpercent(char * component)
                          * officially undefined in C.  Ours seems to
                          * work or not depending upon alignment.
                          */      
-                        memmove(s+1, s+3, strlen(s+3) + 1);
+                        memmove(s+1, s+3, (strlen((char *)(s+3))) + 1);
                 }       
         return (component);
 }

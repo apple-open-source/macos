@@ -1,5 +1,5 @@
 /* StringBuffer.java -- Growable strings
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -67,7 +67,7 @@ import java.io.Serializable;
  * @author Paul Fisher
  * @author John Keiser
  * @author Tom Tromey
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see String
  * @since 1.0
  * @status updated to 1.4
@@ -109,7 +109,7 @@ public final class StringBuffer implements Serializable, CharSequence
   /**
    * The default capacity of a buffer.
    */
-  private final static int DEFAULT_CAPACITY = 16;
+  private static final int DEFAULT_CAPACITY = 16;
 
   /**
    * Create a new StringBuffer with default capacity 16.

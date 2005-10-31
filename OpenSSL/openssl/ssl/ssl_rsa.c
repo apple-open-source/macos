@@ -207,7 +207,7 @@ static int ssl_set_pkey(CERT *c, EVP_PKEY *pkey)
 			 ok=1;
 		else
 #endif
-			if (!X509_check_private_key(c->pkeys[i].x509,pkey))
+		     if (!X509_check_private_key(c->pkeys[i].x509,pkey))
 			{
 			if ((i == SSL_PKEY_DH_RSA) || (i == SSL_PKEY_DH_DSA))
 				{
@@ -241,6 +241,8 @@ static int ssl_set_pkey(CERT *c, EVP_PKEY *pkey)
 		return(0);
 		}
 
+	ERR_clear_error(); /* make sure no error from X509_check_private_key()
+	                    * is left if we have chosen to ignore it */
 	if (c->pkeys[i].privatekey != NULL)
 		EVP_PKEY_free(c->pkeys[i].privatekey);
 	CRYPTO_add(&pkey->references,1,CRYPTO_LOCK_EVP_PKEY);
@@ -802,7 +804,7 @@ int SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx, const char *file)
 		/* When the while loop ends, it's usually just EOF. */
 		err = ERR_peek_last_error();
 		if (ERR_GET_LIB(err) == ERR_LIB_PEM && ERR_GET_REASON(err) == PEM_R_NO_START_LINE)
-			(void)ERR_get_error();
+			ERR_clear_error();
 		else 
 			ret = 0; /* some real error */
 		}

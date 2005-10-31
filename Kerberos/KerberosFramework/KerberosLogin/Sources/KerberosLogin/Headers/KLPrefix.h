@@ -1,7 +1,7 @@
 /*
  * KLPrefix.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLPrefix.h,v 1.8 2004/10/04 17:46:52 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLPrefix.h,v 1.9 2005/03/22 18:31:49 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -31,7 +31,6 @@
 
 // Define so we get prototypes for KLSetApplicationOptions and KLGetApplicationOptions
 #define KERBEROSLOGIN_DEPRECATED
-#define BIND_8_COMPAT
 
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>

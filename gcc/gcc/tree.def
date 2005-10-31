@@ -1,6 +1,6 @@
 /* This file contains the definitions and documentation for the
    tree codes used in GCC.
-   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998, 2000, 2001, 2004
+   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998, 2000, 2001, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -28,7 +28,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    different structures, and the size is determined by the tree_union
    member structure; the 4th element should be zero.  Languages that
    define language-specific tcc_exceptional or tcc_constant codes must
-   define the tree_size langhook to say how big they are.  */
+   define the tree_size langhook to say how big they are.
+
+   These tree codes have been sorted so that the macros in tree.h that
+   check for various tree codes are optimized into range checks.  This
+   gives a measurable performance improvement.  When adding a new
+   code, consider its placement in relation to the other codes.  */
 
 /* Any erroneous construct is parsed into a node of this type.
    This type of node is accepted without complaint in all contexts
@@ -118,8 +123,36 @@ DEFTREECODE (BLOCK, "block", tcc_exceptional, 0)
     ENUMERAL_TYPE, RECORD_TYPE, UNION_TYPE, and QUAL_UNION_TYPE nodes;
     see below.  */
 
-DEFTREECODE (VOID_TYPE, "void_type", tcc_type, 0)
-	/* The void type in C */
+/* The ordering of the following codes is optimized for the checking
+   macros in tree.h.  Changing the order will degrade the speed of the
+   compiler.  OFFSET_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, CHAR_TYPE,
+   INTEGER_TYPE, REAL_TYPE, POINTER_TYPE.  */
+     
+/* An offset is a pointer relative to an object.
+   The TREE_TYPE field is the type of the object at the offset.
+   The TYPE_OFFSET_BASETYPE points to the node for the type of object
+   that the offset is relative to.  */
+DEFTREECODE (OFFSET_TYPE, "offset_type", tcc_type, 0)
+
+/* C enums.  The type node looks just like an INTEGER_TYPE node.
+   The symbols for the values of the enum type are defined by
+   CONST_DECL nodes, but the type does not point to them;
+   however, the TYPE_VALUES is a list in which each element's TREE_PURPOSE
+   is a name and the TREE_VALUE is the value (an INTEGER_CST node).  */
+/* A forward reference `enum foo' when no enum named foo is defined yet
+   has zero (a null pointer) in its TYPE_SIZE.  The tag name is in
+   the TYPE_NAME field.  If the type is later defined, the normal
+   fields are filled in.
+   RECORD_TYPE, UNION_TYPE, and QUAL_UNION_TYPE forward refs are
+   treated similarly.  */
+DEFTREECODE (ENUMERAL_TYPE, "enumeral_type", tcc_type, 0)
+
+/* Boolean type (true or false are the only values).  Looks like an
+   INTEGRAL_TYPE. */
+DEFTREECODE (BOOLEAN_TYPE, "boolean_type", tcc_type, 0)
+
+/* CHAR in Java; not used in C.  Looks like an INTEGRAL_TYPE.  */
+DEFTREECODE (CHAR_TYPE, "char_type", tcc_type, 0)
 
 /* Integer types in all languages, including char in C.
    Also used for sub-ranges of other discrete types.
@@ -135,6 +168,23 @@ DEFTREECODE (INTEGER_TYPE, "integer_type", tcc_type, 0)
    by machine mode and by the TYPE_SIZE and the TYPE_PRECISION.  */
 DEFTREECODE (REAL_TYPE, "real_type", tcc_type, 0)
 
+/* The ordering of the following codes is optimized for the checking
+   macros in tree.h.  Changing the order will degrade the speed of the
+   compiler.  POINTER_TYPE, REFERENCE_TYPE.  Note that this range
+   overlaps the previous range of ordered types. */
+     
+/* All pointer-to-x types have code POINTER_TYPE.
+   The TREE_TYPE points to the node for the type pointed to.  */
+DEFTREECODE (POINTER_TYPE, "pointer_type", tcc_type, 0)
+
+/* A reference is like a pointer except that it is coerced
+   automatically to the value it points to.  Used in C++.  */
+DEFTREECODE (REFERENCE_TYPE, "reference_type", tcc_type, 0)
+
+/* The ordering of the following codes is optimized for the checking
+   macros in tree.h.  Changing the order will degrade the speed of the
+   compiler.  COMPLEX_TYPE, VECTOR_TYPE, ARRAY_TYPE.  */
+     
 /* Complex number types.  The TREE_TYPE field is the data type
    of the real and imaginary parts.  */
 DEFTREECODE (COMPLEX_TYPE, "complex_type", tcc_type, 0)
@@ -144,51 +194,11 @@ DEFTREECODE (COMPLEX_TYPE, "complex_type", tcc_type, 0)
    the vector.  */
 DEFTREECODE (VECTOR_TYPE, "vector_type", tcc_type, 0)
 
-/* C enums.  The type node looks just like an INTEGER_TYPE node.
-   The symbols for the values of the enum type are defined by
-   CONST_DECL nodes, but the type does not point to them;
-   however, the TYPE_VALUES is a list in which each element's TREE_PURPOSE
-   is a name and the TREE_VALUE is the value (an INTEGER_CST node).  */
-/* A forward reference `enum foo' when no enum named foo is defined yet
-   has zero (a null pointer) in its TYPE_SIZE.  The tag name is in
-   the TYPE_NAME field.  If the type is later defined, the normal
-   fields are filled in.
-   RECORD_TYPE, UNION_TYPE, and QUAL_UNION_TYPE forward refs are
-   treated similarly.  */
-DEFTREECODE (ENUMERAL_TYPE, "enumeral_type", tcc_type, 0)
-
-/* Pascal's boolean type (true or false are the only values);
-   no special fields needed.  */
-DEFTREECODE (BOOLEAN_TYPE, "boolean_type", tcc_type, 0)
-
-/* CHAR in Pascal; not used in C.
-   No special fields needed.  */
-DEFTREECODE (CHAR_TYPE, "char_type", tcc_type, 0)
-
-/* All pointer-to-x types have code POINTER_TYPE.
-   The TREE_TYPE points to the node for the type pointed to.  */
-DEFTREECODE (POINTER_TYPE, "pointer_type", tcc_type, 0)
-
-/* An offset is a pointer relative to an object.
-   The TREE_TYPE field is the type of the object at the offset.
-   The TYPE_OFFSET_BASETYPE points to the node for the type of object
-   that the offset is relative to.  */
-DEFTREECODE (OFFSET_TYPE, "offset_type", tcc_type, 0)
-
-/* A reference is like a pointer except that it is coerced
-   automatically to the value it points to.  Used in C++.  */
-DEFTREECODE (REFERENCE_TYPE, "reference_type", tcc_type, 0)
-
-/* METHOD_TYPE is the type of a function which takes an extra first
-   argument for "self", which is not present in the declared argument list.
-   The TREE_TYPE is the return type of the method.  The TYPE_METHOD_BASETYPE
-   is the type of "self".  TYPE_ARG_TYPES is the real argument list, which
-   includes the hidden argument for "self".  */
-DEFTREECODE (METHOD_TYPE, "method_type", tcc_type, 0)
-
-/* Used for Pascal; details not determined right now.  */
-DEFTREECODE (FILE_TYPE, "file_type", tcc_type, 0)
-
+/* The ordering of the following codes is optimized for the checking
+   macros in tree.h.  Changing the order will degrade the speed of the
+   compiler.  ARRAY_TYPE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE.
+   Note that this range overlaps the previous range.  */
+     
 /* Types of arrays.  Special fields:
    TREE_TYPE		  Type of an array element.
    TYPE_DOMAIN		  Type to index by.
@@ -199,12 +209,6 @@ DEFTREECODE (FILE_TYPE, "file_type", tcc_type, 0)
  in languages (such as Chill) that make a distinction.  */
 /* Array types in C or Pascal */
 DEFTREECODE (ARRAY_TYPE, "array_type", tcc_type, 0)
-
-/* Types of sets for Pascal.  Special fields are the same as
-   in an array type.  The target type is always a boolean type.
-   Used for both bitstrings and powersets in Chill;
-   TYPE_STRING_FLAG indicates a bitstring.  */
-DEFTREECODE (SET_TYPE, "set_type", tcc_type, 0)
 
 /* Struct in C, or record in Pascal.  */
 /* Special fields:
@@ -228,6 +232,13 @@ DEFTREECODE (UNION_TYPE, "union_type", tcc_type, 0)	/* C union type */
    the union.  */
 DEFTREECODE (QUAL_UNION_TYPE, "qual_union_type", tcc_type, 0)
 
+/* The ordering of the following codes is optimized for the checking
+   macros in tree.h.  Changing the order will degrade the speed of the
+   compiler.  VOID_TYPE, FUNCTION_TYPE, METHOD_TYPE.  */
+     
+/* The void type in C */
+DEFTREECODE (VOID_TYPE, "void_type", tcc_type, 0)
+
 /* Type of functions.  Special fields:
    TREE_TYPE		    type of value returned.
    TYPE_ARG_TYPES      list of types of arguments expected.
@@ -235,6 +246,16 @@ DEFTREECODE (QUAL_UNION_TYPE, "qual_union_type", tcc_type, 0)
    Types of "Procedures" in languages where they are different from functions
    have code FUNCTION_TYPE also, but then TREE_TYPE is zero or void type.  */
 DEFTREECODE (FUNCTION_TYPE, "function_type", tcc_type, 0)
+
+/* METHOD_TYPE is the type of a function which takes an extra first
+   argument for "self", which is not present in the declared argument list.
+   The TREE_TYPE is the return type of the method.  The TYPE_METHOD_BASETYPE
+   is the type of "self".  TYPE_ARG_TYPES is the real argument list, which
+   includes the hidden argument for "self".  */
+DEFTREECODE (METHOD_TYPE, "method_type", tcc_type, 0)
+
+/* Used for Pascal; details not determined right now.  */
+DEFTREECODE (FILE_TYPE, "file_type", tcc_type, 0)
 
 /* This is a language-specific kind of type.
    Its meaning is defined by the language front end.
@@ -329,12 +350,16 @@ DEFTREECODE (STRING_CST, "string_cst", tcc_constant, 0)
 
 DEFTREECODE (FUNCTION_DECL, "function_decl", tcc_declaration, 0)
 DEFTREECODE (LABEL_DECL, "label_decl", tcc_declaration, 0)
-DEFTREECODE (CONST_DECL, "const_decl", tcc_declaration, 0)
-DEFTREECODE (TYPE_DECL, "type_decl", tcc_declaration, 0)
-DEFTREECODE (VAR_DECL, "var_decl", tcc_declaration, 0)
-DEFTREECODE (PARM_DECL, "parm_decl", tcc_declaration, 0)
-DEFTREECODE (RESULT_DECL, "result_decl", tcc_declaration, 0)
+/* The ordering of the following codes is optimized for the checking
+   macros in tree.h.  Changing the order will degrade the speed of the
+   compiler.  FIELD_DECL, VAR_DECL, CONST_DECL, PARM_DECL,
+   TYPE_DECL.  */
 DEFTREECODE (FIELD_DECL, "field_decl", tcc_declaration, 0)
+DEFTREECODE (VAR_DECL, "var_decl", tcc_declaration, 0)
+DEFTREECODE (CONST_DECL, "const_decl", tcc_declaration, 0)
+DEFTREECODE (PARM_DECL, "parm_decl", tcc_declaration, 0)
+DEFTREECODE (TYPE_DECL, "type_decl", tcc_declaration, 0)
+DEFTREECODE (RESULT_DECL, "result_decl", tcc_declaration, 0)
 
 /* A namespace declaration.  Namespaces appear in DECL_CONTEXT of other
    _DECLs, providing a hierarchy of names.  */
@@ -362,6 +387,10 @@ DEFTREECODE (COMPONENT_REF, "component_ref", tcc_reference, 3)
    The field can be either a signed or unsigned field;
    BIT_FIELD_REF_UNSIGNED says which.  */
 DEFTREECODE (BIT_FIELD_REF, "bit_field_ref", tcc_reference, 3)
+
+/* The ordering of the following codes is optimized for the checking
+   macros in tree.h.  Changing the order will degrade the speed of the
+   compiler.  INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF.  */
 
 /* C unary `*' or Pascal `^'.  One operand, an expression for a pointer.  */
 DEFTREECODE (INDIRECT_REF, "indirect_ref", tcc_reference, 1)
@@ -409,7 +438,6 @@ DEFTREECODE (FILTER_EXPR, "filter_expr", tcc_expression, 0)
 
 /* Constructor: return an aggregate value made from specified components.
    In C, this is used only for structure and array initializers.
-   Also used for SET_TYPE in Chill (and potentially Pascal).
    The operand is a list of component values made out of a chain of
    TREE_LIST nodes.
 
@@ -421,12 +449,7 @@ DEFTREECODE (FILTER_EXPR, "filter_expr", tcc_expression, 0)
    value in a SAVE_EXPR if you want to evaluate side effects only once.)
 
    For RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE:
-   The TREE_PURPOSE of each node is a FIELD_DECL.
-
-   For SET_TYPE:
-   The TREE_VALUE specifies a value (index) in the set that is true.
-   If TREE_PURPOSE is non-NULL, it specifies the lower limit of a
-   range of true values.  Elements not listed are false (not in the set).  */
+   The TREE_PURPOSE of each node is a FIELD_DECL.  */
 DEFTREECODE (CONSTRUCTOR, "constructor", tcc_expression, 1)
 
 /* The expression types are mostly straightforward, with the fourth argument
@@ -464,7 +487,7 @@ DEFTREECODE (TARGET_EXPR, "target_expr", tcc_expression, 4)
    have VOID_TYPE.  The same constraints apply to operand 2.  */
 DEFTREECODE (COND_EXPR, "cond_expr", tcc_expression, 3)
 
-/* Vector conditional expresion. It is like COND_EXPR, but with
+/* Vector conditional expression. It is like COND_EXPR, but with
    vector operands.
 
    A = VEC_COND_EXPR ( X < Y, B, C)
@@ -498,11 +521,6 @@ DEFTREECODE (VEC_COND_EXPR, "vec_cond_expr", tcc_expression, 3)
    must also install it as a subblock in the tree of BLOCK
    nodes for the function.  */
 DEFTREECODE (BIND_EXPR, "bind_expr", tcc_expression, 3)
-
-/* A labeled block. Operand 0 is the label that will be generated to
-   mark the end of the block.
-   Operand 1 is the labeled block body.  */
-DEFTREECODE (LABELED_BLOCK_EXPR, "labeled_block_expr", tcc_expression, 2)
 
 /* Function call.  Operand 0 is the function.
    Operand 1 is the argument list, a list of expressions
@@ -632,6 +650,9 @@ DEFTREECODE (FLOAT_EXPR, "float_expr", tcc_unary, 1)
 /* Unary negation.  */
 DEFTREECODE (NEGATE_EXPR, "negate_expr", tcc_unary, 1)
 
+/* Minimum and maximum values.  When used with floating point, if both
+   operands are zeros, or if either operand is NaN, then it is unspecified
+   which of the two operands is returned as the result.  */
 DEFTREECODE (MIN_EXPR, "min_expr", tcc_binary, 2)
 DEFTREECODE (MAX_EXPR, "max_expr", tcc_binary, 2)
 
@@ -647,7 +668,7 @@ DEFTREECODE (ABS_EXPR, "abs_expr", tcc_unary, 1)
    The second operand is the number of bits to
    shift by; it need not be the same type as the first operand and result.
    Note that the result is undefined if the second operand is larger
-   than the first operand's type size.  */
+   than or equal to the first operand's type size.  */
 DEFTREECODE (LSHIFT_EXPR, "lshift_expr", tcc_binary, 2)
 DEFTREECODE (RSHIFT_EXPR, "rshift_expr", tcc_binary, 2)
 DEFTREECODE (LROTATE_EXPR, "lrotate_expr", tcc_binary, 2)
@@ -806,11 +827,6 @@ DEFTREECODE (EXIT_EXPR, "exit_expr", tcc_statement, 1)
    The type should be void and the value should be ignored.  */
 DEFTREECODE (LOOP_EXPR, "loop_expr", tcc_statement, 1)
 
-/* Exit a labeled block, possibly returning a value.  Operand 0 is a
-   LABELED_BLOCK_EXPR to exit.  Operand 1 is the value to return. It
-   may be left null.  */
-DEFTREECODE (EXIT_BLOCK_EXPR, "exit_block_expr", tcc_statement, 2)
-
 /* Switch expression.
 
    TREE_TYPE is the original type of the condition, before any
@@ -839,7 +855,8 @@ DEFTREECODE (RESX_EXPR, "resx_expr", tcc_statement, 1)
    STRING_CST for the instruction (e.g., "mov x, y"). ASM_OUTPUTS,
    ASM_INPUTS, and ASM_CLOBBERS represent the outputs, inputs, and clobbers
    for the statement.  */
-DEFTREECODE (ASM_EXPR, "asm_expr", tcc_statement, 4)
+/* APPLE LOCAL CW asm blocks. */
+DEFTREECODE (ASM_EXPR, "asm_expr", tcc_statement, 5)
 
 /* Variable references for SSA analysis.  New SSA names are created every
    time a variable is assigned a new value.  The SSA builder uses SSA_NAME
@@ -912,17 +929,6 @@ DEFTREECODE (WITH_SIZE_EXPR, "with_size_expr", tcc_expression, 2)
    which case its low log2(VS)-1 bits define the offset, or it can be a mask 
    generated by the builtin targetm.vectorize.mask_for_load_builtin_decl.  */
 DEFTREECODE (REALIGN_LOAD_EXPR, "realign_load", tcc_expression, 3)
-
-/* Extract elements from two input vectors Operand 0 and Operand 1
-   size VS, according to the offset OFF defined by Operand 2 as
-   follows:
-   If OFF > 0, the last OFF elements of vector OP0 are concatenated to
-   the first VS - OFF elements of the vector OP1.
-   If OFF == 0, then the returned vector is OP0.
-   On different targets OFF may take different forms; It can be an address, in 
-   which case its low log2(VS)-1 bits define the offset, or it can be a mask 
-   generated by the builtin targetm.vectorize.mask_for_store_builtin_decl.  */
-DEFTREECODE (REALIGN_STORE_EXPR, "realign_store", tcc_expression, 3)
 
 /*
 Local variables:

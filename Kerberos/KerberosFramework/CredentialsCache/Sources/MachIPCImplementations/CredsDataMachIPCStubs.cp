@@ -1,7 +1,7 @@
 /*
  * CCICredentialsDataMachIPCStubs.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CredsDataMachIPCStubs.cp,v 1.12 2004/09/08 20:48:33 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CredsDataMachIPCStubs.cp,v 1.13 2005/05/25 20:23:01 lxs Exp $
  */
  
 #include "CredsDataMachIPCStubs.h"
@@ -50,14 +50,9 @@ CCICredentialsDataMachIPCStub::FlattenToStream (
 	std::ostream&		outFlatCredentials) const {
 
         CCIResult			result;
-        security_token_t	token;
         CCIMachIPCBuffer <char>	buffer;
         
-        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result, &token);
-        if (!mach_client_allow_server (token)) {
-            /* Warning!  This server is not who we think it is! */
-            result = ccErrServerInsecure;
-        }
+        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result);
         ThrowIfIPCError_ (err, result);
         outFlatCredentials << buffer.Data () << std::ends;
 }
@@ -67,14 +62,9 @@ CCICredentialsDataMachIPCStub::CopyV4Credentials (
 	cc_credentials_v4_t&		outCredentials) const {
 
         CCIResult			result;
-        security_token_t	token;
         CCIMachIPCBuffer <char>	buffer;
         
-        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result, &token);
-        if (!mach_client_allow_server (token)) {
-            /* Warning!  This server is not who we think it is! */
-            result = ccErrServerInsecure;
-        }
+        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result);
         ThrowIfIPCError_ (err, result);
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
@@ -91,14 +81,9 @@ CCICredentialsDataMachIPCStub::CopyV5Credentials (
 	cc_credentials_v5_t&		outCredentials) const {
 
         CCIResult			result;
-        security_token_t	token;
         CCIMachIPCBuffer <char>	buffer;
         
-        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result, &token);
-        if (!mach_client_allow_server (token)) {
-            /* Warning!  This server is not who we think it is! */
-            result = ccErrServerInsecure;
-        }
+        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result);
         ThrowIfIPCError_ (err, result);
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
@@ -116,14 +101,9 @@ CCICredentialsDataMachIPCStub::CompatCopyV4Credentials (
 	cc_credentials_v4_compat&		outCredentials) const {
 
         CCIResult			result;
-        security_token_t	token;
         CCIMachIPCBuffer <char>	buffer;
         
-        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result, &token);
-        if (!mach_client_allow_server (token)) {
-            /* Warning!  This server is not who we think it is! */
-            result = ccErrServerInsecure;
-        }
+        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result);
         ThrowIfIPCError_ (err, result);
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
@@ -140,14 +120,9 @@ CCICredentialsDataMachIPCStub::CompatCopyV5Credentials (
 	cc_credentials_v5_compat&		outCredentials) const {
 
         CCIResult			result;
-        security_token_t	token;
         CCIMachIPCBuffer <char>	buffer;
         
-        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result, &token);
-        if (!mach_client_allow_server (token)) {
-            /* Warning!  This server is not who we think it is! */
-            result = ccErrServerInsecure;
-        }
+        kern_return_t err = CredentialsIPC_FlattenCredentials (GetPort (), GetCredentialsID ().object, &buffer.Data (), &buffer.Size (), &result);
         ThrowIfIPCError_ (err, result);
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 

@@ -131,6 +131,7 @@ public:
     BidiIterator findNextLineBreak(BidiIterator &start, BidiState &info );
     RootInlineBox* constructLine(const BidiIterator& start, const BidiIterator& end);
     InlineFlowBox* createLineBoxes(RenderObject* obj);
+    int tabWidth(bool isWhitespacePre);
     void computeHorizontalPositionsForLine(RootInlineBox* lineBox, BidiState &bidi);
     void computeVerticalPositionsForLine(RootInlineBox* lineBox);
     void checkLinesForOverflow();
@@ -197,8 +198,8 @@ public:
 
     virtual int getBaselineOfFirstLineBox() const;
 
-    RootInlineBox* firstRootBox() { return static_cast<RootInlineBox*>(m_firstLineBox); }
-    RootInlineBox* lastRootBox() { return static_cast<RootInlineBox*>(m_lastLineBox); }
+    RootInlineBox* firstRootBox() const { return static_cast<RootInlineBox*>(m_firstLineBox); }
+    RootInlineBox* lastRootBox() const { return static_cast<RootInlineBox*>(m_lastLineBox); }
 
     // Obtains the nearest enclosing block (including this block) that contributes a first-line style to our inline
     // children.
@@ -425,9 +426,11 @@ protected:
     // when dirty rect checking and hit testing.
     int m_overflowLeft;
     int m_overflowTop;
+    
+    // full width of a tab character
+    int m_tabWidth;
 };
 
 }; // namespace
 
 #endif // RENDER_BLOCK_H
-

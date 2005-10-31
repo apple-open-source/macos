@@ -1,7 +1,7 @@
 /*
  * LifetimeSlider.h
  *
- * $Header: /cvs/kfm/Common/Headers/LifetimeSlider.h,v 1.2 2004/05/14 01:02:24 lxs Exp $
+ * $Header: /cvs/kfm/Common/Headers/LifetimeSlider.h,v 1.3 2005/03/04 23:04:38 lxs Exp $
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

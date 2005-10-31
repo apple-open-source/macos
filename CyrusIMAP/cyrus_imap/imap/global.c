@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: global.c,v 1.6 2005/03/06 23:59:16 dasenbro Exp $ */
+/* $Id: global.c,v 1.7 2005/06/17 20:16:29 dasenbro Exp $ */
 
 #include <config.h>
 
@@ -608,6 +608,7 @@ void cyrus_ctime(time_t date, char *datebuf)
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
     if (date == 0 || tm->tm_year < 69) {
+    syslog( LOG_CRIT, "ERROR: invaldi date/time: %d (year = %d)", date, tm->tm_year );
 	abort();
     }
 

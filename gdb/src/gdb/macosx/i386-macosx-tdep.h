@@ -23,7 +23,7 @@ void i386_macosx_fetch_gp_registers (gdb_i386_thread_state_t *sp_regs);
 void i386_macosx_store_gp_registers (gdb_i386_thread_state_t *sp_regs);
 
 void i386_macosx_fetch_fp_registers (gdb_i386_thread_fpstate_t *fp_regs);
-void i386_macosx_store_fp_registers (gdb_i386_thread_fpstate_t *fp_regs);
+int i386_macosx_store_fp_registers (gdb_i386_thread_fpstate_t *fp_regs);
 
 #define INVALID_ADDRESS ((CORE_ADDR) (-1))
 

@@ -1,125 +1,117 @@
-<!-- #bbinclude "header.html"
+<!-- #bbinclude "header.template"
   #PAGETITLE#="Kerberos framework"
   #BASEHREF#="" 
 -->
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML> 
-<HEAD>  
-	<TITLE> Kerberos framework </TITLE>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/KerberosFramework/Common/Documentation/index.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Kerberos framework</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../../Common/Documentation/templates/site.css);
+	</STYLE>
 </HEAD>
-<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
-<CENTER>
-	<TABLE BORDER=0 CELLSPACING=8>
-		<TR> 
-			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
-			<TD><BR><H1>Macintosh Development</H1></TD> 
-		</TR>
-	</TABLE> <P>
-	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
-	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] <BR>
-	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">Kerberos for Macintosh</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
-	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
-</CENTER> <HR>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
 <!-- end bbinclude -->
-<TABLE BORDER=0 CELLSPACING=4>
-  <TR VALIGN=middle> 
-    <TD ALIGN=center></TD>
-	<TD><IMG SRC="graphics/KerberosFramework.gif"></TD>
-    <TD><B><FONT SIZE="+3">Kerberos framework</FONT></B></TD> 
-  </TR>
+<!-- #bbinclude "icon.template" #ICON#="graphics/KerberosFramework.gif" #TEXT#="<H2>Kerberos framework</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="graphics/KerberosFramework.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Kerberos framework</H2> </TD>
+   </TR>
 </TABLE>
-<BLOCKQUOTE>
-	<P>This documentation only applies to <B>Mac OS X 10.2</B> (with Kerberos for Macintosh 4.5) and <B>Mac OS X 10.3</B> (with KfM 5.0).</P>
-	
-	<B><FONT SIZE="+2">About the Kerberos framework</FONT></B>
-	<BLOCKQUOTE>
-		<P>The Kerberos framework is a Mach-O framework for Mac OS X.  It provides the Kerberos v4 and 
-		v5 protocols, GSSAPI, KClient and related libraries for Kerberos ticket management.</P>
-	</BLOCKQUOTE>
-  	<B><FONT SIZE="+2">Using the Kerberos framework</A></FONT></B>
-	<BLOCKQUOTE>
-		<P>To use the Kerberos framework, add Kerberos.framework to your project and include the <CODE>Kerberos.h</CODE>
-		header file:
-		<CODE><PRE>
-		#include &lt;Kerberos/Kerberos.h&gt;
-		</PRE></CODE>
-		</P>
+<!-- end bbinclude -->
 
-		<P>If you have code which relies on UNIX-style header files, then you can use the following header files from
-		<CODE>/usr/include</CODE> :
-		<CODE><PRE>
-		#include &lt;gssapi/gssapi.h&gt;
-		#include &lt;krb5.h&gt;
-		#include &lt;krb.h&gt;
-		#include &lt;des.h&gt;
-		</PRE></CODE>
-		</P>
-		
-	</BLOCKQUOTE>
-	
-	<B><FONT SIZE="+2">Component Documentation</FONT></B>
-	<BLOCKQUOTE><TABLE BORDER=0 CELLSPACING=4 CELLPADDING=4>
-		<TR>
-			<TH ALIGN=right><FONT SIZE="+1"><A HREF="../../CredentialsCache/Documentation/index.html">Credentials Cache API</A></FONT></TH>
-			<TD ALIGN=left>An implementation of the Credentials Cache API v2 and v3.</TD>
-		</TR>
-		<TR>
-			<TH ALIGN=right><FONT SIZE="+1"><A HREF="DES.html">DES</A></FONT></TH>
-			<TD ALIGN=left>A DES and 3DES implementation.</TD>
-		</TR>
-		<TR>
-			<TH ALIGN=right><FONT SIZE="+1"><A HREF="GSS.html">GSSAPI</A></FONT></TH>
-			<TD ALIGN=left>The GSS API implementation.</TD>
-		</TR>
-		<TR>
-			<TH ALIGN=right><FONT SIZE="+1"><A HREF="../../KClient/Documentation/index.html">KClient</A></FONT></TH>
-			<TD ALIGN=left>The KClient 3.0 implementation.</TD>
-		</TR>
-		<TR>
-			<TH ALIGN=right><FONT SIZE="+1"><A HREF="Kerberos4.html">Kerberos v4</A></FONT></TH>
-			<TD ALIGN=left>The MIT Kerberos v4 implementation.</TD>
-		</TR>
-		<TR>
-			<TH ALIGN=right><FONT SIZE="+1"><A HREF="Kerberos5.html">Kerberos v5</A></FONT></TH>
-			<TD ALIGN=left>The MIT Kerberos v5 implementation.</TD>
-		</TR>
-		<TR>
-			<TH ALIGN=right><FONT SIZE="+1"><A HREF="../../KerberosErrors/Documentation/index.html">Kerberos Errors API</A></FONT></TH>
-			<TD ALIGN=left>A Mac OS X version of the com_err API used by Kerberos on Unix platforms.</TD>
-		</TR>
-		<TR>
-			<TH ALIGN=right><FONT SIZE="+1"><A HREF="../../KerberosLogin/Documentation/index.html">Kerberos Login API</A></FONT></TH>
-			<TD ALIGN=left>An API that provides a GUI interface for acquiring tickets and changing passwords.</TD>
-		</TR>
-		<TR>
-			<TH ALIGN=right><FONT SIZE="+1"><A HREF="KerberosProfile.html">Kerberos Profile</A></FONT></TH>
-			<TD ALIGN=left>A framework used to obtain configuration information from the <CODE>edu.mit.Kerberos</CODE> file.</TD>
-		</TR>
-	</TABLE></BLOCKQUOTE>
-	<B><FONT SIZE="+2"><A NAME="Getting">Getting the Kerberos framework</A></FONT></B>
-	<BLOCKQUOTE>
-		<P> The latest release of the Kerberos framework is included with Mac OS X 10.2 and later. </P>
-		
-		<P> Please read the Kerberos framework <A HREF="Version%20history">Version 
-		History</A> for information on the latest release of Kerberos framework.</P>
-	</BLOCKQUOTE>
-</BLOCKQUOTE>
+<P>The Kerberos framework is a Mach-O framework which is included with Mac OS X 10.2 and later.  It provides the Kerberos v4 and 
+v5 protocols, GSSAPI, KClient and related libraries for Kerberos ticket management.</P>
 
-<!-- #bbinclude "footer.html" -->
-<HR> 
-<P> 
-	<FONT SIZE="+1"> <B> 
-		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
-	</B> </FONT> <BR>
-	Last updated on $Date: 2003/11/18 21:11:59 $ <BR> 
-	Last modified by $Author: smcguire $<BR>
-
+<P>To use the Kerberos framework, add Kerberos.framework to your project and include the <CODE>Kerberos.h</CODE>
+header file:
+<CODE><PRE>
+#include &lt;Kerberos/Kerberos.h&gt;
+</PRE></CODE>
 </P>
+
+<P>If you have code which relies on UNIX-style header files, then you can use the following header files from
+<CODE>/usr/include</CODE> :
+<PRE>
+#include &lt;gssapi/gssapi.h&gt;
+#include &lt;krb5.h&gt;
+#include &lt;profile.h&gt;
+#include &lt;krb.h&gt;
+#include &lt;des.h&gt;
+</PRE>
+
+<HR>
+
+<H3>API Documentation</H3>
+
+<UL>
+	<LI><A HREF="../../CredentialsCache/Documentation/index.html">Credentials Cache API</A> -
+	<SPAN CLASS=small>An implementation of the Credentials Cache API v2 and v3.</SPAN></LI>
+	
+	<LI><A HREF="DES.html">DES</A> -
+	<SPAN CLASS=small>A DES and 3DES implementation.</SPAN></LI>
+	
+	<LI><A HREF="GSS.html">GSSAPI</A> -
+	<SPAN CLASS=small>The GSS API implementation.</SPAN></LI>
+	
+	<LI><A HREF="../../KClient/Documentation/index.html">KClient</A> -
+	<SPAN CLASS=small>The KClient 3.0 implementation.</SPAN></LI>
+	
+	<LI><A HREF="Kerberos4.html">Kerberos v4</A> -
+	<SPAN CLASS=small>The MIT Kerberos v4 implementation.</SPAN></LI>
+	
+	<LI><A HREF="Kerberos5.html">Kerberos v5</A> -
+	<SPAN CLASS=small>The MIT Kerberos v5 implementation.</SPAN></LI>
+	
+	<LI><A HREF="../../KerberosErrors/Documentation/index.html">Kerberos Errors API</A> -
+	<SPAN CLASS=small>A Mac OS X version of the com_err API used by Kerberos on Unix platforms.</SPAN></LI>
+	
+	<LI><A HREF="../../KerberosLogin/Documentation/index.html">Kerberos Login API</A> -
+	<SPAN CLASS=small>An API that provides a GUI interface for acquiring tickets and changing passwords.</SPAN></LI>
+	
+	<LI><A HREF="KerberosProfile.html">Kerberos Profile</A> -
+	<SPAN CLASS=small>A framework used to obtain configuration information from the <CODE>edu.mit.Kerberos</CODE> file.</SPAN></LI>
+</UL>
+
+<HR>
+
+<P> Please read the Kerberos framework <A HREF="Version%20history">Version 
+	History</A> for information on the latest release of Kerberos framework.</P>
+
+<!-- #bbinclude "footer.template" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2005 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2005/05/04 18:24:22 $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
 <!-- Begin MIT-use only web reporting counter -->
 	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
 <!-- End MIT-use only web reporting counter -->
-</BODY> </HTML>
+</BODY></HTML>
 <!-- end bbinclude -->

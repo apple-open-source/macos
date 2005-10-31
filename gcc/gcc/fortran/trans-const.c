@@ -1,5 +1,5 @@
 /* Translation of constants
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -25,12 +25,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
-#include <gmp.h>
-#include <math.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-const.h"
@@ -309,7 +306,8 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
       return gfc_conv_mpfr_to_tree (expr->value.real, expr->ts.kind);
 
     case BT_LOGICAL:
-      return build_int_cst (NULL_TREE, expr->value.logical);
+      return build_int_cst (gfc_get_logical_type (expr->ts.kind),
+			    expr->value.logical);
 
     case BT_COMPLEX:
       {

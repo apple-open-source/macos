@@ -1,6 +1,5 @@
-GCC = gcc-3.5
-GCCLIBS = -lgcc
-OTHER_PRODUCT_DEPENDS += $(OFILE_DIR)/libgcc.unexport
+GCC = gcc-4.0
+GCCLIBS = -lgcc -lgcc_eh
 
 BEFORE_BUILD += comm-page-symbols
 BEFORE_INSTALL += profile debug
@@ -15,8 +14,7 @@ OTHER_LIBTOOL_FLAGS = $(OFILE_DIR)/spinlock_stub.o \
 	$(OFILE_DIR)/spinunlock_stub.o \
 	-L/usr/lib/system -sub_library libmathCommon \
 	-lmathCommon -sectorder __TEXT __text System.order \
-	-segcreate __DATA __commpage $(OFILE_DIR)/CommPageSymbols.o \
-	-unexported_symbols_list $(OFILE_DIR)/libgcc.unexport
+	-segcreate __DATA __commpage $(OFILE_DIR)/CommPageSymbols.o
 
 BSD_LIBS = c info kvm m pthread dbm poll dl rpcsvc
 

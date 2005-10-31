@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX V5.2.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
    This file is part of GCC.
@@ -77,7 +77,9 @@ do {									\
 %{mcpu=604: -m604} \
 %{mcpu=604e: -m604} \
 %{mcpu=620: -m620} \
-%{mcpu=630: -m620}"
+%{mcpu=630: -m620} \
+%{mcpu=970: -m620} \
+%{mcpu=G5: -m620}"
 
 #undef	ASM_DEFAULT_SPEC
 #define ASM_DEFAULT_SPEC "-mppc"
@@ -101,13 +103,10 @@ do {									\
   %{pthread: -D_THREAD_SAFE}"
 
 /* The GNU C++ standard library requires that these macros be 
-   defined.  */
+   defined.  Synchronize with libstdc++ os_defines.h.  */
 #undef CPLUSPLUS_CPP_SPEC                       
 #define CPLUSPLUS_CPP_SPEC			\
-  "-D_XOPEN_SOURCE=500				\
-   -D_XOPEN_SOURCE_EXTENDED=1			\
-   -D_LARGE_FILE_API				\
-   -D_ALL_SOURCE				\
+  "-D_ALL_SOURCE				\
    %{maix64: -D__64BIT__}			\
    %{mpe: -I/usr/lpp/ppe.poe/include}		\
    %{pthread: -D_THREAD_SAFE}"
@@ -185,3 +184,6 @@ do {									\
 #undef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS  1
 
+#ifndef _AIX52
+extern long long int    atoll(const char *);  
+#endif

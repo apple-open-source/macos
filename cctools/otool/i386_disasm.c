@@ -176,8 +176,8 @@ static void print_operand(
     const char *seg,
     const char *symadd,
     const char *symsub,
-    const unsigned int value,
-    const unsigned int value_size,
+    unsigned int value,
+    unsigned int value_size,
     const char *result,
     const char *tail);
 
@@ -471,6 +471,9 @@ static const struct instable op0F01[8] = {
 		{"lmsw",TERM,M,1},	{"invlpg",TERM,M,1},
 };
 
+static const struct instable op_monitor = {"monitor",TERM,GO_ON,0};
+static const struct instable op_mwait   = {"mwait",TERM,GO_ON,0};
+
 /*
  * Decode table for 0x0F0F opcodes
  * Unlike the other decode tables, this one maps suffixes.
@@ -635,7 +638,7 @@ static const struct instable op0F[16][16] = {
 /*  [04]  */	INVALID,		INVALID,
 		{"clts",TERM,GO_ON,0},	INVALID,
 /*  [08]  */	{"invd",TERM,GO_ON,0},	{"wbinvd",TERM,GO_ON,0},
-		INVALID,		INVALID,
+		INVALID,		{"ud2",TERM,GO_ON,0},
 /*  [0C]  */   INVALID,                {"prefetch",TERM,PFCH3DNOW,1},
                {"femms",TERM,GO_ON,0}, {"",(const struct instable *)op0F0F,TERM,0} },
 /*  [10]  */ {  {"mov",TERM,SSE2,0},	{"mov",TERM,SSE2tm,0},
@@ -692,7 +695,7 @@ static const struct instable op0F[16][16] = {
 		{"pcmpeqd",TERM,SSE2,0},{"emms",TERM,GO_ON,0},
 /*  [78]  */	INVALID,		INVALID,
 		INVALID,		INVALID,
-/*  [7C]  */	INVALID,		INVALID,
+/*  [7C]  */	{"haddp",TERM,SSE2,0},  {"hsubp",TERM,SSE2,0},
 		{"mov",TERM,SSE2tfm,0},	{"mov",TERM,SSE2tm,0} },
 /*  [80]  */ {  {"jo",TERM,D,1},	{"jno",TERM,D,1},
 		{"jb",TERM,D,1},	{"jae",TERM,D,1},
@@ -734,7 +737,7 @@ static const struct instable op0F[16][16] = {
 		{"bswap",TERM,BSWAP,0},	{"bswap",TERM,BSWAP,0},
 /*  [CC]  */	{"bswap",TERM,BSWAP,0},	{"bswap",TERM,BSWAP,0},
 		{"bswap",TERM,BSWAP,0},	{"bswap",TERM,BSWAP,0} },
-/*  [D0]  */ {  INVALID,		{"psrlw",TERM,SSE2,0},
+/*  [D0]  */ {  {"addsubp",TERM,SSE2,0},{"psrlw",TERM,SSE2,0},
 		{"psrld",TERM,SSE2,0},	{"psrlq",TERM,SSE2,0},
 /*  [D4]  */	{"paddq",TERM,SSE2,0},	{"pmullw",TERM,SSE2,0},
 		{"mov",TERM,SSE2tm,0},	{"pmovmskb",TERM,SSE2,0},
@@ -750,14 +753,14 @@ static const struct instable op0F[16][16] = {
 		{"pminsw",TERM,SSE2,0},	{"por",TERM,SSE2,0},
 /*  [EC]  */	{"paddsb",TERM,SSE2,0},	{"paddsw",TERM,SSE2,0},
 		{"pmaxsw",TERM,SSE2,0},	{"pxor",TERM,SSE2,0} },
-/*  [F0]  */ {  INVALID,		{"psllw",TERM,SSE2,0},
+/*  [F0]  */ {  {"lddqu",TERM,SSE2,0},	{"psllw",TERM,SSE2,0},
 		{"pslld",TERM,SSE2,0},	{"psllq",TERM,SSE2,0},
 /*  [F4]  */	{"pmuludq",TERM,SSE2,0},{"pmaddwd",TERM,SSE2,0},
 		{"psadbw",TERM,SSE2,0},	{"maskmov",TERM,SSE2,0},
 /*  [F8]  */	{"psubb",TERM,SSE2,0},	{"psubw",TERM,SSE2,0},
 		{"psubd",TERM,SSE2,0},	{"psubq",TERM,SSE2,0},
 /*  [FC]  */	{"paddb",TERM,SSE2,0},	{"paddw",TERM,SSE2,0},
-		{"paddd",TERM,SSE2,0},	{"ud2",TERM,GO_ON,0} },
+		{"paddd",TERM,SSE2,0},	INVALID },
 };
 
 /*
@@ -916,7 +919,7 @@ static const struct instable opFP1n2[8][8] = {
 		{"ficoml",TERM,M,1},	{"ficompl",TERM,M,1},
 /*  [2,4]  */	{"fisubl",TERM,M,1},	{"fisubrl",TERM,M,1},
 		{"fidivl",TERM,M,1},	{"fidivrl",TERM,M,1} },
-/*  [3,0]  */ { {"fildl",TERM,Mnol,1},	INVALID,
+/*  [3,0]  */ { {"fildl",TERM,Mnol,1},	{"fisttpl",TERM,M,1},
 		{"fistl",TERM,M,1},	{"fistpl",TERM,Mnol,1},
 /*  [3,4]  */	INVALID,		{"fldt",TERM,M,1},
 		INVALID,		{"fstpt",TERM,M,1} },
@@ -924,7 +927,7 @@ static const struct instable opFP1n2[8][8] = {
 		{"fcoml",TERM,M,1},	{"fcompl",TERM,M,1},
 /*  [4,1]  */	{"fsubl",TERM,M,1},	{"fsubrl",TERM,M,1},
 		{"fdivl",TERM,M,1},	{"fdivrl",TERM,M,1} },
-/*  [5,0]  */ { {"fldl",TERM,M,1},	INVALID,
+/*  [5,0]  */ { {"fldl",TERM,M,1},	{"fisttpll",TERM,M,1},
 		{"fstl",TERM,M,1},	{"fstpl",TERM,M,1},
 /*  [5,4]  */	{"frstor",TERM,M,1},	INVALID,
 		{"fnsave",TERM,M,1},	{"fnstsw",TERM,M,1} },
@@ -932,7 +935,7 @@ static const struct instable opFP1n2[8][8] = {
 		{"ficoms",TERM,M,1},	{"ficomps",TERM,M,1},
 /*  [6,4]  */	{"fisubs",TERM,M,1},	{"fisubrs",TERM,M,1},
 		{"fidivs",TERM,M,1},	{"fidivrs",TERM,M,1} },
-/*  [7,0]  */ { {"filds",TERM,M,1},	INVALID,
+/*  [7,0]  */ { {"filds",TERM,M,1},	{"fisttps",TERM,M,1},
 		{"fists",TERM,M,1},	{"fistps",TERM,M,1},
 /*  [7,4]  */	{"fbld",TERM,M,1},	{"fildq",TERM,M,1},
 		{"fbstp",TERM,M,1},	{"fistpq",TERM,M,1} },
@@ -1286,32 +1289,52 @@ enum bool verbose)
 		prefix_dp = NULL;
 	    }
 	    else{
-                       /*
-                        * 3DNow! instructions have 2 bytes of opcode followed by their
-                        * operands and then an instruction-specific suffix byte.
-                        */
-                       if (dp->indirect == (const struct instable *) op0F0F){
-                               data16 = FALSE;
-                               mmx = TRUE;
-                               if(got_modrm_byte == FALSE){
-                                       got_modrm_byte = TRUE;
-                                       byte = get_value(sizeof(char), sect, &length, &left);
-                                       modrm_byte(&mode, &reg, &r_m, byte);
-                               }
-                               GET_OPERAND(&symadd0, &symsub0, &value0, &value0_size, result0);
-                               opcode_suffix = get_value(sizeof(char), sect, &length, &left);
-                               dp = &op0F0F[opcode_suffix >> 4][opcode_suffix & 0x0F];
-                       }
-                       else {
-                               /*
-                               * Since the opcode is not an SSE or SSE2 instruction that uses
-                               * the prefix byte as the "third opcode byte" print the
-                               * delayed last prefix if any.
-                               */
-                               if(prefix_dp != NULL)
-                                       printf(prefix_dp->name);
-                       }
-               }
+		/*
+		 * 3DNow! instructions have 2 bytes of opcode followed by their
+		 * operands and then an instruction-specific suffix byte.
+		 */
+		if(dp->indirect == (const struct instable *)op0F0F){
+		    data16 = FALSE;
+		    mmx = TRUE;
+		    if(got_modrm_byte == FALSE){
+			got_modrm_byte = TRUE;
+			byte = get_value(sizeof(char), sect, &length, &left);
+			modrm_byte(&mode, &reg, &r_m, byte);
+		    }
+		    GET_OPERAND(&symadd0, &symsub0, &value0, &value0_size,
+				result0);
+		    opcode_suffix = get_value(sizeof(char), sect, &length,
+					      &left);
+		    dp = &op0F0F[opcode_suffix >> 4][opcode_suffix & 0x0F];
+		}
+		else if(dp->indirect == (const struct instable *)op0F01){
+		    if(got_modrm_byte == FALSE){
+			got_modrm_byte = TRUE;
+			byte = get_value(sizeof(char), sect, &length, &left);
+			modrm_byte(&mode, &reg, &r_m, byte);
+			opcode3 = reg;
+		    }
+		    if(byte == 0xc8){
+			data16 = FALSE;
+			mmx = TRUE;
+			dp = &op_monitor;
+		    }
+		    else if(byte == 0xc9){
+			data16 = FALSE;
+			mmx = TRUE;
+			dp = &op_mwait;
+		    }
+		}
+		else{
+		    /*
+		     * Since the opcode is not an SSE or SSE2 instruction that
+		     * uses the prefix byte as the "third opcode byte" print the
+		     * delayed last prefix if any.
+		     */
+		    if(prefix_dp != NULL)
+			printf(prefix_dp->name);
+		}
+            }
 	}
 	else{
 	    /*
@@ -1336,9 +1359,11 @@ enum bool verbose)
 	     * This must have been an opcode for which several instructions
 	     * exist.  The opcode3 field further decodes the instruction.
 	     */
-	    got_modrm_byte = TRUE;
-	    byte = get_value(sizeof(char), sect, &length, &left);
-	    modrm_byte(&mode, (unsigned long *)&opcode3, &r_m, byte);
+	    if(got_modrm_byte == FALSE){
+		got_modrm_byte = TRUE;
+		byte = get_value(sizeof(char), sect, &length, &left);
+		modrm_byte(&mode, (unsigned long *)&opcode3, &r_m, byte);
+	    }
 	    /*
 	     * decode 287 instructions (D8-DF) from opcodeN
 	     */
@@ -1672,9 +1697,9 @@ enum bool verbose)
 		if(prefix_byte == 0x66)
 		    printf("%slpd\t", mnemonic);
 		else if(prefix_byte == 0xf2)
-		    printf("%slsd\t", mnemonic);
+		    printf("movddup\t");
 		else if(prefix_byte == 0xf3)
-		    printf("%slss\t", mnemonic);
+		    printf("%movsldup\t");
 		else{ /* no prefix_byte */
 		    if(mode == REG_ONLY)
 			printf("%shlps\t", mnemonic);
@@ -1689,7 +1714,7 @@ enum bool verbose)
 		else if(prefix_byte == 0xf2)
 		    printf("%shsd\t", mnemonic);
 		else if(prefix_byte == 0xf3)
-		    printf("%shss\t", mnemonic);
+		    printf("movshdup\t");
 		else{ /* no prefix_byte */
 		    if(mode == REG_ONLY)
 			printf("%slhps\t", mnemonic);
@@ -1932,6 +1957,23 @@ enum bool verbose)
 		    wbit = LONGOPERAND;
 		}
 		break;
+	    case 0xd0: /* addsubpd */
+	    case 0x7c: /* haddp */
+	    case 0x7d: /* hsubp */
+		if(prefix_byte == 0x66){
+		    printf("%sd\t", mnemonic);
+		    sse2 = TRUE;
+		}
+		else if(prefix_byte == 0xf2){
+		    printf("%ss\t", mnemonic);
+		    sse2 = TRUE;
+		}
+		else{ /* no prefix_byte */
+		    sprintf(result1, "%%mm%lu", reg);
+		    printf("%s\t", mnemonic);
+		    mmx = TRUE;
+		}
+		break;
 	    case 0xd7: /* pmovmskb */
 		if(prefix_byte == 0x66){
 		    reg_name = REG32[reg][1];
@@ -1960,6 +2002,10 @@ enum bool verbose)
 		    printf("%s\t", mnemonic);
 		    mmx = TRUE;
 		}
+		break;
+	    case 0xf0: /* lddqu */
+		printf("%s\t", mnemonic);
+		sse2 = TRUE;
 		break;
 	    case 0xf7: /* maskmovdqu & maskmovq */
 		sse2 = TRUE;
@@ -3089,11 +3135,26 @@ print_operand(
 const char *seg,
 const char *symadd,
 const char *symsub,
-const unsigned int value,
-const unsigned int value_size,
+unsigned int value,
+unsigned int value_size,
 const char *result,
 const char *tail)
 {
+	/*
+	 * To allow the assembler to assemble the same thing as being
+	 * disassembled we need to deal with the fact that the assembler treats
+	 * all expressions as signed 32-bits.  So if the value_size is smaller
+	 * than 32-bits and signed we sign extend it and force the size to be
+	 * 32-bits.
+	 */
+	if(value_size == 1 && (value & 0x80) == 0x80){
+	    value = 0xffffff00 | (value & 0xff);
+	    value_size = 4;
+	}
+	else if(value_size == 2 && (value & 0x8000) == 0x8000){
+	    value = 0xffff0000 | (value & 0xffff);
+	    value_size = 4;
+	}
 	if(symadd != NULL){
 	    if(symsub != NULL){
 		if(value_size != 0){

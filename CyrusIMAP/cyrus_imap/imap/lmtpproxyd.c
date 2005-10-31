@@ -1,6 +1,6 @@
 /* lmtpproxyd.c -- Program to proxy mail delivery
  *
- * $Id: lmtpproxyd.c,v 1.5 2005/03/05 00:36:57 dasenbro Exp $
+ * $Id: lmtpproxyd.c,v 1.6 2005/08/10 21:42:01 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -522,7 +522,7 @@ int deliver(message_data_t *msgdata, char *authuser,
 	int r = 0;
 
 	rcpt = msg_getrcptall(msgdata, n);
-	msg_getrcpt(msgdata, n, &user, &domain, &mailbox);
+	msg_getrcpt(msgdata, n, &user, &domain, &mailbox, NULL);
 	mydata.cur_rcpt = n;
 
 	if (domain) snprintf(namebuf, sizeof(namebuf), "%s!", domain);

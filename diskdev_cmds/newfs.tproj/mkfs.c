@@ -79,6 +79,8 @@
 #include <ufs/ufs/dinode.h>
 #include <ufs/ufs/dir.h>
 #include <ufs/ffs/fs.h>
+#include <string.h>
+#include <stdlib.h>
 
 #ifdef linux
 #define MAXPHYSIO (64 * 1024)
@@ -154,8 +156,6 @@ extern int	avgfilesize;	/* expected average file size */
 extern int	avgfilesperdir;	/* expected number of files per directory */
 extern u_long	memleft;	/* virtual memory available */
 extern caddr_t	membase;	/* start address of memory based filesystem */
-extern caddr_t	malloc(u_long), calloc(u_long, u_long);
-caddr_t realloc(char *, u_long);
 
 union {
 	struct fs fs;
@@ -201,15 +201,19 @@ daddr_t alloc(int size, int mode);
 long calcipg(long cpg, long bpcg, off_t *usedbp);
 void iput(register struct dinode *ip, register ino_t ino);
 void started();
-caddr_t malloc(register u_long size);
-caddr_t realloc(char *ptr, u_long size);
-char *calloc(u_long size, u_long numelm);
-void free(char *ptr);
 void rdfs(daddr_t bno, int size, char *bf);
 void wtfs(daddr_t bno, int size, char *bf);
 int isblock(struct fs *fs, unsigned char *cp, int h);
 void clrblock(struct fs *fs, unsigned char *cp, int h);
 void setblock(struct fs *fs, unsigned char *cp, int h);
+
+#ifndef __APPLE__
+/* Ifndef __APPLE__, replace libc function with one suited to our needs. */
+caddr_t malloc(register u_long size);
+caddr_t realloc(char *ptr, u_long size);
+char *calloc(u_long size, u_long numelm);
+void free(char *ptr);
+#endif /* __APPLE__ */
 
 void
 mkfs(fsys, fi, fo)
@@ -222,7 +226,6 @@ mkfs(fsys, fi, fo)
 	off_t usedb;
 	long mapcramped, inodecramped;
 	long postblsize, rotblsize, totalsbsize;
-	int ppid, status;
 	time_t utime;
 	quad_t sizepb;
 	void started();
@@ -769,7 +772,7 @@ initcg(cylno, utime)
 	daddr_t cbase, d, dlower, dupper, dmax, blkno;
 	long i;
 #ifdef __APPLE__
-	daddr_t wtfsbno;
+	daddr_t wtfsbno = 0;
 	char *	bufferPtr = NULL;
 	char * 	alignedBufPtr;
 	int	pageSize;

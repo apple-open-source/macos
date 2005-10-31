@@ -1344,11 +1344,14 @@ bool IOHIDUPSClass::updateElementValue(UPSHIDElement *	tempHIDElement)
         ret = (*_hidDeviceInterface)->getElementValue(_hidDeviceInterface, tempHIDElement->cookie, &valueEvent);
 
         // If this is a null timestamp and not an output element, query the value.
+        // P.S. Don't continue to poll if the last attempt generated an error.
         if ((ret == kIOReturnSuccess) && 
+            (tempHIDElement->lastReturn == kIOReturnSuccess) &&
             (*(UInt64 *)(&(valueEvent.timestamp)) == 0) && 
             (tempHIDElement->type != kIOHIDElementTypeOutput))
         {
             ret = (*_hidDeviceInterface)->queryElementValue(_hidDeviceInterface, tempHIDElement->cookie, &valueEvent, 0, 0, 0, 0);
+            tempHIDElement->lastReturn = ret;
         }
      }
 

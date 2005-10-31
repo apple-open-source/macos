@@ -37,13 +37,16 @@
 
 enum {
     kHTBridgeSelfDevice = 0,
+    kPCIEBridgeSelfDevice = 0,
     kPCIBridgeSelfDevice = 11
 };
 
 enum {
   kMacRISCHTAddressSelect 	= 0x80,
   kMacRISCPCIAddressSelect 	= 0x48,
-  kMacRISCPCIModeSelect		= 0x50,
+  kMacRISCPCIEAddressSelect 	= 0xFC,
+  kMacRISCPCIEBridgeRegs		= 0x40,
+  kMacRISCPCIModeSelect			= 0x50,
   kMacRISCPCIModeSelectRDGBit 	= 0x00080000,
   kMacRISCPCIModeSelectWCBit    = 0x00100000
 };
@@ -145,6 +148,58 @@ public:
 					UInt8 offset, UInt8 data );
 
     virtual IOPCIAddressSpace getBridgeSpace( void );
+};
+
+class AppleMacRiscPCIE : public IOPCIBridge
+{
+    OSDeclareDefaultStructors(AppleMacRiscPCIE)
+
+protected:
+    IOSimpleLock	*	lock;
+    IOMemoryMap		*	hostRegsMap;
+    IOMemoryMap		*	configAtomicMap;
+    IODeviceMemory	*	ioMemory;
+
+    volatile UInt8	*	hostRegs;
+    volatile UInt8	*	configAtomic;
+    volatile UInt32	*	configAddrNA;
+    volatile UInt8	*	configDataNA;
+
+    UInt16			coarseAddressMask;
+    UInt16			fineAddressMask;
+    UInt8			primaryBus;
+	
+    UInt32			bridgeState[kMacRISCPCIEBridgeRegs];
+
+    inline bool configCycleAtomic( IOPCIAddressSpace space);
+    inline volatile UInt8 * setConfigSpace( IOPCIAddressSpace space, UInt8 offset );
+
+public:
+    virtual bool start(	IOService * provider );
+    virtual bool configure( IOService * provider );
+
+    virtual void free();
+
+    virtual IODeviceMemory * ioDeviceMemory( void );
+
+    virtual UInt32 configRead32( IOPCIAddressSpace space, UInt8 offset );
+    virtual void configWrite32( IOPCIAddressSpace space,
+					UInt8 offset, UInt32 data );
+    virtual UInt16 configRead16( IOPCIAddressSpace space, UInt8 offset );
+    virtual void configWrite16( IOPCIAddressSpace space,
+					UInt8 offset, UInt16 data );
+    virtual UInt8 configRead8( IOPCIAddressSpace space, UInt8 offset );
+    virtual void configWrite8( IOPCIAddressSpace space,
+					UInt8 offset, UInt8 data );
+
+    virtual IOPCIAddressSpace getBridgeSpace( void );
+
+    virtual IOReturn setDevicePowerState( IOPCIDevice * device,
+                                          unsigned long whatToDo );
+
+    virtual void saveBridgeState( void );
+
+    virtual void restoreBridgeState( void );
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

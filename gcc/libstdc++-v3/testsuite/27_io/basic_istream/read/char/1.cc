@@ -1,6 +1,6 @@
 // 1999-08-11 bkoz
 
-// Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,12 +28,8 @@
 void
 test01()
 {
-  typedef std::ios::traits_type traits_type;
-
   bool test __attribute__((unused)) = true;
-  const std::string str_01;
   const std::string str_02("soul eyes: john coltrane quartet");
-  std::string strtmp;
 
   std::stringbuf isbuf_03(str_02, std::ios_base::in);
   std::stringbuf isbuf_04(str_02, std::ios_base::in);

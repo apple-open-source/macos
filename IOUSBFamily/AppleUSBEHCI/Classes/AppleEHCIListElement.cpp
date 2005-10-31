@@ -36,9 +36,9 @@ OSDefineAbstractStructors(AppleEHCIListElement, OSObject)
 void
 AppleEHCIListElement::print(int level)
 {
-    USBLog(level, "AppleEHCIListElement::print - _sharedPhysical[%x]", _sharedPhysical);
-    USBLog(level, "AppleEHCIListElement::print - _sharedLogical[%x]", _sharedLogical);
-    USBLog(level, "AppleEHCIListElement::print - _logicalNext[%x]", _logicalNext);
+    USBLog(level, "AppleEHCIListElement[%p]::print - _sharedPhysical[%x]", this, (unsigned int)_sharedPhysical);
+    USBLog(level, "AppleEHCIListElement::print - _sharedLogical[%x]", (unsigned int)_sharedLogical);
+    USBLog(level, "AppleEHCIListElement::print - _logicalNext[%x]", (unsigned int)_logicalNext);
 }
 
 
@@ -94,18 +94,23 @@ AppleEHCIQueueHead::print(int level)
     EHCIQueueHeadSharedPtr shared = GetSharedLogical();
 	
     super::print(level);
-    USBLog(level, "AppleEHCIQueueHead::print - shared.nextQH[%p]", USBToHostLong(shared->nextQH));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.flags[%p]", USBToHostLong(shared->flags));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.splitFlags[%p]", USBToHostLong(shared->splitFlags));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.CurrqTDPtr[%p]", USBToHostLong(shared->CurrqTDPtr));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.NextqTDPtr[%p]", USBToHostLong(shared->NextqTDPtr));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.AltqTDPtr[%p]", USBToHostLong(shared->AltqTDPtr));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.qTDFlags[%p]", USBToHostLong(shared->qTDFlags));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[0][%p]", USBToHostLong(shared->BuffPtr[0]));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[1][%p]", USBToHostLong(shared->BuffPtr[1]));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[2][%p]", USBToHostLong(shared->BuffPtr[2]));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[3][%p]", USBToHostLong(shared->BuffPtr[3]));
-    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[4][%p]", USBToHostLong(shared->BuffPtr[4]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.nextQH[%p]", (void*)USBToHostLong(shared->nextQH));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.flags[%p]", (void*)USBToHostLong(shared->flags));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.splitFlags[%p]", (void*)USBToHostLong(shared->splitFlags));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.CurrqTDPtr[%p]", (void*)USBToHostLong(shared->CurrqTDPtr));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.NextqTDPtr[%p]", (void*)USBToHostLong(shared->NextqTDPtr));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.AltqTDPtr[%p]", (void*)USBToHostLong(shared->AltqTDPtr));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.qTDFlags[%p]", (void*)USBToHostLong(shared->qTDFlags));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[0][%p]", (void*)USBToHostLong(shared->BuffPtr[0]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[1][%p]", (void*)USBToHostLong(shared->BuffPtr[1]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[2][%p]", (void*)USBToHostLong(shared->BuffPtr[2]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[3][%p]", (void*)USBToHostLong(shared->BuffPtr[3]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.BuffPtr[4][%p]", (void*)USBToHostLong(shared->BuffPtr[4]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[0][%p]", (void*)USBToHostLong(shared->extBuffPtr[0]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[1][%p]", (void*)USBToHostLong(shared->extBuffPtr[1]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[2][%p]", (void*)USBToHostLong(shared->extBuffPtr[2]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[3][%p]", (void*)USBToHostLong(shared->extBuffPtr[3]));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[4][%p]", (void*)USBToHostLong(shared->extBuffPtr[4]));
 }
 
 
@@ -121,9 +126,9 @@ AppleEHCIIsochListElement::print(int level)
     super::print(level);
     USBLog(level, "AppleEHCIIsochListElement::print - _pEndpoint[%p]", _pEndpoint);
     USBLog(level, "AppleEHCIIsochListElement::print - _pFrames[%p]", _pFrames);
-    USBLog(level, "AppleEHCIIsochListElement::print - completion[%x, %x, %x]", _completion.action, _completion.target, _completion.parameter);
+    USBLog(level, "AppleEHCIIsochListElement::print - completion[%p, %p, %p]", _completion.action, _completion.target, _completion.parameter);
     USBLog(level, "AppleEHCIIsochListElement::print - _lowLatency[%x]", _lowLatency);
-    USBLog(level, "AppleEHCIIsochListElement::print - frameNumber[%x]", (UInt32)_frameNumber);
+    USBLog(level, "AppleEHCIIsochListElement::print - frameNumber[0x%x]", _frameNumber);
 }
 
 
@@ -244,25 +249,40 @@ AppleEHCIIsochTransferDescriptor::mungeEHCIStatus(UInt32 status, UInt16 *transfe
 IOReturn
 AppleEHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 {
+	// Do not use any USBLogs in this routine, as it's called from Filter Interrupt time
+	//
     UInt32							*TransactionP, statusWord;
-    IOUSBLowLatencyIsocFrame 		*FrameP;
+    IOUSBIsocFrame					*pFrames;    
+    IOUSBLowLatencyIsocFrame		*pLLFrames;    
     IOReturn						ret, frStatus;
     int								i;
+	UInt16							*pActCount;
+	UInt8							framesInTD;
 	
     ret = _pEndpoint->accumulatedStatus;
 	
     TransactionP = &GetSharedLogical()->Transaction0;
-    FrameP = (IOUSBLowLatencyIsocFrame *)_pFrames;
-    for(i=0; i<8; i++)
+    pFrames = _pFrames;
+	framesInTD = _framesInTD;
+	if (!pFrames || !framesInTD)							// this will be the case for the dummy TD
+		return kIOReturnSuccess;
+	
+    pLLFrames = (IOUSBLowLatencyIsocFrame*)_pFrames;
+    for(i=0; i < 8; i+= _pEndpoint->interval)
     {
+		if (!framesInTD)
+			break;
+		
 	    statusWord = USBToHostLong(*(TransactionP++));
-	    frStatus = mungeEHCIStatus(statusWord, &FrameP->frActCount,  _pEndpoint->maxPacketSize,  _pEndpoint->direction);
-	    if (_lowLatency)
-			FrameP->frTimeStamp = timeStamp;
-	    
+		if (_lowLatency)
+			pActCount = &(pLLFrames[i].frActCount);
+		else
+			pActCount = &(pFrames[i].frActCount);
+		
+	    frStatus = mungeEHCIStatus(statusWord, pActCount,  _pEndpoint->maxPacketSize,  _pEndpoint->direction);
+
 	    if(frStatus != kIOReturnSuccess)
 	    {
-		    USBError(5, "AppleEHCIIsochTransferDescriptor::UpdateFrameList - bad status word %p gives status %p", statusWord, frStatus);
 		    if(frStatus != kIOReturnUnderrun)
 		    {
 			    ret = frStatus;
@@ -272,19 +292,21 @@ AppleEHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 			    ret = kIOReturnUnderrun;
 		    }
 	    }
-	    FrameP->frStatus = frStatus;
 	    if(_lowLatency)
 	    {
-		    FrameP++;
+		    pLLFrames[i].frStatus = frStatus;
+			pLLFrames[i].frTimeStamp = timeStamp;
 	    }
 	    else
 	    {
-		    FrameP = (IOUSBLowLatencyIsocFrame *)(  ((IOUSBIsocFrame *)FrameP)+1);
+		    pFrames[i].frStatus = frStatus;
 	    }
+		framesInTD--;
     }
     _pEndpoint->accumulatedStatus = ret;
     return ret;
 }
+
 
 
 IOReturn

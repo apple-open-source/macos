@@ -141,8 +141,7 @@ extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
 extern struct rtx_def *function_arg (const CUMULATIVE_ARGS *,
 				     enum machine_mode, tree, int);
-extern int function_arg_partial_nregs (const CUMULATIVE_ARGS *,
-				       enum machine_mode, tree, int);
+extern int function_arg_boundary (enum machine_mode, tree);
 extern bool mips_pad_arg_upward (enum machine_mode, tree);
 extern bool mips_pad_reg_upward (enum machine_mode, tree);
 extern void mips_va_start (tree, rtx);
@@ -190,7 +189,6 @@ extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   enum machine_mode,
 						   rtx, int);
 extern int mips_class_max_nregs (enum reg_class, enum machine_mode);
-extern bool mips_valid_pointer_mode (enum machine_mode);
 extern int build_mips16_call_stub (rtx, rtx, rtx, int);
 extern int mips_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);

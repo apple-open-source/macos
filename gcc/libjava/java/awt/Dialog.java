@@ -1,5 +1,5 @@
 /* Dialog.java -- An AWT dialog box
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -40,11 +40,16 @@ package java.awt;
 
 import java.awt.peer.DialogPeer;
 
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.accessibility.AccessibleState;
+import javax.accessibility.AccessibleStateSet;
+
 /**
  * A dialog box widget class.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Tom Tromey <tromey@redhat.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Tom Tromey (tromey@redhat.com)
  */
 public class Dialog extends Window
 {
@@ -511,5 +516,38 @@ paramString()
 
     this.undecorated = undecorated;
   }
+  
+  protected class AccessibleAWTDialog extends AccessibleAWTWindow
+  {
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.DIALOG;
+    }
+    
+    public AccessibleStateSet getAccessibleState()
+    {
+      AccessibleStateSet states = super.getAccessibleStateSet();
+      if (isResizable())
+        states.add(AccessibleState.RESIZABLE);
+      if (isModal())
+        states.add(AccessibleState.MODAL);
+      return states;
+    }
+  }
+  
+  /**
+   * Gets the AccessibleContext associated with this <code>Dialog</code>.
+   * The context is created, if necessary.
+   *
+   * @return the associated context
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    /* Create the context if this is the first request */
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleAWTDialog();
+    return accessibleContext;
+  }
+
 } // class Dialog
 

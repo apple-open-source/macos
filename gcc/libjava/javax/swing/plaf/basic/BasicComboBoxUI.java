@@ -1,5 +1,5 @@
 /* BasicComboBoxUI.java --
-   Copyright (C) 2004  Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.plaf.basic;
 
 import java.awt.Color;
@@ -58,7 +59,7 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.util.EventListener;
+
 import javax.accessibility.Accessible;
 import javax.swing.CellRendererPane;
 import javax.swing.ComboBoxEditor;
@@ -66,26 +67,20 @@ import javax.swing.ComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.ListCellRenderer;
-import javax.swing.SwingConstants;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.ComboBoxUI;
 import javax.swing.plaf.ComponentUI;
-import javax.swing.plaf.basic.BasicComboPopup;
-import javax.swing.plaf.basic.BasicGraphicsUtils;
-
 
 /**
  * UI Delegate for JComboBox
  *
  * @author Olga Rodimina
+ * @author Robert Schuster
  */
 public class BasicComboBoxUI extends ComboBoxUI
 {
@@ -789,22 +784,25 @@ public class BasicComboBoxUI extends ComboBoxUI
       {
 	Object currentValue = comboBox.getSelectedItem();
 	boolean isPressed = arrowButton.getModel().isPressed();
-	if (currentValue != null)
-	  {
-	    Component comp = comboBox.getRenderer()
+
+	/* Gets the component to be drawn for the current value.
+	 * If there is currently no selected item we will take an empty
+	 * String as replacement.
+	 */
+	Component comp = comboBox.getRenderer()
 	                             .getListCellRendererComponent(listBox,
-	                                                           currentValue,
+	                                                           (currentValue != null ? currentValue : ""),
 	                                                           -1,
 	                                                           isPressed,
-	                                                           isPressed);
-	    if (! comboBox.isEnabled())
+	                                                           hasFocus);
+	if (! comboBox.isEnabled())
 	      comp.setEnabled(false);
 
-	    g.translate(borderInsets.left, borderInsets.top);
+	g.translate(borderInsets.left, borderInsets.top);
 	    comp.setBounds(0, 0, bounds.width, bounds.height);
 	    comp.paint(g);
 	    g.translate(-borderInsets.left, -borderInsets.top);
-	  }
+	    
 	comboBox.revalidate();
       }
     else
@@ -1127,8 +1125,9 @@ public class BasicComboBoxUI extends ComboBoxUI
      */
     public void intervalRemoved(ListDataEvent e)
     {
-      // must determine if the size of the combo box should change
-      // FIXME: need to implement
+      // recalculate display size of the JComboBox.
+      largestItemSize = getLargestItemSize();
+      comboBox.repaint();
     }
   }
 
@@ -1142,18 +1141,20 @@ public class BasicComboBoxUI extends ComboBoxUI
     {
     }
 
+    /**
+     * This method is invoked whenever bound property of JComboBox changes.
+     */
     public void propertyChange(PropertyChangeEvent e)
     {
-      if (e.getPropertyName().equals(JComboBox.ENABLED_CHANGED_PROPERTY))
+      if (e.getPropertyName().equals("enabled"))
         {
-	  // disable arrow button	
 	  arrowButton.setEnabled(comboBox.isEnabled());
 
 	  if (comboBox.isEditable())
 	    comboBox.getEditor().getEditorComponent().setEnabled(comboBox
 	                                                         .isEnabled());
         }
-      else if (e.getPropertyName().equals(JComboBox.EDITABLE_CHANGED_PROPERTY))
+      else if (e.getPropertyName().equals("editable"))
         {
 	  if (comboBox.isEditable())
 	    {
@@ -1168,6 +1169,16 @@ public class BasicComboBoxUI extends ComboBoxUI
 
 	  comboBox.revalidate();
 	  comboBox.repaint();
+        }
+      else if (e.getPropertyName().equals("dataModel"))
+        {
+	  // remove ListDataListener from old model and add it to new model
+	  ComboBoxModel oldModel = (ComboBoxModel) e.getOldValue();
+	  if (oldModel != null)
+	    oldModel.removeListDataListener(listDataListener);
+
+	  if ((ComboBoxModel) e.getNewValue() != null)
+	    comboBox.getModel().addListDataListener(listDataListener);
         }
 
       // FIXME: Need to handle changes in other bound properties.	

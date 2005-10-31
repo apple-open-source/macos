@@ -1,5 +1,5 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -37,8 +37,14 @@ typedef bitmap_head regset_head;
 /* A pointer to a regset_head.  */
 typedef bitmap regset;
 
+/* Allocate a register set with oballoc.  */
+#define ALLOC_REG_SET(OBSTACK) BITMAP_ALLOC (OBSTACK)
+
+/* Do any cleanup needed on a regset when it is no longer used.  */
+#define FREE_REG_SET(REGSET) BITMAP_FREE (REGSET)
+
 /* Initialize a new regset.  */
-#define INIT_REG_SET(HEAD) bitmap_initialize (HEAD, 1)
+#define INIT_REG_SET(HEAD) bitmap_initialize (HEAD, &reg_obstack)
 
 /* Clear a register set by freeing up the linked list.  */
 #define CLEAR_REG_SET(HEAD) bitmap_clear (HEAD)
@@ -50,21 +56,20 @@ typedef bitmap regset;
 #define REG_SET_EQUAL_P(A, B) bitmap_equal_p (A, B)
 
 /* `and' a register set with a second register set.  */
-#define AND_REG_SET(TO, FROM) bitmap_operation (TO, TO, FROM, BITMAP_AND)
+#define AND_REG_SET(TO, FROM) bitmap_and_into (TO, FROM)
 
 /* `and' the complement of a register set with a register set.  */
-#define AND_COMPL_REG_SET(TO, FROM) \
-  bitmap_operation (TO, TO, FROM, BITMAP_AND_COMPL)
+#define AND_COMPL_REG_SET(TO, FROM) bitmap_and_compl_into (TO, FROM)
 
 /* Inclusive or a register set with a second register set.  */
-#define IOR_REG_SET(TO, FROM) bitmap_operation (TO, TO, FROM, BITMAP_IOR)
+#define IOR_REG_SET(TO, FROM) bitmap_ior_into (TO, FROM)
 
 /* Exclusive or a register set with a second register set.  */
-#define XOR_REG_SET(TO, FROM) bitmap_operation (TO, TO, FROM, BITMAP_XOR)
+#define XOR_REG_SET(TO, FROM) bitmap_xor_into (TO, FROM)
 
 /* Or into TO the register set FROM1 `and'ed with the complement of FROM2.  */
 #define IOR_AND_COMPL_REG_SET(TO, FROM1, FROM2) \
-  bitmap_ior_and_compl (TO, FROM1, FROM2)
+  bitmap_ior_and_compl_into (TO, FROM1, FROM2)
 
 /* Clear a single register in a register set.  */
 #define CLEAR_REGNO_REG_SET(HEAD, REG) bitmap_clear_bit (HEAD, REG)
@@ -102,23 +107,6 @@ typedef bitmap_iterator reg_set_iterator;
 #define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, RSI) \
   EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, RSI)	\
 
-/* Allocate a register set with oballoc.  */
-#define OBSTACK_ALLOC_REG_SET(OBSTACK) BITMAP_OBSTACK_ALLOC (OBSTACK)
-
-/* Initialize a register set.  Returns the new register set.  */
-#define INITIALIZE_REG_SET(HEAD) bitmap_initialize (&HEAD, 1)
-
-/* Do any cleanup needed on a regset when it is no longer used.  */
-#define FREE_REG_SET(REGSET) BITMAP_FREE(REGSET)
-
-/* Do any one-time initializations needed for regsets.  */
-#define INIT_ONCE_REG_SET() BITMAP_INIT_ONCE ()
-
-/* Grow any tables needed when the number of registers is calculated
-   or extended.  For the linked list allocation, nothing needs to
-   be done, other than zero the statistics on the first allocation.  */
-#define MAX_REGNO_REG_SET(NUM_REGS, NEW_P, RENUMBER_P)
-
 /* Type we use to hold basic block counters.  Should be at least
    64bit.  Although a counter cannot be negative, we use a signed
    type, because erroneous negative counts can be generated when the
@@ -149,6 +137,10 @@ struct edge_def GTY(())
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
 				   in profile.c  */
+
+  /* The index number corresponding to this edge in the edge vector
+     dest->preds.  */
+  unsigned int dest_idx;
 };
 
 typedef struct edge_def *edge;
@@ -230,20 +222,9 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   VEC(edge) *preds;
   VEC(edge) *succs;
 
-  /* Liveness info.  */
-
-  /* The registers that are modified within this in block.  */
-  bitmap GTY ((skip (""))) local_set;
-  /* The registers that are conditionally modified within this block.
-     In other words, registers that are set only as part of a
-     COND_EXEC.  */
-  bitmap GTY ((skip (""))) cond_local_set;
-  /* The registers that are live on entry to this block.
-
-     Note that in SSA form, global_live_at_start does not reflect the
-     use of regs in phi functions, since the liveness of these regs
-     may depend on which edge was taken into the block.  */
+  /* The registers that are live on entry to this block.  */
   bitmap GTY ((skip (""))) global_live_at_start;
+
   /* The registers that are live on exit from this block.  */
   bitmap GTY ((skip (""))) global_live_at_end;
 
@@ -304,17 +285,47 @@ typedef struct reorder_block_def
 
 #define BB_FREQ_MAX 10000
 
-/* Masks for basic_block.flags.  */
-#define BB_DIRTY		1
-#define BB_NEW			2
-#define BB_REACHABLE		4
-#define BB_VISITED		8
-#define BB_IRREDUCIBLE_LOOP	16
-#define BB_SUPERBLOCK		32
-#define BB_DISABLE_SCHEDULE     64
+/* Masks for basic_block.flags.
 
+   BB_VISITED should not be used by passes, it is used internally by
+   dfs_enumerate_from.
+
+   BB_HOT_PARTITION and BB_COLD_PARTITION should be preserved throughout
+   the compilation, so they are never cleared.
+
+   All other flags may be cleared by clear_bb_flags().  It is generally
+   a bad idea to rely on any flags being up-to-date.  */
+
+/* Set if insns in BB have are modified.  Used for updating liveness info.  */
+#define BB_DIRTY		1
+
+/* Only set on blocks that have just been created by create_bb.  */
+#define BB_NEW			2
+
+/* Set by find_unreachable_blocks.  Do not rely on this being set in any
+   pass.  */
+#define BB_REACHABLE		4
+
+/* Used by dfs_enumerate_from to keep track of visited basic blocks.  */
+#define BB_VISITED		8
+
+/* Set for blocks in an irreducible loop by loop analysis.  */
+#define BB_IRREDUCIBLE_LOOP	16
+
+/* Set on blocks that may actually not be single-entry single-exit block.  */
+#define BB_SUPERBLOCK		32
+
+/* Set on basic blocks that the scheduler should not touch.  This is used
+   by SMS to prevent other schedulers from messing with the loop schedule.  */
+#define BB_DISABLE_SCHEDULE	64
+
+/* Set on blocks that should be put in a hot section.  */
 #define BB_HOT_PARTITION	128
+
+/* Set on blocks that should be put in a cold section.  */
 #define BB_COLD_PARTITION	256
+
+/* Dummy flag for convenience in the hot/cold partitioning code.  */
 #define BB_UNPARTITIONED	0
 
 /* Partitions, to be used when partitioning hot and cold basic blocks into
@@ -390,7 +401,7 @@ extern regset regs_live_at_setjmp;
 
 extern GTY(()) rtx label_value_list;
 
-extern struct obstack flow_obstack;
+extern bitmap_obstack reg_obstack;
 
 /* Indexed by n, gives number of basic block that  (REG n) is used in.
    If the value is REG_BLOCK_GLOBAL (-2),
@@ -458,7 +469,6 @@ extern void compute_dominance_frontiers (bitmap *);
 extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
-extern void mark_critical_edges (void);
 extern rtx first_insn_after_basic_block_note (basic_block);
 
 /* Structure to group all of the information to process IF-THEN and
@@ -635,7 +645,7 @@ ei_safe_edge (edge_iterator i)
    FOR (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
      {
 	IF (e != taken_edge)
-	  ssa_remove_edge (e);
+	  remove_edge (e);
 	ELSE
 	  ei_next (&ei);
      }
@@ -682,7 +692,7 @@ enum update_life_extent
 				 | PROP_SCAN_DEAD_STORES)
 #define PROP_POSTRELOAD		(PROP_DEATH_NOTES  \
 				 | PROP_KILL_DEAD_CODE  \
-				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
+				 | PROP_SCAN_DEAD_CODE \
 				 | PROP_SCAN_DEAD_STORES)
 
 #define CLEANUP_EXPENSIVE	1	/* Do relatively expensive optimizations
@@ -722,10 +732,6 @@ extern struct edge_list *pre_edge_rev_lcm (FILE *, int, sbitmap *,
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 extern int optimize_mode_switching (FILE *);
 
-/* In emit-rtl.c.  */
-extern rtx emit_block_insn_after (rtx, rtx, basic_block);
-extern rtx emit_block_insn_before (rtx, rtx, basic_block);
-
 /* In predict.c */
 extern void estimate_probability (struct loops *);
 extern void expected_value_to_br_prob (void);
@@ -746,7 +752,6 @@ extern basic_block debug_bb_n (int);
 extern void dump_regset (regset, FILE *);
 extern void debug_regset (regset);
 extern void allocate_reg_life_data (void);
-extern void allocate_bb_life_data (void);
 extern void expunge_block (basic_block);
 extern void link_block (basic_block, basic_block);
 extern void unlink_block (basic_block);
@@ -774,7 +779,7 @@ extern void alloc_aux_for_edge (edge, int);
 extern void alloc_aux_for_edges (int);
 extern void clear_aux_for_edges (void);
 extern void free_aux_for_edges (void);
-extern void find_basic_blocks (rtx, int, FILE *);
+extern void find_basic_blocks (rtx);
 extern bool cleanup_cfg (int);
 extern bool delete_unreachable_blocks (void);
 extern bool merge_seq_blocks (void);
@@ -798,7 +803,6 @@ extern void conflict_graph_enum (conflict_graph, int, conflict_graph_enum_fn,
 				 void *);
 extern void conflict_graph_merge_regs (conflict_graph, int, int);
 extern void conflict_graph_print (conflict_graph, FILE*);
-extern conflict_graph conflict_graph_compute (regset, partition);
 extern bool mark_dfs_back_edges (void);
 extern void set_edge_can_fallthru_flag (void);
 extern void update_br_prob_note (basic_block);
@@ -808,6 +812,7 @@ extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
 extern void reorder_basic_blocks (unsigned int);
+extern void duplicate_computed_gotos (void);
 extern void partition_hot_cold_basic_blocks (void);
 
 /* In cfg.c */

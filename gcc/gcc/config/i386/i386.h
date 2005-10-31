@@ -34,9 +34,6 @@ Boston, MA 02111-1307, USA.  */
    ADDR_BEG, ADDR_END, PRINT_IREG, PRINT_SCALE, PRINT_B_I_S, and many
    that start with ASM_ or end in ASM_OP.  */
 
-/* APPLE LOCAL fat builds */
-#define DEFAULT_TARGET_ARCH "i386"
-
 /* Define the specific costs for a given cpu */
 
 struct processor_costs {
@@ -107,6 +104,13 @@ extern int target_flags;
 #endif
 #endif
 
+/* APPLE LOCAL begin mainline 2005-04-11 4010614 */
+#ifndef TARGET_FPMATH_DEFAULT
+#define TARGET_FPMATH_DEFAULT \
+  (TARGET_64BIT && TARGET_SSE ? FPMATH_SSE : FPMATH_387)
+#endif
+/* APPLE LOCAL end mainline 2005-04-11 4010614 */
+
 /* Masks for the -m switches */
 #define MASK_80387		0x00000001	/* Hardware floating point */
 #define MASK_RTD		0x00000002	/* Use ret that pops args */
@@ -132,7 +136,8 @@ extern int target_flags;
 #define MASK_MS_BITFIELD_LAYOUT 0x00200000	/* Use native (MS) bitfield layout */
 #define MASK_TLS_DIRECT_SEG_REFS 0x00400000	/* Avoid adding %gs:0  */
 
-/* Unused:			0x03e0000	*/
+/* APPLE LOCAL dynamic-no-pic */
+/* Unused:			0x03000000	*/
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
@@ -179,6 +184,9 @@ extern int target_flags;
 /* Disable generation of FP sin, cos and sqrt operations for 387.
    This is because FreeBSD lacks these in the math-emulator-code */
 #define TARGET_NO_FANCY_MATH_387 (target_flags & MASK_NO_FANCY_MATH_387)
+
+/* Generate 387 floating point intrinsics for the current target.  */
+#define TARGET_USE_FANCY_MATH_387 (! TARGET_NO_FANCY_MATH_387)
 
 /* Don't create frame pointers for leaf functions */
 #define TARGET_OMIT_LEAF_FRAME_POINTER \
@@ -229,7 +237,8 @@ extern int target_flags;
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
-extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
+/* APPLE LOCAL mainline 2005-03-16 4054919 */
+extern const int x86_use_bit_test, x86_cmove, x86_fisttp, x86_deep_branch;
 extern const int x86_branch_hints, x86_unroll_strlen;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
 extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
@@ -243,10 +252,11 @@ extern const int x86_partial_reg_dependency, x86_memory_mismatch_stall;
 extern const int x86_accumulate_outgoing_args, x86_prologue_using_move;
 extern const int x86_epilogue_using_move, x86_decompose_lea;
 extern const int x86_arch_always_fancy_math_387, x86_shift1;
-extern const int x86_sse_partial_reg_dependency, x86_sse_partial_regs;
+extern const int x86_sse_partial_reg_dependency, x86_sse_split_regs;
 extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
-extern const int x86_use_ffreep, x86_sse_partial_regs_for_cvtsd2ss;
+extern const int x86_use_ffreep;
 extern const int x86_inter_unit_moves, x86_schedule;
+extern const int x86_use_bt;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
@@ -257,6 +267,8 @@ extern int x86_prefetch_sse;
 /* For sane SSE instruction set generation we need fcomi instruction.  It is
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
+/* APPLE LOCAL mainline 2005-03-16 4054919 */
+#define TARGET_FISTTP (x86_fisttp & (1 << ix86_arch))
 #define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & TUNEMASK)
 #define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & TUNEMASK)
 #define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & TUNEMASK)
@@ -285,11 +297,8 @@ extern int x86_prefetch_sse;
 #define TARGET_PARTIAL_REG_DEPENDENCY (x86_partial_reg_dependency & TUNEMASK)
 #define TARGET_SSE_PARTIAL_REG_DEPENDENCY \
 				      (x86_sse_partial_reg_dependency & TUNEMASK)
-#define TARGET_SSE_PARTIAL_REGS (x86_sse_partial_regs & TUNEMASK)
-#define TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS \
-				(x86_sse_partial_regs_for_cvtsd2ss & TUNEMASK)
+#define TARGET_SSE_SPLIT_REGS (x86_sse_split_regs & TUNEMASK)
 #define TARGET_SSE_TYPELESS_STORES (x86_sse_typeless_stores & TUNEMASK)
-#define TARGET_SSE_TYPELESS_LOAD0 (x86_sse_typeless_load0 & TUNEMASK)
 #define TARGET_SSE_LOAD0_BY_PXOR (x86_sse_load0_by_pxor & TUNEMASK)
 #define TARGET_MEMORY_MISMATCH_STALL (x86_memory_mismatch_stall & TUNEMASK)
 #define TARGET_PROLOGUE_USING_MOVE (x86_prologue_using_move & TUNEMASK)
@@ -302,6 +311,7 @@ extern int x86_prefetch_sse;
 #define TARGET_INTER_UNIT_MOVES (x86_inter_unit_moves & TUNEMASK)
 #define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 #define TARGET_SCHEDULE (x86_schedule & TUNEMASK)
+#define TARGET_USE_BT (x86_use_bt & TUNEMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -394,19 +404,19 @@ extern int x86_prefetch_sse;
     N_("Do not use push instructions to save outgoing arguments") },	      \
   { "mmx",			 MASK_MMX,				      \
     N_("Support MMX built-in functions") },				      \
-  { "no-mmx",			 -MASK_MMX,				      \
+  { "no-mmx",			 -(MASK_MMX|MASK_3DNOW|MASK_3DNOW_A),	      \
     N_("Do not support MMX built-in functions") },			      \
   { "3dnow",                     MASK_3DNOW,				      \
     N_("Support 3DNow! built-in functions") },				      \
-  { "no-3dnow",                  -MASK_3DNOW,				      \
+  { "no-3dnow",                  -(MASK_3DNOW|MASK_3DNOW_A),		      \
     N_("Do not support 3DNow! built-in functions") },			      \
   { "sse",			 MASK_SSE,				      \
     N_("Support MMX and SSE built-in functions and code generation") },	      \
-  { "no-sse",			 -MASK_SSE,				      \
+  { "no-sse",			 -(MASK_SSE|MASK_SSE2|MASK_SSE3),	      \
     N_("Do not support MMX and SSE built-in functions and code generation") },\
   { "sse2",			 MASK_SSE2,				      \
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
-  { "no-sse2",			 -MASK_SSE2,				      \
+  { "no-sse2",			 -(MASK_SSE2|MASK_SSE3),		      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
   { "sse3",			 MASK_SSE3,				      \
     N_("Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
@@ -453,6 +463,10 @@ extern int x86_prefetch_sse;
    it's analogous to similar code for Mach-O on PowerPC.  darwin.h
    redefines this to 1.  */
 #define TARGET_MACHO 0
+
+/* Subtargets may reset this to 1 in order to enable 96-bit long double
+   with the rounding mode forced to 53 bits.  */
+#define TARGET_96_ROUND_53_LONG_DOUBLE 0
 
 /* This macro is similar to `TARGET_SWITCHES' but defines names of
    command options that have values.  Its definition is an
@@ -789,7 +803,7 @@ extern int x86_prefetch_sse;
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-/* APPLE LOCAL compiler should obey -mpreferred-stack-boundary (radar 3232990) */
+/* APPLE LOCAL begin compiler should obey -mpreferred-stack-boundary (radar 3232990) */
 /* prefer * #define STACK_BOUNDARY ((ix86_preferred_stack_boundary > 128) ? 128 : ix86_preferred_stack_boundary) */
 /*  We're going to extremes to yield a result of indeterminite
     signedness here; this macro will be expanded in signed and
@@ -797,6 +811,7 @@ extern int x86_prefetch_sse;
     warnings.  Radar 3941684.  */
 #define STACK_BOUNDARY ((ix86_preferred_stack_boundary >=  128) ? 128 : \
 			(ix86_preferred_stack_boundary == 64) ? 64 : 32)
+/* APPLE LOCAL end compiler should obey -mpreferred-stack-boundary (radar 3232990) */
 
 /* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
@@ -972,10 +987,10 @@ extern int x86_prefetch_sse;
    and the register where structure-value addresses are passed.
    Aside from that, you can include as many other registers as you like.
 
-   The value is zero if the register is not fixed on either 32 or
-   64 bit targets, one if the register if fixed on both 32 and 64
-   bit targets, two if it is only fixed on 32bit targets and three
-   if its only fixed on 64bit targets.
+   The value is zero if the register is not call used on either 32 or
+   64 bit targets, one if the register if call used on both 32 and 64
+   bit targets, two if it is only call used on 32bit targets and three
+   if its only call used on 64bit targets.
    Proper values are computed in the CONDITIONAL_REGISTER_USAGE.
 */
 #define CALL_USED_REGISTERS					\
@@ -1077,14 +1092,11 @@ do {									\
 
 #define VALID_SSE2_REG_MODE(MODE) \
     ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode    \
-     || (MODE) == V2DImode)
+     || (MODE) == V2DImode || (MODE) == DFmode)
 
 #define VALID_SSE_REG_MODE(MODE)					\
     ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
-     || (MODE) == SFmode || (MODE) == TFmode				\
-     /* Always accept SSE2 modes so that xmmintrin.h compiles.  */	\
-     || VALID_SSE2_REG_MODE (MODE)					\
-     || (TARGET_SSE2 && ((MODE) == DFmode || VALID_MMX_REG_MODE (MODE))))
+     || (MODE) == SFmode || (MODE) == TFmode)
 
 #define VALID_MMX_REG_MODE_3DNOW(MODE) \
     ((MODE) == V2SFmode || (MODE) == SFmode)
@@ -1093,8 +1105,9 @@ do {									\
     ((MODE) == DImode || (MODE) == V8QImode || (MODE) == V4HImode	\
      || (MODE) == V2SImode || (MODE) == SImode)
 
-#define UNITS_PER_SIMD_WORD \
-    (TARGET_SSE ? 16 : TARGET_MMX || TARGET_3DNOW ? 8 : 0)
+/* ??? No autovectorization into MMX or 3DNOW until we can reliably
+   place emms and femms instructions.  */
+#define UNITS_PER_SIMD_WORD (TARGET_SSE ? 16 : 0)
 
 #define VALID_FP_MODE_P(MODE)						\
     ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\
@@ -1114,11 +1127,6 @@ do {									\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
    || (MODE) == V4SFmode || (MODE) == V4SImode)
 
-/* Return true for modes passed in MMX registers.  */
-#define MMX_REG_MODE_P(MODE) \
- ((MODE) == V8QImode || (MODE) == V4HImode || (MODE) == V2SImode	\
-   || (MODE) == V2SFmode)
-
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE)	\
@@ -1129,16 +1137,7 @@ do {									\
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
    for any hard reg, then this must be 0 for correct output.  */
 
-#define MODES_TIEABLE_P(MODE1, MODE2)				\
-  ((MODE1) == (MODE2)						\
-   || (((MODE1) == HImode || (MODE1) == SImode			\
-	|| ((MODE1) == QImode					\
-	    && (TARGET_64BIT || !TARGET_PARTIAL_REG_STALL))	\
-        || ((MODE1) == DImode && TARGET_64BIT))			\
-       && ((MODE2) == HImode || (MODE2) == SImode		\
-	   || ((MODE2) == QImode				\
-	       && (TARGET_64BIT || !TARGET_PARTIAL_REG_STALL))	\
-	   || ((MODE2) == DImode && TARGET_64BIT))))
+#define MODES_TIEABLE_P(MODE1, MODE2)  ix86_modes_tieable_p (MODE1, MODE2)
 
 /* It is possible to write patterns to move flags; but until someone
    does it,  */
@@ -1314,9 +1313,9 @@ enum reg_class
 #define FLOAT_CLASS_P(CLASS) \
   reg_class_subset_p ((CLASS), FLOAT_REGS)
 #define SSE_CLASS_P(CLASS) \
-  reg_class_subset_p ((CLASS), SSE_REGS)
+  ((CLASS) == SSE_REGS)
 #define MMX_CLASS_P(CLASS) \
-  reg_class_subset_p ((CLASS), MMX_REGS)
+  ((CLASS) == MMX_REGS)
 #define MAYBE_INTEGER_CLASS_P(CLASS) \
   reg_classes_intersect_p ((CLASS), GENERAL_REGS)
 #define MAYBE_FLOAT_CLASS_P(CLASS) \
@@ -1449,6 +1448,11 @@ enum reg_class
 #define INDEX_REG_CLASS INDEX_REGS
 #define BASE_REG_CLASS GENERAL_REGS
 
+/* Unused letters:
+    B                 TU W   
+          h jk          vw  z
+*/
+
 /* Get reg_class from a letter such as appears in the machine description.  */
 
 #define REG_CLASS_FROM_LETTER(C)	\
@@ -1474,7 +1478,9 @@ enum reg_class
    (C) == 'y' ? TARGET_MMX ? MMX_REGS : NO_REGS :		\
    (C) == 'A' ? AD_REGS :					\
    (C) == 'D' ? DIREG :						\
-   (C) == 'S' ? SIREG : NO_REGS)
+   (C) == 'S' ? SIREG :						\
+   (C) == 'l' ? INDEX_REGS :					\
+   NO_REGS)
 
 /* The letters I, J, K, L and M in a register constraint string
    can be used to stand for particular ranges of immediate operands.
@@ -1735,7 +1741,7 @@ typedef struct ix86_args {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
-  int fastcall;		/* fastcall calling convention is used */
+  int fastcall;			/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
   int warn_sse;			/* True when we want to warn about SSE ABI.  */
@@ -1776,12 +1782,6 @@ typedef struct ix86_args {
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&(CUM), (MODE), (TYPE), (NAMED))
-
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
@@ -2036,465 +2036,6 @@ do {							\
      || GET_CODE (ADDR) == POST_DEC)			\
    goto LABEL;						\
 } while (0)
-
-/* Codes for all the SSE/MMX builtins.  */
-enum ix86_builtins
-{
-  IX86_BUILTIN_ADDPS,
-  IX86_BUILTIN_ADDSS,
-  IX86_BUILTIN_DIVPS,
-  IX86_BUILTIN_DIVSS,
-  IX86_BUILTIN_MULPS,
-  IX86_BUILTIN_MULSS,
-  IX86_BUILTIN_SUBPS,
-  IX86_BUILTIN_SUBSS,
-
-  IX86_BUILTIN_CMPEQPS,
-  IX86_BUILTIN_CMPLTPS,
-  IX86_BUILTIN_CMPLEPS,
-  IX86_BUILTIN_CMPGTPS,
-  IX86_BUILTIN_CMPGEPS,
-  IX86_BUILTIN_CMPNEQPS,
-  IX86_BUILTIN_CMPNLTPS,
-  IX86_BUILTIN_CMPNLEPS,
-  IX86_BUILTIN_CMPNGTPS,
-  IX86_BUILTIN_CMPNGEPS,
-  IX86_BUILTIN_CMPORDPS,
-  IX86_BUILTIN_CMPUNORDPS,
-  IX86_BUILTIN_CMPNEPS,
-  IX86_BUILTIN_CMPEQSS,
-  IX86_BUILTIN_CMPLTSS,
-  IX86_BUILTIN_CMPLESS,
-  IX86_BUILTIN_CMPNEQSS,
-  IX86_BUILTIN_CMPNLTSS,
-  IX86_BUILTIN_CMPNLESS,
-  IX86_BUILTIN_CMPORDSS,
-  IX86_BUILTIN_CMPUNORDSS,
-  IX86_BUILTIN_CMPNESS,
-
-  IX86_BUILTIN_COMIEQSS,
-  IX86_BUILTIN_COMILTSS,
-  IX86_BUILTIN_COMILESS,
-  IX86_BUILTIN_COMIGTSS,
-  IX86_BUILTIN_COMIGESS,
-  IX86_BUILTIN_COMINEQSS,
-  IX86_BUILTIN_UCOMIEQSS,
-  IX86_BUILTIN_UCOMILTSS,
-  IX86_BUILTIN_UCOMILESS,
-  IX86_BUILTIN_UCOMIGTSS,
-  IX86_BUILTIN_UCOMIGESS,
-  IX86_BUILTIN_UCOMINEQSS,
-
-  IX86_BUILTIN_CVTPI2PS,
-  IX86_BUILTIN_CVTPS2PI,
-  IX86_BUILTIN_CVTSI2SS,
-  IX86_BUILTIN_CVTSI642SS,
-  IX86_BUILTIN_CVTSS2SI,
-  IX86_BUILTIN_CVTSS2SI64,
-  IX86_BUILTIN_CVTTPS2PI,
-  IX86_BUILTIN_CVTTSS2SI,
-  IX86_BUILTIN_CVTTSS2SI64,
-
-  IX86_BUILTIN_MAXPS,
-  IX86_BUILTIN_MAXSS,
-  IX86_BUILTIN_MINPS,
-  IX86_BUILTIN_MINSS,
-
-  IX86_BUILTIN_LOADAPS,
-  IX86_BUILTIN_LOADUPS,
-  IX86_BUILTIN_STOREAPS,
-  IX86_BUILTIN_STOREUPS,
-  IX86_BUILTIN_LOADSS,
-  IX86_BUILTIN_STORESS,
-  IX86_BUILTIN_MOVSS,
-
-  IX86_BUILTIN_MOVHLPS,
-  IX86_BUILTIN_MOVLHPS,
-  IX86_BUILTIN_LOADHPS,
-  IX86_BUILTIN_LOADLPS,
-  IX86_BUILTIN_STOREHPS,
-  IX86_BUILTIN_STORELPS,
-
-  IX86_BUILTIN_MASKMOVQ,
-  IX86_BUILTIN_MOVMSKPS,
-  IX86_BUILTIN_PMOVMSKB,
-
-  IX86_BUILTIN_MOVNTPS,
-  IX86_BUILTIN_MOVNTQ,
-
-  IX86_BUILTIN_LOADDQA,
-  IX86_BUILTIN_LOADDQU,
-  IX86_BUILTIN_STOREDQA,
-  IX86_BUILTIN_STOREDQU,
-  IX86_BUILTIN_MOVQ,
-  IX86_BUILTIN_LOADD,
-  IX86_BUILTIN_STORED,
-
-  IX86_BUILTIN_CLRTI,
-
-  IX86_BUILTIN_PACKSSWB,
-  IX86_BUILTIN_PACKSSDW,
-  IX86_BUILTIN_PACKUSWB,
-
-  IX86_BUILTIN_PADDB,
-  IX86_BUILTIN_PADDW,
-  IX86_BUILTIN_PADDD,
-  IX86_BUILTIN_PADDQ,
-  IX86_BUILTIN_PADDSB,
-  IX86_BUILTIN_PADDSW,
-  IX86_BUILTIN_PADDUSB,
-  IX86_BUILTIN_PADDUSW,
-  IX86_BUILTIN_PSUBB,
-  IX86_BUILTIN_PSUBW,
-  IX86_BUILTIN_PSUBD,
-  IX86_BUILTIN_PSUBQ,
-  IX86_BUILTIN_PSUBSB,
-  IX86_BUILTIN_PSUBSW,
-  IX86_BUILTIN_PSUBUSB,
-  IX86_BUILTIN_PSUBUSW,
-
-  IX86_BUILTIN_PAND,
-  IX86_BUILTIN_PANDN,
-  IX86_BUILTIN_POR,
-  IX86_BUILTIN_PXOR,
-
-  IX86_BUILTIN_PAVGB,
-  IX86_BUILTIN_PAVGW,
-
-  IX86_BUILTIN_PCMPEQB,
-  IX86_BUILTIN_PCMPEQW,
-  IX86_BUILTIN_PCMPEQD,
-  IX86_BUILTIN_PCMPGTB,
-  IX86_BUILTIN_PCMPGTW,
-  IX86_BUILTIN_PCMPGTD,
-
-  IX86_BUILTIN_PEXTRW,
-  IX86_BUILTIN_PINSRW,
-
-  IX86_BUILTIN_PMADDWD,
-
-  IX86_BUILTIN_PMAXSW,
-  IX86_BUILTIN_PMAXUB,
-  IX86_BUILTIN_PMINSW,
-  IX86_BUILTIN_PMINUB,
-
-  IX86_BUILTIN_PMULHUW,
-  IX86_BUILTIN_PMULHW,
-  IX86_BUILTIN_PMULLW,
-
-  IX86_BUILTIN_PSADBW,
-  IX86_BUILTIN_PSHUFW,
-
-  IX86_BUILTIN_PSLLW,
-  IX86_BUILTIN_PSLLD,
-  IX86_BUILTIN_PSLLQ,
-  IX86_BUILTIN_PSRAW,
-  IX86_BUILTIN_PSRAD,
-  IX86_BUILTIN_PSRLW,
-  IX86_BUILTIN_PSRLD,
-  IX86_BUILTIN_PSRLQ,
-  IX86_BUILTIN_PSLLWI,
-  IX86_BUILTIN_PSLLDI,
-  IX86_BUILTIN_PSLLQI,
-  IX86_BUILTIN_PSRAWI,
-  IX86_BUILTIN_PSRADI,
-  IX86_BUILTIN_PSRLWI,
-  IX86_BUILTIN_PSRLDI,
-  IX86_BUILTIN_PSRLQI,
-
-  IX86_BUILTIN_PUNPCKHBW,
-  IX86_BUILTIN_PUNPCKHWD,
-  IX86_BUILTIN_PUNPCKHDQ,
-  IX86_BUILTIN_PUNPCKLBW,
-  IX86_BUILTIN_PUNPCKLWD,
-  IX86_BUILTIN_PUNPCKLDQ,
-
-  IX86_BUILTIN_SHUFPS,
-
-  IX86_BUILTIN_RCPPS,
-  IX86_BUILTIN_RCPSS,
-  IX86_BUILTIN_RSQRTPS,
-  IX86_BUILTIN_RSQRTSS,
-  IX86_BUILTIN_SQRTPS,
-  IX86_BUILTIN_SQRTSS,
-
-  IX86_BUILTIN_UNPCKHPS,
-  IX86_BUILTIN_UNPCKLPS,
-
-  IX86_BUILTIN_ANDPS,
-  IX86_BUILTIN_ANDNPS,
-  IX86_BUILTIN_ORPS,
-  IX86_BUILTIN_XORPS,
-
-  IX86_BUILTIN_EMMS,
-  IX86_BUILTIN_LDMXCSR,
-  IX86_BUILTIN_STMXCSR,
-  IX86_BUILTIN_SFENCE,
-
-  /* 3DNow! Original */
-  IX86_BUILTIN_FEMMS,
-  IX86_BUILTIN_PAVGUSB,
-  IX86_BUILTIN_PF2ID,
-  IX86_BUILTIN_PFACC,
-  IX86_BUILTIN_PFADD,
-  IX86_BUILTIN_PFCMPEQ,
-  IX86_BUILTIN_PFCMPGE,
-  IX86_BUILTIN_PFCMPGT,
-  IX86_BUILTIN_PFMAX,
-  IX86_BUILTIN_PFMIN,
-  IX86_BUILTIN_PFMUL,
-  IX86_BUILTIN_PFRCP,
-  IX86_BUILTIN_PFRCPIT1,
-  IX86_BUILTIN_PFRCPIT2,
-  IX86_BUILTIN_PFRSQIT1,
-  IX86_BUILTIN_PFRSQRT,
-  IX86_BUILTIN_PFSUB,
-  IX86_BUILTIN_PFSUBR,
-  IX86_BUILTIN_PI2FD,
-  IX86_BUILTIN_PMULHRW,
-
-  /* 3DNow! Athlon Extensions */
-  IX86_BUILTIN_PF2IW,
-  IX86_BUILTIN_PFNACC,
-  IX86_BUILTIN_PFPNACC,
-  IX86_BUILTIN_PI2FW,
-  IX86_BUILTIN_PSWAPDSI,
-  IX86_BUILTIN_PSWAPDSF,
-
-  IX86_BUILTIN_SSE_ZERO,
-  IX86_BUILTIN_MMX_ZERO,
-
-  /* SSE2 */
-  IX86_BUILTIN_ADDPD,
-  IX86_BUILTIN_ADDSD,
-  IX86_BUILTIN_DIVPD,
-  IX86_BUILTIN_DIVSD,
-  IX86_BUILTIN_MULPD,
-  IX86_BUILTIN_MULSD,
-  IX86_BUILTIN_SUBPD,
-  IX86_BUILTIN_SUBSD,
-
-  IX86_BUILTIN_CMPEQPD,
-  IX86_BUILTIN_CMPLTPD,
-  IX86_BUILTIN_CMPLEPD,
-  IX86_BUILTIN_CMPGTPD,
-  IX86_BUILTIN_CMPGEPD,
-  IX86_BUILTIN_CMPNEQPD,
-  IX86_BUILTIN_CMPNLTPD,
-  IX86_BUILTIN_CMPNLEPD,
-  IX86_BUILTIN_CMPNGTPD,
-  IX86_BUILTIN_CMPNGEPD,
-  IX86_BUILTIN_CMPORDPD,
-  IX86_BUILTIN_CMPUNORDPD,
-  IX86_BUILTIN_CMPNEPD,
-  IX86_BUILTIN_CMPEQSD,
-  IX86_BUILTIN_CMPLTSD,
-  IX86_BUILTIN_CMPLESD,
-  IX86_BUILTIN_CMPNEQSD,
-  IX86_BUILTIN_CMPNLTSD,
-  IX86_BUILTIN_CMPNLESD,
-  IX86_BUILTIN_CMPORDSD,
-  IX86_BUILTIN_CMPUNORDSD,
-  IX86_BUILTIN_CMPNESD,
-
-  IX86_BUILTIN_COMIEQSD,
-  IX86_BUILTIN_COMILTSD,
-  IX86_BUILTIN_COMILESD,
-  IX86_BUILTIN_COMIGTSD,
-  IX86_BUILTIN_COMIGESD,
-  IX86_BUILTIN_COMINEQSD,
-  IX86_BUILTIN_UCOMIEQSD,
-  IX86_BUILTIN_UCOMILTSD,
-  IX86_BUILTIN_UCOMILESD,
-  IX86_BUILTIN_UCOMIGTSD,
-  IX86_BUILTIN_UCOMIGESD,
-  IX86_BUILTIN_UCOMINEQSD,
-
-  IX86_BUILTIN_MAXPD,
-  IX86_BUILTIN_MAXSD,
-  IX86_BUILTIN_MINPD,
-  IX86_BUILTIN_MINSD,
-
-  IX86_BUILTIN_ANDPD,
-  IX86_BUILTIN_ANDNPD,
-  IX86_BUILTIN_ORPD,
-  IX86_BUILTIN_XORPD,
-
-  IX86_BUILTIN_SQRTPD,
-  IX86_BUILTIN_SQRTSD,
-
-  IX86_BUILTIN_UNPCKHPD,
-  IX86_BUILTIN_UNPCKLPD,
-
-  IX86_BUILTIN_SHUFPD,
-
-  IX86_BUILTIN_LOADAPD,
-  IX86_BUILTIN_LOADUPD,
-  IX86_BUILTIN_STOREAPD,
-  IX86_BUILTIN_STOREUPD,
-  IX86_BUILTIN_LOADSD,
-  IX86_BUILTIN_STORESD,
-  IX86_BUILTIN_MOVSD,
-
-  IX86_BUILTIN_LOADHPD,
-  IX86_BUILTIN_LOADLPD,
-  IX86_BUILTIN_STOREHPD,
-  IX86_BUILTIN_STORELPD,
-
-  IX86_BUILTIN_CVTDQ2PD,
-  IX86_BUILTIN_CVTDQ2PS,
-
-  IX86_BUILTIN_CVTPD2DQ,
-  IX86_BUILTIN_CVTPD2PI,
-  IX86_BUILTIN_CVTPD2PS,
-  IX86_BUILTIN_CVTTPD2DQ,
-  IX86_BUILTIN_CVTTPD2PI,
-
-  IX86_BUILTIN_CVTPI2PD,
-  IX86_BUILTIN_CVTSI2SD,
-  IX86_BUILTIN_CVTSI642SD,
-
-  IX86_BUILTIN_CVTSD2SI,
-  IX86_BUILTIN_CVTSD2SI64,
-  IX86_BUILTIN_CVTSD2SS,
-  IX86_BUILTIN_CVTSS2SD,
-  IX86_BUILTIN_CVTTSD2SI,
-  IX86_BUILTIN_CVTTSD2SI64,
-
-  IX86_BUILTIN_CVTPS2DQ,
-  IX86_BUILTIN_CVTPS2PD,
-  IX86_BUILTIN_CVTTPS2DQ,
-
-  IX86_BUILTIN_MOVNTI,
-  IX86_BUILTIN_MOVNTPD,
-  IX86_BUILTIN_MOVNTDQ,
-
-  IX86_BUILTIN_SETPD1,
-  IX86_BUILTIN_SETPD,
-  IX86_BUILTIN_CLRPD,
-  IX86_BUILTIN_SETRPD,
-  IX86_BUILTIN_LOADPD1,
-  IX86_BUILTIN_LOADRPD,
-  IX86_BUILTIN_STOREPD1,
-  IX86_BUILTIN_STORERPD,
-
-  /* SSE2 MMX */
-  IX86_BUILTIN_MASKMOVDQU,
-  IX86_BUILTIN_MOVMSKPD,
-  IX86_BUILTIN_PMOVMSKB128,
-  IX86_BUILTIN_MOVQ2DQ,
-  IX86_BUILTIN_MOVDQ2Q,
-
-  IX86_BUILTIN_PACKSSWB128,
-  IX86_BUILTIN_PACKSSDW128,
-  IX86_BUILTIN_PACKUSWB128,
-
-  IX86_BUILTIN_PADDB128,
-  IX86_BUILTIN_PADDW128,
-  IX86_BUILTIN_PADDD128,
-  IX86_BUILTIN_PADDQ128,
-  IX86_BUILTIN_PADDSB128,
-  IX86_BUILTIN_PADDSW128,
-  IX86_BUILTIN_PADDUSB128,
-  IX86_BUILTIN_PADDUSW128,
-  IX86_BUILTIN_PSUBB128,
-  IX86_BUILTIN_PSUBW128,
-  IX86_BUILTIN_PSUBD128,
-  IX86_BUILTIN_PSUBQ128,
-  IX86_BUILTIN_PSUBSB128,
-  IX86_BUILTIN_PSUBSW128,
-  IX86_BUILTIN_PSUBUSB128,
-  IX86_BUILTIN_PSUBUSW128,
-
-  IX86_BUILTIN_PAND128,
-  IX86_BUILTIN_PANDN128,
-  IX86_BUILTIN_POR128,
-  IX86_BUILTIN_PXOR128,
-
-  IX86_BUILTIN_PAVGB128,
-  IX86_BUILTIN_PAVGW128,
-
-  IX86_BUILTIN_PCMPEQB128,
-  IX86_BUILTIN_PCMPEQW128,
-  IX86_BUILTIN_PCMPEQD128,
-  IX86_BUILTIN_PCMPGTB128,
-  IX86_BUILTIN_PCMPGTW128,
-  IX86_BUILTIN_PCMPGTD128,
-
-  IX86_BUILTIN_PEXTRW128,
-  IX86_BUILTIN_PINSRW128,
-
-  IX86_BUILTIN_PMADDWD128,
-
-  IX86_BUILTIN_PMAXSW128,
-  IX86_BUILTIN_PMAXUB128,
-  IX86_BUILTIN_PMINSW128,
-  IX86_BUILTIN_PMINUB128,
-
-  IX86_BUILTIN_PMULUDQ,
-  IX86_BUILTIN_PMULUDQ128,
-  IX86_BUILTIN_PMULHUW128,
-  IX86_BUILTIN_PMULHW128,
-  IX86_BUILTIN_PMULLW128,
-
-  IX86_BUILTIN_PSADBW128,
-  IX86_BUILTIN_PSHUFHW,
-  IX86_BUILTIN_PSHUFLW,
-  IX86_BUILTIN_PSHUFD,
-
-  IX86_BUILTIN_PSLLW128,
-  IX86_BUILTIN_PSLLD128,
-  IX86_BUILTIN_PSLLQ128,
-  IX86_BUILTIN_PSRAW128,
-  IX86_BUILTIN_PSRAD128,
-  IX86_BUILTIN_PSRLW128,
-  IX86_BUILTIN_PSRLD128,
-  IX86_BUILTIN_PSRLQ128,
-  IX86_BUILTIN_PSLLDQI128,
-  IX86_BUILTIN_PSLLWI128,
-  IX86_BUILTIN_PSLLDI128,
-  IX86_BUILTIN_PSLLQI128,
-  IX86_BUILTIN_PSRAWI128,
-  IX86_BUILTIN_PSRADI128,
-  IX86_BUILTIN_PSRLDQI128,
-  IX86_BUILTIN_PSRLWI128,
-  IX86_BUILTIN_PSRLDI128,
-  IX86_BUILTIN_PSRLQI128,
-
-  IX86_BUILTIN_PUNPCKHBW128,
-  IX86_BUILTIN_PUNPCKHWD128,
-  IX86_BUILTIN_PUNPCKHDQ128,
-  IX86_BUILTIN_PUNPCKHQDQ128,
-  IX86_BUILTIN_PUNPCKLBW128,
-  IX86_BUILTIN_PUNPCKLWD128,
-  IX86_BUILTIN_PUNPCKLDQ128,
-  IX86_BUILTIN_PUNPCKLQDQ128,
-
-  IX86_BUILTIN_CLFLUSH,
-  IX86_BUILTIN_MFENCE,
-  IX86_BUILTIN_LFENCE,
-
-  /* Prescott New Instructions.  */
-  IX86_BUILTIN_ADDSUBPS,
-  IX86_BUILTIN_HADDPS,
-  IX86_BUILTIN_HSUBPS,
-  IX86_BUILTIN_MOVSHDUP,
-  IX86_BUILTIN_MOVSLDUP,
-  IX86_BUILTIN_ADDSUBPD,
-  IX86_BUILTIN_HADDPD,
-  IX86_BUILTIN_HSUBPD,
-  IX86_BUILTIN_LOADDDUP,
-  IX86_BUILTIN_MOVDDUP,
-  IX86_BUILTIN_LDDQU,
-
-  IX86_BUILTIN_MONITOR,
-  IX86_BUILTIN_MWAIT,
-
-  /* APPLE LOCAL begin constant cfstrings */
-  IX86_BUILTIN_MAX,
-  TARGET_BUILTIN_MAX = IX86_BUILTIN_MAX
-  /* APPLE LOCAL end constant cfstrings */
-};
 
 /* Max number of args passed in registers.  If this is more than 3, we will
    have problems with ebx (register #4), since it is a caller save register and
@@ -2802,12 +2343,6 @@ do {									\
 
 #define JUMP_TABLES_IN_TEXT_SECTION \
   (!TARGET_64BIT && flag_pic && !HAVE_AS_GOTOFF_IN_DATA)
-
-/* A C statement that outputs an address constant appropriate to
-   for DWARF debugging.  */
-
-#define ASM_OUTPUT_DWARF_ADDR_CONST(FILE, X) \
-  i386_dwarf_output_addr_const ((FILE), (X))
 
 /* Emit a dtp-relative reference to a TLS variable.  */
 

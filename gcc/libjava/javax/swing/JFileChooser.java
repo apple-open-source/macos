@@ -1,5 +1,5 @@
 /* JFileChooser.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,6 +44,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.Vector;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
@@ -521,7 +522,7 @@ public class JFileChooser extends JComponent implements Accessible {
 	 * @returns int
 	 */
 	public int showOpenDialog(Component parent) {
-		return 0; // TODO
+		return CANCEL_OPTION; // TODO
 	} // showOpenDialog()
 
 	/**
@@ -530,7 +531,7 @@ public class JFileChooser extends JComponent implements Accessible {
 	 * @returns int
 	 */
 	public int showSaveDialog(Component parent) {
-		return 0; // TODO
+		return CANCEL_OPTION; // TODO
 	} // showSaveDialog()
 
 	/**
@@ -540,7 +541,7 @@ public class JFileChooser extends JComponent implements Accessible {
 	 * @returns int
 	 */
 	public int showDialog(Component parent, String approveButtonText) {
-		return 0; // TODO
+		return CANCEL_OPTION; // TODO
 	} // showDialog()
 
 	/**

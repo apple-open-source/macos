@@ -46,6 +46,7 @@
 #include "SharedConsts.h"
 #include "CFile.h"
 #include "CAuditUtils.h"
+#include "DSMachEndian.h"
 
 #include <mach/mach.h>
 #include <mach/mach_error.h>
@@ -93,6 +94,11 @@ extern mach_port_t		gServerMachPort;
 //
 // ---------------------------------------------------------------------------
 
+CFRunLoopTimerRef	ServerControl::fNSPCTimerRef = NULL;
+CFRunLoopTimerRef	ServerControl::fLDFCTimerRef = NULL;
+CFRunLoopTimerRef	ServerControl::fMDFCTimerRef = NULL;
+CFRunLoopTimerRef	ServerControl::fNIASTimerRef = NULL;
+
 uInt32					gAPICallCount		= 0;
 ServerControl		   *gSrvrCntl			= nil;
 CRefTable			   *gRefTable			= nil;
@@ -107,6 +113,8 @@ DSMutexSemaphore	   *gPerformanceLoggingLock = new DSMutexSemaphore();	//mutex o
 DSMutexSemaphore	   *gLazyPluginLoadingLock	= new DSMutexSemaphore();	//mutex on loading plugins lazily
 DSMutexSemaphore	   *gHashAuthFailedMapLock  = new DSMutexSemaphore();   //mutex on failed shadow hash login table
 DSMutexSemaphore	   *gMachThreadLock			= new DSMutexSemaphore();	//mutex on count of mig handler threads
+DSMutexSemaphore	   *gTimerMutex				= new DSMutexSemaphore();	//mutex for creating/deleting timers
+
 
 uInt32					gDaemonPID;
 uInt32					gDaemonIPAddress;
@@ -199,7 +207,8 @@ void mig_spawnonceifnecessary( void )
 {
 	// need to lock while checking cause we could get a race condition
 	gMachThreadLock->Wait();
-	bool bSpawnThread = (gActiveMachThreads < gMaxHandlerThreadCount);// check if we haven't reached out limit of threads
+	// see if we've reached our limit and if we don't have enought threads to handle requests
+	bool bSpawnThread = ( gActiveMachThreads < gMaxHandlerThreadCount && gActiveLongRequests > gActiveMachThreads );
 	gMachThreadLock->Signal();
 
 	if( bSpawnThread )
@@ -339,32 +348,49 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 	kern_return_t	kr			= KERN_FAILURE;
 	sComDataPtr		pComData	= NULL;
 	uInt32			uiLength	= 0;
+	uInt32			dataLength	= 0;
+	uInt32			dataSize	= 0;
 	
 	if( msg_dataCnt )
 	{
-		pComData = (sComDataPtr) msg_data;
-		uiLength = msg_dataCnt;
+		pComData	= (sComDataPtr) msg_data;
+		uiLength	= msg_dataCnt;
+		dataLength	= pComData->fDataLength;
+		dataSize	= pComData->fDataSize;
+#ifdef __LITTLE_ENDIAN__
+		if (pComData->type.msgt_translate == 1) //need to swap data length if mach msg came from BIG_ENDIAN translator
+		{
+			dataLength	= DSGetLong(&pComData->fDataLength, false);
+			dataSize	= DSGetLong(&pComData->fDataSize, false);
+		}
+#endif
 	}
 	else
 	{
-		pComData = (sComDataPtr) msg_data_ool;
-		uiLength = msg_data_oolCnt;
+		pComData	= (sComDataPtr) msg_data_ool;
+		uiLength	= msg_data_oolCnt;
+		dataLength	= pComData->fDataLength;
+		dataSize	= pComData->fDataSize;
+#ifdef __LITTLE_ENDIAN__
+		if (pComData->type.msgt_translate == 1) //need to swap data length if mach msg came from BIG_ENDIAN translator
+		{
+			dataLength	= DSGetLong(&pComData->fDataLength, false);
+			dataSize	= DSGetLong(&pComData->fDataSize, false);
+		}
+#endif
 	}
 	
 	// lets see if the packet is big enough.. and see if the length matches the msg_data size minus 1
 	if( uiLength >= (sizeof(sComData) - 1) )
 	{
-		if( pComData->fDataLength == (uiLength - (sizeof(sComData) - 1)) )
+		if( dataLength == (uiLength - (sizeof(sComData) - 1)) )
 		{
 			// we need to copy because we will allocate/deallocate it in the handler
 			//   but based on the size it thinks it is
-			sComData *pRequest = (sComData *) calloc( sizeof(sComData) + pComData->fDataSize, 1 );
+			sComData *pRequest = (sComData *) calloc( sizeof(sComData) + dataSize, 1 );
 			CRequestHandler handler;
 			
 			bcopy( (void *)pComData, pRequest, uiLength );
-			
-			// let's get the audit data and add it to the sComData
-			audit_token_to_au32( atoken, NULL, (uid_t *)&pRequest->fEffectiveUID, NULL, (uid_t *)&pRequest->fUID, NULL, (pid_t *)&pRequest->fPID, NULL, NULL );
 			
 			gMachThreadLock->Wait();
 			gActiveLongRequests ++;
@@ -372,6 +398,17 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 			
 			// spawn a thread request
 			mig_spawnonceifnecessary();
+
+#ifdef __LITTLE_ENDIAN__
+			if (pRequest->type.msgt_translate == 1) //need to swap since mach msg came from BIG_ENDIAN translator
+			{
+				DSMachEndian swapper(pRequest, kDSSwapToHost);
+				swapper.SwapMessage();
+			}
+#endif
+
+			// let's get the audit data and add it to the sComData
+			audit_token_to_au32( atoken, NULL, (uid_t *)&pRequest->fEffectiveUID, NULL, (uid_t *)&pRequest->fUID, NULL, (pid_t *)&pRequest->fPID, NULL, NULL );
 			
 			handler.HandleRequest( &pRequest );
 
@@ -382,17 +419,27 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 			// set the PID in the return to our PID for RefTable purposes
 			pRequest->fPID = gDaemonPID;
 			
-			// if it will fit in the fixed buffer, use it otherwise use OOL
-			if( sizeof(sComData) + pRequest->fDataLength <= *reply_msgCnt )
+			uInt32 dataLen = pRequest->fDataLength;
+			
+#ifdef __LITTLE_ENDIAN__
+			if (pRequest->type.msgt_translate == 1) //need to swap since mach msg being sent back to BIG_ENDIAN translator
 			{
-				*reply_msgCnt = sizeof(sComData) + pRequest->fDataLength - 1;
+				DSMachEndian swapper(pRequest, kDSSwapToBig);
+				swapper.SwapMessage();
+			}
+#endif
+
+			// if it will fit in the fixed buffer, use it otherwise use OOL
+			if( sizeof(sComData) + dataLen <= *reply_msgCnt )
+			{
+				*reply_msgCnt = sizeof(sComData) + dataLen - 1;
 				bcopy( pRequest, reply_msg, *reply_msgCnt );
 				*reply_msg_oolCnt = 0;
 			}
 			else
 			{
 				*reply_msgCnt = 0; // ool, set the other to 0
-				vm_read( mach_task_self(), (vm_address_t)pRequest, (sizeof(sComData) + pRequest->fDataLength - 1), reply_msg_ool, reply_msg_oolCnt );
+				vm_read( mach_task_self(), (vm_address_t)pRequest, (sizeof(sComData) + dataLen - 1), reply_msg_ool, reply_msg_oolCnt );
 			}
 
 			// free our allocated request data...
@@ -413,7 +460,7 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 		}
 		else
 		{
-			syslog( LOG_ALERT, "dsmig_do_api_call:  Bad message size %d, does not correlate with contents length %d + header %d", uiLength, pComData->fDataLength, (sizeof(sComData) - 1) );
+			syslog( LOG_ALERT, "dsmig_do_api_call:  Bad message size %d, does not correlate with contents length %d + header %d", uiLength, dataLength, (sizeof(sComData) - 1) );
 		}
 	}
 	else
@@ -447,11 +494,7 @@ ServerControl::ServerControl ( void )
 	fTCPHandlerThreadsCnt		= 0;
 	fSCDStore					= 0;	
 	fPerformanceStatGatheringActive	= false; //default
-	fTimeToCheckSearchPolicyChange	= 0;
-	fTimeToCheckNIAutoSwitch	= 0;
-	fTimeToCheckLookupDaemonCacheFlush	= 0;
-	fLookupDaemonFlushCacheRequestCount	= 0;
-	fTimeToCheckMemberDaemonCacheFlush	= 0;
+	fLookupDaemonFlushCacheRequestCount = 0;
 	fMemberDaemonFlushCacheRequestCount	= 0;
 	fHoldStore					= NULL;
 	fTCPHandlers				= nil;
@@ -1325,53 +1368,55 @@ void ServerControl::NodeSearchPolicyChanged( void )
 {
 	void	   *ptInfo		= nil;
 	
-	//wait one second to fire off the timer
-	fTimeToCheckSearchPolicyChange = CFAbsoluteTimeGetCurrent() + 1;
-	
+	gTimerMutex->Wait();
 	if (gServerRunLoop != nil)
 	{
+		if( fNSPCTimerRef != NULL )
+		{
+			DBGLOG1( kLogPlugin, "T[%X] ServerControl::NodeSearchPolicyChanged invalidating previous timer", pthread_self() );
+
+			CFRunLoopTimerInvalidate( fNSPCTimerRef );
+			CFRelease( fNSPCTimerRef );
+			fNSPCTimerRef = NULL;
+		}
+		
 		ptInfo = (void *)this;
 		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, SearchPolicyChangeCopyStringCallback};
 	
-		CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
-														fTimeToCheckSearchPolicyChange + 1,
+		fNSPCTimerRef = CFRunLoopTimerCreate(	NULL,
+														CFAbsoluteTimeGetCurrent() + 2,
 														0,
 														0,
 														0,
 														DoSearchPolicyChange,
 														(CFRunLoopTimerContext*)&c);
 	
-		CFRunLoopAddTimer(gServerRunLoop, timer, kCFRunLoopDefaultMode);
-		if (timer) CFRelease(timer);
+		CFRunLoopAddTimer(gServerRunLoop, fNSPCTimerRef, kCFRunLoopDefaultMode);
 	}
+	gTimerMutex->Signal();
 }
 
 void ServerControl::DoNodeSearchPolicyChange( void )
 {
 	SCDynamicStoreRef	store		= NULL;
 	
-	//do something if the delay period has passed
-	if (CFAbsoluteTimeGetCurrent() >= fTimeToCheckSearchPolicyChange)
-	{
-	DBGLOG( kLogApplication, "NodeSearchPolicyChanged" );
+	DBGLOG( kLogApplication, "DoNodeSearchPolicyChange" );
 
 	store = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
 	if (store != NULL)
 	{
 		if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifySearchPolicyChanged), CFSTR("") ) )
-			{
-				ERRORLOG( kLogApplication, "Could not set the DirectoryService:SearchPolicyChangeToken in System Configuration" );
-			}
-			CFRelease(store);
-			store = NULL;
-		}
-		else
 		{
-			ERRORLOG( kLogApplication, "ServerControl::NodeSearchPolicyChanged SCDynamicStoreCreate not yet available from System Configuration" );
+			ERRORLOG( kLogApplication, "Could not set the DirectoryService:SearchPolicyChangeToken in System Configuration" );
 		}
-		
-		LaunchKerberosAutoConfigTool();
+		CFRelease(store);
+		store = NULL;
 	}
+	else
+	{
+		ERRORLOG( kLogApplication, "ServerControl::DoNodeSearchPolicyChange SCDynamicStoreCreate not yet available from System Configuration" );
+	}
+	LaunchKerberosAutoConfigTool();
 }// DoNodeSearchPolicyChange
 
 void ServerControl::NotifySearchPolicyFoundNIParent( void )
@@ -1706,20 +1751,14 @@ sInt32 ServerControl::FlushLookupDaemonCache ( void )
 	char		str[32];
 	mach_port_t	port		= MACH_PORT_NULL;
 
-	//do something if the delay period has passed
-	if ( (CFAbsoluteTimeGetCurrent() >= fTimeToCheckLookupDaemonCacheFlush) ||
-		(fLookupDaemonFlushCacheRequestCount > kDSActOnThisNumberOfFlushRequests) )
-	{
-		fLookupDaemonFlushCacheRequestCount = 0;
-		DBGLOG( kLogApplication, "Sending lookupd flushcache" );
-		_lu_running();
-		port = _lookupd_port(0);
+	DBGLOG( kLogApplication, "Sending lookupd flushcache" );
+	_lu_running();
+	port = _lookupd_port(0);
 
-		if( port != MACH_PORT_NULL )
-		{
-			_lookup_link(port, "_invalidatecache", &proc);
-			_lookup_one(port, proc, NULL, 0, (char **)&str, &i);
-		}
+	if( port != MACH_PORT_NULL )
+	{
+		_lookup_link(port, "_invalidatecache", &proc);
+		_lookup_one(port, proc, NULL, 0, (char **)&str, &i);
 	}
 	
 	return(siResult);
@@ -1735,15 +1774,9 @@ sInt32 ServerControl::FlushMemberDaemonCache ( void )
 {
 	sInt32 siResult = eDSNoErr;
 	
-	//do something if the delay period has passed
-	if ( (CFAbsoluteTimeGetCurrent() >= fTimeToCheckMemberDaemonCacheFlush) ||
-		(fMemberDaemonFlushCacheRequestCount > kDSActOnThisNumberOfFlushRequests) )
-	{
-		fMemberDaemonFlushCacheRequestCount = 0;
-		//routine created for potential other additions
-		DBGLOG( kLogApplication, "Sending memberd flushcache" );
-		mbr_reset_cache();
-	}
+	//routine created for potential other additions
+	DBGLOG( kLogApplication, "Sending memberd flushcache" );
+	mbr_reset_cache();
 	
 	return(siResult);
 }// FlushMemberDaemonCache
@@ -1770,43 +1803,39 @@ sInt32 ServerControl::NIAutoSwitchCheck ( void )
 	//to two minutes allowing the plugin to initialize
 	//TODO KW looks  like the plugin ptr is not there yet always when this is called at boot
 
-	//do something if the delay period has passed
-	if (CFAbsoluteTimeGetCurrent() >= fTimeToCheckNIAutoSwitch)
+	// we know we need the search node, so let's wait until it is available.
+	gNodeList->WaitForAuthenticationSearchNode();
+		
+	//call thru to only the search policy plugin
+	if ( gPlugins != nil )
 	{
-		// we know we need the search node, so let's wait until it is available.
-		gNodeList->WaitForAuthenticationSearchNode();
-			
-		//call thru to only the search policy plugin
-		if ( gPlugins != nil )
+		pPlugin = gPlugins->Next( &iterator );
+		while (pPlugin != nil)
 		{
-			pPlugin = gPlugins->Next( &iterator );
-			while (pPlugin != nil)
+			pPIInfo = gPlugins->GetPlugInInfo( iterator-1 );
+			if ( ( strcmp(pPIInfo->fName,"Search") == 0) && (pPIInfo->fState & kActive) )
 			{
-				pPIInfo = gPlugins->GetPlugInInfo( iterator-1 );
-				if ( ( strcmp(pPIInfo->fName,"Search") == 0) && (pPIInfo->fState & kActive) )
+				siResult = pPlugin->ProcessRequest( (void*)&aHeader );
+				if (siResult == eDSContinue)
 				{
-					siResult = pPlugin->ProcessRequest( (void*)&aHeader );
-					if (siResult == eDSContinue)
+					//here we need to turn off netinfo bindings
+					sInt32 unbindResult = UnbindToNetInfo();
+					if (unbindResult == eDSNoErr)
 					{
-						//here we need to turn off netinfo bindings
-						sInt32 unbindResult = UnbindToNetInfo();
-						if (unbindResult == eDSNoErr)
-						{
-							DBGLOG( kLogApplication, "NIAutoSwitchCheck(): NIAutoSwitch record found in NetInfo parent has directed addition of LDAP directory to the search policy" );
-							//if success then NIBindings turn off will generate a network transition itself
-						}
-						else
-						{
-							DBGLOG( kLogApplication, "NIAutoSwitchCheck(): NIAutoSwitch record found in NetInfo parent has directed addition of LDAP directory to the search policy but NetInfo Unbind failed" );
-						}
+						DBGLOG( kLogApplication, "NIAutoSwitchCheck(): NIAutoSwitch record found in NetInfo parent has directed addition of LDAP directory to the search policy" );
+						//if success then NIBindings turn off will generate a network transition itself
 					}
-					break;
+					else
+					{
+						DBGLOG( kLogApplication, "NIAutoSwitchCheck(): NIAutoSwitch record found in NetInfo parent has directed addition of LDAP directory to the search policy but NetInfo Unbind failed" );
+					}
 				}
-				pPlugin = gPlugins->Next( &iterator );
+				break;
 			}
+			pPlugin = gPlugins->Next( &iterator );
 		}
 	}
-	
+
 	return(siResult);
 } // NIAutoSwitchCheck
 
@@ -1922,28 +1951,43 @@ sInt32 ServerControl::UnbindToNetInfo ( void )
 void ServerControl::HandleLookupDaemonFlushCache ( void )
 {
 	void	   *ptInfo		= nil;
+	uInt32		timeOffset	= 2;
 	
+	gTimerMutex->Wait();
 	//wait one second to fire off the timer
 	//consolidate multiple requests that come in faster than one second
-	fTimeToCheckLookupDaemonCacheFlush = CFAbsoluteTimeGetCurrent() + 1;
 	fLookupDaemonFlushCacheRequestCount++;
 	
 	if (gServerRunLoop != nil)
 	{
+		if( fLDFCTimerRef != NULL )
+		{
+			DBGLOG1( kLogPlugin, "T[%X] ServerControl::HandleLookupDaemonFlushCache invalidating previous timer", pthread_self() );
+
+			CFRunLoopTimerInvalidate( fLDFCTimerRef );
+			CFRelease( fLDFCTimerRef );
+			fLDFCTimerRef = NULL;
+		}
+		
 		ptInfo = (void *)this;
 		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, LookupDaemonFlushCacheCopyStringCallback};
 	
-		CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
-														fTimeToCheckLookupDaemonCacheFlush + 1,
+		if (fLookupDaemonFlushCacheRequestCount > kDSActOnThisNumberOfFlushRequests)
+		{
+			fLookupDaemonFlushCacheRequestCount = 0;
+			timeOffset = 0; //do it now
+		}
+		fLDFCTimerRef = CFRunLoopTimerCreate(	NULL,
+														CFAbsoluteTimeGetCurrent() + timeOffset,
 														0,
 														0,
 														0,
 														DoLookupDaemonFlushCache,
 														(CFRunLoopTimerContext*)&c);
 	
-		CFRunLoopAddTimer(gServerRunLoop, timer, kCFRunLoopDefaultMode);
-		if (timer) CFRelease(timer);
+		CFRunLoopAddTimer(gServerRunLoop, fLDFCTimerRef, kCFRunLoopDefaultMode);
 	}
+	gTimerMutex->Signal();
 } // HandleLookupDaemonFlushCache
 
 //------------------------------------------------------------------------------------
@@ -1953,28 +1997,43 @@ void ServerControl::HandleLookupDaemonFlushCache ( void )
 void ServerControl::HandleMemberDaemonFlushCache ( void )
 {
 	void	   *ptInfo		= nil;
+	uInt32		timeOffset	= 2;
 	
+	gTimerMutex->Wait();
 	//wait one second to fire off the timer
 	//consolidate multiple requests that come in faster than one second
-	fTimeToCheckMemberDaemonCacheFlush = CFAbsoluteTimeGetCurrent() + 1;
 	fMemberDaemonFlushCacheRequestCount++;
 	
 	if (gServerRunLoop != nil)
 	{
+		if( fMDFCTimerRef != NULL )
+		{
+			DBGLOG1( kLogPlugin, "T[%X] ServerControl::HandleLookupDaemonFlushCache invalidating previous timer", pthread_self() );
+
+			CFRunLoopTimerInvalidate( fMDFCTimerRef );
+			CFRelease( fMDFCTimerRef );
+			fMDFCTimerRef = NULL;
+		}
+		
 		ptInfo = (void *)this;
 		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, MemberDaemonFlushCacheCopyStringCallback};
 	
-		CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
-														fTimeToCheckMemberDaemonCacheFlush + 1,
+		if (fMemberDaemonFlushCacheRequestCount > kDSActOnThisNumberOfFlushRequests)
+		{
+			fMemberDaemonFlushCacheRequestCount = 0;
+			timeOffset = 0; //do it now
+		}
+		fMDFCTimerRef = CFRunLoopTimerCreate(	NULL,
+														CFAbsoluteTimeGetCurrent() + timeOffset,
 														0,
 														0,
 														0,
 														DoMemberDaemonFlushCache,
 														(CFRunLoopTimerContext*)&c);
 	
-		CFRunLoopAddTimer(gServerRunLoop, timer, kCFRunLoopDefaultMode);
-		if (timer) CFRelease(timer);
+		CFRunLoopAddTimer(gServerRunLoop, fMDFCTimerRef, kCFRunLoopDefaultMode);
 	}
+	gTimerMutex->Signal();
 } // HandleMemberDaemonFlushCache
 
 //------------------------------------------------------------------------------------
@@ -1985,6 +2044,7 @@ void ServerControl::HandleMultipleNetworkTransitionsForNIAutoSwitch ( void )
 {
 	void	   *ptInfo		= nil;
 	
+	gTimerMutex->Wait();
 	//let us be smart about doing the check
 	//we would like to wait a short period for the Network transitions to subside
 	//since we don't want to re-init multiple times during this wait period
@@ -1992,24 +2052,32 @@ void ServerControl::HandleMultipleNetworkTransitionsForNIAutoSwitch ( void )
 	//each call in here we update the delay time by 11 seconds
 	//Need to ensure that this does not conflict with NetInfo connection
 	//re-establishment after a network transition
-	fTimeToCheckNIAutoSwitch = CFAbsoluteTimeGetCurrent() + 10;
 
 	if (gServerRunLoop != nil)
 	{
+		if( fNIASTimerRef != NULL )
+		{
+			DBGLOG1( kLogPlugin, "T[%X] ServerControl::HandleLookupDaemonFlushCache invalidating previous timer", pthread_self() );
+
+			CFRunLoopTimerInvalidate( fNIASTimerRef );
+			CFRelease( fNIASTimerRef );
+			fNIASTimerRef = NULL;
+		}
+		
 		ptInfo = (void *)this;
 		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, NetworkChangeNIAutoSwitchCopyStringCallback};
 	
-		CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
-														fTimeToCheckNIAutoSwitch + 1,
+		fNIASTimerRef = CFRunLoopTimerCreate(	NULL,
+														CFAbsoluteTimeGetCurrent() + 11,
 														0,
 														0,
 														0,
 														DoNIAutoSwitchNetworkChange,
 														(CFRunLoopTimerContext*)&c);
 	
-		CFRunLoopAddTimer(gServerRunLoop, timer, kCFRunLoopDefaultMode);
-		if (timer) CFRelease(timer);
+		CFRunLoopAddTimer(gServerRunLoop, fNIASTimerRef, kCFRunLoopDefaultMode);
 	}
+	gTimerMutex->Signal();
 } // HandleMultipleNetworkTransitionsForNIAutoSwitch
 
 //------------------------------------------------------------------------------

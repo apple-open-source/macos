@@ -1,10 +1,10 @@
 /**
  * Contains:   Editor login plug-in for blojsom.
  * Written by: John Anderson (for addtl writers check CVS comments).
- * Copyright:  © 2004 Apple Computer, Inc., all rights reserved.
+ * Copyright:  Â© 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: BlojsomAppleUtils.java,v 1.27 2005/03/14 21:37:49 whitmore Exp $
+ * $Id: BlojsomAppleUtils.java,v 1.27.2.2 2005/08/27 18:23:03 johnan Exp $
  */ 
 package com.apple.blojsom.util;
 
@@ -23,6 +23,7 @@ import org.blojsom.util.BlojsomProperties;
 import javax.servlet.ServletConfig;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -35,7 +36,7 @@ import java.util.*;
  * BlojsomUtils
  * 
  * @author John Anderson
- * @version $Id: BlojsomAppleUtils.java,v 1.27 2005/03/14 21:37:49 whitmore Exp $
+ * @version $Id: BlojsomAppleUtils.java,v 1.27.2.2 2005/08/27 18:23:03 johnan Exp $
  */
 public class BlojsomAppleUtils implements BlojsomConstants {
 	
@@ -71,8 +72,9 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 			}
 			
 			resultCode = commandLineProcess.waitFor();
-			if ((resultCode == 0) && (commandLineResponse != null))
+			if ((resultCode == 0) && (commandLineResponse != null)) {
 				resultString = commandLineResponse;
+			}
 		} catch (java.io.IOException e) {
 			logger.error(e);
 		} catch (java.lang.InterruptedException e) {
@@ -105,8 +107,8 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 	 * If a matching full name isn't found, returns the input.
      */
 	public static String getShortNameFromFullName(String username, String netInfoLoc) {
-		// dscl . search Users realname "John Anderson"
-		String [] getShortNameProcessArgs = { "/usr/bin/dscl", netInfoLoc, "search", "Users", "realname", username };
+		// dscl . -search Users realname "John Anderson"
+		String [] getShortNameProcessArgs = { "/usr/bin/dscl", netInfoLoc, "-search", "Users", "realname", username };
 		String result = getResultFromCommandLineUtility(getShortNameProcessArgs, username);
 		
 		// if the last line contains a tab...
@@ -119,6 +121,26 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 		return username;
 	}
 
+    /**
+     * Try and resolve short name aliases.
+	 * Returns null if there's no match.
+	 * Returns the short name if the username is valid and not an alias.
+     */
+	public static String validateShortNameAndResolveAliases(String username, String netInfoLoc) {
+		// dscl . -search /Users RecordName "aliasedshortname"
+		String [] validateShortNameProcessArgs = { "/usr/bin/dscl", netInfoLoc, "-search", "/Users", "RecordName", username };
+		String result = getResultFromCommandLineUtility(validateShortNameProcessArgs, "");
+		
+		// if the last line contains a tab...
+		if (result.matches(".+\t.+")) {
+			// username is before the tab
+			String [] splitResult = result.split("\t");
+			return splitResult[0];
+		}
+		
+		return null;
+	}
+	
     /**
      * Try and turn a full name into a short name.
 	 * If a matching full name isn't found, returns the input.
@@ -341,16 +363,24 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 		String newUserFullName = blogUserID;
 		
 		logger.debug("attemptUserBlogCreation called");
+		
+		if (blogUserID == null) {
+			logger.debug("no blogUserID!");
+		} else {
+			logger.debug("blogUserID = " + blogUserID);
+		}
 	
 		// if user already exists then no need to go further
-		if (blojsomConfiguration.getBlogUsers().containsKey(blogUserID)) {
+		if (Arrays.binarySearch(blojsomConfiguration.getBlojsomUsers(), blogUserID) >= 0) {
 			return true;
 		}
 		
 		logger.debug("Checking to see if '" + blogUserID + "' exists in DS");
 		
 		// if the user isn't defined in directory services, then bail
-		boolean foundUsername = ((doesUserExistInDS(blogUserID, ".") || doesUserExistInDS(blogUserID, "/Search")));
+		String resolvedBlogUserID = validateShortNameAndResolveAliases(blogUserID, "/Search");
+		blogUserID = (resolvedBlogUserID == null) ? blogUserID : resolvedBlogUserID;
+		boolean foundUsername = (resolvedBlogUserID != null);
 		boolean foundGroupName = ((doesGroupExistInDS(blogUserID, ".") || doesGroupExistInDS(blogUserID, "/Search"))); 
 		
 		if (foundUsername && checkSACLMembershipForUser(blogUserID)) {
@@ -383,7 +413,7 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 		// Make sure that the blog user ID does not conflict with a directory underneath the installation directory
 		if (blogUserDirectory.exists()) {
 			logger.debug("User directory already exists for blog user: " + blogUserID);
-			return false;
+			return true;
 		}
 		
 		try {
@@ -405,7 +435,21 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 			blogHomeDirectory.mkdir();
 
 			// Configure blog
-			Properties blogProperties = BlojsomUtils.loadProperties(servletConfig, blojsomConfiguration.getBaseConfigurationDirectory() + blogUserID + '/' + BLOG_DEFAULT_PROPERTIES);
+			logger.debug("loading copied properties file at " + blojsomConfiguration.getBaseConfigurationDirectory() + blogUserID + '/' + BLOG_DEFAULT_PROPERTIES);
+			Properties blogProperties = null;
+			for (int i = 0; i < 20; i++) {
+				try {
+					blogProperties = BlojsomUtils.loadProperties(servletConfig, blojsomConfiguration.getBaseConfigurationDirectory() + blogUserID + '/' + BLOG_DEFAULT_PROPERTIES);
+					break;
+				} catch (BlojsomException e) {
+					try {
+						java.lang.Thread.currentThread().sleep(1000);
+					} catch (java.lang.InterruptedException e2) {
+						logger.error(e);
+					}
+				}
+			}
+			logger.debug("loaded properties file");
 			blogProperties.put(BLOG_HOME_IP, blogHomeBaseDirectory + blogUserID);
 			blogProperties.put(BLOG_OWNER, newUserFullName);
 			
@@ -495,7 +539,7 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 			logger.debug("Loaded plugin chain map for new user: " + blogUserID);
 		
 			// Add the user to the global list of users
-			blojsomConfiguration.getBlogUsers().put(blogUserID, blogUser);
+			blojsomConfiguration.addBlogID(blogUserID);
 			writeBlojsomConfiguration(blojsomConfiguration);
 			logger.debug("Wrote new blojsom configuration after adding new user: " + blogUserID);
 		} catch (BlojsomException e) {
@@ -515,14 +559,13 @@ public class BlojsomAppleUtils implements BlojsomConstants {
     public static void writeBlojsomConfiguration(BlojsomConfiguration blojsomConfiguration) {
 		Log logger = LogFactory.getLog(BlojsomAppleUtils.class);
         File blojsomConfigurationFile = new File(blojsomConfiguration.getInstallationDirectory() + blojsomConfiguration.getBaseConfigurationDirectory() + "blojsom.properties");
-        Iterator usersIterator = blojsomConfiguration.getBlogUsers().keySet().iterator();
-        StringBuffer users = new StringBuffer();
-        while (usersIterator.hasNext()) {
-            users.append(usersIterator.next()).append(", ");
-        }
-
         Properties configurationProperties = new BlojsomProperties();
-        configurationProperties.put(BLOJSOM_USERS_IP, users.toString());
+		String [] blojsomUsers = blojsomConfiguration.getBlojsomUsers();
+		StringBuffer usersString = new StringBuffer();
+		for (int i = 0; i < blojsomUsers.length; i++) {
+			usersString.append(blojsomUsers[i]).append(",");
+		}
+        configurationProperties.put(BLOJSOM_USERS_IP, usersString);
         configurationProperties.put(BLOJSOM_AUTHORIZATION_PROVIDER_IP, "com.apple.blojsom.util.AppleBlojsomAuthorizationProvider"); // change this!
         configurationProperties.put(BLOJSOM_FETCHER_IP, blojsomConfiguration.getFetcherClass());
         configurationProperties.put(BLOJSOM_DEFAULT_USER_IP, blojsomConfiguration.getDefaultUser());

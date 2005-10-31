@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -57,11 +57,9 @@ with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
-with Stringt;  use Stringt;
 with Snames;   use Snames;
 with Tbuild;   use Tbuild;
 with Ttypes;   use Ttypes;
-with Uintp;    use Uintp;
 with Validsw;  use Validsw;
 
 package body Exp_Ch3 is
@@ -287,6 +285,11 @@ package body Exp_Ch3 is
    --  Freeze entities of all predefined primitive operations. This is needed
    --  because the bodies of these operations do not normally do any freezeing.
 
+   function Stream_Operations_OK (Typ : Entity_Id) return Boolean;
+   --  Check whether stream operations must be emitted for a given type.
+   --  Various restrictions prevent the generation of these operations, as
+   --  a useful optimization or for certification purposes.
+
    --------------------------
    -- Adjust_Discriminants --
    --------------------------
@@ -483,7 +486,9 @@ package body Exp_Ch3 is
             return New_List (
               Make_Assignment_Statement (Loc,
                 Name => Comp,
-                Expression => Get_Simple_Init_Val (Comp_Type, Loc)));
+                Expression =>
+                  Get_Simple_Init_Val
+                    (Comp_Type, Loc, Component_Size (A_Type))));
 
          else
             return
@@ -563,11 +568,12 @@ package body Exp_Ch3 is
       --  apply in this case), and we must generate a procedure (even if it is
       --  null) to satisfy the call in this case.
 
-      --  Exception: do not build an array init_proc for a type whose root type
-      --  is Standard.String or Standard.Wide_String, since there is no place
-      --  to put the code, and in any case we handle initialization of such
-      --  types (in the Initialize_Scalars case, that's the only time the issue
-      --  arises) in a special manner anyway which does not need an init_proc.
+      --  Exception: do not build an array init_proc for a type whose root
+      --  type is Standard.String or Standard.Wide_[Wide_]String, since there
+      --  is no place to put the code, and in any case we handle initialization
+      --  of such types (in the Initialize_Scalars case, that's the only time
+      --  the issue arises) in a special manner anyway which does not need an
+      --  init_proc.
 
       if Has_Non_Null_Base_Init_Proc (Comp_Type)
         or else Needs_Simple_Initialization (Comp_Type)
@@ -575,7 +581,8 @@ package body Exp_Ch3 is
         or else (not Restriction_Active (No_Initialize_Scalars)
                    and then Is_Public (A_Type)
                    and then Root_Type (A_Type) /= Standard_String
-                   and then Root_Type (A_Type) /= Standard_Wide_String)
+                   and then Root_Type (A_Type) /= Standard_Wide_String
+                   and then Root_Type (A_Type) /= Standard_Wide_Wide_String)
       then
          Proc_Id :=
            Make_Defining_Identifier (Loc, Make_Init_Proc_Name (A_Type));
@@ -641,7 +648,7 @@ package body Exp_Ch3 is
       P    : Node_Id;
 
    begin
-      --  Nothing to do if there is no task hierarchy.
+      --  Nothing to do if there is no task hierarchy
 
       if Restriction_Active (No_Task_Hierarchy) then
          return;
@@ -650,6 +657,7 @@ package body Exp_Ch3 is
       --  Nothing to do if we already built a master entity for this scope
 
       if not Has_Master_Entity (Scope (T)) then
+
          --  first build the master entity
          --    _Master : constant Master_Id := Current_Master.all;
          --  and insert it just before the current declaration
@@ -687,7 +695,7 @@ package body Exp_Ch3 is
          end loop;
       end if;
 
-      --  Now define the renaming of the master_id.
+      --  Now define the renaming of the master_id
 
       M_Id :=
         Make_Defining_Identifier (Loc,
@@ -1118,15 +1126,10 @@ package body Exp_Ch3 is
          --  This is just a workaround that must be improved later???
 
          if With_Default_Init then
-            declare
-               S           : String_Id;
-               Null_String : Node_Id;
-            begin
-               Start_String;
-               S := End_String;
-               Null_String := Make_String_Literal (Loc, Strval => S);
-               Append_To (Args, Null_String);
-            end;
+            Append_To (Args,
+              Make_String_Literal (Loc,
+                Strval => ""));
+
          else
             Decls := Build_Task_Image_Decls (Loc, Id_Ref, Enclos_Type);
             Decl  := Last (Decls);
@@ -1316,7 +1319,7 @@ package body Exp_Ch3 is
       Decl : Node_Id;
 
    begin
-      --  Nothing to do if there is no task hierarchy.
+      --  Nothing to do if there is no task hierarchy
 
       if Restriction_Active (No_Task_Hierarchy) then
          return;
@@ -1997,7 +2000,8 @@ package body Exp_Ch3 is
 
                elsif Component_Needs_Simple_Initialization (Typ) then
                   Stmts :=
-                    Build_Assignment (Id, Get_Simple_Init_Val (Typ, Loc));
+                    Build_Assignment
+                      (Id, Get_Simple_Init_Val (Typ, Loc, Esize (Id)));
 
                --  Nothing needed for this case
 
@@ -2059,7 +2063,8 @@ package body Exp_Ch3 is
 
                   elsif Component_Needs_Simple_Initialization (Typ) then
                      Append_List_To (Statement_List,
-                       Build_Assignment (Id, Get_Simple_Init_Val (Typ, Loc)));
+                       Build_Assignment
+                         (Id, Get_Simple_Init_Val (Typ, Loc, Esize (Id))));
                   end if;
                end if;
 
@@ -2669,7 +2674,7 @@ package body Exp_Ch3 is
                   Expressions => New_List (New_Occurrence_Of (Rnn, Loc))))),
           End_Label  => Empty);
 
-      --  Build exit condition.
+      --  Build exit condition
 
       declare
          F_Ass : constant List_Id := New_List;
@@ -3404,7 +3409,7 @@ package body Exp_Ch3 is
 
          elsif Needs_Simple_Initialization (Typ) then
             Set_No_Initialization (N, False);
-            Set_Expression (N, Get_Simple_Init_Val (Typ, Loc));
+            Set_Expression (N, Get_Simple_Init_Val (Typ, Loc, Esize (Def_Id)));
             Analyze_And_Resolve (Expression (N), Typ);
          end if;
 
@@ -3878,13 +3883,14 @@ package body Exp_Ch3 is
             then
                null;
 
-            --  We do not need an init proc for string or wide string, since
-            --  the only time these need initialization in normalize or
+            --  We do not need an init proc for string or wide [wide] string,
+            --  since the only time these need initialization in normalize or
             --  initialize scalars mode, and these types are treated specially
             --  and do not need initialization procedures.
 
             elsif Root_Type (Base) = Standard_String
               or else Root_Type (Base) = Standard_Wide_String
+              or else Root_Type (Base) = Standard_Wide_Wide_String
             then
                null;
 
@@ -3976,7 +3982,7 @@ package body Exp_Ch3 is
          end loop;
       end if;
 
-      --  Now build an array declaration.
+      --  Now build an array declaration
 
       --    typA : array (Natural range 0 .. num - 1) of ctype :=
       --             (v, v, v, v, v, ....)
@@ -4087,7 +4093,7 @@ package body Exp_Ch3 is
 
          if Enumeration_Rep (Ent) = Last_Repval then
 
-            --  Another special case: for a single literal, Pos is zero.
+            --  Another special case: for a single literal, Pos is zero
 
             Pos_Expr := Make_Integer_Literal (Loc, Uint_0);
 
@@ -4525,9 +4531,10 @@ package body Exp_Ch3 is
    --  for initialization) are chained in the Acions field list of the freeze
    --  node using Append_Freeze_Actions.
 
-   procedure Freeze_Type (N : Node_Id) is
+   function Freeze_Type (N : Node_Id) return Boolean is
       Def_Id    : constant Entity_Id := Entity (N);
       RACW_Seen : Boolean := False;
+      Result    : Boolean := False;
 
    begin
       --  Process associated access types needing special processing
@@ -4548,7 +4555,7 @@ package body Exp_Ch3 is
 
          if RACW_Seen then
 
-            --  If there are RACWs designating this type, make stubs now.
+            --  If there are RACWs designating this type, make stubs now
 
             Remote_Types_Tagged_Full_View_Encountered (Def_Id);
          end if;
@@ -4580,7 +4587,7 @@ package body Exp_Ch3 is
             begin
                if Scope (Old_C) = Base_Type (Def_Id) then
 
-                  --  The entity is the one in the parent. Create new one.
+                  --  The entity is the one in the parent. Create new one
 
                   New_C := New_Copy (Old_C);
                   Set_Parent (New_C, Parent (Old_C));
@@ -4589,6 +4596,18 @@ package body Exp_Ch3 is
                   End_Scope;
                end if;
             end;
+
+            if Is_Itype (Def_Id)
+              and then Is_Record_Type (Underlying_Type (Scope (Def_Id)))
+            then
+               --  The freeze node is only used to introduce the controller,
+               --  the back-end has no use for it for a discriminated
+               --   component.
+
+               Set_Freeze_Node (Def_Id, Empty);
+               Set_Has_Delayed_Freeze (Def_Id, False);
+               Result := True;
+            end if;
 
          --  Similar process if the controller of the subtype is not
          --  present but the parent has it. This can happen with constrained
@@ -4614,7 +4633,7 @@ package body Exp_Ch3 is
 
                Set_Freeze_Node (Def_Id, Empty);
                Set_Has_Delayed_Freeze (Def_Id, False);
-               Remove (N);
+               Result := True;
             end;
          end if;
 
@@ -4858,7 +4877,7 @@ package body Exp_Ch3 is
         and then Freeze_Node (Full_View (Def_Id)) = N
       then
          Set_Entity (N, Full_View (Def_Id));
-         Freeze_Type (N);
+         Result := Freeze_Type (N);
          Set_Entity (N, Def_Id);
 
       --  All other types require no expander action. There are such
@@ -4868,10 +4887,11 @@ package body Exp_Ch3 is
       end if;
 
       Freeze_Stream_Operations (N, Def_Id);
+      return Result;
 
    exception
       when RE_Not_Available =>
-         return;
+         return False;
    end Freeze_Type;
 
    -------------------------
@@ -4879,13 +4899,86 @@ package body Exp_Ch3 is
    -------------------------
 
    function Get_Simple_Init_Val
-     (T   : Entity_Id;
-      Loc : Source_Ptr) return Node_Id
+     (T    : Entity_Id;
+      Loc  : Source_Ptr;
+      Size : Uint := No_Uint) return Node_Id
    is
       Val    : Node_Id;
-      Typ    : Node_Id;
       Result : Node_Id;
       Val_RE : RE_Id;
+
+      Size_To_Use : Uint;
+      --  This is the size to be used for computation of the appropriate
+      --  initial value for the Normalize_Scalars and Initialize_Scalars case.
+
+      Lo_Bound : Uint;
+      Hi_Bound : Uint;
+      --  These are the values computed by the procedure Check_Subtype_Bounds
+
+      procedure Check_Subtype_Bounds;
+      --  This procedure examines the subtype T, and its ancestor subtypes
+      --  and derived types to determine the best known information about
+      --  the bounds of the subtype. After the call Lo_Bound is set either
+      --  to No_Uint if no information can be determined, or to a value which
+      --  represents a known low bound, i.e. a valid value of the subtype can
+      --  not be less than this value. Hi_Bound is similarly set to a known
+      --  high bound (valid value cannot be greater than this).
+
+      --------------------------
+      -- Check_Subtype_Bounds --
+      --------------------------
+
+      procedure Check_Subtype_Bounds is
+         ST1  : Entity_Id;
+         ST2  : Entity_Id;
+         Lo   : Node_Id;
+         Hi   : Node_Id;
+         Loval : Uint;
+         Hival : Uint;
+
+      begin
+         Lo_Bound := No_Uint;
+         Hi_Bound := No_Uint;
+
+         --  Loop to climb ancestor subtypes and derived types
+
+         ST1 := T;
+         loop
+            if not Is_Discrete_Type (ST1) then
+               return;
+            end if;
+
+            Lo := Type_Low_Bound (ST1);
+            Hi := Type_High_Bound (ST1);
+
+            if Compile_Time_Known_Value (Lo) then
+               Loval := Expr_Value (Lo);
+
+               if Lo_Bound = No_Uint or else Lo_Bound < Loval then
+                  Lo_Bound := Loval;
+               end if;
+            end if;
+
+            if Compile_Time_Known_Value (Hi) then
+               Hival := Expr_Value (Hi);
+
+               if Hi_Bound = No_Uint or else Hi_Bound > Hival then
+                  Hi_Bound := Hival;
+               end if;
+            end if;
+
+            ST2 := Ancestor_Subtype (ST1);
+
+            if No (ST2) then
+               ST2 := Etype (ST1);
+            end if;
+
+            exit when ST1 = ST2;
+            ST1 := ST2;
+         end loop;
+      end Check_Subtype_Bounds;
+
+   --  Start of processing for Get_Simple_Init_Val
 
    begin
       --  For a private type, we should always have an underlying type
@@ -4894,7 +4987,7 @@ package body Exp_Ch3 is
       --  do an Unchecked_Convert to the private type.
 
       if Is_Private_Type (T) then
-         Val := Get_Simple_Init_Val (Underlying_Type (T), Loc);
+         Val := Get_Simple_Init_Val (Underlying_Type (T), Loc, Size);
 
          --  A special case, if the underlying value is null, then qualify
          --  it with the underlying type, so that the null is properly typed
@@ -4928,46 +5021,98 @@ package body Exp_Ch3 is
       elsif Is_Scalar_Type (T) then
          pragma Assert (Init_Or_Norm_Scalars);
 
+         --  Compute size of object. If it is given by the caller, we can
+         --  use it directly, otherwise we use Esize (T) as an estimate. As
+         --  far as we know this covers all cases correctly.
+
+         if Size = No_Uint or else Size <= Uint_0 then
+            Size_To_Use := UI_Max (Uint_1, Esize (T));
+         else
+            Size_To_Use := Size;
+         end if;
+
+         --  Maximum size to use is 64 bits, since we will create values
+         --  of type Unsigned_64 and the range must fit this type.
+
+         if Size_To_Use /= No_Uint and then Size_To_Use > Uint_64 then
+            Size_To_Use := Uint_64;
+         end if;
+
+         --  Check known bounds of subtype
+
+         Check_Subtype_Bounds;
+
          --  Processing for Normalize_Scalars case
 
          if Normalize_Scalars then
 
-            --  First prepare a value (out of subtype range if possible)
+            --  If zero is invalid, it is a convenient value to use that is
+            --  for sure an appropriate invalid value in all situations.
 
-            if Is_Real_Type (T) or else Is_Integer_Type (T) then
-               Val :=
-                 Make_Attribute_Reference (Loc,
-                   Prefix => New_Occurrence_Of (Base_Type (T), Loc),
-                   Attribute_Name => Name_First);
+            if Lo_Bound /= No_Uint and then Lo_Bound > Uint_0 then
+               Val := Make_Integer_Literal (Loc, 0);
 
-            elsif Is_Modular_Integer_Type (T) then
-               Val :=
-                 Make_Attribute_Reference (Loc,
-                   Prefix => New_Occurrence_Of (Base_Type (T), Loc),
-                   Attribute_Name => Name_Last);
+            --  Cases where all one bits is the appropriate invalid value
+
+            --  For modular types, all 1 bits is either invalid or valid. If
+            --  it is valid, then there is nothing that can be done since there
+            --  are no invalid values (we ruled out zero already).
+
+            --  For signed integer types that have no negative values, either
+            --  there is room for negative values, or there is not. If there
+            --  is, then all 1 bits may be interpretecd as minus one, which is
+            --  certainly invalid. Alternatively it is treated as the largest
+            --  positive value, in which case the observation for modular types
+            --  still applies.
+
+            --  For float types, all 1-bits is a NaN (not a number), which is
+            --  certainly an appropriately invalid value.
+
+            elsif Is_Unsigned_Type (T)
+              or else Is_Floating_Point_Type (T)
+              or else Is_Enumeration_Type (T)
+            then
+               Val := Make_Integer_Literal (Loc, 2 ** Size_To_Use - 1);
+
+               --  Resolve as Unsigned_64, because the largest number we
+               --  can generate is out of range of universal integer.
+
+               Analyze_And_Resolve (Val, RTE (RE_Unsigned_64));
+
+            --  Case of signed types
 
             else
-               pragma Assert (Is_Enumeration_Type (T));
+               declare
+                  Signed_Size : constant Uint :=
+                                  UI_Min (Uint_63, Size_To_Use - 1);
 
-               if Esize (T) <= 8 then
-                  Typ := RTE (RE_Unsigned_8);
-               elsif Esize (T) <= 16 then
-                  Typ := RTE (RE_Unsigned_16);
-               elsif Esize (T) <= 32 then
-                  Typ := RTE (RE_Unsigned_32);
-               else
-                  Typ := RTE (RE_Unsigned_64);
-               end if;
+               begin
+                  --  Normally we like to use the most negative number. The
+                  --  one exception is when this number is in the known subtype
+                  --  range and the largest positive number is not in the known
+                  --  subtype range.
 
-               Val :=
-                 Make_Attribute_Reference (Loc,
-                   Prefix => New_Occurrence_Of (Typ, Loc),
-                   Attribute_Name => Name_Last);
+                  --  For this exceptional case, use largest positive value
+
+                  if Lo_Bound /= No_Uint and then Hi_Bound /= No_Uint
+                    and then Lo_Bound <= (-(2 ** Signed_Size))
+                    and then Hi_Bound < 2 ** Signed_Size
+                  then
+                     Val := Make_Integer_Literal (Loc, 2 ** Signed_Size - 1);
+
+                     --  Normal case of largest negative value
+
+                  else
+                     Val := Make_Integer_Literal (Loc, -(2 ** Signed_Size));
+                  end if;
+               end;
             end if;
 
          --  Here for Initialize_Scalars case
 
          else
+            --  For float types, use float values from System.Scalar_Values
+
             if Is_Floating_Point_Type (T) then
                if Root_Type (T) = Standard_Short_Float then
                   Val_RE := RE_IS_Isf;
@@ -4979,25 +5124,42 @@ package body Exp_Ch3 is
                   Val_RE := RE_IS_Ill;
                end if;
 
-            elsif Is_Unsigned_Type (Base_Type (T)) then
-               if Esize (T) = 8 then
+            --  If zero is invalid, use zero values from System.Scalar_Values
+
+            elsif Lo_Bound /= No_Uint and then Lo_Bound > Uint_0 then
+               if Size_To_Use <= 8 then
+                  Val_RE := RE_IS_Iz1;
+               elsif Size_To_Use <= 16 then
+                  Val_RE := RE_IS_Iz2;
+               elsif Size_To_Use <= 32 then
+                  Val_RE := RE_IS_Iz4;
+               else
+                  Val_RE := RE_IS_Iz8;
+               end if;
+
+            --  For unsigned, use unsigned values from System.Scalar_Values
+
+            elsif Is_Unsigned_Type (T) then
+               if Size_To_Use <= 8 then
                   Val_RE := RE_IS_Iu1;
-               elsif Esize (T) = 16 then
+               elsif Size_To_Use <= 16 then
                   Val_RE := RE_IS_Iu2;
-               elsif Esize (T) = 32 then
+               elsif Size_To_Use <= 32 then
                   Val_RE := RE_IS_Iu4;
-               else pragma Assert (Esize (T) = 64);
+               else
                   Val_RE := RE_IS_Iu8;
                end if;
 
-            else -- signed type
-               if Esize (T) = 8 then
+            --  For signed, use signed values from System.Scalar_Values
+
+            else
+               if Size_To_Use <= 8 then
                   Val_RE := RE_IS_Is1;
-               elsif Esize (T) = 16 then
+               elsif Size_To_Use <= 16 then
                   Val_RE := RE_IS_Is2;
-               elsif Esize (T) = 32 then
+               elsif Size_To_Use <= 32 then
                   Val_RE := RE_IS_Is4;
-               else pragma Assert (Esize (T) = 64);
+               else
                   Val_RE := RE_IS_Is8;
                end if;
             end if;
@@ -5005,11 +5167,11 @@ package body Exp_Ch3 is
             Val := New_Occurrence_Of (RTE (Val_RE), Loc);
          end if;
 
-         --  The final expression is obtained by doing an unchecked
-         --  conversion of this result to the base type of the
-         --  required subtype. We use the base type to avoid the
-         --  unchecked conversion from chopping bits, and then we
-         --  set Kill_Range_Check to preserve the "bad" value.
+         --  The final expression is obtained by doing an unchecked conversion
+         --  of this result to the base type of the required subtype. We use
+         --  the base type to avoid the unchecked conversion from chopping
+         --  bits, and then we set Kill_Range_Check to preserve the "bad"
+         --  value.
 
          Result := Unchecked_Convert_To (Base_Type (T), Val);
 
@@ -5023,11 +5185,13 @@ package body Exp_Ch3 is
 
          return Result;
 
-      --  String or Wide_String (must have Initialize_Scalars set)
+      --  String or Wide_[Wide]_String (must have Initialize_Scalars set)
 
       elsif Root_Type (T) = Standard_String
               or else
             Root_Type (T) = Standard_Wide_String
+              or else
+            Root_Type (T) = Standard_Wide_Wide_String
       then
          pragma Assert (Init_Or_Norm_Scalars);
 
@@ -5038,7 +5202,8 @@ package body Exp_Ch3 is
                  Choices => New_List (
                    Make_Others_Choice (Loc)),
                  Expression =>
-                   Get_Simple_Init_Val (Component_Type (T), Loc))));
+                   Get_Simple_Init_Val
+                     (Component_Type (T), Loc, Esize (Root_Type (T))))));
 
       --  Access type is initialized to null
 
@@ -5370,10 +5535,7 @@ package body Exp_Ch3 is
       --  We also skip these operations if dispatching is not available
       --  or if streams are not available (since what's the point?)
 
-      if not Is_Limited_Type (Tag_Typ)
-        and then RTE_Available (RE_Tag)
-        and then RTE_Available (RE_Root_Stream_Type)
-      then
+      if Stream_Operations_OK (Tag_Typ) then
          Append_To (Res,
            Predef_Stream_Attr_Spec (Loc, Tag_Typ, TSS_Stream_Read));
          Append_To (Res,
@@ -5574,7 +5736,8 @@ package body Exp_Ch3 is
       elsif Init_Or_Norm_Scalars
         and then
           (Root_Type (T) = Standard_String
-            or else Root_Type (T) = Standard_Wide_String)
+             or else Root_Type (T) = Standard_Wide_String
+             or else Root_Type (T) = Standard_Wide_Wide_String)
         and then
           (not Is_Itype (T)
             or else Nkind (Associated_Node_For_Itype (T)) /= N_Aggregate)
@@ -5825,11 +5988,9 @@ package body Exp_Ch3 is
 
       --  Bodies for Dispatching stream IO routines. We need these only for
       --  non-limited types (in the limited case there is no dispatching).
-      --  We also skip them if dispatching is not available.
+      --  We also skip them if dispatching or finalization are not available.
 
-      if not Is_Limited_Type (Tag_Typ)
-        and then not Restriction_Active (No_Finalization)
-      then
+      if Stream_Operations_OK (Tag_Typ) then
          if No (TSS (Tag_Typ, TSS_Stream_Read)) then
             Build_Record_Read_Procedure (Loc, Tag_Typ, Decl, Ent);
             Append_To (Res, Decl);
@@ -6040,4 +6201,18 @@ package body Exp_Ch3 is
 
       return Res;
    end Predefined_Primitive_Freeze;
+
+   --------------------------
+   -- Stream_Operations_OK --
+   --------------------------
+
+   function Stream_Operations_OK (Typ : Entity_Id) return Boolean is
+   begin
+      return
+        not Is_Limited_Type (Typ)
+          and then RTE_Available (RE_Tag)
+          and then RTE_Available (RE_Root_Stream_Type)
+          and then not Restriction_Active (No_Dispatch)
+          and then not Restriction_Active (No_Streams);
+   end Stream_Operations_OK;
 end Exp_Ch3;

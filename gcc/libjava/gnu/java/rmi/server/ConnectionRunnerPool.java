@@ -1,5 +1,5 @@
 /* gnu.java.rmi.server.ConnectionRunnerPool
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -95,7 +95,8 @@ class ConnectionRunnerPool
   private static int size = 5;
   private static int max_size = 10;
   
-  private static ArrayList freelist;
+  // Package-private to avoid a trampoline.
+  static ArrayList freelist;
   
   private static ThreadGroup group = new ThreadGroup("pool");
   
@@ -117,7 +118,7 @@ class ConnectionRunnerPool
     max_size = size;
   }
   
-  private synchronized static ConnectionRunner getConnectionRunner()
+  private static synchronized ConnectionRunner getConnectionRunner()
   {
     if(freelist.size() == 0){
       if(size < max_size){

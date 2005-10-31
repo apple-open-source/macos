@@ -263,11 +263,13 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
     UInt32              index       = 0;
     UInt32              usage       = 0;
     UInt32              usagePage   = 0;
-    IOHIDElement *      element     = 0;
     bool                stored      = false;
+    bool                pointer     = false;
     bool                supportsInk = false;
+    IOHIDElement *      element     = 0;
 	IOHIDElement *		buttonCollection = 0;
 	IOHIDElement *		relativeCollection = 0;
+    OSArray *           buttonArray = 0;
     
     if ( bootProtocol == kBootProtocolMouse )
         _bootSupport = kBootMouse;
@@ -309,12 +311,14 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
                             supportsInk = true;
                         
                         stored |= storeReportElement ( element ); 
+                        pointer = true;
                         break;       
 
                     case kHIDUsage_GD_Y:
                         _bootSupport &= ~kMouseYAxis;
                         
-                        stored |= storeReportElement ( element ); 
+                        stored |= storeReportElement ( element );
+                        pointer = true;
                         break;       
                         
                     case kHIDUsage_GD_SystemPowerDown:
@@ -357,10 +361,12 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
 
             else if ( usagePage == kHIDPage_Button )
             {
-                _bootSupport &= ~kMouseButtons;
+                if ( !buttonArray )
+                    buttonArray = OSArray::withCapacity(4);
                     
-                buttonCollection = element->getParentElement();
-                stored |= storeReportElement ( element );
+                // RY: Save the buttons for later.
+                if ( buttonArray )
+                    buttonArray->setObject(element);
             }
 
             else if ( usagePage == kHIDPage_Consumer )
@@ -382,6 +388,29 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
             }
         }
     }
+    
+    // RY: Add the buttons only if elements of a pointer have been discovered.
+    if ( buttonArray )
+    {
+        if ( pointer )
+        {
+            count = buttonArray->getCount();
+                        
+            for (index=0; index<count; index++)
+            {
+                element = (IOHIDElement *)buttonArray->getObject(index);
+                
+                if ( !element ) continue;
+                
+                _bootSupport &= ~kMouseButtons;
+                    
+                buttonCollection = element->getParentElement();
+                stored |= storeReportElement ( element );
+            }
+        }
+        buttonArray->release();
+    }
+
 	
 	if (supportsInk)
 	{

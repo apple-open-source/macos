@@ -129,8 +129,8 @@ set_flags_from_environment(void) {
     if (flag) {
 	fd = open(flag, O_WRONLY|O_APPEND|O_CREAT, 0644);
 	if (fd >= 0) {
-	    malloc_debug_file = fd;
-	    fcntl(fd, F_SETFD, 0); // clear close-on-exec flag  XXX why?
+           malloc_debug_file = fd;
+	   fcntl(fd, F_SETFD, 0); // clear close-on-exec flag  XXX why?
 	} else {
 	    malloc_printf("Could not open %s, using stderr\n", flag);
 	}
@@ -222,21 +222,30 @@ set_flags_from_environment(void) {
 }
 
 malloc_zone_t *
-malloc_create_zone(vm_size_t start_size, unsigned flags) {
+malloc_create_zone(vm_size_t start_size, unsigned flags)
+{
     malloc_zone_t	*zone;
+
     if (!malloc_num_zones) {
 	char	**env = * _NSGetEnviron();
 	char	**p;
 	char	*c;
-	/* Given that all environment variables start with "Malloc" we optimize by scanning quickly first the environment, therefore avoiding repeated calls to getenv() */
+
 	malloc_debug_file = STDERR_FILENO;
+	
+	/*
+	 * Given that all environment variables start with "Malloc" we optimize by scanning quickly
+	 * first the environment, therefore avoiding repeated calls to getenv().
+	 * If we are setu/gid these flags are ignored to prevent a malicious invoker from changing
+	 * our behaviour.
+	 */
 	for (p = env; (c = *p) != NULL; ++p) {
 	    if (!strncmp(c, "Malloc", 6)) {
-		set_flags_from_environment(); 
+		if (!issetugid())
+		    set_flags_from_environment(); 
 		break;
 	    }
 	}
-
     }
     zone = create_scalable_zone(start_size, malloc_debug_flags);
     malloc_zone_register(zone);

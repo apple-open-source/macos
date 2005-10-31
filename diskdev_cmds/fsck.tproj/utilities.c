@@ -585,7 +585,7 @@ void
 catchquit(sig)
 	int sig;
 {
-	extern returntosingle;
+	extern int returntosingle;
 
 	printf("returning to single-user after filesystem check\n");
 	returntosingle = 1;

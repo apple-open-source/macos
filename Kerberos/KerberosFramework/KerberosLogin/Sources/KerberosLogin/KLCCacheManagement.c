@@ -1,7 +1,7 @@
 /*
  * KLCCacheManagement.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLCCacheManagement.c,v 1.21 2005/03/02 16:46:25 lxs Exp $
+ * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLCCacheManagement.c,v 1.22 2005/03/22 18:31:47 lxs Exp $
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -338,7 +338,7 @@ static KLStatus __KLV4CredsAreValid (krb5_context inContext,
             // Eeeeeeeew!  Build a fake krb5_address.
             address.magic = KV5M_ADDRESS;
             address.addrtype = AF_INET;
-            address.length = INADDRSZ;
+            address.length = NS_INADDRSZ;
             address.contents = (unsigned char *) &inV4Creds->address;
             
             err = __KLAddressIsValid (inContext, &address);

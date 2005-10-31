@@ -53,11 +53,7 @@ struct tb_command {
 };
 
 #define DEFTBCODE(code, str, help) { help, str, sizeof(str) - 1, code },
-#ifdef HOST_EBCDIC
-static struct tb_command tb_commands[] =
-#else
 static const struct tb_command tb_commands[] =
-#endif
 {
 #include "tree-browser.def"
 };
@@ -77,11 +73,7 @@ struct tb_tree_code {
 };
 
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS) { SYM, STRING, sizeof (STRING) - 1 },
-#ifdef HOST_EBCDIC
-static struct tb_tree_code tb_tree_codes[] =
-#else
 static const struct tb_tree_code tb_tree_codes[] =
-#endif
 {
 #include "tree.def"
 };
@@ -309,8 +301,7 @@ browse_tree (tree begin)
 	  break;
 
 	case TB_DOMAIN:
-	  if (head && (TREE_CODE (head) == ARRAY_TYPE
-		       || TREE_CODE (head) == SET_TYPE))
+	  if (head && TREE_CODE (head) == ARRAY_TYPE)
 	    TB_SET_HEAD (TYPE_DOMAIN (head));
 	  else
 	    TB_WF;

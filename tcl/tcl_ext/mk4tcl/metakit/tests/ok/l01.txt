@@ -1,2 +1,0 @@
->>> Over 32 Kb of integers
-<<< done.

@@ -1,8 +1,8 @@
 ========================================================================
 KerberosIPC Bug List
 ========================================================================
-Current version: 1.2fc3
-Date:            January 28, 2005
+Current version: 1.2.1fc1
+Date:            June 15, 2005
 Author:          lxs@mit.edu
 ========================================================================
 
@@ -10,6 +10,11 @@ Author:          lxs@mit.edu
 Bug #       Bug description                                     Fixed in
 ========================================================================
 
+[RT 3053] mach_server_become_user does not reregister the service as 
+          the new user                                                  1.2.1fc1
+[RT 3068] remove mach_server_become_user                                1.2.1fc1
+[RT 3085] MachIPC servers should shed root privileges if necessary      1.2.1fc1
+[RT 3067] Stop checking security trailers                               1.2.1fc1
 [RT 2895] clients should not register mach servers in the root bootstrap 
           (fixed bug in original patch)                                 1.2fc3
 [RT 2895] clients should not register mach servers in the root bootstrap 1.2fc2

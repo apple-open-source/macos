@@ -86,6 +86,14 @@ actions together MkEmptyDir
     ( $(MKDIR) -p $(1:Q) && $(CD) $(1:Q) && $(RM) -rf "*" )
 }
 
+# ForceMkdir <directory>
+# Unconditionally creates <directory>, and bumps it's timestamp
+actions together piecemeal ForceMkdir
+{
+    $(MKDIR) -p $(1:Q)
+    $(TOUCH) $(1:Q)
+}
+
 # SymLink <link> : <to>
 # Makes a symbolic link to the path indicated.
 # Link target is treated as a nonfile to preserve the value

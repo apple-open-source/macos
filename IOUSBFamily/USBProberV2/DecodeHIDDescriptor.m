@@ -28,7 +28,7 @@
 
 @implementation DecodeHIDDescriptor
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceInterface **)deviceIntf {
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceRef)deviceIntf {
     char 	temporaryString[500];
     BusProbeClass *     lastInterfaceClassInfo = [thisDevice lastInterfaceClassInfo];
     
@@ -145,7 +145,7 @@
     UInt32			usagePage = 0;
     UInt32			value=0;
     SInt32			svalue=0;
-    static unsigned char	buf[350], tempbuf[350], bufvalue[350], tempbufvalue[350];
+    static  char	buf[350], tempbuf[350], bufvalue[350], tempbufvalue[350];
     int				i, indentLevel;
     Boolean			datahandled=false;
     Boolean			usagesigned=false;

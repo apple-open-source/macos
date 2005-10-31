@@ -1,0 +1,55 @@
+# Copyright 2005 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This file tests whether we will insert breakpoints before we get the first dyld notification
+# in the main executable (we test _start) and in dyld.
+
+if $tracelevel then {
+        strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set testfile "r4098981"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+set dyld_before_event __dyld__ZN4dyld24initializeMainExecutableEv
+
+# Start with a fresh gdb
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+# We set stop-on-solib-events so the test for the dyld breakpoint will fail if the place
+# we've chosen to stop in dyld gets moved PAST the first gdb-dyld event.
+
+gdb_test "set stop-on-solib-events 1" "" "set stop-on-solib-events to 1"
+
+
+gdb_test "break _start" "Breakpoint 1 at $hex.*\\." "breakpoint at _start set"
+gdb_test "break $dyld_before_event" "Breakpoint 2 at $hex.*" "breakpoint at dyld initializeMainExecutable"
+
+gdb_test "run" "Starting program: $binfile *\r\n\.*Breakpoint 1, .*_start.*" \
+    "stopped at _start"
+gdb_test "continue" "Continuing\\..*Breakpoint 2,.*$dyld_before_event.*" "stopped in dyld" 

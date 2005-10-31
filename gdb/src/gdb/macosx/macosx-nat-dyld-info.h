@@ -53,6 +53,12 @@ struct dyld_objfile_entry
   /* Names names names.
      Why oh why lord are there all these names? What use can they possibly have? */
 
+  /* USER_NAME is a name coming from the user.  This can happen with
+     a DYLD_INSERT_LIBRARY name, or it can happen with a 
+     sharedlibrary specify-symbol-file command, or it can happen if we've
+     got an objfile w/o a corresponding dyld_objfile_entry - we'll use the
+     objfile->name and put it in the d_o_e's user_name field.  */
+
   char *user_name;
 
   char *dyld_name;
@@ -64,6 +70,8 @@ struct dyld_objfile_entry
   CORE_ADDR image_addr;
   int image_addr_valid;
 
+  /* We got this name from the executable's mach_header load commands,
+     or we copied it from the bfd of the specified executable file.  */
   char *text_name;
   int text_name_valid;
 
@@ -79,7 +87,18 @@ struct dyld_objfile_entry
   CORE_ADDR loaded_memaddr;
   CORE_ADDR loaded_addr;
   CORE_ADDR loaded_offset;
+
+  /* God as my witness, I can't figure out what this one is for.  It seems
+     to indicate that the LOADED_ADDR field is the slide (aka offset) instead
+     of an absolute address.  Huh?  Like it gets set for the main executable
+     which is at 0x0, and if the DYLD_VALID isn't set and
+     IMAGE_ADDR_VALID isn't set, dyld_load_symfile will set it to
+     the slide, which I guess somehow got set without DYLD_VALID getting set...
+     uh.... 
+     I don't think it actually does anything.  jsm/2004-12-15*/
+
   int loaded_addrisoffset;
+
   int loaded_from_memory;
   int loaded_error;
 
@@ -100,6 +119,19 @@ struct dyld_objfile_entry
 
 struct dyld_objfile_info
 {
+  /* ENTRIES is an array of dyld_objfile_entry structs; MAXENTS of them
+     are allocated, NENTS of them are currently being used.
+
+     The offsets in the ENTRIES array correspond with the "shlib numbers"
+     that gdb exposes to the users, but they are off by one.  e.g. the
+     first shlib number that a user will see is 1, but that corresponds to
+     entries[0] in this structure.  Be careful to maintain this off-by-one
+     relationship or you'll have conflicting input/output.
+
+     This "offset is the key" appraoch works, but it would be just as easy
+     to disassociate the two and have dyld_objfile_entry contain a KEY 
+     field... */
+
   struct dyld_objfile_entry *entries;
   int nents;
   int maxents;
@@ -109,15 +141,16 @@ struct dyld_objfile_info
 
 struct dyld_path_info;
 
-enum
+enum dyld_entry_filename_type
 {
   DYLD_ENTRY_FILENAME_BASE = 0,
   DYLD_ENTRY_FILENAME_LOADED = 1,
   DYLD_ENTRY_FILENAME_USER = 2
-} dyld_entry_filename_type;
+};
 
 const char *dyld_entry_filename (const struct dyld_objfile_entry *e,
-                                 const struct dyld_path_info *d, int type);
+                                 const struct dyld_path_info *d, 
+                                 enum dyld_entry_filename_type type);
 
 char *dyld_offset_string (CORE_ADDR offset);
 
@@ -163,8 +196,7 @@ void dyld_entry_info (struct dyld_objfile_entry *e, int print_basenames,
 
 void dyld_print_entry_info (struct dyld_objfile_entry *j, int shlibnum, int baselen);
 
-unsigned int dyld_shlib_info_basename_length (struct dyld_objfile_info *,
-                                              unsigned int);
+int dyld_shlib_info_basename_length (struct dyld_objfile_info *, unsigned int);
 
 int dyld_entry_shlib_num (struct dyld_objfile_info *s,
                           struct dyld_objfile_entry *eptr,
@@ -172,8 +204,7 @@ int dyld_entry_shlib_num (struct dyld_objfile_info *s,
 
 int dyld_entry_shlib_num_matches (int shlibnum, char *args, int verbose);
 
-unsigned int dyld_next_allocated_shlib (struct dyld_objfile_info *info,
-                                        unsigned int n);
+int dyld_next_allocated_shlib (struct dyld_objfile_info *info, int n);
 
 
 /* The one-per-inferior INFO structure has an array of dyld_objfile_entry

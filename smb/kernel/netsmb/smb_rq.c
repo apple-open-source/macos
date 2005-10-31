@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_rq.c,v 1.29 2005/02/11 01:44:17 lindak Exp $
+ * $Id: smb_rq.c,v 1.29.86.1 2005/07/20 05:27:00 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -53,6 +53,7 @@
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb_compat4.h>
 
+#include <sys/vnode.h>
 #include <smbfs/smbfs.h>
 
 MALLOC_DEFINE(M_SMBRQ, "SMBRQ", "SMB request");
@@ -258,7 +259,7 @@ smb_rq_enqueue(struct smb_rq *rqp)
 void
 smb_rq_wstart(struct smb_rq *rqp)
 {
-	rqp->sr_wcount = mb_reserve(&rqp->sr_rq, sizeof(u_int8_t));
+	rqp->sr_wcount = (u_char *)mb_reserve(&rqp->sr_rq, sizeof(u_int8_t));
 	rqp->sr_rq.mb_count = 0;
 }
 

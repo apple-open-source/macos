@@ -148,6 +148,8 @@ struct Supplicant_s {
 
     bool			logoff_sent;
     bool			debug;
+
+    bool			no_ui;
 };
 
 typedef enum {
@@ -1578,6 +1580,9 @@ Supplicant_report_status(SupplicantRef supp)
 	       strerror(result));
     }
     my_CFRelease(&dict);
+    if (supp->no_ui) {
+	goto no_ui;
+    }
     if (need_username || need_password) {
 	if (supp->pw_prompt == NULL) {
 	    CFStringRef password;
@@ -1607,6 +1612,7 @@ Supplicant_report_status(SupplicantRef supp)
 	    my_CFRelease(&copy);
 	}
     }
+ no_ui:
     return;
 }
 
@@ -2372,5 +2378,12 @@ Supplicant_set_debug(SupplicantRef supp, bool debug)
 {
     supp->debug = debug;
     EAPOLSocketSetDebug(debug);
+    return;
+}
+
+void
+Supplicant_set_no_ui(SupplicantRef supp)
+{
+    supp->no_ui = TRUE;
     return;
 }

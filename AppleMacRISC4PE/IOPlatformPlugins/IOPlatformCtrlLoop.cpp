@@ -63,9 +63,12 @@ IOReturn IOPlatformCtrlLoop::initPlatformCtrlLoop(const OSDictionary *dict)
 	const OSArray * array;
 	const OSString * string;
 	const OSNumber * number;
+	int	x;
 
 	if ( !dict || !init() ) return(kIOReturnBadArgument);
 
+	safeBoot = PE_parse_boot_arg("-x", &x);
+	
 	// id
 	if ((number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginCtrlLoopIDKey))) != NULL)
 	{

@@ -146,7 +146,7 @@ GNAT_ADA_OBJS = ada/ada.o ada/a-charac.o ada/a-chlat1.o ada/a-except.o \
  ada/stylesw.o ada/validsw.o ada/system.o ada/table.o ada/targparm.o \
  ada/tbuild.o ada/tree_gen.o ada/tree_io.o ada/treepr.o ada/treeprs.o \
  ada/ttypef.o ada/ttypes.o ada/types.o ada/uintp.o ada/uname.o ada/urealp.o \
- ada/usage.o ada/widechar.o ada/s-crtl.o
+ ada/usage.o ada/widechar.o ada/s-crtl.o ada/seh_init.o
 
 # Object files for gnat executables
 GNAT1_ADA_OBJS = $(GNAT_ADA_OBJS) ada/back_end.o ada/gnat1drv.o
@@ -161,6 +161,7 @@ GNATBIND_OBJS = \
  ada/cstreams.o   \
  ada/final.o      \
  ada/init.o       \
+ ada/seh_init.o   \
  ada/link.o       \
  ada/raise.o      \
  ada/tracebak.o   \
@@ -321,10 +322,6 @@ ada.all.cross:
 	then \
 	   $(MV) gnatmake$(exeext)  gnatmake-cross$(exeext); \
 	fi
-	-if [ -f gnatmem$(exeext) ] ; \
-	then \
-	   $(MV) gnatmem$(exeext)  gnatmem-cross$(exeext); \
-	fi
 	-if [ -f gnatname$(exeext) ] ; \
 	then \
 	   $(MV) gnatname$(exeext)  gnatname-cross$(exeext); \
@@ -352,14 +349,6 @@ ada.all.cross:
 	-if [ -f gprmake$(exeext) ] ; \
 	then \
 	   $(MV) gprmake$(exeext)  gprmake-cross$(exeext); \
-	fi
-	-if [ -f gpr2make$(exeext) ] ; \
-	then \
-	   $(MV) gpr2make$(exeext)  gpr2make-cross$(exeext); \
-	fi
-	-if [ -f gprcmd$(exeext) ] ; \
-	then \
-	   $(MV) gprcmd$(exeext)  gprcmd-cross$(exeext); \
 	fi
 
 ada.start.encap:
@@ -395,7 +384,7 @@ doc/gnat_ugn_unw.info: doc/gnat_ugn_unw.texi \
 	  $(MAKEINFO) $(MAKEINFOFLAGS) -I$(docdir)/include \
             -I$(srcdir)/ada -o $@ $<; \
 	else true; fi
-	
+
 doc/gnat_rm.info: ada/gnat_rm.texi $(docdir)/include/fdl.texi \
    $(docdir)/include/gcc-common.texi
 	if [ x$(BUILD_INFO) = xinfo ]; then \
@@ -447,7 +436,7 @@ ada.install-normal:
 # and also as either gnatbind (if native) or $(tooldir)/bin/gnatbind
 # likewise for gnatf, gnatchop, and gnatlink, gnatkr, gnatmake, gnat,
 # gnatprep, gnatbl, gnatls, gnatxref, gnatfind, gnatname, gnatclean,
-# gnatsym, gprmake, gpr2make, gprcmd
+# gnatsym, gprmake
 ada.install-common:
 	$(MKDIR) $(DESTDIR)$(bindir)
 	-if [ -f gnat1$(exeext) ] ; \
@@ -572,17 +561,6 @@ ada.install-common:
 	fi
 	-if [ -f gnat1$(exeext) ] ; \
 	then \
-	  if [ -f gnatmem-cross$(exeext) ] ; \
-	  then \
-	    $(RM) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatmem$(exeext); \
-	    $(INSTALL_PROGRAM) gnatmem-cross$(exeext) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatmem$(exeext); \
-	  else \
-	    $(RM) $(DESTDIR)$(bindir)/gnatmem$(exeext); \
-	    $(INSTALL_PROGRAM) gnatmem$(exeext) $(DESTDIR)$(bindir)/gnatmem$(exeext); \
-	  fi ; \
-	fi
-	-if [ -f gnat1$(exeext) ] ; \
-	then \
 	  if [ -f gnatname-cross$(exeext) ] ; \
 	  then \
 	    $(RM) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatname$(exeext); \
@@ -649,22 +627,6 @@ ada.install-common:
 	  else \
 	    $(RM) $(bindir)/gprmake$(exeext); \
 	    $(INSTALL_PROGRAM) gprmake$(exeext) $(DESTDIR)$(bindir)/gprmake$(exeext); \
-	  fi ; \
-	fi
-	-if [ -f gnat1$(exeext) ] ; \
-	then \
-	  if [ -f gpr2make$(exeext) ] ; \
-	  then \
-	    $(RM) $(DESTDIR)$(bindir)/gpr2make$(exeext); \
-	    $(INSTALL_PROGRAM) gpr2make$(exeext) $(DESTDIR)$(bindir)/gpr2make$(exeext); \
-	  fi ; \
-	fi
-	-if [ -f gnat1$(exeext) ] ; \
-	then \
-	  if [ -f gprcmd$(exeext) ] ; \
-	  then \
-	    $(RM) $(DESTDIR)$(bindir)/gprcmd$(exeext); \
-	    $(INSTALL_PROGRAM) gprcmd$(exeext) $(DESTDIR)$(bindir)/gprcmd$(exeext); \
 	  fi ; \
 	fi
 #
@@ -738,7 +700,6 @@ ada.uninstall:
 	-$(RM) $(DESTDIR)$(bindir)/gnatlink$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/gnatls$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/gnatmake$(exeext)
-	-$(RM) $(DESTDIR)$(bindir)/gnatmem$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/gnatname$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/gnatprep$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/gnatxref$(exeext)
@@ -755,7 +716,6 @@ ada.uninstall:
 	-$(RM) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatlink$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatls$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatmake$(exeext)
-	-$(RM) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatmem$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatname$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatprep$(exeext)
 	-$(RM) $(DESTDIR)$(bindir)/$(target_noncanonical)-gnatxref$(exeext)
@@ -772,7 +732,6 @@ ada.uninstall:
 	-$(RM) $(DESTDIR)$(tooldir)/bin/gnatlink$(exeext)
 	-$(RM) $(DESTDIR)$(tooldir)/bin/gnatls$(exeext)
 	-$(RM) $(DESTDIR)$(tooldir)/bin/gnatmake$(exeext)
-	-$(RM) $(DESTDIR)$(tooldir)/bin/gnatmem$(exeext)
 	-$(RM) $(DESTDIR)$(tooldir)/bin/gnatname$(exeext)
 	-$(RM) $(DESTDIR)$(tooldir)/bin/gnatprep$(exeext)
 	-$(RM) $(DESTDIR)$(tooldir)/bin/gnatxref$(exeext)
@@ -801,14 +760,12 @@ ada.distclean:
 	-$(RM) gnatlink$(exeext)
 	-$(RM) gnatls$(exeext)
 	-$(RM) gnatmake$(exeext)
-	-$(RM) gnatmem$(exeext)
 	-$(RM) gnatname$(exeext)
 	-$(RM) gnatprep$(exeext)
 	-$(RM) gnatfind$(exeext)
 	-$(RM) gnatxref$(exeext)
 	-$(RM) gnatclean$(exeext)
 	-$(RM) gnatsym$(exeext)
-	-$(RM) gpr2make$(exeext)
 	-$(RM) gprmake$(exeext)
 # Gnatlbr is only used on VMS
 	-$(RM) gnatlbr$(exeext)
@@ -921,29 +878,29 @@ ada/b_gnatb.c : $(GNATBIND_OBJS) ada/gnatbind.o ada/interfac.o
 ada/b_gnatb.o : ada/b_gnatb.c
 
 ada/treeprs.ads : ada/treeprs.adt ada/sinfo.ads ada/xtreeprs.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xtreeprs ; ./xtreeprs ../treeprs.ads )
+	-$(MKDIR) ada/bldtools/treeprs
+	$(CP) $^ ada/bldtools/treeprs
+	(cd ada/bldtools/treeprs; gnatmake -q xtreeprs ; ./xtreeprs ../../treeprs.ads )
 
 ada/einfo.h : ada/einfo.ads ada/einfo.adb ada/xeinfo.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xeinfo ; ./xeinfo ../einfo.h )
+	-$(MKDIR) ada/bldtools/einfo
+	$(CP) $^ ada/bldtools/einfo
+	(cd ada/bldtools/einfo; gnatmake -q xeinfo ; ./xeinfo ../../einfo.h )
 
 ada/sinfo.h : ada/sinfo.ads ada/xsinfo.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xsinfo ; ./xsinfo ../sinfo.h )
+	-$(MKDIR) ada/bldtools/sinfo
+	$(CP) $^ ada/bldtools/sinfo
+	(cd ada/bldtools/sinfo; gnatmake -q xsinfo ; ./xsinfo ../../sinfo.h )
 
 ada/nmake.adb : ada/sinfo.ads ada/nmake.adt ada/xnmake.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xnmake ; ./xnmake -b ../nmake.adb )
+	-$(MKDIR) ada/bldtools/nmake_b
+	$(CP) $^ ada/bldtools/nmake_b
+	(cd ada/bldtools/nmake_b; gnatmake -q xnmake ; ./xnmake -b ../../nmake.adb )
 
 ada/nmake.ads :  ada/sinfo.ads ada/nmake.adt ada/xnmake.adb ada/nmake.adb
-	-$(MKDIR) ada/bldtools
-	$(CP) $^ ada/bldtools
-	(cd ada/bldtools; gnatmake -q xnmake ; ./xnmake -s ../nmake.ads )
+	-$(MKDIR) ada/bldtools/nmake_s
+	$(CP) $^ ada/bldtools/nmake_s
+	(cd ada/bldtools/nmake_s; gnatmake -q xnmake ; ./xnmake -s ../../nmake.ads )
 
 update-sources : ada/treeprs.ads ada/einfo.h ada/sinfo.h ada/nmake.adb \
 	ada/nmake.ads
@@ -969,7 +926,7 @@ ada/stamp-sdefault : $(srcdir)/version.c Makefile
 	$(ECHO) "   end Object_Dir_Default_Name;" >>tmp-sdefault.adb
 	$(ECHO) "   function Target_Name return String_Ptr is" >>tmp-sdefault.adb
 	$(ECHO) "   begin" >>tmp-sdefault.adb
-	$(ECHO) "      return Relocate_Path (S0, S3);" >>tmp-sdefault.adb
+	$(ECHO) "      return new String'(S3);" >>tmp-sdefault.adb
 	$(ECHO) "   end Target_Name;" >>tmp-sdefault.adb
 	$(ECHO) "   function Search_Dir_Prefix return String_Ptr is" >>tmp-sdefault.adb
 	$(ECHO) "   begin" >>tmp-sdefault.adb
@@ -1089,10 +1046,10 @@ ada/targtyps.o : ada/targtyps.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    ada/urealp.h ada/fe.h $(ADA_TREE_H) ada/gigi.h
 
 ada/trans.o : ada/trans.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   $(TREE_H) $(RTL_H) flags.h function.h ada/ada.h except.h ada/types.h \
-   ada/atree.h ada/nlists.h ada/elists.h ada/uintp.h ada/sinfo.h ada/einfo.h \
-   ada/namet.h ada/snames.h ada/stringt.h ada/urealp.h ada/fe.h $(ADA_TREE_H) \
-   ada/gigi.h gt-ada-trans.h
+   $(TREE_H) $(RTL_H) $(EXPR_H) flags.h function.h ada/ada.h except.h \
+   ada/types.h ada/atree.h ada/nlists.h ada/elists.h ada/uintp.h ada/sinfo.h \
+   ada/einfo.h ada/namet.h ada/snames.h ada/stringt.h ada/urealp.h ada/fe.h \
+   $(ADA_TREE_H) ada/gigi.h gt-ada-trans.h
 
 ada/utils.o : ada/utils.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) flags.h expr.h convert.h defaults.h ada/ada.h ada/types.h \

@@ -53,6 +53,8 @@ extern "C" {
 extern void	*ModuleFactory ( CFAllocatorRef, CFUUIDRef );
 // Do not delete the following function; it guarantees that PluginLib is
 // properly linked so the server can load this as a CFPlugIn.
+static void _LinkRefDoNotDelete ( void ) __attribute__((used));
+
 static void _LinkRefDoNotDelete ( void )
 {
 	ModuleFactory( NULL, NULL );

@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,7 +44,6 @@ import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.plugin.BlojsomPlugin;
 import org.blojsom.plugin.BlojsomPluginException;
 import org.blojsom.util.BlojsomConstants;
-import org.blojsom.util.BlojsomUtils;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
@@ -64,7 +63,7 @@ import java.util.regex.Pattern;
  *
  * @author David Czarnecki
  * @since blojsom 2.02
- * @version $Id: AutoTrackbackPlugin.java,v 1.2 2004/08/27 01:06:41 whitmore Exp $
+ * @version $Id: AutoTrackbackPlugin.java,v 1.2.2.1 2005/07/21 04:30:43 johnan Exp $
  */
 public class AutoTrackbackPlugin implements BlojsomPlugin, BlojsomConstants {
 
@@ -98,7 +97,7 @@ public class AutoTrackbackPlugin implements BlojsomPlugin, BlojsomConstants {
         try {
             // Build the URL parameters for the trackback ping URL
             StringBuffer trackbackPingURLParameters = new StringBuffer();
-            trackbackPingURLParameters.append("&").append(TrackbackPlugin.TRACKBACK_URL_PARAM).append("=").append(URLEncoder.encode(blogEntry.getLink(), UTF8));
+            trackbackPingURLParameters.append("&").append(TrackbackPlugin.TRACKBACK_URL_PARAM).append("=").append(blogEntry.getLink());
             trackbackPingURLParameters.append("&").append(TrackbackPlugin.TRACKBACK_TITLE_PARAM).append("=").append(URLEncoder.encode(blogEntry.getTitle(), UTF8));
             trackbackPingURLParameters.append("&").append(TrackbackPlugin.TRACKBACK_BLOG_NAME_PARAM).append("=").append(URLEncoder.encode(blog.getBlogName(), UTF8));
 
@@ -152,11 +151,6 @@ public class AutoTrackbackPlugin implements BlojsomPlugin, BlojsomConstants {
                                             Matcher trackbackPingMatcher = TRACKBACK_PING_PATTERN.matcher(innerRdfText);
                                             if (trackbackPingMatcher.find()) {
                                                 StringBuffer trackbackPingURL = new StringBuffer(trackbackPingMatcher.group(1));
-                                                if (trackbackPingURL.indexOf("?") == -1) {
-                                                    trackbackPingURL.append("?");
-                                                }
-                                                trackbackPingURL = new StringBuffer(BlojsomUtils.replace(trackbackPingURL.toString(), "&amp;", "&"));
-                                                trackbackPingURL.append(trackbackPingURLParameters);
 
                                                 _logger.debug("Automatically sending trackback ping to URL: " + trackbackPingURL.toString());
                                                 URL trackbackUrl = new URL(trackbackPingURL.toString());
@@ -166,7 +160,9 @@ public class AutoTrackbackPlugin implements BlojsomPlugin, BlojsomConstants {
                                                 trackbackUrlConnection.setRequestMethod("POST");
                                                 trackbackUrlConnection.setRequestProperty("Content-Encoding", UTF8);
                                                 trackbackUrlConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                                                trackbackUrlConnection.setRequestProperty("Content-Length", "" + trackbackPingURLParameters.length());
                                                 trackbackUrlConnection.setDoOutput(true);
+                                                trackbackUrlConnection.getOutputStream().write(trackbackPingURLParameters.toString().getBytes(UTF8));
                                                 trackbackUrlConnection.connect();
                                                 BufferedReader trackbackStatus = new BufferedReader(new InputStreamReader(trackbackUrlConnection.getInputStream()));
                                                 String line;

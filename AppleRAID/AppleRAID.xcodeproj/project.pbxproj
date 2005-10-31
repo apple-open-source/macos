@@ -1,0 +1,901 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		59532CD30682625600CA9D0A /* AppleRAID */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 591B6AA108980EDE000BDB04 /* Build configuration list for PBXAggregateTarget "AppleRAID" */;
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				59532CE50682639100CA9D0A /* PBXTargetDependency */,
+				59532CE70682639100CA9D0A /* PBXTargetDependency */,
+				598B5C3406C31578002F076B /* PBXTargetDependency */,
+			);
+			name = AppleRAID;
+			productName = AppleRAID;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		5920240C06B61456006D5564 /* MediaKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5920240A06B61456006D5564 /* MediaKit.framework */; };
+		5945426A06C3135D003E58FB /* AppleRAIDStorageRequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5945426906C3135D003E58FB /* AppleRAIDStorageRequest.cpp */; };
+		59532CEC0682647300CA9D0A /* AppleRAIDUserLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 59532CEB0682647300CA9D0A /* AppleRAIDUserLib.c */; };
+		59532D0E0682683E00CA9D0A /* AppleRAIDUserLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 59532D0D0682683E00CA9D0A /* AppleRAIDUserLib.h */; };
+		59532D2E068269D800CA9D0A /* artest.c in Sources */ = {isa = PBXBuildFile; fileRef = 59532D2D068269D800CA9D0A /* artest.c */; };
+		59532D5606826BE100CA9D0A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59532D5506826BE100CA9D0A /* CoreFoundation.framework */; };
+		59532D9606826BFE00CA9D0A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59532D9506826BFE00CA9D0A /* IOKit.framework */; };
+		5977B253069E41FD001BEC49 /* AppleRAIDConcatSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5977B251069E41FD001BEC49 /* AppleRAIDConcatSet.cpp */; };
+		5977B254069E41FD001BEC49 /* AppleRAIDConcatSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 5977B252069E41FD001BEC49 /* AppleRAIDConcatSet.h */; };
+		597ABB950898249300D7ED96 /* libAppleRAID.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 59532CCF068261AC00CA9D0A /* libAppleRAID.a */; };
+		598562980662D045008C1FA5 /* AppleRAIDUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 598562960662D045008C1FA5 /* AppleRAIDUserClient.cpp */; };
+		598562990662D045008C1FA5 /* AppleRAIDUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 598562970662D045008C1FA5 /* AppleRAIDUserClient.h */; };
+		59CD7BC90634F4FC00F84FF8 /* AppleRAID.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleRAID.h */; };
+		59CD7BCA0634F4FC00F84FF8 /* AppleRAIDMember.h in Headers */ = {isa = PBXBuildFile; fileRef = 599026930500562B006EB25F /* AppleRAIDMember.h */; };
+		59CD7BCB0634F4FC00F84FF8 /* AppleRAIDGlobals.h in Headers */ = {isa = PBXBuildFile; fileRef = 59CCE30D0505888F0041E990 /* AppleRAIDGlobals.h */; };
+		59CD7BCD0634F4FC00F84FF8 /* AppleRAIDSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 59C2E6DA0511A2190079E6CF /* AppleRAIDSet.h */; };
+		59CD7BCE0634F4FC00F84FF8 /* AppleRAIDEventSource.h in Headers */ = {isa = PBXBuildFile; fileRef = 5902617A051973BE003678A3 /* AppleRAIDEventSource.h */; };
+		59CD7BCF0634F4FC00F84FF8 /* AppleRAIDMemoryDescriptor.h in Headers */ = {isa = PBXBuildFile; fileRef = 5902618405197706003678A3 /* AppleRAIDMemoryDescriptor.h */; };
+		59CD7BD00634F4FC00F84FF8 /* AppleRAIDMirrorSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 59A1FE980534BD86003024F9 /* AppleRAIDMirrorSet.h */; };
+		59CD7BD10634F4FC00F84FF8 /* AppleRAIDStorageRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = 590095E80634ECEC001991B1 /* AppleRAIDStorageRequest.h */; };
+		59CD7BD40634F4FC00F84FF8 /* AppleRAIDMember.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 599026920500562B006EB25F /* AppleRAIDMember.cpp */; };
+		59CD7BD50634F4FC00F84FF8 /* AppleRAIDGlobals.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59CCE30C0505888F0041E990 /* AppleRAIDGlobals.cpp */; };
+		59CD7BD60634F4FC00F84FF8 /* AppleRAID.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59CCE33B05058BF60041E990 /* AppleRAID.cpp */; };
+		59CD7BD70634F4FC00F84FF8 /* AppleRAIDSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59C2E6D90511A2190079E6CF /* AppleRAIDSet.cpp */; };
+		59CD7BD80634F4FC00F84FF8 /* AppleRAIDEventSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59026179051973BE003678A3 /* AppleRAIDEventSource.cpp */; };
+		59CD7BD90634F4FC00F84FF8 /* AppleRAIDMemoryDescriptor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5902618305197706003678A3 /* AppleRAIDMemoryDescriptor.cpp */; };
+		59CD7BDA0634F4FC00F84FF8 /* AppleRAIDMirrorSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59A1FE970534BD86003024F9 /* AppleRAIDMirrorSet.cpp */; };
+		59D574BE06ED0FEB00EDB456 /* AppleRAIDUserLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 59532D0D0682683E00CA9D0A /* AppleRAIDUserLib.h */; };
+		59DF8563069E3FF000409DEF /* AppleRAIDStripeSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59DF8561069E3FEF00409DEF /* AppleRAIDStripeSet.cpp */; };
+		59DF8564069E3FF000409DEF /* AppleRAIDStripeSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 59DF8562069E3FEF00409DEF /* AppleRAIDStripeSet.h */; };
+		59F2F8100689073E0056EDAE /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59F2F80F0689073E0056EDAE /* Cocoa.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		06AA1265FFB2107B11CA28AA /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXContainerItemProxy section */
+		59532CE40682639100CA9D0A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 59CD7BC60634F4FC00F84FF8;
+			remoteInfo = AppleRAIDKext;
+		};
+		59532CE60682639100CA9D0A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 59532CCE068261AC00CA9D0A;
+			remoteInfo = AppleRAIDLib;
+		};
+		598B5C3306C31578002F076B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 59532D250682697700CA9D0A;
+			remoteInfo = artest;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		59D574BC06ED0FC800EDB456 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/storage/RAID";
+			dstSubfolderSpec = 0;
+			files = (
+				59D574BE06ED0FEB00EDB456 /* AppleRAIDUserLib.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1A224C3EFF42367911CA2CB7 /* AppleRAID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleRAID.h; sourceTree = "<group>"; };
+		590095E80634ECEC001991B1 /* AppleRAIDStorageRequest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDStorageRequest.h; sourceTree = "<group>"; };
+		59026179051973BE003678A3 /* AppleRAIDEventSource.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDEventSource.cpp; sourceTree = "<group>"; };
+		5902617A051973BE003678A3 /* AppleRAIDEventSource.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDEventSource.h; sourceTree = "<group>"; };
+		5902618305197706003678A3 /* AppleRAIDMemoryDescriptor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDMemoryDescriptor.cpp; sourceTree = "<group>"; };
+		5902618405197706003678A3 /* AppleRAIDMemoryDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDMemoryDescriptor.h; sourceTree = "<group>"; };
+		5920240A06B61456006D5564 /* MediaKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaKit.framework; path = /System/Library/PrivateFrameworks/MediaKit.framework; sourceTree = "<absolute>"; };
+		5945426906C3135D003E58FB /* AppleRAIDStorageRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDStorageRequest.cpp; sourceTree = "<group>"; };
+		59532CCF068261AC00CA9D0A /* libAppleRAID.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAppleRAID.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		59532CEB0682647300CA9D0A /* AppleRAIDUserLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = AppleRAIDUserLib.c; sourceTree = "<group>"; };
+		59532D0D0682683E00CA9D0A /* AppleRAIDUserLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDUserLib.h; sourceTree = "<group>"; };
+		59532D260682697700CA9D0A /* artest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = artest; sourceTree = BUILT_PRODUCTS_DIR; };
+		59532D2D068269D800CA9D0A /* artest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = artest.c; sourceTree = "<group>"; };
+		59532D5506826BE100CA9D0A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		59532D9506826BFE00CA9D0A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		5977B251069E41FD001BEC49 /* AppleRAIDConcatSet.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDConcatSet.cpp; sourceTree = "<group>"; };
+		5977B252069E41FD001BEC49 /* AppleRAIDConcatSet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDConcatSet.h; sourceTree = "<group>"; };
+		598562960662D045008C1FA5 /* AppleRAIDUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDUserClient.cpp; sourceTree = "<group>"; };
+		598562970662D045008C1FA5 /* AppleRAIDUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDUserClient.h; sourceTree = "<group>"; };
+		599026920500562B006EB25F /* AppleRAIDMember.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDMember.cpp; sourceTree = "<group>"; };
+		599026930500562B006EB25F /* AppleRAIDMember.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDMember.h; sourceTree = "<group>"; };
+		59A1FE970534BD86003024F9 /* AppleRAIDMirrorSet.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDMirrorSet.cpp; sourceTree = "<group>"; };
+		59A1FE980534BD86003024F9 /* AppleRAIDMirrorSet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDMirrorSet.h; sourceTree = "<group>"; };
+		59C2E6D90511A2190079E6CF /* AppleRAIDSet.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDSet.cpp; sourceTree = "<group>"; };
+		59C2E6DA0511A2190079E6CF /* AppleRAIDSet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDSet.h; sourceTree = "<group>"; };
+		59CCE30C0505888F0041E990 /* AppleRAIDGlobals.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDGlobals.cpp; sourceTree = "<group>"; };
+		59CCE30D0505888F0041E990 /* AppleRAIDGlobals.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDGlobals.h; sourceTree = "<group>"; };
+		59CCE33B05058BF60041E990 /* AppleRAID.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAID.cpp; sourceTree = "<group>"; };
+		59CD7BDF0634F4FC00F84FF8 /* AppleRAID-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "AppleRAID-Info.plist"; sourceTree = "<group>"; };
+		59CD7BE00634F4FC00F84FF8 /* AppleRAID.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleRAID.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		59DF8561069E3FEF00409DEF /* AppleRAIDStripeSet.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDStripeSet.cpp; sourceTree = "<group>"; };
+		59DF8562069E3FEF00409DEF /* AppleRAIDStripeSet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDStripeSet.h; sourceTree = "<group>"; };
+		59F2F80F0689073E0056EDAE /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		59532D240682697700CA9D0A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59532D5606826BE100CA9D0A /* CoreFoundation.framework in Frameworks */,
+				59532D9606826BFE00CA9D0A /* IOKit.framework in Frameworks */,
+				59F2F8100689073E0056EDAE /* Cocoa.framework in Frameworks */,
+				5920240C06B61456006D5564 /* MediaKit.framework in Frameworks */,
+				597ABB950898249300D7ED96 /* libAppleRAID.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* AppleRAID */ = {
+			isa = PBXGroup;
+			children = (
+				59532CBC0682611E00CA9D0A /* Driver */,
+				59532CEF0682647F00CA9D0A /* Library */,
+				59532D2A068269A500CA9D0A /* Test */,
+				59532E5506826C7A00CA9D0A /* External Frameworks */,
+			);
+			name = AppleRAID;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				59CD7BE00634F4FC00F84FF8 /* AppleRAID.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		594BF75606EE6F2000C2FDA0 /* AppleRAID */ = {
+			isa = PBXGroup;
+			children = (
+				59CCE30D0505888F0041E990 /* AppleRAIDGlobals.h */,
+				59CCE30C0505888F0041E990 /* AppleRAIDGlobals.cpp */,
+				1A224C3EFF42367911CA2CB7 /* AppleRAID.h */,
+				59CCE33B05058BF60041E990 /* AppleRAID.cpp */,
+				599026930500562B006EB25F /* AppleRAIDMember.h */,
+				599026920500562B006EB25F /* AppleRAIDMember.cpp */,
+				59C2E6DA0511A2190079E6CF /* AppleRAIDSet.h */,
+				59C2E6D90511A2190079E6CF /* AppleRAIDSet.cpp */,
+				590095E80634ECEC001991B1 /* AppleRAIDStorageRequest.h */,
+				5945426906C3135D003E58FB /* AppleRAIDStorageRequest.cpp */,
+				5902617A051973BE003678A3 /* AppleRAIDEventSource.h */,
+				59026179051973BE003678A3 /* AppleRAIDEventSource.cpp */,
+				5902618405197706003678A3 /* AppleRAIDMemoryDescriptor.h */,
+				5902618305197706003678A3 /* AppleRAIDMemoryDescriptor.cpp */,
+				598562970662D045008C1FA5 /* AppleRAIDUserClient.h */,
+				598562960662D045008C1FA5 /* AppleRAIDUserClient.cpp */,
+			);
+			name = AppleRAID;
+			sourceTree = "<group>";
+		};
+		594BF76C06EE6FF500C2FDA0 /* RAID Plugins */ = {
+			isa = PBXGroup;
+			children = (
+				5977B252069E41FD001BEC49 /* AppleRAIDConcatSet.h */,
+				5977B251069E41FD001BEC49 /* AppleRAIDConcatSet.cpp */,
+				59A1FE980534BD86003024F9 /* AppleRAIDMirrorSet.h */,
+				59A1FE970534BD86003024F9 /* AppleRAIDMirrorSet.cpp */,
+				59DF8562069E3FEF00409DEF /* AppleRAIDStripeSet.h */,
+				59DF8561069E3FEF00409DEF /* AppleRAIDStripeSet.cpp */,
+			);
+			name = "RAID Plugins";
+			sourceTree = "<group>";
+		};
+		59532CBC0682611E00CA9D0A /* Driver */ = {
+			isa = PBXGroup;
+			children = (
+				59CD7BDF0634F4FC00F84FF8 /* AppleRAID-Info.plist */,
+				594BF75606EE6F2000C2FDA0 /* AppleRAID */,
+				594BF76C06EE6FF500C2FDA0 /* RAID Plugins */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+			);
+			name = Driver;
+			sourceTree = "<group>";
+		};
+		59532CD0068261AC00CA9D0A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				59532CCF068261AC00CA9D0A /* libAppleRAID.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		59532CEF0682647F00CA9D0A /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				59532D0D0682683E00CA9D0A /* AppleRAIDUserLib.h */,
+				59532CEB0682647300CA9D0A /* AppleRAIDUserLib.c */,
+				59532CD0068261AC00CA9D0A /* Products */,
+			);
+			name = Library;
+			sourceTree = "<group>";
+		};
+		59532D2A068269A500CA9D0A /* Test */ = {
+			isa = PBXGroup;
+			children = (
+				59532D2D068269D800CA9D0A /* artest.c */,
+				5953306D06826C9D00CA9D0A /* Products */,
+			);
+			name = Test;
+			sourceTree = "<group>";
+		};
+		59532E5506826C7A00CA9D0A /* External Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				59532D9506826BFE00CA9D0A /* IOKit.framework */,
+				5920240A06B61456006D5564 /* MediaKit.framework */,
+				59532D5506826BE100CA9D0A /* CoreFoundation.framework */,
+				59F2F80F0689073E0056EDAE /* Cocoa.framework */,
+			);
+			name = "External Frameworks";
+			sourceTree = "<group>";
+		};
+		5953306D06826C9D00CA9D0A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				59532D260682697700CA9D0A /* artest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		59532CCC068261AC00CA9D0A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59532D0E0682683E00CA9D0A /* AppleRAIDUserLib.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59532D220682697700CA9D0A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59CD7BC80634F4FC00F84FF8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59CD7BC90634F4FC00F84FF8 /* AppleRAID.h in Headers */,
+				59CD7BCA0634F4FC00F84FF8 /* AppleRAIDMember.h in Headers */,
+				59CD7BCB0634F4FC00F84FF8 /* AppleRAIDGlobals.h in Headers */,
+				59CD7BCD0634F4FC00F84FF8 /* AppleRAIDSet.h in Headers */,
+				59CD7BCE0634F4FC00F84FF8 /* AppleRAIDEventSource.h in Headers */,
+				59CD7BCF0634F4FC00F84FF8 /* AppleRAIDMemoryDescriptor.h in Headers */,
+				59CD7BD00634F4FC00F84FF8 /* AppleRAIDMirrorSet.h in Headers */,
+				59CD7BD10634F4FC00F84FF8 /* AppleRAIDStorageRequest.h in Headers */,
+				598562990662D045008C1FA5 /* AppleRAIDUserClient.h in Headers */,
+				59DF8564069E3FF000409DEF /* AppleRAIDStripeSet.h in Headers */,
+				5977B254069E41FD001BEC49 /* AppleRAIDConcatSet.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		59532CCE068261AC00CA9D0A /* AppleRAIDLib */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 591B6A9908980EDE000BDB04 /* Build configuration list for PBXNativeTarget "AppleRAIDLib" */;
+			buildPhases = (
+				59D574BC06ED0FC800EDB456 /* CopyFiles */,
+				59532CCC068261AC00CA9D0A /* Headers */,
+				59532CCD068261AC00CA9D0A /* Sources */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			dependencies = (
+			);
+			name = AppleRAIDLib;
+			productName = UserClientLibrary;
+			productReference = 59532CCF068261AC00CA9D0A /* libAppleRAID.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		59532D250682697700CA9D0A /* artest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 591B6A9D08980EDE000BDB04 /* Build configuration list for PBXNativeTarget "artest" */;
+			buildPhases = (
+				59532D220682697700CA9D0A /* Headers */,
+				59532D230682697700CA9D0A /* Sources */,
+				59532D240682697700CA9D0A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALL_PATH = /usr/local/bin;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = artest;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			dependencies = (
+			);
+			name = artest;
+			productName = artest;
+			productReference = 59532D260682697700CA9D0A /* artest */;
+			productType = "com.apple.product-type.tool";
+		};
+		59CD7BC60634F4FC00F84FF8 /* AppleRAIDKext */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 591B6A9508980EDE000BDB04 /* Build configuration list for PBXNativeTarget "AppleRAIDKext" */;
+			buildPhases = (
+				59CD7BC70634F4FC00F84FF8 /* ShellScript */,
+				59CD7BC80634F4FC00F84FF8 /* Headers */,
+				59CD7BD30634F4FC00F84FF8 /* Sources */,
+				59CD7BDD0634F4FC00F84FF8 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "AppleRAID-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleRAID;
+				MODULE_VERSION = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			name = AppleRAIDKext;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleRAID;
+			productReference = 59CD7BE00634F4FC00F84FF8 /* AppleRAID.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 591B6AA508980EDE000BDB04 /* Build configuration list for PBXProject "AppleRAID" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA /* Development */,
+				06AA1266FFB2107B11CA28AA /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* AppleRAID */;
+			productRefGroup = 59532CD0068261AC00CA9D0A /* Products */;
+			projectDirPath = "";
+			targets = (
+				59532CD30682625600CA9D0A /* AppleRAID */,
+				59CD7BC60634F4FC00F84FF8 /* AppleRAIDKext */,
+				59532CCE068261AC00CA9D0A /* AppleRAIDLib */,
+				59532D250682697700CA9D0A /* artest */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		59CD7BC70634F4FC00F84FF8 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		59CD7BDD0634F4FC00F84FF8 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		59532CCD068261AC00CA9D0A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59532CEC0682647300CA9D0A /* AppleRAIDUserLib.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59532D230682697700CA9D0A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59532D2E068269D800CA9D0A /* artest.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59CD7BD30634F4FC00F84FF8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59CD7BD40634F4FC00F84FF8 /* AppleRAIDMember.cpp in Sources */,
+				59CD7BD50634F4FC00F84FF8 /* AppleRAIDGlobals.cpp in Sources */,
+				59CD7BD60634F4FC00F84FF8 /* AppleRAID.cpp in Sources */,
+				59CD7BD70634F4FC00F84FF8 /* AppleRAIDSet.cpp in Sources */,
+				59CD7BD80634F4FC00F84FF8 /* AppleRAIDEventSource.cpp in Sources */,
+				59CD7BD90634F4FC00F84FF8 /* AppleRAIDMemoryDescriptor.cpp in Sources */,
+				59CD7BDA0634F4FC00F84FF8 /* AppleRAIDMirrorSet.cpp in Sources */,
+				598562980662D045008C1FA5 /* AppleRAIDUserClient.cpp in Sources */,
+				59DF8563069E3FF000409DEF /* AppleRAIDStripeSet.cpp in Sources */,
+				5977B253069E41FD001BEC49 /* AppleRAIDConcatSet.cpp in Sources */,
+				5945426A06C3135D003E58FB /* AppleRAIDStorageRequest.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		59532CE50682639100CA9D0A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 59CD7BC60634F4FC00F84FF8 /* AppleRAIDKext */;
+			targetProxy = 59532CE40682639100CA9D0A /* PBXContainerItemProxy */;
+		};
+		59532CE70682639100CA9D0A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 59532CCE068261AC00CA9D0A /* AppleRAIDLib */;
+			targetProxy = 59532CE60682639100CA9D0A /* PBXContainerItemProxy */;
+		};
+		598B5C3406C31578002F076B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 59532D250682697700CA9D0A /* artest */;
+			targetProxy = 598B5C3306C31578002F076B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		591B6A9608980EDE000BDB04 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "AppleRAID-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleRAID;
+				MODULE_VERSION = "";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		591B6A9708980EDE000BDB04 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "AppleRAID-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleRAID;
+				MODULE_VERSION = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		591B6A9808980EDE000BDB04 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "AppleRAID-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleRAID;
+				MODULE_VERSION = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		591B6A9A08980EDE000BDB04 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_STYLE = STATIC;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		591B6A9B08980EDE000BDB04 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		591B6A9C08980EDE000BDB04 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			name = Default;
+		};
+		591B6A9E08980EDE000BDB04 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALL_PATH = /usr/local/bin;
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = artest;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		591B6A9F08980EDE000BDB04 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALL_PATH = /usr/local/bin;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = artest;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		591B6AA008980EDE000BDB04 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				INSTALL_PATH = /usr/local/bin;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = artest;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost";
+			};
+			name = Default;
+		};
+		591B6AA208980EDE000BDB04 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		591B6AA308980EDE000BDB04 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		591B6AA408980EDE000BDB04 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRAID;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		591B6AA608980EDE000BDB04 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		591B6AA708980EDE000BDB04 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		591B6AA808980EDE000BDB04 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		591B6A9508980EDE000BDB04 /* Build configuration list for PBXNativeTarget "AppleRAIDKext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				591B6A9608980EDE000BDB04 /* Development */,
+				591B6A9708980EDE000BDB04 /* Deployment */,
+				591B6A9808980EDE000BDB04 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		591B6A9908980EDE000BDB04 /* Build configuration list for PBXNativeTarget "AppleRAIDLib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				591B6A9A08980EDE000BDB04 /* Development */,
+				591B6A9B08980EDE000BDB04 /* Deployment */,
+				591B6A9C08980EDE000BDB04 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		591B6A9D08980EDE000BDB04 /* Build configuration list for PBXNativeTarget "artest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				591B6A9E08980EDE000BDB04 /* Development */,
+				591B6A9F08980EDE000BDB04 /* Deployment */,
+				591B6AA008980EDE000BDB04 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		591B6AA108980EDE000BDB04 /* Build configuration list for PBXAggregateTarget "AppleRAID" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				591B6AA208980EDE000BDB04 /* Development */,
+				591B6AA308980EDE000BDB04 /* Deployment */,
+				591B6AA408980EDE000BDB04 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		591B6AA508980EDE000BDB04 /* Build configuration list for PBXProject "AppleRAID" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				591B6AA608980EDE000BDB04 /* Development */,
+				591B6AA708980EDE000BDB04 /* Deployment */,
+				591B6AA808980EDE000BDB04 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

@@ -415,6 +415,9 @@ lu_getservbyport(int port, const char *proto)
 	/* Encode NULL for xmission to lookupd. */
 	if (proto == NULL) proto = "";	
 
+	/* convert to host order */
+	port = ntohs(port);
+
 	xdrmem_create(&outxdr, output_buf, sizeof(output_buf), XDR_ENCODE);
 	if (!xdr_int(&outxdr, &port) || !xdr__lu_string(&outxdr, (_lu_string *)&proto))
 	{

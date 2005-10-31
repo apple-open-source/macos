@@ -33,7 +33,7 @@
 
 using DOM::DOMString;
 
-using namespace KJS;
+namespace KJS {
 
 /* TODO:
  * The catch all (...) clauses below shouldn't be necessary.
@@ -242,8 +242,10 @@ void ScriptInterpreter::mark()
 void ScriptInterpreter::updateDOMNodeDocument(DOM::NodeImpl *node, DOM::DocumentImpl *oldDoc, DOM::DocumentImpl *newDoc)
 {
   DOMNode *cachedObject = getDOMNodeForDocument(oldDoc, node);
-  if (cachedObject)
+  if (cachedObject) {
     putDOMNodeForDocument(newDoc, node, cachedObject);
+    forgetDOMNodeForDocument(oldDoc, node);
+  }
 }
 
 bool ScriptInterpreter::wasRunByUserGesture() const
@@ -322,10 +324,9 @@ void *ScriptInterpreter::createLanguageInstanceForValue (ExecState *exec, Bindin
 
 UString::UString(const QString &d)
 {
-  unsigned int len = d.length();
-  UChar *dat = new UChar[len];
-  memcpy(dat, d.unicode(), len * sizeof(UChar));
-  rep = UString::Rep::create(dat, len);
+  // reinterpret_cast is ugly but in this case safe, since QChar and UChar have the same
+  // memory layout
+  rep = UString::Rep::createCopying(reinterpret_cast<const UChar *>(d.unicode()), d.length());
 }
 
 UString::UString(const DOMString &d)
@@ -334,11 +335,9 @@ UString::UString(const DOMString &d)
     attach(&Rep::null);
     return;
   }
-
-  unsigned int len = d.length();
-  UChar *dat = new UChar[len];
-  memcpy(dat, d.unicode(), len * sizeof(UChar));
-  rep = UString::Rep::create(dat, len);
+  // reinterpret_cast is ugly but in this case safe, since QChar and UChar have the same
+  // memory layout
+  rep = UString::Rep::createCopying(reinterpret_cast<const UChar *>(d.unicode()), d.length());
 }
 
 DOMString UString::string() const
@@ -382,7 +381,7 @@ QString Identifier::qstring() const
   return QString((QChar*) data(), size());
 }
 
-DOM::Node KJS::toNode(const Value& val)
+DOM::Node toNode(const Value& val)
 {
   Object obj = Object::dynamicCast(val);
   if (obj.isNull() || !obj.inherits(&DOMNode::info))
@@ -392,7 +391,7 @@ DOM::Node KJS::toNode(const Value& val)
   return dobj->toNode();
 }
 
-Value KJS::getStringOrNull(DOMString s)
+Value getStringOrNull(DOMString s)
 {
   if (s.isNull())
     return Null();
@@ -400,7 +399,7 @@ Value KJS::getStringOrNull(DOMString s)
     return String(s);
 }
 
-QVariant KJS::ValueToVariant(ExecState* exec, const Value &val) {
+QVariant ValueToVariant(ExecState* exec, const Value &val) {
   QVariant res;
   switch (val.type()) {
   case BooleanType:
@@ -417,4 +416,6 @@ QVariant KJS::ValueToVariant(ExecState* exec, const Value &val) {
     break;
   }
   return res;
+}
+
 }

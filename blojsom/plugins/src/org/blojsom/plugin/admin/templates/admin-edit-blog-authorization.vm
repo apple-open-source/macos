@@ -1,139 +1,157 @@
-<?xml version="1.0" encoding="UTF-8"?>
+#AdministrationHeader("#adminResource('authorization.page.header' 'Authorization')")
 
-#adminPageHeader("#adminResource('authorization.page.header' 'Authorization')")
+<body>
+    <div id="wrap">
 
-    <div id="header">
-        <ul id="primary">
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('entries.page.header' '')</a></li>
-            <li><span>#adminResource('weblog.settings.text' '')</span></li>
-            <ul id="secondary">
-                <li><span>#adminResource('authorization.page.header' '')</span></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
-            </ul>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('plugin.settings.text' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&action=logout">#adminResource('logout.text' '')</a></li>
+        <h1>Blosjom Administration Interface</h1>
+
+        <div id="login">
+            <p>Logged in as: <a href="#" title="view info">$BLOJSOM_ADMIN_PLUGIN_USERNAME</a> : <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=logout" title="log out">#adminResource('logout.text' '')</a></p>
+            <p>Logged in to: <a href="$BLOJSOM_BLOG.getBlogURL()" title="view site info">$BLOJSOM_BLOG.getBlogName()</a></p>
+        </div>
+
+        <ul id="nav">
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="#">#adminResource('entries.page.header' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('add.entry.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=page">#adminResource('edit.and.delete.entries.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('weblog.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-permissions&action=page">#adminResource('permissions.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('plugin.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('configure.plugin.mappings.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
+                </ul>
+            </li>
         </ul>
+
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
+
+                <!-- Add blog user authorization form -->
+                <div class="mainClm">
+                    <h3>#adminResource('add.new.user.text' 'Add a new authorized user to the current blog')</h3>
+                    <table>
+                        <form name="add-blog-authorization" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="add-blog-authorization"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-authorization"/>
+                            <tr>
+                                <td>#adminResource('authorized.user.id.text' 'Authorized user ID')</td>
+                                <td><input type="text" size="15" name="blog-user-id"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('authorized.user.password.text' 'Authorized user password')</td>
+                                <td><input type="password" size="15" name="blog-user-password"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('authorized.user.password.check.text' 'Authorized user password (check)')</td>
+                                <td><input type="password" size="15" name="blog-user-password-check"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('authorized.user.email.text' 'Authorized user email address')</td>
+                                <td><input type="text" size="25" name="blog-user-email"/></td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('add.authorized.user.text' 'Add authorized user')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Modify blog user authorization form -->
+                <div class="mainClm">
+                    <h3>#adminResource('modify.user.text' 'Modify an existing authorized user to the current blog')</h3>
+                    <table>
+                        <form name="add-blog-authorization" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="modify-blog-authorization"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-authorization"/>
+                            <tr>
+                                <td>#adminResource('authorized.user.id.text' 'Authorized user ID')</td>
+                                <td>
+                                    <select name="blog-user-id">
+                                    #foreach ($blogUserID in $BLOJSOM_PLUGIN_EDIT_BLOG_AUTHORIZATION_MAP.keySet())
+                                        <option value="$blogUserID">$blogUserID</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('authorized.user.password.text' 'Authorized user password')</td>
+                                <td><input type="password" size="15" name="blog-user-password"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('authorized.user.password.check.text' 'Authorized user password (check)')</td>
+                                <td><input type="password" size="15" name="blog-user-password-check"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('authorized.user.email.text' 'Authorized user email address')</td>
+                                <td><input type="text" size="25" name="blog-user-email"/></td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('modify.authorized.user.text' 'Modify authorized user')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Delete blog user authorization form -->
+                <div class="mainClm">
+                    <h3>#adminResource('delete.user.text' 'Delete an authorized user from the current blog')</h3>
+                    <table>
+                        <form name="delete-blog-user" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="delete-blog-authorization"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-authorization"/>
+                            <tr>
+                                <td>#adminResource('authorized.user.id.text' 'Authorized user ID')</td>
+                                <td>
+                                    <select name="blog-user-id">
+                                    #foreach ($blogUserID in $BLOJSOM_PLUGIN_EDIT_BLOG_AUTHORIZATION_MAP.keySet())
+                                        <option value="$blogUserID">$blogUserID</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr />
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('delete.authorized.user.text' 'Delete authorized user')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
+</body>
 
-    <div id="contents">
-
-        #showErrorMessage()
-
-        <!-- Add blog user authorization form -->
-        <div id="mainClm">
-            <h2>#adminResource('add.new.user.text' 'Add a new authorized user to the current blog')</h2>
-            <table>
-                <form name="add-blog-authorization" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="add-blog-authorization"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="edit-blog-authorization"/>
-                    <tr>
-                        <td>#adminResource('authorized.user.id.text' 'Authorized user ID')</td>
-                        <td><input type="text" size="15" name="blog-user-id"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('authorized.user.password.text' 'Authorized user password')</td>
-                        <td><input type="password" size="15" name="blog-user-password"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('authorized.user.password.check.text' 'Authorized user password (check)')</td>
-                        <td><input type="password" size="15" name="blog-user-password-check"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('authorized.user.email.text' 'Authorized user email address')</td>
-                        <td><input type="text" size="25" name="blog-user-email"/></td>
-                    </tr>
-                    <tr />
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('add.authorized.user.text' 'Add authorized user')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-
-        <p></p>
-
-        <!-- Modify blog user authorization form -->
-        <div id="mainClm">
-            <h2>#adminResource('modify.user.text' 'Modify an existing authorized user to the current blog')</h2>
-            <table>
-                <form name="add-blog-authorization" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="modify-blog-authorization"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="edit-blog-authorization"/>
-                    <tr>
-                        <td>#adminResource('authorized.user.id.text' 'Authorized user ID')</td>
-                        <td>
-                            <select name="blog-user-id">
-                            #foreach ($blogUserID in $BLOJSOM_PLUGIN_EDIT_BLOG_AUTHORIZATION_MAP.keySet())
-                                <option value="$blogUserID">$blogUserID</option>
-                            #end
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('authorized.user.password.text' 'Authorized user password')</td>
-                        <td><input type="password" size="15" name="blog-user-password"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('authorized.user.password.check.text' 'Authorized user password (check)')</td>
-                        <td><input type="password" size="15" name="blog-user-password-check"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('authorized.user.email.text' 'Authorized user email address')</td>
-                        <td><input type="text" size="25" name="blog-user-email"/></td>
-                    </tr>
-                    <tr />
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('modify.authorized.user.text' 'Modify authorized user')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-
-        <p></p>
-
-        <!-- Delete blog user authorization form -->
-        <div id="mainClm">
-            <h2>#adminResource('delete.user.text' 'Delete an authorized user from the current blog')</h2>
-            <table>
-                <form name="delete-blog-user" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="delete-blog-authorization"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="edit-blog-authorization"/>
-                    <tr>
-                        <td>#adminResource('authorized.user.id.text' 'Authorized user ID')</td>
-                        <td>
-                            <select name="blog-user-id">
-                            #foreach ($blogUserID in $BLOJSOM_PLUGIN_EDIT_BLOG_AUTHORIZATION_MAP.keySet())
-                                <option value="$blogUserID">$blogUserID</option>
-                            #end
-                            </select>
-                        </td>
-                    </tr>
-                    <tr />
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('delete.authorized.user.text' 'Delete authorized user')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-
-    </div>
-
-#adminPageFooter()
+#AdministrationFooter()

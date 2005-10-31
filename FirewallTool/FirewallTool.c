@@ -2994,10 +2994,11 @@ boolean_t IsExpectedCFType(CFPropertyListRef variableInQuestion, CFTypeID expect
 void EnableBlackHole(boolean_t enable)
 {
     int lognewValue = enable ? 3 : 0;
+    int newTCPBlackholeValue = enable ? 2 : 0;
     int newValue = enable ? 1 : 0;
     int errorCode;
 	
-    errorCode = sysctlbyname("net.inet.tcp.blackhole", NULL, NULL, &newValue, sizeof(newValue));
+    errorCode = sysctlbyname("net.inet.tcp.blackhole", NULL, NULL, &newTCPBlackholeValue, sizeof(newTCPBlackholeValue));
     if( errorCode < 0 )
     {
         printf("Firewall Tool: Error, sysctlbyname(net.inet.tcp.blackhole): %d\n", errno);

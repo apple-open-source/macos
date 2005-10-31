@@ -4,6 +4,11 @@ TODO:
 - Added something that allows a non-existant -arch not to fail hard (NRW group
   request for libsys 1.0 and 2.0 compatiblity).
 
+Changes for the 5.18 release (the cctools-583 release):
+- Changed the Makefile so that when RC_XBS is set to YES then the compiler
+  options -MD and -dependency-file as well as the md(1) program are not used.
+  Radar bug #4029936.
+
 Changes for the 5.17 release (the cctools-533 release):
 - Changed host_byte_sex in cmpshlib.c to not be declared static to match the
   header file mkshlib.h .

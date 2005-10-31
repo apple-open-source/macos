@@ -21,7 +21,7 @@
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(SRCROOT)/../Sources/KerberosLogin/Headers/KLPrefix.h";
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Headers $(SRCROOT)/../Sources/MachIPC/Headers $(SRCROOT)/../../Common/Headers $(SRCROOT)/../../KerberosDebug/Headers $(SRCROOT)/../../KerberosErrors/Headers $(SRCROOT)/../../KerberosErrors/Headers/Kerberos $(SRCROOT)/../../KerberosIPC/Headers $(SRCROOT)/../../KerberosPreferences/Headers $(SRCROOT)/../../CredentialsCache/Headers $(SRCROOT)/../../KerberosWrappers/Headers $(SRCROOT)/../../Kerberos5/Sources/include $(SRCROOT)/../../Kerberos5/Sources/lib/krb4 $(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates $(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos $(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Headers $(SRCROOT)/../Sources/MachIPC/Headers $(SRCROOT)/../../Common/Headers $(SRCROOT)/../../KerberosDebug/Headers $(SRCROOT)/../../KerberosErrors/Headers $(SRCROOT)/../../KerberosErrors/Headers/Kerberos $(SRCROOT)/../../KerberosIPC/Headers $(SRCROOT)/../../KerberosPreferences/Headers $(SRCROOT)/../../CredentialsCache/Headers $(SRCROOT)/../../KerberosWrappers/Headers $(SRCROOT)/../../Kerberos5/Sources/include $(SRCROOT)/../../Kerberos5/Sources/include/krb5 $(SRCROOT)/../../Kerberos5/Sources/lib/krb4 $(SRCROOT)/../../Kerberos5/Sources/lib/krb5/os $(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates $(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos $(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include $(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/build/include/krb5";
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = KerberosLogin;
 				REZ_EXECUTABLE = YES;
@@ -574,12 +574,54 @@
 			settings = {
 			};
 		};
+		A1587619082FDB1A002FFC10 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = Carbon.framework;
+			path = /System/Library/Frameworks/Carbon.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A158761A082FDB1A002FFC10 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		A158761B082FDB1A002FFC10 = {
+			fileRef = A1587619082FDB1A002FFC10;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A158761C082FDB1A002FFC10 = {
+			fileRef = A158761A082FDB1A002FFC10;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		A161DC90054709A5005E2756 = {
 			containerPortal = F5CFD0C6022D346301120112;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = F5CFD174022D4B4C01120112;
 			remoteInfo = "Error Table Generation";
+		};
+		A1768EF5089037640024FBBB = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.objc;
+			path = KerberosTextView.m;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A1768EF6089037640024FBBB = {
+			fileRef = A1768EF5089037640024FBBB;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		A1776A3F06506D1300F4DA3A = {
 			fileRef = F54BD28E02304F4501120112;
@@ -647,6 +689,7 @@
 				A177EB85064AE465001D06D5,
 				A177ECB6064B38E6001D06D5,
 				A1427669075BAF120041B243,
+				A1768EF6089037640024FBBB,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -657,7 +700,8 @@
 				A1B87E3B0650232600608198,
 				A1776A3F06506D1300F4DA3A,
 				A1B87E720650233C00608198,
-				A1F585A70680985C00987C29,
+				A158761B082FDB1A002FFC10,
+				A158761C082FDB1A002FFC10,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -691,7 +735,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Headers $(SRCROOT)/../Sources/MachIPC/Headers $(SRCROOT)/../../KerberosIPC/Headers $(SRCROOT)/../../../Common/Headers";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Headers $(SRCROOT)/../Sources/MachIPC/Headers $(SRCROOT)/../../KerberosIPC/Headers $(SRCROOT)/../../KerberosDebug/Headers $(SRCROOT)/../../../Common/Headers";
 				INFOPLIST_FILE = ../Resources/KerberosAgentInfo.plist;
 				INSTALL_PATH = /System/Library/CoreServices;
 				PRODUCT_NAME = KerberosAgent;
@@ -1481,20 +1525,6 @@
 			settings = {
 			};
 		};
-		A1F585A60680985C00987C29 = {
-			isa = PBXFileReference;
-			lastKnownFileType = wrapper.framework;
-			name = ApplicationServices.framework;
-			path = /System/Library/Frameworks/ApplicationServices.framework;
-			refType = 0;
-			sourceTree = "<absolute>";
-		};
-		A1F585A70680985C00987C29 = {
-			fileRef = A1F585A60680985C00987C29;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		A1F7BCC004434CA5000BAF3C = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
@@ -1585,6 +1615,7 @@
 				A177EB70064AE350001D06D5,
 				A177EB84064AE465001D06D5,
 				A177EC00064B2919001D06D5,
+				A1768EF5089037640024FBBB,
 				A10BF3610642A64900B490D8,
 				A10BF3620642A64900B490D8,
 				A1427668075BAF120041B243,
@@ -1656,9 +1687,10 @@
 			children = (
 				F54BD236023004CA01120112,
 				F54BD28C02304E3D01120112,
-				F54BD28E02304F4501120112,
-				A1F585A60680985C00987C29,
 				F5385A410232C10C01120112,
+				F54BD28E02304F4501120112,
+				A158761A082FDB1A002FFC10,
+				A1587619082FDB1A002FFC10,
 				F506DD9F0331364F01B824D2,
 			);
 			isa = PBXGroup;

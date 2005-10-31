@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_subr.c,v 1.18 2005/02/02 00:22:23 lindak Exp $
+ * $Id: smbfs_subr.c,v 1.18.102.1 2005/07/20 05:26:59 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -324,7 +324,7 @@ smb_fphelp(struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *np,
                         *lenp += SMB_UNICODE_STRINGS(vcp) ? 2 : 1;
 		if (error)
 			break;
-		error = smb_put_dmem(mbp, vcp, np->n_name, np->n_nmlen,
+		error = smb_put_dmem(mbp, vcp, (char *)(np->n_name), (int)(np->n_nmlen),
 				     caseopt, lenp);
 		if (error)
 			break;

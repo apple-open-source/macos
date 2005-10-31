@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for the HP Spectrum.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) of Cygnus Support
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
@@ -484,6 +484,15 @@ typedef struct machine_function GTY(())
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
+
+/* Minimum number of units in a word.  If this is undefined, the default
+   is UNITS_PER_WORD.  Otherwise, it is the constant value that is the
+   smallest value that UNITS_PER_WORD can have at run-time.
+
+   FIXME: This needs to be 4 when TARGET_64BIT is true to suppress the
+   building of various TImode routines in libgcc.  The HP runtime
+   specification doesn't provide the alignment requirements and calling
+   conventions for TImode variables.  */
 #define MIN_UNITS_PER_WORD 4
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
@@ -923,15 +932,6 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, NAMED)
 
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-
-/* For PA32 there are never split arguments. PA64, on the other hand, can
-   pass arguments partially in registers and partially in memory.  */
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
-  (TARGET_64BIT ? function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED) : 0)
-
 /* If defined, a C expression that gives the alignment boundary, in
    bits, of an argument with the specified mode and type.  If it is
    not defined,  `PARM_BOUNDARY' is used for all arguments.  */
@@ -1172,18 +1172,27 @@ extern int may_call_alloca;
 
 /* Macros to check register numbers against specific register classes.  */
 
-/* These assume that REGNO is a hard or pseudo reg number.
-   They give nonzero only if REGNO is a hard reg of the suitable class
+/* The following macros assume that X is a hard or pseudo reg number.
+   They give nonzero only if X is a hard reg of the suitable class
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
 
-#define REGNO_OK_FOR_INDEX_P(REGNO) \
-  ((REGNO) && ((REGNO) < 32 || (unsigned) reg_renumber[REGNO] < 32))
-#define REGNO_OK_FOR_BASE_P(REGNO)  \
-  ((REGNO) && ((REGNO) < 32 || (unsigned) reg_renumber[REGNO] < 32))
-#define REGNO_OK_FOR_FP_P(REGNO) \
-  (FP_REGNO_P (REGNO) || FP_REGNO_P (reg_renumber[REGNO]))
+#define REGNO_OK_FOR_INDEX_P(X) \
+  ((X) && ((X) < 32							\
+   || (X >= FIRST_PSEUDO_REGISTER					\
+       && reg_renumber							\
+       && (unsigned) reg_renumber[X] < 32)))
+#define REGNO_OK_FOR_BASE_P(X) \
+  ((X) && ((X) < 32							\
+   || (X >= FIRST_PSEUDO_REGISTER					\
+       && reg_renumber							\
+       && (unsigned) reg_renumber[X] < 32)))
+#define REGNO_OK_FOR_FP_P(X) \
+  (FP_REGNO_P (X)							\
+   || (X >= FIRST_PSEUDO_REGISTER					\
+       && reg_renumber							\
+       && FP_REGNO_P (reg_renumber[X])))
 
 /* Now macros that check whether X is a register and also,
    strictly, whether it is in a specified class.
@@ -1253,6 +1262,13 @@ extern int may_call_alloca;
 	     || cint_ok_for_move (INTVAL (X))))			\
    && !function_label_operand (X, VOIDmode))
 
+/* Target flags set on a symbol_ref.  */
+
+/* Set by ASM_OUTPUT_SYMBOL_REF when a symbol_ref is output.  */
+#define SYMBOL_FLAG_REFERENCED (1 << SYMBOL_FLAG_MACH_DEP_SHIFT)
+#define SYMBOL_REF_REFERENCED_P(RTX) \
+  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_REFERENCED) != 0)
+
 /* Subroutines for EXTRA_CONSTRAINT.
 
    Return 1 iff OP is a pseudo which did not get a hard register and
@@ -1296,7 +1312,12 @@ extern int may_call_alloca;
 
    `T' is for floating-point loads and stores.
 
-   `U' is the constant 63.  */
+   `U' is the constant 63.
+
+   `W' is a register indirect memory operand.  We could allow short
+       displacements but GO_IF_LEGITIMATE_ADDRESS can't tell when a
+       long displacement is valid.  This is only used for prefetch
+       instructions with the `sl' completer.  */
 
 #define EXTRA_CONSTRAINT(OP, C) \
   ((C) == 'Q' ?								\
@@ -1307,6 +1328,10 @@ extern int may_call_alloca;
 	&& !symbolic_memory_operand (OP, VOIDmode)			\
 	&& !IS_LO_SUM_DLT_ADDR_P (XEXP (OP, 0))				\
 	&& !IS_INDEX_ADDR_P (XEXP (OP, 0))))				\
+   : ((C) == 'W' ?							\
+      (GET_CODE (OP) == MEM						\
+       && REG_P (XEXP (OP, 0))						\
+       && REG_OK_FOR_BASE_P (XEXP (OP, 0)))				\
    : ((C) == 'A' ?							\
       (GET_CODE (OP) == MEM						\
        && IS_LO_SUM_DLT_ADDR_P (XEXP (OP, 0)))				\
@@ -1336,7 +1361,7 @@ extern int may_call_alloca;
    : ((C) == 'S' ?							\
       (GET_CODE (OP) == CONST_INT && INTVAL (OP) == 31)			\
    : ((C) == 'U' ?							\
-      (GET_CODE (OP) == CONST_INT && INTVAL (OP) == 63) : 0))))))
+      (GET_CODE (OP) == CONST_INT && INTVAL (OP) == 63) : 0)))))))
 	
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
@@ -1514,7 +1539,12 @@ extern int may_call_alloca;
 	  && (TARGET_NO_SPACE_REGS					\
 	      ? (base && REG_P (index))					\
 	      : (base == XEXP (X, 1) && REG_P (index)			\
-		 && REG_POINTER (base) && !REG_POINTER (index)))	\
+		 && (reload_completed					\
+		     || (reload_in_progress && HARD_REGISTER_P (base))	\
+		     || REG_POINTER (base))				\
+		 && (reload_completed					\
+		     || (reload_in_progress && HARD_REGISTER_P (index))	\
+		     || !REG_POINTER (index))))				\
 	  && MODE_OK_FOR_UNSCALED_INDEXING_P (MODE)			\
 	  && REG_OK_FOR_INDEX_P (index)					\
 	  && borx_reg_operand (base, Pmode)				\
@@ -1931,6 +1961,14 @@ forget_section (void)							\
     fputs (xname, FILE);		\
   } while (0)
 
+/* This how we output the symbol_ref X.  */
+
+#define ASM_OUTPUT_SYMBOL_REF(FILE,X) \
+  do {                                                 \
+    SYMBOL_REF_FLAGS (X) |= SYMBOL_FLAG_REFERENCED;    \
+    assemble_name (FILE, XSTR (X, 0));                 \
+  } while (0)
+
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -2102,7 +2140,8 @@ forget_section (void)							\
 				       CONST_DOUBLE}},			\
   {"move_dest_operand", {SUBREG, REG, MEM}},				\
   {"move_src_operand", {SUBREG, REG, CONST_INT, MEM}},			\
-  {"prefetch_operand", {MEM}},						\
+  {"prefetch_cc_operand", {MEM}},					\
+  {"prefetch_nocc_operand", {MEM}},					\
   {"reg_or_cint_move_operand", {SUBREG, REG, CONST_INT}},		\
   {"pic_label_operand", {LABEL_REF, CONST}},				\
   {"fp_reg_operand", {REG}},						\

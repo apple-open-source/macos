@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_lib.h,v 1.4 2004/12/11 05:23:58 lindak Exp $
+ * $Id: nb_lib.h,v 1.4.180.1 2005/08/12 23:13:01 lindak Exp $
  */
 #ifndef _NETSMB_NB_LIB_H_
 #define	_NETSMB_NB_LIB_H_
@@ -141,9 +141,9 @@ void nb_snbfree(struct sockaddr*);
 int  nb_sockaddr(struct sockaddr *, struct nb_name *, struct sockaddr_nb **);
 
 int  nb_resolvehost_in(const char *, struct sockaddr **);
-int  nbns_resolvename(const char *, struct nb_ctx *, struct sockaddr **);
+int  nbns_resolvename(const char *, struct nb_ctx *, struct smb_ctx *, struct sockaddr **);
 int  nbns_getnodestatus(struct sockaddr *targethost,
-							struct nb_ctx *ctx, char *system, char *workgroup);
+	struct nb_ctx *ctx, char *system, char *workgroup);
 int  nb_getlocalname(char *name);
 int  nb_enum_if(struct nb_ifdesc **, int);
 

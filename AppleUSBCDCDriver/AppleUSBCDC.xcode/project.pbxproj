@@ -299,7 +299,7 @@
 				D2277A8E07417BFA002AF184,
 				D2277A9007417BFA002AF184,
 				D2277A9207417BFA002AF184,
-				D2277A9607417BFA002AF184,
+				D24A0FCE082BD87F0097BB0C,
 			);
 			isa = PBXAggregateTarget;
 			name = "Build All";
@@ -326,7 +326,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDC;
-				MODULE_VERSION = 3.1.4;
+				MODULE_VERSION = 3.1.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -458,7 +458,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
-				MODULE_VERSION = 3.1.4;
+				MODULE_VERSION = 3.1.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCACMControl;
@@ -595,7 +595,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
-				MODULE_VERSION = 3.1.4;
+				MODULE_VERSION = 3.1.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -734,7 +734,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
-				MODULE_VERSION = 3.1.4;
+				MODULE_VERSION = 3.1.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCWCM;
@@ -865,7 +865,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
-				MODULE_VERSION = 3.1.4;
+				MODULE_VERSION = 3.1.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCECMControl;
@@ -1002,8 +1002,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
-				MODULE_VERSION = 3.1.4;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 3.1.6;
+				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCECMData;
@@ -1139,7 +1139,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
-				MODULE_VERSION = 3.1.4;
+				MODULE_VERSION = 3.1.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBCDCDMM;
@@ -1261,7 +1261,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
-				MODULE_VERSION = 3.1.4;
+				MODULE_VERSION = 3.1.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1466,17 +1466,17 @@
 			target = D2277A6207417BFA002AF184;
 			targetProxy = D2277A9107417BFA002AF184;
 		};
-		D2277A9507417BFA002AF184 = {
+		D24A0FCD082BD87F0097BB0C = {
 			containerPortal = 089C1669FE841209C02AAC07;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = D2277A7907417BFA002AF184;
-			remoteInfo = "AppleUSBCDCEEMData (Upgraded)";
+			remoteInfo = AppleUSBCDCEEM;
 		};
-		D2277A9607417BFA002AF184 = {
+		D24A0FCE082BD87F0097BB0C = {
 			isa = PBXTargetDependency;
 			target = D2277A7907417BFA002AF184;
-			targetProxy = D2277A9507417BFA002AF184;
+			targetProxy = D24A0FCD082BD87F0097BB0C;
 		};
 		D24E98F00680E7BD005360D4 = {
 			children = (

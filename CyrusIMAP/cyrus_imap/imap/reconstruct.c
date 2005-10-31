@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: reconstruct.c,v 1.9 2005/03/05 00:37:03 dasenbro Exp $ */
+/* $Id: reconstruct.c,v 1.10 2005/06/17 20:16:29 dasenbro Exp $ */
 
 #include <config.h>
 
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 
     memset(&head, 0, sizeof(head));
 
-    if (geteuid() == 0) fatal("must run as the Cyrus user", EC_USAGE);
+//    if (geteuid() == 0) fatal("must run as the Cyrus user", EC_USAGE);
 
     /* Ensure we're up-to-date on the index file format */
     assert(INDEX_HEADER_SIZE == (OFFSET_SPARE2+4));
@@ -453,9 +453,9 @@ void add_all_mailboxes ( const char *inBasePath, const char *inPath )
 				if ( r == IMAP_MAILBOX_NONEXISTENT )
 				{
 					char *partition	= NULL;
-					if ( useropts.fAltDataLoc[ 0 ] != '\0' )
+					if ( useropts.fAltDataLocPtr != NULL )
 					{
-						partition = useropts.fAltDataLoc;
+						partition = useropts.fAltDataLocPtr;
 					}
 					r = mboxlist_createmailbox( mailboxname, MAILBOX_FORMAT_NORMAL, partition, 1, "cyrusimap", NULL, 0, 0, 0);
 					if ( !r )
@@ -835,6 +835,8 @@ int reconstruct(char *name, struct discovered *found)
 		}
 		else
 		{
+			/* set to 0 so that we will attempt to parse the received header
+				to do best guess as to when we actually received the header */
 			message_index.internaldate = 0;
 		}
 	    /* If we are recovering a message, assume new UIDL
@@ -842,7 +844,8 @@ int reconstruct(char *name, struct discovered *found)
 	    mailbox.pop3_new_uidl = 1;
 	}
 	else {
-	    /* Message file write time is good estimate of internaldate */
+		/* set to 0 so that we will attempt to parse the received header
+			to do best guess as to when we actually received the header */
 		message_index.internaldate = 0;
 	    /* If we are recovering a message, assume new UIDL
 	       so that stupid clients will retrieve this message */

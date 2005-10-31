@@ -217,6 +217,9 @@ extern void i386_elf_init_abi (struct gdbarch_info, struct gdbarch *);
 
 /* Initialize a SVR4 architecture variant.  */
 extern void i386_svr4_init_abi (struct gdbarch_info, struct gdbarch *);
+
+/* APPLE LOCAL */
+int i386_find_picbase_setup (CORE_ADDR, CORE_ADDR *, enum i386_regnum *);
 
 
 /* Functions and variables exported from i386bsd-tdep.c.  */

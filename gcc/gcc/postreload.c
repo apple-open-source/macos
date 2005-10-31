@@ -1,6 +1,6 @@
 /* Perform simple optimizations to clean up the result of reload.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -427,7 +427,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	     extension.  Punt on this for now.  */
 	  if (! set)
 	    continue;
-	  /* If the destination is a also MEM or a STRICT_LOW_PART, no
+	  /* If the destination is also a MEM or a STRICT_LOW_PART, no
 	     extension applies.
 	     Also, if there is an explicit extension, we don't have to
 	     worry about an implicit one.  */
@@ -1005,11 +1005,9 @@ reload_combine_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
 
   /* note_stores might have stripped a STRICT_LOW_PART, so we have to be
      careful with registers / register parts that are not full words.
-
-     Similarly for ZERO_EXTRACT and SIGN_EXTRACT.  */
+     Similarly for ZERO_EXTRACT.  */
   if (GET_CODE (set) != SET
       || GET_CODE (SET_DEST (set)) == ZERO_EXTRACT
-      || GET_CODE (SET_DEST (set)) == SIGN_EXTRACT
       || GET_CODE (SET_DEST (set)) == STRICT_LOW_PART)
     {
       for (i = hard_regno_nregs[regno][mode] - 1 + regno; i >= regno; i--)
@@ -1459,10 +1457,9 @@ move2add_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
 
   regno += REGNO (dst);
 
-  if (SCALAR_INT_MODE_P (mode)
+  if (SCALAR_INT_MODE_P (GET_MODE (dst))
       && hard_regno_nregs[regno][mode] == 1 && GET_CODE (set) == SET
       && GET_CODE (SET_DEST (set)) != ZERO_EXTRACT
-      && GET_CODE (SET_DEST (set)) != SIGN_EXTRACT
       && GET_CODE (SET_DEST (set)) != STRICT_LOW_PART)
     {
       rtx src = SET_SRC (set);

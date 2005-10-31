@@ -498,7 +498,7 @@ static const template i386_optab[] = {
 /* Pentium Pro extensions */
 {"rdpmc", 0, 0x0f33, _, NoModrm, {0, 0, 0}, /*"6"*/ },
         
-{"ud2", 0, 0x0fff, _, NoModrm, {0, 0, 0}, /*"6"*/ }, /* official undefined instr. */
+{"ud2", 0, 0x0f0b, _, NoModrm, {0, 0, 0}, /*"6"*/ }, /* official undefined instr. */
 #endif /* i686 */
 
 #define Mem512 (Mem32|Disp|BaseIndex)
@@ -565,8 +565,10 @@ static const template i386_optab[] = {
 #define m8   (Mem32|Disp|BaseIndex)
 
   {"addpd", 2, 0x660f58, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"addsubpd", 2, 0x660fd0, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"addps", 2, 0x0f58, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"addsd", 2, 0xf20f58, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"addsubps", 2, 0xf20fd0, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"addss", 2, 0xf30f58, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
   {"andnpd", 2, 0x660f55, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"andnps", 2, 0x0f55, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
@@ -606,6 +608,14 @@ static const template i386_optab[] = {
   {"divsd", 2, 0xf20f5e, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
   {"divss", 2, 0xf30f5e, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
   {"emms", 0, 0x0f77, _, NoModrm, {0, 0, 0} },
+  {"fisttps", 1, 0xdf, 1, Modrm, {Mem, 0, 0},"O"},
+  {"fisttpl", 1, 0xdb, 1, Modrm, {Mem, 0, 0},"O"},
+  {"fisttpll", 1, 0xdd, 1, Modrm, {Mem, 0, 0},"O"},
+  {"haddpd", 2, 0x660f7c, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"haddps", 2, 0xf20f7c, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"hsubpd", 2, 0x660f7d, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"hsubps", 2, 0xf20f7d, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"lddqu", 2, 0xf20ff0, _, RR|Modrm, {m128, xmm, 0},"O"},
   {"femms", 0, 0x0f0e, _, NoModrm, {0, 0, 0} },
   {"ldmxcsr", 1, 0x0fae, 2, Modrm, {m32, 0, 0},"O"},
   {"lfence", 0, 0x0faee8, _, NoModrm, {0, 0, 0},"O"},
@@ -620,14 +630,18 @@ static const template i386_optab[] = {
   {"minps", 2, 0x0f5d, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"minsd", 2, 0xf20f5d, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
   {"minss", 2, 0xf30f5d, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  /* We only support the 0-operand version of monitor right now */
+  /* TBD: Support monitor %eax, %ecx, %edx */
+  {"monitor", 0, 0x0f01c8, _, NoModrm, {0, 0, 0},"O"},
   {"movapd", 2, 0x660f28, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"movapd", 2, 0x660f29, _, RR|Modrm, {xmm, xmm|m128, 0},"O"},
   {"movaps", 2, 0x0f28, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"movaps", 2, 0x0f29, _, RR|Modrm, {xmm, xmm|m128, 0},"O"},
   {"movd", 2, 0x0f6e, _, RR|Modrm, {r32|m32, mm, 0},"O"},
-  {"movd", 2, 0x0f7e, _, RR|Modrm, {mm, r32|m32, 0},"O"},
+  {"movd", 2, 0x0f7e, _, Modrm, {mm, r32|m32, 0},"O"},
   {"movd", 2, 0x660f6e, _, RR|Modrm, {r32|m32, xmm, 0},"O"},
   {"movd", 2, 0x660f7e, _, Modrm, {xmm, r32|m32, 0},"O"},
+  {"movddup", 2, 0xf20f12, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
   {"movdq2q", 2, 0xf20fd6, _, RR|Modrm, {xmm, mm, 0},"O"},
   {"movdqa", 2, 0x660f6f, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"movdqa", 2, 0x660f7f, _, RR|Modrm, {xmm, xmm|m128, 0},"O"},
@@ -652,11 +666,15 @@ static const template i386_optab[] = {
   {"movntq", 2, 0x0fe7, _, RR|Modrm, {mm, m64, 0},"O"},
   {"movq", 2, 0x0f6f, _, RR|Modrm, {mm|m64, mm, 0},"O"},
   {"movq", 2, 0x0f7f, _, RR|Modrm, {mm, mm|m64, 0},"O"},
-  {"movq", 2, 0x660fd6, _, RR|Modrm, {xmm, xmm|m64, 0},"O"},
+  /* Both of these next opcodes can assemble a "movq xmm,xmm" but the first
+     must be used so the operand order is correctly encoded. */
   {"movq", 2, 0xf30f7e, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
+  {"movq", 2, 0x660fd6, _, RR|Modrm, {xmm, xmm|m64, 0},"O"},
   {"movq2dq", 2, 0xf30fd6, _, RR|Modrm, {mm, xmm, 0},"O"},
   {"movsd", 2, 0xf20f10, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
   {"movsd", 2, 0xf20f11, _, RR|Modrm, {xmm, xmm|m64, 0},"O"},
+  {"movshdup", 2, 0xf30f16, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
+  {"movsldup", 2, 0xf30f12, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"movss", 2, 0xf30f10, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
   {"movss", 2, 0xf30f11, _, RR|Modrm, {xmm, xmm|m32, 0},"O"},
   {"movupd", 2, 0x660f10, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
@@ -667,6 +685,9 @@ static const template i386_optab[] = {
   {"mulps", 2, 0x0f59, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"mulsd", 2, 0xf20f59, _, RR|Modrm, {xmm|m64, xmm, 0},"O"},
   {"mulss", 2, 0xf30f59, _, RR|Modrm, {xmm|m32, xmm, 0},"O"},
+  /* We only support the 0-operand version of mwait right now */
+  /* TBD: Support mwait %eax, %ecx */
+  {"mwait", 0, 0x0f01c9, _, NoModrm, {0, 0, 0},"O"},
   {"orpd", 2, 0x660f56, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"orps", 2, 0x0f56, _, RR|Modrm, {xmm|m128, xmm, 0},"O"},
   {"packssdw", 2, 0x0f6b, _, RR|Modrm, {mm|m64,mm,0},"O"},

@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,31 +36,44 @@ package org.blojsom.plugin.admin;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.xmlrpc.AsyncCallback;
-import org.apache.xmlrpc.XmlRpcClient;
 import org.blojsom.BlojsomException;
 import org.blojsom.blog.*;
 import org.blojsom.fetcher.BlojsomFetcher;
 import org.blojsom.fetcher.BlojsomFetcherException;
 import org.blojsom.plugin.BlojsomPluginException;
+import org.blojsom.plugin.pingback.PingbackPlugin;
+import org.blojsom.plugin.comment.CommentModerationPlugin;
+import org.blojsom.plugin.weblogsping.WeblogsPingPlugin;
+import org.blojsom.plugin.admin.event.AddBlogEntryEvent;
+import org.blojsom.plugin.admin.event.DeletedBlogEntryEvent;
+import org.blojsom.plugin.admin.event.UpdatedBlogEntryEvent;
+import org.blojsom.plugin.admin.event.ProcessBlogEntryEvent;
 import org.blojsom.plugin.trackback.TrackbackPlugin;
+import org.blojsom.plugin.trackback.TrackbackModerationPlugin;
 import org.blojsom.util.BlojsomMetaDataConstants;
 import org.blojsom.util.BlojsomUtils;
+import org.blojsom.util.BlojsomProperties;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
-import java.util.*;
-import java.net.*;
-import java.text.SimpleDateFormat;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * EditBlogEntriesPlugin
  *
  * @author czarnecki
- * @version $Id: EditBlogEntriesPlugin.java,v 1.5 2005/02/18 23:09:27 johnan Exp $
+ * @version $Id: EditBlogEntriesPlugin.java,v 1.5.2.1 2005/07/21 04:30:23 johnan Exp $
  * @since blojsom 2.05
  */
 public class EditBlogEntriesPlugin extends BaseAdminPlugin {
@@ -70,13 +83,12 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
     // XML-RPC constants
     public static final String BLOG_XMLRPC_ENTRY_EXTENSION_IP = "blog-xmlrpc-entry-extension";
 
-    private static final String WEBLOGS_PING_METHOD = "weblogUpdates.ping";
-    private static final int MAXIMUM_FILENAME_LENGTH = 32;
+    protected static final int MAXIMUM_FILENAME_LENGTH = 64;
 
     /**
      * Default file extension for blog entries written via XML-RPC
      */
-    public static final String DEFAULT_BLOG_XMLRPC_ENTRY_EXTENSION = ".txt";
+    public static final String DEFAULT_BLOG_XMLRPC_ENTRY_EXTENSION = ".html";
 
     // Pages
     private static final String EDIT_BLOG_ENTRIES_PAGE = "/org/blojsom/plugin/admin/templates/admin-edit-blog-entries";
@@ -85,9 +97,9 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
     private static final String ADD_BLOG_ENTRY_PAGE = "/org/blojsom/plugin/admin/templates/admin-add-blog-entry";
 
     // Constants
-    private static final String BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_LIST = "BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_LIST";
-    private static final String BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY = "BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY";
-    private static final String BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY = "BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY";
+    protected static final String BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_LIST = "BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_LIST";
+    protected static final String BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY = "BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY";
+    protected static final String BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY = "BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY";
 
     // Actions
     private static final String EDIT_BLOG_ENTRIES_ACTION = "edit-blog-entries";
@@ -98,18 +110,23 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
     private static final String ADD_BLOG_ENTRY_ACTION = "add-blog-entry";
     private static final String DELETE_BLOG_COMMENTS = "delete-blog-comments";
     private static final String DELETE_BLOG_TRACKBACKS = "delete-blog-trackbacks";
+    private static final String APPROVE_BLOG_COMMENTS = "approve-blog-comments";
+    private static final String APPROVE_BLOG_TRACKBACKS = "approve-blog-trackbacks";
 
     // Form elements
-    private static final String BLOG_CATEGORY_NAME = "blog-category-name";
-    private static final String BLOG_ENTRY_ID = "blog-entry-id";
-    private static final String BLOG_ENTRY_TITLE = "blog-entry-title";
-    private static final String BLOG_ENTRY_DESCRIPTION = "blog-entry-description";
-    private static final String BLOG_COMMENT_ID = "blog-comment-id";
-    private static final String BLOG_TRACKBACK_ID = "blog-trackback-id";
-    private static final String BLOG_ENTRY_PUBLISH_DATETIME = "blog-entry-publish-datetime";
-    private static final String BLOG_TRACKBACK_URLS = "blog-trackback-urls";
-    private static final String BLOG_PING_URLS = "blog-ping-urls";
-    private static final String BLOG_ENTRY_PROPOSED_NAME = "blog-entry-proposed-name";
+    protected static final String BLOG_CATEGORY_NAME = "blog-category-name";
+    protected static final String BLOG_ENTRY_ID = "blog-entry-id";
+    protected static final String BLOG_ENTRY_TITLE = "blog-entry-title";
+    protected static final String BLOG_ENTRY_DESCRIPTION = "blog-entry-description";
+    protected static final String BLOG_COMMENT_ID = "blog-comment-id";
+    protected static final String BLOG_TRACKBACK_ID = "blog-trackback-id";
+    protected static final String BLOG_ENTRY_PUBLISH_DATETIME = "blog-entry-publish-datetime";
+    protected static final String BLOG_TRACKBACK_URLS = "blog-trackback-urls";
+    protected static final String BLOG_ENTRY_PROPOSED_NAME = "blog-entry-proposed-name";
+    protected static final String PING_BLOG_URLS = "ping-blog-urls";
+
+    // Permissions
+    private static final String EDIT_BLOG_ENTRIES_PERMISSION = "edit_blog_entries";
 
     protected BlojsomFetcher _fetcher;
 
@@ -169,6 +186,14 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
             return entries;
         }
 
+        String username = getUsernameFromSession(httpServletRequest, user.getBlog());
+        if (!checkPermission(user, null, username, EDIT_BLOG_ENTRIES_PERMISSION)) {
+            httpServletRequest.setAttribute(PAGE_PARAM, ADMIN_LOGIN_PAGE);
+            addOperationResultMessage(context, "You are not allowed to edit blog entries");
+
+            return entries;
+        }
+
         String action = BlojsomUtils.getRequestValue(ACTION_PARAM, httpServletRequest);
         if (BlojsomUtils.checkNullOrBlank(action)) {
             _logger.debug("User did not request edit action");
@@ -215,22 +240,12 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
             String blogEntryId = BlojsomUtils.getRequestValue(BLOG_ENTRY_ID, httpServletRequest);
             _logger.debug("Blog entry id: " + blogEntryId);
 
-            BlogCategory category;
-            category = _fetcher.newBlogCategory();
-            category.setCategory(blogCategoryName);
-            category.setCategoryURL(user.getBlog().getBlogURL() + BlojsomUtils.removeInitialSlash(blogCategoryName));
-
-            Map fetchMap = new HashMap();
-            fetchMap.put(BlojsomFetcher.FETCHER_CATEGORY, category);
-            fetchMap.put(BlojsomFetcher.FETCHER_PERMALINK, blogEntryId);
             try {
-                entries = _fetcher.fetchEntries(fetchMap, user);
-                if (entries != null) {
-                    _logger.debug("Retrieved " + entries.length + " entries from category: " + blogCategoryName);
-                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY, entries[0]);
-                } else {
-                    _logger.debug("No entries found in category: " + blogCategoryName);
-                }
+                BlogEntry entry = BlojsomUtils.fetchEntry(_fetcher, user, blogCategoryName, blogEntryId);
+                context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY, entry);
+
+                _blojsomConfiguration.getEventBroadcaster().processEvent(new ProcessBlogEntryEvent(this, new Date(), entry,
+                        user, httpServletRequest, httpServletResponse, context));
             } catch (BlojsomFetcherException e) {
                 _logger.error(e);
                 addOperationResultMessage(context, "Unable to retrieve blog entry: " + blogEntryId);
@@ -254,67 +269,80 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
             String allowComments = BlojsomUtils.getRequestValue(BLOG_METADATA_COMMENTS_DISABLED, httpServletRequest);
             String allowTrackbacks = BlojsomUtils.getRequestValue(BLOG_METADATA_TRACKBACKS_DISABLED, httpServletRequest);
             String blogTrackbackURLs = BlojsomUtils.getRequestValue(BLOG_TRACKBACK_URLS, httpServletRequest);
-            String blogPingURLs = BlojsomUtils.getRequestValue(BLOG_PING_URLS, httpServletRequest);
+            String pingBlogURLS = BlojsomUtils.getRequestValue(PING_BLOG_URLS, httpServletRequest);
+            String sendPingbacks = BlojsomUtils.getRequestValue(PingbackPlugin.PINGBACK_PLUGIN_METADATA_SEND_PINGBACKS, httpServletRequest);
 
             _logger.debug("Blog entry id: " + blogEntryId);
 
-            BlogCategory category;
-            category = _fetcher.newBlogCategory();
-            category.setCategory(blogCategoryName);
-            category.setCategoryURL(user.getBlog().getBlogURL() + BlojsomUtils.removeInitialSlash(blogCategoryName));
-
-            Map fetchMap = new HashMap();
-            fetchMap.put(BlojsomFetcher.FETCHER_CATEGORY, category);
-            fetchMap.put(BlojsomFetcher.FETCHER_PERMALINK, blogEntryId);
             try {
-                entries = _fetcher.fetchEntries(fetchMap, user);
-                if (entries != null) {
-                    _logger.debug("Retrieved " + entries.length + " entries from category: " + blogCategoryName);
-                    BlogEntry entryToUpdate = entries[0];
-                    entryToUpdate.setTitle(blogEntryTitle);
-                    entryToUpdate.setDescription(blogEntryDescription);
+                BlogEntry entryToUpdate = BlojsomUtils.fetchEntry(_fetcher, user, blogCategoryName, blogEntryId);
+                entryToUpdate.setTitle(blogEntryTitle);
+                entryToUpdate.setDescription(blogEntryDescription);
+                entryToUpdate.setCategory(blogCategoryName);
 
-                    Map entryMetaData = entryToUpdate.getMetaData();
-                    if (entryMetaData == null) {
-                        entryMetaData = new HashMap();
-                    }
-
-                    if (!BlojsomUtils.checkNullOrBlank(allowComments)) {
-                        entryMetaData.put(BLOG_METADATA_COMMENTS_DISABLED, "y");
-                    } else {
-                        entryMetaData.remove(BLOG_METADATA_COMMENTS_DISABLED);
-                    }
-
-                    if (!BlojsomUtils.checkNullOrBlank(allowTrackbacks)) {
-                        entryMetaData.put(BLOG_METADATA_TRACKBACKS_DISABLED, "y");
-                    } else {
-                        entryMetaData.remove(BLOG_METADATA_TRACKBACKS_DISABLED);
-                    }
-
-                    entryToUpdate.setMetaData(entryMetaData);
-                    entryToUpdate.save(user);
-                    entryToUpdate.load(user);
-                    _logger.debug("Updated blog entry: " + entryToUpdate.getLink());
-                    StringBuffer entryLink = new StringBuffer();
-                    entryLink.append("<a href=\"").append(user.getBlog().getBlogURL()).append(BlojsomUtils.removeInitialSlash(entryToUpdate.getCategory())).append("?").append(PERMALINK_PARAM).append("=").append(entryToUpdate.getPermalink()).append("\">").append(entryToUpdate.getTitle()).append("</a>");
-                    addOperationResultMessage(context, "Updated blog entry: " + entryLink.toString());
-
-                    // Send trackback pings
-                    if (!BlojsomUtils.checkNullOrBlank(blogTrackbackURLs)) {
-                        sendTrackbackPings(blog, entryToUpdate, blogTrackbackURLs);
-                    }
-
-                    // Send update pings to the ping URLs
-                    if (!BlojsomUtils.checkNullOrBlank(blogPingURLs)) {
-                        sendBlogPings(blog, blogPingURLs);
-                    }
-
-                    httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_ENTRY_PAGE);
-                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY, entryToUpdate);
-                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY, blogCategoryName);
-                } else {
-                    _logger.debug("No entries found in category: " + blogCategoryName);
+                Map entryMetaData = entryToUpdate.getMetaData();
+                if (entryMetaData == null) {
+                    entryMetaData = new HashMap();
                 }
+
+                if (!BlojsomUtils.checkNullOrBlank(allowComments)) {
+                    entryMetaData.put(BLOG_METADATA_COMMENTS_DISABLED, "y");
+                } else {
+                    entryMetaData.remove(BLOG_METADATA_COMMENTS_DISABLED);
+                }
+
+                if (!BlojsomUtils.checkNullOrBlank(allowTrackbacks)) {
+                    entryMetaData.put(BLOG_METADATA_TRACKBACKS_DISABLED, "y");
+                } else {
+                    entryMetaData.remove(BLOG_METADATA_TRACKBACKS_DISABLED);
+                }
+
+                if (BlojsomUtils.checkNullOrBlank(pingBlogURLS)) {
+                    entryMetaData.put(WeblogsPingPlugin.NO_PING_WEBLOGS_METADATA, "true");
+                } else {
+                    entryMetaData.remove(WeblogsPingPlugin.NO_PING_WEBLOGS_METADATA);
+                }
+
+                if (!BlojsomUtils.checkNullOrBlank(sendPingbacks)) {
+                    entryMetaData.put(PingbackPlugin.PINGBACK_PLUGIN_METADATA_SEND_PINGBACKS, "true");
+                } else {
+                    entryMetaData.remove(PingbackPlugin.PINGBACK_PLUGIN_METADATA_SEND_PINGBACKS);
+                }
+
+                String entryPublishDateTime = httpServletRequest.getParameter(BLOG_ENTRY_PUBLISH_DATETIME);
+                if (!BlojsomUtils.checkNullOrBlank(entryPublishDateTime)) {
+                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+                    try {
+                        Date publishDateTime = simpleDateFormat.parse(entryPublishDateTime);
+                        _logger.debug("Publishing blog entry at: " + publishDateTime.toString());
+                        entryMetaData.put(BlojsomMetaDataConstants.BLOG_ENTRY_METADATA_TIMESTAMP, new Long(publishDateTime.getTime()).toString());
+                    } catch (ParseException e) {
+                        _logger.error(e);
+                    }
+                }
+
+                entryToUpdate.setMetaData(entryMetaData);
+
+                _blojsomConfiguration.getEventBroadcaster().processEvent(new ProcessBlogEntryEvent(this, new Date(), entryToUpdate,
+                        user, httpServletRequest, httpServletResponse, context));
+
+                entryToUpdate.save(user);
+                entryToUpdate.load(user);
+                _logger.debug("Updated blog entry: " + entryToUpdate.getLink());
+                StringBuffer entryLink = new StringBuffer();
+                entryLink.append("<a href=\"").append(user.getBlog().getBlogURL()).append(BlojsomUtils.removeInitialSlash(entryToUpdate.getCategory())).append("?").append(PERMALINK_PARAM).append("=").append(entryToUpdate.getPermalink()).append("\">").append(entryToUpdate.getTitle()).append("</a>");
+                addOperationResultMessage(context, "Updated blog entry: " + entryLink.toString());
+                UpdatedBlogEntryEvent updateEvent = new UpdatedBlogEntryEvent(this, new Date(), entryToUpdate, user);
+                _blojsomConfiguration.getEventBroadcaster().broadcastEvent(updateEvent);
+
+                // Send trackback pings
+                if (!BlojsomUtils.checkNullOrBlank(blogTrackbackURLs)) {
+                    sendTrackbackPings(blog, entryToUpdate, blogTrackbackURLs);
+                }
+
+                httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_ENTRY_PAGE);
+                context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY, entryToUpdate);
+                context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY, blogCategoryName);
             } catch (BlojsomFetcherException e) {
                 _logger.error(e);
                 addOperationResultMessage(context, "Unable to retrieve blog entry: " + blogEntryId);
@@ -334,24 +362,13 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
             String blogEntryId = BlojsomUtils.getRequestValue(BLOG_ENTRY_ID, httpServletRequest);
             _logger.debug("Blog entry id: " + blogEntryId);
 
-            BlogCategory category;
-            category = _fetcher.newBlogCategory();
-            category.setCategory(blogCategoryName);
-            category.setCategoryURL(user.getBlog().getBlogURL() + BlojsomUtils.removeInitialSlash(blogCategoryName));
-
-            Map fetchMap = new HashMap();
-            fetchMap.put(BlojsomFetcher.FETCHER_CATEGORY, category);
-            fetchMap.put(BlojsomFetcher.FETCHER_PERMALINK, blogEntryId);
             try {
-                entries = _fetcher.fetchEntries(fetchMap, user);
-                if (entries != null) {
-                    _logger.debug("Retrieved " + entries.length + " entries from category: " + blogCategoryName);
-                    String title = entries[0].getTitle();
-                    entries[0].delete(user);
-                    addOperationResultMessage(context, "Deleted blog entry: " + title);
-                } else {
-                    _logger.debug("No entries found in category: " + blogCategoryName);
-                }
+                BlogEntry entryToDelete = BlojsomUtils.fetchEntry(_fetcher, user, blogCategoryName, blogEntryId);
+                String title = entryToDelete.getTitle();
+                entryToDelete.delete(user);
+                addOperationResultMessage(context, "Deleted blog entry: " + title);
+                DeletedBlogEntryEvent deleteEvent = new DeletedBlogEntryEvent(this, new Date(), entryToDelete, user);
+                _blojsomConfiguration.getEventBroadcaster().broadcastEvent(deleteEvent);
             } catch (BlojsomFetcherException e) {
                 _logger.error(e);
                 addOperationResultMessage(context, "Unable to delete blog entry: " + blogEntryId);
@@ -368,6 +385,9 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
 
             String blogCategoryName = BlojsomUtils.getRequestValue(BLOG_CATEGORY_NAME, httpServletRequest);
             blogCategoryName = BlojsomUtils.normalize(blogCategoryName);
+
+            _blojsomConfiguration.getEventBroadcaster().processEvent(new ProcessBlogEntryEvent(this, new Date(), null,
+                    user, httpServletRequest, httpServletResponse, context));
 
             context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY, blogCategoryName);
             httpServletRequest.setAttribute(PAGE_PARAM, ADD_BLOG_ENTRY_PAGE);
@@ -388,8 +408,9 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
             String allowComments = BlojsomUtils.getRequestValue(BLOG_METADATA_COMMENTS_DISABLED, httpServletRequest);
             String allowTrackbacks = BlojsomUtils.getRequestValue(BLOG_METADATA_TRACKBACKS_DISABLED, httpServletRequest);
             String blogTrackbackURLs = BlojsomUtils.getRequestValue(BLOG_TRACKBACK_URLS, httpServletRequest);
-            String blogPingURLs = BlojsomUtils.getRequestValue(BLOG_PING_URLS, httpServletRequest);
             String proposedBlogFilename = BlojsomUtils.getRequestValue(BLOG_ENTRY_PROPOSED_NAME, httpServletRequest);
+            String pingBlogURLS = BlojsomUtils.getRequestValue(PING_BLOG_URLS, httpServletRequest);
+            String sendPingbacks = BlojsomUtils.getRequestValue(PingbackPlugin.PINGBACK_PLUGIN_METADATA_SEND_PINGBACKS, httpServletRequest);
 
             BlogCategory category;
             category = _fetcher.newBlogCategory();
@@ -403,7 +424,7 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
             entry.setDescription(blogEntryDescription);
 
             Map entryMetaData = new HashMap();
-            String username = (String) httpServletRequest.getSession().getAttribute(user.getBlog().getBlogURL() + "_" + BLOJSOM_ADMIN_PLUGIN_USERNAME_KEY);
+            username = (String) httpServletRequest.getSession().getAttribute(user.getBlog().getBlogAdminURL() + "_" + BLOJSOM_ADMIN_PLUGIN_USERNAME_KEY);
             entryMetaData.put(BlojsomMetaDataConstants.BLOG_ENTRY_METADATA_AUTHOR, username);
 
             String entryPublishDateTime = httpServletRequest.getParameter(BLOG_ENTRY_PUBLISH_DATETIME);
@@ -429,6 +450,14 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
                 entryMetaData.put(BLOG_METADATA_TRACKBACKS_DISABLED, "y");
             }
 
+            if (BlojsomUtils.checkNullOrBlank(pingBlogURLS)) {
+                entryMetaData.put(WeblogsPingPlugin.NO_PING_WEBLOGS_METADATA, "true");
+            }
+
+            if (!BlojsomUtils.checkNullOrBlank(sendPingbacks)) {
+                entryMetaData.put(PingbackPlugin.PINGBACK_PLUGIN_METADATA_SEND_PINGBACKS, "true");
+            }
+
             entry.setMetaData(entryMetaData);
 
             String blogEntryExtension = user.getBlog().getBlogProperty(BLOG_XMLRPC_ENTRY_EXTENSION_IP);
@@ -438,19 +467,23 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
 
             String filename;
             if (BlojsomUtils.checkNullOrBlank(proposedBlogFilename)) {
-                filename = getBlogEntryFilename(blogEntryDescription, blogEntryExtension);
+                filename = BlojsomUtils.getBlogEntryFilename(blogEntryTitle, blogEntryDescription);
             } else {
                 if (proposedBlogFilename.length() > MAXIMUM_FILENAME_LENGTH) {
                     proposedBlogFilename = proposedBlogFilename.substring(0, MAXIMUM_FILENAME_LENGTH);
                 }
-                
+
                 proposedBlogFilename = BlojsomUtils.normalize(proposedBlogFilename);
-                proposedBlogFilename += blogEntryExtension;
                 filename = proposedBlogFilename;
                 _logger.debug("Using proposed blog entry filename: " + filename);
             }
 
-            File blogFilename = new File(user.getBlog().getBlogHome() + BlojsomUtils.removeInitialSlash(blogCategoryName) + filename);
+            File blogFilename = new File(user.getBlog().getBlogHome() + BlojsomUtils.removeInitialSlash(blogCategoryName) + filename + blogEntryExtension);
+            int fileTag = 1;
+            while (blogFilename.exists()) {
+                blogFilename = new File(user.getBlog().getBlogHome() + BlojsomUtils.removeInitialSlash(blogCategoryName) + filename + "-" + fileTag + blogEntryExtension);
+                fileTag++;
+            }
             _logger.debug("New blog entry file: " + blogFilename.toString());
 
             Map attributeMap = new HashMap();
@@ -458,12 +491,16 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
             entry.setAttributes(attributeMap);
 
             try {
+                _blojsomConfiguration.getEventBroadcaster().processEvent(new ProcessBlogEntryEvent(this, new Date(), entry, user, httpServletRequest, httpServletResponse, context));
+
                 entry.save(user);
                 entry.load(user);
                 StringBuffer entryLink = new StringBuffer();
                 entry.setLink(user.getBlog().getBlogURL() + BlojsomUtils.removeInitialSlash(entry.getCategory()) + "?" + PERMALINK_PARAM + "=" + entry.getPermalink());
                 entryLink.append("<a href=\"").append(entry.getLink()).append("\">").append(entry.getTitle()).append("</a>");
                 addOperationResultMessage(context, "Added blog entry: " + entryLink.toString());
+                AddBlogEntryEvent addEvent = new AddBlogEntryEvent(this, new Date(), entry, user);
+                _blojsomConfiguration.getEventBroadcaster().broadcastEvent(addEvent);
             } catch (BlojsomException e) {
                 _logger.error(e);
                 addOperationResultMessage(context, "Unable to add blog entry to category: " + blogCategoryName);
@@ -472,11 +509,6 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
             // Send trackback pings
             if (!BlojsomUtils.checkNullOrBlank(blogTrackbackURLs)) {
                 sendTrackbackPings(blog, entry, blogTrackbackURLs);
-            }
-
-            // Send update pings to the ping URLs
-            if (!BlojsomUtils.checkNullOrBlank(blogPingURLs)) {
-                sendBlogPings(blog, blogPingURLs);
             }
 
             httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_ENTRY_ACTION);
@@ -498,7 +530,7 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
 
             String[] blogCommentIDs = httpServletRequest.getParameterValues(BLOG_COMMENT_ID);
             if (blogCommentIDs != null && blogCommentIDs.length > 0) {
-                File commentsDirectory = new File(blog.getBlogHome() + blogCategoryName + blog.getBlogCommentsDirectory()
+                File commentsDirectory = new File(blog.getBlogHome() + blogCategoryName + File.separatorChar + blog.getBlogCommentsDirectory()
                         + File.separatorChar + blogEntryId + File.separatorChar);
                 File blogCommentToDelete;
                 for (int i = 0; i < blogCommentIDs.length; i++) {
@@ -514,7 +546,90 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
                 addOperationResultMessage(context, "Deleted " + blogCommentIDs.length + " comments");
             }
 
-            httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_ENTRIES_PAGE);
+            httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_ENTRY_PAGE);
+
+            BlogCategory category;
+            category = _fetcher.newBlogCategory();
+            category.setCategory(blogCategoryName);
+            category.setCategoryURL(user.getBlog().getBlogURL() + BlojsomUtils.removeInitialSlash(blogCategoryName));
+
+            Map fetchMap = new HashMap();
+            fetchMap.put(BlojsomFetcher.FETCHER_CATEGORY, category);
+            fetchMap.put(BlojsomFetcher.FETCHER_PERMALINK, blogEntryId);
+            try {
+                entries = _fetcher.fetchEntries(fetchMap, user);
+                if (entries != null) {
+                    _logger.debug("Retrieved " + entries.length + " entries from category: " + blogCategoryName);
+                    BlogEntry entryToUpdate = entries[0];
+
+                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY, entryToUpdate);
+                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY, blogCategoryName);
+                }
+            } catch (BlojsomFetcherException e) {
+                _logger.error(e);
+            }
+        } else if (APPROVE_BLOG_COMMENTS.equals(action)) {
+            _logger.debug("User requested approve blog comments action");
+
+            Blog blog = user.getBlog();
+            String blogCategoryName = BlojsomUtils.getRequestValue(BLOG_CATEGORY_NAME, httpServletRequest);
+            blogCategoryName = BlojsomUtils.normalize(blogCategoryName);
+            String blogEntryId = BlojsomUtils.getRequestValue(BLOG_ENTRY_ID, httpServletRequest);
+            try {
+                blogEntryId = URLDecoder.decode(blogEntryId, UTF8);
+            } catch (UnsupportedEncodingException e) {
+                _logger.error(e);
+            }
+            _logger.debug("Blog entry id: " + blogEntryId);
+
+            String[] blogCommentIDs = httpServletRequest.getParameterValues(BLOG_COMMENT_ID);
+            if (blogCommentIDs != null && blogCommentIDs.length > 0) {
+                File commentsDirectory = new File(blog.getBlogHome() + blogCategoryName + File.separatorChar + blog.getBlogCommentsDirectory()
+                        + File.separatorChar + blogEntryId + File.separatorChar);
+                File blogCommentMetaData;
+                for (int i = 0; i < blogCommentIDs.length; i++) {
+                    String blogCommentID = blogCommentIDs[i];
+                    blogCommentMetaData = new File(commentsDirectory, BlojsomUtils.getFilename(blogCommentID) + ".meta");
+
+                    try {
+                        FileInputStream fis = new FileInputStream(blogCommentMetaData);
+                        BlojsomProperties commentMetaData = new BlojsomProperties();
+                        commentMetaData.load(fis);
+                        fis.close();
+                        commentMetaData.put(CommentModerationPlugin.BLOJSOM_COMMENT_MODERATION_PLUGIN_APPROVED, "true");
+                        FileOutputStream fos = new FileOutputStream(blogCommentMetaData);
+                        commentMetaData.store(fos, null);
+                        fos.close();
+                    } catch (IOException e) {
+                        _logger.error(e);
+                    }
+                }
+
+                addOperationResultMessage(context, "Approved " + blogCommentIDs.length + " comments");
+            }
+
+            httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_ENTRY_PAGE);
+
+            BlogCategory category;
+            category = _fetcher.newBlogCategory();
+            category.setCategory(blogCategoryName);
+            category.setCategoryURL(user.getBlog().getBlogURL() + BlojsomUtils.removeInitialSlash(blogCategoryName));
+
+            Map fetchMap = new HashMap();
+            fetchMap.put(BlojsomFetcher.FETCHER_CATEGORY, category);
+            fetchMap.put(BlojsomFetcher.FETCHER_PERMALINK, blogEntryId);
+            try {
+                entries = _fetcher.fetchEntries(fetchMap, user);
+                if (entries != null) {
+                    _logger.debug("Retrieved " + entries.length + " entries from category: " + blogCategoryName);
+                    BlogEntry entryToUpdate = entries[0];
+
+                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY, entryToUpdate);
+                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY, blogCategoryName);
+                }
+            } catch (BlojsomFetcherException e) {
+                _logger.error(e);
+            }
         } else if (DELETE_BLOG_TRACKBACKS.equals(action)) {
             _logger.debug("User requested delete blog trackbacks action");
 
@@ -531,7 +646,7 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
 
             String[] blogTrackbackIDs = httpServletRequest.getParameterValues(BLOG_TRACKBACK_ID);
             if (blogTrackbackIDs != null && blogTrackbackIDs.length > 0) {
-                File trackbacksDirectory = new File(blog.getBlogHome() + blogCategoryName + blog.getBlogTrackbackDirectory()
+                File trackbacksDirectory = new File(blog.getBlogHome() + blogCategoryName + File.separatorChar + blog.getBlogTrackbackDirectory()
                         + File.separatorChar + blogEntryId + File.separatorChar);
                 File blogTrackbackToDelete;
                 for (int i = 0; i < blogTrackbackIDs.length; i++) {
@@ -547,7 +662,90 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
                 addOperationResultMessage(context, "Deleted " + blogTrackbackIDs.length + " trackbacks");
             }
 
-            httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_ENTRIES_PAGE);
+            httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_ENTRY_PAGE);
+
+            BlogCategory category;
+            category = _fetcher.newBlogCategory();
+            category.setCategory(blogCategoryName);
+            category.setCategoryURL(user.getBlog().getBlogURL() + BlojsomUtils.removeInitialSlash(blogCategoryName));
+
+            Map fetchMap = new HashMap();
+            fetchMap.put(BlojsomFetcher.FETCHER_CATEGORY, category);
+            fetchMap.put(BlojsomFetcher.FETCHER_PERMALINK, blogEntryId);
+            try {
+                entries = _fetcher.fetchEntries(fetchMap, user);
+                if (entries != null) {
+                    _logger.debug("Retrieved " + entries.length + " entries from category: " + blogCategoryName);
+                    BlogEntry entryToUpdate = entries[0];
+
+                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY, entryToUpdate);
+                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY, blogCategoryName);
+                }
+            } catch (BlojsomFetcherException e) {
+                _logger.error(e);
+            }
+        } else if (APPROVE_BLOG_TRACKBACKS.equals(action)) {
+            _logger.debug("User requested approve blog trackbacks action");
+
+            Blog blog = user.getBlog();
+            String blogCategoryName = BlojsomUtils.getRequestValue(BLOG_CATEGORY_NAME, httpServletRequest);
+            blogCategoryName = BlojsomUtils.normalize(blogCategoryName);
+            String blogEntryId = BlojsomUtils.getRequestValue(BLOG_ENTRY_ID, httpServletRequest);
+            try {
+                blogEntryId = URLDecoder.decode(blogEntryId, UTF8);
+            } catch (UnsupportedEncodingException e) {
+                _logger.error(e);
+            }
+            _logger.debug("Blog entry id: " + blogEntryId);
+
+            String[] blogTrackbackIDs = httpServletRequest.getParameterValues(BLOG_TRACKBACK_ID);
+            if (blogTrackbackIDs != null && blogTrackbackIDs.length > 0) {
+                File trackbacksDirectory = new File(blog.getBlogHome() + blogCategoryName + File.separatorChar + blog.getBlogTrackbackDirectory()
+                        + File.separatorChar + blogEntryId + File.separatorChar);
+                File blogTrackbackMetaData;
+                for (int i = 0; i < blogTrackbackIDs.length; i++) {
+                    String blogTrackbackID = blogTrackbackIDs[i];
+                    blogTrackbackMetaData = new File(trackbacksDirectory, BlojsomUtils.getFilename(blogTrackbackID) + ".meta");
+
+                    try {
+                        FileInputStream fis = new FileInputStream(blogTrackbackMetaData);
+                        BlojsomProperties trackbackMetaData = new BlojsomProperties();
+                        trackbackMetaData.load(fis);
+                        fis.close();
+                        trackbackMetaData.put(TrackbackModerationPlugin.BLOJSOM_TRACKBACK_MODERATION_PLUGIN_APPROVED, "true");
+                        FileOutputStream fos = new FileOutputStream(blogTrackbackMetaData);
+                        trackbackMetaData.store(fos, null);
+                        fos.close();
+                    } catch (IOException e) {
+                        _logger.error(e);
+                    }
+                }
+
+                addOperationResultMessage(context, "Approved " + blogTrackbackIDs.length + " trackbacks");
+            }
+
+            httpServletRequest.setAttribute(PAGE_PARAM, EDIT_BLOG_ENTRY_PAGE);
+
+            BlogCategory category;
+            category = _fetcher.newBlogCategory();
+            category.setCategory(blogCategoryName);
+            category.setCategoryURL(user.getBlog().getBlogURL() + BlojsomUtils.removeInitialSlash(blogCategoryName));
+
+            Map fetchMap = new HashMap();
+            fetchMap.put(BlojsomFetcher.FETCHER_CATEGORY, category);
+            fetchMap.put(BlojsomFetcher.FETCHER_PERMALINK, blogEntryId);
+            try {
+                entries = _fetcher.fetchEntries(fetchMap, user);
+                if (entries != null) {
+                    _logger.debug("Retrieved " + entries.length + " entries from category: " + blogCategoryName);
+                    BlogEntry entryToUpdate = entries[0];
+
+                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_ENTRY, entryToUpdate);
+                    context.put(BLOJSOM_PLUGIN_EDIT_BLOG_ENTRIES_CATEGORY, blogCategoryName);
+                }
+            } catch (BlojsomFetcherException e) {
+                _logger.error(e);
+            }
         }
 
         return entries;
@@ -556,8 +754,8 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
     /**
      * Send trackback pings to a comma-separated list of trackback URLs
      *
-     * @param blog Blog information
-     * @param entry Blog entry
+     * @param blog              Blog information
+     * @param entry             Blog entry
      * @param blogTrackbackURLs Trackback URLs
      */
     protected void sendTrackbackPings(Blog blog, BlogEntry entry, String blogTrackbackURLs) {
@@ -582,7 +780,8 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
         if (trackbackURLs != null && trackbackURLs.length > 0) {
             for (int i = 0; i < trackbackURLs.length; i++) {
                 String trackbackURL = trackbackURLs[i].trim();
-                StringBuffer trackbackPingURL = new StringBuffer(BlojsomUtils.replace(trackbackURL, "&amp;", "&"));
+                StringBuffer trackbackPingURL = new StringBuffer(trackbackURL);
+
                 _logger.debug("Automatically sending trackback ping to URL: " + trackbackPingURL.toString());
 
                 try {
@@ -593,11 +792,10 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
                     trackbackUrlConnection.setRequestMethod("POST");
                     trackbackUrlConnection.setRequestProperty("Content-Encoding", UTF8);
                     trackbackUrlConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                    trackbackUrlConnection.setRequestProperty("Content-Length", "" + trackbackPingURLParameters.length());
                     trackbackUrlConnection.setDoOutput(true);
+                    trackbackUrlConnection.getOutputStream().write(trackbackPingURLParameters.toString().getBytes(UTF8));
                     trackbackUrlConnection.connect();
-					OutputStream trackbackPostOutputStream = trackbackUrlConnection.getOutputStream();
-					trackbackPostOutputStream.write(trackbackPingURLParameters.toString().getBytes());
-					trackbackPostOutputStream.flush();
                     BufferedReader trackbackStatus = new BufferedReader(new InputStreamReader(trackbackUrlConnection.getInputStream()));
                     String line;
                     StringBuffer status = new StringBuffer();
@@ -611,87 +809,6 @@ public class EditBlogEntriesPlugin extends BaseAdminPlugin {
                     _logger.error(e);
                 }
             }
-        }
-    }
-
-    /**
-     * Send "pings" to a blog service such as weblogs.com
-     *
-     * @param blog Blog information
-     * @param blogPingURLs Ping URLs
-     */
-    private void sendBlogPings(Blog blog, String blogPingURLs) {
-        String[] pingURLs = BlojsomUtils.parseDelimitedList(blogPingURLs, WHITESPACE);
-        EditBlogEntriesPluginAsyncCallback editBlogEntriesPluginAsyncCallback = new EditBlogEntriesPluginAsyncCallback();
-        Vector params = new Vector();
-        params.add(blog.getBlogName());
-        params.add(blog.getBlogURL());
-
-        if (pingURLs != null && pingURLs.length > 0) {
-            for (int i = 0; i < pingURLs.length; i++) {
-                String pingURL = pingURLs[i].trim();
-
-                _logger.debug("Sending ping to: " + pingURL);
-                try {
-                    XmlRpcClient xmlRpcClient = new XmlRpcClient(pingURL);
-                    xmlRpcClient.executeAsync(WEBLOGS_PING_METHOD, params, editBlogEntriesPluginAsyncCallback);
-                } catch (MalformedURLException e) {
-                    _logger.error(e);
-                }
-            }
-        }
-    }
-
-    /**
-     * Return a filename appropriate for the blog entry content
-     *
-     * @param content            Blog entry content
-     * @param blogEntryExtension Extension to be used for the blog entry filename
-     * @return Filename for the new blog entry
-     */
-    protected String getBlogEntryFilename(String content, String blogEntryExtension) {
-        String hashable = content;
-
-        if (content.length() > MAX_HASHABLE_LENGTH) {
-            hashable = hashable.substring(0, MAX_HASHABLE_LENGTH);
-        }
-
-        String baseFilename = BlojsomUtils.digestString(hashable).toUpperCase();
-        String filename = baseFilename + blogEntryExtension;
-        return filename;
-    }
-
-    /**
-     * Asynchronous callback handler for the weblogs.com ping
-     */
-    private class EditBlogEntriesPluginAsyncCallback implements AsyncCallback {
-
-        /**
-         * Default constructor
-         */
-        public EditBlogEntriesPluginAsyncCallback() {
-        }
-
-        /**
-         * Call went ok, handle result.
-         *
-         * @param o   Return object
-         * @param url URL
-         * @param s   String
-         */
-        public void handleResult(Object o, URL url, String s) {
-            _logger.debug(o.toString());
-        }
-
-        /**
-         * Something went wrong, handle error.
-         *
-         * @param e   Exception containing error from XML-RPC call
-         * @param url URL
-         * @param s   String
-         */
-        public void handleError(Exception e, URL url, String s) {
-            _logger.error(e);
         }
     }
 }

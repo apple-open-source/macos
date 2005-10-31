@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004 , David A. Czarnecki
+ * Copyright (c) 2003-2005 , David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004  by Mark Lussier
+ * Portions Copyright (c) 2003-2005  by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,7 +38,7 @@ package org.blojsom.util;
  * BlojsomMetaDataConstants
  *
  * @author David Czarnecki
- * @version $Id: BlojsomMetaDataConstants.java,v 1.2 2004/08/27 01:13:56 whitmore Exp $
+ * @version $Id: BlojsomMetaDataConstants.java,v 1.2.2.1 2005/07/21 14:11:04 johnan Exp $
  * @since blojsom 2.04
  */
 public interface BlojsomMetaDataConstants {
@@ -71,12 +71,17 @@ public interface BlojsomMetaDataConstants {
     public static final String BLOG_ENTRY_METADATA_TIMESTAMP = "blog-entry-metadata-timestamp";
 
     /**
-     * Entry metadata key for disabling comments
+     * Entry meta-data key for disabling comments
      */
     public static final String BLOG_METADATA_COMMENTS_DISABLED = "blog-entry-comments-disabled";
 
     /**
-     * Entry metadata key for disabling trackbacks
+     * Entry meta-data key for disabling trackbacks
      */
     public static final String BLOG_METADATA_TRACKBACKS_DISABLED = "blog-entry-trackbacks-disabled";
+
+    /**
+     * Entry meta-data key for disabling pingbacks
+     */
+    public static final String BLOG_METADATA_PINGBACKS_DISABLED = "blog-entry-pingbacks-disabled";
 }

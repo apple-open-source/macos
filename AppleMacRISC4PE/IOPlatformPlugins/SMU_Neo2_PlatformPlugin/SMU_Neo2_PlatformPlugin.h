@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_PlatformPlugin.h,v 1.8 2004/06/16 22:13:30 murph Exp $
+ *  File: $Id: SMU_Neo2_PlatformPlugin.h,v 1.9 2005/09/12 21:02:19 larson Exp $
  */
 
 
@@ -127,6 +127,7 @@ protected:
 
 	virtual		UInt8										probeConfig( void );
 	virtual		bool										start( IOService* provider );
+	virtual		bool										initThermalProfile(IOService *nub);
 
 	virtual		void										registerChassisSwitchNotifier( void );
 	virtual		OSBoolean*									pollChassisSwitch( void );

@@ -1,7 +1,7 @@
 /* timsieved.c -- main file for timsieved (sieve script accepting program)
  * Tim Martin
  * 9/21/99
- * $Id: timsieved.c,v 1.4 2005/03/05 00:37:39 dasenbro Exp $
+ * $Id: timsieved.c,v 1.5 2005/07/28 16:53:33 dasenbro Exp $
  */
 /*
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -85,6 +85,8 @@
 #include "mboxlist.h"
 #include "util.h"
 
+#include "AppleOD.h"
+
 /* global state */
 const int config_need_data = 0;
 
@@ -103,6 +105,8 @@ struct sockaddr_storage sieved_remoteaddr;
 
 struct protstream *sieved_out;
 struct protstream *sieved_in;
+
+struct od_user_opts	*gUserOpts = NULL;
 
 int sieved_logfd = -1;
 
@@ -132,6 +136,13 @@ void shut_down(int code)
 	prot_flush(sieved_out);
 	prot_free(sieved_out);
     }
+
+	if (gUserOpts) {
+	odFreeUserOpts(gUserOpts, 1);
+	free(gUserOpts);
+	gUserOpts = NULL;
+	}
+
     if (sieved_in) prot_free(sieved_in);
 
     if (sieved_logfd != -1) close(sieved_logfd);
@@ -228,6 +239,10 @@ int service_main(int argc __attribute__((unused)),
     /* set up the prot streams */
     sieved_in = prot_new(0, 0);
     sieved_out = prot_new(1, 1);
+
+	if ( gUserOpts == NULL ) {
+	gUserOpts = xzmalloc( sizeof(struct od_user_opts) );
+	}
 
     timeout = config_getint(IMAPOPT_TIMEOUT);
     if (timeout < 10) timeout = 10;

@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,17 +34,17 @@
  */
 package org.blojsom.util.resources;
 
-import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.BlojsomException;
+import org.blojsom.blog.BlojsomConfiguration;
 
 import java.util.Locale;
 
 /**
  * ResourceManager
  *
- * @since blojsom 2.13
- * @version $Id: ResourceManager.java,v 1.2 2004/08/27 01:13:56 whitmore Exp $
  * @author David Czarnecki
+ * @version $Id: ResourceManager.java,v 1.2.2.1 2005/07/21 14:11:05 johnan Exp $
+ * @since blojsom 2.13
  */
 public interface ResourceManager {
 
@@ -59,8 +59,8 @@ public interface ResourceManager {
      * Retrieve a string from a given resource bundle for the default locale.
      *
      * @param resourceID Resource ID to retrieve from the resource bundle
-     * @param resource Full-qualified resource bundle from which to retrieve the resource ID
-     * @param fallback Fallback string to use if the given resource ID cannot be found
+     * @param resource   Full-qualified resource bundle from which to retrieve the resource ID
+     * @param fallback   Fallback string to use if the given resource ID cannot be found
      * @return <code>resourceID</code> from resource bundle <code>resource</code> or <code>fallback</code> if the given resource ID cannot be found
      */
     public String getString(String resourceID, String resource, String fallback);
@@ -69,10 +69,21 @@ public interface ResourceManager {
      * Retrieve a string from a given resource bundle for the particular language and country locale.
      *
      * @param resourceID Resource ID to retrieve from the resource bundle
-     * @param resource Full-qualified resource bundle from which to retrieve the resource ID
-     * @param fallback Fallback string to use if the given resource ID cannot be found
-     * @param language Language code
-     * @param country Country code
+     * @param resource   Full-qualified resource bundle from which to retrieve the resource ID
+     * @param fallback   Fallback string to use if the given resource ID cannot be found
+     * @param language   Language code
+     * @return <code>resourceID</code> from resource bundle <code>resource</code> or <code>fallback</code> if the given resource ID cannot be found
+     */
+    public String getString(String resourceID, String resource, String fallback, String language);    
+
+    /**
+     * Retrieve a string from a given resource bundle for the particular language and country locale.
+     *
+     * @param resourceID Resource ID to retrieve from the resource bundle
+     * @param resource   Full-qualified resource bundle from which to retrieve the resource ID
+     * @param fallback   Fallback string to use if the given resource ID cannot be found
+     * @param language   Language code
+     * @param country    Country code
      * @return <code>resourceID</code> from resource bundle <code>resource</code> or <code>fallback</code> if the given resource ID cannot be found
      */
     public String getString(String resourceID, String resource, String fallback, String language, String country);
@@ -81,10 +92,21 @@ public interface ResourceManager {
      * Retrieve a string from a given resource bundle for the particular language and country locale.
      *
      * @param resourceID Resource ID to retrieve from the resource bundle
-     * @param resource Full-qualified resource bundle from which to retrieve the resource ID
-     * @param fallback Fallback string to use if the given resource ID cannot be found
-     * @param locale Locale object to use when retrieving the resource bundle
+     * @param resource   Full-qualified resource bundle from which to retrieve the resource ID
+     * @param fallback   Fallback string to use if the given resource ID cannot be found
+     * @param locale     Locale object to use when retrieving the resource bundle
      * @return <code>resourceID</code> from resource bundle <code>resource</code> or <code>fallback</code> if the given resource ID cannot be found
      */
     public String getString(String resourceID, String resource, String fallback, Locale locale);
+
+    /**
+     * Wrapper for {@link java.text.MessageFormat#format(String, Object[])}
+     *
+     * @param pattern   Pattern
+     * @param arguments Arguments to apply to pattern
+     * @return String where {@link java.text.MessageFormat#format(String, Object[])} has been applied or <code>null</code>
+     *         if there is an error applying the arguments to the pattern
+     * @since blojsom 2.21
+     */
+    public String format(String pattern, Object[] arguments);
 }

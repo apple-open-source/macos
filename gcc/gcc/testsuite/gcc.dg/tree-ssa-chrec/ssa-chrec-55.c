@@ -1,4 +1,5 @@
 /* APPLE LOCAL file lno */
+#include <stdio.h>
 /* { dg-do compile } */ 
 /* { dg-options "-O1 -floop-test -fdump-tree-lptest-details" } */
 

@@ -350,4 +350,4 @@ extern void dns_print_reply(const dns_reply_t *r, FILE *f, uint16_t mask);
 
 __END_DECLS
 
-#endif __DNS_UTIL_H__
+#endif /* __DNS_UTIL_H__ */

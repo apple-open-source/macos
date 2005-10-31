@@ -1,1 +1,0 @@
-d:\opt\tcl8.2.3\bin\wish82 xe xe-input

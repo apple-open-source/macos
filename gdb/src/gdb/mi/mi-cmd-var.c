@@ -401,8 +401,12 @@ mi_cmd_var_set_format (char *command, char **argv, int argc)
     format = FORMAT_HEXADECIMAL;
   else if (strncmp (formspec, "octal", len) == 0)
     format = FORMAT_OCTAL;
+  /* APPLE LOCAL */
   else if (strncmp (formspec, "unsigned", len) == 0)
         format = FORMAT_UNSIGNED;
+  /* APPLE LOCAL */
+  else if (strncmp (formspec, "OSType", len) == 0)
+        format = FORMAT_OSTYPE;
   else
     error ("mi_cmd_var_set_format: Unknown display format: must be: \"natural\", \"binary\", \"decimal\", \"hexadecimal\",  \"unsigned\", or \"octal\"");
 

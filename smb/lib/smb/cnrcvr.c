@@ -770,7 +770,7 @@ INTERNAL void receive_dispatch
                             dce_error_string_t error_text;
                             int temp_status;
 
-                            dce_error_inq_text(auth_st, error_text, &temp_status);
+                            dce_error_inq_text(auth_st, (unsigned char *)error_text, &temp_status);
                             /*
 			     * rpc_m_call_failed_s
 			     * "%s on server failed: %s"
@@ -946,7 +946,14 @@ INTERNAL void receive_packet
     int                        bytes_rcvd;
     rpc_cn_packet_p_t          pktp;
     rpc_socket_iovec_t         iov;
-    rpc_socket_error_t         serr;
+    /* 
+     * serr needs protection for longjump,
+     * fork. Otherwise compiler might not 
+     * update register properly. Also if 
+     * not declared volatile you get a
+     * compiler warning :) 
+     */  
+    volatile rpc_socket_error_t         serr=0;
     volatile signed32          need_bytes;
 
     RPC_LOG_CN_RCV_PKT_NTR;

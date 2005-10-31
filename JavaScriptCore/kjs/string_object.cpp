@@ -76,7 +76,7 @@ void StringInstanceImp::put(ExecState *exec, const Identifier &propertyName, con
   ObjectImp::put(exec, propertyName, value, attr);
 }
 
-bool StringInstanceImp::hasProperty(ExecState *exec, const Identifier &propertyName) const
+bool StringInstanceImp::hasOwnProperty(ExecState *exec, const Identifier &propertyName) const
 {
   if (propertyName == lengthPropertyName)
     return true;
@@ -89,7 +89,7 @@ bool StringInstanceImp::hasProperty(ExecState *exec, const Identifier &propertyN
       return true;
   }
 
-  return ObjectImp::hasProperty(exec, propertyName);
+  return ObjectImp::hasOwnProperty(exec, propertyName);
 }
 
 bool StringInstanceImp::deleteProperty(ExecState *exec, const Identifier &propertyName)
@@ -318,17 +318,16 @@ static Value replace(ExecState *exec, const UString &source, const Value &patter
     delete [] replacements;
 
     return String(result);
-  } else { // First arg is a string
-    UString patternString = pattern.toString(exec);
-    int matchPos = source.find(patternString);
-    int matchLen = patternString.size();
-    // Do the replacement
-    if (matchPos == -1)
-      return String(source);
-    else {
-      return String(source.substr(0, matchPos) + replacement.toString(exec) + source.substr(matchPos + matchLen));
-    }
   }
+  
+  // First arg is a string
+  UString patternString = pattern.toString(exec);
+  int matchPos = source.find(patternString);
+  int matchLen = patternString.size();
+  // Do the replacement
+  if (matchPos == -1)
+    return String(source);
+  return String(source.substr(0, matchPos) + replacement.toString(exec) + source.substr(matchPos + matchLen));
 }
 
 // ECMA 15.5.4.2 - 15.5.4.20
@@ -378,10 +377,9 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
     // That doesn't match the ECMA standard, but is needed for site compatibility.
     dpos = a0.isA(UndefinedType) ? 0 : a0.toInteger(exec);
     if (dpos >= 0 && dpos < len) // false for NaN
-      d = s[static_cast<int>(dpos)].unicode();
+      result = Number(s[static_cast<int>(dpos)].unicode());
     else
-      d = NaN;
-    result = Number(d);
+      result = Number(NaN);
     break;
   case Concat: {
     ListIterator it = args.begin();
@@ -403,8 +401,7 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
       } else
         dpos = 0;
     }
-    d = s.find(u2, static_cast<int>(dpos));
-    result = Number(d);
+    result = Number(s.find(u2, static_cast<int>(dpos)));
     break;
   case LastIndexOf:
     u2 = a0.toString(exec);
@@ -419,8 +416,7 @@ Value StringProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &arg
       } else
         dpos = 0;
     }
-    d = s.rfind(u2, static_cast<int>(dpos));
-    result = Number(d);
+    result = Number(s.rfind(u2, static_cast<int>(dpos)));
     break;
   case Match:
   case Search: {
@@ -686,8 +682,7 @@ StringObjectImp::StringObjectImp(ExecState *exec,
   // ECMA 15.5.3.1 String.prototype
   putDirect(prototypePropertyName, stringProto, DontEnum|DontDelete|ReadOnly);
 
-  static Identifier fromCharCode("fromCharCode");
-  putDirect(fromCharCode, new StringObjectFuncImp(exec,funcProto), DontEnum);
+  putDirect(fromCharCodePropertyName, new StringObjectFuncImp(exec, funcProto), DontEnum);
 
   // no. of arguments for constructor
   putDirect(lengthPropertyName, NumberImp::one(), ReadOnly|DontDelete|DontEnum);
@@ -743,7 +738,7 @@ Value StringObjectFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List
 {
   UString s;
   if (args.size()) {
-    UChar *buf = new UChar[args.size()];
+    UChar *buf = static_cast<UChar *>(kjs_fast_malloc(args.size() * sizeof(UChar)));
     UChar *p = buf;
     ListIterator it = args.begin();
     while (it != args.end()) {

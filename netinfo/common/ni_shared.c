@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <string.h>
+#include <notify.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinfo/ni.h>
@@ -10,6 +11,11 @@
 
 #define NETINFO_DB_DIR "/var/db/netinfo"
 #define LOCAL_PORT 1033
+
+#define LOCAL_DB_UPDATE "com.apple.system.netinfo.local.database_update"
+extern uint32_t notify_register_plain(const char *key, int *t);
+extern uint32_t notify_get_state(int t, uint32_t *v);
+static int ntoken = -1;
 
 typedef struct ni_private
 {
@@ -139,12 +145,29 @@ ni_shared_handle_t *
 ni_shared_local(void)
 {
 	struct sockaddr_in sin;
-	int sock, status;
+	int sock, status, i, dbval, didwait;
 	void *domain;
 	ni_id root;
 
 	if (_shared_rpc_local_ != NULL) return _shared_rpc_local_;
 
+	if (ntoken < 0) status = notify_register_plain(LOCAL_DB_UPDATE, &ntoken);
+
+	dbval = 0;
+	didwait = 0;
+
+	for (i = 0; (i < 8) && (dbval == 0) && (ntoken >= 0); i++)
+	{
+		status = notify_get_state(ntoken, &dbval);
+		if (dbval == 0)
+		{
+			didwait = 1;
+			usleep(500000);
+		}
+	}
+
+	if ((didwait == 1) && (dbval != 0)) usleep(250000);
+	
 	memset(&sin, 0, sizeof(struct sockaddr_in));
 
 	sin.sin_family = AF_INET;
@@ -170,6 +193,8 @@ ni_shared_local(void)
 	if (status != NI_OK) return NULL;
 
 	_shared_rpc_local_ = ni_shared_handle(&(sin.sin_addr), "local");
+
+	notify_cancel(ntoken);
 
 	return _shared_rpc_local_;
 }

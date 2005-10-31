@@ -23,6 +23,48 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.18 release (the cctools-590 release):
+- Changed ld(1) to prepend the value of -syslibroot to all absolute paths of the
+  they exist in main.c in ld.c.  Radar bug #4127020.
+
+Changes for the 5.18 release (the cctools-585 release):
+- Added ifdef's around the call to get_macosx_deployment_target() in
+  check_cur_obj() in pass1.c so it is not compiled in for libkld.a.
+  Radar bug #4100992.
+
+Changes for the 5.18 release (the cctools-583 release):
+- Changed the Makefile so that when RC_XBS is set to YES then the compiler
+  options -MD and -dependency-file as well as the md(1) program are not used.
+  Radar bug #4029936.
+
+Changes for the 5.18 release (the cctools-581 release):
+- Fixed a problem introduced with the changes so the handling of the default
+  MACOSX_DEPLOYMENT_TARGET.  The code for setting this was moved up in main()
+  in ld.c so it is set in time to be used in checking other command line values.
+  Also code was added so it is set even if -arch is not specified.  Radar bug
+  #4092246.
+ 
+Changes for the 5.18 release (the cctools-580 release):
+- Fixed a bug where if a symbol defined in a dylib is first linked in followed
+  by an undefined weak reference from a .o file it will generate a weak mismatch
+  error.  The fix was to add a new boolean field to the merged symbol,
+  seen_undef (in symbols.h). Then in merge_symbols() in symbols.c where it
+  detects weak mismatches, if seen_undef is not set then just set the N_WEAK_REF
+  bit from the .o file.  Else when seen_undef is set then do the checking and
+  handling of weak mismatches.  Then after either are done set seen_undef to
+  TRUE.  Radar bug #4016228.
+- Changed it so that the default for MACOSX_DEPLOYMENT_TARGET is 10.4 for i386.
+  Radar bug #4081062.
+  - Moved the call to get_macosx_deployment_target() in main() in ld.c to inside
+    the if() where the -arch flag is known to be specified.  Then the cputype is
+    passed as an additional parameter.
+  - Added a call to get_macosx_deployment_target() in check_cur_obj() in pass1.c
+    when the cputype is set from the .o files being linkd.
+
+Changes for the 5.18 release (the cctools-578 release):
+- Changed check_cur_obj() in pass1.c to also ignore SWAP_LONG(MH_MAGIC_64) with
+  -no_arch_warnings.  Radar bug #4014404.
+
 Changes for the 5.17 release (the cctools-575 release):
 - Made a additional change for the original change to "Don't search indirect
   libraries when linking two-level" that was made for Radar bug #3737622.

@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,8 +37,8 @@ package org.blojsom.plugin.moblog;
 import org.blojsom.blog.BlogUser;
 import org.blojsom.util.BlojsomUtils;
 
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Mailbox.
@@ -47,7 +47,7 @@ import java.util.HashMap;
  *
  * @author David Czarnecki
  * @author Mark Lussier
- * @version $Id: Mailbox.java,v 1.1 2004/08/27 01:06:39 whitmore Exp $
+ * @version $Id: Mailbox.java,v 1.1.2.1 2005/07/21 04:30:34 johnan Exp $
  * @since blojsom 2.14
  */
 public class Mailbox {
@@ -69,6 +69,7 @@ public class Mailbox {
     private Map _attachmentMimeTypes;
     private Map _textMimeTypes;
     private Map _authorizedAddresses;
+    private String _ignoreExpression;
 
     /**
      * Default constructor.
@@ -85,7 +86,7 @@ public class Mailbox {
      * Construct a new mailbox for a given hostname, user, and password.
      *
      * @param hostname Mailbox hostname
-     * @param userid Mailbox user id
+     * @param userid   Mailbox user id
      * @param password Mailbox user password
      */
     public Mailbox(String hostname, String userid, String password) {
@@ -177,6 +178,7 @@ public class Mailbox {
 
     /**
      * Set the output directory where attachments will be written
+     *
      * @param outputDirectory Output directory
      */
     public void setOutputDirectory(String outputDirectory) {
@@ -360,8 +362,8 @@ public class Mailbox {
     /**
      * Retrieve the secret word for this mailbox
      *
-     * @since blojsom 2.15
      * @return Secret word which must be present at the start of the subject of the e-mail
+     * @since blojsom 2.15
      */
     public String getSecretWord() {
         return _secretWord;
@@ -370,8 +372,8 @@ public class Mailbox {
     /**
      * Set the secret word for this mailbox.
      *
-     * @since blojsom 2.15
      * @param secretWord Secret word which must be present at the start of the subject of the e-mail
+     * @since blojsom 2.15
      */
     public void setSecretWord(String secretWord) {
         _secretWord = secretWord;
@@ -396,4 +398,25 @@ public class Mailbox {
     public void setAuthorizedAddresses(Map authorizedAddresses) {
         _authorizedAddresses = authorizedAddresses;
     }
+
+    /**
+     * Retrieve the regular expression for ignoring bits of text
+     *
+     * @return Regular expression for ignoring bits of text
+     * @since blojsom 2.22
+     */
+    public String getIgnoreExpression() {
+        return _ignoreExpression;
+    }
+
+    /**
+     * Set the regular expression for ignoring bits of text
+     *
+     * @param ignoreExpression Regular expression for ignoring bits of text
+     * @since blojsom 2.22
+     */
+    public void setIgnoreExpression(String ignoreExpression) {
+        _ignoreExpression = ignoreExpression;
+    }
+
 }

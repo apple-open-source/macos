@@ -1,14 +1,15 @@
 /**
  * Contains:   Inline administration plug-in for blojsom.
  * Written by: John Anderson (for addtl writers check CVS comments).
- * Copyright:  © 2004 Apple Computer, Inc., all rights reserved.
+ * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: EscapeTagsPlugin.java,v 1.3 2004/11/18 18:31:06 johnan Exp $
+ * $Id: EscapeTagsPlugin.java,v 1.3.2.2 2005/07/21 04:30:23 johnan Exp $
  */ 
 package com.apple.blojsom.plugin.escapetags;
 
 import org.blojsom.blog.BlogEntry;
+import org.blojsom.blog.BlogComment;
 import org.blojsom.blog.BlogUser;
 import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.plugin.BlojsomPlugin;
@@ -23,7 +24,7 @@ import java.util.Map;
  * Escape Tags plug-in
  *
  * @author John Anderson
- * @version $Id: EscapeTagsPlugin.java,v 1.3 2004/11/18 18:31:06 johnan Exp $
+ * @version $Id: EscapeTagsPlugin.java,v 1.3.2.2 2005/07/21 04:30:23 johnan Exp $
  */
 
 public class EscapeTagsPlugin implements BlojsomPlugin {
@@ -110,6 +111,25 @@ public class EscapeTagsPlugin implements BlojsomPlugin {
 		
         for (int i = 0; i < entries.length; i++) {
             BlogEntry entry = entries[i];
+			
+			// escape the comments
+			BlogComment[] comments = entry.getCommentsAsArray();
+			
+			for (int j = 0; j < comments.length; j++) {
+				BlogComment comment = comments[j];
+				String commentAuthor = comment.getAuthor();
+				String commentText = comment.getComment();
+				
+				if (commentAuthor != null) {
+					commentAuthor = escapeTagsInText(commentAuthor);
+					comment.setAuthor(commentAuthor);
+				}
+				
+				if (commentText != null) {
+					commentText = escapeTagsInText(commentText);
+					comment.setComment(commentText);
+				}
+			}
             
             // update the title
             currentEntryTitle = escapeTagsInText(entry.getTitle());

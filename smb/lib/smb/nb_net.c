@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_net.c,v 1.8 2004/03/19 01:49:47 lindak Exp $
+ * $Id: nb_net.c,v 1.8.372.1 2005/08/12 23:13:01 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -87,6 +87,7 @@ nb_resolvehost_in(const char *name, struct sockaddr **dest)
 	}
 	len = sizeof(struct sockaddr_in);
 	sinp = malloc(len);
+	*dest = (struct sockaddr*)sinp;
 	if (sinp == NULL)
 		return ENOMEM;
 	bzero(sinp, len);
@@ -94,7 +95,6 @@ nb_resolvehost_in(const char *name, struct sockaddr **dest)
 	sinp->sin_family = h->h_addrtype;
 	memcpy(&sinp->sin_addr.s_addr, h->h_addr, 4);
 	sinp->sin_port = htons(SMB_TCP_PORT);
-	*dest = (struct sockaddr*)sinp;
 	return 0;
 }
 

@@ -35,7 +35,7 @@
 #include <bits/os_defines.h>
 
 // The current version of the C++ library in compressed ISO date format.
-#define __GLIBCXX__ 20041026
+#define __GLIBCXX__ 20050421
 
 // Allow use of "export template." This is currently not a feature
 // that g++ supports.
@@ -49,6 +49,13 @@
 // substantially reduces the binary size of resulting executables.
 #ifndef _GLIBCXX_EXTERN_TEMPLATE
 # define _GLIBCXX_EXTERN_TEMPLATE 1
+#endif
+
+// Certain function definitions that are meant to be overridable from
+// user code are decorated with this macro.  For some targets, this
+// macro causes these definitions to be weak.
+#ifndef _GLIBCXX_WEAK_DEFINITION
+# define _GLIBCXX_WEAK_DEFINITION
 #endif
 
 // Debug mode support. Debug mode basic_string is not allowed to be

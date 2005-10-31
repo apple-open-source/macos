@@ -600,7 +600,7 @@ createde(dep, ddep, depp, cnp, offset, long_count, context)
 		
 		while (--long_count >= 0) {
 			if (!(offset & pmp->pm_crbomask)) {
-				error = (int)buf_bwrite(bp);
+				error = (int)buf_bdwrite(bp);
 				if (error)
 					return error;
 
@@ -628,7 +628,7 @@ createde(dep, ddep, depp, cnp, offset, long_count, context)
 		}
 	}
 
-	error = (int)buf_bwrite(bp);
+	error = (int)buf_bdwrite(bp);
 	if (error)
 		return error;
 
@@ -946,14 +946,14 @@ removede(struct denode *pdep, uint32_t offset, vfs_context_t context)
                 || ep->deAttributes != ATTR_WIN95)
                 break;
         }
-		error = (int)buf_bwrite(bp);
+		error = (int)buf_bdwrite(bp);
         if (error)
             return error;
     } while ((cur_offset & pmp->pm_crbomask) == 0
              && cur_offset);
     pdep->de_flag |= DE_UPDATE;
-
-    return 0;
+	
+    return error;
 }
 
 /*
@@ -1185,5 +1185,78 @@ found:
 	if (bp)
 		buf_brelse(bp);
 
+	return 0;
+}
+
+
+/*
+ * Write all modified blocks for a given directory.
+ */
+__private_extern__ int
+msdosfs_dir_flush(struct denode *dep, int sync, vfs_context_t context)
+{
+	int error;
+	u_long frcn;	/* File (directory) relative cluster number */
+	u_long blsize;	/* Size of directory block */
+	daddr64_t bn;	/* Device block number */
+	vnode_t devvp = dep->de_pmp->pm_devvp;
+	buf_t bp;
+
+	for (frcn=0; ; frcn++)
+	{
+		error = pcbmap(dep, frcn, 1, &bn, NULL, &blsize, context);
+		if (error)
+		{
+			if (error == E2BIG)
+				break;
+			return error;
+		}
+		
+		bp = buf_getblk(devvp, bn, blsize, 0, 0, BLK_META|BLK_ONLYVALID);
+		if (bp)
+		{
+			if (buf_flags(bp) & B_DELWRI)
+			{
+				if (sync)
+					buf_bwrite(bp);
+				else
+					buf_bawrite(bp);
+			}
+			else
+			{
+				buf_brelse(bp);
+			}
+		}
+	}
+	
+	return 0;
+}
+
+
+/*
+ * Invalidate all blocks for a given directory.
+ */
+__private_extern__ int
+msdosfs_dir_invalidate(struct denode *dep, vfs_context_t context)
+{
+	int error;
+	u_long frcn;	/* File (directory) relative cluster number */
+	u_long blsize;	/* Size of directory block */
+	daddr64_t bn;	/* Device block number */
+	vnode_t devvp = dep->de_pmp->pm_devvp;
+
+	for (frcn=0; ; frcn++)
+	{
+		error = pcbmap(dep, frcn, 1, &bn, NULL, &blsize, context);
+		if (error)
+		{
+			if (error == E2BIG)
+				break;
+			return error;
+		}
+		
+		(void) buf_invalblkno(devvp, bn, BUF_WAIT);
+	}
+	
 	return 0;
 }

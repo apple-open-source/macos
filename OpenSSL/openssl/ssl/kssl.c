@@ -73,7 +73,7 @@
 #undef _XOPEN_SOURCE /* To avoid clashes with anything else... */
 #include <string.h>
 
-#include <errno.h>
+#define KRB5_PRIVATE	1
 
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
@@ -81,6 +81,10 @@
 #include <openssl/krb5_asn.h>
 
 #ifndef OPENSSL_NO_KRB5
+
+#ifndef ENOMEM
+#define ENOMEM KRB5KRB_ERR_GENERIC
+#endif
 
 /* 
  * When OpenSSL is built on Windows, we do not want to require that
@@ -934,7 +938,7 @@ print_krb5_data(char *label, krb5_data *kdata)
 	int i;
 
 	printf("%s[%d] ", label, kdata->length);
-	for (i=0; i < kdata->length; i++)
+	for (i=0; i < (int)kdata->length; i++)
                 {
 		if (0 &&  isprint((int) kdata->data[i]))
                         printf(	"%c ",  kdata->data[i]);
@@ -955,7 +959,7 @@ print_krb5_authdata(char *label, krb5_authdata **adata)
 		printf("%s, authdata==0\n", label);
 		return;
 		}
-	printf("%s [%p]\n", label, adata);
+	printf("%s [%p]\n", label, (void *)adata);
 #if 0
 	{
         int 	i;
@@ -986,14 +990,14 @@ print_krb5_keyblock(char *label, krb5_keyblock *keyblk)
 #ifdef KRB5_HEIMDAL
 	printf("%s\n\t[et%d:%d]: ", label, keyblk->keytype,
 					   keyblk->keyvalue->length);
-	for (i=0; i < keyblk->keyvalue->length; i++)
+	for (i=0; i < (int)keyblk->keyvalue->length; i++)
                 {
 		printf("%02x",(unsigned char *)(keyblk->keyvalue->contents)[i]);
 		}
 	printf("\n");
 #else
 	printf("%s\n\t[et%d:%d]: ", label, keyblk->enctype, keyblk->length);
-	for (i=0; i < keyblk->length; i++)
+	for (i=0; i < (int)keyblk->length; i++)
                 {
 		printf("%02x",keyblk->contents[i]);
 		}
@@ -1012,12 +1016,12 @@ print_krb5_princ(char *label, krb5_principal_data *princ)
 
 	printf("%s principal Realm: ", label);
 	if (princ == NULL)  return;
-	for (ui=0; ui < princ->realm.length; ui++)  putchar(princ->realm.data[ui]);
+	for (ui=0; ui < (int)princ->realm.length; ui++)  putchar(princ->realm.data[ui]);
 	printf(" (nametype %d) has %d strings:\n", princ->type,princ->length);
-	for (i=0; i < princ->length; i++)
+	for (i=0; i < (int)princ->length; i++)
                 {
 		printf("\t%d [%d]: ", i, princ->data[i].length);
-		for (uj=0; uj < princ->data[i].length; uj++)  {
+		for (uj=0; uj < (int)princ->data[i].length; uj++)  {
 			putchar(princ->data[i].data[uj]);
 			}
 		printf("\n");
@@ -1498,8 +1502,9 @@ kssl_sget_tkt(	/* UPDATE */	KSSL_CTX		*kssl_ctx,
                         "bad ticket from krb5_rd_req.\n");
 		}
 	else if (kssl_ctx_setprinc(kssl_ctx, KSSL_CLIENT,
-                &krb5ticket->enc_part2->client->realm,
-                krb5ticket->enc_part2->client->data))
+		 &krb5ticket->enc_part2->client->realm,
+		 krb5ticket->enc_part2->client->data,
+		 krb5ticket->enc_part2->client->length))
                 {
 		kssl_err_set(kssl_err, SSL_R_KRB5_S_BAD_TICKET,
                         "kssl_ctx_setprinc() fails.\n");
@@ -1566,16 +1571,17 @@ kssl_ctx_free(KSSL_CTX *kssl_ctx)
         }
 
 
-/*	Given a (krb5_data *) entity (and optional realm),
+/*	Given an array of (krb5_data *) entity (and optional realm),
 **	set the plain (char *) client_princ or service_host member
 **	of the kssl_ctx struct.
 */
 krb5_error_code
 kssl_ctx_setprinc(KSSL_CTX *kssl_ctx, int which,
-        krb5_data *realm, krb5_data *entity)
+        krb5_data *realm, krb5_data *entity, int nentities)
         {
 	char	**princ;
 	int 	length;
+	int i;
 
 	if (kssl_ctx == NULL  ||  entity == NULL)  return KSSL_CTX_ERR;
 
@@ -1587,18 +1593,33 @@ kssl_ctx_setprinc(KSSL_CTX *kssl_ctx, int which,
 		}
 	if (*princ)  free(*princ);
 
-	length = entity->length + ((realm)? realm->length + 2: 1);
+	/* Add up all the entity->lengths */
+	length = 0;
+	for (i=0; i < nentities; i++)
+		{
+		length += entity[i].length;
+		}
+	/* Add in space for the '/' character(s) (if any) */
+	length += nentities-1;
+	/* Space for the ('@'+realm+NULL | NULL) */
+	length += ((realm)? realm->length + 2: 1);
+
 	if ((*princ = calloc(1, length)) == NULL)
 		return KSSL_CTX_ERR;
 	else
-                {
-		strncpy(*princ, entity->data, entity->length);
-		(*princ)[entity->length]='\0';
+		{
+		for (i = 0; i < nentities; i++)
+			{
+			strncat(*princ, entity[i].data, entity[i].length);
+			if (i < nentities-1)
+				{
+				strcat (*princ, "/");
+				}
+			}
 		if (realm)
                         {
 			strcat (*princ, "@");
 			(void) strncat(*princ, realm->data, realm->length);
-			(*princ)[entity->length+1+realm->length]='\0';
 			}
 		}
 
@@ -1710,7 +1731,7 @@ kssl_ctx_show(KSSL_CTX *kssl_ctx)
 		return;
 		}
 	else
-		printf("%p\n", kssl_ctx);
+		printf("%p\n", (void *)kssl_ctx);
 
 	printf("\tservice:\t%s\n",
                 (kssl_ctx->service_name)? kssl_ctx->service_name: "NULL");

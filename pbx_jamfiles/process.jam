@@ -1904,8 +1904,7 @@ rule ProcessFrameworksAndLibraries
                 }
 	    }
             if $(JAVA_ARCHIVE_CLASSES) != YES {
-                # !!!:cmolick:20020123 product class file dir not always made?!
-                Mkdir $(PRODUCT_CLASS_FILE_DIR) ;
+                ForceMkdir $(PRODUCT_CLASS_FILE_DIR) ;
                 ProductFile $(PRODUCT_CLASS_FILE_DIR) ;
                 Ditto $(PRODUCT_CLASS_FILE_DIR) : $(CLASS_FILE_DIR) ;
 	        if $(MERGED_ARCHIVES) {

@@ -77,7 +77,7 @@ checkfilesys(fname)
 	int mod = 0;
 	int ret = 8;
 	int tryFatalAgain = 1;
-	int tryErrorAgain = 2;
+	int tryErrorAgain = 3;
 	int tryOthersAgain = 3;
 
 	rdonly = alwaysno || quick;
@@ -96,7 +96,7 @@ checkfilesys(fname)
 		printf("\n");
 
 	if (dosfs < 0) {
-		perror("Can't open");
+		perr("Can't open");
 		return 8;
 	}
 

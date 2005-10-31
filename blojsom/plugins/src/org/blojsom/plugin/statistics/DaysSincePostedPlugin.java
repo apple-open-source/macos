@@ -1,8 +1,8 @@
 /**
- * Copyright (c) 2003-2004, David A. Czarnecki
+ * Copyright (c) 2003-2005, David A. Czarnecki
  * All rights reserved.
  *
- * Portions Copyright (c) 2003-2004 by Mark Lussier
+ * Portions Copyright (c) 2003-2005 by Mark Lussier
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,12 +54,13 @@ import java.util.Date;
  *
  * @author David Czarnecki
  * @since blojsom 2.16
- * @version $Id: DaysSincePostedPlugin.java,v 1.1 2004/08/27 01:06:41 whitmore Exp $
+ * @version $Id: DaysSincePostedPlugin.java,v 1.1.2.1 2005/07/21 04:30:41 johnan Exp $
  */
 public class DaysSincePostedPlugin implements BlojsomPlugin {
 
     private Log _logger = LogFactory.getLog(DaysSincePostedPlugin.class);
 
+    public static final String DAYS_SINCE_POSTED_PLUGIN_HELPER = "DAYS_SINCE_POSTED_PLUGIN_HELPER";
     public static final String BLOJSOM_PLUGIN_DAYS_SINCE_POSTED_METADATA = "blojsom-plugin-days-since-posted";
 
     /**
@@ -103,6 +104,8 @@ public class DaysSincePostedPlugin implements BlojsomPlugin {
             entry.setMetaData(metaData);
         }
 
+        context.put(DAYS_SINCE_POSTED_PLUGIN_HELPER, new DaysSincePostedHelper());
+
         return entries;
     }
 
@@ -122,5 +125,21 @@ public class DaysSincePostedPlugin implements BlojsomPlugin {
      *          If there is an error in finalizing this plugin
      */
     public void destroy() throws BlojsomPluginException {
+    }
+
+    /**
+     * Class to handle days since posted calculation in templates
+     */
+    public class DaysSincePostedHelper {
+
+        /**
+         * Determine number of days between current date and date passed to the method
+         *
+         * @param date Date
+         * @return Number of days between dates
+         */
+        public Integer daysSincePosted(Date date) {
+            return new Integer(BlojsomUtils.daysBetweenDates(date, new Date()));
+        }
     }
 }

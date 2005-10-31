@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: rq.c,v 1.4 2004/12/13 00:25:23 lindak Exp $
+ * $Id: rq.c,v 1.4.166.1 2005/07/20 05:27:02 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/ioctl.h>
@@ -174,7 +174,7 @@ smb_t2_request(struct smb_ctx *ctx, int setupcount, u_int16_t *setup,
 	for (i = 0; i < setupcount; i++)
 		krq.ioc_setup[i] = setup[i];
 	krq.ioc_setupcnt = setupcount;
-	(const char*)krq.ioc_name = name;
+	krq.ioc_name = (char *)name;
 	krq.ioc_tparamcnt = tparamcnt;
 	krq.ioc_tparam = tparam;
 	krq.ioc_tdatacnt = tdatacnt;

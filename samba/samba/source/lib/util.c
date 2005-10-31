@@ -487,10 +487,10 @@ void show_msg(char *buf)
 
 	DEBUGADD(5,("smb_bcc=%d\n",bcc));
 
-	if (DEBUGLEVEL < 10)
+	if (SAMBA_DEBUGLEVEL < 10)
 		return;
 
-	if (DEBUGLEVEL < 50)
+	if (SAMBA_DEBUGLEVEL < 50)
 		bcc = MIN(bcc, 512);
 
 	dump_data(10, smb_buf(buf), bcc);	

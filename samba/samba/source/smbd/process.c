@@ -824,7 +824,7 @@ static void smb_dump(const char *name, int type, char *data, ssize_t len)
 {
 	int fd, i;
 	pstring fname;
-	if (DEBUGLEVEL < 50) return;
+	if (SAMBA_DEBUGLEVEL < 50) return;
 
 	if (len < 4) len = smb_len(data)+4;
 	for (i=1;i<100;i++) {

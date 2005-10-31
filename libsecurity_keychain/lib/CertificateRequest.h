@@ -89,7 +89,8 @@ private:
 	void getResultDotMac(
 		sint32			*estimatedTime,		// optional
 		CssmData		&certData);
-
+	void postPendingRequest();
+	
 	/* preferences support */
 	CFStringRef createUserKey();
 	CFStringRef createPolicyKey();

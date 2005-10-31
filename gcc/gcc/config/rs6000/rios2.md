@@ -1,5 +1,5 @@
 ;; Scheduling description for IBM Power2 processor.
-;;   Copyright (C) 2003 Free Software Foundation, Inc.
+;;   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 
@@ -42,6 +42,16 @@
   (and (eq_attr "type" "integer,insert_word")
        (eq_attr "cpu" "rios2"))
   "iu1_rios2|iu2_rios2")
+
+(define_insn_reservation "rios2-two" 1
+  (and (eq_attr "type" "two")
+       (eq_attr "cpu" "rios2"))
+  "iu1_rios2|iu2_rios2,iu1_rios2|iu2_rios2")
+
+(define_insn_reservation "rios2-three" 1
+  (and (eq_attr "type" "three")
+       (eq_attr "cpu" "rios2"))
+  "iu1_rios2|iu2_rios2,iu1_rios2|iu2_rios2,iu1_rios2|iu2_rios2")
 
 (define_insn_reservation "rios2-imul" 2
   (and (eq_attr "type" "imul,imul2,imul3,imul_compare")

@@ -1,10 +1,36 @@
+2005-05-16  Jason Molenda  (jmolenda@apple.com)
+
+	* mi/mi-main.c (mi_cmd_thread_set_pc): Lift old_fun initialization
+	out of a conditional block -- it is used later in the function
+	when deciding whether to reset the picbase.
+
+2005-04-26  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-break.c (mi_async_breakpoint_resolve_event): Report the
+	addr_string as well.
+	
+2005-04-26  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-var.c (mi_cmd_var_set_format): Recognize OSType formatting.
+
+2005-04-21  Jim Ingham  <jingham@apple.com>
+
+        * mi-cmd-break.c (mi_async_breakpoint_resolve_event):
+	Reverse the parameters to match the way it was actually
+	being called.  Also print the breakpoint info for the
+	resolved breakpoint.
+
+	* mi-cmd-stack.c (print_syms_for_block): Use SYMBOL_NATURAL_NAME
+	so we get the demangled names for C++ variables.  Also single quote
+	protect names with "::" so the parser won't choke on them.
+	
 2005-02-21  Jason Molenda  (jmolenda@apple.com)
 
-        * mi-main.c (mi_cmd_file_fix_file_is_grooved): New MI command to
-        show whether Fix and Continue is supported with the current
-        executable or not.
-        * mi-cmds.h: Prototype for above.
-        * mi-cmds.c (mi_cmds): Add an entry for the new MI cmd.
+	* mi-main.c (mi_cmd_file_fix_file_is_grooved): New MI command to
+	show whether Fix and Continue is supported with the current
+	executable or not.
+	* mi-cmds.h: Prototype for above.
+	* mi-cmds.c (mi_cmds): Add an entry for the new MI cmd.
 
 2005-02-17  Jim Ingham <jingham@apple.com>
 
@@ -15,9 +41,9 @@
 	
 2005-02-10  Jason Molenda  (jmolenda@apple.com)
 
-	* mi-main.c (mi_cmd_thread_set_pc): New thread-set-pc behavior:
-	if setting the PC to a function prologue, advance it out of the
-	prologue.  Can be defeated with the -n command option.
+        * mi-main.c (mi_cmd_thread_set_pc): New thread-set-pc behavior:
+        if setting the PC to a function prologue, advance it out of the
+        prologue.  Can be defeated with the new "-n" command option.
 
 2005-01-28  Jim Ingham  <jingham@apple.com>
 

@@ -1,5 +1,5 @@
 /* AdjustmentEvent.java -- an adjustable value was changed
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,14 +38,14 @@ exception statement from your version. */
 
 package java.awt.event;
 
-import java.awt.Adjustable;
 import java.awt.AWTEvent;
+import java.awt.Adjustable;
 
 /**
  * This class represents an event that is generated when an adjustable
  * value is changed.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
  * @see Adjustable
  * @see AdjustmentListener
  * @since 1.1

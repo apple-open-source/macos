@@ -69,9 +69,9 @@ class IOUSBCompositeDriver : public IOService
     
 public:
         
-    // IOService Methods
-    //
-    virtual bool            start(IOService * provider);
+		// IOService Methods
+		//
+		virtual bool            start(IOService * provider);
     virtual IOReturn        message( UInt32 type, IOService * provider,  void * argument = 0 );
     virtual bool            willTerminate( IOService * provider, IOOptionBits options );
     virtual bool            didTerminate( IOService * provider, IOOptionBits options, bool * defer );
@@ -81,7 +81,7 @@ public:
     virtual bool            ConfigureDevice();
     virtual IOReturn        ReConfigureDevice();
     /*!
-     @function SetConfiguration
+		@function SetConfiguration
      @abstract Call IOUSBDevice to do a SetConfiguration call to the device.
      @param configValue The desired configuration value.
      @param startInterfaceMatching A boolean specifying whether IOKit should begin the process of finding
@@ -95,7 +95,7 @@ public:
     UInt8                               GetConfigValue()            { return fConfigValue; }
     UInt8                               GetConfigbmAttributes()     { return fConfigbmAttributes; }
     IONotifier *                        GetNotifier()               { return fNotifier; }
-
+	
     OSMetaClassDeclareReservedUnused(IOUSBCompositeDriver,  0);
     OSMetaClassDeclareReservedUnused(IOUSBCompositeDriver,  1);
     OSMetaClassDeclareReservedUnused(IOUSBCompositeDriver,  2);

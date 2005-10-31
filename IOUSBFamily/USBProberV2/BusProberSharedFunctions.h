@@ -30,6 +30,9 @@
 #import <IOKit/IOCFPlugIn.h>
 #import "BusProbeClass.h"
 
+typedef struct 	IOUSBDeviceStruct197**	 			IOUSBDeviceRef ;
+typedef struct 	IOUSBInterfaceStruct220**	 		IOUSBInterfaceRef ;
+
 #define ROOT_LEVEL                              0
 #define DEVICE_DESCRIPTOR_LEVEL			ROOT_LEVEL + 1
 #define CONFIGURATION_DESCRIPTOR_LEVEL          ROOT_LEVEL + 1
@@ -45,18 +48,19 @@ enum {
     kHexOutputStyle = 1
 };
 
-int GetDeviceLocationID( IOUSBDeviceInterface **deviceIntf, UInt32 * locationID );
-int GetDeviceSpeed( IOUSBDeviceInterface **deviceIntf, UInt8 * speed );
-int GetDeviceAddress( IOUSBDeviceInterface **deviceIntf, USBDeviceAddress * address );
-IOReturn GetDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
-int GetStringDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang);
-int GetClassDescriptor(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
-int GetDescriptorFromInterface(IOUSBDeviceInterface **deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len);
+int GetDeviceLocationID( IOUSBDeviceRef deviceIntf, UInt32 * locationID );
+int GetDeviceSpeed( IOUSBDeviceRef deviceIntf, UInt8 * speed );
+int GetDeviceAddress( IOUSBDeviceRef deviceIntf, USBDeviceAddress * address );
+int SuspendDevice( IOUSBDeviceRef deviceIntf, BOOL suspend );
+IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
+int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang);
+int GetClassDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
+int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len);
 //BusProbeClass * GetClassAndSubClass(UInt8 * pcls);
 BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls);
 BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls);
 char * GetStringFromNumber(UInt32 value, int sizeInBytes, int style);
-char * GetStringFromIndex(UInt8 strIndex, IOUSBDeviceInterface ** deviceIntf);
+char * GetStringFromIndex(UInt8 strIndex, IOUSBDeviceRef deviceIntf);
 NSString * VendorNameFromVendorID(NSString * intValueAsString);
 void FreeString(char * cstr);
 UInt16 Swap16(void *p);

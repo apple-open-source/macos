@@ -1,5 +1,5 @@
 /* gfortran backend interface
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Paul Brook.
 
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* declare required prototypes: */
 
 #include "config.h"
+#include "system.h"
 #include "ansidecl.h"
 #include "system.h"
 #include "coretypes.h"
@@ -49,8 +50,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "trans-types.h"
 #include "trans-const.h"
 
-#include <stdio.h>
-
 /* Language-dependent contents of an identifier.  */
 
 struct lang_identifier
@@ -62,7 +61,8 @@ GTY(())
 /* The resulting tree type.  */
 
 union lang_tree_node
-GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE")))
+GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
+     chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   union tree_node GTY((tag ("0"),
 		       desc ("tree_node_structure (&%h)"))) generic;
@@ -356,7 +356,7 @@ GTY(())
   /* For each level (except the global one), a chain of BLOCK nodes for all
      the levels that were entered and exited one level down from this one.  */
   tree blocks;
-  /* The binding level containing this one (the enclosing binding level). */
+  /* The binding level containing this one (the enclosing binding level).  */
   struct binding_level *level_chain;
 };
 
@@ -451,7 +451,7 @@ poplevel (int keep, int reverse, int functionbody)
        subblock_node = TREE_CHAIN (subblock_node))
     if (DECL_NAME (subblock_node) != 0)
       /* If the identifier was used or addressed via a local extern decl,
-         don't forget that fact.   */
+         don't forget that fact.  */
       if (DECL_EXTERNAL (subblock_node))
 	{
 	  if (TREE_USED (subblock_node))
@@ -504,7 +504,7 @@ insert_block (tree block)
 }
 
 /* Records a ..._DECL node DECL as belonging to the current lexical scope.
-   Returns the ..._DECL node. */
+   Returns the ..._DECL node.  */
 
 tree
 pushdecl (tree decl)
@@ -522,7 +522,7 @@ pushdecl (tree decl)
   TREE_CHAIN (decl) = current_binding_level->names;
   current_binding_level->names = decl;
 
-  /* For the declartion of a type, set its name if it is not already set. */
+  /* For the declartion of a type, set its name if it is not already set.  */
 
   if (TREE_CODE (decl) == TYPE_DECL && TYPE_NAME (TREE_TYPE (decl)) == 0)
     {
@@ -590,7 +590,7 @@ gfc_init_decl_processing (void)
 
   /* Build common tree nodes. char_type_node is unsigned because we
      only use it for actual characters, not for INTEGER(1). Also, we
-     want double_type_node to actually have double precision.   */
+     want double_type_node to actually have double precision.  */
   build_common_tree_nodes (false, false);
   set_sizetype (long_unsigned_type_node);
   build_common_tree_nodes_2 (0);
@@ -635,18 +635,18 @@ gfc_mark_addressable (tree exp)
 	    if (TREE_PUBLIC (x))
 	      {
 		error
-		  ("global register variable `%s' used in nested function",
+		  ("global register variable %qs used in nested function",
 		   IDENTIFIER_POINTER (DECL_NAME (x)));
 		return false;
 	      }
-	    pedwarn ("register variable `%s' used in nested function",
+	    pedwarn ("register variable %qs used in nested function",
 		     IDENTIFIER_POINTER (DECL_NAME (x)));
 	  }
 	else if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x))
 	  {
 	    if (TREE_PUBLIC (x))
 	      {
-		error ("address of global register variable `%s' requested",
+		error ("address of global register variable %qs requested",
 		       IDENTIFIER_POINTER (DECL_NAME (x)));
 		return true;
 	      }
@@ -664,7 +664,7 @@ gfc_mark_addressable (tree exp)
 	      }
 #endif
 
-	    pedwarn ("address of register variable `%s' requested",
+	    pedwarn ("address of register variable %qs requested",
 		     IDENTIFIER_POINTER (DECL_NAME (x)));
 	  }
 
@@ -795,7 +795,7 @@ gfc_init_builtin_functions (void)
 
 #include "mathbuiltins.def"
 
-  /* We define these seperately as the fortran versions have different
+  /* We define these separately as the fortran versions have different
      semantics (they return an integer type) */
   gfc_define_builtin ("__builtin_floor", mfunc_double[0], 
 		      BUILT_IN_FLOOR, "floor", true);
@@ -810,8 +810,7 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_CABS, "cabs", true);
   gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 
 		      BUILT_IN_CABSF, "cabsf", true);
-		      
-  
+ 
   gfc_define_builtin ("__builtin_copysign", mfunc_double[1], 
 		      BUILT_IN_COPYSIGN, "copysign", true);
   gfc_define_builtin ("__builtin_copysignf", mfunc_float[1], 
@@ -825,56 +824,26 @@ gfc_init_builtin_functions (void)
 
   /* Other builtin functions we use.  */
 
+  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
+  ftype = build_function_type (integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ,
+		      "__builtin_clz", true);
+
+  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
+  ftype = build_function_type (integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL,
+		      "__builtin_clzl", true);
+
+  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, void_list_node);
+  ftype = build_function_type (integer_type_node, tmp);
+  gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL,
+		      "__builtin_clzll", true);
+
   tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
   ftype = build_function_type (long_integer_type_node, tmp);
   gfc_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT,
 		      "__builtin_expect", true);
-
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
-  ftype = build_function_type (pvoid_type_node, tmp);
-  gfc_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
-		      "memcpy", false);
-
-  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gfc_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ, "clz", true);
-
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL, "clzl", true);
-
-  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL, "clzll", true);
-
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
-  ftype = build_function_type (void_type_node, tmp);
-  gfc_define_builtin ("__builtin_init_trampoline", ftype,
-		      BUILT_IN_INIT_TRAMPOLINE, "init_trampoline", false);
-
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
-  ftype = build_function_type (pvoid_type_node, tmp);
-  gfc_define_builtin ("__builtin_adjust_trampoline", ftype,
-		      BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
-
-  /* The stack_save, stack_restore, and alloca builtins aren't used directly.
-     They are inserted during gimplification to implement variable sized
-     stack allocation.  */
-
-  ftype = build_function_type (pvoid_type_node, void_list_node);
-  gfc_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
-		      "stack_save", false);
-
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
-  ftype = build_function_type (void_type_node, tmp);
-  gfc_define_builtin ("__builtin_stack_restore", ftype, BUILT_IN_STACK_RESTORE,
-		      "stack_restore", false);
-
   /* APPLE LOCAL begin lno */
   ftype = build_function_type (void_type_node, void_list_node);
   gfc_define_builtin ("__builtin_maybe_infinite_loop", ftype,
@@ -882,10 +851,8 @@ gfc_init_builtin_functions (void)
 		      false);
   /* APPLE LOCAL end lno */
 
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  ftype = build_function_type (pvoid_type_node, tmp);
-  gfc_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
-		      "alloca", false);
+  build_common_builtin_nodes ();
+  targetm.init_builtins ();
 }
 
 #undef DEFINE_MATH_BUILTIN_C

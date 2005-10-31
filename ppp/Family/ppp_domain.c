@@ -221,7 +221,7 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
             unit = *(u_int32_t *)data;
             error = ppp_if_attachclient(unit, so, (ifnet_t *)&so->so_pcb);
             if (!error)
-                (u_int32_t)so->so_tpcb = TYPE_IF;
+                so->so_tpcb = (caddr_t)TYPE_IF;
             break;
 
         case PPPIOCATTCHAN:
@@ -229,7 +229,7 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
             unit = *(u_int32_t *)data;
             error = ppp_link_attachclient(unit, so, (struct ppp_link **)&so->so_pcb);
             if (!error)
-                (u_int32_t)so->so_tpcb = TYPE_LINK;
+                so->so_tpcb = (caddr_t)TYPE_LINK;
             break;
 
         case PPPIOCDETACH:

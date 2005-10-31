@@ -1,5 +1,5 @@
 /* DnDConstants.java -- constants for drag-and-drop operations
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,7 +42,7 @@ package java.awt.dnd;
  * This class contains various constants used in drag-and-drop operations.
  * Why it is not an interface is beyond me.
  *
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.2
  * @status updated to 1.4
  */
@@ -69,4 +69,9 @@ public final class DnDConstants
 
   /** A synonym for {@link #ACTION_LINK}. */
   public static final int ACTION_REFERENCE = ACTION_LINK;
-} // class DnDConstants
+
+  private DnDConstants()
+  {
+    // Do nothing here.
+  }
+}

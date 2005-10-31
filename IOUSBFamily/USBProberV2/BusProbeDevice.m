@@ -65,7 +65,7 @@
     FreeString(valstr);
 }
 
-- (void)addStringProperty:(char *)property fromStringIndex:(UInt8)strIndex fromDeviceInterface:(IOUSBDeviceInterface **)deviceIntf atDepth:(int)depth {
+- (void)addStringProperty:(char *)property fromStringIndex:(UInt8)strIndex fromDeviceInterface:(IOUSBDeviceRef)deviceIntf atDepth:(int)depth {
     Byte buf[256];
     char *str2 =  malloc(500 * sizeof(char));
     memset(str2,'\0', 500 * sizeof(char));

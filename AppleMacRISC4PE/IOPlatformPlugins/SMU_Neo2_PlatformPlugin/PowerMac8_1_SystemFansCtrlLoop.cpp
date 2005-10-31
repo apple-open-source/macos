@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: PowerMac8_1_SystemFansCtrlLoop.cpp,v 1.4 2005/02/18 23:05:20 dirty Exp $
+ *  File: $Id: PowerMac8_1_SystemFansCtrlLoop.cpp,v 1.5 2005/09/09 18:33:45 mpontil Exp $
  *
  */
 
@@ -78,13 +78,21 @@ ControlValue PowerMac8_1_SystemFansCtrlLoop::calculateNewTarget( void ) const
 
 	newTarget = SMU_Neo2_PIDCtrlLoop::calculateNewTarget();
 
-	if ( linkedControl )
+	//IOLog("1] PowerMac8_1_SystemFansCtrlLoop::calculateNewTarget %ld\n", newTarget);
+
+	if ( ( linkedControl ) && ( linkedControlOutputMin != 0x7FFFFFFF ) )
 		{
 		// Apply any hard limits.
 
 		newTarget = min( newTarget, linkedControlOutputMax );
 		newTarget = max( newTarget, linkedControlOutputMin );
 		}
+	else if ( linkedControl )
+	{
+		IOLog("PowerMac8_1_SystemFansCtrlLoop::calculateNewTarget() linkedControl not ready\n");
+	}
+
+	//IOLog("2] PowerMac8_1_SystemFansCtrlLoop::calculateNewTarget %ld\n", newTarget);
 
 	return( newTarget );
 	}

@@ -273,7 +273,10 @@ IOReturn AppleLM8x::callPlatformFunction
 				status = getReading((UInt8)LUNtable[i].SubAddress, value);
 
 				if(LUNtable[i].type == kTypeTemperature)
-					*value = (*value * LUNtable[i].ConversionMultiple) << 16;
+				{
+					UInt8					reading = *value;
+					*value = ( ( ( ( SInt8 ) reading ) << 16 ) * LUNtable[i].ConversionMultiple );
+				}
 				
 				if(LUNtable[i].type == kTypeADC)
 					*value = (UInt32)(*value * LUNtable[i].ConversionMultiple);

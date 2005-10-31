@@ -1,8 +1,7 @@
-/* APPLE LOCAL 3739318 FSF candidate.  */
 /* Test dead code strip support.  */
 /* Contributed by Devang Patel  <dpatel@apple.com>  */
  
-/* { dg-do compile } */
+/* { dg-do compile { target *-*-darwin* } } */
 
 const char my_version_string[] __attribute__((__used__))
   = "Do not remove this string\n";

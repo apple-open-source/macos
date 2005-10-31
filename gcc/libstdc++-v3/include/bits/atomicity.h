@@ -27,6 +27,11 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file atomicity.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _GLIBCXX_ATOMICITY_H
 #define _GLIBCXX_ATOMICITY_H	1
 
@@ -42,5 +47,14 @@ namespace __gnu_cxx
   __attribute__ ((__unused__))
   __atomic_add(volatile _Atomic_word* __mem, int __val);
 } // namespace __gnu_cxx
+
+/* Even if the CPU doesn't need a memory barrier, we need to ensure that
+   the compiler doesn't reorder memory accesses across the barriers.  */
+#ifndef _GLIBCXX_READ_MEM_BARRIER
+#define _GLIBCXX_READ_MEM_BARRIER __asm __volatile ("":::"memory")
+#endif
+#ifndef _GLIBCXX_WRITE_MEM_BARRIER
+#define _GLIBCXX_WRITE_MEM_BARRIER __asm __volatile ("":::"memory")
+#endif
 
 #endif 

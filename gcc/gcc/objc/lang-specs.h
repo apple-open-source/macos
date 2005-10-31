@@ -1,5 +1,5 @@
 /* Definitions for specs for Objective-C.
-   Copyright (C) 1998, 1999, 2002, 2002, 2003
+   Copyright (C) 1998, 1999, 2002, 2002, 2003, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -24,7 +24,6 @@ Boston, MA 02111-1307, USA.  */
 
   {".m", "@objective-c", 0, 0, 0},
   {"@objective-c",
-     /* APPLE LOCAL mainline */
      "%{E|M|MM:cc1obj -E %{traditional|ftraditional|traditional-cpp:-traditional-cpp}\
           %(cpp_options) %(cpp_debug_options)}\
       %{!E:%{!M:%{!MM:\

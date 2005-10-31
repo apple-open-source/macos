@@ -206,11 +206,11 @@ struct hfsparams {
 	UInt32 		allocationClumpSize;
 	UInt32          createDate;             /* in UTC */
 	UInt32		hfsAlignment;
-	UInt8		volumeName[kHFSPlusMaxFileNameChars + 1];  /* in UTF-8 */
+	unsigned char volumeName[kHFSPlusMaxFileNameChars + 1];  /* in UTF-8 */
 	UInt32		encodingHint;
 	UInt32 		journaledHFS;
 	UInt32 		journalSize;
-	UInt8		*journalDevice;
+	char 		*journalDevice;
 	uid_t		owner;
 	gid_t		group;
 	mode_t		mask;

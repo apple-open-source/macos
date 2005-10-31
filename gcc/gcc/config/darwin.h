@@ -1,5 +1,6 @@
 /* Target definitions for Darwin (Mac OS X) systems.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -38,6 +39,10 @@ Boston, MA 02111-1307, USA.  */
    multi-architecture binary support.  */
 
 #define OBJECT_FORMAT_MACHO
+
+/* APPLE LOCAL begin dynamic-no-pic */
+extern int machopic_symbol_defined_p (rtx);
+/* APPLE LOCAL end dynamic-no-pic */
 
 /* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
@@ -78,10 +83,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 0
-
-/* APPLE LOCAL frameworks */
-/* Need to look for framework headers.  */
-#define FRAMEWORK_HEADERS
 
 /* APPLE LOCAL begin -Wfour-char-constants */
 /* Don't warn about MacOS-style 'APPL' four-char-constants.  */
@@ -136,6 +137,7 @@ Boston, MA 02111-1307, USA.  */
   { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
   { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
   { "-seg_addr_table", "-Zseg_addr_table" }, \
+  /* APPLE LOCAL why did I do that?  -- mrs */ \
   { "-seg_addr_table_filename", "-Zfn_seg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
   { "-framework", "-Xlinker -framework -Xlinker" },  \
@@ -180,6 +182,11 @@ extern int darwin_running_cxx;
    that this switch has no "no-" variant. */
 extern const char *darwin_one_byte_bool;
   
+/* APPLE LOCAL begin pragma reverse_bitfields */
+/* True if pragma reverse_bitfields is in effect. */
+extern int darwin_reverse_bitfields;
+/* APPLE LOCAL end pragma reverse_bitfields */
+
 extern int darwin_fix_and_continue;
 extern const char *darwin_fix_and_continue_switch;
 
@@ -189,8 +196,8 @@ extern const char *darwin_fix_and_continue_switch;
   {"fix-and-continue", &darwin_fix_and_continue_switch,			\
    N_("Generate code suitable for fast turn around debugging"), 0},	\
   {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
-   N_("Don't generate code suitable for fast turn around debugging"), 0}, \
 /* APPLE LOCAL begin constant cfstrings */				\
+   N_("Don't generate code suitable for fast turn around debugging"), 0}, \
    {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
     N_("Generate compile-time CFString objects"), 0},			\
    {"no-constant-cfstrings", &darwin_constant_cfstrings_switch, "", 0},	\
@@ -265,7 +272,7 @@ do {									\
   /* kexts should always be built without the coalesced sections */     \
   /*  because the kernel loader doesn't grok such sections. */          \
   if (flag_apple_kext) flag_weak = 0;                                   \
-  /* APPLE LOCAL end kext */                                            \
+  /* APPLE LOCAL end kexts */                                           \
 } while(0)
 
 #define SUBTARGET_INIT_BUILTINS		\
@@ -307,6 +314,7 @@ do {					\
    !strcmp (STR, "Zsegs_read_only_addr") ? 1 :  \
    !strcmp (STR, "Zsegs_read_write_addr") ? 1 : \
    !strcmp (STR, "Zseg_addr_table") ? 1 :       \
+  /* APPLE LOCAL why did I do that?  -- mrs */ \
    !strcmp (STR, "Zfn_seg_addr_table_filename") ? 1 :\
    !strcmp (STR, "seg1addr") ? 1 :              \
    !strcmp (STR, "segprot") ? 3 :               \
@@ -330,10 +338,10 @@ do {					\
    isn't.  */
 
 #undef	CPP_SPEC
-/* APPLE LOCAL -precomp-trustfile, -arch */
 /* APPLE LOCAL __APPLE__ setting, don't set __APPLE__ here, as we do it someplace else */
 #define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__} \
-		  %{precomp-trustfile} %{arch}"
+"/* APPLE LOCAL -arch */"\
+		  %{arch}"
 
 /* APPLE LOCAL begin private extern  */
 #undef CC1PLUS_SPEC
@@ -348,9 +356,8 @@ do {					\
    instead of LINK_COMMAND_SPEC.  The command spec is better for
    specifying the handling of options understood by generic Unix
    linkers, and for positional arguments like libraries.  */
-/* APPLE LOCAL begin symbol separation */
 #define LINK_COMMAND_SPEC "\
-%{!foutput-dbg*:%{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+%{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{!Zdynamiclib:%(linker)}%{Zdynamiclib:/usr/bin/libtool} \
     %l %X %{d} %{s} %{t} %{Z} \
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
@@ -359,8 +366,7 @@ do {					\
 "/* APPLE LOCAL add fcreate-profile */"\
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|fcreate-profile:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}}"
-/* APPLE LOCAL end symbol separation */
+    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -423,6 +429,7 @@ do {					\
    %{Zsegs_read_only_addr*:-segs_read_only_addr %*} \
    %{Zsegs_read_write_addr*:-segs_read_write_addr %*} \
    %{Zseg_addr_table*: -seg_addr_table %*} \
+   "/* APPLE LOCAL why did I do that?  -- mrs */" \
    %{Zfn_seg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
@@ -447,29 +454,21 @@ do {					\
 #define LIB_SPEC "%{!static:-lSystem}"
 #endif
 
-/* APPLE LOCAL begin Handle static/shared libgcc correctly (radar 3554191, 3127145) */
-#undef LIBGCC_SPEC
-#undef REAL_LIBGCC_SPEC
-/* APPLE LOCAL 64-bit bringup */
-#ifdef ENABLE_SHARED_LIBGCC
-#define REAL_LIBGCC_SPEC 					   \
-   "%{static:-lgcc_static}					   \
-    %{!static:%{static-libgcc:-lgcc -lgcc_eh}			   \
-	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	   \
-			       %{!shared-libgcc:-lgcc -lgcc_eh}}}"
-#else
-#define REAL_LIBGCC_SPEC 					 \
-   "%{static:-lgcc_static}					 \
-    %{!static:%{static-libgcc:-lgcc}			         \
-	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	 \
-			       %{!shared-libgcc:-lgcc}}}"
-#endif /* ENABLE_SHARED_LIBGCC */
-/* APPLE LOCAL end Handle static/shared libgcc correctly (radar 3554191, 3127145) */
+/* APPLE LOCAL begin libgcc_static.a  */
+/* -dynamiclib implies -shared-libgcc just like -shared would on linux.  */
+#define REAL_LIBGCC_SPEC \
+   "%{static|static-libgcc:-lgcc_static}                             \
+    %{!static:%{!static-libgcc:                                      \
+      %{!Zdynamiclib:%{!shared-libgcc:-lgcc -lgcc_eh}                \
+      %{shared-libgcc:-lgcc_s -lgcc}} %{Zdynamiclib:-lgcc_s -lgcc}}}"
+/* APPLE LOCAL end libgcc_static.a  */
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
+/* We don't want anything to do with crt2.o in the 64-bit case;
+   testing the PowerPC-specific -m64 flag here is a little irregular,
+   but it's overkill to make copies of this spec for each target
+   arch.  */
 
-/* APPLE LOCAL IN FSF 2004-04-27 */
-/* APPLE LOCAL 64-bit bringup */
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC  \
   "%{!Zdynamiclib:%{Zbundle:%{!static:-lbundle1.o}} \
@@ -563,10 +562,6 @@ do {					\
    links to, so there's no need for weak-ness for that.  */
 #define GTHREAD_USE_WEAK 0
 
-/* We support hidden visibility */
-#undef TARGET_SUPPORTS_HIDDEN
-#define TARGET_SUPPORTS_HIDDEN 1
-
 /* The Darwin linker imposes two limitations on common symbols: they 
    can't have hidden visibility, and they can't appear in dylibs.  As
    a consequence, we should never use common symbols to represent 
@@ -599,8 +594,9 @@ do {					\
 #undef	INIT_SECTION_ASM_OP
 #define INIT_SECTION_ASM_OP
 
-/* APPLE LOCAL static structors in __StaticInit section */
+/* APPLE LOCAL begin static structors in __StaticInit section */
 #define STATIC_INIT_SECTION "__TEXT,__StaticInit,regular,pure_instructions"
+/* APPLE LOCAL end static structors in __StaticInit section */
 
 #undef	INVOKE__main
 
@@ -706,12 +702,16 @@ do {					\
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
-	   /* APPLE LOCAL begin Objective-C++ */			\
+	   /* APPLE LOCAL begin Objective-C++ 4105386 */		     \
+	   else if (len > 15 && !strcmp ("$non_lazy_ptr\"", xname + len - 14)) \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
+	   /* APPLE LOCAL end Objective-C++ 4105386 */			     \
+	   /* APPLE LOCAL begin mainline */				     \
 	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))		\
 	     fprintf (FILE, "\"%s\"", &xname[1]);			\
 	   else								\
 	     fputs (&xname[1], FILE); 					\
-	   /* APPLE LOCAL end Objective-C++ */				\
+	   /* APPLE LOCAL end mainline */				     \
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
          fprintf (FILE, "\"%s\"", xname);				     \
@@ -719,10 +719,10 @@ do {					\
          fprintf (FILE, "L%s", xname);					     \
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
-	 /* APPLE LOCAL begin Objective-C++  */				\
+	 /* APPLE LOCAL begin mainline */				     \
        else if (xname[0] != '"' && name_needs_quotes (xname))		\
 	 fprintf (FILE, "\"%s\"", xname);				\
-	 /* APPLE LOCAL end Objective-C++  */				\
+	 /* APPLE LOCAL end mainline */					     \
        else								     \
          asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)
@@ -803,17 +803,25 @@ FUNCTION (void)								\
   in_objc_symbols, in_objc_module_info,					\
   in_objc_protocol, in_objc_string_object,				\
   in_objc_constant_string_object,					\
-  /* APPLE LOCAL constant cfstrings */			\
-  in_cfstring_constant_object,				\
   in_objc_image_info,							\
   in_objc_class_names, in_objc_meth_var_names,				\
   in_objc_meth_var_types, in_objc_cls_refs,				\
+  /* APPLE LOCAL constant cfstrings */					\
+  in_cfstring_constant_object,						\
   in_machopic_nl_symbol_ptr,						\
   in_machopic_lazy_symbol_ptr,						\
+  /* APPLE LOCAL begin dynamic-no-pic */				\
+  in_machopic_lazy_symbol_ptr2,						\
+  in_machopic_lazy_symbol_ptr3,						\
+  /* APPLE LOCAL end dynamic-no-pic */					\
   in_machopic_symbol_stub,						\
   in_machopic_symbol_stub1,						\
   in_machopic_picsymbol_stub,						\
   in_machopic_picsymbol_stub1,						\
+  /* APPLE LOCAL dynamic-no-pic */					\
+  in_machopic_picsymbol_stub2,						\
+  /* APPLE LOCAL deep branch prediction pic-base */			\
+  in_darwin_textcoal_nt,						\
   in_darwin_exception, in_darwin_eh_frame,				\
   num_sections
 
@@ -824,10 +832,8 @@ SECTION_FUNCTION (text_coal_section,				\
 		  in_text_coal,					\
 		  ".section __TEXT,__textcoal_nt,coalesced,"	\
 		    "pure_instructions", 0)			\
-SECTION_FUNCTION (text_unlikely_section,			\
-		  in_text_unlikely,				\
-		  ".section __TEXT,__unlikely,regular,"		\
-		    "pure_instructions", 0)			\
+/* APPLE LOCAL mainline 2005-04-15 <radar 4078608> */           \
+/* SECTION_FUNCTION (text_unlikely_section) removed. */         \
 SECTION_FUNCTION (text_unlikely_coal_section,			\
 		  in_text_unlikely_coal,			\
 		  ".section __TEXT,__text_unlikely_coal,"	\
@@ -946,6 +952,14 @@ SECTION_FUNCTION (objc_cls_refs_section,				\
 SECTION_FUNCTION (machopic_lazy_symbol_ptr_section,			\
 		in_machopic_lazy_symbol_ptr,				\
 		".lazy_symbol_pointer", 0)				\
+/* APPLE LOCAL begin dynamic-no-pic */					\
+SECTION_FUNCTION (machopic_lazy_symbol_ptr2_section,	\
+		in_machopic_lazy_symbol_ptr2,		\
+		".section __DATA, __la_sym_ptr2,lazy_symbol_pointers", 0)      	\
+SECTION_FUNCTION (machopic_lazy_symbol_ptr3_section,	\
+		in_machopic_lazy_symbol_ptr3,		\
+		".section __DATA, __la_sym_ptr3,lazy_symbol_pointers", 0)      	\
+/* APPLE LOCAL end dynamic-no-pic */					\
 SECTION_FUNCTION (machopic_nl_symbol_ptr_section,			\
 		in_machopic_nl_symbol_ptr,				\
 		".non_lazy_symbol_pointer", 0)				\
@@ -963,6 +977,16 @@ SECTION_FUNCTION (machopic_picsymbol_stub1_section,			\
 		in_machopic_picsymbol_stub1,				\
 		".section __TEXT,__picsymbolstub1,symbol_stubs,"	\
 		  "pure_instructions,32", 0)				\
+/* APPLE LOCAL begin dynamic-no-pic */			\
+SECTION_FUNCTION (machopic_picsymbol_stub2_section,	\
+		in_machopic_picsymbol_stub2,		\
+		".section __TEXT,__picsymbolstub2,symbol_stubs,pure_instructions,25", 0)      		\
+/* APPLE LOCAL end dynamic-no-pic */			\
+/* APPLE LOCAL begin deep branch prediction pic-base */			\
+SECTION_FUNCTION (darwin_textcoal_nt_section,		\
+		in_darwin_textcoal_nt,			\
+		".section __TEXT,__textcoal_nt,coalesced,no_toc", 0)\
+/* APPLE LOCAL end deep branch prediction pic-base */				\
 SECTION_FUNCTION (darwin_exception_section,				\
 		in_darwin_exception,					\
 		".section __DATA,__gcc_except_tab", 0)			\
@@ -1060,9 +1084,10 @@ objc_section_init (void)			\
 /* Extra attributes for Darwin.  */
 #define SUBTARGET_ATTRIBUTE_TABLE					     \
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */ \
-  /* APPLE LOCAL KEXT double destructor */				     \
+  /* APPLE LOCAL begin KEXT double destructor */			     \
   { "apple_kext_compatibility", 0, 0, false, true, false,		     \
     darwin_handle_odd_attribute },					     \
+  /* APPLE LOCAL end KEXT double destructor */				     \
   /* APPLE LOCAL ObjC GC */						     \
   { "objc_gc", 1, 1, 0, 0, 0, darwin_handle_objc_gc_attribute },	     \
   { "weak_import", 0, 0, true, false, false,				     \
@@ -1111,10 +1136,11 @@ enum machopic_addr_class {
 #undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING  default_strip_name_encoding
 
-/* APPLE LOCAL what is this for? */
+/* APPLE LOCAL begin what is this for? */
 /* Be conservative and always redo the encoding.  */
 
 #define REDO_SECTION_INFO_P(DECL) (1)
+/* APPLE LOCAL end what is this for? */
 
 #define GEN_BINDER_NAME_FOR_STUB(BUF,STUB,STUB_LENGTH)		\
   do {								\
@@ -1182,11 +1208,10 @@ enum machopic_addr_class {
 /* Java runtime class list.  */
 #define JCR_SECTION_NAME "__DATA,jcr,regular,no_dead_strip"
 
-/* APPLE LOCAL 64-bit mainline */
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
   (((CODE) == 2 && (GLOBAL) == 1) \
-   ? (DW_EH_PE_pcrel | DW_EH_PE_indirect | DW_EH_PE_sdata4 ) : \
+   ? (DW_EH_PE_pcrel | DW_EH_PE_indirect | DW_EH_PE_sdata4) : \
      ((CODE) == 1 || (GLOBAL) == 0) ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
 
 #define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \
@@ -1198,26 +1223,25 @@ enum machopic_addr_class {
 	goto DONE;									\
       }
 
-/* APPLE LOCAL OS pragma hook */
-#define REGISTER_OS_PRAGMAS(PFILE)			\
-  do {								\
-    /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */  \
-    cpp_register_pragma (PFILE, 0, "pack", darwin_pragma_pack);  \
-    /* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */  \
-    /* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
-    cpp_register_pragma (PFILE, 0, "CALL_ON_LOAD", \
-					darwin_pragma_call_on_load); \
-    cpp_register_pragma (PFILE, 0, "CALL_ON_UNLOAD", \
-					darwin_pragma_call_on_unload); \
-    /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
-  } while (0)
-
 /* Experimentally, putting jump tables in text is faster on SPEC.
    Also this is needed for correctness for coalesced functions.  */
 
 #ifndef JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 #endif
+
+/* APPLE LOCAL begin OS pragma hook */
+#define REGISTER_OS_PRAGMAS()			\
+  do {								\
+    /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */  \
+    c_register_pragma (0, "pack", darwin_pragma_pack);  \
+    /* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */  \
+    /* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
+    c_register_pragma (0, "CALL_ON_LOAD", darwin_pragma_call_on_load); \
+    c_register_pragma (0, "CALL_ON_UNLOAD", darwin_pragma_call_on_unload); \
+    /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
+  } while (0)
+/* APPLE LOCAL end OS pragma hook */
 
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 
@@ -1229,14 +1253,31 @@ enum machopic_addr_class {
     c_register_pragma (0, "mark", darwin_pragma_ignore);	\
     c_register_pragma (0, "options", darwin_pragma_options);	\
     c_register_pragma (0, "segment", darwin_pragma_ignore);	\
-    c_register_pragma (0, "unused", darwin_pragma_unused);	\
     /* APPLE LOCAL pragma fenv */                               \
     c_register_pragma ("GCC", "fenv", darwin_pragma_fenv);	\
+    c_register_pragma (0, "unused", darwin_pragma_unused);	\
+    /* APPLE LOCAL begin pragma reverse_bitfields */		\
+    c_register_pragma (0, "reverse_bitfields",			\
+			darwin_pragma_reverse_bitfields);	\
+    /* APPLE LOCAL end pragma reverse_bitfields */		\
+    /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */\
+    c_register_pragma (0, "optimization_level",			\
+			darwin_pragma_opt_level);		\
+    c_register_pragma (0, "optimize_for_size",			\
+			darwin_pragma_opt_size);		\
+    c_register_pragma ("GCC", "optimization_level",		\
+			darwin_pragma_opt_level);		\
+    c_register_pragma ("GCC", "optimize_for_size",		\
+			darwin_pragma_opt_size);		\
+    /* APPLE LOCAL end optimization pragmas 3124235/3420242 */	\
+    /* APPLE LOCAL begin too many changes confuse diff */	\
   } while (0)
+/* APPLE LOCAL end too many changes confuse diff */
 
-/* APPLE LOCAL insert assembly ".abort" directive on fatal error   */
+/* APPLE LOCAL begin insert assembly ".abort" directive on fatal error   */
 #define EXIT_FROM_FATAL_DIAGNOSTIC(status) abort_assembly_and_exit (status)
 extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
+/* APPLE LOCAL end insert assembly ".abort" directive on fatal error   */
 
 /* APPLE LOCAL begin Macintosh alignment 2002-2-13 --ff */
 #ifdef RS6000_VECTOR_ALIGNMENT
@@ -1291,9 +1332,11 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
    Radar 2863107.  */
 #define ASM_OUTPUT_ZEROFILL(FILE, NAME, SIZE, ALIGNMENT)		    \
   do {									    \
+    unsigned HOST_WIDE_INT _new_size = SIZE;		    		    \
+    if (_new_size == 0) _new_size = 1;					    \
     fputs (".zerofill __DATA, __common, ", (FILE));			    \
     assemble_name ((FILE), (NAME));					    \
-    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) (SIZE)); \
+    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC, _new_size); 		    \
     fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC "\n",			    \
 	     (HOST_WIDE_INT) (ALIGNMENT));				    \
     in_section = no_section;						    \
@@ -1327,4 +1370,5 @@ void add_framework_path (char *);
 /* APPLE LOCAL end KEXT ctors return this */
 
 #define WINT_TYPE "int"
+
 #endif /* CONFIG_DARWIN_H */

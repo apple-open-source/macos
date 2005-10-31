@@ -185,6 +185,7 @@ u_int32_t debuglevel 	  = 0;
 int sysloglevel = LOG_NOTICE;
 int syslogfacility = LOG_RAS;
 int usestderr 	= 0;
+int signalerror = 0;
 
 struct callout *callout = NULL;	/* Callout list */
 struct timeval timenow;		/* Current time */
@@ -277,14 +278,14 @@ void *copy_of(char *s)
 void badsignal(int signo)
 {
 
-    terminate(cclErr_NoMemErr);
+    signalerror = cclErr_NoMemErr;
 }
 
 /* --------------------------------------------------------------------------
 -------------------------------------------------------------------------- */
 void hangup(int signo)
 {
-    terminate(cclErr_ScriptCancelled);
+    signalerror = cclErr_ScriptCancelled;
 }
 
 
@@ -509,7 +510,8 @@ int main(int argc, char **argv)
 
         rset = allset;
         nready = select(maxfd, &rset, NULL, NULL, timeleft(&timo));
-        
+        if(signalerror)
+			terminate(signalerror);
         if (FD_ISSET(infd, &rset)) {
             status = read(infd, &c, 1);
             switch (status) {
@@ -2159,6 +2161,8 @@ u_int8_t Write()
     else {
     
         write(outfd, &SV.strBuf[1], SV.strBuf[0]);
+		if(signalerror) 
+			terminate(signalerror);
         return 1;
     }
 }
@@ -2173,7 +2177,8 @@ void WriteContinue()
     //syslog(LOG_INFO, " ----> delayed '%c'\n", SV.strBuf[SV.writeBufIndex]);
 
     write(outfd, &SV.strBuf[SV.writeBufIndex], 1);
-
+	if(signalerror)
+		terminate(signalerror);
     if (SV.writeBufIndex < SV.strBuf[0] )		// if this char is not the last char
         SV.writeBufIndex++;			// 		bump index to the next char
 

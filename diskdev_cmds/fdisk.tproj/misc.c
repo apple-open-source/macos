@@ -58,7 +58,6 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/disklabel.h>
 #include "misc.h"
 
 

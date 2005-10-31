@@ -1,0 +1,31 @@
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be a
+### analyzed non-fail. You should then comment out the test in this 
+### file and make sure the Radar bug is closed.
+### 
+###------------------------------------------------------------------
+4125559: 21_strings/basic_string/capacity/char/18654.cc execution test
+4125559: 21_strings/basic_string/capacity/wchar_t/18654.cc execution test
+3884894: 23_containers/vector/resize/1.cc execution test
+3378287: 26_numerics/cmath/c99_classification_macros_c.cc (test for excess errors)
+3378287: 26_numerics/complex/13450.cc execution test
+4125559: 27_io/basic_istream/get/char/3.cc execution test
+4125559: 27_io/basic_istream/get/wchar_t/3.cc execution test
+4125559: 27_io/basic_istream/getline/char/6.cc execution test
+4125559: 27_io/basic_istream/getline/wchar_t/6.cc execution test
+4125559: 27_io/ios_base/storage/11584.cc execution test
+3884894: 27_io/ios_base/storage/2.cc execution test
+4125559: demangle/abi_examples/01.cc execution test
+4125559: demangle/abi_examples/02.cc execution test
+#
+# the following failures are for x86 only
+4125564: 22_locale/money_put/put/char/4.cc execution test
+4125564: 22_locale/money_put/put/wchar_t/4.cc execution test
+4125564: 22_locale/num_put/put/char/4.cc execution test
+4125564: 22_locale/num_put/put/wchar_t/4.cc execution test
+4125564: 26_numerics/complex/complex_inserters_extractors.cc execution test

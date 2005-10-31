@@ -344,7 +344,12 @@ struct main_type
 
   /* Flags about this type.  */
 
-  int flags;
+  int flags : 30;
+
+  /* The byte-order of the type.  Uses the same values as the byte
+     order stored in the gdbarch structure. */
+
+  unsigned int byte_order : 2;
 
   /* Number of fields described for this type */
 
@@ -776,6 +781,7 @@ extern void allocate_cplus_struct_type (struct type *);
 /* Note that TYPE_CODE can be TYPE_CODE_TYPEDEF, so if you want the real
    type, you need to do TYPE_CODE (check_type (this_type)). */
 #define TYPE_CODE(thistype) TYPE_MAIN_TYPE(thistype)->code
+#define TYPE_BYTE_ORDER(thistype) TYPE_MAIN_TYPE(thistype)->byte_order
 #define TYPE_NFIELDS(thistype) TYPE_MAIN_TYPE(thistype)->nfields
 #define TYPE_FIELDS(thistype) TYPE_MAIN_TYPE(thistype)->fields
 #define TYPE_TEMPLATE_ARGS(thistype) TYPE_CPLUS_SPECIFIC_NONULL(thistype)->template_args
@@ -784,6 +790,8 @@ extern void allocate_cplus_struct_type (struct type *);
 #define TYPE_INDEX_TYPE(type) TYPE_FIELD_TYPE (type, 0)
 #define TYPE_LOW_BOUND(range_type) TYPE_FIELD_BITPOS (range_type, 0)
 #define TYPE_HIGH_BOUND(range_type) TYPE_FIELD_BITPOS (range_type, 1)
+/* APPLE LOCAL: Used to store the stride of vector types, to prevent reverse-order indexing. */
+#define TYPE_STRIDE(range_type) TYPE_FIELD_BITPOS (range_type, 2)
 
 /* Moto-specific stuff for FORTRAN arrays */
 
@@ -1174,6 +1182,9 @@ extern void fill_in_vptr_fieldno (struct type *);
 extern int get_destructor_fn_field (struct type *, int *, int *);
 
 extern int get_discrete_bounds (struct type *, LONGEST *, LONGEST *);
+
+/* APPLE LOCAL: A special case of get_discrete_bounds, to support alternate array indexing. */
+extern int get_array_bounds (struct type *, LONGEST *, LONGEST *, LONGEST *);
 
 extern int is_ancestor (struct type *, struct type *);
 

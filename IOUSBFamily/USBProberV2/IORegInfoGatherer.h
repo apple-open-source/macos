@@ -37,6 +37,14 @@ enum {
     kIOService_Plane = 1
 };
 
+@class IORegInfoGatherer;
+
+@protocol IORegGathererListener <NSObject>
+
+- (void)ioRegInfoGathererInformationDidChange:(IORegInfoGatherer *)aGatherer;
+
+@end
+
 @interface IORegInfoGatherer : NSObject {
     id      _listener;
     int     _plane;
@@ -45,7 +53,7 @@ enum {
     CFRunLoopSourceRef      _runLoopSource;
 }
 
-- initWithListener:(id)listener rootNode:(OutlineViewNode *)rootNode plane:(int)plane;
+- initWithListener:(id <IORegGathererListener> )listener rootNode:(OutlineViewNode *)rootNode plane:(int)plane;
 
 - (BOOL)registerForUSBNotifications;
 - (void)unregisterForUSBNotifications;
@@ -56,8 +64,3 @@ enum {
 
 @end
 
-@protocol IORegGathererListener <NSObject>
-
-- (void)ioRegInfoGathererInformationDidChange:(IORegInfoGatherer *)aGatherer;
-
-@end

@@ -40,7 +40,8 @@
 #define TRUNCATION_TOWARDS_ZERO ((-5 / 2) == -2)
 #endif
 
-static struct value *value_subscripted_rvalue (struct value *, struct value *, int);
+/* APPLE LOCAL: updated prototype */
+static struct value *value_subscripted_rvalue (struct value *, struct value *);
 
 void _initialize_valarith (void);
 
@@ -192,29 +193,50 @@ value_subscript (struct value *array, struct value *idx)
       || TYPE_CODE (tarray) == TYPE_CODE_STRING)
     {
       struct type *range_type = TYPE_INDEX_TYPE (tarray);
-      LONGEST lowerbound, upperbound;
-      get_discrete_bounds (range_type, &lowerbound, &upperbound);
+      LONGEST lowerbound, upperbound, stride;
+      get_array_bounds (tarray, &lowerbound, &upperbound, &stride);
 
       if (VALUE_LVAL (array) != lval_memory)
-	return value_subscripted_rvalue (array, idx, lowerbound);
+	return value_subscripted_rvalue (array, idx);
 
       if (c_style == 0)
 	{
 	  LONGEST index = value_as_long (idx);
 	  if (index >= lowerbound && index <= upperbound)
-	    return value_subscripted_rvalue (array, idx, lowerbound);
-	  warning ("array or string index out of range");
+	    return value_subscripted_rvalue (array, idx);
+  	  /* Emit warning unless we have an array of unknown size.
+  	     An array of unknown size has lowerbound 0 and upperbound -1.  */
+ 	  if ((upperbound != -1) || (lowerbound != 0))
+	    warning ("array or string index out of range");
 	  /* fall doing C stuff */
 	  c_style = 1;
 	}
 
-      if (lowerbound != 0)
-	{
-	  bound = value_from_longest (builtin_type_int, (LONGEST) lowerbound);
-	  idx = value_sub (idx, bound);
-	}
+       array = value_coerce_array (array);
+ 
+       /* APPLE LOCAL: Support reverse-indexing of arrays using the
+	  'stride' attribute off of the range type of the array. */
 
-      array = value_coerce_array (array);
+       if (stride == 1)
+	 {
+	   if (lowerbound != 0)
+	     {
+	       bound = value_from_longest (builtin_type_int, (LONGEST) lowerbound);
+	       idx = value_sub (idx, bound);
+	     }
+	 }
+       else if (stride == -1)
+	 {
+	   if (upperbound != 0)
+	     {
+	       bound = value_from_longest (builtin_type_int, (LONGEST) upperbound);
+	       idx = value_sub (bound, idx);
+	     }
+	 }
+       else
+	 internal_error (__FILE__, __LINE__, _("unsupported stride %lld"), stride);
+ 	  
+       return value_ind (value_add (array, idx));
     }
 
   if (TYPE_CODE (tarray) == TYPE_CODE_BITSTRING)
@@ -251,20 +273,39 @@ value_subscript (struct value *array, struct value *idx)
 
 /* Return the value of EXPR[IDX], expr an aggregate rvalue
    (eg, a vector register).  This routine used to promote floats
-   to doubles, but no longer does.  */
+   to doubles, but no longer does.
+
+   APPLE LOCAL: No longer pass in the lower bound explicitly.  Instead
+   re-deduce it using the range type of the array.  This cheap,
+   cleaner, and necessary to properly support array strides (since now
+   we could need either the lower or the upper bound of the array). */
 
 static struct value *
-value_subscripted_rvalue (struct value *array, struct value *idx, int lowerbound)
+value_subscripted_rvalue (struct value *array, struct value *idx)
 {
   struct type *array_type = check_typedef (VALUE_TYPE (array));
   struct type *elt_type = check_typedef (TYPE_TARGET_TYPE (array_type));
   unsigned int elt_size = TYPE_LENGTH (elt_type);
-  LONGEST index = value_as_long (idx);
-  unsigned int elt_offs = elt_size * longest_to_int (index - lowerbound);
+  LONGEST lowerbound, upperbound, stride;
+  LONGEST index;
+  unsigned int elt_offs;
   struct value *v;
 
-  if (index < lowerbound || elt_offs >= TYPE_LENGTH (array_type))
-    error ("no such vector element");
+  index = value_as_long (idx);
+  get_array_bounds (array_type, &lowerbound, &upperbound, &stride);
+
+  if ((index < lowerbound) || (index > upperbound))
+    error (_("no such vector element"));
+
+  if (stride == 1)
+    elt_offs = elt_size * longest_to_int (index - lowerbound);  
+  else if (stride == -1)
+    elt_offs = elt_size * longest_to_int (upperbound - index);
+  else
+    internal_error (__FILE__, __LINE__, _("unsupported vector stride %ld"), stride);
+   
+  if (elt_offs >= TYPE_LENGTH (array_type))
+    error (_("invalid array offset"));
 
   v = allocate_value (elt_type);
   if (VALUE_LAZY (array))

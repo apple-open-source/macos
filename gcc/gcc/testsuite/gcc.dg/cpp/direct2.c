@@ -10,15 +10,24 @@
 #define HASHDEFINE #define
 #define HASHINCLUDE #include
 
-HASH include "somerandomfile" /*{ dg-error "syntax|parse" "non-include" }*/
+HASH include "somerandomfile" /*{ dg-error "stray" "non-include" }*/
 /*{ dg-bogus "No such" "don't execute non-include" { target *-*-* } 13 }*/
-HASHINCLUDE <somerandomfile> /*{ dg-error "syntax|parse" "non-include 2" }*/
-/*{ dg-bogus "No such" "don't execute non-include 2" { target *-*-* } 15 }*/
+int resync_parser_1; /*{ dg-error "parse|syntax|expected" "" }*/
 
-void g ()
+HASHINCLUDE <somerandomfile> /*{ dg-error "stray|expected" "non-include 2" }*/
+/*{ dg-bogus "No such" "don't execute non-include 2" { target *-*-* } 17 }*/
+int resync_parser_2;
+
+void g1 ()
 {
-HASH define X 1 /* { dg-error "syntax error" "# from macro" } */
-HASHDEFINE  Y 1 /* { dg-error "syntax error" "#define from macro" } */
+HASH define X 1 /* { dg-error "stray|undeclared|parse|syntax|expected|for each" "# from macro" } */
+  int resync_parser_3;
+}
+
+void g2 ()
+{
+HASHDEFINE  Y 1 /* { dg-error "stray|undeclared|parse|syntax|expected|for each" "#define from macro" } */
+  int resync_parser_4;
 }
 
 #pragma GCC dependency "direct2.c"
@@ -33,5 +42,5 @@ void f ()
 #define slashstar /##*
 #define starslash *##/
 
-slashstar starslash /* { dg-error "(parse|syntax) error" "not a comment" } */
-/* { dg-warning "does not give" "paste warning(s)" { target *-*-* } 36 } */
+slashstar starslash /* { dg-error "parse error|syntax error|expected" "not a comment" } */
+/* { dg-warning "does not give" "paste warning(s)" { target *-*-* } 45 } */

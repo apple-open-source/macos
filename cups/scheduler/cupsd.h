@@ -1,5 +1,5 @@
 /*
- * "$Id: cupsd.h,v 1.12 2005/01/04 22:10:45 jlovell Exp $"
+ * "$Id: cupsd.h,v 1.12.2.1 2005/07/27 18:22:02 jlovell Exp $"
  *
  *   Main header file for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -176,8 +176,10 @@ typedef struct direct DIRENT;
 
 VAR int			MaxFDs,		/* Maximum number of files */
 			SetSize;	/* The size of the input/output sets */
-VAR fd_set		*InputSet,	/* Input files for select() */
-			*OutputSet;	/* Output files for select() */
+VAR fd_set		*InputFds,	/* Input fds for select() */
+			*InputSet,	/* Input set for select() */
+			*OutputFds,	/* Output fds for select() */
+			*OutputSet;	/* Output set for select() */
 
 VAR time_t		ReloadTime	VALUE(0);
 					/* Time of reload request... */
@@ -229,5 +231,5 @@ extern void	UpdateSysEventMonitor(void);
 #endif	/* __APPLE__ */
 
 /*
- * End of "$Id: cupsd.h,v 1.12 2005/01/04 22:10:45 jlovell Exp $".
+ * End of "$Id: cupsd.h,v 1.12.2.1 2005/07/27 18:22:02 jlovell Exp $".
  */

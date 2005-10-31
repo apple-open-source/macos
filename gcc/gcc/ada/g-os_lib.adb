@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 1995-2004 Ada Core Technologies, Inc.            --
+--           Copyright (C) 1995-2005 Ada Core Technologies, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1075,7 +1075,7 @@ package body GNAT.OS_Lib is
       S  : Integer;
 
    begin
-      --  Use the global lock because To_GM_Time is not thread safe.
+      --  Use the global lock because To_GM_Time is not thread safe
 
       Locked_Processing : begin
          SSL.Lock_Task.all;
@@ -1920,7 +1920,7 @@ package body GNAT.OS_Lib is
             if Status <= 0 then
                Last := Finish + 1;
 
-            --  Replace symbolic link with its value.
+            --  Replace symbolic link with its value
 
             else
                if Is_Absolute_Path (Link_Buffer (1 .. Status)) then
@@ -2056,6 +2056,65 @@ package body GNAT.OS_Lib is
       Rename_File (C_Old_Name'Address, C_New_Name'Address, Success);
    end Rename_File;
 
+   -----------------------
+   -- Set_Close_On_Exec --
+   -----------------------
+
+   procedure Set_Close_On_Exec
+     (FD            : File_Descriptor;
+      Close_On_Exec : Boolean;
+      Status        : out Boolean)
+   is
+      function C_Set_Close_On_Exec
+        (FD : File_Descriptor; Close_On_Exec : System.CRTL.int)
+         return System.CRTL.int;
+      pragma Import (C, C_Set_Close_On_Exec, "__gnat_set_close_on_exec");
+   begin
+      Status := C_Set_Close_On_Exec (FD, Boolean'Pos (Close_On_Exec)) = 0;
+   end Set_Close_On_Exec;
+
+   --------------------
+   -- Set_Executable --
+   --------------------
+
+   procedure Set_Executable (Name : String) is
+      procedure C_Set_Executable (Name : C_File_Name);
+      pragma Import (C, C_Set_Executable, "__gnat_set_executable");
+      C_Name : aliased String (Name'First .. Name'Last + 1);
+   begin
+      C_Name (Name'Range)  := Name;
+      C_Name (C_Name'Last) := ASCII.NUL;
+      C_Set_Executable (C_Name (C_Name'First)'Address);
+   end Set_Executable;
+
+   --------------------
+   -- Set_Read_Only --
+   --------------------
+
+   procedure Set_Read_Only (Name : String) is
+      procedure C_Set_Read_Only (Name : C_File_Name);
+      pragma Import (C, C_Set_Read_Only, "__gnat_set_readonly");
+      C_Name : aliased String (Name'First .. Name'Last + 1);
+   begin
+      C_Name (Name'Range)  := Name;
+      C_Name (C_Name'Last) := ASCII.NUL;
+      C_Set_Read_Only (C_Name (C_Name'First)'Address);
+   end Set_Read_Only;
+
+   --------------------
+   -- Set_Writable --
+   --------------------
+
+   procedure Set_Writable (Name : String) is
+      procedure C_Set_Writable (Name : C_File_Name);
+      pragma Import (C, C_Set_Writable, "__gnat_set_writable");
+      C_Name : aliased String (Name'First .. Name'Last + 1);
+   begin
+      C_Name (Name'Range)  := Name;
+      C_Name (C_Name'Last) := ASCII.NUL;
+      C_Set_Writable (C_Name (C_Name'First)'Address);
+   end Set_Writable;
+
    ------------
    -- Setenv --
    ------------
@@ -2101,6 +2160,84 @@ package body GNAT.OS_Lib is
       Success := (Spawn (Program_Name, Args) = 0);
    end Spawn;
 
+   procedure Spawn
+     (Program_Name           : String;
+      Args                   : Argument_List;
+      Output_File_Descriptor : File_Descriptor;
+      Return_Code            : out Integer;
+      Err_To_Out             : Boolean := True)
+   is
+      function Dup (Fd : File_Descriptor) return File_Descriptor;
+      pragma Import (C, Dup, "__gnat_dup");
+
+      procedure Dup2 (Old_Fd, New_Fd : File_Descriptor);
+      pragma Import (C, Dup2, "__gnat_dup2");
+
+      Saved_Output : File_Descriptor;
+      Saved_Error  : File_Descriptor := Invalid_FD;
+      --  We need to initialize Saved_Error to Invalid_FD to avoid
+      --  a compiler warning that this variable may be used before
+      --  it is initialized (which can not happen, but the compiler
+      --  is not smart enough to figure this out).
+
+   begin
+      --  Set standard output and error to the temporary file
+
+      Saved_Output := Dup (Standout);
+      Dup2 (Output_File_Descriptor, Standout);
+
+      if Err_To_Out then
+         Saved_Error  := Dup (Standerr);
+         Dup2 (Output_File_Descriptor, Standerr);
+      end if;
+
+      --  Spawn the program
+
+      Return_Code := Spawn (Program_Name, Args);
+
+      --  Restore the standard output and error
+
+      Dup2 (Saved_Output, Standout);
+
+      if Err_To_Out then
+         Dup2 (Saved_Error, Standerr);
+      end if;
+
+      --  And close the saved standard output and error file descriptors
+
+      Close (Saved_Output);
+
+      if Err_To_Out then
+         Close (Saved_Error);
+      end if;
+   end Spawn;
+
+   procedure Spawn
+     (Program_Name  : String;
+      Args          : Argument_List;
+      Output_File   : String;
+      Success       : out Boolean;
+      Return_Code   : out Integer;
+      Err_To_Out    : Boolean := True)
+   is
+      FD : File_Descriptor;
+
+   begin
+      Success := True;
+      Return_Code := 0;
+
+      FD := Create_Output_Text_File (Output_File);
+
+      if FD = Invalid_FD then
+         Success := False;
+         return;
+      end if;
+
+      Spawn (Program_Name, Args, FD, Return_Code, Err_To_Out);
+
+      Close (FD, Success);
+   end Spawn;
+
    --------------------
    -- Spawn_Internal --
    --------------------
@@ -2114,7 +2251,7 @@ package body GNAT.OS_Lib is
    is
 
       procedure Spawn (Args : Argument_List);
-      --  Call Spawn.
+      --  Call Spawn with given argument list
 
       N_Args : Argument_List (Args'Range);
       --  Normalized arguments

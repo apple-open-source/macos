@@ -520,6 +520,7 @@ protected:
 	bool						fBadIRMsKnown;
 	
 	UInt32						fPreviousGap;
+	IONotifier *				fPowerEventNotifier;
 	
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -846,6 +847,10 @@ public:
 	void disablePhyPortOnSleepForNodeID( UInt32 nodeID );
 
 	IOReturn handleAsyncCompletion( IOFWCommand *cmd, IOReturn status );
+
+	static IOReturn systemShutDownHandler( void * target, void * refCon,
+                                    UInt32 messageType, IOService * service,
+                                    void * messageArgument, vm_size_t argSize );
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireController, 0);

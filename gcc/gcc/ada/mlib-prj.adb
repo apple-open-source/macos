@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---              Copyright (C) 2001-2004, Ada Core Technologies, Inc.        --
+--              Copyright (C) 2001-2005, Ada Core Technologies, Inc.        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -109,11 +109,11 @@ package body MLib.Prj is
       Table_Increment      => 100);
 
    package Objects_Htable is new GNAT.HTable.Simple_HTable
-     (Header_Num => Com.Header_Num,
+     (Header_Num => Header_Num,
       Element    => Boolean,
       No_Element => False,
       Key        => Name_Id,
-      Hash       => Com.Hash,
+      Hash       => Hash,
       Equal      => "=");
 
    --  List of non-Ada object files
@@ -155,42 +155,42 @@ package body MLib.Prj is
    --  All the ALI file in the library
 
    package Library_ALIs is new GNAT.HTable.Simple_HTable
-     (Header_Num => Com.Header_Num,
+     (Header_Num => Header_Num,
       Element    => Boolean,
       No_Element => False,
       Key        => Name_Id,
-      Hash       => Com.Hash,
+      Hash       => Hash,
       Equal      => "=");
 
    --  The ALI files in the interface sets
 
    package Interface_ALIs is new GNAT.HTable.Simple_HTable
-     (Header_Num => Com.Header_Num,
+     (Header_Num => Header_Num,
       Element    => Boolean,
       No_Element => False,
       Key        => Name_Id,
-      Hash       => Com.Hash,
+      Hash       => Hash,
       Equal      => "=");
 
    --  The ALI files that have been processed to check if the corresponding
    --  library unit is in the interface set.
 
    package Processed_ALIs is new GNAT.HTable.Simple_HTable
-     (Header_Num => Com.Header_Num,
+     (Header_Num => Header_Num,
       Element    => Boolean,
       No_Element => False,
       Key        => Name_Id,
-      Hash       => Com.Hash,
+      Hash       => Hash,
       Equal      => "=");
 
    --  The projects imported directly or indirectly.
 
    package Processed_Projects is new GNAT.HTable.Simple_HTable
-     (Header_Num => Com.Header_Num,
+     (Header_Num => Header_Num,
       Element    => Boolean,
       No_Element => False,
       Key        => Name_Id,
-      Hash       => Com.Hash,
+      Hash       => Hash,
       Equal      => "=");
 
    --  The library projects imported directly or indirectly.
@@ -1419,19 +1419,19 @@ package body MLib.Prj is
             Data := Projects.Table (For_Project);
 
             declare
-               Interface : String_List_Id := Data.Lib_Interface_ALIs;
-               ALI       : File_Name_Type;
+               Iface : String_List_Id := Data.Lib_Interface_ALIs;
+               ALI   : File_Name_Type;
 
             begin
-               while Interface /= Nil_String loop
-                  ALI := String_Elements.Table (Interface).Value;
+               while Iface /= Nil_String loop
+                  ALI := String_Elements.Table (Iface).Value;
                   Interface_ALIs.Set (ALI, True);
-                  Get_Name_String (String_Elements.Table (Interface).Value);
+                  Get_Name_String (String_Elements.Table (Iface).Value);
                   Add_Argument (Name_Buffer (1 .. Name_Len));
-                  Interface := String_Elements.Table (Interface).Next;
+                  Iface := String_Elements.Table (Iface).Next;
                end loop;
 
-               Interface := Data.Lib_Interface_ALIs;
+               Iface := Data.Lib_Interface_ALIs;
 
                if not Opt.Quiet_Output then
 
@@ -1439,10 +1439,10 @@ package body MLib.Prj is
                   --  library that is needed by an interface should also be an
                   --  interface. If it is not the case, output a warning.
 
-                  while Interface /= Nil_String loop
-                     ALI := String_Elements.Table (Interface).Value;
+                  while Iface /= Nil_String loop
+                     ALI := String_Elements.Table (Iface).Value;
                      Process (ALI);
-                     Interface := String_Elements.Table (Interface).Next;
+                     Iface := String_Elements.Table (Iface).Next;
                   end loop;
                end if;
             end;
@@ -1638,9 +1638,6 @@ package body MLib.Prj is
 
       Disregard : Boolean;
 
-      procedure Set_Writable (Name : System.Address);
-      pragma Import (C, Set_Writable, "__gnat_set_writable");
-
    begin
       Get_Name_String (Directory);
 
@@ -1667,8 +1664,7 @@ package body MLib.Prj is
          exit when Last = 0;
 
          if Is_Regular_File (Name (1 .. Last)) then
-            Name (Last + 1) := ASCII.NUL;
-            Set_Writable (Name (1)'Address);
+            Set_Writable (Name (1 .. Last));
             Delete_File (Name (1 .. Last), Disregard);
          end if;
       end loop;

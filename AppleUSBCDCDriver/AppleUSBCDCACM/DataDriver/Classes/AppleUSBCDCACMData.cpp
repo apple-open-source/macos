@@ -178,19 +178,6 @@ AppleUSBCDC *findCDCDriverAD(void *dataAddr, UInt8 dataInterfaceNum)
         matchingDictionary->release();
         return NULL;
     }
-
-#if 0    
-	// Use iterator to find driver (there's only one so we won't bother to iterate)
-                
-    CDCDriver = (AppleUSBCDC *)iterator->getNextObject();
-    if (CDCDriver)
-    {
-        driverOK = CDCDriver->confirmDriver(kUSBAbstractControlModel, dataInterfaceNum);
-    }
-
-    matchingDictionary->release();
-    iterator->release();
-#endif
     
     	// Iterate until we find our matching CDC driver
                 
@@ -431,7 +418,7 @@ void AppleUSBCDCACMData::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
             }
         }
         LocBuf[(llen + Asciistart) + 1] = 0x00;
-        IOLog(LocBuf);
+        IOLog("%s", LocBuf);
         IOLog("\n");
         IOSleep(Sleep_Time);					// Try and keep the log from overflowing
        
@@ -1030,10 +1017,13 @@ bool AppleUSBCDCACMData::start(IOService *provider)
 {
     OSNumber		*bufNumber = NULL;
     UInt16		bufValue = 0;
+	
+	XTRACE(this, 0, provider, "start");
     
     fSessions = 0;
     fTerminate = false;
 	fSuppressWarning = false;
+	fEnumOnWake = false;
     fStopping = false;
 	fControlDriver = NULL;
 	fWorkLoop = NULL;
@@ -1054,8 +1044,6 @@ bool AppleUSBCDCACMData::start(IOService *provider)
         return false;
     }
 #endif
-
-    XTRACE(this, 0, provider, "start - provider.");
     
     if(!super::start(provider))
     {
@@ -1077,7 +1065,7 @@ bool AppleUSBCDCACMData::start(IOService *provider)
 	fCDCDriver = findCDCDriverAD(this, fPort.DataInterfaceNumber);
     if (!fCDCDriver)
     {
-        XTRACE(this, 0, 0, "start - Find CDC driver failed");
+        ALERT(0, 0, "start - Find CDC driver failed");
         return false;
     }
     
@@ -1196,15 +1184,26 @@ bool AppleUSBCDCACMData::start(IOService *provider)
 		fResetOnClose = FALSE;
 	}
 	
-		// Check Suppress warning
+		// Check Suppress Warning
 	
 	OSBoolean *boolObj1 = OSDynamicCast(OSBoolean, provider->getProperty("SuppressWarning"));
     if (boolObj1 && boolObj1->isTrue())
     {
 		fSuppressWarning = TRUE;
-        XTRACE(this, 0, 0, "start - Suppress warning is on");
+        XTRACE(this, 0, 0, "start - Suppress Warning is on");
     } else {
 		fSuppressWarning = FALSE;
+	}
+	
+		// Check Enumerate on wake
+	
+	OSBoolean *boolObj2 = OSDynamicCast(OSBoolean, provider->getProperty("EnumerateOnWake"));
+    if (boolObj2 && boolObj2->isTrue())
+    {
+		fEnumOnWake = TRUE;
+        XTRACE(this, 0, 0, "start - Enumerate on wake is on");
+    } else {
+		fEnumOnWake = FALSE;
 	}
 	
     if (!createSerialStream())					// Publish SerialStream services
@@ -1229,6 +1228,7 @@ bool AppleUSBCDCACMData::start(IOService *provider)
     {
         getPMRootDomain()->publishFeature("WakeOnRing");
 		setWakeFeature();
+		XTRACE(this, 0, 0, "start - Remote wake up is supported");
 	} else {
         XTRACE(this, 0, 0, "start - Remote wake up not supported");
     }
@@ -1424,6 +1424,7 @@ bool AppleUSBCDCACMData::createSerialStream()
     XTRACE(this, 0, pNub, "createSerialStream");
     if (!pNub)
     {
+		XTRACE(this, 0, pNub, "createSerialStream - Could not create serial stream");
         return false;
     }
 		
@@ -3018,21 +3019,39 @@ void AppleUSBCDCACMData::startTransmission()
     size_t	count;
     IOReturn	ior;
     UInt16	indx;
+	bool	gotBuffer = false;
     
     XTRACE(this, 0, 0, "startTransmission");
 
-        // Fill up a buffer with data from the queue
-        
-    indx = fPort.outPoolIndex++;
-    if (fPort.outPoolIndex >= fOutBufPool)
-    {
-        fPort.outPoolIndex = 0;
-    }
-    if (!fPort.outPool[indx].avail)
-    {
-        XTRACE(this, fOutBufPool, indx, "startTransmission - Output buffer unavailable");
+        // Get an output buffer
+	
+	indx = fPort.outPoolIndex;
+	if (!fPort.outPool[indx].avail)
+	{
+		for (indx=0; indx<fPort.outPoolIndex; indx++)
+		{
+			if (fPort.outPool[indx].avail)
+			{
+				fPort.outPoolIndex = indx;
+				gotBuffer = true;
+				break;
+			}
+		}
+	} else {
+		gotBuffer = true;
+	}
+	if (gotBuffer)
+	{
+		fPort.outPool[indx].avail = false;
+		fPort.outPoolIndex++;
+		if (fPort.outPoolIndex >= fOutBufPool)
+		{
+			fPort.outPoolIndex = 0;
+		}
+	} else {
+		XTRACE(this, fOutBufPool, indx, "startTransmission - Output buffer unavailable");
         return;
-    }
+	}
 
         // Fill up the buffer with characters from the queue
 		
@@ -3045,6 +3064,7 @@ void AppleUSBCDCACMData::startTransmission()
             // Updates all the status flags:
 			
         CheckQueues();
+		fPort.outPool[indx].avail = true;
         return;
     }
     
@@ -3054,7 +3074,6 @@ void AppleUSBCDCACMData::startTransmission()
     LogData(kDataOut, count, fPort.outPool[indx].pipeBuffer);
     	
     fPort.outPool[indx].count = count;
-    fPort.outPool[indx].avail = false;
     fPort.outPool[indx].completionInfo.parameter = (void *)&fPort.outPool[indx];
     fPort.outPool[indx].pipeMDP->setLength(count);
     
@@ -3691,17 +3710,17 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
 				{
 					if (!fTerminate)		// Check if we're already being terminated
 					{ 
-				// NOTE! This call below depends on the hard coded path of this KEXT. Make sure
-				// that if the KEXT moves, this path is changed!
-				KUNCUserNotificationDisplayNotice(
-				10,		// Timeout in seconds
-				0,		// Flags (for later usage)
-				"",		// iconPath (not supported yet)
-				"",		// soundPath (not supported yet)
-				"/System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCACMData.kext",		// localizationPath
-				"Unplug Header",		// the header
-				"Unplug Notice",		// the notice - look in Localizable.strings
-				"OK"); 
+							// NOTE! This call below depends on the hard coded path of this KEXT. Make sure
+							// that if the KEXT moves, this path is changed!
+						KUNCUserNotificationDisplayNotice(
+						10,		// Timeout in seconds
+						0,		// Flags (for later usage)
+						"",		// iconPath (not supported yet)
+						"",		// soundPath (not supported yet)
+						"/System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCACMData.kext",		// localizationPath
+						"Unplug Header",		// the header
+						"Unplug Notice",		// the notice - look in Localizable.strings
+						"OK"); 
 					}
 				}
 			}

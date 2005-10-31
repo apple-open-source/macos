@@ -28,6 +28,7 @@
 #include "reference.h"
 #include "value.h"
 #include "protected_values.h"
+#include "interpreter.h"
 
 namespace KJS {
 
@@ -57,25 +58,41 @@ namespace KJS {
     
     class ProtectedValue : public Value {
     public:
-      ProtectedValue() : Value() {}
-      ProtectedValue(const Value&v)  : Value(v) { gcProtectNullTolerant(v.imp()); };
-      ProtectedValue(const ProtectedValue&v)  : Value(v) { gcProtectNullTolerant(v.imp()); };
-      ~ProtectedValue() { gcUnprotectNullTolerant(imp());}
-      ProtectedValue& operator=(const Value &v)
+        ProtectedValue() : Value() {}
+        ProtectedValue(const Value&v) 
+            : Value(v) 
+        {
+            InterpreterLock lock;
+            gcProtectNullTolerant(v.imp()); 
+        }
+        ProtectedValue(const ProtectedValue&v)  
+            : Value(v)
+        {
+            InterpreterLock lock;
+            gcProtectNullTolerant(v.imp()); 
+        }
+        ~ProtectedValue() 
+        {
+            InterpreterLock lock;
+            gcUnprotectNullTolerant(imp());
+        }
+        ProtectedValue& operator=(const Value &v)
 	{ 
-	  ValueImp *old = imp();
-	  Value::operator=(v); 
-	  gcProtectNullTolerant(v.imp());
-	  gcUnprotectNullTolerant(old); 
-	  return *this;
+            InterpreterLock lock;
+            ValueImp *old = imp();
+            Value::operator=(v); 
+            gcProtectNullTolerant(v.imp());
+            gcUnprotectNullTolerant(old); 
+            return *this;
 	}
-      ProtectedValue& operator=(const ProtectedValue &v)
+        ProtectedValue& operator=(const ProtectedValue &v)
 	{ 
-	  ValueImp *old = imp();
-	  Value::operator=(v); 
-	  gcProtectNullTolerant(v.imp());
-	  gcUnprotectNullTolerant(old); 
-	  return *this;
+            InterpreterLock lock;
+            ValueImp *old = imp();
+            Value::operator=(v); 
+            gcProtectNullTolerant(v.imp());
+            gcUnprotectNullTolerant(old); 
+            return *this;
 	}
     private:
       explicit ProtectedValue(ValueImp *v);
@@ -84,25 +101,45 @@ namespace KJS {
 
     class ProtectedObject : public Object {
     public:
-      ProtectedObject() : Object() {}
-      ProtectedObject(const Object &o)  : Object(o) { gcProtectNullTolerant(o.imp()); };
-      ProtectedObject(const ProtectedObject &o)  : Object(o) { gcProtectNullTolerant(o.imp()); };
-      ~ProtectedObject() { gcUnprotectNullTolerant(imp());}
-      ProtectedObject& operator=(const Object &o)
+        ProtectedObject() : Object() {}
+        ProtectedObject(const Object &o)
+            : Object(o)
+        {
+            InterpreterLock lock;
+            gcProtectNullTolerant(o.imp()); 
+        }
+
+        ProtectedObject(const ProtectedObject &o) 
+          : Object(o) 
+        {
+            InterpreterLock lock;
+            gcProtectNullTolerant(o.imp()); 
+        }
+
+        ~ProtectedObject()
+        { 
+            InterpreterLock lock;
+            gcUnprotectNullTolerant(imp());
+        }
+
+        ProtectedObject& operator=(const Object &o)
 	{ 
-	  ValueImp *old = imp();
-	  Object::operator=(o); 
-	  gcProtectNullTolerant(o.imp());
-	  gcUnprotectNullTolerant(old); 
-	  return *this;
+            InterpreterLock lock;
+            ValueImp *old = imp();
+            Object::operator=(o); 
+            gcProtectNullTolerant(o.imp());
+            gcUnprotectNullTolerant(old); 
+            return *this;
 	}
-      ProtectedObject& operator=(const ProtectedObject &o)
+
+        ProtectedObject& operator=(const ProtectedObject &o)
 	{ 
-	  ValueImp *old = imp();
-	  Object::operator=(o); 
-	  gcProtectNullTolerant(o.imp());
-	  gcUnprotectNullTolerant(old); 
-	  return *this;
+            InterpreterLock lock;
+            ValueImp *old = imp();
+            Object::operator=(o); 
+            gcProtectNullTolerant(o.imp());
+            gcUnprotectNullTolerant(old); 
+            return *this;
 	}
     private:
       explicit ProtectedObject(ObjectImp *o);
@@ -111,16 +148,29 @@ namespace KJS {
 
     class ProtectedReference : public Reference {
     public:
-      ProtectedReference(const Reference&r)  : Reference(r) { gcProtectNullTolerant(r.base.imp()); };
-      ~ProtectedReference() { gcUnprotectNullTolerant(base.imp());}
-      ProtectedReference& operator=(const Reference &r)
+        ProtectedReference(const Reference&r)
+            : Reference(r) 
+        {
+            InterpreterLock lock;
+            gcProtectNullTolerant(r.base.imp()); 
+        }
+
+        ~ProtectedReference() 
+        { 
+            InterpreterLock lock;
+            gcUnprotectNullTolerant(base.imp());
+        }
+
+        ProtectedReference& operator=(const Reference &r)
 	{ 
-	  ValueImp *old = base.imp();
-	  Reference::operator=(r); 
-	  gcProtectNullTolerant(r.base.imp());
-	  gcUnprotectNullTolerant(old); 
-	  return *this;
+            InterpreterLock lock;
+            ValueImp *old = base.imp();
+            Reference::operator=(r); 
+            gcProtectNullTolerant(r.base.imp());
+            gcUnprotectNullTolerant(old); 
+            return *this;
 	}
+
     private:
       ProtectedReference();
       ProtectedReference(const Object& b, const Identifier& p);

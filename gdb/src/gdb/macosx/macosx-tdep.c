@@ -291,6 +291,44 @@ dyld_symbol_stub_function_name (CORE_ADDR pc)
   return SYMBOL_LINKAGE_NAME (msymbol) + strlen (DYLD_PREFIX);
 }
 
+CORE_ADDR
+macosx_skip_trampoline_code (CORE_ADDR pc)
+{
+  CORE_ADDR newpc;
+
+  newpc = dyld_symbol_stub_function_address (pc, NULL);
+  if (newpc != 0)
+    return newpc;
+
+  newpc = decode_fix_and_continue_trampoline (pc);
+  if (newpc != 0)
+    return newpc;
+
+  return 0;
+}
+
+CORE_ADDR
+macosx_dynamic_trampoline_nextpc (CORE_ADDR pc)
+{
+  return dyld_symbol_stub_function_address (pc, NULL);
+}
+
+int
+macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name)
+{
+  return 0;
+}
+
+int
+macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name)
+{
+  if (macosx_skip_trampoline_code (pc) != 0)
+    {
+      return 1;
+    }
+  return 0;
+}
+
 static void
 info_trampoline_command (char *exp, int from_tty)
 {
@@ -310,13 +348,7 @@ info_trampoline_command (char *exp, int from_tty)
   else
     address = value_as_address (val);
 
-#if defined (TARGET_POWERPC)
-  trampoline = ppc_macosx_skip_trampoline_code (address);
-#elif defined (TARGET_I386)
-  trampoline = i386_macosx_skip_trampoline_code (address);
-#else
-#error unknown architecture
-#endif
+  trampoline = macosx_skip_trampoline_code (address);
 
   find_objc_msgcall (trampoline, &objc);
 

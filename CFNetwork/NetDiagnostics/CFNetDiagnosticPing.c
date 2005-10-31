@@ -527,7 +527,7 @@ static int WaitAndPrintICMPs(int socketConnectionToHost, int TimeoutInSeconds, i
     const int kBufferSize = 2048; //size we allocate for the reply buffer.
     char pingReplyBuffer[kBufferSize];
     struct sockaddr_in remoteHost;
-    int sizeOfRemoteHost = (int) sizeof(remoteHost);
+    socklen_t sizeOfRemoteHost = (int) sizeof(remoteHost);
     ssize_t numberOfBytesReceived; 
 
     struct ip* packetInterpetedAsIPPacket;

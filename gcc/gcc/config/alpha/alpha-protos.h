@@ -1,5 +1,5 @@
 /* Prototypes for alpha.c functions used in the md file & elsewhere.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -42,6 +42,7 @@ extern bool alpha_extra_constraint (rtx, int);
 extern rtx alpha_tablejump_addr_vec (rtx);
 extern rtx alpha_tablejump_best_label (rtx);
 
+extern bool alpha_legitimate_constant_p (rtx);
 extern bool alpha_legitimate_address_p (enum machine_mode, rtx, int);
 extern rtx alpha_legitimize_address (rtx, rtx, enum machine_mode);
 extern rtx alpha_legitimize_reload_address (rtx, enum machine_mode,
@@ -56,10 +57,10 @@ extern enum reg_class secondary_reload_class (enum reg_class,
 					      enum machine_mode, rtx, int);
 
 extern void alpha_set_memflags (rtx, rtx);
-extern rtx alpha_emit_set_const (rtx, enum machine_mode, HOST_WIDE_INT, int);
-extern rtx alpha_emit_set_long_const (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
+extern bool alpha_split_const_mov (enum machine_mode, rtx *);
 extern bool alpha_expand_mov (enum machine_mode, rtx *);
 extern bool alpha_expand_mov_nobwx (enum machine_mode, rtx *);
+extern void alpha_expand_movmisalign (enum machine_mode, rtx *);
 extern void alpha_emit_floatuns (rtx[]);
 extern rtx alpha_emit_conditional_move (rtx, enum machine_mode);
 extern void alpha_split_tfmode_pair (rtx[]);

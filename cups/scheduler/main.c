@@ -1,5 +1,5 @@
 /*
- * "$Id: main.c,v 1.40 2005/03/10 00:24:06 jlovell Exp $"
+ * "$Id: main.c,v 1.40.2.2 2005/07/27 21:58:45 jlovell Exp $"
  *
  *   Scheduler main loop for the Common UNIX Printing System (CUPS).
  *
@@ -115,8 +115,6 @@ main(int  argc,				/* I - Number of command-line arguments */
   char			*opt;		/* Option character */
   int			fg;		/* Run in the foreground */
   int			fds;		/* Number of ready descriptors select returns */
-  fd_set		*input,		/* Input set for select() */
-			*output;	/* Output set for select() */
   client_t		*con,		/* Current client */
 			*next_con;	/* Next client */
   job_t			*job,		/* Current job */
@@ -353,10 +351,10 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   InputSet  = (fd_set *)calloc(1, SetSize);
   OutputSet = (fd_set *)calloc(1, SetSize);
-  input     = (fd_set *)calloc(1, SetSize);
-  output    = (fd_set *)calloc(1, SetSize);
+  InputFds  = (fd_set *)calloc(1, SetSize);
+  OutputFds = (fd_set *)calloc(1, SetSize);
 
-  if (InputSet == NULL || OutputSet == NULL || input == NULL || output == NULL)
+  if (InputSet == NULL || OutputSet == NULL || InputFds == NULL || OutputFds == NULL)
   {
     syslog(LOG_LPR, "Unable to allocate memory for select() sets - exiting!");
     return (1);
@@ -590,13 +588,13 @@ main(int  argc,				/* I - Number of command-line arguments */
     * times.
     */
 
-    memcpy(input, InputSet, SetSize);
-    memcpy(output, OutputSet, SetSize);
+    memcpy(InputFds, InputSet, SetSize);
+    memcpy(OutputFds, OutputSet, SetSize);
 
     timeout.tv_sec  = select_timeout(fds);
     timeout.tv_usec = 0;
 
-    if ((fds = select(MaxFDs, input, output, NULL, &timeout)) < 0)
+    if ((fds = select(MaxFDs, InputFds, OutputFds, NULL, &timeout)) < 0)
     {
       char	s[16384],	/* String buffer */
 		*sptr;		/* Pointer into buffer */
@@ -673,7 +671,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     }
 
     for (i = NumListeners, lis = Listeners; i > 0; i --, lis ++)
-      if (FD_ISSET(lis->fd, input))
+      if (FD_ISSET(lis->fd, InputFds))
         AcceptClient(lis);
 
     for (con = Clients; con != NULL; con = next_con)
@@ -684,7 +682,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       * Process the input buffer...
       */
 
-      if (FD_ISSET(con->http.fd, input) || con->http.used)
+      if (FD_ISSET(con->http.fd, InputFds) || con->http.used)
         if (!ReadClient(con))
 	  continue;
 
@@ -692,7 +690,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       * Write data as needed...
       */
 
-      if (con->pipe_pid && FD_ISSET(con->file, input))
+      if (con->pipe_pid && FD_ISSET(con->file, InputFds))
       {
        /*
         * Keep track of pending input from the file/pipe separately
@@ -706,14 +704,15 @@ main(int  argc,				/* I - Number of command-line arguments */
         LogMessage(L_DEBUG2, "main: Data ready file %d!", con->file);
 #endif /* DEBUG */
 
-	if (!FD_ISSET(con->http.fd, output))
+	if (!FD_ISSET(con->http.fd, OutputFds))
 	{
 	  LogMessage(L_DEBUG2, "main: Removing fd %d from InputSet...", con->file);
+	  FD_CLR(con->file, InputFds);
 	  FD_CLR(con->file, InputSet);
 	}
       }
 
-      if (FD_ISSET(con->http.fd, output) &&
+      if (FD_ISSET(con->http.fd, OutputFds) &&
           (!con->pipe_pid || con->file_ready))
         if (!WriteClient(con))
 	  continue;
@@ -741,15 +740,8 @@ main(int  argc,				/* I - Number of command-line arguments */
     {
       next = job->next;
 
-      if (job->pipe >= 0 && FD_ISSET(job->pipe, input))
+      if (job->pipe >= 0 && FD_ISSET(job->pipe, InputFds))
       {
-       /*
-        * Clear the input bit to avoid updating the next job
-	* using the same status pipe file descriptor...
-	*/
-
-        FD_CLR(job->pipe, input);
-
        /*
         * Read any status messages from the filters...
 	*/
@@ -762,7 +754,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     * Update CGI messages as needed...
     */
 
-    if (CGIPipes[0] >= 0 && FD_ISSET(CGIPipes[0], input))
+    if (CGIPipes[0] >= 0 && FD_ISSET(CGIPipes[0], InputFds))
       UpdateCGI();
 
 
@@ -771,7 +763,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     * Handle system events as needed...
     */
 
-    if (SysEventPipes[0] >= 0 && FD_ISSET(SysEventPipes[0], input))
+    if (SysEventPipes[0] >= 0 && FD_ISSET(SysEventPipes[0], InputFds))
       UpdateSysEventMonitor();
 #endif	/* __APPLE__ */
 
@@ -782,10 +774,10 @@ main(int  argc,				/* I - Number of command-line arguments */
 
     if (Browsing && BrowseRemoteProtocols)
     {
-      if (BrowseSocket >= 0 && FD_ISSET(BrowseSocket, input))
+      if (BrowseSocket >= 0 && FD_ISSET(BrowseSocket, InputFds))
         UpdateCUPSBrowse();
 
-      if (PollPipe >= 0 && FD_ISSET(PollPipe, input))
+      if (PollPipe >= 0 && FD_ISSET(PollPipe, InputFds))
         UpdatePolling();
 
 #ifdef HAVE_LIBSLP
@@ -794,12 +786,13 @@ main(int  argc,				/* I - Number of command-line arguments */
 #endif /* HAVE_LIBSLP */
 
 #ifdef HAVE_DNSSD
-      if (BrowseDNSSDRef && FD_ISSET(BrowseDNSSDfd, input))
+      if (BrowseDNSSDRef && FD_ISSET(BrowseDNSSDfd, InputFds))
       {
 	if ((sdErr = DNSServiceProcessResult(BrowseDNSSDRef)) != kDNSServiceErr_NoError)
 	{
 	  LogMessage(L_ERROR, "DNS Service Discovery browsing error %d; removing fd %d from InputSet...",
 			sdErr, BrowseDNSSDfd);
+	  FD_CLR(BrowseDNSSDfd, InputFds);
 	  FD_CLR(BrowseDNSSDfd, InputSet);
 	  DNSServiceRefDeallocate(BrowseDNSSDRef);
 	  BrowseDNSSDRef = NULL;
@@ -811,12 +804,13 @@ main(int  argc,				/* I - Number of command-line arguments */
       {
         nextDNSSDResolve = dnssdResolve->next;
 
-	if (dnssdResolve->sdRef && FD_ISSET(dnssdResolve->fd, input))
+	if (dnssdResolve->sdRef && FD_ISSET(dnssdResolve->fd, InputFds))
 	{
 	  if ((sdErr = DNSServiceProcessResult(dnssdResolve->sdRef)) != kDNSServiceErr_NoError)
 	  {
 	    LogMessage(L_ERROR, "DNS Service Discovery resolving error %d; removing fd %d from InputSet...",
 			sdErr, dnssdResolve->fd);
+	    FD_CLR(dnssdResolve->fd, InputFds);
 	    FD_CLR(dnssdResolve->fd, InputSet);
 	    DNSServiceRefDeallocate(dnssdResolve->sdRef);
 	    dnssdResolve->sdRef = NULL;
@@ -829,12 +823,13 @@ main(int  argc,				/* I - Number of command-line arguments */
 
       for (p = Printers; p != NULL; p = p->next)
       {
-	if (p->dnssd_ipp_ref && FD_ISSET(p->dnssd_ipp_fd, input))
+	if (p->dnssd_ipp_ref && FD_ISSET(p->dnssd_ipp_fd, InputFds))
 	{
 	  if ((sdErr = DNSServiceProcessResult(p->dnssd_ipp_ref)) != kDNSServiceErr_NoError)
 	  {
 	    LogMessage(L_ERROR, "DNS Service Discovery IPP registration error %d; removing fd %d from InputSet...",
 			sdErr, p->dnssd_ipp_fd);
+	    FD_CLR(p->dnssd_ipp_fd, InputFds);
 	    FD_CLR(p->dnssd_ipp_fd, InputSet);
 	    DNSServiceRefDeallocate(p->dnssd_ipp_ref);
 	    p->dnssd_ipp_ref = NULL;
@@ -842,12 +837,13 @@ main(int  argc,				/* I - Number of command-line arguments */
 	  }
 	}
 
-	if (p->dnssd_query_ref && FD_ISSET(p->dnssd_query_fd, input))
+	if (p->dnssd_query_ref && FD_ISSET(p->dnssd_query_fd, InputFds))
 	{
 	  if ((sdErr = DNSServiceProcessResult(p->dnssd_query_ref)) != kDNSServiceErr_NoError)
 	  {
 	    LogMessage(L_ERROR, "DNS Service Discovery query error %d; removing fd %d from InputSet...",
 			sdErr, p->dnssd_query_fd);
+	    FD_CLR(p->dnssd_query_fd, InputFds);
 	    FD_CLR(p->dnssd_query_fd, InputSet);
 	    DNSServiceRefDeallocate(p->dnssd_query_ref);
 	    p->dnssd_query_ref = NULL;
@@ -986,8 +982,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   free(InputSet);
   free(OutputSet);
-  free(input);
-  free(output);
+  free(InputFds);
+  free(OutputFds);
 
   return (!stop_scheduler);
 }
@@ -1350,21 +1346,25 @@ process_children(void)
 
 	   /*
 	    * Set the printer's state_message so user's have a clue what happened...
+	    * (unless it's fax, which sets it's own printer-state-message)
 	    */
 
-	    if ((filter = basename(job->filters[i])) == NULL)
-	      filter = "";
+	    if ( !(job->printer->type & CUPS_PRINTER_FAX))
+	    {
+	      if ((filter = basename(job->filters[i])) == NULL)
+		filter = "";
 
-	    if (WIFSIGNALED(status))
-	      snprintf(job->printer->state_message, sizeof(job->printer->state_message), 
-			"The process \"%s\" terminated unexpectedly on signal %d", 
-			filter, WTERMSIG(status));
-	    else
-	      snprintf(job->printer->state_message, sizeof(job->printer->state_message),
-			"The process \"%s\" stopped unexpectedly with status %d", 
-			filter, WEXITSTATUS(status));
+	      if (WIFSIGNALED(status))
+		snprintf(job->printer->state_message, sizeof(job->printer->state_message), 
+			 "The process \"%s\" terminated unexpectedly on signal %d", 
+			 filter, WTERMSIG(status));
+	      else
+		snprintf(job->printer->state_message, sizeof(job->printer->state_message),
+			 "The process \"%s\" stopped unexpectedly with status %d", 
+			 filter, WEXITSTATUS(status));
 
-	    AddPrinterHistory(job->printer);
+	      AddPrinterHistory(job->printer);
+	    }
 	  }
 	  break;
 	}
@@ -1754,5 +1754,5 @@ static kern_return_t destroyBootstrapService()
 #endif	/* __APPLE__ */
 
 /*
- * End of "$Id: main.c,v 1.40 2005/03/10 00:24:06 jlovell Exp $".
+ * End of "$Id: main.c,v 1.40.2.2 2005/07/27 21:58:45 jlovell Exp $".
  */

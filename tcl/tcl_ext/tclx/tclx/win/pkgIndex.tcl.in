@@ -1,8 +1,0 @@
-# Tcl package index file, version 1.0
-# 
-# Package index for TclX @TCLX_FULL_VERSION@.
-#
-if {[info tclversion] < @TCL_VERSION@} return
-package ifneeded Tclx @TCLX_VERSION@ "load [list $dir/../@TCLX_SHLIB_NAME@]"
-
-

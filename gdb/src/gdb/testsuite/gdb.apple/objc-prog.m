@@ -84,6 +84,8 @@ int main (int argc, const char * argv[]) {
     NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];  // First line in main ()
     id object = [MyClass newWithArg:@"hi there"];    
 
+    NSString *a = @"hi there";
+
     [object randomFunc];
 
     [object release];

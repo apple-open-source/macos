@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Language-dependent hooks for Objective-C++.
    Copyright 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
@@ -49,14 +49,12 @@ enum c_language_kind c_language = clk_objcxx;
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	objc_printable_name
 #undef LANG_HOOKS_TYPES_COMPATIBLE_P
 #define LANG_HOOKS_TYPES_COMPATIBLE_P objc_types_compatible_p
-/* APPLE LOCAL begin Radar 4015820 FSF candidate */
+/* APPLE LOCAL begin mainline */
 #undef LANG_HOOKS_GIMPLIFY_EXPR 
 #define LANG_HOOKS_GIMPLIFY_EXPR objc_gimplify_expr
-/* APPLE LOCAL end Radar 4105820 FSF candidate */
-/* APPLE LOCAL begin Radar 3926484 FSF candidate */
+/* APPLE LOCAL end mainline */
 #undef LANG_HOOKS_GET_CALLEE_FNDECL
 #define LANG_HOOKS_GET_CALLEE_FNDECL	objc_get_callee_fndecl
-/* APPLE LOCAL end Radar 3926484 FSF candidate */
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

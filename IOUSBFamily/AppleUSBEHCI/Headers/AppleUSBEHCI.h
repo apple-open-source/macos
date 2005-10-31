@@ -41,10 +41,22 @@
 #define MICROSECOND		(1)
 #define MILLISECOND		(1000)
 
+/* Convert USBLog to use kprintf debugging */
+#define EHCI_USE_KPRINTF 0
+
+#if EHCI_USE_KPRINTF
+#undef USBLog
+#undef USBError
+void kprintf(const char *format, ...)
+__attribute__((format(printf, 1, 2)));
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 4) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#endif
+
 #ifdef __ppc__
 #define IOSync eieio
 #else
-#define IOSync()
+#define IOSync() __asm__ __volatile__ ( "mfence" : : : "memory" )
 #endif
 
 extern "C" {
@@ -122,6 +134,10 @@ enum
 	kUSBEHCIMaxSSOUTsection = 188					// this is the amount that will be sent by the HC in each SS OUT chunk
 };
 
+enum{
+	kMaxPorts = 16
+};
+
 
 // this is an internal "endpoint" data sructure used to track bandwidth and other
 // issues in Isoch connections. It has no "shared" counterpart in the hardware
@@ -136,7 +152,12 @@ struct AppleEHCIIsochEndpointStruct {
     UInt64								firstAvailableFrame;		// next frame available for a transfer on this EP
     UInt32								maxPacketSize;
     UInt32								activeTDs;					// + when added to todo list, - when taken from done queue
+    UInt32								onToDoList;					// + when added to todo list, - when taken from done queue
+    UInt32								onDoneQueue;					// + when added to todo list, - when taken from done queue
 	UInt32								scheduledTDs;				// + when linked onto periodic list, - when unlinked
+	UInt32								deferredTDs;
+	UInt32								onProducerQ;
+	UInt32								onReversedList;
     IOReturn							accumulatedStatus;
 	AppleUSBEHCIHubInfo					*hiPtr;						// pointer to the Transaction Translator (for Split EP)
     UInt16								inSlot;						// where Isoc TDs are being put in the periodic list 
@@ -152,6 +173,7 @@ struct AppleEHCIIsochEndpointStruct {
 	UInt8								startSplitFlags;
 	UInt8								completeSplitFlags;
 	bool								useBackPtr;
+	bool								aborting;
 };
 
 
@@ -163,10 +185,13 @@ private:
     unsigned long maxCapabilityForDomainState ( IOPMPowerFlags domainState );
     unsigned long initialPowerStateForDomainState ( IOPMPowerFlags domainState );
     virtual IOReturn setPowerState( unsigned long, IOService* );
+    static IOReturn 	PowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service,
+                                         void *messageArgument, vm_size_t argSize);
+    
 	
     void showRegisters(char *s);
-    void printTD(EHCIGeneralTransferDescriptorPtr		pTD);
-    void printAsyncQueue(void);
+    void printTD(EHCIGeneralTransferDescriptorPtr pTD, int level);
+    void printAsyncQueue(int level);
     
     void AddIsocFramesToSchedule(AppleEHCIIsochEndpointPtr);
     void ReturnIsocDoneQueue(AppleEHCIIsochEndpointPtr);
@@ -216,6 +241,7 @@ protected:
     volatile UInt32							_consumerCount;						// Counter used to synchronize reading of the done queue between filter (producer) and action (consumer)
     volatile bool							_filterInterruptActive;				// in the filter interrupt routine
     IOSimpleLock *							_wdhLock;
+    IOSimpleLock *							_isochScheduleLock;
     UInt32									_asyncAdvanceInterrupt;
     UInt32									_hostErrorInterrupt;
     UInt32									_portChangeInterrupt;
@@ -231,6 +257,8 @@ protected:
     bool									_sleepRegistersSaved;
     bool									_hasPCIPwrMgmt;
     bool									_ehciAvailable;
+	bool									_is64bit;
+	bool									_inAbortIsochEP;
     UInt32									_isochBandwidthAvail;					// amount of available bandwidth for Isochronous transfers
     UInt32									_periodicEDsInSchedule;
     UInt64									_frameNumber;							// the current frame number
@@ -258,7 +286,10 @@ protected:
 	
     AbsoluteTime							_lastCheckedTime;						// Last time we checked the Root Hub for inactivity
     thread_call_t							_processDoneQueueThread;
-	
+	UInt32									_rhPrevStatus[kMaxPorts];				// Previous status of the root hub SC registers
+	UInt32									_rhChangeBits[kMaxPorts];				// Change bits of the root hub
+    IONotifier *                            _powerDownNotifier;
+	bool									_needToCreateRootHub;					// True if we need to create the root hub post wake
 	
     // methods
     
@@ -355,11 +386,13 @@ protected:
     IOReturn			PlacePortInMode(UInt32 port, UInt32 mode);
     IOReturn			LeaveTestMode(void);
 	
-    void			ResumeUSBBus();
-    void			SuspendUSBBus();
-    void			StopUSBBus();
-    void			RestartUSBBus();
+    void				ResumeUSBBus();
+    void				SuspendUSBBus();
+    void				StopUSBBus();
+    void				RestartUSBBus();
 	
+    IOReturn			AcquireOSOwnership(void);
+
     AppleEHCIIsochEndpointPtr	FindIsochronousEndpoint(short functionNumber, short endpointNumber, short direction, AppleEHCIIsochEndpointPtr *pEDBack);
     AppleEHCIIsochEndpointPtr	CreateIsochronousEndpoint(short functionNumber, short endpointNumber, short direction, USBDeviceAddress highSpeedHub, int highSpeedPort);
 	

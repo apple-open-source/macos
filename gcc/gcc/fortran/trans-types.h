@@ -92,4 +92,11 @@ int gfc_return_by_reference (gfc_symbol *);
 /* Returns true if the array sym does not require a descriptor.  */
 int gfc_is_nodesc_array (gfc_symbol *);
 
+/* Return the DTYPE for an array.  */
+tree gfc_get_dtype (tree);
+/* APPLE LOCAL begin AltiVec */
+tree build_stmt (enum tree_code code ATTRIBUTE_UNUSED, ...);
+void store_init_value (tree decl ATTRIBUTE_UNUSED, tree init ATTRIBUTE_UNUSED);
+/* APPLE LOCAL end AltiVec */
+
 #endif

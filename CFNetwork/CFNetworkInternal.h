@@ -67,7 +67,7 @@ CF_EXPORT void CFLog(int p, CFStringRef str, ...);
 #define __CFBitClear(V, N)  ((V) &= ~(1UL << (N)))
 
 #ifdef __CONSTANT_CFSTRINGS__
-#define CONST_STRING_DECL(S, V) const CFStringRef S = __builtin___CFStringMakeConstantString(V);
+#define CONST_STRING_DECL(S, V) const CFStringRef S = (const CFStringRef)__builtin___CFStringMakeConstantString(V);
 #else
 
 /* Hack: we take a copy of this from CFInternal.h. */

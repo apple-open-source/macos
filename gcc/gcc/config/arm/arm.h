@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -26,7 +26,7 @@
 #ifndef GCC_ARM_H
 #define GCC_ARM_H
 
-/* The archetecture define.  */
+/* The architecture define.  */
 extern char arm_arch_name[];
 
 /* Target CPU builtins.  */
@@ -125,6 +125,8 @@ extern const char *target_fpu_name;
 extern const char *target_fpe_name;
 /* Whether to use floating point hardware.  */
 extern const char *target_float_abi_name;
+/* For -m{soft,hard}-float.  */
+extern const char *target_float_switch;
 /* Which ABI to use.  */
 extern const char *target_abi_name;
 /* Define the information needed to generate branch insns.  This is
@@ -212,9 +214,7 @@ extern GTY(()) rtx aof_pic_label;
 #define ARM_FLAG_APCS_REENT	(1 << 6)
 
   /* FLAG 0x0080 now spare (used to be alignment traps).  */
-/* Nonzero if all floating point instructions are missing (and there is no
-   emulator either).  Generate function calls for all ops in this case.  */
-#define ARM_FLAG_SOFT_FLOAT	(1 << 8)
+  /* FLAG (1 << 8) is now spare (used to be soft-float).  */
 
 /* Nonzero if we should compile with BYTES_BIG_ENDIAN set to 1.  */
 #define ARM_FLAG_BIG_END	(1 << 9)
@@ -329,10 +329,6 @@ extern GTY(()) rtx aof_pic_label;
   {"apcs-reentrant",		ARM_FLAG_APCS_REENT,			\
    N_("Generate re-entrant, PIC code") },				\
   {"no-apcs-reentrant",	       -ARM_FLAG_APCS_REENT, "" },		\
-  {"soft-float",		ARM_FLAG_SOFT_FLOAT,			\
-   N_("Use library calls to perform FP operations") },			\
-  {"hard-float",	       -ARM_FLAG_SOFT_FLOAT,			\
-   N_("Use hardware floating point instructions") },			\
   {"big-endian",		ARM_FLAG_BIG_END,			\
    N_("Assume target CPU is configured as big endian") },		\
   {"little-endian",	       -ARM_FLAG_BIG_END,			\
@@ -397,7 +393,11 @@ extern GTY(()) rtx aof_pic_label;
    N_("Specify the minimum bit alignment of structures"), 0},		\
   {"pic-register=", & arm_pic_register_string,				\
    N_("Specify the register to be used for PIC addressing"), 0},	\
-  {"abi=", &target_abi_name, N_("Specify an ABI"), 0}			\
+  {"abi=", &target_abi_name, N_("Specify an ABI"), 0},			\
+  {"soft-float", &target_float_switch,					\
+   N_("Alias for -mfloat-abi=soft"), "s"},				\
+  {"hard-float", &target_float_switch,					\
+   N_("Alias for -mfloat-abi=hard"), "h"}				\
 }
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
@@ -480,6 +480,10 @@ enum float_abi_type
 };
 
 extern enum float_abi_type arm_float_abi;
+
+#ifndef TARGET_DEFAULT_FLOAT_ABI
+#define TARGET_DEFAULT_FLOAT_ABI ARM_FLOAT_ABI_SOFT
+#endif
 
 /* Which ABI to use.  */
 enum arm_abi_type
@@ -896,7 +900,7 @@ extern const char * structure_size_string;
          scratch registers.  */					\
       for (regno = FIRST_IWMMXT_GR_REGNUM;			\
 	   regno <= LAST_IWMMXT_GR_REGNUM; ++ regno)		\
-	fixed_regs[regno] = call_used_regs[regno] = 0;		\
+	fixed_regs[regno] = 0;					\
       /* The XScale ABI has wR0 - wR9 as scratch registers,     \
 	 the rest as call-preserved registers.  */		\
       for (regno = FIRST_IWMMXT_REGNUM;				\
@@ -1305,27 +1309,39 @@ enum reg_class
    `S' means any symbol that has the SYMBOL_REF_FLAG set or a CONSTANT_POOL
    address.  This means that the symbol is in the text segment and can be
    accessed without using a load.
+   'D' Prefixes a number of const_double operands where:
+   'Da' is a constant that takes two ARM insns to load.
+   'Db' takes three ARM insns.
+   'Dc' takes four ARM insns, if we allow that in this compilation.
    'U' Prefixes an extended memory constraint where:
    'Uv' is an address valid for VFP load/store insns.
    'Uy' is an address valid for iwmmxt load/store insns.
    'Uq' is an address valid for ldrsb.  */
 
-#define EXTRA_CONSTRAINT_STR_ARM(OP, C, STR)			\
-  (((C) == 'Q') ? (GET_CODE (OP) == MEM				\
-		 && GET_CODE (XEXP (OP, 0)) == REG) :		\
-   ((C) == 'R') ? (GET_CODE (OP) == MEM				\
-		   && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF	\
-		   && CONSTANT_POOL_ADDRESS_P (XEXP (OP, 0))) :	\
-   ((C) == 'S') ? (optimize > 0 && CONSTANT_ADDRESS_P (OP)) :	\
-   ((C) == 'T') ? cirrus_memory_offset (OP) :			\
+#define EXTRA_CONSTRAINT_STR_ARM(OP, C, STR)				\
+  (((C) == 'D') ? (GET_CODE (OP) == CONST_DOUBLE			\
+		   && (((STR)[1] == 'a'					\
+			&& arm_const_double_inline_cost (OP) == 2)	\
+		       || ((STR)[1] == 'b'				\
+			   && arm_const_double_inline_cost (OP) == 3)	\
+		       || ((STR)[1] == 'c'				\
+			   && arm_const_double_inline_cost (OP) == 4	\
+			   && !(optimize_size || arm_ld_sched)))) :	\
+   ((C) == 'Q') ? (GET_CODE (OP) == MEM					\
+		 && GET_CODE (XEXP (OP, 0)) == REG) :			\
+   ((C) == 'R') ? (GET_CODE (OP) == MEM					\
+		   && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF		\
+		   && CONSTANT_POOL_ADDRESS_P (XEXP (OP, 0))) :		\
+   ((C) == 'S') ? (optimize > 0 && CONSTANT_ADDRESS_P (OP)) :		\
+   ((C) == 'T') ? cirrus_memory_offset (OP) :				\
    ((C) == 'U' && (STR)[1] == 'v') ? arm_coproc_mem_operand (OP, FALSE) : \
    ((C) == 'U' && (STR)[1] == 'y') ? arm_coproc_mem_operand (OP, TRUE) : \
-   ((C) == 'U' && (STR)[1] == 'q')				\
-    ? arm_extendqisi_mem_op (OP, GET_MODE (OP))			\
-      : 0)
+   ((C) == 'U' && (STR)[1] == 'q')					\
+    ? arm_extendqisi_mem_op (OP, GET_MODE (OP))				\
+   : 0)
 
 #define CONSTRAINT_LEN(C,STR)				\
-  ((C) == 'U' ? 2 : DEFAULT_CONSTRAINT_LEN (C, STR))
+  (((C) == 'U' || (C) == 'D') ? 2 : DEFAULT_CONSTRAINT_LEN (C, STR))
 
 #define EXTRA_CONSTRAINT_THUMB(X, C)					\
   ((C) == 'Q' ? (GET_CODE (X) == MEM					\
@@ -1601,6 +1617,10 @@ enum reg_class
    || (TARGET_ARM && ((REGNO) == FIRST_FPA_REGNUM)			\
        && TARGET_HARD_FLOAT_ABI && TARGET_FPA))
 
+/* Amount of memory needed for an untyped call to save all possible return
+   registers.  */
+#define APPLY_RESULT_SIZE arm_apply_result_size()
+
 /* How large values are returned */
 /* A C expression which can inhibit the returning of certain function values
    in registers, based on the type of value.  */
@@ -1687,8 +1707,16 @@ typedef struct machine_function GTY(())
   /* Records if sibcalls are blocked because an argument
      register is needed to preserve stack alignment.  */
   int sibcall_blocked;
+  /* Labels for per-function Thumb call-via stubs.  One per potential calling
+     register.  We can never call via LR or PC.  We can call via SP if a
+     trampoline happens to be on the top of the stack.  */
+  rtx call_via[14];
 }
 machine_function;
+
+/* As in the machine_function, a global set of call-via labels, for code 
+   that is in text_section().  */
+extern GTY(()) rtx thumb_call_via_label[14];
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the
@@ -1726,16 +1754,6 @@ typedef struct
    indeed make it pass in the stack if necessary).  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   arm_function_arg (&(CUM), (MODE), (TYPE), (NAMED))
-
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)	        \
-  (arm_vector_mode_supported_p (MODE) ? 0 :				\
-       NUM_ARG_REGS > (CUM).nregs				        \
-   && (NUM_ARG_REGS < ((CUM).nregs + ARM_NUM_REGS2 (MODE, TYPE))	\
-   && (CUM).can_split)						        \
-   ?   NUM_ARG_REGS - (CUM).nregs : 0)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.

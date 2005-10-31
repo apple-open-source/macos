@@ -131,8 +131,7 @@ int QScrollView::contentsX() const
 
     KWQ_BLOCK_EXCEPTIONS;
     if ([view _KWQ_isScrollView]) {
-        NSScrollView *sview = view;
-        return (int)[sview documentVisibleRect].origin.x;
+        return (int)[(NSScrollView *)view documentVisibleRect].origin.x;
     } else {
         return (int)[view visibleRect].origin.x;
     }
@@ -147,8 +146,7 @@ int QScrollView::contentsY() const
 
     KWQ_BLOCK_EXCEPTIONS;
     if ([view _KWQ_isScrollView]) {
-        NSScrollView *sview = view;
-        return (int)[sview documentVisibleRect].origin.y;
+        return (int)[(NSScrollView *)view documentVisibleRect].origin.y;
     } else {
         return (int)[view visibleRect].origin.y;
     }
@@ -335,8 +333,9 @@ void QScrollView::resizeContents(int w, int h)
             _w = 0;
         if (_h < 0)
             _h = 0;
-
-        [view setFrameSize: NSMakeSize (_w,_h)];
+            
+        NSSize tempSize = { _w, _h }; // workaround for 4213314
+        [view setFrameSize:tempSize];
     } else {
         resize (_w, _h);
     }
@@ -396,7 +395,8 @@ void QScrollView::contentsToViewport(int x, int y, int& vx, int& vy)
     if (docView)
         view = docView;
     
-    NSPoint np = [view convertPoint: NSMakePoint (x, y) toView: nil];
+    NSPoint tempPoint = { x, y }; // workaround for 4213314
+    NSPoint np = [view convertPoint:tempPoint toView: nil];
     vx = (int)np.x;
     vy = (int)np.y;
     
@@ -418,8 +418,9 @@ void QScrollView::viewportToContents(int vx, int vy, int& x, int& y)
     docView = getDocumentView();
     if (docView)
         view = docView;
-        
-    NSPoint np = [view convertPoint: NSMakePoint (vx, vy) fromView: nil];
+    
+    NSPoint tempPoint = { vx, vy }; // workaround for 4213314
+    NSPoint np = [view convertPoint:tempPoint fromView: nil];
     x = (int)np.x;
     y = (int)np.y;
 
@@ -447,7 +448,8 @@ void QScrollView::resizeEvent(QResizeEvent *)
 void QScrollView::setContentsPosRecursive(int x, int y)
 {
     KWQ_BLOCK_EXCEPTIONS;
-    [getDocumentView() _KWQ_scrollPointRecursive:NSMakePoint(x, y)];
+    NSPoint tempPoint = { x, y }; // workaround for 4213314
+    [getDocumentView() _KWQ_scrollPointRecursive:tempPoint];
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
@@ -458,7 +460,8 @@ void QScrollView::ensureVisible(int x, int y)
     // 50-pixel margins (if possible, otherwise centered).", which is
     // not what we're doing here.
     KWQ_BLOCK_EXCEPTIONS;
-    [getDocumentView() scrollRectToVisible:NSMakeRect(x, y, 0, 0)];
+    NSRect tempRect = { {x, y}, {0, 0} }; // workaround for 4213314
+    [getDocumentView() scrollRectToVisible:tempRect];
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
@@ -469,14 +472,16 @@ void QScrollView::ensureVisible(int x, int y, int xmargin, int ymargin)
     // xmargin and ymargin margins (if possible, otherwise centered).", which is
     // not what we're doing here.
     KWQ_BLOCK_EXCEPTIONS;
-    [getDocumentView() scrollRectToVisible:NSMakeRect(x, y, xmargin, ymargin)];
+    NSRect tempRect = { {x, y}, {xmargin, ymargin} }; // workaround for 4213314
+    [getDocumentView() scrollRectToVisible:tempRect];
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
 void QScrollView::ensureRectVisibleCentered(const QRect &rect, bool forceCentering)
 {
     KWQ_BLOCK_EXCEPTIONS;
-    [getDocumentView() _KWQ_scrollRectToVisible:NSMakeRect(rect.x(), rect.y(), rect.width(), rect.height()) forceCentering:forceCentering];
+    NSRect tempRect = { {rect.x(), rect.y()}, {rect.width(), rect.height()} }; // workaround for 4213314
+    [getDocumentView() _KWQ_scrollRectToVisible:tempRect forceCentering:forceCentering];
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 

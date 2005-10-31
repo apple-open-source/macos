@@ -42,5 +42,5 @@ void get_logging_info(void *ni, int *facility, int *level);
 bool_t get_sanitycheck(void *ni);
 unsigned short get_port(void *ni, char *proto);
 ni_status get_binding_status(void);
-void set_binding_status(ni_status stat);
+void set_binding_status(ni_status stat, int from_sighup);
 bool_t get_promote_admins(void *ni);

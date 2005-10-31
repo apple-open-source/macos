@@ -95,6 +95,8 @@ Includes
 #include <sys/malloc.h>
 #include <sys/syslog.h>
 #include <sys/sockio.h>
+#include <sys/kauth.h>
+#include <sys/proc_internal.h>
 #include <machine/spl.h>
 
 #include <kern/thread.h>
@@ -205,7 +207,7 @@ static int	pppserial_read(struct tty *tp,  uio_t uio, int flag);
 static int	pppserial_write(struct tty *tp,  uio_t uio, int flag);
 static int	pppserial_ioctl(struct tty *tp, u_long cmd, caddr_t data, int flag, struct proc *);
 static int	pppserial_input(int c, struct tty *tp);
-static int	pppserial_start(struct tty *tp);
+static void	pppserial_start(struct tty *tp);
 
 
 static u_short	pppserial_fcs(u_short fcs, u_char *cp, int len);
@@ -272,7 +274,7 @@ static u_short fcstab[256] = {
 /* Define the PPP line discipline. */
 static struct linesw pppdisc = {
     pppserial_open,	pppserial_close,	pppserial_read,	pppserial_write,
-    pppserial_ioctl,	pppserial_input,	pppserial_start,	ttymodem,
+    pppserial_ioctl, pppserial_input, pppserial_start, ttymodem,
 };
 
 
@@ -1079,7 +1081,7 @@ has drained sufficiently, arrange for pppserial_start to be
 called later at splnet.
 Called at spltty or higher
 ----------------------------------------------------------------------------- */
-int pppserial_start(struct tty *tp)
+void pppserial_start(struct tty *tp)
 {
     struct pppserial *ld = (struct pppserial *) tp->t_sc;
 
@@ -1097,7 +1099,7 @@ int pppserial_start(struct tty *tp)
 	
 	ttwwakeup(tp);
 
-    return 0;
+    return;
 }
 
 
@@ -1116,7 +1118,7 @@ humm ? not sure that works
 ----------------------------------------------------------------------------- */
 void pppserial_getm(struct pppserial *ld)
 {
-    mbuf_t		m, m1;
+    mbuf_t		m, m1 = NULL;
     int 		len;
 	
 	/* get the first cluster */

@@ -24,7 +24,7 @@ import java.text.SimpleDateFormat;
  *
  * @author David Czarnecki
  * @since blojsom 1.9.1
- * @version $Id: DateFormatPlugin.java,v 1.2 2004/08/27 01:06:37 whitmore Exp $
+ * @version $Id: DateFormatPlugin.java,v 1.2.2.1 2005/07/21 04:30:29 johnan Exp $
  */
 public class DateFormatPlugin implements BlojsomPlugin {
 

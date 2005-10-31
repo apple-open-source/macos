@@ -234,7 +234,7 @@ _dns_inet_ntop(struct in6_addr a, u_int32_t iface)
 		}
 
 		x = iface;
-		s6.sin6_addr.__u6_addr.__u6_addr16[1] = x;
+		s6.sin6_addr.__u6_addr.__u6_addr16[1] = htons(x);
 	}
 
 	inet_ntop(AF_INET6, p, buf, 128);

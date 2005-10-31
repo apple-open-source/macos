@@ -709,32 +709,17 @@ static BOOL posix_fcntl_lock(files_struct *fsp, int op, SMB_OFF_T offset, SMB_OF
 #ifdef WITH_BRLM
 if (lp_BRLM())
 {
-	switch (type) {
-		case F_RDLCK: 
-			brlm_lock_type = kBRLMRLock; 
-		break;
-		case F_WRLCK: 
-			brlm_lock_type = kBRLMWLock; 
-		break;
-		case F_UNLCK: 
-			brlm_lock_type = kBRLMFree; 
-		break;
-		default: 
-			brlm_lock_type = 0; 
-		break;
-	}
-	
 	if (op == SMB_F_GETLK)
 	{
 		if (type == F_RDLCK) 
 		{
 			brlm_status  = BRLMCanRead(fsp->brlm_ref, offset, count);
-			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMCanRead lock_type[0x%X]\n",brlm_status, brlm_lock_type));
+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMCanRead offset[%d] count[%d]\n",brlm_status, offset, count));
 		} else if (type == F_WRLCK) {
 			brlm_status =  BRLMCanWrite(fsp->brlm_ref, offset, count);
-			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMCanWrite lock_type[0x%X]\n",brlm_status, brlm_lock_type));
+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMCanWrite offset[%d] count[%d]\n",brlm_status, offset, count));
 		} else {
-			DEBUG(8,("posix_fcntl_lock:  !!!!! SMB_F_GETLK !!!!! lock_type[0x%X]\n", type));
+			DEBUG(8,("posix_fcntl_lock:  !!!!! SMB_F_GETLK !!!!! type[0x%X]\n", type));
 			ret = 0;
 		}
 		if (BRLMNoErr == brlm_status) 
@@ -742,12 +727,24 @@ if (lp_BRLM())
 		else
 			ret = 1;
 	} else if (op == SMB_F_SETLK) {
-		brlm_status = BRLMByteRangeLock(fsp->brlm_ref, brlm_lock_type, offset, count);
-		DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeLock lock_type[0x%X]\n",brlm_status, brlm_lock_type));
+		if (type == F_RDLCK) {
+			brlm_status = BRLMByteRangeLock(fsp->brlm_ref, kBRLMRLock, offset, count);
+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeLock kBRLMRLock\n",brlm_status));		
+		} else if (type == F_WRLCK) {
+			brlm_status = BRLMByteRangeLock(fsp->brlm_ref, kBRLMWLock, offset, count);
+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeLock kBRLMWLock\n",brlm_status));		
+		} else if (type == F_UNLCK) {
+			brlm_status = BRLMByteRangeUnlock(fsp->brlm_ref, kBRLMFree, offset, count);
+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeUnlock kBRLMFree\n",brlm_status));		
+		} else {
+			DEBUG(8,("posix_fcntl_lock:  !!!!! SMB_F_SETLK !!!!! type[0x%X]\n", type));
+			ret = 0;		
+		}
+			
 		if (BRLMNoErr == brlm_status) 
-		ret = 1;
+			ret = 1;
 		else
-		ret = 0;
+			ret = 0;
 	} else {
 		DEBUG(8,("posix_fcntl_lock:  !!!!! OP !!!!! op[0x%X] lock_type[0x%X]\n", op, type));
 		ret = 0;

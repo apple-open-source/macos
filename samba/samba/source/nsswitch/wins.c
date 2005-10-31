@@ -77,7 +77,7 @@ static int wins_lookup_open_socket_in(void)
 static void nss_wins_init(void)
 {
 	initialised = 1;
-	DEBUGLEVEL = 0;
+	SAMBA_DEBUGLEVEL = 0;
 	AllowDebugChange = False;
 
 	TimeInit();

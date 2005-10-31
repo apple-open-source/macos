@@ -1,5 +1,5 @@
 /* JTextField.java --
-   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
 import java.awt.Dimension;
@@ -42,11 +43,14 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+
 import javax.accessibility.AccessibleStateSet;
 import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
 import javax.swing.text.PlainDocument;
-
+import javax.swing.text.TextAction;
 
 public class JTextField extends JTextComponent
   implements SwingConstants
@@ -77,11 +81,38 @@ public class JTextField extends JTextComponent
 
   private static final long serialVersionUID = 353853209832607592L;
 
+  private static final Action[] actions;
+
+  /**
+   * Name of the action that gets sent when the content of the text field
+   * gets accepted.
+   */
   public static final String notifyAction = "notify-field-accept";
   
+  static
+  {
+    actions = new Action[1];
+    actions[0] = new TextAction(notifyAction)
+      {
+	public void actionPerformed(ActionEvent event)
+	{
+	  JTextField textField = (JTextField) event.getSource();
+	  textField.fireActionPerformed();
+	}
+      };
+  }
+  
   private int columns;
-
   private int align;
+  private int scrollOffset;
+
+  /** @since 1.3 */
+  private Action action;
+
+  /** @since 1.3 */
+  private String actionCommand;
+  
+  private PropertyChangeListener actionPropertyChangeListener;
 
   /**
    * Creates a new instance of <code>JTextField</code>.
@@ -241,11 +272,14 @@ public class JTextField extends JTextComponent
 
   public void setHorizontalAlignment(int newAlign)
   {
+    if (align == newAlign)
+      return;
+
     int oldAlign = align;
     align = newAlign;
+    firePropertyChange("horizontalAlignment", oldAlign, newAlign);
     invalidate();
     repaint();
-    firePropertyChange("horizontalAlignment", oldAlign, newAlign);
   }
 
   public void setFont(Font newFont)
@@ -256,20 +290,139 @@ public class JTextField extends JTextComponent
 
   public Dimension getPreferredSize()
   {
-    Dimension size;
-    FontMetrics fm = getFontMetrics(getFont());
-    int fontHeight = fm.getMaxAscent() + fm.getMaxDescent();
-    int columnWidth = fm.charWidth('m');
-    
+    Dimension size = super.getPreferredSize();
+
     if (columns != 0)
+      size.width = columns * getColumnWidth();
+
+    return size;
+  }
+
+  /**
+   * Returns the scroll offset in pixels.
+   *
+   * @return the scroll offset
+   */
+  public int getScrollOffset()
+  {
+    return scrollOffset;
+  }
+
+  /**
+   * Sets the scroll offset in pixels.
+   * 
+   * @param offset the scroll offset
+   */
+  public void setScrollOffset(int offset)
+  {
+    scrollOffset = offset;
+  }
+
+  public Action[] getActions()
+  {
+    return TextAction.augmentList(super.getActions(), actions);
+  }
+
+  public void postActionEvent()
+  {
+    String command = actionCommand != null ? actionCommand : getText();
+    ActionEvent event = new ActionEvent(this, 0, command);
+    ActionListener[] listeners = getActionListeners();
+
+    for (int index = 0; index < listeners.length; ++index)
+      listeners[index].actionPerformed(event);
+  }
+  
+  /**
+   * @since 1.3
+   */
+  public Action getAction()
+  {
+    return action;
+  }
+
+  /**
+   * @since 1.3
+   */
+  public void setAction(Action newAction)
+  {
+    if (action == newAction)
+      return;
+
+    if (action != null)
       {
-	size = new Dimension(columns * columnWidth + 4, fontHeight + 4);
+	removeActionListener(action);
+	action.removePropertyChangeListener(actionPropertyChangeListener);
+	actionPropertyChangeListener = null;
+      }
+    
+    Action oldAction = action;
+    action = newAction;
+
+    if (action != null)
+      {
+	addActionListener(action);
+	actionPropertyChangeListener =
+	  createActionPropertyChangeListener(action);
+	action.addPropertyChangeListener(actionPropertyChangeListener);
+      }
+    
+    firePropertyChange("horizontalAlignment", oldAction, newAction);
+  }
+
+  /**
+   * @since 1.3
+   */
+  public void setActionCommand(String command)
+  {
+    actionCommand = command;
+  }
+
+  /**
+   * @since 1.3
+   */
+  protected PropertyChangeListener createActionPropertyChangeListener(Action action)
+  {
+    return new PropertyChangeListener()
+      {
+	public void propertyChange(PropertyChangeEvent event)
+	{
+	  // Update properties "action" and "horizontalAlignment".
+	  String name = event.getPropertyName();
+
+	  if (name.equals("enabled"))
+	    {
+	      boolean enabled = ((Boolean) event.getNewValue()).booleanValue();
+	      JTextField.this.setEnabled(enabled);
+	    }
+	  else if (name.equals(Action.SHORT_DESCRIPTION))
+	    {
+	      JTextField.this.setToolTipText((String) event.getNewValue());
+	    }
+	}
+      };
+  }
+
+  /**
+   * @since 1.3
+   */
+  protected void configurePropertiesFromAction(Action action)
+  {
+    if (action != null)
+      {
+	setEnabled(action.isEnabled());
+	setToolTipText((String) action.getValue(Action.SHORT_DESCRIPTION));
       }
     else
       {
-	size = new Dimension(10, 10);
+	setEnabled(true);      
+	setToolTipText(null);
       }
+  }
 
-    return size;
+  protected int getColumnWidth()
+  {
+    FontMetrics metrics = getToolkit().getFontMetrics(getFont());
+    return metrics.charWidth('m');
   }
 }

@@ -4533,7 +4533,7 @@ BOOL printer_driver_files_in_use ( NT_PRINTER_DRIVER_INFO_LEVEL_3 *info )
 	
 	driver.info_3 = info;
 	
-	if ( DEBUGLEVEL >= 20 )
+	if ( SAMBA_DEBUGLEVEL >= 20 )
 		dump_a_printer_driver( driver, 3 );
 	
 	return False;
@@ -4941,7 +4941,7 @@ BOOL nt_printing_getsec(TALLOC_CTX *ctx, const char *printername, SEC_DESC_BUF *
 		}
 	}
 
-	if (DEBUGLEVEL >= 10) {
+	if (SAMBA_DEBUGLEVEL >= 10) {
 		SEC_ACL *the_acl = (*secdesc_ctr)->sec->dacl;
 		int i;
 

@@ -259,11 +259,11 @@ bool AppleADBKeyboard::open(IOService *			client,
 
     // RY: Check to see if LED was set prior to start.  If so dispatch
     // event so that software state matches hardware state.
+    if ( _packetLock )
+        IOLockLock( _packetLock );
+        
     if (_oneshotCAPSLOCK)
-    {
-        if ( _packetLock )
-            IOLockLock( _packetLock );
-            
+    {            
         _oneshotCAPSLOCK = false;  // only set to true by start()
         
         //check handler ID since keyboards of type 1 fail register 2 check
@@ -280,10 +280,13 @@ bool AppleADBKeyboard::open(IOService *			client,
             _capsLockState |= ( kCapsLockState_CapsLockEngaged | kCapsLockState_PowerCapsMapped );
             _capsLockState &= ~kCapsLockState_CapsLockGoingDown;
         }
-        
-        if ( _packetLock )
-            IOLockUnlock( _packetLock );
+                
     }
+    
+    _opened = true;
+
+    if ( _packetLock )
+        IOLockUnlock( _packetLock );
     
     return true;
 }
@@ -603,8 +606,7 @@ void AppleADBKeyboard::dispatchKeyboardEvent(unsigned int	keyCode,
                             /* timeStamp */ AbsoluteTime	time)
 {
     char * pvirtualmap;
- 
- 
+  
     // ----------------------------------------------------------------
     // RY: To better support the BSD (hacker) community, the behavior
     // of the caps lock key needs to be altered.  On portables, the
@@ -642,10 +644,11 @@ void AppleADBKeyboard::dispatchKeyboardEvent(unsigned int	keyCode,
     {
 
         // The LED state check in AppleADBKeyboard::setParamProperties
-        // has still not taken place.  Consumer to key to avoid an
+        // has still not taken place.  Consume the key to avoid an
         // inconsistant capslock state.
-        if (_oneshotCAPSLOCK)
+        if ( !_opened )
         {
+            _oneshotCAPSLOCK = goingDown;
             return;
         }
             

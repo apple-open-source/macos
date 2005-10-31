@@ -385,7 +385,7 @@ bool AppleUSBCDCWCM::getFunctionalDescriptors()
     
     do
     {
-        (IOUSBDescriptorHeader*)funcDesc = fInterface->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
+        funcDesc = (const FunctionalDescriptorHeader *)fInterface->FindNextAssociatedDescriptor((void*)funcDesc, CS_INTERFACE);
         if (!funcDesc)
         {
             gotDescriptors = true;				// We're done
@@ -393,7 +393,7 @@ bool AppleUSBCDCWCM::getFunctionalDescriptors()
             switch (funcDesc->bDescriptorSubtype)
             {
                 case Header_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)HDRFDesc = funcDesc;
+                    HDRFDesc = (HDRFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Header Functional Descriptor");
                     chkVers = (UInt16 *)&HDRFDesc->bcdCDC1;
                     vers = USBToHostWord(*chkVers);
@@ -403,7 +403,7 @@ bool AppleUSBCDCWCM::getFunctionalDescriptors()
                     }
                     break;
                 case Union_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)UNNFDesc = funcDesc;
+                    UNNFDesc = (UnionFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - Union Functional Descriptor");
                     if (UNNFDesc->bFunctionLength > sizeof(FunctionalDescriptorHeader))
                     {
@@ -422,7 +422,7 @@ bool AppleUSBCDCWCM::getFunctionalDescriptors()
                     }
                     break;
                 case WCM_FunctionalDescriptor:
-                    (const FunctionalDescriptorHeader*)WCMFDesc = funcDesc;
+                    WCMFDesc = (WHCMFunctionalDescriptor *)funcDesc;
                     XTRACE(this, funcDesc->bDescriptorType, funcDesc->bDescriptorSubtype, "getFunctionalDescriptors - WHCM Functional Descriptor");
                     chkVers = (UInt16 *)&WCMFDesc->bcdCDC1;
                     vers = USBToHostWord(*chkVers);

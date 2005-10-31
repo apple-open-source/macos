@@ -1,5 +1,6 @@
 /* Frv prototypes.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation,
+   Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -84,10 +85,6 @@ extern void frv_function_arg_advance		(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int);
 
-extern int frv_function_arg_partial_nregs	(CUMULATIVE_ARGS *,
-						 enum machine_mode,
-						 tree, int);
-
 extern void frv_expand_builtin_va_start		(tree, rtx);
 #endif /* TREE_CODE */
 
@@ -116,7 +113,7 @@ extern rtx frv_split_minmax		(rtx *);
 extern rtx frv_split_abs		(rtx *);
 extern void frv_split_double_load	(rtx, rtx);
 extern void frv_split_double_store	(rtx, rtx);
-#ifdef BLOCK_HEAD
+#ifdef BB_HEAD
 extern void frv_ifcvt_init_extra_fields	(ce_if_block_t *);
 extern void frv_ifcvt_modify_tests	(ce_if_block_t *, rtx *, rtx *);
 extern void frv_ifcvt_modify_multiple_tests
@@ -138,6 +135,7 @@ extern int frv_hard_regno_nregs		(int, enum machine_mode);
 extern int frv_class_max_nregs		(enum reg_class class,
 					 enum machine_mode mode);
 extern int frv_legitimate_constant_p	(rtx);
+extern enum machine_mode frv_select_cc_mode (enum rtx_code, rtx, rtx);
 #endif	/* RTX_CODE */
 
 extern int direct_return_p		(void);
@@ -203,6 +201,7 @@ extern int small_data_register_operand	(rtx, enum machine_mode);
 extern int small_data_symbolic_operand	(rtx, enum machine_mode);
 extern int upper_int16_operand		(rtx, enum machine_mode);
 extern int uint16_operand		(rtx, enum machine_mode);
+extern int symbolic_operand		(rtx, enum machine_mode);
 extern int relational_operator		(rtx, enum machine_mode);
 extern int signed_relational_operator	(rtx, enum machine_mode);
 extern int unsigned_relational_operator	(rtx, enum machine_mode);
@@ -217,7 +216,6 @@ extern int condexec_sf_conv_operator	(rtx, enum machine_mode);
 extern int condexec_sf_add_operator	(rtx, enum machine_mode);
 extern int condexec_memory_operand	(rtx, enum machine_mode);
 extern int intop_compare_operator	(rtx, enum machine_mode);
-extern int condexec_intop_cmp_operator	(rtx, enum machine_mode);
 extern int acc_operand			(rtx, enum machine_mode);
 extern int even_acc_operand		(rtx, enum machine_mode);
 extern int quad_acc_operand		(rtx, enum machine_mode);
@@ -225,5 +223,6 @@ extern int accg_operand			(rtx, enum machine_mode);
 extern rtx frv_matching_accg_for_acc	(rtx);
 extern void frv_expand_fdpic_call	(rtx *, bool, bool);
 extern rtx frv_gen_GPsym2reg		(rtx, rtx);
+extern void frv_output_dwarf_dtprel	(FILE *, int, rtx);
 #endif
 

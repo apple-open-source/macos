@@ -1,148 +1,180 @@
-<?xml version="1.0" encoding="UTF-8"?>
+#AdministrationHeader("#adminResource('edit.flavors.page.header' 'Edit Flavors')")
 
-#adminPageHeader("#adminResource('edit.flavors.page.header' 'Edit Flavors')")
+<body>
+    <div id="wrap">
 
-    <div id="header">
-        <ul id="primary">
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('entries.page.header' '')</a></li>
-            <li><span>#adminResource('weblog.settings.text' '')</span></li>
-            <ul id="secondary">
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
-                <li><span>#adminResource('flavors.text' '')</span></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
-                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
-            </ul>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('plugin.settings.text' '')</a></li>
-            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&action=logout">#adminResource('logout.text' '')</a></li>
+        <h1>Blosjom Administration Interface</h1>
+
+        <div id="login">
+            <p>Logged in as: <a href="#" title="view info">$BLOJSOM_ADMIN_PLUGIN_USERNAME</a> : <a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&action=logout" title="log out">#adminResource('logout.text' '')</a></p>
+            <p>Logged in to: <a href="$BLOJSOM_BLOG.getBlogURL()" title="view site info">$BLOJSOM_BLOG.getBlogName()</a></p>
+        </div>
+
+        <ul id="nav">
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="#">#adminResource('entries.page.header' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('add.entry.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-entries&action=page">#adminResource('edit.and.delete.entries.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('weblog.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-permissions&action=page">#adminResource('permissions.page.header' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-templates&action=page">#adminResource('templates.text' '')</a></li>
+                </ul>
+            </li>
+            <li><a href="#">#adminResource('plugin.settings.text' '')</a>
+                <ul>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('configure.plugin.mappings.text' '')</a></li>
+                    <li><a href="$BLOJSOM_BLOG.getBlogAdminURL()?flavor=admin&plugins=list-web-admin-plugins">#adminResource('configure.available.plugins.text' '')</a></li>
+                </ul>
+            </li>
         </ul>
+
+        <div id="main">
+            <div id="contents">
+                #showErrorMessage()
+
+                <!-- Existing Flavor Maps -->
+                <div class="mainClm">
+                    <h3>#adminResource('existing.blog.flavor.text' 'Existing Flavor Settings')</h3>
+                    <table>
+                     #foreach ($flavorMap in $BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_EXISTING.keySet())
+                       <tr>
+                          <td>$flavorMap</td>
+                          <td>&nbsp;</td>
+                          <td>$BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_EXISTING.get($flavorMap)</td>
+                       </tr>
+                     #end
+                    </table>
+                </div>
+
+                <!-- Add blog flavor form -->
+                <div class="mainClm">
+                    <h3>#adminResource('add.blog.flavor.text' 'Add blog flavor')</h3>
+                    <table>
+                        <form name="add-blog-flavor" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="add-blog-flavor"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-flavors"/>
+                            <tr>
+                                <td>#adminResource('flavor.name.text' 'Flavor name')</td>
+                                <td><input type="text" size="50" name="flavor-name"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('flavor.mime.type.text' 'Flavor MIME type (defaults to text/html if not specified)')</td>
+                                <td><input type="text" size="50" name="flavor-mime-type"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('flavor.character.set.text' 'Flavor character set (defaults to UTF-8 if not specified)')</td>
+                                <td><input type="text" size="50" name="flavor-character-set"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.template.for.flavor.text' 'Blog template for flavor')</td>
+                                <td>
+                                    <select name="blog-template">
+                                    #foreach ($blogTemplate in $BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_TEMPLATE_FILES)
+                                        <option value="$blogTemplate">$blogTemplate</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('add.blog.flavor.text' 'Add blog flavor')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Modify blog flavor form -->
+                <div class="mainClm">
+                    <h3>#adminResource('modify.blog.flavor.text' 'Modify blog flavor')</h3>
+                    <table>
+                        <form name="modify-blog-flavor" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="modify-blog-flavor"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-flavors"/>
+                            <tr>
+                                <td>#adminResource('flavor.name.text' 'Flavor name')</td>
+                                <td>
+                                    <select name="flavor-name">
+                                    #foreach ($flavor in $BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_FLAVORS)
+                                        <option value="$flavor">$flavor</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('flavor.mime.type.text' 'Flavor MIME type (defaults to text/html if not specified)')</td>
+                                <td><input type="text" size="50" name="flavor-mime-type"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('flavor.character.set.text' 'Flavor character set (defaults to UTF-8 if not specified)')</td>
+                                <td><input type="text" size="50" name="flavor-character-set"/></td>
+                            </tr>
+                            <tr>
+                                <td>#adminResource('blog.template.for.flavor.text' 'Blog template for flavor')</td>
+                                <td>
+                                    <select name="blog-template">
+                                    #foreach ($blogTemplate in $BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_TEMPLATE_FILES)
+                                        <option value="$blogTemplate">$blogTemplate</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('modify.blog.flavor.text' 'Modify blog flavor')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+
+                <!-- Delete blog flavor form -->
+                <div class="mainClm">
+                    <h3>#adminResource('delete.blog.flavor.text' 'Delete blog flavor')</h3>
+                    <table>
+                        <form name="delete-blog-flavor" action="." method="post" accept-charset="UTF-8">
+                            <input type="hidden" name="action" value="delete-blog-flavor"/>
+                            <input type="hidden" name="flavor" value="admin"/>
+                            <input type="hidden" name="plugins" value="edit-blog-flavors"/>
+                            <tr>
+                                <td>#adminResource('flavor.name.text' 'Flavor name')</td>
+                                <td>
+                                    <select name="flavor-name">
+                                    #foreach ($flavor in $BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_FLAVORS)
+                                        <option value="$flavor">$flavor</option>
+                                    #end
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td>
+                                    <input type="submit" name="submit" value="#adminResource('delete.blog.flavor.text' 'Delete blog flavor')"/>
+                                    <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                                </td>
+                            </tr>
+                        </form>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
+</body>
 
-    <div id="contents">
-
-        #showErrorMessage()
-
-        <!-- Add blog flavor form -->
-        <div id="mainClm">
-            <h2>#adminResource('add.blog.flavor.text' 'Add blog flavor')</h2>
-            <table>
-                <form name="add-blog-flavor" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="add-blog-flavor"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="edit-blog-flavors"/>
-                    <tr>
-                        <td>#adminResource('flavor.name.text' 'Flavor name')</td>
-                        <td><input type="text" size="50" name="flavor-name"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('flavor.mime.type.text' 'Flavor MIME type (defaults to text/html if not specified)')</td>
-                        <td><input type="text" size="50" name="flavor-mime-type"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('flavor.character.set.text' 'Flavor character set (defaults to UTF-8 if not specified)')</td>
-                        <td><input type="text" size="50" name="flavor-character-set"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.template.for.flavor.text' 'Blog template for flavor')</td>
-                        <td>
-                            <select name="blog-template">
-                            #foreach ($blogTemplate in $BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_TEMPLATE_FILES)
-                                <option value="$blogTemplate">$blogTemplate</option>
-                            #end
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('add.blog.flavor.text' 'Add blog flavor')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-
-        <p></p>
-
-        <!-- Modify blog flavor form -->
-        <div id="mainClm">
-            <h2>#adminResource('modify.blog.flavor.text' 'Modify blog flavor')</h2>
-            <table>
-                <form name="modify-blog-flavor" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="modify-blog-flavor"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="edit-blog-flavors"/>
-                    <tr>
-                        <td>#adminResource('flavor.name.text' 'Flavor name')</td>
-                        <td>
-                            <select name="flavor-name">
-                            #foreach ($flavor in $BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_FLAVORS)
-                                <option value="$flavor">$flavor</option>
-                            #end
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('flavor.mime.type.text' 'Flavor MIME type (defaults to text/html if not specified)')</td>
-                        <td><input type="text" size="50" name="flavor-mime-type"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('flavor.character.set.text' 'Flavor character set (defaults to UTF-8 if not specified)')</td>
-                        <td><input type="text" size="50" name="flavor-character-set"/></td>
-                    </tr>
-                    <tr>
-                        <td>#adminResource('blog.template.for.flavor.text' 'Blog template for flavor')</td>
-                        <td>
-                            <select name="blog-template">
-                            #foreach ($blogTemplate in $BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_TEMPLATE_FILES)
-                                <option value="$blogTemplate">$blogTemplate</option>
-                            #end
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('modify.blog.flavor.text' 'Modify blog flavor')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-
-        <p></p>
-
-        <!-- Delete blog flavor form -->
-        <div id="mainClm">
-            <h2>#adminResource('delete.blog.flavor.text' 'Delete blog flavor')</h2>
-            <table>
-                <form name="delete-blog-flavor" action="." method="post" accept-charset="UTF-8">
-                    <input type="hidden" name="action" value="delete-blog-flavor"/>
-                    <input type="hidden" name="flavor" value="admin"/>
-                    <input type="hidden" name="plugins" value="edit-blog-flavors"/>
-                    <tr>
-                        <td>#adminResource('flavor.name.text' 'Flavor name')</td>
-                        <td>
-                            <select name="flavor-name">
-                            #foreach ($flavor in $BLOJSOM_PLUGIN_EDIT_BLOG_FLAVORS_FLAVORS)
-                                <option value="$flavor">$flavor</option>
-                            #end
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <input type="submit" name="submit" value="#adminResource('delete.blog.flavor.text' 'Delete blog flavor')"/>
-                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
-                        </td>
-                    </tr>
-                </form>
-            </table>
-        </div>
-
-    </div>
-
-#adminPageFooter()
+#AdministrationFooter()

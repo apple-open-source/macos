@@ -273,47 +273,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_DFA_NEW_CYCLE,					\
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
-#ifndef TARGET_VECTORIZE_MISALIGNED_MEM_OK
-#define TARGET_VECTORIZE_MISALIGNED_MEM_OK default_vect_misaligned_mem_ok
-#endif
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
-#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE 0
 
 #define TARGET_VECTORIZE                                                \
-  {TARGET_VECTORIZE_MISALIGNED_MEM_OK,                                  \
-   TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,				\
-   TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE}
-
-/* APPLE LOCAL begin AV misaligned --haifa  */
-/* MERGE FIXME - how many of these are now dead given TARGET_VECTORIZE and friends?  */
-/* Vectorizer hooks.  All of these default to null pointers, which
-   tree-vectorizer.c looks for and handles.  */
-#define TARGET_VECT_SUPPORT_MISALIGNED_LOADS 0
-#define TARGET_VECT_PERMUTE_MISALIGNED_LOADS 0
-#define TARGET_VECT_BUILD_BUILTIN_LVSL 0
-#define TARGET_VECT_BUILD_BUILTIN_LVSR 0
-#define TARGET_VECT_BUILD_BUILTIN_VPERM 0
-/* APPLE LOCAL begin AV vmul_uch --haifa  */
-/* APPLE LOCAL begin AV vector_init --haifa  */
-#define TARGET_VECT_SUPPORT_VMUL_UCH_P 0
-#define TARGET_VECT_BUILD_VMUL_UCH 0
-#define TARGET_VECT_SUPPORT_VECTOR_INIT_P 0
-#define TARGET_VECT_BUILD_VECTOR_INIT 0
-
-#define TARGET_VECT                                       \
-  {TARGET_VECT_SUPPORT_MISALIGNED_LOADS,                  \
-   TARGET_VECT_PERMUTE_MISALIGNED_LOADS,                  \
-   TARGET_VECT_BUILD_BUILTIN_LVSL,                        \
-   TARGET_VECT_BUILD_BUILTIN_LVSR,                        \
-   TARGET_VECT_BUILD_BUILTIN_VPERM,                       \
-   TARGET_VECT_SUPPORT_VMUL_UCH_P,			  \
-   TARGET_VECT_BUILD_VMUL_UCH,				  \
-   TARGET_VECT_SUPPORT_VECTOR_INIT_P,			  \
-   TARGET_VECT_BUILD_VECTOR_INIT}
-
-/* APPLE LOCAL end AV vmul_uch --haifa  */
-/* APPLE LOCAL end AV vector_init --haifa  */
-/* APPLE LOCAL end AV misaligned --haifa  */
+  {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
@@ -387,6 +350,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_INSERT_ATTRIBUTES hook_void_tree_treeptr
 #define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_tree_false
 #define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_tree_false
+/* APPLE LOCAL pragma reverse_bitfields */
+#define TARGET_REVERSE_BITFIELDS_P hook_bool_tree_false
 #define TARGET_ALIGN_ANON_BITFIELD hook_bool_void_false
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
 #define TARGET_MANGLE_FUNDAMENTAL_TYPE hook_constcharptr_tree_null
@@ -402,9 +367,15 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO default_encode_section_info
 #endif
+/* APPLE LOCAL begin mainline 2005-04-14 */
+#ifndef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
+#define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN hook_invalid_arg_for_unprototyped_fn
+#endif
+/* APPLE LOCAL end mainline 2005-04-14 */
 
-/* APPLE LOCAL AltiVec */
+/* APPLE LOCAL begin AltiVec */
 #define TARGET_CAST_EXPR_AS_VECTOR_INIT false
+/* APPLE LOCAL end AltiVec */
 
 #define TARGET_FIXED_CONDITION_CODE_REGS hook_bool_uintp_uintp_false
 
@@ -424,6 +395,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_MD_ASM_CLOBBERS hook_tree_tree_identity
 
 #define TARGET_DWARF_CALLING_CONVENTION hook_int_tree_0
+
+#define TARGET_DWARF_HANDLE_FRAME_UNSPEC 0
 
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_false
@@ -446,10 +419,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_GIMPLIFY_VA_ARG_EXPR std_gimplify_va_arg_expr
 #define TARGET_PASS_BY_REFERENCE hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
-#define TARGET_LATE_RTL_PROLOGUE_EPILOGUE false
+
+#define TARGET_RELAXED_ORDERING false
+
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size_or_pad
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
+#define TARGET_ARG_PARTIAL_BYTES hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 
+/* APPLE LOCAL begin mainline 2005-04-14 */
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
    TARGET_PROMOTE_FUNCTION_RETURN,				\
@@ -467,8 +444,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SKIP_VEC_ARGS,					\
    /* APPLE LOCAL end Altivec */				\
    TARGET_MUST_PASS_IN_STACK,					\
-   TARGET_CALLEE_COPIES						\
+   TARGET_CALLEE_COPIES,					\
+   TARGET_ARG_PARTIAL_BYTES,					\
+   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN                     \
    }
+/* APPLE LOCAL end mainline 2005-04-14 */
 
 
 #ifndef TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME
@@ -540,6 +520,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_INSERT_ATTRIBUTES,			\
   TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P,	\
   TARGET_MS_BITFIELD_LAYOUT_P,			\
+  /* APPLE LOCAL pragma reverse bitfields */    \
+  TARGET_REVERSE_BITFIELDS_P,			\
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
@@ -574,8 +556,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_CC_MODES_COMPATIBLE,			\
   TARGET_MACHINE_DEPENDENT_REORG,		\
   TARGET_BUILD_BUILTIN_VA_LIST,			\
-  /* APPLE LOCAL AV misaligned --haifa  */       \
-  TARGET_VECT,                                  \
   TARGET_GIMPLIFY_VA_ARG_EXPR,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
@@ -583,6 +563,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_BUILTIN_SETJMP_FRAME_VALUE,		\
   TARGET_MD_ASM_CLOBBERS,			\
   TARGET_DWARF_CALLING_CONVENTION,              \
+  TARGET_DWARF_HANDLE_FRAME_UNSPEC,		\
   TARGET_CALLS,					\
   TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\
@@ -596,7 +577,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_CAST_EXPR_AS_VECTOR_INIT,		\
   TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME,	\
   TARGET_HANDLE_PRAGMA_EXTERN_PREFIX,		\
-  TARGET_LATE_RTL_PROLOGUE_EPILOGUE,		\
+  TARGET_RELAXED_ORDERING,			\
 }
 
 #include "hooks.h"

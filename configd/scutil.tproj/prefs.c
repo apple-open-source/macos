@@ -96,7 +96,7 @@ _copyStringFromSTDIN()
 		buf[--len] = '\0';
 	}
 
-	utf8 = CFStringCreateWithBytes(NULL, buf, len, kCFStringEncodingUTF8, TRUE);
+	utf8 = CFStringCreateWithBytes(NULL, (UInt8 *)buf, len, kCFStringEncodingUTF8, TRUE);
 	return utf8;
 }
 

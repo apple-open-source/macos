@@ -1,5 +1,5 @@
 /* Adjustable.java -- Objects with a numeric adjustment scale
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,7 +44,7 @@ import java.awt.event.AdjustmentListener;
  * This interface is for objects that take a numeric value that can be
  * adjusted within a bounded range.  For example, a scroll bar.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
  * @since 1.0
  * @status updated to 1.4
  */
@@ -157,7 +157,7 @@ public interface Adjustable
    * Adds a listener that will receive adjustment events for this object.
    *
    * @param listener the adjustment listener to add
-   * @see AdjustmentEvent
+   * @see java.awt.event.AdjustmentEvent
    */
   void addAdjustmentListener(AdjustmentListener listener);
 
@@ -165,7 +165,7 @@ public interface Adjustable
    * Removes an adjustment listener from this object.
    *
    * @param listener the adjustment listener to remove
-   * @see AdjustmentEvent
+   * @see java.awt.event.AdjustmentEvent
    */
   void removeAdjustmentListener(AdjustmentListener listener);
 } // interface Adjustable

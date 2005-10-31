@@ -297,7 +297,11 @@ struct captured_read_memory_integer_arguments
 {
   CORE_ADDR memaddr;
   int len;
-  LONGEST result;
+  int signedp;
+  union {
+    LONGEST sresult;
+    ULONGEST uresult;
+  } result;
 };
 
 /* Helper function for gdb_read_memory_integer().  DATA must be a
@@ -314,7 +318,10 @@ do_captured_read_memory_integer (void *data)
   CORE_ADDR memaddr = args->memaddr;
   int len = args->len;
 
-  args->result = read_memory_integer (memaddr, len);
+  if (args->signedp)
+    args->result.sresult = read_memory_integer (memaddr, len);
+  else
+    args->result.uresult = read_memory_unsigned_integer (memaddr, len);
 
   return 1;
 }
@@ -330,11 +337,29 @@ safe_read_memory_integer (CORE_ADDR memaddr, int len, LONGEST *return_value)
   struct captured_read_memory_integer_arguments args;
   args.memaddr = memaddr;
   args.len = len;
+  args.signedp = 1;
 
   status = catch_errors (do_captured_read_memory_integer, &args,
                         "", RETURN_MASK_ALL);
   if (status)
-    *return_value = args.result;
+    *return_value = args.result.sresult;
+
+  return status;
+}
+
+int
+safe_read_memory_unsigned_integer (CORE_ADDR memaddr, int len, ULONGEST *return_value)
+{
+  int status;
+  struct captured_read_memory_integer_arguments args;
+  args.memaddr = memaddr;
+  args.len = len;
+  args.signedp = 0;
+
+  status = catch_errors (do_captured_read_memory_integer, &args,
+                        "", RETURN_MASK_ALL);
+  if (status)
+    *return_value = args.result.uresult;
 
   return status;
 }
