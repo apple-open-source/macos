@@ -799,9 +799,9 @@ void RenderText::setStyle(RenderStyle *_style)
         RenderObject::setStyle( _style );
 
         if (needToTransformText) {
-            DOM::DOMStringImpl* textToTransform = originalString();
-            if (textToTransform)
-                setText(textToTransform, true);
+            SharedPtr<DOMStringImpl> textToTransform = originalString();
+            if (textToTransform.notNull())
+                setText(textToTransform.get(), true);
         }
 #if APPLE_CHANGES
         // setText also calls cacheWidths(), so there is no need to call it again in that case.
@@ -894,9 +894,9 @@ bool RenderText::isTextFragment() const
     return false;
 }
 
-DOM::DOMStringImpl* RenderText::originalString() const
+SharedPtr<DOMStringImpl> RenderText::originalString() const
 {
-    return element() ? element()->string() : 0;
+    return element() ? SharedPtr<DOMStringImpl>(element()->string()) : SharedPtr<DOMStringImpl>();
 }
 
 void RenderText::absoluteRects(QValueList<QRect>& rects, int _tx, int _ty)
@@ -1775,6 +1775,9 @@ QRect RenderText::selectionRect()
 
     int absx, absy;
     cb->absolutePosition(absx, absy);
+    RenderLayer *layer = cb->layer();
+    if (layer)
+        layer->subtractScrollOffset(absx, absy); 
     for (InlineTextBox* box = firstTextBox(); box; box = box->nextTextBox()) {
         QRect r = box->selectionRect(absx, absy, startPos, endPos);
         if (!r.isEmpty()) {
@@ -1881,7 +1884,7 @@ bool RenderTextFragment::isTextFragment() const
     return true;
 }
 
-DOM::DOMStringImpl* RenderTextFragment::originalString() const
+SharedPtr<DOMStringImpl> RenderTextFragment::originalString() const
 {
     DOM::DOMStringImpl* result = 0;
     if (element())
@@ -1890,7 +1893,7 @@ DOM::DOMStringImpl* RenderTextFragment::originalString() const
         result = contentString();
     if (result && (start() > 0 || start() < result->l))
         result = result->substring(start(), end());
-    return result;
+    return SharedPtr<DOMStringImpl>(result);
 }
 #undef BIDI_DEBUG
 #undef DEBUG_LAYOUT

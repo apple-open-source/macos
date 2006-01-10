@@ -63,6 +63,18 @@
 #define LOG(channel, formatAndArgs...) ((void)0)
 #endif
 
+#ifndef NDEBUG
+static int gEventDispatchForbidden;
+#define forbidEventDispatch() gEventDispatchForbidden += 1
+#define allowEventDispatch() assert(gEventDispatchForbidden > 0); gEventDispatchForbidden -= 1
+#define eventDispatchForbidden() (gEventDispatchForbidden > 0)
+#else
+
+#define forbidEventDispatch()
+#define allowEventDispatch()
+#define eventDispatchForbidden()
+#endif NDEBUG
+
 using namespace DOM;
 using namespace khtml;
 
@@ -85,6 +97,8 @@ NodeImpl::NodeImpl(DocumentPtr *doc)
       m_specified( false ),
       m_focused( false ),
       m_active( false ),
+      m_hovered(false),
+      m_inActiveChain( false ),
       m_styleElement( false ),
       m_implicit( false )
 {
@@ -203,13 +217,12 @@ NodeImpl *NodeImpl::appendChild( NodeImpl *newChild, int &exceptioncode )
 
 void NodeImpl::remove(int &exceptioncode)
 {
-    exceptioncode = 0;
-    if (!parentNode()) {
+    ref();
+    if (NodeImpl *p = parentNode())
+        p->removeChild(this, exceptioncode);
+    else
         exceptioncode = DOMException::HIERARCHY_REQUEST_ERR;
-        return;
-    }
-    
-    parentNode()->removeChild(this, exceptioncode);
+    deref();
 }
 
 bool NodeImpl::hasChildNodes(  ) const
@@ -237,7 +250,7 @@ void NodeImpl::normalize ()
             if (exceptioncode)
                 return;
 
-            removeChild(nextChild,exceptioncode);
+            nextChild->remove(exceptioncode);
             if (exceptioncode)
                 return;
         }
@@ -467,6 +480,7 @@ EventListener *NodeImpl::getHTMLEventListener(int id)
 
 bool NodeImpl::dispatchEvent(EventImpl *evt, int &exceptioncode, bool tempEvent)
 {
+    assert(!eventDispatchForbidden());
     evt->ref();
 
     evt->setTarget(this);
@@ -505,6 +519,7 @@ bool NodeImpl::dispatchEvent(EventImpl *evt, int &exceptioncode, bool tempEvent)
 
 bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
 {
+    assert(!eventDispatchForbidden());
     evt->ref();
 
     // ### check that type specified
@@ -589,6 +604,7 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
 
 bool NodeImpl::dispatchHTMLEvent(int _id, bool canBubbleArg, bool cancelableArg)
 {
+    assert(!eventDispatchForbidden());
     int exceptioncode = 0;
     EventImpl *evt = new EventImpl(static_cast<EventImpl::EventId>(_id),canBubbleArg,cancelableArg);
     return dispatchEvent(evt,exceptioncode,true);
@@ -596,6 +612,7 @@ bool NodeImpl::dispatchHTMLEvent(int _id, bool canBubbleArg, bool cancelableArg)
 
 bool NodeImpl::dispatchWindowEvent(int _id, bool canBubbleArg, bool cancelableArg)
 {
+    assert(!eventDispatchForbidden());
     int exceptioncode = 0;
     EventImpl *evt = new EventImpl(static_cast<EventImpl::EventId>(_id),canBubbleArg,cancelableArg);
     evt->setTarget( 0 );
@@ -636,6 +653,7 @@ bool NodeImpl::dispatchWindowEvent(int _id, bool canBubbleArg, bool cancelableAr
 
 bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overrideDetail)
 {
+    assert(!eventDispatchForbidden());
     bool cancelable = true;
     int detail = overrideDetail; // defaults to 0
     EventImpl::EventId evtId = EventImpl::UNKNOWN_EVENT;
@@ -787,6 +805,7 @@ bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overr
 
 bool NodeImpl::dispatchUIEvent(int _id, int detail)
 {
+    assert(!eventDispatchForbidden());
     assert (!( (_id != EventImpl::DOMFOCUSIN_EVENT &&
         _id != EventImpl::DOMFOCUSOUT_EVENT &&
                 _id != EventImpl::DOMACTIVATE_EVENT)));
@@ -843,6 +862,8 @@ void NodeImpl::notifyNodeListsSubtreeModified()
 
 bool NodeImpl::dispatchSubtreeModifiedEvent(bool sendChildrenChanged)
 {
+    assert(!eventDispatchForbidden());
+    
     notifyNodeListsSubtreeModified();
     if (sendChildrenChanged)
         childrenChanged();
@@ -855,6 +876,7 @@ bool NodeImpl::dispatchSubtreeModifiedEvent(bool sendChildrenChanged)
 
 bool NodeImpl::dispatchKeyEvent(QKeyEvent *key)
 {
+    assert(!eventDispatchForbidden());
     int exceptioncode = 0;
     //kdDebug(6010) << "DOM::NodeImpl: dispatching keyboard event" << endl;
     KeyboardEventImpl *keyboardEventImpl = new KeyboardEventImpl(key, getDocument()->defaultView());
@@ -875,10 +897,12 @@ bool NodeImpl::dispatchKeyEvent(QKeyEvent *key)
 
     keyboardEventImpl->deref();
     return r;
+
 }
 
 void NodeImpl::dispatchWheelEvent(QWheelEvent *e)
 {
+    assert(!eventDispatchForbidden());
     if (e->delta() == 0)
         return;
 
@@ -1169,6 +1193,10 @@ void NodeImpl::attach()
     assert(!m_render || (m_render->style() && m_render->parent()));
     getDocument()->incDOMTreeVersion();
     m_attached = true;
+}
+
+void NodeImpl::willRemove()
+{
 }
 
 void NodeImpl::detach()
@@ -1700,12 +1728,13 @@ NodeImpl *NodeBaseImpl::insertBefore ( NodeImpl *newChild, NodeImpl *refChild, i
 
         // If child is already present in the tree, first remove it
         NodeImpl *newParent = child->parentNode();
-        if(newParent)
+        if (newParent)
             newParent->removeChild( child, exceptioncode );
-        if ( exceptioncode )
+        if (exceptioncode)
             return 0;
 
         // Add child in the correct position
+        forbidEventDispatch();
         if (prev)
             prev->setNextSibling(child);
         else
@@ -1714,12 +1743,13 @@ NodeImpl *NodeBaseImpl::insertBefore ( NodeImpl *newChild, NodeImpl *refChild, i
         child->setParent(this);
         child->setPreviousSibling(prev);
         child->setNextSibling(refChild);
+        allowEventDispatch();
 
         // Add child to the rendering tree
         // ### should we detach() it first if it's already attached?
         if (attached() && !child->attached())
             child->attach();
-
+        
         // Dispatch the mutation events
         dispatchChildInsertedEvents(child,exceptioncode);
 
@@ -1770,12 +1800,13 @@ NodeImpl *NodeBaseImpl::replaceChild ( NodeImpl *newChild, NodeImpl *oldChild, i
 
         // If child is already present in the tree, first remove it
         NodeImpl *newParent = child->parentNode();
-        if(newParent)
+        if (newParent)
             newParent->removeChild( child, exceptioncode );
         if (exceptioncode)
             return 0;
 
         // Add child in the correct position
+        forbidEventDispatch();
         if (prev) prev->setNextSibling(child);
         if (next) next->setPreviousSibling(child);
         if(!prev) _first = child;
@@ -1783,6 +1814,7 @@ NodeImpl *NodeBaseImpl::replaceChild ( NodeImpl *newChild, NodeImpl *oldChild, i
         child->setParent(this);
         child->setPreviousSibling(prev);
         child->setNextSibling(next);
+        allowEventDispatch();
 
         // Add child to the rendering tree
         // ### should we detach() it first if it's already attached?
@@ -1802,6 +1834,28 @@ NodeImpl *NodeBaseImpl::replaceChild ( NodeImpl *newChild, NodeImpl *oldChild, i
     return oldChild;
 }
 
+void NodeBaseImpl::willRemove()
+{
+    for (NodeImpl *n = _first; n != 0; n = n->nextSibling()) {
+        n->willRemove();
+    }
+}
+
+int NodeBaseImpl::willRemoveChild(NodeImpl *child)
+{
+    int exceptionCode = 0;
+
+    // fire removed from document mutation events.
+    dispatchChildRemovalEvents(child, exceptionCode);
+    if (exceptionCode)
+        return exceptionCode;
+
+    if (child->attached())
+        child->willRemove();
+    
+    return 0;
+}
+
 NodeImpl *NodeBaseImpl::removeChild ( NodeImpl *oldChild, int &exceptioncode )
 {
     exceptioncode = 0;
@@ -1817,9 +1871,12 @@ NodeImpl *NodeBaseImpl::removeChild ( NodeImpl *oldChild, int &exceptioncode )
         exceptioncode = DOMException::NOT_FOUND_ERR;
         return 0;
     }
+    
+    // update auxiliary doc info (e.g. iterators) to note that node is being removed
+    // FIX: This looks redundant with same call from dispatchChildRemovalEvents in willRemoveChild
+//  getDocument()->notifyBeforeNodeRemoval(oldChild); // ### use events instead
 
-    // Dispatch pre-removal mutation events
-    getDocument()->notifyBeforeNodeRemoval(oldChild); // ### use events instead
+    // dispatch pre-removal mutation events
     if (getDocument()->hasListenerType(DocumentImpl::DOMNODEREMOVED_LISTENER)) {
 	oldChild->dispatchEvent(new MutationEventImpl(EventImpl::DOMNODEREMOVED_EVENT,
 			     true,false,this,DOMString(),DOMString(),DOMString(),0),exceptioncode,true);
@@ -1827,9 +1884,11 @@ NodeImpl *NodeBaseImpl::removeChild ( NodeImpl *oldChild, int &exceptioncode )
 	    return 0;
     }
 
-    dispatchChildRemovalEvents(oldChild,exceptioncode);
+    exceptioncode = willRemoveChild(oldChild);
     if (exceptioncode)
         return 0;
+
+    forbidEventDispatch();
 
     // Remove from rendering tree
     if (oldChild->attached())
@@ -1849,6 +1908,8 @@ NodeImpl *NodeBaseImpl::removeChild ( NodeImpl *oldChild, int &exceptioncode )
     oldChild->setNextSibling(0);
     oldChild->setParent(0);
 
+    allowEventDispatch();
+
     getDocument()->setDocumentChanged(true);
 
     // Dispatch post-removal mutation events
@@ -1860,16 +1921,25 @@ NodeImpl *NodeBaseImpl::removeChild ( NodeImpl *oldChild, int &exceptioncode )
     return oldChild;
 }
 
+// this differs from other remove functions because it forcibly removes all the children,
+// regardless of read-only status or event exceptions, e.g.
 void NodeBaseImpl::removeChildren()
 {
-    int exceptionCode;
-    while (NodeImpl *n = _first) {
+    NodeImpl *n;
+    
+    if (!_first)
+        return;
+
+    // do any prep work needed before actually starting to detach
+    // and remove... e.g. stop loading frames, fire unload events
+    for (n = _first; n != 0; n = n->nextSibling())
+        willRemoveChild(n);
+    
+    forbidEventDispatch();
+    while ((n = _first) != 0) {
         NodeImpl *next = n->nextSibling();
         
         n->ref();
-
-        // Fire removed from document mutation events.
-        dispatchChildRemovalEvents(n, exceptionCode);
 
         if (n->attached())
 	    n->detach();
@@ -1885,6 +1955,7 @@ void NodeBaseImpl::removeChildren()
         _first = next;
     }
     _last = 0;
+    allowEventDispatch();
     
     // Dispatch a single post-removal mutation event denoting a modified subtree.
     dispatchSubtreeModifiedEvent();
@@ -1928,24 +1999,21 @@ NodeImpl *NodeBaseImpl::appendChild ( NodeImpl *newChild, int &exceptioncode )
         }
 
         // Append child to the end of the list
+        forbidEventDispatch();
         child->setParent(this);
-
-        if(_last)
-        {
+        if (_last) {
             child->setPreviousSibling(_last);
             _last->setNextSibling(child);
             _last = child;
-        }
-        else
-        {
+        } else
             _first = _last = child;
-        }
+        allowEventDispatch();
 
         // Add child to the rendering tree
         // ### should we detach() it first if it's already attached?
         if (attached() && !child->attached())
             child->attach();
-          
+        
         // Dispatch the mutation events
         dispatchChildInsertedEvents(child,exceptioncode);
 
@@ -2027,23 +2095,20 @@ NodeImpl *NodeBaseImpl::addChild(NodeImpl *newChild)
     }
 
     // just add it...
+    forbidEventDispatch();
     newChild->setParent(this);
-
-    if(_last)
-    {
+    if(_last) {
         newChild->setPreviousSibling(_last);
         _last->setNextSibling(newChild);
         _last = newChild;
-    }
-    else
-    {
+    } else
         _first = _last = newChild;
-    }
+    allowEventDispatch();
 
     if (inDocument())
         newChild->insertedIntoDocument();
     childrenChanged();
-
+    
     if(newChild->nodeType() == Node::ELEMENT_NODE)
         return newChild;
     return this;
@@ -2208,30 +2273,28 @@ bool NodeBaseImpl::getLowerRightCorner(int &xPos, int &yPos) const
 
 QRect NodeBaseImpl::getRect() const
 {
-    int xPos, yPos;
-    if (!getUpperLeftCorner(xPos,yPos))
+    int xPos = 0, yPos = 0, xEnd = 0, yEnd = 0;
+    bool foundUpperLeft = getUpperLeftCorner(xPos,yPos);
+    bool foundLowerRight = getLowerRightCorner(xEnd,yEnd);
+    
+    // If we've found one corner, but not the other,
+    // then we should just return a point at the corner that we did find.
+    if (foundUpperLeft != foundLowerRight)
     {
-        xPos=0;
-        yPos=0;
-    }
-    int xEnd, yEnd;
-    if (!getLowerRightCorner(xEnd,yEnd))
-    {
-        if (xPos)
+        if (foundUpperLeft) {
             xEnd = xPos;
-        if (yPos)
             yEnd = yPos;
-    }
-    else
-    {
-        if (xPos==0)
+        } else {
             xPos = xEnd;
-        if (yPos==0)
             yPos = yEnd;
-    }
-    if ( xEnd <= xPos || yEnd <= yPos )
-        return QRect( QPoint( xPos, yPos ), QSize() );
+        }
+    } 
 
+    if (xEnd < xPos)
+        xEnd = xPos;
+    if (yEnd < yPos)
+        yEnd = yPos;
+        
     return QRect(xPos, yPos, xEnd - xPos, yEnd - yPos);
 }
 
@@ -2260,6 +2323,20 @@ void NodeBaseImpl::setActive(bool down)
         setChanged();
 }
 
+void NodeBaseImpl::setHovered(bool over)
+{
+    if (over == hovered()) return;
+
+    NodeImpl::setHovered(over);
+
+    // note that we need to recalc the style
+    // FIXME: Move to ElementImpl
+    if (m_render) {
+        if (m_render->style()->affectedByHoverRules())
+            setChanged();
+    }
+}
+
 unsigned long NodeBaseImpl::childNodeCount() const
 {
     unsigned long count = 0;
@@ -2280,6 +2357,7 @@ NodeImpl *NodeBaseImpl::childNode(unsigned long index)
 
 void NodeBaseImpl::dispatchChildInsertedEvents( NodeImpl *child, int &exceptioncode )
 {
+    assert(!eventDispatchForbidden());
     NodeImpl *p = this;
     while (p->parentNode())
         p = p->parentNode();
@@ -2312,8 +2390,10 @@ void NodeBaseImpl::dispatchChildInsertedEvents( NodeImpl *child, int &exceptionc
 
 void NodeBaseImpl::dispatchChildRemovalEvents( NodeImpl *child, int &exceptioncode )
 {
-    // Dispatch pre-removal mutation events
+    // update auxiliary doc info (e.g. iterators) to note that node is being removed
     getDocument()->notifyBeforeNodeRemoval(child); // ### use events instead
+
+    // dispatch pre-removal mutation events
     if (getDocument()->hasListenerType(DocumentImpl::DOMNODEREMOVED_LISTENER)) {
 	child->dispatchEvent(new MutationEventImpl(EventImpl::DOMNODEREMOVED_EVENT,
 			     true,false,this,DOMString(),DOMString(),DOMString(),0),exceptioncode,true);

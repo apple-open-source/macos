@@ -62,12 +62,12 @@
  * [including the GNU Public Licence.]
  */
 
-#define NUM_NID 668
-#define NUM_SN 660
-#define NUM_LN 660
-#define NUM_OBJ 624
+#define NUM_NID 676
+#define NUM_SN 669
+#define NUM_LN 669
+#define NUM_OBJ 633
 
-static unsigned char lvalues[4500]={
+static unsigned char lvalues[4575]={
 0x00,                                        /* [  0] OBJ_undef */
 0x2A,0x86,0x48,0x86,0xF7,0x0D,               /* [  1] OBJ_rsadsi */
 0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,          /* [  7] OBJ_pkcs */
@@ -330,9 +330,9 @@ static unsigned char lvalues[4500]={
 0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x04,     /* [2092] OBJ_ac_auditEntity */
 0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x05,     /* [2100] OBJ_ac_targeting */
 0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x06,     /* [2108] OBJ_aaControls */
-0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x07,     /* [2116] OBJ_sbqp_ipAddrBlock */
-0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x08,     /* [2124] OBJ_sbqp_autonomousSysNum */
-0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x09,     /* [2132] OBJ_sbqp_routerIdentifier */
+0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x07,     /* [2116] OBJ_sbgp_ipAddrBlock */
+0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x08,     /* [2124] OBJ_sbgp_autonomousSysNum */
+0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x09,     /* [2132] OBJ_sbgp_routerIdentifier */
 0x2B,0x06,0x01,0x05,0x05,0x07,0x02,0x03,     /* [2140] OBJ_textNotice */
 0x2B,0x06,0x01,0x05,0x05,0x07,0x03,0x05,     /* [2148] OBJ_ipsecEndSystem */
 0x2B,0x06,0x01,0x05,0x05,0x07,0x03,0x06,     /* [2156] OBJ_ipsecTunnel */
@@ -691,7 +691,16 @@ static unsigned char lvalues[4500]={
 0x2B,0x06,0x01,0x05,0x05,0x07,0x01,0x0E,     /* [4467] OBJ_proxyCertInfo */
 0x2B,0x06,0x01,0x05,0x05,0x07,0x15,0x00,     /* [4475] OBJ_id_ppl_anyLanguage */
 0x2B,0x06,0x01,0x05,0x05,0x07,0x15,0x01,     /* [4483] OBJ_id_ppl_inheritAll */
-0x2B,0x06,0x01,0x05,0x05,0x07,0x15,0x02,     /* [4491] OBJ_Independent */
+0x55,0x1D,0x1E,                              /* [4491] OBJ_name_constraints */
+0x2B,0x06,0x01,0x05,0x05,0x07,0x15,0x02,     /* [4494] OBJ_Independent */
+0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x01,0x0B,/* [4502] OBJ_sha256WithRSAEncryption */
+0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x01,0x0C,/* [4511] OBJ_sha384WithRSAEncryption */
+0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x01,0x0D,/* [4520] OBJ_sha512WithRSAEncryption */
+0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x01,0x0E,/* [4529] OBJ_sha224WithRSAEncryption */
+0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x01,/* [4538] OBJ_sha256 */
+0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x02,/* [4547] OBJ_sha384 */
+0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x03,/* [4556] OBJ_sha512 */
+0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x04,/* [4565] OBJ_sha224 */
 };
 
 static ASN1_OBJECT nid_objs[NUM_NID]={
@@ -1134,12 +1143,12 @@ static ASN1_OBJECT nid_objs[NUM_NID]={
 	&(lvalues[2092]),0},
 {"ac-targeting","ac-targeting",NID_ac_targeting,8,&(lvalues[2100]),0},
 {"aaControls","aaControls",NID_aaControls,8,&(lvalues[2108]),0},
-{"sbqp-ipAddrBlock","sbqp-ipAddrBlock",NID_sbqp_ipAddrBlock,8,
+{"sbgp-ipAddrBlock","sbgp-ipAddrBlock",NID_sbgp_ipAddrBlock,8,
 	&(lvalues[2116]),0},
-{"sbqp-autonomousSysNum","sbqp-autonomousSysNum",
-	NID_sbqp_autonomousSysNum,8,&(lvalues[2124]),0},
-{"sbqp-routerIdentifier","sbqp-routerIdentifier",
-	NID_sbqp_routerIdentifier,8,&(lvalues[2132]),0},
+{"sbgp-autonomousSysNum","sbgp-autonomousSysNum",
+	NID_sbgp_autonomousSysNum,8,&(lvalues[2124]),0},
+{"sbgp-routerIdentifier","sbgp-routerIdentifier",
+	NID_sbgp_routerIdentifier,8,&(lvalues[2132]),0},
 {"textNotice","textNotice",NID_textNotice,8,&(lvalues[2140]),0},
 {"ipsecEndSystem","IPSec End System",NID_ipsecEndSystem,8,
 	&(lvalues[2148]),0},
@@ -1754,8 +1763,21 @@ static ASN1_OBJECT nid_objs[NUM_NID]={
 	&(lvalues[4475]),0},
 {"id-ppl-inheritAll","Inherit all",NID_id_ppl_inheritAll,8,
 	&(lvalues[4483]),0},
-{NULL,NULL,NID_undef,0,NULL},
-{"id-ppl-independent","Independent",NID_Independent,8,&(lvalues[4491]),0},
+{"nameConstraints","X509v3 Name Constraints",NID_name_constraints,3,
+	&(lvalues[4491]),0},
+{"id-ppl-independent","Independent",NID_Independent,8,&(lvalues[4494]),0},
+{"RSA-SHA256","sha256WithRSAEncryption",NID_sha256WithRSAEncryption,9,
+	&(lvalues[4502]),0},
+{"RSA-SHA384","sha384WithRSAEncryption",NID_sha384WithRSAEncryption,9,
+	&(lvalues[4511]),0},
+{"RSA-SHA512","sha512WithRSAEncryption",NID_sha512WithRSAEncryption,9,
+	&(lvalues[4520]),0},
+{"RSA-SHA224","sha224WithRSAEncryption",NID_sha224WithRSAEncryption,9,
+	&(lvalues[4529]),0},
+{"SHA256","sha256",NID_sha256,9,&(lvalues[4538]),0},
+{"SHA384","sha384",NID_sha384,9,&(lvalues[4547]),0},
+{"SHA512","sha512",NID_sha512,9,&(lvalues[4556]),0},
+{"SHA224","sha224",NID_sha224,9,&(lvalues[4565]),0},
 };
 
 static ASN1_OBJECT *sn_objs[NUM_SN]={
@@ -1881,8 +1903,16 @@ static ASN1_OBJECT *sn_objs[NUM_SN]={
 &(nid_objs[42]),/* "RSA-SHA" */
 &(nid_objs[65]),/* "RSA-SHA1" */
 &(nid_objs[115]),/* "RSA-SHA1-2" */
+&(nid_objs[671]),/* "RSA-SHA224" */
+&(nid_objs[668]),/* "RSA-SHA256" */
+&(nid_objs[669]),/* "RSA-SHA384" */
+&(nid_objs[670]),/* "RSA-SHA512" */
 &(nid_objs[41]),/* "SHA" */
 &(nid_objs[64]),/* "SHA1" */
+&(nid_objs[675]),/* "SHA224" */
+&(nid_objs[672]),/* "SHA256" */
+&(nid_objs[673]),/* "SHA384" */
+&(nid_objs[674]),/* "SHA512" */
 &(nid_objs[188]),/* "SMIME" */
 &(nid_objs[167]),/* "SMIME-CAPS" */
 &(nid_objs[100]),/* "SN" */
@@ -2182,6 +2212,7 @@ static ASN1_OBJECT *sn_objs[NUM_SN]={
 &(nid_objs[649]),/* "msUPN" */
 &(nid_objs[481]),/* "nSRecord" */
 &(nid_objs[173]),/* "name" */
+&(nid_objs[666]),/* "nameConstraints" */
 &(nid_objs[369]),/* "noCheck" */
 &(nid_objs[403]),/* "noRevAvail" */
 &(nid_objs[72]),/* "nsBaseUrl" */
@@ -2254,9 +2285,9 @@ static ASN1_OBJECT *sn_objs[NUM_SN]={
 &(nid_objs[ 1]),/* "rsadsi" */
 &(nid_objs[482]),/* "sOARecord" */
 &(nid_objs[155]),/* "safeContentsBag" */
-&(nid_objs[291]),/* "sbqp-autonomousSysNum" */
-&(nid_objs[290]),/* "sbqp-ipAddrBlock" */
-&(nid_objs[292]),/* "sbqp-routerIdentifier" */
+&(nid_objs[291]),/* "sbgp-autonomousSysNum" */
+&(nid_objs[290]),/* "sbgp-ipAddrBlock" */
+&(nid_objs[292]),/* "sbgp-routerIdentifier" */
 &(nid_objs[159]),/* "sdsiCertificate" */
 &(nid_objs[154]),/* "secretBag" */
 &(nid_objs[474]),/* "secretary" */
@@ -2517,6 +2548,7 @@ static ASN1_OBJECT *ln_objs[NUM_LN]={
 &(nid_objs[126]),/* "X509v3 Extended Key Usage" */
 &(nid_objs[86]),/* "X509v3 Issuer Alternative Name" */
 &(nid_objs[83]),/* "X509v3 Key Usage" */
+&(nid_objs[666]),/* "X509v3 Name Constraints" */
 &(nid_objs[403]),/* "X509v3 No Revocation Available" */
 &(nid_objs[401]),/* "X509v3 Policy Constraints" */
 &(nid_objs[84]),/* "X509v3 Private Key Usage Period" */
@@ -2930,9 +2962,9 @@ static ASN1_OBJECT *ln_objs[NUM_LN]={
 &(nid_objs[124]),/* "run length compression" */
 &(nid_objs[482]),/* "sOARecord" */
 &(nid_objs[155]),/* "safeContentsBag" */
-&(nid_objs[291]),/* "sbqp-autonomousSysNum" */
-&(nid_objs[290]),/* "sbqp-ipAddrBlock" */
-&(nid_objs[292]),/* "sbqp-routerIdentifier" */
+&(nid_objs[291]),/* "sbgp-autonomousSysNum" */
+&(nid_objs[290]),/* "sbgp-ipAddrBlock" */
+&(nid_objs[292]),/* "sbgp-routerIdentifier" */
 &(nid_objs[159]),/* "sdsiCertificate" */
 &(nid_objs[154]),/* "secretBag" */
 &(nid_objs[474]),/* "secretary" */
@@ -3059,6 +3091,14 @@ static ASN1_OBJECT *ln_objs[NUM_LN]={
 &(nid_objs[64]),/* "sha1" */
 &(nid_objs[115]),/* "sha1WithRSA" */
 &(nid_objs[65]),/* "sha1WithRSAEncryption" */
+&(nid_objs[675]),/* "sha224" */
+&(nid_objs[671]),/* "sha224WithRSAEncryption" */
+&(nid_objs[672]),/* "sha256" */
+&(nid_objs[668]),/* "sha256WithRSAEncryption" */
+&(nid_objs[673]),/* "sha384" */
+&(nid_objs[669]),/* "sha384WithRSAEncryption" */
+&(nid_objs[674]),/* "sha512" */
+&(nid_objs[670]),/* "sha512WithRSAEncryption" */
 &(nid_objs[42]),/* "shaWithRSAEncryption" */
 &(nid_objs[52]),/* "signingTime" */
 &(nid_objs[454]),/* "simpleSecurityObject" */
@@ -3133,6 +3173,7 @@ static ASN1_OBJECT *obj_objs[NUM_OBJ]={
 &(nid_objs[430]),/* OBJ_hold_instruction_code        2 5 29 23 */
 &(nid_objs[142]),/* OBJ_invalidity_date              2 5 29 24 */
 &(nid_objs[140]),/* OBJ_delta_crl                    2 5 29 27 */
+&(nid_objs[666]),/* OBJ_name_constraints             2 5 29 30 */
 &(nid_objs[103]),/* OBJ_crl_distribution_points      2 5 29 31 */
 &(nid_objs[89]),/* OBJ_certificate_policies         2 5 29 32 */
 &(nid_objs[90]),/* OBJ_authority_key_identifier     2 5 29 35 */
@@ -3383,9 +3424,9 @@ static ASN1_OBJECT *obj_objs[NUM_OBJ]={
 &(nid_objs[287]),/* OBJ_ac_auditEntity               1 3 6 1 5 5 7 1 4 */
 &(nid_objs[288]),/* OBJ_ac_targeting                 1 3 6 1 5 5 7 1 5 */
 &(nid_objs[289]),/* OBJ_aaControls                   1 3 6 1 5 5 7 1 6 */
-&(nid_objs[290]),/* OBJ_sbqp_ipAddrBlock             1 3 6 1 5 5 7 1 7 */
-&(nid_objs[291]),/* OBJ_sbqp_autonomousSysNum        1 3 6 1 5 5 7 1 8 */
-&(nid_objs[292]),/* OBJ_sbqp_routerIdentifier        1 3 6 1 5 5 7 1 9 */
+&(nid_objs[290]),/* OBJ_sbgp_ipAddrBlock             1 3 6 1 5 5 7 1 7 */
+&(nid_objs[291]),/* OBJ_sbgp_autonomousSysNum        1 3 6 1 5 5 7 1 8 */
+&(nid_objs[292]),/* OBJ_sbgp_routerIdentifier        1 3 6 1 5 5 7 1 9 */
 &(nid_objs[397]),/* OBJ_ac_proxying                  1 3 6 1 5 5 7 1 10 */
 &(nid_objs[398]),/* OBJ_sinfo_access                 1 3 6 1 5 5 7 1 11 */
 &(nid_objs[663]),/* OBJ_proxyCertInfo                1 3 6 1 5 5 7 1 14 */
@@ -3480,6 +3521,10 @@ static ASN1_OBJECT *obj_objs[NUM_OBJ]={
 &(nid_objs[ 8]),/* OBJ_md5WithRSAEncryption         1 2 840 113549 1 1 4 */
 &(nid_objs[65]),/* OBJ_sha1WithRSAEncryption        1 2 840 113549 1 1 5 */
 &(nid_objs[644]),/* OBJ_rsaOAEPEncryptionSET         1 2 840 113549 1 1 6 */
+&(nid_objs[668]),/* OBJ_sha256WithRSAEncryption      1 2 840 113549 1 1 11 */
+&(nid_objs[669]),/* OBJ_sha384WithRSAEncryption      1 2 840 113549 1 1 12 */
+&(nid_objs[670]),/* OBJ_sha512WithRSAEncryption      1 2 840 113549 1 1 13 */
+&(nid_objs[671]),/* OBJ_sha224WithRSAEncryption      1 2 840 113549 1 1 14 */
 &(nid_objs[28]),/* OBJ_dhKeyAgreement               1 2 840 113549 1 3 1 */
 &(nid_objs[ 9]),/* OBJ_pbeWithMD2AndDES_CBC         1 2 840 113549 1 5 1 */
 &(nid_objs[10]),/* OBJ_pbeWithMD5AndDES_CBC         1 2 840 113549 1 5 3 */
@@ -3544,6 +3589,10 @@ static ASN1_OBJECT *obj_objs[NUM_OBJ]={
 &(nid_objs[427]),/* OBJ_aes_256_cbc                  2 16 840 1 101 3 4 1 42 */
 &(nid_objs[428]),/* OBJ_aes_256_ofb128               2 16 840 1 101 3 4 1 43 */
 &(nid_objs[429]),/* OBJ_aes_256_cfb128               2 16 840 1 101 3 4 1 44 */
+&(nid_objs[672]),/* OBJ_sha256                       2 16 840 1 101 3 4 2 1 */
+&(nid_objs[673]),/* OBJ_sha384                       2 16 840 1 101 3 4 2 2 */
+&(nid_objs[674]),/* OBJ_sha512                       2 16 840 1 101 3 4 2 3 */
+&(nid_objs[675]),/* OBJ_sha224                       2 16 840 1 101 3 4 2 4 */
 &(nid_objs[71]),/* OBJ_netscape_cert_type           2 16 840 1 113730 1 1 */
 &(nid_objs[72]),/* OBJ_netscape_base_url            2 16 840 1 113730 1 2 */
 &(nid_objs[73]),/* OBJ_netscape_revocation_url      2 16 840 1 113730 1 3 */

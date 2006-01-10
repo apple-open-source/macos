@@ -481,6 +481,10 @@ void HTMLElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
         setHTMLEventListener(EventImpl::DOMFOCUSIN_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
+    case ATTR_ONBLUR:
+        setHTMLEventListener(EventImpl::DOMFOCUSOUT_EVENT,
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+        break;
     case ATTR_ONKEYDOWN:
         setHTMLEventListener(EventImpl::KEYDOWN_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string(), this));
@@ -872,9 +876,9 @@ bool HTMLElementImpl::setOuterHTML( const DOMString &html )
     
     int ec = 0;
     
-    if (parentNode()) {
-        parentNode()->replaceChild(fragment, this, ec);
-    }
+    ref();
+    parent->replaceChild(fragment, this, ec);
+    deref();
     
     return !ec;
 }
@@ -943,7 +947,9 @@ bool HTMLElementImpl::setOuterText( const DOMString &text )
 
     TextImpl *t = new TextImpl( docPtr(), text );
     int ec = 0;
+    ref();
     parent->replaceChild(t, this, ec);
+    deref();
 
     if ( ec )
         return false;
@@ -953,7 +959,7 @@ bool HTMLElementImpl::setOuterText( const DOMString &text )
     if (prev && prev->isTextNode()) {
 	TextImpl *textPrev = static_cast<TextImpl *>(prev);
 	textPrev->appendData(t->data(), ec);
-	t->parentNode()->removeChild(t, ec);
+	t->remove(ec);
 	t = textPrev;
     }
 
@@ -965,7 +971,7 @@ bool HTMLElementImpl::setOuterText( const DOMString &text )
     if (next && next->isTextNode()) {
 	TextImpl *textNext = static_cast<TextImpl *>(next);
 	t->appendData(textNext->data(), ec);
-	textNext->parentNode()->removeChild(textNext, ec);
+	textNext->remove(ec);
     }
 
     if ( ec )

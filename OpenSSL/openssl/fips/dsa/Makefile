@@ -18,7 +18,7 @@ AR=		ar r
 CFLAGS= $(INCLUDES) $(CFLAG)
 
 GENERAL=Makefile
-TEST=fips_dsatest.c
+TEST=fips_dsatest.c fips_dssvs.c
 APPS=
 
 LIB=$(TOP)/libcrypto.a
@@ -35,15 +35,12 @@ ALL=    $(GENERAL) $(SRC) $(HEADER)
 top:
 	(cd $(TOP); $(MAKE) DIRS=fips FDIRS=$(DIR) sub_all)
 
-all:	check lib
+all:	lib
 
 lib:	$(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
 	$(RANLIB) $(LIB) || echo Never mind.
 	@sleep 2; touch lib
-
-check:
-	TOP=`pwd`/$(TOP) ../fips_check_sha1 fingerprint.sha1 $(SRC) $(HEADER)
 
 files:
 	$(PERL) $(TOP)/util/files.pl Makefile >> $(TOP)/MINFO
@@ -65,23 +62,16 @@ tags:
 
 tests:
 
-top_fips_dssvs:
-	(cd $(TOP); $(MAKE) DIRS=fips FDIRS=$(DIR) TARGET=fips_dssvs sub_target)
-
-fips_dssvs: fips_dssvs.o $(TOP)/libcrypto.a
-	$(CC) $(CFLAGS) -o fips_dssvs fips_dssvs.o $(PEX_LIBS) $(TOP)/libcrypto.a $(EX_LIBS)
-	TOP=$(TOP) $(TOP)/fips/openssl_fips_fingerprint $(TOP)/libcrypto.a fips_dssvs
-
 Q=../testvectors/dsa/req
 A=../testvectors/dsa/rsp
 
-fips_test: top_fips_dssvs
+fips_test:
 	-rm -rf $A
 	mkdir $A
-	./fips_dssvs pqg < $Q/PQGGen.req > $A/PQGGen.rsp
-	./fips_dssvs keypair < $Q/KeyPair.req > $A/KeyPair.rsp
-	./fips_dssvs siggen < $Q/SigGen.req > $A/SigGen.rsp
-	./fips_dssvs sigver < $Q/SigVer.req > $A/SigVer.rsp
+	if [ -f $(Q)/PQGGen.req ]; then $(TOP)/util/shlib_wrap.sh $(TOP)/test/fips_dssvs pqg < $(Q)/PQGGen.req > $(A)/PQGGen.rsp; fi
+	if [ -f $(Q)/KeyPair.req ]; then $(TOP)/util/shlib_wrap.sh $(TOP)/test/fips_dssvs keypair < $(Q)/KeyPair.req > $(A)/KeyPair.rsp; fi
+	if [ -f $(Q)/SigGen.req ]; then $(TOP)/util/shlib_wrap.sh $(TOP)/test/fips_dssvs siggen < $(Q)/SigGen.req > $(A)/SigGen.rsp; fi
+	if [ -f $(Q)/SigVer.req ]; then $(TOP)/util/shlib_wrap.sh $(TOP)/test/fips_dssvs sigver < $Q/SigVer.req > $A/SigVer.rsp; fi
 
 lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff
@@ -104,11 +94,11 @@ fips_dsa_gen.o: ../../include/openssl/crypto.h ../../include/openssl/des.h
 fips_dsa_gen.o: ../../include/openssl/des_old.h ../../include/openssl/dh.h
 fips_dsa_gen.o: ../../include/openssl/dsa.h ../../include/openssl/e_os2.h
 fips_dsa_gen.o: ../../include/openssl/err.h ../../include/openssl/evp.h
-fips_dsa_gen.o: ../../include/openssl/fips.h ../../include/openssl/idea.h
-fips_dsa_gen.o: ../../include/openssl/lhash.h ../../include/openssl/md2.h
-fips_dsa_gen.o: ../../include/openssl/md4.h ../../include/openssl/md5.h
-fips_dsa_gen.o: ../../include/openssl/mdc2.h ../../include/openssl/obj_mac.h
-fips_dsa_gen.o: ../../include/openssl/objects.h
+fips_dsa_gen.o: ../../include/openssl/fips.h ../../include/openssl/fips_sha.h
+fips_dsa_gen.o: ../../include/openssl/idea.h ../../include/openssl/lhash.h
+fips_dsa_gen.o: ../../include/openssl/md2.h ../../include/openssl/md4.h
+fips_dsa_gen.o: ../../include/openssl/md5.h ../../include/openssl/mdc2.h
+fips_dsa_gen.o: ../../include/openssl/obj_mac.h ../../include/openssl/objects.h
 fips_dsa_gen.o: ../../include/openssl/opensslconf.h
 fips_dsa_gen.o: ../../include/openssl/opensslv.h
 fips_dsa_gen.o: ../../include/openssl/ossl_typ.h ../../include/openssl/rand.h
@@ -156,3 +146,4 @@ fips_dsatest.o: ../../include/openssl/rsa.h ../../include/openssl/safestack.h
 fips_dsatest.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
 fips_dsatest.o: ../../include/openssl/ui.h ../../include/openssl/ui_compat.h
 fips_dsatest.o: fips_dsatest.c
+fips_dssvs.o: ../../include/openssl/opensslconf.h fips_dssvs.c

@@ -68,9 +68,6 @@ int SSL_library_init(void)
 	EVP_add_cipher(EVP_des_cbc());
 	EVP_add_cipher(EVP_des_ede3_cbc());
 #endif
-#ifndef OPENSSL_NO_IDEA
-	EVP_add_cipher(EVP_idea_cbc());
-#endif
 #ifndef OPENSSL_NO_RC4
 	EVP_add_cipher(EVP_rc4());
 #endif  

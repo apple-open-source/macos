@@ -552,6 +552,42 @@ void HTMLInputElement::select(  )
 	((HTMLInputElementImpl *)impl)->select(  );
 }
 
+bool HTMLInputElement::canHaveSelection()
+{
+    if(!impl) return false;
+	return ((HTMLInputElementImpl *)impl)->canHaveSelection(  );
+}
+
+long HTMLInputElement::selectionStart()
+{
+    if(!impl) return 0;
+	return ((HTMLInputElementImpl *)impl)->selectionStart(  );
+}
+
+long HTMLInputElement::selectionEnd()
+{
+    if(!impl) return 0;
+	return ((HTMLInputElementImpl *)impl)->selectionEnd(  );
+}
+
+void HTMLInputElement::setSelectionStart(long start)
+{
+    if(impl)
+	((HTMLInputElementImpl *)impl)->setSelectionStart(start);
+}
+
+void HTMLInputElement::setSelectionEnd(long end)
+{
+    if(impl)
+	((HTMLInputElementImpl *)impl)->setSelectionStart(end);
+}
+
+void HTMLInputElement::setSelectionRange(long start, long end)
+{
+    if(impl)
+	((HTMLInputElementImpl *)impl)->setSelectionRange(start, end);
+}
+
 void HTMLInputElement::click(  )
 {
     if(impl)
@@ -1055,10 +1091,40 @@ void HTMLTextAreaElement::focus(  )
 	((HTMLTextAreaElementImpl*)impl)->focus();
 }
 
+long HTMLTextAreaElement::selectionStart()
+{
+    if(!impl) return 0;
+	return ((HTMLTextAreaElementImpl *)impl)->selectionStart(  );
+}
+
+long HTMLTextAreaElement::selectionEnd()
+{
+    if(!impl) return 0;
+	return ((HTMLTextAreaElementImpl *)impl)->selectionEnd(  );
+}
+
+void HTMLTextAreaElement::setSelectionStart(long start)
+{
+    if(impl)
+	((HTMLTextAreaElementImpl *)impl)->setSelectionStart(start);
+}
+
+void HTMLTextAreaElement::setSelectionEnd(long start)
+{
+    if(impl)
+	((HTMLTextAreaElementImpl *)impl)->setSelectionEnd(start);
+}
+
 void HTMLTextAreaElement::select(  )
 {
     if(impl)
 	((HTMLTextAreaElementImpl *)impl)->select(  );
+}
+
+void HTMLTextAreaElement::setSelectionRange(long start, long end)
+{
+    if(impl)
+	((HTMLTextAreaElementImpl *)impl)->setSelectionRange(start, end);
 }
 
 // --------------------------------------------------------------------------

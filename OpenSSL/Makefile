@@ -29,11 +29,11 @@ Install_Target  = install
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 0.9.7g
+AEP_Version    = 0.9.7i
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = NLS_openssl_097b_to_097g.patch
+AEP_Patches    = NLS_openssl_097b_to_097g.patch NLS_buildfailure.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

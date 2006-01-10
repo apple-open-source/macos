@@ -329,6 +329,8 @@ IOFWDCLPool :: importUserProgram (
 		((IOFWDCL*)fProgram->getObject( index ))->debug() ;
 	}
 	
+	delete exportData ;
+	
 	return error ;
 }
 

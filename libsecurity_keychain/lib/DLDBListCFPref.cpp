@@ -134,6 +134,13 @@ DLDbListCFPref::~DLDbListCFPref()
 		CFRelease(mPropertyList);
 }
 
+void
+DLDbListCFPref::forceUserSearchListReread()
+{
+	// set mPrefsTimeStamp so that it will "expire" the next time loadPropertyList is called
+	mPrefsTimeStamp = CFAbsoluteTimeGetCurrent() - kDLDbListCFPrefRevertInterval;
+}
+
 bool
 DLDbListCFPref::loadPropertyList(bool force)
 {

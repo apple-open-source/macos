@@ -621,14 +621,13 @@ NodeImpl* CSSStyleSelector::locateCousinList(ElementImpl* parent)
 bool CSSStyleSelector::canShareStyleWithElement(NodeImpl* n)
 {
     if (n->isHTMLElement()) {
-        bool mouseInside = element->renderer() ? element->renderer()->mouseInside() : false;
         HTMLElementImpl* s = static_cast<HTMLElementImpl*>(n);
         if (s->renderer() && (s->id() == element->id()) && !s->hasID() &&
             (s->hasClass() == element->hasClass()) && !s->inlineStyleDecl() &&
             (s->hasMappedAttributes() == htmlElement->hasMappedAttributes()) &&
             (s->hasAnchor() == element->hasAnchor()) && 
             !s->renderer()->style()->affectedByAttributeSelectors() &&
-            (s->renderer()->mouseInside() == mouseInside) &&
+            (s->hovered() == element->hovered()) &&
             (s->active() == element->active()) &&
             (s->focused() == element->focused())) {
             bool classesMatch = true;
@@ -940,9 +939,9 @@ void CSSStyleSelector::adjustRenderStyle(RenderStyle* style, DOM::ElementImpl *e
         }
         
         // After performing the display mutation, check table rows.  We do not honor position:relative on
-        // table rows.  This has been established in CSS2.1 (and caused a crash in containingBlock() on
-        // some sites).
-        if (style->display() == TABLE_ROW && style->position() == RELATIVE)
+        // table rows or cells.  This has been established in CSS2.1 (and caused a crash in containingBlock()
+        // on some sites).
+        if ((style->display() == TABLE_ROW || style->display() == TABLE_CELL) && style->position() == RELATIVE)
             style->setPosition(STATIC);
     }
 
@@ -1309,7 +1308,7 @@ bool CSSStyleSelector::checkOneSelector(DOM::CSSSelector *sel, DOM::ElementImpl 
                     if (e->renderer()) {
                         if (element != e)
                             e->renderer()->style()->setAffectedByHoverRules(true);
-                        if (e->renderer()->mouseInside())
+                        if (e->hovered())
                             return true;
                     }
                 }
@@ -1758,9 +1757,10 @@ void CSSStyleSelector::applyProperty( int id, DOM::CSSValueImpl *value )
     Length l;
     bool apply = false;
 
-    bool isInherit = (parentNode && value->cssValueType() == CSSValue::CSS_INHERIT);
-    bool isInitial = (value->cssValueType() == CSSValue::CSS_INITIAL) ||
-                     (!parentNode && value->cssValueType() == CSSValue::CSS_INHERIT);
+    unsigned short valueType = value->cssValueType();
+
+    bool isInherit = parentNode && valueType == CSSValue::CSS_INHERIT;
+    bool isInitial = valueType == CSSValue::CSS_INITIAL || (!parentNode && valueType == CSSValue::CSS_INHERIT);
 
     // These properties are used to set the correct margins/padding on RTL lists.
     if (id == CSS_PROP__KHTML_MARGIN_START)
@@ -3550,7 +3550,7 @@ void CSSStyleSelector::applyProperty( int id, DOM::CSSValueImpl *value )
         style->setBoxOrdinalGroup((unsigned int)(primitiveValue->getFloatValue(CSSPrimitiveValue::CSS_NUMBER)));
         return;
     case CSS_PROP__KHTML_MARQUEE:
-        if (value->cssValueType() != CSSValue::CSS_INHERIT || !parentNode) return;
+        if (valueType != CSSValue::CSS_INHERIT || !parentNode) return;
         style->setMarqueeDirection(parentStyle->marqueeDirection());
         style->setMarqueeIncrement(parentStyle->marqueeIncrement());
         style->setMarqueeSpeed(parentStyle->marqueeSpeed());
@@ -3710,6 +3710,8 @@ void CSSStyleSelector::applyProperty( int id, DOM::CSSValueImpl *value )
 	    case CSS_VAL_TEXT:
 		style->setUserSelect(SELECT_TEXT);
 		break;
+            case CSS_VAL_ELEMENT:
+                style->setUserSelect(SELECT_ELEMENT);
 	    default:
 		return;
 	}

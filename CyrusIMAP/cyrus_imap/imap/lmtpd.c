@@ -677,7 +677,27 @@ static int verify_user(const char *user, const char *domain, const char *mailbox
 			r = IMAP_MAILBOX_NONEXISTENT;
 			} else {
 			strlcat(namebuf, "user.", sizeof(namebuf));
-			strlcat(namebuf, gUserOpts->fRecNamePtr, sizeof(namebuf));
+
+			/* check for dotted record name and create temp converted string
+				to create mailbox with */
+			if ( strchr( gUserOpts->fRecNamePtr, '.' ) )
+			{
+				char *tmpStr = xstrdup( gUserOpts->fRecNamePtr );
+				if ( tmpStr != NULL )
+				{
+					mboxname_hiersep_tointernal( &lmtpd_namespace, tmpStr, 0 );
+					strlcat(namebuf, tmpStr, sizeof(namebuf));
+					free( tmpStr );
+				}
+				else
+				{
+					strlcat(namebuf, gUserOpts->fRecNamePtr, sizeof(namebuf));
+				}
+			}
+			else
+			{
+				strlcat(namebuf, gUserOpts->fRecNamePtr, sizeof(namebuf));
+			}
 			}
 		}
 	}

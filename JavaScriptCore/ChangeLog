@@ -1,5 +1,139 @@
-=== JavaScriptCore-416.13 ===
+=== JavaScriptCore-417.8 ===
 
+2005-11-17  Adele Peterson  <adele@apple.com>
+
+        Fix by Darin, reviewed by me.
+        
+        fix for <rdar://problem/3885811> Some values used with setAttribute() cause the attribute to be removed (null strings vs. empty strings) (4059)
+
+        Changed the constructors to return the emtpy string if the string is null.
+
+        * kjs/value.cpp:
+        (Value::Value):
+        (String::String):
+
+=== JavaScriptCore-417.7 ===
+
+2005-11-16  Timothy Hatcher  <timothy@apple.com>
+
+       Fixes build failures on Glendale and Chardonnay.
+       We now use an export file for whatever compiler is selected (since the exported symbols differ.)
+
+       * JavaScriptCore.xcodeproj: use GCC_VERSION_IDENTIFIER to pick the proper export file
+       * JavaScriptCore.exp: added the 4 type infos that GCC 4 adds.
+       * JavaScriptCore-3.3.exp: the GCC 3.3 export file that excluded GCC 4 symbols
+
+=== JavaScriptCore-417.6 ===
+
+2005-11-14  Timothy Hatcher  <timothy@apple.com>
+
+       * JavaScriptCore.exp: removed type info sysmbols that we no longer export according to B&I.
+
+=== JavaScriptCore-417.5 ===
+
+2005-11-11  Timothy Hatcher  <timothy@apple.com>
+
+        Merges fixes from TOT to Safari-2-0-branch
+
+    2005-06-20  Anders Carlsson  <andersca@mac.com>
+
+        Fixed: <http://bugzilla.opendarwin.org/show_bug.cgi?id=3294>
+
+        * kjs/string_object.cpp:
+        (replace): Handle the second argument of replace being a function.
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+	    Merges fixes from Ti-2005-009-branch to Safari-2-0-branch
+
+    2005-11-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by darin.
+
+        - Fixed <rdar://problem/4317701> *SecUpd: Tiger* PCRE heap overflow 
+          in Safari JavaScriptCore
+
+        * pcre/pcre.c:
+        (read_repeat_counts): We now return an error for negative repeat counts
+        in regular expressions. This matches Firefox exactly, and Win IE by 
+        effect (Win IE doesn't return an error, but it does refuse to match 
+        anything).
+
+2005-11-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin.
+
+        - Fixed <rdar://problem/4323773> REGRESSION (412.2-416.12): [[xxx]] 
+          appears on page due to JS regexp with char > 255 (5597) 
+          (tiddlywiki.com)
+
+        Previously, we fixed a buffer overflow by returning an error when 
+        compiling character classes with characters > 255. But that broke 
+        the internet.
+
+        Plan B here is to work around such classes, skipping single characters 
+        > 255, skipping character ranges beginning > 255, and truncating 
+        character ranges at 255. 
+
+        I removed the early returns we added and the early returns in the 
+        original library. Now, funky expressions compile normally, tweaked 
+        by our special rules.
+
+        I also merged the UTF8 and UTF16 checks for out of range characters. 
+        I remember we kept them separate before because we were purist about 
+        marking off our code changes inside UTF16 #ifdefs. Since this patch 
+        applies equally to UTF8 and UTF16, we've already lost that innocence, 
+        so why not have a little fun?
+
+        * ChangeLog:
+        * pcre/pcre.c:
+        (compile_branch):
+        * tests/mozilla/jsDriver.pl: Oh, by the way, I modified this to look 
+        inside of $SYMROOTS/Development. Not perfect, but certainly better 
+        than $SYMROOTS/, which is always wrong with XCode 2.1.
+
+=== JavaScriptCore-417.4 ===
+
+2005-10-26  Timothy Hatcher  <timothy@apple.com>
+
+        - Fixed <rdar://problem/4306000> Mail and Safari will launch faster if JavaScriptCore
+          has no weak exports (typeinfo for subclasses in WebCore)
+
+        Reviewed by Darin.
+
+        * as: Wrapper for the system assembler that supresses all type-info .weak_definition lines
+        * gcc-path: small wrapper that sets the PATH before calling gcc, this makes gcc use our as
+        * JavaScriptCore.xcodeproj/project.pbxproj: 
+          set CC and CPLUSPLUS to point to gcc-path only in Default configuration
+
+=== JavaScriptCore-417.3 ===
+
+2005-10-17  Timothy Hatcher  <timothy@apple.com>
+
+        * JavaScriptCore.exp: Rolled out some NPN symbols from
+        my last commit that Tim O. and I determined are not public.
+
+2005-10-17  Timothy Hatcher  <timothy@apple.com>
+
+        - Fixed: <rdar://problem/4300099> JavaScriptCore export file needs
+          to include symbols used by Java/liveconnect and other bindings clients
+
+        Reviewed by Darin and Geoff.
+
+        * JavaScriptCore.exp: adding a few sysmbols for jni bindings
+          also add the WebUndefined ObjC class symbol, and some missing NPN symbols
+
+=== JavaScriptCore-417.2 ===
+
+2005-10-05  Timothy Hatcher  <timothy@apple.com>
+
+        - Fixed <rdar://problem/4269934> JavaScriptCore needs to limit its exports
+          
+        Reviewed by Geoff.
+        
+        * JavaScriptCore.xcodeproj: Use the new export file in all configs except Development
+        * JavaScriptCore.exp: New export file
+        
 2005-10-03  Geoffrey Garen  <ggaren@apple.com>
 
         - Fixed <rdar://problem/4244084> Denver Regression: setUTC() functions don't take 
@@ -18,8 +152,6 @@
                 have the same quirk about the DST field as the real mktime.
                 * tests/mozilla/expected.html: Updated for newly fixed test.
 
-=== JavaScriptCore-416.12 ===
-
 2005-09-30  Timothy Hatcher  <timothy@apple.com>
 
 		<rdar://problem/4277521> JS exceptions don't carry file/line information (3327)
@@ -33,17 +165,17 @@
         (Node::setExceptionDetailsIfNeeded):
         * kjs/nodes.h:
 
-=== JavaScriptCore-416.11 ===
+=== JavaScriptCore-417.1 ===
 
 2005-09-30  Timothy Hatcher  <timothy@apple.com>
 
-	    Merges fixes from TOT to Safari-Den-branch
+	    Merges fixes from TOT to Safari-2-0-branch
 
     2005-09-29  Geoffrey Garen  <ggaren@apple.com>
 
 		- Second cut at fixing <rdar://problem/4275206> Denver Regression: Seed: 
 		Past Editions of Opinions display "NAN/Undefined" for www.washingtonpost.com
-		
+
         Reviewed by mjs.
 
         * kjs/date_object.cpp:
@@ -52,11 +184,11 @@
         if the date includes trailing garbage. (Somewhat accidentally, the timezone logic
         used to catch trailing garbage.)
 
-=== JavaScriptCore-416.10 ===
+=== JavaScriptCore-417 ===
 
 2005-09-28  Timothy Hatcher  <timothy@apple.com>
 
-	    Merges fixes from TOT to Safari-Den-branch
+	    Merges fixes from TOT to Safari-2-0-branch
 
     2005-09-28  Geoffrey Garen  <ggaren@apple.com>
 
@@ -71,7 +203,7 @@
 
 2005-09-27  Timothy Hatcher  <timothy@apple.com>
 
-	    Merges fixes from TOT to Safari-Den-branch
+	    Merges fixes from TOT to Safari-2-0-branch
 
     2005-09-26  Geoffrey Garen  <ggaren@apple.com>
 
@@ -83,11 +215,21 @@
         (KJS::makeTime): Changed to use localtime_r to avoid blowing away the results from
         a previous call to localtime farther up the stack.
 
-=== JavaScriptCore-416.9 ===
+2005-09-22  Timothy Hatcher  <timothy@apple.com>
+
+        - Fixed <rdar://problem/4263434> <rdar://problem/4263434> Denver 8F29 Regression:
+          KJS::InterpreterImp::mark() crash
+
+        Fix by mjs, review by Geoff.
+
+        * kjs/internal.cpp:
+        (KJS::InterpreterImp::mark): Added a null check on globExec in case a
+        garbage collection occurs inside InterpreterImp::globalInit (called
+        from InterpreterImp::InterpreterImp), at which point globExec has not yet been initialized.
 
 2005-09-22  Timothy Hatcher  <timothy@apple.com>
 
-	    Merges fixes from TOT to Safari-Den-branch
+	    Merges fixes from TOT to Safari-2-0-branch
 
     2005-09-20  Geoffrey Garen  <ggaren@apple.com>
 
@@ -106,20 +248,6 @@
         * bindings/runtime_root.h:
         (KJS::Bindings::RootObject::~RootObject):
         (KJS::Bindings::RootObject::setRootObjectImp):
-
-2005-09-21  Timothy Hatcher  <timothy@apple.com>
-
-          - Fixed <rdar://problem/4263434> <rdar://problem/4263434> Denver 8F29 Regression:
-            KJS::InterpreterImp::mark() crash
-
-          Fix by mjs, review by Geoff.
-
-          * kjs/internal.cpp:
-          (KJS::InterpreterImp::mark): Added a null check on globExec in case a
-          garbage collection occurs inside InterpreterImp::globalInit (called
-          from InterpreterImp::InterpreterImp), at which point globExec has not yet been initialized.
-
-=== Safari-416.8 ===
 
 2005-09-14  Maciej Stachowiak  <mjs@apple.com>
 

@@ -159,9 +159,6 @@ int MAIN(int argc, char **argv)
     			cert_pbe = NID_pbe_WithSHA1And3_Key_TripleDES_CBC;
 		else if (!strcmp (*args, "-export")) export_cert = 1;
 		else if (!strcmp (*args, "-des")) enc=EVP_des_cbc();
-#ifndef OPENSSL_NO_IDEA
-		else if (!strcmp (*args, "-idea")) enc=EVP_idea_cbc();
-#endif
 		else if (!strcmp (*args, "-des3")) enc = EVP_des_ede3_cbc();
 #ifndef OPENSSL_NO_AES
 		else if (!strcmp(*args,"-aes128")) enc=EVP_aes_128_cbc();
@@ -296,9 +293,6 @@ int MAIN(int argc, char **argv)
 	BIO_printf (bio_err, "-info         give info about PKCS#12 structure.\n");
 	BIO_printf (bio_err, "-des          encrypt private keys with DES\n");
 	BIO_printf (bio_err, "-des3         encrypt private keys with triple DES (default)\n");
-#ifndef OPENSSL_NO_IDEA
-	BIO_printf (bio_err, "-idea         encrypt private keys with idea\n");
-#endif
 #ifndef OPENSSL_NO_AES
 	BIO_printf (bio_err, "-aes128, -aes192, -aes256\n");
 	BIO_printf (bio_err, "              encrypt PEM output with cbc aes\n");

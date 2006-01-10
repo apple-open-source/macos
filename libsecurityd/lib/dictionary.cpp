@@ -253,8 +253,11 @@ void NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier (const DLDbI
 	
 	// get the name
 	const char* dbName = identifier.dbName ();
-	nvd.Insert (new NameValuePair (DB_NAME, CssmData ((void*) (dbName), strlen (dbName) + 1)));
-	
+	if (dbName != NULL)
+	{
+		nvd.Insert (new NameValuePair (DB_NAME, CssmData ((void*) (dbName), strlen (dbName) + 1)));
+	}
+
 	// get the net address
 	const CSSM_NET_ADDRESS* add = identifier.dbLocation ();
 	if (add != NULL)

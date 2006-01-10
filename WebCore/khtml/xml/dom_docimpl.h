@@ -93,6 +93,8 @@ namespace DOM {
     class GenericRONamedNodeMapImpl;
     class HTMLDocumentImpl;
     class HTMLElementImpl;
+    class HTMLFormElementImpl;
+    class HTMLInputElementImpl;
     class HTMLImageLoader;
     class HTMLMapElementImpl;
     class JSEditor;
@@ -390,7 +392,8 @@ public:
     // internal
     NodeImpl *findElement( Id id );
 
-    bool prepareMouseEvent( bool readonly, int x, int y, MouseEvent *ev );
+    bool prepareMouseEvent(bool readonly, int x, int y, MouseEvent* ev);
+    bool prepareMouseEvent(bool readonly, bool active, int x, int y, MouseEvent *ev);
 
     virtual bool childAllowed( NodeImpl *newChild );
     virtual bool childTypeAllowed( unsigned short nodeType );
@@ -423,10 +426,14 @@ public:
 
     NodeImpl *focusNode() const { return m_focusNode; }
     bool setFocusNode(NodeImpl *newFocusNode);
+    void clearSelectionIfNeeded(NodeImpl *newFocusNode);
 
     NodeImpl *hoverNode() const { return m_hoverNode; }
     void setHoverNode(NodeImpl *newHoverNode);
     
+    NodeImpl *activeNode() const { return m_activeNode; }
+    void setActiveNode(NodeImpl *newActiveNode);
+
     // Updates for :target (CSS3 selector).
     void setCSSTarget(NodeImpl* n);
     NodeImpl* getCSSTarget();
@@ -634,6 +641,7 @@ protected:
 
     NodeImpl *m_focusNode;
     NodeImpl *m_hoverNode;
+    NodeImpl *m_activeNode;
 
     unsigned int m_domtree_version;
     
@@ -676,7 +684,7 @@ protected:
     bool m_closeAfterStyleRecalc;
     bool m_usesDescendantRules;
     bool m_usesSiblingRules;
-
+    
     DOMString m_title;
     bool m_titleSetExplicitly;
     NodeImpl *m_titleElement;
@@ -751,6 +759,10 @@ public:
 
     void registerDisconnectedNodeWithEventListeners(NodeImpl *node);
     void unregisterDisconnectedNodeWithEventListeners(NodeImpl *node);
+    
+    void radioButtonChecked(HTMLInputElementImpl *caller, HTMLFormElementImpl *form);
+    HTMLInputElementImpl* checkedRadioButtonForGroup(DOMString name, HTMLFormElementImpl *form);
+    void removeRadioButtonGroup(DOMString name, HTMLFormElementImpl *form);
 
 private:
     void updateTitle();
@@ -782,6 +794,9 @@ private:
     QValueList<khtml::DashboardRegionValue> m_dashboardRegions;
     bool m_hasDashboardRegions;
     bool m_dashboardRegionsDirty;
+    
+    QPtrDict< QDict<HTMLInputElementImpl> > *m_selectedRadioButtons;
+
 #endif
 };
 

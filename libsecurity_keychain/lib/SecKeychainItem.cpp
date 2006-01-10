@@ -413,11 +413,14 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
 		KCThrowParamErrIf_(!itemRef || !persistentItemRef);
 		Item item = ItemImpl::required(itemRef);
 		DLDbIdentifier dlDbIdentifier = item->keychain()->dlDbIdentifier();
+		DLDbIdentifier newDlDbIdentifier(dlDbIdentifier.ssuid(),
+			DLDbListCFPref::AbbreviatedPath(item->keychain()->name()).c_str(),
+			dlDbIdentifier.dbLocation());
 		PrimaryKey primaryKey = item->primaryKey();
 		KCThrowIf_( !dlDbIdentifier || !primaryKey, errSecItemNotFound ); // item not in any keychain?
 
 		NameValueDictionary dict;
-		NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier(dlDbIdentifier, dict);
+		NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier(newDlDbIdentifier, dict);
 
 		CssmData* pKey = primaryKey;
 		dict.Insert (new NameValuePair(ITEM_KEY, *pKey));
@@ -446,7 +449,11 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
 		if (dict.FindByName(SSUID_KEY) != 0)
 		{
 			DLDbIdentifier dlDbIdentifier = NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary(dict);
-			keychain = globals().storageManager.keychain(dlDbIdentifier);
+			DLDbIdentifier newDlDbIdentifier(dlDbIdentifier.ssuid(),
+				DLDbListCFPref::ExpandTildesInPath(dlDbIdentifier.dbName()).c_str(),
+				dlDbIdentifier.dbLocation());
+
+			keychain = globals().storageManager.keychain(newDlDbIdentifier);
 			
 			const NameValuePair* aDictItem = dict.FindByName(ITEM_KEY);
 			if (aDictItem && keychain)

@@ -366,7 +366,8 @@ S_create_shadow_file(u_char * shadow_path, uid_t uid, gid_t gid,
 
 static boolean_t
 S_add_afppath_option(struct in_addr servip, dhcpoa_t * options, 
-		     NBSPEntry * entry, u_char * dir, u_char * file, int tag)
+		     NBSPEntry * entry, u_char * dir, const char * file,
+		     int tag)
 {
     u_char		buf[DHCP_OPTION_SIZE_MAX];
     u_char		err[256];
@@ -404,7 +405,7 @@ S_add_afppath_option(struct in_addr servip, dhcpoa_t * options,
  */
 static __inline__ int
 S_stat_path_vol_file(u_char * path, NBSPEntry * entry, 
-		     u_char * dir, u_char * file,
+		     u_char * dir, const char * file,
 		     struct stat * sb_p)
 {
     S_get_volpath(path, entry, dir, file);

@@ -953,6 +953,29 @@ void CompositeEditCommand::replaceTextInNode(TextImpl *node, long offset, long c
     applyCommandToComposite(insertCommand);
 }
 
+Position CompositeEditCommand::positionOutsideTabSpan(const Position& pos)
+{
+    ASSERT(isTabSpanTextNode(pos.node()));
+    
+    NodeImpl *tabSpan = tabSpanNode(pos.node());
+    
+    if (pos.offset() <= pos.node()->caretMinOffset())
+        return positionBeforeNode(tabSpan);
+        
+    if (pos.offset() >= pos.node()->caretMaxOffset())
+        return positionAfterNode(tabSpan);
+
+    splitTextNodeContainingElement(static_cast<TextImpl *>(pos.node()), pos.offset());
+    return positionBeforeNode(tabSpan);
+}
+
+void CompositeEditCommand::insertNodeAtTabSpanPosition(NodeImpl *node, const Position& pos)
+{
+    // insert node before, after, or at split of tab span
+    Position insertPos = positionOutsideTabSpan(pos);
+    insertNodeAt(node, insertPos.node(), insertPos.offset());
+}
+
 void CompositeEditCommand::deleteSelection(bool smartDelete, bool mergeBlocksAfterDelete)
 {
     if (endingSelection().isRange()) {
@@ -1321,7 +1344,7 @@ static bool isFirstVisiblePositionInSpecialElement(const Position& pos)
     return false;
 }
 
-static Position positionBeforeNode(NodeImpl *node)
+Position positionBeforeNode(const NodeImpl *node)
 {
     return Position(node->parentNode(), node->nodeIndex());
 }
@@ -1371,7 +1394,7 @@ static bool isLastVisiblePositionInSpecialElement(const Position& pos)
     return false;
 }
 
-static Position positionAfterNode(NodeImpl *node)
+Position positionAfterNode(const NodeImpl *node)
 {
     return Position(node->parentNode(), node->nodeIndex() + 1);
 }
@@ -3010,11 +3033,6 @@ void DeleteSelectionCommand::moveNodesAfterNode()
     // Insert after the subtree containing destNode
     NodeImpl *refNode = dstNode->enclosingInlineElement();
 
-    // If node is an ancestor of refNode, use the highest non-common ancestor instead
-    // (otherwise we would be trying to append refNode's ancestor after refNode)
-    if (refNode->isAncestor(node))
-        for (node = startNode; !refNode->isAncestor(node->parent()); node = node->parent());
-    
     // Nothing to do if start is already at the beginning of dstBlock
     NodeImpl *dstBlock = refNode->enclosingBlockFlowElement();
     if (startBlock == dstBlock->firstChild())
@@ -3355,11 +3373,10 @@ void InsertLineBreakCommand::doApply()
 
     pos = positionOutsideContainingSpecialElement(pos);
 
-    bool atStart = pos.offset() <= pos.node()->caretMinOffset();
-    bool atEnd = pos.offset() >= pos.node()->caretMaxOffset();
-    bool atEndOfBlock = isLastVisiblePositionInBlock(VisiblePosition(pos, selection.startAffinity()));
-    
-    if (atEndOfBlock) {
+    if (isTabSpanTextNode(pos.node())) {
+        insertNodeAtTabSpanPosition(nodeToInsert, pos);
+        setEndingSelection(Position(nodeToInsert->traverseNextNode(), 0), DOWNSTREAM);
+    } else if (isEndOfBlock(VisiblePosition(pos, selection.startAffinity()))) {
         LOG(Editing, "input newline case 1");
         // Check for a trailing BR. If there isn't one, we'll need to insert an "extra" one.
         // This makes the "real" BR we want to insert appear in the rendering without any 
@@ -3368,14 +3385,12 @@ void InsertLineBreakCommand::doApply()
         if (pos.node()->id() == ID_BR && pos.offset() == 0) {
             // Already placed in a trailing BR. Insert "real" BR before it and leave the selection alone.
             insertNodeBefore(nodeToInsert, pos.node());
-        }
-        else {
+        } else {
             NodeImpl *next = pos.node()->traverseNextNode();
             bool hasTrailingBR = next && next->id() == ID_BR && pos.node()->enclosingBlockFlowElement() == next->enclosingBlockFlowElement();
             insertNodeAfterPosition(nodeToInsert, pos);
-            if (hasTrailingBR) {
+            if (hasTrailingBR)
                 setEndingSelection(Selection(Position(next, 0), DOWNSTREAM));
-            }
             else if (!document()->inStrictMode()) {
                 // Insert an "extra" BR at the end of the block. 
                 ElementImpl *extraBreakNode = createBreakElement(document());
@@ -3384,22 +3399,20 @@ void InsertLineBreakCommand::doApply()
             }
         }
     }
-    else if (atStart) {
+    else if (pos.offset() <= pos.node()->caretMinOffset()) {
         LOG(Editing, "input newline case 2");
         // Insert node before downstream position, and place caret there as well. 
         Position endingPosition = pos.downstream(StayInBlock);
         insertNodeBeforePosition(nodeToInsert, endingPosition);
         setEndingSelection(endingPosition, DOWNSTREAM);
-    }
-    else if (atEnd) {
+    } else if (pos.offset() >= pos.node()->caretMaxOffset()) {
         LOG(Editing, "input newline case 3");
         // Insert BR after this node. Place caret in the position that is downstream
         // of the current position, reckoned before inserting the BR in between.
         Position endingPosition = pos.downstream(StayInBlock);
         insertNodeAfterPosition(nodeToInsert, pos);
         setEndingSelection(endingPosition, DOWNSTREAM);
-    }
-    else {
+    } else {
         // Split a text node
         LOG(Editing, "input newline case 4");
         ASSERT(pos.node()->isTextNode());
@@ -3945,25 +3958,8 @@ Position InsertTextCommand::prepareForTextInsertion(const Position& pos)
     }
 
     if (isTabSpanTextNode(pos.node())) {
-        Position tempPos = pos;
-//#ifndef COALESCE_TAB_SPANS
-#if 0
-        NodeImpl *node = pos.node()->parentNode();
-        if (pos.offset() > pos.node()->caretMinOffset())
-            tempPos = Position(node->parentNode(), node->nodeIndex() + 1);
-        else
-            tempPos = Position(node->parentNode(), node->nodeIndex());
-#endif        
         NodeImpl *textNode = document()->createEditingTextNode("");
-        NodeImpl *originalTabSpan = tempPos.node()->parent();
-        if (tempPos.offset() <= tempPos.node()->caretMinOffset()) {
-            insertNodeBefore(textNode, originalTabSpan);
-        } else if (tempPos.offset() >= tempPos.node()->caretMaxOffset()) {
-            insertNodeAfter(textNode, originalTabSpan);
-        } else {
-            splitTextNodeContainingElement(static_cast<TextImpl *>(tempPos.node()), tempPos.offset());
-            insertNodeBefore(textNode, originalTabSpan);
-        }
+        insertNodeAtTabSpanPosition(textNode, pos);
         return Position(textNode, 0);
     }
 
@@ -5007,7 +5003,10 @@ void ReplaceSelectionCommand::doApply()
     if (startAtStartOfBlock && startBlock->inDocument())
         startPos = Position(startBlock, 0);
 
-    startPos = positionOutsideContainingSpecialElement(startPos);
+    if (isTabSpanTextNode(startPos.node()))
+        startPos = positionOutsideTabSpan(startPos);
+    else
+        startPos = positionOutsideContainingSpecialElement(startPos);
 
     KHTMLPart *part = document()->part();
     if (m_matchStyle) {
@@ -6239,11 +6238,16 @@ bool isTabSpanTextNode(const NodeImpl *node)
     return (node && node->parentNode() && isTabSpanNode(node->parentNode()));
 }
 
+NodeImpl *tabSpanNode(const NodeImpl *node)
+{
+    return isTabSpanTextNode(node) ? node->parentNode() : 0;
+}
+
 Position positionBeforeTabSpan(const Position& pos)
 {
     NodeImpl *node = pos.node();
     if (isTabSpanTextNode(node))
-        node = node->parent();
+        node = tabSpanNode(node);
     else if (!isTabSpanNode(node))
         return pos;
     

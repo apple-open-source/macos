@@ -939,7 +939,7 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 	for (req = sp_main->req; req; req = req->next) {
 		if (req->saidx.mode == IPSEC_MODE_TUNNEL) {
 			encmodesv = pfkey2ipsecdoi_mode(req->saidx.mode,
-							iph2->ph1 && natd_hasnat(iph2->ph1));
+							iph2->ph1 ? natd_hasnat(iph2->ph1) : 0);
 			break;
 		}
 	}
@@ -982,7 +982,7 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 		newpr->spisize = 4;
 		if (lcconf->complex_bundle)
 			newpr->encmode = pfkey2ipsecdoi_mode(req->saidx.mode,
-								iph2->ph1 && natd_hasnat(iph2->ph1));
+								iph2->ph1 ? natd_hasnat(iph2->ph1) : 0);
 		else
 			newpr->encmode = encmodesv;
 

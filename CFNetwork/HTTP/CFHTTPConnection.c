@@ -859,6 +859,13 @@ static void httpConnectionResponseStreamCB(void *request, CFReadStreamRef stream
         }
         break;
     case kCFStreamEventEndEncountered:
+        // Make sure we snag the headers.  This usually happens in persistentIsOK(), but we don't
+        // want to go through the expense of parsing the headers when we already know the connection
+        // is dead.
+        if (!__CFBitIsSet(streamInfo->flags, HAVE_CHECKED_RESPONSE_HEADERS)) {
+            __CFBitSet(streamInfo->flags, HAVE_CHECKED_RESPONSE_HEADERS);
+            streamInfo->responseHeaders = (CFHTTPMessageRef)CFReadStreamCopyProperty(_CFNetConnectionGetResponseStream(conn), kCFStreamPropertyHTTPResponseHeader);
+        }
         _CFNetConnectionLost(streamInfo->conn);
         if (!__CFBitIsSet(streamInfo->flags, IS_ZOMBIE)) {
             _CFReadStreamSignalEventDelayed(streamInfo->stream, kCFStreamEventEndEncountered, NULL);

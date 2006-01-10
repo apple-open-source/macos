@@ -158,7 +158,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC4PE;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -197,7 +197,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC4PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC4PE version 1.8.0, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>AppleMacRISC4PE version 1.8.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -209,11 +209,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC4CPU</key>
@@ -1064,7 +1064,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PowerMac11_2_PlatformPlugin;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -1089,7 +1089,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac11_2_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac11_2_PlatformPlugin version 1.8.0, Copyright 2005 Apple Computer, Inc.</string>
+	<string>PowerMac11_2_PlatformPlugin version 1.8.5, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1101,11 +1101,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac11_2_PlatformPlugin</key>
@@ -1694,7 +1694,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.RackMac3_1_PlatformPlugin;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -1719,7 +1719,7 @@
 	<key>CFBundleExecutable</key>
 	<string>RackMac3_1_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>RackMac3_1_PlatformPlugin version 1.8.0, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>RackMac3_1_PlatformPlugin version 1.8.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1731,11 +1731,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>RackMac3_1_PlatformPlugin</key>
@@ -4007,7 +4007,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU.PowerMac12_1_ThermalProfile;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -4032,7 +4032,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac12_1_ThermalProfile</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac12_1_ThermalProfile version 1.8.0, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<string>PowerMac12_1_ThermalProfile version 1.8.5, Copyright 2004-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4044,11 +4044,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac12_1_ThermalProfile</key>
@@ -5147,7 +5147,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PBG4_ThermalProfile;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -5171,7 +5171,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PBG4_ThermalProfile</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PBG4_ThermalProfile version 1.8.0, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<string>PBG4_ThermalProfile version 1.8.5, Copyright 2004-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -5183,11 +5183,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerBook5_6_ThermalProfile</key>
@@ -6701,7 +6701,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PBG4_PlatformPlugin;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -6725,7 +6725,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PBG4_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PBG4_PlatformPlugin version 1.8.0, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<string>PBG4_PlatformPlugin version 1.8.5, Copyright 2004-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -6737,11 +6737,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PBG4_PlatformPlugin</key>
@@ -7086,7 +7086,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU.PowerMac9_1_ThermalProfile;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -7110,7 +7110,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac9_1_ThermalProfile</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac9_1_ThermalProfile version 1.8.0, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<string>PowerMac9_1_ThermalProfile version 1.8.5, Copyright 2004-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -7122,11 +7122,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac9_1_ThermalProfile</key>
@@ -7762,7 +7762,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU.PowerMac8_1_ThermalProfile;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -7786,7 +7786,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac8_1_ThermalProfile</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac8_1_ThermalProfile version 1.8.0, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<string>PowerMac8_1_ThermalProfile version 1.8.5, Copyright 2004-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -7798,11 +7798,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac8_1_ThermalProfile</key>
@@ -8441,7 +8441,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.SMU_Neo2_PlatformPlugin;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -8466,7 +8466,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SMU_Neo2_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>SMU_Neo2_PlatformPlugin version 1.8.0, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<string>SMU_Neo2_PlatformPlugin version 1.8.5, Copyright 2004-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -8478,11 +8478,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>SMU_Neo2_PlatformPlugin</key>
@@ -9106,7 +9106,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PowerMac11_2_ThermalProfile;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -9130,7 +9130,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac11_2_ThermalProfile</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac11_2_ThermalProfile version 1.8.0, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<string>PowerMac11_2_ThermalProfile version 1.8.5, Copyright 2004-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -9142,11 +9142,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac11_2_ThermalProfile</key>
@@ -9951,7 +9951,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PowerMac12_1_PlatformPlugin;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -9976,7 +9976,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac12_1_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac12_1_PlatformPlugin version 1.8.0, Copyright 2005 Apple Computer, Inc.</string>
+	<string>PowerMac12_1_PlatformPlugin version 1.8.5, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -9988,11 +9988,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac12_1_PlatformPlugin</key>
@@ -10288,7 +10288,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.MacRISC4_PlatformPlugin;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -10312,7 +10312,7 @@
 	<key>CFBundleExecutable</key>
 	<string>MacRISC4_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>MacRISC4_PlatformPlugin version 1.8.0, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>MacRISC4_PlatformPlugin version 1.8.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -10324,11 +10324,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC4_PlatformPlugin</key>
@@ -11268,7 +11268,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOPlatformPluginFamily;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -11293,7 +11293,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPlatformPluginFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPlatformPluginFamily version 1.8.0, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>IOPlatformPluginFamily version 1.8.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -11305,11 +11305,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -11495,7 +11495,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PowerMac7_2_PlatformPlugin;
-				MODULE_VERSION = 1.8.0d34;
+				MODULE_VERSION = 1.8.5d0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
@@ -11519,7 +11519,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PowerMac7_2_PlatformPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>PowerMac7_2_PlatformPlugin version 1.8.0, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>PowerMac7_2_PlatformPlugin version 1.8.5, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -11531,11 +11531,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.0</string>
+	<string>1.8.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.0d34</string>
+	<string>1.8.5d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PowerMac7_2_PlatformPlugin</key>

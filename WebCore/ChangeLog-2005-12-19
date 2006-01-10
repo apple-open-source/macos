@@ -1,0 +1,2141 @@
+=== WebCore-417.15 ===
+
+2005-12-16  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Maciej.
+
+        Fix for <rdar://problem/4381546> Safari crash at www.dallascowboys.com in KWQListIteratorImpl::current()
+
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::slotFinishedParsing): ref the part before calling checkCompleted.
+
+=== WebCore-417.14 ===
+
+2005-12-14  Timothy Hatcher  <timothy@apple.com>
+
+        <rdar://problem/4381444> Remove GMail-specific work-around previously added
+
+        * khtml/ecma/kjs_html.cpp:
+        (KJS::HTMLElement::textAreaGetter): Remove GMail workaround.
+
+=== WebCore-417.13 ===
+
+2005-12-14  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-14  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Darin and Tim Hatcher.
+
+        - fixed <rdar://problem/4375502> 10.4.4 REGRESSION: Clicking on anchor tag in email causes unwanted horizontal scroll
+
+        When scrolling views, we were failing to take the current scroll position into account when calculating the new scroll position. 
+
+        * kwq/KWQScrollView.h: Added scrollPointRecursively.
+        * kwq/KWQScrollView.mm:
+        (QScrollView::scrollXOffset): Calculates the x-coordinate scroll offset for a view.
+        (QScrollView::scrollYOffset): Calculates the y-coordinate scroll offset for a view.
+        (QScrollView::scrollPointRecursively): This function walks up the view hierarchy to scroll to a point.  
+        I moved this from setContentsPos so that function would only have an effect on the current view.
+        (QScrollView::setContentsPos): return to old behavior where this function calls scrollPoint on a view and doesn't recurse.
+
+        * khtml/rendering/render_layer.cpp: (khtml::RenderLayer::scrollRectToVisible): 
+        Uses new QScrollView functions scrollXOffset and scrollYOffset to correctly calculate how a view should scroll.
+        Also determines whether or not QScrollView should try to scroll recursively (which happens when scrollRectToVisible is done calling itself recursively).
+
+2005-12-14  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-14  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Eric.
+
+        Fix for <rdar://problem/4374783> 10.4.4 REGRESSION: caret 
+        disappears when typing at the bottom of a scrollable textarea.
+    
+        This regression occurred because we were calculating the font
+        height incorrectly. Made changes that Doug suggested in the bug.
+
+        * kwq/KWQTextArea.mm:
+        (-[KWQTextAreaTextView setFont:]): Send the font itself to 
+        _KWQ_updateTypingAttributes
+        (-[KWQTextAreaTextView setLineHeight:]): Same.
+        (-[NSTextView _KWQ_updateTypingAttributes:forLineHeight:font:]):
+        Calculate the font height using defaultLineHeightForFont.
+
+=== WebCore-417.12 ===
+
+2005-12-12  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-09  Tim Omernick  <timo@apple.com>
+
+        Reviewed by Darin.
+
+        <rdar://problem/4371187> Regression: Anchor tags for navigation
+        within messages in HTML mail no longer working
+    
+        A kwq category on NSView used to ensure scrolling the super NSClipViews, but that is gone now.
+        Implemented equivalent functionality by walking up the view hierarchy in QScrollView::setContentsPos().
+
+        * kwq/KWQScrollView.mm:
+        (QScrollView::setContentsPos):
+
+2005-12-12  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-12  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by ggaren.
+
+        Test: fast/forms/textarea-setinnerhtml.html
+
+        Fixes setInnerHTML for <textarea>
+        <rdar://problem/4372143>
+
+        * khtml/html/html_formimpl.cpp:
+        (DOM::HTMLTextAreaElementImpl::setValue):
+
+2005-12-12  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Dave Harrison.
+
+        - fixed <rdar://problem/4374673> Regression: Safari fails to scroll to top of page if (name="top") attribute is not present
+
+        When there's no node corresponding to the anchor (the name is empty or "top"), we still want to scroll to the top of the document.  This got left out in the conversion to the new scrolling code.
+
+        * khtml/khtml_part.cpp: (KHTMLPart::gotoAnchor):
+
+=== WebCore-417.11 ===
+
+2005-12-08  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        - fixed <rdar://problem/4363794> 10.4.4 REGRESSION: Page scroll position jumps when clicking on word in editable div (5911)
+        setFocusNode was trying to scroll to reveal elements unnecessarily. 
+        Now the callers have to decide whether or not to scroll.
+
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::setFocusNode): No longer calls scrolling code.
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::nextKeyViewInFrame): Now calls scrolling code after setting the focus node.
+        * khtml/xml/dom_elementimpl.cpp:
+        (ElementImpl::focus): Moved functionality from Element::focus.
+         Now these functions also call scrolling code.
+        (ElementImpl::blur): ditto.
+        * khtml/xml/dom_elementimpl.h: Added focus and blur.
+        * khtml/dom/dom_element.cpp:
+        (Element::focus): Now calls ElementImpl::focus
+        (Element::blur): ditto.
+
+2005-12-08  Tim Omernick  <timo@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+        Reviewed and landed by Maciej.
+
+        - some simple changes that amount to a < 1% speedup.
+
+        * khtml/css/cssstyleselector.cpp:
+        (khtml::CSSStyleSelector::applyProperty):
+        * khtml/rendering/bidi.cpp:
+        (khtml::BidiIterator::direction):
+        * kwq/KWQKURL.mm:
+        (hasSlashDotOrDotDot):
+        * kwq/KWQString.mm:
+        (QString::~QString):
+
+2005-12-08  David Harrison  <harrison@apple.com>
+
+        Reviewed by Geoff.
+
+        <rdar://problem/4366496> 10.4.4 Regression: "Corel Painter IX (v9.1)" crashed
+        when going from the "Open a template" menu to "Select recent Document" in the
+        "Welcome to Corel XI!" window.
+
+        * kwq/KWQComboBox.mm:
+        (-[KWQPopUpButtonCell trackMouse:inRect:ofView:untilMouseUp:]):
+        Retain the event because it is the [NSApp currentEvent], which can change and therefore be released during [super trackMouse:...].
+        
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::passSubframeEventToSubframe):
+        Check isWidget() rather than using a dynamic_cast to RenderPart*.
+        
+        (KWQKHTMLPart::sendFakeEventsAfterWidgetTracking):
+        Allow for the event not being leftmousedown or keydown.
+        
+=== WebCore-417.10 ===
+
+2005-12-05  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-05  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by John.
+ 
+        - fix <rdar://problem/4363132> Regression: status bar shows wrong text when mousing over links 
+        in wacky frameset at directory.apple.com
+
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge elementAtPoint:]): reuse point to work with nested frames; add the overflow clip to 
+        accommodate any scrolling
+
+=== WebCore-417.9 ===
+
+2005-12-04  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Beth
+
+        Fix for <rdar://problem/4358898> TOT/GLENDALE REGRESSION: Table 
+        layout issue occurs at http://www.pixar.com/shorts/index.html and
+        http://www.mitzpettel.com. 
+    
+        This fix rolls a line from the fix for <rdar://problem/3871165> 
+        text box in nested table disappears when you click on it (3452) 
+        (Safari PSOFT: US EDU PS8: Lead List searches). This line causes
+        the above regressions. To fix the original problem, we realized 
+        that TableLayout::calcEffectiveWidth() essentially ignored setting
+        the minimum and maximum widths of cells of width 0 (thereby ignoring 
+        cells in colspans). 
+
+        * khtml/rendering/render_table.cpp:
+        (RenderTableSection::addCell): Roll out from the original fix.
+        * khtml/rendering/table_layout.cpp:
+        (AutoTableLayout::calcEffectiveWidth): Set effMinWidth and effMaxWidth 
+        of a cell even when maxw or maxWidth is 0.
+
+=== WebCore-417.8 ===
+
+2005-12-02  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Hyatt.
+
+        - fixed <rdar://problem/4360657> Regression: Seed: WebKit image scaling broken
+
+        Removed fix for <rdar://problem/3952698> Function buttons do not display 
+        properly with Telia Webmail (3488).  For a more conservative fix, we've added 
+        RenderButton::calcMinMaxWidth to avoid setting the minWidth to 0 for buttons.
+
+        * khtml/rendering/render_form.cpp:
+        (RenderButton::calcMinMaxWidth):
+        (RenderLineEdit::calcMinMaxWidth):
+        (RenderTextArea::calcMinMaxWidth):
+        * khtml/rendering/render_form.h:
+        * khtml/rendering/render_replaced.cpp:
+        (RenderReplaced::calcMinMaxWidth):
+
+2005-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Eric.
+
+        Fixed <rdar://problem/4344954> Glendale REGRESSION (Safari 416.12-417.2)
+        cannot tab to next input field after tab-completing an email address in
+        gmail.
+
+        Implemented work-around to conceal the selectionEnd property if the
+        document is on the gmail domain. We'll remove this code once Google
+        fixes its site.
+
+        No testcase because this is a domain-specific work-around.
+
+        * khtml/ecma/kjs_html.cpp:
+        (KJS::HTMLElement::textAreaGetter):
+
+2005-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-02  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Darin.
+ 
+        - fix <rdar://problem/4361048> Regression: Seed: scrolling with scrollwheel, trackpad 
+        doesn't work for nested framesets at gmail.com
+
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::passWheelEventToChildWidget): 
+        * manual-tests/resources/lorem-text.html: Added.
+        * manual-tests/resources/nestedframesets.html: Added.
+        * manual-tests/scrolling-nestedframesets.html: Added.
+
+2005-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-02  David Hyatt  <hyatt@apple.com>
+
+        <rdar://problem/4356387> Glendale Regression: Some text
+        does not render in the CIFilterBrowser widget anymore (tables overflow)
+
+        Fix for overflow clipping bug when a positioned element is
+        inserted in between two overflow:hidden elements in a 
+        document.
+    
+        Reviewed by beth
+
+        * khtml/rendering/render_layer.cpp:
+        (khtml::RenderLayer::calculateClipRects):
+
+2005-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-01  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Vicki and Dave Harrsion.
+
+        - fixed <rdar://problem/4356771> Regression: Mail always scrolls to the bottom of a message when replying/forwarding
+
+        Fixed a bug in getRect where the code would return a zero sized rect at the 
+        lower right corner if the origin was 0,0.  This was causing the scrolling code to
+        attempt to scroll to the lower left corner of the editable html element in Mail.
+
+        Added test: 
+        * editing/selection/focus_editable_html.html
+
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::ContainerNodeImpl::getRect):
+
+2005-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        More fixes NULL checks for button and slider that were not on TOT.
+
+    2005-10-28  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by John
+
+        Fix for <rdar://problem/4098083> REGRESSION (125-312): crash 
+        in [KWQTableView resignFirstResponder] selecting from JS menu 
+        (car4you.at, etc.)
+    
+        Since it is possible that a render widget's eventFilterObject
+        has been destroyed even though the render widget is still ref-ed,
+        we need to nil-check the eventFilterObject before we use it to get
+        the eventFilter.
+
+        * kwq/KWQButton.mm:
+        (-[KWQButton becomeFirstResponder]): Added nil check.
+        (-[KWQButton resignFirstResponder]): Added nil check.
+        * kwq/KWQSlider.mm:
+        (-[KWQSlider becomeFirstResponder]): Added nil check.
+        (-[KWQSlider resignFirstResponder]): Added nil check.
+
+2005-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-07-30  Darin Adler  <darin@apple.com>
+
+        Reviewed by me, change by Dave Hyatt.
+
+        - fixed http://bugzilla.opendarwin.org/show_bug.cgi?id=4221
+          REGRESSION: Elements act as if in :hover meta-class during page load although they aren't
+
+        * khtml/xml/dom_nodeimpl.cpp: (DOM::NodeImpl::NodeImpl): Initialize m_hovered to false.
+
+2005-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Fix by Geoff
+
+        - <rdar://problem/4352697> Glendale Regression: Some widgets don't get
+          keyboard input (also affects Scrabble website)
+
+        * khtml/xml/dom2_eventsimpl.cpp: add beforeunload to the event names
+
+2005-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        Fixes: <rdar://problem/4344760> Glendale REGRESSION (Safari 416.12-417.2)
+        gmail 'reply' does not fill in to: field or quoted message (3751)
+
+    2005-07-09  Anders Carlsson  <andersca@mac.com>
+
+	- Fix <http://bugzilla.opendarwin.org/show_bug.cgi?id=3751>
+	
+        Reviewed by Maciej.
+
+        * khtml/html/html_formimpl.cpp:
+        (DOM::HTMLTextAreaElementImpl::attach):
+        * khtml/html/html_formimpl.h:
+	Update the value after attaching so we'll be sure that
+	the text renderer has a valid value.
+
+2005-11-29  Timothy Hatcher  <timothy@apple.com>
+
+        Fix by Beth and Darin
+
+        - <rdar://problem/4356694> Glendale Regression: Widget browser list field
+          displays multiple selected items when page is rendered
+
+        * khtml/xml/dom_nodeimpl.cpp: initialize m_inActiveChain
+
+2005-11-29  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-28  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Justin.
+
+        - <rdar://problem/4356593> Regression: Crash in scrollRectToVisible
+
+        * khtml/xml/dom_docimpl.cpp: (DocumentImpl::setFocusNode): 
+        Make sure there's still a renderer after updating the layout.
+
+2005-11-29  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-29  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Darin
+
+        Fix for <rdar://problem/4098083> REGRESSION (125-312): crash 
+        in [KWQTableView resignFirstResponder] selecting from JS menu 
+        (car4you.at, etc.)
+
+        Though this crash is only currently reproducible on the branch
+        and not on TOT, the fix should be in both. 
+
+        * kwq/KWQWidget.mm:
+        (QWidget::removeFromSuperview): The call to removeFromSuperview
+        could destroy data, so we should only reference it before the 
+        call.
+
+2005-11-29  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-29  Vicki Murley  <vicki@apple.com>
+
+	Changes by Mitz Pettel, reviewed by Maciej.
+
+	- fix http://bugzilla.opendarwin.org/show_bug.cgi?id=5829 (REGRESSION: cursor tracking and hit 
+	testing in scrollable block don't take borders into account)
+
+	* khtml/rendering/render_layer.cpp:
+          (khtml::RenderLayer::hitTestLayer): don't add left and bottom borders when hit testing
+	* manual-tests/scrollbar-hittest.html: Added.
+
+=== WebCore-417.7 ===
+
+2005-11-18  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-18  David Harrison  <harrison@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        http://bugzilla.opendarwin.org/show_bug.cgi?id=5774
+        Failed assertion `!eventDispatchForbidden()' in dom_nodeimpl.cpp:892
+        
+        Tests added: None, becaause it keeps some existing ones from crashing.
+        
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::ContainerNodeImpl::insertBefore):
+        (DOM::ContainerNodeImpl::replaceChild):
+        (DOM::ContainerNodeImpl::removeChild):
+        (DOM::ContainerNodeImpl::appendChild):
+        (DOM::ContainerNodeImpl::addChild):
+        Call enableEventDispatch() sooner, when basic dom mods are done.
+
+2005-11-18  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-18  Vicki Murley  <vicki@apple.com>
+
+        Changes by Darin, reviewed by Beth and Vicki.
+
+        - fix <rdar://problem/3939265> support "before unload" event and onbeforeunload handler (supported by both IE and Mozilla)
+
+        * khtml/ecma/kjs_events.cpp:
+        (KJS::JSAbstractEventListener::handleEvent):
+        * khtml/ecma/kjs_window.cpp:
+        (KJS::Window::getValueProperty):
+        (KJS::Window::put):
+        * khtml/ecma/kjs_window.h:
+        (KJS::Window::):
+        * khtml/html/html_baseimpl.cpp:
+        (HTMLBodyElementImpl::parseMappedAttribute):
+        (HTMLFrameElementImpl::parseMappedAttribute):
+        (HTMLFrameSetElementImpl::parseMappedAttribute):
+        * khtml/html/htmlnames.h:
+        * khtml/xml/EventNames.h:
+        * khtml/xml/dom2_eventsimpl.cpp:
+        (DOM::EventImpl::storesResultAsString):
+        (DOM::EventImpl::storeResult):
+        (DOM::BeforeUnloadEventImpl::BeforeUnloadEventImpl):
+        (DOM::BeforeUnloadEventImpl::storesResultAsString):
+        (DOM::BeforeUnloadEventImpl::storeResult):
+        * khtml/xml/dom2_eventsimpl.h:
+        (DOM::BeforeUnloadEventImpl::result):
+        * kwq/KWQKHTMLPart.h:
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::shouldClose):
+        * kwq/WebCoreBridge.h:
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge shouldClose]):
+
+2005-11-18  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-18  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Darin.
+
+	This is an additional fix for <rdar://problem/3871165> text box 
+	in nested table disappears when you click on it (3452) (Safari 
+	PSOFT: US EDU PS8: Lead List searches). The test case I used 
+	previously did not cover the case where one cell has both a
+	rowspan and a colspan and other cells later have rowspan and
+	colspan from two different cells overlapping.
+
+        One manual test case added.
+
+        * khtml/rendering/render_table.cpp: Remove check for inColSpan
+        (RenderTableSection::addCell):
+
+2005-11-18  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-18  David Harrison  <harrison@apple.com>
+
+        <http://bugzilla.opendarwin.org/show_bug.cgi?id=5629>
+        REGRESSION: appendChild() does not remove nodes from source nodelist when inserting into destination
+
+        Enable event dispatch when calling removeChild() in loops.   That it was
+        disabled previously was wrong because the DOM is not fragile at that point.
+        Makes the event dispatch forbiddance a debug-only check
+                
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::createEvent):
+        * khtml/xml/dom_docimpl.h:
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::NodeImpl::dispatchEvent):
+        (DOM::NodeImpl::dispatchGenericEvent):
+        (DOM::NodeImpl::dispatchHTMLEvent):
+        (DOM::NodeImpl::dispatchWindowEvent):
+        (DOM::NodeImpl::dispatchMouseEvent):
+        (DOM::NodeImpl::dispatchSimulatedMouseEvent):
+        (DOM::NodeImpl::dispatchUIEvent):
+        (DOM::NodeImpl::dispatchSubtreeModifiedEvent):
+        (DOM::NodeImpl::dispatchKeyEvent):
+        (DOM::NodeImpl::dispatchWheelEvent):
+        (DOM::ContainerNodeImpl::insertBefore):
+        (DOM::ContainerNodeImpl::replaceChild):
+        (DOM::ContainerNodeImpl::removeChild):
+        (DOM::ContainerNodeImpl::removeChildren):
+        (DOM::ContainerNodeImpl::appendChild):
+        (DOM::ContainerNodeImpl::addChild):
+        (DOM::ContainerNodeImpl::dispatchChildInsertedEvents):
+
+2005-11-18  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-07-29  David Hyatt  <hyatt@apple.com>
+
+	(1) Fixes khtml-user-select: none to have the following additional behavior (that matches Firefox's implementation of the property as well)
+	(a) If you mouse down (or click, double click, triple click) inside a "none" region, the selection should not be cleared or changed
+        (b) If you drag from within a "none" region out to a selectable region, so what, no selection should be changed or started.
+
+	(2) Adds a new value to khtml-user-select called "element" that is used for any object that should have the behavior of (a) and (b) above (but that is selectable aside from that).  This includes images, links, buttons, and so on.  html4.css is patched to add support for these objects.
+	    This feature fixes the big contenteditable issue and selection is no longer cleared now when you click on these controls (or on links).  This behavior matches other browsers.
+
+	(3) :active and :hover have been substantially reworked.
+	    (a) If you mouse down on a selectable region, then the behavior is unchanged.  :hover/:active is completely frozen, and they aren't updated at all.
+	    (b) If you mouse down on a non-selectable region and start moving, then the behavior has changed.  Instead of not updating at all, we mark the chain at the time the mouse goes down, and we restrict :hover/:active updates to only apply to elements that are in that chain.  This yields perfect hover/active control behavior, even when :active has been applied hierarchically.
+	    (c) :hover has moved onto the node and is no longer on the renderobject (allowing them to be consistent).
+	
+        Reviewed by john
+
+        * khtml/css/cssparser.cpp:
+        (CSSParser::parseValue):
+        * khtml/css/cssstyleselector.cpp:
+        (khtml::CSSStyleSelector::canShareStyleWithElement):
+        (khtml::CSSStyleSelector::checkOneSelector):
+        (khtml::CSSStyleSelector::applyProperty):
+        * khtml/css/html4.css:
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::setSelection):
+        (KHTMLPart::selectClosestWordFromMouseEvent):
+        (KHTMLPart::handleMousePressEventTripleClick):
+        (KHTMLPart::handleMousePressEventSingleClick):
+        (KHTMLPart::handleMouseMoveEventSelection):
+        (KHTMLPart::khtmlMouseReleaseEvent):
+        * khtml/khtml_part.h:
+        (KHTMLPart::mouseDownMayStartSelect):
+        * khtml/khtmlview.cpp:
+        (KHTMLView::viewportMouseMoveEvent):
+        * khtml/rendering/render_layer.cpp:
+        (RenderLayer::hitTest):
+        (RenderLayer::updateHoverActiveState):
+        * khtml/rendering/render_object.cpp:
+        (RenderObject::RenderObject):
+        (RenderObject::information):
+        * khtml/rendering/render_object.h:
+        (khtml::RenderObject::isRunIn):
+        (khtml::RenderObject::setInline):
+        (khtml::RenderObject::NodeInfo::NodeInfo):
+        (khtml::RenderObject::NodeInfo::mouseMove):
+        * khtml/rendering/render_style.h:
+        (khtml::):
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::DocumentImpl):
+        (DocumentImpl::~DocumentImpl):
+        (DocumentImpl::prepareMouseEvent):
+        (DocumentImpl::setActiveNode):
+        * khtml/xml/dom_docimpl.h:
+        (DOM::DocumentImpl::activeNode):
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::ContainerNodeImpl::setHovered):
+        * khtml/xml/dom_nodeimpl.h:
+        (DOM::NodeImpl::inActiveChain):
+        (DOM::NodeImpl::hovered):
+        (DOM::NodeImpl::setInActiveChain):
+        (DOM::NodeImpl::setHovered):
+        * kwq/KWQKHTMLPart.h:
+        (KWQKHTMLPart::mouseDownMayStartSelect):
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::canMouseDownStartSelect):
+        (KWQKHTMLPart::khtmlMousePressEvent):
+
+2005-11-18  Mitz Pettel  <opendarwin.org@mitzpettel.com>
+
+        Reviewed by Dave Harrson.
+        Commited by Tim Hatcher.
+
+        - fix http://bugzilla.opendarwin.org/show_bug.cgi?id=5629
+        REGRESSION: appendChild() does not remove nodes from source
+        nodelist when inserting into destination
+
+        * khtml/rendering/render_layer.cpp:
+        (khtml::ContainerNodeImpl::appendChild): Dispatch old parent's
+        subtree modified event from appendChild()
+
+2005-11-18  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-17  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Beth.
+
+        - fix for <rdar://problem/4347856> Safari crash after browsing Fandango.
+
+        When removeFormElement is getting called in a destructor, there may not be a document.
+        So we don't need to worry about cleaning up the radio buttons in this case, not only to
+        avoid the crash, but also because the document's destructor will clean that up.
+
+        * khtml/html/html_formimpl.cpp:
+        (DOM::HTMLFormElementImpl::removeFormElement): Added nil check for document.
+
+2005-11-17  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-17  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Darin
+
+        Fix for <rdar://problem/3871165> text box in nested table 
+        disappears when you click on it (3452) (Safari PSOFT: US 
+        EDU PS8: Lead List searches)
+    
+        Table cells that are in an overlap of a rowspan and a colspan
+        were not always being repainted correctly. This is because our
+        previous implementation had no way for a cell to keep track of
+        both its rowspan and its colspan. This patch maintains the old
+        way of dealing with rowspan and introduces CellStruct for dealing
+        with colspan. CellStruct is a structure that contains a 
+        RenderTableCell and a boolean value that is true if the cell is in
+        a colspan. 
+
+        * khtml/rendering/render_table.cpp:
+        (RenderTable::splitColumn): The section grid now returns a CellStruct.
+        (RenderTable::appendColumn): Same as above, and cellAt() also returns
+                a CellStruct and needs to be set appropriately.
+        (RenderTable::cellAbove): cellAt() now returns a CellStruct. 
+        (RenderTable::cellBelow): Same.
+        (RenderTable::cellLeft): Same.
+        (RenderTable::cellRight): Same.
+        (RenderTableSection::ensureRows): Create empty CellStruct to fill the
+                grid. 
+        (RenderTableSection::addCell): cellAt() now returns a CellStruct. This 
+                is also where the change in behavior is to fix 
+                the bug. 
+        (RenderTableSection::setCellWidths): cellAt() now returns a CellStruct.
+        (RenderTableSection::calcRowHeight): Same.
+        (RenderTableSection::layoutRows): Same.
+        (RenderTableSection::paint): Same.
+        (RenderTableSection::dump): Same.
+        * khtml/rendering/render_table.h:
+        (khtml::RenderTableSection::cellAt): Same.
+        * khtml/rendering/table_layout.cpp:
+        (AutoTableLayout::recalcColumn): Same.
+        (AutoTableLayout::calcEffectiveWidth): Removed reference to 
+                (RenderTableCell *)-1 because that is now 
+                removed, and a cell will never be in a colspan
+                in this function anyway. 
+        (AutoTableLayout::insertSpanCell): Same.
+
+2005-11-17  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-15  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Darin.
+
+        - fix for <rdar://problem/4341948> REGRESSION(TOT/GLENDALE): Safari won't tab between input/textarea elements if a select element is present
+
+        * kwq/KWQComboBox.mm: (-[KWQPopUpButton canBecomeKeyView]): removed check for tabsToAllControls() since we now always allow tabbing to select elements
+        * kwq/KWQListBox.mm: (-[KWQTableView canBecomeKeyView]): ditto.
+
+=== WebCore-417.6 ===
+
+2005-11-16  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-16  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Dave Harrson.
+
+        - fix http://bugzilla.opendarwin.org/show_bug.cgi?id=5759
+        <rdar://problem/4346132> REGRESSION (10.4.3-10.4.4): horizontal link scrolling broken at aplacecalledcommon.co.uk (5759)
+
+        * khtml/rendering/render_layer.cpp: (khtml::RenderLayer::getRectToExpose): If the rect is larger than the visible rect, and we're trying to align to the closest edge, align to the left edge.
+        * khtml/xml/dom_nodeimpl.cpp: (DOM::ContainerNodeImpl::getRect): If width or height is negative, we were setting both to zero.
+        Now we only set the negative value to zero without affecting the other value.
+
+2005-11-15  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-15  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Tim O.
+ 
+        Improve this loop.  We'd get an infinite loop in the old code if we came across a part with no renderer, such as a frame whose src is an image.
+
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge elementAtPoint:]):
+
+2005-11-15  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-13  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Maciej.
+
+        Fixed <rdar://problem/4316201> REGRESSION: cursor and text in status bar is not updated when mousing over links in a frame (5509)
+
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::passSubframeEventToSubframe): add a case to handle NSMouseMoved, to fix the problem with the hand cursor
+        (KWQKHTMLPart::mouseMoved): return if we're already sending an event to the subview
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge elementAtPoint:]): if we're over a frame, return the element within the frame, to fix the problem with
+        status bar text
+
+2005-11-14  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-14  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Maciej and Darin.
+
+        - fix for <rdar://problem/4233938> calling focus on contentEditable block elements should scroll them into view
+        - fix for <rdar://problem/3624946> No 'blur' method defined on editable non-form DOM objects
+
+        Added
+        * fast/dom/focus-contenteditable.html
+        * fast/dom/blur-contenteditable.html
+
+        * khtml/ecma/kjs_dom.cpp: Added ElementFocus and ElementBlur to DOMElementProtoTable
+        (KJS::DOMElementProtoFunc::callAsFunction): Added cases for ElementFocus and ElementBlur
+        * khtml/ecma/kjs_dom.h: (KJS::DOMElement::): Added ElementFocus and ElementBlur to enum
+        * khtml/html/html_elementimpl.cpp:
+        (HTMLElementImpl::parseMappedAttribute): Added case for onblur.
+        * khtml/xml/dom_elementimpl.cpp:
+        (ElementImpl::focus): If the element isFocusable, calls setFocusNode to give element focus.
+        (ElementImpl::blur): If the element is focused, calls setFocusNode to take away focus.
+        * khtml/xml/dom_elementimpl.h: Added focus and blur functions
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::setFocusNode): If we're trying to take focus away from a node, then we should clear the selection before we fire events.
+        If we don't, then efforts to focus the cursor during the event can reset focus on the old node.
+        (DocumentImpl::clearSelectionIfNeeded): Added function since we need to clear the selection at multiple points.
+        * khtml/xml/dom_docimpl.h: Added clearSelectionIfNeeded.
+        * kwq/DOMExtensions.h: Added Obj-C bindings for focus and blur.
+        * kwq/DOM.mm:
+        (-[DOMElement focus]):
+        (-[DOMElement blur]):
+
+=== WebCore-417.5 ===
+
+2005-11-14  Timothy Hatcher  <timothy@apple.com>
+
+        Applied fix for the Safari-2-0-branch
+
+    2005-11-10  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Maciej.
+
+        Fixed <rdar://problem/4228997> selecting a new radio button does not automatically clear the previous selected (outside <form> element)
+
+        Moved the radio button checking code to the document, since we shouldn't need a form to keep track of grouped radio buttons.
+
+        Added 
+        * fast/forms/radio_checked.html
+
+        * khtml/xml/dom_docimpl.h: Added m_selectedRadioButtons (now a two level hash table to account for forms and group names),
+        radioButtonChecked, checkedRadioButtonForGroup, and removeRadioButtonGroup
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::DocumentImpl): initialize m_selectedRadioButtons
+        (DocumentImpl::~DocumentImpl): delete m_selectedRadioButtons, and any of the inner hashtables if necessary
+        (DocumentImpl::radioButtonChecked): moved from HTMLFormElementImpl.
+        (DocumentImpl::checkedRadioButtonForGroup): ditto.
+        (DocumentImpl::removeRadioButtonGroup): ditto.
+        * khtml/html/html_formimpl.cpp: 
+        (DOM::HTMLFormElementImpl::HTMLFormElementImpl): removed initialization of m_selectedRadioButtons.
+        (DOM::HTMLFormElementImpl::~HTMLFormElementImpl): removed deletion of m_selectedRadioButtons.
+        (DOM::HTMLFormElementImpl::removeFormElement): now calls document's radio button functions
+        (DOM::HTMLInputElementImpl::isKeyboardFocusable): ditto.
+        (DOM::HTMLInputElementImpl::setInputType): ditto.
+        (DOM::HTMLInputElementImpl::parseMappedAttribute): ditto.
+        (DOM::HTMLInputElementImpl::setChecked): ditto.
+        (DOM::HTMLInputElementImpl::preDispatchEventHandler): ditto.
+        * khtml/html/html_formimpl.h: removed m_selectedRadioButtons, radioButtonChecked, checkedRadioButtonForGroup, and removeRadioButtonGroup
+
+2005-11-12  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from Ti-2005-009-branch to Safari-2-0-branch
+
+    2005-10-06  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Vicki.
+
+        Fix for <rdar://problem/4145535> Crash in khtml::RenderBlock::addOverhangingFloats 
+        with simple HTML test file.
+
+        * khtml/rendering/render_block.cpp: Added nil check
+        (khtml::RenderBlock::addOverhangingFloats):
+
+2005-11-12  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-19  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Hyatt
+
+        Test cases added: fast/table/overflowHidden.html
+
+        Fixed <rdar://problem/3885711> (4047) CSS: Content displays incorrectly in tables with TD style set overflow:hidden
+        Table cells render correctly with overflow:hidden, :auto, and :scroll specified. Cells now have a layer when overflow is specified.
+
+        * khtml/css/cssstyleselector.cpp: Make sure table cells do not honor position:relative
+        (khtml::CSSStyleSelector::adjustRenderStyle):
+        * khtml/rendering/render_block.cpp: Add borderTopExtra() and borderBottomExtra() to various calculations of table cell height so that scroll bars render properly.
+        (khtml::RenderBlock::isPointInScrollbar):
+        (khtml::RenderBlock::nodeAtPoint):
+        * khtml/rendering/render_box.cpp: Allow table cells to have overflow, and add borderTopExtra() and borderBottomExtra() to calculation of the clip rect.
+        (RenderBox::setStyle):
+        (RenderBox::getOverflowClipRect):
+        * khtml/rendering/render_box.h: Removed definitions of borderTopExtra() and borderBottomExtra() so that they occur at the RenderObject level now.
+        * khtml/rendering/render_layer.cpp: Layers must also take borderTopExtra() and borderBottomExtra() into account.
+        (khtml::RenderLayer::updateLayerPosition):
+        (khtml::RenderLayer::paintLayer):
+        (khtml::RenderLayer::hitTestLayer):
+        * khtml/rendering/render_object.cpp: Use m_overflowClip instead of hasOverflowClip() for consistency.
+        (RenderObject::requiresLayer):
+        * khtml/rendering/render_object.h: Add definitions of borderTopExtra() and borderBottomExtra() to RenderObject level.
+        (khtml::RenderObject::borderTopExtra):
+        (khtml::RenderObject::borderBottomExtra):
+        * khtml/rendering/render_table.cpp: Allow table cells to have a layer if overflow is specified.
+        (RenderTableSection::paint):
+        (RenderTableCell::requiresLayer):
+        (RenderTableCell::paint):
+        (RenderTableCell::paintBoxDecorations):
+        * layout-tests/fast/table/029-expected.txt: This layout test now paints a layer because it specifies overflow:hidden
+        * layout-tests/fast/table/overflowHidden-expected.txt: Added.
+        * layout-tests/fast/table/overflowHidden.html: Added.
+
+2005-11-12  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-11  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by mjs.
+
+        Unfortunately both the Render and DOM trees will actually preform
+        the load on <embed> <object> and <iframe> tags depending on the
+        circumstances.  The <iframe> code path was missing a recursion
+        check in the render tree.  I fixed that.  And improved the
+        recursion checking for all tags.
+        <rdar://problem/4187169> High CPU usage/hang occurs with Safari after loading cbsnews.com (also at cbs.com)
+
+        * khtml/rendering/render_frames.cpp:
+        (isURLAllowed): added, to prevent recursive loops
+        (mapClassIdToServiceType): added, to simplify code
+        (RenderPartObject::updateWidget): updated, to use above functions.
+
+2005-11-11  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-03  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Hyatt.
+
+        Clean up of layer scrolling code.  Now we can clearly define what to do if a rectangle is fully visible, partially visible, or hidden.
+        This also fixes a bug with the previous implementation where nested layers/frames would get passed a rect that was too large.
+
+        Added fast/overflow/scrollRevealButton.html
+
+        * khtml/rendering/render_layer.h: (khtml::RenderLayer::): 
+        Added ScrollBehavior enum, ScrollAlignment struct, and ScrollAlignment static members
+        to describe specific scrolling behaviors depending on how visible the rectangle is.
+        In the future, we can add other statics to easily describe desired behaviors.
+        * khtml/rendering/render_layer.cpp:
+        (khtml::): initialize ScrollAlignment static members: 
+        alignCenterIfNeeded, alignToEdgeIfNeeded, alignCenterAlways, alignTopAlways, alignBottomAlways
+        (khtml::RenderLayer::scrollRectToVisible):
+        alignCenterIfNeeded is the default behavior for both directions.
+        Pass the original rect (adjusted if scrolling has occurred) when recursively calling this function.
+        (khtml::RenderLayer::getRectToExpose): Adjusted for new ScrollAlignment parameters.
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::gotoAnchor): Use the node's rect to determine where to scroll.  
+        We used to just use the origin, but this helps us match other browsers better.
+        (KHTMLPart::setActiveNode): Removed scrolling code, since this is now also done in setFocusNode
+        * khtml/xml/dom_elementimpl.cpp: (ElementImpl::scrollIntoView): Use new ScrollAlignment values to describe scrolling behavior.
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::nextKeyViewInFrame): Removed scrolling code, since this is now also done in setFocusNode
+        (KWQKHTMLPart::centerSelectionInVisibleArea): Use new ScrollAlignment values to describe scrolling behavior.
+        * kwq/WebCoreBridge.mm: (-[WebCoreBridge ensureSelectionVisible]): ditto.
+        * kwq/KWQScrollView.h: Removed ensureRectVisible, since we no longer use this.
+        * kwq/KWQScrollView.mm: ditto.
+        * khtml/khtmlview.cpp:
+        (KHTMLView::doAutoScroll): Removed unnecessary nil checks for enclosingLayer
+        (KHTMLView::focusNextPrevNode): ditto.
+
+2005-11-11  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-27  David Harrison  <harrison@apple.com>
+ 
+        Reviewed by Justin Garcia and Dave Hyatt.
+
+        <rdar://problem/4134884> crash trying to forward msg - khtml::RenderBlock::addChildToFlow
+
+        Problem was that onunload events were being fired while in the middle of trying to detach, which resulted in updateDocumentsRendering re-attaching the previously detached nodes.  Similar problem with load events while attaching.
+        
+        Solved by eliminating load and unload for object nodes, pre-sending unload before detach, and sending dom mutation and load events after attaching.
+        
+        Also, added asserts to catch this problem more easily in the future.
+        
+        Added test:
+        * fast/events/event-targets.html
+        Make sure that load and unload events do not fire on certain objects.
+        
+        * khtml/ecma/kjs_html.cpp:
+        (KJS::Image::notifyFinished):
+        Use constant string for "load" event name.
+        * khtml/ecma/xmlhttprequest.cpp:
+        (KJS::XMLHttpRequest::changeState):
+        Use constant strings for "load" and "readystatechange" event names.
+        * khtml/html/html_baseimpl.cpp:
+        (HTMLFrameElementImpl::close):
+        (HTMLFrameElementImpl::willRemove):
+        (HTMLFrameElementImpl::detach):
+        Add willRemove() function.
+        * khtml/html/html_baseimpl.h:
+        Add willRemove() function.
+        * khtml/html/html_objectimpl.cpp:
+        (DOM::HTMLObjectElementImpl::attach):
+        (DOM::HTMLObjectElementImpl::detach):
+        Stop needlessly sending load and unload events for OBJECT elements.
+        * khtml/xml/dom2_traversalimpl.cpp:
+        (DOM::NodeIteratorImpl::notifyBeforeNodeRemoval):
+        Rename local variable from willRemove to removedNode for clarity.
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::DocumentImpl):
+        (DocumentImpl::forbidEventDispatch):
+        (DocumentImpl::allowEventDispatch):
+        (DocumentImpl::eventDispatchForbidden):
+        (DocumentImpl::createEvent):
+        Add mechanism to prevent event dispatch.
+        * khtml/xml/dom_docimpl.h:
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::NodeImpl::dispatchEvent):
+        (DOM::NodeImpl::dispatchGenericEvent):
+        (DOM::NodeImpl::dispatchHTMLEvent):
+        (DOM::NodeImpl::dispatchWindowEvent):
+        (DOM::NodeImpl::dispatchMouseEvent):
+        (DOM::NodeImpl::dispatchSimulatedMouseEvent):
+        (DOM::NodeImpl::dispatchUIEvent):
+        (DOM::NodeImpl::dispatchSubtreeModifiedEvent):
+        (DOM::NodeImpl::dispatchKeyEvent):
+        (DOM::NodeImpl::dispatchWheelEvent):
+        (DOM::NodeImpl::willRemove):
+        (DOM::ContainerNodeImpl::insertBefore):
+        (DOM::ContainerNodeImpl::replaceChild):
+        (DOM::ContainerNodeImpl::willRemove):
+        (DOM::ContainerNodeImpl::willRemoveChild):
+        (DOM::ContainerNodeImpl::removeChild):
+        (DOM::ContainerNodeImpl::removeChildren):
+        (DOM::ContainerNodeImpl::appendChild):
+        (DOM::ContainerNodeImpl::addChild):
+        (DOM::ContainerNodeImpl::dispatchChildInsertedEvents):
+        (DOM::ContainerNodeImpl::dispatchChildRemovalEvents):
+        Prevent event dispatch during DOM node removals and additions.
+        * khtml/xml/dom_nodeimpl.h:
+
+2005-11-11  Timothy Hatcher  <timothy@apple.com>
+
+        Fix for http://bugzilla.opendarwin.org/show_bug.cgi?id=4170
+        and <rdar://problem/3849434> SLIDER: Article length goes from a 
+        subject line, back to the whole article, when decreasing (4170)
+
+        Patch by Ricci Adams
+        Reviewed by Dave Hyatt
+
+        * khtml/rendering/render_flexbox.cpp:
+         (RenderFlexibleBox::layoutVerticalBox): clamp the value
+
+2005-11-11  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-11  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Hyatt.
+
+        Fix for <rdar://problem/3952698> Function buttons do not display 
+        properly with Telia Webmail (3488). 
+    
+        Replaced elements with a percentage width used to be given a minimum
+        width of 0. This caused buttons etc with width:100% to overlap when
+        they shouldn't. Textareas and text boxes are still given a minimum
+        width of 0 because they need slightly different behavior to match 
+        WinIE. I filed <rdar://problem/4339518> to track this remaining problem.
+
+        * khtml/rendering/render_form.cpp:
+        (RenderLineEdit::calcMinMaxWidth): Still give text fields a m_minWidth of 0.
+        (RenderTextArea::calcMinMaxWidth): And textareas.
+        * khtml/rendering/render_replaced.cpp:
+        (RenderReplaced::calcMinMaxWidth): Remove the check for width().isPercent()
+        when making m_minWidth 0.
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-06-22  Kevin Ballard  <kevin@sb.org>
+
+        Reviewed by Darin.
+
+        Test cases added:
+        * crlf.html
+        * text-selection.html
+        Both of these are attached to the bug separately from the patch,
+        because I can't cvs add.
+        Reviewer: feel free to remove this comment and tweak the test cases added
+        lines to reflect wherever you place these cases in the hierarchy
+
+        - Fixes bug <http://bugzilla.opendarwin.org/show_bug.cgi?id=3401>.
+          Also fixes issue where setting text of a textarea in code and then
+          retrieving it would leave the \r\n sequences in the text, despite
+          the textarea translating to \n in all other cases.
+
+        * khtml/ecma/kjs_html.cpp:
+        (KJS::getInputSelectionStart):
+        (KJS::getInputSelectionEnd):
+        (KJS::KJS::HTMLElement::getValueProperty):
+        (KJS::KJS::HTMLElement::hasProperty):
+        (KJS::KJS::HTMLElementFunction::tryCall):
+        (KJS::HTMLElement::putValue):
+        * khtml/ecma/kjs_html.h:
+        (KJS::HTMLElement::):
+        * khtml/html/html_formimpl.cpp:
+        (DOM::HTMLInputElementImpl::canHaveSelection):
+        (DOM::HTMLInputElementImpl::selectionStart):
+        (DOM::HTMLInputElementImpl::selectionEnd):
+        (DOM::HTMLInputElementImpl::setSelectionStart):
+        (DOM::HTMLInputElementImpl::setSelectionEnd):
+        (DOM::HTMLInputElementImpl::setSelectionRange):
+        (DOM::HTMLInputElementImpl::setValue):
+        (DOM::HTMLTextAreaElementImpl::selectionStart):
+        (DOM::HTMLTextAreaElementImpl::selectionEnd):
+        (DOM::HTMLTextAreaElementImpl::setSelectionStart):
+        (DOM::HTMLTextAreaElementImpl::setSelectionEnd):
+        (DOM::HTMLTextAreaElementImpl::setSelectionRange):
+        (DOM::HTMLTextAreaElementImpl::setValue):
+        * khtml/html/html_formimpl.h:
+        * khtml/rendering/render_form.cpp:
+        (RenderLineEdit::selectionStart):
+        (RenderLineEdit::selectionEnd):
+        (RenderLineEdit::setSelectionStart):
+        (RenderLineEdit::setSelectionEnd):
+        (RenderLineEdit::setSelectionRange):
+        (RenderTextArea::selectionStart):
+        (RenderTextArea::selectionEnd):
+        (RenderTextArea::setSelectionStart):
+        (RenderTextArea::setSelectionEnd):
+        (RenderTextArea::select):
+        (RenderTextArea::setSelectionRange):
+        * khtml/rendering/render_form.h:
+        * kwq/KWQLineEdit.h:
+        * kwq/KWQLineEdit.mm:
+        (QLineEdit::setCursorPosition):
+        (QLineEdit::cursorPosition):
+        (QLineEdit::selectAll):
+        (QLineEdit::selectionStart):
+        (QLineEdit::selectedText):
+        (QLineEdit::setSelection):
+        * kwq/KWQTextArea.h:
+        * kwq/KWQTextArea.mm:
+        (-[KWQTextArea setSelectedRange:]):
+        (-[KWQTextArea selectedRange]):
+        (-[KWQTextArea getCursorPositionAsIndex:inParagraph:]):
+        (RangeOfParagraph):
+        * kwq/KWQTextEdit.h:
+        * kwq/KWQTextEdit.mm:
+        (QTextEdit::getCursorPosition):
+        (QTextEdit::selectionStart):
+        (QTextEdit::selectionEnd):
+        (QTextEdit::setSelectionStart):
+        (QTextEdit::setSelectionEnd):
+        (QTextEdit::selectAll):
+        (QTextEdit::setSelectionRange):
+        * kwq/KWQTextField.h:
+        * kwq/KWQTextField.mm:
+        (-[KWQTextFieldController selectedRange]):
+        (-[KWQTextFieldController setSelectedRange:]):
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        All the changes were applied to khtml/editing/htmlediting.[m|h]
+        None of the other files exist on the branch, they were split off later.
+
+    2005-11-09  David Harrison  <harrison@apple.com>
+
+        Reviewed by Justin.
+
+        <rdar://problem/4313925> Denver Regression: Mail: "TAB+paste+insert before" actually inserts after the pasted text
+
+        - added tab span editing functions in composite_edit_command.cpp
+        - called them from insertText, insertLineBreak, and replaceSelection commands
+        - also exposed some handy tab span funcs from htmlediting.cpp
+
+        Tests added in editing/insertion and editing/pasteboard.
+        
+        * khtml/editing/composite_edit_command.cpp:
+        (khtml::CompositeEditCommand::positionOutsideTabSpan):
+        (khtml::CompositeEditCommand::insertNodeAtTabSpanPosition):
+        * khtml/editing/composite_edit_command.h:
+        * khtml/editing/htmlediting.cpp:
+        (khtml::positionBeforeNode):
+        (khtml::positionAfterNode):
+        (khtml::tabSpanNode):
+        (khtml::positionBeforeTabSpan):
+        * khtml/editing/htmlediting.h:
+        * khtml/editing/insert_line_break_command.cpp:
+        (khtml::InsertLineBreakCommand::doApply):
+        * khtml/editing/insert_text_command.cpp:
+        (khtml::InsertTextCommand::prepareForTextInsertion):
+        * khtml/editing/replace_selection_command.cpp:
+        (khtml::ReplaceSelectionCommand::doApply):
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-02  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Darin.
+ 
+        fix <rdar://problem/4303587> REGRESSION (TOT): Scrollwheel doesn't work on frameset pages (5450)
+
+        * kwq/KWQKHTMLPart.h:
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::wheelEvent): set _currentEvent to the wheel event
+        (KWQKHTMLPart::passWheelEventToChildWidget): New.  Pass the event
+        to the child widget, if we haven't already handled the event
+        * khtml/khtmlview.cpp:
+        (KHTMLView::viewportWheelEvent): add passWheelEventToChildWidget check, and
+        accept the event if we're passing to the child widget
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-10  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/4327363> GAP: tabs not treated as whitespace in option element
+
+        * khtml/rendering/render_form.cpp: (RenderSelect::updateFromElement): call simplifyWhiteSpace() on the itemText or label to collapse whitespace.
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-21  Vicki Murley  <vicki@apple.com>
+   
+        Changes by Romain Brestac, reviewed by Darin.
+
+        - fix http://bugzilla.opendarwin.org/show_bug.cgi?id=3418
+        (unicode characters not preserved after a xslt transformation)
+
+        * khtml/misc/loader.cpp:
+        (CachedXSLStyleSheet::CachedXSLStyleSheet):
+        (CachedXSLStyleSheet::data):
+        * khtml/misc/loader.h:
+        * khtml/xsl/xslt_processorimpl.cpp:
+        (DOM::XSLTProcessorImpl::addToResult):
+        (DOM::XSLTProcessorImpl::documentFromXMLDocPtr):
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-03  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Darin.
+
+        Fix for <rdar://problem/4235722> line-height style settings not reflected in 
+        textarea. 
+
+        * khtml/rendering/render_form.cpp:
+        (RenderTextArea::setStyle): Make setStyle call new setLineHeight function and
+        computer correct line height using RenderObject::lineHeight
+        * kwq/KWQTextArea.h:
+        * kwq/KWQTextArea.mm:
+        (-[KWQTextAreaTextView setFont:]): setFont updates lineHeight if necessary.
+        (-[KWQTextAreaTextView setLineHeight:]): sets the line height
+        (-[NSTextView _KWQ_updateTypingAttributes:forLineHeight:fontHeight:]): Applies the 
+        new line height to the paragraph style attributes. 
+        * kwq/KWQTextEdit.h:
+        * kwq/KWQTextEdit.mm:
+        (QTextEdit::setLineHeight): calls setLineHeight in KWQTextAreaTextView
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-10  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by ggaren.
+
+        * khtml/ecma/kjs_html.cpp:
+        (KJS::Image::getValueProperty): resolve relative urls in Image::src
+        http://bugzilla.opendarwin.org/show_bug.cgi?id=3473
+        <rdar://problem/3787988> Preloaded Image objects .src field is not a fully resolved path (3473)
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-01  Mitz Pettel  <opendarwin.org@mitzpettel.com>
+
+        Reviewed by Dave Hyatt.
+        Commited by Tim Hatcher.
+
+        Fixes http://bugzilla.opendarwin.org/show_bug.cgi?id=5256
+        Relayout during load causes duplicate plugin part.
+
+        This was a problem with <OBJECT>s that contain an <EMBED>, if 
+        layout happened in the middle of the OBJECT but before the EMBED.
+
+        No test case added, requires manual testing. 
+
+        * khtml/html/html_objectimpl.cpp:
+        (DOM::HTMLObjectElementImpl::HTMLObjectElementImpl):
+        (DOM::HTMLObjectElementImpl::closeRenderer):
+        (DOM::HTMLObjectElementImpl::setComplete):
+        * khtml/html/html_objectimpl.h:
+        (DOM::HTMLObjectElementImpl::isComplete):
+        * khtml/html/htmlfactory.cpp:
+        (DOM::objectConstructor):
+        * khtml/rendering/render_frames.cpp:
+        (RenderPartObject::updateWidget):
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-09  Dave Hyatt  <hyatt@apple.com>
+    
+        Fixed <rdar://problem/4237617> selects should be in the tab order
+        in all keyboard modes
+        
+        Reviewed by Vicki
+        
+        * kwq/KWQComboBox.mm:
+        (QComboBox::focusPolicy):
+        * kwq/KWQListBox.mm:
+        (QListBox::focusPolicy):
+    
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-10  Geoffrey Garen  <ggaren@apple.com>
+
+        - Fixed <rdar://problem/4245682> Regression: CrashTracer: 923 crashes 
+          in Safari at com.apple.WebCore: KJS::Window::clear + 132
+
+        Reviewed by mjs.
+
+        No test case because this crash isn't reliably reproducible.
+
+        * khtml/ecma/kjs_window.cpp:
+        (KJS::Window::Window): Initialize m_returnValueSlot to 0, so that we
+        know not to write to it until it's explicitly set to a valid address.
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-03  Justin Garcia  <justin.garcia@apple.com>
+   
+        Reviewed by darin
+        
+        <rdar://problem/4060947> Safari crashes trying to save PDF file as web archive (NULL KHTMLPart)
+
+        * kwq/WebCoreBridge.mm:
+        (+[WebCoreBridge bridgeForDOMDocument:]):
+        Added a check for a null part.
+
+2005-11-10  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-28  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by John
+
+        Fix for <rdar://problem/4098083> REGRESSION (125-312): crash 
+	in [KWQTableView resignFirstResponder] selecting from JS menu 
+	(car4you.at, etc.)
+
+	Since it is possible that a render widget's eventFilterObject
+	has been destroyed even though the render widget is still ref-ed,
+	we need to nil-check the eventFilterObject before we use it to get
+	the eventFilter.
+
+        * kwq/KWQComboBox.mm:
+        (-[KWQPopUpButton becomeFirstResponder]): Added nil check.
+        (-[KWQPopUpButton resignFirstResponder]): Added nil check.
+        * kwq/KWQListBox.mm:
+        (-[KWQTableView becomeFirstResponder]): Added nil check.
+        (-[KWQTableView resignFirstResponder]): Added nil check.
+        * kwq/KWQTextArea.mm:
+        (-[KWQTextAreaTextView becomeFirstResponder]): Added nil check.
+        (-[KWQTextAreaTextView resignFirstResponder]): Added nil check.
+        * kwq/KWQTextField.mm:
+        (-[KWQTextFieldController setHasFocus:]): Added nil check.
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge elementForView:]): Added nil check.
+
+2005-11-09  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-21  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Darin.
+ 
+        - fix these bugs
+        <rdar://problem/3579812> HTMLTableElement.insertRow(n) inserts row at the beginning of the table (4043)
+        <rdar://problem/3711188> HTMLTableElement.insertRow() doesn't respect passed index
+
+        * khtml/html/html_tableimpl.cpp:
+        (DOM::HTMLTableElementImpl::insertRow): 
+        if the index is the same as the number of rows in the section, we should append
+        
+        Update test results for /fast/dynamic/013.html. In the old version the the rows 
+        and cells were children of the first table section, a tfoot.  They are now children 
+        of the second table section, a tbody.  Our rendering now matches Gecko and Win IE 
+        (according to yusufg on #webkit, comparing with 013-expected.png) for this case.
+
+        * layout-tests/fast/dynamic/013-expected.checksum:
+        * layout-tests/fast/dynamic/013-expected.png:
+        * layout-tests/fast/dynamic/013-expected.txt:
+
+        Test cases added: 
+
+        * layout-tests/fast/dynamic/014-expected.checksum: Added.
+        * layout-tests/fast/dynamic/014-expected.png: Added.
+        * layout-tests/fast/dynamic/014-expected.txt: Added.
+        * layout-tests/fast/dynamic/014.html: Added.
+        * layout-tests/fast/dynamic/015-expected.checksum: Added.
+        * layout-tests/fast/dynamic/015-expected.png: Added.
+        * layout-tests/fast/dynamic/015-expected.txt: Added.
+        * layout-tests/fast/dynamic/015.html: Added.
+
+2005-11-09  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-16  Tim Omernick  <tomernick@apple.com>
+
+        Reviewed by Dave Hyatt.  Test case reviewed by Vicki Murley.
+
+        <rdar://problem/3572507> Flash in div with display:none style will not redraw when style changed to display:block (3479)
+
+        Test cases added:
+        * manual-tests/show-hide-object.html: Added.
+        * manual-tests/resources/spinbox.swf: Added.
+
+        * khtml/html/html_objectimpl.cpp:
+        (DOM::HTMLObjectElementImpl::detach):
+        Set needWidgetUpdate to true so that the widget is updated on the next attach().
+
+=== WebCore-417.4 ===
+
+2005-10-21  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-19  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Hyatt.
+
+        Fixed <rdar://problem/4243807> Denver Regression: DOM returns lower case strings for tags in empty document
+
+        * khtml/html/html_documentimpl.cpp:
+        (HTMLDocumentImpl::HTMLDocumentImpl): initialize hMode to Html4.
+
+2005-10-11  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-10  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by eric
+        
+        <rdar://problem/4283218> M-JPEG / Server Push and JavaScript
+        
+        Ignore multipart loads in numRequests, call checkCompleted() after each section is complete.
+
+        * khtml/misc/loader.cpp:
+
+=== WebCore-417.3 ===
+
+2005-10-06  Timothy Hatcher  <timothy@apple.com>
+
+        Fixes <rdar://problem/4286069> Intel Safari gives "MacPPC" for JavaScript navigator.platform
+
+        Reviewed by Geoff.
+
+        * khtml/ecma/kjs_navigator.cpp:
+        (Navigator::getValueProperty): Return MacPPC or MacIntel
+
+2005-10-05  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-04  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Eric.
+
+	    <rdar://problem/4285236> Denver Regression: crash repeatedly reloading www.supermanhomepage.com
+	
+	    I couldn't figure out how to make a reproducible test case for this. The failure is
+	    random memory trashing.
+
+        * khtml/ecma/kjs_events.cpp:
+        (KJS::JSAbstractEventListener::handleEvent):
+
+2005-10-03  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-03  Justin Garcia  <justin.garcia@apple.com>
+
+		Fixes <rdar://problem/4275492> REGRESSION (SuTiDenver): EMBED tag with bogus type attribute downloads .wmv file twice (gorillamask.net)
+
+        Reviewed by geoff, darin
+
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::handleFallbackContent):
+        Don't handle fallback content for <embed> tags.
+
+=== WebCore-417.2 ===
+
+2005-09-29  Timothy Hatcher  <timothy@apple.com>
+
+        Merge over of various leak fixes from TOT to Safari-2-0-branch
+
+    2005-09-29  Timothy Hatcher  <timothy@apple.com>
+
+        Fixes build failures on a future release train.
+
+        Reviewed by Maciej.
+
+        Test cases added: (None needed.)
+
+        * kwq/KWQPointArray.h: check if NSPoint is the same as CGPoint
+        * kwq/KWQRect.h: check if NSRect is the same as CGRect
+        * kwq/KWQSize.h: check if NSSize is the same as CGSize
+
+=== WebCore-417.1 ===
+
+2005-09-28  Timothy Hatcher  <timothy@apple.com>
+
+        Merge over of various leak fixes from TOT to Safari-2-0-branch
+
+        <rdar://problem/4231952> leaks of DOMStringImpl called from HTMLTokenizer::processToken, seen running WebKit tests
+        <rdar://problem/4231978> many leaks of StyleSurroundData called beneath RenderStyle::setMarginTop, seen running webkit tests
+        <rdar://problem/4232017> many leaks of StyleInheritedData called from different RenderStyle methods, seen running webkit tests
+        <rdar://problem/4232175> leak of RenderObject called from RenderContainer::updatePseudoChild, seen running webkit tests
+        <rdar://problem/4232214> many leaks of RenderStyle from CSSStyleSelector::pseudoStyleForElement, seen running webkit tests
+        <rdar://problem/4232252> many leaks of RenderStyle called beneath NodeImpl::createRendererIfNeeded, seen running webkit tests
+        <rdar://problem/4232263> many leaks of RenderObject called from TextImpl::createRenderer, seen running webkit tests
+        <rdar://problem/4232303> many objects leaked from HTMLTokenizer::parseTag() within -[WebView paste:], seen running webkit tests (probably affects Mail)
+        <rdar://problem/4232355> leak of DOMStringImpl called from RenderTextFragment::originalString, seen running webkit tests
+        <rdar://problem/4232371> leak of DOMStringImpl called from DOMStringImpl::substring, seen running webkit tests
+        <rdar://problem/4232588> many leaks beneath ApplyStyleCommand::mergeEndWithNextIfIdentical, seen running webkit tests (probably affects Mail)
+        <rdar://problem/4232812> leaks of NodeImpl called from HTMLParser::textCreateErrorCheck, seen running webkit tests
+        <rdar://problem/4233683> leaks of NodeImpl called from HTMLElementImpl::setOuterText, seen running webkit tests
+        <rdar://problem/4233690> leaks of StyleBackgroundData called within setBackgroundColor, seen running webkit tests
+        <rdar://problem/4233701> leaks inside QFontMetrics::setFont, seen running webkit tests
+        <rdar://problem/4233800> leak inside DOM::DocumentImpl::DocumentImpl, seen running webkit tests
+        <rdar://problem/4236218> many leaks of StyleBaseImpl within -[WebCoreBridge markupStringFromRange:nodes:] within -[WebHTMLView copy:]
+        <rdar://problem/4238024> leak of DocumentFragmentImpl if parseXMLDocumentFragment fails
+        <rdar://problem/4241457> many callers of removeChild are leaking the removed node
+
+        * khtml/editing/markup.cpp:
+        (khtml::createMarkup):
+        * khtml/html/html_elementimpl.cpp:
+        (HTMLElementImpl::setOuterHTML):
+        (HTMLElementImpl::setOuterText):
+        * khtml/html/html_tableimpl.cpp:
+        (HTMLTableElementImpl::setCaption):
+        (HTMLTableElementImpl::setTHead):
+        (HTMLTableElementImpl::setTFoot):
+        (HTMLTableElementImpl::setTBody):
+        * khtml/rendering/render_block.cpp:
+        (khtml::RenderBlock::updateFirstLetter):
+        * khtml/rendering/render_container.cpp:
+        (RenderContainer::updatePseudoChild):
+        * khtml/rendering/render_text.cpp:
+        (RenderText::setStyle):
+        (RenderText::originalString):
+        (RenderTextFragment::originalString):
+        * khtml/rendering/render_text.h:
+        * khtml/xml/dom_nodeimpl.cpp:
+        (NodeImpl::remove):
+        (NodeImpl::normalize):
+
+2005-09-16  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-14  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by john
+        
+        Test cases added: none, method rename
+        
+        Part of fix for <rdar://problem/4237479> REGRESSION (Cambridge-Denver): old QuickTime movie continues to play sound after reload
+
+        * kwq/WebCoreBridge.h:
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge handleFallbackContent]):
+        Renamed bridge method mainResourceError to handleFallbackContent, since there are some 
+        main resource errors for which we should not render fallback content.  E.G user cancels 
+        and the cancel we do to prevent loading plugin content twice (see <rdar://problem/4258008>)
+
+2005-09-16  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-14 Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Dave Hyatt.
+ 
+        - fixed <rdar://problem/4255274> REGRESSION: in some cases, link jumping to images is broken (4964)
+
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::ContainerNodeImpl::getUpperLeftCorner): 
+
+2005-09-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Geoff.
+
+	- fixed <rdar://problem/4214783> REGRESSION: kjs_fast_malloc crash due to lack of locking on multiple threads (seen selecting volumes in the installer)
+
+	Make sure to lock using the InterpreterLock class in all places that need it
+	(including anything that uses the collector, the parser, the protect count hash table,
+	and anything that allocates via fast_malloc).
+
+	Added assertions to ensure that main_thread_malloc and friends are
+	only called on the main thread.
+
+	Also changed main_thread_free to schedule a free on the main
+	thread if called from a background thread. This contingency is
+	rare, but unavoidable in the case that JavaScript runs on
+	background threads, since then objects can be garbage collected on
+	any thread.
+	
+        Test cases added: Node, this is impossible to reproduce in Safari without the use of
+	PAC files.
+
+        * Makefile.am:
+        * khtml/dom/dom_misc.h:
+        * khtml/ecma/kjs_events.cpp:
+        (JSAbstractEventListener::handleEvent):
+        (JSLazyEventListener::parseCode):
+        (KJS::getDOMEvent):
+        * khtml/ecma/kjs_events.h:
+        * khtml/ecma/kjs_proxy.cpp:
+        (KJSProxyImpl::~KJSProxyImpl):
+        (KJSProxyImpl::evaluate):
+        (KJSProxyImpl::clear):
+        (KJSProxyImpl::createHTMLEventHandler):
+        (KJSProxyImpl::initScript):
+        * khtml/ecma/kjs_traversal.cpp:
+        (JSNodeFilterCondition::acceptNode):
+        * khtml/ecma/kjs_traversal.h:
+        * khtml/ecma/kjs_window.cpp:
+        (Window::clear):
+        (ScheduledAction::execute):
+        * khtml/ecma/kjs_window.h:
+        * khtml/ecma/xmlhttprequest.cpp:
+        (KJS::XMLHttpRequest::send):
+        (KJS::XMLHttpRequest::abort):
+        (KJS::XMLHttpRequest::slotFinished):
+        * khtml/misc/main_thread_malloc.cpp:
+        (khtml::main_thread_malloc):
+        (khtml::main_thread_calloc):
+        (khtml::main_thread_free):
+        (khtml::main_thread_realloc):
+        (khtml::initialize_scheduled_free_list):
+        (khtml::drain_scheduled_free_list):
+        (khtml::schedule_free_on_main_thread):
+        (khtml::public_fREe):
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::bindingRootObject):
+        (KWQKHTMLPart::windowScriptObject):
+        (KWQKHTMLPart::saveLocationProperties):
+        (KWQKHTMLPart::restoreLocationProperties):
+        (KWQKHTMLPart::openURLFromPageCache):
+        (KWQKHTMLPart::cleanupPluginRootObjects):
+        * kwq/KWQPageState.mm:
+        (-[KWQPageState clear]):
+        * kwq/KWQTimer.h:
+        * kwq/KWQTimer.mm:
+        (-[KWQMainThreadPerformTarget initWithFunction:]):
+        (-[KWQMainThreadPerformTarget callFunction:]):
+        (QTimer::immediateSingleShotOnMainThread):
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge saveDocumentToPageCache]):
+        * kwq/WebCoreJavaScript.mm:
+        (+[WebCoreJavaScript rootObjectClasses]):
+        (+[WebCoreJavaScript garbageCollect]):
+        * kwq/WebCoreScriptDebugger.mm:
+        (-[WebCoreScriptCallFrame evaluateWebScript:]):
+
+2005-09-14  Maciej Stachowiak  <mjs@apple.com>
+
+=== WebCore-417 ===
+
+2005-09-12  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Justin and Adele.
+
+        A workaround for a GCC bug, Justin to file a radar with a reduction soon.
+
+        * kwq/KWQPainter.mm:
+        (QPainter::drawFloatPixmap):
+
+=== WebCore-416.7 ===
+
+2005-09-09  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-07 Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Justin.
+ 
+        - fix <rdar://problem/4246096> REGRESSION links to named anchors don't scroll to the right place (4825)
+
+        This is really just a better fix for 4233844. Also consolidated manual-tests/scrollToAnchorWithNewline.html
+	and the test case from Bugzilla bug 4825 into manual-tests/scrollToAnchor.html.
+
+        Test cases added:
+        * manual-tests/scrollToAnchor.html: Added.
+
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::ContainerNodeImpl::getUpperLeftCorner): when calculating scroll position, skip child nodes of the anchor
+        if they do not have text boxes.
+
+2005-09-08  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-08  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by darin
+
+        WebCore portion of multipart/x-mixed-replace support
+
+        * khtml/misc/loader.cpp:
+        (Request::Request):
+        (Loader::slotReceivedResponse):
+        Only allow a multipart load for images, clear out the old multipart section to prepare for a replace
+        (Loader::slotData):
+        Multipart sections are delivered to the coreLoader by WebKit all at once, send eof to CachedImage::data
+        * khtml/misc/loader.h:
+        (khtml::CachedObject::isImage): Added
+        (khtml::CachedImage::isImage):
+        * kwq/KWQKJobClasses.h:
+        * kwq/KWQKJobClasses.mm:
+        (KIO::TransferJob::cancel): 
+        Added a way to cancel a subresource loader from WebCore
+        * kwq/KWQLoader.h:
+        * kwq/KWQLoader.mm:
+        (KWQResponseIsMultipart):
+        * kwq/KWQResourceLoader.h:
+        * kwq/KWQResourceLoader.mm:
+        (-[KWQResourceLoader jobCanceledLoad]):
+
+=== Safari-416.6 ===
+
+2005-09-02  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-02  Beth Dakin  <bdakin@apple.com>
+
+        Fix for <rdar://problem/4235531> Denver Regression: Safari crash in KWQStringData::makeUnicode
+	The other half of the fix is in JavaScriptCore
+
+	Fix written by Maciej and Darin.
+	Reviewed by me/Maciej
+
+	As Maciej said in Radar: These problems was caused by a conflict between some of our custom 
+	allocators, causing them to return null. Symptom is typically a null pointer dereference in 
+	a place where it might be expected an allocation has just occurred.
+
+        * khtml/misc/main_thread_malloc.cpp: Added #define for MORECORE_CONTIGUOUS, MORECORE_CANNOT_TRIM, 
+					and MALLOC_FAILURE_ACTION. 
+
+2005-09-02  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-02  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Darin.
+
+        Test cases updated:  manual-tests/select_hr.html: 
+        updated for case where selection is changed for a list box that has an <hr> in its list items, even though it doesn't appear in the list.
+
+        * khtml/rendering/render_form.cpp:
+        (RenderSelect::slotSelectionChanged):  Added counter that increments only for visible list items (options and optgroups).  Before this change, 
+        list boxes that had invisible <hr>s could have the visible selected option get out of sync from the selected state.
+        (RenderSelect::updateSelection):  ditto.
+        * kwq/KWQListBox.h: Changed enum from ItemType to KWQListBoxItemType and values to KWQListBoxOption, KWQListBoxGroupLabel, and KWQListBoxSeparator.
+        (KWQListBoxItem::KWQListBoxItem): ditto.
+        (QListBox::appendItem): ditto.
+        (QListBox::appendGroupLabel): ditto.
+        * kwq/KWQListBox.mm:
+        (QListBox::appendItem): ditto.
+        (QListBox::sizeForNumberOfLines): ditto.
+        (-[KWQTableView tableView:shouldSelectRow:]): ditto.
+        (-[KWQTableView drawRow:clipRect:]): ditto.
+        * kwq/KWQComboBox.h: 
+        (QComboBox::appendItem): ditto.
+        (QComboBox::appendGroupLabel): ditto.
+        (QComboBox::appendSeparator): ditto.
+        * kwq/KWQComboBox.mm:
+        (QComboBox::setTitle): ditto.
+        (QComboBox::appendItem): ditto.
+        (QComboBox::sizeHint): ditto.
+        (QComboBox::populateMenu): ditto.
+
+    2005-08-31  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        - fixed <rdar://problem/4229189> add a way to get a separator into a <select>
+
+        This will allow an <hr> within a select element to display a separator in a popup menu.
+        These extra elements are added to our listItems array, which we use internally.  But this should not
+        affect JavaScript operations, such as getting an index of an option element, or getting the length of the select,
+        or getting the selected index.  In these cases, the <hr>s will be ignored.
+
+        Test cases added:
+        * manual-tests/select_hr.html: Added.
+
+        * khtml/html/html_formimpl.h: 
+        (DOM::HTMLSelectElementImpl::listItems): Now that our listItems can also contain <hr>s, 
+        I've changed listItems to be a QMemArray<HTMLElementImpl*> instead of QMemArray<HTMLGenericFormElementImpl*>
+        (DOM::HTMLOptGroupElementImpl::checkDTD): Added check for <hr>
+
+        * khtml/html/html_formimpl.cpp:
+        (DOM::HTMLSelectElementImpl::checkDTD): Added check for <hr>
+        (DOM::HTMLSelectElementImpl::add): Added check for <hr> so these elements can be added through Javascript.
+        (DOM::HTMLSelectElementImpl::recalcListItems): Added case for <hr> to add the element to the listItems array.
+        (DOM::HTMLSelectElementImpl::selectedIndex): Updated type for array of listItems.
+        (DOM::HTMLSelectElementImpl::setSelectedIndex): ditto.
+        (DOM::HTMLSelectElementImpl::length): ditto.
+        (DOM::HTMLSelectElementImpl::remove): ditto.
+        (DOM::HTMLSelectElementImpl::value): ditto.
+        (DOM::HTMLSelectElementImpl::setValue): ditto.
+        (DOM::HTMLSelectElementImpl::state): ditto.
+        (DOM::HTMLSelectElementImpl::restoreState): ditto.
+        (DOM::HTMLSelectElementImpl::appendFormData): ditto.
+        (DOM::HTMLSelectElementImpl::optionToListIndex): ditto.
+        (DOM::HTMLSelectElementImpl::listToOptionIndex): ditto.
+        (DOM::HTMLSelectElementImpl::reset): ditto.
+        (DOM::HTMLSelectElementImpl::notifyOptionSelected): ditto.
+        (DOM::HTMLOptionElementImpl::index): ditto.
+
+        * khtml/rendering/render_form.cpp:
+        (RenderSelect::updateFromElement): If the list item is an <hr>, and we're not using a ListBox, then we call appendSeparator on the widget.  
+        (RenderSelect::layout): Updated type for array of listItems.
+        (RenderSelect::slotSelected): ditto.
+        (RenderSelect::slotSelectionChanged): ditto.
+        (RenderSelect::updateSelection): ditto.
+
+        * kwq/KWQListBox.h: Added ItemType enum with the following values: Option, GroupLabel, and Separator.
+        (KWQListBoxItem::KWQListBoxItem): Updated to use ItemType instead of old isGroupLabel bool.
+        (QListBox::appendItem): ditto.
+        (QListBox::appendGroupLabel): ditto.
+
+        * kwq/KWQComboBox.h:
+        (QComboBox::appendItem): the private version of appendItem used to take isLabel as a parameter.  Now it takes an ItemType.
+        (QComboBox::appendGroupLabel): calls appendItem with an ItemType of GroupLabel
+        (QComboBox::appendSeparator): calls appendItem with an ItemType of Separator
+
+        * kwq/KWQComboBox.mm:
+        (QComboBox::setTitle): Updated to check for the ItemType instead of the old isGroupLabel bool.
+        (QComboBox::appendItem): If the new item is a Separator, then we add a separatorItem to the popup menu.
+        (QComboBox::sizeHint): Updated to check for the ItemType instead of the old isGroupLabel bool.
+        (QComboBox::populateMenu): If the new item is a Separator, then we add a separatorItem to the popup menu.
+
+        * kwq/KWQListBox.mm:
+        (QListBox::appendItem): Updated to use the ItemType instead of the old isLabel bool.
+        (QListBox::sizeForNumberOfLines): ditto.
+        (-[KWQTableView tableView:shouldSelectRow:]): ditto.
+        (-[KWQTableView drawRow:clipRect:]): ditto.
+
+
+2005-08-31  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-08-31  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by hyatt.
+
+	- fixed <rdar://problem/4233844> in some cases, HTML href named anchors don't scroll to the right place
+        
+	Test cases added: 
+        * manual-tests/scrollToAnchorWithNewline.html: Added.
+
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::ContainerNodeImpl::getUpperLeftCorner): skip text nodes that do not have associated text boxes
+
+2005-08-30  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-08-30  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Maciej.
+
+        Test cases added: none, doesn't affect layout
+        
+        - fixed <rdar://problem/4237183> REGRESSION (Denver): crash in 
+        JSUnprotectedEventListener::~JSUnprotectedEventListener
+
+        * khtml/ecma/kjs_events.cpp:
+        (KJS::JSUnprotectedEventListener::~JSUnprotectedEventListener):
+        check for nil window pointer
+        (KJS::JSUnprotectedEventListener::clearWindowObj):
+        new method, sets window pointer to nil
+        
+        (KJS::JSEventListener::~JSEventListener):
+        (KJS::JSEventListener::clearWindowObj):
+        same changes for this class. We don't think the bug would ever happen for
+        this similar class, but we're not completely sure, so best to play it safe.
+        
+        * khtml/ecma/kjs_events.h:
+        declaration of new clearWindowObj methods
+        
+        * khtml/ecma/kjs_window.cpp:
+        (KJS::Window::~Window):
+        iterate through event listeners, clearing their window pointers
+
+=== Safari-416.5 ===
+
+2005-08-28  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch to make debugging easier on the branch.
+
+    2005-08-16  David Harrison  <harrison@apple.com>
+
+        <rdar://problem/4119646> assertion failure in DOM::Position::upstream at babelfish.com
+        <rdar://problem/4125949> Assertion failure clicking outside of textarea in page containing only textarea
+
+        Removed asserts that did not account for iterating from a nested node to its parent.
+
+        Test cases added: n/a for assert removal
+
+        * khtml/xml/dom_position.cpp:
+        (DOM::Position::upstream):
+        (DOM::Position::downstream):
+
+2005-08-27  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-08-27  David Harrison  <harrison@apple.com>
+
+        Reviewed by Adele and John.
+
+        - fixes <rdar://problem/4214259> (REGRESSION: DENVER )Safari app will crash when pressing Command + a to select all (Word XML format)
+
+        Problem is that NodeImpl::maxDeepOffset() was using the wrong test for being able to call the
+        TextImpl length() function, so it was being called on a ProcessingInstruction node.
+ 
+        Test cases added:
+        * manual-tests/wordXML-selectall.xml: Added.
+
+        * khtml/xml/dom_nodeimpl.cpp:
+        (NodeImpl::maxDeepOffset): use isTextNode() instead of offsetInCharacters(). 
+
+2005-08-27  Adele Peterson  <adele@apple.com>
+
+        Fixing merge error.
+
+        * khtml/editing/markup.cpp:
+        (khtml::startMarkup):
+
+2005-08-27  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch.
+
+        * khtml/editing/htmlediting.cpp:  ReplaceSelectionCommand changes are made here. 
+
+    2005-08-26  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Test cases added: none, doesn't affect layout
+        
+        - fixed these leaks:
+        <rdar://problem/4232514> many leaks of StyleBaseImpl called within computeAndStoreNodeDesiredStyle within -[WebView paste:], 
+        seen running webkit tests (probably affects Mail)
+        <rdar://problem/4232572> many leaks of StyleBaseImpl called within fixupNodeStyles within -[WebView paste:], 
+        seen running webkit tests (probably affects Mail)
+        <rdar://problem/4232629> many leaks of StyleBaseImpl within startMarkup within -[WebHTMLView _writeSelectionToPasteboard:], 
+        seen running webkit tests
+        <rdar://problem/4232779> many leaks of StyleBaseImpl within createMarkup within -[WebHTMLView _writeSelectionToPasteboard:], 
+        seen running webkit tests        
+
+        * khtml/editing/markup.cpp:
+        (khtml::startMarkup):
+        Put Position::computedStyle() result into a local variable so it can be reffed/dereffed, avoids a leak.
+        Done in two places in this method. This fixes 4232629.
+        (khtml::createMarkup):
+        ditto, but only in one place. This fixes 4232779.
+        
+        * khtml/editing/replace_selection_command.cpp:
+        (khtml::ReplaceSelectionCommand::fixupNodeStyles):
+        ditto. This fixes 4232572.
+        (khtml::computeAndStoreNodeDesiredStyle):
+        ditto, but in two places. This fixes 4232514.
+
+2005-08-26  David Hyatt  <hyatt@apple.com>
+
+	Fix for 4226539, blank content on leaky-cauldron.org.  Revert
+	back to proper strict SGML comment parsing and just relax the
+	rules for comments inside <style> blocks (which weren't supposed
+	to be parsed by the HTML parser anyway... same problem as
+	<script> on news.com).
+	
+        Reviewed by adele
+
+        * khtml/html/htmltokenizer.cpp:
+        (khtml::HTMLTokenizer::parseComment):
+
+=== Safari-416.3 ===
+
+2005-08-25  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-08-23  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Adele.
+
+	- fixed <rdar://problem/4229177> REGRESSION (Denver): crash dispatching mouse events (4608)
+ 
+        Test cases added:
+        * manual-tests/mouseevent-on-closeddoc.html: Added.
+        * manual-tests/resources/mouseevent-on-closeddoc.html: Added.
+
+        * khtml/khtmlview.cpp:
+        (KHTMLView::dispatchMouseEvent): add nil check 
+
+2005-08-24  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-08-23  David Harrison  <harrison@apple.com>
+
+        Reviewed by Darin.
+
+        <rdar://problem/4226539> REGRESSION: Blank content at http://www.the-leaky-cauldron.org/ with Denver and TOT
+
+        Test cases added:
+        * layout-tests/fast/parser/comments-expected.txt: Added.
+        * layout-tests/fast/parser/comments.html: Added.
+
+        * khtml/html/htmltokenizer.cpp:
+        (khtml::HTMLTokenizer::parseComment):
+        When non-space follows comment end, ignore that comment end.
+
+2005-08-24  Adele Peterson  <adele@apple.com>
+
+        * WebCore-tests.exp: removing KWQValueListIteratorImpl4nodeEv symbol since its not needed.
+
+2005-08-23  Adele Peterson  <adele@apple.com>
+
+        Merged another version of reset which is used in our xmlhttprequest leak fix.
+
+        * khtml/misc/shared.h:
+        (khtml::SharedPtr::reset):
+
+2005-08-23  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-08-22  David Harrison  <harrison@apple.com>
+
+        Reviewed by Justin.
+
+        <rdar://problem/4221384> Denver Regression: stickies widget crashed on 8F15 when pasting text
+
+        Test cases added:  None.  Problem triggered by simple paste, which lots of the
+        editing tests already do, but also required particular memory layout/cleanup state, which
+        is not specifiable in our tests.
+
+        * khtml/editing/markup.cpp:
+        (khtml::createFragmentFromText):
+        Ref the new paragraph element right away, rather than allocating more memory first.
+
+2005-08-23  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        <rdar://problem/4220776> memory leak in KWQArrayImpl::resize() at bugzilla.opendarwin.org
+
+    2005-08-17  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Maciej
+
+        Test cases added: (NONE)
+	
+	This is a fix for http://bugzilla.opendarwin.org/show_bug.cgi?id=4499
+	which describes a memory leak that happens on bugzilla after
+	searching for all open WebKit bugs.	
+
+        * kwq/KWQArrayImpl.mm: 
+        (KWQArrayImpl::resize): When resizing to 0, free the old data after setting it
+				to NULL.
+
+2005-08-23  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        <rdar://problem/4221430> Safari HTML iBench performance can be improved through inlining and allocator tweaks
+
+    2005-08-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+        - apply a tasty candy shell of inlining and main_thread_malloc for a 1% speedup on HTML iBench
+	http://bugzilla.opendarwin.org/show_bug.cgi?id=4425
+	
+        * kwq/KWQArrayImpl.h:
+        (KWQArrayImpl::size):
+        * kwq/KWQArrayImpl.mm:
+        * kwq/KWQMapImpl.h:
+        * kwq/KWQMapImpl.mm:
+        * kwq/KWQRefPtr.h:
+        (::KWQRefPtr):
+        (::operator):
+        (::ref):
+        (::unref):
+        * kwq/KWQValueListImpl.h:
+        (KWQValueListIteratorImpl::KWQValueListIteratorImpl):
+        (KWQValueListIteratorImpl::operator==):
+        (KWQValueListIteratorImpl::operator!=):
+        (KWQValueListIteratorImpl::node):
+        (KWQValueListIteratorImpl::operator++):
+        (KWQValueListIteratorImpl::operator--):
+        (KWQValueListNodeImpl::KWQValueListNodeImpl):
+        * kwq/KWQValueListImpl.mm:
+        (KWQValueListImpl::KWQValueListPrivate::KWQValueListPrivate):
+        (KWQValueListImpl::KWQValueListPrivate::~KWQValueListPrivate):
+
+2005-08-23  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-08-22  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Beth Dakin.
+        
+        - fixed <rdar://problem/4227019> Several 32-byte leaks after choosing pop-up menu at dzone198.apple.com
+
+        Test cases added: none, doesn't affect layout. I did execute run-layout-tests to verify that there
+        were no surprises though.
+
+        * khtml/ecma/xmlhttprequest.h:
+        use SharedPtr for onReadyStateChangeListener and onLoadListener
+        * khtml/ecma/xmlhttprequest.cpp:
+        (KJS::XMLHttpRequest::getValueProperty):
+        use notNull() instead of testing SharedPtrs against 0
+        (KJS::XMLHttpRequest::putValueProperty):
+        use reset() to set values of SharedPtrs; eliminate ref()s that had no deref()s
+        (KJS::XMLHttpRequest::mark):
+        use notNull() instead of testing SharedPtrs against 0
+        (KJS::XMLHttpRequest::XMLHttpRequest):
+        don't initialize SharedPtrs
+        (KJS::XMLHttpRequest::changeState):
+        use notNull() instead of testing SharedPtrs against 0
+
+== Rolled over to ChangeLog-2005-08-23 ==

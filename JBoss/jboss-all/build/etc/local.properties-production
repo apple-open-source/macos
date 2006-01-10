@@ -1,0 +1,28 @@
+### ====================================================================== ###
+##                                                                          ##
+##  Production local project properties.                                    ##
+##                                                                          ##
+##  Use this file as local.properties when building a production build.     ##
+##                                                                          ##
+### ====================================================================== ###
+
+### General compiler configuration ###
+
+#build.compiler=jikes
+#build.warnings=true
+#build.pedantic=true
+#javac.depend=on
+
+### Javac/Jikes compiler configuration ###
+
+javac.optimize=on
+javac.debug=off
+javac.deprecation=on
+
+### Misc ###
+
+rmic.debug=off
+
+### Use the build number for the build id for releases ###
+
+build.id=${build.number}

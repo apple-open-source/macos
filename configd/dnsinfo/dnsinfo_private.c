@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,7 @@ __private_extern__
 const char *
 _dns_configuration_notify_key()
 {
-	return "com.apple.SystemConfiguration.dns_configuration";
+	return "com.apple.system.SystemConfiguration.dns_configuration";
 }
 
 

@@ -37,10 +37,7 @@ ALL=    $(GENERAL) $(SRC) $(HEADER)
 top:
 	(cd $(TOP); $(MAKE) DIRS=fips FDIRS=$(DIR) sub_all)
 
-all:	check lib
-
-check:
-	TOP=`pwd`/$(TOP) ../fips_check_sha1 fingerprint.sha1 $(SRC) $(HEADER)
+all:	lib
 
 lib:	$(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
@@ -67,26 +64,11 @@ tags:
 
 tests:
 
-top_fips_desmovs:
-	(cd $(TOP); $(MAKE) DIRS=fips FDIRS=$(DIR) TARGET=fips_desmovs sub_target)
-
-fips_desmovs: fips_desmovs.o $(TOP)/libcrypto.a
-	$(CC) $(CFLAGS) -o fips_desmovs fips_desmovs.o $(PEX_LIBS) $(TOP)/libcrypto.a $(EX_LIBS)
-	TOP=$(TOP) $(TOP)/fips/openssl_fips_fingerprint $(TOP)/libcrypto.a fips_desmovs
-
-fips_test: top_fips_desmovs
-	find ../testvectors/des/req -name '*.req' > testlist
-	-rm -rf ../testvectors/des/rsp
-	mkdir ../testvectors/des/rsp
-	./fips_desmovs -d testlist
-	find ../testvectors/des2/req -name '*.req' > testlist
-	-rm -rf ../testvectors/des2/rsp
-	mkdir ../testvectors/des2/rsp
-	./fips_desmovs -d testlist
-	find ../testvectors/des3/req -name '*.req' > testlist
-	-rm -rf ../testvectors/des3/rsp
-	mkdir ../testvectors/des3/rsp
-	./fips_desmovs -d testlist
+fips_test:
+	-find ../testvectors/tdes/req -name '*.req' > testlist
+	-rm -rf ../testvectors/tdes/rsp
+	mkdir ../testvectors/tdes/rsp
+	if [ -s testlist ]; then $(TOP)/util/shlib_wrap.sh $(TOP)/test/fips_desmovs -d testlist; fi
 
 lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff

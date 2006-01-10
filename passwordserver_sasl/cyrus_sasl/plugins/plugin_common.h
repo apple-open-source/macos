@@ -1,7 +1,7 @@
 
 /* Generic SASL plugin utility functions
  * Rob Siemborski
- * $Id: plugin_common.h,v 1.5 2005/01/10 19:01:38 snsimon Exp $
+ * $Id: plugin_common.h,v 1.5.4.1 2005/11/09 19:11:23 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -62,6 +62,11 @@
 #include <sasl.h>
 #include <saslutil.h>
 #include <saslplug.h>
+
+/* setpoints for maxbuff */
+#define MAXBUFF_LOWATER		(0x4000)
+#define MAXBUFF_HIWATER		(0x10000)
+#define MAXBUFF_HEADROOM	(0x400)
 
 #ifdef WIN32
 #define PLUG_API __declspec(dllexport)
@@ -183,7 +188,7 @@ typedef struct decode_context {
     unsigned int size;		/* Absolute size of the encoded packet */
     char *buffer;		/* Buffer to accumulate an encoded packet */
     unsigned int cursize;	/* Amount of packet data in the buffer */
-    unsigned int in_maxbuf;	/* Maximum allowed size of an encoded packet */
+    unsigned long in_maxbuf;	/* Maximum allowed size of an encoded packet */
 } decode_context_t;
 
 void _plug_decode_init(decode_context_t *text,

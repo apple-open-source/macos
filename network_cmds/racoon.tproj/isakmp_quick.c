@@ -70,6 +70,7 @@
 #include "isakmp.h"
 #include "isakmp_inf.h"
 #include "isakmp_quick.h"
+#include "isakmp_natd.h"
 #include "oakley.h"
 #include "handler.h"
 #include "ipsec_doi.h"
@@ -83,11 +84,13 @@
 #include "admin.h"
 #include "strnames.h"
 
+
 /* quick mode */
 static vchar_t *quick_ir1mx __P((struct ph2handle *, vchar_t *, vchar_t *));
 static int get_sainfo_r __P((struct ph2handle *));
 static int get_proposal_r __P((struct ph2handle *));
 static u_int32_t setscopeid __P((struct sockaddr *, struct sockaddr *));
+static int create_natoa_payloads(struct ph2handle *iph2, vchar_t **, vchar_t **);
 
 /* %%%
  * Quick Mode
@@ -112,7 +115,7 @@ quick_i1prep(iph2, msg)
 	iph2->msgid = isakmp_newmsgid2(iph2->ph1);
 	iph2->ivm = oakley_newiv2(iph2->ph1, iph2->msgid);
 	if (iph2->ivm == NULL)
-		return NULL;
+		return 0;
 
 	iph2->status = PHASE2ST_GETSPISENT;
 
@@ -148,6 +151,9 @@ quick_i1send(iph2, msg)
 {
 	vchar_t *body = NULL;
 	vchar_t *hash = NULL;
+	vchar_t *natoa_i = NULL;
+	vchar_t *natoa_r = NULL;
+	int		natoa_type = 0;
 	struct isakmp_gen *gen;
 	char *p;
 	int tlen;
@@ -234,6 +240,20 @@ quick_i1send(iph2, msg)
 		tlen += sizeof(*gen) + iph2->id->l;
 	if (idcr)
 		tlen += sizeof(*gen) + iph2->id_p->l;
+	
+	/* 
+	 * create natoa payloads if needed but only
+	 * if transport mode proposals are present
+	 */
+	if (ipsecdoi_tunnelmode(iph2) != 1) {
+		natoa_type = create_natoa_payloads(iph2, &natoa_i, &natoa_r);
+		if (natoa_type == -1)
+			goto end;
+		else if (natoa_type != 0) {
+			tlen += sizeof(*gen) + natoa_i->l;
+			tlen += sizeof(*gen) + natoa_r->l;
+		}
+	}
 
 	body = vmalloc(tlen);
 	if (body == NULL) {
@@ -253,22 +273,28 @@ quick_i1send(iph2, msg)
 	else if (idci || idcr)
 		np = ISAKMP_NPTYPE_ID;
 	else
-		np = ISAKMP_NPTYPE_NONE;
+		np = (natoa_type ? natoa_type : ISAKMP_NPTYPE_NONE);
 	p = set_isakmp_payload(p, iph2->nonce, np);
 
 	/* add KE payload if need. */
-	np = (idci || idcr) ? ISAKMP_NPTYPE_ID : ISAKMP_NPTYPE_NONE;
+	np = (idci || idcr) ? ISAKMP_NPTYPE_ID : (natoa_type ? natoa_type : ISAKMP_NPTYPE_NONE);
 	if (pfsgroup)
 		p = set_isakmp_payload(p, iph2->dhpub, np);
 
 	/* IDci */
-	np = (idcr) ? ISAKMP_NPTYPE_ID : ISAKMP_NPTYPE_NONE;
+	np = (idcr) ? ISAKMP_NPTYPE_ID : (natoa_type ? natoa_type : ISAKMP_NPTYPE_NONE);
 	if (idci)
 		p = set_isakmp_payload(p, iph2->id, np);
 
 	/* IDcr */
 	if (idcr)
-		p = set_isakmp_payload(p, iph2->id_p, ISAKMP_NPTYPE_NONE);
+		p = set_isakmp_payload(p, iph2->id_p, natoa_type ? natoa_type : ISAKMP_NPTYPE_NONE);
+		
+	/* natoa */
+	if (natoa_type) {
+		p = set_isakmp_payload(p, natoa_i, natoa_type);
+		p = set_isakmp_payload(p, natoa_r, ISAKMP_NPTYPE_NONE);
+	}
 
 	/* generate HASH(1) */
 	hash = oakley_compute_hash1(iph2->ph1, iph2->msgid, body);
@@ -295,6 +321,10 @@ end:
 		vfree(body);
 	if (hash != NULL)
 		vfree(hash);
+	if (natoa_i)
+		vfree(natoa_i);
+	if (natoa_r)
+		vfree(natoa_r);
 
 	return error;
 }
@@ -431,16 +461,34 @@ quick_i2recv(iph2, msg0)
 				/* for IDcr */
 				vp = iph2->id_p;
 			}
-
-			if (memcmp(vp->v, (caddr_t)pa->ptr + sizeof(struct isakmp_gen), vp->l)) {
-
-				plog(LLV_ERROR, LOCATION, NULL,
-					"mismatched ID was returned.\n");
-				error = ISAKMP_NTYPE_ATTRIBUTES_NOT_SUPPORTED;
-				goto end;
-			}
+			if (!natd_hasnat(iph2->ph1)) {
+				/* RFC 2407 says that the protocol and port fields should be ignored
+				 * if they are zero, therefore they need to be checked individually.
+				 */
+				struct ipsecdoi_id_b *id_ptr = (struct ipsecdoi_id_b *)vp->v;
+				struct ipsecdoi_pl_id *idp_ptr = (struct ipsecdoi_pl_id *)pa->ptr;
+				
+				if (id_ptr->type != idp_ptr->b.type
+					|| (idp_ptr->b.proto_id != 0 && idp_ptr->b.proto_id != id_ptr->proto_id)
+					|| (idp_ptr->b.port != 0 && idp_ptr->b.port != id_ptr->port)
+					|| memcmp(vp->v + sizeof(struct ipsecdoi_id_b), (caddr_t)pa->ptr + sizeof(struct ipsecdoi_pl_id), 
+							vp->l - sizeof(struct ipsecdoi_id_b))) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						"mismatched ID was returned.\n");
+					error = ISAKMP_NTYPE_ATTRIBUTES_NOT_SUPPORTED;
+					goto end;
+					}
+				}
 		    }
 			break;
+
+#ifdef IKE_NAT_T
+		case ISAKMP_NPTYPE_NATOA_RFC:
+		case ISAKMP_NPTYPE_NATOA_DRAFT:
+		case ISAKMP_NPTYPE_NATOA_BADDRAFT:
+			/* Ignore original source/destination messages */
+			break;
+#endif
 
 		case ISAKMP_NPTYPE_N:
 			isakmp_check_notify(pa->ptr, iph2->ph1);
@@ -977,6 +1025,14 @@ quick_r1recv(iph2, msg0)
 			isakmp_check_notify(pa->ptr, iph2->ph1);
 			break;
 
+#if IKE_NAT_T
+		case ISAKMP_NPTYPE_NATOA_RFC:
+		case ISAKMP_NPTYPE_NATOA_DRAFT:
+		case ISAKMP_NPTYPE_NATOA_BADDRAFT:
+			/* Ignore original source/destination messages */
+			break;
+#endif
+
 		default:
 			plog(LLV_ERROR, LOCATION, iph2->ph1->remote,
 				"ignore the packet, "
@@ -1160,6 +1216,10 @@ quick_r2send(iph2, msg)
 {
 	vchar_t *body = NULL;
 	vchar_t *hash = NULL;
+	vchar_t *natoa_i = NULL;
+	vchar_t *natoa_r = NULL;
+	int		natoa_type = 0;
+	int		encmode;
 	struct isakmp_gen *gen;
 	char *p;
 	int tlen;
@@ -1215,6 +1275,21 @@ quick_r2send(iph2, msg)
 		tlen += (sizeof(*gen) + iph2->id_p->l
 			+ sizeof(*gen) + iph2->id->l);
 
+	/* create natoa payloads if needed */
+	encmode = iph2->approval->head->encmode;
+	if (encmode == IPSECDOI_ATTR_ENC_MODE_TRNS ||
+		encmode == IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC ||
+		encmode == IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT) {
+
+		natoa_type = create_natoa_payloads(iph2, &natoa_i, &natoa_r);
+		if (natoa_type == -1)
+			goto end;
+		else if (natoa_type != 0) {
+			tlen += sizeof(*gen) + natoa_i->l;
+			tlen += sizeof(*gen) + natoa_r->l;
+		}
+	}
+
 	body = vmalloc(tlen);
 	if (body == NULL) { 
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -1233,14 +1308,14 @@ quick_r2send(iph2, msg)
 				? ISAKMP_NPTYPE_KE
 				: (iph2->id_p != NULL
 					? ISAKMP_NPTYPE_ID
-					: ISAKMP_NPTYPE_NONE));
+					: (natoa_type ? natoa_type : ISAKMP_NPTYPE_NONE)));
 
 	/* add KE payload if need. */
 	if (iph2->dhpub_p != NULL && pfsgroup != 0) {
 		np_p = &((struct isakmp_gen *)p)->np;	/* XXX */
 		p = set_isakmp_payload(p, iph2->dhpub,
 			(iph2->id_p == NULL)
-				? ISAKMP_NPTYPE_NONE
+				? (natoa_type ? natoa_type : ISAKMP_NPTYPE_NONE)
 				: ISAKMP_NPTYPE_ID);
 	}
 
@@ -1250,7 +1325,7 @@ quick_r2send(iph2, msg)
 		p = set_isakmp_payload(p, iph2->id_p, ISAKMP_NPTYPE_ID);
 		/* IDcr */
 		np_p = &((struct isakmp_gen *)p)->np;	/* XXX */
-		p = set_isakmp_payload(p, iph2->id, ISAKMP_NPTYPE_NONE);
+		p = set_isakmp_payload(p, iph2->id, (natoa_type ? natoa_type : ISAKMP_NPTYPE_NONE));
 	}
 
 	/* add a RESPONDER-LIFETIME notify payload if needed */
@@ -1299,6 +1374,12 @@ quick_r2send(iph2, msg)
 	}
     }
 
+	/* natoa */
+	if (natoa_type) {
+		p = set_isakmp_payload(p, natoa_i, natoa_type);
+		p = set_isakmp_payload(p, natoa_r, ISAKMP_NPTYPE_NONE);
+	}
+
 	/* generate HASH(2) */
     {
 	vchar_t *tmp;
@@ -1346,6 +1427,11 @@ end:
 		vfree(body);
 	if (hash != NULL)
 		vfree(hash);
+	if (natoa_i)
+		vfree(natoa_i);
+	if (natoa_r)
+		vfree(natoa_r);
+
 
 	return error;
 }
@@ -2074,6 +2160,108 @@ get_proposal_r(iph2)
 
 	return 0;
 }
+
+static int
+create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa_r)
+{
+	int natoa_type = 0;
+	int natt_type;
+	vchar_t		*i;
+	vchar_t		*r;
+	u_int8_t	*p;
+	size_t		src_size;
+	size_t		dst_size;
+	
+	*natoa_i = *natoa_r = NULL;
+	
+
+	/* create natoa payloads if natt being used */
+	/* don't send if type == apple				*/
+	if ((natt_type = natd_hasnat(iph2->ph1)) != 0)
+		if (natt_type == natt_type_rfc)
+			natoa_type = ISAKMP_NPTYPE_NATOA_RFC;
+		else if (natt_type == natt_type_02 || natt_type == natt_type_02N)
+			natoa_type = ISAKMP_NPTYPE_NATOA_DRAFT;
+	
+	if (natoa_type == 0)
+		return 0;
+		
+	switch (iph2->src->sa_family) {
+		case AF_INET:
+			src_size = sizeof(in_addr_t);
+			break;
+#ifdef INET6
+		case AF_INET6:
+			src_size = sizeof(struct in6_addr);
+			break;
+#endif
+		default:
+			plog(LLV_ERROR, LOCATION, NULL,
+			"invalid address family: %d\n", iph2->src->sa_family);
+			return -1;		
+	}
+		
+	switch (iph2->dst->sa_family) {
+		case AF_INET:
+			dst_size = sizeof(in_addr_t);
+			break;
+#ifdef INET6
+		case AF_INET6:
+			dst_size = sizeof(struct in6_addr);
+			break;
+#endif
+		default:
+			plog(LLV_ERROR, LOCATION, NULL,
+			"invalid address family: %d\n", iph2->dst->sa_family);
+			return -1;		
+	}
+
+	i = vmalloc(sizeof(struct isakmp_pl_natoa) + src_size - sizeof(struct isakmp_gen));	
+	r = vmalloc(sizeof(struct isakmp_pl_natoa) + dst_size - sizeof(struct isakmp_gen));
+	if (i == NULL || r == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			"failed to get buffer for natoa payload.\n");
+		return -1;
+	}
+	
+	/* copy src address */
+	p = i->v;
+	
+	switch (iph2->src->sa_family) {
+		case AF_INET:
+			*p = IPSECDOI_ID_IPV4_ADDR;
+			bcopy(&(((struct sockaddr_in *)iph2->src)->sin_addr.s_addr), p + sizeof(u_int32_t), src_size);
+			break;
+#ifdef INET6
+		case AF_INET6:
+			*p = IPSECDOI_ID_IPV6_ADDR;
+			bcopy(&(((struct sockaddr_in6 *)iph2->src)->sin6_addr), p + sizeof(u_int32_t), src_size);
+			break;
+#endif
+	}
+
+	/* copy dst address */
+	p = r->v;
+	
+	switch (iph2->dst->sa_family) {
+		case AF_INET:
+			*p = IPSECDOI_ID_IPV4_ADDR;
+			bcopy(&(((struct sockaddr_in *)iph2->dst)->sin_addr.s_addr), p + sizeof(u_int32_t), dst_size);
+			break;
+#ifdef INET6
+		case AF_INET6:
+			*p = IPSECDOI_ID_IPV6_ADDR;
+			bcopy(&(((struct sockaddr_in6 *)iph2->dst)->sin6_addr), p + sizeof(u_int32_t), dst_size);
+			break;
+#endif
+	}
+	
+	*natoa_i = i;
+	*natoa_r = r;
+	return natoa_type;
+}		
+		
+
 
 #ifdef INET6
 static u_int32_t

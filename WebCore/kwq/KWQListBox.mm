@@ -28,12 +28,16 @@
 #import "KWQAssertions.h"
 #import "KWQExceptions.h"
 #import "KWQKHTMLPart.h"
-#import "KWQNSViewExtras.h"
 #import "KWQView.h"
 #import "WebCoreBridge.h"
 #import "WebCoreScrollView.h"
 #import "WebCoreTextRenderer.h"
 #import "WebCoreTextRendererFactory.h"
+
+#import "render_form.h"
+
+using khtml::RenderWidget;
+using khtml::RenderLayer;
 
 @interface NSTableView (KWQListBoxKnowsAppKitSecrets)
 - (NSCell *)_accessibilityTableCell:(int)row tableColumn:(NSTableColumn *)tableColumn;
@@ -329,16 +333,8 @@ QSize QListBox::sizeForNumberOfLines(int lines) const
 
 QWidget::FocusPolicy QListBox::focusPolicy() const
 {
-    KWQ_BLOCK_EXCEPTIONS;
-    
-    WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(this);
-    if (!bridge || ![bridge part] || ![bridge part]->tabsToAllControls()) {
-        return NoFocus;
-    }
-    
-    KWQ_UNBLOCK_EXCEPTIONS;
-    
-    return QScrollView::focusPolicy();
+    FocusPolicy policy = QWidget::focusPolicy();
+    return policy == TabFocus ? StrongFocus : policy;
 }
 
 bool QListBox::checksDescendantsForFocus() const
@@ -507,13 +503,17 @@ void QListBox::setFont(const QFont &font)
     
     if (become) {
         if (_box && !KWQKHTMLPart::currentEventIsMouseDownInWidget(_box)) {
-            [self _KWQ_scrollFrameToVisible];
+            RenderWidget *widget = const_cast<RenderWidget *> (static_cast<const RenderWidget *>(_box->eventFilterObject()));
+            RenderLayer *layer = widget->enclosingLayer();
+            if (layer)
+                layer->scrollRectToVisible(widget->absoluteBoundingBoxRect());
         }        
-	[self _KWQ_setKeyboardFocusRingNeedsDisplay];
+        [self _KWQ_setKeyboardFocusRingNeedsDisplay];
 
         if (_box) {
             QFocusEvent event(QEvent::FocusIn);
-            const_cast<QObject *>(_box->eventFilterObject())->eventFilter(_box, &event);
+            if (_box->eventFilterObject())
+                const_cast<QObject *>(_box->eventFilterObject())->eventFilter(_box, &event);
         }
     }
 
@@ -525,7 +525,8 @@ void QListBox::setFont(const QFont &font)
     BOOL resign = [super resignFirstResponder];
     if (resign && _box) {
         QFocusEvent event(QEvent::FocusOut);
-        const_cast<QObject *>(_box->eventFilterObject())->eventFilter(_box, &event);
+        if (_box->eventFilterObject())
+            const_cast<QObject *>(_box->eventFilterObject())->eventFilter(_box, &event);
     }
     return resign;
 }
@@ -534,9 +535,6 @@ void QListBox::setFont(const QFont &font)
 {
     // Simplified method from NSView; overridden to replace NSView's way of checking
     // for full keyboard access with ours.
-    if (!_box || !KWQKHTMLPart::partForWidget(_box)->tabsToAllControls()) {
-        return NO;
-    }
     return ([self window] != nil) && ![self isHiddenOrHasHiddenAncestor] && [self acceptsFirstResponder];
 }
 

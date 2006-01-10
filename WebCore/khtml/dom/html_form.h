@@ -626,6 +626,13 @@ public:
      */
     void select (  );
 
+    bool canHaveSelection();
+    long selectionStart();
+    long selectionEnd();
+    void setSelectionStart(long start);
+    void setSelectionEnd(long start);
+    void setSelectionRange(long start, long end);
+
     /**
      * Simulate a mouse-click. For <code> INPUT </code> elements whose
      * <code> type </code> attribute has one of the following values:
@@ -1160,6 +1167,12 @@ public:
      * Gives keyboard focus to this element.
      */
     void focus (  );
+
+    long selectionStart();
+    long selectionEnd();
+    void setSelectionStart(long start);
+    void setSelectionEnd(long start);
+    void setSelectionRange(long start, long end);
 
     /**
      * Select the contents of the <code> TEXTAREA </code> .

@@ -950,6 +950,13 @@ NodeImpl *KHTMLParser::getElement(Token* t)
             scriptElement->setCreatedByParser(true);
             return scriptElement;
         }
+
+    case ID_OBJECT:
+        {
+            HTMLObjectElementImpl *objectElement = new HTMLObjectElementImpl(document);
+            objectElement->setComplete(false);
+            return objectElement;
+        }
     }
 
     return document->document()->createHTMLElement(t->id);

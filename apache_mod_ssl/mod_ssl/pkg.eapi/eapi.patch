@@ -7,7 +7,7 @@
 ## 
 ## Annotated patch file: eapi.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 30-Oct-2004
+## Created on: 02-Sep-2005
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -1121,7 +1121,7 @@ Index: src/main/http_config.c
 +---------------------------------------------------------------------------
 Index: src/main/http_main.c
 --- src/main/http_main.c	22 Oct 2004 10:15:50 -0000	1.1.1.23
-+++ src/main/http_main.c	22 Oct 2004 10:18:59 -0000	1.45
++++ src/main/http_main.c	6 Jul 2005 12:29:22 -0000	1.46
 @@ -242,6 +242,9 @@
  
  int ap_dump_settings = 0;
@@ -1163,28 +1163,27 @@ Index: src/main/http_main.c
  #ifndef NETWARE
  static APACHE_TLS int volatile exit_after_unblock = 0;
  #endif
-@@ -1541,6 +1568,10 @@
- 	    ap_log_transaction(log_req);
+@@ -1542,6 +1569,9 @@
  	}
  
+ 	ap_bsetflag(save_req->connection->client, B_EOUT, 1);
 +#ifdef EAPI
 +	ap_call_close_connection_hook(save_req->connection);
 +#endif /* EAPI */
-+
- 	ap_bsetflag(save_req->connection->client, B_EOUT, 1);
  	ap_bclose(save_req->connection->client);
  	
-@@ -1549,6 +1580,9 @@
-         ap_longjmp(jmpbuffer, 1);
+ 	if (!ap_standalone)
+@@ -1550,6 +1580,9 @@
      }
      else {			/* abort the connection */
+ 	ap_bsetflag(current_conn->client, B_EOUT, 1);
 +#ifdef EAPI
 +	ap_call_close_connection_hook(current_conn);
 +#endif /* EAPI */
- 	ap_bsetflag(current_conn->client, B_EOUT, 1);
  	ap_bclose(current_conn->client);
  	current_conn->aborted = 1;
-@@ -1851,10 +1885,16 @@
+     }
+@@ -1851,10 +1884,16 @@
      /* Send any leftover data to the client, but never try to again */
  
      if (ap_bflush(r->connection->client) == -1) {
@@ -1201,7 +1200,7 @@ Index: src/main/http_main.c
      ap_bsetflag(r->connection->client, B_EOUT, 1);
  
      /* Close our half of the connection --- send the client a FIN */
-@@ -2553,6 +2593,9 @@
+@@ -2553,6 +2592,9 @@
      /* Clear the pool - including any registered cleanups */
      ap_destroy_pool(pglobal);
  #endif
@@ -1211,7 +1210,7 @@ Index: src/main/http_main.c
      exit(code);
  }
  
-@@ -3623,6 +3666,24 @@
+@@ -3623,6 +3665,24 @@
      conn->remote_addr = *remaddr;
      conn->remote_ip = ap_pstrdup(conn->pool,
  			      inet_ntoa(conn->remote_addr.sin_addr));
@@ -1236,7 +1235,7 @@ Index: src/main/http_main.c
  
      return conn;
  }
-@@ -4133,6 +4194,15 @@
+@@ -4133,6 +4193,15 @@
      printf("Server's Module Magic Number: %u:%u\n",
  	   MODULE_MAGIC_NUMBER_MAJOR, MODULE_MAGIC_NUMBER_MINOR);
      printf("Server compiled with....\n");
@@ -1252,7 +1251,7 @@ Index: src/main/http_main.c
  #ifdef TPF
      show_os_specific_compile_settings();
  #endif
-@@ -4307,6 +4377,22 @@
+@@ -4307,6 +4376,22 @@
      ap_server_pre_read_config  = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_post_read_config = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_config_defines   = ap_make_array(pcommands, 1, sizeof(char *));
@@ -1275,7 +1274,7 @@ Index: src/main/http_main.c
  }
  
  #ifndef MULTITHREAD
-@@ -4808,6 +4894,9 @@
+@@ -4808,6 +4893,9 @@
  
  	    ap_sync_scoreboard_image();
  	    if (ap_scoreboard_image->global.running_generation != ap_my_generation) {
@@ -1285,7 +1284,7 @@ Index: src/main/http_main.c
  		ap_bclose(conn_io);
  		clean_child_exit(0);
  	    }
-@@ -4836,6 +4925,9 @@
+@@ -4836,6 +4924,9 @@
  	 */
  
  #ifdef NO_LINGCLOSE
@@ -1295,7 +1294,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -4846,6 +4938,9 @@
+@@ -4846,6 +4937,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1305,7 +1304,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -5629,16 +5724,31 @@
+@@ -5629,16 +5723,31 @@
  	    usage(argv[0]);
  	}
      }
@@ -1337,7 +1336,7 @@ Index: src/main/http_main.c
      }
  
      child_timeouts = !ap_standalone || one_process;
-@@ -5786,6 +5896,10 @@
+@@ -5786,6 +5895,10 @@
  	    ap_destroy_pool(r->pool);
  	}
  
@@ -1348,7 +1347,7 @@ Index: src/main/http_main.c
  	ap_bclose(cio);
      }
      exit(0);
-@@ -6162,6 +6276,9 @@
+@@ -6162,6 +6275,9 @@
  	ap_kill_cleanups_for_socket(ptrans, csd);
  
  #ifdef NO_LINGCLOSE
@@ -1358,7 +1357,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -6172,6 +6289,9 @@
+@@ -6172,6 +6288,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1368,7 +1367,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -7747,6 +7867,10 @@
+@@ -7747,6 +7866,10 @@
      if (!conf_specified)
          ap_cpystrn(ap_server_confname, SERVER_CONFIG_FILE, sizeof(ap_server_confname));
  
@@ -1379,7 +1378,7 @@ Index: src/main/http_main.c
      if (!ap_os_is_path_absolute(ap_server_confname))
          ap_cpystrn(ap_server_confname,
                     ap_server_root_relative(pcommands, ap_server_confname),
-@@ -7787,6 +7911,9 @@
+@@ -7787,6 +7910,9 @@
  #else /* ndef WIN32 */
      server_conf = ap_read_config(pconf, ptrans, ap_server_confname);
  #endif

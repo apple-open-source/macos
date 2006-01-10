@@ -558,14 +558,15 @@ StorageManager::getSearchList(KeychainList &keychainList)
 	{
 		// Only hold globals().apiLock during the cache lookups
 		StLock<Mutex> stAPILock(globals().apiLock);
-		for (DLDbList::const_iterator it = dLDbList.begin();
-			it != dLDbList.end(); ++it)
+
+		for (DLDbList::const_iterator it = dynamicList.begin();
+			it != dynamicList.end(); ++it)
 		{
 			result.push_back(keychain(*it));
 		}
 
-		for (DLDbList::const_iterator it = dynamicList.begin();
-			it != dynamicList.end(); ++it)
+		for (DLDbList::const_iterator it = dLDbList.begin();
+			it != dLDbList.end(); ++it)
 		{
 			result.push_back(keychain(*it));
 		}
@@ -640,6 +641,11 @@ StorageManager::getSearchList(SecPreferencesDomain domain, KeychainList &keychai
 	{
 		convertList(keychainList, DLDbListCFPref(domain).searchList());
 	}
+}
+
+void StorageManager::forceUserSearchListReread()
+{
+	mSavedList.forceUserSearchListReread();
 }
 
 void

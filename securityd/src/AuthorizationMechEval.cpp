@@ -209,6 +209,9 @@ AuthorizationResult AgentMechanismEvaluator::authinternal(AuthItemSet &context)
             break;
         string password(static_cast<const char *>((*found)->value().data), (*found)->value().length);
         secdebug("AuthEvalMech", "found password");
+
+		// Call to checkpw in DS
+		Server::active().longTermActivity();		
         Credential newCredential(username, password, true); // create a new shared credential
         
         if (newCredential->isValid())

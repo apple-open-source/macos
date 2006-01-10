@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2004 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2005 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -228,6 +228,7 @@ void ssl_io_suck(request_rec *r, SSL *ssl)
             while ((len = ap_get_client_block(r, buf, buflen)) > 0) {
                 ssl_io_suck_record(r, buf, len);
                 sucked += len;
+                ap_reset_timeout(r);
             }
             ssl_io_suck_end(r);
             ap_kill_timeout(r);
@@ -655,7 +656,7 @@ static void ssl_io_data_dump(server_rec *srvr, const char *s, long len)
         rows++;
     ssl_log(srvr, SSL_LOG_DEBUG|SSL_NO_TIMESTAMP|SSL_NO_LEVELID,
             "+-------------------------------------------------------------------------+");
-    for(i = 0 ; i< rows; i++) {
+    for (i = 0 ; i< rows; i++) {
         ap_snprintf(tmp, sizeof(tmp), "| %04x: ", i * DUMP_WIDTH);
         ap_cpystrn(buf, tmp, sizeof(buf));
         for (j = 0; j < DUMP_WIDTH; j++) {

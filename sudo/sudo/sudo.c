@@ -281,6 +281,8 @@ main(argc, argv, envp)
 	/* Validate the user but don't search for pseudo-commands. */
 	validated = sudoers_lookup(pwflag);
     }
+    if (safe_cmnd == NULL)
+	safe_cmnd = user_cmnd;
 
     /*
      * If we are using set_perms_posix() and the stay_setuid flag was not set,
@@ -407,15 +409,6 @@ main(argc, argv, envp)
 #endif
 	    audit_success(runas_pw);
 	    exit(0);
-	}
-
-	/* This *must* have been set if we got a match but... */
-	if (safe_cmnd == NULL) {
-	    audit_fail(runas_pw, "internal error - safe_cmnd");
-	    log_error(MSG_ONLY,
-		"internal error, safe_cmnd never got set for %s; %s",
-		user_cmnd,
-		"please report this error at http://courtesan.com/sudo/bugs/");
 	}
 
 	/* sudo operation succeeded */
@@ -866,6 +859,12 @@ parse_args(argc, argv)
 	NewArgv++;
     }
 
+    if (user_runas != NULL && !ISSET(rval, (MODE_EDIT|MODE_RUN))) {
+	if (excl != '\0')
+	    warnx("the `-u' and '-%c' options may not be used together", excl);
+	usage(1);
+    }
+
     if ((NewArgc == 0 && (rval & MODE_EDIT)) ||
 	(NewArgc > 0 && !(rval & (MODE_RUN | MODE_EDIT))))
 	usage(1);
@@ -924,10 +923,10 @@ check_sudoers()
 	    (statbuf.st_mode & 07777), SUDOERS_MODE);
     else if (statbuf.st_uid != SUDOERS_UID)
 	log_error(0, "%s is owned by uid %lu, should be %lu", _PATH_SUDOERS,
-	    (unsigned long) statbuf.st_uid, SUDOERS_UID);
+	    (unsigned long) statbuf.st_uid, (unsigned long) SUDOERS_UID);
     else if (statbuf.st_gid != SUDOERS_GID)
 	log_error(0, "%s is owned by gid %lu, should be %lu", _PATH_SUDOERS,
-	    (unsigned long) statbuf.st_gid, SUDOERS_GID);
+	    (unsigned long) statbuf.st_gid, (unsigned long) SUDOERS_GID);
     else {
 	/* Solaris sometimes returns EAGAIN so try 10 times */
 	for (i = 0; i < 10 ; i++) {
@@ -1116,7 +1115,7 @@ get_authpw()
 	if (runas_pw->pw_name == NULL) {
 	    audit_fail(NULL, "uid does not exist in passwd file");
 	    log_error(NO_MAIL|MSG_ONLY, "no passwd entry for %lu!",
-		runas_pw->pw_uid);
+		(unsigned long) runas_pw->pw_uid);
 	}
 	pw = runas_pw;
     } else

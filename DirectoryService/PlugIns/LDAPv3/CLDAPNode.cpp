@@ -1790,6 +1790,25 @@ sInt32	CLDAPNode::ParseLDAPNodeName(	char	   *inNodeName,
 
 }// ParseLDAPNodeName
 
+
+void CLDAPNode::RereadDefinedReplicas( sLDAPNodeStruct *inLDAPNodeStruct )
+{
+	sLDAPConfigData		*pConfig	= nil;
+
+	if (inLDAPNodeStruct != NULL)
+	{
+		//check if we need to retrieve the server mappings
+		pConfig = gpConfigFromXML->ConfigWithNodeNameLock( inLDAPNodeStruct->fNodeName );
+		
+		if( pConfig != nil && !(pConfig->bLDAPv2ReadOnly) )
+			pConfig->bBuildReplicaList = true;
+		
+		if( pConfig != NULL )
+			gpConfigFromXML->ConfigUnlock( pConfig );
+	}
+}// RereadDefinedReplicas
+
+
 // ---------------------------------------------------------------------------
 //	* BindProc
 // ---------------------------------------------------------------------------
@@ -4455,6 +4474,7 @@ sInt32 CLDAPNode::GetReplicaListFromConfigRecord( LDAP *inHost, int inSearchTO, 
 
 } // GetReplicaListFromConfigRecord
 
+
 // ---------------------------------------------------------------------------
 //	* RetrieveServerMappingsIfRequired
 // ---------------------------------------------------------------------------
@@ -4772,6 +4792,7 @@ void CLDAPNode::CheckSASLMethods( sLDAPNodeStruct *inLDAPNodeStruct )
 		}
 	}
 }// CheckSASLMethods
+
 
 // this routine determines if a particular method can be handled by the internal SASL calls
 bool CLDAPNode::isSASLMethodSupported ( CFStringRef inMethod )

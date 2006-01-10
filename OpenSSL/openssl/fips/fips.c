@@ -63,34 +63,61 @@
 #define PATH_MAX 1024
 #endif
 
-static int fips_md5_allowed = 0;
-static int fips_selftest_fail = 0;
+static int fips_selftest_fail;
+static int fips_mode;
+static const void *fips_rand_check;
 
-void FIPS_allow_md5(int onoff)
-    {
-    if (fips_is_started())
+static void fips_set_mode(int onoff)
 	{
 	int owning_thread = fips_is_owning_thread();
 
-	if (!owning_thread) CRYPTO_w_lock(CRYPTO_LOCK_FIPS);
-	fips_md5_allowed = onoff;
-	if (!owning_thread) CRYPTO_w_unlock(CRYPTO_LOCK_FIPS);
+	if (fips_is_started())
+		{
+		if (!owning_thread) fips_w_lock();
+		fips_mode = onoff;
+		if (!owning_thread) fips_w_unlock();
+		}
 	}
-    }
 
-int FIPS_md5_allowed(void)
-    {
-    int ret = 1;
-    if (fips_is_started())
+static void fips_set_rand_check(const void *rand_check)
 	{
 	int owning_thread = fips_is_owning_thread();
 
-	if (!owning_thread) CRYPTO_r_lock(CRYPTO_LOCK_FIPS);
-	ret = fips_md5_allowed;
-	if (!owning_thread) CRYPTO_r_unlock(CRYPTO_LOCK_FIPS);
+	if (fips_is_started())
+		{
+		if (!owning_thread) fips_w_lock();
+		fips_rand_check = rand_check;
+		if (!owning_thread) fips_w_unlock();
+		}
 	}
-    return ret;
-    }
+
+int FIPS_mode(void)
+	{
+	int ret = 0;
+	int owning_thread = fips_is_owning_thread();
+
+	if (fips_is_started())
+		{
+		if (!owning_thread) fips_r_lock();
+		ret = fips_mode;
+		if (!owning_thread) fips_r_unlock();
+		}
+	return ret;
+	}
+
+const void *FIPS_rand_check(void)
+	{
+	const void *ret = 0;
+	int owning_thread = fips_is_owning_thread();
+
+	if (fips_is_started())
+		{
+		if (!owning_thread) fips_r_lock();
+		ret = fips_rand_check;
+		if (!owning_thread) fips_r_unlock();
+		}
+	return ret;
+	}
 
 int FIPS_selftest_failed(void)
     {
@@ -99,9 +126,9 @@ int FIPS_selftest_failed(void)
 	{
 	int owning_thread = fips_is_owning_thread();
 
-	if (!owning_thread) CRYPTO_r_lock(CRYPTO_LOCK_FIPS);
+	if (!owning_thread) fips_r_lock();
 	ret = fips_selftest_fail;
-	if (!owning_thread) CRYPTO_r_unlock(CRYPTO_LOCK_FIPS);
+	if (!owning_thread) fips_r_unlock();
 	}
     return ret;
     }
@@ -111,12 +138,80 @@ int FIPS_selftest()
     ERR_load_crypto_strings();
 
     return FIPS_selftest_sha1()
+	&& FIPS_selftest_hmac()
 	&& FIPS_selftest_aes()
 	&& FIPS_selftest_des()
 	&& FIPS_selftest_rsa()
 	&& FIPS_selftest_dsa();
     }
 
+#ifndef HMAC_EXT
+#define HMAC_EXT "sha1"
+#endif
+
+static char key[]="etaonrishdlcupfm";
+
+#ifdef OPENSSL_PIC
+int DSO_pathbyaddr(void *addr,char *path,int sz);
+
+static int FIPS_check_dso()
+    {
+    unsigned char buf[1024];
+    char path [512];
+    unsigned char mdbuf[EVP_MAX_MD_SIZE];
+    FILE *f;
+    HMAC_CTX hmac;
+    int len,n;
+
+    len = DSO_pathbyaddr(NULL,path,sizeof(path)-sizeof(HMAC_EXT));
+    if (len<=0)
+    	{
+	FIPSerr(FIPS_F_FIPS_CHECK_DSO,FIPS_R_NO_DSO_PATH);
+	return 0;
+	}
+
+    f=fopen(path,"rb");
+    if(!f)
+	{
+	FIPSerr(FIPS_F_FIPS_CHECK_EXE,FIPS_R_CANNOT_READ_EXE);
+	return 0;
+	}
+
+    HMAC_Init(&hmac,key,strlen(key),EVP_sha1());
+    while(!feof(f))
+	{
+	n=fread(buf,1,sizeof buf,f);
+	if(ferror(f))
+	    {
+	    clearerr(f);
+	    fclose(f);
+	    FIPSerr(FIPS_F_FIPS_CHECK_EXE,FIPS_R_CANNOT_READ_EXE);
+	    return 0;
+	    }
+	if (n) HMAC_Update(&hmac,buf,n);
+	}
+    fclose(f);
+    HMAC_Final(&hmac,mdbuf,&n);
+    HMAC_CTX_cleanup(&hmac);
+
+    path[len-1]='.';
+    strcpy(path+len,HMAC_EXT);
+    f=fopen(path,"rb");
+    if(!f || fread(buf,1,20,f) != 20)
+	{
+	if (f) fclose(f);
+	FIPSerr(FIPS_F_FIPS_CHECK_EXE,FIPS_R_CANNOT_READ_EXE_DIGEST);
+	return 0;
+	}
+    fclose(f);
+    if(memcmp(buf,mdbuf,20))
+	{
+	FIPSerr(FIPS_F_FIPS_CHECK_EXE,FIPS_R_EXE_DIGEST_DOES_NOT_MATCH);
+	return 0;
+	}
+    return 1;
+    }
+#else
 static int FIPS_check_exe(const char *path)
     {
     unsigned char buf[1024];
@@ -124,9 +219,8 @@ static int FIPS_check_exe(const char *path)
     unsigned int n;
     unsigned char mdbuf[EVP_MAX_MD_SIZE];
     FILE *f;
-    static char key[]="etaonrishdlcupfm";
     HMAC_CTX hmac;
-    const char *sha1_fmt="%s.sha1";
+    const char *sha1_fmt="%s."HMAC_EXT;
 
     f=fopen(path,"rb");
 #ifdef __CYGWIN32__
@@ -135,7 +229,7 @@ static int FIPS_check_exe(const char *path)
        just in case the behavior changes in the future... */
     if (!f)
 	{
-	sha1_fmt="%s.exe.sha1";
+	sha1_fmt="%s.exe."HMAC_EXT;
 	BIO_snprintf(p2,sizeof p2,"%s.exe",path);
 	f=fopen(p2,"rb");
 	}
@@ -177,15 +271,15 @@ static int FIPS_check_exe(const char *path)
 	}
     return 1;
     }
+#endif
 
 int FIPS_mode_set(int onoff,const char *path)
     {
-    void fips_set_mode(int _onoff);
     int fips_set_owning_thread();
     int fips_clear_owning_thread();
     int ret = 0;
 
-    CRYPTO_w_lock(CRYPTO_LOCK_FIPS);
+    fips_w_lock();
     fips_set_started();
     fips_set_owning_thread();
 
@@ -205,7 +299,19 @@ int FIPS_mode_set(int onoff,const char *path)
 	    goto end;
 	    }
 
+#ifdef OPENSSL_PIC
+	if(!FIPS_check_dso())
+#else
 	if(!FIPS_check_exe(path))
+#endif
+	    {
+	    fips_selftest_fail = 1;
+	    ret = 0;
+	    goto end;
+	    }
+
+	/* Perform RNG KAT before seeding */
+	if (!FIPS_selftest_rng())
 	    {
 	    fips_selftest_fail = 1;
 	    ret = 0;
@@ -244,7 +350,7 @@ int FIPS_mode_set(int onoff,const char *path)
     ret = 1;
 end:
     fips_clear_owning_thread();
-    CRYPTO_w_unlock(CRYPTO_LOCK_FIPS);
+    fips_w_unlock();
     return ret;
     }
 

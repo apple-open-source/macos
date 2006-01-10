@@ -11,6 +11,7 @@
 /Applications/Utilities/Keychain Access.app
 /Applications/Utilities/Keychain Access.app/Contents/Resources/Keychain Agent
 /Applications/iCal.app
+/Applications/iCal.app/Contents/Resources/iCal Helper.app
 /Applications/iChat.app
 /Applications/iMovie.app
 /Applications/iPhoto.app
@@ -21,6 +22,7 @@
 /System/Library/CoreServices/MirrorAgent.app
 /System/Library/CoreServices/SecurityAgent.app
 /System/Library/CoreServices/SyncServer.app
+/System/Library/CoreServices/SyncServer.app/Contents/Resources/safaritool
 /System/Library/CoreServices/SystemUIServer.app
 /System/Library/CoreServices/dotmacsyncclient
 /System/Library/Filesystems/ftp.fs/mount_ftp

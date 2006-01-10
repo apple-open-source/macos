@@ -5,7 +5,7 @@
 # Untar, build, create a binary distribution, install into /opt/apache2
 #
 PROJECT_NAME=httpd
-PROJECT_VERSION=2.0.54
+PROJECT_VERSION=2.0.55
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
 FINAL_DIR=/opt/apache2
@@ -58,10 +58,9 @@ do_configure:
 	$(CD) $(PROJECT_DIR); export LIBTOOL_CMD_SEP=; \
 				./buildconf
 	$(CD) $(PROJECT_DIR); export LIBTOOL_CMD_SEP=; \
-			export ac_cv_func_poll=no; \
 			./configure \
-			LDFLAGS="$$RC_CFLAGS" \
-			CFLAGS="$$RC_CFLAGS" \
+			LDFLAGS="$$RC_CFLAGS -Os" \
+			CFLAGS="$$RC_CFLAGS -Os" \
 			--prefix=$(FINAL_DIR) \
 			--with-port=8080 \
 			--with-mpm=worker \

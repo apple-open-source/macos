@@ -203,6 +203,8 @@ public:
     bool statusbarVisible();
     bool toolbarVisible();
 
+    bool shouldClose();
+
     void KWQKHTMLPart::addMessageToConsole(const QString &message,  unsigned int lineNumber, const QString &sourceID);
     using KHTMLPart::xmlDocImpl;
     khtml::RenderObject *renderer() const;
@@ -282,6 +284,7 @@ public:
     static void clearTimers(KHTMLView *);
     
     bool passSubframeEventToSubframe(DOM::NodeImpl::MouseEvent &);
+    bool passWheelEventToChildWidget(DOM::NodeImpl *);
     
     void redirectionTimerStartedOrStopped();
     
@@ -387,7 +390,10 @@ public:
     
     DOM::NodeImpl *mousePressNode();
     
+    virtual bool mouseDownMayStartSelect() const { return _mouseDownMayStartSelect; }
+    
 private:
+    bool canMouseDownStartSelect(DOM::NodeImpl* node);
     virtual void khtmlMousePressEvent(khtml::MousePressEvent *);
     virtual void khtmlMouseDoubleClickEvent(khtml::MouseDoubleClickEvent *);
     virtual void khtmlMouseMoveEvent(khtml::MouseMoveEvent *);

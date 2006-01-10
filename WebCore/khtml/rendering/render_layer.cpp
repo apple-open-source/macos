@@ -63,6 +63,8 @@
 #define LINE_STEP   40
 #define PAGE_KEEP   40
 
+#define MIN_INTERSECT_FOR_REVEAL 32
+
 using namespace DOM;
 using namespace khtml;
 
@@ -73,6 +75,12 @@ QScrollBar* RenderLayer::gScrollBar = 0;
 #ifndef NDEBUG
 static bool inRenderLayerDetach;
 #endif
+
+const RenderLayer::ScrollAlignment RenderLayer::gAlignCenterIfNeeded = { RenderLayer::noScroll, RenderLayer::alignCenter, RenderLayer::alignToClosestEdge };
+const RenderLayer::ScrollAlignment RenderLayer::gAlignToEdgeIfNeeded = { RenderLayer::noScroll, RenderLayer::alignToClosestEdge, RenderLayer::alignToClosestEdge };
+const RenderLayer::ScrollAlignment RenderLayer::gAlignCenterAlways = { RenderLayer::alignCenter, RenderLayer::alignCenter, RenderLayer::alignCenter };
+const RenderLayer::ScrollAlignment RenderLayer::gAlignTopAlways = { RenderLayer::alignTop, RenderLayer::alignTop, RenderLayer::alignTop };
+const RenderLayer::ScrollAlignment RenderLayer::gAlignBottomAlways = { RenderLayer::alignBottom, RenderLayer::alignBottom, RenderLayer::alignBottom };
 
 void* ClipRects::operator new(size_t sz, RenderArena* renderArena) throw()
 {
@@ -196,7 +204,7 @@ void RenderLayer::updateLayerPosition()
         return;
     
     int x = m_object->xPos();
-    int y = m_object->yPos();
+    int y = m_object->yPos() - m_object->borderTopExtra();
 
     if (!m_object->isPositioned()) {
         // We must adjust our position by walking up the render tree looking for the
@@ -207,6 +215,7 @@ void RenderLayer::updateLayerPosition()
             y += curr->yPos();
             curr = curr->parent();
         }
+        y += curr->borderTopExtra();
     }
 
     m_relX = m_relY = 0;
@@ -260,7 +269,7 @@ void RenderLayer::updateLayerPosition()
     setPos(x,y);
 
     setWidth(m_object->width());
-    setHeight(m_object->height());
+    setHeight(m_object->height() + m_object->borderTopExtra() + m_object->borderBottomExtra());
 
     if (!m_object->hasOverflowClip()) {
         if (m_object->overflowWidth() > m_object->width())
@@ -545,8 +554,135 @@ RenderLayer::scrollToOffset(int x, int y, bool updateScrollbars, bool repaint)
     }
 }
 
-void
-RenderLayer::updateScrollPositionFromScrollbars()
+void RenderLayer::scrollRectToVisible(const QRect &rect, const ScrollAlignment& alignX, const ScrollAlignment& alignY)
+{
+    RenderLayer* parentLayer = 0;
+    QRect newRect = rect;
+    int xOffset = 0, yOffset = 0;
+    
+    if (m_object->hasOverflowClip()) {
+        QRect layerBounds = QRect(m_x + m_scrollX, m_y + m_scrollY, m_width, m_height);
+        QRect exposeRect = QRect(rect.x() + m_scrollX, rect.y() + m_scrollY, rect.width(), rect.height());
+        QRect r = getRectToExpose(layerBounds, exposeRect, alignX, alignY);
+        
+        xOffset = r.x() - m_x;
+        yOffset = r.y() - m_y;
+        // Adjust offsets if they're outside of the allowable range.
+        xOffset = kMax(0, kMin(m_scrollWidth - m_width, xOffset));
+        yOffset = kMax(0, kMin(m_scrollHeight - m_height, yOffset));
+        
+        if (xOffset != m_scrollX || yOffset != m_scrollY) {
+            int diffX = m_scrollX;
+            int diffY = m_scrollY;
+            scrollToOffset(xOffset, yOffset);
+            diffX = m_scrollX - diffX;
+            diffY = m_scrollY - diffY;
+            newRect.setX(rect.x() - diffX);
+            newRect.setY(rect.y() - diffY);
+        }
+    
+        if (m_object->parent())
+            parentLayer = m_object->parent()->enclosingLayer();
+    } else {
+        QScrollView* view = m_object->document()->view();
+        if (view) {
+            QRect viewRect = QRect(view->scrollXOffset(), view->scrollYOffset(), view->visibleWidth(), view->visibleHeight());
+            QRect r = getRectToExpose(viewRect, rect, alignX, alignY);
+            
+            xOffset = r.x();
+            yOffset = r.y();
+            // Adjust offsets if they're outside of the allowable range.
+            xOffset = kMax(0, kMin(view->contentsWidth(), xOffset));
+            yOffset = kMax(0, kMin(view->contentsHeight(), yOffset));
+            
+
+            if (m_object->document() && m_object->document()->ownerElement() && m_object->document()->ownerElement()->renderer()) {
+                view->setContentsPos(xOffset, yOffset);
+                parentLayer = m_object->document()->ownerElement()->renderer()->enclosingLayer();
+                newRect.setX(rect.x() - view->contentsX() + view->viewport()->x());
+                newRect.setY(rect.y() - view->contentsY() + view->viewport()->y());
+            }
+            else {
+                // If this is the outermost view that RenderLayer needs to scroll, then we should scroll the view recursively
+                // Other apps, like Mail, rely on this feature.
+                view->scrollPointRecursively(xOffset, yOffset);
+            }
+        }
+    }
+    
+    if (parentLayer)
+        parentLayer->scrollRectToVisible(newRect, alignX, alignY);
+}
+
+QRect RenderLayer::getRectToExpose(const QRect &visibleRect, const QRect &exposeRect, const ScrollAlignment& alignX, const ScrollAlignment& alignY) {
+
+    int x, y, w, h;
+    x = exposeRect.x();
+    y = exposeRect.y();
+    w = exposeRect.width();
+    h = exposeRect.height();
+    
+    // Find the appropriate X coordinate to scroll to.
+    ScrollBehavior scrollX = getHiddenBehavior(alignX);
+    int intersectWidth = visibleRect.intersect(exposeRect).width();
+    // If the rectangle is fully visible, use the specified visible behavior.
+    // If the rectangle is partially visible, but over a certain threshold, then treat it as fully visible to avoid unnecessary horizontal scrolling
+    if (intersectWidth == w || intersectWidth >= MIN_INTERSECT_FOR_REVEAL)
+        scrollX = getVisibleBehavior(alignX);
+    else if (intersectWidth == visibleRect.width()) {
+        // If the rect is bigger than the visible area, don't bother trying to center.  Other alignments will work.
+        if (getVisibleBehavior(alignX) == alignCenter)
+            scrollX = noScroll;
+        else
+            scrollX = getVisibleBehavior(alignX);
+    }
+    // If the rectangle is partially visible, but not above the minimum threshold, use the specified partial behavior
+    else if (intersectWidth > 0)
+        scrollX = getPartialBehavior(alignX);
+        
+    if (scrollX == noScroll) 
+        x = visibleRect.x();
+    // If we're trying to align to the closest edge, and the exposeRect is further right than the visibleRect, and not bigger than the visible area, then alignRight.
+    else if ((scrollX == alignRight) || ((scrollX == alignToClosestEdge) && exposeRect.right() > visibleRect.right() && w < visibleRect.width()))
+        x = exposeRect.right() - visibleRect.width();
+    else if (scrollX == alignCenter)
+        x -= (visibleRect.width() - w) / 2;
+    // By default, x is set to the left of the exposeRect, so for the alignLeft case, 
+    // or the alignToClosestEdge case where the closest edge is the left edge, then x does not need to be changed.
+    w = visibleRect.width();
+    
+    // Find the appropriate Y coordinate to scroll to.
+    ScrollBehavior scrollY = getHiddenBehavior(alignY);
+    int intersectHeight = visibleRect.intersect(exposeRect).height();
+    // If the rectangle is fully visible, use the specified visible behavior.
+    if (intersectHeight == h)
+        scrollY = getVisibleBehavior(alignY);
+    else if (intersectHeight == visibleRect.height()) {
+        // If the rect is bigger than the visible area, don't bother trying to center.  Other alignments will work.
+        if (getVisibleBehavior(alignY) == alignCenter)
+            scrollY = noScroll;
+        else
+            scrollY = getVisibleBehavior(alignY);
+    }
+    // If the rectangle is partially visible, use the specified partial behavior
+    else if (intersectHeight > 0)
+        scrollY = getPartialBehavior(alignY);
+        
+    if (scrollY == noScroll) 
+        y = visibleRect.y();
+    // If we're trying to align to the closest edge, and the exposeRect is further down than the visibleRect, and not bigger than the visible area, then alignBottom.
+    else if ((scrollY == alignBottom) || ((scrollY == alignToClosestEdge) && exposeRect.bottom() > visibleRect.bottom() && h < visibleRect.height()))
+        y = exposeRect.bottom() - visibleRect.height();
+    else if (scrollY == alignCenter)
+        y -= (visibleRect.height() - h) / 2;
+    // By default, y is set to the top of the exposeRect, so for the alignTop case, 
+    // or the alignToEdgeY case where the closest edge is the top edge, then y does not need to be changed.
+    h = visibleRect.height();
+    
+    return QRect(x, y, w, h);
+}
+
+void RenderLayer::updateScrollPositionFromScrollbars()
 {
     bool needUpdate = false;
     int newX = m_scrollX;
@@ -904,7 +1040,7 @@ RenderLayer::paintLayer(RenderLayer* rootLayer, QPainter *p,
 
         // Paint the background.
         RenderObject::PaintInfo info(p, damageRect, PaintActionBlockBackground, paintingRootForRenderer);
-        renderer()->paint(info, x - renderer()->xPos(), y - renderer()->yPos());        
+        renderer()->paint(info, x - renderer()->xPos(), y - renderer()->yPos() + renderer()->borderTopExtra());        
 #if APPLE_CHANGES
         // Our scrollbar widgets paint exactly when we tell them to, so that they work properly with
         // z-index.  We paint after we painted the background/border, so that the scrollbars will
@@ -936,7 +1072,7 @@ RenderLayer::paintLayer(RenderLayer* rootLayer, QPainter *p,
         setClip(p, paintDirtyRect, clipRectToApply);
 
         int tx = x - renderer()->xPos();
-        int ty = y - renderer()->yPos();
+        int ty = y - renderer()->yPos() + renderer()->borderTopExtra();
         RenderObject::PaintInfo info(p, clipRectToApply, 
                                      selectionOnly ? PaintActionSelection : PaintActionChildBlockBackgrounds,
                                      paintingRootForRenderer);
@@ -985,7 +1121,7 @@ RenderLayer::hitTest(RenderObject::NodeInfo& info, int x, int y)
 
     // Now determine if the result is inside an anchor; make sure an image map wins if
     // it already set URLElement and only use the innermost.
-    DOM::NodeImpl* node = info.innerNode();
+    NodeImpl* node = info.innerNode();
     while (node) {
         if (node->hasAnchor() && !info.URLElement())
             info.setURLElement(node);
@@ -1031,7 +1167,7 @@ RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderObject::NodeInfo& info,
     if (containsPoint(xMousePos, yMousePos, fgRect) && 
         renderer()->hitTest(info, xMousePos, yMousePos,
                             layerBounds.x() - renderer()->xPos(),
-                            layerBounds.y() - renderer()->yPos(), HitTestDescendants)) {
+                            layerBounds.y() - renderer()->yPos() + m_object->borderTopExtra(), HitTestDescendants)) {
         // for positioned generated content, we might still not have a
         // node by the time we get to the layer level, since none of
         // the content in the layer has an element. So just walk up
@@ -1071,7 +1207,7 @@ RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderObject::NodeInfo& info,
     if (containsPoint(xMousePos, yMousePos, bgRect) &&
         renderer()->hitTest(info, xMousePos, yMousePos,
                             layerBounds.x() - renderer()->xPos(),
-                            layerBounds.y() - renderer()->yPos(),
+                            layerBounds.y() - renderer()->yPos() + m_object->borderTopExtra(),
                             HitTestSelf))
         return this;
 
@@ -1107,6 +1243,8 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer)
     }
     else if (m_object->style()->position() == RELATIVE)
         posClipRect = overflowClipRect;
+    else if (m_object->style()->position() == ABSOLUTE)
+        overflowClipRect = posClipRect;
     
     // Update the clip rects that will be passed to child layers.
     if (m_object->hasOverflowClip() || m_object->hasClip()) {
@@ -1247,16 +1385,43 @@ void RenderLayer::updateHoverActiveState(RenderObject::NodeInfo& info)
     if (info.readonly())
         return;
 
+    DocumentImpl* doc = renderer()->document();
+    if (!doc) return;
+
+    NodeImpl* activeNode = doc->activeNode();
+    if (activeNode && !info.active()) {
+        // We are clearing the :active chain because the mouse has been released.
+        for (RenderObject* curr = activeNode->renderer(); curr; curr = curr->parent()) {
+            if (curr->element() && !curr->isText())
+                curr->element()->setInActiveChain(false);
+        }
+        doc->setActiveNode(0);
+    } else {
+        NodeImpl* newActiveNode = info.innerNode();
+        if (!activeNode && newActiveNode && info.active()) {
+            // We are setting the :active chain and freezing it. If future moves happen, they
+            // will need to reference this chain.
+            for (RenderObject* curr = newActiveNode->renderer(); curr; curr = curr->parent()) {
+                if (curr->element() && !curr->isText()) {
+                    curr->element()->setInActiveChain(true);
+                }
+            }
+            doc->setActiveNode(newActiveNode);
+        }
+    }
+
+    // If the mouse is down and if this is a mouse move event, we want to restrict changes in 
+    // :hover/:active to only apply to elements that are in the :active chain that we froze
+    // at the time the mouse went down.
+    bool mustBeInActiveChain = info.active() && info.mouseMove();
+
     // Check to see if the hovered node has changed.  If not, then we don't need to
-    // do anything.  An exception is if we just went from :hover into :hover:active,
-    // in which case we need to update to get the new :active state.
-    DOM::DocumentImpl* doc = renderer()->document();
-    DOM::NodeImpl* oldHoverNode = doc ? doc->hoverNode() : 0;
+    // do anything.  
+    DOM::NodeImpl* oldHoverNode = doc->hoverNode();
     DOM::NodeImpl* newHoverNode = info.innerNode();
 
     // Update our current hover node.
-    if (doc)
-        doc->setHoverNode(newHoverNode);
+    doc->setHoverNode(newHoverNode);
 
     // We have two different objects.  Fetch their renderers.
     RenderObject* oldHoverObj = oldHoverNode ? oldHoverNode->renderer() : 0;
@@ -1264,31 +1429,22 @@ void RenderLayer::updateHoverActiveState(RenderObject::NodeInfo& info)
     
     // Locate the common ancestor render object for the two renderers.
     RenderObject* ancestor = commonAncestor(oldHoverObj, newHoverObj);
-    
+
     if (oldHoverObj != newHoverObj) {
         // The old hover path only needs to be cleared up to (and not including) the common ancestor;
         for (RenderObject* curr = oldHoverObj; curr && curr != ancestor; curr = hoverAncestor(curr)) {
-            curr->setMouseInside(false);
-            if (curr->element() && !curr->isText()) {
-                bool oldActive = curr->element()->active();
+            if (curr->element() && !curr->isText() && (!mustBeInActiveChain || curr->element()->inActiveChain())) {
                 curr->element()->setActive(false);
-                if (curr->style()->affectedByHoverRules() ||
-                    (curr->style()->affectedByActiveRules() && oldActive))
-                    curr->element()->setChanged();
+                curr->element()->setHovered(false);
             }
         }
     }
 
     // Now set the hover state for our new object up to the root.
     for (RenderObject* curr = newHoverObj; curr; curr = hoverAncestor(curr)) {
-        bool oldInside = curr->mouseInside();
-        curr->setMouseInside(true);
-        if (curr->element() && !curr->isText()) {
-            bool oldActive = curr->element()->active();
+        if (curr->element() && !curr->isText() && (!mustBeInActiveChain || curr->element()->inActiveChain())) {
             curr->element()->setActive(info.active());
-            if ((curr->style()->affectedByHoverRules() && !oldInside) ||
-                (curr->style()->affectedByActiveRules() && oldActive != info.active()))
-                curr->element()->setChanged();
+            curr->element()->setHovered(true);
         }
     }
 }

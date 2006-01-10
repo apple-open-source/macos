@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2004 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2005 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -704,7 +704,11 @@ void ssl_init_ConfigureServer(server_rec *s, pool *p, SSLSrvConfigRec *sc)
         ssl_log(s, SSL_LOG_TRACE,
                 "Init: (%s) Configuring RSA server certificate", cpVHostID);
         ucp = asn1->cpData;
+#if SSL_LIBRARY_VERSION >= 0x00908000
+        if ((sc->pPublicCert[SSL_AIDX_RSA] = d2i_X509(NULL, (const unsigned char **)&ucp, asn1->nData)) == NULL) {
+#else
         if ((sc->pPublicCert[SSL_AIDX_RSA] = d2i_X509(NULL, &ucp, asn1->nData)) == NULL) {
+#endif
             ssl_log(s, SSL_LOG_ERROR|SSL_ADD_SSLERR,
                     "Init: (%s) Unable to import RSA server certificate",
                     cpVHostID);
@@ -723,7 +727,11 @@ void ssl_init_ConfigureServer(server_rec *s, pool *p, SSLSrvConfigRec *sc)
         ssl_log(s, SSL_LOG_TRACE,
                 "Init: (%s) Configuring DSA server certificate", cpVHostID);
         ucp = asn1->cpData;
+#if SSL_LIBRARY_VERSION >= 0x00908000
+        if ((sc->pPublicCert[SSL_AIDX_DSA] = d2i_X509(NULL, (const unsigned char **)&ucp, asn1->nData)) == NULL) {
+#else
         if ((sc->pPublicCert[SSL_AIDX_DSA] = d2i_X509(NULL, &ucp, asn1->nData)) == NULL) {
+#endif
             ssl_log(s, SSL_LOG_ERROR|SSL_ADD_SSLERR,
                     "Init: (%s) Unable to import DSA server certificate",
                     cpVHostID);
@@ -797,7 +805,11 @@ void ssl_init_ConfigureServer(server_rec *s, pool *p, SSLSrvConfigRec *sc)
                 "Init: (%s) Configuring RSA server private key", cpVHostID);
         ucp = asn1->cpData;
         if ((sc->pPrivateKey[SSL_AIDX_RSA] = 
+#if SSL_LIBRARY_VERSION >= 0x00908000
+             d2i_PrivateKey(EVP_PKEY_RSA, NULL, (const unsigned char **)&ucp, asn1->nData)) == NULL) {
+#else
              d2i_PrivateKey(EVP_PKEY_RSA, NULL, &ucp, asn1->nData)) == NULL) {
+#endif
             ssl_log(s, SSL_LOG_ERROR|SSL_ADD_SSLERR,
                     "Init: (%s) Unable to import RSA server private key",
                     cpVHostID);
@@ -823,7 +835,11 @@ void ssl_init_ConfigureServer(server_rec *s, pool *p, SSLSrvConfigRec *sc)
                 "Init: (%s) Configuring DSA server private key", cpVHostID);
         ucp = asn1->cpData;
         if ((sc->pPrivateKey[SSL_AIDX_DSA] = 
+#if SSL_LIBRARY_VERSION >= 0x00908000
+             d2i_PrivateKey(EVP_PKEY_DSA, NULL, (const unsigned char **)&ucp, asn1->nData)) == NULL) {
+#else
              d2i_PrivateKey(EVP_PKEY_DSA, NULL, &ucp, asn1->nData)) == NULL) {
+#endif
             ssl_log(s, SSL_LOG_ERROR|SSL_ADD_SSLERR,
                     "Init: (%s) Unable to import DSA server private key",
                     cpVHostID);

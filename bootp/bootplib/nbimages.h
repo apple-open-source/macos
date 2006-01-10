@@ -45,27 +45,29 @@ typedef enum {
 typedef union {
     struct {
 	boolean_t	indirect;
-	char *		root_path;
+	const char *	root_path;
     } nfs;
     struct {
 	boolean_t	indirect;
-	char *		root_path;
+	const char *	root_path;
     } http;
     struct {
-	char *		shared;
-	char *		private;
+	const char *	shared;
+	const char *	private;
     } classic;
 } NBImageTypeInfo;
 
 typedef struct {
     NBSPEntry		sharepoint;
+    const char *	arch;
+    const char * *	archlist;
+    int			archlist_count;
     char *		dir_name;	/* relative to sharepoint */
-    char *		name;		/* not nul-terminated */
+    char *		name;
     int			name_length;
     bsdp_image_id_t	image_id;
-    char *		bootfile;
-    char *		tftp_path;
-    bsdp_image_kind_t	kind;
+    const char *	bootfile;
+    boolean_t		ppc_bootfile_no_subdir;
     NBImageType		type;
     NBImageTypeInfo	type_info;
     boolean_t		is_default;
@@ -76,6 +78,7 @@ typedef struct {
 } NBImageEntry, * NBImageEntryRef;
 
 boolean_t	NBImageEntry_supported_sysid(NBImageEntryRef entry, 
+					     const char * arch,
 					     const char * sysid);
 struct NBImageList_s;
 typedef struct NBImageList_s * NBImageListRef;
@@ -86,7 +89,8 @@ NBImageEntryRef NBImageList_elementWithID(NBImageListRef list, bsdp_image_id_t);
 NBImageListRef	NBImageList_init(NBSPListRef sharepoints);
 void		NBImageList_free(NBImageListRef * list);
 void		NBImageList_print(NBImageListRef images);
-NBImageEntryRef NBImageList_default(NBImageListRef images, const char * sysid,
+NBImageEntryRef NBImageList_default(NBImageListRef images, 
+				    const char * arch, const char * sysid,
 				    const u_int16_t * attrs, int n_attrs);
 boolean_t	NBImageEntry_attributes_match(NBImageEntryRef entry,
 					      const u_int16_t * attrs,

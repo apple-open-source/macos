@@ -17,6 +17,9 @@ typedef enum
 natd_match_t	natd_matches(struct ph1handle* iph1, struct isakmp_gen *natd_record);
 int				natd_create(struct ph1handle* iph1);
 int				natd_hasnat(const struct ph1handle* iph1);
+void 			natt_select_type(struct ph1handle* iph1);
+
+
 
 
 #endif /* __ISAKMP_NATD_H__ */

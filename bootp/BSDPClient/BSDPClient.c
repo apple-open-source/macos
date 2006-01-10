@@ -317,6 +317,10 @@ my_log(int priority, const char *message, ...)
     return;
 }
 
+static char * SystemIdentifierCopy(void);
+
+#if defined(__ppc__) || defined(__ppc64__)
+#define BSDP_ARCHITECTURE	"ppc"
 static NetBootVersion
 NetBootVersionGet()
 {
@@ -343,6 +347,48 @@ NetBootVersionGet()
     my_CFRelease(&properties);
     return (support);
 }
+
+static BSDPClientStatus
+CopyNetBootVersionAndSystemIdentifier(NetBootVersion * version_p,
+				      char * * system_id_p)
+{
+    *system_id_p = NULL;
+    *version_p = NetBootVersionGet();
+    if (*version_p == kNetBootVersionNone) {
+	return (kBSDPClientStatusUnsupportedFirmware);
+    }
+    *system_id_p = SystemIdentifierCopy();
+    if (*system_id_p == NULL) {
+	return (kBSDPClientStatusAllocationError);
+    }
+    return (kBSDPClientStatusOK);
+}
+
+#elif defined(__i386__)
+#define BSDP_ARCHITECTURE	"i386"
+
+static BSDPClientStatus
+CopyNetBootVersionAndSystemIdentifier(NetBootVersion * version_p,
+				      char * * system_id_p)
+{
+    *system_id_p = SystemIdentifierCopy();
+    if (*system_id_p == NULL) {
+	return (kBSDPClientStatusAllocationError);
+    }
+    *version_p = kNetBootVersion2;
+    return (kBSDPClientStatusOK);
+}
+
+#else
+
+static BSDPClientStatus
+CopyNetBootVersionAndSystemIdentifier(NetBootVersion * version_p,
+				      char * * system_id_p)
+{
+    return (kBSDPClientStatusUnsupportedFirmware);
+}
+
+#endif
 
 static char *
 SystemIdentifierCopy()
@@ -435,7 +481,7 @@ make_bsdp_request(char * system_id, struct dhcp * request, int pkt_size,
     }
     /* add our vendor class identifier */
     snprintf(vendor_class_id, sizeof(vendor_class_id),
-	     BSDP_VENDOR_CLASS_ID "/ppc/%s", system_id);
+	     BSDP_VENDOR_CLASS_ID "/" BSDP_ARCHITECTURE "/%s", system_id);
     if (dhcpoa_add(options_p, 
 		   dhcptag_vendor_class_identifier_e, 
 		   strlen(vendor_class_id), vendor_class_id) 
@@ -754,25 +800,16 @@ BSDPClientCreateWithInterfaceAndAttributes(BSDPClientStatus * status_p,
     CFSocketRef		socket = NULL;
     BSDPClientStatus	status = kBSDPClientStatusAllocationError;
     char *		system_id = NULL;
-    NetBootVersion	version = NetBootVersionGet();
+    BSDPClientStatus	this_status;
+    NetBootVersion	version;
 
-    switch (version) {
-    case kNetBootVersionNone:
-    default:
-	status = kBSDPClientStatusUnsupportedFirmware;
+    this_status = CopyNetBootVersionAndSystemIdentifier(&version, &system_id);
+    if (this_status != kBSDPClientStatusOK) {
+	status = this_status;
 	goto cleanup;
-	break;
-    case kNetBootVersion1:
-	old_firmware = TRUE;
-	client_version = htons(BSDP_VERSION_1_1);
-	break;
-    case kNetBootVersion2:
-	client_version = htons(BSDP_VERSION_1_1);
-	break;
     }
-    system_id = SystemIdentifierCopy();
-    if (system_id == NULL) {
-	goto cleanup;
+    if (version == kNetBootVersion1) {
+	old_firmware = TRUE;
     }
     ifl = ifl_init();
     if (ifl == NULL) {
@@ -1453,7 +1490,7 @@ BSDPClientSelectTimeout(BSDPClientRef client)
 }
 
 BSDPClientStatus
-BSPPClientSelect(BSDPClientRef client, 
+BSDPClientSelect(BSDPClientRef client, 
 		 CFStringRef ServerAddress,
 		 CFNumberRef Identifier,
 		 BSDPClientSelectCallBack callback, void * info)
@@ -1486,4 +1523,14 @@ BSPPClientSelect(BSDPClientRef client,
 
  failed:
     return (status);
+}
+
+BSDPClientStatus
+BSPPClientSelect(BSDPClientRef client, 
+		 CFStringRef ServerAddress,
+		 CFNumberRef Identifier,
+		 BSDPClientSelectCallBack callback, void * info)
+{
+    return (BSDPClientSelect(client, ServerAddress, Identifier,
+			     callback, info));
 }

@@ -294,7 +294,7 @@ BSDPClientList(BSDPClientRef client, BSDPClientListCallBack callback,
  *   info		The caller-supplied argument to pass to the callback.
  */
 BSDPClientStatus
-BSPPClientSelect(BSDPClientRef client, 
+BSDPClientSelect(BSDPClientRef client, 
 		 CFStringRef ServerAddress,
 		 CFNumberRef Identifier,
 		 BSDPClientSelectCallBack callback, void * info);

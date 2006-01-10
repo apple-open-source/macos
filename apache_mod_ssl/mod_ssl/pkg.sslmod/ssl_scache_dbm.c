@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2004 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2005 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -262,7 +262,11 @@ SSL_SESSION *ssl_scache_dbm_retrieve(server_rec *s, UCHAR *id, int idlen)
 
     /* unstreamed SSL_SESSION */
     ucpDataTmp = ucpData;
+#if SSL_LIBRARY_VERSION >= 0x00908000
+    sess = d2i_SSL_SESSION(NULL, (const unsigned char **)&ucpDataTmp, nData);
+#else
     sess = d2i_SSL_SESSION(NULL, &ucpDataTmp, nData);
+#endif
     free(ucpData);
 
     return sess;

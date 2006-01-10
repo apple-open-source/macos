@@ -57,7 +57,7 @@ is_bsdp_packet(dhcpol_t * rq_options, char * arch, char * sysid,
 
 void
 bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
-	     char * arch, char * sysid, dhcpol_t * rq_vsopt,
+	     const char * arch, const char * sysid, dhcpol_t * rq_vsopt,
 	     bsdp_version_t client_version, boolean_t is_old_netboot);
 
 boolean_t

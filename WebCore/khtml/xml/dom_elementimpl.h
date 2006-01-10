@@ -171,6 +171,8 @@ public:
     bool hasAttributes() const;
     
     void scrollIntoView (bool alignToTop);
+    void focus();
+    void blur();
     
     DOMString prefix() const { return m_prefix; }
     void setPrefix(const DOMString &_prefix, int &exceptioncode );

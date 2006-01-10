@@ -124,9 +124,6 @@
 #ifndef OPENSSL_NO_DES
 # include <openssl/des.h>
 #endif
-#ifndef OPENSSL_NO_IDEA
-# include <openssl/idea.h>
-#endif
 #ifndef OPENSSL_NO_BF
 # include <openssl/blowfish.h>
 #endif
@@ -187,9 +184,6 @@ int MAIN(int argc, char **argv)
 #endif
 #ifndef OPENSSL_NO_DES
 		printf("%s ",DES_options());
-#endif
-#ifndef OPENSSL_NO_IDEA
-		printf("%s ",idea_options());
 #endif
 #ifndef OPENSSL_NO_BF
 		printf("%s ",BF_options());

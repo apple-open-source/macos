@@ -546,7 +546,7 @@ isakmp_main(msg, remote, local)
 		if (cmpsaddrstrict(iph1->remote, remote) != 0) {
 #ifdef IKE_NAT_T
 			if (iph1->side == RESPONDER &&
-				(iph1->natt_flags & natt_remote_support) != 0 &&
+				(iph1->natt_flags & NATT_TYPE_MASK) != 0 &&
 				cmpsaddrwop(iph1->remote, remote) == 0)
 			{
 				/*

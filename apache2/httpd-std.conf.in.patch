@@ -19,5 +19,5 @@
 +# UFS volumes. See the following for details:
 +# http://docs.info.apple.com/article.html?artnum=300422
  #
- <Files ~ "^\.ht">
+ <FilesMatch "^\.ht">
      Order allow,deny

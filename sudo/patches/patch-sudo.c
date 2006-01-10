@@ -20,7 +20,7 @@
  /*
   * Globals
   */
-@@ -286,6 +292,7 @@
+@@ -288,6 +294,7 @@
      if (!def_stay_setuid && set_perms == set_perms_posix) {
  	if (setuid(0)) {
  	    perror("setuid(0)");
@@ -28,7 +28,7 @@
  	    exit(1);
  	}
  	set_perms = set_perms_nosuid;
-@@ -311,18 +318,22 @@
+@@ -313,18 +320,22 @@
      /* This goes after the sudoers parse since we honor sudoers options. */
      if (sudo_mode == MODE_KILL || sudo_mode == MODE_INVALIDATE) {
  	remove_timestamp((sudo_mode == MODE_KILL));
@@ -52,7 +52,7 @@
  	exit(1);
      }
  
-@@ -341,8 +352,10 @@
+@@ -343,8 +354,10 @@
  
      /* Bail if a tty is required and we don't have one.  */
      if (def_requiretty) {
@@ -64,7 +64,7 @@
  	else
  	    (void) close(fd);
      }
-@@ -374,31 +387,40 @@
+@@ -376,23 +376,31 @@
  	/* Finally tell the user if the command did not exist. */
  	if (cmnd_status == NOT_FOUND_DOT) {
  	    warnx("ignoring `%s' found in '.'\nUse `sudo ./%s' if this is the `%s' you wish to run.", user_cmnd, user_cmnd, user_cmnd);
@@ -91,22 +91,13 @@
  	    exit(0);
  	}
  
- 	/* This *must* have been set if we got a match but... */
- 	if (safe_cmnd == NULL) {
-+	    audit_fail(runas_pw, "internal error - safe_cmnd");
- 	    log_error(MSG_ONLY,
- 		"internal error, safe_cmnd never got set for %s; %s",
- 		user_cmnd,
- 		"please report this error at http://courtesan.com/sudo/bugs/");
- 	}
- 
 +	/* sudo operation succeeded */
 +	audit_success(runas_pw);
 +
  	/* Override user's umask if configured to do so. */
  	if (def_umask != 0777)
  	    (void) umask(def_umask);
-@@ -457,6 +479,7 @@
+@@ -451,6 +473,7 @@
  	exit(127);
      } else if (ISSET(validated, FLAG_NO_USER) || (validated & FLAG_NO_HOST)) {
  	log_auth(validated, 1);
@@ -114,7 +105,7 @@
  	exit(1);
      } else if (ISSET(validated, VALIDATE_NOT_OK)) {
  	if (def_path_info) {
-@@ -477,10 +500,12 @@
+@@ -471,10 +494,12 @@
  	    /* Just tell the user they are not allowed to run foo. */
  	    log_auth(validated, 1);
  	}
@@ -127,7 +118,7 @@
  	exit(1);
      }
      exit(0);	/* not reached */
-@@ -498,8 +523,10 @@
+@@ -492,8 +517,10 @@
      int nohostname, rval;
  
      /* Sanity check command from user. */
@@ -139,7 +130,7 @@
  
  #ifdef HAVE_TZSET
      (void) tzset();		/* set the timezone if applicable */
-@@ -609,8 +636,10 @@
+@@ -603,8 +630,10 @@
  	    NewArgv[0] = runas_pw->pw_shell;
  	else if (user_shell && *user_shell)
  	    NewArgv[0] = user_shell;
@@ -186,7 +177,7 @@
 +	if (runas_pw->pw_name == NULL) {
 +	    audit_fail(NULL, "uid does not exist in passwd file");
  	    log_error(NO_MAIL|MSG_ONLY, "no passwd entry for %lu!",
- 		runas_pw->pw_uid);
+ 		(unsigned long) runas_pw->pw_uid);
 +	}
  	pw = runas_pw;
      } else

@@ -172,6 +172,10 @@ void HTMLBodyElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
         getDocument()->setHTMLWindowEventListener(EventImpl::LOAD_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string(), NULL));
         break;
+    case ATTR_ONBEFOREUNLOAD:
+        getDocument()->setHTMLWindowEventListener(EventImpl::BEFOREUNLOAD_EVENT,
+	    getDocument()->createHTMLEventListener(attr->value().string(), NULL));
+        break;
     case ATTR_ONUNLOAD:
         getDocument()->setHTMLWindowEventListener(EventImpl::UNLOAD_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string(), NULL));
@@ -393,6 +397,10 @@ void HTMLFrameElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
         setHTMLEventListener(EventImpl::LOAD_EVENT,
                                 getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
+    case ATTR_ONBEFOREUNLOAD:
+        setHTMLEventListener(EventImpl::BEFOREUNLOAD_EVENT,
+                                getDocument()->createHTMLEventListener(attr->value().string(), this));
+        break;
     case ATTR_ONUNLOAD:
         setHTMLEventListener(EventImpl::UNLOAD_EVENT,
                                 getDocument()->createHTMLEventListener(attr->value().string(), this));
@@ -458,7 +466,7 @@ void HTMLFrameElementImpl::attach()
     part->requestFrame( static_cast<RenderFrame*>(m_render), relativeURL.string(), name.string() );
 }
 
-void HTMLFrameElementImpl::detach()
+void HTMLFrameElementImpl::close()
 {
     KHTMLPart *part = getDocument()->part();
 
@@ -468,7 +476,25 @@ void HTMLFrameElementImpl::detach()
         if (framePart)
             framePart->frameDetached();
     }
+}
 
+void HTMLFrameElementImpl::willRemove()
+{
+    // close the frame and dissociate the renderer, but leave the
+    // node attached so that frame does not get re-attached before
+    // actually leaving the document.  see <rdar://problem/4132581>
+    close();
+    if (m_render) {
+        m_render->detach();
+        m_render = 0;
+    }
+    
+    HTMLElementImpl::willRemove();
+}
+
+void HTMLFrameElementImpl::detach()
+{
+    close();
     HTMLElementImpl::detach();
 }
 
@@ -592,6 +618,10 @@ void HTMLFrameSetElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
         setHTMLEventListener(EventImpl::LOAD_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
+    case ATTR_ONBEFOREUNLOAD:
+        setHTMLEventListener(EventImpl::BEFOREUNLOAD_EVENT,
+	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+        break;
     case ATTR_ONUNLOAD:
         setHTMLEventListener(EventImpl::UNLOAD_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string(), this));
@@ -639,15 +669,6 @@ void HTMLFrameSetElementImpl::defaultEventHandler(EventImpl *evt)
     }
 
     HTMLElementImpl::defaultEventHandler(evt);
-}
-
-void HTMLFrameSetElementImpl::detach()
-{
-    if(attached())
-        // ### send the event when we actually get removed from the doc instead of here
-        dispatchHTMLEvent(EventImpl::UNLOAD_EVENT,false,false);
-
-    HTMLElementImpl::detach();
 }
 
 void HTMLFrameSetElementImpl::recalcStyle( StyleChange ch )

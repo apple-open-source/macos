@@ -735,6 +735,7 @@ ipsecdoi_selectph2proposal(iph2)
 	/* make a SA to be replayed. */
 	/* SPI must be updated later. */
 	iph2->sa_ret = get_sabyproppair(ret, iph2->ph1);
+	
 	free_proppair0(ret);
 	if (iph2->sa_ret == NULL)
 		return -1;
@@ -2084,8 +2085,10 @@ check_attr_ipsec(proto_id, trns)
 			switch (lorv) {
 			case IPSECDOI_ATTR_ENC_MODE_TUNNEL:
 			case IPSECDOI_ATTR_ENC_MODE_TRNS:
-			case IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL:
-			case IPSECDOI_ATTR_ENC_MODE_UDP_TRNS:
+			case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC:
+			case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC:
+			case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT:
+			case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT:
 				break;
 			default:
 				plog(LLV_ERROR, LOCATION, NULL,
@@ -2261,8 +2264,10 @@ check_attr_ipcomp(trns)
 			switch (lorv) {
 			case IPSECDOI_ATTR_ENC_MODE_TUNNEL:
 			case IPSECDOI_ATTR_ENC_MODE_TRNS:
-			case IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL:
-			case IPSECDOI_ATTR_ENC_MODE_UDP_TRNS:
+			case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC:
+			case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC:
+			case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT:
+			case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT:
 				break;
 			default:
 				plog(LLV_ERROR, LOCATION, NULL,
@@ -2806,16 +2811,26 @@ ipsecdoi_setph2proposal(iph2)
 			 * we last set pr->encmode. We need to fix this if
 			 * we now have a NAT. NAT-T doesn't work with AH.
 			 */
-			if (iph2->ph1 && natd_hasnat(iph2->ph1) &&
+			int nattype;
+			if (iph2->ph1 && (nattype = natd_hasnat(iph2->ph1)) &&
 				b->proto_id != IPSECDOI_PROTO_IPSEC_AH)
 			{
 				switch (b->encmode)
 				{
+					
 					case IPSECDOI_ATTR_ENC_MODE_TUNNEL:
-						b->encmode = IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL;
+						if (nattype == natt_type_rfc ||
+							nattype == natt_type_apple)
+							b->encmode = IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC;
+						else
+							b->encmode = IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT;
 						break;
 					case IPSECDOI_ATTR_ENC_MODE_TRNS:
-						b->encmode = IPSECDOI_ATTR_ENC_MODE_UDP_TRNS;
+						if (nattype == natt_type_rfc ||
+							nattype == natt_type_apple)
+							b->encmode = IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC;
+						else
+							b->encmode = IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT;							
 						break;
 				}
 			}
@@ -2851,6 +2866,28 @@ ipsecdoi_setph2proposal(iph2)
 }
 
 /*
+ * return 1 if all of the proposed protocols are tunnel mode.
+ */
+int
+ipsecdoi_tunnelmode(iph2)
+	struct ph2handle *iph2;
+{
+	struct saprop *pp;
+	struct saproto *pr = NULL;
+
+	for (pp = iph2->proposal; pp; pp = pp->next) {
+		for (pr = pp->head; pr; pr = pr->next) {
+			if (pr->encmode != IPSECDOI_ATTR_ENC_MODE_TUNNEL &&
+				pr->encmode != IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC &&
+				pr->encmode != IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT)
+				return 0;
+		}
+	}
+
+	return 1;
+}
+
+/*
  * return 1 if all of the proposed protocols are transport mode.
  */
 int
@@ -2863,13 +2900,15 @@ ipsecdoi_transportmode(iph2)
 	for (pp = iph2->proposal; pp; pp = pp->next) {
 		for (pr = pp->head; pr; pr = pr->next) {
 			if (pr->encmode != IPSECDOI_ATTR_ENC_MODE_TRNS &&
-				pr->encmode != IPSECDOI_ATTR_ENC_MODE_UDP_TRNS)
+				pr->encmode != IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC &&
+				pr->encmode != IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT)
 				return 0;
 		}
 	}
 
 	return 1;
 }
+
 
 int
 ipsecdoi_get_defaultlifetime()
@@ -2987,9 +3026,11 @@ ipsecdoi_checkid1(iph1)
 
 	id_b = (struct ipsecdoi_id_b *)iph1->id_p->v;
 
-	/* In main mode with pre-shared key, only address type can be used. */
+	/* 	In main mode with pre-shared key, only address type can be used. 
+		If NAT Traversal draft 02 being used - allow this.  	*/
 	if (iph1->etype == ISAKMP_ETYPE_IDENT
-	 && iph1->approval->authmethod == OAKLEY_ATTR_AUTH_METHOD_PSKEY) {
+	 && iph1->approval->authmethod == OAKLEY_ATTR_AUTH_METHOD_PSKEY
+	 && !natd_hasnat(iph1)) {
 		 if (id_b->type != IPSECDOI_ID_IPV4_ADDR
 		  && id_b->type != IPSECDOI_ID_IPV6_ADDR) {
 			plog(LLV_ERROR, LOCATION, NULL,

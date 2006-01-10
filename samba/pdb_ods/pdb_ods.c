@@ -1,3 +1,4 @@
+
 /* 
    Unix SMB/CIFS implementation.
    passdb opendirectory backend
@@ -16,6 +17,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
+#ifdef USES_KEYCHAIN
+#include <Security/Security.h>
+#endif
 
 #include "includes.h"
 
@@ -108,7 +112,6 @@ typedef struct opendirectory_secret_header {
 
 #ifdef USES_KEYCHAIN
 #include <CoreFoundation/CoreFoundation.h>
-#include <Security/Security.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 //#include <CoreServices/CoreServices.h>
 
@@ -795,15 +798,15 @@ static tDirStatus set_password(struct odssam_privates *ods_state, tDirNodeRefere
 	tDataNodePtr	recordType		= NULL;
 	char			*password		= NULL;
 	unsigned long	passwordLen		= 0;
-#if defined(kDSStdAuthSetNTHash) && defined(kDSStdAuthSetLMHash)
+#if defined(kDSStdAuthSetWorkstationPasswd) && defined(kDSStdAuthSetLMHash)
 	uint8			binarypwd[NT_HASH_LEN];
 #endif
 
 	if (strcmp(passwordType, kDSStdAuthSetPasswdAsRoot) == 0) {
 		password = passwordstring;
 		passwordLen = strlen( password );
-#if defined(kDSStdAuthSetNTHash) && defined(kDSStdAuthSetLMHash)
-	} else if (strcmp(passwordType, kDSStdAuthSetNTHash) == 0 || strcmp(passwordType, kDSStdAuthSetLMHash) == 0) {
+#if defined(kDSStdAuthSetWorkstationPasswd) && defined(kDSStdAuthSetLMHash)
+	} else if (strcmp(passwordType, kDSStdAuthSetWorkstationPasswd) == 0 || strcmp(passwordType, kDSStdAuthSetLMHash) == 0) {
 		if (pdb_gethexpwd(passwordstring, binarypwd)) {
 			password = binarypwd;
 			passwordLen = NT_HASH_LEN;
@@ -1234,6 +1237,7 @@ tDirStatus get_sam_record_by_attr(struct odssam_privates *ods_state, CFMutableAr
         delete_data_node(ods_state, searchType);
         delete_data_node(ods_state, searchValue);
     }
+	DEBUG (4, ("[%d]get_sam_record_by_attr type(%s), attr(%s) value (%s)\n",status, type, attr, value));
     return status;
 }
 
@@ -1652,8 +1656,8 @@ tDirStatus add_record_attributes(struct odssam_privates *ods_state, CFDictionary
 
 			if (isKey && isValue) {
 				if (strcmp(key, kDSStdAuthSetPasswdAsRoot) == 0 
-#if defined(kDSStdAuthSetNTHash) && defined(kDSStdAuthSetLMHash)
-				|| strcmp(key, kDSStdAuthSetNTHash) == 0 || strcmp(key, kDSStdAuthSetLMHash) == 0 
+#if defined(kDSStdAuthSetWorkstationPasswd) && defined(kDSStdAuthSetLMHash)
+				|| strcmp(key, kDSStdAuthSetWorkstationPasswd) == 0 || strcmp(key, kDSStdAuthSetLMHash) == 0 
 #endif					
 				) {
 					status = set_password(ods_state, nodeReference, userName, value, key, recordType);
@@ -2207,7 +2211,7 @@ static BOOL init_ods_from_sam (struct odssam_privates *ods_state, BOOL pdb_add, 
 //	if ((pdb_get_acct_ctrl(sampass)&(ACB_WSTRUST|ACB_SVRTRUST|ACB_DOMTRUST))) {
 	if ((pdb_get_acct_ctrl(sampass)&(ACB_WSTRUST|ACB_SVRTRUST|ACB_DOMTRUST|ACB_NORMAL))) {
 
-#if defined(kDSStdAuthSetNTHash) && defined(kDSStdAuthSetLMHash)
+#if defined(kDSStdAuthSetWorkstationPasswd) && defined(kDSStdAuthSetLMHash)
 		if (need_ods_mod(pdb_add, sampass, PDB_LMPASSWD)) {
 			pdb_sethexpwd (temp, pdb_get_lanman_passwd(sampass), pdb_get_acct_ctrl(sampass));
 			make_a_mod (userEntry, kDSStdAuthSetLMHash, temp);
@@ -2215,7 +2219,7 @@ static BOOL init_ods_from_sam (struct odssam_privates *ods_state, BOOL pdb_add, 
 		
 		if (need_ods_mod(pdb_add, sampass, PDB_NTPASSWD)) {
 			pdb_sethexpwd (temp, pdb_get_nt_passwd(sampass), pdb_get_acct_ctrl(sampass));
-			make_a_mod (userEntry, kDSStdAuthSetNTHash, temp);
+			make_a_mod (userEntry, kDSStdAuthSetWorkstationPasswd, temp);
 		}
 #endif		
 		if (need_ods_mod(pdb_add, sampass, PDB_PLAINTEXT_PW)) {
@@ -2411,7 +2415,7 @@ static NTSTATUS odssam_getsampwsid(struct pdb_methods *my_methods, SAM_ACCOUNT *
 	NTSTATUS ret = NT_STATUS_UNSUCCESSFUL;
 	struct odssam_privates *ods_state = (struct odssam_privates *)my_methods->private_data;
     CFMutableArrayRef usersArray = NULL;
-#if USE_ALGORITHMIC_RID
+#ifdef USE_ALGORITHMIC_RID
 	uint32 uid = 99;
 	pstring uid_string;
 #endif
@@ -2442,7 +2446,7 @@ static NTSTATUS odssam_getsampwsid(struct pdb_methods *my_methods, SAM_ACCOUNT *
 	snprintf(rid_string, sizeof(rid_string) - 1, "%i", rid);
 	DEBUG(4,("odssam_getsampwsid: rid<%s>\n", rid_string));
 
-#if USE_ALGORITHMIC_RID
+#ifdef USE_ALGORITHMIC_RID
 	uid = algorithmic_pdb_user_rid_to_uid(rid);
 	snprintf(uid_string, sizeof(uid_string) - 1, "%i", uid);
 #endif
@@ -2459,7 +2463,7 @@ static NTSTATUS odssam_getsampwsid(struct pdb_methods *my_methods, SAM_ACCOUNT *
 	} else if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeComputers, kDS1AttrSMBRID, sid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)) {
 		DEBUG(4,("odssam_getsampwsid: kDSStdRecordTypeUsers RID<%s>\n", rid_string));
 	} else
-#if USE_ALGORITHMIC_RID
+#ifdef USE_ALGORITHMIC_RID
 	if (algorithmic_pdb_rid_is_user(rid) &&
 			((get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeUsers, kDS1AttrUniqueID, uid_string, True) == eDSNoErr) && (CFArrayGetCount(usersArray) != 0))){
 		DEBUG(4,("odssam_getsampwsid: kDSStdRecordTypeUsers RID<%s> -> UID<%s>\n", rid_string, uid_string));
@@ -2787,7 +2791,7 @@ static NTSTATUS odssam_getgrsid(struct pdb_methods *my_methods, GROUP_MAP *map, 
 	NTSTATUS ret = NT_STATUS_UNSUCCESSFUL;
 	struct odssam_privates *ods_state = (struct odssam_privates *)my_methods->private_data;
     CFMutableArrayRef usersArray = NULL;
-#if USE_ALGORITHMIC_RID
+#ifdef USE_ALGORITHMIC_RID
 	uint32 gid = 99;
 	pstring gid_string;
 #endif
@@ -2809,9 +2813,10 @@ static NTSTATUS odssam_getgrsid(struct pdb_methods *my_methods, GROUP_MAP *map, 
 	snprintf(rid_string, sizeof(rid_string) - 1, "%i", rid);
 	DEBUG(4,("odssam_getgrsid: rid<%s>\n", rid_string));
 
-#if USE_ALGORITHMIC_RID
+#ifdef USE_ALGORITHMIC_RID
 	gid = pdb_group_rid_to_gid(rid);
 	snprintf(gid_string, sizeof(gid_string) - 1, "%i", gid);
+	DEBUG(4,("odssam_getgrsid: gid<%s>\n", gid_string));
 #endif
 
 #if defined(kDS1AttrSMBSID)
@@ -2821,8 +2826,8 @@ if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1At
 #endif	
 		if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrSMBRID, rid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)) {
 		DEBUG(4,("odssam_getgrsid: kDS1AttrSMBRID found\n"));		
-#if USE_ALGORITHMIC_RID
-	} else  if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrPrimaryGroupID, gid_string, True) != eDSNoErr && (CFArrayGetCount(usersArray) != 0)){
+#ifdef USE_ALGORITHMIC_RID
+	} else  if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrPrimaryGroupID, gid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)){
 		DEBUG(4,("odssam_getgrsid: rid(%d) -> gid(%d)\n", rid, gid));	
 #endif
 	} else {
@@ -2901,9 +2906,14 @@ static NTSTATUS odssam_getgrnam(struct pdb_methods *methods, GROUP_MAP *map, cha
 	struct odssam_privates *ods_state = (struct odssam_privates *)methods->private_data;
 
     CFMutableArrayRef recordsArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    
-	if (((dirStatus = get_sam_record_attributes(ods_state, recordsArray, kDSStdRecordTypeGroups, name, true)) != eDSNoErr) || (CFArrayGetCount(recordsArray) == 0)) {
-		DEBUG(0,("odssam_getgrnam: [%d]get_sam_record_attributes %s no account for '%s'!\n", dirStatus, kDSStdRecordTypeGroups, name));
+
+	if (get_sam_record_by_attr(ods_state, recordsArray, kDSStdRecordTypeGroups, kDSNAttrRecordName, name, True) == eDSNoErr && (CFArrayGetCount(recordsArray) != 0)) {
+		DEBUG(4,("odssam_getgrnam: kDSStdRecordTypeGroups kDSNAttrRecordName<%s>\n", name));
+	 } else if (get_sam_record_by_attr(ods_state, recordsArray, kDSStdRecordTypeGroups, kDS1AttrDistinguishedName, name, True) == eDSNoErr && (CFArrayGetCount(recordsArray) != 0)) {
+		DEBUG(4,("odssam_getgrnam: kDSStdRecordTypeGroups kDS1AttrDistinguishedName<%s>\n", name));
+	} else {
+//	if (((dirStatus = get_sam_record_attributes(ods_state, recordsArray, kDSStdRecordTypeGroups, name, true)) != eDSNoErr) || (CFArrayGetCount(recordsArray) == 0)) {
+		DEBUG(0,("odssam_getgrnam: %s no account for '%s'!\n", dirStatus, kDSStdRecordTypeGroups, name));
 		ret = NT_STATUS_UNSUCCESSFUL;
 	}
 /* handle duplicates - currently uses first match in search policy*/

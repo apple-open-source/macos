@@ -10,6 +10,7 @@
 
 JBOSS_HOME=/Library/JBoss/3.2
 RUNFILE=$JBOSS_HOME/run/jboss.pid
+JAVA=/System/Library/Frameworks/JavaVM.framework/Versions/1.4/Home/bin/java
 
 if [ ! -e $RUNFILE ] ; then
     touch $RUNFILE
@@ -70,7 +71,7 @@ trap 'kill -9 $PID; /bin/rm -rf $JBOSSTMPDIR; cat </dev/null >$RUNFILE 2>/dev/nu
 umask 022
 
 # Execute the JVM
-$JAVA $JAVA_OPTS -classpath $JBOSS_HOME/bin/run.jar org.jboss.Main "$@" &
+/System/Library/Frameworks/JavaVM.framework/Versions/1.4/Home/bin/java $JAVA_OPTS -classpath $JBOSS_HOME/bin/run.jar org.jboss.Main "$@" &
 PID=$!
 /bin/echo $PID 2>/dev/null >$RUNFILE 
 wait $PID

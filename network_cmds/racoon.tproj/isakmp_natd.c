@@ -82,19 +82,6 @@ natd_create(
 	{
 		/*
 		 * NAT traversal is intentionally unsupported on IPv6.
-		 * 
-		 * The only reason for using NAT is a lack of addresses.
-		 * IPv6 does not suffer from a lack of addresses. If I
-		 * find that anyone is using NAT with IPv6, I would break
-		 * their kneecaps and poke their eyes out with sharp
-		 * sticks. I don't really want to go to jail though, so
-		 * instead, I'll spare myself the effort of support nat
-		 * traversal magic when IPv6 is involved in hopes this will
-		 * cause boneheads who would try to use IPv6 NAT to give up
-		 * since so many things will stop working. I'm sick of
-		 * working around all of the problems that NATs introduce.
-		 *
-		 * IPv6 is our opportunity to move to a NAT free world.
 		 */
 		return -1;
 	}
@@ -145,15 +132,64 @@ natd_create(
 #endif
 }
 
+/* returns the natt type - or 0 if no natt */
 int
 natd_hasnat(
 	const struct ph1handle* iph1)
 {
 #if IKE_NAT_T
-	return (iph1->natt_flags & natt_natd_received) &&
-		(iph1->natt_flags & (natt_no_remote_nat | natt_no_local_nat)) != 
-		(natt_no_remote_nat | natt_no_local_nat);
-#else
-	return 0;
+	if ((iph1->natt_flags & natt_natd_received) &&
+		((iph1->natt_flags & (natt_no_remote_nat | natt_no_local_nat)) != 
+		(natt_no_remote_nat | natt_no_local_nat)))
+		return iph1->natt_flags & NATT_TYPE_MASK;
+	else
+#endif
+		return 0;
+
+}
+
+
+void
+natt_select_type(struct ph1handle* iph1)
+{
+#if IKE_NAT_T
+	int 	flags = iph1->natt_flags;
+	
+	if ((flags & NATT_TYPE_MASK) == 0) {
+		iph1->natd_payload_type = 0;
+		return;
+	}
+	
+	iph1->natt_flags &= ~NATT_TYPE_MASK;	// clear natt type flags
+	
+	/* set the type we prefer */
+	if (flags & natt_type_rfc) {
+		iph1->natt_flags |= natt_type_rfc;
+		iph1->natd_payload_type = ISAKMP_NPTYPE_NATD_RFC;
+		plog(LLV_DEBUG, LOCATION, NULL,
+			"choosing natt type RFC\n"); 
+
+	} else if (flags & natt_type_apple) {
+		iph1->natt_flags |= natt_type_apple;
+		iph1->natd_payload_type = ISAKMP_NPTYPE_NATD_BADDRAFT;
+		plog(LLV_DEBUG, LOCATION, NULL,
+			"choosing natt type APPLE\n"); 
+	} else {
+		iph1->natd_payload_type = ISAKMP_NPTYPE_NATD_DRAFT;
+		if (flags & natt_type_02) {
+			iph1->natt_flags |= natt_type_02;
+			plog(LLV_DEBUG, LOCATION, NULL,
+				"choosing natt type 02\n"); 
+		} else {
+			iph1->natt_flags |= natt_type_02N;
+			plog(LLV_DEBUG, LOCATION, NULL,
+				"choosing natt type 02N\n"); 
+		}
+
+	}
+	
 #endif
 }
+	
+
+

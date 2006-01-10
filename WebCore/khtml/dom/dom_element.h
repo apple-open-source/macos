@@ -556,6 +556,9 @@ public:
      * not part of the DOM
      */
     bool isHTMLElement() const;
+    
+    void focus();
+    void blur();
 
     static bool khtmlValidAttrName(const DOMString &name);
     static bool khtmlValidPrefix(const DOMString &name);

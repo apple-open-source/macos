@@ -351,7 +351,15 @@ const QChar &BidiIterator::current() const
     return text->text()[pos];
 }
 
-inline QChar::Direction BidiIterator::direction() const
+#ifndef ALWAYS_INLINE
+#if defined(__GNUC__) && (__GNUC__ > 3)
+#define ALWAYS_INLINE __attribute__ ((always_inline))
+#else
+#define ALWAYS_INLINE inline
+#endif
+#endif
+
+ALWAYS_INLINE QChar::Direction BidiIterator::direction() const
 {
     if (!obj)
         return QChar::DirON;
@@ -2129,7 +2137,7 @@ BidiIterator RenderBlock::findNextLineBreak(BidiIterator &start, BidiState &bidi
 #ifdef DEBUG_LINEBREAKS
                     kdDebug(6041) << "found space at " << pos << " in string '" << QString( str, strlen ).latin1() << "' adding " << tmpW << " new width = " << w << endl;
 #endif
-                    if ( !isPre && w + tmpW > width && w == 0 ) {
+                    if (!isPre && w + tmpW > width && w == 0) {
                         int fb = nearestFloatBottom(m_height);
                         int newLineWidth = lineWidth(fb);
                         // See if |tmpW| will fit on the new line.  As long as it does not,

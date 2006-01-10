@@ -33,6 +33,9 @@
 
 #include <security_utilities/pcsc++.h>
 
+#define BELPIC_MIN_PIN_LEN	4
+#define BELPIC_MAX_PIN_LEN	12
+
 class BELPICSchema;
 
 //

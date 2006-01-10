@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -1757,11 +1756,30 @@ static	OSErr	FixOrphanedExtent( SGlobPtr GPtr )
 #endif
 }
 
-
-//
-//	File records, which have the kHFSThreadExistsMask set, but do not have a corresponding
-//	thread, or threads which do not have corresponding records get fixed here.
-//
+/* Function: FixOrphanedFiles
+ *
+ * Description:
+ *	Incorrect number of thread records get fixed in this function.
+ *
+ *	The function traverses the entire catalog Btree.  
+ *
+ *	For a file/folder record, it tries to lookup its corresponding thread
+ *	record.  If the thread record does not exist, a new thread record is 
+ *  created.  If the thread record is not correct, the incorrect thread 
+ *  record is deleted and a new thread record is created.  The parent ID 
+ *  and the name of the file/folder are compared for correctness. 
+ *	For plain HFS, a thread record is only looked-up if kHFSThreadExistsMask is set.
+ *
+ *	For a thread record, it tries to lookup its corresponding file/folder 
+ *	record.  If its does not exist or is not correct, the thread record
+ *	is deleted.  The file/folder ID is compared for correctness.
+ *
+ * Input:	1. GPtr - pointer to global scavenger area
+ * 
+ * Return value:	
+ * 		      zero means success
+ *		      non-zero means failure
+ */
 static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 {
 	CatalogKey			key;
@@ -1779,7 +1797,7 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 	OSErr				err;
 	UInt16				recordSize;
 	SInt16				recordType;
-	SInt16				selCode				= 0x8001;
+	SInt16				selCode				= 0x8001;	/* Get first record */
 	Boolean				isHFSPlus;
 	BTreeControlBlock	*btcb				= GetBTreeControlBlock( kCalculatedCatalogRefNum );
 
@@ -1794,7 +1812,7 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 		if ( err != noErr ) break;
 		CopyMemory( &btcb->lastIterator, &savedIterator, sizeof(BTreeIterator) );
 	
-		selCode		= 1;														//	 kNextRecord			
+		selCode		= 1;	//	 kNextRecord			
 		recordType	= record.recordType;
 		
 		switch( recordType )
@@ -1810,7 +1828,7 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 				
 				//	Locate the thread associated with this record
 				
-				(void) CheckForStop( GPtr );										//	rotate cursor
+				(void) CheckForStop( GPtr );		//	rotate cursor
 
 				parentID	= isHFSPlus == true ? foundKey.hfsPlus.parentID : foundKey.hfs.parentID;
 				threadHint	= hint;
@@ -1827,33 +1845,81 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 				BuildCatalogKey( cNodeID, nil, isHFSPlus, &key );
 
 				err = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint, 
-										 &foundKey, &threadRecord, &recordSize, &hint2 );
-				if ( err != noErr )
-				{
-					//	For missing thread records, just create the thread
-					if ( err == btNotFound )
-					{
-						//	Create the missing thread record.
-						Boolean		isDirectory;
-						
-						isDirectory = false;
-						switch( recordType )
-						{
-							case kHFSFolderRecord:
-							case kHFSPlusFolderRecord:	
-								isDirectory = true;		
-								break;
+										 &tempKey, &threadRecord, &recordSize, &hint2 );
+
+				/* We found a thread record for this file/folder record. */
+				if (err == noErr) {
+					/* Check if the parent ID and nodeName are same.  If not, we are 
+					 * missing a correct thread record.  Force btNotFound in such case.
+					 */
+					if (isHFSPlus) {
+						/* Compare parent ID */
+						if (parentID != threadRecord.hfsPlusThread.parentID) {
+							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
+							err = btNotFound;
+							if (GPtr->logLevel >= kDebugLog) {
+								printf ("\t%s: parentID for id=%u do not match (fileKey=%u threadRecord=%u)\n", __FUNCTION__, cNodeID, parentID, threadRecord.hfsPlusThread.parentID);
+							}
 						}
 
-						//-- Fill out the data for the new file thread
-						recordSize = BuildThreadRec( &foundKey, &threadRecord, isHFSPlus, 
-													 isDirectory );
-						err = InsertBTreeRecord( GPtr->calculatedCatalogFCB, &key,
-												 &threadRecord, recordSize, &threadHint );
+						/* Compare nodeName from file/folder key and thread record */
+						if (!((foundKey.hfsPlus.nodeName.length == threadRecord.hfsPlusThread.nodeName.length) 
+						    && (!bcmp(foundKey.hfsPlus.nodeName.unicode, 
+								      threadRecord.hfsPlusThread.nodeName.unicode,
+									  foundKey.hfsPlus.nodeName.length * 2)))) {
+							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
+							err = btNotFound;
+							if (GPtr->logLevel >= kDebugLog) {
+								printf ("\t%s: nodeName for id=%u do not match\n", __FUNCTION__, cNodeID);
+							}
+						}
+					} else {
+						/* Compare parent ID */
+						if (parentID != threadRecord.hfsThread.parentID) {
+							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
+							err = btNotFound;
+							if (GPtr->logLevel >= kDebugLog) {
+								printf ("\t%s: parentID for id=%u do not match (fileKey=%u threadRecord=%u)\n", __FUNCTION__, cNodeID, parentID, threadRecord.hfsThread.parentID);
+							}
+						}
+
+						/* Compare nodeName from file/folder key and thread record */
+						if (!((foundKey.hfs.nodeName[0] == threadRecord.hfsThread.nodeName[0]) 
+						    && (!bcmp(&foundKey.hfs.nodeName[1], 
+								      &threadRecord.hfsThread.nodeName[1],
+									  foundKey.hfs.nodeName[0])))) {
+							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
+							err = btNotFound;
+							if (GPtr->logLevel >= kDebugLog) {
+								printf ("\t%s: nodeName for id=%u do not match\n", __FUNCTION__, cNodeID);
+							}
+						}
 					}
-					else
+				} /* err == noErr */ 
+
+				//	For missing thread records, just create the thread
+				if ( err == btNotFound )
+				{
+					//	Create the missing thread record.
+					Boolean		isDirectory;
+					
+					isDirectory = false;
+					switch( recordType )
 					{
-						break;
+						case kHFSFolderRecord:
+						case kHFSPlusFolderRecord:	
+							isDirectory = true;		
+							break;
+					}
+
+					//-- Fill out the data for the new file thread from the key 
+					// of catalog file/folder record
+					recordSize = BuildThreadRec( &foundKey, &threadRecord, isHFSPlus, 
+												 isDirectory );
+					err = InsertBTreeRecord( GPtr->calculatedCatalogFCB, &key,
+											 &threadRecord, recordSize, &threadHint );
+					if (GPtr->logLevel >= kDebugLog) {
+						printf ("\t%s: Created thread record for id=%u (err=%u)\n", __FUNCTION__, cNodeID, err);
 					}
 				}
 			
@@ -1872,15 +1938,53 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 					BuildCatalogKey( record.hfsThread.parentID, (const CatalogName *)&record.hfsThread.nodeName, isHFSPlus, &key );
 				
 				err = SearchBTreeRecord ( GPtr->calculatedCatalogFCB, &key, kNoHint, &tempKey, &record2, &recordSize, &hint2 );
+
+				/* We found a file/folder record for this thread record. */
+				if (err == noErr) {
+					/* Check if the file/folder ID are same.  If not, we are missing a 
+					 * correct file/folder record.  Delete the extra thread record
+					 */
+					if (isHFSPlus) {
+						/* Compare file/folder ID */
+						if (foundKey.hfsPlus.parentID != record2.hfsPlusFile.fileID) {
+							err = btNotFound;
+							if (GPtr->logLevel >= kDebugLog) {
+								printf ("\t%s: fileID do not match (threadKey=%u fileRecord=%u), parentID=%u\n", __FUNCTION__, foundKey.hfsPlus.parentID, record2.hfsPlusFile.fileID, record.hfsPlusThread.parentID);
+							}
+						}
+					} else {
+						/* Compare file/folder ID */
+						if (foundKey.hfs.parentID != record2.hfsFile.fileID) {
+							err = btNotFound;
+							if (GPtr->logLevel >= kDebugLog) {
+								if (recordType == kHFSFolderThreadRecord) {
+									printf ("\t%s: fileID do not match (threadKey=%u fileRecord=%u), parentID=%u\n", __FUNCTION__, foundKey.hfs.parentID, record2.hfsFolder.folderID, record.hfsThread.parentID);
+								} else {
+									printf ("\t%s: fileID do not match (threadKey=%u fileRecord=%u), parentID=%u\n", __FUNCTION__, foundKey.hfs.parentID, record2.hfsFile.fileID, record.hfsThread.parentID);
+								}
+							}
+						}
+					}
+				} /* if (err == noErr) */
+
 				if ( err != noErr )
 				{
 					err = DeleteBTreeRecord( GPtr->calculatedCatalogFCB, &foundKey );
+					if (GPtr->logLevel >= kDebugLog) {
+						if (isHFSPlus) {
+							printf ("\t%s: Deleted thread record for id=%d (err=%d)\n", __FUNCTION__, foundKey.hfsPlus.parentID, err);
+						} else {
+							printf ("\t%s: Deleted thread record for id=%d (err=%d)\n", __FUNCTION__, foundKey.hfs.parentID, err);
+						}
+					}
 				}
 				
 				break;
 				
 			default:
-				M_DebugStr("\p Unknown record type");
+				if (GPtr->logLevel >= kDebugLog) {
+					printf ("\t%s: Unknown record type.\n", __FUNCTION__);
+				}
 				break;
 
 		}
@@ -1894,7 +1998,6 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 
 	return( err );
 }
-
 
 static	OSErr	RepairReservedBTreeFields ( SGlobPtr GPtr )
 {

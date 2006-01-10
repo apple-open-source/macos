@@ -32,7 +32,11 @@
 #include <iosfwd>
 #endif
 
+#ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
+typedef struct CGSize NSSize;
+#else
 typedef struct _NSSize NSSize;
+#endif
 
 class QSize {
 public:

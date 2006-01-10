@@ -10,7 +10,11 @@ GnuNoChown      = YES
 GnuAfterInstall = install-startup-items install-config install-logdir install-testtools install-strip plugins
 
 Extra_CC_Flags  = -mdynamic-no-pic  -no-cpp-precomp -I$(SRCROOT)/libopendirectorycommon -F/System/Library/PrivateFrameworks\
-		-DUSES_RECVFROM -DWITH_OPENDIRECTORY -DWITH_MEMBERD -DUSES_KEYCHAIN -DWITH_BRLM
+		-DUSES_RECVFROM -DWITH_OPENDIRECTORY -DWITH_MEMBERD -DUSES_KEYCHAIN
+
+ifneq "$(RC_RELEASE)" "Darwin"
+Extra_CC_Flags += -DWITH_BRLM
+endif
 
 Extra_Configure_Flags = --with-swatdir="$(SHAREDIR)/swat"			\
 			--with-sambabook="$(SHAREDIR)/swat/using_samba"		\
@@ -47,7 +51,11 @@ EXTRA_ALL_TARGETS="bin/smbtorture@EXEEXT@ bin/msgtest@EXEEXT@ bin/masktest@EXEEX
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-LDFLAGS += -framework Security -framework CoreFoundation -framework DirectoryService -framework ByteRangeLocking -L$(OBJROOT) -lopendirectorycommon
+ifneq "$(RC_RELEASE)" "Darwin"
+LDFLAGS += -framework ByteRangeLocking
+endif
+
+LDFLAGS += -framework Security -framework CoreFoundation -framework DirectoryService -L$(OBJROOT) -lopendirectorycommon
 
 PATCHES = $(wildcard $(SRCROOT)/patches/*.diff)
 

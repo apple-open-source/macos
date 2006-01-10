@@ -123,6 +123,7 @@ using khtml::MoveSelectionCommand;
 using khtml::parseURL;
 using khtml::RenderCanvas;
 using khtml::RenderImage;
+using khtml::RenderLayer;
 using khtml::RenderObject;
 using khtml::RenderPart;
 using khtml::RenderStyle;
@@ -230,7 +231,8 @@ static bool initializedKJS = FALSE;
 
 + (WebCoreBridge *)bridgeForDOMDocument:(DOMDocument *)document
 {
-    return ((KWQKHTMLPart *)[document _documentImpl]->part())->bridge();
+    KHTMLPart *part = [document _documentImpl]->part();
+    return part ? KWQ(part)->bridge() : nil;
 }
 
 - init
@@ -897,7 +899,7 @@ static BOOL nowPrinting(WebCoreBridge *self)
     if ([view conformsToProtocol:@protocol(KWQWidgetHolder)]) {
         NSView <KWQWidgetHolder> *widgetHolder = view;
         QWidget *widget = [widgetHolder widget];
-        if (widget != nil) {
+        if (widget != nil && widget->eventFilterObject() != nil) {
             NodeImpl *node = static_cast<const RenderWidget *>(widget->eventFilterObject())->element();
             return [DOMElement _elementWithImpl:static_cast<ElementImpl *>(node)];
         }
@@ -1025,16 +1027,41 @@ static HTMLFormElementImpl *formElementFromDOMElement(DOMElement *element)
 - (NSDictionary *)elementAtPoint:(NSPoint)point
 {
     RenderObject *renderer = _part->renderer();
-    if (!renderer) {
+    if (!renderer) 
         return nil;
-    }
+    
     RenderObject::NodeInfo nodeInfo(true, true);
     renderer->layer()->hitTest(nodeInfo, (int)point.x, (int)point.y);
+
+    NodeImpl *n;
+    QWidget *widget = 0;
+    QPoint widgetPoint(point);
     
+    while (true) {
+        n = nodeInfo.innerNode();
+        if (!n || !n->renderer() || !n->renderer()->isWidget())
+            break;
+        widget = static_cast<RenderWidget *>(n->renderer())->widget();
+        if (!widget || !widget->inherits("KHTMLView"))
+            break;
+        KHTMLPart *kpart = static_cast<DOM::HTMLFrameElementImpl *>(n)->contentPart();
+        if (!kpart || !static_cast<KWQKHTMLPart *>(kpart)->renderer())
+            break;
+        int absX, absY;
+        n->renderer()->absolutePosition(absX, absY, true);
+        KHTMLView *view = static_cast<KHTMLView *>(widget);
+        widgetPoint.setX(widgetPoint.x() - absX + view->contentsX());
+        widgetPoint.setY(widgetPoint.y() - absY + view->contentsY());
+
+        RenderObject::NodeInfo widgetNodeInfo(true, true);
+        static_cast<KWQKHTMLPart *>(kpart)->renderer()->layer()->hitTest(widgetNodeInfo, widgetPoint.x(), widgetPoint.y());
+        nodeInfo = widgetNodeInfo;
+    }
+        
     NSMutableDictionary *element = [NSMutableDictionary dictionary];
     [element setObject:[NSNumber numberWithBool:_part->isPointInsideSelection((int)point.x, (int)point.y)]
                 forKey:WebCoreElementIsSelectedKey];
-    
+
     // Find the title in the nearest enclosing DOM node.
     // For <area> tags in image maps, walk the tree for the <area>, not the <img> using it.
     for (NodeImpl *titleNode = nodeInfo.innerNode(); titleNode; titleNode = titleNode->parentNode()) {
@@ -1448,6 +1475,11 @@ static HTMLFormElementImpl *formElementFromDOMElement(DOMElement *element)
             return !tok->processingData();
     }
     return YES;
+}
+
+- (BOOL)shouldClose
+{
+    return _part->shouldClose();
 }
 
 - (NSColor *)bodyBackgroundColor
@@ -2127,9 +2159,9 @@ static HTMLFormElementImpl *formElementFromDOMElement(DOMElement *element)
         return;
     
     QRect extentRect = renderer->caretRect(extent.offset(), _part->selection().extentAffinity());
-    if (!NSContainsRect([documentView visibleRect], NSRect(extentRect))) {
-        v->ensureRectVisibleCentered(extentRect, true);
-    }
+    RenderLayer *layer = renderer->enclosingLayer();
+    if (layer)
+        layer->scrollRectToVisible(extentRect);
 }
 
 // [info draggingLocation] is in window coords

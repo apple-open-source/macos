@@ -1,26 +1,27 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc.  All rights reserved.
  *
  * Implementation of the interface for the keylargo I2C interface
  *
@@ -35,7 +36,6 @@ extern "C" vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
 
 #define super IOService
 OSDefineMetaClassAndStructors( PPCI2CInterface, IOService )
-
 
 // Uncomment the following define if you wish ro see more logging
 // on the i2c interface. Note: use this only in polling mode since
@@ -55,6 +55,36 @@ OSDefineMetaClassAndStructors( PPCI2CInterface, IOService )
 #define INLINE inline
 #else
 #define INLINE
+#endif
+
+#if defined( __ppc__ )
+
+// number of SpinLoops per 1000 microseconds
+static UInt32 gLoopsPerMic;
+
+static UInt64 SpinLoop (UInt32 spinCount) {
+	AbsoluteTime start, end;
+	SInt64 startnano, delta;
+	volatile UInt32 volCount = spinCount;			// Make compiler run the loop
+	
+	clock_get_uptime (&start);
+	absolutetime_to_nanoseconds (start, (UInt64 *)&startnano);
+	while (volCount--) ;
+
+	clock_get_uptime (&end);
+	absolutetime_to_nanoseconds (end, (UInt64 *)&delta);
+	delta -= startnano;
+	
+	return delta;
+}
+
+static void SpinDelay (UInt32 delay, UInt32 loopsPerMic) {
+	if (ml_at_interrupt_context()) {
+		(void) SpinLoop (delay * loopsPerMic);
+	} else
+		IODelay (delay);
+}
+
 #endif
 
 // --------------------------------------------------------------------------
@@ -151,7 +181,7 @@ PPCI2CInterface::writeRegisterField(I2CRegister reg, UInt8 mask, UInt8 shift, UI
 
     *reg = (registerValue & nMask) | (data << shift);
     eieio();
-    IODelay(I2C_REGISTERDELAY);
+    I2CIODelay(I2C_REGISTERDELAY);
     
 #ifdef DEBUGMODE
     IOLog("PPCI2CInterface::writeRegisterField(0x%08lx, 0x%02x, 0x%02x, 0x%02x)\n",(UInt32)reg, mask, shift, newData);
@@ -253,7 +283,7 @@ PPCI2CInterface::setControl(I2CControl newControlValue)
 {
     *control = (UInt8)newControlValue;
     eieio();
-    IODelay(I2C_REGISTERDELAY);
+    I2CIODelay(I2C_REGISTERDELAY);
 }
 
 INLINE PPCI2CInterface::I2CControl
@@ -271,7 +301,7 @@ PPCI2CInterface::setStatus(I2CStatus newStatusValue)
 {
     *status = (UInt8)newStatusValue;
     eieio();
-    IODelay(I2C_REGISTERDELAY);
+    I2CIODelay(I2C_REGISTERDELAY);
 }
 
 INLINE PPCI2CInterface::I2CStatus
@@ -288,7 +318,7 @@ PPCI2CInterface::setInterruptStatus(I2CInterruptStatus newStatusValue)
 {
     *ISR = (UInt8)newStatusValue;
     eieio();
-    IODelay(I2C_REGISTERDELAY);
+    I2CIODelay(I2C_REGISTERDELAY);
 }
 
 INLINE PPCI2CInterface::I2CInterruptStatus
@@ -305,7 +335,7 @@ PPCI2CInterface::setInterruptEnable(I2CInterruptEnable newInterruptEnable)
 {
     *IER = (UInt8)newInterruptEnable;
     eieio();
-    IODelay(I2C_REGISTERDELAY);
+    I2CIODelay(I2C_REGISTERDELAY);
 }
 
 INLINE PPCI2CInterface::I2CInterruptEnable
@@ -334,7 +364,7 @@ PPCI2CInterface::setAddressRegister(UInt8 newAddress, I2CRWMode readMode)
         }
     else {
         *address = (newAddress << I2CAddressShift) | readMode;
-        IODelay(I2C_REGISTERDELAY);
+        I2CIODelay(I2C_REGISTERDELAY);
 
 #ifdef DEBUGMODE
     IOLog("setAddressRegister( 0x%02x, %d) = 0x%02x\n", newAddress, (UInt8)readMode, (UInt8)*address);
@@ -383,7 +413,7 @@ PPCI2CInterface::setData(UInt8 newByte)
 {
     *data = newByte;
     eieio();
-    IODelay(I2C_REGISTERDELAY);
+    I2CIODelay(I2C_REGISTERDELAY);
 }
 
 INLINE UInt8
@@ -628,7 +658,7 @@ PPCI2CInterface::waitForCompletion()
     while((loop--) && (currentState != ki2cStateIdle)) {
 		// If at interrupt context, use spin delay instead of sleep
 		if (ml_at_interrupt_context())
-			IODelay (1000);
+			I2CIODelay (1000);
 		else
 			IOSleep(1);
 
@@ -755,6 +785,7 @@ PPCI2CInterface::start(IOService *provider)
     UInt32 baseAddress;
     UInt32 addressSteps;
     UInt32 rate;
+	UInt64 loopTime;
     OSIterator *iterator;
     IORegistryEntry *registryEntry;
     IOService *nub;
@@ -844,6 +875,15 @@ PPCI2CInterface::start(IOService *provider)
         
     else if (!setKhzSpeed((UInt)rate))
         return false;
+
+#if defined( __ppc__ )
+	if ( i2cUniN == TRUE ) {
+		loopTime = SpinLoop (100000) / 1000;				// loopTime time in microseconds
+		gLoopsPerMic = ((100000 / loopTime) * 4) / 3;		// number of loops per microsecond - 4/3 is fudge factor for vagaries of spin loops
+		if (gLoopsPerMic == 0)
+			gLoopsPerMic = 1;								// make sure we do at least one loop
+	}
+#endif
 
     // remembers the provider:
     myProvider = provider;
@@ -1094,13 +1134,14 @@ PPCI2CInterface::setStandardMode()
 void
 PPCI2CInterface::setStandardSubMode()
 {
-    // If I am not the owner of the lock returns without doing anything.
-    if (!IORecursiveLockHaveLock(mutexLock)) {
+	if (!ml_at_interrupt_context())
+		// If I am not the owner of the lock returns without doing anything.
+		if (!IORecursiveLockHaveLock(mutexLock)) {
 #ifdef DEBUGMODE
-        IOLog("PPCI2CInterface::setStandardSubMode I am not the owner of the lock returns without doing anything.\n");
+       	 IOLog("PPCI2CInterface::setStandardSubMode I am not the owner of the lock returns without doing anything.\n");
 #endif // DEBUGMODE
-        return;
-    }
+			return;
+		}
 
     if (pseudoI2C)
         setMode(kSubaddressI2CStream);
@@ -1111,13 +1152,14 @@ PPCI2CInterface::setStandardSubMode()
 void
 PPCI2CInterface::setCombinedMode()
 {
-    // If I am not the owner of the lock returns without doing anything.
-    if (!IORecursiveLockHaveLock(mutexLock)) {
+ 	if (!ml_at_interrupt_context())
+	   // If I am not the owner of the lock returns without doing anything.
+	    if (!IORecursiveLockHaveLock(mutexLock)) {
 #ifdef DEBUGMODE
-        IOLog("PPCI2CInterface::setCombinedMode I am not the owner of the lock returns without doing anything.\n");
+	        IOLog("PPCI2CInterface::setCombinedMode I am not the owner of the lock returns without doing anything.\n");
 #endif // DEBUGMODE
-        return;
-    }
+	        return;
+	    }
 
     if (pseudoI2C)
         setMode(kCombinedI2CStream);

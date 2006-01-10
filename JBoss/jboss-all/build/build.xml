@@ -1,0 +1,2292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+   <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY libraries SYSTEM "../tools/etc/buildmagic/libraries.ent">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id: build.xml,v 1.160.2.128 2003/11/30 23:50:17 starksm Exp $ -->
+
+<project default="main" name="JBoss/Build">
+
+  <!-- ================================================================== -->
+  <!-- Setup                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+
+  &buildmagic;
+
+
+  <!-- ================================================================== -->
+  <!-- Initialization                                                     -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+
+  <target name="init" unless="init.disable" depends="_buildmagic:init">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Configuration                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Configure the build system.
+     |
+     | This target is invoked by the Buildmagic initialization logic and
+     | should contain module specific configuration elements.
+   -->
+
+  <target name="configure" unless="configure.disable">
+
+      <!-- Module name(s) & version -->
+      <property name="module.name" value="jboss"/>
+      <property name="module.Name" value="JBoss Build"/>
+      <property name="module.version" value="${version.major}.${version.minor}.${version.revision}${version.tag}"/>
+
+    <!-- ========= -->
+    <!-- Libraries -->
+    <!-- ========= -->
+    &libraries;
+
+    <!-- The combined library classpath -->
+    <path id="library.classpath">
+    </path>
+    <!-- The classpath required to build classes. -->
+    <path id="javac.classpath">
+      <pathelement path="library.classpath"/>
+    </path>
+
+    <!-- ============== -->
+    <!-- Modules/Groups -->
+    <!-- ============== -->
+
+    <!-- The group to use by default -->
+    <property name="groups" value="default"/>
+
+    <!-- Sets up the module configuration. -->
+    <moduleconfig property="modules" selected="${groups}">
+
+      <!-- Modules -->
+      <module name="j2ee"/>
+      <module name="common"/>
+      <module name="jmx"/>
+      <module name="system"/>
+      <module name="naming"/>
+      <module name="server"/>
+      <module name="security"/>
+      <module name="messaging"/>
+      <module name="connector"/>
+      <module name="cluster"/>
+      <module name="management"/>
+      <module name="testsuite"/>
+      <module name="varia"/>
+      <module name="jetty"/>
+      <module name="jboss.net"/>
+      <module name="tomcat"/>
+      <module name="iiop"/>
+      <module name="transaction"/>
+      <module name="console"/>
+      <module name="compatible"/>
+
+      <!-- Module groups -->
+
+      <!--this lets you recompile a single module using a command line like
+./build.sh -emacs -Dgroups=single -Dsingle-module=server
+      -->
+      <group name="single">
+        <include modules="${single-module}"/>
+      </group>
+
+      <group name="core">
+        <include modules="common, jmx, system"/>
+      </group>
+
+      <group name="basic">
+        <include modules="j2ee,
+                          naming,
+                          transaction,
+                          server" />
+
+      </group>
+
+      <group name="standard">
+        <include modules="security,
+                          messaging,
+                          connector,
+                          cluster,
+                          jetty,
+                          varia,
+                          jboss.net,
+                          iiop,
+                          management,
+                          tomcat,
+                          console,
+                          compatible"/>
+
+      </group>
+
+      <group name="optional">
+      </group>
+
+      <!-- Module group sets -->
+
+      <group name="default">
+        <include groups="core, basic, standard"/>
+      </group>
+
+      <group name="most">
+        <include groups="core, basic, standard"/>
+      </group>
+
+      <group name="all">
+        <include groups="core, basic, standard, optional"/>
+      </group>
+
+    </moduleconfig>
+
+    <!-- Show the module configuration -->
+    <echo>groups:  ${groups}</echo>
+    <echo>modules: ${modules}</echo>
+
+    <!-- The combined dependent module classpath -->
+    <path id="dependentmodule.classpath">
+    </path>
+
+    <!-- ===== -->
+    <!-- Tasks -->
+    <!-- ===== -->
+
+    <!-- Skip any missing modules and issue a warning -->
+    <property name="executemodules.skipmissing" value="true"/>
+
+    <!-- The header and footer displayed during each module execution -->
+    <property name="executemodules.header"><![CDATA[
+    ======================================================================
+    ==  Executing '${target}' in module '${module}'...
+    ==]]></property>
+
+    <property name="executemodules.footer"><![CDATA[
+    ==
+    ==  Finished with '${target}' in module '${module}'.
+    ======================================================================
+    ]]></property>
+
+    <property name="executemodules.exportproperties">
+       version.major,
+       version.minor,
+       version.revision,
+       version.tag,
+       version.name,
+       version.cvstag,
+
+       specification.title,
+       specification.version,
+       specification.vendor,
+
+       implementation.title,
+       implementation.version,
+       implementation.vendor,
+       implementation.vendor.id,
+       implementation.url
+    </property>
+
+    <!-- Install/Release structure -->
+    <property name="install.id" value="${module.name}-${module.version}"/>
+    <property name="release.id" value="${install.id}"/>
+
+    <property name="install.root" value="${module.output}/${install.id}"/>
+
+    <property name="install.docs" value="${install.root}/docs"/>
+    <property name="install.api" value="${install.docs}/api"/>
+    <property name="install.jmx-api" value="${install.docs}/jmx-api"/>
+    <property name="install.todo" value="${install.docs}/todo"/>
+    <property name="install.examples" value="${install.docs}/examples"/>
+    <property name="install.examples.jca" value="${install.docs}/examples/jca"/>
+    <property name="install.examples.jms" value="${install.docs}/examples/jms"/>
+    <property name="install.examples.jbossweb" value="${install.examples}/jbossweb"/>
+    <property name="install.examples.netboot" value="${install.examples}/netboot"/>
+    <property name="install.examples.binding-manager" value="${install.examples}/binding-manager"/>
+    <property name="install.examples.varia" value="${install.examples}/varia"/>
+    <property name="install.dtd" value="${install.docs}/dtd"/>
+
+    <property name="install.bin" value="${install.root}/bin"/>
+    <property name="install.etc" value="${install.root}/etc"/>
+    <property name="install.client" value="${install.root}/client"/>
+    <property name="install.lib" value="${install.root}/lib"/>
+
+    <property name="install.server" value="${install.root}/server"/>
+
+    <!-- Configuration for the nightly build and test job -->
+    <property name="run.nightly.sleep" value="1"/> <!-- 1 minute -->
+    <property name="run.nightly.email.tolist" value="jboss-development@lists.sourceforge.net"/>
+    <property name="run.nightly.email.from" value="noreply@jboss.org"/>
+    <property name="run.nightly.email.mailhost" value="localhost"/>
+    <property name="run.home.dir" value="${module.output}/${release.id}" />
+    <property name="run.bin.dir" value="${run.home.dir}/bin" />
+
+    <!-- Bits for building source archives -->
+    <patternset id="source.ignore">
+      <exclude name="**/output/**"/>
+      <exclude name="**/CVS/**" />
+    </patternset>
+    <patternset id="source.free">
+      <exclude name="tools/**"/>
+      <exclude name="thirdparty/**"/>
+      <include name="**"/>
+    </patternset>
+    <patternset id="source.external">
+      <include name="tools/**"/>
+      <include name="thirdparty/**"/>
+    </patternset>
+</target>
+
+  <!-- ================================================================== -->
+  <!-- Module Pass-through Targets                                        -->
+  <!-- ================================================================== -->
+
+  <!--
+     | These targets will execute all configured modules with the specified
+     | target.
+   -->
+
+  <target name="modules-all" depends="_buildmagic:modules:all"/>
+  <target name="modules-most" depends="_buildmagic:modules:most"/>
+  <target name="modules-main" depends="_buildmagic:modules:main"/>
+  <target name="modules-release" depends="_buildmagic:modules:release"/>
+  <target name="modules-tests" depends="_buildmagic:modules:tests"/>
+  <target name="modules-clean" depends="_buildmagic:modules:clean"/>
+  <target name="modules-clobber" depends="_buildmagic:modules:clobber"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Module Pass-through Hooks                                          -->
+  <!-- ================================================================== -->
+
+  <!--
+     | These hooks are executed after the above pass-through targets have
+     | finished with a given module.
+   -->
+
+  <!-- ==== -->
+  <!-- J2EE -->
+  <!-- ==== -->
+
+  <target name="_module-j2ee-most">
+    <property name="_module.name" value="j2ee" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-j2ee.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-j2ee.jar"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-j2ee-all" depends="_module-j2ee-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ====== -->
+  <!-- Common -->
+  <!-- ====== -->
+
+  <target name="_module-common-most">
+    <property name="_module.name" value="common" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-common.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-common-client.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty code -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${apache.xalan.lib}">
+        <include name="xml-apis.jar"/>
+        <include name="xalan.jar"/>
+        <include name="xercesImpl.jar"/>
+      </fileset>
+      <fileset dir="${apache.slide.lib}">
+        <include name="webdavlib.jar"/>
+      </fileset>
+      <fileset dir="${apache.commons.lib}">
+        <include name="commons-httpclient.jar"/>
+        <include name="commons-logging.jar"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-common-all" depends="_module-common-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated todo docs -->
+    <mkdir dir="${install.todo}/${_module.name}"/>
+    <copy todir="${install.todo}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/todo">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ====== -->
+  <!-- System -->
+  <!-- ====== -->
+
+  <target name="_module-system-most">
+    <property name="_module.name" value="system" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+        <include name="log4j-boot.jar"/>
+        <include name="jboss-boot.jar"/>
+        <include name="jboss-system.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+        <include name="*-client.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated scripts & runnable jars -->
+    <mkdir dir="${install.bin}"/>
+    <copy todir="${install.bin}" filtering="no">
+      <fileset dir="${_module.output}/bin">
+         <include name="**/*"/>
+      </fileset>
+      <fileset dir="${_module.output}/lib">
+         <include name="run.jar"/>
+      </fileset>
+    </copy>
+    <chmod perm="+x">
+      <fileset dir="${install.bin}">
+         <include name="**/*.sh"/>
+      </fileset>
+    </chmod>
+
+    <!-- Copy thirdparty code -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${apache.log4j.lib}">
+        <include name="log4j.jar"/>
+      </fileset>
+      <fileset dir="${gnu.getopt.lib}">
+        <include name="getopt.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty client code -->
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${apache.log4j.lib}">
+        <include name="log4j.jar"/>
+      </fileset>
+      <fileset dir="${gnu.getopt.lib}">
+        <include name="getopt.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the DTDs -->
+    <mkdir dir="${install.dtd}"/>
+    <copy todir="${install.dtd}" filtering="no">
+      <fileset
+         dir="${project.root}/${_module.name}/src/resources/org/jboss/metadata">
+         <include name="*.dtd"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-system-all" depends="_module-system-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ====== -->
+  <!-- Naming -->
+  <!-- ====== -->
+
+  <target name="_module-naming-most">
+    <property name="_module.name" value="naming" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jnpserver.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jnp-client.jar"/>
+      </fileset>
+    </copy>
+
+  </target>
+
+  <target name="_module-naming-all" depends="_module-naming-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ====== -->
+  <!-- Server -->
+  <!-- ====== -->
+
+  <target name="_module-server-most">
+    <property name="_module.name" value="server" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+        <include name="jboss.jar"/>
+        <include name="jmx-adaptor-plugin.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="*-client.jar"/>
+         <include name="jmx-ejb-connector-client.jar"/>
+         <include name="jmx-rmi-connector-client.jar"/>
+         <include name="jmx-connector-client-factory.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated scripts & runnable jars -->
+    <mkdir dir="${install.bin}"/>
+    <copy todir="${install.bin}" filtering="no">
+      <fileset dir="${_module.output}/bin">
+         <include name="**/*"/>
+      </fileset>
+      <fileset dir="${_module.output}/lib">
+         <include name="deployer.jar"/>
+         <include name="shutdown.jar"/>
+      </fileset>
+    </copy>
+    <chmod perm="+x">
+      <fileset dir="${install.bin}">
+         <include name="**/*.sh"/>
+      </fileset>
+    </chmod>
+
+    <!-- Copy thirdparty code -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${sun.jts.lib}">
+        <include name="jts.jar"/>
+      </fileset>
+      <fileset dir="${oswego.concurrent.lib}">
+        <include name="concurrent.jar"/>
+      </fileset>
+      <fileset dir="${gjt.jpl-util.lib}">
+        <include name="*.jar"/>
+      </fileset>
+      <fileset dir="${gnu.regexp.lib}">
+        <include name="*.jar"/>
+      </fileset>
+      <fileset dir="${apache.bcel.lib}">
+        <include name="bcel.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty client code -->
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${oswego.concurrent.lib}">
+        <include name="concurrent.jar"/>
+      </fileset>
+      <fileset dir="${gnu.regexp.lib}">
+        <include name="*.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Default server config -->
+
+    <mkdir dir="${install.server}/all/deploy"/>
+    <copy todir="${install.server}/all/deploy" filtering="no">
+      <!-- Deployable xml snipets -->
+      <fileset dir="${_module.output}/etc/deploy">
+         <include name="**"/>
+      </fileset>
+
+      <!-- Deployable archives -->
+      <fileset dir="${_module.output}/lib">
+         <include name="uuid-key-generator.sar"/>
+         <include name="client-deployer-service.xml"/>
+         <include name="sqlexception-service.xml"/>
+      </fileset>
+    </copy>
+    <mkdir dir="${install.examples}/jmx/jmx-rmi-adaptor.sar" />
+    <unjar src="${_module.output}/lib/jmx-rmi-adaptor.sar"
+       dest="${install.examples}/jmx/jmx-rmi-adaptor.sar" />
+
+    <mkdir dir="${install.server}/all/deploy/jmx-invoker-adaptor-server.sar"/>
+    <unjar src="${_module.output}/lib/jmx-invoker-adaptor-server.sar"
+       dest="${install.server}/all/deploy/jmx-invoker-adaptor-server.sar" />
+
+    <!-- Copy the default configuration files -->
+    <mkdir dir="${install.server}/all/conf"/>
+    <copy todir="${install.server}/all/conf" filtering="no">
+      <fileset dir="${_module.output}/etc/conf/default">
+         <include name="**"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the DTDs -->
+    <mkdir dir="${install.dtd}"/>
+    <copy todir="${install.dtd}" filtering="no">
+      <fileset
+         dir="${project.root}/${_module.name}/src/resources/org/jboss/metadata">
+         <include name="*.dtd"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-server-all" depends="_module-server-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ========= -->
+  <!-- Connector -->
+  <!-- ========= -->
+
+  <target name="_module-connector-most">
+    <property name="_module.name" value="connector" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+
+    <!-- Copy the generated deployment libraries -->
+    <mkdir dir="${install.server}/all/deploy"/>
+    <copy todir="${install.server}/all/deploy" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="*.rar"/>
+         <include name="*.sar"/>
+      </fileset>
+    </copy>
+
+    <mkdir dir="${install.server}/all/lib"/>
+    <copy todir="${install.server}/all/lib" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-common-jdbc-wrapper.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the DTDs -->
+    <mkdir dir="${install.dtd}"/>
+    <copy todir="${install.dtd}" filtering="no">
+      <fileset
+         dir="${project.root}/${_module.name}/src/resources/stylesheets">
+         <include name="*.dtd"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy example db configs -->
+    <mkdir dir="${install.examples.jca}"/>
+    <copy todir="${install.examples.jca}" filtering="no">
+      <fileset dir="${_module.output}/etc/example-config">
+         <include name="*.xml"/>
+      </fileset>
+    </copy>
+    <copy todir="${install.server}/all/deploy" filtering="no">
+      <fileset dir="${_module.output}/etc/example-config">
+         <!--include name="firebird-service.xml"/-->
+         <include name="jms-ds.xml"/>
+         <include name="hsqldb-ds.xml"/>
+         <!--include name="mysql-service.xml"/-->
+         <!--include name="oracle-service.xml"/-->
+         <!--include name="postgres-service.xml"/-->
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jbosscx-client.jar"/>
+      </fileset>
+    </copy>
+
+  </target>
+
+  <target name="_module-connector-all" depends="_module-connector-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ========= -->
+  <!-- Messaging -->
+  <!-- ========= -->
+
+  <target name="_module-messaging-most">
+    <property name="_module.name" value="messaging" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jbossmq.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="*-client.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Default server config -->
+
+    <!-- Copy the default jbossmq deployment configuration -->
+    <mkdir dir="${install.server}/all/deploy"/>
+    <copy todir="${install.server}/all" filtering="no">
+      <fileset dir="${_module.output}/etc/server/default">
+        <include name="**"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy example jms configs -->
+    <mkdir dir="${install.examples.jms}"/>
+    <copy todir="${install.examples.jms}" filtering="no">
+      <fileset dir="${_module.output}/etc/server/examples/deploy">
+         <include name="*.xml"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-messaging-all" depends="_module-messaging-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+
+  <!-- === -->
+  <!-- JMX -->
+  <!-- === -->
+
+  <target name="_module-jmx-most">
+    <property name="_module.name" value="jmx" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-jmx.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty code -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${jdom.lib}">
+        <include name="jdom.jar"/>
+      </fileset>
+      <fileset dir="${oswego.concurrent.lib}">
+        <include name="concurrent.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the DTDs -->
+    <mkdir dir="${install.dtd}"/>
+    <copy todir="${install.dtd}" filtering="no">
+      <fileset
+         dir="${project.root}/${_module.name}/src/resources/metadata">
+         <include name="*.dtd"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-jmx-all" depends="_module-jmx-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+
+ </target>
+
+  <!-- ======== -->
+  <!-- Security -->
+  <!-- ======== -->
+
+  <target name="_module-security-most">
+    <property name="_module.name" value="security" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jbosssx.jar"/>
+         <include name="jboss-jaas.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="*-client.jar"/>
+         <include name="jboss-jaas.jar"/>
+      </fileset>
+      <fileset dir="${_module.output}/etc/client">
+         <include name="*"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty code -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${sun.jsse.lib}">
+        <include name="*.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty client code -->
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${sun.jsse.lib}">
+        <include name="*.jar"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-security-all" depends="_module-security-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ======= -->
+  <!-- Cluster -->
+  <!-- ======= -->
+
+  <target name="_module-cluster-most">
+    <property name="_module.name" value="cluster" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jbossha.jar"/>
+         <include name="jbossmqha.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jbossha-client.jar"/>
+         <include name="jbossmqha.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty code -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${jgroups.jgroups.lib}">
+        <include name="jgroups.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Default server config -->
+
+    <!-- Copy the deployables -->
+    <mkdir dir="${install.server}/all/deploy"/>
+    <copy todir="${install.server}/all/deploy" filtering="no">
+      <fileset dir="${_module.output}/etc">
+         <include name="cluster-service.xml"/>
+      </fileset>
+    </copy>
+    <mkdir dir="${install.server}/all/deploy/deploy.last"/>
+    <copy todir="${install.server}/all/deploy/deploy.last" filtering="no">
+      <fileset dir="${_module.output}/etc">
+         <include name="farm-service.xml"/>
+      </fileset>
+    </copy>
+
+    <delete dir="${install.server}/all/deploy/jbossha-httpsession.sar"/>
+    <mkdir dir="${install.server}/all/deploy/jbossha-httpsession.sar"/>
+    <unjar src="${_module.output}/lib/jbossha-httpsession.sar"
+           dest="${install.server}/all/deploy/jbossha-httpsession.sar"/>
+    <move file="${install.server}/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.jar"
+          tofile="${install.server}/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.zip"/>
+    <mkdir dir="${install.server}/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.jar"/>
+    <unjar src="${install.server}/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.zip"
+           dest="${install.server}/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.jar"/>
+    <delete file="${install.server}/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.zip"/>
+
+    <!-- Include the JbossMQ HA invoker service unpacked -->
+    <delete dir="${install.server}/all/deploy/jbossmq-hail.sar"/>
+    <mkdir dir="${install.server}/all/deploy/jbossmq-hail.sar"/>
+    <unjar src="${_module.output}/lib/jbossmq-hail.sar"
+       dest="${install.server}/all/deploy/jbossmq-hail.sar" />
+
+    <!-- Copy the farmed deployables -->
+    <mkdir dir="${install.server}/all/farm"/>
+    <copy todir="${install.server}/all/farm" filtering="no">
+      <fileset dir="${_module.output}/etc">
+         <include name="cluster-examples-service.xml"/>
+      </fileset>
+    </copy>
+
+  </target>
+
+  <target name="_module-cluster-all" depends="_module-cluster-most">
+    <!-- Copy the examples -->
+    <mkdir dir="${install.docs}/${module}"/>
+    <copy todir="${install.docs}/${module}" filtering="no">
+      <fileset dir="${_module.output}">
+         <include name="examples/*"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ===== -->
+  <!-- Varia -->
+  <!-- ===== -->
+
+  <target name="_module-varia-most">
+    <property name="_module.name" value="varia" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="mail-plugin.jar"/>
+         <include name="scheduler-plugin.jar"/>
+         <include name="scheduler-plugin-example.jar"/>
+         <include name="hsqldb.jar"/>
+         <include name="hsqldb-plugin.jar"/>
+         <include name="autonumber-plugin.jar"/>
+         <include name="properties-plugin.jar"/>
+         <include name="bindingservice-plugin.jar"/>
+      </fileset>
+    </copy>
+
+    <mkdir dir="${install.examples.varia}"/>
+    <copy todir="${install.examples.varia}" filtering="no">
+      <fileset dir="${project.root}/testsuite/src/etc/cluster-test">
+         <include name="jboss-bindings.xml" />
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty code -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${sun.jaf.lib}">
+        <include name="activation.jar"/>
+      </fileset>
+      <fileset dir="${sun.javamail.lib}">
+        <include name="mail.jar"/>
+      </fileset>
+      <fileset dir="${sun.jts.lib}">
+        <include name="jts.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Default server config -->
+
+    <!-- Copy the deployables -->
+    <mkdir dir="${install.server}/all/deploy"/>
+    <copy todir="${install.server}/all/deploy" filtering="no">
+      <!-- Deployable configuration -->
+      <fileset dir="${_module.output}/etc">
+         <!-- These should move to example/deploy -->
+         <include name="mail-service.xml"/>
+         <include name="schedule-manager-service.xml"/>
+         <include name="scheduler-service.xml"/>
+         <include name="properties-service.xml"/>
+      </fileset>
+    </copy>
+
+    <!-- copy snmp-adaptor.sar unpacked to deploy and snmp-adaptor.jar to lib -->
+    <!-- snmp-adaptor.sar contains castor.jar, depends on snmp-support.jar -->
+    <copy todir="${install.server}/all/lib">
+      <fileset dir="${_module.output}/lib">
+         <include name="snmp-adaptor.jar"/>
+      </fileset>
+    </copy>
+    <mkdir dir="${install.server}/all/deploy/snmp-adaptor.sar"/>
+    <unjar src="${_module.output}/lib/snmp-adaptor.sar"
+       dest="${install.server}/all/deploy/snmp-adaptor.sar"/>
+
+    <!-- Include the JMX console war unpacked -->
+    <mkdir dir="${install.server}/all/deploy/jmx-console.war"/>
+    <unjar src="${_module.output}/lib/htmladaptor.war"
+       dest="${install.server}/all/deploy/jmx-console.war" />
+
+    <!-- Include the HTTP invoker service unpacked -->
+    <mkdir dir="${install.server}/all/deploy/http-invoker.sar"/>
+    <unjar src="${_module.output}/lib/http-invoker.sar"
+       dest="${install.server}/all/deploy/http-invoker.sar" />
+    <move file="${install.server}/all/deploy/http-invoker.sar/http-invoker.war"
+       tofile="${install.server}/all/deploy/http-invoker.sar/tmp.war" />
+    <unjar src="${install.server}/all/deploy/http-invoker.sar/tmp.war"
+       dest="${install.server}/all/deploy/http-invoker.sar/invoker.war" />
+    <delete file="${install.server}/all/deploy/http-invoker.sar/tmp.war" />
+
+    <!-- copy the ant jmx client -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jbossjmx-ant.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- copy the netboot war tool -->
+    <mkdir dir="${install.examples.netboot}"/>
+    <copy todir="${install.examples.netboot}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="netboot.war"/>
+      </fileset>
+    </copy>
+
+    <!-- copy the bsh-deployer lib and its associated beanshell lib from thirdparty -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="bsh-deployer.jar"/>
+      </fileset>
+      <fileset dir="${beanshell.beanshell.lib}">
+        <include name="bsh-core-*.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Include the HTTP invoker service unpacked -->
+    <delete dir="${install.server}/all/deploy/jbossmq-httpil.sar"/>
+    <mkdir dir="${install.server}/all/deploy/jbossmq-httpil.sar"/>
+    <unjar src="${_module.output}/lib/jbossmq-httpil.sar"
+       dest="${install.server}/all/deploy/jbossmq-httpil.sar" />
+    <move file="${install.server}/all/deploy/jbossmq-httpil.sar/jbossmq-httpil.war"
+       tofile="${install.server}/all/deploy/jbossmq-httpil.sar/tmp.war" />
+    <unjar src="${install.server}/all/deploy/jbossmq-httpil.sar/tmp.war"
+       dest="${install.server}/all/deploy/jbossmq-httpil.sar/jbossmq-httpil.war" />
+    <delete file="${install.server}/all/deploy/jbossmq-httpil.sar/tmp.war" />
+
+    <!-- copy the binding-manager sample file and JAR -->
+    <copy file="${project.root}/varia/output/lib/bindingservice-plugin.jar"
+          todir="${install.server}/all/lib"/>
+
+    <mkdir dir="${install.examples.binding-manager}"/>
+    <copy file="${project.root}/varia/src/resources/services/binding/sample-bindings.xml"
+          todir="${install.examples.binding-manager}"/>
+
+  </target>
+
+  <target name="_module-varia-all" depends="_module-varia-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ===== -->
+  <!-- Tomcat4.1.x -->
+  <!-- ===== -->
+
+  <target name="_module-tomcat-most">
+    <property name="_module.name" value="tomcat" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+    <property name="_module.ext" override="true"
+	      value="${project.root}/${_module.name}/ext"/>
+
+    <!-- Copy the thirdparty libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy tofile="${install.lib}/javax.servlet.jar"
+       file="${sun.servlet.lib}/servlet.jar" />
+
+    <!-- Copy the deployables -->
+    <mkdir dir="${install.server}/all/deploy/jbossweb-tomcat41.sar"/>
+    <copy todir="${install.server}/all/deploy/jbossweb-tomcat41.sar">
+       <fileset dir="${_module.output}/deploy/jbossweb-tomcat41.sar" />
+    </copy>
+
+    <!-- Copy the tomcat-5.0.x sar for testing -->
+    <mkdir dir="${install.examples}/tomcat" />
+    <copy todir="${install.examples}/tomcat/jbossweb-tomcat50.sar">
+       <fileset dir="${_module.output}/deploy/jbossweb-tomcat50.sar" />
+    </copy>
+    <copy todir="${install.examples}/tomcat">
+       <fileset dir="${_module.output}/resources">
+         <include name="build-tc5-config.xml" />
+       </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-tomcat-all" depends="_module-tomcat-most">
+  </target>
+
+  <!-- ========= -->
+  <!-- JBoss.net -->
+  <!-- ========= -->
+
+  <target name="_module-jboss.net-most">
+    <property name="_module.name" value="jboss.net" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the client configuration files -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+	     <include name="jboss-net-client.jar"/>
+        <include name="xdoclet-module-jboss-net.jar" />
+      </fileset>
+    </copy>
+
+
+    <!-- Default server config -->
+
+    <!-- Deployables -->
+    <!-- Deployables -->
+    <mkdir dir="${install.server}/all/deploy/jboss-net.sar"/>
+    <unjar src="${_module.output}/lib/jboss-net.sar" dest="${install.server}/all/deploy/jboss-net.sar"/>
+
+
+  </target>
+
+  <target name="_module-jboss.net-all" depends="_module-jboss.net-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ==== -->
+  <!-- IIOP -->
+  <!-- ==== -->
+
+  <target name="_module-iiop-most">
+    <property name="_module.name" value="iiop" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the jboss-iiop.jar -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-iiop.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the jboss-iiop-client.jar -->
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-iiop-client.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty code -->
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${jacorb.jacorb.lib}">
+        <include name="jacorb.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty client code -->
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${jacorb.jacorb.lib}">
+        <include name="jacorb.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy thirdparty configuration file -->
+    <mkdir dir="${install.server}/all/conf"/>
+    <copy todir="${install.server}/all/conf" filtering="no">
+      <fileset dir="${jacorb.jacorb.root}/conf/default">
+        <include name="jacorb.properties"/>
+      </fileset>
+    </copy>
+
+    <mkdir dir="${install.server}/all/deploy"/>
+    <copy todir="${install.server}/all/deploy" filtering="no">
+      <!-- Deployable service -->
+      <fileset dir="${_module.output}/etc">
+         <include name="iiop-service.xml"/>
+      </fileset>
+    </copy>
+
+  </target>
+
+  <target name="_module-iiop-all" depends="_module-iiop-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ========== -->
+  <!-- Management -->
+  <!-- ========== -->
+
+  <target name="_module-management-most">
+    <property name="_module.name" value="management" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-jsr77.jar"/>
+         <include name="jboss-management.jar"/>
+      </fileset>
+    </copy>
+
+    <mkdir dir="${install.examples}/jmx"/>
+    <copy todir="${install.examples}/jmx" filtering="no">
+      <!-- Deployable archives -->
+      <fileset dir="${_module.output}/lib">
+         <include name="ejb-management.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-jsr77-client.jar"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-management-all" depends="_module-management-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated todo docs -->
+    <mkdir dir="${install.todo}/${_module.name}"/>
+    <copy todir="${install.todo}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/todo">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- =========== -->
+  <!-- Transaction -->
+  <!-- =========== -->
+
+  <target name="_module-transaction-most">
+    <property name="_module.name" value="transaction" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.server}/all/lib"/>
+    <copy todir="${install.server}/all/lib" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-transaction.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="jboss-transaction-client.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy deployable services -->
+    <mkdir dir="${install.server}/all/deploy"/>
+    <copy todir="${install.server}/all/deploy" filtering="no">
+      <fileset dir="${_module.output}/etc">
+         <include name="transaction-service.xml"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-transaction-all" depends="_module-transaction-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ====== -->
+  <!-- Blocks -->
+  <!-- ====== -->
+
+  <target name="_module-blocks-most">
+    <property name="_module.name" value="blocks" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated libraries -->
+    <mkdir dir="${install.lib}"/>
+    <copy todir="${install.lib}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="${_module.output}.jar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the generated client libraries -->
+    <mkdir dir="${install.client}"/>
+    <copy todir="${install.client}" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="${_module.output}-client.jar"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="_module-blocks-all" depends="_module-blocks-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- ======= -->
+  <!-- Console -->
+  <!-- ======= -->
+
+  <target name="_module-console-most">
+    <property name="_module.name" value="console" override="true"/>
+    <property name="_module.output" override="true"
+	      value="${project.root}/${_module.name}/output"/>
+
+    <!-- Copy the generated scripts & runnable jars -->
+    <mkdir dir="${install.bin}"/>
+    <copy todir="${install.bin}" filtering="no">
+      <fileset dir="${_module.output}/bin">
+         <include name="**/*"/>
+      </fileset>
+      <fileset dir="${_module.output}/lib">
+         <include name="twiddle.jar"/>
+      </fileset>
+    </copy>
+    <chmod perm="+x">
+      <fileset dir="${install.bin}">
+         <include name="**/*.sh"/>
+      </fileset>
+    </chmod>
+
+    <!-- Copy the BeanShell JAR -->
+    <copy todir="${install.server}/all/lib" filtering="no">
+      <fileset dir="${beanshell.beanshell.lib}">
+         <include name="**"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the plugin manager SAR (embedded) and application WAR -->
+    <copy todir="${install.server}/all/deploy" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="web-console.war"/>
+         <include name="console-mgr.sar"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy the SNMP support JAR -->
+    <copy todir="${install.server}/all/lib" filtering="no">
+      <fileset dir="${_module.output}/lib">
+         <include name="snmp-support.jar"/>
+      </fileset>
+    </copy>
+
+  </target>
+
+  <target name="_module-console-all" depends="_module-console-most">
+    <!-- Copy the generated javadocs -->
+    <mkdir dir="${install.api}/${_module.name}"/>
+    <copy todir="${install.api}/${_module.name}" filtering="no">
+      <fileset dir="${_module.output}/api">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+
+  <!-- ============= -->
+  <!-- Compatibility -->
+  <!-- ============= -->
+  <target name="_module-compatible-most">
+    <call target="make-compat"/>
+    <call target="check-compat"/>
+  </target>
+
+  <target name="make-compat" if="compatibility.make">
+    <!-- Create serialized versions of contract classes -->
+    <mkdir dir="${compatibility.dir}"/>
+    <java classname="${compatibility.bin}" fork="true" failonerror="true" dir="${compatibility.dir}">
+      <arg value="make"/>
+      <arg value="${contract.classes}"/>
+      <classpath>
+        <pathelement path="${compatibility.classpath}"/>
+      </classpath>
+    </java>
+  </target>
+
+  <target name="check-compat" if="compatibility.check">
+    <!-- Check compiled contract classes against serialized versions -->
+    <java classname="${compatibility.bin}" fork="true" failonerror="true" dir="${compatibility.dir}"
+>
+      <arg value="check"/>
+      <arg value="${contract.classes}"/>
+      <classpath>
+        <pathelement path="${compatibility.classpath}"/>
+      </classpath>
+    </java>
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Install & Release                                                  -->
+  <!-- ================================================================== -->
+
+  <target name="install"
+	  description="Install the structure for a release."
+     depends="partition-build"
+     />
+
+  <target name="release"
+	  description="Builds the default release structure."
+	  depends="modules-most, install"/>
+
+  <target name="release-full"
+	  description="Builds the full release structure."
+	  depends="modules-all, install"/>
+
+  <target name="release-zip"
+	  description="Builds a ZIP distribution."
+	  depends="release, _buildmagic:release:zip"/>
+
+  <target name="release-tar"
+	  description="Builds a TAR distribution."
+	  depends="release, _buildmagic:release:tar"/>
+
+  <target name="release-tgz"
+	  description="Builds a TAR-GZ distribution."
+	  depends="release, _buildmagic:release:tgz"/>
+
+  <target name="release-all"
+	  description="Builds a distribution for each archive type."
+	  depends="release-zip, release-tgz"/>
+
+  <!-- Partition the default single configuration build into a minimal,
+  default and all configs with a minimal set of jars in the root lib dir.
+  -->
+  <target name="partition-build" depends="init">
+    <!-- Move all but the minimum jars from lib to server/all/lib -->
+    <mkdir dir="${install.server}/all/lib" />
+    <move todir="${install.server}/all/lib" filtering="no">
+      <fileset dir="${install.lib}">
+        <include name="activation.jar"/>
+        <include name="autonumber-plugin.jar"/>
+        <include name="axis.jar"/>
+        <include name="bcel.jar"/>
+        <include name="hsqldb-plugin.jar"/>
+        <include name="hsqldb.jar"/>
+        <include name="jboss-jaas.jar"/>
+        <include name="jacorb.jar"/>
+        <include name="jgroups.jar"/>
+        <include name="bsh-core-*.jar"/>
+        <include name="bsh-deployer.jar"/>
+        <include name="javax.servlet.jar"/>
+        <include name="jcert.jar"/>
+        <include name="jmx-adaptor-plugin.jar"/>
+        <include name="jnet.jar"/>
+        <include name="jnpserver.jar"/>
+        <include name="jboss-iiop.jar"/>
+        <include name="jpl-pattern.jar"/>
+        <include name="jpl-util.jar"/>
+        <include name="jboss-j2ee.jar"/>
+        <include name="jboss-jca.jar"/>
+        <include name="jsse.jar"/>
+        <include name="jts.jar"/>
+        <include name="jboss.jar"/>
+        <include name="jboss-jsr77.jar"/>
+        <include name="jboss-management.jar"/>
+        <include name="log4j.jar"/>
+        <include name="mail-plugin.jar"/>
+        <include name="mail.jar"/>
+        <include name="jbossha.jar"/>
+        <include name="jbossmq.jar"/>
+        <include name="jbossmqha.jar"/>
+        <include name="jbosssx.jar"/>
+        <include name="org.apache.jasper.jar"/>
+        <include name="bindingservice-plugin.jar" />
+        <include name="properties-plugin.jar"/>
+        <include name="scheduler-plugin-example.jar"/>
+        <include name="scheduler-plugin.jar"/>
+        <include name="wsdl4j.jar"/>
+        <include name="xalan.jar"/>
+      </fileset>
+    </move>
+    <copy file="${install.lib}/commons-logging.jar"
+      todir="${install.server}/all/lib" />
+
+    <!-- Further partition the server/all/deploy directory into logical
+      groupings. Right now this only creates management and jms subdirs.
+    -->
+    <!-- Management deployments -->
+    <mkdir dir="${install.server}/all/deploy/management" />
+    <move todir="${install.server}/all/deploy/management">
+      <fileset dir="${install.server}/all/deploy">
+         <include name="console-mgr.sar"/>
+         <include name="ejb-management.jar"/>
+         <include name="web-console.war"/>
+      </fileset>
+    </move>
+    <!-- JMS deployments -->
+    <mkdir dir="${install.server}/all/deploy/jms" />
+    <move todir="${install.server}/all/deploy/jms">
+      <fileset dir="${install.server}/all/deploy">
+         <include name="jbossmq-service.xml"/>
+         <include name="jbossmq-destinations-service.xml"/>
+         <include name="hsqldb-jdbc2-service.xml"/>
+         <include name="jvm-il-service.xml"/>
+         <include name="rmi-il-service.xml"/>
+         <include name="oil-service.xml"/>
+         <include name="oil2-service.xml"/>
+         <include name="uil-service.xml"/>
+         <include name="uil2-service.xml"/>
+         <include name="jms-ds.xml"/>
+         <include name="jms-ra.rar"/>
+         <include name="jbossmq-httpil.sar/**"/>
+         <include name="jbossmq-hail.sar/**"/>
+      </fileset>
+    </move>
+    <delete dir="${install.server}/all/deploy/jbossmq-httpil.sar"/>
+    <delete dir="${install.server}/all/deploy/jbossmq-hail.sar"/>
+
+    <!-- Copy server/all to server/default and then remove the services and
+    jars outside of the scope of the default config -->
+    <copy todir="${install.server}/default">
+      <fileset dir="${install.server}/all">
+        <exclude name="db/**"/>
+      </fileset>
+    </copy>
+
+    <delete>
+      <fileset dir="${install.server}/default/lib">
+        <include name="axis.jar"/>
+        <include name="commons-logging.jar"/>
+        <include name="jgroups.jar"/>
+        <include name="jacorb.jar"/>
+        <include name="jgroups.jar"/>
+        <include name="jboss-iiop.jar"/>
+        <include name="jbossmqha.jar"/>
+        <include name="wsdl4j.jar"/>
+      </fileset>
+    </delete>
+    <delete dir="${install.server}/default/farm" />
+    <delete includeEmptyDirs="true">
+      <fileset dir="${install.server}/default/deploy">
+        <include name="cluster-service.xml"/>
+        <include name="iiop-service.xml"/>
+        <include name="jbossha-httpsession.sar/**"/>
+        <include name="jbossweb-ejb.jar"/>
+        <include name="jms/jbossmq-hail.sar/**"/>
+      </fileset>
+      <fileset dir="${install.server}/default/deploy/jboss-net.sar"/>
+    </delete>
+    <delete>
+      <fileset dir="${install.server}/default/conf">
+        <include name="axis-config.xml"/>
+        <include name="jacorb.properties"/>
+      </fileset>
+    </delete>
+    <delete includeEmptyDirs="true" dir="${install.server}/default/deploy/deploy.last" />
+
+    <!-- Build server/minimal manually -->
+    <mkdir dir="${install.server}/minimal/deploy"/>
+    <copy todir="${install.server}/minimal/conf">
+      <fileset dir="${install.server}/default/conf">
+        <include name="jboss-minimal.xml" />
+        <include name="jndi.properties" />
+        <include name="log4j.xml" />
+      </fileset>
+    </copy>
+    <move file="${install.server}/minimal/conf/jboss-minimal.xml"
+      tofile="${install.server}/minimal/conf/jboss-service.xml" />
+    <copy todir="${install.server}/minimal/lib">
+      <fileset dir="${install.server}/default/lib">
+        <include name="jboss-management.jar" />
+        <include name="jnet.jar" />
+        <include name="jnpserver.jar" />
+        <include name="log4j.jar" />
+      </fileset>
+    </copy>
+    <copy todir="${install.server}/minimal/deploy"
+      file="${install.server}/default/deploy/user-service.xml" />
+    <copy todir="${install.server}/minimal/lib"
+      file="${project.root}/server/output/lib/jboss-minimal.jar" />
+
+    <call target="jboss-all-client"/>
+
+  </target>
+
+  <target name="bypass-jboss-all-client">
+
+   <uptodate property="bypass-jboss-all-client.on" targetfile="${install.client}/jbossall-client.jar">
+      <srcfiles dir="${install.client}">
+        <include name="*-client.jar"/>
+        <include name="jboss-j2ee.jar"/>
+        <include name="jmx-connector-client-factory.jar"/>
+        <include name="jbossmqha.jar"/>
+        <include name="concurrent.jar"/>
+      </srcfiles>
+   </uptodate>
+
+  </target>
+
+  <target name="jboss-all-client"
+          depends="bypass-jboss-all-client"
+          unless="bypass-jboss-all-client.on">
+
+    <!--Create a jbossall-client.jar containing everything a client app needs-->
+    <mkdir dir="build"/>
+    <delete file="${install.client}/jbossall-client.jar"/>
+    <unjar dest="build">
+      <fileset dir="${install.client}">
+        <include name="*-client.jar"/>
+        <include name="jboss-j2ee.jar"/>
+        <include name="jmx-connector-client-factory.jar"/>
+        <include name="jbossmqha.jar"/>
+        <include name="concurrent.jar"/>
+      </fileset>
+    </unjar>
+    <jar destfile="${install.client}/jbossall-client.jar" basedir="build" />
+
+    <delete dir="build" />
+
+  </target>
+
+  <target name="small-configs" depends="init">
+
+     <delete dir="${install.server}/node1" />
+     <delete dir="${install.server}/node2" />
+
+    <!-- Copy server/all to server/node1 and then remove the services and
+    jars outside of the scope of the node1 config -->
+    <copy todir="${install.server}/node1">
+      <fileset dir="${install.server}/all">
+        <exclude name="db/**"/>
+      </fileset>
+    </copy>
+
+    <delete>
+      <fileset dir="${install.server}/node1/lib">
+        <include name="axis.jar"/>
+        <include name="commons-logging.jar"/>
+        <include name="jacorb.jar"/>
+        <include name="jboss-iiop.jar"/>
+        <include name="wsdl4j.jar"/>
+      </fileset>
+    </delete>
+    <delete dir="${install.server}/default/farm" />
+
+    <delete includeEmptyDirs="true">
+      <fileset dir="${install.server}/node1/deploy">
+        <include name="http-invoker.sar/**"/>
+        <include name="jboss-net.sar/**"/>
+        <include name="jms/**"/>
+        <include name="jmx-invoker-adaptor-server.sar/**"/>
+        <include name="jmx-rmi-adaptor.sar/**"/>
+        <include name="management/**"/>
+        <include name="iiop-service.xml"/>
+        <include name="jmx-ejb-connector-server.sar"/>
+        <include name="mail-service.xml"/>
+        <include name="properties-service.xml"/>
+        <include name="schedule-manager-service.xml"/>
+        <include name="scheduler-service.xml"/>
+        <include name="sqlexception-service.xml"/>
+        <include name="user-service.xml"/>
+      </fileset>
+    </delete>
+    <delete>
+      <fileset dir="${install.server}/node1/conf">
+        <include name="axis-config.xml"/>
+        <include name="jacorb.properties"/>
+      </fileset>
+    </delete>
+
+    <!-- Copy server/node1 to server/node2 -->
+    <copy todir="${install.server}/node2">
+      <fileset dir="${install.server}/node1">
+        <exclude name="db/**"/>
+      </fileset>
+    </copy>
+
+    <!-- Copy server/node1 to server/node3 -->
+    <copy todir="${install.server}/node3">
+      <fileset dir="${install.server}/node1">
+        <exclude name="db/**"/>
+      </fileset>
+    </copy>
+
+    <move file="${install.server}/node2/conf/jboss-service.xml"
+          tofile="${install.server}/node2/conf/jboss-service.xml.old"/>
+    <loadfile property="TESTSUITE_CLUSTER_CONFIG"
+              srcFile="${project.root}/varia/src/etc/TESTSUITE_CLUSTER_CONFIG.filter"/>
+    <copy file="${install.server}/node2/conf/jboss-service.xml.old"
+          tofile="${install.server}/node2/conf/jboss-service.xml">
+      <filterset>
+        <filter token="TESTSUITE_CLUSTER_CONFIG" value="${TESTSUITE_CLUSTER_CONFIG}"/>
+      </filterset>
+    </copy>
+
+    <move file="${install.server}/node3/conf/jboss-service.xml"
+          tofile="${install.server}/node3/conf/jboss-service.xml.old"/>
+    <loadfile property="TESTSUITE_CLUSTER_CONFIG_2"
+              srcFile="${project.root}/varia/src/etc/TESTSUITE_CLUSTER_CONFIG_2.filter"/>
+    <copy file="${install.server}/node3/conf/jboss-service.xml.old"
+          tofile="${install.server}/node3/conf/jboss-service.xml">
+      <filterset>
+        <filter token="TESTSUITE_CLUSTER_CONFIG" value="${TESTSUITE_CLUSTER_CONFIG_2}"/>
+      </filterset>
+    </copy>
+
+  </target>
+
+   <target name="hahttp-configs" depends="init"
+           description="Create configs for HTTP Session clustering testing">
+
+      <delete dir="${install.server}/http1" />
+      <delete dir="${install.server}/http2" />
+      <delete dir="${install.server}/LB" />
+
+      <!-- Copy server/all to server/node1 and then remove the services and
+      jars outside of the scope of the node1 config -->
+      <copy todir="${install.server}/http1">
+         <fileset dir="${install.server}/all">
+            <include name="conf/**"/>
+            <include name="lib/**"/>
+            <include name="deploy" />
+         </fileset>
+      </copy>
+
+      <copy todir="${install.server}/http1/deploy">
+         <fileset dir="${install.server}/all/deploy">
+            <include name="jbossha-httpsession.sar/**"/>
+            <include name="jbossweb-tomcat41.sar/**"/>
+            <include name="cluster-service.xml"/>
+            <include name="cache-invalidation-service.xml"/>
+            <include name="hsqldb-ds.xml"/>
+            <include name="jboss-jca.sar"/>
+            <include name="jboss-local-jdbc.rar"/>
+            <include name="sqlexception-service.xml"/>
+            <include name="transaction-service.xml"/>
+         </fileset>
+      </copy>
+
+      <delete>
+         <fileset dir="${install.server}/http1/lib">
+            <include name="axis.jar"/>
+            <include name="commons-logging.jar"/>
+            <include name="jacorb.jar"/>
+            <include name="jboss-iiop.jar"/>
+            <include name="wsdl4j.jar"/>
+         </fileset>
+      </delete>
+
+      <delete>
+         <fileset dir="${install.server}/http1/conf">
+            <include name="axis-config.xml"/>
+            <include name="jacorb.properties"/>
+         </fileset>
+      </delete>
+
+      <!-- Copy server/http1 to server/http2 -->
+      <copy todir="${install.server}/http2">
+         <fileset dir="${install.server}/http1">
+            <exclude name="db/**"/>
+         </fileset>
+      </copy>
+
+      <!-- Copy server/http1 to server/LB -->
+      <copy todir="${install.server}/LB">
+         <fileset dir="${install.server}/http1">
+            <exclude name="db/**"/>
+            <exclude name="deploy/cluster-service.xml" />
+            <exclude name="deploy/jbossha-httpsession.sar/**" />
+         </fileset>
+      </copy>
+
+
+      <move file="${install.server}/http1/conf/jboss-service.xml"
+         tofile="${install.server}/http1/conf/jboss-service.xml.old"/>
+      <loadfile property="TESTSUITE_CLUSTER_CONFIG"
+         srcFile="${project.root}/varia/src/etc/TESTSUITE_CLUSTER_CONFIG.filter"/>
+      <copy file="${install.server}/http1/conf/jboss-service.xml.old"
+         tofile="${install.server}/http1/conf/jboss-service.xml">
+         <filterset>
+            <filter token="TESTSUITE_CLUSTER_CONFIG" value="${TESTSUITE_CLUSTER_CONFIG}"/>
+         </filterset>
+      </copy>
+
+      <move file="${install.server}/http2/conf/jboss-service.xml"
+         tofile="${install.server}/http2/conf/jboss-service.xml.old"/>
+      <loadfile property="TESTSUITE_CLUSTER_CONFIG_2"
+         srcFile="${project.root}/varia/src/etc/TESTSUITE_CLUSTER_CONFIG_2.filter"/>
+      <copy file="${install.server}/http2/conf/jboss-service.xml.old"
+         tofile="${install.server}/http2/conf/jboss-service.xml">
+         <filterset>
+            <filter token="TESTSUITE_CLUSTER_CONFIG" value="${TESTSUITE_CLUSTER_CONFIG_2}"/>
+         </filterset>
+      </copy>
+
+      <!-- we now copy the clustered app to http1 and http2 -->
+      <copy todir="${install.server}/http1/deploy/clustered-httpsession.war">
+         <fileset dir="${project.root}/testsuite/src/resources/clustered-httpsession.war" />
+      </copy>
+      <copy todir="${install.server}/http2/deploy/clustered-httpsession.war">
+         <fileset dir="${project.root}/testsuite/src/resources/clustered-httpsession.war" />
+      </copy>
+
+      <!-- we copy the loadbalancer code to LB -->
+      <unjar src="${project.root}/varia/output/lib/loadbalancer.sar"
+         dest="${install.server}/LB/deploy/LB.sar" />
+
+   </target>
+
+  <!-- ================================================================== -->
+  <!-- Source Archives                                                    -->
+  <!-- ================================================================== -->
+
+  <target name="source-free-zip" depends="init"
+	  description="Builds a ZIP free source distribution.">
+    <mkdir dir="${module.output}"/>
+    <zip zipfile="${module.output}/${release.id}-free-src.zip">
+      <fileset dir="${project.root}">
+        <patternset refid="source.ignore"/>
+        <patternset refid="source.free"/>
+      </fileset>
+    </zip>
+  </target>
+
+  <target name="source-external-zip" depends="init"
+	  description="Builds a ZIP external source distribution.">
+    <mkdir dir="${module.output}"/>
+    <zip zipfile="${module.output}/${release.id}-external-src.zip">
+      <fileset dir="${project.root}">
+        <patternset refid="source.ignore"/>
+        <patternset refid="source.external"/>
+      </fileset>
+    </zip>
+  </target>
+
+  <target name="source-zip" depends="source-free-zip, source-external-zip"
+	  description="Builds a ZIP source distribution."/>
+
+  <target name="source-free-tar" depends="init"
+	  description="Builds a TAR free source distribution.">
+    <mkdir dir="${module.output}"/>
+    <tar tarfile="${module.output}/${release.id}-free-src.tar" longfile="gnu"
+	 basedir="${project.root}">
+        <patternset refid="source.ignore"/>
+        <patternset refid="source.free"/>
+    </tar>
+  </target>
+
+  <target name="source-external-tar" depends="init"
+	  description="Builds a TAR external source distribution.">
+    <mkdir dir="${module.output}"/>
+    <tar tarfile="${module.output}/${release.id}-external-src.tar" longfile="gnu"
+	 basedir="${project.root}">
+        <patternset refid="source.ignore"/>
+        <patternset refid="source.external"/>
+    </tar>
+  </target>
+
+  <target name="source-tar" depends="source-free-tar, source-external-tar"
+	  description="Builds a TAR source distribution."/>
+
+  <target name="source-free-tgz" depends="source-free-tar"
+	  description="Builds a TAR-GZIP free source distribution.">
+    <gzip src="${module.output}/${release.id}-free-src.tar"
+	  zipfile="${module.output}/${release.id}-free-src.tgz"/>
+  </target>
+
+  <target name="source-external-tgz" depends="source-external-tar"
+	  description="Builds a TAR-GZIP external source distribution.">
+    <gzip src="${module.output}/${release.id}-external-src.tar"
+	  zipfile="${module.output}/${release.id}-external-src.tgz"/>
+  </target>
+
+  <target name="source-tgz" depends="source-free-tgz, source-external-tgz"
+	  description="Builds a TAR-GZIP source distribution."/>
+
+  <target name="source-all"
+	  depends="source-tar, source-tgz, source-zip"
+	  description="Builds all source distributions."/>
+
+
+  <!-- ================================================================== -->
+  <!-- Cleaning                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- Clean up all build output -->
+  <target name="clean" depends="_buildmagic:clean, modules-clean"
+	  description="Cleans up most generated files.">
+  </target>
+
+  <!-- Clean up all generated files -->
+  <target name="clobber" depends="_buildmagic:clobber, clean, modules-clobber"
+	  description="Cleans up all generated files.">
+    <delete file="${module.root}/*_run.log"/>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main" depends="most"
+	  description="Executes the default target (most)."/>
+
+  <target name="all" depends="modules-all, install"
+	  description="Executes all modules and builds everything."/>
+
+  <target name="most" depends="modules-most, install"
+	  description="Executes all modules and builds most everything."/>
+
+  <target name="help" depends="_buildmagic:help:build"
+          description="Show this help message."/>
+
+
+  <!-- ================================================================== -->
+  <!-- Create the clustering test environment                             -->
+  <!-- ================================================================== -->
+
+  <target name="cluster-test-setup" depends="init"
+	  description="Create node_1 and node_2 configs for clustering testing">
+
+    <delete dir="${install.server}/node_1"/>
+    <delete dir="${install.server}/node_2"/>
+
+    <copy todir="${install.server}/node_1">
+      <fileset dir="${install.server}/all">
+        <exclude name="data/**"/>
+        <exclude name="log/**"/>
+        <exclude name="tmp/**"/>
+      </fileset>
+    </copy>
+    <copy todir="${install.server}/node_2">
+      <fileset dir="${install.server}/all">
+        <exclude name="data/**"/>
+        <exclude name="log/**"/>
+        <exclude name="tmp/**"/>
+      </fileset>
+    </copy>
+
+    <copy file="${project.root}/testsuite/src/etc/cluster-test/jboss-bindings.xml"
+          todir="${install.server}"/>
+
+    <move file="${install.server}/node_2/conf/jboss-service.xml"
+          tofile="${install.server}/node_2/conf/jboss-service.xml.old"/>
+    <loadfile property="TESTSUITE_CLUSTER_CONFIG"
+              srcFile="${project.root}/testsuite/src/etc/cluster-test/TESTSUITE_CLUSTER_CONFIG.filter"/>
+    <copy file="${install.server}/node_2/conf/jboss-service.xml.old"
+          tofile="${install.server}/node_2/conf/jboss-service.xml">
+      <filterset>
+        <filter token="TESTSUITE_CLUSTER_CONFIG" value="${TESTSUITE_CLUSTER_CONFIG}"/>
+      </filterset>
+    </copy>
+
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- ================================================================== -->
+  <!-- ================================================================== -->
+
+  <!--
+     | NOTE: The following targets will probably be moved to external
+     |       scripts or external build files.
+   -->
+
+  <!-- ================================================================== -->
+  <!-- Run the JBoss/Testsuite                                            -->
+  <!-- ================================================================== -->
+
+  <target name="testsuite" depends="run-testsuite"/>
+
+  <!--
+     | Invoke the 'tests-unit' on the 'testsuite' module. This must
+     | be run prior to commiting any changes to ensure that your changes
+     | don't cause grief to other developers.
+   -->
+  <target name="run-basic-testsuite" depends="init"
+          description="Execute the testsuite.">
+    <property name="module" value="testsuite" />
+    <execmodules target="tests-unit" modules="testsuite"
+                 root="${project.root}/${module}"
+                 skipmissing="${executemodules.skipmissing}">
+      <before target="${target}-${module}-prepare"/>
+      <header message="${executemodules.header}"/>
+      <footer message="${executemodules.footer}"/>
+      <after target="${target}-${module}"/>
+    </execmodules>
+  </target>
+
+  <!-- Invoke the 'tests' on the 'testsuite' module -->
+  <target name="run-testsuite" depends="init"
+          description="Execute the testsuite.">
+    <property name="module" value="testsuite" />
+    <execmodules target="tests" modules="testsuite"
+		 root="${project.root}/${module}"
+		 skipmissing="${executemodules.skipmissing}">
+      <before target="${target}-${module}-prepare"/>
+      <header message="${executemodules.header}"/>
+      <footer message="${executemodules.footer}"/>
+      <after target="${target}-${module}"/>
+    </execmodules>
+  </target>
+
+  <!-- Invoke the 'tests-clustering' on the 'testsuite' module -->
+  <target name="run-clustering-testsuite" depends="init"
+          description="Execute the clustering testsuite.">
+    <property name="module" value="testsuite" />
+    <execmodules target="tests-clustering" modules="testsuite"
+		 root="${project.root}/${module}"
+		 skipmissing="${executemodules.skipmissing}">
+      <before target="${target}-${module}-prepare"/>
+      <header message="${executemodules.header}"/>
+      <footer message="${executemodules.footer}"/>
+      <after target="${target}-${module}"/>
+    </execmodules>
+  </target>
+
+  <!-- Invoke a single testcase on the 'testsuite' module -->
+  <!-- This needs specification of the test case class    -->
+  <!-- Example: "testcase -Dtest=MDBUnitTestCase"         -->
+  <target name="testcase" depends="init"
+          description="Run a test case.">
+    <property name="module" value="testsuite" />
+    <execmodules target="one-test" modules="testsuite"
+		 root="${project.root}/${module}"
+		 skipmissing="${executemodules.skipmissing}">
+      <before target="${target}-${module}-prepare"/>
+      <header message="${executemodules.header}"/>
+      <footer message="${executemodules.footer}"/>
+      <after target="${target}-${module}"/>
+    </execmodules>
+  </target>
+
+  <!-- Run JBoss -->
+  <property name="param.config.name" value="all" />
+  <target name="run-jboss" depends="init"
+          description="Runs the JBoss server.">
+    <echo>Starting JBoss (redirected ${basedir}/${param.config.name}_run.log) </echo>
+    <call target="run-jboss-check-os"/>
+    <call target="run-jboss-unix">
+      <param name="param.config.name" value="${param.config.name}"/>
+    </call>
+    <call target="run-jboss-win32">
+      <param name="param.config.name" value="${param.config.name}"/>
+    </call>
+  </target>
+
+  <target name="run-jboss-check-os">
+    <condition property="run.jboss.unix">
+      <os family="unix"/>
+    </condition>
+    <condition property="run.jboss.win32">
+      <or>
+        <os family="windows"/>
+        <os family="dos"/>
+      </or>
+    </condition>
+  </target>
+
+  <!-- this is sloppy -->
+
+  <target name="run-jboss-unix" depends="init" if="run.jboss.unix">
+    <echo message="run.home.dir=${run.home.dir}"/>
+    <echo message="JBoss configuration used=${param.config.name}"/>
+    <exec executable="${run.bin.dir}/run.sh"
+	  dir="${run.home.dir}"
+          output="${basedir}/${param.config.name}_run.log"
+	  newenvironment="true">
+      <arg line="-c ${param.config.name}"/>
+    </exec>
+  </target>
+
+  <target name="run-jboss-win32" depends="init" if="run.jboss.win32">
+    <echo message="run.home.dir=${run.home.dir}"/>
+    <echo message="JBoss configuration used=${param.config.name}"/>
+    <exec executable="${run.bin.dir}/run.bat"
+          dir="${run.bin.dir}"
+          output="${basedir}/${param.config.name}_run.log"
+	  >
+	   <env key="NOPAUSE" value="TRUE" />
+      <arg line="-c ${param.config.name}"/>
+    </exec>
+  </target>
+
+  <target name="kill-jboss" depends="init">
+     <java classname="org.jboss.Shutdown" fork="true">
+       <classpath>
+         <pathelement location="${run.bin.dir}/shutdown.jar"/>
+         <pathelement location="${run.home.dir}/client/jbossall-client.jar"/>
+         <pathelement location="${run.home.dir}/client/jbossjmx-ant.jar"/>
+       </classpath>
+       <arg value="--server=${param.server.name}"/>
+       <arg value="--halt=0"/>
+     </java>
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Run the Nightly Tasks                                              -->
+  <!-- ================================================================== -->
+
+  <target name="update-project" depends="init">
+    <echo>Updating project workspace...</echo>
+    <cvs command="update -d" dest="${project.root}"/>
+  </target>
+
+  <target name="update-module" depends="init">
+    <echo>Updating module workspace...</echo>
+    <cvs command="update -d" dest="${module.root}"/>
+  </target>
+
+  <target name="run-nightly" depends="init">
+    <!-- perhaps refresh cvs -->
+    <call target="update-project" unless="test.skipupdate"/>
+
+    <!-- perhaps clean/clobber -->
+    <call target="clean" if="test.clean"/>
+    <call target="clobber" if="test.clobber"/>
+
+    <!-- build most everything -->
+    <call target="most" unless="test.skipbuild" />
+
+    <!-- run the server in a seperate thread-->
+    <parallel>
+      <sequential>
+        <antcall target="run-jboss">
+           <param name="param.config.name" value="all"/>
+        </antcall>
+      </sequential>
+
+      <sequential>
+        <echo>Waiting for JBoss to activate (${run.nightly.sleep} minute)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep minutes="${run.nightly.sleep}"/>
+
+        <!-- start the testsuite (it will generate reports by default) -->
+        <echo>Starting JBoss/Testsuite</echo>
+        <antcall target="run-testsuite"/>
+
+        <!-- shutdown the server -->
+        <echo>Stopping JBoss</echo>
+        <antcall target="kill-jboss">
+           <param name="param.server.name" value="localhost:1099"/>
+        </antcall>
+      </sequential>
+    </parallel>
+
+    <call target="run-nightly-email"/>
+  </target>
+
+  <target name="run-nightly-clustering" depends="init">
+    <!-- perhaps refresh cvs -->
+    <call target="update-project" unless="test.skipupdate"/>
+
+    <!-- perhaps clean/clobber -->
+    <call target="clean" if="test.clean"/>
+    <call target="clobber" if="test.clobber"/>
+
+    <!-- build most everything -->
+    <call target="most" unless="test.skipbuild" />
+
+    <!-- create distincts setups -->
+    <call target="cluster-test-setup" />
+
+    <!-- run the server in a seperate thread-->
+    <parallel>
+      <parallel>
+         <parallel>
+           <antcall target="run-jboss">
+              <param name="param.config.name" value="node_1"/>
+           </antcall>
+         </parallel>
+         <sequential>
+           <sleep seconds="10"/>
+           <antcall target="run-jboss">
+              <param name="param.config.name" value="node_2"/>
+           </antcall>
+         </sequential>
+      </parallel>
+
+      <sequential>
+        <echo>Waiting for JBoss to activate (${run.nightly.sleep} minute)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep minutes="${run.nightly.sleep}"/>
+
+        <!-- start the testsuite (it will generate reports by default) -->
+        <echo>Starting JBoss/Clustering-Testsuite</echo>
+        <call target="run-clustering-testsuite"/>
+
+        <!-- shutdown the server -->
+        <echo>Stopping JBoss (instance 1)</echo>
+        <antcall target="kill-jboss">
+           <param name="param.server.name" value="localhost:1099"/>
+        </antcall>
+
+        <echo>Stopping JBoss (instance 2)</echo>
+        <antcall target="kill-jboss">
+           <param name="param.server.name" value="localhost:21099"/>
+        </antcall>
+
+        <antcall target="run-nightly-email"/>
+
+      </sequential>
+
+    </parallel>
+
+  </target>
+
+  <target name="run-nightly-email" depends="init">
+    <tstamp>
+     <format property="TODAYS_DATE" pattern="d-MMMM-yyyy" />
+    </tstamp>
+    <echo>Sending Reports</echo>
+    <echo message="to: ${run.nightly.email.tolist}"/>
+    <echo message="from: ${run.nightly.email.from}"/>
+    <echo message="via: ${run.nightly.email.mailhost}"/>
+
+    <!-- email output to list -->
+    <mail tolist="${run.nightly.email.tolist}"
+         from="${run.nightly.email.from}"
+         subject="Automated JBoss(${version.cvstag} ${version.name}) Testsuite Results: ${TODAYS_DATE}"
+         message="Automated JBoss(${version.cvstag} ${version.name}) Testsuite Results: ${TODAYS_DATE}"
+         mailhost="${run.nightly.email.mailhost}" encoding="plain"
+         files="${project.root}/testsuite/output/reports/text/TESTS-TestSuites.txt"/>
+  </target>
+
+</project>

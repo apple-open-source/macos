@@ -276,9 +276,13 @@ void BELPICToken::changePIN(int pinNum,
 	if (pinNum != 1)
 		CssmError::throwMe(CSSM_ERRCODE_SAMPLE_VALUE_NOT_SUPPORTED);
 
-	if (oldPinLength < 0 || oldPinLength > 14 ||
-		newPinLength < 0 || newPinLength > 14)
+	if (oldPinLength < 0 ||
+		oldPinLength > BELPIC_MAX_PIN_LEN ||
+		newPinLength < BELPIC_MIN_PIN_LEN ||
+		newPinLength > BELPIC_MAX_PIN_LEN)
+	{
 		CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
+	}
 
 	PCSC::Transaction _(*this);
 	uint8_t apdu[] =
@@ -349,7 +353,7 @@ void BELPICToken::_verifyPIN(int pinNum, const uint8_t *pin, size_t pinLength)
 	if (pinNum < 1 || pinNum > 3)
 		CssmError::throwMe(CSSM_ERRCODE_SAMPLE_VALUE_NOT_SUPPORTED);
 
-	if (pinLength > 14)
+	if (pinLength < BELPIC_MIN_PIN_LEN || pinLength > BELPIC_MAX_PIN_LEN)
 		CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
 
 	PCSC::Transaction _(*this);
@@ -505,7 +509,7 @@ void BELPICToken::populate()
 	RefPointer<Tokend::Record> cert2(new BELPICBinaryFileRecord(kDF_BELPIC,
 		kBELPIC_EF_Cert2, "Cert #2 (authentication)"));
 	RefPointer<Tokend::Record> cert3(new BELPICBinaryFileRecord(kDF_BELPIC,
-		kBELPIC_EF_Cert3, "Cert #3 (non-repudiation)"));
+		kBELPIC_EF_Cert3, "Cert #3 (signature)"));
 	RefPointer<Tokend::Record> cert4(new BELPICBinaryFileRecord(kDF_BELPIC,
 		kBELPIC_EF_Cert4, "Cert #4 (CA)"));
 	RefPointer<Tokend::Record> cert6(new BELPICBinaryFileRecord(kDF_BELPIC,
@@ -522,7 +526,7 @@ void BELPICToken::populate()
 	RefPointer<Tokend::Record> key2(new BELPICKeyRecord(kPrK2_Id,
 		"PrK#2 (authentication)", privateKeyRelation.metaRecord(), true));
 	RefPointer<Tokend::Record> key3(new BELPICKeyRecord(kPrK3_Id,
-		"PrK#3 (authentication)", privateKeyRelation.metaRecord(), true));
+		"PrK#3 (signature)", privateKeyRelation.metaRecord(), true));
 
 	privateKeyRelation.insertRecord(key2);
 	privateKeyRelation.insertRecord(key3);

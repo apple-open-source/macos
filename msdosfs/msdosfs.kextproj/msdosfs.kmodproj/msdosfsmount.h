@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -98,7 +96,7 @@ struct msdosfsmount {
 	u_long pm_rootdirblk;	/* block # (cluster # for FAT32) of root directory number */
 	u_long pm_rootdirsize;	/* number of physical (device) blocks in root directory (FAT12 and FAT16 only) */
 	u_long pm_firstcluster;	/* sector number of first cluster (relative to start of volume) */
-	u_long pm_maxcluster;	/* maximum cluster number */
+	u_long pm_maxcluster;	/* maximum cluster number; clusters are in range 2..pm_maxcluster */
 	u_long pm_freeclustercount;	/* number of free clusters */
 	u_long pm_cnshift;	/* shift file offset right this amount to get a cluster number */
 	u_long pm_crbomask;	/* and a file offset with this mask to get cluster rel offset */

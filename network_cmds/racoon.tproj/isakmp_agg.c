@@ -99,7 +99,10 @@ agg_i1send(iph1, msg)
 	int tlen;
 	int need_cr = 0;
 	vchar_t *cr = NULL, *gsstoken = NULL;
-	vchar_t	*vid = NULL;
+	vchar_t *vid_natt_rfc = NULL;
+	vchar_t	*vid_natt_apple = NULL;
+	vchar_t *vid_natt_02 = NULL;
+	vchar_t	*vid_natt_02N = NULL;
 	int error = -1;
 	int nptype;
 #ifdef HAVE_GSSAPI
@@ -149,7 +152,20 @@ agg_i1send(iph1, msg)
 		goto end;
 	
 #ifdef IKE_NAT_T
-	vid = set_vendorid(VENDORID_NATT);
+	vid_natt_rfc = set_vendorid(VENDORID_NATT_RFC);
+	vid_natt_apple = set_vendorid(VENDORID_NATT_APPLE);
+	vid_natt_02 = set_vendorid(VENDORID_NATT_02);
+	vid_natt_02N = set_vendorid(VENDORID_NATT_02N);
+	
+	if (vid_natt_rfc == NULL 	||
+		vid_natt_apple == NULL 	||
+		vid_natt_02 == NULL 	||
+		vid_natt_02N == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"failed to get vendor ID buffer.\n");
+			goto end;
+	}
+		
 #endif
 
 #ifdef HAVE_SIGNING_C
@@ -183,8 +199,12 @@ agg_i1send(iph1, msg)
 		tlen += sizeof (*gen) + len;
 	}
 #endif
-	if (vid)
-		tlen += sizeof(*gen) + vid->l;
+	if (vid_natt_rfc) {
+		tlen += sizeof(*gen) + vid_natt_rfc->l;
+		tlen += sizeof(*gen) + vid_natt_apple->l;
+		tlen += sizeof(*gen) + vid_natt_02->l;
+		tlen += sizeof(*gen) + vid_natt_02N->l;
+	}
 
 	iph1->sendbuf = vmalloc(tlen);
 	if (iph1->sendbuf == NULL) {
@@ -217,7 +237,7 @@ agg_i1send(iph1, msg)
 	if (need_cr)
 		nptype = ISAKMP_NPTYPE_CR;
 	else
-		nptype = vid ? ISAKMP_NPTYPE_VID : ISAKMP_NPTYPE_NONE;
+		nptype = vid_natt_rfc ? ISAKMP_NPTYPE_VID : ISAKMP_NPTYPE_NONE;
 
 	p = set_isakmp_payload(p, iph1->id, nptype);
 
@@ -225,15 +245,19 @@ agg_i1send(iph1, msg)
 	if (iph1->rmconf->proposal->authmethod ==
 	    OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB) {
 		gssapi_get_token_to_send(iph1, &gsstoken);
-		p = set_isakmp_payload(p, gsstoken, vid ? ISAKMP_NPTYPE_VID : ISAKMP_NPTYPE_NONE);
+		p = set_isakmp_payload(p, gsstoken, vid_natt_rfc ? ISAKMP_NPTYPE_VID : ISAKMP_NPTYPE_NONE);
 	} else
 #endif
 	if (need_cr)
 		/* create isakmp CR payload */
-		p = set_isakmp_payload(p, cr, vid ? ISAKMP_NPTYPE_VID : ISAKMP_NPTYPE_NONE);
+		p = set_isakmp_payload(p, cr, vid_natt_rfc ? ISAKMP_NPTYPE_VID : ISAKMP_NPTYPE_NONE);
 
-	if (vid)
-		p = set_isakmp_payload(p, vid, ISAKMP_NPTYPE_NONE);
+	if (vid_natt_rfc) {
+		p = set_isakmp_payload(p, vid_natt_rfc, ISAKMP_NPTYPE_VID);
+		p = set_isakmp_payload(p, vid_natt_apple, ISAKMP_NPTYPE_VID);
+		p = set_isakmp_payload(p, vid_natt_02, ISAKMP_NPTYPE_VID);
+		p = set_isakmp_payload(p, vid_natt_02N, ISAKMP_NPTYPE_NONE);
+	}
 
 #ifdef HAVE_PRINT_ISAKMP_C
 	isakmp_printpacket(iph1->sendbuf, iph1->local, iph1->remote, 0);
@@ -253,8 +277,14 @@ end:
 		vfree(cr);
 	if (gsstoken)
 		vfree(gsstoken);
-	if (vid)
-		vfree(vid);
+	if (vid_natt_rfc)
+		vfree(vid_natt_rfc);
+	if (vid_natt_apple)
+		vfree(vid_natt_apple);
+	if (vid_natt_02)
+		vfree(vid_natt_02);
+	if (vid_natt_02N)
+		vfree(vid_natt_02N);
 
 	return error;
 }
@@ -342,12 +372,20 @@ agg_i2recv(iph1, msg)
 			break;
 #endif
 		case ISAKMP_NPTYPE_VID:
-			if (check_vendorid(pa->ptr) == VENDORID_NATT)
-			{
 #ifdef IKE_NAT_T
-				iph1->natt_flags |= natt_remote_support;
-#endif
+			{
+				int vid = check_vendorid(pa->ptr);
+
+				if (vid == VENDORID_NATT_RFC)
+					iph1->natt_flags |= natt_type_rfc;
+				else if (vid == VENDORID_NATT_APPLE)
+					iph1->natt_flags |= natt_type_apple;
+				else if (vid == VENDORID_NATT_02)
+					iph1->natt_flags |= natt_type_02;
+				else if (vid == VENDORID_NATT_02N)
+					iph1->natt_flags |= natt_type_02N;
 			}
+#endif
 			break;
 		case ISAKMP_NPTYPE_N:
 			isakmp_check_notify(pa->ptr, iph1);
@@ -359,7 +397,9 @@ agg_i2recv(iph1, msg)
 			gssapi_save_received_token(iph1, gsstoken);
 			break;
 #endif
-		case ISAKMP_NPTYPE_NATD:
+		case ISAKMP_NPTYPE_NATD_RFC:
+		case ISAKMP_NPTYPE_NATD_DRAFT:
+		case ISAKMP_NPTYPE_NATD_BADDRAFT:
 			/*
 			 * ignored for now, we need to know the hash
 			 * algorithm before we can evaluate the natd
@@ -376,6 +416,9 @@ agg_i2recv(iph1, msg)
 		}
 	}
 
+	/* if natt vid(s) received - select type to use */
+	natt_select_type(iph1);
+	
 	/* payload existency check */
 	/* XXX to be checked each authentication method. */
 
@@ -402,14 +445,26 @@ agg_i2recv(iph1, msg)
 	memcpy(&iph1->index.r_ck, &((struct isakmp *)msg->v)->r_ck,
 		sizeof(cookie_t));
 	
-	/* check natd payloads */
+	
 #ifdef IKE_NAT_T
+
+	/* check natd payloads */	
 	for (pa = (struct isakmp_parse_t *)pbuf->v;
 	     pa->type != ISAKMP_NPTYPE_NONE;
 	     pa++)
 	{
-		if (pa->type == ISAKMP_NPTYPE_NATD)
+		if (pa->type == ISAKMP_NPTYPE_NATD_RFC ||
+			pa->type == ISAKMP_NPTYPE_NATD_DRAFT ||
+			pa->type == ISAKMP_NPTYPE_NATD_BADDRAFT)
 		{
+			if (pa->type != iph1->natd_payload_type) {
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+					"ignore the packet, "
+					"received unexpected natd payload type %d.\n",
+					pa->type);
+				goto end;
+			}			
+			
 			natd_match_t match = natd_matches(iph1, pa->ptr);
 			iph1->natt_flags |= natt_natd_received;
 			if ((match & natd_match_local) != 0)
@@ -519,7 +574,7 @@ agg_i2send(iph1, msg)
 	int need_cert = 0;
 	int error = -1;
 	vchar_t *gsshash = NULL;
-	int	need_natd = 0;
+	int natd_type = 0;
 
 	/* validity check */
 	if (iph1->status != PHASE1ST_MSG2RECEIVED) {
@@ -543,8 +598,8 @@ agg_i2send(iph1, msg)
 	tlen = sizeof(struct isakmp);
 
 #ifdef IKE_NAT_T
-	if ((iph1->natt_flags & natt_remote_support) != 0) {
-		need_natd = 1;
+	if ((iph1->natt_flags & NATT_TYPE_MASK) != 0) {
+		natd_type = iph1->natd_payload_type;
 		natd_create(iph1);
 		if (iph1->local_natd)
 			tlen += sizeof(*gen) + iph1->local_natd->l;
@@ -571,7 +626,7 @@ agg_i2send(iph1, msg)
 
 		/* set HASH payload */
 		p = set_isakmp_payload(p, iph1->hash,
-			need_natd ? ISAKMP_NPTYPE_NATD
+			natd_type ? natd_type
 				: ISAKMP_NPTYPE_NONE);
 		break;
 #ifdef HAVE_SIGNING_C
@@ -611,7 +666,7 @@ agg_i2send(iph1, msg)
 			p = set_isakmp_payload(p, iph1->cert->pl, ISAKMP_NPTYPE_SIG);
 		/* add SIG payload */
 		p = set_isakmp_payload(p, iph1->sig,
-			need_natd ? ISAKMP_NPTYPE_NATD
+			natd_type ? natd_type
 				: ISAKMP_NPTYPE_NONE);
 		break;
 #endif
@@ -642,16 +697,16 @@ agg_i2send(iph1, msg)
 		if (p == NULL)
 			goto end;
 		p = set_isakmp_payload(p, gsshash,
-			need_natd ? ISAKMP_NPTYPE_NATD
+			natd_type ? natd_type
 				: ISAKMP_NPTYPE_NONE);
 		break;
 #endif
 	}
 
 #ifdef IKE_NAT_T
-	if (need_natd) {
+	if (natd_type) {
 		if (iph1->local_natd)
-			p = set_isakmp_payload(p, iph1->local_natd, ISAKMP_NPTYPE_NATD);
+			p = set_isakmp_payload(p, iph1->local_natd, natd_type);
 		if (iph1->remote_natd)
 			p = set_isakmp_payload(p, iph1->remote_natd, ISAKMP_NPTYPE_NONE);
 	}
@@ -753,12 +808,20 @@ agg_r1recv(iph1, msg)
 				goto end;
 			break;
 		case ISAKMP_NPTYPE_VID:
-			if (check_vendorid(pa->ptr) == VENDORID_NATT)
+#ifdef IKE_NAT_T	
 			{
-#ifdef IKE_NAT_T
-				iph1->natt_flags |= natt_remote_support;
-#endif
+				int vid = check_vendorid(pa->ptr);
+
+				if (vid == VENDORID_NATT_RFC)
+					iph1->natt_flags |= natt_type_rfc;
+				else if (vid == VENDORID_NATT_APPLE)
+					iph1->natt_flags |= natt_type_apple;
+				else if (vid == VENDORID_NATT_02)
+					iph1->natt_flags |= natt_type_02;
+				else if (vid == VENDORID_NATT_02N)
+					iph1->natt_flags |= natt_type_02N;
 			}
+#endif
 			break;
 #ifdef HAVE_SIGNING_C
 		case ISAKMP_NPTYPE_CR:
@@ -800,6 +863,11 @@ agg_r1recv(iph1, msg)
 		/* XXX send information */
 		goto end;
 	}
+
+#ifdef IKE_NAT_T
+	/* if natt vid(s) received - select type to use */
+	natt_select_type(iph1);
+#endif
 
 #ifdef HAVE_SIGNING_C
 	if (oakley_checkcr(iph1) < 0) {
@@ -930,8 +998,18 @@ agg_r1send(iph1, msg)
 	tlen = sizeof(struct isakmp);
 
 #ifdef IKE_NAT_T
-	if ((iph1->natt_flags & natt_remote_support) != 0) {
-		nattvid = set_vendorid(VENDORID_NATT);
+	if ((iph1->natt_flags & NATT_TYPE_MASK) != 0) {
+		int vid_type;
+		int natt_type = iph1->natt_flags & NATT_TYPE_MASK;
+		if (natt_type == natt_type_rfc)
+			vid_type = VENDORID_NATT_RFC;
+		else if (natt_type == natt_type_apple)
+			vid_type = VENDORID_NATT_APPLE;
+		else if (natt_type == natt_type_02)
+			vid_type = VENDORID_NATT_02;
+		else
+			vid_type = VENDORID_NATT_02N;
+		nattvid = set_vendorid(vid_type);			
 		natd_create(iph1);
 		if (nattvid) {
 			tlen += sizeof(*gen) + nattvid->l;
@@ -1076,9 +1154,9 @@ agg_r1send(iph1, msg)
 
 #ifdef IKE_NAT_T
 		if (nattvid) {
-			p = set_isakmp_payload(p, nattvid, ISAKMP_NPTYPE_NATD);
+			p = set_isakmp_payload(p, nattvid, iph1->natd_payload_type);
 			if (iph1->local_natd)
-				p = set_isakmp_payload(p, iph1->local_natd, ISAKMP_NPTYPE_NATD);
+				p = set_isakmp_payload(p, iph1->local_natd, iph1->natd_payload_type);
 			if (iph1->remote_natd)
 				p = set_isakmp_payload(p, iph1->remote_natd, ISAKMP_NPTYPE_NONE);
 		}
@@ -1163,9 +1241,9 @@ agg_r1send(iph1, msg)
 	
 #ifdef IKE_NAT_T
 	if (nattvid) {
-		p = set_isakmp_payload(p, nattvid, ISAKMP_NPTYPE_NATD);
+		p = set_isakmp_payload(p, nattvid, iph1->natd_payload_type);
 		if (iph1->local_natd)
-			p = set_isakmp_payload(p, iph1->local_natd, ISAKMP_NPTYPE_NATD);
+			p = set_isakmp_payload(p, iph1->local_natd, iph1->natd_payload_type);
 		if (iph1->remote_natd)
 			p = set_isakmp_payload(p, iph1->remote_natd, ISAKMP_NPTYPE_NONE);
 	}
@@ -1277,8 +1355,18 @@ agg_r2recv(iph1, msg0)
 		case ISAKMP_NPTYPE_N:
 			isakmp_check_notify(pa->ptr, iph1);
 			break;
-		case ISAKMP_NPTYPE_NATD:
+		case ISAKMP_NPTYPE_NATD_RFC:
+		case ISAKMP_NPTYPE_NATD_DRAFT:
+		case ISAKMP_NPTYPE_NATD_BADDRAFT:
 #ifdef IKE_NAT_T
+			if (pa->type != iph1->natd_payload_type) {
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+					"ignore the packet, "
+					"received unexpected natd payload type %d.\n",
+					pa->type);
+				goto end;
+			}
+				
 			{
 				natd_match_t match = natd_matches(iph1, pa->ptr);
 				iph1->natt_flags |= natt_natd_received;

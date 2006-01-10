@@ -130,10 +130,14 @@ public:
     virtual void attach();
     virtual bool rendererIsNeeded(khtml::RenderStyle *);
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
+    virtual void closeRenderer();
     virtual void detach();
     
     virtual void recalcStyle(StyleChange ch);
     virtual void childrenChanged();
+
+    bool isComplete() const { return m_complete; }
+    void setComplete(bool complete);
 
     DocumentImpl* contentDocument() const;
     
@@ -158,6 +162,7 @@ public:
 private:
     mutable KJS::Bindings::Instance *objectInstance;
 #endif
+    bool m_complete;
 };
 
 // -------------------------------------------------------------------------

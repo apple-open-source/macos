@@ -61,7 +61,7 @@ dhcp_fprint_packet(FILE * f, struct dhcp * dp, int pkt_len)
     i = dp->dp_htype;
     fprintf(f, "htype = %d\n", i);
     
-    fprintf(f, "dp_flags = %x\n", dp->dp_flags);
+    fprintf(f, "flags = %x\n", ntohs(dp->dp_flags));
     len = dp->dp_hlen;
     fprintf(f, "hlen = %d\n", len);
     
@@ -70,7 +70,7 @@ dhcp_fprint_packet(FILE * f, struct dhcp * dp, int pkt_len)
     
     fprintf(f, "xid = %lu\n", (u_long)ntohl(dp->dp_xid));
     
-    fprintf(f, "secs = %hu\n", dp->dp_secs);
+    fprintf(f, "secs = %hu\n", ntohs(dp->dp_secs));
     
     fprintf(f, "ciaddr = %s\n", inet_ntoa(dp->dp_ciaddr));
     fprintf(f, "yiaddr = %s\n", inet_ntoa(dp->dp_yiaddr));

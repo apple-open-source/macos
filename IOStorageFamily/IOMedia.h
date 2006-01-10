@@ -246,8 +246,6 @@ typedef UInt32 IOMediaAttributeMask;
  * client's access is valid, the media is formatted and the transfer is within
  * the bounds of the media.  An optional non-zero base (offset) is then applied
  * before the read or write is passed to provider object.
- *
- * An open is accepted so long as no more than one writer is active at any time.
  */
 
 class IOMedia : public IOStorage

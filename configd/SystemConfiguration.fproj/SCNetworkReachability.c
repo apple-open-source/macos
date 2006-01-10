@@ -2083,7 +2083,6 @@ __SCNetworkReachabilityReachabilitySetNotifications(SCDynamicStoreRef	store)
 	CFArrayAppendValue(keys, key);
 	CFRelease(key);
 
-	// Notify:com.apple.SystemConfiguration.dns_configuration
 	dns_key = CFStringCreateWithCString(NULL,
 					    dns_configuration_notify_key(),
 					    kCFStringEncodingASCII);

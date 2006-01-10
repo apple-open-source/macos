@@ -23,6 +23,33 @@
       / __/ | (_) |
   __ |_____(_)___/ ___________________________________________
               
+  Changes with mod_ssl 2.8.24 (06-Jul-2004 to 02-Sep-2005)
+
+   *) Fix a security issue (CAN-2005-2700) where "SSLVerifyClient
+      require" was not enforced in per-location context if
+      "SSLVerifyClient optional" was configured in the global virtual
+      host configuration.
+
+  Changes with mod_ssl 2.8.23 (30-Oct-2004 to 06-Jul-2005)
+
+   *) Ported to OpenSSL 0.9.8
+
+   *) Fixed connection timeout handling by calling the EAPI connection
+      close hook after (and not before) the B_OUT flag was set on the
+      underlying I/O buffer in order to prevent attempted buffer flushes
+      from blocking the connection.
+
+   *) Updated the ca-bundle.crt file from Mozilla's "certdata.txt"
+      (CVS revision 1.37).
+
+   *) Fix timeout handling in POST request processing by resetting
+      timeouts.
+
+   *) Fixed double-definition of OPENSSL_free under OpenSSL 0.9.6 by
+      fixing the version test in ssl_util_ssl.h
+   
+   *) Adjusted all copyright messages to contain the new year 2005 ;)
+
   Changes with mod_ssl 2.8.22 (22-Oct-2004 to 30-Oct-2004)
 
    *) Upgraded to Apache 1.3.33

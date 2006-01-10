@@ -579,10 +579,12 @@ ipsecdoi2pfkey_mode(mode)
 {
 	switch (mode) {
 	case IPSECDOI_ATTR_ENC_MODE_TUNNEL:
-	case IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL:
+	case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC:
+	case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT:
 		return IPSEC_MODE_TUNNEL;
 	case IPSECDOI_ATTR_ENC_MODE_TRNS:
-	case IPSECDOI_ATTR_ENC_MODE_UDP_TRNS:
+	case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC:
+	case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT:
 		return IPSEC_MODE_TRANSPORT;
 	default:
 		plog(LLV_ERROR, LOCATION, NULL, "Invalid mode type: %u\n", mode);
@@ -593,15 +595,25 @@ ipsecdoi2pfkey_mode(mode)
 
 /* IPSECDOI_ATTR_ENC_MODE -> IPSEC_MODE */
 u_int
-pfkey2ipsecdoi_mode(mode, hasnat)
+pfkey2ipsecdoi_mode(mode, nattype)
 	u_int mode;
-	int	hasnat;
+	int	nattype;
 {
 	switch (mode) {
 	case IPSEC_MODE_TUNNEL:
-		return hasnat == 0 ? IPSECDOI_ATTR_ENC_MODE_TUNNEL : IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL;
+		if (nattype == 0)
+			return IPSECDOI_ATTR_ENC_MODE_TUNNEL;
+		else if (nattype == natt_type_rfc || nattype == natt_type_apple)
+			return IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC;
+		else
+			return IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT;
 	case IPSEC_MODE_TRANSPORT:
-		return hasnat == 0 ? IPSECDOI_ATTR_ENC_MODE_TRNS : IPSECDOI_ATTR_ENC_MODE_UDP_TRNS;
+		if (nattype == 0)
+			return IPSECDOI_ATTR_ENC_MODE_TRNS;
+		else if (nattype == natt_type_rfc || nattype == natt_type_apple)
+			return IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC;
+		else
+			return IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT;
 	case IPSEC_MODE_ANY:
 		return IPSECDOI_ATTR_ENC_MODE_ANY;
 	default:
@@ -970,8 +982,10 @@ pk_sendupdate(iph2)
 			return -1;
 
 #ifdef IKE_NAT_T
-		if ((pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL ||
-			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TRNS) &&
+		if ((pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC 	||
+			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC		||
+			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT 	||
+			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT) &&
 			iph2->ph1->remote->sa_family == AF_INET)
 		{
 			flags |= SADB_X_EXT_NATT;
@@ -1104,7 +1118,7 @@ pk_recvupdate(mhp)
 				"invalid proto_id %d\n", msg->sadb_msg_satype);
 			return -1;
 		}
-		encmode = pfkey2ipsecdoi_mode(sa_mode, iph2->ph1 && natd_hasnat(iph2->ph1));
+		encmode = pfkey2ipsecdoi_mode(sa_mode, iph2->ph1 ? natd_hasnat(iph2->ph1) : 0);
 		if (encmode == ~0) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"invalid encmode %d\n", sa_mode);
@@ -1222,8 +1236,10 @@ pk_sendadd(iph2)
 			return -1;
 
 #ifdef IKE_NAT_T
-		if ((pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL ||
-			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TRNS) &&
+		if ((pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC 	||
+			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC		||
+			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT 	||
+			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT) &&
 			iph2->ph1->remote->sa_family == AF_INET)
 		{
 			flags |= SADB_X_EXT_NATT;
@@ -1782,7 +1798,8 @@ getsadbpolicy(policy0, policylen0, type, iph2)
 		for (pr = iph2->approval->head; pr; pr = pr->next) {
 			xisrlen = sizeof(*xisr);
 			if (pr->encmode == IPSECDOI_ATTR_ENC_MODE_TUNNEL ||
-				pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL) {
+				pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC  ||
+				pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT) {
 				xisrlen += (iph2->src->sa_len
 				          + iph2->dst->sa_len);
 			}
@@ -1840,7 +1857,8 @@ getsadbpolicy(policy0, policylen0, type, iph2)
 		xisrlen = sizeof(*xisr);
 
 		if (pr->encmode == IPSECDOI_ATTR_ENC_MODE_TUNNEL ||
-			pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL) {
+			pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC ||
+			pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT) {
 			xisrlen += (iph2->src->sa_len + iph2->dst->sa_len);
 
 			memcpy(p, iph2->src, iph2->src->sa_len);

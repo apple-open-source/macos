@@ -2263,7 +2263,7 @@ RenderBlock::clearFloats()
 void RenderBlock::addOverhangingFloats(RenderBlock* child, int xoff, int yoff)
 {
     // Prevent floats from being added to the canvas by the root element, e.g., <html>.
-    if (child->hasOverflowClip() || !child->hasOverhangingFloats() || child->isRoot())
+    if (child->hasOverflowClip() || !child->hasOverhangingFloats() || !child->m_floatingObjects || child->isRoot())
         return;
 
     QPtrListIterator<FloatingObject> it(*child->m_floatingObjects);
@@ -2424,9 +2424,9 @@ bool RenderBlock::isPointInScrollbar(int _x, int _y, int _tx, int _ty)
 
     if (m_layer->verticalScrollbarWidth()) {
         QRect vertRect(_tx + width() - borderRight() - m_layer->verticalScrollbarWidth(),
-                       _ty + borderTop(),
+                       _ty + borderTop() - borderTopExtra(),
                        m_layer->verticalScrollbarWidth(),
-                       height()-borderTop()-borderBottom());
+                       height() + borderTopExtra() + borderBottomExtra() - borderTop() - borderBottom());
         if (vertRect.contains(_x, _y)) {
             RenderLayer::gScrollBar = m_layer->verticalScrollbar();
             return true;
@@ -2435,8 +2435,8 @@ bool RenderBlock::isPointInScrollbar(int _x, int _y, int _tx, int _ty)
 
     if (m_layer->horizontalScrollbarHeight()) {
         QRect horizRect(_tx + borderLeft(),
-                        _ty + height() - borderBottom() - m_layer->horizontalScrollbarHeight(),
-                        width()-borderLeft()-borderRight(),
+                        _ty + height() + borderTop() + borderBottomExtra() - m_layer->horizontalScrollbarHeight() - borderBottom(),
+                        width() - borderLeft() - borderRight(),
                         m_layer->horizontalScrollbarHeight());
         if (horizRect.contains(_x, _y)) {
             RenderLayer::gScrollBar = m_layer->horizontalScrollbar();
@@ -2471,7 +2471,6 @@ bool RenderBlock::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
         }
     }
 
-    // See if we're inside the scrollbar (if we're overflow:scroll/auto).
     if (isPointInScrollbar(_x, _y, tx, ty)) {
         if (hitTestAction == HitTestBlockBackground) {
             setInnerNode(info);
@@ -3280,10 +3279,10 @@ void RenderBlock::updateFirstLetter()
         // The original string is going to be either a generated content string or a DOM node's
         // string.  We want the original string before it got transformed in case first-letter has
         // no text-transform or a different text-transform applied to it.
-        DOMStringImpl* oldText = textObj->originalString();
+        SharedPtr<DOMStringImpl> oldText = textObj->originalString();
         KHTMLAssert(oldText);
         
-        if (oldText && oldText->l >= 1) {
+        if (oldText.notNull() && oldText->l >= 1) {
             unsigned int length = 0;
             while ( length < oldText->l &&
                     ( (oldText->s+length)->isSpace() || (oldText->s+length)->isPunct() ) )
@@ -3292,7 +3291,7 @@ void RenderBlock::updateFirstLetter()
             //kdDebug( 6040 ) << "letter= '" << DOMString(oldText->substring(0,length)).string() << "'" << endl;
             
             RenderTextFragment* remainingText = 
-                new (renderArena()) RenderTextFragment(textObj->node(), oldText, length, oldText->l-length);
+                new (renderArena()) RenderTextFragment(textObj->node(), oldText.get(), length, oldText->l-length);
             remainingText->setStyle(textObj->style());
             if (remainingText->element())
                 remainingText->element()->setRenderer(remainingText);
@@ -3302,11 +3301,13 @@ void RenderBlock::updateFirstLetter()
             firstLetterContainer->addChild(remainingText, nextObj);
             
             RenderTextFragment* letter = 
-                new (renderArena()) RenderTextFragment(remainingText->node(), oldText, 0, length);
+                new (renderArena()) RenderTextFragment(remainingText->node(), oldText.get(), 0, length);
             RenderStyle* newStyle = new (renderArena()) RenderStyle();
             newStyle->inheritFrom(pseudoStyle);
             letter->setStyle(newStyle);
             firstLetter->addChild(letter);
+
+            textObj->detach();
         }
     }
 }
