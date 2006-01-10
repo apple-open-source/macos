@@ -4,13 +4,13 @@
         <key>OpenSourceProject</key>
         <string>apache2</string>
         <key>OpenSourceVersion</key>
-        <string>2.0.54</string>
+        <string>2.0.55</string>
         <key>OpenSourceURL</key>
-        <string>http://archive.apache.org/dist/httpd/httpd-2.0.54.tar.gz</string>
+        <string>http://archive.apache.org/dist/httpd/httpd-2.0.55.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>92d2fc71f3940fc7c6188a4d2e908e8578debc86</string>
+        <string>da1e215a7e9f1ccc507ba906fefb7c2076ad1b9d</string>
         <key>OpenSourceImportDate</key>
-        <string>2005-07-21</string>
+        <string>2005-05-27</string>
         <key>OpenSourceModifications</key>
         <array>
                 <string>Patch htdigest.c to avoid buffer overflow</string>

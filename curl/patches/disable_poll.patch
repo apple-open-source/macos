@@ -1,0 +1,10 @@
+--- configure.orig	2005-11-15 20:17:18.000000000 -0800
++++ configure	2005-11-15 20:17:24.000000000 -0800
+@@ -31840,7 +31840,6 @@
+                 setlocale \
+                 ftruncate \
+                 pipe \
+-                poll \
+                 getrlimit \
+                 setrlimit
+ do

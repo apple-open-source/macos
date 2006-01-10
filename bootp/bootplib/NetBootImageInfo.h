@@ -23,6 +23,7 @@
 
 #include <CoreFoundation/CFString.h>
 
+#define kNetBootImageInfoArchitectures	CFSTR("Architectures")	/* Array[String] */
 #define kNetBootImageInfoIndex		CFSTR("Index")		/* Number */
 #define kNetBootImageInfoIsEnabled	CFSTR("IsEnabled") 	/* Boolean */
 #define kNetBootImageInfoIsInstall	CFSTR("IsInstall")	/* Boolean */

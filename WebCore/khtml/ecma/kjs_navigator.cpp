@@ -224,11 +224,15 @@ Value Navigator::getValueProperty(ExecState *exec, int token) const
     return String(userAgent);
   case Platform:
     // yet another evil hack, but necessary to spoof some sites...
-    if ( (userAgent.find(QString::fromLatin1("Win"),0,false)>=0) )
+    if (userAgent.find(QString::fromLatin1("Win"),0,false)>=0)
       return String(QString::fromLatin1("Win32"));
-    else if ( (userAgent.find(QString::fromLatin1("Macintosh"),0,false)>=0) ||
-              (userAgent.find(QString::fromLatin1("Mac_PowerPC"),0,false)>=0) )
+    else if (userAgent.find(QString::fromLatin1("Mac"),0,false)>=0 &&
+            (userAgent.find(QString::fromLatin1("PPC"),0,false)>=0 ||
+             userAgent.find(QString::fromLatin1("PowerPC"),0,false)>=0))
       return String(QString::fromLatin1("MacPPC"));
+    else if (userAgent.find(QString::fromLatin1("Mac"),0,false)>=0 &&
+             userAgent.find(QString::fromLatin1("Intel"),0,false)>=0)
+      return String(QString::fromLatin1("MacIntel"));
     else
       return String(QString::fromLatin1("X11"));
   case _Plugins:

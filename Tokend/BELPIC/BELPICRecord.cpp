@@ -111,7 +111,6 @@ void BELPICKeyRecord::computeCrypt(BELPICToken &belpicToken, bool sign,
 
 	if (cred)
 	{
-		bool found = false;
 		uint32 size = cred->size();
 		for (uint32 ix = 0; ix < size; ++ix)
 		{
@@ -120,18 +119,25 @@ void BELPICKeyRecord::computeCrypt(BELPICToken &belpicToken, bool sign,
                 && sample.length() == 2)
             {
                 CssmData &pin = sample[1].data();
-                if (pin.Length >= 4)
+                if (pin.Length >= BELPIC_MIN_PIN_LEN &&
+                    pin.Length <= BELPIC_MAX_PIN_LEN)
                 {
                     belpicToken._verifyPIN(1, pin.Data, pin.Length);
-                    //belpicToken._verifyPIN(1, "1234", 4);
-                    found = true;
                     break;
                 }
-			}
-		}
+                else if (pin.Length == 0)
+                {
+                    // %%% <rdar://4334623>
+                    // PIN previously verified by securityd;
+                    // continue to look at remaining samples
+                }
+                else
+                {
+                    CssmError::throwMe(CSSM_ERRCODE_SAMPLE_VALUE_NOT_SUPPORTED);
+                }
+            }
+        }
 
-		if (!found)
-			CssmError::throwMe(CSSM_ERRCODE_ACL_SUBJECT_TYPE_NOT_SUPPORTED);
 	}
 
 	if (dataLength > sizeInBits() / 8)

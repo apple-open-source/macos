@@ -14026,7 +14026,7 @@ sInt32 CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				}
 					
 				case eDSCustomCallLDAPv3Reinitialize:
-					Initialize();
+					fLDAPSessionMgr.RereadDefinedReplicas( pContext->fLDAPNodeStruct );
 					break;
 
 				case eDSCustomCallLDAPv3AddServerConfig:

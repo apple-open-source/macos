@@ -1,0 +1,21 @@
+Index: lib/http_ntlm.c
+===================================================================
+RCS file: /cvsroot/curl/curl/lib/http_ntlm.c,v
+retrieving revision 1.46
+diff -u -r1.46 http_ntlm.c
+--- lib/http_ntlm.c	2 Oct 2005 18:22:45 -0000	1.46
++++ lib/http_ntlm.c	12 Oct 2005 21:35:30 -0000
+@@ -713,6 +713,13 @@
+     size=64;
+     ntlmbuf[62]=ntlmbuf[63]=0;
+ 
++    /* Make sure that the user and domain strings fit in the target buffer
++       before we copy them there. */
++    if(size + userlen + domlen >= sizeof(ntlmbuf)) {
++      failf(conn->data, "user + domain name too big");
++      return CURLE_OUT_OF_MEMORY;
++    }
++
+     memcpy(&ntlmbuf[size], domain, domlen);
+     size += domlen;
+ 

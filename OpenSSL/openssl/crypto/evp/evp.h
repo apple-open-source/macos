@@ -84,7 +84,11 @@
 #include <openssl/md5.h>
 #endif
 #ifndef OPENSSL_NO_SHA
+#ifndef OPENSSL_FIPS
 #include <openssl/sha.h>
+#else
+#include <openssl/fips_sha.h>
+#endif
 #endif
 #ifndef OPENSSL_NO_RIPEMD
 #include <openssl/ripemd.h>
@@ -107,9 +111,6 @@
 #ifndef OPENSSL_NO_CAST
 #include <openssl/cast.h>
 #endif
-#ifndef OPENSSL_NO_IDEA
-#include <openssl/idea.h>
-#endif
 #ifndef OPENSSL_NO_MDC2
 #include <openssl/mdc2.h>
 #endif
@@ -128,7 +129,11 @@
 #define EVP_CAST5_KEY_SIZE		16
 #define EVP_RC5_32_12_16_KEY_SIZE	16
 */
-#define EVP_MAX_MD_SIZE			(16+20) /* The SSLv3 md5+sha1 type */
+#ifdef OPENSSL_FIPS
+#define EVP_MAX_MD_SIZE			64	/* longest known SHA512 */
+#else
+#define EVP_MAX_MD_SIZE			(16+20)	/* The SSLv3 md5+sha1 type */
+#endif
 #define EVP_MAX_KEY_LENGTH		32
 #define EVP_MAX_IV_LENGTH		16
 #define EVP_MAX_BLOCK_LENGTH		32
@@ -642,6 +647,16 @@ const EVP_MD *EVP_sha(void);
 const EVP_MD *EVP_sha1(void);
 const EVP_MD *EVP_dss(void);
 const EVP_MD *EVP_dss1(void);
+#ifdef OPENSSL_FIPS
+#ifndef OPENSSL_NO_SHA256
+const EVP_MD *EVP_sha224(void);
+const EVP_MD *EVP_sha256(void);
+#endif
+#ifndef OPENSSL_NO_SHA512
+const EVP_MD *EVP_sha384(void);
+const EVP_MD *EVP_sha512(void);
+#endif
+#endif
 #endif
 #ifndef OPENSSL_NO_MDC2
 const EVP_MD *EVP_mdc2(void);
@@ -690,13 +705,6 @@ const EVP_MD *EVP_dev_crypto_md5(void);
 #ifndef OPENSSL_NO_RC4
 const EVP_CIPHER *EVP_rc4(void);
 const EVP_CIPHER *EVP_rc4_40(void);
-#endif
-#ifndef OPENSSL_NO_IDEA
-const EVP_CIPHER *EVP_idea_ecb(void);
-const EVP_CIPHER *EVP_idea_cfb64(void);
-# define EVP_idea_cfb EVP_idea_cfb64
-const EVP_CIPHER *EVP_idea_ofb(void);
-const EVP_CIPHER *EVP_idea_cbc(void);
 #endif
 #ifndef OPENSSL_NO_RC2
 const EVP_CIPHER *EVP_rc2_ecb(void);

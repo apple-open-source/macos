@@ -18,10 +18,10 @@ CFLAGS=-Os $(RC_CFLAGS)
 #
 
 PROJECT_NAME=SpamAssassin
-CLAMAV_NAME=clamav-0.85.1.tar.gz
+CLAMAV_NAME=clamav-0.87.1.tar.gz
 
 AMAVIS_DIR=/private/var/amavis
-CLAMAV_BUILD_DIR=/clamav/clamav-0.85.1
+CLAMAV_BUILD_DIR=/clamav/clamav-0.87.1
 VIRUS_MAILS_DIR=/private/var/virusmails
 ETCDIR=/private/etc
 ETC_SPAMA_DIR=/private/etc/mail/spamassassin
@@ -93,7 +93,7 @@ make_clamav :
 		$(SILENT) ($(CD) "$(SRCROOT)/clamav" && $(GNUTAR) -xzpf "$(CLAMAV_NAME)") ; \
 	fi
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
-	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(RC_CFLAGS)")
+	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)")
 
 make_clamav_install :  $(DSTROOT)$(ETCDIR) $(DSTROOT)$(ETC_CLAMAV_DIR) $(DSTROOT)$(SASCRIPTSDIR)
 	$(SILENT) $(ECHO) "------------ Make Install Clam AV ------------"

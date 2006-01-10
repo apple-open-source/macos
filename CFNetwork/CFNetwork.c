@@ -102,6 +102,8 @@ _CFStringGetOrCreateCString(CFAllocatorRef allocator, CFStringRef string, UInt8*
 			*bufferLength = CFStringGetBytes(string, range, encoding, 0, FALSE, buffer, *bufferLength, NULL);
 			
 			buffer[*bufferLength] = '\0';
+			
+			*bufferLength = strlen((const char*)buffer);
 		}
 		else {
 			*bufferLength = 0;

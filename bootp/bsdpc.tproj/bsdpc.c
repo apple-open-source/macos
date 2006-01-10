@@ -425,7 +425,7 @@ select_image(bsdpc_t * bsdpc, int val)
 	}
     }
     status 
-	= BSPPClientSelect(bsdpc->client, 
+	= BSDPClientSelect(bsdpc->client, 
 			   CFDictionaryGetValue(best_server_dict, 
 						kServerAddress),
 			   CFDictionaryGetValue(menu_item, 

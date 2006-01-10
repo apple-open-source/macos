@@ -31,6 +31,7 @@
 #include "html/html_documentimpl.h"
 #include "html/html_inlineimpl.h"
 #include "html/html_formimpl.h"
+#include "html/html_baseimpl.h"
 #include "rendering/render_arena.h"
 #include "rendering/render_object.h"
 #include "rendering/render_canvas.h"
@@ -895,11 +896,12 @@ void KHTMLView::viewportMouseMoveEvent( QMouseEvent * _mouse )
     int xm, ym;
     viewportToContents(_mouse->x(), _mouse->y(), xm, ym);
 
-    // Treat mouse move events while the mouse is pressed as "read-only" in prepareMouseEvent.
+    // Treat mouse move events while the mouse is pressed as "read-only" in prepareMouseEvent
+    // if we are allowed to select.
     // This means that :hover and :active freeze in the state they were in when the mouse
     // was pressed, rather than updating for nodes the mouse moves over as you hold the mouse down.
     DOM::NodeImpl::MouseEvent mev( _mouse->stateAfter(), DOM::NodeImpl::MouseMove );
-    m_part->xmlDocImpl()->prepareMouseEvent( d->mousePressed, xm, ym, &mev );
+    m_part->xmlDocImpl()->prepareMouseEvent(d->mousePressed && m_part->mouseDownMayStartSelect(), d->mousePressed, xm, ym, &mev );
 #if APPLE_CHANGES
     if (KWQ(m_part)->passSubframeEventToSubframe(mev))
         return;
@@ -1336,7 +1338,10 @@ void KHTMLView::doAutoScroll()
     if ( (pos.y() < 0) || (pos.y() > visibleHeight()) ||
          (pos.x() < 0) || (pos.x() > visibleWidth()) )
     {
-        ensureVisible( xm, ym, 0, 5 );
+        DocumentImpl *doc = m_part->xmlDocImpl();
+        if (doc && doc->renderer()) {
+            doc->renderer()->enclosingLayer()->scrollRectToVisible(QRect(xm, ym, 0, 5));
+        }
     }
 }
 
@@ -1496,7 +1501,9 @@ void KHTMLView::focusNextPrevNode(bool next)
                 return;
         }
         else {
-            ensureVisible(contentsX(), next ? 0: contentsHeight());
+            if (doc->renderer()) {
+                doc->renderer()->enclosingLayer()->scrollRectToVisible(QRect(contentsX(), next ? 0: contentsHeight(), 0, 0));
+            }
         }
     }
     // Set focus node on the document
@@ -1966,10 +1973,35 @@ void KHTMLView::viewportWheelEvent(QWheelEvent* e)
             int x, y;
             viewportToContents(e->x(), e->y(), x, y);
 
-            RenderObject::NodeInfo hitTestResult(true, false);
-            doc->renderer()->layer()->hitTest(hitTestResult, x, y); 
-            NodeImpl *node = hitTestResult.innerNode();
+            RenderObject::NodeInfo nodeInfo(true, false);
+            doc->renderer()->layer()->hitTest(nodeInfo, x, y); 
+            NodeImpl *node = nodeInfo.innerNode();
+            NodeImpl *previousNode = node;
+            QWidget *widget = 0;
 
+            while (true) {
+                if (!node || !node->renderer() || !node->renderer()->isWidget()) 
+                    break;
+                widget = static_cast<RenderWidget *>(node->renderer())->widget();
+                if (!widget || !widget->inherits("KHTMLView")) 
+                    break;
+                KHTMLPart *kpart = static_cast<HTMLFrameElementImpl *>(node)->contentPart();
+                if (!kpart || !static_cast<KWQKHTMLPart *>(kpart)->renderer()) 
+                    break;
+                RenderObject::NodeInfo widgetNodeInfo(true, true);
+                static_cast<KWQKHTMLPart *>(kpart)->renderer()->layer()->hitTest(widgetNodeInfo, x, y);
+                nodeInfo = widgetNodeInfo;
+                previousNode = node;
+                node = nodeInfo.innerNode();
+            }
+
+            if (node != previousNode)
+                node = previousNode;
+                
+            if (KWQ(m_part)->passWheelEventToChildWidget(node)) {
+                e->accept();
+                return;
+            }
             if (node) {
                 node->dispatchWheelEvent(e);
                 if (e->isAccepted())

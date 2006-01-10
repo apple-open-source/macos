@@ -216,6 +216,8 @@ void CCallbackMgr::Event (SecurityServer::NotificationDomain domain, SecuritySer
 		// Deal with events that we care about ourselves first.
 		if (thisEvent == kSecDeleteEvent && thisKeychain.get() && thisItem.get())
 			thisKeychain->didDeleteItem(thisItem.get());
+		else if (thisEvent == kSecKeychainListChangedEvent)
+			globals().storageManager.forceUserSearchListReread();
 
 		eventCallbacks = CCallbackMgr::Instance().mEventCallbacks;
 		// We can safely release the global API lock now since thisKeychain and thisItem

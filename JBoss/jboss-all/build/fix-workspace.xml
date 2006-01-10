@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+  <!ENTITY buildmagic SYSTEM "resource://planet57/tools/buildmagic/common.xml">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id: fix-workspace.xml,v 1.8 2002/02/17 09:52:54 user57 Exp $ -->
+
+<project default="main" name="JBoss/Fix Workspace">
+
+  <!-- ================================================================== -->
+  <!-- Setup                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+
+  &buildmagic;
+
+
+  <!-- ================================================================== -->
+  <!-- Initialization                                                     -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.  
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+
+  <target name="init" unless="init.disable" depends="_buildmagic:init">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Configuration                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Configure the build system.  
+     |
+     | This target is invoked by the Buildmagic initialization logic and 
+     | should contain module specific configuration elements.
+   -->
+
+  <target name="configure" unless="configure.disable">
+     <property name="module.Name" value="Fix Workspace"/>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Fix Workspace                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Fixes up local workspaces.
+     |
+     | Put in CVS tasks to transform the previous workspace view into
+     | the current.  Users with really old workspaces can check out previous
+     | of this file, run 'fix' then update to the next version to get the latest
+     | (in theory that is).
+   -->
+
+  <target name="fix" depends="init">
+
+    <echo>Fixing...</echo>
+
+    <!-- Pre update -->
+
+    <cvs dest="${project.root}" command="update"/>
+
+    <!-- Do commits (should fail on any conflicts) -->
+
+    <cvs dest="${project.root}" command="commit"/>
+
+    <!-- Pull new modules -->
+
+    <cvs dest="${project.root}" command="get _jboss_system"/>
+    <cvs dest="${project.root}" command="get _jboss_ejb"/>
+    <cvs dest="${project.root}" command="get _jboss_iiop"/>
+
+    <!-- Full update -->
+
+    <cvs dest="${project.root}" command="update -Pd"/>
+
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main" depends="fix"
+	  description="Executes the default target (fix)."/>
+    
+  <target name="help" depends="_buildmagic:help:build"
+          description="Show this help message."/>
+
+</project>

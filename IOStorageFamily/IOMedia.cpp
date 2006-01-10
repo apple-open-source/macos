@@ -40,6 +40,20 @@ enum
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+static UInt8 gIOMediaAccessTable[8][8] =
+{            /* Rea, Wri, R|S, W|S, R|E, W|E, Inv, Non */
+    /* Rea */ { 000, 001, 002, 003, 006, 006, 006, 000 },
+    /* Wri */ { 011, 006, 011, 006, 006, 006, 006, 011 },
+    /* R|S */ { 002, 001, 002, 003, 006, 006, 006, 002 },
+    /* W|S */ { 003, 006, 003, 003, 006, 006, 006, 003 },
+    /* R|E */ { 006, 006, 006, 006, 006, 006, 006, 004 },
+    /* W|E */ { 006, 006, 006, 006, 006, 006, 006, 015 },
+    /* Inv */ { 006, 006, 006, 006, 006, 006, 006, 006 },
+    /* Inv */ { 006, 006, 006, 006, 006, 006, 006, 006 }
+};
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 class IOMediaAccess
 {
 protected:
@@ -67,20 +81,8 @@ public:
 
     inline void operator+=( IOStorageAccess access )
     {
-        static UInt8 table[8][8] =
-        {            /* Rea, Wri, R|S, W|S, R|E, W|E, Inv, Non */
-            /* Rea */ { 000, 001, 002, 003, 006, 006, 006, 000 },
-            /* Wri */ { 011, 006, 011, 006, 006, 006, 006, 011 },
-            /* R|S */ { 002, 001, 002, 003, 006, 006, 006, 002 },
-            /* W|S */ { 003, 006, 003, 003, 006, 006, 006, 003 },
-            /* R|E */ { 006, 006, 006, 006, 006, 006, 006, 004 },
-            /* W|E */ { 006, 006, 006, 006, 006, 006, 006, 015 },
-            /* Inv */ { 006, 006, 006, 006, 006, 006, 006, 006 },
-            /* Inv */ { 006, 006, 006, 006, 006, 006, 006, 006 }
-        };
-
         _access = ( ( _access - 1 ) >> 1 ) & 7;
-        _access = table[ ( ( access - 1 ) >> 1 ) & 7 ][ _access ];
+        _access = gIOMediaAccessTable[ ( ( access - 1 ) >> 1 ) & 7 ][ _access ];
         _access = ( ( _access & 7 ) << 1 ) + 1;
     }
 
@@ -1017,14 +1019,14 @@ bool IOMedia::init(UInt64               base,
 ///m:3879984:workaround:added:start
     if (size > _mediaSize)
     {
-        (volatile UInt64) _mediaSize = (size & (UINT64_MAX ^ UINT32_MAX)) | (_mediaSize & UINT32_MAX);
+        *((volatile UInt64 *) &_mediaSize) = (size & (UINT64_MAX ^ UINT32_MAX)) | (_mediaSize & UINT32_MAX);
     }
     else
     {
-        (volatile UInt64) _mediaSize = (size & UINT32_MAX) | (_mediaSize & (UINT64_MAX ^ UINT32_MAX));
+        *((volatile UInt64 *) &_mediaSize) = (size & UINT32_MAX) | (_mediaSize & (UINT64_MAX ^ UINT32_MAX));
     }
 ///m:3879984:workaround:added:stop
-    (volatile UInt64) _mediaSize = size;
+    *((volatile UInt64 *) &_mediaSize) = size;
 
     if (_openClients == 0)
     {

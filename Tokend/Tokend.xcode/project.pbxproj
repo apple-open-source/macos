@@ -728,7 +728,7 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 25868;
 				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Frameworks $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G5;
@@ -1457,7 +1457,7 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 25868;
 				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Frameworks $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G5;
@@ -1509,7 +1509,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>11</string>
+	<string>25868</string>
 </dict>
 </plist>
 ";
@@ -1672,7 +1672,7 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 25868;
 				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Frameworks $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G5;
@@ -1724,7 +1724,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>11</string>
+	<string>25868</string>
 </dict>
 </plist>
 ";
@@ -2103,7 +2103,7 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 25868;
 				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Frameworks $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G5;

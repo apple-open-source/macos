@@ -131,6 +131,8 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
 
 		if (username.length())
 		{
+			// Call to checkpw in DS
+			Server::active().longTermActivity();
 			// Let's create a credential from the passed in username and password.
 			Credential newCredential(username, password, shared);
 			// If it's valid insert it into the credentials list.  Normally this is

@@ -44,6 +44,8 @@ class QLineEdit;
 
 - (void)detachQLineEdit;
 
+- (BOOL)hasSelection;
+
 - (void)setHasFocus:(BOOL)hasFocus;
 
 - (void)setMaximumLength:(int)len;
@@ -54,6 +56,9 @@ class QLineEdit;
 
 - (void)setBaseWritingDirection:(NSWritingDirection)direction;
 - (NSWritingDirection)baseWritingDirection;
+
+- (NSRange)selectedRange;
+- (void)setSelectedRange:(NSRange)range;
 
 - (NSString *)string;
 

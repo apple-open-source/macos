@@ -83,7 +83,7 @@ my @known_platforms = ( "__FreeBSD__", "PERL5", "NeXT",
 my @known_ossl_platforms = ( "VMS", "WIN16", "WIN32", "WINNT", "OS2" );
 my @known_algorithms = ( "RC2", "RC4", "RC5", "IDEA", "DES", "BF",
 			 "CAST", "MD2", "MD4", "MD5", "SHA", "SHA0", "SHA1",
-			 "RIPEMD",
+			 "SHA256", "SHA512", "RIPEMD",
 			 "MDC2", "RSA", "DSA", "DH", "EC", "HMAC", "AES",
 			 # Envelope "algorithms"
 			 "EVP", "X509", "ASN1_TYPEDEFS",
@@ -1011,7 +1011,7 @@ sub is_valid
 {
 	my ($keywords_txt,$platforms) = @_;
 	my (@keywords) = split /,/,$keywords_txt;
-	my ($falsesum, $truesum) = (0, !grep(/^[^!]/,@keywords));
+	my ($falsesum, $truesum) = (0, 1);
 
 	# Param: one keyword
 	sub recognise
@@ -1079,7 +1079,7 @@ sub is_valid
 		if ($k =~ /^!(.*)$/) {
 			$falsesum += &recognise($1,$platforms);
 		} else {
-			$truesum += &recognise($k,$platforms);
+			$truesum *= &recognise($k,$platforms);
 		}
 	}
 	print STDERR "DEBUG: [",$#keywords,",",$#keywords < 0,"] is_valid($keywords_txt) => (\!$falsesum) && $truesum = ",(!$falsesum) && $truesum,"\n" if $debug;

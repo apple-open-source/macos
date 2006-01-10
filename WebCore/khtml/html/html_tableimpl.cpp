@@ -82,13 +82,14 @@ NodeImpl::Id HTMLTableElementImpl::id() const
 NodeImpl* HTMLTableElementImpl::setCaption( HTMLTableCaptionElementImpl *c )
 {
     int exceptioncode = 0;
-    NodeImpl* r;
-    if(tCaption) {
-        replaceChild ( c, tCaption, exceptioncode );
+    NodeImpl *r;
+    if (NodeImpl *oc = tCaption) {
+        oc->ref();
+        replaceChild(c, oc, exceptioncode);
+        oc->deref();
         r = c;
-    }
-    else
-        r = insertBefore( c, firstChild(), exceptioncode );
+    } else
+        r = insertBefore(c, firstChild(), exceptioncode);
     tCaption = c;
     return r;
 }
@@ -96,17 +97,18 @@ NodeImpl* HTMLTableElementImpl::setCaption( HTMLTableCaptionElementImpl *c )
 NodeImpl* HTMLTableElementImpl::setTHead( HTMLTableSectionElementImpl *s )
 {
     int exceptioncode = 0;
-    NodeImpl* r;
-    if(head) {
-        replaceChild( s, head, exceptioncode );
+    NodeImpl *r;
+    if (NodeImpl *h = head) {
+        h->ref();
+        replaceChild(s, h, exceptioncode);
+        h->deref();
         r = s;
-    }
-    else if( foot )
-        r = insertBefore( s, foot, exceptioncode );
-    else if( firstBody )
-        r = insertBefore( s, firstBody, exceptioncode );
+    } else if (foot)
+        r = insertBefore(s, foot, exceptioncode);
+    else if (firstBody)
+        r = insertBefore(s, firstBody, exceptioncode);
     else
-        r = appendChild( s, exceptioncode );
+        r = appendChild(s, exceptioncode);
 
     head = s;
     return r;
@@ -116,13 +118,15 @@ NodeImpl* HTMLTableElementImpl::setTFoot( HTMLTableSectionElementImpl *s )
 {
     int exceptioncode = 0;
     NodeImpl* r;
-    if(foot) {
-        replaceChild ( s, foot, exceptioncode );
+    if (NodeImpl *f = foot) {
+        f->ref();
+        replaceChild(s, f, exceptioncode);
+        f->deref();
         r = s;
-    } else if( firstBody )
-        r = insertBefore( s, firstBody, exceptioncode );
+    } else if (firstBody)
+        r = insertBefore(s, firstBody, exceptioncode);
     else
-        r = appendChild( s, exceptioncode );
+        r = appendChild(s, exceptioncode);
     foot = s;
     return r;
 }
@@ -131,16 +135,14 @@ NodeImpl* HTMLTableElementImpl::setTBody( HTMLTableSectionElementImpl *s )
 {
     int exceptioncode = 0;
     NodeImpl* r;
-
     s->ref();
-    if(firstBody) {
-        replaceChild ( s, firstBody, exceptioncode );
-        firstBody->deref();
+    if (NodeImpl *fb = firstBody) {
+        replaceChild(s, fb, exceptioncode);
+        fb->deref();
         r = s;
     } else
-        r = appendChild( s, exceptioncode );
+        r = appendChild(s, exceptioncode);
     firstBody = s;
-
     return r;
 }
 
@@ -241,8 +243,8 @@ HTMLElementImpl *HTMLTableElementImpl::insertRow( long index, int &exceptioncode
             if ( !append )
             {
                 int rows = section->numRows();
-                if ( rows > index ) {
-		    found = true;
+                if (rows >= index) {
+                    found = true;
                     break;
                 } else
                     index -= rows;

@@ -86,6 +86,7 @@ public:
 	const DLDbIdentifier &defaultDLDbIdentifier();
 	void loginDLDbIdentifier(const DLDbIdentifier &);
 	const DLDbIdentifier &loginDLDbIdentifier();
+	void forceUserSearchListReread ();
 
     DLDbIdentifier LoginDLDbIdentifier();
     DLDbIdentifier JaguarLoginDLDbIdentifier();

@@ -9,7 +9,8 @@ ToolType              = Services
 # We want these, but can't for various reasons right now:
 # --with-xmlrpc --with-expat-dir=/usr --with-cyrus=/usr --with-gd
 Extra_LD_Flags	      = -lresolv
-Extra_Configure_Flags = --with-apxs --with-ldap=/usr --with-kerberos=/usr --enable-cli --with-zlib-dir=/usr --enable-trans-sid --with-xml --enable-exif --enable-ftp --enable-mbstring --enable-mbregex --enable-dbx --enable-sockets --with-iodbc=/usr --with-curl=/usr --with-config-file-path=/etc --sysconfdir=$(ETCDIR)
+Extra_Configure_Flags = --with-apxs --with-ldap=/usr --with-kerberos=/usr --enable-cli --with-zlib-dir=/usr --enable-trans-sid --with-xml --enable-exif --enable-ftp --enable-mbstring --enable-mbregex --enable-dbx --enable-sockets --with-iodbc=/usr --with-curl=/usr --with-config-file-path=/etc --sysconfdir=$(ETCDIR) \
+                        --with-mysql=/usr --with-mysql-sock=/var/mysql/mysql.sock
 Extra_CC_Flags        = -no-cpp-precomp
 GnuAfterInstall       = strip mode install-ini install-plist
 

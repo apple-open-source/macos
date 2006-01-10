@@ -1,6 +1,6 @@
 /* Generic SASL plugin utility functions
  * Rob Siemborski
- * $Id: plugin_common.c,v 1.6 2005/01/31 19:12:48 snsimon Exp $
+ * $Id: plugin_common.c,v 1.6.4.1 2005/11/09 19:11:23 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -290,7 +290,7 @@ void _plug_free_secret(const sasl_utils_t *utils, sasl_secret_t **secret)
 {
     if(!utils || !secret || !(*secret)) return;
 
-    utils->erasebuffer((*secret)->data, (*secret)->len);
+    utils->erasebuffer((char *)(*secret)->data, (*secret)->len);
     utils->free(*secret);
     *secret = NULL;
 }
@@ -612,7 +612,9 @@ void _plug_decode_init(decode_context_t *text,
 
     text->utils = utils;
     text->needsize = 4;
-    text->in_maxbuf = in_maxbuf;
+	
+	/* start with a 16K cap */
+    text->in_maxbuf = (in_maxbuf < MAXBUFF_LOWATER) ? in_maxbuf : MAXBUFF_LOWATER;
 }
 
 /*
@@ -634,12 +636,12 @@ int _plug_decode(decode_context_t *text,
     char *tmp;
     unsigned tmplen;
     int ret;
-    
-    *outputlen = 0;
-
+	char *newbuffer = NULL;
+	
     while (inputlen) { /* more input */
 	if (text->needsize) { /* need to get the rest of the 4-byte size */
-
+		*outputlen = 0;
+		
 	    /* copy as many bytes (up to 4) as we have into size buffer */
 	    tocopy = (inputlen > text->needsize) ? text->needsize : inputlen;
 	    memcpy(text->sizebuf + 4 - text->needsize, input, tocopy);
@@ -652,20 +654,45 @@ int _plug_decode(decode_context_t *text,
 		memcpy(&(text->size), text->sizebuf, 4);
 		text->size = ntohl(text->size);
 		
-		if (!text->size) /* should never happen */
+		if (!text->size) { /* should never happen */
+			text->utils->log(NULL, SASL_LOG_ERR, "text->size = 0");
 		    return SASL_FAIL;
+	    }
 	    
-		if (text->size > text->in_maxbuf) {
+		if (text->size > text->in_maxbuf)
+		{
+			/* don't print this one in production code */
+		    /*
 		    text->utils->log(NULL, SASL_LOG_ERR, 
-				     "encoded packet size too big (%d > %d)",
+				     "large encoded packet, expanding buffer 1 (%d > %d)",
 				     text->size, text->in_maxbuf);
-		    return SASL_FAIL;
+			*/
+			text->in_maxbuf = text->size + MAXBUFF_HEADROOM;
+			newbuffer = text->utils->malloc(text->in_maxbuf);
+			if (newbuffer == NULL) return SASL_NOMEM;
+			if (text->buffer != NULL) {
+				memcpy(newbuffer, text->buffer, text->cursize);
+				text->utils->free(text->buffer);
+			}
+			text->buffer = newbuffer;
+		}
+		else if (text->in_maxbuf > MAXBUFF_HIWATER && text->size < MAXBUFF_HIWATER)
+		{
+			/* reduce back to 64K to avoid memory pressure */			
+			text->in_maxbuf = MAXBUFF_HIWATER;
+			newbuffer = text->utils->malloc(text->in_maxbuf);
+			if (newbuffer == NULL) return SASL_NOMEM;
+			if (text->buffer != NULL) {
+				memcpy(newbuffer, text->buffer, text->cursize);
+				text->utils->free(text->buffer);
+			}
+			text->buffer = newbuffer;
 		}
 	    
 		if (!text->buffer)
 		    text->buffer = text->utils->malloc(text->in_maxbuf);
 		if (text->buffer == NULL) return SASL_NOMEM;
-
+		
 		text->cursize = 0;
 	    } else {
 		/* We do NOT have the entire 4-byte size...
@@ -676,10 +703,19 @@ int _plug_decode(decode_context_t *text,
 	
 	/* need to check every time */
 	if (text->size > text->in_maxbuf) {
+		/* this one is unusual, want the logging */
 		text->utils->log(NULL, SASL_LOG_ERR, 
-				 "encoded packet size too big (%d > %d)",
+				 "large encoded packet, expanding buffer 2 (%d > %d)",
 				 text->size, text->in_maxbuf);
-		return SASL_FAIL;
+		
+		text->in_maxbuf = text->size + MAXBUFF_HEADROOM;
+		newbuffer = text->utils->malloc(text->in_maxbuf);
+		if (newbuffer == NULL) return SASL_NOMEM;
+		if (text->buffer != NULL) {
+			memcpy(newbuffer, text->buffer, text->cursize);
+			text->utils->free(text->buffer);
+		}
+		text->buffer = newbuffer;
 	}
 	
 	diff = text->size - text->cursize; /* bytes needed for full packet */
@@ -693,11 +729,14 @@ int _plug_decode(decode_context_t *text,
 	memcpy(text->buffer + text->cursize, input, diff);
 	input += diff;
 	inputlen -= diff;
-
+	
 	/* decode the packet (no need to free tmp) */
 	ret = decode_pkt(rock, text->buffer, text->size, &tmp, &tmplen);
-	if (ret != SASL_OK) return ret;
-
+	if (ret != SASL_OK) {
+		text->utils->log(NULL, SASL_LOG_ERR, "decode_pkt() = %d", ret);
+		return ret;
+	}
+	
 	/* append the decoded packet to the output */
 	ret = _plug_buf_alloc(text->utils, output, outputsize,
 			      *outputlen + tmplen + 1); /* +1 for NUL */

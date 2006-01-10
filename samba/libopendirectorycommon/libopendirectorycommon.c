@@ -854,8 +854,8 @@ tDirStatus opendirectory_set_workstation_nthash(char *account_name, char *nt_has
 	if (status != eDSNoErr)
 		return status;
 	
-	status = get_node_ref_and_name(dirRef, account_name, kDSStdRecordTypeUsers, &nodeRef, recordName);
-
+	status = get_node_ref_and_name(dirRef, account_name, kDSStdRecordTypeComputers, &nodeRef, recordName);
+	
 	if (status != eDSNoErr)
 		goto cleanup;
 
@@ -876,25 +876,16 @@ tDirStatus opendirectory_set_workstation_nthash(char *account_name, char *nt_has
 			stepBuff = dsDataBufferAllocate( dirRef, bufferSize );
 			if ( stepBuff != NULL )
 			{
-					authType = dsDataNodeAllocateString( dirRef,  kDSStdAuthSetWorkstationPasswd);
-					recordType = dsDataNodeAllocateString( dirRef,  kDSStdRecordTypeUsers);
+					authType = dsDataNodeAllocateString( dirRef,   kDSStdAuthSetWorkstationPasswd    ); // kDSStdAuthSetNTHash
+					recordType = dsDataNodeAllocateString( dirRef,  kDSStdRecordTypeComputers);
 					if ( authType != NULL )
 					{
-							// Target account
-							len = strlen( targetaccount );
-							memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-							curr += sizeof( long );
-							memcpy( &(authBuff->fBufferData[ curr ]), targetaccount, len );
-							curr += len;
-							// NT Hash
-							len = 16;
-							memcpy( &(authBuff->fBufferData[ curr ]), &len, 4 );
-							curr += sizeof( long );
-							memcpy( &(authBuff->fBufferData[ curr ]), nt_hash, len );
-							curr += len;
+							printf("opendirectory_set_workstation_nthash: recordName (%s)\n", recordName);
+							opendirectory_add_data_buffer_item(authBuff, strlen( targetaccount ), targetaccount);
+							opendirectory_add_data_buffer_item(authBuff, 16, nt_hash);
 
-							authBuff->fBufferLength = curr;
 							status = dsDoDirNodeAuthOnRecordType( nodeRef, authType, 1, authBuff, stepBuff, NULL,  recordType);
+							printf("opendirectory_set_workstation_nthash: dsDoDirNodeAuthOnRecordType status (%d)\n", status);
 							if ( status == eDSNoErr )
 							{
 									//DEBUG(1,("kDSStdAuthSetWorkstationPasswd was successful for  \"%s\" :)\n", machine_acct));

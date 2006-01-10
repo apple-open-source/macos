@@ -42,23 +42,29 @@
  * Refer to draft-ietf-ipsec-isakmp-gss-auth-06.txt.
  */
 #define	VENDORID_GSSAPI_LONG	1
-#define	VENDORID_GSSAPI		2
-#define	VENDORID_MS_NT5		3
-#define	VENDOR_SUPPORTS_GSSAPI(x)					\
-	((x) == VENDORID_GSSAPI_LONG ||					\
-	 (x) == VENDORID_GSSAPI ||					\
+#define	VENDORID_GSSAPI			2
+#define	VENDORID_MS_NT5			3
+#define	VENDOR_SUPPORTS_GSSAPI(x)		\
+	((x) == VENDORID_GSSAPI_LONG ||		\
+	 (x) == VENDORID_GSSAPI ||			\
 	 (x) == VENDORID_MS_NT5)
-#define	VENDORID_NATT		4
+#define VENDORID_NATT_RFC		4
+#define	VENDORID_NATT_APPLE		5
+#define VENDORID_NATT_02		6
+#define VENDORID_NATT_02N		7
 
-#define	NUMVENDORIDS		5
+#define	NUMVENDORIDS			8
 
 #define	VENDORID_STRINGS						\
-{									\
-	"KAME/racoon",							\
-	"A GSS-API Authentication Method for IKE",			\
-	"GSSAPI",							\
+{												\
+	"KAME/racoon",								\
+	"A GSS-API Authentication Method for IKE",	\
+	"GSSAPI",									\
 	"MS NT5 ISAKMPOAKLEY",						\
-	"draft-ietf-ipsec-nat-t-ike"				\
+	"RFC 3947",									\
+	"draft-ietf-ipsec-nat-t-ike",				\
+	"draft-ietf-ipsec-nat-t-ike-02",			\
+	"draft-ietf-ipsec-nat-t-ike-02\n"			\
 }
 
 extern const char *vendorid_strings[];

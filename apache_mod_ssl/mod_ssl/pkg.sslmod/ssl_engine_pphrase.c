@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2004 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2005 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -493,7 +493,11 @@ int ssl_pphrase_Handle_CB(char *buf, int bufsize, int verify)
         prompt = "Enter pass phrase:";
         for (;;) {
             if ((i = EVP_read_pw_string(buf, bufsize, prompt, FALSE)) != 0) {
-                PEMerr(PEM_F_DEF_CALLBACK,PEM_R_PROBLEMS_GETTING_PASSWORD);
+#if SSL_LIBRARY_VERSION >= 0x00908000
+                PEMerr(PEM_F_PEM_DEF_CALLBACK, PEM_R_PROBLEMS_GETTING_PASSWORD);
+#else
+                PEMerr(PEM_F_DEF_CALLBACK, PEM_R_PROBLEMS_GETTING_PASSWORD);
+#endif
                 memset(buf, 0, (unsigned int)bufsize);
                 return (-1);
             }

@@ -15,6 +15,8 @@ MAKEDEPEND=	$(TOP)/util/domd $(TOP) -MD $(MAKEDEPPROG)
 MAKEFILE=	Makefile
 AR=		ar r
 
+FIPS_AES_ENC=fips_aes_core.o
+
 CFLAGS= $(INCLUDES) $(CFLAG)
 
 GENERAL=Makefile
@@ -23,8 +25,8 @@ TESTDATA=fips_aes_data
 APPS=
 
 LIB=$(TOP)/libcrypto.a
-LIBSRC=fips_aes_core.c fips_aes_selftest.c
-LIBOBJ=fips_aes_core.o fips_aes_selftest.o
+LIBSRC=fips_aes_core.c asm/fips-ax86-elf.s fips_aes_selftest.c
+LIBOBJ=$(FIPS_AES_ENC) fips_aes_selftest.o
 
 SRC= $(LIBSRC)
 
@@ -36,10 +38,7 @@ ALL=    $(GENERAL) $(SRC) $(HEADER)
 top:
 	(cd $(TOP); $(MAKE) DIRS=fips FDIRS=$(DIR) sub_all)
 
-all:	check lib
-
-check:
-	TOP=`pwd`/$(TOP) ../fips_check_sha1 fingerprint.sha1 $(SRC) $(HEADER)
+all:	lib
 
 lib:	$(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
@@ -67,18 +66,11 @@ tags:
 
 tests:
 
-top_fips_aesavs:
-	(cd $(TOP); $(MAKE) DIRS=fips FDIRS=$(DIR) TARGET=fips_aesavs sub_target)
-
-fips_aesavs: fips_aesavs.o $(TOP)/libcrypto.a
-	$(CC) $(CFLAGS) -o fips_aesavs fips_aesavs.o $(PEX_LIBS) $(TOP)/libcrypto.a $(EX_LIBS)
-	TOP=$(TOP) $(TOP)/fips/openssl_fips_fingerprint $(TOP)/libcrypto.a fips_aesavs
-
-fips_test: top top_fips_aesavs
-	find ../testvectors/aes/req -name '*.req' > testlist
+fips_test:
+	-find ../testvectors/aes/req -name '*.req' > testlist
 	-rm -rf ../testvectors/aes/rsp
 	mkdir ../testvectors/aes/rsp
-	./fips_aesavs -d testlist
+	if [ -s testlist ]; then $(TOP)/util/shlib_wrap.sh $(TOP)/test/fips_aesavs -d testlist; fi
 
 lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff

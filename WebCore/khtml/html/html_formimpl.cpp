@@ -704,18 +704,6 @@ void HTMLFormElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
     }
 }
 
-void HTMLFormElementImpl::radioClicked( HTMLGenericFormElementImpl *caller )
-{
-    for (unsigned i = 0; i < formElements.count(); ++i) {
-        HTMLGenericFormElementImpl *current = formElements[i];
-        if (current->id() == ID_INPUT &&
-            static_cast<HTMLInputElementImpl*>(current)->inputType() == HTMLInputElementImpl::RADIO &&
-            current != caller && current->form() == caller->form() && current->name() == caller->name()) {
-            static_cast<HTMLInputElementImpl*>(current)->setChecked(false);
-        }
-    }
-}
-
 template<class T> static void appendToVector(QPtrVector<T> &vec, T *item)
 {
     unsigned size = vec.size();
@@ -741,12 +729,26 @@ template<class T> static void removeFromVector(QPtrVector<T> &vec, T *item)
 
 void HTMLFormElementImpl::registerFormElement(HTMLGenericFormElementImpl *e)
 {
+    DocumentImpl *doc = getDocument();
+    if (!e->name().isEmpty() && doc) {        
+        HTMLGenericFormElementImpl* currentCheckedRadio = doc->checkedRadioButtonForGroup(e->name(), (HTMLFormElementImpl*) 0);
+        if (currentCheckedRadio == e) {
+            doc->removeRadioButtonGroup(e->name(), (HTMLFormElementImpl*) 0);
+            doc->radioButtonChecked((HTMLInputElementImpl*) e, this);
+        }
+    }
+    
     appendToVector(formElements, e);
     removeFromVector(dormantFormElements, e);
 }
 
 void HTMLFormElementImpl::removeFormElement(HTMLGenericFormElementImpl *e)
 {
+    if (!e->name().isEmpty() && getDocument()) {
+        HTMLGenericFormElementImpl* currentCheckedRadio = getDocument()->checkedRadioButtonForGroup(e->name(), this);
+        if (currentCheckedRadio == e)
+            getDocument()->removeRadioButtonGroup(e->name(), this);
+    }
     removeFromVector(formElements, e);
     removeFromVector(dormantFormElements, e);
 }
@@ -1314,6 +1316,10 @@ void HTMLInputElementImpl::setType(const DOMString& t)
             // Useful in case we were called from inside parseHTMLAttribute.
             setAttribute(ATTR_TYPE, type());
         } else {
+            if (m_type == RADIO && !name().isEmpty()) {
+                if (getDocument()->checkedRadioButtonForGroup(name(), m_form) == this)
+                    getDocument()->removeRadioButtonGroup(name(), m_form);
+            }
             bool wasAttached = m_attached;
             if (wasAttached)
                 detach();
@@ -1329,6 +1335,11 @@ void HTMLInputElementImpl::setType(const DOMString& t)
             }
             if (wasAttached)
                 attach();
+                
+            // If our type morphs into a radio button and we are checked, then go ahead
+            // and signal this to the form.
+            if (m_type == RADIO && checked())
+                getDocument()->radioButtonChecked(this, m_form);
         }
     }
     m_haveType = true;
@@ -1389,6 +1400,89 @@ void HTMLInputElementImpl::restoreState(QStringList &states)
     }
 }
 
+bool HTMLInputElementImpl::canHaveSelection()
+{
+    switch (m_type) {
+        case TEXT:
+        case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+#endif
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
+long HTMLInputElementImpl::selectionStart()
+{
+    if (!m_render) return 0;
+    
+    switch (m_type) {
+        case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+#endif
+        case TEXT:
+            return static_cast<RenderLineEdit *>(m_render)->selectionStart();
+        default:
+            break;
+    }
+    return 0;
+}
+
+long HTMLInputElementImpl::selectionEnd()
+{
+    if (!m_render) return 0;
+    
+    switch (m_type) {
+        case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+#endif
+        case TEXT:
+            return static_cast<RenderLineEdit *>(m_render)->selectionEnd();
+        default:
+            break;
+    }
+    return 0;
+}
+
+void HTMLInputElementImpl::setSelectionStart(long start)
+{
+    if (!m_render) return;
+    
+    switch (m_type) {
+        case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+#endif
+        case TEXT:
+            static_cast<RenderLineEdit *>(m_render)->setSelectionStart(start);
+            break;
+        default:
+            break;
+    }
+}
+
+void HTMLInputElementImpl::setSelectionEnd(long end)
+{
+    if (!m_render) return;
+    
+    switch (m_type) {
+        case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+#endif
+        case TEXT:
+            static_cast<RenderLineEdit *>(m_render)->setSelectionEnd(end);
+            break;
+        default:
+            break;
+    }
+}
+
 void HTMLInputElementImpl::select(  )
 {
     if(!m_render) return;
@@ -1415,6 +1509,23 @@ void HTMLInputElementImpl::select(  )
 #endif
         case RESET:
         case SUBMIT:
+            break;
+    }
+}
+
+void HTMLInputElementImpl::setSelectionRange(long start, long end)
+{
+    if (!m_render) return;
+    
+    switch (m_type) {
+        case PASSWORD:
+#if APPLE_CHANGES
+        case SEARCH:
+#endif
+        case TEXT:
+            static_cast<RenderLineEdit *>(m_render)->setSelectionRange(start, end);
+            break;
+        default:
             break;
     }
 }
@@ -1622,6 +1733,19 @@ void HTMLInputElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
         setChanged();
         break;
 #endif
+    case ATTR_NAME:
+        if (m_type == RADIO && checked()) {
+            // Remove the radio from its old group.
+            if (!name().isEmpty())
+                getDocument()->removeRadioButtonGroup(name(), m_form);
+            
+            // Update our cached reference to the name.
+            setName(attr->value());
+            
+            // Add it to its new group.
+            getDocument()->radioButtonChecked(this, m_form);
+        }
+        break;
     default:
         HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
     }
@@ -1907,8 +2031,8 @@ void HTMLInputElementImpl::setChecked(bool _checked)
 {
     if (checked() == _checked) return;
 
-    if (m_form && m_type == RADIO && _checked && !name().isEmpty())
-        m_form->radioClicked(this);
+    if (m_type == RADIO && _checked)
+        getDocument()->radioButtonChecked(this, m_form);
 
     m_useDefaultChecked = false;
     m_checked = _checked;
@@ -1977,13 +2101,15 @@ void HTMLInputElementImpl::setValue(const DOMString &value)
 {
     if (m_type == FILE) return;
 
+    m_valueMatchesRenderer = false;
     if (storesValueSeparateFromAttribute()) {
         m_value = value;
+        if (m_render)
+            m_render->updateFromElement();
         setChanged();
     } else {
         setAttribute(ATTR_VALUE, value);
     }
-    m_valueMatchesRenderer = false;
 }
 
 void HTMLInputElementImpl::setValueFromRenderer(const DOMString &value)
@@ -3026,11 +3152,43 @@ void HTMLTextAreaElementImpl::restoreState(QStringList &states)
     // the close() in the rendertree will take care of transferring defaultvalue to 'value'
 }
 
+long HTMLTextAreaElementImpl::selectionStart()
+{
+    if (m_render)
+        return static_cast<RenderTextArea *>(m_render)->selectionStart();
+    return 0;
+}
+
+long HTMLTextAreaElementImpl::selectionEnd()
+{
+    if (m_render)
+        return static_cast<RenderTextArea *>(m_render)->selectionEnd();
+    return 0;
+}
+
+void HTMLTextAreaElementImpl::setSelectionStart(long start)
+{
+    if (m_render)
+        static_cast<RenderTextArea *>(m_render)->setSelectionStart(start);
+}
+
+void HTMLTextAreaElementImpl::setSelectionEnd(long end)
+{
+    if (m_render)
+        static_cast<RenderTextArea *>(m_render)->setSelectionEnd(end);
+}
+
 void HTMLTextAreaElementImpl::select(  )
 {
     if (m_render)
         static_cast<RenderTextArea*>(m_render)->select();
     onSelect();
+}
+
+void HTMLTextAreaElementImpl::setSelectionRange(long start, long end)
+{
+    if (m_render)
+        static_cast<RenderTextArea *>(m_render)->setSelectionRange(start, end);
 }
 
 void HTMLTextAreaElementImpl::childrenChanged()
@@ -3130,8 +3288,12 @@ DOMString HTMLTextAreaElementImpl::value()
 void HTMLTextAreaElementImpl::setValue(const DOMString &value)
 {
     m_value = value.string();
-    m_valueIsValid = true;
     m_valueMatchesRenderer = false;
+    m_valueIsValid = true;
+    if (m_render)
+        static_cast<RenderTextArea *>(m_render)->updateFromElement();
+    // FIXME: Force reload from renderer, as renderer may have normalized line endings.
+    m_valueIsValid = false;
     setChanged(true);
 }
 
@@ -3144,13 +3306,13 @@ DOMString HTMLTextAreaElementImpl::defaultValue()
     for (n = firstChild(); n; n = n->nextSibling())
         if (n->isTextNode())
             val += static_cast<TextImpl*>(n)->data();
+    
     if (val[0] == '\r' && val[1] == '\n') {
-	val = val.copy();
-	val.remove(0,2);
-    }
-    else if (val[0] == '\r' || val[0] == '\n') {
-	val = val.copy();
-	val.remove(0,1);
+        val = val.copy();
+        val.remove(0,2);
+    } else if (val[0] == '\r' || val[0] == '\n') {
+        val = val.copy();
+        val.remove(0,1);
     }
 
     return val;
@@ -3192,6 +3354,13 @@ bool HTMLTextAreaElementImpl::isEditable()
 void HTMLTextAreaElementImpl::accessKeyAction(bool sendToAnyElement)
 {
     focus();
+}
+
+void HTMLTextAreaElementImpl::attach()
+{
+    m_valueIsValid = true;
+    HTMLGenericFormElementImpl::attach();
+    updateValue();
 }
 
 void HTMLTextAreaElementImpl::detach()

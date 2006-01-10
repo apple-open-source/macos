@@ -262,6 +262,7 @@ public:
 	bool			isSASLMethodSupported ( CFStringRef inMethod );
 	void			ForcedSafeClose (   const char *inNodeName );
 	void			CredentialChange(	sLDAPNodeStruct *inLDAPNodeStruct, char *inUserDN );
+	void                    RereadDefinedReplicas           ( sLDAPNodeStruct *inLDAPNodeStruct );
 
 protected:
 	

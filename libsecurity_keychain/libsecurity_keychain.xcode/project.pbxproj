@@ -1196,7 +1196,7 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 24850;
+				CURRENT_PROJECT_VERSION = 25886;
 				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Frameworks /usr/local/SecurityPieces/Components/Security";
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers\" \"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders\"";
 				LIBRARY_STYLE = STATIC;

@@ -1,4 +1,4 @@
-.Dd December 8, 2004
+.Dd September 14, 2005
 .Dt BOOTPD 8
 .Os "Mac OS X"
 .Sh NAME
@@ -521,7 +521,7 @@ the directory is named:
 .Pp
 where x is a unique number starting at zero (0).
 .Ss "NetBoot Image (.nbi)"
-A NetBoot image is stored in a directory whose name ends with .nbi, and contains
+A NetBoot Image is stored in a directory whose name ends with .nbi, and contains
 a set of files.  The directory must contain an NBImageInfo.plist file,
 one or more bootfiles, and may contain one or more image files.  
 The NBImageInfo.plist file is encoded as an XML property list, and 
@@ -533,7 +533,10 @@ are:
 .It Sy Name
 (String) The name of the image that appears in the Startup Disk UI.
 .It Sy BootFile
-(String) The path relative to .nbi directory of the first bootfile.
+(String) The path of the first bootfile, relative to either the .nbi directory
+(for architecture "ppc" only), or a sub-directory of the .nbi directory. 
+The sub-directory names correspond to the \fBArchitectures\fR that the
+NetBoot Image supports.  See also the \fBArchitectures\fR property below.
 .It Sy IsEnabled
 (Boolean) A flag to mark the image as enabled or not.  An image that is
 disabled will not be offered as a selection by the NetBoot server. Optional,
@@ -679,8 +682,43 @@ Due to limitations in the NetBoot 1.0 protocol, there is no way for
 the NetBoot server to differentiate between older clients such as the 
 original bondi-blue iMac or B&W G3 (Yosemite).  To enable an image for all
 NetBoot 1.0 clients, include the pseudo system identifier "/NetBoot1".
+.It Sy Architectures
+(Array of String) The list of architectures that this image supports.  
+Optional, implicit value is an array with a single value "ppc".
+.Pp
+The NetBoot server uses the following logic in conjunction with the (explicit or
+implicit) value of the \fBArchitectures\fR property and the \fBBootFile\fR
+property:
+.Pp
+.nf
+bootfile = plist.BootFile.string
+for i = 0; i < plist.Architectures.array.count; i++
+    arch = plist.Architectures.array.value[i].string
+    if $arch/$bootfile exists
+        use $arch/$bootfile
+    else if $arch == "ppc" and $bootfile exists
+        use $bootfile
+    else 
+        reject this image
+.fi
+.Pp
+That is, for each \fIarchitecture\fR in the \fBArchitectures\fR list
+look for a sub-directory of the .nbi directory named \fIarchitecture\fR. 
+If the \fBBootFile\fR exists within that directory, continue with the next
+\fIarchitecture\fR.  Otherwise, if the \fIarchitecture\fR is "ppc", 
+and the \fBBootFile\fR exists directly within the .nbi directory, continue
+with the next \fIarchitecture\fR.  Otherwise, reject the image.  If all
+\fBArchitectures\fR have a valid \fBBootFile\fR, accept the image.
+.Pp
+This logic allows a single-architecture, "ppc"-only NetBoot Image
+to work as before.  The directory structure ensures that a
+NetBoot Image that only supports non-"ppc" architectures will be 
+rejected by a NetBoot server that doesn't understand the \fBArchitectures\fR
+property.  This is important because older NetBoot servers only serve
+"ppc" images, and they must not mistakenly serve a non-"ppc" image to a
+"ppc" client.
 .El
-.Ss NBImageInfo.plist: Mac OS 9 Example
+.Ss NetBoot Image Example: Mac OS 9
 .Pp
 The path to the image directory in this example is:
 .nf
@@ -728,7 +766,7 @@ applications image is "Applications HD.img".  The Name of the image is
 "Mac OS 9.2".  IsEnabled is supplied and set to true, so the image is active.
 The Index is 4, which means the image is local to this server, and will 
 always appear as a unique choice in the client image selection UI.
-.Ss NBImageInfo.plist Example: Mac OS X
+.Ss NetBoot Image Example: Mac OS X
 .Pp
 The path to this example is:
 .nf
@@ -778,6 +816,60 @@ that the image file is "Jaguar.dmg".  The Index is 4096, so this is a
 global image, that may appear on multiple NetBoot servers.  
 If another server serves an image of the same Kind, IsInstall, and Index,
 this image may appear as a single choice in client image selection UI.
+.Ss NetBoot Image Example: Mac OS X with Multiple Architectures
+.Pp
+The path to this example is:
+.nf
+    /Library/NetBoot/NetBootSP0/Tiger.nbi
+.fi
+.Pp
+This directory contains:
+.nf
+    NBImageInfo.plist
+    booter
+    mach.macosx
+    mach.macosx.mkext
+    i386/
+        booter
+        mach.macosx
+        mach.macosx.mkext
+    Tiger.dmg
+.fi
+.Pp
+The NBImageInfo.plist contains:
+.nf
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+        <key>Architectures</key>
+        <array>
+                <string>i386</string>
+                <string>ppc</string>
+        </array>
+        <key>BootFile</key>
+        <string>booter</string>
+        <key>IsInstall</key>
+        <true/>
+        <key>IsEnabled</key>
+        <true/>
+        <key>Index</key>
+        <integer>5000</integer>
+        <key>Name</key>
+        <string>Mac OS X (Tiger)</string>
+        <key>RootPath</key>
+        <string>Tiger.dmg</string>
+        <key>Type</key>
+        <string>NFS</string>
+</dict>
+</plist>
+.fi
+.Pp
+This example shows how a NetBoot Image that supports multiple architectures
+is configured.  The bootfiles for "ppc" reside directly within
+the .nbi directory, whereas the bootfiles for "i386" reside within a 
+sub-directory of the .nbi directory named "i386".  This image is a Mac OS X
+installation image that is served over NFS.
 .Ss Diskless Resources
 .Pp
 The NetBoot server creates and manages per-client AFP user logins as well as 

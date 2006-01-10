@@ -1,10 +1,10 @@
 # -----------------------------------------------------------------------------
 #  Set CLASSPATH and Java options
 #
-#  $Id: setclasspath.sh,v 1.1 2003/05/08 18:16:08 sreich Exp $
+#  $Id: setclasspath.sh,v 1.2 2005/11/13 23:39:55 kiddyr Exp $
 # -----------------------------------------------------------------------------
 
-JAVA_HOME=/Library/Java/Home
+JAVA_HOME=/System/Library/Frameworks/JavaVM.framework/Versions/1.4/Home
 
 # Make sure prerequisite environment variables are set
 if [ -z "$JAVA_HOME" ]; then

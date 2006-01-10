@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -164,9 +165,9 @@ public:
 class AutoBase {
 private:
     // Disable copy constructors of AutoBase based objects
-    void operator =(AutoBase &src) { };
-    AutoBase(AutoBase &src) { };
-    static void *operator new(size_t size) { return 0; };
+    void operator =(AutoBase &) { };
+    AutoBase(AutoBase &) { };
+    static void *operator new(size_t ) { return 0; };
 
 protected:
     AutoBase() { } ;
@@ -825,11 +826,8 @@ didTerminate(IOService *provider, IOOptionBits options, bool *defer)
             sp->fErrno = ENXIO;
     
             // Enforce a zombie and unconnected state on the discipline
-            SET(tp->t_state, TS_ZOMBIE);
-            CLR(tp->t_state, TS_CONNECTED);
-    
-            // Flush out any sleeping threads
-            ttyflush(tp, FREAD | FWRITE);
+	    CLR(tp->t_cflag, CLOCAL);		// Fake up a carrier drop
+	    (void) bsdld_modem(tp, false);
         }
 
 	fActiveSession = 0;
@@ -848,7 +846,7 @@ didTerminate(IOService *provider, IOOptionBits options, bool *defer)
 }
 
 IOReturn IOSerialBSDClient::
-setOneProperty(const OSSymbol *key, OSObject *value)
+setOneProperty(const OSSymbol *key, OSObject * /* value */)
 {
     if (key == gIOTTYWaitForIdleKey) {
         int error = waitForIdle();
@@ -895,7 +893,7 @@ setProperties(OSObject *properties)
     }
 
 bail:
-    return res;		// Successfull just return now
+    return res;		// Successful just return now
 }
 
 // Bracket all open attempts with a reference on ourselves. 
@@ -1463,7 +1461,7 @@ exitParam:
  */
 
 int IOSerialBSDClient::
-open(dev_t dev, int flags, int devtype, struct proc *p)
+open(dev_t dev, int flags, int /* devtype */, struct proc * /* p */)
 {
     Session *sp;
     struct tty *tp;
@@ -1710,7 +1708,7 @@ exitOpen:
 }
 
 void IOSerialBSDClient::
-close(dev_t dev, int flags, int devtype, struct proc *p)
+close(dev_t dev, int flags, int /* devtype */, struct proc * /* p */)
 {
     struct tty *tp;
     Session *sp;
@@ -1904,11 +1902,14 @@ preemptActive()
     fPreemptAllowed = false;
 
     // Enforce a zombie and unconnected state on the discipline
-    SET(tp->t_state, TS_ZOMBIE);
-    CLR(tp->t_state, TS_CONNECTED);
+    CLR(tp->t_cflag, CLOCAL);		// Fake up a carrier drop
+    (void) bsdld_modem(tp, false);
 
-    // Flush out any sleeping threads
-    ttyflush(tp, FREAD | FWRITE);
+    // Wakeup all possible sleepers
+    wakeup(TSA_CARR_ON(tp));
+    ttwakeup(tp);
+    ttwwakeup(tp);
+
     killThreads();
 
     // Shutdown the open connection - complicated hand shaking
@@ -2031,11 +2032,13 @@ void IOSerialBSDClient::
 optimiseInput(struct termios *t)
 {
     Session *sp = fActiveSession;
+    if (!sp)	// Check for a hot unplug
+	return;
+
     struct tty *tp = &sp->ftty;
-    bool cantByPass;
     UInt32 slipEvent, pppEvent;
 
-    cantByPass =
+    bool cantByPass =
         (ISSET(t->c_iflag, NOBYPASS_IFLAG_MASK)
           || ( ISSET(t->c_iflag, BRKINT) && !ISSET(t->c_iflag, IGNBRK) )
           || ( ISSET(t->c_iflag, PARMRK)
@@ -2290,7 +2293,7 @@ txload(Session *sp, u_long *wait_mask)
 	CLR(*wait_mask, PD_S_TX_BUSY);
     }
 
-    while (cc = tp->t_outq.c_cc) {
+    while ( (cc = tp->t_outq.c_cc) ) {
         rtn = sessionRequestEvent(sp, PD_E_TXQ_AVAILABLE, &data);
 	if (kIOReturnOffline == rtn || kIOReturnNotOpen == rtn)
 	    return;
@@ -2457,8 +2460,12 @@ launchThreads()
     ftxThread = frxThread = 0;
 
     // Now launch the receive and transmitter threads
-    IOCreateThread((IOThreadFunc) &IOSerialBSDClient::rxFunc, this);
-    IOCreateThread((IOThreadFunc) &IOSerialBSDClient::txFunc, this);
+    IOCreateThread(
+	OSMemberFunctionCast(IOThreadFunc, this, &IOSerialBSDClient::rxFunc),
+	this);
+    IOCreateThread(
+	OSMemberFunctionCast(IOThreadFunc, this, &IOSerialBSDClient::txFunc),
+	this);
 
     // Now wait for the threads to actually launch
     while (!frxThread)

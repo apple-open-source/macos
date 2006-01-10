@@ -1179,6 +1179,8 @@
 		149C275E08902AFE008A9EFC /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CC = "./gcc-path";
+				CPLUSPLUS = "./gcc-path";
 				DEBUG_DEFINES = "";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -1232,9 +1234,12 @@
 		149C275F08902AFE008A9EFC /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CC = "./gcc-path";
+				CPLUSPLUS = "./gcc-path";
 				DEBUG_DEFINES = NDEBUG;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = "$(PER_COMPILER_EXPORTED_SYMBOLS_FILE_$(GCC_VERSION_IDENTIFIER))";
 				GCC_ENABLE_CPP_EXCEPTIONS = YES;
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_OBJC_GC = YES;
@@ -1262,6 +1267,9 @@
 					"-sub_library",
 					libobjc,
 				);
+				PER_COMPILER_EXPORTED_SYMBOLS_FILE_ = "JavaScriptCore-3.3.exp";
+				PER_COMPILER_EXPORTED_SYMBOLS_FILE_3_3 = "JavaScriptCore-3.3.exp";
+				PER_COMPILER_EXPORTED_SYMBOLS_FILE_4_0 = JavaScriptCore.exp;
 				PREBINDING = NO;
 				PRODUCT_NAME = JavaScriptCore;
 				SECTORDER_FLAGS = "";
@@ -1285,9 +1293,12 @@
 		149C276008902AFE008A9EFC /* OptimizedWithSymbols */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CC = "./gcc-path";
+				CPLUSPLUS = "./gcc-path";
 				DEBUG_DEFINES = NDEBUG;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = "$(PER_COMPILER_EXPORTED_SYMBOLS_FILE_$(GCC_VERSION_IDENTIFIER))";
 				GCC_ENABLE_CPP_EXCEPTIONS = YES;
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_OBJC_GC = YES;
@@ -1315,6 +1326,9 @@
 					"-sub_library",
 					libobjc,
 				);
+				PER_COMPILER_EXPORTED_SYMBOLS_FILE_ = "JavaScriptCore-3.3.exp";
+				PER_COMPILER_EXPORTED_SYMBOLS_FILE_3_3 = "JavaScriptCore-3.3.exp";
+				PER_COMPILER_EXPORTED_SYMBOLS_FILE_4_0 = JavaScriptCore.exp;
 				PREBINDING = NO;
 				PRODUCT_NAME = JavaScriptCore;
 				SECTORDER_FLAGS = "";
@@ -1338,9 +1352,12 @@
 		149C276108902AFE008A9EFC /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CC = "./gcc-path";
+				CPLUSPLUS = "./gcc-path";
 				DEBUG_DEFINES = NDEBUG;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = "$(PER_COMPILER_EXPORTED_SYMBOLS_FILE_$(GCC_VERSION_IDENTIFIER))";
 				GCC_ENABLE_CPP_EXCEPTIONS = YES;
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_OBJC_GC = YES;
@@ -1367,6 +1384,9 @@
 					"-sub_library",
 					libobjc,
 				);
+				PER_COMPILER_EXPORTED_SYMBOLS_FILE_ = "JavaScriptCore-3.3.exp";
+				PER_COMPILER_EXPORTED_SYMBOLS_FILE_3_3 = "JavaScriptCore-3.3.exp";
+				PER_COMPILER_EXPORTED_SYMBOLS_FILE_4_0 = JavaScriptCore.exp;
 				PRODUCT_NAME = JavaScriptCore;
 				SECTORDER_FLAGS = (
 					"-sectorder",

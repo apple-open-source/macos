@@ -2,8 +2,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -50,7 +48,7 @@ void IOUSBWorkLoop::closeGate()
 {
     IOWorkLoop::closeGate();
     // do not do this if we are on the actual workloop/interrupt thread
-    if(fSleepToken && !onThread()) 
+    if(fSleepToken) 
     {
         IOReturn res;
         do 

@@ -236,6 +236,8 @@ protected:
     void removeNode(DOM::NodeImpl *removeChild);
     void removeNodePreservingChildren(DOM::NodeImpl *node);
     void replaceTextInNode(DOM::TextImpl *node, long offset, long count, const DOM::DOMString &replacementText);
+    DOM::Position positionOutsideTabSpan(const DOM::Position& pos);
+    void insertNodeAtTabSpanPosition(DOM::NodeImpl *node, const DOM::Position& pos);
     void setNodeAttribute(DOM::ElementImpl *, int attribute, const DOM::DOMString &);
     void splitTextNode(DOM::TextImpl *text, long offset);
     void splitElement(DOM::ElementImpl *element, DOM::NodeImpl *atChild);
@@ -961,7 +963,10 @@ private:
 
 //------------------------------------------------------------------------------------------
 
-bool isSpecialElement(const DOM::NodeImpl *n);
+DOM::Position positionBeforeNode(const DOM::NodeImpl *node);
+DOM::Position positionAfterNode(const DOM::NodeImpl *node);
+
+bool isSpecialElement(const DOM::NodeImpl *node);
 
 DOM::ElementImpl *floatRefdElement(DOM::ElementImpl *element);
 DOM::ElementImpl *createDefaultParagraphElement(DOM::DocumentImpl *document);
@@ -972,6 +977,7 @@ DOM::ElementImpl *createStyleSpanElement(DOM::DocumentImpl *document);
 
 bool isTabSpanNode(const DOM::NodeImpl *node);
 bool isTabSpanTextNode(const DOM::NodeImpl *node);
+DOM::NodeImpl *tabSpanNode(const DOM::NodeImpl *node);
 DOM::Position positionBeforeTabSpan(const DOM::Position& pos);
 DOM::ElementImpl *createTabSpanElement(DOM::DocumentImpl *document, DOM::NodeImpl *tabTextNode=0);
 DOM::ElementImpl *createTabSpanElement(DOM::DocumentImpl *document, QString *tabText);

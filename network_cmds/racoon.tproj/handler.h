@@ -87,11 +87,16 @@
 #define PHASE1ST_MAX			11
 
 typedef enum {
-	natt_remote_support	= 0x0001,
-	natt_natd_received	= 0x0002,
+	natt_natd_received	= 0x0001,
 	natt_no_remote_nat	= 0x0010,
-	natt_no_local_nat	= 0x0020
+	natt_no_local_nat	= 0x0020,
+	natt_type_rfc		= 0x0100,
+	natt_type_apple		= 0x0200,
+	natt_type_02		= 0x0400,
+	natt_type_02N		= 0x0800
 } natt_flags_t;
+
+#define NATT_TYPE_MASK	0x0F00
 
 /* About address semantics in each case.
  *			initiator(addr=I)	responder(addr=R)
@@ -179,6 +184,7 @@ struct ph1handle {
 
 #ifdef IKE_NAT_T
 	natt_flags_t	natt_flags;
+	int				natd_payload_type;
 	vchar_t			*local_natd;
 	vchar_t			*remote_natd;
 #endif
@@ -281,8 +287,9 @@ struct ph2handle {
 					/* NOT INCLUDING general header. */
 
 	vchar_t *sa_ret;		/* SA payload to reply/to be replyed */
-					/* NOT INCLUDING general header. */
-					/* NOTE: Should be release after use. */
+							/* NOT INCLUDING general header. */
+							/* NOTE: Should be release after use. */
+						
 
 	struct isakmp_ivm *ivm;		/* IVs */
 

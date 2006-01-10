@@ -300,6 +300,18 @@ bool Element::isHTMLElement() const
     return ((ElementImpl *)impl)->isHTMLElement();
 }
 
+void Element::focus()
+{
+    if(!impl) return;
+    ((ElementImpl *)impl)->focus();
+}
+
+void Element::blur()
+{
+    if(!impl) return;
+    ((ElementImpl *)impl)->blur();
+}
+
 // FIXME: This should move down to HTMLElement.
 CSSStyleDeclaration Element::style()
 {

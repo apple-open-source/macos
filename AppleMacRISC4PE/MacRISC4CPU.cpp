@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -141,6 +142,7 @@ bool MacRISC4CPU::start(IOService *provider)
     i2c_openI2CBus = OSSymbol::withCString("openI2CBus");
     i2c_closeI2CBus = OSSymbol::withCString("closeI2CBus");
     i2c_setCombinedMode = OSSymbol::withCString("setCombinedMode");
+    i2c_setStandardSubMode = OSSymbol::withCString("setStandardSubMode");
     i2c_readI2CBus = OSSymbol::withCString("readI2CBus");
     i2c_writeI2CBus = OSSymbol::withCString("writeI2CBus");
 	u3APIPhyDisableProcessor1 = OSSymbol::withCString("u3APIPhyDisableProcessor1");
@@ -299,7 +301,7 @@ bool MacRISC4CPU::start(IOService *provider)
         l2crValue = mfl2cr() & 0x7FFFFFFF;
 #endif
   
-	kprintf ("MacRISC4CPU::start - waiting for KeyLargo\n");
+	//kprintf ("MacRISC4CPU::start - waiting for KeyLargo\n");
     // Wait for KeyLargo to show up.
     keyLargo = waitForService(serviceMatching("KeyLargo"));
     if (keyLargo == 0) return false;
@@ -632,8 +634,6 @@ kern_return_t MacRISC4CPU::startCPU(vm_offset_t /*start_paddr*/, vm_offset_t /*a
 		if (gI2CDriver && (kIOReturnSuccess == gI2CDriver->callPlatformFunction (i2c_openI2CBus, false,
 				(void *) (UInt32)gTimeBaseParams->i2c_port, (void *) 0, (void *) 0, (void *) 0))) {
 			kprintf ("MacRISC4CPU::startCPU(%ld) i2c bus opened\n", getCPUNumber());
-			// pre-set for combined mode
-			gI2CDriver->callPlatformFunction (i2c_setCombinedMode, false, (void *) 0, (void *) 0, (void *) 0, (void *) 0);	//CY28510 does reads in combined mode
 		}
 	}
 	
@@ -816,8 +816,9 @@ void MacRISC4CPU::enableCPUTimeBase(bool enable)
 	} else {
 		// Do it messy I2C way 
 		UInt8 sevenBitAddr, buf, tmp;
-		
-		kprintf ("4CPU::tb - timebase sync old way\n");
+			
+		// Set combined mode for read
+		gI2CDriver->callPlatformFunction (i2c_setCombinedMode, false, (void *) 0, (void *) 0, (void *) 0, (void *) 0);	//CY28510 does reads in combined mode
 	
 		// read the byte register -- requires 7 bit slave address
 		sevenBitAddr = gTimeBaseParams->i2c_addr >> 1;
@@ -825,6 +826,11 @@ void MacRISC4CPU::enableCPUTimeBase(bool enable)
 			// apply mask and value
 			tmp = enable ? gTimeBaseParams->enable_value : gTimeBaseParams->disable_value; 
 			buf = (buf & ~gTimeBaseParams->mask) | (tmp & gTimeBaseParams->mask);
+			
+			// Set standard sub mode for write
+			gI2CDriver->callPlatformFunction (i2c_setStandardSubMode, false, (void *)0,(void *) 0, (void *)0, (void *)0);
+
+			// Issue write for enable/disable
 			gI2CDriver->callPlatformFunction (i2c_writeI2CBus, false, (void *)(UInt32)sevenBitAddr,(void *) (UInt32)gTimeBaseParams->i2c_subaddr, (void *)(UInt32)& buf, (void *)1);
 		} else {
 			kprintf ("MacRISC4CPU::enableCPUTimeBase - I2C read failed\n");

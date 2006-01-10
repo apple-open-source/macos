@@ -727,6 +727,7 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
                 if (lineCount <= numVisibleLines) continue;
                 
                 int newHeight = blockChild->heightForLineCount(numVisibleLines);
+                if (newHeight == -1 && numVisibleLines == 0) newHeight = 0;
                 if (newHeight == child->height()) continue;
                 
                 child->setChildNeedsLayout(true);

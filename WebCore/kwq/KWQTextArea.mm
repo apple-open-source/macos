@@ -26,7 +26,6 @@
 #import "KWQTextArea.h"
 
 #import "KWQKHTMLPart.h"
-#import "KWQNSViewExtras.h"
 #import "KWQTextEdit.h"
 #import "render_replaced.h"
 #import "WebCoreBridge.h"
@@ -34,6 +33,7 @@
 using DOM::EventImpl;
 using DOM::NodeImpl;
 using khtml::RenderWidget;
+using khtml::RenderLayer;
 
 @interface NSTextView (WebCoreKnowsCertainAppKitSecrets)
 - (void)setWantsNotificationForMarkedText:(BOOL)wantsNotification;
@@ -61,6 +61,7 @@ using khtml::RenderWidget;
 @interface NSTextView (KWQTextArea)
 - (NSParagraphStyle *)_KWQ_typingParagraphStyle;
 - (void)_KWQ_setTypingParagraphStyle:(NSParagraphStyle *)style;
+- (void)_KWQ_updateTypingAttributes:(NSParagraphStyle *)style forLineHeight:(float)lineHeight font:(NSFont *)font;
 @end
 
 @interface NSTextStorage (KWQTextArea)
@@ -248,6 +249,66 @@ const float LargeNumberForText = 1.0e7;
     [textView selectAll:nil];
 }
 
+- (void)setSelectedRange:(NSRange)aRange
+{
+    NSString *text = [textView string];
+    // Ok, the selection has to match up with the string returned by -text
+    // and since -text translates \r\n to \n, we have to modify our selection
+    // if a \r\n sequence is anywhere in or before the selection
+    unsigned count = 0;
+    NSRange foundRange, searchRange = NSMakeRange(0, aRange.location);
+    while (foundRange = [text rangeOfString:@"\r\n" options:NSLiteralSearch range:searchRange],
+           foundRange.location != NSNotFound) {
+        count++;
+        searchRange.location = NSMaxRange(foundRange);
+        if (searchRange.location >= aRange.location) break;
+        searchRange.length = aRange.location - searchRange.location;
+    }
+    aRange.location += count;
+    count = 0;
+    searchRange = NSMakeRange(aRange.location, aRange.length);
+    while (foundRange = [text rangeOfString:@"\r\n" options:NSLiteralSearch range:searchRange],
+           foundRange.location != NSNotFound) {
+        count++;
+        searchRange.location = NSMaxRange(foundRange);
+        if (searchRange.location >= NSMaxRange(aRange)) break;
+        searchRange.length = NSMaxRange(aRange) - searchRange.location;
+    }
+    aRange.length += count;
+    [textView setSelectedRange:aRange];
+}
+
+- (NSRange)selectedRange
+{
+    NSRange aRange = [textView selectedRange];
+    if (aRange.location == NSNotFound) {
+        return aRange;
+    }
+    // Same issue as with -setSelectedRange: regarding \r\n sequences
+    unsigned count = 0;
+    NSRange foundRange, searchRange = NSMakeRange(0, aRange.location);
+    NSString *text = [textView string];
+    while (foundRange = [text rangeOfString:@"\r\n" options:NSLiteralSearch range:searchRange],
+           foundRange.location != NSNotFound) {
+        count++;
+        searchRange.location = NSMaxRange(foundRange);
+        if (searchRange.location >= aRange.location) break;
+        searchRange.length = aRange.location - searchRange.location;
+    }
+    aRange.location -= count;
+    count = 0;
+    searchRange = NSMakeRange(aRange.location, aRange.length);
+    while (foundRange = [text rangeOfString:@"\r\n" options:NSLiteralSearch range:searchRange],
+           foundRange.location != NSNotFound) {
+        count++;
+        searchRange.location = NSMaxRange(foundRange);
+        if (searchRange.location >= NSMaxRange(aRange)) break;
+        searchRange.length = NSMaxRange(aRange) - searchRange.location;
+    }
+    aRange.length -= count;
+    return aRange;
+}
+
 - (void)setEditable:(BOOL)flag
 {
     [textView setEditableIfEnabled:flag];
@@ -297,7 +358,7 @@ const float LargeNumberForText = 1.0e7;
     
     int paragraphSoFar = 0;
     NSRange searchRange = NSMakeRange(0, [text length]);
-
+    
     while (true) {
         // FIXME: Doesn't work for CR-separated or CRLF-separated text.
 	NSRange newlineRange = [text rangeOfString:@"\n" options:NSLiteralSearch range:searchRange];
@@ -306,13 +367,13 @@ const float LargeNumberForText = 1.0e7;
 	}
         
 	paragraphSoFar++;
-
+        
         unsigned advance = newlineRange.location + 1 - searchRange.location;
-
+        
 	searchRange.length -= advance;
 	searchRange.location += advance;
     }
-
+    
     *paragraph = paragraphSoFar;
     *index = selectedRange.location - searchRange.location;
 }
@@ -321,7 +382,7 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
 {
     int paragraphSoFar = 0;
     NSRange searchRange = NSMakeRange(0, [text length]);
-
+    
     NSRange newlineRange;
     while (true) {
         // FIXME: Doesn't work for CR-separated or CRLF-separated text.
@@ -329,13 +390,13 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
 	if (newlineRange.location == NSNotFound) {
 	    break;
 	}
-
+        
 	if (paragraphSoFar == paragraph) {
 	    break;
 	}
-
+        
 	paragraphSoFar++;
-
+        
         unsigned advance = newlineRange.location + 1 - searchRange.location;
 	if (searchRange.length <= advance) {
 	    searchRange.location = NSNotFound;
@@ -346,7 +407,7 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
 	searchRange.length -= advance;
 	searchRange.location += advance;
     }
-
+    
     if (paragraphSoFar < paragraph) {
         return NSMakeRange(NSNotFound, 0);
     }
@@ -378,6 +439,59 @@ static NSRange RangeOfParagraph(NSString *text, int paragraph)
     [_font release];
     _font = font;
     [textView setFont:font];
+    
+    NSParagraphStyle *style = [textView _KWQ_typingParagraphStyle];
+    if (_lineHeight) {
+        [textView _KWQ_updateTypingAttributes:style forLineHeight:_lineHeight font:_font];
+    }
+}
+
+- (void)setLineHeight:(float)lineHeight
+{
+    NSRange range = [textView rangeForUserParagraphAttributeChange];
+    if (range.location == NSNotFound)
+        return;
+    
+    _lineHeight = lineHeight;
+    NSTextStorage *storage = [textView textStorage];
+    NSParagraphStyle *paraStyle = nil;
+    
+    if (storage && range.length > 0) {
+        unsigned loc = range.location;
+        unsigned end = NSMaxRange(range);
+        
+        [storage beginEditing];
+        while (loc < end) {
+            NSRange effectiveRange;
+            paraStyle = [storage attribute:NSParagraphStyleAttributeName atIndex:loc longestEffectiveRange:&effectiveRange inRange:range];
+            if (!paraStyle)
+                paraStyle = [textView defaultParagraphStyle];
+            if (!paraStyle) 
+                paraStyle = [NSParagraphStyle defaultParagraphStyle];
+            if ([paraStyle minimumLineHeight] != lineHeight) {
+                NSMutableParagraphStyle *newStyle = [paraStyle mutableCopy];
+                [newStyle setMinimumLineHeight:lineHeight];
+                [storage addAttribute:NSParagraphStyleAttributeName value:newStyle range:effectiveRange];
+                [newStyle release];
+            }
+            loc = NSMaxRange(effectiveRange);
+        }
+        [storage endEditing];
+        [textView didChangeText];
+        paraStyle = [storage attribute:NSParagraphStyleAttributeName atIndex:range.location effectiveRange:NULL];
+    }
+    
+    if (!paraStyle) {
+        paraStyle = [[textView typingAttributes] objectForKey:NSParagraphStyleAttributeName];
+        if (!paraStyle) 
+            paraStyle = [textView defaultParagraphStyle];
+        if (!paraStyle) 
+            paraStyle = [NSParagraphStyle defaultParagraphStyle];
+    }
+    NSMutableParagraphStyle *newStyle = [paraStyle mutableCopy];
+    [newStyle setMinimumLineHeight:lineHeight];
+    [textView _KWQ_updateTypingAttributes:newStyle forLineHeight:lineHeight font:_font];
+    [newStyle release];
 }
 
 - (void)setTextColor:(NSColor *)color
@@ -633,13 +747,17 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
             [self selectAll:nil];
         }
         if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(widget)) {
-            [[self enclosingScrollView] _KWQ_scrollFrameToVisible];
+            RenderWidget *w = const_cast<RenderWidget *> (static_cast<const RenderWidget *>(widget->eventFilterObject()));
+            RenderLayer *layer = w->enclosingLayer();
+            if (layer)
+                layer->scrollRectToVisible(w->absoluteBoundingBoxRect());
         }
 	[self _KWQ_setKeyboardFocusRingNeedsDisplay];
 
         if (widget) {
             QFocusEvent event(QEvent::FocusIn);
-            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+            if (widget->eventFilterObject())
+                const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
         }
     }
 
@@ -655,7 +773,8 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
 
         if (widget) {
             QFocusEvent event(QEvent::FocusOut);
-            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+            if (widget->eventFilterObject())
+                const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
         }
     }
 
@@ -887,6 +1006,26 @@ static NSString *WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckin
     [immutableStyle release];
     [self setTypingAttributes:attributes];
     [attributes release];
+}
+
+- (void)_KWQ_updateTypingAttributes:(NSParagraphStyle *)style forLineHeight:(float)lineHeight font:(NSFont *)font
+{
+    NSDictionary *typingAttrs = [self typingAttributes];
+    NSMutableDictionary *dict;
+    float fontHeight = [[self layoutManager] defaultLineHeightForFont:font];
+    float h = (lineHeight / 2.0f) - (fontHeight / 2.0f);
+    h = (h >= 0.0) ? floorf(h) : -floorf(-h);
+    
+    if (typingAttrs)
+        dict = [typingAttrs mutableCopy];
+    else
+        dict = [[NSMutableDictionary alloc] init];
+            
+    [dict setObject:style forKey:NSParagraphStyleAttributeName];
+    [dict setObject:[NSNumber numberWithFloat:h] forKey:NSBaselineOffsetAttributeName];
+    
+    [self setTypingAttributes:dict];
+    [dict release];
 }
 
 @end

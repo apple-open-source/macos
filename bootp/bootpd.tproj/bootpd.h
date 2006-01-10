@@ -47,8 +47,8 @@ add_subnet_options(NIDomain_t * domain, u_char * hostname,
 		   interface_t * intface, dhcpoa_t * options,
 		   const u_char * tags, int n);
 boolean_t
-bootp_add_bootfile(char * request_file, char * hostname, char * bootfile,
-		   char * reply_file);
+bootp_add_bootfile(const char * request_file, const char * hostname, 
+		   const char * bootfile, char * reply_file);
 boolean_t	
 get_dhcp_option(id subnet, int tag, void * buf, int * len_p);
 

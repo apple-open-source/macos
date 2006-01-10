@@ -1,0 +1,2411 @@
+
+configure:
+     [echo] groups:  default
+     [echo] modules: common,jmx,system,j2ee,naming,transaction,server,security,messaging,connector,cluster,jetty,varia,jboss.net,iiop,management,tomcat,console,compatible
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:modules:most:
+
+    ======================================================================
+    ==  Executing 'most' in module 'common'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-mbean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/common/output/gen-src
+[execmodules] (XDocletMain.start                   45  ) Running <mbeaninterface/>
+[execmodules] (TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.util.property.jmx.SystemPropertyClassValue' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+[execmodules] INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+[execmodules]          (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+[execmodules]          The referring classes do not import any fully qualified classes matching these classes.
+[execmodules]          However, since no packages are imported, xjavadoc has assumed that the referred classes
+[execmodules]          belong to the same package as the referring class. The classes are:
+[execmodules] /home/starksm/JBoss/Releases/jboss-3.2/common/src/main/org/jboss/net/protocol/URLListerBase.java --> URLFilter qualified to org.jboss.net.protocol.URLFilter
+[execmodules] /home/starksm/JBoss/Releases/jboss-3.2/common/src/main/org/jboss/util/property/jmx/SystemPropertyClassValue.java --> SystemPropertyClassValueMBean qualified to org.jboss.util.property.jmx.SystemPropertyClassValueMBean
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/common/output/classes
+    [javac] Compiling 203 source files to /home/starksm/JBoss/Releases/jboss-3.2/common/output/classes
+[execmodules] /home/starksm/JBoss/Releases/jboss-3.2/common/src/main/org/jboss/logging/XPriority.java:79: warning: toPriority(java.lang.String) in org.apache.log4j.Priority has been deprecated
+[execmodules]    public static Priority toPriority(String name)
+[execmodules]                           ^
+[execmodules] 1 warning
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/common/output/etc
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/common/output/etc
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/common/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/common/output/lib/jboss-common.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/common/output/lib/jboss-common-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/common/output/lib/testsuite-support.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/common/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'common'.
+    ======================================================================
+    
+
+_module-common-most:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 6 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+
+    ======================================================================
+    ==  Executing 'most' in module 'jmx'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-mbean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/gen-src
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/classes
+    [javac] Compiling 491 source files to /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/classes
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/resources
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/resources
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/lib/jboss-jmx.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/lib/jboss-jmx-core.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/lib/jboss-jmx-services.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/lib/jboss-jmx-testsuite.jar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc/test/compliance/loading
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc/test/compliance/server
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc/test/implementation/loading
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc/test/compliance/loading/MyMBeans.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc/test/compliance/loading/MoreMBeans.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc/test/implementation/loading/MyMBeans.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc/test/compliance/server/Test.jar
+     [copy] Copying 11 files to /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc/test/implementation/loading/Start.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/etc/test/implementation/loading/Target.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/jmx/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'jmx'.
+    ======================================================================
+    
+
+_module-jmx-most:
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/dtd
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/dtd
+
+    ======================================================================
+    ==  Executing 'most' in module 'system'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-mbean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/system/output/gen-src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.scanner.DeploymentScanner' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.cache.DeploymentStore' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.system.server.ServerInfo' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.JARDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.XSLSubDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.system.ServiceController' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.scanner.URLDirectoryScanner' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.cache.FileDeploymentStore' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.MainDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.SARDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.system.server.ServerConfigImpl' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.Deployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.scanner.URLDeploymentScanner' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.system.server.ServerImpl' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.cache.DeploymentCache' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.ClasspathExtension' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.SubDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.scanner.HttpURLDeploymentScanner' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/ClasspathExtension.java --> ClasspathExtensionMBean qualified to org.jboss.deployment.ClasspathExtensionMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/JARDeployer.java --> JARDeployerMBean qualified to org.jboss.deployment.JARDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/SubDeployerSupport.java --> SubDeployerMBean qualified to org.jboss.deployment.SubDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/MainDeployer.java --> MainDeployerMBean qualified to org.jboss.deployment.MainDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/SARDeployer.java --> SARDeployerMBean qualified to org.jboss.deployment.SARDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/XSLSubDeployer.java --> XSLSubDeployerMBean qualified to org.jboss.deployment.XSLSubDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/cache/DeploymentCache.java --> DeploymentCacheMBean qualified to org.jboss.deployment.cache.DeploymentCacheMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/cache/FileDeploymentStore.java --> FileDeploymentStoreMBean qualified to org.jboss.deployment.cache.FileDeploymentStoreMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/scanner/AbstractDeploymentScanner.java --> DeploymentScannerMBean qualified to org.jboss.deployment.scanner.DeploymentScannerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/scanner/HttpURLDeploymentScanner.java --> HttpURLDeploymentScannerMBean qualified to org.jboss.deployment.scanner.HttpURLDeploymentScannerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/scanner/URLDeploymentScanner.java --> URLDeploymentScannerMBean qualified to org.jboss.deployment.scanner.URLDeploymentScannerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/scanner/URLDirectoryScanner.java --> URLDirectoryScannerMBean qualified to org.jboss.deployment.scanner.URLDirectoryScannerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/system/ServiceController.java --> ServiceControllerMBean qualified to org.jboss.system.ServiceControllerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/system/server/ServerConfigImpl.java --> ServerConfigImplMBean qualified to org.jboss.system.server.ServerConfigImplMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/system/server/ServerImpl.java --> ServerImplMBean qualified to org.jboss.system.server.ServerImplMBean
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/system/server/ServerInfo.java --> ServerInfoMBean qualified to org.jboss.system.server.ServerInfoMBean
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/system/output/classes
+    [javac] Compiling 72 source files to /home/starksm/JBoss/Releases/jboss-3.2/system/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/deployment/NetBootHelper.java:146: warning: encode(java.lang.String) in java.net.URLEncoder has been deprecated
+      return listUrl + "dir=" + java.net.URLEncoder.encode (directory);
+                                                   ^
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/Main.java:101: warning: decode(java.lang.String) in java.net.URLDecoder has been deprecated
+         path = java.net.URLDecoder.decode(path);
+                                   ^
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/system/ORBSingleton.java:160: warning: create_recursive_sequence_tc(int,int) in org.omg.CORBA.ORB has been deprecated
+   public TypeCode create_recursive_sequence_tc(int bound, int offset)
+                   ^
+/home/starksm/JBoss/Releases/jboss-3.2/system/src/main/org/jboss/system/ORBSingleton.java:273: warning: get_current() in org.omg.CORBA.ORB has been deprecated
+   public Current get_current()
+                  ^
+4 warnings
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/system/output/resources
+     [copy] Copying 5 files to /home/starksm/JBoss/Releases/jboss-3.2/system/output/resources
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/system/output/etc
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/system/output/etc
+
+compile-bin:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/system/output/bin
+     [copy] Copying 4 files to /home/starksm/JBoss/Releases/jboss-3.2/system/output/bin
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/system/output/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/system/output/gen/log4j
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/thirdparty/apache/log4j/lib/log4j.jar into /home/starksm/JBoss/Releases/jboss-3.2/system/output/gen/log4j
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/system/output/lib/log4j-boot.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/system/output/lib/jboss-boot.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/system/output/lib/jboss-system.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/system/output/lib/jboss-system-client.jar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/system/output/gen/getopt
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/thirdparty/gnu/getopt/lib/getopt.jar into /home/starksm/JBoss/Releases/jboss-3.2/system/output/gen/getopt
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/system/output/lib/run.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/system/output/lib/testsuite-support.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/system/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'system'.
+    ======================================================================
+    
+
+_module-system-most:
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/bin
+     [copy] Copying 5 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/bin
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/dtd
+
+    ======================================================================
+    ==  Executing 'most' in module 'j2ee'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/j2ee/output/etc
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/j2ee/output/etc
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/j2ee/output/classes
+    [javac] Compiling 154 source files to /home/starksm/JBoss/Releases/jboss-3.2/j2ee/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/j2ee/src/main/javax/ejb/EJBContext.java:31: warning: java.security.Identity in java.security has been deprecated
+  public Identity getCallerIdentity();
+         ^
+/home/starksm/JBoss/Releases/jboss-3.2/j2ee/src/main/javax/ejb/EJBContext.java:112: warning: java.security.Identity in java.security has been deprecated
+  public boolean isCallerInRole(Identity role);
+                                ^
+/home/starksm/JBoss/Releases/jboss-3.2/j2ee/src/main/javax/ejb/EJBContext.java:112: warning: java.security.Identity in java.security has been deprecated
+  public boolean isCallerInRole(Identity role);
+                                ^
+3 warnings
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/j2ee/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/j2ee/output/lib/jboss-j2ee.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/j2ee/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'j2ee'.
+    ======================================================================
+    
+
+_module-j2ee-most:
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+
+    ======================================================================
+    ==  Executing 'most' in module 'naming'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/naming/output/classes
+    [javac] Compiling 15 source files to /home/starksm/JBoss/Releases/jboss-3.2/naming/output/classes
+
+compile-rmi:
+     [rmic] RMI Compiling 1 class to /home/starksm/JBoss/Releases/jboss-3.2/naming/output/classes
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/naming/output/etc
+     [copy] Copying 4 files to /home/starksm/JBoss/Releases/jboss-3.2/naming/output/etc
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/naming/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/naming/output/lib/jnpserver.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/naming/output/lib/jnp-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/naming/output/lib/jnp-tests.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/naming/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'naming'.
+    ======================================================================
+    
+
+_module-naming-most:
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+
+    ======================================================================
+    ==  Executing 'most' in module 'transaction'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-mbean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/gen-src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.tm.XidFactory' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.tm.TransactionManagerService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/transaction/src/main/org/jboss/tm/TransactionManagerService.java --> TransactionManagerServiceMBean qualified to org.jboss.tm.TransactionManagerServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/transaction/src/main/org/jboss/tm/XidFactory.java --> XidFactoryMBean qualified to org.jboss.tm.XidFactoryMBean
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/classes
+    [javac] Compiling 17 source files to /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/transaction/src/main/org/jboss/tm/XidFactory.java:205: warning: getBytes(int,int,byte[],int) in java.lang.String has been deprecated
+      id.getBytes(0, id.length(), globalId, baseGlobalIdBytes.length);
+        ^
+/home/starksm/JBoss/Releases/jboss-3.2/transaction/src/main/org/jboss/tm/XidFactory.java:224: warning: getBytes(int,int,byte[],int) in java.lang.String has been deprecated
+      id.getBytes(0, id.length(), branchId, 0);
+        ^
+2 warnings
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/etc
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/etc
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/lib/jboss-transaction.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/lib/jboss-transaction-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/lib/testsuite-support.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/transaction/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'transaction'.
+    ======================================================================
+    
+
+_module-transaction-most:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy
+
+    ======================================================================
+    ==  Executing 'most' in module 'server'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+generate-parsers:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/server/output/parsers/org/jboss/ejb/plugins/cmp/ejbql
+   [jjtree] Java Compiler Compiler Version 2.0 (Tree Builder)
+   [jjtree] Copyright (c) 1996-2000 Sun Microsystems, Inc.
+   [jjtree] Copyright (c) 1997-2000 Metamata, Inc.
+   [jjtree] (type "jjtree" with no arguments for help)
+   [jjtree] Reading from file /home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/plugins/cmp/ejbql/JBossQLParser.jjt . . .
+   [jjtree] File "/home/starksm/JBoss/Releases/jboss-3.2/server/output/parsers/org/jboss/ejb/plugins/cmp/ejbql/Node.java" does not exist.  Will create one.
+   [jjtree] Annotated grammar generated successfully in /home/starksm/JBoss/Releases/jboss-3.2/server/output/parsers/org/jboss/ejb/plugins/cmp/ejbql/JBossQLParser.jj
+   [javacc] Java Compiler Compiler Version 2.0 (Parser Generator)
+   [javacc] Copyright (c) 1996-2000 Sun Microsystems, Inc.
+   [javacc] Copyright (c) 1997-2000 Metamata, Inc.
+   [javacc] (type "javacc" with no arguments for help)
+   [javacc] Reading from file /home/starksm/JBoss/Releases/jboss-3.2/server/output/parsers/org/jboss/ejb/plugins/cmp/ejbql/JBossQLParser.jj . . .
+   [javacc] File "TokenMgrError.java" does not exist.  Will create one.
+   [javacc] File "ParseException.java" does not exist.  Will create one.
+   [javacc] File "Token.java" does not exist.  Will create one.
+   [javacc] File "ASCII_UCodeESC_CharStream.java" does not exist.  Will create one.
+   [javacc] Parser generated successfully.
+   [jjtree] Java Compiler Compiler Version 2.0 (Tree Builder)
+   [jjtree] Copyright (c) 1996-2000 Sun Microsystems, Inc.
+   [jjtree] Copyright (c) 1997-2000 Metamata, Inc.
+   [jjtree] (type "jjtree" with no arguments for help)
+   [jjtree] Reading from file /home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/plugins/cmp/ejbql/EJBQLParser.jjt . . .
+   [jjtree] Annotated grammar generated successfully in /home/starksm/JBoss/Releases/jboss-3.2/server/output/parsers/org/jboss/ejb/plugins/cmp/ejbql/EJBQLParser.jj
+   [javacc] Java Compiler Compiler Version 2.0 (Parser Generator)
+   [javacc] Copyright (c) 1996-2000 Sun Microsystems, Inc.
+   [javacc] Copyright (c) 1997-2000 Metamata, Inc.
+   [javacc] (type "javacc" with no arguments for help)
+   [javacc] Reading from file /home/starksm/JBoss/Releases/jboss-3.2/server/output/parsers/org/jboss/ejb/plugins/cmp/ejbql/EJBQLParser.jj . . .
+   [javacc] Parser generated successfully.
+
+compile-bean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/server/output/beans/ejbadaptor
+(XDocletMain.start                   45  ) Running <remoteinterface/>
+Generating Remote interface for 'org.jboss.jmx.adaptor.ejb.EJBAdaptorBean'.
+(XDocletMain.start                   45  ) Running <homeinterface/>
+Generating Home interface for 'org.jboss.jmx.adaptor.ejb.EJBAdaptorBean'.
+(XDocletMain.start                   45  ) Running <session/>
+Generating Session class for 'org.jboss.jmx.adaptor.ejb.EJBAdaptorBean'.
+(XDocletMain.start                   45  ) Running <deploymentdescriptor/>
+Generating EJB deployment descriptor (ejb-jar.xml).
+(XDocletMain.start                   45  ) Running <jboss/>
+Generating jboss.xml.
+
+compile-mbean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/server/output/gen-src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.connector.ConnectorFactoryService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.connector.notification.PollingNotificationListener' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.connector.invoker.InvokerAdaptorService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.EntityContainer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.adaptor.xml.XMLAdaptorService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.connector.ejb.EJBConnector' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.adaptor.rmi.RMIAdaptorService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.naming.ExternalContext' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.plugins.EntityInstanceCache' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jms.asf.ServerSessionPoolLoader' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.MessageDrivenContainer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.deployment.EARDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.naming.NamingAlias' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.logging.Log4jService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.connector.notification.RMINotificationListener' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.Container' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.plugins.cmp.jdbc.SQLExceptionProcessor' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.plugins.AbstractInstanceCache' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jms.jndi.JMSProviderLoader' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.invocation.jrmp.server.JRMPInvoker' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.plugins.AbstractInstancePool' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.connector.rmi.RMIConnectorImpl' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.adaptor.xml.XMLTestService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.web.AbstractWebContainer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.EJBDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.connector.notification.JMSNotificationListener' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.naming.JNDIView' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.invocation.pooled.server.PooledInvoker' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.naming.NamingService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.invocation.local.LocalInvoker' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.plugins.jms.JMSContainerInvoker' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.web.WebService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.EjbModule' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.ejb.plugins.StatefulSessionFilePersistenceManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.logging.Log4jSocketServer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/deployment/EARDeployer.java --> EARDeployerMBean qualified to org.jboss.deployment.EARDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/EJBDeployer.java --> EJBDeployerMBean qualified to org.jboss.ejb.EJBDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/StatefulSessionEnterpriseContext.java --> EJBContextImpl qualified to org.jboss.ejb.EJBContextImpl
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/plugins/AbstractInstancePool.java --> AbstractInstancePoolMBean qualified to org.jboss.ejb.plugins.AbstractInstancePoolMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/EjbModule.java --> EjbModuleMBean qualified to org.jboss.ejb.EjbModuleMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/EntityContainer.java --> EntityContainerMBean qualified to org.jboss.ejb.EntityContainerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/EntityContainer.java --> AbstractContainerInterceptor qualified to org.jboss.ejb.AbstractContainerInterceptor
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/StatefulSessionContainer.java --> AbstractContainerInterceptor qualified to org.jboss.ejb.AbstractContainerInterceptor
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/MessageDrivenContainer.java --> MessageDrivenContainerMBean qualified to org.jboss.ejb.MessageDrivenContainerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/MessageDrivenContainer.java --> AbstractContainerInterceptor qualified to org.jboss.ejb.AbstractContainerInterceptor
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/plugins/AbstractInstanceCache.java --> AbstractInstanceCacheMBean qualified to org.jboss.ejb.plugins.AbstractInstanceCacheMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/EntityEnterpriseContext.java --> EJBContextImpl qualified to org.jboss.ejb.EJBContextImpl
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/plugins/EntityInstanceCache.java --> EntityInstanceCacheMBean qualified to org.jboss.ejb.plugins.EntityInstanceCacheMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/plugins/StatefulSessionFilePersistenceManager.java --> StatefulSessionFilePersistenceManagerMBean qualified to org.jboss.ejb.plugins.StatefulSessionFilePersistenceManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/plugins/cmp/jdbc/SQLExceptionProcessor.java --> SQLExceptionProcessorMBean qualified to org.jboss.ejb.plugins.cmp.jdbc.SQLExceptionProcessorMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/plugins/jms/JMSContainerInvoker.java --> JMSContainerInvokerMBean qualified to org.jboss.ejb.plugins.jms.JMSContainerInvokerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/invocation/jrmp/server/JRMPInvoker.java --> JRMPInvokerMBean qualified to org.jboss.invocation.jrmp.server.JRMPInvokerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/invocation/local/LocalInvoker.java --> LocalInvokerMBean qualified to org.jboss.invocation.local.LocalInvokerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/invocation/pooled/server/PooledInvoker.java --> PooledInvokerMBean qualified to org.jboss.invocation.pooled.server.PooledInvokerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jms/asf/ServerSessionPoolLoader.java --> ServerSessionPoolLoaderMBean qualified to org.jboss.jms.asf.ServerSessionPoolLoaderMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jms/jndi/JMSProviderLoader.java --> JMSProviderLoaderMBean qualified to org.jboss.jms.jndi.JMSProviderLoaderMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/adaptor/rmi/RMIAdaptorService.java --> RMIAdaptorServiceMBean qualified to org.jboss.jmx.adaptor.rmi.RMIAdaptorServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/adaptor/xml/XMLAdaptorService.java --> XMLAdaptorServiceMBean qualified to org.jboss.jmx.adaptor.xml.XMLAdaptorServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/adaptor/xml/XMLTestService.java --> XMLTestServiceMBean qualified to org.jboss.jmx.adaptor.xml.XMLTestServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/connector/rmi/RMIConnectorImpl.java --> RMIConnectorImplMBean qualified to org.jboss.jmx.connector.rmi.RMIConnectorImplMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/connector/ejb/EJBConnector.java --> EJBConnectorMBean qualified to org.jboss.jmx.connector.ejb.EJBConnectorMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/connector/ConnectorFactoryService.java --> ConnectorFactoryServiceMBean qualified to org.jboss.jmx.connector.ConnectorFactoryServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/connector/invoker/InvokerAdaptorService.java --> InvokerAdaptorServiceMBean qualified to org.jboss.jmx.connector.invoker.InvokerAdaptorServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/connector/notification/JMSNotificationListener.java --> JMSNotificationListenerMBean qualified to org.jboss.jmx.connector.notification.JMSNotificationListenerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/connector/notification/PollingNotificationListener.java --> PollingNotificationListenerMBean qualified to org.jboss.jmx.connector.notification.PollingNotificationListenerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/jmx/connector/notification/RMINotificationListener.java --> RMINotificationListenerMBean qualified to org.jboss.jmx.connector.notification.RMINotificationListenerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/logging/Log4jService.java --> Log4jServiceMBean qualified to org.jboss.logging.Log4jServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/logging/Log4jSocketServer.java --> Log4jSocketServerMBean qualified to org.jboss.logging.Log4jSocketServerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/naming/ExternalContext.java --> ExternalContextMBean qualified to org.jboss.naming.ExternalContextMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/naming/JNDIView.java --> JNDIViewMBean qualified to org.jboss.naming.JNDIViewMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/naming/NamingAlias.java --> NamingAliasMBean qualified to org.jboss.naming.NamingAliasMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/naming/NamingService.java --> NamingServiceMBean qualified to org.jboss.naming.NamingServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/web/AbstractWebContainer.java --> AbstractWebContainerMBean qualified to org.jboss.web.AbstractWebContainerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/web/WebService.java --> WebServiceMBean qualified to org.jboss.web.WebServiceMBean
+WARNING: Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         Since at least one package is imported, it is impossible for xjavadoc to figure out
+         what package the referred classes belong to. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/Container.java --> ContainerMBean qualified to org.jboss.ejb.ContainerMBean
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/server/output/classes
+    [javac] Compiling 608 source files to /home/starksm/JBoss/Releases/jboss-3.2/server/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/EnterpriseContext.java:11: warning: java.security.Identity in java.security has been deprecated
+import java.security.Identity;
+                     ^
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/EnterpriseContext.java:243: warning: java.security.Identity in java.security has been deprecated
+      public Identity getCallerIdentity() 
+             ^
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/EnterpriseContext.java:369: warning: java.security.Identity in java.security has been deprecated
+      public boolean isCallerInRole(Identity id) 
+                                    ^
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/security/SecurityDomain.java:12: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.KeyManagerFactory;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/security/SecurityDomain.java:13: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.TrustManagerFactory;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/security/SecurityDomain.java:32: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+   public KeyManagerFactory getKeyManagerFactory() throws SecurityException;
+          ^
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/security/SecurityDomain.java:38: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+   public TrustManagerFactory getTrustManagerFactory() throws SecurityException;
+          ^
+/home/starksm/JBoss/Releases/jboss-3.2/server/src/main/org/jboss/ejb/EnterpriseContext.java:369: warning: java.security.Identity in java.security has been deprecated
+      public boolean isCallerInRole(Identity id) 
+                                    ^
+8 warnings
+
+compile-rmi:
+     [rmic] RMI Compiling 5 classes to /home/starksm/JBoss/Releases/jboss-3.2/server/output/classes
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/server/output/etc
+     [copy] Copying 26 files to /home/starksm/JBoss/Releases/jboss-3.2/server/output/etc
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/server/output/resources
+     [copy] Copying 35 files to /home/starksm/JBoss/Releases/jboss-3.2/server/output/resources
+
+compile-bin:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/server/output/bin
+     [copy] Copying 5 files to /home/starksm/JBoss/Releases/jboss-3.2/server/output/bin
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jboss.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jboss-minimal.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jboss-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/verifier.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-adaptor-plugin.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-rmi-adaptor.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-invoker-adaptor-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-invoker-adaptor-server.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-ejb-connector-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-ejb-connector-server.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-rmi-adaptor.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-rmi-connector-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-connector-client-factory.jar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/server/output/gen/getopt
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/thirdparty/gnu/getopt/lib/getopt.jar into /home/starksm/JBoss/Releases/jboss-3.2/server/output/gen/getopt
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/shutdown.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jboss-security.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/uuid-key-generator.sar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/testsuite-support.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/server/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'server'.
+    ======================================================================
+    
+
+_module-server-most:
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 5 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 6 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/bin
+     [copy] Copying 5 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 5 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/jmx/jmx-rmi-adaptor.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-rmi-adaptor.sar into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/jmx/jmx-rmi-adaptor.sar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jmx-invoker-adaptor-server.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jmx-invoker-adaptor-server.sar into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jmx-invoker-adaptor-server.sar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/conf
+     [copy] Copying 12 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/conf
+     [copy] Copying 23 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/dtd
+
+    ======================================================================
+    ==  Executing 'most' in module 'security'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-parsers:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/security/output/parsers/org/jboss/security/auth/login
+   [javacc] Java Compiler Compiler Version 2.0 (Parser Generator)
+   [javacc] Copyright (c) 1996-2000 Sun Microsystems, Inc.
+   [javacc] Copyright (c) 1997-2000 Metamata, Inc.
+   [javacc] (type "javacc" with no arguments for help)
+   [javacc] Reading from file /home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/auth/login/SunConfigParser.jj . . .
+   [javacc] File "TokenMgrError.java" does not exist.  Will create one.
+   [javacc] File "ParseException.java" does not exist.  Will create one.
+   [javacc] File "Token.java" does not exist.  Will create one.
+   [javacc] File "ASCII_CharStream.java" does not exist.  Will create one.
+   [javacc] Parser generated successfully.
+
+compile-classes-jdk13:
+
+compile-classes-jdk14:
+     [echo] Compiling for JDK1.4+
+
+_buildmagic:init:
+
+init:
+
+do-compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/security/output/classes
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/server/output/lib/jboss-security.jar into /home/starksm/JBoss/Releases/jboss-3.2/security/output/classes
+    [javac] Compiling 141 source files to /home/starksm/JBoss/Releases/jboss-3.2/security/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/plugins/JaasSecurityDomain.java:22: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.KeyManagerFactory;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/plugins/JaasSecurityDomain.java:23: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.TrustManagerFactory;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/plugins/JaasSecurityDomain.java:46: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+   private KeyManagerFactory keyMgr;
+           ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/plugins/JaasSecurityDomain.java:85: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+   public KeyManagerFactory getKeyManagerFactory() throws SecurityException
+          ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/plugins/JaasSecurityDomain.java:94: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+   public TrustManagerFactory getTrustManagerFactory() throws SecurityException
+          ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/ssl/DomainServerSocketFactory.java:14: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.KeyManagerFactory;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/ssl/DomainServerSocketFactory.java:15: warning: com.sun.net.ssl.SSLContext in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.SSLContext;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/ssl/DomainServerSocketFactory.java:16: warning: com.sun.net.ssl.TrustManager in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.TrustManager;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/ssl/DomainServerSocketFactory.java:17: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.TrustManagerFactory;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/ssl/DomainServerSocketFactory.java:39: warning: com.sun.net.ssl.SSLContext in com.sun.net.ssl has been deprecated
+   private transient SSLContext sslCtx = null;
+                     ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/plugins/JaasSecurityDomain.java:224: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+         String algorithm = KeyManagerFactory.getDefaultAlgorithm();
+                            ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/plugins/JaasSecurityDomain.java:225: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+         keyMgr = KeyManagerFactory.getInstance(algorithm);
+                  ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/ssl/DomainServerSocketFactory.java:170: warning: com.sun.net.ssl.SSLContext in com.sun.net.ssl has been deprecated
+         sslCtx = SSLContext.getInstance("TLS");
+                  ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/ssl/DomainServerSocketFactory.java:171: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+         KeyManagerFactory keyMgr = securityDomain.getKeyManagerFactory();
+         ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/ssl/DomainServerSocketFactory.java:174: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+         TrustManagerFactory trustMgr = securityDomain.getTrustManagerFactory();
+         ^
+/home/starksm/JBoss/Releases/jboss-3.2/security/src/main/org/jboss/security/ssl/DomainServerSocketFactory.java:175: warning: com.sun.net.ssl.TrustManager in com.sun.net.ssl has been deprecated
+         TrustManager[] trustMgrs = null;
+         ^
+16 warnings
+
+compile-classes:
+
+compile-rmi:
+     [rmic] RMI Compiling 1 class to /home/starksm/JBoss/Releases/jboss-3.2/security/output/classes
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/security/output/etc
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/security/output/etc
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/security/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/security/output/lib/jbosssx.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/security/output/lib/jboss-jaas.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/security/output/lib/jbosssx-client.jar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/security/output/tests
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/security/output/tests/jbosssx-tests.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/security/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'security'.
+    ======================================================================
+    
+
+_module-security-most:
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+
+    ======================================================================
+    ==  Executing 'most' in module 'messaging'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-mbean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/gen-src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.server.MessageCache' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.pm.rollinglogged.PersistenceManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.il.oil.OILServerILService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.server.jmx.DestinationManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.il.rmi.RMIServerILService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.pm.file.PersistenceManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.il.http.HTTPServerILService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.sm.jdbc.JDBCStateManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.sm.file.OldStateManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.il.uil.UILServerILService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.server.jmx.Topic' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.server.jmx.DelayInterceptor' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.il.jvm.JVMServerILService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.server.jmx.ClientMonitorInterceptor' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.il.ServerILJMXService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.pm.file.CacheStore' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.server.jmx.InterceptorLoader' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.sm.file.DynamicStateManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.server.jmx.Queue' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.il.oil2.OIL2ServerILService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.server.jmx.Invoker' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.il.uil2.UILServerILService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mq.pm.jdbc2.PersistenceManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/ServerILJMXService.java --> ServerILJMXServiceMBean qualified to org.jboss.mq.il.ServerILJMXServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/http/HTTPServerILService.java --> HTTPServerILServiceMBean qualified to org.jboss.mq.il.http.HTTPServerILServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/jvm/JVMServerILService.java --> JVMServerILServiceMBean qualified to org.jboss.mq.il.jvm.JVMServerILServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/oil/OILServerILService.java --> OILServerILServiceMBean qualified to org.jboss.mq.il.oil.OILServerILServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/oil2/OIL2ServerILService.java --> OIL2ServerILServiceMBean qualified to org.jboss.mq.il.oil2.OIL2ServerILServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/rmi/RMIServerILService.java --> RMIServerILServiceMBean qualified to org.jboss.mq.il.rmi.RMIServerILServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/uil/UILServerILService.java --> UILServerILServiceMBean qualified to org.jboss.mq.il.uil.UILServerILServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/uil2/UILServerILService.java --> UILServerILServiceMBean qualified to org.jboss.mq.il.uil2.UILServerILServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/server/MessageCache.java --> MessageCacheMBean qualified to org.jboss.mq.server.MessageCacheMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/pm/file/CacheStore.java --> CacheStoreMBean qualified to org.jboss.mq.pm.file.CacheStoreMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/pm/file/PersistenceManager.java --> PersistenceManagerMBean qualified to org.jboss.mq.pm.file.PersistenceManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/pm/jdbc2/PersistenceManager.java --> PersistenceManagerMBean qualified to org.jboss.mq.pm.jdbc2.PersistenceManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/pm/rollinglogged/PersistenceManager.java --> PersistenceManagerMBean qualified to org.jboss.mq.pm.rollinglogged.PersistenceManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/server/jmx/ClientMonitorInterceptor.java --> ClientMonitorInterceptorMBean qualified to org.jboss.mq.server.jmx.ClientMonitorInterceptorMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/server/jmx/DelayInterceptor.java --> DelayInterceptorMBean qualified to org.jboss.mq.server.jmx.DelayInterceptorMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/server/jmx/DestinationManager.java --> DestinationManagerMBean qualified to org.jboss.mq.server.jmx.DestinationManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/server/jmx/InterceptorLoader.java --> InterceptorLoaderMBean qualified to org.jboss.mq.server.jmx.InterceptorLoaderMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/server/jmx/Invoker.java --> InvokerMBean qualified to org.jboss.mq.server.jmx.InvokerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/server/jmx/Queue.java --> QueueMBean qualified to org.jboss.mq.server.jmx.QueueMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/server/jmx/Topic.java --> TopicMBean qualified to org.jboss.mq.server.jmx.TopicMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/sm/file/DynamicStateManager.java --> DynamicStateManagerMBean qualified to org.jboss.mq.sm.file.DynamicStateManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/sm/file/DynamicStateManager.java --> DurableSubscription qualified to org.jboss.mq.sm.file.DurableSubscription
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/sm/file/OldStateManager.java --> OldStateManagerMBean qualified to org.jboss.mq.sm.file.OldStateManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/sm/jdbc/JDBCStateManager.java --> JDBCStateManagerMBean qualified to org.jboss.mq.sm.jdbc.JDBCStateManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/sm/jdbc/JDBCStateManager.java --> DurableSubscription qualified to org.jboss.mq.sm.jdbc.DurableSubscription
+
+compile-parsers:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/parsers/org/jboss/mq/selectors
+   [javacc] Java Compiler Compiler Version 2.0 (Parser Generator)
+   [javacc] Copyright (c) 1996-2000 Sun Microsystems, Inc.
+   [javacc] Copyright (c) 1997-2000 Metamata, Inc.
+   [javacc] (type "javacc" with no arguments for help)
+   [javacc] Reading from file /home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/selectors/SelectorParser.jj . . .
+   [javacc] Warning: Lookahead adequacy checking not being performed since option LOOKAHEAD is more than 1.  Set option FORCE_LA_CHECK to true to force checking.
+   [javacc] File "TokenMgrError.java" does not exist.  Will create one.
+   [javacc] File "ParseException.java" does not exist.  Will create one.
+   [javacc] File "Token.java" does not exist.  Will create one.
+   [javacc] File "ASCII_CharStream.java" does not exist.  Will create one.
+   [javacc] Parser generated with 0 errors and 1 warnings.
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/classes
+    [javac] Compiling 8 source files to /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/classes
+
+compile-classes:
+    [javac] Compiling 227 source files to /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/http/AnyhostVerifier.java:10: warning: com.sun.net.ssl.HostnameVerifier in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.HostnameVerifier;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/http/AnyhostVerifier.java:23: warning: com.sun.net.ssl.HostnameVerifier in com.sun.net.ssl has been deprecated
+public class AnyhostVerifier implements HostnameVerifier
+                                        ^
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/http/HTTPClient.java:22: warning: com.sun.net.ssl.HttpsURLConnection in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.HttpsURLConnection;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/http/HTTPClient.java:99: warning: com.sun.net.ssl.HttpsURLConnection in com.sun.net.ssl has been deprecated
+        if (connection instanceof HttpsURLConnection)
+                                  ^
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/http/HTTPClient.java:108: warning: com.sun.net.ssl.HttpsURLConnection in com.sun.net.ssl has been deprecated
+                HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
+                ^
+/home/starksm/JBoss/Releases/jboss-3.2/messaging/src/main/org/jboss/mq/il/http/HTTPClient.java:108: warning: com.sun.net.ssl.HttpsURLConnection in com.sun.net.ssl has been deprecated
+                HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
+                                                      ^
+6 warnings
+
+compile-rmi:
+     [rmic] RMI Compiling 2 classes to /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/classes
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/resources
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/resources
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/etc
+     [copy] Copying 19 files to /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/etc
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/lib/jbossmq.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/lib/jbossmq-client.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/messaging/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'messaging'.
+    ======================================================================
+    
+
+_module-messaging-most:
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 9 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/jms
+     [copy] Copying 7 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/jms
+
+    ======================================================================
+    ==  Executing 'most' in module 'connector'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-mbean-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/gen-src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.connectionmanager.XATxConnectionManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.connectionmanager.TxConnectionManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.adapter.jdbc.xa.oracle.OracleXAExceptionFormatter' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.connectionmanager.RARDeployment' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.connectionmanager.JBossManagedConnectionPool' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.connectionmanager.BaseConnectionManager2' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.connectionmanager.JBossLocalXAExceptionFormatter' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.connectionmanager.NoTxConnectionManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.RARDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.connectionmanager.CachedConnectionManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.resource.connectionmanager.LocalTxConnectionManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(XDocletMain.start                   45  ) Running <jbossxmlservicetemplate/>
+(TemplateSubTask.engineStarted       791 ) Generating output 'null-service.xml' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jboss-module-jb3.jar!/xdoclet/modules/jboss/jmx/resources/jboss-service-template.xdt'.
+(XDocletMain.start                   45  ) Running <jbossxmbean/>
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/RARDeployer.java --> RARDeployerMBean qualified to org.jboss.resource.RARDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/adapter/jdbc/xa/oracle/OracleXAExceptionFormatter.java --> OracleXAExceptionFormatterMBean qualified to org.jboss.resource.adapter.jdbc.xa.oracle.OracleXAExceptionFormatterMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/BaseConnectionManager2.java --> BaseConnectionManager2MBean qualified to org.jboss.resource.connectionmanager.BaseConnectionManager2MBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/CachedConnectionManager.java --> CachedConnectionManagerMBean qualified to org.jboss.resource.connectionmanager.CachedConnectionManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/JBossLocalXAExceptionFormatter.java --> JBossLocalXAExceptionFormatterMBean qualified to org.jboss.resource.connectionmanager.JBossLocalXAExceptionFormatterMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/JBossManagedConnectionPool.java --> JBossManagedConnectionPoolMBean qualified to org.jboss.resource.connectionmanager.JBossManagedConnectionPoolMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/LocalTxConnectionManager.java --> LocalTxConnectionManagerMBean qualified to org.jboss.resource.connectionmanager.LocalTxConnectionManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/TxConnectionManager.java --> TxConnectionManagerMBean qualified to org.jboss.resource.connectionmanager.TxConnectionManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/NoTxConnectionManager.java --> BaseConnectionEventListener qualified to org.jboss.resource.connectionmanager.BaseConnectionEventListener
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/RARDeployment.java --> RARDeploymentMBean qualified to org.jboss.resource.connectionmanager.RARDeploymentMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/XATxConnectionManager.java --> XATxConnectionManagerMBean qualified to org.jboss.resource.connectionmanager.XATxConnectionManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/XATxConnectionManager.java --> TxConnectionManagerMBean qualified to org.jboss.resource.connectionmanager.TxConnectionManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/TxConnectionManager.java --> BaseConnectionManager2MBean qualified to org.jboss.resource.connectionmanager.BaseConnectionManager2MBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/NoTxConnectionManager.java --> BaseConnectionManager2MBean qualified to org.jboss.resource.connectionmanager.BaseConnectionManager2MBean
+/home/starksm/JBoss/Releases/jboss-3.2/connector/src/main/org/jboss/resource/connectionmanager/LocalTxConnectionManager.java --> TxConnectionManagerMBean qualified to org.jboss.resource.connectionmanager.TxConnectionManagerMBean
+
+compile-source-jdbc2:
+
+compile-source-jdbc3:
+     [echo] jdbc3
+     [copy] Copying 6 files to /home/starksm/JBoss/Releases/jboss-3.2/connector/output/gen-src
+
+compile-source-jdbc-version:
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/classes
+    [javac] Compiling 76 source files to /home/starksm/JBoss/Releases/jboss-3.2/connector/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/connector/output/gen-src/org/jboss/resource/adapter/jdbc/WrappedPreparedStatement.java:540: warning: setUnicodeStream(int,java.io.InputStream,int) in java.sql.PreparedStatement has been deprecated
+   public void setUnicodeStream(int parameterIndex, InputStream stream, int length) throws SQLException
+               ^
+/home/starksm/JBoss/Releases/jboss-3.2/connector/output/gen-src/org/jboss/resource/adapter/jdbc/WrappedPreparedStatement.java:545: warning: setUnicodeStream(int,java.io.InputStream,int) in java.sql.PreparedStatement has been deprecated
+         ps.setUnicodeStream(parameterIndex, stream, length);         
+           ^
+/home/starksm/JBoss/Releases/jboss-3.2/connector/output/gen-src/org/jboss/resource/adapter/jdbc/WrappedCallableStatement.java:976: warning: getBigDecimal(int,int) in java.sql.CallableStatement has been deprecated
+   public BigDecimal getBigDecimal(int parameterIndex, int scale) throws SQLException
+                     ^
+/home/starksm/JBoss/Releases/jboss-3.2/connector/output/gen-src/org/jboss/resource/adapter/jdbc/WrappedCallableStatement.java:66: warning: setUnicodeStream(int,java.io.InputStream,int) in java.sql.PreparedStatement has been deprecated
+public class WrappedCallableStatement 
+       ^
+/home/starksm/JBoss/Releases/jboss-3.2/connector/output/gen-src/org/jboss/resource/adapter/jdbc/WrappedCallableStatement.java:980: warning: getBigDecimal(int,int) in java.sql.CallableStatement has been deprecated
+         return cs.getBigDecimal(parameterIndex, scale);         
+                  ^
+/home/starksm/JBoss/Releases/jboss-3.2/connector/output/gen-src/org/jboss/resource/adapter/jdbc/CachedPreparedStatement.java:133: warning: setUnicodeStream(int,java.io.InputStream,int) in java.sql.PreparedStatement has been deprecated
+   public void setUnicodeStream(int parameterIndex, java.io.InputStream x,
+               ^
+/home/starksm/JBoss/Releases/jboss-3.2/connector/output/gen-src/org/jboss/resource/adapter/jdbc/CachedPreparedStatement.java:137: warning: setUnicodeStream(int,java.io.InputStream,int) in java.sql.PreparedStatement has been deprecated
+      ps.setUnicodeStream(parameterIndex, x, length);
+        ^
+7 warnings
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/resources
+     [copy] Copying 6 files to /home/starksm/JBoss/Releases/jboss-3.2/connector/output/resources
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/etc
+     [copy] Copying 31 files to /home/starksm/JBoss/Releases/jboss-3.2/connector/output/etc
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib/jboss-jca.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib/jboss-common-jdbc-wrapper.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib/jboss-local-jdbc.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib/jboss-local-jdbc.rar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib/jboss-xa-jdbc.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib/jboss-xa-jdbc.rar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib/jms-ra.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib/jms-ra.rar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/connector/output/lib/jbosscx-client.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/connector/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'connector'.
+    ======================================================================
+    
+
+_module-connector-most:
+     [copy] Copying 4 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/dtd
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/jca
+     [copy] Copying 30 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/jca
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+
+    ======================================================================
+    ==  Executing 'most' in module 'cluster'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/classes
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/gen-src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+    [javac] Compiling 107 source files to /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/cluster/src/main/org/jboss/ha/framework/server/HAPartitionImpl.java:561: warning: MethodCall(java.lang.String,java.lang.Object[]) in org.jgroups.blocks.MethodCall has been deprecated
+      MethodCall m = new MethodCall(objName + "." + methodName, args);
+                     ^
+/home/starksm/JBoss/Releases/jboss-3.2/cluster/src/main/org/jboss/ha/framework/server/HAPartitionImpl.java:606: warning: MethodCall(java.lang.String,java.lang.Object[]) in org.jgroups.blocks.MethodCall has been deprecated
+      MethodCall m = new MethodCall(objName + "." + methodName, args);
+                     ^
+2 warnings
+
+compile-rmi:
+     [rmic] RMI Compiling 2 classes to /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/classes
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/etc
+     [copy] Copying 4 files to /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/etc
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/lib/jbossha.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/lib/jbossha-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/lib/ClusteredHttpSessionEB.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/lib/jbossha-httpsession.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/lib/jbossmq-hail.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/lib/jbossmq-hail.sar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'cluster'.
+    ======================================================================
+    
+
+_module-cluster-most:
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/deploy.last
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/deploy.last
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossha-httpsession.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/lib/jbossha-httpsession.sar into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossha-httpsession.sar
+     [move] Moving 1 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossha-httpsession.sar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.jar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.zip into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.jar
+   [delete] Deleting: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossha-httpsession.sar/ClusteredHttpSessionEB.zip
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-hail.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/cluster/output/lib/jbossmq-hail.sar into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-hail.sar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/farm
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/farm
+
+    ======================================================================
+    ==  Executing 'most' in module 'jetty'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-bean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jetty.JettyService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/jboss/jetty/JettyService.java --> JettyServiceMBean qualified to org.jboss.jetty.JettyServiceMBean
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/ejb
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/META-INF
+(XDocletMain.start                   45  ) Running <localinterface/>
+(XDocletMain.start                   45  ) Running <localhomeinterface/>
+(XDocletMain.start                   45  ) Running <remoteinterface/>
+Generating Remote interface for 'org.mortbay.j2ee.session.ejb.CMPStateBean'.
+(XDocletMain.start                   45  ) Running <homeinterface/>
+Generating Home interface for 'org.mortbay.j2ee.session.ejb.CMPStateBean'.
+(XDocletMain.start                   45  ) Running <entitypk/>
+Generating PK class for 'org.mortbay.j2ee.session.ejb.CMPStateBean'.
+(XDocletMain.start                   45  ) Running <entitycmp/>
+Generating CMP class for 'org.mortbay.j2ee.session.ejb.CMPStateBean'.
+(XDocletMain.start                   45  ) Running <deploymentdescriptor/>
+Generating EJB deployment descriptor (ejb-jar.xml).
+(XDocletMain.start                   45  ) Running <jboss/>
+Generating jboss.xml.
+Generating jbosscmp-jdbc.xml.
+(XDocletMain.start                   45  ) Running <localinterface/>
+Generating Local interface for 'org.mortbay.j2ee.session.ejb.CMRAttributeBean'.
+(XDocletMain.start                   45  ) Running <localhomeinterface/>
+Generating Local Home interface for 'org.mortbay.j2ee.session.ejb.CMRAttributeBean'.
+(XDocletMain.start                   45  ) Running <remoteinterface/>
+Generating Remote interface for 'org.mortbay.j2ee.session.ejb.CMRStateBean'.
+Generating Remote interface for 'org.mortbay.j2ee.session.ejb.CMRAttributeBean'.
+(XDocletMain.start                   45  ) Running <homeinterface/>
+Generating Home interface for 'org.mortbay.j2ee.session.ejb.CMRStateBean'.
+Generating Home interface for 'org.mortbay.j2ee.session.ejb.CMRAttributeBean'.
+(XDocletMain.start                   45  ) Running <entitypk/>
+Generating PK class for 'org.mortbay.j2ee.session.ejb.CMRStateBean'.
+Generating PK class for 'org.mortbay.j2ee.session.ejb.CMRAttributeBean'.
+(XDocletMain.start                   45  ) Running <entitycmp/>
+Generating CMP class for 'org.mortbay.j2ee.session.ejb.CMRStateBean'.
+Generating CMP class for 'org.mortbay.j2ee.session.ejb.CMRAttributeBean'.
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/classes
+    [javac] Compiling 331 source files to /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:14: warning: com.sun.net.ssl.KeyManager in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.KeyManager;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:15: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.KeyManagerFactory;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:16: warning: com.sun.net.ssl.SSLContext in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.SSLContext;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:17: warning: com.sun.net.ssl.TrustManager in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.TrustManager;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:18: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+import com.sun.net.ssl.TrustManagerFactory;
+                       ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:214: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+        KeyManagerFactory km = KeyManagerFactory.getInstance( "SunX509","SunJSSE"); 
+        ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:214: warning: com.sun.net.ssl.KeyManagerFactory in com.sun.net.ssl has been deprecated
+        KeyManagerFactory km = KeyManagerFactory.getInstance( "SunX509","SunJSSE"); 
+                               ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:216: warning: com.sun.net.ssl.KeyManager in com.sun.net.ssl has been deprecated
+        KeyManager[] kma = km.getKeyManagers();                        
+        ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:218: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+        TrustManagerFactory tm = TrustManagerFactory.getInstance("SunX509","SunJSSE");
+        ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:218: warning: com.sun.net.ssl.TrustManagerFactory in com.sun.net.ssl has been deprecated
+        TrustManagerFactory tm = TrustManagerFactory.getInstance("SunX509","SunJSSE");
+                                 ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:225: warning: com.sun.net.ssl.TrustManager in com.sun.net.ssl has been deprecated
+        TrustManager[] tma = tm.getTrustManagers();
+        ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:227: warning: com.sun.net.ssl.SSLContext in com.sun.net.ssl has been deprecated
+        SSLContext sslc = SSLContext.getInstance( "SSL" ); 
+        ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/http/SunJsseListener.java:227: warning: com.sun.net.ssl.SSLContext in com.sun.net.ssl has been deprecated
+        SSLContext sslc = SSLContext.getInstance( "SSL" ); 
+                          ^
+/home/starksm/JBoss/Releases/jboss-3.2/jetty/src/main/org/mortbay/util/UnixCrypt.java:455: warning: String(byte[],int,int,int) in java.lang.String has been deprecated
+        return new String(cryptresult, 0x00, 0, 13);
+               ^
+14 warnings
+     [copy] Copying 23 files to /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/classes
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/etc
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/etc
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/resources
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/resources
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/lib/javax.servlet.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/lib/org.mortbay.jetty.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/lib/org.mortbay.jmx.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/lib/org.mortbay.j2ee.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/lib/org.jboss.jetty.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/lib/org.mortbay.j2ee.session.ejb.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/lib/jetty-plugin.sar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/jetty/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'jetty'.
+    ======================================================================
+    
+
+    ======================================================================
+    ==  Executing 'most' in module 'varia'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-mbean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/gen-src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.property.SystemPropertiesService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.process.ChildProcessService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.deployment.FoeDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jdo.castor.CastorJDOImpl' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.scheduler.example.SchedulableMBeanExample' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.counter.CounterService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.scheduler.DBScheduleProvider' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.services.binding.ServiceBindingManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.property.PropertyEditorManagerService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.tm.plugins.tyrex.TransactionManagerService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.adaptor.snmp.test.NotificationProducerService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.adaptor.snmp.trapd.TrapdService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.web.loadbalancer.LoadbalancerService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.mail.MailService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.scheduler.ScheduleManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.web.loadbalancer.Loadbalancer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.web.loadbalancer.scheduler.RoundRobinScheduler' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jmx.adaptor.snmp.agent.SnmpAgentService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.scheduler.SingleScheduleProvider' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.jdbc.HypersonicDatabase' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.dsdelegator.DataSourceDelegator' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.web.loadbalancer.scheduler.SchedulerBase' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.deployment.BeanShellSubDeployer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.scheduler.XMLScheduleProvider' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.scheduler.AbstractScheduleProvider' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.scheduler.Scheduler' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.varia.deployment.convertor.WebLogicConvertor' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/jmx/adaptor/snmp/agent/SnmpAgentService.java --> SnmpAgentServiceMBean qualified to org.jboss.jmx.adaptor.snmp.agent.SnmpAgentServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/jmx/adaptor/snmp/test/NotificationProducerService.java --> NotificationProducerServiceMBean qualified to org.jboss.jmx.adaptor.snmp.test.NotificationProducerServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/jmx/adaptor/snmp/trapd/TrapdService.java --> TrapdServiceMBean qualified to org.jboss.jmx.adaptor.snmp.trapd.TrapdServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/mail/MailService.java --> MailServiceMBean qualified to org.jboss.mail.MailServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/services/binding/ServiceBindingManager.java --> ServiceBindingManagerMBean qualified to org.jboss.services.binding.ServiceBindingManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/tm/plugins/tyrex/TransactionManagerService.java --> TransactionManagerServiceMBean qualified to org.jboss.tm.plugins.tyrex.TransactionManagerServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/counter/CounterService.java --> CounterServiceMBean qualified to org.jboss.varia.counter.CounterServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/deployment/BeanShellSubDeployer.java --> BeanShellSubDeployerMBean qualified to org.jboss.varia.deployment.BeanShellSubDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/deployment/FoeDeployer.java --> FoeDeployerMBean qualified to org.jboss.varia.deployment.FoeDeployerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/deployment/convertor/WebLogicConvertor.java --> WebLogicConvertorMBean qualified to org.jboss.varia.deployment.convertor.WebLogicConvertorMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/dsdelegator/DataSourceDelegator.java --> DataSourceDelegatorMBean qualified to org.jboss.varia.dsdelegator.DataSourceDelegatorMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/process/ChildProcessService.java --> ChildProcessServiceMBean qualified to org.jboss.varia.process.ChildProcessServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/property/PropertyEditorManagerService.java --> PropertyEditorManagerServiceMBean qualified to org.jboss.varia.property.PropertyEditorManagerServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/property/SystemPropertiesService.java --> SystemPropertiesServiceMBean qualified to org.jboss.varia.property.SystemPropertiesServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/scheduler/AbstractScheduleProvider.java --> AbstractScheduleProviderMBean qualified to org.jboss.varia.scheduler.AbstractScheduleProviderMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/scheduler/DBScheduleProvider.java --> DBScheduleProviderMBean qualified to org.jboss.varia.scheduler.DBScheduleProviderMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/scheduler/ScheduleManager.java --> ScheduleManagerMBean qualified to org.jboss.varia.scheduler.ScheduleManagerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/scheduler/Scheduler.java --> SchedulerMBean qualified to org.jboss.varia.scheduler.SchedulerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/scheduler/SingleScheduleProvider.java --> SingleScheduleProviderMBean qualified to org.jboss.varia.scheduler.SingleScheduleProviderMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/scheduler/XMLScheduleProvider.java --> XMLScheduleProviderMBean qualified to org.jboss.varia.scheduler.XMLScheduleProviderMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/varia/scheduler/example/SchedulableMBeanExample.java --> SchedulableMBeanExampleMBean qualified to org.jboss.varia.scheduler.example.SchedulableMBeanExampleMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/web/loadbalancer/Loadbalancer.java --> LoadbalancerMBean qualified to org.jboss.web.loadbalancer.LoadbalancerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/web/loadbalancer/LoadbalancerService.java --> LoadbalancerServiceMBean qualified to org.jboss.web.loadbalancer.LoadbalancerServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/web/loadbalancer/scheduler/RoundRobinScheduler.java --> RoundRobinSchedulerMBean qualified to org.jboss.web.loadbalancer.scheduler.RoundRobinSchedulerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/web/loadbalancer/scheduler/SchedulerBase.java --> SchedulerBaseMBean qualified to org.jboss.web.loadbalancer.scheduler.SchedulerBaseMBean
+WARNING: Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         Since at least one package is imported, it is impossible for xjavadoc to figure out
+         what package the referred classes belong to. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/jdbc/HypersonicDatabase.java --> HypersonicDatabaseMBean qualified to org.jboss.jdbc.HypersonicDatabaseMBean
+/home/starksm/JBoss/Releases/jboss-3.2/varia/src/main/org/jboss/jdo/castor/CastorJDOImpl.java --> CastorJDOImplMBean qualified to org.jboss.jdo.castor.CastorJDOImplMBean
+
+compile-xsds:
+     [java] -- Disabling generation of Class descriptors
+     [java] -- Disabling generation of Class descriptors
+     [java] -- Disabling generation of Class descriptors
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/classes
+    [javac] Compiling 133 source files to /home/starksm/JBoss/Releases/jboss-3.2/varia/output/classes
+
+compile-rmi:
+     [rmic] RMI Compiling 2 classes to /home/starksm/JBoss/Releases/jboss-3.2/varia/output/classes
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/etc
+     [copy] Copying 11 files to /home/starksm/JBoss/Releases/jboss-3.2/varia/output/etc
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/resources
+     [copy] Copying 68 files to /home/starksm/JBoss/Releases/jboss-3.2/varia/output/resources
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/castor-jdo-plugin.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/autonumber-plugin.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/counter-plugin.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/scheduler-plugin.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/scheduler-plugin-example.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/mail-plugin.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/hsqldb.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/hsqldb-plugin.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/properties-plugin.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/process-plugin.jar
+      [war] Building war: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/boot-servlet.war
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/foe-deployer-3.2.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/dsdelegator.jar
+      [war] Building war: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/htmladaptor.war
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/bindingservice-plugin.jar
+      [war] Building war: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/http-invoker.war
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/http-invoker.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/jbossjmx-ant.jar
+      [war] Building war: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/netboot.war
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/bsh-deployer.jar
+      [war] Building war: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/jbossmq-httpil.war
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/jbossmq-httpil.sar
+      [war] Building war: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/loadbalancer.war
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/loadbalancer.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/snmp-adaptor.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/snmp-adaptor.sar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/varia/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'varia'.
+    ======================================================================
+    
+
+_module-varia-most:
+     [copy] Copying 8 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/varia
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/varia
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 4 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/snmp-adaptor.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/snmp-adaptor.sar into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/snmp-adaptor.sar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jmx-console.war
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/htmladaptor.war into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jmx-console.war
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/http-invoker.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/http-invoker.sar into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/http-invoker.sar
+     [move] Moving 1 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/http-invoker.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/http-invoker.sar/tmp.war into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/http-invoker.sar/invoker.war
+   [delete] Deleting: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/http-invoker.sar/tmp.war
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/netboot
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/netboot
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-httpil.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/varia/output/lib/jbossmq-httpil.sar into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-httpil.sar
+     [move] Moving 1 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-httpil.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-httpil.sar/tmp.war into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-httpil.sar/jbossmq-httpil.war
+   [delete] Deleting: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-httpil.sar/tmp.war
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/binding-manager
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/binding-manager
+
+    ======================================================================
+    ==  Executing 'most' in module 'jboss.net'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/etc
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/etc
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/resources
+     [copy] Copying 13 files to /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/resources
+
+webdoclet:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/resources/taglib/META-INF
+- Running <jsptaglib/>
+Generating flash.tld.
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/classes/main
+    [javac] Compiling 49 source files to /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/classes/main
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/classes/tools
+    [javac] Compiling 3 source files to /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/classes/tools
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/lib/jboss-net.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/lib/jboss-net.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/lib/jboss-net-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/lib/jboss-net-taglib.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/lib/xdoclet-module-jboss-net.jar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/bin
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'jboss.net'.
+    ======================================================================
+    
+
+_module-jboss.net-most:
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jboss-net.sar
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/jboss.net/output/lib/jboss-net.sar into /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jboss-net.sar
+
+    ======================================================================
+    ==  Executing 'most' in module 'iiop'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/classes/main
+    [javac] Compiling 89 source files to /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/classes/main
+/home/starksm/JBoss/Releases/jboss-3.2/iiop/src/main/org/jboss/proxy/compiler/IIOPStubCompiler.java:108: warning: org.jboss.proxy.compiler.ProxyAssembler in org.jboss.proxy.compiler has been deprecated
+   private static void generateMethodCode(ProxyAssembler asm,
+                                          ^
+/home/starksm/JBoss/Releases/jboss-3.2/iiop/src/main/org/jboss/proxy/compiler/IIOPStubCompiler.java:108: warning: org.jboss.proxy.compiler.ProxyAssembler in org.jboss.proxy.compiler has been deprecated
+   private static void generateMethodCode(ProxyAssembler asm,
+                                          ^
+/home/starksm/JBoss/Releases/jboss-3.2/iiop/src/main/org/jboss/proxy/compiler/IIOPStubCompiler.java:260: warning: org.jboss.proxy.compiler.ProxyAssembler in org.jboss.proxy.compiler has been deprecated
+      ProxyAssembler asm =
+      ^
+/home/starksm/JBoss/Releases/jboss-3.2/iiop/src/main/org/jboss/proxy/compiler/IIOPStubCompiler.java:261: warning: org.jboss.proxy.compiler.ProxyAssembler in org.jboss.proxy.compiler has been deprecated
+         new ProxyAssembler(stubClassName,
+             ^
+4 warnings
+
+compile-rmi:
+     [rmic] RMI Compiling 1 class to /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/classes
+     [rmic] IIOP has been turned on.
+     [rmic] RMI Compiling 1 class to /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/classes
+     [rmic] IIOP has been turned on.
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/etc
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/etc
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/resources
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/resources
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/lib/jboss-iiop.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/lib/jboss-iiop-client.jar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/bin
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/iiop/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'iiop'.
+    ======================================================================
+    
+
+_module-iiop-most:
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/conf
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy
+
+    ======================================================================
+    ==  Executing 'most' in module 'management'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/management/output/classes
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/management/output/gen-src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JavaMailResource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.ResourceAdapter' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.mejb.RMINotificationListener' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JDBCResource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.mejb.JMSNotificationListener' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.J2EEApplication' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.J2EEResource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.EJBModule' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.SessionBean' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.LocalJBossServerDomain' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.J2EEServer' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.mejb.PollingNotificationListener' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.MessageDrivenBean' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JCAConnectionFactory' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.URLResource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JNDIResource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JMSResource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.RMI_IIOPResource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.ResourceAdapterModule' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JTAResource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.WebModule' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JDBCDriver' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.AppClientModule' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JDBCDataSource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.MBean' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JVM' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.cluster.HAManagementService' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.ServiceModule' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.J2EEDeployedObject' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.StatefulSessionBean' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.EJB' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.J2EEDomain' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JCAManagedConnectionFactory' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.J2EEDomainTarget' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.JCAResource' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.EntityBean' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.StatelessSessionBean' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.J2EEModule' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.Servlet' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.management.j2ee.J2EEManagedObject' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/AppClientModule.java --> AppClientModuleMBean qualified to org.jboss.management.j2ee.AppClientModuleMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/J2EEModule.java --> J2EEModuleMBean qualified to org.jboss.management.j2ee.J2EEModuleMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/J2EEDeployedObject.java --> J2EEDeployedObjectMBean qualified to org.jboss.management.j2ee.J2EEDeployedObjectMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/J2EEManagedObject.java --> J2EEManagedObjectMBean qualified to org.jboss.management.j2ee.J2EEManagedObjectMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/EJB.java --> EJBMBean qualified to org.jboss.management.j2ee.EJBMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/EJBModule.java --> EJBModuleMBean qualified to org.jboss.management.j2ee.EJBModuleMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/EntityBean.java --> EntityBeanMBean qualified to org.jboss.management.j2ee.EntityBeanMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/J2EEApplication.java --> J2EEApplicationMBean qualified to org.jboss.management.j2ee.J2EEApplicationMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/J2EEDomain.java --> J2EEDomainMBean qualified to org.jboss.management.j2ee.J2EEDomainMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/J2EEResource.java --> J2EEResourceMBean qualified to org.jboss.management.j2ee.J2EEResourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/J2EEServer.java --> J2EEServerMBean qualified to org.jboss.management.j2ee.J2EEServerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JCAConnectionFactory.java --> JCAConnectionFactoryMBean qualified to org.jboss.management.j2ee.JCAConnectionFactoryMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JCAManagedConnectionFactory.java --> JCAManagedConnectionFactoryMBean qualified to org.jboss.management.j2ee.JCAManagedConnectionFactoryMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JCAResource.java --> JCAResourceMBean qualified to org.jboss.management.j2ee.JCAResourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JDBCDataSource.java --> JDBCDataSourceMBean qualified to org.jboss.management.j2ee.JDBCDataSourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JDBCDriver.java --> JDBCDriverMBean qualified to org.jboss.management.j2ee.JDBCDriverMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JDBCResource.java --> JDBCResourceMBean qualified to org.jboss.management.j2ee.JDBCResourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JMSResource.java --> JMSResourceMBean qualified to org.jboss.management.j2ee.JMSResourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JNDIResource.java --> JNDIResourceMBean qualified to org.jboss.management.j2ee.JNDIResourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JTAResource.java --> JTAResourceMBean qualified to org.jboss.management.j2ee.JTAResourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JVM.java --> JVMMBean qualified to org.jboss.management.j2ee.JVMMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/JavaMailResource.java --> JavaMailResourceMBean qualified to org.jboss.management.j2ee.JavaMailResourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/LocalJBossServerDomain.java --> LocalJBossServerDomainMBean qualified to org.jboss.management.j2ee.LocalJBossServerDomainMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/MBean.java --> MBeanMBean qualified to org.jboss.management.j2ee.MBeanMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/MessageDrivenBean.java --> MessageDrivenBeanMBean qualified to org.jboss.management.j2ee.MessageDrivenBeanMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/RMI_IIOPResource.java --> RMI_IIOPResourceMBean qualified to org.jboss.management.j2ee.RMI_IIOPResourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/ResourceAdapter.java --> ResourceAdapterMBean qualified to org.jboss.management.j2ee.ResourceAdapterMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/ResourceAdapterModule.java --> ResourceAdapterModuleMBean qualified to org.jboss.management.j2ee.ResourceAdapterModuleMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/ServiceModule.java --> ServiceModuleMBean qualified to org.jboss.management.j2ee.ServiceModuleMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/Servlet.java --> ServletMBean qualified to org.jboss.management.j2ee.ServletMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/SessionBean.java --> SessionBeanMBean qualified to org.jboss.management.j2ee.SessionBeanMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/StatefulSessionBean.java --> StatefulSessionBeanMBean qualified to org.jboss.management.j2ee.StatefulSessionBeanMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/StatelessSessionBean.java --> StatelessSessionBeanMBean qualified to org.jboss.management.j2ee.StatelessSessionBeanMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/URLResource.java --> URLResourceMBean qualified to org.jboss.management.j2ee.URLResourceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/WebModule.java --> WebModuleMBean qualified to org.jboss.management.j2ee.WebModuleMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/cluster/HAManagementService.java --> HAManagementServiceMBean qualified to org.jboss.management.j2ee.cluster.HAManagementServiceMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/mejb/JMSNotificationListener.java --> JMSNotificationListenerMBean qualified to org.jboss.management.mejb.JMSNotificationListenerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/mejb/PollingNotificationListener.java --> PollingNotificationListenerMBean qualified to org.jboss.management.mejb.PollingNotificationListenerMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/mejb/RMINotificationListener.java --> RMINotificationListenerMBean qualified to org.jboss.management.mejb.RMINotificationListenerMBean
+(XDocletMain.start                   45  ) Running <remoteinterface/>
+Generating Remote interface for 'org.jboss.management.mejb.ManagementBean'.
+(XDocletMain.start                   45  ) Running <session/>
+Generating Session class for 'org.jboss.management.mejb.ManagementBean'.
+(XDocletMain.start                   45  ) Running <deploymentdescriptor/>
+Generating EJB deployment descriptor (ejb-jar.xml).
+(XDocletMain.start                   45  ) Running <jboss/>
+Generating jboss.xml.
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/J2EEManagedObject.java --> J2EEManagedObjectMBean qualified to org.jboss.management.j2ee.J2EEManagedObjectMBean
+/home/starksm/JBoss/Releases/jboss-3.2/management/src/main/org/jboss/management/j2ee/J2EEDomain.java --> J2EEDomainMBean qualified to org.jboss.management.j2ee.J2EEDomainMBean
+    [javac] Compiling 168 source files to /home/starksm/JBoss/Releases/jboss-3.2/management/output/classes
+
+compile-rmi:
+     [rmic] RMI Compiling 1 class to /home/starksm/JBoss/Releases/jboss-3.2/management/output/classes
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/management/output/etc
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/management/output/etc
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/management/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/management/output/lib/jboss-jsr77.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/management/output/lib/jboss-jsr77-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/management/output/lib/jboss-management.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/management/output/lib/ejb-management.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/management/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'management'.
+    ======================================================================
+    
+
+_module-management-most:
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/jmx
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client
+
+    ======================================================================
+    ==  Executing 'most' in module 'tomcat'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/classes
+    [javac] Compiling 42 source files to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/classes
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -deprecation for details.
+    [javac] Compiling 11 source files to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/classes
+Note: /home/starksm/JBoss/Releases/jboss-3.2/tomcat/src/main/org/jboss/web/tomcat/tc5/session/ClusteredSession.java uses or overrides a deprecated API.
+Note: Recompile with -deprecation for details.
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/resources
+     [copy] Copying 7 files to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/resources
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/etc
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/etc
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat41.sar/META-INF
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat50.sar/META-INF
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat41.sar/META-INF
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat41.sar/META-INF
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat41.sar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat41.sar
+     [copy] Copying 19 files to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat41.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat41.sar/tomcat41-service.jar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat50.sar/META-INF
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat50.sar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat50.sar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat50.sar
+     [copy] Copying 23 files to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat50.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat50.sar/tomcat50-service.jar
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/deploy/jbossweb-tomcat50.sar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/tomcat/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'tomcat'.
+    ======================================================================
+    
+
+_module-tomcat-most:
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossweb-tomcat41.sar
+     [copy] Copying 24 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossweb-tomcat41.sar
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/tomcat
+     [copy] Copying 30 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/tomcat/jbossweb-tomcat50.sar
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/docs/examples/tomcat
+
+    ======================================================================
+    ==  Executing 'most' in module 'console'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+_buildmagic:build-bypass-checker:
+
+_buildmagic:build-bypass-notice:
+
+_buildmagic:build-bypass-check:
+
+jars:
+
+_buildmagic:init:
+
+init:
+
+compile-mbean-sources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/console/output/gen-src
+(XDocletMain.start                   45  ) Running <mbeaninterface/>
+(TemplateSubTask.engineStarted       788 ) Generating output for 'org.jboss.console.manager.PluginManager' using template file 'jar:file:/home/starksm/JBoss/Releases/jboss-3.2/thirdparty/xdoclet/xdoclet/lib/xdoclet-jmx-module-jb3.jar!/xdoclet/modules/jmx/resources/mbean.xdt'.
+INFO:    Some classes refer to other classes that were not found among the sources or on the classpath.
+         (Perhaps the referred class doesn't exist? Hasn't been generated yet?)
+         The referring classes do not import any fully qualified classes matching these classes.
+         However, since no packages are imported, xjavadoc has assumed that the referred classes
+         belong to the same package as the referring class. The classes are:
+/home/starksm/JBoss/Releases/jboss-3.2/console/src/main/org/jboss/console/manager/PluginManager.java --> PluginManagerMBean qualified to org.jboss.console.manager.PluginManagerMBean
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/console/output/classes
+    [javac] Compiling 74 source files to /home/starksm/JBoss/Releases/jboss-3.2/console/output/classes
+/home/starksm/JBoss/Releases/jboss-3.2/console/src/main/org/jboss/console/plugins/helpers/AbstractPluginWrapper.java:389: warning: encode(java.lang.String) in java.net.URLEncoder has been deprecated
+         return java.net.URLEncoder.encode(source);
+                                   ^
+/home/starksm/JBoss/Releases/jboss-3.2/console/src/main/org/jboss/console/plugins/EJBModuleLister.java:61: warning: encode(java.lang.String) in java.net.URLEncoder has been deprecated
+         containerUrl = java.net.URLEncoder.encode(containerUrl);
+                                           ^
+2 warnings
+
+compile-resources:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/console/output/resources
+     [copy] Copying 42 files to /home/starksm/JBoss/Releases/jboss-3.2/console/output/resources
+
+compile-etc:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/console/output/etc
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/console/output/etc
+
+compile-bin:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/console/output/bin
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/console/output/bin
+
+compile:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib/jboss-console.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib/jboss-console-client.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib/twiddle.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib/console.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib/console-mgr-classes.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib/console-mgr.sar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib/applet.jar
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib/web-console.war
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/console/output/lib/snmp-support.jar
+    [touch] Creating /home/starksm/JBoss/Releases/jboss-3.2/console/output/build-marker
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'console'.
+    ======================================================================
+    
+
+_module-console-most:
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/bin
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/lib
+     [copy] Copying 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/lib
+
+    ======================================================================
+    ==  Executing 'most' in module 'compatible'...
+    ==
+
+_buildmagic:init:
+Trying to override old definition of task libraryset
+Trying to override old definition of task execmodules
+Trying to override old definition of task resolveproperties
+Trying to override old definition of task resolver
+Trying to override old definition of task require
+Trying to override old definition of task _dump
+Trying to override old definition of task _puke
+Trying to override old definition of task moduleinit
+Trying to override old definition of task moduleconfig
+Trying to override old definition of task modulelibrary
+Trying to override old definition of task projectinfo
+Trying to override old definition of task library
+Trying to override old definition of task Ant
+Trying to override old definition of task moduleinfo
+Trying to override old definition of task projecthelp
+Trying to override old definition of task propertyfilter
+Trying to override old definition of task call
+Trying to override old definition of task property
+
+configure:
+
+xdoclet-task-classpath-check:
+
+init:
+
+compile-classes:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/compatible/output/classes
+    [javac] Compiling 2 source files to /home/starksm/JBoss/Releases/jboss-3.2/compatible/output/classes
+
+compile:
+
+most:
+
+    ==
+    ==  Finished with 'most' in module 'compatible'.
+    ======================================================================
+    
+
+_module-compatible-most:
+
+make-compat:
+
+check-compat:
+
+modules-most:
+
+partition-build:
+     [move] Moving 35 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/lib
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/management
+     [move] Moving 2 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/management
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jms
+     [move] Moving 21 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jms
+   [delete] Deleting directory /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-httpil.sar
+   [delete] Deleting directory /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/all/deploy/jbossmq-hail.sar
+     [copy] Copying 199 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/default
+   [delete] Deleting 4 files from /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/default/lib
+   [delete] Deleting directory /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/default/farm
+   [delete] Deleting 25 files from /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/default/deploy
+   [delete] Deleted 18 directories from /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/default/deploy
+   [delete] Deleting 17 files from /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/default/deploy/jboss-net.sar
+   [delete] Deleted 7 directories from /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/default/deploy/jboss-net.sar
+   [delete] Deleting 1 files from /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/default/conf
+   [delete] Deleting directory /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/default/deploy/deploy.last
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/minimal/deploy
+     [copy] Copying 3 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/minimal/conf
+     [move] Moving 1 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/minimal/conf
+     [copy] Copying 4 files to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/minimal/lib
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/minimal/deploy
+     [copy] Copying 1 file to /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/server/minimal/lib
+
+bypass-jboss-all-client:
+
+jboss-all-client:
+    [mkdir] Created dir: /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jboss-common-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jboss-system-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jboss-j2ee.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jnp-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jboss-transaction-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jmx-rmi-connector-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jmx-ejb-connector-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jboss-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jmx-connector-client-factory.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jmx-invoker-adaptor-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/concurrent.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jbosssx-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jbossmq-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jbosscx-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jbossha-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jboss-net-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jboss-iiop-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+    [unjar] Expanding: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jboss-jsr77-client.jar into /home/starksm/JBoss/Releases/jboss-3.2/build/build
+      [jar] Building jar: /home/starksm/JBoss/Releases/jboss-3.2/build/output/jboss-3.2.3/client/jbossall-client.jar
+   [delete] Deleting directory /home/starksm/JBoss/Releases/jboss-3.2/build/build
+
+install:
+
+most:
+
+main:
+
+BUILD SUCCESSFUL

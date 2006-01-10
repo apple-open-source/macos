@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -63,6 +64,7 @@
 	Interval should be 1s, assuming sensors can be read fast enough.
 */
 
+// Note that the coefficients (Gp, Gr, Gd) are placeholders and are most-likely wrong for Q63.
 UInt8 gCore0AlternateDataOnlyForTesting[ 24 ] = {
 0xC8, 0x06, 0x02, 0x7F, 0xFF, 0x02, 0xFF, 0x06, 0xFC, 0x66, 0x00, 0x5f,
 0x00, 0xA0, 0x00, 0x00, 0x00, 0x08, 0xCC, 0xCD, 0x09, 0x60, 0x00, 0x00
@@ -1501,6 +1503,7 @@ void PowerMac11_2_CPUsCtrlLoop::sendNewTarget( ControlValue newTarget )
 					( getCtrlLoopID() ? getCtrlLoopID()->unsigned16BitValue() : 0xFF ), this, newTarget, mLastCalculatedDelta.sensValue >> 16);
 					
 		mGroupControl->setTargetValue( newTarget, this, ( mLastCalculatedDelta.sensValue * 10 ) >> 16 );  // <- uncomment this to allow a comparison based on Delta T (as Paul Thompson Wished for Q77)
+		//mGroupControl->setTargetValue( newTarget, this, newTarget );  // <- uncomment this to allow a comparison based on Fan speed (as Paul Thompson asked for the first version of Q63)
 		
 		// ensures that from now on a new target will be calculated.
 		ctrlloopState = kIOPCtrlLoopAllRegistered;

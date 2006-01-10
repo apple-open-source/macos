@@ -340,7 +340,7 @@
 	<key>CFBundleExecutable</key>
 	<string>DVComponentGlue</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFWDVComponents version 1.7.5, Copyright 2005 Apple Computer, Inc.</string>
+	<string>IOFWDVComponents version 1.7.9, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -352,11 +352,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.5</string>
+	<string>1.7.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.5</string>
+	<string>1.7.9</string>
 	<key>CarbonLazyValues</key>
 	<dict>
 		<key>CodeFragmentManager</key>
@@ -1018,11 +1018,11 @@
 	<key>CFBundlePackageType</key>
 	<string>thng</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.5</string>
+	<string>1.7.9</string>
 	<key>CFBundleSignature</key>
 	<string>appl</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.5</string>
+	<string>1.7.9</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 </dict>
@@ -1279,7 +1279,7 @@
 	<key>CFBundleExecutable</key>
 	<string>DVFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFWDVComponents version 1.7.5, Copyright 2005 Apple Computer, Inc.</string>
+	<string>IOFWDVComponents version 1.7.9, Copyright 2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1291,11 +1291,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.5</string>
+	<string>1.7.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.5</string>
+	<string>1.7.9</string>
 </dict>
 </plist>
 ";

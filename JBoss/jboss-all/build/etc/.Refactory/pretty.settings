@@ -1,0 +1,357 @@
+#######################################################################
+#  pretty.settings
+#######################################################################
+
+#  Pretty Printer Version
+version=2.8
+
+#######################################################################
+#
+# General format options
+#
+
+#  This is the number of spaces to indent for each block.
+#  Twice this number is the amount of space used for
+#  unexpected carrage returns.  Use the word &quot;tab&quot; for tabs
+#  and the word &quot;space&quot; for spaces.
+indent=3
+indent.char=space
+
+#  End of line character(s) - either CR, CRNL, or NL
+#  CR means carriage return, NL means newline
+end.line=NL
+
+#  Style for { and }
+#  C style means that { is at the end of the line
+#  and } is on a line by itself.  For example,
+#  if (myTest) {
+#    //  This is c style
+#  }
+#
+#  PASCAL style means both { and } are on lines
+#  by themselves.  For example,
+#  if (myTest)
+#  {
+#    //  This is PASCAL style
+#  }
+block.style=PASCAL
+
+#  To handle sun's coding standard, you want the method to begin
+#  with a PASCAL coding style and the {} beneath that to be C style.
+#  This parameter allows you to set the method style different
+#  from the rest.
+method.block.style=PASCAL
+
+#  The following parameter should be changed to true if you
+#  like your parens to have a space before and after them
+#  if ( x == y )    //expr.space=true
+#  if (x == y)      //expr.space=false
+expr.space=false
+
+#  Is there a space after the cast
+cast.space=false
+
+#  This determines if there should be a space after keywords
+#  When this value is true, you get:
+#  if (true) {
+#      //  Do something
+#  }
+#  When this value is false, you get:
+#  if(true) {
+#      //  Do something
+#  }
+keyword.space=true
+
+#  The following parameter is the minimum number of blank lines
+#  between methods, nested classes, and nested interfaces.
+#  It is also the number of lines before and after
+#  field declarations, though field declarations will have
+#  what ever spacing you used.
+#  Note that this is a minimum.  If your code already
+#  has more space between methods, then it won't shrink
+#  the number of blank lines.
+lines.between=1
+
+#  If true, catch statements look like this:
+#  try {
+#      //  Something here
+#  }
+#  catch (IOException ioe) {
+#      //  Something here
+#  }
+#  Otherwise they look like this:
+#  try {
+#      //  Something here
+#  } catch (IOException ioe) {
+#      //  Something here
+#  }
+#  This value is also used for else statements
+catch.start.line=true
+
+#  What do you do when a newline is unexpectedly encountered?
+#  The valid values are double and param.  Double means that
+#  you should indent twice.  Param means try to line up the
+#  the parameters.
+surprise.return=double
+
+#  Should throws part of a method/constructor declaration always be
+#  on it's own line?
+throws.newline=false
+
+#  Indent the name of the field to this column (-1 for just one space)
+#UNKNOWN EFFECT
+field.name.indent=-1
+
+#######################################################################
+#
+#  Sort order
+#
+#  To change the relative priorities of the sort, adjust the number after
+#  the dot.  For instance, if you want all the instance parts first then
+#  static parts second, and within these you want the field, constructor etc
+#  to be sorted next, switch the number of sort.1 and sort.2.
+#
+
+#  Check the type first
+#    This places the fields first, and initializers last.  Note that to keep
+#    things compiling initializers must be after the fields.
+sort.1=Type(Field,Constructor,Method,NestedClass,NestedInterface,Initializer)
+
+#  Check the class/instance next
+#    To place the static methods and variables first, switch the order
+#    of instance and static.
+sort.2=Class(Static,Instance)
+
+#  Check the protection next
+#    To sort with public methods/variables use Protection(public)
+#    To sort with private methods/variables use Protection(private)
+sort.3=Protection(public)
+
+#  Group setters and getters last
+#    Setters are methods that start with the word 'set'
+#    Getters are methods that start with the word 'get' or 'is'
+sort.4=Method(setter,getter,other)
+
+#  Should we sort the types and imports?
+sort.top=true
+
+#######################################################################
+#
+# Fomat javadoc comments
+#
+#  The following limits the level that javadoc comments are forced
+#  into the document.  The following are valid levels:
+#  *  all - all items must have javadoc
+#  *  private - same as all
+#  *  package - all items except private items must have javadoc
+#  *  default - same as package
+#  *  protected - protected and public items must have javadoc
+#  *  public - only public items must have javadoc
+#  *  none - nothing is required to have javadoc
+#
+
+#  method.minimum applies to constructors and methods
+method.minimum=protected
+
+#  field.minimum applies to fields
+field.minimum=protected
+
+#  class.minimum applies to classes and interfaces
+class.minimum=all
+
+#  Is the date a required field of the class or interface
+date.required=false
+
+#  Whether we put a space before the @
+space.before.javadoc=true
+
+#  Star count for javadoc
+javadoc.star=2
+
+#  Do you want to lineup the names and descriptions
+#  in javadoc comments?
+javadoc.id.lineup=true
+
+#  How many spaces should javadoc comments be indented?
+javadoc.indent=1
+
+#  Wordwrap the javadoc comments
+reformat.comments=true
+
+#  Wordwrap length for javadoc.  You must have at least
+#  javadoc.wordwrap.min characters in the comment and you
+#  must be passing javadoc.wordwrapp.max for the indenting
+#  plus the comment
+javadoc.wordwrap.max=80
+javadoc.wordwrap.min=60
+
+#  Include javadoc comments where ever they appear
+keep.all.javadoc=true
+
+#######################################################################
+#
+#  Default Javadoc comments
+#
+#  The following items are used by the mechanism that
+#  automatically inserts javadoc comments.  If you
+#  want to make it easer to search your files to find
+#  where the values are missing, you can change these
+#  to something more unique.
+#
+
+#  Default description of the class
+class.descr=#Description of the Class
+
+#  Default description of the interface
+interface.descr=#Description of the Interface
+
+#  Default description of the constructor  {0} stands for the name
+#  of the constructor
+constructor.descr=Constructor for the {0} object
+
+#  Default description of the method
+method.descr=#Description of the Method
+
+#  Default description of the parameter
+param.descr=Description of Parameter
+
+#  Default description of the return value
+return.descr=Description of the Returned Value
+
+#  Default description of the exception
+exception.descr=Description of Exception
+
+#  Default description of the getter.  {0} is the name of the
+#  attribute, {1} is the name of the class, {2} is 'class'
+#  or 'object' depending on whether it is static or not
+getter.descr=Gets the {0} attribute of the {1} {2}
+
+#  Default description of the setter.  {0} is the name of the
+#  attribute, {1} is the name of the class, {2} is 'class'
+#  or 'object' depending on whether it is static or not
+setter.descr=Sets the {0} attribute of the {1} {2}
+
+#  Parameter description for setters.  {0} is the name of the attribute
+setter.param.descr=The new {0} value
+
+#  Return description for getters.  {0} is the name of the attribute
+getter.return.descr=The {0} value
+
+#  Default field description
+field.descr=Description of the Field
+
+#  Default description of the run method.  {0} is not
+#  applicable, {1} is the name of the class, {2} is 'class'
+#  or 'object' depending on whether it is static or not
+run.descr=Main processing method for the {1} {2}
+
+#  Default description of the run method.  {0} is not
+#  applicable, {1} is the name of the class, {2} is 'class'
+#  or 'object' depending on whether it is static or not
+main.descr=The main entry-point for the {1} {2}
+
+#  Description of the main arguments
+main.param.descr=The command line arguments
+
+#  Default description of the add method.  {0} is the name of the
+#  attribute, {1} is the name of the class, {2} is 'class'
+#  or 'object' depending on whether it is static or not
+adder.descr=Adds a feature to the {0} attribute of the {1} {2}
+
+#  Description of the add argument
+adder.param.descr=The feature to be added to the {0} attribute
+
+#  JUnit has a particular format for the names of methods.
+#  These setup for the unit tests are done in a method named
+#  setUp, the cleanup afterwards is done in tearDown, and
+#  the unit tests all start with the word test.  The following
+#  are the default descriptions of these methods.
+junit.setUp.descr=The JUnit setup method
+junit.test.descr=A unit test for JUnit
+junit.tearDown.descr=The teardown method for JUnit
+junit.suite.descr=A unit test suite for JUnit
+junit.suite.return.descr=The test suite
+
+#######################################################################
+#
+# Tag order
+#
+#  The following allow you to require and order
+#  tags for the classes, methods, and fields.  To
+#  require the tag, add the name of the tag here
+#  and then add a TAGNAME.descr field.  To only
+#  specify the order, just include the tag here.
+#
+
+#  Here is the order for tags for classes and interfaces
+class.tags=deprecated,see,author,version
+
+#  Here is the order for tags for methods and constructors
+method.tags=param,return,throws,exception
+
+#  Here is the order for tags for fields
+field.tags=#since
+
+#  In all tags that are required, there are some parameters
+#  that are available.  These are:
+#  {0} refers to the current user
+#  {1} refers to the current date
+#  {2} refers to the name of the current object
+
+#  Now we are ready to specify the author
+#author.descr={0}
+
+#  Now we are ready to specify the created tag
+#created.descr={1}
+
+#######################################################################
+#
+#  Header:
+#
+#  Comment these lines out, if you don't like
+#  a standard header at the beginning of each file.
+#  You are allowed an unlimited number of lines here,
+#  just number them sequentially.
+#
+
+header.1=/*
+header.2= * JBoss, the OpenSource J2EE webOS
+header.3= *
+header.4= * Distributable under LGPL license.
+header.5= * See terms of license at gnu.org.
+header.6= */
+
+#######################################################################
+#
+#  Single line comments
+#
+
+#  Should each single line comment be indented a certain number of spaces
+#  from the margin?  For this to work right be sure to indent each line with
+#  spaces.
+singleline.comment.ownline=true
+
+#  Absolute indent before a single line comment.
+singleline.comment.absoluteindent=0
+
+#  Space used before the start of a single line
+#  from the end of the code
+singleline.comment.incrementalindent=0
+
+#  This feature describes how the pretty printer should
+#  indent single line comments (//) that share the line
+#  with source code.  The two choices are incremental and absolute.
+#    incremental  -  use an incremental indent
+#    absolute  -  use the absolute indent level
+singleline.comment.indentstyle.shared=incremental
+
+#  This feature describes how the pretty printer should
+#  indent single line comments (//) that are on their
+#  own line.  The two choices are code and absolute.
+#    code  -  use the same indent as the current code
+#    absolute  -  use the absolute indent level
+singleline.comment.indentstyle.ownline=code
+
+
+
+

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -574,7 +572,8 @@ mountmsdosfs(devvp, mp, context, argp)
 	vfsstatfs = vfs_statfs(mp);
 	vfsstatfs->f_bsize = pmp->pm_bpcluster;
 	vfsstatfs->f_iosize = pmp->pm_bpcluster;
-	vfsstatfs->f_blocks = pmp->pm_maxcluster + 1;
+	/* Clusters are numbered from 2..pm_maxcluster, so pm_maxcluster - 2 + 1 of them */
+	vfsstatfs->f_blocks = pmp->pm_maxcluster - 1;
 	vfsstatfs->f_fsid.val[0] = (long)dev;
 	vfsstatfs->f_fsid.val[1] = vfs_typenum(mp);
 
@@ -723,7 +722,8 @@ msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
 	
 	VFSATTR_RETURN(attr, f_bsize,  pmp->pm_bpcluster);
 	VFSATTR_RETURN(attr, f_iosize, pmp->pm_bpcluster);
-	VFSATTR_RETURN(attr, f_blocks, pmp->pm_maxcluster + 1);
+	/* Clusters are numbered from 2..pm_maxcluster, so pm_maxcluster - 2 + 1 of them */
+	VFSATTR_RETURN(attr, f_blocks, pmp->pm_maxcluster - 1);
 	VFSATTR_RETURN(attr, f_bfree,  pmp->pm_freeclustercount);
 	VFSATTR_RETURN(attr, f_bavail, pmp->pm_freeclustercount);
 	VFSATTR_RETURN(attr, f_bused,  attr->f_blocks - attr->f_bfree);
@@ -914,25 +914,30 @@ struct msdosfs_sync_cargs {
 static int
 msdosfs_sync_callback(vnode_t vp, void *cargs)
 {
-	struct denode *dep;
 	struct msdosfs_sync_cargs *args;
 	int error;
 
 	args = (struct msdosfs_sync_cargs *)cargs;
 
-	dep = VTODE(vp);
-
-	if ((dep->de_flag & (DE_ACCESS | DE_CREATE | DE_UPDATE | DE_MODIFIED)) || vnode_hasdirtyblks(vp)) {
-		/*
-		 * Since directories are accessed via the device vnode, don't bother
-		 * flushing them here.  Instead, we'll flush them all at once when
-		 * we flush the device vnode.
-		 */
-		error = msdosfs_fsync_internal(vp, args->waitfor==MNT_WAIT, 0, args->context);
-
-		if (error)
-			args->error = error;
-	}
+	/*
+	 * We must call VNOP_FSYNC instead of msdosfs_fsync_internal so
+	 * that VFS will automatically aquire the fsnode_lock for the
+	 * vnode.  Without that, we race against other operations.
+	 * A race against rename is particularly bad because we may
+	 * try to update the wrong directory slot (since rename changes
+	 * the de_dirclust and de_diroffset).
+	 *
+	 * One downside of calling VNOP_FSYNC is that we can't tell it to
+	 * skip flushing directories.  If we called msdosfs_fsync_internal,
+	 * we'd skip directories there, and do all directories at once inside
+	 * msdosfs_sync by just flushing the device vnode.  If directories
+	 * used cache blocks associated with their own vnode (not the device
+	 * vnode), then this wouldn't be an issue.
+	 */
+	error = VNOP_FSYNC(vp, args->waitfor, args->context);
+	if (error)
+		args->error = error;
+	
 	return (VNODE_RETURNED);
 }
 

@@ -66,6 +66,10 @@ static const char rcsid[] = "$Sudo: ldap.c,v 1.14 2004/09/02 04:03:25 aaron Exp 
 #define BUF_SIZ 1024
 #endif
 
+#ifndef LDAP_OPT_SUCCESS
+#define LDAP_OPT_SUCCESS LDAP_SUCCESS
+#endif
+
 extern int printmatches;
 
 /* ldap configuration structure */
@@ -274,8 +278,6 @@ int sudo_ldap_check_command(ld,entry)
     /* Match against ALL ? */
     if (!strcasecmp(*p,"ALL")) {
       ret=1;
-      if (safe_cmnd) free (safe_cmnd);
-      safe_cmnd=estrdup(user_cmnd);
       if (ldap_conf.debug>1) printf(" MATCH!\n");
       continue;
     }

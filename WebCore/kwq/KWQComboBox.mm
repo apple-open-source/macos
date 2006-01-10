@@ -29,12 +29,16 @@
 #import "KWQButton.h"
 #import "KWQExceptions.h"
 #import "KWQKHTMLPart.h"
-#import "KWQNSViewExtras.h"
 #import "KWQFoundationExtras.h"
 #import "KWQView.h"
 #import "WebCoreBridge.h"
 #import "WebCoreTextRenderer.h"
 #import "WebCoreTextRendererFactory.h"
+
+#import "render_form.h"
+
+using khtml::RenderWidget;
+using khtml::RenderLayer;
 
 @interface NSCell (KWQComboBoxKnowsAppKitSecrets)
 - (NSMutableDictionary *)_textAttributes;
@@ -328,16 +332,8 @@ const int *QComboBox::dimensions() const
 
 QWidget::FocusPolicy QComboBox::focusPolicy() const
 {
-    KWQ_BLOCK_EXCEPTIONS;
-    
-    WebCoreBridge *bridge = KWQKHTMLPart::bridgeForWidget(this);
-    if (!bridge || ![bridge part] || ![bridge part]->tabsToAllControls()) {
-        return NoFocus;
-    }
-    
-    KWQ_UNBLOCK_EXCEPTIONS;
-    
-    return QWidget::focusPolicy();
+    FocusPolicy policy = QWidget::focusPolicy();
+    return policy == TabFocus ? StrongFocus : policy;
 }
 
 void QComboBox::setWritingDirection(QPainter::TextDirection direction)
@@ -407,6 +403,10 @@ void QComboBox::populate()
 - (BOOL)trackMouse:(NSEvent *)event inRect:(NSRect)rect ofView:(NSView *)view untilMouseUp:(BOOL)flag
 {
     WebCoreBridge *bridge = box ? [KWQKHTMLPart::bridgeForWidget(box) retain] : nil;
+    
+    // we need to retain the event because it is the [NSApp currentEvent], which can change
+    // and therefore be released during [super trackMouse:...]
+    [event retain];
     BOOL result = [super trackMouse:event inRect:rect ofView:view untilMouseUp:flag];
     if (result && bridge) {
         // Give KHTML a chance to fix up its event state, since the popup eats all the
@@ -414,6 +414,7 @@ void QComboBox::populate()
         // at this point!
         [bridge part]->sendFakeEventsAfterWidgetTracking(event);
     }
+    [event release];
     [bridge release];
     return result;
 }
@@ -486,10 +487,14 @@ void QComboBox::populate()
         QWidget *widget = [self widget];
         if (widget) {
             if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(widget)) {
-                [self _KWQ_scrollFrameToVisible];
+                RenderWidget *w = const_cast<RenderWidget *> (static_cast<const RenderWidget *>(widget->eventFilterObject()));
+                RenderLayer *layer = w->enclosingLayer();
+                if (layer)
+                    layer->scrollRectToVisible(w->absoluteBoundingBoxRect());
             }
             QFocusEvent event(QEvent::FocusIn);
-            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+            if (widget->eventFilterObject())
+                const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
         }
     }
     return become;
@@ -502,7 +507,8 @@ void QComboBox::populate()
         QWidget *widget = [self widget];
         if (widget) {
             QFocusEvent event(QEvent::FocusOut);
-            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+            if (widget->eventFilterObject())
+                const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
         }
     }
     return resign;
@@ -518,11 +524,6 @@ void QComboBox::populate()
 {
     // Simplified method from NSView; overridden to replace NSView's way of checking
     // for full keyboard access with ours.
-    QWidget *widget = [self widget];
-    if (widget && !KWQKHTMLPart::partForWidget([self widget])->tabsToAllControls()) {
-        return NO;
-    }
-    
     return ([self window] != nil) && ![self isHiddenOrHasHiddenAncestor] && [self acceptsFirstResponder];
 }
 

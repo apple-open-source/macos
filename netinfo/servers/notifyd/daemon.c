@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -70,6 +69,10 @@
 #define V_RESTART 1
 #endif
 
+#define STATUS_REQUEST_SHORT 1
+#define STATUS_REQUEST_LONG 2
+#define PRINT_STATUS_MSG_ID 0xfadefade
+
 mach_port_t server_port = MACH_PORT_NULL;
 int kq = -1;
 uint32_t debug = V_DEBUG;
@@ -87,6 +90,8 @@ uint32_t slot_id = (uint32_t)-1;
 notify_state_t *ns = NULL;
 aslclient asl = NULL;
 uint32_t asl_filter = ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE);
+uint32_t status_request = 0;
+char *status_file = NULL;
 
 static pthread_mutex_t daemon_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -201,7 +206,7 @@ fprint_client(FILE *f, client_t *c)
 		}
 	}
 }
-	
+
 static void
 fprint_quick_client(FILE *f, client_t *c)
 {
@@ -214,7 +219,7 @@ fprint_quick_client(FILE *f, client_t *c)
 	if (c->info->notify_type == NOTIFY_TYPE_SIGNAL) fprintf(f, " %d", c->info->sig);
 	fprintf(f, "\n");
 }
-	
+
 static void
 fprint_quick_name_info(FILE *f, name_info_t *n)
 {
@@ -313,7 +318,7 @@ uint32_t
 daemon_post(const char *name, uint32_t u, uint32_t g)
 {
 	name_info_t *n;
-	
+
 	if (name == NULL) return 0;
 
 	n = (name_info_t *)_nc_table_find(ns->name_table, name);
@@ -337,6 +342,108 @@ daemon_set_state(const char *name, uint32_t val)
 	n->state = val;
 }
 
+void
+fprint_quick_status(FILE *f)
+{
+	void *tt;
+	name_info_t *n;
+
+	tt = _nc_table_traverse_start(ns->name_table);
+
+	while (tt != NULL)
+	{
+		n = _nc_table_traverse(ns->name_table, tt);
+		if (n == NULL) break;
+		fprint_quick_name_info(f, n);
+	}
+
+	_nc_table_traverse_end(ns->name_table, tt);
+	fprintf(f, "\n");
+}
+
+void
+fprint_status(FILE *f)
+{
+	void *tt;
+	name_info_t *n;
+	int32_t i;
+	list_t *l;
+	client_t *c;
+	watcher_t *w;
+
+	tt = _nc_table_traverse_start(ns->name_table);
+
+	while (tt != NULL)
+	{
+		n = _nc_table_traverse(ns->name_table, tt);
+		if (n == NULL) break;
+		fprintf(f, "--- NAME %s ---\n", n->name);
+		fprint_name_info(f, n->name, n);
+		fprintf(f, "\n");
+	}
+
+	_nc_table_traverse_end(ns->name_table, tt);
+	fprintf(f, "\n");
+
+	fprintf(f, "--- CONTROLLED NAMES ---\n");
+	for (i = 0; i < ns->controlled_name_count; i++)
+	{
+		fprintf(f, "%s %u %u 0x%3x\n", ns->controlled_name[i]->name, ns->controlled_name[i]->uid, ns->controlled_name[i]->gid, ns->controlled_name[i]->access);
+	}
+	fprintf(f, "\n");
+
+	fprintf(f, "--- CLIENT FREELIST ---\n");
+	l = ns->free_client_list;
+	if (l == NULL) fprintf(f, "NULL\n");
+	while (l != NULL)
+	{
+		c = _nc_list_data(l);
+		fprintf(f, "%u", c->client_id);
+		l = _nc_list_next(l);
+		if (l != NULL) fprintf(f, " ");
+	}
+	fprintf(f, "\n");
+
+	fprintf(f, "--- WATCH LIST ---\n");
+	l = _nc_list_tail(watch_list);
+	if (l == NULL) fprintf(f, "NULL\n");
+	while (l != NULL)
+	{
+		w = _nc_list_data(l);
+		watcher_printf(w, f);
+		fprintf(f, "\n");
+		l = _nc_list_prev(l);
+	}
+	fprintf(f, "\n");
+}
+
+void
+print_status()
+{
+	FILE *f;
+	uint32_t req;
+
+	if (status_request == 0) return;
+
+	req = status_request;
+	status_request = 0;
+
+	if (status_file == NULL)
+	{
+		asprintf(&status_file, "/var/run/notifyd_%u.status", getpid());
+		if (status_file == NULL) return;
+	}
+
+	unlink(status_file);
+	f = fopen(status_file, "w");
+	if (f == NULL) return;
+
+	if (req == STATUS_REQUEST_SHORT) fprint_quick_status(f);
+	else if (req == STATUS_REQUEST_LONG) fprint_status(f);
+
+	fclose(f);
+}
+
 static void
 server_run_loop()
 {
@@ -358,7 +465,8 @@ server_run_loop()
 		log_message(ASL_LEVEL_ERR, "kevent %u fflags 0x%08x", kid, event.fflags);
 #endif
 		pthread_mutex_lock(&daemon_lock);
-		watcher_trigger(kid, event.fflags, 0); 
+		watcher_trigger(kid, event.fflags, 0);
+		if (status_request != 0) print_status();
 		pthread_mutex_unlock(&daemon_lock);
 	}
 }
@@ -385,10 +493,18 @@ server_side_loop()
 		request = (notify_request_msg *)calloc(1, rqs);
 		request->head.msgh_local_port = server_port;
 		request->head.msgh_size = rqs;
-		
+
 		memset(reply, 0, rps);
 		status = mach_msg(&(request->head), rbits, 0, rqs, server_port, 0, MACH_PORT_NULL);
 		pthread_mutex_lock(&daemon_lock);
+		if (request->head.msgh_id == PRINT_STATUS_MSG_ID)
+		{
+			if (status_request != 0) print_status();
+			free(request);
+			pthread_mutex_unlock(&daemon_lock);
+			continue;
+		}
+
 		if (request->head.msgh_id == MACH_NOTIFY_DEAD_NAME)
 		{
 			deadname = (mach_dead_name_notification_t *)request;
@@ -406,6 +522,7 @@ server_side_loop()
 		}
 
 		free(request);
+
 		pthread_mutex_unlock(&daemon_lock);
 	}
 }
@@ -421,7 +538,7 @@ create_service(char *name, mach_port_t *p)
 	{
 		return status;
 	}
-	
+
 	if (status == BOOTSTRAP_UNKNOWN_SERVICE)
 	{
 		if (restart != 0)
@@ -580,7 +697,7 @@ read_config()
 
 	/* Check config file */
 	if (stat(CONFIG_FILE_PATH, &sb) != 0) return;
-	
+
 	if (sb.st_uid != 0)
 	{
 		log_message(ASL_LEVEL_ERR, "config file %s not owned by root: ignored", CONFIG_FILE_PATH);
@@ -618,7 +735,7 @@ read_config()
 			_notify_lib_register_plain(ns, args[1], 0, -1, 0, 0, &cid);
 			service_open_file(cid, args[1], args[2], 0, 0, 0);
 		}
-		
+
 		else if (!strcasecmp(args[0], "set"))
 		{
 			if (argslen < 3)
@@ -629,7 +746,7 @@ read_config()
 			_notify_lib_register_plain(ns, args[1], 0, -1, 0, 0, &cid);
 			_notify_lib_set_state(ns, cid, atoi(args[2]), 0, 0);
 		}
-		
+
 		else if (!strcasecmp(args[0], "reserve"))
 		{
 			if (argslen == 1)
@@ -677,103 +794,37 @@ daemon_shutdown()
 
 	if (shm_enabled != 0) close_shared_memory();
 	_notify_lib_notify_state_free(ns);
+	if (status_file != NULL) free(status_file);
 }
 
-void
-fprint_quick_status(FILE *f)
+static void
+poke_run_loop()
 {
-	void *tt;
-	name_info_t *n;
+	mach_msg_empty_send_t msg;
+	kern_return_t kstatus;
 
-	tt = _nc_table_traverse_start(ns->name_table);
+	memset(&msg, 0, sizeof(mach_msg_empty_send_t));
+	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSGH_BITS_ZERO);
+	msg.header.msgh_remote_port = server_port;
+	msg.header.msgh_local_port = MACH_PORT_NULL;
+	msg.header.msgh_size = sizeof(mach_msg_empty_send_t);
+	msg.header.msgh_id = PRINT_STATUS_MSG_ID;
 
-	while (tt != NULL)
-	{
-		n = _nc_table_traverse(ns->name_table, tt);
-		if (n == NULL) break;
-		fprint_quick_name_info(f, n);
-	}
-
-	_nc_table_traverse_end(ns->name_table, tt);
-	fprintf(f, "\n");
-}
-
-void
-fprint_status(FILE *f)
-{
-	void *tt;
-	name_info_t *n;
-	int32_t i;
-	list_t *l;
-	client_t *c;
-	watcher_t *w;
-
-	tt = _nc_table_traverse_start(ns->name_table);
-
-	while (tt != NULL)
-	{
-		n = _nc_table_traverse(ns->name_table, tt);
-		if (n == NULL) break;
-		fprintf(f, "--- NAME %s ---\n", n->name);
-		fprint_name_info(f, n->name, n);
-		fprintf(f, "\n");
-	}
-
-	_nc_table_traverse_end(ns->name_table, tt);
-	fprintf(f, "\n");
-
-	fprintf(f, "--- CONTROLLED NAMES ---\n");
-	for (i = 0; i < ns->controlled_name_count; i++)
-	{
-		fprintf(f, "%s %u %u 0x%3x\n", ns->controlled_name[i]->name, ns->controlled_name[i]->uid, ns->controlled_name[i]->gid, ns->controlled_name[i]->access);
-	}
-	fprintf(f, "\n");
-
-	fprintf(f, "--- CLIENT FREELIST ---\n");
-	l = ns->free_client_list;
-	if (l == NULL) fprintf(f, "NULL\n");
-	while (l != NULL)
-	{
-		c = _nc_list_data(l);
-		fprintf(f, "%u", c->client_id);
-		l = _nc_list_next(l);
-		if (l != NULL) fprintf(f, " ");
-	}
-	fprintf(f, "\n");
-
-	fprintf(f, "--- WATCH LIST ---\n");
-	l = _nc_list_tail(watch_list);
-	if (l == NULL) fprintf(f, "NULL\n");
-	while (l != NULL)
-	{
-		w = _nc_list_data(l);
-		watcher_printf(w, f);
-		fprintf(f, "\n");
-		l = _nc_list_prev(l);
-	}
-	fprintf(f, "\n");
+	kstatus = mach_msg(&(msg.header), MACH_SEND_MSG, msg.header.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
 }
 
 static void
 catch_usr1(int x)
 {
-	FILE *f;
-
-	f = fopen("/tmp/notifyd.status", "w");
-	if (f == NULL) return;
-	fprint_quick_status(f);
-	fclose(f);
+	status_request = STATUS_REQUEST_SHORT;
+	poke_run_loop();
 }
 
 static void
 catch_usr2(int x)
 {
-	FILE *f;
-
-	f = fopen("/tmp/notifyd.status", "w");
-	if (f == NULL) return;
-	fprint_status(f);
-	fclose(f);
+	status_request = STATUS_REQUEST_LONG;
+	poke_run_loop();
 }
 
 int

@@ -20,7 +20,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: table_layout.cpp,v 1.22 2005/02/18 19:37:48 hyatt Exp $
+ * $Id: table_layout.cpp,v 1.22.8.2 2005/12/04 21:01:20 thatcher Exp $
  */
 #include "table_layout.h"
 #include "render_table.h"
@@ -369,35 +369,37 @@ void AutoTableLayout::recalcColumn( int effCol )
     RenderTableCell *fixedContributor = 0;
     RenderTableCell *maxContributor = 0;
 
-    while ( child ) {
-	if ( child->isTableSection() ) {
+    while (child) {
+	if (child->isTableSection()) {
 	    RenderTableSection *section = static_cast<RenderTableSection *>(child);
 	    int numRows = section->numRows();
 	    RenderTableCell *last = 0;
 	    for ( int i = 0; i < numRows; i++ ) {
-		RenderTableCell *cell = section->cellAt( i,  effCol );
-		if ( cell == (RenderTableCell *)-1 )
+		RenderTableSection::CellStruct current = section->cellAt(i, effCol);
+                RenderTableCell *cell = current.cell;
+		
+                if (current.inColSpan)
 		    continue;
-		if ( cell && cell->colSpan() == 1 ) {
+		if (cell && cell->colSpan() == 1) {
                     // A cell originates in this column.  Ensure we have
                     // a min/max width of at least 1px for this column now.
                     l.minWidth = QMAX(l.minWidth, 1);
                     l.maxWidth = QMAX(l.maxWidth, 1);
-		    if ( !cell->minMaxKnown() )
+		    if (!cell->minMaxKnown())
 			cell->calcMinMaxWidth();
-		    if ( cell->minWidth() > l.minWidth )
+		    if (cell->minWidth() > l.minWidth)
 			l.minWidth = cell->minWidth();
-		    if ( cell->maxWidth() > l.maxWidth ) {
+		    if (cell->maxWidth() > l.maxWidth) {
 			l.maxWidth = cell->maxWidth();
 			maxContributor = cell;
 		    }
 
 		    Length w = cell->style()->width();
-		    if ( w.value > 32760 )
+		    if (w.value > 32760)
 			w.value = 32760;
-		    if ( w.value < 0 )
+		    if (w.value < 0)
 			w.value = 0;
-		    switch( w.type ) {
+		    switch(w.type) {
 		    case Fixed:
 			// ignore width=0
 			if ( w.value > 0 && (int)l.width.type != Percent ) {
@@ -418,17 +420,17 @@ void AutoTableLayout::recalcColumn( int effCol )
 			break;
 		    case Percent:
                         hasPercent = true;
-                        if ( w.value > 0 && (l.width.type != Percent || w.value > l.width.value ) )
+                        if (w.value > 0 && (l.width.type != Percent || w.value > l.width.value ))
                             l.width = w;
 			break;
 		    case Relative:
-			if ( w.type == Variable || (w.type == Relative && w.value > l.width.value ) )
+			if (w.type == Variable || (w.type == Relative && w.value > l.width.value ))
 				l.width = w;
 		    default:
 			break;
 		    }
 		} else {
-                    if ( cell && (!effCol || section->cellAt( i, effCol-1 ) != cell) ) {
+                    if (cell && (!effCol || section->cellAt( i, effCol-1 ).cell != cell)) {
                         // This spanning cell originates in this column.  Ensure we have
                         // a min/max width of at least 1px for this column now.
                         l.minWidth = QMAX(l.minWidth, 1);
@@ -625,7 +627,7 @@ int AutoTableLayout::calcEffectiveWidth()
 
     for ( unsigned int i = 0; i < spanCells.size(); i++ ) {
 	RenderTableCell *cell = spanCells[i];
-	if ( !cell || cell == (RenderTableCell *)-1 )
+	if (!cell)
 	    break;
 	int span = cell->colSpan();
 
@@ -754,7 +756,7 @@ int AutoTableLayout::calcEffectiveWidth()
                 int minw = minWidth;
                 
                 // Give min to variable first, to fixed second, and to others third.
-                for ( unsigned int pos = col; maxw > 0 && pos < lastCol; pos++ ) {
+                for ( unsigned int pos = col; maxw >= 0 && pos < lastCol; pos++ ) {
 		    if ( layoutStruct[pos].width.type == Fixed && haveVariable && fixedWidth <= cMinWidth ) {
 			int w = QMAX( layoutStruct[pos].effMinWidth, layoutStruct[pos].width.value );
 			fixedWidth -= layoutStruct[pos].width.value;
@@ -768,9 +770,9 @@ int AutoTableLayout::calcEffectiveWidth()
                     }
 		}
 
-                for ( unsigned int pos = col; maxw > 0 && pos < lastCol && minw < cMinWidth; pos++ ) {
+                for ( unsigned int pos = col; maxw >= 0 && pos < lastCol && minw < cMinWidth; pos++ ) {
 		    if ( !(layoutStruct[pos].width.type == Fixed && haveVariable && fixedWidth <= cMinWidth) ) {
-                        int w = QMAX( layoutStruct[pos].effMinWidth, cMinWidth * layoutStruct[pos].effMaxWidth / maxw );
+                        int w = QMAX( layoutStruct[pos].effMinWidth, maxw ? (cMinWidth * layoutStruct[pos].effMaxWidth / maxw) : cMinWidth );
                         w = QMIN(layoutStruct[pos].effMinWidth+(cMinWidth-minw), w);
                                                 
 #ifdef DEBUG_LAYOUT
@@ -789,8 +791,8 @@ int AutoTableLayout::calcEffectiveWidth()
 #ifdef DEBUG_LAYOUT
 		qDebug("extending maxWidth of cols %d-%d to %dpx", col, lastCol-1, cMaxWidth );
 #endif
-		for ( unsigned int pos = col; maxWidth > 0 && pos < lastCol; pos++ ) {
-		    int w = QMAX( layoutStruct[pos].effMaxWidth, cMaxWidth * layoutStruct[pos].effMaxWidth / maxWidth );
+		for ( unsigned int pos = col; maxWidth >= 0 && pos < lastCol; pos++ ) {
+		    int w = QMAX( layoutStruct[pos].effMaxWidth, maxWidth ? (cMaxWidth * layoutStruct[pos].effMaxWidth / maxWidth) : cMaxWidth );
 #ifdef DEBUG_LAYOUT
 		    qDebug("   col %d: max=%d, effMax=%d, new=%d", pos, layoutStruct[pos].effMaxWidth, layoutStruct[pos].effMaxWidth, w );
 #endif
@@ -815,7 +817,7 @@ int AutoTableLayout::calcEffectiveWidth()
 */
 void AutoTableLayout::insertSpanCell( RenderTableCell *cell )
 {
-    if ( !cell || cell == (RenderTableCell *)-1 || cell->colSpan() == 1 )
+    if (!cell || cell->colSpan() == 1)
 	return;
 
 //     qDebug("inserting span cell %p with span %d", cell, cell->colSpan() );

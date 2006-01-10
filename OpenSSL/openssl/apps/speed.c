@@ -169,9 +169,6 @@
 #ifndef OPENSSL_NO_RC2
 #include <openssl/rc2.h>
 #endif
-#ifndef OPENSSL_NO_IDEA
-#include <openssl/idea.h>
-#endif
 #ifndef OPENSSL_NO_BF
 #include <openssl/blowfish.h>
 #endif
@@ -413,9 +410,6 @@ int MAIN(int argc, char **argv)
 #endif
 #ifndef OPENSSL_NO_RC2
 	RC2_KEY rc2_ks;
-#endif
-#ifndef OPENSSL_NO_IDEA
-	IDEA_KEY_SCHEDULE idea_ks;
 #endif
 #ifndef OPENSSL_NO_BF
 	BF_KEY bf_ks;
@@ -724,11 +718,6 @@ int MAIN(int argc, char **argv)
 		else if (strcmp(*argv,"rc5") == 0) doit[D_CBC_RC5]=1;
 		else
 #endif
-#ifndef OPENSSL_NO_IDEA
-		     if (strcmp(*argv,"idea-cbc") == 0) doit[D_CBC_IDEA]=1;
-		else if (strcmp(*argv,"idea") == 0) doit[D_CBC_IDEA]=1;
-		else
-#endif
 #ifndef OPENSSL_NO_BF
 		     if (strcmp(*argv,"bf-cbc") == 0) doit[D_CBC_BF]=1;
 		else if (strcmp(*argv,"blowfish") == 0) doit[D_CBC_BF]=1;
@@ -808,9 +797,6 @@ int MAIN(int argc, char **argv)
 			BIO_printf(bio_err,"\n");
 #endif
 
-#ifndef OPENSSL_NO_IDEA
-			BIO_printf(bio_err,"idea-cbc ");
-#endif
 #ifndef OPENSSL_NO_RC2
 			BIO_printf(bio_err,"rc2-cbc  ");
 #endif
@@ -843,9 +829,6 @@ int MAIN(int argc, char **argv)
 			BIO_printf(bio_err,"dsa512   dsa1024  dsa2048\n");
 #endif
 
-#ifndef OPENSSL_NO_IDEA
-			BIO_printf(bio_err,"idea     ");
-#endif
 #ifndef OPENSSL_NO_RC2
 			BIO_printf(bio_err,"rc2      ");
 #endif
@@ -956,9 +939,6 @@ int MAIN(int argc, char **argv)
 	AES_set_encrypt_key(key16,128,&aes_ks1);
 	AES_set_encrypt_key(key24,192,&aes_ks2);
 	AES_set_encrypt_key(key32,256,&aes_ks3);
-#endif
-#ifndef OPENSSL_NO_IDEA
-	idea_set_encrypt_key(key16,&idea_ks);
 #endif
 #ifndef OPENSSL_NO_RC4
 	RC4_set_key(&rc4_ks,16,key16);
@@ -1293,22 +1273,6 @@ int MAIN(int argc, char **argv)
 		}
 
 #endif
-#ifndef OPENSSL_NO_IDEA
-	if (doit[D_CBC_IDEA])
-		{
-		for (j=0; j<SIZE_NUM; j++)
-			{
-			print_message(names[D_CBC_IDEA],c[D_CBC_IDEA][j],lengths[j]);
-			Time_F(START);
-			for (count=0,run=1; COND(c[D_CBC_IDEA][j]); count++)
-				idea_cbc_encrypt(buf,buf,
-					(unsigned long)lengths[j],&idea_ks,
-					iv,IDEA_ENCRYPT);
-			d=Time_F(STOP);
-			print_result(D_CBC_IDEA,j,count,d);
-			}
-		}
-#endif
 #ifndef OPENSSL_NO_RC2
 	if (doit[D_CBC_RC2])
 		{
@@ -1626,9 +1590,6 @@ show_res:
 #ifndef OPENSSL_NO_AES
 		printf("%s ",AES_options());
 #endif
-#ifndef OPENSSL_NO_IDEA
-		printf("%s ",idea_options());
-#endif
 #ifndef OPENSSL_NO_BF
 		printf("%s ",BF_options());
 #endif
@@ -1706,7 +1667,7 @@ show_res:
 				k,rsa_bits[k],rsa_results[k][0],
 				rsa_results[k][1]);
 		else
-			fprintf(stdout,"rsa %4u bits %8.4fs %8.4fs %8.1f %8.1f\n",
+			fprintf(stdout,"rsa %4u bits %8.6fs %8.6fs %8.1f %8.1f\n",
 				rsa_bits[k],rsa_results[k][0],rsa_results[k][1],
 				1.0/rsa_results[k][0],1.0/rsa_results[k][1]);
 		}
@@ -1725,7 +1686,7 @@ show_res:
 			fprintf(stdout,"+F3:%u:%u:%f:%f\n",
 				k,dsa_bits[k],dsa_results[k][0],dsa_results[k][1]);
 		else
-			fprintf(stdout,"dsa %4u bits %8.4fs %8.4fs %8.1f %8.1f\n",
+			fprintf(stdout,"dsa %4u bits %8.6fs %8.6fs %8.1f %8.1f\n",
 				dsa_bits[k],dsa_results[k][0],dsa_results[k][1],
 				1.0/dsa_results[k][0],1.0/dsa_results[k][1]);
 		}

@@ -85,8 +85,22 @@ struct isakmp {
 #define ISAKMP_NPTYPE_N		11	/* Notification */
 #define ISAKMP_NPTYPE_D		12	/* Delete */
 #define ISAKMP_NPTYPE_VID	13	/* Vendor ID */
-#define ISAKMP_NPTYPE_NATD	15	/* NAT detection hash value */
-#define ISAKMP_NPTYPE_MAX	16
+
+/* NAT-T up to draft-ietf-ipsec-nat-t-ike-04 */
+#define ISAKMP_NPTYPE_NATD_DRAFT	130	/* NAT Discovery */
+#define ISAKMP_NPTYPE_NATOA_DRAFT	131	/* NAT Original Address */
+
+
+/* NAT-T draft-ietf-ipsec-nat-t-ike-05 and later */
+/* XXX conflicts with values assigned to RFC 3547 */
+#define ISAKMP_NPTYPE_NATD_BADDRAFT		15	/* NAT Discovery */
+#define ISAKMP_NPTYPE_NATOA_BADDRAFT	16	/* NAT Original Address */
+
+
+#define ISAKMP_NPTYPE_NATD_RFC	20	/* NAT Discovery */
+#define ISAKMP_NPTYPE_NATOA_RFC	21	/* NAT Original Address */
+
+
 			/*	128 - 255 Private Use */
 
 /*
@@ -348,6 +362,15 @@ struct isakmp_pl_d {
 	u_int8_t spi_size;	/* SPI Size */
 	u_int16_t num_spi;	/* # of SPIs */
 	/* SPI(es) */
+} __attribute__((__packed__));
+
+/* natoa payload */
+struct isakmp_pl_natoa {
+	struct isakmp_gen h;
+	u_int8_t id_type;		/* address type */
+	u_int8_t reserved1;		/* reserved */
+	u_int16_t reserved2;	/* reserved */
+	/* IP address */
 } __attribute__((__packed__));
 
 

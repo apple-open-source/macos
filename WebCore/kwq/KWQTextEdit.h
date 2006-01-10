@@ -48,6 +48,7 @@ class QTextEdit : public QScrollView
     virtual void setPalette(const QPalette &);
 
     void setAlignment(AlignmentFlags);
+    void setLineHeight(int lineHeight);
 
     void setCursorPosition(int, int);
     void getCursorPosition(int *, int *) const;
@@ -72,8 +73,14 @@ class QTextEdit : public QScrollView
     void setScrollBarModes(ScrollBarMode hMode, ScrollBarMode vMode);
 
     void setWritingDirection(QPainter::TextDirection);
+
+    long selectionStart();
+    long selectionEnd();
+    void setSelectionStart(long);
+    void setSelectionEnd(long);
     
     void selectAll();
+    void setSelectionRange(long, long);
 
     QSize sizeWithColumnsAndRows(int numColumns, int numRows) const;
 

@@ -97,7 +97,8 @@ public:
 
 	void getSearchList(KeychainList &keychainList);
 	void setSearchList(const KeychainList &keychainList);
-	
+	void forceUserSearchListReread ();
+
 	void getSearchList(SecPreferencesDomain domain, KeychainList &keychainList);
 	void setSearchList(SecPreferencesDomain domain, const KeychainList &keychainList);
 

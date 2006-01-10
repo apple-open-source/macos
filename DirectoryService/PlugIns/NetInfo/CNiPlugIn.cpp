@@ -5451,7 +5451,10 @@ sInt32 CNiPlugIn::SetAttributeValues ( sSetAttributeValues *inData )
 				if ( siResult != NI_OK )
 				{
 					niIndex = ::ni_proplist_match( niPropList, pAttrType, NULL );
-					siResult = NiLib2::ValidateName( authUser, &niPropList, niIndex );
+					if ( niIndex != NI_INDEX_NULL )
+					{
+						siResult = NiLib2::ValidateName( authUser, &niPropList, niIndex );
+					}
 				}
 
 				if ( siResult != eDSNoErr ) throw( MapNetInfoErrors( siResult ) );

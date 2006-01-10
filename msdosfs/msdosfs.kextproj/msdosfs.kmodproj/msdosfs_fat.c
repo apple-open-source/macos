@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -165,10 +163,16 @@ msdosfs_fat_init_vol(struct msdosfsmount *pmp, vfs_context_t context)
 	/*
 	 * Allocate memory for the bitmap of allocated clusters, and then
 	 * fill it in.
+	 *
+	 * Note: pm_maxcluster is the maximum valid cluster number, so the
+	 * bitmap is actually at least pm_maxcluster+1 bits.  That's why you
+	 * don't see the typical round-up form:
+	 *     (x + FACTOR - 1) / FACTOR
+	 * Instead, (x + FACTOR) / FACTOR simplifies to (x / FACTOR) + 1.
 	 */
 	MALLOC(pmp->pm_inusemap, u_int *,
-	       ((pmp->pm_maxcluster + N_INUSEBITS - 1) / N_INUSEBITS) *
-	        sizeof(*pmp->pm_inusemap), M_TEMP, M_WAITOK);
+	       ((pmp->pm_maxcluster / N_INUSEBITS) + 1) *
+	        sizeof(u_int), M_TEMP, M_WAITOK);
 
 	if (pmp->pm_inusemap == NULL)
 		return ENOMEM;	/* Locks are cleaned up in msdosfs_fat_uninit_vol */
@@ -1202,8 +1206,13 @@ fillinusemap(pmp, context)
 	/*
 	 * Mark all clusters in use, we mark the free ones in the fat scan
 	 * loop further down.
+	 *
+	 * Note: pm_maxcluster is the maximum valid cluster number, thus the
+	 * maximum index into the bitmap is pm_maxcluster / N_INUSEBITS.
+	 * Note that "cn" isn't actually a cluster number here; it's actually
+	 * an index into the pm_inusemap array.
 	 */
-	for (cn = 0; cn < (pmp->pm_maxcluster + N_INUSEBITS - 1) / N_INUSEBITS; cn++)
+	for (cn = 0; cn <= pmp->pm_maxcluster / N_INUSEBITS; cn++)
 		pmp->pm_inusemap[cn] = (u_int)-1;
 
 	/*

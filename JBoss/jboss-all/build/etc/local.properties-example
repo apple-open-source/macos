@@ -1,0 +1,30 @@
+### ====================================================================== ###
+##                                                                          ##
+##  Local project properties.                                               ##
+##                                                                          ##
+##    Define properties that are local to your environment here.  This      ##
+##    file (local.properties) should not be checked in.  Modify the         ##
+##    example to affect all users.                                          ##
+##                                                                          ##
+### ====================================================================== ###
+
+### General compiler configuration ###
+
+#build.compiler=jikes
+#build.warnings=true
+#build.pedantic=true
+#javac.depend=on
+
+### Javac/Jikes compiler configuration ###
+
+javac.debug=on
+javac.debuglevel=source,lines
+javac.target=1.4
+javac.deprecation=off
+
+### Enable verbose build output ###
+
+#init.verbose=true
+
+### JavaDoc ###
+#docs-javadocs.disable=true

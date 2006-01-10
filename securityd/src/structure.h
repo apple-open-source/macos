@@ -132,8 +132,8 @@ template <class Sub>
 void NodeCore::allReferences(void (Sub::*func)())
 {
 	StLock<Mutex> _(*this);
-	for (ReferenceSet::const_iterator it = mReferences.begin(); it != mReferences.end(); it++)
-		if (RefPointer<Sub> sub = dynamic_cast<Sub *>(it->get()))
+	for (ReferenceSet::const_iterator it = mReferences.begin(); it != mReferences.end();)
+		if (RefPointer<Sub> sub = dynamic_cast<Sub *>((it++)->get()))
 			(sub->*func)();
 }
 

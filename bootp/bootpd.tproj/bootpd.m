@@ -1254,8 +1254,8 @@ on_alarm(int sigraised)
  *   get its own version of the bootfile.
  */
 boolean_t
-bootp_add_bootfile(char * request_file, char * hostname,
-		   char * bootfile, char * reply_file)
+bootp_add_bootfile(const char * request_file, const char * hostname,
+		   const char * bootfile, char * reply_file)
 {
     boolean_t 	dothost = FALSE;	/* file.host was found */
     char 	file[PATH_MAX];

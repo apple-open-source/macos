@@ -1008,6 +1008,7 @@ static int process_recipient(char *addr, struct namespace *namespace,
 	}
 	return r;
     }
+    mboxname_hiersep_tointernal( namespace, ret->user, 0 );
     ret->ignorequota = ignorequota;
 
     msg->rcpt[msg->rcpt_num] = ret;

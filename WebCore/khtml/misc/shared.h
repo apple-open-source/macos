@@ -64,10 +64,12 @@ template <class T> class SharedPtr
 {
 public:
     SharedPtr() : m_ptr(0) {}
-    explicit SharedPtr(T *ptr) : m_ptr(ptr) { if (m_ptr) m_ptr->ref(); }
+    SharedPtr(T *ptr) : m_ptr(ptr) { if (m_ptr) m_ptr->ref(); }
     SharedPtr(const SharedPtr &o) : m_ptr(o.m_ptr) { if (m_ptr) m_ptr->ref(); }
     ~SharedPtr() { if (m_ptr) m_ptr->deref(); }
-	
+
+    template <class U> SharedPtr(const SharedPtr<U> &o) : m_ptr(o.get()) { if (T *ptr = m_ptr) ptr->ref(); }
+
     bool isNull() const { return m_ptr == 0; }
     bool notNull() const { return m_ptr != 0; }
 
@@ -79,26 +81,39 @@ public:
     T *operator->() const { return m_ptr; }
 
     bool operator!() const { return m_ptr == 0; }
+    operator bool() const { return m_ptr != NULL; }
 
     inline friend bool operator==(const SharedPtr &a, const SharedPtr &b) { return a.m_ptr == b.m_ptr; }
     inline friend bool operator==(const SharedPtr &a, const T *b) { return a.m_ptr == b; }
     inline friend bool operator==(const T *a, const SharedPtr &b) { return a == b.m_ptr; }
 
     SharedPtr &operator=(const SharedPtr &);
+    SharedPtr &operator=(T *);
 
 private:
     T* m_ptr;
+
+    operator int() const; // deliberately not implemented; helps prevent operator bool from converting to int accidentally
 };
 
 template <class T> SharedPtr<T> &SharedPtr<T>::operator=(const SharedPtr<T> &o) 
 {
-    if (m_ptr != o.m_ptr) {
-        if (m_ptr)
-            m_ptr->deref();
-        m_ptr = o.m_ptr;
-        if (m_ptr) 
-            m_ptr->ref();
-    }
+    T *optr = o.m_ptr;
+    if (optr)
+        optr->ref();
+    if (T *ptr = m_ptr)
+        ptr->deref();
+    m_ptr = optr;
+    return *this;
+}
+
+template <class T> inline SharedPtr<T> &SharedPtr<T>::operator=(T *optr)
+{
+    if (optr)
+        optr->ref();
+    if (T *ptr = m_ptr)
+        ptr->deref();
+    m_ptr = optr;
     return *this;
 }
 

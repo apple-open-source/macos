@@ -231,7 +231,7 @@ bool SystemKeychainKey::matches(const DbBlob::Signature &signature)
 bool SystemKeychainKey::update()
 {
 	// if we checked recently, just assume it's okay
-	if (mUpdateThreshold > Time::now())
+	if (mValid && mUpdateThreshold > Time::now())
 		return mValid;
 		
 	// check the file

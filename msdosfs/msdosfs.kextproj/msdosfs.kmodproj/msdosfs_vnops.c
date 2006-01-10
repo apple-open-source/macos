@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -612,6 +610,7 @@ msdosfs_write(ap)
 	int   lflag;
 	user_ssize_t original_resid;
 	off_t original_offset;
+	off_t offset;
 
 	switch (vnode_vtype(vp)) {
 	case VREG:
@@ -629,17 +628,20 @@ msdosfs_write(ap)
 	original_resid = uio_resid(uio);
 	original_size = dep->de_FileSize;
 	original_offset = uio_offset(uio);
-
-	if (ioflag & IO_APPEND)
+	offset = original_offset;
+	
+	if (ioflag & IO_APPEND) {
 		uio_setoffset(uio, dep->de_FileSize);
+		offset = dep->de_FileSize;
+	}
 
-	if (original_offset < 0)
+	if (offset < 0)
 		return EFBIG;
 
 	if (original_resid == 0)
 		return 0;
 
-	if (original_offset + original_resid > DOS_FILESIZE_MAX)
+	if (offset + original_resid > DOS_FILESIZE_MAX)
 		return EFBIG;
 
 	/*
@@ -653,24 +655,22 @@ msdosfs_write(ap)
 	 * If we write beyond the end of the file, extend it to its ultimate
 	 * size ahead of the time to hopefully get a contiguous area.
 	 */
-    if (original_offset + original_resid > original_size) {
-        count = de_clcount(pmp, original_offset + original_resid) -
+    if (offset + original_resid > original_size) {
+        count = de_clcount(pmp, offset + original_resid) -
         		de_clcount(pmp, original_size);
         error = extendfile(dep, count, context);
         if (error &&  (error != ENOSPC || (ioflag & IO_UNIT)))
             goto errexit;
         lastcn = dep->de_fc[FC_LASTFC].fc_frcn;
-    } else
+		filesize = offset + original_resid;
+    } else {
 		lastcn = de_clcount(pmp, original_size) - 1;
-
-	if (original_offset + original_resid > original_size)
-		filesize = original_offset + original_resid;
-	else
 		filesize = original_size;
-
+	}
+	
 	lflag = (ioflag & IO_SYNC);
 
-	if (original_offset > original_size) {
+	if (offset > original_size) {
 		zero_off = original_size;
 		lflag   |= IO_HEADZEROFILL;
 	} else

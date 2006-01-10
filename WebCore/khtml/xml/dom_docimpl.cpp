@@ -286,6 +286,7 @@ DocumentImpl::DocumentImpl(DOMImplementationImpl *_implementation, KHTMLView *v)
     , m_designMode(inherit)
     , m_hasDashboardRegions(false)
     , m_dashboardRegionsDirty(false)
+    , m_selectedRadioButtons(0)
 #endif
 {
     document->doc = this;
@@ -337,6 +338,7 @@ DocumentImpl::DocumentImpl(DOMImplementationImpl *_implementation, KHTMLView *v)
     m_attrNameCount = 0;
     m_focusNode = 0;
     m_hoverNode = 0;
+    m_activeNode = 0;
     m_defaultView = new AbstractViewImpl(this);
     m_defaultView->ref();
     m_listenerTypes = 0;
@@ -414,6 +416,8 @@ DocumentImpl::~DocumentImpl()
         m_focusNode->deref();
     if (m_hoverNode)
         m_hoverNode->deref();
+    if (m_activeNode)
+        m_activeNode->deref();
 
     if (m_titleElement)
         m_titleElement->deref();
@@ -448,6 +452,16 @@ DocumentImpl::~DocumentImpl()
     if (m_jsEditor) {
         delete m_jsEditor;
         m_jsEditor = 0;
+    }
+    
+    if (m_selectedRadioButtons) {
+        QPtrDictIterator< QDict<HTMLInputElementImpl> > iter ((*m_selectedRadioButtons));
+        for (; iter.current(); ++iter) {
+            QDict<HTMLInputElementImpl>* inputDict= iter.current();
+            if (inputDict)
+                delete inputDict;
+        }
+        delete m_selectedRadioButtons;
     }
 }
 
@@ -927,7 +941,11 @@ ElementImpl *DocumentImpl::createHTMLElement(unsigned short tagID)
     case ID_EMBED:
         return new HTMLEmbedElementImpl(docPtr());
     case ID_OBJECT:
-        return new HTMLObjectElementImpl(docPtr());
+    {
+        HTMLObjectElementImpl *objectElement = new HTMLObjectElementImpl(docPtr());
+        objectElement->setComplete(true);
+        return objectElement;
+    }
     case ID_PARAM:
         return new HTMLParamElementImpl(docPtr());
     case ID_SCRIPT:
@@ -2035,11 +2053,16 @@ void DocumentImpl::processHttpEquiv(const DOMString &equiv, const DOMString &con
     }
 }
 
-bool DocumentImpl::prepareMouseEvent( bool readonly, int _x, int _y, MouseEvent *ev )
+bool DocumentImpl::prepareMouseEvent(bool readonly, int x, int y, MouseEvent* ev)
+{
+    return prepareMouseEvent(readonly, ev->type == MousePress, x, y, ev);
+}
+
+bool DocumentImpl::prepareMouseEvent(bool readonly, bool active, int _x, int _y, MouseEvent *ev)
 {
     if ( m_render ) {
         assert(m_render->isCanvas());
-        RenderObject::NodeInfo renderInfo(readonly, ev->type == MousePress);
+        RenderObject::NodeInfo renderInfo(readonly, active, ev->type == MouseMove);
         bool isInside = m_render->layer()->hitTest(renderInfo, _x, _y);
         ev->innerNode = renderInfo.innerNode();
 
@@ -2486,6 +2509,17 @@ void DocumentImpl::setHoverNode(NodeImpl* newHoverNode)
     }    
 }
 
+void DocumentImpl::setActiveNode(NodeImpl* newActiveNode)
+{
+    if (m_activeNode != newActiveNode) {
+        if (m_activeNode)
+            m_activeNode->deref();
+        m_activeNode = newActiveNode;
+        if (m_activeNode)
+            m_activeNode->ref();
+    }    
+}
+
 #if APPLE_CHANGES
 
 bool DocumentImpl::relinquishesEditingFocus(NodeImpl *node)
@@ -2556,6 +2590,7 @@ bool DocumentImpl::setFocusNode(NodeImpl *newFocusNode)
     bool focusChangeBlocked = false;
     NodeImpl *oldFocusNode = m_focusNode;
     m_focusNode = 0;
+    clearSelectionIfNeeded(newFocusNode);
 
     // Remove focus from the existing focus node (if any)
     if (oldFocusNode) {
@@ -2574,12 +2609,14 @@ bool DocumentImpl::setFocusNode(NodeImpl *newFocusNode)
             focusChangeBlocked = true;
             newFocusNode = 0;
         }
+        clearSelectionIfNeeded(newFocusNode);
         oldFocusNode->dispatchUIEvent(EventImpl::DOMFOCUSOUT_EVENT);
         if (m_focusNode != 0) {
             // handler shifted focus
             focusChangeBlocked = true;
             newFocusNode = 0;
         }
+        clearSelectionIfNeeded(newFocusNode);
         if ((oldFocusNode == this) && oldFocusNode->hasOneRef()) {
             oldFocusNode->deref(); // deletes this
             return true;
@@ -2587,14 +2624,6 @@ bool DocumentImpl::setFocusNode(NodeImpl *newFocusNode)
         else {
             oldFocusNode->deref();
         }
-    }
-
-    // Clear the selection when changing the focus node to null or to a node that is not 
-    // contained by the current selection.
-    if (part()) {
-        NodeImpl *startContainer = part()->selection().start().node();
-        if (!newFocusNode || (startContainer && startContainer != newFocusNode && !startContainer->isAncestor(newFocusNode)))
-            part()->clearSelection();
     }
 
     if (newFocusNode) {
@@ -2650,6 +2679,18 @@ SetFocusNodeDone:
     return !focusChangeBlocked;
 }
 
+void DocumentImpl::clearSelectionIfNeeded(NodeImpl *newFocusNode)
+{
+    if (!part())
+        return;
+
+    // Clear the selection when changing the focus node to null or to a node that is not 
+    // contained by the current selection.
+    NodeImpl *startContainer = part()->selection().start().node();
+    if (!newFocusNode || (startContainer && startContainer != newFocusNode && !startContainer->isAncestor(newFocusNode)))
+        part()->clearSelection();
+}
+
 void DocumentImpl::setCSSTarget(NodeImpl* n)
 {
     if (m_cssTarget)
@@ -2688,6 +2729,8 @@ AbstractViewImpl *DocumentImpl::defaultView() const
 
 EventImpl *DocumentImpl::createEvent(const DOMString &eventType, int &exceptioncode)
 {
+    // createEvent ought to be at a time completely separate from DOM modifications that forbidEventDispatch
+    // (of course, the event _could_ be sent later, but this seems like a good bottleneck)
     if (eventType == "UIEvents")
         return new UIEventImpl();
     else if (eventType == "MouseEvents")
@@ -3508,6 +3551,54 @@ NodeImpl *DocumentTypeImpl::cloneNode ( bool /*deep*/ )
     // Spec says cloning Document nodes is "implementation dependent"
     // so we do not support it...
     return 0;
+}
+
+void DocumentImpl::radioButtonChecked(HTMLInputElementImpl *caller, HTMLFormElementImpl *form)
+{
+    // Without a name, there is no group.
+    if (caller->name().isEmpty())
+        return;
+
+    // Uncheck the currently selected item
+    if (!m_selectedRadioButtons)
+        m_selectedRadioButtons = new QPtrDict< QDict<HTMLInputElementImpl> >;
+    QDict<HTMLInputElementImpl>* formRadioButtons = m_selectedRadioButtons->find(form);
+    if (!formRadioButtons) {
+        formRadioButtons = new QDict<HTMLInputElementImpl>;
+        m_selectedRadioButtons->insert(form, formRadioButtons);
+    }
+    
+    HTMLInputElementImpl* currentCheckedRadio = formRadioButtons->find(caller->name().string());
+   
+    if (currentCheckedRadio && currentCheckedRadio != caller)
+        currentCheckedRadio->setChecked(false);
+
+    formRadioButtons->replace(caller->name().string(), caller);
+}
+
+HTMLInputElementImpl* DocumentImpl::checkedRadioButtonForGroup(DOMString name, HTMLFormElementImpl *form)
+{
+    if (!m_selectedRadioButtons)
+        return 0;
+    QDict<HTMLInputElementImpl>* formRadioButtons = m_selectedRadioButtons->find(form);
+    if (!formRadioButtons)
+        return 0;
+    
+    return formRadioButtons->find(name.string());
+}
+
+void DocumentImpl::removeRadioButtonGroup(DOMString name, HTMLFormElementImpl *form)
+{
+    if (m_selectedRadioButtons) {
+        QDict<HTMLInputElementImpl>* formRadioButtons = m_selectedRadioButtons->find(form);
+        if (formRadioButtons) {
+            formRadioButtons->remove(name.string());
+            if (formRadioButtons->count() == 0) {
+                m_selectedRadioButtons->remove(form);
+                delete formRadioButtons;
+            }
+        }
+    }
 }
 
 #include "dom_docimpl.moc"

@@ -76,6 +76,7 @@
 #import "visible_position.h"
 #import "visible_text.h"
 #import "visible_units.h"
+#import "misc/shared.h"
 
 #import <JavaScriptCore/identifier.h>
 #import <JavaScriptCore/property_map.h>
@@ -90,66 +91,8 @@
 
 #undef _KWQ_TIMING
 
-using DOM::AtomicString;
-using DOM::ClipboardEventImpl;
-using DOM::DocumentFragmentImpl;
-using DOM::DocumentImpl;
-using DOM::DocumentMarker;
-using DOM::DOMString;
-using DOM::ElementImpl;
-using DOM::EventImpl;
-using DOM::HTMLDocumentImpl;
-using DOM::HTMLElementImpl;
-using DOM::HTMLFormElementImpl;
-using DOM::HTMLFrameElementImpl;
-using DOM::HTMLGenericFormElementImpl;
-using DOM::HTMLTableCellElementImpl;
-using DOM::Node;
-using DOM::NodeImpl;
-using DOM::Position;
-using DOM::Range;
-using DOM::RangeImpl;
-using DOM::TextImpl;
-
-using khtml::Cache;
-using khtml::CharacterIterator;
-using khtml::ChildFrame;
-using khtml::Decoder;
-using khtml::DashboardRegionValue;
-using khtml::EditCommandPtr;
-using khtml::endOfWord;
-using khtml::findPlainText;
-using khtml::InlineTextBox;
-using khtml::LeftWordIfOnBoundary;
-using khtml::MouseDoubleClickEvent;
-using khtml::MouseMoveEvent;
-using khtml::MousePressEvent;
-using khtml::MouseReleaseEvent;
-using khtml::parseURL;
-using khtml::PRE;
-using khtml::RenderCanvas;
-using khtml::RenderImage;
-using khtml::RenderLayer;
-using khtml::RenderListItem;
-using khtml::RenderObject;
-using khtml::RenderPart;
-using khtml::RenderStyle;
-using khtml::RenderTableCell;
-using khtml::RenderText;
-using khtml::RenderWidget;
-using khtml::RightWordIfOnBoundary;
-using khtml::Selection;
-using khtml::setEnd;
-using khtml::setStart;
-using khtml::ShadowData;
-using khtml::startOfWord;
-using khtml::startVisiblePosition;
-using khtml::StyleDashboardRegion;
-using khtml::TextIterator;
-using khtml::DOWNSTREAM;
-using khtml::VISIBLE;
-using khtml::VisiblePosition;
-using khtml::WordAwareIterator;
+using namespace DOM;
+using namespace khtml;
 
 using KIO::Job;
 
@@ -917,37 +860,14 @@ void KWQKHTMLPart::unfocusWindow()
 
 void KWQKHTMLPart::jumpToSelection()
 {
-    // Assumes that selection start will only ever be a text node. This is currently
-    // true, but will it always be so?
     if (d->m_selection.start().isNotNull()) {
-        RenderText *rt = dynamic_cast<RenderText *>(d->m_selection.start().node()->renderer());
-        if (rt) {
-            int x = 0, y = 0;
-            rt->posOfChar(d->m_selection.start().offset(), x, y);
-            // The -50 offset is copied from KHTMLPart::findTextNext, which sets the contents position
-            // after finding a matched text string.
-            d->m_view->setContentsPos(x - 50, y - 50);
+        if (selectionStart() && selectionStart()->renderer()) {
+            RenderLayer *layer = selectionStart()->renderer()->enclosingLayer();
+            if (layer) {
+                ASSERT(!selectionEnd() || !selectionEnd()->renderer() || (selectionEnd()->renderer()->enclosingLayer() == layer));
+                layer->scrollRectToVisible(selectionRect());
+            }
         }
-/*
-        Something like this would fix <rdar://problem/3154293>: "Find Next should not scroll page if the next target is already visible"
-
-        I think this would be a better way to do this, to avoid needless horizontal scrolling,
-        but it is not feasible until selectionRect() returns a tighter rect around the
-        selected text.  Right now it works at element granularity.
- 
-        NSView *docView = d->m_view->getDocumentView();
-
-	KWQ_BLOCK_EXCEPTIONS;
-        NSRect selRect = NSRect(selectionRect());
-        NSRect visRect = [docView visibleRect];
-        if (!NSContainsRect(visRect, selRect)) {
-            // pad a bit so we overscroll slightly
-            selRect = NSInsetRect(selRect, -10.0, -10.0);
-            selRect = NSIntersectionRect(selRect, [docView bounds]);
-            [docView scrollRectToVisible:selRect];
-        }
-	KWQ_UNBLOCK_EXCEPTIONS;
-*/
     }
 }
 
@@ -1086,8 +1006,16 @@ bool KWQKHTMLPart::wheelEvent(NSEvent *event)
     KHTMLView *v = d->m_view;
 
     if (v) {
+        NSEvent *oldCurrentEvent = _currentEvent;
+        _currentEvent = KWQRetain(event);
+
         QWheelEvent qEvent(event);
         v->viewportWheelEvent(&qEvent);
+
+        ASSERT(_currentEvent == event);
+        KWQRelease(event);
+        _currentEvent = oldCurrentEvent;
+
         if (qEvent.isAccepted())
             return true;
     }
@@ -1269,9 +1197,9 @@ NSView *KWQKHTMLPart::nextKeyViewInFrame(NodeImpl *node, KWQSelectionDirection d
             }
         }
         else {
-            doc->setFocusNode(node);
-            if (view() && node->renderer() && !node->renderer()->isRoot()) {
-                view()->ensureRectVisibleCentered(node->getRect());
+            if (node->isFocusable() && node->renderer()) {
+                doc->setFocusNode(node);
+                node->renderer()->enclosingLayer()->scrollRectToVisible(node->getRect());
             }
             [_bridge makeFirstResponder:[_bridge documentView]];
             return [_bridge documentView];
@@ -1915,6 +1843,39 @@ bool KWQKHTMLPart::toolbarVisible()
     return [_bridge areToolbarsVisible];
 }
 
+bool KWQKHTMLPart::shouldClose()
+{
+    KWQ_BLOCK_EXCEPTIONS;
+
+    if (![_bridge canRunBeforeUnloadConfirmPanel])
+        return true;
+
+    SharedPtr<DocumentImpl> document = xmlDocImpl();
+    if (!document)
+        return true;
+    HTMLElementImpl* body = document->body();
+    if (!body)
+        return true;
+
+    SharedPtr<BeforeUnloadEventImpl> event = new BeforeUnloadEventImpl;
+    event->setTarget(document.get());
+    int exception = 0;
+    body->dispatchGenericEvent(event.get(), exception);
+    if (!event->defaultPrevented() && document)
+ 	document->defaultEventHandler(event.get());
+    if (event->result().isNull())
+        return true;
+
+    QString text = event->result().string();
+    text.replace(QChar('\\'), backslashAsCurrencySymbol());
+
+    return [_bridge runBeforeUnloadConfirmPanelWithMessage:text.getNSString()];
+
+    KWQ_UNBLOCK_EXCEPTIONS;
+
+    return true;
+}
+
 void KWQKHTMLPart::addMessageToConsole(const QString &message, unsigned lineNumber, const QString &sourceURL)
 {
     NSDictionary *dictionary = [NSDictionary dictionaryWithObjectsAndKeys:
@@ -2020,13 +1981,32 @@ bool KWQKHTMLPart::closeURL()
     return KHTMLPart::closeURL();
 }
 
+bool KWQKHTMLPart::canMouseDownStartSelect(NodeImpl* node)
+{
+    if (!node || !node->renderer())
+        return true;
+
+    // Check to see if khtml-user-select has been set to none
+    if (!node->renderer()->canSelect())
+        return false;
+
+    // Some controls and images can't start a select on a mouse down.
+    for (RenderObject* curr = node->renderer(); curr; curr = curr->parent()) {
+        if (curr->style()->userSelect() == khtml::SELECT_ELEMENT)
+            return false;
+    }
+
+    return true;
+}
+
 void KWQKHTMLPart::khtmlMousePressEvent(MousePressEvent *event)
 {
     bool singleClick = [_currentEvent clickCount] <= 1;
 
     // If we got the event back, that must mean it wasn't prevented,
     // so it's allowed to start a drag or selection.
-    _mouseDownMayStartSelect = true;
+    _mouseDownMayStartSelect = canMouseDownStartSelect(event->innerNode().handle());
+    
     // Careful that the drag starting logic stays in sync with eventMayStartDrag()
     _mouseDownMayStartDrag = singleClick;
 
@@ -2142,7 +2122,6 @@ bool KWQKHTMLPart::passWidgetMouseDownEventToWidget(QWidget* widget)
     if (!wasDeferringTimers) {
         QObject::setDefersTimers(true);
     }
-
     ASSERT(!_sendingEventToSubview);
     _sendingEventToSubview = true;
     [view mouseDown:_currentEvent];
@@ -2568,16 +2547,36 @@ bool KWQKHTMLPart::passSubframeEventToSubframe(NodeImpl::MouseEvent &event)
     KWQ_BLOCK_EXCEPTIONS;
 
     switch ([_currentEvent type]) {
+        case NSMouseMoved: {
+            NodeImpl *node = event.innerNode.handle();
+            if (!node)
+                return false;
+            RenderObject *renderer = node->renderer();
+            if (!renderer || !renderer->isWidget())
+                return false;
+            QWidget *widget = static_cast<RenderWidget *>(renderer)->widget();
+            if (!widget || !widget->inherits("KHTMLView"))
+                return false;
+            KHTMLPart *subframePart = static_cast<KHTMLView *>(widget)->part();
+            if (!subframePart)
+                return false;
+            [KWQ(subframePart)->bridge() mouseMoved:_currentEvent];
+            return true;
+        }
+        
     	case NSLeftMouseDown: {
             NodeImpl *node = event.innerNode.handle();
             if (!node) {
                 return false;
             }
-            RenderPart *renderPart = dynamic_cast<RenderPart *>(node->renderer());
-            if (!renderPart) {
+            RenderObject *renderer = node->renderer();
+            if (!renderer || !renderer->isWidget()) {
                 return false;
             }
-            if (!passWidgetMouseDownEventToWidget(renderPart)) {
+            QWidget *widget = static_cast<RenderWidget *>(renderer)->widget();
+            if (!widget || !widget->inherits("KHTMLView"))
+                return false;
+            if (!passWidgetMouseDownEventToWidget(static_cast<RenderWidget *>(renderer))) {
                 return false;
             }
             _mouseDownWasInSubframe = true;
@@ -2616,6 +2615,32 @@ bool KWQKHTMLPart::passSubframeEventToSubframe(NodeImpl::MouseEvent &event)
     }
     KWQ_UNBLOCK_EXCEPTIONS;
 
+    return false;
+}
+
+bool KWQKHTMLPart::passWheelEventToChildWidget(DOM::NodeImpl *node)
+{
+    KWQ_BLOCK_EXCEPTIONS;
+        
+    if ([_currentEvent type] != NSScrollWheel || _sendingEventToSubview || !node) 
+        return false;
+    else {
+        RenderObject *renderer = node->renderer();
+        if (!renderer || !renderer->isWidget())
+            return false;
+        QWidget *widget = static_cast<RenderWidget *>(renderer)->widget();
+        if (!widget)
+            return false;
+            
+        NSView *view = widget->getView();
+        ASSERT(view);
+        _sendingEventToSubview = true;
+        [view scrollWheel:_currentEvent];
+        _sendingEventToSubview = false;
+        return true;
+    }
+            
+    KWQ_UNBLOCK_EXCEPTIONS;
     return false;
 }
 
@@ -2728,48 +2753,49 @@ void KWQKHTMLPart::sendFakeEventsAfterWidgetTracking(NSEvent *initiatingEvent)
 
     _sendingEventToSubview = false;
     int eventType = [initiatingEvent type];
-    ASSERT(eventType == NSLeftMouseDown || eventType == NSKeyDown);
-    NSEvent *fakeEvent = nil;
-    if (eventType == NSLeftMouseDown) {
-        fakeEvent = [NSEvent mouseEventWithType:NSLeftMouseUp
-                                location:[initiatingEvent locationInWindow]
-                            modifierFlags:[initiatingEvent modifierFlags]
-                                timestamp:[initiatingEvent timestamp]
-                            windowNumber:[initiatingEvent windowNumber]
-                                    context:[initiatingEvent context]
-                                eventNumber:[initiatingEvent eventNumber]
-                                clickCount:[initiatingEvent clickCount]
-                                pressure:[initiatingEvent pressure]];
+    if (eventType == NSLeftMouseDown || eventType == NSKeyDown) {
+        NSEvent *fakeEvent = nil;
+        if (eventType == NSLeftMouseDown) {
+            fakeEvent = [NSEvent mouseEventWithType:NSLeftMouseUp
+                                    location:[initiatingEvent locationInWindow]
+                                modifierFlags:[initiatingEvent modifierFlags]
+                                    timestamp:[initiatingEvent timestamp]
+                                windowNumber:[initiatingEvent windowNumber]
+                                        context:[initiatingEvent context]
+                                    eventNumber:[initiatingEvent eventNumber]
+                                    clickCount:[initiatingEvent clickCount]
+                                    pressure:[initiatingEvent pressure]];
+        
+            mouseUp(fakeEvent);
+        }
+        else { // eventType == NSKeyDown
+            fakeEvent = [NSEvent keyEventWithType:NSKeyUp
+                                    location:[initiatingEvent locationInWindow]
+                               modifierFlags:[initiatingEvent modifierFlags]
+                                   timestamp:[initiatingEvent timestamp]
+                                windowNumber:[initiatingEvent windowNumber]
+                                     context:[initiatingEvent context]
+                                  characters:[initiatingEvent characters] 
+                 charactersIgnoringModifiers:[initiatingEvent charactersIgnoringModifiers] 
+                                   isARepeat:[initiatingEvent isARepeat] 
+                                     keyCode:[initiatingEvent keyCode]];
+            keyEvent(fakeEvent);
+        }
+        // FIXME:  We should really get the current modifierFlags here, but there's no way to poll
+        // them in Cocoa, and because the event stream was stolen by the Carbon menu code we have
+        // no up-to-date cache of them anywhere.
+        fakeEvent = [NSEvent mouseEventWithType:NSMouseMoved
+                                       location:[[_bridge window] convertScreenToBase:[NSEvent mouseLocation]]
+                                  modifierFlags:[initiatingEvent modifierFlags]
+                                      timestamp:[initiatingEvent timestamp]
+                                   windowNumber:[initiatingEvent windowNumber]
+                                        context:[initiatingEvent context]
+                                    eventNumber:0
+                                     clickCount:0
+                                       pressure:0];
+        mouseMoved(fakeEvent);
+    }
     
-        mouseUp(fakeEvent);
-    }
-    else { // eventType == NSKeyDown
-        fakeEvent = [NSEvent keyEventWithType:NSKeyUp
-                                location:[initiatingEvent locationInWindow]
-                           modifierFlags:[initiatingEvent modifierFlags]
-                               timestamp:[initiatingEvent timestamp]
-                            windowNumber:[initiatingEvent windowNumber]
-                                 context:[initiatingEvent context]
-                              characters:[initiatingEvent characters] 
-             charactersIgnoringModifiers:[initiatingEvent charactersIgnoringModifiers] 
-                               isARepeat:[initiatingEvent isARepeat] 
-                                 keyCode:[initiatingEvent keyCode]];
-        keyEvent(fakeEvent);
-    }
-    // FIXME:  We should really get the current modifierFlags here, but there's no way to poll
-    // them in Cocoa, and because the event stream was stolen by the Carbon menu code we have
-    // no up-to-date cache of them anywhere.
-    fakeEvent = [NSEvent mouseEventWithType:NSMouseMoved
-                                   location:[[_bridge window] convertScreenToBase:[NSEvent mouseLocation]]
-                              modifierFlags:[initiatingEvent modifierFlags]
-                                  timestamp:[initiatingEvent timestamp]
-                               windowNumber:[initiatingEvent windowNumber]
-                                    context:[initiatingEvent context]
-                                eventNumber:0
-                                 clickCount:0
-                                   pressure:0];
-    mouseMoved(fakeEvent);
-
     KWQ_UNBLOCK_EXCEPTIONS;
 }
 
@@ -2778,7 +2804,7 @@ void KWQKHTMLPart::mouseMoved(NSEvent *event)
     KHTMLView *v = d->m_view;
     // Reject a mouse moved if the button is down - screws up tracking during autoscroll
     // These happen because WebKit sometimes has to fake up moved events.
-    if (!v || d->m_bMousePressed) {
+    if (!v || d->m_bMousePressed || _sendingEventToSubview) {
         return;
     }
     
@@ -3399,20 +3425,27 @@ NSRect KWQKHTMLPart::visibleSelectionRect() const
 
 void KWQKHTMLPart::centerSelectionInVisibleArea() const
 {
+    QRect rect;
+
     switch (selection().state()) {
         case Selection::NONE:
-            break;
+            return;
         case Selection::CARET: {
-            if (view())
-                // passing true forces centering even if selection is already exposed
-                view()->ensureRectVisibleCentered(selection().caretRect(), true);
+            rect = selection().caretRect();
             break;
         }
         case Selection::RANGE:
-            if (view())
-                // passing true forces centering even if selection is already exposed
-                view()->ensureRectVisibleCentered(selectionRect(), true);
+            rect = selectionRect();
             break;
+    }
+    
+    ASSERT(d->m_selection.start().isNotNull());
+    if (selectionStart() && selectionStart()->renderer()) {
+        RenderLayer *layer = selectionStart()->renderer()->enclosingLayer();
+        if (layer) {
+            ASSERT(!selectionEnd() || !selectionEnd()->renderer() || (selectionEnd()->renderer()->enclosingLayer() == layer));
+            layer->scrollRectToVisible(rect, RenderLayer::gAlignCenterAlways, RenderLayer::gAlignCenterAlways);
+        }
     }
 }
 

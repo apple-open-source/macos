@@ -29,7 +29,11 @@
 #include "KWQSize.h"
 #include "KWQPointArray.h"
 
+#ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
+typedef struct CGRect NSRect;
+#else
 typedef struct _NSRect NSRect;
+#endif
 
 class QRect {
 public:

@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2004 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,6 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <netdb.h>
@@ -88,7 +88,15 @@ _insertString(char *s, char **l, uint32_t x)
 	if (l == NULL) 
 	{
 		l = (char **)malloc(2 * sizeof(char *));
+		if (l == NULL) return NULL;
+
 		l[0] = strdup(s);
+		if (l[0] == NULL)
+		{
+			free(l);
+			return NULL;
+		}
+
 		l[1] = NULL;
 		return l;
 	}
@@ -96,17 +104,26 @@ _insertString(char *s, char **l, uint32_t x)
 	for (i = 0; l[i] != NULL; i++);
 	len = i + 1; /* count the NULL on the end of the list too! */
 
-	l = (char **)realloc(l, (len + 1) * sizeof(char *));
+	l = (char **)reallocf(l, (len + 1) * sizeof(char *));
+	if (l == NULL) return NULL;
 
 	if ((x >= (len - 1)) || (x == IndexNull))
 	{
 		l[len - 1] = strdup(s);
+		if (l[len - 1] == NULL)
+		{
+			free(l);
+			return NULL;
+		}
+
 		l[len] = NULL;
 		return l;
 	}
 
 	for (i = len; i > x; i--) l[i] = l[i - 1];
 	l[x] = strdup(s);
+	if (l[x] == NULL) return NULL;
+
 	return l;
 }
 
@@ -125,6 +142,8 @@ _explode(char *s, char *delim)
 		for (i = 0; ((p[i] != '\0') && (strchr(delim, p[i]) == NULL)); i++);
 		n = i;
 		t = malloc(n + 1);
+		if (t == NULL) return NULL;
+
 		for (i = 0; i < n; i++) t[i] = p[i];
 		t[n] = '\0';
 		l = _insertString(t, l, IndexNull);
@@ -231,6 +250,8 @@ _syslog_dst_open(struct config_rule *r)
 			if (r->fd < 0) continue;
 
 			r->addr = (struct sockaddr *)calloc(1, ai->ai_addrlen);
+			if (r->addr == NULL) return -1;
+
 			memcpy(r->addr, ai->ai_addr, ai->ai_addrlen);
 
 			break;
@@ -295,6 +316,8 @@ _parse_line(char *s)
 	}
 
 	out->dst = strdup(semi[lasts]);
+	if (out->dst == NULL) return -1;
+
 	_syslog_dst_open(out);
 
 	for (i = 0; i < lasts; i++)
@@ -321,10 +344,16 @@ _parse_line(char *s)
 			}
 			else
 			{
-				out->facility = (char **)realloc(out->facility, (out->count + 1) * sizeof(char *));
-				out->pri = (int *)realloc(out->pri, (out->count + 1) * sizeof(int));
+				out->facility = (char **)reallocf(out->facility, (out->count + 1) * sizeof(char *));
+				out->pri = (int *)reallocf(out->pri, (out->count + 1) * sizeof(int));
 			}
+
+			if (out->facility == NULL) return -1;
+			if (out->pri == NULL) return -1;
+	
 			out->facility[out->count] = strdup(comma[j]);
+			if (out->facility[out->count] == NULL) return -1;
+
 			out->pri[out->count] = pri;
 			out->count++;
 		}
@@ -339,10 +368,65 @@ _parse_line(char *s)
 	return 0;
 }
 
+static char *
+bsd_log_string(const char *msg)
+{
+	uint32_t i, len, outlen;
+	char *out, *q;
+	uint8_t c;
+	
+	if (msg == NULL) return NULL;
+	
+	len = strlen(msg);
+	
+	outlen = len + 1;
+	for (i = 0; i < len; i++)
+	{
+		c = msg[i];
+		if (isascii(c) && iscntrl(c) && (c != '\t')) outlen++;
+	}
+	
+	out = malloc(outlen);
+	if (out == NULL) return NULL;
+
+	q = out;
+	
+	for (i = 0; i < len; i++)
+	{
+		c = msg[i];
+		
+		if (isascii(c) && iscntrl(c))
+		{
+			if (c == '\n')
+			{
+				*q++ = '\\';
+				*q++ = 'n';
+			}
+			else if (c == '\t')
+			{
+				*q++ = c;
+			}
+			else
+			{
+				*q++ = '^';
+				*q++ = c ^ 0100;
+			}
+		}
+		else
+		{
+			*q++ = c;
+		}
+	}
+	
+	*q = '\0';
+	
+	return out;
+}
+
 static int
 _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd)
 {
-	char *so, *sf, *vt, *p;
+	char *so, *sf, *vt, *p, *outmsg;
 	const char *vtime, *vhost, *vident, *vpid, *vmsg, *vlevel, *vfacility;
 	size_t outlen, n;
 	int pf, fc, status;
@@ -359,6 +443,7 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd)
 	}
 
 	vt = NULL;
+	outmsg = NULL;
 
 	/* Build output string if it hasn't been built by a previous rule-match */
 	if (*out == NULL)
@@ -372,15 +457,21 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd)
 				p = ctime(&tick);
 				vt = malloc(16);
 				if (vt == NULL) return -1;
+
 				memcpy(vt, p+4, 15);
 				vt[15] = '\0';
 			}
 		}
-		else if (strlen(vtime) < 24) vt = strdup(vtime);
+		else if (strlen(vtime) < 24) 
+		{
+			vt = strdup(vtime);
+			if (vt == NULL) return -1;
+		}
 		else
 		{
 			vt = malloc(16);
 			if (vt == NULL) return -1;
+
 			memcpy(vt, vtime+4, 15);
 			vt[15] = '\0';
 		}
@@ -391,6 +482,7 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd)
 			p = ctime(&tick);
 			vt = malloc(16);
 			if (vt == NULL) return -1;
+
 			memcpy(vt, p+4, 15);
 			vt[15] = '\0';
 		}
@@ -407,14 +499,16 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd)
 		if ((vpid != NULL) && (vident == NULL)) vident = "Unknown";
 
 		vmsg = asl_get(msg, ASL_KEY_MSG);
-
+		if (vmsg != NULL) outmsg = bsd_log_string(vmsg);
+	
 		n = 0;
 		if (vt != NULL) n += (strlen(vt) + 1);
 		if (vhost != NULL) n += (strlen(vhost) + 1);
 		if (vident != NULL) n += strlen(vident);
 		n += 2;
 		if (vpid != NULL) n += (strlen(vpid) + 2);
-		if (vmsg != NULL) n += strlen(vmsg);
+	
+		if (outmsg != NULL) n += strlen(outmsg);
 
 		if (n == 0) return -1;
 		n += 2;
@@ -447,9 +541,10 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd)
 
 		strcat(so, ": ");
 
-		if (vmsg != NULL)
+		if (outmsg != NULL)
 		{
-			strcat(so, vmsg);
+			strcat(so, outmsg);
+			free(outmsg);
 			strcat(so, "\n");
 		}
 

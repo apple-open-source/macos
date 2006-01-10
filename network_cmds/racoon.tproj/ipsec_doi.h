@@ -103,8 +103,16 @@
 #define   IPSECDOI_ATTR_ENC_MODE_ANY            0	/* NOTE:internal use */
 #define   IPSECDOI_ATTR_ENC_MODE_TUNNEL         1
 #define   IPSECDOI_ATTR_ENC_MODE_TRNS           2
-#define   IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL		3	/* UDP Encapsulated IPSec, NAT-T */
-#define   IPSECDOI_ATTR_ENC_MODE_UDP_TRNS		4	/* UDP Encapsulated IPSec, NAT-T */
+
+/* NAT-T up to draft-ietf-ipsec-nat-t-ike-04 */
+#define   IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT	61443
+#define   IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT		61444
+
+/* NAT-T draft-ietf-ipsec-nat-t-ike-05 and later */
+#define   IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC	3
+#define   IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC	4
+
+
 #define IPSECDOI_ATTR_AUTH                    5 /* B */
 	/* 0 means not to use authentication. */
 #define   IPSECDOI_ATTR_AUTH_HMAC_MD5           1
@@ -218,6 +226,7 @@ extern const char *ipsecdoi_id2str __P((const vchar_t *));
 extern vchar_t *ipsecdoi_setph1proposal __P((struct isakmpsa *));
 extern int ipsecdoi_setph2proposal __P((struct ph2handle *));
 extern int ipsecdoi_transportmode __P((struct ph2handle *));
+extern int ipsecdoi_tunnelmode __P((struct ph2handle *));
 extern int ipsecdoi_get_defaultlifetime __P((void));
 extern int ipsecdoi_checkalgtypes __P((int, int, int, int));
 extern int ipproto2doi __P((int));

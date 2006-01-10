@@ -261,18 +261,32 @@ const AtomicString& ElementImpl::getAttribute(NodeImpl::Id id) const
 
 void ElementImpl::scrollIntoView(bool alignToTop) 
 {
-    KHTMLView *v = getDocument()->view();
-    QRect bounds = this->getRect();
-    int x, y, xe, ye;
-    x = bounds.left();
-    y = bounds.top();
-    xe = bounds.right();
-    ye = bounds.bottom();
-    
-    if (alignToTop) 
-        v->setContentsPos(x, y);
-    else
-        v->ensureVisible(x, y, xe-x, ye-y);
+    QRect bounds = this->getRect();    
+    if (m_render && m_render->enclosingLayer()) {
+        if (alignToTop)
+            m_render->enclosingLayer()->scrollRectToVisible(bounds, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignTopAlways);
+        else
+            m_render->enclosingLayer()->scrollRectToVisible(bounds, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignBottomAlways);
+    }
+}
+
+void ElementImpl::focus()
+{
+    DocumentImpl *doc = getDocument();
+    if (doc) {
+        doc->updateLayout();
+        if (isFocusable() && renderer()) {
+            doc->setFocusNode(this);
+            renderer()->enclosingLayer()->scrollRectToVisible(getRect());
+        }
+    }
+}
+
+void ElementImpl::blur()
+{
+    DocumentImpl* doc = getDocument();
+    if (doc && doc->focusNode() == this)
+	doc->setFocusNode(0);
 }
 
 const AtomicString& ElementImpl::getAttributeNS(const DOMString &namespaceURI,

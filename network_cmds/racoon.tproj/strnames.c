@@ -294,7 +294,12 @@ static struct ksmap name_isakmp_nptype[] = {
 { ISAKMP_NPTYPE_VID,	"vid",		NULL },
 { ISAKMP_NPTYPE_GSS,	"gss id",	NULL },
 { 0, "", NULL },
-{ ISAKMP_NPTYPE_NATD, "natd", NULL }
+{ ISAKMP_NPTYPE_NATD_RFC, "natd", NULL },
+{ ISAKMP_NPTYPE_NATOA_RFC,	"nat-oa",	NULL },
+{ ISAKMP_NPTYPE_NATD_DRAFT, "natd (draft)", NULL },
+{ ISAKMP_NPTYPE_NATOA_DRAFT,	"nat-oa (draft)",	NULL },
+{ ISAKMP_NPTYPE_NATD_BADDRAFT, "natd (bad draft)", NULL },
+{ ISAKMP_NPTYPE_NATOA_BADDRAFT,	"nat-oa (bad draft)",	NULL }
 };
 
 char *
@@ -458,8 +463,10 @@ static struct ksmap name_attr_ipsec_encmode[] = {
 { IPSECDOI_ATTR_ENC_MODE_ANY,		"Any",		NULL },
 { IPSECDOI_ATTR_ENC_MODE_TUNNEL,	"Tunnel",	NULL },
 { IPSECDOI_ATTR_ENC_MODE_TRNS,		"Transport",	NULL },
-{ IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL,	"UDP Encapsulated Tunnel",	NULL },
-{ IPSECDOI_ATTR_ENC_MODE_UDP_TRNS,		"UDP Encapsulated Transport",	NULL },
+{ IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC,	"UDP Encapsulated Tunnel",	NULL },
+{ IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC,		"UDP Encapsulated Transport",	NULL },
+{ IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT,	"UDP Encapsulated Tunnel (NATT DRAFT)",	NULL },
+{ IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT,		"UDP Encapsulated Transport (NATT DRAFT)",	NULL },
 };
 
 char *

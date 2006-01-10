@@ -1,7 +1,7 @@
 /* GSSAPI SASL plugin
  * Leif Johansson
  * Rob Siemborski (SASL v2 Conversion)
- * $Id: gssapi.c,v 1.6 2005/01/10 19:01:37 snsimon Exp $
+ * $Id: gssapi.c,v 1.6.4.1 2005/11/09 19:11:23 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -82,7 +82,7 @@
 
 /*****************************  Common Section  *****************************/
 
-//static const char plugin_id[] = "$Id: gssapi.c,v 1.6 2005/01/10 19:01:37 snsimon Exp $";
+//static const char plugin_id[] = "$Id: gssapi.c,v 1.6.4.1 2005/11/09 19:11:23 snsimon Exp $";
 
 static const char * GSSAPI_BLANK_STRING = "";
 
@@ -816,16 +816,30 @@ gssapi_server_mech_step(void *conn_context,
 	    text->requiressf = params->props.min_ssf - params->external_ssf;
 	}
 	
+	maj_stat = gss_wrap_size_limit( &min_stat,
+					    text->gss_ctx,
+					    1,
+					    GSS_C_QOP_DEFAULT,
+					    (OM_uint32) params->props.maxbufsize,
+					    &max_input);
+	if (GSS_ERROR(maj_stat)) {
+	    sasl_gss_seterror(text->utils, maj_stat, min_stat);
+	    sasl_gss_free_context_contents(text);
+	    if (output_token->value)
+			gss_release_buffer(&min_stat, output_token);
+	    return SASL_FAIL;
+	}
+	
 	/* build up our security properties token */
-        if (params->props.maxbufsize > 0xFFFFFF) {
-            /* make sure maxbufsize isn't too large */
-            /* maxbufsize = 0xFFFFFF */
-            sasldata[1] = sasldata[2] = sasldata[3] = 0xFF;
-        } else {
-            sasldata[1] = (params->props.maxbufsize >> 16) & 0xFF;
-            sasldata[2] = (params->props.maxbufsize >> 8) & 0xFF;
-            sasldata[3] = (params->props.maxbufsize >> 0) & 0xFF;
-        }
+	if (max_input > 0xFFFFFF) {
+		/* make sure maxbufsize isn't too large */
+		/* maxbufsize = 0xFFFFFF */
+		sasldata[1] = sasldata[2] = sasldata[3] = 0xFF;
+	} else {
+		sasldata[1] = (max_input >> 16) & 0xFF;
+		sasldata[2] = (max_input >> 8) & 0xFF;
+		sasldata[3] = (max_input >> 0) & 0xFF;
+	}
 	sasldata[0] = 0;
 	if(text->requiressf != 0 && !params->props.maxbufsize) {
 	    params->utils->seterror(params->utils->conn, 0,
@@ -979,11 +993,11 @@ gssapi_server_mech_step(void *conn_context,
 	}	
 	
 	/* No matter what, set the rest of the oparams */
-        oparams->maxoutbuf =
+	oparams->maxoutbuf =
 	    (((unsigned char *) output_token->value)[1] << 16) |
             (((unsigned char *) output_token->value)[2] << 8) |
             (((unsigned char *) output_token->value)[3] << 0);
-
+		
 	if (oparams->mech_ssf) {
  	    maj_stat = gss_wrap_size_limit( &min_stat,
 					    text->gss_ctx,
@@ -1000,9 +1014,7 @@ gssapi_server_mech_step(void *conn_context,
 	text->state = SASL_GSSAPI_STATE_AUTHENTICATED;
 	
 	/* used by layers */
-	_plug_decode_init(&text->decode_context, text->utils,
-			  (params->props.maxbufsize > 0xFFFFFF) ? 0xFFFFFF :
-			  params->props.maxbufsize);
+	_plug_decode_init(&text->decode_context, text->utils, oparams->maxoutbuf);
 	
 	oparams->doneflag = 1;
 	
@@ -1138,6 +1150,8 @@ static int gssapi_client_mech_step(void *conn_context,
     gss_buffer_desc name_token;
     int ret;
     OM_uint32 req_flags, out_req_flags;
+	OM_uint32 max_input;
+	
     input_token = &real_input_token;
     output_token = &real_output_token;
     output_token->value = NULL;
@@ -1444,22 +1458,33 @@ static int gssapi_client_mech_step(void *conn_context,
 	
 	if (alen)
 	    memcpy((char *)input_token->value+4,oparams->user,alen);
-
+	
+	maj_stat = gss_wrap_size_limit( &min_stat,
+					    text->gss_ctx,
+					    1,
+					    GSS_C_QOP_DEFAULT,
+					    (OM_uint32) params->props.maxbufsize,
+					    &max_input);
+	if (GSS_ERROR(maj_stat)) {
+	    sasl_gss_seterror(text->utils, maj_stat, min_stat);
+	    sasl_gss_free_context_contents(text);
+	    if (output_token->value)
+			gss_release_buffer(&min_stat, output_token);
+	    return SASL_FAIL;
+	}
+	
 	/* build up our security properties token */
-        if (params->props.maxbufsize > 0xFFFFFF) {
-            /* make sure maxbufsize isn't too large */
-            /* maxbufsize = 0xFFFFFF */
-            ((unsigned char *)input_token->value)[1] = 0xFF;
-            ((unsigned char *)input_token->value)[2] = 0xFF;
-            ((unsigned char *)input_token->value)[3] = 0xFF;
-        } else {
-            ((unsigned char *)input_token->value)[1] = 
-                (params->props.maxbufsize >> 16) & 0xFF;
-            ((unsigned char *)input_token->value)[2] = 
-                (params->props.maxbufsize >> 8) & 0xFF;
-            ((unsigned char *)input_token->value)[3] = 
-                (params->props.maxbufsize >> 0) & 0xFF;
-        }
+	if (max_input > 0xFFFFFF) {
+		/* make sure maxbufsize isn't too large */
+		/* maxbufsize = 0xFFFFFF */
+		((unsigned char *)input_token->value)[1] = 0xFF;
+		((unsigned char *)input_token->value)[2] = 0xFF;
+		((unsigned char *)input_token->value)[3] = 0xFF;
+	} else {
+		((unsigned char *)input_token->value)[1] = (max_input >> 16) & 0xFF;
+		((unsigned char *)input_token->value)[2] = (max_input >> 8) & 0xFF;
+		((unsigned char *)input_token->value)[3] = (max_input >> 0) & 0xFF;
+	}
 	((unsigned char *)input_token->value)[0] = mychoice;
 	
 	maj_stat = gss_wrap (&min_stat,
@@ -1503,9 +1528,7 @@ static int gssapi_client_mech_step(void *conn_context,
 	oparams->doneflag = 1;
 	
 	/* used by layers */
-	_plug_decode_init(&text->decode_context, text->utils,
-			  (params->props.maxbufsize > 0xFFFFFF) ? 0xFFFFFF :
-			  params->props.maxbufsize);
+	_plug_decode_init(&text->decode_context, text->utils, MAXBUFF_HIWATER);
 	
 	return SASL_OK;
     }
@@ -1519,7 +1542,7 @@ static int gssapi_client_mech_step(void *conn_context,
     return SASL_FAIL; /* should never get here */
 }
 
-static const long gssapi_required_prompts[] = {
+static const unsigned long gssapi_required_prompts[] = {
     SASL_CB_LIST_END
 };  
 

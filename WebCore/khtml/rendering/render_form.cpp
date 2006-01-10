@@ -269,6 +269,15 @@ short RenderButton::baselinePosition( bool f, bool isRootLineBox ) const
 #endif
 }
 
+void RenderButton::calcMinMaxWidth()
+{
+    RenderFormElement::calcMinMaxWidth();
+    
+    m_minWidth = m_maxWidth;
+    
+    setMinMaxKnown();
+}
+
 // -------------------------------------------------------------------------------
 
 RenderCheckBox::RenderCheckBox(HTMLInputElementImpl *element)
@@ -696,9 +705,53 @@ void RenderLineEdit::slotTextChanged(const QString &string)
     element()->setValueFromRenderer(newText);
 }
 
+long RenderLineEdit::selectionStart()
+{
+    KLineEdit *lineEdit = static_cast<KLineEdit *>(m_widget);
+    int start = lineEdit->selectionStart();
+    if (start == -1)
+        start = lineEdit->cursorPosition();
+    return start;
+}
+
+long RenderLineEdit::selectionEnd()
+{
+    KLineEdit *lineEdit = static_cast<KLineEdit *>(m_widget);
+    int start = lineEdit->selectionStart();
+    if (start == -1)
+        return lineEdit->cursorPosition();
+    return start + (int)lineEdit->selectedText().length();
+}
+
+void RenderLineEdit::setSelectionStart(long start)
+{
+    int realStart = MAX(start, 0);
+    int length = MAX(selectionEnd() - realStart, 0);
+    static_cast<KLineEdit *>(m_widget)->setSelection(realStart, length);
+}
+
+void RenderLineEdit::setSelectionEnd(long end)
+{
+    int start = selectionStart();
+    int realEnd = MAX(end, 0);
+    int length = realEnd - start;
+    if (length < 0) {
+        start = realEnd;
+        length = 0;
+    }
+    static_cast<KLineEdit *>(m_widget)->setSelection(start, length);
+}
+
 void RenderLineEdit::select()
 {
     static_cast<KLineEdit*>(m_widget)->selectAll();
+}
+
+void RenderLineEdit::setSelectionRange(long start, long end)
+{
+    int realStart = MAX(start, 0);
+    int length = MAX(end - realStart, 0);
+    static_cast<KLineEdit *>(m_widget)->setSelection(realStart, length);
 }
 
 // ---------------------------------------------------------------------------
@@ -1132,6 +1185,8 @@ void RenderSelect::updateFromElement()
                 // In WinIE, an optgroup can't start or end with whitespace (other than the indent
                 // we give it).  We match this behavior.
                 label = label.stripWhiteSpace();
+                // We want to collapse our whitespace too.  This will match other browsers.
+                label = label.simplifyWhiteSpace();
                 
 #if APPLE_CHANGES
                 if (m_useListBox)
@@ -1155,6 +1210,8 @@ void RenderSelect::updateFromElement()
 
                 // In WinIE, leading and trailing whitespace is ignored in options. We match this behavior.
                 itemText = itemText.stripWhiteSpace();
+                // We want to collapse our whitespace too.  This will match other browsers.
+                itemText = itemText.simplifyWhiteSpace();
                 
                 if (listItems[listIndex]->parentNode()->id() == ID_OPTGROUP)
                     itemText.prepend("    ");
@@ -1530,6 +1587,8 @@ void RenderTextArea::setStyle(RenderStyle *s)
 
     QTextEdit* w = static_cast<QTextEdit*>(m_widget);
     w->setAlignment(textAlignment());
+    w->setLineHeight(RenderObject::lineHeight(true));
+
 #if APPLE_CHANGES
     w->setWritingDirection(style()->direction() == RTL ? QPainter::RTL : QPainter::LTR);
 #endif
@@ -1630,9 +1689,69 @@ void RenderTextArea::slotTextChanged()
     m_dirty = true;
 }
 
+long RenderTextArea::selectionStart()
+{
+    QTextEdit *textEdit = static_cast<QTextEdit *>(m_widget);
+#if APPLE_CHANGES
+    return textEdit->selectionStart();
+#else
+    // FIXME: I have no way to test Qt, so I'll
+    // leave this alone for now
+#error Unimplemented method
+#endif
+}
+
+long RenderTextArea::selectionEnd()
+{
+    QTextEdit *textEdit = static_cast<QTextEdit *>(m_widget);
+#if APPLE_CHANGES
+    return textEdit->selectionEnd();
+#else
+    // FIXME: I have no way to test Qt, so I'll
+    // leave this alone for now
+#error Unimplemented method
+#endif
+}
+
+void RenderTextArea::setSelectionStart(long start)
+{
+    QTextEdit *textEdit = static_cast<QTextEdit *>(m_widget);
+#if APPLE_CHANGES
+    textEdit->setSelectionStart(start);
+#else
+    // FIXME: I have no way to test Qt, so I'll
+    // leave this alone for now
+#error Unimplemented method
+#endif
+}
+
+void RenderTextArea::setSelectionEnd(long end)
+{
+    QTextEdit *textEdit = static_cast<QTextEdit *>(m_widget);
+#if APPLE_CHANGES
+    textEdit->setSelectionEnd(end);
+#else
+    // FIXME: I have no way to test Qt, so I'll
+    // leave this alone for now
+#error Unimplemented method
+#endif
+}
+
 void RenderTextArea::select()
 {
     static_cast<QTextEdit *>(m_widget)->selectAll();
+}
+
+void RenderTextArea::setSelectionRange(long start, long end)
+{
+    QTextEdit *textEdit = static_cast<QTextEdit *>(m_widget);
+#if APPLE_CHANGES
+    textEdit->setSelectionRange(start, end-start);
+#else
+    // FIXME: I have no way to test Qt, so I'll
+    // leave this alone for now
+#error Unimplemented method
+#endif
 }
 
 // ---------------------------------------------------------------------------

@@ -570,6 +570,8 @@ RuleImpl::makeCredentials(const AuthorizationToken &auth) const
                 secdebug("AuthEvalMech", "found password");
                 string password = (**found).stringValue();
                 secdebug("AuthEvalMech", "falling back on username/password credential if valid");
+				// Call to checkpw in DS
+				Server::active().longTermActivity();
 				Credential newCred(username, password, mShared);
                 newCredentials.insert(newCred);
 				CommonCriteria::AuditRecord auditrec(auth.creatorAuditToken());

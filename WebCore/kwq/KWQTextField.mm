@@ -28,9 +28,12 @@
 #import "KWQAssertions.h"
 #import "KWQKHTMLPart.h"
 #import "KWQLineEdit.h"
-#import "KWQNSViewExtras.h"
 #import "KWQView.h"
 #import "WebCoreBridge.h"
+#import "render_form.h"
+
+using khtml::RenderWidget;
+using khtml::RenderLayer;
 
 @interface NSString (KWQTextField)
 - (int)_KWQ_numComposedCharacterSequences;
@@ -355,7 +358,7 @@
 - (NSRange)selectedRange
 {
     NSText *editor = [field _KWQ_currentEditor];
-    return editor ? [editor selectedRange] : NSMakeRange(NSNotFound, 0);
+    return editor ? [editor selectedRange] : lastSelectedRange;
 }
 
 - (void)setSelectedRange:(NSRange)range
@@ -363,10 +366,36 @@
     // Range check just in case the saved range has gotten out of sync.
     // Even though we don't see this in testing, we really don't want
     // an exception in this case, so we protect ourselves.
-    NSText *editor = [field _KWQ_currentEditor];    
-    if (NSMaxRange(range) <= [[editor string] length]) {
+    NSText *editor = [field _KWQ_currentEditor];
+    if (editor) { // if we have no focus, we don't have a current editor
+        unsigned len = [[editor string] length];
+        if (NSMaxRange(range) > len) {
+            if (range.location > len) {
+                range.location = len;
+                range.length = 0;
+            } else {
+                range.length = len - range.location;
+            }
+        }
         [editor setSelectedRange:range];
+    } else {
+        // set the lastSavedRange, so it will be used when given focus
+        unsigned len = [[field stringValue] length];
+        if (NSMaxRange(range) > len) {
+            if (range.location > len) {
+                range.location = len;
+                range.length = 0;
+            } else {
+                range.length = len - range.location;
+            }
+        }
+        lastSelectedRange = range;
     }
+}
+
+- (BOOL)hasSelection
+{
+    return [self selectedRange].length > 0;
 }
 
 - (void)setHasFocus:(BOOL)nowHasFocus
@@ -385,12 +414,17 @@
         if (lastSelectedRange.location != NSNotFound)
             [self setSelectedRange:lastSelectedRange];
         
-        if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(widget))
-            [field _KWQ_scrollFrameToVisible];
+        if (!KWQKHTMLPart::currentEventIsMouseDownInWidget(widget)) {
+            RenderWidget *w = const_cast<RenderWidget *> (static_cast<const RenderWidget *>(widget->eventFilterObject()));
+            RenderLayer *layer = w->enclosingLayer();
+            if (layer)
+                layer->scrollRectToVisible(w->absoluteBoundingBoxRect());
+        }
         
         if (widget) {
             QFocusEvent event(QEvent::FocusIn);
-            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+            if (widget->eventFilterObject())
+                const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
         }
         
 	// Sending the onFocus event above, may have resulted in a blur() - if this
@@ -409,7 +443,8 @@
         
         if (widget) {
             QFocusEvent event(QEvent::FocusOut);
-            const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
+            if (widget->eventFilterObject())
+                const_cast<QObject *>(widget->eventFilterObject())->eventFilter(widget, &event);
         }
     }
 }

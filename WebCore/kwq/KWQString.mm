@@ -857,7 +857,9 @@ QString::~QString()
     if (needToFreeHandle)
         freeHandle(dataHandle);
 
+#ifndef NDEBUG
     dataHandle = 0;
+#endif
 }
 
 

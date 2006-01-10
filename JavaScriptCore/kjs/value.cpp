@@ -265,9 +265,9 @@ Value::Value(long l)
 Value::Value(unsigned long l)
     : rep(SimpleNumber::fits(l) ? SimpleNumber::make(l) : new NumberImp(static_cast<double>(l))) { }
 
-Value::Value(const char *s) : rep(new StringImp(s)) { }
+Value::Value(const char *s) : rep(new StringImp(s ? s : "")) { }
 
-Value::Value(const UString &s) : rep(new StringImp(s)) { }
+Value::Value(const UString &s) : rep(new StringImp(s.isNull() ? "" : s)) { }
 
 // ------------------------------ Undefined ------------------------------------
 
@@ -320,7 +320,7 @@ Boolean Boolean::dynamicCast(const Value &v)
 
 // ------------------------------ String ---------------------------------------
 
-String::String(const UString &s) : Value(new StringImp(s))
+String::String(const UString &s) : Value(new StringImp(s.isNull() ? "" : s))
 {
 }
 
