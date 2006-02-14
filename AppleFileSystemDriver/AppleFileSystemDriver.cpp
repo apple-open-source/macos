@@ -335,6 +335,7 @@ AppleFileSystemDriver::mediaNotificationHandler(
     OSString *                 contentHint;
     const char *               contentStr;
     VolumeUUID	               volumeUUID;
+    OSString *                 uuidProperty;
     uuid_t                     uuid;
     bool                       matched        = false;
 
@@ -349,7 +350,16 @@ AppleFileSystemDriver::mediaNotificationHandler(
 		
         if ( media->isFormatted() == false )  break;
 
-		// only IOMedia's with content hints (perhaps empty) are interesting
+        // If the media already has a UUID property, try that first.
+        uuidProperty = OSDynamicCast( OSString, media->getProperty("UUID") );
+        if (uuidProperty != NULL) {
+            if (fs->_uuidString && uuidProperty->isEqualTo(fs->_uuidString)) {
+                matched = true;
+                break;
+            }
+        }
+        
+	// only IOMedia's with content hints (perhaps empty) are interesting
         contentHint = OSDynamicCast( OSString, media->getProperty(kIOMediaContentHintKey) );
         if (contentHint == NULL)  break;
         contentStr = contentHint->getCStringNoCopy();
@@ -358,7 +368,10 @@ AppleFileSystemDriver::mediaNotificationHandler(
         // probe based on content hint, but if the hint is 
         // empty and we see RAID, probe for anything we support
         if ( strcmp(contentStr, "Apple_HFS" ) == 0 ||
-             strcmp(contentStr, "Apple_HFSX" ) == 0) {
+             strcmp(contentStr, "Apple_HFSX" ) == 0 ||
+             strcmp(contentStr, "Apple_Boot" ) == 0 ||
+             strcmp(contentStr, "48465300-0000-11AA-AA11-00306543ECAC" ) == 0 ||
+             strcmp(contentStr, "426F6F74-0000-11AA-AA11-00306543ECAC" ) == 0 ) {
             status = readHFSUUID( media, (void **)&volumeUUID );
         } else if ( strcmp(contentStr, "Apple_UFS") == 0 ) {
             status = readUFSUUID( media, (void **)&volumeUUID );
@@ -398,27 +411,28 @@ AppleFileSystemDriver::mediaNotificationHandler(
             }
         }
 		
-        if (matched) {
-			
-            // prevent more notifications, if notifier is available
-            if (fs->_notifier != NULL) {
-                fs->_notifier->remove();
-                fs->_notifier = NULL;
-            }
-			
-            DEBUG_LOG("%s::%s publishing boot-uuid-media '%s'\n", kClassName, __func__, media->getName());
-            IOService::publishResource( kBootUUIDMediaKey, media );
-
-            // Now that our job is done, get rid of the matching property
-            // and kill the driver.
-            fs->getResourceService()->removeProperty( kBootUUIDKey );
-            fs->terminate( kIOServiceRequired );
-
-            VERBOSE_LOG("%s[%p]::%s returning TRUE\n", kClassName, target, __func__);
-            
-            return true;
-        }
     } while (false);
+
+    if (matched) {
+			
+        // prevent more notifications, if notifier is available
+        if (fs->_notifier != NULL) {
+            fs->_notifier->remove();
+            fs->_notifier = NULL;
+        }
+			
+        DEBUG_LOG("%s::%s publishing boot-uuid-media '%s'\n", kClassName, __func__, media->getName());
+        IOService::publishResource( kBootUUIDMediaKey, media );
+
+        // Now that our job is done, get rid of the matching property
+        // and kill the driver.
+        fs->getResourceService()->removeProperty( kBootUUIDKey );
+        fs->terminate( kIOServiceRequired );
+
+        VERBOSE_LOG("%s[%p]::%s returning TRUE\n", kClassName, target, __func__);
+            
+        return true;
+    }
     
     DEBUG_LOG("%s[%p]::%s returning false\n", kClassName, target, __func__);
     return false;
@@ -446,6 +460,8 @@ AppleFileSystemDriver::start(IOService * provider)
 
         uuidString = OSDynamicCast( OSString, resourceService->getProperty("boot-uuid") );
         if (uuidString) {
+            _uuidString = uuidString;
+            _uuidString->retain();
             uuidCString = uuidString->getCStringNoCopy();
             DEBUG_LOG("%s: got UUID string '%s'\n", getName(), uuidCString);
             if (uuid_parse(uuidCString, _uuid) != 0) {
@@ -493,6 +509,7 @@ AppleFileSystemDriver::free()
 {
     DEBUG_LOG("%s[%p]::%s\n", getName(), this, __func__);
     
+    if (_uuidString) _uuidString->release();
     if (_notifier) _notifier->remove();
 
     super::free();

@@ -1,4 +1,4 @@
-# Mac OS X 10.4.4.ppc
+# Mac OS X 10.4.5.ppc
 Apple16X50Serial	16
 Apple3Com3C90x	10
 AppleAC97Audio	5
@@ -13,7 +13,7 @@ AppleCore99PE	122.0.1
 AppleCuda	103.0.1
 AppleDP83816Ethernet	2
 AppleFan	109.2.3
-AppleFileSystemDriver	5
+AppleFileSystemDriver	7
 AppleFlashNVRAM	105.4.0
 AppleGMACEthernet	142.3.1
 AppleGPIO	119.0.0
@@ -82,7 +82,7 @@ DiskArbitration	156
 DynamicPowerStep	1.4.0
 FirewallTool	16
 HeathrowATA	108.3.1
-ICU	6.2.4
+ICU	6.2.8
 IOACPIFamily	3
 IOADBFamily	5
 IOATAFamily	160.3.2
@@ -98,7 +98,7 @@ IOFireWireSBP2	175.4.0
 IOFireWireSerialBusProtocolTransport	140.0.6
 IOGraphics	179.2
 IOHIDFamily	172.8
-IOI2CFamily	108.2.1
+IOI2CFamily	109.0.1
 IOKitTools	56
 IOKitUser	277.6
 IONetworkingFamily	42
@@ -114,7 +114,7 @@ JavaScriptCore	417.8
 JavaScriptGlue	417
 Kerberos	65.5
 KeyLargoATA	110.3.1
-Libc	391.2.3
+Libc	391.2.5
 Libcpp_kext	4
 Libinfo	222.1
 Libkvm	24
@@ -122,7 +122,7 @@ Libm	93
 Libnotify	20.2
 Librpcsvc	13
 Libstreams	24.1
-Libsystem	88.1.2
+Libsystem	88.1.5
 Liby	13
 MySQL	32
 NFS	1
@@ -142,7 +142,7 @@ SquirrelMail	19
 SystemStubs	5
 Tokend	25868
 UserNotification	17.1
-WebCore	417.17
+WebCore	417.19
 X11	0.40.2
 adv_cmds	79.1
 apache	683
@@ -278,13 +278,13 @@ man	4
 memberd	20
 misc_cmds	17
 modemccl	7
-msdosfs	89.3.1
+msdosfs	89.9
 nano	3
 ncurses	15
 net_snmp	18
 netcat	4
 netinfo	369.2
-network_cmds	245.1.3
+network_cmds	245.1.4
 ntfs	35
 ntp	20
 objc4	267
@@ -324,7 +324,7 @@ srm	3
 stmalloc	4
 sudo	17
 syslog	13.1
-system_cmds	336
+system_cmds	336.1.2
 system_config	48
 tcl	20.2.1
 tcp_wrappers	14
@@ -341,7 +341,7 @@ volfs	25
 webdavfs	214.1
 wxWidgets	2
 xinetd	34
-xnu	792.6.56
+xnu	792.6.61
 yacc	8
 zip	6
 zlib	15.1.1

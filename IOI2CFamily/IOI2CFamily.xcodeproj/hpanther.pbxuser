@@ -1,0 +1,157 @@
+// !$*UTF8*$!
+{
+	089C1669FE841209C02AAC07 /* Project object */ = {
+		activeBuildConfigurationName = Development;
+		activeBuildStyle = 06AA1265FFB2107B11CA28AA /* Development */;
+		activeTarget = A6C4320D0649952E00C38057 /* IOI2CControllerPPC */;
+		codeSenseManager = D6ED2AB809918BBF00AAC291 /* Code sense */;
+		perUserDictionary = {
+			PBXConfiguration.PBXFileTableDataSource3.PBXFileTableDataSource = {
+				PBXFileTableDataSourceColumnSortingDirectionKey = "-1";
+				PBXFileTableDataSourceColumnSortingKey = PBXFileDataSource_Filename_ColumnID;
+				PBXFileTableDataSourceColumnWidthsKey = (
+					20,
+					329,
+					20,
+					48,
+					43,
+					43,
+					20,
+				);
+				PBXFileTableDataSourceColumnsKey = (
+					PBXFileDataSource_FiletypeID,
+					PBXFileDataSource_Filename_ColumnID,
+					PBXFileDataSource_Built_ColumnID,
+					PBXFileDataSource_ObjectSize_ColumnID,
+					PBXFileDataSource_Errors_ColumnID,
+					PBXFileDataSource_Warnings_ColumnID,
+					PBXFileDataSource_Target_ColumnID,
+				);
+			};
+			PBXConfiguration.PBXTargetDataSource.PBXTargetDataSource = {
+				PBXFileTableDataSourceColumnSortingDirectionKey = "-1";
+				PBXFileTableDataSourceColumnSortingKey = PBXFileDataSource_Filename_ColumnID;
+				PBXFileTableDataSourceColumnWidthsKey = (
+					20,
+					200,
+					314,
+					20,
+					48,
+					43,
+					43,
+				);
+				PBXFileTableDataSourceColumnsKey = (
+					PBXFileDataSource_FiletypeID,
+					PBXFileDataSource_Filename_ColumnID,
+					PBXTargetDataSource_PrimaryAttribute,
+					PBXFileDataSource_Built_ColumnID,
+					PBXFileDataSource_ObjectSize_ColumnID,
+					PBXFileDataSource_Errors_ColumnID,
+					PBXFileDataSource_Warnings_ColumnID,
+				);
+			};
+			PBXPerProjectTemplateStateSaveDate = 160620942;
+			PBXWorkspaceStateSaveDate = 160620942;
+		};
+		perUserProjectItems = {
+			D6169EBB0992DE63002493B0 = D6169EBB0992DE63002493B0 /* PBXTextBookmark */;
+			D6169EC50992DECE002493B0 = D6169EC50992DECE002493B0 /* PBXTextBookmark */;
+			D6169ED10992E199002493B0 /* PBXTextBookmark */ = D6169ED10992E199002493B0 /* PBXTextBookmark */;
+		};
+		sourceControlManager = D6ED2AB709918BBF00AAC291 /* Source Control */;
+		userBuildSettings = {
+		};
+	};
+	A6169E7806D14A7A00857C4B /* IOI2CControllerPMU */ = {
+		activeExec = 0;
+	};
+	A6169E8206D14B7700857C4B /* IOI2CControllerPMU.cpp */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {848, 8638}}";
+			sepNavSelRange = "{2156, 17}";
+			sepNavVisRect = "{{0, 885}, {741, 401}}";
+		};
+	};
+	A636AC8B0649E3F400991F6B /* all */ = {
+		activeExec = 0;
+	};
+	A661085106261FCF001A2AE6 /* IOI2CFamily */ = {
+		activeExec = 0;
+	};
+	A69CD8DA060F973300B5783B /* IOI2CController.cpp */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {962, 16212}}";
+			sepNavSelRange = "{32408, 0}";
+			sepNavVisRect = "{{0, 2037}, {741, 401}}";
+		};
+	};
+	A69CD8DB060F973300B5783B /* IOI2CController.h */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {741, 3430}}";
+			sepNavSelRange = "{4385, 13}";
+			sepNavVisRect = "{{0, 1295}, {741, 401}}";
+		};
+	};
+	A6C068F806480BF2003BFF8E /* IOI2CUserLib.a */ = {
+		activeExec = 0;
+	};
+	A6C43209064992EC00C38057 /* IOI2CControllerSMU */ = {
+		activeExec = 0;
+	};
+	A6C4320D0649952E00C38057 /* IOI2CControllerPPC */ = {
+		activeExec = 0;
+	};
+	A6FB3FF506348439001D2C05 /* IOI2C.framework */ = {
+		activeExec = 0;
+	};
+	A6FB3FFC0634BBC2001D2C05 /* IOI2CControllerPPC.cpp */ = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {1604, 12782}}";
+			sepNavSelRange = "{26024, 0}";
+			sepNavVisRect = "{{0, 396}, {686, 457}}";
+			sepNavWindowFrame = "{{73, 11}, {730, 818}}";
+		};
+	};
+	D6169EBB0992DE63002493B0 /* PBXTextBookmark */ = {
+		isa = PBXTextBookmark;
+		fRef = A6FB3FFC0634BBC2001D2C05 /* IOI2CControllerPPC.cpp */;
+		name = "IOI2CControllerPPC.cpp: 913";
+		rLen = 0;
+		rLoc = 26024;
+		rType = 0;
+		vrLen = 1290;
+		vrLoc = 1145;
+	};
+	D6169EC50992DECE002493B0 /* PBXTextBookmark */ = {
+		isa = PBXTextBookmark;
+		fRef = A6FB3FFC0634BBC2001D2C05 /* IOI2CControllerPPC.cpp */;
+		name = "IOI2CControllerPPC.cpp: 913";
+		rLen = 0;
+		rLoc = 26024;
+		rType = 0;
+		vrLen = 1290;
+		vrLoc = 1145;
+	};
+	D6169ED10992E199002493B0 /* PBXTextBookmark */ = {
+		isa = PBXTextBookmark;
+		fRef = A6FB3FFC0634BBC2001D2C05 /* IOI2CControllerPPC.cpp */;
+		name = "IOI2CControllerPPC.cpp: 913";
+		rLen = 0;
+		rLoc = 26024;
+		rType = 0;
+		vrLen = 1290;
+		vrLoc = 1145;
+	};
+	D6ED2AB709918BBF00AAC291 /* Source Control */ = {
+		isa = PBXSourceControlManager;
+		fallbackIsa = XCSourceControlManager;
+		isSCMEnabled = 0;
+		scmConfiguration = {
+		};
+		scmType = "";
+	};
+	D6ED2AB809918BBF00AAC291 /* Code sense */ = {
+		isa = PBXCodeSenseManager;
+		indexTemplatePath = "";
+	};
+}

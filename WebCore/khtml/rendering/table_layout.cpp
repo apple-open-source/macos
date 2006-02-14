@@ -20,7 +20,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: table_layout.cpp,v 1.22.8.2 2005/12/04 21:01:20 thatcher Exp $
+ * $Id: table_layout.cpp 11434 2005-12-04 21:01:20Z thatcher $
  */
 #include "table_layout.h"
 #include "render_table.h"

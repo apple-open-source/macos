@@ -1116,6 +1116,8 @@ RenderLayer::hitTest(RenderObject::NodeInfo& info, int x, int y)
     RenderLayer::gScrollBar = 0;
 #endif
     
+    renderer()->document()->updateLayout();
+    
     QRect damageRect(m_x, m_y, width(), height());
     RenderLayer* insideLayer = hitTestLayer(this, info, x, y, damageRect);
 

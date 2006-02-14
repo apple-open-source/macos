@@ -251,13 +251,15 @@ public:
                           bool ctrlKeyArg,
                           bool altKeyArg,
                           bool shiftKeyArg,
-                          bool metaKeyArg);
+                          bool metaKeyArg,
+                          bool isSimulated = false);
     long screenX() const { return m_screenX; }
     long screenY() const { return m_screenY; }
     long clientX() const { return m_clientX; }
     long clientY() const { return m_clientY; }
     long layerX() const { return m_layerX; }
     long layerY() const { return m_layerY; }
+    bool isSimulated() const { return m_isSimulated; }
 protected: // expose these so MouseEventImpl::initMouseEvent can set them
     long m_screenX;
     long m_screenY;
@@ -267,6 +269,7 @@ protected: // expose these so MouseEventImpl::initMouseEvent can set them
 private:
     long m_layerX;
     long m_layerY;
+    bool m_isSimulated;
 };
 
 // Introduced in DOM Level 2
@@ -288,11 +291,13 @@ public:
 		   bool metaKeyArg,
 		   unsigned short buttonArg,
 		   NodeImpl *relatedTargetArg,
-                   ClipboardImpl *clipboardArg=0);
+                   ClipboardImpl *clipboardArg=0,
+                   bool isSimulated = false);
     virtual ~MouseEventImpl();
     unsigned short button() const { return m_button; }
     NodeImpl *relatedTarget() const { return m_relatedTarget; }
     ClipboardImpl *clipboard() const { return m_clipboard; }
+    bool isSimulated() const { return m_isSimulated; }
     void initMouseEvent(const DOMString &typeArg,
 			bool canBubbleArg,
 			bool cancelableArg,
@@ -314,6 +319,7 @@ private:
     unsigned short m_button;
     NodeImpl *m_relatedTarget;
     ClipboardImpl *m_clipboard;
+    bool m_isSimulated;
 };
 
 

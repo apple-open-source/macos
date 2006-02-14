@@ -356,7 +356,7 @@ bool UIEventImpl::isUIEvent() const
 // -----------------------------------------------------------------------------
 
 MouseRelatedEventImpl::MouseRelatedEventImpl()
-    : m_screenX(0), m_screenY(0), m_clientX(0), m_clientY(0), m_layerX(0), m_layerY(0)
+    : m_screenX(0), m_screenY(0), m_clientX(0), m_clientY(0), m_layerX(0), m_layerY(0), m_isSimulated(0)
 {
 }
 
@@ -372,7 +372,8 @@ MouseRelatedEventImpl::MouseRelatedEventImpl(EventId _id,
 			       bool ctrlKeyArg,
 			       bool altKeyArg,
 			       bool shiftKeyArg,
-			       bool metaKeyArg)
+			       bool metaKeyArg,
+				   bool isSimulated)
     : UIEventWithKeyStateImpl(_id, canBubbleArg, cancelableArg, viewArg, detailArg,
         ctrlKeyArg, altKeyArg, shiftKeyArg, metaKeyArg)
 {
@@ -438,10 +439,12 @@ MouseEventImpl::MouseEventImpl(EventId _id,
 			       bool metaKeyArg,
 			       unsigned short buttonArg,
 			       NodeImpl *relatedTargetArg,
-                               ClipboardImpl *clipboardArg)
+                               ClipboardImpl *clipboardArg,
+                               bool isSimulated)
     : MouseRelatedEventImpl(_id, canBubbleArg, cancelableArg, viewArg, detailArg,
         screenXArg, screenYArg, clientXArg, clientYArg,
         ctrlKeyArg, altKeyArg, shiftKeyArg, metaKeyArg)
+    , m_isSimulated(isSimulated)
 {
     m_button = buttonArg;
     m_relatedTarget = relatedTargetArg;

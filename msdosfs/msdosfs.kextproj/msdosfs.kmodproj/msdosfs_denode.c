@@ -3,6 +3,8 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -229,7 +231,6 @@ deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 	struct timeval tv;
 	struct vnode_fsparam vfsp;
 	enum vtype vtype;
-	vnode_t vp;
 
 	/*
 	 * On FAT32 filesystems, root is a (more or less) normal
@@ -404,16 +405,15 @@ deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 	/* vfsp.vnfs_markroot was set or cleared above */
 	vfsp.vnfs_marksystem = 0;	/* msdosfs has no "system" vnodes */
 	
-	error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &vp);
+	error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &new_dep->de_vnode);
 	if (error)
 		goto fail;
 
 	/*
-	 * Make the denode reference the new vnode, and
-	 * take a reference on it (on behalf of the denode).
+	 * Take an "fs"  reference on the new vnode on
+	 * behalf of the denode.
 	 */
-	new_dep->de_vnode = vp;
-	vnode_addfsref(vp);
+	vnode_addfsref(new_dep->de_vnode);
 	
 	/*
 	 * Return it.  We're done.

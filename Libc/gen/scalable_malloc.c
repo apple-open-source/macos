@@ -603,7 +603,7 @@ allocate_pages(szone_t *szone, size_t size, unsigned char align, unsigned debug_
     boolean_t		add_guard_pages = debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES;
     size_t		allocation_size = round_page(size);
     size_t		delta;
-    
+
     if (align) add_guard_pages = 0; // too cumbersome to deal with that
     if (!allocation_size) allocation_size = 1 << vm_page_shift;
     if (add_guard_pages) allocation_size += 2 * (1 << vm_page_shift);
@@ -3075,7 +3075,10 @@ szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_request
     } else {
 	// large or huge
 	num_pages = round_page(size) >> vm_page_shift;
-	ptr = large_and_huge_malloc(szone, num_pages);
+	if (num_pages == 0)	/* Overflowed */
+		ptr = 0;
+	else
+		ptr = large_and_huge_malloc(szone, num_pages);
     }
 #if DEBUG_MALLOC
     if (LOG(szone, ptr))

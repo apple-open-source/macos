@@ -1,4 +1,4 @@
-// !$*UTF8*$!
+/ !$*UTF8*$!
 {
 	archiveVersion = 1;
 	classes = {
@@ -155,6 +155,18 @@
 				<array>
 					<dict>
 						<key>Content Hint</key>
+						<string>48465300-0000-11AA-AA11-00306543ECAC</string>
+						<key>Leaf</key>
+						<true/>
+					</dict>
+					<dict>
+						<key>Content Hint</key>
+						<string>426F6F74-0000-11AA-AA11-00306543ECAC</string>
+						<key>Leaf</key>
+						<true/>
+					</dict>
+					<dict>
+						<key>Content Hint</key>
 						<string></string>
 						<key>RAID</key>
 						<true/>
@@ -174,6 +186,12 @@
 					<dict>
 						<key>Content Hint</key>
 						<string>Apple_UFS</string>
+						<key>Leaf</key>
+						<true/>
+					</dict>
+					<dict>
+						<key>Content Hint</key>
+						<string>Apple_Boot</string>
 						<key>Leaf</key>
 						<true/>
 					</dict>

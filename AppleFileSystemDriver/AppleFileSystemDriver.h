@@ -40,6 +40,7 @@ protected:
 
     IONotifier *_notifier;
     uuid_t      _uuid;
+    OSString   *_uuidString;
     
     struct ExpansionData { /* */ };
     ExpansionData * _expansionData;

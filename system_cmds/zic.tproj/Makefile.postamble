@@ -210,6 +210,7 @@ after_install::
 	done
 	chmod -R og-w ${ZONEINFO}
 	install -c -m 444 datfiles/zone.tab ${ZONEINFO}
+	install -c -m 444 datfiles/iso3166.tab ${ZONEINFO}
 	-mkdir -p ${DSTROOT}/private/etc
 	-rm -f ${DSTROOT}/private/etc/localtime
 	ln -fs /usr/share/zoneinfo/${LOCALTIME} ${DSTROOT}/private/etc/localtime

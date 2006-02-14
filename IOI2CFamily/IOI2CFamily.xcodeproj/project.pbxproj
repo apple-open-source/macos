@@ -1,0 +1,1860 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		A636AC8B0649E3F400991F6B /* all */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 3D6752D708E877F40053AF1E /* Build configuration list for PBXAggregateTarget "all" */;
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				A636AC8C0649E3FA00991F6B /* PBXTargetDependency */,
+				A6169E8406D14B9400857C4B /* PBXTargetDependency */,
+				A636AC8D0649E40700991F6B /* PBXTargetDependency */,
+				A6A90A4D06508C43006DEC2D /* PBXTargetDependency */,
+				A681DFB70652E4BA0031F8B0 /* PBXTargetDependency */,
+			);
+			name = all;
+			productName = all;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		A6169E8306D14B7700857C4B /* IOI2CControllerPMU.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6169E8206D14B7700857C4B /* IOI2CControllerPMU.cpp */; };
+		A661085706262546001A2AE6 /* IOI2CDefs.h in Headers */ = {isa = PBXBuildFile; fileRef = A69CD8D9060F973300B5783B /* IOI2CDefs.h */; };
+		A661085806262547001A2AE6 /* IOI2CController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A69CD8DA060F973300B5783B /* IOI2CController.cpp */; };
+		A661085906262548001A2AE6 /* IOI2CController.h in Headers */ = {isa = PBXBuildFile; fileRef = A69CD8DB060F973300B5783B /* IOI2CController.h */; };
+		A661085A06262549001A2AE6 /* IOI2CService.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A69CD8CF060F973300B5783B /* IOI2CService.cpp */; };
+		A661085B0626254A001A2AE6 /* IOI2CService.h in Headers */ = {isa = PBXBuildFile; fileRef = A69CD8D0060F973300B5783B /* IOI2CService.h */; };
+		A661085C0626254C001A2AE6 /* IOI2CBus.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A69CD8D6060F973300B5783B /* IOI2CBus.cpp */; };
+		A661085D0626254D001A2AE6 /* IOI2CBus.h in Headers */ = {isa = PBXBuildFile; fileRef = A69CD8D7060F973300B5783B /* IOI2CBus.h */; };
+		A67B662C0635F77A001E8A50 /* IOI2C.c in Sources */ = {isa = PBXBuildFile; fileRef = A67B662A0635F77A001E8A50 /* IOI2C.c */; };
+		A67B662D0635F77A001E8A50 /* IOI2C.h in Headers */ = {isa = PBXBuildFile; fileRef = A67B662B0635F77A001E8A50 /* IOI2C.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A67B662F06360075001E8A50 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A625F5370607E06100340338 /* CoreFoundation.framework */; };
+		A67B663006360075001E8A50 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A625F5630607E07300340338 /* IOKit.framework */; };
+		A67B663106360094001E8A50 /* IOI2CDefs.h in Headers */ = {isa = PBXBuildFile; fileRef = A69CD8D9060F973300B5783B /* IOI2CDefs.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A6961B7B06286E2B007DCB97 /* IOI2CDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A69CD8DC060F973300B5783B /* IOI2CDevice.cpp */; };
+		A6961B7C06286E2C007DCB97 /* IOI2CDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = A69CD8DD060F973300B5783B /* IOI2CDevice.h */; };
+		A69B42AB06290C31007D3108 /* IOPlatformFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = A69B42AA06290C31007D3108 /* IOPlatformFunction.h */; };
+		A69B42B506291F8E007D3108 /* IOI2CUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = A69CD8D5060F973300B5783B /* IOI2CUserClient.h */; };
+		A69B42B606291F8F007D3108 /* IOI2CUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A69CD8D4060F973300B5783B /* IOI2CUserClient.cpp */; };
+		A6A70ABF06381A8B0053416D /* IOI2CUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = A69CD8D5060F973300B5783B /* IOI2CUserClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A6A70AC006381A8C0053416D /* IOI2CDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = A69CD8DD060F973300B5783B /* IOI2CDevice.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A6C068FA06480C2F003BFF8E /* IOI2C.c in Sources */ = {isa = PBXBuildFile; fileRef = A67B662A0635F77A001E8A50 /* IOI2C.c */; };
+		A6C068FB06480C31003BFF8E /* IOI2C.h in Headers */ = {isa = PBXBuildFile; fileRef = A67B662B0635F77A001E8A50 /* IOI2C.h */; };
+		A6C4320B0649952000C38057 /* IOI2CControllerSMU.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A69CD8D2060F973300B5783B /* IOI2CControllerSMU.cpp */; };
+		A6C4321B064995D700C38057 /* IOI2CControllerPPC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6FB3FFC0634BBC2001D2C05 /* IOI2CControllerPPC.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		06AA1265FFB2107B11CA28AA /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXBundleTarget section */
+		A6169E7806D14A7A00857C4B /* IOI2CControllerPMU */ = {
+			isa = PBXBundleTarget;
+			buildConfigurationList = 3D6752C708E877F40053AF1E /* Build configuration list for PBXBundleTarget "IOI2CControllerPMU" */;
+			buildPhases = (
+				A6169E7A06D14A7A00857C4B /* ShellScript */,
+				A6169E7B06D14A7A00857C4B /* Headers */,
+				A6169E7C06D14A7A00857C4B /* Sources */,
+				A6169E7E06D14A7A00857C4B /* Resources */,
+				A6169E7F06D14A7A00857C4B /* Frameworks */,
+				A6169E8006D14A7A00857C4B /* ShellScript */,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerPMU;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerPMU;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				A67EFE61073AC08600953A5C /* PBXTargetDependency */,
+			);
+			name = IOI2CControllerPMU;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOI2CControllerSMU;
+			productReference = A6169E8106D14A7A00857C4B /* IOI2CControllerPMU.kext */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOI2CControllerPMU</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOI2CControllerPMU version 1.0.8, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOI2CControllerPMU</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOI2CControllerPMU</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.8</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.8b1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOI2CControllerPMU</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CControllerPMU</string>
+			<key>IOClass</key>
+			<string>IOI2CControllerPMU</string>
+			<key>IONameMatch</key>
+			<string>pmu-i2c-control</string>
+			<key>IOProbeScore</key>
+			<integer>11000</integer>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+			<key>IOUserClientClass</key>
+			<string>IOI2CUserClient</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOI2CFamily</key>
+		<string>1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+		A661085106261FCF001A2AE6 /* IOI2CFamily */ = {
+			isa = PBXBundleTarget;
+			buildConfigurationList = 3D6752C308E877F40053AF1E /* Build configuration list for PBXBundleTarget "IOI2CFamily" */;
+			buildPhases = (
+				A661084B06261FCF001A2AE6 /* ShellScript */,
+				A661084C06261FCF001A2AE6 /* Headers */,
+				A661084D06261FCF001A2AE6 /* Sources */,
+				A661084E06261FCF001A2AE6 /* Resources */,
+				A661084F06261FCF001A2AE6 /* Frameworks */,
+				A661085006261FCF001A2AE6 /* ShellScript */,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CFamily;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CFamily;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				A67EFE62073AC08E00953A5C /* PBXTargetDependency */,
+			);
+			name = IOI2CFamily;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = I2CFamily;
+			productReference = A661085206261FCF001A2AE6 /* IOI2CFamily.kext */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOI2CFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOI2CFamily version 1.0.8, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOI2CFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOI2CFamily</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.8</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.8b1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>I2CBus</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CFamily</string>
+			<key>IOClass</key>
+			<string>IOI2CBus</string>
+			<key>IONameMatch</key>
+			<string>i2c-bus</string>
+			<key>IOProbeScore</key>
+			<integer>0</integer>
+			<key>IOProviderClass</key>
+			<string>IOI2CService</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOPlatformFunction</key>
+		<string>1.0.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+		A6C43209064992EC00C38057 /* IOI2CControllerSMU */ = {
+			isa = PBXBundleTarget;
+			buildConfigurationList = 3D6752CB08E877F40053AF1E /* Build configuration list for PBXBundleTarget "IOI2CControllerSMU" */;
+			buildPhases = (
+				A6C43203064992EC00C38057 /* ShellScript */,
+				A6C43204064992EC00C38057 /* Headers */,
+				A6C43205064992EC00C38057 /* Sources */,
+				A6C43206064992EC00C38057 /* Resources */,
+				A6C43207064992EC00C38057 /* Frameworks */,
+				A6C43208064992EC00C38057 /* ShellScript */,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerSMU;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerSMU;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				A67EFE5F073AC08100953A5C /* PBXTargetDependency */,
+			);
+			name = IOI2CControllerSMU;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOI2CControllerSMU;
+			productReference = A6C4320A064992EC00C38057 /* IOI2CControllerSMU.kext */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOI2CControllerSMU</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOI2CControllerSMU version 1.0.8, Copyright 2004-2005 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOI2CControllerSMU</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOI2CControllerSMU</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.8</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.8b1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOI2CControllerSMU</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CControllerSMU</string>
+			<key>IOClass</key>
+			<string>IOI2CControllerSMU</string>
+			<key>IONameMatch</key>
+			<string>smu-i2c-control</string>
+			<key>IOProbeScore</key>
+			<integer>1024</integer>
+			<key>IOProviderClass</key>
+			<string>AppleSMUDevice</string>
+			<key>IOUserClientClass</key>
+			<string>IOI2CUserClient</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOI2CFamily</key>
+		<string>1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+		A6C4320D0649952E00C38057 /* IOI2CControllerPPC */ = {
+			isa = PBXBundleTarget;
+			buildConfigurationList = 3D6752CF08E877F40053AF1E /* Build configuration list for PBXBundleTarget "IOI2CControllerPPC" */;
+			buildPhases = (
+				A6C4320E0649952E00C38057 /* ShellScript */,
+				A6C4320F0649952E00C38057 /* Headers */,
+				A6C432100649952E00C38057 /* Sources */,
+				A6C432120649952E00C38057 /* Resources */,
+				A6C432130649952E00C38057 /* Frameworks */,
+				A6C432140649952E00C38057 /* ShellScript */,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_VERSION = 3.3;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerPPC;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerPPC;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				A67EFE60073AC08400953A5C /* PBXTargetDependency */,
+			);
+			name = IOI2CControllerPPC;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOI2CControllerSMU;
+			productReference = A6C432150649952E00C38057 /* IOI2CControllerPPC.kext */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOI2CControllerPPC</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOI2CControllerPPC version 1.0.9, Copyright 2004-2006 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOI2CControllerPPC</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOI2CControllerPPC</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.9</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.9f1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>K2</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CControllerPPC</string>
+			<key>IOClass</key>
+			<string>IOI2CControllerPPC</string>
+			<key>IONameMatch</key>
+			<string>mac-io-i2c-control</string>
+			<key>IOProbeScore</key>
+			<integer>1024</integer>
+			<key>IOProviderClass</key>
+			<string>AppleK2Device</string>
+			<key>IOUserClientClass</key>
+			<string>IOI2CUserClient</string>
+		</dict>
+		<key>U3</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOI2CControllerPPC</string>
+			<key>IOClass</key>
+			<string>IOI2CControllerPPC</string>
+			<key>IONameMatch</key>
+			<string>uni-n-i2c-control</string>
+			<key>IOProbeScore</key>
+			<integer>1024</integer>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+			<key>IOUserClientClass</key>
+			<string>IOI2CUserClient</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOI2CFamily</key>
+		<string>1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+/* End PBXBundleTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		2EB4A3320822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A6FB3FF506348439001D2C05;
+			remoteInfo = IOI2C.framework;
+		};
+		2EB4A3330822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A6FB3FF506348439001D2C05;
+			remoteInfo = IOI2C.framework;
+		};
+		2EB4A3340822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A6FB3FF506348439001D2C05;
+			remoteInfo = IOI2C.framework;
+		};
+		2EB4A3350822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A6FB3FF506348439001D2C05;
+			remoteInfo = IOI2C.framework;
+		};
+		2EB4A3360822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A6FB3FF506348439001D2C05;
+			remoteInfo = IOI2C.framework;
+		};
+		2EB4A3370822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A6C068F806480BF2003BFF8E;
+			remoteInfo = IOI2CUserLib.a;
+		};
+		2EB4A3380822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A6C4320D0649952E00C38057;
+			remoteInfo = IOI2CControllerPPC;
+		};
+		2EB4A3390822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A6C43209064992EC00C38057;
+			remoteInfo = IOI2CControllerSMU;
+		};
+		2EB4A33A0822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A6169E7806D14A7A00857C4B;
+			remoteInfo = IOI2CControllerPMU;
+		};
+		2EB4A33B0822AC0500B3243E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A661085106261FCF001A2AE6;
+			remoteInfo = IOI2CFamily;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A6169E8106D14A7A00857C4B /* IOI2CControllerPMU.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = IOI2CControllerPMU.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6169E8206D14B7700857C4B /* IOI2CControllerPMU.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOI2CControllerPMU.cpp; path = I2CControllers/IOI2CControllerPMU.cpp; sourceTree = SOURCE_ROOT; };
+		A625F5370607E06100340338 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		A625F5630607E07300340338 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		A661085206261FCF001A2AE6 /* IOI2CFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = IOI2CFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		A67B662A0635F77A001E8A50 /* IOI2C.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOI2C.c; sourceTree = "<group>"; };
+		A67B662B0635F77A001E8A50 /* IOI2C.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2C.h; sourceTree = "<group>"; };
+		A69B42AA06290C31007D3108 /* IOPlatformFunction.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPlatformFunction.h; sourceTree = "<group>"; };
+		A69CD8CF060F973300B5783B /* IOI2CService.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOI2CService.cpp; path = I2CFamily/IOI2CService.cpp; sourceTree = SOURCE_ROOT; };
+		A69CD8D0060F973300B5783B /* IOI2CService.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOI2CService.h; path = I2CFamily/IOI2CService.h; sourceTree = SOURCE_ROOT; };
+		A69CD8D2060F973300B5783B /* IOI2CControllerSMU.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CControllerSMU.cpp; sourceTree = "<group>"; };
+		A69CD8D4060F973300B5783B /* IOI2CUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CUserClient.cpp; sourceTree = "<group>"; };
+		A69CD8D5060F973300B5783B /* IOI2CUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CUserClient.h; sourceTree = "<group>"; };
+		A69CD8D6060F973300B5783B /* IOI2CBus.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CBus.cpp; sourceTree = "<group>"; };
+		A69CD8D7060F973300B5783B /* IOI2CBus.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CBus.h; sourceTree = "<group>"; };
+		A69CD8D9060F973300B5783B /* IOI2CDefs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CDefs.h; sourceTree = "<group>"; };
+		A69CD8DA060F973300B5783B /* IOI2CController.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CController.cpp; sourceTree = "<group>"; };
+		A69CD8DB060F973300B5783B /* IOI2CController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CController.h; sourceTree = "<group>"; };
+		A69CD8DC060F973300B5783B /* IOI2CDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CDevice.cpp; sourceTree = "<group>"; };
+		A69CD8DD060F973300B5783B /* IOI2CDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CDevice.h; sourceTree = "<group>"; };
+		A6C068F906480BF2003BFF8E /* IOI2CUserLib.a */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = IOI2CUserLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6C4320A064992EC00C38057 /* IOI2CControllerSMU.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = IOI2CControllerSMU.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6C432150649952E00C38057 /* IOI2CControllerPPC.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = IOI2CControllerPPC.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6FB3FF606348439001D2C05 /* IOI2C.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = IOI2C.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6FB3FFC0634BBC2001D2C05 /* IOI2CControllerPPC.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CControllerPPC.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworkTarget section */
+		A6FB3FF506348439001D2C05 /* IOI2C.framework */ = {
+			isa = PBXFrameworkTarget;
+			buildConfigurationList = 3D6752BF08E877F40053AF1E /* Build configuration list for PBXFrameworkTarget "IOI2C.framework" */;
+			buildPhases = (
+				A6FB3FF006348439001D2C05 /* Headers */,
+				A6FB3FF106348439001D2C05 /* Resources */,
+				A6FB3FF206348439001D2C05 /* Sources */,
+				A6FB3FF306348439001D2C05 /* Frameworks */,
+				A6FB3FF406348439001D2C05 /* Rez */,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-seg1addr",
+					0x76000000,
+				);
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = IOI2C;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			name = IOI2C.framework;
+			productInstallPath = "";
+			productName = IOI2CUserClient;
+			productReference = A6FB3FF606348439001D2C05 /* IOI2C.framework */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOI2C</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOI2C Framework version 1.1.0d1, Copyright 2002-2005 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.framework.IOI2C</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOI2C</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1.0d1</string>
+</dict>
+</plist>
+";
+		};
+/* End PBXFrameworkTarget section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A6169E7F06D14A7A00857C4B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A661084F06261FCF001A2AE6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C068F606480BF2003BFF8E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C43207064992EC00C38057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C432130649952E00C38057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6FB3FF306348439001D2C05 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A67B662F06360075001E8A50 /* CoreFoundation.framework in Frameworks */,
+				A67B663006360075001E8A50 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* AppleI2C */ = {
+			isa = PBXGroup;
+			children = (
+				A69CD8DE060F973300B5783B /* IOI2CUser */,
+				A61FBC06061E93DC0052DD2B /* I2CControllers */,
+				A69CD8CD060F973300B5783B /* I2CFamily */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+				A625F5650607E07900340338 /* Frameworks */,
+			);
+			name = AppleI2C;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A661085206261FCF001A2AE6 /* IOI2CFamily.kext */,
+				A6FB3FF606348439001D2C05 /* IOI2C.framework */,
+				A6C068F906480BF2003BFF8E /* IOI2CUserLib.a */,
+				A6C4320A064992EC00C38057 /* IOI2CControllerSMU.kext */,
+				A6C432150649952E00C38057 /* IOI2CControllerPPC.kext */,
+				A6169E8106D14A7A00857C4B /* IOI2CControllerPMU.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A61FBC06061E93DC0052DD2B /* I2CControllers */ = {
+			isa = PBXGroup;
+			children = (
+				A6169E8206D14B7700857C4B /* IOI2CControllerPMU.cpp */,
+				A6FB3FFC0634BBC2001D2C05 /* IOI2CControllerPPC.cpp */,
+				A69CD8D2060F973300B5783B /* IOI2CControllerSMU.cpp */,
+			);
+			path = I2CControllers;
+			sourceTree = "<group>";
+		};
+		A625F5650607E07900340338 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A625F5370607E06100340338 /* CoreFoundation.framework */,
+				A625F5630607E07300340338 /* IOKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A69CD8CD060F973300B5783B /* I2CFamily */ = {
+			isa = PBXGroup;
+			children = (
+				A69B42AA06290C31007D3108 /* IOPlatformFunction.h */,
+				A69CD8D9060F973300B5783B /* IOI2CDefs.h */,
+				A69CD8D5060F973300B5783B /* IOI2CUserClient.h */,
+				A69CD8D4060F973300B5783B /* IOI2CUserClient.cpp */,
+				A69CD8DD060F973300B5783B /* IOI2CDevice.h */,
+				A69CD8DC060F973300B5783B /* IOI2CDevice.cpp */,
+				A69CD8D7060F973300B5783B /* IOI2CBus.h */,
+				A69CD8D6060F973300B5783B /* IOI2CBus.cpp */,
+				A69CD8DB060F973300B5783B /* IOI2CController.h */,
+				A69CD8DA060F973300B5783B /* IOI2CController.cpp */,
+				A69CD8D0060F973300B5783B /* IOI2CService.h */,
+				A69CD8CF060F973300B5783B /* IOI2CService.cpp */,
+			);
+			path = I2CFamily;
+			sourceTree = "<group>";
+		};
+		A69CD8DE060F973300B5783B /* IOI2CUser */ = {
+			isa = PBXGroup;
+			children = (
+				A67B662A0635F77A001E8A50 /* IOI2C.c */,
+				A67B662B0635F77A001E8A50 /* IOI2C.h */,
+			);
+			path = IOI2CUser;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A6169E7B06D14A7A00857C4B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A661084C06261FCF001A2AE6 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A661085706262546001A2AE6 /* IOI2CDefs.h in Headers */,
+				A661085906262548001A2AE6 /* IOI2CController.h in Headers */,
+				A661085B0626254A001A2AE6 /* IOI2CService.h in Headers */,
+				A661085D0626254D001A2AE6 /* IOI2CBus.h in Headers */,
+				A6961B7C06286E2C007DCB97 /* IOI2CDevice.h in Headers */,
+				A69B42AB06290C31007D3108 /* IOPlatformFunction.h in Headers */,
+				A69B42B506291F8E007D3108 /* IOI2CUserClient.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C068F406480BF2003BFF8E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A6C068FB06480C31003BFF8E /* IOI2C.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C43204064992EC00C38057 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C4320F0649952E00C38057 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6FB3FF006348439001D2C05 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A67B662D0635F77A001E8A50 /* IOI2C.h in Headers */,
+				A67B663106360094001E8A50 /* IOI2CDefs.h in Headers */,
+				A6A70ABF06381A8B0053416D /* IOI2CUserClient.h in Headers */,
+				A6A70AC006381A8C0053416D /* IOI2CDevice.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLibraryTarget section */
+		A6C068F806480BF2003BFF8E /* IOI2CUserLib.a */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = 3D6752D308E877F40053AF1E /* Build configuration list for PBXLibraryTarget "IOI2CUserLib.a" */;
+			buildPhases = (
+				A6C068F406480BF2003BFF8E /* Headers */,
+				A6C068F506480BF2003BFF8E /* Sources */,
+				A6C068F606480BF2003BFF8E /* Frameworks */,
+				A6C068F706480BF2003BFF8E /* Rez */,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/local/lib/;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CUserLib.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				A67EFE5E073AC07C00953A5C /* PBXTargetDependency */,
+			);
+			name = IOI2CUserLib.a;
+			productInstallPath = /usr/local/lib/;
+			productName = IOI2CUserLib;
+			productReference = A6C068F906480BF2003BFF8E /* IOI2CUserLib.a */;
+		};
+/* End PBXLibraryTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 3D6752DB08E877F40053AF1E /* Build configuration list for PBXProject "IOI2CFamily" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA /* Development */,
+				06AA1266FFB2107B11CA28AA /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* AppleI2C */;
+			projectDirPath = "";
+			targets = (
+				A636AC8B0649E3F400991F6B /* all */,
+				A6FB3FF506348439001D2C05 /* IOI2C.framework */,
+				A6C068F806480BF2003BFF8E /* IOI2CUserLib.a */,
+				A661085106261FCF001A2AE6 /* IOI2CFamily */,
+				A6C43209064992EC00C38057 /* IOI2CControllerSMU */,
+				A6C4320D0649952E00C38057 /* IOI2CControllerPPC */,
+				A6169E7806D14A7A00857C4B /* IOI2CControllerPMU */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A6169E7E06D14A7A00857C4B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A661084E06261FCF001A2AE6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C43206064992EC00C38057 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C432120649952E00C38057 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6FB3FF106348439001D2C05 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		A6C068F706480BF2003BFF8E /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6FB3FF406348439001D2C05 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A6169E7A06D14A7A00857C4B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A6169E8006D14A7A00857C4B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A661084B06261FCF001A2AE6 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A661085006261FCF001A2AE6 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A6C43203064992EC00C38057 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A6C43208064992EC00C38057 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A6C4320E0649952E00C38057 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A6C432140649952E00C38057 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A6169E7C06D14A7A00857C4B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A6169E8306D14B7700857C4B /* IOI2CControllerPMU.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A661084D06261FCF001A2AE6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A661085806262547001A2AE6 /* IOI2CController.cpp in Sources */,
+				A661085A06262549001A2AE6 /* IOI2CService.cpp in Sources */,
+				A661085C0626254C001A2AE6 /* IOI2CBus.cpp in Sources */,
+				A6961B7B06286E2B007DCB97 /* IOI2CDevice.cpp in Sources */,
+				A69B42B606291F8F007D3108 /* IOI2CUserClient.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C068F506480BF2003BFF8E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A6C068FA06480C2F003BFF8E /* IOI2C.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C43205064992EC00C38057 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A6C4320B0649952000C38057 /* IOI2CControllerSMU.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6C432100649952E00C38057 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A6C4321B064995D700C38057 /* IOI2CControllerPPC.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A6FB3FF206348439001D2C05 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A67B662C0635F77A001E8A50 /* IOI2C.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A6169E8406D14B9400857C4B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A6169E7806D14A7A00857C4B /* IOI2CControllerPMU */;
+			targetProxy = 2EB4A33A0822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+		A636AC8C0649E3FA00991F6B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A661085106261FCF001A2AE6 /* IOI2CFamily */;
+			targetProxy = 2EB4A33B0822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+		A636AC8D0649E40700991F6B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A6C43209064992EC00C38057 /* IOI2CControllerSMU */;
+			targetProxy = 2EB4A3390822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+		A67EFE5E073AC07C00953A5C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A6FB3FF506348439001D2C05 /* IOI2C.framework */;
+			targetProxy = 2EB4A3350822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+		A67EFE5F073AC08100953A5C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A6FB3FF506348439001D2C05 /* IOI2C.framework */;
+			targetProxy = 2EB4A3320822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+		A67EFE60073AC08400953A5C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A6FB3FF506348439001D2C05 /* IOI2C.framework */;
+			targetProxy = 2EB4A3360822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+		A67EFE61073AC08600953A5C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A6FB3FF506348439001D2C05 /* IOI2C.framework */;
+			targetProxy = 2EB4A3340822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+		A67EFE62073AC08E00953A5C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A6FB3FF506348439001D2C05 /* IOI2C.framework */;
+			targetProxy = 2EB4A3330822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+		A681DFB70652E4BA0031F8B0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A6C068F806480BF2003BFF8E /* IOI2CUserLib.a */;
+			targetProxy = 2EB4A3370822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+		A6A90A4D06508C43006DEC2D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A6C4320D0649952E00C38057 /* IOI2CControllerPPC */;
+			targetProxy = 2EB4A3380822AC0500B3243E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3D6752C008E877F40053AF1E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-seg1addr",
+					0x76000000,
+				);
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = IOI2C;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		3D6752C108E877F40053AF1E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-seg1addr",
+					0x76000000,
+				);
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = IOI2C;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		3D6752C208E877F40053AF1E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-seg1addr",
+					0x76000000,
+				);
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = IOI2C;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		3D6752C408E877F40053AF1E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CFamily;
+				MODULE_VERSION = 1.0.8b1;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CFamily;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		3D6752C508E877F40053AF1E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CFamily;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CFamily;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		3D6752C608E877F40053AF1E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CFamily;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CFamily;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		3D6752C808E877F40053AF1E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerPMU;
+				MODULE_VERSION = 1.0.8b1;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerPMU;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		3D6752C908E877F40053AF1E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerPMU;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerPMU;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		3D6752CA08E877F40053AF1E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerPMU;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerPMU;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		3D6752CC08E877F40053AF1E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerSMU;
+				MODULE_VERSION = 1.0.8b1;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerSMU;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		3D6752CD08E877F40053AF1E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerSMU;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerSMU;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		3D6752CE08E877F40053AF1E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerSMU;
+				MODULE_VERSION = 1.0.8b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerSMU;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		3D6752D008E877F40053AF1E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION = 3.3;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerPPC;
+				MODULE_VERSION = 1.0.9f1;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DDEBUG";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerPPC;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		3D6752D108E877F40053AF1E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_VERSION = 3.3;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerPPC;
+				MODULE_VERSION = 1.0.9f1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerPPC;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		3D6752D208E877F40053AF1E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks";
+				GCC_VERSION = 3.3;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CControllerPPC;
+				MODULE_VERSION = 1.0.9f1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CControllerPPC;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		3D6752D408E877F40053AF1E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/lib/;
+				LIBRARY_STYLE = STATIC;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CUserLib.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		3D6752D508E877F40053AF1E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/local/lib/;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CUserLib.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		3D6752D608E877F40053AF1E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/local/lib/;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOI2CUserLib.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		3D6752D808E877F40053AF1E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		3D6752D908E877F40053AF1E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		3D6752DA08E877F40053AF1E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		3D6752DC08E877F40053AF1E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		3D6752DD08E877F40053AF1E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		3D6752DE08E877F40053AF1E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3D6752BF08E877F40053AF1E /* Build configuration list for PBXFrameworkTarget "IOI2C.framework" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D6752C008E877F40053AF1E /* Development */,
+				3D6752C108E877F40053AF1E /* Deployment */,
+				3D6752C208E877F40053AF1E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		3D6752C308E877F40053AF1E /* Build configuration list for PBXBundleTarget "IOI2CFamily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D6752C408E877F40053AF1E /* Development */,
+				3D6752C508E877F40053AF1E /* Deployment */,
+				3D6752C608E877F40053AF1E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		3D6752C708E877F40053AF1E /* Build configuration list for PBXBundleTarget "IOI2CControllerPMU" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D6752C808E877F40053AF1E /* Development */,
+				3D6752C908E877F40053AF1E /* Deployment */,
+				3D6752CA08E877F40053AF1E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		3D6752CB08E877F40053AF1E /* Build configuration list for PBXBundleTarget "IOI2CControllerSMU" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D6752CC08E877F40053AF1E /* Development */,
+				3D6752CD08E877F40053AF1E /* Deployment */,
+				3D6752CE08E877F40053AF1E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		3D6752CF08E877F40053AF1E /* Build configuration list for PBXBundleTarget "IOI2CControllerPPC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D6752D008E877F40053AF1E /* Development */,
+				3D6752D108E877F40053AF1E /* Deployment */,
+				3D6752D208E877F40053AF1E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		3D6752D308E877F40053AF1E /* Build configuration list for PBXLibraryTarget "IOI2CUserLib.a" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D6752D408E877F40053AF1E /* Development */,
+				3D6752D508E877F40053AF1E /* Deployment */,
+				3D6752D608E877F40053AF1E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		3D6752D708E877F40053AF1E /* Build configuration list for PBXAggregateTarget "all" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D6752D808E877F40053AF1E /* Development */,
+				3D6752D908E877F40053AF1E /* Deployment */,
+				3D6752DA08E877F40053AF1E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		3D6752DB08E877F40053AF1E /* Build configuration list for PBXProject "IOI2CFamily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D6752DC08E877F40053AF1E /* Development */,
+				3D6752DD08E877F40053AF1E /* Deployment */,
+				3D6752DE08E877F40053AF1E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

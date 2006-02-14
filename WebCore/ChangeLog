@@ -1,3 +1,84 @@
+=== WebCore-417.19 ===
+
+2006-01-18  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-01-17  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Hyatt and Darin
+
+        Fix for <rdar://problem/4405836> REGRESSION: crash at webmail.aol.com 
+        when deleting mail in khtml::RenderTableCell::collapsedBottomBorder() const 
+        + 232
+
+        RenderTableCell::collapsedBottomBorder() gets nextCell by calling 
+        table()->cellBelow(this). In the case of the crash, cellBelow() returns 
+        a pointer to a table cell that was already destroyed. cellBelow() thinks 
+        that the pointer is still good because the grid of cells has not been updated 
+        because all of this code is called through the hitTest and the hitTest does 
+        not update the layout. The fix that I have is simply it have the hitTest call 
+        updateLayout(). This is the only change in behavior. The rest of the patch 
+        preserves behavior for simulated clicks. fast/events/stopPropagation-submit 
+        caught this problem that arose from calling updateLayout() in the hitTest; 
+        we should always have an x and y position of 0 for simulated clicks. This 
+        preserves that behavior by keeping track of whether a click is simulated or not.
+
+        * khtml/html/HTMLInputElementImpl.cpp:
+        (DOM::HTMLInputElementImpl::defaultEventHandler): If the click is simulated, 
+        set xPos and yPos to 0.
+        * khtml/html/html_elementimpl.cpp:
+        (HTMLElementImpl::setContentEditable): Fix spacing.
+        (HTMLElementImpl::click): It isn't necessary to check if there is a renderer.
+        * khtml/rendering/render_layer.cpp:
+        (khtml::RenderLayer::hitTest): Call updateLayout().
+        * khtml/xml/NodeImpl.cpp:
+        (WebCore::NodeImpl::dispatchSimulatedMouseEvent): Set isSimulated to true.
+        (WebCore::NodeImpl::dispatchMouseEvent): Keep track of isSimulated.
+        * khtml/xml/NodeImpl.h: Same.
+        * khtml/xml/dom2_eventsimpl.cpp:
+        (DOM::MouseRelatedEventImpl::MouseRelatedEventImpl): Add isSimulated to
+        MouseRelatedEventImpl().
+        (DOM::MouseRelatedEventImpl::computePositions): Only change the offsets if 
+        it's not simulated.
+        (DOM::MouseEventImpl::MouseEventImpl): Add isSimulated to MouseEventImpl()
+        * khtml/xml/dom2_eventsimpl.h: 
+        (DOM::MouseRelatedEventImpl::isSimulated): Declarations of isSimulated
+        (DOM::MouseEventImpl::isSimulated): Same.
+
+=== WebCore-417.18.1 ===
+
+2006-01-05  Adele Peterson  <adele@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-25  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Maciej
+
+        Fix for <rdar://problem/4148730> SureSec si#182 safari heap overflow.
+        When a table has a really huge rowSpan, Safari used to crash because
+        the malloc of the grid for the table failed. This fix just checks for
+        the success of the malloc.
+
+        * khtml/rendering/render_table.cpp:
+        (RenderTableSection::ensureRows): Return false if the grid resize is not 
+        successful.
+        (RenderTableSection::addCell): Return early if ensureRows() returned false.
+        * khtml/rendering/render_table.h: Make ensureRows() return a bool instead
+        of void.
+
+=== WebCore-417.18 ===
+
+2005-12-23  Geoffrey Garen  <ggaren@apple.com>
+
+        - Fixed <rdar://problem/4392583> REGRESSION: Reproducible crash while viewing Opera's "why we're better than Safari" site, http://www.howtocreate.co.uk/browserSpeed.html, in khtml::RenderBlock::nodeAtPoint
+
+        Fix by Darin, reviewed and landed by me.
+
+        * khtml/rendering/render_container.cpp:
+        (RenderContainer::updatePseudoChild): Don't have the parent call removeChild, because the child calls parent()->removeChild() on itself in detach().
+
 === WebCore-417.17 ===
 
 2005-12-21  Adele Peterson  <adele@apple.com>

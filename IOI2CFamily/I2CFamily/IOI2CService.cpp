@@ -22,11 +22,15 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CService.cpp,v 1.3 2005/07/01 16:09:52 bwpang Exp $
+ *	File: $Id: IOI2CService.cpp,v 1.4 2006/02/02 00:24:46 hpanther Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2CService.cpp,v $
+ *		Revision 1.4  2006/02/02 00:24:46  hpanther
+ *		Replace flawed IOLock synchronization with semaphores.
+ *		A bit of cleanup on the logging side.
+ *		
  *		Revision 1.3  2005/07/01 16:09:52  bwpang
  *		[4086434] added APSL headers
  *		
@@ -49,7 +53,7 @@ OSDefineMetaClassAndStructors( IOI2CService, IOService )
 bool
 IOI2CService::compareName(OSString *name, OSString **matched) const
 {
-//	kprintf("IOI2CService::compareName\n");
+//	DLOG("IOI2CService::compareName\n");
 	return(IODTCompareNubName(this, name, matched)
 			|| super::compareName(name, matched));
 }

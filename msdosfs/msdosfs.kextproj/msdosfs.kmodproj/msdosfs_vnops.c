@@ -3,6 +3,8 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -2049,7 +2051,8 @@ __private_extern__ enum vtype msdosfs_check_link(struct denode *dep, vfs_context
 	vfsp.vnfs_markroot = 0;
 	vfsp.vnfs_marksystem = 0;
 	
-	error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &vp);
+	error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &dep->de_vnode);
+	vp = dep->de_vnode;
 	if (error) goto exit;
 
     error = buf_meta_bread(vp, 0, roundup(sizeof(*link),pmp->pm_bpcluster),

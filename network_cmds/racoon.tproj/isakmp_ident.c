@@ -1649,10 +1649,17 @@ ident_ir2mx(iph1)
 
 #ifdef IKE_NAT_T
 	if (natd_type) {
-		if (iph1->local_natd)
-			p = set_isakmp_payload(p, iph1->local_natd, natd_type);
-		if (iph1->remote_natd)
-			p = set_isakmp_payload(p, iph1->remote_natd, ISAKMP_NPTYPE_NONE);
+		if ((iph1->natt_flags & NATT_TYPE_MASK) == natt_type_apple) {
+			if (iph1->local_natd)
+				p = set_isakmp_payload(p, iph1->local_natd, natd_type);
+			if (iph1->remote_natd)
+				p = set_isakmp_payload(p, iph1->remote_natd, ISAKMP_NPTYPE_NONE);
+		} else {
+			if (iph1->remote_natd)
+				p = set_isakmp_payload(p, iph1->remote_natd, natd_type);
+			if (iph1->local_natd)
+				p = set_isakmp_payload(p, iph1->local_natd, ISAKMP_NPTYPE_NONE);
+		}
 	}
 #endif
 	error = 0;

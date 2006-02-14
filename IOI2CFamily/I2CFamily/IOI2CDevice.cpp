@@ -22,10 +22,55 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDevice.cpp,v 1.10 2005/07/01 16:09:52 bwpang Exp $
+ *	File: $Id: IOI2CDevice.cpp,v 1.11 2006/02/02 00:24:46 hpanther Exp $
  *
  *  DRI: Joseph Lehrer
  *
+ *		$Log: IOI2CDevice.cpp,v $
+ *		Revision 1.11  2006/02/02 00:24:46  hpanther
+ *		Replace flawed IOLock synchronization with semaphores.
+ *		A bit of cleanup on the logging side.
+ *		
+ *		Revision 1.10  2005/07/01 16:09:52  bwpang
+ *		[4086434] added APSL headers
+ *		
+ *		Revision 1.9  2005/04/29 22:24:10  tsherman
+ *		4103531 - IOI2CLM7x driver fails to loads intermittenly on Q63.
+ *		
+ *		Revision 1.8  2005/02/08 21:04:29  jlehrer
+ *		[3987457] zero init reserved buffer.
+ *		Added explicit flag to indicate we called PMinit.
+ *		In lockI2CBus don't try to take the lock if offline.
+ *		Added debug log flags.
+ *		
+ *		Revision 1.7  2004/12/17 00:51:01  jlehrer
+ *		[3867728] Force PM to power off before calling PMstop in freeI2CResources.
+ *		
+ *		Revision 1.6  2004/12/15 02:16:58  jlehrer
+ *		[3905559] Disable mac-io/i2c power management for AOA.
+ *		[3917744,3917697] Require root privilges for IOI2CUserClient class.
+ *		[3867728] Add support for teardown in freeI2CResources and callPlatformFunction.
+ *		
+ *		Revision 1.5  2004/11/04 20:20:28  jlehrer
+ *		Unregisters for IOI2CPowerStateInterest in freeI2CResources.
+ *		
+ *		Revision 1.4  2004/09/28 01:47:37  jlehrer
+ *		Added separate DLOGPWR macro.
+ *		
+ *		Revision 1.3  2004/09/17 21:05:24  jlehrer
+ *		Removed APSL headers.
+ *		Added support for 10-bit addresses.
+ *		Added external client read/write interface.
+ *		Fixed: removed semaphore_wait(fClientSem) from wakeup event.
+ *		Added: publish all on demand and interrupt flagged PlatformFunctions.
+ *		Changed: readI2C/writeI2C to not recursive call when default key is used.
+ *		
+ *		Revision 1.2  2004/06/08 23:45:15  jlehrer
+ *		Added ERRLOG, disabled DLOG, changed DLOGI2C to use runtime cmd.option flag.
+ *		
+ *		Revision 1.1  2004/06/07 21:53:41  jlehrer
+ *		Initial Checkin
+ *		
  *
  */
 
@@ -677,7 +722,7 @@ IOI2CDevice::powerStateThreadCall(
 		IOService *service = OSDynamicCast(IOService, (OSMetaClassBase *)fSysPowerRef);
 		if (service)
 		{
-			kprintf("IOI2CDevice@%lx acknowledgeNotification\n", fI2CAddress);
+			DLOG("IOI2CDevice@%lx acknowledgeNotification\n", fI2CAddress);
 			service->acknowledgeNotification(this, 0);
 		}
 
@@ -685,7 +730,7 @@ IOI2CDevice::powerStateThreadCall(
 	}
 	else
 	{
-		kprintf("IOI2CDevice@%lx acknowledgeSetPowerState: %lu\n", fI2CAddress, fCurrentPowerState);
+		DLOG("IOI2CDevice@%lx acknowledgeSetPowerState: %lu\n", fI2CAddress, fCurrentPowerState);
 		acknowledgeSetPowerState();
 	}
 }
@@ -994,7 +1039,7 @@ IOI2CDevice::callPlatformFunction(
 		if (functionName->isEqualTo("IOI2CSetDebugFlags"))
 		{
 			UInt32 flags = ( (UInt32)param1 & ( kStateFlags_IOLog | kStateFlags_kprintf ) );
-			kprintf("IOI2CDevice@%lx IOI2CSetDebugFlags:%lx %s\n", (unsigned long int)getI2CAddress(), (unsigned long int)flags, ((UInt32)param2 == true)?"TRUE":"FALSE");
+			DLOG("IOI2CDevice@%lx IOI2CSetDebugFlags:%lx %s\n", (unsigned long int)getI2CAddress(), (unsigned long int)flags, ((UInt32)param2 == true)?"TRUE":"FALSE");
 			if ((UInt32)param2 == true)
 				fStateFlags |= flags;	// set the debug flags
 			else

@@ -161,7 +161,6 @@ MDSRCS+=  ATPgetreq.s \
 	sem_post.s \
 	sem_trywait.s \
 	sem_wait.s \
-	semconfig.s \
 	semget.s \
 	semop.s \
 	semsys.s \

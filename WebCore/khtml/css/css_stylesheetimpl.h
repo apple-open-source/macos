@@ -19,7 +19,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: css_stylesheetimpl.h,v 1.10 2004/08/04 22:05:48 hyatt Exp $
+ * $Id: css_stylesheetimpl.h 7192 2004-08-04 22:05:48Z hyatt $
  */
 #ifndef _CSS_css_stylesheetimpl_h_
 #define _CSS_css_stylesheetimpl_h_

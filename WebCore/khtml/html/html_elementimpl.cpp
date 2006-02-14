@@ -1088,7 +1088,8 @@ void HTMLElementImpl::setContentEditable(HTMLAttributeImpl* attr)
     }
 }
 
-void HTMLElementImpl::setContentEditable(const DOMString &enabled) {
+void HTMLElementImpl::setContentEditable(const DOMString &enabled)
+{
     if (enabled == "inherit") {
         int exceptionCode;
         removeAttribute(ATTR_CONTENTEDITABLE, exceptionCode);
@@ -1099,23 +1100,17 @@ void HTMLElementImpl::setContentEditable(const DOMString &enabled) {
 
 void HTMLElementImpl::click(bool sendMouseEvents)
 {
-    int x = 0;
-    int y = 0;
-    RenderObject *r = renderer();
-    if (r)
-        r->absolutePosition(x,y);
-
     // send mousedown and mouseup before the click, if requested
     if (sendMouseEvents) {
-        QMouseEvent pressEvt(QEvent::MouseButtonPress, QPoint(x,y), Qt::LeftButton, 0);
-        dispatchMouseEvent(&pressEvt, EventImpl::MOUSEDOWN_EVENT);
-        QMouseEvent upEvent(QEvent::MouseButtonRelease, QPoint(x,y), Qt::LeftButton, 0);
-        dispatchMouseEvent(&upEvent, EventImpl::MOUSEUP_EVENT);
+        QMouseEvent pressEvt(QEvent::MouseButtonPress, QPoint(0,0), Qt::LeftButton, 0);
+        dispatchMouseEvent(&pressEvt, EventImpl::MOUSEDOWN_EVENT, 0, true);
+        QMouseEvent upEvent(QEvent::MouseButtonRelease, QPoint(0,0), Qt::LeftButton, 0);
+        dispatchMouseEvent(&upEvent, EventImpl::MOUSEUP_EVENT, 0, true);
     }
     
     // always send click
-    QMouseEvent clickEvent(QEvent::MouseButtonRelease, QPoint(x,y), Qt::LeftButton, 0);
-    dispatchMouseEvent(&clickEvent, EventImpl::KHTML_CLICK_EVENT);
+    QMouseEvent clickEvent(QEvent::MouseButtonRelease, QPoint(0,0), Qt::LeftButton, 0);
+    dispatchMouseEvent(&clickEvent, EventImpl::KHTML_CLICK_EVENT, 0, true);
 }
 
 // accessKeyAction is used by the accessibility support code

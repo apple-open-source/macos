@@ -143,6 +143,9 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	    }
 	} else if (COPYFILE_UNPACK & flags)
 	{
+	    if (!(COPYFILE_STAT & flags || COPYFILE_ACL & flags))
+		fix_perms = !copyfile_fix_perms(s, &original_fsec, 1);
+
 	    if (copyfile_unpack(s) < 0)
 		ret = -1;
 	} else

@@ -564,7 +564,7 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = "msdosfs_module_stop ";
-				MODULE_VERSION = 1.4.3;
+				MODULE_VERSION = 1.4.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -599,11 +599,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.3</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.3</string>
+	<string>1.4.5</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>
@@ -854,11 +854,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.3</string>
+	<string>1.4.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.3</string>
+	<string>1.4.5</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>DOS_FAT_12</key>
@@ -939,7 +939,7 @@
 			<key>FSProbeExecutable</key>
 			<string>../../msdos.util</string>
 			<key>FSProbeOrder</key>
-			<integer>1000</integer>
+			<integer>2000</integer>
 		</dict>
 		<key>Partitionless</key>
 		<dict>

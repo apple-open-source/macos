@@ -1,11 +1,18 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CControllerPPC.cpp,v 1.9 2005/09/08 03:17:16 galcher Exp $
+ *	File: $Id: IOI2CControllerPPC.cpp,v 1.11 2006/02/02 22:30:01 hpanther Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2CControllerPPC.cpp,v $
+ *		Revision 1.11  2006/02/02 22:30:01  hpanther
+ *		Repair additional race condition.
+ *		
+ *		Revision 1.10  2006/02/02 00:24:46  hpanther
+ *		Replace flawed IOLock synchronization with semaphores.
+ *		A bit of cleanup on the logging side.
+ *		
  *		Revision 1.9  2005/09/08 03:17:16  galcher
  *		[rdar://4242471] Remove Kodiak Workarounds (IOI2CControllerPPC).
  *		Removed variables and kodiakSyncWait() inline definition.  Removed setup of
@@ -55,18 +62,26 @@
 #include <IOKit/IODeviceTreeSupport.h>
 #include "IOI2CController.h"
 
-//#define PPC_I2C_DEBUG 1
+#include <IOKit/firewire/IOFireLog.h>
+#include <mach/task.h>
+#include <mach/semaphore.h>
+
+#ifdef DEBUG
+	#define PPC_I2C_DEBUG 1
+#endif
 
 #if (defined(PPC_I2C_DEBUG) && PPC_I2C_DEBUG)
-#define DLOG(fmt, args...)  kprintf(fmt, ## args)
+#define DLOG(fmt, args...)  FireLog(fmt, ## args)
 #else
 #define DLOG(fmt, args...)
 #endif
 
-#define I2C_ERRLOG 1
+#ifdef DEBUG
+	#define I2C_ERRLOG 1
+#endif
 
 #if (defined(I2C_ERRLOG) && I2C_ERRLOG)
-#define ERRLOG(fmt, args...)  kprintf(fmt, ## args)
+#define ERRLOG(fmt, args...)  FireLog(fmt, ## args)
 #else
 #define ERRLOG(fmt, args...)
 #endif
@@ -85,11 +100,6 @@ void TLOG(const char *str)
 #else
 #define TLOG(s)
 #endif
-
-//	kprintf("read\nM:%02x C:%02x S:%02x I:%02x E:%02x A:%02x U:%02x D:%02x\n", 
-//		readReg(iMODE), readReg(iCNTRL), readReg(iSTATUS), readReg(iISR),
-//		readReg(iIER), readReg(iADDR), readReg(iSUBADDR), readReg(iDATA));
-
 
 class IOI2CControllerPPC : public IOI2CController
 {
@@ -230,7 +240,7 @@ private:
 	UInt32					i2c_rate;
 	IOReturn				i2c_status;
 	UInt32					i2c_state;
-	IOLock					*i2c_lock;
+	semaphore_t i2c_sema;
 };
 
 
@@ -272,9 +282,9 @@ IOI2CControllerPPC::start(
 	else
 		fInterruptCapable = TRUE;
 
-	if (0 == (i2c_lock = IOLockAlloc()))
-		return false;
-
+	semaphore_create(current_task(), &i2c_sema, SYNC_POLICY_FIFO, 0);
+	if(0==i2c_sema) return false;
+	
 	DLOG("IOI2CControllerPPC::start base:%08lx steps:%ld\n", (UInt32)base, steps);
 
 	iic[iMODE]		= base + (steps * iMODE);		// Configure the transmission mode of the i2c cell and the databit rate.
@@ -359,9 +369,9 @@ void IOI2CControllerPPC::stop(IOService * provider)
 
 void IOI2CControllerPPC::free( void )
 {
-		if (i2c_lock)			{ IOLockFree(i2c_lock);			i2c_lock = 0;  }
-
-		super::free();
+	if(i2c_sema) semaphore_destroy(current_task(), i2c_sema);
+	
+	super::free();
 }
 
 
@@ -560,13 +570,16 @@ IOI2CControllerPPC::i2cTransaction(
 		}
 		else
 		{
-				IOLockLock(i2c_lock);
-				rval = IOLockSleepDeadline(i2c_lock, &i2c_state, deadline, THREAD_UNINT);
-				//
-				// No need to determine what rval is as IOLockUnlock will not report anything.
-				//    At most this will be an unnecessary method call on failure, but since the I2C
-				//    bus is so slow this is minor in comparison.
-				IOLockUnlock(i2c_lock);
+//            if ( i2c_xfer)
+//            {
+				semaphore_wait(i2c_sema);
+				DLOG("[%p] woke from semaphore, i2c_state = %x\n", this, i2c_state);
+/*            }
+            else
+            {
+                DLOG("[%p] xfer already complete - not waiting on semaphore, i2c_state = %x\n", this, i2c_state);
+            }
+*/
 		}
 
 		// Clear transfer in progress flag to try preventing the interupt context from calling IOLockWake after a timeout.
@@ -614,9 +627,8 @@ IOI2CControllerPPC::i2cTransaction(
 				// If transaction successful and didn't timeout?
 				if (rval == THREAD_TIMED_OUT)
 				{
-						ERRLOG("IOI2CControllerPPC::i2c%c timed-out B:0x%02x A:0x%02x %d/%d i2c_state:0x%08x\n", i2c_readDirection?'R':'W', cmd->bus, address, i2c_index, i2c_count, i2c_state);
-						//			if (i2c_state & 0x2000200) // IOLockWake was signaled after the timeout.
-						//				ERRLOG("I2C got a stop after the timeout\n");
+						ERRLOG("IOI2CControllerPPC::i2c%c timed-out B:0x%02x A:0x%02x %d/%d i2c_state:0x%08x\n", 
+							i2c_readDirection?'R':'W', cmd->bus, address, i2c_index, i2c_count, i2c_state);
 
 						// Only indicate a timeout if the stop still has not occured.
 						if (0 == (i2c_state & 0x1000100))
@@ -645,7 +657,7 @@ IOI2CControllerPPC::i2cTransaction(
 // interrupt processing
 // *******************************************************************
 #define iLOG(fmt, args...)
-//#define iLOG kprintf
+//#define iLOG DLOG
 void
 IOI2CControllerPPC::sProcessInterrupt(
 				OSObject	*target,
@@ -658,26 +670,24 @@ IOI2CControllerPPC::sProcessInterrupt(
 				self->processInterrupt();
 }
 
-		void
+void
 IOI2CControllerPPC::processInterrupt(void)
 {
 		register UInt8 byte;
 		register UInt8 isrReg;
 		register UInt8 statusReg;
 
-		//	TLOG("intr");
-
 		isrReg = readReg(iISR);
-
-		//	iLOG("i2c intr: %02x\n", isrReg);
-
+        DLOG("+ [%p] IOI2CControllerPPC::processInterrupt iISR=%02x\n", this, isrReg);
+        
 		if (i2c_readDirection)
 		{
 				if (isrReg & fISR_IADDR)
 				{
-						iLOG("i2cR Addr");
+						ERRLOG("[%p] i2cR Addr\n", this);
 						i2c_state |= 0x01;
 						statusReg = readReg(iSTATUS);					// read bus status
+                        
 						if (statusReg & fSTATUS_LASTAAK)				// got an ack?
 						{
 								if (i2c_count > 1)							// more than one byte?
@@ -740,24 +750,37 @@ IOI2CControllerPPC::processInterrupt(void)
 
 				if (isrReg & fISR_ISTOP)
 				{
-						iLOG("i2cR Stop\n");
+						ERRLOG("[%p] i2cR Stop\n", this);
 						//			writeReg(iIER, 0);								// disable all interrupts
 						writeReg(iISR, fISR_ISTOP);						// clear stop interrupt
 						i2c_state |= 0x100;
 						if (i2c_xfer)
 						{
 								i2c_xfer = false;							// clear transfer in progress flag
-								if (0 == (i2c_state & 0x80000000))			// wakeup sleeping i2cTransaction thread if not in polled mode.
-										IOLockWakeup(i2c_lock, &i2c_state, true);
 								i2c_state |= 0x200;
 						}
+						else
+						{
+							ERRLOG("i2cR Stop not i2c_xfer\n");
+						}
+                        
+                        if (0 == (i2c_state & 0x80000000))			// wakeup sleeping i2cTransaction thread if not in polled mode.
+                        {
+                            kern_return_t result=semaphore_signal(i2c_sema);
+                            DLOG("  [%p] processInterrupt: signalled semaphore, result %08x\n", this, result);
+                        }
+                        else
+                        {
+                            ERRLOG("i2cR Stop - synchronous, not signalling\n");
+                        }
+						
 				}
 		}
 		else // write direction
 		{
 				if (isrReg & fISR_IADDR)
 				{
-						iLOG("i2cW Addr");
+                        ERRLOG("[%p] i2cW Addr\n", this);
 						i2c_state |= 0x10000;
 						statusReg = readReg(iSTATUS);					// read bus status
 						if (statusReg & fSTATUS_LASTAAK)				// got an ack?
@@ -807,19 +830,33 @@ IOI2CControllerPPC::processInterrupt(void)
 
 				if (isrReg & fISR_ISTOP)
 				{
-						iLOG("i2cW Stop\n");
+						ERRLOG("[%p] i2cW Stop\n", this);
 						writeReg(iISR, fISR_ISTOP);						// clear stop interrupt
 						//			writeReg(iIER, 0);								// disable all interrupts
 						i2c_state |= 0x1000000;
 						if (i2c_xfer)
 						{
 								i2c_xfer = false;							// clear transfer in progress flag
-								if (0 == (i2c_state & 0x80000000))			// wakeup sleeping i2cTransaction thread if not in polled mode.
-										IOLockWakeup(i2c_lock, &i2c_state, true);
 								i2c_state |= 0x2000000;
 						}
+						else
+						{
+							ERRLOG("i2cW Stop NOT i2c_xfer\n");
+						}
+
+                        if (0 == (i2c_state & 0x80000000))			// wakeup sleeping i2cTransaction thread if not in polled mode.
+                        {
+                            kern_return_t result=semaphore_signal(i2c_sema);
+                            DLOG("  [%p] processInterrupt: signalled semaphore, result %08x\n", this, result);
+                        }
+                        else
+                        {
+                            ERRLOG("i2cW Stop - synchronous, not signalling\n");
+                        }
 				}
 		}
+
+        ERRLOG("- IOI2CControllerPPC::processInterrupt\n");
 }
 
 
@@ -841,7 +878,7 @@ IOI2CControllerPPC::processInterrupt(void)
 void
 IOI2CControllerPPC::writeReg( int reg_index, UInt8 value)
 {
-		//	kprintf("wReg:%s, %02x\n",v2s(reg_index),value);
+		//	DLOG("wReg:%s, %02x\n",v2s(reg_index),value);
 		*(iic[reg_index]) = value;
 		eieio();
 }
@@ -851,7 +888,7 @@ IOI2CControllerPPC::readReg( int reg_index)
 {
 		UInt8 value = *(iic[reg_index]);
 		eieio();
-		//	kprintf("rReg:%s, %02x\n",v2s(reg_index),value);
+		//	DLOG("rReg:%s, %02x\n",v2s(reg_index),value);
 		return value;
 }
 
@@ -864,7 +901,7 @@ IOI2CControllerPPC::setPowerState(
 		{
 				if (newPowerState == kIOI2CPowerState_SLEEP)
 				{
-						kprintf("IOI2CControllerPPC::setPowerState -> sleep (leave it on for PE4CPU)\n");
+						DLOG("IOI2CControllerPPC::setPowerState -> sleep (leave it on for PE4CPU)\n");
 						return IOPMAckImplied;
 				}
 		}

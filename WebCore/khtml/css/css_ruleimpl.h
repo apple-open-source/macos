@@ -20,7 +20,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: css_ruleimpl.h,v 1.12.10.1 2005/07/22 03:09:47 adele Exp $
+ * $Id: css_ruleimpl.h 9870 2005-07-22 03:10:03Z adele $
  */
 #ifndef _CSS_css_ruleimpl_h_
 #define _CSS_css_ruleimpl_h_

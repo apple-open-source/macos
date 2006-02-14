@@ -90,7 +90,7 @@ LEAF(_##pseudo, 0)					;\
 #define SYS_semctl      254
 #define SYS_semget      255
 #define SYS_semop       256
-#define SYS_semconfig   257
+/*#define SYS_semconfig   257*/
 #define SYS_msgctl      258
 #define SYS_msgget      259
 #define SYS_msgsnd      260

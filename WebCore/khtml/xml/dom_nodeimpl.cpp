@@ -651,7 +651,7 @@ bool NodeImpl::dispatchWindowEvent(int _id, bool canBubbleArg, bool cancelableAr
     return r;
 }
 
-bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overrideDetail)
+bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overrideDetail, bool isSimulated)
 {
     assert(!eventDispatchForbidden());
     bool cancelable = true;
@@ -745,7 +745,7 @@ bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overr
 
     EventImpl *me = new MouseEventImpl(evtId,true,cancelable,getDocument()->defaultView(),
                    detail,screenX,screenY,clientX,clientY,ctrlKey,altKey,shiftKey,metaKey,
-                   button,0);
+                   button, 0, 0, isSimulated);
     me->ref();
     dispatchEvent(me, exceptioncode, true);
     bool defaultHandled = me->defaultHandled();
@@ -766,7 +766,7 @@ bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overr
                                 true,cancelable,getDocument()->defaultView(),
                                 detail,screenX,screenY,clientX,clientY,
                                 ctrlKey,altKey,shiftKey,metaKey,
-                                button,0);
+                                button, 0, 0, isSimulated);
         me->ref();
         if (defaultHandled)
             me->setDefaultHandled();
