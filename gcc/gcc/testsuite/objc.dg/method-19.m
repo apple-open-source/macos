@@ -1,6 +1,7 @@
-/* APPLE LOCAL file Objective-C */
+/* APPLE LOCAL file mainline */
 /* The following should NOT generate "may not respond to" warnings, since a forward-declared
    @class (instance) should be treated like a 'Class') ('id').  */
+
 /* { dg-do compile } */
 
 #include <objc/Object.h>

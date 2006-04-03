@@ -69,4 +69,9 @@ gdb_load ${binfile}
 # zzz::dummy currently causes a search for 'zzz' in STRUCT_NAMESPACE
 # without a preceding search for 'zzz' in VAR_NAMESPACE.
 
+# APPLE LOCAL: Set "don't ask about future breakpoints" to on.  We really should have
+# asked whether to set a future breakpoint in this case, we only didn't because of
+# another bug in decode_compound.
+
+gdb_test "set breakpoint pending off" "" "Set breakpoint pending off."
 gdb_test "break zzz::dummy" "Can't find member of namespace, class, struct, or union named \"zzz::dummy\"\r\n.*" "Don't search past end of psymtab."

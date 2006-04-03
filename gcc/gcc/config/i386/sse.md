@@ -281,11 +281,13 @@
   "TARGET_SSE"
   "movq\t{%1, %0|%0, %1}")
 
+;; APPLE LOCAL begin 4279065
 (define_insn "sse_storeqv4si"
   [(set (match_operand:V2SI 0 "memory_operand" "=m")
-	(unspec:V2SI [(subreg:V2SI (match_operand:V4SI 1 "register_operand" "x") 0)] UNSPEC_STOQ))]
+	(unspec:V2SI [(match_operand:V4SI 1 "register_operand" "x")] UNSPEC_STOQ))]
   "TARGET_SSE"
   "movq\t{%1, %0|%0, %1}")
+;; APPLE LOCAL end 4279065
 
 (define_insn "sse_movqv4si"
   [(set (match_operand:V4SI 0 "register_operand" "=x")
@@ -940,23 +942,25 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; APPLE LOCAL begin 4332318
 (define_insn "sse_movhlps"
   [(set (match_operand:V4SF 0 "nonimmediate_operand"     "=x,x,m")
 	(vec_select:V4SF
 	  (vec_concat:V8SF
-	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,o,x")
-	    (match_operand:V4SF 2 "nonimmediate_operand" " x,0,0"))
-	  (parallel [(const_int 4)
-		     (const_int 5)
+	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,0,0")
+	    (match_operand:V4SF 2 "nonimmediate_operand" " x,o,x"))
+	  (parallel [(const_int 6)
+		     (const_int 7)
 		     (const_int 2)
 		     (const_int 3)])))]
   "TARGET_SSE && !(MEM_P (operands[1]) && MEM_P (operands[2]))"
   "@
    movhlps\t{%2, %0|%0, %2}
-   movlps\t{%H1, %0|%0, %H1}
-   movhps\t{%1, %0|%0, %1}"
+   movlps\t{%H2, %0|%0, %H2}
+   movhps\t{%2, %0|%0, %2}"
   [(set_attr "type" "ssemov")
    (set_attr "mode" "V4SF,V2SF,V2SF")])
+;; APPLE LOCAL end 4332318
 
 ; APPLE LOCAL begin radar 4099352
 (define_insn "sse_movlhps"

@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.45.2.8 2004/10/18 15:08:46 tony2001 Exp $ */
+/* $Id: php_variables.c,v 1.45.2.13.2.4 2005/10/02 11:33:27 rrichards Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -73,6 +73,10 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 		symtable1 = Z_ARRVAL_P(track_vars_array);
 	} else if (PG(register_globals)) {
 		symtable1 = EG(active_symbol_table);
+		/* GLOBALS hijack attempt, reject parameter */
+		if (!strncmp("GLOBALS", var, sizeof("GLOBALS")) || !strncmp("GLOBALS", var, sizeof("GLOBALS[")-1)) {
+			return;
+		}
 	}
 	if (!symtable1) {
 		/* Nothing to do */
@@ -99,6 +103,13 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 		zval_dtor(val);
 		return;
 	}
+
+	/* GLOBALS hijack attempt, reject parameter */
+	if (symtable1 == EG(active_symbol_table) && !strcmp("GLOBALS", var)) {
+		zval_dtor(val);
+		return;
+	}
+
 	/* ensure that we don't have spaces or dots in the variable name (not binary safe) */
 	for (p=var; *p; p++) {
 		switch(*p) {
@@ -182,11 +193,25 @@ plain_var:
 			if (!index) {
 				zend_hash_next_index_insert(symtable1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 			} else {
+				zval **tmp;
+			
 				if (PG(magic_quotes_gpc) && (index!=var)) {
 					char *escaped_index = php_addslashes(index, index_len, &index_len, 0 TSRMLS_CC);
+					
+					if (PG(http_globals)[TRACK_VARS_COOKIE] && symtable1 == Z_ARRVAL_P(PG(http_globals)[TRACK_VARS_COOKIE]) && 
+							zend_hash_find(symtable1, escaped_index, index_len+1, (void **) &tmp) != FAILURE) {
+						efree(escaped_index);
+						break;
+					}
+					
 					zend_hash_update(symtable1, escaped_index, index_len+1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 					efree(escaped_index);
 				} else {
+					if (PG(http_globals)[TRACK_VARS_COOKIE] && symtable1 == Z_ARRVAL_P(PG(http_globals)[TRACK_VARS_COOKIE]) && 
+							zend_hash_find(symtable1, index, index_len+1, (void **) &tmp) != FAILURE) {
+						break;
+					}
+				
 					zend_hash_update(symtable1, index, index_len+1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 				}
 			}

@@ -100,6 +100,14 @@ const char *darwin_one_byte_bool = 0;
 int darwin_reverse_bitfields = 0;
 /* APPLE LOCAL end pragma reverse_bitfields */
 
+/* APPLE LOCAL begin AT&T-style stub 4164563 */
+/* This is an i386-only option, but the i386 target_flags bitset is full.
+   This should resolve itself in 4.1; these decls, and their flags,
+   should move to i386/i386.c.  */
+int darwin_macho_att_stub = 1;	/* Defaults on.  */
+const char *darwin_macho_att_stub_switch;
+/* APPLE LOCAL end AT&T-style stub 4164563 */
+
 int
 name_needs_quotes (const char *name)
 {
@@ -746,6 +754,10 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 						   PIC_OFFSET_TABLE_REGNUM)));
 #endif
 
+	      /* APPLE LOCAL begin 4278461 */	
+	      if (reload_in_progress)
+		regs_ever_live[REGNO (pic)] = 1;
+	      /* APPLE LOCAL end 4278461 */	
 	      pic_ref = gen_rtx_PLUS (Pmode,
 				      pic,
 				      gen_rtx_CONST (Pmode,
@@ -822,6 +834,10 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  emit_insn (gen_rtx_USE (VOIDmode,
 					  pic_offset_table_rtx));
 #endif
+	      /* APPLE LOCAL begin 4278461 */	
+	      if (reload_in_progress)
+		regs_ever_live[REGNO (pic)] = 1;
+	      /* APPLE LOCAL end 4278461 */	
 		  pic_ref = gen_rtx_PLUS (Pmode,
 					  pic,
 					  gen_rtx_CONST (Pmode,
@@ -1162,29 +1178,23 @@ machopic_select_section (tree exp, int reloc,
 	   && TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
 	   && TYPE_NAME (TREE_TYPE (exp)))
     {
-      /* APPLE LOCAL begin constant strings */
+      /* APPLE LOCAL constant strings */
       extern int flag_next_runtime;
-      extern const char *constant_string_class_name;
-      /* APPLE LOCAL end constant strings */
       tree name = TYPE_NAME (TREE_TYPE (exp));
       if (TREE_CODE (name) == TYPE_DECL)
 	name = DECL_NAME (name);
-      if (!strcmp (IDENTIFIER_POINTER (name), "NSConstantString"))
-	objc_constant_string_object_section ();
-      else if (!strcmp (IDENTIFIER_POINTER (name), "NXConstantString"))
-	objc_string_object_section ();
-      /* APPLE LOCAL begin constant strings */
-      else if (!strcmp (IDENTIFIER_POINTER (name), "__builtin_CFString"))
-	cfstring_constant_object_section ();
-      else if (constant_string_class_name
-	  && !strcmp (IDENTIFIER_POINTER (name),
-		      constant_string_class_name))
+      /* APPLE LOCAL begin 4149909 */
+      if (!strcmp (IDENTIFIER_POINTER (name), "__builtin_ObjCString"))
 	{
 	  if (flag_next_runtime)
 	    objc_constant_string_object_section ();
 	  else
 	    objc_string_object_section ();
 	}
+      /* APPLE LOCAL end 4149909 */
+      /* APPLE LOCAL begin constant strings */
+      else if (!strcmp (IDENTIFIER_POINTER (name), "__builtin_CFString"))
+	cfstring_constant_object_section ();
       /* APPLE LOCAL end constant strings */
       else
 	base_function ();
@@ -1372,12 +1382,38 @@ darwin_handle_odd_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 
 /* APPLE LOCAL begin ObjC GC */
 tree
-darwin_handle_objc_gc_attribute (tree *node ATTRIBUTE_UNUSED,
-				 tree name ATTRIBUTE_UNUSED,
-				 tree args ATTRIBUTE_UNUSED,
+darwin_handle_objc_gc_attribute (tree *node,
+				 tree name,
+				 tree args,
 				 int flags ATTRIBUTE_UNUSED,
-				 bool *no_add_attrs ATTRIBUTE_UNUSED)
+				 bool *no_add_attrs)
 {
+  tree orig = *node, type;
+
+  /* Propagate GC-ness to the innermost pointee.  */
+  while (POINTER_TYPE_P (orig)
+	 || TREE_CODE (orig) == FUNCTION_TYPE
+	 || TREE_CODE (orig) == METHOD_TYPE
+	 || TREE_CODE (orig) == ARRAY_TYPE)
+    orig = TREE_TYPE (orig);
+
+  type = build_type_attribute_variant (orig,
+				       tree_cons (name, args,
+				       TYPE_ATTRIBUTES (orig)));
+
+  /* For some reason, build_type_attribute_variant() creates a distinct
+     type instead of a true variant!  We make up for this here.  */
+  if (TYPE_MAIN_VARIANT (type) == type)
+    {
+      TYPE_MAIN_VARIANT (type) = orig;
+      TYPE_NEXT_VARIANT (type) = TYPE_NEXT_VARIANT (orig);
+      TYPE_NEXT_VARIANT (orig) = type;
+    }
+
+  *node = reconstruct_complex_type (*node, type);
+  /* No need to hang on to the attribute any longer.  */
+  *no_add_attrs = true;
+
   return NULL_TREE;
 }
 /* APPLE LOCAL end ObjC GC */
@@ -1659,6 +1695,8 @@ darwin_file_end (void)
 
 int darwin_fix_and_continue;
 const char *darwin_fix_and_continue_switch;
+/* APPLE LOCAL mainline 2005-09-01 3449986 */
+const char *darwin_macosx_version_min;
 
 /* APPLE LOCAL begin KEXT */
 /* Ture, iff we're generating code for loadable kernel extentions.  */
@@ -1670,7 +1708,7 @@ flag_apple_kext_p (void) {
 /* APPLE LOCAL end KEXT */
 
 /* APPLE LOCAL begin constant cfstrings */
-int darwin_constant_cfstrings = 0;
+int darwin_constant_cfstrings = 1;
 const char *darwin_constant_cfstrings_switch;
 int darwin_warn_nonportable_cfstrings = 1;  /* on by default. */
 const char *darwin_warn_nonportable_cfstrings_switch;
@@ -1819,8 +1857,27 @@ tree
 darwin_construct_objc_string (tree str)
 {
   if (!darwin_constant_cfstrings)
-    return NULL_TREE;  /* Fall back to NSConstantString.  */
-  
+  /* APPLE LOCAL begin 4080358 */
+    {
+      /* Even though we are not using CFStrings, place our literal
+	 into the cfstring_htab hash table, so that the
+	 darwin_constant_cfstring_p() function below will see it.  */
+      struct cfstring_descriptor key;
+      void **loc;
+
+      key.literal = str;
+      loc = htab_find_slot (cfstring_htab, &key, INSERT);
+
+      if (!*loc)
+	{
+	  *loc = ggc_alloc (sizeof (struct cfstring_descriptor));
+	  ((struct cfstring_descriptor *)*loc)->literal = str;
+	}
+
+      return NULL_TREE;  /* Fall back to NSConstantString.  */
+    }
+
+  /* APPLE LOCAL end 4080358 */
   return darwin_build_constant_cfstring (str);
 }
 

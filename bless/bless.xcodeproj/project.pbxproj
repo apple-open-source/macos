@@ -1,0 +1,1718 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		C6175968057E749600252FAB /* World */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = BA7EB3DC086BD01A000A41C1 /* Build configuration list for PBXAggregateTarget "World" */;
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				C6175A0A057E749700252FAB /* PBXTargetDependency */,
+				C6175A0C057E749700252FAB /* PBXTargetDependency */,
+				C6175A0E057E749700252FAB /* PBXTargetDependency */,
+				C6175A10057E749700252FAB /* PBXTargetDependency */,
+			);
+			name = World;
+			productName = World;
+		};
+		C69AA27307417ECB007F9862 /* genFakeFrameworks */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = BA7EB3B9086BD01A000A41C1 /* Build configuration list for PBXAggregateTarget "genFakeFrameworks" */;
+			buildPhases = (
+				C69AA27207417ECB007F9862 /* ShellScript */,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = genFakeFrameworks;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = genFakeFrameworks;
+			productName = genFakeFrameworks;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		BA1C89FC07CBCBA4005CE20C /* modeFirmware.c in Sources */ = {isa = PBXBuildFile; fileRef = BA1C89FB07CBCBA4005CE20C /* modeFirmware.c */; };
+		BA2D37EB0942C7FC0091FC92 /* setboot.c in Sources */ = {isa = PBXBuildFile; fileRef = C6B77507079876D70037F14C /* setboot.c */; };
+		BA2D37ED0942C80F0091FC92 /* BLCopyEFINVRAMVariableAsString.c in Sources */ = {isa = PBXBuildFile; fileRef = C621BF1C0940F12800AA65BC /* BLCopyEFINVRAMVariableAsString.c */; };
+		BA2D37F10942C81F0091FC92 /* BLCreateEFIXMLRepresentationForDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = C61673B30940CFB90073B88C /* BLCreateEFIXMLRepresentationForDevice.c */; };
+		BA2D37F30942C82D0091FC92 /* BLCreateEFIXMLRepresentationForPath.c in Sources */ = {isa = PBXBuildFile; fileRef = C6E53F2609228CD000D16619 /* BLCreateEFIXMLRepresentationForPath.c */; };
+		BA3D815E086C4F0F00484376 /* unbless.c in Sources */ = {isa = PBXBuildFile; fileRef = BA3D8141086C4E5000484376 /* unbless.c */; };
+		BA3D8161086C4F2400484376 /* libbless.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C61759C9057E749600252FAB /* libbless.a */; };
+		BA3E3AB707B7599000602B58 /* BLDeviceNeedsBooter.c in Sources */ = {isa = PBXBuildFile; fileRef = BA3E3AB607B7599000602B58 /* BLDeviceNeedsBooter.c */; };
+		BA88D2A40790068700B77125 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F801A4B30C01F50364 /* CoreFoundation.framework */; };
+		BA9367EF078FC89E005B9387 /* genbootargs.c in Sources */ = {isa = PBXBuildFile; fileRef = BA9367EE078FC89E005B9387 /* genbootargs.c */; };
+		BA936801078FCDA4005B9387 /* PreserveBootArgs.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA9367FD078FCD74005B9387 /* PreserveBootArgs.plist */; };
+		BA936805078FCDCB005B9387 /* preserve_bootargs.h in Headers */ = {isa = PBXBuildFile; fileRef = BA936804078FCDCB005B9387 /* preserve_bootargs.h */; };
+		BADDF5E507B7E80F006424A5 /* BLGetIOServiceForDeviceName.c in Sources */ = {isa = PBXBuildFile; fileRef = BADDF5E407B7E80F006424A5 /* BLGetIOServiceForDeviceName.c */; };
+		BADDF61007B7EB10006424A5 /* BLGetIOServiceForDeviceName.c in Sources */ = {isa = PBXBuildFile; fileRef = BADDF5E407B7E80F006424A5 /* BLGetIOServiceForDeviceName.c */; };
+		BADDF62F07B7F5C1006424A5 /* BLDeviceNeedsBooter.c in Sources */ = {isa = PBXBuildFile; fileRef = BA3E3AB607B7599000602B58 /* BLDeviceNeedsBooter.c */; };
+		BAF82CE90797919600E82365 /* BLGetRAIDBootDataForDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BAF82CE80797919600E82365 /* BLGetRAIDBootDataForDevice.c */; };
+		C61673B40940CFB90073B88C /* BLCreateEFIXMLRepresentationForDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = C61673B30940CFB90073B88C /* BLCreateEFIXMLRepresentationForDevice.c */; };
+		C6175971057E749600252FAB /* enums.h in Headers */ = {isa = PBXBuildFile; fileRef = F61E91CA01A4B30C01F50364 /* enums.h */; };
+		C6175972057E749600252FAB /* structs.h in Headers */ = {isa = PBXBuildFile; fileRef = F61E91F501A4B30C01F50364 /* structs.h */; };
+		C6175973057E749600252FAB /* bless.h in Headers */ = {isa = PBXBuildFile; fileRef = F61E922601A4B47A01F50364 /* bless.h */; };
+		C6175974057E749600252FAB /* bootconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = BA85208304CDE43F00AE3A66 /* bootconfig.h */; };
+		C6175976057E749600252FAB /* bless.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91C901A4B30C01F50364 /* bless.c */; };
+		C6175977057E749600252FAB /* usage.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91F601A4B30C01F50364 /* usage.c */; };
+		C6175978057E749600252FAB /* handleDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = F685CA37020DA1FC01F502C1 /* handleDevice.c */; };
+		C6175979057E749600252FAB /* handleFolder.c in Sources */ = {isa = PBXBuildFile; fileRef = F685CA38020DA1FC01F502C1 /* handleFolder.c */; };
+		C617597A057E749600252FAB /* handleInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = F685CA39020DA1FC01F502C1 /* handleInfo.c */; };
+		C617597B057E749600252FAB /* output.c in Sources */ = {isa = PBXBuildFile; fileRef = F5641E170227242C01F502C1 /* output.c */; };
+		C617597D057E749600252FAB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F801A4B30C01F50364 /* CoreFoundation.framework */; };
+		C617597E057E749600252FAB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F901A4B30C01F50364 /* IOKit.framework */; };
+		C6175980057E749600252FAB /* MediaKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F52AF8160278542701F502C1 /* MediaKit.framework */; };
+		C6175981057E749600252FAB /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F521EBA90228ED9201F502C1 /* ApplicationServices.framework */; };
+		C6175984057E749600252FAB /* bless.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = F61E922D01A4CF5801F50364 /* bless.8 */; };
+		C617598B057E749600252FAB /* minibless.c in Sources */ = {isa = PBXBuildFile; fileRef = BA10D77D04FADE430070B3E0 /* minibless.c */; };
+		C617598C057E749600252FAB /* BLIsOpenFirmwarePresent.c in Sources */ = {isa = PBXBuildFile; fileRef = BA8520BE04CE621300AE3A66 /* BLIsOpenFirmwarePresent.c */; };
+		C617598D057E749600252FAB /* BLGetOpenFirmwareBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91F101A4B30C01F50364 /* BLGetOpenFirmwareBootDevice.c */; };
+		C617598E057E749600252FAB /* BLSetOpenFirmwareBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91F301A4B30C01F50364 /* BLSetOpenFirmwareBootDevice.c */; };
+		C617598F057E749600252FAB /* BLMiscUtilities.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6CDEB40451ED000080DA55 /* BLMiscUtilities.c */; };
+		C6175990057E749600252FAB /* BLIsNewWorld.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91EE01A4B30C01F50364 /* BLIsNewWorld.c */; };
+		C6175991057E749600252FAB /* BLGetParentDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91ED01A4B30C01F50364 /* BLGetParentDevice.c */; };
+		C6175992057E749600252FAB /* BLContextPrint.c in Sources */ = {isa = PBXBuildFile; fileRef = F5D6CE40027A90AA01F502C1 /* BLContextPrint.c */; };
+		C6175994057E749600252FAB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F801A4B30C01F50364 /* CoreFoundation.framework */; };
+		C6175995057E749600252FAB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F901A4B30C01F50364 /* IOKit.framework */; };
+		C617599C057E749600252FAB /* BLWriteStartupFile.h in Headers */ = {isa = PBXBuildFile; fileRef = F61E91E401A4B30C01F50364 /* BLWriteStartupFile.h */; };
+		C617599D057E749600252FAB /* bless.h in Headers */ = {isa = PBXBuildFile; fileRef = F61E922601A4B47A01F50364 /* bless.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C617599E057E749600252FAB /* bless_private.h in Headers */ = {isa = PBXBuildFile; fileRef = F509904E0234414F01F502C1 /* bless_private.h */; };
+		C61759A0057E749600252FAB /* BLSetBootBlocks.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91CE01A4B30C01F50364 /* BLSetBootBlocks.c */; };
+		C61759A1057E749600252FAB /* BLDumpVolumeFinderInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91D601A4B30C01F50364 /* BLDumpVolumeFinderInfo.c */; };
+		C61759A2057E749600252FAB /* BLGetFinderFlag.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91D701A4B30C01F50364 /* BLGetFinderFlag.c */; };
+		C61759A3057E749600252FAB /* BLGetVolumeFinderInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91D801A4B30C01F50364 /* BLGetVolumeFinderInfo.c */; };
+		C61759A4057E749600252FAB /* BLSetFinderFlag.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91D901A4B30C01F50364 /* BLSetFinderFlag.c */; };
+		C61759A5057E749600252FAB /* BLSetTypeAndCreator.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91DA01A4B30C01F50364 /* BLSetTypeAndCreator.c */; };
+		C61759A6057E749600252FAB /* BLSetVolumeFinderInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91DB01A4B30C01F50364 /* BLSetVolumeFinderInfo.c */; };
+		C61759A7057E749600252FAB /* BLBlessDir.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91DE01A4B30C01F50364 /* BLBlessDir.c */; };
+		C61759A8057E749600252FAB /* BLGetFileID.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91E001A4B30C01F50364 /* BLGetFileID.c */; };
+		C61759A9057E749600252FAB /* BLIsMountHFS.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91E101A4B30C01F50364 /* BLIsMountHFS.c */; };
+		C61759AA057E749600252FAB /* BLLookupFileIDOnMount.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91E201A4B30C01F50364 /* BLLookupFileIDOnMount.c */; };
+		C61759AB057E749600252FAB /* BLWriteStartupFile.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91E301A4B30C01F50364 /* BLWriteStartupFile.c */; };
+		C61759AF057E749600252FAB /* BLGetCommonMountPoint.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91EC01A4B30C01F50364 /* BLGetCommonMountPoint.c */; };
+		C61759B0057E749600252FAB /* BLGetParentDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91ED01A4B30C01F50364 /* BLGetParentDevice.c */; };
+		C61759B1057E749600252FAB /* BLIsNewWorld.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91EE01A4B30C01F50364 /* BLIsNewWorld.c */; };
+		C61759B2057E749600252FAB /* BLGetOpenFirmwareBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91F101A4B30C01F50364 /* BLGetOpenFirmwareBootDevice.c */; };
+		C61759B3057E749600252FAB /* BLGetOpenFirmwareBootDeviceForMountPoint.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91F201A4B30C01F50364 /* BLGetOpenFirmwareBootDeviceForMountPoint.c */; };
+		C61759B4057E749600252FAB /* BLSetOpenFirmwareBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91F301A4B30C01F50364 /* BLSetOpenFirmwareBootDevice.c */; };
+		C61759B5057E749600252FAB /* BLSetOpenFirmwareBootDeviceForMountPoint.c in Sources */ = {isa = PBXBuildFile; fileRef = F61E91F401A4B30C01F50364 /* BLSetOpenFirmwareBootDeviceForMountPoint.c */; };
+		C61759B6057E749600252FAB /* BLGetDeviceForOpenFirmwarePath.c in Sources */ = {isa = PBXBuildFile; fileRef = F685CA4C020DA5DD01F502C1 /* BLGetDeviceForOpenFirmwarePath.c */; };
+		C61759B7057E749600252FAB /* BLCopyFileFromCFData.c in Sources */ = {isa = PBXBuildFile; fileRef = F523394A023432B001BB06B9 /* BLCopyFileFromCFData.c */; };
+		C61759B8057E749600252FAB /* BLGenerateOFLabel.c in Sources */ = {isa = PBXBuildFile; fileRef = F521EBA70228E90D01F502C1 /* BLGenerateOFLabel.c */; };
+		C61759B9057E749600252FAB /* BLLoadXCOFFLoader.c in Sources */ = {isa = PBXBuildFile; fileRef = F50990500234418C01F502C1 /* BLLoadXCOFFLoader.c */; };
+		C61759BA057E749600252FAB /* BLBlockChecksum.c in Sources */ = {isa = PBXBuildFile; fileRef = F5099052023441B901F502C1 /* BLBlockChecksum.c */; };
+		C61759BB057E749600252FAB /* BLContextPrint.c in Sources */ = {isa = PBXBuildFile; fileRef = F5D6CE40027A90AA01F502C1 /* BLContextPrint.c */; };
+		C61759BC057E749600252FAB /* BLLoadFile.c in Sources */ = {isa = PBXBuildFile; fileRef = F54EC307027E73AE01F502C1 /* BLLoadFile.c */; };
+		C61759BD057E749600252FAB /* BLCreateFile.c in Sources */ = {isa = PBXBuildFile; fileRef = F6A1C7E4020DFEFB01F50364 /* BLCreateFile.c */; };
+		C61759BE057E749600252FAB /* BLGetDiskSectorsForFile.c in Sources */ = {isa = PBXBuildFile; fileRef = F58D19DC02A933D601000103 /* BLGetDiskSectorsForFile.c */; };
+		C61759BF057E749600252FAB /* BLSetOFLabelForDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BA4C43C9044E07CB00F8F804 /* BLSetOFLabelForDevice.c */; };
+		C61759C0057E749600252FAB /* BLMiscUtilities.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6CDEB40451ED000080DA55 /* BLMiscUtilities.c */; };
+		C61759C1057E749600252FAB /* BLIsOpenFirmwarePresent.c in Sources */ = {isa = PBXBuildFile; fileRef = BA8520BE04CE621300AE3A66 /* BLIsOpenFirmwarePresent.c */; };
+		C61759C2057E749600252FAB /* BLSetActiveBIOSBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BAB2D30504CE771C0063946C /* BLSetActiveBIOSBootDevice.c */; };
+		C61759C3057E749600252FAB /* BLGetActiveBIOSPartitionForDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC10C72051FE79E00BA8A0E /* BLGetActiveBIOSPartitionForDevice.c */; };
+		C61759CF057E749600252FAB /* setOFLabel.c in Sources */ = {isa = PBXBuildFile; fileRef = BA92249A03A7F164000BA4D4 /* setOFLabel.c */; };
+		C61759D1057E749600252FAB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F801A4B30C01F50364 /* CoreFoundation.framework */; };
+		C61759D3057E749600252FAB /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA92249E03A7F27A000BA4D4 /* CoreServices.framework */; };
+		C61759D4057E749600252FAB /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F521EBA90228ED9201F502C1 /* ApplicationServices.framework */; };
+		C61759E6057E749600252FAB /* extractBootBlocks.c in Sources */ = {isa = PBXBuildFile; fileRef = BAA914300429422700B0AD74 /* extractBootBlocks.c */; };
+		C61759E8057E749600252FAB /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA92249E03A7F27A000BA4D4 /* CoreServices.framework */; };
+		C6175A1F057E749700252FAB /* libbless.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C61759C9057E749600252FAB /* libbless.a */; };
+		C6175A20057E749700252FAB /* libbless.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C61759C9057E749600252FAB /* libbless.a */; };
+		C621BF130940EFEE00AA65BC /* BLInterpretEFIXMLRepresentationAsNetworkPath.c in Sources */ = {isa = PBXBuildFile; fileRef = C621BF120940EFEE00AA65BC /* BLInterpretEFIXMLRepresentationAsNetworkPath.c */; };
+		C621BF1D0940F12800AA65BC /* BLCopyEFINVRAMVariableAsString.c in Sources */ = {isa = PBXBuildFile; fileRef = C621BF1C0940F12800AA65BC /* BLCopyEFINVRAMVariableAsString.c */; };
+		C621BFA9094104A200AA65BC /* BLInterpretEFIXMLRepresentationAsDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = C621BFA8094104A200AA65BC /* BLInterpretEFIXMLRepresentationAsDevice.c */; };
+		C625E1170799F9FB00B3F263 /* BLUpdateRAIDBooters.c in Sources */ = {isa = PBXBuildFile; fileRef = C625DFD90799F56500B3F263 /* BLUpdateRAIDBooters.c */; };
+		C62753F5092BE68D00B7B400 /* BLPreserveBootArgs.c in Sources */ = {isa = PBXBuildFile; fileRef = C62753F4092BE68D00B7B400 /* BLPreserveBootArgs.c */; };
+		C62754E3092C060400B7B400 /* BLPreserveBootArgs.c in Sources */ = {isa = PBXBuildFile; fileRef = C62753F4092BE68D00B7B400 /* BLPreserveBootArgs.c */; };
+		C63A71E906220A6400BC6D71 /* bootblockdata in CopyFiles */ = {isa = PBXBuildFile; fileRef = F61E923301A4DB1701F50364 /* bootblockdata */; };
+		C643397108FB33B1006DF6E7 /* modeNetboot.c in Sources */ = {isa = PBXBuildFile; fileRef = C643396F08FB33B1006DF6E7 /* modeNetboot.c */; };
+		C6AE998107B19B8F00E1A3BF /* BLUpdateBooter.c in Sources */ = {isa = PBXBuildFile; fileRef = C6AE998007B19B8F00E1A3BF /* BLUpdateBooter.c */; };
+		C6B0192509295F2F002BB995 /* BLGetPreferredNetworkInterface.c in Sources */ = {isa = PBXBuildFile; fileRef = C6B0192409295F2F002BB995 /* BLGetPreferredNetworkInterface.c */; };
+		C6B01B49092A6C49002BB995 /* BLIsValidNetworkInterface.c in Sources */ = {isa = PBXBuildFile; fileRef = C6B01B48092A6C49002BB995 /* BLIsValidNetworkInterface.c */; };
+		C6B01CA6092A96B5002BB995 /* BLCreateEFIXMLRepresentationForNetworkPath.c in Sources */ = {isa = PBXBuildFile; fileRef = C6B01CA5092A96B5002BB995 /* BLCreateEFIXMLRepresentationForNetworkPath.c */; };
+		C6B77508079876D70037F14C /* setboot.c in Sources */ = {isa = PBXBuildFile; fileRef = C6B77507079876D70037F14C /* setboot.c */; };
+		C6B7752A079891280037F14C /* BLGetRAIDBootDataForDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BAF82CE80797919600E82365 /* BLGetRAIDBootDataForDevice.c */; };
+		C6DF0CE807B938FE00F5F2FA /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C6DF0CE707B938FE00F5F2FA /* DiskArbitration.framework */; };
+		C6E53F2709228CD000D16619 /* BLCreateEFIXMLRepresentationForPath.c in Sources */ = {isa = PBXBuildFile; fileRef = C6E53F2609228CD000D16619 /* BLCreateEFIXMLRepresentationForPath.c */; };
+		C6F84089088471CD0017C96C /* BLGetPreBootEnvironmentType.c in Sources */ = {isa = PBXBuildFile; fileRef = C6F84087088471CD0017C96C /* BLGetPreBootEnvironmentType.c */; };
+		C6F8408B088471CD0017C96C /* BLGetPreBootEnvironmentType.c in Sources */ = {isa = PBXBuildFile; fileRef = C6F84087088471CD0017C96C /* BLGetPreBootEnvironmentType.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		C6899A0E0729C862002466B7 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.gcc;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			outputFiles = (
+			);
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXBuildStyle section */
+		014CEA520018CE5811CA2923 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 0;
+			};
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		F584328102A94E3A01000103 /* DevelopmentDarwin */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "\U0001-D_OPEN_SOURCE_=1";
+			};
+			name = DevelopmentDarwin;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXContainerItemProxy section */
+		BA7EB4EB086BE4AA000A41C1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C69AA27307417ECB007F9862;
+			remoteInfo = genFakeFrameworks;
+		};
+		BA88D76B07900D5400B77125 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA9367E1078FC7B1005B9387;
+			remoteInfo = genbootargs;
+		};
+		BA936808078FCDD6005B9387 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA9367E1078FC7B1005B9387;
+			remoteInfo = genbootargs;
+		};
+		C6175A09057E749700252FAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C617596D057E749600252FAB;
+			remoteInfo = "bless (Upgraded)";
+		};
+		C6175A0B057E749700252FAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C6175988057E749600252FAB;
+			remoteInfo = "minibless (Upgraded)";
+		};
+		C6175A0D057E749700252FAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C617599A057E749600252FAB;
+			remoteInfo = "libbless (Upgraded)";
+		};
+		C6175A0F057E749700252FAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C61759CB057E749600252FAB;
+			remoteInfo = "setOFLabel (Upgraded)";
+		};
+		C6175A11057E749700252FAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C617599A057E749600252FAB;
+			remoteInfo = "libbless (Upgraded)";
+		};
+		C6175A15057E749700252FAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C617599A057E749600252FAB;
+			remoteInfo = "libbless (Upgraded)";
+		};
+		C6C7345207417F4E008AE8AB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C69AA27307417ECB007F9862;
+			remoteInfo = genFakeFrameworks;
+		};
+		C6C7345607417F55008AE8AB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C69AA27307417ECB007F9862;
+			remoteInfo = genFakeFrameworks;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BA9367FE078FCD80005B9387 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/share/bless/bless;
+			dstSubfolderSpec = 0;
+			files = (
+				BA936801078FCDA4005B9387 /* PreserveBootArgs.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C6175983057E749600252FAB /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				C6175984057E749600252FAB /* bless.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C63A71E806220A5400BC6D71 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/misc;
+			dstSubfolderSpec = 0;
+			files = (
+				C63A71E906220A6400BC6D71 /* bootblockdata in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		BA10D77D04FADE430070B3E0 /* minibless.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = minibless.c; sourceTree = "<group>"; };
+		BA1C89FB07CBCBA4005CE20C /* modeFirmware.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = modeFirmware.c; sourceTree = "<group>"; };
+		BA3A398C04C8AB3500E2414C /* testgetfileid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testgetfileid.c; sourceTree = "<group>"; };
+		BA3D8140086C4E5000484376 /* genFakeFrameworks.sh */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = genFakeFrameworks.sh; sourceTree = "<group>"; };
+		BA3D8141086C4E5000484376 /* unbless.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = unbless.c; sourceTree = "<group>"; };
+		BA3D8159086C4E7D00484376 /* unbless */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = unbless; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA3E3AB607B7599000602B58 /* BLDeviceNeedsBooter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLDeviceNeedsBooter.c; sourceTree = "<group>"; };
+		BA4C43C9044E07CB00F8F804 /* BLSetOFLabelForDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLSetOFLabelForDevice.c; sourceTree = "<group>"; };
+		BA6CDEB40451ED000080DA55 /* BLMiscUtilities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLMiscUtilities.c; sourceTree = "<group>"; };
+		BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = DefaultTarget.xcconfig; sourceTree = "<group>"; };
+		BA85207804CDDE4200AE3A66 /* genheader.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = genheader.c; sourceTree = "<group>"; };
+		BA85208304CDE43F00AE3A66 /* bootconfig.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bootconfig.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA85208604CDEFFA00AE3A66 /* testgetparentdev.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testgetparentdev.c; sourceTree = "<group>"; };
+		BA8520BE04CE621300AE3A66 /* BLIsOpenFirmwarePresent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLIsOpenFirmwarePresent.c; sourceTree = "<group>"; };
+		BA92249A03A7F164000BA4D4 /* setOFLabel.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = setOFLabel.c; sourceTree = "<group>"; };
+		BA92249E03A7F27A000BA4D4 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
+		BA924000060D53EB004FC452 /* bless-prefix.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "bless-prefix.h"; sourceTree = "<group>"; };
+		BA9367E2078FC7B1005B9387 /* genbootargs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = genbootargs; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9367EE078FC89E005B9387 /* genbootargs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = genbootargs.c; sourceTree = "<group>"; };
+		BA9367FD078FCD74005B9387 /* PreserveBootArgs.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = PreserveBootArgs.plist; sourceTree = "<group>"; };
+		BA936804078FCDCB005B9387 /* preserve_bootargs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = preserve_bootargs.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		BAA914300429422700B0AD74 /* extractBootBlocks.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = extractBootBlocks.c; sourceTree = "<group>"; };
+		BAB2D30504CE771C0063946C /* BLSetActiveBIOSBootDevice.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLSetActiveBIOSBootDevice.c; sourceTree = "<group>"; };
+		BABA83AD04DE1AFC0072243F /* README.BOOTING */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README.BOOTING; sourceTree = "<group>"; };
+		BABA83AE04DE1AFC0072243F /* README.TESTING */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README.TESTING; sourceTree = "<group>"; };
+		BAC10C72051FE79E00BA8A0E /* BLGetActiveBIOSPartitionForDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetActiveBIOSPartitionForDevice.c; sourceTree = "<group>"; };
+		BADDF5E407B7E80F006424A5 /* BLGetIOServiceForDeviceName.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetIOServiceForDeviceName.c; sourceTree = "<group>"; };
+		BAF82CE80797919600E82365 /* BLGetRAIDBootDataForDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetRAIDBootDataForDevice.c; sourceTree = "<group>"; };
+		C61673B30940CFB90073B88C /* BLCreateEFIXMLRepresentationForDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForDevice.c; sourceTree = "<group>"; };
+		C6175986057E749600252FAB /* bless */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bless; sourceTree = BUILT_PRODUCTS_DIR; };
+		C6175998057E749600252FAB /* minibless */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = minibless; sourceTree = BUILT_PRODUCTS_DIR; };
+		C61759C9057E749600252FAB /* libbless.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libbless.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C61759D7057E749600252FAB /* setOFLabel */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = setOFLabel; sourceTree = BUILT_PRODUCTS_DIR; };
+		C61759EB057E749600252FAB /* extractBootBlocks */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = extractBootBlocks; sourceTree = BUILT_PRODUCTS_DIR; };
+		C621BF120940EFEE00AA65BC /* BLInterpretEFIXMLRepresentationAsNetworkPath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLInterpretEFIXMLRepresentationAsNetworkPath.c; sourceTree = "<group>"; };
+		C621BF1C0940F12800AA65BC /* BLCopyEFINVRAMVariableAsString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCopyEFINVRAMVariableAsString.c; sourceTree = "<group>"; };
+		C621BFA8094104A200AA65BC /* BLInterpretEFIXMLRepresentationAsDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLInterpretEFIXMLRepresentationAsDevice.c; sourceTree = "<group>"; };
+		C625DFD90799F56500B3F263 /* BLUpdateRAIDBooters.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLUpdateRAIDBooters.c; sourceTree = "<group>"; };
+		C62753F4092BE68D00B7B400 /* BLPreserveBootArgs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLPreserveBootArgs.c; sourceTree = "<group>"; };
+		C643396F08FB33B1006DF6E7 /* modeNetboot.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = modeNetboot.c; sourceTree = "<group>"; };
+		C6AE998007B19B8F00E1A3BF /* BLUpdateBooter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLUpdateBooter.c; sourceTree = "<group>"; };
+		C6B0192409295F2F002BB995 /* BLGetPreferredNetworkInterface.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetPreferredNetworkInterface.c; sourceTree = "<group>"; };
+		C6B01B48092A6C49002BB995 /* BLIsValidNetworkInterface.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLIsValidNetworkInterface.c; sourceTree = "<group>"; };
+		C6B01CA5092A96B5002BB995 /* BLCreateEFIXMLRepresentationForNetworkPath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForNetworkPath.c; sourceTree = "<group>"; };
+		C6B77507079876D70037F14C /* setboot.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = setboot.c; sourceTree = "<group>"; };
+		C6DF0CE707B938FE00F5F2FA /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
+		C6E53F2609228CD000D16619 /* BLCreateEFIXMLRepresentationForPath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForPath.c; sourceTree = "<group>"; };
+		C6F84087088471CD0017C96C /* BLGetPreBootEnvironmentType.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetPreBootEnvironmentType.c; sourceTree = "<group>"; };
+		F509904E0234414F01F502C1 /* bless_private.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bless_private.h; sourceTree = "<group>"; };
+		F50990500234418C01F502C1 /* BLLoadXCOFFLoader.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLLoadXCOFFLoader.c; sourceTree = "<group>"; };
+		F5099052023441B901F502C1 /* BLBlockChecksum.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLBlockChecksum.c; sourceTree = "<group>"; };
+		F521EBA70228E90D01F502C1 /* BLGenerateOFLabel.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGenerateOFLabel.c; sourceTree = "<group>"; };
+		F521EBA90228ED9201F502C1 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
+		F523394A023432B001BB06B9 /* BLCopyFileFromCFData.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLCopyFileFromCFData.c; sourceTree = "<group>"; };
+		F52AF8160278542701F502C1 /* MediaKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaKit.framework; path = /System/Library/PrivateFrameworks/MediaKit.framework; sourceTree = "<absolute>"; };
+		F52F8DC702A6266B01FDC5DB /* TODO */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = TODO; sourceTree = "<group>"; };
+		F54EC307027E73AE01F502C1 /* BLLoadFile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLLoadFile.c; sourceTree = "<group>"; };
+		F5641E170227242C01F502C1 /* output.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = output.c; sourceTree = "<group>"; };
+		F58D19DC02A933D601000103 /* BLGetDiskSectorsForFile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetDiskSectorsForFile.c; sourceTree = "<group>"; };
+		F5D6CE3E027A8CB901F502C1 /* EXPORT.APPLE */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = EXPORT.APPLE; sourceTree = "<group>"; };
+		F5D6CE40027A90AA01F502C1 /* BLContextPrint.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLContextPrint.c; sourceTree = "<group>"; };
+		F61E91C901A4B30C01F50364 /* bless.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = bless.c; sourceTree = "<group>"; };
+		F61E91CA01A4B30C01F50364 /* enums.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = enums.h; sourceTree = "<group>"; };
+		F61E91CE01A4B30C01F50364 /* BLSetBootBlocks.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLSetBootBlocks.c; sourceTree = "<group>"; };
+		F61E91D601A4B30C01F50364 /* BLDumpVolumeFinderInfo.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLDumpVolumeFinderInfo.c; sourceTree = "<group>"; };
+		F61E91D701A4B30C01F50364 /* BLGetFinderFlag.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetFinderFlag.c; sourceTree = "<group>"; };
+		F61E91D801A4B30C01F50364 /* BLGetVolumeFinderInfo.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetVolumeFinderInfo.c; sourceTree = "<group>"; };
+		F61E91D901A4B30C01F50364 /* BLSetFinderFlag.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLSetFinderFlag.c; sourceTree = "<group>"; };
+		F61E91DA01A4B30C01F50364 /* BLSetTypeAndCreator.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLSetTypeAndCreator.c; sourceTree = "<group>"; };
+		F61E91DB01A4B30C01F50364 /* BLSetVolumeFinderInfo.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLSetVolumeFinderInfo.c; sourceTree = "<group>"; };
+		F61E91DE01A4B30C01F50364 /* BLBlessDir.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLBlessDir.c; sourceTree = "<group>"; };
+		F61E91E001A4B30C01F50364 /* BLGetFileID.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetFileID.c; sourceTree = "<group>"; };
+		F61E91E101A4B30C01F50364 /* BLIsMountHFS.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLIsMountHFS.c; sourceTree = "<group>"; };
+		F61E91E201A4B30C01F50364 /* BLLookupFileIDOnMount.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLLookupFileIDOnMount.c; sourceTree = "<group>"; };
+		F61E91E301A4B30C01F50364 /* BLWriteStartupFile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLWriteStartupFile.c; sourceTree = "<group>"; };
+		F61E91E401A4B30C01F50364 /* BLWriteStartupFile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BLWriteStartupFile.h; sourceTree = "<group>"; };
+		F61E91EC01A4B30C01F50364 /* BLGetCommonMountPoint.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetCommonMountPoint.c; sourceTree = "<group>"; };
+		F61E91ED01A4B30C01F50364 /* BLGetParentDevice.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetParentDevice.c; sourceTree = "<group>"; };
+		F61E91EE01A4B30C01F50364 /* BLIsNewWorld.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLIsNewWorld.c; sourceTree = "<group>"; };
+		F61E91F101A4B30C01F50364 /* BLGetOpenFirmwareBootDevice.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetOpenFirmwareBootDevice.c; sourceTree = "<group>"; };
+		F61E91F201A4B30C01F50364 /* BLGetOpenFirmwareBootDeviceForMountPoint.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetOpenFirmwareBootDeviceForMountPoint.c; sourceTree = "<group>"; };
+		F61E91F301A4B30C01F50364 /* BLSetOpenFirmwareBootDevice.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLSetOpenFirmwareBootDevice.c; sourceTree = "<group>"; };
+		F61E91F401A4B30C01F50364 /* BLSetOpenFirmwareBootDeviceForMountPoint.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLSetOpenFirmwareBootDeviceForMountPoint.c; sourceTree = "<group>"; };
+		F61E91F501A4B30C01F50364 /* structs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = structs.h; sourceTree = "<group>"; };
+		F61E91F601A4B30C01F50364 /* usage.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = usage.c; sourceTree = "<group>"; };
+		F61E91F801A4B30C01F50364 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		F61E91F901A4B30C01F50364 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		F61E922601A4B47A01F50364 /* bless.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bless.h; sourceTree = "<group>"; };
+		F61E922C01A4CF5801F50364 /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
+		F61E922D01A4CF5801F50364 /* bless.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = bless.8; sourceTree = "<group>"; };
+		F61E923301A4DB1701F50364 /* bootblockdata */ = {isa = PBXFileReference; lastKnownFileType = file; name = bootblockdata; path = files/bootblockdata; sourceTree = "<group>"; };
+		F61E923401A4DB1701F50364 /* cdbootdata */ = {isa = PBXFileReference; lastKnownFileType = file; name = cdbootdata; path = files/cdbootdata; sourceTree = "<group>"; };
+		F61E923501A4DB1701F50364 /* hdbootdata */ = {isa = PBXFileReference; lastKnownFileType = file; name = hdbootdata; path = files/hdbootdata; sourceTree = "<group>"; };
+		F685CA37020DA1FC01F502C1 /* handleDevice.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = handleDevice.c; sourceTree = "<group>"; };
+		F685CA38020DA1FC01F502C1 /* handleFolder.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = handleFolder.c; sourceTree = "<group>"; };
+		F685CA39020DA1FC01F502C1 /* handleInfo.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = handleInfo.c; sourceTree = "<group>"; };
+		F685CA4C020DA5DD01F502C1 /* BLGetDeviceForOpenFirmwarePath.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetDeviceForOpenFirmwarePath.c; sourceTree = "<group>"; };
+		F69F1455029E004F0142367C /* README.APPLE */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README.APPLE; sourceTree = "<group>"; };
+		F69F1456029E004F0142367C /* README.LOADER */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README.LOADER; sourceTree = "<group>"; };
+		F6A1C7E4020DFEFB01F50364 /* BLCreateFile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLCreateFile.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BA3D8157086C4E7D00484376 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA3D8161086C4F2400484376 /* libbless.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA9367E0078FC7B1005B9387 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA88D2A40790068700B77125 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C617597C057E749600252FAB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C617597D057E749600252FAB /* CoreFoundation.framework in Frameworks */,
+				C617597E057E749600252FAB /* IOKit.framework in Frameworks */,
+				C6175980057E749600252FAB /* MediaKit.framework in Frameworks */,
+				C6175981057E749600252FAB /* ApplicationServices.framework in Frameworks */,
+				C6175A1F057E749700252FAB /* libbless.a in Frameworks */,
+				C6DF0CE807B938FE00F5F2FA /* DiskArbitration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C6175993057E749600252FAB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C6175994057E749600252FAB /* CoreFoundation.framework in Frameworks */,
+				C6175995057E749600252FAB /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C61759C4057E749600252FAB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C61759D0057E749600252FAB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C61759D1057E749600252FAB /* CoreFoundation.framework in Frameworks */,
+				C61759D3057E749600252FAB /* CoreServices.framework in Frameworks */,
+				C61759D4057E749600252FAB /* ApplicationServices.framework in Frameworks */,
+				C6175A20057E749700252FAB /* libbless.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C61759E7057E749600252FAB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C61759E8057E749600252FAB /* CoreServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* bless */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				BA85208204CDE41300AE3A66 /* Generated Source */,
+				F61E922B01A4CF5801F50364 /* Other Files */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+				F61E91F701A4B30C01F50364 /* Frameworks */,
+			);
+			name = bless;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				F61E91C901A4B30C01F50364 /* bless.c */,
+				F61E91F601A4B30C01F50364 /* usage.c */,
+				F5641E170227242C01F502C1 /* output.c */,
+				F61E91CA01A4B30C01F50364 /* enums.h */,
+				F61E91F501A4B30C01F50364 /* structs.h */,
+				F61E91CB01A4B30C01F50364 /* libbless */,
+				F685CA37020DA1FC01F502C1 /* handleDevice.c */,
+				F685CA38020DA1FC01F502C1 /* handleFolder.c */,
+				F685CA39020DA1FC01F502C1 /* handleInfo.c */,
+				BA1C89FB07CBCBA4005CE20C /* modeFirmware.c */,
+				C643396F08FB33B1006DF6E7 /* modeNetboot.c */,
+				C6B77507079876D70037F14C /* setboot.c */,
+				BA92249A03A7F164000BA4D4 /* setOFLabel.c */,
+				BAA914300429422700B0AD74 /* extractBootBlocks.c */,
+				BA85207804CDDE4200AE3A66 /* genheader.c */,
+				BA9367EE078FC89E005B9387 /* genbootargs.c */,
+				BA9367FD078FCD74005B9387 /* PreserveBootArgs.plist */,
+				BA3A398B04C8AB2200E2414C /* test */,
+				BA10D77D04FADE430070B3E0 /* minibless.c */,
+				BA3D8141086C4E5000484376 /* unbless.c */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C6175986057E749600252FAB /* bless */,
+				C6175998057E749600252FAB /* minibless */,
+				C61759C9057E749600252FAB /* libbless.a */,
+				C61759D7057E749600252FAB /* setOFLabel */,
+				C61759EB057E749600252FAB /* extractBootBlocks */,
+				BA9367E2078FC7B1005B9387 /* genbootargs */,
+				BA3D8159086C4E7D00484376 /* unbless */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BA3A398B04C8AB2200E2414C /* test */ = {
+			isa = PBXGroup;
+			children = (
+				BA3A398C04C8AB3500E2414C /* testgetfileid.c */,
+				BA85208604CDEFFA00AE3A66 /* testgetparentdev.c */,
+			);
+			path = test;
+			sourceTree = "<group>";
+		};
+		BA85208204CDE41300AE3A66 /* Generated Source */ = {
+			isa = PBXGroup;
+			children = (
+				BA85208304CDE43F00AE3A66 /* bootconfig.h */,
+				BA936804078FCDCB005B9387 /* preserve_bootargs.h */,
+			);
+			name = "Generated Source";
+			sourceTree = "<group>";
+		};
+		BAB2D30404CE771C0063946C /* BIOS */ = {
+			isa = PBXGroup;
+			children = (
+				BAB2D30504CE771C0063946C /* BLSetActiveBIOSBootDevice.c */,
+				BAC10C72051FE79E00BA8A0E /* BLGetActiveBIOSPartitionForDevice.c */,
+			);
+			path = BIOS;
+			sourceTree = "<group>";
+		};
+		BAF82CE30797913D00E82365 /* RAID */ = {
+			isa = PBXGroup;
+			children = (
+				BAF82CE80797919600E82365 /* BLGetRAIDBootDataForDevice.c */,
+				C625DFD90799F56500B3F263 /* BLUpdateRAIDBooters.c */,
+			);
+			path = RAID;
+			sourceTree = "<group>";
+		};
+		C6B01B35092A6AAB002BB995 /* Network */ = {
+			isa = PBXGroup;
+			children = (
+				C6B01B48092A6C49002BB995 /* BLIsValidNetworkInterface.c */,
+				C6B0192409295F2F002BB995 /* BLGetPreferredNetworkInterface.c */,
+			);
+			path = Network;
+			sourceTree = "<group>";
+		};
+		C6E53F2109228CAA00D16619 /* EFI */ = {
+			isa = PBXGroup;
+			children = (
+				C6E53F2609228CD000D16619 /* BLCreateEFIXMLRepresentationForPath.c */,
+				C61673B30940CFB90073B88C /* BLCreateEFIXMLRepresentationForDevice.c */,
+				C6B01CA5092A96B5002BB995 /* BLCreateEFIXMLRepresentationForNetworkPath.c */,
+				C621BF120940EFEE00AA65BC /* BLInterpretEFIXMLRepresentationAsNetworkPath.c */,
+				C621BFA8094104A200AA65BC /* BLInterpretEFIXMLRepresentationAsDevice.c */,
+				C621BF1C0940F12800AA65BC /* BLCopyEFINVRAMVariableAsString.c */,
+			);
+			path = EFI;
+			sourceTree = "<group>";
+		};
+		F61E91CB01A4B30C01F50364 /* libbless */ = {
+			isa = PBXGroup;
+			children = (
+				F61E922601A4B47A01F50364 /* bless.h */,
+				F509904E0234414F01F502C1 /* bless_private.h */,
+				BAB2D30404CE771C0063946C /* BIOS */,
+				F61E91CC01A4B30C01F50364 /* BootBlocks */,
+				C6E53F2109228CAA00D16619 /* EFI */,
+				F61E91D501A4B30C01F50364 /* FinderInfo */,
+				F61E91DD01A4B30C01F50364 /* HFS */,
+				F61E91E901A4B30C01F50364 /* Misc */,
+				C6B01B35092A6AAB002BB995 /* Network */,
+				BAF82CE30797913D00E82365 /* RAID */,
+				F61E91F001A4B30C01F50364 /* OpenFirmware */,
+			);
+			path = libbless;
+			sourceTree = "<group>";
+		};
+		F61E91CC01A4B30C01F50364 /* BootBlocks */ = {
+			isa = PBXGroup;
+			children = (
+				F61E91CE01A4B30C01F50364 /* BLSetBootBlocks.c */,
+			);
+			path = BootBlocks;
+			sourceTree = "<group>";
+		};
+		F61E91D501A4B30C01F50364 /* FinderInfo */ = {
+			isa = PBXGroup;
+			children = (
+				F61E91D601A4B30C01F50364 /* BLDumpVolumeFinderInfo.c */,
+				F61E91D701A4B30C01F50364 /* BLGetFinderFlag.c */,
+				F61E91D801A4B30C01F50364 /* BLGetVolumeFinderInfo.c */,
+				F61E91D901A4B30C01F50364 /* BLSetFinderFlag.c */,
+				F61E91DA01A4B30C01F50364 /* BLSetTypeAndCreator.c */,
+				F61E91DB01A4B30C01F50364 /* BLSetVolumeFinderInfo.c */,
+			);
+			path = FinderInfo;
+			sourceTree = "<group>";
+		};
+		F61E91DD01A4B30C01F50364 /* HFS */ = {
+			isa = PBXGroup;
+			children = (
+				F61E91DE01A4B30C01F50364 /* BLBlessDir.c */,
+				F61E91E001A4B30C01F50364 /* BLGetFileID.c */,
+				F58D19DC02A933D601000103 /* BLGetDiskSectorsForFile.c */,
+				F61E91E101A4B30C01F50364 /* BLIsMountHFS.c */,
+				F61E91E201A4B30C01F50364 /* BLLookupFileIDOnMount.c */,
+				F61E91E301A4B30C01F50364 /* BLWriteStartupFile.c */,
+				F61E91E401A4B30C01F50364 /* BLWriteStartupFile.h */,
+				F50990500234418C01F502C1 /* BLLoadXCOFFLoader.c */,
+				BA4C43C9044E07CB00F8F804 /* BLSetOFLabelForDevice.c */,
+				C6AE998007B19B8F00E1A3BF /* BLUpdateBooter.c */,
+			);
+			path = HFS;
+			sourceTree = "<group>";
+		};
+		F61E91E901A4B30C01F50364 /* Misc */ = {
+			isa = PBXGroup;
+			children = (
+				F5D6CE40027A90AA01F502C1 /* BLContextPrint.c */,
+				C62753F4092BE68D00B7B400 /* BLPreserveBootArgs.c */,
+				C6F84087088471CD0017C96C /* BLGetPreBootEnvironmentType.c */,
+				F523394A023432B001BB06B9 /* BLCopyFileFromCFData.c */,
+				F6A1C7E4020DFEFB01F50364 /* BLCreateFile.c */,
+				BA6CDEB40451ED000080DA55 /* BLMiscUtilities.c */,
+				F61E91EC01A4B30C01F50364 /* BLGetCommonMountPoint.c */,
+				F61E91ED01A4B30C01F50364 /* BLGetParentDevice.c */,
+				BADDF5E407B7E80F006424A5 /* BLGetIOServiceForDeviceName.c */,
+				F61E91EE01A4B30C01F50364 /* BLIsNewWorld.c */,
+				F521EBA70228E90D01F502C1 /* BLGenerateOFLabel.c */,
+				F5099052023441B901F502C1 /* BLBlockChecksum.c */,
+				F54EC307027E73AE01F502C1 /* BLLoadFile.c */,
+			);
+			path = Misc;
+			sourceTree = "<group>";
+		};
+		F61E91F001A4B30C01F50364 /* OpenFirmware */ = {
+			isa = PBXGroup;
+			children = (
+				BA3E3AB607B7599000602B58 /* BLDeviceNeedsBooter.c */,
+				BA8520BE04CE621300AE3A66 /* BLIsOpenFirmwarePresent.c */,
+				F61E91F101A4B30C01F50364 /* BLGetOpenFirmwareBootDevice.c */,
+				F61E91F201A4B30C01F50364 /* BLGetOpenFirmwareBootDeviceForMountPoint.c */,
+				F61E91F301A4B30C01F50364 /* BLSetOpenFirmwareBootDevice.c */,
+				F61E91F401A4B30C01F50364 /* BLSetOpenFirmwareBootDeviceForMountPoint.c */,
+				F685CA4C020DA5DD01F502C1 /* BLGetDeviceForOpenFirmwarePath.c */,
+			);
+			path = OpenFirmware;
+			sourceTree = "<group>";
+		};
+		F61E91F701A4B30C01F50364 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C6DF0CE707B938FE00F5F2FA /* DiskArbitration.framework */,
+				F61E91F801A4B30C01F50364 /* CoreFoundation.framework */,
+				F61E91F901A4B30C01F50364 /* IOKit.framework */,
+				F521EBA90228ED9201F502C1 /* ApplicationServices.framework */,
+				F52AF8160278542701F502C1 /* MediaKit.framework */,
+				BA92249E03A7F27A000BA4D4 /* CoreServices.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F61E922B01A4CF5801F50364 /* Other Files */ = {
+			isa = PBXGroup;
+			children = (
+				F61E922C01A4CF5801F50364 /* APPLE_LICENSE */,
+				F5D6CE3E027A8CB901F502C1 /* EXPORT.APPLE */,
+				BA3D8140086C4E5000484376 /* genFakeFrameworks.sh */,
+				F61E922D01A4CF5801F50364 /* bless.8 */,
+				F61E923201A4DB1701F50364 /* files */,
+				F69F1455029E004F0142367C /* README.APPLE */,
+				BA924000060D53EB004FC452 /* bless-prefix.h */,
+				F69F1456029E004F0142367C /* README.LOADER */,
+				BABA83AD04DE1AFC0072243F /* README.BOOTING */,
+				BABA83AE04DE1AFC0072243F /* README.TESTING */,
+				F52F8DC702A6266B01FDC5DB /* TODO */,
+				BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */,
+			);
+			name = "Other Files";
+			sourceTree = "<group>";
+		};
+		F61E923201A4DB1701F50364 /* files */ = {
+			isa = PBXGroup;
+			children = (
+				F61E923301A4DB1701F50364 /* bootblockdata */,
+				F61E923401A4DB1701F50364 /* cdbootdata */,
+				F61E923501A4DB1701F50364 /* hdbootdata */,
+			);
+			name = files;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		C6175970057E749600252FAB /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C6175971057E749600252FAB /* enums.h in Headers */,
+				C6175972057E749600252FAB /* structs.h in Headers */,
+				C6175973057E749600252FAB /* bless.h in Headers */,
+				C6175974057E749600252FAB /* bootconfig.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C6175989057E749600252FAB /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C617599B057E749600252FAB /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C617599C057E749600252FAB /* BLWriteStartupFile.h in Headers */,
+				C617599D057E749600252FAB /* bless.h in Headers */,
+				C617599E057E749600252FAB /* bless_private.h in Headers */,
+				BA936805078FCDCB005B9387 /* preserve_bootargs.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C61759CD057E749600252FAB /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C61759E4057E749600252FAB /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		BA3D8158086C4E7D00484376 /* unbless */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA3D815B086C4E9C00484376 /* Build configuration list for PBXNativeTarget "unbless" */;
+			buildPhases = (
+				BA3D8156086C4E7D00484376 /* Sources */,
+				BA3D8157086C4E7D00484376 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(HOME)/bin";
+				OPTIMIZATION_CFLAGS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = unbless;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = unbless;
+			productName = unbless;
+			productReference = BA3D8159086C4E7D00484376 /* unbless */;
+			productType = "com.apple.product-type.tool";
+		};
+		BA9367E1078FC7B1005B9387 /* genbootargs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA7EB3BE086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "genbootargs" */;
+			buildPhases = (
+				BA9367DF078FC7B1005B9387 /* Sources */,
+				BA9367E0078FC7B1005B9387 /* Frameworks */,
+				BA9367F0078FC8C0005B9387 /* ShellScript */,
+				BA9367FE078FCD80005B9387 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_DEBUGGING_SYMBOLS = full;
+				GCC_MODEL_TUNING = G5;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = genbootargs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall";
+			};
+			dependencies = (
+			);
+			name = genbootargs;
+			productName = genbootargs;
+			productReference = BA9367E2078FC7B1005B9387 /* genbootargs */;
+			productType = "com.apple.product-type.tool";
+		};
+		C617596D057E749600252FAB /* bless */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA7EB3CD086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "bless" */;
+			buildPhases = (
+				C6175970057E749600252FAB /* Headers */,
+				C6175975057E749600252FAB /* Sources */,
+				C617597C057E749600252FAB /* Frameworks */,
+				C6175982057E749600252FAB /* Rez */,
+				C6175983057E749600252FAB /* CopyFiles */,
+				C63A71E806220A5400BC6D71 /* CopyFiles */,
+			);
+			buildRules = (
+				C6899A0E0729C862002466B7 /* PBXBuildRule */,
+			);
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/libbless";
+				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = bless;
+				REZ_EXECUTABLE = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wall";
+			};
+			dependencies = (
+				C6C7345707417F55008AE8AB /* PBXTargetDependency */,
+				C6175A12057E749700252FAB /* PBXTargetDependency */,
+			);
+			name = bless;
+			productInstallPath = /usr/sbin;
+			productName = bless;
+			productReference = C6175986057E749600252FAB /* bless */;
+			productType = "com.apple.product-type.tool";
+		};
+		C6175988057E749600252FAB /* minibless */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA7EB3D2086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "minibless" */;
+			buildPhases = (
+				C6175989057E749600252FAB /* Headers */,
+				C617598A057E749600252FAB /* Sources */,
+				C6175993057E749600252FAB /* Frameworks */,
+				C6175996057E749600252FAB /* Rez */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_PREPROCESSOR_DEFINITIONS = "NO_VASPRINTF=1";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/libbless";
+				INSTALL_PATH = /usr/local/bin;
+				MACOSX_DEPLOYMENT_TARGET = 10.1;
+				OTHER_CFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = minibless;
+				REZ_EXECUTABLE = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wall";
+			};
+			dependencies = (
+				BA7EB4EC086BE4AA000A41C1 /* PBXTargetDependency */,
+				BA88D76C07900D5400B77125 /* PBXTargetDependency */,
+			);
+			name = minibless;
+			productInstallPath = /usr/local/bin;
+			productName = minibless;
+			productReference = C6175998057E749600252FAB /* minibless */;
+			productType = "com.apple.product-type.tool";
+		};
+		C617599A057E749600252FAB /* libbless */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA7EB3C3086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "libbless" */;
+			buildPhases = (
+				C617599B057E749600252FAB /* Headers */,
+				C617599F057E749600252FAB /* Sources */,
+				C61759C4057E749600252FAB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 37;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/libbless";
+				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = bless;
+				REZ_EXECUTABLE = YES;
+				UNSTRIPPED_PRODUCT = YES;
+				WARNING_CFLAGS = "-Wall";
+			};
+			dependencies = (
+				BA936809078FCDD6005B9387 /* PBXTargetDependency */,
+			);
+			name = libbless;
+			productInstallPath = /usr/local/lib;
+			productName = libbless;
+			productReference = C61759C9057E749600252FAB /* libbless.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		C61759CB057E749600252FAB /* setOFLabel */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA7EB3D7086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "setOFLabel" */;
+			buildPhases = (
+				C61759CD057E749600252FAB /* Headers */,
+				C61759CE057E749600252FAB /* Sources */,
+				C61759D0057E749600252FAB /* Frameworks */,
+				C61759D5057E749600252FAB /* Rez */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/libbless";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = setOFLabel;
+				REZ_EXECUTABLE = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wall";
+			};
+			dependencies = (
+				C6C7345307417F4E008AE8AB /* PBXTargetDependency */,
+				C6175A16057E749700252FAB /* PBXTargetDependency */,
+			);
+			name = setOFLabel;
+			productInstallPath = /usr/local/bin;
+			productName = setOFLabel;
+			productReference = C61759D7057E749600252FAB /* setOFLabel */;
+			productType = "com.apple.product-type.tool";
+		};
+		C61759E3057E749600252FAB /* extractBootBlocks */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA7EB3E1086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "extractBootBlocks" */;
+			buildPhases = (
+				C61759E4057E749600252FAB /* Headers */,
+				C61759E5057E749600252FAB /* Sources */,
+				C61759E7057E749600252FAB /* Frameworks */,
+				C61759E9057E749600252FAB /* Rez */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/libbless";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = extractBootBlocks;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc ppc64 i386";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wall";
+			};
+			dependencies = (
+			);
+			name = extractBootBlocks;
+			productInstallPath = /usr/local/bin;
+			productName = extractBootBlocks;
+			productReference = C61759EB057E749600252FAB /* extractBootBlocks */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = BA7EB3FA086BD01A000A41C1 /* Build configuration list for PBXProject "bless" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA520018CE5811CA2923 /* Development */,
+				014CEA530018CE5811CA2923 /* Deployment */,
+				F584328102A94E3A01000103 /* DevelopmentDarwin */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* bless */;
+			projectDirPath = "";
+			targets = (
+				C6175968057E749600252FAB /* World */,
+				C617596D057E749600252FAB /* bless */,
+				C6175988057E749600252FAB /* minibless */,
+				C617599A057E749600252FAB /* libbless */,
+				C61759CB057E749600252FAB /* setOFLabel */,
+				BA9367E1078FC7B1005B9387 /* genbootargs */,
+				C69AA27307417ECB007F9862 /* genFakeFrameworks */,
+				C61759E3057E749600252FAB /* extractBootBlocks */,
+				BA3D8158086C4E7D00484376 /* unbless */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		C6175982057E749600252FAB /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C6175996057E749600252FAB /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C61759D5057E749600252FAB /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C61759E9057E749600252FAB /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		BA9367F0078FC8C0005B9387 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/sh -x";
+			shellScript = "# printenv | sort\n\nPLISTDIR=/usr/local/share/bless\nPLISTNAMES=PreserveBootArgs.plist\n\nFILES=\"\"\n\nif [ -d \"${PLISTDIR}\" ]; then\n\tFILES=`find \"${PLISTDIR}\" -name \"${PLISTNAMES}\" | xargs echo`;\nfi\n\nFILES=\"${FILES} ${SRCROOT}/${PLISTNAMES}\"\n\n${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME} ${FILES} > \"${BUILT_PRODUCTS_DIR}/preserve_bootargs.h.new\"\n\ncmp \"${BUILT_PRODUCTS_DIR}/preserve_bootargs.h\" \"${BUILT_PRODUCTS_DIR}/preserve_bootargs.h.new\" > /dev/null 2>&1\nif [ $? -ne 0 ]; then\n\tmv \"${BUILT_PRODUCTS_DIR}/preserve_bootargs.h.new\" \"${BUILT_PRODUCTS_DIR}/preserve_bootargs.h\"\nelse\n\trm \"${BUILT_PRODUCTS_DIR}/preserve_bootargs.h.new\"\nfi\n";
+		};
+		C69AA27207417ECB007F9862 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# shell script goes here\n/bin/sh \"${SRCROOT}/genFakeFrameworks.sh\"\n\nexit $?\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BA3D8156086C4E7D00484376 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA3D815E086C4F0F00484376 /* unbless.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA9367DF078FC7B1005B9387 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA9367EF078FC89E005B9387 /* genbootargs.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C6175975057E749600252FAB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C6175976057E749600252FAB /* bless.c in Sources */,
+				C6175977057E749600252FAB /* usage.c in Sources */,
+				C6175978057E749600252FAB /* handleDevice.c in Sources */,
+				C6175979057E749600252FAB /* handleFolder.c in Sources */,
+				C617597A057E749600252FAB /* handleInfo.c in Sources */,
+				C617597B057E749600252FAB /* output.c in Sources */,
+				C6B77508079876D70037F14C /* setboot.c in Sources */,
+				BA1C89FC07CBCBA4005CE20C /* modeFirmware.c in Sources */,
+				C643397108FB33B1006DF6E7 /* modeNetboot.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C617598A057E749600252FAB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C617598B057E749600252FAB /* minibless.c in Sources */,
+				BA2D37EB0942C7FC0091FC92 /* setboot.c in Sources */,
+				BA2D37F10942C81F0091FC92 /* BLCreateEFIXMLRepresentationForDevice.c in Sources */,
+				BA2D37F30942C82D0091FC92 /* BLCreateEFIXMLRepresentationForPath.c in Sources */,
+				BA2D37ED0942C80F0091FC92 /* BLCopyEFINVRAMVariableAsString.c in Sources */,
+				C617598C057E749600252FAB /* BLIsOpenFirmwarePresent.c in Sources */,
+				C617598D057E749600252FAB /* BLGetOpenFirmwareBootDevice.c in Sources */,
+				C617598E057E749600252FAB /* BLSetOpenFirmwareBootDevice.c in Sources */,
+				C617598F057E749600252FAB /* BLMiscUtilities.c in Sources */,
+				C6175990057E749600252FAB /* BLIsNewWorld.c in Sources */,
+				C6175991057E749600252FAB /* BLGetParentDevice.c in Sources */,
+				C6175992057E749600252FAB /* BLContextPrint.c in Sources */,
+				C6B7752A079891280037F14C /* BLGetRAIDBootDataForDevice.c in Sources */,
+				BADDF61007B7EB10006424A5 /* BLGetIOServiceForDeviceName.c in Sources */,
+				BADDF62F07B7F5C1006424A5 /* BLDeviceNeedsBooter.c in Sources */,
+				C6F8408B088471CD0017C96C /* BLGetPreBootEnvironmentType.c in Sources */,
+				C62754E3092C060400B7B400 /* BLPreserveBootArgs.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C617599F057E749600252FAB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C61759A0057E749600252FAB /* BLSetBootBlocks.c in Sources */,
+				C61759A1057E749600252FAB /* BLDumpVolumeFinderInfo.c in Sources */,
+				C61759A2057E749600252FAB /* BLGetFinderFlag.c in Sources */,
+				C61759A3057E749600252FAB /* BLGetVolumeFinderInfo.c in Sources */,
+				C61759A4057E749600252FAB /* BLSetFinderFlag.c in Sources */,
+				C61759A5057E749600252FAB /* BLSetTypeAndCreator.c in Sources */,
+				C61759A6057E749600252FAB /* BLSetVolumeFinderInfo.c in Sources */,
+				C61759A7057E749600252FAB /* BLBlessDir.c in Sources */,
+				C61759A8057E749600252FAB /* BLGetFileID.c in Sources */,
+				C61759A9057E749600252FAB /* BLIsMountHFS.c in Sources */,
+				C61759AA057E749600252FAB /* BLLookupFileIDOnMount.c in Sources */,
+				C61759AB057E749600252FAB /* BLWriteStartupFile.c in Sources */,
+				C61759AF057E749600252FAB /* BLGetCommonMountPoint.c in Sources */,
+				C61759B0057E749600252FAB /* BLGetParentDevice.c in Sources */,
+				C61759B1057E749600252FAB /* BLIsNewWorld.c in Sources */,
+				C61759B2057E749600252FAB /* BLGetOpenFirmwareBootDevice.c in Sources */,
+				C61759B3057E749600252FAB /* BLGetOpenFirmwareBootDeviceForMountPoint.c in Sources */,
+				C61759B4057E749600252FAB /* BLSetOpenFirmwareBootDevice.c in Sources */,
+				C61759B5057E749600252FAB /* BLSetOpenFirmwareBootDeviceForMountPoint.c in Sources */,
+				C61759B6057E749600252FAB /* BLGetDeviceForOpenFirmwarePath.c in Sources */,
+				C61759B7057E749600252FAB /* BLCopyFileFromCFData.c in Sources */,
+				C61759B8057E749600252FAB /* BLGenerateOFLabel.c in Sources */,
+				C61759B9057E749600252FAB /* BLLoadXCOFFLoader.c in Sources */,
+				C61759BA057E749600252FAB /* BLBlockChecksum.c in Sources */,
+				C61759BB057E749600252FAB /* BLContextPrint.c in Sources */,
+				C61759BC057E749600252FAB /* BLLoadFile.c in Sources */,
+				C61759BD057E749600252FAB /* BLCreateFile.c in Sources */,
+				C61759BE057E749600252FAB /* BLGetDiskSectorsForFile.c in Sources */,
+				C61759BF057E749600252FAB /* BLSetOFLabelForDevice.c in Sources */,
+				C61759C0057E749600252FAB /* BLMiscUtilities.c in Sources */,
+				C61759C1057E749600252FAB /* BLIsOpenFirmwarePresent.c in Sources */,
+				C61759C2057E749600252FAB /* BLSetActiveBIOSBootDevice.c in Sources */,
+				C61759C3057E749600252FAB /* BLGetActiveBIOSPartitionForDevice.c in Sources */,
+				BAF82CE90797919600E82365 /* BLGetRAIDBootDataForDevice.c in Sources */,
+				C625E1170799F9FB00B3F263 /* BLUpdateRAIDBooters.c in Sources */,
+				C6AE998107B19B8F00E1A3BF /* BLUpdateBooter.c in Sources */,
+				BA3E3AB707B7599000602B58 /* BLDeviceNeedsBooter.c in Sources */,
+				BADDF5E507B7E80F006424A5 /* BLGetIOServiceForDeviceName.c in Sources */,
+				C6F84089088471CD0017C96C /* BLGetPreBootEnvironmentType.c in Sources */,
+				C6E53F2709228CD000D16619 /* BLCreateEFIXMLRepresentationForPath.c in Sources */,
+				C6B0192509295F2F002BB995 /* BLGetPreferredNetworkInterface.c in Sources */,
+				C6B01B49092A6C49002BB995 /* BLIsValidNetworkInterface.c in Sources */,
+				C6B01CA6092A96B5002BB995 /* BLCreateEFIXMLRepresentationForNetworkPath.c in Sources */,
+				C62753F5092BE68D00B7B400 /* BLPreserveBootArgs.c in Sources */,
+				C61673B40940CFB90073B88C /* BLCreateEFIXMLRepresentationForDevice.c in Sources */,
+				C621BF130940EFEE00AA65BC /* BLInterpretEFIXMLRepresentationAsNetworkPath.c in Sources */,
+				C621BF1D0940F12800AA65BC /* BLCopyEFINVRAMVariableAsString.c in Sources */,
+				C621BFA9094104A200AA65BC /* BLInterpretEFIXMLRepresentationAsDevice.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C61759CE057E749600252FAB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C61759CF057E749600252FAB /* setOFLabel.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C61759E5057E749600252FAB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C61759E6057E749600252FAB /* extractBootBlocks.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BA7EB4EC086BE4AA000A41C1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C69AA27307417ECB007F9862 /* genFakeFrameworks */;
+			targetProxy = BA7EB4EB086BE4AA000A41C1 /* PBXContainerItemProxy */;
+		};
+		BA88D76C07900D5400B77125 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA9367E1078FC7B1005B9387 /* genbootargs */;
+			targetProxy = BA88D76B07900D5400B77125 /* PBXContainerItemProxy */;
+		};
+		BA936809078FCDD6005B9387 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA9367E1078FC7B1005B9387 /* genbootargs */;
+			targetProxy = BA936808078FCDD6005B9387 /* PBXContainerItemProxy */;
+		};
+		C6175A0A057E749700252FAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C617596D057E749600252FAB /* bless */;
+			targetProxy = C6175A09057E749700252FAB /* PBXContainerItemProxy */;
+		};
+		C6175A0C057E749700252FAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C6175988057E749600252FAB /* minibless */;
+			targetProxy = C6175A0B057E749700252FAB /* PBXContainerItemProxy */;
+		};
+		C6175A0E057E749700252FAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C617599A057E749600252FAB /* libbless */;
+			targetProxy = C6175A0D057E749700252FAB /* PBXContainerItemProxy */;
+		};
+		C6175A10057E749700252FAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C61759CB057E749600252FAB /* setOFLabel */;
+			targetProxy = C6175A0F057E749700252FAB /* PBXContainerItemProxy */;
+		};
+		C6175A12057E749700252FAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C617599A057E749600252FAB /* libbless */;
+			targetProxy = C6175A11057E749700252FAB /* PBXContainerItemProxy */;
+		};
+		C6175A16057E749700252FAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C617599A057E749600252FAB /* libbless */;
+			targetProxy = C6175A15057E749700252FAB /* PBXContainerItemProxy */;
+		};
+		C6C7345307417F4E008AE8AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C69AA27307417ECB007F9862 /* genFakeFrameworks */;
+			targetProxy = C6C7345207417F4E008AE8AB /* PBXContainerItemProxy */;
+		};
+		C6C7345707417F55008AE8AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C69AA27307417ECB007F9862 /* genFakeFrameworks */;
+			targetProxy = C6C7345607417F55008AE8AB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		BA3D815C086C4E9C00484376 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = unbless;
+				SKIP_INSTALL = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Default;
+		};
+		BA3D815D086C4E9C00484376 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = unbless;
+				SKIP_INSTALL = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		BA7EB3BD086BD01A000A41C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = genFakeFrameworks;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		BA7EB3C2086BD01A000A41C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
+				PRODUCT_NAME = genbootargs;
+				VALID_ARCHS = "$(NATIVE_ARCH)";
+			};
+			name = Default;
+		};
+		BA7EB3C7086BD01A000A41C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				BIOS_SUPPORT_Leopard = "BIOS_SUPPORT=1";
+				CURRENT_PROJECT_VERSION = 37;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_PREPROCESSOR_DEFINITIONS = "$(BIOS_SUPPORT_$(RC_RELEASE))";
+				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = bless;
+				UNSTRIPPED_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Default;
+		};
+		BA7EB3D1086BD01A000A41C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				BIOS_SUPPORT_Leopard = "BIOS_SUPPORT=1";
+				CURRENT_PROJECT_VERSION = 37;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "$(BIOS_SUPPORT_$(RC_RELEASE))";
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = bless;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Default;
+		};
+		BA7EB3D6086BD01A000A41C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					NO_VASPRINTF,
+					DISABLE_DISK_ARBITRATION,
+				);
+				INSTALL_PATH = /usr/local/bin;
+				MACOSX_DEPLOYMENT_TARGET = 10.1;
+				MACOSX_DEPLOYMENT_TARGET_i386 = 10.4;
+				MACOSX_DEPLOYMENT_TARGET_ppc = 10.1;
+				OTHER_LDFLAGS_i386 = "";
+				OTHER_LDFLAGS_ppc = "-L$(BUILT_PRODUCTS_DIR)/libs-ppc";
+				PRODUCT_NAME = minibless;
+				VALID_ARCHS = "ppc i386";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Default;
+		};
+		BA7EB3DB086BD01A000A41C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = setOFLabel;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Default;
+		};
+		BA7EB3E0086BD01A000A41C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		BA7EB3E5086BD01A000A41C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/libbless";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = extractBootBlocks;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc ppc64 i386";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Default;
+		};
+		BA7EB3FE086BD01A000A41C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+		BA7EB481086BDDED000A41C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = genFakeFrameworks;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Debug;
+		};
+		BA7EB482086BDDED000A41C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
+				PRODUCT_NAME = genbootargs;
+				VALID_ARCHS = "$(NATIVE_ARCH)";
+			};
+			name = Debug;
+		};
+		BA7EB483086BDDED000A41C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				BIOS_SUPPORT_Leopard = "BIOS_SUPPORT=1";
+				CURRENT_PROJECT_VERSION = 37;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_PREPROCESSOR_DEFINITIONS = "$(BIOS_SUPPORT_$(RC_RELEASE))";
+				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = bless;
+				UNSTRIPPED_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		BA7EB485086BDDED000A41C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				BIOS_SUPPORT_Leopard = "BIOS_SUPPORT=1";
+				CURRENT_PROJECT_VERSION = 37;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "$(BIOS_SUPPORT_$(RC_RELEASE))";
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = bless;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		BA7EB486086BDDED000A41C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					NO_VASPRINTF,
+					DISABLE_DISK_ARBITRATION,
+				);
+				INSTALL_PATH = /usr/local/bin;
+				MACOSX_DEPLOYMENT_TARGET = 10.1;
+				MACOSX_DEPLOYMENT_TARGET_i386 = 10.4;
+				MACOSX_DEPLOYMENT_TARGET_ppc = 10.1;
+				OTHER_LDFLAGS_i386 = "";
+				OTHER_LDFLAGS_ppc = "-L$(BUILT_PRODUCTS_DIR)/libs-ppc";
+				PRODUCT_NAME = minibless;
+				VALID_ARCHS = "ppc i386";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		BA7EB487086BDDED000A41C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA7EB432086BD3AB000A41C1 /* DefaultTarget.xcconfig */;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = setOFLabel;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		BA7EB488086BDDED000A41C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Debug;
+		};
+		BA7EB489086BDDED000A41C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 37;
+				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/libbless";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = extractBootBlocks;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc ppc64 i386";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Debug;
+		};
+		BA7EB48A086BDDED000A41C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 0;
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BA3D815B086C4E9C00484376 /* Build configuration list for PBXNativeTarget "unbless" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA3D815C086C4E9C00484376 /* Default */,
+				BA3D815D086C4E9C00484376 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		BA7EB3B9086BD01A000A41C1 /* Build configuration list for PBXAggregateTarget "genFakeFrameworks" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7EB3BD086BD01A000A41C1 /* Default */,
+				BA7EB481086BDDED000A41C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		BA7EB3BE086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "genbootargs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7EB3C2086BD01A000A41C1 /* Default */,
+				BA7EB482086BDDED000A41C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		BA7EB3C3086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "libbless" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7EB3C7086BD01A000A41C1 /* Default */,
+				BA7EB483086BDDED000A41C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		BA7EB3CD086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "bless" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7EB3D1086BD01A000A41C1 /* Default */,
+				BA7EB485086BDDED000A41C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		BA7EB3D2086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "minibless" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7EB3D6086BD01A000A41C1 /* Default */,
+				BA7EB486086BDDED000A41C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		BA7EB3D7086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "setOFLabel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7EB3DB086BD01A000A41C1 /* Default */,
+				BA7EB487086BDDED000A41C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		BA7EB3DC086BD01A000A41C1 /* Build configuration list for PBXAggregateTarget "World" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7EB3E0086BD01A000A41C1 /* Default */,
+				BA7EB488086BDDED000A41C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		BA7EB3E1086BD01A000A41C1 /* Build configuration list for PBXNativeTarget "extractBootBlocks" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7EB3E5086BD01A000A41C1 /* Default */,
+				BA7EB489086BDDED000A41C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		BA7EB3FA086BD01A000A41C1 /* Build configuration list for PBXProject "bless" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA7EB3FE086BD01A000A41C1 /* Default */,
+				BA7EB48A086BDDED000A41C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

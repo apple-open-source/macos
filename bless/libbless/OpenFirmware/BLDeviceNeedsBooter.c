@@ -27,9 +27,29 @@
  *  Created by Shantonu Sen on 2/7/05.
  *  Copyright 2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLDeviceNeedsBooter.c,v 1.1 2005/02/07 21:22:38 ssen Exp $
+ *  $Id: BLDeviceNeedsBooter.c,v 1.7 2005/11/09 22:42:06 ssen Exp $
  *
  *  $Log: BLDeviceNeedsBooter.c,v $
+ *  Revision 1.7  2005/11/09 22:42:06  ssen
+ *  fix annoying diagnostic message on GPT maps
+ *
+ *  Revision 1.6  2005/08/22 20:49:25  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.4  2005/06/24 16:39:51  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
+ *  Revision 1.3  2005/06/24 06:40:04  ssen
+ *  include sys/param.h
+ *
+ *  Revision 1.2  2005/06/08 16:03:33  ssen
+ *  Merge
+ *  <rdar://problem/4045837> [bless] bless has issues with GPT maps
+ *
  *  Revision 1.1  2005/02/07 21:22:38  ssen
  *  Refact lookupServiceForName and code for BLDeviceNeedsBooter
  *
@@ -47,20 +67,22 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
+#include <sys/param.h>
+
 #include "bless.h"
 #include "bless_private.h"
 
 // based on the partition type, deduce whether OpenFirmware needs
 // an auxiliary HFS+ filesystem on an Apple_Boot partition. Doesn't
 // apply to RAID or non-OF systems
-int BLDeviceNeedsBooter(BLContextPtr context, const unsigned char device[],
+int BLDeviceNeedsBooter(BLContextPtr context, const char * device,
 						int32_t *needsBooter,
 						int32_t *isBooter,
 						io_service_t *booterPartition)
 {
-	unsigned char			wholename[MAXPATHLEN], bootername[MAXPATHLEN];
+	char			wholename[MAXPATHLEN], bootername[MAXPATHLEN];
 	io_service_t			booter = 0, maindev = 0;
-	unsigned long			partnum;
+	uint32_t				partnum;
 	int						ret;
 	CFStringRef				content = NULL;
 	CFBooleanRef			isWhole = NULL;
@@ -70,7 +92,7 @@ int BLDeviceNeedsBooter(BLContextPtr context, const unsigned char device[],
 	*isBooter = 0;
 	*booterPartition = 0;
 	
-	ret = BLGetIOServiceForDeviceName(context, (unsigned char *)device + 5, &maindev);
+	ret = BLGetIOServiceForDeviceName(context, (char *)device + 5, &maindev);
 	if(ret) {
         contextprintf(context, kBLLogLevelError,  "Can't find IOService for %s\n", device + 5 );
         return 3;		
@@ -108,8 +130,8 @@ int BLDeviceNeedsBooter(BLContextPtr context, const unsigned char device[],
 	}
 	
 	
-	if(CFStringCompare(content, CFSTR("Apple_HFS"), 0)
-	   == kCFCompareEqualTo) {
+	if(CFStringCompare(content, CFSTR("Apple_HFS"), 0) == kCFCompareEqualTo
+       || CFStringCompare(content, CFSTR("48465300-0000-11AA-AA11-00306543ECAC"), 0) == kCFCompareEqualTo) {
 		contextprintf(context, kBLLogLevelVerbose,  "Apple_HFS partition. No external loader\n" );
 		// it's an HFS partition. no loader needed
 		CFRelease(content);
@@ -149,8 +171,14 @@ int BLDeviceNeedsBooter(BLContextPtr context, const unsigned char device[],
 		return 2;
 	}
 		
+    if(partnum == 1) {
+        // partition is of the form disk1s1. No booter at disk1s0
+        contextprintf(context, kBLLogLevelVerbose,  "Skipping search for booter for %s\n", device );	    
+        return 0;
+    }
+    
 	// devname now points to "disk1s3"
-	sprintf(bootername, "%ss%ld", wholename + 5, partnum - 1);
+	sprintf(bootername, "%ss%u", wholename + 5, partnum - 1);
 
 	contextprintf(context, kBLLogLevelVerbose,  "Looking for external loader at %s\n", bootername );	
 

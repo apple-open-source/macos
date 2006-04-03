@@ -1,7 +1,7 @@
 /*
  * Utilities.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Utilities.m,v 1.8 2005/03/22 18:29:34 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

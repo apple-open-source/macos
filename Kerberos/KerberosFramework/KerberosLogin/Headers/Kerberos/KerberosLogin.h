@@ -25,7 +25,7 @@
 /*
  * KerberosLogin.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Headers/Kerberos/KerberosLogin.h,v 1.89 2004/10/04 17:43:46 lxs Exp $
+ * $Header$
  */
 
 #ifndef __KERBEROSLOGIN__

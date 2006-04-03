@@ -23,7 +23,7 @@
 #include "gssapiP_krb5.h"
 
 /*
- * $Id: context_time.c,v 1.12 2004/03/19 09:33:57 raeburn Exp $
+ * $Id: context_time.c 16187 2004-03-19 09:33:57Z raeburn $
  */
 
 OM_uint32

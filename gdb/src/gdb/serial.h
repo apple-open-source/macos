@@ -206,10 +206,10 @@ struct serial_ops
   {
     char *name;
     struct serial_ops *next;
-    int (*sopen) (struct serial *, const char *name);
-    void (*sclose) (struct serial *);
+    int (*open) (struct serial *, const char *name);
+    void (*close) (struct serial *);
     int (*readchar) (struct serial *, int timeout);
-    int (*swrite) (struct serial *, const char *str, int len);
+    int (*write) (struct serial *, const char *str, int len);
     /* Discard pending output */
     int (*flush_output) (struct serial *);
     /* Discard pending input */

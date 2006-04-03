@@ -1526,7 +1526,10 @@ The keyword @code{__attribute__} allows you to specify special
 attributes when making a declaration.  This keyword is followed by an
 attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
-@code{noreturn}, @code{noinline}, @code{always_inline},
+@c APPLE LOCAL nodebug
+@code{noreturn}, @code{noinline}, @code{always_inline}, @code{nodebug},
+@c APPLE LOCAL regparmandstackparm
+@code{regparmandstackparm},
 @code{pure}, @code{const}, @code{nothrow}, @code{sentinel},
 @code{format}, @code{format_arg}, @code{no_instrument_function},
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
@@ -1568,6 +1571,15 @@ Not all target machines support this attribute.
 Generally, functions are not inlined unless optimization is specified.
 For functions declared inline, this attribute inlines the function even
 if no optimization level was specified.
+
+@c APPLE LOCAL begin nodebug
+@item nodebug
+@cindex @code{nodebug} function attribute
+This attribute prevents debug information to be generated for the function.
+This is to avoid stepping into the function which is of no interest to the
+user how it is implemented. An example is the x86 vector intrinsics.
+This is temporary and will be removed in some future version of the compiler.
+@c APPLE LOCAL end nodebug
 
 @item cdecl
 @cindex functions that do pop the argument stack on the 386
@@ -1731,6 +1743,13 @@ on data in the eight bit data area.  Note the eight bit data area is limited to
 You must use GAS and GLD from GNU binutils version 2.7 or later for
 this attribute to work correctly.
 
+@item exception_handler
+@cindex exception handler functions on the Blackfin processor
+Use this attribute on the Blackfin to indicate that the specified function
+is an exception handler.  The compiler will generate function entry and
+exit sequences suitable for use in an exception handler when this
+attribute is present.
+
 @item far
 @cindex functions which handle memory bank switching
 On 68HC11 and 68HC12 the @code{far} attribute causes the compiler to
@@ -1879,8 +1898,8 @@ that the specified function is an interrupt handler.  The compiler will
 generate function entry and exit sequences suitable for use in an
 interrupt handler when this attribute is present.
 
-Note, interrupt handlers for the m68k, H8/300, H8/300H, H8S, and SH processors
-can be specified via the @code{interrupt_handler} attribute.
+Note, interrupt handlers for the Blackfin, m68k, H8/300, H8/300H, H8S, and
+SH processors can be specified via the @code{interrupt_handler} attribute.
 
 Note, on the AVR, interrupts will be enabled inside the function.
 
@@ -1894,11 +1913,17 @@ void f () __attribute__ ((interrupt ("IRQ")));
 Permissible values for this parameter are: IRQ, FIQ, SWI, ABORT and UNDEF@.
 
 @item interrupt_handler
-@cindex interrupt handler functions on the m68k, H8/300 and SH processors
-Use this attribute on the m68k, H8/300, H8/300H, H8S, and SH to indicate that
-the specified function is an interrupt handler.  The compiler will generate
-function entry and exit sequences suitable for use in an interrupt
-handler when this attribute is present.
+@cindex interrupt handler functions on the Blackfin, m68k, H8/300 and SH processors
+Use this attribute on the Blackfin, m68k, H8/300, H8/300H, H8S, and SH to
+indicate that the specified function is an interrupt handler.  The compiler
+will generate function entry and exit sequences suitable for use in an
+interrupt handler when this attribute is present.
+
+@item kspisusp
+@cindex User stack pointer in interrupts on the Blackfin
+When used together with @code{interrupt_handler}, @code{exception_handler}
+or @code{nmi_handler}, code will be generated to load the stack pointer
+from the USP register in the function prologue.
 
 @c APPLE LOCAL Apple customers doesn't care about ARM options.
 @ignore
@@ -1981,6 +2006,19 @@ On 68HC11 and 68HC12 the @code{near} attribute causes the compiler to
 use the normal calling convention based on @code{jsr} and @code{rts}.
 This attribute can be used to cancel the effect of the @option{-mlong-calls}
 option.
+
+@item nesting
+@cindex Allow nesting in an interrupt handler on the Blackfin processor.
+Use this attribute together with @code{interrupt_handler},
+@code{exception_handler} or @code{nmi_handler} to indicate that the function
+entry code should enable nested interrupts or exceptions.
+
+@item nmi_handler
+@cindex NMI handler functions on the Blackfin processor
+Use this attribute on the Blackfin to indicate that the specified function
+is an NMI handler.  The compiler will generate function entry and
+exit sequences suitable for use in an NMI handler when this
+attribute is present.
 
 @item no_instrument_function
 @cindex @code{no_instrument_function} function attribute
@@ -2126,8 +2164,8 @@ disabled with the linker or the loader if desired, to avoid the
 problem.)
 
 @item saveall
-@cindex save all registers on the H8/300, H8/300H, and H8S
-Use this attribute on the H8/300, H8/300H, and H8S to indicate that
+@cindex save all registers on the Blackfin, H8/300, H8/300H, and H8S
+Use this attribute on the Blackfin, H8/300, H8/300H, and H8S to indicate that
 all registers except the stack pointer should be saved in the prologue
 regardless of whether they are used or not.
 
@@ -2190,6 +2228,50 @@ Use this attribute on the AVR to indicate that the specified
 function is a signal handler.  The compiler will generate function
 entry and exit sequences suitable for use in a signal handler when this
 attribute is present.  Interrupts will be disabled inside the function.
+
+@c APPLE LOCAL begin regparmandstackparm
+@item regparmandstackparm
+
+This is an X86_32-specific attribute.
+
+Two entry points will be created for this function.  One will have the
+traditional calling convention, and the other will have a mangled name
+and a register-based calling convention.
+
+The register-based calling convention will pass up to four float or
+double values in XMM registers, and up to two integral values in
+integer registers.  Long double values are still passed on the stack,
+and functions returning long double will still use the x87 stacktop.
+
+Other modules linked with this function may use either entry point.
+If a calling module has seen an extern declaration with the
+@code{regparmandstackparm} attribute, it will call the register-based
+entry point; otherwise, it will use the traditional entry point in the
+usual way.
+
+When taking the address of a @code{regparmandstackparm} function, the
+address of the traditional entry point will be used.  Calls through
+function pointers always use the traditional calling convention.
+
+The mangled name is currently created by appending ``$3SSE'' to the
+original function name (before any C++ name-mangling), but users
+should not rely upon this.
+
+The current implementation associates the original function body with
+the register-based entry point.  The traditional entry point will load
+some registers from the stack and call the register-based entry point.
+This means the traditional entry point will be slightly less efficient
+than a function without the @code{regparmandstackparm} attribute, and the
+generated code will be slightly larger.  Depending upon sizes and
+optimization levels, the inliner may inline the register-based body
+into the traditional entry point; nothing is done to preclude this.
+If the function was declared @code{static}, optimization may discard
+the original entry point entirely.
+
+@smallexample
+extern double __attribute__ ((regparmandstackparm)) my_cos (double d);
+@end smallexample
+@c APPLE LOCAL end regparmandstackparm
 
 @item sp_switch
 Use this attribute on the SH to indicate an @code{interrupt_handler}
@@ -3263,7 +3345,7 @@ struct my_unpacked_struct
     int i;
  @};
 
-struct my_packed_struct __attribute__ ((__packed__))
+struct __attribute__ ((__packed__)) my_packed_struct
   @{
      char c;
      int  i;
@@ -4297,17 +4379,18 @@ each arbitrary expression.   @xref{Example of asm with clobbered asm reg}.
 
 In addition to writing single statements in assembly, you can also
 define blocks and entire functions to use a mixed assembly and C
-syntax.  The syntax follows that used in Metrowerks' CodeWarrior.
-This extension must be explicitly enabled with the
-@option{-fasm-blocks} option.
+syntax.  The syntax follows that used in Metrowerks' CodeWarrior on
+PowerPC and Microsoft Visual Studio on x86.  This extension must be
+explicitly enabled with the @option{-fasm-blocks} option.
 
 The block syntax consists of @code{asm} followed by braces, with the
 assembly instructions on separate lines.  (However, @code{';'} may be
-used to put several instructions on one line.)  You write labels with
-either a preceding @code{'@@'} or a trailing @code{':'} (or both, if
-you prefer); labels are always local to the asm block, and there is no
-way for a label in one block to refer to a label in another block.
-Comments and lexical rules are as for standard C/C++.
+used to put several instructions on one line in CW-style, and
+@code{asm} in either style.)  You write labels with either a preceding
+@code{'@@'} or a trailing @code{':'} (or both, if you prefer); labels
+are always local to the asm block, and there is no way for a label in
+one block to refer to a label in another block.  Comments and lexical
+rules are as for standard C/C++.
 
 @verbatim
 int foo (int arg) {
@@ -4346,13 +4429,13 @@ reported by the assembler.
 Also note that the use of literal registers (such as r3) in functions
 may not work properly with functions that are being inlined.
 
-The following instructions are assumed to affect memory: @code{l...}
+The following PowerPC instructions are assumed to affect memory: @code{l...}
 except @code{la}, @code{li} and @code{lis} (all memory loads),
 @code{st...} (all memory stores), @code{sc}, @code{td...},
 @code{trap}, @code{tw...}.  All other instructions are assumed to not
 affect memory.
 
-The following instructions take a memory operand (address operand) as
+The following PowerPC instructions take a memory operand (address operand) as
 their second operand, all other instructions are assumed to not:
 
 @code{la}, @code{lbzu}, @code{ld}, @code{ldu}, @code{lfd},
@@ -4366,6 +4449,22 @@ Arguments that require substitution beyond vector registers, floating
 point registers, general registers are not supported; an example
 would be trying to use the compiler to allocate condition code
 registers instead of just writting a specific condition code register.
+
+On x86, the following instructions are not yet implemented by the assembler:
+
+@code{bound r m}, 
+@code{cmovpe r rm}, 
+@code{cmovpo r rm}, 
+@code{cmovz r rm}, 
+@code{ins m d}, 
+@code{lods m}, 
+@code{movs m m}
+@code{scas m}, 
+@code{stos m}, and
+@code{xlat m}.
+
+Note, the letters after the instructions are the usual x86 contraint
+letters for the operands.
 @c APPLE LOCAL end CW asm blocks
 
 @node Alternate Keywords

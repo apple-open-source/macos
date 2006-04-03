@@ -20,6 +20,10 @@
 
 #include "includes.h"
 
+#ifdef WITH_SACL
+#include <membershipPriv.h>
+#endif
+
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_AUTH
 
@@ -173,7 +177,50 @@ static BOOL check_domain_match(const char *user, const char *domain)
 		return True;
 	}
 }
+#ifdef WITH_SACL
+/*
+	check_sacl(const char *inUser, const char *inService) - Check Service ACL
+		inUser - username in utf-8
+		inService - name of the service in utf-8
+		
+		NOTE: the service name is not the group name, the transformation currently goes like
+			this: "service" -> "com.apple.access_service"
+			
+	returns
+		1 if the user is authorized (or no ACL exists)
+		0 if the user is not authorized or does not exist
 
+*/
+int		check_sacl(const char *inUser, const char *inService)
+{
+	uuid_t	user_uuid;
+	int		isMember = 0;
+	int		mbrErr = 0;
+
+	// get the uuid
+	if(mbr_user_name_to_uuid(inUser, user_uuid))
+	{
+		return 0;
+	}	
+	
+	// check the sacl
+	if((mbrErr = mbr_check_service_membership(user_uuid, inService, &isMember)))
+	{
+		if(mbrErr == ENOENT)	// no ACL exists
+		{
+			return 1;	
+		} else {
+			return 0;
+		}
+	}
+	if(isMember == 1)
+	{
+		return 1;
+	} else {
+		return 0;
+	}
+}
+#endif
 /**
  * Check a user's Plaintext, LM or NTLM password.
  *
@@ -296,6 +343,14 @@ static NTSTATUS check_ntlm_password(const struct auth_context *auth_context,
 			} 
 		}
 		
+		#ifdef WITH_SACL
+		if (check_sacl(unix_username, "smb") == 0)
+		{
+			DEBUG(1,("check_ntlm_password: check_sacl(%s, smb) failed \n", unix_username));
+			return NT_STATUS_WRONG_PASSWORD;	
+		}
+		#endif
+
 		if (NT_STATUS_IS_OK(nt_status)) {
 			DEBUG((*server_info)->guest ? 5 : 2, 
 			      ("check_ntlm_password:  %sauthentication for user [%s] -> [%s] -> [%s] succeeded\n", 

@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: indicate_mechs.c,v 1.12 2002/07/01 20:48:34 raeburn Exp $
+ * $Id: indicate_mechs.c 14592 2002-07-01 20:48:34Z raeburn $
  */
 
 #include "gssapiP_krb5.h"

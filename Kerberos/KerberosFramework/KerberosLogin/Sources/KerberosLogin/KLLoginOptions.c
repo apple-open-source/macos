@@ -1,7 +1,7 @@
 /*
  * KLLoginOptions.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLLoginOptions.c,v 1.5 2003/05/06 16:45:09 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

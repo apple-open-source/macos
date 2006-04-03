@@ -1011,11 +1011,6 @@ long double fmodl(long double xx, long double yy)
     return rslt;
 }
 
-long double nanl(const char *tagp)
-{
-	return nan(tagp);
-}
-
 #warning remquol: cannot gaurantee exact result!
 static const hexdouble Huge		= HEXDOUBLE(0x7ff00000, 0x00000000);
 static const hexdouble HugeHalved	= HEXDOUBLE(0x7fe00000, 0x00000000);

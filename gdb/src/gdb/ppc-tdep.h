@@ -28,7 +28,7 @@ struct value;
 struct regcache;
 struct type;
 
-/* From ppc-linux-tdep.c */
+/* From ppc-linux-tdep.c... */
 CORE_ADDR ppc_linux_frame_saved_pc (struct frame_info *fi);
 void ppc_linux_init_extra_frame_info (int fromleaf, struct frame_info *);
 int ppc_linux_frameless_function_invocation (struct frame_info *);
@@ -95,7 +95,7 @@ enum return_value_convention ppc_darwin_abi_return_value (struct gdbarch *gdbarc
 							  void *readbuf,
 							  const void *writebuf);
 
-/* From rs6000-tdep.c */
+/* From rs6000-tdep.c... */
 int ppc64_sysv_abi_use_struct_convention (int gcc_p, struct type *value_type);
 void ppc64_sysv_abi_extract_return_value (struct type *valtype,
 					  struct regcache *regbuf,

@@ -1016,7 +1016,9 @@ void send_file_name(int f, struct file_list *flist, char *fname,
 			file2->basename[1] = '_';
 			file2->length = 1;
 			file2->mode = S_IFREG | S_IRUSR;
+			file2->modtime = file->modtime;
 
+			flist_expand(flist);
 			flist->files[flist->count++] = file2;
 
 			if (f != -1)

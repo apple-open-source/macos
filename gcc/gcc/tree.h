@@ -290,6 +290,8 @@ struct tree_common GTY(())
   unsigned visited : 1;
   /* APPLE LOCAL "unavailable" attribute (Radar 2809697) --ilr */
   unsigned unavailable_flag : 1;
+  /* APPLE LOCAL bitfield reversal 4228294 */
+  unsigned reversed_flag : 1;
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -1038,6 +1040,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    unavailable feature by __attribute__((unavailable)).  */
 #define TREE_UNAVAILABLE(NODE) ((NODE)->common.unavailable_flag)
 /* APPLE LOCAL end "unavailable" attribute (Radar 2809697) */
+/* APPLE LOCAL begin bitfield reversal 4228294 */
+#define TREE_FIELDS_REVERSED(NODE) ((NODE)->common.reversed_flag)
+/* APPLE LOCAL end bitfield reversal 4228294 */
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function
@@ -1283,8 +1288,9 @@ struct tree_vec GTY(())
 #define ASM_OUTPUTS(NODE)       TREE_OPERAND (ASM_EXPR_CHECK (NODE), 1)
 #define ASM_INPUTS(NODE)        TREE_OPERAND (ASM_EXPR_CHECK (NODE), 2)
 #define ASM_CLOBBERS(NODE)      TREE_OPERAND (ASM_EXPR_CHECK (NODE), 3)
-/* APPLE LOCAL CW asm blocks */
+/* APPLE LOCAL begin CW asm blocks */
 #define ASM_USES(NODE)      TREE_OPERAND (ASM_EXPR_CHECK (NODE), 4)
+/* APPLE LOCAL end CW asm blocks */
 /* Nonzero if we want to create an ASM_INPUT instead of an
    ASM_OPERAND with no operands.  */
 #define ASM_INPUT_P(NODE) (TREE_STATIC (NODE))

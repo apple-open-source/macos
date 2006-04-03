@@ -18,6 +18,7 @@
 		NSLServiceRef service;
 	} NSLObject;
 	BOOL fixedEntry;
+	BOOL censorContents;
 	BOOL beingPopulated;
 	BOOL havePopulated;
 	BOOL neighborhoodSearchStarted;
@@ -61,6 +62,9 @@
 
 - (BOOL)fixedEntry;
 - (void)setFixedEntry:(BOOL)newFixedEntryStatus;
+
+- (BOOL)censorContents;
+- (void)setCensorContents:(BOOL)newCensorContentsStatus;
 
 - (BOOL)processSearchResults:(SearchContext *)searchContext;
 

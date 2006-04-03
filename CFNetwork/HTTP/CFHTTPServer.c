@@ -72,6 +72,7 @@
 #pragma mark Includes
 #include <CFNetwork/CFServerPriv.h>
 #include <CFNetwork/CFHTTPServerPriv.h>
+#include "CFNetworkInternal.h"
 
 #include <CoreFoundation/CFRuntime.h>
 #if !defined(__WIN32__)

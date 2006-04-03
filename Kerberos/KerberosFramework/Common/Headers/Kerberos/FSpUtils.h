@@ -1,7 +1,7 @@
 /* 
  * FSpUtils.h
  *
- * $Header: /cvs/kfm/KerberosFramework/Common/Headers/Kerberos/FSpUtils.h,v 1.3 2004/10/22 20:54:16 lxs Exp $
+ * $Header$
  */
 
 #ifndef __FSPUTILS__

@@ -27,9 +27,19 @@
  *  Created by Shantonu Sen on Mon May 17 2004.
  *  Copyright 2004-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetACPIBootDeviceForMountPoint.c,v 1.2 2005/02/03 00:42:24 ssen Exp $
+ *  $Id: BLGetACPIBootDeviceForMountPoint.c,v 1.4 2005/08/22 20:49:22 ssen Exp $
  *
  *  $Log: BLGetACPIBootDeviceForMountPoint.c,v $
+ *  Revision 1.4  2005/08/22 20:49:22  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.3  2005/06/24 16:39:49  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.2  2005/02/03 00:42:24  ssen
  *  Update copyrights to 2005
  *
@@ -52,11 +62,11 @@
 #include "bless_private.h"
 
 int BLGetACPIBootDeviceForMountPoint(BLContextPtr context,
-				     const unsigned char mountpoint[],
-				     char acpistring[])
+				     const char * mountpoint,
+				     char * acpistring)
 {
 
-    unsigned char mntfrm[MAXPATHLEN];
+    char mntfrm[MAXPATHLEN];
     int err;
     struct stat sb;
     

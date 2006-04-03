@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C */
+/* APPLE LOCAL file mainline */
 /* Check that local variables that get modified inside the @try
    block survive until the @catch block is reached.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */

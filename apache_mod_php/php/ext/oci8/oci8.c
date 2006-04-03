@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.183.2.17 2005/01/20 18:44:10 tony2001 Exp $ */
+/* $Id: oci8.c,v 1.183.2.18.2.2 2005/10/10 10:41:24 tony2001 Exp $ */
 
 /* TODO list:
  *
@@ -641,7 +641,7 @@ PHP_MINFO_FUNCTION(oci)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "OCI8 Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.183.2.17 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.183.2.18.2.2 $");
 #ifndef PHP_WIN32
 	php_info_print_table_row(2, "Oracle Version", PHP_OCI8_VERSION );
 	php_info_print_table_row(2, "Compile-time ORACLE_HOME", PHP_OCI8_DIR );
@@ -836,16 +836,16 @@ _oci_conn_list_dtor(oci_connection *connection TSRMLS_DC)
 					(ub4) OCI_HTYPE_SVCCTX));
 	}
 
-	if (connection->session && connection->session->exclusive) {
-		/* exclusive connection created via OCINLogon() close their 
-		   associated session when destructed */
-		zend_list_delete(connection->session->num);
-	}
-
 	if (connection->pError) {
 		CALL_OCI(OCIHandleFree(
 					(dvoid *) connection->pError, 
 					(ub4) OCI_HTYPE_ERROR));
+	}
+
+	if (connection->session && connection->session->exclusive) {
+		/* exclusive connection created via OCINLogon() close their 
+		   associated session when destructed */
+		zend_list_delete(connection->session->num);
 	}
 
 	oci_debug("END   _oci_conn_list_dtor: id=%d",connection->id);
@@ -1285,7 +1285,12 @@ _oci_make_zval(zval *value,oci_statement *statement,oci_out_column *column, char
 			if (oci_loadlob(statement->conn,descr,&buffer,&loblen)) {
 				ZVAL_FALSE(value);
 			} else {
-				ZVAL_STRINGL(value,buffer,loblen,0);
+				if (loblen > 0) {
+					ZVAL_STRINGL(value,buffer,loblen,0);
+				}
+				else {
+					ZVAL_EMPTY_STRING(value);
+				}
 			} 
 		} else { 
 			/* return the locator */
@@ -1912,6 +1917,10 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,u
 		return -1;
 	}
 
+	if (readlen == 0) {
+		return 0;
+	}
+	
 	buf = emalloc(readlen + 1);
 
 	while (readlen > 0) { /* thies loop should not be entered on readlen == 0 */
@@ -2527,7 +2536,7 @@ static oci_server *_oci_open_server(char *dbname,int persistent)
 			/* breakthru to open */
 		}
 	}
-	
+
 	server = calloc(1,sizeof(oci_server));
 
 	server->persistent = persistent;
@@ -2975,6 +2984,12 @@ break;
 			}
 			value_sz = sizeof(void*);
 			break;
+		case SQLT_CHR:
+			break;
+		default:
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown or unsupported datatype given: %u", ocitype);
+			RETURN_FALSE;
+			break;
 	}
 	
 	if ((ocitype == SQLT_CHR) && (value_sz == -1)) {
@@ -3280,7 +3295,12 @@ PHP_FUNCTION(ociloadlob)
 		}
 
 		if (!oci_loadlob(descr->conn,descr,&buffer,&loblen)) {
-	 		RETURN_STRINGL(buffer,loblen,0);
+			if (loblen > 0) {
+		 		RETURN_STRINGL(buffer,loblen,0);
+			}
+			else {
+				RETURN_EMPTY_STRING();
+			}
 		}
 	}
 

@@ -1,7 +1,7 @@
 /*
  * mach_server_utilities.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/mach_server_utilities.c,v 1.12 2005/06/15 20:59:15 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -96,7 +96,7 @@ mach_server_setup_ports (void)
     if (!err) {
         err = mach_port_request_notification (mach_task_self (), gServicePort, MACH_NOTIFY_NO_SENDERS, true, 
                                               gNotifyPort, MACH_MSG_TYPE_MAKE_SEND_ONCE, &previousNotifyPort);
-        dprintf ("requesting notification for no senders of %lx returned '%s', err = %ld\n",
+        dprintf ("requesting notification for no senders of %x returned '%s', err = %d\n",
                  gServicePort, mach_error_string (err), err);
     }
     
@@ -124,7 +124,7 @@ mach_server_cleanup_ports (void)
         err = mach_port_request_notification (mach_task_self (), gServicePort, MACH_NOTIFY_NO_SENDERS, 
                                               true, MACH_PORT_NULL, MACH_MSG_TYPE_MAKE_SEND_ONCE, 
                                               &previousNotifyPort);
-        dprintf ("removing notification for no senders of %lx returned '%s', err = %ld\n", 
+        dprintf ("removing notification for no senders of %x returned '%s', err = %d\n", 
                  previousNotifyPort, mach_error_string (err), err);
     }
     
@@ -179,14 +179,14 @@ mach_server_run_server (boolean_t (*inDemuxProc)(mach_msg_header_t *, mach_msg_h
     // Get the bootstrap port
     if (!err) {
         err = task_get_bootstrap_port (mach_task_self (), &gBootPort);
-        dprintf ("task_get_bootstrap_port(): port is %lx (err = %ld '%s')", 
+        dprintf ("task_get_bootstrap_port(): port is %x (err = %d '%s')", 
                  gBootPort, err, mach_error_string (err));
     }
     
     if (!err) {
         // Is the service registered?
         err = bootstrap_status (gBootPort, gServiceName, &active);
-        dprintf ("bootstrap_status(%ld, '%s'): returned state %d (err = %ld '%s')", 
+        dprintf ("bootstrap_status(%d, '%s'): returned state %d (err = %d '%s')", 
                  gBootPort, gServiceName, active, err, mach_error_string (err));
         if (!err && (active == BOOTSTRAP_STATUS_ACTIVE))   { err = BOOTSTRAP_NAME_IN_USE; }
         if (!err && (active == BOOTSTRAP_STATUS_INACTIVE)) { err = BOOTSTRAP_UNKNOWN_SERVICE; } 
@@ -195,13 +195,13 @@ mach_server_run_server (boolean_t (*inDemuxProc)(mach_msg_header_t *, mach_msg_h
     if (!err) {
         // Yes.  We are an on-demand server so our port already exists.  Just ask for it.
         err = bootstrap_check_in (gBootPort, (char *) gServiceName, &gServicePort);
-        dprintf ("bootstrap_check_in('%s'): port is %ld (err = %ld '%s')", 
+        dprintf ("bootstrap_check_in('%s'): port is %d (err = %d '%s')", 
                  gServiceName, gServicePort, err, mach_error_string (err));
     }      
     
     if (!err) {
         if (bootstrap_status (gBootPort, gServiceName, &active) == KERN_SUCCESS) {
-            dprintf ("'%s' state is now %ld", gServiceName, active);
+            dprintf ("'%s' state is now %d", gServiceName, active);
         }
     }
         
@@ -211,7 +211,7 @@ mach_server_run_server (boolean_t (*inDemuxProc)(mach_msg_header_t *, mach_msg_h
     }    
     
     if (!err) {
-        dprintf ("\"%s\": starting up. ServicePort = %lx, BootstrapPort = %lx\n", 
+        dprintf ("\"%s\": starting up. ServicePort = %x, BootstrapPort = %x\n", 
                  gServiceName, gServicePort, gBootPort);
     }
     

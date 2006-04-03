@@ -1,7 +1,7 @@
 /*
  * SaveNewProfile.c
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/SaveNewProfile.c,v 1.2 2004/12/03 16:11:16 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -86,7 +86,7 @@ int main (int argc, const char **argv)
         if (!err) {
             dprintf ("opened new file");
             err = ReadDynamicLengthBuffer (STDIN_FILENO, &fileData, &fileLength);
-            dprintf ("read new file of length %d (err = %d)", fileLength, err);
+            dprintf ("read new file of length %ld (err = %d)", fileLength, err);
         }
                 
         if (!err) {

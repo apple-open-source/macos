@@ -46,6 +46,7 @@
 #include "symfile.h"
 #include "symtab.h"
 #include "objfiles.h"
+#include "gdb.h"
 #include "gdbcmd.h"
 #include "gdbcore.h"
 #include "gdbthread.h"
@@ -76,6 +77,19 @@
 
 #ifndef EXC_SOFT_SIGNAL
 #define EXC_SOFT_SIGNAL 0
+#endif
+
+/* The code values for single step vrs. breakpoint
+   trap aren't defined in ppc header files.  There is a 
+   def'n in the i386 exception.h, but it is a i386 specific
+   define.  */
+
+#if defined (TARGET_I386)
+#define SINGLE_STEP EXC_I386_SGL
+#elif defined (TARGET_POWERPC)
+#define SINGLE_STEP 5
+#else
+error unknown architecture
 #endif
 
 #define _dyld_debug_make_runnable(a, b) DYLD_FAILURE
@@ -124,7 +138,8 @@ enum macosx_source_type
   NEXT_SOURCE_EXCEPTION = 0x1,
   NEXT_SOURCE_SIGNAL = 0x2,
   NEXT_SOURCE_CFM = 0x4,
-  NEXT_SOURCE_ALL = 0x7
+  NEXT_SOURCE_ERROR = 0x8,
+  NEXT_SOURCE_ALL = 0xf,
 };
 
 struct macosx_pending_event
@@ -132,6 +147,7 @@ struct macosx_pending_event
   enum macosx_source_type type;
   unsigned char *buf;
   struct macosx_pending_event *next;
+  struct macosx_pending_event *prev;
 };
 
 struct macosx_pending_event *pending_event_chain, *pending_event_tail;
@@ -162,7 +178,7 @@ static int macosx_process_events (struct macosx_inferior_status *ns,
                                   struct target_waitstatus *status,
                                   int timeout, int service_first_event);
 
-static void macosx_add_to_pending_events (enum macosx_source_type,
+static struct macosx_pending_event * macosx_add_to_pending_events (enum macosx_source_type,
                                           unsigned char *buf);
 
 static int macosx_post_pending_event (void);
@@ -379,6 +395,12 @@ macosx_add_to_port_set (struct macosx_inferior_status *inferior,
       FD_SET (inferior->exception_status.receive_from_fd, fds);
     }
 
+  if ((flags & NEXT_SOURCE_ERROR)
+      && inferior->exception_status.error_receive_fd > 0)
+    {
+      FD_SET (inferior->exception_status.error_receive_fd, fds);
+    }
+
   if ((flags & NEXT_SOURCE_SIGNAL)
       && inferior->signal_status.receive_fd > 0)
     {
@@ -437,6 +459,13 @@ macosx_fetch_event (struct macosx_inferior_status *inferior,
       break;
     }
 
+  fd = inferior->exception_status.error_receive_fd;
+  if (fd > 0 && FD_ISSET (fd, &fds))
+    {
+      read (fd, buf, 1);
+      return NEXT_SOURCE_ERROR;
+    }
+
   fd = inferior->exception_status.receive_from_fd;
   if (fd > 0 && FD_ISSET (fd, &fds))
     {
@@ -457,7 +486,7 @@ macosx_fetch_event (struct macosx_inferior_status *inferior,
 /* This takes the data from an event and puts it on the tail of the
    "pending event" chain. */
 
-static void
+static struct macosx_pending_event *
 macosx_add_to_pending_events (enum macosx_source_type type,
                               unsigned char *buf)
 {
@@ -475,7 +504,8 @@ macosx_add_to_pending_events (enum macosx_source_type type,
         xmalloc (sizeof (macosx_signal_thread_message));
       memcpy (mssg, buf, sizeof (macosx_signal_thread_message));
       inferior_debug (1,
-                      "macosx_add_to_pending_events: adding a signal event to the pending events.\n");
+                      "macosx_add_to_pending_events: adding a signal event "
+		      "to the pending events.\n");
       new_event->buf = (void *) mssg;
     }
   else if (type == NEXT_SOURCE_EXCEPTION)
@@ -485,7 +515,8 @@ macosx_add_to_pending_events (enum macosx_source_type type,
         xmalloc (sizeof (macosx_exception_thread_message));
       memcpy (mssg, buf, sizeof (macosx_exception_thread_message));
       inferior_debug (1,
-                      "macosx_add_to_pending_events: adding an exception event to the pending events.\n");
+                      "macosx_add_to_pending_events: adding an exception event "
+		      "to the pending events.\n");
       new_event->buf = (void *) mssg;
     }
 
@@ -495,12 +526,51 @@ macosx_add_to_pending_events (enum macosx_source_type type,
     {
       pending_event_chain = new_event;
       pending_event_tail = new_event;
+      new_event->prev = NULL;
     }
   else
     {
+      new_event->prev = pending_event_tail;
       pending_event_tail->next = new_event;
       pending_event_tail = new_event;
     }
+  return new_event;
+}
+
+static void
+macosx_free_pending_event (struct macosx_pending_event *event_ptr)
+{
+  xfree (event_ptr->buf);
+  xfree (event_ptr);
+}
+
+static int 
+macosx_count_pending_events ()
+{
+  int counter = 0;
+  struct macosx_pending_event *event_ptr;
+
+  for (event_ptr = pending_event_chain; event_ptr != NULL; event_ptr = event_ptr->next)
+    counter++;
+
+  return counter;
+}
+      
+static void
+macosx_remove_pending_event (struct macosx_pending_event *event_ptr, int delete)
+{
+  if (event_ptr == pending_event_chain)
+    pending_event_chain = event_ptr->next;
+  if (event_ptr == pending_event_tail)
+    pending_event_tail = event_ptr->prev;
+
+  if (event_ptr->prev != NULL)
+    event_ptr->prev->next = event_ptr->next;
+  if (event_ptr->next != NULL)
+    event_ptr->next->prev = event_ptr->prev;
+  
+  if (delete)
+    macosx_free_pending_event (event_ptr);
 }
 
 static void
@@ -511,8 +581,7 @@ macosx_clear_pending_events ()
   while (event_ptr != NULL)
     {
       pending_event_chain = event_ptr->next;
-      xfree (event_ptr->buf);
-      xfree (event_ptr);
+      macosx_free_pending_event (event_ptr);
       event_ptr = pending_event_chain;
     }
 }
@@ -534,10 +603,7 @@ macosx_post_pending_event (void)
   else
     {
       event = pending_event_chain;
-      pending_event_chain = pending_event_chain->next;
-      if (pending_event_chain == NULL)
-        pending_event_tail = NULL;
-
+      macosx_remove_pending_event (event, 0);
       inferior_debug (1,
                       "macosx_post_pending_event: consuming event off queue\n");
       gdb_queue_event (macosx_pending_event_handler, (void *) event, HEAD);
@@ -587,6 +653,12 @@ macosx_service_event (enum macosx_source_type source,
           return 1;
         }
     }
+  else if (source == NEXT_SOURCE_ERROR)
+    {
+      inferior_debug (1, "macosx_service_events: got an error\n");
+      target_mourn_inferior ();
+      return 0;
+    }
   else
     {
       error ("got message from unknown source: 0x%08x\n", source);
@@ -595,9 +667,141 @@ macosx_service_event (enum macosx_source_type source,
   return 1;
 }
 
+/* We treat single step events, and breakpoint events
+   specially - though only if we get more than one event
+   at a time.  This enum and the get_event_type function
+   are helpers for the code that does this.  */
+
+enum bp_ss_or_other {
+  bp_event = 0,
+  ss_event,
+  other_event
+};
+
+static enum bp_ss_or_other 
+get_event_type (struct macosx_exception_thread_message *msg)
+{
+  if (msg->exception_type == EXC_BREAKPOINT)
+    {
+      if (msg->data_count == 2
+	  && msg->exception_data[0] == SINGLE_STEP)
+	return ss_event;
+      else
+	return bp_event;
+    }
+
+  return other_event;
+}
+
+/* This function services the first of the non-breakpoint type events.  
+   It pushes all the other "other" type events back on the pending events chain. 
+   It deletes all the others.  
+   FIXME: This is a bit of a hack, but I don't know how to REALLY push the
+   signal events back onto the target.  So I have to fake it by leaving them
+   around on the pending event queue, and that will mean the next time you
+   try to run, you'll hit the next event without actually running...  
+   Fortunately, it looks like this is academic, because the system
+   seems to serialize all the other events for the debugger.  */
+
+int
+macosx_service_one_other_event (struct target_waitstatus *status)
+{
+  struct macosx_pending_event *event;
+  int count = 0;
+
+  event = pending_event_chain;
+
+  while (event != NULL) 
+    {
+      struct macosx_pending_event *next_event = event->next;
+      macosx_exception_thread_message *msg = 
+	(macosx_exception_thread_message *) event->buf;
+      if (event->type != NEXT_SOURCE_EXCEPTION 
+	  || get_event_type (msg) == other_event)
+	{
+	  count++;
+	  if (count == 1)
+	    {
+	      macosx_service_event (event->type, event->buf, status);
+	      macosx_remove_pending_event (event, 1);
+	    }
+	}
+      else
+	{
+	  macosx_remove_pending_event (event, 1);
+	}
+      event = next_event;
+    } 
+  return count;
+}
+
+/* Backs up the pc to before the breakpoint (if necessary) for all
+   the pending breakpoint events - except for breakpoint event
+   IGNORE, if IGNORE is not < 0.  Returns the event ignored, or
+   NULL if there is no such event.  */
+
+struct macosx_pending_event *
+macosx_backup_before_break (int ignore)
+{
+  int count = 0;
+  struct macosx_pending_event *ret_event = NULL, *event;
+
+  for (event = pending_event_chain; event != NULL ; event = event->next) {
+    if (event->type == NEXT_SOURCE_EXCEPTION)
+      {
+	macosx_exception_thread_message *msg = 
+	  (macosx_exception_thread_message *) event->buf;
+	ptid_t ptid = ptid_build (macosx_status->pid, 0, msg->thread_port);
+
+	if (get_event_type(msg) == bp_event
+	    && breakpoint_here_p (read_pc_pid (ptid) -
+				     DECR_PC_AFTER_BREAK))
+	  {
+	    if (count == ignore)
+	      {
+		ret_event = event;
+	      }
+	    else
+	      {
+		/* Back up the PC if necessary.  */
+		if (DECR_PC_AFTER_BREAK)
+		  write_pc_pid (read_pc_pid (ptid) - DECR_PC_AFTER_BREAK, ptid);
+	      }
+	    count++;
+	  }
+      }
+  }
+  
+  if (ret_event)
+    inferior_debug (1, "Backing up all breakpoint hits except thread 0x%lx\n",
+		    ((macosx_exception_thread_message *) ret_event->buf)->thread_port);
+  else
+    inferior_debug (1, "Backing up all breakpoint hits\n");
+  return ret_event;
+}
+
 /* This drains the event sources.  The first event found is directly
-   handled.  The rest are placed on the pending events queue, to be
-   handled the next time that the inferior is "run".
+   handled.  The rest are "pushed back" to the target as best we can.
+
+   The priority is:
+
+   1) If there is a single step event pending, we report that.
+   2) Otherwise, if there are any non-breakpoint events, we report
+   them.
+   3) Otherwise we pick one breakpoint, and report that.
+       a) If the scheduler is locked, and one of the breakpoints is
+          on the locked thread, then we report that.
+       b) Otherwise we pick a breakpoint at random from the list.
+
+   All the other events are pushed back if we know how to do this.
+
+   Caveats:
+   1) At present, I don't know how to "push back" a signal.  So if there
+   is more than one SOFTEXC event we just send them all.  Not sure what
+   gdb will do with this.  I haven't been able get the system to send
+   more than one at a time.
+   2) Ditto for other traps.  Dunno what I would do with two EXC_BAD_ACCESS
+   messages, for instance.
 
    Returns: The number of events found. */
 
@@ -608,58 +812,146 @@ macosx_process_events (struct macosx_inferior_status *inferior,
 {
   enum macosx_source_type source;
   unsigned char buf[1024];
-  int event_count;
+  int event_count = 0;
+  int breakpoint_count = 0;
+  int other_count = 0;
+  int scheduler_bp = -1;
+  enum bp_ss_or_other event_type;
+  struct macosx_pending_event *event, *single_step = NULL;
 
   CHECK_FATAL (status->kind == TARGET_WAITKIND_SPURIOUS);
 
-  source = macosx_fetch_event (inferior, buf, sizeof (buf),
-                               NEXT_SOURCE_ALL, timeout);
-  if (source == NEXT_SOURCE_NONE)
-    {
-      return 0;
-    }
+  event_count = macosx_count_pending_events ();
+  if (event_count != 0)
+    return event_count;
 
-  event_count = 1;
-
-  if (service_first_event)
-    {
-      if (macosx_service_event (source, buf, status) == 0)
-        return 0;
-    }
-  else
-    {
-      macosx_add_to_pending_events (source, buf);
-    }
-
-  /* FIXME: we want to poll in macosx_fetch_event because otherwise we
-     arbitrarily wait however long the wait quanta for select is
-     (seemingly ~.01 sec).  However, if we do this we aren't giving
-     the mach exception thread a chance to run, and see if there are
-     any more exceptions available.  Normally this is okay, because
-     there really IS only one message, but to be correct we need to
-     use some thread synchronization. */
+  /* Fetch events from the exc & signal threads.  First time through,
+     we use TIMEOUT and wait, then we poll to drain the rest of the 
+     events the exc & signal threads got.  */
   for (;;)
     {
       source = macosx_fetch_event (inferior, buf, sizeof (buf),
-                                   NEXT_SOURCE_ALL, 0);
+                                   NEXT_SOURCE_ALL, timeout);
       if (source == NEXT_SOURCE_NONE)
         {
           break;
         }
+      if (source == NEXT_SOURCE_ERROR)
+	{
+	  /* We couldn't read from the inferior exception port.  Dunno why,
+	     but we aren't going to get much further.  So tell ourselves that 
+	     the target exited, cons up some bogus status, and get out
+	     of here.  */
+	  inferior_debug (2, "Got NEXT_SOURCE_ERROR from macosx_fetch_event\n");
+	  status->kind = TARGET_WAITKIND_EXITED;
+	  status->value.integer = 0;
+	  return 0;
+	}
       else
         {
           event_count++;
 
-          /* Stuff the remaining events onto the pending_events queue.
-             These will be dispatched when we run again. */
-          /* PENDING_EVENTS */
-          macosx_add_to_pending_events (source, buf);
+	  event = macosx_add_to_pending_events (source, buf);
+	  event_type = get_event_type ((macosx_exception_thread_message *) buf);
+	  if (event_type == ss_event)
+	    single_step = event;
+	  else if (event_type == bp_event)
+	    {
+	      if (scheduler_lock_on_p ()) 
+		{
+		  struct ptid lock_ptid, this_ptid;
+		  ptid_build (macosx_status->pid, 0, 
+			      ((macosx_exception_thread_message *) buf)->thread_port);
+		  if (ptid_equal (lock_ptid, this_ptid))
+		    scheduler_bp = breakpoint_count;
+		}
+	      breakpoint_count += 1;
+	    }
+	  else
+	    other_count += 1;
         }
+      timeout = 0;
     }
+
+  if (event_count == 0)
+    return 0;
 
   inferior_debug (2,
           "macosx_process_events: returning with (status->kind == %d)\n",
                   status->kind);
+
+  /* Okay, now that we've gotten the events what should we do?  
+     If we only got one, let's service it and exit. */
+  if (event_count == 1)
+    {
+      int retval;
+
+      if (macosx_service_event (event->type, 
+				event->buf, status) == 0)
+	retval = 0;
+      else
+	retval = 1;
+
+      macosx_clear_pending_events ();
+      return retval;
+    }
+  else
+    {
+      /* If we have more than one, look through them to figure 
+	 out what to do.  */
+      
+      /* If we found a single step breakpoint, then move the
+	 pc back on ALL the threads that have breakpoint hits, and
+	 report the single step event.  Otherwise, randomly pick one
+	 of the breakpoints and report it.  */
+      if (single_step != NULL)
+	{
+	  inferior_debug (2, "macosx_process_events: found a single step "
+			  "event, and %d breakpoint events\n", breakpoint_count);
+	  macosx_backup_before_break (-1);
+	  macosx_service_event (single_step->type, single_step->buf,
+				status);
+	  event_count = 1;
+	  macosx_clear_pending_events ();
+	}
+      else if (breakpoint_count != event_count)
+	{
+	  /* What do we do with more than one signal?
+	     Should we call PTRACE_THUPDATE to send the
+	     other threads the signal back?  */
+	  inferior_debug (2, "macosx_process_events: found %d breakpoint events out of "
+			  "%d total events\n", breakpoint_count, event_count);
+	  macosx_backup_before_break (-1);
+	  event_count = macosx_service_one_other_event (status);
+	  event_count = 1;
+	}
+      else
+	{
+	  struct macosx_pending_event *chosen_break;
+	  int random_selector;
+	  if (scheduler_bp != -1)
+	    {
+	      /* If we are trying to run a single thread, let's favor
+		 that thread over another that might have just gotten
+		 created and hit a breakpoint.  */
+	      random_selector = scheduler_bp;
+	    }
+	  else
+	    {
+	      /* Otherwise pick one of the threads randomly, and report
+		 the breakpoint hit for that one.  */
+	      random_selector = (int)
+		((breakpoint_count * (double) rand ()) / (RAND_MAX + 1.0));
+	    }
+	  chosen_break = macosx_backup_before_break (random_selector);
+	  if (macosx_service_event (chosen_break->type, chosen_break->buf,
+				    status) == 0)
+	    event_count = 1;
+
+	  macosx_clear_pending_events ();
+
+	}
+    }
   return event_count;
 }
 
@@ -1361,6 +1653,7 @@ static int
 macosx_kill_inferior (void *arg)
 {
   kern_return_t *errval = (kern_return_t *) arg;
+  int status;
 
   CHECK_FATAL (macosx_status != NULL);
   *errval = KERN_SUCCESS;
@@ -1412,6 +1705,9 @@ macosx_kill_inferior (void *arg)
 
   macosx_inferior_resume_mach (macosx_status, -1);
   sched_yield ();
+
+  wait (&status);
+
   target_mourn_inferior ();
 
   return 1;
@@ -1751,6 +2047,9 @@ macosx_async (void (*callback) (enum inferior_event_type event_type,
     {
       async_client_callback = callback;
       async_client_context = context;
+      if (macosx_status->exception_status.error_receive_fd > 0)
+        add_file_handler (macosx_status->exception_status.error_receive_fd,
+                          macosx_file_handler, NULL);
       if (macosx_status->exception_status.receive_from_fd > 0)
         add_file_handler (macosx_status->exception_status.receive_from_fd,
                           macosx_file_handler, NULL);
@@ -1760,6 +2059,8 @@ macosx_async (void (*callback) (enum inferior_event_type event_type,
     }
   else
     {
+      if (macosx_status->exception_status.error_receive_fd > 0)
+        delete_file_handler (macosx_status->exception_status.error_receive_fd);
       if (macosx_status->exception_status.receive_from_fd > 0)
         delete_file_handler (macosx_status->exception_status.receive_from_fd);
       if (macosx_status->signal_status.receive_fd > 0)
@@ -2144,17 +2445,30 @@ char *unsafe_functions[] = {
   NULL
 };
 
-int
-macosx_check_safe_call ()
+
+struct thread_is_safe_args
 {
+  struct thread_info *tp;
+  int *unsafe_p;
+};
+
+static int
+do_check_is_thread_unsafe (void *argptr)
+{
+  struct thread_is_safe_args *args = (struct thread_is_safe_args *) argptr;
   struct frame_info *fi;
+  struct thread_info *tp = args->tp;
+  int *unsafe_p = args->unsafe_p;
+
+  if (tp != NULL)
+    switch_to_thread (tp->ptid);
 
   /* Look up the stack to make sure none of the malloc
      calls that might hold the malloc lock are present.
      We aren't going to crawl the whole stack, but just look
      up a few levels.  */
 
-  fi = parse_frame_specification ("0");
+  fi = get_current_frame ();
   if (!fi)
     return -1;
 
@@ -2173,11 +2487,14 @@ macosx_check_safe_call ()
             {
               if (strcmp (sym_name, unsafe_functions[i]) == 0)
                 {
-                  ui_out_text (uiout, "Unsafe to call functions: ");
+                  ui_out_text (uiout, "Unsafe to call functions on thread ");
+		  ui_out_field_int (uiout, "thread", pid_to_thread_id (inferior_ptid));
+		  ui_out_text (uiout, ": ");
                   ui_out_field_fmt (uiout, "reason", "function: %s on stack",
                                     unsafe_functions[i]);
 		  ui_out_text (uiout, "\n");
-                  return 0;
+                  (*unsafe_p)++;
+		  break;
                 }
             }
         }
@@ -2186,8 +2503,53 @@ macosx_check_safe_call ()
       if (!fi)
         break;
     }
-
+  
   return 1;
+}
+
+/* This is the "iterate_over_threads" callback function.  It increments
+   the int * stuffed into DATA if there is an unsafe function in the
+   first 5 frames of the stack for the thread pointed to by TP.  */
+
+static int
+safe_macosx_check_is_thread_unsafe (struct thread_info *tp, void *data)
+{
+  struct thread_is_safe_args args;
+  args.tp = tp;
+  args.unsafe_p = (int *) data;
+  struct cleanup *old_chain;
+  
+  old_chain = make_cleanup_restore_current_thread (inferior_ptid, 0);
+
+  catch_errors ((catch_errors_ftype *) do_check_is_thread_unsafe, &args,
+		"", RETURN_MASK_ERROR);
+
+  do_cleanups (old_chain);
+
+  return 0;
+}
+
+/* Check whether it is safe to call functions.  If scheduler locking
+   is turned off, we just check whether it is safe to call on the current
+   thread, but if it is turned on we check for all threads.  */
+
+static int
+macosx_check_safe_call ()
+{
+  int unsafe_p = 0;
+  
+  if (!scheduler_lock_on_p ())
+    safe_macosx_check_is_thread_unsafe (NULL, &unsafe_p);
+  else
+    {
+      struct cleanup *old_cleanups;
+      old_cleanups = make_cleanup_restore_current_thread (inferior_ptid, 0);
+      target_find_new_threads ();
+
+      iterate_over_threads (safe_macosx_check_is_thread_unsafe, &unsafe_p);
+      do_cleanups (old_cleanups);
+    }
+  return !unsafe_p;
 }
 
 void
@@ -2231,14 +2593,34 @@ _initialize_macosx_inferior ()
   init_exec_ops ();
   macosx_exec_ops = exec_ops;
   exec_ops.to_can_run = NULL;
-
+  
   macosx_exec_ops.to_shortname = "macos-exec";
   macosx_exec_ops.to_longname = "Mac OS X executable";
   macosx_exec_ops.to_doc = "Mac OS X executable";
   macosx_exec_ops.to_can_async_p = standard_can_async_p;
   macosx_exec_ops.to_is_async_p = standard_is_async_p;
 
-  exec_ops.to_has_thread_control = tc_schedlock | tc_switch;
+  macosx_exec_ops.to_has_thread_control = tc_schedlock | tc_switch;
+
+  macosx_exec_ops.to_find_exception_catchpoints
+    = macosx_find_exception_catchpoints;
+  macosx_exec_ops.to_enable_exception_callback
+    = macosx_enable_exception_callback;
+  macosx_exec_ops.to_get_current_exception_event
+    = macosx_get_current_exception_event;
+
+  /* We don't currently ever use the "macos-exec" target ops.
+     Instead, just make them be the default exec_ops.  */
+
+  /* FIXME: The original intent was that we have a macosx_exec_ops
+     struct, that inherits from exec_ops, and provides some extra
+     functions.  But the problem is that the exec target gets pushed
+     in generic code in exec.c, and that code has exec_ops hard-coded
+     into it.  We should most likely make the exec-target be
+     determined along with the architecture by the ABI recognizer.  */
+
+  exec_ops = macosx_exec_ops;
+  macosx_exec_ops.to_can_run = NULL;
 
   macosx_child_ops.to_shortname = "macos-child";
   macosx_child_ops.to_longname = "Mac OS X child process";
@@ -2265,8 +2647,16 @@ _initialize_macosx_inferior ()
   macosx_child_ops.to_async_mask_value = 1;
   macosx_child_ops.to_bind_function = dyld_lookup_and_bind_function;
   macosx_child_ops.to_check_safe_call = macosx_check_safe_call;
+  macosx_child_ops.to_allocate_memory = macosx_allocate_space_in_inferior;
   macosx_child_ops.to_check_is_objfile_loaded = dyld_is_objfile_loaded;
   macosx_child_ops.to_has_thread_control = tc_schedlock | tc_switch;
+
+  macosx_child_ops.to_find_exception_catchpoints
+    = macosx_find_exception_catchpoints;
+  macosx_child_ops.to_enable_exception_callback
+    = macosx_enable_exception_callback;
+  macosx_child_ops.to_get_current_exception_event
+    = macosx_get_current_exception_event;
 
   add_target (&macosx_exec_ops);
   add_target (&macosx_child_ops);

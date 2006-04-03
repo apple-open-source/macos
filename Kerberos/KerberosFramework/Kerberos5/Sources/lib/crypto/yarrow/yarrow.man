@@ -1,7 +1,7 @@
 .rn '' }`
-''' $RCSfile: yarrow.man,v $$Revision: 1.1 $$Date: 2001/11/08 21:51:57 $
+''' $RCSfile$$Revision: 13969 $$Date: 2001-11-08 16:51:58 -0500 (Thu, 08 Nov 2001) $
 '''
-''' $Log: yarrow.man,v $
+''' $Log$
 ''' Revision 1.1  2001/11/08 21:51:57  hartmans
 ''' Add Yarrow from http://www.zeroknowledge.com/.
 '''

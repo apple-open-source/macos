@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ 4105386 */
+/* APPLE LOCAL file mainline */
 /* Static variables, even if local, require indirect access through a stub
    if -mfix-and-continue is enabled.  */
 

@@ -21,17 +21,6 @@
 # This file is based on corefile.exp which was written by Fred
 # Fish. (fnf@cygnus.com)
 
-
-# APPLE LOCAL:  jmolenda/2004-03-25  my system running MacOS X 10.3.3 hung
-# hard on this test, so for now I'm just skipping it.  Try to reexamine at
-# some point in the future... 
-
-if [ istarget "*-*-darwin*" ] then {
-  gdb_suppress_entire_file "Bigcore tests supressed on MacOS X due to system hanging."
-  return
-}
-
-
 if $tracelevel then {
 	strace $tracelevel
 }
@@ -42,7 +31,19 @@ set bug_id 0
 # Are we on a target board?  As of 2004-02-12, GDB didn't have a
 # mechanism that would let it efficiently access a remote corefile.
 
-if ![isnative] then {
+# APPLE LOCAL: Sweeeeeeeet god this test bites.  It allocates 4GB of memory
+# and causes my system -- any system -- to thrash.  No.
+
+verbose "bigcore tests."
+return
+
+
+
+
+# APPLE LOCAL: When running ppc64 binaries on a ppc system, we can do this just fine.
+if { [ishost "powerpc*-apple-darwin*"] && [istarget "powerpc64-apple-darwin*"] } {
+    list
+} elseif { ![isnative] } {
     untested "Remote system"
     return
 }
@@ -52,6 +53,12 @@ if ![isnative] then {
 # consumes too many resources - gigabytes worth of disk space and and
 # I/O bandwith.
 
+# APPLE LOCAL: <rdar://problem/4133566> dumping "maximal" corefile on ppc64 hangs machine
+if [istarget "powerpc64-apple-darwin*"] {
+    untested "<rdar://problem/4133566> dumping maximal corefile on ppc64 hangs machine"
+    return
+}
+
 if { [istarget "*-*-*bsd*"] || [istarget "*-*-hpux*"] } {
     untested "Kernel lacks sparse corefile support (PR gdb/1551)"
     return
@@ -60,7 +67,9 @@ if { [istarget "*-*-*bsd*"] || [istarget "*-*-hpux*"] } {
 set testfile "bigcore"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
-set corefile ${objdir}/${subdir}/${testfile}.corefile
+
+# APPLE LOCAL: Leave the corefile in /tmp; don't copy hundreds of MB to a possibly networked filesystem.
+set corefile "/tmp/gdb-dejagnu-core.[getpid]"
 
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
@@ -79,12 +88,25 @@ if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {deb
 set found 0
 set coredir "${objdir}/${subdir}/coredir.[getpid]"
 file mkdir $coredir
-catch "system \"(cd ${coredir}; ${binfile}; true) >/dev/null 2>&1\""
-set names [glob -nocomplain -directory $coredir *core*]
-if {[llength $names] == 1} {
-    set file [file join $coredir [lindex $names 0]]
-    remote_exec build "mv $file $corefile"
-    set found 1
+
+# APPLE LOCAL: Our peculiar way of getting a core file..
+catch "system \"(ulimit -c unlimited; cd ${coredir}; pid=`${binfile} 2>/dev/null | grep 'PID:' | awk '{ print \\\$2; }'`; mv -f /cores/core.\\\$pid /cores/core.dejagnu >& /dev/null; true)\""
+
+foreach i "${coredir}/core ${coredir}/core.coremaker.c ${binfile}.core /cores/core.dejagnu" {
+    if [remote_file build exists $i] {
+	remote_exec build "mv -f $i ${corefile}"
+	set found 1
+    }
+}
+
+# Check for "core.PID".
+if { $found == 0 } {
+    set names [glob -nocomplain -directory $coredir *core*]
+    if {[llength $names] == 1} {
+	set file [file join $coredir [lindex $names 0]]
+	remote_exec build "mv $file $corefile"
+	set found 1
+    }
 }
 
 # Try to clean up after ourselves. 
@@ -201,3 +223,6 @@ proc check_heap { dir heap } {
 
 check_heap next $next_heap
 check_heap prev $prev_heap
+
+# APPLE LOCAL: Try to clean up after ourselves. 
+remote_exec build "rm -f $corefile"

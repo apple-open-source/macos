@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: gssapi_generic.c,v 1.15 2003/12/20 03:51:00 raeburn Exp $
+ * $Id: gssapi_generic.c 15955 2003-12-20 03:51:00Z raeburn $
  */
 
 #include "gssapiP_generic.h"

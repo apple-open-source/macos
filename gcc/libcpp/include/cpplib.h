@@ -137,6 +137,10 @@ struct _cpp_file;
   TK(BOL,		LITERAL) /* asm bol */				\
   TK(EOL,		LITERAL) /* asm eol */				\
   /* APPLE LOCAL end CW asm blocks */					\
+  /* APPLE LOCAL begin 4133801 */                                       \
+  TK(BINCL,             LITERAL) /* File begin */                       \
+  TK(EINCL,             LITERAL) /* File end */                         \
+  /* APPLE LOCAL end 4133801 */                                       \
   TK(COMMENT,		LITERAL) /* Only if output comments.  */	\
 				 /* SPELL_LITERAL happens to DTRT.  */	\
   TK(MACRO_ARG,		NONE)	 /* Macro argument.  */			\
@@ -347,6 +351,12 @@ struct cpp_options
      'const unsigned char *'.  */
   unsigned char pascal_strings;
   /* APPLE LOCAL end pascal strings */
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Nonzero means accept integer constants with an h suffix to denote
+     hex constants.  An example would be 0ffh.  */
+  unsigned char h_suffix;
+  /* APPLE LOCAL end CW asm blocks */
 
   /* Nonzero means warn about multicharacter charconsts.  */
   unsigned char warn_multichar;

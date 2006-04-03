@@ -64,7 +64,8 @@ int in_sizeof;
 /* The level of nesting inside "typeof".  */
 int in_typeof;
 
-struct c_label_context *label_context_stack;
+struct c_label_context_se *label_context_stack_se;
+struct c_label_context_vm *label_context_stack_vm;
 
 /* Nonzero if we've already printed a "missing braces around initializer"
    message within this initializer.  */
@@ -75,7 +76,8 @@ static int require_constant_elements;
 
 static tree qualify_type (tree, tree);
 static int tagged_types_tu_compatible_p (tree, tree);
-static int comp_target_types (tree, tree, int);
+/* APPLE LOCAL mainline */
+static int comp_target_types (tree, tree);
 static int function_types_compatible_p (tree, tree);
 static int type_lists_compatible_p (tree, tree);
 static tree decl_constant_value_for_broken_optimization (tree);
@@ -696,10 +698,8 @@ comptypes (tree type1, tree type2)
   switch (TREE_CODE (t1))
     {
     case POINTER_TYPE:
-      /* We must give ObjC the first crack at comparing pointers, since
-	   protocol qualifiers may be involved.  */
-      if (c_dialect_objc () && (val = objc_comptypes (t1, t2, 0)) >= 0)
-	break;
+      /* APPLE LOCAL mainline */
+      /* Call to 'objc_comptypes' removed.  */
       /* Do not remove mode or aliasing information.  */
       if (TYPE_MODE (t1) != TYPE_MODE (t2)
 	  || TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2))
@@ -752,10 +752,8 @@ comptypes (tree type1, tree type2)
       }
 
     case RECORD_TYPE:
-      /* We are dealing with two distinct structs.  In assorted Objective-C
-	 corner cases, however, these can still be deemed equivalent.  */
-      if (c_dialect_objc () && objc_comptypes (t1, t2, 0) == 1)
-	val = 1;
+      /* APPLE LOCAL mainline */
+      /* Call to 'objc_comptypes' removed.  */
 
     case ENUMERAL_TYPE:
     case UNION_TYPE:
@@ -774,22 +772,20 @@ comptypes (tree type1, tree type2)
   return attrval == 2 && val == 1 ? 2 : val;
 }
 
+/* APPLE LOCAL begin mainline */
 /* Return 1 if TTL and TTR are pointers to types that are equivalent,
-   ignoring their qualifiers.  REFLEXIVE is only used by ObjC - set it
-   to 1 or 0 depending if the check of the pointer types is meant to
-   be reflexive or not (typically, assignments are not reflexive,
-   while comparisons are reflexive).
-*/
+   ignoring their qualifiers.  */
+/* APPLE LOCAL end mainline */
 
 static int
-comp_target_types (tree ttl, tree ttr, int reflexive)
+/* APPLE LOCAL mainline */
+comp_target_types (tree ttl, tree ttr)
 {
   int val;
   tree mvl, mvr;
 
-  /* Give objc_comptypes a crack at letting these types through.  */
-  if ((val = objc_comptypes (ttl, ttr, reflexive)) >= 0)
-    return val;
+  /* APPLE LOCAL mainline */
+  /* Call to 'objc_comptypes' removed.  */
 
   /* Do not lose qualifiers on element types of array types that are
      pointer targets by taking their TYPE_MAIN_VARIANT.  */
@@ -1306,10 +1302,18 @@ decl_constant_value (tree decl)
 static tree
 decl_constant_value_for_broken_optimization (tree decl)
 {
+  tree ret;
+
   if (pedantic || DECL_MODE (decl) == BLKmode)
     return decl;
-  else
-    return decl_constant_value (decl);
+
+  ret = decl_constant_value (decl);
+  /* Avoid unwanted tree sharing between the initializer and current
+     function's body where the tree can be modified e.g. by the
+     gimplifier.  */
+  if (ret != decl && TREE_STATIC (decl))
+    ret = unshare_expr (ret);
+  return ret;
 }
 
 
@@ -1733,6 +1737,15 @@ build_array_ref (tree array, tree index)
       || TREE_TYPE (index) == error_mark_node)
     return error_mark_node;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (inside_cw_asm_block)
+    {
+      if (TREE_CODE (array) == BRACKET_EXPR
+	  || TREE_CODE (index) == IDENTIFIER_NODE)
+	return cw_build_bracket (array, index);
+    }
+  /* APPLE LOCAL end CW asm blocks */
+
   if (TREE_CODE (TREE_TYPE (array)) != ARRAY_TYPE
       && TREE_CODE (TREE_TYPE (array)) != POINTER_TYPE)
     {
@@ -1873,17 +1886,7 @@ build_external_ref (tree id, int fun)
 	  /* Locals and parms just need to be left alone for now.  */
 	}
       else
-	{
-	  tree newid;
-	  if ((newid = cw_asm_reg_name (id)))
-	    return newid;
-#ifdef CW_ASM_SPECIAL_LABEL
-	  if ((newid = CW_ASM_SPECIAL_LABEL (id)))
-	    return newid;
-#endif
-	  /* Assume undeclared symbols are labels. */
-	  return get_cw_asm_label (id);
-	}
+	return cw_do_id (id);
     }
   /* APPLE LOCAL end CW asm blocks */
 
@@ -2098,17 +2101,16 @@ build_function_call (tree function, tree params)
   /* fntype now gets the type of function pointed to.  */
   fntype = TREE_TYPE (fntype);
 
+  /* APPLE LOCAL begin mainline */
   /* Check that the function is called through a compatible prototype.
      If it is not, replace the call by a trap, wrapped up in a compound
      expression if necessary.  This has the nice side-effect to prevent
      the tree-inliner from generating invalid assignment trees which may
-     blow up in the RTL expander later.
+     blow up in the RTL expander later.  */
+  /* APPLE LOCAL end mainline */
 
-     ??? This doesn't work for Objective-C because objc_comptypes
-     refuses to compare function prototypes, yet the compiler appears
-     to build calls that are flagged as invalid by C's comptypes.  */
-  if (!c_dialect_objc ()
-      && TREE_CODE (function) == NOP_EXPR
+  /* APPLE LOCAL mainline */
+  if (TREE_CODE (function) == NOP_EXPR
       && TREE_CODE (tem = TREE_OPERAND (function, 0)) == ADDR_EXPR
       && TREE_CODE (tem = TREE_OPERAND (tem, 0)) == FUNCTION_DECL
       && !comptypes (fntype, TREE_TYPE (tem)))
@@ -2419,13 +2421,34 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
   enum tree_code code2 = arg2.original_code;
 
   /* APPLE LOCAL begin CW asm blocks */
-  if (inside_cw_asm_block 
-      && (TREE_CODE (arg1.value) == IDENTIFIER_NODE
-          || TREE_CODE (arg2.value) == IDENTIFIER_NODE))
+  if (inside_cw_asm_block)
     {
-      result.value = error_mark_node;
-      result.original_code = code;
-      return result;
+      if (TREE_CODE (arg1.value) == IDENTIFIER_NODE
+	  || TREE_CODE (arg2.value) == IDENTIFIER_NODE
+	  || TREE_TYPE (arg1.value) == NULL_TREE
+	  || TREE_TYPE (arg2.value) == NULL_TREE)
+	{
+          result.value = build2 (code, NULL_TREE, arg1.value, arg2.value);
+	  result.original_code = code;
+	  return result;
+	}
+      else if ((code == MINUS_EXPR && TREE_CODE (arg1.value) == VAR_DECL 
+		&& TREE_CODE (arg2.value) == LABEL_DECL))
+	{
+          result.value = build2 (code, TREE_TYPE (arg1.value), arg1.value, arg2.value);
+	  result.original_code = code;
+	  return result;
+	}
+      else 
+	if (TREE_CODE (arg1.value) == LABEL_DECL
+            || TREE_CODE (arg2.value) == LABEL_DECL
+	    || TREE_CODE (arg1.value) == IDENTIFIER_NODE
+	    || TREE_CODE (arg2.value) == IDENTIFIER_NODE)
+        {
+          result.value = error_mark_node;
+          result.original_code = code;
+          return result;
+        }
     }
   /* APPLE LOCAL end CW asm blocks */
 
@@ -2931,20 +2954,20 @@ readonly_error (tree arg, enum lvalue_use use)
       if (TYPE_READONLY (TREE_TYPE (TREE_OPERAND (arg, 0))))
 	readonly_error (TREE_OPERAND (arg, 0), use);
       else
-	error (READONLY_MSG (N_("assignment of read-only member %qs"),
-			     N_("increment of read-only member %qs"),
-			     N_("decrement of read-only member %qs")),
+	error (READONLY_MSG (G_("assignment of read-only member %qs"),
+			     G_("increment of read-only member %qs"),
+			     G_("decrement of read-only member %qs")),
 	       IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (arg, 1))));
     }
   else if (TREE_CODE (arg) == VAR_DECL)
-    error (READONLY_MSG (N_("assignment of read-only variable %qs"),
-			 N_("increment of read-only variable %qs"),
-			 N_("decrement of read-only variable %qs")),
+    error (READONLY_MSG (G_("assignment of read-only variable %qs"),
+			 G_("increment of read-only variable %qs"),
+			 G_("decrement of read-only variable %qs")),
 	   IDENTIFIER_POINTER (DECL_NAME (arg)));
   else
-    error (READONLY_MSG (N_("assignment of read-only location"),
-			 N_("increment of read-only location"),
-			 N_("decrement of read-only location")));
+    error (READONLY_MSG (G_("assignment of read-only location"),
+			 G_("increment of read-only location"),
+			 G_("decrement of read-only location")));
 }
 
 /* Mark EXP saying that we need to be able to take the
@@ -3105,7 +3128,8 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
     }
   else if (code1 == POINTER_TYPE && code2 == POINTER_TYPE)
     {
-      if (comp_target_types (type1, type2, 1))
+      /* APPLE LOCAL mainline */
+      if (comp_target_types (type1, type2))
 	result_type = common_pointer_type (type1, type2);
       else if (integer_zerop (op1) && TREE_TYPE (type1) == void_type_node
 	       && TREE_CODE (orig_op1) != NOP_EXPR)
@@ -3129,6 +3153,11 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 	  result_type = build_pointer_type (qualify_type (TREE_TYPE (type2),
 							  TREE_TYPE (type1)));
 	}
+      /* APPLE LOCAL begin 4154928 */
+      /* Objective-C pointer comparisons are a bit more lenient.  */
+      else if (objc_compare_types (type1, type2, -3, NULL_TREE))
+	result_type = objc_common_type (type1, type2);
+      /* APPLE LOCAL end 4154928 */
       else
 	{
 	  pedwarn ("pointer type mismatch in conditional expression");
@@ -3203,10 +3232,18 @@ build_compound_expr (tree expr1, tree expr2)
       /* The left-hand operand of a comma expression is like an expression
          statement: with -Wextra or -Wunused, we should warn if it doesn't have
 	 any side-effects, unless it was explicitly cast to (void).  */
-      if (warn_unused_value
-           && !(TREE_CODE (expr1) == CONVERT_EXPR
-                && VOID_TYPE_P (TREE_TYPE (expr1))))
-        warning ("left-hand operand of comma expression has no effect");
+      if (warn_unused_value)
+	{
+	  if (VOID_TYPE_P (TREE_TYPE (expr1))
+	      && TREE_CODE (expr1) == CONVERT_EXPR)
+	    ; /* (void) a, b */
+	  else if (VOID_TYPE_P (TREE_TYPE (expr1))
+		   && TREE_CODE (expr1) == COMPOUND_EXPR
+		   && TREE_CODE (TREE_OPERAND (expr1, 1)) == CONVERT_EXPR)
+	    ; /* (void) a, (void) b, c */
+	  else
+	    warning ("left-hand operand of comma expression has no effect");
+	}
     }
 
   /* With -Wunused, we should also warn if the left-hand operand does have
@@ -3232,7 +3269,9 @@ build_c_cast (tree type, tree expr)
   /* APPLE LOCAL begin AltiVec */
   /* If we are casting to a vector type, treat the expression as a vector
      initializer if this target supports it.  */
-  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+  if (TREE_CODE (type) == VECTOR_TYPE 
+      && int_size_in_bytes (type) == 16
+      && targetm.cast_expr_as_vector_init)
     return vector_constructor_from_expr (expr, type);
   /* APPLE LOCAL end AltiVec */
 
@@ -3598,6 +3637,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   tree rhstype;
   enum tree_code coder;
   tree rname = NULL_TREE;
+  /* APPLE LOCAL mainline */
+  bool objc_ok;
 
   if (errtype == ic_argpass || errtype == ic_argpass_nonproto)
     {
@@ -3663,14 +3704,41 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   if (coder == ERROR_MARK)
     return error_mark_node;
 
+  /* APPLE LOCAL begin mainline */
+  if (c_dialect_objc ())
+    {
+      int parmno;
+
+      switch (errtype)
+	{
+	case ic_return:
+	  parmno = 0;
+	  break;
+
+	case ic_assign:
+	  parmno = -1;
+	  break;
+
+	case ic_init:
+	  parmno = -2;
+	  break;
+
+	default:
+	  parmno = parmnum;
+	  break;
+	}
+
+      objc_ok = objc_compare_types (type, rhstype, parmno, rname);
+    }
+  else
+    objc_ok = false;
+
+  /* APPLE LOCAL end mainline */
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (rhstype))
     {
       overflow_warning (rhs);
-      /* Check for Objective-C protocols.  This will automatically
-	 issue a warning if there are protocol violations.  No need to
-	 use the return value.  */
-      if (c_dialect_objc ())
-	objc_comptypes (type, rhstype, 0);
+      /* APPLE LOCAL mainline */
+      /* Call to 'objc_comptypes' removed.  */
       return rhs;
     }
 
@@ -3753,7 +3821,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		 Meanwhile, the lhs target must have all the qualifiers of
 		 the rhs.  */
 	      if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		  || comp_target_types (memb_type, rhstype, 0))
+		  /* APPLE LOCAL mainline */
+		  || comp_target_types (memb_type, rhstype))
 		{
 		  /* If this type won't generate any warnings, use it.  */
 		  if (TYPE_QUALS (ttl) == TYPE_QUALS (ttr)
@@ -3801,28 +3870,28 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		     function where an ordinary one is wanted, but not
 		     vice-versa.  */
 		  if (TYPE_QUALS (ttl) & ~TYPE_QUALS (ttr))
-		    WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE "
+		    WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE "
 					    "makes qualified function "
 					    "pointer from unqualified"),
-					 N_("assignment makes qualified "
+					 G_("assignment makes qualified "
 					    "function pointer from "
 					    "unqualified"),
-					 N_("initialization makes qualified "
+					 G_("initialization makes qualified "
 					    "function pointer from "
 					    "unqualified"),
-					 N_("return makes qualified function "
+					 G_("return makes qualified function "
 					    "pointer from unqualified"));
 		}
 	      /* APPLE LOCAL begin 4086969 */
 	      else if (warn_discard_qual
 		       && (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl)))
-		WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE discards "
+		WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE discards "
 					"qualifiers from pointer target type"),
-				     N_("assignment discards qualifiers "
+				     G_("assignment discards qualifiers "
 					"from pointer target type"),
-				     N_("initialization discards qualifiers "
+				     G_("initialization discards qualifiers "
 					"from pointer target type"),
-				     N_("return discards qualifiers from "
+				     G_("return discards qualifiers from "
 					"pointer target type"));
 	      /* APPLE LOCAL end 4086969 */
 	    }
@@ -3859,7 +3928,8 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-	  || (target_cmp = comp_target_types (type, rhstype, 0))
+	  /* APPLE LOCAL mainline */
+	  || (target_cmp = comp_target_types (type, rhstype))
 	  || is_opaque_pointer
 	  || (c_common_unsigned_type (mvl)
 	      == c_common_unsigned_type (mvr)))
@@ -3872,14 +3942,14 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		      which are not ANSI null ptr constants.  */
 		   && (!integer_zerop (rhs) || TREE_CODE (rhs) == NOP_EXPR)
 		   && TREE_CODE (ttl) == FUNCTION_TYPE)))
-	    WARN_FOR_ASSIGNMENT (N_("ISO C forbids passing argument %d of "
+	    WARN_FOR_ASSIGNMENT (G_("ISO C forbids passing argument %d of "
 				    "%qE between function pointer "
 				    "and %<void *%>"),
-				 N_("ISO C forbids assignment between "
+				 G_("ISO C forbids assignment between "
 				    "function pointer and %<void *%>"),
-				 N_("ISO C forbids initialization between "
+				 G_("ISO C forbids initialization between "
 				    "function pointer and %<void *%>"),
-				 N_("ISO C forbids return between function "
+				 G_("ISO C forbids return between function "
 				    "pointer and %<void *%>"));
 	  /* Const and volatile mean something different for function types,
 	     so the usual warnings are not appropriate.  */
@@ -3889,14 +3959,19 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	      /* APPLE LOCAL begin 4086969 */
 	      if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
 		{
-		  if (warn_discard_qual)
-		    WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE discards "
+		  /* APPLE LOCAL begin mainline */
+		  /* Types differing only by the presence of the 'volatile'
+		     qualifier are acceptable if the 'volatile' has been added
+		     in by the Objective-C EH machinery.  */
+		  if (warn_discard_qual && !objc_type_quals_match (ttl, ttr))
+		  /* APPLE LOCAL end mainline */
+		    WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE discards "
 					    "qualifiers from pointer target type"),
-					 N_("assignment discards qualifiers "
+					 G_("assignment discards qualifiers "
 					    "from pointer target type"),
-					 N_("initialization discards qualifiers "
+					 G_("initialization discards qualifiers "
 					    "from pointer target type"),
-					 N_("return discards qualifiers from "
+					 G_("return discards qualifiers from "
 					    "pointer target type"));
 		}
 	      /* APPLE LOCAL end 4086969 */
@@ -3907,13 +3982,13 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		;
 	      /* If there is a mismatch, do warn.  */
 	      else if (warn_pointer_sign)
-		WARN_FOR_ASSIGNMENT (N_("pointer targets in passing argument "
+		WARN_FOR_ASSIGNMENT (G_("pointer targets in passing argument "
 					"%d of %qE differ in signedness"),
-				     N_("pointer targets in assignment "
+				     G_("pointer targets in assignment "
 					"differ in signedness"),
-				     N_("pointer targets in initialization "
+				     G_("pointer targets in initialization "
 					"differ in signedness"),
-				     N_("pointer targets in return differ "
+				     G_("pointer targets in return differ "
 					"in signedness"));
 	    }
 	  else if (TREE_CODE (ttl) == FUNCTION_TYPE
@@ -3924,24 +3999,30 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 		 it is okay to use a const or volatile function
 		 where an ordinary one is wanted, but not vice-versa.  */
 	      if (TYPE_QUALS (ttl) & ~TYPE_QUALS (ttr))
-		WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE makes "
+		WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE makes "
 					"qualified function pointer "
 					"from unqualified"),
-				     N_("assignment makes qualified function "
+				     G_("assignment makes qualified function "
 					"pointer from unqualified"),
-				     N_("initialization makes qualified "
+				     G_("initialization makes qualified "
 					"function pointer from unqualified"),
-				     N_("return makes qualified function "
+				     G_("return makes qualified function "
 					"pointer from unqualified"));
 	    }
 	}
       else
-	WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE from "
-				"incompatible pointer type"),
-			     N_("assignment from incompatible pointer type"),
-			     N_("initialization from incompatible "
-				"pointer type"),
-			     N_("return from incompatible pointer type"));
+	/* APPLE LOCAL begin mainline */
+	/* Certain combinations of ObjC types do not warrant a
+	   warning here.  */
+	if (!objc_ok)
+	  WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE from "
+				  "incompatible pointer type"),
+			       G_("assignment from incompatible pointer type"),
+			       G_("initialization from incompatible "
+				  "pointer type"),
+			       G_("return from incompatible pointer type"));
+
+	/* APPLE LOCAL end mainline */
       return convert (type, rhs);
     }
   else if (codel == POINTER_TYPE && coder == ARRAY_TYPE)
@@ -3962,26 +4043,26 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	    && TREE_CODE (TREE_TYPE (rhs)) == INTEGER_TYPE
 	    && TREE_CODE (TREE_OPERAND (rhs, 0)) == INTEGER_CST
 	    && integer_zerop (TREE_OPERAND (rhs, 0))))
-	WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE makes "
+	WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE makes "
 				"pointer from integer without a cast"),
-			     N_("assignment makes pointer from integer "
+			     G_("assignment makes pointer from integer "
 				"without a cast"),
-			     N_("initialization makes pointer from "
+			     G_("initialization makes pointer from "
 				"integer without a cast"),
-			     N_("return makes pointer from integer "
+			     G_("return makes pointer from integer "
 				"without a cast"));
 
       return convert (type, rhs);
     }
   else if (codel == INTEGER_TYPE && coder == POINTER_TYPE)
     {
-      WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE makes integer "
+      WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE makes integer "
 			      "from pointer without a cast"),
-			   N_("assignment makes integer from pointer "
+			   G_("assignment makes integer from pointer "
 			      "without a cast"),
-			   N_("initialization makes integer from pointer "
+			   G_("initialization makes integer from pointer "
 			      "without a cast"),
-			   N_("return makes integer from pointer "
+			   G_("return makes integer from pointer "
 			      "without a cast"));
       return convert (type, rhs);
     }
@@ -4959,19 +5040,27 @@ push_init_level (int implicit)
   tree value = NULL_TREE;
 
   /* If we've exhausted any levels that didn't have braces,
-     pop them now.  */
-  while (constructor_stack->implicit)
+     pop them now.  If implicit == 1, this will have been done in
+     process_init_element; do not repeat it here because in the case
+     of excess initializers for an empty aggregate this leads to an
+     infinite cycle of popping a level and immediately recreating
+     it.  */
+  if (implicit != 1)
     {
-      if ((TREE_CODE (constructor_type) == RECORD_TYPE
-	   || TREE_CODE (constructor_type) == UNION_TYPE)
-	  && constructor_fields == 0)
-	process_init_element (pop_init_level (1));
-      else if (TREE_CODE (constructor_type) == ARRAY_TYPE
-	       && constructor_max_index
-	       && tree_int_cst_lt (constructor_max_index, constructor_index))
-	process_init_element (pop_init_level (1));
-      else
-	break;
+      while (constructor_stack->implicit)
+	{
+	  if ((TREE_CODE (constructor_type) == RECORD_TYPE
+	       || TREE_CODE (constructor_type) == UNION_TYPE)
+	      && constructor_fields == 0)
+	    process_init_element (pop_init_level (1));
+	  else if (TREE_CODE (constructor_type) == ARRAY_TYPE
+		   && constructor_max_index
+		   && tree_int_cst_lt (constructor_max_index,
+				       constructor_index))
+	    process_init_element (pop_init_level (1));
+	  else
+	    break;
+	}
     }
 
   /* Unless this is an explicit brace, we need to preserve previous
@@ -5255,6 +5344,16 @@ pop_init_level (int implicit)
     {
       if (constructor_erroneous)
 	ret.value = error_mark_node;
+      /* APPLE LOCAL begin radar 4188876 */
+      else if (!constructor_constant
+		&& TREE_CODE (constructor_type) == VECTOR_TYPE && constructor_decl
+		&& (TREE_CODE (TREE_TYPE (constructor_decl)) == RECORD_TYPE 
+		    || TREE_CODE (TREE_TYPE (constructor_decl)) == UNION_TYPE))
+	{
+          error ("Initializer is a non-const vector type");
+	  ret.value = error_mark_node;
+	}
+      /* APPLE LOCAL end radar 4188876 */
       else
 	{
 	  ret.value = build_constructor (constructor_type,
@@ -6664,7 +6763,7 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
     }
 
   /* APPLE LOCAL CW asm blocks. */
-  args = build_stmt (ASM_EXPR, string, outputs, inputs, clobbers, NULL);
+  args = build_stmt (ASM_EXPR, string, outputs, inputs, clobbers, NULL_TREE);
 
   /* Simple asm statements are treated as volatile.  */
   if (simple)
@@ -6691,15 +6790,33 @@ c_finish_goto_label (tree label)
       return NULL_TREE;
     }
 
+  if (C_DECL_UNJUMPABLE_VM (decl))
+    {
+      error ("jump into scope of identifier with variably modified type");
+      return NULL_TREE;
+    }
+
   if (!C_DECL_UNDEFINABLE_STMT_EXPR (decl))
     {
       /* No jump from outside this statement expression context, so
 	 record that there is a jump from within this context.  */
       struct c_label_list *nlist;
       nlist = XOBNEW (&parser_obstack, struct c_label_list);
-      nlist->next = label_context_stack->labels_used;
+      nlist->next = label_context_stack_se->labels_used;
       nlist->label = decl;
-      label_context_stack->labels_used = nlist;
+      label_context_stack_se->labels_used = nlist;
+    }
+
+  if (!C_DECL_UNDEFINABLE_VM (decl))
+    {
+      /* No jump from outside this context context of identifiers with
+	 variably modified type, so record that there is a jump from
+	 within this context.  */
+      struct c_label_list *nlist;
+      nlist = XOBNEW (&parser_obstack, struct c_label_list);
+      nlist->next = label_context_stack_vm->labels_used;
+      nlist->label = decl;
+      label_context_stack_vm->labels_used = nlist;
     }
 
   TREE_USED (decl) = 1;
@@ -6718,9 +6835,17 @@ c_finish_goto_ptr (tree expr)
 }
 
 /* APPLE LOCAL begin CW asm blocks */
+#ifndef CW_SEE_OPCODE
+#define CW_SEE_OPCODE(YYCHAR, T) YYCHAR
+#endif
+#define TYPESPEC 1
+#define IDENTIFIER 2
 int
 cw_asm_typename_or_reserved (tree value)
 {
+  if (CW_SEE_OPCODE (TYPESPEC, value) == IDENTIFIER)
+    return 0;
+
   return (C_IS_RESERVED_WORD (value));
 }
 
@@ -6737,10 +6862,12 @@ cw_asm_c_build_component_ref (tree typename, tree component)
   tree ref;
 
   /* Intercept variables here and make a component ref instead.  */
-  if (TREE_CODE (typename) == VAR_DECL)
+  if (TREE_CODE (typename) == VAR_DECL || TREE_CODE (typename) == COMPONENT_REF)
     {
       return build_component_ref (typename, component);
     }
+  else if (TREE_CODE (typename) == LABEL_DECL)
+    typename = DECL_NAME (typename);
 
   val = lookup_name (typename);
   if (val)
@@ -6749,6 +6876,12 @@ cw_asm_c_build_component_ref (tree typename, tree component)
     }
   else
     {
+      /* We allow [eax].16 to refer to [eax + 16].  */
+      if (TREE_CODE (component) == INTEGER_CST
+	  && TREE_CODE (typename) == BRACKET_EXPR)
+	{
+	  return cw_build_bracket (typename, component);
+	}
       /* A structure tag will have been assumed to be a label; pick
 	 out the original name.  */
       if (strncmp ("LASM", IDENTIFIER_POINTER (typename), 4) == 0)
@@ -6947,6 +7080,11 @@ struct c_switch {
      appear.  */
   unsigned int blocked_stmt_expr;
 
+  /* Scope of outermost declarations of identifiers with variably
+     modified type within this switch statement; if nonzero, case and
+     default labels may not appear.  */
+  unsigned int blocked_vm;
+
   /* The next node on the stack.  */
   struct c_switch *next;
 };
@@ -7002,6 +7140,7 @@ c_start_case (tree exp)
   cs->orig_type = orig_type;
   cs->cases = splay_tree_new (case_compare, NULL, NULL);
   cs->blocked_stmt_expr = 0;
+  cs->blocked_vm = 0;
   cs->next = c_switch_stack;
   c_switch_stack = cs;
 
@@ -7015,7 +7154,8 @@ do_case (tree low_value, tree high_value)
 {
   tree label = NULL_TREE;
 
-  if (c_switch_stack && !c_switch_stack->blocked_stmt_expr)
+  if (c_switch_stack && !c_switch_stack->blocked_stmt_expr
+      && !c_switch_stack->blocked_vm)
     {
       label = c_add_case_label (c_switch_stack->cases,
 				SWITCH_STMT_COND (c_switch_stack->switch_stmt),
@@ -7032,6 +7172,15 @@ do_case (tree low_value, tree high_value)
       else
 	error ("%<default%> label in statement expression not containing "
 	       "enclosing switch statement");
+    }
+  else if (c_switch_stack && c_switch_stack->blocked_vm)
+    {
+      if (low_value)
+	error ("case label in scope of identifier with variably modified "
+	       "type not containing enclosing switch statement");
+      else
+	error ("%<default%> label in scope of identifier with variably "
+	       "modified type not containing enclosing switch statement");
     }
   else if (low_value)
     error ("case label not within a switch statement");
@@ -7050,6 +7199,9 @@ c_finish_case (tree body)
 
   SWITCH_STMT_BODY (cs->switch_stmt) = body;
 
+  /* We must not be within a statement expression nested in the switch
+     at this point; we might, however, be within the scope of an
+     identifier with variably modified type nested in the switch.  */
   gcc_assert (!cs->blocked_stmt_expr);
 
   /* Emit warnings as needed.  */
@@ -7318,7 +7470,7 @@ tree
 c_begin_stmt_expr (void)
 {
   tree ret;
-  struct c_label_context *nstack;
+  struct c_label_context_se *nstack;
   struct c_label_list *glist;
 
   /* We must force a BLOCK for this level so that, if it is not expanded
@@ -7331,17 +7483,17 @@ c_begin_stmt_expr (void)
       c_switch_stack->blocked_stmt_expr++;
       gcc_assert (c_switch_stack->blocked_stmt_expr != 0);
     }
-  for (glist = label_context_stack->labels_used;
+  for (glist = label_context_stack_se->labels_used;
        glist != NULL;
        glist = glist->next)
     {
       C_DECL_UNDEFINABLE_STMT_EXPR (glist->label) = 1;
     }
-  nstack = XOBNEW (&parser_obstack, struct c_label_context);
+  nstack = XOBNEW (&parser_obstack, struct c_label_context_se);
   nstack->labels_def = NULL;
   nstack->labels_used = NULL;
-  nstack->next = label_context_stack;
-  label_context_stack = nstack;
+  nstack->next = label_context_stack_se;
+  label_context_stack_se = nstack;
 
   /* Mark the current statement list as belonging to a statement list.  */
   STATEMENT_LIST_STMT_EXPR (ret) = 1;
@@ -7364,7 +7516,7 @@ c_finish_stmt_expr (tree body)
     }
   /* It is no longer possible to jump to labels defined within this
      statement expression.  */
-  for (dlist = label_context_stack->labels_def;
+  for (dlist = label_context_stack_se->labels_def;
        dlist != NULL;
        dlist = dlist->next)
     {
@@ -7372,7 +7524,7 @@ c_finish_stmt_expr (tree body)
     }
   /* It is again possible to define labels with a goto just outside
      this statement expression.  */
-  for (glist = label_context_stack->next->labels_used;
+  for (glist = label_context_stack_se->next->labels_used;
        glist != NULL;
        glist = glist->next)
     {
@@ -7380,10 +7532,11 @@ c_finish_stmt_expr (tree body)
       glist_prev = glist;
     }
   if (glist_prev != NULL)
-    glist_prev->next = label_context_stack->labels_used;
+    glist_prev->next = label_context_stack_se->labels_used;
   else
-    label_context_stack->next->labels_used = label_context_stack->labels_used;
-  label_context_stack = label_context_stack->next;
+    label_context_stack_se->next->labels_used
+      = label_context_stack_se->labels_used;
+  label_context_stack_se = label_context_stack_se->next;
 
   /* Locate the last statement in BODY.  See c_end_compound_stmt
      about always returning a BIND_EXPR.  */
@@ -7453,6 +7606,75 @@ c_finish_stmt_expr (tree body)
   SET_EXPR_LOCUS (*last_p, EXPR_LOCUS (last));
 
   return build4 (TARGET_EXPR, type, tmp, body, NULL_TREE, NULL_TREE);
+}
+
+/* Begin the scope of an identifier of variably modified type, scope
+   number SCOPE.  Jumping from outside this scope to inside it is not
+   permitted.  */
+
+void
+c_begin_vm_scope (unsigned int scope)
+{
+  struct c_label_context_vm *nstack;
+  struct c_label_list *glist;
+
+  gcc_assert (scope > 0);
+  if (c_switch_stack && !c_switch_stack->blocked_vm)
+    c_switch_stack->blocked_vm = scope;
+  for (glist = label_context_stack_vm->labels_used;
+       glist != NULL;
+       glist = glist->next)
+    {
+      C_DECL_UNDEFINABLE_VM (glist->label) = 1;
+    }
+  nstack = XOBNEW (&parser_obstack, struct c_label_context_vm);
+  nstack->labels_def = NULL;
+  nstack->labels_used = NULL;
+  nstack->scope = scope;
+  nstack->next = label_context_stack_vm;
+  label_context_stack_vm = nstack;
+}
+
+/* End a scope which may contain identifiers of variably modified
+   type, scope number SCOPE.  */
+
+void
+c_end_vm_scope (unsigned int scope)
+{
+  if (label_context_stack_vm == NULL)
+    return;
+  if (c_switch_stack && c_switch_stack->blocked_vm == scope)
+    c_switch_stack->blocked_vm = 0;
+  /* We may have a number of nested scopes of identifiers with
+     variably modified type, all at this depth.  Pop each in turn.  */
+  while (label_context_stack_vm->scope == scope)
+    {
+      struct c_label_list *dlist, *glist, *glist_prev = NULL;
+
+      /* It is no longer possible to jump to labels defined within this
+	 scope.  */
+      for (dlist = label_context_stack_vm->labels_def;
+	   dlist != NULL;
+	   dlist = dlist->next)
+	{
+	  C_DECL_UNJUMPABLE_VM (dlist->label) = 1;
+	}
+      /* It is again possible to define labels with a goto just outside
+	 this scope.  */
+      for (glist = label_context_stack_vm->next->labels_used;
+	   glist != NULL;
+	   glist = glist->next)
+	{
+	  C_DECL_UNDEFINABLE_VM (glist->label) = 0;
+	  glist_prev = glist;
+	}
+      if (glist_prev != NULL)
+	glist_prev->next = label_context_stack_vm->labels_used;
+      else
+	label_context_stack_vm->next->labels_used
+	  = label_context_stack_vm->labels_used;
+      label_context_stack_vm = label_context_stack_vm->next;
+    }
 }
 
 /* Begin and end compound statements.  This is as simple as pushing
@@ -7583,6 +7805,11 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   /* Nonzero means set RESULT_TYPE to the common type of the args.  */
   int common = 0;
 
+  /* APPLE LOCAL begin mainline */
+  /* True means types are compatible as far as ObjC is concerned.  */
+  bool objc_ok;
+
+  /* APPLE LOCAL end mainline */
   if (convert_p)
     {
       op0 = default_conversion (orig_op0);
@@ -7612,6 +7839,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   if (code0 == ERROR_MARK || code1 == ERROR_MARK)
     return error_mark_node;
 
+  /* APPLE LOCAL begin mainline */
+  objc_ok = objc_compare_types (type0, type1, -3, NULL_TREE);
+
+  /* APPLE LOCAL end mainline */
   switch (code)
     {
     case PLUS_EXPR:
@@ -7628,7 +7859,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       /* Subtraction of two similar pointers.
 	 We must subtract them as integers, then divide by object size.  */
       if (code0 == POINTER_TYPE && code1 == POINTER_TYPE
-	  && comp_target_types (type0, type1, 1))
+	  /* APPLE LOCAL mainline */
+	  && comp_target_types (type0, type1))
 	return pointer_diff (op0, op1);
       /* Handle pointer minus int.  Just like pointer plus int.  */
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
@@ -7797,7 +8029,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
 	     and both must be object or both incomplete.  */
-	  if (comp_target_types (type0, type1, 1))
+	  /* APPLE LOCAL mainline */
+	  if (comp_target_types (type0, type1))
 	    result_type = common_pointer_type (type0, type1);
 	  else if (VOID_TYPE_P (tt0))
 	    {
@@ -7816,7 +8049,12 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			 " with function pointer");
 	    }
 	  else
-	    pedwarn ("comparison of distinct pointer types lacks a cast");
+	    /* APPLE LOCAL begin mainline */
+	    /* Certain combinations of ObjC types do not warrant a
+	       warning here.  */
+	    if (!objc_ok)
+	      pedwarn ("comparison of distinct pointer types lacks a cast");
+	    /* APPLE LOCAL end mainline */
 
 	  if (result_type == NULL_TREE)
 	    result_type = ptr_type_node;
@@ -7849,7 +8087,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
-	  if (comp_target_types (type0, type1, 1))
+	  /* APPLE LOCAL mainline */
+	  if (comp_target_types (type0, type1))
 	    {
 	      result_type = common_pointer_type (type0, type1);
 	      if (!COMPLETE_TYPE_P (TREE_TYPE (type0))

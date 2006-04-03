@@ -25,6 +25,79 @@ Bugs to be fixed:
 - The PowerPC extended branch mnemonic like beqlrl need to take a CRFONLY or
   a number shifted over by 2 (like the fcmpu instruction).
 
+Changes for the 5.20 release (the cctools-590.20 release):
+- Removed the warnings when building. Radar bug #4340147.
+  - Added -fno-builtin-round to the Makefile.
+  - Added two casts to (unsigned int *) for the second argument of getval() in
+    parse_cst() in m88k.c . 
+
+Changes for the 5.19 release (the cctools-590.12 release):
+- Added support for the new assembler directives, .secure_log_unique and
+  .secure_log_reset . Radar bug #4291741.
+  - Added the global char * variable secure_log_file to as.[ch] which is set
+    by code in main() in as.c to the value of the AS_SECURE_LOG_FILE
+    environment variable.
+  - Added the new routines s_secure_log_unique() and s_secure_log_reset() to
+    read.c to implement the new directives.
+
+Changes for the 5.19 release (the cctools-590.10 release):
+- Added the attribute "self_modifying_code" to the attribute_names[] array 
+  in read.c with the new constant S_ATTR_SELF_MODIFYING_CODE.  Radar bug
+  #4202415.
+- Fixed a bug in the PowerPC branch conditional to count register or to link
+  registers instructions that are predicted causing them to have the wrong
+  opcode.  The fix was in calcop() in ppc.c that incorrectly assumed all branch
+  conditional instructions have a PPC_RELOC_BR14 relocation entry and always
+  changed it to PPC_RELOC_BR14_predicted when a branch conditional has
+  prediction.  Doing this then later caused md_number_to_imm() to incorrectly
+  change the opcode.  The fix was to change calcop() to test insn->reloc to
+  see if it is PPC_RELOC_BR14 before setting it to PPC_RELOC_BR14_predicted,
+  because it may be NO_RELOC for the branch conditional to register forms.
+  Radar bug #4274713.
+- Added the i386 instructions as synonyms pushfd for pushf and popfd for popf .
+  This is done with table entries:
+    {"pushfd", 0, 0x9c, _, NoModrm, {0, 0, 0} },
+    {"popfd", 0, 0x9d, _, NoModrm, {0, 0, 0} },
+  in i386-opcode.h . Radar bug #4272274
+
+Changes for the 5.19 release (the cctools-590.4 release):
+- Changed the PowerPC dcbzl instruction to not mark it as optional so it is
+  allowed without -force_cpusubtype_ALL or -arch ppc64.  The change was in
+  ppc-opcode.h to change this:
+  { 0x7c2007ec, "dcbzl",   {{16,5,G0REG}, {11,5,GREG}}, IMPL64|OPTIONAL },
+  to this:
+  { 0x7c2007ec, "dcbzl",   {{16,5,G0REG}, {11,5,GREG}} },
+  Radar bug #4181833.
+- Fixed using the -n flag with the i386 assembler so it does not crash when
+  assembling a file that does not have a .section directive before the first
+  instruction.  The fix is in md_assemble() in i386.c to check to see if
+  frchain_now is NULL the -n flag is seen, then to print an error message saying
+  a section directive must be seen before assembly can begin.  Radar bug
+  #4192255.
+- Fixed the "outw %ax,$10" and "inw $10,%ax" forms of the i386 instructions so
+  that they correctly have an 8-bit immediate for the port number even though
+  the instruction operates on 16-bit words.  The fix is in md_assemble() where
+  it would normally force the immediate to 16-bits if it has a word prefix.  An
+  safe fix was made there to check for the opcodes of "out" and "in" and not
+  do that in that case.  Radar bug #4110183.
+- Fixed the "fsubrp %st(i)" form of this instruction so it would assemble
+  correctly.  The fix was to i386-opcode.h where this:
+    {"fsubrp", 1, 0xdae8, _, ShortForm, {FloatReg, 0, 0} },
+    {"fsubrp", 2, 0xdae8, _, ShortForm, {FloatReg, FloatAcc, 0} },
+  was changed to this:
+    {"fsubrp", 1, 0xdee8, _, ShortForm, {FloatReg, 0, 0} },
+    {"fsubrp", 2, 0xdee8, _, ShortForm, {FloatReg, FloatAcc, 0} },
+  Radar bug #4182849.
+
+Changes for the 5.19 release (the cctools-590.3 release):
+- as(1) added a new function set_BINCL_checksums().  It is only called from
+  layout_symbols() if a BINCL stab exisits.  It sets the n_value field
+  of BINCL stabs.  Radar bug #4181871.
+
+Changes for the 5.19 release (the cctools-590.1 release):
+- Fixed a bug in s_zerofill() in read.c that was not preserving the N_PEXT bit
+  if it previously was set for the symbol.  Radar bug #4156921.
+
 Changes for the 5.18 release (the cctools-589 release):
 - Added support for the CPU_SUBTYPE_PENTIUM_4 cpusubtype.  Radar bug #4115802
   - Added code in main() in as.c for the -arch pentium4 flag.

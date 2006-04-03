@@ -27,9 +27,23 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Tue Apr 17 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLSetOpenFirmwareBootDevice.c,v 1.14 2005/02/03 00:42:29 ssen Exp $
+ *  $Id: BLSetOpenFirmwareBootDevice.c,v 1.17 2005/11/17 00:17:31 ssen Exp $
  *
  *  $Log: BLSetOpenFirmwareBootDevice.c,v $
+ *  Revision 1.17  2005/11/17 00:17:31  ssen
+ *  <rdar://problem/4344363> Bless needs to zero out kernel/mkext fields when booting from local disk
+ *  refactor code into BLPreserveBootArgs
+ *
+ *  Revision 1.16  2005/08/22 20:49:25  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.15  2005/06/24 16:39:51  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.14  2005/02/03 00:42:29  ssen
  *  Update copyrights to 2005
  *
@@ -97,9 +111,7 @@
 
 #define NVRAM "/usr/sbin/nvram"
 
-#include "preserve_bootargs.h"
-
-int BLSetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm[]) {
+int BLSetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm) {
   char ofString[1024];
   int err;
   
@@ -127,8 +139,7 @@ int BLSetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm
   
   if (isNewWorld) {
       char oldbootargs[1024];
-      char *token, *restargs;
-	  int firstarg=1;
+      char *restargs;
       FILE *pop;
       
       oldbootargs[0] = '\0';
@@ -144,47 +155,8 @@ int BLSetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm
           restargs = oldbootargs;
           if(NULL != strsep(&restargs, "\t")) { // nvram must separate the name from the value with a tab
               restargs[strlen(restargs)-1] = '\0'; // remove \n
-              memmove(oldbootargs, restargs, strlen(restargs)+1);
-              
-              contextprintf(context, kBLLogLevelVerbose,  "Old boot-args: %s\n", oldbootargs);
-              
-			  restargs = oldbootargs;
-			  while((token = strsep(&restargs, " ")) != NULL) {
-				  int shouldbesaved = 0, i;
-				  contextprintf(context, kBLLogLevelVerbose, "\tGot token: %s\n", token);
-				  for(i=0; i < sizeof(preserve_boot_args)/sizeof(preserve_boot_args[0]); i++) {
-					// see if it's something we want
-					  if(preserve_boot_args[i][0] == '-') {
-						  // -v style
-						  if(strcmp(preserve_boot_args[i], token) == 0) {
-							  shouldbesaved = 1;
-							  break;
-						  }
-					  } else {
-						// debug= style
-						  int keylen = strlen(preserve_boot_args[i]);
-						  if(strlen(token) >= keylen+1
-							 && strncmp(preserve_boot_args[i], token, keylen) == 0
-							 && token[keylen] == '=') {
-							  shouldbesaved = 1;
-							  break;
-						  }
-					  }
-				  }
-				  
-				  if(shouldbesaved) {
-					// append to bootargs if it should be preserved
-					  if(firstarg) {
-						  firstarg = 0;
-					  } else {
-						  strcat(bootargs, " ");
-					  }
-					  
-					  contextprintf(context, kBLLogLevelVerbose,  "\tPreserving: %s\n", token);
-					  strcat(bootargs, token);
-				  }
-			  }
-			  
+
+              err = BLPreserveBootArgs(context, restargs, bootargs+strlen(bootargs));
           }
     }
       

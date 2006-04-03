@@ -81,11 +81,7 @@ get_dynamics_objfile (void)
 {
   if (dynamics_objfile == NULL)
     {
-#ifndef FSF_OBJFILES
       dynamics_objfile = allocate_objfile (NULL, 0, 0, 0, NULL);
-#else
-      dynamics_objfile = allocate_objfile (NULL, 0);
-#endif
     }
   return dynamics_objfile;
 }
@@ -96,8 +92,6 @@ get_dynamics_objfile (void)
 static struct symtab *class_symtab = NULL;
 
 static void free_class_block (struct symtab *symtab);
-
-static int class_symtab_space;
 
 static struct symtab *
 get_java_class_symtab (void)

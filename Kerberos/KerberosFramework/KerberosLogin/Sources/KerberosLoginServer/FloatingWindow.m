@@ -1,7 +1,7 @@
 /*
  * FloatingWindow.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/FloatingWindow.m,v 1.1 2004/05/14 03:09:50 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

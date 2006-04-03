@@ -6,7 +6,8 @@ gcc_select -- Switch the default system compiler
 
 =head1 USAGE
 
-	gcc_select [-n] [-force] [2 | 3 | 3.x | 4.x ] [-h | --help] [-v | --version] [-l | --list] [-root]
+	gcc_select [-n] [-force] [2 | 3 | 3.<number> | 4.<number> ]
+		   [-h | --help] [-v | --version] [-l | --list] [-root]
 
 =over 4
 

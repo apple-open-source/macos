@@ -1,60 +1,123 @@
-/* @(#)s_asinh.c 5.1 93/09/24 */
-/*
- * ====================================================
- * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
- *
- * Developed at SunPro, a Sun Microsystems, Inc. business.
- * Permission to use, copy, modify, and distribute this
- * software is freely granted, provided that this notice
- * is preserved.
- * ====================================================
- */
 
-#include <sys/cdefs.h>
-#if defined(LIBM_SCCS) && !defined(lint)
-__RCSID("$NetBSD: s_asinh.c,v 1.11 1999/07/02 15:37:42 simonb Exp $");
-#endif
+//
+//	asinh
+//
+//		by Ian Ollmann
+//
+//	Based on algorithms from MathLib v3
+//
+//	Copyright © 2005, Apple Computer Inc.  All Rights Reserved.
+//
 
-/* asinh(x)
- * Method :
- *	Based on
- *		asinh(x) = sign(x) * log [ |x| + sqrt(x*x+1) ]
- *	we have
- *	asinh(x) := x  if  1+x*x=1,
- *		 := sign(x)*(log(x)+ln2)) for large |x|, else
- *		 := sign(x)*log(2|x|+1/(|x|+sqrt(x*x+1))) if|x|>2, else
- *		 := sign(x)*log1p(|x| + x^2/(1 + sqrt(1+x^2)))
- */
+#include <math.h>
 
-#include "math.h"
-#include "math_private.h"
 
-static const double
-one =  1.00000000000000000000e+00, /* 0x3FF00000, 0x00000000 */
-ln2 =  6.93147180559945286227e-01, /* 0x3FE62E42, 0xFEFA39EF */
-huge=  1.00000000000000000000e+300;
-
-#define __ieee754_log log
-#define __ieee754_sqrt sqrt
-
-double asinh(double x)
+float asinhf( float x )
 {
-	double t,w;
-	int32_t hx,ix;
-	GET_HIGH_WORD(hx,x);
-	ix = hx&0x7fffffff;
-	if(ix>=0x7ff00000) return x+x;	/* x is inf or NaN */
-	if(ix< 0x3e300000) {	/* |x|<2**-28 */
-	    if(huge+x>one) return x;	/* return x inexact except 0 */
+	static const float ln2 = 0x1.62e42fefa39fa39ep-1f;			//ln(2)
+
+	if( x != x )	return x + x;
+	
+	long  double fabsx = __builtin_fabsf( x );
+	
+	if( fabsx < 0x1.0p-12f )			//sqrt( negative epsilon )
+	{
+		if( x == 0.0f )
+			return x;
+	
+		fabsx *= 0x1.0p25;
+		fabsx -= 0x1.0p-126f;
+		fabsx *= 0x1.0p-25;
 	}
-	if(ix>0x41b00000) {	/* |x| > 2**28 */
-	    w = __ieee754_log(fabs(x))+ln2;
-	} else if (ix>0x40000000) {	/* 2**28 > |x| > 2.0 */
-	    t = fabs(x);
-	    w = __ieee754_log(2.0*t+one/(__ieee754_sqrt(x*x+one)+t));
-	} else {		/* 2.0 > |x| > 2**-28 */
-	    t = x*x;
-	    w =log1p(fabs(x)+t/(one+__ieee754_sqrt(one+t)));
+	else if( fabsx <= 4.0L / 3.0L )
+	{
+		float r = 1.0f / fabsx;
+		
+		fabsx = log1pf( fabsx + fabsx / ( r + sqrtf( 1 + r * r)) );
 	}
-	if(hx>0) return w; else return -w;
+	else if( fabsx <= 0x1.0p32 )		//1/sqrt( negative epsilon )
+	{
+		fabsx = logf( fabsx + fabsx + 1.0f / (fabsx + sqrtf( 1.0f + fabsx * fabsx)) );
+	}
+	else
+		fabsx = logf( fabsx ) + ln2;
+
+	if( x < 0 )
+		fabsx = -fabsx;
+		
+	return fabsx;
+}
+
+
+double asinh( double x )
+{
+	static const double ln2 = 0x1.62e42fefa39fa39ep-1;			//ln(2)
+
+	if( x != x )	return x + x;
+	
+	long  double fabsx = __builtin_fabs( x );
+	
+	if( fabsx < 0x1.0p-27 )			//sqrt( negative epsilon )
+	{
+		if( x == 0.0L )
+			return x;
+	
+		fabsx *= 0x1.0p55;
+		fabsx -= 0x1.0p-1022;
+		fabsx *= 0x1.0p-55;
+	}
+	else if( fabsx <= 4.0 / 3.0 )
+	{
+		double r = 1.0 / fabsx;
+		
+		fabsx = log1p( fabsx + fabsx / ( r + sqrt( 1 + r * r)) );
+	}
+	else if( fabsx <= 0x1.0p27 )		//1/sqrt( negative epsilon )
+	{
+		fabsx = log( fabsx + fabsx + 1.0 / (fabsx + sqrt( 1.0 + fabsx * fabsx)) );
+	}
+	else
+		fabsx = log( fabsx ) + ln2;
+
+	if( x < 0 )
+		fabsx = -fabsx;
+		
+	return fabsx;
+}
+
+
+long double asinhl( long double x )
+{
+	static const long double ln2 = 0x1.62e42fefa39fa39ep-1L;			//ln(2)
+
+	if( x != x )	return x + x;
+	
+	long  double fabsx = __builtin_fabsl( x );
+	
+	if( fabsx < 0x1.0p-32 )			//sqrt( negative epsilon )
+	{
+		if( x == 0.0L )
+			return x;
+	
+		fabsx *= 0x1.0p65L;
+		fabsx -= 0x1.0p-16382L;
+		fabsx *= 0x1.0p-65L;
+	}
+	else if( fabsx <= 4.0L / 3.0L )
+	{
+		long double r = 1.0L / fabsx;
+		
+		fabsx = log1pl( fabsx + fabsx / ( r + sqrtl( 1 + r * r)) );
+	}
+	else if( fabsx <= 0x1.0p32 )		//1/sqrt( negative epsilon )
+	{
+		fabsx = logl( fabsx + fabsx + 1.0L / (fabsx + sqrtl( 1.0L + fabsx * fabsx)) );
+	}
+	else
+		fabsx = logl( fabsx ) + ln2;
+
+	if( x < 0 )
+		fabsx = -fabsx;
+		
+	return fabsx;
 }

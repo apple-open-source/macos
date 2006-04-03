@@ -5258,9 +5258,8 @@ Specify the serial device it is connected to\n\
   remote_ops.to_has_registers = 1;
   remote_ops.to_has_execution = 1;
   remote_ops.to_has_thread_control = tc_schedlock;	/* can lock scheduler */
-  /* APPLE LOCAL: Make sure this gets set to 0. */
+  /* APPLE LOCAL classic-inferior-support */
   remote_ops.to_async_mask_value = 0;
-  /* END APPLE LOCAL */
   remote_ops.to_magic = OPS_MAGIC;
 }
 

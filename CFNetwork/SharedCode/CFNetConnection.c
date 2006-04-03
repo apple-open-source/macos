@@ -983,7 +983,7 @@ Boolean _CFNetConnectionDequeue(_CFNetConnectionRef arg, void *req) {
     // 5. If the request appears between current response & current request, it may not be dequeued
     // 6. If the request is the current request, it may be dequeued iff its transmission has not yet begun
     // 7. If the request appears after the current request, it may be dequeued
-    
+	
     // 1. If there is nothing in the queue, don't attempt.
     if (conn->head) {
         _CFNetRequest *pre = NULL, *match = conn->head;

@@ -1,7 +1,7 @@
 /*
  * Cache.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Cache.m,v 1.7 2005/01/31 20:50:34 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -94,7 +94,7 @@
     
     if (err == ccNoError) {
         if (newLastChangeTime > lastChangeTime) {
-            dprintf ("synchronizeWithCCache cache got new change time %ld", newLastChangeTime);
+            dprintf ("synchronizeWithCCache cache got new change time %d", newLastChangeTime);
             cc_uint32    newVersion = 0;
             Credentials *newV4Credentials = NULL;
             Credentials *newV5Credentials = NULL;

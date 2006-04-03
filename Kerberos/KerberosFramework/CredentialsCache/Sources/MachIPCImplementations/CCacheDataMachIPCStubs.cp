@@ -1,7 +1,7 @@
 /*
  * CCICCacheDataMachIPCStubs.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CCacheDataMachIPCStubs.cp,v 1.15 2005/05/25 20:23:00 lxs Exp $
+ * $Header$
  */
 
 #include "FlattenCredentials.h"

@@ -472,13 +472,16 @@ gdb_expect {
 # surprise, since this feature hasn't been tested...)  Looks like
 # GDB is currently trying to set the ignore count of bp # -1!
 #
+# APPLE LOCAL: Need to put the XFAIL first, since otherwise if it
+# prints both lines, only the PASS will match.
+#
 setup_xfail hppa_*_*
 send_gdb "continue 2\n"
 gdb_expect {
-  -re "Not stopped at any breakpoint; argument ignored..*$gdb_prompt $"\
-          {pass "continue with ignore count, not stopped at bpt"}
   -re "No breakpoint number -1.*$gdb_prompt $"\
           {xfail "(DTS'd) continue with ignore count, not stopped at bpt"}
+  -re "Not stopped at any breakpoint; argument ignored..*$gdb_prompt $"\
+          {pass "continue with ignore count, not stopped at bpt"}
   -re "$gdb_prompt $"\
           {fail "continue with ignore count, not stopped at bpt"}
   timeout {fail "(timeout) step after continue with ignore count, not stopped at bpt"}

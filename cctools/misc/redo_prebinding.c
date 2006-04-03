@@ -541,8 +541,14 @@ static char *contents_pointer_for_vmaddr(
 static void update_symbol_pointers(
     unsigned long vmslide);
 
+static void update_self_modifying_stubs(
+    unsigned long vmslide);
+
 static void reset_symbol_pointers(
-unsigned long vmslide);
+    unsigned long vmslide);
+
+static void reset_self_modifying_stubs(
+    void);
 
 static enum bool check_pb_la_ptr_reloc_cputype(
 unsigned int reloc_type);
@@ -2631,6 +2637,12 @@ void)
 	update_symbol_pointers(dylib_vmslide);
 
 	/*
+	 * Using the new symbol table update the any stubs that have jump
+	 * instructions that dyld will modify.
+	 */
+	update_self_modifying_stubs(dylib_vmslide);
+
+	/*
 	 * Update the time stamps in the LC_LOAD_DYLIB and LC_LOAD_WEAK_DYLIB
 	 * commands and update the LC_PREBOUND_DYLIB is this is an excutable.
 	 */
@@ -2786,6 +2798,12 @@ void)
 	 * their corresponding local relocation entries.
 	 */
 	reset_symbol_pointers(dylib_vmslide);
+
+	/*
+	 * set any stubs that have jump instructions that dyld will modify back
+	 * to halt instructions.
+	 */
+	reset_self_modifying_stubs();
 
 	/*
 	 * set the (__DATA,__dyld) section contents to a canonical value.
@@ -7811,6 +7829,136 @@ unsigned long vmslide)
 }
 
 /*
+ * update_self_modifying_stubs() updates i386 5-byte self modifying stubs that
+ * are JMP instructions to their indirect symbol address using the new and old
+ * symbol table and the vmslide.
+ */
+static
+void
+update_self_modifying_stubs(
+unsigned long vmslide)
+{
+    unsigned long i, j, k, section_type, displacement, symbol_slide;
+    struct load_command *lc;
+    struct segment_command *sg;
+    struct section *s;
+    struct nlist *arch_symbol, *defined_symbol;
+    char *name, *p;
+    enum link_state *module_state;
+    struct lib *lib;
+    uint32_t ncmds;
+    
+	/*
+	 * If this is not the 32-bit i386 architecture then just return.
+	 */
+	if(arch->object->mh->cputype != CPU_TYPE_I386 ||
+	   arch->object->mh == NULL)
+	    return;
+
+	/*
+	 * For each stub section that has 5-byte entries and the self modifying
+	 * code attribute update the JMP instructions in them using prebound
+	 * undefined symbols to their new values.
+	 */
+	lc = arch->object->load_commands;
+	ncmds = arch->object->mh->ncmds;
+	for(i = 0; i < ncmds; i++){
+	    if(lc->cmd == LC_SEGMENT){
+		sg = (struct segment_command *)lc;
+		s = (struct section *)
+		    ((char *)sg + sizeof(struct segment_command));
+		for(j = 0 ; j < sg->nsects ; j++){
+		    section_type = s->flags & SECTION_TYPE;
+		    if(section_type == S_SYMBOL_STUBS &&
+		       (s->flags & S_ATTR_SELF_MODIFYING_CODE) == 
+			S_ATTR_SELF_MODIFYING_CODE &&
+			s->reserved2 == 5){
+
+			if(s->reserved1 + s->size / 5 > arch_nindirectsyms){
+			    error("mallformed file: %s (for architecture %s) "
+				"(indirect symbol table entries for section "
+				"(%.16s,%.16s) extends past the end of the "
+				"indirect symbol table)", arch->file_name,
+				arch_name, s->segname, s->sectname);
+			    redo_exit(2);
+			}
+
+			for(k = 0; k < s->size / 5; k++){
+			    /*
+			     * Get a pointer to the JMP instruction in memory.
+			     */
+			    p = contents_pointer_for_vmaddr(
+				s->addr + (k * 5), 4);
+			    if(p == NULL){
+				error("mallformed file: %s (for architecture "
+				    "%s) (bad indirect section (%.16s,%.16s))",
+				    arch->file_name, arch_name, s->segname,
+				    s->sectname);
+				redo_exit(2);
+			    }
+			    /* get the displacement from the JMP instruction */
+			    displacement = get_arch_long(p + 1);
+
+			    /* check symbol index of indirect symbol table */
+			    if(arch_indirect_symtab[s->reserved1 + k] >
+			       arch_nsyms){
+				error("mallformed file: %s (for architecture "
+				    "%s) (bad indirect symbol table entry %lu)",
+				    arch->file_name, arch_name, i);
+				redo_exit(2);
+			    }
+	
+			    /*
+			     * If the symbol this indirect symbol table entry is
+			     * refering to is not a prebound undefined symbol
+			     * then this symbol's value is used for the
+			     * displacement of the JMP.
+			     */ 
+			    arch_symbol = arch_symbols +
+				     arch_indirect_symtab[s->reserved1 + k];
+			    if((arch_symbol->n_type & N_TYPE) != N_PBUD){
+				if(arch_symbol->n_sect == NO_SECT)
+				    symbol_slide = 0;
+				else
+				    symbol_slide = vmslide;
+				displacement = arch_symbol->n_value +
+					   symbol_slide -
+					   (vmslide + s->addr + (k * 5) + 5);
+			    }
+			    else{
+				/*
+				 * Look up the symbol being referenced by this
+				 * indirect symbol table entry to get the
+				 * defined symbol's value to be used.
+				 */
+				name = arch_strings + arch_symbol->n_un.n_strx;
+				lookup_symbol(name,
+					      get_primary_lib(ARCH_LIB,
+							      arch_symbol),
+					      get_weak(arch_symbol),
+					      &defined_symbol, &module_state,
+					      &lib, NULL, NULL, NO_INDR_LOOP);
+				displacement = defined_symbol->n_value -
+					   (vmslide + s->addr + (k * 5) + 5);
+			    }
+			    /*
+			     * Now set the JMP opcode and the displacement.  We
+			     * must set the opcode in case we are prebinding an
+			     * unprebound() binary that has HLT instructions
+			     * for the 5 bytes of the JMP instruction.
+			     */
+			    *p = 0xE9; /* JMP rel32 */
+			    set_arch_long(p + 1, displacement);
+			}
+		    }
+		    s++;
+		}
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+}
+
+/*
  * reset_symbol_pointers() sets lazy and non-lazy symbol pointers back to their
  * original, pre-prebinding values.
  */
@@ -7978,6 +8126,59 @@ unsigned long vmslide)
 							 
 			    }
 			}
+		    }
+		    s++;
+		}
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+}
+
+/*
+ * reset_self_modifying_stubs() resets the i386 5-byte self modifying stubs that
+ * were JMP instructions back to 5 halt instructions.
+ */
+static
+void
+reset_self_modifying_stubs(
+void)
+{
+    unsigned long i, j, section_type;
+    struct load_command *lc;
+    struct segment_command *sg;
+    struct section *s;
+    char *p;
+    uint32_t ncmds;
+    
+	/*
+	 * If this is not the 32-bit i386 architecture then just return.
+	 */
+	if(arch->object->mh->cputype != CPU_TYPE_I386 ||
+	   arch->object->mh == NULL)
+	    return;
+
+	/*
+	 * For each stub section that has 5-byte entries and the self modifying
+	 * code attribute reset the contents to be 5 HLT instructons.
+	 */
+	lc = arch->object->load_commands;
+	ncmds = arch->object->mh->ncmds;
+	for(i = 0; i < ncmds; i++){
+	    if(lc->cmd == LC_SEGMENT){
+		sg = (struct segment_command *)lc;
+		s = (struct section *)
+		    ((char *)sg + sizeof(struct segment_command));
+		for(j = 0 ; j < sg->nsects ; j++){
+		    section_type = s->flags & SECTION_TYPE;
+		    if(section_type == S_SYMBOL_STUBS &&
+		       (s->flags & S_ATTR_SELF_MODIFYING_CODE) == 
+			S_ATTR_SELF_MODIFYING_CODE &&
+			s->reserved2 == 5){
+			/*
+			 * Set the HLT opcode in all the bytes of this section.
+			 */
+			p = contents_pointer_for_vmaddr(s->addr, 1);
+			memset(p, 0xf4, s->size);
 		    }
 		    s++;
 		}

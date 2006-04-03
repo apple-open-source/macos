@@ -38,12 +38,9 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/param.h>
+#include <sys/vnode.h>
 #include <sys/mount.h>
-#include <sys/queue.h>
-#include <sys/lock.h>
 #include <sys/ioccom.h>
-#include <mach/boolean.h>
 
 /* Webdav file operation constants */
 #define WEBDAV_LOOKUP			1
@@ -86,11 +83,14 @@ typedef int webdav_filetype_t;
 /* Shared (kernel & process) WebDAV defninitions */
 
 /*
- * object_ref is the reference used to find a file system object in userland.
+ * An opaque_id is used to find a file system object in userland.
  * Lookup returns it. The rest of the operations which act upon a file system
- * object use it.
+ * object use it. If the file system object in userland goes away, the opaque_id
+ * will be invalidated and messages to userland will fail with ESTALE.
+ * The opaque_id 0 (kInvalidOpaqueID) is never valid.
  */
-typedef int object_ref;
+#define kInvalidOpaqueID   0
+typedef struct opaque_id_ref *opaque_id;
 
 /*
  * IMPORTANT: struct user_webdav_args, struct webdav_args, and webdav_mount()
@@ -104,7 +104,7 @@ struct user_webdav_args
 	user_addr_t pa_socket_name;					/* Socket to server name */
 	user_addr_t pa_vol_name;					/* volume name */
 	u_int32_t pa_flags;							/* flag bits for mount */
-	object_ref pa_root_obj_ref;					/* root object_ref */
+	opaque_id pa_root_id;						/* root opaque_id */
 	ino_t pa_root_fileid;						/* root fileid */
 	off_t pa_dir_size;							/* size of directories */
 	/* pathconf values: >=0 to return value; -1 if not supported */
@@ -125,7 +125,7 @@ struct webdav_args
 	struct sockaddr *pa_socket_name;			/* Socket to server name */
 	char *pa_vol_name;							/* volume name */
 	u_int32_t pa_flags;							/* flag bits for mount */
-	object_ref pa_root_obj_ref;					/* root object_ref */
+	opaque_id pa_root_id;						/* root opaque_id */
 	ino_t pa_root_fileid;						/* root fileid */
 	off_t pa_dir_size;							/* size of directories */
 	/* pathconf values: >=0 to return value; -1 if not supported */
@@ -153,14 +153,15 @@ struct webdav_cred
 struct webdav_request_lookup
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		dir;				/* directory to search */
+	opaque_id		dir_id;				/* directory to search */
+	int				force_lookup;		/* if TRUE, don't use a cached lookup */
 	size_t			name_length;		/* length of name */
 	char			name[];				/* filename to find */
 };
 
 struct webdav_reply_lookup
 {
-	object_ref		obj_ref;			/* object_ref of object corresponding to name */
+	opaque_id		obj_id;				/* opaque_id of object corresponding to name */
 	ino_t			obj_fileid;			/* object's file ID number */
 	webdav_filetype_t obj_type;			/* WEBDAV_FILE_TYPE or WEBDAV_DIR_TYPE */
 	struct timespec obj_atime;			/* time of last access */
@@ -173,7 +174,7 @@ struct webdav_reply_lookup
 struct webdav_request_create
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		dir;				/* The object_ref for the directory in which the file is to be created */
+	opaque_id		dir_id;				/* The opaque_id for the directory in which the file is to be created */
 	mode_t			mode;				/* file type and initial file access permissions for the file */
 	size_t			name_length;		/* length of name */
 	char			name[];				/* The name that is to be associated with the created file */
@@ -181,7 +182,7 @@ struct webdav_request_create
 
 struct webdav_reply_create
 {
-	object_ref		obj_ref;			/* object_ref of file corresponding to name */
+	opaque_id		obj_id;				/* opaque_id of file corresponding to name */
 	ino_t			obj_fileid;			/* file's file ID number */
 };
 
@@ -189,7 +190,7 @@ struct webdav_reply_create
 struct webdav_request_mkdir
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		dir;				/* The object_ref for the directory in which the file is to be created */
+	opaque_id		dir_id;				/* The opaque_id for the directory in which the file is to be created */
 	mode_t			mode;				/* file type and initial file access permissions for the file */
 	size_t			name_length;		/* length of name */
 	char			name[];				/* The name that is to be associated with the created directory */
@@ -197,7 +198,7 @@ struct webdav_request_mkdir
 
 struct webdav_reply_mkdir
 {
-	object_ref		obj_ref;			/* object_ref of directory corresponding to name */
+	opaque_id		obj_id;				/* opaque_id of directory corresponding to name */
 	ino_t			obj_fileid;			/* directory's file ID number */
 };
 
@@ -205,7 +206,7 @@ struct webdav_reply_mkdir
 struct webdav_request_open
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of object */
+	opaque_id		obj_id;				/* opaque_id of object */
 	int				flags;				/* file access flags (O_RDONLY, O_WRONLY, etc.) */
 	int				ref;				/* the reference to the webdav object that the cache object should be associated with */
 };
@@ -219,7 +220,7 @@ struct webdav_reply_open
 struct webdav_request_close
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of object */
+	opaque_id		obj_id;				/* opaque_id of object */
 };
 
 struct webdav_reply_close
@@ -230,7 +231,7 @@ struct webdav_reply_close
 struct webdav_request_getattr
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of object */
+	opaque_id		obj_id;				/* opaque_id of object */
 };
 
 struct webdav_reply_getattr
@@ -242,7 +243,7 @@ struct webdav_reply_getattr
 struct webdav_request_setattr
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of object */
+	opaque_id		obj_id;				/* opaque_id of object */
 	struct stat		new_obj_attr;		/* new attributes of the object */
 };
 
@@ -254,7 +255,7 @@ struct webdav_reply_setattr
 struct webdav_request_read
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of file object */
+	opaque_id		obj_id;				/* opaque_id of file object */
 	off_t			offset;				/* position within the file object at which the read is to begin */
 	size_t			count;				/* number of bytes of data to be read (limited to WEBDAV_MAX_IO_BUFFER_SIZE (8000-bytes)) */
 };
@@ -267,7 +268,7 @@ struct webdav_reply_read
 struct webdav_request_write
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of file object */
+	opaque_id		obj_id;				/* opaque_id of file object */
 	off_t			offset;				/* position within the file object at which the write is to begin */
 	size_t			count;				/* number of bytes of data to be written (limited to WEBDAV_MAX_IO_BUFFER_SIZE (8000-bytes)) */
 	char			data[];				/* data to be written to the file object */
@@ -282,7 +283,7 @@ struct webdav_reply_write
 struct webdav_request_fsync
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of object */
+	opaque_id		obj_id;				/* opaque_id of object */
 };
 
 struct webdav_reply_fsync
@@ -293,7 +294,7 @@ struct webdav_reply_fsync
 struct webdav_request_remove
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of entry to remove */
+	opaque_id		obj_id;				/* opaque_id of entry to remove */
 };
 
 struct webdav_reply_remove
@@ -304,7 +305,7 @@ struct webdav_reply_remove
 struct webdav_request_rmdir
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of directory object to remove */
+	opaque_id		obj_id;				/* opaque_id of directory object to remove */
 };
 
 struct webdav_reply_rmdir
@@ -315,10 +316,10 @@ struct webdav_reply_rmdir
 struct webdav_request_rename
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		from_dir_ref;		/* object_ref for the directory from which the entry is to be renamed */
-	object_ref		from_obj_ref;		/* object_ref for the object to be renamed */
-	object_ref		to_dir_ref;			/* object_ref for the directory to which the object is to be renamed */
-	object_ref		to_obj_ref;			/* object_ref for the object's new location if it exists (may be NULL) */
+	opaque_id		from_dir_id;		/* opaque_id for the directory from which the entry is to be renamed */
+	opaque_id		from_obj_id;		/* opaque_id for the object to be renamed */
+	opaque_id		to_dir_id;			/* opaque_id for the directory to which the object is to be renamed */
+	opaque_id		to_obj_id;			/* opaque_id for the object's new location if it exists (may be NULL) */
 	size_t			to_name_length;		/* length of to_name */
 	char			to_name[];			/* new name for the object */
 };
@@ -331,7 +332,7 @@ struct webdav_reply_rename
 struct webdav_request_readdir
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref		obj_ref;			/* object_ref of directory to read */
+	opaque_id		obj_id;				/* opaque_id of directory to read */
 	int				cache;				/* if TRUE, perform additional caching */
 };
 
@@ -343,7 +344,7 @@ struct webdav_reply_readdir
 struct webdav_request_statfs
 {
 	struct webdav_cred pcr;				/* user and groups */
-	object_ref	root_obj_ref;			/* object_ref of the root directory */
+	opaque_id	root_obj_id;			/* opaque_id of the root directory */
 };
 
 struct webdav_reply_statfs
@@ -475,7 +476,7 @@ struct webdavnode
 	vnode_t pt_parent;							/* Pointer to parent vnode */
 	vnode_t pt_vnode;							/* Pointer to vnode */
 	vnode_t pt_cache_vnode;						/* Pointer to cached file vnode */
-	object_ref pt_obj_ref;						/* object_ref from lookup */
+	opaque_id pt_obj_id;						/* opaque_id from lookup */
 	ino_t pt_fileid;							/* file id */
 	struct timespec pt_atime;					/* time of last access */
 	struct timespec pt_mtime;					/* time of last data modification */
@@ -606,7 +607,7 @@ extern int webdav_get(
 	vnode_t dvp,				/* parent vnode */
 	int markroot,				/* if 1, mark as root vnode */
 	struct componentname *cnp,  /* componentname */
-	object_ref obj_ref,			/* object's object_ref */
+	opaque_id obj_id,			/* object's opaque_id */
 	ino_t obj_fileid,			/* object's file ID number */
 	enum vtype obj_vtype,		/* VREG or VDIR */
 	struct timespec obj_atime,  /* time of last access */

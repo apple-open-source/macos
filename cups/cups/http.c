@@ -1,5 +1,5 @@
 /*
- * "$Id: http.c,v 1.28 2005/02/09 23:51:33 jlovell Exp $"
+ * "$Id: http.c,v 1.28.2.1 2006/01/31 18:36:07 jlovell Exp $"
  *
  *   HTTP routines for the Common UNIX Printing System (CUPS).
  *
@@ -102,7 +102,6 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
-#include <sys/syslog.h>
 #endif /* __APPLE__ */
 
 #ifndef WIN32
@@ -2831,21 +2830,27 @@ static void wakeupCupsd()
       mach_port_destroy(mach_task_self(), replyPort);
 
       if (result != KERN_SUCCESS)
-	syslog(LOG_ERR, "cupsd mach_msg error %s", mach_error_string(result));
+      {
+	DEBUG_printf(("cupsd mach_msg error %s", mach_error_string(result)));
+      }
     }
     mach_port_destroy(mach_task_self(), serverPort);
   }
   else
   {
     if (result == BOOTSTRAP_UNKNOWN_SERVICE)
-      syslog(LOG_ERR, "cupsd's bootstrap server port not found");
+    {
+      DEBUG_printf(("cupsd's bootstrap server port not found"));
+    }
     else
-      syslog(LOG_ERR, "cupsd bootstrap server error %d", result);
+    {
+      DEBUG_printf(("cupsd bootstrap server error %d", result));
+    }
   }
 }
 
 #endif /* __APPLE__ */
 
 /*
- * End of "$Id: http.c,v 1.28 2005/02/09 23:51:33 jlovell Exp $".
+ * End of "$Id: http.c,v 1.28.2.1 2006/01/31 18:36:07 jlovell Exp $".
  */

@@ -6723,6 +6723,7 @@ _CFStreamCreatePairWithCFSocketSignaturePieces(CFAllocatorRef alloc, SInt32 prot
 CFStreamCreatePairWithNetServicePieces(CFAllocatorRef alloc, CFStringRef domain, CFStringRef serviceType,
 									   CFStringRef name, CFReadStreamRef* readStream, CFWriteStreamRef* writeStream)
 {
+
 	/* Create a service to call directly over to the real API. */
 	CFNetServiceRef service = CFNetServiceCreate(alloc, domain, serviceType, name, 0);
 	
@@ -6747,6 +6748,7 @@ CFStreamCreatePairWithNetServicePieces(CFAllocatorRef alloc, CFStringRef domain,
 _CFSocketStreamCreatePair(CFAllocatorRef alloc, CFStringRef host, UInt32 port, CFSocketNativeHandle s,
 						  const CFSocketSignature* sig, CFReadStreamRef* readStream, CFWriteStreamRef* writeStream)
 {
+
 	/* Protect against a bad entry. */
     if (!readStream && !writeStream) return;
 	

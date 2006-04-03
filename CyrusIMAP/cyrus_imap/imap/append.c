@@ -81,6 +81,9 @@ struct stagemsg {
     char *partend; /* end of buffer */
 };
 
+static	int	buf_len = 0;
+static	char   *tmp_buf = NULL;
+
 static int append_addseen(struct mailbox *mailbox, const char *userid,
 			  const char *msgrange);
 static void addme(char **msgrange, int *alloced, long uid);
@@ -858,8 +861,28 @@ int append_copy(struct mailbox *mailbox,
 	    message_index[msg].content_lines = copymsg[msg].content_lines;
 	    message_index[msg].cache_version = copymsg[msg].cache_version;
 
-	    n = retry_write(append_mailbox->cache_fd, copymsg[msg].cache_begin,
-			    copymsg[msg].cache_len);
+		/* resize and reuse or alloc the temp buffer */
+		if ( (copymsg[msg].cache_len > buf_len) || (tmp_buf == NULL) )
+		{
+			buf_len = copymsg[msg].cache_len;
+			syslog( LOG_DEBUG, "append_copy: alloc temp buff: %d", buf_len );
+
+		    /* xrealloc (NULL, size) behaves like xmalloc (size), as in ANSI C */
+			tmp_buf = xrealloc( tmp_buf, buf_len );
+		}
+
+		if ( tmp_buf != NULL )
+		{
+			memcpy( tmp_buf, copymsg[msg].cache_begin, copymsg[msg].cache_len );
+			n = retry_write(append_mailbox->cache_fd, tmp_buf,
+					copymsg[msg].cache_len);
+		}
+		else
+		{
+			n = retry_write(append_mailbox->cache_fd, copymsg[msg].cache_begin,
+					copymsg[msg].cache_len);
+		}
+
 	    if (n == -1) {
 		syslog(LOG_ERR, "IOERROR: writing cache file for %s: %m",
 		       append_mailbox->name);

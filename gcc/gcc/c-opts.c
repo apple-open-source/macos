@@ -268,8 +268,16 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       result = 0;
       break;
 
+      /* APPLE LOCAL begin ss2 */
+    case OPT_fsave_repository_:
+      flag_save_repository = 1;
+      break;
+      /* APPLE LOCAL end ss2 */
+
     case OPT__output_pch_:
       pch_file = arg;
+      /* APPLE LOCAL ss2 */
+      flag_pch_file = 1;
       break;
 
     case OPT_A:
@@ -513,6 +521,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 /* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
     case OPT_Wreturn_type:
       warn_return_type = value;
+      break;
+
+    case OPT_Wstrict_null_sentinel:
+      warn_strict_null_sentinel = value;
       break;
 
     case OPT_Wsystem_headers:
@@ -936,6 +948,13 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       print_struct_values = 1;
       break;
 
+/* APPLE LOCAL begin mainline 4.1 2005-06-17 3988498 */
+    case OPT_print_pch_checksum:
+      c_common_print_pch_checksum (stdout);
+      exit_after_options = true;
+      break;
+
+/* APPLE LOCAL end mainline 4.1 2005-06-17 3988498 */
     case OPT_remap:
       cpp_opts->remap = 1;
       break;
@@ -1147,11 +1166,20 @@ c_common_init (void)
   cpp_opts->wchar_precision = TYPE_PRECISION (wchar_type_node);
   cpp_opts->unsigned_wchar = TYPE_UNSIGNED (wchar_type_node);
   cpp_opts->bytes_big_endian = BYTES_BIG_ENDIAN;
+  /* APPLE LOCAL begin CW asm blocks */
+  if (flag_ms_asms)
+    cpp_opts->h_suffix = true;
+  /* APPLE LOCAL end CW asm blocks */
 
   /* This can't happen until after wchar_precision and bytes_big_endian
      are known.  */
   cpp_init_iconv (parse_in);
 
+/* APPLE LOCAL begin mainline 4.1 2005-06-17 3988498 */
+  if (version_flag)
+    c_common_print_pch_checksum (stderr);
+
+/* APPLE LOCAL end mainline 4.1 2005-06-17 3988498 */
   if (flag_preprocess_only)
     {
       finish_options ();

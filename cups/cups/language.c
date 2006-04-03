@@ -1,5 +1,5 @@
 /*
- * "$Id: language.c,v 1.16 2005/01/04 22:10:39 jlovell Exp $"
+ * "$Id: language.c,v 1.16.2.1 2006/02/08 22:04:46 jlovell Exp $"
  *
  *   I18N/language support for the Common UNIX Printing System (CUPS).
  *
@@ -135,10 +135,23 @@ cupsLangEncoding(cups_lang_t *lang)	/* I - Language data */
 void
 cupsLangFlush(void)
 {
+  _cupsLangFlush(_cups_globals());
+  return;
+}
+
+/*
+ * '_cupsLangFlush()' - Flush all language data out of the cache.
+ *
+ *  This version is used by the thread destructor which no longer
+ *  has access to thread specific global data.
+ */
+
+void
+_cupsLangFlush(cups_globals_t *cg)
+{
   int		i;			/* Looping var */
   cups_lang_t	*lang,			/* Current language */
 		*next;			/* Next language */
-  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
 
 
  /*
@@ -993,5 +1006,5 @@ cups_cache_lookup(const char      *name,/* I - Name of locale */
 
 
 /*
- * End of "$Id: language.c,v 1.16 2005/01/04 22:10:39 jlovell Exp $".
+ * End of "$Id: language.c,v 1.16.2.1 2006/02/08 22:04:46 jlovell Exp $".
  */

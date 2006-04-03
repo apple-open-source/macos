@@ -3,6 +3,8 @@
    The problem was that this just to ICE with -O2 -g.  */
 
 /* { dg-do compile } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-xfail-if "" { *-*-darwin* } } */
 /* { dg-options "-O2 -g" } */
 
 extern __SIZE_TYPE__ strlen (const char *);

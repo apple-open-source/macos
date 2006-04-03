@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Based on objc/execute/va_method.m, by Nicola Pero */
 /* { dg-do run } */
 

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vfsops.c,v 1.73.64.2 2005/08/12 23:18:35 lindak Exp $
+ * $Id: smbfs_vfsops.c,v 1.73.64.3 2005/09/13 05:08:05 lindak Exp $
  */
 
 #include <sys/param.h>
@@ -659,10 +659,12 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t vfsctx)
 	struct smbmount *smp = VFSTOSMBFS(mp);
 	struct smbnode *np = smp->sm_root;
 	struct smb_share *ssp = smp->sm_share;
+	struct smb_vc *vcp = SSTOVC(ssp);
 	struct statfs *cachedstatfs = &smp->sm_statfsbuf;
 	struct smb_cred scred;
 	struct timespec ts;
 	int error = 0;
+	int xmax;
 
 	if (np == NULL)
 		return (EINVAL);
@@ -713,8 +715,17 @@ releasetoken:
 	if (error)
 		return (error);
 
-	/* Give the Finder et al a better hint */
-	VFSATTR_RETURN(fsap, f_iosize, 128 * 1024);
+	/*
+	 * The Finder will in general use the f_iosize as its i/o
+	 * buffer size.  We want to give it the largest size which is less
+	 * than the UBC/UPL limit (SMB_IOMAX) but is also a multiple of our
+	 * maximum we can xfer in a single smb.
+	 */
+	xmax = max(vcp->vc_rxmax, vcp->vc_wxmax);
+	if (xmax > SMB_IOMAX)
+		VFSATTR_RETURN(fsap, f_iosize, SMB_IOMAX);
+	else
+		VFSATTR_RETURN(fsap, f_iosize, (SMB_IOMAX/xmax) * xmax);
 
 	/*
 	 * ref 3984574.  Returning null here keeps vfs from returning

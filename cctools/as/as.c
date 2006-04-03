@@ -95,6 +95,9 @@ static void perform_an_assembly_pass(
 /* used by error calls (exported) */
 char *progname = NULL;
 
+/* non-NULL if AS_SECURE_LOG_FILE is set */
+const char *secure_log_file = NULL;
+
 int
 main(
 int argc,
@@ -658,6 +661,12 @@ unknown_flag:
 	    force_cpusubtype_ALL = TRUE;
 	if(force_cpusubtype_ALL && specific_archflag)
 	    archflag_cpusubtype = -1;
+
+	/*
+	 * Test to see if the AS_SECURE_LOG_FILE environment
+	 * variable is set and save the value.
+	 */
+	secure_log_file = getenv("AS_SECURE_LOG_FILE");
 
 	/*
 	 * Call the initialization routines.

@@ -25,7 +25,7 @@
 /*
  * KerberosLoginPrivate.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Headers/Kerberos/KerberosLoginPrivate.h,v 1.23 2004/12/17 05:05:43 lxs Exp $
+ * $Header$
  */
 
 #ifndef __KERBEROSLOGINPRIVATE__

@@ -1,7 +1,7 @@
 /*
  * CCICache.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCacheIterator.h,v 1.11 2003/03/17 20:46:52 lxs Exp $
+ * $Header$
  */
  
 #pragma once

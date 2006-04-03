@@ -1,4 +1,4 @@
-dnl $Id: acinclude.m4,v 1.218.2.48 2005/01/25 13:03:06 sniper Exp $ -*- autoconf -*-
+dnl $Id: acinclude.m4,v 1.218.2.50.2.5 2005/09/23 09:20:22 hyanantha Exp $ -*- autoconf -*-
 dnl
 dnl This file contains local autoconf functions.
 
@@ -143,7 +143,7 @@ dnl append to the array which has been dynamically chosen at m4 time
 dnl choose the right compiler/flags/etc. for the source-file
       case $ac_src in
 	  *.c[)] ac_comp="$b_c_pre $3 $ac_inc $b_c_meta -c $ac_srcdir$ac_src -o $ac_bdir$ac_obj.$b_lo $6$b_c_post" ;;
-	  *.cpp[)] ac_comp="$b_cxx_pre $3 $ac_inc $b_cxx_meta -c $ac_srcdir$ac_src -o $ac_bdir$ac_obj.$b_lo $6$b_cxx_post" ;;
+	  *.cpp|*.cc[)] ac_comp="$b_cxx_pre $3 $ac_inc $b_cxx_meta -c $ac_srcdir$ac_src -o $ac_bdir$ac_obj.$b_lo $6$b_cxx_post" ;;
       esac
 
 dnl create a rule for the object/source combo
@@ -1090,18 +1090,27 @@ AC_DEFUN([PHP_CHECK_CC_OPTION],[
   rm -rf conftest*
 ])
 
+
 AC_DEFUN([PHP_REGEX],[
-
-if test "$REGEX_TYPE" = "php"; then
-  AC_DEFINE(HSREGEX,1,[ ])
-  AC_DEFINE(REGEX,1,[ ])
-  PHP_ADD_SOURCES(regex, regcomp.c regexec.c regerror.c regfree.c)
-elif test "$REGEX_TYPE" = "system"; then
-  AC_DEFINE(REGEX,0,[ ])
-fi
-
-AC_MSG_CHECKING([which regex library to use])
-AC_MSG_RESULT([$REGEX_TYPE])
+  if test "$REGEX_TYPE" = "php"; then
+    AC_DEFINE(HAVE_REGEX_T_RE_MAGIC, 1, [ ])
+    AC_DEFINE(HSREGEX,1,[ ])
+    AC_DEFINE(REGEX,1,[ ])
+    PHP_ADD_SOURCES(regex, regcomp.c regexec.c regerror.c regfree.c)
+  elif test "$REGEX_TYPE" = "system"; then
+    AC_DEFINE(REGEX,0,[ ])
+    dnl Check if field re_magic exists in struct regex_t
+    AC_CACHE_CHECK([whether field re_magic exists in struct regex_t], ac_cv_regex_t_re_magic, [
+      AC_TRY_COMPILE([#include <sys/types.h>
+#include <regex.h>], [regex_t rt; rt.re_magic;],
+      [ac_cv_regex_t_re_magic=yes], [ac_cv_regex_t_re_magic=no])
+    ])
+    if test "$ac_cv_regex_t_re_magic" = "yes"; then
+      AC_DEFINE([HAVE_REGEX_T_RE_MAGIC], [ ], 1)
+    fi 
+  fi
+  AC_MSG_CHECKING([which regex library to use])
+  AC_MSG_RESULT([$REGEX_TYPE])
 ])
 
 dnl
@@ -1185,6 +1194,10 @@ AC_DEFUN([PHP_SHARED_MODULE],[
     *darwin*[)]
       suffix=so
       link_cmd='ifelse($4,,[$(CC)],[$(CXX)]) -dynamic -flat_namespace -bundle -undefined suppress $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) $(LDFLAGS) -o [$]@ $(EXTRA_LDFLAGS) $($2) $(translit($1,a-z_-,A-Z__)_SHARED_LIBADD)'
+      ;;
+    *netware*[)]
+      suffix=nlm
+      link_cmd='$(LIBTOOL) --mode=link ifelse($4,,[$(CC)],[$(CXX)]) $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) $(LDFLAGS) -o [$]@ -shared -export-dynamic -avoid-version -prefer-pic -module -rpath $(phplibdir) $(EXTRA_LDFLAGS) $($2) ifelse($1, php4lib, , -L$(top_builddir)/netware -lphp4lib) $(translit(ifelse($1, php4lib, $1, m4_substr($1, 3)),a-z_-,A-Z__)_SHARED_LIBADD)'
       ;;
     *[)]
       suffix=la
@@ -1274,7 +1287,14 @@ dnl ---------------------------------------------- Static module
     if test "$3" = "shared" || test "$3" = "yes"; then
 dnl ---------------------------------------------- Shared module
       PHP_ADD_SOURCES_X(PHP_EXT_DIR($1),$2,$ac_extra,shared_objects_$1,yes)
-      PHP_SHARED_MODULE($1,shared_objects_$1, $ext_builddir, $6)
+      case $host_alias in
+      *netware*)
+       PHP_SHARED_MODULE(php$1,shared_objects_$1, $ext_builddir, $6)
+       ;;
+      *)
+       PHP_SHARED_MODULE($1,shared_objects_$1, $ext_builddir, $6)
+      ;;
+      esac
       AC_DEFINE_UNQUOTED([COMPILE_DL_]translit($1,a-z_-,A-Z__), 1, Whether to build $1 as dynamic module)
     fi
   fi
@@ -1683,6 +1703,10 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
   found_openssl=no
   unset OPENSSL_INCDIR
   unset OPENSSL_LIBDIR
+
+  dnl Empty variable means 'no'
+  test -z "$PHP_OPENSSL" && PHP_OPENSSL=no
+  test -z "$PHP_IMAP_SSL" && PHP_IMAP_SSL=no
 
   dnl Fallbacks for different configure options
   if test "$PHP_OPENSSL" != "no"; then

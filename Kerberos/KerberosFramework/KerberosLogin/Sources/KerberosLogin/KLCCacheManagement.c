@@ -1,7 +1,7 @@
 /*
  * KLCCacheManagement.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLCCacheManagement.c,v 1.22 2005/03/22 18:31:47 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -211,7 +211,7 @@ KLTime __KLCheckAddresses ()
             // Compare them: We aren't doing this in a terribly efficient way,
             // but most folks will only have a couple addresses anyway
             
-            // Are all the addresses in addresses also in sAddresses?
+            // Are all the addresses in newAddresses also in oldAddresses?
             for (i = 0; newAddresses[i] != NULL && !addressesChanged; i++) {
                 if (krb5_address_search (context, newAddresses[i], oldAddresses) == false) {
                     // Address missing!
@@ -219,7 +219,7 @@ KLTime __KLCheckAddresses ()
                 }
             }
             
-            // Are all the addresses in sAddresses also in addresses?
+            // Are all the addresses in oldAddresses also in newAddresses?
             for (i = 0; oldAddresses[i] != NULL && !addressesChanged; i++) {
                 if (krb5_address_search (context, oldAddresses[i], newAddresses) == false) {
                     // Address missing!
@@ -239,7 +239,7 @@ KLTime __KLCheckAddresses ()
     }
     
     if (err) {
-        dprintf ("__KLCheckAddresses(): got fatal error %ld (%s)", err, error_message (err));
+        dprintf ("__KLCheckAddresses(): got fatal error %d (%s)", err, error_message (err));
     }
     
     if (newAddresses != NULL) { krb5_free_addresses (context, newAddresses); }
@@ -635,7 +635,7 @@ static KLStatus __KLGetCCAPICCacheForPrincipal (KLPrincipal inPrincipal, KLKerbe
     
     while (!err && !found) {
         cc_ccache_t cc_ccache = NULL;
-        cc_int32 cc_version;
+        cc_uint32   cc_version;
         
         err = cc_ccache_iterator_next (iterator, &cc_ccache);
         
@@ -2052,7 +2052,7 @@ KLStatus __KLGetCCacheExpirationTime (KLCCache           inCCache,
     
     // This is usually, but not always a bug
     if (!err && (*outExpirationTime == 0 || *outExpirationTime == 0xFFFFFFFF)) {
-        dprintf ("__KLGetCCacheExpirationTime returning suspicious expiration time %ld", *outExpirationTime);
+        dprintf ("__KLGetCCacheExpirationTime returning suspicious expiration time %d", *outExpirationTime);
     }
     
     return KLError_ (err);
@@ -2130,7 +2130,7 @@ KLStatus __KLGetCCacheStartTime (KLCCache           inCCache,
     
     // This is usually, but not always a bug
     if (!err && (*outStartTime == 0 || *outStartTime == 0xFFFFFFFF)) {
-        dprintf ("__KLGetCCacheStartTime returning suspicious start time %ld", *outStartTime);
+        dprintf ("__KLGetCCacheStartTime returning suspicious start time %d", *outStartTime);
     }
     
     return KLError_ (err);
@@ -2187,7 +2187,7 @@ KLStatus __KLGetPrincipalForCCache (KLCCache     inCCache,
         if (__KLKrb5CCacheIsCCAPICCache (inCCache->context, mainCCache)) {
             // Either the main ccache is a CCAPI cache or it is empty
             cc_ccache_t       cc_ccache = NULL;
-            cc_int32          version = cc_credentials_v5;
+            cc_uint32         version = cc_credentials_v5;
             cc_string_t       principalString = NULL;
             KLKerberosVersion klVersion = kerberosVersion_V5;
             

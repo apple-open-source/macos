@@ -1,6 +1,6 @@
 // natString.cc - Implementation of java.lang.String native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -64,7 +64,7 @@ _Jv_StringFindSlot (jchar* data, jint len, jint hash)
   int index = start_index;
   /* step must be non-zero, and relatively prime with strhash_size. */
   jint step = (hash ^ (hash >> 16)) | 1;
-  for (;;)
+  do
     {
       jstring* ptr = &strhash[index];
       jstring value = (jstring) UNMASK_PTR (*ptr);
@@ -81,8 +81,12 @@ _Jv_StringFindSlot (jchar* data, jint len, jint hash)
 	       && memcmp(JvGetStringChars(value), data, 2*len) == 0)
 	return (ptr);
       index = (index + step) & (strhash_size - 1);
-      JvAssert (index != start_index);
     }
+  while (index != start_index);
+  // Note that we can have INDEX == START_INDEX if the table has no
+  // NULL entries but does have DELETED_STRING entries.
+  JvAssert (deleted_index >= 0);
+  return &strhash[deleted_index];
 }
 
 /* Calculate a hash code for the string starting at PTR at given LENGTH.
@@ -831,7 +835,10 @@ java::lang::String::substring (jint beginIndex, jint endIndex)
   if (beginIndex == 0 && endIndex == count)
     return this;
   jint newCount = endIndex - beginIndex;
-  if (newCount <= 8)  // Optimization, mainly for GC.
+  // For very small strings, just allocate a new one.  For other
+  // substrings, allocate a new one unless the substring is over half
+  // of the original string.
+  if (newCount <= 8 || newCount < (count >> 1))
     return JvNewString(JvGetStringChars(this) + beginIndex, newCount);
   jstring s = new String();
   s->data = data;

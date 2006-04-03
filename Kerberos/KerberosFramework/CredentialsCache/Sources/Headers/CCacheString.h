@@ -1,7 +1,7 @@
 /*
  * CCacheString.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCacheString.h,v 1.7 2003/03/17 20:47:01 lxs Exp $
+ * $Header$
  */
  
 #pragma once

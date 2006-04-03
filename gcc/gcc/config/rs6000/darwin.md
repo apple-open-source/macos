@@ -281,6 +281,40 @@ Boston, MA 02111-1307, USA.  */
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
 
+;; APPLE LOCAL begin special ObjC method use of R12
+
+(define_expand "load_macho_picbase_label"
+  [(set (match_operand 0 "" "")
+        (unspec [(match_operand 1 "" "")]
+                   UNSPEC_LD_MPIC_L))]
+  "(DEFAULT_ABI == ABI_DARWIN) && flag_pic"
+{
+  if (TARGET_32BIT)
+    emit_insn (gen_load_macho_picbase_label_si (operands[0], operands[1]));
+  else
+    emit_insn (gen_load_macho_picbase_label_di (operands[0], operands[1]));
+
+  DONE;
+})
+
+(define_insn "load_macho_picbase_label_si"
+  [(set (match_operand:SI 0 "register_operand" "=l")
+	(unspec_volatile:SI [(match_operand:SI 1 "immediate_operand" "s")]
+		   UNSPEC_LD_MPIC_L))]
+  "(DEFAULT_ABI == ABI_DARWIN) && flag_pic"
+  ";bcl 20,31,%1\\n%1:"
+   [(set_attr "length" "0")])
+
+(define_insn "load_macho_picbase_label_di"
+  [(set (match_operand:DI 0 "register_operand" "=l")
+	(unspec_volatile:DI [(match_operand:DI 1 "immediate_operand" "s")]
+		   UNSPEC_LD_MPIC_L))]
+  "(DEFAULT_ABI == ABI_DARWIN) && flag_pic && TARGET_64BIT"
+  ";bcl 20,31,%1\\n%1:"
+  [(set_attr "length" "0")])
+
+;; APPLE LOCAL end special ObjC method use of R12
+
 (define_expand "macho_correct_pic"
   [(set (match_operand 0 "" "")
 	(plus (match_operand 1 "" "")

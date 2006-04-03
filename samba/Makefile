@@ -10,7 +10,7 @@ GnuNoChown      = YES
 GnuAfterInstall = install-startup-items install-config install-logdir install-testtools install-strip plugins
 
 Extra_CC_Flags  = -mdynamic-no-pic  -no-cpp-precomp -I$(SRCROOT)/libopendirectorycommon -F/System/Library/PrivateFrameworks\
-		-DUSES_RECVFROM -DWITH_OPENDIRECTORY -DWITH_MEMBERD -DUSES_KEYCHAIN
+		-DUSES_RECVFROM -DWITH_OPENDIRECTORY -DWITH_MEMBERD -DUSES_KEYCHAIN -DWITH_SACL
 
 ifneq "$(RC_RELEASE)" "Darwin"
 Extra_CC_Flags += -DWITH_BRLM
@@ -126,7 +126,7 @@ install-testtools:
 	
 plugins:
 	echo "building $@";
-	make -C $(SRCROOT)/auth_ods -f auth_ods.make RC_CFLAGS="$(RC_CFLAGS) -DWITH_SACL=1"
+	make -C $(SRCROOT)/auth_ods -f auth_ods.make RC_CFLAGS="$(RC_CFLAGS)"
 	install -c -m 755 $(OBJROOT)/auth_ods.so $(DSTROOT)/usr/lib/samba/auth/opendirectory.so
 	strip -x $(DSTROOT)/usr/lib/samba/auth/opendirectory.so
 	make -C $(SRCROOT)/pdb_ods -f pdb_ods.make RC_CFLAGS="$(RC_CFLAGS) -DUSES_ODGROUPMAPPING -DUSE_ALGORITHMIC_RID -DUSES_KEYCHAIN"

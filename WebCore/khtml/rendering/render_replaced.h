@@ -110,7 +110,6 @@ protected:
     bool eventFilter(QObject* /*o*/, QEvent* e);
     void setQWidget(QWidget *widget, bool deleteWidget = true);
     void resizeWidget( QWidget *widget, int w, int h );
-    virtual void handleFocusOut();
 
     bool m_deleteWidget;
     QWidget *m_widget;

@@ -3,7 +3,7 @@
  *
  * Implementation of KClient session abstraction
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/KClient/KClientSession.cp,v 1.30 2004/10/22 20:53:06 lxs Exp $
+ * $Header$
  */
 
 #include "KClientSession.h"

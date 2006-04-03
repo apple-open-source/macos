@@ -29,45 +29,72 @@
 #include "disasm.h"
 
 /* The arguments to be passed on the command line and parsed here are:
-
-   either:
+   
+   -s START-ADDRESS | -s START-ADDRESS -e END-ADDRESS | -f FILENAME -n
+    LINENUM [-n HOW-MANY] [-p PREV-INSTRUCTIONS] [-P PEEK-LIMIT] --
+    MIXED-MODE
 
    START-ADDRESS: address to start the disassembly at.
    END-ADDRESS: address to end the disassembly at.
 
-   Optionally, you can leave out END-ADDRESS, in which case it
-   will disassemble the function around START-ADDRESS.  In this
-   case we will also accept the HOW_MANY argument to throttle
-   the disassembly display at that number of assembly lines.
-
    or:
    
+   START-ADDRESS: address to start the disassembly at.
+
+   or:
+
    FILENAME: The name of the file where we want disassemble from.
    LINE: The line around which we want to disassemble. It will
    disassemble the function that contins that line.
-   HOW_MANY: Number of disassembly lines to display. In mixed mode, it
-   is the number of disassembly lines only, not counting the source
-   lines.  
 
-   always required:
+   In the latter two cases, the '-n HOW-MANY' and '-p
+   PREV-INSTRUCTIONS' options can be used to specify the range of
+   instructions to display around FILENAME:LINE or START-ADDRESS.  If
+   HOW-MANY is not specified, it will disassemble the entire function
+   around FILENAME:LINE or START-ADDRESS.  In mixed mode, HOW-MANY
+   counts the number of disassembly lines only, not the source lines.
 
-   MODE: 0 or 1 for disassembly only, or mixed source and disassembly,
-   respectively. */
+   PREV-INSTRUCTIONS may not be specified without START-ADDRESS.
+
+   On some systems, it is impossible to parse the instruction streams
+   backwards from a given instruction.  In those cases, we use
+   find_pc_offset to seek backwards, using a known previous
+   instruction in the program and aprsing from there.  In such cases,
+   the '-P PEEK-LIMIT' option can be used to set a limit on how many
+   instructions backwards GDB will search.
+
+   The MIXED-MODE arguemnt is always required.  Zero means disassembly
+   only; 1 means mixed source and disassembly, respectively. 
+*/
+
+static void mi_cmd_disassemble_usage (const char *message)
+{
+  const char *const usage = 
+    "[-P peeklimit]"
+    " ("
+    " [-f filename -l linenum [-n howmany] [-p startprev]]"
+    " | [-s startaddr [-n howmany] [-p startprev]]"
+    " | [-s startaddr -e endaddr]"
+    " )"
+    " [--] mixed_mode.";
+
+  error ("mi_cmd_disassemble: %s  Usage: %s", message, usage);
+}
+
 enum mi_cmd_result
 mi_cmd_disassemble (char *command, char **argv, int argc)
 {
-/* APPLE LOCAL: hack to work around bug in our find_line_pc() replacement func */
-  CORE_ADDR start = 0;
-
   int mixed_source_and_assembly;
   struct symtab *s;
 
   /* Which options have we processed ... */
   int file_seen = 0;
   int line_seen = 0;
-  int num_seen = 0;
   int start_seen = 0;
   int end_seen = 0;
+  int num_seen = 0;
+  int prev_seen = 0;
+  int peeklimit_seen = 0;
 
   /* ... and their corresponding value. */
   char *file_string = NULL;
@@ -75,13 +102,16 @@ mi_cmd_disassemble (char *command, char **argv, int argc)
   int how_many = -1;
   CORE_ADDR low = 0;
   CORE_ADDR high = 0;
+  CORE_ADDR start = 0;
+  int prev = 0;
+  int peeklimit = -1;
 
   /* Options processing stuff. */
   int optind = 0;
   char *optarg;
   enum opt
   {
-    FILE_OPT, LINE_OPT, NUM_OPT, START_OPT, END_OPT
+    FILE_OPT, LINE_OPT, NUM_OPT, START_OPT, END_OPT, PREV_OPT, PEEKLIMIT_OPT
   };
   static struct mi_opt opts[] = {
     {"f", FILE_OPT, 1},
@@ -89,7 +119,9 @@ mi_cmd_disassemble (char *command, char **argv, int argc)
     {"n", NUM_OPT, 1},
     {"s", START_OPT, 1},
     {"e", END_OPT, 1},
-    0
+    {"p", PREV_OPT, 1},
+    {"P", PEEKLIMIT_OPT, 1},
+    {0}
   };
 
   /* Get the options with their arguments. Keep track of what we
@@ -115,68 +147,87 @@ mi_cmd_disassemble (char *command, char **argv, int argc)
 	  num_seen = 1;
 	  break;
 	case START_OPT:
-	  low = parse_and_eval_address (optarg);
+	  start = parse_and_eval_address (optarg);
 	  start_seen = 1;
 	  break;
 	case END_OPT:
 	  high = parse_and_eval_address (optarg);
 	  end_seen = 1;
 	  break;
+	case PREV_OPT:
+	  prev = atoi (optarg);
+	  prev_seen = 1;
+	  break;
+	case PEEKLIMIT_OPT:
+	  peeklimit = atoi (optarg);
+	  peeklimit_seen = 1;
+	  break;
 	}
     }
   argv += optind;
   argc -= optind;
 
-  /* Allow only filename + linenum (with how_many which is not
-     required) OR start_addr + and_addr */
+  if (argc < 1)
+    mi_cmd_disassemble_usage ("Must specify mixed mode argument.");
+  if (argc > 1)
+    mi_cmd_disassemble_usage ("Extra arguments present.");
 
-  /* APPLE LOCAL: Allow only the start addr, and interpret this to mean 
-     the same thing as in the disassemble command - disassemble the function
-     around the -s address.  */
+  if ((argv[0][0] == '\0') || (argv[0][1] != '\0'))
+    mi_cmd_disassemble_usage ("Mixed mode argument must be 0 or 1.");
+  if ((argv[0][0] != '0') && (argv[0][0] != '1'))
+    mi_cmd_disassemble_usage ("Mixed mode argument must be 0 or 1.");
+  mixed_source_and_assembly = (argv[0][0] == '1');
 
-  if (!((line_seen && file_seen && num_seen && !start_seen && !end_seen)
-	|| (line_seen && file_seen && !num_seen && !start_seen && !end_seen)
-	|| (!line_seen && !file_seen && !num_seen && start_seen && end_seen)
-	|| (!line_seen && !file_seen && start_seen && !end_seen)))
-    error
-      ("mi_cmd_disassemble: Usage: ( [-f filename -l linenum [-n howmany]] | [-s startaddr -e endaddr] | "
-       "[-s startaddr [-n howmany]]) [--] mixed_mode.");
+  if (start_seen && line_seen)
+    mi_cmd_disassemble_usage ("May not specify both a line number and a start address.");
 
-  if (argc != 1)
-    error
-      ("mi_cmd_disassemble: Usage: [-f filename -l linenum [-n howmany]] [-s startaddr -e endaddr] | "
-       "[-s startaddr [-n howmany]] [--] mixed_mode.");
-
-  mixed_source_and_assembly = atoi (argv[0]);
-  if ((mixed_source_and_assembly != 0) && (mixed_source_and_assembly != 1))
-    error ("mi_cmd_disassemble: Mixed_mode argument must be 0 or 1.");
-
-
-  /* We must get the function beginning and end where line_num is
-     contained. */
+  if ((line_seen && !file_seen) || (file_seen && !line_seen))
+    mi_cmd_disassemble_usage ("File and line number must be specified together.");
 
   if (line_seen && file_seen)
     {
       s = lookup_symtab (file_string);
       if (s == NULL)
 	error ("mi_cmd_disassemble: Invalid filename.");
-      if (!find_line_pc (s, line_num, &start))
-	error ("mi_cmd_disassemble: Invalid line number");
-      if (find_pc_partial_function (start, NULL, &low, &high) == 0)
-	error ("mi_cmd_disassemble: No function contains specified address");
+      if (! find_line_pc (s, line_num, &start))
+	error ("mi_cmd_disassemble: Invalid line number.");
     }
-  else if (start_seen && !end_seen)
+  else if (! start_seen)
+    mi_cmd_disassemble_usage ("No starting point specified.");
+  
+  if (end_seen)
     {
-      /* APPLE LOCAL: See above, if only start address, disassemble
-	 the function around the start address.  */
-      if (find_pc_partial_function (low, NULL, &low, &high) == 0)
-	error ("mi_cmd_disassemble: No function contains specified address");
+      if (num_seen || prev_seen)
+	mi_cmd_disassemble_usage ("May not specify both an ending address and -n or -p.");
+
+      gdb_disassembly (uiout, start, high, mixed_source_and_assembly, how_many);
+      return MI_CMD_DONE;
     }
 
-  gdb_disassembly (uiout,
-  		   file_string,
-		   line_num,
-		   mixed_source_and_assembly, how_many, low, high);
+  if (find_pc_partial_function (start, NULL, &low, &high) == 0)
+    error ("mi_cmd_disassemble: No function contains the specified address.");
+  
+  if (! num_seen)
+    {
+      /* If only the start address is given, disassemble the entire
+	 function around the start address.  */
+      
+      gdb_disassembly (uiout, low, high, mixed_source_and_assembly, how_many);
+      return MI_CMD_DONE;
+    }
 
+  /* And finally, now we know start_seen, !line_seen, !file_seen, !end_seen, and num_seen. */
+  
+  if (prev_seen)
+    {
+      CORE_ADDR tmp;
+      int ret;
+
+      ret = find_pc_offset (start, &tmp, -prev, 1, peeklimit);
+      if (tmp != INVALID_ADDRESS)
+	start = tmp;
+    }
+
+  gdb_disassembly (uiout, start, high, mixed_source_and_assembly, how_many);
   return MI_CMD_DONE;
 }

@@ -96,6 +96,8 @@ typedef unsigned char				Boolean;
 #endif
 #endif
 
+#define kDSNameAndAATag			"{*AuthenticationAuthority*}"
+
 /* errors used originally from MacErrors.h but prefixed with ds_ */
 /* CoreServices.h has been fully removed from DirectoryService */
 enum {
@@ -161,7 +163,9 @@ enum {
 	kAuthSetPasswdCheckAdmin	= 1298,
 	kAuthNewUserWithPolicy		= 1299,
 	kAuthSetShadowHashWindows	= 1300,
-	kAuthSetShadowHashSecure	= 1301
+	kAuthSetShadowHashSecure	= 1301,
+	kAuthNTSessionKey			= 1302,
+	kAuthGetMethodListForUser	= 1303
 };
 
 #ifndef nil

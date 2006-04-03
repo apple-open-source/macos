@@ -73,7 +73,7 @@ SOFTWARE.
 *         are noted in the comments section of each of the
 *         functions.
 *
-* rcsid: $Id: custom.cpp,v 1.1 2004/08/20 23:42:58 jaltman Exp $
+* rcsid: $Id: custom.cpp 16675 2004-08-20 23:42:59Z jaltman $
 **************************************************************/
 
 #pragma unmanaged

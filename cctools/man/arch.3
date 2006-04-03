@@ -1,4 +1,4 @@
-.Dd May 7, 2005
+.Dd July 28, 2005
 .Dt ARCH 3
 .Sh NAME
 .Nm NXGetAllArchInfos ,
@@ -23,13 +23,13 @@
 .Ft extern cpu_subtype_t
 .Fn NXCombineCpuSubtypes "cpu_type_t cputype" "cpu_subtype_t cpusubtype1" "cpu_subtype_t cpusubtype2"
 .Sh DESCRIPTION
-These functions are intended for use in programs that have to deal with fat
-files or programs that can target multiple architectures.
+These functions are intended for use in programs that have to deal with
+universal files or programs that can target multiple architectures.
 Typically, a program will use a command-line argument that starts with
 .Dq \-arch \fBname\fR ,
 where this specifies an architecture.
 These functions and data structures provide some help for processing
-architecture flags and then processing the contents of a fat file.
+architecture flags and then processing the contents of a universal file.
 .Pp
 The structure
 .Ar NXArchInfo

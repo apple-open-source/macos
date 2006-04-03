@@ -84,6 +84,8 @@
 #import <JavaScriptCore/runtime.h>
 #import <JavaScriptCore/runtime_root.h>
 #import <JavaScriptCore/WebScriptObjectPrivate.h>
+#import <JavaScriptCore/NP_jsobject.h>
+#import <JavaScriptCore/npruntime_impl.h>
 
 #if APPLE_CHANGES
 #import "KWQAccObjectCache.h"
@@ -202,9 +204,18 @@ KWQKHTMLPart::~KWQKHTMLPart()
     // exceptions.
     KWQRelease(_formValuesAboutToBeSubmitted);
     KWQRelease(_formAboutToBeSubmitted);
-    
+
     KWQRelease(_windowScriptObject);
-    
+    _windowScriptObject = 0;
+
+    if (_windowScriptNPObject) {
+        // Call _NPN_DeallocateObject() instead of _NPN_ReleaseObject() so that we don't leak if a plugin fails to release the window
+        // script object properly.
+        // This shouldn't cause any problems for plugins since they should have already been stopped and destroyed at this point.
+        _NPN_DeallocateObject(_windowScriptNPObject);
+        _windowScriptNPObject = 0;
+    }
+
     delete _windowWidget;
 }
 
@@ -1383,8 +1394,17 @@ WebScriptObject *KWQKHTMLPart::windowScriptObject()
 NPObject *KWQKHTMLPart::windowScriptNPObject()
 {
     if (!_windowScriptNPObject) {
-        KJS::ObjectImp *win = static_cast<KJS::ObjectImp *>(KJS::Window::retrieveWindow(this));
-        _windowScriptNPObject = _NPN_CreateScriptObject (0, win, bindingRootObject(), bindingRootObject());
+        if (d->m_bJScriptEnabled) {
+            // JavaScript is enabled, so there is a JavaScript window object.  Return an NPObject bound to the window
+            // object.
+            KJS::ObjectImp *win = KJS::Window::retrieveWindow(this);
+            assert(win);
+            _windowScriptNPObject = _NPN_CreateScriptObject(0, win, bindingRootObject(), bindingRootObject());
+        } else {
+            // JavaScript is not enabled, so we cannot bind the NPObject to the JavaScript window object.
+            // Instead, we create an NPObject of a different class, one which is not bound to a JavaScript object.
+            _windowScriptNPObject = _NPN_CreateNoScriptObject();
+        }
     }
 
     return _windowScriptNPObject;

@@ -27,10 +27,6 @@
    COFF or ELF where the stabs data is placed in a special section.
    Avoid placing any object file format specific code in this file. */
 
-static int os9k_stabs = 0;
-
-#include <limits.h>
-
 #include "defs.h"
 #include "gdb_string.h"
 #include "bfd.h"
@@ -157,6 +153,9 @@ static struct field *read_args (char **, int, struct objfile *, int *, int *);
 
 static void add_undefined_type (struct type *);
 
+/* APPLE LOCAL: More work to handle types defined after they are used.  */
+static void add_undefined_field (struct field *field);
+
 static int
 read_cpp_abbrev (struct field_info *, char **, struct type *,
 		 struct objfile *);
@@ -169,6 +168,10 @@ static int resolve_live_range (struct objfile *, struct symbol *, char *);
 static int process_reference (char **string);
 
 void stabsread_clear_cache (void);
+
+/* APPLE LOCAL: This abstracts the logic at the end of read_one_struct_field
+   into a function so I can re-use it in cleanup_undefined_fields.  */
+static void adjust_field_bitsize (struct field *field);
 
 static const char vptr_name[] = "_vptr$";
 static const char vb_name[] = "_vb$";
@@ -207,6 +210,14 @@ stabs_general_complaint (const char *arg1)
 static struct type **undef_types;
 static int undef_types_allocated;
 static int undef_types_length;
+
+/* APPLE LOCAL: Make a list of fields that haven't been
+   defined so we can come back and see whether they are packed or
+   not.  */
+static struct field **undef_fields;
+static int undef_fields_allocated;
+static int undef_fields_length;
+
 static struct symbol *current_symbol = NULL;
 
 /* Check for and handle cretinous stabs symbol name continuation!  */
@@ -316,6 +327,54 @@ dbx_lookup_type (int typenums[2], struct objfile *objfile)
 		  (f->length - f_orig_length) * sizeof (struct type *));
 	}
       return (&f->vector[index]);
+    }
+}
+
+/* APPLE LOCAL: Fix up the length fields of any variants of this
+   type.  */
+static void
+dbx_fixup_variants (struct type *real_type)
+{
+  unsigned len = real_type->length;
+  struct type *variant;
+
+  /* We should also reset the length of the types in the 
+     type chain if they are not of address class, since
+     all the other type variants are supposed to have the
+     same length according to gdbtypes.h.  */
+  
+  variant = real_type->chain;
+  while (variant != real_type)
+    {
+      if (!TYPE_ADDRESS_CLASS_ALL(variant)
+	  && TYPE_LENGTH (variant) == 0)
+	TYPE_LENGTH(variant) = len;
+      variant = variant->chain;
+    }
+}
+
+/* APPLE LOCAL: Fix-up the type stored in the slot addressed by
+   the number-pair given by TYPENUMS to match the data in NEW_TYPE.
+   We need to do this rather than just replace the entry in the slot
+   because we have cases where the use of a type can appear before its
+   definition.  */
+
+static struct type *
+dbx_fixup_type (int typenums[2], struct type *new_type, struct objfile *objfile)
+{
+  struct type **type_slot;
+
+  type_slot = dbx_lookup_type (typenums, objfile);
+
+  if (*type_slot)
+    {
+      replace_type (*type_slot, new_type);
+      return *type_slot;
+    }
+  else
+    {
+      *type_slot = new_type;
+      return new_type;
     }
 }
 
@@ -584,6 +643,95 @@ symbol_reference_defined (char **string)
          or this is a forward reference to it.  */
       *string = p;
       return -1;
+    }
+}
+
+/* APPLE LOCAL: When reading debug info from the .o file, we may come 
+   across functions that don't exist in the final linked image (they
+   might be coalesced inline functions, or they may be dead code stripped.)
+   In that case, we want to read the type from the symbol, but we don't
+   actually want to process the symbol.  */
+
+void
+process_symbol_types_only (char *string, const char *prefix,
+			   int desc, int type, struct objfile *objfile)
+{
+  char *p = (char *) find_name_end (string);
+  int deftype;
+
+  if (prefix == NULL)
+    {
+      prefix = "";
+    }
+
+  /* Ignore syms with empty names.  */
+  if (string[0] == 0)
+    return;
+
+  /* Ignore old-style symbols from cc -go  */
+  if (p == 0)
+    return;
+
+  while (p[1] == ':')
+    {
+      p += 2;
+      p = strchr (p, ':');
+      if (p == NULL) {
+	STABS_CONTINUE (&p, objfile);
+	p = strchr (p, ':');
+      }
+    }
+
+  p++;
+
+  if (isdigit (*p) || *p == '(' || *p == '-')
+    deftype = 'l';
+  else
+    deftype = *p++;
+
+  switch (deftype)
+    {
+    case 'c':
+      /* These are constants, just ignore them, only the enum constants
+         'e' mightdefine new types. */
+      if (*(p++) == 'e')
+	{
+	  /* Enum, let's scarf the type.  */
+	  read_type (&p, objfile);
+	  if (*p != ',')
+	    complaint (&symfile_complaints, "Bad enum type");
+	}
+      break;
+      /* Caught exception type, read the type.  */
+    case 'C':
+    case 'f':
+      /* According to define_symbol, acc puts argument types here.  gcc doesn't.
+	 If we come across a compiler that does, we should read the arguments for
+	 types as well.  */
+    case 'F':
+    case 'G':
+    case 's':
+    case 'l':
+      /* NOTE that this could be 'pF' a function parameter.  We don't need to 
+	 treat this specially, because all we want out of it is the type defined
+	 herein.  */
+    case 'p':
+    case 'R':
+    case 'r':
+    case 'S':
+    case 'V':
+    case 'v':
+    case 'a':
+      read_type (&p, objfile);
+      break;
+    case 't':
+    case 'T':
+      /* These are just type definitions, so we might as well pass them
+	 to the real define_symbol...  */
+      define_symbol (0, string, prefix, desc, type, objfile);
+      break;
+    default:
+      break;
     }
 }
 
@@ -1463,7 +1611,6 @@ error_type (char **pp, struct objfile *objfile)
   return (builtin_type_error);
 }
 
-
 /* Read type information or a type definition; return the type.  Even
    though this routine accepts either type information or a type
    definition, the distinction is relevant--some parts of stabsread.c
@@ -1524,8 +1671,6 @@ read_type (char **pp, struct objfile *objfile)
              exists, or this is a forward reference to it.
              dbx_alloc_type handles both cases.  */
           type = dbx_alloc_type (typenums, objfile);
-
-	  return dbx_alloc_type (typenums, objfile);
 
           /* If this is a forward reference, arrange to complain if it
              doesn't get patched up by the time we're done
@@ -1627,24 +1772,47 @@ again:
         /* If this type has already been declared, then reuse the same
            type, rather than allocating a new one.  This saves some
            memory.  */
+	{
+	  /* APPLE LOCAL: Require that the type that you have found in the
+	     file_symbols was made with the same slot number as the one we
+	     are currently defining.  This will keep us from stomping a type
+	     when the names match accidentally.  This seems like it shouldn't
+	     happen, but because stabs type names don't record namespace information,
+	     it actually can happen.  */
 
-	for (ppt = file_symbols; ppt; ppt = ppt->next)
-	  for (i = 0; i < ppt->nsyms; i++)
-	    {
-	      struct symbol *sym = ppt->symbol[i];
+	  struct type **slot_addr = dbx_lookup_type (typenums, objfile);
+	  struct type *this_slot_type = slot_addr ? *slot_addr : NULL;
+	  
+	  /* APPLE LOCAL: If this type is actually already defined, then just
+	     return it.  This can happen because gcc will define a type, but
+	     then use the "xs" to reference it later on.  */
 
-	      if (SYMBOL_CLASS (sym) == LOC_TYPEDEF
-		  && SYMBOL_DOMAIN (sym) == STRUCT_DOMAIN
-		  && (TYPE_CODE (SYMBOL_TYPE (sym)) == code)
-		  && strcmp (DEPRECATED_SYMBOL_NAME (sym), type_name) == 0)
-		{
-		  obstack_free (&objfile->objfile_obstack, type_name);
-		  type = SYMBOL_TYPE (sym);
-	          if (typenums[0] != -1)
-	            *dbx_lookup_type (typenums, objfile) = type;
-		  return type;
-		}
-	    }
+	  if (this_slot_type != NULL 
+	      && TYPE_CODE (this_slot_type) != TYPE_CODE_UNDEF)
+	    return this_slot_type;
+
+	  for (ppt = file_symbols; ppt; ppt = ppt->next)
+	    for (i = 0; i < ppt->nsyms; i++)
+	      {
+		struct symbol *sym = ppt->symbol[i];
+		
+		if (SYMBOL_CLASS (sym) == LOC_TYPEDEF
+		    && SYMBOL_DOMAIN (sym) == STRUCT_DOMAIN
+		    && SYMBOL_TYPE (sym) == this_slot_type
+		    && (TYPE_CODE (SYMBOL_TYPE (sym)) == code)
+		    && strcmp (DEPRECATED_SYMBOL_NAME (sym), type_name) == 0)
+		  {
+		    obstack_free (&objfile->objfile_obstack, type_name);
+		    type = SYMBOL_TYPE (sym);
+		    if (typenums[0] != -1)
+		      /* APPLE LOCAL: Replace the type data, not the slot member.
+			 Otherwise we will leave any clients that have already 
+			 gotten the type pointing to the incomplete version.  */
+		      type = dbx_fixup_type (typenums, type, objfile);
+		    return type;
+		  }
+	      }
+	}
 
 	/* Didn't find the type to which this refers, so we must
 	   be dealing with a forward reference.  Allocate a type
@@ -1913,7 +2081,10 @@ again:
 		       symnum);
 	  type = allocate_stub_method (return_type);
 	  if (typenums[0] != -1)
-	    *dbx_lookup_type (typenums, objfile) = type;
+	    /* APPLE LOCAL: Replace the type data, not the slot member.
+	       Otherwise we will leave any clients that have already
+	       gotten the type pointing to the incomplete version.  */
+	    type = dbx_fixup_type (typenums, type, objfile);
 	}
       else
 	{
@@ -1947,7 +2118,10 @@ again:
     case 'r':			/* Range type */
       type = read_range_type (pp, typenums, objfile);
       if (typenums[0] != -1)
-	*dbx_lookup_type (typenums, objfile) = type;
+	/* APPLE LOCAL: Replace the type data, not the slot member.
+	   Otherwise we will leave any clients that have already
+	   gotten the type pointing to the incomplete version.  */
+	type = dbx_fixup_type (typenums, type, objfile);
       break;
 
     case 'b':
@@ -1955,21 +2129,30 @@ again:
 	  /* Sun ACC builtin int type */
 	  type = read_sun_builtin_type (pp, typenums, objfile);
 	  if (typenums[0] != -1)
-	    *dbx_lookup_type (typenums, objfile) = type;
+	    /* APPLE LOCAL: Replace the type data, not the slot member.
+	       Otherwise we will leave any clients that have already
+	       gotten the type pointing to the incomplete version.  */
+	    type = dbx_fixup_type (typenums, type, objfile);
 	}
       break;
 
     case 'R':			/* Sun ACC builtin float type */
       type = read_sun_floating_type (pp, typenums, objfile);
       if (typenums[0] != -1)
-	*dbx_lookup_type (typenums, objfile) = type;
+	/* APPLE LOCAL: Replace the type data, not the slot member.
+	   Otherwise we will leave any clients that have already
+	   gotten the type pointing to the incomplete version.  */
+	type = dbx_fixup_type (typenums, type, objfile);
       break;
 
     case 'e':			/* Enumeration type */
       type = dbx_alloc_type (typenums, objfile);
       type = read_enum_type (pp, type, objfile);
       if (typenums[0] != -1)
-	*dbx_lookup_type (typenums, objfile) = type;
+	/* APPLE LOCAL: Replace the type data, not the slot member.
+	   Otherwise we will leave any clients that have already
+	   gotten the type pointing to the incomplete version.  */
+	type = dbx_fixup_type (typenums, type, objfile);
       break;
 
     case 's':			/* Struct type */
@@ -2002,6 +2185,10 @@ again:
       if (is_vector)
 	TYPE_FLAGS (type) |= TYPE_FLAG_VECTOR;
 
+      /* APPLE LOCAL: If we've gotten here with an error type,
+	 just return it rather than trying to keep on going.  */
+      if (TYPE_CODE (type) == TYPE_CODE_ERROR)
+	return error_type (pp, objfile);
       /* APPLE LOCAL: If a stride was set, set it in the range type;
 	 else use the default. */
       if (is_stride)
@@ -2014,6 +2201,7 @@ again:
 	}
       else
 	if (TYPE_VECTOR (type)
+	    && TYPE_OBJFILE (type)
 	    && TYPE_OBJFILE (type)->obfd
 	    && (bfd_get_arch (TYPE_OBJFILE (type)->obfd) == bfd_arch_i386))
 	  TYPE_STRIDE (TYPE_INDEX_TYPE (type)) = -1;
@@ -2028,7 +2216,10 @@ again:
       if (is_string)
 	TYPE_CODE (type) = TYPE_CODE_BITSTRING;
       if (typenums[0] != -1)
-	*dbx_lookup_type (typenums, objfile) = type;
+	/* APPLE LOCAL: Replace the type data, not the slot member.
+	   Otherwise we will leave any clients that have already
+	   gotten the type pointing to the incomplete version.  */
+	type = dbx_fixup_type (typenums, type, objfile);
       break;
 
     default:
@@ -2047,6 +2238,10 @@ again:
   if (type_size != -1)
     TYPE_LENGTH (type) = (type_size + TARGET_CHAR_BIT - 1) / TARGET_CHAR_BIT;
 
+  /* APPLE LOCAL: We've found this type, but there may be variants of it -
+     like const and volatile.  They all share the same "main_type" so that
+     part is okay, but we need to fix up the length field.  */
+  dbx_fixup_variants (type);
   return type;
 }
 
@@ -2538,170 +2733,11 @@ read_member_functions (struct field_info *fip, char **pp, struct type *type,
 	}
       else
 	{
-	  /* APPLE LOCAL: This code is of marginal value for gcc 3, and has horrible
+	  /* APPLE LOCAL begin delete bad method name code */
+	  /* This code is of marginal value for gcc 3, and has horrible
 	     performance.  Until it is made to perform better, we should just 
 	     not use it */
-#if 0
-	  int has_stub = 0;
-	  int has_destructor = 0, has_other = 0;
-	  int is_v3 = 0;
-	  struct next_fnfield *tmp_sublist;
-
-	  /* Various versions of GCC emit various mostly-useless
-	     strings in the name field for special member functions.
-
-	     For stub methods, we need to defer correcting the name
-	     until we are ready to unstub the method, because the current
-	     name string is used by gdb_mangle_name.  The only stub methods
-	     of concern here are GNU v2 operators; other methods have their
-	     names correct (see caveat below).
-
-	     For non-stub methods, in GNU v3, we have a complete physname.
-	     Therefore we can safely correct the name now.  This primarily
-	     affects constructors and destructors, whose name will be
-	     __comp_ctor or __comp_dtor instead of Foo or ~Foo.  Cast
-	     operators will also have incorrect names; for instance,
-	     "operator int" will be named "operator i" (i.e. the type is
-	     mangled).
-
-	     For non-stub methods in GNU v2, we have no easy way to
-	     know if we have a complete physname or not.  For most
-	     methods the result depends on the platform (if CPLUS_MARKER
-	     can be `$' or `.', it will use minimal debug information, or
-	     otherwise the full physname will be included).
-
-	     Rather than dealing with this, we take a different approach.
-	     For v3 mangled names, we can use the full physname; for v2,
-	     we use cplus_demangle_opname (which is actually v2 specific),
-	     because the only interesting names are all operators - once again
-	     barring the caveat below.  Skip this process if any method in the
-	     group is a stub, to prevent our fouling up the workings of
-	     gdb_mangle_name.
-
-	     The caveat: GCC 2.95.x (and earlier?) put constructors and
-	     destructors in the same method group.  We need to split this
-	     into two groups, because they should have different names.
-	     So for each method group we check whether it contains both
-	     routines whose physname appears to be a destructor (the physnames
-	     for and destructors are always provided, due to quirks in v2
-	     mangling) and routines whose physname does not appear to be a
-	     destructor.  If so then we break up the list into two halves.
-	     Even if the constructors and destructors aren't in the same group
-	     the destructor will still lack the leading tilde, so that also
-	     needs to be fixed.
-
-	     So, to summarize what we expect and handle here:
-
-	        Given         Given          Real         Real       Action
-	     method name     physname      physname   method name
-
-	     __opi            [none]     __opi__3Foo  operator int    opname
-	                                                           [now or later]
-	     Foo              _._3Foo       _._3Foo      ~Foo       separate and
-	                                                               rename
-	     operator i     _ZN3FoocviEv _ZN3FoocviEv operator int    demangle
-	     __comp_ctor  _ZN3FooC1ERKS_ _ZN3FooC1ERKS_   Foo         demangle
-	  */
-
-	  tmp_sublist = sublist;
-	  while (tmp_sublist != NULL)
-	    {
-	      if (tmp_sublist->fn_field.is_stub)
-		has_stub = 1;
-	      if (tmp_sublist->fn_field.physname[0] == '_'
-		  && tmp_sublist->fn_field.physname[1] == 'Z')
-		is_v3 = 1;
-
-	      if (is_destructor_name (tmp_sublist->fn_field.physname))
-		has_destructor++;
-	      else
-		has_other++;
-
-	      tmp_sublist = tmp_sublist->next;
-	    }
-
-	  if (has_destructor && has_other)
-	    {
-	      struct next_fnfieldlist *destr_fnlist;
-	      struct next_fnfield *last_sublist;
-
-	      /* Create a new fn_fieldlist for the destructors.  */
-
-	      destr_fnlist = (struct next_fnfieldlist *)
-		xmalloc (sizeof (struct next_fnfieldlist));
-	      make_cleanup (xfree, destr_fnlist);
-	      memset (destr_fnlist, 0, sizeof (struct next_fnfieldlist));
-	      destr_fnlist->fn_fieldlist.name
-		= obconcat (&objfile->objfile_obstack, "", "~",
-			    new_fnlist->fn_fieldlist.name);
-
-	      destr_fnlist->fn_fieldlist.fn_fields = (struct fn_field *)
-		obstack_alloc (&objfile->objfile_obstack,
-			       sizeof (struct fn_field) * has_destructor);
-	      memset (destr_fnlist->fn_fieldlist.fn_fields, 0,
-		  sizeof (struct fn_field) * has_destructor);
-	      tmp_sublist = sublist;
-	      last_sublist = NULL;
-	      i = 0;
-	      while (tmp_sublist != NULL)
-		{
-		  if (!is_destructor_name (tmp_sublist->fn_field.physname))
-		    {
-		      tmp_sublist = tmp_sublist->next;
-		      continue;
-		    }
-		  
-		  destr_fnlist->fn_fieldlist.fn_fields[i++]
-		    = tmp_sublist->fn_field;
-		  if (last_sublist)
-		    last_sublist->next = tmp_sublist->next;
-		  else
-		    sublist = tmp_sublist->next;
-		  last_sublist = tmp_sublist;
-		  tmp_sublist = tmp_sublist->next;
-		}
-
-	      destr_fnlist->fn_fieldlist.length = has_destructor;
-	      destr_fnlist->next = fip->fnlist;
-	      fip->fnlist = destr_fnlist;
-	      nfn_fields++;
-	      total_length += has_destructor;
-	      length -= has_destructor;
-	    }
-	  else if (is_v3)
-	    {
-	      /* v3 mangling prevents the use of abbreviated physnames,
-		 so we can do this here.  There are stubbed methods in v3
-		 only:
-		 - in -gstabs instead of -gstabs+
-		 - or for static methods, which are output as a function type
-		   instead of a method type.  */
-
-	      update_method_name_from_physname (&objfile->objfile_obstack,
-						&new_fnlist->fn_fieldlist.name,
-						sublist->fn_field.physname);
-	    }
-	  else if (has_destructor && new_fnlist->fn_fieldlist.name[0] != '~')
-	    {
-	      new_fnlist->fn_fieldlist.name
-		= obconcat (&objfile->objfile_obstack, "~", main_fn_name, "");
-	      xfree (main_fn_name);
-	    }
-	  else if (!has_stub)
-	    {
-	      char dem_opname[256];
-	      int ret;
-	      ret = cplus_demangle_opname (new_fnlist->fn_fieldlist.name,
-					      dem_opname, DMGL_ANSI);
-	      if (!ret)
-		ret = cplus_demangle_opname (new_fnlist->fn_fieldlist.name,
-					     dem_opname, 0);
-	      if (ret)
-		new_fnlist->fn_fieldlist.name
-		  = obsavestring (dem_opname, strlen (dem_opname),
-				  &objfile->objfile_obstack);
-	    }
-#endif /* APPLE LOCAL */
+	  /* APPLE LOCAL end delete bad method name code */
 	  new_fnlist->fn_fieldlist.fn_fields = (struct fn_field *)
 	    obstack_alloc (&objfile->objfile_obstack,
 			   sizeof (struct fn_field) * length);
@@ -2719,7 +2755,6 @@ read_member_functions (struct field_info *fip, char **pp, struct type *type,
 	  total_length += length;
 	}
     }
-
   if (nfn_fields)
     {
       ALLOCATE_CPLUS_STRUCT_TYPE (type);
@@ -2928,33 +2963,49 @@ read_one_struct_field (struct field_info *fip, char **pp, char *p,
     }
   else
     {
-      /* Detect an unpacked field and mark it as such.
-         dbx gives a bit size for all fields.
-         Note that forward refs cannot be packed,
-         and treat enums as if they had the width of ints.  */
+      /* APPLE LOCAL: This all got moved into a function so we
+	 can reuse it in cleanup_undefined_fields.  */
+      adjust_field_bitsize (&fip->list->field);
+    }
+}
 
-      struct type *field_type = check_typedef (FIELD_TYPE (fip->list->field));
+/* APPLE LOCAL: We need to do this twice.  Once in read_one_struct_field,
+   and once if the field type was undefined in cleanup_undefined_fields.
+   So we abstract this into a function.  The only change in behavior
+   from the FSF version is if the type of the field in UNDEF, then 
+   we don't adjust the BITSIZE, since we don't know how to do it here.  */
 
+static void
+adjust_field_bitsize (struct field *field)
+{
+  struct type *field_type = check_typedef (FIELD_TYPE (*field));
+  
+  /* Detect an unpacked field and mark it as such.
+     dbx gives a bit size for all fields.
+     Note that forward refs cannot be packed,
+     and treat enums as if they had the width of ints.  */
+  
+  if (TYPE_CODE (field_type) != TYPE_CODE_UNDEF)
+    {
       if (TYPE_CODE (field_type) != TYPE_CODE_INT
 	  && TYPE_CODE (field_type) != TYPE_CODE_RANGE
 	  && TYPE_CODE (field_type) != TYPE_CODE_BOOL
 	  && TYPE_CODE (field_type) != TYPE_CODE_ENUM)
 	{
-	  FIELD_BITSIZE (fip->list->field) = 0;
+	  FIELD_BITSIZE (*field) = 0;
 	}
-      if ((FIELD_BITSIZE (fip->list->field)
+      if ((FIELD_BITSIZE (*field)
 	   == TARGET_CHAR_BIT * TYPE_LENGTH (field_type)
 	   || (TYPE_CODE (field_type) == TYPE_CODE_ENUM
-	       && FIELD_BITSIZE (fip->list->field) == TARGET_INT_BIT)
-	  )
+	       && FIELD_BITSIZE (*field) == TARGET_INT_BIT)
+	   )
 	  &&
-	  FIELD_BITPOS (fip->list->field) % 8 == 0)
+	  FIELD_BITPOS (*field) % 8 == 0)
 	{
-	  FIELD_BITSIZE (fip->list->field) = 0;
+	  FIELD_BITSIZE (*field) = 0;
 	}
     }
 }
-
 
 /* Read struct or class data fields.  They have the form:
 
@@ -3378,8 +3429,15 @@ attach_fields_to_type (struct field_info *fip, struct type *type,
 	  }
 	  break;
 	}
+      /* APPLE LOCAL: If the TYPE_CODE of this field is TYPE_CODE_UNDEF, then
+	 we weren't able to check whether it was packed correctly or not.  So
+	 we add this field to a list of fields, and then at the end of this 
+	 compilation unit, we will clean them up...  */
+      if (TYPE_CODE (FIELD_TYPE (fip->list->field)) == TYPE_CODE_UNDEF)
+	add_undefined_field (&(TYPE_FIELD (type, nfields)));
       fip->list = fip->list->next;
     }
+
   return 1;
 }
 
@@ -3459,15 +3517,12 @@ read_struct_type (char **pp, struct type *type, enum type_code type_code,
     {
       complain_about_struct_wipeout (type);
 
-      /* APPLE LOCAL: This is not a great idea.  The problem is
-	 that the type definition stab could contain other
-	 type definitions in the current context which we need
-	 to process or we will leave some other types dangling.  */
-#if 0
-      /* It's probably best to return the type unchanged.  */
-      return type;
-#endif
-      /* END APPLE LOCAL */
+      /* APPLE LOCAL begin don't return type */
+      /* Returning the type is not a great idea.  The problem is that
+	 the type definition stab could contain other type definitions
+	 in the current context which we need to process or we will
+	 leave some other types dangling.  */
+      /* APPLE LOCAL end don't return type */
     }
 
   back_to = make_cleanup (null_cleanup, 0);
@@ -3484,34 +3539,6 @@ read_struct_type (char **pp, struct type *type, enum type_code type_code,
     if (nbits != 0)
       return error_type (pp, objfile);
   }
-
-  /* APPLE LOCAL: If there is a const or volatile type hanging off of
-     this type, we need to update the length field.  The length field
-     was moved out of the main_type field by kbuettner on 2003-02-07,
-     so we don't get the updated length for free through sharing the
-     main_type.
-
-     See the comments in gdbtypes.c:replace_type for more details.
- 
-     This problem can come about, for instance, if we make a const
-     type of another type which is only known by reference. Then we get a
-     length of 0 for both types at creation.  We need to fix up not
-     only the actual type but all the variants here.  
-
-     The same bug exists in potentia in FSF gdb, but since they don't
-     use -gused it doesn't show up very often.  */
-  {
-    struct type *chain;
-
-    chain = type;
-    do {
-      gdb_assert(TYPE_ADDRESS_CLASS_ALL (chain) == 0);
-
-      TYPE_LENGTH (chain) = TYPE_LENGTH (type);
-      chain = TYPE_CHAIN (chain);
-    } while (chain != type);
-  }
-  /* END APPLE LOCAL */
 
   /* Now read the baseclasses, if any, read the regular C struct or C++
      class member fields, attach the fields to the type, read the C++
@@ -3647,15 +3674,15 @@ read_enum_type (char **pp, struct type *type,
       STABS_CONTINUE (pp, objfile);
       p = *pp;
       while (*p != ':')
-        p++;
+	p++;
       name = obsavestring (*pp, p - *pp, &objfile->objfile_obstack);
       *pp = p + 1;
       n = read_huge_number (pp, ',', &nbits);
       if (nbits != 0)
-        return error_type (pp, objfile);
+	return error_type (pp, objfile);
 
       sym = (struct symbol *)
-        obstack_alloc (&objfile->objfile_obstack, sizeof (struct symbol));
+	obstack_alloc (&objfile->objfile_obstack, sizeof (struct symbol));
       memset (sym, 0, sizeof (struct symbol));
       DEPRECATED_SYMBOL_NAME (sym) = name;
       SYMBOL_LANGUAGE (sym) = current_subfile->language;
@@ -3663,13 +3690,13 @@ read_enum_type (char **pp, struct type *type,
       SYMBOL_DOMAIN (sym) = VAR_DOMAIN;
       SYMBOL_VALUE (sym) = n;
       if (n < 0)
-        unsigned_enum = 0;
+	unsigned_enum = 0;
       add_symbol_to_list (sym, symlist);
       nsyms++;
     }
 
   if (**pp == ';')
-    (*pp)++;                    /* Skip the semicolon.  */
+    (*pp)++;			/* Skip the semicolon.  */
 
   /* Now fill in the fields of the type-structure.  */
 
@@ -4323,6 +4350,39 @@ fix_common_block (struct symbol *sym, int valu)
 }
 
 
+/* APPLE LOCAL: If we are making up a field element for a structure whose
+   elements are not yet defined, we won't know what the fieldsize
+   should be, and so whether the fields are packed or not.  It's
+   important to get this right, otherwise ptype will print the field
+   bitsize for ordinary types, which is confusing.
+
+   So we put that field on the list of fields that we are going to fix
+   up...  */
+
+static void
+add_undefined_field (struct field *field)
+{
+  if (undef_fields_length == undef_fields_allocated)
+    {
+      undef_fields_allocated *= 2;
+      undef_fields = (struct field **)
+	xrealloc ((char *) undef_fields,
+		  undef_fields_allocated * sizeof (struct field *));
+    }
+  undef_fields[undef_fields_length++] = field;
+}
+
+void
+cleanup_undefined_fields (void)
+{
+  struct field **field;
+
+  for (field = undef_fields; field < undef_fields + undef_fields_length; field++)
+    {
+      adjust_field_bitsize (*field);
+    }
+  undef_fields_length = 0;
+}
 
 /* What about types defined as forward references inside of a small lexical
    scope?  */
@@ -4391,6 +4451,8 @@ cleanup_undefined_types (void)
 			    && SYMBOL_DOMAIN (sym) == STRUCT_DOMAIN
 			    && (TYPE_CODE (SYMBOL_TYPE (sym)) ==
 				TYPE_CODE (*type))
+			    && (TYPE_INSTANCE_FLAGS (SYMBOL_TYPE (sym)) ==
+				TYPE_INSTANCE_FLAGS (*type))
 			    && strcmp (DEPRECATED_SYMBOL_NAME (sym), typename) == 0)
                           replace_type (*type, SYMBOL_TYPE (sym));
 		      }
@@ -4401,10 +4463,21 @@ cleanup_undefined_types (void)
 
 	default:
 	  {
-	    complaint (&symfile_complaints,
-		       "forward-referenced types left unresolved, "
-                       "type code %d.",
-		       TYPE_CODE (*type));
+            /* APPLE LOCAL: Print some information that might actually prove to
+               be useful in understanding the problem.  As opposed to what some
+               other versions of gdb output, ahem.  */
+	    if (TYPE_CODE (*type) == TYPE_CODE_UNDEF
+		|| TYPE_CODE (*type) == TYPE_CODE_ERROR)
+	      {
+		complaint (&symfile_complaints,
+			   "forward-referenced types left unresolved, "
+			   "type code %d: name: %s target: %s",
+			   TYPE_CODE (*type), 
+			   TYPE_NAME (*type) ? TYPE_NAME (*type) : "NULL",
+			   (TYPE_TARGET_TYPE (*type) && TYPE_NAME (TYPE_TARGET_TYPE (*type))) 
+                           ? TYPE_NAME (TYPE_TARGET_TYPE(*type))
+                           : "NULL");
+	      }
 	  }
 	  break;
 	}
@@ -4630,17 +4703,45 @@ finish_global_stabs (struct objfile *objfile)
 
    APPLE LOCAL: I changed the implementation of this function
    since it also has to be able to handle ObjC++ symbols
-   which look like _ZWhatever-[Foo bar::]:bla.  */
+   which look like _ZWhatever-[Foo bar:]:bla.  */
 char *
 find_name_end (char *name)
 {
   char *s = name;
   char *first_colon, *first_lbrac, *first_rbrac;
 
-  
-  first_colon = strchr (name, ':');
-  if (first_colon == NULL)
-    return NULL;
+  /* FIXME: The way we do it here, we won't correctly 
+     process names with colons.  Those come both from
+     inner classes, and from STL template classes, where 
+     the specializations all have std:: in the names...  
+     The problem is for big C++ apps this is really slow.
+     The only bug this will cause that I can think of is
+     "ptype outer::inner" will fail till you've made the
+     full symtab.  If that ever bothers anybody, they can
+     switch the define here.  */
+
+#if 1 
+   first_colon = strchr (name, ':');
+   if (first_colon == NULL)
+     return NULL;
+#else
+  /* Inner classes will give us strings of the form:
+     "outer::inner:Tt...".  So pass over double colons
+     in the name string.  */
+
+  first_colon = name;
+
+  while (1)
+    {
+      first_colon = strchr (first_colon, ':');
+      if (first_colon == NULL)
+	return NULL;
+      else if (first_colon[1] != ':')
+	break;
+      else
+	  first_colon += 2;
+    }
+#endif   
 
   /* It's tempting to use strchr to look for the
      leftmost lbrac but that would mean scanning
@@ -4684,4 +4785,9 @@ _initialize_stabsread (void)
   undef_types_length = 0;
   undef_types = (struct type **)
     xmalloc (undef_types_allocated * sizeof (struct type *));
+
+  undef_fields_allocated = 20;
+  undef_fields_length = 0;
+  undef_fields = (struct field **)
+    xmalloc (undef_fields_allocated * sizeof (struct field *));
 }

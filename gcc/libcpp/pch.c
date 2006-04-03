@@ -650,13 +650,13 @@ cpp_read_state (cpp_reader *r, const char *name, FILE *f,
 		struct save_macro_data *data)
 {
   size_t i;
+  struct lexer_state old_state;
+
   /* APPLE LOCAL begin pch distcc --mrs */
   void (*saved_line_change)  PARAMS ((cpp_reader *, const cpp_token *, int));
 
   saved_line_change = r->cb.line_change;
   /* APPLE LOCAL end pch distcc --mrs */
-
-  struct lexer_state old_state;
 
   /* Restore spec_nodes, which will be full of references to the old 
      hashtable entries and so will now be invalid.  */

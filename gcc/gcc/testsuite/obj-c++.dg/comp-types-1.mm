@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* { dg-do compile } */
 
 @interface A
@@ -14,4 +14,3 @@ int main(int argc, char **argv) {
 
     return (b == a);
 }
-

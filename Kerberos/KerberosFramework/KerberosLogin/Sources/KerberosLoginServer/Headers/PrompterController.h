@@ -1,7 +1,7 @@
 /*
  * PrompterController.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/Headers/PrompterController.h,v 1.3 2004/12/01 18:57:39 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

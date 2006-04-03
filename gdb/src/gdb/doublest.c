@@ -546,6 +546,48 @@ floatformat_mantissa (const struct floatformat *fmt, char *val)
   return res;
 }
 
+/* True if A and B are "opposite" byte orders, in that a simple string
+reversal will take you from format A to format B. */
+
+static int
+floatformat_byteorders_are_reversed
+(enum floatformat_byteorders a, enum floatformat_byteorders b)
+{
+  if ((a == floatformat_little) && (b == floatformat_big))
+    return 1;
+  if ((a == floatformat_big) && (b == floatformat_little))
+    return 1;
+  return 0;
+}
+
+/* True if A and B are the "same" float format, not considering their byte order. */
+
+static int
+floatformats_same_except_for_byteorder
+(const struct floatformat *a, const struct floatformat *b)
+{
+  if (a->totalsize != b->totalsize) return 0;
+  if (a->sign_start != b->sign_start) return 0;
+  if (a->exp_start != b->exp_start) return 0;
+  if (a->exp_len != b->exp_len) return 0;
+  if (a->exp_bias != b->exp_bias) return 0;
+  if (a->exp_nan != b->exp_nan) return 0;
+  if (a->man_start != b->man_start) return 0;
+  if (a->man_len != b->man_len) return 0;
+  if (a->intbit != b->intbit) return 0;
+  return 1;
+}
+
+/* Reverse the LEN bytes at FROM, placing them in TO. */
+
+static void
+swap_bytes (unsigned char *from, unsigned char *to, int len)
+{
+  int i;
+  for (i = 0; i < len; i++)
+    to[i] = from[len - i - 1];
+}
+
 
 /* Convert TO/FROM target to the hosts DOUBLEST floating-point format.
 
@@ -573,6 +615,11 @@ floatformat_to_doublest (const struct floatformat *fmt,
 			 const void *in, DOUBLEST *out)
 {
   gdb_assert (fmt != NULL);
+
+  /* If the target format matches one of our host formats, just copy
+     it in.  If it matches except for the byte order, byte reverse it
+     and copy it in.  Otherwise just use the generic code.  */
+
   if (fmt == host_float_format)
     {
       float val;
@@ -589,6 +636,36 @@ floatformat_to_doublest (const struct floatformat *fmt,
     {
       long double val;
       memcpy (&val, in, sizeof (val));
+      *out = val;
+    }
+  else if (floatformats_same_except_for_byteorder
+      (fmt, host_float_format)
+      && 
+      floatformat_byteorders_are_reversed
+      (fmt->byteorder, host_float_format->byteorder))
+    {
+      float val;
+      swap_bytes ((unsigned char *) in, (unsigned char *) &val, sizeof (val));
+      *out = val;
+    }
+  else if (floatformats_same_except_for_byteorder
+      (fmt, host_double_format)
+      && 
+      floatformat_byteorders_are_reversed
+      (fmt->byteorder, host_double_format->byteorder))
+    {
+      double val;
+      swap_bytes ((unsigned char *) in, (unsigned char *) &val, sizeof (val));
+      *out = val;
+    }
+  else if (floatformats_same_except_for_byteorder
+      (fmt, host_long_double_format)
+      && 
+      floatformat_byteorders_are_reversed
+      (fmt->byteorder, host_long_double_format->byteorder))
+    {
+      long double val;
+      swap_bytes ((unsigned char *) in, (unsigned char *) &val, sizeof (val));
       *out = val;
     }
   else

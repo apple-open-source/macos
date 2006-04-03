@@ -27,9 +27,27 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Mon Jun 25 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetParentDevice.c,v 1.14 2005/02/03 00:42:27 ssen Exp $
+ *  $Id: BLGetParentDevice.c,v 1.18 2005/08/22 20:49:24 ssen Exp $
  *
  *  $Log: BLGetParentDevice.c,v $
+ *  Revision 1.18  2005/08/22 20:49:24  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.17  2005/08/22 20:28:21  ssen
+ *  Use explicitly sized types for SPIs, in preparation of
+ *  LP64
+ *
+ *  Revision 1.16  2005/06/24 16:39:51  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
+ *  Revision 1.15  2005/06/08 16:03:33  ssen
+ *  Merge
+ *  <rdar://problem/4045837> [bless] bless has issues with GPT maps
+ *
  *  Revision 1.14  2005/02/03 00:42:27  ssen
  *  Update copyrights to 2005
  *
@@ -101,17 +119,17 @@
 #include "bless.h"
 #include "bless_private.h"
 
-int BLGetParentDevice(BLContextPtr context,  const unsigned char partitionDev[],
-		      unsigned char parentDev[],
-		      unsigned long *partitionNum) {
+int BLGetParentDevice(BLContextPtr context,  const char * partitionDev,
+		      char * parentDev,
+		      uint32_t *partitionNum) {
 
     return BLGetParentDeviceAndPartitionType(context, partitionDev, parentDev, partitionNum, NULL);
 }
 
     
-int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const unsigned char partitionDev[],
-			 unsigned char parentDev[],
-			 unsigned long *partitionNum,
+int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * partitionDev,
+			 char * parentDev,
+			 uint32_t *partitionNum,
 			BLPartitionType *partitionType) {
 
     kern_return_t           kret;
@@ -123,7 +141,7 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const unsigned cha
     io_registry_entry_t service2;
     io_object_t             obj;
 
-    unsigned char par[MNAMELEN];
+    char par[MNAMELEN];
 
     parentDev[0] = '\0';
 
@@ -135,7 +153,7 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const unsigned cha
     kret = IOServiceGetMatchingServices(ourIOKitPort,
 					IOBSDNameMatching(ourIOKitPort,
 							  0,
-							  (unsigned char *)partitionDev + 5),
+							  (char *)partitionDev + 5),
 					&services);
     if (kret != KERN_SUCCESS) {
       return 3;
@@ -151,7 +169,6 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const unsigned cha
 
     {
       CFNumberRef pn = NULL;
-      long ppn = 0;
       pn = (CFNumberRef)IORegistryEntryCreateCFProperty(obj, CFSTR(kIOMediaPartitionIDKey),
 					   kCFAllocatorDefault, 0);
 
@@ -164,8 +181,7 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const unsigned cha
 	return 5;
       }
 
-      CFNumberGetValue(pn, kCFNumberLongType, (void *)&ppn);
-      *partitionNum = (unsigned long)ppn;
+      CFNumberGetValue(pn, kCFNumberSInt32Type, partitionNum);
       CFRelease(pn);
     }
 
@@ -205,16 +221,19 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const unsigned cha
             }
             
             if(CFStringCompare(content, CFSTR("Apple_partition_scheme"), 0)
-                == kCFCompareEqualTo) {
-		if(partitionType) *partitionType = kBLPartitionType_APM;
-	    } else if(CFStringCompare(content, CFSTR("FDisk_partition_scheme"), 0)
-     == kCFCompareEqualTo) {
-		if(partitionType) *partitionType = kBLPartitionType_MBR;
-	    } else {
+               == kCFCompareEqualTo) {
+                if(partitionType) *partitionType = kBLPartitionType_APM;
+            } else if(CFStringCompare(content, CFSTR("FDisk_partition_scheme"), 0)
+                      == kCFCompareEqualTo) {
+                if(partitionType) *partitionType = kBLPartitionType_MBR;
+            } else if(CFStringCompare(content, CFSTR("GUID_partition_scheme"), 0)
+                      == kCFCompareEqualTo) {
+                if(partitionType) *partitionType = kBLPartitionType_GPT;
+            } else {
                 CFRelease(content);
                 continue;
             }
-        
+            
             CFRelease(content);
         
             content = IORegistryEntryCreateCFProperty(service2, CFSTR(kIOBSDNameKey),

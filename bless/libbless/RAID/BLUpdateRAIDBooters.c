@@ -27,9 +27,22 @@
  *  Created by Shantonu Sen on 1/15/05.
  *  Copyright 2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLUpdateRAIDBooters.c,v 1.8 2005/02/09 00:17:57 ssen Exp $
+ *  $Id: BLUpdateRAIDBooters.c,v 1.11 2005/08/22 20:49:26 ssen Exp $
  *
  *  $Log: BLUpdateRAIDBooters.c,v $
+ *  Revision 1.11  2005/08/22 20:49:26  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.10  2005/06/24 16:51:06  ssen
+ *  add includes for sys/param.h
+ *
+ *  Revision 1.9  2005/06/24 16:39:52  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.8  2005/02/09 00:17:57  ssen
  *  If doing a setboot on UFS, HFSX, or RAID, and a label
  *  was not explicitly specified,  query DiskArb and render to label
@@ -65,6 +78,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/param.h>
 
 #include <mach/mach_error.h>
 
@@ -97,7 +111,7 @@ int updateAppleBoot(BLContextPtr context, const char *devname, CFDataRef opaqueD
 
 CFDataRef _createLabel(BLContextPtr context, CFStringRef name, int index);
 
-int BLUpdateRAIDBooters(BLContextPtr context, const unsigned char device[],
+int BLUpdateRAIDBooters(BLContextPtr context, const char * device,
 						CFTypeRef bootData,
 						CFDataRef bootxData, CFDataRef labelData)
 {

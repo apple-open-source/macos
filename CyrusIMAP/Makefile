@@ -20,6 +20,7 @@ CFLAGS=-Os $(RC_CFLAGS)
 
 PROJECT_NAME=cyrus_imap
 
+
 BUILD_EXTRAS=build_extras
 BIN_DIR=/usr/bin/cyrus/bin
 TOOLSDIR=/usr/bin/cyrus/tools

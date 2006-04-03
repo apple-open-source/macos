@@ -1,11 +1,11 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/svr_iters.c,v 1.6 2003/01/12 18:17:02 epeisach Exp $
+ * $Header$
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/svr_iters.c,v 1.6 2003/01/12 18:17:02 epeisach Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #if defined(HAVE_COMPILE) && defined(HAVE_STEP)

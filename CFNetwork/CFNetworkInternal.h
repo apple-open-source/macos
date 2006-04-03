@@ -33,7 +33,7 @@
 
 #include <CoreFoundation/CFRuntime.h>
 #include <CFNetwork/CFNetwork.h>
-
+#include <dns_sd.h>
 #include "CFNetworkThreadSupport.h"		/* Include here since it used to live here and files rely on that. */
 #include "ProxySupport.h"				/* Include here since it used to live here and files rely on that. */
 
@@ -144,6 +144,16 @@ extern CFStringRef _CFNetworkCFStringCreateWithCFDataAddress(CFAllocatorRef allo
 		the buffer.
 */
 extern UInt8* _CFStringGetOrCreateCString(CFAllocatorRef allocator, CFStringRef string, UInt8* buffer, CFIndex* bufferLength, CFStringEncoding encoding);
+
+
+/*!
+    @function _DNSServiceErrorToCFNetServiceError
+    @discussion Given a DNSService error, this returns the appropriate CFNetService error.
+    @param dnsError DNSServiceErrorType error.
+    @result A SInt32 containing the equivalent CFNetService error.
+*/
+extern SInt32 _DNSServiceErrorToCFNetServiceError(DNSServiceErrorType dnsError);
+
 
 
 #if defined(__cplusplus)

@@ -326,6 +326,12 @@ cgraph_finalize_function (tree decl, bool nested)
 {
   struct cgraph_node *node = cgraph_node (decl);
 
+  /* APPLE LOCAL begin regparmandstackparm */
+#if TARGET_MACHO && defined TARGET_SSE2
+  ix86_darwin_handle_regparmandstackparm (decl);
+#endif
+  /* APPLE LOCAL end regparmandstackparm */
+
   if (node->local.finalized)
     {
       /* As an GCC extension we allow redefinition of the function.  The
@@ -781,6 +787,12 @@ cgraph_finalize_compilation_unit (void)
 
       cgraph_varpool_assemble_pending_decls ();
     }
+
+  /* APPLE LOCAL begin regparmandstackparm */
+#if TARGET_MACHO && defined TARGET_SSE2
+  ix86_darwin_redirect_calls ();
+#endif
+  /* APPLE LOCAL end regparmandstackparm */
 
   /* Collect entry points to the unit.  */
 

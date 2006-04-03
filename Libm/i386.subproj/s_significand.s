@@ -9,6 +9,8 @@
 
 RCSID("$NetBSD: s_significand.S,v 1.5 2001/06/19 00:26:30 fvdl Exp $")
 
+//we have no idea what this does. It is not in any standard. Left in for compatibility.
+
 ENTRY(significand)
 	XMM_ONE_ARG_DOUBLE_PROLOGUE
 	fldl	ARG_DOUBLE_ONE

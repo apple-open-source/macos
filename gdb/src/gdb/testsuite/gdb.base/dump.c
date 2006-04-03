@@ -3,7 +3,10 @@
 #define ARRSIZE 32
 int intarray[ARRSIZE], intarray2[ARRSIZE];
 
-struct teststruct {
+/* APPLE LOCAL: Declare this static, to work around
+   <rdar://problem/4127694> ld on powerpc64 strips too much. */
+
+static struct teststruct {
   int a;
   int b;
   int c;

@@ -171,9 +171,16 @@ static void loopback_setup(void);
 static void workaround3048875(int argc, char *argv[]);
 static void reload_launchd_config(void);
 static int dir_has_files(const char *path);
+static void testfd_or_openfd(int fd, const char *path, int flags);
 static void setup_job_env(launch_data_t obj, const char *key, void *context);
 static void unsetup_job_env(launch_data_t obj, const char *key, void *context);
 
+static time_t cronemu(int mon, int mday, int hour, int min);
+static time_t cronemu_wday(int wday, int hour, int min);
+static bool cronemu_mon(struct tm *wtm, int mon, int mday, int hour, int min);
+static bool cronemu_mday(struct tm *wtm, int mday, int hour, int min);
+static bool cronemu_hour(struct tm *wtm, int hour, int min);
+static bool cronemu_min(struct tm *wtm, int min);
 
 static size_t total_children = 0;
 static pid_t readcfg_pid = 0;
@@ -192,20 +199,6 @@ int main(int argc, char *argv[])
 		SIGTERM, SIGURG, SIGTSTP, SIGTSTP, SIGCONT, /*SIGCHLD,*/
 		SIGTTIN, SIGTTOU, SIGIO, SIGXCPU, SIGXFSZ, SIGVTALRM, SIGPROF,
 		SIGWINCH, SIGINFO, SIGUSR1, SIGUSR2 };
-	void testfd_or_openfd(int fd, const char *path, int flags) {
-		int tmpfd;
-
-		if (-1 != (tmpfd = dup(fd))) {
-			close(tmpfd);
-		} else {
-			if (-1 == (tmpfd = open(path, flags))) {
-				syslog(LOG_ERR, "open(\"%s\", ...): %m", path);
-			} else if (tmpfd != fd) {
-				dup2(tmpfd, fd);
-				close(tmpfd);
-			}
-		}
-	};
 	struct kevent kev;
 	size_t i;
 	bool sflag = false, xflag = false, vflag = false, dflag = false;
@@ -333,11 +326,30 @@ static void pid1_magic_init(bool sflag, bool vflag, bool xflag)
 	int memmib[2] = { CTL_HW, HW_PHYSMEM };
 	int mvnmib[2] = { CTL_KERN, KERN_MAXVNODES };
 	int hnmib[2] = { CTL_KERN, KERN_HOSTNAME };
+#ifdef KERN_TFP
+	int tfp_r_mib[3] = { CTL_KERN, KERN_TFP, KERN_TFP_READ_GROUP };
+	int tfp_rw_mib[3] = { CTL_KERN, KERN_TFP, KERN_TFP_RW_GROUP };
+	gid_t tfp_r_gid = 0;
+	gid_t tfp_rw_gid = 0;
+	struct group *tfp_gr;
+#endif
 	uint64_t mem = 0;
 	uint32_t mvn;
 	size_t memsz = sizeof(mem);
 	int pthr_r;
-		
+
+#ifdef KERN_TFP
+	if ((tfp_gr = getgrnam("procview"))) {
+		tfp_r_gid = tfp_gr->gr_gid;
+		sysctl(tfp_r_mib, 3, NULL, NULL, &tfp_r_gid, sizeof(tfp_r_gid));
+	}
+
+	if ((tfp_gr = getgrnam("procmod"))) {
+		tfp_rw_gid = tfp_gr->gr_gid;
+		sysctl(tfp_rw_mib, 3, NULL, NULL, &tfp_rw_gid, sizeof(tfp_rw_gid));
+	}
+#endif
+
 	setpriority(PRIO_PROCESS, 0, -1);
 
 	if (setsid() == -1)
@@ -2276,81 +2288,27 @@ static int dir_has_files(const char *path)
 
 static void job_set_alarm(struct jobcb *j)
 {
-	struct tm otherlatertm, latertm, *nowtm;
-	time_t later, otherlater = 0, now = time(NULL);
+	time_t later;
 
-	nowtm = localtime(&now);
+	later = cronemu(j->start_cal_interval->tm_mon, j->start_cal_interval->tm_mday,
+			j->start_cal_interval->tm_hour, j->start_cal_interval->tm_min);
 
-	latertm = *nowtm;
+	if (j->start_cal_interval->tm_wday != -1) {
+		time_t otherlater = cronemu_wday(j->start_cal_interval->tm_wday,
+				j->start_cal_interval->tm_hour, j->start_cal_interval->tm_min);
 
-	latertm.tm_sec = 0;
-	latertm.tm_isdst = -1;
-
-
-	if (-1 != j->start_cal_interval->tm_min)
-		latertm.tm_min = j->start_cal_interval->tm_min;
-	if (-1 != j->start_cal_interval->tm_hour)
-		latertm.tm_hour = j->start_cal_interval->tm_hour;
-
-	otherlatertm = latertm;
-
-	if (-1 != j->start_cal_interval->tm_mday)
-		latertm.tm_mday = j->start_cal_interval->tm_mday;
-	if (-1 != j->start_cal_interval->tm_mon)
-		latertm.tm_mon = j->start_cal_interval->tm_mon;
-
-	/* cron semantics are fun */
-	if (-1 != j->start_cal_interval->tm_wday) {
-		int delta, realwday = j->start_cal_interval->tm_wday;
-
-		if (realwday == 7)
-			realwday = 0;
-		
-		delta = realwday - nowtm->tm_wday;
-		
-		/* Now Later Delta Desired
-		 *   0     6     6       6
-		 *   6     0    -6  7 + -6
-		 *   1     5     4       4
-		 *   5     1    -4  7 + -4
-		 */
-		if (delta > 0)
-			otherlatertm.tm_mday += delta;
-		else if (delta < 0)
-			otherlatertm.tm_mday += 7 + delta;
-		else if (-1 != j->start_cal_interval->tm_hour && otherlatertm.tm_hour <= nowtm->tm_hour)
-			otherlatertm.tm_mday += 7;
-		else if (-1 != j->start_cal_interval->tm_min && otherlatertm.tm_min <= nowtm->tm_min)
-			otherlatertm.tm_hour++;
-		else
-			otherlatertm.tm_min++;
-
-		otherlater = mktime(&otherlatertm);
-	}
-
-	if (-1 != j->start_cal_interval->tm_mon && latertm.tm_mon <= nowtm->tm_mon) {
-		latertm.tm_year++;
-	} else if (-1 != j->start_cal_interval->tm_mday && latertm.tm_mday <= nowtm->tm_mday) {
-		latertm.tm_mon++;
-	} else if (-1 != j->start_cal_interval->tm_hour && latertm.tm_hour <= nowtm->tm_hour) {
-		latertm.tm_mday++;
-	} else if (-1 != j->start_cal_interval->tm_min && latertm.tm_min <= nowtm->tm_min) {
-		latertm.tm_hour++;
-	} else {
-		latertm.tm_min++;
-	}
-
-	later = mktime(&latertm);
-
-	if (otherlater) {
-		if (-1 != j->start_cal_interval->tm_mday)
+		if (-1 != j->start_cal_interval->tm_mday) {
 			later = later < otherlater ? later : otherlater;
-		else
+		} else {
 			later = otherlater;
+		}
 	}
 
-	if (-1 == kevent_mod((uintptr_t)j->start_cal_interval, EVFILT_TIMER, EV_ADD, NOTE_ABSOLUTE|NOTE_SECONDS, later, &j->kqjob_callback))
+	if (-1 == kevent_mod((uintptr_t)j->start_cal_interval, EVFILT_TIMER, EV_ADD, NOTE_ABSOLUTE|NOTE_SECONDS, later, j)) {
 		job_log_error(j, LOG_ERR, "adding kevent alarm");
+	} else {
+		job_log(j, LOG_INFO, "scheduled to run again at: %s", ctime(&later));
+	}
 }
 
 static void job_log_error(struct jobcb *j, int pri, const char *msg, ...)
@@ -2399,4 +2357,184 @@ static void async_callback(void)
 	default:
 		syslog(LOG_DEBUG, "unexpected: kevent() returned something != 0, -1 or 1");
 	}
+}
+
+static void testfd_or_openfd(int fd, const char *path, int flags)
+{
+	int tmpfd;
+
+	if (-1 != (tmpfd = dup(fd))) {
+		close(tmpfd);
+	} else {
+		if (-1 == (tmpfd = open(path, flags))) {
+			syslog(LOG_ERR, "open(\"%s\", ...): %m", path);
+		} else if (tmpfd != fd) {
+			dup2(tmpfd, fd);
+			close(tmpfd);
+		}
+	}
+}
+
+time_t
+cronemu(int mon, int mday, int hour, int min)
+{
+	struct tm workingtm;
+	time_t now;
+
+	now = time(NULL);
+	workingtm = *localtime(&now);
+
+	workingtm.tm_isdst = -1;
+	workingtm.tm_sec = 0;
+	workingtm.tm_min++;
+
+	while (!cronemu_mon(&workingtm, mon, mday, hour, min)) {
+		workingtm.tm_year++;
+		workingtm.tm_mon = 0;
+		workingtm.tm_mday = 1;
+		workingtm.tm_hour = 0;
+		workingtm.tm_min = 0;
+		mktime(&workingtm);
+	}
+
+	return mktime(&workingtm);
+}
+
+time_t
+cronemu_wday(int wday, int hour, int min)
+{
+	struct tm workingtm;
+	time_t now;
+
+	now = time(NULL);
+	workingtm = *localtime(&now);
+
+	workingtm.tm_isdst = -1;
+	workingtm.tm_sec = 0;
+	workingtm.tm_min++;
+
+	if (wday == 7)
+		wday = 0;
+
+	while (workingtm.tm_wday != wday || !cronemu_hour(&workingtm, hour, min)) {
+		workingtm.tm_mday++;
+		workingtm.tm_hour = 0;
+		workingtm.tm_min = 0;
+		cronemu_hour(&workingtm, hour, min);
+		mktime(&workingtm);
+	}
+
+	return mktime(&workingtm);
+}
+
+bool
+cronemu_mon(struct tm *wtm, int mon, int mday, int hour, int min)
+{
+	if (mon == -1) {
+		struct tm workingtm = *wtm;
+		int carrytest;
+
+		while (!cronemu_mday(&workingtm, mday, hour, min)) {
+			workingtm.tm_mon++;
+			workingtm.tm_mday = 1;
+			workingtm.tm_hour = 0;
+			workingtm.tm_min = 0;
+			carrytest = workingtm.tm_mon;
+			mktime(&workingtm);
+			if (carrytest != workingtm.tm_mon)
+				return false;
+		}
+		*wtm = workingtm;
+		return true;
+	}
+
+        if (mon < wtm->tm_mon)
+		return false;
+
+        if (mon > wtm->tm_mon) {
+		wtm->tm_mon = mon;
+		wtm->tm_mday = 1;
+		wtm->tm_hour = 0;
+		wtm->tm_min = 0;
+	}
+
+	return cronemu_mday(wtm, mday, hour, min);
+}
+
+bool
+cronemu_mday(struct tm *wtm, int mday, int hour, int min)
+{
+	if (mday == -1) {
+		struct tm workingtm = *wtm;
+		int carrytest;
+
+		while (!cronemu_hour(&workingtm, hour, min)) {
+			workingtm.tm_mday++;
+			workingtm.tm_hour = 0;
+			workingtm.tm_min = 0;
+			carrytest = workingtm.tm_mday;
+			mktime(&workingtm);
+			if (carrytest != workingtm.tm_mday)
+				return false;
+		}
+		*wtm = workingtm;
+		return true;
+	}
+
+        if (mday < wtm->tm_mday)
+		return false;
+
+        if (mday > wtm->tm_mday) {
+		wtm->tm_mday = mday;
+		wtm->tm_hour = 0;
+		wtm->tm_min = 0;
+	}
+
+	return cronemu_hour(wtm, hour, min);
+}
+
+bool
+cronemu_hour(struct tm *wtm, int hour, int min)
+{
+	if (hour == -1) {
+		struct tm workingtm = *wtm;
+		int carrytest;
+
+		while (!cronemu_min(&workingtm, min)) {
+			workingtm.tm_hour++;
+			workingtm.tm_min = 0;
+			carrytest = workingtm.tm_hour;
+			mktime(&workingtm);
+			if (carrytest != workingtm.tm_hour)
+				return false;
+		}
+		*wtm = workingtm;
+		return true;
+	}
+
+	if (hour < wtm->tm_hour)
+		return false;
+
+	if (hour > wtm->tm_hour) {
+		wtm->tm_hour = hour;
+		wtm->tm_min = 0;
+	}
+
+	return cronemu_min(wtm, min);
+}
+
+bool
+cronemu_min(struct tm *wtm, int min)
+{
+	if (min == -1)
+		return true;
+
+	if (min < wtm->tm_min)
+		return false;
+
+	if (min > wtm->tm_min) {
+		wtm->tm_min = min;
+	}
+
+	return true;
 }

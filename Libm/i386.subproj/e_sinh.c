@@ -1,80 +1,128 @@
-/* @(#)e_sinh.c 5.1 93/09/24 */
 /*
- * ====================================================
- * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ * by Ian Ollmann
+ * Copyright © 2005 by Apple Computer. All rights reserved.
  *
- * Developed at SunPro, a Sun Microsystems, Inc. business.
- * Permission to use, copy, modify, and distribute this
- * software is freely granted, provided that this notice
- * is preserved.
- * ====================================================
+ *	Algorithm from mathLib v3
  */
 
-#include <sys/cdefs.h>
-#if defined(LIBM_SCCS) && !defined(lint)
-__RCSID("$NetBSD: e_sinh.c,v 1.10 1999/07/02 15:37:41 simonb Exp $");
-#endif
-
-/* __ieee754_sinh(x)
- * Method :
- * mathematically sinh(x) if defined to be (exp(x)-exp(-x))/2
- *	1. Replace x by |x| (sinh(-x) = -sinh(x)).
- *	2.
- *		                                    E + E/(E+1)
- *	    0        <= x <= 22     :  sinh(x) := --------------, E=expm1(x)
- *			       			        2
- *
- *	    22       <= x <= lnovft :  sinh(x) := exp(x)/2
- *	    lnovft   <= x <= ln2ovft:  sinh(x) := exp(x/2)/2 * exp(x/2)
- *	    ln2ovft  <  x	    :  sinh(x) := x*shuge (overflow)
- *
- * Special cases:
- *	sinh(x) is |x| if x is +INF, -INF, or NaN.
- *	only sinh(0)=0 is exact for finite x.
- */
 
 #include "math.h"
 #include "math_private.h"
 
-static const double one = 1.0, shuge = 1.0e307;
-
-#define __ieee754_exp exp
-
-double sinh(double x)
+float sinhf( float x )
 {
-	double t,w,h;
-	int32_t ix,jx;
-	u_int32_t lx;
+    static const float overflow = 88;      //~ln(2) * (128)
+    
+    float fabsx = __builtin_fabsf( x );
 
-    /* High word of |x|. */
-	GET_HIGH_WORD(jx,x);
-	ix = jx&0x7fffffff;
+	if( x != x )						return x + x;
+	if( fabsx == __builtin_inff() )		return x;
 
-    /* x is INF or NaN */
-	if(ix>=0x7ff00000) return x+x;
-
-	h = 0.5;
-	if (jx<0) h = -h;
-    /* |x| in [0,22], return sign(x)*0.5*(E+E/(E+1))) */
-	if (ix < 0x40360000) {		/* |x|<22 */
-	    if (ix<0x3e300000) 		/* |x|<2**-28 */
-		if(shuge+x>one) return x;/* sinh(tiny) = tiny with inexact */
-	    t = expm1(fabs(x));
-	    if(ix<0x3ff00000) return h*(2.0*t-t*t/(t+one));
-	    return h*(t+t/(t+one));
+	if( fabsx > 0x1.0p-12 )		//sqrt( negative epsilon )
+	{
+		if( fabsx < overflow )
+		{
+			fabsx = expm1f( fabsx );	
+			fabsx = 0.5f * ( fabsx + fabsx / (1.0f + fabsx ) );
+		}
+		else
+		{
+			fabsx = expf( 0.5f * fabsx );
+			fabsx = ( 0.5f * fabsx ) * fabsx;
+		}
+	}
+	else
+	{
+		if( x == 0.0f )
+			return x;
+	
+		//set inexact and underflow, if necessary
+		fabsx *= 0x1.0p25f;
+		fabsx += 0x1.0p-126f;
+		fabsx *= 0x1.0p-25f;		
 	}
 
-    /* |x| in [22, log(maxdouble)] return 0.5*exp(|x|) */
-	if (ix < 0x40862E42)  return h*__ieee754_exp(fabs(x));
+	if( x < 0.0f )
+		fabsx = -fabsx;
+	
+	return fabsx;
+}
 
-    /* |x| in [log(maxdouble), overflowthresold] */
-	GET_LOW_WORD(lx,x);
-	if (ix<0x408633CE || ((ix==0x408633ce)&&(lx<=(u_int32_t)0x8fb9f87d))) {
-	    w = __ieee754_exp(0.5*fabs(x));
-	    t = h*w;
-	    return t*w;
+double sinh( double x )
+{
+    static const double overflow = 709;      //~ln(2) * (1024)
+    
+    double fabsx = __builtin_fabs( x );
+
+	if( x != x )						return x + x;
+	if( fabsx == __builtin_inf() )		return x;
+
+	if( fabsx > 0x1.0p-27 )		//sqrt( negative epsilon )
+	{
+		if( fabsx < overflow )
+		{
+			fabsx = expm1( fabsx );	
+			fabsx = 0.5 * ( fabsx + fabsx / (1.0 + fabsx ) );
+		}
+		else
+		{
+			fabsx = exp( 0.5 * fabsx );
+			fabsx = ( 0.5 * fabsx ) * fabsx;
+		}
+	}
+	else
+	{
+		if( x == 0.0 )
+			return x;
+	
+		//set inexact and underflow, if necessary
+		fabsx *= 0x1.0p55;
+		fabsx += 0x1.0p-1022;
+		fabsx *= 0x1.0p-55;		
 	}
 
-    /* |x| > overflowthresold, sinh(x) overflow */
-	return x*shuge;
+	if( x < 0.0 )
+		fabsx = -fabsx;
+	
+	return fabsx;
+}
+
+
+long double sinhl( long double x )
+{
+    static const long double overflow = 11356;      //~ln(2)*16384
+    
+    long double fabsx = __builtin_fabsl( x );
+
+	if( x != x )						return x + x;
+	if( fabsx == __builtin_infl() )		return x;
+
+	if( fabsx > 0x1.0p-32 )		//sqrt( negative epsilon )
+	{
+		if( fabsx < overflow )
+		{
+			fabsx = expm1l( fabsx );	
+			fabsx = 0.5L * ( fabsx + fabsx / (1.0L + fabsx ) );
+		}
+		else
+		{
+			fabsx = expl( 0.5L * fabsx );
+			fabsx = ( 0.5L * fabsx ) * fabsx;
+		}
+	}
+	else
+	{
+		if( x == 0.0L )
+			return x;
+	
+		//set inexact and underflow, if necessary
+		fabsx *= 0x1.0p67;
+		fabsx += 0x1.0p-16382L;
+		fabsx *= 0x1.0p-67;		
+	}
+
+	if( x < 0.0 )
+		fabsx = -fabsx;
+	
+	return fabsx;
 }

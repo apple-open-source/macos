@@ -184,21 +184,31 @@ gdb_expect_list "breakpoint handle_USR1" "$gdb_prompt$" {
     "Breakpoint.*at 0x\[0-9a-z\]+: file.*annota3.c, line.*\r\n"
 }
 
+# APPLE LOCAL: In gcc 4.0 on Mac OS X, setting a breakpoint on
+# 'printf' actually sets a breakpoint on several functions
+# (printf$LDBL64, printf$LDBL128).  This causes the output of "info
+# break" and the breakpoint numbers to be different than those
+# expected by this test-case.  There's really no reason this test-case
+# needs to break on printf() proper, so the easiest fix is just to
+# change the calls of printf() to sleep(), and change the two calls to
+# printf() in annota3.c to calls to sleep().  We similarly change all
+# references to "printf" here to references to "sleep."
+
 #
-# break at printf. When we are stopped at printf, we can test 
+# break at sleep. When we are stopped at sleep, we can test 
 #
-send_gdb "break printf\n"
-gdb_expect_list "breakpoint printf" "$gdb_prompt$" {
+send_gdb "break sleep\n"
+gdb_expect_list "breakpoint sleep" "$gdb_prompt$" {
     "\r\n\032\032post-prompt\r\n"
     "\r\n\032\032breakpoints-invalid\r\n"
     "Breakpoint.*at 0x\[0-9a-z\]+.*"
 }
 
 #
-# get to printf
+# get to sleep
 #
 send_gdb "continue\n"
-gdb_expect_list "continue to printf" "$gdb_prompt$" {
+gdb_expect_list "continue to sleep" "$gdb_prompt$" {
     "\r\n\032\032post-prompt\r\n"
     "Continuing.\r\n"
     "\r\n\032\032starting\r\n"
@@ -212,7 +222,7 @@ gdb_expect_list "continue to printf" "$gdb_prompt$" {
 send_gdb "backtrace\n"
 gdb_expect_list "backtrace from shlibrary" "$gdb_prompt$" {
     "\r\n\032\032post-prompt\r\n"
-    "#0 .* printf \[^\r\n\]*\r\n"
+    "#0 .* sleep \[^\r\n\]*\r\n"
     "#1 .* main \[^\r\n\]*\r\n"
 }
 
@@ -246,7 +256,7 @@ send_gdb "backtrace\n"
 gdb_expect_list "backtrace @ signal handler" "$gdb_prompt$" {
     "#0 +handle_USR1 \[^\r\n\]+\r\n"
     "#1 +.signal handler called.\r\n"
-    "#2 .* printf \[^\r\n\]+\r\n"
+    "#2 .* sleep \[^\r\n\]+\r\n"
     "#3 .* main \[^\r\n\]+\r\n"
 }
 
@@ -312,9 +322,17 @@ gdb_expect {
 # breakpoint ignore count changes, after annotation stopped.
 #
 
-# APPLE LOCAL gdb_expect_list doesn't allow you to capture subexpressions...
-# I have to get the breakpoint number here, because the printf breakpoint might
+# APPLE LOCAL:
+#
+# Unfortunately, gdb_expect_list doesn't allow you to capture subexpressions.
+#
+# I have to get the breakpoint number here, because the sleep breakpoint might
 # generate an "equivalent breakpoint" somewhere else, putting off the count.
+#
+# This was originally implemented for printf(), and is probably no
+# longer necessary since sleep() doesn't generate equivalent
+# breakpoints like printf() does, but I'm leaving it in, as it's a
+# generally positive change.
 
 send_gdb "break 46\n"
 gdb_expect {

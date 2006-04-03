@@ -27,6 +27,11 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
+if [istarget "powerpc64-apple-darwin*"] {
+    verbose "Disable Objective-C tests on 64-bit PowerPC."
+    return
+}
+
 set testfile "objc-prog"
 set srcfile ${testfile}.m
 set binfile ${objdir}/${subdir}/${testfile}
@@ -96,7 +101,7 @@ gdb_test "p (unsigned int) \[\[NSString stringWithString:(NSString *)\[NSString 
 
 gdb_test "po \[NSNumber numberWithInt:10\]" "10"
 gdb_test "po \[NSNumber numberWithChar:'a'\]" "97"
-gdb_test "po \[NSNumber numberWithFloat:83.2090\]" "83.209"
+gdb_test "po \[NSNumber numberWithDouble:83.2090\]" "83.209"
 gdb_test "p (int) \[\[NSNumber numberWithInt:42\] intValue\]" " = 42"
 gdb_test "p (char) \[\[NSNumber numberWithInt:65\] intValue\]" " = 65 'A'"
 gdb_test "po \[\[NSString stringWithCString:\"booga booga\"\] substringToIndex:(int) \[\[NSNumber numberWithInt:5\] intValue\]\]" "booga"

@@ -1868,7 +1868,8 @@ enum byte_sex host_byte_sex)
 		    relocs[k].r_extern = 0;
 		}
 #endif /* NMEDIT */
-		if(saves[relocs[k].r_symbolnum] != -1){
+		if(relocs[k].r_extern == 1 &&
+		   saves[relocs[k].r_symbolnum] != -1){
 		    relocs[k].r_symbolnum = saves[relocs[k].r_symbolnum] - 1;
 		}
 	    }
@@ -1907,8 +1908,10 @@ long *missing_reloc_symbols)
     unsigned long k, index;
     uint8_t n_type;
     uint32_t n_strx;
+    enum bool made_local;
 
 	for(k = 0; k < nitems; k++){
+	    made_local = FALSE;
 	    index = object->output_indirect_symtab[reserved1 + k];
 	    if(index == INDIRECT_SYMBOL_LOCAL ||
 	       index == (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS))
@@ -1943,6 +1946,7 @@ long *missing_reloc_symbols)
 		    if((n_type & N_TYPE) == N_ABS)
 			object->output_indirect_symtab[reserved1 + k] |=
 				INDIRECT_SYMBOL_ABS;
+		    made_local = TRUE;
 		}
 #ifdef NMEDIT
 		else {
@@ -1958,14 +1962,14 @@ long *missing_reloc_symbols)
 			*missing_reloc_symbols = 1;
 		    }
 		    fprintf(stderr, "%s\n", strings + n_strx);
+		    saves[index] = -1;
 		}
-		saves[index] = -1;
 #endif /* !defined(NMEDIT) */
 	    }
 #ifdef NMEDIT
 	    else
 #else /* !defined(NMEDIT) */
-	    if(saves[index] != -1)
+	    if(made_local == FALSE && saves[index] != -1)
 #endif /* !defined(NMEDIT) */
 	    {
 		object->output_indirect_symtab[reserved1+k] = saves[index] - 1;

@@ -53,7 +53,7 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 4.3.11
+AEP_Version    = 4.4.1
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -61,7 +61,9 @@ AEP_Patches    = TSRM__build.mk.diff TSRM__buildconf.diff \
                  Zend__build.mk.diff Zend__buildconf.diff \
                  ext__mbstring__libmbfl__buildconf.diff \
                  ext__mbstring__libmbfl__config.h.diff \
-		 NLS_remove_BIND8.patch
+		 NLS_remove_BIND8.patch \
+                 Makefile.diff \
+                 squirrelmail.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

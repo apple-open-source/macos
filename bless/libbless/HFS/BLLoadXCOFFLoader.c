@@ -27,9 +27,19 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Feb 28 2002.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLLoadXCOFFLoader.c,v 1.16 2005/02/03 00:42:25 ssen Exp $
+ *  $Id: BLLoadXCOFFLoader.c,v 1.18 2005/08/22 20:49:23 ssen Exp $
  *
  *  $Log: BLLoadXCOFFLoader.c,v $
+ *  Revision 1.18  2005/08/22 20:49:23  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.17  2005/06/24 16:39:50  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.16  2005/02/03 00:42:25  ssen
  *  Update copyrights to 2005
  *
@@ -106,7 +116,7 @@
 static CFDataRef convertXCOFFImage (BLContextPtr context, CFDataRef rawImage, uint32_t *entryP,
 			     uint32_t *loadBaseP, uint32_t *loadSizeP);
 
-int BLLoadXCOFFLoader(BLContextPtr context, const unsigned char xcoff[],
+int BLLoadXCOFFLoader(BLContextPtr context, const char * xcoff,
                             uint32_t *entrypoint, uint32_t *loadbase,
                             uint32_t *size, uint32_t *checksum,
                             CFDataRef *data) {
@@ -259,7 +269,7 @@ static CFDataRef convertXCOFFImage (BLContextPtr context, CFDataRef rawImage, ui
   highestAddress = (highestAddress + kPageSize - 1) & -kPageSize;
   partImageSize = highestAddress - lowestAddress;
 
-  partImageP = (char *)calloc(partImageSize, sizeof(char));
+  partImageP = (uint8_t *)calloc(partImageSize, sizeof(char));
   if (partImageP == 0) {
     contextprintf(context, kBLLogLevelError,  "Can't allocate memory (%u bytes) for SecondaryLoader image\n", partImageSize );
     return NULL;

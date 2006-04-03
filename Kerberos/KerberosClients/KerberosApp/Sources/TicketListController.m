@@ -1,7 +1,7 @@
 /*
  * TicketListController.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/TicketListController.m,v 1.19 2005/05/25 20:41:43 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

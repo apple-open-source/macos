@@ -1,7 +1,7 @@
 /*
  * CCILock.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/Lock.h,v 1.3 2003/03/17 20:48:41 lxs Exp $
+ * $Header$
  */
  
 #include "CCache.h"

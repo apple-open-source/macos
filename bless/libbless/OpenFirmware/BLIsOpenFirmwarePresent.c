@@ -27,9 +27,12 @@
  *  Created by Shantonu Sen on Tue Jul 22 2003.
  *  Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLIsOpenFirmwarePresent.c,v 1.9 2005/02/03 00:42:29 ssen Exp $
+ *  $Id: BLIsOpenFirmwarePresent.c,v 1.10 2005/07/29 18:28:25 ssen Exp $
  *
  *  $Log: BLIsOpenFirmwarePresent.c,v $
+ *  Revision 1.10  2005/07/29 18:28:25  ssen
+ *  use new BLGetPreBootEnvironmentType()
+ *
  *  Revision 1.9  2005/02/03 00:42:29  ssen
  *  Update copyrights to 2005
  *
@@ -79,48 +82,17 @@
 
 int BLIsOpenFirmwarePresent(BLContextPtr context) {
 
-    const char path[] = kIODeviceTreePlane ":" kBootRomPath;
-    kern_return_t ret;
-    io_registry_entry_t entry = 0;
-    CFMutableDictionaryRef props = NULL;
-    CFDataRef model = NULL;
-    mach_port_t	masterPort;
-    
-    ret = IOMasterPort( MACH_PORT_NULL, &masterPort );
-    if(ret) return 0;
-    
-    entry = IORegistryEntryFromPath(masterPort, path);
+  BLPreBootEnvType preboot;
+  int ret;
 
-    if(entry == 0) {
-	contextprintf(context, kBLLogLevelVerbose,  "%s not present in IORegistry. OpenFirmware not present\n", path);
-	return 0;
-    }
+  ret = BLGetPreBootEnvironmentType(context, &preboot);
 
+  // on error, assume no OF
+  if(ret) return 0;
 
-    ret = IORegistryEntryCreateCFProperties(entry, &props,
-					    kCFAllocatorDefault, 0);
-
-    if(ret) {
-	contextprintf(context, kBLLogLevelError, "Could not get entry properties\n");
-	CFRelease(props);
-	IOObjectRelease(entry);
-	return 0;
-    }
-
-    model = CFDictionaryGetValue(props, CFSTR("model"));
-    if(model == NULL) {
-	contextprintf(context, kBLLogLevelVerbose,  "No 'model' property for %s\n", path);
-	CFRelease(props);
-	IOObjectRelease(entry);
-	return 0;
-    }
-
-    contextprintf(context, kBLLogLevelVerbose, "%s found\n", path);
-
-    contextprintf(context, kBLLogLevelVerbose, "OpenFirmware model is \"%*s\"\n", (int)CFDataGetLength(model), CFDataGetBytePtr(model));
-    
-    CFRelease(props);
-    IOObjectRelease(entry);
-
+  if(preboot == kBLPreBootEnvType_OpenFirmware)
     return 1;
+  else
+    return 0;
+
 }

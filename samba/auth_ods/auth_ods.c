@@ -27,16 +27,12 @@
 
 #include <DirectoryService/DirectoryService.h>
 #include <libopendirectorycommon.h>
-#if WITH_SACL
-#include <membershipPriv.h>
-#define kSMBServiceACL "smb"
-#endif
 
 tDirNodeReference getusernode(tDirReference dirRef, const char *userName)
 {
     tDirStatus			status			= eDSNoErr;
     long			bufferSize		= 1024 * 10;
-    long			returnCount		= 0;
+    unsigned long			returnCount		= 0;
     tDataBufferPtr	dataBuffer		= NULL;
   	tDirNodeReference		searchNodeRef		= 0;
     tDataListPtr		searchNodeName		= NULL;
@@ -163,7 +159,7 @@ static NTSTATUS map_dserr_to_nterr(tDirStatus dirStatus)
 	};
 }
 
-tDirStatus opendirectory_auth_user(tDirReference dirRef, tDirNodeReference userNode, const char* user, char *challenge, char *password, char *inAuthMethod)
+tDirStatus opendirectory_auth_user(tDirReference dirRef, tDirNodeReference userNode, const char* user, u_int8_t *challenge, u_int8_t *password, char *inAuthMethod)
 {
 	tDirStatus 		status			= eDSNoErr;
 	tDirStatus 		bufferStatus	= eDSNoErr;
@@ -239,50 +235,7 @@ tDirStatus opendirectory_auth_user(tDirReference dirRef, tDirNodeReference userN
 
 
 }
-#if WITH_SACL
-/*
-	check_sacl(const char *inUser, const char *inService) - Check Service ACL
-		inUser - username in utf-8
-		inService - name of the service in utf-8
-		
-		NOTE: the service name is not the group name, the transformation currently goes like
-			this: "service" -> "com.apple.access_service"
-			
-	returns
-		1 if the user is authorized (or no ACL exists)
-		0 if the user is not authorized or does not exist
 
-*/
-int		check_sacl(const char *inUser, const char *inService)
-{
-	uuid_t	user_uuid;
-	int		isMember = 0;
-	int		mbrErr = 0;
-	
-	// get the uuid
-	if(mbr_user_name_to_uuid(inUser, user_uuid))
-	{
-		return 0;
-	}	
-	
-	// check the sacl
-	if((mbrErr = mbr_check_service_membership(user_uuid, inService, &isMember)))
-	{
-		if(mbrErr == ENOENT)	// no ACL exists
-		{
-			return 1;	
-		} else {
-			return 0;
-		}
-	}
-	if(isMember == 1)
-	{
-		return 1;
-	} else {
-		return 0;
-	}
-}
-#endif
 tDirStatus opendirectory_ntlmv2_auth_user(tDirReference dirRef, tDirNodeReference userNode, const char* user, const char* domain,
 										const DATA_BLOB *sec_blob, const DATA_BLOB *ntv2_response, DATA_BLOB *user_sess_key)
 {
@@ -395,10 +348,9 @@ static tDirStatus opendirectory_smb_pwd_check_ntlmv1(tDirReference dirRef, tDirN
 				const DATA_BLOB *sec_blob,
 				DATA_BLOB *user_sess_key)
 {
-	/* Finish the encryption of part_passwd. */
-	uchar p24[24];
     tDirStatus	status	= eDSAuthFailed;
-    tDirStatus	keyStatus = eDSNoErr;
+    tDirStatus	keyStatus	= eDSAuthFailed;
+	u_int32_t key_length = 0;
 
 	
 	if (sec_blob->length != 8) {
@@ -411,31 +363,30 @@ static tDirStatus opendirectory_smb_pwd_check_ntlmv1(tDirReference dirRef, tDirN
 		return eDSAuthFailed;
 	}
 
-    status = opendirectory_auth_user(dirRef, userNode, user, sec_blob->data, nt_response->data, inAuthMethod);
-	
-	if (eDSNoErr == status)
+ 	if (user_sess_key != NULL)
 	{
+		*user_sess_key = data_blob(NULL, 16);
+		become_root();
+		status = opendirectory_user_auth_and_session_key(dirRef, userNode, user, sec_blob->data, nt_response->data, user_sess_key->data, &key_length, NULL);
+		unbecome_root();
+	}
+	
+	if (eDSAuthMethodNotSupported == status || eNotHandledByThisNode == status)
+	{
+   		status = opendirectory_auth_user(dirRef, userNode,(const char*) user, sec_blob->data, nt_response->data, inAuthMethod);
+		DEBUG(1, ("opendirectory_smb_pwd_check_ntlmv1: [%d]opendirectory_auth_user\n", status));	
 		if (user_sess_key != NULL)
 		{
 			*user_sess_key = data_blob(NULL, 16);
 			become_root();
-			keyStatus = opendirectory_user_session_key(user, user_sess_key->data, NULL);
+			keyStatus = opendirectory_user_session_key(dirRef, userNode, user, user_sess_key->data, NULL);
 			unbecome_root();
 			DEBUG(2, ("opendirectory_smb_pwd_check_ntlmv1: [%d]opendirectory_user_session_key\n", keyStatus));
 		}
 	} else {
-		DEBUG(1, ("opendirectory_smb_pwd_check_ntlmv1: [%d]opendirectory_auth_user\n", status));	
+		DEBUG(1, ("opendirectory_smb_pwd_check_ntlmv1: [%d]opendirectory_user_auth_and_session_key key_length(%d)\n", status, key_length));	
 	}
 		
-#if DEBUG_PASSWORD
-	DEBUG(100,("Password from client was |"));
-	dump_data(100, nt_response->data, nt_response->length);
-	DEBUG(100,("Given challenge was |"));
-	dump_data(100, sec_blob->data, sec_blob->length);
-	DEBUG(100,("Value from encryption was |"));
-	dump_data(100, p24, 24);
-#endif
-
  return (status);
 }
 
@@ -483,13 +434,6 @@ static tDirStatus opendirectory_smb_pwd_check_ntlmv2(tDirReference dirRef, tDirN
 			DEBUG(2, ("opendirectory_smb_pwd_check_ntlmv2: [%d]opendirectory_[%s]user_session_key len(%d)\n", keyStatus, ntv2_response->length == 24 ? "LMv2" : "NTLMv2", session_key_len));
 		}
 	}
-
-#if DEBUG_PASSWORD
-	DEBUGADD(100,("Password from client was |\n"));
-	dump_data(100, ntv2_response->data, ntv2_response->length);
-	DEBUGADD(100,("Variable data from client was |\n"));
-	dump_data(100, sec_blob->data, sec_blob->length);
-#endif
 
  return (status);
 
@@ -908,13 +852,7 @@ static NTSTATUS check_opendirectory_security(const struct auth_context *auth_con
 		pdb_free_sam(&sampass);
 		return nt_status;
 	}
-#if WITH_SACL
-	if (check_sacl(pdb_get_username(sampass), kSMBServiceACL) == 0)
-	{
-		DEBUG(0,("check_opendirectory_security: check_sacl(%s, smb) failed \n", pdb_get_username(sampass)));
-		return NT_STATUS_WRONG_PASSWORD;	
-	}
-#endif
+
 	if (!NT_STATUS_IS_OK(nt_status = make_server_info_sam(server_info, sampass))) {		
 		DEBUG(0,("check_opendirectory_security: make_server_info_sam() failed with '%s'\n", nt_errstr(nt_status)));
 		return nt_status;

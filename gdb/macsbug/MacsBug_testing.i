@@ -5,7 +5,7 @@
  |            Separate place to "bread board", test, and expirement with gdb            |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -142,7 +142,7 @@ static void testd(char *arg, int from_tty)
 
 static void testw(char *arg, int from_tty)
 {
-    gdb_testw(arg, from_tty);
+    gdb_testw(arg);
 }
 
 static void testx(char *arg, int from_tty)

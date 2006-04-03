@@ -189,17 +189,20 @@ proc do_function_calls {} {
     # and attempting a jump through that (a totally random address).
     setup_kfail "rs6000*-*-aix*" gdb/1457
     setup_kfail "powerpc*-*-aix*" gdb/1457
-    setup_kfail "powerpc64*-*-*" gdb/1457
+    # APPLE LOCAL: Works on powerpc64-apple-darwin*
+    #setup_kfail "powerpc64*-*-*" gdb/1457
     setup_kfail hppa*-*-hpux* gdb/1457
     gdb_test "p t_func_values(add,func_val2)" " = 1"
     setup_kfail "rs6000*-*-aix*" gdb/1457
     setup_kfail "powerpc*-*-aix*" gdb/1457
-    setup_kfail "powerpc64*-*-*" gdb/1457
+    # APPLE LOCAL: Works on powerpc64-apple-darwin*
+    #setup_kfail "powerpc64*-*-*" gdb/1457
     setup_kfail hppa*-*-hpux* gdb/1457
     gdb_test "p t_func_values(func_val1,doubleit)" " = 1"
     setup_kfail "rs6000*-*-aix*" gdb/1457
     setup_kfail "powerpc*-*-aix*" gdb/1457
-    setup_kfail "powerpc64*-*-*" gdb/1457
+    # APPLE LOCAL: Works on powerpc64-apple-darwin*
+    #setup_kfail "powerpc64*-*-*" gdb/1457
     setup_kfail hppa*-*-hpux* gdb/1457
     gdb_test "p t_call_add(add,3,4)" " = 7"
     gdb_test "p t_call_add(func_val1,3,4)" " = 7"
@@ -250,6 +253,13 @@ proc do_get_all_registers { } {
     gdb_expect {
 	-re "info all-registers\r\n(.*)$gdb_prompt $" {
 	    set all_registers_content $expect_out(1,string)
+	    # APPLE LOCAL: Our GDB occasionally writes out a second \r
+	    # at the end of the line when running under expect (filed
+	    # as #).  It's not really relevant to this test-case, and
+	    # intermittent failures are annoying, so let's just strip
+	    # them out here so we won't end up messing up the compares
+	    # later.
+	    regsub -all \r\r $all_registers_content \r all_registers_content
 	}
 	default {}
     }

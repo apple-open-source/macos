@@ -30,7 +30,7 @@
 **  This code is in the public domain and has no copyright.
 */
 
-/* $Id: parsedate.y,v 1.34.2.7 2004/04/08 19:21:46 derick Exp $ */
+/* $Id: parsedate.y,v 1.34.2.8 2005/05/20 11:13:14 derick Exp $ */
 
 #include "php.h"
 
@@ -1761,7 +1761,7 @@ static TABLE const OtherTable[] = {
     { "now",		tDAY_UNIT,	0 },
     { "last",		tUNUMBER,	-1 },
     { "this",		tUNUMBER,	0 },
-    { "next",		tUNUMBER,	2 },
+    { "next",		tUNUMBER,	1 },
     { "first",		tUNUMBER,	1 },
 /*  { "second",		tUNUMBER,	2 }, */
     { "third",		tUNUMBER,	3 },

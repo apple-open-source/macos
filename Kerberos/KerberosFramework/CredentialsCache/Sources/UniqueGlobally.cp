@@ -7,7 +7,9 @@
 
 #if defined (__GNUC__) && (__GNUC__ > 3)
 
+#if CCache_ContainsSharedStaticData
 template <class T> CCISharedStaticData      <struct CCIUniqueGlobally <T>::Globals> CCIUniqueGlobally <T>::sGlobals;
+#endif
 template <class T> CCISharedStaticDataProxy <struct CCIUniqueGlobally <T>::Globals> CCIUniqueGlobally <T>::sGlobalsProxy = sGlobals;
 
 #else

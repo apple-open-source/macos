@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.244.2.36 2004/05/12 16:49:56 iliaa Exp $ */
+/* $Id: pgsql.c,v 1.244.2.40.2.1 2005/07/05 12:50:03 derick Exp $ */
 
 #include <stdlib.h>
 
@@ -100,7 +100,9 @@ function_entry pgsql_functions[] = {
 	PHP_FE(pg_fetch_array,	NULL)
 	PHP_FE(pg_fetch_object,	NULL)
 	PHP_FE(pg_fetch_all,	NULL)
+#if HAVE_PQCMDTUPLES
 	PHP_FE(pg_affected_rows,NULL)
+#endif
 	PHP_FE(pg_get_result,	NULL)
 	PHP_FE(pg_result_seek,	NULL)
 	PHP_FE(pg_result_status,NULL)
@@ -161,7 +163,9 @@ function_entry pgsql_functions[] = {
 	/* aliases for downwards compatibility */
 	PHP_FALIAS(pg_exec,          pg_query,          NULL)
 	PHP_FALIAS(pg_getlastoid,    pg_last_oid,       NULL)
+#if HAVE_PQCMDTUPLES
 	PHP_FALIAS(pg_cmdtuples,	 pg_affected_rows,  NULL)
+#endif
 	PHP_FALIAS(pg_errormessage,	 pg_last_error,     NULL)
 	PHP_FALIAS(pg_numrows,		 pg_num_rows,       NULL)
 	PHP_FALIAS(pg_numfields,	 pg_num_fields,     NULL)
@@ -1077,6 +1081,7 @@ PHP_FUNCTION(pg_num_fields)
 }
 /* }}} */
 
+#if HAVE_PQCMDTUPLES
 /* {{{ proto int pg_affected_rows(resource result)
    Returns the number of affected tuples */
 PHP_FUNCTION(pg_affected_rows)
@@ -1084,6 +1089,7 @@ PHP_FUNCTION(pg_affected_rows)
 	php_pgsql_get_result_info(INTERNAL_FUNCTION_PARAM_PASSTHRU,PHP_PG_CMD_TUPLES);
 }
 /* }}} */
+#endif
 
 /* {{{ proto string pg_last_notice(resource connection)
    Returns the last notice set by the backend */
@@ -2601,6 +2607,7 @@ PHP_FUNCTION(pg_copy_from)
 	zval **tmp;
 	char *table_name, *pg_delim = NULL, *pg_null_as = NULL;
 	int  table_name_len, pg_delim_len, pg_null_as_len;
+	int  pg_null_as_free = 0;
 	char *query;
 	char *query_template = "COPY \"\" FROM STDIN DELIMITERS ':' WITH NULL AS ''";
 	HashPosition pos;
@@ -2620,6 +2627,7 @@ PHP_FUNCTION(pg_copy_from)
 	}
 	if (!pg_null_as) {
 		pg_null_as = safe_estrdup("\\\\N");
+		pg_null_as_free = 1;
 	}
 
 	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, &pgsql_link, id, "PostgreSQL link", le_link, le_plink);
@@ -2632,7 +2640,9 @@ PHP_FUNCTION(pg_copy_from)
 	}
 	pgsql_result = PQexec(pgsql, query);
 
-	efree(pg_null_as);
+	if (pg_null_as_free) {
+		efree(pg_null_as);
+	}
 	efree(query);
 
 	if (pgsql_result) {
@@ -3119,11 +3129,16 @@ PHP_FUNCTION(pg_get_notify)
 	PGnotify *pgsql_notify;
 
 	if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "r|l",
-								 &pgsql_link) == FAILURE) {
+								 &pgsql_link, &result_type) == FAILURE) {
 		RETURN_FALSE;
 	}
 
 	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, &pgsql_link, id, "PostgreSQL link", le_link, le_plink);
+
+	if (!(result_type & PGSQL_BOTH)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid result type");
+		RETURN_FALSE;
+	}
 
 	PQconsumeInput(pgsql);
 	pgsql_notify = PQnotifies(pgsql);
@@ -3132,11 +3147,11 @@ PHP_FUNCTION(pg_get_notify)
 		RETURN_FALSE;
 	}
 	array_init(return_value);
-	if (result_type & (PGSQL_NUM|PGSQL_BOTH)) {
+	if (result_type & PGSQL_NUM) {
 		add_index_string(return_value, 0, pgsql_notify->relname, 1);
 		add_index_long(return_value, 1, pgsql_notify->be_pid);
 	}
-	if (result_type & (PGSQL_ASSOC|PGSQL_BOTH)) {
+	if (result_type & PGSQL_ASSOC) {
 		add_assoc_string(return_value, "message", pgsql_notify->relname, 1);
 		add_assoc_long(return_value, "pid", pgsql_notify->be_pid);
 	}

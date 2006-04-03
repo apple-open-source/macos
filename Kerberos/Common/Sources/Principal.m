@@ -1,7 +1,7 @@
 /*
  * Principal.m
  *
- * $Header: /cvs/kfm/Common/Sources/Principal.m,v 1.4 2004/10/04 17:47:34 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

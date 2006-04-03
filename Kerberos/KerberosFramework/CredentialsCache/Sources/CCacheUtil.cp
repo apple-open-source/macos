@@ -41,7 +41,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/CCacheUtil.cp,v 1.9 2003/03/17 20:47:03 lxs Exp $ */
+/* $Header$ */
 
 /*************************************************************
  *

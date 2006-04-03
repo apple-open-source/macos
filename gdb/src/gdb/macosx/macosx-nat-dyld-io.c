@@ -58,7 +58,12 @@ inferior_read (PTR iodata, PTR data, bfd_size_type size, bfd_size_type nitems,
 
   CHECK_FATAL (iptr != NULL);
 
-  if (strcmp (current_target.to_shortname, "macos-child") != 0)
+  /* The target may be "macos-child" in the case of a regular process,
+     or it may be "remote" in the case of a translated (Rosetta)
+     application where we're controlling it via remote protocol.  */
+
+  if (strcmp (current_target.to_shortname, "macos-child") != 0
+      && strcmp (current_target.to_shortname, "remote") != 0)
     {
       bfd_set_error (bfd_error_no_contents);
       return 0;
@@ -91,7 +96,12 @@ mach_o_inferior_read (PTR iodata, PTR data, bfd_size_type size,
 
   CHECK_FATAL (iptr != NULL);
 
-  if (strcmp (current_target.to_shortname, "macos-child") != 0)
+  /* The target may be "macos-child" in the case of a regular process,
+     or it may be "remote" in the case of a translated (Rosetta)
+     application where we're controlling it via remote protocol.  */
+
+  if (strcmp (current_target.to_shortname, "macos-child") != 0
+      && strcmp (current_target.to_shortname, "remote") != 0)
     {
       bfd_set_error (bfd_error_no_contents);
       return 0;
@@ -112,7 +122,8 @@ mach_o_inferior_read (PTR iodata, PTR data, bfd_size_type size,
     for (i = 0; i < mdata->header.ncmds; i++)
       {
         struct bfd_mach_o_load_command *cmd = &mdata->commands[i];
-        if (cmd->type == BFD_MACH_O_LC_SEGMENT)
+        if (cmd->type == BFD_MACH_O_LC_SEGMENT
+	    || cmd->type == BFD_MACH_O_LC_SEGMENT_64)
           {
             struct bfd_mach_o_segment_command *segment =
               &cmd->command.segment;

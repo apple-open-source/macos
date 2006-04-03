@@ -30,7 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 @@ifc
 /* APPLE LOCAL CW asm blocks */
-%expect 15 /* shift/reduce conflicts, and no reduce/reduce conflicts.  */
+%expect 16 /* shift/reduce conflicts, and no reduce/reduce conflicts.  */
 @@end_ifc
 
 %{
@@ -252,12 +252,12 @@ do {									\
 %type <ttype> identifiers_or_typenames
 
 /* APPLE LOCAL begin CW asm blocks */
-%type <ttype> cw_identifier
+%type <ttype> cw_identifier cw_identifier1 cw_maybe_prefix
 %type <exprtype> cw_asm_expr_no_commas cw_asm_unary_expr 
 %type <exprtype> cw_asm_primary
 %type <ttype> cw_asm_operands cw_nonnull_asm_operands 
 %type <exprtype> cw_asm_operand
-%type <ttype> cw_asm_stmt single_cw_asm_stmt
+%type <ttype> cw_asm_stmt cw_asm_stmt_nobol single_cw_asm_stmt
 %type <ttype> cw_asm_compstmt cw_asm_compstmt_start 
 /*cw_asm_compstmt_nostart */
 /* APPLE LOCAL end CW asm blocks */
@@ -378,8 +378,14 @@ static int yylexname (void);
 static inline int _yylex (void);
 static int  yylex (void);
 static void init_reswords (void);
-/* APPLE LOCAL CW asm blocks */
+/* APPLE LOCAL begin CW asm blocks */
 static int cw_asm_lineno = 0;
+#ifndef CW_SEE_OPCODE
+#define CW_SEE_OPCODE(YYCHAR, T) YYCHAR
+#endif
+
+static tree c_parse_cw_maybe_prefix (tree id);
+/* APPLE LOCAL end CW asm blocks */
 
   /* Initialization routine for this file.  */
 void
@@ -1526,6 +1532,9 @@ nested_function:
 	declarator
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids nested functions");
+/* APPLE LOCAL begin 4258406 */
+		    error ("nested functions are not supported on MacOSX");
+/* APPLE LOCAL end 4258406 */
 
 		  push_function_context ();
 		  if (!start_function (current_declspecs, $1,
@@ -1556,6 +1565,9 @@ notype_nested_function:
 	notype_declarator
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids nested functions");
+/* APPLE LOCAL begin 4258406 */
+		    error ("nested functions are not on MacOSX");
+/* APPLE LOCAL end 4258406 */
 
 		  push_function_context ();
 		  if (!start_function (current_declspecs, $1,
@@ -2083,10 +2095,21 @@ compstmt: compstmt_start compstmt_nostart
 	;
 
 /* APPLE LOCAL begin CW asm blocks */
-/* A CW-style asm statement is recognized by having a BOL token preceding it.  */
-cw_asm_stmt: CW_ASM_BOL save_location cw_asm_stmt_list CW_ASM_EOL
+cw_save_location: save_location
+		{ cw_asm_lineno = input_line; }
+	;
 
-{ $$ = NULL_TREE; }
+/* A CW-style asm statement is recognized by having a BOL token preceding it.  */
+cw_asm_stmt: CW_ASM_BOL cw_save_location cw_asm_stmt_list CW_ASM_EOL
+		{ $$ = NULL_TREE; }
+	;
+
+cw_asm_stmt_nobol: cw_save_location cw_asm_stmt_list CW_ASM_EOL
+		{
+		  $$ = NULL_TREE;
+		  cw_asm_state = cw_asm_none;
+		  cw_asm_at_bol = 0;
+		}
 	;
 
 /* A single line may have multiple statements separated by ';'.  */
@@ -2094,28 +2117,62 @@ cw_asm_stmt_list:
 	  /* empty */
 	| single_cw_asm_stmt
 		{}
-	| cw_asm_stmt_list ';' single_cw_asm_stmt
-	| cw_asm_stmt_list ';'
+	| cw_asm_stmt_list ';' cw_maybe_comment single_cw_asm_stmt
+	| cw_asm_stmt_list ';' cw_maybe_comment
+	| cw_asm_stmt_list ASM_KEYWORD single_cw_asm_stmt
+	| cw_asm_stmt_list ASM_KEYWORD cw_maybe_comment
+	;
+
+cw_maybe_comment:
+		{
+		  if (flag_ms_asms)
+		    {
+		      cw_skip_to_eol ();
+		      yychar = YYEMPTY;
+		    }
+		}
 	;
 
 cw_identifier:
+	  cw_identifier1 ' '
+		{ $$ = $1; }
+	| cw_identifier1
+		{ $$ = $1; cw_split_next = 0; }
+	;
+
+cw_identifier1:
 	  identifier
-	| cw_identifier '.'
-	  { $$ = cw_get_identifier ($1, "."); }
-	| cw_identifier '+'
-	  { $$ = cw_get_identifier ($1, "+"); }
-	| cw_identifier '-'
-	  { $$ = cw_get_identifier ($1, "-"); }
+		{
+		  if (cw_split_next &&
+		      (yychar == '.'
+		       || yychar == '+'
+		       || yychar == '-'))
+		    {
+		      cw_insert_saved_token ();
+		      yychar = ' ';
+		    }
+		}
+	| cw_identifier1 '.'
+		{ $$ = cw_get_identifier ($1, "."); }
+	| cw_identifier1 '+'
+		{ $$ = cw_get_identifier ($1, "+"); }
+	| cw_identifier1 '-'
+		{ $$ = cw_get_identifier ($1, "-"); }
 	| '.' identifier
-	  { $$ = prepend_char_identifier ($2, '.'); }
+		{ $$ = prepend_char_identifier ($2, '.'); }
+	;
+
+cw_maybe_prefix:
+	  cw_identifier
+		{ $$ = c_parse_cw_maybe_prefix ($1); }
 	;
 
 /* A single statement consists of one or more labels (identified by a
    leading '@' and/or a trailing ':'), optionally followed by opcode
    and operands.  */
 single_cw_asm_stmt:
-	  cw_identifier
-		{ cw_asm_lineno = input_line; cw_asm_in_operands = 1; }
+	  cw_maybe_prefix
+		{ cw_asm_in_operands = 1; }
 	  cw_asm_operands
 		{ $$ = cw_asm_stmt ($1, $3, cw_asm_lineno); }
 	| identifier STATIC cw_asm_operand
@@ -2134,6 +2191,10 @@ cw_asm_label:
 	| '@' identifier
 		{ cw_asm_label ($2, 1); }
 	| '@' identifier ':'
+		{ cw_asm_label ($2, 1); }
+	| '@' CONSTANT
+		{ cw_asm_label ($2, 1); }
+	| '@' CONSTANT ':'
 		{ cw_asm_label ($2, 1); }
 	;
 
@@ -2160,6 +2221,33 @@ cw_asm_compstmt_start: ASM_KEYWORD '{'
 		    /* This will probably choke badly... */
 		    error ("asm blocks not enabled, use `-fasm-blocks'");
 		  $$ = c_begin_compound_stmt (true);
+		}
+        ;
+
+cw_asm_compstmt: ASM_KEYWORD
+		{
+		  if (flag_cw_asm_blocks)
+		    {
+		      cw_asm_state = cw_asm_asm;
+		      inside_cw_asm_block = 1;
+		      clear_cw_asm_labels ();
+		      if (yychar == ';' && flag_ms_asms)
+			{
+			  cw_skip_to_eol ();
+			  yychar = YYEMPTY;
+			}
+		      yychar = CW_SEE_OPCODE (yychar, yylval.ttype);
+		    }
+		  else
+		    /* This will probably choke badly... */
+		    error ("asm blocks not enabled, use `-fasm-blocks'");
+		  $<ttype>$ = c_begin_compound_stmt (true);
+		}
+	  cw_asm_stmt_nobol
+		{
+		  $$ = c_finish_expr_stmt ($3);
+		  inside_cw_asm_block = 0;
+		  $<ttype>$ = c_end_compound_stmt ($<ttype>2, true);
 		}
         ;
 
@@ -2385,9 +2473,9 @@ stmt_nocomp:
 	| switch_statement
 		{ $$ = NULL_TREE; }
 	/* APPLE LOCAL begin CW asm blocks */
-	| cw_asm_compstmt 
+	| cw_asm_compstmt
 		{ $$ = c_finish_expr_stmt ($1); }
-	| cw_asm_stmt 
+	| cw_asm_stmt
 		{ $$ = c_finish_expr_stmt ($1); }
 	/* APPLE LOCAL end CW asm blocks */
 	| BREAK ';'
@@ -2643,6 +2731,14 @@ cw_asm_expr_no_commas:
 
 cw_asm_unary_expr:
 	cw_asm_primary
+	| cw_asm_primary IDENTIFIER cw_asm_unary_expr
+		{
+		  /* Handle things like: inc dword ptr [eax]  */
+		  if (strcasecmp (IDENTIFIER_POINTER ($2), "ptr") != 0)
+		    error ("expected %<ptr%>");
+		  $$.value = cw_ptr_conv ($1.value, $3.value);
+		  $$.original_code = ERROR_MARK;
+		}
 	| '*' cw_asm_unary_expr   %prec UNARY
 		{ $$.value = build_indirect_ref ($2.value, "unary *");
                   $$.original_code = ERROR_MARK; }
@@ -2717,11 +2813,18 @@ cw_asm_primary:
 	| cw_asm_primary '[' cw_asm_expr_no_commas ']'   %prec '.'
 		{ $$.value = build_array_ref ($1.value, $3.value);
                   $$.original_code = ERROR_MARK; }
+	| '[' cw_asm_expr_no_commas ']'   %prec '.'
+		{ $$.value = cw_build_bracket ($2.value, NULL_TREE);
+                  $$.original_code = ERROR_MARK; }
 	| TYPENAME '.' identifier
 		{ $$.value = cw_asm_c_build_component_ref ($1, $3);
                   $$.original_code = ERROR_MARK; }
 	| cw_asm_primary '.' identifier
 		{ $$.value = cw_asm_c_build_component_ref ($1.value, $3);
+                  $$.original_code = ERROR_MARK; }
+	| cw_asm_primary '.' CONSTANT
+		{ /* We allow [eax].16 to refer to [eax + 16].  */
+		  $$.value = cw_asm_c_build_component_ref ($1.value, $3);
                   $$.original_code = ERROR_MARK; }
 	| cw_asm_primary POINTSAT identifier
 		{
@@ -2729,6 +2832,11 @@ cw_asm_primary:
                   $$.value = build_component_ref (expr, $3);
                   $$.original_code = ERROR_MARK;
                 }
+	| '.'
+		{
+		  $$.value = get_identifier (".");;
+		  $$.original_code = ERROR_MARK;
+		}
 	;
 /* APPLE LOCAL end CW asm blocks */
 
@@ -3689,6 +3797,13 @@ yylexname (void)
 	    if (next_tok_type != CPP_OPEN_PAREN)
 	      yycode = CW_ASM_KEYWORD;
 	  }
+	if (CW_SEE_OPCODE (TYPESPEC, yylval.ttype) == IDENTIFIER
+	    && cw_asm_state >= cw_asm_decls
+	    && cw_asm_in_operands == 0)
+	  {
+	    /* If this was an opcode, prefer it.  */
+	    return IDENTIFIER;
+	  }
 	/* APPLE LOCAL end CW asm blocks */
 	/* Return the canonical spelling for this keyword.  */
 	yylval.ttype = ridpointers[(int) rid_code];
@@ -3788,8 +3903,11 @@ _yylex (void)
     case CPP_ATSIGN:
       /* If we're doing CW assembly, return this as a regular token
 	 (indicates labels).  */
-      if (cw_asm_state >= cw_asm_decls)
-	return '@';
+      /* If we are not doing CW assembly and this symbol is seen. '@' has 
+	 not been consumed by the objc-lexer. This maybe because user forgot 
+	 to specify objc as the language or due to user error. Parser will decide. 
+      */
+      return '@';
       /* APPLE LOCAL end CW asm blocks */
 
     case CPP_EOF:
@@ -3835,6 +3953,8 @@ _yylex (void)
       /* These tokens should not survive translation phase 4.  */
     case CPP_HASH:
     case CPP_PASTE:
+    /* APPLE LOCAL CW asm blocks C++ comments 4248139 */
+    case CPP_OTHER:
       error ("syntax error at %qs token", NAME(last_token));
       goto get_next;
 
@@ -3903,6 +4023,33 @@ c_parse_file (void)
       malloced_yyss = 0;
     }
 }
+
+/* APPLE LOCAL begin CW asm blocks */
+static tree
+c_parse_cw_maybe_prefix (tree id)
+{
+  tree prefix_list = NULL_TREE;;
+
+  while (cw_is_prefix (id))
+    {
+      if (yychar == YYEMPTY)
+	yychar = YYLEX;
+      if (yychar == IDENTIFIER)
+	{
+	  prefix_list = tree_cons (NULL_TREE, id, prefix_list);
+	  id = yylval.ttype;
+	  yychar = YYEMPTY;
+	}
+      else
+	break;
+    }
+
+  if (prefix_list)
+    id = tree_cons (NULL_TREE, id, prefix_list);
+
+  return id;
+}
+/* APPLE LOCAL end CW asm blocks */
 
 #ifdef __XGETTEXT__
 /* Depending on the version of Bison used to compile this grammar,

@@ -69,19 +69,19 @@ gdb_expect {
   }
 }
 
-# See where printf() normally loads.
-set printf_address {}
-send_gdb "p printf\n"
+# See where fputs() normally loads.
+set fputs_address {}
+send_gdb "p fputs\n"
 gdb_expect {
-  -re ".*\\\$1 = .* ($hex) <printf>.*$gdb_prompt $" {
-    pass "get printf pre-start load address"
-    set printf_address $expect_out(1,string)
+  -re ".*\\\$1 = .* ($hex) <fputs>.*$gdb_prompt $" {
+    pass "get fputs pre-start load address"
+    set fputs_address $expect_out(1,string)
   }
   -re "$gdb_prompt $" {
-      fail "get printf pre-start load address"
+      fail "get fputs pre-start load address"
   }
   timeout {
-      fail "(timeout) get printf pre-start load address" 
+      fail "(timeout) get fputs pre-start load address" 
   }
 }
 
@@ -119,8 +119,8 @@ gdb_expect {
   }
 }
 
-# Verify that printf is where it should be.
-gdb_test "p printf" "\\\$3 = .* $printf_address <printf>"  "printf is where it should be on a non-slide"
+# Verify that fputs is where it should be.
+gdb_test "p fputs" "\\\$3 = .* $fputs_address <fputs>"  "fputs is where it should be on a non-slide"
 
 gdb_exit
 
@@ -206,6 +206,11 @@ if  { [gdb_compile "${srcdir}/${subdir}/${testlibfile}.c" "${libbinfile}" execut
 
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
+
+if [istarget "powerpc64-apple-darwin*"] {
+    # work around 4126196 - start-with-shell breaks DYLD_INSERT_LIBRARIES on ppc64
+    gdb_test "set start-with-shell 0"
+}
 gdb_test "set env DYLD_INSERT_LIBRARIES $libbinfile" ""
 gdb_load ${binfile}
 
@@ -283,23 +288,23 @@ gdb_expect {
   timeout { fail "could not set breakpoint on puts" }
 }
 
-send_gdb "b printf\n"
+send_gdb "b fputs\n"
 gdb_expect {
   -re "Breakpoint 3 at ($hex).*$gdb_prompt $" {
-    set printf_breakpoint_address $expect_out(1,string)
+    set fputs_breakpoint_address $expect_out(1,string)
   }
-  timeout { fail "could not set breakpoint on printf" }
+  timeout { fail "could not set breakpoint on fputs" }
 }
 
 set foo_offset_pre_start [expr $foo_address - $libsystem_load_addr]
 set puts_offset_pre_start [expr $puts_address - $libsystem_load_addr]
 set foo_breakpoint_offset_pre_start [expr $foo_breakpoint_address - $libsystem_load_addr]
 set puts_breakpoint_offset_pre_start [expr $puts_breakpoint_address - $libsystem_load_addr]
-set printf_breakpoint_offset_pre_start [expr $printf_breakpoint_address - $libsystem_load_addr]
+set fputs_breakpoint_offset_pre_start [expr $fputs_breakpoint_address - $libsystem_load_addr]
 
 
 # I don't explicitly test the breakpoint number here because on Tiger
-# and greater there is a posix & non-posix version of printf, so there
+# and greater there is a posix & non-posix version of fputs, so there
 # might have been two breakpoints set above...
 
 gdb_test "b main" "Breakpoint \[0-9\] at .*"
@@ -386,29 +391,29 @@ if {$puts_address != $libsystem_puts_address || $puts_loaded_address != $libsyst
   fail "evaluation of puts is mylib version, not libsystem"
 }
 
-# See where printf actually loaded.
-send_gdb "p printf\n"
+# See where fputs actually loaded.
+send_gdb "p fputs\n"
 gdb_expect {
-  -re ".*\\\$$decimal = .* ($hex) <printf>.*$gdb_prompt $" {
-    pass "get printf post-start load address"
-    set printf_loaded_address $expect_out(1,string)
+  -re ".*\\\$$decimal = .* ($hex) <fputs>.*$gdb_prompt $" {
+    pass "get fputs post-start load address"
+    set fputs_loaded_address $expect_out(1,string)
   }
   -re "$gdb_prompt $" {
-      fail "get printf pre-start load address"
+      fail "get fputs pre-start load address"
   }
   timeout {
-      fail "(timeout) get printf pre-start load address" 
+      fail "(timeout) get fputs pre-start load address" 
   }
 }
-if {$printf_address == $printf_loaded_address} {
-  pass "address of printf didn't changed when user library slid"
+if {$fputs_address == $fputs_loaded_address} {
+  pass "address of fputs didn't changed when user library slid"
 } else {
-  fail "address of printf didn't changed when user library slid"
+  fail "address of fputs didn't changed when user library slid"
 }
 
 set foo_offset_slid [expr $foo_loaded_address - $mylib_slid_addr]
 set puts_offset_slid [expr $puts_loaded_address - $mylib_slid_addr]
-set printf_offset_slid [expr $printf_loaded_address - $libsystem_load_addr]
+set fputs_offset_slid [expr $fputs_loaded_address - $libsystem_load_addr]
 
 if {$foo_offset_pre_start == $foo_offset_slid} {
   pass "offset of foo in mylib.dylib stayed same after slide."
@@ -466,26 +471,26 @@ if {$puts_slid_address != $puts_breakpoint_address } {
   fail "pass breakpoint on puts slid with library"
 }
 
-# See that 'printf' breakpoint didn't moved.
+# See that 'fputs' breakpoint didn't moved.
 send_gdb "info br 3\n"
 gdb_expect {
-  -re ".*$decimal *breakpoint *keep y *($hex) <printf.*$gdb_prompt $" {
-    set printf_slid_address $expect_out(1,string)
+  -re ".*$decimal *breakpoint *keep y *($hex) <fputs.*$gdb_prompt $" {
+    set fputs_slid_address $expect_out(1,string)
   }
   -re "$gdb_prompt $" {
-    set printf_slid_address -1
-    fail "could not examine printf breakpoint"
+    set fputs_slid_address -1
+    fail "could not examine fputs breakpoint"
   }
   timeout {
-    set printf_slid_address -1
-    fail "(timeout) could not examine printf breakpoint"
+    set fputs_slid_address -1
+    fail "(timeout) could not examine fputs breakpoint"
   }
 }
 
-if {$printf_slid_address == $printf_breakpoint_address} { 
-  pass "pass breakpoint on printf in Libsystem didn't slide"
+if {$fputs_slid_address == $fputs_breakpoint_address} { 
+  pass "pass breakpoint on fputs in Libsystem didn't slide"
 } else {
-  fail "pass breakpoint on printf in Libsystem didn't slide"
+  fail "pass breakpoint on fputs in Libsystem didn't slide"
 }
 
 gdb_test "dis 3" ""

@@ -21,7 +21,7 @@
 # 
 
 #
-# $Id: gssapi_err_generic.et,v 1.4 1998/10/30 02:54:07 marc Exp $
+# $Id: gssapi_err_generic.et 11001 1998-10-30 02:56:35Z marc $
 #
 
 error_table ggss

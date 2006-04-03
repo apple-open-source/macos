@@ -1,7 +1,7 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/admin_xdr.h,v 1.7 2001/07/25 19:02:29 epeisach Exp $
+ * $Header$
  * 
  */
 

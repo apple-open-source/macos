@@ -46,7 +46,17 @@ build_gcc_main()
       echo "The temporary directory '$TEMP' does not exist!"
       exit 1
     fi
-    
+
+    # Make sure that GCC 4 never gets used.
+    # <rdar://problem/4280487> Chardonnay: gccfast fails to build
+    rm -rf $TEMP/build_gcc.$$ && mkdir /tmp/build_gcc.$$ || exit 1
+    PATH=$TEMP/build_gcc.$$:$PATH
+    for FILE in gcc g++ cpp c++ gcov
+        do ln -s /usr/bin/$FILE-3.3 $TEMP/build_gcc.$$/$FILE
+        ln -s /usr/bin/$FILE-3.3 $TEMP/build_gcc.$$/$FILE-4.0
+    done
+    ln -s /usr/bin/gcc-3.3 $TEMP/build_gcc.$$/cc
+
     #
     # The host on which we are running on now (what machine is being used to build
     # compiler)...
@@ -222,6 +232,8 @@ build_gcc_main()
     #
     # Install HTML documentation
     $nc install_html
+
+    rm -rf $TEMP/build_gcc.$$
 
     if [ ! "$n" ]; then
     	box_title "build_gcc script completed at `date +'%x %X %Z'`"

@@ -40,7 +40,7 @@ help ()
 static void
 version ()
 {
-  printf ("java version " JV_VERSION "\n");
+  printf ("java version \"" JV_VERSION "\"\n");
   printf ("gij (GNU libgcj) version %s\n\n", __VERSION__);
   printf ("Copyright (C) 2005 Free Software Foundation, Inc.\n");
   printf ("This is free software; see the source for copying conditions.  There is NO\n");
@@ -296,6 +296,14 @@ main (int argc, char const** argv)
         nonstandard_opts_help ();
       else if (! strncmp (arg, "-X", 2))
         add_option (vm_args, arg, NULL);
+      // Obsolete options recognized for backwards-compatibility.
+      else if (! strcmp (arg, "-verify")
+               || ! strcmp (arg, "-verifyremote"))
+	continue;
+      else if (! strcmp (arg, "-noverify"))
+        {
+	  gcj::verifyClasses = false;
+	}
       else
 	{
 	  fprintf (stderr, "gij: unrecognized option -- `%s'\n", argv[i]);
@@ -315,7 +323,7 @@ main (int argc, char const** argv)
     }
 
   // -jar mode overrides all other modes of specifying class path:
-  // -CLASSPATH, -Djava.class.path, -classpath and -cp.
+  // CLASSPATH, -Djava.class.path, -classpath and -cp.
   if (jar_mode)
     {
       char* darg = (char*) JvMalloc (strlen (argv[i])

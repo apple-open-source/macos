@@ -3069,7 +3069,15 @@ hpread_alloc_type (dnttpointer hp_type, struct objfile *objfile)
 
   type_addr = hpread_lookup_type (hp_type, objfile);
   if (*type_addr == 0)
-    *type_addr = alloc_type (objfile);
+    {
+      *type_addr = alloc_type (objfile);
+
+      /* A hack - if we really are a C++ class symbol, then this default
+       * will get overriden later on.
+       */
+      TYPE_CPLUS_SPECIFIC (*type_addr)
+	= (struct cplus_struct_type *) &cplus_struct_default;
+    }
 
   return *type_addr;
 }

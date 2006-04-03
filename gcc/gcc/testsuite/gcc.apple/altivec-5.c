@@ -1,6 +1,6 @@
-/* APPLE LOCAL file AltiVec 3840704 */
+/* APPLE LOCAL file AltiVec 3840704  4117876 */
 /* { dg-do compile { target powerpc*-*-* } } */
-/* { dg-options "-faltivec" } */
+/* { dg-options "-mcpu=G3 -faltivec" } */
 /* { dg-final { scan-assembler-not "stvx" } } */
 
 void *memset(void *, int, unsigned long int);
@@ -27,7 +27,7 @@ int asl_send()
   unsigned int i, len, level, outstatus;
   struct tm gtime;
 
-  memset(&gtime, 0, sizeof(struct tm));  /* { dg-warning "disabled" } */
+  memset(&gtime, 0, sizeof(struct tm));  /* { dg-bogus "disabled" } */
   return 0;
 }
 

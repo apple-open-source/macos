@@ -44,6 +44,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "objfiles.h"
 #include "gdbcmd.h"
+#include "regcache.h"
 
 #include <sys/ttycom.h>
 #include <sys/ioctl.h>

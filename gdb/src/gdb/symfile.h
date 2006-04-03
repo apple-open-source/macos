@@ -67,16 +67,17 @@ struct psymbol_allocation_list
 
 /* Define an array of addresses to accommodate non-contiguous dynamic
    loading of modules.  This is for use when entering commands, so we
-   can keep track of the section names until we read the file and
-   can map them to bfd sections.  This structure is also used by
-   solib.c to communicate the section addresses in shared objects to
-   symbol_file_add (). */
- 
+   can keep track of the section names until we read the file and can
+   map them to bfd sections.  This structure is also used by solib.c
+   to communicate the section addresses in shared objects to
+   symbol_file_add ().  */
+
 struct section_addr_info
 {
   /* The number of sections for which address information is
      available.  */
   size_t num_sections;
+  /* APPLE LOCAL */
   int addrs_are_offsets;
   /* Sections whose names are file format dependent. */
   struct other_sections
@@ -202,6 +203,7 @@ build_section_addr_info_from_section_table (const struct section_table *start,
 
 extern struct section_addr_info *alloc_section_addr_info (size_t
 							  num_sections);
+
 /* Build (allocate and populate) a section_addr_info struct from an
    existing section table.  */
 
@@ -357,4 +359,6 @@ extern struct objfile *symbol_file_add_bfd_safe
 (bfd *abfd, int from_tty, struct section_addr_info *addrs,
  int mainline, int flags, int symflags, CORE_ADDR mapaddr, const char *prefix);
 
+/* APPLE LOCAL: pick the slice of a fat file matching the current arch.  */
+bfd * open_bfd_matching_arch (bfd *archive_bfd);
 #endif /* !defined(SYMFILE_H) */

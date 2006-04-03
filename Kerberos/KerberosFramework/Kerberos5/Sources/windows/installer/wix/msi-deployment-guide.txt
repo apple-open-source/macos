@@ -520,5 +520,5 @@ Kerberos for Windows
     (Q/A's will be added here as needed)
 
 ----------------------------------------------------------------------
-$Id: msi-deployment-guide.txt,v 1.2 2004/09/17 14:01:42 jaltman Exp $
+$Id: msi-deployment-guide.txt 16761 2004-09-17 14:01:42Z jaltman $
 

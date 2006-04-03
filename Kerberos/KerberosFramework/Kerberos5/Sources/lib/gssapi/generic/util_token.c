@@ -26,7 +26,7 @@
 #endif
 
 /*
- * $Id: util_token.c,v 1.21 2003/12/13 07:07:22 raeburn Exp $
+ * $Id: util_token.c 15911 2003-12-13 07:07:23Z raeburn $
  */
 
 /* XXXX this code currently makes the assumption that a mech oid will

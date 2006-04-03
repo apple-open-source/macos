@@ -122,7 +122,7 @@ convert_real (void *dest, const char *buffer, int length)
       internal_error ("Unsupported real kind during IO");
     }
 
-  if (errno != 0)
+  if (errno != 0 && errno != EINVAL)
     {
       generate_error (ERROR_READ_VALUE,
 		      "Range error during floating point read");
@@ -504,23 +504,7 @@ read_f (fnode * f, char *dest, int length)
 
   p = eat_leading_spaces (&w, p);
   if (w == 0)
-    {
-      switch (length)
-	{
-	case 4:
-	  *((float *) dest) = 0.0f;
-	  break;
-
-	case 8:
-	  *((double *) dest) = 0.0;
-	  break;
-
-	default:
-	  internal_error ("Unsupported real kind during IO");
-	}
-
-      return;
-    }
+    goto zero;
 
   /* Optional sign */
 
@@ -529,16 +513,19 @@ read_f (fnode * f, char *dest, int length)
       if (*p == '-')
         val_sign = -1;
       p++;
-
-      if (--w == 0)
-	goto bad_float;
+      w--;
     }
 
   exponent_sign = 1;
+  p = eat_leading_spaces (&w, p);
+  if (w == 0)
+    goto zero;
 
-  /* A digit (or a '.') is required at this point */
+  /* A digit, a '.' or a exponent character ('e', 'E', 'd' or 'D')
+     is required at this point */
 
-  if (!isdigit (*p) && *p != '.')
+  if (!isdigit (*p) && *p != '.' && *p != 'd' && *p != 'D'
+      && *p != 'e' && *p != 'E')
     goto bad_float;
 
   /* Remember the position of the first digit.  */
@@ -600,6 +587,23 @@ read_f (fnode * f, char *dest, int length)
 
  bad_float:
   generate_error (ERROR_READ_VALUE, "Bad value during floating point read");
+  return;
+
+  /* The value read is zero */
+ zero:
+  switch (length)
+    {
+      case 4:
+	*((float *) dest) = 0.0f;
+	break;
+
+      case 8:
+	*((double *) dest) = 0.0;
+	break;
+
+      default:
+	internal_error ("Unsupported real kind during IO");
+    }
   return;
 
   /* At this point the start of an exponent has been found */

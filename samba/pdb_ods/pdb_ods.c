@@ -206,8 +206,8 @@ SecAccessRef make_uid_access(uid_t uid)
 	SecAccessRef secaccess;
 	status = SecAccessCreateFromOwnerAndACL(&owner,
 		sizeof(acls) / sizeof(acls[0]), acls, &secaccess);
-    DEBUG(10,("[%d]SecAccessCreateFromOwnerAndACL\n",status));		
-	return access;
+    DEBUG(10,("[%ld]SecAccessCreateFromOwnerAndACL\n",status));		
+	return secaccess;
 }
 
 void *get_password_from_keychain(char *account, int accountLength)
@@ -220,9 +220,9 @@ void *get_password_from_keychain(char *account, int accountLength)
 
 	// Set the domain to System (daemon)
 	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
-     DEBUG(10,("[%d]SecKeychainSetPreferenceDomain \n",status));		
+     DEBUG(10,("[%ld]SecKeychainSetPreferenceDomain \n",status));		
 	status = SecKeychainGetUserInteractionAllowed (False);
-     DEBUG(10,("[%d]SecKeychainGetUserInteractionAllowed \n",status));		
+     DEBUG(10,("[%ld]SecKeychainGetUserInteractionAllowed \n",status));		
 
 	 status = SecKeychainFindGenericPassword (
 					 NULL,           // default keychain
@@ -234,7 +234,7 @@ void *get_password_from_keychain(char *account, int accountLength)
 					 &passwordData,   // pointer to password data
 					 &item         // the item reference
 					);
-     DEBUG(10,("[%d]SecKeychainFindGenericPassword \n",status));		
+     DEBUG(10,("[%ld]SecKeychainFindGenericPassword \n",status));		
 
 	if ((status == noErr) && (item != NULL) && passwordLength)
 	{
@@ -278,8 +278,8 @@ void  *get_odssam_authenticator()
 		if (password) {
 			authentriessize = strlen(account) + strlen(password);
 			authenticator = calloc(1,sizeof(opendirectory_secret_header) + authentriessize);
-			memcpy(authenticator + sizeof(opendirectory_secret_header) , account, strlen(account));
-			memcpy(authenticator + sizeof(opendirectory_secret_header) + strlen(account), password, strlen(password));
+			memcpy((uint8*)authenticator + sizeof(opendirectory_secret_header) , account, strlen(account));
+			memcpy((uint8*)authenticator + sizeof(opendirectory_secret_header) + strlen(account), password, strlen(password));
 			odhdr = (opendirectory_secret_header*)authenticator;
 			odhdr->authenticator_len = strlen(account);
 			odhdr->secret_len = strlen(password);
@@ -347,7 +347,7 @@ void *get_odssam_authenticator_account(void *authenticator)
 	void *result = NULL;
 
 	if (hdr)
-		result = authenticator + sizeof(opendirectory_secret_header);
+		result = (uint8*)authenticator + sizeof(opendirectory_secret_header);
 		
 	return result;
 }
@@ -369,7 +369,7 @@ void *get_odssam_authenticator_secret(void *authenticator)
 	void *result = NULL;
 	
 	if (hdr)
-		result = authenticator + sizeof(opendirectory_secret_header) + hdr->authenticator_len;
+		result = (uint8*)authenticator + sizeof(opendirectory_secret_header) + hdr->authenticator_len;
 
 	return result;
 }
@@ -518,7 +518,7 @@ static tDirStatus odssam_open_search_node(struct odssam_privates *ods_state)
 {
     tDirStatus			status			= eDSInvalidReference;
     long			bufferSize		= 1024 * 10;
-    long			returnCount		= 0;
+    unsigned long			returnCount		= 0;
     tDataBufferPtr		nodeBuffer		= NULL;
     tDataListPtr		searchNodeName		= NULL;
 
@@ -808,7 +808,7 @@ static tDirStatus set_password(struct odssam_privates *ods_state, tDirNodeRefere
 #if defined(kDSStdAuthSetWorkstationPasswd) && defined(kDSStdAuthSetLMHash)
 	} else if (strcmp(passwordType, kDSStdAuthSetWorkstationPasswd) == 0 || strcmp(passwordType, kDSStdAuthSetLMHash) == 0) {
 		if (pdb_gethexpwd(passwordstring, binarypwd)) {
-			password = binarypwd;
+			password = (char*)binarypwd;
 			passwordLen = NT_HASH_LEN;
 		}
 #endif
@@ -1014,7 +1014,7 @@ tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef reco
 		    break; 
 		}
 		
-        DEBUG(5,("get_records recordCount (%d)\n",recordCount));
+        DEBUG(5,("get_records recordCount (%lu)\n",recordCount));
 	
 		for (recordIndex = 1; recordIndex <= recordCount; recordIndex++) {
 			status = dsGetRecordEntry(theNodeReference, dataBuffer, recordIndex, &attributeList, &recordEntry);
@@ -1055,7 +1055,7 @@ tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef reco
 						value = NULL;
 					
 					if (value != NULL) {
-             			DEBUG(4,("\tget_records value(%s) len(%d)\n",valueEntry->fAttributeValueData.fBufferData, valueEntry->fAttributeValueData.fBufferLength));
+             			DEBUG(4,("\tget_records value(%s) len(%lu)\n",valueEntry->fAttributeValueData.fBufferData, valueEntry->fAttributeValueData.fBufferLength));
 						CFArrayAppendValue(valueArray, value);
 						CFRelease(value);
 					}
@@ -1488,7 +1488,6 @@ static BOOL oddsam_get_record_sid_string(struct odssam_privates *ods_state,
 	tDirStatus status = eDSNoErr;
 	DOM_SID u_sid;
 	pstring nodelocation;
-	fstring record_name;
 	fstring xml_string;
 	fstring domain_sid_string;
 	BOOL	is_server_sid = True;
@@ -1503,7 +1502,6 @@ static BOOL oddsam_get_record_sid_string(struct odssam_privates *ods_state,
 	CFStringRef nodelocationRef = NULL;
 	CFDictionaryRef domainInfo = NULL;
 	DOM_SID server_sid;
-	BOOL result = False;
 	
 	if (!get_single_attribute(entry, kDSNAttrMetaNodeLocation, nodelocation))
 		return False;
@@ -1726,7 +1724,7 @@ static BOOL init_sam_from_ods (struct odssam_privates *ods_state,
 	uint8 	smblmpwd[LM_HASH_LEN],
 			smbntpwd[NT_HASH_LEN];
 #endif
-	uint16 		acct_ctrl, 
+	uint16 		acct_ctrl = 0, 
 			logon_divs;
 	uint32 hours_len;
 	uint8 		hours[MAX_HOURS_LEN];
@@ -2913,7 +2911,7 @@ static NTSTATUS odssam_getgrnam(struct pdb_methods *methods, GROUP_MAP *map, cha
 		DEBUG(4,("odssam_getgrnam: kDSStdRecordTypeGroups kDS1AttrDistinguishedName<%s>\n", name));
 	} else {
 //	if (((dirStatus = get_sam_record_attributes(ods_state, recordsArray, kDSStdRecordTypeGroups, name, true)) != eDSNoErr) || (CFArrayGetCount(recordsArray) == 0)) {
-		DEBUG(0,("odssam_getgrnam: %s no account for '%s'!\n", dirStatus, kDSStdRecordTypeGroups, name));
+		DEBUG(0,("[%d]odssam_getgrnam: %s no account for '%s'!\n", dirStatus, kDSStdRecordTypeGroups, name));
 		ret = NT_STATUS_UNSUCCESSFUL;
 	}
 /* handle duplicates - currently uses first match in search policy*/

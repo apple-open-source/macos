@@ -1,0 +1,11 @@
+--- libstdc++-v3/testsuite/testsuite_hooks.cc~	2005-01-05 23:08:48.000000000 -0800
++++ libstdc++-v3/testsuite/testsuite_hooks.cc	2005-06-01 18:31:24.000000000 -0700
+@@ -251,7 +251,7 @@ namespace __gnu_test
+   unsigned int destructor::_M_count = 0;
+   int copy_tracker::next_id_ = 0;
+ 
+-#ifdef _GLIBCXX_SYSV_SEM
++#if defined(_GLIBCXX_SYSV_SEM) && ! defined(LIBSTDCXX_FOR_JAGUAR)
+   // This union is not declared in system headers.  Instead, it must
+   // be defined by user programs.
+   union semun 

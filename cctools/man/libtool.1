@@ -1,4 +1,4 @@
-.TH LIBTOOL 1 "November 29, 2004" "Apple Computer, Inc."
+.TH LIBTOOL 1 "September 1, 2005" "Apple Computer, Inc."
 .SH NAME
 libtool \- create libraries
 .br
@@ -74,27 +74,25 @@ The library's name is specified by
 to the 
 .B \-o 
 flag).  The input object files may be
-in any correct format that contains object files (``fat'' files, archives, object
-files).  
+in any correct format that contains object files (``universal'' files, archives,
+object files).  
 .I Libtool
 will not put any non-object input file into the output library
 (unlike
 .IR ranlib ,
 which allows this in the archives it operates on).
 .PP
-When producing a ``fat'' file from objects of the same CPU type and differing
-CPU subtypes,
+When producing a ``universal'' file from objects of the same CPU type and
+differing CPU subtypes,
 .I libtool
 and
 .I ranlib
-create at most one library for
-each CPU type, rather than a separate library in a fat file for each of the 
-unique pairings of
-CPU type and CPU subtype.  Thus, the resulting CPU subtype for each library
-is the _ALL 
-CPU subtype for that CPU type.  This strategy strongly encourages the implementor 
-of a library to create one library that
-chooses optimum code to run at run time, rather than at link time.
+create at most one library for each CPU type, rather than a separate library in
+a universal file for each of the unique pairings of CPU type and CPU subtype.
+Thus, the resulting CPU subtype for each library is the _ALL CPU subtype for
+that CPU type.  This strategy strongly encourages the implementor of a library
+to create one library that chooses optimum code to run at run time, rather than
+at link time.
 .PP
 .I Libtool
 can create either dynamically linked shared libraries, with
@@ -123,7 +121,7 @@ with
 .B \-dylib
 once for each architecutre present in the input objects and then
 .IR lipo (1)
-to create a fat file if needed.
+to create a universal file if needed.
 .SH "ARCHIVE (or statically linked) LIBRARIES"
 .PP
 .I Libtool
@@ -136,7 +134,7 @@ and
 For backward compatibility,
 .I ranlib
 is still available, and it
-supports fat files.
+supports universal files.
 .I Ranlib
 adds or updates the table of contents to each
 .I archive
@@ -149,12 +147,12 @@ Because
 rewrites the archive, sufficient temporary file space must
 be available in the file system that contains the current directory.
 .I Ranlib
-takes all correct forms of libraries (fat files containing archives, and simple
-archives) and updates the table of contents for all archives in the file.
+takes all correct forms of libraries (universal files containing archives, and
+simple archives) and updates the table of contents for all archives in the file.
 .I Ranlib
 also takes one common incorrect form of archive, an archive whose members are
-fat object files, adding or updating the table of contents and producing the
-library in correct form (a fat file containing multiple archives).
+universal object files, adding or updating the table of contents and producing
+the library in correct form (a universal file containing multiple archives).
 .PP
 The archive member name for a table of contents begins with
 .SM ``\_\^\_.SYMDEF''.
@@ -280,6 +278,7 @@ flags are accepted and passed through:
 .B \-Y,
 .B \-Sn,
 .B \-Si,
+.B \-Sp,
 .B \-S,
 .B \-X,
 .B \-x,
@@ -289,6 +288,7 @@ flags are accepted and passed through:
 .B \-dylib_file,
 .B \-run_init_lazily,
 .B \-final_output,
+.B \-macosx_version_min,
 .B \-multiply_defined,
 .B \-multiply_defined_unused,
 .B \-twolevel_namespace,
@@ -395,12 +395,12 @@ Truncate archive member names to 16 characters and don't use the 4.4bsd extended
 format #1.  This option is not the default.
 .TP
 .B \-f
-Warns when the output archive is fat and
+Warns when the output archive is universal and
 .IR ar (1)
 will no longer be able to operate on it.
 .TP
 .B \-q
-Do nothing if a fat file would be created.
+Do nothing if a universal file would be created.
 .PP
 For compatibility, the following 
 .I ranlib

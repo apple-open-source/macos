@@ -44,20 +44,13 @@
 *******************************************************************************/
 #include "math.h"
 
+
+
 int signgam;
 
 double gamma ( double x )
 {
     double g = tgamma ( x ); // return *True* gamma a la MacOS9 Mathlib
-    
-    signgam = (g < 0.0 ? -1 : 1); // set signgam as a courtesy.
-    
-    return g;
-}
-
-float gammaf ( float x )
-{
-    float g = tgammaf ( x ); // return *True* gamma a la MacOS9 Mathlib
     
     signgam = (g < 0.0 ? -1 : 1); // set signgam as a courtesy.
     
@@ -72,13 +65,3 @@ double gamma_r ( double x, int *psigngam )
         
     return g;
 }
-
-float gammaf_r ( float x, int *psigngam )
-{
-    float g = tgammaf ( x ); // return *True* gamma a la MacOS9 Mathlib
-    
-    *psigngam = (g < 0.0 ? -1 : 1); 
-        
-    return g;
-}
-

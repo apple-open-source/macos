@@ -58,7 +58,8 @@ proc test_running_to_foo {} {
     mi_run_cmd
 
     gdb_expect {
-	-re "000\\*stopped,reason=\"breakpoint-hit\",commands=\"no\",bkptno=\"1\",thread-id=\"\[01\]\"\r\n$mi_gdb_prompt$" {
+# APPLE LOCAL [breakpoint-hit]: We emit a HIT-COUNT field. 
+	-re "000\\*stopped,reason=\"breakpoint-hit\",commands=\"no\",times=\"1\",bkptno=\"1\",thread-id=\"\[01\]\"\r\n$mi_gdb_prompt$" {
 	    pass "run to main"
 	}
 	-re ".*$mi_gdb_prompt$" {

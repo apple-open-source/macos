@@ -20,7 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define __WANT_LONG_DOUBLE_FORMAT__ 0 /* Defeat long double prototypes in math.h and complex.h */
 #include "math.h"
 #include "complex.h" /* for its *double* prototypes */
 
@@ -41,60 +40,60 @@
 // Introduce prototypes and (trivial) implementations for long double == double scheme.
 // Programs compiled with -mlong-double-64 see these.
 //
-extern double complex cacosl( double complex ) __LIBMLDBL_COMPAT(cacosl);
-extern double complex casinl( double complex ) __LIBMLDBL_COMPAT(casinl);
-extern double complex catanl( double complex ) __LIBMLDBL_COMPAT(catanl);
+extern long double complex cacosl( long double complex ) __LIBMLDBL_COMPAT(cacosl);
+extern long double complex casinl( long double complex ) __LIBMLDBL_COMPAT(casinl);
+extern long double complex catanl( long double complex ) __LIBMLDBL_COMPAT(catanl);
 
-extern double complex ccosl( double complex ) __LIBMLDBL_COMPAT(ccosl);
-extern double complex csinl( double complex ) __LIBMLDBL_COMPAT(csinl);
-extern double complex ctanl( double complex ) __LIBMLDBL_COMPAT(ctanl);
+extern long double complex ccosl( long double complex ) __LIBMLDBL_COMPAT(ccosl);
+extern long double complex csinl( long double complex ) __LIBMLDBL_COMPAT(csinl);
+extern long double complex ctanl( long double complex ) __LIBMLDBL_COMPAT(ctanl);
 
-extern double complex cacoshl( double complex ) __LIBMLDBL_COMPAT(cacoshl);
-extern double complex casinhl( double complex ) __LIBMLDBL_COMPAT(casinhl);
-extern double complex catanhl( double complex ) __LIBMLDBL_COMPAT(catanhl);
+extern long double complex cacoshl( long double complex ) __LIBMLDBL_COMPAT(cacoshl);
+extern long double complex casinhl( long double complex ) __LIBMLDBL_COMPAT(casinhl);
+extern long double complex catanhl( long double complex ) __LIBMLDBL_COMPAT(catanhl);
 
-extern double complex ccoshl( double complex ) __LIBMLDBL_COMPAT(ccoshl);
-extern double complex csinhl( double complex ) __LIBMLDBL_COMPAT(csinhl);
-extern double complex ctanhl( double complex ) __LIBMLDBL_COMPAT(ctanhl);
+extern long double complex ccoshl( long double complex ) __LIBMLDBL_COMPAT(ccoshl);
+extern long double complex csinhl( long double complex ) __LIBMLDBL_COMPAT(csinhl);
+extern long double complex ctanhl( long double complex ) __LIBMLDBL_COMPAT(ctanhl);
 
-extern double complex cexpl( double complex ) __LIBMLDBL_COMPAT(cexpl);
-extern double complex clogl( double complex ) __LIBMLDBL_COMPAT(clogl);
+extern long double complex cexpl( long double complex ) __LIBMLDBL_COMPAT(cexpl);
+extern long double complex clogl( long double complex ) __LIBMLDBL_COMPAT(clogl);
 
-extern double cabsl( double complex ) __LIBMLDBL_COMPAT(cabsl);
-extern double complex cpowl( double complex, double complex ) __LIBMLDBL_COMPAT(cpowl);
-extern double complex csqrtl( double complex ) __LIBMLDBL_COMPAT(csqrtl);
+extern long double cabsl( long double complex ) __LIBMLDBL_COMPAT(cabsl);
+extern long double complex cpowl( long double complex, long double complex ) __LIBMLDBL_COMPAT(cpowl);
+extern long double complex csqrtl( long double complex ) __LIBMLDBL_COMPAT(csqrtl);
 
-extern double cargl( double complex ) __LIBMLDBL_COMPAT(cargl);
-extern double cimagl( double complex ) __LIBMLDBL_COMPAT(cimagl);
-extern double complex conjl( double complex ) __LIBMLDBL_COMPAT(conjl);
-extern double complex cprojl( double complex ) __LIBMLDBL_COMPAT(cprojl);
-extern double creall( double complex ) __LIBMLDBL_COMPAT(creall);
+extern long double cargl( long double complex ) __LIBMLDBL_COMPAT(cargl);
+extern long double cimagl( long double complex ) __LIBMLDBL_COMPAT(cimagl);
+extern long double complex conjl( long double complex ) __LIBMLDBL_COMPAT(conjl);
+extern long double complex cprojl( long double complex ) __LIBMLDBL_COMPAT(cprojl);
+extern long double creall( long double complex ) __LIBMLDBL_COMPAT(creall);
 
-double complex cacosl( double complex z ) { return cacos( z); }
-double complex casinl( double complex z ) { return casin( z); }
-double complex catanl( double complex z ) { return catan( z); }
+long double complex cacosl( long double complex z ) { return cacos( z); }
+long double complex casinl( long double complex z ) { return casin( z); }
+long double complex catanl( long double complex z ) { return catan( z); }
 
-double complex ccosl( double complex z ) { return ccos( z); }
-double complex csinl( double complex z ) { return csin( z); }
-double complex ctanl( double complex z ) { return ctan( z); }
+long double complex ccosl( long double complex z ) { return ccos( z); }
+long double complex csinl( long double complex z ) { return csin( z); }
+long double complex ctanl( long double complex z ) { return ctan( z); }
 
-double complex cacoshl( double complex z ) { return cacosh( z); }
-double complex casinhl( double complex z ) { return casinh( z); }
-double complex catanhl( double complex z ) { return catanh( z); }
+long double complex cacoshl( long double complex z ) { return cacosh( z); }
+long double complex casinhl( long double complex z ) { return casinh( z); }
+long double complex catanhl( long double complex z ) { return catanh( z); }
 
-double complex ccoshl( double complex z ) { return ccosh( z); }
-double complex csinhl( double complex z ) { return csinh( z); }
-double complex ctanhl( double complex z ) { return ctanh( z); }
+long double complex ccoshl( long double complex z ) { return ccosh( z); }
+long double complex csinhl( long double complex z ) { return csinh( z); }
+long double complex ctanhl( long double complex z ) { return ctanh( z); }
 
-double complex cexpl( double complex z ) { return cexp( z); }
-double complex clogl( double complex z ) { return clog( z); }
+long double complex cexpl( long double complex z ) { return cexp( z); }
+long double complex clogl( long double complex z ) { return clog( z); }
 
-double cabsl( double complex z ) { return cabs( z); }
-double complex cpowl( double complex x, double complex y ) { return cpow( x,  y); }
-double complex csqrtl( double complex z ) { return csqrt( z); }
+long double cabsl( long double complex z ) { return cabs( z); }
+long double complex cpowl( long double complex x, long double complex y ) { return cpow( x,  y); }
+long double complex csqrtl( long double complex z ) { return csqrt( z); }
 
-double cargl( double complex z ) { return carg( z); }
-double cimagl( double complex z ) { return cimag( z); }
-double complex conjl( double complex z ) { return conj( z); }
-double complex cprojl( double complex z ) { return cproj( z); }
-double creall( double complex z ) { return creal( z); }
+long double cargl( long double complex z ) { return carg( z); }
+long double cimagl( long double complex z ) { return cimag( z); }
+long double complex conjl( long double complex z ) { return conj( z); }
+long double complex cprojl( long double complex z ) { return cproj( z); }
+long double creall( long double complex z ) { return creal( z); }

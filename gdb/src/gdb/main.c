@@ -573,6 +573,7 @@ extern int gdbtk_test (char *);
       gdb_flush (gdb_stdout);	/* Force to screen during slow operations */
     }
 
+
   if (state_change_hook)
     {
       state_change_hook (STATE_ACTIVE);

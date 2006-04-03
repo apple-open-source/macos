@@ -21,6 +21,8 @@ __RCSID("$NetBSD: s_erff.c,v 1.6 1999/07/02 15:37:42 simonb Exp $");
 #include "math.h"
 #include "math_private.h"
 
+#warning obsolete
+
 static const float
 tiny	    = 1e-30,
 half=  5.0000000000e-01, /* 0x3F000000 */

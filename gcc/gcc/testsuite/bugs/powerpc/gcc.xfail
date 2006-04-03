@@ -60,13 +60,44 @@
 3906375: gcc.dg/debug/debug-2.c -gstabs+3 -fast scan-assembler xyzzy
 3906482: gcc.dg/cpp/trad/comment-3.c  (test for warnings, line 6)
 3961392: gcc.dg/ppc-fsel-3.c scan-assembler-not fsub
-3965499: gcc.dg/cpp/headermap-2.c  (test for warnings, line 8)
+3965499: gcc.dg/cpp/headermap-2.c  (test for warnings, line 9)
 3965499: gcc.dg/cpp/headermap-2.c (test for excess errors)
 4078995: gcc.c-torture/execute/ieee/copysign1.c execution,  -fast
 4078995: gcc.c-torture/execute/ieee/copysign2.c execution,  -fast
 4078995: gcc.c-torture/execute/ieee/mzero6.c execution,  -fast
-4084907: gcc.c-torture/execute/20050316-1.c execution,  -fast
+#4084907: gcc.c-torture/execute/20050316-1.c execution,  -fast
 4084941: gcc.dg/vect/vect-98.c scan-tree-dump-times not vectorized: complicated access pattern 1
+4271531: gcc.c-torture/execute/20000822-1.c execution,  -O0
+4271531: gcc.c-torture/execute/20000822-1.c execution,  -O1
+4271531: gcc.c-torture/execute/20000822-1.c execution,  -O2
+4271531: gcc.c-torture/execute/20000822-1.c execution,  -O3 -fomit-frame-pointer
+4271531: gcc.c-torture/execute/20000822-1.c execution,  -O3 -g
+4271531: gcc.c-torture/execute/20000822-1.c execution,  -Os
+4271531: gcc.c-torture/execute/20000822-1.c execution,  -fast
+4271531: gcc.c-torture/execute/nestfunc-3.c execution,  -O0
+4271531: gcc.c-torture/execute/nestfunc-3.c execution,  -O1
+4271531: gcc.c-torture/execute/nestfunc-3.c execution,  -O2
+4271531: gcc.c-torture/execute/nestfunc-3.c execution,  -O3 -fomit-frame-pointer
+4271531: gcc.c-torture/execute/nestfunc-3.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+4271531: gcc.c-torture/execute/nestfunc-3.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+4271531: gcc.c-torture/execute/nestfunc-3.c execution,  -O3 -g
+4271531: gcc.c-torture/execute/nestfunc-3.c execution,  -Os
+4271531: gcc.c-torture/execute/nestfunc-3.c execution,  -fast
+4271531: gcc.c-torture/execute/nestfunc-5.c execution,  -O0
+4271531: gcc.c-torture/execute/nestfunc-5.c execution,  -O1
+4271531: gcc.c-torture/execute/nestfunc-5.c execution,  -O2
+4271531: gcc.c-torture/execute/nestfunc-5.c execution,  -O3 -fomit-frame-pointer
+4271531: gcc.c-torture/execute/nestfunc-5.c execution,  -O3 -g
+4271531: gcc.c-torture/execute/nestfunc-5.c execution,  -Os
+4271531: gcc.c-torture/execute/nestfunc-5.c execution,  -fast
+4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -O0
+4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -O1
+4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -O2
+4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -O3 -fomit-frame-pointer
+4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -O3 -g
+4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -Os
+4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -fast
+4271531: gcc.dg/trampoline-1.c execution test
 #
 # the following failures occur only when the tests are being run through ObjC
 3904213: gcc.dg/20040813-1.c scan-assembler .stabs.*100,0,2
@@ -84,6 +115,7 @@
 3904235: gcc.dg/wtr-unary-plus-1.c unary plus operator (test for warnings, line 13)
 4079037: gcc.dg/cpp/direct2.c (test for excess errors)
 4079037: gcc.dg/cpp/direct2s.c (test for excess errors)
+3904213: gcc.apple/objc-negtest.c  (test for errors, line 3)
 #
 # the following failures are for -mpowerpc64
 3966342: gcc.dg/20020919-1.c  (test for errors, line 105)
@@ -92,24 +124,35 @@
 3966342: gcc.dg/20020919-1.c  (test for errors, line 159)
 3966342: gcc.dg/20020919-1.c  (test for errors, line 177)
 3966342: gcc.dg/20020919-1.c  (test for errors, line 231)
-4054717: gcc.dg/compat/scalar-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o execute
-4054717: gcc.dg/compat/struct-by-value-7a c_compat_x_tst.o-c_compat_y_tst.o execute
+#4054717: gcc.dg/compat/scalar-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o execute
+#4054717: gcc.dg/compat/struct-by-value-7a c_compat_x_tst.o-c_compat_y_tst.o execute
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O0
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O1
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O2
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O3 -fomit-frame-pointer
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O3 -fomit-frame-pointer -funroll-loops
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -O3 -g
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -Os
+4345871: gcc.c-torture/execute/20051113-1.c compilation,  -fast
 #
 # the following failures are for -mcpu=G5
-4085878: gcc.apple/altivec-5.c  (test for warnings, line 30)
-4085878: gcc.apple/altivec-5.c scan-assembler-not stvx
-4085878: gcc.apple/altivec-faltivec-1.c scan-assembler mainInt
+#4085878: gcc.apple/altivec-5.c  (test for warnings, line 30)
+#4085878: gcc.apple/altivec-5.c scan-assembler-not stvx
+#4085878: gcc.apple/altivec-faltivec-1.c scan-assembler mainInt
 #3939205 causes the following test to fail when run with -m64
-4085878: gcc.apple/altivec-faltivec-1.c scan-tree-dump-times callee has AltiVec 2
-4083754: gcc.apple/comma-expr-1.c  (test for errors, line 6)
-4084907: gcc.c-torture/execute/20050316-1.c execution,  -O0 
-4084907: gcc.c-torture/execute/20050316-1.c execution,  -O1 
-4084907: gcc.c-torture/execute/20050316-1.c execution,  -O2 
-4084907: gcc.c-torture/execute/20050316-1.c execution,  -O3 -fomit-frame-pointer 
-4084907: gcc.c-torture/execute/20050316-1.c execution,  -O3 -g 
-4084907: gcc.c-torture/execute/20050316-1.c execution,  -Os 
-4085878: gcc.dg/convert-vec-1.c  (test for errors, line 3)
+#4085878: gcc.apple/altivec-faltivec-1.c scan-tree-dump-times callee has AltiVec 2
+3719311: gcc.apple/comma-expr-1.c  (test for errors, line 6)
+#4084907: gcc.c-torture/execute/20050316-1.c execution,  -O0 
+#4084907: gcc.c-torture/execute/20050316-1.c execution,  -O1 
+#4084907: gcc.c-torture/execute/20050316-1.c execution,  -O2 
+#4084907: gcc.c-torture/execute/20050316-1.c execution,  -O3 -fomit-frame-pointer 
+#4084907: gcc.c-torture/execute/20050316-1.c execution,  -O3 -g 
+#4084907: gcc.c-torture/execute/20050316-1.c execution,  -Os 
+#4085878: gcc.dg/convert-vec-1.c  (test for errors, line 3)
 3788046: gcc.dg/simd-2.c (test for excess errors)
+3719311: gcc.dg/void-cast-2.c  (test for warnings, line 7)
+3719311: gcc.dg/void-cast-2.c  (test for warnings, line 8)
 #
 # the following failures are for -m64
 3966342: gcc.apple/altivec-1.c (test for excess errors)
@@ -120,7 +163,7 @@
 3966342: gcc.dg/pr17133.c (test for excess errors)
 3966342: gcc.dg/lvalue-cast-1.c (test for excess errors)
 3939205: gcc.apple/altivec-faltivec-1.c (test for excess errors)
-#3939205: gcc.apple/altivec-faltivec-1.c scan-tree-dump-times callee has AltiVec 2
+3939205: gcc.apple/altivec-faltivec-1.c scan-tree-dump-times callee has AltiVec 2
 3939205: gcc.apple/altivec-faltivec-2.c (test for excess errors)
 3939205: gcc.apple/altivec-maltivec-1.c (test for excess errors)
 3939205: gcc.dg/framework-1.c (test for excess errors)
@@ -187,8 +230,8 @@
 4096268: gcc.misc-tests/bprob-1.c execution,    -fast  -fbranch-probabilities
 4096268: gcc.misc-tests/bprob-1.c execution,    -fast  -ftree-based-profiling -fbranch-probabilities
 4078834: gcc.dg/pr18096-1.c stack frame too large (test for warnings, line 11)
-4078985: gcc.c-torture/compile/920617-1.c  -fast  (test for excess errors)
-4078985: gcc.c-torture/compile/991202-1.c  -fast  (test for excess errors)
+#4078985: gcc.c-torture/compile/920617-1.c  -fast  (test for excess errors)
+#4078985: gcc.c-torture/compile/991202-1.c  -fast  (test for excess errors)
 4078990: gcc.c-torture/execute/comp-goto-1.c execution,  -fast
 4085016: gcc.dg/altivec-14.c  (test for warnings, line 7)
 4085016: gcc.dg/altivec-14.c  (test for warnings, line 8)
@@ -210,16 +253,19 @@
 4097506: gcc.apple/opt-pragma-3.c scan-assembler-times b "L_printf 4
 4097506: gcc.apple/opt-pragma-4.c scan-assembler-times b "L_printf 2
 4097506: gcc.apple/opt-pragma-4.c scan-assembler-times bl "L_printf 2
-4104988: gcc.c-torture/execute/pr19515.c compilation,  -O1
-4104988: gcc.c-torture/execute/pr19515.c compilation,  -O2
-4104988: gcc.c-torture/execute/pr19515.c compilation,  -O3 -fomit-frame-pointer
-4104988: gcc.c-torture/execute/pr19515.c compilation,  -O3 -g
-4104988: gcc.c-torture/execute/pr19515.c compilation,  -Os
+4157559: gcc.dg/20050607-1.c (test for excess errors)
+4239312: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -fomit-frame-pointer
+4239312: gcc.c-torture/execute/loop-2b.c compilation,  -O3 -g
+4239312: gcc.c-torture/execute/loop-2b.c compilation,  -Os
+4157563: gcc.dg/stabs-4232445.c (test for excess errors)
+4331438: gcc.apple/asm-test-nofralloc.c execution test
+4331439: gcc.apple/longcall-1.c (test for excess errors)
+4331447: gcc.apple/fix-and-continue-1.c (test for excess errors)
 #
 # the following failures are for x86 only
-4087300: gcc.c-torture/execute/builtins/strcat.c execution,  -fast
-4087300: gcc.c-torture/execute/builtins/strlen-3.c compilation,  -fast
-4087300: gcc.c-torture/execute/builtins/strncmp-2.c execution,  -fast
+3846097: gcc.c-torture/execute/builtins/strcat.c execution,  -fast
+3846097: gcc.c-torture/execute/builtins/strlen-3.c compilation,  -fast
+3846097: gcc.c-torture/execute/builtins/strncmp-2.c execution,  -fast
 4087313: gcc.dg/20011119-1.c (test for excess errors)
 4087319: gcc.dg/990424-1.c execution test
 4087219: gcc.dg/i386-asm-3.c (test for excess errors)
@@ -227,20 +273,20 @@
 4087330: gcc.dg/sibcall-6.c execution test
 4053179: gcc.dg/vect/vect-none.c scan-tree-dump-times vectorized 0 loops 2
 4053179: gcc.dg/vect/vect-none.c scan-tree-dump-times vectorized 1 loops 1
-4015764: gcc.c-torture/compile/20000518-1.c  -O1  (test for excess errors)
-4015764: gcc.c-torture/compile/20000518-1.c  -O2  (test for excess errors)
-4015764: gcc.c-torture/compile/20000518-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-4015764: gcc.c-torture/compile/20000518-1.c  -O3 -g  (test for excess errors)
-4015764: gcc.c-torture/compile/20000518-1.c  -Os  (test for excess errors)
-4015764: gcc.c-torture/compile/20000518-1.c  -fast  (test for excess errors)
+#4015764: gcc.c-torture/compile/20000518-1.c  -O1  (test for excess errors)
+#4015764: gcc.c-torture/compile/20000518-1.c  -O2  (test for excess errors)
+#4015764: gcc.c-torture/compile/20000518-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+#4015764: gcc.c-torture/compile/20000518-1.c  -O3 -g  (test for excess errors)
+#4015764: gcc.c-torture/compile/20000518-1.c  -Os  (test for excess errors)
+#4015764: gcc.c-torture/compile/20000518-1.c  -fast  (test for excess errors)
 4087219: gcc.c-torture/compile/20000804-1.c  -O0  (test for excess errors)
 4015789: gcc.c-torture/compile/20011029-1.c  -O0  (test for excess errors)
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O1 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O2 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O3 -fomit-frame-pointer 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O3 -g 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -Os 
-4015854: gcc.c-torture/execute/20020720-1.c compilation,  -fast 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O1 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O2 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O3 -fomit-frame-pointer 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -O3 -g 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -Os 
+#4015854: gcc.c-torture/execute/20020720-1.c compilation,  -fast 
 4015789: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O0 
 4015789: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O1 
 4015789: gcc.c-torture/execute/built-in-setjmp.c compilation,  -O2 
@@ -253,28 +299,27 @@
 4015896: gcc.dg/20020312-2.c (test for excess errors)
 4015896: gcc.dg/20020919-1.c  (test for errors, line 244)
 4015896: gcc.dg/20020919-1.c (test for excess errors)
-4015916: gcc.dg/c99-tgmath-2.c (test for excess errors)
-4015916: gcc.dg/c99-tgmath-3.c (test for excess errors)
-4015916: gcc.dg/c99-tgmath-4.c (test for excess errors)
-4015922: gcc.dg/cpp/19990407-1.c (test for excess errors)
-4015927: gcc.dg/cpp/headermap-1.c (test for excess errors)
-4015927: gcc.dg/cpp/headermap-2.c  (test for warnings, line 9)
-4015927: gcc.dg/cpp/headermap-2.c  (test for warnings, line 10)
-4015922: gcc.dg/cpp/strp1.c (test for excess errors)
-4015922: gcc.dg/cpp/strp2.c (test for excess errors)
+#4015916: gcc.dg/c99-tgmath-2.c (test for excess errors)
+#4015916: gcc.dg/c99-tgmath-3.c (test for excess errors)
+#4015916: gcc.dg/c99-tgmath-4.c (test for excess errors)
+#4015922: gcc.dg/cpp/19990407-1.c (test for excess errors)
+#4015927: gcc.dg/cpp/headermap-1.c (test for excess errors)
+#4015927: gcc.dg/cpp/headermap-2.c  (test for warnings, line 10)
+#4015922: gcc.dg/cpp/strp1.c (test for excess errors)
+#4015922: gcc.dg/cpp/strp2.c (test for excess errors)
 4015940: gcc.dg/lvalue-cast-1.c  (test for warnings, line 20)
 4015940: gcc.dg/lvalue-cast-1.c (test for excess errors)
-4015922: gcc.dg/struct-ret-libc.c (test for excess errors)
+#4015922: gcc.dg/struct-ret-libc.c (test for excess errors)
 4053179: gcc.dg/tree-ssa-vect/ifc-01.c execution test
-4064388: gcc.c-torture/execute/simd-1.c execution,  -O0
-4064388: gcc.c-torture/execute/simd-2.c execution,  -O0
-4064388: gcc.c-torture/execute/simd-2.c execution,  -O1
-4064388: gcc.c-torture/execute/simd-2.c execution,  -O2
-4064388: gcc.c-torture/execute/simd-2.c execution,  -O3 -fomit-frame-pointer
-4064388: gcc.c-torture/execute/simd-2.c execution,  -O3 -g
-4064388: gcc.c-torture/execute/simd-2.c execution,  -Os
-4064388: gcc.c-torture/execute/simd-2.c execution,  -fast
-4087332: gcc.c-torture/execute/va-arg-25.c execution,  -Os
+#4064388: gcc.c-torture/execute/simd-1.c execution,  -O0
+#4064388: gcc.c-torture/execute/simd-2.c execution,  -O0
+#4064388: gcc.c-torture/execute/simd-2.c execution,  -O1
+#4064388: gcc.c-torture/execute/simd-2.c execution,  -O2
+#4064388: gcc.c-torture/execute/simd-2.c execution,  -O3 -fomit-frame-pointer
+#4064388: gcc.c-torture/execute/simd-2.c execution,  -O3 -g
+#4064388: gcc.c-torture/execute/simd-2.c execution,  -Os
+#4064388: gcc.c-torture/execute/simd-2.c execution,  -fast
+#4087332: gcc.c-torture/execute/va-arg-25.c execution,  -Os
 4087344: gcc.dg/i386-387-1.c scan-assembler call\t_?sin
 4087344: gcc.dg/i386-387-1.c scan-assembler call\t_?cos
 4087344: gcc.dg/i386-387-1.c scan-assembler call\t_?sqrt
@@ -283,8 +328,8 @@
 4087344: gcc.dg/i386-387-1.c scan-assembler call\t_?exp
 4087344: gcc.dg/i386-387-1.c scan-assembler call\t_?tan
 4087344: gcc.dg/i386-387-1.c scan-assembler call\t_?fmod
-4087344: gcc.dg/i386-387-3.c scan-assembler fldpi
-4087344: gcc.dg/i386-387-4.c scan-assembler fldpi
+#4087344: gcc.dg/i386-387-3.c scan-assembler fldpi
+#4087344: gcc.dg/i386-387-4.c scan-assembler fldpi
 4087344: gcc.dg/i386-387-5.c scan-assembler call\t_?atan
 4087344: gcc.dg/i386-387-5.c scan-assembler call\t_?log1p
 4087344: gcc.dg/i386-387-5.c scan-assembler call\t_?drem
@@ -294,7 +339,7 @@
 4087344: gcc.dg/i386-cmov1.c scan-assembler shr[^\\n]*magic_named
 4087344: gcc.dg/i386-cmov1.c scan-assembler shr[^\\n]*magic_namee
 4087344: gcc.dg/i386-cmov1.c scan-assembler shr[^\\n]*magic_namef
-4087344: gcc.dg/i386-cmov4.c scan-assembler cmov
+4261902: gcc.dg/i386-cmov4.c scan-assembler cmov
 4087344: gcc.dg/i386-local2.c scan-assembler-not sub[^\\n]*sp
 4087344: gcc.dg/i386-mul.c scan-assembler and[^\\n]*magic
 4087344: gcc.dg/i386-ssetype-1.c scan-assembler andpd[^\\n]*magic
@@ -311,7 +356,9 @@
 4087344: gcc.dg/i386-ssetype-5.c scan-assembler pandn[^\\n]*magic
 4087344: gcc.dg/i386-ssetype-5.c scan-assembler pxor[^\\n]*magic
 4087344: gcc.dg/i386-ssetype-5.c scan-assembler por[^\\n]*magic
-4087344: gcc.dg/i386-cvt-1.c scan-assembler cvttsd2si[^\\n]*xmm
-4087344: gcc.dg/i386-cvt-1.c scan-assembler cvttss2si[^\\n]*xmm
-4087344: gcc.misc-tests/i386-pf-none-1.c  -march=i686  scan-assembler-not fetch
-4087344: gcc.misc-tests/i386-pf-none-1.c  -march=pentium2  scan-assembler-not fetch
+4189611: gcc.dg/i386-cvt-1.c scan-assembler cvttsd2si[^\\n]*xmm
+4189611: gcc.dg/i386-cvt-1.c scan-assembler cvttss2si[^\\n]*xmm
+4189611: gcc.misc-tests/i386-pf-none-1.c  -march=i686  scan-assembler-not fetch
+4189611: gcc.misc-tests/i386-pf-none-1.c  -march=pentium2  scan-assembler-not fetch
+4218476: gcc.c-torture/execute/builtin-return-address-1.c execution,  -O3 -fomit-frame-pointer
+4241732: gcc.apple/asm-block-11.c (test for excess errors)

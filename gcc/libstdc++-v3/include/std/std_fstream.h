@@ -414,8 +414,7 @@ namespace std
       typedef basic_istream<char_type, traits_type>	__istream_type;
 
     private:
-     /* APPLE LOCAL work with -malign-natural.  */
-      __filebuf_type	_M_filebuf __attribute((aligned(8)));
+      __filebuf_type	_M_filebuf;
 
     public:
       // Constructors/Destructors:
@@ -543,8 +542,7 @@ namespace std
       typedef basic_ostream<char_type, traits_type>	__ostream_type;
 
     private:
-     /* APPLE LOCAL work with -malign-natural.  */
-      __filebuf_type	_M_filebuf __attribute__((aligned(8)));
+      __filebuf_type	_M_filebuf;
 
     public:
       // Constructors:

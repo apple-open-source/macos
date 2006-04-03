@@ -1,8 +1,8 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved.
  *
- * $Id: keytab.c,v 1.28 2004/05/31 12:39:16 epeisach Exp $
- * $Source: /cvs/krbdev/krb5/src/kadmin/cli/keytab.c,v $
+ * $Id: keytab.c 16380 2004-05-31 12:39:16Z epeisach $
+ * $Source$
  */
 
 /*
@@ -32,7 +32,7 @@
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/kadmin/cli/keytab.c,v 1.28 2004/05/31 12:39:16 epeisach Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #include <stdio.h>

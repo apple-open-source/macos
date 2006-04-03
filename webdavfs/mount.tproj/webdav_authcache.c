@@ -463,7 +463,7 @@ char *CopyCFStringToCString(CFStringRef theString)
 	cstring = malloc(usedBufLen + 1);
 	if ( cstring != NULL )
 	{
-		converted = CFStringGetBytes(theString, range, kCFStringEncodingUTF8, 0, false, cstring, usedBufLen, &usedBufLen);
+		converted = CFStringGetBytes(theString, range, kCFStringEncodingUTF8, 0, false, (UInt8 *)cstring, usedBufLen, &usedBufLen);
 		cstring[usedBufLen] = '\0';
 	}
 	return ( cstring );
@@ -571,7 +571,7 @@ char *CopyComponentPathToCString(CFURLRef url)
 	require(result != NULL, malloc_result);
 	
 	/* copy the component path string */
-	strncpy(result, &buffer[range.location], range.length);
+	strncpy(result, (char *)&buffer[range.location], range.length);
 	result[range.length] = '\0';
 
 malloc_result:

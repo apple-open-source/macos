@@ -1,6 +1,6 @@
 diff -u --exclude=CVS -r -udbp config.h.in config.h.in
 --- config.h.in	2004-08-02 14:54:49.000000000 -0700
-+++ config.h.in	2005-03-18 14:27:36.000000000 -0800
++++ config.h.in	2005-09-23 14:04:53.000000000 -0700
 @@ -8,6 +8,9 @@
  /* Define to 1 if using `alloca.c'. */
  #undef C_ALLOCA
@@ -26,7 +26,7 @@ diff -u --exclude=CVS -r -udbp config.h.in config.h.in
  
 diff -u --exclude=CVS -r -udbp configure configure
 --- configure	2004-09-30 09:35:56.000000000 -0700
-+++ configure	2005-03-18 14:27:36.000000000 -0800
++++ configure	2005-09-23 14:53:08.000000000 -0700
 @@ -852,6 +852,8 @@ Optional Features:
                            turn on extra debug features
    --disable-largefile     omit support for large files
@@ -36,6 +36,15 @@ diff -u --exclude=CVS -r -udbp configure configure
  
  Optional Packages:
    --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+@@ -962,7 +964,7 @@ esac
+     else
+       echo "$as_me: WARNING: no configuration information is in $ac_dir" >&2
+     fi
+-    cd "$ac_popdir"
++    cd $ac_popdir
+   done
+ fi
+ 
 @@ -2003,7 +2005,8 @@ if { (eval echo "$as_me:$LINENO: \"$ac_c
    cat conftest.err >&5
    echo "$as_me:$LINENO: \$? = $ac_status" >&5
@@ -1241,7 +1250,7 @@ diff -u --exclude=CVS -r -udbp configure configure
    sed "$ac_vpsub
 diff -u --exclude=CVS -r -udbp configure.in configure.in
 --- configure.in	2004-09-30 09:35:56.000000000 -0700
-+++ configure.in	2005-03-18 14:27:36.000000000 -0800
++++ configure.in	2005-09-23 14:04:53.000000000 -0700
 @@ -656,6 +656,21 @@ AC_SUBST(OBJ_RESTORE)
  AC_SUBST(CC_SHOBJ_FLAG)
  AC_SUBST(BUILD_POPT)
@@ -1266,7 +1275,7 @@ diff -u --exclude=CVS -r -udbp configure.in configure.in
  
 diff -u --exclude=CVS -r -udbp flist.c flist.c
 --- flist.c	2004-09-21 02:24:02.000000000 -0700
-+++ flist.c	2005-03-18 14:48:19.000000000 -0800
++++ flist.c	2005-09-28 15:24:31.000000000 -0700
 @@ -27,6 +27,10 @@
  
  #include "rsync.h"
@@ -1288,7 +1297,7 @@ diff -u --exclude=CVS -r -udbp flist.c flist.c
  
  extern struct exclude_list_struct exclude_list;
  extern struct exclude_list_struct server_exclude_list;
-@@ -974,6 +981,53 @@ void send_file_name(int f, struct file_l
+@@ -974,6 +981,55 @@ void send_file_name(int f, struct file_l
  	if (file->basename[0]) {
  		flist->files[flist->count++] = file;
  		send_file_entry(file, f, base_flags);
@@ -1327,7 +1336,9 @@ diff -u --exclude=CVS -r -udbp flist.c flist.c
 +			file2->basename[1] = '_';
 +			file2->length = 1;
 +			file2->mode = S_IFREG | S_IRUSR;
++			file2->modtime = file->modtime;
 +
++			flist_expand(flist);
 +			flist->files[flist->count++] = file2;
 +
 +			if (f != -1)
@@ -1342,7 +1353,7 @@ diff -u --exclude=CVS -r -udbp flist.c flist.c
  	}
  
  	if (recursive && S_ISDIR(file->mode)
-@@ -1291,6 +1345,14 @@ struct file_list *recv_file_list(int f)
+@@ -1291,6 +1347,14 @@ struct file_list *recv_file_list(int f)
  			flags |= read_byte(f) << 8;
  		receive_file_entry(&flist->files[i], flags, flist, f);
  
@@ -1359,7 +1370,7 @@ diff -u --exclude=CVS -r -udbp flist.c flist.c
  
 diff -u --exclude=CVS -r -udbp generator.c generator.c
 --- generator.c	2004-09-20 12:47:59.000000000 -0700
-+++ generator.c	2005-03-18 14:27:36.000000000 -0800
++++ generator.c	2005-09-23 14:04:53.000000000 -0700
 @@ -55,6 +55,9 @@ extern int only_existing;
  extern int orig_umask;
  extern int safe_symlinks;
@@ -1484,7 +1495,7 @@ diff -u --exclude=CVS -r -udbp generator.c generator.c
  	phase++;
 diff -u --exclude=CVS -r -udbp main.c main.c
 --- main.c	2004-09-29 10:58:07.000000000 -0700
-+++ main.c	2005-03-18 14:27:36.000000000 -0800
++++ main.c	2005-09-23 14:04:53.000000000 -0700
 @@ -56,6 +56,9 @@ extern int write_batch;
  extern int batch_fd;
  extern int batch_gen_fd;
@@ -1523,7 +1534,7 @@ diff -u --exclude=CVS -r -udbp main.c main.c
  
 diff -u --exclude=CVS -r -udbp options.c options.c
 --- options.c	2004-09-23 10:39:05.000000000 -0700
-+++ options.c	2005-03-18 14:27:36.000000000 -0800
++++ options.c	2005-09-23 14:04:53.000000000 -0700
 @@ -96,6 +96,9 @@ int blocking_io = -1;
  int checksum_seed = 0;
  int inplace = 0;
@@ -1567,7 +1578,7 @@ diff -u --exclude=CVS -r -udbp options.c options.c
  
 diff -u --exclude=CVS -r -udbp proto.h proto.h
 --- proto.h	2004-09-21 02:15:56.000000000 -0700
-+++ proto.h	2005-03-18 14:27:36.000000000 -0800
++++ proto.h	2005-09-23 14:04:53.000000000 -0700
 @@ -186,6 +186,7 @@ pid_t local_child(int argc, char **argv,
  void end_progress(OFF_T size);
  void show_progress(OFF_T ofs, OFF_T size);
@@ -1578,7 +1589,7 @@ diff -u --exclude=CVS -r -udbp proto.h proto.h
  int delete_file(char *fname);
 diff -u --exclude=CVS -r -udbp receiver.c receiver.c
 --- receiver.c	2004-09-21 02:24:06.000000000 -0700
-+++ receiver.c	2005-03-18 14:27:36.000000000 -0800
++++ receiver.c	2005-09-23 14:04:53.000000000 -0700
 @@ -20,6 +20,10 @@
  
  #include "rsync.h"
@@ -1636,7 +1647,7 @@ diff -u --exclude=CVS -r -udbp receiver.c receiver.c
  
 diff -u --exclude=CVS -r -udbp rsync.1 rsync.1
 --- rsync.1	2004-09-30 09:36:01.000000000 -0700
-+++ rsync.1	2005-03-18 14:27:36.000000000 -0800
++++ rsync.1	2005-09-23 14:04:53.000000000 -0700
 @@ -427,6 +427,7 @@ to the detailed description below for a 
       --checksum-seed=NUM     set block/file checksum seed
   -4  --ipv4                  prefer IPv4
@@ -1659,7 +1670,7 @@ diff -u --exclude=CVS -r -udbp rsync.1 rsync.1
  .PP 
 diff -u --exclude=CVS -r -udbp rsync.yo rsync.yo
 --- rsync.yo	2004-09-30 09:35:56.000000000 -0700
-+++ rsync.yo	2005-03-18 14:27:36.000000000 -0800
++++ rsync.yo	2005-09-23 14:04:53.000000000 -0700
 @@ -383,6 +383,7 @@ verb(
       --checksum-seed=NUM     set block/file checksum seed
   -4  --ipv4                  prefer IPv4
@@ -1681,7 +1692,7 @@ diff -u --exclude=CVS -r -udbp rsync.yo rsync.yo
  manpagesection(EXCLUDE PATTERNS)
 diff -u --exclude=CVS -r -udbp sender.c sender.c
 --- sender.c	2004-09-19 21:17:42.000000000 -0700
-+++ sender.c	2005-03-18 14:27:36.000000000 -0800
++++ sender.c	2005-09-23 14:55:47.000000000 -0700
 @@ -19,6 +19,10 @@
  
  #include "rsync.h"
@@ -1703,14 +1714,23 @@ diff -u --exclude=CVS -r -udbp sender.c sender.c
  extern struct stats stats;
  
  
-@@ -185,6 +192,41 @@ void send_files(struct file_list *flist,
+@@ -123,6 +130,9 @@ void send_files(struct file_list *flist,
+ 	struct stats initial_stats;
+ 	int save_make_backups = make_backups;
+ 	int j;
++#if HAVE_COPYFILE
++	char fname_tmp[MAXPATHLEN];
++#endif
+ 
+ 	if (verbose > 2)
+ 		rprintf(FINFO, "send_files starting\n");
+@@ -185,6 +195,39 @@ void send_files(struct file_list *flist,
  			return;
  		}
  
 +#ifdef HAVE_COPYFILE
 +		if (extended_attributes
 +		    && !strncmp(file->basename, "._", 2)) {
-+			    char fname_tmp[MAXPATHLEN];
 +			    char fname_src[MAXPATHLEN];
 +			    extern char *tmpdir;
 +
@@ -1732,7 +1752,6 @@ diff -u --exclude=CVS -r -udbp sender.c sender.c
 +				&& !copyfile(fname_src, fname_tmp, NULL,
 +				       COPYFILE_PACK | COPYFILE_METADATA)) {
 +				    fd = do_open(fname_tmp, O_RDONLY, 0);
-+				    unlink(fname_tmp);
 +			    }
 +			    else
 +			    {
@@ -1745,9 +1764,22 @@ diff -u --exclude=CVS -r -udbp sender.c sender.c
  		fd = do_open(fname, O_RDONLY, 0);
  		if (fd == -1) {
  			if (errno == ENOENT) {
+@@ -257,6 +300,12 @@ void send_files(struct file_list *flist,
+ 			rprintf(FINFO, "sender finished %s\n",
+ 				safe_fname(fname));
+ 		}
++#if HAVE_COPYFILE
++		if (extended_attributes
++		    && !strncmp(file->basename, "._", 2)) {
++				    unlink(fname_tmp);
++		}
++#endif
+ 	}
+ 	make_backups = save_make_backups;
+ 
 diff -u --exclude=CVS -r -udbp syscall.c syscall.c
 --- syscall.c	2004-08-02 14:56:07.000000000 -0700
-+++ syscall.c	2005-03-18 14:27:36.000000000 -0800
++++ syscall.c	2005-10-06 15:43:42.000000000 -0700
 @@ -26,10 +26,18 @@
  
  #include "rsync.h"
@@ -1767,6 +1799,26 @@ diff -u --exclude=CVS -r -udbp syscall.c syscall.c
  
  #define RETURN_ERROR_IF(x,e) \
  	do { \
+@@ -53,7 +53,19 @@
+ {
+	if (dry_run) return 0;
+	RETURN_ERROR_IF_RO_OR_LO;
++#ifdef HAVE_COPYFILE
++	if (!strncmp("._", fname, 2))
++	{
++	    int ret;
++	    ret = unlink(fname);
++
++	    if(ret == -1 && errno != ENOENT)
++		return -1;
++	    else
++		return 0;
++	}
++#endif
+	return unlink(fname);
+ }
+ 
+ int do_symlink(char *fname1, char *fname2)
 @@ -114,6 +122,19 @@ int do_rename(char *fname1, char *fname2
  {
  	if (dry_run) return 0;
@@ -1789,7 +1841,7 @@ diff -u --exclude=CVS -r -udbp syscall.c syscall.c
  
 diff -u --exclude=CVS -r -udbp t_unsafe.c t_unsafe.c
 --- t_unsafe.c	2003-09-10 01:27:34.000000000 -0700
-+++ t_unsafe.c	2005-03-18 14:27:36.000000000 -0800
++++ t_unsafe.c	2005-09-23 14:04:53.000000000 -0700
 @@ -29,6 +29,9 @@
  
  int dry_run, read_only, list_only, verbose;
@@ -1802,7 +1854,7 @@ diff -u --exclude=CVS -r -udbp t_unsafe.c t_unsafe.c
  int
 diff -u --exclude=CVS -r -udbp tls.c tls.c
 --- tls.c	2004-09-22 22:33:48.000000000 -0700
-+++ tls.c	2005-03-18 14:27:36.000000000 -0800
++++ tls.c	2005-09-23 14:04:53.000000000 -0700
 @@ -47,6 +47,9 @@ int dry_run = 0;
  int read_only = 1;
  int list_only = 0;
@@ -1815,7 +1867,7 @@ diff -u --exclude=CVS -r -udbp tls.c tls.c
  static void failed(char const *what, char const *where)
 diff -u --exclude=CVS -r -udbp trimslash.c trimslash.c
 --- trimslash.c	2003-09-10 01:27:34.000000000 -0700
-+++ trimslash.c	2005-03-18 14:27:36.000000000 -0800
++++ trimslash.c	2005-09-23 14:04:53.000000000 -0700
 @@ -23,6 +23,9 @@ int dry_run = 0;
  int read_only = 1;
  int list_only = 0;

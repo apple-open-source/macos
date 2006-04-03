@@ -1,3 +1,345 @@
+2005-10-11  Jim Ingham  <jingham@apple.com>
+
+	* gdb.base/psymtab.exp: "set breakpoint pending off" before
+	running the test, since we don't actually want to be queried
+	about the breakpoint.
+	
+2005-10-03  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.mi/mi2-until.exp: Mised a "hit-count" -> "times" case.
+
+2005-10-03  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/inf-call-interrupt.exp: Update to expect "times" instead of
+	"hit-count".
+	* gdb.mi/mi-syn-frame.exp: Ditto.
+	* gdb.mi/mi2-syn-frame.exp: Ditto.
+	* lib/mi-support.exp: (mi_get_bp_stopped, mi_finish_to, 
+	mi0_continue_to): Ditto.
+
+2005-09-30  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/inf-call-interrupt.exp: Expect a hit count for the
+	breakpoint.
+	* gdb.mi/mi-syn-frame.exp: Ditto.
+	* gdb.mi/mi2-syn-frame.exp: Ditto.
+	* lib/mi-support.exp: (mi_get_bp_stopped, mi_finish_to, 
+	mi0_continue_to): Ditto.
+
+2005-09-27  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/anon-bitfield.{cc,exp}:  New testcase for
+	r. 4256955.
+	
+2005-09-13  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/r4183684.{cc,exp}: New testcase for r. 4183684.
+	
+2005-09-12  Klee Dienes  <kdienes@apple.com>
+	
+	* gdb.base/help.exp: Update expected help string output.
+
+2005-09-12  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.mi/mi2-disassemble.exp: Update to new syntax / options
+	for -data-disassemble.
+
+2005-09-08  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/ld-r/{*-2.cc, *-2.h}: New files so we can make
+	two ld-r .o files.
+	* gdb.apple/ld-r/ld-r.exp: Build these.  Also add tests for the
+	.o vrs. N_OSO timing checks.
+	
+2005-09-06  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/gused/type-qualifications.{c,exp}: Testcase for r. 4239689.
+
+2005-08-22  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/ostream-defined.{c,exp}: New testcase for 4172150 and
+	4227075.
+
+2005-08-22  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/struct-in-struct.{c,exp}: New testcase for r. 4223302.
+
+2005-08-18  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/gused/psym-type-defn.{c,exp}: New testcase for r. 4223137.
+
+2005-08-17  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/ld-r/Makefile.in: New file.
+        * configure.in: Add gdb.apple/gused and gdb.apple/ld-r directories.
+        * configure: Regenerated.
+
+2005-08-15  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/objc-prog.m: Add a function that uses the 
+	various NS types that we test for in po.exp.  This will
+	reduce spurious differences between -gused & -gfull testing.
+
+2005-08-11  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/gused/shantonu.{c,exp}: New test case for another -gused
+        thing.
+
+2005-08-09  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/info-shared-addr.exp: Test new use of 
+	parse_and_eval_address in "info shared" command.
+
+2005-08-09  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/gused/split-pi.{c,exp}: New test case from a radar.
+
+2005-08-05  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/gused/coalesced{1,2}.exp: Fix test case code.
+
+2005-08-03  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/gused/coalesced{1,2}.exp: Make test case names unique.
+
+2005-08-03  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/coalesced2{a.cc,b.cc,.exp}: Fix copy-and-pasteo.
+
+2005-08-03  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/gused: New directory for tests explicitly designed to test
+        -gused debug problems.
+        * gdb.apple/coalesced1{a.cc,b.cc,.h,.exp}: New test case.
+        * gdb.apple/coalesced2{a.cc,b.cc,.h,.exp}: New test case.
+
+2005-07-27  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.base/bigcore.exp: Disable.  This test is getting incredibly 
+	tiresome.
+
+2005-07-18  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/bigenum.c, bigenum.exp: New test case for bug over
+	in 4184583.
+
+2005-07-15  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/scoped-typedefs.exp, scoped-typedefs.cc: New test case
+	for code similar to MiG-generated stuff.
+	* gdb.apple/incomplete-cplus-type.exp, incomplete-cplus-type.cc: New
+	test case to check for a compiler stabs bug.
+
+2005-06-07  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/gen-x86-prologues-patterns.txt: Add patterns for
+	instructions in prologues on a Red Hat FedoraCore 2 system.
+	* gdb.apple/gen-x86-prologues.rb: Add a word of writable memory
+	for instruction tests.
+	* gdb.apple/gen-x86-prologues.c, gen-x86-prologues.exp: Rengenerate.
+
+2005-05-27  Klee Dienes  <kdienes@apple.com>
+	
+	* gdb.base/bigcore.exp: Modify it to run when cross-compiling from
+	ppc to ppc64.  Then turn around and disable it for ppc64, due to
+	<rdar://problem/4133581> gdb test-suite disables bigcore.exp.
+
+2005-05-27  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/dump.c: Declare teststruct static, to work around
+	<rdar://problem/4127694> ld on powerpc64 strips too much.
+
+2005-05-26  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/signals.exp: Remove global XFAIL for a signal-handling
+	test that we appear to have fixed.
+
+2005-05-26  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.apple/slipnslide.exp: Add workaround for 4126196 -
+	start-with-shell breaks DYLD_INSERT_LIBRARIES on ppc64.
+
+2005-05-26  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.apple/bp-cond-objc.exp: Skip Carbon and Objective-C tests on ppc64.
+	* gdb.apple/info-shared-addr.exp: Ditto.
+	* gdb.apple/ivars.exp: Ditto.
+	* gdb.apple/mi1-varobj.exp: Ditto.
+	* gdb.apple/objc-rbreak.exp: Ditto.
+	* gdb.apple/objc-rbreak.exp: Ditto.
+	* gdb.apple/ostype.exp: Ditto.
+	* gdb.apple/po.exp: Ditto.
+	* gdb.apple/fix-and-continue/small-objc/fix-small-objc.exp: Ditto.
+	* gdb.objc/basicclass.exp: Ditto.
+	* gdb.objc/myclass.exp: Ditto.
+	* gdb.objc/nondebug.exp: Ditto.
+	* gdb.objc/objcdecode.exp: Ditto.
+
+2005-05-25  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/callfuncs.exp: Remove kfails for gdb/1457 on ppc64 ---
+	they work on Darwin/ppc64.
+
+2005-05-25  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/float.exp: Recognize powerpc*-*-*, to handle ppc64.
+	
+2005-05-25  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/attach.exp (gdb_compile_fake_fat): Determine the
+	architecture based on the files generated by gdb_compile, not by
+	the output of 'arch' (because for powerpc64, we will be
+	cross-compiling using -arch ppc64).
+
+2005-05-19  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/po.exp: Call [NSNumber numberWithDouble].  One some
+	architectures whose arguments are passed on the stack, there is a
+	difference between a float arg and a double arg.  gdb doesn't have
+	a prototype for this member function, so it passes a double.  But
+	the member function is expecting a float.
+
+2005-05-19  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/pc-verify.exp: Correct FP vs stack frame noise on x86.
+
+2005-05-19  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/gen-x86-prologues-patterns.txt: Add xorps.
+	* gdb.apple/gen-x86-prologues.c, gen-x86-prologues.exp: Regenerated.
+
+2005-05-18  Stan Shebs  <shebs@apple.com>
+
+	Whack cached symfile testing.
+	* gdb.apple/cachedsym-1.exp: Remove.
+	* gdb.apple/cachedsym-proc.exp: Remove.
+	* gdb.apple/cachedsym-lib/*: Remove.
+
+2005-05-18  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.threads/pthreads.exp: Revert the "break common_routine"
+	check to the FSF sources.  We were trying to use "thread apply 3
+	break foo" as a substitute for "break foo thread 3", which doesn't
+	actually work.  Plus we seem to have fixed the bug that was
+	breaking "break foo thread 3".
+
+2005-05-18  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/structs.exp: Comment out FSF kfails for bugs we have
+	fixed.
+
+2005-05-18  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/step-test.exp: When using stepi through a function
+	prologue, handle the case where we step into i686.get_pc_thunk.
+
+2005-05-18  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/float.exp: Fix bug in the "float" regex.
+
+2005-05-18  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/bigcore.exp: Match the changes to corefile.exp, to
+	prevent copying huge corefiles to networked volumes.
+
+2005-05-18  Klee Dienes  <kdienes@apple.com>
+	
+	* gdb.apple/dynaload.exp: Add "-multiply_defined suppress," to
+	prevent multiple-definition errors for our duplicate fputs.
+
+2005-05-17  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb.apple/fix-and-continue/small-c/b-valid-4.c, b-valid-5.c: New      
+        test files to help test for correct picbase reg setup.
+        * gdb.apple/fix-and-continue/small-c/mi-fix-small-c.exp: New tests
+        specifically to look for correct picbase reg setup.
+        * gdb.apple/fix-and-continue/small-c/Makefile: Build them.
+
+2005-05-16  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.apple/cachedsym-1.exp: Suppress warning message.
+	* gdb.asm/asm-source.exp: Supporess warning message.
+	* gdb.mi/*.exp: Supporess warning message.
+	* gdb.threads/schedlock.exp: Re-enable tests; we can now use the
+	  non-determinate xfail stuff to prevent spam.
+
+2005-05-16  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/bigcore.c: Print PID, so bigcore.exp can find the corefile.
+	* gdb.base/bigcore.exp: Update to find Mac OS X-style corefiles.
+
+2005-05-16  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/corefile.exp: Update to not print error messages when
+	unable to create core files.
+
+2005-05-12  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.apple/weak.exp: Adjust to accomodate some libraries
+	being found and loaded earlier in the process.
+
+2005-05-12  Jim Ingham  <jingham@apple.com>
+
+	* gdb.apple/file-statics.exp: Dwarf lists the statics in the
+	opposite order from stabs.  Adjust the tests to work for both.
+	
+2005-05-11  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.apple/nick.c, nick.exp: New files to test the debugging
+	setup used by dyld developers.
+
+2005-05-06  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/corefile.exp: Remove the corefile after we are done
+	with the test.
+
+2005-05-06  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.apple/slipnslide.exp: Use 'fputs' instead of 'printf',
+	to avoid having to deal with the multiple versions of printf
+	in libSystem.
+
+2005-05-06  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.cp/templates.exp: Allow output of 'ptype quxint' to
+	explicitly list the cast in the type information, to match
+	gcc-4.0.
+
+2005-05-04  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/annota1.exp: Modify to cope with 'break printf'
+	actually setting more than one breakpoint, by using 'break
+	sleep' in place of 'break printf'.
+	* gdb.base/annota3.exp: For uniformity, make the same changes
+	to annota3.exp.
+	* gdb.base/annota1.c: Replace calls to printf() with sleep().
+	Nothing is using the output from printf() ... the test-cases
+	just want something in the system library on which they can
+	set a breakpoint.
+	* gdb.base/annota3.c: Ditto.
+
+2005-05-04  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/annota3.exp: Modify to cope with 'break printf'
+	actually setting more than one breakpoint.
+	* gdb.base/annota3.c: Modify to replace 'printf' with 'myprintf'.
+
+2005-05-03  Klee Dienes  <kdienes@apple.com>
+
+        * gdb.base/structs.exp: When compiled without optimization,
+        our compiler passes in scratch buffers to functions that
+        return structures, then copies the results to the appropriate
+        area.  So when we return from the function unexpectedly, the
+        result can be filled with garbage data.  Update the tests to recognize
+        this.
+
+2005-05-03  Klee Dienes  <kdienes@apple.com>
+
+	* gdb.base/float.exp: Add new "float" regex to match
+	floating-point numbers.  Update the "info float" recognizer to
+	use ${float}, as we shouldn't be assuming that all of the floating
+	point registers are zero.
+
 2005-04-29  Jim Ingham  <jingham@apple.com>
 
 	* gdb.apple/r4098981.c, gdb.apple/rr4098981.exp:  New

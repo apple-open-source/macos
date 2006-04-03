@@ -1,7 +1,7 @@
 /*
  * KLPreferences.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLPreferences.h,v 1.30 2003/08/10 20:21:29 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

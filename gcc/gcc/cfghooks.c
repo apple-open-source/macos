@@ -335,6 +335,8 @@ split_block (basic_block bb, void *i)
   new_bb->count = bb->count;
   new_bb->frequency = bb->frequency;
   new_bb->loop_depth = bb->loop_depth;
+  /* APPLE LOCAL 4203984 mainline candidate */
+  new_bb->loop_father = bb->loop_father;
   /* APPLE LOCAL begin lno */
   if (irr)
     {

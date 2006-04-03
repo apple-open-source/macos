@@ -36,7 +36,7 @@
 static char sccsid[] = "@(#)if.c	8.3 (Berkeley) 4/28/95";
 */
 static const char rcsid[] =
-	"$Id: if.c,v 1.6 2005/01/25 00:10:05 lindak Exp $";
+	"$Id: if.c,v 1.6.40.1 2006/01/10 05:26:27 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -380,7 +380,7 @@ intpr(void (*pfunc)(char *))
 				memcpy(&mask, rti_info[RTAX_NETMASK], ((struct sockaddr_in *)rti_info[RTAX_NETMASK])->sin_len);
 				
 				printf("%-13.13s ", netname(sin->sin_addr.s_addr & mask.sin_addr.s_addr,
-				    mask.sin_addr.s_addr));
+				    ntohl(mask.sin_addr.s_addr)));
 
 				printf("%-15.15s ",
 				    routename(sin->sin_addr.s_addr));

@@ -27,9 +27,22 @@
  *  Created by Shantonu Sen on 2/2/05.
  *  Copyright 2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLUpdateBooter.c,v 1.4 2005/02/23 17:19:32 ssen Exp $
+ *  $Id: BLUpdateBooter.c,v 1.7 2005/08/22 20:49:23 ssen Exp $
  *
  *  $Log: BLUpdateBooter.c,v $
+ *  Revision 1.7  2005/08/22 20:49:23  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.6  2005/06/24 16:51:06  ssen
+ *  add includes for sys/param.h
+ *
+ *  Revision 1.5  2005/06/24 16:39:50  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.4  2005/02/23 17:19:32  ssen
  *  initialize variables to 0
  *
@@ -47,13 +60,14 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/param.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "bless.h"
 #include "bless_private.h"
 
-int BLUpdateBooter(BLContextPtr context, const unsigned char device[],
+int BLUpdateBooter(BLContextPtr context, const char * device,
 				   BLUpdateBooterFileSpec *specs,
 				   int32_t specCount)
 {

@@ -119,6 +119,8 @@
 #include      "math.h"
 #include      "fenv.h"
 #include      "fp_private.h"
+//#include "xmmLibm_prefix.h"
+
 
 /*******************************************************************************
 *            Functions needed for the computation.                             *
@@ -182,151 +184,158 @@ static const double zero	 = 0.0;
 
 #pragma fenv_access on
 
-double tgamma ( double x )
-      {
-      register int n, parity, i;
-      register double y, y1, result, fact, IsItAnInt, z, numerator, 
-	                denominator, ysquared, sum; 
-      fenv_t OldEnvironment;
-    
-      (void) feholdexcept( &OldEnvironment );
-      fesetenv( FE_DFL_ENV );
-	
+static inline double _tgamma ( double x ) __attribute__ ((always_inline));
+
+static inline double _tgamma ( double x )
+{
+  register int n, parity, i;
+  register double y, y1, result, fact, IsItAnInt, z, numerator, 
+				denominator, ysquared, sum; 
+  fenv_t OldEnvironment;
+
+  (void) feholdexcept( &OldEnvironment );
+  fesetenv( FE_DFL_ENV );
+
 /*******************************************************************************
 *     The next switch will decipher what sort of argument we have. If argument *
 *     is SNaN then a QNaN has to be returned and the invalid flag signaled.    * 
 *******************************************************************************/
 
-      switch ( __fpclassifyd ( x ) )
-            {
-            case FP_NAN:
-                  x *= 2.0;                  /* quiets NaN */
-                  feupdateenv( &OldEnvironment ); //   restore caller's environment
-                  return x;
-            
-            case FP_ZERO:
-                  feupdateenv( &OldEnvironment ); 
-                  return copysign( Huge.d, 1.0/x); // raises zero divide
+  switch ( __fpclassifyd ( x ) )
+		{
+		case FP_NAN:
+			  x *= 2.0;                  /* quiets NaN */
+			  feupdateenv( &OldEnvironment ); //   restore caller's environment
+			  return x;
+		
+		case FP_ZERO:
+			  feupdateenv( &OldEnvironment ); 
+			  return copysign( Huge.d, 1.0/x); // raises zero divide
 
-             case FP_INFINITE:
-                  if ( x > 0.0 )
-                        x = Huge.d;
-                  else
-                        x = nan ( GAMMA_NAN ) + ((x-x)/(x-x)); // raises invalid
+		 case FP_INFINITE:
+			  if ( x > 0.0 )
+					x = Huge.d;
+			  else
+					x = nan ( GAMMA_NAN ) + ((x-x)/(x-x)); // raises invalid
 
-                  feupdateenv( &OldEnvironment ); //   restore caller's environment
-                  return x;
-                  
-            default:                  /*      NORMALNUM and DENORMALNUM      */
-                  break;
-            }
-      
-      parity = 0;
-      fact = 1.0;
-      n = 0;
-      y = x;
-      result = 0.0;
+			  feupdateenv( &OldEnvironment ); //   restore caller's environment
+			  return x;
+			  
+		default:                  /*      NORMALNUM and DENORMALNUM      */
+			  break;
+		}
+  
+  parity = 0;
+  fact = 1.0;
+  n = 0;
+  y = x;
+  result = 0.0;
 
 /*******************************************************************************
 *     The argument is negative.                                                *
 *******************************************************************************/
 
-      if ( y <= 0.0 )
-            {
-            y = - x;
-			if ( y < MinimumX )
-                  {
-                  feupdateenv( &OldEnvironment ); //   restore caller's environment
-                  return MinusHuge.d * Huge.d; // raises OVERFLOW
-                  }
-            y1 = trunc ( y );
-            IsItAnInt = y - y1;
-            if ( IsItAnInt != 0.0 )                   /* is it an integer?   */
-                  {                                   /* is it odd or even?  */
-                  if ( y1 != trunc ( y1 * 0.5 ) * 2.0 ) parity = 1;
-                  fact = - pi / sin ( pi * IsItAnInt );
-                  y += 1.0;
-                  }
-            else
-                  {
-                  feupdateenv( &OldEnvironment ); //   restore caller's environment
-                  return nan ( GAMMA_NAN ) + zero/zero; // raises INVALID
-                  }
-            }
+  if ( y <= 0.0 )
+		{
+		y = - x;
+		if ( y < MinimumX )
+			  {
+			  feupdateenv( &OldEnvironment ); //   restore caller's environment
+			  return MinusHuge.d * Huge.d; // raises OVERFLOW
+			  }
+		y1 = trunc ( y );
+		IsItAnInt = y - y1;
+		if ( IsItAnInt != 0.0 )                   /* is it an integer?   */
+			  {                                   /* is it odd or even?  */
+			  if ( y1 != trunc ( y1 * 0.5 ) * 2.0 ) parity = 1;
+			  fact = - pi / sin ( pi * IsItAnInt );
+			  y += 1.0;
+			  }
+		else
+			  {
+			  feupdateenv( &OldEnvironment ); //   restore caller's environment
+			  return nan ( GAMMA_NAN ) + zero/zero; // raises INVALID
+			  }
+		}
 
 /*******************************************************************************
 *     The argument is positive.                                                *
 *******************************************************************************/
 
-     if ( y < eps )                         /* argument is less than epsilon. */
-            {
-            if ( y >= MinimumX )          /* x is in [MinimumX,eps].          */
-                  result = 1.0 / y;
-            else                          /* othewise, x is in [0,MinimumX).  */
-                  {
-                  feupdateenv( &OldEnvironment ); //   restore caller's environment
-                  return Huge.d * Huge.d; // raises OVERFLOW
-                  }
-            }
-      else if ( y < 12.0 )                 /* argument x is eps < x < 12.0.  */
-            {
-            y1 = y;
-            if ( y < 1.0 )                 /* x is in (eps, 1.0).            */
-                  {
-                  z = y;
-                  y += 1.0;
-                  }
-            else                           /* x is in [1.0,12.0].            */
-                  {
-                  n = ( int ) y - 1;
-                  y -= ( double ) n;
-                  z = y - 1.0;
-                  }
-            numerator = 0.0;
-            denominator = 1.0;
-            for ( i = 0; i < 8; i++ )
-                  {
-                  numerator = ( numerator + p[i] ) * z;
-                  denominator = denominator * z + q[i];
-                  }
-            result = numerator / denominator + 1.0;
-            if ( y1 < y )
-                  result /= y1;
-            else if ( y1 > y )
-                  {
-                  for ( i = 0; i < n; i++ )
-                        {
-                        result *= y;
-                        y += 1.0;
-                        }
-                  }
-            }
-      else
-            {
-            if ( x <= xbig )
-                  {
-                  ysquared = y * y;
-                  sum = c[6];
-                  for ( i = 0; i < 6; i++ )
-                        sum = sum / ysquared + c[i];
-                  sum = sum / y - y + LogSqrt2pi;
-                  sum += ( y - 0.5 ) * log ( y );
-                  result = exp ( sum );
-                  }
-            else
-                  {
-                  feupdateenv( &OldEnvironment ); //   restore caller's environment
-                  return Huge.d * Huge.d; // raises OVERFLOW
-                  }
-            }
-            
-      if ( parity ) result = - result;
-      if ( fact != 1.0 ) result = fact / result;
-      feupdateenv( &OldEnvironment ); //   restore caller's environment
-      return result;
-      }
-      
+ if ( y < eps )                         /* argument is less than epsilon. */
+		{
+		if ( y >= MinimumX )          /* x is in [MinimumX,eps].          */
+			  result = 1.0 / y;
+		else                          /* othewise, x is in [0,MinimumX).  */
+			  {
+			  feupdateenv( &OldEnvironment ); //   restore caller's environment
+			  return Huge.d * Huge.d; // raises OVERFLOW
+			  }
+		}
+  else if ( y < 12.0 )                 /* argument x is eps < x < 12.0.  */
+		{
+		y1 = y;
+		if ( y < 1.0 )                 /* x is in (eps, 1.0).            */
+			  {
+			  z = y;
+			  y += 1.0;
+			  }
+		else                           /* x is in [1.0,12.0].            */
+			  {
+			  n = ( int ) y - 1;
+			  y -= ( double ) n;
+			  z = y - 1.0;
+			  }
+		numerator = 0.0;
+		denominator = 1.0;
+		for ( i = 0; i < 8; i++ )
+			  {
+			  numerator = ( numerator + p[i] ) * z;
+			  denominator = denominator * z + q[i];
+			  }
+		result = numerator / denominator + 1.0;
+		if ( y1 < y )
+			  result /= y1;
+		else if ( y1 > y )
+			  {
+			  for ( i = 0; i < n; i++ )
+					{
+					result *= y;
+					y += 1.0;
+					}
+			  }
+		}
+  else
+		{
+		if ( x <= xbig )
+			  {
+			  ysquared = y * y;
+			  sum = c[6];
+			  for ( i = 0; i < 6; i++ )
+					sum = sum / ysquared + c[i];
+			  sum = sum / y - y + LogSqrt2pi;
+			  sum += ( y - 0.5 ) * log ( y );
+			  result = exp ( sum );
+			  }
+		else
+			  {
+			  feupdateenv( &OldEnvironment ); //   restore caller's environment
+			  return Huge.d * Huge.d; // raises OVERFLOW
+			  }
+		}
+		
+  if ( parity ) result = - result;
+  if ( fact != 1.0 ) result = fact / result;
+  feupdateenv( &OldEnvironment ); //   restore caller's environment
+  return result;
+}
+   
+double tgamma ( double x )
+{
+	return _tgamma( x );
+}
+
 float tgammaf ( float x )
 {
-    return (float)tgamma ( x );
+    return (float)_tgamma ( x );
 }

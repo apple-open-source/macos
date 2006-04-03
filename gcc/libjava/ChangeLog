@@ -1,3 +1,220 @@
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-06-05  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainSocketImplPosix.cc (setOption): Fix case
+	fall-through bug.
+
+2005-06-04  Anthony Green  <green@redhat.com>
+
+	* java/net/URLClassLoader.java: import gnu.gcj.Core,
+	and gnu.java.net.protocol.core.CoreInputStream.
+	(CureURLLoader): New class.
+	(CoreResource): New class.
+	(addURLImpl): Add special treatment for the "core" protocol.
+	* gnu/gcj/natCore.cc (find): New method.
+	* gnu/gcj/Core.java (find): New method.
+	
+2005-06-04  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jawt.c: Remove malloc.h include and use stdlib.h instead.
+
+2005-06-01  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21753:
+	* java/lang/natString.cc (substring): Changed sharing heuristic.
+
+2005-05-29  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/20273:
+	* java/util/LinkedHashMap.java (access): Set 'root.pred'.
+
+2005-05-27  Robin Green  <greenrd@greenrd.org>
+
+	PR libgcj/21775:
+	* java/util/logging/natLogger.cc (getCallerStackFrame): Start
+	with i=1.
+
+2005-05-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* include/jvm.h (FLAG_BINARYCOMPAT_ABI): New.
+	(GCJ_BINARYCOMPAT_ADDITION): Removed.
+	(OLD_GCJ_40_BC_ABI_VERSION): Renamed. Old-style version ID for BC-ABI
+	classes.
+	(GCJ_40_BC_ABI_VERSION): New. Calculate version	ID using new method.
+	(_Jv_CheckABIVersion): Check for both old and new style version IDs.
+
+2005-05-14  Chris Burdess  <dog@gnu.org>
+
+	* gnu/xml/dom/ls/SAXEventSink.java: Ignore XML entities in start/
+	end entity callbacks.
+
+2005-05-24  Gary Benson  <gbenson@redhat.com>
+
+	PR libgcj/21736:
+	* java/text/MessageFormat.java (MessageFormatElement.setLocale):
+	Handle DateFormat.DEFAULT case correctly.
+
+2005-05-21  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21703:
+	* java/lang/ref/natReference.cc (find_slot): Handle case where
+	table has no NULL entries.
+	* java/lang/natString.cc (_Jv_StringFindSlot): Handle case where
+	table has no NULL entries.
+
+2005-05-20  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21637:
+	* gnu/java/net/protocol/jar/Connection.java (getInputStream):
+	Throw FileNotFoundException if jar entry not found.
+
+2005-05-18  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/19729
+	* gnu/java/security/provider/DSASignature.java: Import updates
+	from GNU Crypto.
+
+2005-05-18  Anthony Green  <green@redhat.com>
+
+	* jni/gtk-peer/gtk_jawt.c (classpath_jawt_object_lock,
+	classpath_jawt_object_unlock, classpath_jawt_create_lock,
+	classpath_jawt_destroy_lock): New functions.
+	* jni/classpath/classpath_jawt.h (classpath_jawt_object_lock,
+	classpath_jawt_object_unlock, classpath_jawt_create_lock,
+	classpath_jawt_destroy_lock): New functions.
+	* include/jawt.h (struct _JAWT_DrawingSurface): Add lock
+	field.
+	* jawt.c: #include malloc.h.
+	(_Jv_Lock): Use lock.
+	(_Jv_Unlock): Ditto.
+	(_Jv_GetDrawingSurface): Initialize lock.
+	(_Jv_FreeDrawingSurface): Destroy lock.
+	(_Jv_FreeDrawingSurfaceInfo): Free platformInfo.
+
+2005-05-17  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/18220
+	* testsuite/libjava.lang/Process_3.java (run):  Exit on error.
+
+2005-05-16  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21140:
+	* java/nio/charset/Charset.java (encode, decode): Don't cache.
+
+2005-05-16  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/net/protocol/http/Headers.java (parse): Include final
+	character of line.
+
+2005-05-16  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21606:
+	* java/net/URI.java (unquote): Handle lower-case letters as well.
+
+2005-05-16  Ziga Mahkovec  <ziga.mahkovec@klika.si>
+
+	PR libgcj/20504
+	gnu/regexp/RE.java: Add support for quoting constructs.
+
+2005-05-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21519:
+	* testsuite/libjava.compile/pr21519.java: New file.
+	* testsuite/libjava.compile/pr21519.no-link: New file.
+
+2005-05-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/21557
+	* java/lang/natObject.cc (_Jv_MonitorEnter): Save and clear thread
+	interrupt status flag if _Jv_CondWait is interrupted.
+
+2005-05-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* include/jvm.h (gcj::verifyClasses): Declare.
+	* link.cc (gcj::verbose_class_flag): Moved.
+	* prims.cc (gcj::verifyClasses): Define here.
+	(gcj::verbose_class_flag): Move definition here.
+	(_Jv_Linker::wait_for_state): Don't call verify_class
+	if gcj::verifyClasses is not set.
+	* gij.cc (main): Set gcj::verifyClasses when '-noverify' is given.
+
+2005-05-13  Aaron Luchko  <aluchko@redhat.com>
+
+	* gij.cc (main): Recognize '-verify', '-noverify', and
+	'-verifyremote'
+
+2005-05-13  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/runtime/SystemClassLoader.java (init): Handle empty
+	element in path.
+
+2005-05-09  David Daney  <ddaney@avtrex.com>
+
+	* java/util/BitSet.java (get(int, int)): Fix breakage when
+	requested set doesn't start on a multiple of 64.
+
+2005-04-27  Andrew Haley  <aph@redhat.com>
+
+	PR java/19285
+	* prims.cc (_Jv_ResolvePoolEntry): New function.
+	* include/jvm.h (_Jv_Linker::find_field): New arg: found_class.
+	* link.cc (_Jv_Linker::find_field): New arg: found_class.
+	(resolve_pool_entry): Initialize the class in which a field is
+	found.
+	(link_symbol_table): Pass new arg to found_class.
+
+2005-05-05  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c
+	(init_glib_threads): Check if threading system is already
+	initialized.
+
+2005-05-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/nio/channels/FileLock.java (toString): Entirely avoid
+	String "+".
+
+2005-05-04  Andrew Overholt  <overholt@redhat.com>
+
+	* java/nio/channels/FileLock.java (toString): Re-implement using
+	StringBuffer.
+
+2005-05-03  Andrew Overholt  <overholt@redhat.com>
+
+	PR libgcj/21372:
+	* gnu/java/nio/channels/FileChannelImpl.java: Return null if lock
+	could not be acquired.
+	* java/nio/channels/FileLock.java (toString): Re-implement to be
+	in line with other implementations.
+
+2005-04-26  Luca Barbieri  <luca.barbieri@gmail.com>
+
+	PR libgcj/21136:
+	* gnu/java/nio/channels/FileChannelImpl.java (tryLock): Pass
+	'false' to native lock().
+	(lock): Pass 'true' to native lock().
+
+2005-04-27  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (ordinary_java_source_files): Add
+	gnu/java/net/protocol/https/Handler.java.
+	* Makefile.in: Regenerate.
+	* java/net/URL.java: Remove org.metastatic.jessie from default
+	protocol search path.
+
+2005-04-27  Chris Burdess  <dog@gnu.org>
+
+	* gnu/java/net/protocol/https/Handler.java: New file.
+
+2005-04-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/21233:
+	* gij.cc (version): Properly quote java version.
+	(main): Fix typo in comment.
+
 2005-04-20  Release Manager
 
 	* GCC 4.0.0 released.

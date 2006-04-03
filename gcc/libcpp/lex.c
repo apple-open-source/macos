@@ -454,10 +454,10 @@ warn_about_normalization (cpp_reader *pfile,
       sz = cpp_spell_token (pfile, token, buf, false) - buf;
       if (NORMALIZE_STATE_RESULT (s) == normalized_C)
 	cpp_error_with_line (pfile, CPP_DL_WARNING, token->src_loc, 0,
-			     "`%.*s' is not in NFKC", sz, buf);
+			     "`%.*s' is not in NFKC", (int) sz, buf);
       else
 	cpp_error_with_line (pfile, CPP_DL_WARNING, token->src_loc, 0,
-			     "`%.*s' is not in NFC", sz, buf);
+			     "`%.*s' is not in NFC", (int) sz, buf);
     }
 }
 /* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */

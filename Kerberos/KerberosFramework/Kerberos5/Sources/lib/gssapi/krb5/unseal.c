@@ -23,7 +23,7 @@
 #include "gssapiP_krb5.h"
 
 /*
- * $Id: unseal.c,v 1.11 2004/03/15 17:45:01 raeburn Exp $
+ * $Id: unseal.c 16171 2004-03-15 17:45:01Z raeburn $
  */
 
 OM_uint32

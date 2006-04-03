@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_subr.c,v 1.27.108.2 2005/07/20 05:27:00 lindak Exp $
+ * $Id: smb_subr.c,v 1.27.108.3 2005/11/15 01:45:30 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -118,7 +118,7 @@ void *
 smb_memdupin(void *umem, int len)
 {
 	char *p;
-
+	
 	if (len > 32 * 1024)
 		return NULL;
 	p = malloc(len, M_SMBSTR, M_WAITOK);

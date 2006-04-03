@@ -54,7 +54,32 @@ void pattern_24 (void);
 void func_under_pattern_24 (void);
 void pattern_25 (void);
 void func_under_pattern_25 (void);
+void pattern_26 (void);
+void func_under_pattern_26 (void);
+void pattern_27 (void);
+void func_under_pattern_27 (void);
+void pattern_28 (void);
+void func_under_pattern_28 (void);
+void pattern_29 (void);
+void func_under_pattern_29 (void);
+void pattern_30 (void);
+void func_under_pattern_30 (void);
+void pattern_31 (void);
+void func_under_pattern_31 (void);
+void pattern_32 (void);
+void func_under_pattern_32 (void);
+void pattern_33 (void);
+void func_under_pattern_33 (void);
+void pattern_34 (void);
+void func_under_pattern_34 (void);
+void pattern_35 (void);
+void func_under_pattern_35 (void);
+void pattern_36 (void);
+void func_under_pattern_36 (void);
+void pattern_37 (void);
+void func_under_pattern_37 (void);
 
+static int word_of_writable_memory;
 main (int argc, char **argv, char **envp)
 {
   pattern_1 ();
@@ -82,6 +107,18 @@ main (int argc, char **argv, char **envp)
   pattern_23 ();
   pattern_24 ();
   pattern_25 ();
+  pattern_26 ();
+  pattern_27 ();
+  pattern_28 ();
+  pattern_29 ();
+  pattern_30 ();
+  pattern_31 ();
+  pattern_32 ();
+  pattern_33 ();
+  pattern_34 ();
+  pattern_35 ();
+  pattern_36 ();
+  pattern_37 ();
 }
 
 asm ("  .text\n"
@@ -512,5 +549,228 @@ asm ("  .text\n"
 void func_under_pattern_25 (void)
 {
    puts ("I am the function under pattern_25");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_26:\n"
+     "  push %ebp\n"
+     "  xorps %xmm4, %xmm4 # [ 0x0f 0x57 0xe4 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x28, %esp\n"
+     "   call _func_under_pattern_26\n"
+     "  add $0x28, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_26 (void)
+{
+   puts ("I am the function under pattern_26");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_27:\n"
+     "  push %ebp\n"
+     "  mov 0x18(%edx), %eax # [ 0x8b 0x42 0x18 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_27\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_27 (void)
+{
+   puts ("I am the function under pattern_27");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_28:\n"
+     "  push %ebp\n"
+     "  and $0x7fffffff,%edx # [ 0x81 0xe2 0xff 0xff 0xff 0x7f ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_28\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_28 (void)
+{
+   puts ("I am the function under pattern_28");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_29:\n"
+     "  push %ebp\n"
+     "  mov  $_main, %eax\n"
+     "  lea  0x4(%eax), %ecx # [ 0x8d 0x48 0x04 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_29\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_29 (void)
+{
+   puts ("I am the function under pattern_29");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_30:\n"
+     "  add  $0x628df, %ecx # [ 0x81 0xc1 0xdf 0x28 0x06 0x00 ]\n"
+     "  push %ebp\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_30\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_30 (void)
+{
+   puts ("I am the function under pattern_30");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_31:\n"
+     "  push %ebp\n"
+     "  mov  $_main, %ecx\n"
+     "  mov  0x100(%ecx), %edx # [ 0x8b 0x91 0x00 0x01 0x00 0x00 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_31\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_31 (void)
+{
+   puts ("I am the function under pattern_31");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_32:\n"
+     "  push %ebp\n"
+     "  mov  $_main, %ecx\n"
+     "  lea  0x100(%ecx), %edx # [ 0x8d 0x91 0x00 0x01 0x00 0x00 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_32\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_32 (void)
+{
+   puts ("I am the function under pattern_32");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_33:\n"
+     "  push %ebp\n"
+     "  mov  $_main, %eax\n"
+     "  cmpb $0x0, (%eax) # [ 0x80 0x38 0x00 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_33\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_33 (void)
+{
+   puts ("I am the function under pattern_33");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_34:\n"
+     "  push %ebp\n"
+     "  mov  $_word_of_writable_memory, %eax\n"
+     "  mov %edx, (%eax) # [ 0x89 0x10 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_34\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_34 (void)
+{
+   puts ("I am the function under pattern_34");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_35:\n"
+     "  push %ebp\n"
+     "  mov  $_word_of_writable_memory, %edx\n"
+     "  mov %eax, (%edx) # [ 0x89 0x02 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_35\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_35 (void)
+{
+   puts ("I am the function under pattern_35");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_36:\n"
+     "  push %ebp\n"
+     "  mov  $_word_of_writable_memory, %eax\n"
+     "  movb $0x1, (%eax) # [ 0xc6 0x00 0x01 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_36\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_36 (void)
+{
+   puts ("I am the function under pattern_36");
+}
+
+asm ("  .text\n"
+     "  .align 8\n"
+     "_pattern_37:\n"
+     "  push %ebp\n"
+     "  shl $0x5, %ecx # [ 0xc1 0xe1 0x05 ]\n"
+     "  mov %esp, %ebp\n"
+     "  sub $0x8, %esp\n"
+     "   call _func_under_pattern_37\n"
+     "  add $0x8, %esp\n"
+     "  pop %ebp\n"
+     "  ret\n"
+);
+
+void func_under_pattern_37 (void)
+{
+   puts ("I am the function under pattern_37");
 }
 

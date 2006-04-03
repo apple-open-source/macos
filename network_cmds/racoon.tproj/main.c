@@ -138,7 +138,7 @@ main(ac, av)
 	char **av;
 {
 	int error;
-
+	
 	if (geteuid() != 0) {
 		errx(1, "must be root to invoke this program.");
 		/* NOTREACHED*/

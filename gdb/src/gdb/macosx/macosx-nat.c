@@ -35,6 +35,8 @@
 #include "gdbcore.h"
 #include "serial.h"
 #include "ser-unix.h"
+#include "objc-lang.h"
+#include "infcall.h"
 
 #include "macosx-nat-dyld.h"
 #include "macosx-nat-dyld-info.h"
@@ -174,7 +176,7 @@ classic_socket_exists_p (pid_t pid)
   char name[PATH_MAX];
   struct stat sb;
 
-  sprintf (name, "/tmp/oah750.gdb.%d", pid);
+  sprintf (name, "/tmp/translate.gdb.%d", pid);
   if (stat (name, &sb) != 0)
     return 0;
   if (sb.st_mode & S_IFSOCK)
@@ -292,10 +294,17 @@ void
 attach_to_classic_process (pid_t pid)
 {
   char name[PATH_MAX];
-  sprintf (name, "unix:/tmp/oah750.gdb.%d", pid);
+  sprintf (name, "unix:/tmp/translate.gdb.%d", pid);
   push_remote_target (name, 0);
   macosx_classic_create_inferior (pid);
   remote_ops.to_stop = macosx_classic_stop_inferior;
+
+  /* Debugging translated processes means no inferior function calls.  So
+     no malloc, no calling into the objc runtime to look anything up, etc.  */
+
+  inferior_function_calls_disabled_p = 1;
+  lookup_objc_class_p = 0;
+
   update_current_target ();
 }
 
@@ -330,10 +339,10 @@ _initialize_macosx_nat ()
   memset (ops, 0, sizeof (struct serial_ops));
   ops->name = "unix";
   ops->next = 0;
-  ops->sopen = macosx_classic_unix_open;
-  ops->sclose = macosx_classic_unix_close;
+  ops->open = macosx_classic_unix_open;
+  ops->close = macosx_classic_unix_close;
   ops->readchar = ser_unix_readchar;
-  ops->swrite = ser_unix_write;
+  ops->write = ser_unix_write;
   ops->flush_output = ser_unix_nop_flush_output;
   ops->flush_input = ser_unix_flush_input;
   ops->send_break = ser_unix_nop_send_break;

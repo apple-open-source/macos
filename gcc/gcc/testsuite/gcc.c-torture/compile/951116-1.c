@@ -1,3 +1,5 @@
+/* APPLE LOCAL  nested functions */
+/* { dg-xfail-if "" { "*-*-darwin*" } { "*" } { "" } } */
 f ()
 {
   long long i;

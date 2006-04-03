@@ -150,8 +150,9 @@ test_i "stepi into function" "stepi" \
 # Continue to step until we reach the function's body.  This makes it
 # more likely that we've actually completed the prologue, so "finish"
 # will work.
+# APPLE LOCAL: Handle the case where we step into a function thunk.
 test_i "stepi into function's first source line" "stepi" \
-	".*${decimal}.*int callee" \
+	"\(.*${decimal}.*int callee.*\|.*__i686\.get_pc_thunk\.cx.*\)" \
 	".*${decimal}.*myglob.*; return 0;"
 
 # Have to be careful here, if the finish does not work, 

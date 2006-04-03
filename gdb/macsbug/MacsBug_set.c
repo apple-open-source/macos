@@ -5,7 +5,7 @@
  |                          MacsBug SET/SHOW Option Processing                          |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -37,6 +37,7 @@ int cmd_area_lines = DEFAULT_CMD_LINES;		/* user controlled cmd area max lines	*
 int max_history    = DEFAULT_HISTORY_SIZE;	/* max nbr of lines of history recorded	*/
 int hexdump_width  = DEFAULT_HEXDUMP_WIDTH;	/* hexdump line bytes per line		*/
 int hexdump_group  = DEFAULT_HEXDUMP_GROUP;	/* hexdump bytes per group		*/
+int force_arch 	   = 0;				/* target_arch set to this or inferior	*/
 
 int mb_testing 	   = 0;				/* set by SET mb_testing for debugging	*/
 
@@ -65,6 +66,10 @@ static int  new_hexdump_width  = DEFAULT_HEXDUMP_WIDTH;
 static int  new_hexdump_group  = DEFAULT_HEXDUMP_GROUP;
 static int  new_testing;
 
+static char *new_arch;
+static char prev_arch[20];
+
+
 /*--------------------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------*
@@ -74,16 +79,21 @@ static int  new_testing;
  This is a generic SET command filter to see if a SET PROMPT was done.  If it was we
  change the gdb prompt string to the same prompt but prefixed with the cursor positioning
  needed to place it where we want it on the macsbug screen in the command line area.
+ 
+ We also check for SET unmangle and refresh the pc area of the macsbug screen so that
+ any C++ symbols that happen to be showing there reflect the current unmangle setting.
+ We can't do anything however about the history area.  It is after all, history!
 */
 
 static void check_all_sets(char *theSetting, Gdb_Set_Type type, void *value, int show,
 			   int confirm)
 {
-    char *prompt;
-    
-    if (macsbug_screen && !doing_set_prompt && theSetting && gdb_strcmpl(theSetting, "prompt")) {
-    	if (type == Set_String)
-	     update_macsbug_prompt();
+    if (macsbug_screen && theSetting) {
+	if (!doing_set_prompt && gdb_strcmpl(theSetting, "prompt") && type == Set_String)
+	    update_macsbug_prompt();
+	
+	if (gdb_strcmpl(theSetting, "unmangle"))
+	    force_pc_area_update();
     }
 }
 
@@ -394,6 +404,8 @@ static void set_pc_area(char *theSetting, Gdb_Set_Type type, void *value, int sh
     	pc_area_lines = new_pc_area_lines;
 	if (macsbug_screen)
 	    refresh(NULL, 0);
+	else
+	    define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);
     }
 }
 
@@ -413,6 +425,8 @@ static void set_cmd_area(char *theSetting, Gdb_Set_Type type, void *value, int s
     	cmd_area_lines = new_cmd_area_lines;
 	if (macsbug_screen)
 	    refresh(NULL, 0);
+	else
+	    define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);
     }
 }
 
@@ -476,6 +490,57 @@ static void set_hexdump_group(char *theSetting, Gdb_Set_Type type, void *value, 
 #define HEXDUMP_GROUP_DESCRIPTION "Set number of bytes grouped together without intervening spaces"
 
 
+/*----------------------------------*
+ | set_arch - SET mb-arch [32 | 64] |
+ *----------------------------------*/
+
+static void set_arch(char *theSetting, Gdb_Set_Type type, void *value, int show, int confirm)
+{
+    static int len = sizeof(DEFAULT_TARGET_ARCH) + 1;
+    
+    if (new_arch && *new_arch)
+    	if (strcmp(new_arch, "32") == 0) {
+    	    target_arch = force_arch = 4;
+	    need_CurApName = 1;
+	    if (macsbug_screen && strcmp(prev_arch, new_arch) != 0)
+		refresh(NULL, 0);
+    	    else
+    	    	define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);
+    	    strcpy(prev_arch, new_arch);
+    	    gdb_printf("Display architecture always assumes 32-bit\n");
+    	} else if (strcmp(new_arch, "64") == 0) {
+    	    target_arch = force_arch = 8;
+    	   need_CurApName = 1;
+	    if (macsbug_screen && strcmp(prev_arch, new_arch) != 0)
+		refresh(NULL, 0);
+    	    else
+    	    	define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);
+    	    strcpy(prev_arch, new_arch);
+    	    gdb_printf("Display architecture always assumes 64-bit\n");
+    	} else {
+    	    new_arch = (char *)gdb_realloc(new_arch, strlen(prev_arch) + 1);
+    	    strcpy(new_arch, prev_arch);
+    	    gdb_error("invalid value - 32, or 64, or no value (for default) is expected");
+    	}
+    else {
+    	new_arch = new_arch ? (char *)gdb_realloc(new_arch, len) : (char *)gdb_malloc(len);
+    	force_arch  = 0;
+    	target_arch = gdb_target_arch();
+    	strcpy(new_arch,  DEFAULT_TARGET_ARCH);
+	need_CurApName = 1;
+	if (macsbug_screen && strcmp(prev_arch, new_arch) != 0)
+	    refresh(NULL, 0);
+	else
+	    define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);
+	strcpy(prev_arch, new_arch);
+
+    	gdb_printf("Display architecture is set according to inferior\n");
+    }
+}
+
+#define SET_ARCH_DESCRIPTION "Set display for architecture, i.e., 32, 64, or inferior's (default)"
+
+
 /*-----------------------------------------------------*
  | set_mb_testing - internal switch to control testing |
  *-----------------------------------------------------*/
@@ -529,6 +594,8 @@ void init_macsbug_set(void)
     gdb_define_set("mb-hexdump-width",set_hexdump_width,Set_Int,    &new_hexdump_width,  0, HEXDUMP_WIDTH_DESCRIPTION);
     gdb_define_set("mb-hexdump-group",set_hexdump_group,Set_Int,    &new_hexdump_group,  0, HEXDUMP_GROUP_DESCRIPTION);
     
+    gdb_define_set("mb-arch",         set_arch,         Set_String, &new_arch,           0, SET_ARCH_DESCRIPTION);
+    
     //gdb_define_set("mb-testing",    set_mb_testing,   Set_Int,    &new_testing,        0, TESTING_DESCRIPTION);
     
     /* Init the string values for the SHOW command. It has to be malloc'ed space. From	*/
@@ -546,4 +613,7 @@ void init_macsbug_set(void)
     INIT_ENABLED_DISABLED(sosi_args, 	 show_so_si_src);
     INIT_ENABLED_DISABLED(dx_args, 	 dx_state);
     INIT_ENABLED_DISABLED(sidebar_args,  sidebar_state);
+    
+    new_arch = strcpy((char *)gdb_malloc(sizeof(DEFAULT_TARGET_ARCH) + 1), DEFAULT_TARGET_ARCH);
+    strcpy(prev_arch, new_arch);
 }

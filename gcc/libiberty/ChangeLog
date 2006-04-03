@@ -1,3 +1,42 @@
+2005-06-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* strverscmp.c: New.
+	* Makefile.in (CFILES): Add strverscmp.c.
+	(CONFIGURED_OFILES): Add strverscmp.o.
+	(strverscmp.o): New rule.
+	(stamp-functions): Add $(srcdir) to files in source directory.
+	* configure.ac (funcs): Add strverscmp.
+	(AC_CHECK_FUNCS): Add strverscmp.
+	* configure: Regenerate.
+	* functions.texi: Regenerate.
+
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fopen_unlocked.c (unlock_std_streams): New.
+	
+	* functions.texi: Regenerate.
+
+2005-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (CFILES): Add fopen_unlocked.c.
+	(REQUIRED_OFILES): Add ./fopen_unlocked.o.
+	Regenerate dependencies.
+
+	* configure.ac: Check for stdio_ext.h and __fsetlocking.
+
+	* fopen_unlocked.c: New file.
+
+	* functions.texi, configure, config.in: Regenerate.
+
+	* fopen_unlocked.c (unlock_stream): New.
+	Consolidate unlocking code into a helper function.
+
+	* functions.texi: Regenerate.
+
 2005-04-20  Release Manager
 
 	* GCC 4.0.0 released.

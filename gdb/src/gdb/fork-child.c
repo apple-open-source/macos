@@ -351,6 +351,11 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
          path to find $SHELL.  Rich Pixley says so, and I agree.  */
       environ = env;
 
+      /* APPLE LOCAL: gdb is setgid to give it extra special debuggizer
+         powers; we need to drop those privileges before executing the
+         inferior process.  */
+      setgid (getgid ());
+
       /* If we decided above to start up with a shell,
        * we exec the shell,
        * "-c" says to interpret the next arg as a shell command
@@ -452,9 +457,6 @@ startup_inferior ()
   inferior_ignoring_leading_exec_events =
     target_reported_exec_events_per_exec_call () - 1;
 
-#ifdef STARTUP_INFERIOR
-  STARTUP_INFERIOR (pending_execs);
-#else
   while (1)
     {
       /* Make wait_for_inferior be quiet */
@@ -494,8 +496,6 @@ startup_inferior ()
 	  resume (0, TARGET_SIGNAL_0);	/* Just make it go on */
 	}
     }
-#endif
-
   stop_soon = NO_STOP_QUIETLY;
 }
 

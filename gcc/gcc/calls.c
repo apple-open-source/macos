@@ -2263,20 +2263,6 @@ expand_call (tree exp, rtx target, int ignore)
 	 It does not seem worth the effort since few optimizable
 	 sibling calls will return a structure.  */
       || structure_value_addr != NULL_RTX
-/* APPLE LOCAL begin indirect sibcalls */
-#ifndef MAGIC_INDIRECT_CALL_REG
-/* The register holding the address is now always R12, so
-   we can consider indirect calls as sibcall candidates on ppc. */
-      /* If the register holding the address is a callee saved
-	 register, then we lose.  We have no way to prevent that,
-	 so we only allow calls to named functions.  */
-      /* ??? This could be done by having the insn constraints
-	 use a register class that is all call-clobbered.  Any
-	 reload insns generated to fix things up would appear
-	 before the sibcall_epilogue.  */
-      || fndecl == NULL_TREE
-#endif
-/* APPLE LOCAL end indirect sibcalls */
       /* Check whether the target is able to optimize the call
 	 into a sibcall.  */
       || !targetm.function_ok_for_sibcall (fndecl, exp)
@@ -3140,23 +3126,34 @@ expand_call (tree exp, rtx target, int ignore)
 			  == stack_pointer_delta - pending_stack_adjust));
 	}
 
-      /* APPLE LOCAL begin sibcall optimization stomped CW frames (radar 3007352) */
-      /* GCC for PPC on Darwin has always rounded 'current_function_args_size' up to a multiple of 16.
-	 CodeWarrior doesn't.
-	 A father() that passes, say, 40 bytes of parameters to daughter() will have eight bytes of
-	 padding if compiled with GCC, and zero bytes of padding if compiled with CW.
-	 If a GCC-compiled daughter() in turn sibcalls to granddaughter() with, say, 44 bytes of parameters,
-	 GCC will generate a store of that extra parameter into padding of the father() parameter area.
-	 Alas, if father() was compild by CW, father() will not have the parameter area padding,
-	 and something in the father() stackframe will be stomped.
-	 Parameter areas are guaranteed to be a minimum of 32 bytes.  See Radar 3007352.  */
+      /* APPLE LOCAL begin sibcall 3007352 */
+      /* GCC for PPC on Darwin has always rounded
+	 'current_function_args_size' up to a multiple of 16.
+	 CodeWarrior doesn't.  A father() that passes, say, 40 bytes
+	 of parameters to daughter() will have eight bytes of padding
+	 if compiled with GCC, and zero bytes of padding if compiled
+	 with CW.  If a GCC-compiled daughter() in turn sibcalls to
+	 granddaughter() with, say, 44 bytes of parameters, GCC will
+	 generate a store of that extra parameter into padding of the
+	 father() parameter area.  Alas, if father() was compiled by
+	 CW, father() will not have the parameter area padding, and
+	 something in the father() stackframe will be stomped.  PPC
+	 parameter areas are guaranteed to be a minimum of 32 bytes.
+	 See Radar 3007352.
+
+	 On non-PPC/Darwin, we still must be careful to use the
+	 unrounded argument area size; Darwin maintains a
+	 vector-aligned stack for every target.  See Radar
+	 3324536.  */
       if ( ( ! sibcall_failure)
+#if defined (TARGET_POWERPC)
 	   && args_size.constant > 32
+#endif
 	   && args_size.constant > cfun->unrounded_args_size)
 	{
 	  sibcall_failure = 1;
 	}
-      /* APPLE LOCAL end sibcall optimization stomped CW frames (radar 3007352) */
+      /* APPLE LOCAL end sibcall 3007352 */
 
       /* If something prevents making this a sibling call,
 	 zero out the sequence.  */
@@ -4204,6 +4201,45 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       if (arg->pass_on_stack)
 	stack_arg_under_construction--;
     }
+
+  /* APPLE LOCAL begin 4225116 mainline */
+  /* Check for overlap with already clobbered argument area.  */
+  if ((flags & ECF_SIBCALL) && MEM_P (arg->value))
+    {
+      int i = -1;
+      unsigned HOST_WIDE_INT k;
+      rtx x = arg->value;
+
+      if (XEXP (x, 0) == current_function_internal_arg_pointer)
+	i = 0;
+      else if (GET_CODE (XEXP (x, 0)) == PLUS
+	       && XEXP (XEXP (x, 0), 0) ==
+		  current_function_internal_arg_pointer
+	       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+	i = INTVAL (XEXP (XEXP (x, 0), 1));
+      else
+	i = -1;
+
+      if (i >= 0)
+	{
+#ifdef ARGS_GROW_DOWNWARD
+	  i = -i - arg->locate.size.constant;
+#endif
+	  if (arg->locate.size.constant > 0)
+	    {
+	      unsigned HOST_WIDE_INT sc = arg->locate.size.constant;
+
+	      for (k = 0; k < sc; k++)
+		if (i + k < stored_args_map->n_bits
+		    && TEST_BIT (stored_args_map, i + k))
+		  {
+		    sibcall_failure = 1;
+		    break;
+		  }
+	    }
+	}
+    }
+  /* APPLE LOCAL end 4225116 mainline */
 
   /* Don't allow anything left on stack from computation
      of argument to alloca.  */

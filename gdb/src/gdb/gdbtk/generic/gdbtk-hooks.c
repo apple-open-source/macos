@@ -211,6 +211,7 @@ gdbtk_two_elem_cmd (cmd_name, argv1)
 
   arg_len = Tcl_ScanElement (argv1, &flags_ptr);
   cmd_len = strlen (cmd_name);
+  /* APPLE LOCAL use xmalloc */
   command = xmalloc (arg_len + cmd_len + 2);
   strcpy (command, cmd_name);
   strcat (command, " ");

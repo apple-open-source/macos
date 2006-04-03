@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: util_validate.c,v 1.15 2004/06/17 02:23:21 raeburn Exp $
+ * $Id: util_validate.c 16475 2004-06-17 02:23:21Z raeburn $
  */
 
 /*

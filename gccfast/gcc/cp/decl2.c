@@ -3275,7 +3275,8 @@ reparse_absdcl_as_casts (decl, expr)
       if (TREE_CODE (type) == VECTOR_TYPE
 	  && (vector_p = 1, 
 	      !TREE_TYPE (expr)
-	      || TREE_CODE (TREE_TYPE (expr)) != VECTOR_TYPE))
+	      || TREE_CODE (TREE_TYPE (expr)) != VECTOR_TYPE)
+	  && !processing_template_decl)
 	expr = altivec_vector_constant (type, expr);
       else
 	expr = build_c_cast (type, expr);

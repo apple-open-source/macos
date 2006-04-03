@@ -10,6 +10,8 @@
  * ====================================================
  */
 
+#warning obsolete and unnecessary?
+
 #include <sys/cdefs.h>
 #if defined(LIBM_SCCS) && !defined(lint)
 __RCSID("$NetBSD: e_j1.c,v 1.10 1999/07/02 15:37:39 simonb Exp $");

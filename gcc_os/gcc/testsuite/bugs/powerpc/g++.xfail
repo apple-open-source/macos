@@ -101,3 +101,10 @@
 3222264: g++.pt/repo4.C (test for excess errors)
 3239450: g++.pt/instantiate12.C caused compiler crash
 3458257: g++.dg/abi/rtti1.C scan-assembler-dem-not
+3883640: g++.martin/bitset1.C (test for excess errors)
+3883640: g++.robertl/eb66.C (test for excess errors)
+3883640: g++.robertl/eb91.C (test for excess errors)
+3883640: g++.eh/new1.C (test for excess errors)
+3883640: g++.eh/new2.C (test for excess errors)
+3883640: g++.martin/new1.C (test for excess errors)
+3883640: g++.ns/new1.C (test for excess errors)

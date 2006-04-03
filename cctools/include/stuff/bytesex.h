@@ -39,9 +39,13 @@
 #include <mach/m68k/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
 #undef MACHINE_THREAD_STATE_COUNT
+#undef THREAD_STATE_NONE
+#undef VALID_THREAD_STATE_FLAVOR
 #include <mach/ppc/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
 #undef MACHINE_THREAD_STATE_COUNT
+#undef THREAD_STATE_NONE
+#undef VALID_THREAD_STATE_FLAVOR
 #include <mach/m88k/thread_status.h>
 #include <mach/i860/thread_status.h>
 #include <mach/i386/thread_status.h>
@@ -220,6 +224,19 @@ __private_extern__ void swap_i386_thread_state(
     i386_thread_state_t *cpu,
     enum byte_sex target_byte_sex);
 
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+__private_extern__ void swap_i386_float_state(
+    struct i386_float_state *fpu,
+    enum byte_sex target_byte_sex);
+
+__private_extern__ void swap_i386_exception_state(
+    i386_exception_state_t *exc,
+    enum byte_sex target_byte_sex);
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 __private_extern__ void swap_i386_thread_fpstate(
     i386_thread_fpstate_t *fpu,
     enum byte_sex target_byte_sex);
@@ -231,6 +248,7 @@ __private_extern__ void swap_i386_thread_exceptstate(
 __private_extern__ void swap_i386_thread_cthreadstate(
     i386_thread_cthreadstate_t *user,
     enum byte_sex target_byte_sex);
+#endif /* i386_THREAD_STATE == -1 */
 
 __private_extern__ void swap_hppa_integer_thread_state(
     struct hp_pa_integer_thread_state *regs,

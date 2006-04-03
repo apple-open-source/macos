@@ -63,22 +63,42 @@ objc_is_reserved_word (tree ARG_UNUSED (ident))
   return 0;
 }
 
-int
-objc_comptypes (tree ARG_UNUSED (lhs), tree ARG_UNUSED (rhs),
-                int ARG_UNUSED (reflexive))
+/* APPLE LOCAL begin 4154928 */
+tree
+objc_common_type (tree ARG_UNUSED (type1), tree ARG_UNUSED (type2))
 {
-  return -1;
+  return 0;
 }
 
+/* APPLE LOCAL end 4154928 */
 /* APPLE LOCAL begin mainline */
+/* The 'objc_comptypes' routine has been removed.  */
+bool
+objc_compare_types (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp),
+		    int ARG_UNUSED (argno), tree ARG_UNUSED (callee))
+{
+  return false;
+}
+
+void
+objc_volatilize_decl (tree ARG_UNUSED (decl))
+{
+}
+
+bool
+objc_type_quals_match (tree ARG_UNUSED (ltyp), tree ARG_UNUSED (rtyp))
+{
+  return false;
+}
+
 tree
 objc_rewrite_function_call (tree function, tree ARG_UNUSED (params))
 {
   return function;
 }
 
-/* APPLE LOCAL end mainline */
 tree
+/* APPLE LOCAL end mainline */
 objc_message_selector (void)
 { 
   return 0;

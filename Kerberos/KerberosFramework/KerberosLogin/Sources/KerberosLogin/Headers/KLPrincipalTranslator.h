@@ -1,7 +1,7 @@
 /*
  * KLPrincipalTranslator.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLPrincipalTranslator.h,v 1.1 2003/04/14 17:12:54 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

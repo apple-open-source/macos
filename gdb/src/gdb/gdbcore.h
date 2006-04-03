@@ -57,7 +57,6 @@ extern void read_memory (CORE_ADDR memaddr, char *myaddr, int len);
    bytes.  */
 
 extern LONGEST read_memory_integer (CORE_ADDR memaddr, int len);
-
 extern int safe_read_memory_integer (CORE_ADDR memaddr, int len, LONGEST *return_value);
 extern int safe_read_memory_unsigned_integer (CORE_ADDR memaddr, int len, ULONGEST *return_value);
 

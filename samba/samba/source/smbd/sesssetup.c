@@ -23,6 +23,12 @@
 
 #include "includes.h"
 
+#ifdef WITH_SACL
+#include <membershipPriv.h>
+
+extern int		check_sacl(const char *inUser, const char *inService);
+#endif
+
 uint32 global_client_caps = 0;
 
 static struct auth_ntlmssp_state *global_ntlmssp_state;
@@ -320,6 +326,15 @@ static int reply_spnego_kerberos(connection_struct *conn,
 	/* register_vuid takes ownership of session_key, no need to free after this.
  	   A better interface would copy it.... */
 	sess_vuid = register_vuid(server_info, session_key, nullblob, client);
+
+	#ifdef WITH_SACL
+	if (NT_STATUS_IS_OK(ret) && check_sacl((user), "smb") == 0)
+	{
+		DEBUG(1,("reply_spnego_kerberos: check_sacl(%s, smb) failed \n", (user)));
+		ret = NT_STATUS_LOGON_FAILURE;
+	}
+	#endif
+
 
 	SAFE_FREE(user);
 	SAFE_FREE(client);

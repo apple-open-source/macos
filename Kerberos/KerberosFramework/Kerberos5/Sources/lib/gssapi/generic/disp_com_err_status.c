@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: disp_com_err_status.c,v 1.8 2004/06/02 23:40:12 raeburn Exp $
+ * $Id: disp_com_err_status.c 16391 2004-06-02 23:40:12Z raeburn $
  */
 
 #include "gssapiP_generic.h"

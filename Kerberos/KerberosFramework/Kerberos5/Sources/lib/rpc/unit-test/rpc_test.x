@@ -1,10 +1,10 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved.
  *
- * $Id: rpc_test.x,v 1.2 1996/07/22 20:41:42 marc Exp $
- * $Source: /cvs/krbdev/krb5/src/lib/rpc/unit-test/rpc_test.x,v $
+ * $Id: rpc_test.x 8774 1996-07-22 20:49:46Z marc $
+ * $Source$
  * 
- * $Log: rpc_test.x,v $
+ * $Log$
  * Revision 1.2  1996/07/22 20:41:42  marc
  * this commit includes all the changes on the OV_9510_INTEGRATION and
  * OV_MERGE branches.  This includes, but is not limited to, the new openvision

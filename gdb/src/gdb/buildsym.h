@@ -265,7 +265,8 @@ extern struct context_stack *pop_context (void);
 
 extern void record_line (struct subfile *subfile, int line, CORE_ADDR pc);
 
-int compare_line_numbers (const void *ln1p, const void *ln2p);
+/* APPLE LOCAL make compare_line_numbers extern */
+extern int compare_line_numbers (const void *ln1p, const void *ln2p);
 
 extern void start_symtab (char *name, char *dirname, CORE_ADDR start_addr);
 

@@ -41,7 +41,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCacheClassicServer.prefix.h,v 1.3 2003/05/07 20:14:26 lxs Exp $ */
+/* $Header$ */
 
 /* 
  * On Mac OS X, we use an RPC mechanism. Shared static data is stored in the server

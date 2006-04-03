@@ -1,7 +1,7 @@
 /*
  * KerberosAgentController.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/KerberosAgentController.m,v 1.10 2005/06/07 23:42:01 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

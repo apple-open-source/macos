@@ -29,6 +29,7 @@
 typedef unsigned long ulong;
 typedef unsigned int uint;
 
+#define USE_ZEND_ALLOC 1
 #define HAVE_ALLOCA 1
 #define HAVE_LIMITS_H 1
 #include <malloc.h>
@@ -45,6 +46,7 @@ typedef unsigned int uint;
 #define HAVE_STDARG_H	1
 #define HAVE_SNPRINTF	1
 #define HAVE_VSNPRINTF	1
+#define HAVE_STRCOLL   1
 
 #define snprintf _snprintf
 #define strcasecmp(s1, s2) stricmp(s1, s2)

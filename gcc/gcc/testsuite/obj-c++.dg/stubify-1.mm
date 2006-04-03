@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Radar 4055183 */
+/* APPLE LOCAL file mainline */
 /* All calls must be properly stubified.  Complain about any "call
    _objc_msgSend<end-of-line>" without the $stub suffix.  */
 /* { dg-do compile { target *-*-darwin* } } */

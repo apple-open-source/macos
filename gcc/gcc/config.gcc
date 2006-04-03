@@ -189,6 +189,9 @@ case ${target} in
  | ip2k-*-elf		\
  | ns32k-*-netbsdelf*	\
  | ns32k-*-netbsd*	\
+ | c4x-*		\
+ | tic4x-*		\
+ | hppa1.1-*-rtems*	\
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
@@ -247,6 +250,9 @@ strongarm*-*-*)
 arm*-*-*)
 	cpu_type=arm
 	extra_headers="mmintrin.h"
+	;;
+bfin*-*)
+	cpu_type=bfin
 	;;
 ep9312*-*-*)
 	cpu_type=arm
@@ -345,15 +351,15 @@ esac
 # Common parts for widely ported systems.
 case ${target} in
 *-*-darwin*)
-  case ${target} in
-    *-darwin1[0-9]*) tm_file="${tm_file} darwin8.h" ;;
-    *-darwin[0-6]*) ;;
-    *-darwin7*) tm_file="${tm_file} darwin7.h" ;;
-    *) tm_file="${tm_file} darwin8.h" ;;
-  esac
-  tm_file="${tm_file} darwin.h"
+ # APPLE LOCAL mainline 2005-09-01 3449986
+ # Delete darwin case statement
+ # APPLE LOCAL begin mainline 2005-10-02 4218570
+  tm_file="${tm_file} darwin.h ${cpu_type}/darwin.h"
+ # APPLE LOCAL end mainline 2005-10-02 4218570
   tm_p_file="${tm_p_file} darwin-protos.h"
-  tmake_file="t-darwin t-slibgcc-darwin"
+ # APPLE LOCAL begin mainline 2005-10-02 4218570
+  tmake_file="t-darwin ${cpu_type}/t-darwin t-slibgcc-darwin"
+ # APPLE LOCAL end mainline 2005-10-02 4218570
   target_gtfiles="\$(srcdir)/config/darwin.c"
   c_target_objs="darwin-c.o"
   cxx_target_objs="darwin-c.o"
@@ -723,6 +729,16 @@ avr-*-*)
 	tm_file="avr/avr.h dbxelf.h"
 	use_fixproto=yes
 	;;
+bfin*-elf*)
+	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h"
+        tmake_file=bfin/t-bfin-elf
+        use_collect2=no
+        ;;  
+bfin*-*)
+	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h"
+        tmake_file=bfin/t-bfin
+        use_collect2=no
+        ;;  
 c4x-*-rtems* | tic4x-*-rtems*)
 	tmake_file="c4x/t-c4x t-rtems c4x/t-rtems"
 	tm_file="c4x/c4x.h c4x/rtems.h rtems.h"
@@ -765,9 +781,13 @@ frv-*-*linux*)
 	         linux.h frv/linux.h frv/frv-abi.h"
 	tmake_file="${tmake_file} frv/t-frv frv/t-linux"
 	;;
-h8300-*-rtems*)
+h8300-*-rtemscoff*)
 	tmake_file="h8300/t-h8300 t-rtems h8300/t-rtems"
 	tm_file="h8300/h8300.h dbxcoff.h h8300/coff.h h8300/rtems.h rtems.h"
+	;;
+h8300-*-rtems*)
+	tmake_file="h8300/t-h8300 h8300/t-elf t-rtems h8300/t-rtems"
+	tm_file="h8300/h8300.h dbxelf.h elfos.h h8300/elf.h h8300/rtems.h rtems.h"
 	;;
 h8300-*-elf*)
 	tmake_file="h8300/t-h8300 h8300/t-elf"
@@ -905,9 +925,12 @@ hppa[12]*-*-hpux11*)
 	use_collect2=yes
 	;;
 i[34567]86-*-darwin*)
-	tm_file="${tm_file} i386/darwin.h"
+ # APPLE LOCAL begin mainline 2005-10-02 4218570
+ # APPLE LOCAL end mainline 2005-10-02 4218570
 	# APPLE LOCAL 4099000
 	tmake_file="${tmake_file} i386/t-darwin"
+	# APPLE LOCAL 4126124
+	need_64bit_hwint=yes
 	;;
 i[34567]86-*-elf*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h"
@@ -1531,9 +1554,6 @@ pdp11-*-bsd)
 pdp11-*-*)
 	use_fixproto=yes
 	;;
-avr-*-*)
-	use_fixproto=yes
-	;;
 # port not yet contributed
 #powerpc-*-openbsd*)
 #	tmake_file="${tmake_file} rs6000/t-fprules "
@@ -1557,12 +1577,20 @@ powerpc-*-beos*)
 	use_fixproto=yes
 	;;
 powerpc-*-darwin*)
-	tm_file="${tm_file} rs6000/darwin.h"
-	tmake_file="${tmake_file} rs6000/t-darwin"
+ # APPLE LOCAL begin mainline 2005-10-02 4218570
+ # APPLE LOCAL end mainline 2005-10-02 4218570
 	case ${target} in
-	  *-darwin1[0-9]*) tmake_file="${tmake_file} rs6000/t-darwin8" ;;
-	  *-darwin[0-7]*) ;;
-	  *-darwin[8-9]*) tmake_file="${tmake_file} rs6000/t-darwin8" ;;
+ # APPLE LOCAL begin mainline 2005-09-01 3449986
+	  *-darwin1[0-9]* | *-darwin[8-9]*)
+	    tmake_file="${tmake_file} rs6000/t-darwin8" 
+	    tm_file="${tm_file} rs6000/darwin8.h"
+	    ;;
+	  *-darwin7*)
+	    tm_file="${tm_file} rs6000/darwin7.h"
+	    ;;
+	  *-darwin[0-6]*)
+	    ;;
+ # APPLE LOCAL end mainline 2005-09-01 3449986
 	esac
 	extra_headers=altivec.h
 	;;

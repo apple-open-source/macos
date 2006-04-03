@@ -1,5 +1,5 @@
 GDB_VERSION = 6.1-20040303
-GDB_RC_VERSION = 413
+GDB_RC_VERSION = 437
 
 BINUTILS_VERSION = 2.13-20021117
 BINUTILS_RC_VERSION = 46
@@ -557,9 +557,6 @@ install-gdb-macosx-common: install-gdb-common
 			< $(SRCROOT)/gdb.sh > $${dstroot}/usr/bin/gdb; \
 		chmod 755 $${dstroot}/usr/bin/gdb; \
 		\
-		cp -p $(SRCROOT)/cache-symfiles.sh $${dstroot}/usr/libexec/gdb/cache-symfiles; \
-		chmod 755 $${dstroot}/usr/libexec/gdb/cache-symfiles; \
-		\
 	done;
 
 install-gdb-macosx: install-gdb-macosx-common
@@ -605,6 +602,10 @@ install-binutils-macosx:
 		strip -S -o $(DSTROOT)/$(LIBEXEC_BINUTILS_DIR)/$${instname} $(SYMROOT)/$(LIBEXEC_BINUTILS_DIR)/$${instname}; \
 	done
 
+# "procmod" is a new group (2005-09-27) which will not be present on all
+# the systems, so we use a '-' prefix on that loop for now so the errors
+# don't halt the build. 
+
 install-chmod-macosx:
 	set -e;	if [ `whoami` = 'root' ]; then \
 		for dstroot in $(SYMROOT) $(DSTROOT); do \
@@ -612,6 +613,11 @@ install-chmod-macosx:
 			chmod -R  u=rwX,g=rX,o=rX $${dstroot}; \
 			chmod a+x $${dstroot}/$(LIBEXEC_GDB_DIR)/*; \
 			chmod a+x $${dstroot}/$(DEVEXEC_DIR)/*; \
+		done; \
+	fi
+	-set -e; if [ `whoami` = 'root' ]; then \
+		for dstroot in $(SYMROOT) $(DSTROOT); do \
+			chgrp procmod $${dstroot}/$(LIBEXEC_GDB_DIR)/gdb* && chmod g+s $${dstroot}/$(LIBEXEC_GDB_DIR)/gdb*; \
 		done; \
 	fi
 ifeq ($(CONFIG_ENABLE_SHARED),--enable-shared)

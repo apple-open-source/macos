@@ -138,7 +138,7 @@ Std_Exit:
 
 @implementation NSLMap
 
-- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt mountedon:(String *)mnton
 {
 	[super initWithParent:p directory:dir from:ds mountdirectory:mnt withRootVnodeClass:[NSLVnode class]];
 	[(NSLVnode *)[self root] setApparentName:dir];
@@ -150,6 +150,14 @@ Std_Exit:
     TAILQ_INIT(&searches.searchesCompleted);
 	searches.searchCompleted = NO;
 	notificationMessagePort = NULL;
+
+	/*
+	 * If this is /Network, set the flag that causes us to censor
+	 * host and neighborhood names that correspond to "well-known"
+	 * names in /Network such as /Network/Library.
+	 */
+	if (mnton != nil && strcmp([mnton value], "/Network") == 0)
+		[(NSLVnode *)[self root] setCensorContents:YES];
 
 	[(NSLVnode *)[self root] setNSLObject:NSLMakeNewNeighborhood( "", NULL ) type:kNetworkNeighborhood];
 	

@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_mysql.c,v 1.174.2.28 2005/02/22 15:00:49 iliaa Exp $ */
+/* $Id: php_mysql.c,v 1.174.2.29 2005/04/07 22:23:01 sniper Exp $ */
 
 /* TODO:
  *
@@ -51,6 +51,9 @@
 # endif
 # include <netdb.h>
 # include <netinet/in.h>
+# if HAVE_ARPA_INET_H
+#  include <arpa/inet.h>
+# endif
 #endif
 
 #include <mysql.h>

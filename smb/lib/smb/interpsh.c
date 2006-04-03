@@ -1290,8 +1290,8 @@ void rpc_ss_type_vec_vers_check
 {
     idl_short_int interp_major_version, interp_minor_version;
 
-    interp_major_version = IDL_VERSION_NUMBER(IDL_INTERP_ENCODE_MAJOR);
-    interp_minor_version = IDL_VERSION_NUMBER(IDL_INTERP_ENCODE_MINOR);
+    interp_major_version = (idl_short_int)IDL_VERSION_NUMBER(IDL_INTERP_ENCODE_MAJOR);
+    interp_minor_version = (idl_short_int)IDL_VERSION_NUMBER(IDL_INTERP_ENCODE_MINOR);
     if ((interp_major_version != 3) || (interp_minor_version > 2))
     {
 #ifdef DEBUG_INTERP

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_streams.h,v 1.61.2.17 2004/06/21 19:33:48 pollita Exp $ */
+/* $Id: php_streams.h,v 1.61.2.18.2.1 2005/07/27 09:14:44 hyanantha Exp $ */
 
 #ifndef PHP_STREAMS_H
 #define PHP_STREAMS_H
@@ -106,11 +106,7 @@ typedef void (*php_stream_notification_func)(php_stream_context *context,
 		void * ptr TSRMLS_DC);
 
 typedef struct _php_stream_statbuf {
-#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
-	struct stat_libc sb; /* regular info */
-#else
 	struct stat sb; /* regular info */
-#endif
 	/* extended info to go here some day: content-type etc. etc. */
 } php_stream_statbuf;
 
@@ -526,6 +522,7 @@ PHPAPI int _php_stream_cast(php_stream *stream, int castas, void **ret, int show
 
 int php_init_stream_wrappers(int module_number TSRMLS_DC);
 int php_shutdown_stream_wrappers(int module_number TSRMLS_DC);
+void php_shutdown_stream_hashes(TSRMLS_D);
 PHP_RSHUTDOWN_FUNCTION(streams);
 
 PHPAPI int php_register_url_stream_wrapper(char *protocol, php_stream_wrapper *wrapper TSRMLS_DC);

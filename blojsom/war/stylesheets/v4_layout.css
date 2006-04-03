@@ -1,0 +1,399 @@
+html {
+	margin: 0;
+	padding: 0;
+	}
+	
+body {
+	margin: 0;
+	padding: 0;
+	text-align: center;
+	font-size: 12px; 
+	font-family: "Lucida Grande", Tahoma, Verdana, Arial, Helvetica, sans-serif;
+	background: #737b8c url(/blojsom_resources/images/v4_background_main.gif) repeat-y center;
+	}
+
+a {
+	color: #33c;
+	text-decoration: none;
+	}
+	
+h2#title {
+	font-size: 20px;
+	margin: 25px 0 0 5px;
+	padding: 0;
+	}
+	
+h2#title a {
+	color: #fff;
+	}
+	
+p#subtitle {
+	margin: 5px 0 0 5px;
+	padding: 0;
+	color: #a7acb7;
+	}
+
+
+
+/*
+----------------------------------
+header
+----------------------------------
+*/
+
+#header_span_body {
+	height: 102px;
+	background: url(/blojsom_resources/images/v4_background_top.gif) no-repeat top left;
+	text-align: center;
+	margin-left: auto;
+	margin-right: auto;
+	width: 820px;
+	}
+	
+#header_table {
+	margin-left: auto;
+	margin-right: auto;
+	width: 820px;
+	}
+	
+#header_table td {
+	text-align: left;
+	}
+	
+#header_logo_cell img {
+	display: none;
+	}
+	
+
+	
+	
+/*
+---------------------------------------
+content area
+---------------------------------------
+ */	
+	
+#column_container {
+	margin-left: auto;
+	margin-right: auto;
+	width: 820px;
+	padding-bottom: 100px;
+	}
+	
+.main_column {
+	text-align: left;
+	width: 470px;
+	float: left;
+	padding: 0 0 0 45px;
+	}
+	
+.side_column {
+	background: url(/blojsom_resources/images/v4_background_side_bottom.gif) no-repeat bottom;
+	width: 290px;
+	float: right;
+	text-align: center;
+	margin-top: 40px;
+	padding-bottom: 30px;
+	}
+	
+#calendar_box_header {
+	background: url(/blojsom_resources/images/v4_background_side_top.gif) no-repeat;
+	width: 290px;
+	height: 20px;
+	text-align: center;
+	}
+
+	
+#calendar_box_body {
+	background: url(/blojsom_resources/images/v4_background_side.gif) repeat-y;
+	width: 290px;
+	}
+
+#search_box_body {
+	background: url(/blojsom_resources/images/v4_background_side.gif) repeat-y;
+	width: 290px;
+	}
+
+#links_box_body {
+	background: url(/blojsom_resources/images/v4_background_side.gif) repeat-y;
+	width: 290px;
+	}	
+	
+	
+	
+
+
+/*
+---------------------------------------
+blog entries
+---------------------------------------
+ */
+
+.entrystyle {
+	padding: 20px 0 6px 0;
+	border-bottom: 1px dotted #000;
+	}
+	
+.weblogtitle {
+	font-size: 14px;
+	font-weight: bold;
+	}
+
+.weblog_category_link {
+	font-size: 11px;
+	color: #424242;
+}
+
+.weblogbottomline {
+	color: #424242;
+	font-size: 11px;
+}
+
+.entryfooter {
+	font-size: 11px;
+	width: 100%;
+	}
+
+#blogfooter {
+	width: 470px;
+	font-size: 11px;
+	margin-top: 5px;
+	text-align: right;
+	}
+	
+#blogfooter .entryinfo {
+	text-align: right;
+	}
+
+
+/*
+---------------------------------------
+calendar
+---------------------------------------
+ */
+
+
+.calendartable {
+	font-size: 10px;
+	margin: auto;
+	}
+
+.calendarcolumn {
+	text-align: center;
+	width: 19px;
+	height: 14px;
+	}
+
+.calendarcolumn-a {
+	text-align: center;
+	width: 17px;
+	background: #e5e5e5;
+	border: 1px outset #e5e5e5;
+	height: 12px;
+	}
+
+.calendarcolumn-h {
+	text-align: center;
+	width: 17px;
+	background: #e5e5e5;
+	border: 1px inset #e5e5e5;
+	height: 12px;
+	}
+
+.calendarcaption {
+	text-align: center;
+	}
+
+
+
+
+/*
+---------------------------------------
+search box
+---------------------------------------
+ */
+
+
+#search_box_body {
+	font-size: 10px;
+	line-height: 10px;
+	margin: auto;
+	text-align: center;
+	padding-top: 30px;
+	padding-bottom: 30px;}
+
+#query {
+	margin: auto;
+	font-size: 11px;
+	}
+
+
+
+/*
+---------------------------------------
+nav
+---------------------------------------
+ */
+
+#categories_functions {
+	width: 274px;
+	border-top: 1px solid #b6bac3;
+	padding-top: 15px;
+	margin-left: 9px;
+	}
+
+/* IE 5 mac lines up the links differently
+	than other browsers -- the above rule 
+	gets them in the right spot for IE 5 mac, 
+	the below rule adds some attributes to line 
+	them up everywhere else */
+	
+/* Commented Backslash Hack
+     hides rule from IE5-Mac \*/
+#categories_functions {
+	margin: auto;
+	position: relative;
+	left: 1px;
+	}
+/* End IE5-Mac hack */
+	
+	
+	
+
+#categories_functions a.selected_category {
+	background: url(/blojsom_resources/images/v4_background_linkhover.gif) repeat-y;
+	}
+	
+#categories_functions a {
+	display: block;
+	text-align: center;
+	width: 274px;
+	height: 20px;
+	padding-top: 5px;
+	padding-bottom: 2px;
+	margin-top: -15px;
+	}
+
+#categories_functions a:hover {
+	background: url(/blojsom_resources/images/v4_background_linkhover.gif) repeat-y;
+	}
+
+#side_categories_links a {
+	font-weight: bold;
+	border-bottom: 1px solid #b6bac3;
+	}
+
+#side_categories_links {
+	margin-bottom: 20px;
+	}
+
+
+
+/*
+---------------------------------------
+dialog boxes
+---------------------------------------
+ */
+
+#login_dialog
+{
+	z-index: 2;
+	position: absolute;
+	left: 130px;
+	visibility: hidden;
+	top: 350px;
+}
+
+#settings_dialog {
+	position: absolute;
+	z-index: 2;
+	top: 280px;
+	left: 130px;
+	visibility: hidden;
+}
+
+#entry_dialog {
+	top: 240px;
+	left: 130px;
+	z-index: 2;
+	position: absolute;
+	visibility: hidden;
+}
+
+#entry_dialog_description_cell {
+	text-align: right;
+}
+
+#category_dialog {
+	z-index: 2;
+	position: absolute;
+	top: 280px;
+	left: 130px;
+	visibility: hidden;
+}
+
+
+
+.dialog_600_header
+{
+	background: url(/blojsom_resources/images/dialog_600_header.png) no-repeat;
+	width: 600px;
+	height: 8px;
+}
+
+.dialog_600_body
+{
+	background: url(/blojsom_resources/images/dialog_600_body.png) repeat-y;
+	border: 0px none transparent;
+	padding: 0 10px 0 10px;
+}
+
+.dialog_600_footer
+{
+	background: url(/blojsom_resources/images/dialog_600_footer.png) no-repeat;
+	width: 600px;
+	height: 20px;
+}
+
+.dialog_500_header
+{
+	background: url(/blojsom_resources/images/dialog_500_header.png) no-repeat;
+	width: 500px;
+	height: 8px;
+}
+
+.dialog_500_body
+{
+	width: 500px;
+	background: url(/blojsom_resources/images/dialog_500_body.png) repeat-y;
+	border: 0px none transparent;
+	padding: 0 10px 0 10px;
+}
+
+.dialog_500_footer
+{
+	background: url(/blojsom_resources/images/dialog_500_footer.png) no-repeat;
+	width: 500px;
+	height: 20px;
+}
+
+.dialog_400_header
+{
+	background: url(/blojsom_resources/images/dialog_400_header.png) no-repeat;
+	width: 400px;
+	height: 8px;
+}
+
+.dialog_400_body
+{
+	background: url(/blojsom_resources/images/dialog_400_body.png) repeat-y;
+	border: 0px none transparent;
+	padding: 0 10px 0 10px;
+}
+
+.dialog_400_footer
+{
+	background: url(/blojsom_resources/images/dialog_400_footer.png) no-repeat;
+	width: 400px;
+	height: 20px;
+}

@@ -16,7 +16,7 @@
    |          Jani Taskinen <sniper@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.122.2.33 2005/02/15 00:28:39 iliaa Exp $ */
+/* $Id: rfc1867.c,v 1.122.2.34.2.1 2005/07/13 20:47:56 iliaa Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -127,6 +127,7 @@ void php_mb_gpc_stack_variable(char *param, char *value, char ***pval_list, int 
 #define UPLOAD_ERROR_C    3  /* Partially uploaded */
 #define UPLOAD_ERROR_D    4  /* No file uploaded */
 #define UPLOAD_ERROR_E    6  /* Missing /tmp or similar directory */
+#define UPLOAD_ERROR_F    7  /* Failed to write file to disk */
 
 void php_rfc1867_register_constants(TSRMLS_D)
 {
@@ -136,6 +137,7 @@ void php_rfc1867_register_constants(TSRMLS_D)
 	REGISTER_MAIN_LONG_CONSTANT("UPLOAD_ERR_PARTIAL",    UPLOAD_ERROR_C,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_MAIN_LONG_CONSTANT("UPLOAD_ERR_NO_FILE",    UPLOAD_ERROR_D,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_MAIN_LONG_CONSTANT("UPLOAD_ERR_NO_TMP_DIR", UPLOAD_ERROR_E,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_MAIN_LONG_CONSTANT("UPLOAD_ERR_CANT_WRITE", UPLOAD_ERROR_F,  CONST_CS | CONST_PERSISTENT);
 }
 
 static void normalize_protected_variable(char *varname TSRMLS_DC)
@@ -700,7 +702,7 @@ static void *php_ap_memstr(char *haystack, int haystacklen, char *needle, int ne
 
 
 /* read until a boundary condition */
-static int multipart_buffer_read(multipart_buffer *self, char *buf, int bytes TSRMLS_DC)
+static int multipart_buffer_read(multipart_buffer *self, char *buf, int bytes, int *end TSRMLS_DC)
 {
 	int len, max;
 	char *bound;
@@ -713,6 +715,9 @@ static int multipart_buffer_read(multipart_buffer *self, char *buf, int bytes TS
 	/* look for a potential boundary match, only read data up to that point */
 	if ((bound = php_ap_memstr(self->buf_begin, self->bytes_in_buffer, self->boundary_next, self->boundary_next_len, 1))) {
 		max = bound - self->buf_begin;
+		if (end && php_ap_memstr(self->buf_begin, self->bytes_in_buffer, self->boundary_next, self->boundary_next_len, 0)) {
+			*end = 1;
+		}
 	} else {
 		max = self->bytes_in_buffer;
 	}
@@ -749,7 +754,7 @@ static char *multipart_buffer_read_body(multipart_buffer *self TSRMLS_DC)
 	char buf[FILLUNIT], *out=NULL;
 	int total_bytes=0, read_bytes=0;
 
-	while((read_bytes = multipart_buffer_read(self, buf, sizeof(buf) TSRMLS_CC))) {
+	while((read_bytes = multipart_buffer_read(self, buf, sizeof(buf), NULL TSRMLS_CC))) {
 		out = erealloc(out, total_bytes + read_bytes + 1);
 		memcpy(out + total_bytes, buf, read_bytes);
 		total_bytes += read_bytes;
@@ -779,7 +784,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 	zend_bool magic_quotes_gpc;
 	multipart_buffer *mbuff;
 	zval *array_ptr = (zval *) arg;
-	FILE *fp;
+	int fd=-1;
 	zend_llist header;
 
 	if (SG(request_info).content_length > SG(post_max_size)) {
@@ -853,6 +858,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 
 		if ((cd = php_mime_get_hdr_value(header, "Content-Disposition"))) {
 			char *pair=NULL;
+			int end=0;
 			
 			while (isspace(*cd)) {
 				++cd;
@@ -962,8 +968,8 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 
 			if (!skip_upload) {
 				/* Handle file */
-				fp = php_open_temporary_file(PG(upload_tmp_dir), "php", &temp_filename TSRMLS_CC);
-				if (!fp) {
+				fd = php_open_temporary_fd(PG(upload_tmp_dir), "php", &temp_filename TSRMLS_CC);
+				if (fd==-1) {
 					sapi_module.sapi_error(E_WARNING, "File upload error - unable to create a temporary file");
 					cancel_upload = UPLOAD_ERROR_E;
 				}
@@ -981,7 +987,8 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 				cancel_upload = UPLOAD_ERROR_D;
 			}
 
-			while (!cancel_upload && (blen = multipart_buffer_read(mbuff, buff, sizeof(buff) TSRMLS_CC)))
+			end = 0;
+			while (!cancel_upload && (blen = multipart_buffer_read(mbuff, buff, sizeof(buff), &end TSRMLS_CC)))
 			{
 				if (PG(upload_max_filesize) > 0 && total_bytes > PG(upload_max_filesize)) {
 					sapi_module.sapi_error(E_WARNING, "upload_max_filesize of %ld bytes exceeded - file [%s=%s] not saved", PG(upload_max_filesize), param, filename);
@@ -990,18 +997,25 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 					sapi_module.sapi_error(E_WARNING, "MAX_FILE_SIZE of %ld bytes exceeded - file [%s=%s] not saved", max_file_size, param, filename);
 					cancel_upload = UPLOAD_ERROR_B;
 				} else if (blen > 0) {
-					wlen = fwrite(buff, 1, blen, fp);
+					wlen = write(fd, buff, blen);
 			
 					if (wlen < blen) {
 						sapi_module.sapi_error(E_WARNING, "Only %d bytes were written, expected to write %d", wlen, blen);
-						cancel_upload = UPLOAD_ERROR_C;
+						cancel_upload = UPLOAD_ERROR_F;
 					} else {
 						total_bytes += wlen;
 					}
 				} 
 			} 
-			if (fp) {
-				fclose(fp);
+			if (fd!=-1) {
+				close(fd);
+			}
+
+			if (!cancel_upload && !end) {
+#ifdef DEBUG_FILE_UPLOAD
+				sapi_module.sapi_error(E_NOTICE, "Missing mime boundary at the end of the data for file %s", strlen(filename) > 0 ? filename : "");
+#endif
+				cancel_upload = UPLOAD_ERROR_C;
 			}
 
 #ifdef DEBUG_FILE_UPLOAD

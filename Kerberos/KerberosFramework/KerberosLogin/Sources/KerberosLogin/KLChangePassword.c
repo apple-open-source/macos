@@ -1,7 +1,7 @@
 /*
  * KLChangePassword.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLChangePassword.c,v 1.8 2005/01/03 20:45:30 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -83,7 +83,7 @@ KLStatus KLChangePasswordWithPasswords (KLPrincipal   inPrincipal,
         
         if (err == klNoErr) {
             err = krb5_change_password (context, &creds, (char *)inNewPassword, &result_code, &result_code_string, &result_string);
-            dprintf ("krb5_change_password() returned %ld '%s'\n", err, error_message (err));
+            dprintf ("krb5_change_password() returned %d '%s'\n", err, error_message (err));
         }
 
         if (err == klNoErr) {
@@ -160,7 +160,7 @@ KLStatus KLChangePasswordWithPasswords (KLPrincipal   inPrincipal,
 
         if (err == klNoErr) {
             err = krb_change_password (name, instance, realm, (char *)inOldPassword, (char *)inNewPassword);
-            dprintf ("krb_change_password (%s, %s, %s) returned %ld '%s'\n", name, instance, realm, err, error_message (err));
+            dprintf ("krb_change_password (%s, %s, %s) returned %d '%s'\n", name, instance, realm, err, error_message (err));
             err = __KLRemapKerberos4Error (err);
         }
 

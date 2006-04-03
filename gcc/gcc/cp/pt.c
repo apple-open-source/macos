@@ -111,8 +111,11 @@ static tree add_to_template_args (tree, tree);
 static tree add_outermost_template_args (tree, tree);
 static bool check_instantiated_args (tree, tree, tsubst_flags_t);
 static int maybe_adjust_types_for_deduction (unification_kind_t, tree*, tree*); 
+/* APPLE LOCAL begin mainline 2005-07-26 */
 static int  type_unification_real (tree, tree, tree, tree,
-				   int, unification_kind_t, int, int);
+				   /* APPLE LOCAL radar 4187916 */
+				   int, unification_kind_t, int, int, int);
+/* APPLE LOCAL end mainline 2005-07-26 */
 static void note_template_header (int);
 static tree convert_nontype_argument_function (tree, tree);
 static tree convert_nontype_argument (tree, tree);
@@ -2098,6 +2101,16 @@ check_explicit_specialization (tree declarator,
 	  TREE_PRIVATE (decl) = TREE_PRIVATE (gen_tmpl);
 	  TREE_PROTECTED (decl) = TREE_PROTECTED (gen_tmpl);
 
+	  /* APPLE LOCAL begin mainline 4.1 4182971 */
+	  /* The specialization has the same visibility as the
+	     template it specializes.  */
+	  if (DECL_VISIBILITY_SPECIFIED (gen_tmpl))
+	    {
+	      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	      DECL_VISIBILITY (decl) = DECL_VISIBILITY (gen_tmpl);
+	    }
+	  /* APPLE LOCAL end mainline 4.1 4182971 */
+
 	  if (is_friend && !have_def)
 	    /* This is not really a declaration of a specialization.
 	       It's just the name of an instantiation.  But, it's not
@@ -3136,6 +3149,8 @@ push_template_decl_real (tree decl, int is_friend)
       tmpl = pushdecl_namespace_level (tmpl);
       if (tmpl == error_mark_node)
 	return error_mark_node;
+      /* APPLE LOCAL 4184203 */
+      /* Remove code to hide template friend classes.  */
     }
 
   if (primary)
@@ -3223,10 +3238,9 @@ redeclare_class_template (tree type, tree parms)
   if (TREE_VEC_LENGTH (parms) != TREE_VEC_LENGTH (tmpl_parms))
     {
       cp_error_at ("previous declaration %qD", tmpl);
-      error ("used %d template parameter%s instead of %d",
-		TREE_VEC_LENGTH (tmpl_parms), 
-		TREE_VEC_LENGTH (tmpl_parms) == 1 ? "" : "s",
-		TREE_VEC_LENGTH (parms));
+      error ("used %d template parameter(s) instead of %d",
+	     TREE_VEC_LENGTH (tmpl_parms), 
+	     TREE_VEC_LENGTH (parms));
       return;
     }
 
@@ -4024,26 +4038,7 @@ template_args_equal (tree ot, tree nt)
     /* For member templates */
     return TREE_CODE (ot) == TREE_VEC && comp_template_args (ot, nt);
   else if (TYPE_P (nt))
-    /* APPLE LOCAL begin mainline */
-    {
-      int c1, c2;
-
-      if (!TYPE_P (ot))
-	return 0;
-
-      /* We must handle ObjC types specially because they may differ
-	 only in protocol qualifications (e.g., 'NSObject *' vs.
-	 'NSObject <Foo> *') that must be taken into account here.
-	 See also cp/typeck.c:build_c_cast(), where a similar problem
-	 arises.  We must call objc_comptypes() twice, since its
-	 comparisons are _not_ symmetric.  */
-      if ((c1 = objc_comptypes (ot, nt, 0)) >= 0
-	  && (c2 = objc_comptypes (nt, ot, 0)) >= 0)
-	return (c1 && c2);
-
-      return same_type_p (ot, nt);
-    }
-    /* APPLE LOCAL end mainline */
+    return TYPE_P (ot) && same_type_p (ot, nt);
   else if (TREE_CODE (ot) == TREE_VEC || TYPE_P (ot))
     return 0;
   else
@@ -4605,6 +4600,7 @@ lookup_template_class (tree d1,
 
 	  /* A local class.  Make sure the decl gets registered properly.  */
 	  if (context == current_function_decl)
+	    /* APPLE LOCAL 4184203 */
 	    pushtag (DECL_NAME (template), t, 0);
 	}
 
@@ -4629,6 +4625,13 @@ lookup_template_class (tree d1,
 	= TREE_PROTECTED (TYPE_STUB_DECL (template_type));
       DECL_IN_SYSTEM_HEADER (type_decl)
 	= DECL_IN_SYSTEM_HEADER (template);
+      /* APPLE LOCAL begin mainline 4.1 4182971 */
+      if (CLASSTYPE_VISIBILITY_SPECIFIED (template_type))
+	{
+	  DECL_VISIBILITY_SPECIFIED (type_decl) = 1;
+	  DECL_VISIBILITY (type_decl) = CLASSTYPE_VISIBILITY (template_type);
+	}
+      /* APPLE LOCAL end mainline 4.1 4182971 */
 
       /* Set up the template information.  We have to figure out which
 	 template is the immediate parent if this is a full
@@ -5548,6 +5551,13 @@ instantiate_class_template (tree type)
   TYPE_FOR_JAVA (type) = TYPE_FOR_JAVA (pattern); /* For libjava's JArray<T> */
   if (ANON_AGGR_TYPE_P (pattern))
     SET_ANON_AGGR_TYPE_P (type);
+  /* APPLE LOCAL begin mainline 4.1 4182971 */
+  if (CLASSTYPE_VISIBILITY_SPECIFIED (pattern))
+    {
+      CLASSTYPE_VISIBILITY_SPECIFIED (type) = 1;
+      CLASSTYPE_VISIBILITY (type) = CLASSTYPE_VISIBILITY (pattern);
+    }
+  /* APPLE LOCAL end mainline 4.1 4182971 */
 
   pbinfo = TYPE_BINFO (pattern);
 
@@ -5663,6 +5673,7 @@ instantiate_class_template (tree type)
 		     tsubst_enum.  */
 		  if (name)
 		    SET_IDENTIFIER_TYPE_VALUE (name, newtag);
+		  /* APPLE LOCAL 4184203 */
 		  pushtag (name, newtag, /*globalize=*/0);
 		}
 	    }
@@ -6487,8 +6498,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	      clone_function_decl (r, /*update_method_vec_p=*/0);
 	  }
 	else if (IDENTIFIER_OPNAME_P (DECL_NAME (r)))
-	  grok_op_properties (r, DECL_FRIEND_P (r),
-			      (complain & tf_error) != 0);
+	  grok_op_properties (r, (complain & tf_error) != 0);
 
 	if (DECL_FRIEND_P (t) && DECL_FRIEND_CONTEXT (t))
 	  SET_DECL_FRIEND_CONTEXT (r,
@@ -8220,7 +8230,10 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	 tsubst_expr (ASM_STRING (t), args, complain, in_decl),
 	 tsubst_expr (ASM_OUTPUTS (t), args, complain, in_decl),
 	 tsubst_expr (ASM_INPUTS (t), args, complain, in_decl), 
-	 tsubst_expr (ASM_CLOBBERS (t), args, complain, in_decl));
+	 /* APPLE LOCAL begin CW asm blocks */
+	 tsubst_expr (ASM_CLOBBERS (t), args, complain, in_decl),
+	 tsubst_expr (ASM_USES (t), args, complain, in_decl));
+	 /* APPLE LOCAL end CW asm blocks */
       {
 	tree asm_expr = tmp;
 	if (TREE_CODE (asm_expr) == CLEANUP_POINT_EXPR)
@@ -9074,11 +9087,6 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
      as in [temp.expl.spec], or when taking the address of a function
      template, as in [temp.deduct.funcaddr]. 
 
-   DEDUCE_ORDER:
-     We are deducing arguments when calculating the partial
-     ordering between specializations of function or class
-     templates, as in [temp.func.order] and [temp.class.order].
-
    LEN is the number of parms to consider before returning success, or -1
    for all.  This is used in partial ordering to avoid comparing parms for
    which no actual argument was passed, since they are not considered in
@@ -9092,7 +9100,10 @@ fn_type_unification (tree fn,
                      tree args, 
                      tree return_type,
 		     unification_kind_t strict, 
-                     int len)
+		     /* APPLE LOCAL begin radar 4187916 */
+                     int len,
+		     int flags)
+		     /* APPLE LOCAL end radar 4187916 */
 {
   tree parms;
   tree fntype;
@@ -9171,9 +9182,12 @@ fn_type_unification (tree fn,
      because the standard doesn't seem to explicitly prohibit it.  Our
      callers must be ready to deal with unification failures in any
      event.  */
+/* APPLE LOCAL begin mainline 2005-07-26 */
   result = type_unification_real (DECL_INNERMOST_TEMPLATE_PARMS (fn), 
 				  targs, parms, args, /*subr=*/0,
-				  strict, /*allow_incomplete*/1, len);
+				  /* APPLE LOCAL radar 4187916 */
+				  strict, 0, len, flags);
+/* APPLE LOCAL end mainline 2005-07-26 */
 
   if (result == 0) 
     /* All is well so far.  Now, check:
@@ -9226,28 +9240,6 @@ maybe_adjust_types_for_deduction (unification_kind_t strict,
       /* There is nothing to do in this case.  */
       return 0;
 
-    case DEDUCE_ORDER:
-      /* DR 214. [temp.func.order] is underspecified, and leads to no
-         ordering between things like `T *' and `T const &' for `U *'.
-         The former has T=U and the latter T=U*. The former looks more
-         specialized and John Spicer considers it well-formed (the EDG
-         compiler accepts it).
-
-         John also confirms that deduction should proceed as in a function
-         call. Which implies the usual ARG and PARM conversions as DEDUCE_CALL.
-         However, in ordering, ARG can have REFERENCE_TYPE, but no argument
-         to an actual call can have such a type.
-         
-         If both ARG and PARM are REFERENCE_TYPE, we change neither.
-         If only ARG is a REFERENCE_TYPE, we look through that and then
-         proceed as with DEDUCE_CALL (which could further convert it).  */
-      if (TREE_CODE (*arg) == REFERENCE_TYPE)
-        {
-          if (TREE_CODE (*parm) == REFERENCE_TYPE)
-            return 0;
-          *arg = TREE_TYPE (*arg);
-        }
-      break;
     default:
       gcc_unreachable ();
     }
@@ -9299,11 +9291,15 @@ maybe_adjust_types_for_deduction (unification_kind_t strict,
   return result;
 }
 
+/* APPLE LOCAL begin mainline 2005-07-26 */
 /* Most parms like fn_type_unification.
 
    If SUBR is 1, we're being called recursively (to unify the
    arguments of a function or method parameter of a function
-   template).  */
+   template).  If IS_METHOD is true, XPARMS are the parms of a
+   member function, and special rules apply to cv qualification
+   deduction on the this parameter.  */
+/* APPLE LOCAL end mainline 2005-07-26 */
 
 static int
 type_unification_real (tree tparms, 
@@ -9312,8 +9308,12 @@ type_unification_real (tree tparms,
                        tree xargs, 
                        int subr,
 		       unification_kind_t strict, 
-                       int allow_incomplete, 
-                       int xlen)
+/* APPLE LOCAL mainline 2005-07-26 */
+		       int is_method,
+/* APPLE LOCAL begin radar 4187916 */
+                       int xlen,
+		       int flags)
+/* APPLE LOCAL end radar 4187916 */
 {
   tree parm, arg;
   int i;
@@ -9343,10 +9343,6 @@ type_unification_real (tree tparms,
       sub_strict = UNIFY_ALLOW_NONE;
       break;
     
-    case DEDUCE_ORDER:
-      sub_strict = UNIFY_ALLOW_NONE;
-      break;
-      
     default:
       gcc_unreachable ();
     }
@@ -9376,6 +9372,27 @@ type_unification_real (tree tparms,
 	   template args from other function args.  */
 	continue;
 
+/* APPLE LOCAL begin mainline 2005-07-26 */
+     if (is_method)
+       {
+         /* The cv qualifiers on the this pointer argument must match
+            exactly.  We cannot deduce a T as const X against a const
+            member function for instance.  */
+  	 gcc_assert (TREE_CODE (parm) == POINTER_TYPE);
+  	 gcc_assert (TREE_CODE (arg) == POINTER_TYPE);
+  	 /* The restrict qualifier will be on the pointer.  */
+  	 if (cp_type_quals (parm) != cp_type_quals (arg))
+    	   return 1;
+  	 parm = TREE_TYPE (parm);
+  	 arg = TREE_TYPE (arg);
+  	 if (cp_type_quals (parm) != cp_type_quals (arg))
+    	   return 1;
+  
+  	parm = TYPE_MAIN_VARIANT (parm);
+  	arg = TYPE_MAIN_VARIANT (arg);
+  	is_method = 0;
+      }
+/* APPLE LOCAL end mainline 2005-07-26 */
       /* Conversions will be performed on a function argument that
 	 corresponds with a function parameter that contains only
 	 non-deducible template parameters and explicitly specified
@@ -9389,17 +9406,15 @@ type_unification_real (tree tparms,
 	  else
 	    type = arg;
 
-	  if (strict == DEDUCE_EXACT || strict == DEDUCE_ORDER)
-	    {
-	      if (same_type_p (parm, type))
-		continue;
-	    }
-	  else
-	    /* It might work; we shouldn't check now, because we might
-	       get into infinite recursion.  Overload resolution will
-	       handle it.  */
+	  /* APPLE LOCAL begin mainline 4.1 2005-06-17 4122333 */
+	  if (same_type_p (parm, type))
 	    continue;
-
+	  if (strict != DEDUCE_EXACT
+	      /* APPLE LOCAL radar 4187916 */
+	      && can_convert_arg (parm, type, TYPE_P (arg) ? NULL_TREE : arg, flags))
+	    continue;
+	  /* APPLE LOCAL end mainline 4.1 2005-06-17 4122333 */
+	  
 	  return 1;
 	}
 	
@@ -9465,8 +9480,9 @@ type_unification_real (tree tparms,
 	      && !saw_undeduced++)
 	    goto again;
 
-	  if (!allow_incomplete)
-	    error ("incomplete type unification");
+/* APPLE LOCAL begin mainline 2005-07-26 */
+/* Use of allow_incomplete is removed here. */
+/* APPLE LOCAL end mainline 2005-07-26 */
 	  return 2;
 	}
   return 0;
@@ -10293,9 +10309,12 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       if (unify (tparms, targs, TREE_TYPE (parm),
 		 TREE_TYPE (arg), UNIFY_ALLOW_NONE))
 	return 1;
+/* APPLE LOCAL begin mainline 2005-07-26 */
       return type_unification_real (tparms, targs, TYPE_ARG_TYPES (parm),
-				    TYPE_ARG_TYPES (arg), 1, 
-				    DEDUCE_EXACT, 0, -1);
+				    TYPE_ARG_TYPES (arg), 1, DEDUCE_EXACT, 
+				    /* APPLE LOCAL radar 4187916 */
+				    TREE_CODE (parm) == METHOD_TYPE, -1, LOOKUP_NORMAL);
+/* APPLE LOCAL end mainline 2005-07-26 */
 
     case OFFSET_TYPE:
       /* Unify a pointer to member with a pointer to member function, which
@@ -10436,36 +10455,164 @@ mark_decl_instantiated (tree result, int extern_p)
 
 /* Given two function templates PAT1 and PAT2, return:
 
-   DEDUCE should be DEDUCE_EXACT or DEDUCE_ORDER.
-   
    1 if PAT1 is more specialized than PAT2 as described in [temp.func.order].
    -1 if PAT2 is more specialized than PAT1.
    0 if neither is more specialized.
 
-   LEN is passed through to fn_type_unification.  */
+   LEN indicates the number of parameters we should consider
+   (defaulted parameters should not be considered).
+
+   The 1998 std underspecified function template partial ordering, and
+   DR214 addresses the issue.  We take pairs of arguments, one from
+   each of the templates, and deduce them against eachother.  One of
+   the templates will be more specialized if all the *other*
+   template's arguments deduce against its arguments and at least one
+   of its arguments *does* *not* deduce against the other template's
+   corresponding argument.  Deduction is done as for class templates.
+   The arguments used in deduction have reference and top level cv
+   qualifiers removed.  Iff both arguments were originally reference
+   types *and* deduction succeeds in both directions, the template
+   with the more cv-qualified argument wins for that pairing (if
+   neither is more cv-qualified, they both are equal).  Unlike regular
+   deduction, after all the arguments have been deduced in this way,
+   we do *not* verify the deduced template argument values can be
+   substituted into non-deduced contexts, nor do we have to verify
+   that all template arguments have been deduced.  */
    
 int
-more_specialized (tree pat1, tree pat2, int deduce, int len)
+more_specialized_fn (tree pat1, tree pat2, int len)
 {
-  tree targs;
-  int winner = 0;
+  tree decl1 = DECL_TEMPLATE_RESULT (pat1);
+  tree decl2 = DECL_TEMPLATE_RESULT (pat2);
+  tree targs1 = make_tree_vec (DECL_NTPARMS (pat1));
+  tree targs2 = make_tree_vec (DECL_NTPARMS (pat2));
+  tree tparms1 = DECL_INNERMOST_TEMPLATE_PARMS (pat1);
+  tree tparms2 = DECL_INNERMOST_TEMPLATE_PARMS (pat2);
+  tree args1 = TYPE_ARG_TYPES (TREE_TYPE (decl1));
+  tree args2 = TYPE_ARG_TYPES (TREE_TYPE (decl2));
+  int better1 = 0;
+  int better2 = 0;
 
-  /* If template argument deduction succeeds, we substitute the
-     resulting arguments into non-deduced contexts.  While doing that,
-     we must be aware that we may encounter dependent types.  */
-  ++processing_template_decl;
-  targs = get_bindings_real (pat1, DECL_TEMPLATE_RESULT (pat2),
-                             NULL_TREE, 0, deduce, len);
-  if (targs)
-    --winner;
+  /* If only one is a member function, they are unordered.  */
+  if (DECL_FUNCTION_MEMBER_P (decl1) != DECL_FUNCTION_MEMBER_P (decl2))
+    return 0;
+  
+  /* Don't consider 'this' parameter.  */
+  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl1))
+    args1 = TREE_CHAIN (args1);
+  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl2))
+    args2 = TREE_CHAIN (args2);
 
-  targs = get_bindings_real (pat2, DECL_TEMPLATE_RESULT (pat1),
-                             NULL_TREE, 0, deduce, len);
-  if (targs)
-    ++winner;
-  --processing_template_decl;
+  /* If only one is a conversion operator, they are unordered.  */
+  if (DECL_CONV_FN_P (decl1) != DECL_CONV_FN_P (decl2))
+    return 0;
+  
+  /* Consider the return type for a conversion function */
+  if (DECL_CONV_FN_P (decl1))
+    {
+      args1 = tree_cons (NULL_TREE, TREE_TYPE (TREE_TYPE (decl1)), args1);
+      args2 = tree_cons (NULL_TREE, TREE_TYPE (TREE_TYPE (decl2)), args2);
+      len++;
+    }
+  
+  processing_template_decl++;
+  
+  while (len--)
+    {
+      tree arg1 = TREE_VALUE (args1);
+      tree arg2 = TREE_VALUE (args2);
+      int deduce1, deduce2;
+      int quals1 = -1;
+      int quals2 = -1;
 
-  return winner;
+      if (TREE_CODE (arg1) == REFERENCE_TYPE)
+	{
+	  arg1 = TREE_TYPE (arg1);
+	  quals1 = cp_type_quals (arg1);
+	}
+      
+      if (TREE_CODE (arg2) == REFERENCE_TYPE)
+	{
+	  arg2 = TREE_TYPE (arg2);
+	  quals2 = cp_type_quals (arg2);
+	}
+
+      if ((quals1 < 0) != (quals2 < 0))
+	{
+	  /* Only of the args is a reference, see if we should apply
+	     array/function pointer decay to it.  This is not part of
+	     DR214, but is, IMHO, consistent with the deduction rules
+	     for the function call itself, and with our earlier
+	     implementation of the underspecified partial ordering
+	     rules.  (nathan).  */
+	  if (quals1 >= 0)
+	    {
+	      switch (TREE_CODE (arg1))
+		{
+		case ARRAY_TYPE:
+		  arg1 = TREE_TYPE (arg1);
+		  /* FALLTHROUGH. */
+		case FUNCTION_TYPE:
+		  arg1 = build_pointer_type (arg1);
+		  break;
+		  
+		default:
+		  break;
+		}
+	    }
+	  else
+	    {
+	      switch (TREE_CODE (arg2))
+		{
+		case ARRAY_TYPE:
+		  arg2 = TREE_TYPE (arg2);
+		  /* FALLTHROUGH. */
+		case FUNCTION_TYPE:
+		  arg2 = build_pointer_type (arg2);
+		  break;
+		  
+		default:
+		  break;
+		}
+	    }
+	}
+      
+      arg1 = TYPE_MAIN_VARIANT (arg1);
+      arg2 = TYPE_MAIN_VARIANT (arg2);
+      
+      deduce1 = !unify (tparms1, targs1, arg1, arg2, UNIFY_ALLOW_NONE);
+      deduce2 = !unify (tparms2, targs2, arg2, arg1, UNIFY_ALLOW_NONE);
+
+      if (!deduce1)
+	better2 = -1;
+      if (!deduce2)
+	better1 = -1;
+      if (better1 < 0 && better2 < 0)
+	/* We've failed to deduce something in either direction.
+	   These must be unordered.  */
+	break;
+      
+      if (deduce1 && deduce2 && quals1 >= 0 && quals2 >= 0)
+	{
+	  /* Deduces in both directions, see if quals can
+	     disambiguate.  Pretend the worse one failed to deduce. */
+	  if ((quals1 & quals2) == quals2)
+	    deduce1 = 0;
+	  if ((quals1 & quals2) == quals1)
+	    deduce2 = 0;
+	}
+      if (deduce1 && !deduce2 && !better2)
+	better2 = 1;
+      if (deduce2 && !deduce1 && !better1)
+	better1 = 1;
+      
+      args1 = TREE_CHAIN (args1);
+      args2 = TREE_CHAIN (args2);
+    }
+
+  processing_template_decl--;
+
+  return (better1 > 0) - (better2 > 0);
 }
 
 /* Given two class template specialization list nodes PAT1 and PAT2, return:
@@ -10558,7 +10705,8 @@ get_bindings_real (tree fn,
 			   decl_arg_types,
 			   (check_rettype || DECL_CONV_FN_P (fn)
 	                    ? TREE_TYPE (decl_type) : NULL_TREE),
-			   deduce, len);
+			   /* APPLE LOCAL radar 4187916 */
+			   deduce, len, LOOKUP_NORMAL);
 
   if (i != 0)
     return NULL_TREE;
@@ -10629,37 +10777,56 @@ tree
 most_specialized_instantiation (tree instantiations)
 {
   tree fn, champ;
-  int fate;
 
   if (!instantiations)
     return NULL_TREE;
-
+  
+  ++processing_template_decl;
+  
   champ = instantiations;
   for (fn = TREE_CHAIN (instantiations); fn; fn = TREE_CHAIN (fn))
     {
-      fate = more_specialized (TREE_VALUE (champ), TREE_VALUE (fn),
-                               DEDUCE_EXACT, -1);
-      if (fate == 1)
-	;
-      else
+      int fate = 0;
+      
+      if (get_bindings_real (TREE_VALUE (champ),
+			     DECL_TEMPLATE_RESULT (TREE_VALUE (fn)),
+			     NULL_TREE, 0, DEDUCE_EXACT, -1))
+	fate--;
+
+      if (get_bindings_real (TREE_VALUE (fn),
+			     DECL_TEMPLATE_RESULT (TREE_VALUE (champ)),
+			     NULL_TREE, 0, DEDUCE_EXACT, -1))
+	fate++;
+      
+      if (fate != 1)
 	{
-	  if (fate == 0)
-	    {
-	      fn = TREE_CHAIN (fn);
-	      if (! fn)
-		return error_mark_node;
-	    }
+	  if (!fate)
+	    /* Equally specialized, move to next function.  If there
+	       is no next function, nothing's most specialized.  */
+	    fn = TREE_CHAIN (fn);
 	  champ = fn;
 	}
     }
-
-  for (fn = instantiations; fn && fn != champ; fn = TREE_CHAIN (fn))
-    {
-      fate = more_specialized (TREE_VALUE (champ), TREE_VALUE (fn),
-                               DEDUCE_EXACT, -1);
-      if (fate != 1)
-	return error_mark_node;
-    }
+  
+  if (champ)
+    /* Now verify that champ is better than everything earlier in the
+       instantiation list.  */
+    for (fn = instantiations; fn != champ; fn = TREE_CHAIN (fn))
+      if (get_bindings_real (TREE_VALUE (champ),
+			     DECL_TEMPLATE_RESULT (TREE_VALUE (fn)),
+			     NULL_TREE, 0, DEDUCE_EXACT, -1)
+	  || !get_bindings_real (TREE_VALUE (fn),
+				 DECL_TEMPLATE_RESULT (TREE_VALUE (champ)),
+				 NULL_TREE, 0, DEDUCE_EXACT, -1))
+	{
+	  champ = NULL_TREE;
+	  break;
+	}
+  
+  processing_template_decl--;
+  
+  if (!champ)
+    return error_mark_node;
 
   return TREE_PURPOSE (champ) ? TREE_PURPOSE (champ) : TREE_VALUE (champ);
 }
@@ -12434,10 +12601,7 @@ build_non_dependent_expr (tree expr)
      types.  */
   inner_expr = (TREE_CODE (expr) == ADDR_EXPR ? 
 		TREE_OPERAND (expr, 0) : expr);
-  if (TREE_CODE (inner_expr) == OVERLOAD 
-      || TREE_CODE (inner_expr) == FUNCTION_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR
+  if (is_overloaded_fn (inner_expr)
       || TREE_CODE (inner_expr) == OFFSET_REF)
     return expr;
   /* There is no need to return a proxy for a variable.  */

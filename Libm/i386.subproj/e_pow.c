@@ -98,8 +98,12 @@ ivln2_l  =  1.92596299112661746887e-08; /* 0x3E54AE0B, 0xF85DDF44 =1/ln2 tail*/
 
 #define __ieee754_sqrt sqrt
 
-double pow(double x, double y)
+#warning long double power implementation is wrong most of the time
+
+long double powl(long double x0, long double y0)
 {
+    double x = x0;
+    double y = y0;
 	double z,ax,z_h,z_l,p_h,p_l;
 	double y1,t1,t2,r,s,t,u,v,w;
 	int32_t i,j,k,yisint,n;

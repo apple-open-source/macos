@@ -20,10 +20,6 @@
 //
 // We call KLIPCGetServerPID to get the pid of the server so that KLCancelAllDialogs can
 // kill the server if it needs to.
-//
-// We also always use KLIPCGetServerPID to get a security token to check the uid of the server
-// This is very important because otherwise a malicious server running as another user could trick
-// us into giving it information (such as our password!)
 
 #define SafeIPCCallBegin_(ipcErr, result)                                                                           \
     {                                                                                                               \
@@ -77,10 +73,7 @@
         for (;;) {                                                                                    \
             mach_msg_option_t options = MACH_RCV_MSG|MACH_MSG_OPTION_NONE|MACH_RCV_TIMEOUT;           \
             mach_msg_size_t send_size = 0;                                                            \
-            if (strcmp (name, "GetServerPID") == 0) {                                                 \
-                options |= MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_SENDER)|                        \
-                           MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0);                          \
-            }                                                                                         \
+            mach_port_t save_reply_port = InP->Head.msgh_reply_port;                                  \
             if (msg_result == MACH_SEND_TIMED_OUT) {                                                  \
                 options |= MACH_SEND_MSG|MACH_SEND_TIMEOUT;                                           \
                 send_size = sizeof(Request);                                                          \
@@ -92,6 +85,7 @@
                                   send_size, sizeof(Reply),                                           \
                                   InP->Head.msgh_reply_port,                                          \
                                   kKLMachIPCTimeout, MACH_PORT_NULL);                                 \
+            InP->Head.msgh_reply_port = save_reply_port;                                              \
         }                                                                                             \
     }
 

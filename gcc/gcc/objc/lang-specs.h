@@ -47,8 +47,10 @@ Boston, MA 02111-1307, USA.  */
 	%{save-temps|no-integrated-cpp:cc1obj -E %(cpp_options) -o %{save-temps:%b.mi} %{!save-temps:%g.mi} \n\
 	    cc1obj -fpreprocessed %b.mi %(cc1_options) %{print-objc-runtime-info} %{gen-decls}\
                         -o %g.s %{!o*:--output-pch=%i.gch}\
-                        %W{o*:--output-pch=%*}%V}\
+                        "/* APPLE LOCAL ss2 */" \
+                        %W{o*:--output-pch=%*} %{fsave-repository=*: \n as -o %w%* %g.s %A}%V}\
 	%{!save-temps:%{!no-integrated-cpp:\
 	    cc1obj %(cpp_unique_options) %(cc1_options) %{print-objc-runtime-info} %{gen-decls}\
                         -o %g.s %{!o*:--output-pch=%i.gch}\
-                        %W{o*:--output-pch=%*}%V}}}}}", 0, 0, 0},
+                        "/* APPLE LOCAL ss2 */ " \
+                        %W{o*:--output-pch=%*} %{fsave-repository=*: \n as -o %w%* %g.s %A}%V}}}}}", 0, 0, 0},

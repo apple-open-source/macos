@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_dev.h,v 1.10.178.2 2005/07/20 05:15:19 lindak Exp $
+ * $Id: smb_dev.h,v 1.10.178.4 2006/03/06 23:29:41 lindak Exp $
  */
 #ifndef _NETSMB_DEV_H_
 #define _NETSMB_DEV_H_
@@ -45,7 +45,7 @@
 #define	NSMB_MAJOR		144
 
 #define NSMB_VERMAJ	1
-#define NSMB_VERMIN	3200
+#define NSMB_VERMIN	3600
 #define NSMB_VERSION	(NSMB_VERMAJ * 100000 + NSMB_VERMIN)
 
 #define NSMBFL_OPEN		0x0001

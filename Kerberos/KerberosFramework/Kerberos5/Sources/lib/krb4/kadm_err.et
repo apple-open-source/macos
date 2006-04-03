@@ -11,7 +11,7 @@
 
 # KADM_SUCCESS, as all success codes should be, is zero
 
-ec KADM_RCSID,		"$Header: /cvs/krbdev/krb5/src/lib/krb4/kadm_err.et,v 1.1 2002/11/27 03:09:34 tlyu Exp $"
+ec KADM_RCSID,		"$Header$"
 # /* Building and unbuilding the packet errors */
 ec KADM_NO_REALM,	"Cannot fetch local realm"
 ec KADM_NO_CRED,	"Unable to fetch credentials"

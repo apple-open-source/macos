@@ -1,1 +1,31 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"			"http://www.w3.org/TR/REC-html40/loose.dtd"><HTML><HEAD> 	<BASE HREF="#REAL_URL#">  	<META NAME="keywords" CONTENT="#KEYWORDS#">	<META NAME="description" CONTENT="#DESCRIPTION#">	<TITLE>#PAGETITLE#</TITLE> 	<STYLE TYPE="text/css">		@import url(#RELATIVE#Common/Documentation/templates/site.css);	</STYLE></HEAD><BODY><DIV ID="menu"><IMG SRC="#RELATIVE#Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo"><HR><P><A HREF="#RELATIVE#Common/Documentation/index.html">Home</A></P><P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P><P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P><HR><P><A HREF="#RELATIVE#Common/Documentation/news.html">News</A></P><P><A HREF="#RELATIVE#Common/Documentation/documentation.html">Documentation</A></P><P><A HREF="#RELATIVE#Common/Documentation/developer.html">Developer Resources</A></P><P><A HREF="#RELATIVE#Common/Documentation/license.html">License</A></P><HR><P><A HREF="#RELATIVE#Common/Documentation/download.html">Download</A></P><P><A HREF="#RELATIVE#Common/Documentation/support.html">Support</A></P><P><A HREF="#RELATIVE#Common/Documentation/contact.html">Contact Us</A></P></DIV><DIV ID="body">
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="#REAL_URL#">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>#PAGETITLE#</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(#RELATIVE#Common/Documentation/templates/site.css);
+	</STYLE>
+</HEAD>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="#RELATIVE#Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="#RELATIVE#Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="#RELATIVE#Common/Documentation/news.html">News</A></P>
+<P><A HREF="#RELATIVE#Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="#RELATIVE#Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="#RELATIVE#Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="#RELATIVE#Common/Documentation/download.html">Download</A></P>
+<P><A HREF="#RELATIVE#Common/Documentation/support.html">Support</A></P>
+<P><A HREF="#RELATIVE#Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">

@@ -1,3 +1,17 @@
+2005-10-11  Klee Dienes  <kdienes@apple.com>
+
+	* hashtab.c (htab_create_alloc): Properly initialize fields to
+	zero.
+	(htab_create_alloc_ex): Ditto.
+
+2005-08-19  Jim Ingham  <jingham@apple.com>
+        
+	Importing patch from FSF TOT.  ChangeLog says:
+	
+        PR other/16240
+	* cp-demangle.c (d_expr_primary): Check for a failure return from
+	  cplus_demangle_type.
+	
 2004-08-25  Jim Ingham  <jingham@apple.com>
 
 	* floatformat.c (floatformat_is_valid): Check for a NULL input

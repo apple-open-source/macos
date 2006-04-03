@@ -1,6 +1,7 @@
-/* APPLE LOCAL file Radar 4055183 */
+/* APPLE LOCAL file mainline */
 /* All calls must be properly stubified.  Complain about any "call
    _objc_msgSend<end-of-line>" without the $stub suffix.  */
+
 /* { dg-do compile { target *-*-darwin* } } */
 /* { dg-options "-Os -mdynamic-no-pic" } */
 
@@ -18,11 +19,11 @@ extern int bogonic (int, int, int) ;
 - (Document *) close { }
 - (Document *) window { }
 - (void)willEndCloseSheet:(void *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo {
-        [[self window] close];
-        ((void (*)(id, char *, int))objc_msgSend)([self class], (char *)contextInfo, 1);
-        ((void (*)(id, char *, int))bogonic)([self class], (char *)contextInfo, 1);
-	bogonic (3, 4, 5);
-	x++;
+  [[self window] close];
+  ((void (*)(id, char *, int))objc_msgSend)([self class], (char *)contextInfo, 1);
+  ((void (*)(id, char *, int))bogonic)([self class], (char *)contextInfo, 1);
+  bogonic (3, 4, 5);
+  x++;
 }
 @end
 

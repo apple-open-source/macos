@@ -452,10 +452,6 @@ void RenderWidget::paint(PaintInfo& i, int _tx, int _ty)
 #endif
 }
 
-void RenderWidget::handleFocusOut()
-{
-}
-
 bool RenderWidget::eventFilter(QObject* /*o*/, QEvent* e)
 {
     if ( !element() ) return true;
@@ -482,7 +478,6 @@ bool RenderWidget::eventFilter(QObject* /*o*/, QEvent* e)
 //                 KHTMLPartBrowserExtension *ext = static_cast<KHTMLPartBrowserExtension *>( elem->view->part()->browserExtension() );
 //                 if ( ext )  ext->editableWidgetBlurred( m_widget );
 //             }
-	    handleFocusOut();
         }
         break;
     case QEvent::FocusIn:

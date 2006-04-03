@@ -194,6 +194,7 @@ TARGET_SUBDIR = @target_subdir@
 TARGET_CONFIGARGS = @target_configargs@
 # This is the list of variables to export in the environment when
 # configuring subdirectories for the host system.
+# APPLE LOCAL begin mainline 2005-10-02 4218570
 BASE_TARGET_EXPORTS = \
 	$(BASE_EXPORTS) \
 	AR="$(AR_FOR_TARGET)"; export AR; \
@@ -208,11 +209,14 @@ BASE_TARGET_EXPORTS = \
 	DLLTOOL="$(DLLTOOL_FOR_TARGET)"; export DLLTOOL; \
 	LD="$(LD_FOR_TARGET)"; export LD; \
 	LDFLAGS="$(LDFLAGS_FOR_TARGET)"; export LDFLAGS; \
+	LIPO="$(LIPO_FOR_TARGET)"; export LIPO; \
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
+	STRIP="$(STRIP_FOR_TARGET)"; export STRIP; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
 	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
 	@SET_GCC_LIB_PATH@
+# APPLE LOCAL end mainline 2005-10-02 4218570
 
 RAW_CXX_TARGET_EXPORTS = \
 	$(BASE_TARGET_EXPORTS) \
@@ -439,6 +443,21 @@ USUAL_LD_FOR_TARGET = ` \
 
 LDFLAGS_FOR_TARGET = 
 
+ # APPLE LOCAL begin mainline 2005-10-02 4218570
+LIPO_FOR_TARGET=@LIPO_FOR_TARGET@
+CONFIGURED_LIPO_FOR_TARGET=@CONFIGURED_LIPO_FOR_TARGET@
+USUAL_LIPO_FOR_TARGET = ` \
+  if [ '$(host)' = '$(target)' ] ; then \
+    if [ x'$(LIPO)' != x ]; then \
+       echo $(LIPO); \
+    else \
+       echo lipo; \
+    fi; \
+  else \
+    echo $(CONFIGURED_LIPO_FOR_TARGET) ; \
+  fi`
+
+ # APPLE LOCAL end mainline 2005-10-02 4218570
 NM_FOR_TARGET=@NM_FOR_TARGET@
 CONFIGURED_NM_FOR_TARGET=@CONFIGURED_NM_FOR_TARGET@
 USUAL_NM_FOR_TARGET = ` \
@@ -471,6 +490,25 @@ USUAL_RANLIB_FOR_TARGET = ` \
     fi; \
   fi`
 
+ # APPLE LOCAL begin mainline 2005-10-02 4218570
+STRIP_FOR_TARGET=@STRIP_FOR_TARGET@
+CONFIGURED_STRIP_FOR_TARGET=@CONFIGURED_STRIP_FOR_TARGET@
+USUAL_STRIP_FOR_TARGET = ` \
+  if [ -f $$r/$(HOST_SUBDIR)/binutils/strip ] ; then \
+    echo $$r/$(HOST_SUBDIR)/binutils/strip ; \
+  else \
+    if [ '$(host)' = '$(target)' ] ; then \
+      if [ x'$(STRIP)' != x ]; then \
+         echo $(STRIP); \
+      else \
+         echo strip; \
+      fi; \
+    else \
+      echo $(CONFIGURED_STRIP_FOR_TARGET) ; \
+    fi; \
+  fi`
+
+ # APPLE LOCAL end mainline 2005-10-02 4218570
 WINDRES_FOR_TARGET=@WINDRES_FOR_TARGET@
 CONFIGURED_WINDRES_FOR_TARGET=@CONFIGURED_WINDRES_FOR_TARGET@
 USUAL_WINDRES_FOR_TARGET = ` \

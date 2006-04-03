@@ -1,7 +1,7 @@
 /*
  * Cache.h
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/Cache.h,v 1.4 2004/09/20 20:34:14 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

@@ -426,7 +426,6 @@ print_frame_info (struct frame_info *fi, int level, int source, int args)
   int source_print;
   int location_print;
 
-  
   if (get_frame_type (fi) == DUMMY_FRAME
       || get_frame_type (fi) == SIGTRAMP_FRAME)
     {
@@ -442,15 +441,17 @@ print_frame_info (struct frame_info *fi, int level, int source, int args)
           ui_out_text (uiout, "#");
           ui_out_field_fmt_int (uiout, 2, ui_left, "level", level);
         }
-      /* APPLE LOCAL: include $fp and $pc for MI output so PB can treat
-         this like a normal debug-info-less frame in its stack window. */
       if (ui_out_is_mi_like_p (uiout))
         {
           annotate_frame_address ();  
           ui_out_field_core_addr (uiout, "addr", get_frame_pc (fi));
           annotate_frame_address_end ();
+	  /* APPLE LOCAL: include $fp and $pc for MI output so PB can
+	     treat this like a normal debug-info-less frame in its
+	     stack window. */
           ui_out_field_core_addr (uiout, "fp", get_frame_base (fi));
         }
+
       if (get_frame_type (fi) == DUMMY_FRAME)
         {
           annotate_function_call ();
@@ -653,11 +654,12 @@ print_frame (struct frame_info *fi,
 	ui_out_field_core_addr (uiout, "addr", get_frame_pc (fi));
 	annotate_frame_address_end ();
 	ui_out_text (uiout, " in ");
+	/* APPLE LOCAL begin FRAME tuple includes an FP field */
         if (ui_out_is_mi_like_p (uiout))
           {
-            /* APPLE LOCAL: FRAME tuple includes an FP field */
             ui_out_field_core_addr (uiout, "fp", get_frame_base (fi));
           }
+	/* APPLE LOCAL end FRAME tuple includes an FP field */
       }
   annotate_frame_function_name ();
   fprintf_symbol_filtered (stb->stream, funname ? funname : "??", funlang,
@@ -1565,7 +1567,7 @@ catch_info (char *ignore, int from_tty)
   /* Check for target support for exception handling */
   if (target_enable_exception_callback (EX_EVENT_CATCH, 1))
     {
-      sals = target_find_exception_catchpoints (EX_EVENT_CATCH);
+      sals = target_find_exception_catchpoints (EX_EVENT_CATCH, NULL);
       if (sals)
 	{
 	  /* Currently not handling this */

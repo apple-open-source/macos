@@ -58,6 +58,9 @@ main (int argc, char **argv)
   const char *mangled_classname;
   int i, last_arg;
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
   gcc_init_libintl ();
 
   if (argc < 2)

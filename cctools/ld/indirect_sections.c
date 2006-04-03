@@ -112,7 +112,7 @@ enum bool redo_live)
     struct nlist *nlists;
     unsigned long *indirect_symtab;
     struct undefined_map *undefined_map;
-    struct merged_symbol *merged_symbol, *indr_symbol, **hash_pointer;
+    struct merged_symbol *merged_symbol, *indr_symbol;
     enum bool new;
 
     struct relocation_info *relocs, reloc;
@@ -261,9 +261,9 @@ enum bool redo_live)
 		 * it is an external symbol so get the merged_symbol for this
 		 * external symbol by looking it up by name.
 		 */
-		merged_symbol = *(lookup_symbol(strings +
-						nlists[index].n_un.n_strx));
-		if(merged_symbol == NULL)
+		merged_symbol = lookup_symbol(strings +
+						nlists[index].n_un.n_strx);
+		if(merged_symbol->name_len == 0)
 		    fatal("interal error, indirect_section_merge() failed in "
 			  "looking up external symbol");
 		/*
@@ -706,14 +706,13 @@ account_for_size:
 		    if((nlists[r_symbolnum].n_type & N_TYPE) == N_SECT &&
 		       (cur_obj->section_maps[nlists[r_symbolnum].
 			n_sect-1].s->flags & SECTION_TYPE) == S_COALESCED){
-			hash_pointer = lookup_symbol(strings +
+			merged_symbol = lookup_symbol(strings +
 					   nlists[r_symbolnum].n_un.n_strx);
-			if(hash_pointer == NULL){
+			if(merged_symbol->name_len == 0){
 			    fatal("internal error, in indirect_section_merge() "
 				  "failed to lookup coalesced symbol %s",
 				  strings + nlists[r_symbolnum].n_un.n_strx);
 			}
-			merged_symbol = *hash_pointer;
 			if(((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT &&
 			    keep_private_externs == FALSE) ||
 			   dynamic == FALSE ||
@@ -1093,22 +1092,23 @@ struct merged_section *ms)
 	indirect_section_free(data);
 }
 
+#ifndef RLD
 /*
  * indirect_live_ref() is called by walk_references() as part of the live
- * marking pass when -dead_strip is specified to get the live_ref when a
+ * marking pass when -dead_strip is specified to get the ref when a
  * indirect section is referenced.  The reference is specified by fine_reloc,
- * map and obj.  This routine sets the live_ref struct passed to it for the
- * reference.
+ * map and obj.  This routine sets the ref struct passed to it for the
+ * reference if there is one and returns TRUE else it returns FALSE.
  */
 __private_extern__
-void
+enum bool
 indirect_live_ref(
 struct fine_reloc *fine_reloc,
 struct section_map *map,
 struct object_file *obj,
-struct live_ref *ref)
+struct ref *r)
 {
-    unsigned long index, value;
+    unsigned long index, value, r_symbolnum;
     struct nlist *nlists;
     char *contents;
 
@@ -1117,15 +1117,6 @@ struct live_ref *ref)
 	   (map->s->flags & SECTION_TYPE) != S_NON_LAZY_SYMBOL_POINTERS)
 	    fatal("internal error: indirect_live_ref() called with map not for "
 		  "indirect section");
-
-	/*
-	 * Note: that fine_relocs for indirect symbol which are
-	 * INDIRECT_SYMBOL_LOCAL and INDIRECT_SYMBOL_ABS have local_symbol set
-	 * to TRUE.
-	 */
-	ref->ref_type = LIVE_REF_NONE;
-	ref->value = 0;
-	ref->merged_symbol = NULL;
 
 	if(fine_reloc->local_symbol == TRUE){
 	    /*
@@ -1146,8 +1137,14 @@ struct live_ref *ref)
 		index = fine_reloc->output_offset;
 		nlists = (struct nlist *)(obj->obj_addr +
 					  obj->symtab->symoff);
-		ref->ref_type = LIVE_REF_VALUE;
-		ref->value = nlists[index].n_value;
+		r_symbolnum = r_symbolnum_from_r_value(nlists[index].n_value,
+						       obj);
+	        r->map = &(obj->section_maps[r_symbolnum - 1]);
+	        r->fine_reloc = fine_reloc_for_input_offset(r->map,
+				      nlists[index].n_value - r->map->s->addr);
+		r->obj = obj;
+		r->merged_symbol = NULL;
+		return(TRUE);
 	    }
 	    else{
 		/*
@@ -1172,19 +1169,36 @@ struct live_ref *ref)
 		    memcpy(&value, contents + fine_reloc->input_offset, 4);
 		    if(obj->swapped)
 			value = SWAP_LONG(value);
-		    ref->ref_type = LIVE_REF_VALUE;
-		    ref->value = value;
+		    r_symbolnum = r_symbolnum_from_r_value(value, obj);
+		    r->map = &(obj->section_maps[r_symbolnum - 1]);
+		    r->fine_reloc = fine_reloc_for_input_offset(r->map,
+					value - r->map->s->addr);
+		    r->obj = obj;
+		    r->merged_symbol = NULL;
+		    return(TRUE);
+		}
+		else{
+		    /*
+		     * Note: that fine_relocs for indirect symbol which are
+		     * INDIRECT_SYMBOL_LOCAL and INDIRECT_SYMBOL_ABS have
+		     * local_symbol set to TRUE.
+		     */
+		    return(FALSE);
 		}
 	    }
 	}
 	else{
 	    /*
-	     * Mark the external symbols being referenced live.
+	     * External symbols just set the ref's merged_symbol field.
 	     */
-	    ref->ref_type = LIVE_REF_SYMBOL;
-	    ref->merged_symbol = fine_reloc->merged_symbol;
+	    r->merged_symbol = fine_reloc->merged_symbol;
+	    r->fine_reloc = NULL;
+	    r->map = NULL;
+	    r->obj = NULL;
+	    return(TRUE);
 	}
 }
+#endif /* !defined(RLD) */
 
 /*
  * indirect_section_free() free()'s up all space used by the data block except 

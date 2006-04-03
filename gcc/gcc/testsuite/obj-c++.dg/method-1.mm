@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test whether casting 'id' to a specific class removes method lookup
    ambiguity.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */

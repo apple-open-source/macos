@@ -21,11 +21,11 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#import "AMString.h"
 #import "AMMap.h"
 #import "Controller.h"
 #import "AMVnode.h"
 #import "Server.h"
-#import "AMString.h"
 #import "automount.h"
 #import "log.h"
 #import "vfs_sysctl.h"
@@ -97,20 +97,30 @@ static char * bootstrap_error_string(int errNum);
 
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir
 {
-	return [self initWithParent:p directory:dir from:nil mountdirectory:nil];
+	return [self initWithParent:p directory:dir from:nil mountdirectory:nil mountedon:nil];
 }
 
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds
 {
-	return [self initWithParent:p directory:dir from:ds mountdirectory:nil];
+	return [self initWithParent:p directory:dir from:ds mountdirectory:nil mountedon:nil];
 }
 
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt
 {
-	return [self initWithParent:p directory:dir from:ds mountdirectory:mnt withRootVnodeClass:[Vnode class]];
+	return [self initWithParent:p directory:dir from:ds mountdirectory:mnt mountedon:nil];
+}
+
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt mountedon:(String *)mnton
+{
+	return [self initWithParent:p directory:dir from:ds mountdirectory:mnt mountedon:mnton withRootVnodeClass:[Vnode class]];
 }
 
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt withRootVnodeClass:(Class)rootVnodeClass
+{
+	return [self initWithParent:p directory:dir from:ds mountdirectory:mnt mountedon:nil withRootVnodeClass:rootVnodeClass];
+}
+
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt mountedon:(String *)mnton withRootVnodeClass:(Class)rootVnodeClass
 {
 	char mountdirpath[MAXPATHLEN];
 	
@@ -653,6 +663,12 @@ Std_Exit:
 	rsp.body.result = -1;
 	str = (char *)&rsp.body.returnBuffer;
 	
+	/*
+	 * Put integral values in the request message body into host
+	 * byte order.
+	 */
+	body->request = ntohl(body->request);
+
 	/* Check if any unknown or unsupported options are being requested: */
 	if (body->request & ~(AMI_MOUNTOPTIONS | AMI_URL | AMI_MOUNTDIR | AMI_TRIGGERPATH)) {
 		rsp.body.result = EINVAL;
@@ -763,6 +779,17 @@ Send_Response:
 	rsp.header.msgh_local_port = MACH_PORT_NULL;
 	rsp.header.msgh_id = msg->msgh_id + 100;
 	
+	/*
+	 * Put integral values in the reply message body into network
+	 * byte order.
+	 */
+	rsp.body.result = htonl(rsp.body.result);
+	rsp.body.flags = htonl(rsp.body.flags);
+	rsp.body.mountOptions = htonl(rsp.body.mountOptions);
+	rsp.body.URLOffset = htonl(rsp.body.URLOffset);
+	rsp.body.mountDirOffset = htonl(rsp.body.mountDirOffset);
+	rsp.body.triggerPathOffset = htonl(rsp.body.triggerPathOffset);
+
 #if 0
 	sys_msg(debug, LOG_DEBUG, "handlePendingAMInfoRequests: sending %d-byte response to port 0x%lx.",
 						str - (char *)&rsp.header,

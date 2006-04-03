@@ -39,14 +39,15 @@
 #include "gdb_wait.h"
 #include "inflow.h"
 
-extern struct symtab_and_line *child_enable_exception_callback (enum exception_event_kind,
+extern struct symtab_and_line *child_enable_exception_callback (enum
+								exception_event_kind,
 				 int);
 extern struct symtabs_and_lines *
 child_find_exception_catchpoints (enum exception_event_kind,
 				  struct objfile *);
 
-extern struct exception_event_record *
-child_get_current_exception_event (void);
+extern struct exception_event_record
+  *child_get_current_exception_event (void);
 
 extern void _initialize_inftarg (void);
 

@@ -1,5 +1,5 @@
 /*
- * "$Id: main.c,v 1.40.2.2 2005/07/27 21:58:45 jlovell Exp $"
+ * "$Id: main.c,v 1.40.2.3 2005/11/09 17:40:23 jlovell Exp $"
  *
  *   Scheduler main loop for the Common UNIX Printing System (CUPS).
  *
@@ -457,8 +457,15 @@ main(int  argc,				/* I - Number of command-line arguments */
   * Mach port server and service. If we should die unexpectedly Mach
   * will receive a port-destroyed notification and will re-launch us.
   */
+
   if (!debug)
     registerBootstrapService();
+
+ /*
+  * Start system event monitoring...
+  */
+
+  StartSysEventMonitor();
 #endif
 
  /*
@@ -947,6 +954,10 @@ main(int  argc,				/* I - Number of command-line arguments */
   StopServer();
 
   StopAllJobs();
+
+#ifdef __APPLE__
+  StopSysEventMonitor();
+#endif	/* __APPLE__ */
 
 #ifdef HAVE_NOTIFY_POST
   /*
@@ -1754,5 +1765,5 @@ static kern_return_t destroyBootstrapService()
 #endif	/* __APPLE__ */
 
 /*
- * End of "$Id: main.c,v 1.40.2.2 2005/07/27 21:58:45 jlovell Exp $".
+ * End of "$Id: main.c,v 1.40.2.3 2005/11/09 17:40:23 jlovell Exp $".
  */

@@ -5,7 +5,7 @@
  |                            MacsBug Command Line Processing                           |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -32,6 +32,7 @@ static int current_argc = 0;			/* most recent $__argc			*/
 
 /*--------------------------------------------------------------------------------------*/
 
+#if 0
 /*----------------------------------------------------------------*
  | colon_filter - filter to handle a 'WH' output to define $colon |
  *----------------------------------------------------------------*
@@ -44,11 +45,11 @@ static int current_argc = 0;			/* most recent $__argc			*/
 static char *colon_filter(FILE *f, char *line, void *data)
 {
     int	 n, n_addr, n_offset;
-    char *p1, *p2, address[11], function[1024], offset[8];
+    char *p1, *p2, address[20], function[1024], offset[8];
 
     /* A gdb_print_address line is formatted as follows:				*/
     
-    /* 0xaaaa <function+dddd>								*/
+    /* 0xaaaa <function+dddd ...>							*/
     
     /* where 0xaaaa is the address and dddd is the offset in the specified function. 	*/
     /* There offset is suppressed if +dddd is zero.					*/
@@ -58,7 +59,7 @@ static char *colon_filter(FILE *f, char *line, void *data)
         /* Extract the address...							*/
         
         n_addr = 0;
-        while (*line && !isspace(*line) && *line != ':' && n_addr < 10)
+        while (*line && !isspace(*line) && *line != ':' && n_addr < 18)
     	    address[n_addr++] = *line++;
         address[n_addr] = '\0';
     
@@ -94,12 +95,14 @@ static char *colon_filter(FILE *f, char *line, void *data)
  	            n_offset = 2;
 	    	}
 	    	
-	    	gdb_set_int("$colon", strtoul(address, NULL, 0) - strtol(offset+1, NULL, 0));
+	    	gdb_set_address("$colon", strtoull(address, NULL, 0) - strtol(offset+1, NULL, 0));
 	    }
     	}
     }
+    
+    return (NULL);
 }
-
+#endif
 
 /*--------------------------------------------*
  | define_colon - define the value for $colon |
@@ -109,11 +112,29 @@ static char *colon_filter(FILE *f, char *line, void *data)
  and use it's output to set $colon.  A "where" $pc prints the $pc address, the function
  and offset in that function for that address.  We use the address-offset to define 
  $colon as the start of the function containing the PC.
+ 
+ NOTE: While this works I'm going to suppress the support of $colon since supporting
+       it is too expensive to be doing on every command.
 */
 
 static void define_colon(void)
 {
     GDB_FILE *redirect_stdout;
+    
+    #if 1
+    
+    GDB_ADDRESS start = (GDB_ADDRESS)-1, pc;
+    
+    gdb_get_register("$pc", &pc);
+    if (pc) {
+    	start = gdb_get_function_start(pc);
+        if (!start)
+            start = -1;
+    }
+    
+    gdb_set_address("$colon", start);
+    
+    #else
     
     /* If running then redirect the "WH" output through colon_filter() so it can	*/
     /* extract the info necessary to set $colon.  That filter will set it too.		*/
@@ -124,7 +145,9 @@ static void define_colon(void)
         gdb_print_address("*$pc", 0);
         gdb_close_output(redirect_stdout);
     } else
-    	gdb_set_int("$colon", -1);
+    	gdb_set_address("$colon", -1);
+    
+    #endif
 }
 
 
@@ -352,6 +375,7 @@ static void preprocess_commands(char *commandLine, void *data)
 	MACSBUG_CMD(BRP,  33, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(DB,    3, -1, REPEATABLE    |IS_PLUGIN),
 	MACSBUG_CMD(DL,    4, -1, REPEATABLE    |IS_PLUGIN),
+	MACSBUG_CMD(DLL,  49, -1, REPEATABLE    |IS_PLUGIN),
 	MACSBUG_CMD(DM,    5, -1, REPEATABLE    |IS_PLUGIN),
 	MACSBUG_CMD(DMA,  37, -1, REPEATABLE    |IS_PLUGIN),
 	MACSBUG_CMD(DP,    6, -1, REPEATABLE    |IS_PLUGIN),
@@ -363,6 +387,7 @@ static void preprocess_commands(char *commandLine, void *data)
 	MACSBUG_CMD(FILL, 34, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(FIND, 35, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(FL,   35, -1, NOT_REPEATABLE|IS_PLUGIN),
+	MACSBUG_CMD(FLL,  35, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(FW,   35, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(G,     8, -1, REPEATABLE	|IS_PLUGIN),
 	MACSBUG_CMD(GT,   36, -1, NOT_REPEATABLE|IS_PLUGIN),
@@ -421,6 +446,7 @@ static void preprocess_commands(char *commandLine, void *data)
 	MACSBUG_CMD(SC7,  18, -1, NOT_REPEATABLE|IS_PLUGIN),  /* alias */
 	MACSBUG_CMD(SI,   16, 23, REPEATABLE    |IS_PLUGIN),
 	MACSBUG_CMD(SL,   21, -1, NOT_REPEATABLE|IS_PLUGIN),
+	MACSBUG_CMD(SLL,  50, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(SM,   22, -1, NOT_REPEATABLE|IS_PLUGIN),
 	MACSBUG_CMD(SO,   23, 16, REPEATABLE    |IS_PLUGIN),
 	MACSBUG_CMD(SP,   41, 16, REPEATABLE    |IS_PLUGIN),
@@ -433,6 +459,8 @@ static void preprocess_commands(char *commandLine, void *data)
 	MACSBUG_CMD(TV,   28, -1, REPEATABLE    |IS_PLUGIN),
 	MACSBUG_CMD(WH,   42, -1, REPEATABLE    |IS_PLUGIN)
     };
+    
+    /* Next free command number is: 51							*/
     
     /* Note, LIST is in this list so that we may back up over the prompt when the 	*/
     /* MacsBug screen is off just to make the listing contiguous the way we do with	*/
@@ -583,9 +611,17 @@ static void preprocess_commands(char *commandLine, void *data)
     /* command was entered, i.e., $__lastcmd__ is set to the same command number so 	*/
     /* that the command can take appropriate actions if it handles contiguous output 	*/
     /* (as L and LIST do, or IL when another IL is explicitly retyped instead of just	*/
-    /* hitting a return to repeat the previous command).									*/
+    /* hitting a return to repeat the previous command).  For non-repeatable command	*/
+    /* $__lastcmd__ is set to -1.							*/ 
     
     gdb_set_int("$__lastcmd__", lastcmd);
+    
+    /* Note that we always record the actual previous command number in $__prevcmd__	*/
+    /* and this is only -1 if it is not one of our commands.  Thus this is always 	*/
+    /* available to all commands, repeatable or not, if they are interested in what 	*/
+    /* command preceded them.  For example, SC uses $__prevcmd__ to decide to insert a	*/
+    /* blank line between the output when two SC's are done contiguously to the Macsbug	*/
+    /* screen so that the two output lists can be distinguished more easily.		*/
     
     /* Define the current value for $colon (addr of function containing pc)...		*/
     
@@ -595,11 +631,25 @@ static void preprocess_commands(char *commandLine, void *data)
 
 /*----------------------------------------------*
  | postprocess_commands - postprocess a command |
- *----------------------------------------------*/
+ *----------------------------------------------*
  
+ This is called after a command from stdin has been executed.  Here we copy basically do,
+ 
+   set $__prevcmd__=$__lastcmd__
+ 
+ i.e., we unconditionally remember whatever the command number of the command we just
+ executed was.  If it is one of "ours" then it has meaning.  If it isn't then it will
+ be -1.
+ 
+ This is done independently of what preprocess_commands() is doing to $__lastcmd__ since
+ $__lastcmd__ is used only for repeatable commands, i.e., ones that are repeated without
+ arguments when a null command line is entered.  $__prevcmd__ is always available for
+ ANY command that is interested in what was last executed.
+*/
+
 static void postprocess_commands(void *data)
 {
-    /* reserved for possible future use */
+    gdb_set_int("$__prevcmd__", gdb_get_int("$__lastcmd__"));
 }
 
 /*--------------------------------------------------------------------------------------*/

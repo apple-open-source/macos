@@ -1,7 +1,7 @@
 /*
  * RealmsConfiguration.h
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/RealmsConfiguration.h,v 1.9 2004/11/02 23:28:37 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

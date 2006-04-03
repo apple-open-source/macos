@@ -12,7 +12,7 @@
  
 */
 
-var __Apple_dsn_cache = nil;
+var __Apple_dsn_cache = new Array;
 
 function isPlainHostName(host) {
     

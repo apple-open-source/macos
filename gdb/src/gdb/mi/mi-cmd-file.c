@@ -25,6 +25,21 @@
 #include "ui-out.h"
 #include "symtab.h"
 #include "source.h"
+#include "gdbcore.h"
+
+/* APPLE LOCAL: -file-core-file
+   Takes one argument - a path to the core file, and sets
+   that as the core file to be debugged.  */
+
+enum mi_cmd_result
+mi_cmd_file_core_file(char *command, char **argv, int argc)
+{
+  if (argc != 1)
+    error ("mi_cmd_file_core_file: Usage corefile");
+  
+  core_file_attach (argv[0], 0);
+  return MI_CMD_DONE;
+}
 
 /* Return to the client the absolute path and line number of the 
    current file being executed. */
@@ -33,7 +48,9 @@ enum mi_cmd_result
 mi_cmd_file_list_exec_source_file(char *command, char **argv, int argc)
 {
   struct symtab_and_line st;
-  
+  int optind = 0;
+  char *optarg;
+
   if ( !mi_valid_noargs("mi_cmd_file_list_exec_source_file", argc, argv) )
     error ("mi_cmd_file_list_exec_source_file: Usage: No args");
 

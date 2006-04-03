@@ -1,6 +1,7 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Allow extra semicolons in between method declarations,
    for old times' sake.  */
+
 /* { dg-do compile } */
 
 @interface Foo

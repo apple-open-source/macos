@@ -6,7 +6,7 @@
  * Internally, ccaches are kept in a linked list of cci_ccache_data
  * structures. 
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Credentials.cp,v 1.28 2004/10/22 20:48:27 lxs Exp $
+ * $Header$
  */
  
 #include "Credentials.h"

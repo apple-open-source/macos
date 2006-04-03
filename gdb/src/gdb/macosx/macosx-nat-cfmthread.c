@@ -51,10 +51,16 @@ macosx_cfm_thread_init (macosx_cfm_thread_status *s)
 }
 
 void
-macosx_cfm_thread_create (macosx_cfm_thread_status *s, task_t task)
+macosx_cfm_thread_create (macosx_cfm_thread_status *s)
 {
   struct symtab_and_line sal;
   char buf[64];
+  
+  if (s->info_api_cookie == 0)
+    cfm_init ();
+  
+  if (s->info_api_cookie == 0)
+    return;
 
   snprintf (buf, 64, "PrepareClosure + %s",
             core_addr_to_string (s->breakpoint_offset));

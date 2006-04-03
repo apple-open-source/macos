@@ -1,3 +1,5 @@
+/* APPLE LOCAL  nested functions */
+/* { dg-xfail-if "" { "*-*-darwin*" } { "*" } { "" } } */
 /* PR optimization/12544 */
 /* Origin: Tony Hosking <hosking@cs.purdue.edu> */
 

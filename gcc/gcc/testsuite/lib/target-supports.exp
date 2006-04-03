@@ -109,7 +109,6 @@ proc check_weak_available { } {
     }
 }
 
-# APPLE LOCAL begin mainline 4.0 2005-03-25
 ###############################
 # proc check_visibility_available { what_kind }
 ###############################
@@ -152,7 +151,6 @@ proc check_visibility_available { what_kind } {
     }
     return $answer
 }
-# APPLE LOCAL end mainline 4.0 2005-03-25
 
 ###############################
 # proc check_alias_available { }
@@ -317,6 +315,10 @@ proc check_iconv_available { test_what } {
     puts $f "return 0;\n}"
     close $f
 
+    # If the tool configuration file has not set libiconv, try "-liconv"
+    if { ![info exists libiconv] } {
+	set libiconv "-liconv"
+    }
     set lines [${tool}_target_compile $src $exe executable "libs=$libiconv" ]
     file delete $src
 
@@ -531,6 +533,58 @@ proc check_alpha_max_hw_available { } {
     }
 
     return $alpha_max_hw_available_saved
+}
+
+# Returns true iff the FUNCTION is available on the target system.
+# (This is essentially a Tcl implementation of Autoconf's
+# AC_CHECK_FUNC.)
+
+proc check_function_available { function } {
+    set var "${function}_available_saved"
+    global $var
+    global tool
+
+    if {![info exists $var]} {
+	# Assume it exists.
+	set $var 1
+	# Check to make sure.
+	set src "function[pid].c"
+	set exe "function[pid].exe"
+
+	set f [open $src "w"]
+	puts $f "int main () { $function (); }"
+	close $f
+
+	set lines [${tool}_target_compile $src $exe executable ""]
+	file delete $src
+	file delete $exe
+
+	if {![string match "" $lines]} then {
+	    set $var 0
+	    verbose -log "$function is not available"
+	} else {
+	    verbose -log "$function is available"
+	}
+    }
+
+    eval return \$$var
+}
+
+# Returns true iff "fork" is available on the target system.
+
+proc check_fork_available {} {
+    return [check_function_available "fork"]
+}
+
+# Returns true iff "mkfifo" is available on the target system.
+
+proc check_mkfifo_available {} {
+    if {[istarget *-*-cygwin*]} {
+       # Cygwin has mkfifo, but support is incomplete.
+       return 0
+     }
+
+    return [check_function_available "mkfifo"]
 }
 
 # Return 1 if we're generating 32-bit code using default options, 0
@@ -771,7 +825,7 @@ proc check_effective_target_vect_no_align { } {
     return $et_vect_no_align_saved
 }
 
-# APPLE LOCAL begin 3972875 mainline 2005-04-18
+# APPLE LOCAL begin mainline 2005-04-18 3972875
 # Return 1 if the target supports vector int multiplication, 0 otherwise.
 
 proc check_effective_target_vect_int_mult { } {
@@ -789,7 +843,7 @@ proc check_effective_target_vect_int_mult { } {
     verbose "check_effective_target_vect_int_mult: returning $et_vect_int_mult_saved" 2
     return $et_vect_int_mult_saved
 }
-# APPLE LOCAL end 3972875 mainline 2005-04-18
+# APPLE LOCAL end mainline 2005-04-18 3972875
   
 # Return 1 if the target matches the effective target 'arg', 0 otherwise.
 # This can be used with any check_* proc that takes no argument and

@@ -98,6 +98,14 @@ static int enum_overflow;
 
 static location_t current_function_prototype_locus;
 
+/* Whether this prototype was built-in.  */
+
+static bool current_function_prototype_built_in;
+
+/* The argument type information of this prototype.  */
+
+static tree current_function_prototype_arg_types;
+
 /* The argument information structure for the function currently being
    defined.  */
 
@@ -122,6 +130,10 @@ tree c_cont_label;
 
 static GTY(()) tree all_translation_units;
 
+/* APPLE LOCAL begin 4134283 */
+/* Outermost block.  */
+static GTY(()) tree ext_block;
+/* APPLE LOCAL end 4134283 */
 /* A list of decls to be made automatically visible in each file scope.  */
 static GTY(()) tree visible_builtins;
 
@@ -556,27 +568,8 @@ objc_mark_locals_volatile (void *enclosing_blk)
        scope = scope->outer)
     {
       for (b = scope->bindings; b; b = b->prev)
-	{
-	  /* APPLE LOCAL begin mainline */
-	  tree decl = b->decl;
-
-        /* Do not mess with variables that are 'static' or (already)
-	   'volatile'.  */
-	  if (!TREE_THIS_VOLATILE (decl) && !TREE_STATIC (decl)
-	      && (TREE_CODE (decl) == VAR_DECL
-		  || TREE_CODE (decl) == PARM_DECL))
-	    {
-	      TREE_TYPE (decl)
-		= build_qualified_type (TREE_TYPE (decl),
-					(TYPE_QUALS (TREE_TYPE (decl))
-					 | TYPE_QUAL_VOLATILE));
-	      TREE_THIS_VOLATILE (decl) = 1;
-	      TREE_SIDE_EFFECTS (decl) = 1;
-	      DECL_REGISTER (decl) = 0;
-	      C_DECL_REGISTER (decl) = 0;
-	      /* APPLE LOCAL end mainline */
-	    }
-	}
+	/* APPLE LOCAL mainline */
+	objc_volatilize_decl (b->decl);
 
       /* Do not climb up past the current function.  */
       if (scope->function_body)
@@ -682,6 +675,8 @@ pop_scope (void)
 
   bool functionbody = scope->function_body;
   bool keep = functionbody || scope->keep || scope->bindings;
+
+  c_end_vm_scope (scope->depth);
 
   /* If appropriate, create a BLOCK to record the decls for the life
      of this function.  */
@@ -1114,11 +1109,11 @@ locate_old_decl (tree decl, void (*diag)(const char *, ...))
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
     ;
   else if (DECL_INITIAL (decl))
-    diag (N_("%Jprevious definition of %qD was here"), decl, decl);
+    diag (G_("%Jprevious definition of %qD was here"), decl, decl);
   else if (C_DECL_IMPLICIT (decl))
-    diag (N_("%Jprevious implicit declaration of %qD was here"), decl, decl);
+    diag (G_("%Jprevious implicit declaration of %qD was here"), decl, decl);
   else
-    diag (N_("%Jprevious declaration of %qD was here"), decl, decl);
+    diag (G_("%Jprevious declaration of %qD was here"), decl, decl);
 }
 
 /* Subroutine of duplicate_decls.  Compare NEWDECL to OLDDECL.
@@ -1638,6 +1633,10 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 {
   int new_is_definition = (TREE_CODE (newdecl) == FUNCTION_DECL
 			   && DECL_INITIAL (newdecl) != 0);
+  int new_is_prototype = (TREE_CODE (newdecl) == FUNCTION_DECL
+			  && TYPE_ARG_TYPES (TREE_TYPE (newdecl)) != 0);
+  int old_is_prototype = (TREE_CODE (olddecl) == FUNCTION_DECL
+			  && TYPE_ARG_TYPES (TREE_TYPE (olddecl)) != 0);
 
   /* For real parm decl following a forward decl, rechain the old decl
      in its new location and clear TREE_ASM_WRITTEN (it's not a
@@ -1717,8 +1716,12 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     TREE_UNAVAILABLE (olddecl) = 1;
   /* APPLE LOCAL end "unavailable" attribute (radar 2809697) */
 
-  /* Keep source location of definition rather than declaration.  */
-  if (DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0)
+  /* Keep source location of definition rather than declaration and of
+     prototype rather than non-prototype unless that prototype is
+     built-in.  */
+  if ((DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0)
+      || (old_is_prototype && !new_is_prototype
+	  && !C_DECL_BUILTIN_PROTOTYPE (olddecl)))
     DECL_SOURCE_LOCATION (newdecl) = DECL_SOURCE_LOCATION (olddecl);
 
   /* Merge the unused-warning information.  */
@@ -1833,6 +1836,11 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  DECL_BUILT_IN_CLASS (newdecl) = DECL_BUILT_IN_CLASS (olddecl);
 	  DECL_FUNCTION_CODE (newdecl) = DECL_FUNCTION_CODE (olddecl);
 	  C_DECL_DECLARED_BUILTIN (newdecl) = 1;
+	  if (new_is_prototype)
+	    C_DECL_BUILTIN_PROTOTYPE (newdecl) = 0;
+	  else
+	    C_DECL_BUILTIN_PROTOTYPE (newdecl)
+	      = C_DECL_BUILTIN_PROTOTYPE (olddecl);
 	}
 
       /* Also preserve various other info from the definition.  */
@@ -2054,6 +2062,12 @@ pushdecl (tree x)
 	  || DECL_INITIAL (x) || !DECL_EXTERNAL (x)))
     DECL_CONTEXT (x) = current_function_decl;
 
+  /* If this is of variably modified type, prevent jumping into its
+     scope.  */
+  if ((TREE_CODE (x) == VAR_DECL || TREE_CODE (x) == TYPE_DECL)
+      && variably_modified_type_p (TREE_TYPE (x), NULL_TREE))
+    c_begin_vm_scope (scope->depth);
+
   /* Anonymous decls are just inserted in the scope.  */
   if (!name)
     {
@@ -2071,11 +2085,52 @@ pushdecl (tree x)
   b = I_SYMBOL_BINDING (name);
   if (b && B_IN_SCOPE (b, scope))
     {
+      struct c_binding *b_ext, *b_use;
+      tree type = TREE_TYPE (x);
+      tree visdecl = b->decl;
+      tree vistype = TREE_TYPE (visdecl);
       if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
 	  && COMPLETE_TYPE_P (TREE_TYPE (x)))
 	b->inner_comp = false;
-      if (duplicate_decls (x, b->decl))
-	return b->decl;
+      b_use = b;
+      b_ext = b;
+      /* If this is an external linkage declaration, we should check
+	 for compatibility with the type in the external scope before
+	 setting the type at this scope based on the visible
+	 information only.  */
+      if (TREE_PUBLIC (x) && TREE_PUBLIC (visdecl))
+	{
+	  while (b_ext && !B_IN_EXTERNAL_SCOPE (b_ext))
+	    b_ext = b_ext->shadowed;
+	  if (b_ext)
+	    {
+	      b_use = b_ext;
+	      if (b_use->type)
+		TREE_TYPE (b_use->decl) = b_use->type;
+	    }
+	}
+      if (duplicate_decls (x, b_use->decl))
+	{
+	  if (b_use != b)
+	    {
+	      /* Save the updated type in the external scope and
+		 restore the proper type for this scope.  */
+	      tree thistype;
+	      if (comptypes (vistype, type))
+		thistype = composite_type (vistype, type);
+	      else
+		thistype = TREE_TYPE (b_use->decl);
+	      b_use->type = TREE_TYPE (b_use->decl);
+	      if (TREE_CODE (b_use->decl) == FUNCTION_DECL
+		  && DECL_BUILT_IN (b_use->decl))
+		thistype
+		  = build_type_attribute_variant (thistype,
+						  TYPE_ATTRIBUTES
+						  (b_use->type));
+	      TREE_TYPE (b_use->decl) = thistype;
+	    }
+	  return b_use->decl;
+	}
       else
 	goto skip_external_and_shadow_checks;
     }
@@ -2162,7 +2217,15 @@ pushdecl (tree x)
 	  && duplicate_decls (x, b->decl))
 	{
 	  tree thistype;
-	  thistype = (vistype ? composite_type (vistype, type) : type);
+	  if (vistype)
+	    {
+	      if (comptypes (vistype, type))
+		thistype = composite_type (vistype, type);
+	      else
+		thistype = TREE_TYPE (b->decl);
+	    }
+	  else
+	    thistype = type;
 	  b->type = TREE_TYPE (b->decl);
 	  if (TREE_CODE (b->decl) == FUNCTION_DECL && DECL_BUILT_IN (b->decl))
 	    thistype
@@ -2269,7 +2332,7 @@ implicit_decl_warning (tree id, tree olddecl)
     default: gcc_unreachable ();
     }
 
-  diag (N_("implicit declaration of function %qE"), id);
+  diag (G_("implicit declaration of function %qE"), id);
   if (olddecl)
     locate_old_decl (olddecl, diag);
 }
@@ -2512,7 +2575,7 @@ define_label (location_t location, tree name)
      if there is a containing function with a declared label with
      the same name.  */
   tree label = I_LABEL_DECL (name);
-  struct c_label_list *nlist;
+  struct c_label_list *nlist_se, *nlist_vm;
 
   if (label
       && ((DECL_CONTEXT (label) == current_function_decl
@@ -2531,6 +2594,9 @@ define_label (location_t location, tree name)
 	 definition.  */
       if (C_DECL_UNDEFINABLE_STMT_EXPR (label))
 	error ("%Jjump into statement expression", label);
+      if (C_DECL_UNDEFINABLE_VM (label))
+	error ("%Jjump into scope of identifier with variably modified type",
+	       label);
       DECL_SOURCE_LOCATION (label) = location;
     }
   else
@@ -2548,10 +2614,15 @@ define_label (location_t location, tree name)
              "identifier %qs conflicts", &location,
 	     IDENTIFIER_POINTER (name));
 
-  nlist = XOBNEW (&parser_obstack, struct c_label_list);
-  nlist->next = label_context_stack->labels_def;
-  nlist->label = label;
-  label_context_stack->labels_def = nlist;
+  nlist_se = XOBNEW (&parser_obstack, struct c_label_list);
+  nlist_se->next = label_context_stack_se->labels_def;
+  nlist_se->label = label;
+  label_context_stack_se->labels_def = nlist_se;
+
+  nlist_vm = XOBNEW (&parser_obstack, struct c_label_list);
+  nlist_vm->next = label_context_stack_vm->labels_def;
+  nlist_vm->label = label;
+  label_context_stack_vm->labels_def = nlist_vm;
 
   /* Mark label as having been defined.  */
   DECL_INITIAL (label) = error_mark_node;
@@ -2773,6 +2844,7 @@ builtin_function (const char *name, tree type, int function_code,
   DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
   DECL_BUILT_IN_CLASS (decl) = cl;
   DECL_FUNCTION_CODE (decl) = function_code;
+  C_DECL_BUILTIN_PROTOTYPE (decl) = (TYPE_ARG_TYPES (type) != 0);
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
 
@@ -3310,11 +3382,13 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
       /* Get the completed type made by complete_array_type.  */
       type = TREE_TYPE (decl);
 
-      if (failure == 1)
-	error ("%Jinitializer fails to determine size of %qD", decl, decl);
-
-      else if (failure == 2)
+      switch (failure)
 	{
+	case 1:
+	  error ("%Jinitializer fails to determine size of %qD", decl, decl);
+	  break;
+
+	case 2:
 	  if (do_default)
 	    error ("%Jarray size missing in %qD", decl, decl);
 	  /* If a `static' var's size isn't known,
@@ -3325,9 +3399,33 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	     and it will get allocated.  */
 	  else if (!pedantic && TREE_STATIC (decl) && !TREE_PUBLIC (decl))
 	    DECL_EXTERNAL (decl) = 1;
+	  break;
+
+	case 3:
+	  error ("%Jzero or negative size array %qD", decl, decl);
+	  break;
+
+	case 0:
+	  /* For global variables, update the copy of the type that
+	     exists in the binding.  */
+	  if (TREE_PUBLIC (decl))
+	    {
+	      struct c_binding *b_ext = I_SYMBOL_BINDING (DECL_NAME (decl));
+	      while (b_ext && !B_IN_EXTERNAL_SCOPE (b_ext))
+		b_ext = b_ext->shadowed;
+	      if (b_ext)
+		{
+		  if (b_ext->type)
+		    b_ext->type = composite_type (b_ext->type, type);
+		  else
+		    b_ext->type = type;
+		}
+	    }
+	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
-      else if (failure == 3)
-	error ("%Jzero or negative size array %qD", decl, decl);
 
       if (DECL_INITIAL (decl))
 	TREE_TYPE (DECL_INITIAL (decl)) = type;
@@ -5477,7 +5575,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
      make it one, warn and turn off the flag.  */
   if (TREE_CODE (t) == UNION_TYPE
       && TYPE_TRANSPARENT_UNION (t)
-      && TYPE_MODE (t) != DECL_MODE (TYPE_FIELDS (t)))
+      && (!TYPE_FIELDS (t) || TYPE_MODE (t) != DECL_MODE (TYPE_FIELDS (t))))
     {
       TYPE_TRANSPARENT_UNION (t) = 0;
       warning ("union cannot be made transparent");
@@ -5805,7 +5903,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 {
   tree decl1, old_decl;
   tree restype, resdecl;
-  struct c_label_context *nstack;
+  struct c_label_context_se *nstack_se;
+  struct c_label_context_vm *nstack_vm;
 
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
   current_function_returns_null = 0;
@@ -5814,11 +5913,18 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   current_extern_inline = 0;
   c_switch_stack = NULL;
 
-  nstack = XOBNEW (&parser_obstack, struct c_label_context);
-  nstack->labels_def = NULL;
-  nstack->labels_used = NULL;
-  nstack->next = label_context_stack;
-  label_context_stack = nstack;
+  nstack_se = XOBNEW (&parser_obstack, struct c_label_context_se);
+  nstack_se->labels_def = NULL;
+  nstack_se->labels_used = NULL;
+  nstack_se->next = label_context_stack_se;
+  label_context_stack_se = nstack_se;
+
+  nstack_vm = XOBNEW (&parser_obstack, struct c_label_context_vm);
+  nstack_vm->labels_def = NULL;
+  nstack_vm->labels_used = NULL;
+  nstack_vm->scope = 0;
+  nstack_vm->next = label_context_stack_vm;
+  label_context_stack_vm = nstack_vm;
 
   /* Indicate no valid break/continue context by setting these variables
      to some non-null, non-label value.  We'll notice and emit the proper
@@ -5830,7 +5936,11 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
   if (decl1 == 0)
-    return 0;
+    {
+      label_context_stack_se = label_context_stack_se->next;
+      label_context_stack_vm = label_context_stack_vm->next;
+      return 0;
+    }
 
   decl_attributes (&decl1, attributes, 0);
 
@@ -5860,14 +5970,53 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* If this definition isn't a prototype and we had a prototype declaration
      before, copy the arg type info from that prototype.  */
   old_decl = lookup_name_in_scope (DECL_NAME (decl1), current_scope);
-  if (old_decl != 0 && TREE_CODE (TREE_TYPE (old_decl)) == FUNCTION_TYPE
-      && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
-		    TREE_TYPE (TREE_TYPE (old_decl)))
-      && TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0)
+  current_function_prototype_locus = UNKNOWN_LOCATION;
+  current_function_prototype_built_in = false;
+  current_function_prototype_arg_types = NULL_TREE;
+  if (TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0)
     {
-      TREE_TYPE (decl1) = composite_type (TREE_TYPE (old_decl),
-					  TREE_TYPE (decl1));
-      current_function_prototype_locus = DECL_SOURCE_LOCATION (old_decl);
+      if (old_decl != 0 && TREE_CODE (TREE_TYPE (old_decl)) == FUNCTION_TYPE
+	  && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
+			TREE_TYPE (TREE_TYPE (old_decl))))
+	{
+	  TREE_TYPE (decl1) = composite_type (TREE_TYPE (old_decl),
+					      TREE_TYPE (decl1));
+	  current_function_prototype_locus = DECL_SOURCE_LOCATION (old_decl);
+	  current_function_prototype_built_in
+	    = C_DECL_BUILTIN_PROTOTYPE (old_decl);
+	  current_function_prototype_arg_types
+	    = TYPE_ARG_TYPES (TREE_TYPE (decl1));
+	}
+      if (TREE_PUBLIC (decl1))
+	{
+	  /* If there is an external prototype declaration of this
+	     function, record its location but do not copy information
+	     to this decl.  This may be an invisible declaration
+	     (built-in or in a scope which has finished) or simply
+	     have more refined argument types than any declaration
+	     found above.  */
+	  struct c_binding *b;
+	  for (b = I_SYMBOL_BINDING (DECL_NAME (decl1)); b; b = b->shadowed)
+	    if (B_IN_SCOPE (b, external_scope))
+	      break;
+	  if (b)
+	    {
+	      tree ext_decl, ext_type;
+	      ext_decl = b->decl;
+	      ext_type = b->type ? b->type : TREE_TYPE (ext_decl);
+	      if (TREE_CODE (ext_type) == FUNCTION_TYPE
+		  && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
+				TREE_TYPE (ext_type)))
+		{
+		  current_function_prototype_locus
+		    = DECL_SOURCE_LOCATION (ext_decl);
+		  current_function_prototype_built_in
+		    = C_DECL_BUILTIN_PROTOTYPE (ext_decl);
+		  current_function_prototype_arg_types
+		    = TYPE_ARG_TYPES (ext_type);
+		}
+	    }
+	}
     }
 
   /* Optionally warn of old-fashioned def with no previous prototype.  */
@@ -6224,11 +6373,11 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
      set the DECL_ARG_TYPE of each argument according to
      the type previously specified, and report any mismatches.  */
 
-  if (TYPE_ARG_TYPES (TREE_TYPE (fndecl)))
+  if (current_function_prototype_arg_types)
     {
       tree type;
       for (parm = DECL_ARGUMENTS (fndecl),
-	     type = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+	     type = current_function_prototype_arg_types;
 	   parm || (type && (TYPE_MAIN_VARIANT (TREE_VALUE (type))
 			     != void_type_node));
 	   parm = TREE_CHAIN (parm), type = TREE_CHAIN (type))
@@ -6236,9 +6385,15 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	  if (parm == 0 || type == 0
 	      || TYPE_MAIN_VARIANT (TREE_VALUE (type)) == void_type_node)
 	    {
-	      error ("number of arguments doesn%'t match prototype");
-	      error ("%Hprototype declaration",
-		     &current_function_prototype_locus);
+	      if (current_function_prototype_built_in)
+		warning ("number of arguments doesn%'t match "
+			 "built-in prototype");
+	      else
+		{
+		  error ("number of arguments doesn%'t match prototype");
+		  error ("%Hprototype declaration",
+			 &current_function_prototype_locus);
+		}
 	      break;
 	    }
 	  /* Type for passing arg must be consistent with that
@@ -6265,17 +6420,33 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 
 		  if (pedantic)
 		    {
-		      pedwarn ("promoted argument %qD "
-			       "doesn%'t match prototype", parm);
-		      pedwarn ("%Hprototype declaration",
-			       &current_function_prototype_locus);
+		      /* ??? Is it possible to get here with a
+			 built-in prototype or will it always have
+			 been diagnosed as conflicting with an
+			 old-style definition and discarded?  */
+		      if (current_function_prototype_built_in)
+			warning ("promoted argument %qD "
+				 "doesn%'t match built-in prototype", parm);
+		      else
+			{
+			  pedwarn ("promoted argument %qD "
+				   "doesn%'t match prototype", parm);
+			  pedwarn ("%Hprototype declaration",
+				   &current_function_prototype_locus);
+			}
 		    }
 		}
 	      else
 		{
-		  error ("argument %qD doesn%'t match prototype", parm);
-		  error ("%Hprototype declaration",
-			 &current_function_prototype_locus);
+		  if (current_function_prototype_built_in)
+		    warning ("argument %qD doesn%'t match "
+			     "built-in prototype", parm);
+		  else
+		    {
+		      error ("argument %qD doesn%'t match prototype", parm);
+		      error ("%Hprototype declaration",
+			     &current_function_prototype_locus);
+		    }
 		}
 	    }
 	}
@@ -6418,7 +6589,8 @@ finish_function (void)
 {
   tree fndecl = current_function_decl;
 
-  label_context_stack = label_context_stack->next;
+  label_context_stack_se = label_context_stack_se->next;
+  label_context_stack_vm = label_context_stack_vm->next;
 
   if (TREE_CODE (fndecl) == FUNCTION_DECL
       && targetm.calls.promote_prototypes (TREE_TYPE (fndecl)))
@@ -7532,7 +7704,8 @@ c_write_global_declarations_1 (tree globals)
 void
 c_write_global_declarations (void)
 {
-  tree ext_block, t;
+  /* APPLE LOCAL 4134283 */
+  tree t;
 
   /* We don't want to do this if generating a PCH.  */
   if (pch_file)
@@ -7548,6 +7721,11 @@ c_write_global_declarations (void)
   external_scope = 0;
   gcc_assert (!current_scope);
 
+  /* APPLE LOCAL begin 4134283 */
+  /* We're done parsing; proceed to optimize and emit assembly.
+     FIXME: shouldn't be the front end's responsibility to call this.  */
+  cgraph_optimize ();
+  /* APPLE LOCAL end 4134283 */
   /* Process all file scopes in this compilation, and the external_scope,
      through wrapup_global_declarations and check_global_declarations.  */
   for (t = all_translation_units; t; t = TREE_CHAIN (t))
@@ -7560,11 +7738,10 @@ c_write_global_declarations (void)
   build_cdtor ('I', static_ctors); static_ctors = 0;
   build_cdtor ('D', static_dtors); static_dtors = 0;
 
-  /* We're done parsing; proceed to optimize and emit assembly.
-     FIXME: shouldn't be the front end's responsibility to call this.  */
-  cgraph_optimize ();
+  /* APPLE LOCAL begin 4134283 */
+  /* Do cgraph_optimize() before writing globals.  */
 }
-
+/* APPLE LOCAL end 4134283 bogus */
 /* APPLE LOCAL begin CW asm blocks */
 /* Look for a struct or union tag, but quietly; don't complain if neither
    is found, and don't autocreate. Used to identify struct/union tags

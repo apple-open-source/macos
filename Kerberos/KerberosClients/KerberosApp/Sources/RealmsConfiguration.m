@@ -1,7 +1,7 @@
 /*
  * RealmsEditor.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/RealmsConfiguration.m,v 1.13 2004/11/02 23:28:38 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

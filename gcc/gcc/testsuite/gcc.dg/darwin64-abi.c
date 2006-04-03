@@ -280,7 +280,7 @@ main()
   struct sfi sfi_loc;
   struct sfi sfi_loc2 = { 6.3f, 0x1108 };
   struct sfii sfii_loc;
-  struct sfii sfii_loc2 = { 6.9f, 0x1110 };
+  struct sfii sfii_loc2 = { 6.9f, 0x1110, 0x6372 };
   vector float vf_loc = (vector float) { 7.1f, 7.2f, 7.3f, 7.4f };
   vector int vi_loc = (vector int) { 0xabc, 0xdef, 0xfed, 0xcba };
 
@@ -577,6 +577,7 @@ main()
   clearall;
   sfii_loc.f = 5.2f;
   sfii_loc.i = 98;
+  sfii_loc.j = 777;
   clearall;
   fifvf_sfii_dots(41, 4.3f, vf_loc, sfii_loc, 4.63f, vi_loc, sfii_loc2);
   asm ("\n");
@@ -585,7 +586,7 @@ main()
   check_vr_float(2, 7.1f, 7.2f, 7.3f, 7.4f); /* vector skips r5/r6 */
   check_fpr (__LINE__, 2, sfii_loc.f);
   check_gpr (__LINE__, 7, sfii_loc.i);
-  check_gpr (__LINE__, 8, sfii_loc.j);
+  check_gpr (__LINE__, 8, ((long)sfii_loc.j) << 32);
   /* start of varying parameters */
   check_fpr (__LINE__, 3, 4.63f);
   check_gpr_double (__LINE__, 9, 4.63f);

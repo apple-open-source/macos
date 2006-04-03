@@ -31,5 +31,6 @@
 
 #include <DirectoryService/DirServicesPriv.h>
 #include <DirectoryService/DirServicesTypesPriv.h>
+#include <DirectoryService/DirServicesUtilsPriv.h>
 
 #endif  // __DirectoryServicePriv_h__

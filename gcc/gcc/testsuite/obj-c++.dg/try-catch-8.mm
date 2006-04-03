@@ -1,4 +1,4 @@
-/* APPLE LOCAL file */
+/* APPLE LOCAL file mainline */
 /* Test for graceful compilation of @synchronized statements.  */
 /* { dg-do compile } */
 /* { dg-options "-fobjc-exceptions" } */

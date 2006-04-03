@@ -35,6 +35,7 @@ CFMutableDictionaryRef ff_parse_mount(char *data);
 CFMutableDictionaryRef ff_parse_printer(char *data);
 CFMutableDictionaryRef ff_parse_bootparam(char *data);
 CFMutableDictionaryRef ff_parse_bootp(char *data);
+CFMutableDictionaryRef ff_parse_group_by_usr(char *data, const char* recordName);
 CFMutableDictionaryRef ff_parse_alias(char *data);
 CFMutableDictionaryRef ff_parse_ethernet(char *data);
 CFMutableDictionaryRef ff_parse_netgroup(char *data);

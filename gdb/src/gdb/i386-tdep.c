@@ -338,6 +338,11 @@ i386_follow_jump (CORE_ADDR pc)
   unsigned char op;
   long delta = 0;
   int data16 = 0;
+  /* APPLE LOCAL: We use 64 bit CORE_ADDR's,
+     so when we add the offset, we need to make sure
+     that it wraps properly.  FIXME: We'll have to do 
+     this more cleverly for 64 bit Intel.  */
+  unsigned long pc_32 = (unsigned long) pc;
 
   op = read_memory_unsigned_integer (pc, 1);
   if (op == 0x66)
@@ -374,7 +379,8 @@ i386_follow_jump (CORE_ADDR pc)
       break;
     }
 
-  return pc + delta;
+  pc_32 += delta;
+  return (CORE_ADDR) pc_32;
 }
 
 /* APPLE LOCAL:  FIXME, this function doesn't make any sense.  This
@@ -460,7 +466,6 @@ i386_skip_probe (CORE_ADDR pc)
         pushl %ebp
 
      etc.  */
-
   unsigned char buf[8];
   unsigned char op;
 
@@ -599,6 +604,8 @@ struct i386_insn i386_frame_setup_skip_insns[] =
 
   /* APPLE LOCAL: "01 /r       ADD r/m32, r32" */
   { 2, { 0x01, 0xd0 }, { 0xff, 0xd0 } },
+  /* APPLE LOCAL: "0F 57 /r    XORPS xmm1, xmm2/m128" */
+  { 3, { 0x0f, 0x57 }, { 0xff, 0xff } },
   /* APPLE LOCAL: "0F B6 /r    MOVZX r32, r/m8" (aka `movzbl %al, %eax') */
   { 3, { 0x0f, 0xb6, 0xc0 }, { 0xff, 0xff, 0xc0 } },
   /* APPLE LOCAL: "0F B7 /r    MOVZX r32, r/m16" (aka `movzwl r16, r32') */
@@ -619,6 +626,12 @@ struct i386_insn i386_frame_setup_skip_insns[] =
   { 4, { 0x66, 0xb8 }, { 0xff, 0xf8 } },
   /* APPLE LOCAL: "74 cb       JE rel8" */
   { 2, { 0x74 }, { 0xff } },
+  /* APPLE LOCAL: "80 /7 ib    CMP r/m8, imm8" (aka `cmpb imm8,(r32)') */
+  { 3, { 0x80, 0x38 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "81 /4 id    AND r/m32, imm32" */
+  { 6, { 0x81, 0xe0 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "81 /0 id    ADD r/m32, imm32" */
+  { 6, { 0x81, 0xc0 }, { 0xff, 0xf8 } }, 
   /* APPLE LOCAL: "83 /7 ib    CMP r/m32, imm8" */
   { 7, { 0x83, 0x3d }, { 0xff, 0xff } },
   /* APPLE LOCAL: "83 /0 ib    ADD r/m32, imm8" */
@@ -633,16 +646,32 @@ struct i386_insn i386_frame_setup_skip_insns[] =
   { 3, { 0x83, 0xf8 }, { 0xff, 0xf8 } },
   /* APPLE LOCAL: "85 /r       TEST r/m32, r32" */
   { 2, { 0x85, 0xc0 }, { 0xff, 0xc0 } },
+  /* APPLE LOCAL: "89 /r       MOV r/m32, r32" (aka `mov r32, (r32)') */
+  { 2, { 0x89, 0x00 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "89 /r       MOV r/m32, r32" (aka `mov r32, (r32)') */
+  { 2, { 0x89, 0x10 }, { 0xff, 0xf8 } },
   /* APPLE LOCAL: "89 /r       MOV r/m32, r32" */
   { 2, { 0x89, 0xc0 }, { 0xff, 0xc0 } }, 
+  /* APPLE LOCAL: "8B /r       MOV r32, r/m32" (aka `mov imm8(r32), r32') */
+  { 3, { 0x8b, 0x40 }, { 0xff, 0xf8 } },
   /* APPLE LOCAL: "8B /r       MOV r32, r/m32" */
   { 6, { 0x8b, 0x80 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "8B /r       MOV r32, r/m32" (aka `mov imm32(r32), r32') */
+  { 6, { 0x8b, 0x90 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "8D /r       LEA r32, m" (aka `lea imm8(r32), r32') */
+  { 3, { 0x8d, 0x48 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "8D /r       LEA r32, m" (aka `lea imm32(r32), r32') */
+  { 6, { 0x8d, 0x90 }, { 0xff, 0xf8 } },
   /* APPLE LOCAL: "90          NOP"  for Fix & Continue trampoline padding. */
   { 1, { 0x90 }, { 0xff } },
   /* APPLE LOCAL: "A9 id       TEST EAX, imm32" */
   { 5, { 0xa9 }, { 0xff } },
+  /* APPLE LOCAL: "C1 /4 ib    SAL r/m32, imm8" (aka `shl imm8, r32') */
+  { 3, { 0xc1, 0xe0 }, { 0xff, 0xf8 } },
   /* APPLE LOCAL: "C1 /7 ib    SAR r/m32, imm8" */
   { 3, { 0xc1, 0xf8 }, { 0xff, 0xf8 } },
+  /* APPLE LOCAL: "C6 /0       MOV r/m8, imm8" (aka `mov imm8, (r32)') */
+  { 3, { 0xc6, 0x00 }, { 0xff, 0xf8 } },
   /* APPLE LOCAL: "D9 EE       FLDZ" */
   { 2, { 0xd9, 0xee }, { 0xff, 0xff } },
   /* APPLE LOCAL: "E8 cd       CALL rel32" */
@@ -886,11 +915,11 @@ i386_find_picbase_setup (CORE_ADDR pc, CORE_ADDR *picbase_addr,
   int limit = 32;  /* number made up by me; 32 bytes is enough for a prologue */
   int skip = 0;
   struct i386_insn *insn;
+  int found_call_insn = 0;
   unsigned char op;
 
   if (picbase_addr != NULL)
     *picbase_addr = -1;
-  op = 0;
 
   while (skip < limit)
     {
@@ -901,33 +930,26 @@ i386_find_picbase_setup (CORE_ADDR pc, CORE_ADDR *picbase_addr,
           continue;
         }
       insn = i386_match_insn (pc + skip, i386_frame_setup_skip_insns, 1);
-      if (insn)
+
+      if (insn == NULL)
         {
-          /* Found a call rel32?  That's our picbase setup -- stop scanning.  */
-          if (insn->insn[0] == 0xe8 && insn->len == 5)
-            {
-              op = 0xe8;
-              break;
-            }
-          skip += insn->len;
-          continue;
+          /* no matched instruction - give up */
+          break;
         }
 
-      /* It's not a prologue instruction, and it's not an instruction
-         that commonly gets scheduled into a prologue.  If it's not
-         the CALL instruction we're looking for, give up. */
-
-      /* Check for `call rel32', which may be our picbase setup.  */
-      op = read_memory_unsigned_integer (pc + skip, 1);
-      if (op == 0xe8)
-        break;
-      else
-        return 0;
+      /* Did we just find a CALL instruction?  It's probably our 
+         picbase setup call.  */
+      if (insn->insn[0] == 0xe8 && insn->len == 5)
+        {
+          found_call_insn = 1;
+          break;
+        }
+      skip += insn->len;
     }
 
   /* We've hit our limit without finding a `call rel32' or we've hit
      some unexpected instruction.  Give up the search.  */
-  if (op != 0xe8)
+  if (!found_call_insn)
     return 0;
 
   /* pc + skip is now pointing at the start of a `call rel32' instruction
@@ -1389,7 +1411,7 @@ i386_frame_cache (struct frame_info *next_frame, void **this_cache)
   if (cache->base == 0)
     return cache;
 
-  cache->pc = frame_func_unwind (next_frame);
+  cache->pc = frame_func_unwind (next_frame); /* function start address */
   current_pc = frame_pc_unwind (next_frame);
 
   /* Only do i386_analyze_prologue () if we found a debug symbol pointing to
@@ -1408,7 +1430,7 @@ i386_frame_cache (struct frame_info *next_frame, void **this_cache)
      to hold the stack pointer if we're to find them. */
 
   if ((cache->pc != 0 || current_pc == 0)
-      /* We found a function-start address, or $pc is at 0x0 (someone jump thru a NULL ptr).  */
+      /* We found a function-start addr, or PC is at 0 (CALL to a NULL ptr).  */
       && prologue_parsed_to == cache->pc
       /* The prologue parser didn't find any prologue instructions.  */
       && potentially_frameless)
@@ -1755,6 +1777,28 @@ i386_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
 {
   char buf[4];
   int i;
+  int argument_bytes = 0;
+  int alignment_pad_bytes;
+
+  /* APPLE LOCAL begin */
+  /* The only difference between the Darwin x86 ABI and
+     generic x86 is that our stack pointer has to be 16-byte aligned
+     at the point where the return address is pushed on to the
+     stack.  So we calculate how many bytes the argument/struct
+     return will take once we push them, then we move the stack
+     pointer before we start pushing args.  */
+
+  for (i = nargs - 1; i >= 0; i--)
+    {
+      int len = TYPE_LENGTH (VALUE_ENCLOSING_TYPE (args[i]));
+      argument_bytes += (len + 3) & ~3;
+    }
+  if (struct_return)
+    argument_bytes += 4;
+
+  alignment_pad_bytes = (sp - argument_bytes) - ((sp - argument_bytes) & ~15);
+  sp -= alignment_pad_bytes;
+  /* APPLE LOCAL end */
 
   /* Push arguments in reverse order.  */
   for (i = nargs - 1; i >= 0; i--)
@@ -1784,13 +1828,20 @@ i386_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
   sp -= 4;
   store_unsigned_integer (buf, 4, bp_addr);
   write_memory (sp, buf, 4);
-
+	
   /* Finally, update the stack pointer...  */
   store_unsigned_integer (buf, 4, sp);
   regcache_cooked_write (regcache, I386_ESP_REGNUM, buf);
 
+#if 0
+  /* No need to fake the frame pointer here.  We are setting up the
+     stack frame *before* the prologue of the function being called,
+     which is just going to save $ebp right away.  So we want it to
+     (correctly) point to the previous $ebp, so that it can get saved
+     properly. */
   /* ...and fake a frame pointer.  */
   regcache_cooked_write (regcache, I386_EBP_REGNUM, buf);
+#endif
 
   /* MarkK wrote: This "+ 8" is all over the place:
      (i386_frame_this_id, i386_sigtramp_frame_this_id,
@@ -1801,7 +1852,11 @@ i386_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
      stack address *before* the function call as a frame's CFA.  On
      the i386, when %ebp is used as a frame pointer, the offset
      between the contents %ebp and the CFA as defined by GCC.  */
-  return sp + 8;
+
+  /* We use I386_EBP_REGNUM here, not $sp, because that's what the
+     rest of the code is really going to be matching on. */
+
+  return read_register (I386_EBP_REGNUM) + 8;
 }
 
 /* These registers are used for returning integers (and on some

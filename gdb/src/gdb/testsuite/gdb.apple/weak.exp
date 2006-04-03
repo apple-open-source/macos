@@ -72,7 +72,6 @@ gdb_test "run" \
 "Starting program: $binfile\[ \r\]*
 Reading symbols for shared libraries \[+\\.]+ done\[ \r\]*
 Breakpoint 1 at $hex: file .*libweak.c.*, line $decimal.\[ \r\]*
-Re-enabling shared library breakpoint 1\[ \r\]*
 hi, in main\[ \r\]*
 \[ \r\]*
 Breakpoint 1, foo.*libweak.c.*\[ \r\]*" \
@@ -90,7 +89,7 @@ gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 
-gdb_test "file ${binfile}" "Reading symbols for shared libraries \\.\\. done\r\nReading symbols from ${binfile}\\.+done.\[\r\n\]+" "load with missing weak lib, hope for no warnings"
+gdb_test "file ${binfile}" "Reading symbols for shared libraries \\.+ done\r\nReading symbols from ${binfile}\\.+done.\[\r\n\]+" "load with missing weak lib, hope for no warnings"
 
 gdb_test "info sharedlibrary" ".*$decimal libweak.dylib *- - *w-init Y ! ${libbinfile}.*" "check sharedlibrary entry for missing weak library pre-run"
 

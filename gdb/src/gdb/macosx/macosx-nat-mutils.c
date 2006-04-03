@@ -30,6 +30,7 @@
 #include "terminal.h"
 #include "gdbcmd.h"
 #include "regcache.h"
+#include "value.h"
 
 #include "macosx-nat-mutils.h"
 #include "macosx-nat-inferior.h"
@@ -385,7 +386,7 @@ mach_xfer_memory (CORE_ADDR memaddr, char *myaddr,
       if (write)
         {
           kret = mach_vm_protect (macosx_status->task, r_start, r_size, 0,
-                             VM_PROT_READ | VM_PROT_WRITE);
+				  VM_PROT_READ | VM_PROT_WRITE);
           if (kret != KERN_SUCCESS)
             {
               kret = mach_vm_protect (macosx_status->task, r_start, r_size, 0,
@@ -641,6 +642,78 @@ macosx_msg_receive (mach_msg_header_t * msgin, size_t msg_size,
     }
 
   return kret;
+}
+
+/* Allocate LEN bytes in the target's address space.  We could be much
+   more efficient about how we use space (for example, by making a
+   mmalloc pool out of it, or at a minimum, an obstack.  But since we
+   only call this in the rare cases when malloc() isn't available, it
+   shouldn't be too big a deal. */
+
+CORE_ADDR
+allocate_space_in_inferior_mach (int len)
+{
+  kern_return_t kret;
+  vm_address_t address;
+ 
+  kret = vm_allocate (macosx_status->task, &address, len, TRUE);
+  if (kret != KERN_SUCCESS)
+    error ("No memory available to program: call to vm_allocate failed");
+
+  return address;
+}
+
+/* Used by macosx_allocate_space_in_inferior. */
+
+struct macosx_alloc_data 
+{
+  CORE_ADDR addr;
+  int len;
+};
+
+/* Used by macosx_allocate_space_in_inferior. */
+
+static int
+macosx_allocate_space_in_inferior_helper (struct ui_out *ui_out, void *args)
+{
+  struct macosx_alloc_data *alloc = (struct macosx_alloc_data *) args;
+  alloc->addr = allocate_space_in_inferior_malloc (alloc->len);
+  return 0;
+}
+
+/* Allocate LEN bytes in the target's address space.  Use the generic
+   malloc-based code.  If that fails, use the Mach-based allocator. */
+
+CORE_ADDR
+macosx_allocate_space_in_inferior (int len)
+{
+  int ret;
+  struct macosx_alloc_data alloc;
+  struct ui_file *saved_gdb_stderr;
+  struct ui_out *null_uiout = NULL;
+  struct cleanup *cleanups;
+
+  null_uiout = cli_out_new (gdb_null);
+  if (null_uiout == NULL)
+    error ("Unable to allocate memory: unable to allocate null uiout.");
+  cleanups = make_cleanup_ui_out_delete (null_uiout);
+  saved_gdb_stderr = gdb_stderr;
+  gdb_stderr = gdb_null;
+
+  alloc.len = len;
+  alloc.addr = 0;
+
+  ret = catch_exceptions (null_uiout, macosx_allocate_space_in_inferior_helper, &alloc,
+			  "", RETURN_MASK_ALL);
+
+  do_cleanups (cleanups);
+  gdb_stderr = saved_gdb_stderr;
+
+  if (ret >= 0)
+    return alloc.addr;
+
+  alloc.addr = allocate_space_in_inferior_mach (len);
+  return alloc.addr;
 }
 
 void

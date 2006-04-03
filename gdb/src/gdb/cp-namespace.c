@@ -367,6 +367,7 @@ lookup_namespace_scope (const char *name,
 			int scope_len)
 {
   char *namespace;
+
   if (scope[scope_len] != '\0')
     {
       /* Recursively search for names in child namespaces first.  */
@@ -602,6 +603,7 @@ static struct type *
 cp_lookup_transparent_type_loop (const char *name, const char *scope,
 				 int length)
 {
+  /* APPLE LOCAL ? */
   int scope_length = length + cp_find_first_component (scope + length);
   char *full_name;
 

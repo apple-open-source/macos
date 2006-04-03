@@ -2247,13 +2247,10 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
   edge true_edge, false_edge;
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
-
-  /* APPLE LOCAL begin mainline 4102133 */
+  
   gcc_assert (TREE_CODE (val) == INTEGER_CST);
   return (zero_p (val) ? false_edge : true_edge);
-  /* APPLE LOCAL end mainline 4102133 */
 }
-
 
 /* Given an INTEGER_CST VAL and the entry block BB to a SWITCH_EXPR
    statement, determine which edge will be taken out of the block.  Return

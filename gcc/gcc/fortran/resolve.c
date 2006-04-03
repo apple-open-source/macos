@@ -267,9 +267,12 @@ resolve_contained_fntype (gfc_symbol * sym, gfc_namespace * ns)
     {
       t = gfc_set_default_type (sym, 0, ns);
 
-      if (t == FAILURE)
-	gfc_error ("Contained function '%s' at %L has no IMPLICIT type",
-		    sym->name, &sym->declared_at); /* FIXME */
+      if (t == FAILURE && !sym->attr.untyped)
+	{
+	  gfc_error ("Contained function '%s' at %L has no IMPLICIT type",
+		     sym->name, &sym->declared_at); /* FIXME */
+	  sym->attr.untyped = 1;
+	}
     }
 }
 
@@ -360,7 +363,6 @@ resolve_entries (gfc_namespace * ns)
      out what is going on.  */
   snprintf (name, GFC_MAX_SYMBOL_LEN, "master.%d.%s",
 	    master_count++, ns->proc_name->name);
-  name[GFC_MAX_SYMBOL_LEN] = '\0';
   gfc_get_ha_symbol (name, &proc);
   gcc_assert (proc != NULL);
 
@@ -369,8 +371,92 @@ resolve_entries (gfc_namespace * ns)
     gfc_add_subroutine (&proc->attr, proc->name, NULL);
   else
     {
+      gfc_symbol *sym;
+      gfc_typespec *ts, *fts;
+
       gfc_add_function (&proc->attr, proc->name, NULL);
-      gfc_internal_error ("TODO: Functions with alternate entry points");
+      proc->result = proc;
+      fts = &ns->entries->sym->result->ts;
+      if (fts->type == BT_UNKNOWN)
+	fts = gfc_get_default_type (ns->entries->sym->result, NULL);
+      for (el = ns->entries->next; el; el = el->next)
+	{
+	  ts = &el->sym->result->ts;
+	  if (ts->type == BT_UNKNOWN)
+	    ts = gfc_get_default_type (el->sym->result, NULL);
+	  if (! gfc_compare_types (ts, fts)
+	      || (el->sym->result->attr.dimension
+		  != ns->entries->sym->result->attr.dimension)
+	      || (el->sym->result->attr.pointer
+		  != ns->entries->sym->result->attr.pointer))
+	    break;
+	}
+
+      if (el == NULL)
+	{
+	  sym = ns->entries->sym->result;
+	  /* All result types the same.  */
+	  proc->ts = *fts;
+	  if (sym->attr.dimension)
+	    gfc_set_array_spec (proc, gfc_copy_array_spec (sym->as), NULL);
+	  if (sym->attr.pointer)
+	    gfc_add_pointer (&proc->attr, NULL);
+	}
+      else
+	{
+	  /* Otherwise the result will be passed through an union by
+	     reference.  */
+	  proc->attr.mixed_entry_master = 1;
+	  for (el = ns->entries; el; el = el->next)
+	    {
+	      sym = el->sym->result;
+	      if (sym->attr.dimension)
+		gfc_error ("%s result %s can't be an array in FUNCTION %s at %L",
+			   el == ns->entries ? "FUNCTION" : "ENTRY", sym->name,
+			   ns->entries->sym->name, &sym->declared_at);
+	      else if (sym->attr.pointer)
+		gfc_error ("%s result %s can't be a POINTER in FUNCTION %s at %L",
+			   el == ns->entries ? "FUNCTION" : "ENTRY", sym->name,
+			   ns->entries->sym->name, &sym->declared_at);
+	      else
+		{
+		  ts = &sym->ts;
+		  if (ts->type == BT_UNKNOWN)
+		    ts = gfc_get_default_type (sym, NULL);
+		  switch (ts->type)
+		    {
+		    case BT_INTEGER:
+		      if (ts->kind == gfc_default_integer_kind)
+			sym = NULL;
+		      break;
+		    case BT_REAL:
+		      if (ts->kind == gfc_default_real_kind
+			  || ts->kind == gfc_default_double_kind)
+			sym = NULL;
+		      break;
+		    case BT_COMPLEX:
+		      if (ts->kind == gfc_default_complex_kind)
+			sym = NULL;
+		      break;
+		    case BT_LOGICAL:
+		      if (ts->kind == gfc_default_logical_kind)
+			sym = NULL;
+		      break;
+		    case BT_UNKNOWN:
+		      /* We will issue error elsewhere.  */
+		      sym = NULL;
+		      break;
+		    default:
+		      break;
+		    }
+		  if (sym)
+		    gfc_error ("%s result %s can't be of type %s in FUNCTION %s at %L",
+			       el == ns->entries ? "FUNCTION" : "ENTRY", sym->name,
+			       gfc_typename (ts), ns->entries->sym->name,
+			       &sym->declared_at);
+		}
+	    }
+	}
     }
   proc->attr.access = ACCESS_PRIVATE;
   proc->attr.entry_master = 1;
@@ -603,6 +689,12 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	  || sym->attr.intrinsic
 	  || sym->attr.external)
 	{
+
+          if (sym->attr.proc == PROC_ST_FUNCTION)
+            {
+              gfc_error ("Statement function '%s' at %L is not allowed as an "
+                         "actual argument", sym->name, &e->where);
+            }
 
 	  /* If the symbol is the function that names the current (or
 	     parent) scope, then we really have a variable reference.  */
@@ -872,7 +964,7 @@ set_type:
 
       if (ts->type == BT_UNKNOWN)
 	{
-	  gfc_error ("Function '%s' at %L has no implicit type",
+	  gfc_error ("Function '%s' at %L has no IMPLICIT type",
 		     sym->name, &expr->where);
 	  return FAILURE;
 	}
@@ -2109,6 +2201,9 @@ resolve_variable (gfc_expr * e)
   gfc_symbol *sym;
 
   if (e->ref && resolve_ref (e) == FAILURE)
+    return FAILURE;
+
+  if (e->symtree == NULL)
     return FAILURE;
 
   sym = e->symtree->n.sym;
@@ -3973,6 +4068,8 @@ resolve_symbol (gfc_symbol * sym)
 
 	      sym->ts = sym->result->ts;
 	      sym->as = gfc_copy_array_spec (sym->result->as);
+              sym->attr.dimension = sym->result->attr.dimension;
+              sym->attr.pointer = sym->result->attr.pointer;
 	    }
 	}
     }
@@ -4720,8 +4817,51 @@ resolve_equivalence (gfc_equiv *eq)
         }
     }    
 }      
-      
-      
+
+
+/* Resolve function and ENTRY types, issue diagnostics if needed. */
+
+static void
+resolve_fntype (gfc_namespace * ns)
+{
+  gfc_entry_list *el;
+  gfc_symbol *sym;
+
+  if (ns->proc_name == NULL || !ns->proc_name->attr.function)
+    return;
+
+  /* If there are any entries, ns->proc_name is the entry master
+     synthetic symbol and ns->entries->sym actual FUNCTION symbol.  */
+  if (ns->entries)
+    sym = ns->entries->sym;
+  else
+    sym = ns->proc_name;
+  if (sym->result == sym
+      && sym->ts.type == BT_UNKNOWN
+      && gfc_set_default_type (sym, 0, NULL) == FAILURE
+      && !sym->attr.untyped)
+    {
+      gfc_error ("Function '%s' at %L has no IMPLICIT type",
+		 sym->name, &sym->declared_at);
+      sym->attr.untyped = 1;
+    }
+
+  if (ns->entries)
+    for (el = ns->entries->next; el; el = el->next)
+      {
+	if (el->sym->result == el->sym
+	    && el->sym->ts.type == BT_UNKNOWN
+	    && gfc_set_default_type (el->sym, 0, NULL) == FAILURE
+	    && !el->sym->attr.untyped)
+	  {
+	    gfc_error ("ENTRY '%s' at %L has no IMPLICIT type",
+		       el->sym->name, &el->sym->declared_at);
+	    el->sym->attr.untyped = 1;
+	  }
+      }
+}
+
+
 /* This function is called after a complete program unit has been compiled.
    Its purpose is to examine all of the expressions associated with a program
    unit, assign types to all intermediate expressions, make sure that all
@@ -4744,6 +4884,8 @@ gfc_resolve (gfc_namespace * ns)
   resolve_contained_functions (ns);
 
   gfc_traverse_ns (ns, resolve_symbol);
+
+  resolve_fntype (ns);
 
   for (n = ns->contained; n; n = n->sibling)
     {

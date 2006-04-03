@@ -62,16 +62,19 @@ int ConvertXMLPolicyToSpaceDelimited( const char *inXMLDataStr, char **outPolicy
 int ConvertSpaceDelimitedPolicyToXML( const char *inPolicyStr, char **outXMLDataStr )
 {
 	PWAccessFeatures policies;
+	PWMoreAccessFeatures morePolicies = {0};
 	
 	if ( inPolicyStr == NULL || outXMLDataStr == NULL )
 		return -1;
 	
-	if ( ! StringToPWAccessFeatures( inPolicyStr, &policies ) )
+	GetDefaultUserPolicies( &policies );
+	if ( ! StringToPWAccessFeaturesExtra( inPolicyStr, &policies, &morePolicies ) )
 		return -1;
-
+	
 	CPolicyXML policyObj;
 	
-	policyObj.SetPolicy( &policies );
+	policyObj.AddMiscPolicies( inPolicyStr );
+	policyObj.SetPolicyExtra( &policies, &morePolicies );
 	*outXMLDataStr = policyObj.GetPolicyAsXMLData();
 	
 	if ( *outXMLDataStr == NULL )
@@ -158,6 +161,7 @@ void
 CPolicyXML::CPolicyCommonInit( void )
 {
 	CPolicyXML::CPolicyXMLCommonInitStatic( &mPolicy );
+	bzero( &mExtraPolicy, sizeof(mExtraPolicy) );
 	mWarnOfExpirationMinutes = 0;
 	mWarnOfDisableMinutes = 0;
 	mProjectedPasswordExpireDate = 0;
@@ -227,7 +231,7 @@ CPolicyXML::GetPolicyAsSpaceDelimitedData( void )
 	char featureStr[2048];
 	char metaFeatureStr[256] = { 0, };
 	
-	PWAccessFeaturesToStringWithoutStateInfo( &mPolicy, featureStr );
+	PWAccessFeaturesToStringWithoutStateInfoExtra( &mPolicy, &mExtraPolicy, sizeof(featureStr), featureStr );
 	
 	if ( mWarnOfExpirationMinutes > 0 )
 	{
@@ -271,10 +275,51 @@ CPolicyXML::SetPolicy( PWAccessFeatures *inPolicy )
 }
 
 
+// ----------------------------------------------------------------------------------------
+//  SetPolicy
+// ----------------------------------------------------------------------------------------
+
 void
 CPolicyXML::SetPolicy( CFDictionaryRef inPolicyDict )
 {
 	this->ConvertPropertyListPolicyToStruct( (CFMutableDictionaryRef)inPolicyDict );
+}
+
+
+// ----------------------------------------------------------------------------------------
+//  SetPolicyExtra
+// ----------------------------------------------------------------------------------------
+
+void
+CPolicyXML::SetPolicyExtra( PWAccessFeatures *inPolicy, PWMoreAccessFeatures *inExtraPolicy )
+{
+	if ( inPolicy != NULL && inExtraPolicy != NULL )
+	{
+		memcpy( &mPolicy, inPolicy, sizeof(PWAccessFeatures) );
+		memcpy( &mExtraPolicy, inExtraPolicy, sizeof(PWMoreAccessFeatures) );
+		this->ConvertStructToPropertyListPolicy();
+	}
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	AddMiscPolicies
+//
+//	warnOfExpirationMinutes, warnOfDisableMinutes
+//------------------------------------------------------------------------------------------------
+
+void
+CPolicyXML::AddMiscPolicies( const char *inPolicyStr )
+{
+	const char *warnOfExpirationMinutes = strstr( inPolicyStr, kPWPolicyStr_warnOfExpirationMinutes );
+	const char *warnOfDisableMinutes = strstr( inPolicyStr, kPWPolicyStr_warnOfDisableMinutes );
+    unsigned long value;
+	
+	if ( StringToPWAccessFeatures_GetValue( warnOfExpirationMinutes, &value ) )
+		mWarnOfExpirationMinutes = value;
+		
+	if ( StringToPWAccessFeatures_GetValue( warnOfDisableMinutes, &value ) )
+		mWarnOfDisableMinutes = value;
 }
 
 
@@ -322,6 +367,17 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 	
 	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresNumeric), &aBoolValue ) )
 		mPolicy.requiresNumeric = aBoolValue;
+	
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresMixedCase), &aBoolValue ) )
+		mExtraPolicy.requiresMixedCase = aBoolValue;
+	
+	// notGuessablePattern
+	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_notGuessablePattern), (const void **)&valueRef ) &&
+		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
+		CFNumberGetValue( (CFNumberRef)valueRef, kCFNumberLongType, &aLongValue) )
+	{
+		mExtraPolicy.notGuessablePattern = aLongValue;
+	}
 	
     // expirationDateGMT
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_expirationDateGMT), (const void **)&valueRef ) &&
@@ -462,7 +518,9 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	CFDateRef expirationDateGMTRef;
 	CFDateRef hardExpireDateGMTRef;
 	unsigned int aBoolVal;
-	
+	CFNumberRef warnOfExpirationRef = NULL;
+	CFNumberRef warnOfDisableRef = NULL;
+
 	policyDict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 	if ( policyDict == NULL )
 		return -1;
@@ -488,6 +546,11 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	aBoolVal = (mPolicy.requiresNumeric != 0);
 	CFNumberRef requiresNumericRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &aBoolVal );
 	
+	aBoolVal = (mExtraPolicy.requiresMixedCase != 0);
+	CFNumberRef requiresMixedCaseRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &aBoolVal );
+	
+	CFNumberRef notGuessablePatternRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &(mExtraPolicy.notGuessablePattern) );
+	
 	aBoolVal = (mPolicy.passwordCannotBeName != 0);
 	CFNumberRef passwordCannotBeNameRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &aBoolVal );
 	
@@ -504,6 +567,11 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	
 	this->ConvertBSDTimeToCFDate( (struct tm *)&(mPolicy.expirationDateGMT), &expirationDateGMTRef );
 	this->ConvertBSDTimeToCFDate( (struct tm *)&(mPolicy.hardExpireDateGMT), &hardExpireDateGMTRef );
+	
+	if ( mWarnOfExpirationMinutes > 0 )
+		warnOfExpirationRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mWarnOfExpirationMinutes );
+	if ( mWarnOfDisableMinutes > 0 )
+		warnOfDisableRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mWarnOfDisableMinutes );
 	
 	if ( usingHistoryRef != NULL )
 	{
@@ -539,6 +607,18 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	{
 		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_requiresNumeric), requiresNumericRef );
 		CFRelease( requiresNumericRef );
+	}
+	
+	if ( requiresMixedCaseRef != NULL )
+	{
+		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_requiresMixedCase), requiresMixedCaseRef );
+		CFRelease( requiresMixedCaseRef );
+	}
+	
+	if ( notGuessablePatternRef != NULL )
+	{
+		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_notGuessablePattern), notGuessablePatternRef );
+		CFRelease( notGuessablePatternRef );
 	}
 
 	if ( expirationDateGMTRef != NULL )
@@ -599,6 +679,18 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	{
 		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_isSessionKeyAgent), isSessionKeyAgentRef );
 		CFRelease( isSessionKeyAgentRef );
+	}
+	
+	if ( warnOfExpirationRef != NULL )
+	{
+		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_warnOfExpirationMinutes), warnOfExpirationRef );
+		CFRelease( warnOfExpirationRef );
+	}
+	
+	if ( warnOfDisableRef != NULL )
+	{
+		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_warnOfDisableMinutes), warnOfDisableRef );
+		CFRelease( warnOfDisableRef );
 	}
 	
 	if ( mPolicyDict != NULL )

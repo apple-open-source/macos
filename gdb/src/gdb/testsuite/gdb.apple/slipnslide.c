@@ -4,9 +4,9 @@
 main ()
 {
 
-  printf ("hi\n");
-  printf ("there\n");
-  puts ("test");     /* this call will always go to libSystem */
+  fputs ("hi\n", stdout);
+  fputs ("there\n", stdout);
+  puts ("test");     /* this call will always go to libSystem, even though it is defined in mylib.dylib */
 
   if (NSIsSymbolNameDefined ("_foo")) {
     int (*addr)(void) = 

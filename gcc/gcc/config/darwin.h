@@ -184,20 +184,40 @@ extern const char *darwin_one_byte_bool;
   
 /* APPLE LOCAL begin pragma reverse_bitfields */
 /* True if pragma reverse_bitfields is in effect. */
-extern int darwin_reverse_bitfields;
+extern GTY(()) int darwin_reverse_bitfields;
 /* APPLE LOCAL end pragma reverse_bitfields */
 
 extern int darwin_fix_and_continue;
 extern const char *darwin_fix_and_continue_switch;
+/* APPLE LOCAL mainline 2005-09-01 3449986 */
+extern const char *darwin_macosx_version_min;
+
+/* APPLE LOCAL begin AT&T-style stub 4164563 */
+extern int darwin_macho_att_stub;
+extern const char *darwin_macho_att_stub_switch;
+#define MACHOPIC_ATT_STUB (darwin_macho_att_stub)
+/* APPLE LOCAL end AT&T-style stub 4164563 */
 
 #undef SUBTARGET_OPTIONS
 #define SUBTARGET_OPTIONS \
   {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
   {"fix-and-continue", &darwin_fix_and_continue_switch,			\
    N_("Generate code suitable for fast turn around debugging"), 0},	\
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */			\
+  {"macosx-version-min=", &darwin_macosx_version_min,			\
+   N_("The earliest MacOS X version on which this program will run"),	\
+   0 },									\
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */			\
   {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
-/* APPLE LOCAL begin constant cfstrings */				\
+  /* APPLE LOCAL added comma to this line for subsequent A-L additions */ \
    N_("Don't generate code suitable for fast turn around debugging"), 0}, \
+  /* APPLE LOCAL begin AT&T-style stub 4164563 */			\
+  {"att-stubs", &darwin_macho_att_stub_switch,				\
+   N_("Generate AT&T-style stubs for Mach-O"), 0},			\
+  {"no-att-stubs", &darwin_macho_att_stub_switch,			\
+   N_("Generate traditional Mach-O stubs"), 0},				\
+  /* APPLE LOCAL end AT&T-style stub 4164563 */				\
+ /* APPLE LOCAL begin constant cfstrings */				\
    {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
     N_("Generate compile-time CFString objects"), 0},			\
    {"no-constant-cfstrings", &darwin_constant_cfstrings_switch, "", 0},	\
@@ -208,35 +228,10 @@ extern const char *darwin_fix_and_continue_switch;
     N_("Warn if constant CFString objects contain non-portable characters"), 0},	\
    {"no-warn-nonportable-cfstrings", &darwin_warn_nonportable_cfstrings_switch, "", 0}
 
-#define SUBTARGET_OS_CPP_BUILTINS()			\
-  do							\
-    {							\
-      builtin_define ("__MACH__");			\
-      builtin_define ("__APPLE__");			\
-      if (darwin_constant_cfstrings)			\
-	builtin_define ("__CONSTANT_CFSTRINGS__");	\
-      /* APPLE LOCAL begin pascal strings */		\
-      if (darwin_pascal_strings)			\
-	{						\
-	  builtin_define ("__PASCAL_STRINGS__");	\
-	}						\
-      /* APPLE LOCAL end pascal strings */		\
-      /* APPLE LOCAL begin ObjC GC */			\
-      if (flag_objc_gc)					\
-	{						\
-	  builtin_define ("__strong=__attribute__((objc_gc(strong)))"); \
-	  builtin_define ("__OBJC_GC__");		\
-	}						\
-      else						\
-	builtin_define ("__strong=");			\
-      /* APPLE LOCAL end ObjC GC */			\
-    }							\
-  while (0)
-
 #define SUBSUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
- /* APPLE LOCAL kext */                                                 \
- extern int flag_weak;                                                  \
+  /* APPLE LOCAL kext */                                                \
+  extern int flag_weak;                                                 \
   if (darwin_constant_cfstrings_switch)					\
     {									\
       const char *base = darwin_constant_cfstrings_switch;		\
@@ -337,11 +332,14 @@ do {					\
    Apple include files expect it to be defined and won't work if it
    isn't.  */
 
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+/* Machine dependent cpp options.  Don't add more options here, add
+   them to darwin_cpp_builtins in darwin-c.c.  */
+
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 #undef	CPP_SPEC
-/* APPLE LOCAL __APPLE__ setting, don't set __APPLE__ here, as we do it someplace else */
-#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__} \
-"/* APPLE LOCAL -arch */"\
-		  %{arch}"
+/* APPLE LOCAL -arch */
+#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__} %{arch}"
 
 /* APPLE LOCAL begin private extern  */
 #undef CC1PLUS_SPEC
@@ -418,6 +416,8 @@ do {					\
    %{headerpad_max_install_names*} \
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
+"/* APPLE LOCAL mainline 2005-09-01 3449986 */"\
+   %{mmacosx-version-min=*:-macosx_version_min %*} \
    %{nomultidefs} \
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
@@ -432,6 +432,8 @@ do {					\
    "/* APPLE LOCAL why did I do that?  -- mrs */" \
    %{Zfn_seg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
+   "/* APPLE LOCAL mainline 4.1 2005-06-03 */" \
+   %{isysroot*:-syslibroot %*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
    %{umbrella*} \
    %{undefined*} \
@@ -447,22 +449,38 @@ do {					\
    %{dylinker} %{Mach} "
 
 
-/* Machine dependent libraries but do not redefine it if we already on 7.0 and
-   above as it needs to link with libmx also.  */
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+/* Machine dependent libraries.  */
 
-#ifndef	LIB_SPEC
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 #define LIB_SPEC "%{!static:-lSystem}"
-#endif
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 
-/* APPLE LOCAL begin libgcc_static.a  */
-/* -dynamiclib implies -shared-libgcc just like -shared would on linux.  */
-#define REAL_LIBGCC_SPEC \
-   "%{static|static-libgcc:-lgcc_static}                             \
-    %{!static:%{!static-libgcc:                                      \
-      %{!Zdynamiclib:%{!shared-libgcc:-lgcc -lgcc_eh}                \
-      %{shared-libgcc:-lgcc_s -lgcc}} %{Zdynamiclib:-lgcc_s -lgcc}}}"
-/* APPLE LOCAL end libgcc_static.a  */
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
+/* APPLE LOCAL begin 4276161 */
+/* Support -mmacosx-version-min by supplying different (stub) libgcc_s.dylib
+   libraries to link against, and by not linking against libgcc_s on
+   earlier-than-10.3.9.
 
+   Note that by default, -lgcc_eh is not linked against!  This is
+   because in a future version of Darwin the EH frame information may
+   be in a new format, or the fallback routine might be changed; if
+   you want to explicitly link against the static version of those
+   routines, because you know you don't need to unwind through system
+   libraries, you need to explicitly say -static-libgcc.  */
+#undef REAL_LIBGCC_SPEC
+#define REAL_LIBGCC_SPEC						   \
+/* APPLE LOCAL libgcc_static.a  */					   \
+   "%{static:-lgcc_static; static-libgcc: -lgcc -lgcc_eh;		   \
+      shared-libgcc|fexceptions:					   \
+       %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
+       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       -lgcc;								   \
+      :%:version-compare(>< 10.3.9 10.5 mmacosx-version-min= -lgcc_s.10.4) \
+       %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
+       -lgcc}"
+
+/* APPLE LOCAL end 4276161 */
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 /* We don't want anything to do with crt2.o in the 64-bit case;
    testing the PowerPC-specific -m64 flag here is a little irregular,
@@ -487,8 +505,11 @@ do {					\
 /* #define ENDFILE_SPEC "" */
 
 /* Default Darwin ASM_SPEC, very simple.  */
+/* APPLE LOCAL begin radar 4161346 */
 #define ASM_SPEC "-arch %(darwin_arch) \
-  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL}"
+  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
+  %{!Zforce_cpusubtype_ALL:%{faltivec:-force_cpusubtype_ALL}}"
+/* APPLE LOCAL end radar 4161346 */
 
 /* We use Dbx symbol format.  */
 
@@ -702,15 +723,13 @@ do {					\
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
-	   /* APPLE LOCAL begin Objective-C++ 4105386 */		     \
+	   /* APPLE LOCAL begin mainline */		    		     \
 	   else if (len > 15 && !strcmp ("$non_lazy_ptr\"", xname + len - 14)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
-	   /* APPLE LOCAL end Objective-C++ 4105386 */			     \
-	   /* APPLE LOCAL begin mainline */				     \
-	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))		\
-	     fprintf (FILE, "\"%s\"", &xname[1]);			\
-	   else								\
-	     fputs (&xname[1], FILE); 					\
+	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))	     \
+	     fprintf (FILE, "\"%s\"", &xname[1]);			     \
+	   else								     \
+	     fputs (&xname[1], FILE); 					     \
 	   /* APPLE LOCAL end mainline */				     \
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
@@ -720,8 +739,8 @@ do {					\
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
 	 /* APPLE LOCAL begin mainline */				     \
-       else if (xname[0] != '"' && name_needs_quotes (xname))		\
-	 fprintf (FILE, "\"%s\"", xname);				\
+       else if (xname[0] != '"' && name_needs_quotes (xname))		     \
+	 fprintf (FILE, "\"%s\"", xname);				     \
 	 /* APPLE LOCAL end mainline */					     \
        else								     \
          asm_fprintf (FILE, "%U%s", xname);				     \
@@ -820,10 +839,16 @@ FUNCTION (void)								\
   in_machopic_picsymbol_stub1,						\
   /* APPLE LOCAL dynamic-no-pic */					\
   in_machopic_picsymbol_stub2,						\
-  /* APPLE LOCAL deep branch prediction pic-base */			\
-  in_darwin_textcoal_nt,						\
+  /* APPLE LOCAL AT&T-style stub 4164563 */				\
+  in_machopic_picsymbol_stub3,						\
   in_darwin_exception, in_darwin_eh_frame,				\
   num_sections
+
+/* APPLE LOCAL begin AT&T-style stub 4164563 */
+#ifndef MACHOPIC_NL_SYMBOL_PTR_SECTION
+#define MACHOPIC_NL_SYMBOL_PTR_SECTION ".non_lazy_symbol_pointer"
+#endif
+/* APPLE LOCAL end AT&T-style stub 4164563 */				\
 
 #undef	EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
@@ -960,9 +985,11 @@ SECTION_FUNCTION (machopic_lazy_symbol_ptr3_section,	\
 		in_machopic_lazy_symbol_ptr3,		\
 		".section __DATA, __la_sym_ptr3,lazy_symbol_pointers", 0)      	\
 /* APPLE LOCAL end dynamic-no-pic */					\
+/* APPLE LOCAL begin AT&T-style stub 4164563 */				\
 SECTION_FUNCTION (machopic_nl_symbol_ptr_section,			\
 		in_machopic_nl_symbol_ptr,				\
-		".non_lazy_symbol_pointer", 0)				\
+		MACHOPIC_NL_SYMBOL_PTR_SECTION, 0)	\
+/* APPLE LOCAL end AT&T-style stub 4164563 */				\
 SECTION_FUNCTION (machopic_symbol_stub_section,				\
 		in_machopic_symbol_stub,				\
 		".symbol_stub", 0)					\
@@ -982,11 +1009,11 @@ SECTION_FUNCTION (machopic_picsymbol_stub2_section,	\
 		in_machopic_picsymbol_stub2,		\
 		".section __TEXT,__picsymbolstub2,symbol_stubs,pure_instructions,25", 0)      		\
 /* APPLE LOCAL end dynamic-no-pic */			\
-/* APPLE LOCAL begin deep branch prediction pic-base */			\
-SECTION_FUNCTION (darwin_textcoal_nt_section,		\
-		in_darwin_textcoal_nt,			\
-		".section __TEXT,__textcoal_nt,coalesced,no_toc", 0)\
-/* APPLE LOCAL end deep branch prediction pic-base */				\
+/* APPLE LOCAL begin AT&T-style stub 4164563 */				\
+SECTION_FUNCTION (machopic_picsymbol_stub3_section,	\
+		in_machopic_picsymbol_stub3,		\
+		".section __IMPORT,__jump_table,symbol_stubs,self_modifying_code+pure_instructions,5", 0) \
+/* APPLE LOCAL end AT&T-style stub 4164563 */				\
 SECTION_FUNCTION (darwin_exception_section,				\
 		in_darwin_exception,					\
 		".section __DATA,__gcc_except_tab", 0)			\
@@ -1089,7 +1116,7 @@ objc_section_init (void)			\
     darwin_handle_odd_attribute },					     \
   /* APPLE LOCAL end KEXT double destructor */				     \
   /* APPLE LOCAL ObjC GC */						     \
-  { "objc_gc", 1, 1, 0, 0, 0, darwin_handle_objc_gc_attribute },	     \
+  { "objc_gc", 1, 1, false, true, false, darwin_handle_objc_gc_attribute },  \
   { "weak_import", 0, 0, true, false, false,				     \
     darwin_handle_weak_import_attribute }
 
@@ -1358,11 +1385,11 @@ void add_framework_path (char *);
 
 #define TARGET_HAS_F_SETLKW
 
-/* Darwin before 7.0 does not have C99 functions.   */
-#ifndef TARGET_C99_FUNCTIONS
-#define TARGET_C99_FUNCTIONS 0
-#endif
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+/* All new versions of Darwin have C99 functions.  */
+#define TARGET_C99_FUNCTIONS 1
 
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 /* APPLE LOCAL begin KEXT ctors return this */
 /* For Apple KEXTs, we make the constructors return this to match gcc
    2.95.  */

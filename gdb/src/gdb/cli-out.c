@@ -111,6 +111,8 @@ static void out_field_fmt (struct ui_out *uiout, int fldno,
 
 /* local variables */
 
+/* (none yet) */
+
 /* Mark beginning of a table */
 
 void
@@ -304,6 +306,7 @@ cli_text (struct ui_out *uiout, const char *string)
   fputs_filtered (string, data->stream);
 }
 
+/* APPLE LOCAL begin cli */
 /* VARARGS */
 void
 cli_text_fmt (struct ui_out *uiout, const char *format, va_list args)
@@ -313,6 +316,7 @@ cli_text_fmt (struct ui_out *uiout, const char *format, va_list args)
     return;
   vfprintf_filtered (data->stream, format, args);
 }
+/* APPLE LOCAL end cli */
 
 void
 cli_message (struct ui_out *uiout, int verbosity,
@@ -326,6 +330,7 @@ cli_message (struct ui_out *uiout, int verbosity,
 }
 
 void
+/* APPLE LOCAL const */
 cli_wrap_hint (struct ui_out *uiout, const char *identstring)
 {
   cli_out_data *data = ui_out_data (uiout);
@@ -426,5 +431,5 @@ cli_out_set_stream (struct ui_out *uiout, struct ui_file *stream)
 void
 _initialize_cli_out (void)
 {
-  /* Nothing needs to be done.  */
+  /* nothing needs to be done */
 }

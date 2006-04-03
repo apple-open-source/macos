@@ -63,10 +63,65 @@ static int end_fun_absolute_p = 0;
 #include "complaints.h"
 #include "cp-abi.h"
 #include "gdb_assert.h"
-
+#include "block.h"
 #include "aout/aout64.h"
 #include "aout/stab_gnu.h"	/* We always use GNU stabs, not native, now */
+
 
+/* APPLE LOCAL: These two structures are used to store the STSYM & LCSYM addresses
+   from the final linked image to match them up against the .o files when 
+   we are reading symbols out of the .o.  We have to store them indexed by both
+   function and name since you could have the same named static appearing in many
+   different functions in the file.
+
+   We'll keep both the functions and the symbols FIFO, since when we
+   replay them while building up the symtab, we will encounter the
+   functions and symbols in the same order in the .o.  We take
+   advantage of this in read_ofile_symtab_from_oso.  When we get done
+   with a static entry, we dump it from the oso_fun_static list, and
+   when we get done with a whole function we dump it from the
+   oso_fun_list.  
+   FIXME: If we were REALLY confident of this, we could leave the name
+   off the two lists, and just always pop the first one.  It should also
+   be a hard error if the top element isn't the one we want.  I just give
+   a warning right now.  */
+
+struct oso_fun_static {
+  struct oso_fun_static *next;
+  char *name;
+  CORE_ADDR address;
+};
+
+struct oso_fun_list {
+  struct oso_fun_list *next;
+  char *name;
+  struct oso_fun_static *statics;
+  struct oso_fun_static *tail;
+};
+
+/* This structure is used to build the list of partial symtabs that
+   share an N_OSO .o file.  Each pst that gets its symbols from one
+   .o file has a pointer to it.  It has two uses:
+
+   1) When we do psymtab->symtab for a pst, we want to do a
+   preliminary scan of the .o file to build up the EXCL->BINCL/EINCL
+   dependencies.  Once we've done this we set READIN to 1.
+
+   2) When we are doing the initial scan of a .o we need to update the
+   dependencies of all the pst's it contains.  This way we only need
+   to scan it once, and then we can use the ordinary dependencies
+   method to bring in the necessary N_SO partial symtabs...  We use
+   PST_LIST to track this
+
+   It is allocated on the objfile's objstack.  */
+
+struct oso_pst_list {
+  char *oso_name;
+  int readin;
+  struct partial_symtab **pst_list;
+};
+
+/* END APPLE LOCAL */
 
 /* We put a pointer to this structure in the read_symtab_private field
    of the psymtab.  */
@@ -98,7 +153,20 @@ struct symloc
     int file_string_offset;
 
     const char *prefix;
-  };
+
+    /* APPLE LOCAL: This is the value of the N_OSO stab, used to find the
+       .o file in the case where the symbols are being kept in the .o file.  */
+    char *oso_name;
+    /* The n_value field of the N_OSO stab is the mtime of the .o file when
+       the linked image was built.  If this is 0 we don't check the times.  */
+    long oso_mtime;
+    /* This is the list of pst's that share this OSO .o file.  */
+    struct oso_pst_list *oso_pst_list;
+    /* This is the list of statics in the final linked image which
+       we use to map the address of the statics in the OSO .o file.  */
+    struct oso_fun_list *statics_list;
+    /* END APPLE LOCAL */
+};
 
 #define LDSYMOFF(p) (((struct symloc *)((p)->read_symtab_private))->ldsymoff)
 #define LDSYMLEN(p) (((struct symloc *)((p)->read_symtab_private))->ldsymlen)
@@ -108,6 +176,12 @@ struct symloc
 #define STRING_OFFSET(p) (SYMLOC(p)->string_offset)
 #define FILE_STRING_OFFSET(p) (SYMLOC(p)->file_string_offset)
 #define SYMBOL_PREFIX(p) (SYMLOC(p)->prefix)
+/* APPLE LOCAL: A macro for the oso_name field */
+#define LDSYM_OSO_NAME(p) (SYMLOC(p)->oso_name)
+#define LDSYM_OSO_MTIME(p) (SYMLOC(p)->oso_mtime)
+#define LDSYM_OSO_STATICS(p) (SYMLOC(p)->statics_list)
+#define LDSYM_OSO_PST_LIST(p) (SYMLOC(p)->oso_pst_list)
+/* End APPLE LOCAL */
 
 
 /* Remember what we deduced to be the source language of this psymtab. */
@@ -164,6 +238,14 @@ static CORE_ADDR lowest_text_address;
    end_psymtab from discarding an otherwise empty psymtab.  */
 
 static int has_line_numbers;
+
+/* APPLE LOCAL: Forward declarations of some functions used in this file: */
+static void read_ofile_symtab_from_oso (struct partial_symtab *pst, 
+					struct bfd *oso_bfd);
+static struct cleanup *
+stabsect_read_strtab_from_oso (struct bfd *oso_bfd, int *symcount, 
+			       int *symsize, int *strtab_size,
+			       bfd_byte **stab_data_handle, char **strtab_data_handle);
 
 /* Complaints about the symbols we have encountered.  */
 
@@ -868,10 +950,15 @@ fill_symbuf (struct objfile *objfile)
 
   if (stabs_data)
     {
+      /* APPLE LOCAL: Don't use the symbuf if the data is already
+	 read into an internal buffer...  */
+      return;
+#if 0
       nbytes = symbuf_size;
       if (nbytes > symbuf_left)
         nbytes = symbuf_left;
       memcpy (symbuf, stabs_data + symbuf_read, nbytes);
+#endif
     }
   else if (symbuf_sections == NULL)
     {
@@ -911,15 +998,30 @@ stabs_seek (int sym_offset)
 {
   if (stabs_data)
     {
+      /* APPLE LOCAL: If we have ALL the stabs data read into an internal
+	 buffer, we don't use the symbuf.  So the symbuf_idx is a direct
+	 index into the data.  */
+      symbuf_idx = symbuf_idx + sym_offset/symbol_size;
+#if 0
       symbuf_read += sym_offset;
       symbuf_left -= sym_offset;
+#endif
     }
   else
     bfd_seek (processing_objfile->obfd, sym_offset, SEEK_CUR);
 }
 
+/* APPLE LOCAL: We added INTERNALIZE SYMBOL because the nlist data gdb
+   uses is different from what is in include/aout/stabs.def.  This
+   function allows us to fix up the nlist entries so gdb will be happy
+   with them.  One of the elements that gdb doesn't like is the N_SECT
+   flag.  So we strip that off.  However, it turns out we also need to
+   filter nlist entried based on section.  So we need it back.  That's
+   why we have to pass it in as an extra parameter to
+   INTERNALIZE_SYMBOL.  */
+
 #ifndef INTERNALIZE_SYMBOL
-#define INTERNALIZE_SYMBOL(intern, extern, abfd)			\
+#define INTERNALIZE_SYMBOL(intern, sect_p, extern, abfd)			\
   {									\
     (intern).n_type = bfd_h_get_8 (abfd, (extern)->e_type);		\
     (intern).n_strx = bfd_h_get_32 (abfd, (extern)->e_strx);		\
@@ -932,18 +1034,20 @@ stabs_seek (int sym_offset)
 #endif
 
 #ifndef PEEK_SYMBOL
-#define PEEK_SYMBOL(intern, abfd)                                       \
-  {                                                                     \
+#define PEEK_SYMBOL(intern, sect_p, abfd)				\
+  {									\
     if (symbuf_idx == symbuf_end)                                       \
-      fill_symbuf (processing_objfile);                                        	\
-    INTERNALIZE_SYMBOL (intern, (struct external_nlist *) (symbuf + (symbol_size * symbuf_idx)), abfd);     \
+      fill_symbuf (processing_objfile);                                 \
+    INTERNALIZE_SYMBOL (intern, sect_p, (struct external_nlist *)       \
+                        ((stabs_data ? stabs_data: symbuf)              \
+                         + (symbol_size * symbuf_idx)), abfd);          \
   }
 #endif
 
 #ifndef NEXT_SYMBOL
-#define NEXT_SYMBOL(intern, abfd)                                       \
+#define NEXT_SYMBOL(intern,  sect_p, abfd)				\
   {                                                                     \
-    PEEK_SYMBOL (intern, abfd);                                         \
+    PEEK_SYMBOL (intern, sect_p, abfd);					\
     symbuf_idx++;                                                       \
   }
 #endif
@@ -962,8 +1066,9 @@ dbx_next_symbol_text (struct objfile *objfile)
 {
   struct internal_nlist nlist1;
   struct internal_nlist nlist2;
+  int sect_p; 
 
-  PEEK_SYMBOL (nlist1, processing_objfile->obfd);
+  PEEK_SYMBOL (nlist1, sect_p, processing_objfile->obfd);
 
   if (nlist1.n_type & N_STAB)
     {
@@ -978,7 +1083,7 @@ dbx_next_symbol_text (struct objfile *objfile)
      find the continuation of the name. */
 
   symbuf_idx++;
-  PEEK_SYMBOL (nlist2, processing_objfile->obfd);
+  PEEK_SYMBOL (nlist2, sect_p, processing_objfile->obfd);
   symbuf_idx--;
 
   if (nlist2.n_type & N_STAB)
@@ -1084,15 +1189,18 @@ make_cleanup_free_bincl_list (struct objfile *objfile)
    give a fake name, and print a single error message per symbol file read,
    rather than abort the symbol reading or flood the user with messages.  */
 
+/* APPLE LOCAL: I need a version that doesn't rely on the objfile, since I
+   want to read it out of a .o.  */
 static char *
-set_namestring (struct objfile *objfile, struct internal_nlist nlist, const char *prefix)
+set_namestring_1 (int strtab_size, char *strtab, char leading_char, 
+		  struct internal_nlist nlist, const char *prefix)
 {
   char *namestring;
   static char *namebuf = NULL;
   static size_t namebuf_len = 0;
 
   if (((unsigned int) nlist.n_strx + file_string_table_offset) >=
-      DBX_STRINGTAB_SIZE (objfile))
+      strtab_size)
     {
       complaint (&symfile_complaints, "bad string table offset in symbol %d",
 		 symnum);
@@ -1102,8 +1210,7 @@ set_namestring (struct objfile *objfile, struct internal_nlist nlist, const char
     {
       const char *p = prefix;
       char *s = nlist.n_strx + file_string_table_offset +
-	DBX_STRINGTAB (objfile);
-      char l = bfd_get_symbol_leading_char (objfile->obfd);
+	strtab;
       if ((p != NULL) && (p[0] != '\0'))
 	{
 	  size_t req = 1 + strlen (p) + strlen (s) + 1 - 1;
@@ -1114,7 +1221,7 @@ set_namestring (struct objfile *objfile, struct internal_nlist nlist, const char
 	      namebuf_len *= 2;
 	    }
 	  namebuf = xrealloc (namebuf, namebuf_len);
-	  sprintf (namebuf, "%c%s%s", l, p, s + 1); 	                
+	  sprintf (namebuf, "%c%s%s", leading_char, p, s + 1); 	                
 	  namestring = namebuf;		
 	} else {					
 	  namestring = s;
@@ -1122,6 +1229,16 @@ set_namestring (struct objfile *objfile, struct internal_nlist nlist, const char
     }
   
   return namestring;
+}
+
+static char *
+set_namestring (struct objfile *objfile, struct internal_nlist nlist, const char *prefix)
+{
+  return set_namestring_1 (DBX_STRINGTAB_SIZE (objfile),
+			   DBX_STRINGTAB (objfile),
+			   bfd_get_symbol_leading_char (objfile->obfd),
+			   nlist,
+			   prefix);
 }
 
 /* Scan a SunOs dynamic symbol table for symbols of interest and
@@ -1266,20 +1383,6 @@ read_dbx_dynamic_symtab (struct objfile *objfile)
   do_cleanups (back_to);
 }
 
-const char *
-unparse_stabtype (int i)
-{
-#undef __define_stab
-#undef __define_stab_duplicate
-#define __define_stab(t,n,s) if (i == n) { return s; }
-#define __define_stab_duplicate(t,n,s)
-#include "aout/stab.def"
-#undef __define_stab
-#undef __define_stab_duplicate
-
-  return "[UNKNOWN]";
-}
-
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
 static CORE_ADDR
 find_stab_function_addr (char *namestring, char *filename,
@@ -1334,6 +1437,80 @@ function_outside_compilation_unit_complaint (const char *arg1)
 	     arg1);
 }
 
+/* APPLE LOCAL: This function initializes the OSO list.  */
+
+struct oso_pst_list *
+init_oso_pst_list (char *oso_name, struct objfile *objfile)
+{
+  struct oso_pst_list *oso_list;
+
+  oso_list = (struct oso_pst_list *) obstack_alloc (&objfile->objfile_obstack,
+							sizeof (struct oso_pst_list));
+  oso_list->oso_name = oso_name;
+  oso_list->readin = 0;
+  oso_list->pst_list = NULL;
+
+  return oso_list;
+}
+
+/* APPLE LOCAL: This function adds PST to the oso_pst_list LIST.  The
+   list will eventually be moved to OBJ's objstack.  We have to use a
+   staging area since we need to allocate the real thing on the
+   objfile's obstack, but we have to do that all at a blow and there's
+   no way a priori to know how many elements there are.
+
+   OBJFILE is not used in this, but I kept it around because the data
+   eventually ends up on the objfile's obstack, so we might need it
+   later on.  */
+
+static int oso_pst_num_allocated = 0;
+static int oso_pst_num_used = 0;
+
+void
+add_oso_pst_to_list (struct oso_pst_list *list, 
+		     struct partial_symtab *pst,
+		     struct objfile *objfile)
+{
+  if (list->pst_list == NULL)
+    {
+      oso_pst_num_allocated = 30;
+      oso_pst_num_used = 0;
+      list->pst_list = (struct partial_symtab **) 
+	xmalloc (oso_pst_num_allocated * sizeof (struct partial_symtab *));
+    }
+  else if (oso_pst_num_allocated == oso_pst_num_used)
+    {
+      oso_pst_num_allocated *= 2;
+      list->pst_list = (struct partial_symtab **) xrealloc (list->pst_list, 
+				 oso_pst_num_allocated * sizeof (struct partial_symtab *));
+    }
+
+  list->pst_list[oso_pst_num_used++] = pst;
+  if (pst != NULL)
+    LDSYM_OSO_PST_LIST (pst) = list;
+
+}
+
+/* This adds a NULL element at the end of the pst_list of LIST, 
+   and the transfers the pst_list from the staging area to
+   OBJFILE's obstack and frees the staging area.  */
+
+void
+end_oso_pst_list (struct oso_pst_list *list, struct objfile *objfile)
+{
+  struct partial_symtab **old_list;
+  add_oso_pst_to_list (list, NULL, objfile);
+  old_list = list->pst_list;
+  list->pst_list = obstack_alloc (&objfile->objfile_obstack,
+				  oso_pst_num_used * sizeof (struct partial_symtab *));
+  memcpy (list->pst_list, old_list, oso_pst_num_used * sizeof (struct partial_symtab *));
+  oso_pst_num_used = 0;
+  oso_pst_num_allocated = 0;
+  xfree (old_list);
+}
+
+/* END APPLE LOCAL */
+
 /* Setup partial_symtab's describing each source file for which
    debugging information is available. */
 
@@ -1367,6 +1544,36 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
   /* Index within current psymtab dependency list */
   struct partial_symtab **dependency_list;
   int dependencies_used, dependencies_allocated;
+
+  /* APPLE LOCAL: psymtab for the "Symbol separation" file.  A file named
+     YYY.h.gch, then we assume that is the symbol separated .o.  We will 
+     stuff that in the dependency list of ALL the N_SO level psymtabs that
+     we build.  */
+  struct partial_symtab_list {
+    struct partial_symtab_list *next;
+    struct partial_symtab *pst;
+  };
+
+  struct partial_symtab_list *symbol_sep_pst = NULL;
+  
+  /* Pointer to the oso_fun_list entry in the list we are building
+     up for this pst. */
+  struct oso_fun_list *cur_fun_statics = NULL;
+  char *cur_fun_name = NULL;
+  
+  /* If more than one PST gets it's symbols from the same N_OSO .o
+     file, we need to scan it for header dependencies before doing
+     psymtab_to_symtab.  LAST_OSO_PST is used to make sure we only
+     build up the list of pst's sharing the .o if there are more 
+     than one.  CUR_OSO_LIST is the list we are building up now.
+     
+     We assume that all the N_SO sections that share an N_OSO occur
+     sequentially in the final linked image.  */
+
+  struct partial_symtab *last_oso_pst = NULL;
+  struct oso_pst_list *cur_oso_list = NULL;
+
+  /* END APPLE LOCAL */
 
   text_addr = DBX_TEXT_ADDR (objfile);
   text_size = DBX_TEXT_SIZE (objfile);
@@ -1444,12 +1651,14 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
     {
       /* APPLE LOCAL: See comment below where this is used.  */
       char leading_char = bfd_get_symbol_leading_char (objfile->obfd);
-
+      /* APPLE LOCAL: We go to great lengths to remove the N_SECT flag
+	 from the n_type, but we need to know it here...  */
+      int sect_p; 
       /* Get the symbol for this run and pull out some info */
       QUIT;			/* allow this to be interruptable */
       namestring = NULL;
 
-      NEXT_SYMBOL (nlist, abfd);
+      NEXT_SYMBOL (nlist, sect_p, abfd);
 
       if (nlist.n_type == N_SLINE)
 	{
@@ -1502,6 +1711,14 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 
 	  case N_ABS | N_EXT:
 	  record_it:
+	    /* APPLE LOCAL: The new ld outputs symbols for all the stubs in the SYMBOL_STUBS
+	       sections for its convenience.  These are not the symbols we use to do the
+	       mapping from PC to stub target.  So we need to suppress reading these in.  */
+#ifdef NM_NEXTSTEP
+	    if (sect_p && !macosx_record_symbols_from_sect_p (objfile->obfd, 
+							      nlist.n_type, nlist.n_other))
+	      continue;
+#endif
 	  namestring = set_namestring (objfile, nlist, prefix);
 
 	  bss_ext_symbol:
@@ -1513,7 +1730,7 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 	  if (leading_char == namestring[0])
 	    namestring++;
 	  record_minimal_symbol (namestring, nlist.n_value,
-				 nlist.n_type, objfile);	/* Always */
+				   nlist.n_type, objfile);	/* Always */
 	  continue;
 	}
 
@@ -1733,9 +1950,78 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 				   first_so_symnum * symbol_size,
 				   objfile->global_psymbols.next,
 				   objfile->static_psymbols.next, prefix);
+
+	    /* APPLE LOCAL: If there is a symbol separation file, put it in the 
+	       dependency list for this N_SO psymtab...  */
+	    {
+	      struct partial_symtab_list *listptr;
+	      
+	      for (listptr = symbol_sep_pst; listptr != NULL; listptr = listptr->next)
+		dependency_list[dependencies_used++] = listptr->pst;
+	    }
 	    continue;
 	  }
 
+	  /* APPLE LOCAL: Handler for the N_OSO stab.  This gives the path to the
+	     .o file in case we are storing debug info there.  */
+	  case N_OSO:
+	  {
+	    namestring = set_namestring (objfile, nlist, NULL);
+
+	    if (pst == NULL)
+	      {
+		/* FIXME: we should not get here without a PST to work on.
+		   Attempt to recover.  */
+		complaint (&symfile_complaints,
+			   "N_OSO %s not in entries for any file, at symtab pos %d",
+			   namestring, symnum);
+		continue;
+	      }
+	    LDSYM_OSO_NAME (pst) = obsavestring (namestring, strlen (namestring),
+				    &objfile->objfile_obstack);
+	    LDSYM_OSO_MTIME (pst) = (long) nlist.n_value;
+
+	    /* Next, check to see if this is the symbol sep file... */
+	    if (strstr (namestring, ".gch.o") != NULL)
+	      {
+		struct partial_symtab_list *listptr = xmalloc (sizeof (struct partial_symtab_list));
+		make_cleanup (xfree, listptr);
+		listptr->next = symbol_sep_pst;
+		symbol_sep_pst = listptr;
+		symbol_sep_pst->pst = pst;
+	      }
+
+	    /* Set the sym_offset to 0 for OSO files.  We either read
+	       them from a single .o, in which case the start IS 0, or
+	       we will set the sym_offset to the correct value in
+	       oso_scan_partial_symtab.  
+	       Note, we can't set it to 0 when we initialize the PST
+	       because start_psymtab will set it to the position in
+	       the linked image, which is wrong.  */
+	    LDSYMOFF (pst) = 0;
+	    /* Now handle the case where many SO's may share an OSO.  */
+	    if (last_oso_pst != NULL)
+	      {
+		if (strcmp (LDSYM_OSO_NAME (last_oso_pst), LDSYM_OSO_NAME (pst)) == 0)
+		  {
+		    if (cur_oso_list == NULL)
+		      {
+			cur_oso_list = init_oso_pst_list (LDSYM_OSO_NAME (pst), objfile);
+			add_oso_pst_to_list (cur_oso_list, last_oso_pst, objfile);
+		      }
+		    add_oso_pst_to_list (cur_oso_list, pst, objfile);
+		  }
+		else
+		  {
+		    if (cur_oso_list != NULL)
+		      end_oso_pst_list (cur_oso_list, objfile);
+		      cur_oso_list = NULL;
+		  }
+	      }
+	      last_oso_pst = pst;
+	    continue;
+	  }
+	  /* End APPLE LOCAL */
 	  case N_BINCL:
 	  {
 	    enum language tmp_language;
@@ -1862,28 +2148,35 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 
 	  namestring = set_namestring (objfile, nlist, NULL);
 
-	  /* See if this is an end of function stab.  */
-	  if (pst && nlist.n_type == N_FUN && *namestring == '\000')
-	  {
-	    CORE_ADDR valu;
+          /* See if this is an end of function stab.  */
+          if (pst && nlist.n_type == N_FUN && *namestring == '\000')
+	    {
+	      CORE_ADDR valu;
+	      
+	      /* It's value is the size (in bytes) of the function for
+		 function relative stabs, or the address of the function's
+		 end for old style stabs.  */
+	      if (processing_gcc_compilation || !end_fun_absolute_p)
+		valu = nlist.n_value + last_function_start;
+	      else
+		valu = nlist.n_value;
+	      
+	      if (valu > pst->texthigh)
+		pst->texthigh = valu;
 
-	    /* It's value is the size (in bytes) of the function for
-	       function relative stabs, or the address of the function's
-	       end for old style stabs.  */
-	    if (processing_gcc_compilation || !end_fun_absolute_p)
-	      valu = nlist.n_value + last_function_start;
-	    else
-	      valu = nlist.n_value;
-
-	    if (valu > pst->texthigh)
-	      pst->texthigh = valu;
-	    break;
-	  }
-
+	      /* APPLE LOCAL: Take care of the cur_fun_name.  */
+	      if (cur_fun_name != NULL)
+		{
+		  xfree (cur_fun_name);
+		  cur_fun_name = NULL;
+		}
+	      cur_fun_statics = NULL;
+	      break;
+	    }
+	  
 	  p = (char *) find_name_end (namestring);
 	  if (!p)
 	  continue;			/* Not a debugging symbol.   */
-
 
 
 	  /* Main processing section for debugging symbols which
@@ -1895,6 +2188,64 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 
 	  switch (p[1])
 	  {
+	    /* APPLE LOCAL: Use this to unify handling of 'f' and 'F'.  */
+	    int is_global_fun;
+          case 'V':
+	    /* APPLE LOCAL: If we are reading stabs from a .o file, then we need
+	       to record the local statics in a special list so we can track
+	       the ones we see in the .o file...  */
+	    if (LDSYM_OSO_NAME (pst))
+	      {
+		struct oso_fun_static *new_static;
+		int sym_name_len;
+		if (cur_fun_statics == NULL)
+		  {
+		    struct oso_fun_list *pst_statics;
+		    struct oso_fun_list *tmp_ptr;
+		    cur_fun_statics = (struct oso_fun_list *) 
+		      xmalloc (sizeof (struct oso_fun_list));
+		    pst_statics = LDSYM_OSO_STATICS (pst);
+		    if (pst_statics == NULL)
+		      LDSYM_OSO_STATICS (pst) = cur_fun_statics;
+		    else
+		      {
+			for (tmp_ptr = pst_statics; tmp_ptr->next != NULL; 
+			     tmp_ptr = tmp_ptr->next) { ; }
+			tmp_ptr->next = cur_fun_statics;    
+		      }
+		    cur_fun_statics->next = NULL;
+		    if (cur_fun_name != NULL)
+		      cur_fun_statics->name = xstrdup (cur_fun_name);
+		    else
+		      {
+			warning ("Building statics list with no function name");
+			cur_fun_statics->name = NULL;
+		      }
+		    cur_fun_statics->statics = NULL;
+		    cur_fun_statics->tail = NULL;
+		  }
+
+		new_static = (struct oso_fun_static *) xmalloc (sizeof (struct oso_fun_static));
+		new_static->address = nlist.n_value 
+		  + ANOFFSET (objfile->section_offsets, data_sect_index);
+		sym_name_len = p - namestring;
+		new_static->name = xmalloc (sym_name_len + 1);
+		strncpy (new_static->name, namestring, sym_name_len);
+		new_static->name[sym_name_len] = '\0';
+		new_static->next = NULL;
+
+		if (cur_fun_statics->statics == NULL)
+		  {
+		    cur_fun_statics->statics = new_static;
+		    cur_fun_statics->tail = new_static;
+		  }
+		else
+		  {
+		    cur_fun_statics->tail->next = new_static;
+		    cur_fun_statics->tail = new_static;
+		  }
+	      }
+	    continue;
 	  case 'S':
 	    nlist.n_value += ANOFFSET (objfile->section_offsets, data_sect_index);
 #ifdef STATIC_TRANSFORM_NAME
@@ -2033,72 +2384,15 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 				 0, psymtab_language, objfile);
 	    continue;
 
-	  case 'f':
-	    if (! pst)
-	      {
-		int name_len = p - namestring;
-		char *name = xmalloc (name_len + 1);
-		memcpy (name, namestring, name_len);
-		name[name_len] = '\0';
-		function_outside_compilation_unit_complaint (name);
-		xfree (name);
-	      }
-	    nlist.n_value += ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
-	    /* Kludges for ELF/STABS with Sun ACC */
-	    last_function_name = namestring;
-#ifdef SOFUN_ADDRESS_MAYBE_MISSING
-	    /* Do not fix textlow==0 for .o or NLM files, as 0 is a legit
-	       value for the bottom of the text seg in those cases. */
-	    if (nlist.n_value == ANOFFSET (objfile->section_offsets, 
-					   SECT_OFF_TEXT (objfile)))
-	      {
-		CORE_ADDR minsym_valu = 
-		  find_stab_function_addr (namestring, pst->filename, objfile);
-		/* find_stab_function_addr will return 0 if the minimal
-		   symbol wasn't found.  (Unfortunately, this might also
-		   be a valid address.)  Anyway, if it *does* return 0,
-		   it is likely that the value was set correctly to begin
-		   with... */
-		if (minsym_valu != 0)
-		  nlist.n_value = minsym_valu;
-	      }
-	    if (pst && textlow_not_set)
-	      {
-		pst->textlow = nlist.n_value;
-		textlow_not_set = 0;
-	      }
-#endif
-	    /* End kludge.  */
-
-	    /* Keep track of the start of the last function so we
-	       can handle end of function symbols.  */
-	    last_function_start = nlist.n_value;
-
-	    /* In reordered executables this function may lie outside
-	       the bounds created by N_SO symbols.  If that's the case
-	       use the address of this function as the low bound for
-	       the partial symbol table.  */
-	    if (pst
-		&& (textlow_not_set
-		    || (nlist.n_value < pst->textlow
-			&& (nlist.n_value
-			    != ANOFFSET (objfile->section_offsets,
-					 SECT_OFF_TEXT (objfile))))))
-	      {
-		pst->textlow = nlist.n_value;
-		textlow_not_set = 0;
-	      }
-	    add_psymbol_to_list (namestring, p - namestring,
-				 VAR_DOMAIN, LOC_BLOCK,
-				 &objfile->static_psymbols,
-				 0, nlist.n_value,
-				 psymtab_language, objfile);
-	    continue;
-
 	    /* Global functions were ignored here, but now they
 	       are put into the global psymtab like one would expect.
 	       They're also in the minimal symbol table.  */
 	  case 'F':
+	    is_global_fun = 1;
+	    goto global_or_local;
+	  case 'f':
+	    is_global_fun = 0;
+	  global_or_local:
 	    if (! pst)
 	      {
 		int name_len = p - namestring;
@@ -2110,6 +2404,10 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 	      }
 	    nlist.n_value += ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
 	    /* Kludges for ELF/STABS with Sun ACC */
+	    /* FIXME: namestring is not necessarily a pointer into the string table.
+	       If you pass a non-null "prefix" to set_namestring, then it reuses a static
+	       buffer.  So if there are any stabs we read the strings of after the last
+	       function, then we will be left pointing at the wrong string.  */
 	    last_function_name = namestring;
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
 	    /* Do not fix textlow==0 for .o or NLM files, as 0 is a legit
@@ -2153,9 +2451,22 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 		pst->textlow = nlist.n_value;
 		textlow_not_set = 0;
 	      }
+
+	    /* APPLE LOCAL: record the current function name so we can tag
+	       the type 'V' STSYM's with it.  But only when we are using 
+	       stabs from a .o file.  */
+	    if (LDSYM_OSO_NAME (pst) != NULL)
+	      {   
+		if (cur_fun_name != NULL)
+		  xfree (cur_fun_name);
+		cur_fun_name = xmalloc (p - namestring + 1);
+		strncpy (cur_fun_name, namestring, p - namestring);
+		cur_fun_name[p - namestring] = '\0';
+	      }
+
 	    add_psymbol_to_list (namestring, p - namestring,
 				 VAR_DOMAIN, LOC_BLOCK,
-				 &objfile->global_psymbols,
+				 is_global_fun ? &objfile->global_psymbols : &objfile->static_psymbols,
 				 0, nlist.n_value,
 				 psymtab_language, objfile);
 	    continue;
@@ -2163,7 +2474,6 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 	    /* Two things show up here (hopefully); static symbols of
 	       local scope (static used inside braces) or extensions
 	       of structure symbols.  We can ignore both.  */
-	  case 'V':
 	  case '(':
 	  case '0':
 	  case '1':
@@ -2304,13 +2614,32 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 	  case N_ALIAS:		/* SunPro F77: alias name, ignore for now.  */
 
 	  case N_OBJ:			/* useless types from Solaris */
+	    continue;
 	  case N_OPT:
+	    {
+	      /* APPLE LOCAL: This stores the gcc2_compiled flag, and if the SO
+		 stabs are not correct, this needs to be set when we read in the
+		 debug info here.  */
+	      const char *tempstring;
+	      namestring = set_namestring (objfile, nlist, NULL);
+	      tempstring = namestring;
+
+	      if (DEPRECATED_STREQ (namestring, GCC_COMPILED_FLAG_SYMBOL))
+		processing_gcc_compilation = 1;
+	      else if (DEPRECATED_STREQ (namestring, GCC2_COMPILED_FLAG_SYMBOL))
+		processing_gcc_compilation = 2;
+	      if (tempstring[0] == bfd_get_symbol_leading_char (objfile->obfd))
+		++tempstring;
+	      if (DEPRECATED_STREQN (tempstring, "__gnu_compiled", 14))
+		processing_gcc_compilation = 2;
+	    }
+	    continue; 
 	  case N_PATCH:
 	  case N_BNSYM:        /* MacOS X, no use to the debugger. */
 	  case N_ENSYM:       
 	  /* These symbols aren't interesting; don't worry about them */
 
-	  continue;
+	    continue;
 
 	  default:
 	  /* If we haven't found it yet, ignore it.  It's probably some
@@ -2323,6 +2652,14 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
  	{
  	  namestring = next_symbol_text (objfile);
  	}
+    }
+
+  /* APPLE LOCAL: If there's an OSO_PST_LIST in flight, finish
+     it off.  */
+  if (cur_oso_list != NULL)
+    {
+      end_oso_pst_list (cur_oso_list, objfile);
+      cur_oso_list = NULL;
     }
 
   /* If there's stuff to be cleaned up, clean it up.  */
@@ -2374,6 +2711,13 @@ start_psymtab (struct objfile *objfile, char *filename, CORE_ADDR textlow,
   result->read_symtab_private = (char *)
     obstack_alloc (&objfile->objfile_obstack, sizeof (struct symloc));
   LDSYMOFF (result) = ldsymoff;
+
+  /* APPLE LOCAL: Null out the .o symbol file name.  */
+  LDSYM_OSO_NAME (result) = NULL;
+  LDSYM_OSO_STATICS (result) = NULL;
+  LDSYM_OSO_PST_LIST (result) = NULL;
+  /* END APPLE LOCAL */
+
   result->read_symtab = dbx_psymtab_to_symtab;
   SYMBOL_SIZE (result) = symbol_size;
   SYMBOL_OFFSET (result) = symbol_table_offset;
@@ -2393,6 +2737,9 @@ start_psymtab (struct objfile *objfile, char *filename, CORE_ADDR textlow,
       /* Deduce the source language from the filename for this psymtab. */
       psymtab_language = deduce_language_from_filename (filename);
     }
+
+  /* APPLE LOCAL: Record the psymtab_language:  */
+  result->language = psymtab_language;
 
   return result;
 }
@@ -2512,6 +2859,7 @@ end_psymtab (struct partial_symtab *pst, char **include_list, int num_includes,
       struct partial_symtab *subpst =
       allocate_psymtab (include_list[i], objfile);
 
+
       /* Copy the sesction_offsets array from the main psymtab. */
       subpst->section_offsets = pst->section_offsets;
       subpst->read_symtab_private =
@@ -2521,6 +2869,13 @@ end_psymtab (struct partial_symtab *pst, char **include_list, int num_includes,
 	LDSYMLEN (subpst) =
 	subpst->textlow =
 	subpst->texthigh = 0;
+      /* APPLE LOCAL: These have to be set to NULL because we do 
+	 check them later.  */
+
+      LDSYM_OSO_NAME (subpst) = NULL;
+      LDSYM_OSO_PST_LIST (subpst) = NULL;
+      LDSYM_OSO_STATICS (subpst) = NULL;
+      /* END APPLE LOCAL  */
 
       /* We could save slight bits of space by only making one of these,
          shared by the entire set of include files.  FIXME-someday.  */
@@ -2550,11 +2905,15 @@ end_psymtab (struct partial_symtab *pst, char **include_list, int num_includes,
   /* APPLE LOCAL fix-and-continue */
   PSYMTAB_OBSOLETED (pst) = 50;
 
+  /* APPLE LOCAL: Don't throw away the PST if it has an OSO associated
+     with it.  */
+
   if (num_includes == 0
       && number_dependencies == 0
       && pst->n_global_syms == 0
       && pst->n_static_syms == 0
-      && has_line_numbers == 0)
+      && has_line_numbers == 0
+      && LDSYM_OSO_NAME (pst) == NULL)
     {
       /* Throw away this psymtab, it's empty.  We can't deallocate it, since
          it is on the obstack, but we can forget to chain it on the list.  */
@@ -2572,6 +2931,361 @@ end_psymtab (struct partial_symtab *pst, char **include_list, int num_includes,
   return pst;
 }
 
+/* Given OSO_NAME, returns the bfd for the .o file containing
+   that .o.  If the .o is fat, it returns the fork for the current
+   architecture.  If the name is of the form:
+
+   /Foo/Bar/libfoo.a(member.o)
+
+   Then we will iterate through the archive and find the bfd for
+   the .o in question.  In this case, if CONTAINING_ARCHIVE is not
+   null, we will also set that to the archive file, so you can close
+   it when you are done.  
+   When we find the bfd, we check its mtime against the OSO_MTIME and
+   warn if the times don't match.  */
+
+struct bfd *
+open_bfd_from_oso (char *oso_name, 
+		   long oso_mtime,
+		   bfd **containing_archive)
+{
+  struct bfd *oso_bfd, *retval;
+  char *paren_begin;
+  long mtime;
+
+  if (containing_archive != NULL)
+    *containing_archive = NULL;
+
+  /* Be careful here, the paren begin may be part of the
+     path or the file name.  So only process it as an
+     archive name if the name string ENDS with a close
+     paren.  
+     FIXME: I am not handling all possible cases here,
+     if you had a .o file called foo(bar.o, then I would
+     think the module is called bar.o.  But if you do that,
+     then you deserve to be spanked just a little bit.  */
+
+  paren_begin = strrchr (oso_name, '(');
+  if (paren_begin != NULL)
+    {
+      char *paren_end;
+      paren_end = strrchr (oso_name, ')');
+      if (!paren_end || paren_end[1] != '\0')
+	paren_begin = NULL;
+    }
+
+  if (paren_begin == NULL 
+      || paren_begin == oso_name
+      || paren_begin[-1] == '\\')
+    {
+      oso_bfd = bfd_openr (oso_name, gnutarget);
+      if (!oso_bfd)
+	error ("Could not find OSO file: \"%s\"", oso_name);
+
+      if (bfd_check_format (oso_bfd, bfd_archive))
+	{
+	  oso_bfd = open_bfd_matching_arch (oso_bfd);
+	  if (oso_bfd == NULL)
+	    error ("Could not open OSO file matching current "
+		   "architecture for \"%s\".",
+		   oso_name);
+	}
+      retval = oso_bfd;
+      mtime = bfd_get_mtime (retval);
+    }
+  else
+    {
+      char *archive_name, *member_name, *member_begin, *member_end;
+      int archive_len, member_len;
+      struct bfd *archive_bfd, *member_bfd;
+      struct stat member_statbuf;
+      int status;
+
+      archive_len = paren_begin - oso_name;
+      archive_name = alloca (archive_len + 1);
+      archive_name = strncpy (archive_name, oso_name, archive_len);
+      archive_name[archive_len] = '\0';
+      
+      archive_bfd = bfd_openr (archive_name, gnutarget);
+      if (archive_bfd == NULL)
+	{
+	  warning ("Could not open OSO archive file \"%s\"", archive_name);
+	  return NULL;
+	}
+      if (!bfd_check_format (archive_bfd, bfd_archive))
+	{
+	  warning ("OSO archive file \"%s\" not an archive.",archive_name);
+	  return NULL;
+	}
+      if (strcmp(archive_bfd->xvec->name, "mach-o-fat") == 0)
+	{
+	  /* GRRR...  Archives of type mach-o-fat are fat files, not 
+	     .a files.  So look for the .a file matching the current'
+	     architecture.  */
+	  archive_bfd = open_bfd_matching_arch (archive_bfd);
+	  if (archive_bfd == NULL)
+	    {
+	      warning ("Could not open fork matching current "
+		       "architecture for OSO archive \"%s\"",
+		       archive_name);
+	      return NULL;
+	    }
+	  if (!bfd_check_format (archive_bfd, bfd_archive))
+	    {
+	      warning ("Current architecture fork of OSO archive "
+		       "file \"%s\" not an archive", archive_name);
+	      return NULL;
+	    }
+	}
+
+      if (containing_archive != NULL)
+	*containing_archive = archive_bfd;
+
+      /* Now search the archive for the current .o file.  */
+      member_begin = paren_begin + 1;
+      member_end = strrchr (member_begin, ')');
+      if (member_end == NULL)
+	warning ("Mal-formed OSO archive string: \"%s\"", oso_name);
+
+      member_len = member_end - member_begin;
+      member_name = alloca (member_len + 1);
+      strncpy (member_name, member_begin, member_len);
+      member_name[member_len] = '\0';
+
+      member_bfd = bfd_openr_next_archived_file (archive_bfd, NULL);
+
+      if (member_bfd == NULL)
+	{
+	  warning ("Could not read archive members out of OSO archive \"%s\"",
+		   archive_name);
+	  return NULL;
+	}
+
+      while (member_bfd != NULL)
+	{
+	  bfd *prev_bfd;
+	  if (strcmp (member_bfd->filename, member_name) == 0)
+	    break;
+	  prev_bfd = member_bfd;
+          member_bfd = bfd_openr_next_archived_file (archive_bfd, prev_bfd);
+	  bfd_close (prev_bfd);
+	}
+      if (member_bfd == NULL)
+	warning ("Could not find specified archive member for OSO name \"%s\"",
+		 oso_name);
+      retval = member_bfd;
+      status = bfd_stat_arch_elt (member_bfd, &member_statbuf);
+      if (status == -1) 
+	mtime = 0;
+      else
+	mtime = member_statbuf.st_mtime;
+    }
+
+  if (mtime && oso_mtime && mtime != oso_mtime)
+    warning (".o file \"%s\" more recent than executable timestamp", oso_name);
+
+  return retval;
+}
+/* END APPLE LOCAL */
+
+/* APPLE LOCAL: Scan the .o containing PST to build up the "dependencies"
+   array for all the pst's contained in this .o file.  We also set the sym offset
+   while we are at it, so we can find the separate .o's again more efficiently.  */
+
+void
+oso_scan_partial_symtab (struct partial_symtab *pst)
+{
+  struct internal_nlist nlist;
+  struct oso_pst_list *list;
+  struct bfd *oso_bfd, *containing_archive;
+  struct cleanup *oso_data_cleanup;
+  int num_syms, sym_size, strtab_size, sym_offset;
+  char *strtab_data;
+  int sect_p;
+  unsigned char type;
+  const char *prefix;
+  int current_list_element = -1;
+  struct partial_symtab *current_pst;
+  struct objfile *objfile;
+  char leading_char;
+  /* Index within current psymtab dependency list */
+  struct partial_symtab **dependency_list;
+  int dependencies_used, dependencies_allocated;
+
+  dependencies_allocated = 30;
+  dependencies_used = 0;
+  dependency_list =
+    (struct partial_symtab **) alloca (dependencies_allocated *
+				       sizeof (struct partial_symtab *));
+
+  list = LDSYM_OSO_PST_LIST (pst);
+  if (list == NULL || list->readin)
+    return;
+
+  list->readin = 1;
+  
+  prefix = SYMBOL_PREFIX (pst);
+  objfile = pst->objfile;
+
+  oso_bfd = open_bfd_from_oso (LDSYM_OSO_NAME (pst), 
+	                       LDSYM_OSO_MTIME (pst),
+			       &containing_archive);
+  if (oso_bfd == NULL)
+    error ("Couldn't open bfd for .o file: %s\n", LDSYM_OSO_NAME (pst));
+  if (!bfd_check_format (oso_bfd, bfd_object))
+    warning ("Not in bfd_object form");
+  
+  leading_char = bfd_get_symbol_leading_char (oso_bfd);
+
+  /* Read the nlist data into stabs_data, and read the string_table into strtab_ptr.  */
+  oso_data_cleanup = stabsect_read_strtab_from_oso (oso_bfd, &num_syms, &sym_size, &strtab_size, 
+				 &stabs_data, &strtab_data);
+  
+  sym_offset = 0;
+  symbuf_end = symbuf_idx = 0;
+  symbuf_read = 0;
+  symbuf_left = sym_offset + num_syms * sym_size;
+
+  stabs_seek (sym_offset);
+
+  init_bincl_list (20, objfile);
+  make_cleanup_free_bincl_list (objfile);
+
+  for (symnum = 0;
+       symnum < num_syms;
+       symnum++)
+    {
+      
+      NEXT_SYMBOL (nlist, sect_p, oso_bfd);
+      
+      type = nlist.n_type;
+      switch (type)
+	{
+	case N_SO:
+	  {
+	    char *p;
+	    static int prev_so_symnum = -10;
+	    static int first_so_symnum;
+	    char *namestring;
+	    namestring = set_namestring_1 (strtab_size, strtab_data,
+					   leading_char, nlist, prefix);
+
+	    if (prev_so_symnum != symnum - 1)
+	      first_so_symnum = symnum;
+
+	    prev_so_symnum = symnum;
+
+	    if (*namestring == '\0')
+	      {
+		/* This is the end of one symtab.  Consolidate the dependencies.  */
+		LDSYMLEN (current_pst) = symnum * symbol_size - LDSYMOFF (current_pst);
+		
+		current_pst->number_of_dependencies = dependencies_used;
+		if (dependencies_used)
+		  {
+		    current_pst->dependencies = (struct partial_symtab **)
+		      obstack_alloc (&objfile->objfile_obstack,
+				     dependencies_used * sizeof (struct partial_symtab *));
+		    memcpy (current_pst->dependencies, dependency_list,
+			    dependencies_used * sizeof (struct partial_symtab *));
+		  }
+		else
+		  current_pst->dependencies = 0;
+		
+		dependencies_used = 0;
+		current_pst = NULL;
+		continue;
+	      }
+	    
+	    p = strrchr (namestring, '/');
+	    if (p && *(p + 1) == '\000')
+	      continue;		/* Simply ignore directory name SOs */
+
+	    /* Look up the partial_symtab corresponding to this SO.  
+	       We require that the SO's go into the final linked product in the 
+	       same order, with no omissions, as in the .o file.  This makes the
+	       scan much quicker.  We can relax this if we have to, but it would
+	       be better if the linker just always arranges for this to be true.  */
+	    current_list_element++;
+	    current_pst = list->pst_list[current_list_element]; 
+	    if (strcmp(current_pst->filename, namestring) != 0)
+	      error ("SO in .o file \"%s\" out of order\n", LDSYM_OSO_NAME (pst));
+
+	    LDSYMOFF (current_pst) = first_so_symnum * symbol_size;
+
+	    break;
+	  }
+	case N_BINCL:
+	  {
+	    /* Add the bincl to the bincl_list we are compiling.  Note, 
+	       in read_dbx_symtab we also make partial_symtab's for each 
+	       include we discover.  But for BINCL/EINCL headers, this 
+	       serves no purpose that I can detect, so I neglect it here.  */
+	    char *namestring;
+	    namestring = set_namestring_1 (strtab_size, strtab_data,
+                                     leading_char, nlist, prefix);
+	    add_bincl_to_list (current_pst, namestring, nlist.n_value);
+	    break;
+	  }
+	case N_EXCL:
+	  {
+	    struct partial_symtab *needed_pst;
+	    char *namestring;
+	    namestring = set_namestring_1 (strtab_size, strtab_data,
+					   leading_char, nlist, prefix);
+
+
+	    needed_pst = find_corresponding_bincl_psymtab (namestring, nlist.n_value);
+	    if (needed_pst == current_pst)
+	      continue;
+
+	    /* FIXME: THis code is stolen from read_dbx_symtab.  Should we 
+	       make this a function?  */
+	    if (needed_pst)
+	      {
+		int i;
+		int found = 0;
+
+		for (i = 0; i < dependencies_used; i++)
+		  if (dependency_list[i] == needed_pst)
+		    {
+		      found = 1;
+		      break;
+		    }
+
+		/* If it's already in the list, skip the rest.  */
+		if (found)
+		  continue;
+
+		dependency_list[dependencies_used++] = needed_pst;
+		if (dependencies_used >= dependencies_allocated)
+		  {
+		    struct partial_symtab **orig = dependency_list;
+		    dependency_list =
+		      (struct partial_symtab **)
+		      alloca ((dependencies_allocated *= 2)
+			      * sizeof (struct partial_symtab *));
+		    memcpy (dependency_list, orig,
+			    (dependencies_used
+			     * sizeof (struct partial_symtab *)));
+		  }
+	      }
+	    
+	    break;
+	  }
+	default:
+	  continue;
+	}
+    }
+
+  do_cleanups (oso_data_cleanup);
+
+  if (containing_archive != NULL)
+    bfd_close (containing_archive);
+  bfd_close(oso_bfd);
+ 
+}
+
 static void
 dbx_psymtab_to_symtab_1 (struct partial_symtab *pst)
 {
@@ -2587,6 +3301,14 @@ dbx_psymtab_to_symtab_1 (struct partial_symtab *pst)
 			  pst->filename);
       return;
     }
+
+  /* APPLE LOCAL: If we are reading the full symbols for this partial_symtab
+     from a .o file, and the .o file contains more than one N_SO section, then 
+     make sure we've built the EXCL->BINCL/EINCL dependencies for it.  */
+  if (SYMLOC (pst) != NULL 
+      && LDSYM_OSO_PST_LIST (pst) != NULL 
+      && !((LDSYM_OSO_PST_LIST (pst))->readin))
+     oso_scan_partial_symtab (pst);
 
   /* Read in all partial symtabs on which this one is dependent */
   for (i = 0; i < pst->number_of_dependencies; i++)
@@ -2612,17 +3334,170 @@ dbx_psymtab_to_symtab_1 (struct partial_symtab *pst)
       stabsread_init ();
       buildsym_init ();
       old_chain = make_cleanup (really_free_pendings, 0);
-      file_string_table_offset = FILE_STRING_OFFSET (pst);
-      symbol_size = SYMBOL_SIZE (pst);
-
       /* Read in this file's symbols */
-      bfd_seek (pst->objfile->obfd, SYMBOL_OFFSET (pst), SEEK_SET);
-      read_ofile_symtab (pst);
 
+      /* APPLE LOCAL: Add support for reading debug info out of
+         the .o files.  */
+      if (!LDSYM_OSO_NAME (pst))
+	{
+	  file_string_table_offset = FILE_STRING_OFFSET (pst);
+	  symbol_size = SYMBOL_SIZE (pst);
+
+	  bfd_seek (pst->objfile->obfd, SYMBOL_OFFSET (pst), SEEK_SET);
+	  read_ofile_symtab (pst);
+	}
+      else
+	{
+	  /* If we have an OSO name, then we are looking for the FULL 
+	     symbols in the .o file.  So we have to open that one,
+	     and read it in.  */
+	  struct bfd *oso_bfd, *containing_archive;
+
+	  oso_bfd = open_bfd_from_oso (LDSYM_OSO_NAME (pst), 
+				       LDSYM_OSO_MTIME (pst),
+				       &containing_archive);
+	  if (oso_bfd == NULL)
+	    error ("Couldn't open bfd for .o file: %s\n", LDSYM_OSO_NAME (pst));
+	  if (!bfd_check_format (oso_bfd, bfd_object))
+	    warning ("Not in bfd_object form");
+
+	  read_ofile_symtab_from_oso (pst, oso_bfd);
+	  /* FIXME: How do we close all the bfd's we opened while searching
+	     the archive?  There are a bunch of places in bfd/archives.c where
+	     they say closing the member bfd's is not safe without closing
+	     the parent.  */
+	  if (containing_archive != NULL)
+	    bfd_close (containing_archive);
+	  bfd_close(oso_bfd);
+	}
+      /* END APPLE LOCAL */
       do_cleanups (old_chain);
     }
 
   pst->readin = 1;
+}
+
+/* APPLE LOCAL: Read in the debug information from a .o file.  This is a bit
+   of a Frankenstein function because I want to read in the stabs, but I don't
+   want to have to build a whole objfile for the .o.  That seems too heavy-weight.
+
+   This fills the stabs_data global with the nlist data, and returns a pointer to
+   the string table.  It returns the number of stabs in SYMCOUNT, the size of the
+   the nlist entries in SYMSIZE, and the size of the string table in STRTAB_SIZE
+
+   FIXME: This should probably find its way to machoread.c.
+*/
+struct oso_data_cleanup
+{
+#ifdef HAVE_MMAP
+  bfd_window stab_window;
+  bfd_window strtab_window;
+#endif
+  bfd_byte **stab_data_handle;
+  char **strtab_data_handle;
+};
+
+static void
+cleanup_oso_data (void *data)
+{
+  struct oso_data_cleanup *args = (struct oso_data_cleanup *) data;
+#ifdef HAVE_MMAP
+  bfd_free_window (&(args->stab_window));
+  bfd_free_window (&(args->strtab_window));
+#else
+  xfree (*args->stab_data_handle);
+  xfree (*args->strtab_window);
+#endif
+  *args->stab_data_handle = NULL;
+  *args->strtab_data_handle = NULL;
+  xfree (args);
+}
+
+/* APPLE LOCAL: This is how we open the stabs data for a .o file for Mach-o.  FIXME: Should
+   move this into machoread.c, and figure out how to make this more abstract.  Problem is I 
+   need to use the stabs_data static to point to the data, and that isn't (and should not be)
+   exported...  */
+
+static struct cleanup *
+stabsect_read_strtab_from_oso (struct bfd *oso_bfd, int *symcount, int *symsize, int *strtab_size,
+			       bfd_byte **stab_data_handle, char **strtab_data_handle)
+{
+  asection *stabsect = bfd_get_section_by_name (oso_bfd, "LC_SYMTAB.stabs");
+  asection *stabstrsect = bfd_get_section_by_name (oso_bfd,  "LC_SYMTAB.stabstr");
+  int val;
+  char *name = bfd_get_filename (oso_bfd);
+  int stabs_size;
+  struct oso_data_cleanup *oso_cleanup 
+    = (struct oso_data_cleanup *) malloc (sizeof (struct oso_data_cleanup));
+
+  if (!stabsect || ! stabstrsect)
+    error ("Couldn't find stabs in .o file %s\n", oso_bfd->filename);
+
+  oso_cleanup->stab_data_handle = stab_data_handle;
+  oso_cleanup->strtab_data_handle = strtab_data_handle;
+
+    *symsize =
+    (bfd_mach_o_version (oso_bfd) > 1) ? 16 : 12;
+  stabs_size = bfd_section_size (oso_bfd, stabsect); 
+  *symcount = stabs_size / (*symsize);
+    *strtab_size = bfd_section_size (oso_bfd, stabstrsect);
+
+#if HAVE_MMAP
+    /* currently breaks mapped symbol files (string table doesn't end up in objfile) */
+    
+
+    bfd_init_window (&(oso_cleanup->stab_window));
+    
+    /* APPLE LOCAL: Open the string table read only if possible.  Should
+       be more efficient.  */
+    
+    val = bfd_get_section_contents_in_window_with_mode
+      (oso_bfd, stabstrsect, &(oso_cleanup->stab_window), 0, *strtab_size, 0);
+    
+    if (!val)
+      perror_with_name (name);
+    
+    *strtab_data_handle = oso_cleanup->stab_window.data;
+    
+    bfd_init_window (&(oso_cleanup->strtab_window));
+    
+    val = bfd_get_section_contents_in_window_with_mode
+      (oso_bfd, stabsect, &(oso_cleanup->strtab_window), 0, stabs_size, 0);
+    
+    if (!val)
+      perror_with_name (name);
+    
+    *stab_data_handle = oso_cleanup->strtab_window.data;
+#else
+    if (strtab_size > bfd_get_size (oso_bfd))
+      error
+	("error parsing symbol file: invalid string table size (%d bytes)",
+	 strtab_size);
+    *strtab_data_handle =
+      (char *) malloc (strtab_size + 1);
+    
+    /* Now read in the string table in one big gulp.  */
+    
+    val = bfd_get_section_contents
+      (oso_bfd, stabstrsect, *strtab_data_handle, 0,
+       strtab_size);
+    
+    if (!val)
+      perror_with_name (name);
+    
+    *stabs_data_handle =
+      (char *) malloc (stabs_size + 1);
+    
+    /* Now read in the string table in one big gulp.  */
+    
+    val = bfd_get_section_contents
+      (oso_bfd, stabsect, *stabs_data_handle, 0,
+       stabs_size);
+    
+    if (!val)
+      perror_with_name (name);
+#endif
+    return make_cleanup (cleanup_oso_data, oso_cleanup);
 }
 
 /* Read in all of the symbols for a given psymtab for real.
@@ -2690,6 +3565,7 @@ read_ofile_symtab (struct partial_symtab *pst)
 {
   char *namestring = NULL;
   struct internal_nlist nlist;
+  int sect_p; /* APPLE LOCAL - need this for N_SECT  */
   unsigned char type;
   unsigned max_symnum;
   bfd *abfd;
@@ -2734,7 +3610,7 @@ read_ofile_symtab (struct partial_symtab *pst)
   if (!processing_acc_compilation && sym_offset >= (int) symbol_size)
     {
       stabs_seek (sym_offset - symbol_size);
-      NEXT_SYMBOL (nlist, abfd);
+      NEXT_SYMBOL (nlist, sect_p, abfd);
       OBJSTAT (objfile, n_stabs++);
 
       namestring = set_namestring (objfile, nlist, prefix);
@@ -2778,7 +3654,7 @@ read_ofile_symtab (struct partial_symtab *pst)
       processing_gcc_compilation = 0;
     }
 
-  PEEK_SYMBOL (nlist, abfd);
+  PEEK_SYMBOL (nlist, sect_p, abfd);
   if (nlist.n_type != N_SO)
     error ("First symbol in segment of executable not a source symbol");
 
@@ -2790,7 +3666,7 @@ read_ofile_symtab (struct partial_symtab *pst)
     {
       QUIT;			/* Allow this to be interruptable */
 
-      NEXT_SYMBOL (nlist, abfd);
+      NEXT_SYMBOL (nlist, sect_p, abfd);
       OBJSTAT (objfile, n_stabs++);
 
       type = nlist.n_type;
@@ -2859,6 +3735,472 @@ read_ofile_symtab (struct partial_symtab *pst)
   pst->symtab = end_symtab (text_offset + text_size, objfile, SECT_OFF_TEXT (objfile));
 
   end_stabs ();
+}
+
+/* APPLE LOCAL: The following section is to support reading debug info from the .o file */
+
+/* This routine reads the function/static name from NAMESTRING, then looks it up in the
+   partial_symtab PST.  It returns the partial_symbol, or NULL if it could not be found.
+   So far this only supports N_FUN, N_STSYM and N_LCSYM stabs.  If you want to add another
+   type, you just need to figure out from the type specifier whether the lookup should
+   be global or static.  */
+
+static struct partial_symbol *
+lookup_psymbol_from_namestring (struct partial_symtab *pst, 
+				char *namestring,
+				enum domain_enum_tag domain)
+{
+  struct partial_symbol *psym;
+  char *name;
+  int name_len;
+  char *demangled;
+  int free_demangled;
+  int global;
+
+  name = find_name_end (namestring);
+  switch (name[1])
+    {
+    case 'F':
+      global = 1;
+      break;
+    case 'S':
+    case 'f':
+    case 'V':
+      global = 0;
+      break;
+    default:
+      warning ("Unknown type passed to lookup_psymbol_from_namestring");
+      return NULL;
+      break;
+    }
+  name_len = name - namestring;
+  name = alloca (name_len + 1);
+  strncpy (name, namestring, name_len);
+  name[name_len] = '\0';
+  
+  demangled = NULL;
+  
+  if (pst->language == language_cplus
+      || pst->language == language_objcplus)
+    {
+      demangled =
+	cplus_demangle (name, DMGL_PARAMS | DMGL_ANSI);
+	    }
+  
+  if (demangled == NULL)
+    {
+      demangled = name;
+      free_demangled = 0;
+    }
+  else 
+    free_demangled = 1;
+  
+  psym = lookup_partial_symbol (pst, demangled, name, global, domain);
+
+  if (!psym)
+    complaint (&symfile_complaints, "Couldn't find psymbol from namestring for: demangled: %s mangled: %s.\n",
+	     demangled, name);
+
+  if (free_demangled)
+    xfree (demangled);
+ 
+  return psym;
+}
+
+/* Pop the function list entry off the top of the function
+   queue LIST_PTR.  Frees the element, and returns the 
+   element that is now the top element.  */
+
+static struct oso_fun_list *
+oso_statics_pop (struct oso_fun_list *list_ptr)
+{
+  struct oso_fun_static *static_ptr;
+  struct oso_fun_list *ret_ptr;
+  static_ptr = list_ptr->statics;
+  while (static_ptr != NULL)
+    {
+      struct oso_fun_static *tmp_ptr;
+      tmp_ptr = static_ptr->next;
+      xfree (static_ptr->name);
+      xfree (static_ptr);
+      static_ptr = tmp_ptr;
+    }
+  ret_ptr = list_ptr->next;
+  xfree (list_ptr->name);
+  xfree (list_ptr);
+  return ret_ptr;
+}
+
+/* APPLE LOCAL: Read in the full stabs data from the .o file corresponding to PST and OSO_BFD.
+   I doubt this will work for any of the stabs readers but mach-o.  I haven't made any attempt
+   to support stabs in ELF or whatever.  */
+
+
+static void
+read_ofile_symtab_from_oso (struct partial_symtab *pst, struct bfd *oso_bfd)
+{
+  char *namestring = NULL;
+  struct internal_nlist nlist;
+  int sect_p;
+  unsigned char type;
+  bfd *abfd;
+  struct objfile *objfile;
+  int sym_offset;		/* Offset to start of symbols to read */
+  int sym_size;			/* Size of symbols to read */
+  int num_syms;
+  int strtab_size;
+  char *strtab_data;
+  CORE_ADDR text_offset;	/* Start of text segment for symbols */
+  int text_size;		/* Size of text segment for symbols */
+  struct section_offsets *section_offsets;
+  const char *prefix;
+  char leading_char;
+  struct cleanup *oso_data_cleanup;
+  char *cur_fun_name = NULL;
+  
+  objfile = pst->objfile;
+
+  leading_char = bfd_get_symbol_leading_char (oso_bfd);
+
+  /* Read the nlist data into stabs_data, and read the string_table into strtab_ptr.  */
+  oso_data_cleanup = stabsect_read_strtab_from_oso (oso_bfd, &num_syms, &sym_size, &strtab_size, 
+				 &stabs_data, &strtab_data);
+  
+  text_offset = pst->textlow;
+  text_size = pst->texthigh - pst->textlow;
+  /* This cannot be simply objfile->section_offsets because of
+     elfstab_offset_sections() which initializes the psymtab section
+     offsets information in a special way, and that is different from
+     objfile->section_offsets. */ 
+  section_offsets = pst->section_offsets;
+  prefix = SYMBOL_PREFIX (pst);
+
+  current_objfile = objfile;
+  subfile_stack = NULL;
+
+  stringtab_global = (char *) stabs_data;
+  last_source_file = NULL;
+
+  abfd = oso_bfd;
+  processing_objfile = objfile;	/* Implicit param to next_text_symbol */
+
+  sym_offset = LDSYMOFF (pst);
+  symbuf_end = symbuf_idx = 0;
+  symbuf_read = 0;
+  symbuf_left = sym_offset + num_syms * sym_size;
+
+  stabs_seek (sym_offset);
+
+  symnum = symbuf_idx;
+
+  processing_gcc_compilation = 0;
+
+  PEEK_SYMBOL (nlist, sect_p, oso_bfd);
+  if (nlist.n_type != N_SO)
+    error ("First symbol in segment of executable not a source symbol");
+
+  for (;
+       symnum < num_syms;
+       symnum++)
+    {
+      CORE_ADDR offset;
+
+      QUIT;			/* Allow this to be interruptable */
+
+      NEXT_SYMBOL (nlist, sect_p, oso_bfd);
+      /* OBJSTAT (objfile, n_stabs++); */
+
+      type = nlist.n_type;
+      namestring = set_namestring_1 (strtab_size, strtab_data, 
+				     leading_char, nlist, prefix);
+
+      /* Here's where we scan ahead and look for the next N_FUN stab,
+	 then we match that with the partial_symbol we made from the
+	 debug info the linker copied into the linked image, and that
+	 will give us the offset we will apply till we hit the next 
+	 BNSYM.  */
+
+      /* FIXME: I am explicitly ONLY dealing with the stabs_data case here, and
+	 assuming you are reading directly from stabs_data.
+	 If you were going to use the symbuf, you would have to be more careful when 
+	 you cross symbuf windows.  */
+
+      if (type == N_BNSYM)
+	{
+	  struct internal_nlist tmp_nlist;
+	  struct partial_symbol *fun_psym;
+	  char *fun_namestring;
+	  int scan_ptr = symnum;
+	  int old_symbuf_idx = symbuf_idx;
+	  int found_it = 0;
+
+	  while (scan_ptr < num_syms)
+	    {
+	      NEXT_SYMBOL (tmp_nlist, sect_p, oso_bfd);
+	      if (tmp_nlist.n_type == N_FUN)
+		{
+		  found_it = 1;
+		  break;
+		}
+	      if (tmp_nlist.n_type == N_ENSYM)
+		{
+		  found_it = 0;
+		  break;
+		}
+	      scan_ptr++;
+	    }
+	  if (!found_it)
+	    {
+	      complaint (&symfile_complaints, "Scan to end from BNSYM without finding FUN");
+	    }
+	  else
+	    {
+
+	      /* Now look up the partial symbol for this FUN.  */
+	      fun_namestring = set_namestring_1 (strtab_size, strtab_data, 
+						 leading_char, tmp_nlist, prefix);
+	      
+	      if (fun_namestring[0] == '\0')
+		{
+		  complaint (&symfile_complaints, "Found NULL FUN stab scanning for function.");
+		  fun_psym = NULL;
+		}
+	      else
+		{
+		  fun_psym = lookup_psymbol_from_namestring (pst, fun_namestring,
+							     VAR_DOMAIN);
+		}
+	    }
+
+	  if (fun_psym == NULL)
+	    {
+	      /* Presumably, this function got dead-code stripped, so we should skip
+		 all the stabs in this BNSYM/ENSYM block.  But we had better
+		 scan them for types or we may throw away some type info we will need
+		 for other stabs from this N_SO unit.  So rewind back to the BNSYM,
+	         and just read in the types from the stabs that are likely to contain
+	         them.  */
+	      found_it = 0;
+	      symbuf_idx = old_symbuf_idx;
+	      while (symnum < num_syms)
+		{
+		  char *tmp_namestring;
+		  NEXT_SYMBOL (tmp_nlist, sect_p, oso_bfd);
+		  if (tmp_nlist.n_type == N_ENSYM) 
+		    {
+		      found_it = 1;
+		      break;
+		    }
+		  switch (tmp_nlist.n_type)
+		    {
+		      /* FIXME: When gcc only emits types in N_LSYM stabs, we can
+			 change this to only pass the N_LSYM stabs in, and ignore
+			 all the others.  */
+		    case N_FUN:
+		    case N_LSYM:
+		    case N_STSYM:
+		    case N_LCSYM:
+		    case N_GSYM:
+		    case N_PSYM:
+		    case N_RSYM:
+		      tmp_namestring = set_namestring_1 (strtab_size, strtab_data, 
+						 leading_char, tmp_nlist, prefix);
+		      process_symbol_types_only (tmp_namestring, prefix, tmp_nlist.n_desc, 
+						 tmp_nlist.n_type, objfile);
+		      break;
+		    default:
+		      break;
+		    }
+		    
+		  symnum++;
+		}
+	      if (!found_it)
+		complaint (&symfile_complaints, "Missing ENSYM in scanning OSO file");
+	    }
+	  else
+	    {
+	      /* Calculate the offset from the partial_symbol then
+		 rewind back to the stab after the BNSYM.  Note, since
+	         the addresses we get from the pst are already offset
+	         by the load address, but process_one_symbol expects to
+		 have to add it in, we have to subtract the load address from 
+	         our offset or we'll add it twice.  */
+
+	      offset = SYMBOL_VALUE_ADDRESS (fun_psym) - nlist.n_value 
+		- ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
+
+	      symbuf_idx = old_symbuf_idx;
+	    }
+	  continue;
+	}
+
+      /* Only process N_STAB types here, since all the real text &
+	 data symbols are already in the correct place from the linked
+	 image.  */
+      if (type & N_STAB)
+	{
+	  switch (type)
+	    {
+	    case N_FUN:
+	      if (*namestring == '\0')
+		{
+		  /* POP the function from the stack of
+		     function statics. */
+		  struct oso_fun_list *list_ptr;
+		  list_ptr = LDSYM_OSO_STATICS(pst);
+		  if (list_ptr)
+		    {
+		      if (list_ptr->name == NULL)
+			warning ("OSO fun missing name for pst: %s", pst->filename);
+		      else if (!cur_fun_name)
+			warning ("Current function name not found for pst: \"%s\" and fun: \"%s\"", pst->filename, list_ptr->name);
+		      else if (strcmp (list_ptr->name, cur_fun_name) == 0)
+			LDSYM_OSO_STATICS(pst) = oso_statics_pop (list_ptr);
+		      else
+			warning ("Mismatch between current function \"%s\" and fun stack \"%s\" in: \"%s\"",
+				 cur_fun_name, list_ptr->name, pst->filename);
+		    }
+		  if (cur_fun_name)
+		    xfree (cur_fun_name);
+		  cur_fun_name = NULL;
+		  break;
+		}
+	      else
+		{
+		  char *p = find_name_end (namestring);
+		  int namelen = p - namestring;
+		  if (cur_fun_name != NULL)
+		    xfree (cur_fun_name);
+		  cur_fun_name = xmalloc (namelen + 1);
+		  strncpy (cur_fun_name, namestring, namelen);
+		  cur_fun_name[namelen] = '\0';
+		}
+	    case N_SO:
+	    case N_RBRAC:
+	    case N_LBRAC:
+	    case N_SLINE:
+	      nlist.n_value += offset;
+	      break;
+	    case N_LCSYM:
+	    case N_ROSYM:
+	    case N_STSYM:
+	      {
+		char *p;
+		p = find_name_end (namestring);
+		if (p[1] == 'V')
+		  {
+		    /* This is a static, so we need to look it up in our table.  */
+		    struct oso_fun_list *statics_list;
+		    struct oso_fun_static *static_ptr, *prev_static_ptr;
+		    int namelen = p - namestring;
+
+		    for (statics_list = LDSYM_OSO_STATICS (pst);
+			 statics_list != NULL; statics_list = statics_list->next)
+		      {
+			if (strcmp (statics_list->name, cur_fun_name) == 0)
+			    break;
+		      }
+		    if (statics_list == NULL)
+		      {
+			warning ("Could not find statics info for function: %s",
+				 cur_fun_name);
+		      }
+		    else
+		      {			
+			for (static_ptr = statics_list->statics, prev_static_ptr = static_ptr; 
+			     static_ptr != NULL;
+			     prev_static_ptr = static_ptr, static_ptr = static_ptr->next)
+			  {
+			    if (strncmp(static_ptr->name, namestring, namelen) == 0)
+			      break;
+			  }
+			if (static_ptr == NULL)
+			  {
+			    char *symname;
+			    symname = xmalloc (namelen + 1);
+			    strncpy (symname, namestring, namelen);
+			    symname[namelen] = '\0';
+			    warning ("Could not find statics info for symbol: %s in function: %s",
+				     symname, cur_fun_name);
+			    xfree (symname);
+			  }
+			else
+			  {
+			    nlist.n_value = static_ptr->address;
+			    
+			    /* We're tearing down the whole statics
+			       structure as we process the symbols.
+			       This is okay because we know the symbols will
+			       appear in the same order in the .o and the
+			       final linked image, and everythign that appears
+			       in the final linked image MUST appear here.
+			       We are only ever going to do this once,
+			       so this makes working through it much
+			       faster.  */
+			    if (statics_list->statics == prev_static_ptr)
+			      statics_list->statics = prev_static_ptr->next;
+			    else
+			      prev_static_ptr->next = static_ptr->next;
+
+			    xfree (static_ptr->name);
+			    xfree (static_ptr);
+			  }
+		      }
+		  }
+		else
+		  {
+		    /* These are globals, so we can just look up the
+		       partial symbol for them.  */
+		    struct partial_symbol *static_psym;
+		    static_psym = lookup_psymbol_from_namestring (pst, namestring,
+								  VAR_DOMAIN);
+		    if (static_psym)
+		      nlist.n_value = SYMBOL_VALUE_ADDRESS (static_psym) 
+			- ANOFFSET (objfile->section_offsets, SECT_OFF_DATA (objfile));
+		  }
+		break; 
+	      }
+	    default:
+	      break;
+	    }
+	  /* This is a big hack.  process_one_symbol will call
+	     end_symtab when it sees the final SO.  This isn't a
+	     problem for read_ofile_symtab because when we read in the
+	     original psymtab, we cook the LSYMLEN to exclude this
+	     last SO.  */
+	  if (type == N_SO
+	      && last_source_file != NULL
+	      && previous_stab_code != (unsigned char) N_SO
+	      && *namestring == '\0')
+	    break;
+
+	  process_one_symbol (type, nlist.n_desc, nlist.n_value,
+			      namestring, prefix, section_offsets, objfile);
+	}
+    }
+
+  current_objfile = NULL;
+
+  /* In a Solaris elf file, this variable, which comes from the
+     value of the N_SO symbol, will still be 0.  Luckily, text_offset,
+     which comes from pst->textlow is correct. */
+  if (last_source_start_addr == 0)
+    last_source_start_addr = text_offset;
+
+  /* In reordered executables last_source_start_addr may not be the
+     lower bound for this symtab, instead use text_offset which comes
+     from pst->textlow which is correct.  */
+  if (last_source_start_addr > text_offset)
+    last_source_start_addr = text_offset;
+
+  pst->symtab = end_symtab (text_offset + text_size, objfile, SECT_OFF_TEXT (objfile));
+
+  end_stabs ();
+
+  if (cur_fun_name != NULL)
+    xfree (cur_fun_name);
+
+  do_cleanups (oso_data_cleanup);
 }
 
 
@@ -2989,10 +4331,12 @@ process_one_symbol (int type, int desc, CORE_ADDR valu, char *name,
 	     which may have an N_FUN stabs at the end of the function, but
 	     no N_SLINE stabs.  */
 	  if (sline_found_in_function)
-	    if (processing_gcc_compilation || !end_fun_absolute_p)
-	      record_line (current_subfile, 0, last_function_start + valu);
-	    else
-	      record_line (current_subfile, 0, valu);
+	    {
+	      if (processing_gcc_compilation || !end_fun_absolute_p)
+		record_line (current_subfile, 0, last_function_start + valu);
+	      else
+		record_line (current_subfile, 0, valu);
+	    }
 
 	  within_function = 0;
 	  new = pop_context ();
@@ -3917,4 +5261,5 @@ _initialize_dbxread (void)
   add_show_from_set (c, &showlist);
 
   add_symtab_fns (&aout_sym_fns);
+
 }

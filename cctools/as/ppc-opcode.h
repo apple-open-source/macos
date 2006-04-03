@@ -1007,7 +1007,7 @@ static const struct ppc_opcode ppc_opcodes[] = {
  { 0x7c00022c, "dcbt128", {{16,5,G0REG}, {11,5,GREG}, {21,4,NUM}},
    IMPL64|OPTIONAL },
  { 0x7c0007ec, "dcbz",    {{16,5,G0REG}, {11,5,GREG}} },
- { 0x7c2007ec, "dcbzl",   {{16,5,G0REG}, {11,5,GREG}}, IMPL64|OPTIONAL },
+ { 0x7c2007ec, "dcbzl",   {{16,5,G0REG}, {11,5,GREG}} },
  { 0x7c2007ec, "dcbz128", {{16,5,G0REG}, {11,5,GREG}}, IMPL64|OPTIONAL },
  { 0x7c00006c, "dcbst",   {{16,5,G0REG}, {11,5,GREG}} },
  { 0x7c0000ac, "dcbf",    {{16,5,G0REG}, {11,5,GREG}} },

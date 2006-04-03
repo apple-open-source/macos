@@ -3521,7 +3521,7 @@
 				MODULE_NAME = com.apple.nke.lttp;
 				MODULE_START = l2tp_domain_module_start;
 				MODULE_STOP = l2tp_domain_module_stop;
-				MODULE_VERSION = 1.4;
+				MODULE_VERSION = 1.4.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

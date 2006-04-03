@@ -27,9 +27,19 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Tue Apr 17 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLBlessDir.c,v 1.12 2005/02/03 00:42:25 ssen Exp $
+ *  $Id: BLBlessDir.c,v 1.14 2005/08/22 20:49:23 ssen Exp $
  *
  *  $Log: BLBlessDir.c,v $
+ *  Revision 1.14  2005/08/22 20:49:23  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.13  2005/06/24 16:39:50  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.12  2005/02/03 00:42:25  ssen
  *  Update copyrights to 2005
  *
@@ -80,7 +90,7 @@
 #include "bless_private.h"
 
 
-int BLBlessDir(BLContextPtr context, const unsigned char mountpoint[],
+int BLBlessDir(BLContextPtr context, const char * mountpoint,
                 uint32_t dirX, uint32_t dir9, int useX) {
 
     int err;

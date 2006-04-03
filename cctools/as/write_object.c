@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/file.h>
 #include <libc.h>
 #include <mach/mach.h>
@@ -7,6 +8,7 @@
 #include "stuff/openstep_mach.h"
 #include <mach-o/loader.h>
 #include <mach-o/reloc.h>
+#include <mach-o/stab.h>
 #ifdef I860
 #include <mach-o/i860/reloc.h>
 #endif
@@ -701,6 +703,96 @@ symbolP = symbol_find_or_make(isymbolP->isy_name);
 	return(total);
 }
 
+
+/*
+ * set_BINCL_checksums() walks through all STABS and calculate BINCL checksums. This will improve
+ * linking performance because the linker will not need to touch and sum STABS
+ * strings to do the BINCL/EINCL duplicate removal.
+ *
+ * A BINCL checksum is a sum of all stabs strings within a BINCL/EINCL pair.
+ * Since BINCL/EINCL can be nested, a stab string contributes to only the 
+ * innermost BINCL/EINCL enclosing it. 
+ *
+ * The checksum excludes the first number after an open paren.
+ *
+ * Some stabs (e.g. SLINE) when found within a BINCL/EINCL disqualify the EXCL
+ * optimization and therefore disable this checksumming.
+ */
+static
+void
+set_BINCL_checksums()
+{
+    struct HeaderRange { 
+	symbolS*		bincl; 
+	struct HeaderRange*	parentRange;
+	unsigned int		sum;
+	int			okToChecksum; 
+    };
+    symbolS *symbolP;
+    struct HeaderRange* curRange = NULL;
+	
+	for(symbolP = symbol_rootP; symbolP; symbolP = symbolP->sy_next){
+	    if((symbolP->sy_nlist.n_type & N_STAB) != 0){
+		switch(symbolP->sy_nlist.n_type){
+		case N_BINCL:
+		    {
+			struct HeaderRange* range =
+			    xmalloc(sizeof(struct HeaderRange));
+			range->bincl = symbolP;
+			range->parentRange = curRange;
+			range->sum = 0; 
+			range->okToChecksum = (symbolP->sy_nlist.n_value == 0);
+			curRange = range;
+		    }
+		    break;
+		case N_EINCL:
+		    if(curRange != NULL){
+			struct HeaderRange* tmp = curRange;
+			if (curRange->okToChecksum)
+			    curRange->bincl->sy_nlist.n_value = curRange->sum;
+			curRange = tmp->parentRange;
+			free(tmp);
+		    }
+		    break;				
+		case N_FUN:
+		case N_BNSYM:
+		case N_ENSYM:
+		case N_LBRAC:
+		case N_RBRAC:
+		case N_SLINE:
+		case N_STSYM:
+		case N_LCSYM:
+		    if(curRange != NULL){
+			curRange->okToChecksum = FALSE;
+		    }
+		    break;
+		case N_EXCL:
+			break;
+		default:
+		    if(curRange != NULL){
+			if(curRange->okToChecksum){
+			    unsigned int sum = 0;
+			    const char* s = symbolP->sy_name;
+			    char c;
+			    while((c = *s++) != '\0'){
+				sum += c;
+				/*
+				 * Don't checkusm first number (file index)
+				 * after open paren in string.
+				 */
+				if(c == '('){
+				    while(isdigit(*s))
+					++s;
+				}
+			    }
+			    curRange->sum += sum;
+			}
+		    }
+		}
+	    }
+	}
+}
+
 /*
  * layout_symbols() removes temporary symbols (symbols that are of the form L1
  * and 1:) if the -L flag is not seen so the symbol table has only the symbols
@@ -725,6 +817,7 @@ long *string_byte_count)
     symbolS *symbolP;
     symbolS **symbolPP;
     char *name;
+	int seenBINCL = FALSE;
 
 	*symbol_number = 0;
 	*string_byte_count = sizeof(char);
@@ -850,6 +943,9 @@ long *string_byte_count)
 		    /* the ordinary case (symbol has a name) */
 		    symbolP->sy_name_offset = *string_byte_count;
 		    *string_byte_count += strlen(symbolP->sy_name) + 1;
+		    /* check for existance of BINCL/EINCL */
+		    if(symbolP->sy_nlist.n_type == N_BINCL)
+			seenBINCL = TRUE;
 		}
 		else{
 		    /* the .stabd case (symbol has no name) */
@@ -875,6 +971,10 @@ long *string_byte_count)
 	    undefsyms[j]->sy_number = *symbol_number;
 	    *symbol_number = *symbol_number + 1;
 	}
+	
+	/* calculate BINCL checksums */
+	if(seenBINCL)
+	    set_BINCL_checksums();	
 }
 
 /*

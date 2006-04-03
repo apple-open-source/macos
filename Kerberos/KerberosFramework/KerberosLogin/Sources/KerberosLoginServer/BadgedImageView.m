@@ -1,7 +1,7 @@
 /*
  * BadgedImageView.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/BadgedImageView.m,v 1.3 2004/10/04 17:42:21 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

@@ -15,6 +15,8 @@
 __RCSID("$NetBSD: e_hypot.c,v 1.11 1999/07/02 15:37:39 simonb Exp $");
 #endif
 
+#warning obsolete
+
 /* __ieee754_hypot(x,y)
  *
  * Method :

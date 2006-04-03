@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.c,v 1.31 2005/01/04 22:10:45 jlovell Exp $"
+ * "$Id: ipp.c,v 1.31.2.1 2006/01/31 18:45:38 jlovell Exp $"
  *
  *   IPP routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -2121,34 +2121,50 @@ check_quotas(client_t  *con, /* I - Client connection */
 #ifdef __APPLE__
     if (AppleQuotas)
     {
-      if (-4 == q->page_count) /* unlimited user */
+      if (-4 == q->page_count) /* special case: unlimited user */
       {
-        LogMessage(L_INFO, "User \"%s\" request approved for printer %s (%s): unlimited quota.",
-				           username, p->name, p->info);
-        q->page_count = 0;
-        return (1);
+	LogMessage(L_INFO, "User \"%s\" request approved for printer %s (%s): unlimited quota.",
+		   username, p->name, p->info);
+	q->page_count = 0; /* allow user to print */
+	return (1);
       }
 
-      if (-3 == q->page_count) /* quota exceeded */
+      else if (-3 == q->page_count) /* quota exceeded */
       {
-		LogMessage(L_INFO, "User \"%s\" request denied for printer %s (%s): quota limit exceeded.",
-						   username, p->name, p->info);
-        q->page_count = 2; // force quota exceeded failure
-        return (0);
+	LogMessage(L_INFO, "User \"%s\" request denied for printer %s (%s): quota limit exceeded.",
+		   username, p->name, p->info);
+	q->page_count = 2; /* force quota exceeded failure */
+	return (0);
       }
+
+      else if (-2 == q->page_count) /* quota disabled for user */
+      {
+	LogMessage(L_INFO, "User \"%s\" request denied for printer %s (%s): printing disabled for user.",
+		   username, p->name, p->info);
+	q->page_count = 2; /* force quota exceeded failure */
+	return (0);
+      }
+
+      else if (-1 == q->page_count) /* quota access error */
+      {
+	LogMessage(L_INFO, "User \"%s\" request denied for printer %s (%s): unable to determine quota limit.",
+		   username, p->name, p->info);
+	q->page_count = 2; /* force quota exceeded failure */
+	return (0);
+      }
+
       else if (0 > q->page_count) /* user not found or other error */
       {
-        LogMessage(L_INFO, "User \"%s\" request denied for printer %s (%s): user disabled / missing quota.",
-				           username, p->name, p->info);
-        q->page_count = 0;
-        return (0);
+	LogMessage(L_INFO, "User \"%s\" request denied for printer %s (%s): user disabled / missing quota.",
+		   username, p->name, p->info);
+	q->page_count = 2; /* force quota exceeded failure */
+	return (0);
       }
 
-      if (q->page_count >= p->page_limit && p->page_limit)
+      else /* page within user limits */
       {
-        LogMessage(L_INFO, "User \"%s\" is over the quota limit for printer %s (%s)",
-						   username, p->name, p->info);
-        return (0);
+	q->page_count = 0; /* allow user to print */
+	return(1);
       }
     }
 #endif
@@ -7106,5 +7122,5 @@ validate_user(client_t   *con,		/* I - Client connection */
 
 
 /*
- * End of "$Id: ipp.c,v 1.31 2005/01/04 22:10:45 jlovell Exp $".
+ * End of "$Id: ipp.c,v 1.31.2.1 2006/01/31 18:45:38 jlovell Exp $".
  */

@@ -1,4 +1,3 @@
-/* APPLE LOCAL file 4100712 FSF 4.0 branch */
 void abort (void);
 
 char q;

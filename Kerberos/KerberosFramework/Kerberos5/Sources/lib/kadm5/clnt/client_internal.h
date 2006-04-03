@@ -1,9 +1,9 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/clnt/client_internal.h,v 1.1 1996/07/24 22:22:43 tlyu Exp $
+ * $Header$
  * 
- * $Log: client_internal.h,v $
+ * $Log$
  * Revision 1.1  1996/07/24 22:22:43  tlyu
  * 	* Makefile.in, configure.in: break out client lib into a
  * 		subdirectory

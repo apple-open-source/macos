@@ -90,7 +90,7 @@ enum bool redo_live)
     enum bool start_section;
     struct load_order *load_orders;
     struct fine_reloc *fine_relocs;
-    struct merged_symbol *merged_symbol, **hash_pointer;
+    struct merged_symbol *merged_symbol;
     struct relocation_info *relocs, reloc;
     struct scattered_relocation_info *sreloc, *spair_reloc;
     unsigned long r_address, r_pcrel, r_length, r_type, pair_r_type, r_extern,
@@ -293,8 +293,8 @@ deal_with_contents:
 	     * where this is done.
 	     */
 	    if(load_orders[i].global_coalesced_symbol == TRUE){
-		merged_symbol = *(lookup_symbol(load_orders[i].name));
-		if(merged_symbol == NULL)
+		merged_symbol = lookup_symbol(load_orders[i].name);
+		if(merged_symbol->name_len == 0)
 		    fatal("internal error, coalesced_section_merge() failed in "
 			  "looking up external symbol: %s",load_orders[i].name);
 		/*
@@ -562,15 +562,14 @@ deal_with_contents:
 			N_SECT &&
 		       (cur_obj->section_maps[object_symbols[r_symbolnum].
 			n_sect-1].s->flags & SECTION_TYPE) == S_COALESCED){
-			hash_pointer = lookup_symbol(object_strings +
+			merged_symbol = lookup_symbol(object_strings +
 				     object_symbols[r_symbolnum].n_un.n_strx);
-			if(hash_pointer == NULL){
+			if(merged_symbol->name_len == 0){
 			    fatal("internal error, in coalesced_section_merge()"
 				  " failed to lookup coalesced symbol %s",
 				  object_strings +
 				  object_symbols[r_symbolnum].n_un.n_strx);
 			}
-			merged_symbol = *hash_pointer;
 			/*
 			 * While the .o file's symbol is a coalesced symbol, it
 			 * may have been weak and the merged symbol now being
@@ -736,9 +735,15 @@ deal_with_contents:
 	 * symbols in this section in this object file.  Now that it has been
 	 * determined for which items the contents will be used from this
 	 * object file.  
+	 *
+	 * When -dead_strip this can't be called when redo_live is FALSE as the
+	 * live marking has not been done yet. And when TRUE will get called for
+	 * all sections including coalesced sections as part of
+	 * count_live_symbols() calling removed_dead_local_symbols_in_section().
 	 */
-	discard_local_symbols_for_section(nsect, object_symbols, object_strings,
-    					  s, section_map);
+	if(dead_strip == FALSE)
+	    discard_local_symbols_for_section(nsect, object_symbols,
+					      object_strings, s, section_map);
 
 	/*
 	 * The load_orders are free()'ed if -dead_strip is not specified.  Or

@@ -1,7 +1,7 @@
 /*
  * KerberosController.h
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/KerberosController.h,v 1.14 2005/05/25 20:39:55 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

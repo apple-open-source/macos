@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pspell.c,v 1.28.8.5 2003/08/28 20:01:29 iliaa Exp $ */
+/* $Id: pspell.c,v 1.28.8.5.4.2 2005/10/17 15:43:10 iliaa Exp $ */
 
 #define IS_EXT_MODULE
 
@@ -98,6 +98,22 @@ static void php_pspell_close_config(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 
 	delete_pspell_config(config);
 }
+
+#define PSPELL_FETCH_CONFIG \
+	convert_to_long_ex(conf);	\
+	config = (PspellConfig *) zend_list_find(Z_LVAL_PP(conf), &type);	\
+	if (config == NULL || type != le_pspell_config) {	\
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%ld is not a PSPELL config index", Z_LVAL_PP(conf));	\
+		RETURN_FALSE;	\
+	}	\
+
+#define PSPELL_FETCH_MANAGER \
+	convert_to_long_ex(scin);	\
+	manager = (PspellManager *) zend_list_find(Z_LVAL_PP(scin), &type);	\
+	if (!manager || type != le_pspell) {	\
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%ld is not a PSPELL result index", Z_LVAL_PP(scin));	\
+		RETURN_FALSE;	\
+	}	\
 
 /* {{{ PHP_MINIT_FUNCTION
  */
@@ -350,14 +366,8 @@ PHP_FUNCTION(pspell_new_config)
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_long_ex(conf);
-	config = (PspellConfig *) zend_list_find(Z_LVAL_PP(conf), &type);
+	PSPELL_FETCH_CONFIG;	
 
-	if (config == NULL || type != le_pspell_config) {
-		php_error(E_WARNING, "%ld is not a PSPELL config index", Z_LVAL_PP(conf));
-		RETURN_FALSE;
-	}
-	
 	ret = new_pspell_manager(config);
 
 	if(pspell_error_number(ret) != 0){
@@ -385,13 +395,9 @@ PHP_FUNCTION(pspell_check)
 		WRONG_PARAM_COUNT;
 	}
     
-	convert_to_long_ex(scin);
 	convert_to_string_ex(word);
-	manager = (PspellManager *) zend_list_find(Z_LVAL_PP(scin), &type);
-	if(!manager){
-		php_error(E_WARNING, "%ld is not a PSPELL result index",Z_LVAL_PP(scin));
-		RETURN_FALSE;
-	}
+
+	PSPELL_FETCH_MANAGER;
 
 	if(pspell_manager_check(manager, Z_STRVAL_PP(word))){
 		RETURN_TRUE;
@@ -417,13 +423,9 @@ PHP_FUNCTION(pspell_suggest)
 		WRONG_PARAM_COUNT;
 	}
     
-	convert_to_long_ex(scin);
 	convert_to_string_ex(word);
-	manager = (PspellManager *) zend_list_find(Z_LVAL_PP(scin), &type);
-	if(!manager){
-		php_error(E_WARNING, "%ld is not a PSPELL result index",Z_LVAL_PP(scin));
-	RETURN_FALSE;
-	}
+
+	PSPELL_FETCH_MANAGER;
 
 	array_init(return_value);
 
@@ -455,14 +457,10 @@ PHP_FUNCTION(pspell_store_replacement)
 		WRONG_PARAM_COUNT;
 	}
     
-	convert_to_long_ex(scin);
 	convert_to_string_ex(miss);
 	convert_to_string_ex(corr);
-	manager = (PspellManager *) zend_list_find(Z_LVAL_PP(scin), &type);
-	if(!manager){
-		php_error(E_WARNING, "%ld is not a PSPELL result index",Z_LVAL_PP(scin));
-		RETURN_FALSE;
-	}
+
+	PSPELL_FETCH_MANAGER;
 
 	pspell_manager_store_replacement(manager, Z_STRVAL_PP(miss), Z_STRVAL_PP(corr));
 	if(pspell_manager_error_number(manager) == 0){
@@ -488,13 +486,9 @@ PHP_FUNCTION(pspell_add_to_personal)
 		WRONG_PARAM_COUNT;
 	}
     
-	convert_to_long_ex(scin);
 	convert_to_string_ex(word);
-	manager = (PspellManager *) zend_list_find(Z_LVAL_PP(scin), &type);
-	if(!manager){
-		php_error(E_WARNING, "%ld is not a PSPELL result index",Z_LVAL_PP(scin));
-		RETURN_FALSE;
-	}
+
+	PSPELL_FETCH_MANAGER;
 
 	/*If the word is empty, we have to return; otherwise we'll segfault! ouch!*/
 	if(Z_STRLEN_PP(word) == 0){
@@ -525,13 +519,9 @@ PHP_FUNCTION(pspell_add_to_session)
 		WRONG_PARAM_COUNT;
 	}
     
-	convert_to_long_ex(scin);
 	convert_to_string_ex(word);
-	manager = (PspellManager *) zend_list_find(Z_LVAL_PP(scin), &type);
-	if(!manager){
-		php_error(E_WARNING, "%ld is not a PSPELL result index",Z_LVAL_PP(scin));
-		RETURN_FALSE;
-	}
+
+	PSPELL_FETCH_MANAGER;
 
 	/*If the word is empty, we have to return; otherwise we'll segfault! ouch!*/
 	if(Z_STRLEN_PP(word) == 0){
@@ -562,12 +552,7 @@ PHP_FUNCTION(pspell_clear_session)
 		WRONG_PARAM_COUNT;
 	}
     
-	convert_to_long_ex(scin);
-	manager = (PspellManager *) zend_list_find(Z_LVAL_PP(scin), &type);
-	if(!manager){
-		php_error(E_WARNING, "%ld is not a PSPELL result index",Z_LVAL_PP(scin));
-		RETURN_FALSE;
-	}
+	PSPELL_FETCH_MANAGER;
 
 	pspell_manager_clear_session(manager);
 	if(pspell_manager_error_number(manager) == 0){
@@ -593,12 +578,7 @@ PHP_FUNCTION(pspell_save_wordlist)
 		WRONG_PARAM_COUNT;
 	}
     
-	convert_to_long_ex(scin);
-	manager = (PspellManager *) zend_list_find(Z_LVAL_PP(scin), &type);
-	if(!manager){
-		php_error(E_WARNING, "%ld is not a PSPELL result index",Z_LVAL_PP(scin));
-		RETURN_FALSE;
-	}
+	PSPELL_FETCH_MANAGER;
 
 	pspell_manager_save_all_word_lists(manager);
 
@@ -666,22 +646,17 @@ PHP_FUNCTION(pspell_config_create)
 PHP_FUNCTION(pspell_config_runtogether)
 {
 	int type;
-	zval **sccin, **runtogether;
+	zval **conf, **runtogether;
 	int argc;
 
 	PspellConfig *config;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc != 2 || zend_get_parameters_ex(argc,&sccin,&runtogether) == FAILURE) {
+	if (argc != 2 || zend_get_parameters_ex(argc,&conf,&runtogether) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_long_ex(sccin);
-	config = (PspellConfig *) zend_list_find(Z_LVAL_PP(sccin), &type);
-	if(!config){
-		php_error(E_WARNING, "%ld is not a PSPELL config index",Z_LVAL_PP(sccin));
-		RETURN_FALSE;
-	}
+	PSPELL_FETCH_CONFIG;
 
 	convert_to_boolean_ex(runtogether);
 	pspell_config_replace(config, "run-together", Z_LVAL_PP(runtogether) ? "true" : "false");
@@ -695,22 +670,17 @@ PHP_FUNCTION(pspell_config_runtogether)
 PHP_FUNCTION(pspell_config_mode)
 {
 	int type;
-	zval **sccin, **mode;
+	zval **conf, **mode;
 	int argc;
 
 	PspellConfig *config;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc != 2 || zend_get_parameters_ex(argc,&sccin,&mode) == FAILURE) {
+	if (argc != 2 || zend_get_parameters_ex(argc,&conf,&mode) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_long_ex(sccin);
-	config = (PspellConfig *) zend_list_find(Z_LVAL_PP(sccin), &type);
-	if(!config){
-		php_error(E_WARNING, "%ld is not a PSPELL config index",Z_LVAL_PP(sccin));
-		RETURN_FALSE;
-	}
+	PSPELL_FETCH_CONFIG;
 
 	convert_to_long_ex(mode);
 
@@ -732,7 +702,7 @@ PHP_FUNCTION(pspell_config_mode)
 PHP_FUNCTION(pspell_config_ignore)
 {
 	int type;
-	zval **sccin, **pignore;
+	zval **conf, **pignore;
 	int argc;
 
 	int loc = PSPELL_LARGEST_WORD;
@@ -742,16 +712,11 @@ PHP_FUNCTION(pspell_config_ignore)
 	PspellConfig *config;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc != 2 || zend_get_parameters_ex(argc,&sccin,&pignore) == FAILURE) {
+	if (argc != 2 || zend_get_parameters_ex(argc,&conf,&pignore) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_long_ex(sccin);
-	config = (PspellConfig *) zend_list_find(Z_LVAL_PP(sccin), &type);
-	if(!config){
-		php_error(E_WARNING, "%ld is not a PSPELL config index",Z_LVAL_PP(sccin));
-		RETURN_FALSE;
-	}
+	PSPELL_FETCH_CONFIG;
 
 	convert_to_long_ex(pignore);
 	ignore = Z_LVAL_PP(pignore);
@@ -782,22 +747,17 @@ PHP_FUNCTION(pspell_config_ignore)
 PHP_FUNCTION(pspell_config_personal)
 {
 	int type;
-	zval **sccin, **personal;
+	zval **conf, **personal;
 	int argc;
 
 	PspellConfig *config;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc != 2 || zend_get_parameters_ex(argc,&sccin,&personal) == FAILURE) {
+	if (argc != 2 || zend_get_parameters_ex(argc,&conf,&personal) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_long_ex(sccin);
-	config = (PspellConfig *) zend_list_find(Z_LVAL_PP(sccin), &type);
-	if(!config){
-		php_error(E_WARNING, "%ld is not a PSPELL config index",Z_LVAL_PP(sccin));
-		RETURN_FALSE;
-	}
+	PSPELL_FETCH_CONFIG;
 
 	convert_to_string_ex(personal);
 
@@ -820,22 +780,17 @@ PHP_FUNCTION(pspell_config_personal)
 PHP_FUNCTION(pspell_config_repl)
 {
 	int type;
-	zval **sccin, **repl;
+	zval **conf, **repl;
 	int argc;
 
 	PspellConfig *config;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc != 2 || zend_get_parameters_ex(argc,&sccin,&repl) == FAILURE) {
+	if (argc != 2 || zend_get_parameters_ex(argc,&conf,&repl) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_long_ex(sccin);
-	config = (PspellConfig *) zend_list_find(Z_LVAL_PP(sccin), &type);
-	if(!config){
-		php_error(E_WARNING, "%ld is not a PSPELL config index",Z_LVAL_PP(sccin));
-		RETURN_FALSE;
-	}
+	PSPELL_FETCH_CONFIG;
 
 	pspell_config_replace(config, "save-repl", "true");
 
@@ -860,22 +815,17 @@ PHP_FUNCTION(pspell_config_repl)
 PHP_FUNCTION(pspell_config_save_repl)
 {
 	int type;
-	zval **sccin, **save;
+	zval **conf, **save;
 	int argc;
 
 	PspellConfig *config;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc != 2 || zend_get_parameters_ex(argc,&sccin,&save) == FAILURE) {
+	if (argc != 2 || zend_get_parameters_ex(argc,&conf,&save) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_long_ex(sccin);
-	config = (PspellConfig *) zend_list_find(Z_LVAL_PP(sccin), &type);
-	if(!config){
-		php_error(E_WARNING, "%ld is not a PSPELL config index",Z_LVAL_PP(sccin));
-		RETURN_FALSE;
-	}
+	PSPELL_FETCH_CONFIG;
 
 	convert_to_boolean_ex(save);
 	pspell_config_replace(config, "save-repl", Z_LVAL_PP(save) ? "true" : "false");

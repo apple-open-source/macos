@@ -1,7 +1,7 @@
 /*
  * com_err_threads.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosErrors/Headers/com_err_threads.h,v 1.1 2004/10/04 17:48:25 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

@@ -438,14 +438,13 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	     || (offset * BITS_PER_UNIT % bitsize == 0
 		 && MEM_ALIGN (op0) % GET_MODE_BITSIZE (fieldmode) == 0))))
     {
-      if (GET_MODE (op0) != fieldmode)
-	{
-	  if (MEM_P (op0))
-	    op0 = adjust_address (op0, fieldmode, offset);
-	  else
-	    op0 = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
-				       byte_offset);
-	}
+      /* APPLE LOCAL begin 4338167 mainline */
+      if (MEM_P (op0))
+	op0 = adjust_address (op0, fieldmode, offset);
+      else if (GET_MODE (op0) != fieldmode)
+	op0 = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
+				   byte_offset);
+      /* APPLE LOCAL end 4338167 mainline */
       emit_move_insn (op0, value);
       return value;
     }
@@ -1427,6 +1426,13 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 		  xbitpos = bitnum % unit;
 		  xop0 = adjust_address (xop0, bestmode, xoffset);
 
+	          /* APPLE LOCAL begin 4338167 mainline */
+		  /* Make sure register is big enough for the whole field. */
+		  if (xoffset * BITS_PER_UNIT + unit 
+		      < offset * BITS_PER_UNIT + bitsize)
+		    goto extzv_loses;
+	          /* APPLE LOCAL end 4338167 mainline */
+
 		  /* Fetch it to a register in that size.  */
 		  xop0 = force_reg (bestmode, xop0);
 
@@ -1555,6 +1561,13 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 		  xoffset = (bitnum / unit) * GET_MODE_SIZE (bestmode);
 		  xbitpos = bitnum % unit;
 		  xop0 = adjust_address (xop0, bestmode, xoffset);
+
+	          /* APPLE LOCAL begin 4338167 mainline */
+		  /* Make sure register is big enough for the whole field. */
+		  if (xoffset * BITS_PER_UNIT + unit 
+		      < offset * BITS_PER_UNIT + bitsize)
+		    goto extv_loses;
+	          /* APPLE LOCAL end 4338167 mainline */
 
 		  /* Fetch it to a register in that size.  */
 		  xop0 = force_reg (bestmode, xop0);

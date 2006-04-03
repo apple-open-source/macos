@@ -44,6 +44,7 @@ AC_CHECK_TOOL(RANLIB, ranlib, :)
 
 dnl APPLE LOCAL:  mmap() always works right on Darwin.  Take our word for it. 
 dnl CY_GNU_GETTEXT will call AC_FUNC_MMAP for us.
+
 case "$host" in
   *-apple-darwin* | *-apple-macos*)
     ac_cv_func_mmap_fixed_mapped=yes
@@ -808,6 +809,15 @@ fi
 
 dnl See if the compiler and runtime support printing long long
 
+dnl APPLE LOCAL: OSX supports long long in printf, even though we
+dnl might be cross-compiling.
+
+case "$host" in
+  *-apple-darwin* | *-apple-macos*)
+    gdb_cv_printf_has_long_long=yes
+  ;;
+esac
+
 AC_MSG_CHECKING(for long long support in printf)
 AC_CACHE_VAL(gdb_cv_printf_has_long_long,
 [AC_TRY_RUN([
@@ -844,6 +854,15 @@ fi
 
 dnl See if the compiler and runtime support printing long doubles
 
+dnl APPLE LOCAL: OSX supports long double in printf, even though we
+dnl might be cross-compiling.
+
+case "$host" in
+  *-apple-darwin* | *-apple-macos*)
+    gdb_cv_printf_has_long_double=yes
+  ;;
+esac
+
 AC_MSG_CHECKING(for long double support in printf)
 AC_CACHE_VAL(gdb_cv_printf_has_long_double,
 [AC_TRY_RUN([
@@ -861,13 +880,16 @@ if test $gdb_cv_printf_has_long_double = yes; then
 fi
 AC_MSG_RESULT($gdb_cv_printf_has_long_double)
 
-# APPLE LOCAL: Hard code long double to 'no' because gcc likes to complain
-# when it is used on our platform.
-ac_cv_c_long_double=no
-gdb_cv_printf_has_long_double=no
-gdb_cv_scanf_has_long_double=no
-
 dnl See if the compiler and runtime support scanning long doubles
+
+dnl APPLE LOCAL: OSX supports long double in scanf, even though we
+dnl might be cross-compiling.
+
+case "$host" in
+  *-apple-darwin* | *-apple-macos*)
+    gdb_cv_scanf_has_long_double=yes
+  ;;
+esac
 
 AC_MSG_CHECKING(for long double support in scanf)
 AC_CACHE_VAL(gdb_cv_scanf_has_long_double,

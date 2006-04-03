@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: gss-misc.h,v 1.1 2004/02/11 22:18:58 jaltman Exp $
+ * $Id: gss-misc.h 16062 2004-02-11 22:18:58Z jaltman $
  */
 
 #ifndef _GSSMISC_H_

@@ -1,7 +1,7 @@
 #
 # comerr library Macintosh export file
 #
-# $Header: /cvs/krbdev/krb5/src/util/et/et.exp,v 1.1 1999/08/18 19:34:42 meeroh Exp $
+# $Header$
 
 error_message
 add_error_table

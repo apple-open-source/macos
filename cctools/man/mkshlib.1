@@ -1,4 +1,4 @@
-.TH MKSHLIB 1 "April 2 (Release 4.0)" "NeXT Computer, Inc."
+.TH MKSHLIB 1 "July 28 2005" "Apple Computer, Inc."
 .SH NAME
 mkshlib \- create a shared library
 .SH SYNOPSIS
@@ -58,9 +58,9 @@ are invoked through the use of
 .IR execvp (3),
 which searches directories
 in the user's PATH.
-.SH "FAT FILE SUPPORT"
+.SH "UNIVERSAL FILE SUPPORT"
 .I Mkshlib,
-like the link editor, accepts ``fat'' files on input but always creates a
+like the link editor, accepts ``universal'' files on input but always creates a
 ``thin'' host and target shared libraries for only one architecture.  Because of this
 .IR mkshlib (1)
 only allows one architecture flag,
@@ -71,21 +71,21 @@ is specified and the first object file listed in the
 .B #object 
 directive is a
 ``thin'' (standard Mach-O) file then the output shared library architecture
-will be that of the first object file.  If the first object is a ``fat'' file
-then an
+will be that of the first object file.  If the first object is a ``universal''
+file then an
 .BI \-arch " arch_type"
 must be specified. The command 
 .IR lipo (1)
 must be run explicitly on the results of multiple
 .IR mkshlib (1)
 executions.
-This is unlike the creation of fat executables where the compiler driver
+This is unlike the creation of universal executables where the compiler driver
 .IR cc (1)
 directly runs
 .IR lipo (1)
 on multiple executions of
 .IR ld (1)
-to create ``fat'' shared libraries
+to create ``universal'' shared libraries
 .PP
 The following command line arguments are recognized by
 .I mkshlib:
@@ -93,9 +93,9 @@ The following command line arguments are recognized by
 .BI \-arch " arch_type"
 Specifies the architecture,
 .I arch_type,
-selected from the "fat" input files for the output target and host 
+selected from the "universal" input files for the output target and host 
 shared libraries.  This option must be used when
-the first object file listed in the #object directive is a fat file.
+the first object file listed in the #object directive is a universal file.
 Only one 
 .BI \-arch " arch_type"
 can be specified.  See

@@ -5,7 +5,7 @@
  |                               I/O Redirection Routines                               |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -51,6 +51,7 @@ typedef char *(*Command_line_input_hook)(char *, int, char *);
 
 static Command_line_input_hook default_command_line_input_hook  = NULL;
 static Gdb_Raw_Input_Handler   users_raw_input_handler 	 	= NULL;
+static Gdb_Raw_Input_Set_Prompt users_raw_input_prompt_handler  = NULL;
 static Gdb_Prompt_Positioning  user_prompt_positioning_function = NULL;
 
 /* All data associated with the current redirected output is defined by the following	*/
@@ -108,6 +109,10 @@ typedef struct UnknownRedirection {	  /* Redirection data for unknown streams:	*
 static UnknownRedirection *unknown_redirections      = NULL; /* head of unknowns list	*/
 static UnknownRedirection *unknown_redirections_tail = NULL; /* tail of unknowns list	*/
 	      
+static int my_query_hook(char *format, va_list ap);
+static void my_rl_startup_hook(void);
+static char *my_command_line_input_hook(char *, int , char *);
+
 #if DEBUG
 #define DEBUG1(func) fprintf(stdout, "\n--- " #func " ---\n");
 #define DEBUG2(func, s, len)						\
@@ -551,10 +556,6 @@ GDB_FILE *gdb_open_output(FILE *f, gdb_output_filter_ftype filter, void *data)
  gdb_fprintf().
 */
 
-static int my_disasm_fprintf(struct ui_file *stream, const char *fmt, ...);
-static int my_query_hook(char *format, va_list ap);
-static void my_rl_startup_hook(void);
-
 GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 {
     struct gdb_file    *output;
@@ -566,7 +567,6 @@ GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
     static void (*default_gdb_completion_hook)(char **matches, int len, int max);
             
     if (firsttime) {
-
 	gdb_default_stdout 	    = (GDB_FILE *)INITIAL_GDB_VALUE(gdb_stdout, gdb_stdout);
 	gdb_default_stderr 	    = (GDB_FILE *)INITIAL_GDB_VALUE(gdb_stderr, gdb_stderr);
 	default_gdb_uiout           = INITIAL_GDB_VALUE(uiout, uiout);
@@ -785,10 +785,9 @@ void gdb_fflush(GDB_FILE *stream)
  *---------------------------------------------------------------------------*
  
  Gdb has a mode where it basically reads raw lines from the terminal (as opposed to
- command lines).  This occurs when a DEFINE, DOCUMENT command is entered from the
- terminal (as opposed to a script), i.e., interactively.  It also reads control 
- structures (i.e.., WHILE and IF) this way (note nested WHILE and IF are also read as
- raw lines).  
+ command lines).  This occurs when a COMMANDS, DEFINE, DOCUMENT, IF, or WHILE command
+ is entered from the terminal (as opposed to a script), i.e., interactively.  It also
+ reads control structures (i.e.., WHILE and IF) this way.  
  
  gdb_define_raw_input_handler() allows you to specify an handler to filter the raw
  data lines before gdb saves them as the lines making up the body of the control
@@ -802,34 +801,56 @@ void gdb_fflush(GDB_FILE *stream)
  Only one handler may exist at any point in time.  Specifying NULL as theInputHandler 
  reverts back to gdb's original behavior.
  
- Note, that the prompt gdb uses is not the standard prompt (specifically it's a '>'
- appropriately indented to show control structure nesting depth).  Unlike the normal
- prompt which can be changed with a SET prompt command the raw line prompt cannot be
- changed.
+ Note, that the prompt gdb uses is not the standard prompt.  By default it is a '>'
+ appropriately indented to show control structure nesting depth.  This however may be
+ changed by calling gdb_set_raw_input_prompt_handler() to define a handler which
+ can return the desired prompt.
  
  If the specified stream is associated with a filter that is controlling the display
  wants the prompts in a position other than the normal gdb default then the SET prompt
- can be used to define the standard prompt with xterm terminal positioning controls (or
- whatever is appropriate for the terminal).  But since that cannot be done with the raw
- data line prompt the gdb_define_raw_input_handler() is supplied top let you get control
- just before ANY prompt is displayed by gdb.
+ can be used to define the standard prompt with xterm terminal positioning controls
+ (or whatever is appropriate for the terminal).  But since that cannot be done with the
+ raw data line prompt gdb_define_raw_input_handler() is provided to let you get control
+ just before ANY prompt is displayed by gdb during the raw input.
        
  Caution: It appears that gdb has a tendency to reset itself to its own handler under
           some conditions (one known is using CTL-C).  So you may need to recall
 	  gdb_define_raw_input_handler() to reestablish your raw input handler.
 */
  
-static char *my_command_line_input_hook(char *, int , char *);
-
 void gdb_define_raw_input_handler(Gdb_Raw_Input_Handler theInputHandler)
 {
-    
     if (theInputHandler)
     	command_line_input_hook = my_command_line_input_hook;
     else
     	command_line_input_hook = default_command_line_input_hook;
     	
     users_raw_input_handler = theInputHandler;
+}
+
+
+/*-------------------------------------------------------------*
+ | gdb_set_raw_input_prompt_handler - set prompt for raw input |
+ *-------------------------------------------------------------*
+ 
+ This defines a handler that can be used to set the prompt used during raw input. The
+ handler has the following prototype:
+ 
+   void thePromptHandler(char *prompt);
+ 
+ Specifying NULL for the thePromptHandler removes the handler and gdb reverts to it's
+ standard '>' prompt.  The handler is expected to modify the 256-character prompt buffer
+ with the desired prompt.
+ 
+ Caution/Warning: The prompt gdb is using is for raw input is in a 256-character 
+ local buffer in cli-script.c:read_next_line,  This is on the call chain so it can
+ be legally (!) accessed.  But remember it has the 256 limit.  In order to get gdb
+ to use the desired prompt that specific buffer must be modified.
+*/
+
+void gdb_set_raw_input_prompt_handler(Gdb_Raw_Input_Set_Prompt thePromptHandler)
+{
+    users_raw_input_prompt_handler = thePromptHandler;
 }
 
 
@@ -872,6 +893,7 @@ void gdb_control_prompt_position(Gdb_Prompt_Positioning positioningFunction)
 }
 
 
+#if 0 // obsolete since binutils asm now uses gdb output conventions
 /*--------------------------------------------------*
  | my_disasm_fprintf - intercept disassembly output |
  *--------------------------------------------------*
@@ -897,6 +919,7 @@ static int my_disasm_fprintf(struct ui_file *stream, const char *fmt, ...)
     
     return (i);
 }
+#endif
 
 
 /*----------------------------------------------------------------*
@@ -992,7 +1015,10 @@ static char *my_command_line_input_hook(char *prompt, int repeat, char *annotati
 {
     char *result;
 
-    command_line_input_hook = NULL;		/* prevent recursion			*/ 
+    command_line_input_hook = NULL;		/* prevent recursion			*/
+    
+    if (prompt && users_raw_input_prompt_handler)
+    	users_raw_input_prompt_handler(prompt);
     
     if (default_command_line_input_hook)
     	result = default_command_line_input_hook(prompt, repeat, annotation_suffix);

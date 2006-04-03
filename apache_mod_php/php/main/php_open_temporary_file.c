@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_open_temporary_file.c,v 1.18.2.9 2004/03/29 21:28:47 wez Exp $ */
+/* $Id: php_open_temporary_file.c,v 1.18.2.10.2.1 2005/07/23 11:45:28 hyanantha Exp $ */
 
 #include "php.h"
 
@@ -33,17 +33,11 @@
 #include "win32/winutil.h"
 #elif defined(NETWARE)
 #ifdef USE_WINSOCK
-/*#include <ws2nlm.h>*/
 #include <novsock2.h>
 #else
 #include <sys/socket.h>
 #endif
-#ifdef NEW_LIBC
 #include <sys/param.h>
-#else
-#include "netware/param.h"
-#endif
-#include "netware/mktemp.h"
 #else
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -106,6 +100,7 @@ static int php_do_open_temporary_file(const char *path, const char *pfx, char **
 {
 	char *trailing_slash;
 	char *opened_path;
+	int path_len = 0;
 	int fd = -1;
 #ifndef HAVE_MKSTEMP
 	int open_flags = O_CREAT | O_TRUNC | O_RDWR
@@ -114,19 +109,17 @@ static int php_do_open_temporary_file(const char *path, const char *pfx, char **
 #endif
 		;
 #endif
-#ifdef NETWARE
-    char *file_path = NULL;
-#endif
-
 	if (!path) {
 		return -1;
 	}
+
+	path_len = strlen(path);
 
 	if (!(opened_path = emalloc(MAXPATHLEN))) {
 		return -1;
 	}
 
-	if (IS_SLASH(path[strlen(path)-1])) {
+	if (!path_len || IS_SLASH(path[path_len - 1])) {
 		trailing_slash = "";
 	} else {
 		trailing_slash = "/";
@@ -140,12 +133,6 @@ static int php_do_open_temporary_file(const char *path, const char *pfx, char **
 		 * which means that opening it will fail... */
 		VCWD_CHMOD(opened_path, 0600);
 		fd = VCWD_OPEN_MODE(opened_path, open_flags, 0600);
-	}
-#elif defined(NETWARE)
-	/* Using standard mktemp() implementation for NetWare */
-	file_path = mktemp(opened_path);
-	if (file_path) {
-		fd = VCWD_OPEN(file_path, open_flags);
 	}
 #elif defined(HAVE_MKSTEMP)
 	fd = mkstemp(opened_path);

@@ -34,12 +34,6 @@
 #include "unwind-cxx.h"
 #include "exception_defines.h"
 
-/* APPLE LOCAL begin keymgr */
-#if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
-#include "bits/os_defines.h"
-#endif
-/* APPLE LOCAL end keymgr */
-
 using namespace __cxxabiv1;
 
 void
@@ -56,18 +50,6 @@ __cxxabiv1::__terminate (std::terminate_handler handler)
 void
 std::terminate ()
 {
-  /* APPLE LOCAL begin keymgr */
-#if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
-  /*
-   * If the Key Manager has a terminate function assigned to this thread, invoke that fn.
-   * If not (KeyMgr has 0), use whatever is initialized into my local static pointer (above).
-   */
-  std::terminate_handler __keymgr_terminate_func = (std::terminate_handler)
-    _keymgr_get_per_thread_data (KEYMGR_TERMINATE_HANDLER_KEY);
-  if (__keymgr_terminate_func)
-     __terminate_handler = __keymgr_terminate_func;
-#endif /* APPLE_KEYMGR */
-  /* APPLE LOCAL end keymgr */
   __terminate (__terminate_handler);
 }
 
@@ -81,32 +63,13 @@ __cxxabiv1::__unexpected (std::unexpected_handler handler)
 void
 std::unexpected ()
 {
-  /* APPLE LOCAL begin keymgr */
-#if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
-  /* Similar to terminate case above. */
-   std::unexpected_handler __keymgr_unexpected_func = (std::unexpected_handler)
-     _keymgr_get_per_thread_data (KEYMGR_UNEXPECTED_HANDLER_KEY);
-   if (__keymgr_unexpected_func)
-     __unexpected_handler = __keymgr_unexpected_func;
-#endif /* APPLE_KEYMGR */
-  /* APPLE LOCAL end keymgr */
   __unexpected (__unexpected_handler);
 }
 
 std::terminate_handler
 std::set_terminate (std::terminate_handler func) throw()
 {
-  /* APPLE LOCAL begin keymgr */
-#if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
-  std::terminate_handler old =
-    (std::terminate_handler) _keymgr_get_per_thread_data (KEYMGR_TERMINATE_HANDLER_KEY);
-  _keymgr_set_per_thread_data (KEYMGR_TERMINATE_HANDLER_KEY, (void *) func) ;
-  if ( ! old)
-    old = __terminate_handler;
-#else
   std::terminate_handler old = __terminate_handler;
-#endif /* APPLE_KEYMGR */
-  /* APPLE LOCAL end keymgr */
   __terminate_handler = func;
   return old;
 }
@@ -114,17 +77,7 @@ std::set_terminate (std::terminate_handler func) throw()
 std::unexpected_handler
 std::set_unexpected (std::unexpected_handler func) throw()
 {
-  /* APPLE LOCAL begin keymgr */
-#if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
-  std::unexpected_handler old =
-    (std::unexpected_handler) _keymgr_get_per_thread_data (KEYMGR_UNEXPECTED_HANDLER_KEY);
-  _keymgr_set_per_thread_data (KEYMGR_UNEXPECTED_HANDLER_KEY, (void *) func);
-  if ( ! old)
-    old = __unexpected_handler;
-#else
   std::unexpected_handler old = __unexpected_handler;
-#endif /* APPLE_KEYMGR */
-  /* APPLE LOCAL end keymgr */
   __unexpected_handler = func;
   return old;
 }

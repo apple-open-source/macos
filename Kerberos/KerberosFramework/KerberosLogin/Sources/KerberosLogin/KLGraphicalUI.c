@@ -1,7 +1,7 @@
 /*
  * KLGraphicalUI.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLGraphicalUI.c,v 1.11 2005/05/16 22:05:30 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -142,7 +142,7 @@ krb5_error_code __KLPrompterGUI (krb5_context  context,
             uint32_t replyLength = strlen (currentReply);
 
             if ((replyLength + 1) > prompts[i].reply->length) {
-                dprintf ("__KLPrompterGUI: reply %ld is too long (is %ld, should be %ld)\n",
+                dprintf ("__KLPrompterGUI: reply %d is too long (is %d, should be %d)\n",
                          i, replyLength, prompts[i].reply->length);
                 replyLength = prompts[i].reply->length;
             }
@@ -176,7 +176,7 @@ KLStatus __KLCancelAllDialogsGUI (void)
             gServerPID = -1;
             result = klNoErr;
         } else {
-            dprintf ("KLCancelAllDialogsGUI() failed killing KLS with err = %ld (%s)\n", 
+            dprintf ("KLCancelAllDialogsGUI() failed killing KLS with err = %d (%s)\n", 
                     errno, strerror (errno));
         }
     }

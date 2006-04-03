@@ -16724,6 +16724,17 @@ Is this going away????
 @end ignore
 
 
+@subheading The @code{-file-core-file} Command
+@findex -file-core-file
+
+@subsubheading Synopsis
+
+@smallexample
+ -file-core-file @var{corefile}
+@end smallexample
+
+Specify the core file to be debugger.
+
 @subheading The @code{-file-exec-and-symbols} Command
 @findex -file-exec-and-symbols
 

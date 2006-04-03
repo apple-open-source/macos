@@ -14,8 +14,7 @@
 
 @SET_MAKE@
 
-
-SOURCES = $(libv3test_a_SOURCES) $(abi_check_SOURCES)
+SOURCES = $(libv3test_a_SOURCES)
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -42,7 +41,6 @@ host_triplet = @host@
 target_triplet = @target@
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(top_srcdir)/fragment.am
-@GLIBCXX_TEST_ABI_TRUE@noinst_PROGRAMS = abi_check$(EXEEXT)
 subdir = testsuite
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
@@ -59,12 +57,9 @@ ARFLAGS = cru
 libv3test_a_AR = $(AR) $(ARFLAGS)
 libv3test_a_LIBADD =
 am_libv3test_a_OBJECTS = testsuite_abi.$(OBJEXT) \
-	testsuite_allocator.$(OBJEXT) testsuite_hooks.$(OBJEXT)
+	testsuite_allocator.$(OBJEXT) testsuite_character.$(OBJEXT) \
+	testsuite_hooks.$(OBJEXT)
 libv3test_a_OBJECTS = $(am_libv3test_a_OBJECTS)
-PROGRAMS = $(noinst_PROGRAMS)
-am_abi_check_OBJECTS = abi_check.$(OBJEXT)
-abi_check_OBJECTS = $(am_abi_check_OBJECTS)
-abi_check_LDADD = $(LDADD)
 DEFAULT_INCLUDES = 
 depcomp =
 am__depfiles_maybe =
@@ -74,8 +69,8 @@ LTCXXCOMPILE = $(LIBTOOL) --mode=compile $(CXX) $(DEFS) \
 	$(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
 	$(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
-SOURCES = $(libv3test_a_SOURCES) $(abi_check_SOURCES)
-DIST_SOURCES = $(libv3test_a_SOURCES) $(abi_check_SOURCES)
+SOURCES = $(libv3test_a_SOURCES)
+DIST_SOURCES = $(libv3test_a_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DEJATOOL = $(PACKAGE)
@@ -143,8 +138,6 @@ GLIBCXX_C_HEADERS_C_TRUE = @GLIBCXX_C_HEADERS_C_TRUE@
 GLIBCXX_HOSTED_FALSE = @GLIBCXX_HOSTED_FALSE@
 GLIBCXX_HOSTED_TRUE = @GLIBCXX_HOSTED_TRUE@
 GLIBCXX_INCLUDES = $(shell ${testsuite_flags_script} --build-includes)
-GLIBCXX_TEST_ABI_FALSE = @GLIBCXX_TEST_ABI_FALSE@
-GLIBCXX_TEST_ABI_TRUE = @GLIBCXX_TEST_ABI_TRUE@
 GLIBCXX_TEST_THREAD_FALSE = @GLIBCXX_TEST_THREAD_FALSE@
 GLIBCXX_TEST_THREAD_TRUE = @GLIBCXX_TEST_THREAD_TRUE@
 GLIBCXX_TEST_WCHAR_T_FALSE = @GLIBCXX_TEST_WCHAR_T_FALSE@
@@ -282,10 +275,9 @@ noinst_LIBRARIES = libv3test.a
 libv3test_a_SOURCES = \
 	testsuite_abi.cc \
 	testsuite_allocator.cc \
+	testsuite_character.cc \
 	testsuite_hooks.cc 
 
-abi_check_SOURCES = abi_check.cc
-abi_check_DEPENDENCIES = libv3test.a
 
 # Generated lists of files to run.  All of these names are valid make
 # targets, if you wish to generate a list manually.
@@ -297,22 +289,17 @@ lists_of_files = \
 baseline_file = ${baseline_dir}/baseline_symbols.txt
 extract_symvers = $(glibcxx_srcdir)/scripts/extract_symvers
 
-# These two special 'check-script' rules use the bash script
-# 'check_survey' to do testing. This script is not as portable as the
-# dejagnu test harness, and is thus off by default. It does produce
-# interesting output however, including various performance analysis
-# items like compile time, execution time, and binary size.
-survey_script = ${glibcxx_builddir}/scripts/check_survey
+# Runs the testsuite, but in compile only mode.
+# Can be used to test sources with non-GNU FE's at various warning
+# levels and for checking compile time across releases.
+# See script.
+compile_script = ${glibcxx_srcdir}/scripts/check_compile
 
 # Runs the testsuite/performance tests.
 # Some of these tests create large (~75MB) files, allocate huge
 # ammounts of memory, or otherwise tie up machine resources. Thus,
 # running this is off by default.
 performance_script = ${glibcxx_srcdir}/scripts/check_performance
-
-# Runs the testsuite, but in compile only mode, and times it.
-# See script.
-compile_script = ${glibcxx_srcdir}/scripts/check_compile
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = *.txt *.tst *.exe core* filebuf_* tmp* ostream_* *.log *.sum \
@@ -358,16 +345,6 @@ libv3test.a: $(libv3test_a_OBJECTS) $(libv3test_a_DEPENDENCIES)
 	-rm -f libv3test.a
 	$(libv3test_a_AR) libv3test.a $(libv3test_a_OBJECTS) $(libv3test_a_LIBADD)
 	$(RANLIB) libv3test.a
-
-clean-noinstPROGRAMS:
-	@list='$(noinst_PROGRAMS)'; for p in $$list; do \
-	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
-	  echo " rm -f $$p $$f"; \
-	  rm -f $$p $$f ; \
-	done
-abi_check$(EXEEXT): $(abi_check_OBJECTS) $(abi_check_DEPENDENCIES) 
-	@rm -f abi_check$(EXEEXT)
-	$(CXXLINK) $(abi_check_LDFLAGS) $(abi_check_OBJECTS) $(abi_check_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -488,9 +465,9 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-	$(MAKE) $(AM_MAKEFLAGS) check-DEJAGNU check-local
+	$(MAKE) $(AM_MAKEFLAGS) check-DEJAGNU
 check: check-am
-all-am: Makefile $(LIBRARIES) $(PROGRAMS) all-local
+all-am: Makefile $(LIBRARIES) all-local
 installdirs:
 install: install-am
 install-exec: install-exec-am
@@ -520,7 +497,7 @@ maintainer-clean-generic:
 clean: clean-am
 
 clean-am: clean-generic clean-libtool clean-noinstLIBRARIES \
-	clean-noinstPROGRAMS mostlyclean-am
+	mostlyclean-am
 
 distclean: distclean-am
 	-rm -f Makefile
@@ -567,14 +544,13 @@ ps-am:
 uninstall-am: uninstall-info-am
 
 .PHONY: CTAGS GTAGS all all-am all-local check check-DEJAGNU check-am \
-	check-local clean clean-generic clean-libtool \
-	clean-noinstLIBRARIES clean-noinstPROGRAMS ctags distclean \
-	distclean-DEJAGNU distclean-compile distclean-generic \
-	distclean-libtool distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-data \
-	install-data-am install-exec install-exec-am install-info \
-	install-info-am install-man install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
+	clean clean-generic clean-libtool clean-noinstLIBRARIES ctags \
+	distclean distclean-DEJAGNU distclean-compile \
+	distclean-generic distclean-libtool distclean-tags distdir dvi \
+	dvi-am html html-am info info-am install install-am \
+	install-data install-data-am install-exec install-exec-am \
+	install-info install-info-am install-man install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags uninstall uninstall-am uninstall-info-am
@@ -591,6 +567,11 @@ all-local: stamp_wchar stamp_thread testsuite_files
 @GLIBCXX_TEST_THREAD_TRUE@stamp_thread:
 @GLIBCXX_TEST_THREAD_TRUE@	touch testsuite_thread
 @GLIBCXX_TEST_THREAD_FALSE@stamp_thread:
+
+# This rule generates all of the testsuite_files* lists at once.
+${lists_of_files}:
+	${glibcxx_srcdir}/scripts/create_testsuite_files \
+	  ${glibcxx_srcdir}/testsuite `${PWD_COMMAND}`
 
 # We need more things in site.exp, but automake completely controls the
 # creation of that file; there's no way to append to it without messing up
@@ -611,18 +592,13 @@ site.exp: Makefile
 	@echo 'set target_triplet $(target_triplet)' >>site.tmp
 	@echo 'set target_triplet $(target_triplet)' >>site.tmp
 	@echo 'set libiconv "$(LIBICONV)"' >>site.tmp
+	@echo 'set baseline_file "$(baseline_file)"' >> site.tmp
 	@echo '## All variables above are generated by configure. Do Not Edit ##' >>site.tmp
 	@test ! -f site.exp || \
 	  sed '1,/^## All variables above are.*##/ d' site.exp >> site.tmp
 	@-rm -f site.bak
 	@test ! -f site.exp || mv site.exp site.bak
 	@mv site.tmp site.exp
-
-# This is automatically run after the generated check-DEJAGNU rule.
-check-local: check-abi
-
-current_symbols.txt: ${extract_symvers} ../src/.libs/libstdc++.so
-	  -@(${extract_symvers} ../src/.libs/libstdc++.so current_symbols.txt)
 
 baseline_symbols:
 	-@(output=${baseline_file}; \
@@ -644,39 +620,17 @@ new-abi-baseline:
 
 # Use 'new-abi-baseline' to create an initial symbol file.  Then run
 # 'check-abi' to test for changes against that file.
-@GLIBCXX_TEST_ABI_TRUE@check-abi: abi_check baseline_symbols current_symbols.txt
-@GLIBCXX_TEST_ABI_TRUE@	-@./abi_check --check ./current_symbols.txt ${baseline_file} \
-@GLIBCXX_TEST_ABI_TRUE@	  2>&1 | tee libstdc++-abi.sum
-@GLIBCXX_TEST_ABI_TRUE@	-@cp libstdc++-abi.sum libstdc++-abi.log
-
-@GLIBCXX_TEST_ABI_TRUE@check-abi-verbose: abi_check baseline_symbols current_symbols.txt
-@GLIBCXX_TEST_ABI_TRUE@	-@./abi_check --check-verbose ./current_symbols.txt ${baseline_file} \
-@GLIBCXX_TEST_ABI_TRUE@	  2>&1 | tee libstdc++-abi.sum
-@GLIBCXX_TEST_ABI_TRUE@	-@cp libstdc++-abi.sum libstdc++-abi.log
-
-@GLIBCXX_TEST_ABI_FALSE@check-abi:
-@GLIBCXX_TEST_ABI_FALSE@check-abi-verbose:
-check-script: ${survey_script}
-	-@(chmod + ${survey_script}; \
-	  ${survey_script} 0)
-
-check-script-install: ${survey_script}
-	-@(chmod + ${survey_script}; \
-	  ${survey_script} 0)
-check-performance: testsuite_files_performance ${performance_script}
-	-@(chmod + ${performance_script}; \
-	  ${performance_script} ${glibcxx_srcdir} ${glibcxx_builddir})
+check-abi: baseline_symbols current_symbols.txt site.exp
+	-@runtest --tool libstdc++ abi.exp
 check-compile: testsuite_files ${compile_script}
 	-@(chmod + ${compile_script}; \
 	  ${compile_script} ${glibcxx_srcdir} ${glibcxx_builddir})
+check-performance: testsuite_files_performance ${performance_script}
+	-@(chmod + ${performance_script}; \
+	  ${performance_script} ${glibcxx_srcdir} ${glibcxx_builddir})
 
-# This rule generates all of the testsuite_files* lists at once.
-${lists_of_files}:
-	${glibcxx_srcdir}/scripts/create_testsuite_files \
-	  ${glibcxx_srcdir}/testsuite `${PWD_COMMAND}`
-
-.PHONY: baseline_symbols new-abi-baseline check-abi check-abi-verbose \
-check-script check-script-install check-performance
+.PHONY: baseline_symbols new-abi-baseline \
+	check-abi check-compile check-performance
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

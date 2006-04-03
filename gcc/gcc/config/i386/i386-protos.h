@@ -187,7 +187,11 @@ extern int ix86_register_move_cost (enum machine_mode, enum reg_class,
 				    enum reg_class);
 extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 					 enum machine_mode, int);
+extern bool ix86_cannot_change_mode_class (enum machine_mode,
+					   enum machine_mode, enum reg_class);
 extern enum reg_class ix86_preferred_reload_class (rtx, enum reg_class);
+/* APPLE LOCAL 3501055 mainline candidate */
+extern enum reg_class ix86_preferred_output_reload_class (rtx, enum reg_class);
 extern int ix86_memory_move_cost (enum machine_mode, enum reg_class, int);
 extern void emit_i387_cw_initialization (rtx, rtx, int);
 extern bool ix86_fp_jump_nontrivial_p (enum rtx_code);
@@ -205,7 +209,8 @@ extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
-extern rtx ix86_function_value (tree);
+/* APPLE LOCAL mainline 2005-09-20 4205103 */
+extern rtx ix86_function_value (tree, tree, bool);
 #endif
 
 #endif
@@ -262,3 +267,11 @@ extern void ix86_fp_comparison_codes (enum rtx_code code, enum rtx_code *,
 				      enum rtx_code *, enum rtx_code *);
 extern enum rtx_code ix86_fp_compare_code_to_integer (enum rtx_code);
 #endif
+
+/* APPLE LOCAL begin CW asm blocks */
+extern const char *i386_cw_asm_register_name (const char *regname, char *buf);
+extern bool cw_x86_needs_swapping (const char *);
+extern bool cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
+			 bool must_be_reg, bool must_not_be_reg, void *);
+extern void x86_cw_print_prefix (char *buf, tree prefix_list);
+/* APPLE LOCAL end CW asm blocks */

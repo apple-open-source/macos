@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc.c,v 1.143.2.20 2005/01/18 15:11:22 tony2001 Exp $ */
+/* $Id: php_odbc.c,v 1.143.2.21.2.1 2005/07/02 22:53:11 edink Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -245,7 +245,7 @@ static void _close_odbc_pconn(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 	odbc_result *res;
 	odbc_connection *conn = (odbc_connection *)rsrc->ptr;
 
-	nument = zend_hash_next_free_element(&EG(regular_list));
+	nument = zend_hash_next_free_element(&EG(persistent_list));
 	for(i = 1; i < nument; i++) {
 		ptr = zend_list_find(i, &type);
 		if (ptr && (type == le_result)) {
@@ -2436,8 +2436,10 @@ PHP_FUNCTION(odbc_next_result)
 			result->values = NULL;
 		}
 		RETURN_TRUE;
-	}
-	else {
+	} else if (rc == SQL_NO_DATA_FOUND) {
+		RETURN_FALSE;
+	} else {
+		odbc_sql_error(result->conn_ptr, result->stmt, "SQLMoreResults");
 		RETURN_FALSE;
 	}
 }

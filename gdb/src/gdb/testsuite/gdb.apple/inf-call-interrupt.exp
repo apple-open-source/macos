@@ -112,7 +112,7 @@ mi_gdb_load ${binfile}
 mi_run_to_main
 
 mi_gdb_test "400-break-insert foo" "400\\^done,bkpt=\{number=\"2\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"foo\",file=\".*inf-call-interrupt.c\",line=\"$decimal\",shlib=\"$binfile\",times=\"0\"\}"
-mi_gdb_test "401-data-evaluate-expression foo()" "401\\^error,msg=\"The program being debugged stopped while in a function called from GDB.*\",reason=\"breakpoint-hit\",commands=\"no\",bkptno=\"2\",thread-id=\"1\"" "MI call inferior's function with a breakpoint set in it"
+mi_gdb_test "401-data-evaluate-expression foo()" "401\\^error,msg=\"The program being debugged stopped while in a function called from GDB.*\",reason=\"breakpoint-hit\",commands=\"no\",times=\"1\",bkptno=\"2\",thread-id=\"1\"" "MI call inferior's function with a breakpoint set in it"
 
 mi_gdb_test "402-stack-list-frames" "402\\^done,stack=\\\[frame=\{level=\"0\",addr=\"$hex\",fp=\"$hex\",func=\"foo\",file=\".*inf-call-interrupt.c\",line=\"$decimal\",dir=\".*\"\},frame=\{level=\"1\",addr=\"$hex\",fp=\"$hex\",func=\"<function called from gdb>\"\},frame=\{level=\"2\",addr=\"$hex\",fp=\"$hex\",func=\"main\",file=\".*inf-call-interrupt.c\",line=\"$decimal\",dir=\".*\"\}.*\\\]" "MI backtrace from inferior function stopped at bp, showing gdb dummy frame"
 
@@ -151,7 +151,7 @@ mi_gdb_test "1398-gdb-set unwindonsignal 1" "1398\\^done" "set unwindonsignal"
 mi_gdb_test "1399-gdb-show unwindonsignal" "1399\\^done,value=\"on\"" "verify that unwindonsignal was set"
 
 mi_gdb_test "1400-break-insert foo" "1400\\^done,bkpt=\{number=\"2\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"foo\",file=\".*inf-call-interrupt.c\",line=\"$decimal\",shlib=\"$binfile\",times=\"0\"\}" 
-mi_gdb_test "1401-data-evaluate-expression foo()" "1401\\^error,msg=\"The program being debugged stopped while in a function called from GDB.*\",reason=\"breakpoint-hit\",commands=\"no\",bkptno=\"2\",thread-id=\"1\""
+mi_gdb_test "1401-data-evaluate-expression foo()" "1401\\^error,msg=\"The program being debugged stopped while in a function called from GDB.*\",reason=\"breakpoint-hit\",commands=\"no\",times=\"1\",bkptno=\"2\",thread-id=\"1\""
 
 mi_gdb_test "1402-stack-list-frames" "1402\\^done,stack=\\\[frame=\{level=\"0\",addr=\"$hex\",fp=\"$hex\",func=\"foo\",file=\".*inf-call-interrupt.c\",line=\"$decimal\",dir=\".*\"\},frame=\{level=\"1\",addr=\"$hex\",fp=\"$hex\",func=\"<function called from gdb>\"\},frame=\{level=\"2\",addr=\"$hex\",fp=\"$hex\",func=\"main\",file=\".*inf-call-interrupt.c\",line=\"$decimal\",dir=\".*\"\}.*\\\]"
 

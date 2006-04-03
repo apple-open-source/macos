@@ -1357,6 +1357,10 @@ tDirStatus dsGetAuthMethodEnumValue( tDataNode *inData, uInt32 *outAuthMethod )
 	{
         *outAuthMethod = kAuthSetShadowHashSecure;
     }
+	else if ( ::strcmp( authMethodPtr, "dsAuthMethodStandard:dsAuthNTWithSessionKey" ) == 0 )
+	{
+        *outAuthMethod = kAuthNTSessionKey;
+	}
 	else
 	{
 		uiNativeLen	= ::strlen( kDSNativeAuthMethodPrefix );

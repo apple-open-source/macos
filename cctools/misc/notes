@@ -9,6 +9,52 @@ To Do:
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
 
+Changes for the 5.20 release (the cctools-590.20 release):
+- Removed the warnings when building. Radar bug #4340147.
+  - Added -fno-builtin-round to the Makefile.
+  - Changed the local variable p to a char * in print_symbols() in nm.c .
+  - Changed the cast of argument 3 of the call to bootstrap_look_up() to
+    (unsigned int *) in tellProjectBuilder() in libtool.c .
+- Fixed a bug in redo_prebinding in the support for new i386 self (dyld)
+  modifiying code stubs.  The problem was with calculation for the new
+  displacement of the jmp instruction for non-prebound undefined symbols not
+  taking in to account that the symbol is also being slid.  The fix was in
+  update_self_modifying_stubs() in redo_prebinding.c code.  Radar bug #4335281.
+
+Changes for the 5.19 release (the cctools-590.18 release):
+- Fixed a bug in nmedit(1) when it tried to change a global coalesced symbol
+  into a static and did not get the r_symbolnum for relocation entries set
+  correctly.  The fix is in check_object_relocs() in strip.c where an extra
+  check was needed of relocs[k].r_extern == 1 before updating the r_symbolnum
+  field with the new symbol index.  Radar bug #4318688.
+
+Changes for the 5.19 release (the cctools-590.17 release):
+- Fixed a bug in strip(1) if there is more than one non-lazy pointer section
+  with the same indirect symbol that is being stripped.  The fix was in 
+  check_indirect_symtab() in strip.c that needed to have a new made_local
+  boolean and not always set saves[index] = -1 because that would cause the
+  sections after the first one with this symbol not to be updated.  Radar bug
+  #4316021.
+
+Changes for the 5.19 release (the cctools-590.10 release):
+- Added support for new i386 self (dyld) modifiying code stubs in the 
+  redo_prebinding.c code.  Radar bug #4202415.
+  - Added the new routine update_self_modifying_stubs() to set the JMP
+    instruction values.
+  - Changed process_arch() to call the new update_self_modifying_stubs().
+  - Added the new routine reset_self_modifying_stubs() to set the self modifying
+    stubs section back to halt instructions.
+  - Changed unprebind_arch() to call the new reset_self_modifying_stubs().
+
+Changes for the 5.19 release (the cctools-590.7 release):
+- Changed libtool(1) to pass the new -macosx_version_min flag to ld.  Radar
+  bug #4195253
+
+Changes for the 5.18 release (the cctools-590.5 release):
+- Added the N_OSO stab entry to stabnames[] array in nm.c to print the new
+  stab.  Radar bug #4202462.
+- Added passing the -Sp flag from libtool(1) to ld(1).  Radar bug #4202462.
+
 Changes for the 5.18 release (and SUTiCambridge) (the cctools-590 release):
 - Added a call to update_dyld_section() in unprebind_arch() in
   redo_prebinding.c to set the (__DATA,__dyld) section contents to a

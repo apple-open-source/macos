@@ -1,0 +1,340 @@
+html {
+	margin: 0;
+	padding: 0;
+	}
+	
+body {
+	margin: 0;
+	padding: 0;
+	text-align: center;
+	font-size: 12px; 
+	font-family: "Lucida Grande", Tahoma, Verdana, Arial, Helvetica, sans-serif;
+	background: #3f6789 url(/blojsom_resources/images/v5_background_main.jpg) repeat-y center;
+	}
+
+a {
+	color: #33c;
+	text-decoration: none;
+	}
+	
+h2#title {
+	font-size: 22px;
+	margin: 75px 0 0 15px;
+	padding: 0;
+	}
+	
+h2#title a {
+	color: #fff;
+	}
+	
+p#subtitle {
+	margin: 5px 0 0 15px;
+	padding: 0;
+	color: #fff;
+	}
+
+
+
+/*
+----------------------------------
+header
+----------------------------------
+*/
+
+#header_span_body {
+	height: 139px;
+	background: url(/blojsom_resources/images/v5_background_top.jpg) no-repeat top center;
+	text-align: center;
+	margin-left: auto;
+	margin-right: auto;
+	width: 780px;
+	padding: 0 20px 0 20px;
+	}
+	
+#header_table {
+	margin-left: auto;
+	margin-right: auto;
+	width: 780px;
+	}
+	
+#header_table td {
+	text-align: left;
+	}
+	
+#header_logo_cell img {
+	display: none;
+	}
+	
+
+	
+	
+/*
+---------------------------------------
+content area
+---------------------------------------
+ */	
+	
+#column_container {
+	margin-left: auto;
+	margin-right: auto;
+	width: 780px;
+	padding: 0 20px 100px 20px;
+	}
+	
+.main_column {
+	text-align: left;
+	width: 470px;
+	float: left;
+	padding: 0 37px 0 37px;
+	}
+	
+.side_column {
+	width: 236px;
+	float: right;
+	text-align: center;
+	margin-top: 40px;
+	padding-bottom: 30px;
+	}
+	
+#calendar_box_header {
+	width: 236px;
+	height: 20px;
+	text-align: center;
+	}
+
+	
+#calendar_box_body {
+	width: 236px;
+	}
+
+#search_box_body {
+	width: 236px;
+	}
+
+#links_box_body {
+	width: 236px;
+	}	
+	
+#blog_listing_container {
+	padding-top: 15px;
+	}
+	
+	
+
+
+/*
+---------------------------------------
+blog entries
+---------------------------------------
+ */
+
+.entrystyle {
+	padding: 20px 0 6px 0;
+	border-bottom: 1px dotted #000;
+	}
+	
+.weblogtitle {
+	font-size: 14px;
+	font-weight: bold;
+	}
+
+.weblog_category_link {
+	font-size: 11px;
+	color: #424242;
+}
+
+.weblogbottomline {
+	color: #424242;
+	font-size: 11px;
+}
+
+.entryfooter {
+	font-size: 11px;
+	width: 100%;
+	}
+
+#blogfooter {
+	width: 470px;
+	font-size: 11px;
+	margin-top: 5px;
+	text-align: right;
+	}
+	
+#blogfooter .entryinfo {
+	text-align: right;
+	}
+
+
+/*
+---------------------------------------
+calendar
+---------------------------------------
+ */
+
+
+.calendartable {
+	font-size: 10px;
+	margin: auto;
+	}
+
+.calendarcolumn {
+	text-align: center;
+	width: 19px;
+	height: 14px;
+	}
+
+.calendarcolumn-a {
+	text-align: center;
+	width: 17px;
+	background: #e5e5e5;
+	border: 1px outset #e5e5e5;
+	height: 12px;
+	}
+
+.calendarcolumn-h {
+	text-align: center;
+	width: 17px;
+	background: #e5e5e5;
+	border: 1px inset #e5e5e5;
+	height: 12px;
+	}
+
+.calendarcaption {
+	text-align: center;
+	}
+
+
+
+
+/*
+---------------------------------------
+search box
+---------------------------------------
+ */
+
+
+#search_box_body {
+	font-size: 10px;
+	line-height: 10px;
+	margin: auto;
+	text-align: center;
+	padding-top: 30px;
+	padding-bottom: 30px;}
+
+#query {
+	margin: auto;
+	font-size: 11px;
+	}
+
+
+
+/*
+---------------------------------------
+nav
+---------------------------------------
+ */
+
+#categories_functions {
+	width: 236px;
+	border-top: 1px solid #87a9cd;
+	padding-top: 15px;
+	margin: 0px;
+	}
+
+#categories_functions a {
+	display: block;
+	text-align: center;
+	width: 236px;
+	height: 20px;
+	padding-top: 5px;
+	padding-bottom: 2px;
+	margin-top: -14px;		/* top margin for IE 6 win */
+	}
+
+html>body #categories_functions a {
+	margin-top: -15px;		/* top margin for others */
+	}
+
+#side_categories_links a.selected_category {
+	background: url(/blojsom_resources/images/v5_background_linkhover.jpg) repeat-y;
+	}
+
+#side_categories_links a {
+	font-weight: bold;
+	border-bottom: 1px solid #87a9cd;
+	background: url(/blojsom_resources/images/v5_background_link.jpg) repeat-y;
+	}
+
+#categories_functions a:hover {
+	background: url(/blojsom_resources/images/v5_background_linkhover.jpg) repeat-y;
+	}
+
+#side_categories_links {
+	margin-bottom: 20px;
+	}
+
+
+
+/*
+---------------------------------------
+dialog boxes
+---------------------------------------
+ */
+
+#login_dialog
+{
+	z-index: 2;
+	position: absolute;
+	left: 130px;
+	visibility: hidden;
+	top: 350px;
+}
+
+#settings_dialog {
+	position: absolute;
+	z-index: 2;
+	top: 280px;
+	left: 130px;
+	visibility: hidden;
+}
+
+#entry_dialog {
+	top: 240px;
+	left: 130px;
+	z-index: 2;
+	position: absolute;
+	visibility: hidden;
+}
+
+#entry_dialog_description_cell {
+	text-align: right;
+}
+
+#category_dialog {
+	z-index: 2;
+	position: absolute;
+	top: 280px;
+	left: 130px;
+	visibility: hidden;
+}
+
+
+.dialog_600_body {
+	background-color: #fff;
+	border: 1px solid #87a9cd;
+	padding: 10px;
+	}
+
+.dialog_500_body {
+	width: 500px;
+	background-color: #fff;
+	border: 1px solid #87a9cd;
+	padding: 10px;
+	}
+
+.dialog_400_body {
+	background-color: #fff;
+	border: 1px solid #87a9cd;
+	padding: 10px;
+	}
+

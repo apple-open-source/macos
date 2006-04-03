@@ -113,7 +113,18 @@ if {$main_current_pc_from_info_frame != $main_cur_pc} then {
   pass "p/x \$pc returns the same as info frame's \$pc"
 }
 
-if {$main_current_fp_from_info_frame != $main_cur_fp} then {
+# on x86, $fp (aka EBP) points two words into the stack frame.
+# info frame will report the correct frame address, which starts
+# with the saved EIP, then the saved ESP.  EBP points to the
+# space below that.  So for the sake of this comparison add the
+# offset to EBP so it matches info frame's output.
+
+if [istarget "i\[3-6\]86-apple-darwin*"] {
+  set offset 8
+} else {
+  set offset 0
+}
+if {$main_current_fp_from_info_frame != $main_cur_fp + $offset} then {
   fail "p/x \$fp returns the same as info frame's \$fp"
 } else {
   pass "p/x \$fp returns the same as info frame's \$fp"

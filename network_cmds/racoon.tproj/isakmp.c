@@ -194,7 +194,7 @@ isakmp_handler(so_isakmp)
 	/* reject if the size is toooo big */
 	if (ntohl(isakmp.len) > 0xffff) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			"the length of the isakmp header is too big.\n");
+			"the length in the isakmp header is too big.\n");
 		if ((len = recvfrom(so_isakmp, (char *)&isakmp, sizeof(isakmp),
 			    0, (struct sockaddr *)&remote, &remote_len)) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
@@ -318,6 +318,32 @@ isakmp_natt_handler(so_isakmp)
 			"failed to receive isakmp packet\n");
 		goto end;
 	}
+
+
+	/* check isakmp header length */
+	if (len < sizeof(temp_buffer)) {
+		plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
+			"packet shorter than isakmp header size.\n");
+		/* dummy receive */
+		if ((len = recvfrom(so_isakmp, (char *)temp_buffer, sizeof(temp_buffer),
+			0, (struct sockaddr *)&remote, &remote_len)) < 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"failed to receive isakmp packet\n");
+		}
+		goto end;
+	}
+
+	/* reject if the size is toooo big */
+	if (ntohl(isakmp->len) > 0xffff) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			"the length in the isakmp header is too big.\n");
+		if ((len = recvfrom(so_isakmp, (char *)temp_buffer, sizeof(temp_buffer),
+			0, (struct sockaddr *)&remote, &remote_len)) < 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"failed to receive isakmp packet\n");
+		}
+		goto end;
+	}
 	
 	/* remove the four bytes of zeros on nat traversal port */
 	if (*(u_long*)temp_buffer != 0L)
@@ -325,18 +351,11 @@ isakmp_natt_handler(so_isakmp)
 		/*
 		 * This is a UDP encapsulated IPSec packet,
 		 * we should drop it.
-		 *
-		 * TBD: Need a way to read the packet.
 		 * The kernel intercepts these packets on Mac OS X
-		 * but not all kernels will handle this the same way.
+		 * so we should not get here.
 		 */
-		goto end;
-	}
-
-	/* check isakmp header length */
-	if (len < sizeof(temp_buffer)) {
 		plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
-			"packet shorter than isakmp header size.\n");
+			"invalid packet - expected non-ESP marker.\n");
 		/* dummy receive */
 		if ((len = recvfrom(so_isakmp, (char *)temp_buffer, sizeof(temp_buffer),
 			    0, (struct sockaddr *)&remote, &remote_len)) < 0) {
@@ -1357,7 +1376,7 @@ isakmp_parsewoh(np0, gen, len)
 
 		p->type = np;
 		p->len = ntohs(gen->len);
-		if (p->len == 0 || p->len > tlen) {
+		if (p->len < sizeof(struct isakmp_gen) || p->len > tlen) {
 			plog(LLV_DEBUG, LOCATION, NULL,
 				"invalid length of payload\n");
 			vfree(result);

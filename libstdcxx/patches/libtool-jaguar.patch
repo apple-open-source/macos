@@ -1,0 +1,20 @@
+--- /tmp/libstdcxx-jaguar.roots/libstdcxx-jaguar/libstdcxx/ltcf-cxx.sh	2004-10-02 09:33:06.000000000 -0700
++++ ltcf-cxx.sh	2005-06-01 16:12:10.000000000 -0700
+@@ -226,7 +226,7 @@ case $host_os in
+ 
+   darwin* | rhapsody*)
+     case "$host_os" in
+-	rhapsody* | darwin1.[[012]])
++	rhapsody* | darwin1.[012])
+ 	    allow_undefined_flag='-undefined suppress'
+ 	;;
+ 	*) # Darwin 1.3 on
+@@ -234,7 +234,7 @@ case $host_os in
+ 		allow_undefined_flag='-flat_namespace -undefined suppress'
+       else
+ 	case ${MACOSX_DEPLOYMENT_TARGET} in
+-	    10.[[012]])
++	    10.[012])
+ 		allow_undefined_flag='-flat_namespace -undefined suppress'
+ 	    ;;
+ 	    10.*)

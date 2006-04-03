@@ -174,7 +174,10 @@ public:
     bool hasClip() { return isPositioned() &&  style()->hasClip(); }
     
     virtual int getBaselineOfFirstLineBox() const { return -1; } 
-    
+
+    virtual bool isEdited() const { return false; }
+    virtual void setEdited(bool) { return; };
+
     // Obtains the nearest enclosing block (including this block) that contributes a first-line style to our inline
     // children.
     virtual RenderBlock* firstLineBlock() const;
@@ -272,6 +275,7 @@ public:
     virtual bool isFormElement() const { return false; }
     virtual bool isImage() const { return false; }
     virtual bool isTextArea() const { return false; }
+    virtual bool isTextField() const { return false; }
     virtual bool isFrameSet() const { return false; }
     virtual bool isApplet() const { return false; }
     

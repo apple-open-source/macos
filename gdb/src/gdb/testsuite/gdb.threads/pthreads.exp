@@ -279,12 +279,7 @@ proc check_backtraces {} {
     # Check that we can do thread specific backtraces
     # This also tests that we can do thread specific breakpoints.
 
-# APPLE LOCAL: Some changes to decode_line_1 which allow someone to type
-#  b -[MyClass myfunc:]
-# to work break cmds of the format "b main thread 2" due to the clipping
-# of skip_quoted in d_l_1.  So use an alternate way to apply the bp.
-
-    gdb_test "thread apply $thread2_id break common_routine" \
+    gdb_test "break common_routine thread $thread2_id" \
 	    "Breakpoint .* at 0x.* file .* line .*" \
 	    "set break at common_routine in thread 2"
 

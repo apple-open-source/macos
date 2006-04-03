@@ -449,10 +449,10 @@ static size_t darwin_get_nt_acl_internals(vfs_handle_struct *handle, files_struc
 	SEC_DESC *psd = NULL;
 	size_t sd_size = 0;
 	filesec_t fsect = NULL;
-	BOOL acl_support = False;
+	BOOL acl_support = True;
 	
 	
-	DEBUG(4,("darwin_get_nt_acl_internals: called for file %s\n", fsp->fsp_name ));
+	DEBUG(4,("darwin_get_nt_acl_internals: called for file %s\n", fsp->fsp_name));
 
 	fsect = filesec_init();
 	if (statx_np(fsp->fsp_name, &sbuf, fsect) == -1) {
@@ -460,7 +460,6 @@ static size_t darwin_get_nt_acl_internals(vfs_handle_struct *handle, files_struc
 		goto cleanup;
 	}
 	
-	acl_support = acl_support_enabled( fsp->fsp_name );
 	
 	uid_to_sid( &owner_sid, sbuf.st_uid );
 	gid_to_sid( &group_sid, sbuf.st_gid );
@@ -501,12 +500,30 @@ static size_t darwin_get_nt_acl_internals(vfs_handle_struct *handle, files_struc
 
 static size_t darwin_fget_nt_acl(vfs_handle_struct *handle, files_struct *fsp, int fd, uint32 security_info, SEC_DESC **ppdesc)
 {
-	return (darwin_get_nt_acl_internals(handle, fsp, security_info, ppdesc));	
+	BOOL acl_support = False;
+	
+	
+	acl_support = acl_support_enabled( fsp->fsp_name );
+	DEBUG(4,("darwin_fget_nt_acl: called for file %s acl_support(%d)\n", fsp->fsp_name, acl_support));
+
+	if (acl_support)
+		return (darwin_get_nt_acl_internals(handle, fsp, security_info, ppdesc));	
+	else
+		return SMB_VFS_NEXT_FGET_NT_ACL(handle, fsp, fd, security_info, ppdesc);
 }
 
 static size_t darwin_get_nt_acl(vfs_handle_struct *handle, files_struct *fsp, const char *name, uint32 security_info, SEC_DESC **ppdesc)
 {
-	return (darwin_get_nt_acl_internals(handle, fsp, security_info, ppdesc));	
+	BOOL acl_support = False;
+	
+	
+	acl_support = acl_support_enabled( fsp->fsp_name );
+	DEBUG(4,("darwin_get_nt_acl: called for file %s acl_support(%d)\n", fsp->fsp_name, acl_support));
+
+	if (acl_support)
+		return (darwin_get_nt_acl_internals(handle, fsp, security_info, ppdesc));	
+	else
+		return SMB_VFS_NEXT_GET_NT_ACL(handle, fsp, name, security_info, ppdesc);
 }
 
 
@@ -1184,7 +1201,7 @@ static BOOL darwin_set_nt_acl_internals(vfs_handle_struct *handle, files_struct 
 	BOOL need_chown = False;
 	extern struct current_user current_user;
 	acl_t darwin_acl = NULL,   original_acl = NULL;
-	BOOL acl_support = False;
+	BOOL acl_support = True;
 	
 	DEBUG(4,("darwin_set_nt_acl_internals: called for file %s\n", fsp->fsp_name ));
 
@@ -1296,36 +1313,19 @@ static BOOL darwin_set_nt_acl_internals(vfs_handle_struct *handle, files_struct 
 		return False;
 	} else {
 		mode_t new_mode = 0;
-		if (acl_support) {
-			if(acl_set_file(fsp->fsp_name, ACL_TYPE_EXTENDED, darwin_acl) != 0) {
-				DEBUG(0,("darwin_set_nt_acl_internals: [acl_set_file] errno(%d) - (%s)\n",errno, strerror(errno)));
-				return False;
-			}  else {
-				if ((psd->type & SE_DESC_DACL_PROTECTED)) {
-					new_mode = map_ntacl_to_mode(fsp, psd->dacl, &file_owner_sid, &file_grp_sid, orig_mode);
-					if (orig_mode != new_mode) {
-						if(SMB_VFS_CHMOD(conn,fsp->fsp_name, new_mode) == -1) {
-							DEBUG(3,("darwin_set_nt_acl_internals: [acl_support] chmod %s, 0%o failed. Error = %s.\n",
-									fsp->fsp_name, (unsigned int)new_mode, strerror(errno) ));
-							return False;
-						}
-					}
-				}
-			}
-		} else {
-			if(map_ntacl_to_posixperms(psd->dacl, &file_owner_sid, &file_grp_sid, &new_mode)) {
+		if(acl_set_file(fsp->fsp_name, ACL_TYPE_EXTENDED, darwin_acl) != 0) {
+			DEBUG(0,("darwin_set_nt_acl_internals: [acl_set_file] errno(%d) - (%s)\n",errno, strerror(errno)));
+			return False;
+		}  else {
+			if ((psd->type & SE_DESC_DACL_PROTECTED)) {
+				new_mode = map_ntacl_to_mode(fsp, psd->dacl, &file_owner_sid, &file_grp_sid, orig_mode);
 				if (orig_mode != new_mode) {
-					DEBUG(3,("darwin_set_nt_acl_internals: chmod %s. perms = 0%o.\n", fsp->fsp_name, (unsigned int)new_mode ));
-
 					if(SMB_VFS_CHMOD(conn,fsp->fsp_name, new_mode) == -1) {
-						DEBUG(3,("darwin_set_nt_acl_internals: chmod %s, 0%o failed. Error = %s.\n",
+						DEBUG(3,("darwin_set_nt_acl_internals: [acl_support] chmod %s, 0%o failed. Error = %s.\n",
 								fsp->fsp_name, (unsigned int)new_mode, strerror(errno) ));
 						return False;
 					}
 				}
-			} else {
-				DEBUG(0,("darwin_set_nt_acl_internals: [map_ntacl_to_posixperms] failed\n"));
-				return False;				
 			}
 		}
 	}
@@ -1347,21 +1347,39 @@ static BOOL darwin_set_nt_acl_internals(vfs_handle_struct *handle, files_struct 
 
 static BOOL darwin_fset_nt_acl(vfs_handle_struct *handle, files_struct *fsp, int fd, uint32 security_info_sent, SEC_DESC *psd)
 {
-	return (darwin_set_nt_acl_internals(handle, fsp, security_info_sent, psd));
+	BOOL acl_support = False;
+	
+	
+	acl_support = acl_support_enabled( fsp->fsp_name );
+	DEBUG(4,("darwin_fset_nt_acl: called for file %s acl_support(%d)\n", fsp->fsp_name, acl_support));
+
+	if (acl_support)
+		return (darwin_set_nt_acl_internals(handle, fsp, security_info_sent, psd));
+	else
+		return SMB_VFS_NEXT_FSET_NT_ACL(handle, fsp, fd, security_info_sent, psd);
 }
 
 static BOOL darwin_set_nt_acl(vfs_handle_struct *handle, files_struct *fsp, const char *name, uint32 security_info_sent, SEC_DESC *psd)
 {
-	return (darwin_set_nt_acl_internals(handle, fsp, security_info_sent, psd));
+	BOOL acl_support = False;
+	
+	
+	acl_support = acl_support_enabled( fsp->fsp_name );
+	DEBUG(4,("darwin_set_nt_acl: called for file %s acl_support(%d)\n", fsp->fsp_name, acl_support));
+
+	if (acl_support)
+		return (darwin_set_nt_acl_internals(handle, fsp, security_info_sent, psd));
+	else
+		return SMB_VFS_NEXT_SET_NT_ACL(handle, fsp, name, security_info_sent, psd);
 }
 
 /* VFS operations structure */
 
 static vfs_op_tuple darwin_acls_ops[] = {	
-	{SMB_VFS_OP(darwin_fget_nt_acl),	SMB_VFS_OP_FGET_NT_ACL,SMB_VFS_LAYER_OPAQUE},
-	{SMB_VFS_OP(darwin_get_nt_acl),	SMB_VFS_OP_GET_NT_ACL,SMB_VFS_LAYER_OPAQUE},
-	{SMB_VFS_OP(darwin_fset_nt_acl),	SMB_VFS_OP_FSET_NT_ACL,SMB_VFS_LAYER_OPAQUE},
-	{SMB_VFS_OP(darwin_set_nt_acl),	SMB_VFS_OP_SET_NT_ACL,SMB_VFS_LAYER_OPAQUE},
+	{SMB_VFS_OP(darwin_fget_nt_acl),	SMB_VFS_OP_FGET_NT_ACL,	SMB_VFS_LAYER_TRANSPARENT},
+	{SMB_VFS_OP(darwin_get_nt_acl),		SMB_VFS_OP_GET_NT_ACL,	SMB_VFS_LAYER_TRANSPARENT},
+	{SMB_VFS_OP(darwin_fset_nt_acl),	SMB_VFS_OP_FSET_NT_ACL,	SMB_VFS_LAYER_TRANSPARENT},
+	{SMB_VFS_OP(darwin_set_nt_acl),		SMB_VFS_OP_SET_NT_ACL,	SMB_VFS_LAYER_TRANSPARENT},
 
 	{SMB_VFS_OP(NULL),			SMB_VFS_OP_NOOP,		SMB_VFS_LAYER_NOOP}
 };

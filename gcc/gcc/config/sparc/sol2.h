@@ -72,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf ((LABEL), "*.L%s%ld", (PREFIX), (long)(NUM))
+  sprintf ((LABEL), "*.L%s%lu", (PREFIX), (unsigned long)(NUM))
 
 /* The native TLS-enabled assembler requires the directive #tls_object
    to be put on objects in TLS sections (as of v7.1).  This is not
@@ -104,6 +104,13 @@ Boston, MA 02111-1307, USA.  */
 /* The Solaris assembler cannot grok .stabd directives.  */
 #undef NO_DBX_BNSYM_ENSYM
 #define NO_DBX_BNSYM_ENSYM 1
+
+/* The Solaris assembler cannot grok r_tls_dtpoff.  This is
+   a kludge as ASM_OUTPUT_DWARF_DTPREL is defined in sparc.h,
+   undefined here and defined again in sol2-gas.h.  */
+#ifdef HAVE_AS_TLS
+#undef ASM_OUTPUT_DWARF_DTPREL
+#endif
 
 
 #undef  ENDFILE_SPEC
@@ -148,7 +155,8 @@ Boston, MA 02111-1307, USA.  */
 /* Solaris allows 64 bit out and global registers in 32 bit mode.
    sparc_override_options will disable V8+ if not generating V9 code.  */
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_V8PLUS + MASK_FPU + MASK_LONG_DOUBLE_128)
+#define TARGET_DEFAULT (MASK_V8PLUS + MASK_APP_REGS + MASK_FPU \
+			+ MASK_LONG_DOUBLE_128)
 
 /* Solaris-specific #pragmas are implemented on top of attributes.  Hook in
    the bits from config/sol2.c.  */

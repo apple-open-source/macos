@@ -62,9 +62,23 @@ OBJCXX_OBJS = objcp/objcp-act.o objcp/objcp-lang.o objcp/objcp-decl.o \
    $(CXX_AND_OBJCXX_OBJS)
 
 # APPLE LOCAL begin order files  --ilr
-cc1objplus$(exeext): $(OBJCXX_OBJS) $(BACKEND) $(LIBDEPS)
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+cc1objplus-dummy$(exeext): $(OBJCXX_OBJS) dummy-checksum.o $(BACKEND) \
+		$(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(OBJCXX_OBJS) $(BACKEND) $(LIBS) $(CC1OBJPLUS_ORDER_FLAGS)
+		$(OBJCXX_OBJS) dummy-checksum.o $(BACKEND) $(LIBS) \
+		$(CC1OBJPLUS_ORDER_FLAGS)
+
+cc1objplus-checksum.c : cc1objplus-dummy$(exeext) build/genchecksum$(exeext)
+	build/genchecksum$(exeext) cc1objplus-dummy$(exeext) > $@
+
+cc1objplus-checksum.o : cc1objplus-checksum.c
+
+cc1objplus$(exeext): $(OBJCXX_OBJS) cc1objplus-checksum.o $(BACKEND) $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
+		$(OBJCXX_OBJS) cc1objplus-checksum.o $(BACKEND) $(LIBS) \
+		$(CC1OBJPLUS_ORDER_FLAGS)
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 # APPLE LOCAL end order files  --ilr
 
 # Objective C++ language specific files.

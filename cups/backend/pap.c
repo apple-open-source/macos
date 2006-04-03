@@ -1,5 +1,5 @@
 /*
-* "$Id: pap.c,v 1.11 2005/03/07 02:50:15 jlovell Exp $"
+* "$Id: pap.c,v 1.11.2.1 2005/08/10 22:22:38 jlovell Exp $"
 *
 * © Copyright 2004 Apple Computer, Inc. All rights reserved.
 * 
@@ -88,6 +88,8 @@
 
 #include <cups/http.h>
 
+#include <libkern/OSByteOrder.h>
+
 #include <AppleTalk/at_proto.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFNumber.h>
@@ -141,11 +143,11 @@ static int papClose(int abort);
 static int papWrite(int sockfd, at_inet_t* dest, u_short tid, u_char connID, u_char flowQuantum, char* data, int len, int eof);
 static int papCloseResp(int sockfd, at_inet_t* dest, int xo, u_short tid, u_char connID);
 static int papSendRequest(int sockfd, at_inet_t* dest, u_char connID, int function, u_char bitmap, int xo, int seqno);
-static int papCancelRequest(int sockfd, int id);
-static void statusUpdate(u_char* status, u_char statusLen);
+static int papCancelRequest(int sockfd, u_short tid);
+static void statusUpdate(char* status, u_char statusLen);
 static int parseUri(const char* argv0, char* name, char* type, char* zone);
-static int addPercentEscapes(const unsigned char* src, char* dst, int dstMax);
-static int removePercentEscapes(const char* src, unsigned char* dst, int dstMax);
+static int addPercentEscapes(const char* src, char* dst, int dstMax);
+static int removePercentEscapes(const char* src, char* dst, int dstMax);
 static int nbptuple_compare(const void *p1, const void *p2);
 static int okayToUseAppleTalk(void);
 static int connectTimeout(void);
@@ -350,7 +352,7 @@ static int printFile(char* name, char* type, char* zone, int fdin, int fdout, in
   u_char	bitmap;
   int		maxfdp1;
   struct timeval timeout, *timeoutPtr;
-  u_char	flowQuantum;
+  u_char	flowQuantum = 1;
   u_short	recvSequence = 0;
   time_t	now,
 		connect_time,
@@ -616,7 +618,7 @@ static int printFile(char* name, char* type, char* zone, int fdin, int fdout, in
       case AT_PAP_TYPE_SEND_STS_REPLY:        /* Send-Status-Reply packet */
         if (resp.bitmap & 1)
         {
-          u_char *iov_base = (u_char *)resp.resp[0].iov_base;
+          char *iov_base = (char *)resp.resp[0].iov_base;
           statusUpdate(&iov_base[5], iov_base[4]);
         }
         break;
@@ -624,7 +626,7 @@ static int printFile(char* name, char* type, char* zone, int fdin, int fdout, in
       case AT_PAP_TYPE_SEND_DATA:            /* Send-Data packet */
         sendDataAddr.socket  = src.socket;
         gSendDataID     = tid;
-        recvSequence    = SEQUENCE_NUM(userdata);
+        recvSequence    = OSReadBigInt16(&SEQUENCE_NUM(userdata), 0);
 
         if ((fileBufferNbytes > 0 || fileEOFRead) && fileEOFSent == false)
         {
@@ -799,13 +801,14 @@ Exit:
  */
 static int papOpen(at_nbptuple_t* tuple, u_char* connID, int* fd, at_inet_t* sessionAddr, u_char* flowQuantum)
 {
-  int		result;
+  int		result,
+		openResult;
   long		tm;
-  unsigned char data[10], rdata[ATP_DATA_SIZE];
+  char		data[10], rdata[ATP_DATA_SIZE];
   int		userdata;
   u_char	*puserdata = (u_char *)&userdata;
   at_socket	socket = 0;
-  int		waitTime;
+  u_short	waitTime;
   int		status;
   at_resp_t	resp;
   at_retry_t	retry;
@@ -848,9 +851,8 @@ static int papOpen(at_nbptuple_t* tuple, u_char* connID, int* fd, at_inet_t* ses
 
   for (;;)
   {
-    waitTime = time(NULL) - tm;
-    data[2] = waitTime >> 8;
-    data[3] = waitTime & 0xff;
+    waitTime = (u_short)(time(NULL) - tm);
+    OSWriteBigInt16(&data[2], 0, waitTime);
 
     fprintf(stderr, "DEBUG: -> %s\n", PAPPacketStr(AT_PAP_TYPE_OPEN_CONN));
 
@@ -867,13 +869,14 @@ static int papOpen(at_nbptuple_t* tuple, u_char* connID, int* fd, at_inet_t* ses
     else
     {
       puserdata = (u_char *)&resp.userdata[0];
+      openResult = OSReadBigInt16(&rdata[2], 0);
 
-      fprintf(stderr, "DEBUG: <- %s, status %d\n", PAPPacketStr(puserdata[1]), (int)*(short *)&rdata[2]);
+      fprintf(stderr, "DEBUG: <- %s, status %d\n", PAPPacketStr(puserdata[1]), openResult);
 
       /* Just for the sake of our sanity check the other fields in the packet
       */
       if (puserdata[1] != AT_PAP_TYPE_OPEN_CONN_REPLY ||
-        (*(short *)&rdata[2] == 0 && (puserdata[0]&0xff) != *connID))
+        (openResult == 0 && (puserdata[0] & 0xff) != *connID))
       {
 	result = EINVAL;
 	errno = EINVAL;
@@ -882,7 +885,7 @@ static int papOpen(at_nbptuple_t* tuple, u_char* connID, int* fd, at_inet_t* ses
   
       statusUpdate(&rdata[5], rdata[4] & 0xff);
 
-      if (*(short *)&rdata[2] == 0)
+      if (openResult == 0)
 	break;        /* Connection established okay, exit from the loop */
     }
 
@@ -919,7 +922,8 @@ Exit:
  */
 static int papClose(int abort)
 {
-  int		fd, tmpID;
+  int		fd;
+  u_short	tmpID;
   int		result;
   unsigned char	rdata[ATP_DATA_SIZE];
   int		userdata;
@@ -1121,10 +1125,11 @@ static int papSendRequest(int sockfd, at_inet_t* dest, u_char connID, int functi
     pap_send_count++;
     if (pap_send_count == 0)
       pap_send_count = 1;
-    *(u_short *)&puserdata[2] = pap_send_count;
+
+    OSWriteBigInt16(&puserdata[2], 0, pap_send_count);
   }
   else
-    *(u_short *)&puserdata[2] = 0;
+    OSWriteBigInt16(&puserdata[2], 0, 0);
 
   sigemptyset(&sv);
   sigaddset(&sv, SIGIO);
@@ -1134,7 +1139,7 @@ static int papSendRequest(int sockfd, at_inet_t* dest, u_char connID, int functi
 
   sigprocmask(SIG_SETMASK, &osv, NULL);
 
-  return (int)tid;
+  return err;
 }
 
 
@@ -1143,25 +1148,19 @@ static int papSendRequest(int sockfd, at_inet_t* dest, u_char connID, int functi
  * @abstract  Cancel a pending pap request.
  *
  * @param  sockfd	socket descriptor
- * @param  dest		destination address
- * @param  function	pap function
- * @param  bitmap	bitmap
- * @param  xo		exactly once
- * @param  seqno	sequence number
+ * @param  tid		transaction ID
  *
  * @result    A non-zero return value for errors
  */
-int papCancelRequest(int sockfd, int id)
+int papCancelRequest(int sockfd, u_short tid)
 {
-  int		len;
   sigset_t	sv, osv;
 
-  len = sizeof(int);
   sigemptyset(&sv);
   sigaddset(&sv, SIGIO);
   sigprocmask(SIG_SETMASK, &sv, &osv);
 
-  if (at_send_to_dev(sockfd, AT_ATP_CANCEL_REQUEST, (char*)&id, &len) < 0)
+  if (atp_abort(sockfd, NULL, tid) < 0)
   {
     sigprocmask(SIG_SETMASK, &osv, NULL);
     return -1;
@@ -1180,7 +1179,7 @@ int papCancelRequest(int sockfd, int id)
  * @param  status	The status response string
  * @param  statusLen	The length of the status response string
  */
-void statusUpdate(u_char* status, u_char statusLen)
+void statusUpdate(char* status, u_char statusLen)
 {
   static char	status_str[255];
   static u_char	last_statusLen  = 0xFF;
@@ -1362,10 +1361,10 @@ static int parseUri(const char* argv0, char* name, char* type, char* zone)
  *
  * @result    A non-zero return value for errors
  */
-static int addPercentEscapes(const unsigned char* src, char* dst, int dstMax)
+static int addPercentEscapes(const char* src, char* dst, int dstMax)
 {
-  unsigned char	c;
-  char		*dstEnd = dst + dstMax - 1;	/* -1 to leave room for the NUL */
+  char	c;
+  char	*dstEnd = dst + dstMax - 1;	/* -1 to leave room for the NUL */
 
   while (*src)
   {
@@ -1405,10 +1404,10 @@ static int addPercentEscapes(const unsigned char* src, char* dst, int dstMax)
  *
  * @result    A non-zero return value for errors
  */
-static int removePercentEscapes(const char* src, unsigned char* dst, int dstMax)
+static int removePercentEscapes(const char* src, char* dst, int dstMax)
 {
   int c;
-  const unsigned char *dstEnd = dst + dstMax;
+  const char *dstEnd = dst + dstMax;
 
   while (*src && dst < dstEnd)
   {

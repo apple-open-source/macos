@@ -43,9 +43,12 @@ struct node_entry
 	 */
 	size_t					name_length;			/* length of name */
 	char					*name;					/* the utf8 name */
+	CFStringRef				name_ref;				/* the name as a CFString */
 	ino_t					fileid;					/* file ID number */
 	webdav_filetype_t		node_type;				/* (int) either WEBDAV_FILE_TYPE or WEBDAV_DIR_TYPE */
 	u_int32_t				flags;
+	opaque_id				nodeid;					/* opaque_id assigned to this node */
+	time_t					node_time;				/* local time - when node was validated on server */
 	
 	/*
 	 * Attribute fields
@@ -56,6 +59,7 @@ struct node_entry
 	time_t					attr_time;				/* local time - when attribute data was received from server */
 	struct stat				attr_stat;				/* stat attributes */
 	/* file system specific attribute data */
+	time_t					attr_appledoubleheader_time; /* local time - when attr_appledoubleheader was received from server */
 	char					*attr_appledoubleheader; /* NULL if no appledoubleheader data */
 	
 	/*
@@ -101,10 +105,12 @@ struct node_entry
 /* node_entry flags */
 enum
 {
-	nodeDeletedBit		= 0,			/* the node is deleted and is on the deleted list */ 
-	nodeDeletedMask		= 0x00000001,
-	nodeInFileListBit	= 1,			/* the node is cached and is on the file list */
-	nodeInFileListMask	= 0x00000002
+	nodeDeletedBit			= 0,			/* the node is deleted and is on the deleted list */ 
+	nodeDeletedMask			= 0x00000001,
+	nodeInFileListBit		= 1,			/* the node is cached and is on the file list */
+	nodeInFileListMask		= 0x00000002,
+	nodeRecentBit			= 2,			/* the file node was recently created by this client or the directory was recently read */
+	nodeRecentMask			= 0x00000004
 };
 
 /*****************************************************************************/
@@ -113,10 +119,17 @@ enum
 #define ATTRIBUTES_TIMEOUT_MAX		60		/* Maximum number of seconds attributes are valid */
 #define FILE_VALIDATION_TIMEOUT		60		/* Number of seconds file is valid from file_validated_time */
 #define FILE_CACHE_TIMEOUT			3600	/* 1 hour */
+#define FILE_RECENTLY_CREATED_TIMEOUT	1	/* Maximum number of seconds to skip GETs on opens after a create */
+#define DIRECTORY_NEGCACHE_TIMEOUT	60		/* Maximum number of seconds directory negative cache is valid */
 
 #define NODE_IS_DELETED(node)		(((node)->flags & nodeDeletedMask) != 0)
 
-int node_attributes_valid(struct node_entry *node, uid_t uid);
+int node_appledoubleheader_valid(
+	struct node_entry *node,
+	uid_t uid);
+int node_attributes_valid(
+	struct node_entry *node,
+	uid_t uid);
 										  
 #define NODE_FILE_IS_CACHED(node)	( ((node)->flags & nodeInFileListMask) != 0 )
 #define NODE_FILE_IS_OPEN(node)		( (node)->file_inactive_time == 0 )
@@ -124,6 +137,12 @@ int node_attributes_valid(struct node_entry *node, uid_t uid);
 									  (time(NULL) >= ((node)->file_inactive_time + FILE_CACHE_TIMEOUT)) )
 #define NODE_FILE_INVALID(node)		( ((node)->file_validated_time == 0) || \
 									  (time(NULL) >= ((node)->file_validated_time + FILE_VALIDATION_TIMEOUT)) )
+#define NODE_FILE_RECENTLY_CREATED(node) ( ((node)->node_time != 0) && \
+									  (((node)->flags & nodeRecentMask) != 0) && \
+									  (time(NULL) <= ((node)->node_time + FILE_RECENTLY_CREATED_TIMEOUT)) )
+#define NODE_DIRECTORY_RECENTLY_READ(node) ( ((node)->node_time != 0) && \
+									  (((node)->flags & nodeRecentMask) != 0) && \
+									  (time(NULL) <= ((node)->node_time + DIRECTORY_NEGCACHE_TIMEOUT)) )
 
 /*****************************************************************************/
 
@@ -137,6 +156,7 @@ int nodecache_get_node(
 	size_t name_length,				/* length of name */
 	const char *name,				/* the utf8 name of the node */
 	int make_entry,					/* TRUE if a new node_entry should be created if needed*/
+	int client_created,				/* TRUE if this client created the node (used in conjunction with make_entry */
 	webdav_filetype_t node_type,	/* if make_entry is TRUE, the type of node to create */
 	struct node_entry **node);		/* the found (or new) node_entry */
 
@@ -149,7 +169,8 @@ int nodecache_move_node(
 	char *new_name);				/* the utf8 new name of the node or NULL */
 
 int nodecache_delete_node(
-		struct node_entry *node);	/* the node_entry to delete (and possibly remove) */
+	struct node_entry *node,		/* the node_entry to delete */
+	int recursive);					/* delete recursively if node is a directory */
 
 int nodecache_add_attributes(
 	struct node_entry *node,		/* the node_entry to update or add attributes_entry to */
@@ -173,8 +194,14 @@ struct node_entry *nodecache_get_next_file_cache_node(
 	int get_first);					/* if true, return first file cache node; otherwise, the next one */
 
 int nodecache_get_path_from_node(
-	struct node_entry *target_node,	/* -> node */
+	struct node_entry *node,		/* -> node */
 	char **path);					/* <- relative path to root node */
+
+int nodecache_invalidate_directory_node_time(
+	struct node_entry *dir_node);	/* parent directory node */
+
+int nodecache_delete_invalid_directory_nodes(
+	struct node_entry *dir_node);	/* parent directory node */
 
 /*****************************************************************************/
 

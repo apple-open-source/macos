@@ -36,6 +36,7 @@
 #include "block.h"
 #include "gdb_regex.h"
 #include "dictionary.h"
+#include "gdb_assert.h"
 
 #include "gdb_string.h"
 #include "readline/readline.h"
@@ -1303,16 +1304,15 @@ equivalence_table_delete (struct objfile *ofile)
    with NAME_END in the objfile OBJFILE.  */
 
 void 
-equivalence_table_add (struct objfile *ofile, char *name, 
-			       char *name_end, struct minimal_symbol *msymbol)
+equivalence_table_add (struct objfile *ofile, const char *name, 
+		       const char *name_end, struct minimal_symbol *msymbol)
 {
   struct equivalence_entry *new_entry;
   struct equivalence_entry **table;
   int hash;
   int len = name_end - name;
   
-  if (ofile->equivalence_table == NULL)
-    equivalence_table_initialize (ofile);
+  gdb_assert (ofile->equivalence_table != NULL);
   table = (struct equivalence_entry **) ofile->equivalence_table;
 
   new_entry = (struct equivalence_entry *) 
@@ -1326,7 +1326,55 @@ equivalence_table_add (struct objfile *ofile, char *name,
   hash = msymbol_hash (new_entry->name) % EQUIVALENCE_HASH_SIZE;
   new_entry->next = table[hash];
   table[hash] = new_entry;
+}
 
+void equivalence_table_build (struct objfile *ofile)
+{
+  /* APPLE LOCAL: We build a table of correspondence for symbols that are the
+     Posix compatiblity variants of symbols that exist in the library.  These 
+     are supposed to be always of the form <original symbol>$BUNCH_OF_JUNK.  
+     BUT, versions of the symbol with an _ in front are actually alternate
+     entry points, so we don't look at those.  
+     Also, don't add the stub table entries...  */
+  /* FIXME: There should really be some host specific method that we call
+     out to to test for equivalence.  Should clean this up if we ever want
+     to submit this stuff back.  */
+
+  struct equivalence_entry **table;
+  struct minimal_symbol *msymbol;
+  const char *name, *name_end;
+
+  gdb_assert (ofile->equivalence_table == NULL);
+
+  if (! ofile->check_for_equivalence)
+    return;
+  
+  equivalence_table_initialize (ofile);
+
+  table = (struct equivalence_entry **) ofile->equivalence_table;
+
+  ALL_OBJFILE_MSYMBOLS (ofile, msymbol)
+    {
+      name = SYMBOL_LINKAGE_NAME (msymbol);
+      
+      if (name[0] == '_')
+	continue;
+
+      name_end = strchr (name, '$');
+      if (name_end == NULL || *name_end == '\0')
+	continue;
+
+      /* Only treat symbols as equivalent if they are of the form:
+	     name$[0-9A-Z].  
+	 dyld uses things like $stub and so forth, and we synthesize 
+	 symbols of the form:
+	     name$dyld_stub
+         and we don't want to collide with these.  */
+      if (!(isupper(name_end[1]) || isdigit(name_end[1])))
+	continue;
+
+      equivalence_table_add (ofile, name, name_end, msymbol);
+    }
 }
 
 /* This returns a list of symbols equivalent to msymbol in the objfile

@@ -3,20 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -110,7 +111,7 @@ launchpad(launch_args *x)
 	free(x);
 
 	[args.launchThread setThread:sys_thread_self()];
-	
+
 	if (args.launchArgCount == 0)
 		[args.launchContext perform:args.launchSEL];
 	else if (args.launchArgCount == 1)
@@ -334,6 +335,7 @@ launch_thread(launch_args *args)
 	data = NULL;
 	dataLen = 0;
 	server = NULL;
+	context = NULL;
 	state = ThreadStateInitial;
 	notify_token = -1;
 	unlock_threads();
@@ -433,6 +435,8 @@ launch_thread(launch_args *args)
 		return;
 	}
 
+	context = [anObject retain];
+
 	isRunning = YES;
 
 	args = (launch_args *)malloc(sizeof(launch_args));
@@ -458,6 +462,8 @@ launch_thread(launch_args *args)
 		[anObject perform:aSelector with:arg1];
 		return;
 	}
+
+	context = [anObject retain];
 
 	isRunning = YES;
 
@@ -485,6 +491,8 @@ launch_thread(launch_args *args)
 		return;
 	}
 
+	context = [anObject retain];
+
 	isRunning = YES;
 
 	args = (launch_args *)malloc(sizeof(launch_args));
@@ -511,6 +519,7 @@ launch_thread(launch_args *args)
 
 - (void)terminateSelf
 {
+	[context release];
 	[Thread releaseThread:[Thread currentThread]];
 	[Thread threadExit];
 }

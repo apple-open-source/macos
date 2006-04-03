@@ -1,4 +1,4 @@
-/* APPLE LOCAL file ObjC super dealloc */
+/* APPLE LOCAL file mainline */
 /* Check for warnings about missing [super dealloc] calls.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>  */
 

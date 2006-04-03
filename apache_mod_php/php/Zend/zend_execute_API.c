@@ -507,6 +507,11 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 				zval *new_zval;
 
 				if (no_separation) {
+					if(i) {
+						/* hack to clean up the stack */
+						zend_ptr_stack_n_push(&EG(argument_stack), 2, (void *) (long) i, NULL);
+						zend_ptr_stack_clear_multiple(TSRMLS_C);
+					}
 					return FAILURE;
 				}
 				ALLOC_ZVAL(new_zval);
@@ -857,10 +862,18 @@ void zend_set_timeout(long seconds)
 		t_r.it_value.tv_sec = seconds;
 		t_r.it_value.tv_usec = t_r.it_interval.tv_sec = t_r.it_interval.tv_usec = 0;
 
+#	ifdef __CYGWIN__
+		setitimer(ITIMER_REAL, &t_r, NULL);
+		signal(SIGALRM, zend_timeout);
+		sigemptyset(&sigset);
+		sigaddset(&sigset, SIGALRM);
+#	else
 		setitimer(ITIMER_PROF, &t_r, NULL);
 		signal(SIGPROF, zend_timeout);
 		sigemptyset(&sigset);
 		sigaddset(&sigset, SIGPROF);
+#	endif
+
 		sigprocmask(SIG_UNBLOCK, &sigset, NULL);
 	}
 #	endif
@@ -879,7 +892,12 @@ void zend_unset_timeout(TSRMLS_D)
 
 		no_timeout.it_value.tv_sec = no_timeout.it_value.tv_usec = no_timeout.it_interval.tv_sec = no_timeout.it_interval.tv_usec = 0;
 
+#ifdef __CYGWIN__
+		setitimer(ITIMER_REAL, &no_timeout, NULL);
+#else
 		setitimer(ITIMER_PROF, &no_timeout, NULL);
+#endif
+
 	}
 #	endif
 #endif

@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: cgi_main.c,v 1.190.2.66 2005/02/11 02:12:30 sniper Exp $ */
+/* $Id: cgi_main.c,v 1.190.2.68.2.1 2005/10/06 20:39:26 johannes Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -482,9 +482,14 @@ static void sapi_cgi_register_variables(zval *track_vars_array TSRMLS_DC)
 static void sapi_cgi_log_message(char *message)
 {
 #if PHP_FASTCGI
+	long logging = 1;
 	TSRMLS_FETCH();
 
-	if (!FCGX_IsCGI()) {
+	if (cfg_get_long("fastcgi.logging", &logging) == FAILURE) {
+		logging = 1;
+	}
+                                                                                                        
+	if (!FCGX_IsCGI() && logging) {
 		FCGX_Request *request = (FCGX_Request *)SG(server_context);
 		FCGX_FPrintF( request->err, "%s\n", message );
 		/* ignore return code */
@@ -998,7 +1003,7 @@ int main(int argc, char *argv[])
 	int fcgi_fd = 0;
 	FCGX_Request request;
 #ifdef PHP_WIN32
-	int impersonate = 0;
+	long impersonate = 0;
 #else
     int status = 0;
 #endif
@@ -1390,7 +1395,7 @@ consult the installation file that came with this distribution, or visit \n\
 						}
 						php_print_info(0xFFFFFFFF TSRMLS_CC);
 						php_end_ob_buffers(1 TSRMLS_CC);
-						exit(1);
+						exit(0);
 						break;
 
   				case 'l': /* syntax check mode */
@@ -1408,7 +1413,7 @@ consult the installation file that came with this distribution, or visit \n\
 					print_extensions(TSRMLS_C);
 					php_printf("\n");
 					php_end_ob_buffers(1 TSRMLS_CC);
-					exit(1);
+					exit(0);
 					break;
 
 #if 0 /* not yet operational, see also below ... */
@@ -1441,7 +1446,7 @@ consult the installation file that came with this distribution, or visit \n\
 						php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2004 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #endif
 						php_end_ob_buffers(1 TSRMLS_CC);
-						exit(1);
+						exit(0);
 						break;
 
   				case 'w': 

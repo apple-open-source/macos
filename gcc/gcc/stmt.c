@@ -680,7 +680,12 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       if (i >= 0)
         {
 	  /* Clobbering the PIC register is an error.  */
-	  if (i == (int) PIC_OFFSET_TABLE_REGNUM)
+	  /* APPLE LOCAL begin CW asm blocks. */
+	  /* Clobbering of PIC register is allowed in CW asm block.
+	     We check this condition by checking value of 'uses'.
+	     'uses' is non-null for a CW asm expression only. */
+	  if (uses == NULL && i == (int) PIC_OFFSET_TABLE_REGNUM)
+	  /* APPLE LOCAL end CW asm blocks. */
 	    {
 	      error ("PIC register %qs clobbered in %<asm%>", regname);
 	      return;
@@ -909,6 +914,18 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
       generating_concat_p = old_generating_concat_p;
       ASM_OPERANDS_INPUT (body, i) = op;
+
+      /* APPLE LOCAL begin CW asm blocks. */
+      /* Crude way of detecting an entry static label declaration 
+	 (See cw_asm_entry).  Make this a local symbol. */
+      if (i == 0 && !TREE_CHAIN (tail) 
+	  && strcmp (TREE_STRING_POINTER (string), "%0:") == 0
+	  && GET_CODE (op) == SYMBOL_REF)
+        {
+	  SYMBOL_REF_FLAGS (op) |= SYMBOL_FLAG_LOCAL;
+          SYMBOL_REF_FLAGS (op) &= ~SYMBOL_FLAG_EXTERNAL;
+        }
+      /* APPLE LOCAL end CW asm blocks. */
 
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
 	= gen_rtx_ASM_INPUT (TYPE_MODE (type), 

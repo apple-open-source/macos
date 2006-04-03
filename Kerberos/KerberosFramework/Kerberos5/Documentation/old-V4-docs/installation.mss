@@ -1,6 +1,6 @@
-@Comment[	$Source: /cvs/krbdev/krb5/doc/old-V4-docs/installation.mss,v $]
+@Comment[	$Source$]
 @Comment[	$Author: tytso $]
-@Comment[	$Id: installation.mss,v 1.1 1994/06/16 04:16:25 tytso Exp $]
+@Comment[	$Id: installation.mss 3831 1994-06-16 04:16:31Z tytso $]
 @Comment[]
 @device[postscript]
 @make[report]

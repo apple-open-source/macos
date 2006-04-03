@@ -1,3 +1,5 @@
+/* APPLE LOCAL  nested functions */
+/* { dg-xfail-if "" { "*-*-darwin*" } { "*" } { "" } } */
 /* PR c/7622 */
 
 /* Verify that GCC can handle the mix of

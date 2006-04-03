@@ -3201,14 +3201,20 @@ assign_parms (tree fndecl)
   /* See how many bytes, if any, of its args a function should try to pop
      on return.  */
 
+  /* APPLE LOCAL begin stdcall vs 16 byte alignment 4284121 */
   current_function_pops_args = RETURN_POPS_ARGS (fndecl, TREE_TYPE (fndecl),
-						 current_function_args_size);
+						 cfun->unrounded_args_size);
+  /* APPLE LOCAL end stdcall vs 16 byte alignment 4284121 */
 
   /* For stdarg.h function, save info about
      regs and stack space used by the named args.  */
 
   current_function_args_info = all.args_so_far;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cfun->cw_asm_function)
+   return;
+  /* APPLE LOCAL end CW asm blocks */
   /* Set the rtx used for the function return value.  Put this in its
      own variable so any optimizers that need this information don't have
      to include tree.h.  Do this here so it gets done when an inlined
@@ -4041,6 +4047,14 @@ init_function_start (tree subr)
 {
   prepare_function_start (subr);
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (DECL_CW_ASM_FUNCTION (subr))
+    {
+      cfun->cw_asm_function = 1;
+      cfun->cw_asm_noreturn = DECL_CW_ASM_NORETURN (subr);
+      cfun->cw_asm_frame_size = DECL_CW_ASM_FRAME_SIZE (subr);
+    }
+  /* APPLE LOCAL end CW asm blocks */
   /* Prevent ever trying to delete the first instruction of a
      function.  Also tell final how to output a linenum before the
      function prologue.  Note linenums could be missing, e.g. when
@@ -4475,6 +4489,10 @@ expand_function_end (void)
   if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
     sjlj_emit_function_exit_after (get_last_insn ());
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cfun->cw_asm_function)
+    return;
+  /* APPLE LOCAL end CW asm blocks */ 
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
      return register.  */

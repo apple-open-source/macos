@@ -319,6 +319,7 @@ protected:
 	
     static sInt32		GetAuthAuthority			(	sLDAPContextData *inContext,
                                                         const char *userName,
+														int inUserNameBufferLength,
                                                         CLDAPNode& inLDAPSessionMgr,
                                                         unsigned long *outAuthCount,
                                                         char **outAuthAuthority[],

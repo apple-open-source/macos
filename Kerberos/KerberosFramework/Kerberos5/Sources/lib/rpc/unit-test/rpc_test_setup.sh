@@ -4,8 +4,8 @@
 # assumes that gmake has put TOP and RPC_TEST_SRVTAB into the
 # environment. 
 #
-# $Id: rpc_test_setup.sh,v 1.5 2000/06/30 23:57:42 raeburn Exp $
-# $Source: /cvs/krbdev/krb5/src/lib/rpc/unit-test/rpc_test_setup.sh,v $
+# $Id: rpc_test_setup.sh 12495 2000-06-30 23:57:42Z raeburn $
+# $Source$
 
 DUMMY=${TESTDIR=$TOP/testing}
 DUMMY=${CLNTTCL=$TESTDIR/util/ovsec_kadm_clnt_tcl}

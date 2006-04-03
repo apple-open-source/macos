@@ -304,7 +304,7 @@ info_mach_regions_command (char *exp, int from_tty)
       error ("Inferior not available");
     }
 
-  macosx_debug_regions (macosx_status->task, 0, (mach_vm_address_t) -1);
+  macosx_debug_regions (macosx_status->task, 0, -1);
 }
 
 void

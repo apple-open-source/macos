@@ -31,6 +31,7 @@ typedef union _temp_variable {
 	struct {
 		zval **ptr_ptr;
 		zval *ptr;
+		zend_bool fcall_returned_reference;
 	} var;
 	struct {
 		zval tmp_var; /* a dummy */

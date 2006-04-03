@@ -2929,7 +2929,13 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 	     test_bb->index, then_bb->index);
 
   /* THEN is small.  */
+  /* APPLE LOCAL begin 4203984 */
+#ifdef TARGET_POWERPC
+  if (! cheap_bb_rtx_cost_p (then_bb, COSTS_N_INSNS (BRANCH_COST + 1)))
+#else
   if (! cheap_bb_rtx_cost_p (then_bb, COSTS_N_INSNS (BRANCH_COST)))
+#endif
+  /* APPLE LOCAL end 4203984 */
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */
@@ -3047,7 +3053,13 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
 	     test_bb->index, else_bb->index);
 
   /* ELSE is small.  */
+  /* APPLE LOCAL begin 4203984 */
+#ifdef TARGET_POWERPC
+  if (! cheap_bb_rtx_cost_p (else_bb, COSTS_N_INSNS (BRANCH_COST + 1)))
+#else
   if (! cheap_bb_rtx_cost_p (else_bb, COSTS_N_INSNS (BRANCH_COST)))
+#endif
+  /* APPLE LOCAL end 4203984 */
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */

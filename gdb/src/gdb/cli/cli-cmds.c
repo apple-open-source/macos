@@ -225,6 +225,7 @@ compare_strings (const void *arg1, const void *arg2)
 static void
 complete_command (char *arg, int from_tty)
 {
+  /* APPLE LOCAL refactor command completion */
   int argpoint;
 
   dont_repeat ();
@@ -232,10 +233,11 @@ complete_command (char *arg, int from_tty)
   if (arg == NULL)
     arg = "";
   argpoint = strlen (arg);
+  /* APPLE LOCAL refactor command completion */
   cli_interpreter_complete (NULL, arg, arg, argpoint);
-
 }
 
+/* APPLE LOCAL begin refactor command completion */
 /* This is the completer function for the cli interpreter.  This is
    like the "complete" command, except that it can be used from
    another interpreter more conveniently.  Pass it WORD as a pointer
@@ -251,9 +253,8 @@ cli_interpreter_complete (void *data, char *word, char *command_buffer,
   struct cleanup *old_chain;
 
   completions = complete_line (word, command_buffer, cursor);
-
   old_chain = make_cleanup_ui_out_list_begin_end (uiout, "completions");
-
+  /* APPLE LOCAL end refactor command completion */
   if (completions)
     {
       int item, size;
@@ -268,8 +269,10 @@ cli_interpreter_complete (void *data, char *word, char *command_buffer,
       while (item < size)
 	{
 	  int next_item;
+	  /* APPLE LOCAL begin */
 	  ui_out_field_string (uiout, "c", completions[item]);
 	  ui_out_text (uiout, "\n");
+	  /* APPLE LOCAL end */
 	  next_item = item + 1;
 	  while (next_item < size
 		 && ! strcmp (completions[item], completions[next_item]))
@@ -285,9 +288,10 @@ cli_interpreter_complete (void *data, char *word, char *command_buffer,
       xfree (completions);
     }
 
+  /* APPLE LOCAL begin refactor command completion */
   do_cleanups (old_chain);
-
   return 1;
+  /* APPLE LOCAL end refactor command completion */
 }
 
 int
@@ -314,8 +318,11 @@ quit_command (char *args, int from_tty)
     error ("Not confirmed.");
   quit_force (args, from_tty);
 }
-  char **argv;
-  struct cleanup *old_cleanups;
+
+/* APPLE LOCAL begin hack hack */
+char **argv;
+struct cleanup *old_cleanups;
+/* APPLE LOCAL end hack hack */
 
 static void
 pwd_command (char *args, int from_tty)
@@ -346,6 +353,7 @@ cd_command (char *dir, int from_tty)
   if (dir == 0)
     error_no_arg ("new working directory");
 
+  /* APPLE LOCAL begin */
   argv = buildargv (dir);
   if (argv == NULL)
     nomem (0);
@@ -354,6 +362,7 @@ cd_command (char *dir, int from_tty)
 
   dir = tilde_expand (*argv);
   old_cleanups = make_cleanup (xfree, dir);
+  /* APPLE LOCAL end */
 
   if (chdir (dir) < 0)
     perror_with_name (dir);
@@ -442,6 +451,7 @@ cd_command (char *dir, int from_tty)
 void
 source_command (char *args, int from_tty)
 {
+  /* APPLE LOCAL begin refactor source command */
   char *file;
   char **argv;
   struct cleanup *old_cleanups;
@@ -459,10 +469,10 @@ source_command (char *args, int from_tty)
 
   file = tilde_expand (*argv);
   old_cleanups = make_cleanup (xfree, file);
-  source_file (file, from_tty);  /* APPLE LOCAL */
+  source_file (file, from_tty);
   do_cleanups (old_cleanups);
 }
-
+
 /* APPLE LOCAL: We split the file-source code out of the CLI command
    that sources the file so that main.c can call source_file_attach with
    a filename with embedded whitespace and the argv expander won't
@@ -476,6 +486,7 @@ void
 source_file (char *file, int from_tty)
 {
   FILE *stream;
+  /* APPLE LOCAL end refactor source command */
   
   stream = fopen (file, FOPEN_RT);
   if (!stream)
@@ -487,6 +498,7 @@ source_file (char *file, int from_tty)
     }
 
   script_from_file (stream, file);
+  /* APPLE LOCAL end refactor source command */
 }
 
 static void
@@ -560,6 +572,11 @@ shell_escape (char *arg, int from_tty)
 	p = user_shell;
       else
 	p++;			/* Get past '/' */
+
+      /* APPLE LOCAL: gdb is setgid to give it extra special debuggizer
+         powers; we need to drop those privileges before executing the
+         inferior process.  */
+      setgid (getgid ());
 
       if (!arg)
 	execl (user_shell, p, (char *) 0);
@@ -938,7 +955,7 @@ disassemble_command (char *arg, int from_tty)
 	}
 
       /* Dump the specified range.  */
-      gdb_disassembly (uiout, 0, 0, 0, -1, low, high);
+      gdb_disassembly (uiout, low, high, 0, -1);
 
       printf_filtered ("End of assembler dump.\n");
       gdb_flush (gdb_stdout);

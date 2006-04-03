@@ -36,7 +36,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/KerberosPreferences/Headers/Kerberos/KerberosPreferences.h,v 1.12 2003/03/19 21:19:23 lxs Exp $ */
+/* $Header$ */
 
 /* 
  *

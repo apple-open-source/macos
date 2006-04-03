@@ -174,6 +174,17 @@ static int *reg_may_share;
 
 static INT_TYPE *conflicts;
 
+/* APPLE LOCAL begin 4321079 */
+/* max_allocno by max_allocno array of bits,
+   recording whether two allocno's can usefully be tied (we think we
+   will benefit by having both in the same hardware register).
+   This handles the pseudo-pseudo case of preferences.
+
+   `pseudo_preferences' is symmetric after the call to mirror_conflicts.  */
+
+static INT_TYPE *pseudo_preferences;
+/* APPLE LOCAL end 4321079 */
+
 /* Number of ints require to hold max_allocno bits.
    This is the length of a row in `conflicts'.  */
 
@@ -205,6 +216,23 @@ do {									\
 	}								\
     }									\
 } while (0)
+
+/* APPLE LOCAL begin 4321079 */
+/* Test, set and clear macros for `pseudo_preferences'.
+   These evaluate their arguments more than once. */
+
+#define TEST_PSEUDO_PREF(I, J) \
+ (pseudo_preferences[(I) * allocno_row_words + (unsigned) (J) / INT_BITS] \
+  & ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
+
+#define SET_PSEUDO_PREF(I, J) \
+ (pseudo_preferences[(I) * allocno_row_words + (unsigned) (J) / INT_BITS] \
+  |= ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
+
+#define CLEAR_PSEUDO_PREF(I, J) \
+ (pseudo_preferences[(I) * allocno_row_words + (unsigned) (J) / INT_BITS] \
+  &= ~((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
+/* APPLE LOCAL end 4321079 */
 
 /* This doesn't work for non-GNU C due to the way CODE is macro expanded.  */
 #if 0
@@ -567,6 +595,11 @@ global_alloc (FILE *file)
      cause unpredictable core dumps.  Some examples were > 2Mb in size.  */
   conflicts = xcalloc (max_allocno * allocno_row_words, sizeof (INT_TYPE));
 
+  /* APPLE LOCAL begin 4321079 */
+  pseudo_preferences = 
+	xcalloc (max_allocno * allocno_row_words, sizeof (INT_TYPE));
+  /* APPLE LOCAL end 4321079 */
+
   allocnos_live = xmalloc (allocno_row_words * sizeof (INT_TYPE));
 
   /* If there is work to be done (at least one reg to allocate),
@@ -580,6 +613,33 @@ global_alloc (FILE *file)
       global_conflicts ();
 
       mirror_conflicts ();
+
+      /* APPLE LOCAL begin 4321079 */
+      /* If two regs are tied by pseudo_preferences, and each is assigned to
+	 only once, they can share the same register even if their lifetimes
+	 overlap, as one must be a copy of the other. */
+      {
+	int i, j;
+	for (i = max_allocno - 1; i >= 0; i--)
+	  {
+	    EXECUTE_IF_SET_IN_ALLOCNO_SET (pseudo_preferences 
+					      + i * allocno_row_words,
+					   j,
+	      {
+		if (REG_N_SETS (allocno[i].reg) == 1
+		    && REG_N_SETS (allocno[j].reg) == 1)
+		  {
+		    conflicts[(i) * allocno_row_words 
+				+ (unsigned) (j) / INT_BITS]
+		      &= ~((INT_TYPE) 1 << ((unsigned) (j) % INT_BITS));
+		    conflicts[(j) * allocno_row_words 
+				+ (unsigned) (i) / INT_BITS]
+		      &= ~((INT_TYPE) 1 << ((unsigned) (i) % INT_BITS));
+		  }
+	      });
+	  }
+      }
+      /* APPLE LOCAL end 4321079 */
 
       /* Eliminate conflicts between pseudos and eliminable registers.  If
 	 the register is not eliminated, the pseudo won't really be able to
@@ -670,6 +730,8 @@ global_alloc (FILE *file)
   free (reg_may_share);
   free (allocno);
   free (conflicts);
+  /* APPLE LOCAL 4321079 */
+  free (pseudo_preferences);
   free (allocnos_live);
 
   return retval;
@@ -952,15 +1014,29 @@ expand_preferences (void)
 	    && ! CONFLICTP (reg_allocno[REGNO (SET_DEST (set))],
 			    reg_allocno[REGNO (XEXP (link, 0))]))
 	  {
+            /* APPLE LOCAL 4321079 */
+	    int j;
 	    int a1 = reg_allocno[REGNO (SET_DEST (set))];
 	    int a2 = reg_allocno[REGNO (XEXP (link, 0))];
 
 	    if (XEXP (link, 0) == SET_SRC (set))
 	      {
+                /* APPLE LOCAL 4321079 */
+		int ialloc_prod = a1 * allocno_row_words;
 		IOR_HARD_REG_SET (allocno[a1].hard_reg_copy_preferences,
 				  allocno[a2].hard_reg_copy_preferences);
 		IOR_HARD_REG_SET (allocno[a2].hard_reg_copy_preferences,
 				  allocno[a1].hard_reg_copy_preferences);
+                /* APPLE LOCAL begin 4321079 */
+		ialloc_prod = a1 * allocno_row_words;
+		for (j = allocno_row_words - 1; j >= 0; j--)
+		  {
+		    pseudo_preferences[a1 * allocno_row_words + j] 
+		      |= pseudo_preferences[a2 * allocno_row_words + j];
+		    pseudo_preferences[a2 * allocno_row_words + j] 
+		      |= pseudo_preferences[a1 * allocno_row_words + j];
+		  }
+                /* APPLE LOCAL end 4321079 */
 	      }
 
 	    IOR_HARD_REG_SET (allocno[a1].hard_reg_preferences,
@@ -1394,6 +1470,44 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 	{
 	  IOR_HARD_REG_SET (allocno[j].hard_reg_conflicts, this_reg);
 	});
+
+      /* APPLE LOCAL begin 4321079 */
+      {
+	int k, l;
+	/* Mark tied pseudo-regs that have not yet been assigned a reg
+	   and do not conflict as preferring this reg.  Mark pseudo-regs
+	   conflicting with regs tied to this reg and not yet assigned a 
+	   reg as not preferring this reg. */
+	EXECUTE_IF_SET_IN_ALLOCNO_SET (
+	  pseudo_preferences + num * allocno_row_words, k,
+	  {
+	    if (!CONFLICTP (num, k) && reg_renumber[allocno[k].reg] < 0)
+	      SET_REGBIT (hard_reg_copy_preferences, k, best_reg);
+
+	    if (num != k && !CONFLICTP (num, k))
+	      EXECUTE_IF_SET_IN_ALLOCNO_SET (
+		conflicts + k * allocno_row_words, l,
+		{
+		  if (k != l && reg_renumber[allocno[l].reg] < 0)
+		    SET_REGBIT (regs_someone_prefers, l, best_reg);
+		});
+	  });
+	/* Mark pseudo-regs tied to conflicting regs and not yet assigned a
+	   reg as not preferring this reg.  */
+	EXECUTE_IF_SET_IN_ALLOCNO_SET (
+	  conflicts + num * allocno_row_words, k,
+	  {
+	    if (num != k)
+	      EXECUTE_IF_SET_IN_ALLOCNO_SET (
+		pseudo_preferences + k * allocno_row_words, l, 
+		{
+		  if (k != l && !CONFLICTP (k, l) 
+		      && reg_renumber[allocno[l].reg] < 0)
+		    SET_REGBIT (regs_someone_prefers, l, best_reg);
+		});
+	  });
+      }	    
+      /* APPLE LOCAL end 4321079 */
     }
 }
 
@@ -1475,15 +1589,19 @@ record_conflicts (int *allocno_vec, int len)
                       hard_regs_live);
 }
 
-/* If CONFLICTP (i, j) is true, make sure CONFLICTP (j, i) is also true.  */
+/* APPLE LOCAL begin 4321079 */
+/* If CONFLICTP (i, j) is true, make sure CONFLICTP (j, i) is also true.
+   Likewise for pseudo_preferences.  */
+
 static void
 mirror_conflicts (void)
 {
   int i, j;
   int rw = allocno_row_words;
   int rwb = rw * INT_BITS;
-  INT_TYPE *p = conflicts;
+  INT_TYPE *p = conflicts, *pp = pseudo_preferences;
   INT_TYPE *q0 = conflicts, *q1, *q2;
+  INT_TYPE *qq0 = pseudo_preferences, *qq1, *qq2;
   unsigned INT_TYPE mask;
 
   for (i = max_allocno - 1, mask = 1; i >= 0; i--, mask <<= 1)
@@ -1492,20 +1610,32 @@ mirror_conflicts (void)
 	{
 	  mask = 1;
 	  q0++;
+	  qq0++;
 	}
-      for (j = allocno_row_words - 1, q1 = q0; j >= 0; j--, q1 += rwb)
+      for (j = allocno_row_words - 1, q1 = q0, qq1 = qq0; 
+	   j >= 0; 
+	   j--, q1 += rwb, qq1 += rwb)
 	{
 	  unsigned INT_TYPE word;
 
-	  for (word = (unsigned INT_TYPE) *p++, q2 = q1; word;
+	  for (word = (unsigned INT_TYPE) *p++, q2 = q1; 
+	       word;
 	       word >>= 1, q2 += rw)
 	    {
 	      if (word & 1)
 		*q2 |= mask;
 	    }
+	  for (word = (unsigned INT_TYPE) *pp++, qq2 = qq1;
+	       word;
+	       word >>= 1, qq2 += rw)
+	    {
+	      if (word & 1)
+		*qq2 |= mask;
+	    }
 	}
     }
 }
+/* APPLE LOCAL end 4321079 */
 
 /* Handle the case where REG is set by the insn being scanned,
    during the forward scan to accumulate conflicts.
@@ -1669,7 +1799,7 @@ mark_reg_live_nc (int regno, enum machine_mode mode)
 
 /* Try to set a preference for an allocno to a hard register.
    We are passed DEST and SRC which are the operands of a SET.  It is known
-   that SRC is a register.  If SRC or the first operand of SRC is a register,
+   that DEST is a register.  If SRC or the first operand of SRC is a register,
    try to set a preference.  If one of the two is a hard register and the other
    is a pseudo-register, mark the preference.
 
@@ -1680,14 +1810,21 @@ static void
 set_preference (rtx dest, rtx src)
 {
   unsigned int src_regno, dest_regno;
+  /* APPLE LOCAL 4321079 */
+  rtx src_reg = src, dest_reg = dest;
   /* Amount to add to the hard regno for SRC, or subtract from that for DEST,
      to compensate for subregs in SRC or DEST.  */
   int offset = 0;
   unsigned int i;
   int copy = 1;
 
-  if (GET_RTX_FORMAT (GET_CODE (src))[0] == 'e')
+  /* APPLE LOCAL begin 4321079 */
+  /* Look under SUBREG for vectors; vector-to-vector SUBREGs are NOPs. */
+
+  if (GET_RTX_FORMAT (GET_CODE (src))[0] == 'e'
+      && ! (GET_CODE (src) == SUBREG && VECTOR_MODE_P (GET_MODE (dest))))
     src = XEXP (src, 0), copy = 0;
+  /* APPLE LOCAL end 4321079 */
 
   /* Get the reg number for both SRC and DEST.
      If neither is a reg, give up.  */
@@ -1696,6 +1833,8 @@ set_preference (rtx dest, rtx src)
     src_regno = REGNO (src);
   else if (GET_CODE (src) == SUBREG && REG_P (SUBREG_REG (src)))
     {
+      /* APPLE LOCAL 4321079 */
+      src_reg = SUBREG_REG (src);
       src_regno = REGNO (SUBREG_REG (src));
 
       if (REGNO (SUBREG_REG (src)) < FIRST_PSEUDO_REGISTER)
@@ -1714,6 +1853,8 @@ set_preference (rtx dest, rtx src)
     dest_regno = REGNO (dest);
   else if (GET_CODE (dest) == SUBREG && REG_P (SUBREG_REG (dest)))
     {
+      /* APPLE LOCAL 4321079 */
+      dest_reg = SUBREG_REG (dest);
       dest_regno = REGNO (SUBREG_REG (dest));
 
       if (REGNO (SUBREG_REG (dest)) < FIRST_PSEUDO_REGISTER)
@@ -1776,7 +1917,107 @@ set_preference (rtx dest, rtx src)
 	    SET_REGBIT (hard_reg_full_preferences, reg_allocno[dest_regno], i);
 	}
     }
+
+  /* APPLE LOCAL begin 4321079 */
+  /* If both are pseudos record that.  We do this only for "copies", as
+     the current focus is to eliminate vector copies where the two
+     sides have different modes, converted by a SUBREG.  
+     Expansion to reusing the input as output is possible, but there
+     seems little advantage; reload handles this OK usually.
+
+     The mechanism works for non-vectors, but currently
+     produces worse code in many cases; the restriction to vectors here
+     was a late change and is not necessary for correctness.
+
+     Note that pseudos that conflict may be
+     marked as tied here; the data is only used for pseudos that do not
+     conflict. */
+
+  if (src_regno >= FIRST_PSEUDO_REGISTER && reg_allocno[src_regno] >= 0
+      && VECTOR_MODE_P (GET_MODE (src_reg))
+      && dest_regno >= FIRST_PSEUDO_REGISTER && reg_allocno[dest_regno] >= 0
+      && VECTOR_MODE_P (GET_MODE (dest_reg))
+      && copy)
+    {
+      src_regno += offset;
+      SET_PSEUDO_PREF (reg_allocno[dest_regno], reg_allocno[src_regno]);
+    }
+  /* APPLE LOCAL end 4321079 */
 }
+
+/* APPLE LOCAL begin 4321079 */
+/* Callback for reload.  We are going to assign pseudo R a stack slot;
+   see if a reg tied to it already has one that we can reuse. */
+rtx find_tied_stack_pseudo (int);
+rtx 
+find_tied_stack_pseudo (int r)
+{
+  int i = reg_allocno[r];
+  int j;
+  if (i == -1)
+    return 0;
+  EXECUTE_IF_SET_IN_ALLOCNO_SET(pseudo_preferences + i * allocno_row_words, j,
+    {
+      if (!CONFLICTP(i, j) 
+	  && reg_renumber[allocno[j].reg] < 0
+	  && reg_equiv_memory_loc[allocno[j].reg] != 0
+	  && PSEUDO_REGNO_BYTES (allocno[j].reg)
+	      == PSEUDO_REGNO_BYTES (allocno[i].reg))
+	return copy_rtx (reg_equiv_memory_loc[allocno[j].reg]);
+    });
+  return 0;
+}
+
+/* Callback for reload.  We just altered all the rtx pseudo nodes to contain
+   the hard regs assigned by global allocation.  In the case where the same
+   hard reg was assigned to two pseudos tied by pseudo_preferences but with
+   overlapping live ranges, REG_DEAD notes referring to the common hard reg
+   may now be invalid.  Remove them.  (The algorithm is overly conservative,
+   removing all notes for registers tied by pseudo_preferences without
+   checking that there actually is a live range overlap.)  */
+
+void remove_invalidated_death_notes (rtx);
+void remove_invalidated_death_notes (rtx first)
+{
+  rtx insn;
+  int regno, orig_regno, i, j;
+  rtx r, *pnote, *next_pnote;
+  for (insn = first; insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	for (pnote = &REG_NOTES (insn); *pnote; pnote = next_pnote)
+	  {
+	    next_pnote = &XEXP (*pnote, 1);
+
+	    if (REG_NOTE_KIND (*pnote) == REG_DEAD)
+	      {
+		r = XEXP (*pnote, 0);
+		if (!REG_P (r))
+		  continue;
+		regno = REGNO (r);
+		orig_regno = ORIGINAL_REGNO (r);
+		if (orig_regno < FIRST_PSEUDO_REGISTER || regno >= FIRST_PSEUDO_REGISTER)
+		  continue;
+		if (regno == orig_regno)
+		  continue;
+		i = reg_allocno[orig_regno];
+		EXECUTE_IF_SET_IN_ALLOCNO_SET(pseudo_preferences + i * allocno_row_words, j,
+		  {
+		    if (i != j
+			&& !CONFLICTP(i, j)
+			&& reg_renumber[allocno[j].reg] == regno)
+		      {
+			*pnote = *next_pnote;
+			next_pnote = pnote;
+			goto next_note;
+		      }
+		  });
+	      }
+	    next_note:;
+	  }
+       }
+}
+/* APPLE LOCAL end 4321079 */
 
 /* Indicate that hard register number FROM was eliminated and replaced with
    an offset from hard register number TO.  The status of hard registers live
@@ -1965,11 +2206,12 @@ build_insn_chain (rtx first)
 /* Print debugging trace information if -dg switch is given,
    showing the information on which the allocation decisions are based.  */
 
+/* APPLE LOCAL begin 4321079 */
 static void
 dump_conflicts (FILE *file)
 {
   int i;
-  int has_preferences;
+  int has_preferences, has_copy_preferences, has_pseudo_ties;
   int nregs;
   nregs = 0;
   for (i = 0; i < max_allocno; i++)
@@ -2006,6 +2248,20 @@ dump_conflicts (FILE *file)
 	  fprintf (file, " %d", j);
       fprintf (file, "\n");
 
+      has_pseudo_ties = 0;
+      for (j = 0; j < max_allocno; j++)
+	if (TEST_PSEUDO_PREF (j, i))
+	  {
+	    if (!has_pseudo_ties)
+	      {
+		has_pseudo_ties = 1;
+		fprintf (file, ";; %d pseudo ties:", allocno[i].reg);
+	      }
+	    fprintf (file, " %d", allocno[j].reg);
+	  }
+      if (has_pseudo_ties)
+        fprintf (file, "\n");
+
       has_preferences = 0;
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	if (TEST_HARD_REG_BIT (allocno[i].hard_reg_preferences, j))
@@ -2018,9 +2274,28 @@ dump_conflicts (FILE *file)
 	if (TEST_HARD_REG_BIT (allocno[i].hard_reg_preferences, j))
 	  fprintf (file, " %d", j);
       fprintf (file, "\n");
+
+      has_copy_preferences = 0;
+      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
+	if (TEST_HARD_REG_BIT (allocno[i].hard_reg_copy_preferences, j))
+	  has_copy_preferences = 1;
+
+      if (! has_copy_preferences)
+	continue;
+      fprintf (file, ";; %d copy preferences:", allocno[i].reg);
+      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
+	if (TEST_HARD_REG_BIT (allocno[i].hard_reg_copy_preferences, j))
+	  fprintf (file, " %d", j);
+      fprintf (file, "\n");
     }
   fprintf (file, "\n");
+
+  fprintf (file, "Allocation order:");
+  for (i = 0; i < max_allocno; i++)
+    fprintf(file, " %d", allocno[allocno_order[i]].reg);
+  fprintf (file, "\n");
 }
+/* APPLE LOCAL end 4321079 */
 
 void
 dump_global_regs (FILE *file)

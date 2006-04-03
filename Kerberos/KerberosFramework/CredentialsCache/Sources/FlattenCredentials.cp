@@ -1,7 +1,7 @@
 /*
  * CCIFlattenedCredentials.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/FlattenCredentials.cp,v 1.14 2004/09/08 20:48:35 lxs Exp $
+ * $Header$
  */
 
 #include "FlattenCredentials.h"
@@ -11,11 +11,10 @@
 
 void WriteCredentials (std::ostream& ioStream, const cc_credentials_union& inCredentials)
 {
-    CCIUInt32 version = inCredentials.version;
     //dprintf ("Entering %s(cc_credentials_union):", __FUNCTION__);
     
     // Output the version followed by the appropriate creds
-    ioStream.write ((char *)&version, sizeof (version));
+    WriteUInt32 (ioStream, inCredentials.version);
     switch (inCredentials.version) {
         case cc_credentials_v4:
             WriteV4Credentials (ioStream, *inCredentials.credentials.credentials_v4);
@@ -28,18 +27,50 @@ void WriteCredentials (std::ostream& ioStream, const cc_credentials_union& inCre
         default:
             throw CCIException (ccErrBadCredentialsVersion);
     }
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
+
+#define WriteStaticBuffer(stream,buffer) stream.write ((char *)&buffer, sizeof (buffer));
+#define ReadStaticBuffer(stream,buffer)  stream.read ((char *)&buffer, sizeof (buffer));
 
 void WriteV4Credentials (std::ostream& ioStream, const cc_credentials_v4_t& inCredentials)
 {
     //dprintf ("Entering %s():", __FUNCTION__);
-    ioStream.write ((char *)&inCredentials, sizeof (inCredentials));
+    WriteUInt32       (ioStream, inCredentials.version);
+    WriteStaticBuffer (ioStream, inCredentials.principal);
+    WriteStaticBuffer (ioStream, inCredentials.principal_instance);
+    WriteStaticBuffer (ioStream, inCredentials.service);
+    WriteStaticBuffer (ioStream, inCredentials.service_instance);
+    WriteStaticBuffer (ioStream, inCredentials.realm);
+    WriteStaticBuffer (ioStream, inCredentials.session_key);
+    WriteInt32        (ioStream, inCredentials.kvno);
+    WriteInt32        (ioStream, inCredentials.string_to_key_type);
+    WriteUInt32       (ioStream, inCredentials.issue_date);
+    WriteInt32        (ioStream, inCredentials.lifetime);
+    WriteStaticBuffer (ioStream, inCredentials.address);  // in_addr_t already in network byte order
+    WriteInt32        (ioStream, inCredentials.ticket_size);
+    WriteStaticBuffer (ioStream, inCredentials.ticket);
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 void ReadV4Credentials (std::istream& ioStream, cc_credentials_v4_t& inCredentials)
 {
     //dprintf ("Entering %s():", __FUNCTION__);
-    ioStream.read ((char *)&inCredentials, sizeof (inCredentials));
+    ReadUInt32       (ioStream, inCredentials.version);
+    ReadStaticBuffer (ioStream, inCredentials.principal);
+    ReadStaticBuffer (ioStream, inCredentials.principal_instance);
+    ReadStaticBuffer (ioStream, inCredentials.service);
+    ReadStaticBuffer (ioStream, inCredentials.service_instance);
+    ReadStaticBuffer (ioStream, inCredentials.realm);
+    ReadStaticBuffer (ioStream, inCredentials.session_key);
+    ReadInt32        (ioStream, inCredentials.kvno);
+    ReadInt32        (ioStream, inCredentials.string_to_key_type);
+    ReadUInt32       (ioStream, inCredentials.issue_date);
+    ReadInt32        (ioStream, inCredentials.lifetime);
+    ReadStaticBuffer (ioStream, inCredentials.address);  // in_addr_t already in network byte order
+    ReadInt32        (ioStream, inCredentials.ticket_size);
+    ReadStaticBuffer (ioStream, inCredentials.ticket);
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 void WriteV5Credentials (std::ostream& ioStream, const cc_credentials_v5_t& inCredentials)
@@ -59,6 +90,7 @@ void WriteV5Credentials (std::ostream& ioStream, const cc_credentials_v5_t& inCr
     WriteData      (ioStream, inCredentials.ticket);
     WriteData      (ioStream, inCredentials.second_ticket);
     WriteDataArray (ioStream, inCredentials.authdata);
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 void ReadV5Credentials (std::istream& ioStream, cc_credentials_v5_t& inCredentials)
@@ -91,6 +123,7 @@ void ReadV5Credentials (std::istream& ioStream, cc_credentials_v5_t& inCredentia
         
         throw;
     }
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 #if CCache_v2_compat
@@ -111,19 +144,53 @@ void WriteCompatCredentials (std::ostream& ioStream, const cred_union& inCredent
         default:
             throw CCIException (ccErrBadCredentialsVersion);
     }
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 
 void ReadV4CompatCredentials (std::istream& ioStream, cc_credentials_v4_compat& inCredentials)
 {
-    //dprintf ("Entering %s():", __FUNCTION__);
-    ioStream.read ((char *)&inCredentials, sizeof (inCredentials));
+    CCIInt32 issue_date;
+    CCIUInt32 oops;
+    
+    //dprintf ("Entering %s():", __FUNCTION__);    
+    ReadStaticBuffer (ioStream, inCredentials.kversion);
+    ReadStaticBuffer (ioStream, inCredentials.principal);
+    ReadStaticBuffer (ioStream, inCredentials.principal_instance);
+    ReadStaticBuffer (ioStream, inCredentials.service);
+    ReadStaticBuffer (ioStream, inCredentials.service_instance);
+    ReadStaticBuffer (ioStream, inCredentials.realm);
+    ReadStaticBuffer (ioStream, inCredentials.session_key);
+    ReadInt32        (ioStream, inCredentials.kvno);
+    ReadInt32        (ioStream, inCredentials.str_to_key);
+    ReadInt32        (ioStream, issue_date); inCredentials.issue_date = issue_date;
+    ReadInt32        (ioStream, inCredentials.lifetime);
+    ReadStaticBuffer (ioStream, inCredentials.address);  // in_addr_t already in network byte order
+    ReadInt32        (ioStream, inCredentials.ticket_sz);
+    ReadStaticBuffer (ioStream, inCredentials.ticket);
+    ReadUInt32       (ioStream, oops); inCredentials.oops = oops;
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 void WriteV4CompatCredentials (std::ostream& ioStream, const cc_credentials_v4_compat& inCredentials)
 {
     //dprintf ("Entering %s():", __FUNCTION__);
-    ioStream.write ((char *)&inCredentials, sizeof (inCredentials));
+    WriteStaticBuffer (ioStream, inCredentials.kversion);
+    WriteStaticBuffer (ioStream, inCredentials.principal);
+    WriteStaticBuffer (ioStream, inCredentials.principal_instance);
+    WriteStaticBuffer (ioStream, inCredentials.service);
+    WriteStaticBuffer (ioStream, inCredentials.service_instance);
+    WriteStaticBuffer (ioStream, inCredentials.realm);
+    WriteStaticBuffer (ioStream, inCredentials.session_key);
+    WriteInt32        (ioStream, inCredentials.kvno);
+    WriteInt32        (ioStream, inCredentials.str_to_key);
+    WriteInt32        (ioStream, inCredentials.issue_date);
+    WriteInt32        (ioStream, inCredentials.lifetime);
+    WriteStaticBuffer (ioStream, inCredentials.address);  // in_addr_t already in network byte order
+    WriteInt32        (ioStream, inCredentials.ticket_sz);
+    WriteStaticBuffer (ioStream, inCredentials.ticket);
+    WriteUInt32       (ioStream, inCredentials.oops);
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 void WriteV5CompatCredentials (std::ostream& ioStream, const cc_credentials_v5_compat& inCredentials)
@@ -142,6 +209,7 @@ void WriteV5CompatCredentials (std::ostream& ioStream, const cc_credentials_v5_c
     WriteData      (ioStream, inCredentials.ticket);
     WriteData      (ioStream, inCredentials.second_ticket);
     WriteDataArray (ioStream, inCredentials.authdata);
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 void ReadV5CompatCredentials (std::istream& ioStream, cc_credentials_v5_compat& inCredentials)
@@ -173,6 +241,7 @@ void ReadV5CompatCredentials (std::istream& ioStream, cc_credentials_v5_compat& 
         
         throw;
     }
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 #endif // CCache_v2_Compat
@@ -183,11 +252,12 @@ void WriteData (std::ostream& ioStream, const cc_data& inData)
     
     WriteUInt32 (ioStream, inData.type);
     WriteUInt32 (ioStream, inData.length);
-    //dprintf ("Wrote type %d, length %d", inData.type, inData.length);
+    //dprintf ("%s(): Wrote type %d, length %d", __FUNCTION__, inData.type, inData.length);
     if (inData.length > 0) {
         ioStream.write ((char *)inData.data, inData.length);
         //dprintmem (inData.data, inData.length);
     }
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 void ReadData (std::istream& ioStream, cc_data& inData)
@@ -196,7 +266,7 @@ void ReadData (std::istream& ioStream, cc_data& inData)
     
     ReadUInt32 (ioStream, inData.type);
     ReadUInt32 (ioStream, inData.length);
-    //dprintf ("Read type %d, length %d", inData.type, inData.length);
+    //dprintf ("%s(): Read type %d, length %d", __FUNCTION__, inData.type, inData.length);
     if (inData.length > 0) {
         inData.data = new char [inData.length];
         ioStream.read ((char *)inData.data, inData.length);
@@ -204,6 +274,7 @@ void ReadData (std::istream& ioStream, cc_data& inData)
     } else {
         inData.data = NULL;
     }
+    //dprintf ("Exiting %s():", __FUNCTION__);
 }
 
 void WriteDataArray (std::ostream& ioStream,  cc_data** inDataArray)
@@ -265,57 +336,66 @@ void ReadString (std::istream& ioStream, char *&outString)
 {
     CCIUInt32 length;
     
-    //dprintf ("Entering %s():", __FUNCTION__);
     ReadUInt32 (ioStream, length);
     outString = new char [length];
     ioStream.read ((char *)outString, length);
-    //dprintf ("Read string '%s'", outString);
+    //dprintf ("%s(): Reading string '%s'", __FUNCTION__, outString);
 }
 
 void WriteString (std::ostream& ioStream, const char *inString)
 {
     CCIUInt32 length = strlen (inString) + 1;
     
-    //dprintf ("Entering %s():", __FUNCTION__);
     WriteUInt32 (ioStream, strlen (inString) + 1);
     ioStream.write (inString, length);
-    //dprintf ("Wrote string '%s'", inString);
+    //dprintf ("%s(): Wrote string '%s'", __FUNCTION__, inString);
 }
 
 void ReadString (std::istream& ioStream, std::string &outString)
 {
     char *string = NULL;
     
-    //dprintf ("Entering %s():", __FUNCTION__);
     try {
         ReadString (ioStream, string);
-        //dprintf ("Intermediate string '%s'", string);
         outString = string;
         delete [] string;
     } catch (...) {
         if (string != NULL) { delete [] string; }
         throw;
     }
-    //dprintf ("Read std::string '%s'", outString.c_str());
+    //dprintf ("%s(): Reading std::string '%s'", __FUNCTION__, outString.c_str());
 }
 
 void WriteString (std::ostream& ioStream, const std::string inString)
 {
-    //dprintf ("Entering %s():", __FUNCTION__);
     WriteString (ioStream, inString.c_str ());
-    //dprintf ("Wrote std::string '%s'", inString.c_str ());
+    //dprintf ("%s(): Writing std::string '%s'", __FUNCTION__, inString.c_str ());
+}
+
+void WriteInt32 (std::ostream& ioStream, CCIInt32 integer)
+{
+    //dprintf ("%s(): Writing integer '%d'", __FUNCTION__, integer);
+    integer = htonl(integer);
+    ioStream.write ((char *)&integer, sizeof (integer));
+}
+
+void ReadInt32 (std::istream& ioStream, CCIInt32& integer)
+{
+    ioStream.read ((char *)&integer, sizeof (integer));
+    integer = ntohl(integer);
+    //dprintf ("%s(): Reading integer '%d'", __FUNCTION__, integer);
 }
 
 void WriteUInt32 (std::ostream& ioStream, CCIUInt32 integer)
 {
-    //dprintf ("Entering %s():", __FUNCTION__);
+    //dprintf ("%s(): Writing integer '%d'", __FUNCTION__, integer);
+    integer = htonl(integer);
     ioStream.write ((char *)&integer, sizeof (integer));
-    //dprintf ("Wrote integer '%d'", integer);
 }
 
 void ReadUInt32 (std::istream& ioStream, CCIUInt32& integer)
 {
-    //dprintf ("Entering %s():", __FUNCTION__);
     ioStream.read ((char *)&integer, sizeof (integer));
-    //dprintf ("Read integer '%d'", integer);
+    integer = ntohl(integer);
+    //dprintf ("%s(): Reading integer '%d'", __FUNCTION__, integer);
 }

@@ -1,3 +1,5 @@
+/* APPLE LOCAL  nested functions */
+/* { dg-xfail-if "" { "*-*-darwin*" } { "*" } { "" } } */
 /* PR optimization/7675 */
 /* Contributed by Volker Reichelt */
 

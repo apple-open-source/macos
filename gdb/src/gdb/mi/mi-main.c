@@ -1248,6 +1248,25 @@ mi_cmd_data_evaluate_expression (char *command, char **argv, int argc)
   return MI_CMD_DONE;
 }
 
+/* APPLE LOCAL: -target-attach
+   This implements "-target-attach <PID>".  It is
+   identical to the CLI command except that we raise
+   an error if we are already attached.  */
+
+enum mi_cmd_result
+mi_cmd_target_attach (char *command, char **argv, int argc)
+{
+  if (argc != 1) 
+    error ("mi_cmd_target_attach: Usage PID");
+
+  if (target_has_execution)
+    error ("mi_cmd_target_attach: Already debugging - detach first");
+
+  attach_command (argv[0], 0);
+
+  return MI_CMD_DONE;
+}
+
 enum mi_cmd_result
 mi_cmd_target_download (char *args, int from_tty)
 {
@@ -1966,7 +1985,6 @@ mi_command_completes_while_target_executing (char *command)
 static enum mi_cmd_result
 mi_cmd_execute (struct mi_parse *parse)
 {
-
   if (parse->cmd->argv_func != NULL
       || parse->cmd->args_func != NULL)
     {

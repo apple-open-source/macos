@@ -2001,6 +2001,11 @@ the compiler in use.  You should not rely on its contents having any
 particular form, but it can be counted on to contain at least the
 release number.
 
+@c APPLE LOCAL begin radar 4224728
+@item __PIC__
+This macro is defined when gcc is generating pic code for darwin.
+@c APPLE LOCAL end radar 4224728
+
 @item __OPTIMIZE__
 @itemx __OPTIMIZE_SIZE__
 @itemx __NO_INLINE__

@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: krb5_gss_glue.c,v 1.21 2004/04/24 21:09:40 raeburn Exp $
+ * $Id: krb5_gss_glue.c 16268 2004-04-24 21:09:44Z raeburn $
  */
 
 #include "gssapiP_krb5.h"

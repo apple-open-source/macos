@@ -2,11 +2,6 @@
 #include "CCacheDataMachIPCStubs.h"
 #include "CCacheData.h"
 #include "CredentialsData.h"
-#ifdef Classic_Ticket_Sharing
-#  include "HandleBuffer.h"
-#  include "ClassicProtocol.h"
-#  include "ClassicSupport.h"
-#endif
 
 #include <Kerberos/mach_server_utilities.h>
 
@@ -22,19 +17,6 @@ kern_return_t CCacheIPC_Destroy (
 	CCIResult *outResult) {
         
     try {
-#ifdef Classic_Ticket_Sharing
-		CCIHandleBuffer		buffer;
-		
-		if (CCIClassicSupport::KeepDiffs ()) {
-			CCIUInt32			diffType = ccClassic_CCache_Destroy;
-			buffer.Put (diffType);
-			
-			buffer.Put (inCCache);
-
-			CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
-			buffer.ReleaseHandle ();
-		}
-#endif
 
         CCICCacheDataInterface	ccache (inCCache);
         ccache -> Destroy ();
@@ -48,12 +30,6 @@ kern_return_t CCacheIPC_Destroy (
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
     
-#ifdef Classic_Ticket_Sharing
-	if (*outResult != ccNoError) {
-		CCIClassicSupport::RemoveLastDiff ();
-	}
-#endif
-    
     return KERN_SUCCESS;
 }    
 
@@ -63,30 +39,10 @@ kern_return_t CCacheIPC_SetDefault (
 	CCIResult *outResult) {
 
     try {
-#ifdef Classic_Ticket_Sharing
-		CCIHandleBuffer		buffer;
-		
-		if (CCIClassicSupport::KeepDiffs ()) {
-			CCIUInt32			diffType = ccClassic_CCache_SetDefault;
-			buffer.Put (diffType);
-
-			buffer.Put (inCCache);
-
-			CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
-			buffer.ReleaseHandle ();
-		}
-#endif
-
         CCICCacheDataInterface	ccache (inCCache);
         ccache -> SetDefault ();
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
-    
-#ifdef Classic_Ticket_Sharing
-	if (*outResult != ccNoError) {
-		CCIClassicSupport::RemoveLastDiff ();
-	}
-#endif
     
     return KERN_SUCCESS;
 }
@@ -163,34 +119,11 @@ kern_return_t CCacheIPC_SetPrincipal (
 	CCIResult *outResult) {
 
     try {
-#ifdef Classic_Ticket_Sharing
-		CCIHandleBuffer		buffer;
-		
-		if (CCIClassicSupport::KeepDiffs ()) {
-			CCIUInt32			diffType = ccClassic_CCache_SetPrincipal;
-			buffer.Put (diffType);
-
-			buffer.Put (inCCache);
-			buffer.Put (inVersion);
-			buffer.Put (inCCachePrincipalCnt);
-			buffer.PutData (inCCachePrincipal, inCCachePrincipalCnt);
-
-			CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
-			buffer.ReleaseHandle ();
-		}
-#endif
-
         CCICCacheDataInterface	ccache (inCCache);
         
         ccache -> SetPrincipal (inVersion, std::string (inCCachePrincipal, inCCachePrincipalCnt));
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
-    
-#ifdef Classic_Ticket_Sharing
-	if (*outResult != ccNoError) {
-		CCIClassicSupport::RemoveLastDiff ();
-	}
-#endif
     
     return KERN_SUCCESS;
 }
@@ -204,34 +137,11 @@ kern_return_t CCacheIPC_CompatSetPrincipal (
 	CCIResult *outResult) {
 
     try {
-#ifdef Classic_Ticket_Sharing
-		CCIHandleBuffer		buffer;
-		
-		if (CCIClassicSupport::KeepDiffs ()) {
-			CCIUInt32			diffType = ccClassic_CCache_CompatSetPrincipal;
-			buffer.Put (diffType);
-
-			buffer.Put (inCCache);
-			buffer.Put (inVersion);
-			buffer.Put (inCCachePrincipalCnt);
-			buffer.PutData (inCCachePrincipal, inCCachePrincipalCnt);
-
-			CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
-			buffer.ReleaseHandle ();
-		}
-#endif
-        
         CCICCacheDataInterface	ccache (inCCache);
         
         ccache -> CompatSetPrincipal (inVersion, std::string (inCCachePrincipal, inCCachePrincipalCnt));
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
-    
-#ifdef Classic_Ticket_Sharing
-	if (*outResult != ccNoError) {
-		CCIClassicSupport::RemoveLastDiff ();
-	}
-#endif
     
     return KERN_SUCCESS;
 }
@@ -244,22 +154,6 @@ kern_return_t CCacheIPC_StoreCredentials (
 	CCIResult *outResult) {
 
     try {
-#ifdef Classic_Ticket_Sharing
-        CCIHandleBuffer		buffer;
-        
-        if (CCIClassicSupport::KeepDiffs ()) {
-            CCIUInt32			diffType = ccClassic_CCache_StoreConvertedCredentials;
-            buffer.Put (diffType);
-            
-            buffer.Put (inCCache);
-            buffer.Put (inCredentialsCnt);
-            buffer.PutData (inCredentials, inCredentialsCnt);
-            
-            CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
-            buffer.ReleaseHandle ();
-        }
-#endif
-        
         //dprintf ("%s(): got flattened credentials buffer:", __FUNCTION__);
         //dprintmem (inCredentials, inCredentialsCnt);
         
@@ -272,12 +166,6 @@ kern_return_t CCacheIPC_StoreCredentials (
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
     
-#ifdef Classic_Ticket_Sharing
-	if (*outResult != ccNoError) {
-		CCIClassicSupport::RemoveLastDiff ();
-	}
-#endif
-    
     return KERN_SUCCESS;
 }
 
@@ -288,32 +176,11 @@ kern_return_t CCacheIPC_RemoveCredentials (
 	CCIResult *outResult) {
 
     try {
-#ifdef Classic_Ticket_Sharing
-		CCIHandleBuffer		buffer;
-		
-		if (CCIClassicSupport::KeepDiffs ()) {
-			CCIUInt32			diffType = ccClassic_CCache_RemoveCredentials;
-			buffer.Put (diffType);
-
-			buffer.Put (inCCache);
-			buffer.Put (inCredentials);
-
-			CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
-			buffer.ReleaseHandle ();
-		}
-#endif
-
         CCICCacheDataInterface	ccache (inCCache);
         
         ccache -> RemoveCredentials (inCredentials);
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
-    
-#ifdef Classic_Ticket_Sharing
-	if (*outResult != ccNoError) {
-		CCIClassicSupport::RemoveLastDiff ();
-	}
-#endif
     
     return KERN_SUCCESS;
 }
@@ -357,32 +224,11 @@ kern_return_t CCacheIPC_Move (
 	CCIResult *outResult) {
 
     try {
-#ifdef Classic_Ticket_Sharing
-		CCIHandleBuffer		buffer;
-		
-		if (CCIClassicSupport::KeepDiffs ()) {
-			CCIUInt32			diffType = ccClassic_CCache_Move;
-			buffer.Put (diffType);
-
-			buffer.Put (inSourceCCache);
-			buffer.Put (inDestinationCCache);
-
-			CCIClassicSupport::SaveOneDiff (buffer.GetHandle ());
-			buffer.ReleaseHandle ();
-		}
-#endif
-                
         CCICCacheDataInterface	ccache (inSourceCCache);
         
         ccache -> Move (inDestinationCCache);
         *outResult = ccNoError;
     } CatchForIPCReturn_ (outResult)
-    
-#ifdef Classic_Ticket_Sharing
-	if (*outResult != ccNoError) {
-		CCIClassicSupport::RemoveLastDiff ();
-	}
-#endif
     
     return KERN_SUCCESS;
 }

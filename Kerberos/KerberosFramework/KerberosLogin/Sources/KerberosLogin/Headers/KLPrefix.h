@@ -1,7 +1,7 @@
 /*
  * KLPrefix.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLPrefix.h,v 1.9 2005/03/22 18:31:49 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

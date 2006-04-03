@@ -5,7 +5,7 @@
  |                              Gdb SET and SHOW Processing                             |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
  
@@ -26,10 +26,6 @@
 #include "cli/cli-decode.h"
 #include "gdbcmd.h"
 
-static void define_set(char *theSetting, Gdb_Set_Funct sfunct, Gdb_Set_Type type,
-		       void *value_ptr, int for_set_and_show, char *enumlist[],
-		       char *helpInfo);
-
 /*--------------------------------------------------------------------------------------*/
 
 static void (*gdb_set_hook)(struct cmd_list_element *c) = NULL; /* gdb's set_hook	*/
@@ -45,7 +41,13 @@ typedef struct Set_Info {			/* user defined set cmd list entries:	*/
 } Set_Info;
 
 static Set_Info *set_list = NULL;		/* list of user defined set commands	*/
-    
+   
+static void define_set(char *theSetting, Gdb_Set_Funct sfunct, Gdb_Set_Type type,
+		       void *value_ptr, int for_set_and_show, char *enumlist[],
+		       char *helpInfo);
+static void my_set(char *ignore, int from_tty, struct cmd_list_element *c);
+static void my_set_hook(struct cmd_list_element *c);    
+ 
 /*--------------------------------------------------------------------------------------*/
 
 /*--------------------------------------------*
@@ -250,9 +252,6 @@ void gdb_define_set_generic(Gdb_Set_Funct sfunct)
  we need to hide the internal gdb SET handler from the user and there is no place in the
  gdb struct cmd_list_element to save our data.
 */
-
-static void my_set(char *ignore, int from_tty, struct cmd_list_element *c);
-static void my_set_hook(struct cmd_list_element *c);    
 
 static void define_set(char *theSetting, Gdb_Set_Funct sfunct, Gdb_Set_Type type,
 		       void *value_ptr, int for_set_and_show, char *enumlist[],

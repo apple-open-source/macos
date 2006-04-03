@@ -1,0 +1,67 @@
+--- ../../libstdcxx-orig/libstdcxx/libstdc++-v3/config/linker-map.gnu	2005-04-14 21:06:50.000000000 -0700
++++ libstdc++-v3/config/linker-map.gnu	2005-07-27 19:48:53.000000000 -0700
+@@ -203,37 +203,7 @@ GLIBCXX_3.4 {
+     _ZSt14__convert_to_v*;
+ 
+     # stub functions from libmath
+-    sinf;
+-    sinl;
+-    sinhf;
+-    sinhl;
+-    cosf;
+-    cosl;
+-    coshf;
+-    coshl;
+-    tanf;
+-    tanl;
+-    tanhf;
+-    tanhl;
+-    atan2f;
+-    atan2l;
+-    expf;
+-    expl;
+-    hypotf;
+-    hypotl;
+-    hypot;
+-    logf;
+-    logl;
+-    log10f;
+-    log10l;
+-    powf;
+-    powl;
+-    sqrtf;
+-    sqrtl;
+-    copysignf;
+-    __signbit;
+-    __signbitf;
+-    __signbitl;
++    # Not part of the ABI on Darwin.
+ 
+     # __gnu_cxx::stdio_sync_filebuf
+     _ZTVN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
+@@ -268,24 +238,7 @@ GLIBCXX_3.4.2 {
+ GLIBCXX_3.4.3 {
+  
+     # stub functions from libmath
+-    acosf;
+-    acosl;
+-    asinf;
+-    asinl;
+-    atanf;
+-    atanl;
+-    ceilf;
+-    ceill;
+-    floorf;
+-    floorl;
+-    fmodf;
+-    fmodl;
+-    frexpf;
+-    frexpl;
+-    ldexpf;
+-    ldexpl;
+-    modff;
+-    modfl;
++    # Don't exist on Darwin
+ 
+ } GLIBCXX_3.4.2;
+ 

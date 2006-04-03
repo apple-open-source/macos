@@ -221,7 +221,8 @@ proc test_struct_calls { n } {
     set tests "call $n ${testfile}"
 
     # Call fun${n}, checking the printed return-value.
-    setup_kfails structs-*tld* i*86-*-* gdb/1447
+    # APPLE LOCAL: works on darwin
+    # setup_kfails structs-*tld* i*86-*-* gdb/1447
     setup_kfails structs-*tld* sparc64-*-* gdb/1447
     setup_kfails structs-*tld* sparc*-*-solaris2* gdb/1447
     setup_kfails structs-*tld* x86_64-*-* gdb/1447
@@ -236,7 +237,8 @@ proc test_struct_calls { n } {
     # examining that global to confirm that the value is as expected.
 
     gdb_test "call Fun${n}(foo${n})" "" "call Fun<n>(foo<n>); ${tests}"
-    setup_kfails structs-*tld* i*86-*-* gdb/1447
+    # APPLE LOCAL: works on darwin
+    # setup_kfails structs-*tld* i*86-*-* gdb/1447
     setup_kfails structs-*tld* sparc64-*-* gdb/1447
     setup_kfails structs-*tld* sparc*-*-solaris2* gdb/1447
     setup_kfails structs-*tld* x86_64-*-* gdb/1447
@@ -293,7 +295,8 @@ proc test_struct_returns { n } {
 	    "advance to fun<n> for return; ${tests}"
 
     # Check that the program invalidated the relevant global.
-    setup_kfails structs-tld i*86-*-* gdb/1447
+    # APPLE LOCAL: works on darwin
+    #setup_kfails structs-tld i*86-*-* gdb/1447
     setup_kfails structs-tld sparc64-*-* gdb/1447
     setup_kfails structs-tld sparc*-*-solaris2* gdb/1447
     setup_kfails structs-tld x86_64-*-* gdb/1447
@@ -344,8 +347,21 @@ proc test_struct_returns { n } {
     # just checking that GDB has returned a value consistent with
     # "return_value_unknown" set above.
 
+    # APPLE LOCAL: When returning an unknown value, we can't
+    # necessarily expect the value passed in to be unmodified.  Our
+    # compiler passes in a pointer to a temporary buffer to the
+    # function, and then copies the appropriate portion of that buffer
+    # into the result on function return (as opposed to the usual
+    # method of just passing a pointer to where the struct is being
+    # returned).  So for example, when we return from fun1() early,
+    # that temporary buffer is full of random data, which is then
+    # copied into L1, causing the test to fail.  The fix here is that
+    # we can't expect the L1 to be unmodified if we have returned from
+    # the function early.
+
     set test "value foo<n> returned; ${tests}"
-    setup_kfails structs-*tld* i*86-*-* gdb/1447
+    # APPLE LOCAL: works on darwin
+    #setup_kfails structs-*tld* i*86-*-* gdb/1447
     setup_kfails structs-*tld* sparc64-*-* gdb/1447
     setup_kfails structs-*tld* sparc*-*-solaris2* gdb/1447
     setup_kfails structs-*tld* x86_64-*-* gdb/1447
@@ -354,7 +370,15 @@ proc test_struct_returns { n } {
 	    if $return_value_unknown {
 		# This contradicts the above claim that GDB didn't
 		# know the location of the return-value.
-		fail "${test}"
+		if {[istarget "*-apple-darwin*"]} {
+		    # APPLE LOCAL: On OS X, we're allowed to have the
+		    # buffer full of garbage if we returned early.  In
+		    # this case, "garbage" just might turn out to be
+		    # the correct value.  See comment above.
+		    pass "${test}"
+		} else {
+		    fail "${test}"
+		}
 	    } else {
 		pass "${test}"
 	    }
@@ -377,6 +401,15 @@ proc test_struct_returns { n } {
 		# What a suprize.  The architecture hasn't implemented
 		# return_value, and hence has to fail.
 		kfail "$test" gdb/1444
+	    } elseif $return_value_unknown {
+		if {[istarget "*-apple-darwin*"]} {
+		    # APPLE LOCAL: On OS X, we're allowed to have the
+		    # buffer full of garbage if we returned early.
+		    # See comment above.
+		    pass "$test"
+		} else {
+		    fail "$test"
+		}
 	    } else {
 		fail "$test"
 	    }
@@ -399,7 +432,8 @@ proc test_struct_returns { n } {
 	    "advance to fun<n> for finish; ${tests}"
 
     # Check that the program invalidated the relevant global.
-    setup_kfails structs-tld i*86-*-* gdb/1447
+    # APPLE LOCAL: works on darwin
+    #setup_kfails structs-tld i*86-*-* gdb/1447
     setup_kfails structs-tld sparc64-*-* gdb/1447
     setup_kfails structs-tld sparc*-*-solaris2* gdb/1447
     setup_kfails structs-tld x86_64-*-* gdb/1447
@@ -424,7 +458,8 @@ proc test_struct_returns { n } {
     # "p/c".  If no return value was found, the 'Z' from the previous
     # check that the variable was cleared, is printed.
     set test "value foo<n> finished; ${tests}"
-    setup_kfails structs-*tld* i*86-*-* gdb/1447
+    # APPLE LOCAL: works on darwin
+    #setup_kfails structs-*tld* i*86-*-* gdb/1447
     setup_kfails structs-*tld* sparc64-*-* gdb/1447
     setup_kfails structs-*tld* sparc*-*-solaris2* gdb/1447
     setup_kfails structs-*tld* x86_64-*-* gdb/1447

@@ -1,4 +1,4 @@
-.TH OTOOL 1 "April 30, 2002" "Apple Computer, Inc."
+.TH OTOOL 1 "July 28, 2005" "Apple Computer, Inc."
 .SH NAME
 otool \- object file displaying tool
 .SH SYNOPSIS
@@ -21,7 +21,7 @@ the entire library.   (Typically this argument must be quoted,
 .I ``libx.a(foo.o)'',
 to get it past the shell.)
 .I  Otool
-understands both Mach-O (Mach object) files and fat file formats.
+understands both Mach-O (Mach object) files and universal file formats.
 .I  Otool
 can display the specified information in either its raw (numeric) form
 (without the
@@ -41,7 +41,7 @@ Display the archive header, if the file is an archive.
 Display the contents of the `\_\^\_.SYMDEF' file, if the file is an archive.
 .TP
 .B \-f
-Display the fat headers.
+Display the universal headers.
 .TP
 .B \-h
 Display the Mach header.
@@ -136,7 +136,7 @@ Specifies the architecture,
 .I arch_type,
 of the file for
 .IR otool (1)
-to operate on when the file is a fat file.  (See
+to operate on when the file is a universal file.  (See
 .IR arch (3)
 for the currently know
 .IR arch_type s.)

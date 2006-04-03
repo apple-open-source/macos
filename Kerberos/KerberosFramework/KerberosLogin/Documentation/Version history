@@ -1,8 +1,8 @@
 ==============================================================================
 Kerberos Login Library Version History
 ==============================================================================
-Current version: 1.8.1fc1
-Date           : June 15, 2005
+Current version: 1.8.1fc2
+Date           : November 30, 2005
 Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 ========================================================================
 
@@ -10,6 +10,13 @@ Kerberos Login 1.8.1
 Released with KfM 5.5.1
 
 ========================================================================
+
+	Kerberos Login 1.8.1fc2
+	November 30, 2005
+	
+	Temporary KLL fix so mach_msg can't smash the port under Rosetta.
+
+	========================================================================
 
 	Kerberos Login 1.8.1fc1
 	June 15, 2005

@@ -1,0 +1,300 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A181F27C05E553A9006CE0A8 /* klist.c in Sources */ = {isa = PBXBuildFile; fileRef = F5E27E53023715AE01650119 /* klist.c */; };
+		A181F27E05E553A9006CE0A8 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5E27E5F023718D701650119 /* Kerberos.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		F5E27E090237083401650119 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		F5E27E0A0237083401650119 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		A181F28105E553A9006CE0A8 /* klist */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = klist; sourceTree = BUILT_PRODUCTS_DIR; };
+		F5033FCE025DFA1D01F62B58 /* klist.M */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = klist.M; sourceTree = "<group>"; };
+		F5E27E53023715AE01650119 /* klist.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = klist.c; sourceTree = "<group>"; };
+		F5E27E5F023718D701650119 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A181F27D05E553A9006CE0A8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F27E05E553A9006CE0A8 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F5033FCD025DFA1D01F62B58 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				F5033FCE025DFA1D01F62B58 /* klist.M */,
+			);
+			name = Documentation;
+			path = ../Documentation;
+			sourceTree = "<group>";
+		};
+		F5E27E080237083401650119 = {
+			isa = PBXGroup;
+			children = (
+				F5E27E52023715AE01650119 /* Sources */,
+				F5033FCD025DFA1D01F62B58 /* Documentation */,
+				F5E27E5F023718D701650119 /* Kerberos.framework */,
+				F5E27E56023716E301650119 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F5E27E52023715AE01650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F5E27E53023715AE01650119 /* klist.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5E27E56023716E301650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A181F28105E553A9006CE0A8 /* klist */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A181F27A05E553A9006CE0A8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A181F27805E553A9006CE0A8 /* klist */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A151913D086C8DEC0042CBBC /* Build configuration list for PBXNativeTarget "klist" */;
+			buildPhases = (
+				A181F27A05E553A9006CE0A8 /* Headers */,
+				A181F27B05E553A9006CE0A8 /* Sources */,
+				A181F27D05E553A9006CE0A8 /* Frameworks */,
+				A181F27F05E553A9006CE0A8 /* Rez */,
+				A1C7E152069DEBCE00DF6AFE /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = klist;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = klist;
+			productInstallPath = /usr/bin;
+			productName = klist;
+			productReference = A181F28105E553A9006CE0A8 /* klist */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F5E27E070237083401650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1519141086C8DEC0042CBBC /* Build configuration list for PBXProject "klist" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				F5E27E090237083401650119 /* Development */,
+				F5E27E0A0237083401650119 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = F5E27E080237083401650119;
+			productRefGroup = F5E27E56023716E301650119 /* Products */;
+			projectDirPath = "";
+			targets = (
+				A181F27805E553A9006CE0A8 /* klist */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		A181F27F05E553A9006CE0A8 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A1C7E152069DEBCE00DF6AFE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/klist.M",
+			);
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/klist.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/klist.M\" \"${DSTROOT}/usr/share/man/man1/klist.1\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A181F27B05E553A9006CE0A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F27C05E553A9006CE0A8 /* klist.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A151913E086C8DEC0042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = klist;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A151913F086C8DEC0042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = klist;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A1519140086C8DEC0042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = klist;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A1519142086C8DEC0042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		A1519143086C8DEC0042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		A1519144086C8DEC0042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A151913D086C8DEC0042CBBC /* Build configuration list for PBXNativeTarget "klist" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A151913E086C8DEC0042CBBC /* Development */,
+				A151913F086C8DEC0042CBBC /* Deployment */,
+				A1519140086C8DEC0042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A1519141086C8DEC0042CBBC /* Build configuration list for PBXProject "klist" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1519142086C8DEC0042CBBC /* Development */,
+				A1519143086C8DEC0042CBBC /* Deployment */,
+				A1519144086C8DEC0042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5E27E070237083401650119 /* Project object */;
+}

@@ -23,7 +23,7 @@
 #include "gssapiP_krb5.h"
 
 /*
- * $Id: delete_sec_context.c,v 1.19 2004/06/16 02:37:23 tlyu Exp $
+ * $Id: delete_sec_context.c 16465 2004-06-16 02:37:23Z tlyu $
  */
 
 OM_uint32

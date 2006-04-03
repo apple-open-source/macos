@@ -41,7 +41,7 @@
 # $
 #
 
-# $Header: /cvs/krbdev/krb5/src/mac/MacOSX/Projects/KerberosDES.pbexp,v 1.1 2003/03/06 19:01:56 lxs Exp $
+# $Header$
 
 _des_cbc_encrypt
 _des_3cbc_encrypt

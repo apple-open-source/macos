@@ -1,10 +1,10 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved.
  *
- * $Id: clnt_privs.c,v 1.2 1998/02/14 02:32:58 tlyu Exp $
- * $Source: /cvs/krbdev/krb5/src/lib/kadm5/clnt/clnt_privs.c,v $
+ * $Id: clnt_privs.c 10450 1998-02-14 02:32:58Z tlyu $
+ * $Source$
  * 
- * $Log: clnt_privs.c,v $
+ * $Log$
  * Revision 1.2  1998/02/14 02:32:58  tlyu
  * 	* client_init.c:
  * 	* client_principal.c:
@@ -58,7 +58,7 @@
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/lib/kadm5/clnt/clnt_privs.c,v 1.2 1998/02/14 02:32:58 tlyu Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #include    <gssrpc/rpc.h>

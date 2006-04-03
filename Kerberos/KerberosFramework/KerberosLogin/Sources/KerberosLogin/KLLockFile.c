@@ -1,7 +1,7 @@
 /*
  * KLLockFile.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLLockFile.c,v 1.9 2004/10/04 17:46:52 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -168,7 +168,7 @@ static KLStatus __KLGetLockFile (char **outLockFileDirectory, char **outLockFile
     if (err == klNoErr) {
         int count = snprintf (uidString, sizeof (uidString), "%d", uid);
         if (count > sizeof (uidString)) {
-            dprintf ("__KLGetLockFile: WARNING! UID %d needs %ld bytes and buffer is %ld bytes",
+            dprintf ("__KLGetLockFile: WARNING! UID %d needs %d bytes and buffer is %ld bytes",
                      uid, count, sizeof (uidString));
             err = KLError_ (klParameterErr);
         }
@@ -223,7 +223,7 @@ static KLStatus __KLCheckLockFileDirectory (char *lockFileDirectory, uid_t lockF
     if (err == klNoErr) {
         err = stat (lockFileDirectory, &sb);
         if (err != 0) {
-            dprintf ("__KLCheckLockFileDirectory(): stat(%s) returned %ld (%s)\n",
+            dprintf ("__KLCheckLockFileDirectory(): stat(%s) returned %d (%s)\n",
                      lockFileDirectory, errno, strerror (errno));
             err = KLError_ (errno);
         }
@@ -239,7 +239,7 @@ static KLStatus __KLCheckLockFileDirectory (char *lockFileDirectory, uid_t lockF
     if (err == klNoErr) {
         if (sb.st_uid != lockFileUID) {
             // Just warn, since there's nothing we can do about this
-            dprintf ("__KLCheckLockFileDirectory(): %s is owned by uid %ld, not uid %ld\n",
+            dprintf ("__KLCheckLockFileDirectory(): %s is owned by uid %d, not uid %d\n",
                      lockFileDirectory, sb.st_uid, lockFileUID);
         }
     }
@@ -248,7 +248,7 @@ static KLStatus __KLCheckLockFileDirectory (char *lockFileDirectory, uid_t lockF
         if ((sb.st_mode & ALLPERMS) != kLockFileDirPerms) {
             if (chmod (lockFileDirectory, kLockFileDirPerms) != 0) {
                 err = KLError_ (errno);
-                dprintf ("__KLCheckLockFileDirectory(): %s has permission bits 0x%lx, not 0x%lx\n",
+                dprintf ("__KLCheckLockFileDirectory(): %s has permission bits 0x%x, not 0x%x\n",
                          lockFileDirectory, (sb.st_mode & ALLPERMS), kLockFileDirPerms);
             }
         }

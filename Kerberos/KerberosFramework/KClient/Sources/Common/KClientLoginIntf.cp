@@ -1,7 +1,7 @@
 /*
  * KClient bottom layer to Login library
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/Common/KClientLoginIntf.cp,v 1.22 2003/02/26 04:09:10 lxs Exp $
+ * $Header$
  */
 
 #include "KClientLoginIntf.h"

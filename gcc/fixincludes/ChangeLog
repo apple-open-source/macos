@@ -1,3 +1,42 @@
+2005-06-24  Geoffrey Keating  <geoffk@geoffk.org>
+
+	* inclhack.def (AAB_darwin7_9_long_double_funcs): New.
+	(AAB_darwin7_9_long_double_funcs_2): New.
+	* fixincl.x: Regenerate.
+
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-05-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR target/19933
+	PR target/21315
+	* inclhack.def: New fixes solaris_math_[1-9].
+	* fixincl.x: Regenerate.
+	* tests/base/iso/math_c99.h: New.
+
+2005-05-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* inclhack.def (stdio_stdarg_h, stdio_va_list): Bypass on
+	*-*-solaris2.1[0-9]*, not just *-*-solaris2.1[0-9].
+	* fixincl.x: Regenerate.
+
+2005-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.ac (fixincludes_UNLOCKED_FUNCS): New.
+	(AC_CHECK_FUNCS, AC_CHECK_DECLS): Check for fixincludes_UNLOCKED_FUNCS.
+	* system.h (putchar, getc, getchar, clearerr, feof, fileno,
+	fflush, fgetc, fgets, ferror, fread): Redefine to the associated
+	_unlocked function.
+	(fwrite_unlocked): Fix prototype.
+	
+	* configure, config.in: Regenerate.
+
+	* system.h (fopen, fdopen, freopen): Define these to the unlocked
+	libiberty functions.
+
 2005-04-20  Release Manager
 
 	* GCC 4.0.0 released.

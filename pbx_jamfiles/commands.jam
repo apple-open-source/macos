@@ -217,7 +217,7 @@ rule Rez
     if $(MACOS_CREATOR) {
         MACOS_CREATOR_ARG = -c '$(MACOS_CREATOR)' ;
     }
-    REZFLAGS on $(1) = -append -d SystemSevenOrLater=1 $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) "$(OTHER_REZFLAGS)" ;
+    REZFLAGS on $(1) = -append $(ARCH_FLAGS) -d SystemSevenOrLater=1 $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) "$(OTHER_REZFLAGS)" ;
     if ! $(REZ_EXECUTABLE) = "YES" {
         # by default use data forks
         REZFLAGS on $(1) += -useDF ;
@@ -261,7 +261,7 @@ actions ResMerge
 rule RezCollector
 {
     DEPENDS $(1) : $(2) ;
-    REZFLAGS on $(1) = -d SystemSevenOrLater=1 -useDF ;
+    REZFLAGS on $(1) = $(ARCH_FLAGS) -d SystemSevenOrLater=1 -useDF ;
     REZPATHFLAGS on $(1) = ;
     for _REZ_PATH in $(REZ_SEARCH_PATHS) {
         REZPATHFLAGS on $(1) += -i $(_REZ_PATH) ;

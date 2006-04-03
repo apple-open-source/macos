@@ -30,10 +30,10 @@
 #include "abi.h"
 
 #warning scp: accuracy near 1?
-ENTRY(log2)
-	XMM_ONE_ARG_DOUBLE_PROLOGUE
+ENTRY(log2l)
+	XMM_ONE_ARG_LONG_DOUBLE_PROLOGUE
 	fld1
-	fldl	ARG_DOUBLE_ONE
+	fldt	ARG_LONG_DOUBLE_ONE
 	fyl2x
-	XMM_DOUBLE_EPILOGUE
+	XMM_LONG_DOUBLE_EPILOGUE
 	ret

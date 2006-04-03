@@ -1883,6 +1883,13 @@ push_overloaded_decl (tree decl, int flags)
 	      if (duplicate_decls (decl, fn) == fn)
 		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, fn);
 	    }
+
+	  /* We don't overload implicit built-ins.  duplicate_decls()
+	     may fail to merge the decls if the new decl is e.g. a
+	     template function.  */
+	  if (TREE_CODE (old) == FUNCTION_DECL
+	      && DECL_ANTICIPATED (old))
+	    old = NULL;
 	}
       else if (old == error_mark_node)
 	/* Ignore the undefined symbol marker.  */
@@ -2025,6 +2032,14 @@ do_nonmember_using_decl (tree scope, tree name, tree oldval, tree oldtype,
       return;
     }
 
+  /* It is impossible to overload a built-in function; any explicit
+     declaration eliminates the built-in declaration.  So, if OLDVAL
+     is a built-in, then we can just pretend it isn't there.  */
+  if (oldval 
+      && TREE_CODE (oldval) == FUNCTION_DECL
+      && DECL_ANTICIPATED (oldval))
+    oldval = NULL_TREE;
+
   /* Check for using functions.  */
   if (decls.value && is_overloaded_fn (decls.value))
     {
@@ -2036,15 +2051,6 @@ do_nonmember_using_decl (tree scope, tree name, tree oldval, tree oldtype,
 	    error ("%qD is already declared in this scope", name);
 	  oldval = NULL_TREE;
 	}
-
-      /* It is impossible to overload a built-in function; any
-	 explicit declaration eliminates the built-in declaration.
-	 So, if OLDVAL is a built-in, then we can just pretend it
-	 isn't there.  */
-      if (oldval 
-	  && TREE_CODE (oldval) == FUNCTION_DECL
-	  && DECL_ANTICIPATED (oldval))
-	oldval = NULL_TREE;
 
       *newval = oldval;
       for (tmp = decls.value; tmp; tmp = OVL_NEXT (tmp))
@@ -3296,11 +3302,14 @@ ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
       case TEMPLATE_DECL:
         /* If we expect types or namespaces, and not templates,
            or this is not a template class.  */
+	/* APPLE LOCAL begin 4184203 */
         if (LOOKUP_QUALIFIERS_ONLY (flags)
             && !DECL_CLASS_TEMPLATE_P (val))
+	  /* APPLE LOCAL end 4184203 */
           val = NULL_TREE;
         break;
       case TYPE_DECL:
+	/* APPLE LOCAL 4184203 */
         if (LOOKUP_NAMESPACES_ONLY (flags))
           val = NULL_TREE;
         break;
@@ -3310,6 +3319,7 @@ ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
         break;
       case FUNCTION_DECL:
         /* Ignore built-in functions that are still anticipated.  */
+	/* APPLE LOCAL 4184203 */
         if (LOOKUP_QUALIFIERS_ONLY (flags) || DECL_ANTICIPATED (val))
           val = NULL_TREE;
         break;
@@ -3382,21 +3392,28 @@ lookup_flags (int prefer_type, int namespaces_only)
 }
 
 /* Given a lookup that returned VAL, use FLAGS to decide if we want to
+   APPLE LOCAL 4184203
    ignore it or not.  Subroutine of lookup_name_real.  */
 
+/* APPLE LOCAL 4184203 */
 static tree
 qualify_lookup (tree val, int flags)
 {
   if (val == NULL_TREE)
+    /* APPLE LOCAL 4184203 */
     return val;
   if ((flags & LOOKUP_PREFER_NAMESPACES) && TREE_CODE (val) == NAMESPACE_DECL)
+    /* APPLE LOCAL 4184203 */
     return val;
   if ((flags & LOOKUP_PREFER_TYPES)
       && (TREE_CODE (val) == TYPE_DECL || TREE_CODE (val) == TEMPLATE_DECL))
+    /* APPLE LOCAL 4184203 */
     return val;
   if (flags & (LOOKUP_PREFER_NAMESPACES | LOOKUP_PREFER_TYPES))
+    /* APPLE LOCAL begin 4184203 */
     return NULL_TREE;
   return val;
+  /* APPLE LOCAL end 4184203 */
 }
 
 /* Look up NAME in the NAMESPACE.  */
@@ -3467,10 +3484,12 @@ lookup_namespace_name (tree namespace, tree name)
       if (TREE_CODE (val) == OVERLOAD && ! really_overloaded_fn (val))
 	val = OVL_FUNCTION (val);
 
+      /* APPLE LOCAL begin 4184203 */
       /* Ignore built-in functions that haven't been prototyped yet.  */
       if (!val || !DECL_P(val)
           || !DECL_LANG_SPECIFIC(val)
           || !DECL_ANTICIPATED (val))
+	/* APPLE LOCAL end 4184203 */
         POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
     }
 
@@ -3529,10 +3548,12 @@ unqualified_namespace_lookup (tree name, int flags)
 
       if (b)
 	{
+	  /* APPLE LOCAL begin 4184203 */
 	  if (b->value && DECL_P (b->value)
 	      && DECL_LANG_SPECIFIC (b->value) 
 	      && DECL_ANTICIPATED (b->value))
 	    /* Ignore anticipated built-in functions.  */
+	    /* APPLE LOCAL end 4184203 */
 	    ;
 	  else
 	    binding.value = b->value;
@@ -3773,6 +3794,8 @@ innermost_non_namespace_value (tree name)
    node of some kind representing its definition if there is only one
    such declaration, or return a TREE_LIST with all the overloaded
    definitions if there are many, or return 0 if it is undefined.
+   APPLE LOCAL 4184203
+   Remove two sentences from the comment
 
    If PREFER_TYPE is > 0, we prefer TYPE_DECLs or namespaces.
    If PREFER_TYPE is > 1, we reject non-type decls (e.g. namespaces).
@@ -3837,9 +3860,11 @@ lookup_name_real (tree name, int prefer_type, int nonclass, bool block_p,
 	  continue;
 	
 	/* If this is the kind of thing we're looking for, we're done.  */
+	/* APPLE LOCAL 4184203 */
 	if (qualify_lookup (iter->value, flags))
 	  binding = iter->value;
 	else if ((flags & LOOKUP_PREFER_TYPES)
+		 /* APPLE LOCAL 4184203 */
 		 && qualify_lookup (iter->type, flags))
 	  binding = iter->type;
 	else
@@ -3898,7 +3923,9 @@ lookup_name (tree name, int prefer_type)
    Unlike lookup_name_real, we make sure that NAME is actually
    declared in the desired scope, not from inheritance, nor using
    directive.  For using declaration, there is DR138 still waiting
+   APPLE LOCAL begin 4184203 
    to be resolved.
+   APPLE LOCAL end 4184203
 
    A TYPE_DECL best matching the NAME is returned.  Catching error
    and issuing diagnostics are caller's responsibility.  */
@@ -3948,9 +3975,11 @@ lookup_type_scope (tree name, tag_scope scope)
 
       if (iter)
 	{
+	  /* APPLE LOCAL begin 4184203 */ 
 	  /* If this is the kind of thing we're looking for, we're done.
 	     Ignore names found via using declaration.  See DR138 for
 	     current status.  */
+	  /* APPLE LOCAL end 4184203 */
 	  if (qualify_lookup (iter->type, LOOKUP_PREFER_TYPES))
 	    val = iter->type;
 	  else if (qualify_lookup (iter->value, LOOKUP_PREFER_TYPES))
@@ -4500,6 +4529,7 @@ push_using_directive (tree used)
    processing.  */
 
 static tree
+/* APPLE LOCAL 4184203 */
 maybe_process_template_type_declaration (tree type, int globalize,
                                          cxx_scope *b)
 {
@@ -4523,6 +4553,7 @@ maybe_process_template_type_declaration (tree type, int globalize,
 	     push_template_decl_real, but we want the original value.  */
 	  tree name = DECL_NAME (decl);
 
+	  /* APPLE LOCAL 4184203 */
 	  decl = push_template_decl_real (decl, globalize);
 	  /* If the current binding level is the binding level for the
 	     template parameters (see the comment in
@@ -4532,6 +4563,7 @@ maybe_process_template_type_declaration (tree type, int globalize,
 	     friend case, push_template_decl will already have put the
 	     friend into global scope, if appropriate.  */
 	  if (TREE_CODE (type) != ENUMERAL_TYPE
+	      /* APPLE LOCAL 4184203 */
 	      && !globalize && b->kind == sk_template_parms
 	      && b->level_chain->kind == sk_class)
 	    {
@@ -4563,6 +4595,7 @@ maybe_process_template_type_declaration (tree type, int globalize,
    Returns TYPE upon success and ERROR_MARK_NODE otherwise.  */
 
 tree
+/* APPLE LOCAL 4184203 */
 pushtag (tree name, tree type, int globalize)
 {
   struct cp_binding_level *b;
@@ -4580,6 +4613,7 @@ pushtag (tree name, tree type, int globalize)
 	    template is instantiated.  */
 	 || (b->kind == sk_template_parms && b->explicit_spec_p)
 	 || (b->kind == sk_class
+	     /* APPLE LOCAL 4184203 */
 	     && (globalize
 		 /* We may be defining a new type in the initializer
 		    of a static member variable. We allow this when
@@ -4601,6 +4635,7 @@ pushtag (tree name, tree type, int globalize)
 	    {
 	      tree cs = current_scope ();
 
+	      /* APPLE LOCAL 4184203 */
 	      if (! globalize)
 		context = cs;
 	      else if (cs != NULL_TREE && TYPE_P (cs))
@@ -4622,11 +4657,16 @@ pushtag (tree name, tree type, int globalize)
 
 	  d = create_implicit_typedef (name, type);
 	  DECL_CONTEXT (d) = FROB_CONTEXT (context);
+	  /* APPLE LOCAL 4184203 */
+	  /* Remove code to set freinds bit */
+
 	  if (! in_class)
 	    set_identifier_type_value_with_scope (name, d, b);
 
+	  /* APPLE LOCAL begin 4184203 */
 	  d = maybe_process_template_type_declaration (type,
 						       globalize, b);
+	  /* APPLE LOCAL end 4184203 */
 	  if (d == error_mark_node)
 	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 
@@ -4644,9 +4684,8 @@ pushtag (tree name, tree type, int globalize)
 	  else
 	    d = pushdecl_with_scope (d, b);
 
-	  /* FIXME what if it gets a name from typedef?  */
-	  if (ANON_AGGRNAME_P (name))
-	    DECL_IGNORED_P (d) = 1;
+	  /* APPLE LOCAL mainline */
+	  /* Do not set DECL_IGNORED_P */
 
 	  TYPE_CONTEXT (type) = DECL_CONTEXT (d);
 
@@ -4656,8 +4695,7 @@ pushtag (tree name, tree type, int globalize)
 	     way.  (It's otherwise tricky to find a member function definition
 	     it's only pointed to from within a local class.)  */
 	  if (TYPE_CONTEXT (type)
-	      && TREE_CODE (TYPE_CONTEXT (type)) == FUNCTION_DECL
-	      && !processing_template_decl)
+	      && TREE_CODE (TYPE_CONTEXT (type)) == FUNCTION_DECL)
 	    VARRAY_PUSH_TREE (local_classes, type);
         }
       if (b->kind == sk_class

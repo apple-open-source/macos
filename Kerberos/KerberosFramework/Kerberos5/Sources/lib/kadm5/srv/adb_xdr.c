@@ -1,11 +1,11 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/adb_xdr.c,v 1.4 2001/07/25 19:03:35 epeisach Exp $
+ * $Header$
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/adb_xdr.c,v 1.4 2001/07/25 19:03:35 epeisach Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #include <sys/types.h>

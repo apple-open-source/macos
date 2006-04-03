@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
+#include <mach/mach.h>
+#include <servers/bootstrap.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -50,7 +52,15 @@
 
 #define LAUNCH_SECDIR "/tmp/launch-XXXXXX"
 
+#define MACHINIT_JOBKEY_ONDEMAND	"OnDemand"
+#define MACHINIT_JOBKEY_SERVICENAME	"ServiceName"
+#define MACHINIT_JOBKEY_COMMAND		"Command"
+#define MACHINIT_JOBKEY_ISKUNCSERVER	"isKUNCServer"
+
+
+static void myCFDictionaryApplyFunction(const void *key, const void *value, void *context);
 static bool launch_data_array_append(launch_data_t a, launch_data_t o);
+static void distill_jobs(launch_data_t);
 static void distill_config_file(launch_data_t);
 static void sock_dict_cb(launch_data_t what, const char *key, void *context);
 static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data_t fdarray, launch_data_t thejob);
@@ -58,12 +68,19 @@ static launch_data_t CF2launch_data(CFTypeRef);
 static launch_data_t read_plist_file(const char *file, bool editondisk, bool load);
 static CFPropertyListRef CreateMyPropertyListFromFile(const char *);
 static void WriteMyPropertyListToFile(CFPropertyListRef, const char *);
-static void readpath(const char *, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
+static void readpath(const char *, launch_data_t, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
+static void readfile(const char *, launch_data_t, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
 static int _fd(int);
 static int demux_cmd(int argc, char *const argv[]);
 static launch_data_t do_rendezvous_magic(const struct addrinfo *res, const char *serv);
 static void submit_job_pass(launch_data_t jobs);
+static void submit_mach_jobs(launch_data_t jobs);
+static void let_go_of_mach_jobs(void);
 static void do_mgroup_join(int fd, int family, int socktype, int protocol, const char *mgroup);
+static void print_jobs(launch_data_t j, const char *label, void *context);
+static bool is_legacy_mach_job(launch_data_t obj);
+static bool delay_to_second_pass(launch_data_t o);
+static void delay_to_second_pass2(launch_data_t o, const char *key, void *context);
 
 static int load_and_unload_cmd(int argc, char *const argv[]);
 //static int reload_cmd(int argc, char *const argv[]);
@@ -216,21 +233,29 @@ static int setenv_cmd(int argc, char *const argv[])
 	return 0;
 }
 
+static void print_launchd_env(launch_data_t obj, const char *key, void *context)
+{
+	bool *is_csh = context;
+
+	if (*is_csh)
+		fprintf(stdout, "setenv %s %s;\n", key, launch_data_get_string(obj));
+	else
+		fprintf(stdout, "%s=%s; export %s;\n", key, launch_data_get_string(obj), key);
+}
+
+static void print_key_value(launch_data_t obj, const char *key, void *context)
+{
+	const char *k = context;
+
+	if (!strcmp(key, k))
+		fprintf(stdout, "%s\n", launch_data_get_string(obj));
+}
+
 static int getenv_and_export_cmd(int argc, char *const argv[] __attribute__((unused)))
 {
 	launch_data_t resp, msg;
 	bool is_csh = false;
-	const char *k;
-	void print_launchd_env(launch_data_t obj, const char *key, void *context __attribute__((unused))) {
-		if (is_csh)
-			fprintf(stdout, "setenv %s %s;\n", key, launch_data_get_string(obj));
-		else
-			fprintf(stdout, "%s=%s; export %s;\n", key, launch_data_get_string(obj), key);
-	}
-	void print_key_value(launch_data_t obj, const char *key, void *context __attribute__((unused))) {
-		if (!strcmp(key, k))
-			fprintf(stdout, "%s\n", launch_data_get_string(obj));
-	}
+	char *k;
 	
 	if (!strcmp(argv[0], "export")) {
 		char *s = getenv("SHELL");
@@ -249,7 +274,10 @@ static int getenv_and_export_cmd(int argc, char *const argv[] __attribute__((unu
 	launch_data_free(msg);
 
 	if (resp) {
-		launch_data_dict_iterate(resp, (!strcmp(argv[0], "export")) ? print_launchd_env : print_key_value, NULL);
+		if (!strcmp(argv[0], "export"))
+			launch_data_dict_iterate(resp, print_launchd_env, &is_csh);
+		else
+			launch_data_dict_iterate(resp, print_key_value, k);
 		launch_data_free(resp);
 	} else {
 		fprintf(stderr, "launch_msg(\"" LAUNCH_KEY_GETUSERENVIRONMENT "\"): %s\n", strerror(errno));
@@ -286,7 +314,8 @@ static void unloadjob(launch_data_t job)
 	launch_data_free(resp);
 }
 
-static launch_data_t read_plist_file(const char *file, bool editondisk, bool load)
+launch_data_t
+read_plist_file(const char *file, bool editondisk, bool load)
 {
 	CFPropertyListRef plist = CreateMyPropertyListFromFile(file);
 	launch_data_t r = NULL;
@@ -311,7 +340,8 @@ static launch_data_t read_plist_file(const char *file, bool editondisk, bool loa
 	return r;
 }
 
-static void delay_to_second_pass2(launch_data_t o, const char *key, void *context)
+void
+delay_to_second_pass2(launch_data_t o, const char *key, void *context)
 {
 	bool *res = context;
 	size_t i;
@@ -334,7 +364,8 @@ static void delay_to_second_pass2(launch_data_t o, const char *key, void *contex
 	}
 }
 
-static bool delay_to_second_pass(launch_data_t o)
+bool
+delay_to_second_pass(launch_data_t o)
 {
 	bool res = false;
 
@@ -348,13 +379,19 @@ static bool delay_to_second_pass(launch_data_t o)
 	return res;
 }
 
-static void readfile(const char *what, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load, bool forceload)
+void
+readfile(const char *what, launch_data_t pass0, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load, bool forceload)
 {
 	launch_data_t tmpd, thejob;
 	bool job_disabled = false;
 
 	if (NULL == (thejob = read_plist_file(what, editondisk, load))) {
 		fprintf(stderr, "%s: no plist was returned for: %s\n", getprogname(), what);
+		return;
+	}
+
+	if (is_legacy_mach_job(thejob)) {
+		launch_data_array_append(pass0, thejob);
 		return;
 	}
 
@@ -381,7 +418,8 @@ static void readfile(const char *what, launch_data_t pass1, launch_data_t pass2,
 		launch_data_array_append(pass1, thejob);
 }
 
-static void readpath(const char *what, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load, bool forceload)
+void
+readpath(const char *what, launch_data_t pass0, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load, bool forceload)
 {
 	char buf[MAXPATHLEN];
 	struct stat sb;
@@ -392,7 +430,7 @@ static void readpath(const char *what, launch_data_t pass1, launch_data_t pass2,
 		return;
 
 	if (S_ISREG(sb.st_mode) && !(sb.st_mode & S_IWOTH)) {
-		readfile(what, pass1, pass2, editondisk, load, forceload);
+		readfile(what, pass0, pass1, pass2, editondisk, load, forceload);
 	} else {
 		if ((d = opendir(what)) == NULL) {
 			fprintf(stderr, "%s: opendir() failed to open the directory\n", getprogname());
@@ -404,7 +442,7 @@ static void readpath(const char *what, launch_data_t pass1, launch_data_t pass2,
 				continue;
 			snprintf(buf, sizeof(buf), "%s/%s", what, de->d_name);
 
-			readfile(buf, pass1, pass2, editondisk, load, forceload);
+			readfile(buf, pass0, pass1, pass2, editondisk, load, forceload);
 		}
 		closedir(d);
 	}
@@ -415,7 +453,17 @@ struct distill_context {
 	launch_data_t newsockdict;
 };
 
-static void distill_config_file(launch_data_t id_plist)
+void
+distill_jobs(launch_data_t jobs)
+{
+	size_t i, c = launch_data_array_get_count(jobs);
+
+	for (i = 0; i < c; i++)
+		distill_config_file(launch_data_array_get_index(jobs, i));
+}
+
+void
+distill_config_file(launch_data_t id_plist)
 {
 	struct distill_context dc = { id_plist, NULL };
 	launch_data_t tmp;
@@ -487,6 +535,9 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 		
 	if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_PATHNAME))) {
 		struct sockaddr_un sun;
+		mode_t sun_mode = 0;
+		mode_t oldmask;
+		bool setm = false;
 
 		memset(&sun, 0, sizeof(sun));
 
@@ -497,14 +548,25 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 		if ((sfd = _fd(socket(AF_UNIX, st, 0))) == -1)
 			return;
 
+		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_PATHMODE))) {
+			sun_mode = (mode_t)launch_data_get_integer(val);
+			setm = true;
+		}
+
 		if (passive) {                  
 			if (unlink(sun.sun_path) == -1 && errno != ENOENT) {
 				close(sfd);     
 				return;
 			}
+			oldmask = umask(S_IRWXG|S_IRWXO);
 			if (bind(sfd, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
 				close(sfd);
+				umask(oldmask);
 				return;
+			}
+			umask(oldmask);
+			if (setm) {
+				chmod(sun.sun_path, sun_mode);
 			}
 			if ((st == SOCK_STREAM || st == SOCK_SEQPACKET)
 					&& listen(sfd, SOMAXCONN) == -1) {
@@ -732,7 +794,7 @@ static CFPropertyListRef CreateMyPropertyListFromFile(const char *posixfile)
 	SInt32            errorCode;
 	CFURLRef          fileURL;
 
-	fileURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, posixfile, strlen(posixfile), false);
+	fileURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)posixfile, strlen(posixfile), false);
 	if (!fileURL)
 		fprintf(stderr, "%s: CFURLCreateFromFileSystemRepresentation(%s) failed\n", getprogname(), posixfile);
 	if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, fileURL, &resourceData, NULL, NULL, &errorCode))
@@ -750,7 +812,7 @@ static void WriteMyPropertyListToFile(CFPropertyListRef plist, const char *posix
 	CFURLRef	fileURL;
 	SInt32		errorCode;
 
-	fileURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, posixfile, strlen(posixfile), false);
+	fileURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)posixfile, strlen(posixfile), false);
 	if (!fileURL)
 		fprintf(stderr, "%s: CFURLCreateFromFileSystemRepresentation(%s) failed\n", getprogname(), posixfile);
 	resourceData = CFPropertyListCreateXMLData(kCFAllocatorDefault, plist);
@@ -866,7 +928,7 @@ static int _fd(int fd)
 
 static int load_and_unload_cmd(int argc, char *const argv[])
 {
-	launch_data_t pass1, pass2;
+	launch_data_t pass0, pass1, pass2;
 	int i, ch;
 	bool wflag = false;
 	bool lflag = false;
@@ -892,7 +954,8 @@ static int load_and_unload_cmd(int argc, char *const argv[])
 		return 1;
 	}
 
-	/* I wish I didn't need to do two passes, but I need to load mDNSResponder and use it too.
+	/* I wish I didn't need to do three passes, but I need to load mDNSResponder and use it too.
+	 * And loading legacy mach init jobs is extra fun.
 	 *
 	 * In later versions of launchd, I hope to load everything in the first pass,
 	 * then do the Bonjour magic on the jobs that need it, and reload them, but for now,
@@ -900,26 +963,30 @@ static int load_and_unload_cmd(int argc, char *const argv[])
 	 * launchd doesn't have reload support right now.
 	 */
 
+	pass0 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 	pass1 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 	pass2 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 
 	for (i = 0; i < argc; i++)
-		readpath(argv[i], pass1, pass2, wflag, lflag, Fflag);
+		readpath(argv[i], pass0, pass1, pass2, wflag, lflag, Fflag);
 
-	if (0 == launch_data_array_get_count(pass1) && 0 == launch_data_array_get_count(pass2)) {
+	if (launch_data_array_get_count(pass0) == 0 &&
+			launch_data_array_get_count(pass1) == 0 &&
+			launch_data_array_get_count(pass2) == 0) {
 		fprintf(stderr, "nothing found to %s\n", lflag ? "load" : "unload");
+		launch_data_free(pass0);
 		launch_data_free(pass1);
 		launch_data_free(pass2);
 		return 1;
 	}
 	
 	if (lflag) {
-		if (0 < launch_data_array_get_count(pass1)) {
-			submit_job_pass(pass1);
-		}
-		if (0 < launch_data_array_get_count(pass2)) {
-			submit_job_pass(pass2);
-		}
+		distill_jobs(pass1);
+		submit_mach_jobs(pass0);
+		submit_job_pass(pass1);
+		let_go_of_mach_jobs();
+		distill_jobs(pass2);
+		submit_job_pass(pass2);
 	} else {
 		for (i = 0; i < (int)launch_data_array_get_count(pass1); i++)
 			unloadjob(launch_data_array_get_index(pass1, i));
@@ -930,14 +997,74 @@ static int load_and_unload_cmd(int argc, char *const argv[])
 	return 0;
 }
 
-static void submit_job_pass(launch_data_t jobs)
+static mach_port_t *msrvs = NULL;
+static size_t msrvs_cnt = 0;
+
+void
+submit_mach_jobs(launch_data_t jobs)
+{
+	size_t i, c;
+
+	c = launch_data_array_get_count(jobs);
+
+	msrvs = calloc(1, sizeof(mach_port_t) * c);
+	msrvs_cnt = c;
+
+	for (i = 0; i < c; i++) {
+		launch_data_t tmp, oai = launch_data_array_get_index(jobs, i);
+		const char *sn = NULL, *cmd = NULL;
+		bool d = true, k = false;
+		mach_port_t msr, msv, mhp;
+		kern_return_t kr;
+		uid_t u = getuid();
+
+		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_ONDEMAND)))
+			d = launch_data_get_bool(tmp);
+		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_ISKUNCSERVER)))
+			k = launch_data_get_bool(tmp);
+		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_SERVICENAME)))
+			sn = launch_data_get_string(tmp);
+		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_COMMAND)))
+			cmd = launch_data_get_string(tmp);
+
+		if ((kr = bootstrap_create_server(bootstrap_port, (char *)cmd, u, d, &msr)) != KERN_SUCCESS) {
+			fprintf(stderr, "%s: bootstrap_create_server(): %d\n", getprogname(), kr);
+			continue;
+		}
+		if ((kr = bootstrap_create_service(msr, (char*)sn, &msv)) != KERN_SUCCESS) {
+			fprintf(stderr, "%s: bootstrap_create_service(): %d\n", getprogname(), kr);
+			mach_port_destroy(mach_task_self(), msr);
+			continue;
+		}
+		if (k) {
+			mhp = mach_host_self();
+			if ((kr = host_set_UNDServer(mhp, msv)) != KERN_SUCCESS)
+				fprintf(stderr, "%s: host_set_UNDServer(): %s\n", getprogname(), mach_error_string(kr));
+			mach_port_deallocate(mach_task_self(), mhp);
+		}
+		mach_port_deallocate(mach_task_self(), msv);
+		msrvs[i] = msr;
+	}
+}
+
+void
+let_go_of_mach_jobs(void)
+{
+	size_t i;
+
+	for (i = 0; i < msrvs_cnt; i++)
+		mach_port_destroy(mach_task_self(), msrvs[i]);
+}
+
+void
+submit_job_pass(launch_data_t jobs)
 {
 	launch_data_t msg, resp;
 	size_t i;
 	int e;
 
-	for (i = 0; i < launch_data_array_get_count(jobs); i++)
-		distill_config_file(launch_data_array_get_index(jobs, i));
+	if (launch_data_array_get_count(jobs) == 0)
+		return;
 
 	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
 
@@ -1262,6 +1389,68 @@ static int logupdate_cmd(int argc, char *const argv[])
 	return r;
 }
 
+static const struct {
+	const char *name;
+	int lim;
+} limlookup[] = {
+	{ "cpu",	RLIMIT_CPU },
+	{ "filesize",	RLIMIT_FSIZE },
+	{ "data",	RLIMIT_DATA },
+	{ "stack",	RLIMIT_STACK },
+	{ "core",	RLIMIT_CORE },
+	{ "rss", 	RLIMIT_RSS },
+	{ "memlock",	RLIMIT_MEMLOCK },
+	{ "maxproc",	RLIMIT_NPROC },
+	{ "maxfiles",	RLIMIT_NOFILE }
+};
+
+static const size_t limlookupcnt = sizeof limlookup / sizeof limlookup[0];
+
+static ssize_t name2num(const char *n)
+{
+	size_t i;
+
+	for (i = 0; i < limlookupcnt; i++) {
+		if (!strcmp(limlookup[i].name, n)) {
+			return limlookup[i].lim;
+		}
+	}
+	return -1;
+}
+
+static const char *num2name(int n)
+{
+	size_t i;
+
+	for (i = 0; i < limlookupcnt; i++) {
+		if (limlookup[i].lim == n)
+			return limlookup[i].name;
+	}
+	return NULL;
+}
+
+static const char *lim2str(rlim_t val, char *buf)
+{
+	if (val == RLIM_INFINITY)
+		strcpy(buf, "unlimited");
+	else
+		sprintf(buf, "%lld", val);
+	return buf;
+}
+
+static bool str2lim(const char *buf, rlim_t *res)
+{
+	char *endptr;
+	*res = strtoll(buf, &endptr, 10);
+	if (!strcmp(buf, "unlimited")) {
+		*res = RLIM_INFINITY;
+		return false;
+	} else if (*endptr == '\0') {
+		 return false;
+	}
+	return true;
+}
+
 static int limit_cmd(int argc __attribute__((unused)), char *const argv[])
 {
 	char slimstr[100];
@@ -1269,58 +1458,10 @@ static int limit_cmd(int argc __attribute__((unused)), char *const argv[])
 	struct rlimit *lmts = NULL;
 	launch_data_t resp, resp1 = NULL, msg, tmp;
 	int r = 0;
-	size_t i, lsz = -1, which = 0;
+	size_t i, lsz = -1;
+	ssize_t which = 0;
 	rlim_t slim = -1, hlim = -1;
 	bool badargs = false;
-	static const struct {
-		const char *name;
-		int lim;
-	} limlookup[] = {
-		{ "cpu",	RLIMIT_CPU },
-		{ "filesize",	RLIMIT_FSIZE },
-		{ "data",	RLIMIT_DATA },
-		{ "stack",	RLIMIT_STACK },
-		{ "core",	RLIMIT_CORE },
-		{ "rss", 	RLIMIT_RSS },
-		{ "memlock",	RLIMIT_MEMLOCK },
-		{ "maxproc",	RLIMIT_NPROC },
-		{ "maxfiles",	RLIMIT_NOFILE }
-	};
-	size_t limlookupcnt = sizeof limlookup / sizeof limlookup[0];
-	bool name2num(const char *n) {
-		for (i = 0; i < limlookupcnt; i++) {
-			if (!strcmp(limlookup[i].name, n)) {
-				which = limlookup[i].lim;
-				return false;
-			}
-		}
-		return true;
-	};
-	const char *num2name(int n) {
-		for (i = 0; i < limlookupcnt; i++) {
-			if (limlookup[i].lim == n)
-				return limlookup[i].name;
-		}
-		return NULL;
-	};
-	const char *lim2str(rlim_t val, char *buf) {
-		if (val == RLIM_INFINITY)
-			strcpy(buf, "unlimited");
-		else
-			sprintf(buf, "%lld", val);
-		return buf;
-	};
-	bool str2lim(const char *buf, rlim_t *res) {
-		char *endptr;
-		*res = strtoll(buf, &endptr, 10);
-		if (!strcmp(buf, "unlimited")) {
-			*res = RLIM_INFINITY;
-			return false;
-		} else if (*endptr == '\0') {
-			 return false;
-		}
-		return true;
-	};
 
 	if (argc > 4)
 		badargs = true;
@@ -1333,7 +1474,7 @@ static int limit_cmd(int argc __attribute__((unused)), char *const argv[])
 	if (argc == 4 && str2lim(argv[3], &hlim))
 		badargs = true;
 
-	if (argc >= 2 && name2num(argv[1]))
+	if (argc >= 2 && -1 == (which = name2num(argv[1])))
 		badargs = true;
 
 	if (badargs) {
@@ -1356,7 +1497,7 @@ static int limit_cmd(int argc __attribute__((unused)), char *const argv[])
 		lsz = launch_data_get_opaque_size(resp);
 		if (argc <= 2) {
 			for (i = 0; i < (lsz / sizeof(struct rlimit)); i++) {
-				if (argc == 2 && which != i)
+				if (argc == 2 && (size_t)which != i)
 					continue;
 				fprintf(stdout, "\t%-12s%-15s%-15s\n", num2name(i),
 						lim2str(lmts[i].rlim_cur, slimstr),
@@ -1517,4 +1658,14 @@ static bool launch_data_array_append(launch_data_t a, launch_data_t o)
 	size_t offt = launch_data_array_get_count(a);
 
 	return launch_data_array_set_index(a, o, offt);
+}
+
+bool
+is_legacy_mach_job(launch_data_t obj)
+{
+	bool has_servicename = launch_data_dict_lookup(obj, MACHINIT_JOBKEY_SERVICENAME);
+	bool has_command  = launch_data_dict_lookup(obj, MACHINIT_JOBKEY_COMMAND);
+	bool has_label = launch_data_dict_lookup(obj, LAUNCH_JOBKEY_LABEL);
+
+	return has_command && has_servicename && !has_label;
 }

@@ -1,12 +1,112 @@
 ========================================================================
 Kerberos.framework Version History
 ========================================================================
-Current version: 5.5.1fc1
-Date:            June 15, 2005
+Current version: 5.5.3fc1
+Date:            February 3, 2006
 Author:          meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu,
                  mjv@mit.edu, fdabek@mit.edu, yak@mit.edu
 ========================================================================
 
+Kerberos.framework 5.5.3fc1
+February 3, 2006
+
+[RT 3223] gss_acquire_cred should search for the desired client principal if possible
+
+Components:
+	CredentialsCache        3.5.2fc2
+	KClient                 3.4fc1
+	Kerberos5               1.4.2beta
+	KerberosDebug           1.6.1fc1
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2.1fc1
+	KerberosLogin           1.8.1fc2
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0.1fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+
+Kerberos.framework 5.5.2fc2
+November 30, 2005
+
+[RT 3255] Don't byte swap addresses in krb4 tickets.
+Temporary KLL fix so mach_msg can't smash the port under Rosetta.
+
+Components:
+	CredentialsCache        3.5.2fc2
+	KClient                 3.4fc1
+	Kerberos5               1.4.2beta
+	KerberosDebug           1.6.1fc1
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2.1fc1
+	KerberosLogin           1.8.1fc2
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0.1fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5.2fc1
+October 6, 2005
+
+[RT 2845] KfM build system should use Xcode cross-project dependencies
+[RT 2846] Error table generation should use Xcode build rule
+[RT 3188] CCAPI IPC layer should use network byte order
+[RT 3197] memory smash in dprintmem
+[RT 3198] dprintf should get gcc printf warnings
+
+Components:
+	CredentialsCache        3.5.2fc1
+	KClient                 3.4fc1
+	Kerberos5               1.4.2beta
+	KerberosDebug           1.6.1fc1
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2.1fc1
+	KerberosLogin           1.8.1fc1
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0.1fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
+Kerberos.framework 5.5.1
+June 15, 2005
+
+Components:
+	CredentialsCache        3.5.1fc1
+	KClient                 3.4fc1
+	Kerberos5               1.4.2beta
+	KerberosDebug           1.6fc5
+	KerberosErrors          1.6fc1
+	KerberosIPC             1.2.1fc1
+	KerberosLogin           1.8.1fc1
+	KerberosPreferences     1.3
+	KerberosWrappers        1.5fc2
+	Kerberos.app            2.0.1fc1
+	kinit                   1.1fc1
+	klist                   1.2fc1
+	kdestroy                1.1fc1
+	kpasswd                 1.1fc1
+	kswitch                 1.1fc1
+	kvno                    1.1fc1
+
+========================================================================
 Kerberos.framework 5.5.1fc1
 June 15, 2005
 

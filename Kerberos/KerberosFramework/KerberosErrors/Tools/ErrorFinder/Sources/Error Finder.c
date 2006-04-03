@@ -13,7 +13,7 @@
  * without express or implied warranty.
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/KerberosErrors/Tools/ErrorFinder/Sources/Error\040Finder.c,v 1.5 1999/08/03 16:38:56 meeroh Exp $ */
+/* $Header$ */
 
 #include <stdio.h>
 

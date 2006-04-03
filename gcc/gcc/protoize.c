@@ -504,12 +504,12 @@ static char * saved_repl_write_ptr;
 
 /* Translate and output an error message.  */
 static void
-notice (const char *msgid, ...)
+notice (const char *cmsgid, ...)
 {
   va_list ap;
   
-  va_start (ap, msgid);
-  vfprintf (stderr, _(msgid), ap);
+  va_start (ap, cmsgid);
+  vfprintf (stderr, _(cmsgid), ap);
   va_end (ap);
 }
 
@@ -4397,6 +4397,9 @@ main (int argc, char **const argv)
      receive the signal.  A different setting is inheritable */
   signal (SIGCHLD, SIG_DFL);
 #endif
+
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
 
   gcc_init_libintl ();
 

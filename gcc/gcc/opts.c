@@ -523,7 +523,11 @@ void set_flags_from_O (unsigned int cmdline)
       flag_rerun_cse_after_loop = 1;
       flag_rerun_loop_opt = 1;
       flag_caller_saves = 1;
+/* APPLE LOCAL begin radar 4153339 */
+/** Removed - Note! Mainline will removed the entire -fforce-mem functionality.
       flag_force_mem = 1;
+*/
+/* APPLE LOCAL end radar 4153339 */
       flag_peephole2 = 1;
 #ifdef INSN_SCHEDULING
       flag_schedule_insns = 1;
@@ -577,9 +581,16 @@ void set_flags_from_O (unsigned int cmdline)
     {
       if (cmdline)
 	{
+          /* APPLE LOCAL begin 4200438, 4209014 */
+	  /* Set inlining heuristic at 450 for C and ObjC; 30 for every other language.  */
+	  int estimated_insns =  (!strcmp (lang_hooks.name, "GNU C")
+				  || !strcmp (lang_hooks.name, "GNU Objective-C"))
+	    ? 450 : 30;
 	  /* Inlining of very small functions usually reduces total size.  */
-	  set_param_value ("max-inline-insns-single", 5);
-	  set_param_value ("max-inline-insns-auto", 5);
+	  set_param_value ("max-inline-insns-single", estimated_insns);
+	  set_param_value ("max-inline-insns-auto", 30);
+	  /* APPLE LOCAL end 4200438, 4209014 */
+					
 	  flag_inline_functions = 1;
 
 	  /* We want to crossjump as much as possible.  */
@@ -594,6 +605,8 @@ void
 decode_options (unsigned int argc, const char **argv)
 {
   unsigned int i, lang_mask;
+  /* APPLE LOCAL 4231773 */
+  unsigned int optimize_size_z = 0;
 
   /* Perform language-specific options initialization.  */
   lang_mask = lang_hooks.init_options (argc, argv);
@@ -618,9 +631,12 @@ decode_options (unsigned int argc, const char **argv)
 	  /* Handle -Os, -O2, -O3, -O69, ...  */
 	  const char *p = &argv[i][2];
 
-	  if ((p[0] == 's') && (p[1] == 0))
+	  /* APPLE LOCAL begin 4231773 */
+	  if ((p[0] == 's' || p[0] == 'z') && (p[1] == 0))
 	    {
 	      optimize_size = 1;
+	      optimize_size_z = (p[0] == 'z');
+	      /* APPLE LOCAL end 4231773 */
 
 	      /* Optimizing for size forces optimize to be 2.  */
 	      optimize = 2;
@@ -750,6 +766,10 @@ decode_options (unsigned int argc, const char **argv)
   if (optimize >= 2 && flag_tree_vectorize)
     flag_strict_aliasing = 1;
   /* APPLE LOCAL end AV 3846092 */
+  /* APPLE LOCAL begin 4224227, 4231773 */
+  if (!optimize_size_z)
+    optimize_size = 0;
+  /* APPLE LOCAL end 4224227, 4231773 */
 }
 
 /* Handle target- and language-independent options.  Return zero to

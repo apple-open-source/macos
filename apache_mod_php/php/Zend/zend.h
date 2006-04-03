@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.164.2.27 2005/01/25 13:08:41 sniper Exp $ */
+/* $Id: zend.h,v 1.164.2.27.2.1 2005/07/23 11:58:40 hyanantha Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
@@ -42,8 +42,7 @@
 # include "zend_config.w32.h"
 # define ZEND_PATHS_SEPARATOR		';'
 #elif defined(NETWARE)
-# include "zend_config.nw.h"
-# include "acconfig.h"
+# include <zend_config.h>
 # define ZEND_PATHS_SEPARATOR		';'
 #elif defined(__riscos__)
 # include <zend_config.h>

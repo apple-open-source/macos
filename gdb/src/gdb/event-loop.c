@@ -422,7 +422,7 @@ gdb_do_one_event (void *data)
   /* Are any timers that are ready? If so, put an event on the queue. */
   poll_timers ();
 
-  /* Wait for a new event.  If gdb_wait_for_event returns -1
+  /* Wait for a new event.  If gdb_wait_for_event returns -1,
      we should get out because this means that there are no
      event sources left. This will make the event loop stop,
      and the application exit. */

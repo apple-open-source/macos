@@ -1090,8 +1090,23 @@ scan_loop (struct loop *loop, int flags)
 	 the loop.  */
       && INSN_IN_RANGE_P (JUMP_LABEL (p), loop_start, loop_end))
     {
+      /* APPLE LOCAL begin 4130216 */
+      rtx end_test = prev_real_insn (loop_end);
       loop->top = next_label (loop->scan_start);
       loop->scan_start = JUMP_LABEL (p);
+      /* Make sure that loop->top is, in fact, the target of the end-test.
+	 If it is not the logic for giv's will not work.  The tree optimizers
+	 can produce such loops. */
+      if ((any_condjump_p (end_test) || any_uncondjump_p (end_test))
+	  && JUMP_LABEL (end_test) != loop->top)
+	{
+	  if (loop_dump_stream)
+	    fprintf (loop_dump_stream, 
+		     "\nLoop from %d to %d is too complex.\n\n",
+		     INSN_UID (loop_start), INSN_UID (loop_end));
+	  return;
+	}  
+      /* APPLE LOCAL end 4130216 */
     }
 
   /* If LOOP->SCAN_START was an insn created by loop, we don't know its luid

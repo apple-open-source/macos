@@ -1,7 +1,7 @@
 /*
  * ChangePasswordController.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/ChangePasswordController.m,v 1.7 2005/01/23 17:53:18 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

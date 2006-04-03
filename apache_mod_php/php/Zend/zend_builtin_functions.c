@@ -1172,6 +1172,12 @@ static zval *debug_backtrace_get_args(void ***curpos TSRMLS_DC) {
 		(*arg)->refcount++;
 		add_next_index_zval(arg_array, *arg);
 	}
+
+	/* skip args from incomplete frames */
+	while ((((*curpos)-1) > EG(argument_stack).elements) && *((*curpos)-1)) {
+		(*curpos)--;
+	}
+
 	return arg_array;
 }
 
@@ -1203,6 +1209,11 @@ ZEND_FUNCTION(debug_backtrace)
 		args -= *(ulong*)args;
 		frames_on_stack++;
 
+		/* skip args from incomplete frames */
+		while (((args-1) > EG(argument_stack).elements) && *(args-1)) {
+			args--;
+		}
+
 		if (args == EG(argument_stack).elements) {
 			arg_stack_consistent = 1;
 			break;
@@ -1215,6 +1226,13 @@ ZEND_FUNCTION(debug_backtrace)
 	ptr = ptr->prev_execute_data;
 	cur_arg_pos -= 2;
 	frames_on_stack--;
+
+	if (arg_stack_consistent) {
+		/* skip args from incomplete frames */
+		while (((cur_arg_pos-1) > EG(argument_stack).elements) && *(cur_arg_pos-1)) {
+			cur_arg_pos--;
+		}
+	}
 
 	array_init(return_value);
 

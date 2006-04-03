@@ -33,9 +33,13 @@
 #include <mach/m68k/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
 #undef MACHINE_THREAD_STATE_COUNT
+#undef THREAD_STATE_NONE
+#undef VALID_THREAD_STATE_FLAVOR
 #include <mach/ppc/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
 #undef MACHINE_THREAD_STATE_COUNT
+#undef THREAD_STATE_NONE
+#undef VALID_THREAD_STATE_FLAVOR
 #include <mach/m88k/thread_status.h>
 #include <mach/i860/thread_status.h>
 #include <mach/i386/thread_status.h>
@@ -1216,6 +1220,155 @@ enum byte_sex target_byte_sex)
 	cpu->gs = SWAP_LONG(cpu->gs);
 }
 
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+void
+swap_i386_float_state(
+struct i386_float_state *fpu,
+enum byte_sex target_byte_sex)
+{
+#ifndef i386_EXCEPTION_STATE_COUNT
+    /* this routine does nothing as their are currently no non-byte fields */
+#else /* defined(i386_EXCEPTION_STATE_COUNT) */
+    struct swapped_fp_control {
+	union {
+	    struct {
+		unsigned short
+			    :3,
+		    /*inf*/ :1,
+		    rc	    :2,
+		    pc	    :2,
+			    :2,
+		    precis  :1,
+		    undfl   :1,
+		    ovrfl   :1,
+		    zdiv    :1,
+		    denorm  :1,
+		    invalid :1;
+	    } fields;
+	    unsigned short half;
+	} u;
+    } sfpc;
+
+    struct swapped_fp_status {
+	union {
+	    struct {
+		unsigned short
+		    busy    :1,
+		    c3	    :1,
+		    tos	    :3,
+		    c2	    :1,
+		    c1	    :1,
+		    c0	    :1,
+		    errsumm :1,
+		    stkflt  :1,
+		    precis  :1,
+		    undfl   :1,
+		    ovrfl   :1,
+		    zdiv    :1,
+		    denorm  :1,
+		    invalid :1;
+	    } fields;
+	    unsigned short half;
+	} u;
+    } sfps;
+
+    enum byte_sex host_byte_sex;
+
+	host_byte_sex = get_host_byte_sex();
+
+	fpu->fpu_reserved[0] = SWAP_LONG(fpu->fpu_reserved[0]);
+	fpu->fpu_reserved[1] = SWAP_LONG(fpu->fpu_reserved[1]);
+
+	if(target_byte_sex == host_byte_sex){
+	    memcpy(&sfpc, &(fpu->fpu_fcw),
+		   sizeof(struct swapped_fp_control));
+	    sfpc.u.half = SWAP_SHORT(sfpc.u.half);
+	    fpu->fpu_fcw.rc = sfpc.u.fields.rc;
+	    fpu->fpu_fcw.pc = sfpc.u.fields.pc;
+	    fpu->fpu_fcw.precis = sfpc.u.fields.precis;
+	    fpu->fpu_fcw.undfl = sfpc.u.fields.undfl;
+	    fpu->fpu_fcw.ovrfl = sfpc.u.fields.ovrfl;
+	    fpu->fpu_fcw.zdiv = sfpc.u.fields.zdiv;
+	    fpu->fpu_fcw.denorm = sfpc.u.fields.denorm;
+	    fpu->fpu_fcw.invalid = sfpc.u.fields.invalid;
+
+	    memcpy(&sfps, &(fpu->fpu_fsw),
+		   sizeof(struct swapped_fp_status));
+	    sfps.u.half = SWAP_SHORT(sfps.u.half);
+	    fpu->fpu_fsw.busy = sfps.u.fields.busy;
+	    fpu->fpu_fsw.c3 = sfps.u.fields.c3;
+	    fpu->fpu_fsw.tos = sfps.u.fields.tos;
+	    fpu->fpu_fsw.c2 = sfps.u.fields.c2;
+	    fpu->fpu_fsw.c1 = sfps.u.fields.c1;
+	    fpu->fpu_fsw.c0 = sfps.u.fields.c0;
+	    fpu->fpu_fsw.errsumm = sfps.u.fields.errsumm;
+	    fpu->fpu_fsw.stkflt = sfps.u.fields.stkflt;
+	    fpu->fpu_fsw.precis = sfps.u.fields.precis;
+	    fpu->fpu_fsw.undfl = sfps.u.fields.undfl;
+	    fpu->fpu_fsw.ovrfl = sfps.u.fields.ovrfl;
+	    fpu->fpu_fsw.zdiv = sfps.u.fields.zdiv;
+	    fpu->fpu_fsw.denorm = sfps.u.fields.denorm;
+	    fpu->fpu_fsw.invalid = sfps.u.fields.invalid;
+	}
+	else{
+	    sfpc.u.fields.rc = fpu->fpu_fcw.rc;
+	    sfpc.u.fields.pc = fpu->fpu_fcw.pc;
+	    sfpc.u.fields.precis = fpu->fpu_fcw.precis;
+	    sfpc.u.fields.undfl = fpu->fpu_fcw.undfl;
+	    sfpc.u.fields.ovrfl = fpu->fpu_fcw.ovrfl;
+	    sfpc.u.fields.zdiv = fpu->fpu_fcw.zdiv;
+	    sfpc.u.fields.denorm = fpu->fpu_fcw.denorm;
+	    sfpc.u.fields.invalid = fpu->fpu_fcw.invalid;
+	    sfpc.u.half = SWAP_SHORT(sfpc.u.half);
+	    memcpy(&(fpu->fpu_fcw), &sfpc,
+		   sizeof(struct swapped_fp_control));
+
+	    sfps.u.fields.busy = fpu->fpu_fsw.busy;
+	    sfps.u.fields.c3 = fpu->fpu_fsw.c3;
+	    sfps.u.fields.tos = fpu->fpu_fsw.tos;
+	    sfps.u.fields.c2 = fpu->fpu_fsw.c2;
+	    sfps.u.fields.c1 = fpu->fpu_fsw.c1;
+	    sfps.u.fields.c0 = fpu->fpu_fsw.c0;
+	    sfps.u.fields.errsumm = fpu->fpu_fsw.errsumm;
+	    sfps.u.fields.stkflt = fpu->fpu_fsw.stkflt;
+	    sfps.u.fields.precis = fpu->fpu_fsw.precis;
+	    sfps.u.fields.undfl = fpu->fpu_fsw.undfl;
+	    sfps.u.fields.ovrfl = fpu->fpu_fsw.ovrfl;
+	    sfps.u.fields.zdiv = fpu->fpu_fsw.zdiv;
+	    sfps.u.fields.denorm = fpu->fpu_fsw.denorm;
+	    sfps.u.fields.invalid = fpu->fpu_fsw.invalid;
+	    sfps.u.half = SWAP_SHORT(sfps.u.half);
+	    memcpy(&(fpu->fpu_fsw), &sfps,
+		   sizeof(struct swapped_fp_status));
+	}
+	fpu->fpu_fop = SWAP_SHORT(fpu->fpu_fop);
+	fpu->fpu_ip = SWAP_LONG(fpu->fpu_ip);
+	fpu->fpu_cs = SWAP_SHORT(fpu->fpu_cs);
+	fpu->fpu_rsrv2 = SWAP_SHORT(fpu->fpu_rsrv2);
+	fpu->fpu_dp = SWAP_LONG(fpu->fpu_dp);
+	fpu->fpu_ds = SWAP_SHORT(fpu->fpu_ds);
+	fpu->fpu_rsrv3 = SWAP_SHORT(fpu->fpu_rsrv3);
+	fpu->fpu_mxcsr = SWAP_LONG(fpu->fpu_mxcsr);
+	fpu->fpu_mxcsrmask = SWAP_LONG(fpu->fpu_mxcsrmask);
+	fpu->fpu_reserved1 = SWAP_LONG(fpu->fpu_reserved1);
+
+#endif /* defined(i386_EXCEPTION_STATE_COUNT) */
+}
+
+void
+swap_i386_exception_state(
+i386_exception_state_t *exc,
+enum byte_sex target_byte_sex)
+{
+	exc->trapno = SWAP_LONG(exc->trapno);
+	exc->err = SWAP_LONG(exc->err);
+    	exc->faultvaddr = SWAP_LONG(exc->faultvaddr);
+}
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 __private_extern__
 void
 swap_i386_thread_fpstate(
@@ -1534,6 +1687,7 @@ enum byte_sex target_byte_sex)
 #endif
 	user->self = SWAP_LONG(user->self);
 }
+#endif /* i386_THREAD_STATE == -1 */
 
 __private_extern__
 void

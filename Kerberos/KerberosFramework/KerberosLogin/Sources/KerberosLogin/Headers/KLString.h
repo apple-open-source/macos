@@ -1,7 +1,7 @@
 /*
  * KLString.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLString.h,v 1.11 2004/10/22 20:51:44 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

@@ -1,5 +1,5 @@
 #
-# $Id: unix.exp,v 1.7 2004/02/13 20:52:40 tlyu Exp $
+# $Id: unix.exp 16071 2004-02-13 20:52:40Z tlyu $
 #
 
 set kill /bin/kill

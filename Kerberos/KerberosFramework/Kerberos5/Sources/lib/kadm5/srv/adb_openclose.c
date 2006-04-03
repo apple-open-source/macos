@@ -1,11 +1,11 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/adb_openclose.c,v 1.8 2002/10/08 20:20:29 tlyu Exp $ 
+ * $Header$ 
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/adb_openclose.c,v 1.8 2002/10/08 20:20:29 tlyu Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #include	<sys/file.h>

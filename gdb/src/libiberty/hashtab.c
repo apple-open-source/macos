@@ -179,6 +179,7 @@ htab_create_alloc (size, hash_f, eq_f, del_f, alloc_f, free_f)
   result = (htab_t) (*alloc_f) (1, sizeof (struct htab));
   if (result == NULL)
     return NULL;
+  result->size = size;
   result->entries = (PTR *) (*alloc_f) (size, sizeof (PTR));
   if (result->entries == NULL)
     {
@@ -186,12 +187,19 @@ htab_create_alloc (size, hash_f, eq_f, del_f, alloc_f, free_f)
 	(*free_f) (result);
       return NULL;
     }
-  result->size = size;
+  memset (result->entries, 0, result->size * sizeof (PTR));
   result->hash_f = hash_f;
   result->eq_f = eq_f;
   result->del_f = del_f;
   result->alloc_f = alloc_f;
   result->free_f = free_f;
+  result->alloc_arg = NULL;
+  result->alloc_with_arg_f = NULL;
+  result->free_with_arg_f = NULL;
+  result->n_elements = 0;
+  result->n_deleted = 0;
+  result->searches = 0;
+  result->collisions = 0;
   return result;
 }
 
@@ -215,6 +223,7 @@ htab_create_alloc_ex (size, hash_f, eq_f, del_f, alloc_arg, alloc_f,
   result = (htab_t) (*alloc_f) (alloc_arg, 1, sizeof (struct htab));
   if (result == NULL)
     return NULL;
+  result->size = size;
   result->entries = (PTR *) (*alloc_f) (alloc_arg, size, sizeof (PTR));
   if (result->entries == NULL)
     {
@@ -222,13 +231,19 @@ htab_create_alloc_ex (size, hash_f, eq_f, del_f, alloc_arg, alloc_f,
 	(*free_f) (alloc_arg, result);
       return NULL;
     }
-  result->size = size;
+  memset (result->entries, 0, result->size * sizeof (PTR));
   result->hash_f = hash_f;
   result->eq_f = eq_f;
   result->del_f = del_f;
+  result->alloc_f = NULL;
+  result->free_f = NULL;
   result->alloc_arg = alloc_arg;
   result->alloc_with_arg_f = alloc_f;
   result->free_with_arg_f = free_f;
+  result->n_elements = 0;
+  result->n_deleted = 0;
+  result->searches = 0;
+  result->collisions = 0;
   return result;
 }
 

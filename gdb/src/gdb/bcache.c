@@ -219,7 +219,6 @@ bcache_data (const void *addr, int length, struct bcache *bcache)
   /* Search the hash bucket for a string identical to the caller's.
      As a short-circuit first compare the upper part of each hash
      values.  */
-
   for (s = bcache->bucket[hash_index]; s; s = s->next)
     {
       if (s->half_hash == half_hash)

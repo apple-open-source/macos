@@ -40,8 +40,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    
 %{
 
-#define NOTUI 1
-
 #include "defs.h"
 #include "gdb_string.h"
 #include "expression.h"

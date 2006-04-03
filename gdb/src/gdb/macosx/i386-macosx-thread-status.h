@@ -1,7 +1,7 @@
 #ifndef __GDB_I386_MACOSX_THREAD_STATUS_H__
 #define __GDB_I386_MACOSX_THREAD_STATUS_H__
 
-#define GDB_i386_THREAD_STATE -1
+#define GDB_i386_THREAD_STATE 1
 #define GDB_i386_THREAD_FPSTATE 2 /* Equivalent to Mach's i386_FLOAT_STATE */
 
 #define GDB_i386_FP_NO 0        /* No floating point. */
@@ -43,7 +43,7 @@ struct gdb_i386_thread_fpstate
 {
   unsigned int fpkind;
   unsigned int initialized;
-  unsigned char hw_state[GDB_i386_FP_SSE2_STATE_SIZE];
+  unsigned char hw_fu_state[GDB_i386_FP_SSE2_STATE_SIZE];
   unsigned int exc_status;
 };
 

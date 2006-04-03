@@ -6,7 +6,7 @@
  * Internally, ccaches are kept in a linked list of cci_ccache_data
  * structures. 
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/CCache.cp,v 1.23 2004/10/04 17:41:26 lxs Exp $
+ * $Header$
  */
 
 #include <Kerberos/krb.h>  // For krb_life_to_time
@@ -319,14 +319,14 @@ cc_int32 CCECCache::Lock (
 	cc_ccache_t			/* inContext */,
 	cc_uint32			/* inLockType */,
 	cc_uint32			/* inLock */) {
-#pragma message (CCIMessage_Warning_ "CCECCache::Lock not implemented")
+#warning CCECCache::Lock not implemented
 	return ccNoError;
 }
 
 // Unlock a ccache
 cc_int32 CCECCache::Unlock (
 	cc_ccache_t			/* inContext */) {
-#pragma message (CCIMessage_Warning_ "CCECCache::Unlock not implemented")
+#warning CCECCache::Unlock not implemented
 	return ccNoError;
 }
 

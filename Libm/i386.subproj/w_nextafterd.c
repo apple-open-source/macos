@@ -50,11 +50,60 @@
 *                                                                              *
 *******************************************************************************/
 #include "math.h"
+#include "xmmLibm_prefix.h"
 
 /* Legacy nextafterd() API */
 
 double nextafterd(double x, double y)
 {
-        return nextafter( x, y );
+    static const double smallest = 0x0.0000000000001p-1022;
+    static const double tiny = 0x1.0000000000000p-1022;
+
+    //must be a x or y is NaN
+    if( EXPECT_FALSE( x != x ) )
+        return x + x;
+    
+    if( EXPECT_TRUE( x < y ) )
+    {
+		if( EXPECT_FALSE( x == - __builtin_inf() ) )
+			return -0x1.fffffffffffffp1023;
+
+        int oldmxcsr = _mm_getcsr();
+        int newmxcsr = (oldmxcsr & ~ROUND_MASK ) | ROUND_TO_INFINITY;
+        _mm_setcsr( newmxcsr );
+         
+        x += smallest;
+    
+		int test = __builtin_fabs( x ) < tiny;
+		oldmxcsr |= -test & ( UNDERFLOW_FLAG | INEXACT_FLAG );
+	
+        oldmxcsr |= _mm_getcsr() & ALL_FLAGS;
+        _mm_setcsr( oldmxcsr );
+        return x;
+    }
+
+    if( EXPECT_TRUE( x > y ) )
+    {
+		if( EXPECT_FALSE( x == __builtin_inf() ) )
+			return 0x1.fffffffffffffp1023;
+
+        int oldmxcsr = _mm_getcsr();
+        int newmxcsr = (oldmxcsr & ~ROUND_MASK ) | ROUND_TO_NEG_INFINITY;
+        _mm_setcsr( newmxcsr );
+         
+        x -= smallest;
+    
+		int test = __builtin_fabs( x ) < tiny;
+		oldmxcsr |= -test & ( UNDERFLOW_FLAG | INEXACT_FLAG );
+
+        oldmxcsr |= _mm_getcsr() & ALL_FLAGS;
+        _mm_setcsr( oldmxcsr );
+        return x;
+    }
+
+    if( EXPECT_TRUE( x == y ) )
+        return y;
+        
+    return y + y;
 }
 

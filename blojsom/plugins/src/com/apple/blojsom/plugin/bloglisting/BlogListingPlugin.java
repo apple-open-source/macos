@@ -4,7 +4,7 @@
  * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: BlogListingPlugin.java,v 1.6.2.3 2005/08/18 14:46:49 johnan Exp $
+ * $Id: BlogListingPlugin.java,v 1.6.2.4 2006/01/19 23:08:50 johnan Exp $
  */ 
 package com.apple.blojsom.plugin.bloglisting;
 
@@ -30,12 +30,13 @@ import java.util.*;
  * Convert Line Breaks plug-in
  *
  * @author John Anderson
- * @version $Id: BlogListingPlugin.java,v 1.6.2.3 2005/08/18 14:46:49 johnan Exp $
+ * @version $Id: BlogListingPlugin.java,v 1.6.2.4 2006/01/19 23:08:50 johnan Exp $
  */
 
 public class BlogListingPlugin implements BlojsomPlugin, BlojsomConstants {
 
     protected static final String ALL_BLOG_USERS_PROPERTY = "ALL_BLOG_USERS";
+	protected static final String CREATE_USER_ID_PROPERTY = "createUserID";
     protected static final Log _logger = LogFactory.getLog(BlogListingPlugin.class);
 
     protected BlojsomConfiguration _blojsomConfiguration;
@@ -93,10 +94,16 @@ public class BlogListingPlugin implements BlojsomPlugin, BlojsomConstants {
      */
     public BlogEntry[] process(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, BlogUser user, Map context, BlogEntry[] entries) throws BlojsomPluginException {
     	// if a user is present, try to create a blog for that user
-		_logger.debug("getting user from path: " + httpServletRequest.getPathInfo());
-		String userFromPath = BlojsomUtils.getUserFromPath(httpServletRequest.getPathInfo());
+		String userFromPath = BlojsomUtils.getRequestValue(CREATE_USER_ID_PROPERTY, httpServletRequest);
+		if (userFromPath != null) {
+			_logger.debug("found user in parameter:" + userFromPath);
+		} else {
+			_logger.debug("getting user from path: " + httpServletRequest.getPathInfo());
+			userFromPath = BlojsomUtils.getUserFromPath(httpServletRequest.getPathInfo());
+		}
 		String defaultUser = (String)_blojsomConfiguration.getBlojsomProperty(BLOJSOM_DEFAULT_USER_IP);
 		if (userFromPath != null && !userFromPath.equals(defaultUser)) {
+			userFromPath = userFromPath.replaceAll("\\\\", "\\\\\\\\");
 			_logger.debug("userFromPath = " + userFromPath);
 			String resolvedUserFromPath = BlojsomAppleUtils.validateShortNameAndResolveAliases(userFromPath, "/Search");
 			// if this resolves to a different username, try to redirect to it
@@ -117,8 +124,21 @@ public class BlogListingPlugin implements BlojsomPlugin, BlojsomConstants {
 				// created a new blog... redirect to it
 				try {
 					_logger.debug("attempting to load blog");
+					userFromPath = userFromPath.replaceAll("\\\\", "_").replaceAll(" ", "_");
+					_logger.debug("userFromPath = " +  userFromPath);
 					String redirectURL = _blojsomConfiguration.loadBlog(userFromPath).getBlog().getBlogURL();
-					//String redirectURL = httpServletRequest.getServletPath() + httpServletRequest.getPathInfo();
+					for (int i = 0; i < 20; i++) {
+						if (!redirectURL.endsWith("/default/")) {
+							_logger.debug("matched other than default in " + redirectURL);
+							break;
+						}
+						try {
+							java.lang.Thread.currentThread().sleep(1000);
+						} catch (java.lang.InterruptedException e2) {
+							_logger.error(e2);
+						}
+						redirectURL = _blojsomConfiguration.loadBlog(userFromPath).getBlog().getBlogURL();
+					}
 					_logger.debug("redirecting to " + redirectURL);
 					httpServletResponse.sendRedirect(redirectURL);
 					return entries;

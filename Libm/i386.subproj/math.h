@@ -40,13 +40,28 @@ extern "C" {
 *       Floating point data types                                             *
 ******************************************************************************/
 
-/* ix87 FPU evaluates all quantities in the 80-bit long double format. */
-typedef long double	float_t;
-typedef long double	double_t;
+/*	Define float_t and double_t per C standard, ISO/IEC 9899:1999 7.12 2,
+	taking advantage of GCC's __FLT_EVAL_METHOD__ (which a compiler may
+	define anytime and GCC does) that shadows FLT_EVAL_METHOD (which a compiler
+	must and may define only in float.h).
+*/
+#if __FLT_EVAL_METHOD__ == 0
+	typedef float float_t;
+	typedef double double_t;
+#elif __FLT_EVAL_METHOD__ == 1
+	typedef double float_t;
+	typedef double double_t;
+#elif __FLT_EVAL_METHOD__ == 2 || __FLT_EVAL_METHOD__ == -1
+	typedef long double float_t;
+	typedef long double double_t;
+#else /* __FLT_EVAL_METHOD__ */
+	#error "Unsupported value of __FLT_EVAL_METHOD__."
+#endif /* __FLT_EVAL_METHOD__ */
+
 
 #define	HUGE_VAL	1e500
 #define	HUGE_VALF	1e50f
-#define	HUGE_VALL	1e5000
+#define	HUGE_VALL	1e5000L
 
 #define INFINITY	HUGE_VALF
 
@@ -76,7 +91,11 @@ enum {
 #define FP_SUBNORMAL    _FP_SUBNORMAL
 #define FP_SUPERNORMAL  _FP_SUPERNORMAL
 
-/* fma() *function call* is more costly than equivalent (in-line) multiply and add operations */
+/* fma() *function call* is more costly than equivalent (in-line) multiply and add operations    */
+/* For single and double precision, the cost isn't too bad, because we can fall back on higher   */
+/* precision hardware, with the necessary range to handle infinite precision products. However,  */
+/* expect the long double fma to be at least an order of magnitude slower than a simple multiply */
+/* and an add.                                                                                   */
 #undef FP_FAST_FMA
 #undef FP_FAST_FMAF
 #undef FP_FAST_FMAL
@@ -105,41 +124,59 @@ extern unsigned int __math_errhandling ( void );
 *                                                                               *
 ********************************************************************************/
 
-#define fpclassify( x )	( ( sizeof ( (x) ) == sizeof( float) ) ? \
-							__fpclassifyf ( (float)(x) ) : __fpclassifyd  ( (double)(x) ) )
+#define fpclassify(x)	\
+	(	sizeof (x) == sizeof(float )	?	__fpclassifyf(x)	\
+	:	sizeof (x) == sizeof(double)	?	__fpclassifyd(x)	\
+										:	__fpclassify (x))
 
-#define isnormal( x )   ( ( sizeof ( (x) ) == sizeof( float) ) ? \
-							__isnormalf ( (float)(x) ) : __isnormald  ( (double)(x) ) ) 
+#define isnormal(x)	\
+	(	sizeof (x) == sizeof(float )	?	__isnormalf(x)	\
+	:	sizeof (x) == sizeof(double)	?	__isnormald(x)	\
+										:	__isnormal (x))
 
-#define isfinite( x )   ( ( sizeof ( (x) ) == sizeof( float) ) ? \
-							__isfinitef ( (float)(x) ) : __isfinited  ( (double)(x) ) )  
+#define isfinite(x)	\
+	(	sizeof (x) == sizeof(float )	?	__isfinitef(x)	\
+	:	sizeof (x) == sizeof(double)	?	__isfinited(x)	\
+										:	__isfinite (x))
 
-#define isinf( x )      ( ( sizeof ( (x) ) == sizeof( float) ) ? \
-							__isinff ( (float)(x) ) : __isinfd  ( (double)(x) ) )   
+#define isinf(x)	\
+	(	sizeof (x) == sizeof(float )	?	__isinff(x)	\
+	:	sizeof (x) == sizeof(double)	?	__isinfd(x)	\
+										:	__isinf (x))
 
-#define isnan( x )      ( ( sizeof ( (x) ) == sizeof( float) ) ? \
-							__isnanf ( (float)(x) ) : __isnand  ( (double)(x) ) ) 
+#define isnan(x)	\
+	(	sizeof (x) == sizeof(float )	?	__isnanf(x)	\
+	:	sizeof (x) == sizeof(double)	?	__isnand(x)	\
+										:	__isnan (x))
 
-#define signbit( x )    ( ( sizeof ( (x) ) == sizeof( float) ) ? \
-							__signbitf ( (float)(x) ) : __signbitd  ( (double)(x) ) ) 
+#define signbit(x)	\
+	(	sizeof (x) == sizeof(float )	?	__signbitf(x)	\
+	:	sizeof (x) == sizeof(double)	?	__signbitd(x)	\
+										:	__signbitl(x))
 
-extern int  __fpclassifyd( double );
-extern int  __fpclassifyf( float );
+extern int __fpclassifyf(float      );
+extern int __fpclassifyd(double     );
+extern int __fpclassify (long double);
 
-extern int  __isnormald( double );
-extern int  __isnormalf( float );
+extern int __isnormalf  (float      );
+extern int __isnormald  (double     );
+extern int __isnormal   (long double);
 
-extern int  __isfinited( double );
-extern int  __isfinitef( float );
+extern int __isfinitef  (float      );
+extern int __isfinited  (double     );
+extern int __isfinite   (long double);
 
-extern int  __isinfd( double );
-extern int  __isinff( float );
+extern int __isinff     (float      );
+extern int __isinfd     (double     );
+extern int __isinf      (long double);
 
-extern int  __isnand( double );
-extern int  __isnanf( float );
+extern int __isnanf     (float      );
+extern int __isnand     (double     );
+extern int __isnan      (long double);
 
-extern int  __signbitd( double );
-extern int  __signbitf( float );
+extern int __signbitf   (float      );
+extern int __signbitd   (double     );
+extern int __signbitl   (long double);
 
 /********************************************************************************
 *                                                                               *
@@ -315,6 +352,66 @@ extern float fminf ( float, float );
 extern double fma ( double, double, double );
 extern float fmaf ( float, float, float );
 
+extern long double acosl(long double);
+extern long double asinl(long double);
+extern long double atanl(long double);
+extern long double atan2l(long double, long double);
+extern long double cosl(long double);
+extern long double sinl(long double);
+extern long double tanl(long double);
+extern long double acoshl(long double);
+extern long double asinhl(long double);
+extern long double atanhl(long double);
+extern long double coshl(long double);
+extern long double sinhl(long double);
+extern long double tanhl(long double);
+extern long double expl(long double);
+extern long double exp2l(long double);
+extern long double expm1l(long double);
+extern long double logl(long double);
+extern long double log10l(long double);
+extern long double log2l(long double);
+extern long double log1pl(long double);
+extern long double logbl(long double);
+extern long double modfl(long double, long double *);
+extern long double ldexpl(long double, int);
+extern long double frexpl(long double, int *);
+extern int ilogbl(long double);
+extern long double scalbnl(long double, int);
+extern long double scalblnl(long double, long int);
+extern long double fabsl(long double);
+extern long double cbrtl(long double);
+extern long double hypotl(long double, long double);
+extern long double powl(long double, long double);
+extern long double sqrtl(long double);
+extern long double erfl(long double);
+extern long double erfcl(long double);
+extern long double lgammal(long double);
+extern long double tgammal(long double);
+extern long double ceill(long double);
+extern long double floorl(long double);
+extern long double nearbyintl(long double);
+extern long double rintl(long double);
+extern long int lrintl(long double);
+extern long long int llrintl(long double);
+extern long double roundl(long double);
+extern long int lroundl(long double);
+extern long long int llroundl(long double);
+extern long double truncl(long double);
+extern long double fmodl(long double, long double);
+extern long double remainderl(long double, long double);
+extern long double remquol(long double, long double, int *);
+extern long double copysignl(long double, long double);
+extern long double nanl(const char *);
+extern long double nextafterl(long double, long double);
+extern double nexttoward(double, long double);
+extern float nexttowardf(float, long double);
+extern long double nexttowardl(long double, long double);
+extern long double fdiml(long double, long double);
+extern long double fmaxl(long double, long double);
+extern long double fminl(long double, long double);
+extern long double fmal(long double, long double, long double);
+
 #define isgreater(x, y) __builtin_isgreater ((x),(y))
 #define isgreaterequal(x, y) __builtin_isgreaterequal ((x),(y))
 #define isless(x, y) __builtin_isless ((x),(y))
@@ -329,30 +426,19 @@ extern float  		__nan( void ); /* 10.3 (and later) must retain in ABI for backwa
 
 #if !defined(_ANSI_SOURCE)
 extern double j0 ( double );
-extern float j0f ( float );
 
 extern double j1 ( double );
-extern float j1f ( float );
 
 extern double jn ( int, double );
-extern float jnf ( int, float );
 
 extern double y0 ( double );
-extern float y0f ( float );
 
 extern double y1 ( double );
-extern float y1f ( float );
 
 extern double yn ( int, double );
-extern float ynf ( int, float );
 
-#if __DARWIN_UNIX03
-extern double scalb ( double, double )  __DARWIN_ALIAS(scalb); /* UNIX03 legacy signature */
-extern float scalbf ( float, float )  __DARWIN_ALIAS(scalbf); /* UNIX03 legacy signature */
-#else
-extern double scalb ( double, int ); /* Mac OS X legacy signature */
-extern float scalbf ( float, int ); /* Mac OS X legacy signature */
-#endif
+extern double scalb ( double, double ); 
+
 
 #define M_E         2.71828182845904523536028747135266250   /* e */
 #define M_LOG2E     1.44269504088896340735992468100189214   /* log 2e */
@@ -369,7 +455,8 @@ extern float scalbf ( float, int ); /* Mac OS X legacy signature */
 #define M_SQRT1_2   0.707106781186547524400844362104849039  /* 1/sqrt(2) */
 
 #define	MAXFLOAT	((float)3.40282346638528860e+38)
-extern int signgam;
+extern int signgam;     /* required for unix 2003 */
+
 
 #endif /* !defined(_ANSI_SOURCE) */
 
@@ -382,50 +469,17 @@ extern int signgam;
 #define FP_SNAN		FP_NAN
 #define FP_QNAN		FP_NAN
 
-extern long int rinttol ( double );
+extern long int rinttol ( double );		/* Legacy API: please use C99 lrint() instead. */
 
-extern long int roundtol ( double );
-
-typedef struct __complex_s {
-        double Real;
-        double Imag;
-} __complex_t;
-
-typedef struct __complexf_s {
-        float Real;
-        float Imag;
-} __complexf_t;
+extern long int roundtol ( double );	/* Legacy API: please use C99 lround() instead. */
 
 /*
  * XOPEN/SVID
  */
 #if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
-
 #if !defined(_XOPEN_SOURCE)
-enum fdversion {_fdlibm_ieee = -1, _fdlibm_svid, _fdlibm_xopen, _fdlibm_posix}; /* Legacy fdlibm constructs */
-#define fdlibm_ieee _fdlibm_ieee
-#define fdlibm_svid _fdlibm_svid
-#define fdlibm_xopen _fdlibm_xopen
-#define fdlibm_posix _fdlibm_posix
-
-#define _LIB_VERSION_TYPE enum fdversion
-#define _LIB_VERSION _fdlib_version  
-
-/* if global variable _LIB_VERSION is not desirable, one may 
- * change the following to be a constant by: 
- *	#define _LIB_VERSION_TYPE const enum version
- * In that case, after one initializes the value _LIB_VERSION (see
- * s_lib_version.c) during compile time, it cannot be modified
- * in the middle of a program
- */ 
-extern  _LIB_VERSION_TYPE  _LIB_VERSION;
-
-#define _IEEE_  fdlibm_ieee
-#define _SVID_  fdlibm_svid
-#define _XOPEN_ fdlibm_xopen
-#define _POSIX_ fdlibm_posix
-
 #if !defined(__cplusplus)
+/* used by matherr below */
 struct exception {
 	int type;
 	char *name;
@@ -455,11 +509,9 @@ struct exception {
 #endif /* !_ANSI_SOURCE && !_POSIX_C_SOURCE */
 
 #if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
-extern int finite ( double );
-extern int finitef ( float );
+extern int finite ( double );			/* Legacy API: please use C99 isfinite() instead. */
 
-extern double gamma ( double );
-extern float gammaf ( float );
+extern double gamma ( double );			/* Legacy API: please use C99 tgamma() instead. */
 
 #if !defined(_XOPEN_SOURCE)
 
@@ -475,20 +527,8 @@ extern double significand ( double );
 /*
  * BSD math library entry points
  */
-extern double drem ( double, double );
-extern float dremf ( float, float );
+extern double drem ( double, double );	/* Legacy API: please use C99 remainder() instead. */
 
-/*
- * Reentrant version of gamma & lgamma; passes signgam back by reference
- * as the second argument; user must allocate space for signgam.
- */
-#ifdef _REENTRANT
-extern double gamma_r ( double, int * );
-extern float gammaf_r ( float, int * );
-
-extern double lgamma_r ( double, int * );
-extern float lgammaf_r ( float, int * );
-#endif /* _REENTRANT */
 #endif /* !_XOPEN_SOURCE */
 #endif /* !_ANSI_SOURCE && !_POSIX_C_SOURCE */
 

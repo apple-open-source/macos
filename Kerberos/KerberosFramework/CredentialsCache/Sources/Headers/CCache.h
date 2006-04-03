@@ -1,7 +1,7 @@
 /*
  * Cache.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.h,v 1.18 2004/10/22 20:48:24 lxs Exp $
+ * $Header$
  */
  
 

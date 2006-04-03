@@ -1927,19 +1927,20 @@ yylex ()
     if (!sym && should_lookup_objc_class ())  
       {
 	extern struct symbol *lookup_struct_typedef ();
-	sym = lookup_struct_typedef (tmp, expression_context_block, 1);
-	if (sym)
+        CORE_ADDR Class = lookup_objc_class (tmp);
+        if (Class)
 	  {
-	    CORE_ADDR Class = lookup_objc_class (tmp);
-	    if (Class)
-	      {
-		yylval.class.class = Class;
-		yylval.class.type = SYMBOL_TYPE (sym);
-		return OBJC_CLASSNAME;
-	      }
+	    sym = lookup_struct_typedef (tmp, expression_context_block, 1);
+	    if (sym)
+	      yylval.class.type = SYMBOL_TYPE (sym);
+	    else
+	      yylval.class.type = NULL;
+
+	    yylval.class.class = Class;
+	    return OBJC_CLASSNAME;
 	  }
       }
-
+    
     /* Input names that aren't symbols but ARE valid hex numbers,
        when the input radix permits them, can be names or numbers
        depending on the parse.  Note we support radixes > 16 here.  */

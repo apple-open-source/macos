@@ -1,4 +1,4 @@
-// APPLE LOCAL file Objective-C++
+// APPLE LOCAL file mainline
 // Test that extern template does not get emitted.
 // Author: Matt Austern <austern@apple.com>
 // { dg-do compile }

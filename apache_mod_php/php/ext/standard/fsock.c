@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.c,v 1.106.2.13 2004/01/22 03:25:37 sniper Exp $ */
+/* $Id: fsock.c,v 1.106.2.13.4.1 2005/07/26 09:32:58 hyanantha Exp $ */
 
 /* converted to PHP Streams and moved much code to main/network.c [wez] */
 
@@ -48,17 +48,12 @@
 #ifdef PHP_WIN32
 #include <winsock.h>
 #elif defined(NETWARE)
-#ifdef NEW_LIBC
 #ifdef USE_WINSOCK
 #include <novsock2.h>
 #else
 #include <netinet/in.h>
 #include <netdb.h>
-/*#include <sys/socket.h>*/
 #include <sys/select.h>
-/*#else
-#include <sys/socket.h>*/
-#endif
 #endif
 #else
 #include <netinet/in.h>

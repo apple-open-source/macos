@@ -1,7 +1,57 @@
-2005-08-18  Geoffrey Keating  <geoffk@apple.com>
+2005-10-07  Matthew Sachs  <msachs@apple.com>
 
-	Radar 4220152
-	* build_gcc: Remove dylibs in /usr/lib.
+	Radar 4193453
+	* build_gcc: Link against gcc's copy of libiberty when building the
+	Darwin driver; build Darwin driver for hosts, not targets.
+
+2005-10-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* build_gcc: Make strip and lipo target versions.  Update libgcc
+	names.  Don't strip stub libraries.
+
+2005-07-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* libstdc++-v3: Remove all APPLE LOCAL markers.
+
+2005-07-08  Mike Stump  <mrs@apple.com>
+
+	* Merge from gcc_4_0_0_release to gcc_4_0_1_release.
+
+2005-07-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* build_gcc (LIBSTDCXX_VERSION): New.
+	(Run the build): Don't build libstdc++.
+	(CONFIGFLAGS): Have program-transform-name change 'g++' too.
+	Change --with-gxx-include-dir to point to new libstdc++ location.
+	(Rearrange various libraries): Remove libstdc++-related stuff.
+	(bin): Find all the g++ drivers.
+	(lib): Explicitly name libgcc libraries.
+	Dramatically simplify installed-name logic.
+	(include): Don't do anything with c++ headers.
+	(Install man pages): Don't handle g++.1 specially.
+
+2005-07-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* more-hdrs/stdint.h (WCHAR_MIN): Don't define if already defined.
+
+2005-06-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* more-hdrs/stdint.h (INT32_C): Don't use ##L.
+	(UINT32_C): Likewise.
+
+2005-06-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* build_gcc: Use -Werror when building with ourself.
+
+2005-06-01  Mike Stump  <mrs@apple.com>
+
+	Merge in chablis-branchpoint->chablis-merge-2005-06-01.
+
+2005-05-18  Mike Stump  <mrs@apple.com>
+
+	Radar 4110533
+	* build-gcc: Don't strip shell scripts, chgrp to wheel when done,
+	and rebuild less when doing a rebuild.
 
 2005-04-13  Geoff Keating  <dalej@apple.com>
 

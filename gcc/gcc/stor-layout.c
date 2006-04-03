@@ -1179,6 +1179,9 @@ place_field (record_layout_info rli, tree field)
   /* APPLE LOCAL begin reverse_bitfields */
   if (targetm.reverse_bitfields_p (rli->t) && DECL_BIT_FIELD_TYPE (field))
     {
+      /* APPLE LOCAL begin bitfield reversal 4228294 */
+      TREE_FIELDS_REVERSED (rli->t) = 1;
+      /* APPLE LOCAL end bitfield reversal 4228294 */
       /* If we've gone into the next word, move "offset" forward and
 	 adjust "bitpos" to compensate.  */
       while ( !INT_CST_LT_UNSIGNED (rli->bitpos, TYPE_SIZE (TREE_TYPE (field))))

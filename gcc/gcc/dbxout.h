@@ -26,6 +26,8 @@ extern int dbxout_symbol (tree, int);
 extern void dbxout_parms (tree);
 extern void dbxout_reg_parms (tree);
 extern int dbxout_syms (tree);
+/* APPLE LOCAL dbxout_type rewrite.  */
+extern void dbxout_flush_type_queue (void);
 
 /* Language description for N_SO stabs.  */
 #define N_SO_AS          1

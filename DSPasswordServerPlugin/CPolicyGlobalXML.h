@@ -51,6 +51,7 @@ class CPolicyGlobalXML : public CPolicyBase
 		virtual void							GetPolicy( PWGlobalAccessFeatures *outPolicy );
 		virtual char *							GetPolicyAsSpaceDelimitedData( void );
 		virtual void							SetPolicy( PWGlobalAccessFeatures *inPolicy );
+		virtual void							SetPolicyExtra( PWGlobalAccessFeatures *inPolicy, PWGlobalMoreAccessFeatures *inMorePolicy );
 		
 	protected:
 		
@@ -58,6 +59,7 @@ class CPolicyGlobalXML : public CPolicyBase
 		virtual int								ConvertStructToPropertyListPolicy( void );
 
 		PWGlobalAccessFeatures mGlobalPolicy;
+		PWGlobalMoreAccessFeatures mExtraGlobalPolicy;
 };
 
 

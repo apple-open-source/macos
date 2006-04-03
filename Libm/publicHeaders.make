@@ -20,9 +20,9 @@ installhdrs:	create_dir
 	@echo Generate headers
 	@cp $(SRCROOT)/fenv.h $(PROJECT_HDRROOT)
 	@cp $(SRCROOT)/math.h $(PROJECT_HDRROOT)
-	@cp $(SRCROOT)/ppc.subproj/fenv.h $(PROJECT_HDRROOT_PPC)
+	@cp $(SRCROOT)/xmmLibm.subproj/Headers/architecture/ppc/fenv.h $(PROJECT_HDRROOT_PPC)
 	@cp $(SRCROOT)/ppc.subproj/math.h $(PROJECT_HDRROOT_PPC)
-	@cp $(SRCROOT)/i386.subproj/fenv.h $(PROJECT_HDRROOT_I386)
+	@cp $(SRCROOT)/xmmLibm.subproj/Headers/architecture/i386/fenv.h $(PROJECT_HDRROOT_I386)
 	@cp $(SRCROOT)/i386.subproj/math.h $(PROJECT_HDRROOT_I386)
 
 

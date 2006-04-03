@@ -72,7 +72,7 @@ int GetEncodedSourceID(char encodedIdBuffer[32]) {
     if (GenerateIDString(idStr)) {
 
         /* Convert idStr to MD5 */
-        MD5(idStr, strlen(idStr), MD5Value);
+        MD5((const unsigned char *)idStr, strlen(idStr), MD5Value);
             
         /* Convert MD5 to Base-64 */
         mbio=BIO_new(BIO_s_mem());

@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <sys/time.h>  // APPLE LOCAL: must incl sys/time.h before resource.h
 #include <sys/resource.h>
+#include <stdio.h>     // APPLE LOCAL: to output the pid
 
 /* Print routines:
 
@@ -122,6 +123,11 @@ int
 main ()
 {
   size_t max_chunk_size;
+
+  /* APPLE LOCAL: Print the PID, so the test-suite knows how to find the core file. */
+
+  fprintf (stdout, "PID: %d\n", getpid());
+  fflush (stdout);
 
   /* Try to expand all the resource limits beyond the point of sanity
      - we're after the biggest possible core file.  */

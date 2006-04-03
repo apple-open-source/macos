@@ -3,6 +3,43 @@
 !
 ! Integral cases.
 3b	    ALL		  1		  0		  OK	  1
+
+3b	    ALL		  1p9p9p9p9p9p7d1		  0		  OK	  1p9p9p9p9p9p7d2
+3b	    ALL		  1p9p9p9p9p9p7d2		  0		  OK	  1p9p9p9p9p9p7d2
+3b	    ALL		  1p9p9p9p9p9p7			  0		  OK	  1p9p9p9p9p9p7
+3b	    ALL		  1p9p9p9p9p9p7i1		  0		  OK	  1p9p9p9p9p9p7i1
+3b	    ALL		  1p9p9p9p9p9p7i2		  0		  OK	  1p9p9p9p9p9p7i2
+
+3b	    ALL		  -1p9p9p9p9p9p7d1		  0		  OK	  -1p9p9p9p9p9p7d2
+3b	    ALL		  -1p9p9p9p9p9p7d2		  0		  OK	  -1p9p9p9p9p9p7d2
+3b	    ALL		  -1p9p9p9p9p9p7		  0		  OK	  -1p9p9p9p9p9p7
+3b	    ALL		  -1p9p9p9p9p9p7i1		  0		  OK	  -1p9p9p9p9p9p7i1
+3b	    ALL		  -1p9p9p9p9p9p7i2		  0		  OK	  -1p9p9p9p9p9p7i2
+
+3b	    ALL		  1p9p9p9p9p9p7d1		  0		  OK	  1p9p9p9p9p9p7d2
+3b	    ALL		  1p9p9p9p9p9p7d2		  0		  OK	  1p9p9p9p9p9p7d2
+3b	    ALL		  1p9p9p9p9p9p7			  0		  OK	  1p9p9p9p9p9p7
+3b	    ALL		  1p9p9p9p9p9p7i1		  0		  OK	  1p9p9p9p9p9p7i1
+3b	    ALL		  1p9p9p9p9p9p7i2		  0		  OK	  1p9p9p9p9p9p7i2
+
+3b	    ALL		  -1p9p9p9p9p9p7d1		  0		  OK	  -1p9p9p9p9p9p7d2
+3b	    ALL		  -1p9p9p9p9p9p7d2		  0		  OK	  -1p9p9p9p9p9p7d2
+3b	    ALL		  -1p9p9p9p9p9p7		  0		  OK	  -1p9p9p9p9p9p7
+3b	    ALL		  -1p9p9p9p9p9p7i1		  0		  OK	  -1p9p9p9p9p9p7i1
+3b	    ALL		  -1p9p9p9p9p9p7i2		  0		  OK	  -1p9p9p9p9p9p7i2
+
+3b	    ALL		  1p9p9p9p9p9p8d1		  0		  OK	  1p9p9p9p9p9p8d1
+3b	    ALL		  1p9p9p9p9p9p8d2		  0		  OK	  1p9p9p9p9p9p8d2
+3b	    ALL		  1p9p9p9p9p9p8			  0		  OK	  1p9p9p9p9p9p8
+3b	    ALL		  1p9p9p9p9p9p8i1		  0		  OK	  1p9p9p9p9p9p8i1
+3b	    ALL		  1p9p9p9p9p9p8i2		  0		  OK	  1p9p9p9p9p9p8i2
+
+3b	    ALL		  -1p9p9p9p9p9p8d1		  0		  OK	  -1p9p9p9p9p9p8d1
+3b	    ALL		  -1p9p9p9p9p9p8d2		  0		  OK	  -1p9p9p9p9p9p8d2
+3b	    ALL		  -1p9p9p9p9p9p8		  0		  OK	  -1p9p9p9p9p9p8
+3b	    ALL		  -1p9p9p9p9p9p8i1		  0		  OK	  -1p9p9p9p9p9p8i1
+3b	    ALL		  -1p9p9p9p9p9p8i2		  0		  OK	  -1p9p9p9p9p9p8i2
+
 3b	    ALL		  Hd1  0	   OK	   Hd1
 3b	    ALL		  -1	  0		  OK	  -1
 3b	    ALL		  -Hd1 0	   OK	   -Hd1

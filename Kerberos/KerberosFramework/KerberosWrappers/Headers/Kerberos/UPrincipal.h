@@ -3,7 +3,7 @@
  *
  * Abstraction for a KClient principal
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosWrappers/Headers/Kerberos/UPrincipal.h,v 1.22 2005/06/14 19:25:38 lxs Exp $
+ * $Header$
  */
  
 #ifndef UPrincipal_h_

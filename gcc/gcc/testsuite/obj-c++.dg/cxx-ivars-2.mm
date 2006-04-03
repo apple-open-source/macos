@@ -1,4 +1,4 @@
-// APPLE LOCAL file Objective-C++
+// APPLE LOCAL file mainline
 // Check if the '- .cxx_construct' and '-.cxx_destruct' methods get called
 // and if they perform their desired function.
 // { dg-do run }

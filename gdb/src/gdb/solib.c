@@ -633,7 +633,6 @@ info_sharedlibrary_command (char *ignore, int from_tty)
   int header_done = 0;
   int addr_width;
   char *addr_fmt;
-  int arch_size;
 
   if (TARGET_PTR_BIT == 32)
     {

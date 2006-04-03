@@ -3,6 +3,8 @@
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-lobjc" } */
 /* { dg-do run } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-xfail-if "" { *-*-darwin* } } */
 #include <stdio.h>
 #include <stdlib.h>
 #include <objc/objc.h>

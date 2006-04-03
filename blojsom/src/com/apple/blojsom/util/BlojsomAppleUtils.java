@@ -4,7 +4,7 @@
  * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: BlojsomAppleUtils.java,v 1.27.2.2 2005/08/27 18:23:03 johnan Exp $
+ * $Id: BlojsomAppleUtils.java,v 1.27.2.3 2006/01/19 23:08:51 johnan Exp $
  */ 
 package com.apple.blojsom.util;
 
@@ -36,7 +36,7 @@ import java.util.*;
  * BlojsomUtils
  * 
  * @author John Anderson
- * @version $Id: BlojsomAppleUtils.java,v 1.27.2.2 2005/08/27 18:23:03 johnan Exp $
+ * @version $Id: BlojsomAppleUtils.java,v 1.27.2.3 2006/01/19 23:08:51 johnan Exp $
  */
 public class BlojsomAppleUtils implements BlojsomConstants {
 	
@@ -128,8 +128,11 @@ public class BlojsomAppleUtils implements BlojsomConstants {
      */
 	public static String validateShortNameAndResolveAliases(String username, String netInfoLoc) {
 		// dscl . -search /Users RecordName "aliasedshortname"
+		Log logger = LogFactory.getLog(BlojsomAppleUtils.class);
 		String [] validateShortNameProcessArgs = { "/usr/bin/dscl", netInfoLoc, "-search", "/Users", "RecordName", username };
+		logger.debug("exec: /usr/bin/dscl " + netInfoLoc + " -search /Users RecordName " + username);
 		String result = getResultFromCommandLineUtility(validateShortNameProcessArgs, "");
+		logger.debug("got " + result);
 		
 		// if the last line contains a tab...
 		if (result.matches(".+\t.+")) {
@@ -380,7 +383,7 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 		// if the user isn't defined in directory services, then bail
 		String resolvedBlogUserID = validateShortNameAndResolveAliases(blogUserID, "/Search");
 		blogUserID = (resolvedBlogUserID == null) ? blogUserID : resolvedBlogUserID;
-		boolean foundUsername = (resolvedBlogUserID != null);
+		boolean foundUsername = ((resolvedBlogUserID != null) || (doesUserExistInDS(blogUserID, "/Search")));
 		boolean foundGroupName = ((doesGroupExistInDS(blogUserID, ".") || doesGroupExistInDS(blogUserID, "/Search"))); 
 		
 		if (foundUsername && checkSACLMembershipForUser(blogUserID)) {
@@ -417,6 +420,9 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 		}
 		
 		try {
+			String blogUserDSID = blogUserID;
+			blogUserID = blogUserID.replaceAll("\\\\", "_");
+			blogUserID = blogUserID.replaceAll(" ", "_");
 			Properties configurationProperties = BlojsomUtils.loadProperties(servletConfig, PLUGIN_ADMIN_EDIT_USERS_IP, true);
 			String authorizationConfiguration = servletConfig.getInitParameter(BLOG_AUTHORIZATION_IP);
 			String flavorConfiguration = servletConfig.getInitParameter(BLOJSOM_FLAVOR_CONFIGURATION_IP);
@@ -435,17 +441,17 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 			blogHomeDirectory.mkdir();
 
 			// Configure blog
-			logger.debug("loading copied properties file at " + blojsomConfiguration.getBaseConfigurationDirectory() + blogUserID + '/' + BLOG_DEFAULT_PROPERTIES);
 			Properties blogProperties = null;
 			for (int i = 0; i < 20; i++) {
 				try {
+					logger.debug("loading copied properties file at " + blojsomConfiguration.getBaseConfigurationDirectory() + blogUserID + '/' + BLOG_DEFAULT_PROPERTIES);
 					blogProperties = BlojsomUtils.loadProperties(servletConfig, blojsomConfiguration.getBaseConfigurationDirectory() + blogUserID + '/' + BLOG_DEFAULT_PROPERTIES);
 					break;
 				} catch (BlojsomException e) {
 					try {
 						java.lang.Thread.currentThread().sleep(1000);
 					} catch (java.lang.InterruptedException e2) {
-						logger.error(e);
+						logger.error(e2);
 					}
 				}
 			}
@@ -484,10 +490,10 @@ public class BlojsomAppleUtils implements BlojsomConstants {
 			Map authorizationMap = new HashMap();
 			
 			if (foundUsername) {
-				authorizationMap.put(blogUserID, "_USE_DIRECTORY_SERVICES_");
+				authorizationMap.put(blogUserDSID, "_USE_DIRECTORY_SERVICES_");
 			}
 			else if (foundGroupName) {
-				authorizationMap.put("_DIRECTORY_SERVICES_GROUP_", blogUserID);
+				authorizationMap.put("_DIRECTORY_SERVICES_GROUP_", blogUserDSID);
 			}
 			blogUser.getBlog().setAuthorization(authorizationMap);
 			logger.debug("Set authorization information for new user: " + blogUserID);

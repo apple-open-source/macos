@@ -23,7 +23,7 @@
 #include "gssapiP_krb5.h"
 
 /*
- * $Id: process_context_token.c,v 1.11 2004/03/15 17:45:01 raeburn Exp $
+ * $Id: process_context_token.c 16171 2004-03-15 17:45:01Z raeburn $
  */
 
 OM_uint32

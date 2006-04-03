@@ -141,7 +141,7 @@ int main (int argc, char * const * argv)
             fprintf(stderr, "Authenticated via Kerberos v4.  Placing tickets in cache '%s'\n", ccacheName);
         }
     
-        if (foundV4 != NULL || foundV5 != NULL) {
+        if (foundV4 || foundV5) {
             /* if we found tickets, set them as the default */
             if (KLSetSystemDefaultCache (principal) != klNoErr) {
                 printerr ("Unable to make '%s' the new system default cache\n", ccacheName);

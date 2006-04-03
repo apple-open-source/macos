@@ -27,9 +27,26 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Tue Apr 17 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLCreateFile.c,v 1.22 2005/02/04 20:30:43 ssen Exp $
+ *  $Id: BLCreateFile.c,v 1.25 2005/10/27 21:06:52 ssen Exp $
  *
  *  $Log: BLCreateFile.c,v $
+ *  Revision 1.25  2005/10/27 21:06:52  ssen
+ *  Simplify BLCreateFile() a lot, since we no longer care
+ *  about writing to the resource fork of a file, which also means
+ *  we don't have to pass in the parent directory.
+ *
+ *  From bless.h, remove old wrapper routines.
+ *
+ *  Revision 1.24  2005/08/22 20:49:24  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.23  2005/06/24 16:39:51  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.22  2005/02/04 20:30:43  ssen
  *  try to set type/creator even if not HFS+. UFS supports this now
  *
@@ -123,23 +140,15 @@
 
 
 int BLCreateFile(BLContextPtr context, const CFDataRef data,
-                const unsigned char dest[], const unsigned char file[],
-				 int useRsrcFork, int setImmutable,
+                 const char * file, int setImmutable,
 				 uint32_t type, uint32_t creator) {
 
 
     int err;
-    int isHFS = 0;
-    unsigned char rsrcpath[MAXPATHLEN];
     int mainfd;
 	struct stat sb;
-        
-    err = BLIsMountHFS(context, dest, &isHFS);
-    if(err) return 2;
+    const char *rsrcpath = file;
 
-
-    snprintf(rsrcpath, MAXPATHLEN-1, "%s/%s", dest, file);
-    rsrcpath[MAXPATHLEN-1] = '\0';
 	
 	err = lstat(rsrcpath, &sb);
 	if(err == 0) {
@@ -191,20 +200,8 @@ int BLCreateFile(BLContextPtr context, const CFDataRef data,
     close(mainfd);
     
     if(data != NULL) {
-		if(isHFS && useRsrcFork) {
-			snprintf(rsrcpath, MAXPATHLEN-1, "%s/%s"_PATH_RSRCFORKSPEC, dest, file);
-			rsrcpath[MAXPATHLEN-1] = '\0';
-			
-			err = BLCopyFileFromCFData(context, data, rsrcpath, isHFS);
-			if(err) return 3;
-			
-			snprintf(rsrcpath, MAXPATHLEN-1, "%s/%s", dest, file);
-			rsrcpath[MAXPATHLEN-1] = '\0';
-			
-		} else {
-			err = BLCopyFileFromCFData(context, data, rsrcpath, isHFS);
-			if(err) return 3;
-		}
+        err = BLCopyFileFromCFData(context, data, rsrcpath, 1);
+        if(err) return 3;
     }
 
 

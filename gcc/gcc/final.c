@@ -1347,7 +1347,10 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
   high_block_linenum = high_function_linenum = last_linenum;
 
-  (*debug_hooks->begin_prologue) (last_linenum, last_filename);
+  /* APPLE LOCAL begin aaa */
+  if (!flag_save_repository || !flag_pch_file)
+    (*debug_hooks->begin_prologue) (last_linenum, last_filename);
+  /* APPLE LOCAL end aaa */
 
 #if defined (DWARF2_UNWIND_INFO) || defined (TARGET_UNWIND_INFO)
   if (write_symbols != DWARF2_DEBUG && write_symbols != VMS_AND_DWARF2_DEBUG)
@@ -1806,7 +1809,10 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	      high_block_linenum = last_linenum;
 
 	      /* Output debugging info about the symbol-block beginning.  */
-	      (*debug_hooks->begin_block) (last_linenum, n);
+	      /* APPLE LOCAL begin aaa */
+	      if (!flag_save_repository || !flag_pch_file)
+		(*debug_hooks->begin_block) (last_linenum, n);
+	      /* APPLE LOCAL end aaa */
 
 	      /* Mark this block as output.  */
 	      TREE_ASM_WRITTEN (NOTE_BLOCK (insn)) = 1;
@@ -1828,7 +1834,10 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	      --block_depth;
 	      gcc_assert (block_depth >= 0);
 
-	      (*debug_hooks->end_block) (high_block_linenum, n);
+	      /* APPLE LOCAL begin aaa */
+	      if (!flag_save_repository || !flag_pch_file)
+		(*debug_hooks->end_block) (high_block_linenum, n);
+	      /* APPLE LOCAL end aaa */
 	    }
 	  break;
 
@@ -2100,7 +2109,10 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	   note in a row.  */
 	if (notice_source_line (insn))
 	  {
-	    (*debug_hooks->source_line) (last_linenum, last_filename);
+	      /* APPLE LOCAL begin aaa */
+	      if (!flag_save_repository || !flag_pch_file)
+		(*debug_hooks->source_line) (last_linenum, last_filename);
+	      /* APPLE LOCAL end aaa */
 	  }
 
 	if (GET_CODE (body) == ASM_INPUT)
@@ -2854,17 +2866,17 @@ alter_cond (rtx cond)
    In an `asm', it's the user's fault; otherwise, the compiler's fault.  */
 
 void
-output_operand_lossage (const char *msgid, ...)
+output_operand_lossage (const char *cmsgid, ...)
 {
   char *fmt_string;
   char *new_message;
   const char *pfx_str;
   va_list ap;
 
-  va_start (ap, msgid);
+  va_start (ap, cmsgid);
 
   pfx_str = this_is_asm_operands ? _("invalid 'asm': ") : "output_operand: ";
-  asprintf (&fmt_string, "%s%s", pfx_str, _(msgid));
+  asprintf (&fmt_string, "%s%s", pfx_str, _(cmsgid));
   vasprintf (&new_message, fmt_string, ap);
 
   if (this_is_asm_operands)
@@ -3933,6 +3945,11 @@ debug_flush_symbol_queue (void)
     }
 
   symbol_queue_index = 0;
+/* APPLE LOCAL begin dbxout_type rewrite.  */
+#ifdef DBX_DEBUGGING_INFO
+  dbxout_flush_type_queue ();
+#endif
+/* APPLE LOCAL end dbxout_type rewrite.  */
   --debug_nesting;
 }
 

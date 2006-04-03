@@ -1026,7 +1026,7 @@ kdp_fetch_registers_i386 (int regno)
              (GDB_i386_THREAD_FPSTATE_COUNT * 4));
         }
 
-      memcpy (&fp_regs.hw_state, c.response->readregs_reply.data,
+      memcpy (&fp_regs.hw_fu_state, c.response->readregs_reply.data,
               (GDB_i386_THREAD_FPSTATE_COUNT * 4));
 #endif
       i386_macosx_fetch_fp_registers (&fp_regs);
@@ -1079,7 +1079,7 @@ kdp_store_registers_i386 (int regno)
       if (i386_macosx_store_fp_registers (&fp_regs) == 0)
         return;
 
-      memcpy (c.response->readregs_reply.data, &fp_regs.hw_state,
+      memcpy (c.response->readregs_reply.data, &fp_regs.hw_fu_state,
               (GDB_i386_THREAD_FPSTATE_COUNT * 4));
 
       c.request->writeregs_req.hdr.request = KDP_WRITEREGS;

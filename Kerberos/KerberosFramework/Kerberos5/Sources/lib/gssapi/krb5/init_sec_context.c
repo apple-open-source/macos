@@ -79,7 +79,7 @@
 #include <assert.h>
 
 /*
- * $Id: init_sec_context.c,v 1.84.4.1 2005/01/13 21:55:10 tlyu Exp $
+ * $Id: init_sec_context.c 17241 2005-06-15 02:28:30Z  $
  */
 
 /* XXX This is for debugging only!!!  Should become a real bitfield

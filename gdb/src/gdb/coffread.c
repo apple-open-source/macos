@@ -300,11 +300,7 @@ cs_section_address (struct coff_symbol *cs, bfd *abfd)
   bfd_map_over_sections (abfd, find_targ_sec, &args);
   if (sect != NULL)
     addr = bfd_get_section_vma (objfile->obfd, sect);
-#if defined(NeXT_PDO) && defined(__WIN32__)
-  return addr - 0x1000;
-#else
   return addr;
-#endif
 }
 
 /* Look up a coff type-number index.  Return the address of the slot
@@ -900,11 +896,6 @@ coff_symtab_read (long symtab_offset, unsigned int nsyms,
  		    || cs->c_sclass == C_THUMBEXT
  		    || (pe_file && (cs->c_sclass == C_STAT)))
 		  tmpaddr += ANOFFSET (objfile->section_offsets, sec);
-
-#if defined(NeXT_PDO) && defined(__WIN32__)
- 		if ((cs->c_sclass == C_STAT) && (sec == SECT_OFF_TEXT))
- 		  tmpaddr += ANOFFSET (objfile->section_offsets, sec);
-#endif
 
 		if (sec == SECT_OFF_TEXT (objfile))
 		  {

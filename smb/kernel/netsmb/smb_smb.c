@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_smb.c,v 1.35.100.5.18.1 2005/10/01 23:12:22 lindak Exp $
+ * $Id: smb_smb.c,v 1.35.100.6 2005/10/03 22:03:34 lindak Exp $
  */
 /*
  * various SMB requests. Most of the routines merely packs data into mbufs.

@@ -4,14 +4,11 @@
  */
 
 #include <machine/asm.h>
+#include "abi.h"
 
 RCSID("$NetBSD: e_sqrt.S,v 1.5 2001/06/19 00:26:30 fvdl Exp $")
 
-ENTRY(sqrt)
-#ifdef __i386__
-	fldl	4(%esp)
+ENTRY(sqrtl)
+	fldt	ARG_LONG_DOUBLE_ONE
 	fsqrt
-#else
-	sqrtsd	%xmm0,%xmm0
-#endif
 	ret

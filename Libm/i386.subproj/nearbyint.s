@@ -29,20 +29,22 @@
 
 #include "abi.h"
 
+#if defined( __LP64__ )
+	#error not 64-bit ready
+#endif
+
 ENTRY(nearbyint)
-	pushl	%ebp
-	movl	%esp,%ebp
 	subl	$8,%esp
 
-	fstcw	-12(%ebp)		/* store fpu control word */
-	movw	-12(%ebp),%dx
+	fstcw	4(%esp)		/* store fpu control word */
+	movw	4(%esp),%dx
 	orw	$0x0180,%dx
-	movw	%dx,-16(%ebp)
-	fldcw	-16(%ebp)		/* load modfied control word */
-	fldl	8(%ebp)
+	movw	%dx,(%esp)
+	fldcw	(%esp)		/* load modfied control word */
+	fldl	12(%esp)
         
 	frndint				/* int(x) */
         
-	fldcw	-12(%ebp)		/* restore original control word */
-	leave
+	fldcw	4(%esp)		/* restore original control word */
+	addl	$8,%esp	
 	ret

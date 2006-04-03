@@ -331,7 +331,10 @@ rest_of_handle_final (void)
      *will* be routed past here.  */
 
   timevar_push (TV_SYMOUT);
-  (*debug_hooks->function_decl) (current_function_decl);
+  /* APPLE LOCAL begin aaa */
+  if (!flag_save_repository || !flag_pch_file)
+    (*debug_hooks->function_decl) (current_function_decl);
+  /* APPLE LOCAL end aaa */
   timevar_pop (TV_SYMOUT);
 
   ggc_collect ();
@@ -1489,6 +1492,37 @@ rest_of_clean_state (void)
 }
 
 
+/* APPLE LOCAL begin radar 4216496 */
+/* APPLE LOCAL begin radar 4120689 */
+#ifdef TARGET_386
+static int MaxAlignForThisBlock (tree block)
+{
+  tree decl, t;
+  unsigned int align, max_align = 0;
+
+  for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
+     {
+       if (TREE_CODE (decl) == VAR_DECL
+	   && DECL_ALIGN (decl) > max_align)
+	 max_align = DECL_ALIGN (decl);
+     }
+
+  for (t = BLOCK_SUBBLOCKS (block); t ; t = BLOCK_CHAIN (t))
+     if ((align = MaxAlignForThisBlock (t)) > max_align)
+       max_align = align;
+
+  return max_align;
+ 
+}
+
+static int
+LargestAlignmentOfVariables (void)
+{
+  return MaxAlignForThisBlock (DECL_INITIAL (current_function_decl));
+}
+#endif
+/* APPLE LOCAL end radar 4120689 */
+/* APPLE LOCAL end radar 4216496 */
 /* This function is called from the pass manager in tree-optimize.c
    after all tree passes have finished for a single function, and we
    have expanded the function body from trees to RTL.
@@ -1674,20 +1708,28 @@ rest_of_compilation (void)
      since this can impact optimizations done by the prologue and
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
+  /* APPLE LOCAL begin 4229407 */
   /* APPLE LOCAL begin radar 4095567 */
 #ifdef TARGET_386
-  if ((optimize > 0 || optimize_size)
-       && current_function_is_leaf
-       && PREFERRED_STACK_BOUNDARY >= 128
-       && !DECL_STRUCT_FUNCTION (current_function_decl)->uses_vector)
-    {
-      save_PREFERRED_STACK_BOUNDARY = PREFERRED_STACK_BOUNDARY;
-      PREFERRED_STACK_BOUNDARY = 32;
-      cfun->stack_alignment_needed = STACK_BOUNDARY;
-      cfun->preferred_stack_boundary = STACK_BOUNDARY;
-    }
+  {
+    int align;
+    if ((optimize > 0 || optimize_size)
+	 && current_function_is_leaf
+	 && PREFERRED_STACK_BOUNDARY >= 128
+  /* APPLE LOCAL begin radar 4120689 */
+	 && !DECL_STRUCT_FUNCTION (current_function_decl)->uses_vector
+	 && (align = LargestAlignmentOfVariables()) < 128)
+  /* APPLE LOCAL end radar 4120689 */
+      {
+	save_PREFERRED_STACK_BOUNDARY = PREFERRED_STACK_BOUNDARY;
+	PREFERRED_STACK_BOUNDARY = MAX (align, 32);
+	cfun->stack_alignment_needed = STACK_BOUNDARY;
+	cfun->preferred_stack_boundary = STACK_BOUNDARY;
+      }
+  }
 #endif
   /* APPLE LOCAL end radar 4095567 */
+  /* APPLE LOCAL end 4229407 */
 
   if (rest_of_handle_old_regalloc ())
     goto exit_rest_of_compilation;

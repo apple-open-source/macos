@@ -10,7 +10,7 @@ MakefileInclude = "$(IntermediateBuild)/include/Makefile" ;
 
 
 # Assemble CFLAGS
-CONFIGURE_CFLAGS = "-fno-common -include /usr/include/TargetConditionals.h -DUSE_PASSWORD_SERVER" ;
+CONFIGURE_CFLAGS = "-fno-common -include /usr/include/TargetConditionals.h -DUSE_PASSWORD_SERVER -DAPPLE_KDC_MODS" ;
 if $(RC_CFLAGS)      != "" { CONFIGURE_CFLAGS = "$(CONFIGURE_CFLAGS) $(RC_CFLAGS)" ;      }
 if $(CFLAGS)         != "" { CONFIGURE_CFLAGS = "$(CONFIGURE_CFLAGS) $(CFLAGS)" ;         }
 if $(OTHER_CFLAGS)   != "" { CONFIGURE_CFLAGS = "$(CONFIGURE_CFLAGS) $(OTHER_CFLAGS)" ;   }

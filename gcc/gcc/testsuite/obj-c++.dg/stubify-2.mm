@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Radar 4055183  */
+/* APPLE LOCAL file mainline  */
 /* All calls must be properly stubified.  */
 /* Testcase extracted from TextEdit:Document.m.  */
 /* { dg-do compile { target *-*-darwin* } } */
@@ -27,4 +27,4 @@ extern int bogonic (int, int, int) ;
 
 /* Any symbol_ref of an un-stubified objc_msgSend is an error; look
    for "objc_msgSend" in quotes, without the $stub suffix.  */
-/* { dg-final { scan-file-not stubify-2.m.00.expand "symbol_ref.*\"objc_msgSend\"" } } */
+/* { dg-final { scan-file-not stubify-2.mm.00.expand "symbol_ref.*\"objc_msgSend\"" } } */

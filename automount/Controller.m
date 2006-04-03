@@ -854,7 +854,7 @@ out:
 	sys_msg(debug, LOG_DEBUG, "Initializing map \"%s\" parent \"%s\" mountpt \"%s\"", [mapname value], [parent value], [mountpt value]);
 	[parent release];
 
-	map = [[mapclass alloc] initWithParent:p directory:mountpt from:mapname mountdirectory:mnt];
+	map = [[mapclass alloc] initWithParent:p directory:mountpt from:mapname mountdirectory:mnt mountedon:dir];
 	if (mapclass == [NSLMap class]) GlobalTargetNSLMap = (NSLMap *)map;
 
 	[mountpt release];

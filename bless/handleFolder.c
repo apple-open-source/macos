@@ -27,8 +27,7 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Dec 6 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: handleFolder.c,v 1.56 2005/02/14 21:55:23 ssen Exp $
- *
+ *  $Id: handleFolder.c,v 1.71 2005/12/05 12:48:58 ssen Exp $
  *
  */
 
@@ -45,31 +44,43 @@
 #include "structs.h"
 
 #include "bless.h"
-#include "bootconfig.h"
+#include "bless_private.h"
 
 enum {
   kIsInvisible                  = 0x4000, /* Files and folders */
 };
 
-extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...);
+extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
+    __attribute__ ((format (printf, 3, 4)));
+
 
 static int isOFLabel(const char *data, int labelsize);
 extern int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
 				   CFDataRef labelData);
+extern int setefifilepath(BLContextPtr context, const char * path, int bootNext, const char *optionalData);
 
 int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	
     int err;
-    int isHFS;
+    int isHFS, shouldBless;
 	
     uint32_t folderXid = 0;                   // The directory ID specified by folderXpath
     uint32_t folder9id = 0;                   // The directory ID specified by folder9path
     
 	CFDataRef bootXdata = NULL;
+	CFDataRef bootEFIdata = NULL;
 	CFDataRef labeldata = NULL;
     struct statfs sb;
 
+    BLPreBootEnvType	preboot;
 	
+	err = BLGetPreBootEnvironmentType(context, &preboot);
+	if(err) {
+		blesscontextprintf(context, kBLLogLevelError,  "Could not determine preboot environment\n");
+		return 1;
+	}
+	
+    
     if(actargs[kmount].present) {
 		err = BLGetCommonMountPoint(context, actargs[kmount].argument, "", actargs[kmount].argument);
 		if(err) {
@@ -110,32 +121,93 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		return 1;
     }
 	
+	/*
+	 * actargs[kmount].argument will always be filled in as the volume we are
+	 * operating. Look at actargs[kfolder].present to see if the user wanted
+	 * to bless something specifically, or just wanted to use -setBoot
+	 * or something
+	 */
+	if( actargs[kfolder].present || actargs[kfolder9].present
+		|| actargs[kopenfolder].present) {
+		shouldBless = 1;
+	} else {
+		shouldBless = 0;
+	}
+	
+	if(shouldBless) {
+		// if we're blessing the volume, we need something for
+		// finderinfo[1]. If you didn't provide a file, but we're
+		// planning on generating one, fill in the path now
+		
+		if(!actargs[kfile].present && actargs[kbootefi].present) {
+            // you didn't give a booter file explicitly, so we have to guess
+            // based on the system folder.
+            snprintf(actargs[kfile].argument, sizeof(actargs[kfile].argument),
+                     "%s/boot.efi", actargs[kfolder].argument);
+            actargs[kfile].present = 1;
+        }        
+    }
     
     /* If user gave options that require BootX creation, do it now. */
     if(actargs[kbootinfo].present) {
+        char bootxpath[MAXPATHLEN];
+        
         if(!actargs[kbootinfo].hasArg) {
             snprintf(actargs[kbootinfo].argument, kMaxArgLength-1, "%s/%s", actargs[kmount].argument, kBL_PATH_PPC_BOOTX_BOOTINFO);
         }
 
 		err = BLLoadFile(context, actargs[kbootinfo].argument, 0, &bootXdata);
 		if(err) {
-			blesscontextprintf(context, kBLLogLevelError,  "Could not load BootX data from %s\n",
+			blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load BootX data from %s\n",
 							   actargs[kbootinfo].argument);
 		}
 		
         if(actargs[kfolder].present && bootXdata) {            
-			err = BLCreateFile(context, bootXdata, actargs[kfolder].argument, "BootX", 0, 1, kBL_OSTYPE_PPC_TYPE_BOOTX, kBL_OSTYPE_PPC_CREATOR_CHRP);
+            snprintf(bootxpath, sizeof(bootxpath), "%s/BootX", actargs[kfolder].argument);
+            
+			err = BLCreateFile(context, bootXdata, bootxpath, 1, kBL_OSTYPE_PPC_TYPE_BOOTX, kBL_OSTYPE_PPC_CREATOR_CHRP);
 			if(err) {
-				blesscontextprintf(context, kBLLogLevelError,  "Could not create BootX in %s\n", actargs[kfolder].argument );
+				blesscontextprintf(context, kBLLogLevelError,  "Could not create BootX at %s\n", bootxpath );
+                return 2;
 			} else {
-				blesscontextprintf(context, kBLLogLevelVerbose,  "BootX created successfully in %s\n",
-								   actargs[kfolder].argument );
+				blesscontextprintf(context, kBLLogLevelVerbose,  "BootX created successfully at %s\n",
+								   bootxpath );
 			}
         } else {
             blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create BootX, no X folder specified\n" );
         }
     } else {
         blesscontextprintf(context, kBLLogLevelVerbose,  "No BootX creation requested\n" );
+    }
+
+	/* If user gave options that require boot.efi creation, do it now. */
+    if(actargs[kbootefi].present) {
+        if(!actargs[kbootefi].hasArg) {
+			
+            snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s/%s", actargs[kmount].argument, kBL_PATH_I386_BOOT_EFI);
+			
+        }
+		
+		err = BLLoadFile(context, actargs[kbootefi].argument, 0, &bootEFIdata);
+		if(err) {
+			blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load boot.efi data from %s\n",
+							   actargs[kbootefi].argument);
+		}
+		
+        if(actargs[kfile].present && bootEFIdata) {            
+			err = BLCreateFile(context, bootEFIdata, actargs[kfile].argument, 1, 0, 0);
+			if(err) {
+				blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", actargs[kfile].argument );
+                return 2;
+			} else {
+				blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi created successfully at %s\n",
+								   actargs[kfile].argument );
+			}
+        } else {
+            blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
+        }
+    } else {
+        blesscontextprintf(context, kBLLogLevelVerbose,  "No boot.efi creation requested\n" );
     }
 	
 	
@@ -152,12 +224,11 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
     }
     
     
-    if(isHFS && (actargs[kfolder].present || actargs[kfolder9].present
-				 || actargs[kopenfolder].present)) {
+    if(isHFS && shouldBless) {
 		uint32_t oldwords[8];
 		int useX = 1;
 		uint32_t openfolder = 0;
-		
+		uint32_t bootfile = 0;
         
 		err = BLGetVolumeFinderInfo(context, actargs[kmount].argument, oldwords);
 		if(err) {
@@ -180,13 +251,16 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 			blesscontextprintf(context, kBLLogLevelVerbose,  "Saved folder X\n" );
 		}
 		
+		/* always save boot file */
+		bootfile = oldwords[1];
+		
 		/* bless! bless */
 		
 		/* First get any directory IDs we need */
 		if(actargs[kfolder].present) {
 			err = BLGetFileID(context, actargs[kfolder].argument, &folderXid);
 			if(err) {
-				blesscontextprintf(context, kBLLogLevelError,  "Error while get directory ID of %s\n", actargs[kfolder].argument );
+				blesscontextprintf(context, kBLLogLevelError,  "Error while getting directory ID of %s\n", actargs[kfolder].argument );
 			} else {
 				blesscontextprintf(context, kBLLogLevelVerbose,  "Got directory ID of %u for %s\n",
 								   folderXid, actargs[kfolder].argument );
@@ -196,15 +270,58 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		if(actargs[kfolder9].present) {
 			err = BLGetFileID(context, actargs[kfolder9].argument, &folder9id);
 			if(err) {
-				blesscontextprintf(context, kBLLogLevelError,  "Error while get directory ID of %s\n", actargs[kfolder9].argument );
+				blesscontextprintf(context, kBLLogLevelError,  "Error while getting directory ID of %s\n", actargs[kfolder9].argument );
 			} else {
 				blesscontextprintf(context, kBLLogLevelVerbose,  "Got directory ID of %u for %s\n",
 								   folder9id, actargs[kfolder9].argument );
 			}
 		}
+
+		if(actargs[kfile].present) {
+			err = BLGetFileID(context, actargs[kfile].argument, &bootfile);
+			if(err) {
+				blesscontextprintf(context, kBLLogLevelError,  "Error while getting file ID of %s. Ignoring...\n", actargs[kfile].argument );
+				bootfile = 0;
+			} else {
+				struct stat checkForFile;
+				
+				err = lstat(actargs[kfile].argument, &checkForFile);
+				if(err || !S_ISREG(checkForFile.st_mode)) {
+					blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );				
+					bootfile = 0;
+				} else {
+					blesscontextprintf(context, kBLLogLevelVerbose,  "Got file ID of %u for %s\n",
+									   bootfile, actargs[kfile].argument );
+				}
+			}			
+			
+		} else {
+            // no file given. we should try to verify the existing booter
+            if(bootfile) {
+                err = BLLookupFileIDOnMount(context, actargs[kmount].argument, bootfile, actargs[kfile].argument);
+                if(err) {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Invalid EFI blessed file ID %u. Zeroing...\n",
+                                       bootfile );                    
+                    bootfile = 0;
+                } else {
+					struct stat checkForFile;
+
+					err = lstat(actargs[kfile].argument, &checkForFile);
+					if(err || !S_ISREG(checkForFile.st_mode)) {
+						blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );				
+						bootfile = 0;
+					} else {						
+						blesscontextprintf(context, kBLLogLevelVerbose,
+										   "Preserving EFI blessed file ID %u for %s\n",
+										   bootfile, actargs[kfile].argument );                    
+					}
+                }
+            }
+            
+        }
 		
 		if(actargs[kopenfolder].present) {
-			unsigned char openmount[kMaxArgLength];
+			char openmount[kMaxArgLength];
 			
 			openmount[0] = '\0';
 			
@@ -234,14 +351,15 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 			* variables will be 0, so we can use that to initialize
 			* the FI fields */
 		
-		/* Set Finder info words 3 & 5 + 2*/
+		/* Set Finder info words 3 & 5 + 2 + 1*/
+		oldwords[1] = bootfile;
 		oldwords[2] = openfolder;
 		oldwords[3] = folder9id;
 		oldwords[5] = folderXid;
 		
         // reserved1 returns the f_fssubtype attribute. Right now, 0 == HFS+,
         // 1 == HFS+J. Anything else is either HFS plain, or some form
-        // of HFSX. These filesystems we don't wany blessed, because we don't
+        // of HFSX. These filesystems we don't want blessed, because we don't
         // want future versions of OF to list them as bootable, but rather
         // prefer the Apple_Boot partition
         
@@ -259,6 +377,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         }
 		
 		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[0] = %d\n", oldwords[0] );
+		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[1] = %d\n", oldwords[1] );
 		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[2] = %d\n", oldwords[2] );
 		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[3] = %d\n", oldwords[3] );
 		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[5] = %d\n", oldwords[5] );
@@ -320,20 +439,21 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 			}
 		}
 		
-		isLabel = isOFLabel(CFDataGetBytePtr(labeldata),
+		isLabel = isOFLabel((const char *)CFDataGetBytePtr(labeldata),
 							CFDataGetLength(labeldata));
 		blesscontextprintf(context, kBLLogLevelVerbose,  "OF label data is valid: %s\n", isLabel ? "YES" : "NO");
 		
 		if(actargs[kfolder].present) {
 			char sysfolder[MAXPATHLEN];
 		
-			blesscontextprintf(context, kBLLogLevelVerbose,  "Putting label bitmap in %s/%s\n",
-							   actargs[kfolder].argument, "Volume Name Icon" );
+			sprintf(sysfolder, "%s/Volume Name Icon", actargs[kfolder].argument);
+			
+			blesscontextprintf(context, kBLLogLevelVerbose,  "Putting label bitmap in %s\n",
+							   sysfolder );
 
 			err = BLCreateFile(context, labeldata,
-							   actargs[kfolder].argument,
-							   "Volume Name Icon",
-							   0, 0,
+							   sysfolder,
+							   0,
 							   isLabel ? kBL_OSTYPE_PPC_TYPE_OFLABEL :
 									kBL_OSTYPE_PPC_TYPE_OFLABEL_PLACEHOLDER,
 							   kBL_OSTYPE_PPC_CREATOR_CHRP);
@@ -342,8 +462,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 			} else {
 				blesscontextprintf(context, kBLLogLevelVerbose, "OF label written\n");
 			}
-			
-			sprintf(sysfolder, "%s/Volume Name Icon", actargs[kfolder].argument);
 			
 			err = BLSetFinderFlag(context, sysfolder, kIsInvisible, 1);
 			if(err) {
@@ -357,100 +475,38 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	
     /* Set Open Firmware to boot off the specified volume*/
     if(actargs[ksetboot].present) {
-		struct statfs sb;
-		
-		err = statfs(actargs[kmount].argument, &sb);
-		if(err) {
-			blesscontextprintf(context, kBLLogLevelError,  "Can't statfs: %s\n",
-							   strerror(errno));			
-			return 2;
-		}
-		
-		err = setboot(context, sb.f_mntfromname, bootXdata, labeldata);
-		if(err) {
-			return 3;
-		}
-		
-		if(!BLIsOpenFirmwarePresent(context)) {
-			// for fdisk partition maps, write the OF path for the root device
-			unsigned char parDev[MNAMELEN];
-			unsigned long slice;
-			BLPartitionType ptype;
-			CFDataRef bootconfigdata = NULL;
-			
-			
-			err = BLGetParentDeviceAndPartitionType(context, sb.f_mntfromname, parDev, &slice, &ptype);
-			if(err) {
-				return 3;
-			}
-			
-			blesscontextprintf(context, kBLLogLevelVerbose, "Mount point '%s' is part of an %s partition map\n",
-							   actargs[kmount].argument,
-							   ptype == kBLPartitionType_APM ? "Apple" : (ptype == kBLPartitionType_MBR ? "MBR" : "Unknown"));
-			
-			if(ptype == kBLPartitionType_MBR) {
-				CFMutableDictionaryRef plist = NULL;
-				char acpistring[1024];
-				CFStringRef ofref;
-				unsigned char configpath[MAXPATHLEN+1];
-				
-				snprintf(configpath, MAXPATHLEN, "%s/%s", actargs[kmount].argument, kBL_PATH_I386_BOOT2_CONFIG_PLIST);
-				
-				err = BLLoadFile(context, configpath, 0, &bootconfigdata);
-				if(err) {
-					blesscontextprintf(context, kBLLogLevelVerbose, "Could not load boot2 config plist from %s\n", configpath);
-					blesscontextprintf(context, kBLLogLevelVerbose, "Using built-in default\n");
-					bootconfigdata = CFDataCreate(kCFAllocatorDefault, bootconfigplist, sizeof(bootconfigplist));
-				}
-				
-				plist = (CFMutableDictionaryRef)CFPropertyListCreateFromXMLData(kCFAllocatorDefault, bootconfigdata, kCFPropertyListMutableContainers, NULL);
-				CFRelease(bootconfigdata);
-				if(plist == NULL || CFGetTypeID(plist) != CFDictionaryGetTypeID()) {
-					blesscontextprintf(context, kBLLogLevelError, "Could not parse boot config plist as dictionary\n");
-					if(plist) CFRelease(plist);
-					return 5;
-				}
-				
-				err = BLGetACPIBootDevice(context, sb.f_mntfromname, acpistring);
-				if(err) {
-					blesscontextprintf(context, kBLLogLevelError, "Could not map %s to an ACPI path\n", sb.f_mntfromname);
-					CFRelease(plist);
-					return 6;
-				}
-				
-				ofref = CFStringCreateWithCString(kCFAllocatorDefault, acpistring, kCFStringEncodingUTF8);
-				if(!ofref) {
-					CFRelease(plist);
-					return 7;
-				}
-				
-				CFDictionarySetValue(plist, CFSTR("Boot Device"), ofref);
-				CFRelease(ofref);
-				
-				bootconfigdata = CFPropertyListCreateXMLData(kCFAllocatorDefault, plist);
-				CFRelease(plist);
-				
-				if(!bootconfigdata) {
-					blesscontextprintf(context, kBLLogLevelError, "Could not convert dictionary to XML\n");
-					return 8;
-				}
-				
-				err = BLCreateFile(context, bootconfigdata, actargs[kmount].argument, kBL_PATH_I386_BOOT2_CONFIG_PLIST,
-								   0, 0, 0, 0);
-				if(err) {
-					blesscontextprintf(context, kBLLogLevelError, "Could not write new %s\n", configpath);
-					CFRelease(bootconfigdata);
-					return 8;
-				}
-				
-				CFRelease(bootconfigdata);
-			}
-			
-		}
-		
+        if(preboot == kBLPreBootEnvType_EFI) {
+			// if you blessed the volume, then just point EFI at the volume.
+			// only if you didn't bless, but you have something interesting
+			// to point at, should you use actargs[kfile]
+
+            err = setefifilepath(context, ( !shouldBless && actargs[kfile].present ?
+											actargs[kfile].argument :
+											actargs[kmount].argument),
+                                 actargs[knextonly].present,
+                                 actargs[koptions].present ? actargs[koptions].argument : NULL);
+            if(err) {
+                return 3;
+            }
+        } else {
+            struct statfs sb;
+            
+            err = blsustatfs(actargs[kmount].argument, &sb);
+            if(err) {
+                blesscontextprintf(context, kBLLogLevelError,  "Can't statfs: %s\n",
+                                   strerror(errno));			
+                return 2;
+            }
+            
+            err = setboot(context, sb.f_mntfromname, bootXdata, labeldata);
+            if(err) {
+                return 3;
+            }
+        }		
     }
 	
 	if(bootXdata) CFRelease(bootXdata);
+	if(bootEFIdata) CFRelease(bootEFIdata);
 	if(labeldata) CFRelease(labeldata);
 
 	

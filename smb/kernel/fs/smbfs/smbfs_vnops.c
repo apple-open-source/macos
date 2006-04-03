@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vnops.c,v 1.128.36.3 2005/07/20 05:26:59 lindak Exp $
+ * $Id: smbfs_vnops.c,v 1.128.36.6 2005/10/28 21:36:02 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -1387,7 +1387,10 @@ smbfs_read(ap)
 	 */
 	while (!error && uio_resid(uio) > 0) {
 		remaining = uio_resid(uio);
-		xfersize = MIN(remaining, MAXPHYS);
+		if (uio_offset(uio) & (PAGE_SIZE-1))
+			xfersize = MIN(remaining, SMB_IOMAX - PAGE_SIZE);
+		else
+			xfersize = MIN(remaining, SMB_IOMAX);
 		/* create a upl for this range */
 		soff = trunc_page_64(uio_offset(uio));
 		eoff = round_page_64(uio_offset(uio) + xfersize);
@@ -1445,7 +1448,10 @@ smbfs_write(ap)
 	 */
 	while (!error && uio_resid(uio) > 0) {
 		remaining = uio_resid(uio);
-		xfersize = MIN(remaining, MAXPHYS);
+		if (uio_offset(uio) & (PAGE_SIZE-1))
+			xfersize = MIN(remaining, SMB_IOMAX - PAGE_SIZE);
+		else
+			xfersize = MIN(remaining, SMB_IOMAX);
 		/* create a upl for this range */
 		soff = trunc_page_64(uio_offset(uio));
 		eoff = round_page_64(uio_offset(uio) + xfersize);
@@ -2171,8 +2177,8 @@ smbfs_symlink(ap)
 	MD5Init(&md5);
 	MD5Update(&md5, (unsigned char *)(ap->a_target), targlen);
 	MD5Final((u_char *)state, &md5);
-	(void)sprintf(wp, "%08x%08x%08x%08x\n", state[0], state[1],
-		      state[2], state[3]);
+	(void)sprintf(wp, "%08x%08x%08x%08x\n", htobel(state[0]),
+		      htobel(state[1]), htobel(state[2]), htobel(state[3]));
 	wp += SMB_SYMMD5LEN;
 	bcopy(ap->a_target, wp, targlen);
 	wp += targlen;

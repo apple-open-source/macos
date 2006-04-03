@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.11.2.6 2003/12/01 16:12:40 sniper Exp $
+dnl $Id: config.m4,v 1.11.2.6.4.1 2005/07/28 14:47:53 hyanantha Exp $
 dnl
 
 AC_MSG_CHECKING(for CLI build)
@@ -21,6 +21,9 @@ if test "$PHP_SAPI_CLI" != "no"; then
   case $host_alias in
   *darwin*)
     BUILD_CLI="\$(CC) \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS_PROGRAM) \$(LDFLAGS) \$(NATIVE_RPATHS) \$(PHP_GLOBAL_OBJS:.lo=.o) \$(PHP_CLI_OBJS:.lo=.o) \$(PHP_FRAMEWORKS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -o \$(SAPI_CLI_PATH)"
+    ;;
+  *netware*)
+    BUILD_CLI="\$(LIBTOOL) --mode=link \$(CC) -export-dynamic \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS_PROGRAM) \$(LDFLAGS) \$(PHP_RPATHS) \$(PHP_CLI_OBJS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -Lnetware -lphp4lib -o \$(SAPI_CLI_PATH)"
     ;;
   *cygwin*)
     SAPI_CLI_PATH=sapi/cli/php.exe

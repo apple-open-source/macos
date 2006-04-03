@@ -29,6 +29,9 @@ huge=  1.0000000000e+30;
 #define __ieee754_logf logf
 #define __ieee754_sqrtf sqrtf
 
+#warning obsolete
+
+
 float asinhf(float x)
 {
 	float t,w;

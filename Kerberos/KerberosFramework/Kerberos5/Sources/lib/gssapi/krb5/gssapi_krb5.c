@@ -47,7 +47,7 @@
  */
 
 /*
- * $Id: gssapi_krb5.c,v 1.32 2004/07/30 03:55:07 raeburn Exp $
+ * $Id: gssapi_krb5.c 16632 2004-07-30 03:55:07Z raeburn $
  */
 
 

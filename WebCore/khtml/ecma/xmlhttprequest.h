@@ -99,7 +99,9 @@ namespace KJS {
 
     void changeState(XMLHttpRequestState newState);
 
+public:
     static QPtrDict< QPtrDict<XMLHttpRequest> > &requestsByDocument();
+private:
     void addToRequestsByDocument();
     void removeFromRequestsByDocument();
 
@@ -132,7 +134,7 @@ namespace KJS {
 
   class XMLHttpRequestQObject : public QObject {
     Q_OBJECT
-	
+
   public:
     XMLHttpRequestQObject(XMLHttpRequest *_jsObject);
 

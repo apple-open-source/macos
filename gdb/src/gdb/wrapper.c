@@ -18,8 +18,10 @@
 
 #include "defs.h"
 #include "value.h"
+/* APPLE LOCAL begin */
 #include "varobj.h"
 #include "objc-lang.h"
+/* APPLE LOCAL end */
 #include "wrapper.h"
 
 /* Use this struct to pass arguments to wrapper routines. We assume
@@ -57,9 +59,11 @@ static int wrap_parse_exp_1 (char *);
 
 static int wrap_evaluate_expression (char *);
 
+/* APPLE LOCAL begin */
 static int wrap_print_expression (char *a);
 
 static int wrap_evaluate_type (char *);
+/* APPLE LOCAL end */
 
 static int wrap_value_fetch_lazy (char *);
 
@@ -71,15 +75,18 @@ static int wrap_value_subscript (char *);
 
 static int wrap_value_ind (char *opaque_arg);
 
+/* APPLE LOCAL */
 static int wrap_value_cast (char *);
 
 static int do_captured_value_struct_elt (struct ui_out *uiout, void *data);
 
 static int wrap_parse_and_eval_type (char *);
 
+/* APPLE LOCAL begin */
 static int wrap_varobj_get_value (char *a);
 
 static int wrap_value_objc_target_type (char *);
+/* APPLE LOCAL end */
 
 int
 gdb_parse_exp_1 (char **stringptr, struct block *block, int comma,
@@ -117,29 +124,36 @@ int
 gdb_evaluate_expression (struct expression *exp, struct value **value)
 {
   struct gdb_wrapper_arguments args;
-  int old_unwind;
-  int retval;
+  /* APPLE LOCAL */
+  int old_unwind, retval;
+
   args.args[0].pointer = exp;
 
+  /* APPLE LOCAL begin */
   /* The expression may contain a function, and we certainly don't want
      a crash in the function to leave the stack in a funny state. */
 
   old_unwind = set_unwind_on_signal (1);
+  /* APPLE LOCAL end */
 
   if (!catch_errors ((catch_errors_ftype *) wrap_evaluate_expression, &args,
 		     "", RETURN_MASK_ERROR))
     {
       /* An error occurred */
+      /* APPLE LOCAL begin */
       retval = 0;
     }
   else
     {
       *value = (struct value *) args.result.pointer;
       retval = 1;
+      /* APPLE LOCAL end */
     }
 
+  /* APPLE LOCAL begin */
   set_unwind_on_signal (old_unwind);
   return retval;
+  /* APPLE LOCAL end */
 }
 
 static int
@@ -152,7 +166,7 @@ wrap_evaluate_expression (char *a)
   return 1;
 }
 
-
+/* APPLE LOCAL begin safe expression printing */
 int
 gdb_print_expression (struct expression *exp, struct ui_file *stb)
 {
@@ -223,6 +237,7 @@ wrap_evaluate_type (char *a)
     (char *) evaluate_type ((struct expression *) args->args[0].pointer);
   return 1;
 }
+/* APPLE LOCAL end safe expression printing */
 
 int
 gdb_value_fetch_lazy (struct value *value)
@@ -371,6 +386,7 @@ wrap_value_ind (char *opaque_arg)
   return 1;
 }
 
+/* APPLE LOCAL begin */
 int
 gdb_value_cast (struct type *type, struct value *in_val, struct value **out_val)
 {
@@ -403,6 +419,7 @@ wrap_value_cast (char *opaque_arg)
   (args)->result.pointer = value_cast (type, val);
   return 1;
 }
+/* APPLE LOCAL end */
 
 int
 gdb_parse_and_eval_type (char *p, int length, struct type **type)
@@ -460,6 +477,7 @@ do_captured_value_struct_elt (struct ui_out *uiout, void *data)
   return GDB_RC_OK;
 }
 
+/* APPLE LOCAL begin */
 int
 gdb_varobj_get_value (struct varobj *val1, char **result)
 {
@@ -534,5 +552,6 @@ safe_value_objc_target_type (struct value *val, struct block *block, struct type
 
   *dynamic_type = (struct type *) args.result.pointer;
   
-    return 1;
+  return 1;
 }
+/* APPLE LOCAL end */

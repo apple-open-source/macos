@@ -852,8 +852,12 @@ export INCLUDES
 export INSTALL_DATA
 export LIB1ASMSRC
 export LIBGCC2_CFLAGS
+ # APPLE LOCAL mainline 2005-10-02 4218570
+export LIPO_FOR_TARGET
 export MACHMODE_H
 export NM_FOR_TARGET
+ # APPLE LOCAL mainline 2005-10-02 4218570
+export STRIP_FOR_TARGET
 export RANLIB_FOR_TARGET
 export libsubdir
 export slibdir
@@ -977,14 +981,16 @@ STAGECOPYSTUFF = insn-flags.h insn-config.h insn-codes.h \
  genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-gen.h
 
 # Files to be moved away after each stage in building.
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
 STAGEMOVESTUFF = *$(objext) s-* \
- xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
+ xgcc$(exeext) cpp$(exeext) cc1$(exeext) cc1*-dummy$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
  $(SPECS) collect2$(exeext) \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
- *.[0-9][0-9].* *.[si] libbackend.a libgcc.mk \
+ *.[0-9][0-9].* *.[si] *-checksum.c libbackend.a libgcc.mk \
  $(LANG_STAGESTUFF)
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 
 # Defined in libgcc2.c, included only in the static library.
 LIB2FUNCS_ST = _eprintf __gcc_bcmp
@@ -1211,9 +1217,20 @@ gcc-cross: xgcc$(exeext)
 	cp xgcc$(exeext) gcc-cross$(exeext)
 
 # APPLE LOCAL begin order files  --ilr
-cc1$(exeext): $(C_OBJS) $(BACKEND) $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cc1$(exeext) \
-		$(C_OBJS) $(BACKEND) $(LIBS) $(CC1_ORDER_FLAGS) 
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+cc1-dummy$(exeext): $(C_OBJS) dummy-checksum.o $(BACKEND) $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(C_OBJS) dummy-checksum.o \
+	  $(BACKEND) $(LIBS) $(CC1_ORDER_FLAGS)
+
+cc1-checksum.c : cc1-dummy$(exeext) build/genchecksum$(exeext)
+	build/genchecksum$(exeext) cc1-dummy$(exeext) > $@
+
+cc1-checksum.o : cc1-checksum.c
+
+cc1$(exeext): $(C_OBJS) cc1-checksum.o $(BACKEND) $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(C_OBJS) cc1-checksum.o \
+	  $(BACKEND) $(LIBS) $(CC1_ORDER_FLAGS)
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 # APPLE LOCAL end order files  --ilr
 
 # Build the version of limits.h that we will install.
@@ -1413,10 +1430,12 @@ c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     c-objc-common.h c-pragma.h
 stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
     $(GGC_H) $(C_COMMON_H)
+# APPLE LOCAL begin 4133801
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(RTL_H) debug.h $(C_TREE_H) $(C_COMMON_H) real.h c-incpath.h cppdefault.h \
     $(C_PRAGMA_H) input.h intl.h $(FLAGS_H) toplev.h output.h \
-    $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
+    $(CPPLIB_H) $(EXPR_H) $(TM_P_H) langhooks.h
+# APPLE LOCAL end 4133801
 # APPLE LOCAL AltiVec
 c-lex.o: $(TARGET_H) ../libcpp/internal.h
 c-ppoutput.o : c-ppoutput.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -1538,6 +1557,16 @@ gccspec.o: gccspec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H)
 
 cppspec.o: cppspec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H)
 
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+build/genchecksum$(build_exeext) : build/genchecksum.o $(BUILD_LIBDEPS)
+	$(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o $@ \
+	 build/genchecksum.o $(BUILD_LIBS)
+
+build/genchecksum.o : genchecksum.c $(BCONFIG_H) $(SYSTEM_H) $(MD5_H)
+
+dummy-checksum.o : dummy-checksum.c
+
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 tree-check.h: s-check ; @true
 s-check : build/gencheck$(build_exeext)
 	$(RUN_GEN) build/gencheck$(build_exeext) > tmp-check.h
@@ -1618,9 +1647,11 @@ prefix.o: prefix.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) Makefile prefix.h
 convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(FLAGS_H) \
    convert.h toplev.h langhooks.h c-tree.h c-common.h
 # APPLE LOCAL end AltiVec
+# APPLE LOCAL begin 4133801
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) toplev.h \
    tree-inline.h $(RTL_H) insn-config.h $(INTEGRATE_H) langhooks.h \
-   $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) diagnostic.h intl.h
+   $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) diagnostic.h intl.h debug.h
+# APPLE LOCAL end 4133801
 tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(FLAGS_H) function.h $(PARAMS_H) \
    toplev.h $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h \
@@ -2095,7 +2126,8 @@ loop-iv.o : loop-iv.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(GGC_H) \
 loop-invariant.o : loop-invariant.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(GGC_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h $(EXPR_H) coretypes.h $(TM_H) \
    function.h $(FLAGS_H) df.h
-cfgloopmanip.o : cfgloopmanip.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
+# APPLE LOCAL 4321079 options.h
+cfgloopmanip.o : cfgloopmanip.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) options.h \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(CFGLAYOUT_H) output.h coretypes.h $(TM_H)
 loop-init.o : loop-init.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h $(CFGLOOP_H) $(CFGLAYOUT_H) \
@@ -2567,13 +2599,16 @@ genprognames=genconfig genflags gencodes genemit genopinit genrecog \
 genprogs=$(genprognames:%=build/%$(build_exeext))
 
 # Object files used in those programs.
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
 genobjnames=$(genprognames:%=%.o) read-rtl.o gensupport.o genattrtab.o \
         genautomata.o gengenrtl.o genmodes.o genpreds.o gengtype.o \
 	genconstants.o gen-protos.o scan.o fix-header.o scan-decls.o \
 	gencheck.o dummy-conditions.o genconditions.o errors.o ggc-none.o \
 	min-insn-modes.o rtl.o print-rtl.o varray.o gcov-iov.o \
-	insn-conditions.o gengtype-lex.o gengtype-yacc.o genmddeps.o
+	insn-conditions.o gengtype-lex.o gengtype-yacc.o genmddeps.o \
+	genchecksum.o
 
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 genobjs=$(genobjnames:%=build/%)
 
 $(genprogs): %$(build_exeext): %.o  $(BUILD_RTL) $(BUILD_SUPPORT) \
@@ -3188,6 +3223,10 @@ mostlyclean: lang.mostlyclean
 # Delete files generated by gengtype.c
 	-rm -f gtype-*
 	-rm -f gt-*
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+# Delete genchecksum outputs
+	-rm -f *-checksum.c
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 
 # Delete all files made by compilation
 # that don't exist in the distribution.
@@ -3374,7 +3413,8 @@ $(DESTDIR)$(infodir)/%.info: doc/%.info installdirs
 	else true; fi;
 
 # Install the man pages.
-install-man: installdirs lang.install-man \
+ # APPLE LOCAL mainline 4.1 2005-06-16
+install-man: lang.install-man \
 	$(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext) \
 	$(DESTDIR)$(man1dir)/$(CPP_INSTALL_NAME)$(man1ext) \
 	$(DESTDIR)$(man1dir)/$(GCOV_INSTALL_NAME)$(man1ext) \
@@ -3382,22 +3422,26 @@ install-man: installdirs lang.install-man \
 	$(DESTDIR)$(man7dir)/gfdl$(man7ext) \
 	$(DESTDIR)$(man7dir)/gpl$(man7ext)
 
-$(DESTDIR)$(man7dir)/%$(man7ext): doc/%.7
+ # APPLE LOCAL mainline 4.1 2005-06-16
+$(DESTDIR)$(man7dir)/%$(man7ext): doc/%.7 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
 
-$(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext): doc/gcc.1
+ # APPLE LOCAL mainline 4.1 2005-06-16
+$(DESTDIR)$(man1dir)/$(GCC_INSTALL_NAME)$(man1ext): doc/gcc.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
 
-$(DESTDIR)$(man1dir)/$(CPP_INSTALL_NAME)$(man1ext): doc/cpp.1
+ # APPLE LOCAL mainline 4.1 2005-06-16
+$(DESTDIR)$(man1dir)/$(CPP_INSTALL_NAME)$(man1ext): doc/cpp.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
 
-$(DESTDIR)$(man1dir)/$(GCOV_INSTALL_NAME)$(man1ext): doc/gcov.1
+ # APPLE LOCAL mainline 4.1 2005-06-16
+$(DESTDIR)$(man1dir)/$(GCOV_INSTALL_NAME)$(man1ext): doc/gcov.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
@@ -3952,28 +3996,39 @@ slowcompare slowcompare3 slowcompare4 slowcompare-lean slowcompare3-lean slowcom
 fastcompare fastcompare3 fastcompare4 fastcompare-lean fastcompare3-lean fastcompare4-lean \
  gnucompare  gnucompare3  gnucompare4  gnucompare-lean  gnucompare3-lean  gnucompare4-lean: force
 	-rm -f .bad_compare
+ # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
 	case "$@" in *compare | *compare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^[a-z]*compare\([0-9][0-9]*\).*,\1,'` ;; esac; \
-	for dir in . $(SUBDIRS); do \
+	for dir in . $(SUBDIRS) libgcc; do \
 	  if [ "`echo $$dir/*$(objext)`" != "$$dir/*$(objext)" ] ; then \
 	    for file in $$dir/*$(objext); do \
-	      case "$@" in \
-		slowcompare* ) \
-		  tail +16c ./$$file > tmp-foo1; \
-		  tail +16c stage$$stage/$$file > tmp-foo2 \
-		    && (cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 || echo $$file differs >> .bad_compare) || true; \
+	      case $$file in \
+		./cc*-checksum$(objext) | libgcc/* ) \
+		    tail +16c ./$$file > tmp-foo1 \
+		    && tail +16c stage$$stage/$$file > tmp-foo2 \
+		    && ( cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 \
+			 || echo warning: $$file differs || true ) \
 		  ;; \
-		fastcompare* ) \
-		  cmp $$file stage$$stage/$$file 16 16 > /dev/null 2>&1; \
-		  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
-		  ;; \
-		gnucompare* ) \
-		  cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1; \
-		  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
-		  ;; \
+		*)  case "$@" in \
+		  slowcompare* ) \
+		    tail +16c ./$$file > tmp-foo1; \
+		    tail +16c stage$$stage/$$file > tmp-foo2 \
+		      && (cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 \
+			  || echo $$file differs >> .bad_compare) || true; \
+		    ;; \
+		  fastcompare* ) \
+		    cmp $$file stage$$stage/$$file 16 16 > /dev/null 2>&1; \
+		    test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
+		    ;; \
+		  gnucompare* ) \
+		    cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1; \
+		    test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
+		    ;; \
+	        esac ; \
 	      esac ; \
 	    done; \
 	  else true; fi; \
 	done
+ # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 	-rm -f tmp-foo*
 	case "$@" in *compare | *compare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^[a-z]*compare\([0-9][0-9]*\).*,\1,'` ;; esac; \
 	if [ -f .bad_compare ]; then \
@@ -4003,6 +4058,11 @@ stage1-start:
 	 do \
 	   if [ -d stage1/$$dir ] ; then true ; else mkdir stage1/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
+	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage1/libunwind.a stage1/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage1/specs
 	-mv $(STAGEMOVESTUFF) stage1
@@ -4013,9 +4073,8 @@ stage1-start:
 	-if [ -f as$(exeext) ] ; then (cd stage1 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcov.a
-	-rm -f stage1/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage1/libunwind.a stage1/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stage1
 	-$(RANLIB_FOR_TARGET) stage1/libgcc.a
 	-cp libgcov.a stage1
@@ -4042,6 +4101,11 @@ stage2-start:
 	 do \
 	   if [ -d stage2/$$dir ] ; then true ; else mkdir stage2/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
+	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage2/libunwind.a stage2/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage2/specs
 	-mv $(STAGEMOVESTUFF) stage2
@@ -4052,9 +4116,8 @@ stage2-start:
 	-if [ -f as$(exeext) ] ; then (cd stage2 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage2/libgcc.a stage2/libgcov.a stage2/libgcc_eh.a
-	-rm -f stage2/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage2/libunwind.a stage2/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stage2
 	-$(RANLIB_FOR_TARGET) stage2/libgcc.a
 	-cp libgcov.a stage2
@@ -4077,6 +4140,11 @@ stage3-start:
 	 do \
 	   if [ -d stage3/$$dir ] ; then true ; else mkdir stage3/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
+	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage3/libunwind.a stage3/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage3/specs
 	-mv $(STAGEMOVESTUFF) stage3
@@ -4087,9 +4155,8 @@ stage3-start:
 	-if [ -f as$(exeext) ] ; then (cd stage3 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage3/libgcc.a stage3/libgcov.a stage3/libgcc_eh.a
-	-rm -f stage3/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage3/libunwind.a stage3/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stage3
 	-$(RANLIB_FOR_TARGET) stage3/libgcc.a
 	-cp libgcov.a stage3
@@ -4112,6 +4179,11 @@ stage4-start:
 	 do \
 	   if [ -d stage4/$$dir ] ; then true ; else mkdir stage4/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
+	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
+	-rm -f stage4/libunwind.a stage4/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 # If SPECS is overridden, make sure it is `installed' as specs.
 	-mv $(SPECS) stage4/specs
 	-mv $(STAGEMOVESTUFF) stage4
@@ -4122,9 +4194,8 @@ stage4-start:
 	-if [ -f as$(exeext) ] ; then (cd stage4 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage4/libgcc.a stage4/libgcov.a stage4/libgcc_eh.a
-	-rm -f stage4/libgcc_s*$(SHLIB_EXT)
-	-rm -f stage4/libunwind.a stage4/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stage4
 	-$(RANLIB_FOR_TARGET) stage4/libgcc.a
 	-cp libgcov.a stage4
@@ -4147,6 +4218,11 @@ stageprofile-start:
 	 do \
 	   if [ -d stageprofile/$$dir ] ; then true ; else mkdir stageprofile/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
+	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
+	-rm -f stageprofile/libunwind.a stageprofile/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-mv $(STAGEMOVESTUFF) stageprofile
 	-mv build/* stageprofile/build
 	-cp -p $(STAGECOPYSTUFF) stageprofile
@@ -4155,9 +4231,8 @@ stageprofile-start:
 	-if [ -f as$(exeext) ] ; then (cd stageprofile && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stageprofile && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stageprofile/libgcc.a stageprofile/libgcov.a stageprofile/libgcc_eh.a
-	-rm -f stageprofile/libgcc_s*$(SHLIB_EXT)
-	-rm -f stageprofile/libunwind.a stageprofile/libunwind*$(SHLIB_EXT)
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-cp libgcc.a stageprofile
 	-$(RANLIB_FOR_TARGET) stageprofile/libgcc.a
 	-cp libgcov.a stageprofile
@@ -4180,6 +4255,12 @@ stagefeedback-start:
 	 do \
 	   if [ -d stagefeedback/$$dir ] ; then true ; else mkdir stagefeedback/$$dir ; fi ; \
 	 done
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
+	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
+	-rm -f stagefeedback/libunwind.a stagefeedback/libunwind*$(SHLIB_EXT)
+	-rm -f *.da
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-mv $(STAGEMOVESTUFF) stagefeedback
 	-mv build/* stagefeedback/build
 	-cp -p $(STAGECOPYSTUFF) stagefeedback
@@ -4188,10 +4269,8 @@ stagefeedback-start:
 	-if [ -f as$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stagefeedback && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stagefeedback/libgcc.a stagefeedback/libgcov.a stagefeedback/libgcc_eh.a
-	-rm -f stagefeedback/libgcc_s*$(SHLIB_EXT)
-	-rm -f stagefeedback/libunwind.a stagefeedback/libunwind*$(SHLIB_EXT)
-	-rm -f *.da
+	# APPLE LOCAL begin mainline 2005-10-02 4218570
+	# APPLE LOCAL end mainline 2005-10-02 4218570
 	-for dir in fixinc po testsuite $(SUBDIRS); \
 	 do \
 	   rm -f $$dir/*.da ; \

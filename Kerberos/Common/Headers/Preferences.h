@@ -1,7 +1,7 @@
 /*
  * Preferences.h
  *
- * $Header: /cvs/kfm/Common/Headers/Preferences.h,v 1.2 2004/05/19 21:31:07 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

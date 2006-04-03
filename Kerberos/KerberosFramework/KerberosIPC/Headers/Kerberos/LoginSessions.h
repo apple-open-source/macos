@@ -1,7 +1,7 @@
 /*
  * LoginSessions.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/LoginSessions.h,v 1.16 2005/06/15 20:59:14 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

@@ -1,7 +1,7 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/server_internal.h,v 1.31 2001/07/08 12:24:56 epeisach Exp $
+ * $Header$
  */
 
 /*

@@ -102,7 +102,9 @@ static const template i386_optab[] = {
 {"lahf", 0, 0x9f, _, NoModrm, {0, 0, 0} },
 {"sahf", 0, 0x9e, _, NoModrm, {0, 0, 0} },
 {"pushf", 0, 0x9c, _, NoModrm, {0, 0, 0} },
+{"pushfd", 0, 0x9c, _, NoModrm, {0, 0, 0} },
 {"popf", 0, 0x9d, _, NoModrm, {0, 0, 0} },
+{"popfd", 0, 0x9d, _, NoModrm, {0, 0, 0} },
 {"stc", 0, 0xf9, _, NoModrm, {0, 0, 0} },
 {"std", 0, 0xfd, _, NoModrm, {0, 0, 0} },
 {"sti", 0, 0xfb, _, NoModrm, {0, 0, 0} },
@@ -1022,8 +1024,8 @@ static const template i386_optab[] = {
 {"fsubr", 2, 0xdce8, _, ShortForm, {FloatAcc, FloatReg, 0} },
 #endif
 {"fsubr", 0, 0xdce9, _, NoModrm, {0, 0, 0} },
-{"fsubrp", 1, 0xdae8, _, ShortForm, {FloatReg, 0, 0} },
-{"fsubrp", 2, 0xdae8, _, ShortForm, {FloatReg, FloatAcc, 0} },
+{"fsubrp", 1, 0xdee8, _, ShortForm, {FloatReg, 0, 0} },
+{"fsubrp", 2, 0xdee8, _, ShortForm, {FloatReg, FloatAcc, 0} },
 #ifdef NON_BROKEN_OPCODES
 {"fsubrp", 2, 0xdee0, _, ShortForm, {FloatAcc, FloatReg, 0} },
 #else

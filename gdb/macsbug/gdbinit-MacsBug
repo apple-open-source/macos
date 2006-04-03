@@ -2,10 +2,10 @@
 #                                                                               #
 #                                gdbinit-MacsBug                                #
 #                                                                               #
-#            Macsbug-syle gdb command definitions and plugin loader             #
+#            Macsbug-style gdb command definitions and plugin loader            #
 #                                                                               #
 #                                 Ira L. Ruben                                  #
-#                   Copyright Apple Computer, Inc. 2000-2001                    #
+#                   Copyright Apple Computer, Inc. 2000-2005                    #
 #                                                                               #
 #################################################################################
 

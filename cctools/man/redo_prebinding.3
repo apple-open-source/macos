@@ -1,4 +1,4 @@
-.TH REDO_PREBINDING 3 "March 29, 2004" "Apple Computer, Inc."
+.TH REDO_PREBINDING 3 "July 28, 2005" "Apple Computer, Inc."
 .SH NAME
 redo_prebinding library functions
 .SH SYNOPSIS
@@ -264,7 +264,7 @@ and determines if it is a binary and if its prebinding is uptodate.  It returns
 one of the return values below depending on the state of the binary and
 libraries.  If the parameter
 .I allow_missing_architectures
-is zero then architectures for fat files are checked.  If the parameter
+is zero then architectures for universal files are checked.  If the parameter
 .I allow_missing_architectures
 is non-zero then the value returned is based on the cputype specified by
 .I allow_missing_architectures.
@@ -317,14 +317,14 @@ the file is an archive.
 the file is something other than the above files.
 .TP
 .B OFT_INCONSISTENT,
-the file is a fat file and the architectures are not of the same type.
+the file is a universal file and the architectures are not of the same type.
 .TP
 .B OFT_FILE_ERROR
 The file can't be opened, read or malformed
 .PP
 .IR get_prebind_cksums ()
-takes a file_name that is a Mach-O file or fat file containing Mach-O files and
-returns a
+takes a file_name that is a Mach-O file or universal file containing Mach-O
+files and returns a
 .IR malloc (3)'ed
 array of
 .I prebind_cksum_arch

@@ -1,4 +1,4 @@
-// APPLE LOCAL file Objective-C++
+// APPLE LOCAL file mainline
 // Check if ivars may be accessed via the C++ dot notation.
 // { dg-do run }
 // { dg-options "-fno-objc-call-cxx-cdtors" }

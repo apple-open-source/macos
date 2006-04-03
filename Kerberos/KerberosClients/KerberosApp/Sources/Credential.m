@@ -1,7 +1,7 @@
 /*
  * Credential.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Credential.m,v 1.12 2005/01/31 20:50:51 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -209,7 +209,7 @@
             NSDate *newFireDate = NULL;
             dprintf ("halfTimeRemainingDate is %s", [[halfTimeRemainingDate description] UTF8String]);
             dprintf ("halfExpiredDate is %s", [[halfExpiredDate description] UTF8String]);
-            dprintf ("asapDate is %s", [[asapDate description] UTF8String]);
+            dprintf ("asapDate is %s", [[asapDate description] UTF8String]);
             
             if ([halfExpiredDate timeIntervalSinceNow] <= 0) {
                 // If the tickets are more than half expired then fire immediately unless we are

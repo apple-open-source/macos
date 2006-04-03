@@ -47,6 +47,8 @@ extern int reg_or_neg_short_operand (rtx, enum machine_mode);
 extern int reg_or_aligned_short_operand (rtx, enum machine_mode);
 extern int reg_or_u_short_operand (rtx, enum machine_mode);
 extern int reg_or_cint_operand (rtx, enum machine_mode);
+/* APPLE LOCAL radar 3869444 (also in  mainline) */
+extern int scc_operand (rtx, enum machine_mode);
 extern int reg_or_arith_cint_operand (rtx, enum machine_mode);
 extern int reg_or_add_cint64_operand (rtx, enum machine_mode);
 extern int reg_or_sub_cint64_operand (rtx, enum machine_mode);
@@ -84,6 +86,10 @@ extern int call_operand (rtx, enum machine_mode);
 extern int current_file_function_operand (rtx, enum machine_mode);
 extern int input_operand (rtx, enum machine_mode);
 extern int small_data_operand (rtx, enum machine_mode);
+/* APPLE LOCAL begin 4119059 */
+extern int s5bit_cint_operand (rtx, enum machine_mode);
+extern int u5bit_cint_operand (rtx, enum machine_mode);
+/* APPLE LOCAL end 4119059 */
 extern int s8bit_cint_operand (rtx, enum machine_mode);
 extern bool legitimate_constant_pool_address_p (rtx);
 extern int expand_block_clear (rtx[]);
@@ -135,8 +141,6 @@ extern int mfcr_operation (rtx, enum machine_mode);
 extern int mtcrf_operation (rtx, enum machine_mode);
 extern int lmw_operation (rtx, enum machine_mode);
 extern struct rtx_def *create_TOC_reference (rtx);
-/* APPLE LOCAL RTX_COST for multiply */
-extern int rs6000_rtx_mult_cost (rtx);
 extern void rs6000_split_multireg_move (rtx, rtx);
 extern void rs6000_emit_move (rtx, rtx, enum machine_mode);
 extern rtx rs6000_legitimize_address (rtx, rtx, enum machine_mode);

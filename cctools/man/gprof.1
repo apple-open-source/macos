@@ -34,7 +34,7 @@
 .\"
 .\"	@(#)gprof.1	8.1 (Berkeley) 6/6/93
 .\"
-.TH GPROF 1 "November 25, 2002" "Apple Computer, Inc."
+.TH GPROF 1 "July 28, 2005" "Apple Computer, Inc."
 .SH NAME
 gprof \- display call graph profile data
 .SH SYNOPSIS
@@ -84,12 +84,12 @@ time of its descendents is propagated to its (direct) call graph parents.
 Cycles are also shown, with an entry for the cycle as a whole as well as a 
 listing of the members of the cycle and their contributions to the
 time and call counts of the cycle.
-.SH "FAT FILE SUPPORT"
+.SH "UNIVERSAL FILE SUPPORT"
 .I gprof
-accepts a ``fat'' file for the
+accepts a ``universal'' file for the
 .I a.out
 file, using the host architecture from the file.  (It is an error if the 
-``fat'' file does not contain the host architecture.)
+``universal'' file does not contain the host architecture.)
 .SH OPTIONS
 .TP 
 The following options are available:

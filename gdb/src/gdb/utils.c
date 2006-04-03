@@ -1088,7 +1088,6 @@ request_quit (int signo)
   if (immediate_quit)
     quit ();
 }
-
 
 /* Memory management stuff (malloc friends).  */
 

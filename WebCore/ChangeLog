@@ -1,3 +1,162 @@
+=== WebCore-417.24 ===
+
+2006-03-13  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-02-16  Tim Omernick  <timo@apple.com>
+
+        Reviewed by Geoff.
+
+        <rdar://problem/4428609> Flash Player 8.0.22 can crash Safari (and WebKit apps)
+        with javascript disabled (7015)
+
+        Added a test case, manual-tests/NPN_Invoke.  This is a skeleton of a Netscape
+        plugin which uses NPN_Invoke() to call the window.alert() JavaScript function.
+        
+        * bridge/mac/MacFrame.mm:
+        (WebCore::MacFrame::windowScriptNPObject):
+        Removed the check Darin added to return 0 when JavaScript is disabled.
+        This method cannot return 0, because plugins are not guaranteed to check
+        for that.
+        Removed my old fix for Radar 4428609 (7015) in favor of a better solution.
+        Instead of creating a "dummy" JSObject to represent the window script object
+        when JavaScript is disabled, we use the new JavaScriptCore bindings API to 
+        create a "no script" NPObject.  This solution is better because it does not
+        cause entry into any JavaScript interpreter code.
+
+        * manual-tests/NPN_Invoke: Added.
+        * manual-tests/NPN_Invoke/English.lproj: Added.
+        * manual-tests/NPN_Invoke/English.lproj/Localized.r: Added.
+        * manual-tests/NPN_Invoke/Info.plist: Added.
+        * manual-tests/NPN_Invoke/NPN_Invoke.xcodeproj: Added.
+        * manual-tests/NPN_Invoke/NPN_Invoke.xcodeproj/project.pbxproj: Added.
+        * manual-tests/NPN_Invoke/main.c: Added.
+        * manual-tests/NPN_Invoke/test.html: Added.
+
+=== WebCore-417.23 ===
+
+2006-03-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        This also includes the http://bugzilla.opendarwin.org/show_bug.cgi?id=7363 fix
+        <rdar://problem/4462712> REGRESSION (r12872): Repro crash when clicking the Quick Reply box in Gmail
+
+    2006-02-17  Vicki Murley <vicki@apple.com>
+
+        Reviewed by Justin.
+ 
+        Get rid of handleFocusOut on text fields and textareas - move this functionality to the place
+        where we resign focus on the previous node in setFocusNode.  Add isTextField on RenderObject
+        as one way to distinguish from contenteditable elements - Win IE does not fire onChange for 
+        contenteditable elements, so we won't either. Also, expose the dirty bit variables previously 
+        checked in handleFocusOut methods in isEdited() and setEdited().
+
+        Fixes the following bugs:
+        <rdar://problem/4315673> REGRESSION (1.2.2 - 1.3): onChange and onFocus events firing order differs for mouse click and tab (7227)
+        <rdar://problem/4447009> for text fields, onChange should fire before onBlur to match Win IE
+
+        Test case is on the way.
+
+        * dom/DocumentImpl.cpp:
+        (WebCore::DocumentImpl::setFocusNode): For textareas and text fields, fire a change event
+        on the node that is resigning focus.  Make sure the blur event fires after the change event - 4447009.
+        * rendering/render_form.cpp:
+        (WebCore::RenderLineEdit::slotReturnPressed): Replace call to handleFocusOut with equivalent code.
+        (WebCore::RenderLineEdit::isEdited): Added.
+        (WebCore::RenderLineEdit::setEdited): Added.
+        (WebCore::RenderTextArea::setEdited): Added.
+        * rendering/render_form.h:
+        (WebCore::RenderLineEdit::isTextField): Added.
+        (WebCore::RenderTextArea::isTextArea): Make this non-virtual.
+        (WebCore::RenderTextArea::isEdited): Added.
+        * rendering/render_object.h:
+        (WebCore::RenderObject::isEdited): Added.
+        (WebCore::RenderObject::setEdited): Added.
+        (WebCore::RenderObject::isTextField): Added.
+        * rendering/render_replaced.h: Remove handleFocusOut().
+        * rendering/render_replaced.cpp: Ditto.
+        (WebCore::RenderWidget::eventFilter): Remove call to handleFocusOut().  Safe to do here,
+        since we call setFocusNode immediately beforehand.
+
+=== WebCore-417.22 ===
+
+2006-02-15  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Beth, Geoff, Maciej.
+
+        Removed #define MALLOC_FAILURE_ACTION abort() letting malloc return NULL
+
+        Fixes <rdar://problem/4365248> *SecUpd: Tiger* SureSec si#182 safari heap overflow.
+        <rdar://problem/4416122> *SecUpd: Chardonnay* SureSec si#182 safari heap overflow.
+
+        * khtml/misc/main_thread_malloc.cpp:
+
+=== WebCore-417.21 ===
+
+2006-02-10  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by darin.
+
+        <rdar://problem/4145813> hang in XMLHttpRequest::cancelRequests
+        No test case possible.
+
+        * khtml/ecma/xmlhttprequest.cpp:
+        (KJS::removeFromRequestsByDocument):
+        (KJS::XMLHttpRequest::removeFromRequestsByDocument):
+        (KJS::XMLHttpRequest::cancelRequests):
+
+2006-02-10  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Tim O.
+
+        Rolling out r11800 and reworked Tim's original fix
+        to call _NPN_DeallocateObject in the destructor.
+
+        * kwq/KWQKHTMLPart.mm:
+        (KWQKHTMLPart::~KWQKHTMLPart):
+        (KWQKHTMLPart::setView):
+        (KWQKHTMLPart::cleanupPluginRootObjects):
+
+=== WebCore-417.20 ===
+
+2006-02-06  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-01  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by darin
+
+        Fixes <rdar://problem/4074536> Seed: Mail crash adjusting quote level - KHTMLPart::computeAndSetTypingStyle
+
+        No test cases added, requires Mail
+
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge typingStyle]):
+        Crashes were happening after a style was merged with itself.  Mail was doing a setTypingStyle
+        with a pointer to our internal typing style.  Fix is to only hand out copies of our typingStyle.
+
+2006-02-06  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-01-16  Tim Omernick  <timo@apple.com>
+
+        Reviewed by John Sullivan.
+
+        WebCore part of <rdar://problem/4211707> NPAPI ref count behavior differs with Mozilla
+
+        * bridge/mac/MacFrame.mm:
+        (MacFrame::setView):
+        Call _NPN_DeallocateObject() instead of _NPN_ReleaseObject() so that we don't leak if a plugin fails to release
+        the window script object properly.
+        Our old NPN_GetValue() did not properly retain the returned window script object.  Because of this, many plugins
+        have WebKit-specific workarounds to not release said window script object.  Forcibly deallocating it here
+        should prevent any such issues.  This shouldn't cause any problems for plugins, since they should already be
+        stopped and destroyed at this point.
+        This also fixes a preexisting leak of the window script NPObject -- it was never actually being freed!
+
 === WebCore-417.19 ===
 
 2006-01-18  Timothy Hatcher  <timothy@apple.com>

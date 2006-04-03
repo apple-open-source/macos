@@ -328,6 +328,8 @@ ppc_parse_instructions (CORE_ADDR start, CORE_ADDR end,
                      and saves $lr & $cr on the stack in the usual place.
                      if gcc changes, this needs to be updated as well. */
 
+		  unsigned int i;
+
                   props->frameless = 0;
                   props->frameptr_used = 0;
 
@@ -342,9 +344,13 @@ ppc_parse_instructions (CORE_ADDR start, CORE_ADDR end,
 
                   props->saved_gpr = 13;
                   props->gpr_offset = -220;
+		  for (i = 13; i < 32; i++)
+		    props->gpr_bitmap[i] = 1;
 
                   props->saved_fpr = 14;
                   props->fpr_offset = -144;
+		  for (i = 14; i < 32; i++)
+		    props->fpr_bitmap[i] = 1;
 
                   recognized_fn_in_prolog = 1;
                 }
@@ -369,7 +375,10 @@ ppc_parse_instructions (CORE_ADDR start, CORE_ADDR end,
                   reg = GET_SRC_REG (store_insn);
                   if ((props->saved_fpr == -1) || (props->saved_fpr > reg))
                     {
-                      props->saved_fpr = reg;
+                      unsigned int i;
+		      props->saved_fpr = reg;
+		      for (i = reg; i < 32; i++)
+			props->fpr_bitmap[i] = 1;
                       props->fpr_offset = SIGNED_SHORT (store_insn) + offset2;
                     }
                   /* The LR also gets saved in saveFP... */
@@ -450,31 +459,46 @@ ppc_parse_instructions (CORE_ADDR start, CORE_ADDR end,
       else if ((op & 0xfc1f0000) == 0xd8010000) /* stfd Rx,NUM(r1) */
         {
           int reg = GET_SRC_REG (op);
+	  props->fpr_bitmap[reg] = 1;
           if ((props->saved_fpr == -1) || (props->saved_fpr > reg))
             {
-              props->saved_fpr = reg;
+	      props->saved_fpr = reg;
               props->fpr_offset = SIGNED_SHORT (op) + offset2;
             }
           goto processed_insn;
         }
-      else if (((op & 0xfc1f0000) == 0xbc010000)
-               /* stm Rx, NUM(r1) */
-               || ((op & 0xfc1f0000) == 0x90010000
-                   /* st rx,NUM(r1), rx >= r13 */
-                   && (op & 0x03e00000) >= 0x01a00000)
-               || ((op & 0xfc1f0000) == 0xf8010000
-                   /* st rx,NUM(r1), rx >= r13 */
-                   && (op & 0x03e00000) >= 0x01a00000))
+      else if ((op & 0xfc1f0000) == 0xbc010000)	/* stmw Rx, NUM(r1) */
         {
-          int reg = GET_SRC_REG (op);
+	  unsigned int reg = GET_SRC_REG (op);
           if ((props->saved_gpr == -1) || (props->saved_gpr > reg))
             {
-              props->saved_gpr = reg;
+              unsigned int i;
+	      props->saved_gpr = reg;
               props->gpr_offset = SIGNED_SHORT (op) + offset2;
-            }
-          goto processed_insn;
-        }
-
+	      for (i = reg; i < 32; i++)
+		props->gpr_bitmap[i] = 1;
+	    }
+	  goto processed_insn;
+	}
+      else if (
+	       (((op & 0xfc1f0000) == 0x90010000)
+		&& (op & 0x03e00000) >= 0x01a00000)
+	       /* stw rx,NUM(r1), rx >= r13 */
+               ||
+	       (((op & 0xfc1f0000) == 0xf8010000
+		 && (op & 0x03e00000) >= 0x01a00000))
+	       /* std rx,NUM(r1), rx >= r13 */
+	       )
+	{
+	  unsigned int reg = GET_SRC_REG (op);
+	  props->gpr_bitmap[reg] = 1;
+          if ((props->saved_gpr == -1) || (props->saved_gpr > reg))
+            {
+	      props->saved_gpr = reg;
+              props->gpr_offset = SIGNED_SHORT (op) + offset2;
+	    }
+	  goto processed_insn;
+	}
       /* If we saw a mflr, then we set lr_reg to the stw insn that would
          match the register mflr moved the lr to.  Otherwise it is 0 or
          -1 so it won't match this... */
@@ -486,7 +510,6 @@ ppc_parse_instructions (CORE_ADDR start, CORE_ADDR end,
           lr_reg = 0;
           lr_64_reg = 0;
           goto processed_insn;
-
         }
       else if ((op & 0xffff0000) == cr_reg)
         {
@@ -797,6 +820,14 @@ ppc_clear_function_boundaries (ppc_function_boundaries * boundaries)
 void
 ppc_clear_function_properties (ppc_function_properties * properties)
 {
+  unsigned int i;
+
+  for (i = 0; i < 32; i++)
+    {
+      properties->gpr_bitmap[i] = 0;
+      properties->fpr_bitmap[i] = 0;
+    }
+
   properties->offset = -1;
 
   properties->saved_gpr = -1;
@@ -918,11 +949,14 @@ ppc_frame_saved_regs (struct frame_info * next_frame, void **this_cache)
       for (i = props->saved_fpr; i < 32; i++)
         {
           int fpr = PPC_MACOSX_FIRST_FP_REGNUM + i;
-          long offset =
-            props->fpr_offset +
-            ((i - props->saved_fpr) * register_size (current_gdbarch,
-                                                     PPC_MACOSX_FIRST_FP_REGNUM));
-          saved_regs[fpr] = prev_sp + offset;
+	  if (props->fpr_bitmap[i])
+	    {
+	      long offset =
+		props->fpr_offset +
+		((i - props->saved_fpr) * register_size (current_gdbarch,
+							 PPC_MACOSX_FIRST_FP_REGNUM));
+	      saved_regs[fpr] = prev_sp + offset;
+	    }
         }
     }
 
@@ -935,9 +969,12 @@ ppc_frame_saved_regs (struct frame_info * next_frame, void **this_cache)
           /* Need to use the wordsize here rather than the register size since the
              G5 always has 8 byte registers, but 32 bit apps only store into the
              lower wordsize.  */
-          long offset =
-            props->gpr_offset + ((i - props->saved_gpr) * wordsize);
-          saved_regs[gpr] = prev_sp + offset;
+	  if (props->gpr_bitmap[i])
+	    {
+	      long offset =
+		props->gpr_offset + ((i - props->saved_gpr) * wordsize);
+	      saved_regs[gpr] = prev_sp + offset;
+	    }
         }
     }
 

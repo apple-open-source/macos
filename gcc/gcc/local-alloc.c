@@ -1548,6 +1548,10 @@ block_alloc (int b)
   for (i = 0; i < next_qty; i++)
     {
       q = qty_order[i];
+      /* APPLE LOCAL begin 4321079 */
+      if (optimize && VECTOR_MODE_P (qty[q].mode))
+	continue;
+      /* APPLE LOCAL end 4321079 */
       if (qty[q].phys_reg < 0)
 	{
 #ifdef INSN_SCHEDULING

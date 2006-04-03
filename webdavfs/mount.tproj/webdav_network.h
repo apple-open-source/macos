@@ -63,7 +63,7 @@ int network_lookup(
 	struct node_entry *node,	/* -> parent node */
 	char *name,					/* -> filename to find */
 	size_t name_length,			/* -> length of name */
-	struct stat *statbuf);		/* <- stat information is returned in this buffer */
+	struct stat *statbuf);		/* <- stat information is returned in this buffer except for st_ino */
 
 int network_getattr(
 	uid_t uid,					/* -> uid of the user making the request */
@@ -100,7 +100,9 @@ int network_create(
 	
 int network_fsync(
 	uid_t uid,					/* -> uid of the user making the request */
-	struct node_entry *node);	/* -> node to sync with server */
+	struct node_entry *node,	/* -> node to sync with server */
+	off_t *file_length,			/* <- length of file */
+	time_t *file_last_modified); /* <- date of last modification */
 
 int network_remove(
 	uid_t uid,					/* -> uid of the user making the request */

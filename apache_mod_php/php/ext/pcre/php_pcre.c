@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.132.2.22 2005/01/21 10:34:46 derick Exp $ */
+/* $Id: php_pcre.c,v 1.132.2.24.2.1 2005/10/11 06:48:33 dmitry Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -152,13 +152,21 @@ PHPAPI pcre* pcre_get_compiled_regex(char *regex, pcre_extra **extra, int *preg_
 	   back the compiled pattern, otherwise go on and compile it. */
 	regex_len = strlen(regex);
 	if (zend_hash_find(&PCRE_G(pcre_cache), regex, regex_len+1, (void **)&pce) == SUCCESS) {
+		/*
+		 * We use a quick pcre_info() check to see whether cache is corrupted, and if it
+		 * is, we flush it and compile the pattern from scratch.
+		 */
+		if (pcre_info(pce->re, NULL, NULL) == PCRE_ERROR_BADMAGIC) {
+			zend_hash_clean(&PCRE_G(pcre_cache));
+		} else {
 #if HAVE_SETLOCALE
-		if (!strcmp(pce->locale, locale)) {
+			if (!strcmp(pce->locale, locale)) {
 #endif
-			*extra = pce->extra;
-			*preg_options = pce->preg_options;
-			return pce->re;
+				*extra = pce->extra;
+				*preg_options = pce->preg_options;
+				return pce->re;
 #if HAVE_SETLOCALE
+			}
 		}
 #endif
 	}
@@ -600,6 +608,7 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 			if (subpat_names[i]) {
 				zend_hash_update(Z_ARRVAL_P(subpats), subpat_names[i],
 								 strlen(subpat_names[i])+1, &match_sets[i], sizeof(zval *), NULL);
+				ZVAL_ADDREF(match_sets[i]);
 			}
 			zend_hash_next_index_insert(Z_ARRVAL_P(subpats), &match_sets[i], sizeof(zval *), NULL);
 		}
@@ -742,9 +751,9 @@ static int preg_do_eval(char *eval_str, int eval_str_len, char *subject,
 					   in instead of the backref */
 					match = subject + offsets[backref<<1];
 					match_len = offsets[(backref<<1)+1] - offsets[backref<<1];
-					if (match_len)
-						esc_match = php_addslashes(match, match_len, &esc_match_len, 0 TSRMLS_CC);
-					else {
+					if (match_len) {
+						esc_match = php_addslashes_ex(match, match_len, &esc_match_len, 0, 1 TSRMLS_CC);
+					} else {
 						esc_match = match;
 						esc_match_len = 0;
 					}

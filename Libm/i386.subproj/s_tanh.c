@@ -1,78 +1,107 @@
-/* @(#)s_tanh.c 5.1 93/09/24 */
 /*
- * ====================================================
- * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ * by Ian Ollmann
+ * Copyright © 2005, Apple Computer Inc. All rights reserved.
  *
- * Developed at SunPro, a Sun Microsystems, Inc. business.
- * Permission to use, copy, modify, and distribute this
- * software is freely granted, provided that this notice
- * is preserved.
- * ====================================================
+ *	based on MathLib v3
  */
+ 
+#include <math.h>
 
-#include <sys/cdefs.h>
-#if defined(LIBM_SCCS) && !defined(lint)
-__RCSID("$NetBSD: s_tanh.c,v 1.9 1999/07/02 15:37:43 simonb Exp $");
-#endif
-
-/* Tanh(x)
- * Return the Hyperbolic Tangent of x
- *
- * Method :
- *				       x    -x
- *				      e  - e
- *	0. tanh(x) is defined to be -----------
- *				       x    -x
- *				      e  + e
- *	1. reduce x to non-negative by tanh(-x) = -tanh(x).
- *	2.  0      <= x <= 2**-55 : tanh(x) := x*(one+x)
- *					        -t
- *	    2**-55 <  x <=  1     : tanh(x) := -----; t = expm1(-2x)
- *					       t + 2
- *						     2
- *	    1      <= x <=  22.0  : tanh(x) := 1-  ----- ; t=expm1(2x)
- *						   t + 2
- *	    22.0   <  x <= INF    : tanh(x) := 1.
- *
- * Special cases:
- *	tanh(NaN) is NaN;
- *	only tanh(0)=0 is exact for finite argument.
- */
-
-#include "math.h"
-#include "math_private.h"
-
-static const double one=1.0, two=2.0, tiny = 1.0e-300;
-
-double tanh(double x)
+float tanhf( float x )
 {
-	double t,z;
-	int32_t jx,ix;
-
-    /* High word of |x|. */
-	GET_HIGH_WORD(jx,x);
-	ix = jx&0x7fffffff;
-
-    /* x is INF or NaN */
-	if(ix>=0x7ff00000) {
-	    if (jx>=0) return one/x+one;    /* tanh(+-inf)=+-1 */
-	    else       return one/x-one;    /* tanh(NaN) = NaN */
+    static const float overflow = 183.2222702f/2.0;      //log(0x1.0p127)
+    float fabsx = __builtin_fabsf( x );
+    
+	if( x != x )	return x + x;
+	
+	if( fabsx > 0x1.0p-12f )		//sqrt( negative epsilon )
+	{
+		if( fabsx < overflow )
+		{
+			fabsx = expm1f( -2.0L * fabsx );
+			fabsx = -fabsx / (2.0L + fabsx );
+		}
+		else
+			fabsx = 1.0f;
+	}
+	else
+	{
+		if( x == 0.0 )
+			return x;
+	
+		fabsx *= 0x1.0p25;
+		fabsx -= 0x1.0p-126f;
+		fabsx *= 0x1.0p-25;
 	}
 
-    /* |x| < 22 */
-	if (ix < 0x40360000) {		/* |x|<22 */
-	    if (ix<0x3c800000) 		/* |x|<2**-55 */
-		return x*(one+x);    	/* tanh(small) = small */
-	    if (ix>=0x3ff00000) {	/* |x|>=1  */
-		t = expm1(two*fabs(x));
-		z = one - two/(t+two);
-	    } else {
-	        t = expm1(-two*fabs(x));
-	        z= -t/(t+two);
-	    }
-    /* |x| > 22, return +-1 */
-	} else {
-	    z = one - tiny;		/* raised inexact flag */
+	if( x < 0 )
+		fabsx = -fabsx;
+	
+	return fabsx;
+}
+
+double tanh( double x )
+{
+    static const double overflow = 1.477319723e+03L/2.0;      //log(0x1.0p1024)
+    double fabsx = __builtin_fabs( x );
+    
+	if( x != x )	return x + x;
+	
+	if( fabsx > 0x1.0p-27 )		//sqrt( negative epsilon )
+	{
+		if( fabsx < overflow )
+		{
+			fabsx = expm1( -2.0 * fabsx );
+			fabsx = -fabsx / (2.0 + fabsx );
+		}
+		else
+			fabsx = 1.0;
 	}
-	return (jx>=0)? z: -z;
+	else
+	{
+		if( x == 0.0 )
+			return x;
+	
+		fabsx *= 0x1.0p55;
+		fabsx -= 0x1.0p-1022;
+		fabsx *= 0x1.0p-55;
+	}
+
+	if( x < 0 )
+		fabsx = -fabsx;
+	
+	return fabsx;
+}
+
+long double tanhl( long double x )
+{
+    static const long double overflow = 1.13565234062941445534588410310297337926799095235775e+04L / 2.0L;      //log(0x1.0p16384)
+    long double fabsx = __builtin_fabsl( x );
+    
+	if( x != x )	return x + x;
+	
+	if( fabsx > 0x1.0p-32 )		//sqrt( negative epsilon )
+	{
+		if( fabsx < overflow )
+		{
+			fabsx = expm1l( -2.0L * fabsx );
+			fabsx = -fabsx / (2.0L + fabsx );
+		}
+		else
+			fabsx = 1.0L;
+	}
+	else
+	{
+		if( x == 0.0 )
+			return x;
+	
+		fabsx *= 0x1.0p65;
+		fabsx -= 0x1.0p-16382L;
+		fabsx *= 0x1.0p-65;
+	}
+
+	if( x < 0 )
+		fabsx = -fabsx;
+	
+	return fabsx;
 }

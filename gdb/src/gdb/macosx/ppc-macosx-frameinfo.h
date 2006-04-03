@@ -41,6 +41,9 @@ struct ppc_function_properties
                                    This offset is used to get the
                                    gpr_offset right in either case. */
 
+  int gpr_bitmap[32];
+  int fpr_bitmap[32];
+
   int saved_gpr;                /* smallest # of saved gpr */
   int saved_fpr;                /* smallest # of saved fpr */
   int gpr_offset;               /* offset of saved gprs */

@@ -1,7 +1,7 @@
 /*
  * KerberosDebug.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosDebug/Headers/Kerberos/KerberosDebug.h,v 1.21 2004/12/13 21:45:41 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -49,7 +49,7 @@ extern "C" {
     
     
 int ddebuglevel (void);
-void dprintf (const char *format, ...);
+void dprintf (const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 void dprintmem (const void *data, size_t length);
 void dprintbootstrap (task_t inTask);
 

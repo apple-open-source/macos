@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: util_ordering.c,v 1.9 2004/02/09 22:10:40 raeburn Exp $
+ * $Id: util_ordering.c 16040 2004-02-09 22:10:40Z raeburn $
  */
 
 /*

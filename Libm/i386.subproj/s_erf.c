@@ -113,6 +113,8 @@ __RCSID("$NetBSD: s_erf.c,v 1.10 1999/07/02 15:37:42 simonb Exp $");
 #include "math.h"
 #include "math_private.h"
 
+#warning obsolete
+
 static const double
 tiny	    = 1e-300,
 half=  5.00000000000000000000e-01, /* 0x3FE00000, 0x00000000 */

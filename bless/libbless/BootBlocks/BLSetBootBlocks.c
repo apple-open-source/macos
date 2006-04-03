@@ -30,7 +30,7 @@
 #include "bless.h"
 #include "bless_private.h"
 
-int BLSetBootBlocks(BLContextPtr context, const unsigned char mountpoint[],
+int BLSetBootBlocks(BLContextPtr context, const char * mountpoint,
 		    const CFDataRef bootblocks) {
 
     fbootstraptransfer_t        bbr;
@@ -56,7 +56,7 @@ int BLSetBootBlocks(BLContextPtr context, const unsigned char mountpoint[],
     
     bbr.fbt_offset = 0;
     bbr.fbt_length = CFDataGetLength(bootblocks);
-    bbr.fbt_buffer = (unsigned char *)CFDataGetBytePtr(bootblocks);
+    bbr.fbt_buffer = (char *)CFDataGetBytePtr(bootblocks);
     
     err = fcntl(fd, F_WRITEBOOTSTRAP, &bbr);
     if (err) {

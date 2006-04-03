@@ -126,17 +126,17 @@ if  { [gdb_compile "${srcdir}/${subdir}/${secondlibfile}.c" "$secondlibbinfile" 
 }
 
 
-build_library ""
+build_library "-multiply_defined suppress"
 test_run "dylib no addr specified"
 
-build_library "-seg1addr 0x0"
+build_library "-seg1addr 0x0 -multiply_defined suppress"
 test_run "dylib slide from 0x0"
 
 get_libsystem_load_addr
-build_library "-seg1addr $libsystem_load_addr"
+build_library "-seg1addr $libsystem_load_addr -multiply_defined suppress"
 test_run "dylib slide from $libsystem_load_addr"
 
-build_library "-seg1addr  0x500000"
+build_library "-seg1addr  0x500000 -multiply_defined suppress"
 test_run "dylib maybe without a slide"
 
 return 0

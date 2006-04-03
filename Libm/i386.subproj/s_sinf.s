@@ -9,6 +9,9 @@
 
 RCSID("$NetBSD: s_sinf.S,v 1.4 2001/06/19 00:26:31 fvdl Exp $")
 
+#warning obsolete
+
+
 /* A float's domain isn't large enough to require argument reduction. */
 ENTRY(sinf)
 	XMM_ONE_ARG_FLOAT_PROLOGUE

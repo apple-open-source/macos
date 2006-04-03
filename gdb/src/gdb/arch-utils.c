@@ -97,12 +97,6 @@ generic_skip_trampoline_code (CORE_ADDR pc)
 }
 
 CORE_ADDR
-generic_dynamic_trampoline_nextpc (CORE_ADDR pc)
-{
-  return 0;
-}
-
-CORE_ADDR
 generic_skip_solib_resolver (struct gdbarch *gdbarch, CORE_ADDR pc)
 {
   return 0;
@@ -444,10 +438,9 @@ static const char *set_endian_string;
 static void
 show_endian (char *args, int from_tty)
 {
-  /* APPLE LOCAL: Output the endianness (both what is set by the user,
-     and the endianness currently effective) in MI format, if
-     appropriate. */
-
+  /* APPLE LOCAL begin endianness */
+  /* Output the endianness (both what is set by the user, and the
+     endianness currently effective) in MI format, if appropriate. */
   if (!ui_out_is_mi_like_p (uiout)) 
     {
       if (target_byte_order_auto)
@@ -466,6 +459,7 @@ show_endian (char *args, int from_tty)
 
       ui_out_field_string (uiout, "current", (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? "big" : "little"));
     }
+  /* APPLE LOCAL end endianness */
 }
 
 static void
@@ -504,6 +498,7 @@ set_endian (char *ignore_args, int from_tty, struct cmd_list_element *c)
 enum set_arch { set_arch_auto, set_arch_manual };
 
 static int target_architecture_auto = 1;
+
 static const char *set_architecture_string;
 
 const char *

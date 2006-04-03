@@ -710,7 +710,6 @@ F:2:SOFTWARE_SINGLE_STEP:void:software_single_step:enum target_signal sig, int i
 # disassembler.  Perhaphs objdump can handle it?
 f::TARGET_PRINT_INSN:int:print_insn:bfd_vma vma, struct disassemble_info *info:vma, info:::0:
 f:2:SKIP_TRAMPOLINE_CODE:CORE_ADDR:skip_trampoline_code:CORE_ADDR pc:pc:::generic_skip_trampoline_code::0
-f:2:DYNAMIC_TRAMPOLINE_NEXTPC:CORE_ADDR:dynamic_trampoline_nextpc:CORE_ADDR pc:pc:::generic_dynamic_trampoline_nextpc::0
 
 # If IN_SOLIB_DYNSYM_RESOLVE_CODE returns true, and SKIP_SOLIB_RESOLVER
 # evaluates non-zero, this is the address where the debugger will place
@@ -1245,6 +1244,8 @@ typedef void (gdbarch_swap_ftype) (void);
 extern void deprecated_register_gdbarch_swap (void *data, unsigned long size, gdbarch_swap_ftype *init);
 #define DEPRECATED_REGISTER_GDBARCH_SWAP(VAR) deprecated_register_gdbarch_swap (&(VAR), sizeof ((VAR)), NULL)
 
+
+
 /* Set the dynamic target-system-dependent parameters (architecture,
    byte-order, ...) using information found in the BFD */
 
@@ -1260,10 +1261,6 @@ extern void initialize_current_architecture (void);
 extern int gdbarch_debug;
 
 extern void gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file);
-
-extern void clear_gdbarch_swap (struct gdbarch *);
-extern void swapout_gdbarch_swap (struct gdbarch *);
-extern void swapin_gdbarch_swap (struct gdbarch *);
 
 #endif
 EOF
@@ -1943,18 +1940,6 @@ deprecated_register_gdbarch_swap (void *data,
   (*rego)->init = init;
   (*rego)->data = data;
   (*rego)->sizeof_data = sizeof_data;
-}
-
-void
-clear_gdbarch_swap (struct gdbarch *gdbarch)
-{
-  struct gdbarch_swap *curr;
-  for (curr = gdbarch->swap;
-       curr != NULL;
-       curr = curr->next)
-    {
-      memset (curr->source->data, 0, curr->source->sizeof_data);
-    }
 }
 
 static void

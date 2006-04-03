@@ -400,6 +400,11 @@ fdump-unnumbered
 Common Report Var(flag_dump_unnumbered) VarExists
 Suppress output of instruction numbers and line number notes in debugging dumps
 
+; APPLE LOCAL begin 4167759
+flimit-debug-info
+Common Report Var(flag_limit_debug_info)
+Limit debug info for certain type 
+; APPLE LOCAL end 4167759
 feliminate-dwarf2-dups
 Common Report Var(flag_eliminate_dwarf2_dups)
 Perform DWARF2 duplicate elimination

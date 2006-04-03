@@ -45,7 +45,8 @@ typedef struct
     const KJS::Bindings::RootObject *executionContext;
 } JavaScriptObject;
 
-NPObject *_NPN_CreateScriptObject (NPP npp, KJS::ObjectImp *imp, const KJS::Bindings::RootObject *originExecutionContext, const KJS::Bindings::RootObject *executionContext);
+NPObject *_NPN_CreateScriptObject(NPP npp, KJS::ObjectImp *imp, const KJS::Bindings::RootObject *originExecutionContext, const KJS::Bindings::RootObject *executionContext);
+NPObject *_NPN_CreateNoScriptObject(void);
 
 #ifdef __cplusplus
 }

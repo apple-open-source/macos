@@ -18,8 +18,10 @@ void f7 (typedef int); /* { dg-error "error: storage class specified for paramet
 auto int x; /* { dg-error "error: file-scope declaration of 'x' specifies 'auto'" } */
 register int y; /* { dg-warning "warning: file-scope declaration of 'y' specifies 'register'" } */
 
-void h (void) { extern void x (void) {} } /* { dg-error "error: nested function 'x' declared 'extern'" } */
-/* { dg-warning "warning: ISO C forbids nested functions" "nested" { target *-*-* } 21 } */
+/* APPLE LOCAL begin testsuite nested functions */
+void h (void) { extern void x (void) {} } /* { dg-error "error: nested function 'x' declared 'extern'|nested functions are not supported on MacOSX" } */
+/* { dg-warning "warning: ISO C forbids nested functions" "nested" { target *-*-* } 22 } */
+/* APPLE LOCAL end testsuite nested functions */
 
 void
 g (void)
@@ -37,9 +39,13 @@ static void r; /* { dg-error "error: variable or field 'r' declared void" } */
 static const void r1; /* { dg-error "error: variable or field 'r1' declared void" } */
 
 register void f8 (void); /* { dg-error "error: invalid storage class for function 'f8'" } */
-/* { dg-warning "warning: file-scope declaration of 'f8' specifies 'register'" "register function" { target *-*-* } 39 } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-warning "warning: file-scope declaration of 'f8' specifies 'register'" "register function" { target *-*-* } 41 } */
 
 void i (void) { auto void y (void) {} } /* { dg-warning "warning: ISO C forbids nested functions" } */
-/* { dg-warning "warning: function definition declared 'auto'" "nested" { target *-*-* } 42 } */
+/* APPLE LOCAL begin testsuite nested functions */
+/* { dg-warning "warning: function definition declared 'auto'" "nested" { target *-*-* } 45 } */
+/* { dg-error "nested functions are not supported on MacOSX" "" { target *-*-darwin* } 45 } */
+/* APPLE LOCAL end testsuite nested functions */
 
 inline int main (void) { return 0; } /* { dg-warning "warning: cannot inline function 'main'" } */

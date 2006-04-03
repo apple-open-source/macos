@@ -27,9 +27,19 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Jul 05 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLSetFinderFlag.c,v 1.14 2005/02/03 00:42:25 ssen Exp $
+ *  $Id: BLSetFinderFlag.c,v 1.16 2005/08/22 20:49:22 ssen Exp $
  *
  *  $Log: BLSetFinderFlag.c,v $
+ *  Revision 1.16  2005/08/22 20:49:22  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.15  2005/06/24 16:39:49  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.14  2005/02/03 00:42:25  ssen
  *  Update copyrights to 2005
  *
@@ -106,7 +116,7 @@ struct fileinfobuf {
 }; 
 
 
-int BLSetFinderFlag(BLContextPtr context, const unsigned char path[], uint16_t flag, int setval) {
+int BLSetFinderFlag(BLContextPtr context, const char * path, uint16_t flag, int setval) {
     struct attrlist		alist;
     struct fileinfobuf finfo;
     struct TwoUInt16 *twoUint = (struct TwoUInt16 *)&finfo.finderinfo[2];

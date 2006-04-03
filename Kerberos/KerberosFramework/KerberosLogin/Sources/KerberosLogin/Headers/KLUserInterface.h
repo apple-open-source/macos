@@ -1,7 +1,7 @@
 /*
  * KLUserInterfaceAPI.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLUserInterface.h,v 1.2 2003/04/25 16:08:00 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

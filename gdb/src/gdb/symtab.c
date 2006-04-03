@@ -388,24 +388,6 @@ gdb_mangle_name (struct type *type, int method_id, int signature_id)
   mangled_name_len = ((is_constructor ? 0 : strlen (field_name))
 		      + strlen (buf) + len + strlen (physname) + 1);
 
-#if 0
-  /* Only needed for GNU-mangled names.  ANSI-mangled names
-     work with the normal mechanisms.  */
-  if (OPNAME_PREFIX_P (field_name))
-    {
-      const char *opname = cplus_mangle_opname (field_name + 3, 0);
-      if (opname == NULL)
-	error ("No mangling for \"%s\"", field_name);
-      mangled_name_len += strlen (opname);
-      mangled_name = (char *) xmalloc (mangled_name_len);
-
-      strncpy (mangled_name, field_name, 3);
-      mangled_name[3] = '\0';
-      strcat (mangled_name, opname);
-    }
-  else
-#endif
-
     {
       mangled_name = (char *) xmalloc (mangled_name_len);
       if (is_constructor)
@@ -697,6 +679,7 @@ symbol_demangled_name (struct general_symbol_info *gsymbol)
       || gsymbol->language == language_objc
       || gsymbol->language == language_objcplus)
     return gsymbol->language_specific.cplus_specific.demangled_name;
+
   else 
     return NULL;
 }
@@ -1539,17 +1522,23 @@ lookup_partial_symbol (struct partial_symtab *pst, const char *name,
       if (!(top == bottom))
 	internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
-      while (top <= real_top
-	     && (linkage_name != NULL
-		 ? strcmp (SYMBOL_LINKAGE_NAME (*top), linkage_name) == 0
-		 : SYMBOL_MATCHES_NATURAL_NAME (*top,name)))
+      /* APPLE LOCAL: The algorithm in the FSF version is just wrong.  */
+      while (top <= real_top)
 	{
-	  if (SYMBOL_DOMAIN (*top) == domain)
+	  if (!SYMBOL_MATCHES_NATURAL_NAME (*top,name))
+	    break;
+     
+	  if (!linkage_name ||
+	      strcmp (SYMBOL_LINKAGE_NAME (*top), linkage_name) == 0)
 	    {
+	      if (SYMBOL_DOMAIN (*top) == domain)
+		{
 		  return (*top);
+		}
 	    }
 	  top++;
 	}
+      /* END APPLE LOCAL */
     }
 
   /* Can't use a binary search or else we found during the binary search that
@@ -1575,7 +1564,8 @@ lookup_partial_symbol (struct partial_symtab *pst, const char *name,
 }
 
 /* Look up a type named NAME in the struct_domain.  The type returned
-   must not be opaque -- i.e., must have at least one field defined.  */
+   must not be opaque -- i.e., must have at least one field
+   defined.  */
 
 struct type *
 lookup_transparent_type (const char *name)
@@ -1698,6 +1688,7 @@ basic_lookup_transparent_type (const char *name)
   }
   return (struct type *) 0;
 }
+
 
 /* Find the psymtab containing main(). */
 /* FIXME:  What about languages without main() or specially linked
@@ -3314,7 +3305,8 @@ rbreak_command (char *regexp, int from_tty)
 {
   struct symbol_search *ss;
   struct symbol_search *p;
-  struct cleanup *old_chain, *objc_selectors_cleanup;
+  struct cleanup *old_chain;
+  struct cleanup *objc_selectors_cleanup;
 
   search_symbols (regexp, FUNCTIONS_DOMAIN, 0, (char **) NULL, &ss);
   old_chain = make_cleanup_free_search_symbols (ss);
@@ -3376,12 +3368,46 @@ rbreak_command (char *regexp, int from_tty)
           /* APPLE LOCAL:  The symbol names are canonical at this point so
              we need to disable allow_objc_selectors_flag or else we might
              have an ambiguous break command if the function name matches
-             some random ObjC selectors. */
+             some random ObjC selectors. 
+	     Also add -shlib so we don't move all the breakpoints to the
+	     same symbol...  */
+	  char *shlib_ptr = NULL;
+	  int shlib_len = 0;
+	  
+	  
+	  if (p->msymbol->ginfo.bfd_section != NULL 
+	      && p->msymbol->ginfo.bfd_section->owner != NULL
+              && p->msymbol->ginfo.bfd_section->owner->filename != NULL)
+	    
+	    {
+	      shlib_ptr = p->msymbol->ginfo.bfd_section->owner->filename;
+	      shlib_len = strlen (shlib_ptr)
+		+ strlen("-shlib \"\" ");
+	    }
+	  
+	  char *string = alloca (shlib_len
+				 + strlen (SYMBOL_LINKAGE_NAME (p->msymbol))
+				 + 4);
+	  if (shlib_ptr != NULL) 
+	    {
+	      strcpy (string, "-shlib \"");
+	      strcat (string, shlib_ptr);
+	      strcat (string, "\" \"");
+	    }
+	  else
+	    {
+	      strcpy (string, "\"");
+	    }
+	  
+	  strcat (string, SYMBOL_LINKAGE_NAME (p->msymbol));
+	  strcat (string, "\"");
+
           allow_objc_selectors_flag = 0;
           objc_selectors_cleanup = 
               make_cleanup (reset_allow_objc_selectors_flag, 0);
 
-	  break_command (SYMBOL_LINKAGE_NAME (p->msymbol), from_tty);
+	  
+	  break_command (string, from_tty);
 	  printf_filtered ("<function, no debug info> %s;\n",
 			   SYMBOL_PRINT_NAME (p->msymbol));
 	}
@@ -4059,11 +4085,8 @@ in_prologue (CORE_ADDR pc, CORE_ADDR func_start)
 
       /* We don't even have minsym information, so fall back to using
          func_start, if given.  */
-
       if (!func_start)
-	{
-	  return 1;  /* We *might* be in a prologue.  */
-	}
+	return 1;  /* We *might* be in a prologue.  */
       else
 	scan_from = func_start;
       

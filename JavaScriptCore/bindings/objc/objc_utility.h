@@ -73,7 +73,7 @@ Value convertNSStringToString(NSString *nsstring);
 Value convertObjcValueToValue (KJS::ExecState *exec, void *buffer, ObjcValueType type);
 ObjcValueType objcValueTypeForType (const char *type);
 
-void JSMethodNameToObjCMethodName(const char *name, char *name, unsigned int length);
+bool convertJSMethodNameToObjc(const char *JSName, char *buffer, size_t bufferSize);
 
 void *createObjcInstanceForValue (const Object &value, const RootObject *origin, const RootObject *current);
 

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: ctx.c,v 1.32.70.5.14.1 2005/09/09 22:15:02 lindak Exp $
+ * $Id: ctx.c,v 1.32.70.8 2005/11/15 01:45:30 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -741,14 +741,26 @@ smb_ctx_resolve(struct smb_ctx *ctx)
 	}
 	ssn->ioc_server = (struct sockaddr*)saserver;
 	if (ctx->ct_locname[0] == 0) {
-		error = nb_getlocalname(ctx->ct_locname);
+		/* 
+		 * Get the host name, but only copy what will fit in the buffer.
+		 */ 
+		error = nb_getlocalname(ctx->ct_locname, 
+					(size_t)sizeof(ctx->ct_locname));
 		if (error) {
 			smb_error("can't get local name", error);
 			return error;
 		}
 		nls_str_upper(ctx->ct_locname, ctx->ct_locname);
 	}
-	strcpy((char *)nn.nn_name, (ctx->ct_locname));
+	/* 
+	 * Get the host name, but only copy what will fit in the buffer. This 
+	 * corrects Radar 4321020. We were overriding the buffer. On Intel boxes
+	 * this cause the saserver pointer to get overwritten. Which would 
+	 * cause ssn->ioc_svlen to get set to zero. In the smb kernel we would
+	 * malloc zero bytes. Accessing this pointer would cause a freeze.
+	 * See the kernel code for those changes. 
+	 */ 
+	strlcpy((char *)nn.nn_name, (ctx->ct_locname), sizeof(nn.nn_name));
 	nn.nn_type = NBT_WKSTA;
 	nn.nn_scope = (u_char *)(ctx->ct_nb->nb_scope);
 	error = nb_sockaddr(NULL, &nn, &salocal);
@@ -1192,6 +1204,7 @@ smb_ctx_negotiate(struct smb_ctx *ctx, int level, int flags, char *workgroup)
 	int	error = 0;
 	char *	failure = NULL;
 	u_char	*principal = NULL;
+	u_char  *bytes;
 
 	/*
 	 * We leave ct_secblob set iff extended security
@@ -1329,12 +1342,17 @@ smb_ctx_negotiate(struct smb_ctx *ctx, int level, int flags, char *workgroup)
 				/* 
 				 * Windows bug: If the domain name is 15 or more they might 
 				 * put garbage in the 15th unicode character. Undo this 
-				 * mischief by terminating with a null
+				 * mischief by terminating with a null. The following code
+				 * checks if the first 2 utf-16 characters in the string 
+				 * match 8-bit representations of those unicode characters
+				 * in position [15] in the utf-16 array, which would be 
+				 * positions [30] and [31] in an 8-bit array. 
 				 */
+				bytes = (u_int8_t *)unicode_workgroup;
 				if ((workgroup_len > 15) && 
 				   (workgroup_len*2 == outtoklen-2) &&
-				   (unicode_workgroup[0] == (unicode_workgroup[15] & 0xff00)) &&
-				   (unicode_workgroup[1] == (unsigned short)(unicode_workgroup[15] << 8)))
+				   (bytes[0] == bytes[30]) && (bytes[1] == 0) &&
+				   (bytes[2] == bytes[31]) && (bytes[3] == 0))
 					unicode_workgroup[15] = 0;
 
 				/*

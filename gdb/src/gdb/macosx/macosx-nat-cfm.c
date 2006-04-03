@@ -49,6 +49,105 @@
 
 extern macosx_inferior_status *macosx_status;
 
+void
+cfm_init (void)
+{
+  struct minimal_symbol *hooksym, *system, *context;
+  struct cfm_parser *parser = &macosx_status->cfm_status.parser;
+  CORE_ADDR offset = 0;
+
+  hooksym = lookup_minimal_symbol ("gPCFMInfoHooks", NULL, NULL);
+  if (hooksym == NULL)
+    return;
+
+  system = lookup_minimal_symbol ("gPCFMSystemUniverse", NULL, NULL);
+  if (system == NULL)
+    return;
+
+  context = lookup_minimal_symbol ("gPCFMContextUniverse", NULL, NULL);
+  if (context == NULL)
+    return;
+
+  offset = SYMBOL_VALUE_ADDRESS (context) - SYMBOL_VALUE_ADDRESS (system);
+
+  if (offset == 88)
+    {
+      parser->version = 3;
+      parser->universe_length = 88;
+      parser->universe_container_offset = 48;
+      parser->universe_connection_offset = 60;
+      parser->universe_closure_offset = 72;
+      parser->connection_length = 68;
+      parser->connection_next_offset = 0;
+      parser->connection_container_offset = 28;
+      parser->container_length = 176;
+      parser->container_address_offset = 24;
+      parser->container_length_offset = 36;
+      parser->container_fragment_name_offset = 44;
+      parser->container_section_count_offset = 100;
+      parser->container_sections_offset = 104;
+      parser->section_length = 24;
+      parser->section_total_length_offset = 12;
+      parser->instance_length = 24;
+      parser->instance_address_offset = 12;
+      macosx_status->cfm_status.breakpoint_offset = 956;
+    }
+  else if (offset == 104)
+    {
+      parser->version = 2;
+      parser->universe_length = 104;
+      parser->universe_container_offset = 52;
+      parser->universe_connection_offset = 68;
+      parser->universe_closure_offset = 84;
+      parser->connection_length = 72;
+      parser->connection_next_offset = 0;
+      parser->connection_container_offset = 32;
+      parser->container_length = 176;
+      parser->container_address_offset = 28;
+      parser->container_length_offset = 36;
+      parser->container_fragment_name_offset = 44;
+      parser->container_section_count_offset = 100;
+      parser->container_sections_offset = 104;
+      parser->section_length = 24;
+      parser->section_total_length_offset = 12;
+      parser->instance_length = 24;
+      parser->instance_address_offset = 12;
+      macosx_status->cfm_status.breakpoint_offset = 864;
+    }
+  else if (offset == 120)
+    {
+      parser->version = 1;
+      parser->universe_length = 120;
+      parser->universe_container_offset = 68;
+      parser->universe_connection_offset = 84;
+      parser->universe_closure_offset = 100;
+      parser->connection_length = 84;
+      parser->connection_next_offset = 0;
+      parser->connection_container_offset = 36;
+      parser->container_length = 172;
+      parser->container_address_offset = 28;
+      parser->container_length_offset = 32;
+      parser->container_fragment_name_offset = 40;
+      parser->container_section_count_offset = 96;
+      parser->container_sections_offset = 100;
+      parser->section_length = 24;
+      parser->section_total_length_offset = 12;
+      parser->instance_length = 24;
+      parser->instance_address_offset = 12;
+      macosx_status->cfm_status.breakpoint_offset = 864;
+    }
+  else
+    {
+      warning ("unable to determine CFM version; disabling CFM support");
+      parser->version = 0;
+      return;
+    }
+
+  macosx_status->cfm_status.info_api_cookie = SYMBOL_VALUE_ADDRESS (hooksym);
+  dyld_debug ("Found gPCFMInfoHooks in CarbonCore: 0x%s with version %d\n",
+              paddr_nz (SYMBOL_VALUE_ADDRESS (hooksym)), parser->version);
+}
+
 long
 cfm_update (task_t task, struct dyld_objfile_info *info)
 {
@@ -57,6 +156,7 @@ cfm_update (task_t task, struct dyld_objfile_info *info)
   unsigned long n_container_ids;
   unsigned long nread_container_ids;
   unsigned long *container_ids;
+  ULONGEST tmpbuf;
 
   unsigned long container_index;
 
@@ -64,13 +164,19 @@ cfm_update (task_t task, struct dyld_objfile_info *info)
   CORE_ADDR cfm_context;
   struct cfm_parser *cfm_parser;
 
+  if (macosx_status->cfm_status.info_api_cookie == 0)
+    cfm_init ();
+
+  if (macosx_status->cfm_status.info_api_cookie == 0)
+    return -1;
+
   cfm_cookie = macosx_status->cfm_status.info_api_cookie;
   cfm_parser = &macosx_status->cfm_status.parser;
 
-  if (cfm_cookie == 0)
+  if (!safe_read_memory_unsigned_integer (cfm_cookie, 4, &tmpbuf))
     return -1;
 
-  cfm_context = read_memory_unsigned_integer (cfm_cookie, 4);
+  cfm_context = tmpbuf;
 
   ret =
     cfm_fetch_context_containers (cfm_parser, cfm_context, 0, 0,

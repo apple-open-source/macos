@@ -1,7 +1,7 @@
 /*
  * mach_client_utilities.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/mach_client_utilities.c,v 1.16 2005/06/15 20:59:14 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -50,7 +50,7 @@
 kern_return_t __KerberosIPCError (kern_return_t inError, const char *function, const char *file, int line)
 {
     if ((inError != KERN_SUCCESS) && (ddebuglevel () > 0)) {
-        dprintf ("%s() got %ld ('%s') at %s: %d", function, inError, mach_error_string (inError), file, line);
+        dprintf ("%s() got %d ('%s') at %s: %d", function, inError, mach_error_string (inError), file, line);
         dprintf ("Session is %s", LoginSessionGetSecuritySessionName ());
         //dprintbootstrap (mach_task_self ());
     }    
@@ -86,16 +86,16 @@ mach_client_check_server_registration (mach_port_t inBootstrapPort,
                 
                 // The service got unregistered or was never registered.  Register it!
                 err = bootstrap_create_server (inBootstrapPort, (char *) inServerPath, serverUID, TRUE /* on demand */, &serverPrivPort);
-                dprintf ("mach_client_check_server_registration(): bootstrap_create_server() returned err %ld", err);
+                dprintf ("mach_client_check_server_registration(): bootstrap_create_server() returned err %d", err);
                 
                 if (err == KERN_SUCCESS) {
                     // Set up the server to autolaunch
                     err = bootstrap_create_service (serverPrivPort, (char *) inServiceName, &servicePort);
-                    dprintf ("mach_client_check_server_registration(): bootstrap_create_service() returned err %ld", err);
+                    dprintf ("mach_client_check_server_registration(): bootstrap_create_service() returned err %d", err);
                 }
                 
                 if (err == KERN_SUCCESS) {
-                    dprintf ("mach_client_check_server_registration(): registered '%s' for service '%s' and uid '%ld'.", 
+                    dprintf ("mach_client_check_server_registration(): registered '%s' for service '%s' and uid '%d'.", 
                              inServerPath, inServiceName, serverUID);
                 }
                 

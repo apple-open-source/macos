@@ -2,8 +2,9 @@
 
 # Variable declaration
 prefix='@prefix@'
-phpdir="$prefix/lib/php/build"
-includedir="$prefix/include/php"
+exec_prefix="`eval echo @exec_prefix@`"
+phpdir="`eval echo @libdir@`/build"
+includedir="`eval echo @includedir@`/php"
 builddir="`pwd`"
 
 FILES_BUILD="mkdep.awk scan_makefile_in.awk shtool libtool.m4"
@@ -50,9 +51,9 @@ phpize_check_configm4()
 phpize_get_api_numbers()
 {
   # extracting API NOs:
-  PHP_API_VERSION=`egrep '#define PHP_API_VERSION' $includedir/main/php.h|sed 's/#define PHP_API_VERSION//'`
-  ZEND_MODULE_API_NO=`egrep '#define ZEND_MODULE_API_NO' $includedir/Zend/zend_modules.h|sed 's/#define ZEND_MODULE_API_NO//'`
-  ZEND_EXTENSION_API_NO=`egrep '#define ZEND_EXTENSION_API_NO' $includedir/Zend/zend_extensions.h|sed 's/#define ZEND_EXTENSION_API_NO//'`
+  PHP_API_VERSION=`grep '#define PHP_API_VERSION' $includedir/main/php.h|sed 's/#define PHP_API_VERSION//'`
+  ZEND_MODULE_API_NO=`grep '#define ZEND_MODULE_API_NO' $includedir/Zend/zend_modules.h|sed 's/#define ZEND_MODULE_API_NO//'`
+  ZEND_EXTENSION_API_NO=`grep '#define ZEND_EXTENSION_API_NO' $includedir/Zend/zend_extensions.h|sed 's/#define ZEND_EXTENSION_API_NO//'`
 }
 
 phpize_print_api_numbers()
@@ -64,13 +65,15 @@ phpize_print_api_numbers()
   echo "Zend Extension Api No:  "$ZEND_EXTENSION_API_NO
 }
 
-phpize_no_shtool()
+phpize_check_build_files()
 {
-  echo <<EOF
-shtool at '$builddir/build/shtool' not executable. 
-Make sure that the file exists and is executable and then rerun this script. 
+  if test ! -d "$phpdir"; then
+    cat <<EOF
+Cannot find build files at '$phpdir'. Please check your PHP installation.
 
 EOF
+    exit 1
+  fi
 }
 
 phpize_check_shtool()
@@ -78,11 +81,39 @@ phpize_check_shtool()
   test -x "$builddir/build/shtool" || chmod +x "$builddir/build/shtool"
 
   if test ! -x "$builddir/build/shtool"; then
-    phpize_no_shtool
+    cat <<EOF
+shtool at '$builddir/build/shtool' does not exist or is not executable. 
+Make sure that the file exists and is executable and then rerun this script. 
+
+EOF
     exit 1
+  else
+    php_shtool=$builddir/build/shtool
   fi
 }
 
+phpize_check_autotools()
+{
+  test -z "$PHP_AUTOCONF" && PHP_AUTOCONF=autoconf
+  test -z "$PHP_AUTOHEADER" && PHP_AUTOHEADER=autoheader
+  
+  if test ! -x "`$php_shtool path $PHP_AUTOCONF`"; then
+    cat <<EOF
+Cannot find autoconf. Please check your autoconf installation and the \$PHP_AUTOCONF 
+environment variable is set correctly and then rerun this script. 
+
+EOF
+    exit 1
+  fi
+  if test ! -x "`$php_shtool path $PHP_AUTOHEADER`"; then
+    cat <<EOF
+Cannot find autoheader. Please check your autoconf installation and the \$PHP_AUTOHEADER 
+environment variable is set correctly and then rerun this script. 
+
+EOF
+    exit 1
+  fi
+}
 
 phpize_copy_files()
 {
@@ -90,7 +121,7 @@ phpize_copy_files()
  
   (cd "$phpdir" && cp $FILES_BUILD "$builddir"/build)
   (cd "$phpdir" && cp $FILES "$builddir")
-  (cd "$builddir" && cat ./build/libtool.m4 >> acinclude.m4)
+  (cd "$builddir" && cat acinclude.m4 ./build/libtool.m4 > aclocal.m4)
 }
 
 phpize_replace_prefix()
@@ -102,9 +133,8 @@ phpize_replace_prefix()
 
 phpize_autotools()
 {
-  aclocal    || exit 1
-  autoconf   || exit 1
-  autoheader || exit 1
+  $PHP_AUTOCONF   || exit 1
+  $PHP_AUTOHEADER || exit 1
 }
 
 # Main script
@@ -133,6 +163,8 @@ case "$1" in
   *)
      phpize_check_configm4 0
 
+     phpize_check_build_files
+
      phpize_print_api_numbers
 
      phpize_copy_files
@@ -141,10 +173,11 @@ case "$1" in
 
      touch install-sh mkinstalldirs missing
 
-     phpize_autotools
-
      phpize_check_shtool
 
+     phpize_check_autotools
+
+     phpize_autotools
      ;;
 esac
 

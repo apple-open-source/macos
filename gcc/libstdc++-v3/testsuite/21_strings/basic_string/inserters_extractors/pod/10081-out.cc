@@ -1,4 +1,4 @@
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,14 +32,15 @@
 #include <sstream>
 #include <locale>
 #include <testsuite_hooks.h>
+#include <testsuite_character.h>
 
 void test01()
 {
   using namespace std;
-  using __gnu_test::pod_type;
-  typedef basic_string<pod_type> 	string_type;
-  typedef basic_stringbuf<pod_type> 	stringbuf_type;
-  typedef basic_ostream<pod_type> 	ostream_type;
+  using __gnu_test::pod_ushort;
+  typedef basic_string<pod_ushort> 	string_type;
+  typedef basic_stringbuf<pod_ushort> 	stringbuf_type;
+  typedef basic_ostream<pod_ushort> 	ostream_type;
 
   bool test __attribute__((unused)) = true;
 
@@ -60,7 +61,7 @@ void test01()
       VERIFY( false );
     }
 
-  const std::locale loc(std::locale::classic(), new std::ctype<pod_type>);
+  const std::locale loc(std::locale::classic(), new std::ctype<pod_ushort>);
   stream.imbue(loc);
   try
     {
@@ -75,12 +76,12 @@ void test01()
 #if !__GXX_WEAK__
 // Explicitly instantiate for systems with no COMDAT or weak support.
 template 
-  std::basic_string<__gnu_test::pod_type>::size_type 
-  std::basic_string<__gnu_test::pod_type>::_Rep::_S_max_size;
+  std::basic_string<__gnu_test::pod_ushort>::size_type 
+  std::basic_string<__gnu_test::pod_ushort>::_Rep::_S_max_size;
 
 template 
-  __gnu_test::pod_type
-  std::basic_string<__gnu_test::pod_type>::_Rep::_S_terminal;
+  __gnu_test::pod_ushort
+  std::basic_string<__gnu_test::pod_ushort>::_Rep::_S_terminal;
 #endif
 
 int main()

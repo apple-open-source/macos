@@ -1,7 +1,7 @@
 /*
  * CCICredentials.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/Credentials.h,v 1.17 2003/03/17 20:47:49 lxs Exp $
+ * $Header$
  */
  
 #pragma once

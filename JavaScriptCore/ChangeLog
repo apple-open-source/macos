@@ -1,3 +1,95 @@
+=== JavaScriptCore-417.11 ===
+=== JavaScriptCore-417.10 ===
+
+2006-03-09  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-02-16  Tim Omernick  <timo@apple.com>
+
+        Reviewed by Geoff.
+
+        <rdar://problem/4428609> Flash Player 8.0.22 can crash Safari (and WebKit apps) with
+        javascript disabled (7015)
+
+        * bindings/NP_jsobject.cpp:
+        (_NPN_CreateNoScriptObject):
+        Returns an NPObject which is not bound to a JavaScript object.  This kind of NPObject
+        can be given to a plugin as the "window script object" when JavaScript is disabled.
+        The object has a custom NPClass, NPNoScriptObjectClass, which has no defined methods.
+        Because of this, none of the NPN_* functions called by the plugin on this "no script
+        object" will cause entry into JavaScript code.
+        (_NPN_InvokeDefault):
+        Make sure the NPVariant is filled before returning from this function.  This never
+        mattered before because we never reached this case, having only created NPObjects of
+        the class NPScriptObjectClass.
+        (_NPN_Invoke):
+        ditto
+        (_NPN_Evaluate):
+        ditto
+        (_NPN_GetProperty):
+        ditto
+
+        * bindings/NP_jsobject.h:
+        Declared _NPN_CreateNoScriptObject().
+
+=== JavaScriptCore-417.9 ===
+
+2006-02-06  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-01-16  Tim Omernick  <timo@apple.com>
+
+        Reviewed by John Sullivan.
+
+        JavaScriptCore part of <rdar://problem/4211707> NPAPI ref count behavior differs with Mozilla
+
+        * bindings/npruntime.cpp:
+        (_NPN_ReleaseObject):
+        Refactored part of this function out into _NPN_DeallocateObject.
+        (_NPN_DeallocateObject):
+        Forcibly deallocates the passed object, even if its refcount is
+        greater than zero.
+
+        * bindings/npruntime_impl.h:
+        Declared _NPN_DeallocateObject().
+
+=== JavaScriptCore-417.8.1 ===
+
+2006-01-05  Timothy Hatcher  <timothy@apple.com>
+
+        Merges fixes from TOT to Safari-2-0-branch
+
+    2005-12-19  Geoffrey Garen  <ggaren@apple.com>
+  
+        Reviewed by Maciej.
+
+        Fixed <rdar://problem/4370397> Missing return statement in
+        JSMethodNameToObjcMethodName.
+
+        JSMethodNameToObjcMethodName had a check for a name being too long, but
+        the check was missing a return statement.
+
+        A lot of this code was confusing and some of it was wrong, so I fixed
+        it up, added some asserts to catch this type of bug in the future, 
+        changed some comments, and renamed some variables.
+
+        The two advantages of the new algorithm are (1) It makes writing past
+        the end of the buffer virtually impossible because the test on the main
+        loop is "while (not past end of buffer)" and (2) It's twice as fast
+        because it doesn't call strlen. (There's no need to call strlen when
+        we're walking the string ourselves.) 
+        
+        methodsNamed also supports arbitrary-length method names now. Just in 
+        case the AppKit folks start getting REALLY verbose...
+
+        * bindings/objc/objc_class.mm:
+        (KJS::Bindings::ObjcClass::methodsNamed):
+        * bindings/objc/objc_utility.h:
+        * bindings/objc/objc_utility.mm:
+        (KJS::Bindings::JSMethodNameToObjcMethodName):
+
 === JavaScriptCore-417.8 ===
 
 2005-11-17  Adele Peterson  <adele@apple.com>

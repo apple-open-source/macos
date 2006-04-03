@@ -1,5 +1,5 @@
 /*
- * "$Id: server.c,v 1.13.2.2 2005/07/27 21:58:45 jlovell Exp $"
+ * "$Id: server.c,v 1.13.2.3 2005/11/09 17:40:23 jlovell Exp $"
  *
  *   Server start/stop routines for the Common UNIX Printing System (CUPS).
  *
@@ -189,10 +189,6 @@ StartServer(void)
     LogMessage(L_DEBUG2, "StartServer: Adding fd %d to InputSet...", CGIPipes[0]);
     FD_SET(CGIPipes[0], InputSet);
   }
-
-#ifdef __APPLE__
-  StartSysEventMonitor();
-#endif	/* __APPLE__ */
 }
 
 
@@ -213,8 +209,6 @@ StopServer(void)
   StopBrowsing();
 
 #ifdef __APPLE__
-  StopSysEventMonitor();
-
  /* 
   * Unload Print Service quota enforcement library (X Server only) 
   */
@@ -293,7 +287,7 @@ void StartSysEventMonitor(void)
 {
   int flags;
 
-  if (pipe(SysEventPipes))
+  if (cupsdOpenPipe(SysEventPipes))
   {
     LogMessage(L_EMERG, "System event monitor pipe() failed - %s!", strerror(errno));
     return;
@@ -356,17 +350,13 @@ void StopSysEventMonitor(void)
 
   if (SysEventPipes[0] >= 0)
   {
-    close(SysEventPipes[0]);
-    close(SysEventPipes[1]);
-
     LogMessage(L_DEBUG2, "StopServer: Removing fd %d from InputSet...",
 		SysEventPipes[0]);
 
     FD_CLR(SysEventPipes[0], InputFds);
     FD_CLR(SysEventPipes[0], InputSet);
 
-    SysEventPipes[0] = -1;
-    SysEventPipes[1] = -1;
+    cupsdClosePipe(SysEventPipes);
   }
 }
 
@@ -413,7 +403,7 @@ void UpdateSysEventMonitor(void)
 
     if ((sysevent.event & SYSEVENT_WILLSLEEP))
     {
-      LogMessage(L_INFO, "System going to sleep");
+      LogMessage(L_DEBUG, "System going to sleep");
       Sleeping = 1;
       StopAllJobs();
 
@@ -431,7 +421,7 @@ void UpdateSysEventMonitor(void)
     
 	  num_printers = NumPrinters;
 
-	  LogMessage(L_INFO, "Deleting remote destination \"%s\"", p->name);
+	  LogMessage(L_DEBUG, "Deleting remote destination \"%s\"", p->name);
 	  DeletePrinter(p, 0);
 
 	  if (NumPrinters != num_printers - 1)
@@ -449,7 +439,7 @@ void UpdateSysEventMonitor(void)
 
     if ((sysevent.event & SYSEVENT_WOKE))
     {
-      LogMessage(L_INFO, "System woke from sleep");
+      LogMessage(L_DEBUG, "System woke from sleep");
       IOAllowPowerChange(sysevent.powerKernelPort, sysevent.powerNotificationID);
       Sleeping = 0;
       CheckJobs();
@@ -630,17 +620,12 @@ static void *sysEventThreadEntry()
     CFRelease(threadData.timerRef);
   }
 
-  if (powerRLS)
-  {
-    CFRunLoopRemoveSource(CFRunLoopGetCurrent(), powerRLS, kCFRunLoopDefaultMode);
-    CFRunLoopSourceInvalidate(powerRLS);
-    CFRelease(powerRLS);
-  }
-
   if (threadData.sysevent.powerKernelPort)
   {
+    CFRunLoopRemoveSource(CFRunLoopGetCurrent(), powerRLS, kCFRunLoopDefaultMode);
     IODeregisterForSystemPower(&powerNotifierObj);
     IOServiceClose(threadData.sysevent.powerKernelPort);
+    IONotificationPortDestroy(powerNotifierPort);
   }
 
   if (storeRLS)
@@ -778,5 +763,5 @@ static void sysEventTimerNotifier(CFRunLoopTimerRef timer, void *context)
 #endif	/* __APPLE__ */
 
 /*
- * End of "$Id: server.c,v 1.13.2.2 2005/07/27 21:58:45 jlovell Exp $".
+ * End of "$Id: server.c,v 1.13.2.3 2005/11/09 17:40:23 jlovell Exp $".
  */

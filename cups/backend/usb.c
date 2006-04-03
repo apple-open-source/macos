@@ -1,5 +1,5 @@
 /*
- * "$Id: usb.c,v 1.1.1.18 2005/01/04 19:15:02 jlovell Exp $"
+ * "$Id: usb.c,v 1.1.1.18.2.1 2005/09/27 23:23:42 jlovell Exp $"
  *
  *   USB port backend for the Common UNIX Printing System (CUPS).
  *
@@ -62,7 +62,7 @@
 void	list_devices(void);
 int	print_device(const char *uri, const char *hostname,
 	             const char *resource, const char *options,
-		     int fp, int copies);
+		     int fp, int copies, int argc, char *argv[]);
 
 
 /*
@@ -206,7 +206,8 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
     return (1);
   }
 
-  httpSeparate(argv[0], method, username, hostname, &port, resource);
+  /* Use uri instead of argv[0] to get around radr://4212077 for now... */
+  httpSeparate(uri, method, username, hostname, &port, resource);
 
  /*
   * See if there are any options...
@@ -252,7 +253,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   * Finally, send the print file...
   */
 
-  status = print_device(uri, hostname, resource, options, fp, copies);
+  status = print_device(uri, hostname, resource, options, fp, copies, argc, argv);
 
  /*
   * Close the input file and return...
@@ -266,5 +267,5 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
 
 /*
- * End of "$Id: usb.c,v 1.1.1.18 2005/01/04 19:15:02 jlovell Exp $".
+ * End of "$Id: usb.c,v 1.1.1.18.2.1 2005/09/27 23:23:42 jlovell Exp $".
  */

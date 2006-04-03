@@ -1905,11 +1905,13 @@ attach_command (char *args, int from_tty)
 	}
     }
 
-  /* Add shared library symbols from the newly attached process, if any.  */
 #ifdef SOLIB_ADD
+  /* Add shared library symbols from the newly attached process, if any.  */
   SOLIB_ADD ((char *) 0, from_tty, &current_target, auto_solib_add);
+  /* APPLE LOCAL control breakpoint re-enable messages */
   re_enable_breakpoints_in_shlibs (0);
 #endif
+
   /* Take any necessary post-attaching actions for this platform.
    */
   target_post_attach (PIDGET (inferior_ptid));
@@ -2229,4 +2231,7 @@ Register name as argument means describe only that register.");
 
   inferior_environ = make_environ ();
   init_environ (inferior_environ);
+
+  /* APPLE LOCAL */
+  smuggle_dyld_settings (inferior_environ);
 }

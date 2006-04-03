@@ -27,6 +27,19 @@ extern void swap_i386_thread_state(
     i386_thread_state_t *cpu,
     enum NXByteOrder target_byte_order);
 
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+extern void swap_i386_float_state(
+    struct i386_float_state *fpu,
+    enum NXByteOrder target_byte_order);
+
+extern void swap_i386_exception_state(
+    i386_exception_state_t *exc,
+    enum NXByteOrder target_byte_order);
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 extern void swap_i386_thread_fpstate(
     i386_thread_fpstate_t *fpu,
     enum NXByteOrder target_byte_order);
@@ -38,3 +51,4 @@ extern void swap_i386_thread_exceptstate(
 extern void swap_i386_thread_cthreadstate(
     i386_thread_cthreadstate_t *user,
     enum NXByteOrder target_byte_order);
+#endif /* i386_THREAD_STATE == -1 */

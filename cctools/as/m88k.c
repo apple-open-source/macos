@@ -1358,7 +1358,7 @@ int parcnt)
 	else if (!strncmp(param,"hi16(",5))
 
 		if (isdigit(*(param+5))) {
-			param = getval(param+5,&val);
+			param = getval(param+5, (unsigned int *)&val);
 			val = (val & 0xffff0000) >> 16;
 			if (*param++ != ')')
 				return NULL;
@@ -1368,7 +1368,7 @@ int parcnt)
 	else if (!strncmp(param,"lo16(",5))
 
 		if (isdigit(*(param+5))) {
-			param = getval(param+5,&val);
+			param = getval(param+5, (unsigned int *)&val);
 			val &= 0x0000ffff;
 			if (*param++ != ')')
 				return NULL;

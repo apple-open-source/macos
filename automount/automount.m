@@ -39,10 +39,10 @@
 #import <sys/time.h>
 #import <sys/resource.h>
 #import <sys/vnode.h>
+#import "AMString.h"
 #import "automount.h"
 #import "AMVnode.h"
 #import "Controller.h"
-#import "AMString.h"
 #import "log.h"
 #import "AMVersion.h"
 #import "systhread.h"

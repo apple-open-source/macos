@@ -53,7 +53,7 @@
 
 #ifndef LINT
 static char rcsid[]=
-	"$Id: fakeka.c,v 1.2 2004/02/19 17:51:40 kenh Exp $";
+	"$Id: fakeka.c 16104 2004-02-19 17:51:40Z kenh $";
 #endif
 
 /*

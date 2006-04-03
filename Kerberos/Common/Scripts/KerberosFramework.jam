@@ -1,4 +1,0 @@
-include "$(SRCROOT)/../Scripts/BuildPBX.jam" ;
-
-# Build the framework:
-PBX KerberosFramework : "$(SRCROOT)/../../KerberosFramework/Common/Projects/KerberosFramework.pbproj" ;

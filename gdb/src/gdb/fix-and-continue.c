@@ -1251,8 +1251,9 @@ redirect_statics (struct file_static_fixups *indirect_entries,
 
 
 /* The indirect addresses are in a separate segment/section,
-   (__DATA, __nl_symbol_ptr).  Find them, put them in an (xmalloced) 
-   array of file_static_fixups, and return the number of them.  */
+   (__IMPORT, __pointers on x86; __DATA, __nl_symbol_ptr on ppc).  
+   Find them, put them in an (xmalloced) array of file_static_fixups, 
+   and return the number of them.  */
 
 static int
 find_and_parse_nonlazy_ptr_sect (struct fixinfo *cur, 
@@ -1275,8 +1276,12 @@ find_and_parse_nonlazy_ptr_sect (struct fixinfo *cur,
 
 
   ALL_OBJFILE_OSECTIONS (most_recent_fix_objfile, j)
-    if (!strcmp ("LC_SEGMENT.__DATA.__nl_symbol_ptr", 
-         bfd_section_name (most_recent_fix_objfile->obfd, j->the_bfd_section)))
+    if (strcmp ("LC_SEGMENT.__IMPORT.__pointers", 
+                bfd_section_name (most_recent_fix_objfile->obfd, 
+                                  j->the_bfd_section)) == 0
+        || strcmp ("LC_SEGMENT.__DATA.__nl_symbol_ptr", 
+                   bfd_section_name (most_recent_fix_objfile->obfd, 
+                                   j->the_bfd_section)) == 0)
       {
         indirect_ptr_section = j;
         break;
@@ -1294,7 +1299,7 @@ find_and_parse_nonlazy_ptr_sect (struct fixinfo *cur,
     return 0;
 
   if (indirect_ptr_section_size % TARGET_ADDRESS_BYTES != 0)
-    error ("Incorrect __DATA, __nl_symbol_ptr section size!");
+    error ("Incorrect non-lazy symbol pointer section size!");
 
   nl_symbol_ptr_count = indirect_ptr_section_size / TARGET_ADDRESS_BYTES;
   *indirect_entries = (struct file_static_fixups *) xmalloc 
@@ -2558,7 +2563,12 @@ update_picbase_register (struct symbol *new_fun)
   CORE_ADDR pic_base_value;
   if (i386_find_picbase_setup (BLOCK_START (SYMBOL_BLOCK_VALUE (new_fun)),
                                &pic_base_value, &pic_base_reg))
-    write_register (pic_base_reg, pic_base_value);
+    {
+      if (fix_and_continue_debug_flag)
+        printf_filtered ("DEBUG: updating picbase in register %d to 0x%s\n", 
+                         pic_base_reg, paddr_nz (pic_base_value));
+      write_register (pic_base_reg, pic_base_value);
+    }
 
 #endif
 }

@@ -1,7 +1,7 @@
 /*
  * com_err_threads.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosErrors/Sources/com_err_threads.c,v 1.2 2005/03/22 18:33:22 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -70,11 +70,11 @@ static void com_err_thread_init_hook ()
     
     if (err) {
         g_com_err_thread_init_error = err;  // Never write to this variable from anywhere else!
-        dprintf ("%s: Warning!  Pthread initialization failed with error %d (%s)", 
+        dprintf ("%s: Warning!  Pthread initialization failed with error %ld (%s)", 
                  __FUNCTION__, err, strerror (err)); 
     } else {
         g_com_err_thread_initialized = TRUE;  // Never write to this variable from anywhere else!
-        dprintf ("%s: successfully initialized pthread keys", __FUNCTION__);
+        //dprintf ("%s: successfully initialized pthread keys", __FUNCTION__);
     }
 }
 
@@ -118,7 +118,7 @@ static void com_err_thread_destroy ()
     }
     
     if (err) {
-        dprintf ("%s: Warning!  Pthread termination failed with error %d (%s)", 
+        dprintf ("%s: Warning!  Pthread termination failed with error %ld (%s)", 
                  __FUNCTION__, err, strerror (err)); 
     }
 }

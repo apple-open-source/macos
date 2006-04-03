@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Make sure Objective-C++ can distinguish ObjC classes from C++ classes.  */
 /* Author: Ziemowit Laski  <zlaski@apple.com> */
 /* { dg-do compile } */
@@ -17,5 +17,3 @@ int main(void) {
 
   return 0;
 }
-  
-

@@ -35,7 +35,7 @@ import java.util.*;
  * Podcast Upload plug-in
  *
  * @author John Anderson
- * @version $Id: PodcastUploadPlugin.java,v 1.7.2.4 2005/09/23 20:57:10 johnan Exp $
+ * @version $Id: PodcastUploadPlugin.java,v 1.7.2.5 2006/01/23 22:19:03 johnan Exp $
  */
 
 public class PodcastUploadPlugin extends FileUploadPlugin implements BlojsomConstants {
@@ -141,12 +141,20 @@ public class PodcastUploadPlugin extends FileUploadPlugin implements BlojsomCons
 						String fileType = item.getContentType();
 						boolean isAcceptedFileType = _acceptedFileTypes.containsKey(fileType);
 						
-						// special-case m4a files since Safari doesn't define a MIME type for them
-						if (extension.equals("m4a") && fileType.equals("application/octet-stream")) {
-							fileType = "audio/x-m4a";
-							isAcceptedFileType = _acceptedFileTypes.containsKey(fileType);
+						// special-case m4a, m4b, m4v files since Safari doesn't define a MIME type for them
+						if (fileType.equals("application/octet-stream")) {
+							if (extension.equals("m4a")) {
+								fileType = "audio/x-m4a";
+								isAcceptedFileType = _acceptedFileTypes.containsKey(fileType);
+							} else if (extension.equals("m4b")) {
+								fileType = "audio/x-m4b";
+								isAcceptedFileType = _acceptedFileTypes.containsKey(fileType);
+							} else if (extension.equals("m4v")) {
+								fileType = "video/x-m4v";
+								isAcceptedFileType = _acceptedFileTypes.containsKey(fileType);
+							}
 						}
-						
+
                         for (int i = 0; i < _invalidFileExtensions.length; i++) {
                             String invalidFileExtension = _invalidFileExtensions[i];
                             if (itemNameWithoutPath.indexOf(invalidFileExtension) != -1) {
@@ -205,7 +213,7 @@ public class PodcastUploadPlugin extends FileUploadPlugin implements BlojsomCons
                                 _logger.error("Upload file does not have an accepted extension: " + extension);
                                 addOperationResultMessage(context, " message.badextension");
                             } else {
-                                _logger.error("Upload file is not an accepted type: " + item.getName() + " of type: " + item.getContentType());
+                                _logger.error("Upload file is not an accepted type: " + item.getName() + " of type: " + fileType);
                                 addOperationResultMessage(context, " message.badmimetype");
                             }
                         }

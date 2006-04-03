@@ -2,6 +2,8 @@
 /* Origin: Waldek Hebisch <hebisch@math.uni.wroc.pl> */
 
 /* { dg-do run } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-xfail-if "" { *-*-darwin* } } */
 /* { dg-options "-O2" } */
 
 /* This used to fail on various versions of Solaris 2 because the

@@ -281,14 +281,15 @@ struct _CFHTTPAuthentication {
 	so _authdata is not used.
  
 	For NTLM, usage is actually fairly complex (more so than you would think).  When authentication
-	on a connection starts, all fields are NULL (state 1).  Upon application of the first round of
+	on a connection starts in _CFHTTPAuthenticationCreateNTLMHeaderForRequest,
+	all fields are NULL (state 1). Upon application of the first round of
 	credentials (state 2), the _ntlm field will hold the object used for encoding and decoding the
 	NTLM blobs.  At this same time, _negotiation will get filled with the first response to be sent
 	to the server.  The server should respond with authentication data which is saved in _authdata
 	(state 3).  At this point, all three fields are filled and the authentication is halfway done.
  
 	When the call to apply credentials again, the username and password will actually be used to
-	create the final NTLM hash to be sent to the server.  The new blob will be saved in _negotation,
+	create the final NTLM hash to be sent to the server.  The new blob will be saved in _negotiation,
 	the NTLM generator will be thrown out, and _ntlm will be set to NULL (state 4).  When the actual
 	authorization header is placed on the next outgoing connection, the _authdata is set to NULL
 	and _negotiate is left as is (state 5).  This is done in order to signal the final header has
@@ -300,7 +301,7 @@ struct _CFHTTPAuthentication {
 	1 indicates non-NULL; values are in structure order):
  
 	0 0 0	<- start
-	1 0	1	<- successful call of ApplyCredentials
+	1 0 1	<- successful call of ApplyCredentials
 	1 1 1	<- received Auth-Data response from server and saved
 	0 1 1	<- successful second call of ApplyCredentials
 	0 0 1	<- last leg attempt is being made
@@ -899,6 +900,7 @@ void _CFHTTPAuthenticationUpdateFromResponse(CFHTTPAuthenticationRef auth, CFHTT
 				_AuthConnectionSpecific* spec = (_AuthConnectionSpecific*)CFDictionaryGetValue(auth->_connections, conn);
 				
 				if (spec && !spec->_ntlm && !spec->_authdata && spec->_negotiation) {
+					//  going to state 0 1 0
 					spec->_authdata = spec->_negotiation;
 					spec->_negotiation = NULL;
 				}
@@ -1003,6 +1005,7 @@ void _CFHTTPAuthenticationUpdateFromResponse(CFHTTPAuthenticationRef auth, CFHTT
 							result = _NtlmCreateClientResponse(spec->_ntlm, server, auth->_domain, auth->_user, auth->_hash[0], auth->_hash[1], &blob);
 							
 							NtlmGeneratorRelease(spec->_ntlm);
+							// going state 0 1 1
 							spec->_ntlm = NULL;
 							
 							if (result) {
@@ -1017,12 +1020,30 @@ void _CFHTTPAuthenticationUpdateFromResponse(CFHTTPAuthenticationRef auth, CFHTT
 						}
 						CFRelease(server);
 						
+						// going state 1 1 1
 						spec->_authdata = CFRetain(data);
 					}
 					
 					/* Failed to do the negotiated authentication. */
-					else if ((!spec->_ntlm && spec->_negotiation) && ((isProxy && (code == 407)) || (!isProxy && (code == 401))))
-						_CFHTTPAuthenticationSetError(auth, kCFStreamErrorDomainHTTP, kCFStreamErrorHTTPAuthenticationBadUserName);
+					else if ((isProxy && (code == 407)) || (!isProxy && (code == 401))) {
+						if (!spec->_ntlm && spec->_negotiation) {
+							_CFHTTPAuthenticationSetError(auth, kCFStreamErrorDomainHTTP, kCFStreamErrorHTTPAuthenticationBadUserName);
+						}
+						else if (!spec->_ntlm && spec->_authdata && !spec->_negotiation) {
+							OSErr err;
+							CFDataRef blob = NULL;
+							
+							CFRelease(spec->_authdata);
+							spec->_authdata = NULL;
+							err = NtlmGeneratorCreate(NW_Any, &(spec->_ntlm));
+							if (err || (err = NtlmCreateClientRequest(spec->_ntlm, &blob)))
+								_CFHTTPAuthenticationSetError(auth, kCFStreamErrorDomainMacOSStatus, err);
+							else {
+								spec->_negotiation = _CFEncodeBase64(alloc, blob);
+								CFRelease(blob);
+							}
+						}
+					}
 				}
 			}
 			

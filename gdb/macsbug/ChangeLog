@@ -1,3 +1,199 @@
+2005-07-25  Ira Ruben  <iraruben@acm.org>
+
+	* MacsBug.h: Changed copyright date.
+	(DisasmData): addr and pc now declared as GDB_ADDRESS.
+	(restore_current_prompt): New extern.
+	(fix_pc_area_if_necessary): Ditto.
+	(my_raw_input_prompt_setter): Ditto.
+	(define_macsbug_screen_positions): Ditto.
+	(target_arch): New extern for 32/64 bit support.
+	(DEFAULT_TARGET_ARCH): New #define for 32/64 bit support.
+	(current_pc_lines): Removed extern.
+	(find_breakpt): find_breakpoint renamed, arg now GDB_ADDRESS.
+	(force_arch): New extern for 32/64 bit support.
+	
+	* MacsBug_cmdline.c: Changed copyright date.
+	(colon_filter): Changes for 64 bit support but also the
+	entire function is conditioned out.
+	(define_colon): Use gdb_get_function_start() to get function
+	start to define $colon.
+	(preprocess_commands): Added DLL, FLL, SLL. Added comments.
+	(postprocess_commands): Now used to set $__prevcmd__.
+	
+	* MacsBug_display.c: Changed copyright date.
+	Fixed various formatting and comments.
+	(target_arch): New 32/64 bit arch. control switch.
+	(current_pc_lines) Now declared static.
+	(curApName): Made static global.
+	(previous_pc): Defined as GDB_ADDRESS.
+	(prev_pc): Ditto.
+	(prev_lr): Ditto.
+	(prev_ctr): Ditto.
+	(prev_xer): Ditto.
+	(prev_mq): Ditto.
+	(prev_msr): Ditto.
+	(prev_gpr): Ditto.
+	(curApName_title): New static for use in side bar.
+	(side_bar_blanks): New static to define side-bar blank line.
+	(sd): Forward static declaration moved.
+	(position_cursor_for_shell_input): Moved to avoid static decl.
+	(pgu): Call new gdb_get_long instead of gdb_get_int.
+	(pgd): Ditto.
+	(log_): Renamed log to avoid name conflict compiler warning.
+	(write_to_history_area): Always flush (but keep old code).
+	(display_pc_area): addr and current_pc defined as GDB_ADDRESS.
+	Removed extra space in "Not Running" string.
+	Handle case of gdb_get_register($pc) failure.
+	(get_CurApName): Use pid if no app name.  Widths of strings
+	created here is the width of the current side-bar.
+	(save_all_regs): $mq commented out + some reordering.
+	(__display_side_bar): Changed and added intro comments.
+	Register values now defined as GDB_ADDRESS except cr and xer
+	is a special case where only the low-order 32 bits are shown.
+	"CurApName" can now also be "PID".
+	Alternate formatting for 64-bit arch.
+	(define_macsbug_screen_positions): side_bar_right for 64-bit.
+	Set value for side_bar_blanks.
+	Set need_CurApName to force refresh of CurApName in side-bar.
+	(restore_current_prompt): New routine for signal recovery.
+	(fix_pc_area_if_necessary): Moved here from MacsBug_patches.c.
+	(position_history_prompt): New special event routine.
+	(filter_keyboard_characters): Conditioned out.
+	(my_prompt_position_function): Updated comments.
+	(my_raw_input_prompt_setter): New hook routine.
+	(my_raw_input_handler): Change for raw input prompt handling.
+	(macsbug_on): Enable position_history_prompt special event.
+	(macsbug_off): Disable position_history_prompt special event.
+	(init_macsbug_display): Avoid "log" name conflict.
+	Placeholder for "set use-cached-symfiles 0".
+	
+	* MacsBug_patches.c: Changed copyright date.
+	(bkpt_tbl): Defined as GDB_ADDRESS pointer.
+	(gdb_commands_command): COMMANDS intercept.
+	(target_is_running): New state switch.
+	(my_signal_handler): Call restore_current_prompt() for
+	SIGCONT and SIGWINCH.  Also, for SIGCONT, raise(SIGINT) to
+	stop execution to keep display and prompt correct.
+	(run_command): Init $dot with gdb_set_address().
+	Remove $__next_addr__.
+	(enhanced_gdb_listing_cmd): Skip a line or don't back up over
+	prompt if same command as previous but with explict arg(s).
+	(CAUSES_PROGRESS_CMD_PLUGIN): Additions for 64-bit arch and
+	set $__lastcmd__ to -1.
+	(CONTROL_CMD_PLUGIN): Call gdb_set_raw_input_prompt_handler()
+	and set $__lastcmd__ to -1.
+	(commands_command): New COMMANDS intercept routine.
+	(bsearch_compar_bkpt): Compare GDB_ADDRESS values.
+	(find_breakpt): Renamed to avoid gdb name conflict.
+	Addresses are now GDB_ADDRESS types.
+	(fix_pc_area_if_necessary): Moved to MacsBug_display.c.
+	(qsort_compar_bkpt): Addresses are now GDB_ADDRESS types.
+	(new_breakpoint): Ditto.
+	(delete_breakpoint): Ditto.
+	(changed_breakpoint): Ditto.
+	(state_changed): fprintf's commented, set target_is_running.
+	(init_macsbug_patches): Set gdb_commands_command and fix
+	setting of wrong variable. Enable Gdb_State_Changed hook.
+	
+	* MacsBug_plugins.c: Changed copyright date.
+	Some code rearrangement to avoid needless forward statics.
+	(back_up_over_prompt): The addr is typed as GDB_ADDRESS.
+	(db_dw_dl_dll): Renamed db_dw_and_dl and added DLL.
+	The addr is typed as GDB_ADDRESS and gdb_set_address() and
+	gdb_get_address() used to manipulate address variables.
+	Fixed some display problems.
+	(db): Call db_dw_dl_dll().
+	(dl): Ditto.
+	(dll): New function to display 64-bit values.
+	(dm): The addr is typed as GDB_ADDRESS and gdb_set_address()
+	and gdb_get_address() used to manipulate address variables.
+	Added "LongLong", "SignedLongLong", "Binary64" basic types.
+	(dma): The addr is typed as GDB_ADDRESS and gdb_set_address()
+	and gdb_get_address() used to manipulate address variables.
+	(dp): Ditto.
+	(dv): Fixed copyright display.
+	(dw): Call db_dw_dl_dll().
+	(fill): The addr is typed as GDB_ADDRESS and gdb_set_address()
+	and gdb_get_address() used to manipulate address variables.
+	Allow 8-byte fills.
+	(find): The addr is typed as GDB_ADDRESS and gdb_set_address()
+	and gdb_get_address() used to manipulate address variables.
+	Executes FUTURE (BREAK) for F command that is not a FIND.
+	Allow 8-byte finds (for FLL).
+	Fixed bug in byte finds which did't work for values >= 0x80.
+	(f): New Stub to intercept the F abbreviation so that F can
+	be overloaded as an abbreviation for FIND and FUTURE BREAK.
+	(fll): New command (function) for 8-byte finds.
+	(id): The addr is typed as GDB_ADDRESS and gdb_set_address()
+	and gdb_get_address() used to manipulate address variables.
+	Output blank line between adjacent ID commands.
+	(il): Ditto.
+	(ip): Ditto.
+	(pc): Moved after rn() to avoid needless forward static decl.
+	(sb_sw_sl_sll_sm): Renamed sb_sw_sl_and_sm and added SLL.
+	The addr is typed as GDB_ADDRESS and gdb_set_address() and
+	gdb_get_address() used to manipulate address variables.
+	Update pc area.
+	(sb): Call sb_sw_sl_sll_sm().
+	(sc): Output blank line between adjacent SC commands.
+	(so_and_si): The pc is typed as GDB_ADDRESS and
+	gdb_set_address() and gdb_get_address() used to manipulate 
+	address variables.
+	(sl): Call sb_sw_sl_sll_sm().
+	(sll): New command for 8-byte memory setting.
+	(sm): Call sb_sw_sl_sll_sm().
+	(sw): Call sb_sw_sl_sll_sm().
+	(td): Changed to support 32 and 64 bit archs.  Removed MQ.
+	(tf): Changed to call gdb_get_register() instead of
+	gdb_get_int() to get $fpscr.  Fixed formatting.
+	(tv): Cahnfed to call gdb_get_register() instead of
+	gdb_get_int() to get $vrsave.  Fixed formatting.
+	(wh): Added help info about displaying pathname and
+	changed call to gdb_print_address().
+	(init_from_gdb): DLL, FLL, and SLL added.  F added to
+	be able to handle FIND and FUTURE disambiguation.
+	
+	* MacsBug_set.c: Changed copyright date.
+	(force_arch): Manipulated by set_arch().
+	(new_arch): Ditto.
+	(prev_arch): Ditto.
+	(check_all_sets): Refresh pc area if set unmangle.
+	(set_pc_area): Call define_macsbug_screen_positions().
+	(set_cmd_area): Ditto.
+	(set_arch): New SET command (SET mb-arch [32|64]).
+	(init_macsbug_set): Define SET mb-arch command.
+	
+	* MacsBug_testing.i:  Changed copyright date.
+	(testw): Added experiment to call gdb_testw().
+	
+	* MacsBug_utils.c: Changed copyright date.
+	(__asciidump): The addr is typed as GDB_ADDRESS.
+	(__binary): Type of value changed to long long and 
+	gdb_get_long_long() called to get it.
+	(branch_taken) gdb_get_register() to get cr.
+	(format_disasm_line): Changed to handle possible addresses
+	which could be >8 digits.
+	(__disasm): The addr and limit are typed as GDB_ADDRESS.
+	(__getenv): Allow for the possibility of long long values.
+	(__hexdump): The addr is typed as GDB_ADDRESS.
+	(__memcpy): Changed call from gdb_get_int() to gdb_get_long()
+	for arg 2.
+	(filter_char): Remove bolding from octal values.
+	(__print_4): Changed call from gdb_get_int() to
+	gdb_get_long() for arg.
+	(__print_8): New routine to display 8-byte values as strings.
+	
+	* Makefile: Changed copyright date.
+	(VERSION): 1.5
+	(BUILD_VERSION): 10.4
+	(OPT): Allow control of -O setting for "manual" builds.
+	
+	* README.txt: Updated to summarize 1.5 changes.
+	* README.html: Ditto plus change gdb URL.
+	
+	* gdbinit-MacsBug: Changed copyright date.
+	Fixed typeo in title box.
+
 2005-01-21  Jim Ingham  <jingham@apple.com>
 
 	* MacsBug_display.c: gcc 4.0 doesn't allow static function

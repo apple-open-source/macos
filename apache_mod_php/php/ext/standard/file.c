@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.279.2.70 2005/03/27 15:53:59 iliaa Exp $ */
+/* $Id: file.c,v 1.279.2.70.2.2 2005/07/26 09:32:57 hyanantha Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -49,12 +49,11 @@
 #define O_RDONLY _O_RDONLY
 #include "win32/param.h"
 #include "win32/winutil.h"
-#elif defined(NETWARE) && !defined(NEW_LIBC)
-/*#include <ws2nlm.h>*/
-#include <sys/socket.h>
-#include "netware/param.h"
 #else
 #include <sys/param.h>
+#if HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 #if defined(NETWARE) && defined(USE_WINSOCK)
 #include <novsock2.h>
 #else
@@ -73,8 +72,6 @@
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
 #include "win32/pwd.h"
-#elif defined(NETWARE)
-#include "netware/pwd.h"
 #else
 #include <pwd.h>
 #endif
@@ -2061,9 +2058,15 @@ PHP_NAMED_FUNCTION(php_if_fstat)
 	MAKE_LONG_ZVAL_INCREF(stat_rdev, -1);
 #endif
 	MAKE_LONG_ZVAL_INCREF(stat_size, stat_ssb.sb.st_size);
+#ifdef NETWARE
+	MAKE_LONG_ZVAL_INCREF(stat_atime, stat_ssb.sb.st_atime.tv_sec);
+	MAKE_LONG_ZVAL_INCREF(stat_mtime, stat_ssb.sb.st_mtime.tv_sec);
+	MAKE_LONG_ZVAL_INCREF(stat_ctime, stat_ssb.sb.st_ctime.tv_sec);
+#else
 	MAKE_LONG_ZVAL_INCREF(stat_atime, stat_ssb.sb.st_atime);
 	MAKE_LONG_ZVAL_INCREF(stat_mtime, stat_ssb.sb.st_mtime);
 	MAKE_LONG_ZVAL_INCREF(stat_ctime, stat_ssb.sb.st_ctime);
+#endif
 #ifdef HAVE_ST_BLKSIZE
 	MAKE_LONG_ZVAL_INCREF(stat_blksize, stat_ssb.sb.st_blksize);
 #else
@@ -2141,6 +2144,56 @@ PHPAPI int php_copy_file(char *src, char *dest TSRMLS_DC)
 {
 	php_stream *srcstream = NULL, *deststream = NULL;
 	int ret = FAILURE;
+	php_stream_statbuf src_s, dest_s;
+
+	switch (php_stream_stat_path(src, &src_s)) {
+		case -1:
+			/* non-statable stream */
+			goto safe_to_copy;
+			break;
+		case 0:
+			break;
+		default: /* failed to stat file, does not exist? */
+			return ret;
+	}
+	if (php_stream_stat_path(dest, &dest_s) != 0) {
+		goto safe_to_copy;
+	}
+	if (!src_s.sb.st_ino || !dest_s.sb.st_ino) {
+		goto no_stat;
+	}
+	if (src_s.sb.st_ino == dest_s.sb.st_ino && src_s.sb.st_dev == dest_s.sb.st_dev) {
+		return ret;
+	} else {
+		goto safe_to_copy;
+	}
+no_stat:
+	{
+		char *sp, *dp;
+		int res;
+		
+		if ((sp = expand_filepath(src, NULL TSRMLS_CC)) == NULL) {
+			return ret;
+		}
+	 	if ((dp = expand_filepath(dest, NULL TSRMLS_CC)) == NULL) {
+	 		efree(sp);
+	 		goto safe_to_copy;
+	 	}
+
+		res = 
+#ifndef PHP_WIN32	 	
+			!strcmp(sp, dp);
+#else
+			!strcasecmp(sp, dp);
+#endif	
+
+		efree(sp);
+		efree(dp);
+		if (res) {
+			return ret;
+		}
+	}
+safe_to_copy:
 
 	srcstream = php_stream_open_wrapper(src, "rb",
 				STREAM_DISABLE_OPEN_BASEDIR | REPORT_ERRORS,

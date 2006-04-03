@@ -113,6 +113,7 @@ init_rtti_processing (void)
   
   push_namespace (std_identifier);
   type_info_type = xref_tag (class_type, get_identifier ("type_info"),
+			     /* APPLE LOCAL 4184203 */
 			     /*tag_scope=*/ts_global, false);
   pop_namespace ();
   const_type_info_type_node
@@ -624,6 +625,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      push_nested_namespace (ns);
 	      tinfo_ptr = xref_tag (class_type,
 				    get_identifier ("__class_type_info"),
+				    /* APPLE LOCAL 4184203 */
 				    /*tag_scope=*/ts_global, false);
 	      
 	      tinfo_ptr = build_pointer_type
@@ -805,6 +807,7 @@ tinfo_base_init (tree desc, tree target)
   
       push_nested_namespace (abi_node);
       real_type = xref_tag (class_type, TINFO_REAL_NAME (desc),
+			    /* APPLE LOCAL 4184203 */
 			    /*tag_scope=*/ts_global, false);
       pop_nested_namespace (abi_node);
   
@@ -1337,6 +1340,7 @@ emit_support_tinfos (void)
   push_nested_namespace (abi_node);
   bltn_type = xref_tag (class_type,
 			get_identifier ("__fundamental_type_info"), 
+			/* APPLE LOCAL 4184203 */
 			/*tag_scope=*/ts_global, false);
   pop_nested_namespace (abi_node);
   if (!COMPLETE_TYPE_P (bltn_type))

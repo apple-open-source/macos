@@ -161,6 +161,7 @@ set_cp_abi_as_auto_default (const char *short_name)
     switch_to_cp_abi ("auto");
 }
 
+/* APPLE LOCAL begin C++ auto abi */
 int
 cp_abi_is_auto_p ()
 {
@@ -169,6 +170,7 @@ cp_abi_is_auto_p ()
   else
     return 0;
 }
+/* APPLE LOCAL end C++ auto abi */
 
 /* Return the ABI operations associated with SHORT_NAME.  */
 

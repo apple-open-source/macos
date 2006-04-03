@@ -1,7 +1,7 @@
 /*
  * TargetOwnedTimer.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/TargetOwnedTimer.m,v 1.6 2004/10/22 20:43:49 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -112,7 +112,7 @@
         timerSelector = selector;
         timerUserInfo = userInfo;
         
-        dprintf ("TargetOwnedTimer for %x initializing", timerTarget);        
+        dprintf ("TargetOwnedTimer for %lx initializing", (long) timerTarget);        
         
         timer = [[NSTimer timerWithTimeInterval: seconds
                                         target: self
@@ -141,7 +141,7 @@
         timerSelector = selector;
         timerUserInfo = userInfo;
         
-        dprintf ("TargetOwnedTimer for %x initializing", timerTarget);        
+        dprintf ("TargetOwnedTimer for %lx initializing", (long) timerTarget);        
         
         timer = [[NSTimer alloc] initWithFireDate: fireDate
                                         interval: seconds
@@ -161,7 +161,7 @@
 
 - (void) dealloc
 {
-    dprintf ("TargetOwnedTimer for %x deallocating", timerTarget);        
+    dprintf ("TargetOwnedTimer for %lx deallocating", (long) timerTarget);        
     [timer release];
     [super dealloc];
 }

@@ -38,6 +38,11 @@
 
 #if defined (NM_NEXTSTEP)
 #include "macosx-nat-infthread.h"
+
+/* Whether to allow inferior function calls to be made or not.
+   translated processes cannot do inferior function calls (or changing
+   the PC in any way) and can terminate the inferior if you try.  */
+int inferior_function_calls_disabled_p = 0;
 #endif
 
 /* NOTE: cagney/2003-04-16: What's the future of this code?
@@ -376,7 +381,6 @@ push_dummy_code (struct gdbarch *gdbarch,
 				    args, nargs, value_type, real_pc, bp_addr);
 }
 
-
 /* All this stuff with a dummy frame may seem unnecessarily complicated
    (why not just save registers in GDB?).  The purpose of pushing a dummy
    frame which looks just like a real frame is so that if you call a
@@ -441,6 +445,10 @@ hand_function_call (struct value *function, struct type *expect_type,
 
 #if defined (NM_NEXTSTEP)
   macosx_setup_registers_before_hand_call ();
+
+  /* FIXME: This really needs to go in the target vector....  */
+  if (inferior_function_calls_disabled_p)
+    error ("Function calls from gdb not possible when debugging translated processes.");
 #endif
 
   /* A cleanup for the inferior status.  Create this AFTER the retbuf

@@ -1,12 +1,12 @@
 /*
  * Copyright 1993-1994 OpenVision Technologies, Inc., All Rights Reserved.
  * 
- * $Header: /cvs/krbdev/krb5/src/kadmin/passwd/kpasswd.c,v 1.25 2001/02/26 18:22:08 epeisach Exp $
+ * $Header$
  *
  *
  */
 
-static char rcsid[] = "$Id: kpasswd.c,v 1.25 2001/02/26 18:22:08 epeisach Exp $";
+static char rcsid[] = "$Id: kpasswd.c 13024 2001-02-26 18:22:08Z epeisach $";
 
 #include <kadm5/admin.h>
 #include <krb5.h>

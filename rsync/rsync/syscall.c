@@ -53,6 +53,18 @@ int do_unlink(char *fname)
 {
 	if (dry_run) return 0;
 	RETURN_ERROR_IF_RO_OR_LO;
+#ifdef HAVE_COPYFILE
+	if (!strncmp("._", fname, 2))
+	{
+	    int ret;
+	    ret = unlink(fname);
+
+	    if(ret == -1 && errno != ENOENT)
+		return -1;
+	    else
+		return 0;
+	}
+#endif
 	return unlink(fname);
 }
 

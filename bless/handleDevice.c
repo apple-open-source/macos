@@ -27,7 +27,7 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Dec 6 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: handleDevice.c,v 1.47 2005/02/08 00:18:45 ssen Exp $
+ *  $Id: handleDevice.c,v 1.49 2005/12/02 19:13:49 ssen Exp $
  *
  *
  */
@@ -46,22 +46,31 @@
 
 #include "bless.h"
 
-extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...);
+extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
+    __attribute__ ((format (printf, 3, 4)));
 extern int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
 				   CFDataRef labelData);
+extern int setefidevice(BLContextPtr context, const char * bsdname,
+                        int bootNext, const char *optionalData);
 
 int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
     int err = 0;
 	CFDataRef labeldata = NULL;
 	CFDataRef bootXdata = NULL;
 	
-
+    BLPreBootEnvType	preboot;
+	    
     if(!(geteuid() == 0)) {
 		blesscontextprintf(context, kBLLogLevelError,  "Not run as root\n" );
 		return 1;
     }
 
-
+	err = BLGetPreBootEnvironmentType(context, &preboot);
+	if(err) {
+		blesscontextprintf(context, kBLLogLevelError,  "Could not determine preboot environment\n");
+		return 1;
+	}
+	    
 
 
     /* try to grovel the HFS+ catalog and update a label if present */
@@ -97,7 +106,15 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 		
     /* Set Open Firmware to boot off the specified volume*/
     if(actargs[ksetboot].present) {
-		err = setboot(context, actargs[kdevice].argument, bootXdata, labeldata);
+        if(preboot == kBLPreBootEnvType_EFI) {
+
+            err = setefidevice(context, actargs[kdevice].argument + strlen("/dev/"),
+                                 actargs[knextonly].present,
+                                 actargs[koptions].present ? actargs[koptions].argument : NULL);
+        } else {        
+            err = setboot(context, actargs[kdevice].argument, bootXdata, labeldata);
+        }
+        
 		if(err) {
 			return 3;
 		}

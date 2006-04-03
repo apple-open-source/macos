@@ -5,6 +5,71 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.20 release (the cctools-590.23 release):
+- Changed swap_i386_float_state() in bytesex.c for the current floating point
+  i386 thread state (#if i386_THREAD_STATE == 1 case) so that it does swap
+  the struct fields if i386_EXCEPTION_STATE_COUNT is defined.  Radar bug
+  #4350771.
+
+Changes for the 5.20 release (the cctools-590.21 release):
+- Fixed a bug in writeout_to_mem() in writeout.c for the code that was
+  staggering the timestamps of dylibs with muliple cpusubtypes.  It needed to
+  have code to be able byteswap the load commands because the archs it was
+  walking through may have been byte swapped for output.  Radar bug #4265381.
+- Fixed a bug in ofile_process() for the #ifdef OTOOL case that needed to have
+  code that checked the non-swapped case since the checking code is not called
+  to set up the ofile->mh_cputype fields.  Radar bug #4337271.
+
+Changes for the 5.20 release (the cctools-590.20 release):
+- Removed the warnings when building. Radar bug #4340147.
+  - Added -fno-builtin-round to the Makefile.
+  - Removed the const from command_line_macosx_deployment_target in and
+    put_macosx_deployment_target() in macosx_deployment_target.c .
+  - Added two #undef THREAD_STATE_NONE and two #undef VALID_THREAD_STATE_FLAVOR
+    to bytesex.c and swap_headers.c .
+
+Changes for the 5.19 release (the cctools-590.12 release):
+- Added the new routine get_segprot_from_flag() to arch.c that is passed an
+  arch flag and returns the default segment protection.  Radar bug #4281171.
+
+Changes for the 5.19 release (the cctools-590.11 release):
+- Changed swap_i386_float_state() in bytesex.c for the current i386 thread
+  states (#if i386_THREAD_STATE == 1 case) so that it does not swap any fields.
+  Removed the three added #defined's from the change below now that they are
+  no longer needed.  Radar bug #4282026.
+
+Changes for the 5.19 release (the cctools-590.10 release):
+- Added three #defined's to bytesex.c:
+    #define obsolete1 fpkind
+    #define obsolete2 initialized
+    #define obsolete3 exc_status
+  allow the source to build on Leopard with different fields in the struct
+  i386_float_state in <mach-o/i386/thread_status.h> . Radar bug #4279472.
+
+Changes for the 5.19 release (the cctools-590.8 release):
+- Changed check_Mach_O() in ofile.c as well as swap_object_headers() in
+  swap_headers.c and added an #if to allow the older i386_THREAD_STATE value of
+  -1.  Radar bug #4240450.
+- Changed the needed code to for the new i386 thread states. Radar bug #4200908.
+  - Changed bytesex.c to #if the old swap_i386_thread_fpstate(),
+    swap_i386_thread_exceptstate() and swap_i386_thread_cthreadstate() routines
+    and added the new swap_i386_float_state() and swap_i386_exception_state()
+    routines.
+  - Changed swap_object_headers() in swap_headers.c and check_Mach_O() in
+    ofile.c to #if the code for the new and old i386 thread states and adding
+    code for the new thread states.
+
+Changes for the 5.19 release (the cctools-590.7 release):
+- Added the new routine put_macosx_deployment_target() to
+  macosx_deployment_target.c to allow the value of MACOSX_DEPLOYMENT_TARGET to
+  be set on the argument to the compiler command line flag -macosx_version_min.
+  Radar bug #4195253.
+
+Changes for the 5.19 release (the cctools-590.1 release):
+- Fixed a bug in setup_symbol_list() in symbol_list.c where if there are more
+  than two duplicates in the list only the first duplicate is removed.
+  Radar bug #4139106.
+
 Changes for the 5.18 release (the cctools-589 release):
 - Added support for the CPU_SUBTYPE_PENTIUM_4 cpusubtype.  Radar bug #4115802
   - Added an entry in the arch_flags[] array in arch.c for pentium4 as:

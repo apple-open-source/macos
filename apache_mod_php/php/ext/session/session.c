@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.50 2005/02/13 17:51:32 sniper Exp $ */
+/* $Id: session.c,v 1.336.2.53.2.3 2005/09/23 08:16:01 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -117,6 +117,20 @@ static PHP_INI_MH(OnUpdateSerializer)
 	return SUCCESS;
 }
 
+static PHP_INI_MH(OnUpdateSaveDir) {
+	/* Only do the safemode/open_basedir check at runtime */
+	if(stage == PHP_INI_STAGE_RUNTIME) {
+		if (PG(safe_mode) && (!php_checkuid(new_value, NULL, CHECKUID_ALLOW_ONLY_DIR))) {
+			return FAILURE;
+   		}
+
+   		if (php_check_open_basedir(new_value TSRMLS_CC)) {
+			return FAILURE;
+   		}
+	}
+	OnUpdateString(entry, new_value, new_value_length, mh_arg1, mh_arg2, mh_arg3, stage TSRMLS_CC);
+	return SUCCESS;
+}
 
 /* {{{ PHP_INI
  */
@@ -124,9 +138,9 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("session.bug_compat_42",    "1",         PHP_INI_ALL, OnUpdateBool,   bug_compat,         php_ps_globals,    ps_globals)
 	STD_PHP_INI_BOOLEAN("session.bug_compat_warn",  "1",         PHP_INI_ALL, OnUpdateBool,   bug_compat_warn,    php_ps_globals,    ps_globals)
 #ifdef PHP_WIN32
-	STD_PHP_INI_ENTRY("session.save_path",          "",      PHP_INI_ALL, OnUpdateString, save_path,          php_ps_globals,    ps_globals)
+	STD_PHP_INI_ENTRY("session.save_path",          "",          PHP_INI_ALL, OnUpdateSaveDir,save_path,          php_ps_globals,    ps_globals)
 #else
-	STD_PHP_INI_ENTRY("session.save_path",          "/tmp",      PHP_INI_ALL, OnUpdateString, save_path,          php_ps_globals,    ps_globals)
+	STD_PHP_INI_ENTRY("session.save_path",          "/tmp",      PHP_INI_ALL, OnUpdateSaveDir,save_path,          php_ps_globals,    ps_globals)
 #endif
 	STD_PHP_INI_ENTRY("session.name",               "PHPSESSID", PHP_INI_ALL, OnUpdateString, session_name,       php_ps_globals,    ps_globals)
 	PHP_INI_ENTRY("session.save_handler",           "files",     PHP_INI_ALL, OnUpdateSaveHandler)
@@ -164,6 +178,7 @@ static ps_serializer ps_serializers[MAX_SERIALIZERS + 1] = {
 };
 
 #define MAX_MODULES 10
+#define PREDEFINED_MODULES 2
 
 static ps_module *ps_modules[MAX_MODULES + 1] = {
 	ps_files_ptr,
@@ -1015,7 +1030,7 @@ PHPAPI void php_session_start(TSRMLS_D)
 	 */
 
 	if (!PS(id)) {
-		if (zend_hash_find(&EG(symbol_table), "_COOKIE",
+		if (PS(use_cookies) && zend_hash_find(&EG(symbol_table), "_COOKIE",
 					sizeof("_COOKIE"), (void **) &data) == SUCCESS &&
 				Z_TYPE_PP(data) == IS_ARRAY &&
 				zend_hash_find(Z_ARRVAL_PP(data), PS(session_name),
@@ -1613,7 +1628,9 @@ static void php_rinit_session_globals(TSRMLS_D)
 static void php_rshutdown_session_globals(TSRMLS_D)
 {
 	if (PS(mod_data)) {
-		PS(mod)->s_close(&PS(mod_data) TSRMLS_CC);
+		zend_try {
+			PS(mod)->s_close(&PS(mod_data) TSRMLS_CC);
+		} zend_end_try();
 	}
 	if (PS(id)) {
 		efree(PS(id));
@@ -1650,10 +1667,12 @@ PHP_RINIT_FUNCTION(session)
 
 static void php_session_flush(TSRMLS_D)
 {
-	if(PS(session_status)==php_session_active) {
-		php_session_save_current_state(TSRMLS_C);
+	if (PS(session_status) == php_session_active) {
+		PS(session_status) = php_session_none;
+		zend_try {
+			php_session_save_current_state(TSRMLS_C);
+		} zend_end_try();
 	}
-	PS(session_status)=php_session_none;
 }
 
 /* {{{ proto void session_write_close(void)
@@ -1667,6 +1686,7 @@ PHP_RSHUTDOWN_FUNCTION(session)
 {
 	php_session_flush(TSRMLS_C);
 	php_rshutdown_session_globals(TSRMLS_C);
+
 	return SUCCESS;
 }
 /* }}} */
@@ -1713,6 +1733,7 @@ PHP_MSHUTDOWN_FUNCTION(session)
 #ifdef HAVE_LIBMM
 	PHP_MSHUTDOWN(ps_mm) (SHUTDOWN_FUNC_ARGS_PASSTHRU);
 #endif
+	memset(&ps_modules[PREDEFINED_MODULES], 0, (MAX_MODULES-PREDEFINED_MODULES)*sizeof(ps_module *));
 
 	return SUCCESS;
 }

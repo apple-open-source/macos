@@ -888,6 +888,10 @@ void Options::parse(int argc, const char* argv[])
 			else if ( strcmp(arg, "-twolevel_namespace_hints") == 0 ) {
 				// FIX FIX
 			}
+			else if ( strcmp(arg, "-macosx_version_min") == 0 ) {
+				// This flag isn't needed yet, so just ignore it.
+				++i;
+			}
 			else if ( strcmp(arg, "-multiply_defined") == 0 ) {
 				// FIX FIX
 				++i;

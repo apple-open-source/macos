@@ -24,7 +24,7 @@
 #define _GSSAPIP_GENERIC_H_
 
 /*
- * $Id: gssapiP_generic.h,v 1.40 2004/06/08 21:50:16 hartmans Exp $
+ * $Id: gssapiP_generic.h 16423 2004-06-08 21:50:17Z hartmans $
  */
 
 #if defined(_WIN32)

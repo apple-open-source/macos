@@ -780,7 +780,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
   if (dist == 0)
      return false;
 
-  if (dist >= vectorization_factor)
+  if (abs(dist) >= vectorization_factor)
     /* Dependence distance does not create dependence, as far as vectorization
        is concerned, in this case.  */
     return false;

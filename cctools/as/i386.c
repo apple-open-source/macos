@@ -990,7 +990,9 @@ string_instruction_bad_match:
       if(i.suffix == BYTE_OPCODE_SUFFIX && (overlap1 & (Imm8|Imm8S)) == 0)
 	overlap1 = Imm8|Imm8S;
       else if(i.suffix == WORD_OPCODE_SUFFIX &&
-	      (overlap0 & (Imm16|Imm8|Imm8S)) == 0)
+	      (overlap0 & (Imm16|Imm8|Imm8S)) == 0 &&
+	      /* the instructions outw and inw only take an 8-bit value */
+	      (i.tm.base_opcode != 0xe6 && i.tm.base_opcode != 0xe4) )
 	overlap1 = Imm16;
     }
 #endif /* NeXT_MOD */
@@ -1281,6 +1283,10 @@ string_instruction_bad_match:
     t->base_opcode = INT3_OPCODE;
     i.imm_operands = 0;
   }
+
+  if (frchain_now == NULL && flagseen['n'])
+    as_fatal ("with -n a section directive must be seen before assembly "
+	      "can begin");
 
 #ifdef NeXT_MOD	/* generate stabs for debugging assembly code */
   /*

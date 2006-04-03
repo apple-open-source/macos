@@ -104,4 +104,28 @@ rule ConditionalDefinitions
              deferred DEPLOYMENT_LOCATION = YES ;
              deferred DEPLOYMENT_POSTPROCESSING = YES ;
     } 
+
+    # conditional locations enabling install-in-place
+    if $(DEPLOYMENT_LOCATION) = YES {
+        if $(SKIP_INSTALL) || ! $(INSTALL_PATH) {
+            export deferred TARGET_BUILD_DIR = $(TEMP_ROOT)/UninstalledProducts ;
+        }
+        else {
+            export deferred TARGET_BUILD_DIR = $(INSTALL_ROOT)/$(INSTALL_PATH) ;
+        }
+        deferred BASE_PROJECT_HEADER_DIR = $(TEMP_ROOT)/ProjectHeaders ;
+        if $(INSTALLED_PRODUCT_ASIDES) = YES {
+            # built products go in subfolder when there are asides
+            export deferred BUILT_PRODUCTS_DIR = $(ANTICIPATED_BUILT_PRODUCTS_DIR)/BuiltProducts ;
+        }
+        else {
+            # built products go in build folder when there are no asides
+            export deferred BUILT_PRODUCTS_DIR = $(ANTICIPATED_BUILT_PRODUCTS_DIR) ;
+        }
+    }
+    else {
+        export deferred TARGET_BUILD_DIR = $(ANTICIPATED_TARGET_BUILD_DIR) ;
+        export deferred BUILT_PRODUCTS_DIR = $(ANTICIPATED_BUILT_PRODUCTS_DIR) ;
+        deferred BASE_PROJECT_HEADER_DIR = $(ANTICIPATED_TARGET_BUILD_DIR)/ProjectHeaders ;
+    }
 }

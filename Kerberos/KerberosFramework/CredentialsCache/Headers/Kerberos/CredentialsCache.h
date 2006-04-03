@@ -22,7 +22,7 @@
  * or implied warranty.
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Headers/Kerberos/CredentialsCache.h,v 1.41 2004/10/22 20:49:18 lxs Exp $ */
+/* $Header$ */
 
 /*
  * Declarations for Credentials Cache API Library

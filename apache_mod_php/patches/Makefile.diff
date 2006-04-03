@@ -1,0 +1,10 @@
+--- scripts/Makefile.frag.orig	2006-01-05 14:32:23.000000000 -0800
++++ scripts/Makefile.frag	2006-01-05 14:32:32.000000000 -0800
+@@ -34,7 +34,6 @@
+ 	/ \
+ 	Zend/ \
+ 	TSRM/ \
+-	include/ \
+ 	main/ \
+ 	regex/ \
+ 	ext/iconv/ \

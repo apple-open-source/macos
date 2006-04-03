@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* It is OK to use #pragma inside @interface body. This test checks that.  */
 /* Devang Patel  <dpatel@apple.com>.  */
 

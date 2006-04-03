@@ -15,7 +15,7 @@
    | Authors: Alexander Feldman                                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: crack.c,v 1.18.8.4 2004/12/31 03:16:50 iliaa Exp $ */
+/* $Id: crack.c,v 1.18.8.5 2005/04/17 13:27:18 sniper Exp $ */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -28,6 +28,10 @@
 #if HAVE_CRACK
 
 #include <packer.h>
+
+#ifndef STRINGSIZE
+#define STRINGSIZE 1024
+#endif
 
 extern char * FascistLook(PWDICT *pwp, char *instring);
 extern int PWClose(PWDICT *pwp);

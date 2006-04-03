@@ -98,6 +98,12 @@ pipe_open (struct serial *scb, const char *name)
       for (old = pidlist; old; old = old->next)
 	close (fileno (old->fp));	/* don't allow a flush */
 #endif
+
+      /* APPLE LOCAL: gdb is setgid to give it extra special debuggizer
+         powers; we need to drop those privileges before executing the
+         inferior process.  */
+      setgid (getgid ());
+
       execl ("/bin/sh", "sh", "-c", name, (char *) 0);
       _exit (127);
     }
@@ -141,10 +147,10 @@ _initialize_ser_pipe (void)
   memset (ops, 0, sizeof (struct serial_ops));
   ops->name = "pipe";
   ops->next = 0;
-  ops->sopen = pipe_open;
-  ops->sclose = pipe_close;
+  ops->open = pipe_open;
+  ops->close = pipe_close;
   ops->readchar = ser_unix_readchar;
-  ops->swrite = ser_unix_write;
+  ops->write = ser_unix_write;
   ops->flush_output = ser_unix_nop_flush_output;
   ops->flush_input = ser_unix_flush_input;
   ops->send_break = ser_unix_nop_send_break;

@@ -364,7 +364,6 @@ macho_symfile_read (struct objfile *objfile, int mainline)
       symtab = &gsymtab->command.symtab;
       dysymtab = &gdysymtab->command.dysymtab;
 
-      CHECK_FATAL (DBX_STRINGTAB (objfile) != NULL);
       if (symtab->strtab == NULL)
         {
           symtab->strtab = DBX_STRINGTAB (objfile);

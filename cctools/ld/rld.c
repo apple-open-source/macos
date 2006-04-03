@@ -451,7 +451,15 @@ long obj_size)
 	    struct segment_command *sg;
 #ifndef __DYNAMIC__
 #ifdef KLD
-	    extern char *kld_basefile_name;
+#ifndef _LIBSA_STDLIB_H_
+	    /*
+	     * This needs to match what is in
+	     * /System/Library/Frameworks/Kernel.framework/PrivateHeaders/
+	     *     libsa/stdlib.h
+	     * if it exists on the system.
+	     */
+	    __private_extern__ const char *kld_basefile_name;
+#endif /* !defined(_LIBSA_STDLIB_H_) */
 #else /* !defined(KLD) */
 	    extern char **NXArgv;
 #endif /* KLD */
@@ -1500,7 +1508,7 @@ NXStream *stream,
 const char *symbol_name,
 unsigned long *value)
 {
-    struct merged_symbol **hash_pointer, *merged_symbol;
+    struct merged_symbol *merged_symbol;
 
 #ifndef KLD
 	error_stream = stream;
@@ -1515,9 +1523,8 @@ unsigned long *value)
 	/* This must be cleared for each call to rld() */
 	errors = 0;
 
-	hash_pointer = lookup_symbol((char *)symbol_name);
-	if(*hash_pointer != NULL){
-	    merged_symbol = *hash_pointer;
+	merged_symbol = lookup_symbol((char *)symbol_name);
+	if(merged_symbol->name_len != 0){
 	    if(value != NULL)
 		*value = merged_symbol->nlist.n_value;
 	    return(1);
@@ -1545,7 +1552,7 @@ NXStream *stream,
 #endif /* KLD */
 const char *symbol_name)
 {
-    struct merged_symbol **hash_pointer, *merged_symbol;
+    struct merged_symbol *merged_symbol;
 
 #ifndef KLD
 	error_stream = stream;
@@ -1560,9 +1567,8 @@ const char *symbol_name)
 	/* This must be cleared for each call to rld() */
 	errors = 0;
 
-	hash_pointer = lookup_symbol((char *)symbol_name);
-	if(*hash_pointer != NULL){
-	    merged_symbol = *hash_pointer;
+	merged_symbol = lookup_symbol((char *)symbol_name);
+	if(merged_symbol->name_len != 0){
 	    merged_symbol->nlist.n_un.n_name[0] = '\0';
 	    return(1);
 	}

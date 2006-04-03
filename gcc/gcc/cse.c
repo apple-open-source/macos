@@ -3511,6 +3511,11 @@ fold_rtx (rtx x, rtx insn)
 	      addr = addr_ent->const_rtx;
 	  }
 
+	/* APPLE LOCAL begin mainline 2005-09-07 */
+    	/* Call target hook to avoid the effects of -fpic etc....  */
+    	addr = targetm.delegitimize_address (addr);
+	/* APPLE LOCAL end mainline 2005-09-07 */
+
 	/* If address is constant, split it into a base and integer offset.  */
 	if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == LABEL_REF)
 	  base = addr;
@@ -5533,11 +5538,19 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
 	  else if (zero_sign_extended_src)
 	    {
+	      rtx truncated_const;
+	      if (elt->is_const)
+	        truncated_const = gen_rtx_TRUNCATE (
+		  GET_MODE (XEXP (zero_sign_extended_src, 0)),
+		  copy_rtx (elt->exp));
+	      else
+	        truncated_const= copy_rtx (elt->exp);
 	      trial = GET_CODE(zero_sign_extended_src) == ZERO_EXTEND 
 		      ? gen_rtx_ZERO_EXTEND (GET_MODE(zero_sign_extended_src),
-					     copy_rtx (elt->exp))
+					     truncated_const)
 		      : gen_rtx_SIGN_EXTEND (GET_MODE(zero_sign_extended_src),
-					     copy_rtx (elt->exp));
+					     truncated_const);
+	      trial = fold_rtx (trial, NULL_RTX);
 	      elt = elt->next_same_value;
 	      src_elt_cost = MAX_COST;
 	    }

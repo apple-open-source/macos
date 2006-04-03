@@ -1,87 +1,136 @@
-/* @(#)e_cosh.c 5.1 93/09/24 */
 /*
- * ====================================================
- * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ *	by Ian Ollmann
  *
- * Developed at SunPro, a Sun Microsystems, Inc. business.
- * Permission to use, copy, modify, and distribute this
- * software is freely granted, provided that this notice
- * is preserved.
- * ====================================================
+ *	based on fdlibm cosh by Sun Microsystems, with improvements for efficiency and proper flag setting on i386. 
+ *
+ *	Copyright (C) 2005 by Apple Computer, Inc. All rights reserved.
  */
 
-#include <sys/cdefs.h>
-#if defined(LIBM_SCCS) && !defined(lint)
-__RCSID("$NetBSD: e_cosh.c,v 1.10 1999/07/02 15:37:38 simonb Exp $");
-#endif
 
-/* __ieee754_cosh(x)
- * Method :
- * mathematically cosh(x) if defined to be (exp(x)+exp(-x))/2
- *	1. Replace x by |x| (cosh(x) = cosh(-x)).
- *	2.
- *		                                        [ exp(x) - 1 ]^2
- *	    0        <= x <= ln2/2  :  cosh(x) := 1 + -------------------
- *			       			           2*exp(x)
- *
- *		                                  exp(x) +  1/exp(x)
- *	    ln2/2    <= x <= 22     :  cosh(x) := -------------------
- *			       			          2
- *	    22       <= x <= lnovft :  cosh(x) := exp(x)/2
- *	    lnovft   <= x <= ln2ovft:  cosh(x) := exp(x/2)/2 * exp(x/2)
- *	    ln2ovft  <  x	    :  cosh(x) := huge*huge (overflow)
- *
- * Special cases:
- *	cosh(x) is |x| if x is +INF, -INF, or NaN.
- *	only cosh(0)=1 is exact for finite x.
- */
 
 #include "math.h"
 #include "math_private.h"
 
-static const double one = 1.0, half=0.5, huge = 1.0e300;
-
-#define __ieee754_exp exp
-
-double cosh(double x)
+float coshf(  float x )
 {
-	double t,w;
-	int32_t ix;
-	u_int32_t lx;
+    static const float overflow = 0x1.65a9f8p+6f;					//ln(FLT_MAX) + ln(2)
+    static const float ln2 = 0.693147180559945309417232121458176568L;                             //ln(2)
+    float fabsx = __builtin_fabsf( x );
+    float t, w;
 
-    /* High word of |x|. */
-	GET_HIGH_WORD(ix,x);
-	ix &= 0x7fffffff;
+	if( x != x )	return x + x;
 
-    /* x is INF or NaN */
-	if(ix>=0x7ff00000) return x*x;
+    if( fabsx < __builtin_inff() )
+    {
+        if( fabsx < 0.5f * ln2 )
+        {
+			if( fabsx > 0x1.0p-50f )	//avoid underflow, save time
+				fabsx = expm1l( fabsx );
+            w = 1.0f + fabsx;
+            if( fabsx < 0x1.0p-26f )
+                return w;
+            return 1.0f + (fabsx*fabsx)/(w+w);
+        }
+        
+        if( fabsx < 22.0f )
+        {
+            t =  exp( fabsx );
+            return 0.5f * t + 0.5f/t;
+        }
+        
+        if( fabsx < overflow )
+        {
+            w = exp( 0.5f * fabsx );
+            t = 0.5f * w;
+            return t * w;
+        }
+		
+		return fabsx * 0x1.0p126f;
+    }
 
-    /* |x| in [0,0.5*ln2], return 1+expm1(|x|)^2/(2*exp(|x|)) */
-	if(ix<0x3fd62e43) {
-	    t = expm1(fabs(x));
-	    w = one+t;
-	    if (ix<0x3c800000) return w;	/* cosh(tiny) = 1 */
-	    return one+(t*t)/(w+w);
-	}
+    //Nan or Inf result
+    return fabsx + fabsx;
+}
 
-    /* |x| in [0.5*ln2,22], return (exp(|x|)+1/exp(|x|)/2; */
-	if (ix < 0x40360000) {
-		t = __ieee754_exp(fabs(x));
-		return half*t+half/t;
-	}
+double cosh(  double x )
+{
+    static const double overflow = 0x1.633ce8fb9f87dp+9;									//ln( DBL_MAX ) + ln(2)
+    static const double ln2 = 0.693147180559945309417232121458176568L;                             //ln(2)
+    double fabsx = __builtin_fabs( x );
+    double t, w;
 
-    /* |x| in [22, log(maxdouble)] return half*exp(|x|) */
-	if (ix < 0x40862E42)  return half*__ieee754_exp(fabs(x));
+	if( x != x )	return x + x;
 
-    /* |x| in [log(maxdouble), overflowthresold] */
-	GET_LOW_WORD(lx,x);
-	if (ix<0x408633CE ||
-	      ((ix==0x408633ce)&&(lx<=(u_int32_t)0x8fb9f87d))) {
-	    w = __ieee754_exp(half*fabs(x));
-	    t = half*w;
-	    return t*w;
-	}
+    if( fabsx < __builtin_inf() )
+    {
+        if( fabsx < 0.5 * ln2 )
+        {
+			if( fabsx > 0x1.0p-100 )	//avoid underflow, save time
+				fabsx = expm1l( fabsx );
+            w = 1.0 + fabsx;
+            if( fabsx < 0x1.0p-55 )
+                return w;
+            return 1.0 + (fabsx*fabsx)/(w+w);
+        }
+        
+        if( fabsx < 22 )
+        {
+            t =  exp( fabsx );
+            return 0.5 * t + 0.5/t;
+        }
+        
+        if( fabsx < overflow )
+        {
+            w = exp( 0.5 * fabsx );
+            t = 0.5 * w;
+            return t * w;
+        }
+		
+		return fabsx * 0x1.0p1023;
+    }
 
-    /* |x| > overflowthresold, cosh(x) overflow */
-	return huge*huge;
+    //Nan or Inf result
+    return fabsx + fabsx;
+}
+
+
+long double coshl( long double x )
+{
+    static const long double overflow = 0x1.62e9bb80635d81d4p+13L;		 //ln(LDBL_MAX) + ln(2.0)
+    static const long double ln2 = 0.693147180559945309417232121458176568L;                             //ln(2)
+    long double fabsx = __builtin_fabsl( x );
+    long double t, w;
+
+	if( x != x )	return x + x;
+
+    if( fabsx < __builtin_infl() )
+    {
+        if( fabsx < 0.5L * ln2 )
+        {
+			if( fabsx > 0x1.0p-1000L )	//avoid underflow, save time
+				fabsx = expm1l( fabsx );
+            w = 1.0L + fabsx;
+            if( fabsx < 0x1.0p-67L )
+                return w;
+            return 1.0L + (fabsx*fabsx)/(w+w);
+        }
+        
+        if( fabsx < 22.L )
+        {
+            t =  expl( fabsx );
+            return 0.5L * t + 0.5L/t;
+        }
+        
+        if( fabsx < overflow )
+        {
+            w = expl( 0.5L * fabsx );
+            t = 0.5L * w;
+            return t * w;
+        }
+		
+		return fabsx * 0x1.0p16383L;
+    }
+
+    //Nan or Inf result
+    return fabsx + fabsx;
 }

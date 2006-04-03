@@ -1,7 +1,7 @@
 /*
  * TargetOwnedTimer.h
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/TargetOwnedTimer.h,v 1.3 2004/10/22 20:43:49 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

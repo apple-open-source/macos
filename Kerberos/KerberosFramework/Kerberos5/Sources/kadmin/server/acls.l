@@ -2,10 +2,10 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved.
  *
- * $Id: acls.l,v 1.3 1996/07/22 20:28:49 marc Exp $
- * $Source: /cvs/krbdev/krb5/src/kadmin/server/acls.l,v $
+ * $Id: acls.l 8774 1996-07-22 20:49:46Z marc $
+ * $Source$
  * 
- * $Log: acls.l,v $
+ * $Log$
  * Revision 1.3  1996/07/22 20:28:49  marc
  * this commit includes all the changes on the OV_9510_INTEGRATION and
  * OV_MERGE branches.  This includes, but is not limited to, the new openvision
@@ -28,7 +28,7 @@
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/kadmin/server/acls.l,v 1.3 1996/07/22 20:28:49 marc Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 enum tokens {

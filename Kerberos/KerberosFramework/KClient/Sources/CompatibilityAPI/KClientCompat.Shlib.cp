@@ -2,7 +2,7 @@
  * KClientCompatLib implements parts of the old KClient API which can be
  * sanely mapped to the new API.
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/CompatibilityAPI/KClientCompat.Shlib.cp,v 1.38 2004/12/13 21:48:35 lxs Exp $
+ * $Header$
  */
 
 #include <Kerberos/KClientCompat.h>

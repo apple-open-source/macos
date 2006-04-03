@@ -1,7 +1,7 @@
 /*
  * LoginSessions.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Sources/LoginSessions.c,v 1.18 2005/06/15 20:59:13 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -65,7 +65,7 @@ const char *LoginSessionGetSecuritySessionName (void)
 
     if (needed > (int) sizeof (sessionName)) {
         sessionName [sizeof (sessionName) - 1] = '\0';
-        dprintf ("LoginSessionGetSecuritySessionName overflowed static buffer (%d > %d)\n",
+        dprintf ("LoginSessionGetSecuritySessionName overflowed static buffer (%d > %lu)\n",
                  needed, sizeof (sessionName));
     }
 

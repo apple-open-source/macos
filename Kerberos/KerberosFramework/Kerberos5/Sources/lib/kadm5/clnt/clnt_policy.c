@@ -1,11 +1,11 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/clnt/clnt_policy.c,v 1.4 2004/02/19 01:22:26 raeburn Exp $
+ * $Header$
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/lib/kadm5/clnt/clnt_policy.c,v 1.4 2004/02/19 01:22:26 raeburn Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #include    <gssrpc/rpc.h>

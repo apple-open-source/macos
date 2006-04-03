@@ -62,7 +62,7 @@ asm(".desc _NXArgc, 0x10");
 asm(".desc _NXArgv, 0x10");
 asm(".desc _environ, 0x10");
 asm(".desc __mh_execute_header, 0x10");
-#if !defined(__ppc64__)
+#if defined(__ppc__) || defined(__i386__)
 asm(".comm _catch_exception_raise, 4");
 asm(".desc _catch_exception_raise, 0x10");
 asm(".comm _catch_exception_raise_state, 4");
@@ -89,7 +89,7 @@ asm(".comm _clock_alarm_reply, 4");
 asm(".desc _clock_alarm_reply, 0x10");
 asm(".comm _receive_samples, 4");
 asm(".desc _receive_samples, 0x10");
-#endif /* --ppc64__ */
+#endif /* __ppc__ || __i386__ */
 asm(".desc ___progname, 0x10");
 #endif /* CRT1 */
 
@@ -161,7 +161,7 @@ int _dyld_func_lookup(
 extern void __keymgr_dwarf2_register_sections (void);
 #endif /* CRT1 */
 
-#if defined(CRT1)  &&  !defined(POSTSCRIPT) && !defined(__ppc64__)
+#if defined(CRT1)  &&  !defined(POSTSCRIPT) && defined(__ppc__)
 static void _call_objcInit(void);
 #endif
 
@@ -188,7 +188,7 @@ char **envp)
     void (*term)(void);
 #endif
 
-#ifdef CRT1
+#if defined(CRT1) && !defined(__i386__)
 	_dyld_init_check();
 #endif
 
@@ -222,7 +222,7 @@ char **envp)
 	_call_mod_init_funcs();
 #endif
 
-#if defined(CRT1)  &&  !defined(POSTSCRIPT) && !defined(__ppc64__)
+#if defined(CRT1)  &&  !defined(POSTSCRIPT) && defined(__ppc__)
         _call_objcInit();
 #endif
 
@@ -305,7 +305,7 @@ _call_mod_init_funcs(void)
 }
 #endif /* CRT1 */
 
-#if defined(CRT1)  &&  !defined(POSTSCRIPT) && !defined(__ppc64__)
+#if defined(CRT1)  &&  !defined(POSTSCRIPT) && defined(__ppc__)
 
 /*
  * Look for a function called _objcInit() in any library whose name 
@@ -395,4 +395,4 @@ _call_objcInit(void)
     }
 }
 
-#endif /* defined(CRT1)  &&  !defined(POSTSCRIPT) && !defined(__ppc64__) */
+#endif /* defined(CRT1)  &&  !defined(POSTSCRIPT) && defined(__ppc__) */

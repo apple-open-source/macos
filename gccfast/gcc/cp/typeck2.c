@@ -659,7 +659,9 @@ process_init_constructor (type, init, elts)
       else
 	{
 	  /* Vectors are like simple fixed-size arrays.  */
-	  len = TYPE_VECTOR_SUBPARTS (type);
+	  tree vtype = TREE_TYPE (type);
+	  len = (TREE_INT_CST_LOW (TYPE_SIZE (type))
+	  	 / TREE_INT_CST_LOW (TYPE_SIZE (vtype)));
 	}
 
       for (i = 0; len < 0 || i < len; i++)

@@ -197,7 +197,7 @@ _add_values_for_key(CFMutableDictionaryRef dict, char **values, char *key)
 }
 
 static void
-_set_value_for_key(CFMutableDictionaryRef dict, char *value, char *key)
+_set_value_for_key(CFMutableDictionaryRef dict, const char *value, const char *key)
 {
 	CFStringRef			valueRef = NULL;
 	CFStringRef			keyRef = NULL;
@@ -470,11 +470,14 @@ ff_parse_user(char *data)
 	
 	CFMutableDictionaryRef itemRef;
 	char **tokens;
-
+	unsigned int numValues = 0;
+	
 	if (data == NULL) return NULL;
 
 	tokens = ff_tokens_from_line(data, ":", 0);
-	if (listLength(tokens) == 0)
+	
+	numValues = listLength(tokens);
+	if (numValues < 4)
 	{
 		freeList(tokens);
 		return NULL;
@@ -483,12 +486,6 @@ ff_parse_user(char *data)
 	if (tokens[0][0] == '+')
 	{
 		return ff_parse_magic_cookie(tokens);
-	}
-
-	if (listLength(tokens) != 7)
-	{
-		freeList(tokens);
-		return NULL;
 	}
 
 	itemRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
@@ -500,9 +497,21 @@ ff_parse_user(char *data)
 //	_set_value_for_key(itemRef, tokens[1], kDS1AttrPasswordPlus);		// also set the password plus to the same crypt password
 	_set_value_for_key(itemRef, tokens[2], kDS1AttrUniqueID);
 	_set_value_for_key(itemRef, tokens[3], kDS1AttrPrimaryGroupID);
-	_set_value_for_key(itemRef, tokens[4], kDS1AttrDistinguishedName);
-	_set_value_for_key(itemRef, tokens[5], kDS1AttrNFSHomeDirectory);
-	_set_value_for_key(itemRef, tokens[6], kDS1AttrUserShell);
+
+	if (numValues > 4)
+		_set_value_for_key(itemRef, tokens[4], kDS1AttrDistinguishedName);
+	else
+		_set_value_for_key(itemRef, "", kDS1AttrDistinguishedName);
+
+	if (numValues > 5)
+		_set_value_for_key(itemRef, tokens[5], kDS1AttrNFSHomeDirectory);
+	else
+		_set_value_for_key(itemRef, "", kDS1AttrNFSHomeDirectory);
+
+	if (numValues > 6)
+		_set_value_for_key(itemRef, tokens[6], kDS1AttrUserShell);
+	else
+		_set_value_for_key(itemRef, "", kDS1AttrUserShell);
 
 	freeList(tokens);
 	tokens = NULL;
@@ -914,6 +923,41 @@ ff_parse_alias(char *data)
 
 	members = ff_tokens_from_line(tokens[1], ",", 0);
 	_set_values_for_key(itemRef, members, "dsAttrTypeNative:members");
+
+	freeList(members);
+	members = NULL;
+
+	freeList(tokens);
+	tokens = NULL;
+
+	return itemRef;
+}
+
+CFMutableDictionaryRef
+ff_parse_group_by_usr(char *data, const char* recordName)
+{
+	CFMutableDictionaryRef itemRef;
+	char **members;
+	char **tokens;
+
+	if (data == NULL) return NULL;
+
+	tokens = ff_tokens_from_line(data, " ", 0);
+	if (listLength(tokens) != 1)
+	{
+		freeList(tokens);
+		return NULL;
+	}
+
+	itemRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+
+	CFDictionarySetValue( itemRef, CFSTR(kDSNAttrRecordType), CFSTR(kDSStdRecordTypeGroups) );
+	
+	_set_value_for_key(itemRef, recordName, kDSNAttrRecordName);
+
+	members = ff_tokens_from_line(tokens[0], ",", 0);
+	_set_values_for_key(itemRef, members, kDSNAttrGroupMembership);
+	_set_values_for_key(itemRef, members, kDSNAttrMember);
 
 	freeList(members);
 	members = NULL;

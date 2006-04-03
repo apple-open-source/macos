@@ -890,6 +890,7 @@ _loadJSSupportFile(void) {
     static CFURLRef _JSRuntimeFunctionsLocation = NULL;
     static CFStringRef _JSRuntimeFunctions = NULL;
 
+
     if (_JSRuntimeFunctionsLocation == NULL) {
 #if !defined(__WIN32__)
         CFBundleRef cfNetworkBundle = CFBundleGetBundleWithIdentifier(_kProxySupportCFNetworkBundleID);
@@ -1006,7 +1007,20 @@ CFStringRef _stringFromLoadedPACStream(CFAllocatorRef alloc, CFMutableDataRef co
 
     CFIndex bytesRead = CFDataGetLength(contents);
     if (bytesRead) {
+       // try using UTF8 encoding
         result = CFStringCreateWithBytes(alloc, CFDataGetBytePtr(contents), bytesRead, kCFStringEncodingUTF8, TRUE);
+       if ( result == NULL ) {
+           // fall back and try ISOLatin1 encoding
+           result = CFStringCreateWithBytes(alloc, CFDataGetBytePtr(contents), bytesRead, kCFStringEncodingISOLatin1, TRUE);
+           if ( result == NULL ) {
+               // fall back and try raw bytes
+               result = CFStringCreateWithBytes(alloc, CFDataGetBytePtr(contents), bytesRead, kCFStringEncodingMacRoman, TRUE);
+               if ( result == NULL ) {
+                   // Should never get here
+                   CFLog(0, CFSTR("PAC stream bytes could not be converted to CFString\n"));
+               }
+           }
+       }
     }
     return result;
 }
@@ -2104,8 +2118,9 @@ _JSPrimaryIpv4AddressesFunction(void* context, JSObjectRef ctxt, CFArrayRef args
         
         value = SCDynamicStoreCopyValue(store, key);
         
+        CFRelease(store);
+
         if (!value) {
-            CFRelease(store);
             break;
         }
 

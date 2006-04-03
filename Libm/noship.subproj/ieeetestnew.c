@@ -57,6 +57,21 @@ using namespace std;
 #define dec2numl dec2l
 #define nextafterd nextafter
 
+/*	This module uses __WANT_LONG_DOUBLE_FORMAT__ to select which versions of
+	its internal routines to use.  __WANT_LONG_DOUBLE_FORMAT__ is defined on
+	PowerPC in math.h and complex.h to be 64 or 128 (for the number of bits in
+	a long double) and is not defined on IA-32.  This ties the test program
+	into libm in an undesirable way, so some alternative should be sought.  In
+	the meantime, we need to make the selection of IA-32, so
+	__WANT_LONG_DOUBLE_FORMAT__ is defined here to be 128 if not previously
+	set.
+	
+	-- Eric Postpischil, April 14, 2005.
+*/
+#if !defined(__WANT_LONG_DOUBLE_FORMAT__)
+#define	__WANT_LONG_DOUBLE_FORMAT__	128
+#endif
+
 #if !defined(WANT_CARBON_MATH)
 #if defined(__ppc64__) || defined(__cplusplus)
 #define WANT_CARBON_MATH 0
@@ -2681,6 +2696,7 @@ int main(int argc, char **argv)
     char s[256];
     int err;
     
+#if defined __ppc__ || defined __ppc64__
     act.__sigaction_u.__sa_sigaction = myHandler;
     act.sa_mask = 0;
     act.sa_flags = SA_SIGINFO;
@@ -2688,6 +2704,7 @@ int main(int argc, char **argv)
     dfl.__sigaction_u.__sa_handler = SIG_DFL;
     dfl.sa_mask = 0;
     dfl.sa_flags = SA_SIGINFO;
+#endif	// defined __ppc__ || defined __ppc64__
     
     OutFile = fopen ( IEEE_TEST_RESULTS, "w" );
     if (NULL == OutFile)
@@ -2712,14 +2729,12 @@ int main(int argc, char **argv)
     printf("\nDetailed results will be logged to %s.\n", IEEE_TEST_RESULTS);
     
 #ifdef __WANT_LONG_DOUBLE_FORMAT__
-#if (defined(__ppc__) || defined(__ppc64__))
     fprintf ( OutFile, "Testing long double. sizeof(long double) = %ld\n", sizeof(long double));
     printf ("Testing long double. sizeof(long double) = %ld\n", sizeof(long double));
 
     DoTestPrecision('l');
     tod = time( NULL );
     fprintf ( OutFile, "\n+++++++++++++++++++++++++++++ %s\n", ctime(&tod) );
-#endif
 #endif
 
     printf ("Testing double.\n");

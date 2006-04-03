@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test extern c support inside @implementation */
 /* Devang Patel  <dpatel@apple.com>.  */
 #include <objc/objc.h>

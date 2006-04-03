@@ -1,7 +1,7 @@
 /*
  * LifetimeFormatter.h
  *
- * $Header: /cvs/kfm/Common/Headers/LifetimeFormatter.h,v 1.2 2004/05/14 01:01:57 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

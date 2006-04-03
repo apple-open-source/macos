@@ -21,7 +21,6 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "cached-symfile.h"
 #include "macosx-nat-dyld-info.h"
 #include "macosx-nat-dyld-path.h"
 #include "macosx-nat-dyld-io.h"
@@ -43,6 +42,9 @@
 #include "gdb_assert.h"
 #include "interps.h"
 #include "objc-lang.h"
+#include "gdb_stat.h"
+
+#include "gdb_stat.h"
 
 #include <mach-o/nlist.h>
 #include <mach-o/loader.h>
@@ -51,8 +53,6 @@
 #ifdef USE_MMALLOC
 #include "mmprivate.h"
 #endif
-
-#define MAPPED_SYMFILES (USE_MMALLOC && HAVE_MMAP)
 
 #include <sys/mman.h>
 #include <string.h>
@@ -177,6 +177,7 @@ dyld_add_image_libraries (struct dyld_objfile_info *info, bfd *abfd)
                       xfree (name);
                       continue;
                     }
+		  name[dcmd->name_len] = '\0';
                   break;
                 }
               case BFD_MACH_O_LC_LOAD_DYLIB:
@@ -194,6 +195,7 @@ dyld_add_image_libraries (struct dyld_objfile_info *info, bfd *abfd)
                       xfree (name);
                       continue;
                     }
+		  name[dcmd->name_len] = '\0';
                   break;
                 }
               default:
@@ -373,6 +375,8 @@ library_offset (struct dyld_objfile_entry *e)
 
   if (e->dyld_valid)
     return e->dyld_addr;
+  else if (e->loaded_from_memory)
+    return e->loaded_addr;
   else if (e->image_addr_valid)
     return e->image_addr;
   else
@@ -576,21 +580,120 @@ dyld_default_load_flag (const struct dyld_path_info *d,
 }
 
 void
+dyld_load_library_from_file (const struct dyld_path_info *d,
+			     struct dyld_objfile_entry *e,
+			     int print_errors)
+{
+  const char *name = NULL;
+  struct stat dummy;
+
+  name = dyld_entry_filename (e, d, DYLD_ENTRY_FILENAME_LOADED);
+  if (name == NULL)
+    {
+      if (print_errors)
+	{
+	  char *s = dyld_entry_string (e, 1);
+	  warning ("No image filename available for %s.", s);
+	  xfree (s);
+	}
+      return;
+    }
+
+  /* We could just go straight to symfile_bfd_open_safe, but since
+     GDB's error-handler resets bfd_errno, it's difficult to tell why
+     the call has failed.  So instead, check explicitly if the file
+     exists, and avoid printing a warning if a weak file is not
+     found.  */
+
+  if (stat (name, &dummy) != 0)
+    {
+      if ((print_errors) && (! (e->reason & dyld_reason_weak_mask)))
+	{
+	  char *s = dyld_entry_string (e, 1);
+	  warning ("Unable to read symbols for %s (file not found).", s);
+	  xfree (s);
+	}
+      return;
+    }
+
+  {
+    struct ui_file *prev_stderr = gdb_stderr;
+
+    gdb_stderr = gdb_null;
+    CHECK_FATAL (e->abfd == NULL);
+
+    e->abfd = symfile_bfd_open_safe (name, 0);
+
+    gdb_stderr = prev_stderr;
+
+    if (e->abfd == NULL)
+      {
+	if (print_errors)
+	  warning (error_last_message ());
+	return;
+      }
+  }
+    
+  e->loaded_name = bfd_get_filename (e->abfd);
+  e->loaded_from_memory = 0;
+  e->loaded_error = 0;
+}
+
+void
+dyld_load_library_from_memory (const struct dyld_path_info *d,
+			       struct dyld_objfile_entry *e,
+			       int print_errors)
+{
+  const char *name = NULL;
+
+  if (!e->dyld_valid)
+    {
+      if (print_errors)
+	{
+	  char *s = dyld_entry_string (e, dyld_print_basenames_flag);
+	  warning ("Unable to read symbols from %s (not yet mapped into memory).", s);
+	  xfree (s);
+	}
+      return;
+    }
+
+  name = dyld_entry_filename (e, d, DYLD_ENTRY_FILENAME_LOADED);
+
+  CHECK_FATAL (e->abfd == NULL);
+  e->abfd = inferior_bfd (name, e->dyld_addr, e->dyld_slide, e->dyld_length);
+  CHECK_FATAL (e->abfd != NULL);
+
+  e->loaded_memaddr = e->dyld_addr;
+  e->loaded_from_memory = 1;
+  e->loaded_error = 0;
+}
+
+void
 dyld_load_library (const struct dyld_path_info *d,
                    struct dyld_objfile_entry *e)
 {
   int read_from_memory = 0;
-  const char *name = NULL;
+  int print_errors = 1;
 
   CHECK_FATAL (e->allocated);
 
-  if (e->abfd)
-    return;
-  if (e->objfile)
+  if ((e->abfd != NULL) || (e->objfile != NULL))
     return;
 
   if (e->reason & dyld_reason_executable_mask)
     CHECK_FATAL (e->objfile == symfile_objfile);
+
+  /* For now, we only print any error messages the first time we try
+     to load a bfd.  It would be nice to use a more subtle mechanism
+     here, that would avoid repeating the error messages when we retry
+     a load, but would print them if we progressed further and hit
+     some new error. */
+
+  print_errors = !e->loaded_error;
+
+  /* This would be a good candidate for load-rules similar to those
+     for shared library load-levels.  For now, though, just hard-code
+     some basic logic. */
 
   if (e->reason == dyld_reason_cfm)
     read_from_memory = 1;
@@ -598,73 +701,17 @@ dyld_load_library (const struct dyld_path_info *d,
   if (dyld_always_read_from_memory_flag)
     read_from_memory = 1;
 
-  if (!read_from_memory)
-    {
-      name = dyld_entry_filename (e, d, DYLD_ENTRY_FILENAME_LOADED);
-      if (name == NULL)
-        {
-	  if (!e->loaded_error)
-	    {
-	      char *s = dyld_entry_string (e, 1);
-	      warning ("No image filename available for %s.", s);
-	      xfree (s);
-	    }
-          read_from_memory = 1;
-        }
-    }
+  if (read_from_memory)
+    dyld_load_library_from_memory (d, e, print_errors);
+  else
+    dyld_load_library_from_file (d, e, print_errors);
 
-  if (!read_from_memory)
-    {
-      CHECK_FATAL (name != NULL);
-      e->abfd = symfile_bfd_open_safe (name, 0);
-      if (e->abfd == NULL)
-	  {
-	    if (!e->loaded_error)
-	      {
-		char *s = dyld_entry_string (e, 1);
-		warning ("Unable to read symbols from %s.", s);
-		xfree (s);
-	      }
-	    /* We could set read_from_memory to 1 here, but
-	       historically we have not. */
-        }
-      else
-        {
-          e->loaded_name = bfd_get_filename (e->abfd);
-          e->loaded_from_memory = 0;
-	  e->loaded_error = 0;
-        }
-    }
-
-  if (read_from_memory && ! e->dyld_valid)
-    {
-      if (!e->loaded_error)
-	{
-	  char *s = dyld_entry_string (e, dyld_print_basenames_flag);
-	  warning
-	    ("Unable to read symbols from %s (not yet mapped into memory); skipping", s);
-	}
-      return;
-    }
-
-  if (read_from_memory && e->dyld_valid)
-    {
-      CHECK_FATAL (e->abfd == NULL);
-      e->abfd =
-        inferior_bfd (name, e->dyld_addr, e->dyld_slide, e->dyld_length);
-      e->loaded_memaddr = e->dyld_addr;
-      e->loaded_from_memory = 1;
-      e->loaded_error = 0;
-    }
+  /* If we weren't able to load the bfd, there must have been an error
+     somewhere.  Flag it, so we don't print error messages the next
+     time around (see comment above). */
 
   if (e->abfd == NULL)
     {
-      if (!e->loaded_error)
-	{
-	  char *s = dyld_entry_string (e, 1);
-	  warning ("Unable to read symbols from %s; skipping.", s);
-	  xfree (s);
-	}
       e->loaded_error = 1;
       return;
     }
@@ -679,11 +726,9 @@ dyld_load_library (const struct dyld_path_info *d,
           e->image_addr_valid = 1;
         }
     }
-
+  
   if (e->reason & dyld_reason_executable_mask)
-    {
-      symfile_objfile = e->objfile;
-    }
+    symfile_objfile = e->objfile;
 }
 
 void
@@ -711,107 +756,6 @@ dyld_load_libraries (const struct dyld_path_info *d,
 void
 dyld_symfile_loaded_hook (struct objfile *o)
 {
-#if WITH_CFM
-
-  if (strstr (o->name, "CarbonCore") == NULL)
-    return;
-
-  struct minimal_symbol *hooksym =
-    lookup_minimal_symbol ("gPCFMInfoHooks", NULL, NULL);
-  struct minimal_symbol *system =
-    lookup_minimal_symbol ("gPCFMSystemUniverse", NULL, NULL);
-  struct minimal_symbol *context =
-    lookup_minimal_symbol ("gPCFMContextUniverse", NULL, NULL);
-  struct cfm_parser *parser = &macosx_status->cfm_status.parser;
-  CORE_ADDR offset = 0;
-
-  if ((hooksym == NULL) || (system == NULL) || (context == NULL))
-    return;
-
-  offset = SYMBOL_VALUE_ADDRESS (context) - SYMBOL_VALUE_ADDRESS (system);
-
-  if (offset == 88)
-    {
-      parser->version = 3;
-      parser->universe_length = 88;
-      parser->universe_container_offset = 48;
-      parser->universe_connection_offset = 60;
-      parser->universe_closure_offset = 72;
-      parser->connection_length = 68;
-      parser->connection_next_offset = 0;
-      parser->connection_container_offset = 28;
-      parser->container_length = 176;
-      parser->container_address_offset = 24;
-      parser->container_length_offset = 28;
-      parser->container_fragment_name_offset = 44;
-      parser->container_section_count_offset = 100;
-      parser->container_sections_offset = 104;
-      parser->section_length = 24;
-      parser->section_total_length_offset = 12;
-      parser->instance_length = 24;
-      parser->instance_address_offset = 12;
-      macosx_status->cfm_status.breakpoint_offset = 956;
-    }
-  else if (offset == 104)
-    {
-      parser->version = 2;
-      parser->universe_length = 104;
-      parser->universe_container_offset = 52;
-      parser->universe_connection_offset = 68;
-      parser->universe_closure_offset = 84;
-      parser->connection_length = 72;
-      parser->connection_next_offset = 0;
-      parser->connection_container_offset = 32;
-      parser->container_length = 176;
-      parser->container_address_offset = 28;
-      parser->container_length_offset = 36;
-      parser->container_fragment_name_offset = 44;
-      parser->container_section_count_offset = 100;
-      parser->container_sections_offset = 104;
-      parser->section_length = 24;
-      parser->section_total_length_offset = 12;
-      parser->instance_length = 24;
-      parser->instance_address_offset = 12;
-      macosx_status->cfm_status.breakpoint_offset = 864;
-    }
-  else if (offset == 120)
-    {
-      parser->version = 1;
-      parser->universe_length = 120;
-      parser->universe_container_offset = 68;
-      parser->universe_connection_offset = 84;
-      parser->universe_closure_offset = 100;
-      parser->connection_length = 84;
-      parser->connection_next_offset = 0;
-      parser->connection_container_offset = 36;
-      parser->container_length = 172;
-      parser->container_address_offset = 28;
-      parser->container_length_offset = 32;
-      parser->container_fragment_name_offset = 40;
-      parser->container_section_count_offset = 96;
-      parser->container_sections_offset = 100;
-      parser->section_length = 24;
-      parser->section_total_length_offset = 12;
-      parser->instance_length = 24;
-      parser->instance_address_offset = 12;
-      macosx_status->cfm_status.breakpoint_offset = 864;
-    }
-  else
-    {
-      warning ("unable to determine CFM version; disabling CFM support");
-      parser->version = 0;
-      return;
-    }
-
-  macosx_status->cfm_status.info_api_cookie = SYMBOL_VALUE_ADDRESS (hooksym);
-  dyld_debug ("Found gPCFMInfoHooks in CarbonCore: 0x%s with version %d\n",
-              paddr_nz (SYMBOL_VALUE_ADDRESS (hooksym)), parser->version);
-
-  if (inferior_auto_start_cfm_flag)
-    macosx_cfm_thread_create (&macosx_status->cfm_status,
-                              macosx_status->task);
-
-#endif /* WITH_CFM */
 }
 
 void
@@ -858,13 +802,7 @@ dyld_load_symfile (struct dyld_objfile_entry *e)
       if (info_verbose)
         printf_filtered ("Relocating symbols from %s...", e->objfile->name);
       gdb_flush (gdb_stdout);
-#if MAPPED_SYMFILES
-      mmalloc_protect (e->objfile->md, PROT_READ | PROT_WRITE);
-#endif
       objfile_relocate (e->objfile, new_offsets);
-#if MAPPED_SYMFILES
-      mmalloc_protect (e->objfile->md, PROT_READ);
-#endif
       xfree (new_offsets);
       if (info_verbose)
         printf_filtered ("done\n");
@@ -1078,32 +1016,19 @@ dyld_lookup_objfile_entry (struct dyld_objfile_info *info, struct objfile *o)
 enum dyld_reload_result
 dyld_should_reload_objfile_for_flags (struct dyld_objfile_entry *e)
 {
-
-  /* For cached symbol files, don't reload if the cached file
-     contains *more* symbols than the request being made. */
-  if (e->objfile->flags & OBJF_MAPPED)
-    {
-      if (e->load_flag & ~e->objfile->symflags)
-        return DYLD_UPGRADE;
-      else
-        return DYLD_NO_CHANGE;
-    }
+  /* For regular symbol files, reload if there is any difference
+     in the requested symbols at all if dyld_reload_on_downgrade_flag
+     is set.  Otherwise, only reload on upgrade. */
+  if (e->load_flag == e->objfile->symflags)
+    return DYLD_NO_CHANGE;
+  else if (e->load_flag & ~e->objfile->symflags)
+    return DYLD_UPGRADE;
   else
     {
-      /* For regular symbol files, reload if there is any difference
-         in the requested symbols at all if dyld_reload_on_downgrade_flag
-         is set.  Otherwise, only reload on upgrade. */
-      if (e->load_flag == e->objfile->symflags)
-        return DYLD_NO_CHANGE;
-      else if (e->load_flag & ~e->objfile->symflags)
-        return DYLD_UPGRADE;
+      if (dyld_reload_on_downgrade_flag)
+	return DYLD_DOWNGRADE;
       else
-        {
-          if (dyld_reload_on_downgrade_flag)
-            return DYLD_DOWNGRADE;
-          else
-            return DYLD_NO_CHANGE;
-        }
+	return DYLD_NO_CHANGE;
     }
 }
 
@@ -1298,7 +1223,7 @@ dyld_remove_objfiles (const struct dyld_path_info *d,
 static int
 dyld_libraries_similar (struct dyld_path_info *d,
 			struct dyld_objfile_entry *f,
-                        struct dyld_objfile_entry *l)
+			struct dyld_objfile_entry *l)
 {
   const char *fname = NULL;
   const char *lname = NULL;
@@ -1352,52 +1277,80 @@ dyld_libraries_similar (struct dyld_path_info *d,
   return 0;
 }
 
-/* Do dyld_objfile_entry's F and L have the same filename?
-   Or in other words, are they the same dylib/bundle/executable/etc ?  */
+/* Do dyld_objfile_entry OLDENT and NEWENT have the same filename?  In
+   other words, are they the same dylib/bundle/executable/etc ?  */
 
 int
 dyld_libraries_compatible (struct dyld_path_info *d,
-                           struct dyld_objfile_entry *f,
-                           struct dyld_objfile_entry *l)
+                           struct dyld_objfile_entry *newent,
+                           struct dyld_objfile_entry *oldent)
 {
-  const char *fname = NULL;
-  const char *lname = NULL;
+  const char *newname = NULL;
+  const char *oldname = NULL;
 
-  CHECK_FATAL (f != NULL);
-  CHECK_FATAL (l != NULL);
+  CHECK_FATAL (oldent != NULL);
+  CHECK_FATAL (newent != NULL);
 
   /* If either prefix is non-NULL, then they must both be the same string. */
 
-  if (f->prefix != NULL || l->prefix != NULL)
+  if (oldent->prefix != NULL || newent->prefix != NULL)
     {
-      if (f->prefix == NULL || l->prefix == NULL)
+      if (oldent->prefix == NULL || newent->prefix == NULL)
         return 0;
-      if (strcmp (f->prefix, l->prefix) != 0)
+      if (strcmp (oldent->prefix, newent->prefix) != 0)
         return 0;
     }
 
-  fname = dyld_entry_filename (f, d, DYLD_ENTRY_FILENAME_LOADED);
-  lname = dyld_entry_filename (l, d, DYLD_ENTRY_FILENAME_LOADED);
+  newname = dyld_entry_filename (newent, d, DYLD_ENTRY_FILENAME_LOADED);
+  oldname = dyld_entry_filename (oldent, d, DYLD_ENTRY_FILENAME_LOADED);
+
+  /* If we've already loaded the objfile from memory, and from the
+     same address, then we can go ahead and re-use it.
+
+     FIXME: What if dyld has moved libraries around, or plug-ins have
+     been unloaded and re-loaded for whatever reason, and we now have
+     some other library loaded at this address?  We should probably
+     store some token in the loaded_* information to provide for more
+     reliable matching.
+  */
+
+  if ((oldent->loaded_from_memory) && (oldent->loaded_addr == newent->dyld_addr))
+    {
+      gdb_assert (dyld_libraries_similar (d, newent, oldent));
+      return 1;
+    }
 
   /* If either filename is non-NULL, then they must both be the same string. */
 
-  if (fname != NULL || lname != NULL)
+  if (oldname != NULL || newname != NULL)
     {
-      if (fname == NULL || lname == NULL)
+      if (oldname == NULL || newname == NULL)
         return 0;
-      if (strcmp (fname, lname) != 0)
+      if (strcmp (oldname, newname) != 0)
         return 0;
     }
 
   if (dyld_always_read_from_memory_flag)
     {
-      if (f->loaded_from_memory != l->loaded_from_memory)
+      if (oldent->loaded_from_memory != newent->loaded_from_memory)
         {
           return 0;
         }
     }
 
-  return 1;
+  /* The same bundle can be loaded more than once under certain
+     circumstances.  Both dyld_objfile_entries will be dyld_reason_dyld,
+     both will have the same filename, but they'll have different dyld_addr's
+     (different load addresses).
+     It's not entirely clear to me whether this is technically legal, but
+     it happens in real world use.  cf <rdar://problem/4308315> 
+
+     When this comes up, we should say that the two libraries are not
+     "compatible".  This is not an error condition.  Yes, that means
+     there will be two dyld_objfile_entry's with the same filename and
+     two struct objfile's with the same filename, but that's how we roll.  */
+ 
+  return dyld_libraries_similar (d, newent, oldent);
 }
 
 /* Move the load data (whatever distinction that is -- not all the
@@ -1420,7 +1373,10 @@ dyld_objfile_move_load_data (struct dyld_objfile_entry *src,
   dest->commpage_bfd = src->commpage_bfd;
   dest->commpage_objfile = src->commpage_objfile;
 
-  if (src->load_flag >= 0)
+  /* If we are re-running, and haven't resolved the new load data
+     flags, go ahead and pick them up from the previous run. */
+
+  if ((src->load_flag > 0) && (dest->load_flag < 0))
     {
       dest->load_flag = src->load_flag;
     }
@@ -1449,6 +1405,8 @@ dyld_objfile_move_load_data (struct dyld_objfile_entry *src,
   src->loaded_addrisoffset = 0;
   src->loaded_from_memory = 0;
   src->loaded_error = 0;
+
+  dyld_objfile_entry_clear (src);
 }
 
 void

@@ -35,7 +35,8 @@ const char *objc_printable_name (tree, int);
 tree objc_get_callee_fndecl (tree);
 void objc_finish_file (void);
 tree objc_fold_obj_type_ref (tree, tree);
-int objc_types_compatible_p (tree, tree);
+/* APPLE LOCAL mainline */
+/* The 'objc_types_compatible_p' routine has been removed.  */
 /* APPLE LOCAL mainline */
 enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
 
@@ -201,7 +202,8 @@ enum objc_tree_index
     OCTI_STATIC_NST_DECL,
     OCTI_SELF_ID,
     OCTI_UCMD_ID,
-    OCTI_UNUSED_LIST,
+    /* APPLE LOCAL mainline */
+    /* 'OCTI_UNUSED_LIST' removed.  */
 
     OCTI_SELF_DECL,
     OCTI_UMSG_DECL,
@@ -279,6 +281,8 @@ enum objc_tree_index
     OCTI_CNST_STR_TYPE,
     OCTI_CNST_STR_GLOB_ID,
     OCTI_STRING_CLASS_DECL,
+    /* APPLE LOCAL 4149909 */
+    OCTI_INTERNAL_CNST_STR_TYPE,
     OCTI_SUPER_DECL,
     OCTI_UMSG_NONNIL_DECL,
     OCTI_UMSG_NONNIL_STRET_DECL,
@@ -298,6 +302,8 @@ enum objc_tree_index
     OCTI_EVAL_ONCE_DECL,
     OCTI_CATCH_TYPE,
     OCTI_EXECCLASS_DECL,
+    /* APPLE LOCAL radar 4280641 */
+    OCTI_UMSG_FPRET_DECL,
 
     /* APPLE LOCAL begin mainline */
     OCTI_ASSIGN_IVAR_DECL,
@@ -321,7 +327,8 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 #define self_id			objc_global_trees[OCTI_SELF_ID]
 #define ucmd_id			objc_global_trees[OCTI_UCMD_ID]
-#define unused_list		objc_global_trees[OCTI_UNUSED_LIST]
+/* APPLE LOCAL mainline */
+/* 'unused_list' removed.  */
 
 #define self_decl		objc_global_trees[OCTI_SELF_DECL]
 #define umsg_decl		objc_global_trees[OCTI_UMSG_DECL]
@@ -437,6 +444,8 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_catch_type		objc_global_trees[OCTI_CATCH_TYPE]
 
 #define execclass_decl		objc_global_trees[OCTI_EXECCLASS_DECL]
+/* APPLE LOCAL radar 4280641 */
+#define umsg_fpret_decl		objc_global_trees[OCTI_UMSG_FPRET_DECL]
 
 /* APPLE LOCAL begin mainline */
 #define objc_assign_ivar_decl	objc_global_trees[OCTI_ASSIGN_IVAR_DECL]
@@ -474,6 +483,8 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define constant_string_global_id		\
 				objc_global_trees[OCTI_CNST_STR_GLOB_ID]
 #define string_class_decl	objc_global_trees[OCTI_STRING_CLASS_DECL]
+/* APPLE LOCAL 4149909 */
+#define internal_const_str_type	objc_global_trees[OCTI_INTERNAL_CNST_STR_TYPE]
 #define UOBJC_SUPER_decl	objc_global_trees[OCTI_SUPER_DECL]
 
 #endif /* GCC_OBJC_ACT_H */

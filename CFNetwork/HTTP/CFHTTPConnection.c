@@ -468,7 +468,6 @@ static Boolean persistentIsOK(_CFHTTPStreamInfo *streamInfo, CFReadStreamRef str
         int status = CFHTTPMessageGetResponseStatusCode(streamInfo->responseHeaders);
         if ((status >= 100 && status <200) || status == 204 || status == 304 || CFEqual(_kCFHTTPConnectionHEADMethod, requestMethod)) {
             // These are the conditions under which the server must not send further information
-            CFRelease(requestMethod);
             __CFBitSet(streamInfo->flags, FORCE_EOF); 
         }
         CFRelease(requestMethod);

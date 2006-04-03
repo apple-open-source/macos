@@ -9,6 +9,10 @@ class CCIConcreteFactory:
 		CCIConcreteFactory			()
 		{
 		}
+        
+        virtual ~CCIConcreteFactory			()
+		{
+		}
 
 		virtual	CCIContext*				CreateContext (
 											CCIInt32			inAPIVersion)

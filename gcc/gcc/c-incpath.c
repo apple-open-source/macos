@@ -302,10 +302,6 @@ hmap_construct_pathname (const char *filename, cpp_dir *dir)
 	      unsigned prefix_length;
 	      unsigned suffix_length;
 
-	      if (strcmp (filename, strings+key_offset) != 0)
-		warning ("mismatched case in filenames, wanted \"%s\" but found \"%s\"",
-			 filename, strings+key_offset);
-
 	      prefix_length = strlen(strings + buckets[i].value.prefix);
 	      suffix_length = strlen(strings + buckets[i].value.suffix);
 	      result_path = xmalloc(prefix_length + suffix_length + 1);

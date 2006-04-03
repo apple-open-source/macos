@@ -532,6 +532,9 @@ int zendlex(znode *zendlval TSRMLS_DC);
 #define ZEND_FETCH_LOCAL	1
 #define ZEND_FETCH_STATIC	2
 
+/* variable parsing type (compile-time) */
+#define ZEND_PARSED_FCALL		(1<<0)
+
 /* var status for backpatching */
 #define BP_VAR_R			0
 #define BP_VAR_W			1
@@ -614,6 +617,8 @@ int zendlex(znode *zendlval TSRMLS_DC);
 
 #define ZEND_RETURN_VAL 0
 #define ZEND_RETURN_REF 1
+
+#define ZEND_RETURNS_FUNCTION 1<<0
 
 END_EXTERN_C()
 

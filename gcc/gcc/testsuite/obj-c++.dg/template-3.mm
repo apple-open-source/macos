@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test for passing arguments to ObjC methods in the context of template
    expansion.  */
 /* Contributed by Ziemowit Laski  <zlaski@apple.com>.  */

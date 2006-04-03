@@ -31,6 +31,9 @@
 #include <unistd.h>
 #include <openssl/err.h>
 
+#include <CoreServices/CoreServices.h>
+#include <TargetConditionals.h>
+
 #include "DSMutexSemaphore.h"
 #include "CAuthFileBase.h"
 #include "SASLCode.h"
@@ -217,13 +220,9 @@ CAuthFileBase::createPasswordFile(void)
         pwFileHeader.access.maxFailedLoginAttempts = 0;
         pwFileHeader.access.minChars = 0;
         pwFileHeader.access.maxChars = 0;
-
+		
         // write header
-        writeCount = fwrite( &pwFileHeader, sizeof(PWFileHeader), 1, pwFile );
-        if ( writeCount != 1 )
-        {
-            err = -1;
-        }
+		err = this->setHeader( &pwFileHeader );
         
         // write blank space
         if ( err == 0 )
@@ -556,6 +555,10 @@ CAuthFileBase::getHeader( PWFileHeader *outHeader, bool inCanUseCachedCopy )
 			
 			// This one is faster (Panther7A122)
 			readCount = pread( fileno(pwFile), outHeader, sizeof(PWFileHeader), 0 );
+
+#if TARGET_RT_LITTLE_ENDIAN
+			pwsf_EndianAdjustPWFileHeader( outHeader, 1 );
+#endif
         }
         
 		if ( outHeader->signature == kPWFileSignature )
@@ -598,7 +601,7 @@ CAuthFileBase::setHeader( const PWFileHeader *inHeader )
 {
     int err = -1;
     long writeCount;
-    
+	
     if ( inHeader == NULL )
         return -1;
 	if ( inHeader->signature != kPWFileSignature )
@@ -618,7 +621,14 @@ CAuthFileBase::setHeader( const PWFileHeader *inHeader )
 				memcpy( &pwFileHeader, inHeader, sizeof(PWFileHeader) );
             
             // write to disk
+#if TARGET_RT_LITTLE_ENDIAN
+			PWFileHeader diskHeader = pwFileHeader;
+			pwsf_EndianAdjustPWFileHeader( &diskHeader, 0 );
+            writeCount = fwrite( &diskHeader, sizeof(PWFileHeader), 1, pwFile );
+			bzero( &diskHeader, sizeof(PWFileHeader) );
+#else
             writeCount = fwrite( &pwFileHeader, sizeof(PWFileHeader), 1, pwFile );
+#endif
             if ( writeCount != 1 )
             {
                 err = -1;
@@ -1598,6 +1608,7 @@ CAuthFileBase::addPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
 //	Used to write to a specific slot.
 //----------------------------------------------------------------------------------------------------
 
+#if TARGET_RT_BIG_ENDIAN
 int
 CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfuscate, bool setModDate)
 {
@@ -1656,7 +1667,87 @@ CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfus
 
     return err;
 }
+#else
+int
+CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfuscate, bool setModDate)
+{
+    long offset;
+    int err = -1;
+    int writeCount;
+    unsigned int encodeLen;
+	PWFileEntry diskPassRec = *passwordRec;
+	
+	if ( fReadOnlyFileSystem )
+		return -1;
+	
+    if ( slot > 0 )
+    {
+		if ( (unsigned long)slot > pwFileHeader.numberOfSlotsCurrentlyInFile )
+			return -1;
+		
+		if ( setModDate )
+			fUtils.getGMTime( (struct tm *)&passwordRec->modificationDate );
+        
+        pwWait();
+        err = this->openPasswordFile( "r+", false );
+        if ( err == 0 && pwFile )
+        {
+            offset = fUtils.slotToOffset( slot );
+            
+            err = fseek( pwFile, offset, SEEK_SET );
+            if ( err == 0 )
+            {
+                //passwordRec->slot = slot;
+                encodeLen = strlen(passwordRec->passwordStr);
+                encodeLen += (kFixedDESChunk - (encodeLen % kFixedDESChunk));	
+                if ( encodeLen > sizeof(passwordRec->passwordStr) )
+                    encodeLen = sizeof(passwordRec->passwordStr);
+                
+				if ( obfuscate )
+					fUtils.DESEncode( kFixedDESKey, diskPassRec.passwordStr, encodeLen );
+				
+				// endian adjust
+				diskPassRec.time = EndianU32_NtoB(diskPassRec.time);
+				diskPassRec.rnd = EndianU32_NtoB(diskPassRec.rnd);
+				diskPassRec.sequenceNumber = EndianU32_NtoB(diskPassRec.sequenceNumber);
+				diskPassRec.slot = EndianU32_NtoB(diskPassRec.slot);
+				
+				pwsf_EndianAdjustTimeStruct(&diskPassRec.creationDate, 0);
+				pwsf_EndianAdjustTimeStruct(&diskPassRec.modificationDate, 0);
+				pwsf_EndianAdjustTimeStruct(&diskPassRec.modDateOfPassword, 0);
+				pwsf_EndianAdjustTimeStruct(&diskPassRec.lastLogin, 0);
+				
+				diskPassRec.failedLoginAttempts = EndianU16_NtoB(diskPassRec.failedLoginAttempts);
+				
+				diskPassRec.access.maxMinutesUntilChangePassword = EndianU32_NtoB(diskPassRec.access.maxMinutesUntilChangePassword);
+				diskPassRec.access.maxMinutesUntilDisabled = EndianU32_NtoB(diskPassRec.access.maxMinutesUntilDisabled);
+				diskPassRec.access.maxMinutesOfNonUse = EndianU32_NtoB(diskPassRec.access.maxMinutesOfNonUse);
+				diskPassRec.access.maxFailedLoginAttempts = EndianU16_NtoB(diskPassRec.access.maxFailedLoginAttempts);
+				diskPassRec.access.minChars = EndianU16_NtoB(diskPassRec.access.minChars);
+				diskPassRec.access.maxChars = EndianU16_NtoB(diskPassRec.access.maxChars);
+				
+				diskPassRec.disableReason = (PWDisableReasonCode) EndianS32_NtoB(diskPassRec.disableReason);
+				
+				diskPassRec.extraAccess.minutesUntilFailedLoginReset = EndianU32_NtoB(diskPassRec.extraAccess.minutesUntilFailedLoginReset);
+				diskPassRec.extraAccess.notGuessablePattern = EndianU32_NtoB(diskPassRec.extraAccess.notGuessablePattern);
+				diskPassRec.extraAccess.logOffTime = EndianU32_NtoB(diskPassRec.extraAccess.logOffTime);
+				diskPassRec.extraAccess.kickOffTime = EndianU32_NtoB(diskPassRec.extraAccess.kickOffTime);
+				
+                writeCount = fwrite( &diskPassRec, sizeof(PWFileEntry), 1, pwFile );
+				bzero( &diskPassRec, sizeof(PWFileEntry) );
+				
+				if ( writeCount == 1 )
+					fflush( pwFile );
+                else
+                    err = -1;
+            }
+        }
+        pwSignal();
+    }
 
+    return err;
+}
+#endif
 
 //----------------------------------------------------------------------------------------------------
 //	setPasswordAtSlotFast
@@ -1669,6 +1760,7 @@ CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfus
 //	obfuscate is TRUE, but the password is not un-obfuscated.
 //----------------------------------------------------------------------------------------------------
 
+#if TARGET_RT_BIG_ENDIAN
 int
 CAuthFileBase::setPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
 {
@@ -1716,7 +1808,13 @@ CAuthFileBase::setPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
 
 	return err;
 }
-
+#else
+int
+CAuthFileBase::setPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
+{
+	return this->setPasswordAtSlot(passwordRec, slot);
+}
+#endif
 
 #if 0
 // --------------------------------------------------------------------------------
@@ -1887,6 +1985,36 @@ CAuthFileBase::getPasswordRec(long slot, PWFileEntry *passRec, bool unObfuscate)
 					
 					err = -2;
 				}
+#if TARGET_RT_LITTLE_ENDIAN
+				else
+				{ 
+					passRec->time = EndianU32_BtoN(passRec->time);
+					passRec->rnd = EndianU32_BtoN(passRec->rnd);
+					passRec->sequenceNumber = EndianU32_BtoN(passRec->sequenceNumber);
+					passRec->slot = EndianU32_BtoN(passRec->slot);
+					
+					pwsf_EndianAdjustTimeStruct(&passRec->creationDate, 1);
+					pwsf_EndianAdjustTimeStruct(&passRec->modificationDate, 1);
+					pwsf_EndianAdjustTimeStruct(&passRec->modDateOfPassword, 1);
+					pwsf_EndianAdjustTimeStruct(&passRec->lastLogin, 1);
+					
+					passRec->failedLoginAttempts = EndianU16_BtoN(passRec->failedLoginAttempts);
+					
+					passRec->access.maxMinutesUntilChangePassword = EndianU32_BtoN(passRec->access.maxMinutesUntilChangePassword);
+					passRec->access.maxMinutesUntilDisabled = EndianU32_BtoN(passRec->access.maxMinutesUntilDisabled);
+					passRec->access.maxMinutesOfNonUse = EndianU32_BtoN(passRec->access.maxMinutesOfNonUse);
+					passRec->access.maxFailedLoginAttempts = EndianU16_BtoN(passRec->access.maxFailedLoginAttempts);
+					passRec->access.minChars = EndianU16_BtoN(passRec->access.minChars);
+					passRec->access.maxChars = EndianU16_BtoN(passRec->access.maxChars);
+					
+					passRec->disableReason = (PWDisableReasonCode) EndianS32_BtoN(passRec->disableReason);
+
+					passRec->extraAccess.minutesUntilFailedLoginReset = EndianU32_BtoN(passRec->extraAccess.minutesUntilFailedLoginReset);
+					passRec->extraAccess.notGuessablePattern = EndianU32_BtoN(passRec->extraAccess.notGuessablePattern);
+					passRec->extraAccess.logOffTime = EndianU32_BtoN(passRec->extraAccess.logOffTime);
+					passRec->extraAccess.kickOffTime = EndianU32_BtoN(passRec->extraAccess.kickOffTime);
+				}
+#endif
             }
             
             // recover the password
@@ -2990,7 +3118,7 @@ int pwsf_ChangePasswordStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeature
 //------------------------------------------------------------------------------------------------
 //	RequiredCharacterStatus
 //
-//	Returns: enum of Reposonse Codes (CAuthFileCPP.h)
+//	Returns: enum of Reposonse Codes (CAuthFileBase.h)
 //------------------------------------------------------------------------------------------------
 
 int
@@ -3003,7 +3131,7 @@ CAuthFileBase::RequiredCharacterStatus(PWFileEntry *inPasswordRec, const char *i
 //------------------------------------------------------------------------------------------------
 //	pwsf_RequiredCharacterStatus
 //
-//	Returns: enum of Reposonse Codes (CAuthFileCPP.h)
+//	Returns: enum of Reposonse Codes (CAuthFileBase.h)
 //------------------------------------------------------------------------------------------------
 
 int pwsf_RequiredCharacterStatus(PWAccessFeatures *access, PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword)
@@ -3014,6 +3142,7 @@ int pwsf_RequiredCharacterStatus(PWAccessFeatures *access, PWGlobalAccessFeature
     UInt16 maxChars = (access->maxChars > 0) ? access->maxChars : inGAccess->maxChars;
 	Boolean passwordCannotBeName = (access->passwordCannotBeName || inGAccess->passwordCannotBeName );
     UInt16 len;
+	int index;
 	
 	if ( inPassword == NULL )
 		return kAuthPasswordTooShort;
@@ -3035,7 +3164,7 @@ int pwsf_RequiredCharacterStatus(PWAccessFeatures *access, PWGlobalAccessFeature
     {
         Boolean hasAlpha = false;
         
-        for ( int index = 0; index < len; index++ )
+        for ( index = 0; index < len; index++ )
         {
             if ( isalpha(inPassword[index]) )
             {
@@ -3052,7 +3181,7 @@ int pwsf_RequiredCharacterStatus(PWAccessFeatures *access, PWGlobalAccessFeature
     {
         Boolean hasDecimal = false;
         
-        for ( int index = 0; index < len; index++ )
+        for ( index = 0; index < len; index++ )
         {
             if ( isdigit(inPassword[index]) )
             {
@@ -3072,7 +3201,7 @@ int pwsf_RequiredCharacterStatus(PWAccessFeatures *access, PWGlobalAccessFeature
 		
 		// disallow the smaller substring, case-insensitive
 		if ( strncasecmp( inPassword, inUsername, smallerLen ) == 0 )
-			return kAuthPasswordNeedsChange;
+			return kAuthPasswordCannotBeUsername;
 	}
 	
     return kAuthOK;
@@ -3148,6 +3277,13 @@ CAuthFileBase::ReenableStatus(PWFileEntry *inPasswordRec, unsigned long inGlobal
 	}
 	
 	return 0;
+}
+
+
+CAuthFileUtils*
+CAuthFileBase::GetUtilsObject( void )
+{
+	return &fUtils;
 }
 
 

@@ -44,7 +44,7 @@ struct webdav_parse_cachevalidators_struct
  * in URI Escaped Encoding. That means that each character could expand to
  * 3 characters (i.e., ' ' = '%20').
  */
-#define WEBDAV_MAX_URI_LEN (MAXPATHLEN * 3)
+#define WEBDAV_MAX_URI_LEN ((MAXPATHLEN * 3) + 1)
 
 /* This structure must be exactly like "struct dirent", defined in sys/dirent.h,
    except that d_name is long enough to hold the entire URI and the URI length
@@ -80,8 +80,8 @@ typedef struct
 
 typedef struct
 {
-	size_t size;
-	char name[WEBDAV_MAX_URI_LEN];
+	CFIndex size;
+	UInt8 name[WEBDAV_MAX_URI_LEN];
 } webdav_parse_opendir_text_t;
 
 typedef struct
@@ -91,17 +91,17 @@ typedef struct
 } webdav_parse_opendir_return_t;
 
 /* Functions */
-extern int parse_stat(char *xmlp, int xmlp_len, struct stat *statbuf);
-extern int parse_statfs(char *xmlp, int xmlp_len, struct statfs *statfsbuf);
-extern int parse_lock(char *xmlp, int xmlp_len, char **locktoken);
+extern int parse_stat(const UInt8 *xmlp, CFIndex xmlp_len, struct stat *statbuf);
+extern int parse_statfs(const UInt8 *xmlp, CFIndex xmlp_len, struct statfs *statfsbuf);
+extern int parse_lock(const UInt8 *xmlp, CFIndex xmlp_len, char **locktoken);
 extern int parse_opendir(
 	UInt8 *xmlp,					/* -> xml data returned by PROPFIND with depth of 1 */
 	CFIndex xmlp_len,				/* -> length of xml data */
 	CFURLRef urlRef,				/* -> the CFURL to the parent directory (may be a relative CFURL) */
 	uid_t uid,						/* -> uid of the user making the request */ 
 	struct node_entry *parent_node);/* -> pointer to the parent directory's node_entry */
-extern int parse_file_count(char *xmlp, int xmlp_len, int *file_count);
-extern int parse_cachevalidators(char *xmlp, int xmlp_len, time_t *last_modified, char **entity_tag);
+extern int parse_file_count(const UInt8 *xmlp, CFIndex xmlp_len, int *file_count);
+extern int parse_cachevalidators(const UInt8 *xmlp, CFIndex xmlp_len, time_t *last_modified, char **entity_tag);
 
 /* Definitions */
 
@@ -128,8 +128,4 @@ extern int parse_cachevalidators(char *xmlp, int xmlp_len, time_t *last_modified
 #define WEBDAV_CACHEVALIDATORS_MODDATE 2
 #define WEBDAV_CACHEVALIDATORS_ETAG 3
 
-#define WEBDAV_MAX_STATFS_SIZE 256
-#define WEBDAV_MAX_STAT_SIZE 256	/* needs to be large enough to hold maximum date and maximum
-										char length of size */
- 
 #endif

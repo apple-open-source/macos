@@ -27,6 +27,7 @@
 
 #include "DirServicesConst.h"
 #include "DirServicesUtils.h"
+#include "DirServicesUtilsPriv.h"
 #include "DirServicesPriv.h"
 #include "DirServices.h"
 #include "DirServicesTypesPriv.h"
@@ -37,6 +38,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#define kDSUserAuthAuthorityMarker					"{*AuthenticationAuthority*}"
+
 // -- Static ---------------------------------------------------------------------------------------
 
 static tDataNodePtr	dsGetThisNodePriv 				( tDataNode *inFirsNode, const unsigned long inIndex );
@@ -44,6 +47,8 @@ static tDataNodePtr	dsGetLastNodePriv 				( tDataNode *inFirsNode );
 static tDataNodePtr	dsAllocListNodeFromStringPriv	( const char *inString );
 static tDataNodePtr	dsAllocListNodeFromBuffPriv		( const void *inData, const uInt32 inSize );
 static tDirStatus	dsVerifyDataListPriv			( const tDataList *inDataList );
+static tDirStatus	dsAppendAuthBufferWithAuthority( const char *inUserName, tDataBufferPtr inAuthAuthorityBuffer,
+														tDataBufferPtr inOutAuthBuffer );
 
 //--------------------------------------------------------------------------------------------------
 //	Name:	dsDataBufferAllocate
@@ -2791,4 +2796,284 @@ char* dsCopyDirStatusName ( long inDirStatus )
 } // dsCopyDirStatusName
 
 
+tDirStatus dsFillAuthBuffer (	tDataBufferPtr inOutAuthBuffer,
+								unsigned long inCount,
+								unsigned long inLen,
+								const void *inData, ... )
+{
+	unsigned long		curr		= 0;
+	unsigned long		buffSize	= 0;
+	unsigned long		count		= inCount;
+	unsigned long		len			= inLen;
+	const void			*data		= inData;
+	bool				firstPass	= true;
+	char				*p			= NULL;
+	va_list				args;
+	
+	if ( inOutAuthBuffer == NULL || inOutAuthBuffer->fBufferData == NULL || inCount == 0 )
+		return eParameterError;
+	
+	// Make sure we have data to copy
+	if ( (inLen != 0) && (inData == NULL) )
+		return eParameterError;
+	
+	// Get buffer info
+	p		 = inOutAuthBuffer->fBufferData;
+	buffSize = inOutAuthBuffer->fBufferSize;
+	
+	// Set up the arg list
+	va_start( args, inData );
+
+	while ( count-- > 0 )
+	{
+		if ( !firstPass )
+		{
+			len = va_arg( args, unsigned long );
+			data = va_arg( args, void * );
+		}
+		
+		if ( (curr + len) > buffSize )
+		{
+			// Out of buffer space, bail
+			return eDSBufferTooSmall;
+		}
+		
+		::memcpy( &(p[curr]), &len, sizeof( sInt32 ) );
+		curr += sizeof( sInt32 );
+		
+		if ( len > 0 && data != NULL )
+		{
+			memcpy( &(p[curr]), data, len );
+			curr += len;
+		}
+		firstPass = false;
+	}
+	
+	inOutAuthBuffer->fBufferLength = curr;
+	
+	return eDSNoErr;
+} // dsFillAuthBuffer
+
+
+tDirStatus dsAppendAuthBuffer (	tDataBufferPtr inOutAuthBuffer,
+								unsigned long inCount,
+								unsigned long inLen,
+								const void *inData, ... )
+{
+	unsigned long		curr		= 0;
+	unsigned long		buffSize	= 0;
+	unsigned long		count		= inCount;
+	unsigned long		len			= inLen;
+	const void			*data		= inData;
+	bool				firstPass	= true;
+	char				*p			= NULL;
+	va_list				args;
+	
+	if ( inOutAuthBuffer == NULL || inOutAuthBuffer->fBufferData == NULL || inCount == 0 )
+		return eParameterError;
+	
+	// Make sure we have data to copy
+	if ( (inLen != 0) && (inData == NULL) )
+		return eParameterError;
+	
+	// Get buffer info
+	p		 = inOutAuthBuffer->fBufferData + inOutAuthBuffer->fBufferLength;
+	buffSize = inOutAuthBuffer->fBufferSize - inOutAuthBuffer->fBufferLength;
+	
+	// Set up the arg list
+	va_start( args, inData );
+
+	while ( count-- > 0 )
+	{
+		if ( !firstPass )
+		{
+			len = va_arg( args, unsigned long );
+			data = va_arg( args, void * );
+		}
+		
+		if ( (curr + len) > buffSize )
+		{
+			// Out of buffer space, bail
+			return eDSBufferTooSmall;
+		}
+		
+		::memcpy( &(p[curr]), &len, sizeof( sInt32 ) );
+		curr += sizeof( sInt32 );
+		
+		if ( len > 0 && data != NULL )
+		{
+			memcpy( &(p[curr]), data, len );
+			curr += len;
+		}
+		firstPass = false;
+	}
+	
+	inOutAuthBuffer->fBufferLength += curr;
+	
+	return eDSNoErr;
+} // dsAppendAuthBuffer
+
+
+//-----------------------------------------------------------------------------
+/*!
+    @function dsAppendAuthBufferWithAuthorityAttribute
+    @abstract   Inserts a user name with authentication authority data into
+				an existing buffer.
+    @discussion Use this function for authentication methods that contain user
+				or authenticator names and the authentication authority attribute
+				has already been retrieved.
+    @param      inNodeRef a node reference for the record to parse
+    @param      inRecordListBuffPtr the data returned from dsGetDataList
+    @param      inAttributePtr an attribute with authentication authority data
+    @param      inValueRef the reference for the kDSNAttrAuthenticationAuthority
+							attribute.
+    @param      inUserName the name of the user to authenticate
+    @param      inOutAuthBuffer pass in a preallocated buffer, returns with
+				the user data appended.
+    @result    tDirStatus code
+*/
+//-----------------------------------------------------------------------------
+
+tDirStatus dsAppendAuthBufferWithAuthorityAttribute(
+	tDirNodeReference inNodeRef,
+	tDataBufferPtr inRecordListBuffPtr,
+	tAttributeEntryPtr inAttributePtr,
+	tAttributeValueListRef inValueRef,
+	const char *inUserName,
+	tDataBufferPtr inOutAuthBuffer )
+{
+    tDirStatus					status				= eDSNoErr;
+	tDataBufferPtr				innerDataBuff		= NULL;
+	tAttributeValueEntry	   *attrValue			= NULL;
+	unsigned long				attrValIndex		= 0;
+    unsigned long				attrValCount		= 0;
+
+	if ( inOutAuthBuffer == NULL )
+		return eParameterError;
+	
+	attrValCount = inAttributePtr->fAttributeValueCount;
+	innerDataBuff = dsDataBufferAllocate( 0, inAttributePtr->fAttributeDataSize + sizeof(uInt32) * attrValCount );
+	if ( innerDataBuff != NULL )
+	{
+		// run through the values create a tDataBuffer with the list of authentication authorities.
+		for ( attrValIndex = 1; attrValIndex <= attrValCount && status == eDSNoErr; attrValIndex++ )
+		{
+			status = dsGetAttributeValue( inNodeRef, inRecordListBuffPtr, attrValIndex, inValueRef, &attrValue );
+			if ( status == eDSNoErr )
+			{
+				status = dsAppendAuthBuffer( innerDataBuff, 1, attrValue->fAttributeValueData.fBufferLength,
+												attrValue->fAttributeValueData.fBufferData );
+				dsDeallocAttributeValueEntry( 0, attrValue );
+			}
+		}
+		
+		status = dsAppendAuthBufferWithAuthority( inUserName, innerDataBuff, inOutAuthBuffer );
+				
+		dsDataBufferDeAllocate( 0, innerDataBuff );
+	}
+	
+	return status;
+}
+
+
+//-----------------------------------------------------------------------------
+/*!
+    @function dsAppendAuthBufferWithAuthorityStrings
+    @abstract   Inserts a user name with authentication authority data into
+				an existing buffer.
+    @discussion Use this function for authentication methods that contain user
+				or authenticator names and the authentication authority attribute
+				has already been retrieved.
+    @param      inUserName the name of the user to authenticate
+	@param		inAuthAuthority a NULL terminated array of C strings
+    @param      inOutAuthBuffer pass in a preallocated buffer, returns with
+				the user data appended.
+    @result    tDirStatus code
+*/
+//-----------------------------------------------------------------------------
+
+tDirStatus dsAppendAuthBufferWithAuthorityStrings(
+	const char *inUserName,
+	const char *inAuthAuthority[],
+	tDataBufferPtr inOutAuthBuffer )
+{
+    tDirStatus					status				= eDSNoErr;
+	tDataBufferPtr				innerDataBuff		= NULL;
+	const char					*tptr				= NULL;
+	unsigned long				attrValIndex		= 0;
+    unsigned long				attrValCount		= 0;
+	unsigned long				neededSize			= sizeof(tDataBuffer);
+	
+	if ( inOutAuthBuffer == NULL )
+		return eParameterError;
+	
+	for ( tptr = inAuthAuthority[0]; tptr != NULL; )
+	{
+		neededSize += sizeof(long) + strlen( tptr );
+		tptr = inAuthAuthority[++attrValCount];
+	}
+	
+	innerDataBuff = dsDataBufferAllocate( 0, neededSize );
+	if ( innerDataBuff != NULL )
+	{
+		// run through the values create a tDataBuffer with the list of authentication authorities.
+		for ( attrValIndex = 0; attrValIndex < attrValCount && status == eDSNoErr; attrValIndex++ )
+		{
+			status = dsAppendAuthBuffer( innerDataBuff, 1, strlen(inAuthAuthority[attrValIndex]),
+												inAuthAuthority[attrValIndex] );
+		}
+		
+		if ( status == eDSNoErr )
+			status = dsAppendAuthBufferWithAuthority( inUserName, innerDataBuff, inOutAuthBuffer );
+		
+		dsDataBufferDeAllocate( 0, innerDataBuff );
+	}
+	
+	return status;
+}
+
+
+//-----------------------------------------------------------------------------
+/*!
+    @function dsAppendAuthBufferWithAuthority
+    @abstract   Inserts a user name with authentication authority data into
+				an existing buffer.
+    @discussion Internal static function for appending data to a buffer.
+    @param      inUserName the name of the user to authenticate
+    @param      inOutAuthBuffer pass in a preallocated buffer, returns with
+				the user data appended.
+    @result    tDirStatus code
+*/
+//-----------------------------------------------------------------------------
+
+tDirStatus dsAppendAuthBufferWithAuthority(
+	const char *inUserName,
+	tDataBufferPtr inAuthAuthorityBuffer,
+	tDataBufferPtr inOutAuthBuffer )
+{
+    tDirStatus				status				= eDSNoErr;
+	int						userNameLen			= 0;
+	int						userBufferLen		= 0;
+	char					*userBuffer			= NULL;
+	
+	if ( inUserName == NULL || inAuthAuthorityBuffer == NULL || inOutAuthBuffer == NULL )
+		return eParameterError;
+	
+	userNameLen = strlen( inUserName );
+	userBufferLen = userNameLen + sizeof(kDSUserAuthAuthorityMarker) + sizeof(tDataBuffer) +
+					inAuthAuthorityBuffer->fBufferLength;
+	
+	userBuffer = (char *) malloc( userBufferLen );
+	if ( userBuffer == NULL )
+		return eMemoryError;
+	
+	strcpy( userBuffer, inUserName );
+	strcpy( userBuffer + userNameLen + 1, kDSUserAuthAuthorityMarker );
+	memcpy( userBuffer + userNameLen + sizeof(kDSUserAuthAuthorityMarker), inAuthAuthorityBuffer,
+			sizeof(tDataBuffer) + inAuthAuthorityBuffer->fBufferLength );
+	status = dsAppendAuthBuffer( inOutAuthBuffer, 1, userBufferLen, userBuffer );
+	free( userBuffer );
+	
+	return status;
+}
 

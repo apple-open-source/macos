@@ -1,0 +1,148 @@
+testing double (without inline functions)
+Failure: exp (inf) == inf: Exception "Invalid operation" set
+Failure: Test: exp (inf) == inf
+Result:
+ is:         nan  nan
+ should be:   inf   inf
+Failure: exp (-inf) == 0: Exception "Invalid operation" set
+Failure: Test: exp (-inf) == 0
+Result:
+ is:         nan  nan
+ should be:   0.00000000000000000000e+00   0x0.00000000000000000000p+0
+Failure: exp2 (inf) == inf: Exception "Invalid operation" set
+Failure: Test: exp2 (inf) == inf
+Result:
+ is:         nan  nan
+ should be:   inf   inf
+Failure: exp2 (-inf) == 0: Exception "Invalid operation" set
+Failure: Test: exp2 (-inf) == 0
+Result:
+ is:         nan  nan
+ should be:   0.00000000000000000000e+00   0x0.00000000000000000000p+0
+Failure: Test: log1p (-0) == -0
+Result:
+ is:          0.00000000000000000000e+00   0x0.00000000000000000000p+0
+ should be:  -0.00000000000000000000e+00  -0x0.00000000000000000000p+0
+ difference:  0.00000000000000000000e+00   0x0.00000000000000000000p+0
+ ulp       :  0.0000
+ max.ulp   :  0.0000
+Failure: Test: ilogb (inf) == INT_MAX plus exceptions allowed
+Result:
+ is:         -2147483648
+ should be:  2147483647
+Failure: Test: ilogb (-inf) == INT_MAX plus exceptions allowed
+Result:
+ is:         -2147483648
+ should be:  2147483647
+Failure: scalb (2.0, 0.5) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: Test: scalb (2.0, 0.5) == NaN plus invalid exception
+Result:
+ is:          2.00000000000000000000e+00   0x1.00000000000000000000p+1
+ should be:  nan  nan
+Failure: scalb (3.0, -2.5) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: Test: scalb (3.0, -2.5) == NaN plus invalid exception
+Result:
+ is:          7.50000000000000000000e-01   0x1.80000000000000000000p-1
+ should be:  nan  nan
+Failure: scalb (0, NaN) == NaN: Exception "Invalid operation" set
+Failure: Test: scalb (0, NaN) == NaN
+Result:
+ is:          0.00000000000000000000e+00   0x0.00000000000000000000p+0
+ should be:  nan  nan
+Failure: scalb (1, NaN) == NaN: Exception "Invalid operation" set
+Failure: Test: scalb (1, NaN) == NaN
+Result:
+ is:          0.00000000000000000000e+00   0x0.00000000000000000000p+0
+ should be:  nan  nan
+Failure: scalb (0, inf) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: Test: scalb (0, inf) == NaN plus invalid exception
+Result:
+ is:          0.00000000000000000000e+00   0x0.00000000000000000000p+0
+ should be:  nan  nan
+Failure: scalb (-0, inf) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: Test: scalb (-0, inf) == NaN plus invalid exception
+Result:
+ is:         -0.00000000000000000000e+00  -0x0.00000000000000000000p+0
+ should be:  nan  nan
+Failure: scalb (inf, -inf) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: Test: scalb (inf, -inf) == NaN plus invalid exception
+Result:
+ is:          inf   inf
+ should be:  nan  nan
+Failure: scalb (-inf, -inf) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: Test: scalb (-inf, -inf) == NaN plus invalid exception
+Result:
+ is:         -inf  -inf
+ should be:  nan  nan
+Failure: scalb (1, NaN) == NaN: Exception "Invalid operation" set
+Failure: Test: scalb (1, NaN) == NaN
+Result:
+ is:          0.00000000000000000000e+00   0x0.00000000000000000000p+0
+ should be:  nan  nan
+Failure: scalb (0, NaN) == NaN: Exception "Invalid operation" set
+Failure: Test: scalb (0, NaN) == NaN
+Result:
+ is:          0.00000000000000000000e+00   0x0.00000000000000000000p+0
+ should be:  nan  nan
+Failure: scalb (inf, NaN) == NaN: Exception "Invalid operation" set
+Failure: Test: scalb (inf, NaN) == NaN
+Result:
+ is:          inf   inf
+ should be:  nan  nan
+Failure: scalb (NaN, NaN) == NaN: Exception "Invalid operation" set
+Failure: pow (-1, inf) == 1: Exception "Invalid operation" set
+Failure: Test: pow (-1, inf) == 1
+Result:
+ is:         nan  nan
+ should be:   1.00000000000000000000e+00   0x1.00000000000000000000p+0
+Failure: pow (-1, -inf) == 1: Exception "Invalid operation" set
+Failure: Test: pow (-1, -inf) == 1
+Result:
+ is:         nan  nan
+ should be:   1.00000000000000000000e+00   0x1.00000000000000000000p+0
+Failure: pow (0, -11) == inf plus division by zero exception: Exception "Divide by zero" not set
+Failure: pow (0, -2) == inf plus division by zero exception: Exception "Divide by zero" not set
+Failure: tgamma (0) == NaN plus invalid exception: Exception "Divide by zero" set
+Failure: tgamma (0) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: Test: tgamma (0) == NaN plus invalid exception
+Result:
+ is:          inf   inf
+ should be:  nan  nan
+Failure: tgamma (-0) == NaN plus invalid exception: Exception "Divide by zero" set
+Failure: tgamma (-0) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: Test: tgamma (-0) == NaN plus invalid exception
+Result:
+ is:         -inf  -inf
+ should be:  nan  nan
+Failure: remquo (1, 0, &x) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: remquo (1, -0, &x) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: remquo (inf, 1, &x) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: remquo (-inf, 1, &x) == NaN plus invalid exception: Exception "Invalid operation" not set
+Failure: y0 (-1.0) == -inf: Exception "Invalid operation" set
+Failure: Test: y0 (-1.0) == -inf
+Result:
+ is:         nan  nan
+ should be:  -inf  -inf
+Failure: y0 (0.0) == -inf: Exception "Divide by zero" set
+Failure: y1 (-1.0) == -inf: Exception "Invalid operation" set
+Failure: Test: y1 (-1.0) == -inf
+Result:
+ is:         nan  nan
+ should be:  -inf  -inf
+Failure: y1 (0.0) == -inf: Exception "Divide by zero" set
+Failure: yn (0, -1.0) == -inf: Exception "Invalid operation" set
+Failure: Test: yn (0, -1.0) == -inf
+Result:
+ is:         nan  nan
+ should be:  -inf  -inf
+Failure: yn (0, 0.0) == -inf: Exception "Divide by zero" set
+Failure: yn (1, -1.0) == -inf: Exception "Invalid operation" set
+Failure: Test: yn (1, -1.0) == -inf
+Result:
+ is:         nan  nan
+ should be:  -inf  -inf
+Failure: yn (1, 0.0) == -inf: Exception "Divide by zero" set
+
+Test suite completed:
+  1139 test cases plus 953 tests for exception flags executed.
+  62 errors occurred.

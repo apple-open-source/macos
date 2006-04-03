@@ -1,5 +1,5 @@
 #
-# $Id: changing.exp,v 1.16 2003/05/09 12:51:58 tlyu Exp $
+# $Id: changing.exp 15406 2003-05-09 12:51:58Z tlyu $
 #
 
 set timeout 15

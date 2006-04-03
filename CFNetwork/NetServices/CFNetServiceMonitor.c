@@ -298,7 +298,7 @@ _QueryRecordReply(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t interface
 		if (errorCode) {
 			
 			// Save the error
-			monitor->_error.error = errorCode;
+			monitor->_error.error = _DNSServiceErrorToCFNetServiceError(errorCode);
 			monitor->_error.domain = kCFStreamErrorDomainNetServices;
 			
 			// Remove the monitor from run loops and modes
@@ -601,6 +601,7 @@ CFNetServiceMonitorStart(CFNetServiceMonitorRef theMonitor, CFNetServiceMonitorT
 		
 		// Fail if it did.
 		if (monitor->_error.error) {
+			monitor->_error.error = _DNSServiceErrorToCFNetServiceError(monitor->_error.error);
 			monitor->_error.domain = kCFStreamErrorDomainNetServices;
 			break;
 		}

@@ -16,7 +16,7 @@
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
  */
-/* $Id: fopen_wrappers.c,v 1.153.2.10 2005/02/02 23:44:07 iliaa Exp $ */
+/* $Id: fopen_wrappers.c,v 1.153.2.10.2.2 2005/09/27 15:08:43 iliaa Exp $ */
 
 /* {{{ includes
  */
@@ -36,14 +36,6 @@
 #include <winsock.h>
 #define O_RDONLY _O_RDONLY
 #include "win32/param.h"
-#elif defined(NETWARE)
-/*#include <ws2nlm.h>*/
-/*#include <sys/socket.h>*/
-#ifdef NEW_LIBC
-#include <sys/param.h>
-#else
-#include "netware/param.h"
-#endif
 #else
 #include <sys/param.h>
 #endif
@@ -57,8 +49,6 @@
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
 #include "win32/pwd.h"
-#elif defined(NETWARE)
-#include "netware/pwd.h"
 #else
 #include <pwd.h>
 #endif
@@ -120,8 +110,8 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 		/* Handler for basedirs that end with a / */
 		resolved_basedir_len = strlen(resolved_basedir);
 		if (basedir[strlen(basedir) - 1] == PHP_DIR_SEPARATOR) {
-			if (resolved_basedir[resolved_basedir_len - 1] == '/') {
-				resolved_basedir[resolved_basedir_len - 1] = PHP_DIR_SEPARATOR;
+			if (resolved_basedir[resolved_basedir_len - 1] != PHP_DIR_SEPARATOR) {
+				resolved_basedir[resolved_basedir_len] = PHP_DIR_SEPARATOR;
 				resolved_basedir[++resolved_basedir_len] = '\0';
 			}
 		}

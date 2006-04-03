@@ -215,8 +215,14 @@ smash_type (struct type *type)
 {
   memset (TYPE_MAIN_TYPE (type), 0, sizeof (struct main_type));
 
+  /* APPLE LOCAL - Deleting the rings is wrong?  Just because you are
+     changing the type it doesn't mean you don't want the other
+     elements on the chain to lose their connection to whatever this
+     is going to become...  */
+#if 0
   /* For now, delete the rings.  */
   TYPE_CHAIN (type) = type;
+#endif
 
   /* For now, leave the pointer/reference types alone.  */
 }
@@ -441,6 +447,7 @@ make_qualified_type (struct type *type, int new_flags,
 		     struct type *storage)
 {
   struct type *ntype;
+  struct type *elem;
 
   ntype = type;
   do {
@@ -455,24 +462,72 @@ make_qualified_type (struct type *type, int new_flags,
   else
     {
       ntype = storage;
+      /* APPLE LOCAL: This will get done down below, so it's not
+	 necessary here.  */
+#if 0
       TYPE_MAIN_TYPE (ntype) = TYPE_MAIN_TYPE (type);
+#endif
+      /* APPLE LOCAL: Don't do this, if NTYPE already
+	 has been linked to another type in this chain, 
+	 then you won't set the type in the chained type
+	 correctly, AND you will blow away the chain
+	 unnecessarily.  */
+#if 0
       TYPE_CHAIN (ntype) = ntype;
+#endif
     }
 
+  /* APPLE LOCAL: I don't think this is right either.  If you 
+     get here because STORAGE is NULL, then these are NULL already,
+     alloc_type_instance sees to that.
+     If you get passed in a type that already has it's pointer type
+     filled in, why would you want to break that relationship?
+     For instance, suppose you had:
+
+     LSYM :t(0,5)=*(0,6)
+     LSYM :t(0,7)=k(0,4)
+     LSYM :t(0,6)=B(0,4)
+
+     You would get in here with type the type for (0,4).  STORAGE
+     would be the type struct you made for (0,6) which would
+     have a pointer to (0,5) as its pointer type.  If you set the
+     pointer type to NULL, (0,6) would be in the "TYPE_TARGET_TYPE
+     of (0,5), but the TYPE_POINTER_TYPE of (0,6) would be unknown...  */
+#if 0
   /* Pointers or references to the original type are not relevant to
      the new type.  */
   TYPE_POINTER_TYPE (ntype) = (struct type *) 0;
   TYPE_REFERENCE_TYPE (ntype) = (struct type *) 0;
+#endif
 
   /* Chain the new qualified type to the old type.  */
-  TYPE_CHAIN (ntype) = TYPE_CHAIN (type);
+  /* APPLE LOCAL: Be careful to splice any of the types that
+     are already in ntype into the chain, and fix up their
+     MAIN_TYPEs as well.  */
+
+  /* First propagate the new type to all the elements on the old
+     chain.  This leaves elem pointing at the element in NTYPE's chain
+     right before ntype.  Note, I know that I am re-assigning the
+     MAIN_TYPE of the first element again.  But not doing that makes
+     the code really awkward.  */
+
+  elem = ntype;
+  while (1)
+    {
+      TYPE_INSTANCE_FLAGS (elem) |= new_flags;
+      TYPE_LENGTH (elem) = TYPE_LENGTH (type);
+      TYPE_MAIN_TYPE (elem) = TYPE_MAIN_TYPE (type);
+      if (TYPE_CHAIN (elem) == ntype)
+	break;
+      else
+	elem = TYPE_CHAIN (elem);
+    }
+
+  /* Now splice the chains together.  We are inserting NTYPE and its
+     chain elements between TYPE and TYPE_CHAIN (type)...  */
+  TYPE_CHAIN (elem) = TYPE_CHAIN (type);
   TYPE_CHAIN (type) = ntype;
-
-  /* Now set the instance flags and return the new type.  */
-  TYPE_INSTANCE_FLAGS (ntype) = new_flags;
-
-  /* Set length of new type to that of the original type.  */
-  TYPE_LENGTH (ntype) = TYPE_LENGTH (type);
+  /* END APPLE LOCAL */
 
   return ntype;
 }
@@ -517,6 +572,13 @@ make_cv_type (int cnst, int voltl, struct type *type, struct type **typeptr)
   int new_flags = (TYPE_INSTANCE_FLAGS (type)
 		   & ~(TYPE_FLAG_CONST | TYPE_FLAG_VOLATILE));
 
+  /* APPLE LOCAL */
+  if (TYPE_CODE (type) == TYPE_CODE_ERROR)
+    {
+      if (typeptr != NULL)
+      *typeptr = builtin_type_error;
+      return builtin_type_error;
+    }
   if (cnst)
     new_flags |= TYPE_FLAG_CONST;
 
@@ -769,6 +831,74 @@ get_array_bounds (struct type *array, LONGEST *lowp, LONGEST *highp, LONGEST *st
   return 1;
 }
 
+/* APPLE LOCAL: We might be asked to build an array type before we
+   know the type of its elements.  If that's true, then the code in
+   create_array_type will set the length to 0.  That's unfortunate...
+   So we put the array on a completion list, and fix it up in this
+   function, which gets called from end_symtab.  This is basically a
+   copy of add_undefined_type and cleanup_undefined_types from
+   stabsread.c.  */
+
+static struct type **undef_arrays;
+static int undef_arrays_allocated;
+static int undef_arrays_length;
+
+static void
+add_undefined_array (struct type *type)
+{
+  if (undef_arrays_length == undef_arrays_allocated)
+    {
+      undef_arrays_allocated *= 2;
+      undef_arrays = (struct type **)
+	xrealloc ((char *) undef_arrays,
+		  undef_arrays_allocated * sizeof (struct type *));
+    }
+  undef_arrays[undef_arrays_length++] = type;
+}
+
+/* This runs through the arrays types on the undef_arrays list and
+   recalculates their length.  The manipulation of the type field
+   comes from create_array_type.  */
+
+void
+cleanup_undefined_arrays (void)
+{
+  struct type **type;
+
+  for (type = undef_arrays; type < undef_arrays + undef_arrays_length; type++)
+    {
+      struct type *range_type, *element_type;
+      LONGEST low_bound, high_bound;
+      if (TYPE_CODE (*type) != TYPE_CODE_ARRAY)
+	{
+	  warning ("Got a non-array type in cleanup_undefined_arrays");
+	  continue;
+	}
+      element_type = check_typedef(TYPE_TARGET_TYPE (*type));
+      range_type = TYPE_FIELD_TYPE (*type, 0);
+      if (element_type == NULL)
+	{
+	  warning ("Got null element type for cleanup_undefined_arrays.");
+	  continue;
+	}
+      else if (range_type == NULL)
+	{
+	  warning ("Got null range type for cleanup_undefined_arrays.");
+	  continue;
+	}
+      if (get_discrete_bounds (range_type, &low_bound, &high_bound) < 0)
+	low_bound = high_bound = 0;
+      CHECK_TYPEDEF (element_type);
+      TYPE_LENGTH (*type) =
+	TYPE_LENGTH (element_type) * (high_bound - low_bound + 1);
+      /* Also turn off the STUB flag.  */
+      TYPE_FLAGS (*type) &= ~TYPE_FLAG_TARGET_STUB;
+    }
+  undef_arrays_length = 0;
+}
+
+/* END APPLE LOCAL */
+
 /* Create an array type using either a blank type supplied in RESULT_TYPE,
    or creating a new type, inheriting the objfile from RANGE_TYPE.
 
@@ -793,6 +923,14 @@ create_array_type (struct type *result_type, struct type *element_type,
   if (get_discrete_bounds (range_type, &low_bound, &high_bound) < 0)
     low_bound = high_bound = 0;
   CHECK_TYPEDEF (element_type);
+  /* APPLE LOCAL: If the element type is undefined, then we are going
+     to set the length to zero here.  Add this to the list of undefined
+     arrays, then in end_symtab we'll come back and see if we know the
+     element type then.  */
+
+  if (TYPE_CODE (element_type) == TYPE_CODE_UNDEF)
+      add_undefined_array (result_type);
+
   TYPE_LENGTH (result_type) =
     TYPE_LENGTH (element_type) * (high_bound - low_bound + 1);
   TYPE_NFIELDS (result_type) = 1;
@@ -3607,4 +3745,11 @@ _initialize_gdbtypes (void)
 		  "Set if GDB should honor the 'stride' parameter of array types.",
 		  &setlist),
      &showlist);
+  /* APPLE LOCAL: This list holds the arrays whose element type was unknown
+     when the array type was created.  */
+  undef_arrays_allocated = 20;
+  undef_arrays_length = 0;
+  undef_arrays = (struct type **)
+    xmalloc (undef_arrays_allocated * sizeof (struct type *));
+
 }

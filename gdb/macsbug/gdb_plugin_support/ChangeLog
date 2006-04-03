@@ -1,3 +1,118 @@
+2005-07-25  Ira Ruben  <iraruben@acm.org>
+
+	* Makefile: Changed copyright date.
+	(mmalloc.framework): -I removed (not needed).
+	(liberty.framework): Ditto.
+	Add OPT to control -O level from command line.
+	(GDB_BUILD_DIR) New switch for building without frameworks.
+	(GDB_SRC_DIR) Ditto.
+	
+	* gdb.c: Changed copyright date.
+	Added includes for objfiles.h and bfd.h.
+	(suppress_errors): Fixed comments.
+	(gdb_eval_silent): Redirect stdout (bug fix in redirection).
+	(gdb_execute_command_silent): Ditto.
+	(gdb_target_pid): New routine.
+	(gdb_get_function_start): Ditto.
+	(gdb_target_arch): Ditto.
+	(gdb_set_long): New routine used to get long values instead
+	of using gdb_set_int() for all data types.
+	(gdb_set_long_long): Ditto (but for long long values).
+	(gdb_set_address): Ditto (but for GDB_ADDRESS values).
+	(gdb_get_long): New routine used to get long values instead
+	of using gdb_get_int() for all data types.
+	(gdb_get_long_long): Ditto (but for long long values).
+	(gdb_get_address): Ditto (but for GDB_ADDRESS values).
+	(gdb_set_register): Fix use of get_selected_frame() and
+	assume value ptr is to a long long.
+	(gdb_get_register): Changed comments and assumes register
+	value can be a long long.
+	(gdb_get_sp): Fixed comments.
+	(gdb_get_reg_size): New routine.
+	(gdb_read_memory): Changed to return a GDB_ADDRESS value.
+	(gdb_print_address): The addr is typed as GDB_ADDRESS.
+	show_file_line_info argument removed.
+	Function changed to display load segment info if no line
+	number info is available.
+	
+	* gdb.h: Changed copyright date.
+	(GDB_ADDRESS): New typedef for all address values.
+	(Gdb_Raw_Input_Set_Prompt): New handler.
+	(gdb_target_pid): Extern for new routine.
+	(gdb_get_function_start): Ditto.
+	(gdb_target_arch): Ditto.
+	(gdb_set_long): Ditto.
+	(gdb_set_long_long): Ditto.
+	(gdb_set_address): theValue type changed to GDB_ADDRESS.
+	(gdb_get_long): Extern for new routine.
+	(gdb_get_long_long): Ditto.
+	(gdb_get_address): Ditto.
+	(gdb_get_register): Fixed comments.
+	(gdb_get_sp): Ditto.
+	(gdb_get_reg_size): Extern for new routine.
+	(gdb_read_memory): Changed to return a GDB_ADDRESS value.
+	(gdb_print_address): Changed arguments and comments.
+	(gdb_define_raw_input_handler): Fix comments.
+	(GdbEvent): Added new Gdb_After_Attach_To_File and
+	Gdb_History_Prompt special events.  Comments fixed for
+	to agree with changes in gdb_special_events.c.
+	
+	* gdb_io_redirection.c: Changed copyright date.
+	Moved forward static decls for my_query_hook, 
+	my_rl_startup_hook, and my_command_line_input_hook.
+	(Gdb_Raw_Input_Set_Prompt): New handler.
+	(gdb_define_raw_input_handler): Fixed comments.
+	(gdb_set_raw_input_prompt_handler): New handler for raw prompts.
+	(my_disasm_fprintf): Conditioned out.
+	(my_command_line_input_hook): Call users_raw_input_prompt_handler.
+	
+	* gdb_private_interfaces.h: Changed copyright date.
+	(Gdb_Global_Data): Removed insn_stream and insn_printf.
+	(rl_redisplay_function): Moved to "readline hooks" decls.
+	(rl_display_prompt): Added to handle readline search prompts.
+	(rl_prompt): Ditto.
+	
+	* gdb_set.c: Changed copyright date.
+	Moved forward static decls for my_set and my_set_hook.
+	
+	* gdb_special_events.c: Changed copyright date.
+	Add include for inferior.h.
+	(users_create_bkpt): Pass a GDB_ADDRESS addr.
+	(users_delete_bkpt): Ditto.
+	(users_modify_bkpt): Ditto.
+	(users_attach_hook): Callback changed to pass pid.
+	(users_memory_changed_hook): Pass a GDB_ADDRESS addr.
+	(saved_exec_file_display_hook): New hook data.
+	(users_exec_file_display_hook): Ditto.
+	(exec_file_display_hook_defined): Ditto.
+	(saved_rl_redisplay_function): Ditto.
+	(users_rl_redisplay_function): Ditto.
+	(rl_redisplay_function_defined): Ditto.
+	(my_attach_hook): Pass pid to callback.
+	(my_memory_changed_hook): The addr is typed as GDB_ADDRESS.
+	(my_exec_file_display_hook): New hook interface.
+	(my_rl_redisplay_function): Ditto.
+	(gdb_special_events): Fixed comments for addrs typed as
+	GDB_ADDRESS.
+	(case Gdb_After_Creating_Breakpoint): Pass GDB_ADDRESS addr.
+	(case Gdb_Before_Deleting_Breakpoint): Ditto.
+	(case Gdb_After_Modified_Breakpoint): Ditto.
+	(case Gdb_After_Attach): Pass pid.
+	(case Gdb_After_Memory_Changed): Pass GDB_ADDRESS addr.
+	(case Gdb_After_File_Changed): Fixed use of wrong variable.
+	(case Gdb_After_Attach_To_File): New special event.
+	(case Gdb_History_Prompt): Ditto.
+	
+	* gdb_testing.i: Changed copyright date.
+	Used gdb_testw() to experiment with getting objfile pathname.
+
+2005-01-21  Jim Ingham  <jingham@apple.com>
+
+	* gdb_io_redirection.c: gcc 4.0 doesn't allow static function
+	prototypes in a function body, so I moved the prototypes to
+	before the function that used to contain it.
+	* gdb_set.c: Ditto.
+
 2004-03-24  Klee Dienes  <kdienes@apple.com>
 
 	* gdb_special_events.c: Convert to the new breakpoint structures.

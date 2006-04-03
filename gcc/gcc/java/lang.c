@@ -801,6 +801,13 @@ int cw_asm_state;
 int cw_asm_in_operands;
 /* APPLE LOCAL end CW asm blocks */
 
+/* APPLE LOCAL begin 4174833 */
+tree
+objc_is_class_name (tree ARG_UNUSED (arg))
+{
+  return 0;
+}
+/* APPLE LOCAL end 4174833 */
 
 /* Every call to a static constructor has an associated boolean
    variable which is in the outermost scope of the calling method.

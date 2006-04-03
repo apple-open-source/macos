@@ -1,7 +1,7 @@
 /*
  * Preferences.m
  *
- * $Header: /cvs/kfm/Common/Sources/Preferences.m,v 1.7 2005/03/04 23:04:40 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -168,7 +168,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_RememberPrincipal, &value, &size);
 
     if (err != klNoErr) {
-        dprintf ("rememberPrincipalFromLastLogin failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("rememberPrincipalFromLastLogin failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? (value != 0) : YES;
@@ -181,7 +181,7 @@
     KLBoolean value = (rememberPrincipalFromLastLogin == YES);
     KLStatus err = KLSetDefaultLoginOption (loginOption_RememberPrincipal, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setRememberPrincipalFromLastLogin: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setRememberPrincipalFromLastLogin: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -207,7 +207,7 @@
         value[size] = '\0';  // nul-terminate the value buffer
         string = [NSString stringWithUTF8String: value];
     } else {
-        dprintf ("defaultName failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("defaultName failed with error %d (%s)", err, error_message (err));        
     }
 
     if (value != NULL) { free (value); }
@@ -221,7 +221,7 @@
 {
     KLStatus err = KLSetDefaultLoginOption (loginOption_LoginName, [defaultName UTF8String], [defaultName length]);
     if (err != klNoErr) {
-        dprintf ("setDefaultName: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setDefaultName: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -236,7 +236,7 @@
     if (err == klNoErr) {
         string = [NSString stringWithUTF8String: value];
     } else {
-        dprintf ("defaultRealm failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("defaultRealm failed with error %d (%s)", err, error_message (err));        
     }
     
     if (value != NULL) { KLDisposeString (value); }
@@ -256,7 +256,7 @@
     if (err == klNoErr) {
         err = KLSetKerberosDefaultRealmByName ([defaultRealm UTF8String]);
         if (err != klNoErr) {
-            dprintf ("KLSetDefaultLoginOption return err %ld (%s)", err, error_message (err));
+            dprintf ("KLSetDefaultLoginOption return err %d (%s)", err, error_message (err));
         }
     }
 }
@@ -289,7 +289,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_RememberShowOptions, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("rememberShowOptions failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("rememberShowOptions failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? (value != 0) : YES;
@@ -302,7 +302,7 @@
     KLBoolean value = (rememberShowOptions == YES);
     KLStatus err = KLSetDefaultLoginOption (loginOption_RememberShowOptions, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setRememberShowOptions: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setRememberShowOptions: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -315,7 +315,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_ShowOptions, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("showOptions failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("showOptions failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? (value != 0) : NO;
@@ -328,7 +328,7 @@
     KLBoolean value = (showOptions == YES);
     KLStatus err = KLSetDefaultLoginOption (loginOption_ShowOptions, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setShowOptions: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setShowOptions: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -341,7 +341,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_RememberExtras, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("rememberOptionsFromLastLogin failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("rememberOptionsFromLastLogin failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? (value != 0) : YES;
@@ -354,7 +354,7 @@
     KLBoolean value = (rememberOptionsFromLastLogin == YES);
     KLStatus err = KLSetDefaultLoginOption (loginOption_RememberExtras, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setRememberOptionsFromLastLogin: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setRememberOptionsFromLastLogin: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -367,7 +367,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_DefaultTicketLifetime, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("defaultLifetime failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("defaultLifetime failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? value : 21*60*60;    
@@ -380,7 +380,7 @@
     KLLifetime value = defaultLifetime;
     KLStatus err = KLSetDefaultLoginOption (loginOption_DefaultTicketLifetime, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setDefaultLifetime: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setDefaultLifetime: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -393,7 +393,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_DefaultForwardableTicket, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("defaultForwardable failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("defaultForwardable failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? (value != 0) : YES;
@@ -406,7 +406,7 @@
     KLBoolean value = (defaultForwardable == YES);
     KLStatus err = KLSetDefaultLoginOption (loginOption_DefaultForwardableTicket, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setDefaultForwardable: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setDefaultForwardable: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -419,7 +419,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_DefaultProxiableTicket, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("defaultProxiable failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("defaultProxiable failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? (value != 0) : YES;
@@ -432,7 +432,7 @@
     KLBoolean value = (defaultProxiable == YES);
     KLStatus err = KLSetDefaultLoginOption (loginOption_DefaultProxiableTicket, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setDefaultProxiable: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setDefaultProxiable: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -445,7 +445,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_DefaultAddresslessTicket, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("defaultAddressless failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("defaultAddressless failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? (value != 0) : YES;
@@ -458,7 +458,7 @@
     KLBoolean value = (defaultAddressless == YES);
     KLStatus err = KLSetDefaultLoginOption (loginOption_DefaultAddresslessTicket, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setDefaultAddressless: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setDefaultAddressless: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -471,7 +471,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_DefaultRenewableTicket, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("defaultRenewable failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("defaultRenewable failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? (value != 0) : YES;
@@ -484,7 +484,7 @@
     KLBoolean value = (defaultRenewable == YES);
     KLStatus err = KLSetDefaultLoginOption (loginOption_DefaultRenewableTicket, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setDefaultRenewable: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setDefaultRenewable: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -497,7 +497,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_DefaultRenewableLifetime, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("defaultRenewableLifetime failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("defaultRenewableLifetime failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? value : 21*60*60;    
@@ -510,7 +510,7 @@
     KLLifetime value = defaultRenewableLifetime;
     KLStatus err = KLSetDefaultLoginOption (loginOption_DefaultRenewableLifetime, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setDefaultRenewableLifetime: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setDefaultRenewableLifetime: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -524,7 +524,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_MaximalTicketLifetime, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("lifetimeMaximum failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("lifetimeMaximum failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? value : 21*60*60;    
@@ -537,7 +537,7 @@
     KLLifetime value = lifetimeMaximum;
     KLStatus err = KLSetDefaultLoginOption (loginOption_MaximalTicketLifetime, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setLifetimeMaximum: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setLifetimeMaximum: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -550,7 +550,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_MinimalTicketLifetime, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("lifetimeMinimum failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("lifetimeMinimum failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? value : 10;    
@@ -563,7 +563,7 @@
     KLLifetime value = lifetimeMinimum;
     KLStatus err = KLSetDefaultLoginOption (loginOption_MinimalTicketLifetime, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setLifetimeMinimum: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setLifetimeMinimum: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -576,7 +576,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_MaximalRenewableLifetime, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("renewableLifetimeMaximum failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("renewableLifetimeMaximum failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? value : 7*24*60*60;    
@@ -589,7 +589,7 @@
     KLLifetime value = renewableLifetimeMaximum;
     KLStatus err = KLSetDefaultLoginOption (loginOption_MaximalRenewableLifetime, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setRenewableLifetimeMaximum: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setRenewableLifetimeMaximum: failed with error %d (%s)", err, error_message (err));        
     }
 }
 
@@ -602,7 +602,7 @@
     KLStatus err = KLGetDefaultLoginOption (loginOption_MinimalRenewableLifetime, &value, &size);
     
     if (err != klNoErr) {
-        dprintf ("renewableMinimum failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("renewableMinimum failed with error %d (%s)", err, error_message (err));        
     }
     
     return (err == klNoErr) ? value : 10;    
@@ -615,7 +615,7 @@
     KLLifetime value = renewableLifetimeMinimum;
     KLStatus err = KLSetDefaultLoginOption (loginOption_MinimalRenewableLifetime, &value, sizeof (value));
     if (err != klNoErr) {
-        dprintf ("setRenewableLifetimeMinimum: failed with error %ld (%s)", err, error_message (err));        
+        dprintf ("setRenewableLifetimeMinimum: failed with error %d (%s)", err, error_message (err));        
     }
 }
 

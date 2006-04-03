@@ -81,7 +81,6 @@ extern double creal( double complex );
 #endif
 #endif
 #elif defined(__i386__)
-#define __WANT_LONG_DOUBLE_FORMAT__ 0
 #else
 #error Unknown Architecture
 #endif
@@ -94,7 +93,6 @@ extern double creal( double complex );
 #define __LIBMLDBL_COMPAT(sym) /* NOTHING */
 #endif
 
-#if ( __WANT_LONG_DOUBLE_FORMAT__ - 0L > 0L ) 
 extern long double complex cacosl( long double complex ) __LIBMLDBL_COMPAT(cacosl);
 extern long double complex casinl( long double complex ) __LIBMLDBL_COMPAT(casinl);
 extern long double complex catanl( long double complex ) __LIBMLDBL_COMPAT(catanl);
@@ -123,7 +121,6 @@ extern long double cimagl( long double complex ) __LIBMLDBL_COMPAT(cimagl);
 extern long double complex conjl( long double complex ) __LIBMLDBL_COMPAT(conjl);
 extern long double complex cprojl( long double complex ) __LIBMLDBL_COMPAT(cprojl);
 extern long double creall( long double complex ) __LIBMLDBL_COMPAT(creall);
-#endif /* __WANT_LONG_DOUBLE_FORMAT__ */
 
 extern float complex cacosf( float complex );
 extern float complex casinf( float complex );

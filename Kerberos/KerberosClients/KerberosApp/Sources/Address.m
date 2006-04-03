@@ -1,7 +1,7 @@
 /*
  * Address.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Address.m,v 1.3 2004/09/20 20:32:04 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

@@ -27,7 +27,7 @@
  *  Created by Shantonu Sen on 2/22/05.
  *  Copyright 2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: modeFirmware.c,v 1.4 2005/03/01 17:13:26 ssen Exp $
+ *  $Id: modeFirmware.c,v 1.11 2006/01/09 18:59:38 ssen Exp $
  */
 
 #include <stdlib.h>
@@ -35,17 +35,24 @@
 #include <string.h>
 
 #include <sys/mount.h>
+#include <sys/stat.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOMedia.h>
 
+#include <IOKit/IOCFSerialize.h>
+#include <IOKit/IOCFUnserialize.h>
+
 #include "enums.h"
 #include "structs.h"
 
 #include "bless.h"
+#include "bless_private.h"
 
-extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...);
+extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
+    __attribute__ ((format (printf, 3, 4)));
+
 
 
 int modeFirmware(BLContextPtr context, struct clarg actargs[klast])

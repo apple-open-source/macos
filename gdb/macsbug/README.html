@@ -11,13 +11,13 @@
 MacsBug Interface for GDB
 </FONT>
 <BR><FONT SIZE=3>
-10/20/03</FONT>
+7/25/05</FONT>
 </B></CENTER></P>
 
 <FONT SIZE=4><P><B>1. Introduction</B></P></FONT>
 <P>
 The <a href="http://developer.apple.com/tools/debuggers/MacsBug/">MacsBug</a> supported here is 
-<a href="http://developer.apple.com/techpubs/macosx/DeveloperTools/gdb/gdb/gdb_toc.html">gdb</a> 
+<a href="http://developer.apple.com/documentation/DeveloperTools/gdb/gdb/gdb_toc.html">gdb</a> 
 extended to support a subset of the Mac Classic MacsBug commands and a MacsBug-like screen UI. 
 Thus it basically is a variant of MacsBug with source-level debugging!
 </P><P>
@@ -268,7 +268,82 @@ to restore the proper display.
 </P>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>7. Changes in MacsBug 1.4</B></P></FONT>
+<FONT SIZE=4><P><B>7. Changes in MacsBug 1.5</B></P></FONT>
+<UL>
+<LI type=square>
+Fixed crashing bug when attempting to use the MacsBug screen (<B>mb</B> command)
+that occurred with XCode 1.2.
+
+</LI></P><P><LI type=square>
+Fixed a bug where attempting to scroll through gdb's command history would
+overwrite the side bar.
+
+</LI></P><P><LI type=square>
+Fixed bug where the macsbug screen prompt was being garbled when resuming
+gdb after typing ^Z (control-Z) or changing the terminal window size while
+the inferior is currently executing.
+     
+</LI></P><P><LI type=square>
+Resuming from ^Z or a window size change while the inferior is running 
+interrupts the inferior's execution exactly as if a ^C was typed.
+     
+</LI></P><P><LI type=square>
+Fixed bug in <B>sb</B>, <B>sw</B>, <B>sl</B>, and <B>sm</B> commands when they modify
+somthing showing in the macsbug screen pc area and the area was not being updated to reflect the
+modification.
+
+</LI></P><P><LI type=square>
+Fixed bug where the branch taken information (shown in the MacsBug screen when the pc
+is on a conditional branch) may be incorrect if it is the first break in the gdb session.
+
+</LI></P><P><LI type=square>
+Fixed bug to keep readline's ^R search "(reverse-i-search)" prompt from overwriting
+the sidebar.
+
+</LI></P><P><LI type=square>
+Fixed bug defining <i>$colon</i> (current function start address) and made much more efficient.
+
+</LI></P><P><LI type=square>
+In the MacsBug screen side bar, if the program name for the "CurApName" field cannot
+be determined then the PID is shown instead.
+
+</LI></P><P><LI type=square>
+Added support for 64-bit architecture.  MacsBug will determine whether the inferior is
+32-bit or 64-bit and adjust its displays accordingly.
+
+</LI></P><P><LI type=square>
+New <B>set</B> <FONT FACE="Courier" SIZE=+0>mb-arch [32|64]</FONT> command to
+force the displays to the desired mode independent of the actual inferior mode.
+Omitting the setting, i.e., <B>set</B> <FONT FACE="Courier" SIZE=+0>mb-arch</FONT>
+resets to the inferior's mode.
+
+</LI></P><P><LI type=square>
+New commands <B>dll</B>, <B>sll</B>, and <B>fll</B> to display, set, and fill (respectively)
+long long (64-bit) values.
+
+</LI></P><P><LI type=square>
+New <B>dm</B> basic type keywords <FONT FACE="Courier" SIZE=+0>LongLong</FONT>,
+<FONT FACE="Courier" SIZE=+0>SignedLongLong</FONT>, and
+<FONT FACE="Courier" SIZE=+0>Binary64</FONT>.
+
+</LI></P><P><LI type=square>
+<B>F</B> can be now be used as an abbreviation for <B>find</B> or <B>frame</B>.
+Abbreviated as <B>f</B> <FONT FACE="Courier" SIZE=+0>[arg]</FONT> implies a
+<B>frame</B> command while <B>f</B> <i>addr n expr</i> is interpreted as a
+<B>find</B> command.  The only exception to this abbreviation rule is with the
+<B>help</B> command where you need to enter <B>help frame</B> to see that
+command's help display.
+
+</LI></P><P><LI type=square>
+The <B>wh</B> command will, if the line information is unavailable, display
+load segment information (which includes the segments type, address range,
+and, depending on type, either the load address or pathname).
+</P>
+</LI>
+</UL>
+
+<P>&nbsp;</P>
+<FONT SIZE=4><P><B>8. Changes in MacsBug 1.4</B></P></FONT>
 <UL>
 <LI type=square>
 Fixed bugs in <B>tf</B> and <B>tv</B>.
@@ -280,7 +355,7 @@ Improved register display efficiency which greatly improves overall stepping spe
 </UL>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>8. Changes in MacsBug 1.3</B></P></FONT>
+<FONT SIZE=4><P><B>9. Changes in MacsBug 1.3</B></P></FONT>
 <UL>
 <LI type=square>
 Fixed typeo in the <B>fb</B> help info in the reference to <B>future-break</B>.
@@ -293,7 +368,7 @@ inaccessible.
 </UL>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>9. Changes in MacsBug 1.2</B></P></FONT>
+<FONT SIZE=4><P><B>10. Changes in MacsBug 1.2</B></P></FONT>
 <UL>
 <LI type=square>
 Fixed all commands that potentially bcak up over gdb prompt to produce
@@ -319,7 +394,7 @@ the width was fixed at 16 in groups of 2.
 </UL>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>10. Changes in MacsBug 1.1</B></P></FONT>
+<FONT SIZE=4><P><B>11. Changes in MacsBug 1.1</B></P></FONT>
 <UL>
 <LI type=square>Removed all references to the install-MacsBug script which was documented 
 but never installed in 1.0.

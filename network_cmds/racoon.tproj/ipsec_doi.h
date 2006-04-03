@@ -180,6 +180,7 @@ struct ipsecdoi_pl_id {
 #define IDTYPE_KEYID		2
 #define IDTYPE_ADDRESS		3
 #define IDTYPE_ASN1DN		4
+#define IDTYPE_KEYIDUSE         5
 
 /* shared secret type, it's internal use. */
 #define SECRETTYPE_USE		0

@@ -266,12 +266,6 @@ void zend_assign_to_variable_reference(znode *result, zval **variable_ptr_ptr, z
 		variable_ptr_ptr = &EG(uninitialized_zval_ptr);
 /*	} else if (variable_ptr==&EG(uninitialized_zval) || variable_ptr!=value_ptr) { */
 	} else if (variable_ptr != value_ptr) {
-		variable_ptr->refcount--;
-		if (variable_ptr->refcount==0) {
-			zendi_zval_dtor(*variable_ptr);
-			FREE_ZVAL(variable_ptr);
-		}
-
 		if (!PZVAL_IS_REF(value_ptr)) {
 			/* break it away */
 			value_ptr->refcount--;
@@ -287,6 +281,12 @@ void zend_assign_to_variable_reference(znode *result, zval **variable_ptr_ptr, z
 
 		*variable_ptr_ptr = value_ptr;
 		value_ptr->refcount++;
+		
+		variable_ptr->refcount--;
+		if (variable_ptr->refcount==0) {
+			zendi_zval_dtor(*variable_ptr);
+			FREE_ZVAL(variable_ptr);
+		}
 	} else if (!variable_ptr->is_ref) {
 		if (variable_ptr_ptr == value_ptr_ptr) {
 			SEPARATE_ZVAL(variable_ptr_ptr);
@@ -801,7 +801,7 @@ static void zend_fetch_dimension_address(znode *result, znode *op1, znode *op2, 
 				new_zval->refcount++;
 				if (zend_hash_next_index_insert(container->value.ht, &new_zval, sizeof(zval *), (void **) retval) == FAILURE) {
 					zend_error(E_WARNING, "Cannot add element to the array as the next element is already occupied");
-					*retval = &EG(uninitialized_zval_ptr);
+					*retval = &EG(error_zval_ptr);
 					new_zval->refcount--;
 				}
 			} else {
@@ -1324,6 +1324,9 @@ binary_assign_op_addr: {
 					/* Behave like FETCH_DIM_W */
 					zend_fetch_dimension_address(&EX(opline)->result, &EX(opline)->op1, &EX(opline)->op2, EX(Ts), BP_VAR_W TSRMLS_CC);
 				} else {
+					if (EX(opline)->op2.op_type == IS_UNUSED) {
+						zend_error(E_ERROR, "Cannot use [] for reading");
+					}
 					/* Behave like FETCH_DIM_R, except for locking used for list() */
 					zend_fetch_dimension_address(&EX(opline)->result, &EX(opline)->op1, &EX(opline)->op2, EX(Ts), BP_VAR_R TSRMLS_CC);
 					AI_USE_PTR(EX(Ts)[EX(opline)->result.u.var].var);
@@ -1391,9 +1394,25 @@ binary_assign_op_addr: {
 					/* zend_assign_to_variable() always takes care of op2, never free it! */
 				}
 				NEXT_OPCODE();
-			case ZEND_ASSIGN_REF:
-				zend_assign_to_variable_reference(&EX(opline)->result, get_zval_ptr_ptr(&EX(opline)->op1, EX(Ts), BP_VAR_W), get_zval_ptr_ptr(&EX(opline)->op2, EX(Ts), BP_VAR_W), EX(Ts) TSRMLS_CC);
+			case ZEND_ASSIGN_REF: {
+				zval **value_ptr_ptr = get_zval_ptr_ptr(&EX(opline)->op2, EX(Ts), BP_VAR_W);
+
+				if (EX(opline)->op2.op_type == IS_VAR &&
+				    value_ptr_ptr &&
+				    !(*value_ptr_ptr)->is_ref &&
+				    EX(opline)->extended_value == ZEND_RETURNS_FUNCTION && 
+				    !EX(Ts)[EX(opline)->op2.u.var].var.fcall_returned_reference) {
+					zval *value;
+
+					PZVAL_LOCK(*value_ptr_ptr); /* undo the effect of get_zval_ptr_ptr() */
+					zend_error(E_NOTICE, "Only variables should be assigned by reference");
+					value = get_zval_ptr(&EX(opline)->op2, EX(Ts), &EG(free_op2), BP_VAR_R);
+ 					zend_assign_to_variable(&EX(opline)->result, &EX(opline)->op1, &EX(opline)->op2, value, (EG(free_op2)?IS_TMP_VAR:EX(opline)->op2.op_type), EX(Ts) TSRMLS_CC);
+				} else {
+					zend_assign_to_variable_reference(&EX(opline)->result, get_zval_ptr_ptr(&EX(opline)->op1, EX(Ts), BP_VAR_W), value_ptr_ptr, EX(Ts) TSRMLS_CC);
+				}
 				NEXT_OPCODE();
+			}
 			case ZEND_JMP:
 #if DEBUG_ZEND>=2
 				printf("Jumping to %d\n", EX(opline)->op1.u.opline_num);
@@ -1645,6 +1664,8 @@ do_fcall_common:
 
 					EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr = &EX(Ts)[EX(opline)->result.u.var].var.ptr;
 
+					EX(Ts)[EX(opline)->result.u.var].var.fcall_returned_reference = 0;
+
 					if (EX(function_state).function->type==ZEND_INTERNAL_FUNCTION) {
 						ALLOC_ZVAL(EX(Ts)[EX(opline)->result.u.var].var.ptr);
 						INIT_ZVAL(*(EX(Ts)[EX(opline)->result.u.var].var.ptr));
@@ -1696,6 +1717,7 @@ do_fcall_common:
 						EG(active_op_array) = (zend_op_array *) EX(function_state).function;
 
 						zend_execute(EG(active_op_array) TSRMLS_CC);
+						EX(Ts)[EX(opline)->result.u.var].var.fcall_returned_reference = EG(active_op_array)->return_reference;
 
 						if (return_value_used && !EX(Ts)[EX(opline)->result.u.var].var.ptr) {
 							ALLOC_ZVAL(EX(Ts)[EX(opline)->result.u.var].var.ptr);
@@ -1737,15 +1759,30 @@ do_fcall_common:
 					zval *retval_ptr;
 					zval **retval_ptr_ptr;
 
-					if ((EG(active_op_array)->return_reference == ZEND_RETURN_REF) &&
-						(EX(opline)->op1.op_type != IS_CONST) &&
-						(EX(opline)->op1.op_type != IS_TMP_VAR)) {
+					if (EG(active_op_array)->return_reference == ZEND_RETURN_REF) {
+						if (EX(opline)->op1.op_type == IS_CONST || EX(opline)->op1.op_type == IS_TMP_VAR) {
+							/* Not supposed to happen, but we'll allow it */
+							zend_error(E_NOTICE, "Only variable references should be returned by reference");
+							goto return_by_value;
+						}
 
 						retval_ptr_ptr = get_zval_ptr_ptr(&EX(opline)->op1, EX(Ts), BP_VAR_W);
 
 						if (!retval_ptr_ptr) {
 							zend_error(E_ERROR, "Cannot return overloaded elements or string offsets by reference");
 						}
+
+						if (!(*retval_ptr_ptr)->is_ref) {
+							if (EX(opline)->extended_value == ZEND_RETURNS_FUNCTION &&
+								EX(Ts)[EX(opline)->op1.u.var].var.fcall_returned_reference) {
+								/* intentionally left empty */
+							} else if (EX(Ts)[EX(opline)->op1.u.var].var.ptr_ptr == &EX(Ts)[EX(opline)->op1.u.var].var.ptr) {
+								PZVAL_LOCK(*retval_ptr_ptr); /* undo the effect of get_zval_ptr_ptr() */
+								zend_error(E_NOTICE, "Only variable references should be returned by reference");
+								goto return_by_value;
+							}
+						}
+
 						SEPARATE_ZVAL_TO_MAKE_IS_REF(retval_ptr_ptr);
 
 #if 0  /* Will be fixed in ZE2, too dangerous to touch in the context of ZE1 */
@@ -1756,10 +1793,12 @@ do_fcall_common:
 						(*retval_ptr_ptr)->refcount++;
 						(*EG(return_value_ptr_ptr)) = (*retval_ptr_ptr);
 					} else {
+return_by_value:
 						retval_ptr = get_zval_ptr(&EX(opline)->op1, EX(Ts), &EG(free_op1), BP_VAR_R);
 
 						if (!EG(free_op1)) { /* Not a temp var */
-							if (PZVAL_IS_REF(retval_ptr) && retval_ptr->refcount > 0) {
+							if (EG(active_op_array)->return_reference == ZEND_RETURN_REF ||
+							    (PZVAL_IS_REF(retval_ptr) && retval_ptr->refcount > 0)) {
 								ALLOC_ZVAL(*(EG(return_value_ptr_ptr)));
 								**EG(return_value_ptr_ptr) = *retval_ptr;
 								(*EG(return_value_ptr_ptr))->is_ref = 0;
@@ -1822,9 +1861,18 @@ do_fcall_common:
 						varptr->is_ref = 1;
 						varptr->refcount++;
 						zend_ptr_stack_push(&EG(argument_stack), varptr);
-						NEXT_OPCODE();
+					} else {
+						zval *valptr;
+
+						zend_error(E_NOTICE, "Only variables can be passed by reference");
+						ALLOC_ZVAL(valptr);
+						*valptr = *varptr;
+						if (!EG(free_op1)) {
+							zval_copy_ctor(valptr);
+						}
+						INIT_PZVAL(valptr);
+						zend_ptr_stack_push(&EG(argument_stack), valptr);
 					}
-					zend_error(E_ERROR, "Only variables can be passed by reference");
 				}
 				NEXT_OPCODE();
 			case ZEND_SEND_VAR:
@@ -2142,7 +2190,8 @@ send_by_ref:
 					zend_op_array *new_op_array=NULL;
 					zval **original_return_value = EG(return_value_ptr_ptr);
 					int return_value_used;
-					zval *inc_filename = get_zval_ptr(&EX(opline)->op1, EX(Ts), &EG(free_op1), BP_VAR_R);
+					int free_op1;
+					zval *inc_filename = get_zval_ptr(&EX(opline)->op1, EX(Ts), &free_op1, BP_VAR_R);
 					zval tmp_inc_filename;
 					zend_bool failure_retval=0;
 
@@ -2204,7 +2253,6 @@ send_by_ref:
 					if (inc_filename==&tmp_inc_filename) {
 						zval_dtor(&tmp_inc_filename);
 					}
-					FREE_OP(EX(Ts), &EX(opline)->op1, EG(free_op1));
 					EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr = &EX(Ts)[EX(opline)->result.u.var].var.ptr;
 					if (new_op_array) {
 						zend_class_entry *saved_ce;
@@ -2252,6 +2300,7 @@ send_by_ref:
 							EX(Ts)[EX(opline)->result.u.var].var.ptr->type = IS_BOOL;
 						}
 					}
+					FREE_OP(EX(Ts), &EX(opline)->op1, free_op1);
 					EG(return_value_ptr_ptr) = original_return_value;
 				}
 				NEXT_OPCODE();
@@ -2359,6 +2408,7 @@ send_by_ref:
 						/* probably redundant */
 						zend_hash_internal_pointer_reset(fe_ht);
 					} else {
+						zend_error(E_WARNING, "Invalid argument supplied for foreach()");
 						/* JMP to the end of foreach */
 						EX(opline) = op_array->opcodes+EX(opline)[1].op2.u.opline_num;
 						continue;

@@ -126,6 +126,18 @@ stage20:
 	gcc-4.0 $(FIX_CFLAGS) -DVERSION=20 -o b.o -c b.c
 	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o b-bundlized.o20 b.o
 
+# rebuild of b.o #21
+stage21:
+	cp b-valid-4.c b.c
+	gcc-4.0 $(FIX_CFLAGS) -DVERSION=21 -o b.o -c b.c
+	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o b-bundlized.o21 b.o
+
+# rebuild of b.o #22
+stage22:
+	cp b-valid-5.c b.c
+	gcc-4.0 $(FIX_CFLAGS) -DVERSION=22 -o b.o -c b.c
+	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o b-bundlized.o22 b.o
+
 clean:
 	rm -f a.out a.o b.o b-v1.o b-v2.o b-v3.o b.o.[0-9]* b.c
 	rm -f b-bundlized.o.[0-9]* b-bundlized.o b-bundlized.o[0-9]*

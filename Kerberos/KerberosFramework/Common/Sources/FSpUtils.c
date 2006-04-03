@@ -34,7 +34,7 @@ OSStatus FSSpecToPOSIXPath (const FSSpec *inSpec, char *ioPath, unsigned long in
     CFURLRef parentURL = NULL;
     int i;
     
-    dprintf ("FSSpecToPOSIXPath called on volID %d, parID %d and name '", inSpec->vRefNum, inSpec->parID);
+    dprintf ("FSSpecToPOSIXPath called on volID %d, parID %ld and name '", inSpec->vRefNum, inSpec->parID);
     for (i = 0; i < inSpec->name[0]; i++) { dprintf ("%c", inSpec->name[i+1]); }
     dprintf ("'\n");
 
@@ -103,7 +103,7 @@ OSStatus FSSpecToPOSIXPath (const FSSpec *inSpec, char *ioPath, unsigned long in
     if (err == noErr) {
         dprintf ("FSSpecToPOSIXPath returned path '%s'\n", ioPath);
     } else {
-        dprintf ("FSSpecToPOSIXPath returned error %d (%s)\n", err, error_message (err));
+        dprintf ("FSSpecToPOSIXPath returned error %ld (%s)\n", err, error_message (err));
     }
     
     return err;
@@ -187,11 +187,11 @@ OSStatus POSIXPathToFSSpec (const char *inPath, FSSpec *outSpec)
     if (err == noErr) {
         int i;
         
-        dprintf ("POSIXPathToFSSpec returned volID %d, parID %d and name '", outSpec->vRefNum, outSpec->parID);
+        dprintf ("POSIXPathToFSSpec returned volID %d, parID %ld and name '", outSpec->vRefNum, outSpec->parID);
         for (i = 0; i < outSpec->name[0]; i++) { dprintf ("%c", outSpec->name[i+1]); }
         dprintf ("'\n");
     } else {
-        dprintf ("POSIXPathToFSSpec returned error %d (%s)\n", err, error_message (err));
+        dprintf ("POSIXPathToFSSpec returned error %ld (%s)\n", err, error_message (err));
     }
     
     // Free allocated memory

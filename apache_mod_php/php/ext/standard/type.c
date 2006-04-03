@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: type.c,v 1.20.4.2 2004/04/01 08:56:32 derick Exp $ */
+/* $Id: type.c,v 1.20.4.2.4.1 2005/06/06 12:50:57 iliaa Exp $ */
 
 #include "php.h"
 #include "php_incomplete_class.h"
@@ -180,14 +180,24 @@ PHP_FUNCTION(floatval)
 PHP_FUNCTION(strval)
 {
 	pval **num;
+	zval expr_copy;
+	int use_copy;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &num) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	*return_value = **num;
-	zval_copy_ctor(return_value);
-	convert_to_string(return_value);
+
+	zend_make_printable_zval(return_value, &expr_copy, &use_copy);
+	if (use_copy) {
+		*return_value = expr_copy;
+		INIT_PZVAL(return_value);
+		zval_copy_ctor(return_value);
+		zval_dtor(&expr_copy);
+	} else {
+		zval_copy_ctor(return_value);
+	}
 }
 /* }}} */
 

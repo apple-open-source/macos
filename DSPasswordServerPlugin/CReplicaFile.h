@@ -96,6 +96,7 @@ class CReplicaFile
 												CReplicaFile();
 												CReplicaFile( const char *xmlDataStr );
 												CReplicaFile( bool inLoadCustomFile, const char *inFilePath );
+												CReplicaFile( const CReplicaFile &inReplicaFile );	// copy constructor
 		virtual									~CReplicaFile();
 		
 		static bool								MergeReplicaLists( CReplicaFile *inList1, CReplicaFile *inOutList2 );
@@ -148,8 +149,8 @@ class CReplicaFile
 		virtual void							GetSelfName( char *outName );
 		virtual void							SetSelfName( const char *inSelfName );
 		virtual bool							GetCStringFromDictionary( CFDictionaryRef inDict, CFStringRef inKey, long inMaxLen, char *outString );
-		virtual bool							Dirty( void ) { return mDirty; };
-		virtual void							SetDirty( bool inDirty ) { mDirty = inDirty; };
+		virtual bool							Dirty( void );
+		virtual void							SetDirty( bool inDirty );
 		virtual void							AddOrReplaceValue( CFMutableDictionaryRef inDict, CFStringRef inKey, CFTypeRef inValue );
 		static void								AddOrReplaceValueStatic( CFMutableDictionaryRef inDict, CFStringRef inKey, CFTypeRef inValue );
 

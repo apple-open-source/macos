@@ -7,7 +7,7 @@
  |                              Gdb Interfaces For Plugins                              |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -85,6 +85,8 @@ extern "C" {
 #include <stdio.h>
 #include <stdarg.h>
 
+typedef unsigned long long GDB_ADDRESS;		/* all addrs are considered as this size*/
+
 typedef void GDB_FILE;				/* anonymous stream variable type	*/
 typedef void GDB_HOOK;				/* anonymous hook-function data type	*/
 
@@ -96,6 +98,7 @@ extern GDB_FILE *gdb_current_stderr;		/* current gdb stderr stream		*/
 typedef void (*Gdb_Plugin)(char *, int);	/* all plugins follow this prototype	*/
 typedef void (*Gdb_Exit_Handler)(void);		/* exit handler prototype		*/
 typedef void (*Gdb_Raw_Input_Handler)(char *);	/* raw input handler prototype		*/
+typedef void (*Gdb_Raw_Input_Set_Prompt)(char *);/* raw input prompt definition handler	*/
 typedef void (*Gdb_Prompt_Positioning)(int);	/* prompt positioning function prototype*/
 
 /*--------------------------------------------------------------------------------------*/
@@ -616,6 +619,9 @@ int gdb_target_running(void);
        termination sequences and to permit operations which only make sense while the
        target is being run (e.g., accessing the target's registers). */
 
+int gdb_target_pid(void);
+    /* If the inferior is running it's pid is returned otherwise -1 is returned. */
+
 int gdb_have_registers(void);
     /* Returns 1 if the target register values are available and 0 otherwise. */
 
@@ -629,7 +635,15 @@ char *gdb_get_prompt(char *prompt_buffer);
 int gdb_interactive(void);
     /* Return 1 if the current input is coming from stdin.  Note this is generally not
        needed since the second argument of plugins indicates that same information. */
-       
+
+GDB_ADDRESS gdb_get_function_start(GDB_ADDRESS addr);
+    /* Returns the address of the start of the function containing the specified
+      address or NULL if the start address cannot be determined. */
+
+int gdb_target_arch(void);
+    /* Return 8 for a 64-bit target architecture otherwise return 4.  This is used to
+       know whether the inferior was compiled for a 64 ot 32 bit architecture. */
+    
 /*--------------------------------------------------------------------------------------*/
 			   /*-------------------------------*
 			    | Convenience Variable Routines |
@@ -637,6 +651,12 @@ int gdb_interactive(void);
 
 void gdb_set_int(char *theVariable, int theValue);
     /* set $theVariable = (int)theValue */
+
+void gdb_set_long(char *theVariable, long theValue);
+    /* set $theVariable = (long)theValue */
+
+void gdb_set_long_long(char *theVariable, long long theValue);
+    /* set $theVariable = (long long)theValue */
 
 void gdb_set_double(char *theVariable, double theValue);
     /* set $theVariable = (double)theValue */
@@ -649,8 +669,17 @@ void gdb_set_string(char *theVariable, char *theString);
        is done. Sorry, but that's also the rule for using strings in the gdb command
        language as well. */
 
+void gdb_set_address(char *theVariable, GDB_ADDRESS theValue);
+    /* set $theVariable = (GDB_ADDRESS)theValue */
+
 int gdb_get_int(char *expression);
-    /*  Returns the integer value of the specified (integer) expression. */
+    /*  Returns the int value of the specified expression. */
+
+long gdb_get_long(char *expression);
+    /*  Returns the long value of the specified expression. */
+
+long long gdb_get_long_long(char *expression);
+    /*  Returns the long long value of the specified expression. */
 
 double gdb_get_double(char *expression);
     /*  Returns the double value of the specified floating point expression. */
@@ -659,6 +688,9 @@ char *gdb_get_string(char *theVariable, char *str, int maxlen);
     /* This is used to get the value of the specified convenience variable as a string.
        If the variable is undefined "" is returned.  Up to maxlen characters are copied
        to the specified string buffer (str). */
+
+GDB_ADDRESS gdb_get_address(char *expression);
+    /*  Returns the GDB_ADDRESS value of the specified expression. */
 
 int gdb_is_var_defined(char *theVariable);
     /* Returns 1 if the specified convenience variable is defined and 0 if it is not. */       
@@ -690,50 +722,52 @@ char *gdb_set_register(char *theRegister, void *value, int size);
 void *gdb_get_register(char *theRegister, void *value);
     /* Returns the value of theRegister (e.g., "$r0") in the provided value buffer.  The
        value pointer is returned as the function result and the value is copied to the
-       specified buffer (assumed large enough to hold the value and at least 4 bytes). If
-       the register is invalid, or its value cannot be obtained, NULL is returned and the
-       value buffer (treated as a long* pointer) is set with one of the following error
-       codes:
+       specified buffer (assumed large enough to hold the value and at least a long long).
+       If the register is invalid, or its value cannot be obtained, NULL is returned and
+       the value buffer (treated as a long* pointer) is set with one of the following
+       error codes:
 											*/
        typedef enum {
-	  Gdb_GetReg_NoRegs = 1,		/* no registers available at this time		*/
+	  Gdb_GetReg_NoRegs = 1,	/* no registers available at this time		*/
 	  Gdb_GetReg_NoFrame,		/* no frame selected				*/
 	  Gdb_GetReg_BadReg,		/* bad register (gdb doesn't know this register)*/
 	  Gdb_GetReg_NoValue,		/* value not available				*/
        } Gdb_GetReg_Error;
        											/*
-       Note, that it is recommended that the more general gdb_get_int() be used for 32-bit
-       registers WHEN EFFICIENCY IS NOT CRITICAL!.  The gdb_get_register() routine is
-       intended mainly for reading larger register data types like the AltiVec 16-byte
-       registers and in places where a lot of registers need to be read in a minimum 
-       amount of time.
-       
-       The reason for the emphasis on efficiency is that it has been discovered that
-       expression evaluation (i.e., like that done by gdb_get_int()) can get relatively
-       slow on certain targets (where there are many active symbol tables) due to a large
-       amount of table searches. So if you wanted a whole set of registers at once, that
-       operation is noticably slow(er).  Using this routine doesn't involve expression
-       evaluation and is quite a bit faster. */
+       Always use this function instead of, say, gdb_get_int(), to get register values
+       because (a) it is more efficient (not expression evaluation is done) and (b) it
+       is more accurate in that GDB might not be in the proper context to get the 
+       current register frame value. */
 
-unsigned long gdb_get_sp(void);
-    /* Returns the value of the stack pointer.
- 
-       Note, you can also use gdb_get_int("$sp") but this is provided as a more
-       efficient alternative.  See above comment. */
+GDB_ADDRESS gdb_get_sp(void);
+    /* Returns the value of the stack pointer. */
+
+int gdb_get_reg_size(int regnum);
+    /* For 64-bit register value support; return the size of register regnum.  For
+       generality we don't assume all the sizes are the same.  Hence the regnum
+       argument. */
 
 /*--------------------------------------------------------------------------------------*/
 			     /*----------------------------*
 			      | Target Memory Manipulation |
 			      *----------------------------*/
     
-unsigned long gdb_read_memory(void *dst, char *src, int n);
-    /* The abs(n) bytes in the target's memory represented by the src expression 
-       *string* (n >= 0) or src *value* (n < 0) are copied to the plugin memory specified
-       by dst.  The target actual address is returned as the function result. */
+GDB_ADDRESS gdb_read_memory(void *dst, char *src, int n);
+    /* The n bytes in the target's memory represented by the src expression *string*
+       are copied to the plugin memory specified by dst.  The target actual address is
+       returned as the function result. */
+
+GDB_ADDRESS gdb_read_memory_from_addr(void *dst, GDB_ADDRESS src, int n);
+    /* The n bytes in the target's memory at addr are copied to the plugin memory
+       specified by dst.  The target address is returned as the function result. */
 
 void gdb_write_memory(char *dst, void *src, int n);
-    /* The abs(n) bytes from the (plugin) src are written to the target memory address 
-       represented by the dst expression *string* (n > = 0) or dst *value* (n < 0). */
+    /* The n bytes from the (plugin) src are written to the target memory address 
+       represented by the dst expression *string*. *.
+
+void gdb_write_memory_to_addr(GDB_ADDRESS dst, void *src, int n);
+    /*  The n bytes from the (plugin) src are written to the target memory address 
+        represented by the dst expression value. */
 
 /*--------------------------------------------------------------------------------------*/
 				   /*----------------*
@@ -790,15 +824,19 @@ void gdb_vfprintf(GDB_FILE *stream, char *fmt, va_list ap);
 void gdb_fputs(char *s, GDB_FILE *stream);
     /* Equivalent to gdb_fprintf(stream, "%s", s) */
      
-void gdb_print_address(char *address, int show_file_line_info);
+void gdb_print_address(char *address);
     /* Display the address and function corresponding to an address (expression or
-       file/line specification).  If show_file_line_info is non-zero and the address
-       corrersponds to a source line the file/line information along with the source
-       line are also displayed. 
-       
-       Note, the source line is shown exactly as if a LIST was done of it.  Thus it
-       is listed in a context of N lines, where N is determined by the gdb SET listsize
-       command. */
+       file/line specification).  If the address corresponds to a source line, the
+       file/line information along with the source line are also displayed.  Otherwise
+       the load segment information, which includes the segments type, encompassing
+       address range, and, depending on section type, either the load address or
+       pathname, are displayed.
+ 
+       Note, if source lines are displayed they are shown exactly as if a LIST was done
+       of it.  Thus it is listed in a context of N lines, where N is determined by the
+       gdb SET listsize command.
+ 
+       The SET listsize command set the gdb global lines_to_list which we access here. */
 
 int gdb_query(char *fmt, ...);
     /* Display a query like gdb does it.  The arguments are exactly the same as for
@@ -964,43 +1002,55 @@ void gdb_fflush(GDB_FILE *stream);
        previously created by gdb_open_output(). */
 
 void gdb_define_raw_input_handler(Gdb_Raw_Input_Handler theInputHandler);
-    /* Gdb has a mode where it basically reads raw lines from the terminal (as opposed to
-       command lines).  This occurs when a DEFINE or DOCUMENT command is entered from the
-       terminal (as opposed to a script), i.e., interactively.  It also reads control
-       structures (e.g., WHILE) this way.  The prompt Gdb uses is not the standard prompt
-       (specifically it's a '>' appropriately indented to show control structure nesting
-       depth).  Unlike the normal prompt which can be changed with a SET prompt command
-       the raw line prompt cannot be changed.
- 
-       If the specified stream is associated with a filter that is  controlling the
-       display and wants the prompts in a position other than the normal gdb default then
-       the SET prompt can be used to define the standard prompt with xterm terminal
-       positioning controls (or whatever is appropriate for the terminal).  Because the
-       raw line input prompt cannot be changed this routine is provided to define a
-       handler to control the raw input prompt at the point Gdb want's to display it. 
- 
-       If thePromptHandler is specified, it should have the following prototype:
-         
-         void raw_prompt_handler(void);
-         
-       It will get control just before the raw line input prompt is displayed by gdb.  It 
-       can therefore change the prompt position.  It might also want to flush its streams.
+    /* Gdb has a mode where it basically reads raw lines from the terminal (as
+       opposed to command lines).  This occurs when a COMMANDS, DEFINE, DOCUMENT, IF,
+       or WHILE command is entered from the terminal (as opposed to a script), i.e.,
+       interactively.  It also reads control structures (i.e.., WHILE and IF) this way.  
        
-       After the raw line is read the line can be passed to  theInputHandler which has
-       the following prototype:
+       gdb_define_raw_input_handler() allows you to specify an handler to filter the raw
+       data lines before gdb saves them as the lines making up the body of the control
+       command.  The handler has the following prototype:
        
-         void raw_input_handler(char *theRawLine);
-         
+	 void raw_input_handler(char *theRawLine);
+	 
        This allows for handler to look at the lines before gdb sees them and also to
        possibly echo the lines elsewhere in the display.  Whatever...
-         
-       Only one handler may exist at any point in time.  Specifying NULL as
-       thePromptHandler reverts back to gdb's original behavior. 
        
+       Only one handler may exist at any point in time.  Specifying NULL as
+       theInputHandler reverts back to gdb's original behavior.
+       
+       Note, that the prompt gdb uses is not the standard prompt.  By default it is a '>'
+       appropriately indented to show control structure nesting depth.  This however
+       may be changed by calling gdb_set_raw_input_prompt_handler() to define a handler
+       which can return the desired prompt.
+       
+       If the specified stream is associated with a filter that is controlling the
+       display wants the prompts in a position other than the normal gdb default then
+       the SET prompt can be used to define the standard prompt with xterm terminal
+       positioning controls (or whatever is appropriate for the terminal).  But since
+       that cannot be done with the raw data line prompt gdb_define_raw_input_handler() 
+       is provided to let you get control just before ANY prompt is displayed by gdb
+       during the raw input.
+	     
        Caution: It appears that gdb has a tendency to reset itself to its own handler
-                under some conditions (one known is using CTL-C).  So you may need
-		to recall gdb_define_raw_input_handler() to reestablish your raw
-		input handler. */
+                under some conditions (one known is using CTL-C).  So you may need to
+                recall gdb_define_raw_input_handler() to reestablish your raw input
+                handler. */
+
+void gdb_set_raw_input_prompt_handler(Gdb_Raw_Input_Set_Prompt thePromptHandler);
+    /* This defines a handler that can be used to set the prompt used during raw input.
+       The handler has the following prototype:
+ 
+         void thePromptHandler(char *prompt);
+ 
+       Specifying NULL for the thePromptHandler removes the handler and gdb reverts to
+       it's standard '>' prompt.  The handler is expected to modify the 256-character
+       prompt buffer with the desired prompt.
+ 
+       Caution/Warning: The prompt gdb is using is for raw input is in a 256-character 
+       local buffer in gdb,  This is on the call chain so it can be legally (!) accessed.
+       But remember it has the 256 limit.  In order to get gdb to use the desired prompt
+       that specific buffer must be modified. */
        
 void gdb_control_prompt_position(Gdb_Prompt_Positioning positioningFunction);
     /* This routine allows you to specify a routine which will get control just before
@@ -1164,7 +1214,7 @@ int gdb_is_string(char *expression);
 char *gdb_tilde_expand(char *pathname);
     /* Returns an malloc'ed string with is the result of expanding tilde's (~) in the
        specified pathname. */
-       
+
 /*--------------------------------------------------------------------------------------*/
 			    /*------------------------------*
 			     | Low-level gdb event handling |
@@ -1189,6 +1239,7 @@ typedef enum {					/* gdb_special_events() events...	*/
     Gdb_Context_Is_Changed,			/* notify of context change (new pid)	*/
     Gdb_Before_Error,				/* notify that error is being reported	*/
     Gdb_After_File_Changed,			/* notify that a FILE cmd was specified	*/
+    Gdb_After_Attach_To_File,			/* notify after attaching to a file	*/
     Gdb_Before_Prompt,				/* notify that prompt is next display	*/
     Gdb_Begin_ReadRawLine,			/* notify of start of raw line read	*/
     Gdb_ReadRawLine,				/* read a raw line			*/
@@ -1197,7 +1248,8 @@ typedef enum {					/* gdb_special_events() events...	*/
     Gdb_Word_Completion_Cursor,			/* save/restore word completion cursor	*/
     Gdb_Word_Completion_Query,			/* intercept word completion query	*/
     Gdb_Word_Completion_Read,			/* intercept word completion query read	*/
-    Gdb_Interactive				/* called wheil in loops		*/
+    Gdb_History_Prompt,				/* intercept readline history prompts	*/
+    Gdb_Interactive				/* called while in loops		*/
 } GdbEvent;
 
 /* The following define the kinds of state changes that are reported to a
@@ -1265,26 +1317,26 @@ void gdb_special_events(GdbEvent theEvent, void (*callback)());
 	   0 the warning is not displayed.  Otherwise it is.
        
        Gdb_After_Creating_Breakpoint - notify when a breakpoint is created
-	   void callback(unsigned long address, int enabled);
+	   void callback(GDB_ADDRESS address, int enabled);
 	   
 	   Called just after a new breakpoint, whatchpoint, or tracepoint is created.
 	   If the breakpoint is currently enabled (it wont if it's for an outer scope),
 	   the enabled is passed as 1.
        
        Gdb_Before_Deleting_Breakpoint - notify when a breakpint is deleted
-	   void callback(unsigned long address, int enabled);
+	   void callback(GDB_ADDRESS address, int enabled);
 	   
 	   Same as Gdb_After_Creating_Breakpoint except the callback is notified when
 	   the breakpoint, whatchpoint, or tracepoint is deleted.
        
        Gdb_After_Modified_Breakpoint
-	   void callback(unsigned long address, int enabled);
+	   void callback(GDB_ADDRESS address, int enabled);
 	   
 	   Same as Gdb_After_Creating_Breakpoint except the callback is notified when
 	   the breakpoint, whatchpoint, or tracepoint is modified.
        
        Gdb_After_Attach - notify when a process is attached
-	   void callback(void);
+	   void callback(int pid);
 	   
 	   Called after a process is attached to gdb as the result if a ATTACH command.
 	   
@@ -1299,7 +1351,7 @@ void gdb_special_events(GdbEvent theEvent, void (*callback)());
 	   When a target program's register is changed by gdb this callback is called.
        
        Gdb_After_Memory_Changed - notify when target memory was changed
-	   void callback(unsigned long address, int length);
+	   void callback(GDB_ADDRESS address, int length);
 	   
 	   When the target program's memory is changed by gdb this callback is called.
 	   The target address and the amount of memory changed is passed.
@@ -1332,7 +1384,15 @@ void gdb_special_events(GdbEvent theEvent, void (*callback)());
 	   
 	   Called after processing a FILE command.  The filename from the FILE command
 	   is passed.
+       
+       Gdb_After_Attach_To_File - notify that a FILE (or ATTACH if it can figure out
+                                  the file) command has occurred
+	   void callback(char *filename);
 	   
+	   Called after processing a FILE command or (ATTACH if it can figure out
+	   the file).  The filename or NULL is passed.  This is more general than
+	   using Gdb_After_File_Changed.
+       
        Gdb_Before_Prompt - notify that prompt is next display
 	   void callback(void);
 	   
@@ -1347,7 +1407,7 @@ void gdb_special_events(GdbEvent theEvent, void (*callback)());
        Gdb_ReadRawLine - read a raw line
            char *callback(char *prompt);
 	   
-	   Called to rear raw data lines from the terminal.  The callback should either
+	   Called to read raw data lines from the terminal.  The callback should either
 	   return a line or NULL.  If NULL is returned gdb reads it normally would.
 	   
 	   Note that gdb_define_raw_input_handler() uses this same mechanism to define
@@ -1410,7 +1470,27 @@ void gdb_special_events(GdbEvent theEvent, void (*callback)());
 	   convention is to accept "y", "Y", or " " to indicate "yes" and "n", "N", or
 	   rubout to indicate a "no" (and a CTL-G to indicate abort).  No return is
 	   necessary.  
-       
+
+       Gdb_History_Prompt
+	   char *callback(char *display_prompt);
+	   
+	   Gdb_History_Prompt callback intercepts the gdb prompt when it is trying to
+	   display a history prompt, e.g., when CTRL-R is entered and the prompt to be
+	   shown is "(reverse-i-search)".
+	    
+	   The callback is given the history prompt and should return a prompt.  This
+	   can either be the ORIGINAL unmodified input prompt or another prompt in a
+	   buffer controlled by the callback.  It should NOT modify the input prompt.
+	   
+	   Note that the callback is called for every character before it is echoed
+	   to the display.  If the callback returns a modified prompt it should not 
+	   assume the input prompt on the next call will be the same as the one
+	   returned on the previous call.  Indeed, it will always be the one gdb
+	   wants to display for the history prompt.
+	   
+	   Also note, gdb displays the prompt AFTER positioning the cursor to the
+	   start of the line it is on.
+
        Gdb_Interactive
 	   void callback(void);
        

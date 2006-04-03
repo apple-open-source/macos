@@ -1,7 +1,7 @@
 /*
  * KerberosApplication.h
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/KerberosApplication.h,v 1.2 2005/03/04 23:03:41 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

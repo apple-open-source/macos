@@ -36,7 +36,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/KerberosErrors/Headers/Kerberos/com_err.h,v 1.9 2003/07/03 16:13:38 lxs Exp $ */
+/* $Header$ */
 
 /* 
  *

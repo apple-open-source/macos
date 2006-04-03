@@ -20,6 +20,115 @@ autogen definitions fixincl;
 FIXINC_DEBUG = yes;
 #endif
 
+/* APPLE LOCAL begin mainline 4.1 2005-07-07 */
+/*
+ *  On Mac OS 10.3.9, the 'long double' functions are available in
+ *  libSystem, but are not prototyped in math.h.
+ */
+fix = {
+  hackname  = AAB_darwin7_9_long_double_funcs;
+  mach      = "*-*-darwin7.9*";
+  files     = architecture/ppc/math.h;
+  bypass    = "powl";
+  replace = <<- _EndOfHeader_
+/* This file prototypes the long double functions available on Mac OS
+   10.3.9.  */
+#ifndef __MATH__
+# include_next <architecture/ppc/math.h>
+# ifndef __LIBMLDBL_COMPAT
+#  ifdef __LONG_DOUBLE_128__
+#   define __LIBMLDBL_COMPAT(sym) __asm("_" #sym "$LDBL128")
+#  else
+#   define __LIBMLDBL_COMPAT(sym)
+#  endif /* __LONG_DOUBLE_128__ */
+# endif /* __LIBMLDBL_COMPAT */
+# ifdef __cplusplus
+   extern "C" {
+# endif
+  extern long double acosl( long double ) __LIBMLDBL_COMPAT(acosl);
+  extern long double asinl( long double ) __LIBMLDBL_COMPAT(asinl);
+  extern long double atanl( long double ) __LIBMLDBL_COMPAT(atanl);
+  extern long double atan2l( long double, long double ) __LIBMLDBL_COMPAT(atan2l);
+  extern long double cosl( long double ) __LIBMLDBL_COMPAT(cosl);
+  extern long double sinl( long double ) __LIBMLDBL_COMPAT(sinl);
+  extern long double tanl( long double ) __LIBMLDBL_COMPAT(tanl);
+  extern long double acoshl( long double ) __LIBMLDBL_COMPAT(acoshl);
+  extern long double asinhl( long double ) __LIBMLDBL_COMPAT(asinhl);
+  extern long double atanhl( long double ) __LIBMLDBL_COMPAT(atanhl);
+  extern long double coshl( long double ) __LIBMLDBL_COMPAT(coshl);
+  extern long double sinhl( long double ) __LIBMLDBL_COMPAT(sinhl);
+  extern long double tanhl( long double ) __LIBMLDBL_COMPAT(tanhl);
+  extern long double expl( long double ) __LIBMLDBL_COMPAT(expl);
+  extern long double exp2l( long double ) __LIBMLDBL_COMPAT(exp2l);
+  extern long double expm1l( long double ) __LIBMLDBL_COMPAT(expm1l);
+  extern long double logl( long double ) __LIBMLDBL_COMPAT(logl);
+  extern long double log10l( long double ) __LIBMLDBL_COMPAT(log10l);
+  extern long double log2l( long double ) __LIBMLDBL_COMPAT(log2l);
+  extern long double log1pl( long double ) __LIBMLDBL_COMPAT(log1pl);
+  extern long double logbl( long double ) __LIBMLDBL_COMPAT(logbl);
+  extern long double modfl( long double, long double * ) __LIBMLDBL_COMPAT(modfl);
+  extern long double ldexpl( long double, int ) __LIBMLDBL_COMPAT(ldexpl);
+  extern long double frexpl( long double, int * ) __LIBMLDBL_COMPAT(frexpl);
+  extern int ilogbl( long double ) __LIBMLDBL_COMPAT(ilogbl);
+  extern long double scalbnl( long double, int ) __LIBMLDBL_COMPAT(scalbnl);
+  extern long double scalblnl( long double, long int ) __LIBMLDBL_COMPAT(scalblnl);
+  extern long double fabsl( long double ) __LIBMLDBL_COMPAT(fabsl);
+  extern long double cbrtl( long double ) __LIBMLDBL_COMPAT(cbrtl);
+  extern long double hypotl( long double, long double ) __LIBMLDBL_COMPAT(hypotl);
+  extern long double powl( long double, long double ) __LIBMLDBL_COMPAT(powl);
+  extern long double sqrtl( long double ) __LIBMLDBL_COMPAT(sqrtl);
+  extern long double erfl( long double ) __LIBMLDBL_COMPAT(erfl);
+  extern long double erfcl( long double ) __LIBMLDBL_COMPAT(erfcl);
+  extern long double lgammal( long double ) __LIBMLDBL_COMPAT(lgammal);
+  extern long double tgammal( long double ) __LIBMLDBL_COMPAT(tgammal);
+  extern long double ceill( long double ) __LIBMLDBL_COMPAT(ceill);
+  extern long double floorl( long double ) __LIBMLDBL_COMPAT(floorl);
+  extern long double nearbyintl( long double ) __LIBMLDBL_COMPAT(nearbyintl);
+  extern long double rintl( long double ) __LIBMLDBL_COMPAT(rintl);
+  extern long int lrintl( long double ) __LIBMLDBL_COMPAT(lrintl);
+  extern long long int llrintl( long double ) __LIBMLDBL_COMPAT(llrintl);
+  extern long double roundl( long double ) __LIBMLDBL_COMPAT(roundl);
+  extern long int lroundl( long double ) __LIBMLDBL_COMPAT(lroundl);
+  extern long long int llroundl( long double ) __LIBMLDBL_COMPAT(llroundl);
+  extern long double truncl( long double ) __LIBMLDBL_COMPAT(truncl);
+  extern long double fmodl( long double, long double) __LIBMLDBL_COMPAT(fmodl);
+  extern long double remainderl( long double, long double ) __LIBMLDBL_COMPAT(remainderl);
+  extern long double remquol( long double, long double, int * ) __LIBMLDBL_COMPAT(remquol);
+  extern long double copysignl( long double, long double ) __LIBMLDBL_COMPAT(copysignl);
+  extern long double nanl( const char * ) __LIBMLDBL_COMPAT(nanl);
+  extern long double nextafterl( long double, long double ) __LIBMLDBL_COMPAT(nextafterl);
+  extern long double nexttowardl( long double, long double ) __LIBMLDBL_COMPAT(nexttowardl);
+  extern long double fdiml( long double, long double ) __LIBMLDBL_COMPAT(fdiml);
+  extern long double fmaxl( long double, long double ) __LIBMLDBL_COMPAT(fmaxl);
+  extern long double fminl( long double, long double ) __LIBMLDBL_COMPAT(fminl);
+  extern long double fmal( long double, long double, long double ) __LIBMLDBL_COMPAT(fmal);
+# ifdef __cplusplus
+   }
+# endif
+#endif /* __MATH__ */
+_EndOfHeader_;
+};
+
+
+/*
+ *  ... and for the previous fix to be useful, you have to not use ""
+ *  includes.
+ */
+fix = {
+  hackname  = AAB_darwin7_9_long_double_funcs_2;
+  mach      = "*-*-darwin7.9*";
+  files     = math.h;
+  select    = '#include[ \t]+\"';
+  c_fix     = format;
+  c_fix_arg = "%1<%2.h>";
+  
+  c_fix_arg = '([ \t]*#[ \t]*include[ \t]+)"([a-z0-9/]+)\.h"';
+  
+  test_text = '#include "architecture/ppc/math.h"';
+};
+/* APPLE LOCAL end mainline 4.1 2005-07-07 */
+
+
 /* APPLE LOCAL begin pragma fenv */
 /*
  * This adds #pragma GCC fenv to <fenv.h>.  This is part of a
@@ -56,6 +165,7 @@ fix = {
 	_EndOfHeader_;
 };
 /* APPLE LOCAL end pragma fenv */
+
 
 /*
  *  This fixes __FD_ZERO bug for linux 2.x.y (x <= 2 && y <= some n)
@@ -2667,6 +2777,176 @@ fix = {
     test_text = "extern int utime(const char *, struct utimbuf *);";
 };
 
+/*
+ * Sun Solaris 10 defines several C99 math macros in terms of
+ * builtins specific to the Studio compiler, in particular not
+ * compatible with the GNU compiler.
+ */
+fix = {
+    hackname = solaris_math_1;
+    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    bypass = "__GNUC__";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = "#define\tHUGE_VA%1\t(__builtin_huge_va%2())";
+    c_fix_arg = "^#define[ \t]+HUGE_VA([LF]+)[ \t]+__builtin_huge_va([lf]+)";
+    test_text =
+    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
+    "#undef	HUGE_VAL\n"
+    "#define	HUGE_VAL	__builtin_huge_val\n"
+    "#undef	HUGE_VALF\n"
+    "#define	HUGE_VALF	__builtin_huge_valf\n"
+    "#undef	HUGE_VALL\n"
+    "#define	HUGE_VALL	__builtin_huge_vall";
+};
+
+fix = {
+    hackname = solaris_math_2;
+    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    bypass = "__GNUC__";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = "#define\tINFINITY\t(__builtin_inff())";
+    c_fix_arg = "^#define[ \t]+INFINITY[ \t]+__builtin_infinity";
+    test_text =
+    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
+    "#undef	INFINITY\n"
+    "#define	INFINITY	__builtin_infinity";
+};
+
+fix = {
+    hackname = solaris_math_3;
+    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    bypass = "__GNUC__";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = "#define\tNAN\t\t(__builtin_nanf(\"\"))";
+    c_fix_arg = "^#define[ \t]+NAN[ \t]+__builtin_nan";
+    test_text =
+    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
+    "#undef	NAN\n"
+    "#define	NAN	__builtin_nan";
+};
+
+fix = {
+    hackname = solaris_math_4;
+    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    bypass = "__GNUC__";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = "#define\tfpclassify(x) \\\n"
+                "  __extension__ ({ __typeof(x) __x_fp = (x); \\\n"
+                "\t\t   isnan(__x_fp) \\\n"
+                "\t\t     ? FP_NAN \\\n"
+                "\t\t     : isinf(__x_fp) \\\n"
+                "\t\t       ? FP_INFINITE \\\n"
+                "\t\t       : isnormal(__x_fp) \\\n"
+                "\t\t\t ? FP_NORMAL \\\n"
+                "\t\t\t : __x_fp == 0.0 \\\n"
+                "\t\t\t   ? FP_ZERO \\\n"
+                "\t\t\t   : FP_SUBNORMAL; })";
+    c_fix_arg = "^#define[ \t]+fpclassify\\(x\\)[ \t]+__builtin_fpclassify\\(x\\)";
+    test_text =
+    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
+    "#undef	fpclassify\n"
+    "#define	fpclassify(x)	__builtin_fpclassify(x)";
+};
+
+fix = {
+    hackname = solaris_math_5;
+    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    bypass = "__GNUC__";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = "#define\tisfinite(x) \\\n"
+                "  __extension__ ({ __typeof (x) __x_f = (x); \\\n"
+                "\t\t   __builtin_expect(!isnan(__x_f - __x_f), 1); })";
+    c_fix_arg = "^#define[ \t]+isfinite\\(x\\)[ \t]+__builtin_isfinite\\(x\\)";
+    test_text =
+    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
+    "#undef	isfinite\n"
+    "#define	isfinite(x)	__builtin_isfinite(x)";
+};
+
+fix = {
+    hackname = solaris_math_6;
+    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    bypass = "__GNUC__";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = "#define\tisinf(x) \\\n"
+                "  __extension__ ({ __typeof (x) __x_i = (x); \\\n"
+                "\t\t   __builtin_expect(!isnan(__x_i) && !isfinite(__x_i), 0); })";
+    c_fix_arg = "^#define[ \t]+isinf\\(x\\)[ \t]+__builtin_isinf\\(x\\)";
+    test_text =
+    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
+    "#undef	isinf\n"
+    "#define	isinf(x)	__builtin_isinf(x)";
+};
+
+fix = {
+    hackname = solaris_math_7;
+    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    bypass = "__GNUC__";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = "#define\tisnormal(x) \\\n"
+                "  __extension__ ({ __typeof(x) __x_n = (x); \\\n"
+                "\t\t   if (__x_n < 0.0) __x_n = -__x_n; \\\n"
+                "\t\t   __builtin_expect(isfinite(__x_n) \\\n"
+                "\t\t\t\t    && (sizeof(__x_n) == sizeof(float) \\\n"
+                "\t\t\t\t\t  ? __x_n >= __FLT_MIN__ \\\n"
+                "\t\t\t\t\t  : sizeof(__x_n) == sizeof(long double) \\\n"
+                "\t\t\t\t\t    ? __x_n >= __LDBL_MIN__ \\\n"
+                "\t\t\t\t\t    : __x_n >= __DBL_MIN__), 1); })";
+    c_fix_arg = "^#define[ \t]+isnormal\\(x\\)[ \t]+__builtin_isnormal\\(x\\)";
+    test_text =
+    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
+    "#undef	isnormal\n"
+    "#define	isnormal(x)	__builtin_isnormal(x)";
+};
+
+fix = {
+    hackname = solaris_math_8;
+    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    bypass = "__GNUC__";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = "#define\tsignbit(x)\t(sizeof(x) == sizeof(float) \\\n"
+                "\t\t\t   ? __builtin_signbitf(x) \\\n"
+                "\t\t\t   : sizeof(x) == sizeof(long double) \\\n"
+                "\t\t\t     ? __builtin_signbitl(x) \\\n"
+                "\t\t\t     : __builtin_signbit(x))";
+    c_fix_arg = "^#define[ \t]+signbit\\(x\\)[ \t]+__builtin_signbit\\(x\\)";
+    test_text =
+    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
+    "#undef	signbit\n"
+    "#define	signbit(x)	__builtin_signbit(x)";
+};
+
+fix = {
+    hackname = solaris_math_9;
+    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
+    bypass = "__GNUC__";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = "#define\t%1(x, y)%2__builtin_%1(x, y)";
+    c_fix_arg = "^#define[ \t]+([a-z]+)\\(x, y\\)([ \t]+)\\(\\(x\\) __builtin_[a-z]+\\(y\\)\\)";
+    test_text =
+    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
+    "#undef	isgreater\n"
+    "#define	isgreater(x, y)		((x) __builtin_isgreater(y))\n"
+    "#undef	isgreaterequal\n"
+    "#define	isgreaterequal(x, y)	((x) __builtin_isgreaterequal(y))\n"
+    "#undef	isless\n"
+    "#define	isless(x, y)		((x) __builtin_isless(y))\n"
+    "#undef	islessequal\n"
+    "#define	islessequal(x, y)	((x) __builtin_islessequal(y))\n"
+    "#undef	islessgreater\n"
+    "#define	islessgreater(x, y)	((x) __builtin_islessgreater(y))\n"
+    "#undef	isunordered\n"
+    "#define	isunordered(x, y)	((x) __builtin_isunordered(y))";
+};
 
 /*
  *  Sun Solaris 2.5.1, 2.6 defines PTHREAD_{MUTEX|COND}_INITIALIZER
@@ -2818,7 +3098,7 @@ fix = {
      * On Solaris 10, this fix is unncessary; <stdio.h> includes
      * <iso/stdio_iso.h>, which includes <sys/va_list.h>.
       */
-    mach     = '*-*-solaris2.1[0-9]';
+    mach     = '*-*-solaris2.1[0-9]*';
     not_machine = true;
 
     c_fix     = wrap;
@@ -2850,7 +3130,7 @@ fix = {
      * <stdio.h> is guarded appropriately by the _XPG4 feature macro; 
      * there is therefore no need for this fix there.
      */
-    mach = '*-*-solaris2.1[0-9]';
+    mach = '*-*-solaris2.1[0-9]*';
     not_machine = true;
 
     /*

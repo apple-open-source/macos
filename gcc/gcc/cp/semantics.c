@@ -1133,7 +1133,8 @@ finish_compound_stmt (tree stmt)
 
 tree
 finish_asm_stmt (int volatile_p, tree string, tree output_operands,
-		 tree input_operands, tree clobbers)
+		 /* APPLE LOCAL CW asm blocks */
+		 tree input_operands, tree clobbers, tree uses)
 {
   tree r;
   tree t;
@@ -1227,7 +1228,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
   r = build_stmt (ASM_EXPR, string,
 		  output_operands, input_operands,
   /* APPLE LOCAL CW asm blocks. */
-		  clobbers, NULL_TREE);
+		  clobbers, uses);
   ASM_VOLATILE_P (r) = volatile_p;
   r = maybe_cleanup_point_expr_void (r);
   return add_stmt (r);
@@ -2129,6 +2130,7 @@ begin_class_definition (tree t)
   if (t == error_mark_node || ! IS_AGGR_TYPE (t))
     {
       t = make_aggr_type (RECORD_TYPE);
+      /* APPLE LOCAL 4184203 */
       pushtag (make_anon_name (), t, 0);
     }
 
@@ -2138,6 +2140,7 @@ begin_class_definition (tree t)
   if (TYPE_BEING_DEFINED (t))
     {
       t = make_aggr_type (TREE_CODE (t));
+      /* APPLE LOCAL 4184203 */
       pushtag (TYPE_IDENTIFIER (t), t, 0);
     }
   maybe_process_partial_specialization (t);
@@ -2439,24 +2442,8 @@ finish_id_expression (tree id_expression,
 	{
 	  /* Name lookup failed.  */
 	  /* APPLE LOCAL begin CW asm blocks */
-	  /* CW assembly has automagical handling of register names.
-	     It's also handy to assume undeclared names as labels,
-	     although it would be better to have a second pass and
-	     complain about names in the block that are not
-	     labels.  */
 	  if (inside_cw_asm_block)
-	    {
-	      tree new_id;
-	      if ((new_id = cw_asm_reg_name (id_expression)))
-		return new_id;
-#ifdef CW_ASM_SPECIAL_LABEL
-	      if ((new_id = CW_ASM_SPECIAL_LABEL (id_expression)))
-		return new_id;
-#endif
-	      /* Assume undeclared symbols are labels. */
-	      new_id = get_cw_asm_label (id_expression);
-	      return new_id;
-	    }
+	    return cw_do_id (id_expression);
 	  /* APPLE LOCAL end CW asm blocks */
 
 	  if (scope 
@@ -2786,9 +2773,9 @@ finish_id_expression (tree id_expression,
 	      if (context != NULL_TREE && context != current_function_decl
 		  && ! TREE_STATIC (decl))
 		{
-		  error ("use of %s from containing function",
-			 (TREE_CODE (decl) == VAR_DECL
-			  ? "%<auto%> variable" : "parameter"));
+		  error (TREE_CODE (decl) == VAR_DECL
+			 ? "use of %<auto%> variable from containing function"
+			 : "use of parameter from containing function");
 		  cp_error_at ("  %q#D declared here", decl);
 		  return error_mark_node;
 		}

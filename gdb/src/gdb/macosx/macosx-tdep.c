@@ -205,8 +205,9 @@ macosx_symbol_type (macho_type, macho_sect, abfd)
 }
 
 void
-macosx_internalize_symbol (in, ext, abfd)
+macosx_internalize_symbol (in, sect_p, ext, abfd)
      struct internal_nlist *in;
+     int *sect_p;
      struct external_nlist *ext;
      bfd *abfd;
 {
@@ -235,8 +236,13 @@ macosx_internalize_symbol (in, ext, abfd)
       error ("unable to internalize symbol (unknown endianness)");
     }
 
+  if ((ext->e_type[0] & BFD_MACH_O_N_TYPE) == BFD_MACH_O_N_SECT)
+    *sect_p = 1;
+  else
+    *sect_p = 0;
+
   in->n_type = macosx_symbol_type (ext->e_type[0], ext->e_other[0], abfd);
-  in->n_other = 0;
+  in->n_other = ext->e_other[0];
 }
 
 CORE_ADDR
@@ -307,10 +313,22 @@ macosx_skip_trampoline_code (CORE_ADDR pc)
   return 0;
 }
 
-CORE_ADDR
-macosx_dynamic_trampoline_nextpc (CORE_ADDR pc)
+/* This function determings whether a symbol is in a SYMBOL_STUB section.
+   ld64 puts symbols there for all the stubs, but if we read those in, they
+   will confuse us when we lookup the symbol for the pc to see if we are
+   in a stub.  */
+
+int
+macosx_record_symbols_from_sect_p (bfd *abfd, unsigned char macho_type, 
+				   unsigned char macho_sect)
 {
-  return dyld_symbol_stub_function_address (pc, NULL);
+  const bfd_mach_o_section *sect =
+    abfd->tdata.mach_o_data->sections[macho_sect - 1];
+  if ((sect->flags & BFD_MACH_O_SECTION_TYPE_MASK) ==
+      BFD_MACH_O_S_SYMBOL_STUBS)
+    return 0;
+  else
+    return 1;
 }
 
 int

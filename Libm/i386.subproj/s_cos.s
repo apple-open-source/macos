@@ -9,14 +9,15 @@
 
 RCSID("$NetBSD: s_cos.S,v 1.7 2001/06/19 00:26:30 fvdl Exp $")
 
-ENTRY(cos)
-	XMM_ONE_ARG_DOUBLE_PROLOGUE
-	fldl	ARG_DOUBLE_ONE
+PRIVATE_ENTRY(__cosl)	//currently required for single and double
+ENTRY(cosl)
+	XMM_ONE_ARG_LONG_DOUBLE_PROLOGUE
+	fldt	ARG_LONG_DOUBLE_ONE
 	fcos
 	fnstsw	%ax
 	andw	$0x400,%ax
 	jnz	1f
-	XMM_DOUBLE_EPILOGUE
+	XMM_LONG_DOUBLE_EPILOGUE
 	ret
 1:	fldpi
 	fadd	%st(0)
@@ -27,5 +28,6 @@ ENTRY(cos)
 	jnz	2b
 	fstp	%st(1)
 	fcos
-	XMM_DOUBLE_EPILOGUE
+	XMM_LONG_DOUBLE_EPILOGUE
 	ret
+

@@ -139,6 +139,9 @@ main (int argc ATTRIBUTE_UNUSED, char **argv)
   while (i > 0 && argv[0][i-1] != '/') --i;
   progname = &argv[0][i];
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
   INIT_SSTRING (&linebuf);
 
   fprintf (outf, "struct fn_decl std_protos[] = {\n");

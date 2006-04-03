@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "convert.h"
 /* APPLE LOCAL KEXT */
 #include "tree-iterator.h"
+#include "cgraph.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -4752,6 +4753,12 @@ layout_class_type (tree t, tree *virtuals_p)
 	 comply with the ABI.  */
       if (warn_abi
 	  && DECL_C_BIT_FIELD (field) 
+	  /* APPLE LOCAL begin mainline */
+	  /* NB: The TREE_NO_WARNING flag gets set by Objective-C when
+	     laying out an Objective-C class.  The ObjC ABI differs from
+	     the C++ ABI, and so we do not want a warning here.  */
+	  && !TREE_NO_WARNING (field)
+	  /* APPLE LOCAL end mainline */
 	  && !last_field_was_bitfield
 	  && !integer_zerop (size_binop (TRUNC_MOD_EXPR,
 					 DECL_FIELD_BIT_OFFSET (field),
@@ -5137,7 +5144,11 @@ finish_struct_1 (tree t)
   dump_class_hierarchy (t);
   
   /* Finish debugging output for this type.  */
+  /* APPLE LOCAL 4167759 */
+  cp_set_decl_ignore_flag (t, 1);
   rest_of_type_compilation (t, ! LOCAL_CLASS_P (t));
+  /* APPLE LOCAL 4167759 */
+  cp_set_decl_ignore_flag (t, 0);
 }
 
 /* When T was built up, the member declarations were added in reverse
@@ -5763,7 +5774,8 @@ resolve_address_of_overloaded_function (tree target_type,
 	  else if (!is_reference)
 	    fntype = build_pointer_type (fntype);
 
-	  if (can_convert_arg (target_type, fntype, fn))
+	  /* APPLE LOCAL radar 4187916 */
+	  if (can_convert_arg (target_type, fntype, fn, LOOKUP_NORMAL))
 	    matches = tree_cons (fn, NULL_TREE, matches);
 	}
     }
@@ -5811,7 +5823,8 @@ resolve_address_of_overloaded_function (tree target_type,
 	  targs = make_tree_vec (DECL_NTPARMS (fn));
 	  if (fn_type_unification (fn, explicit_targs, targs,
 				   target_arg_types, target_ret_type,
-				   DEDUCE_EXACT, -1) != 0)
+				   /* APPLE LOCAL radar 4187916 */
+				   DEDUCE_EXACT, -1, LOOKUP_NORMAL) != 0)
 	    /* Argument deduction failed.  */
 	    continue;
 
@@ -5828,7 +5841,8 @@ resolve_address_of_overloaded_function (tree target_type,
 	      build_ptrmemfunc_type (build_pointer_type (instantiation_type));
 	  else if (!is_reference)
 	    instantiation_type = build_pointer_type (instantiation_type);
-	  if (can_convert_arg (target_type, instantiation_type, instantiation))
+	  /* APPLE LOCAL radar 4187916 */
+	  if (can_convert_arg (target_type, instantiation_type, instantiation, LOOKUP_NORMAL))
 	    matches = tree_cons (instantiation, fn, matches);
 	}
 
@@ -7810,6 +7824,8 @@ cp_fold_obj_type_ref (tree ref, tree known_type)
 				  DECL_VINDEX (fndecl)));
 #endif
 
+  cgraph_node (fndecl)->local.vtable_method = true;
+
   return build_address (fndecl);
 }
 
@@ -7925,4 +7941,38 @@ has_empty_operator_delete_p (tree class)
 }
 /* APPLE LOCAL end KEXT double destructor */
 
+/* APPLE LOCAL begin 4167759 */
+/* Set DECL_IGNORED_P flag for ctors and dtors associated 
+   with TYPE using VALUE.  */
+
+void cp_set_decl_ignore_flag (tree type, int value)
+{
+  tree m;
+  tree methods = TYPE_METHODS (type);
+
+  if (!flag_limit_debug_info)
+    return;
+
+  if (methods == NULL_TREE)
+    return;
+
+  if (TREE_CODE (methods) != TREE_VEC)
+    m = methods;
+  else if (TREE_VEC_ELT (methods, 0) != NULL_TREE)
+    m = TREE_VEC_ELT (methods, 0);
+  else
+    m = TREE_VEC_ELT (methods, 1);
+
+  for (; m; m = TREE_CHAIN (m))
+    {
+
+      if (DECL_NAME (m) == base_ctor_identifier
+        || DECL_NAME (m) == complete_ctor_identifier
+        || DECL_NAME (m) == complete_dtor_identifier
+        || DECL_NAME (m) == base_dtor_identifier
+        || DECL_NAME (m) == deleting_dtor_identifier)
+      DECL_IGNORED_P (m) = value;
+    }
+}
+/* APPLE LOCAL end 4167759 */
 #include "gt-cp-class.h"

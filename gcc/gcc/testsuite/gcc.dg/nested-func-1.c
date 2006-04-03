@@ -1,7 +1,8 @@
 /* Test for proper errors for break and continue in nested functions.  */
 /* Origin: Joseph Myers <jsm@polyomino.org.uk> */
 /* { dg-do compile } */
-/* { dg-options "" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-skip-if "" { "*-*-darwin*" } { "*" } { "" } } */
 
 void
 foo (int a)

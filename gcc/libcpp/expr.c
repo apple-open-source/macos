@@ -61,7 +61,8 @@ static cpp_num parse_defined (cpp_reader *);
 static cpp_num eval_token (cpp_reader *, const cpp_token *);
 static struct op *reduce (cpp_reader *, struct op *, enum cpp_ttype);
 static unsigned int interpret_float_suffix (const uchar *, size_t);
-static unsigned int interpret_int_suffix (const uchar *, size_t);
+/* APPLE LOCAL CW asm blocks */
+static unsigned int interpret_int_suffix (cpp_reader *, const uchar *, size_t);
 static void check_promotion (cpp_reader *, const struct op *);
 
 /* Token type abuse to create unary plus and minus operators.  */
@@ -107,7 +108,8 @@ interpret_float_suffix (const uchar *s, size_t len)
    of length LEN, possibly zero. Returns 0 for an invalid suffix, or a
    flag vector describing the suffix.  */
 static unsigned int
-interpret_int_suffix (const uchar *s, size_t len)
+/* APPLE LOCAL CW asm blocks */
+interpret_int_suffix (cpp_reader *pfile, const uchar *s, size_t len)
 {
   size_t u, l, i;
 
@@ -119,6 +121,12 @@ interpret_int_suffix (const uchar *s, size_t len)
       case 'u': case 'U':	u++; break;
       case 'i': case 'I':
       case 'j': case 'J':	i++; break;
+      /* APPLE LOCAL begin CW asm blocks */
+      case 'h':
+	if (! cpp_get_options (pfile)->h_suffix)
+	  return 0;
+	break;
+      /* APPLE LOCAL end CW asm blocks */
       case 'l': case 'L':	l++;
 	/* If there are two Ls, they must be adjacent and the same case.  */
 	if (l == 2 && s[len] != s[len + 1])
@@ -172,6 +180,10 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
 	  str++;
 	}
     }
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cpp_get_options (pfile)->h_suffix && limit[-1] == 'h')
+    radix = 16;
+  /* APPLE LOCAL end CW asm blocks */
 
   /* Now scan for a well-formed integer or float.  */
   for (;;)
@@ -254,9 +266,17 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token)
     }
   else
     {
-      result = interpret_int_suffix (str, limit - str);
+      /* APPLE LOCAL CW asm blocks */
+      result = interpret_int_suffix (pfile, str, limit - str);
       if (result == 0)
 	{
+	  /* APPLE LOCAL begin CW asm blocks C++ comments 4248139 */
+	  /* Because we don't regonize inline asm comments during
+	     lexing, we have to avoid erroring out now.  */
+	  if (cpp_get_options (pfile)->h_suffix)
+	    return CPP_N_INVALID;
+	  /* APPLE LOCAL end CW asm blocks C++ comments 4248139 */
+
 	  cpp_error (pfile, CPP_DL_ERROR,
 		     "invalid suffix \"%.*s\" on integer constant",
 		     (int) (limit - str), str);
@@ -341,7 +361,10 @@ cpp_interpret_integer (cpp_reader *pfile, const cpp_token *token,
       else if ((type & CPP_N_RADIX) == CPP_N_HEX)
 	{
 	  base = 16;
-	  p += 2;
+	  /* APPLE LOCAL begin CW asm blocks */
+	  if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
+	    p += 2;
+	  /* APPLE LOCAL end CW asm blocks */
 	}
 
       /* We can add a digit to numbers strictly less than this without

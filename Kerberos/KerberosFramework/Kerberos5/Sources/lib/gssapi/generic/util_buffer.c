@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: util_buffer.c,v 1.8 1998/10/30 02:54:08 marc Exp $
+ * $Id: util_buffer.c 11001 1998-10-30 02:56:35Z marc $
  */
 
 #include "gssapiP_generic.h"

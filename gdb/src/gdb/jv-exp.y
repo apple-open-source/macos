@@ -917,8 +917,7 @@ yylex ()
       c = *lexptr++;
       if (c != '\'')
 	{
-	  namelen = skip_quoted (tokstart)
-	    - tokstart;
+	  namelen = skip_quoted (tokstart) - tokstart;
 	  if (namelen > 2)
 	    {
 	      lexptr = tokstart + namelen;

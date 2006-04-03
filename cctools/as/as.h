@@ -98,3 +98,6 @@ struct directory_stack {
 };
 extern struct directory_stack include_defaults[];
 extern struct directory_stack *include;
+
+/* non-NULL if AS_SECURE_LOG_FILE is set */
+extern const char *secure_log_file;

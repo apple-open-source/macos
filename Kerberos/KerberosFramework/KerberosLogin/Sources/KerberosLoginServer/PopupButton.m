@@ -1,7 +1,7 @@
 /*
  * PopupButton.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/PopupButton.m,v 1.1 2004/11/30 23:05:49 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

@@ -38,6 +38,7 @@ enum strip_levels {
     STRIP_NONE,
     STRIP_DUP_INCLS,
     STRIP_L_SYMBOLS,
+    STRIP_MIN_DEBUG,
     STRIP_DEBUG,
     STRIP_NONGLOBALS,
     STRIP_DYNAMIC_EXECUTABLE,
@@ -170,6 +171,8 @@ __private_extern__ enum bool strip_base_symbols;
 __private_extern__ enum bool dead_strip;
 /* don't strip module init and term sections */
 __private_extern__ enum bool no_dead_strip_inits_and_terms;
+/* print timings for dead striping code */
+__private_extern__ enum bool dead_strip_times;
 
 #ifndef RLD
 /*
@@ -264,6 +267,9 @@ __private_extern__ unsigned long stack_addr;
 __private_extern__ enum bool stack_addr_specified;
 __private_extern__ unsigned long stack_size;
 __private_extern__ enum bool stack_size_specified;
+
+/* TRUE if -allow_stack_execute is specified */
+__private_extern__ enum bool allow_stack_execute;
 
 /* The header pad */
 __private_extern__ unsigned long headerpad;

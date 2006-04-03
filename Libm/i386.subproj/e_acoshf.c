@@ -28,6 +28,8 @@ ln2	= 6.9314718246e-01;  /* 0x3f317218 */
 #define __ieee754_logf logf
 #define __ieee754_sqrtf sqrtf
 
+#warning obsolete
+
 float acoshf(float x)
 {
 	float t;

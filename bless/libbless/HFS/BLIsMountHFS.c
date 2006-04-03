@@ -35,7 +35,7 @@
 #include "bless.h"
 #include "bless_private.h"
 
-int BLIsMountHFS(BLContextPtr context, const unsigned char mountpt[], int *isHFS) {
+int BLIsMountHFS(BLContextPtr context, const char * mountpt, int *isHFS) {
   struct statfs sc;
 
     int err;

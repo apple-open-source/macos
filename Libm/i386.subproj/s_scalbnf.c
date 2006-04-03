@@ -56,17 +56,3 @@ float scalbnf (float x, int n)
 	SET_FLOAT_WORD(x,(ix&0x807fffff)|(k<<23));
         return x*twom25;
 }
-
-// POSIX mandated signature for "scalbf"
-float scalbf ( float x, float n )
-{
-	int m;
-	
-	if ( n > 2098.0 )
-		m = 2098.0;
-	else if ( n < -2099.0 )
-		m = -2099.0;
-	else m = (int) n;
-	
-	return scalbnf( x, m ); 
-}

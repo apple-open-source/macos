@@ -37,7 +37,11 @@
 #define SRVLOG1(A,B, args...)	syslog(LOG_ALERT, (B), ##args)
 #endif
 
+#include <sys/param.h>
 #include <sys/stat.h>
+
+#include <CoreServices/CoreServices.h>
+#include <TargetConditionals.h>
 #include "AuthFile.h"
 #include "CAuthFileBase.h"
 #include "CReplicaFile.h"
@@ -156,7 +160,7 @@ void PWGlobalAccessFeaturesToString( PWGlobalAccessFeatures *inAccessFeatures, c
     // display.
     
 	if ( inAccessFeatures->usingHistory )
-		historyValue = 1 + inAccessFeatures->historyCount;
+		historyValue = 1 + GlobalHistoryCount(*inAccessFeatures);
 	
     sprintf( temp1Str, "%s=%d %s=%d %s=%d %s=%d %s=%d %s=%d ",
                 kPWPolicyStr_usingHistory, historyValue,
@@ -361,7 +365,7 @@ void PWActualAccessFeaturesToString( PWGlobalAccessFeatures *inGAccessFeatures, 
 		historyValue = 1 + inAccessFeatures->historyCount;
 	else
 	if ( inGAccessFeatures->usingHistory )
-		historyValue = 1 + inGAccessFeatures->historyCount;
+		historyValue = 1 + GlobalHistoryCount(*inGAccessFeatures);
 	
     sprintf( temp1Str, "%s=%d %s=%d %s=%d %s=%d ",
                 kPWPolicyStr_isDisabled, (inAccessFeatures->isDisabled != 0),
@@ -537,7 +541,6 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
     const char *passwordCannotBeName = strstr( inString, kPWPolicyStr_passwordCannotBeName );
     const char *requiresMixedCase = strstr( inString, kPWPolicyStr_requiresMixedCase );
     const char *newPasswordRequired = strstr( inString, kPWPolicyStr_newPasswordRequired );
-//    const char *notGuessablePattern = strstr( inString, kPWPolicyStr_notGuessablePattern );
     unsigned long value;
     
     if ( StringToPWAccessFeatures_GetValue( usingHistory, &value ) )
@@ -549,12 +552,12 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
 				value = kPWFileMaxHistoryCount;
 			
 			inOutAccessFeatures->usingHistory = 1;
-			inOutAccessFeatures->historyCount = value - 1;
+			SetGlobalHistoryCount(*inOutAccessFeatures, value - 1);
 		}
 		else
 		{
 			inOutAccessFeatures->usingHistory = 0;
-			inOutAccessFeatures->historyCount = 0;
+			SetGlobalHistoryCount(*inOutAccessFeatures, 0);
 		}
     }
 	
@@ -779,7 +782,7 @@ Boolean StringToPWAccessFeaturesExtra( const char *inString, PWAccessFeatures *i
 	const char *requiresMixedCase = strstr( inString, kPWPolicyStr_requiresMixedCase );
 	const char *notGuessablePattern = strstr( inString, kPWPolicyStr_notGuessablePattern );
 	const char *resetToGlobalDefaults = strstr( inString, kPWPolicyStr_resetToGlobalDefaults );
-    unsigned long value;
+	unsigned long value;
     
 	if ( inOutExtraFeatures == NULL )
 		return false;
@@ -868,6 +871,48 @@ void CrashIfBuiltWrong(void)
         char *someBadAddress = (char *)0xFFFFFFFF;
         someBadAddress[0] = 0;
     }
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	pwsf_PreserveUnrepresentedPolicies
+//
+//	concatenates policies that are not in one of the policy structs
+//------------------------------------------------------------------------------------------------
+
+void pwsf_PreserveUnrepresentedPolicies( const char *inOriginalStr, int inMaxLen, char *inOutString )
+{
+	if ( inOriginalStr == NULL || inOutString == NULL )
+		return;
+	
+	const char *warnOfExpirationMinutes = strstr( inOriginalStr, kPWPolicyStr_warnOfExpirationMinutes );
+	const char *warnOfDisableMinutes = strstr( inOriginalStr, kPWPolicyStr_warnOfDisableMinutes );
+	const char *endPtr = NULL;
+	long curLen = strlen( inOutString );
+	
+	if ( warnOfExpirationMinutes != NULL )
+	{
+		endPtr = strchr( warnOfExpirationMinutes, ' ' );
+		if ( endPtr != NULL )
+			strlcat( inOutString, 
+					 warnOfExpirationMinutes,
+					 MIN(curLen + (endPtr - warnOfExpirationMinutes) + 1, inMaxLen) );
+		else
+			strlcat( inOutString, warnOfExpirationMinutes, inMaxLen );
+		
+		curLen = strlen( inOutString );
+	}
+	
+	if ( warnOfDisableMinutes != NULL )
+	{
+		endPtr = strchr( warnOfDisableMinutes, ' ' );
+		if ( endPtr != NULL )
+			strlcat( inOutString,
+					 warnOfDisableMinutes, 
+					 MIN(curLen + (endPtr - warnOfDisableMinutes) + 1, inMaxLen) );
+		else
+			strlcat( inOutString, warnOfDisableMinutes, inMaxLen );
+	}
 }
 
 
@@ -1152,5 +1197,105 @@ void pwsf_AppendUTF8StringToArray( const char *inUTF8Str, CFMutableArrayRef inAr
 	CFRelease( stringRef );
 }
 
+
+// ----------------------------------------------------------------------------------------
+//  pwsf_EndianAdjustTimeStruct
+// ----------------------------------------------------------------------------------------
+
+void pwsf_EndianAdjustTimeStruct( BSDTimeStructCopy *inOutTimeStruct, int native )
+{
+#if TARGET_RT_LITTLE_ENDIAN
+	if ( native == 1 )
+	{
+		// adjust to native byte order
+		inOutTimeStruct->tm_sec = EndianS32_BtoN(inOutTimeStruct->tm_sec);
+		inOutTimeStruct->tm_min = EndianS32_BtoN(inOutTimeStruct->tm_min);
+		inOutTimeStruct->tm_hour = EndianS32_BtoN(inOutTimeStruct->tm_hour);
+		inOutTimeStruct->tm_mday = EndianS32_BtoN(inOutTimeStruct->tm_mday);
+		inOutTimeStruct->tm_mon = EndianS32_BtoN(inOutTimeStruct->tm_mon);
+		inOutTimeStruct->tm_year = EndianS32_BtoN(inOutTimeStruct->tm_year);
+		inOutTimeStruct->tm_wday = EndianS32_BtoN(inOutTimeStruct->tm_wday);
+		inOutTimeStruct->tm_yday = EndianS32_BtoN(inOutTimeStruct->tm_yday);
+		inOutTimeStruct->tm_isdst = EndianS32_BtoN(inOutTimeStruct->tm_isdst);
+		inOutTimeStruct->tm_gmtoff = EndianS32_BtoN(inOutTimeStruct->tm_gmtoff);
+	}
+	else
+	{
+		// adjust to big-endian byte order
+		inOutTimeStruct->tm_sec = EndianS32_NtoB(inOutTimeStruct->tm_sec);
+		inOutTimeStruct->tm_min = EndianS32_NtoB(inOutTimeStruct->tm_min);
+		inOutTimeStruct->tm_hour = EndianS32_NtoB(inOutTimeStruct->tm_hour);
+		inOutTimeStruct->tm_mday = EndianS32_NtoB(inOutTimeStruct->tm_mday);
+		inOutTimeStruct->tm_mon = EndianS32_NtoB(inOutTimeStruct->tm_mon);
+		inOutTimeStruct->tm_year = EndianS32_NtoB(inOutTimeStruct->tm_year);
+		inOutTimeStruct->tm_wday = EndianS32_NtoB(inOutTimeStruct->tm_wday);
+		inOutTimeStruct->tm_yday = EndianS32_NtoB(inOutTimeStruct->tm_yday);
+		inOutTimeStruct->tm_isdst = EndianS32_NtoB(inOutTimeStruct->tm_isdst);
+		inOutTimeStruct->tm_gmtoff = EndianS32_NtoB(inOutTimeStruct->tm_gmtoff);
+	}
+#endif
+}
+
+
+// ----------------------------------------------------------------------------------------
+//  pwsf_EndianAdjustPWFileHeader
+// ----------------------------------------------------------------------------------------
+
+void pwsf_EndianAdjustPWFileHeader( PWFileHeader *inOutHeader, int native )
+{
+#if TARGET_RT_LITTLE_ENDIAN
+	if ( native == 1 )
+	{
+		// adjust to native byte order
+		inOutHeader->signature = EndianU32_BtoN(inOutHeader->signature);
+		inOutHeader->version = EndianU32_BtoN(inOutHeader->version);
+		inOutHeader->entrySize = EndianU32_BtoN(inOutHeader->entrySize);
+		inOutHeader->sequenceNumber = EndianU32_BtoN(inOutHeader->sequenceNumber);
+		inOutHeader->numberOfSlotsCurrentlyInFile = EndianU32_BtoN(inOutHeader->numberOfSlotsCurrentlyInFile);
+		inOutHeader->deepestSlotUsed = EndianU32_BtoN(inOutHeader->deepestSlotUsed);
+
+		inOutHeader->access.maxMinutesUntilChangePassword = EndianU32_BtoN(inOutHeader->access.maxMinutesUntilChangePassword);
+		inOutHeader->access.maxMinutesUntilDisabled = EndianU32_BtoN(inOutHeader->access.maxMinutesUntilDisabled);
+		inOutHeader->access.maxMinutesOfNonUse = EndianU32_BtoN(inOutHeader->access.maxMinutesOfNonUse);
+		inOutHeader->access.maxFailedLoginAttempts = EndianU16_BtoN(inOutHeader->access.maxFailedLoginAttempts);
+		inOutHeader->access.minChars = EndianU16_BtoN(inOutHeader->access.minChars);
+		inOutHeader->access.maxChars = EndianU16_BtoN(inOutHeader->access.maxChars);
+		
+		pwsf_EndianAdjustTimeStruct(&(inOutHeader->access.expirationDateGMT), 1);
+		pwsf_EndianAdjustTimeStruct(&(inOutHeader->access.hardExpireDateGMT), 1);
+		
+		inOutHeader->publicKeyLen = EndianU32_BtoN(inOutHeader->publicKeyLen);                                                    // 1024-bit RSA public key - expected size is 233
+		inOutHeader->privateKeyLen = EndianU32_BtoN(inOutHeader->privateKeyLen);
+		inOutHeader->deepestSlotUsedByThisServer = EndianU32_BtoN(inOutHeader->deepestSlotUsedByThisServer);
+		inOutHeader->accessModDate = EndianU32_BtoN(inOutHeader->accessModDate);
+		inOutHeader->extraAccess.minutesUntilFailedLoginReset = EndianU32_BtoN(inOutHeader->extraAccess.minutesUntilFailedLoginReset);
+		inOutHeader->extraAccess.notGuessablePattern = EndianU32_BtoN(inOutHeader->extraAccess.notGuessablePattern);
+	}
+	else
+	{
+		// adjust to big-endian byte order
+		inOutHeader->signature = EndianU32_NtoB(inOutHeader->signature);
+		inOutHeader->version = EndianU32_NtoB(inOutHeader->version);
+		inOutHeader->entrySize = EndianU32_NtoB(inOutHeader->entrySize);
+		inOutHeader->sequenceNumber = EndianU32_NtoB(inOutHeader->sequenceNumber);
+		inOutHeader->numberOfSlotsCurrentlyInFile = EndianU32_NtoB(inOutHeader->numberOfSlotsCurrentlyInFile);
+		inOutHeader->deepestSlotUsed = EndianU32_NtoB(inOutHeader->deepestSlotUsed);
+		inOutHeader->access.maxMinutesUntilChangePassword = EndianU32_NtoB(inOutHeader->access.maxMinutesUntilChangePassword);
+		inOutHeader->access.maxMinutesUntilDisabled = EndianU32_NtoB(inOutHeader->access.maxMinutesUntilDisabled);
+		inOutHeader->access.maxMinutesOfNonUse = EndianU32_NtoB(inOutHeader->access.maxMinutesOfNonUse);
+		inOutHeader->access.maxFailedLoginAttempts = EndianU32_NtoB(inOutHeader->access.maxFailedLoginAttempts);
+		pwsf_EndianAdjustTimeStruct(&(inOutHeader->access.expirationDateGMT), 0);
+		pwsf_EndianAdjustTimeStruct(&(inOutHeader->access.hardExpireDateGMT), 0);
+		inOutHeader->access.minChars = EndianU16_NtoB(inOutHeader->access.minChars);
+		inOutHeader->access.maxChars = EndianU16_NtoB(inOutHeader->access.maxChars);
+		inOutHeader->publicKeyLen = EndianU32_NtoB(inOutHeader->publicKeyLen);
+		inOutHeader->privateKeyLen = EndianU32_NtoB(inOutHeader->privateKeyLen);
+		inOutHeader->deepestSlotUsedByThisServer = EndianU32_NtoB(inOutHeader->deepestSlotUsedByThisServer);
+		inOutHeader->accessModDate = EndianU32_NtoB(inOutHeader->accessModDate);
+		inOutHeader->extraAccess.minutesUntilFailedLoginReset = EndianU32_NtoB(inOutHeader->extraAccess.minutesUntilFailedLoginReset);
+		inOutHeader->extraAccess.notGuessablePattern = EndianU32_NtoB(inOutHeader->extraAccess.notGuessablePattern);
+	}
+#endif
+}
 
 

@@ -2,7 +2,7 @@
  * Data Types for policy and principal information that
  * exists in the respective databases.
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/adb.h,v 1.26 2004/06/25 23:23:36 tlyu Exp $
+ * $Header$
  *
  * This file was originally created with rpcgen.
  * It has been hacked up since then.

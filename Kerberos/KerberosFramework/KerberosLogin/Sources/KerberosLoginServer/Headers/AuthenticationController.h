@@ -1,7 +1,7 @@
 /*
  * AuthenticationController.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/Headers/AuthenticationController.h,v 1.6 2004/11/30 23:05:25 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

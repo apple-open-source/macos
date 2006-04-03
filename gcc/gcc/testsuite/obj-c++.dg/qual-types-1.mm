@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test if ObjC++ can distinguish protocol qualifiers from
    template arguments.  */
 /* Author:  Ziemowit Laski <zlaski@apple.com>.  */

@@ -1,7 +1,7 @@
 /*
  * Credentials.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Credentials.m,v 1.5 2004/09/20 20:32:29 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

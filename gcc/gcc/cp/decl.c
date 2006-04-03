@@ -434,26 +434,9 @@ objc_mark_locals_volatile (void *enclosing_blk)
     {
       tree decl;
 
-      for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
-        {
-        /* APPLE LOCAL begin mainline */
-        /* Do not mess with variables that are 'static' or (already)
-	   'volatile'.  */
-	  if (!TREE_THIS_VOLATILE (decl) && !TREE_STATIC (decl)
-	      && (TREE_CODE (decl) == VAR_DECL
-		  || TREE_CODE (decl) == PARM_DECL))
-	    {
-	      TREE_TYPE (decl)
-		= build_qualified_type (TREE_TYPE (decl),
-					(TYPE_QUALS (TREE_TYPE (decl))
-					 | TYPE_QUAL_VOLATILE));
-	      TREE_THIS_VOLATILE (decl) = 1;
-	      TREE_SIDE_EFFECTS (decl) = 1;
-	      DECL_REGISTER (decl) = 0;
-	      /* APPLE LOCAL end mainline */
-	    }
-        }
       /* APPLE LOCAL begin mainline */
+      for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
+	objc_volatilize_decl (decl);
 
       /* Do not climb up past the current function.  */
       if (scope->kind == sk_function_parms)
@@ -1702,13 +1685,14 @@ duplicate_decls (tree newdecl, tree olddecl)
       DECL_COMDAT (newdecl) |= DECL_COMDAT (olddecl);
       DECL_TEMPLATE_INSTANTIATED (newdecl)
 	|= DECL_TEMPLATE_INSTANTIATED (olddecl);
-      /* If the OLDDECL is an implicit instantiation, then the NEWDECL
-	 must be too.  But, it may not yet be marked as such if the
-	 caller has created NEWDECL, but has not yet figured out that
-	 it is a redeclaration.  */
-      if (DECL_IMPLICIT_INSTANTIATION (olddecl)
-	  && !DECL_USE_TEMPLATE (newdecl))
-	SET_DECL_IMPLICIT_INSTANTIATION (newdecl);
+      
+      /* If the OLDDECL is an instantiation and/or specialization,
+	 then the NEWDECL must be too.  But, it may not yet be marked
+	 as such if the caller has created NEWDECL, but has not yet
+	 figured out that it is a redeclaration.  */
+      if (!DECL_USE_TEMPLATE (newdecl))
+	DECL_USE_TEMPLATE (newdecl) = DECL_USE_TEMPLATE (olddecl);
+      
       /* Don't really know how much of the language-specific
 	 values we should copy from old to new.  */
       DECL_IN_AGGR_P (newdecl) = DECL_IN_AGGR_P (olddecl);
@@ -3514,7 +3498,52 @@ check_tag_decl (cp_decl_specifier_seq *declspecs)
   else if (declspecs->type == error_mark_node)
     error_p = true;
   if (declared_type == NULL_TREE && ! saw_friend && !error_p)
-    pedwarn ("declaration does not declare anything");
+    /* APPLE LOCAL begin 4168392 */
+    {
+      /* If '-fms-extensions' is on and the compiler encounters an anonymous
+	 field declaration like
+
+	   T;
+
+	 where T denotes a struct, class or union type, we transform it to
+	 an anonymous struct/union like
+
+	   struct/union {
+	     <fields from T>
+	   };
+
+	 that the rest of C++ already knows how to handle. */
+      if (flag_ms_extensions && current_class_type && DECL_P (declspecs->type)
+	  && IS_AGGR_TYPE_CODE (TREE_CODE (TREE_TYPE (declspecs->type))))
+	{
+	  tree fields, field;
+
+	  declared_type
+	    = make_aggr_type (TREE_CODE (TREE_TYPE (declspecs->type)));
+	  SET_IS_AGGR_TYPE (declared_type, 1);
+	  TYPE_CONTEXT (declared_type) = current_class_type;
+	  xref_basetypes (declared_type, NULL_TREE);
+	  fields
+	    = nreverse (copy_list (TYPE_FIELDS (TREE_TYPE (declspecs->type))));
+
+	  for (field = fields; field; field = TREE_CHAIN (field))
+	    {
+	      if (TREE_CODE (field) == TYPE_DECL)
+		fields = TREE_CHAIN (field);
+	      else
+		DECL_CONTEXT (field) = NULL_TREE;
+	    }
+
+	  finish_builtin_struct (declared_type,
+				 IDENTIFIER_POINTER (make_anon_name ()),
+				 fields, TREE_TYPE (declspecs->type));
+
+	  goto finish_anon_aggr;
+	}
+
+      pedwarn ("declaration does not declare anything");
+    }
+    /* APPLE LOCAL end 4168392 */
   /* Check for an anonymous union.  */
   else if (declared_type && IS_AGGR_TYPE_CODE (TREE_CODE (declared_type))
 	   && TYPE_ANONYMOUS_P (declared_type))
@@ -3540,12 +3569,23 @@ check_tag_decl (cp_decl_specifier_seq *declspecs)
           error ("missing type-name in typedef-declaration");
           return NULL_TREE;
         }
+      /* APPLE LOCAL begin 4168392 */
+
+     finish_anon_aggr:
+      /* APPLE LOCAL end 4168392 */
       /* Anonymous unions are objects, so they can have specifiers.  */;
       SET_ANON_AGGR_TYPE_P (declared_type);
 
       if (TREE_CODE (declared_type) != UNION_TYPE && pedantic
 	  && !in_system_header)
-	pedwarn ("ISO C++ prohibits anonymous structs");
+	/* APPLE LOCAL begin 4168392 */
+	{
+	  if (flag_ms_extensions)
+	    warning ("ISO C++ prohibits anonymous structs");
+	  else
+	    pedwarn ("ISO C++ prohibits anonymous structs");
+	}
+	/* APPLE LOCAL end 4168392 */
     }
 
   else
@@ -4055,6 +4095,8 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
       if (failure == 3)
 	error ("zero-size array %qD", decl);
 
+      cp_apply_type_quals_to_decl (cp_type_quals (TREE_TYPE (decl)), decl);
+
       layout_decl (decl, 0);
     }
 }
@@ -4354,7 +4396,8 @@ reshape_init (tree type, tree *initp)
      initializer is considered for the initialization of the first
      member of the subaggregate.  */
   if (!brace_enclosed_p
-      && can_convert_arg (type, TREE_TYPE (old_init_value), old_init_value))
+      /* APPLE LOCAL radar 4187916 */
+      && can_convert_arg (type, TREE_TYPE (old_init_value), old_init_value, LOOKUP_NORMAL))
     {
       *initp = TREE_CHAIN (old_init);
       TREE_CHAIN (old_init) = NULL_TREE;
@@ -5718,7 +5761,7 @@ grokfndecl (tree ctype,
     }
 
   if (IDENTIFIER_OPNAME_P (DECL_NAME (decl)))
-    grok_op_properties (decl, friendp, /*complain=*/true);
+    grok_op_properties (decl, /*complain=*/true);
 
   if (ctype && decl_function_context (decl))
     DECL_NO_STATIC_CHAIN (decl) = 1;
@@ -7150,30 +7193,7 @@ grokdeclarator (const cp_declarator *declarator,
       else
 	{
 	  if (decl_context == FIELD)
-	    {
-	      tree tmp = NULL_TREE;
-	      int op = 0;
-
-	      if (declarator)
-		{
-		  /* Avoid trying to get an operand off an identifier node.  */
-		  if (declarator->kind != cdk_id)
-		    tmp = declarator->declarator->u.id.unqualified_name;
-		  else
-		    tmp = declarator->u.id.unqualified_name;
-		  op = IDENTIFIER_OPNAME_P (tmp);
-		  if (IDENTIFIER_TYPENAME_P (tmp))
-		    {
-		      if (is_typename_at_global_scope (tmp))
-			name = IDENTIFIER_POINTER (tmp);
-		      else
-			name = "<invalid operator>";
-		    }
-		}
-	      error ("storage class specified for %s %qs",
-		     op ? "member operator" : "field",
-		     name);
-	    }
+	    error ("storage class specified for %qs", name);
 	  else
 	    {
 	      if (decl_context == PARM || decl_context == CATCHPARM)
@@ -8496,7 +8516,8 @@ check_default_argument (tree decl, tree arg)
      A default argument expression is implicitly converted to the
      parameter type.  */
   if (!TREE_TYPE (arg)
-      || !can_convert_arg (decl_type, TREE_TYPE (arg), arg))
+      /* APPLE LOCAL radar 4187916 */
+      || !can_convert_arg (decl_type, TREE_TYPE (arg), arg, LOOKUP_NORMAL))
     {
       if (decl)
 	error ("default argument for %q#D has type %qT",
@@ -8807,7 +8828,7 @@ unary_op_p (enum tree_code code)
    errors are issued for invalid declarations.  */
 
 bool
-grok_op_properties (tree decl, int friendp, bool complain)
+grok_op_properties (tree decl, bool complain)
 {
   tree argtypes = TYPE_ARG_TYPES (TREE_TYPE (decl));
   tree argtype;
@@ -8816,6 +8837,7 @@ grok_op_properties (tree decl, int friendp, bool complain)
   enum tree_code operator_code;
   int arity;
   bool ok;
+  tree class_type;
 
   /* Assume that the declaration is valid.  */
   ok = true;
@@ -8826,8 +8848,9 @@ grok_op_properties (tree decl, int friendp, bool complain)
        argtype = TREE_CHAIN (argtype))
     ++arity;
 
-  if (current_class_type == NULL_TREE)
-    friendp = 1;
+  class_type = DECL_CONTEXT (decl);
+  if (class_type && !CLASS_TYPE_P (class_type))
+    class_type = NULL_TREE;
 
   if (DECL_CONV_FN_P (decl))
     operator_code = TYPE_EXPR;
@@ -8856,30 +8879,28 @@ grok_op_properties (tree decl, int friendp, bool complain)
   gcc_assert (operator_code != LAST_CPLUS_TREE_CODE);
   SET_OVERLOADED_OPERATOR_CODE (decl, operator_code);
 
-  if (! friendp)
-    {
-      switch (operator_code)
-	{
-	case NEW_EXPR:
-	  TYPE_HAS_NEW_OPERATOR (current_class_type) = 1;
-	  break;
+  if (class_type)
+    switch (operator_code)
+      {
+      case NEW_EXPR:
+	TYPE_HAS_NEW_OPERATOR (class_type) = 1;
+	break;
 
-	case DELETE_EXPR:
-	  TYPE_GETS_DELETE (current_class_type) |= 1;
-	  break;
+      case DELETE_EXPR:
+	TYPE_GETS_DELETE (class_type) |= 1;
+	break;
 
-	case VEC_NEW_EXPR:
-	  TYPE_HAS_ARRAY_NEW_OPERATOR (current_class_type) = 1;
-	  break;
+      case VEC_NEW_EXPR:
+	TYPE_HAS_ARRAY_NEW_OPERATOR (class_type) = 1;
+	break;
 
-	case VEC_DELETE_EXPR:
-	  TYPE_GETS_DELETE (current_class_type) |= 2;
-	  break;
+      case VEC_DELETE_EXPR:
+	TYPE_GETS_DELETE (class_type) |= 2;
+	break;
 
-	default:
-	  break;
-	}
-    }
+      default:
+	break;
+      }
 
     /* [basic.std.dynamic.allocation]/1:
 
@@ -8953,32 +8974,37 @@ grok_op_properties (tree decl, int friendp, bool complain)
       if (operator_code == CALL_EXPR)
 	return ok;
 
-      if (IDENTIFIER_TYPENAME_P (name) && ! DECL_TEMPLATE_INFO (decl))
+      if (IDENTIFIER_TYPENAME_P (name) 
+	  && ! DECL_TEMPLATE_INFO (decl)
+	  && warn_conversion
+	  /* Warn only declaring the function; there is no need to
+	     warn again about out-of-class definitions.  */
+	  && class_type == current_class_type)
 	{
 	  tree t = TREE_TYPE (name);
-	  if (! friendp)
+	  int ref = (TREE_CODE (t) == REFERENCE_TYPE);
+	  const char *what = 0;
+
+	  if (ref)
+	    t = TYPE_MAIN_VARIANT (TREE_TYPE (t));
+
+	  if (TREE_CODE (t) == VOID_TYPE)
+	    what = "void";
+	  else if (class_type)
 	    {
-	      int ref = (TREE_CODE (t) == REFERENCE_TYPE);
-	      const char *what = 0;
-
-	      if (ref)
-		t = TYPE_MAIN_VARIANT (TREE_TYPE (t));
-
-	      if (TREE_CODE (t) == VOID_TYPE)
-	        what = "void";
-	      else if (t == current_class_type)
+	      if (t == current_class_type)
 		what = "the same type";
 	      /* Don't force t to be complete here.  */
 	      else if (IS_AGGR_TYPE (t)
 		       && COMPLETE_TYPE_P (t)
-		       && DERIVED_FROM_P (t, current_class_type))
+		       && DERIVED_FROM_P (t, class_type))
 		what = "a base class";
-
-	      if (what && warn_conversion)
-		warning ("conversion to %s%s will never use a type "
-                         "conversion operator",
-			 ref ? "a reference to " : "", what);
 	    }
+
+	  if (what)
+	    warning ("conversion to %s%s will never use a type "
+		     "conversion operator",
+		     ref ? "a reference to " : "", what);
 	}
       if (operator_code == COND_EXPR)
 	{
@@ -9236,7 +9262,6 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	   void f(class C);		// No template header here
 
 	 then the required template argument is missing.  */
-
       error ("template argument required for %<%s %T%>",
 	     tag_name (tag_code),
 	     DECL_NAME (CLASSTYPE_TI_TEMPLATE (type)));
@@ -9258,6 +9283,7 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
   tree t;
   tree decl;
   if (scope == ts_global)
+    /* APPLE LOCAL 4184203 */
     decl = lookup_name (name, 2);
   else
     decl = lookup_type_scope (name, scope);
@@ -9418,8 +9444,10 @@ xref_tag (enum tag_types tag_code, tree name,
 	{
 	  t = make_aggr_type (code);
 	  TYPE_CONTEXT (t) = context;
+	  /* APPLE LOCAL begin 4184203 */
 	  /* pushtag only cares whether SCOPE is zero or not.  */
 	  t = pushtag (name, t, scope != ts_current);
+	  /* APPLE LOCAL end 4184203 */
 	}
     }
   else
@@ -9433,6 +9461,8 @@ xref_tag (enum tag_types tag_code, tree name,
 	  error ("redeclaration of %qT as a non-template", t);
 	  t = error_mark_node;
 	}
+      /* APPLE LOCAL 4184203 */
+      /* Remove code to make friend class visible */
     }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
@@ -9674,6 +9704,7 @@ start_enum (tree name)
 	name = make_anon_name ();
 
       enumtype = make_node (ENUMERAL_TYPE);
+      /* APPLE LOCAL 4184203 */
       enumtype = pushtag (name, enumtype, 0);
     }
 
@@ -10054,7 +10085,8 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   int doing_friend = 0;
   struct cp_binding_level *bl;
   tree current_function_parms;
-  struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
+  struct c_fileinfo *finfo
+    = get_fileinfo (lbasename (LOCATION_FILE (DECL_SOURCE_LOCATION (decl1))));
 
   /* Sanity check.  */
   gcc_assert (TREE_CODE (TREE_VALUE (void_list_node)) == VOID_TYPE);

@@ -16,16 +16,14 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: md5.c,v 1.28.4.1 2002/12/31 16:35:31 sebastian Exp $ */
+/* $Id: md5.c,v 1.28.4.5 2005/04/16 09:49:53 thetaphi Exp $ */
 
 /* 
  * md5.c - Copyright 1997 Lachlan Roche 
  * md5_file() added by Alessandro Astarita <aleast@capri.it>
  */
 
-#include <stdio.h>
 #include "php.h"
-
 #include "md5.h"
 
 PHPAPI void make_digest(char *md5str, unsigned char *digest)
@@ -73,7 +71,7 @@ PHP_NAMED_FUNCTION(php_if_md5_file)
 	unsigned char digest[16];
 	PHP_MD5_CTX   context;
 	int           n;
-	FILE          *fp;
+	php_stream    *stream;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -81,33 +79,24 @@ PHP_NAMED_FUNCTION(php_if_md5_file)
 
 	convert_to_string_ex(arg);
 
-	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(arg), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
-		RETURN_FALSE;
-	}
-
-	if (php_check_open_basedir(Z_STRVAL_PP(arg) TSRMLS_CC)) {
-		RETURN_FALSE;
-	}
-
-	if ((fp = VCWD_FOPEN(Z_STRVAL_PP(arg), "rb")) == NULL) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to open file");
+	stream = php_stream_open_wrapper(Z_STRVAL_PP(arg), "rb", REPORT_ERRORS | ENFORCE_SAFE_MODE, NULL);
+	if (!stream) {
 		RETURN_FALSE;
 	}
 
 	PHP_MD5Init(&context);
 
-	while ((n = fread(buf, 1, sizeof(buf), fp)) > 0) {
+	while ((n = php_stream_read(stream, buf, sizeof(buf))) > 0) {
 		PHP_MD5Update(&context, buf, n);
 	}
 
 	PHP_MD5Final(digest, &context);
 
-	if (ferror(fp)) {
-		fclose(fp);
+	php_stream_close(stream);
+
+	if (n<0) {
 		RETURN_FALSE;
 	}
-
-	fclose(fp);
 
 	make_digest(md5str, digest);
 

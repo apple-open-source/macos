@@ -2100,22 +2100,27 @@ oakley_skeyid(iph1)
 	/* SKEYID */
 	switch(iph1->approval->authmethod) {
 	case OAKLEY_ATTR_AUTH_METHOD_PSKEY:
+				if (iph1->nonce_p == NULL) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						"no nonce payload received from peer.\n");
+					goto end;
+				}
                 /* if we have a preshared key defined, just use it */
                 if (iph1->rmconf->shared_secret) {
 
-                    switch (iph1->rmconf->secrettype) {
-                        case SECRETTYPE_KEY:
-                            iph1->authstr = getpsk(iph1->rmconf->shared_secret->v, iph1->rmconf->shared_secret->l-1);
-                            break;
-                        case SECRETTYPE_KEYCHAIN:
-                            iph1->authstr = getpskfromkeychain(iph1->rmconf->shared_secret->v);
-                            break;
-                        case SECRETTYPE_USE:
-                        default:
-                            iph1->authstr = vdup(iph1->rmconf->shared_secret);
-                    }
+			switch (iph1->rmconf->secrettype) {
+				case SECRETTYPE_KEY:
+					iph1->authstr = getpsk(iph1->rmconf->shared_secret->v, iph1->rmconf->shared_secret->l-1);
+					break;
+				case SECRETTYPE_KEYCHAIN:
+					iph1->authstr = getpskfromkeychain(iph1->rmconf->shared_secret->v);
+					break;
+				case SECRETTYPE_USE:
+				default:
+					iph1->authstr = vdup(iph1->rmconf->shared_secret);
+			}
 
-                }
+		}
 		else if (iph1->etype != ISAKMP_ETYPE_IDENT) {
 			iph1->authstr = getpskbyname(iph1->id_p);
 			if (iph1->authstr == NULL) {
@@ -2180,6 +2185,11 @@ oakley_skeyid(iph1)
 #ifdef HAVE_GSSAPI
 	case OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB:
 #endif
+		if (iph1->nonce_p == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"no nonce payload received from peer.\n");
+			goto end;
+		}
 		len = iph1->nonce->l + iph1->nonce_p->l;
 		buf = vmalloc(len);
 		if (buf == NULL) {

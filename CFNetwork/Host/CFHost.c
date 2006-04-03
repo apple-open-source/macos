@@ -222,7 +222,7 @@ _CFHostRegisterClass(void) {
 		(CFStringRef(*)(CFTypeRef cf))_HostDescribe		// copyDebugDesc
 	};
 	
-	
+
     _kCFHostTypeID = _CFRuntimeRegisterClass(&_kCFHostClass);
 
 	/* Set up the "master" for simultaneous, duplicate lookups. */

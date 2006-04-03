@@ -25,7 +25,7 @@
 #include "k5-int.h"
 
 /*
- * $Id: util_seqnum.c,v 1.13 2002/11/15 16:12:20 epeisach Exp $
+ * $Id: util_seqnum.c 15007 2002-11-15 16:12:20Z epeisach $
  */
 
 krb5_error_code

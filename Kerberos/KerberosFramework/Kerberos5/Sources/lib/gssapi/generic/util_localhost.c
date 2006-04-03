@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: util_localhost.c,v 1.1 1996/04/12 00:39:38 marc Exp $
+ * $Id: util_localhost.c 7797 1996-04-12 00:40:24Z marc $
  */
 
 /* This file could be OS specific */

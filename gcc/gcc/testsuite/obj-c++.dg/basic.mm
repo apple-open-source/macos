@@ -1,4 +1,4 @@
-// APPLE LOCAL file Objective-C++
+// APPLE LOCAL file mainline
 // A basic sanity check for Objective-C++.
 // { dg-do run }
 

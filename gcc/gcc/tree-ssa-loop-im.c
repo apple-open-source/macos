@@ -166,12 +166,26 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	  return cbck (*addr_p, nxt, data);
 
 	case BIT_FIELD_REF:
-	case VIEW_CONVERT_EXPR:
+	/* APPLE LOCAL begin 4175845 */
+	/* VIEW_CONVERT_EXPR removed */
+	/* APPLE LOCAL end 4175845 */
 	case ARRAY_RANGE_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  break;
+
+	/* APPLE LOCAL begin 4175845 */
+	case VIEW_CONVERT_EXPR:
+	  nxt = &TREE_OPERAND (*addr_p, 0);
+	  /* Copying struct as integers, followed by copy prop,
+	     can produce a constant here.  Likely other things
+	     can too; in any event it is a legitimate thing to
+	     happen and should be handled.  */
+	  if (TREE_CODE (*nxt) == INTEGER_CST)
+	    return true;
+	  break;
+	/* APPLE LOCAL end 4175845 */
 
 	case COMPONENT_REF:
 	  /* If the component has varying offset, it behaves like index
@@ -194,6 +208,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case PARM_DECL:
 	case STRING_CST:
 	case RESULT_DECL:
+	case VECTOR_CST:
 	  return true;
 
 	default:

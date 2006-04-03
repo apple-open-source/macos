@@ -40,34 +40,36 @@ typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
    return array.  */
 dnl Only the kind (ie size) is used to name the function.
 
-extern void reshape_`'rtype_kind (rtype *, rtype *, shape_type *,
+extern void reshape_`'rtype_ccode (rtype *, rtype *, shape_type *,
 				    rtype *, shape_type *);
-export_proto(reshape_`'rtype_kind);
+export_proto(reshape_`'rtype_ccode);
 
 void
-reshape_`'rtype_kind (rtype * ret, rtype * source, shape_type * shape,
+reshape_`'rtype_ccode (rtype * ret, rtype * source, shape_type * shape,
                       rtype * pad, shape_type * order)
 {
   /* r.* indicates the return array.  */
-  index_type rcount[GFC_MAX_DIMENSIONS - 1];
-  index_type rextent[GFC_MAX_DIMENSIONS - 1];
-  index_type rstride[GFC_MAX_DIMENSIONS - 1];
+  index_type rcount[GFC_MAX_DIMENSIONS];
+  index_type rextent[GFC_MAX_DIMENSIONS];
+  index_type rstride[GFC_MAX_DIMENSIONS];
   index_type rstride0;
   index_type rdim;
   index_type rsize;
+  index_type rs;
+  index_type rex;
   rtype_name *rptr;
   /* s.* indicates the source array.  */
-  index_type scount[GFC_MAX_DIMENSIONS - 1];
-  index_type sextent[GFC_MAX_DIMENSIONS - 1];
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
+  index_type scount[GFC_MAX_DIMENSIONS];
+  index_type sextent[GFC_MAX_DIMENSIONS];
+  index_type sstride[GFC_MAX_DIMENSIONS];
   index_type sstride0;
   index_type sdim;
   index_type ssize;
   const rtype_name *sptr;
   /* p.* indicates the pad array.  */
-  index_type pcount[GFC_MAX_DIMENSIONS - 1];
-  index_type pextent[GFC_MAX_DIMENSIONS - 1];
-  index_type pstride[GFC_MAX_DIMENSIONS - 1];
+  index_type pcount[GFC_MAX_DIMENSIONS];
+  index_type pextent[GFC_MAX_DIMENSIONS];
+  index_type pstride[GFC_MAX_DIMENSIONS];
   index_type pdim;
   index_type psize;
   const rtype_name *pptr;
@@ -76,8 +78,6 @@ reshape_`'rtype_kind (rtype * ret, rtype * source, shape_type * shape,
   int n;
   int dim;
 
-  if (ret->dim[0].stride == 0)
-    ret->dim[0].stride = 1;
   if (source->dim[0].stride == 0)
     source->dim[0].stride = 1;
   if (shape->dim[0].stride == 0)
@@ -87,7 +87,29 @@ reshape_`'rtype_kind (rtype * ret, rtype * source, shape_type * shape,
   if (order && order->dim[0].stride == 0)
     order->dim[0].stride = 1;
 
-  rdim = GFC_DESCRIPTOR_RANK (ret);
+  if (ret->data == NULL)
+    {
+      rdim = shape->dim[0].ubound - shape->dim[0].lbound + 1;
+      rs = 1;
+      for (n=0; n < rdim; n++)
+	{
+	  ret->dim[n].lbound = 0;
+	  rex = shape->data[n * shape->dim[0].stride];
+	  ret->dim[n].ubound =  rex - 1;
+	  ret->dim[n].stride = rs;
+	  rs *= rex;
+	}
+      ret->base = 0;
+      ret->data = internal_malloc_size ( rs * sizeof (rtype_name));
+      ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
+    }
+  else
+    {
+      rdim = GFC_DESCRIPTOR_RANK (ret);
+      if (ret->dim[0].stride == 0)
+	ret->dim[0].stride = 1;
+    }
+
   rsize = 1;
   for (n = 0; n < rdim; n++)
     {
@@ -107,7 +129,7 @@ reshape_`'rtype_kind (rtype * ret, rtype * source, shape_type * shape,
         rsize *= rextent[n];
       else
         rsize = 0;
-      if (rextent[dim] <= 0)
+      if (rextent[n] <= 0)
         return;
     }
 
@@ -129,8 +151,6 @@ reshape_`'rtype_kind (rtype * ret, rtype * source, shape_type * shape,
 
   if (pad)
     {
-      if (pad->dim[0].stride == 0)
-        pad->dim[0].stride = 1;
       pdim = GFC_DESCRIPTOR_RANK (pad);
       psize = 1;
       for (n = 0; n < pdim; n++)

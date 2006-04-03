@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C */
+/* APPLE LOCAL file mainline */
 /* Ensure there are no bizarre difficulties with accessing the 'isa' field of objects.  */
 /* { dg-do compile } */
 

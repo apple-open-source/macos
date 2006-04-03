@@ -696,6 +696,14 @@ AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRef partitionName, CF
     // whole raw disks are not supported
     if ((memberInfo->isWhole) && (!memberInfo->isRAID)) return NULL;
 
+    // make sure we support this operation
+    UInt32 version;
+    CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDHeaderVersionKey));
+    if (!number || !CFNumberGetValue(number, kCFNumberSInt32Type, &version) || version < 0x00020000) {
+	printf("AppleRAID: This operation is not supported on earlier RAID set revisions.\n");
+	return NULL;
+    }
+
     // get/build UUID string
     CFStringRef uuidString = 0;
     if (memberInfo->isRAID) {

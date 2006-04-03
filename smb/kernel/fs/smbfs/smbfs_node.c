@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.c,v 1.54.52.2 2005/07/20 05:26:59 lindak Exp $
+ * $Id: smbfs_node.c,v 1.54.52.4 2005/10/21 20:38:14 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -49,6 +49,7 @@
 #include <sys/kauth.h>
 
 #include <sys/smb_apple.h>
+#include <sys/mchain.h>
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
@@ -330,8 +331,7 @@ smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
 						  len);
 					MD5Final((u_char *)state, &md5);
 					(void)sprintf(m5b, "%08x%08x%08x%08x",
-						      state[0], state[1],
-						      state[2], state[3]);
+						      htobel(state[0]), htobel(state[1]), htobel(state[2]), htobel(state[3]));
 					if (bcmp(cp, m5b, SMB_SYMMD5LEN-1)) {
 						SMBERROR("bad symlink md5\n");
 					} else {

@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test if the compiler accepts @throw / @try..@catch..@finally syntax.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-fobjc-exceptions" } */

@@ -3,7 +3,7 @@
  * KClient API functions deprecated in KClient API 3.0
  * Provided only for backwards compatibility
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/CompatibilityAPI/KClientDeprecated.Shlib.cp,v 1.31 2005/06/14 19:25:32 lxs Exp $
+ * $Header$
  */
 
 #include <Kerberos/KClientDeprecated.h>

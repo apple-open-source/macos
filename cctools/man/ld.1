@@ -1,4 +1,4 @@
-.TH LD 1 "April 8, 2005" "Apple Computer, Inc."
+.TH LD 1 "October 6, 2005" "Apple Computer, Inc."
 .SH NAME
 ld \- Mach object file link editor
 .SH SYNOPSIS
@@ -29,9 +29,9 @@ produces a file named
 .BR a.out .
 This file is made executable only if no errors occurred during the link editing
 and there are no undefined symbols.
-.SH "FAT FILE SUPPORT"
-The link editor accepts ``fat'' (multiple-architecture) input files, but always
-creates a ``thin'' (single-architecture), standard Mach-O output file.
+.SH "UNIVERSAL FILE SUPPORT"
+The link editor accepts ``universal'' (multiple-architecture) input files, but
+always creates a ``thin'' (single-architecture), standard Mach-O output file.
 The architecture is specified using the  
 .B \-arch 
 .I " arch_type"
@@ -40,18 +40,18 @@ option.  If this option is not used,
 attempts to determine the output architecture by examining the first object 
 file encountered on the command line.  If it is a ``thin''
 file, its architecture determines that of the output file.  If the first input 
-file is a ``fat'' file, the ``best'' architecture for the host is used. 
+file is a ``universal'' file, the ``best'' architecture for the host is used. 
 (See the explanation of the 
 .B \-arch
 option, below.)  
 .PP
 The compiler driver
 .IR cc (1)
-handles creating fat executables by calling
+handles creating universal executables by calling
 .IR ld (1)
 multiple times and using
 .IR lipo (1)
-to create a ``fat'' file from the results of the
+to create a ``universal'' file from the results of the
 .IR ld (1)
 executions.
 .SH "OUTPUT FILE LAYOUT"
@@ -158,23 +158,45 @@ flags. See their descriptions below.
 
 .SH DYNAMIC SHARED LIBRARIES
 .PP
-When a dynamic shared library or an object file that was linked against a dynamic shared library is specified as an argument to 
+When a dynamic shared library or an object file that was linked against a
+dynamic shared library is specified as an argument to 
 .IR ld ,
-that library is placed in the dynamic shared library search list. The order of the search list is always the same order the libraries were encountered on the command line. When linking -flat_namesapce, all dynamic libraries libraries that the dynamic libraries are dependent upon are added to the end of the search list. 
+that library is placed in the dynamic shared library search list. The order of
+the search list is always the same order the libraries were encountered on the
+command line. When linking -flat_namesapce, all dynamic libraries that the
+dynamic libraries are dependent upon are added to the end of the search list. 
 .PP
-Once the search list is constructed, the static link editor checks for undefined symbols by simulating the way the dynamic linker will search for undefined symbols at runtime. For each undefined symbol, the static link editor searches each library in the search list until it finds a module that defines the symbol.
-With each undefined symbol, the search starts with the first library in the list.
-This is different than for static archive libraries, where each library is searched exactly once for all undefined symbols.
+Once the search list is constructed, the static link editor checks for undefined
+symbols by simulating the way the dynamic linker will search for undefined
+symbols at runtime. For each undefined symbol, the static link editor searches
+each library in the search list until it finds a module that defines the symbol.
+With each undefined symbol, the search starts with the first library in the
+list.  This is different than for static archive libraries, where each library
+is searched exactly once for all undefined symbols.
 .PP
-The static link editor simulates dynamic linking as if all the undefined symbols are to be bound at program launch time. The dynamic linker actually binds undefined symbols as they are encountered during execution instead of at program launch. However,  
-the static link editor always produces the same linking as the dynamic linker as long as none of the dynamic shared libraries define the
-same symbol. Different linking can occur only when there is more than one definition of a symbol and the library modules that contain the definitions for that symbol do not define and reference exactly the same symbols.  
-In this case, even different executions of the same program can produce different linking because the dynamic linker binds undefined functions as they are called, and this affects the order in which undefined symbols are bound.
-Because it can produce different dynamic linking, using dynamic shared libraries that define the same symbols in the same program is strongly discouraged.
+The static link editor simulates dynamic linking as if all the undefined
+symbols are to be bound at program launch time. The dynamic linker actually
+binds undefined symbols as they are encountered during execution instead of at
+program launch. However, the static link editor always produces the same linking
+as the dynamic linker as long as none of the dynamic shared libraries define the
+same symbol. Different linking can occur only when there is more than one
+definition of a symbol and the library modules that contain the definitions for
+that symbol do not define and reference exactly the same symbols.  In this case,
+even different executions of the same program can produce different linking
+because the dynamic linker binds undefined functions as they are called, and
+this affects the order in which undefined symbols are bound.  Because it can
+produce different dynamic linking, using dynamic shared libraries that define
+the same symbols in the same program is strongly discouraged.
 .PP
-If a static archive library appears after a dynamic shared library on the command line, the
-static library is placed in the dynamic library search list and is searched as a dynamic library.  In this way, when a dynamic library has undefined symbols, it will cause the appropriate members of the static libraries to be loaded into the output.  Searching static libraries as dynamic libraries can cause problems if the dynamic library later changes to reference symbols from the static library that it did not previously reference. In this case when
-the program runs, the dynamic linker will report these symbols as undefined because the members for these symbols were not loaded into the output. 
+If a static archive library appears after a dynamic shared library on the
+command line, the static library is placed in the dynamic library search list
+and is searched as a dynamic library.  In this way, when a dynamic library has
+undefined symbols, it will cause the appropriate members of the static libraries
+to be loaded into the output.  Searching static libraries as dynamic libraries
+can cause problems if the dynamic library later changes to reference symbols
+from the static library that it did not previously reference. In this case when
+the program runs, the dynamic linker will report these symbols as undefined
+because the members for these symbols were not loaded into the output. 
 
 .SH TWO-LEVEL AND FLAT NAMESPACES
 .PP
@@ -196,7 +218,7 @@ search order of the program (flat namespace).  A program, its dynamic libraries
 and its bundles may each be either two-level or flat namespace images.  The
 dynamic linker will bind each image according to how it was built.
 .PP
-When creating a output file with the static link editor when
+When creating an output file with the static link editor when
 .B \-twolevel_namespace
 is in effect (now the default) all undefined references must be satisfied at
 static link time.  The flags to allow undefined references,
@@ -381,8 +403,8 @@ The following flags are related to architectures:
 .BI \-arch " arch_type"
 Specifies the architecture,
 .I arch_type,
-for the output file. ``Fat'' input files that do not contain this specified
-architecture are ignored.  Only one 
+for the output file. ``Universal'' input files that do not contain this
+specified architecture are ignored.  Only one 
 .BI \-arch " arch_type"
 can be specified.  See
 .IR arch (3)
@@ -400,9 +422,9 @@ for
 .IR " arch_type" .
 .IP
 The default output file architecture is determined by the first object file to
-be linked.  If it is a ``thin'' (standard Mach-O) file, or a ``fat'' file that 
-contains only one architecture, the output file will have the same 
-architecture.  Otherwise, if it is a ``fat'' file
+be linked.  If it is a ``thin'' (standard Mach-O) file, or a ``universal'' file
+that contains only one architecture, the output file will have the same 
+architecture.  Otherwise, if it is a ``universal'' file
 containing an architecture that would execute on the host, then the ``best''
 architecture is used, as defined by what the kernel exec(2) would select.  
 Otherwise, it is an error, and a
@@ -912,10 +934,12 @@ and
 .I init
 are any combination of the characters `r' (for read), `w' (for write),
 `x' (for execute) and '\-' (no access).  The default is `rwx' for the maximum
-protection for all segments.
+protection for all segments for PowerPC architecures and `rw` for the all Intel
+architecures.
 The default for the initial protection for all segments is `rw' unless the
 segment contains a section which contains some machine instructions, in which
-case the default for the initial protection is `rwx'.
+case the default for the initial protection is `rwx' (and for Intel
+architecures it also sets the maximum protection to `rwx' in this case).
 The default for the initial protection for the
 .SM "``_\|_TEXT''"
 segment is `rx' (not writable).
@@ -984,6 +1008,10 @@ is specified and
 is not, a default stack size specific for the architecture being linked will be
 used and its value printed as a warning message.
 This creates a segment named _\|_UNIXSTACK .
+.TP
+.B \-allow_stack_execute
+Marks executable so that all stacks in the task will be given stack execution
+privilege.  This includes pthread stacks.
 
 .PP
 The following flags support section specifications:
@@ -1136,7 +1164,7 @@ This is not the default (but was the default in MacOS X 10.0).
 .B \-force_flat_namespace
 Specifies the executable output to be built and executed treating all its
 dynamic libraries as flat namespace images.  This marks the executable so that
-the dynamic link editor know to treat all dynamic libraries as flat namespace
+the dynamic link editor treats all dynamic libraries as flat namespace
 images when the program is executed.
 .TP 
 .BI \-bundle_loader " executable" " (32-bit only)"
@@ -1404,6 +1432,10 @@ Strip local symbols whose names begin with `L'; save all other symbols.
 (The compiler and assembler currently strip these internally-generated 
 labels by default, so they generally do not appear in object files 
 seen by the link editor.)
+.TP 
+.B \-Sp
+Strip, edit and add debugging symbols so the debugger can used most of the
+debugging symbols from the object files.
 .TP 
 .B \-Si (32-bit only)
 Strip duplicate debugging symbols from include files.  This is
@@ -1701,6 +1733,12 @@ module for each object file linked in.  This is the default.
 .BI \-dylinker_install_name " name"
 For dynamic link editor files, specifies the name of the file
 the dynamic link editor will be installed in for programs that use it.
+.TP
+.BI \-macosx_version_min " version"
+This overrides the
+.B MACOSX_DEPLOYMENT_TARGET
+environment variable (see below).  Unlike other linker options, this one may
+be specified multiple times; only the last occurrence is effective.
 .PP
 The following environment variable is used to control the use of incompatible
 features in the output with respect to Mac OS X releases.

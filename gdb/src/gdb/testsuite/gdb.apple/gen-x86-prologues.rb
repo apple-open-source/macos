@@ -127,7 +127,7 @@ HERE
 
 
 cfile_prototypes = String.new
-cfile_main = "main (int argc, char **argv, char **envp)\n{\n"
+cfile_main = "static int word_of_writable_memory;\nmain (int argc, char **argv, char **envp)\n{\n"
 cfile_funcs = String.new
 expect_breakpoints = String.new
 expect_body = String.new

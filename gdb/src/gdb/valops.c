@@ -219,20 +219,32 @@ find_function_in_inferior (const char *name, struct type *type)
 }
 
 /* Allocate NBYTES of space in the inferior using the inferior's malloc
-   and return a value that is a pointer to the allocated space. */
+   and return the address of the memory in the inferior. */
 
-struct value *
-value_allocate_space_in_inferior (int len)
+CORE_ADDR
+allocate_space_in_inferior_malloc (int len)
 {
   struct value *blocklen;
   struct value *val;
   static struct cached_value *fval = NULL;
-  
+  struct cleanup *cleanup_chain;
+  int unwind;
+
+  if (target_check_safe_call () != 1)
+    error ("No memory available to program now: unsafe to call malloc");
+
   if (fval == NULL) 
     fval = create_cached_function (NAME_OF_MALLOC, builtin_type_voidptrfuncptr); 
 
   blocklen = value_from_longest (builtin_type_int, (LONGEST) len);
+
+  unwind = set_unwind_on_signal (1);
+  cleanup_chain = make_cleanup (set_unwind_on_signal, unwind);
+
   val = call_function_by_hand (lookup_cached_function (fval), 1, &blocklen);
+
+  do_cleanups (cleanup_chain);
+
   if (value_logical_not (val))
     {
       if (!target_has_execution)
@@ -240,13 +252,26 @@ value_allocate_space_in_inferior (int len)
       else
 	error ("No memory available to program: call to malloc failed");
     }
-  return val;
+
+  return value_as_long (val);
 }
+
+/* Allocate NBYTES of space in the inferior using the target-specified method,
+   and return the address of the memory in the inferior. */
 
 static CORE_ADDR
 allocate_space_in_inferior (int len)
 {
-  return value_as_long (value_allocate_space_in_inferior (len));
+  return target_allocate_memory (len);
+}
+
+/* Allocate NBYTES of space in the inferior using the target-specified method,
+   and return a value that is a pointer to the allocated space. */
+
+struct value *
+value_allocate_space_in_inferior (int len)
+{
+  return value_from_longest (builtin_type_void_data_ptr, target_allocate_memory (len));
 }
 
 /* Cast value ARG2 to type TYPE and return as a value.
@@ -2863,7 +2888,7 @@ value_of_this (int complain)
 	 symbol to C++ if it's name passes the C++ demangler.  So 
 	 let's use that to get the frame's language... */
       struct symbol *sym = 
-	get_frame_function (deprecated_selected_frame);
+	get_frame_function (get_selected_frame());
       if (sym)
 	if (SYMBOL_LANGUAGE (sym) == language_cplus)
 	  return value_of_local ("this", complain);

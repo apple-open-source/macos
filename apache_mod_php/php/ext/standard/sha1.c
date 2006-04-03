@@ -16,9 +16,8 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: sha1.c,v 1.3.4.1 2002/12/31 16:35:34 sebastian Exp $ */
+/* $Id: sha1.c,v 1.3.4.4 2005/04/16 09:49:53 thetaphi Exp $ */
 
-#include <stdio.h>
 #include "php.h"
 
 /* This code is heavily based on the PHP md5 implementation */ 
@@ -71,7 +70,7 @@ PHP_FUNCTION(sha1_file)
 	unsigned char digest[20];
 	PHP_SHA1_CTX   context;
 	int           n;
-	FILE          *fp;
+	php_stream    *stream;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -79,33 +78,24 @@ PHP_FUNCTION(sha1_file)
 
 	convert_to_string_ex(arg);
 
-	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(arg), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
-		RETURN_FALSE;
-	}
-
-	if (php_check_open_basedir(Z_STRVAL_PP(arg) TSRMLS_CC)) {
-		RETURN_FALSE;
-	}
-
-	if ((fp = VCWD_FOPEN(Z_STRVAL_PP(arg), "rb")) == NULL) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to open file");
+	stream = php_stream_open_wrapper(Z_STRVAL_PP(arg), "rb", REPORT_ERRORS | ENFORCE_SAFE_MODE, NULL);
+	if (!stream) {
 		RETURN_FALSE;
 	}
 
 	PHP_SHA1Init(&context);
 
-	while ((n = fread(buf, 1, sizeof(buf), fp)) > 0) {
+	while ((n = php_stream_read(stream, buf, sizeof(buf))) > 0) {
 		PHP_SHA1Update(&context, buf, n);
 	}
 
 	PHP_SHA1Final(digest, &context);
 
-	if (ferror(fp)) {
-		fclose(fp);
+	php_stream_close(stream);
+
+	if (n<0) {
 		RETURN_FALSE;
 	}
-
-	fclose(fp);
 
 	make_sha1_digest(sha1str, digest);
 

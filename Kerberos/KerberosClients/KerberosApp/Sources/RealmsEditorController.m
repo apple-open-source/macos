@@ -1,7 +1,7 @@
 /*
  * RealmsEditorController.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/RealmsEditorController.m,v 1.15 2005/05/25 20:36:07 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -89,7 +89,7 @@
 {
     // Check to see if the window was closed before. ([self window] will load the window)
     if (![[self window] isVisible]) {
-        dprintf ("RealmsEditorController %x displaying window...", (long) self);
+        dprintf ("RealmsEditorController %lx displaying window...", (long) self);
         
         [realmsConfiguration load]; // re-read the profile
         

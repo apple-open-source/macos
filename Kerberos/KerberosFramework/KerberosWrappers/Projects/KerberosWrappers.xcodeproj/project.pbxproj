@@ -1,0 +1,368 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1AB202A05DDCA2A00526345 /* KerberosWrappersPrefix.h in Headers */ = {isa = PBXBuildFile; fileRef = F52B1724022FE1F801120112 /* KerberosWrappersPrefix.h */; };
+		A1AB202B05DDCA2A00526345 /* ThrowUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = F52B1725022FE1F801120112 /* ThrowUtils.h */; };
+		A1AB202C05DDCA2A00526345 /* UProfile.h in Headers */ = {isa = PBXBuildFile; fileRef = F52B1714022FE14001120112 /* UProfile.h */; };
+		A1AB202D05DDCA2A00526345 /* UPrincipal.h in Headers */ = {isa = PBXBuildFile; fileRef = F52B1713022FE14001120112 /* UPrincipal.h */; };
+		A1AB202E05DDCA2A00526345 /* UKerberos5Context.h in Headers */ = {isa = PBXBuildFile; fileRef = F52B1712022FE14001120112 /* UKerberos5Context.h */; };
+		A1AB202F05DDCA2A00526345 /* UCCache.h in Headers */ = {isa = PBXBuildFile; fileRef = F52B1711022FE14001120112 /* UCCache.h */; };
+		A1AB203005DDCA2A00526345 /* UAutoPtr.h in Headers */ = {isa = PBXBuildFile; fileRef = F52B1710022FE14001120112 /* UAutoPtr.h */; };
+		A1AB203205DDCA2A00526345 /* UCCache.cp in Sources */ = {isa = PBXBuildFile; fileRef = F52B1718022FE14001120112 /* UCCache.cp */; };
+		A1AB203305DDCA2A00526345 /* UKerberos5Context.cp in Sources */ = {isa = PBXBuildFile; fileRef = F52B1719022FE14001120112 /* UKerberos5Context.cp */; };
+		A1AB203405DDCA2A00526345 /* UPrincipal.cp in Sources */ = {isa = PBXBuildFile; fileRef = F52B171A022FE14001120112 /* UPrincipal.cp */; };
+		A1AB203505DDCA2A00526345 /* UProfile.cp in Sources */ = {isa = PBXBuildFile; fileRef = F52B171B022FE14001120112 /* UProfile.cp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		F52B170C022FE0BE01120112 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		F52B170D022FE0BE01120112 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		A1AB203905DDCA2A00526345 /* libKerberosWrappers.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKerberosWrappers.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F52B1710022FE14001120112 /* UAutoPtr.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = UAutoPtr.h; sourceTree = "<group>"; };
+		F52B1711022FE14001120112 /* UCCache.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = UCCache.h; sourceTree = "<group>"; };
+		F52B1712022FE14001120112 /* UKerberos5Context.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = UKerberos5Context.h; sourceTree = "<group>"; };
+		F52B1713022FE14001120112 /* UPrincipal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = UPrincipal.h; sourceTree = "<group>"; };
+		F52B1714022FE14001120112 /* UProfile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = UProfile.h; sourceTree = "<group>"; };
+		F52B1718022FE14001120112 /* UCCache.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = UCCache.cp; sourceTree = "<group>"; };
+		F52B1719022FE14001120112 /* UKerberos5Context.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = UKerberos5Context.cp; sourceTree = "<group>"; };
+		F52B171A022FE14001120112 /* UPrincipal.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = UPrincipal.cp; sourceTree = "<group>"; };
+		F52B171B022FE14001120112 /* UProfile.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = UProfile.cp; sourceTree = "<group>"; };
+		F52B1724022FE1F801120112 /* KerberosWrappersPrefix.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosWrappersPrefix.h; sourceTree = "<group>"; };
+		F52B1725022FE1F801120112 /* ThrowUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ThrowUtils.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1AB203605DDCA2A00526345 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F52B170B022FE0BE01120112 = {
+			isa = PBXGroup;
+			children = (
+				F52B170E022FE14001120112 /* Headers */,
+				F52B1715022FE14001120112 /* Sources */,
+				F52B171C022FE14001120112 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F52B170E022FE14001120112 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				F52B170F022FE14001120112 /* Kerberos */,
+			);
+			name = Headers;
+			path = ../Headers;
+			sourceTree = SOURCE_ROOT;
+		};
+		F52B170F022FE14001120112 /* Kerberos */ = {
+			isa = PBXGroup;
+			children = (
+				F52B1710022FE14001120112 /* UAutoPtr.h */,
+				F52B1711022FE14001120112 /* UCCache.h */,
+				F52B1712022FE14001120112 /* UKerberos5Context.h */,
+				F52B1713022FE14001120112 /* UPrincipal.h */,
+				F52B1714022FE14001120112 /* UProfile.h */,
+			);
+			path = Kerberos;
+			sourceTree = "<group>";
+		};
+		F52B1715022FE14001120112 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F52B1723022FE1F801120112 /* Headers */,
+				F52B1718022FE14001120112 /* UCCache.cp */,
+				F52B1719022FE14001120112 /* UKerberos5Context.cp */,
+				F52B171A022FE14001120112 /* UPrincipal.cp */,
+				F52B171B022FE14001120112 /* UProfile.cp */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F52B171C022FE14001120112 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1AB203905DDCA2A00526345 /* libKerberosWrappers.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F52B1723022FE1F801120112 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				F52B1724022FE1F801120112 /* KerberosWrappersPrefix.h */,
+				F52B1725022FE1F801120112 /* ThrowUtils.h */,
+			);
+			path = Headers;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A1AB202905DDCA2A00526345 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1AB202A05DDCA2A00526345 /* KerberosWrappersPrefix.h in Headers */,
+				A1AB202B05DDCA2A00526345 /* ThrowUtils.h in Headers */,
+				A1AB202C05DDCA2A00526345 /* UProfile.h in Headers */,
+				A1AB202D05DDCA2A00526345 /* UPrincipal.h in Headers */,
+				A1AB202E05DDCA2A00526345 /* UKerberos5Context.h in Headers */,
+				A1AB202F05DDCA2A00526345 /* UCCache.h in Headers */,
+				A1AB203005DDCA2A00526345 /* UAutoPtr.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A1AB202805DDCA2A00526345 /* KerberosWrappers */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1518F30086C860C0042CBBC /* Build configuration list for PBXNativeTarget "KerberosWrappers" */;
+			buildPhases = (
+				A1AB202905DDCA2A00526345 /* Headers */,
+				A1AB203105DDCA2A00526345 /* Sources */,
+				A1AB203605DDCA2A00526345 /* Frameworks */,
+				A1AB203705DDCA2A00526345 /* Rez */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_PREFIX_HEADER = ../Sources/Headers/KerberosWrappersPrefix.h;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Sources/Headers",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos4.intermediates",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers",
+					"$(SRCROOT)/../../KerberosDES/Headers",
+					"$(SRCROOT)/../../CredentialsCache/Headers",
+					"$(SRCROOT)/../../KerberosLogin/Headers",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosWrappers;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = KerberosWrappers;
+			productInstallPath = /usr/local/lib;
+			productName = KerberosWrappers;
+			productReference = A1AB203905DDCA2A00526345 /* libKerberosWrappers.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F52B170A022FE0BE01120112 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1518F34086C860C0042CBBC /* Build configuration list for PBXProject "KerberosWrappers" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				F52B170C022FE0BE01120112 /* Development */,
+				F52B170D022FE0BE01120112 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = F52B170B022FE0BE01120112;
+			productRefGroup = F52B171C022FE14001120112 /* Products */;
+			projectDirPath = "";
+			targets = (
+				A1AB202805DDCA2A00526345 /* KerberosWrappers */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		A1AB203705DDCA2A00526345 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1AB203105DDCA2A00526345 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1AB203205DDCA2A00526345 /* UCCache.cp in Sources */,
+				A1AB203305DDCA2A00526345 /* UKerberos5Context.cp in Sources */,
+				A1AB203405DDCA2A00526345 /* UPrincipal.cp in Sources */,
+				A1AB203505DDCA2A00526345 /* UProfile.cp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1518F31086C860C0042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREFIX_HEADER = ../Sources/Headers/KerberosWrappersPrefix.h;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Sources/Headers",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos4.intermediates",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers",
+					"$(SRCROOT)/../../KerberosDES/Headers",
+					"$(SRCROOT)/../../CredentialsCache/Headers",
+					"$(SRCROOT)/../../KerberosLogin/Headers",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosWrappers;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wall";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A1518F32086C860C0042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREFIX_HEADER = ../Sources/Headers/KerberosWrappersPrefix.h;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Sources/Headers",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos4.intermediates",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers",
+					"$(SRCROOT)/../../KerberosDES/Headers",
+					"$(SRCROOT)/../../CredentialsCache/Headers",
+					"$(SRCROOT)/../../KerberosLogin/Headers",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosWrappers;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wall";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A1518F33086C860C0042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_PREFIX_HEADER = ../Sources/Headers/KerberosWrappersPrefix.h;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Sources/Headers",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos4.intermediates",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers",
+					"$(SRCROOT)/../../KerberosDES/Headers",
+					"$(SRCROOT)/../../CredentialsCache/Headers",
+					"$(SRCROOT)/../../KerberosLogin/Headers",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosWrappers;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Default;
+		};
+		A1518F35086C860C0042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		A1518F36086C860C0042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		A1518F37086C860C0042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1518F30086C860C0042CBBC /* Build configuration list for PBXNativeTarget "KerberosWrappers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1518F31086C860C0042CBBC /* Development */,
+				A1518F32086C860C0042CBBC /* Deployment */,
+				A1518F33086C860C0042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A1518F34086C860C0042CBBC /* Build configuration list for PBXProject "KerberosWrappers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1518F35086C860C0042CBBC /* Development */,
+				A1518F36086C860C0042CBBC /* Deployment */,
+				A1518F37086C860C0042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F52B170A022FE0BE01120112 /* Project object */;
+}

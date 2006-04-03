@@ -1,6 +1,7 @@
 /* Test various diagnostics of ill-formed constructs involving labels.  */
 /* { dg-do compile } */
-/* { dg-options "-Wunused" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-skip-if "" { "*-*-darwin*" } { "*" } { "" } } */
 
 extern void dummy(void);
 

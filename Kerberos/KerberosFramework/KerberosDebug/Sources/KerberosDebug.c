@@ -1,7 +1,7 @@
 /*
  * KerberosDebug.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosDebug/Sources/KerberosDebug.c,v 1.15 2005/01/23 17:53:59 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -41,6 +41,9 @@
 #include <mach/mach_error.h>
 #include <pthread.h>
 #include <asl.h>
+
+static int dappendformat (char **io_string, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
+static int dlog (aslclient client, const char *format, ...)          __attribute__ ((format (printf, 2, 3)));
 
 #pragma mark -
 
@@ -86,21 +89,22 @@ static int dappendstring (char **io_string, const char *in_append_string)
 {
     int err = 0;
     char *string = NULL;
+    int new_length = 0;
+    int old_length = 0;
     
     if (in_append_string == NULL)                { err = EINVAL; }
     if (io_string == NULL || *io_string == NULL) { err = EINVAL; }
     
     if (!err) {
-        int new_length = strlen (*io_string) + strlen (in_append_string) + 1;
+        old_length = strlen (*io_string);
+        new_length = old_length + strlen (in_append_string) + 1;
         
         string = (char *) calloc (new_length, sizeof (char));
         if (string == NULL) { err = ENOMEM; }
     }
     
-    if (!err)  {
-        int old_length = strlen (*io_string);
-        
-        memcpy (string, *io_string, old_length * sizeof (char));
+    if (!err) {
+        memcpy (string, *io_string, old_length);
         strcpy (string + old_length, in_append_string);
         
         free (*io_string);
@@ -134,7 +138,7 @@ static int dappendformat (char **io_string, const char *format, ...)
         err = dappendstring (io_string, string);
     }
 
-    if (string != NULL) { dfreestring (string); }
+    if (string != NULL) { free (string); }
     
     return err;
 }
@@ -376,7 +380,7 @@ void dprintmem (const void *inBuffer, size_t inLength)
                 }
                 
                 if (!err) {
-                    err = dlog (client, string);
+                    err = dlog (client, "%s", string);
                 }
 
                 if (string != NULL) { dfreestring (string); }

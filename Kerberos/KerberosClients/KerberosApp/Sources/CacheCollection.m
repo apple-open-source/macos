@@ -1,7 +1,7 @@
 /*
  * CacheCollection.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/CacheCollection.m,v 1.9 2005/05/25 20:42:15 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -122,7 +122,7 @@ static int SortCaches (Cache *cache1, Cache *cache2, void *context)
     
     if (err == ccNoError) {
         if (newLastChangeTime > lastChangeTime) {
-            dprintf ("updateTimer got new change time %ld", newLastChangeTime);
+            dprintf ("updateTimer got new change time %d", newLastChangeTime);
 
             NSMutableArray      *newCachesArray = NULL;
             cc_ccache_t          defaultCCache = NULL;

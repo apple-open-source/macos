@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.333.2.48 2005/01/20 17:57:41 iliaa Exp $ */
+/* $Id: string.c,v 1.333.2.52.2.1 2005/09/28 22:34:04 iliaa Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -1317,8 +1317,6 @@ PHP_FUNCTION(stristr)
 		if (!Z_STRLEN_PP(needle)) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty delimiter.");
 			efree(haystack_orig);
-			zval_ptr_dtor(haystack);
-			zval_ptr_dtor(needle);
 			RETURN_FALSE;
 		}
 
@@ -1339,8 +1337,6 @@ PHP_FUNCTION(stristr)
 		RETVAL_FALSE;
 	}
 
-	zval_ptr_dtor(haystack);
-	zval_ptr_dtor(needle);
 	efree(haystack_orig);
 }
 /* }}} */
@@ -1576,7 +1572,13 @@ PHP_FUNCTION(chunk_split)
 	}
 
 	if (chunklen > Z_STRLEN_PP(p_str)) {
-		RETURN_STRINGL(Z_STRVAL_PP(p_str), Z_STRLEN_PP(p_str), 1);	
+		/* to maintain BC, we must return original string + ending */
+		result_len = endlen + Z_STRLEN_PP(p_str);
+		result = emalloc(result_len + 1);
+		memcpy(result, Z_STRVAL_PP(p_str), Z_STRLEN_PP(p_str));
+		memcpy(result + Z_STRLEN_PP(p_str), end, endlen);
+		result[result_len] = '\0'; 
+		RETURN_STRINGL(result, result_len, 0);	
 	}
 
 	if (!Z_STRLEN_PP(p_str)) {
@@ -2407,18 +2409,26 @@ PHPAPI char *php_addcslashes(char *str, int length, int *new_length, int should_
 }
 /* }}} */
 
-/* true static */
-const unsigned char php_esc_list[256] = {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-
 /* {{{ php_addslashes
  */
 PHPAPI char *php_addslashes(char *str, int length, int *new_length, int should_free TSRMLS_DC)
+{
+	return php_addslashes_ex(str, length, new_length, should_free, 0 TSRMLS_CC);
+}
+/* }}} */
+
+/* true static */
+const unsigned char php_esc_list[256] = {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
+/* {{{ php_addslashes_ex
+ */
+PHPAPI char *php_addslashes_ex(char *str, int length, int *new_length, int should_free, int ignore_sybase TSRMLS_DC)
 {
 	char *e = str + (length ? length : (length = strlen(str)));
 	char *p = str;
 	char *new_str, *ps;
 	int local_new_length = length;
-	int type = PG(magic_quotes_sybase) ? 1 : 0;
+	int type = (!ignore_sybase && PG(magic_quotes_sybase)) ? 1 : 0;
 
 	if (!new_length) {
 		new_length = &local_new_length;
@@ -3169,7 +3179,6 @@ PHP_FUNCTION(parse_str)
 	zval *sarg;
 	char *res = NULL;
 	int argCount;
-	int old_rg;
 
 	argCount = ARG_COUNT(ht);
 	if (argCount < 1 || argCount > 2 || zend_get_parameters_ex(argCount, &arg, &arrayArg) == FAILURE) {
@@ -3182,19 +3191,18 @@ PHP_FUNCTION(parse_str)
 		res = estrndup(Z_STRVAL_P(sarg), Z_STRLEN_P(sarg));
 	}
 
-	old_rg = PG(register_globals);
 	if (argCount == 1) {
-		PG(register_globals) = 1;
-		sapi_module.treat_data(PARSE_STRING, res, NULL TSRMLS_CC);
+		zval tmp;
+		Z_ARRVAL(tmp) = EG(active_symbol_table);
+
+		sapi_module.treat_data(PARSE_STRING, res, &tmp TSRMLS_CC);
 	} else 	{
-		PG(register_globals) = 0;
 		/* Clear out the array that was passed in. */
 		zval_dtor(*arrayArg);
 		array_init(*arrayArg);
 		
 		sapi_module.treat_data(PARSE_STRING, res, *arrayArg TSRMLS_CC);
 	}
-	PG(register_globals) = old_rg;
 }
 /* }}} */
 

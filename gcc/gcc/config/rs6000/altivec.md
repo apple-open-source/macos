@@ -1161,7 +1161,8 @@
         (vec_duplicate:V16QI
 	 (vec_select:QI (match_operand:V16QI 1 "register_operand" "v")
 			(parallel
-			 [(match_operand:QI 2 "immediate_operand" "i")]))))]
+;; APPLE LOCAL 4119059
+			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
   "vspltb %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1171,7 +1172,8 @@
 	(vec_duplicate:V8HI
 	 (vec_select:HI (match_operand:V8HI 1 "register_operand" "v")
 			(parallel
-			 [(match_operand:QI 2 "immediate_operand" "i")]))))]
+;; APPLE LOCAL 411959
+			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
   "vsplth %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1181,7 +1183,8 @@
 	(vec_duplicate:V4SI
 	 (vec_select:SI (match_operand:V4SI 1 "register_operand" "v")
 			(parallel
-			 [(match_operand:QI 2 "immediate_operand" "i")]))))]
+;; APPLE LOCAL 4119059
+			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
   "vspltw %0,%1,%2"
   [(set_attr "type" "vecperm")])
@@ -1189,7 +1192,8 @@
 (define_insn "altivec_vspltisb"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
 	(vec_duplicate:V16QI
-	 (match_operand:QI 1 "immediate_operand" "i")))]
+;; APPLE LOCAL 4119059
+	 (match_operand:QI 1 "s5bit_cint_operand" "")))]
   "TARGET_ALTIVEC"
   "vspltisb %0,%1"
   [(set_attr "type" "vecperm")])
@@ -1197,7 +1201,8 @@
 (define_insn "altivec_vspltish"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
 	(vec_duplicate:V8HI
-	 (sign_extend:HI (match_operand:QI 1 "immediate_operand" "i"))))]
+;; APPLE LOCAL 4119059
+	 (sign_extend:HI (match_operand:QI 1 "s5bit_cint_operand" ""))))]
   "TARGET_ALTIVEC"
   "vspltish %0,%1"
   [(set_attr "type" "vecperm")])
@@ -1205,7 +1210,8 @@
 (define_insn "altivec_vspltisw"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
 	(vec_duplicate:V4SI
-	 (sign_extend:SI (match_operand:QI 1 "immediate_operand" "i"))))]
+;; APPLE LOCAL 4119059
+	 (sign_extend:SI (match_operand:QI 1 "s5bit_cint_operand" ""))))]
   "TARGET_ALTIVEC"
   "vspltisw %0,%1"
   [(set_attr "type" "vecperm")])
@@ -1214,7 +1220,8 @@
   [(set (match_operand:V4SF 0 "register_operand" "=v")
 	(vec_duplicate:V4SF
 	 (float:SF (sign_extend:SI
-		    (match_operand:QI 1 "immediate_operand" "i")))))]
+;; APPLE LOCAL 4119059
+		    (match_operand:QI 1 "s5bit_cint_operand" "")))))]
   "TARGET_ALTIVEC"
   "vspltisw %0,%1"
   [(set_attr "type" "vecperm")])

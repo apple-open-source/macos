@@ -313,6 +313,7 @@
 		6BD626CD073E705A00B918BB /* DirectoryService.exp in Sources */ = {isa = PBXBuildFile; fileRef = 6BD626CC073E705A00B918BB /* DirectoryService.exp */; };
 		6BD626CF073E709900B918BB /* DirectoryServiceDaemon.exp in Sources */ = {isa = PBXBuildFile; fileRef = 6BD626CE073E709900B918BB /* DirectoryServiceDaemon.exp */; };
 		6BF11E580766F94300C8E7C8 /* DirectoryServiceMIG_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BF11E570766F94300C8E7C8 /* DirectoryServiceMIG_types.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		AA29D1A2098EC25500EC3021 /* DirServicesUtilsPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = AA29D1A1098EC25500EC3021 /* DirServicesUtilsPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		AA3A943906E685A800F4EB82 /* CNiMaps.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA3A943706E685A800F4EB82 /* CNiMaps.cpp */; };
 		AA3A943A06E685A800F4EB82 /* CNiMaps.h in Headers */ = {isa = PBXBuildFile; fileRef = AA3A943806E685A800F4EB82 /* CNiMaps.h */; };
 		AA42EF4406498B83008153D6 /* PasswordServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA42EF4306498B83008153D6 /* PasswordServer.framework */; };
@@ -654,11 +655,12 @@
 		6B5364980667AF8400CF35C3 /* GetMACAddress.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = GetMACAddress.cpp; path = CoreFramework/Private/GetMACAddress.cpp; sourceTree = "<group>"; };
 		6B53649A0667AF9700CF35C3 /* GetMACAddress.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = GetMACAddress.h; path = CoreFramework/Private/GetMACAddress.h; sourceTree = "<group>"; };
 		6B64B2140649630F00B26269 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kerberos.framework; path = /System/Library/Frameworks/Kerberos.framework; sourceTree = "<absolute>"; };
-		6BD626CC073E705A00B918BB /* DirectoryService.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; name = DirectoryService.exp; path = APIFramework/DirectoryService.exp; sourceTree = "<group>"; };
+		6BD626CC073E705A00B918BB /* DirectoryService.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; name = DirectoryService.exp; path = APIFramework/DirectoryService.exp; sourceTree = "<group>"; };
 		6BD626CE073E709900B918BB /* DirectoryServiceDaemon.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; name = DirectoryServiceDaemon.exp; path = Server/DirectoryServiceDaemon.exp; sourceTree = "<group>"; };
 		6BF11E570766F94300C8E7C8 /* DirectoryServiceMIG_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DirectoryServiceMIG_types.h; path = Server/DirectoryServiceMIG_types.h; sourceTree = "<group>"; };
 		792C562204F720C1000BF6A8 /* DirectoryServiceDaemon.order */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = DirectoryServiceDaemon.order; path = Server/DirectoryServiceDaemon.order; sourceTree = "<group>"; };
 		847D67D204BCB59C00DF229F /* libsasl2.2.0.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsasl2.2.0.1.dylib; path = /usr/lib/libsasl2.2.0.1.dylib; sourceTree = "<absolute>"; };
+		AA29D1A1098EC25500EC3021 /* DirServicesUtilsPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DirServicesUtilsPriv.h; path = APIFramework/DirServicesUtilsPriv.h; sourceTree = "<group>"; };
 		AA3A943706E685A800F4EB82 /* CNiMaps.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CNiMaps.cpp; path = PlugIns/NetInfo/CNiMaps.cpp; sourceTree = "<group>"; };
 		AA3A943806E685A800F4EB82 /* CNiMaps.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CNiMaps.h; path = PlugIns/NetInfo/CNiMaps.h; sourceTree = "<group>"; };
 		AA42EF4306498B83008153D6 /* PasswordServer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PasswordServer.framework; path = /System/Library/PrivateFrameworks/PasswordServer.framework; sourceTree = "<absolute>"; };
@@ -755,11 +757,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.1</string>
+	<string>3.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.1</string>
+	<string>3.1</string>
 </dict>
 </plist>
 ";
@@ -841,11 +843,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.1</string>
+	<string>3.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0.1</string>
+	<string>3.1</string>
 </dict>
 </plist>
 ";
@@ -1139,6 +1141,7 @@
 				0035DAA300AB52B200DD2B59 /* DirServicesTypes.h */,
 				0035DAA400AB52B200DD2B59 /* DirServicesTypesPriv.h */,
 				0035DAA500AB52B200DD2B59 /* DirServicesUtils.h */,
+				AA29D1A1098EC25500EC3021 /* DirServicesUtilsPriv.h */,
 				61092FC80428EEA600DD2B5C /* DirectoryService.h */,
 				611F6C250428EFAC00DD2B5C /* DirectoryServicePriv.h */,
 			);
@@ -1615,6 +1618,7 @@
 				E53F0FA7042BC9EF00DD2B5C /* DirectoryServicePriv.h in Headers */,
 				611BBABF08B6929800ED0859 /* DSSwapUtils.h in Headers */,
 				615093D608BE38E800360049 /* DirServicesCustom.h in Headers */,
+				AA29D1A2098EC25500EC3021 /* DirServicesUtilsPriv.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

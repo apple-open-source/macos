@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_trantcp.c,v 1.39.64.1 2005/07/20 05:27:00 lindak Exp $
+ * $Id: smb_trantcp.c,v 1.39.64.2 2005/12/16 04:30:59 lindak Exp $
  */
 
 #define ABSOLUTETIME_SCALAR_TYPE
@@ -53,7 +53,6 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-#include <sys/user.h>
 #include <sys/smb_apple.h>
 
 #include <sys/mchain.h>

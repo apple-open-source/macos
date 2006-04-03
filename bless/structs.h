@@ -27,7 +27,7 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Nov 14 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: structs.h,v 1.10 2005/02/03 00:42:22 ssen Exp $
+ *  $Id: structs.h,v 1.11 2005/06/24 16:39:48 ssen Exp $
  *
  */
 
@@ -39,7 +39,7 @@
 struct clarg {
     short present;
     short hasArg;
-    unsigned char argument[kMaxArgLength];
+    char argument[kMaxArgLength];
 };
 
 

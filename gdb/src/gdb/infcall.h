@@ -40,4 +40,7 @@ extern CORE_ADDR find_function_addr (struct value *function,
 extern struct value *call_function_by_hand (struct value *function, int nargs,
 					    struct value **args);
 
+/* APPLE LOCAL */
+extern int inferior_function_calls_disabled_p;
+
 #endif

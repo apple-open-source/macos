@@ -1,7 +1,7 @@
 /*
  * KLTerminalUI.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLTerminalUI.c,v 1.11 2004/12/17 05:03:21 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -465,7 +465,7 @@ KLStatus __KLReadStringFromTerminal (char **outString, KLBoolean inHidden, const
         va_end (args);
         
         if (shouldPrint > sizeof (promptString)) {
-            dprintf ("__KLReadStringFromTerminal(): WARNING! Prompt should be %ld characters\n", shouldPrint);
+            dprintf ("__KLReadStringFromTerminal(): WARNING! Prompt should be %d characters\n", shouldPrint);
             promptString [sizeof (promptString) - 1] = '\0';
         }
     }

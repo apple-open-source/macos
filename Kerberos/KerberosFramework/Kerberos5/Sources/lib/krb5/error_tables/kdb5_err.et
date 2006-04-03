@@ -28,7 +28,7 @@
 #
 error_table kdb5
 
-ec KRB5_KDB_RCSID,	"$Id: kdb5_err.et,v 5.21 2001/10/25 20:20:57 tlyu Exp $"
+ec KRB5_KDB_RCSID,	"$Id: kdb5_err.et 13854 2001-10-25 20:20:57Z tlyu $"
 # /* From the server side routines */
 ec KRB5_KDB_INUSE,		"Entry already exists in database"
 ec KRB5_KDB_UK_SERROR,		"Database store error"

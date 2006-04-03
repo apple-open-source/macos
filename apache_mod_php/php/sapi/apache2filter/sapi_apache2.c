@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.91.2.26 2005/01/07 06:28:36 sniper Exp $ */
+/* $Id: sapi_apache2.c,v 1.91.2.27.2.1 2005/08/03 14:49:50 hyanantha Exp $ */
 
 #include <fcntl.h>
 
@@ -168,9 +168,15 @@ php_apache_sapi_get_stat(TSRMLS_D)
 	ctx->finfo.st_gid = ctx->r->finfo.group;
 	ctx->finfo.st_dev = ctx->r->finfo.device;
 	ctx->finfo.st_ino = ctx->r->finfo.inode;
+#ifdef NETWARE
+	ctx->finfo.st_atime.tv_sec = ctx->r->finfo.atime/1000000;
+	ctx->finfo.st_mtime.tv_sec = ctx->r->finfo.mtime/1000000;
+	ctx->finfo.st_ctime.tv_sec = ctx->r->finfo.ctime/1000000;
+#else
 	ctx->finfo.st_atime = ctx->r->finfo.atime/1000000;
 	ctx->finfo.st_mtime = ctx->r->finfo.mtime/1000000;
 	ctx->finfo.st_ctime = ctx->r->finfo.ctime/1000000;
+#endif
 	ctx->finfo.st_size = ctx->r->finfo.size;
 	ctx->finfo.st_nlink = ctx->r->finfo.nlink;
 
@@ -267,18 +273,11 @@ static void php_apache_sapi_log_message(char *msg)
 
 	ctx = SG(server_context);
    
-	/* We use APLOG_STARTUP because it keeps us from printing the
-	 * data and time information at the beginning of the error log
-	 * line.  Not sure if this is correct, but it mirrors what happens
-	 * with Apache 1.3 -- rbb
-	 */
 	if (ctx == NULL) { /* we haven't initialized our ctx yet, oh well */
-		ap_log_error(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO | APLOG_STARTUP,
-					 0, NULL, "%s", msg);
+		ap_log_error(APLOG_MARK, APLOG_ERR | APLOG_STARTUP, 0, NULL, "%s", msg);
 	}
 	else {
-		ap_log_error(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO | APLOG_STARTUP,
-					 0, ctx->r->server, "%s", msg);
+		ap_log_error(APLOG_MARK, APLOG_ERR, 0, ctx->r->server, "%s", msg);
 	}
 }
 
@@ -356,7 +355,7 @@ static int php_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
 
 	ctx = SG(server_context);
 	if (ctx == NULL) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, 0, f->r,
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, f->r,
 					 "php failed to get server context");
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
@@ -467,7 +466,7 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 	
 	ctx = SG(server_context);
 	if (ctx == NULL) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, 0, f->r,
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, f->r,
 					 "php failed to get server context");
 		zend_try {
 			zend_ini_deactivate(TSRMLS_C);
@@ -627,7 +626,7 @@ static void php_add_filter(request_rec *r, ap_filter_t *f)
 	/* for those who still have Set*Filter PHP configured */
 	while (f) {
 		if (strcmp(f->frec->name, "PHP") == 0) {
-			ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_NOERRNO,
+			ap_log_error(APLOG_MARK, APLOG_WARNING,
 				     0, r->server,
 				     "\"Set%sFilter PHP\" already configured for %s",
 				     output ? "Output" : "Input", r->uri);

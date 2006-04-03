@@ -53,4 +53,6 @@ kern_return_t macosx_msg_receive (mach_msg_header_t * msgin, size_t msgsize,
 
 int call_ptrace (int request, int pid, int arg3, int arg4);
 
+CORE_ADDR macosx_allocate_space_in_inferior (int len);
+
 #endif /* __GDB_MACOSX_NAT_MUTILS_H__ */

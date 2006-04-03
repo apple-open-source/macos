@@ -275,24 +275,22 @@ extern int value_fetch_lazy (struct value *val);
    are recorded as a chain of these structures.  */
 
 struct internalvar
-  {
-    struct internalvar *next;
-    char *name;
-    struct value *value;
-  };
+{
+  struct internalvar *next;
+  char *name;
+  struct value *value;
+};
 
 /* Pointer to member function.  Depends on compiler implementation.  */
 
-/* APPLE LOCAL - Dunno what compiler &'s addresses with 0x80000000 like
+/* APPLE LOCAL begin */
+/* Dunno what compiler &'s addresses with 0x80000000 like
    this, but it doesn't look like gcc on Mac OS X does, and there are lots
    of libraries that live up around this address, so this is a bad thing
    to do.  For now, I am just going to always return NO for this test.
    FIXME: Figure out if you can actually tell this.  */
-
-#if 0
-#define METHOD_PTR_IS_VIRTUAL(ADDR)  ((ADDR) & 0x80000000)
-#endif
 #define METHOD_PTR_IS_VIRTUAL(ADDR)  0
+/* APPLE LOCAL end */
 
 #define METHOD_PTR_FROM_VOFFSET(OFFSET) (0x80000000 + (OFFSET))
 #define METHOD_PTR_TO_VOFFSET(ADDR) (~0x80000000 & (ADDR))
@@ -584,6 +582,8 @@ extern CORE_ADDR find_function_addr (struct value *, struct type **);
 extern struct value *find_function_in_inferior (const char *, struct type *);
 
 extern struct value *value_allocate_space_in_inferior (int);
+
+extern CORE_ADDR allocate_space_in_inferior_malloc (int);
 
 extern CORE_ADDR default_push_arguments (int nargs, struct value ** args,
 					 CORE_ADDR sp, int struct_return,

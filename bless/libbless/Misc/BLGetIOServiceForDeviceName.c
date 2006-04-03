@@ -27,9 +27,19 @@
  *  Created by Shantonu Sen on 2/7/05.
  *  Copyright 2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetIOServiceForDeviceName.c,v 1.1 2005/02/07 21:22:38 ssen Exp $
+ *  $Id: BLGetIOServiceForDeviceName.c,v 1.3 2005/08/22 20:49:24 ssen Exp $
  *
  *  $Log: BLGetIOServiceForDeviceName.c,v $
+ *  Revision 1.3  2005/08/22 20:49:24  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.2  2005/06/24 16:39:51  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.1  2005/02/07 21:22:38  ssen
  *  Refact lookupServiceForName and code for BLDeviceNeedsBooter
  *
@@ -51,7 +61,7 @@
 #include "bless.h"
 #include "bless_private.h"
 
-int BLGetIOServiceForDeviceName(BLContextPtr context, unsigned char devName[],
+int BLGetIOServiceForDeviceName(BLContextPtr context, char * devName,
 								io_service_t *service)
 {
     io_service_t			myservice;

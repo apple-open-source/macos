@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.3.4.3 2004/06/01 20:16:18 iliaa Exp $";
+static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.3.4.4 2005/04/22 11:57:53 jorton Exp $";
 
 
 
@@ -44,6 +44,9 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.3.4.3 2004/06/01 20:16:
  *   06/2000
  * HISTORY
  *   $Log: xml_element.c,v $
+ *   Revision 1.3.4.4  2005/04/22 11:57:53  jorton
+ *   MFH: Fixed bug #32797 (invalid C code in xmlrpc extension).
+ *
  *   Revision 1.3.4.3  2004/06/01 20:16:18  iliaa
  *   MFH: Fixed bug #28597 (xmlrpc_encode_request() incorrectly encodes chars in
  *   200-210 range).
@@ -112,7 +115,7 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.3.4.3 2004/06/01 20:16:
 #include "expat.h"
 #include "encodings.h"
 
-#define my_free(thing)  if(thing) {free(thing); thing = 0;}
+#define my_free(thing)  if(thing) {free(thing); thing = NULL;}
 
 #define XML_DECL_START                 "<?xml"
 #define XML_DECL_START_LEN             sizeof(XML_DECL_START) - 1
@@ -188,7 +191,10 @@ void xml_elem_free_non_recurse(xml_element* root) {
 
       Q_Destroy(&root->children);
       Q_Destroy(&root->attrs);
-      my_free((char*)root->name);
+      if(root->name) {
+          free((char *)root->name);
+          root->name = NULL;
+      }
       simplestring_free(&root->text);
       my_free(root);
    }

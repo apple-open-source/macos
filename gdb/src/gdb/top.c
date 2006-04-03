@@ -473,6 +473,7 @@ catcher (catch_exceptions_ftype *func,
      prior to here.  */
 
   saved_cleanup_chain = save_cleanups ();
+
   /* Call FUNC, catching error/quit events. */
 
   saved_catch = catch_return;
@@ -676,6 +677,7 @@ disconnect (int signo)
    gdb to use the event loop as the default command loop and we merge
    event-top.c into this file, top.c */
 /* static */ char *source_error;
+static int source_error_allocated;
 
 /* Something to glom on to the start of error_pre_print if source_file_name
    is set.  */
@@ -2000,6 +2002,8 @@ gdb_init (char *argv0)
   set_language (language_c);
   expected_language = current_language;		/* don't warn about the change.  */
 
+  /* Allow another UI to initialize. If the UI fails to initialize, and
+     it wants GDB to revert to the CLI, it should clear init_ui_hook. */
   if (init_ui_hook)
     init_ui_hook (argv0);
 }

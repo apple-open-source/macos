@@ -721,7 +721,6 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 {
   tree tmp;
   stmtblock_t body;
-  tree loopbody;
   gfc_se se;
 
   for (; c; c = c->next)
@@ -842,13 +841,23 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
             }
 	}
 
-      /* The frontend should already have done any expansions.  */
-      if (c->iterator)
+      /* The frontend should already have done any expansions possible
+	 at compile-time.  */
+      if (!c->iterator)
 	{
+	  /* Pass the code as is.  */
+	  tmp = gfc_finish_block (&body);
+	  gfc_add_expr_to_block (pblock, tmp);
+	}
+      else
+	{
+	  /* Build the implied do-loop.  */
+	  tree cond;
 	  tree end;
 	  tree step;
 	  tree loopvar;
 	  tree exit_label;
+	  tree loopbody;
 
 	  loopbody = gfc_finish_block (&body);
 
@@ -877,17 +886,25 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	  exit_label = gfc_build_label_decl (NULL_TREE);
 	  gfc_start_block (&body);
 
-	  /* Generate the exit condition.  */
-	  end = build2 (GT_EXPR, boolean_type_node, loopvar, end);
+	  /* Generate the exit condition.  Depending on the sign of
+	     the step variable we have to generate the correct
+	     comparison.  */
+	  tmp = fold (build2 (GT_EXPR, boolean_type_node, step, 
+			      build_int_cst (TREE_TYPE (step), 0)));
+	  cond = fold (build3 (COND_EXPR, boolean_type_node, tmp,
+			       build2 (GT_EXPR, boolean_type_node,
+				       loopvar, end),
+			       build2 (LT_EXPR, boolean_type_node,
+				       loopvar, end)));
 	  tmp = build1_v (GOTO_EXPR, exit_label);
 	  TREE_USED (exit_label) = 1;
-	  tmp = build3_v (COND_EXPR, end, tmp, build_empty_stmt ());
+	  tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
 	  gfc_add_expr_to_block (&body, tmp);
 
 	  /* The main loop body.  */
 	  gfc_add_expr_to_block (&body, loopbody);
 
-	  /* Increment the loop variable.  */
+	  /* Increase loop variable by step.  */
 	  tmp = build2 (PLUS_EXPR, TREE_TYPE (loopvar), loopvar, step);
 	  gfc_add_modify_expr (&body, loopvar, tmp);
 
@@ -898,12 +915,6 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 
 	  /* Add the exit label.  */
 	  tmp = build1_v (LABEL_EXPR, exit_label);
-	  gfc_add_expr_to_block (pblock, tmp);
-	}
-      else
-	{
-	  /* Pass the code as is.  */
-	  tmp = gfc_finish_block (&body);
 	  gfc_add_expr_to_block (pblock, tmp);
 	}
     }
@@ -2342,7 +2353,7 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
       loop->temp_ss->type = GFC_SS_TEMP;
       loop->temp_ss->data.temp.type =
 	gfc_get_element_type (TREE_TYPE (dest->data.info.descriptor));
-      loop->temp_ss->string_length = NULL_TREE;
+      loop->temp_ss->string_length = dest->string_length;
       loop->temp_ss->data.temp.dimen = loop->dimen;
       loop->temp_ss->next = gfc_ss_terminator;
       gfc_add_ss_to_loop (loop, loop->temp_ss);
@@ -3373,7 +3384,9 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
 
   /* Only do the entry/initialization code if the arg is present.  */
   dumdesc = GFC_DECL_SAVED_DESCRIPTOR (tmpdesc);
-  optional_arg = sym->attr.optional || sym->ns->proc_name->attr.entry_master;
+  optional_arg = (sym->attr.optional
+		  || (sym->ns->proc_name->attr.entry_master
+		      && sym->attr.dummy));
   if (optional_arg)
     {
       tmp = gfc_conv_expr_present (sym);
@@ -3614,11 +3627,23 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       loop.temp_ss = gfc_get_ss ();
       loop.temp_ss->type = GFC_SS_TEMP;
       loop.temp_ss->next = gfc_ss_terminator;
-      loop.temp_ss->data.temp.type = gfc_typenode_for_spec (&expr->ts);
+      if (expr->ts.type == BT_CHARACTER)
+	{
+	  gcc_assert (expr->ts.cl && expr->ts.cl->length
+		      && expr->ts.cl->length->expr_type == EXPR_CONSTANT);
+	  loop.temp_ss->string_length = gfc_conv_mpz_to_tree
+			(expr->ts.cl->length->value.integer,
+			 expr->ts.cl->length->ts.kind);
+	  expr->ts.cl->backend_decl = loop.temp_ss->string_length;
+	}
+        loop.temp_ss->data.temp.type = gfc_typenode_for_spec (&expr->ts);
+
       /* ... which can hold our string, if present.  */
       if (expr->ts.type == BT_CHARACTER)
-	se->string_length = loop.temp_ss->string_length
-	  = TYPE_SIZE_UNIT (loop.temp_ss->data.temp.type);
+	{
+	  loop.temp_ss->string_length = TYPE_SIZE_UNIT (loop.temp_ss->data.temp.type);
+	  se->string_length = loop.temp_ss->string_length;
+	}
       else
 	loop.temp_ss->string_length = NULL;
       loop.temp_ss->data.temp.dimen = loop.dimen;
@@ -3650,7 +3675,13 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       rse.ss = ss;
 
       gfc_conv_scalarized_array_ref (&lse, NULL);
-      gfc_conv_expr_val (&rse, expr);
+      if (expr->ts.type == BT_CHARACTER)
+	{
+	  gfc_conv_expr (&rse, expr);
+	  rse.expr = gfc_build_indirect_ref (rse.expr);
+	}
+      else
+        gfc_conv_expr_val (&rse, expr);
 
       gfc_add_block_to_block (&block, &rse.pre);
       gfc_add_block_to_block (&block, &lse.pre);
@@ -3998,7 +4029,8 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
       deallocate = gfc_array_deallocate (descriptor);
 
       tmp = gfc_conv_descriptor_data (descriptor);
-      tmp = build2 (NE_EXPR, boolean_type_node, tmp, integer_zero_node);
+      tmp = build2 (NE_EXPR, boolean_type_node, tmp, 
+		    build_int_cst (TREE_TYPE (tmp), 0));
       tmp = build3_v (COND_EXPR, tmp, deallocate, build_empty_stmt ());
       gfc_add_expr_to_block (&block, tmp);
 

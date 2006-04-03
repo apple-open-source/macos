@@ -1,12 +1,12 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved.
  *
- * $Id: client.c,v 1.21 2004/06/16 03:11:54 tlyu Exp $
+ * $Id: client.c 16467 2004-06-16 03:11:54Z tlyu $
  *
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/lib/rpc/unit-test/client.c,v 1.21 2004/06/16 03:11:54 tlyu Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #include <stdio.h>

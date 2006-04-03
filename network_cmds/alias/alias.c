@@ -212,9 +212,11 @@ static void DoMSSClamp(struct tcphdr *tc)
                     if (packetAliasMSS < mssVal)
                     {
                         int accumulate = mssVal;
+		 	int accnetorder = 0 ;
                         accumulate -= packetAliasMSS;
                         *mssPtr = htons(packetAliasMSS);
-                        ADJUST_CHECKSUM(accumulate, tc->th_sum);
+		 	accnetorder = htons(accumulate);
+                        ADJUST_CHECKSUM(accnetorder, tc->th_sum);
                     }
 
                     option = optionEnd;

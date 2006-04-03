@@ -93,6 +93,8 @@ static const double zero	 = 0.0;
    This function calls:  __fpclassifyd, logb, scalbn, __FABS, signbitd.
 ***********************************************************************/
 
+#warning obsolete
+
 #if defined(BUILDING_FOR_CARBONCORE_LEGACY)
 
 static const hexdouble Huge     = HEXDOUBLE(0x7ff00000, 0x00000000);
@@ -173,81 +175,8 @@ static int ___signbitd ( double arg )
       return (((int32_t)z.i.hi) < 0);
 }
 
-double remquo ( double x, double y, int *quo)
-{
-      int			iclx,icly;                        /* classify results of x,y */
-      int32_t		iquo;                             /* low 32 bits of integral quotient */
-      int32_t		iscx, iscy, idiff;                /* logb values and difference */
-      int			i;                                /* loop variable */
-      double        absy,x1,y1,z;                     /* local floating-point variables */
-      double        rslt;
-      fenv_t 	    OldEnvironment;
-    
-      (void) feholdexcept( &OldEnvironment );
-      fesetenv( FE_DFL_ENV );
-      
-      *quo = 0;                                       /* initialize quotient result */
-      iclx = ___fpclassifyd(x);
-      icly = ___fpclassifyd(y);
-      if ((iclx & icly) >= FP_NORMAL)    {            /* x,y both nonzero finite case */
-         x1 = __FABS(x);                              /* work with absolute values */
-         absy = __FABS(y);
-         iquo = 0;                                    /* zero local quotient */
-         iscx = (int32_t) __logb(x1);                /* get binary exponents */
-         iscy = (int32_t) __logb(absy);
-         idiff = iscx - iscy;                         /* exponent difference */
-         if (idiff >= 0) {                            /* exponent of x1 >= exponent of y1 */
-              if (idiff != 0) {                       /* exponent of x1 > exponent of y1 */
-                   y1 = __scalbn(absy,-iscy);         /* scale |y| to unit binade */
-                   x1 = __scalbn(x1,-iscx);           /* ditto for |x| */
-                   for (i = idiff; i != 0; i--) {     /* begin remainder loop */
-                        if ((z = x1 - y1) >= 0) {     /* nonzero remainder step result */
-                            x1 = z;                   /* update remainder (x1) */
-                            iquo += 1;                /* increment quotient */
-                        }
-                        iquo += iquo;                 /* shift quotient left one bit */
-                        x1 += x1;                     /* shift (double) remainder */
-                   }                                  /* end of remainder loop */
-                   x1 = __scalbn(x1,iscy);            /* scale remainder to binade of |y| */
-              }                                       /* remainder has exponent <= exponent of y */
-              if (x1 >= absy) {                       /* last remainder step */
-                   x1 -= absy;
-                   iquo +=1;
-              }                                       /* end of last remainder step */
-         }                                            /* remainder (x1) has smaller exponent than y */
-         if ( x1 < HugeHalved.d )
-            z = x1 + x1;                              /* double remainder, without overflow */
-         else
-            z = Huge.d;
-         if ((z > absy) || ((z == absy) && ((iquo & 1) != 0))) {
-              x1 -= absy;                             /* final remainder correction */
-              iquo += 1;
-         }
-         if (x < 0.0)
-              x1 = -x1;                               /* remainder if x is negative */
-         iquo &= 0x0000007f;                          /* retain low 7 bits of integer quotient */
-         if ((___signbitd(x) ^ ___signbitd(y)) != 0)  /* take care of sign of quotient */
-              iquo = -iquo;
-         *quo = iquo;                                 /* deliver quotient result */
-         rslt = x1;
-    }                                                 /* end of x,y both nonzero finite case */
-    else if ((iclx <= FP_QNAN) || (icly <= FP_QNAN)) {
-         rslt = x+y;                                  /* at least one NaN operand */
-    }
-    else if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {    /* invalid result */
-         rslt = nan(REM_NAN);
-    }
-    else                                              /* trivial cases (finite REM infinite   */
-         rslt = x;                                    /*  or  zero REM nonzero) with *quo = 0 */
+extern int ilogb( double );
 
-    feupdateenv( &OldEnvironment ); //   restore caller's environment
-    
-    if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {
-         if (!(*quo + zero/zero > zero)) // always true, INVALID as side effect
-            return rslt;
-    }
-    return rslt;
-}
 
 #else /* !BUILDING_FOR_CARBONCORE_LEGACY */
 

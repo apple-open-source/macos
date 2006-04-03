@@ -1,10 +1,29 @@
 ========================================================================
 Credentials Cache Library Version History
 ========================================================================
-Current version: 3.5.1fc5
-Date:            June 15, 2005
+Current version: 3.5.2fc2
+Date:            November 30, 2005
 Author:          meeroh@mit.edu, smcguire@mit.edu, fdabek@mit.edu, lxs@mit.edu
 ========================================================================
+
+CredentialsCache 3.5.2
+Released with KfM 5.5.2
+
+========================================================================
+
+	CCacheLib 3.5.2fc2
+	November 30, 2005
+	
+	[RT 3255] Don't byte swap addresses in krb4 tickets.
+	
+	========================================================================
+
+	CCacheLib 3.5.2fc1
+	October 6, 2005
+	
+	[RT 3188] CCAPI IPC layer should use network byte order
+	
+	========================================================================
 
 CredentialsCache 3.5.1
 Released with KfM 5.5.1

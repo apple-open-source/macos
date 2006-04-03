@@ -1,5 +1,5 @@
 /*
- * "$Id: globals.h,v 1.4 2004/11/24 21:25:40 jlovell Exp $"
+ * "$Id: globals.h,v 1.4.2.1 2006/02/08 22:04:46 jlovell Exp $"
  *
  *   Global variable definitions for the Common UNIX Printing System (CUPS).
  *
@@ -140,6 +140,8 @@ typedef struct
 
 extern cups_globals_t *_cups_globals(void);
 
+extern void _cupsLangFlush(cups_globals_t *cg);
+
 
 #if defined(HAVE_CDSASSL)
 extern OSStatus (*_cupsSSLCloseProc)(SSLContextRef context);
@@ -172,5 +174,5 @@ void _cups_cdsa_init(void);
 #endif /* !_CUPS_GLOBALS_H_ */
 
 /*
- * End of "$Id: globals.h,v 1.4 2004/11/24 21:25:40 jlovell Exp $".
+ * End of "$Id: globals.h,v 1.4.2.1 2006/02/08 22:04:46 jlovell Exp $".
  */

@@ -1,4 +1,4 @@
-dnl ## $Id: configure.in,v 1.396.2.160 2005/03/30 14:18:36 iliaa Exp $ -*- sh -*-
+dnl ## $Id: configure.in,v 1.396.2.164.2.13 2005/10/26 07:58:22 derick Exp $ -*- sh -*-
 dnl ## Process this file with autoconf to produce a configure script.
 
 divert(1)
@@ -39,8 +39,8 @@ PHP_CANONICAL_HOST
 AC_CONFIG_HEADER(main/php_config.h)
 
 MAJOR_VERSION=4
-MINOR_VERSION=3
-RELEASE_VERSION=11
+MINOR_VERSION=4
+RELEASE_VERSION=1
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
@@ -180,6 +180,17 @@ PHP_C_BIGENDIAN
 dnl Platform-specific compile settings.
 dnl -------------------------------------------------------------------------
 
+dnl See bug #28605
+case $host_cpu in
+alpha*)
+    if test "$GCC" = "yes"; then
+      CFLAGS="$CFLAGS -mieee"
+    else
+      CFLAGS="$CFLAGS -ieee"
+    fi
+    ;;
+esac
+
 case $host_alias in
 *solaris*)
     CPPFLAGS="$CPPFLAGS -D_POSIX_PTHREAD_SEMANTICS"
@@ -202,6 +213,15 @@ case $host_alias in
     if test "$GCC" = "yes"; then
       CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE_EXTENDED"  
     fi  
+    ;;
+*netware*)
+    PHP_BUILD_PROGRAM
+    PHP_ADD_SOURCES(/main, internal_functions.c,,PHP_GLOBAL_OBJS)
+    PHP_ADD_SOURCES(win32, sendmail.c, -I$CFLAGS, PHP_GLOBAL_OBJS)
+    PHP4LIB_SHARED_LIBADD=\$\(EXTRA_LIBS\)
+    EXTENSION_DIR=sys:/php$MAJOR_VERSION/ext
+    PHP_SUBST(PHP4LIB_SHARED_LIBADD)
+    PHP_SHARED_MODULE(php4lib, PHP_GLOBAL_OBJS, netware)
     ;;
 esac
 
@@ -425,6 +445,12 @@ PHP_TM_GMTOFF
 PHP_STRUCT_FLOCK
 PHP_SOCKLEN_T
 
+AC_CHECK_SIZEOF(intmax_t, 0)
+AC_CHECK_SIZEOF(size_t, 8)
+AC_CHECK_SIZEOF(ssize_t, 8)
+AC_CHECK_SIZEOF(ptrdiff_t, 8)
+AC_CHECK_SIZEOF(long long, 8)
+AC_CHECK_SIZEOF(long long int, 8)
 AC_CHECK_SIZEOF(long, 8)
 AC_CHECK_SIZEOF(int, 4)
 
@@ -1065,10 +1091,20 @@ EXTRA_LDFLAGS_PROGRAM="$EXTRA_LDFLAGS_PROGRAM $PHP_LDFLAGS"
 
 PHP_BUILD_DATE=`date '+%Y-%m-%d'`
 AC_DEFINE_UNQUOTED(PHP_BUILD_DATE,"$PHP_BUILD_DATE",[PHP build date])
-PHP_UNAME=`uname -a | xargs`
-AC_DEFINE_UNQUOTED(PHP_UNAME,"$PHP_UNAME",[uname -a output])
-PHP_OS=`uname | xargs`
-AC_DEFINE_UNQUOTED(PHP_OS,"$PHP_OS",[uname output])
+case $host_alias in
+*netware*)
+    PHP_OS="NetWare"
+    PHP_UNAME="NetWare"
+    AC_DEFINE_UNQUOTED(PHP_OS,"$PHP_OS",[hardcode for each of the cross compiler host])
+    AC_DEFINE_UNQUOTED(PHP_UNAME,"$PHP_UNAME",[hardcode for each of the cross compiler host])
+    ;;
+*)
+    PHP_UNAME=`uname -a | xargs`
+    AC_DEFINE_UNQUOTED(PHP_UNAME,"$PHP_UNAME",[uname -a output])
+    PHP_OS=`uname | xargs`
+    AC_DEFINE_UNQUOTED(PHP_OS,"$PHP_OS",[uname output])
+    ;;
+esac
 
 if test "$disable_cli" != "1"; then
   PHP_CLI_TARGET="\$(SAPI_CLI_PATH)"
@@ -1226,7 +1262,15 @@ PHP_ADD_SOURCES(main, main.c snprintf.c spprintf.c php_sprintf.c \
        streams.c network.c php_open_temporary_file.c php_logos.c \
        output.c memory_streams.c user_streams.c)
 PHP_ADD_SOURCES(/main, internal_functions.c,, sapi)
-PHP_ADD_SOURCES(/main, internal_functions_cli.c,, cli)
+case $host_alias in
+*netware*)
+  PHP_ADD_BUILD_DIR(win32)
+  PHP_ADD_BUILD_DIR(netware)
+  ;;
+*)
+  PHP_ADD_SOURCES(/main, internal_functions_cli.c,, cli)
+  ;;
+esac
 
 PHP_ADD_SOURCES(/Zend, zend_language_parser.c zend_language_scanner.c \
     zend_ini_parser.c zend_ini_scanner.c)
@@ -1269,9 +1313,11 @@ AC_DEFINE([HAVE_BUILD_DEFS_H], 1, [ ])
 
 $php_shtool mkdir -p pear/scripts
 $php_shtool mkdir -p scripts
+$php_shtool mkdir -p scripts/man1
 
 ALL_OUTPUT_FILES="php4.spec main/build-defs.h \
-scripts/phpize scripts/php-config \
+scripts/phpize scripts/man1/phpize.1 \
+scripts/php-config scripts/man1/php-config.1 \
 $PHP_OUTPUT_FILES"
 
 AC_OUTPUT($ALL_OUTPUT_FILES, [], [

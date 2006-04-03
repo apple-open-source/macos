@@ -34,16 +34,15 @@
  */
 
 #include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/lock.h>
-#include <sys/socket.h>
-#include <sys/ubc.h>
-#include <sys/fcntl.h>
-#include <sys/unistd.h>
-#include <sys/ioccom.h>
-#include <vfs/vfs_support.h>
-#include <sys/vnode_if.h>
+#include <sys/stat.h>
+#include <sys/vnode.h>
+#include <sys/proc.h>
+#include <sys/malloc.h>
+#include <sys/file.h>
 #include <sys/sysctl.h>
+#include <sys/systm.h>
+#include <sys/mount.h>
+#include <libkern/libkern.h>
 
 #include "webdav.h"
 
@@ -238,7 +237,7 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 		args.pa_socket_name			= CAST_USER_ADDR_T(args_32.pa_socket_name);
 		args.pa_vol_name			= CAST_USER_ADDR_T(args_32.pa_vol_name);
 		args.pa_flags				= args_32.pa_flags;
-		args.pa_root_obj_ref		= args_32.pa_root_obj_ref;
+		args.pa_root_id				= args_32.pa_root_id;
 		args.pa_root_fileid			= args_32.pa_root_fileid;
 		args.pa_dir_size			= args_32.pa_dir_size;
 		args.pa_link_max			= args_32.pa_link_max;
@@ -319,7 +318,7 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	TIMEVAL_TO_TIMESPEC(&tv, &ts);
 	
 	error = webdav_get(mp, NULLVP, 1, NULL,
-		args.pa_root_obj_ref, args.pa_root_fileid, VDIR, ts, ts, ts, fmp->pm_dir_size, &rvp);
+		args.pa_root_id, args.pa_root_fileid, VDIR, ts, ts, ts, fmp->pm_dir_size, &rvp);
 	if (error)
 	{
 		goto bad;
@@ -507,7 +506,7 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 		fmp->pm_status |= WEBDAV_MOUNT_STATFS;
 
 		webdav_copy_creds(context, &request_statfs.pcr);
-		request_statfs.root_obj_ref = VTOWEBDAV(VFSTOWEBDAV(mp)->pm_root)->pt_obj_ref;
+		request_statfs.root_obj_id = VTOWEBDAV(VFSTOWEBDAV(mp)->pm_root)->pt_obj_id;
 
 		error = webdav_sendmsg(WEBDAV_STATFS, fmp,
 			&request_statfs, sizeof(struct webdav_request_statfs), 

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_subr.c,v 1.18.102.1 2005/07/20 05:26:59 lindak Exp $
+ * $Id: smbfs_subr.c,v 1.18.102.2 2006/02/10 18:17:36 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -397,12 +397,19 @@ smbfs_fname_tolocal(struct smbfs_fctx *ctx)
 	/*
 	 * In Mac OS X the local name can be larger and
 	 * in-place conversions are not supported.
+	 *
+	 * Remeber that f_name gets reused. We need to make sure 
+	 * it can hold a full UTF-16 name. Look at smbfs_smb_findopenLM2
+	 * for the minimum size of f_name. Fixed this because of PR-4183132.
+	 * The old code could cause a buffer overrun. A simple test for this
+	 * is to have a 14 or less character file name followed by a 129 or 
+	 * more character file name. may not cause a panic, but with a little
+	 * debugging you can see it happen.
 	 */
 	if (SMB_UNICODE_STRINGS(vcp))
-		length = ctx->f_nmlen * 9; /* why 9 */
+		length = max(ctx->f_nmlen * 9, SMB_MAXFNAMELEN*2); /* why 9 */
 	else
-		length = ctx->f_nmlen * 3; /* why 3 */
-	length = max(length, SMB_MAXFNAMELEN);
+		length = max(ctx->f_nmlen * 3, SMB_MAXFNAMELEN); /* why 3 */
 
 	dst = malloc(length, M_SMBFSDATA, M_WAITOK);
 	outlen = length;

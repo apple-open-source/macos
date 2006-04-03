@@ -160,4 +160,6 @@ extern void load_infrun_state (ptid_t ptid,
 /* Commands with a prefix of `thread'.  */
 extern struct cmd_list_element *thread_cmd_list;
 
+extern void switch_to_thread (ptid_t ptid);
+
 #endif /* GDBTHREAD_H */

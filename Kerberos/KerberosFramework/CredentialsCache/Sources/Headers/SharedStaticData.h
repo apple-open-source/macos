@@ -1,7 +1,7 @@
 /*
  * CCISharedStaticData.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/SharedStaticData.h,v 1.15 2004/10/22 20:48:32 lxs Exp $
+ * $Header$
  */
  
 /*
@@ -65,12 +65,12 @@ class CCISharedStaticDataProxy {
 		}
 		
 		CCILockID	Lock () const {
-			#pragma message (CCIMessage_Warning_ "CCISharedStaticDataProxy::Lock unimplemented"
+			#warning CCISharedStaticDataProxy::Lock unimplemented
 			return 0;
 		}
 		
 		void Unlock (CCILockID /* inLock */) {
-			#pragma message (CCIMessage_Warning_ "CCISharedStaticDataProxy::Unlock unimplemented"
+			#warning CCISharedStaticDataProxy::Unlock unimplemented
 		}
 	
 	private:

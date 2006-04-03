@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_usr.c,v 1.15 2004/12/13 00:25:18 lindak Exp $
+ * $Id: smb_usr.c,v 1.15.178.1 2005/11/15 01:45:30 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/malloc.h>
@@ -67,6 +67,15 @@ smb_usr_vc2spec(struct smbioc_ossn *dp, struct smb_vcspec *spec)
 		return EINVAL;
 	if (dp->ioc_localcs[0] == 0) {
 		SMBERROR("no local charset ?\n");
+		return EINVAL;
+	}
+	/*
+	 * Something went bad in user land, just get out. This would cause a
+	 * hang on Intel and a panic on PPC. See Radar 4321020 for more 
+	 * information.
+	 */
+	if (! dp->ioc_svlen ) {
+		SMBERROR("server name's length is zero ?\n");
 		return EINVAL;
 	}
 	spec->sap = smb_memdupin(dp->ioc_server, dp->ioc_svlen);

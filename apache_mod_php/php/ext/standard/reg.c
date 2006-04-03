@@ -17,7 +17,7 @@
    |          Jaakko Hyvätti <jaakko@hyvatti.iki.fi>                      | 
    +----------------------------------------------------------------------+
  */
-/* $Id: reg.c,v 1.66.2.7 2003/04/22 01:38:36 iliaa Exp $ */
+/* $Id: reg.c,v 1.66.2.8.2.1 2005/07/18 17:34:38 andrei Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -33,6 +33,8 @@ typedef struct {
 	int cflags;
 } reg_cache;
 
+static int reg_magic = 0;
+
 /* {{{ _php_regcomp
  */
 static int _php_regcomp(regex_t *preg, const char *pattern, int cflags)
@@ -42,8 +44,39 @@ static int _php_regcomp(regex_t *preg, const char *pattern, int cflags)
 	reg_cache *rc = NULL;
 	TSRMLS_FETCH();
 	
-	if(zend_hash_find(&REG(ht_rc), (char *) pattern, patlen+1, (void **) &rc) == FAILURE ||
-			rc->cflags != cflags) {
+	if(zend_hash_find(&REG(ht_rc), (char *) pattern, patlen+1, (void **) &rc) == SUCCESS
+	   && rc->cflags == cflags) {
+#ifdef HAVE_REGEX_T_RE_MAGIC
+		/*
+		 * We use a saved magic number to see whether cache is corrupted, and if it
+		 * is, we flush it and compile the pattern from scratch.
+		 */
+		if (rc->preg.re_magic != reg_magic) {
+			zend_hash_clean(&REG(ht_rc));
+		} else {
+			memcpy(preg, &rc->preg, sizeof(*preg));
+			return r;
+		}
+	}
+
+	r = regcomp(preg, pattern, cflags);
+	if(!r) {
+		reg_cache rcp;
+
+		rcp.cflags = cflags;
+		memcpy(&rcp.preg, preg, sizeof(*preg));
+		/*
+		 * Since we don't have access to the actual MAGIC1 definition in the private
+		 * header file, we save the magic value immediately after compilation. Hopefully,
+		 * it's good.
+		 */
+		if (!reg_magic) reg_magic = preg->re_magic;
+		zend_hash_update(&REG(ht_rc), (char *) pattern, patlen+1,
+						 (void *) &rcp, sizeof(rcp), NULL);
+	}
+#else
+		memcpy(preg, &rc->preg, sizeof(*preg));
+	} else {
 		r = regcomp(preg, pattern, cflags);
 		if(!r) {
 			reg_cache rcp;
@@ -51,12 +84,10 @@ static int _php_regcomp(regex_t *preg, const char *pattern, int cflags)
 			rcp.cflags = cflags;
 			memcpy(&rcp.preg, preg, sizeof(*preg));
 			zend_hash_update(&REG(ht_rc), (char *) pattern, patlen+1,
-					(void *) &rcp, sizeof(rcp), NULL);
+							 (void *) &rcp, sizeof(rcp), NULL);
 		}
-	} else {
-		memcpy(preg, &rc->preg, sizeof(*preg));
 	}
-	
+#endif
 	return r;
 }
 /* }}} */

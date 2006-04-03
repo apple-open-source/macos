@@ -1289,4 +1289,8 @@ extern int is_integral_type (struct type *);
 
 extern void maintenance_print_type (char *, int);
 
+/* APPLE LOCAL: This is to handle arrays whose element types were undefined
+   when the array type was constructed.  */
+extern void cleanup_undefined_arrays (void);
+
 #endif /* GDBTYPES_H */

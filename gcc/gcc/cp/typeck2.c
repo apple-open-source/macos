@@ -796,7 +796,8 @@ digest_init (tree type, tree init, tree* tail)
 	    }
 	  return process_init_constructor (type, init, (tree *)0);
 	}
-      else if (can_convert_arg (type, TREE_TYPE (init), init)
+      /* APPLE LOCAL radar 4187916 */
+      else if (can_convert_arg (type, TREE_TYPE (init), init, LOOKUP_NORMAL)
 	       || TYPE_NON_AGGREGATE_CLASS (type))
 	/* These are never initialized from multiple constructor elements.  */;
       else if (tail != 0)

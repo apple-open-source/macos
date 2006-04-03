@@ -711,8 +711,15 @@ ocp_convert (type, expr, convtype, flags)
   if (code == POINTER_TYPE || code == REFERENCE_TYPE
       || TYPE_PTRMEMFUNC_P (type))
     return fold (cp_convert_to_pointer (type, e, 0));
+  /* APPLE LOCAL begin AltiVec */
   if (code == VECTOR_TYPE)
-    return fold (convert_to_vector (type, e));
+    {
+      if (TREE_CODE (TREE_TYPE (e)) != VECTOR_TYPE
+	  && !processing_template_decl)
+        return altivec_vector_constant (type, e);
+      return fold (convert_to_vector (type, e));
+    }
+  /* APPLE LOCAL end AltiVec */
   if (code == REAL_TYPE || code == COMPLEX_TYPE)
     {
       if (IS_AGGR_TYPE (TREE_TYPE (e)))

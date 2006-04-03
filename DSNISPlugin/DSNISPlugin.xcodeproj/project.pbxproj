@@ -1,0 +1,653 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		8432289F04ABCB34007D0E6B /* libsasl2.2.0.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8432289E04ABCB34007D0E6B /* libsasl2.2.0.1.dylib */; };
+		A421727902A9724403DD2834 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7743A29D01D155D805DD284B /* SystemConfiguration.framework */; };
+		A4533E2F02A4583D03DD2834 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4533E2E02A4583D03DD2834 /* Security.framework */; };
+		A45343BF01D3AB0C03DD2834 /* CommandLineUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = A453433C01D3AB0C03DD2834 /* CommandLineUtilities.h */; };
+		A45343CA01D3AB0C03DD2834 /* CommandLineUtilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A453433B01D3AB0C03DD2834 /* CommandLineUtilities.cpp */; };
+		A4A09E83021C680303DD2834 /* libDSPlugInCommon.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A4A09E7E021C680303DD2834 /* libDSPlugInCommon.a */; };
+		A4B489A80385C37803DD2834 /* ffparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A4B489A30385C37803DD2834 /* ffparser.cpp */; };
+		A4B489A90385C37803DD2834 /* ffparser.h in Headers */ = {isa = PBXBuildFile; fileRef = A4B489A40385C37803DD2834 /* ffparser.h */; };
+		A4B489D10385D47103DD2834 /* dsutil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A4B489CF0385D47103DD2834 /* dsutil.cpp */; };
+		A4B489D20385D47103DD2834 /* dsutil.h in Headers */ = {isa = PBXBuildFile; fileRef = A4B489D00385D47103DD2834 /* dsutil.h */; };
+		AAF7694607C6BD6200C7E4FB /* crypt-md5.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF7694407C6BD6200C7E4FB /* crypt-md5.cpp */; };
+		AAF7694707C6BD6200C7E4FB /* crypt-md5.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF7694507C6BD6200C7E4FB /* crypt-md5.h */; };
+		FE4AD2FE04F40D4300365AE8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FE4AD2FD04F40D4300365AE8 /* CoreFoundation.framework */; };
+		FE6FE2C6041033B300DD2834 /* BSDDebugLog.h in Headers */ = {isa = PBXBuildFile; fileRef = FE6FE2BE041033B300DD2834 /* BSDDebugLog.h */; };
+		FE6FE2C7041033B300DD2834 /* BSDDirNodeRep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE6FE2BF041033B300DD2834 /* BSDDirNodeRep.cpp */; };
+		FE6FE2C8041033B300DD2834 /* BSDDirNodeRep.h in Headers */ = {isa = PBXBuildFile; fileRef = FE6FE2C0041033B300DD2834 /* BSDDirNodeRep.h */; };
+		FE6FE2C9041033B300DD2834 /* BSDHeaders.h in Headers */ = {isa = PBXBuildFile; fileRef = FE6FE2C1041033B300DD2834 /* BSDHeaders.h */; };
+		FE6FE2CA041033B300DD2834 /* BSDPlugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE6FE2C2041033B300DD2834 /* BSDPlugin.cpp */; };
+		FE6FE2CB041033B300DD2834 /* BSDPlugin.h in Headers */ = {isa = PBXBuildFile; fileRef = FE6FE2C3041033B300DD2834 /* BSDPlugin.h */; };
+		FE6FE2CC041033B300DD2834 /* BSDResult.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE6FE2C4041033B300DD2834 /* BSDResult.cpp */; };
+		FE6FE2CD041033B300DD2834 /* BSDResult.h in Headers */ = {isa = PBXBuildFile; fileRef = FE6FE2C5041033B300DD2834 /* BSDResult.h */; };
+		FE79F81A074FBC9800588B8B /* ServerModule.exp in Sources */ = {isa = PBXBuildFile; fileRef = FE79F819074FBC9800588B8B /* ServerModule.exp */; };
+		FE79F936074FBE8700588B8B /* DirectoryServiceCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FE79F935074FBE8700588B8B /* DirectoryServiceCore.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		774A93FF01D12BAB05DD284B /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				BUILD_SETTING = "";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O -gfull";
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		774A940001D12BAB05DD284B /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		FEB55FE707AAF15B00845C96 /* Debug Logging Enabled */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				OTHER_CFLAGS = "-DLOG_ALWAYS=1";
+			};
+			name = "Debug Logging Enabled";
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXBundleTarget section */
+		7743A2A001D1562505DD284B /* BSD */ = {
+			isa = PBXBundleTarget;
+			buildConfigurationList = 5F0F7B1F095218EC00DA1D4D /* Build configuration list for PBXBundleTarget "BSD" */;
+			buildPhases = (
+				7743A2A101D1562505DD284B /* Headers */,
+				7743A2A201D1562505DD284B /* Resources */,
+				7743A2A301D1562505DD284B /* Sources */,
+				7743A2A401D1562505DD284B /* Frameworks */,
+				7743A2A501D1562505DD284B /* Rez */,
+			);
+			buildSettings = {
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
+					"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl",
+				);
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OTHER_CFLAGS = (
+					"-Wno-four-char-constants",
+					"-D__cplusplus",
+					"-DDEBUG",
+					"-DMACOSX",
+					"-DMAC_OS_X",
+					"-DTARGET_API_MAC_OSX=1",
+					"-DTARGET_CARBON=1",
+					"-DPP_Target_Carbon=1",
+					"-DTARGET_API_MAC_CARBON=1",
+					"-fpascal-strings",
+					"-Wno-unknown-pragmas",
+					"-Wno-reorder",
+					"-gfull",
+					"-fconstant-cfstrings",
+				);
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-bundle",
+					"-undefined",
+					error,
+					"-dead_strip",
+					"-bundle_loader",
+					/usr/sbin/DirectoryService,
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BSD;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = dsplug;
+			};
+			dependencies = (
+			);
+			name = BSD;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+			productName = DSHelperCodePlugin;
+			productReference = 7743A29F01D1562505DD284B /* BSD.dsplug */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleConfigAvail</key>
+	<string>Not Available</string>
+	<key>CFBundleConfigFile</key>
+	<string>Not Available</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>BSD</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryService.BSD</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>BSD</string>
+	<key>CFBundlePackageSignature</key>
+	<string>adss</string>
+	<key>CFBundlePackageType</key>
+	<string>dspi</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.2.2</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>CE63BE32-F5B6-11D6-9DC0-0003934FB010</key>
+		<string>ModuleFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>697B5D6C-87A1-1226-89CA-000502C1C736</key>
+		<array>
+			<string>CE63BE32-F5B6-11D6-9DC0-0003934FB010</string>
+		</array>
+	</dict>
+	<key>CFPluginNameString</key>
+	<string>BSD</string>
+	<key>DSNodesToRegister</key>
+	<array>
+		<dict>
+			<key>DSNodeToRegisterPath</key>
+			<array>
+				<string>BSD</string>
+				<string>local</string>
+			</array>
+			<key>DSNodeToRegisterType</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+	<key>DSOKToLoadLazily</key>
+	<string>YES</string>
+	<key>DSPluginPrefix</key>
+	<string>BSD</string>
+	<key>DSServerSignature</key>
+	<string>BSD</string>
+</dict>
+</plist>
+";
+		};
+/* End PBXBundleTarget section */
+
+/* Begin PBXFileReference section */
+		7743A29D01D155D805DD284B /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
+		7743A29F01D1562505DD284B /* BSD.dsplug */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = BSD.dsplug; sourceTree = BUILT_PRODUCTS_DIR; };
+		8432289E04ABCB34007D0E6B /* libsasl2.2.0.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsasl2.2.0.1.dylib; path = /usr/lib/libsasl2.2.0.1.dylib; sourceTree = "<absolute>"; };
+		A41313330393E67D03B74821 /* Todo.rtf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Todo.rtf; sourceTree = "<group>"; };
+		A4533E2E02A4583D03DD2834 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		A453433B01D3AB0C03DD2834 /* CommandLineUtilities.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CommandLineUtilities.cpp; path = HelperCode/CommandLineUtilities.cpp; sourceTree = "<group>"; };
+		A453433C01D3AB0C03DD2834 /* CommandLineUtilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CommandLineUtilities.h; path = HelperCode/CommandLineUtilities.h; sourceTree = "<group>"; };
+		A459055903CCA2A303DD2834 /* Configuration.strings */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = file; name = Configuration.strings; path = NIS/Configuration.strings; sourceTree = "<group>"; };
+		A4A09E7E021C680303DD2834 /* libDSPlugInCommon.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libDSPlugInCommon.a; path = /AppleInternal/Developer/libs/libDSPlugInCommon.a; sourceTree = "<absolute>"; };
+		A4B489A30385C37803DD2834 /* ffparser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ffparser.cpp; path = HelperCode/ffparser.cpp; sourceTree = "<group>"; };
+		A4B489A40385C37803DD2834 /* ffparser.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ffparser.h; path = HelperCode/ffparser.h; sourceTree = "<group>"; };
+		A4B489CF0385D47103DD2834 /* dsutil.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = dsutil.cpp; path = HelperCode/dsutil.cpp; sourceTree = "<group>"; };
+		A4B489D00385D47103DD2834 /* dsutil.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dsutil.h; path = HelperCode/dsutil.h; sourceTree = "<group>"; };
+		AAF7694407C6BD6200C7E4FB /* crypt-md5.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = "crypt-md5.cpp"; path = "NIS/crypt-md5.cpp"; sourceTree = "<group>"; };
+		AAF7694507C6BD6200C7E4FB /* crypt-md5.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = "crypt-md5.h"; path = "NIS/crypt-md5.h"; sourceTree = "<group>"; };
+		FE4AD2FD04F40D4300365AE8 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		FE6FE2BE041033B300DD2834 /* BSDDebugLog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BSDDebugLog.h; path = NIS/BSDDebugLog.h; sourceTree = "<group>"; };
+		FE6FE2BF041033B300DD2834 /* BSDDirNodeRep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = BSDDirNodeRep.cpp; path = NIS/BSDDirNodeRep.cpp; sourceTree = "<group>"; };
+		FE6FE2C0041033B300DD2834 /* BSDDirNodeRep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BSDDirNodeRep.h; path = NIS/BSDDirNodeRep.h; sourceTree = "<group>"; };
+		FE6FE2C1041033B300DD2834 /* BSDHeaders.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BSDHeaders.h; path = NIS/BSDHeaders.h; sourceTree = "<group>"; };
+		FE6FE2C2041033B300DD2834 /* BSDPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = BSDPlugin.cpp; path = NIS/BSDPlugin.cpp; sourceTree = "<group>"; };
+		FE6FE2C3041033B300DD2834 /* BSDPlugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BSDPlugin.h; path = NIS/BSDPlugin.h; sourceTree = "<group>"; };
+		FE6FE2C4041033B300DD2834 /* BSDResult.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = BSDResult.cpp; path = NIS/BSDResult.cpp; sourceTree = "<group>"; };
+		FE6FE2C5041033B300DD2834 /* BSDResult.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BSDResult.h; path = NIS/BSDResult.h; sourceTree = "<group>"; };
+		FE79F819074FBC9800588B8B /* ServerModule.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = ServerModule.exp; sourceTree = "<group>"; };
+		FE79F935074FBE8700588B8B /* DirectoryServiceCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryServiceCore.framework; path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7743A2A401D1562505DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE4AD2FE04F40D4300365AE8 /* CoreFoundation.framework in Frameworks */,
+				A4533E2F02A4583D03DD2834 /* Security.framework in Frameworks */,
+				A421727902A9724403DD2834 /* SystemConfiguration.framework in Frameworks */,
+				8432289F04ABCB34007D0E6B /* libsasl2.2.0.1.dylib in Frameworks */,
+				A4A09E83021C680303DD2834 /* libDSPlugInCommon.a in Frameworks */,
+				FE79F936074FBE8700588B8B /* DirectoryServiceCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		774A93FE01D12BAB05DD284B = {
+			isa = PBXGroup;
+			children = (
+				FE79F819074FBC9800588B8B /* ServerModule.exp */,
+				A453436B01D3AB0C03DD2834 /* Sources */,
+				A4B489A00385C36003DD2834 /* Helper Code */,
+				A453433A01D3AB0C03DD2834 /* Resources */,
+				A4B48983038597BD03DD2834 /* Other */,
+				774A949401D131F105DD284B /* Frameworks */,
+				774A942901D12DDF05DD284B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		774A942901D12DDF05DD284B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7743A29F01D1562505DD284B /* BSD.dsplug */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		774A949401D131F105DD284B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				FE79F935074FBE8700588B8B /* DirectoryServiceCore.framework */,
+				7743A29D01D155D805DD284B /* SystemConfiguration.framework */,
+				A4A09E7E021C680303DD2834 /* libDSPlugInCommon.a */,
+				A4533E2E02A4583D03DD2834 /* Security.framework */,
+				8432289E04ABCB34007D0E6B /* libsasl2.2.0.1.dylib */,
+				FE4AD2FD04F40D4300365AE8 /* CoreFoundation.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A453433A01D3AB0C03DD2834 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A459055903CCA2A303DD2834 /* Configuration.strings */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		A453436B01D3AB0C03DD2834 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				FE6FE2BE041033B300DD2834 /* BSDDebugLog.h */,
+				FE6FE2BF041033B300DD2834 /* BSDDirNodeRep.cpp */,
+				FE6FE2C0041033B300DD2834 /* BSDDirNodeRep.h */,
+				FE6FE2C1041033B300DD2834 /* BSDHeaders.h */,
+				FE6FE2C2041033B300DD2834 /* BSDPlugin.cpp */,
+				FE6FE2C3041033B300DD2834 /* BSDPlugin.h */,
+				FE6FE2C4041033B300DD2834 /* BSDResult.cpp */,
+				FE6FE2C5041033B300DD2834 /* BSDResult.h */,
+				AAF7694407C6BD6200C7E4FB /* crypt-md5.cpp */,
+				AAF7694507C6BD6200C7E4FB /* crypt-md5.h */,
+			);
+			name = Sources;
+			sourceTree = "<group>";
+		};
+		A4B48983038597BD03DD2834 /* Other */ = {
+			isa = PBXGroup;
+			children = (
+				A41313330393E67D03B74821 /* Todo.rtf */,
+			);
+			name = Other;
+			sourceTree = "<group>";
+		};
+		A4B489A00385C36003DD2834 /* Helper Code */ = {
+			isa = PBXGroup;
+			children = (
+				A453433B01D3AB0C03DD2834 /* CommandLineUtilities.cpp */,
+				A453433C01D3AB0C03DD2834 /* CommandLineUtilities.h */,
+				A4B489CF0385D47103DD2834 /* dsutil.cpp */,
+				A4B489D00385D47103DD2834 /* dsutil.h */,
+				A4B489A30385C37803DD2834 /* ffparser.cpp */,
+				A4B489A40385C37803DD2834 /* ffparser.h */,
+			);
+			name = "Helper Code";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		7743A2A101D1562505DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A45343BF01D3AB0C03DD2834 /* CommandLineUtilities.h in Headers */,
+				A4B489A90385C37803DD2834 /* ffparser.h in Headers */,
+				A4B489D20385D47103DD2834 /* dsutil.h in Headers */,
+				FE6FE2C6041033B300DD2834 /* BSDDebugLog.h in Headers */,
+				FE6FE2C8041033B300DD2834 /* BSDDirNodeRep.h in Headers */,
+				FE6FE2C9041033B300DD2834 /* BSDHeaders.h in Headers */,
+				FE6FE2CB041033B300DD2834 /* BSDPlugin.h in Headers */,
+				FE6FE2CD041033B300DD2834 /* BSDResult.h in Headers */,
+				AAF7694707C6BD6200C7E4FB /* crypt-md5.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXProject section */
+		774A93FD01D12BAB05DD284B /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 5F0F7B24095218EC00DA1D4D /* Build configuration list for PBXProject "DSNISPlugin" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				774A93FF01D12BAB05DD284B /* Development */,
+				774A940001D12BAB05DD284B /* Deployment */,
+				FEB55FE707AAF15B00845C96 /* Debug Logging Enabled */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 774A93FE01D12BAB05DD284B;
+			productRefGroup = 774A942901D12DDF05DD284B /* Products */;
+			projectDirPath = "";
+			targets = (
+				7743A2A001D1562505DD284B /* BSD */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7743A2A201D1562505DD284B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		7743A2A501D1562505DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7743A2A301D1562505DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A45343CA01D3AB0C03DD2834 /* CommandLineUtilities.cpp in Sources */,
+				A4B489A80385C37803DD2834 /* ffparser.cpp in Sources */,
+				A4B489D10385D47103DD2834 /* dsutil.cpp in Sources */,
+				FE6FE2C7041033B300DD2834 /* BSDDirNodeRep.cpp in Sources */,
+				FE6FE2CA041033B300DD2834 /* BSDPlugin.cpp in Sources */,
+				FE6FE2CC041033B300DD2834 /* BSDResult.cpp in Sources */,
+				FE79F81A074FBC9800588B8B /* ServerModule.exp in Sources */,
+				AAF7694607C6BD6200C7E4FB /* crypt-md5.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		5F0F7B20095218EC00DA1D4D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_SETTING = "";
+				COPY_PHASE_STRIP = NO;
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
+					"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl",
+				);
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OPTIMIZATION_CFLAGS = "-O -gfull";
+				OTHER_CFLAGS = (
+					"-Wno-four-char-constants",
+					"-D__cplusplus",
+					"-DDEBUG",
+					"-DMACOSX",
+					"-DMAC_OS_X",
+					"-DTARGET_API_MAC_OSX=1",
+					"-DTARGET_CARBON=1",
+					"-DPP_Target_Carbon=1",
+					"-DTARGET_API_MAC_CARBON=1",
+					"-fpascal-strings",
+					"-Wno-unknown-pragmas",
+					"-Wno-reorder",
+					"-gfull",
+					"-fconstant-cfstrings",
+				);
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-bundle",
+					"-undefined",
+					error,
+					"-dead_strip",
+					"-bundle_loader",
+					/usr/sbin/DirectoryService,
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BSD;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = dsplug;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		5F0F7B21095218EC00DA1D4D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
+					"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl",
+				);
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OTHER_CFLAGS = (
+					"-Wno-four-char-constants",
+					"-D__cplusplus",
+					"-DDEBUG",
+					"-DMACOSX",
+					"-DMAC_OS_X",
+					"-DTARGET_API_MAC_OSX=1",
+					"-DTARGET_CARBON=1",
+					"-DPP_Target_Carbon=1",
+					"-DTARGET_API_MAC_CARBON=1",
+					"-fpascal-strings",
+					"-Wno-unknown-pragmas",
+					"-Wno-reorder",
+					"-gfull",
+					"-fconstant-cfstrings",
+				);
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-bundle",
+					"-undefined",
+					error,
+					"-dead_strip",
+					"-bundle_loader",
+					/usr/sbin/DirectoryService,
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BSD;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = dsplug;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		5F0F7B22095218EC00DA1D4D /* Debug Logging Enabled */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
+					"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl",
+				);
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OTHER_CFLAGS = "-DLOG_ALWAYS=1";
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-bundle",
+					"-undefined",
+					error,
+					"-dead_strip",
+					"-bundle_loader",
+					/usr/sbin/DirectoryService,
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BSD;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = dsplug;
+			};
+			name = "Debug Logging Enabled";
+		};
+		5F0F7B23095218EC00DA1D4D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXPORTED_SYMBOLS_FILE = ServerModule.exp;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
+					"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl",
+				);
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OTHER_CFLAGS = (
+					"-Wno-four-char-constants",
+					"-D__cplusplus",
+					"-DDEBUG",
+					"-DMACOSX",
+					"-DMAC_OS_X",
+					"-DTARGET_API_MAC_OSX=1",
+					"-DTARGET_CARBON=1",
+					"-DPP_Target_Carbon=1",
+					"-DTARGET_API_MAC_CARBON=1",
+					"-fpascal-strings",
+					"-Wno-unknown-pragmas",
+					"-Wno-reorder",
+					"-gfull",
+					"-fconstant-cfstrings",
+				);
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-bundle",
+					"-undefined",
+					error,
+					"-dead_strip",
+					"-bundle_loader",
+					/usr/sbin/DirectoryService,
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BSD;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = dsplug;
+			};
+			name = Default;
+		};
+		5F0F7B25095218EC00DA1D4D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		5F0F7B26095218EC00DA1D4D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		5F0F7B27095218EC00DA1D4D /* Debug Logging Enabled */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = "Debug Logging Enabled";
+		};
+		5F0F7B28095218EC00DA1D4D /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5F0F7B1F095218EC00DA1D4D /* Build configuration list for PBXBundleTarget "BSD" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5F0F7B20095218EC00DA1D4D /* Development */,
+				5F0F7B21095218EC00DA1D4D /* Deployment */,
+				5F0F7B22095218EC00DA1D4D /* Debug Logging Enabled */,
+				5F0F7B23095218EC00DA1D4D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		5F0F7B24095218EC00DA1D4D /* Build configuration list for PBXProject "DSNISPlugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5F0F7B25095218EC00DA1D4D /* Development */,
+				5F0F7B26095218EC00DA1D4D /* Deployment */,
+				5F0F7B27095218EC00DA1D4D /* Debug Logging Enabled */,
+				5F0F7B28095218EC00DA1D4D /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 774A93FD01D12BAB05DD284B /* Project object */;
+}

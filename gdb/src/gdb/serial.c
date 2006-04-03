@@ -184,11 +184,12 @@ serial_open (const char *name)
 
   if (strcmp (name, "pc") == 0)
     ops = serial_interface_lookup ("pc");
-  /* APPLE LOCAL: classic-inferior-support. 
-     Add a "unix" serial interface, or in other words a fifo socket on the 
-     filesystem somewhere, used for debugging classic applications. */
+  /* APPLE LOCAL begin classic-inferior-support */
+  /* Add a "unix" serial interface, or in other words a socket on
+     the filesystem somewhere, used for debugging classic applications.  */
   else if (strncmp (name, "unix:", 5) == 0)
     ops = serial_interface_lookup ("unix");
+  /* APPLE LOCAL end classic-inferior-support */
   else if (strchr (name, ':'))
     ops = serial_interface_lookup ("tcp");
   else if (strncmp (name, "lpt", 3) == 0)
@@ -211,7 +212,7 @@ serial_open (const char *name)
   scb->bufcnt = 0;
   scb->bufp = scb->buf;
 
-  if (scb->ops->sopen (scb, open_name))
+  if (scb->ops->open (scb, open_name))
     {
       xfree (scb);
       return NULL;
@@ -311,7 +312,7 @@ do_serial_close (struct serial *scb, int really_close)
     serial_async (scb, NULL, NULL);
 
   if (really_close)
-    scb->ops->sclose (scb);
+    scb->ops->close (scb);
 
   if (scb->name)
     xfree (scb->name);
@@ -389,7 +390,7 @@ serial_write (struct serial *scb, const char *str, int len)
       gdb_flush (serial_logfp);
     }
 
-  return (scb->ops->swrite (scb, str, len));
+  return (scb->ops->write (scb, str, len));
 }
 
 void

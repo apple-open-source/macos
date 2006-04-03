@@ -1,10 +1,23 @@
 ========================================================================
 KerberosDebug Version History
 ========================================================================
-Current version: 1.6fc5
-Date:            January 23, 2005
+Current version: 1.6.1fc1
+Date:            October 6, 2005
 Author:          meeroh@mit.edu, lxs@mit.edu
 ========================================================================
+
+KerberosDebug 1.6.1
+Released with KfM 5.5.2
+
+========================================================================
+
+	KerberosDebug 1.6.1fc1
+	October 6, 2005
+
+	[RT 3197] memory smash in dprintmem
+	[RT 3198] dprintf should get gcc printf warnings
+
+	========================================================================
 
 KerberosDebug 1.6
 Released with KfM 5.5

@@ -192,7 +192,7 @@ return the pid of racoon process
 int 
 racoon_pid()
 {
-    int   	pid = 0, err, name[3];
+    int   	pid = 0, err, name[4];
     FILE 	*f;
     size_t	namelen, infolen;
     struct kinfo_proc	info;
@@ -554,8 +554,14 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 					FAIL("incorrect phase 1 exchange mode");
 			}
 		}
-		if (nb == 0)
-			strcat(text, "main");
+		if (nb == 0) {
+			char str[256];
+			/* default mode is main except if local identifier is defined */
+			if (GetStrFromDict(ipsec_dict, kRASPropIPSecLocalIdentifier, str, sizeof(str), ""))
+				strcat(text, "aggressive");
+			else 
+				strcat(text, "main");
+		}
 		strcat(text, ";\n");
 		WRITE(text);
 	}
@@ -608,9 +614,25 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 	*/
 	{
 		char	str[256];
+		char	str1[256];
+
+		if (GetStrFromDict(ipsec_dict, CFSTR("LocalIdentifierType"), str1, sizeof(str1), "")) {
+			if (!strcmp(str1, "FQDN"))
+				strcpy(str1, "fqdn");
+			else if (!strcmp(str1, "UserFQDN"))
+				strcpy(str1, "user_fqdn");
+			else if (!strcmp(str1, "KeyID"))
+				strcpy(str1, "keyid_use");
+			else if (!strcmp(str1, "Address"))
+				strcpy(str1, "address");
+			else if (!strcmp(str1, "ASN1DN"))
+				strcpy(str1, "asn1dn");
+			else 
+				strcpy(str1, "");
+		}
 		
 		if (GetStrFromDict(ipsec_dict, kRASPropIPSecLocalIdentifier, str, sizeof(str), "")) {
-			sprintf(text, "my_identifier fqdn \"%s\";\n", str);
+			sprintf(text, "my_identifier %s \"%s\";\n", str1[0] ? str1 : "fqdn", str);
 			WRITE(text);
 		}
 		else {

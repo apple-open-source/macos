@@ -1,0 +1,469 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A14CB4C708EB1A7400601146 /* Code Fragment Manager.et in Sources */ = {isa = PBXBuildFile; fileRef = A14CB4C508EB1A4400601146 /* Code Fragment Manager.et */; };
+		A1592AC806CBC9E4008C2518 /* compile_et in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5A5E6690225A61A01650119 /* compile_et */; };
+		A1AB1DA705DDC34C00526345 /* com_err.h in Headers */ = {isa = PBXBuildFile; fileRef = F586010F022E802401120112 /* com_err.h */; };
+		A1AB1DA905DDC34C00526345 /* com_err.c in Sources */ = {isa = PBXBuildFile; fileRef = F568D4FA0226E280019430C7 /* com_err.c */; };
+		A1B706BC0872F4A700F0C55D /* Apple Event Manager.et in Sources */ = {isa = PBXBuildFile; fileRef = F5A5E6570225A5BB01650119 /* Apple Event Manager.et */; };
+		A1B706BD0872F4A700F0C55D /* File Manager.et in Sources */ = {isa = PBXBuildFile; fileRef = F5A5E65A0225A5BB01650119 /* File Manager.et */; };
+		A1B706BE0872F4A700F0C55D /* Gestalt Manager.et in Sources */ = {isa = PBXBuildFile; fileRef = F5A5E65B0225A5BB01650119 /* Gestalt Manager.et */; };
+		A1B706BF0872F4A700F0C55D /* Memory Manager.et in Sources */ = {isa = PBXBuildFile; fileRef = F5A5E65D0225A5BB01650119 /* Memory Manager.et */; };
+		A1B706C00872F4A700F0C55D /* Process Manager.et in Sources */ = {isa = PBXBuildFile; fileRef = F5A5E6600225A5BB01650119 /* Process Manager.et */; };
+		A1B706C10872F4A700F0C55D /* Resource Manager.et in Sources */ = {isa = PBXBuildFile; fileRef = F5A5E66C0225A75D01650119 /* Resource Manager.et */; };
+		A1B706C20872F4A700F0C55D /* Thread Manager.et in Sources */ = {isa = PBXBuildFile; fileRef = F5A5E6650225A5BB01650119 /* Thread Manager.et */; };
+		A1CE52780701F9EE001B200C /* com_err_threads.c in Sources */ = {isa = PBXBuildFile; fileRef = A1CE52770701F9EE001B200C /* com_err_threads.c */; };
+		A1CE52900701FCDC001B200C /* com_err_threads.h in Headers */ = {isa = PBXBuildFile; fileRef = A1CE528F0701FCDC001B200C /* com_err_threads.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		A1B706B90872F45A00F0C55D /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.et";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates/${INPUT_FILE_BASE}.h",
+				"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates/${INPUT_FILE_BASE}.strings",
+			);
+			script = "COMPILE_ET=\"${SRCROOT}/../../KerberosErrors/Scripts/compile_et\"\nOUTPUT_DIR=\"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates\"\n\nperl \"${COMPILE_ET}\" --etout \"${OUTPUT_DIR}\" \"${INPUT_FILE_PATH}\"\n";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXBuildStyle section */
+		F5C9C3AF021C70CE01650119 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		F5C9C3B0021C70CE01650119 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A1592AC706CBC9D2008C2518 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/bin;
+			dstSubfolderSpec = 0;
+			files = (
+				A1592AC806CBC9E4008C2518 /* compile_et in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		A11CD93506EFAB420038B69F /* compile_et.M */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = compile_et.M; sourceTree = "<group>"; };
+		A14CB4C508EB1A4400601146 /* Code Fragment Manager.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "Code Fragment Manager.et"; sourceTree = "<group>"; };
+		A1AB1DAD05DDC34C00526345 /* libKerberosErrors.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKerberosErrors.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1CE52770701F9EE001B200C /* com_err_threads.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = com_err_threads.c; sourceTree = "<group>"; };
+		A1CE528F0701FCDC001B200C /* com_err_threads.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = com_err_threads.h; sourceTree = "<group>"; };
+		F568D4FA0226E280019430C7 /* com_err.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = com_err.c; sourceTree = "<group>"; };
+		F586010F022E802401120112 /* com_err.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = com_err.h; sourceTree = "<group>"; };
+		F59DBAF702289C2501D5A565 /* Apple Event Manager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "Apple Event Manager.c"; sourceTree = "<group>"; };
+		F59DBAF802289C2501D5A565 /* Apple Event Manager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "Apple Event Manager.h"; sourceTree = "<group>"; };
+		F59DBAF902289C2501D5A565 /* Code Fragment Manager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "Code Fragment Manager.c"; sourceTree = "<group>"; };
+		F59DBAFA02289C2501D5A565 /* Code Fragment Manager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "Code Fragment Manager.h"; sourceTree = "<group>"; };
+		F59DBAFB02289C2501D5A565 /* File Manager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "File Manager.c"; sourceTree = "<group>"; };
+		F59DBAFC02289C2501D5A565 /* File Manager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "File Manager.h"; sourceTree = "<group>"; };
+		F59DBAFD02289C2501D5A565 /* Gestalt Manager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "Gestalt Manager.c"; sourceTree = "<group>"; };
+		F59DBAFE02289C2501D5A565 /* Gestalt Manager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "Gestalt Manager.h"; sourceTree = "<group>"; };
+		F59DBAFF02289C2501D5A565 /* Memory Manager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "Memory Manager.c"; sourceTree = "<group>"; };
+		F59DBB0002289C2501D5A565 /* Memory Manager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "Memory Manager.h"; sourceTree = "<group>"; };
+		F59DBB0102289C2501D5A565 /* Process Manager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "Process Manager.c"; sourceTree = "<group>"; };
+		F59DBB0202289C2501D5A565 /* Process Manager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "Process Manager.h"; sourceTree = "<group>"; };
+		F59DBB0302289C2501D5A565 /* Resource Manager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "Resource Manager.c"; sourceTree = "<group>"; };
+		F59DBB0402289C2501D5A565 /* Resource Manager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "Resource Manager.h"; sourceTree = "<group>"; };
+		F59DBB0502289C2501D5A565 /* Thread Manager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "Thread Manager.c"; sourceTree = "<group>"; };
+		F59DBB0602289C2501D5A565 /* Thread Manager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "Thread Manager.h"; sourceTree = "<group>"; };
+		F5A5E6570225A5BB01650119 /* Apple Event Manager.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "Apple Event Manager.et"; sourceTree = "<group>"; };
+		F5A5E65A0225A5BB01650119 /* File Manager.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "File Manager.et"; sourceTree = "<group>"; };
+		F5A5E65B0225A5BB01650119 /* Gestalt Manager.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "Gestalt Manager.et"; sourceTree = "<group>"; };
+		F5A5E65D0225A5BB01650119 /* Memory Manager.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "Memory Manager.et"; sourceTree = "<group>"; };
+		F5A5E6600225A5BB01650119 /* Process Manager.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "Process Manager.et"; sourceTree = "<group>"; };
+		F5A5E6650225A5BB01650119 /* Thread Manager.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "Thread Manager.et"; sourceTree = "<group>"; };
+		F5A5E6690225A61A01650119 /* compile_et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; path = compile_et; sourceTree = "<group>"; };
+		F5A5E66A0225A61A01650119 /* GenerateErrorList */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; path = GenerateErrorList; sourceTree = "<group>"; };
+		F5A5E66C0225A75D01650119 /* Resource Manager.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "Resource Manager.et"; sourceTree = "<group>"; };
+		F5FCBFA90226913001603B63 /* KerberosErrors.pbexp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = KerberosErrors.pbexp; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1AB1DAA05DDC34C00526345 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A11CD93206EFAB420038B69F /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				A11CD93506EFAB420038B69F /* compile_et.M */,
+			);
+			name = Documentation;
+			path = ../Documentation;
+			sourceTree = "<group>";
+		};
+		F551B58C02244EC901650119 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				A1CE528F0701FCDC001B200C /* com_err_threads.h */,
+				F551B58D02244EC901650119 /* Kerberos */,
+			);
+			name = Headers;
+			path = ../Headers;
+			sourceTree = SOURCE_ROOT;
+		};
+		F551B58D02244EC901650119 /* Kerberos */ = {
+			isa = PBXGroup;
+			children = (
+				F586010F022E802401120112 /* com_err.h */,
+			);
+			path = Kerberos;
+			sourceTree = "<group>";
+		};
+		F551B59202244EC901650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A1CE52770701F9EE001B200C /* com_err_threads.c */,
+				F568D4FA0226E280019430C7 /* com_err.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F59DBAF602289C2501D5A565 /* KerberosErrors.intermediates */ = {
+			isa = PBXGroup;
+			children = (
+				F59DBAF702289C2501D5A565 /* Apple Event Manager.c */,
+				F59DBAF802289C2501D5A565 /* Apple Event Manager.h */,
+				F59DBAF902289C2501D5A565 /* Code Fragment Manager.c */,
+				F59DBAFA02289C2501D5A565 /* Code Fragment Manager.h */,
+				F59DBAFB02289C2501D5A565 /* File Manager.c */,
+				F59DBAFC02289C2501D5A565 /* File Manager.h */,
+				F59DBAFD02289C2501D5A565 /* Gestalt Manager.c */,
+				F59DBAFE02289C2501D5A565 /* Gestalt Manager.h */,
+				F59DBAFF02289C2501D5A565 /* Memory Manager.c */,
+				F59DBB0002289C2501D5A565 /* Memory Manager.h */,
+				F59DBB0102289C2501D5A565 /* Process Manager.c */,
+				F59DBB0202289C2501D5A565 /* Process Manager.h */,
+				F59DBB0302289C2501D5A565 /* Resource Manager.c */,
+				F59DBB0402289C2501D5A565 /* Resource Manager.h */,
+				F59DBB0502289C2501D5A565 /* Thread Manager.c */,
+				F59DBB0602289C2501D5A565 /* Thread Manager.h */,
+			);
+			path = KerberosErrors.intermediates;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		F5A5E6560225A5BB01650119 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F5A5E6570225A5BB01650119 /* Apple Event Manager.et */,
+				A14CB4C508EB1A4400601146 /* Code Fragment Manager.et */,
+				F5A5E65A0225A5BB01650119 /* File Manager.et */,
+				F5A5E65B0225A5BB01650119 /* Gestalt Manager.et */,
+				F5A5E65D0225A5BB01650119 /* Memory Manager.et */,
+				F5A5E6600225A5BB01650119 /* Process Manager.et */,
+				F5A5E66C0225A75D01650119 /* Resource Manager.et */,
+				F5A5E6650225A5BB01650119 /* Thread Manager.et */,
+			);
+			name = Resources;
+			path = ../Resources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5A5E6680225A61A01650119 /* Scripts */ = {
+			isa = PBXGroup;
+			children = (
+				F5A5E6690225A61A01650119 /* compile_et */,
+				F5A5E66A0225A61A01650119 /* GenerateErrorList */,
+			);
+			name = Scripts;
+			path = ../Scripts;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5C9C3AE021C70CE01650119 = {
+			isa = PBXGroup;
+			children = (
+				F5FCBFA90226913001603B63 /* KerberosErrors.pbexp */,
+				F59DBAF602289C2501D5A565 /* KerberosErrors.intermediates */,
+				A11CD93206EFAB420038B69F /* Documentation */,
+				F551B58C02244EC901650119 /* Headers */,
+				F551B59202244EC901650119 /* Sources */,
+				F5A5E6560225A5BB01650119 /* Resources */,
+				F5A5E6680225A61A01650119 /* Scripts */,
+				F5C9C3F5021C74A101650119 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F5C9C3F5021C74A101650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1AB1DAD05DDC34C00526345 /* libKerberosErrors.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A1AB1DA605DDC34C00526345 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1AB1DA705DDC34C00526345 /* com_err.h in Headers */,
+				A1CE52900701FCDC001B200C /* com_err_threads.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A1AB1DA405DDC34C00526345 /* KerberosErrors */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1518EF2086C85DC0042CBBC /* Build configuration list for PBXNativeTarget "KerberosErrors" */;
+			buildPhases = (
+				A1AB1DA605DDC34C00526345 /* Headers */,
+				A1AB1DA805DDC34C00526345 /* Sources */,
+				A1AB1DAA05DDC34C00526345 /* Frameworks */,
+				A1AB1DAB05DDC34C00526345 /* Rez */,
+				A1592AC706CBC9D2008C2518 /* CopyFiles */,
+				A11CD95C06EFB3590038B69F /* ShellScript */,
+			);
+			buildRules = (
+				A1B706B90872F45A00F0C55D /* PBXBuildRule */,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosLogin/Headers",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosErrors;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = KerberosErrors;
+			productInstallPath = /usr/local/lib;
+			productName = KerberosErrorLib;
+			productReference = A1AB1DAD05DDC34C00526345 /* libKerberosErrors.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F5C9C3AD021C70CE01650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1518EF6086C85DC0042CBBC /* Build configuration list for PBXProject "KerberosErrors" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				F5C9C3AF021C70CE01650119 /* Development */,
+				F5C9C3B0021C70CE01650119 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = F5C9C3AE021C70CE01650119;
+			productRefGroup = F5C9C3F5021C74A101650119 /* Products */;
+			projectDirPath = "";
+			targets = (
+				A1AB1DA405DDC34C00526345 /* KerberosErrors */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		A1AB1DAB05DDC34C00526345 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A11CD95C06EFB3590038B69F /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/compile_et.M",
+			);
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/compile_et.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/compile_et.M\" \"${DSTROOT}/usr/share/man/man1/compile_et.1\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1AB1DA805DDC34C00526345 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B706BC0872F4A700F0C55D /* Apple Event Manager.et in Sources */,
+				A14CB4C708EB1A7400601146 /* Code Fragment Manager.et in Sources */,
+				A1B706BD0872F4A700F0C55D /* File Manager.et in Sources */,
+				A1B706BE0872F4A700F0C55D /* Gestalt Manager.et in Sources */,
+				A1B706BF0872F4A700F0C55D /* Memory Manager.et in Sources */,
+				A1B706C00872F4A700F0C55D /* Process Manager.et in Sources */,
+				A1B706C10872F4A700F0C55D /* Resource Manager.et in Sources */,
+				A1B706C20872F4A700F0C55D /* Thread Manager.et in Sources */,
+				A1AB1DA905DDC34C00526345 /* com_err.c in Sources */,
+				A1CE52780701F9EE001B200C /* com_err_threads.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1518EF3086C85DC0042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosLogin/Headers",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosErrors;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wall";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A1518EF4086C85DC0042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosLogin/Headers",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosErrors;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wall";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A1518EF5086C85DC0042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosLogin/Headers",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosErrors;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Default;
+		};
+		A1518EF7086C85DC0042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		A1518EF8086C85DC0042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		A1518EF9086C85DC0042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1518EF2086C85DC0042CBBC /* Build configuration list for PBXNativeTarget "KerberosErrors" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1518EF3086C85DC0042CBBC /* Development */,
+				A1518EF4086C85DC0042CBBC /* Deployment */,
+				A1518EF5086C85DC0042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A1518EF6086C85DC0042CBBC /* Build configuration list for PBXProject "KerberosErrors" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1518EF7086C85DC0042CBBC /* Development */,
+				A1518EF8086C85DC0042CBBC /* Deployment */,
+				A1518EF9086C85DC0042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5C9C3AD021C70CE01650119 /* Project object */;
+}

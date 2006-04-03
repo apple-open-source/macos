@@ -7,7 +7,7 @@ int _dyld_func_lookup(
     unsigned long *address);
        
        
-#if !defined(__ppc64__)
+#if defined(__ppc__)
 /*
  * __initialize_Cplusplus() is a symbols specific to each shared library that
  * can be called in the shared library's initialization routine to force the

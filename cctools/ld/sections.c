@@ -38,6 +38,7 @@
 #endif /* !(defined(KLD) && defined(__STATIC__)) */
 #include <stdarg.h>
 #include <string.h>
+#include <sys/time.h>
 #include "stuff/openstep_mach.h"
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
@@ -275,6 +276,22 @@ static unsigned long scatter_copy_relocs(
     struct section_map *map,
     struct relocation_info *relocs,
     struct relocation_info *output_relocs);
+static double calculate_time_used(
+    struct timeval *start,
+    struct timeval *end);
+static void build_references(
+    void);
+static void print_references(
+    void);
+static void setup_references_in_section(
+    struct merged_section *ms);
+static void setup_references(
+    struct section_map *map,
+    struct object_file *obj);
+static void setup_reference(
+    struct live_ref *ref,
+    struct object_file *obj,
+    struct fine_reloc *self_fine_reloc);
 static void mark_all_fine_relocs_live_in_section(
     struct merged_section *ms);
 /*
@@ -305,10 +322,7 @@ static enum bool walk_references(
     struct object_file *obj);
 static enum bool ref_operation(
     enum walk_references_operation operation,
-    struct live_ref *ref,
-    struct object_file *obj);
-static unsigned long r_symbolnum_from_r_value(
-    unsigned long r_value,
+    struct ref *ref,
     struct object_file *obj);
 
 #endif /* !defined(RLD) */
@@ -1709,7 +1723,10 @@ struct merged_section *ms)
 		    cur_obj->cur_section_map->load_orders = load_order;
 		    cur_obj->cur_section_map->nload_orders = n;
 		    load_order->order = cur_obj->cur_section_map->order;
-		    load_order->name = NULL;
+		    if(dead_strip == TRUE)
+			load_order->name = ".section_all";
+		    else
+			load_order->name = NULL;
 		    load_order->value = cur_obj->section_maps->s->addr;
 		    load_order->input_offset = 0;
 		    load_order->output_offset = output_offset;
@@ -1826,12 +1843,14 @@ struct merged_section *ms)
 		    if(dead_strip == TRUE){
 			if((start_section == TRUE || j != 0) &&
 			   object_symbols[load_orders[j].index].n_type & N_EXT){
-			    merged_symbol = *(lookup_symbol(object_strings +
+			    merged_symbol = lookup_symbol(object_strings +
 				object_symbols[load_orders[j].index].
-				    n_un.n_strx));
-			    if(merged_symbol != NULL &&
-			       merged_symbol->definition_object == cur_obj)
+				    n_un.n_strx);
+			    if(merged_symbol->name_len != 0 &&
+			       merged_symbol->definition_object == cur_obj){
 				fine_relocs[j].merged_symbol = merged_symbol;
+				merged_symbol->fine_reloc = fine_relocs + j;
+			    }
 			}
 		    }
 		}
@@ -3290,7 +3309,7 @@ unsigned long *nextrel)
     unsigned long r_address, r_type, r_extern, r_symbolnum, r_pcrel, r_value,
 		  r_length;
     struct undefined_map *undefined_map;
-    struct merged_symbol *merged_symbol, **hash_pointer;
+    struct merged_symbol *merged_symbol;
     struct nlist *nlists;
     char *strings;
     enum bool defined, pic;
@@ -3384,14 +3403,13 @@ unsigned long *nextrel)
 		    if((nlists[r_symbolnum].n_type & N_TYPE) == N_SECT &&
 		       (cur_obj->section_maps[nlists[r_symbolnum].n_sect-1].
 			s->flags & SECTION_TYPE) == S_COALESCED){
-			hash_pointer = lookup_symbol(strings +
+			merged_symbol = lookup_symbol(strings +
 					     nlists[r_symbolnum].n_un.n_strx);
-			if(hash_pointer == NULL){
+			if(merged_symbol->name_len == 0){
 			    fatal("internal error, in count_relocs() failed to "
 			          "lookup coalesced symbol %s", strings +
 				  nlists[r_symbolnum].n_un.n_strx);
 			}
-			merged_symbol = *hash_pointer;
 		    }
 		    else
 			return;
@@ -4130,6 +4148,8 @@ char *contents)
     struct merged_symbol *merged_symbol;
     char *strings;
     struct section_map *section_map;
+    long delta;
+    char *jmpEntry;
 
 	/*
 	 * For non-lazy pointer type indirect sections only copy those parts of
@@ -4175,9 +4195,9 @@ char *contents)
 				(int (*)(const void *, const void *))
 				undef_bsearch);
 			    if(undefined_map == NULL){
-				merged_symbol = *(lookup_symbol(strings +
-						    nlists[index].n_un.n_strx));
-				if(merged_symbol == NULL)
+				merged_symbol = lookup_symbol(strings +
+						    nlists[index].n_un.n_strx);
+				if(merged_symbol->name_len == 0)
 				    fatal("interal error, scatter_copy() failed"
 					  " in looking up external symbol");
 			    }
@@ -4290,9 +4310,9 @@ char *contents)
 			    (int (*)(const void *, const void *))
 			    undef_bsearch);
 			if(undefined_map == NULL){
-			    merged_symbol = *(lookup_symbol(strings +
-						nlists[index].n_un.n_strx));
-			    if(merged_symbol == NULL)
+			    merged_symbol = lookup_symbol(strings +
+						nlists[index].n_un.n_strx);
+			    if(merged_symbol->name_len == 0)
 				fatal("interal error, scatter_copy() failed"
 				      " in looking up external symbol");
 			}
@@ -4382,14 +4402,61 @@ char *contents)
 	    }
 	}
 	/*
+	 * The i386 has a special 5 byte stub that is modify by dyld to become 
+	 * a JMP instruction.  When building prebound, we set the stub to be
+	 * the JMP instruction. 
+	 */
+	else if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS &&
+		prebinding == TRUE &&
+		arch_flag.cputype == CPU_TYPE_I386 &&
+	        (map->s->flags & S_ATTR_SELF_MODIFYING_CODE) ==
+		    S_ATTR_SELF_MODIFYING_CODE &&
+		map->s->reserved2 == 5){
+	    nlists = (struct nlist *)(cur_obj->obj_addr +
+				      cur_obj->symtab->symoff);
+	    indirect_symtab = (unsigned long *)(cur_obj->obj_addr +
+					    cur_obj->dysymtab->indirectsymoff);
+	    strings = cur_obj->obj_addr + cur_obj->symtab->stroff;
+	    for(i = 0; i < map->nfine_relocs; i++){
+		if(map->fine_relocs[i].use_contents == TRUE &&
+		   (dead_strip == FALSE || map->fine_relocs[i].live == TRUE)){
+		    index = indirect_symtab[map->s->reserved1 + 
+			    (map->fine_relocs[i].input_offset / 5)];
+					    undefined_map = bsearch(&index,
+			cur_obj->undefined_maps, cur_obj->nundefineds,
+			sizeof(struct undefined_map),
+			(int (*)(const void *, const void *))
+			undef_bsearch);
+		    if(undefined_map == NULL){
+			merged_symbol = lookup_symbol(strings +
+					    nlists[index].n_un.n_strx);
+			if(merged_symbol->name_len == 0)
+				fatal("interal error, scatter_copy() failed"
+				  " in looking up external symbol");
+		    }
+		    else
+			merged_symbol = undefined_map->merged_symbol;
+		    value = merged_symbol->nlist.n_value;
+		    delta = value - (map->output_section->s.addr +
+				     map->fine_relocs[i].output_offset + 5);
+		    jmpEntry = output_addr + map->output_section->s.offset +
+			       map->fine_relocs[i].output_offset;
+		    if(host_byte_sex != target_byte_sex)
+			delta = SWAP_LONG(delta);
+		    *jmpEntry = 0xE9; /* JMP rel32 */
+		    memcpy(jmpEntry + 1, &delta, sizeof(unsigned long));
+		}
+	    }
+	}
+	else
+#endif /* !defined(RLD) */
+	/*
 	 * For other indirect sections and coalesced sections only copy those
 	 * parts of the section who's contents are used in the output file.
 	 */
-	else
-#endif /* !defined(RLD) */
-	     if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
-	        (map->s->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
-	        (map->s->flags & SECTION_TYPE) == S_COALESCED){
+	 if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
+	    (map->s->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
+	    (map->s->flags & SECTION_TYPE) == S_COALESCED){
 	    for(i = 0; i < map->nfine_relocs - 1; i++){
 		if(map->fine_relocs[i].use_contents == TRUE &&
 		   (dead_strip == FALSE || map->fine_relocs[i].live == TRUE)){
@@ -4919,6 +4986,25 @@ live_marking(void)
     struct fine_reloc *fine_reloc;
     struct merged_segment *msg, **p;
     struct merged_section *ms, **content, **zerofill;
+    struct timeval t0, t1, t2, t3, t4, t5;
+    double time_used;
+
+	if(dead_strip_times == TRUE)
+	    gettimeofday(&t0, NULL);
+
+	/*
+	 * First set up all the refs arrays in each fine_reloc and the pointer
+	 * to the fine_reloc in each merged_symbol.
+	 */
+	build_references();
+	/*
+	 * If build_references() encountered a relocation error just return now.
+	 */
+	if(errors)
+	    return;
+
+	if(dead_strip_times == TRUE)
+	    gettimeofday(&t1, NULL);
 
 	/*
 	 * If the output filetype has an entry point mark it live.  If the
@@ -4931,13 +5017,13 @@ live_marking(void)
 	   filetype != MH_DYLIB &&
 	   filetype != MH_BUNDLE){
 	    if(entry_point_name != NULL){
-		merged_symbol = *(lookup_symbol(entry_point_name));
+		merged_symbol = lookup_symbol(entry_point_name);
 		/*
 		 * If the symbol is not found the entry point it can't be
 		 * marked live. Note: the error of specifying a bad entry point
 		 * name is handled in layout_segments() in layout.c .
 		 */
-		if(merged_symbol != NULL){
+		if(merged_symbol->name_len != 0){
 #ifdef DEBUG
 		    if(((debug & (1 << 25)) || (debug & (1 << 26)))){
 			print("** In live_marking() -e symbol ");
@@ -4946,8 +5032,7 @@ live_marking(void)
 		    }
 #endif /* DEBUG */
 		    merged_symbol->live = TRUE;
-		    fine_reloc = get_fine_reloc_for_merged_symbol(
-					merged_symbol, NULL);
+		    fine_reloc = merged_symbol->fine_reloc;
 		    if(fine_reloc != NULL)
 			fine_reloc->live = TRUE;
 		}
@@ -5010,13 +5095,13 @@ live_marking(void)
 	 * live.
 	 */
 	if(filetype == MH_DYLIB && init_name != NULL){
-	    merged_symbol = *(lookup_symbol(init_name));
+	    merged_symbol = lookup_symbol(init_name);
 	    /*
 	     * If the symbol is not found the init routine it can't be marked
 	     * live. Note: the error of specifying a bad init routine name is
 	     * handled in layout_segments() in layout.c .
 	     */
-	    if(merged_symbol != NULL){
+	    if(merged_symbol->name_len != 0){
 #ifdef DEBUG
 		if(((debug & (1 << 25)) || (debug & (1 << 26)))){
 		    print("** In live_marking() -init symbol ");
@@ -5025,10 +5110,8 @@ live_marking(void)
 		}
 #endif /* DEBUG */
 		merged_symbol->live = TRUE;
-		fine_reloc = get_fine_reloc_for_merged_symbol(merged_symbol,
-							      NULL);
-		if(fine_reloc != NULL)
-		    fine_reloc->live = TRUE;
+		if(merged_symbol->fine_reloc != NULL)
+		    merged_symbol->fine_reloc->live = TRUE;
 	    }
 	}
 
@@ -5088,6 +5171,9 @@ live_marking(void)
 	    }
 	}
 
+	if(dead_strip_times == TRUE)
+	    gettimeofday(&t2, NULL);
+
 	/*
 	 * Now with the above code marking the initial fine_relocs live cause
 	 * the references from the live fine relocs to be marked live.
@@ -5104,16 +5190,13 @@ live_marking(void)
 			  ms->s.segname, ms->s.sectname);
 #endif /* DEBUG */
 		walk_references_in_section(MARK_LIVE, ms);
-		/*
-		 * If walk_references_in_section() encountered a relocation
-		 * error just return now.
-		 */
-		if(errors)
-		    return;
 		content = &(ms->next);
 	    }
 	    p = &(msg->next);
 	}
+
+	if(dead_strip_times == TRUE)
+	    gettimeofday(&t3, NULL);
 
 	/*
 	 * If -no_dead_strip_inits_and_terms was not specified, now with all
@@ -5132,17 +5215,14 @@ live_marking(void)
 		    if(section_type == S_MOD_INIT_FUNC_POINTERS ||
 		       section_type == S_MOD_TERM_FUNC_POINTERS)
 			walk_references_in_section(SEARCH_FOR_LIVE, ms);
-		    /*
-		     * If walk_references_in_section() encountered a relocation
-		     * error just return now.
-		     */
-		    if(errors)
-			return;
 		    content = &(ms->next);
 		}
 		p = &(msg->next);
 	    }
 	}
+
+	if(dead_strip_times == TRUE)
+	    gettimeofday(&t4, NULL);
 
 	/*
 	 * Now with all other things marked live, for the sections marked with
@@ -5158,8 +5238,83 @@ live_marking(void)
 		ms = *content;
 		if(ms->s.flags & S_ATTR_LIVE_SUPPORT)
 		    walk_references_in_section(CHECK_FOR_LIVE_TOUCH, ms);
+		content = &(ms->next);
+	    }
+	    p = &(msg->next);
+	}
+
+	if(dead_strip_times == TRUE){
+	    gettimeofday(&t5, NULL);
+	    time_used = calculate_time_used(&t0, &t1);
+	    print("building of references: %f\n", time_used);
+	    time_used = calculate_time_used(&t1, &t2);
+	    print("mark initial live blocks: %f\n", time_used);
+	    time_used = calculate_time_used(&t2, &t3);
+	    print("mark live blocks referenced: %f\n", time_used);
+	    time_used = calculate_time_used(&t3, &t4);
+	    print("mark live constructors: %f\n", time_used);
+	    time_used = calculate_time_used(&t4, &t5);
+	    print("mark live exception frames: %f\n", time_used);
+	}
+}
+
+/*
+ * calculate_time_used() takes a start timeval and and an end time value and
+ * calculates the difference as a double value and returns that.
+ */
+static
+double
+calculate_time_used(
+struct timeval *start,
+struct timeval *end)
+{
+    double time_used;
+
+	time_used = end->tv_sec - start->tv_sec;
+	if(end->tv_usec >= start->tv_usec)
+	    time_used += ((double)(end->tv_usec - start->tv_usec)) / 1000000.0;
+	else
+	    time_used += -1.0 +
+		((double)(1000000 + end->tv_usec - start->tv_usec) / 1000000.0);
+	return(time_used);
+}
+
+/*
+ * build_references() is called by live_marking() to set up the references
+ * arrays off each fine reloc structure in each section.
+ */
+static
+void
+build_references(
+void)
+{
+    struct merged_segment *msg, **p;
+    struct merged_section *ms, **content;
+
+	/*
+	 * For objects that there sections loaded as one block we need to get
+	 * all the merged symbols in those blocks to have their fine_reloc
+	 * pointer set correctly.
+	 */
+	set_fine_relocs_for_merged_symbols();
+
+	/*
+	 * Set up the references for each section.
+	 */
+	p = &merged_segments;
+	while(*p){
+	    msg = *p;
+	    content = &(msg->content_sections);
+	    while(*content){
+		ms = *content;
+#ifdef DEBUG
+		if(debug & (1 << 27))
+		    print("In build_references() for section (%.16s,%.16s)\n",
+			  ms->s.segname, ms->s.sectname);
+#endif /* DEBUG */
+		setup_references_in_section(ms);
 		/*
-		 * If walk_references_in_section() encountered a relocation
+		 * If setup_references_in_section() encountered a relocation
 		 * error just return now.
 		 */
 		if(errors)
@@ -5168,6 +5323,332 @@ live_marking(void)
 	    }
 	    p = &(msg->next);
 	}
+
+#ifdef DEBUG
+	if(debug & (1 << 28))
+	    print_references();
+#endif /* DEBUG */
+}
+
+#ifdef DEBUG
+/*
+ * print_references() is a debugging routine to print the references off each
+ * fine_reloc after build_references() has been called.
+ */
+static
+void
+print_references(
+void)
+{
+    unsigned long i, j, k;
+    struct object_list *object_list, **q;
+    struct object_file *obj;
+    struct fine_reloc *fine_relocs, *fine_reloc;
+    struct section_map *map;
+    struct ref *ref;
+
+	for(q = &objects; *q; q = &(object_list->next)){
+	    object_list = *q;
+	    for(i = 0; i < object_list->used; i++){
+		obj = &(object_list->object_files[i]);
+		if(obj == base_obj)
+		    continue;
+		if(obj->dylib)
+		    continue;
+		if(obj->bundle_loader)
+		    continue;
+		if(obj->dylinker)
+		    continue;
+		for(j = 0; j < obj->nsection_maps; j++){
+		    if(obj->section_maps[j].s->size == 0)
+			continue;
+		    map = &(obj->section_maps[j]);
+		    if(map->nfine_relocs == 0)
+			continue;
+		    print("references for ");
+		    print_obj_name(obj);
+		    print("in section (%.16s,%.16s)\n",
+			  map->s->segname, map->s->sectname);
+		    fine_relocs = map->fine_relocs;
+		    for(k = 0; k < map->nfine_relocs; k++){
+			fine_reloc = map->fine_relocs + k;
+			if(fine_reloc->refs != NULL){
+			    print("  offset:0x%x",
+				  (unsigned int)(fine_reloc->input_offset));
+			    if(fine_reloc->merged_symbol != NULL)
+				print(":%s", fine_reloc->
+					     merged_symbol->nlist.n_un.n_name);
+			    else
+				print_symbol_name_from_order_load_maps(map,
+				      map->s->addr + fine_reloc->input_offset);
+			    print("\n");
+			}
+			for(ref = fine_reloc->refs;
+			    ref != NULL;
+			    ref = ref->next){
+			    if(ref->merged_symbol != NULL)
+				print("    %s\n",
+				      ref->merged_symbol->nlist.n_un.n_name);
+			    else{
+				print("    (%.16s,%.16s):0x%x",
+				  ref->map->s->segname,
+				  ref->map->s->sectname,
+				  (unsigned int)
+				   (ref->fine_reloc->input_offset));
+				print_symbol_name_from_order_load_maps(
+				  ref->map,
+				  ref->map->s->addr +
+				  ref->fine_reloc->input_offset);
+				printf("\n");
+			    }
+			}
+		    }
+		}
+	    }
+	}
+}
+#endif /* DEBUG */
+
+/*
+ * setup_references_in_section() is called with a merged section and sets up all
+ * the references of the fine_relocs in that section.
+ */
+static
+void
+setup_references_in_section(
+struct merged_section *ms)
+{
+    unsigned long i, j;
+    struct object_list *object_list, **q;
+    struct object_file *obj;
+    struct section_map *map;
+
+	/*
+	 * For each object file that has this section process it.
+	 */
+	for(q = &objects; *q; q = &(object_list->next)){
+	    object_list = *q;
+	    for(i = 0; i < object_list->used; i++){
+		obj = &(object_list->object_files[i]);
+		if(obj == base_obj)
+		    continue;
+		if(obj->dylib)
+		    continue;
+		if(obj->bundle_loader)
+		    continue;
+		if(obj->dylinker)
+		    continue;
+		map = NULL;
+		for(j = 0; j < obj->nsection_maps; j++){
+		    if(obj->section_maps[j].output_section != ms)
+			continue;
+		    if(obj->section_maps[j].s->size == 0)
+			continue;
+		    map = &(obj->section_maps[j]);
+		    break;
+		}
+		if(map == NULL)
+		    continue;
+#ifdef DEBUG
+		if(debug & (1 << 27)){
+		    print(" In setup_references_in_section() with object ");
+		    print_obj_name(obj);
+		    print("\n");
+		}
+#endif /* DEBUG */
+		setup_references(map, obj);
+	    }
+	}
+}
+
+/*
+ * setup_references() is passed a section map and the object file it is in.  It
+ * digs through the relocation entries of the section creating a references for
+ * each.
+ */
+static
+void
+setup_references(
+struct section_map *map,
+struct object_file *obj)
+{
+    unsigned long i, pair;
+    struct relocation_info *relocs, reloc;
+    struct scattered_relocation_info *sreloc;
+    unsigned long r_address, r_type;
+    char *contents;
+    struct live_refs refs;
+    struct fine_reloc *fine_reloc;
+
+#ifdef DEBUG
+	if(debug & (1 << 27)){
+	    print("  In setup_references() ");
+	    print_obj_name(obj);
+	    print("(%.16s,%.16s)\n", map->s->segname, map->s->sectname);
+	}
+#endif /* DEBUG */
+
+	/*
+	 * Walk all the relocation entries of this section creating the
+	 * references between blocks.
+	 */
+	relocs = (struct relocation_info *)(obj->obj_addr + map->s->reloff);
+	if(obj->swapped && map->input_relocs_already_swapped == FALSE){
+	    swap_relocation_info(relocs, map->s->nreloc, host_byte_sex);
+	    map->input_relocs_already_swapped = TRUE;
+	}
+	for(i = 0; i < map->s->nreloc; i++){
+	    /*
+	     * Note all errors are not flagged here but left for the *_reloc()
+	     * routines to flag them.  So for errors we just return from here.
+	     */
+	    reloc = relocs[i];
+	    /*
+	     * Break out just the fields of the relocation entry we need to
+	     * determine if this entry (and its possible pair) are for this
+	     * fine_reloc.
+	     */
+	    if((reloc.r_address & R_SCATTERED) != 0){
+		sreloc = (struct scattered_relocation_info *)(&reloc);
+		r_address = sreloc->r_address;
+		r_type = sreloc->r_type;
+	    }
+	    else{
+		r_address = reloc.r_address;
+		r_type = reloc.r_type;
+	    }
+	    if(reloc_has_pair(arch_flag.cputype, r_type)){
+		if(i + 1 >= map->s->nreloc)
+		    return;
+		pair = 1;
+	    }
+	    else
+		pair = 0;
+#ifdef DEBUG
+	    if(debug & (1 << 27)){
+		print("    reloc entry %lu", i);
+		if(pair)
+		    print(",%lu", i+1);
+		print("\n");
+	    }
+#endif /* DEBUG */
+
+	    /*
+	     * Get the references for this relocation entry(s).
+	     */
+	    cur_obj = obj;
+	    contents = obj->obj_addr + map->s->offset;
+	    if(arch_flag.cputype == CPU_TYPE_POWERPC ||
+		    arch_flag.cputype == CPU_TYPE_VEO)
+		ppc_reloc(contents, relocs, map, &refs, i);
+	    else if(arch_flag.cputype == CPU_TYPE_MC680x0)
+		generic_reloc(contents, relocs, map, FALSE, &refs, i);
+	    else if(arch_flag.cputype == CPU_TYPE_I386)
+		generic_reloc(contents, relocs, map, TRUE, &refs, i);
+	    else if(arch_flag.cputype == CPU_TYPE_MC88000 ||
+		    arch_flag.cputype == CPU_TYPE_HPPA ||
+		    arch_flag.cputype == CPU_TYPE_SPARC ||
+		    arch_flag.cputype == CPU_TYPE_I860)
+		fatal("-dead_strip not supported with cputype (%d)",
+		      arch_flag.cputype);
+	    else
+		fatal("internal error: setup_references() "
+		      "called with unknown cputype (%d) set",
+		      arch_flag.cputype);
+	    /* if there was a problem with the relocation just return now */
+	    if(errors)
+		return;
+
+	    /*
+	     * If this reloc has references then add them to the tmp_refs[] 
+	     * array if they are new.
+	     */
+	    if(refs.ref1.ref_type != LIVE_REF_NONE){
+		fine_reloc = fine_reloc_for_input_offset(map, r_address);
+		setup_reference(&refs.ref1, obj, fine_reloc);
+	    }
+	    if(refs.ref2.ref_type != LIVE_REF_NONE){
+		fine_reloc = fine_reloc_for_input_offset(map, r_address);
+		setup_reference(&refs.ref2, obj, fine_reloc);
+	    }
+	    i += pair;
+	}
+}
+
+/*
+ * setup_reference() is passed a pointer to a live_ref struct in the specified
+ * object and the fine_reloc that reference comes from.  It creates a struct
+ * ref for the live_ref struct.  Then if that reference is not to itself and
+ * already on the list for the fine_reloc it is added to the list.
+ */
+static
+void
+setup_reference(
+struct live_ref *ref,
+struct object_file *obj,
+struct fine_reloc *self_fine_reloc)
+{
+    unsigned long r_symbolnum;
+    struct section_map *local_map;
+    struct fine_reloc *ref_fine_reloc;
+    struct ref r, *refs, *new_ref;
+
+	r.next = NULL;
+	r.fine_reloc = NULL;
+	r.map = NULL;
+	r.obj = NULL;
+	r.merged_symbol = NULL;
+	if(ref->ref_type == LIVE_REF_VALUE){
+	    r_symbolnum = r_symbolnum_from_r_value(ref->value, obj);
+	    local_map = &(obj->section_maps[r_symbolnum - 1]);
+	    ref_fine_reloc = fine_reloc_for_input_offset(local_map,
+			      ref->value - local_map->s->addr);
+#ifdef DEBUG
+	    if(debug & (1 << 27)){
+		print("      ref ");
+		print("(%.16s,%.16s):0x%x", local_map->s->segname,
+		      local_map->s->sectname,
+		      (unsigned int)(ref_fine_reloc->input_offset));
+		print_symbol_name_from_order_load_maps(local_map,
+		    local_map->s->addr + ref_fine_reloc->input_offset);
+		printf("\n");
+	    }
+#endif /* DEBUG */
+	    if(self_fine_reloc == ref_fine_reloc)
+		return;
+	    r.fine_reloc = ref_fine_reloc;
+	    r.map = local_map;
+	    r.obj = obj;
+	    r.merged_symbol = NULL;
+	}
+	else if(ref->ref_type == LIVE_REF_SYMBOL){
+	    r.merged_symbol = ref->merged_symbol;
+	    r.fine_reloc = NULL;
+	    r.map = NULL;
+	    r.obj = NULL;
+#ifdef DEBUG
+	    if(debug & (1 << 27)){
+		print("      ref ");
+		print("%s", ref->merged_symbol->nlist.n_un.n_name);
+		printf("\n");
+	    }
+#endif /* DEBUG */
+	}
+	/*
+	 * See if this reference is already in the list of references.
+	 */
+	for(refs = self_fine_reloc->refs ; refs != NULL ; refs = refs->next){
+	    if(r.fine_reloc == refs->fine_reloc &&
+	       r.map == refs->map &&
+	       r.obj == refs->obj &&
+	       r.merged_symbol == refs->merged_symbol)
+		return;
+	}
+	/* it is not in the list so add it */
+	new_ref = allocate(sizeof(struct ref));
+	*new_ref = r;
+	new_ref->next = self_fine_reloc->refs;
+	self_fine_reloc->refs = new_ref;
 }
 
 /*
@@ -5408,12 +5889,6 @@ struct merged_section *ms)
 			fatal("internal error: walk_references_in_section() "
 			      "called with unknown operation (%d)", operation);
 		    }
-		    /*
-		     * If walk_references() encountered a relocation error
-		     * just return now.
-		     */
-		    if(errors)
-			return;
 		}
 	    }
 	}
@@ -5445,14 +5920,8 @@ struct fine_reloc *fine_reloc,
 struct section_map *map,
 struct object_file *obj)
 {
-    unsigned long fine_reloc_size, i, pair;
-    struct relocation_info *relocs, reloc;
-    struct scattered_relocation_info *sreloc;
-    unsigned long r_address, r_type;
-    char *contents;
-    struct live_refs refs;
-    struct live_ref ref;
     enum bool found_live;
+    struct ref r, *ref;
 
 #ifdef DEBUG
 	if(debug & (1 << 25)){
@@ -5477,9 +5946,8 @@ struct object_file *obj)
 	    if((map->s->flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
 	       (map->s->flags & SECTION_TYPE) == S_LAZY_SYMBOL_POINTERS ||
 	       (map->s->flags & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS){
-		indirect_live_ref(fine_reloc, map, obj, &ref);
-		if(ref.ref_type != LIVE_REF_NONE)
-		    ref_operation(MARK_LIVE, &ref, obj);
+		if(indirect_live_ref(fine_reloc, map, obj, &r) == TRUE)
+		    ref_operation(MARK_LIVE, &r, obj);
 	    }
 	}
 	else{ /* operation == SEARCH_FOR_LIVE */
@@ -5488,137 +5956,34 @@ struct object_file *obj)
 		return(TRUE);
 	}
 
-	i = fine_reloc - map->fine_relocs;
-	if(i + 1 == map->nfine_relocs)
-	    fine_reloc_size = map->s->size -
-			      fine_reloc->input_offset;
-	else
-	    fine_reloc_size = map->fine_relocs[i+1].input_offset -
-			      fine_reloc->input_offset;
-
 	/*
-	 * Walk all the relocation entries of this section looking for ones that
-	 * are in the block for this fine_reloc.
+	 * Walk the references of this fine_reloc.
 	 */
-	relocs = (struct relocation_info *)(obj->obj_addr + map->s->reloff);
-	if(obj->swapped && map->input_relocs_already_swapped == FALSE){
-	    swap_relocation_info(relocs, map->s->nreloc, host_byte_sex);
-	    map->input_relocs_already_swapped = TRUE;
-	}
-	for(i = 0; i < map->s->nreloc; i++){
-	    /*
-	     * Note all errors are not flagged here but left for the *_reloc()
-	     * routines to flag them.  So for errors we just return from here.
-	     */
-	    reloc = relocs[i];
-	    /*
-	     * Break out just the fields of the relocation entry we need to
-	     * determine if this entry (and its possible pair) are for this
-	     * fine_reloc.
-	     */
-	    if((reloc.r_address & R_SCATTERED) != 0){
-		sreloc = (struct scattered_relocation_info *)(&reloc);
-		r_address = sreloc->r_address;
-		r_type = sreloc->r_type;
+	for(ref = fine_reloc->refs; ref != NULL; ref = ref->next){
+	    if(operation == MARK_LIVE){
+		ref_operation(MARK_LIVE, ref, obj);
+	    }
+	    else if(operation == SEARCH_FOR_LIVE ||
+		    operation == CHECK_FOR_LIVE_TOUCH){
+		found_live = ref_operation(operation, ref, obj);
+		    if(found_live == TRUE)
+			return(TRUE);
 	    }
 	    else{
-		r_address = reloc.r_address;
-		r_type = reloc.r_type;
+		fatal("internal error: walk_references() called with "
+		      "unknown operation (%d)", operation);
 	    }
-	    if(reloc_has_pair(arch_flag.cputype, r_type)){
-		if(i + 1 >= map->s->nreloc)
-		    return(FALSE);
-		pair = 1;
-	    }
-	    else
-		pair = 0;
-	    if(r_address >= fine_reloc->input_offset &&
-	       r_address < fine_reloc->input_offset + fine_reloc_size){
-
-#ifdef DEBUG
-		if(debug & (1 << 25)){
-		    print("  reloc entry %lu", i);
-		    if(pair)
-			print(",%lu", i+1);
-		    print(" in fine_reloc ");
-		    print_obj_name(obj);
-		    print("(%.16s,%.16s):0x%x", map->s->segname,
-			  map->s->sectname,
-			  (unsigned int)(fine_reloc->input_offset));
-		    if(fine_reloc->merged_symbol != NULL)
-			print(":%s",
-			      fine_reloc->merged_symbol->nlist.n_un.n_name);
-		    print("\n");
-		}
-#endif /* DEBUG */
-
-		/*
-		 * Get the references for this relocation entry(s).
-		 */
-		cur_obj = obj;
-		contents = obj->obj_addr + map->s->offset;
-		if(arch_flag.cputype == CPU_TYPE_POWERPC ||
-			arch_flag.cputype == CPU_TYPE_VEO)
-		    ppc_reloc(contents, relocs, map, &refs, i);
-		else if(arch_flag.cputype == CPU_TYPE_MC680x0)
-		    generic_reloc(contents, relocs, map, FALSE, &refs, i);
-		else if(arch_flag.cputype == CPU_TYPE_I386)
-		    generic_reloc(contents, relocs, map, TRUE, &refs, i);
-		else if(arch_flag.cputype == CPU_TYPE_MC88000 ||
-			arch_flag.cputype == CPU_TYPE_HPPA ||
-			arch_flag.cputype == CPU_TYPE_SPARC ||
-			arch_flag.cputype == CPU_TYPE_I860)
-		    fatal("-dead_strip not supported with cputype (%d)",
-			  arch_flag.cputype);
-		else
-		    fatal("internal error: walk_references() "
-			  "called with unknown cputype (%d) set",
-			  arch_flag.cputype);
-		/* if there was a problem with the relocation just return now */
-		if(errors)
-		    return(FALSE);
-		if(operation == MARK_LIVE){
-		    /*
-		     * If this reloc has references then call ref_operation() to
-		     * determine which fine_relocs(s) if any the contain the
-		     * references and caused that fine_reloc's references to be
-		     * marked live.
-		     */
-		    if(refs.ref1.ref_type != LIVE_REF_NONE)
-			ref_operation(MARK_LIVE, &refs.ref1, obj);
-		    if(refs.ref2.ref_type != LIVE_REF_NONE)
-			ref_operation(MARK_LIVE, &refs.ref2, obj);
-		}
-		else if(operation == SEARCH_FOR_LIVE ||
-			operation == CHECK_FOR_LIVE_TOUCH){
-		    if(refs.ref1.ref_type != LIVE_REF_NONE){
-			found_live = ref_operation(operation, &refs.ref1, obj);
-			if(found_live == TRUE)
-			    return(TRUE);
-		    }
-		    if(refs.ref2.ref_type != LIVE_REF_NONE){
-			found_live = ref_operation(operation, &refs.ref2, obj);
-			if(found_live == TRUE)
-			    return(TRUE);
-		    }
-		}
-		else{
-		    fatal("internal error: walk_references() called with "
-			  "unknown operation (%d)", operation);
-		}
-	    }
-	    i += pair;
 	}
 	return(FALSE);
 }
 
 /*
- * ref_operation() determines the fine_reloc being referenced from the specified
- * live_ref in the specified object then preforms the specified operation.
+ * ref_operation() gets the fine_reloc being referenced from the specified
+ * ref in the specified object then preforms the specified operation.
  *
  * For the MARK_LIVE operation if the fine_reloc is not marked live, it is
  * marked live and then walk_references() is called with the MARK_LIVE operation
- * to mark its references live.  If the specified live_ref is a symbol defined
+ * to mark its references live.  If the specified ref is a symbol defined
  * in a dylib then
 mark_dylib_references_live() is called to mark that dylib's module's
  * references live. For the MARK_LIVE operation the return value is meaningless.
@@ -5626,7 +5991,7 @@ mark_dylib_references_live() is called to mark that dylib's module's
  * For the SEARCH_FOR_LIVE operation if the fine_reloc is marked live then TRUE
  * is returned.  Else walk_references() is called with the SEARCH_FOR_LIVE
  * operation and if it returns TRUE then TRUE is returned.  Else FALSE is
- * returned.  If the specified live_ref is a symbol defined in a dylib then
+ * returned.  If the specified ref is a symbol defined in a dylib then
 something will called to walk the references of the dylib searching for a live
  * symbol.
  * 
@@ -5637,70 +6002,67 @@ static
 enum bool
 ref_operation(
 enum walk_references_operation operation,
-struct live_ref *ref,
+struct ref *ref,
 struct object_file *obj)
 {
-    unsigned long r_symbolnum;
+    unsigned long n_sect;
     struct section_map *local_map;
-    struct fine_reloc *ref_fine_reloc;
     struct merged_symbol *indr_merged_symbol;
     enum bool found_live;
+    struct fine_reloc *ref_fine_reloc;
 
-	if(ref->ref_type == LIVE_REF_VALUE){
-	    r_symbolnum = r_symbolnum_from_r_value(ref->value, obj);
-	    local_map = &(obj->section_maps[r_symbolnum - 1]);
-	    ref_fine_reloc = fine_reloc_for_input_offset(local_map,
-			      ref->value - local_map->s->addr);
+	if(ref->merged_symbol == NULL){
 #ifdef DEBUG
 	    if((((debug & (1 << 25)) || (debug & (1 << 26))) &&
-	       ref_fine_reloc->live != TRUE)){
+	       ref->fine_reloc->live != TRUE)){
 		print("** In ref_operation(%s) ",
 		      walk_references_operation_names[operation]);
 		print_obj_name(obj);
-		print("(%.16s,%.16s):0x%x", local_map->s->segname,
-		      local_map->s->sectname,
-		      (unsigned int)(ref_fine_reloc->input_offset));
-		if(ref_fine_reloc->merged_symbol != NULL){
+		print("(%.16s,%.16s):0x%x", ref->map->s->segname,
+		      ref->map->s->sectname,
+		      (unsigned int)(ref->fine_reloc->input_offset));
+		if(ref->fine_reloc->merged_symbol != NULL){
 		    print(":%s",
-			  ref_fine_reloc->merged_symbol->nlist.n_un.n_name);
+			  ref->fine_reloc->merged_symbol->nlist.n_un.n_name);
 		}
 		else{
-		    print_symbol_name_from_order_load_maps(local_map,
-			local_map->s->addr + ref_fine_reloc->input_offset);
+		    print_symbol_name_from_order_load_maps(ref->map,
+			ref->map->s->addr + ref->fine_reloc->input_offset);
 		}
 		print("\n");
 	    }
 #endif /* DEBUG */
 
 	    if(operation == MARK_LIVE){
-		ref_fine_reloc->live = TRUE;
-		if(ref_fine_reloc->merged_symbol != NULL)
-		    ref_fine_reloc->merged_symbol->live = TRUE;
-		if(ref_fine_reloc->refs_marked_live == FALSE){
+		ref->fine_reloc->live = TRUE;
+		if(ref->fine_reloc->merged_symbol != NULL)
+		    ref->fine_reloc->merged_symbol->live = TRUE;
+		if(ref->fine_reloc->refs_marked_live == FALSE){
 		    walk_references(
 			MARK_LIVE,
-			ref_fine_reloc,
-			local_map,
-			obj);
+			ref->fine_reloc,
+			ref->map,
+			ref->obj);
 		}
 	    }
 	    else if(operation == SEARCH_FOR_LIVE){
-		if(ref_fine_reloc->live == TRUE)
+		if(ref->fine_reloc->live == TRUE)
 		    return(TRUE);
 		else{
-		    if(ref_fine_reloc->searched_for_live_refs == FALSE){
+		    if(ref->fine_reloc->searched_for_live_refs == FALSE){
 			found_live = walk_references(
 			    SEARCH_FOR_LIVE,
-			    ref_fine_reloc,
-			    local_map,
-			    obj);
+			    ref->fine_reloc,
+			    ref->map,
+			    ref->obj);
 			if(found_live == TRUE)
 			    return(TRUE);
 		    }
 		}
 	    }
 	    else if(operation == CHECK_FOR_LIVE_TOUCH){
-		if(ref_fine_reloc->live == TRUE)
+		if(ref->fine_reloc->live == TRUE && 
+		   (ref->map->s->flags & S_ATTR_LIVE_SUPPORT) == 0)
 		    return(TRUE);
 		else
 		    return(FALSE);
@@ -5710,7 +6072,7 @@ struct object_file *obj)
 		      "unknown operation (%d)", operation);
 	    }
 	}
-	else if(ref->ref_type == LIVE_REF_SYMBOL){
+	else /* ref->merged_symbol != NULL */ {
 	    if(operation == MARK_LIVE){
 		ref->merged_symbol->live = TRUE;
 		if((ref->merged_symbol->nlist.n_type & N_TYPE) == N_INDR){
@@ -5750,10 +6112,15 @@ struct object_file *obj)
 		    ;
 		}
 	    }
-	    else{
-		ref_fine_reloc = get_fine_reloc_for_merged_symbol(
-				    ref->merged_symbol,
-				    &local_map);
+	    else /* merged_symbol->defined_in_dylib == FALSE */ {
+		ref_fine_reloc = ref->merged_symbol->fine_reloc;
+		if((ref->merged_symbol->nlist.n_type & N_TYPE) == N_SECT){
+		    n_sect = ref->merged_symbol->nlist.n_sect;
+		    local_map = &(ref->merged_symbol->definition_object->
+				  section_maps[n_sect - 1]);
+		}
+		else
+		    local_map = NULL;
 		if(ref_fine_reloc != NULL){
 #ifdef DEBUG
 		    if((((debug & (1 << 25)) || (debug & (1 << 26))) &&
@@ -5761,9 +6128,10 @@ struct object_file *obj)
 			print("** In ref_operation(%s) ",
 			      walk_references_operation_names[operation]);
 			print_obj_name(ref->merged_symbol->definition_object);
-			print("(%.16s,%.16s):%s\n", local_map->s->segname,
-			      local_map->s->sectname,
-			      ref->merged_symbol->nlist.n_un.n_name);
+			if(local_map != NULL)
+			    print("(%.16s,%.16s)", local_map->s->segname,
+				  local_map->s->sectname);
+			print(":%s\n", ref->merged_symbol->nlist.n_un.n_name);
 		    }
 #endif /* DEBUG */
 		    if(operation == MARK_LIVE){
@@ -5800,7 +6168,7 @@ struct object_file *obj)
  * specified r_value in the specified object_file.  If the r_value is not in
  * any section then 0 (NO_SECT) is returned.
  */
-static
+__private_extern__
 unsigned long
 r_symbolnum_from_r_value(
 unsigned long r_value,

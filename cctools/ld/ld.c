@@ -201,6 +201,8 @@ __private_extern__ enum bool strip_base_symbols = FALSE;
 __private_extern__ enum bool dead_strip = FALSE;
 /* don't strip module init and term sections */
 __private_extern__ enum bool no_dead_strip_inits_and_terms = FALSE;
+/* print timings for dead striping code */
+__private_extern__ enum bool dead_strip_times = FALSE;
 
 #ifndef RLD
 /*
@@ -325,6 +327,9 @@ __private_extern__ unsigned long stack_addr = 0;
 __private_extern__ enum bool stack_addr_specified = FALSE;
 __private_extern__ unsigned long stack_size = 0;
 __private_extern__ enum bool stack_size_specified = FALSE;
+
+/* TRUE if -allow_stack_execute is specified */
+__private_extern__ enum bool allow_stack_execute = FALSE;
 
 #ifndef RLD
 /* A -segaddr option was specified */
@@ -485,6 +490,7 @@ char *envp[])
     enum bool missing_syms;
     enum bool vflag;
     enum bool prebinding_via_LD_PREBIND;
+    enum bool hash_instrument_specified;
 
 #ifdef __MWERKS__
     char **dummy;
@@ -495,6 +501,7 @@ char *envp[])
 	exported_symbols_list = NULL;
 	unexported_symbols_list = NULL;
 	seg_addr_table_entry = NULL;
+	hash_instrument_specified = FALSE;
 
 	progname = argv[0];
 #ifndef BINARY_COMPARE
@@ -845,6 +852,9 @@ char *envp[])
 		    else if(strcmp(p, "dead_strip") == 0){
 			dead_strip = TRUE;
 		    }
+		    else if(strcmp(p, "dead_strip_times") == 0){
+			dead_strip_times = TRUE;
+		    }
 #ifdef DEBUG
 		    else if(strcmp(p, "debug") == 0){
 			if(++i >= argc)
@@ -946,6 +956,10 @@ char *envp[])
 		    else if(strcmp(p, "Si") == 0){
 			if(strip_level < STRIP_DUP_INCLS)
 			    strip_level = STRIP_DUP_INCLS;
+		    }
+		    else if(strcmp(p, "Sp") == 0){
+			if(strip_level < STRIP_MIN_DEBUG)
+			    strip_level = STRIP_MIN_DEBUG;
 		    }
 		    else if(p[1] == '\0'){
 			if(strip_level < STRIP_DEBUG)
@@ -1389,6 +1403,8 @@ char *envp[])
 			arch_multiple = TRUE;
 		    else if(strcmp(p, "arch_errors_fatal") == 0)
 			arch_errors_fatal = TRUE;
+		    else if(strcmp(p, "allow_stack_execute") == 0)
+			allow_stack_execute = TRUE;
 		    else if(strcmp(p, "arch") == 0){
 			if(++i >= argc)
 			    fatal("-arch: argument missing");
@@ -1529,6 +1545,14 @@ char *envp[])
 				  "-multi_module");
 			moduletype_specified = TRUE;
 			multi_module_dylib = TRUE;
+			break;
+		    }
+		    /* -macosx_version_min for overriding
+		       MACOSX_DEPLOYMENT_TARGET on command line */
+		    else if(strcmp (p, "macosx_version_min") == 0){
+			if(++i >= argc)
+			    fatal("-macosx_version_min: argument missing");
+			put_macosx_deployment_target (argv[i]);
 			break;
 		    }
 		    /* treat multiply defined symbols as a warning not a
@@ -1760,6 +1784,9 @@ char *envp[])
 		    else if(strcmp(p, "headerpad_max_install_names") == 0){
 			headerpad_max_install_names = TRUE;
 		    }
+		    else if(strcmp(p, "hash_instrument") == 0){
+			hash_instrument_specified = TRUE;
+		    }
 		    else
 			goto unknown_flag;
 		    break;
@@ -1829,7 +1856,7 @@ unknown_flag:
 	 */
 	p = getenv("NEXT_ROOT");
 	if(syslibroot_specified == TRUE){
-	    if(p != NULL)
+	    if(p != NULL && strcmp(p, next_root) != 0)
 		warning("NEXT_ROOT environment variable ignored because "
 			"-syslibroot specified");
 	}
@@ -2052,6 +2079,9 @@ unknown_flag:
 	if(save_reloc && strip_level == STRIP_ALL)
 	    fatal("can't use -s with -r (resulting file would not be "
 		  "relocatable)");
+	if(save_reloc && strip_level == STRIP_MIN_DEBUG)
+	    fatal("can't use -Sp with -r (only allowed for fully linked "
+		  "images)");
 	if(save_reloc && strip_base_symbols == TRUE)
 	    fatal("can't use -b with -r (resulting file would not be "
 		  "relocatable)");
@@ -2580,6 +2610,9 @@ unknown_flag:
 		      "type, file type must be MH_EXECUTE, MH_BUNDLE, "
 		      "MH_DYLIB, MH_DYLINKER or MH_FVMLIB)");
 	}
+	if(allow_stack_execute == TRUE && filetype != MH_EXECUTE)
+	    fatal("-allow_stack_execute can only be used when output file type "
+		  "is MH_EXECUTE");
 
 	if(trace)
 	    print("%s: Pass 1\n", progname);
@@ -2690,7 +2723,8 @@ unknown_flag:
 		    break;
 		case 'm':
 		    if(strcmp(p, "multiply_defined") == 0 ||
-		       strcmp(p, "multiply_defined_unused") == 0){
+		       strcmp(p, "multiply_defined_unused") == 0 ||
+		       strcmp(p, "macosx_version_min") == 0){
 			i++;
 			break;
 		    }
@@ -2986,6 +3020,9 @@ unknown_flag:
 	if(errors != 0)
 	    cleanup();
 
+	if(hash_instrument_specified == TRUE)
+	    hash_instrument();
+
 	ld_exit(0);
 
 	/* this is to remove the compiler warning, it never gets here */
@@ -3211,7 +3248,7 @@ check_for_ProjectBuilder(void)
 	    return;
 #else
 	if(bootstrap_look_up(bootstrap_port, portName,
-	   (int *)&ProjectBuilder_port) != KERN_SUCCESS)
+	   (unsigned int *)&ProjectBuilder_port) != KERN_SUCCESS)
 	    return;
 #endif
 	if(ProjectBuilder_port == MACH_PORT_NULL)

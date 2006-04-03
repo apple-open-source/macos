@@ -1,7 +1,7 @@
 /*
  * PopupButton.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/Headers/PopupButton.h,v 1.1 2004/11/30 23:05:48 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

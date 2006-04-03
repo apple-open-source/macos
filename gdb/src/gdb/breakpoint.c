@@ -53,8 +53,11 @@
 #include "cli-out.h"
 #include "gdb_assert.h"
 #include "block.h"
+/* APPLE LOCAL: for wrappers */
 #include "wrapper.h"
 #include "gdb-events.h"
+/* APPLE LOCAL: for exception catching regex */
+#include "gdb_regex.h"
 /* APPLE LOCAL: we use tilde_expand from readline.  */
 #include "readline/tilde.h"
 
@@ -97,7 +100,8 @@ extern void break_at_finish_at_depth_command (char *, int);
 
 extern void tbreak_at_finish_command (char *, int);
 
-/* APPLE LOCAL: To use break_command_1 in gdb_breakpoint, we need
+/* APPLE LOCAL begin breakpoint lists */
+/* To use break_command_1 in gdb_breakpoint, we need
    to capture the breakpoints that break_command_1 made (so we can
    apply the ignore count & conditions to them.  This list will
    be initialized every time break_command_1 is run, and then filled
@@ -109,6 +113,7 @@ struct breakpoint_list
 };
 
 static int breakpoint_address_is_meaningful (struct breakpoint *);
+/* APPLE LOCAL end breakpoint lists */
 
 static int break_command_1 (char *, int, int, struct breakpoint *);
 
@@ -150,20 +155,43 @@ static bpstat bpstat_alloc (struct breakpoint *, bpstat);
 
 static int breakpoint_cond_eval (void *);
 
+/* These variables contain the regexp's used in current_exception_should_stop
+   to determine whether this is an object throw or catch we are interested
+   in */
+
+static char *exception_throw_type_regexp;
+static char *exception_catch_type_regexp;
+
+static int exception_catchpoint_catch_enabled;
+static int exception_catchpoint_throw_enabled;
+
+static int current_exception_should_stop(void);
+
 static void cleanup_executing_breakpoints (void *);
 
 static void commands_command (char *, int);
 
 static void condition_command (char *, int);
 
-/* APPLE LOCAL: We want to use condition_command to set the condition from 
+/* APPLE LOCAL begin refactor condition_command */
+/* We want to use condition_command to set the condition from 
    gdb_breakpoints, but we already have the breakpoint.  So condition_command_1
    is the functional part of condition_command for use to use.  */
 static void condition_command_1 (struct breakpoint *b, char *condition, int from_tty);
+/* APPLE LOCAL end refactor condition_command */
 
 static int get_number_trailer (char **, int);
 
 static int do_captured_parse_breakpoint (struct ui_out *, void *);
+
+static enum print_stop_action
+print_exception_catchpoint (struct breakpoint *b);
+
+static void
+print_one_exception_catchpoint (struct breakpoint *b, CORE_ADDR *last_addr);
+
+static void
+print_mention_exception_catchpoint (struct breakpoint *b);
 
 /* APPLE LOCAL: Used for breakpoints that run the target under the mi.  */
 static void
@@ -288,6 +316,8 @@ int breakpoint_generation = 0;
 static int dont_mention = 0;
 /* APPLE LOCAL: Set the objfile associated with a given breakpoint.  */
 static void set_bp_objfile (struct breakpoint *b, struct symtab_and_line *sal);
+
+static void print_catch_info (struct breakpoint *b);
 
 /* Prototypes for exported functions. */
 
@@ -655,14 +685,17 @@ condition_command (char *arg, int from_tty)
   ALL_BREAKPOINTS (b)
     if (b->number == bnum)
     {
+      /* APPLE LOCAL refactor condition_command */
       condition_command_1 (b, p, from_tty);
       breakpoints_changed ();
       breakpoint_modify_event (b->number);
       return;
     }
+
   error ("No breakpoint number %d.", bnum);
 }
 
+/* APPLE LOCAL begin refactor condition_command */
 static void
 condition_command_1 (struct breakpoint *b, char *condition, int from_tty)
 {
@@ -708,6 +741,7 @@ condition_command_1 (struct breakpoint *b, char *condition, int from_tty)
     }
   return;
 }
+/* APPLE LOCAL end refactor condition_command */
 
 static void
 commands_command (char *arg, int from_tty)
@@ -747,7 +781,8 @@ commands_command (char *arg, int from_tty)
   error ("No breakpoint number %d.", bnum);
 }
 
-/* APPLE LOCAL: find_breakpoint, breakpoint_add_commands and
+/* APPLE LOCAL begin breakpoint MI */
+/* find_breakpoint, breakpoint_add_commands and
    breakpoint_print_commands are helper functions for the MI command
    break-commands. */
 
@@ -784,7 +819,7 @@ breakpoint_print_commands (struct ui_out *uiout, struct breakpoint *b)
     print_command_lines (uiout, b->commands, 0);
   do_cleanups (list_cleanup);
 }
-/* END APPLE LOCAL */
+/* APPLE LOCAL end breakpoint MI */
 
 
 /* Like target_read_memory() but if breakpoints are inserted, return
@@ -1034,15 +1069,17 @@ insert_bp_location (struct bp_location *bpt,
 	      bpt->owner->enable_state = bp_shlib_disabled;
 	      if (!*disabled_breaks)
 		{
-		  /* APPLE LOCAL: Don't emit the breakpoint notices one per
-		     line.  We sometimes end up with lots of them,
-		     and the spam is annoying.  */
+		  /* APPLE LOCAL begin breakpoint notices on one line */
+		  /* Don't emit the breakpoint notices one per line.
+		     We sometimes end up with lots of them, and the
+		     spam is annoying.  */
+		  /* APPLE LOCAL end breakpoint notices on one line */
 		  fprintf_unfiltered (tmp_error_stream, 
-				      "Temporarily disabling shared library "
-				      "breakpoints:\n");
+				      "Temporarily disabling shared library breakpoints:\n");
 		}
 	      *disabled_breaks = 1;
 	      fprintf_unfiltered (tmp_error_stream,
+				  /* APPLE LOCAL breakpoint notices on one line */
 				  " %d", bpt->owner->number);
 	    }
 	  else
@@ -1336,10 +1373,12 @@ insert_breakpoints (void)
       if (val)
 	return_val = val;
     }
-  /* APPLE LOCAL: We changed the printing code to emit all the disabled
-     breakpoints on one line, so we have to wrap it here.  */
+  /* APPLE LOCAL begin breakpoint notices on one line */
+  /* We changed the printing code to emit all the disabled breakpoints
+     on one line, so we have to wrap it here.  */
   if (disabled_breaks)
     fprintf_unfiltered (tmp_error_stream, "\n");
+  /* APPLE LOCAL end breakpoint notices on one line */
 
   if (return_val)
     {
@@ -1954,6 +1993,7 @@ int
 software_breakpoint_inserted_here_p (CORE_ADDR pc)
 {
   struct bp_location *bpt;
+  /* APPLE LOCAL remove unused local var */
 
   ALL_BP_LOCATIONS (bpt)
     {
@@ -2083,18 +2123,6 @@ ep_is_exception_catchpoint (struct breakpoint *ep)
     || (ep->type == bp_gnu_v3_catch_throw);
 }
 
-/* APPLE LOCAL: The gnu_v3 exception catchpoints need to be handled
-   like real breakpoints, except that they are set differently (since
-   we always look for them in all shared libraries.)  So I introduced
-   a separate type for them.  */
-int
-ep_is_gnu_v3_exception_catchpoint (struct breakpoint *ep)
-{
-  return
-    (ep->type == bp_gnu_v3_catch_catch)
-    || (ep->type == bp_gnu_v3_catch_throw);
-}
-
 /* Clear a bpstat so that it says we are not at any breakpoint.
    Also free any storage that is part of a bpstat.  */
 
@@ -2140,7 +2168,11 @@ bpstat_copy (bpstat bs)
 	tmp->commands = copy_command_lines (bs->commands);
       if (bs->old_val != NULL)
 	tmp->old_val = value_copy (bs->old_val);
-
+      /* APPLE LOCAL: We want to release the value here, or it might
+	 get freed out from underneath us by a value_free_to_mark, or
+	 similar. */
+      if (tmp->old_val != NULL)
+	release_value (tmp->old_val);
       if (p == NULL)
 	/* This is the first thing in the chain.  */
 	retval = tmp;
@@ -2311,25 +2343,11 @@ top:
   breakpoint_proceeded = 0;
   for (bs = bs_copy; bs != NULL; bs = bs->next)
     {
-      struct command_line *cmd = bs->commands;
+      struct command_line *cmd;
 
-#if 0
-      struct cleanup *this_cmd_tree_chain;
-
-      /* Take ownership of the BSP's command tree, if it has one.
-
-         The command tree could legitimately contain commands like
-         'step' and 'next', which call clear_proceed_status, which
-         frees stop_bpstat's command tree.  To make sure this doesn't
-         free the tree we're executing out from under us, we need to
-         take ownership of the tree ourselves.  Since a given bpstat's
-         commands are only executed once, we don't need to copy it; we
-         can clear the pointer in the bpstat, and make sure we free
-         the tree when we're done.  */
+      /* APPLE LOCAL remove dubious ownership code */
       cmd = bs->commands;
-      bs->commands = 0;
-      this_cmd_tree_chain = make_cleanup_free_command_lines (&cmd);
-#endif
+      /* APPLE LOCAL remove dubious ownership code */
 
       while (cmd != NULL)
 	{
@@ -2343,11 +2361,7 @@ top:
 	    cmd = cmd->next;
 	}
 
-#if 0
-
-      /* We can free this command tree now.  */
-      do_cleanups (this_cmd_tree_chain);
-#endif
+      /* APPLE LOCAL remove dubious cleanup */
 
       if (breakpoint_proceeded)
 	/* The inferior is proceeded by the command; bomb out now.
@@ -2458,15 +2472,17 @@ print_it_typical (bpstat bs)
       ui_out_text (uiout, "\nBreakpoint ");
       if (ui_out_is_mi_like_p (uiout))
 	{
-        bpstat bpstat_ptr;
-        int any_commands = 0;
+          bpstat bpstat_ptr;
+          int any_commands = 0;
 
 	  ui_out_field_string (uiout, "reason", "breakpoint-hit");
 
 	  /* APPLE LOCAL: Print out whether the breakpoint has any
 	     commands, so the UI will know whether to expect something
 	     funny to happen.  */
-	  for (bpstat_ptr = bs; bpstat_ptr != NULL ; bpstat_ptr = bpstat_ptr->next)
+	  for (bpstat_ptr = bs; 
+               bpstat_ptr != NULL; 
+               bpstat_ptr = bpstat_ptr->next)
 	    {
 	      if (bpstat_ptr->commands != NULL)
 		{
@@ -2478,6 +2494,9 @@ print_it_typical (bpstat bs)
 	    ui_out_field_string (uiout, "commands", "yes");
 	  else
 	    ui_out_field_string (uiout, "commands", "no");
+
+          /* Xcode wants to know how many times this breakpoint has been hit. */
+          ui_out_field_int (uiout, "times", bs->breakpoint_at->hit_count);
 	}
       ui_out_field_int (uiout, "bkptno", bs->breakpoint_at->number);
       ui_out_text (uiout, ", ");
@@ -2489,11 +2508,12 @@ print_it_typical (bpstat bs)
 	 variable?  (If so, we report this as a generic, "Stopped due
 	 to shlib event" message.) */
 
-      /* APPLE LOCAL: Tell the MI client in a useful way...  */
+      /* APPLE LOCAL begin breakpoint MI */
       if (ui_out_is_mi_like_p (uiout))
 	ui_out_field_string (uiout, "reason", "shlib-event");
       else
-	printf_filtered ("Stopped due to shared library event\n");
+      /* APPLE LOCAL end breakpoint MI */
+      printf_filtered ("Stopped due to shared library event\n");
       return PRINT_NOTHING;
       break;
 
@@ -2553,80 +2573,10 @@ print_it_typical (bpstat bs)
       break;
 
     case bp_gnu_v3_catch_catch:
-      /* APPLE LOCAL: Handle gnu_v3_catch types.  */
-	  printf_filtered ("\nCatchpoint %d (exception caught).", 
-			   bs->breakpoint_at->number);
     case bp_catch_catch:
-      if (current_exception_event && 
-	  (CURRENT_EXCEPTION_KIND == EX_EVENT_CATCH))
-	{
-	  annotate_catchpoint (bs->breakpoint_at->number);
-	  printf_filtered ("\nCatchpoint %d (exception caught), ", 
-			   bs->breakpoint_at->number);
-	  printf_filtered ("throw location ");
-	  if (CURRENT_EXCEPTION_THROW_PC && CURRENT_EXCEPTION_THROW_LINE)
-	    printf_filtered ("%s:%d",
-			     CURRENT_EXCEPTION_THROW_FILE,
-			     CURRENT_EXCEPTION_THROW_LINE);
-	  else
-	    printf_filtered ("unknown");
-
-	  printf_filtered (", catch location ");
-	  if (CURRENT_EXCEPTION_CATCH_PC && CURRENT_EXCEPTION_CATCH_LINE)
-	    printf_filtered ("%s:%d",
-			     CURRENT_EXCEPTION_CATCH_FILE,
-			     CURRENT_EXCEPTION_CATCH_LINE);
-	  else
-	    printf_filtered ("unknown");
-
-	  printf_filtered ("\n");
-	  /* don't bother to print location frame info */
-	  return PRINT_SRC_ONLY;
-	}
-      else
-	{
-	  /* really throw, some other bpstat will handle it */
-	  return PRINT_UNKNOWN;	
-	}
-      break;
-      
     case bp_gnu_v3_catch_throw:
-      /* APPLE LOCAL: Handle gnu_v3_catch types.  */
-      printf_filtered ("\nCatchpoint %d (exception thrown).",
-			   bs->breakpoint_at->number);
     case bp_catch_throw:
-      if (current_exception_event && 
-	  (CURRENT_EXCEPTION_KIND == EX_EVENT_THROW))
-	{
-	  annotate_catchpoint (bs->breakpoint_at->number);
-	  printf_filtered ("\nCatchpoint %d (exception thrown), ",
-			   bs->breakpoint_at->number);
-	  printf_filtered ("throw location ");
-	  if (CURRENT_EXCEPTION_THROW_PC && CURRENT_EXCEPTION_THROW_LINE)
-	    printf_filtered ("%s:%d",
-			     CURRENT_EXCEPTION_THROW_FILE,
-			     CURRENT_EXCEPTION_THROW_LINE);
-	  else
-	    printf_filtered ("unknown");
-
-	  printf_filtered (", catch location ");
-	  if (CURRENT_EXCEPTION_CATCH_PC && CURRENT_EXCEPTION_CATCH_LINE)
-	    printf_filtered ("%s:%d",
-			     CURRENT_EXCEPTION_CATCH_FILE,
-			     CURRENT_EXCEPTION_CATCH_LINE);
-	  else
-	    printf_filtered ("unknown");
-
-	  printf_filtered ("\n");
-	  /* don't bother to print location frame info */
-	  return PRINT_SRC_ONLY; 
-	}
-      else
-	{
-	  /* really catch, some other bpstat will handle it */
-	  return PRINT_UNKNOWN;	
-	}
-      break;
+      return print_exception_catchpoint (bs->breakpoint_at);
 
     case bp_watchpoint:
     case bp_hardware_watchpoint:
@@ -2720,6 +2670,64 @@ print_it_typical (bpstat bs)
     default:
       return PRINT_UNKNOWN;
     }
+}
+
+/* This prints catch exception information, using the current exception global. */
+
+static void
+print_catch_info (struct breakpoint *b)
+{
+  char * event_type;
+
+  if (CURRENT_EXCEPTION_KIND == EX_EVENT_THROW)
+    event_type = "throw";
+  else
+    event_type = "catch";
+
+  ui_out_text (uiout, "\nCatchpoint ");
+  ui_out_field_int (uiout, "breakpoint", 
+		    b->number);
+  ui_out_text (uiout, " (exception caught), throw location ");
+
+  if (CURRENT_EXCEPTION_THROW_PC && CURRENT_EXCEPTION_THROW_LINE)
+    {
+      ui_out_field_string (uiout, "throw-file", CURRENT_EXCEPTION_THROW_FILE);
+      ui_out_text (uiout, ":");
+      ui_out_field_int (uiout, "throw-line", CURRENT_EXCEPTION_THROW_LINE);
+    }  
+  else
+    {
+      ui_out_field_skip (uiout, "throw-file");
+      ui_out_text (uiout, "unknown");
+      ui_out_field_skip (uiout, "throw-line");
+    }
+
+  ui_out_text (uiout, ", catch location ");
+  if (CURRENT_EXCEPTION_CATCH_PC && CURRENT_EXCEPTION_CATCH_LINE)
+    {
+      ui_out_field_string (uiout, "catch-file", CURRENT_EXCEPTION_CATCH_FILE);
+      ui_out_text (uiout, ":");
+      ui_out_field_int (uiout, "catch-line", CURRENT_EXCEPTION_CATCH_LINE);
+    }  
+  else
+    {
+      ui_out_field_skip (uiout, "catch-file");
+      ui_out_text (uiout, "unknown");
+      ui_out_field_skip (uiout, "catch-line");
+    }
+
+  
+  ui_out_text (uiout, ", exception type ");
+  if (CURRENT_EXCEPTION_TYPE)
+    ui_out_field_string (uiout, "exception-type",
+			 CURRENT_EXCEPTION_TYPE);
+  else
+    {
+      ui_out_field_skip (uiout, "exception-type");
+      ui_out_text (uiout, "unknown");
+    }
+  
+  ui_out_text (uiout, "\n");
 }
 
 /* Generic routine for printing messages indicating why we
@@ -2835,6 +2843,7 @@ bpstat_alloc (struct breakpoint *b, bpstat cbs /* Current "bs" value */ )
   return bs;
 }
 
+/* APPLE LOCAL begin watchpoint comparison */
 /* Like value_equal, but two arrays are only considered equal if their
    contents are equal. */
 
@@ -2861,6 +2870,7 @@ watchpoint_equal (struct value *arg1, struct value *arg2)
 
   return value_equal (arg1, arg2);
 }
+/* APPLE LOCAL end watchpoint comparison */
 
 /* Possible return values for watchpoint_check (this can't be an enum
    because of check_errors).  */
@@ -2926,6 +2936,7 @@ watchpoint_check (void *p)
 
       struct value *mark = value_mark ();
       struct value *new_val = evaluate_expression (bs->breakpoint_at->exp);
+      /* APPLE LOCAL watchpoint comparison */
       if (!watchpoint_equal (b->val, new_val))
 	{
 	  release_value (new_val);
@@ -3079,7 +3090,8 @@ bpstat_stop_status (CORE_ADDR bp_addr, ptid_t ptid)
 	&& !inferior_has_execd (PIDGET (inferior_ptid), &b->exec_pathname))
       continue;
 
-    if (ep_is_gnu_v3_exception_catchpoint (b))
+    /* APPLE LOCAL begin gnu_v3 */
+    if (ep_is_exception_catchpoint (b))
       {
         /* APPLE LOCAL: There may be more than one exception
            catchpoint, but we only need to call
@@ -3087,22 +3099,31 @@ bpstat_stop_status (CORE_ADDR bp_addr, ptid_t ptid)
            hit.  */
         if (b->loc->address != bp_addr)
           continue;
-      }
-    else if (ep_is_exception_catchpoint (b))
-      {
         if (!(current_exception_event = target_get_current_exception_event ()))
 	  continue;
       }
+    /* APPLE LOCAL end gnu_v3 */
 
     /* Come here if it's a watchpoint, or if the break address matches */
 
     bs = bpstat_alloc (b, bs);	/* Alloc a bpstat to explain stop */
 
-    /* Watchpoints may change this, if not found to have triggered. */
+    /* Watchpoints may change this, if not found to have triggered.
+       Also if a catchpoint, but we aren't catching this object,
+       we will change this.  */
     bs->stop = 1;
     bs->print = 1;
 
-    if (b->type == bp_watchpoint ||
+    if (ep_is_exception_catchpoint (b))
+      {
+	if (!current_exception_should_stop()) {
+	  remove_breakpoints ();
+	  bs->stop = 0;
+	  bs->print_it = print_it_noop;
+	  continue;
+	}
+      }
+    else if (b->type == bp_watchpoint ||
 	b->type == bp_hardware_watchpoint)
       {
 	char *message = xstrprintf ("Error evaluating expression for watchpoint %d\n",
@@ -3332,14 +3353,21 @@ bpstat_stop_status (CORE_ADDR bp_addr, ptid_t ptid)
 
   /* The value of a hardware watchpoint hasn't changed, but the
      intermediate memory locations we are watching may have.  */
-  if (bs && !bs->stop &&
-      (bs->breakpoint_at->type == bp_hardware_watchpoint ||
-       bs->breakpoint_at->type == bp_read_watchpoint ||
-       bs->breakpoint_at->type == bp_access_watchpoint))
+  if (bs && !bs->stop)
     {
-      remove_breakpoints ();
-      insert_breakpoints ();
+      switch (bs->breakpoint_at->type)
+	{
+	case bp_hardware_watchpoint:
+	case bp_read_watchpoint:
+	case bp_access_watchpoint:
+	  remove_breakpoints ();
+	  insert_breakpoints ();
+	  break;
+	default:
+	  break;
+	}
     }
+
   return bs;
 }
 
@@ -3605,12 +3633,13 @@ bpstat_what (bpstat bs)
 	  else if (bs->stop)
 	    bs_class = bs->print ? bp_noisy : bp_silent;
 	  break;
+	  /* APPLE LOCAL begin gnu_v3 */
 	case bp_gnu_v3_catch_catch:
 	case bp_gnu_v3_catch_throw:
-	  /* APPLE LOCAL: Handle gnu_v3_catch types.  */
 	  if (bs->stop)
 	    bs_class = bs->print ? bp_noisy : bp_silent;
 	  break;
+	  /* APPLE LOCAL end gnu_v3 */
 	case bp_call_dummy:
 	  /* Make sure the action is stop (silent or noisy),
 	     so infrun.c pops the dummy frame.  */
@@ -3756,9 +3785,11 @@ print_one_breakpoint (struct breakpoint *b,
     {bp_catch_vfork, "catch vfork"},
     {bp_catch_exec, "catch exec"},
     {bp_catch_catch, "catch catch"},
-    {bp_catch_throw, "catch throw"},
-    {bp_gnu_v3_catch_catch, "catch catch"},
-    {bp_gnu_v3_catch_throw, "catch throw"}
+    {bp_catch_throw, "catch throw"}
+    /* APPLE LOCAL begin gnu_v3 */
+    , {bp_gnu_v3_catch_catch, "catch catch"}
+    , {bp_gnu_v3_catch_throw, "catch throw"}
+    /* APPLE LOCAL end gnu_v3 */
   };
   
   static char *bpdisps[] =
@@ -3885,27 +3916,9 @@ print_one_breakpoint (struct breakpoint *b,
 
       case bp_catch_catch:
       case bp_gnu_v3_catch_catch:
-	/* Field 4, the address, is omitted (which makes the columns
-	   not line up too nicely with the headers, but the effect
-	   is relatively readable).  */
-	if (addressprint)
-	  ui_out_field_skip (uiout, "addr");
-	annotate_field (5);
-	ui_out_field_string (uiout, "what", "exception catch");
-	ui_out_spaces (uiout, 1);
-	break;
-
       case bp_catch_throw:
       case bp_gnu_v3_catch_throw:
-	/* Field 4, the address, is omitted (which makes the columns
-	   not line up too nicely with the headers, but the effect
-	   is relatively readable).  */
-	if (addressprint)
-	  ui_out_field_skip (uiout, "addr");
-	annotate_field (5);
-	ui_out_field_string (uiout, "what", "exception throw");
-	ui_out_spaces (uiout, 1);
-	break;
+	print_one_exception_catchpoint (b, 0);
 
       case bp_breakpoint:
       case bp_hardware_breakpoint:
@@ -4131,9 +4144,10 @@ user_settable_breakpoint (const struct breakpoint *b)
 	  || b->type == bp_catch_exec
 	  || b->type == bp_catch_catch
 	  || b->type == bp_catch_throw
-	  /* APPLE LOCAL: Handle gnu_v3_catch types.  */
+	  /* APPLE LOCAL begin gnu_v3 */
 	  || b->type == bp_gnu_v3_catch_catch
 	  || b->type == bp_gnu_v3_catch_throw
+	  /* APPLE LOCAL end gnu_v3 */
 	  || b->type == bp_hardware_breakpoint
 	  || b->type == bp_watchpoint
 	  || b->type == bp_read_watchpoint
@@ -4267,16 +4281,20 @@ describe_other_breakpoints (CORE_ADDR pc, asection *section)
 
   ALL_BREAKPOINTS (b)
     if (b->loc->address == pc)	/* address match / overlay match */
+      /* APPLE LOCAL begin */
       if (!b->pending && (!overlay_debugging || b->loc->section == section)
 	  && breakpoint_address_is_meaningful (b))
+	/* APPLE LOCAL end */
 	others++;
   if (others > 0)
     {
       printf_filtered ("Note: breakpoint%s ", (others > 1) ? "s" : "");
       ALL_BREAKPOINTS (b)
 	if (b->loc->address == pc)	/* address match / overlay match */
+	  /* APPLE LOCAL begin */
 	  if (!b->pending && (!overlay_debugging || b->loc->section == section)
-	  && breakpoint_address_is_meaningful (b))
+	      && breakpoint_address_is_meaningful (b))
+	    /* APPLE LOCAL end */
 	    {
 	      others--;
 	      printf_filtered ("%d%s%s ",
@@ -4493,10 +4511,11 @@ allocate_bp_location (struct breakpoint *bpt, enum bptype bp_type)
     case bp_overlay_event:
     case bp_catch_load:
     case bp_catch_unload:
+    /* APPLE LOCAL begin gnu_v3 */
+      /* Handle gnu_v3_catch types as ordinary breakpoints.  */
     case bp_gnu_v3_catch_catch:
     case bp_gnu_v3_catch_throw:
-      /* APPLE LOCAL: Handle gnu_v3_catch types.  These are just
-         ordinary breakopints.  */
+      /* APPLE LOCAL end gnu_v3 */
       loc->loc_type = bp_loc_software_breakpoint;
       break;
     case bp_hardware_breakpoint:
@@ -4829,9 +4848,12 @@ do_restore_lang_radix_cleanup (void *old)
   input_radix = p->radix;
 }
 
-/* Try and resolve a pending breakpoint.  If the breakpoint is
-   successfully resolved, then the original pended breakpoint will
-   be deleted, and one or more new breakpoints will be created.  */
+/* Try and resolve a pending breakpoint.  */
+/* APPLE LOCAL begin comment */
+/* If the breakpoint is successfully resolved, then the original
+   pended breakpoint will be deleted, and one or more new breakpoints
+   will be created.  */
+/* APPLE LOCAL end comment */
 static int
 resolve_pending_breakpoint (struct breakpoint *b)
 {
@@ -4861,7 +4883,7 @@ resolve_pending_breakpoint (struct breakpoint *b)
     {
       /* Pending breakpoint has been resolved.  */
       printf_filtered ("Pending breakpoint %d - \"%s\" resolved\n", b->number, b->addr_string);
-      delete_breakpoint(b);
+      delete_breakpoint (b);
     }
   
   do_cleanups (old_chain);
@@ -4901,20 +4923,16 @@ disable_breakpoints_in_shlibs (int silent)
   ALL_BREAKPOINTS (b)
   {
 #if defined (PC_SOLIB)
-
     if (((b->type == bp_breakpoint) ||
 	 (b->type == bp_hardware_breakpoint)) &&
 	breakpoint_enabled (b) &&
-	!b->loc->duplicate 
-         /* APPLE LOCAL: I removed this test from the condition,
-	    I am pretty sure it is wrong.  b->loc->address
-	    could come from a pre-running address, which by
-	    the time we get to here could no longer have
-	    a valid library under it.  In that case we CERTAINLY
-	    would want to disable the breakpoint...
-		 
-                             &&
-			      PC_SOLIB (b->loc->address) */)
+	!b->loc->duplicate)
+      /* APPLE LOCAL: I removed the "&& PC_SOLIB (b->loc->address)"
+	 from the condition, I am pretty sure it is wrong.
+	 b->loc->address could come from a pre-running address, which
+	 by the time we get to here could no longer have a valid
+	 library under it.  In that case we CERTAINLY would want to
+	 disable the breakpoint... */
       {
 	b->enable_state = bp_shlib_disabled;
 	if (!silent)
@@ -4936,6 +4954,7 @@ disable_breakpoints_in_shlibs (int silent)
 
 /* Try to reenable any breakpoints in shared libraries.  */
 void
+/* APPLE LOCAL control silencing of breakpoint re-enable */
 re_enable_breakpoints_in_shlibs (int silent)
 {
   struct breakpoint *b, *tmp;
@@ -4954,12 +4973,14 @@ re_enable_breakpoints_in_shlibs (int silent)
 	if (/* lib != NULL && */ target_read_memory (b->loc->address, buf, 1) == 0)
 	  {
 	    b->enable_state = bp_enabled;
+	    /* APPLE LOCAL begin control silencing of breakpoint re-enable */
 	    if (!silent)
 	      {
 		target_terminal_ours_for_output ();
 		printf_filtered ("Re-enabling shared library breakpoint %d\n", 
 				 b->number);
 	      }
+	    /* APPLE LOCAL end control silencing of breakpoint re-enable */
 	  }
       }
     else if (b->pending && (b->enable_state == bp_enabled))
@@ -5286,7 +5307,6 @@ mention (struct breakpoint *b)
      delete_breakpoint_hook and so on.  */
   if (create_breakpoint_hook)
     create_breakpoint_hook (b);
-
   breakpoint_create_event (b->number);
 
   if (b->ops != NULL && b->ops->print_mention != NULL)
@@ -5371,12 +5391,18 @@ mention (struct breakpoint *b)
 	break;
       case bp_catch_catch:
       case bp_catch_throw:
+      /* APPLE LOCAL begin gnu_v3 */
       case bp_gnu_v3_catch_catch:
       case bp_gnu_v3_catch_throw:
-      /* APPLE LOCAL: Handle gnu_v3_catch types.  */
-	printf_filtered ("Catchpoint %d (%s)",
-			 b->number,
-			 (b->type == bp_catch_catch) ? "catch" : "throw");
+	/* APPLE LOCAL end gnu_v3 */
+	ui_out_text (uiout, "Catchpoint ");
+	ui_out_chain = make_cleanup_ui_out_tuple_begin_end (uiout, "catchpoint");
+	ui_out_field_int (uiout, "catchno", b->number);
+	ui_out_text (uiout, " (");
+	ui_out_field_string (uiout, "type", 
+			     (b->type == bp_catch_catch) ? "catch" : "throw");
+	do_cleanups (ui_out_chain);
+	ui_out_text (uiout, ")");
 	break;
 
       case bp_until:
@@ -5391,9 +5417,11 @@ mention (struct breakpoint *b)
       case bp_thread_event:
       case bp_overlay_event:
 	break;
+	/* APPLE LOCAL begin default case */
       default:
 	internal_error (__FILE__, __LINE__, "unhandled switch case");
 	break;
+	/* APPLE LOCAL end default case */
       }
 
   if (say_where)
@@ -5808,7 +5836,6 @@ do_captured_parse_breakpoint (struct ui_out *ui, void *data)
    PENDING_BP is non-NULL when this function is being called to resolve
    a pending breakpoint.  */
 
-
 static int
 break_command_1 (char *arg, int flag, int from_tty, struct breakpoint *pending_bp)
 {
@@ -6047,12 +6074,14 @@ break_command_2 (char *arg, int flag, int from_tty,
 	  if (pending_bp)
 	    return rc;
 
-	  /* APPLE LOCAL: If this is a pending breakpoint, and we were given a 
+	  /* APPLE LOCAL begin */
+	  /* If this is a pending breakpoint, and we were given a 
              shlib to set it in, and we can't set the breakpoint right now, 
              don't issue any error message - we'll figure it out eventually.  */
           if (pending_break_support != AUTO_BOOLEAN_TRUE 
               || requested_shlib == NULL)
-	    error_output_message (NULL, err_msg);
+	  /* APPLE LOCAL end */
+	  error_output_message (NULL, err_msg);
 	  xfree (err_msg);
 
 	  /* If pending breakpoint support is turned off, throw error.  */
@@ -6426,7 +6455,6 @@ break_at_finish_command_1 (char *arg, int flag, int from_tty)
       sal = sals.sals[i];
       if (find_pc_partial_function (sal.pc, (char **) NULL, &low, &high))
 	{
-	  break_string;
 	  if (extra_args_len)
 	    break_string = xstrprintf ("*0x%s %s", paddr_nz (high),
 				       extra_args);
@@ -6456,9 +6484,11 @@ resolve_sal_pc (struct symtab_and_line *sal)
 
   if (sal->pc == 0 && sal->symtab != NULL)
     {
+      /* APPLE LOCAL begin */
       CORE_ADDR end;
       if (!find_line_pc_range (*sal, &pc, &end))
-	error ("No line %d in file \"%s\".",
+	/* APPLE LOCAL end */
+	error (_("No line %d in file \"%s\"."),
 	       sal->line, sal->symtab->filename);
       sal->pc = pc;
     }
@@ -7270,16 +7300,66 @@ catch_unload_command_1 (char *arg, int tempflag, int from_tty)
 static enum print_stop_action
 print_exception_catchpoint (struct breakpoint *b)
 {
-  annotate_catchpoint (b->number);
+  switch (b->type) 
+    {
+    case bp_gnu_v3_catch_catch:
+      printf_filtered ("\nCatchpoint %d (exception caught).", 
+		       b->number);
 
-  if (strstr (b->addr_string, "throw") != NULL)
-    printf_filtered ("\nCatchpoint %d (exception thrown)\n",
-		     b->number);
-  else
-    printf_filtered ("\nCatchpoint %d (exception caught)\n",
-		     b->number);
+    case bp_catch_catch:
+      if (current_exception_event && 
+	  (CURRENT_EXCEPTION_KIND == EX_EVENT_CATCH))
+	{
+	  annotate_catchpoint (b->number);
+	  print_catch_info (b);
+	  if (ui_out_is_mi_like_p (uiout))
+	    {
+	      ui_out_field_string (uiout, "reason", "catch-exception");
+	      return PRINT_SRC_AND_LOC;
+	    }
+	  else
+	    {
+	      /* don't bother to print location frame info */
+	      return PRINT_SRC_ONLY;
+	    }
+	}
+      else
+	{
+	  /* really throw, some other bpstat will handle it */
+	  return PRINT_UNKNOWN;	
+	}
+      break;
+      
+    case bp_gnu_v3_catch_throw:
+      printf_filtered ("\nCatchpoint %d (exception thrown).",
+		       b->number);
 
-  return PRINT_SRC_AND_LOC;
+    case bp_catch_throw:
+      if (current_exception_event && 
+	  (CURRENT_EXCEPTION_KIND == EX_EVENT_THROW))
+	{
+	  annotate_catchpoint (b->number);
+	  print_catch_info (b);
+
+	  /* don't bother to print location frame info */
+	  if (ui_out_is_mi_like_p (uiout))
+	    {
+	      ui_out_field_string (uiout, "reason", "throw-exception");
+	      return PRINT_SRC_AND_LOC;
+	    }
+	  else
+	    return PRINT_SRC_ONLY; 
+	}
+      else
+	{
+	  /* really catch, some other bpstat will handle it */
+	  return PRINT_UNKNOWN;	
+	}
+      break;
+
+    default:
+      return PRINT_SRC_AND_LOC;
+    }
 }
 
 static void
@@ -7290,12 +7370,24 @@ print_one_exception_catchpoint (struct breakpoint *b, CORE_ADDR *last_addr)
       annotate_field (4);
       ui_out_field_core_addr (uiout, "addr", b->loc->address);
     }
-  annotate_field (5);
   *last_addr = b->loc->address;
-  if (strstr (b->addr_string, "throw") != NULL)
-    ui_out_field_string (uiout, "what", "exception throw");
-  else
-    ui_out_field_string (uiout, "what", "exception catch");
+  annotate_field (5);
+  
+  switch (b->type)
+    {
+    case bp_catch_catch:
+    case bp_gnu_v3_catch_catch:
+      ui_out_field_string (uiout, "what", "exception catch");
+      break;
+    case bp_catch_throw:
+    case bp_gnu_v3_catch_throw:
+      ui_out_field_string (uiout, "what", "exception throw");
+      break;
+    default:
+      break;
+    }
+  
+  ui_out_spaces (uiout, 1);
 }
 
 static void
@@ -7489,6 +7581,127 @@ gnu_v3_update_exception_catchpoints (enum exception_event_kind ex_event,
     }
 }
 
+/* Update the exception catchpoints for event EX_EVENT.  If DELETE
+   is 1, all catchpoints  are deleted first.  If OBJFILE is non-null
+   then only it is searched for catchpoints.  
+
+   If the catchpoint enabled flag is not set before calling this,
+   it will also be set here.
+   
+   Returns 1 if breakpoints were set, 0 otherwise. */
+
+int 
+update_exception_catchpoints (enum exception_event_kind ex_event,
+			      int tempflag, char *cond_string,
+			      int delete, struct objfile *objfile)
+{
+  struct symtabs_and_lines *sals;
+  
+  if (ex_event == EX_EVENT_CATCH)
+    exception_catchpoint_catch_enabled = 1;
+  else if (ex_event == EX_EVENT_THROW)
+    exception_catchpoint_throw_enabled = 1;
+
+  sals = target_find_exception_catchpoints (ex_event,
+					    objfile);
+  if (sals && sals != (struct symtabs_and_lines *) -1)
+    {
+      int i;
+      
+      if (delete)
+	{
+	  struct breakpoint *b, *tmp;
+	  enum bptype type;
+	  int found_it;
+	  
+	  switch (ex_event)
+	    {
+	    case EX_EVENT_CATCH:
+	      type = bp_catch_catch;
+	      break;
+	    case EX_EVENT_THROW:
+	      type = bp_catch_throw;
+	      break;
+	    default:
+	      internal_error (__FILE__, __LINE__, 
+			      "update_exception_catchpoint: bad argument.");
+	    }
+	  
+	  ALL_BREAKPOINTS_SAFE (b, tmp)
+	    {
+	      if (b->type == type)
+		{
+		  found_it = 0;
+		  
+		  for (i = 0; i < sals->nelts; i++)
+		    {
+		      if (b->loc->address == sals->sals[i].pc)
+			{
+			  sals->sals[i].pc = (CORE_ADDR) -1;
+			      found_it = 1;
+			      break;
+			}
+		    }
+		  if (!found_it)
+		    delete_breakpoint(b);
+		}
+	    }
+	  for (i = 0; i < sals->nelts; i++)
+	    if (sals->sals[i].pc != (CORE_ADDR) -1)
+	      create_exception_catchpoint (tempflag, cond_string, 1,
+					   ex_event, &(sals->sals[i]));
+	}
+      else
+	{
+	  for (i = 0; i < sals->nelts; i++)
+	    {
+	      create_exception_catchpoint (tempflag, cond_string, 1,
+					   ex_event, &(sals->sals[i]));
+	    }
+	}
+      if (sals->nelts >  0)
+	xfree (sals->sals);
+      xfree (sals);
+    }
+  else
+    return 0;
+
+  return 1;
+}
+
+/* Figure out whether the current exception object is one we want to
+   stop for.  Returns 1 if yes, and 0 if no. */
+
+static int 
+current_exception_should_stop(void)
+{
+  char *obj_type = CURRENT_EXCEPTION_TYPE;
+  char *exception_type_regexp;
+  char *msg;
+
+  /* If we can't figure out the object type, always stop. */
+  if (!obj_type)
+    return 1;
+
+  if (CURRENT_EXCEPTION_KIND == EX_EVENT_THROW)
+    exception_type_regexp = exception_throw_type_regexp;
+  else
+    exception_type_regexp = exception_catch_type_regexp;
+
+  if (exception_type_regexp)
+    {
+      msg = (char *) re_comp (exception_type_regexp);
+      if (msg) 
+	{
+	  warning ("Error compiling exception type regexp: %s", msg);
+	  return 1;
+	}
+      return re_exec (obj_type);
+    }
+  else
+    return 1;  
+}
+
 /* Deal with "catch catch" and "catch throw" commands */
 
 static void
@@ -7496,7 +7709,7 @@ catch_exception_command_1 (enum exception_event_kind ex_event, char *arg,
 			   int tempflag, int from_tty)
 {
   char *cond_string = NULL;
-  struct symtab_and_line *sal = NULL;
+  int retval;
 
   ep_skip_leading_whitespace (&arg);
 
@@ -7516,19 +7729,14 @@ catch_exception_command_1 (enum exception_event_kind ex_event, char *arg,
     }
 
   /* See if we can find a callback routine */
-  sal = target_enable_exception_callback (ex_event, 1);
+  retval = target_enable_exception_callback (ex_event, 1);
 
-  if (sal)
-    {
-      /* We have callbacks from the runtime system for exceptions.
-         Set a breakpoint on the sal found, if no errors */
-      if (sal != (struct symtab_and_line *) -1)
-	create_exception_catchpoint (tempflag, cond_string, 0, ex_event, sal);
-      else
-	return;		/* something went wrong with setting up callbacks */
-    }
+  if (!retval) 
+    error ("Could not enable exception callback");
 
-  warning ("Unsupported with this platform/compiler combination.");
+  if (!update_exception_catchpoints (ex_event, tempflag, cond_string, 
+				     0, NULL))
+    warning ("Unsupported with this platform/compiler combination.");
 }
 
 /* Cover routine to allow wrapping target_enable_exception_catchpoints
@@ -7538,14 +7746,8 @@ static int
 cover_target_enable_exception_callback (void *arg)
 {
   args_for_catchpoint_enable *args = arg;
-  struct symtab_and_line *sal;
-  sal = target_enable_exception_callback (args->kind, args->enable_p);
-  if (sal == NULL)
-    return 0;
-  else if (sal == (struct symtab_and_line *) -1)
-    return -1;
-  else
-    return 1;			/*is valid */
+
+  return target_enable_exception_callback (args->kind, args->enable_p);
 }
 
 static void
@@ -7583,11 +7785,13 @@ catch_command_1 (char *arg, int tempflag, int from_tty)
     }
   else if (strncmp (arg1_start, "catch", arg1_length) == 0)
     {
+      exception_catchpoint_catch_enabled = 1;
       catch_exception_command_1 (EX_EVENT_CATCH, arg1_end + 1, 
 				 tempflag, from_tty);
     }
   else if (strncmp (arg1_start, "throw", arg1_length) == 0)
     {
+      exception_catchpoint_throw_enabled = 1;
       catch_exception_command_1 (EX_EVENT_THROW, arg1_end + 1, 
 				 tempflag, from_tty);
     }
@@ -7675,7 +7879,10 @@ disable_exception_catch (enum exception_event_kind ex_event)
   struct breakpoint *b, *temp;
   enum bptype type, gnu_v3_type;
 
-  target_enable_exception_callback (ex_event, 0);
+  if (! handle_gnu_v3_exceptions (ex_event))
+    {
+      target_enable_exception_callback (ex_event, 0);
+    }
 
   switch (ex_event)
     {
@@ -8043,8 +8250,10 @@ delete_breakpoint (struct breakpoint *bpt)
     xfree (bpt->triggered_dll_pathname);
   if (bpt->exec_pathname != NULL)
     xfree (bpt->exec_pathname);
+  /* APPLE LOCAL begin */
   if (bpt->requested_shlib != NULL)
     xfree (bpt->requested_shlib);
+  /* APPLE LOCAL end */
 
   /* Be sure no bpstat's are pointing at it after it's been freed.  */
   /* FIXME, how can we find all bpstat's?
@@ -8095,16 +8304,16 @@ delete_command (char *arg, int from_tty)
 
       /* Delete all breakpoints if no argument.
          Do not delete internal or call-dummy breakpoints, these
-	 have to be deleted with an explicit breakpoint number argument.  */
+         have to be deleted with an explicit breakpoint number argument.  */
       ALL_BREAKPOINTS (b)
-	{
-	  if (b->type != bp_call_dummy &&
-	      b->type != bp_shlib_event &&
-	      b->type != bp_thread_event &&
-	      b->type != bp_overlay_event &&
-	      b->number >= 0)
-	    breaks_to_delete = 1;
-	}
+      {
+	if (b->type != bp_call_dummy &&
+	    b->type != bp_shlib_event &&
+	    b->type != bp_thread_event &&
+	    b->type != bp_overlay_event &&
+	    b->number >= 0)
+	  breaks_to_delete = 1;
+      }
       
       /* Ask user only if there are some breakpoints to delete.  */
       if (!from_tty
@@ -8126,6 +8335,7 @@ delete_command (char *arg, int from_tty)
 }
 
 /* Reset a breakpoint given it's struct breakpoint * BINT.
+   APPLE LOCAL using return value
    The value we return ends up being the return value from catch_errors.  */
 
 static int
@@ -8146,8 +8356,9 @@ breakpoint_re_set_one (void *bint)
     case bp_none:
       warning ("attempted to reset apparently deleted breakpoint #%d?",
 	       b->number);
-      return  0;
-      /* APPLE LOCAL: The gnu_v3 catch & throw breakpoints could exist in shared
+      return 0;
+      /* APPLE LOCAL begin gnu_v3 breakpoints */
+      /* The gnu_v3 catch & throw breakpoints could exist in shared
 	 libraries, and therefore might very well have slid.  But we can't reset
          them here or we will mess them up.  Instead, we let the code in
          tell_breakpoints_objfile_changed delete them, then we reset them in
@@ -8160,6 +8371,8 @@ breakpoint_re_set_one (void *bint)
     case bp_gnu_v3_catch_catch:
       if (b->bp_set_state != bp_state_waiting_load)
 	break;
+      /* else fall thru */
+      /* APPLE LOCAL end gnu_v3 breakpoints */
     case bp_breakpoint:
     case bp_hardware_breakpoint:
     case bp_catch_load:
@@ -8199,26 +8412,27 @@ breakpoint_re_set_one (void *bint)
 
       save_enable = b->enable_state;
 
-      /* APPLE LOCAL: The FSF version of this test has bp_disabled & 
-	 bp_shlib_disabled switched.  I don't understand this, you surely
-	 don't want to mark a breakpoint USER disabled if you can't
-	 resolve it now.   */
+      /* APPLE LOCAL begin breakpoint fix */
+      /* The FSF version of this test has bp_disabled &
+	 bp_shlib_disabled switched.  I don't understand this, you
+	 surely don't want to mark a breakpoint USER disabled if you
+	 can't resolve it now.  */
       if (b->enable_state != bp_disabled)
         b->enable_state = bp_shlib_disabled;
-      /* END APPLE LOCAL */
+      /* APPLE LOCAL end breakpoint bugfix */
 
       set_language (b->language);
       input_radix = b->input_radix;
       s = b->addr_string;
 
-      /* APPLE LOCAL: Narrow the search to the requested_shlib if it
-	 exists.  */
+      /* APPLE LOCAL begin narrow search */
+      /* Narrow the search to the requested_shlib if it exists.  */
       if (b->requested_shlib != NULL)
 	{
 	  /* We may be reloading a library which we found the wrong
 	     version of at init time.  So up the load level here just
 	     to be safe.  */
-	  if (!objfile_name_set_load_state (b->requested_shlib, OBJF_SYM_ALL, 0))
+	  if (objfile_name_set_load_state (b->requested_shlib, OBJF_SYM_ALL, 0) == -1)
 	    {
 	      warning ("Couldn't raise load state for requested shlib: \"%s\" "
 		       "for breakpoint %d.\n",
@@ -8239,30 +8453,24 @@ breakpoint_re_set_one (void *bint)
 	}
       else
 	restrict_cleanup = make_cleanup (null_cleanup, NULL);
+      /* APPLE LOCAL end narrow search */
 
-      /* END APPLE LOCAL */
-      sals = decode_line_1 (&s, 1, (struct symtab *) NULL, 0, 
-			    (char ***) NULL, NULL);
+      sals = decode_line_1 (&s, 1, (struct symtab *) NULL, 0, (char ***) NULL, NULL);
 
-      /* BEGIN APPLE LOCAL: Don't go on if we found nothing...  */
+      /* APPLE LOCAL begin Don't go on if we found nothing...  */
       if (NULL == sals.sals)
 	{
 	  do_cleanups (restrict_cleanup);
 	  return 0;
 	}
-      /* END APPLE LOCAL */
+      /* APPLE LOCAL end Don't go on if we found nothing...  */
 
       for (i = 0; i < sals.nelts; i++)
 	{
 	  resolve_sal_pc (&sals.sals[i]);
 
-	  /* APPLE LOCAL: Null out the cond, since it might contain
-	     references to the old symtab.  But DON'T try to reparse
-	     it here, since that could - in the case of ObjC - call
-	     into the inferior, which leads to infinite recursion of
-	     breakpoint_re_set_one.  We will parse it later when we
-	     actually go to check the condition.  */
-	  
+	  /* Reparse conditions, they might contain references to the
+	     old symtab.  */
 	  if (b->cond_string != NULL)
 	    {
 	      s = b->cond_string;
@@ -8273,17 +8481,27 @@ breakpoint_re_set_one (void *bint)
 		     to parse_exp_1.  */
 		  b->cond = NULL;
 		}
+	      /* APPLE LOCAL begin don't reparse cond */
+	      /* Nulling the cond is OK, since it might contain
+		 references to the old symtab.  But DON'T try to
+		 reparse it here, since that could - in the case of
+		 ObjC - call into the inferior, which leads to
+		 infinite recursion of breakpoint_re_set_one.  We will
+		 parse it later when we actually go to check the
+		 condition.  */
+	      /* APPLE LOCAL end don't reparse cond */
 	    }
 
-	  /* END APPLE LOCAL */
-
-	  /* APPLE LOCAL: Set the bp_objfile to the objfile that we found this
+	  /* APPLE LOCAL begin bp_objfile */
+	  /* Set the bp_objfile to the objfile that we found this
 	     breakpoint in.  This way we will only shlib_disable this
 	     breakpoint if the objfile it is in was changed (useful in
 	     the case that more than one objfile shares the same
 	     memory address.)  */
 	  set_bp_objfile (b, &sals.sals[i]);
+	  /* APPLE LOCAL end bp_objfile */
 
+	  /* APPLE LOCAL begin breakpoints */
 	  /* This is a bit of a hack, but if we are running a target
 	     that can know about loaded & not loaded objfiles, it
 	     usually reads from target memory.  That means if we tried
@@ -8291,9 +8509,10 @@ breakpoint_re_set_one (void *bint)
 	     weren't able to read the prologue, and so we have set
 	     this breakpoint wrong.  So we set the state to
 	     bp_state_waiting_load, and breakpoint update will
-	     specially try to reset these whenever it gets called.  
+	     specially try to reset these whenever it gets called.
 
-	    And again, if we have a pure address breakpoint, then just keep setting it.  */
+	     And again, if we have a pure address breakpoint, then
+	     just keep setting it.  */
 
 	  if (!(target_check_is_objfile_loaded (b->bp_objfile)
 		|| (b->loc->address != 0x0 && b->bp_objfile == NULL)))
@@ -8301,7 +8520,7 @@ breakpoint_re_set_one (void *bint)
 	      b->bp_set_state = bp_state_waiting_load;
 	      return 0;
 	    }
-	  /* END APPLE LOCAL */
+	  /* APPLE LOCAL end breakpoints */
 
 	  /* We need to re-set the breakpoint if the address changes... */
 	  if (b->loc->address != sals.sals[i].pc
@@ -8334,12 +8553,14 @@ breakpoint_re_set_one (void *bint)
 	         cause trouble, as it doesn't check for disabled
 	         breakpoints. */
 
-	      /* APPLE LOCAL: Run the modify breakpoint hook because we turn off
-		 all the mention stuff with the dont_mention flag, but we do want
-		 to tell the ui that an address might have changed here.  */
+	      /* APPLE LOCAL begin modify breakpoint hook */
+	      /* Run the modify breakpoint hook because we turn off
+		 all the mention stuff with the dont_mention flag, but
+		 we do want to tell the ui that an address might have
+		 changed here.  */
 	      if (modify_breakpoint_hook)
 		modify_breakpoint_hook (b);
-	      /* END APPLE LOCAL */
+	      /* APPLE LOCAL end modify breakpoint hook */
 	      mention (b);
 
 	      /* Might be better to do this just once per breakpoint_re_set,
@@ -8349,15 +8570,15 @@ breakpoint_re_set_one (void *bint)
 	  b->loc->section = sals.sals[i].section;
 	  b->enable_state = save_enable;	/* Restore it, this worked. */
 
-	  /* APPLE LOCAL: unset the selected objfile, and record the
+	  /* APPLE LOCAL begin breakpoints */
+	  /* Unset the selected objfile, and record the
 	     bp_objfile.  */
 
 	  do_cleanups (restrict_cleanup);
 
 	  /* Mark the breakpoint as set so we don't try to reset it.  */
-	  b->bp_set_state = bp_state_set;    /* Note that it has been 
-						successfully set */
-	  /* END APPLE LOCAL */
+	  b->bp_set_state = bp_state_set;
+	  /* APPLE LOCAL end breakpoints */
 
 	  /* Now that this is re-enabled, check_duplicates
 	     can be used. */
@@ -8382,10 +8603,11 @@ breakpoint_re_set_one (void *bint)
 
       /* So for now, just use a global context.  */
 
-      /* APPLE LOCAL: If symbols have changed so a saved global
-         watchpoint no longer applies, delete it, lest gdb crash
-         ungloriously.  Also, call gdb_parse_exp_1 so we can trap
-         the error rather than just bagging out.  */
+      /* APPLE LOCAL begin delete global watchpoints */
+      /* If symbols have changed so a saved global watchpoint no
+         longer applies, delete it, lest gdb crash ungloriously.
+         Also, call gdb_parse_exp_1 so we can trap the error rather
+         than just bagging out.  */
       s = b->exp_string;
       if (! gdb_parse_exp_1 (&s, innermost_block, 0, &s_exp))
         {
@@ -8397,7 +8619,7 @@ breakpoint_re_set_one (void *bint)
       if (b->exp)
         xfree (b->exp);
       b->exp = s_exp;
-      /* END APPLE LOCAL */
+      /* APPLE LOCAL end delete global watchpoints */
 
       b->exp_valid_block = innermost_block;
       mark = value_mark ();
@@ -8429,6 +8651,12 @@ breakpoint_re_set_one (void *bint)
 	mention (b);
       value_free_to_mark (mark);
       break;
+    case bp_catch_catch:
+    case bp_catch_throw:
+      break;
+      /* We needn't really do anything to reset these, since the mask
+         that requests them is unaffected by e.g., new libraries being
+         loaded. */
     case bp_catch_fork:
     case bp_catch_vfork:
     case bp_catch_exec:
@@ -8445,8 +8673,6 @@ breakpoint_re_set_one (void *bint)
       delete_breakpoint (b);
       break;
 
-    case bp_catch_catch:
-    case bp_catch_throw:
       /* This breakpoint is special, it's set up when the inferior
          starts and we really don't want to touch it.  */
     case bp_shlib_event:
@@ -8583,7 +8809,6 @@ breakpoint_re_set_all (void)
   save_input_radix = input_radix;
   ALL_BREAKPOINTS_SAFE (b, temp)
   {
-
     /* Format possible error msg */
     char *message = xstrprintf ("Error in re-setting breakpoint %d:\n",
 				b->number);
@@ -8632,16 +8857,12 @@ breakpoint_re_set_all (void)
       create_longjmp_breakpoint (NULL);
     }
 
-  /* APPLE LOCAL: this should really be a target vector function,
-     since this is very platform specific (and not relevant on
-     X).  Someday if we are motivated, we will do this right,
-     for now, just disable it. */
-
-#if 0  
-  create_overlay_event_breakpoint ("_ovly_debug_event");
-#endif
-
-  /* END APPLE LOCAL */
+  /* APPLE LOCAL begin don't create overlay bp */
+  /* The overlay event breakpoint should really be a target vector
+     function, since this is very platform specific (and not relevant
+     on X).  Someday if we are motivated, we will do this right, for
+     now, just disable it. */
+  /* APPLE LOCAL end don't create overlay bp */
 }
 
 /* Reset the thread number of this breakpoint:
@@ -8919,8 +9140,6 @@ is valid is not currently in scope.\n", bpt->number);
 	      int i = hw_watchpoint_used_count (bpt->type, &other_type_used);
 	      int mem_cnt = can_use_hardware_watchpoint (bpt->val);
 	      
-	      /* Hack around 'unused var' error for some targets here */
-	      (void) mem_cnt, i;
 	      target_resources_ok 
 		= TARGET_CAN_USE_HARDWARE_WATCHPOINT (bpt->type, i + mem_cnt, 
 						      other_type_used);
@@ -9028,6 +9247,7 @@ show_breakpoint_cmd (char *args, int from_tty)
 {
 }
 
+/* APPLE LOCAL begin save-breakpoints command */
 /* Generate a break, watch, or catch command defined by B to the STREAM.
 
    General worse case example,
@@ -9275,6 +9495,7 @@ save_breakpoints_command (char *arg, int from_tty)
 
   do_cleanups (cleanups);
 }
+/* APPLE LOCAL end save-breakpoints command */
 
 /* Use default_breakpoint_'s, or nothing if they aren't valid.  */
 
@@ -9297,7 +9518,7 @@ decode_line_spec_1 (char *string, int funfirstline)
   return sals;
 }
 
-/* APPLE LOCAL: future-break command implementation */
+/* APPLE LOCAL begin future-break command */
 static void 
 restore_saved_pending_break_support (void * val)
 {
@@ -9393,7 +9614,8 @@ tell_breakpoints_objfile_changed (struct objfile *objfile)
     }
   breakpoint_generation--;
 }
-
+/* APPLE LOCAL end future-break command */
+
 void
 _initialize_breakpoint (void)
 {
@@ -9566,11 +9788,12 @@ Do \"help breakpoints\" for info on other commands dealing with breakpoints.", N
   add_com_alias ("bre", "break", class_run, 1);
   add_com_alias ("brea", "break", class_run, 1);
 
-/* APPLE LOCAL: Register future-break command.  */
+  /* APPLE LOCAL begin future-break command */
   add_com ("future-break", class_breakpoint, future_break_command,
       "Set breakpoint at expression.  If it can't be done now, attempt it\n"
            "again each time code is dynamically loaded.");
   add_com_alias ("fb", "future-break", class_breakpoint, 2);
+  /* APPLE LOCAL end future-break command */
 
  if (xdb_commands)
     {
@@ -9692,6 +9915,22 @@ Like \"catch\" except the catchpoint is only temporary,\n\
 so it will be deleted when hit.  Equivalent to \"catch\" followed\n\
 by using \"enable delete\" on the catchpoint number.");
 
+  c = add_set_cmd ("exception-throw-type-regexp", class_breakpoint, var_string,
+		       &exception_throw_type_regexp, 
+		       "Set a regexp to match against the exception type of a thrown"
+		       "object.  If the regexp matches, then gdb will stop at the throw"
+		       "of that object.",
+		       &setlist);
+  add_show_from_set (c, &showlist);
+
+  c = add_set_cmd ("exception-catch-type-regexp", class_breakpoint, var_string,
+		       &exception_catch_type_regexp, 
+		       "Set a regexp to match against the exception type of a caught"
+		       "object.  If the regexp matches, then gdb will stop at the catch"
+		       "of that object.",
+		       &setlist);
+  add_show_from_set (c, &showlist);
+
   c = add_com ("watch", class_breakpoint, watch_command,
 	       "Set a watchpoint for an expression.\n\
 A watchpoint stops execution of your program whenever the value of\n\
@@ -9726,8 +9965,7 @@ hardware.)",
 
   can_use_hw_watchpoints = 1;
 
-  /* APPLE LOCAL: Register the save-breakpoints command.  */
-
+  /* APPLE LOCAL begin save-breakpoints command */
   c = add_set_cmd ("show_breakpoint_hit_counts", class_support, var_zinteger,
 		   (char *) &show_breakpoint_hit_counts,
 		   "Set if GDB should show breakpoint hit counts.\n\
@@ -9744,7 +9982,7 @@ Use the -command option or 'source' command in another debug\n\
   add_com_alias ("save_breakpoints", "save-breakpoints", class_breakpoint, 1);
   add_com_alias ("save_bp", "save-breakpoints", class_breakpoint, 1);
   add_com_alias ("savebp", "save-breakpoints", class_breakpoint, 1);
-  /* END APPLE LOCAL */
+  /* APPLE LOCAL end save-breakpoints command */
 
   add_prefix_cmd ("breakpoint", class_maintenance, set_breakpoint_cmd, "\
 Breakpoint specific settings\n\

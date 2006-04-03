@@ -1,43 +1,28 @@
 /*
- * Written by J.T. Conklin <jtc@netbsd.org>.
- * Public domain.
+ * Written by Ian Ollmann
+ * Copyright © 2005, Apple Computer Inc. All rights reserved.
  */
 
 #include <machine/asm.h>
+#include "abi.h"
 
-RCSID("$NetBSD: s_floor.S,v 1.6 2001/06/19 17:49:36 fvdl Exp $")
 
-ENTRY(floor)
-#ifdef __i386__
-	pushl	%ebp
-	movl	%esp,%ebp
-	subl	$8,%esp
+ENTRY( floorl )
+	XMM_ONE_ARG_LONG_DOUBLE_PROLOGUE
+	fldt		ARG_LONG_DOUBLE_ONE			//{ f }
+	frndint									//{ rounded }
+	fldt		ARG_LONG_DOUBLE_ONE			//{ f, rounded }
+	fucomi		%ST(1), %ST					//  test for f > rounded
+	fldz									//{ 0, f, rounded } 
+	fld1									//{ 1, 0, f, rounded }
+	fcmovnb		%ST(1), %ST(0)				//{ 0 or 1, 0, f, rounded }
+	fsubrp		%ST(0), %ST(3)				//{ 0, f, rounded - (0 or 1) }
+	fucomip		%ST(1), %ST					//{ f, rounded - (0 or 1) }
+	fcmovne		%ST(1), %ST(0)				//{ correct, rounded - (0 or 1)}
+	fstp		%ST(1)
 
-	fstcw	-12(%ebp)		/* store fpu control word */
-	movw	-12(%ebp),%dx
-	orw	$0x0400,%dx		/* round towards -oo */
-	andw	$0xf7ff,%dx
-	movw	%dx,-16(%ebp)
-	fldcw	-16(%ebp)		/* load modfied control word */
-
-	fldl	8(%ebp);		/* round */
-	frndint
-
-	fldcw	-12(%ebp)		/* restore original control word */
-
-	leave
-#else
-	movsd	%xmm0, -8(%rsp)
-	fstcw	-12(%rsp)
-	movw	-12(%rsp),%dx
-	orw	$0x0400,%dx
-	andw	$0xf7ff,%dx
-	movw	%dx,-16(%rsp)
-	fldcw	-16(%rsp)
-	fldl	-8(%rsp)
-	frndint
-	fldcw	-12(%rsp)
-	fstpl	-8(%rsp)
-	movsd	-8(%rsp),%xmm0
-#endif
+	XMM_LONG_DOUBLE_EPILOGUE
 	ret
+
+
+

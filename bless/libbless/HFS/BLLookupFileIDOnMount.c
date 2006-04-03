@@ -53,15 +53,15 @@ struct cataloginforeturn {
   struct cataloginfo c;
 };
 
-static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, unsigned char out[]);
+static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char * out);
 
-int BLLookupFileIDOnMount(BLContextPtr context, const unsigned char mount[], uint32_t fileID, unsigned char out[]) {
+int BLLookupFileIDOnMount(BLContextPtr context, const char * mount, uint32_t fileID, char * out) {
     struct attrlist alist;
     struct cataloginforeturn catinfo;
     int err;
 
     uint32_t volid;
-    unsigned char relpath[MAXPATHLEN];
+    char relpath[MAXPATHLEN];
 
     if(fileID < 2) {
         out[0] = '\0';
@@ -97,12 +97,12 @@ int BLLookupFileIDOnMount(BLContextPtr context, const unsigned char mount[], uin
     return 0;
 }
 
-static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, unsigned char out[]) {
+static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char * out) {
 
-    unsigned char *bp;
+    char *bp;
 
     uint32_t dirID = fileID; /* to initialize loop */
-    unsigned char volpath[MAXPATHLEN];
+    char volpath[MAXPATHLEN];
 
     struct attrlist alist;
     struct cataloginforeturn catinfo;

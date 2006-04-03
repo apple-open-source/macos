@@ -44,9 +44,13 @@
 #import <mach/m68k/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
 #undef MACHINE_THREAD_STATE_COUNT
+#undef THREAD_STATE_NONE
+#undef VALID_THREAD_STATE_FLAVOR
 #import <mach/ppc/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
 #undef MACHINE_THREAD_STATE_COUNT
+#undef THREAD_STATE_NONE
+#undef VALID_THREAD_STATE_FLAVOR
 #import <mach/m88k/thread_status.h>
 #import <mach/i860/thread_status.h>
 #import <mach/i386/thread_status.h>
@@ -552,9 +556,9 @@ layout_segments(void)
 			"-stack_size options")){
 		    /*
 		     * There shouldn't be any segment specifications for this
-		     * segment's address except protection. Protection must be
-		     * at least rw- and defaults to rwx for both initial and
-		     * maximum protection.
+		     * segment except protection. Protection must be at least
+		     * rw- and defaults to architecure's segment protection
+		     * default for both initial and maximum protection.
 		     */
 		    seg_spec = lookup_segment_spec(SEG_UNIXSTACK);
 		    if(seg_spec != NULL){
@@ -583,15 +587,22 @@ layout_segments(void)
 			    }
 			    stack_segment.sg.maxprot = seg_spec->maxprot;
 			    stack_segment.sg.initprot = seg_spec->initprot;
+			    /*
+			     * Only if the protection of the static is specified
+			     * to include execute permision do we also cause the
+			     * MH_ALLOW_STACK_EXECUTION bit to get set. 
+			     */
+			    if((stack_segment.sg.maxprot & VM_PROT_EXECUTE) ==
+			       VM_PROT_EXECUTE)
+				allow_stack_execute = TRUE;
 			}
 			seg_spec->processed = TRUE;
 			stack_segment.prot_set = TRUE;
 		    }
 		    else{
 			stack_segment.sg.maxprot =
-			    (VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE);
-			stack_segment.sg.initprot =
-			    (VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE);
+			    get_segprot_from_flag(&arch_flag);
+			stack_segment.sg.initprot = stack_segment.sg.maxprot;
 			stack_segment.prot_set = TRUE;
 		    }
 		    if(stack_addr_specified == TRUE){
@@ -797,8 +808,7 @@ layout_segments(void)
 	/*
 	 * If there is a "__TEXT" segment who's protection has not been set
 	 * set it's inital protection to "r-x" and it's maximum protection
-	 * to the default "rwx".  Also do the same for the "__LINKEDIT" segment
-	 * if it was created.
+	 * to "rwx".
 	 */
 	msg = lookup_merged_segment(SEG_TEXT);
 	if(msg != NULL && msg->prot_set == FALSE){
@@ -806,11 +816,26 @@ layout_segments(void)
 	    msg->sg.maxprot = VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE;
 	    msg->prot_set = TRUE;
 	}
+	/*
+	 * If there is a "__IMPORT" segment who's protection has not been set
+	 * set it's inital protection to "rwx" and it's maximum protection
+	 * to "rwx".
+	 */
+	msg = lookup_merged_segment(SEG_IMPORT);
+	if(msg != NULL && msg->prot_set == FALSE){
+	    msg->sg.initprot = VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE;
+	    msg->sg.maxprot = VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE;
+	    msg->prot_set = TRUE;
+	}
+	/*
+	 * If the "__LINKEDIT" segment is created sets its inital protection to
+	 * "r--" and it's maximum protection to the architecture's default.
+	 */
 	if(seglinkedit){
 	    msg = lookup_merged_segment(SEG_LINKEDIT);
 	    if(msg != NULL && msg->prot_set == FALSE){
 		msg->sg.initprot = VM_PROT_READ;
-		msg->sg.maxprot =VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE;
+		msg->sg.maxprot = get_segprot_from_flag(&arch_flag);
 		msg->prot_set = TRUE;
 	    }
 	}
@@ -818,7 +843,7 @@ layout_segments(void)
 
 	/*
 	 * Set the protections of segments that have not had their protection
-	 * set to the default protection (allowing all types of access).
+	 * set to the architecture's default protection.
 	 */
 	p = &merged_segments;
 	while(*p){
@@ -841,8 +866,9 @@ layout_segments(void)
 		    }
 		    content = &(ms->next);
 		}
-		msg->sg.maxprot = VM_PROT_READ | VM_PROT_WRITE |
-				  VM_PROT_EXECUTE;
+		msg->sg.maxprot = get_segprot_from_flag(&arch_flag);
+		if((msg->sg.initprot & VM_PROT_EXECUTE) == VM_PROT_EXECUTE)
+		    msg->sg.maxprot |= VM_PROT_EXECUTE;
 		msg->prot_set = TRUE;
 	    }
 	    p = &(msg->next);
@@ -1251,6 +1277,8 @@ layout_segments(void)
 	}
 	if(some_non_subsection_via_symbols_objects == FALSE)
 	    output_mach_header.flags |= MH_SUBSECTIONS_VIA_SYMBOLS;
+	if(allow_stack_execute == TRUE)
+	    output_mach_header.flags |= MH_ALLOW_STACK_EXECUTION;
 
 	/*
 	 * The total headers size needs to be known in the case of MH_EXECUTE,
@@ -1404,10 +1432,10 @@ layout_segments(void)
 	    mach_fatal(r, "can't vm_allocate() memory for output of size "
 			"%lu", allocate_size);
 	/*
-	    * The default initial protection for vm_allocate()'ed memory
-	    * may not include VM_PROT_EXECUTE so we need to raise the
-	    * the protection to VM_PROT_ALL which include this.
-	    */
+	 * The default initial protection for vm_allocate()'ed memory
+	 * may not include VM_PROT_EXECUTE so we need to raise the
+	 * the protection to VM_PROT_ALL which include this.
+	 */
 	if((r = vm_protect(mach_task_self(), (vm_address_t)output_addr,
 	    allocate_size, FALSE, VM_PROT_ALL)) != KERN_SUCCESS)
 	    mach_fatal(r, "can't set vm_protection on memory for output");
@@ -1734,7 +1762,7 @@ layout_segments(void)
 	 */
 	if(output_thread_info.thread_in_output == TRUE){
 	    if(entry_point_name != NULL){
-		merged_symbol = *(lookup_symbol(entry_point_name));
+		merged_symbol = lookup_symbol(entry_point_name);
 		/*
 		 * If the symbol is not found, undefined or common the
 		 * entry point can't be set.
@@ -1776,7 +1804,7 @@ layout_segments(void)
 	 */
 	if(output_routines_info.routines_in_output == TRUE){
 	    if(init_name != NULL){
-		merged_symbol = *(lookup_symbol(init_name));
+		merged_symbol = lookup_symbol(init_name);
 		/*
 		 * If the symbol is not found, undefined or common the
 		 * initialization routine address can't be set.

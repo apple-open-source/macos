@@ -22,6 +22,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_CP_OBJCP_COMMON
 #define GCC_CP_OBJCP_COMMON
 
+/* APPLE LOCAL mainline */
+/* delete unneeded decls */
+
 /* In cp/cp-lang.c and objcp/objcp-lang.c.  */
 
 extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
@@ -158,5 +161,12 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_VTABLE_P
 #define LANG_HOOKS_VTABLE_P cp_vtable_p
 /* APPLE LOCAL end kext identify vtables */
+
+/* APPLE LOCAL begin 4133801 */
+#undef LANG_HOOKS_START_SOURCE_FILE
+#define LANG_HOOKS_START_SOURCE_FILE cp_start_source_file
+#undef LANG_HOOKS_END_SOURCE_FILE
+#define LANG_HOOKS_END_SOURCE_FILE cp_end_source_file
+/* APPLE LOCAL end 4133801 */
 
 #endif /* GCC_CP_OBJCP_COMMON */

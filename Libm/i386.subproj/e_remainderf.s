@@ -9,6 +9,9 @@
 
 RCSID("$NetBSD: e_remainderf.S,v 1.4 2001/06/25 16:47:05 fvdl Exp $")
 
+#warning obsolete
+
+
 ENTRY(remainderf)
 	XMM_TWO_ARG_FLOAT_PROLOGUE
 	flds	ARG_FLOAT_TWO

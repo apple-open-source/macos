@@ -1,7 +1,7 @@
 /*
  * KLTerminalUI.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLTerminalUI.h,v 1.7 2003/04/14 17:21:35 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

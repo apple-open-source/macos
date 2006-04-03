@@ -577,7 +577,10 @@ void RenderLineEdit::slotReturnPressed()
     // Emit onChange if necessary
     // Works but might not be enough, dirk said he had another solution at
     // hand (can't remember which) - David
-    handleFocusOut();
+    if (isTextField() && isEdited()) {
+        element()->onChange();
+        setEdited(false);
+    }
 
     HTMLFormElementImpl* fe = element()->form();
     if ( fe )
@@ -597,14 +600,6 @@ void RenderLineEdit::addSearchResult()
         widget()->addSearchResult();
 }
 #endif
-
-void RenderLineEdit::handleFocusOut()
-{
-    if ( widget() && widget()->edited() && element()) {
-        element()->onChange();
-        widget()->setEdited( false );
-    }
-}
 
 void RenderLineEdit::calcMinMaxWidth()
 {
@@ -752,6 +747,16 @@ void RenderLineEdit::setSelectionRange(long start, long end)
     int realStart = MAX(start, 0);
     int length = MAX(end - realStart, 0);
     static_cast<KLineEdit *>(m_widget)->setSelection(realStart, length);
+}
+
+bool RenderLineEdit::isEdited() const
+{
+    return static_cast<QLineEdit*>(m_widget)->edited();
+}
+
+void RenderLineEdit::setEdited(bool x)
+{
+    static_cast<QLineEdit*>(m_widget)->setEdited(x);
 }
 
 // ---------------------------------------------------------------------------
@@ -950,18 +955,6 @@ void RenderFileButton::calcMinMaxWidth()
     RenderFormElement::calcMinMaxWidth();
 }
 
-#if !APPLE_CHANGES
-
-void RenderFileButton::handleFocusOut()
-{
-    if ( m_edit && m_edit->edited() ) {
-        element()->onChange();
-        m_edit->setEdited( false );
-    }
-}
-
-#endif
-
 void RenderFileButton::slotClicked()
 {
 #if APPLE_CHANGES
@@ -973,6 +966,10 @@ void RenderFileButton::slotClicked()
         m_edit->setText(file_name);
     }
 #endif
+}
+
+void RenderTextArea::setEdited(bool x) {
+    m_dirty = x;
 }
 
 void RenderFileButton::updateFromElement()
@@ -1546,15 +1543,6 @@ void RenderTextArea::detach()
 {
     element()->updateValue();
     RenderFormElement::detach();
-}
-
-void RenderTextArea::handleFocusOut()
-{
-    if ( m_dirty && element() ) {
-        element()->updateValue();
-        element()->onChange();
-    }
-    m_dirty = false;
 }
 
 void RenderTextArea::calcMinMaxWidth()

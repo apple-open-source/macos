@@ -32,6 +32,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 
+#include "CFNetworkInternal.h"
 #include <CFNetwork/CFNetDiagnostics.h>
 #include <CFNetwork/CFNetDiagnosticsPriv.h>
 
@@ -54,6 +55,7 @@
 
 //For printf
 #include <stdio.h>
+
 
 extern 
 int _CFNetDiagnosticPing(CFStringRef HostToPing, const int NumberOfPacketsToSend, const int PingTimeoutInSeconds);
@@ -293,9 +295,9 @@ CFNetDiagnosticStatus CFNetDiagnosticDiagnoseProblemInteractively(CFNetDiagnosti
 		
 		if (err == KERN_SUCCESS) {
 			err = _CFNetDiagnosticClient_passDescriptor(	port,
-															_CFNetDiagnosticMachProtocolVersion,
-															(vm_address_t)CFDataGetBytePtr(msgData),
-															CFDataGetLength(msgData));
+                                                                        _CFNetDiagnosticMachProtocolVersion,
+									(vm_address_t)CFDataGetBytePtr(msgData),
+									CFDataGetLength(msgData));
 			if (err == KERN_SUCCESS) {
 				//FIXME Yay!!!
 			}

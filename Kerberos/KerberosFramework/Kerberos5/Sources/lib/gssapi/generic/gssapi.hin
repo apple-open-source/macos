@@ -65,7 +65,7 @@ extern "C" {
 #include <sys/types.h>
 
 /*
- * $Id: gssapi.hin,v 1.20.4.1 2005/04/07 21:14:22 tlyu Exp $
+ * $Id: gssapi.hin 17241 2005-06-15 02:28:30Z  $
  */
 
 /*

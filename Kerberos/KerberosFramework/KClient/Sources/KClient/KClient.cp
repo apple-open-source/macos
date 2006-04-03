@@ -2,7 +2,7 @@
  * These functions implement the KClient 3.0 API.
  * See KClient30-API.html.
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/KClient/KClient.cp,v 1.30 2003/02/26 04:08:54 lxs Exp $
+ * $Header$
  */
 
 #include "KClientSession.h"

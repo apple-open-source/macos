@@ -27,7 +27,7 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/admin.h,v 1.54.4.1 2005/03/22 23:53:57 tlyu Exp $
+ * $Header$
  */
 
 #ifndef __KADM5_ADMIN_H__

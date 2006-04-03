@@ -3192,6 +3192,7 @@ ipsecdoi_setid1(iph1)
 		ident = getidval(iph1->rmconf->idvtype, iph1->rmconf->idv);
 		break;
 	case IDTYPE_KEYID:
+	case IDTYPE_KEYIDUSE:
 		id_b.type = IPSECDOI_ID_KEY_ID;
 		ident = getidval(iph1->rmconf->idvtype, iph1->rmconf->idv);
 		break;
@@ -3319,6 +3320,7 @@ set_identifier(vpp, type, value)
 	switch (type) {
 	case IDTYPE_FQDN:
 	case IDTYPE_USERFQDN:
+	case IDTYPE_KEYIDUSE:
 		/* length is adjusted since QUOTEDSTRING teminates NULL. */
 		new = vmalloc(value->l - 1);
 		if (new == NULL)

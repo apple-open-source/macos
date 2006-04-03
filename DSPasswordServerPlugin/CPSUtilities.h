@@ -32,6 +32,8 @@
 #include <openssl/cast.h>
 #include "CPSPluginDefines.h"
 
+#define kSASLPluginDisabledPath		"/usr/lib/sasl2/disabled"
+
 // CPSUtilities error codes
 enum {
 	kCPSUtilWaitingForConnection	= 1,
@@ -132,7 +134,6 @@ long getconn_async(const char *host, const char *port, struct timeval *inOpenTim
 long testconn_udp(const char *host, const char *port, int *outSocket);
 pid_t pwsf_ProcessIsRunning( const char *inProcName );
 bool pwsf_GetSASLMechInfo( const char *inMechName, char **outPluginFileName, bool *outRequiresPlainTextOnDisk );
-bool pwsf_SetSASLPluginState( const char *inMechName, bool enabled );
 
 #ifdef __cplusplus
 	};

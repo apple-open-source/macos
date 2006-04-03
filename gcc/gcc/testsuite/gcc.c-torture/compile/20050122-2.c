@@ -1,3 +1,5 @@
+/* APPLE LOCAL  nested functions */
+/* { dg-xfail-if "" { "*-*-darwin*" } { "*" } { "" } } */
 /* Related to PR 19484.  */
 extern void foo (void) __attribute__((noreturn));
 int n;

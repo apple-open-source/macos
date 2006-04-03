@@ -288,7 +288,7 @@ extern BOOL doServerMounts;
 }
 #endif
 
-- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt mountedon:(String *)mnton
 {
 	dataStore = nil;
 
@@ -298,7 +298,7 @@ extern BOOL doServerMounts;
 		if (dataStore != nil) [dataStore retain];
 	}
 
-	[super initWithParent:p directory:dir from:ds mountdirectory:mnt];
+	[super initWithParent:p directory:dir from:ds mountdirectory:mnt mountedon:mnton];
 
 	[self setName:ds];
 	return self;

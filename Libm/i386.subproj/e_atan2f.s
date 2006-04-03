@@ -9,6 +9,8 @@
 
 RCSID("$NetBSD: e_atan2f.S,v 1.2 2001/06/19 00:26:30 fvdl Exp $")
 
+#warning obsolete
+
 ENTRY(atan2f)
 	XMM_TWO_ARG_FLOAT_PROLOGUE
 	flds	ARG_FLOAT_ONE

@@ -1,4 +1,6 @@
 /* { dg-do compile } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-skip-if "" { *-*-darwin* } } */
 /* { dg-options "-funit-at-a-time" } */
 
 int f(int i)

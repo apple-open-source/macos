@@ -589,9 +589,15 @@ void *cookie)
 						 arch_flags[0].cpusubtype);
 		    }
 #ifdef OTOOL
-		    if(ofile.mh != NULL &&
-		       ofile.mh->magic == SWAP_LONG(MH_MAGIC)){
-			if((cpu_type_t)SWAP_LONG(ofile.mh->cputype) ==
+		    if(ofile.mh != NULL){
+		        if(ofile.mh->magic == MH_MAGIC &&
+			   ofile.mh->cputype == arch_flags[i].cputype &&
+			   (ofile.mh->cpusubtype == arch_flags[i].cpusubtype ||
+			    family == TRUE)){
+			    arch_found = TRUE;
+			}
+		        if(ofile.mh->magic == SWAP_LONG(MH_MAGIC) &&
+			   (cpu_type_t)SWAP_LONG(ofile.mh->cputype) ==
 				arch_flags[i].cputype &&
 			   ((cpu_subtype_t)SWAP_LONG(ofile.mh->cpusubtype) ==
 				arch_flags[i].cpusubtype ||
@@ -599,9 +605,15 @@ void *cookie)
 			    arch_found = TRUE;
 			}
 		    }
-		    else if(ofile.mh64 != NULL &&
-		       ofile.mh64->magic == SWAP_LONG(MH_MAGIC_64)){
-			if((cpu_type_t)SWAP_LONG(ofile.mh64->cputype) ==
+		    else if(ofile.mh64 != NULL){
+		        if(ofile.mh64->magic == MH_MAGIC_64 &&
+			   ofile.mh64->cputype == arch_flags[i].cputype &&
+			   (ofile.mh64->cpusubtype ==arch_flags[i].cpusubtype ||
+			    family == TRUE)){
+			    arch_found = TRUE;
+			}
+		        if(ofile.mh64->magic == SWAP_LONG(MH_MAGIC_64) &&
+			   (cpu_type_t)SWAP_LONG(ofile.mh64->cputype) ==
 				arch_flags[i].cputype &&
 			   ((cpu_subtype_t)SWAP_LONG(ofile.mh64->cpusubtype) ==
 				arch_flags[i].cpusubtype ||
@@ -3890,9 +3902,18 @@ struct ofile *ofile)
 		}
 	    	if(cputype == CPU_TYPE_I386){
 		    i386_thread_state_t *cpu;
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+		    struct i386_float_state *fpu;
+		    i386_exception_state_t *exc;
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 		    i386_thread_fpstate_t *fpu;
 		    i386_thread_exceptstate_t *exc;
 		    i386_thread_cthreadstate_t *user;
+#endif /* i386_THREAD_STATE == -1 */
 
 		    nflavor = 0;
 		    p = (char *)ut + ut->cmdsize;
@@ -3911,6 +3932,13 @@ struct ofile *ofile)
 			state += sizeof(unsigned long);
 			switch(flavor){
 			case i386_THREAD_STATE:
+#if i386_THREAD_STATE == 1
+			case -1:
+#endif /* i386_THREAD_STATE == 1 */
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
+			case 1:
+#endif /* i386_THREAD_STATE == -1 */
 			    if(count != i386_THREAD_STATE_COUNT){
 				Mach_O_error(ofile, "malformed object (count "
 				    "not i386_THREAD_STATE_COUNT for flavor "
@@ -3925,6 +3953,43 @@ struct ofile *ofile)
 				swap_i386_thread_state(cpu, host_byte_sex);
 			    state += sizeof(i386_thread_state_t);
 			    break;
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+			case i386_FLOAT_STATE:
+			    if(count != i386_FLOAT_STATE_COUNT){
+				Mach_O_error(ofile, "malformed object (count "
+				    "not i386_FLOAT_STATE_COUNT for flavor "
+				    "number %lu which is a i386_FLOAT_STATE "
+				    "flavor in %s command %lu)", nflavor,
+				    ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
+				    "LC_THREAD", i);
+				return(CHECK_BAD);
+			    }
+			    fpu = (struct i386_float_state *)state;
+			    if(swapped)
+				swap_i386_float_state(fpu, host_byte_sex);
+			    state += sizeof(struct i386_float_state);
+			    break;
+			case i386_EXCEPTION_STATE:
+			    if(count != I386_EXCEPTION_STATE_COUNT){
+				Mach_O_error(ofile, "malformed object (count "
+				    "not I386_EXCEPTION_STATE_COUNT for "
+				    "flavor number %lu which is a i386_"
+				    "EXCEPTION_STATE flavor in %s command %lu)",
+				    nflavor,
+				    ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
+				    "LC_THREAD", i);
+				return(CHECK_BAD);
+			    }
+			    exc = (i386_exception_state_t *)state;
+			    if(swapped)
+				swap_i386_exception_state(exc,host_byte_sex);
+			    state += sizeof(i386_exception_state_t);
+			    break;
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 			case i386_THREAD_FPSTATE:
 			    if(count != i386_THREAD_FPSTATE_COUNT){
 				Mach_O_error(ofile, "malformed object (count "
@@ -3973,6 +4038,7 @@ struct ofile *ofile)
 							      host_byte_sex);
 			    state += sizeof(i386_thread_cthreadstate_t);
 			    break;
+#endif /* i386_THREAD_STATE == -1 */
 			default:
 			    if(swapped){
 				Mach_O_error(ofile, "malformed object (unknown "

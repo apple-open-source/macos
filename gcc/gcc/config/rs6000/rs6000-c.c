@@ -52,8 +52,8 @@ static void init_vector_keywords (cpp_reader *pfile);
    whether or not new function declarations receive a longcall
    attribute by default.  */
 
-#define SYNTAX_ERROR(msgid) do {			\
-  warning (msgid);					\
+#define SYNTAX_ERROR(gmsgid) do {			\
+  warning (gmsgid);					\
   warning ("ignoring malformed #pragma longcall");	\
   return;						\
 } while (0)

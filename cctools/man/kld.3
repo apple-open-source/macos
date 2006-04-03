@@ -1,4 +1,4 @@
-.TH KLD 3 "March 27, 2004" "Apple Computer, Inc."
+.TH KLD 3 "July 28, 2005" "Apple Computer, Inc."
 .SH NAME
 kld_load, kld_load_from_memory, kld_lookup, kld_forget_symbol, kld_unload_all,
 kld_load_basefile, kld_load_basefile_from_memory,
@@ -201,7 +201,7 @@ and
 .I object_size 
 are the memory address and size of the object file.  
 .I kld_load_from_memory()
-only allows one thin object file (not an archive or ``fat'' file) to be
+only allows one thin object file (not an archive or ``universal'' file) to be
 loaded.
 .PP
 .I kld_lookup()
@@ -252,10 +252,10 @@ basis for subsequent
 .I kld_load's.
 .IR kld_load_basefile_from_memory
 is an alternate interface that allows mapped ``thin'' object image to be
-specified rather than a file.  The base file may be a ``fat'' file, and
+specified rather than a file.  The base file may be a ``universal'' file, and
 must contain an architecture that would execute on the host; 
 otherwise, it is an error.  
-If the file is a fat file, the ``best'' architecture (as defined by
+If the file is a universal file, the ``best'' architecture (as defined by
 what the kernel 
 .IR exec (2) 
 would select) is used as the base file.
@@ -309,9 +309,9 @@ is NULL for
 and
 .I kld_load_from_memory()
 
-.SH "FAT FILE SUPPORT"
-All functions that accept object files or archives also accept ``fat'' files,
-except for the restrictions noted above for
+.SH "UNIVERSAL FILE SUPPORT"
+All functions that accept object files or archives also accept ``universal''
+files, except for the restrictions noted above for
 .I kld_load_from_memory
 and
 .IR kld_load_basefile .

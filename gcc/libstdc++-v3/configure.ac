@@ -13,7 +13,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:4:0
+libtool_VERSION=6:5:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -44,16 +44,7 @@ if test "$build" != "$host"; then
   GLIBCXX_IS_NATIVE=false
   GCC_NO_EXECUTABLES
 else
-  # APPLE LOCAL begin 64-bit
-  case "$target" in
-    powerpc-apple-darwin8*)
-      GLIBCXX_IS_NATIVE=false
-      cross_compiling=yes
-      ;;
-    *)
-      GLIBCXX_IS_NATIVE=true ;;
-  esac
-  # APPLE LOCAL end 64-bit
+  GLIBCXX_IS_NATIVE=true
 fi
 
 # Sets up automake.  Must come after AC_CANONICAL_SYSTEM.  Each of the
@@ -323,7 +314,6 @@ AC_CONFIG_FILES( \
   Makefile \
   AC_FOREACH([DIR], glibcxx_SUBDIRS, [DIR/Makefile ])
   )
-AC_CONFIG_FILES([scripts/check_survey],[chmod +x scripts/check_survey])
 AC_CONFIG_FILES([scripts/testsuite_flags],[chmod +x scripts/testsuite_flags])
 
 dnl These commands are run at the end of config.status:

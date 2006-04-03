@@ -728,7 +728,7 @@ proc mi_check_current_frame { func file line message } {
 # mi_get_bp_stopped BKPTNO THREAD ARGS FUNC FILE LINE MESSAGE 
 
 proc mi_get_bp_stopped { bkptno thread args func file line message } {
-  set reason "breakpoint-hit\",commands=\"no\",bkptno=\"$bkptno"
+  set reason "breakpoint-hit\",commands=\"no\",times=\"\[0-9\]+\",bkptno=\"$bkptno"
   return [mi_get_stopped $reason $thread $args $func $file $line $message]
 }
 
@@ -872,7 +872,7 @@ proc mi_runto {func} {
 # APPLE LOCAL: COMMANDS field included in 'stopped' reason
 #              FRAME field not included in 'stopped' reason
   gdb_expect {
-    -re ".*000\\*stopped,reason=\"breakpoint-hit\",commands=\"no\",bkptno=\"$bkptno\",thread-id=\"$decimal\"\r\n$mi_gdb_prompt$" {
+    -re ".*000\\*stopped,reason=\"breakpoint-hit\",commands=\"no\",times=\"\[0-9\]+\",bkptno=\"$bkptno\",thread-id=\"$decimal\"\r\n$mi_gdb_prompt$" {
       pass "$test"
       return 0
     }
@@ -970,7 +970,7 @@ proc mi_finish_to { func args file line result ret test } {
 # APPLE LOCAL: When we stop due to a breakpoint, we'll get a COMMANDS field.
 
 proc mi_continue_to { bkptno func args file line test } {
-    mi_execute_to "exec-continue" "breakpoint-hit\",commands=\"no\",bkptno=\"$bkptno" \
+    mi_execute_to "exec-continue" "breakpoint-hit\",commands=\"no\",times=\"\[0-9\]+\",bkptno=\"$bkptno" \
 	"$func" "$args" "$file" "$line" "" "$test"
 }
 
@@ -999,6 +999,6 @@ proc mi0_finish_to { func args file line result ret test } {
 # APPLE LOCAL: When we stop due to a breakpoint, we'll get a COMMANDS field.
 
 proc mi0_continue_to { bkptno func args file line test } {
-    mi0_execute_to "exec-continue" "breakpoint-hit\",commands=\"no\",bkptno=\"$bkptno" \
+    mi0_execute_to "exec-continue" "breakpoint-hit\",commands=\"no\",times=\"\[0-9\]+\",bkptno=\"$bkptno" \
 	"$func" "$args" "$file" "$line" "" "$test"
 }

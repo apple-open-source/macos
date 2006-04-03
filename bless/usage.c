@@ -27,7 +27,7 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Nov 14 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: usage.c,v 1.27 2005/02/08 00:18:45 ssen Exp $
+ *  $Id: usage.c,v 1.31 2005/12/05 12:59:30 ssen Exp $
  *
  */
 
@@ -52,22 +52,31 @@ void usage() {
 "\t--plist\t\tFor any output type, use a plist representation\n"
 "\t--verbose\tVerbose output\n"
 "\n"
-"Folder Mode:\n"
+"File/Folder Mode:\n"
+"\t--file file\tSet <file> as the blessed boot file\n"
 "\t--folder dir\tSet <dir> as the blessed directory\n"
 "\t--bootinfo [file]\tUse <file> to create a \"BootX\" file in the\n"
 "\t\t\tblessed dir\n"
-"\t--setBoot\tSet OpenFirmware to boot from this volume\n"
+"\t--bootefi [file]\tUse <file> to create a \"boot.efi\" file in the\n"
+"\t\t\tblessed dir\n"
+"\t--setBoot\tSet firmware to boot from this volume\n"
 "\t--openfolder dir\tSet <dir> to be the visible Finder directory\n"
 "\t--verbose\tVerbose output\n"
 "\n"
 "Mount Mode:\n"
 "\t--mount dir\tUse this mountpoint in conjunction with --setBoot\n"
-"\t--setBoot\tSet OpenFirmware to boot from this volume\n"
+"\t--file file\tSet firmware to boot from <file>\n"
+"\t--setBoot\tSet firmware to boot from this volume\n"
 "\t--verbose\tVerbose output\n"
 "\n"
 "Device Mode:\n"
 "\t--device dev\tUse this block device in conjunction with --setBoot\n"
-"\t--setBoot\tSet OpenFirmware to boot from this volume\n"
+"\t--setBoot\tSet firmware to boot from this volume\n"
+"\t--verbose\tVerbose output\n"
+"\n"
+"NetBoot Mode:\n"
+"\t--netboot\tSet firmware to boot from the network\n"
+"\t--server url\tUse BDSP to fetch boot parameters from <url>\n"
 "\t--verbose\tVerbose output\n"
           
           ,
@@ -82,12 +91,15 @@ void usage_short() {
     fputs(
 "bless --help\n"
 "\n"
-"bless --folder directory [--bootinfo [file]] [--setBoot]\n"
-"\t[--openfolder directory] [--verbose]\n"
+"bless --folder directory [--file file]\n"
+"\t[--bootinfo [file]] [--bootefi [file]]\n"
+"\t[--setBoot] [--openfolder directory] [--verbose]\n"
 "\n"
-"bless --mount directory [--setBoot] [--verbose]\n"
+"bless --mount directory [--file file] [--setBoot] [--verbose]\n"
 "\n"
 "bless --device device [--setBoot] [--verbose]\n"
+"\n"
+"bless --netboot --server url [--verbose]\n"
 "\n"
 "bless --info [directory] [--getBoot] [--plist] [--verbose] [--version]\n"
 ,

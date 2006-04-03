@@ -252,7 +252,8 @@ proc signal_tests_1 {} {
 	# exceedingly difficult.  So don't expect this to get fixed
 	# anytime soon.
 
-	setup_xfail "*-*-*"
+	# APPLE LOCAL: We seem to have fixed this.
+	#setup_xfail "*-*-*"
 	send_gdb "continue\n"
 	gdb_expect {
 	    -re "Breakpoint.*func2.*$gdb_prompt $" { pass "continue to func2" }

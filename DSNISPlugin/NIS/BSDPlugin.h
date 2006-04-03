@@ -251,10 +251,11 @@ protected:
 			Boolean				NISAvailable					( void );
 			Boolean				AreNISServersReachable			( void );
 			
-			CFMutableDictionaryRef	CopyRecordLookup			( Boolean isFFRecord, const char* recordTypeName, char* recordName );
+			CFMutableDictionaryRef	CopyRecordLookup			( Boolean isFFRecord, const char* recordTypeName, const char* mapName, char* recordName );
             void					DoRecordsLookup				(	CFMutableArrayRef	resultArrayRef,
 																	Boolean				isFFRecord,
 																	const char*			recordTypeName,
+																	const char*			inMapName,
 																	char*				recordName = NULL,
 																	tDirPatternMatch	inAttributePatternMatch = eDSAnyMatch,
 																	tDataNodePtr		inAttributePatt2Match = NULL,
@@ -263,7 +264,7 @@ protected:
 #ifdef BUILDING_COMBO_PLUGIN
 			CFMutableDictionaryRef	CreateFFParseResult			( char *data, const char* recordTypeName );
 #endif
-			CFMutableDictionaryRef	CreateNISParseResult		( char *data, const char* recordTypeName );
+			CFMutableDictionaryRef	CreateNISParseResult		( char *data, const char* recordTypeName, const char* key = NULL );
 			
             sInt32				HandleRequest 					( void *inData );
 
@@ -303,7 +304,7 @@ protected:
 
 			sInt32				HandleNetworkTransition			( sHeader *inData );
     
-			CFDictionaryRef		CopyRecordResult				( Boolean isFFRecord, const char* recordTypeName, char* recordName );
+			CFDictionaryRef		CopyRecordResult				( Boolean isFFRecord, const char* recordType, const char* mapName, char* recordName );
 			Boolean				RecordIsAMatch					(	CFDictionaryRef		recordRef,
 																	tDirPatternMatch	inAttributePatternMatch,
 																	tDataNodePtr		inAttributePatt2Match,
@@ -314,7 +315,7 @@ protected:
 			CFMutableDictionaryRef	CopyResultOfFFLookup		( const char* recordTypeName, CFStringRef recordTypeRef );
 #endif
 			char*				CopyResultOfNISLookup			( NISLookupType	type, const char* recordTypeName = NULL, const char* key = NULL );
-			CFDictionaryRef		CopyMapResults					( Boolean isFFRecord, const char* recordTypeName );
+			CFDictionaryRef		CopyMapResults					( Boolean isFFRecord, const char* mapName );
 
 			Boolean				ResultMatchesRequestRecordNameCriteria (	CFDictionaryRef		result,
 																			tDirPatternMatch	patternMatch,
@@ -346,7 +347,7 @@ protected:
 			sInt32				IsValidRecordName				( const char *inRecName, const char	*inRecType, void *inDomain );
 			sInt32				VerifyPatternMatch				( const tDirPatternMatch inPatternMatch );
 			
-			void				AddResultToDictionaries			( CFMutableDictionaryRef primaryDictRef, CFMutableDictionaryRef alternateDictRef, CFDictionaryRef resultRef );
+			void				AddResultToDictionaries			( CFStringRef recordTypeRef, CFMutableDictionaryRef primaryDictRef, CFMutableDictionaryRef alternateDictRef, CFDictionaryRef resultRef );
 			
         uInt32					mState;
 private:
@@ -377,6 +378,10 @@ private:
 		Boolean					mNISAgentIsConfigured;
 		CFAbsoluteTime			mLastTimeCheckedServerAvailabilityViaRPC;
 		CFAbsoluteTime			mLastTimeOfNetworkTransition;
+
+		Boolean					mRecordTypeUsersByUIDMapNotAvailable;
+		Boolean					mRecordTypeGroupByUserMapNotAvailable;
+		Boolean					mRecordTypeGroupsByGIDMapNotAvailable;
 };
 
 NodeData * AllocateNodeData();

@@ -103,13 +103,14 @@ main(argc, argv)
 	int argc;
 	char **argv;
 {
-	int c, retval, verbose;
+	int c, retval, verbose, run_ranlib;
 	char *p;
 	int (*fcall) __P((char **));
 
 	fcall = 0;
 	verbose = 0;
 	progname = argv[0];
+	run_ranlib = 1;
 
 	if (argc < 3)
 		usage();
@@ -132,7 +133,7 @@ main(argc, argv)
 	 * extended format #1.  The new option -L allows ar to use the extended 
 	 * format and the old -T option causes the truncation of names.
 	 */
-	while ((c = getopt(argc, argv, "abcdilLmopqrsTtuVvx")) != -1) {
+	while ((c = getopt(argc, argv, "abcdilLmopqrSsTtuVvx")) != -1) {
 		switch(c) {
 		case 'a':
 			options |= AR_A;
@@ -175,6 +176,10 @@ main(argc, argv)
 			break;
 		case 's':
 			options |= AR_S;
+			break;
+		case 'S':
+			options &= ~AR_S;
+			run_ranlib = 0;
 			break;
 		case 'T':
 			options |= AR_TR;
@@ -264,18 +269,24 @@ main(argc, argv)
 		exit(retval);
 	}
 
-	/* run ranlib -f or -q on the archive */
-	reset_execute_list();
-	add_execute_list("ranlib");
-	if(options & AR_S)
-	    add_execute_list("-f");
-	else
-	    add_execute_list("-q");
-	add_execute_list(archive);
-	if(execute_list(verbose) == 0){
-	    (void)fprintf(stderr, "%s: internal ranlib command failed\n",
-			  progname);
-	    exit(EXIT_FAILURE);
+	/*
+	 * The default is to run ranlib(1) for UNIX conformance.  But if the -S
+	 * option is specified by the user we don't run it.
+	 */
+	if(run_ranlib){
+	    /* run ranlib -f or -q on the archive */
+	    reset_execute_list();
+	    add_execute_list("ranlib");
+	    if(options & AR_S)
+		add_execute_list("-f");
+	    else
+		add_execute_list("-q");
+	    add_execute_list(archive);
+	    if(execute_list(verbose) == 0){
+		(void)fprintf(stderr, "%s: internal ranlib command failed\n",
+			      progname);
+		exit(EXIT_FAILURE);
+	    }
 	}
 	exit(EXIT_SUCCESS);
 }

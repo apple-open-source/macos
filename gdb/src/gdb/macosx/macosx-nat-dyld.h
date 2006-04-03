@@ -58,7 +58,7 @@ void macosx_clear_start_breakpoint ();
 void macosx_set_start_breakpoint (macosx_dyld_thread_status *s,
                                   bfd *exec_bfd);
 void macosx_init_addresses (macosx_dyld_thread_status *s);
-void macosx_dyld_init (macosx_dyld_thread_status *s, bfd *exec_bfd);
+int macosx_dyld_init (macosx_dyld_thread_status *s, bfd *exec_bfd);
 int macosx_solib_add (const char *filename, int from_tty,
                       struct target_ops *targ, int loadsyms);
 void macosx_dyld_thread_init (macosx_dyld_thread_status *s);

@@ -89,7 +89,6 @@ extern double fmodl( double, double)				 __LIBMLDBL_COMPAT(fmodl);
 extern double remainderl( double, double )		 __LIBMLDBL_COMPAT(remainderl);
 extern double remquol( double, double, int * )	 __LIBMLDBL_COMPAT(remquol);
 extern double copysignl( double, double )		 __LIBMLDBL_COMPAT(copysignl);
-extern double nanl( const char * )							 __LIBMLDBL_COMPAT(nanl);
 extern double nextafterl( double, double )		 __LIBMLDBL_COMPAT(nextafterl);
 extern double	   nexttoward( double, double )			 __LIBMLDBL_COMPAT(nexttoward);
 extern float	   nexttowardf( float, double )			 __LIBMLDBL_COMPAT(nexttowardf);
@@ -156,7 +155,6 @@ double remquol( double x, double y, int *quo )
 												{ return (double)remquo((double) x, (double) y, quo); }
 double copysignl( double x, double y ) 
 												{ return (double)copysign((double) x, (double) y); }
-double nanl( const char *s )				{ return (double)nan(s); }
 double nextafterl( double x, double y ) 
 												{ return (double)nextafter((double) x, (double) y); }
 double      nexttoward( double x, double y ) { return (double)nextafter((double) x, (double) y); }

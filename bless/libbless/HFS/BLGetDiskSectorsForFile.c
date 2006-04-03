@@ -27,9 +27,19 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Sat Jun 01 2002.
  *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetDiskSectorsForFile.c,v 1.14 2005/02/03 00:42:25 ssen Exp $
+ *  $Id: BLGetDiskSectorsForFile.c,v 1.16 2005/08/22 20:49:23 ssen Exp $
  *
  *  $Log: BLGetDiskSectorsForFile.c,v $
+ *  Revision 1.16  2005/08/22 20:49:23  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.15  2005/06/24 16:39:50  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.14  2005/02/03 00:42:25  ssen
  *  Update copyrights to 2005
  *
@@ -115,17 +125,17 @@ extern int errno;
  * Then parse the device to see if an offset needs to be added
  */
 
-int BLGetDiskSectorsForFile(BLContextPtr context, const unsigned char path[], off_t extents[8][2],
-                            unsigned char device[]) {
+int BLGetDiskSectorsForFile(BLContextPtr context, const char * path, off_t extents[8][2],
+                            char * device) {
 
     struct statfs sb;
     struct extinfo info;
     struct allocinfo ainfo;
     struct attrlist alist, blist;
-    unsigned char buffer[512];
+    char buffer[512];
     HFSMasterDirectoryBlock *mdb = (HFSMasterDirectoryBlock  *) buffer;
     off_t sectorsPerBlock, offset;
-    unsigned char rawdev[MNAMELEN];
+    char rawdev[MNAMELEN];
     int i,  fd;
     int ret;
     

@@ -61,7 +61,6 @@ static int thread_alive (struct thread_info *);
 static void info_threads_command (char *, int);
 static void thread_apply_command (char *, int);
 static void restore_current_thread (ptid_t, int);
-static void switch_to_thread (ptid_t ptid);
 static void prune_threads (void);
 
 void
@@ -257,9 +256,9 @@ in_thread_list (ptid_t ptid)
 static int
 do_captured_list_thread_ids (struct ui_out *uiout, void *arg)
 {
-  struct cleanup *cleanup_chain;
   struct thread_info *tp;
   int num = 0;
+  struct cleanup *cleanup_chain;
 
   cleanup_chain = make_cleanup_ui_out_tuple_begin_end (uiout, "thread-ids");
 
@@ -393,7 +392,8 @@ thread_alive (struct thread_info *tp)
   return 1;
 }
 
-void prune_threads (void)
+void
+prune_threads (void)
 {
   struct thread_info *tp, *next;
 
@@ -479,6 +479,15 @@ info_threads_command (char *arg, int from_tty)
 
 /* Switch from one thread to another. */
 
+/* APPLE LOCAL: This was originally static, but we needed to export it
+   for use by do_check_is_thread_unsafe.  gdb_thread_select has the
+   unfortunate side-effect of using the parser, which is silly for a
+   library function.  Ideally there would be an exported function that
+   doesn't use the parser, but does call all the appropriate hooks.
+   But that's beyond the scope of Turmeric, and in the case of
+   do_check_is_thread_unsafe it's not necessary since we are just going
+   to restore the original thread state anyway. */
+
 void
 switch_to_thread (ptid_t ptid)
 {
@@ -490,6 +499,12 @@ switch_to_thread (ptid_t ptid)
   registers_changed ();
   stop_pc = read_pc ();
   select_frame (get_current_frame ());
+
+  /* APPPLE LOCAL Finally, if the scheduler-locking is on, then we should reset the thread
+     we are trying to run. */
+  if (scheduler_lock_on_p ())
+    scheduler_run_this_ptid (inferior_ptid);
+
 }
 
 static void
@@ -737,11 +752,6 @@ do_captured_thread_select (struct ui_out *uiout,
   if (context_hook)
     context_hook (pid_to_thread_id (inferior_ptid));
   
-  /* Finally, if the scheduler-locking is on, then we should reset the thread
-     we are trying to run. */
-  if (scheduler_lock_on_p ())
-    scheduler_run_this_ptid (inferior_ptid);
-
   return GDB_RC_OK;
 }
 

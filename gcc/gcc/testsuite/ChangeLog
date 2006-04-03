@@ -1,3 +1,738 @@
+2005-10-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* obj-c++.dg/except-1.mm: New.
+
+2005-06-17  Geoffrey Keating  <geoffk@apple.com>
+
+	PR c++/17413
+	* g++.dg/template/local5.C: New.
+
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-06-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR 22171
+	* gcc.dg/tree-ssa/pr22171.c: New test.
+
+2005-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-06-19  Richard Henderson  <rth@redhat.com>
+	* gcc.dg/tree-ssa/pr21985.c: Use size_t.
+	2005-06-13  Zdenek Dvorak  <dvorakz@suse.cz>
+	PR middle-end/21985
+	* gcc.dg/tree-ssa/pr21985.c: New test.
+
+2005-06-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/backslash_1.f90: New test.
+	* gfortran.dg/backslash_2.f90: New test.
+
+2005-06-20  Jan Beulich  <jbeulich@novell.com>
+
+	* g++.old-deja/g++.jason/thunk2.C: On NetWare, also account for
+	unsupportable relocations.
+	* g++.old-deja/g++.other/store-expr1.C: Likewise.
+	* gcc.dg/20050321-2.c: xfail for NetWare.
+
+2005-06-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/pr17229.f: Take care of the new obsolescence
+	warning for arithmetic IF statements.
+
+2005-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/21850
+	* gcc.c-torture/execute/20050607-1.c: New test.
+
+2005-06-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19216
+	* gfortran.dg/pr19216.f: Add test.
+
+2005-06-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19155
+	* gfortran.dg/pr19155.f: Add test.
+
+2005-06-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/16436
+	* gfortran.dg/g77/f77-edit-t-in.f: Not XFAIL-ed any more.
+
+2005-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/22043
+	* gcc.c-torture/execute/20050613-1.c: New test.
+
+2005-06-14  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/pr21171.c: Fix.
+
+2005-06-08  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/21171
+	* gcc.dg/tree-ssa/pr21171.c: New test.
+
+2005-06-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/tls/debug-1.c: New test.
+
+2005-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from the mainline:
+	2005-04-17 Paul Thomas <pault@gcc.gnu.org>
+
+	PR libfortran/12884 gfortran.dg/pr12884.f: New test
+	PR libfortran/17285 gfortran.dg/pr17285.f90: New test
+	PR libfortran/17472, 18396, 18209 gfortran.dg/pr17472.f: New test
+	PR libfortran/18122, 18591 gfortran.dg/pr18122.f90: New test
+	PR libfortran/18210 gfortran.dg/pr18210.f90: New test
+	PR libfortran/18392 gfortran.dg/pr18392.f90: New test
+	PR libfortran/19467 gfortran.dg/pr19467.f90: New test
+	PR libfortran/19657 gfortran.dg/pr19657.f90: New test
+	* gfortran.dg/namelist_1.f90: Correct comment (PUBLIC and PRIVATE wrong way round).
+	* gfortran.dg/namelist_2.f90: Variables with INTENT(IN) cannot be in namelists. New test
+	* gfortran.dg/namelist_3.f90: Pointers cannot be in namelists. New test
+	* gfortran.dg/namelist_11.f: Tests reals and qualifiers in namelist. New test
+	* gfortran.dg/namelist_12.f: Tests integers and qualifiers in namelist. New test
+	* gfortran.dg/namelist_13.f90: Tests derived types in namelist. New test
+	* gfortran.dg/namelist_14.f90: Tests trans-io.c namelist support. New test
+	* gfortran.dg/namelist_15.f90: Tests arrays of derived types in namelist. New test
+	* gfortran.dg/namelist_16.f90: Tests complex in namelist. New test
+	* gfortran.dg/namelist_17.f90: Tests logical in namelist. New test
+	* gfortran.dg/namelist_18.f90: Tests charcter delimiters in namelist. New test
+	* gfortran.dg/namelist_19.f90: Tests namelist errors. New test
+	* gfortran.dg/namelist_20.f90: Tests negative bounds for explicit arrays. New test
+
+2005-06-05  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/21912
+	* gfortran.dg/array_constructor_4.f90: New test.
+	
+	* gfortran.dg/forall_1.f90: Set previously uninitialized variable.
+
+2005-06-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21619
+	* g++.dg/ext/builtin9.C: New test.
+
+2005-06-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/char_initialiser_actual.f90:
+	Test character initialisers as actual arguments.
+	* gfortran.dg/char_pointer_comp_assign.f90:
+	Test character pointer structure component assignments.
+	* gfortran.dg/char_array_structure_constructor.f90:
+	Test character components in structure constructors.
+	* gfortran.dg/char_pointer_assign.f90:
+	Test character-pointer assignments and pointer assignments.
+	* gfortran.dg/char_pointer_dummy.f90:
+	Test character-pointer dummy arguments.
+	* gfortran.dg/char_pointer_func.f90:
+	Test character-pointer function returns.
+	* gfortran.dg/char_pointer_dependency.f90:
+	Test character-pointer functions with dependencies.
+
+2005-06-04  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/19195
+	* gfortran.dg/debug_1.f90: New test.
+
+	PR fortran/16898
+	* gfortran.dg/ret_pointer_1.f90: Un-XFAIL.
+
+2005-06-04  Erik Edelmann  <erik.edelmann@iki.fi>
+
+	* gfortran.dg/array_constructor_3.f90: New test.
+
+2005-06-04  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/forall_1.f90: New test.
+
+2005-06-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21873
+	* gcc.dg/init-excess-1.c: New test.
+
+2005-06-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21853
+	* g++.dg/expr/static_cast6.C: New test.
+
+2005-06-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21336
+	* g++.dg/template/new2.C: New test.
+
+2005-06-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21280
+	* g++.dg/opt/interface2.h: New.
+	* g++.dg/opt/interface2.C: New.
+	* g++.dg/init/ctor4.C: Adjust error lines.
+	* g++.old-deja/g++.bob/inherit2.C: Likewise.
+	* g++.old-deja/g++.bugs/900205_04.C: Likewise.
+	* g++.old-deja/g++.jason/opeq3.C: Likewise.
+	* g++.old-deja/g++.pt/assign1.C: Likewise.
+	* g++.old-deja/g++.pt/crash20.C: Likewise.
+
+	PR c++/21151
+	* g++.dg/pch/local-1.C: New.
+	* g++.dg/pch/local-1.Hs: New.
+
+2005-06-01  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/f2c_1.f90, gfortran.dg/f2c_2.f90,
+	gfortran.dg/f2c_3.f90, gfortran.dg/func_result_2.f90:
+	New tests.
+
+2005-06-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20350
+	* g++.dg/template/spec24.C: New.
+
+2005-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/21536
+	PR c/20760
+	* gcc.dg/20050527-1.c: New test.
+
+	* gcc.dg/i386-sse-12.c: New test.
+
+	PR fortran/21729
+	* gfortran.dg/implicit_5.f90: New test.
+
+2005-06-01  Feng Wang  <fengwang@nudt.edu.cn>
+ 
+	PR fortran/20883
+	* gfortran/assign_4.f90: New test.
+	* gfortran/assign_2.f90: Change compile to run.
+
+2005-05-31  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/21817
+	* gcc.dg/torture/pr21817-1.c: New.
+
+2005-05-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21165
+	* g++.dg/template/init5.C: New.
+
+2005-05-31  Andrew pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/20931
+	* g++.dg/opt/pr20931.C: New test.
+
+2005-05-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21784
+	* g++.dg/lookup/using14.C: New test.
+
+2005-05-29  Steven G. Kargl
+
+	PR fortran/20846
+	* gfortran.dg/inquire_8.f90: New test.
+
+2005-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21376
+	* gfortran.dg/output_exponents_1.f90: New test.
+
+2005-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20006
+	* gfortran.dg/dollar_edit_descriptor-1.f: New test.
+
+2005-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21340
+	* g++.dg/init/ctor6.C: New test.
+
+2005-05-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21614
+	* g++.dg/expr/ptrmem6.C: New test.
+	* g++.dg/expr/ptrmem6a.C: Likewise.
+
+2005-05-27  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	PR middle-end/21595
+	* g++.dg/tree-ssa/builtin1.C: New testcase.
+
+2005-05-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21455
+	* g++.dg/inherit/ptrmem3.C: New.
+
+	PR c++/21681
+	* g++.dg/parse/template16.C: New.
+
+2005-05-26  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/ieee/ieee.exp: Set float-store for 32-bit
+	x86-64 compilation.
+
+2005-05-26  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/17283
+	* gfortran.fortran-torture/execute/intrinsic_unpack.f90:
+	Test callee-allocated memory with write statements.
+
+2005-05-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/21492
+	* g++.dg/opt/crossjump1.C: New test.
+
+2005-05-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20050524-1.c: New test.
+
+2005-05-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/21412
+	* gcc.dg/tls/opt-9.c: XFAIL on SPARC.
+
+2005-05-25  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline:
+	PR libfortran/18495
+	* gfortran.fortran-torture/execute/intrinsic_spread.f90:
+	Test callee-allocated version of return array with a write
+	statement.
+	Test spread with a temporary with another write statement.
+
+2005-04-23  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline:
+	PR libfortran/21075
+	* gfortran.dg/reshape_rank7.f90: New test.
+
+2005-05-21  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline:
+	PR libfortran/20074
+	PR libfortran/20436
+	PR libfortran/21108
+	* gfortran.dg/nested_reshape.f90: new test
+	* gfortran.dg/reshape-alloc.f90: new test
+	* gfortran.dg/reshape.f90: new test
+
+2004-05-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/21331
+	PR tree-opt/21293
+	* gcc.c-torture/compile/pr21293.c: New test.
+	* gcc.c-torture/execute/pr21331.c: New test.
+
+2005-05-20  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline:
+	PR libfortran/19106
+	* gfortran.fortran-torture/execute/intrinsic_mmloc.f90:
+	Add tests with mask generated by expression.
+	* gfortran.fortran-torture/execute/intrinsic_mmval.f90:  Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_product.f90:  Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_sum.f90:  Likewise.
+
+	PR libfortran/19014
+	* gfortran.fortran-torture/execute/intrinsic_anyall.f90:
+	Added test for callee-allocated arrays with write statements.
+	* gfortran.fortran-torture/execute/intrinsic_count.f90: Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_mmloc.f90: Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_mmval.f90: Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_product.f90: Likewise.
+	* gfortran.fortran-torture/execute/intrinsic_sum.f90: Likewise.
+
+
+2005-05-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 5/n
+	PR c++/1016
+	* g++.dg/lookup/hidden-class1.C: New test.
+	* g++.dg/lookup/hidden-class2.C: Likewise.
+	* g++.dg/lookup/hidden-class3.C: Likewise.
+	* g++.dg/lookup/hidden-class4.C: Likewise.
+	* g++.dg/lookup/hidden-class5.C: Likewise.
+	* g++.dg/lookup/hidden-class6.C: Likewise.
+	* g++.dg/lookup/hidden-class7.C: Likewise.
+	* g++.dg/lookup/hidden-class8.C: Likewise.
+	* g++.dg/lookup/hidden-class9.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class1.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class2.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class3.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class4.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class5.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class6.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class7.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class8.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class9.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class10.C: Likewise.
+	* g++.dg/lookup/hidden-temp-class11.C: Likewise.
+
+2005-05-18  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21127
+	* gfortran.dg/reshape-complex.f90:  New test.
+
+2005-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21495
+	* g++.dg/parse/extern1.C: New test.
+	* g++.dg/tls/diag-2.C: Adjust expected error message wording.
+
+2005-05-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/c99-math.h: New.
+	* gcc.dg/c99-math-float-1.c: New test.
+	* gcc.dg/c99-math-double-1.c: Likewise.
+	* gcc.dg/c99-math-long-double-1.c: Likewise.
+
+2005-05-18  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/20954
+	* gfortran.dg/pr20954.f: New test.
+
+2005-05-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/compat/struct-layout-1_generate.c (iterative_hash):
+	Remove little-endian optimizations.
+
+2005-05-17  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	* gcc.dg/compat/generate-random.c: Do not include
+	libiberty.h.
+	* gcc.dg/compat/generate-random_r.c: Likewise.
+
+2005-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/21454
+	* g++.dg/opt/const4.C: New test.
+
+	PR tree-optimization/21610
+	* gcc.c-torture/compile/20050516-1.c: New test.
+
+	PR fortran/15080
+	* gfortran.fortran-torture/execute/forall_3.f90: Remove comment
+	about the test failing.
+	* gfortran.fortran-torture/execute/where_7.f90: New test.
+	* gfortran.fortran-torture/execute/where_8.f90: New test.
+
+2005-05-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/compat/generate-random.c (config.h): Do not include.
+	(limits.h): Include unconditionally.
+	(stdlib.h): Likewise.
+	* gcc.dg/compat/generate-random_r.c (config.h): Do not include.
+	(limits.h): Include unconditionally.
+	(stdlib.h): Likewise.
+	* gcc.dg/compat/struct-layout-1.exp: Do not link with libiberty.
+	* gcc.dg/compat/struct-layout-1_generate.c (config.h): Do not include.
+	(limits.h): Include unconditionally.
+	(stdlib.h): Likewise.
+	(hashtab.h): Do not include.
+	(getopt.h): Likewise.
+	(stddef.h): Include.
+	(hashval_t): Define.
+	(struct entry): Add "next" field.
+	(HASH_SIZE): New macro.
+	(hash_table): New variable.
+	(switchfiles): Do not use xmalloc.
+	(mix): New macro.
+	(iterative_hash): New function.
+	(hasht): Remove.
+	(e_exists): New function.
+	(e_insert): Likewise.
+	(output): Use, instead of libiberty hashtable functions.
+	(main): Do not use getopt.  Do not call htab_create.
+
+2005-05-16  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR libstdc++/21526
+	* lib/target-supports.exp (check_mkfifo_available):
+	Return 0 for cygwin as mkfifo support incomplete on platform.
+	Fix typos in comments.
+
+2005-05-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/compat.exp (compat-execute): Do not use regsub unsafely.
+
+2005-05-15  Jerry DeLisle <jvdelisle@verizon.net>
+
+	PR fortran/17432
+	* gfortran.dg/assign_4.f: New test.
+
+2005-05-13  Julian Brown  <julian@codesourcery.com>
+
+	* gcc.c-torture/execute/20041218-2.c: Add __attribute__((packed)).
+	* gcc.dg/intmax_t-1.c: Disable on *arm*-*-*elf*.
+
+2005-05-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/spec23.C: Fix dg-error text.
+
+2005-05-11  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/21260
+	* gfortran.dg/hollerith_1.f90: New test.
+
+2005-05-11  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR middle-end/21085
+	* gcc.dg/pr21085.c: New test.
+
+2005-05-11  Bud Davis  <bdavis@gfortran.org>
+
+	* gfortran.dg/dev_null.f90: New test.
+
+2005-05-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21471
+	* gfortran.dg/append-1.f90: New test.
+
+2005-05-09  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/return_1.f90: New test.
+
+2005-05-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20723
+	* g++.dg/template/spec22.C: New.
+	* g++.dg/template/spec23.C: New.
+
+	PR c++/19203, DR 214
+	* g++.dg/parse/ambig3.C: Not ambiguous.
+	* g++.dg/template/spec20.C: New.
+	* g++.dg/template/spec21.C: New.
+
+2005-05-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21342
+	* gcc.dg/redecl-11.c, gcc.dg/redecl-12.c, gcc.dg/redecl-13.c,
+	gcc.dg/redecl-14.c, gcc.dg/redecl-15.c: New tests.
+
+2005-05-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19155
+	* gfortran.dg/pr19155.f: New test.
+
+2005-05-06  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline:
+	PR libfortran/18958
+	* gfortran.dg/eoshift.f90:  New test case.
+
+2005-05-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/target-supports-dg.exp (dg-require-fork): New function.
+	(dg-require-mkfifo): Likewise.
+	* lib/target-supports.exp (check_function_available): New
+	function.
+	(check_fork_available): Likewise.
+	(check_mkfifo_available): Likewise.
+
+2005-05-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/21330
+	* gcc.c-torture/execute/20050502-1.c: New test.
+
+	PR c++/20961
+	* g++.dg/ext/weak3.C: New test.
+
+2005-05-05  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/pr21380.c: New test.
+
+2005-05-05  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21352
+	* g++.dg/template/crash37.C: New test.
+
+2005-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/21265
+	* gcc.dg/20050503-1.c: New test.
+
+	PR rtl-optimization/21239
+	* gcc.dg/i386-sse-11.c: New test.
+
+	PR target/21297
+	* gcc.c-torture/execute/20050502-2.c: New test.
+
+2005-05-03  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	Backport from mainline:
+	* eor_handling_1.f90: New test case.
+	* eor_handling_2.f90: New test case.
+	* eor_handling_3.f90: New test case.
+	* eor_handling_4.f90: New test case.
+	* eor_handling_5.f90: New test case.
+	* noadv_size.f90: New test case.
+	* pad_no.f90: New test case.
+
+2005-05-02  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-03-25  Mark Mitchell  <mark@codesourcery.com>
+	* lib/g++.exp (g++_link_flags): Use gcc-set-multilib-library-path.
+	(g++_init): Make sure that CXXFLAGS is set.
+	* lib/gcc-defs.exp (gcc-set-multilib-library-path): New function.
+	* lib/gcc-dg.exp: Use gcc-set-multilib-library-path.
+	* lib/gfortran.exp (gfortran_link_flags): Likewise.
+	* lib/objc.exp (objc_init): Likewise.
+	* lib/treelang.exp (treelang_init): Likewise.
+	2005-03-23  Mark Mitchell  <mark@codesourcery.com>
+	* lib/target-supports.exp (check_iconv_available): Default
+	libiconv to -liconv, if there is no definition.
+
+2005-05-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/16888
+	* gcc.target/i386/asm-1.c: New test.
+
+2005-05-02  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/15698
+	* gcc.dg/builtins-30.c: Update expected messages.
+	* gcc.dg/pr15698-1.c, gcc.dg/pr15698-2.c, gcc.dg/pr15698-3.c,
+	gcc.dg/pr15698-4.c, gcc.dg/pr15698-5.c, gcc.dg/pr15698-6.c,
+	gcc.dg/pr15698-7.c, pr15698-8.c: New tests.
+
+2005-05-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15875
+	* g++.dg/template/ptrmem14.C: New test.
+
+2005-05-01  Michael Matz  <matz@suse.de>
+
+	PR c++/19542
+	* g++.dg/warn/sentinel.C: New testcase for __null sentinels added.
+
+2005-04-29  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/inline-mcpy.c: New test.
+
+2005-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/13082
+	PR fortran/18824
+	* gfortran.dg/entry_4.f90: New test.
+	* gfortran.fortran-torture/execute/entry_1.f90: New test.
+	* gfortran.fortran-torture/execute/entry_2.f90: New test.
+	* gfortran.fortran-torture/execute/entry_3.f90: New test.
+	* gfortran.fortran-torture/execute/entry_4.f90: New test.
+	* gfortran.fortran-torture/execute/entry_5.f90: New test.
+	* gfortran.fortran-torture/execute/entry_6.f90: New test.
+	* gfortran.fortran-torture/execute/entry_7.f90: New test.
+
+2005-04-29  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/entry_8.f90: New test.
+
+2005-04-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/16861
+	* gfortran.dg/pr16861.f90: New test.
+
+2005-04-29  Paul Brook   <paul@codesourcery.com>
+
+	* gfortran.dg/entry_3.f90: New test.
+
+2004-04-29  David Billinghurst (David.Billinghurst@riotinto.com)
+
+	* lib/fortran-torture.exp (fortran-torture.exp): Catch
+	error if file cannot be deleted.
+
+2005-04-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/20865
+	* gfortran.dg/pr20865.f90: New test.
+
+2005-04-28  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/void-cast-2.c: New test.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21159
+	* gcc.dg/void-cast-1.c: New test.
+
+2005-04-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20950
+	* gfortran.dg/pr20950.f: New test.
+
+2005-04-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/21177
+	* gfortran.dg/pr21177.f90: New test.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/21213
+	* gcc.dg/transparent-union-3.c: New test.
+
+2005-04-27  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/20740
+	* gcc.dg/format/asm_fprintf-2.c, gcc.dg/format/asm_fprintf-3.c,
+	gcc.dg/format/asm_fprintf-4.c, gcc.dg/format/asm_fprintf-5.c,
+	gcc.dg/format/gcc_diag-2.c, gcc.dg/format/gcc_diag-3.c,
+	gcc.dg/format/gcc_diag-4.c, gcc.dg/format/gcc_diag-5.c,
+	gcc.dg/format/gcc_diag-6.c, gcc.dg/format/gcc_diag-7.c ,
+	gcc.dg/format/gcc_diag-8.c, gcc.dg/format/gcc_diag-9.c: New tests.
+
+2005-04-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/21087
+	* g++.dg/lookup/builtin2.C: New test.
+
+2005-04-25  Paul Brook  <paul@codesourcery.com>
+	Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20879
+	* gfortran.dg/ichar_1.f90: New file.
+
+2005-04-24  Per Bothner  <per@bothner.com>
+	    Devang Patel  <dpatel@apple.com>
+
+	PR preprocessor/20907
+	* gcc.dg/cpp/very-long-comment.c: New test.
+
+2005-04-24  Laurent GUERBY  <laurent@guerby.net>
+
+	* ada/acats/run_all.sh: Use sync when executable not present.
+
+2005-04-24  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/20059
+	* gfortran.dg/common_5.f: New test.
+
+2005-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/compat/struct-layout-1_generate.c: In arrays avoid types
+	where sizeof (type) < __alignof__ (type).
+	* gcc.dg/compat/struct-layout-1.h: Likewise.
+
+2005-04-23  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	PR gfortran/14569
+	* gfortran.dg/wtruncate.f: New testcase.
+	* gfortran.dg/wtruncate.f90: New testcase.
+
+2005-04-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/12913
+	* gcc.dg/c99-vla-jump-1.c, gcc.dg/c99-vla-jump-2.c,
+	gcc.dg/c99-vla-jump-3.c, gcc.dg/c99-vla-jump-4.c,
+	gcc.dg/c99-vla-jump-5.c: New tests.
+
+2005-04-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/weak/weak-13.c: New test.
+
 2005-04-20  Release Manager
 
 	* GCC 4.0.0 released.
@@ -34,8 +769,8 @@
 
 2005-04-13  Thomas Koenig  <Thomas.Koenig@online.de>
 
-        PR libfortran/20163
-        * gfortran.dg/open-options-blanks.f:  New test.
+	PR libfortran/20163
+	* gfortran.dg/open-options-blanks.f:  New test.
 
 2005-04-12  Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -388,7 +1123,7 @@
 
 2005-03-21  Paolo Carlini  <pcarlini@suse.de>
 
-	PR c++/20147	
+	PR c++/20147
 	* g++.dg/ext/stmtexpr4.C: New test.
 
 2005-03-20  Joseph S. Myers  <joseph@codesourcery.com>
@@ -427,7 +1162,7 @@
 
 	PR libfortran/20257
 	* gfortran.dg/pr20257.f90: New test.
-	
+
 2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20480
@@ -613,7 +1348,7 @@
 	* gfortran.dg/pr19936_1.f90: ditto.
 
 2005-03-05  Paul Thomas  <prthomas@drfccad.cea.fr>
-            Steven G. Kargl  <kargls@comcast.net> 
+            Steven G. Kargl  <kargls@comcast.net>
 
 	* gfortran.dg/PR19754_1.f90: New test.
 	* gfortran.dg/PR19754_2.f90: ditto.
@@ -761,7 +1496,7 @@
 	* g++.dg/parse/error27.C: New test.
 	* g++.dg/template/qualttp15.C: Adjust error markers.
 	* g++.old-deja/g++.other/struct1.C: Likewise.
-	
+
 	PR c++/20153
 	* g++.dg/template/error17.C: New test.
 
@@ -791,7 +1526,7 @@
 
 	PR 19952
 	* g++.dg/tree-ssa/pr19952.C: New test.
-	
+
 2005-02-22  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/19883
@@ -27097,7 +27832,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/compile/labels-2.c: New test.
 
-1999-12-27  Martin von L�is  <loewis@informatik.hu-berlin.de>
+1999-12-27  Martin von L$(0!;(Bis  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991227-1.c: New test.
 
@@ -27105,7 +27840,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* g++.old-deja/g++.pt/instantiate6.C: Remove excess errors XFAIL.
 
-1999-12-21  Martin von L�is  <loewis@informatik.hu-berlin.de>
+1999-12-21  Martin von L$(0!;(Bis  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991221-1.c: New test.
 

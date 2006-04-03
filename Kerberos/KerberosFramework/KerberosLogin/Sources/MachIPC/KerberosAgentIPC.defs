@@ -19,12 +19,6 @@ type	KLIPCInIntArray       = array [] of int32;
 type	KLIPCInPrincipal      = DataBlob;
 type	KLIPCOutPrincipal     = DataBlob;
 
-type	KLIPCInLoginOptions   = DataBlob;
-type	KLIPCOutLoginOptions  = DataBlob;
-
-type	KLIPCInBuffer         = DataBlob;
-type	KLIPCOutBuffer        = DataBlob;
-
 type	KLIPCStatus           = unsigned32;
 type	KLIPCBoolean          = unsigned32;
 type	KLIPCTime             = unsigned32;
@@ -33,10 +27,7 @@ type	KLIPCSize             = unsigned32;
 
 type	KLIPCPid              = int32;
 type	KLIPCFlags            = int32;
-type	KLIPCBuffer           = DataBlob;
-type	KLIPCData             = DataBlob;
 
-type	KLIPCKerberosVersion  = unsigned32;
 type	KLIPCDialogIdentifier = unsigned32;
 
 

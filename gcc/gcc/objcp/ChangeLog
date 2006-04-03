@@ -1,0 +1,7 @@
+2005-05-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in (cc1objplus-dummy): New.
+	(cc1objplus-checksum.c): New.
+	(cc1objplus-checksum.o): New.
+	(cc1objplus): Add cc1objplus-checksum.o.
+

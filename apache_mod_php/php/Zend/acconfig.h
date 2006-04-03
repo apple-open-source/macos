@@ -1,9 +1,7 @@
 #define ZEND_API
 #define ZEND_DLEXPORT
 
-#ifndef NETWARE
 @TOP@
-#endif
 
 #undef uint
 #undef ulong
@@ -11,9 +9,7 @@
 /* Define if you want to enable memory limit support */
 #define MEMORY_LIMIT 0
 
-#ifndef NETWARE
 @BOTTOM@
-#endif
 
 #ifdef HAVE_STDLIB_H
 # include <stdlib.h>
@@ -21,6 +17,10 @@
 
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
+#endif
+
+#ifdef HAVE_SYS_SELECT_H 
+#include <sys/select.h> 
 #endif
 
 #ifdef HAVE_IEEEFP_H
@@ -66,6 +66,13 @@ int zend_sprintf(char *buffer, const char *format, ...);
 #define zend_finite(a) ((fpclassify((a))!=FP_INFINITE&&fpclassify((a))!=FP_NAN)?1:0)
 #else
 #define zend_finite(a) (zend_isnan(a) ? 0 : zend_isinf(a) ? 0 : 1)
+#endif
+
+#ifdef NETWARE
+#ifdef USE_WINSOCK
+#/*This detection against winsock is of no use*/ undef HAVE_SOCKLEN_T
+#/*This detection against winsock is of no use*/ undef HAVE_SYS_SOCKET_H
+#endif
 #endif
 
 /*

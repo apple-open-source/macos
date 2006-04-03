@@ -1666,9 +1666,9 @@ down:
 	    while(member_loaded == TRUE && errors == 0){
 		member_loaded = FALSE;
 		for(i = 0; i < nranlibs; i++){
-		    merged_symbol = *(lookup_symbol(bsearch_strings +
-						   ranlibs[i].ran_un.ran_strx));
-		    if(merged_symbol != NULL){
+		    merged_symbol = lookup_symbol(bsearch_strings +
+						   ranlibs[i].ran_un.ran_strx);
+		    if(merged_symbol->name_len != 0){
 			if(merged_symbol->nlist.n_type == (N_UNDF | N_EXT) &&
 			   merged_symbol->nlist.n_value == 0){
 
@@ -1791,6 +1791,10 @@ unsigned long file_size)
 	mixed_types = FALSE;
 
 	offset = SARMAG;
+	if(offset == file_size){
+	    warning("empty archive: %s (can't load from it)", file_name);
+	    return(FALSE);
+	}
 	if(offset + sizeof(struct ar_hdr) > file_size){
 	    error("truncated or malformed archive: %s (archive header of "
 		  "first member extends past the end of the file, can't "
@@ -2024,7 +2028,7 @@ void)
     struct ranlib *ranlib;
 
     enum bool bind_at_load_warning;
-    struct merged_symbol_list **m, *merged_symbol_list;
+    struct merged_symbol_list *merged_symbol_list;
     struct merged_symbol *merged_symbol;
 
     unsigned long library_ordinal;
@@ -2954,10 +2958,12 @@ undefined_twolevel_reference:
 	 */
 	if(filetype == MH_EXECUTE && bind_at_load == FALSE){
 	    bind_at_load_warning = FALSE;
-	    for(m = &merged_symbol_lists; *m; m = &(merged_symbol_list->next)){
-		merged_symbol_list = *m;
+	    for(merged_symbol_list = merged_symbol_root == NULL ? NULL :
+				     merged_symbol_root->list;
+		merged_symbol_list != NULL;
+		merged_symbol_list = merged_symbol_list->next){
 		for(i = 0; i < merged_symbol_list->used; i++){
-		    merged_symbol = &(merged_symbol_list->merged_symbols[i]);
+		    merged_symbol = merged_symbol_list->symbols[i];
 		    if(merged_symbol->defined_in_dylib != TRUE)
 			continue;
 		    if(merged_symbol->coalesced_defined_in_dylib == TRUE)
@@ -3308,14 +3314,16 @@ prebinding_check_for_dylib_override_symbols(
 void)
 {
     unsigned long i;
-    struct merged_symbol_list **p, *merged_symbol_list;
+    struct merged_symbol_list *merged_symbol_list;
     struct merged_symbol *merged_symbol;
 
 	if(prebinding == TRUE){
-	    for(p = &merged_symbol_lists; *p; p = &(merged_symbol_list->next)){
-		merged_symbol_list = *p;
+	    for(merged_symbol_list = merged_symbol_root == NULL ? NULL :
+				     merged_symbol_root->list;
+		merged_symbol_list != NULL;
+		merged_symbol_list = merged_symbol_list->next){
 		for(i = 0; i < merged_symbol_list->used; i++){
-		    merged_symbol = &(merged_symbol_list->merged_symbols[i]);
+		    merged_symbol = merged_symbol_list->symbols[i];
 		    if((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT)
 			continue;
 		    check_dylibs_for_definition(merged_symbol, TRUE, FALSE);
@@ -3336,13 +3344,15 @@ twolevel_namespace_check_for_unused_dylib_symbols(
 void)
 {
     unsigned long i;
-    struct merged_symbol_list **p, *merged_symbol_list;
+    struct merged_symbol_list *merged_symbol_list;
     struct merged_symbol *merged_symbol;
 
-	for(p = &merged_symbol_lists; *p; p = &(merged_symbol_list->next)){
-	    merged_symbol_list = *p;
+	for(merged_symbol_list = merged_symbol_root == NULL ? NULL :
+				 merged_symbol_root->list;
+	    merged_symbol_list != NULL;
+	    merged_symbol_list = merged_symbol_list->next){
 	    for(i = 0; i < merged_symbol_list->used; i++){
-		merged_symbol = &(merged_symbol_list->merged_symbols[i]);
+		merged_symbol = merged_symbol_list->symbols[i];
 		if((merged_symbol->nlist.n_type & N_PEXT) == N_PEXT)
 		    continue;
 		check_dylibs_for_definition(merged_symbol, FALSE, TRUE);
@@ -3622,8 +3632,9 @@ struct dynamic_library *p)
 	}
 	if((fd = open(file_name, O_RDONLY, 0)) == -1){
 	    if(undefined_flag != UNDEFINED_SUPPRESS){
-		system_warning("can't open dynamic library: %s (checking for "
-		    "undefined symbols may be affected)", file_name);
+		system_warning("can't open dynamic library: %s referenced "
+		    "from: %s (checking for undefined symbols may be affected)",
+		    file_name, p->definition_obj->file_name);
 	    }
 	    return(FALSE);
 	}

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pgsql.h,v 1.56.2.3 2003/05/31 12:59:19 helly Exp $ */
+/* $Id: php_pgsql.h,v 1.56.2.4 2005/04/13 21:27:35 derick Exp $ */
 
 #ifndef PHP_PGSQL_H
 #define PHP_PGSQL_H
@@ -83,7 +83,9 @@ PHP_FUNCTION(pg_fetch_object);
 PHP_FUNCTION(pg_fetch_result);
 PHP_FUNCTION(pg_fetch_row);
 PHP_FUNCTION(pg_fetch_all);
+#if HAVE_PQCMDTUPLES
 PHP_FUNCTION(pg_affected_rows);
+#endif
 PHP_FUNCTION(pg_get_result);
 PHP_FUNCTION(pg_result_seek);
 PHP_FUNCTION(pg_result_status);

@@ -191,6 +191,17 @@ avoid_constant_pool_reference (rtx x)
 
   return c;
 }
+
+/* APPLE LOCAL begin mainline 2005-09-07 */
+/* Return true if X is a MEM referencing the constant pool.  */
+
+bool
+constant_pool_reference_p (rtx x)
+{
+  return avoid_constant_pool_reference (x) != x;
+}
+/* APPLE LOCAL end mainline 2005-09-07 */
+
 
 /* Make a unary operation by first seeing if it folds and otherwise making
    the specified operation.  */
@@ -1557,9 +1568,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	     have X (if C is 2 in the example above).  But don't make
 	     something more expensive than we had before.  */
 
-	  /* APPLE LOCAL begin 4121692 */
-	  if (! FLOAT_MODE_P (mode) && ! VECTOR_MODE_P (mode))
-	  /* APPLE LOCAL end 4121692 */
+	  if (SCALAR_INT_MODE_P (mode))
 	    {
 	      HOST_WIDE_INT coeff0h = 0, coeff1h = 0;
 	      unsigned HOST_WIDE_INT coeff0l = 1, coeff1l = 1;
@@ -1735,7 +1744,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	     have X (if C is 2 in the example above).  But don't make
 	     something more expensive than we had before.  */
 
-	  if (! FLOAT_MODE_P (mode))
+	  if (SCALAR_INT_MODE_P (mode))
 	    {
 	      HOST_WIDE_INT coeff0h = 0, negcoeff1h = -1;
 	      unsigned HOST_WIDE_INT coeff0l = 1, negcoeff1l = -1;
@@ -1936,7 +1945,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  if (((GET_CODE (op0) == NOT && rtx_equal_p (XEXP (op0, 0), op1))
 	       || (GET_CODE (op1) == NOT && rtx_equal_p (XEXP (op1, 0), op0)))
 	      && ! side_effects_p (op0)
-	      && GET_MODE_CLASS (mode) != MODE_CC)
+	      && SCALAR_INT_MODE_P (mode))
 	    return constm1_rtx;
 	  tem = simplify_associative_operation (code, mode, op0, op1);
 	  if (tem)
@@ -1953,7 +1962,6 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  if (trueop0 == trueop1
 	      && ! side_effects_p (op0)
 	      && GET_MODE_CLASS (mode) != MODE_CC)
-	     /* APPLE LOCAL mainline 2005-04-13 */
 	    return CONST0_RTX (mode);
 
 	  /* Canonicalize XOR of the most significant bit to PLUS.  */
@@ -1978,8 +1986,8 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  break;
 
 	case AND:
-	  if (trueop1 == const0_rtx && ! side_effects_p (op0))
-	    return const0_rtx;
+	  if (trueop1 == CONST0_RTX (mode) && ! side_effects_p (op0))
+	    return trueop1;
 	  /* If we are turning off bits already known off in OP0, we need
 	     not do an AND.  */
 	  if (GET_CODE (trueop1) == CONST_INT
@@ -1994,7 +2002,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	       || (GET_CODE (op1) == NOT && rtx_equal_p (XEXP (op1, 0), op0)))
 	      && ! side_effects_p (op0)
 	      && GET_MODE_CLASS (mode) != MODE_CC)
-	    return const0_rtx;
+	    return CONST0_RTX (mode);
 
 	  /* Transform (and (extend X) C) into (zero_extend (and X C)) if
 	     there are no nonzero bits of C outside of X's mode.  */
@@ -2065,12 +2073,14 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 
 	case UDIV:
 	  /* 0/x is 0 (or x&0 if x has side-effects).  */
-	  if (trueop0 == const0_rtx)
-	    return side_effects_p (op1)
-		   ? simplify_gen_binary (AND, mode, op1, const0_rtx)
-		   : const0_rtx;
+	  if (trueop0 == CONST0_RTX (mode))
+	    {
+	      if (side_effects_p (op1))
+		return simplify_gen_binary (AND, mode, op1, trueop0);
+	      return trueop0;
+	    }
 	  /* x/1 is x.  */
-	  if (trueop1 == const1_rtx)
+	  if (trueop1 == CONST1_RTX (mode))
 	    {
 	      /* Handle narrowing UDIV.  */
 	      rtx x = gen_lowpart_common (mode, op0);
@@ -2129,12 +2139,14 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  else
 	    {
 	      /* 0/x is 0 (or x&0 if x has side-effects).  */
-	      if (trueop0 == const0_rtx)
-		return side_effects_p (op1)
-		       ? simplify_gen_binary (AND, mode, op1, const0_rtx)
-		       : const0_rtx;
+	      if (trueop0 == CONST0_RTX (mode))
+		{
+		  if (side_effects_p (op1))
+		    return simplify_gen_binary (AND, mode, op1, trueop0);
+		  return trueop0;
+		}
 	      /* x/1 is x.  */
-	      if (trueop1 == const1_rtx)
+	      if (trueop1 == CONST1_RTX (mode))
 		{
 		  /* Handle narrowing DIV.  */
 		  rtx x = gen_lowpart_common (mode, op0);
@@ -2158,15 +2170,19 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 
 	case UMOD:
 	  /* 0%x is 0 (or x&0 if x has side-effects).  */
-	  if (trueop0 == const0_rtx)
-	    return side_effects_p (op1)
-		   ? simplify_gen_binary (AND, mode, op1, const0_rtx)
-		   : const0_rtx;
+	  if (trueop0 == CONST0_RTX (mode))
+	    {
+	      if (side_effects_p (op1))
+		return simplify_gen_binary (AND, mode, op1, trueop0);
+	      return trueop0;
+	    }
 	  /* x%1 is 0 (of x&0 if x has side-effects).  */
-	  if (trueop1 == const1_rtx)
-	    return side_effects_p (op0)
-		   ? simplify_gen_binary (AND, mode, op0, const0_rtx)
-		   : const0_rtx;
+	  if (trueop1 == CONST1_RTX (mode))
+	    {
+	      if (side_effects_p (op0))
+		return simplify_gen_binary (AND, mode, op0, CONST0_RTX (mode));
+	      return CONST0_RTX (mode);
+	    }
 	  /* Implement modulus by power of two as AND.  */
 	  if (GET_CODE (trueop1) == CONST_INT
 	      && exact_log2 (INTVAL (trueop1)) > 0)
@@ -2176,15 +2192,19 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 
 	case MOD:
 	  /* 0%x is 0 (or x&0 if x has side-effects).  */
-	  if (trueop0 == const0_rtx)
-	    return side_effects_p (op1)
-		   ? simplify_gen_binary (AND, mode, op1, const0_rtx)
-		   : const0_rtx;
+	  if (trueop0 == CONST0_RTX (mode))
+	    {
+	      if (side_effects_p (op1))
+		return simplify_gen_binary (AND, mode, op1, trueop0);
+	      return trueop0;
+	    }
 	  /* x%1 and x%-1 is 0 (or x&0 if x has side-effects).  */
-	  if (trueop1 == const1_rtx || trueop1 == constm1_rtx)
-	    return side_effects_p (op0)
-		   ? simplify_gen_binary (AND, mode, op0, const0_rtx)
-		   : const0_rtx;
+	  if (trueop1 == CONST1_RTX (mode) || trueop1 == constm1_rtx)
+	    {
+	      if (side_effects_p (op0))
+		return simplify_gen_binary (AND, mode, op0, CONST0_RTX (mode));
+	      return CONST0_RTX (mode);
+	    }
 	  break;
 
 	case ROTATERT:
@@ -2200,9 +2220,9 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 
 	case ASHIFT:
 	case LSHIFTRT:
-	  if (trueop1 == const0_rtx)
+	  if (trueop1 == CONST0_RTX (mode))
 	    return op0;
-	  if (trueop0 == const0_rtx && ! side_effects_p (op1))
+	  if (trueop0 == CONST0_RTX (mode) && ! side_effects_p (op1))
 	    return op0;
 	  break;
 
@@ -2234,7 +2254,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  break;
 
 	case UMIN:
-	  if (trueop1 == const0_rtx && ! side_effects_p (op0))
+	  if (trueop1 == CONST0_RTX (mode) && ! side_effects_p (op0))
 	    return op1;
 	  if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
 	    return op0;
@@ -3501,12 +3521,6 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
   /* We have no way to represent a complex constant at the rtl level.  */
   if (COMPLEX_MODE_P (outermode))
     return NULL_RTX;
-
-  /* APPLE LOCAL begin 4121692 */
-  if (GET_MODE_BITSIZE (outermode) > (2 * HOST_BITS_PER_WIDE_INT)
-      && !VECTOR_MODE_P (outermode))
-    return NULL_RTX;
-  /* APPLE LOCAL end 4121692 */
 
   /* Unpack the value.  */
 

@@ -28,10 +28,10 @@
 #import <sys/stat.h>
 #import <sys/mount.h>
 #import <errno.h>
+#import "AMString.h"
 #import "AMVnode.h"
 #import "AMMap.h"
 #import "Server.h"
-#import "AMString.h"
 #import <string.h>
 #import <stdlib.h>
 #import <stdio.h>
@@ -316,7 +316,7 @@
 
 - (void)resetTime
 {
-	char timestring[26];
+	char timestring[FORMATTED_TIME_LEN];
 	
 	[self markAccessTime];
 	attributes.mtime = attributes.atime;
@@ -329,7 +329,7 @@
 - (void)markDirectoryChanged
 {
 	struct timeval now;
-	char timestring[26];
+	char timestring[FORMATTED_TIME_LEN];
 
 	do {
 		gettimeofday(&now, NULL);

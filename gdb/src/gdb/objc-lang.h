@@ -72,4 +72,8 @@ extern int end_msglist (void);
 struct symbol *lookup_struct_typedef (char *name, struct block *block,
 				      int noerr);
 
+/* APPLE LOCAL: We need to control this down in macosx/ when debugging
+   translated programs.  */
+extern int lookup_objc_class_p;
+
 #endif

@@ -5,7 +5,7 @@
  |                           Gdb Support Routines for Plugins                           |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2002                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
  
@@ -26,7 +26,7 @@
 #include "value.h"
 #include "command.h"
 #include "top.h"	// execute_command, get_prompt, instream, line, word brk completer
-#include "gdbtypes.h"	// enum type_code
+#include "gdbtypes.h"	// enum type_code, builtin_type_void_data_ptr
 #include "gdbcmd.h" 	// cmdlist, execute_user_command, filename_completer
 #include "completer.h"  // cmdlist, execute_user_command, filename_completer
 /* FIXME: We should not have to rely on these details, but there aren't
@@ -34,10 +34,15 @@
 #include "cli/cli-decode.h"
 #include "expression.h" // parse_expression 
 #include "inferior.h"	// stop_bpstat, read_sp
-#include "symtab.h"	// struct symtab_and_line, find_pc_line
+#include "symtab.h"	// struct symtab_and_line, find_pc_line, find_pc_sect_function
 #include "frame.h"   	// selected_frame
-#include "gdbarch.h"	// gdbarch_deprecated_register_raw_size
+#include "gdbarch.h"	// DEPRECATED_REGISTER_VIRTUAL_SIZE, gdbarch_tdep
+#include "ppc-tdep.h"	// struct gdbarch_tdep (wordsize)
 #include "gdbcore.h"	// memory_error
+#include "objfiles.h"	// find_pc_section, struct objfile, struct obj_section
+#include "bfd.h"	// bfd_get_filename, bfd_section_name
+#include "symfile.h"	// overlay_debugging and related functions
+#include "block.h"	// BLOCK_START
 
 #define CLASS_BASE 100
 
@@ -444,8 +449,9 @@ void gdb_enable_filename_completion(char *theCommand)
     c = lookup_cmd(&s, cmdlist, "", 1, 1);
     
     if (c) {
-  	c->completer = filename_completer;
-  	c->completer_word_break_characters = gdb_completer_filename_word_break_characters;
+      /* TURMERIC Merge - completer_word_break_characters has been removed from gdb. */
+      set_cmd_completer(c, filename_completer);
+      /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
     }
 }
 
@@ -881,7 +887,6 @@ static void my_state_change_hook(Debugger_state new_state)
     	saved_state_change_hook(new_state);
 }
 
-
 /*------------------------------------------------------------------------*
  | gdb_define_exit_handler - define a user routine to call when gdb exits |
  *------------------------------------------------------------------------*
@@ -1061,12 +1066,12 @@ void gdb_execute_command(char *commandLine, ...)
  | suppress_errors - detect that an error has occured |
  *----------------------------------------------------*
  
- This is a redirected stderr output filter set up by both gdb_eval_silent() and
- gdb_execute_command_silent() to detect that an error has occurred.  Those routines
- want to be able to continue after an error occurs and also return to their callers
- that an error did indeed occur (or not).  So error messages will come through here
- where we promptly drop them on the floor.  We do however send back a signal that
- we were called.
+ This is a redirected stdout/stderr output filter set up by both gdb_eval_silent()
+ and gdb_execute_command_silent() to detect that an error has occurred.  Those
+ routines want to be able to continue after an error occurs and also return to their
+ callers that an error did indeed occur (or not).  So error messages will come
+ through here where we promptly drop them on the floor.  We do however send back a
+ signal that we were called.
 */
 
 static char *suppress_errors(FILE *f, char *line, void *data)
@@ -1108,7 +1113,7 @@ static int wrap_parse_and_eval(char *expression)
 int gdb_eval_silent(char *expression, ...)
 {
     va_list  ap;
-    GDB_FILE *redirect_stderr;
+    GDB_FILE *redirect_stderr, *redirect_stdout;
     int      had_error = 0;
     char     line[1024];
     #if !NEW_ASYNC_SCHEME
@@ -1123,6 +1128,7 @@ int gdb_eval_silent(char *expression, ...)
 	gdb_set_async_override(1);
 	#endif
 	
+	redirect_stdout = gdb_open_output(stdout, suppress_errors, &had_error);
 	redirect_stderr = gdb_open_output(stderr, suppress_errors, &had_error);
 	gdb_redirect_output(redirect_stderr);
        
@@ -1133,6 +1139,8 @@ int gdb_eval_silent(char *expression, ...)
 	catch_errors((catch_errors_ftype *)wrap_parse_and_eval, line, NULL, RETURN_MASK_ALL);
 	
 	gdb_close_output(redirect_stderr);
+	gdb_close_output(redirect_stdout);
+	
     	#if !NEW_ASYNC_SCHEME
 	current_target.to_can_async_p = saved_target_can_async_p;
 	#else
@@ -1174,7 +1182,7 @@ static int wrap_execute_command(char *commandLine)
 int gdb_execute_command_silent(char *commandLine, ...)
 {
     va_list  ap;
-    GDB_FILE *redirect_stderr;
+    GDB_FILE *redirect_stderr, *redirect_stdout;
     int      had_error = 0;
     char     line[1024];
     #if !NEW_ASYNC_SCHEME
@@ -1189,6 +1197,7 @@ int gdb_execute_command_silent(char *commandLine, ...)
 	gdb_set_async_override(1);
 	#endif
 
+	redirect_stdout = gdb_open_output(stdout, suppress_errors, &had_error);
 	redirect_stderr = gdb_open_output(stderr, suppress_errors, &had_error);
 	gdb_redirect_output(redirect_stderr);
 	
@@ -1199,6 +1208,8 @@ int gdb_execute_command_silent(char *commandLine, ...)
 	catch_errors((catch_errors_ftype *)wrap_execute_command, line, NULL, RETURN_MASK_ALL);
 	
 	gdb_close_output(redirect_stderr);
+	gdb_close_output(redirect_stdout);
+	
     	#if !NEW_ASYNC_SCHEME
 	current_target.to_can_async_p = saved_target_can_async_p;
 	#else
@@ -1229,6 +1240,19 @@ int gdb_execute_command_silent(char *commandLine, ...)
 int gdb_target_running(void)
 {
     return (target_has_execution != 0);
+}
+
+
+/*---------------------------------------------------------------*
+ | gdb_target_pid - return the target program's (inferior's) pid |
+ *---------------------------------------------------------------*
+ 
+ If the inferior is running it's pid is returned otherwise -1 is returned.
+*/
+
+int gdb_target_pid(void)
+{
+    return target_has_execution ? PIDGET(inferior_ptid) : -1;
 }
 
 
@@ -1292,6 +1316,48 @@ int gdb_interactive(void)
     return (instream == stdin);
 }
 
+
+/*-------------------------------------------------------------*
+ | gdb_get_function_start - return start address of a function |
+ *-------------------------------------------------------------*
+ 
+ Returns the address of the start of the function containing the specified address or
+ NULL if the start address cannot be determined.
+ 
+ This code is basically ripped off from build_address_symbolic() in printcmd.c.  We're
+ only interested in the start address here.  I am not sure what all that "overlay"
+ stuff is but I figured I better include it.
+*/
+
+GDB_ADDRESS gdb_get_function_start(GDB_ADDRESS addr)
+{
+    struct symbol *symbol;
+    asection      *section = NULL;
+
+    if (overlay_debugging) {
+	section = find_pc_overlay(addr);
+      	if (pc_in_unmapped_range(addr, section))
+	    addr = overlay_mapped_address(addr, section);
+    }
+
+    symbol = find_pc_sect_function(addr, section);
+  
+    return (symbol ? BLOCK_START(SYMBOL_BLOCK_VALUE(symbol)) : NULL);
+}
+
+
+/*--------------------------------------------------------------------------------*
+ | gdb_target_arch - Return 8 for a 64-bit target architecture otherwise return 4 |
+ *--------------------------------------------------------------------------------*
+ 
+ This is used to know whether the inferior was compiled for a 64 ot 32 bit architecture.
+*/
+
+int gdb_target_arch(void)
+{
+    return (gdbarch_tdep(current_gdbarch)->wordsize);
+}
+
 /*--------------------------------------------------------------------------------------*/
 			   /*-------------------------------*
 			    | Convenience Variable Routines |
@@ -1305,6 +1371,28 @@ void gdb_set_int(char *theVariable, int theValue)
 {
     set_internalvar(lookup_internalvar(theVariable+1),
                     value_from_longest(builtin_type_int, (LONGEST)theValue));
+}
+
+
+/*------------------------------------------------------------*
+ | gdb_set_long - perform "set $theVariable = (long)theValue" |
+ *------------------------------------------------------------*/
+
+void gdb_set_long(char *theVariable, long theValue)
+{
+    set_internalvar(lookup_internalvar(theVariable+1),
+                    value_from_longest(builtin_type_long, (LONGEST)theValue));
+}
+
+
+/*----------------------------------------------------------------------*
+ | gdb_set_long_long - perform "set $theVariable = (long long)theValue" |
+ *----------------------------------------------------------------------*/
+
+void gdb_set_long_long(char *theVariable, long long theValue)
+{
+    set_internalvar(lookup_internalvar(theVariable+1),
+                    value_from_longest(builtin_type_long_long, (LONGEST)theValue));
 }
 
 
@@ -1341,6 +1429,21 @@ void gdb_set_string(char *theVariable, char *theString)
 }
 
 
+/*----------------------------------------------------------------------*
+ | gdb_set_address - perform "set $theVariable = (GDB_ADDRESS)theValue" |
+ *----------------------------------------------------------------------*
+ 
+ This is the same as gdb_set_long_long but we supply it for type checking purposes
+ and for self-documentation in the caller's code.
+*/
+
+void gdb_set_address(char *theVariable, GDB_ADDRESS theValue)
+{
+    set_internalvar(lookup_internalvar(theVariable+1),
+                    value_from_pointer(builtin_type_void_data_ptr, (CORE_ADDR)theValue));
+}
+
+
 /*-----------------------------------------------------------------------------*
  | expression_to_value_ptr - convert a expressions into a gdb value_ptr result |
  *-----------------------------------------------------------------------------*
@@ -1363,11 +1466,11 @@ static struct value *expression_to_value_ptr(char *expression)
 }
 
 
-/*---------------------------------------------------------*
- | gdb_get_int - return the integer value of an expression |
- *---------------------------------------------------------*
+/*-----------------------------------------------------*
+ | gdb_get_int - return the int value of an expression |
+ *-----------------------------------------------------*
  
- Returns the integer value of the specified (integer) expression.
+ Returns the int value of the specified expression.
 */
 
 int gdb_get_int(char *expression)
@@ -1379,6 +1482,34 @@ int gdb_get_int(char *expression)
     //fprintf(stderr, "gdb_get_int(%s) <-- %ld\n", theVariable, (int)value);
     return ((int)value);
     #endif
+}
+
+
+/*----------------------------------------------------------*
+ | gdb_get_long - return the integer value of an expression |
+ *----------------------------------------------------------*
+ 
+ Returns the long value of the specified expression.
+*/
+
+long gdb_get_long(char *expression)
+{
+    LONGEST value = value_as_long(expression_to_value_ptr(expression));
+    return ((long)value);
+}
+
+
+/*-----------------------------------------------------------------*
+ | gdb_get_long_long - return the long long value of an expression |
+ *-----------------------------------------------------------------*
+ 
+ Returns the long long value of the specified expression.
+*/
+
+long long gdb_get_long_long(char *expression)
+{
+    LONGEST value = value_as_long(expression_to_value_ptr(expression));
+    return ((long long)value);
 }
 
 
@@ -1434,6 +1565,20 @@ char *gdb_get_string(char *theVariable, char *str, int maxlen)
     //fprintf(stderr, "gdb_get_string(%s) <-- %s\n", theVariable, str);
     
     return (str);
+}
+
+
+/*-----------------------------------------------------------------*
+ | gdb_get_address - return the GDB_ADDRESS value of an expression |
+ *-----------------------------------------------------------------*
+ 
+ Returns the value of the specified expression as a GDB_ADDRESS.
+*/
+
+GDB_ADDRESS gdb_get_address(char *expression)
+{
+    CORE_ADDR value = value_as_address(expression_to_value_ptr(expression));
+    return ((GDB_ADDRESS)value);
 }
 
 
@@ -1495,25 +1640,26 @@ static int is_var_defined(char *theVariable)
  
 char *gdb_set_register(char *theRegister, void *value, int size)
 {
-    int          regnum;
-    char         *start = theRegister, *end;
-    struct value *vp;
+    int               regnum;
+    char              *start = theRegister, *end;
+    struct value      *vp;
+    struct frame_info *frame;
     
     if (!target_has_registers)
     	return ("no registers available at this time");
     
-    if (get_selected_frame() == NULL)
+    if ((frame = get_selected_frame()) == NULL)
       return ("no frame selected");
     
     if (*start == '$')
 	++start;
     end = start + strlen(start);
     
-    regnum = frame_map_name_to_regnum(get_selected_frame(), start, end - start);
+    regnum = frame_map_name_to_regnum(frame, start, end - start);
     if (regnum < 0)
     	return ("bad register");
     
-    if (gdbarch_deprecated_register_raw_size(current_gdbarch, regnum) != size)
+    if (DEPRECATED_REGISTER_VIRTUAL_SIZE(regnum) != size)
     	return ("invalid register length");
     
     vp = expression_to_value_ptr(theRegister);
@@ -1535,45 +1681,37 @@ char *gdb_set_register(char *theRegister, void *value, int size)
  
  Returns the value of theRegister (e.g., "$r0") in the provided value buffer.  The
  value pointer is returned as the function result and the value is copied to the
- specified buffer (assumed large enough to hold the value and at least 4 bytes).  If
- the register is invalid, or its value cannot be obtained, NULL is returned and the
- value buffer (treated as a long* pointer) is set with one of the following error
- codes:
+ specified buffer (assumed large enough to hold the value and at least a long long).
+ If the register is invalid, or its value cannot be obtained, NULL is returned and
+ the value buffer (treated as a long* pointer) is set with one of the following
+ error codes:
     
     Gdb_GetReg_NoRegs     no registers available at this time
     Gdb_GetReg_NoFrame    no frame selected
     Gdb_GetReg_BadReg     bad register (gdb doesn't know this register)
     Gdb_GetReg_NoValue    value not available
  
- Note, that it is recommended that the more general gdb_get_int() be used for 32-bit
- registers WHEN EFFICIENCY IS NOT CRITICAL!.  The gdb_get_register() routine is
- intended mainly for reading larger register data types like the AltiVec 16-byte
- registers and in places where a lot of registers need to be read in a minimum 
- amount of time.
- 
- The reason for the emphasis on efficiency is that it has been discovered that
- expression evaluation (i.e., like that done by gdb_get_int()) can get relatively
- slow on certain targets (where there are many active symbol tables) due to a large
- amount of table searches. So if you wanted a whole set of registers at once, that
- operation is noticably slow(er).  Using this routine doesn't involve expression
- evaluation and is quite a bit faster.
+ Always use this function instead of, say, gdb_get_int(), to get register values
+ because (a) it is more efficient (not expression evaluation is done) and (b) it
+ is more accurate in that GDB might not be in the proper context to get the 
+ current register frame value.
 */
 
 void *gdb_get_register(char *theRegister, void *value)
 {
-    int regnum;
-    char *end;
+    int 	      regnum;
+    char 	      *end;
     struct frame_info *frame;
     
     if (!target_has_registers) {
 	//strcpy((char *)value, "no registers available at this time");
-	*(long *)value = Gdb_GetReg_NoRegs;
+	*(long long *)value = Gdb_GetReg_NoRegs;
 	return (NULL);
     }
     
     if ((frame = get_selected_frame()) == NULL) {
 	//strcpy((char *) value, "no frame selected");
-	*(long *)value = Gdb_GetReg_NoFrame;
+	*(long long *)value = Gdb_GetReg_NoFrame;
 	return (NULL);
     }
     
@@ -1581,21 +1719,21 @@ void *gdb_get_register(char *theRegister, void *value)
 	++theRegister;
     end = theRegister + strlen(theRegister);
     
-    regnum = frame_map_name_to_regnum(get_selected_frame(), theRegister, end - theRegister);
+    regnum = frame_map_name_to_regnum(frame, theRegister, end - theRegister);
     if (regnum < 0) {
 	//strcpy((char *)value, "bad register");
-	*(long *)value = Gdb_GetReg_BadReg;
+	*(long long *)value = Gdb_GetReg_BadReg;
 	return (NULL);
     }
 
     if (!frame_register_read(frame, regnum, (char *)value)) {
     	//strcpy((char *)value, "value not available");
-	*(long *)value = Gdb_GetReg_NoValue;
+	*(long long *)value = Gdb_GetReg_NoValue;
 	return (NULL);
     }
     
     //if (size)
-    //	*size = gdbarch_deprecated_register_raw_size(current_gdbarch, regnum);
+    //	*size = DEPRECATED_REGISTER_VIRTUAL_SIZE(regnum);
     //gdb_printf("type = %d\n", TYPE_CODE(gdbarch_register_virtual_type(current_gdbarch, regnum)));
     
     return (value);
@@ -1607,11 +1745,9 @@ void *gdb_get_register(char *theRegister, void *value)
  *-------------------------------------------------*
  
  Returns the value of the stack pointer.
- 
- Note, you can also use gdb_get_int("$sp") but this is provided as a more efficient
- alternative.  See above comment.
 */
-unsigned long gdb_get_sp(void)
+
+GDB_ADDRESS gdb_get_sp(void)
 {
     /* This is a hack.  Sometimes gdb leaves the deprecated_selected_frame null, but	*/
     /* still uses it.  get_selected_frame will force it to get set. 			*/
@@ -1633,46 +1769,75 @@ unsigned long gdb_get_sp(void)
     return ((CORE_ADDR)read_sp());
 }
 
+
+/*-----------------------------------------------*
+ | gdb_get_reg_size - get the size of a register |
+ *-----------------------------------------------*
+ 
+ For 64-bit register value support; return the size of register regnum.  For generality
+ we don't assume all the sizes are the same.  Hence the regnum argument.
+*/
+
+int gdb_get_reg_size(int regnum)
+{
+    return (DEPRECATED_REGISTER_VIRTUAL_SIZE(regnum));
+}
+
+
 /*--------------------------------------------------------------------------------------*/
 			     /*----------------------------*
 			      | Target Memory Manipulation |
 			      *----------------------------*/
 
-/*------------------------------------------------------------------------*
- | gdb_read_memory - copy a value from an target address to plugin memory |
- *------------------------------------------------------------------------*
+/*---------------------------------------------------------------------------------*
+ | gdb_read_memory - copy a value from an target address (string) to plugin memory |
+ *---------------------------------------------------------------------------------*
  
- The abs(n) bytes in the target's memory represented by the src expression *string*
- (n >= 0) or src *value* (n < 0) are copied to the plugin memory specified by dst.
- The target actual address is returned as the function result.
+ The n bytes in the target's memory represented by the src expression *string*
+ are copied to the plugin memory specified by dst.  The target actual address is
+ returned as the function result.
 */
 
-unsigned long gdb_read_memory(void *dst, char *src, int n)
+GDB_ADDRESS gdb_read_memory(void *dst, char *src, int n)
 {
     CORE_ADDR memaddr;
     int       status;
     
-    if (n >= 0) {
-    	memaddr = parse_and_eval_address(src);
-    	status = target_read_memory(memaddr, dst, n);
-    } else {
-    	memaddr = (unsigned long)src;
-    	status = target_read_memory(memaddr, dst, -n);
-    }
+    memaddr = parse_and_eval_address(src);
+    status  = target_read_memory(memaddr, dst, n);
     
     if (status != 0)
 	memory_error(status, memaddr);
     
-    return ((CORE_ADDR)memaddr);
+    return ((GDB_ADDRESS)memaddr);
 }
 
 
-/*-------------------------------------------------------------------------*
- | gdb_write_memory - write a value from plugin memory to a target address |
- *-------------------------------------------------------------------------*
+/*----------------------------------------------------------------------------------*
+ | gdb_read_memory_from_addr - copy a value from an target address to plugin memory |
+ *----------------------------------------------------------------------------------*
  
- The abs(n) bytes from the (plugin) src are written to the target memory address 
- represented by the dst expression *string* (n > = 0) or dst *value* (n < 0).
+ The n bytes in the target's memory at addr are copied to the plugin memory specified
+ by dst.  The target address is returned as the function result.
+*/
+
+GDB_ADDRESS gdb_read_memory_from_addr(void *dst, GDB_ADDRESS src, int n)
+{
+    int status = target_read_memory((CORE_ADDR)src, dst, n);
+    
+    if (status != 0)
+	memory_error(status, (CORE_ADDR)src);
+    
+    return (src);
+}
+
+
+/*----------------------------------------------------------------------------------*
+ | gdb_write_memory - write a value from plugin memory to a target address (string) |
+ *----------------------------------------------------------------------------------*
+ 
+ The n bytes from the (plugin) src are written to the target memory address 
+ represented by the dst expression *string*.
 */
 
 void gdb_write_memory(char *dst, void *src, int n)
@@ -1680,16 +1845,28 @@ void gdb_write_memory(char *dst, void *src, int n)
     CORE_ADDR memaddr;
     int       status;
     
-    if (n >= 0) {
-    	memaddr = parse_and_eval_address(dst);
-    	status = target_write_memory(memaddr, src, n);
-    } else {
-    	memaddr = (CORE_ADDR)dst;
-    	status = target_write_memory(memaddr, src, -n);
-    }
+    memaddr = parse_and_eval_address(dst);
+    status  = target_write_memory(memaddr, src, n);
     
     if (status != 0)
 	memory_error(status, memaddr);
+}
+
+
+/*---------------------------------------------------------------------------------*
+ | gdb_write_memory_to_addr - write a value from plugin memory to a target address |
+ *---------------------------------------------------------------------------------*
+ 
+ The n bytes from the (plugin) src are written to the target memory address 
+ represented by the dst expression value.
+*/
+
+void gdb_write_memory_to_addr(GDB_ADDRESS dst, void *src, int n)
+{
+    int status = target_write_memory((CORE_ADDR)dst, src, -n);
+    
+    if (status != 0)
+	memory_error(status, (CORE_ADDR)dst);
 }
 
 /*--------------------------------------------------------------------------------------*/
@@ -1811,23 +1988,29 @@ void gdb_fputs(char *s, GDB_FILE *stream)
  *----------------------------------------------------------------------------------*
  
  Display the address and function corresponding to an address (expression or file/line
- specification).  If show_file_line_info is non-zero and the address corrersponds to a
- source line, the file/line information along with the source line are also displayed.
+ specification).  If the address corresponds to a source line, the file/line
+ information along with the source line are also displayed.  Otherwise the load segment
+ information, which includes the segments type, encompassing address range, and,
+ depending on section type, either the load address or pathname, are displayed.
  
- Note, the source line is shown exactly as if a LIST was done of it.  Thus it is
- listed in a context of N lines, where N is determined by the gdb SET listsize command.
+ Note, if source lines are displayed they are shown exactly as if a LIST was done of it.
+ Thus it is listed in a context of N lines, where N is determined by the gdb SET listsize
+ command.
  
  The SET listsize command set the gdb global lines_to_list which we access here.
 */
 
-void gdb_print_address(char *address, int show_file_line_info)
+void gdb_print_address(char *address)
 {
-    int 	  	     i, curr_print_symbol_filename;
+    int 	  	     i, curr_print_symbol_filename, len;
     long		     start_line, end_line;
-    unsigned long	     addr;
+    char		     *s, *p, filename[1024];
+    GDB_ADDRESS		     addr;
     struct symtabs_and_lines sals;
     struct symtab_and_line   sal;
     CORE_ADDR		     start_pc, end_pc;
+    struct objfile	     *objfile;
+    struct obj_section	     *objsect;
     
     extern int lines_to_list;		  /* # of lines "list" command shows by default */
     
@@ -1849,52 +2032,71 @@ void gdb_print_address(char *address, int show_file_line_info)
 		print_symbol_filename_p = (int *)show_print_symbol_filename->var;
     }
     
-    if (print_symbol_filename_p) {
-	curr_print_symbol_filename = *print_symbol_filename_p;
-	*print_symbol_filename_p = (show_file_line_info != 0);
-    }
-        
     /* Try to print the source line associated with the addr (if there is one)...	*/
     
+    sals = decode_line_spec_1(address, 0);
+    
     if (print_symbol_filename_p) {
-    	if (show_file_line_info) {
-	    //struct symtab_and_line sal = find_pc_line((CORE_ADDR)addr, 0);
-	    //if (sal.symtab)				/* no symtab ==> no line for it	*/
-	    //	print_source_lines(sal.symtab, sal.line, 1, 0);
-	    //else {
-	    sals = decode_line_spec_1(address, 0);
-	    
-	    /* C++  More than one line may have been specified, as when the user	*/
-	    /* specifies an overloaded function name. Print info on them all.		*/
-	    
-	    for (i = 0; i < sals.nelts; i++) {
-		sal = sals.sals[i];
-		if (sal.symtab && sal.line > 0 && find_line_pc_range (sal, &start_pc, &end_pc)) {
-		    if (i > 0)
-		    	gdb_printf("\n");
-		    print_address(start_pc, gdb_stdout);
-		    gdb_fputs("\n", gdb_stdout);
-		    start_line = sal.line - lines_to_list/2;
-		    if (start_line < 1)
-		    	start_line = 1;
-		    end_line = start_line + lines_to_list - 1;
-		    if (end_line > sal.symtab->nlines)
-		    	end_line = sal.symtab->nlines;
-		    //gdb_printf("start_line = %d, end_line = %d, nlines = %d\n",
-		    // 	start_line, end_line, end_line - start_line + 1);
-		    print_source_lines(sal.symtab, start_line, end_line - start_line + 1, 0);
-		}
+	curr_print_symbol_filename = *print_symbol_filename_p;
+	*print_symbol_filename_p = 1;
+	
+	/* C++  More than one line may have been specified, as when the user		*/
+	/* specifies an overloaded function name. Print info on them all.		*/
+	/* If we can't print any then display the section and containing file.		*/
+	
+	for (i = 0; i < sals.nelts; i++) {
+	    sal = sals.sals[i];
+	    if (sal.symtab == NULL) {
+		*print_symbol_filename_p = curr_print_symbol_filename;
+		gdb_free(sals.sals);
+  		
+  		objsect = find_pc_section(sal.pc);
+  		if (!objsect)
+		    gdb_error("No file for address 0x%.8llX", (long long)sal.pc);
+		    /* gdb_error() does not return */
+		
+		s = bfd_get_target(objsect->objfile->obfd);
+      		gdb_printf("0x%.8llX is in %s %s section (0x%.8llX-0x%.8llX) in\n ", 
+      			   (long long)sal.pc,
+      			   strncmp(s, "mach-o", 6) == 0 ? "mach-o" : s,
+      			   bfd_section_name(unused, objsect->the_bfd_section),
+      			   (long long)objsect->addr, (long long)objsect->endaddr);
+      		
+      		s = bfd_get_filename(objsect->objfile->obfd);
+      		if (strncmp(s, "[memory object", 14) == 0) {
+      		    p = strstr(s, " for 0x");
+      		    if (p) {
+      		    	strncpy(filename, s, len = p - s);
+      		    	strcpy(filename + len, "]");
+      		    	s = filename;
+      		    }
+      		}
+      		    
+      		gdb_printf("%s\n", s);
+
+      		return;
 	    }
-	  
-	    free (sals.sals);
-    	    //}
+	    
+	    if (sal.line > 0 && find_line_pc_range(sal, &start_pc, &end_pc)) {
+		if (i > 0)
+		    gdb_printf("\n");
+		print_address(start_pc, gdb_stdout);
+		gdb_fputs("\n", gdb_stdout);
+		start_line = sal.line - lines_to_list/2;
+		if (start_line < 1)
+		    start_line = 1;
+		end_line = start_line + lines_to_list - 1;
+		if (end_line > sal.symtab->nlines)
+		    end_line = sal.symtab->nlines;
+		//gdb_printf("start_line = %d, end_line = %d, nlines = %d\n",
+		// 	start_line, end_line, end_line - start_line + 1);
+		print_source_lines(sal.symtab, start_line, end_line - start_line + 1, 0);
+	    }
 	}
+      
 	*print_symbol_filename_p = curr_print_symbol_filename;
-    } else {
-    	addr = gdb_get_int(address);
-	print_address((CORE_ADDR)addr, gdb_stdout);
-	gdb_fputs("\n", gdb_stdout);
-   }
+    	gdb_free(sals.sals);
+    }
 }
 
 

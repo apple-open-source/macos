@@ -132,12 +132,20 @@ EXTERN int n_allocated_this_object_header_files;
 
 extern void cleanup_undefined_types (void);
 
+/* APPLE LOCAL: More work to handle types defined after they are used.  */
+extern void cleanup_undefined_fields (void);
+
 extern struct type **dbx_lookup_type (int[2], struct objfile *objfile);
 
 extern long read_number (char **, int);
 
 extern struct symbol *define_symbol (CORE_ADDR, char *, const char *, int, int,
 				     struct objfile *);
+
+/* APPLE LOCAL: This is added to read stabs in .o files for code that gets elided
+   from the final linked image.  */
+void process_symbol_types_only (char *string, const char *prefix,
+			   int desc, int type, struct objfile *objfile);
 
 extern void stabsread_init (void);
 
@@ -193,13 +201,10 @@ extern void coffstab_build_psymtabs
 
 extern void stabsect_build_psymtabs
   (struct objfile *objfile,
-   int mainline,
-   char *stab_name,
-   char *stabstr_name, char *text_name);
+   int mainline, char *stab_name, char *stabstr_name, char *text_name);
 
 extern void elfstab_offset_sections (struct objfile *,
 				     struct partial_symtab *);
-
 extern int symbol_reference_defined (char **);
 
 extern void ref_add (int, struct symbol *, char *, CORE_ADDR);

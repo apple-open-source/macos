@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ini.c,v 1.23.2.6 2005/01/09 17:00:16 sniper Exp $ */
+/* $Id: zend_ini.c,v 1.23.2.7.2.1 2005/09/02 21:09:03 sniper Exp $ */
 
 #include "zend.h"
 #include "zend_qsort.h"
@@ -48,7 +48,12 @@ static int zend_restore_ini_entry_cb(zend_ini_entry *ini_entry, int stage TSRMLS
 {
 	if (ini_entry->modified) {
 		if (ini_entry->on_modify) {
-			ini_entry->on_modify(ini_entry, ini_entry->orig_value, ini_entry->orig_value_length, ini_entry->mh_arg1, ini_entry->mh_arg2, ini_entry->mh_arg3, stage TSRMLS_CC);
+            zend_try {
+            /* even if on_modify bails out, we have to continue on with restoring,
+                since there can be allocated variables that would be freed on MM shutdown
+                and would lead to memory corruption later  ini entry is modified again */
+				ini_entry->on_modify(ini_entry, ini_entry->orig_value, ini_entry->orig_value_length, ini_entry->mh_arg1, ini_entry->mh_arg2, ini_entry->mh_arg3, stage TSRMLS_CC);
+			}  zend_end_try();
 		}
 		efree(ini_entry->value);
 		ini_entry->value = ini_entry->orig_value;
@@ -149,6 +154,7 @@ ZEND_API int zend_register_ini_entries(zend_ini_entry *ini_entry, int module_num
 	zend_ini_entry *hashed_ini_entry;
 	zval default_value;
 	HashTable *directives = registered_zend_ini_directives;
+	zend_bool config_directive_success = 0;
 
 #ifdef ZTS
 	/* if we are called during the request, eg: from dl(),
@@ -166,6 +172,7 @@ ZEND_API int zend_register_ini_entries(zend_ini_entry *ini_entry, int module_num
 
 	while (p->name) {
 		p->module_number = module_number;
+		config_directive_success = 0;
 		if (zend_hash_add(directives, p->name, p->name_length, p, sizeof(zend_ini_entry), (void **) &hashed_ini_entry)==FAILURE) {
 			zend_unregister_ini_entries(module_number TSRMLS_CC);
 			return FAILURE;
@@ -175,11 +182,12 @@ ZEND_API int zend_register_ini_entries(zend_ini_entry *ini_entry, int module_num
 				|| hashed_ini_entry->on_modify(hashed_ini_entry, default_value.value.str.val, default_value.value.str.len, hashed_ini_entry->mh_arg1, hashed_ini_entry->mh_arg2, hashed_ini_entry->mh_arg3, ZEND_INI_STAGE_STARTUP TSRMLS_CC)==SUCCESS) {
 				hashed_ini_entry->value = default_value.value.str.val;
 				hashed_ini_entry->value_length = default_value.value.str.len;
+				config_directive_success = 1;
 			}
-		} else {
-			if (hashed_ini_entry->on_modify) {
-				hashed_ini_entry->on_modify(hashed_ini_entry, hashed_ini_entry->value, hashed_ini_entry->value_length, hashed_ini_entry->mh_arg1, hashed_ini_entry->mh_arg2, hashed_ini_entry->mh_arg3, ZEND_INI_STAGE_STARTUP TSRMLS_CC);
-			}
+		}
+
+		if (!config_directive_success && hashed_ini_entry->on_modify) {
+			hashed_ini_entry->on_modify(hashed_ini_entry, hashed_ini_entry->value, hashed_ini_entry->value_length, hashed_ini_entry->mh_arg1, hashed_ini_entry->mh_arg2, hashed_ini_entry->mh_arg3, ZEND_INI_STAGE_STARTUP TSRMLS_CC);
 		}
 		p++;
 	}

@@ -32,8 +32,6 @@
 
 #include "defs.h"
 
-#include <assert.h>
-
 #define _CMA_NOWRAPPERS_
 
 #include <cma_tcb_defs.h>

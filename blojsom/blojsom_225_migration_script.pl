@@ -45,6 +45,8 @@ if ( ! ( open UPLOAD_PROPERTIES_FILE, "$BLOJSOM_WEBINF/plugin-admin-upload.prope
 	close UPLOAD_PROPERTIES_FILE;
 	$upload_properties =~ s/maximum-upload-size=100000\n/maximum-upload-size=52428800\n/;
 	$upload_properties =~ s/accepted-file-types=image\/jpeg, image\/gif, image\/png\n/accepted-file-types=image\/jpeg, image\/gif, image\/png, application\/pdf, audio\/mpeg, audio\/x-m4a, video\/mpeg, video\/mp4, video\/quicktime, video\/3gpp, video\/3gp2\n/;
+	# further migration to include 
+	$upload_properties =~ s/(accepted-file-types=image\/jpeg, image\/gif, image\/png, application\/pdf, audio\/mpeg, audio\/x-m4a, video\/mpeg, video\/mp4, video\/quicktime, video\/3gpp, video\/3gp2)\n/\1, video\/x-m4v, audio\/x-m4b\n/;
 	if ( ! ( open UPLOAD_PROPERTIES_FILE, '>', "$BLOJSOM_WEBINF/plugin-admin-upload.properties" ) ) {
 		print STDERR "Couldn't open $BLOJSOM_WEBINF/plugin-admin-upload.properties file for writing!\n";
 	} else {

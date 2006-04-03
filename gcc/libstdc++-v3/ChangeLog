@@ -1,3 +1,575 @@
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/22109
+	* src/compatibility.cc (_GLIBCXX_SYMVER_COMPATIBILITY): Remove.
+	(istreambuf_iterator, basic_fstream, basic_ifstream, basic_ofstream,
+	_M_copy, _M_move, _M_assign, _M_disjunct, _M_check_length,
+	_M_set_length_and_sharable, ignore, eq): Define to XX suffixed
+	variants.
+	(ignore (streamsize)): Remove _W prefixed aliases.
+	(_GLIBCXX_3_4_SYMVER_SPECIAL, _GLIBCXX_3_4_5_SYMVER_SPECIAL,
+	_GLIBCXX_APPLY_SYMVER_SPECIAL): Remove.
+	(_GLIBCXX_3_4_SYMVER, _GLIBCXX_3_4_5_SYMVER): Add XXname argument.
+	Use #XXname instead of #name as the alias argument.
+	* config/abi/compatibility.h: Replace uses of
+	_GLIBCXX_APPLY_SYMVER_SPECIAL with _GLIBCXX_APPLY_SYMVER.  Always
+	pass 2 arguments to the _GLIBCXX_APPLY_SYMVER macro.
+	* include/bits/char_traits.h (char_traits::eq): Revert 2005-06-15
+	change.
+	* acinclude.m4: Decrease glibcxx_min_gnu_ld_version back to 21400.
+	* configure: Rebuilt.
+
+2005-06-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/22111
+	* acinclude.m4 (GLIBCXX_CONFIGURE_TESTSUITE): Remove
+	GLIBCXX_TEST_ABI. Remove duplicate _GLIBCXX_ASM_SYMVER define.
+	Don't enable abi testing unless versioned.
+	* configure: Regenerate.
+	* testsuite/Makefile.am (check-abi): Remove conditional.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/libstdc++-abi/abi.exp: Call build_support, then check
+	v3-symver before proceeding.
+	* testsuite/lib/libstdc++.exp (libstdc++-dg-test): Set v3-symvers
+	if _GLIBCXX_SYMVER.
+	
+2005-06-17  Jakub Jelinek  <jakub@redhat.com>
+            Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/abi/alpha-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/hppa-linux-gnu/baseline_symbols.txt: Same.
+	* config/abi/mips-linux-gnu/baseline_symbols.txt: Same.
+	* config/abi/sparc-linux-gnu/baseline_symbols.txt: Same.
+
+	* config/abi/alpha-freebsd5/baseline_symbols.txt: Remove.
+	* config/abi/i386-freebsd4/baseline_symbols.txt: Same.
+	* config/abi/i386-freebsd5/baseline_symbols.txt: Same.
+	* config/abi/sparc-freebsd5/baseline_symbols.txt: Same.
+
+	* config/abi/arm-linux-gnu/baseline_symbols.txt: Remove.
+	* config/abi/m68k-linux-gnu/baseline_symbols.txt: Same.
+	
+2005-06-17  Paolo Carlini  <pcarlini@suse.de>
+	
+	PR libstdc++/21726
+	* configure.host (abi_baseline_pair switch): Add an entry
+	for powerpc64-linux.
+	
+2005-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/ia64-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/s390x-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/s390-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/x86_64-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/x86_64-linux-gnu/32/baseline_symbols.txt: Update.
+	* config/abi/powerpc-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/i486-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/i386-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/powerpc64-linux-gnu/baseline_symbols.txt: New file.
+	* config/abi/powerpc64-linux-gnu/32/baseline_symbols.txt: New file.
+
+2005-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/compatibility.cc: Include bits/c++config.h first.
+	(_GLIBCXX_SYMVER_COMPATIBILITY): Define if _GLIBCXX_SYMVER
+	and PIC are both defined.
+	* include/bits/char_traits.h (char_traits::eq): Rename
+	only if _GLIBCXX_SYMVER_COMPATIBILITY is defined.
+
+2005-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+        * acinclude.m4 ((GLIBCXX_ENABLE_SYMVERS): Rename _GLIBCXX_SIZE_T_IS_INT
+        to _GLIBCXX_SIZE_T_IS_UINT.  Define _GLIBCXX_PTRDIFF_T_IS_INT.
+        * configure: Regenerate.
+        * config.h.in: Regenerate.
+        * src/compatibility.cc (istream:ignore(streamsize)): Use
+        _GLIBCXX_PTRDIFF_T_IS_INT instead of _GLIBCXX_SIZE_T_IS_INT.
+        * config/abi/compatibility.h: Rename _GLIBCXX_SIZE_T_IS_INT
+        to _GLIBCXX_SIZE_T_IS_UINT.  Use _GLIBCXX_PTRDIFF_T_IS_INT
+        instead for symbols with streamsize arguments.
+
+2005-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linker-map.gnu: Also export
+	_ZNSt13basic_istreamIwSt11char_traitsIwEE6ignoreE[il][il].
+
+2005-06-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.ac (libtool_VERSION): To 6:5:0.
+	* configure: Regenerate.
+	* config/linker-map.gnu: Edit.
+	* src/istream.cc: Move istream::ignore(streamsize) specializations...
+	* src/compatibility.cc: ...here. New.
+	* include/bits/char_traits.h (char_traits::eq): Rename when
+	appropriate.
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Define _GLIBCXX_SIZE_T_IS_INT.
+	Bump glibcxx_min_gnu_ld_version to 21590.
+	* configure: Regenerate.
+	* acconfig.h: Remove _GLIBCXX_ASM_SYMVER.
+	* config.h.in: Regenerate.
+	* src/Makefile.am (sources): Add compatibility.cc.
+	* src/Makefile.in: Regenerate.
+	* include/Makefile.am (host_headers_noinst): Add compatibility.h.
+	* include/Makefile.in: Regenerate.
+	* testsuite/testsuite_abi.h (symbol): Add data members.
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.5.
+	Remove deprecated versions. Do a better job version checking.
+	
+2005-06-06  Peter Doerfler  <doerfler@techinfo.rwth-aachen.de>
+
+	* include/bits/stl_function.h: ... and another one.
+
+2005-06-06  Peter Doerfler  <doerfler@techinfo.rwth-aachen.de>
+
+	* include/bits/stl_function.h: Fix typo in comment.
+
+2005-06-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21280
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust expected errors.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Likewise.
+
+2005-06-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_Rep::_M_set_length_and_sharable):
+	Use, consistently, traits_type::assign.
+
+2005-06-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/abi.html: Mention 3.4.0 as the current baseline; add
+	a notice about the configure options.
+
+2005-05-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* docs/html/test.html: Mention PCH_CXXFLAGS.
+	* testsuite/lib/libstdc++.exp: Set PCH_CXXFLAGS by probing for an
+	available stcd++.h PCH.
+	* testsuite/libstdc++-dg/normal.exp: Use PCH_CXXFLAGS.
+
+2005-05-23  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/debug/string (class basic_string): Add missing
+	template arguments; provide typedefs for char and wchar_t.
+	(operator[]): Allow s[s.size()] in debug mode, but not
+	pedantic mode.
+	
+2005-05-22  Paolo Carlini  <pcarlini@suse.de>
+
+	Port from libstdcxx_so_7-branch:
+	2005-04-25  Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (count): Correct concept checks.
+	(search_n) : Likewise.
+	* testsuite/25_algorithms/search_n/check_type.cc: New.
+
+	* testsuite/testsuite_iterators.h
+	(random_access_iterator_wrapper::operator+): Move out of
+	class to external function, and add symmetric version.
+
+	2005-03-14  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/testsuite_iterators.h (WritableObject::WritableObject):
+	Add const.
+	
+	2005-02-01  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/testsuite_iterators.h (random_access_iterator_wrapper::
+	operator--): Fix typo.
+	(OutputContainer::OutputContainer): Correct zeroing array.
+	(WritableObject::operator==): Fix typo.
+        (WritableObject::operator=): make operator= templated 
+	to allow differing types to be assigned.
+	(WritableObject::operator++): Fix checking if iterator is
+	written to multiple times.
+	(random_access_iterator_wrapper::operator+): Add const.
+	(random_access_iterator_wrapper::operator-): Likewise.
+	(random_access_iterator_wrapper::operator[]): Add dereference.
+
+2005-05-20  Jan Beulich  <jbeulich@novell.com>
+
+	* libmath/stubs.c: Also implement fabsf/fabsl if not present in the
+	system libraries.
+
+2005-05-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (__rotate<_RandomAccessIterator>):
+	Don't qualify __tmp as const, _ValueType is not necessarily
+	Assignable.
+	* include/bits/stl_algobase.h (swap, __iter_swap<false>):
+	Likewise, as an harmless extension.
+
+2005-05-19  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/bits/basic_string.h (operator[]): Allow s[s.size()] in
+	debug mode, but not pedantic mode.
+
+2005-05-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/install.html: Update list of required named
+	locales, add "es_ES".
+
+2005-05-15  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-04-04  Mark Mitchell  <mark@codesourcery.com>
+	* testsuite/Makefile.am (check-local): Remove.
+	(curent_symbols.txt): Likewise.
+	(check-abi): Do not depend on current_symbols.txt.
+	* testsuite/Makefile.in: Regenerated.
+	* testsuite/libstdc++-abi/abi.exp: Build current_symbols.txt.
+	2005-04-01  Mark Mitchell  <mark@codesourcery.com>
+	* testsuite/Makefile.am (noinst_PROGRAMS): Remove.
+	(site.exp): Write out the path to the baseline file.
+	(check-abi): Use DejaGNU.
+	(check-abi-verbose): Remove.
+	* testsuite/Makefile.in: Regenerated.
+	* testsuite/testsuite_abi.cc (compare_symbols): Return a value.
+	* testsuite/testsuite_abi.h (compare_symbols): Adjust prototype.
+	* testsuite/libstdc++-abi/abi.exp: New file.
+
+2005-05-13  Magnus Fromreide  <magfr@lysator.liu.se>
+
+	* testsuite/27_io/basic_streambuf/sgetn/char/1.cc: Use
+	initialization instead of copying as the string is used only once.
+	* testsuite/27_io/basic_streambuf/sgetn/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_streambuf/sputn/char/1.cc: Likewise.
+	* testsuite/27_io/basic_streambuf/sputn/wchar_t/1.cc: Likewise.
+
+2005-05-10  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/debug/debug.h: Fix typo in macro name.
+
+2005-05-09  Paolo Carlini  <pcarlini@suse.de>
+	    Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+	    
+	PR libstdc++/18604
+	* include/bits/deque.tcc: Fully qualify names from namespace std.
+	* include/bits/stl_bvector.h: Likewise.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/stl_vector.h: Likewise.
+	* include/bits/vector.tcc: Likewise.
+	* include/std/std_bitset.h: Likewise.
+	* testsuite/23_containers/bitset/18604.cc: New.
+	* testsuite/23_containers/deque/18604.cc: Likewise.
+	* testsuite/23_containers/list/18604.cc: Likewise.
+	* testsuite/23_containers/map/18604.cc: Likewise.
+	* testsuite/23_containers/set/18604.cc: Likewise.
+	* testsuite/23_containers/vector/18604.cc: Likewise.
+
+2005-05-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21238
+	* include/bits/locale_facets.tcc (num_get::_M_extract_float,
+	num_get::_M_extract_int, num_get::do_get(bool&),
+	num_put::_M_insert_int, num_put::_M_insert_float,
+	num_put::do_put(bool), money_get::_M_extract,
+	money_put::_M_insert): Adjust the __cache_type typedef not to
+	forward to a numpunct/moneypunct typedef.
+	* testsuite/testsuite_character.h: Add pod_uint and its numpunct
+	and moneypunct specializations.
+	* testsuite/testsuite_character.cc: Add numpunct<pod_uint>::id
+	and moneypunct<pod_uint>::id.
+	* testsuite/22_locale/num_get/3.cc: New.
+	* testsuite/22_locale/num_put/3.cc: Likewise.
+	* testsuite/22_locale/money_get/3.cc: Likewise.
+	* testsuite/22_locale/money_put/3.cc: Likewise.
+
+	* include/bits/locale_facets.tcc (money_put::_M_insert,
+	time_get::_M_extract_name): Prefer operator== to operator!=
+	on char_types.
+
+2005-05-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pod_char_traits.h (__gnu_cxx::character): Add char_type.
+	(character::to): New.
+	(character::from): New.
+	(operator==): Add state parameter.
+	(operator<): Same.
+	(char_traits::copy): Use std::copy.
+	(char_traits::assign): Use std::fill_n.
+	(char_traits::to_char_type): Use character::from.
+	(char_traits::to_int_type): Use character::to.
+	* testsuite/testsuite_character.h (__gnu_test::character): Remove.
+	(__gnu_test::conversion_state): Remove.
+	(__gnu_test::pod_char): Remove.
+	(pod_char): New typedef.
+	(pod_uchar): New typedef.
+	(pod_ushort): New typedef.
+	* testsuite/testsuite_character.cc: Fixups.
+	* testsuite/21_strings/basic_string/inserters_extractors/pod/
+	10081-in.cc: Same.
+	* testsuite/21_strings/basic_string/inserters_extractors/pod/
+	10081-out.cc: Same.
+	* testsuite/22_locale/numpunct/members/pod/1.cc: Same.
+	* testsuite/22_locale/numpunct/members/pod/2.cc: Same.
+	* testsuite/27_io/basic_filebuf/close/12790-1.cc: Same.
+	* testsuite/27_io/basic_filebuf/open/12790-1.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekoff/12790-1.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekoff/12790-2.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekoff/12790-3.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekoff/12790-4.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/12790-1.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/12790-2.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/12790-3.cc: Same.
+	* testsuite/27_io/basic_ios/imbue/14072.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/pod/
+	3983-1.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_character/pod/
+	3983-2.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_other/pod/3983-3.cc: Same.
+	* testsuite/27_io/basic_istream/sentry/pod/1.cc: Same.
+	* testsuite/27_io/basic_ostream/sentry/pod/1.cc: Same.
+
+2005-05-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/test.html: Update.
+	* testsuite/printnow.c: Remove.
+	* scripts/check_survey.in: Remove.
+
+	* testsuite/abi_check.cc: To...
+	* testuite/testsuite_abi_check.cc: ...here.
+	* testsuite/testsuite_abi.h (compare_symbols): Return int.
+	* testsuite/testsuite_abi.cc: Same.
+	
+	* testsuite/testsuite_hooks.h: Move character related bits to...
+	* testsuite/testsuite_character.h: ...here.
+	* testsuite/testsuite_character.cc: ... and here.
+	* testsuite/21_strings/basic_string/inserters_extractors/pod/
+	10081-in.cc: Use testsuite_character.h.
+	* testsuite/21_strings/basic_string/inserters_extractors/pod/
+	10081-out.cc: Same.
+	* testsuite/22_locale/numpunct/members/pod/1.cc: Same.
+	* testsuite/22_locale/numpunct/members/pod/2.cc: Same.
+	* testsuite/27_io/basic_filebuf/2.cc: Same.
+	* testsuite/27_io/basic_fstream/2.cc: Same.
+	* testsuite/27_io/basic_istream/2.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/pod/
+	3983-1.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_character/char/
+	9826.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_character/pod/
+	3983-2.cc: Same.
+	* testsuite/27_io/basic_istream/extractors_other/pod/3983-3.cc: Same.
+	* testsuite/27_io/basic_istream/sentry/pod/1.cc: Same.
+	* testsuite/27_io/basic_ostream/2.cc: Same.
+	* testsuite/27_io/basic_ostream/sentry/pod/1.cc: Same.
+	* testsuite/27_io/basic_streambuf/2.cc: Same.
+	* testsuite/27_io/basic_stringbuf/2.cc: Same.
+	* testsuite/27_io/basic_stringbuf/4.cc: Same.
+	* testsuite/27_io/basic_stringstream/2.cc: Same.
+	* testsuite/27_io/fpos/1.cc: Same.
+	* testsuite/ext/mt_allocator/tune-1.cc: Same.
+	* testsuite/ext/mt_allocator/tune-2.cc: Same.
+	* testsuite/ext/stdio_filebuf/char/1.cc: Same.	
+	* testsuite/lib/libstdc++.exp (v3-build_support): Add
+	testsuite_character.cc.
+	* testsuite/Makefile.am (libv3test_a_SOURCES): Add
+	testsuite_character.cc.
+	* testsuite/Makefile.in: Regenerate.
+		
+	* configure.ac: Remove use of check_survey.
+	* configure: Regenerate.
+	* testsuite/Makefile.am: Remove check-script and
+	check-script-install rules.
+	* testsuite/Makefile.in: Regenerate.
+
+2005-05-09  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	DR 434. bitset::to_string() hard to use [Ready]
+	* include/debug/bitset (to_string): Add three overloads, taking
+	fewer template arguments.
+
+2005-05-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/testsuite_hooks.cc (try_mkfifo): Remove.
+	* testsuite/testsuite_hooks.h (try_mkfifo): Likewise.
+	* testsuite/27_io/basic_filebuf/close/char/4879.cc: Use
+	dg-require-fork and dg-require-mkfifo.  Replace try_mkfifo with
+	mkfifo.
+	* testsuite/27_io/basic_filebuf/close/char/9964.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/char/13171-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/char/13582-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/13582-2.cc:
+	Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/14975-2.cc:
+	Likewise.
+	* testsuite/27_io/basic_filebuf/open/char/9507.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/showmanyc/char/9533-1.cc:
+	Likewise.
+	* testsuite/27_io/basic_filebuf/underflow/char/10097.cc: Likewise.
+	* testsuite/27_io/objects/char/7.cc: Likewise.
+	* testsuite/27_io/objects/char/9661-1.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/7.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/9661-1.cc: Likewise.
+
+2005-05-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build_support): Look for
+	__GTHREADS, rather than _GLIBCXX_HAVE_GTHR_DEFAULT, to determine
+	whether or not thread support is available.
+
+2005-05-04  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-03-25  Mark Mitchell  <mark@codesourcery.com>
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Define LOCALEDIR
+	when testing an installed compiler.
+	* testsuite/lib/libstdc++.exp (v3-build_support): Pass -w when
+	compiling support objects.
+	2005-03-23  Mark Mitchell  <mark@codesourcery.com>
+	* testsuite/libstdc++-dg/normal.exp: Read testsuite_files, if it
+	exists.
+	* testsuite/lib/libstdc++.exp (libstdc++_wchar_t): Rename to ...
+	(v3-wchar_t): ... this.
+	(libstdc++_threads): Rename to ...
+	(v3-threads): ... this.
+	(libstdc++_test_objs): Rename to ...
+	(v3-test_objs): ... this.
+	(libstdc++_build_support): Rename to ...
+	(v3-build_support): ... this.
+	* testsuite/libstdc++-dg/normal.exp: Adjust to use new names.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Improve handling
+	of compilers not in the build directory.
+	(libstdc++_wchar_t): New variable.
+	(libstdc++_threads): Likewise.
+	(libstdc++_test_objs): Likewise.
+	(v3_target_compile): Use libstdc++_test_objs.
+	(v3-list-tests): Remove.
+	(listdc++_build_support): New function.
+	* testsuite/libstdc++-dg/normal.exp: Rework to dynamically
+	generate list of tests.
+	
+2005-05-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21209
+	* include/bits/locale_facets.tcc (_M_extract_int): Avoid signed
+	integer overflow, always use a suited unsigned type in the main
+	parsing loop.
+	(struct __to_unsigned_type): New.
+	* testsuite/22_locale/num_get/get/char/16.cc: New.
+	* testsuite/22_locale/num_get/get/wchar_t/16.cc: Likewise.
+
+2005-05-03  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/bits/stl_algo.h (rotate_copy): Add missing std qualification.
+
+2005-04-30  Paolo Carlini  <pcarlini@suse.de>
+	    Nathan Myers  <ncm@cantrip.org>
+
+	PR libstdc++/21286
+	* include/bits/fstream.tcc (basic_filebuf<>::xsgetn):
+	Loop on short reads; remove the work-around for
+	libstdc++/20806, not needed anymore.
+
+2005-04-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (is_convertible): Adjust according
+	to the resolution of TR1 issue 3.20.
+	* testsuite/tr1/4_metaprogramming/relationships_between_types/
+	is_convertible/is_convertible.cc: Add tests.
+
+2005-04-28  Paolo Carlini  <pcarlini@suse.de>
+	    Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR libstdc++/21244 (cont)
+	* include/bits/cpp_type_traits.h (struct __traitor): Convert
+	to bool the values.
+	* include/bits/stl_algo.h: Convert _S_threshold to int.
+	* include/bits/stl_bvector.h: Revert previous change, convert
+	_S_word_bit to int.
+	* include/debug/formatter.h: Convert __max_parameters to
+	size_t.
+	* include/ext/mt_allocator.h: Likewise for _S_chunk_size.
+	* include/ext/pool_allocator.h: Likewise for _S_max_bytes and
+	_S_align.
+	* include/ext/rope: Likewise for _S_alloc_granularity; convert
+	_S_max_rope_depth to int.
+	* include/ext/ropeimpl.h: Convert _S_path_cache_len to int;
+	_S_max_rope_depth to int; _S_copy_max to size_t.
+
+2005-04-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/doxygen/user.cfg.in: Update to doxygen-1.4.2.
+	* docs/doxygen/doxygroups.cc: Update namespace comments.
+
+2005-04-27  Dominik Strasser  <dominik.strasser@infineon.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21244
+	* include/bits/stl_bvector.h: Change the anonymous enum
+	at namespace scope to _S_word_bit_enum.
+	* testsuite/23_containers/vector/bool/21244.cc: New.
+
+2005-04-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (has_trivial_copy, has_trivial_assign,
+	has_nothrow_copy, has_nothrow_assign): Adjust according to the
+	resolution of TR1 issue 3.21.
+	* testsuite/testsuite_tr1.h (test_copy_property,
+	test_assign_property): Remove.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_nothrow_assign/has_nothrow_assign.cc: Adjust.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_nothrow_copy/has_nothrow_copy.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_trivial_assign/has_trivial_assign.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	has_trivial_copy/has_trivial_copy.cc: Likewise.
+
+2005-04-26  Jones Desougi  <jones@ingate.com>
+
+	PR libstdc++/21131
+	* linkage.m4: Fix comments.
+
+2005-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21035
+	* include/bits/basic_string.h (compare): Adjust the documentation
+	to match the implementation and the standard.
+
+2005-04-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20914
+	* include/bits/locale_facets.tcc (__int_to_char(_CharT*, _ValueT,
+	const _CharT*, ios_base::fmtflags, bool)): Don't deal with numeric
+	base or sign here, instead...
+	(_M_insert_int(_OutIter, ios_base&, _CharT, _ValueT)): ... here,
+	after adding the grouping. This fixes the bug and also allows to
+	clean-up the code dealing with integer types.
+	(_M_group_int(const char*, size_t, _CharT, ios_base&, _CharT*,
+	_CharT*, int&)): Simplify, remove bits dealing with numeric base.
+	(__int_to_char(_CharT*, unsigned long, const _CharT*,
+	ios_base::fmtflags), __int_to_char(_CharT*, unsigned long long,
+	const _CharT*, ios_base::fmtflags)): Remove hackish fix for
+	libstdc++/15565.
+	(__int_to_char(_CharT*, long, const _CharT*, ios_base::fmtflags),
+	__int_to_char(_CharT*, long long, const _CharT*, ios_base::fmtflags)):
+	Simplify, don't pass the sign.
+	(_M_insert_float(_OutIter, ios_base&, _CharT, char, _ValueT)):
+	Deal with a sign at the beginning of __cs; robustify the grouping	
+	check.
+	* testsuite/22_locale/num_put/put/char/20914.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/20914.cc: Likewise.
+
+2005-04-25  Earl Chew  <earl_chew@agilent.com>
+	    Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_tree.h (_Rb_tree<>::_M_insert): Don't leak
+	memory if _M_key_compare throws.
+
+2005-04-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 35.
+
 2005-04-20  Release Manager
 
 	* GCC 4.0.0 released.

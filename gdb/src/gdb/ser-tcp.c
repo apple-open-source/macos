@@ -211,10 +211,10 @@ _initialize_ser_tcp (void)
   memset (ops, 0, sizeof (struct serial_ops));
   ops->name = "tcp";
   ops->next = 0;
-  ops->sopen = net_open;
-  ops->sclose = net_close;
+  ops->open = net_open;
+  ops->close = net_close;
   ops->readchar = ser_unix_readchar;
-  ops->swrite = ser_unix_write;
+  ops->write = ser_unix_write;
   ops->flush_output = ser_unix_nop_flush_output;
   ops->flush_input = ser_unix_flush_input;
   ops->send_break = ser_unix_nop_send_break;

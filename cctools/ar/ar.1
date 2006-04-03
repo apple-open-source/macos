@@ -37,7 +37,7 @@
 .\"
 .\"	@(#)ar.1	8.1 (Berkeley) 6/29/93
 .\"
-.Dd November 28, 2001
+.Dd July 27, 2005
 .Dt AR 1 
 .Os Darwin
 .Sh NAME
@@ -206,6 +206,11 @@ Write an object-file index into the archive, or update an existing one, even if
 no other change is made to the archive.  You may use this modifier flag either
 with any operation, or alone.  Running `ar s' on an archive is equivalent to
 running `ranlib' on it.
+.It Fl S
+Do not generate an archive symbol table.  This can speed up building a large
+library in several steps.  The resulting archive can not be used with the
+linker.  In order to build a symbol table, you must omit the S modifier on the
+last execution of ar, or you must run ranlib on the archive.
 .It Fl t
 List the specified files in the order in which they appear in the archive,
 each on a separate line.

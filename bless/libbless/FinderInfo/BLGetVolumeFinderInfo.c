@@ -27,9 +27,19 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetVolumeFinderInfo.c,v 1.13 2005/02/03 00:42:25 ssen Exp $
+ *  $Id: BLGetVolumeFinderInfo.c,v 1.15 2005/08/22 20:49:22 ssen Exp $
  *
  *  $Log: BLGetVolumeFinderInfo.c,v $
+ *  Revision 1.15  2005/08/22 20:49:22  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.14  2005/06/24 16:39:49  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.13  2005/02/03 00:42:25  ssen
  *  Update copyrights to 2005
  *
@@ -97,7 +107,7 @@ struct volinfobuf {
 }; 
 
 
-int BLGetVolumeFinderInfo(BLContextPtr context, const unsigned char mountpoint[], uint32_t words[]) {
+int BLGetVolumeFinderInfo(BLContextPtr context, const char * mountpoint, uint32_t * words) {
     int err, i;
     struct volinfobuf vinfo;
     struct attrlist alist;

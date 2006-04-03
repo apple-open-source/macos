@@ -14,8 +14,45 @@
 #4055183: objc.dg/stubify-1.m scan-assembler (bl|call)\tL_bogonic\\$stub\n
 #4055183: objc.dg/stubify-1.m scan-assembler-not \\$non_lazy_ptr
 #4055183: objc.dg/stubify-2.m scan-file-not symbol_ref.*"objc_msgSend"
-4087344: objc.dg/stret-2.m scan-assembler objc_msgSend_stret
-4087344: objc.dg/stret-2.m scan-assembler-not objc_msgSend[^_S]
-4087344: objc.dg/stret-2.m scan-assembler-not objc_msgSendSuper[^_]
-4087344: objc.dg/symtab-1.m scan-assembler L_OBJC_SYMBOLS.*:\n\t.long\t0\n\t.long\t0\n\t.short\t2\n\t.short\t0\n\t.long\tL_OBJC_CLASS_Derived.*\n\t.long\tL_OBJC_CLASS_Base.*\n
-
+#4087344: objc.dg/stret-2.m scan-assembler objc_msgSend_stret
+#4087344: objc.dg/stret-2.m scan-assembler-not objc_msgSend[^_S]
+#4087344: objc.dg/stret-2.m scan-assembler-not objc_msgSendSuper[^_]
+#4087344: objc.dg/symtab-1.m scan-assembler L_OBJC_SYMBOLS.*:\n\t.long\t0\n\t.long\t0\n\t.short\t2\n\t.short\t0\n\t.long\tL_OBJC_CLASS_Derived.*\n\t.long\tL_OBJC_CLASS_Base.*\n
+4261575: objc/execute/string1.m compilation,  -O0
+4261575: objc/execute/string1.m compilation,  -O1
+4261575: objc/execute/string1.m compilation,  -O2
+4261575: objc/execute/string1.m compilation,  -O3 -fomit-frame-pointer
+4261575: objc/execute/string1.m compilation,  -O3 -g
+4261575: objc/execute/string1.m compilation,  -Os
+4261575: objc/execute/string1.m compilation,  -fast
+4261575: objc/execute/string2.m compilation,  -O0
+4261575: objc/execute/string2.m compilation,  -O1
+4261575: objc/execute/string2.m compilation,  -O2
+4261575: objc/execute/string2.m compilation,  -O3 -fomit-frame-pointer
+4261575: objc/execute/string2.m compilation,  -O3 -g
+4261575: objc/execute/string2.m compilation,  -Os
+4261575: objc/execute/string2.m compilation,  -fast
+4261575: objc/execute/string3.m compilation,  -O0
+4261575: objc/execute/string3.m compilation,  -O1
+4261575: objc/execute/string3.m compilation,  -O2
+4261575: objc/execute/string3.m compilation,  -O3 -fomit-frame-pointer
+4261575: objc/execute/string3.m compilation,  -O3 -g
+4261575: objc/execute/string3.m compilation,  -Os
+4261575: objc/execute/string3.m compilation,  -fast
+4261575: objc/execute/string4.m compilation,  -O0
+4261575: objc/execute/string4.m compilation,  -O1
+4261575: objc/execute/string4.m compilation,  -O2
+4261575: objc/execute/string4.m compilation,  -O3 -fomit-frame-pointer
+4261575: objc/execute/string4.m compilation,  -O3 -g
+4261575: objc/execute/string4.m compilation,  -Os
+4261575: objc/execute/string4.m compilation,  -fast
+4261715: objc.dg/const-str-1.m  (test for errors, line 11)
+4261575: objc.dg/const-str-3.m (test for excess errors)
+4261575: objc.dg/const-str-4.m (test for excess errors)
+4261715: objc.dg/const-str-6.m  (test for errors, line 27)
+4261575: objc.dg/const-str-7.m (test for excess errors)
+4261575: objc.dg/const-str-8.m (test for excess errors)
+#
+# the following failures are for x86 only
+4283396: objc.dg/const-cfstring-1.m (test for excess errors)
+4283396: objc.dg/exceptionCodeGenBug.m (test for excess errors)

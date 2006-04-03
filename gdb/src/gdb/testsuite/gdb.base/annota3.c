@@ -37,8 +37,8 @@ main ()
   signal (SIGUSR1, handle_USR1);
 #endif
 
-  printf ("value is %d\n", value);
-  printf ("my_array[2] is %d\n", my_array[2]);
+  sleep (1);
+  sleep (1);
   
   {
     int i;

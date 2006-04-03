@@ -30,7 +30,7 @@ void AppleRAIDSet::free(void)
     if (arOpenReaders)		arOpenReaders->release();
 
     if (arMembers)		IODelete(arMembers, AppleRAIDMember *, arLastAllocCount);
-    if (arSpareMembers)		IODelete(arSpareMembers, AppleRAIDMember *, arLastAllocCount);
+    if (arSpareMembers)		arSpareMembers->release();
 
     if (arStorageRequestPool) {
         while (1) {
@@ -76,7 +76,7 @@ bool AppleRAIDSet::init()
     arMedia		= NULL;
     arPublishedSetState = kAppleRAIDSetStateInitializing;
     arOpenLevel		= kIOStorageAccessNone;
-    arOpenReaders	= OSSet::withCapacity(1);
+    arOpenReaders	= OSSet::withCapacity(10);
     arOpenReaderWriter	= 0;
 
     arSetCompleteTimeout = kARSetCompleteTimeoutNone;
@@ -84,9 +84,11 @@ bool AppleRAIDSet::init()
     arSetMediaSize	= 0;
 
     arMembers		= 0;
-    arSpareMembers	= 0;
+    arSpareMembers	= OSSet::withCapacity(10);
 
     arSetIsSyncingCount	= 0;
+
+    if (!arSpareMembers || !arOpenReaders) return false;
 
     // Get the WorkLoop.
     if (getWorkLoop() != 0) {
@@ -193,12 +195,9 @@ bool AppleRAIDSet::initWithHeader(OSDictionary * header, bool firstTime)
 
 bool AppleRAIDSet::addSpare(AppleRAIDMember * member)
 {
-    IOLog1("AppleRAIDSet::addSpare(%p) entered, arSpareCount was %d.\n", member, (int)arSpareCount);
+    IOLog1("AppleRAIDSet::addSpare(%p) entered, spare count was %lu.\n", member, getSpareCount());
 
     assert(gAppleRAIDGlobals.islocked());
-
-    // only take as many spares as members
-    if (arSpareCount >= arMemberCount) return false;
 
     if (!this->attach(member)) {
 	IOLog1("AppleRAIDSet::addSpare(%p) this->attach(%p) failed\n", this, member);
@@ -206,8 +205,7 @@ bool AppleRAIDSet::addSpare(AppleRAIDMember * member)
 	return false;
     }
 
-    arSpareMembers[arSpareCount] = member;
-    arSpareCount++;
+    arSpareMembers->setObject(member);
 
     return true;
 }
@@ -374,19 +372,7 @@ bool AppleRAIDSet::removeMember(AppleRAIDMember * member, IOOptionBits options)
 	arActiveCount--;
     }
     
-    for (UInt32 i=0; i < arSpareCount; i++) {
-
-	if (arSpareMembers[i] == member) {
-
-	    arSpareCount--;
-	    
-	    // slide in the remaining spares
-	    for (UInt32 j=i; j < arSpareCount; j++) {
-		arSpareMembers[j] = arSpareMembers[j+1];
-	    }
-	    arSpareMembers[arSpareCount] = 0;
-	}
-    }
+    arSpareMembers->removeObject(member);
 
     this->detach(member);
 
@@ -443,7 +429,6 @@ bool AppleRAIDSet::upgradeMember(AppleRAIDMember *member)
 bool AppleRAIDSet::resizeSet(UInt32 newMemberCount)
 {
     AppleRAIDMember	**oldMembers = 0;
-    AppleRAIDMember	**oldSpareMembers = 0;
 
     IOLog1("AppleRAIDSet::resizeSet(%p) entered. alloc = %d old = %d new = %d\n",
 	   this, (int)arLastAllocCount, (int)arMemberCount, (int)newMemberCount);
@@ -463,24 +448,18 @@ bool AppleRAIDSet::resizeSet(UInt32 newMemberCount)
     // back up the old member info if we need to increase the set size
     if (arLastAllocCount) {
 	oldMembers = arMembers;
-	oldSpareMembers = arSpareMembers;
     }
     
     arMembers = IONew(AppleRAIDMember *, newMemberCount);
-    arSpareMembers = IONew(AppleRAIDMember *, newMemberCount);
-    if (!arMembers || !arSpareMembers) return false;
+    if (!arMembers) return false;
             
     // Clear the new arrays.
     bzero(arMembers, sizeof(AppleRAIDMember *) * newMemberCount);
-    bzero(arSpareMembers, sizeof(AppleRAIDMember *) * newMemberCount);
 
     // copy the old into the new, if needed
     if (arLastAllocCount) {
 	bcopy(oldMembers, arMembers, sizeof(AppleRAIDMember *) * oldMemberCount);
-	bcopy(oldSpareMembers, arSpareMembers, sizeof(AppleRAIDMember *) * oldMemberCount);
-
 	IODelete(oldMembers, AppleRAIDMember *, arLastAllocCount);
-	IODelete(oldSpareMembers, AppleRAIDMember *, arLastAllocCount);
     }
 
     arLastAllocCount = newMemberCount;
@@ -498,7 +477,7 @@ UInt32 AppleRAIDSet::nextSetState(void)
 	return kAppleRAIDSetStateOnline;
     }
 
-    if (arActiveCount == 0 && arSpareCount == 0) {
+    if (arActiveCount == 0 && getSpareCount() == 0) {
 	IOLog1("AppleRAIDSet::nextSetState: %p is empty, setting state to terminating.\n", this);
 	return kAppleRAIDSetStateTerminating;
     } 
@@ -514,7 +493,7 @@ UInt32 AppleRAIDSet::nextSetState(void)
 bool AppleRAIDSet::startSet(void)
 {
     IOLog1("AppleRAIDSet::startSet %p called with %lu of %lu members (%lu spares).\n",
-	   this, arActiveCount, arMemberCount, arSpareCount);
+	   this, arActiveCount, arMemberCount, getSpareCount());
 
     // if terminating, stay that way
     if (getSetState() <= kAppleRAIDSetStateTerminating) {
@@ -584,7 +563,7 @@ bool AppleRAIDSet::publishSet(void)
     IOLog1("AppleRAIDSet::publishSet called %p\n", this);
 
     // are we (still) connected to the io registry?
-    if (arActiveCount == 0 && arSpareCount == 0) {
+    if (arActiveCount == 0 && getSpareCount() == 0) {
 	IOLog1("AppleRAIDSet::publishSet: the set %p is empty, aborting.\n", this);
 	return false;
     }
@@ -678,8 +657,6 @@ bool AppleRAIDSet::unpublishSet(void)
 
 bool AppleRAIDSet::destroySet(void)
 {
-    IOReturn rc = kIOReturnSuccess;
-    
     IOLog1("AppleRAIDSet::destroySet(%p) entered.\n", this);
 
     if (isRAIDMember()) {
@@ -687,9 +664,10 @@ bool AppleRAIDSet::destroySet(void)
 	return false;
     }
 
+    // zero headers on members
     for (UInt32 i = 0; i < arMemberCount; i++) {
 	if (arMembers[i]) {
-	    rc = arMembers[i]->zeroRAIDHeader();
+	    (void)arMembers[i]->zeroRAIDHeader();
 	    if (arMembers[i]->getMemberState() == kAppleRAIDMemberStateRebuilding) {
 		arMembers[i]->changeMemberState(kAppleRAIDMemberStateSpare, true);
 		while (arMembers[i]->getMemberState() == kAppleRAIDMemberStateSpare) {
@@ -697,18 +675,20 @@ bool AppleRAIDSet::destroySet(void)
 		}
 	    }
 	}
-	if (arSpareMembers[i]) rc = arSpareMembers[i]->zeroRAIDHeader();
     }
 
-    if (rc) {
-	IOLog1("AppleRAIDSet::destroySet(%p) failed.\n", this);
-	return false;
+    // zero headers on spares
+    OSCollectionIterator * iter = OSCollectionIterator::withCollection(arSpareMembers);
+    if (!iter) return false;
+    while (AppleRAIDMember * spare = (AppleRAIDMember *)iter->getNextObject()) {
+	(void)spare->zeroRAIDHeader();
     }
+    iter->release();
     
     // this keeps us from bumping sequence numbers on the way down
     changeSetState(kAppleRAIDSetStateTerminating);
 
-    // take the set offline member by member
+    // remove the members from the set
     for (UInt32 i = 0; i < arMemberCount; i++) {
 	if (arMembers[i]) {
 	    if (arMembers[i]->isRAIDSet()) {
@@ -717,14 +697,21 @@ bool AppleRAIDSet::destroySet(void)
 		arMembers[i]->stop(NULL);
 	    }
 	}
-	if (arSpareMembers[i]) {
-	    if (arSpareMembers[i]->isRAIDSet()) {
-		arController->oldMember(arSpareMembers[i]);
-	    } else {
-		arSpareMembers[i]->stop(NULL);
-	    }
+    }
+
+    // remove the spares from the set
+    // make a copy since this changes the spare list
+    OSSet * copy = OSSet::withSet(arSpareMembers, arSpareMembers->getCount());
+    if (!copy) return false;
+    while (AppleRAIDMember * spare = (AppleRAIDMember *)copy->getAnyObject()) {
+	copy->removeObject(spare);
+	if (spare->isRAIDSet()) {
+	    arController->oldMember(spare);
+	} else {
+	    spare->stop(NULL);
 	}
     }
+    copy->release();
 
     IOLog1("AppleRAIDSet::destroySet(%p) was successful.\n", this);
 
@@ -754,10 +741,10 @@ bool AppleRAIDSet::reconfigureSet(OSDictionary * updateInfo)
 	newMemberCount = arMemberCount;
 	for (UInt32 i = 0; i < newMemberCount; i++) {
 	    OSString * uuid = OSDynamicCast(OSString, newMemberList->getObject(i));
-	    if ((uuid) && (uuid->isEqualTo(deleted))) {
+
+	    if (uuid && (uuid->isEqualTo(deleted))) {
 
 		if (arMembers[i]) {
-
 		    arMembers[i]->zeroRAIDHeader();
 		    if (arMembers[i]->getMemberState() == kAppleRAIDMemberStateRebuilding) {
 			// hack, this will cause the rebuild to abort 
@@ -774,12 +761,17 @@ bool AppleRAIDSet::reconfigureSet(OSDictionary * updateInfo)
 		} else {
 		    // if the member is broken it might be in the spare list
 		    OSString * olduuid = OSDynamicCast(OSString, oldMemberList->getObject(i));
-		    for (UInt32 j = 0; j < arSpareCount; j++) {
-			if (arSpareMembers[j] && arSpareMembers[j]->getUUID()->isEqualTo(olduuid)) {
-			    arSpareMembers[j]->zeroRAIDHeader();
-			    arSpareMembers[j]->stop(NULL);
+		    OSCollectionIterator * iter = OSCollectionIterator::withCollection(arSpareMembers);
+		    if (!iter) return false;
+
+		    while (AppleRAIDMember * spare = (AppleRAIDMember *)iter->getNextObject()) {
+			if (spare->getUUID()->isEqualTo(olduuid)) {
+			    spare->zeroRAIDHeader();
+			    spare->stop(NULL);
+			    break;
 			}
 		    }
+		    iter->release();
 		}
 
 		// slide everything in one to fill the deleted spot
@@ -820,12 +812,17 @@ bool AppleRAIDSet::reconfigureSet(OSDictionary * updateInfo)
 	    if (!olduuid) return false;
 
 	    // Find && nuke the old spare
-	    for (UInt32 j = 0; j < arSpareCount; j++) {
-		if (arSpareMembers[j] && arSpareMembers[j]->getUUID()->isEqualTo(olduuid)) {
-		    arSpareMembers[j]->zeroRAIDHeader();
-		    arSpareMembers[j]->stop(NULL);
+	    OSCollectionIterator * iter = OSCollectionIterator::withCollection(arSpareMembers);
+	    if (!iter) return false;
+
+	    while (AppleRAIDMember * spare = (AppleRAIDMember *)iter->getNextObject()) {
+		if (spare->getUUID()->isEqualTo(olduuid)) {
+		    spare->zeroRAIDHeader();
+		    spare->stop(NULL);
+		    break;
 		}
 	    }
+	    iter->release();
 	    
 	    break;	// XXX this can only do one delete, the UI allows more
 	}
@@ -1207,15 +1204,13 @@ OSDictionary * AppleRAIDSet::getSetProperties(void)
     }
 
     // we don't worry about losing spares from this spare uuid list,
-    // if they ever come online again they will be returned to the list 
+    // if they ever come online again they will be returned to the list
     OSArray * spares = OSArray::withCapacity(arMemberCount);
-    if (spares) {
-	for (UInt32 cnt = 0; cnt < arSpareCount; cnt++) {
+    OSCollectionIterator * iter = OSCollectionIterator::withCollection(arSpareMembers);
+    if (spares && iter) {
+	while (AppleRAIDMember * spare = (AppleRAIDMember *)iter->getNextObject()) {
 
-	    assert(arSpareMembers[cnt]);
-	    if (!arSpareMembers[cnt]) continue;
-
-	    const OSString * uuid = arSpareMembers[cnt]->getUUID();
+	    const OSString * uuid = spare->getUUID();
 	    assert(uuid);
 	    if (!uuid) continue;
 
@@ -1235,6 +1230,7 @@ OSDictionary * AppleRAIDSet::getSetProperties(void)
 	props->setObject(kAppleRAIDSparesKey, spares);
 	setProperty(kAppleRAIDSparesKey, spares);   // lazy update
 	spares->release();
+	iter->release();
     }
 
     return props;
@@ -1806,7 +1802,8 @@ bool AppleRAIDSet::recover()
 
     assert(arSetIsPaused);
 
-    UInt32 oldSpareCount = arSpareCount;
+    UInt32 oldActiveCount = arActiveCount;
+    OSSet * brokenMembers= OSSet::withCapacity(10);
     
     for (UInt32 cnt = 0; cnt < arMemberCount; cnt++) {
 	
@@ -1825,25 +1822,28 @@ bool AppleRAIDSet::recover()
 	    arMembers[cnt] = 0;
 	    arActiveCount--;
 
-	    if (arSpareCount < arMemberCount) {
-		arSpareMembers[arSpareCount] = brokenMember;
-		arSpareCount++;
-	    }
+	    brokenMembers->setObject(brokenMember);
+	    arSpareMembers->setObject(brokenMember);
 
 	    brokenMember->changeMemberState(kAppleRAIDMemberStateBroken);
 	}
     }
 
-    if (oldSpareCount < arSpareCount) {
+    if (oldActiveCount != arActiveCount) {
 
 	// reconfigure the set with the remaining active members
 	arController->restartSet(this, bumpOnError());
 
 	// close the new spares
-	while (oldSpareCount < arSpareCount) {
-	    arSpareMembers[oldSpareCount++]->close(this, 0);
+	while (brokenMembers->getCount()) {
+
+	    AppleRAIDMember * brokenMember = (AppleRAIDMember *)brokenMembers->getAnyObject();
+	    brokenMember->close(this, 0);
+	    brokenMembers->removeObject(brokenMember);
 	}
     }
+
+    brokenMembers->release();
     
     bool stillAlive = arActiveCount > 0;
     

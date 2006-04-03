@@ -37,8 +37,8 @@
 @class Controller;
 
 extern Controller *controller;
-extern id dot;
-extern id dotdot;
+extern String *dot;
+extern String *dotdot;
 
 extern unsigned int GlobalMountTimeout;
 extern unsigned int GlobalTimeToLive;

@@ -24,9 +24,13 @@
 #include <mach/m68k/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
 #undef MACHINE_THREAD_STATE_COUNT
+#undef THREAD_STATE_NONE
+#undef VALID_THREAD_STATE_FLAVOR
 #include <mach/ppc/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
 #undef MACHINE_THREAD_STATE_COUNT
+#undef THREAD_STATE_NONE
+#undef VALID_THREAD_STATE_FLAVOR
 #include <mach/m88k/thread_status.h>
 #include <mach/i860/thread_status.h>
 #include <mach/i386/thread_status.h>
@@ -612,9 +616,18 @@ struct load_command *load_commands)
 		}
 	    	if(cputype == CPU_TYPE_I386){
 		    i386_thread_state_t *cpu;
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+		    struct i386_float_state *fpu;
+		    i386_exception_state_t *exc;
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 		    i386_thread_fpstate_t *fpu;
 		    i386_thread_exceptstate_t *exc;
 		    i386_thread_cthreadstate_t *user;
+#endif /* i386_THREAD_STATE == -1 */
 
 		    nflavor = 0;
 		    p = (char *)ut + ut->cmdsize;
@@ -625,6 +638,14 @@ struct load_command *load_commands)
 			state += sizeof(unsigned long);
 			switch(flavor){
 			case i386_THREAD_STATE:
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+			case -1:
+#endif /* i386_THREAD_STATE == 1 */
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
+			case 1:
+#endif /* i386_THREAD_STATE == -1 */
 			    if(count != i386_THREAD_STATE_COUNT){
 				error("in swap_object_headers(): malformed "
 				    "load commands (count "
@@ -638,6 +659,41 @@ struct load_command *load_commands)
 			    cpu = (i386_thread_state_t *)state;
 			    state += sizeof(i386_thread_state_t);
 			    break;
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+			case i386_FLOAT_STATE:
+			    if(count != i386_FLOAT_STATE_COUNT){
+				error("in swap_object_headers(): malformed "
+				    "load commands (count "
+				    "not i386_FLOAT_STATE_COUNT for flavor "
+				    "number %lu which is a i386_FLOAT_STATE "
+				    "flavor in %s command %lu)", nflavor,
+				    ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
+				    "LC_THREAD", i);
+				return(FALSE);
+			    }
+			    fpu = (struct i386_float_state *)state;
+			    state += sizeof(struct i386_float_state);
+			    break;
+			case i386_EXCEPTION_STATE:
+			    if(count != I386_EXCEPTION_STATE_COUNT){
+				error("in swap_object_headers(): malformed "
+				    "load commands (count "
+				    "not I386_EXCEPTION_STATE_COUNT for "
+				    "flavor number %lu which is a i386_"
+				    "EXCEPTION_STATE flavor in %s command %lu)",
+				    nflavor,
+				    ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
+				    "LC_THREAD", i);
+				return(FALSE);
+			    }
+			    exc = (i386_exception_state_t *)state;
+			    state += sizeof(i386_exception_state_t);
+			    break;
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 			case i386_THREAD_FPSTATE:
 			    if(count != i386_THREAD_FPSTATE_COUNT){
 				error("in swap_object_headers(): malformed "
@@ -682,6 +738,7 @@ struct load_command *load_commands)
 			    user = (i386_thread_cthreadstate_t *)state;
 			    state += sizeof(i386_thread_fpstate_t);
 			    break;
+#endif /* i386_THREAD_STATE == -1 */
 			default:
 			    error("in swap_object_headers(): malformed "
 				"load commands (unknown "
@@ -1115,9 +1172,18 @@ struct load_command *load_commands)
 		}
 	    	if(cputype == CPU_TYPE_I386){
 		    i386_thread_state_t *cpu;
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+		    struct i386_float_state *fpu;
+		    i386_exception_state_t *exc;
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 		    i386_thread_fpstate_t *fpu;
 		    i386_thread_exceptstate_t *exc;
 		    i386_thread_cthreadstate_t *user;
+#endif /* i386_THREAD_STATE == -1 */
 
 		    while(state < p){
 			flavor = *((unsigned long *)state);
@@ -1128,10 +1194,34 @@ struct load_command *load_commands)
 			state += sizeof(unsigned long);
 			switch(flavor){
 			case i386_THREAD_STATE:
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+			case -1:
+#endif /* i386_THREAD_STATE == 1 */
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
+			case 1:
+#endif /* i386_THREAD_STATE == -1 */
 			    cpu = (i386_thread_state_t *)state;
 			    swap_i386_thread_state(cpu, target_byte_sex);
 			    state += sizeof(i386_thread_state_t);
 			    break;
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+			case i386_FLOAT_STATE:
+			    fpu = (struct i386_float_state *)state;
+			    swap_i386_float_state(fpu, target_byte_sex);
+			    state += sizeof(struct i386_float_state);
+			    break;
+			case i386_EXCEPTION_STATE:
+			    exc = (i386_exception_state_t *)state;
+			    swap_i386_exception_state(exc, target_byte_sex);
+			    state += sizeof(i386_exception_state_t);
+			    break;
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 			case i386_THREAD_FPSTATE:
 			    fpu = (i386_thread_fpstate_t *)state;
 			    swap_i386_thread_fpstate(fpu, target_byte_sex);
@@ -1147,6 +1237,7 @@ struct load_command *load_commands)
 			    swap_i386_thread_cthreadstate(user,target_byte_sex);
 			    state += sizeof(i386_thread_cthreadstate_t);
 			    break;
+#endif /* i386_THREAD_STATE == -1 */
 			}
 		    }
 		    break;

@@ -189,16 +189,17 @@ lookup_minimal_symbol (const char *name, const char *sfile,
 
 	      while (msymbol != NULL && found_symbol == NULL)
 		{
-                  /* APPLE LOCAL fix-and-continue */
 		  /* FIXME: carlton/2003-02-27: This is an unholy
 		     mixture of linkage names and natural names.  If
 		     you want to test the linkage names with strcmp,
 		     do that.  If you want to test the natural names
 		     with strcmp_iw, use SYMBOL_MATCHES_NATURAL_NAME.  */
+                  /* APPLE LOCAL fix-and-continue */
 		  if ((strcmp (DEPRECATED_SYMBOL_NAME (msymbol), (name)) == 0
 		      || (SYMBOL_DEMANGLED_NAME (msymbol) != NULL
 			  && strcmp_iw (SYMBOL_DEMANGLED_NAME (msymbol),
 					(name)) == 0))
+		      /* APPLE LOCAL fix-and-continue */
 		      && (!MSYMBOL_OBSOLETED (msymbol)))
 		    {
 		      switch (MSYMBOL_TYPE (msymbol))
@@ -283,17 +284,6 @@ lookup_minimal_symbol_text (const char *name, struct objfile *objf)
   struct minimal_symbol *found_file_symbol = NULL;
 
   unsigned int hash = msymbol_hash (name) % MINIMAL_SYMBOL_HASH_SIZE;
-
-#if 0  /* APPLE LOCAL - dunno what this is for, it doesn't compile... */
-#ifdef SOFUN_ADDRESS_MAYBE_MISSING
-  if (sfile != NULL)
-    {
-      char *p = strrchr (sfile, '/');
-      if (p != NULL)
-	sfile = p + 1;
-    }
-#endif
-#endif
 
   for (objfile = objfile_get_first ();
        objfile != NULL && found_symbol == NULL;
@@ -420,12 +410,6 @@ lookup_minimal_symbol_by_pc_section_from_objfile
      I removed that call, and now require the caller to do that check.  See
      for instance the use in lookup_minimal_symbol_by_pc_section (which is, in
      fact, at present this function's only use.)  JCI 07/22/2003  */
-
-#if 0
-  pc_section = find_pc_section (pc);
-  if (pc_section == NULL)
-    return NULL;
-#endif
 
   if ((msymbol = objfile->msymbols) != NULL)
     {
@@ -587,24 +571,12 @@ lookup_minimal_symbol_by_pc_section (pc, section)
 struct minimal_symbol *
 lookup_minimal_symbol_by_pc (CORE_ADDR pc)
 {
-#if 1
   /* APPLE LOCAL: The FSF code behaves improperly in the case of
      overlapping sections.  There is code in
      lookup_minimal_symbol_by_pc_section to find the "best" symbol;
      the FSF code overrides it by selecting the first one found by
      find_pc_section ().  */
   return lookup_minimal_symbol_by_pc_section (pc, NULL);
-#endif
-
-#if 0
-  /* NOTE: cagney/2004-01-27: This was using find_pc_mapped_section to
-     force the section but that (well unless you're doing overlay
-     debugging) always returns NULL making the call somewhat useless.  */
-  struct obj_section *section = find_pc_section (pc);
-  if (section == NULL)
-    return NULL;
-  return lookup_minimal_symbol_by_pc_section (pc, section->the_bfd_section);
-#endif
 }
 
 
@@ -731,31 +703,6 @@ prim_record_minimal_symbol_and_info (const char *name, CORE_ADDR address,
   msym_count++;
   OBJSTAT (objfile, n_minsyms++);
 
-
-#ifdef NM_NEXTSTEP
-  /* APPLE LOCAL: We build a table of correspondence for symbols that are the
-     Posix compatiblity variants of symbols that exist in the library.  These 
-     are supposed to be always of the form <original symbol>$BUNCH_OF_JUNK.  
-     BUT, versions of the symbol with an _ in front are actually alternate
-     entry points, so we don't look at those.  
-     Also, don't add the stub table entries...  */
-  /* FIXME: There should really be some host specific method that we call
-     out to to test for equivalence.  Should clean this up if we ever want
-     to submit this stuff back.  */
-
-  if (objfile->check_for_equivalence)
-    {
-      char *name_end;
-
-      if (name[0] != '_')
-	{
-	  char *name_end = strchr(name, '$');
-	  if (name_end != NULL && strstr(name, "dyld_stub") != name)
-	      equivalence_table_add (objfile, name, name_end, msymbol);
-	}
-    }
-#endif
-
   return msymbol;
 }
 
@@ -849,6 +796,7 @@ make_cleanup_discard_minimal_symbols (void)
 
    Note that we are not concerned here about recovering the space that
    is potentially freed up, because the strings themselves are allocated
+
    on the objfile_obstack, and will get automatically freed when the symbol
    table is freed.  The caller can free up the unused minimal symbols at
    the end of the compacted region if their allocation strategy allows it.
@@ -1045,7 +993,6 @@ install_minimal_symbols (struct objfile *objfile)
 	       For now we set the C++ ABI globally; if the user is
 	       mixing ABIs then the user will need to "set cp-abi"
 	       manually.  */
-
 	    const char *name = SYMBOL_LINKAGE_NAME (&objfile->msymbols[i]);
 	    if (name[0] == '_' && name[1] == 'Z' 
 		&& SYMBOL_DEMANGLED_NAME (&objfile->msymbols[i]) != NULL
@@ -1062,6 +1009,10 @@ install_minimal_symbols (struct objfile *objfile)
 	 yet.  (And if the msymbol obstack gets moved, all the internal
 	 pointers to other msymbols need to be adjusted.) */
       build_minimal_symbol_hash_tables (objfile);
+
+      /* APPLE LOCAL: We build a table of correspondence for symbols that are the
+	 Posix compatiblity variants of symbols that exist in the library. */
+      equivalence_table_build (objfile);
     }
 }
 

@@ -1564,8 +1564,7 @@ find_methods (struct symtab *symtab, char type,
     *ndebug = cdebug;
 }
 
-char *
-find_imps (struct symtab *symtab, struct block *block,
+char *find_imps (struct symtab *symtab, struct block *block,
 		 char *method, struct symbol **syms, 
 		 unsigned int *nsym, unsigned int *ndebug)
 {
@@ -1703,6 +1702,7 @@ print_object_command (char *args, int from_tty)
   CORE_ADDR string_addr, object_addr;
   int i = 0;
   char c = -1;
+  const char *fn_name;
 
   if (!args || !*args)
     error (
@@ -1712,7 +1712,8 @@ print_object_command (char *args, int from_tty)
     {
       if (target_check_safe_call () == 0)
 	{
-	  error ("Set call-po-at-unsafe-times to 1 to override this check.");
+	  warning ("Set call-po-at-unsafe-times to 1 to override this check.");
+	  return;
 	}
     }
 
@@ -1727,14 +1728,29 @@ print_object_command (char *args, int from_tty)
     do_cleanups (old_chain);
   }
 
+  if (object != NULL && TYPE_CODE(VALUE_TYPE (object)) == TYPE_CODE_ERROR)
+    {
+      struct type *id_type;
+      id_type = lookup_typename ("id", NULL, 1);
+      if (id_type)
+	object = value_cast (id_type, object);
+    }
+
   /* Validate the address for sanity.  */
   object_addr = value_as_long (object);
   read_memory (object_addr, &c, 1);
 
-  function = find_function_in_inferior ("_NSPrintForDebugger",
+  fn_name = "_NSPrintForDebugger";
+  if (lookup_minimal_symbol (fn_name, NULL, NULL) == NULL) 
+    {
+      fn_name = "_CFPrintForDebugger";
+      if (lookup_minimal_symbol (fn_name, NULL, NULL) == NULL) 
+        error ("Unable to locate _NSPrintForDebugger or _CFPrintForDebugger in child process");
+    }
+  function = find_function_in_inferior (fn_name,
 					builtin_type_voidptrfuncptr);
   if (function == NULL)
-    error ("Unable to locate _NSPrintForDebugger in child process");
+    error ("Unable to locate _NSPrintForDebugger or _CFPrintForDebugger in child process");
 
   unwind = set_unwind_on_signal (1);
   cleanup_chain = make_cleanup (set_unwind_on_signal, unwind);
@@ -2111,7 +2127,6 @@ find_implementation_from_class (CORE_ADDR class, CORE_ADDR sel)
 	}
       subclass = class_str.super_class;
     }
-
   
   return 0;
 }

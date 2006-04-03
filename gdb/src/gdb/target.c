@@ -464,6 +464,7 @@ update_current_target (void)
       INHERIT (to_make_corefile_notes, t);
       INHERIT (to_bind_function, t);
       INHERIT (to_check_safe_call, t);
+      INHERIT (to_allocate_memory, t);
       INHERIT (to_check_is_objfile_loaded, t);
       INHERIT (to_get_thread_local_address, t);
       INHERIT (to_magic, t);
@@ -635,7 +636,7 @@ update_current_target (void)
 	    (int (*) (enum exception_event_kind, int)) 
 	    nosupport_runtime);
   de_fault (to_find_exception_catchpoints, 
-	    (struct symtab_and_line * (*) (enum exception_event_kind)) 
+	    (struct symtabs_and_lines * (*) (enum exception_event_kind, struct objfile *)) 
 	    nosupport_runtime);
   de_fault (to_get_current_exception_event, 
 	    (struct exception_event_record * (*) (void)) 
@@ -659,8 +660,9 @@ update_current_target (void)
            (int (*) (char *)) return_one);
   de_fault (to_check_safe_call,
            (int (*) (char *)) return_one);
+  de_fault (to_allocate_memory, allocate_space_in_inferior_malloc);
   de_fault (to_check_is_objfile_loaded,
-           (int (*) (char *)) return_one);
+           (int (*) (struct objfile *objfile)) return_one);
 #undef de_fault
 
   /* Finally, position the target-stack beneath the squashed
@@ -2384,13 +2386,13 @@ debug_to_rcmd (char *command,
 }
 
 static struct symtab_and_line *
-debug_to_find_exception_catchpoints (enum exception_event_kind kind)
+debug_to_find_exception_catchpoints (enum exception_event_kind kind, struct objfile *objfile)
 {
   struct symtab_and_line *result;
-  result = debug_target.to_find_exception_catchpoints (kind);
+  result = debug_target.to_find_exception_catchpoints (kind, objfile);
   fprintf_unfiltered (gdb_stdlog,
-		      "target find_exception_catchpoints (%d)\n",
-		      kind);
+		      "target find_exception_catchpoints (%d) (%s)\n",
+		      kind, objfile->name);
   return result;
 }
 
@@ -2426,21 +2428,6 @@ debug_to_pid_to_exec_file (int pid)
   
   return exec_file;
 }
-
-#if 0
-static char *
-debug_to_core_file_to_sym_file (char *core)
-{
-  char *sym_file;
-
-  sym_file = debug_target.to_core_file_to_sym_file (core);
-
-  fprintf_unfiltered (gdb_stdlog, "target_core_file_to_sym_file (%s) = %s\n",
-		      core, sym_file);
-
-  return sym_file;
-}
-#endif
 
 /* APPLE LOCAL */
 static int

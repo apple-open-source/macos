@@ -30,6 +30,9 @@
 /* Define to 1 if you have the `chdir' function. */
 #undef HAVE_CHDIR
 
+/* Define to 1 if you have the `chsize' function. */
+#undef HAVE_CHSIZE
+
 /* complex.h exists */
 #undef HAVE_COMPLEX_H
 
@@ -68,6 +71,9 @@
 
 /* libm includes frexpf */
 #undef HAVE_FREXPF
+
+/* Define to 1 if you have the `ftruncate' function. */
+#undef HAVE_FTRUNCATE
 
 /* libc includes getgid */
 #undef HAVE_GETGID
@@ -161,6 +167,9 @@
 
 /* libm includes roundf */
 #undef HAVE_ROUNDF
+
+/* libm includes scalbn */
+#undef HAVE_SCALBN
 
 /* libm includes scalbnf */
 #undef HAVE_SCALBNF
@@ -257,6 +266,12 @@
 
 /* Define to 1 if you have the <time.h> header file. */
 #undef HAVE_TIME_H
+
+/* libm includes trunc */
+#undef HAVE_TRUNC
+
+/* libm includes truncf */
+#undef HAVE_TRUNCF
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H

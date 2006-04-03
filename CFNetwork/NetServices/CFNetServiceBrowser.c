@@ -301,7 +301,7 @@ _DomainEnumReply(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t interfaceI
 		if (errorCode) {
 			
 			// Save the error
-			browser->_error.error = errorCode;
+			browser->_error.error = _DNSServiceErrorToCFNetServiceError(errorCode);
 			browser->_error.domain = kCFStreamErrorDomainNetServices;
 			
 			// Remove the browse from run loops and modes
@@ -395,7 +395,7 @@ _BrowseReply(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t interfaceIndex
 		if (errorCode) {
 			
 			// Save the error
-			browser->_error.error = errorCode;
+			browser->_error.error = _DNSServiceErrorToCFNetServiceError(errorCode);
 			browser->_error.domain = kCFStreamErrorDomainNetServices;
 			
 			// Remove the browse from run loops and modes
@@ -788,6 +788,7 @@ CFNetServiceBrowserSearchForDomains(CFNetServiceBrowserRef b, Boolean registrati
 		
 		// Fail if it did.
 		if (browser->_error.error) {
+			browser->_error.error = _DNSServiceErrorToCFNetServiceError(browser->_error.error);
 			browser->_error.domain = kCFStreamErrorDomainNetServices;
 			break;
 		}
@@ -952,6 +953,7 @@ CFNetServiceBrowserSearchForServices(CFNetServiceBrowserRef b, CFStringRef domai
 		
 		// Fail if it did.
 		if (browser->_error.error) {
+			browser->_error.error = _DNSServiceErrorToCFNetServiceError(browser->_error.error);
 			browser->_error.domain = kCFStreamErrorDomainNetServices;
 			break;
 		}

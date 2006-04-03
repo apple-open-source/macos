@@ -33,6 +33,7 @@
 #include <pthread.h>
 
 #include "webdav_cache.h"
+#include "OpaqueIDs.h"
 
 /*****************************************************************************/
 
@@ -69,6 +70,51 @@ u_int32_t g_next_fileid;
  */
 struct node_head g_file_list;
 
+/* static prototypes */
+
+static int internal_add_attributes(
+	struct node_entry *node,
+	uid_t uid,
+	struct stat *statp,
+	char *appledoubleheader);
+static int internal_remove_attributes(
+	struct node_entry *node,
+	int remove_appledoubleheader);
+static int internal_node_appledoubleheader_valid(
+	struct node_entry *node,
+	uid_t uid);
+static void invalidate_level(
+	struct node_entry *dir_node);
+static void internal_remove_file_cache(
+	struct node_entry *node);
+static int internal_add_file_cache(
+	struct node_entry *node,
+	int fd);
+static int internal_get_node(
+	struct node_entry *parent,
+	size_t name_length,
+	const char *name,
+	int make_entry,
+	int client_created,
+	webdav_filetype_t node_type,
+	struct node_entry **node);
+static void internal_free_nodes(void);
+static int internal_move_node(
+	struct node_entry *node,
+	struct node_entry *new_parent,
+	size_t new_name_length,
+	char *new_name);
+static int delete_node_tree(
+	struct node_entry *node,
+	int recursive);
+static int internal_invalidate_directory_node_time(
+	struct node_entry *dir_node);
+static int internal_delete_invalid_directory_nodes(
+	struct node_entry *dir_node);
+static int internal_get_path_from_node(
+	struct node_entry *target_node,
+	char **path);
+
 static int init_node_cache_lock(void);
 static void lock_node_cache(void);
 static void unlock_node_cache(void);
@@ -76,7 +122,7 @@ static void unlock_node_cache(void);
 /*****************************************************************************/
 
 /* this adds or replaces attribute information to node */
-int nodecache_add_attributes(
+static int internal_add_attributes(
 	struct node_entry *node,		/* the node_entry to update or add attributes_entry to */
 	uid_t uid,						/* the uid these attributes are valid for */
 	struct stat *statp,				/* the stat buffer */
@@ -88,7 +134,7 @@ int nodecache_add_attributes(
 	error = 0;
 	
 	/* first, clear out any old attributes */
-	(void)nodecache_remove_attributes(node);
+	(void)internal_remove_attributes(node, (appledoubleheader != NULL));
 	
 	current_time = time(NULL);
 	require_action(current_time != -1, time, error = errno);
@@ -100,10 +146,7 @@ int nodecache_add_attributes(
 		require_action(node->attr_appledoubleheader != NULL, malloc_attr_appledoubleheader, error = ENOMEM);
 		
 		memcpy(node->attr_appledoubleheader, appledoubleheader, APPLEDOUBLEHEADER_LENGTH);
-	}
-	else
-	{
-		node->attr_appledoubleheader = NULL;
+		node->attr_appledoubleheader_time = current_time;
 	}
 	/* fill in the rest of the fields */
 	node->attr_uid = uid;
@@ -118,27 +161,108 @@ time:
 
 /*****************************************************************************/
 
+int nodecache_add_attributes(
+	struct node_entry *node,		/* the node_entry to update or add attributes_entry to */
+	uid_t uid,						/* the uid these attributes are valid for */
+	struct stat *statp,				/* the stat buffer */
+	char *appledoubleheader)	/* pointer appledoubleheader or NULL */
+{
+	int error;
+
+	lock_node_cache();
+
+	error = internal_add_attributes(node, uid, statp, appledoubleheader);
+
+	unlock_node_cache();
+	
+	return ( error );
+}
+
+/*****************************************************************************/
+
 /* clear out the attribute fields and release any memory */
-int nodecache_remove_attributes(struct node_entry *node)
+static int internal_remove_attributes(
+	struct node_entry *node,
+	int remove_appledoubleheader)
 {
 	node->attr_uid = 0;
 	node->attr_time = 0;
 	memset(&node->attr_stat, 0, sizeof(struct stat));
-	if ( node->attr_appledoubleheader != NULL )
+	if ( remove_appledoubleheader && (node->attr_appledoubleheader != NULL) )
 	{
 		free(node->attr_appledoubleheader);
 		node->attr_appledoubleheader = NULL;
+		node->attr_appledoubleheader_time = 0;
 	}
 	return ( 0 );
 }
 
 /*****************************************************************************/
 
-int node_attributes_valid(struct node_entry *node, uid_t uid)
+int nodecache_remove_attributes(
+	struct node_entry *node)	/* the node to remove attributes from */
 {
-	return ( (node->attr_time != 0) && /* 0 attr_time is invalid */
+	int error;
+
+	lock_node_cache();
+
+	error = internal_remove_attributes(node, TRUE);
+
+	unlock_node_cache();
+
+	return ( error );
+}
+
+/*****************************************************************************/
+
+static int internal_node_appledoubleheader_valid(
+	struct node_entry *node,
+	uid_t uid)
+{
+	int result;
+
+	result = ( (node->attr_appledoubleheader != NULL) && /* is there attr_appledoubleheader? */
+			 (node->attr_appledoubleheader_time != 0) && /* 0 attr_appledoubleheader_time is invalid */
+			 ((uid == node->attr_uid) || (0 == node->attr_uid)) && /* does this user or root have access to the cached attributes? */
+			 (time(NULL) < (node->attr_appledoubleheader_time + FILE_VALIDATION_TIMEOUT)) ); /* don't cache them too long */
+
+	return ( result );
+}
+
+/*****************************************************************************/
+
+int node_appledoubleheader_valid(
+	struct node_entry *node,
+	uid_t uid)
+{
+	int result;
+
+	lock_node_cache();
+
+	result = internal_node_appledoubleheader_valid(node, uid);
+
+	unlock_node_cache();
+
+	return ( result );
+}
+
+/*****************************************************************************/
+
+int node_attributes_valid(
+	struct node_entry *node,
+	uid_t uid)
+{
+	int result;
+
+	lock_node_cache();
+
+	result = ( (node->attr_time != 0) && /* 0 attr_time is invalid */
 			 ((uid == node->attr_uid) || (0 == node->attr_uid)) && /* does this user or root have access to the cached attributes */
 			 (time(NULL) < (node->attr_time + ATTRIBUTES_TIMEOUT_MAX)) ); /* don't cache them too long */
+
+	unlock_node_cache();
+
+	return ( result );
 
 #if 0 /* FUTURE */	
 	int result;
@@ -179,13 +303,13 @@ int node_attributes_valid(struct node_entry *node, uid_t uid)
 
 /*****************************************************************************/
 
-/* invalidate the node attribute and file cache caches for parent_node's children */
-static void invalidate_level(struct node_entry *parent_node)
+/* invalidate the node attribute and file cache caches for dir_node's children */
+static void invalidate_level(struct node_entry *dir_node)
 {
 	struct node_entry *node;
 	
 	/* invalidate each child node */
-	LIST_FOREACH(node, &(parent_node->children), entries)
+	LIST_FOREACH(node, &(dir_node->children), entries)
 	{
 		node->attr_time = 0;
 		node->file_validated_time = 0;
@@ -216,11 +340,11 @@ void nodecache_invalidate_caches(void)
 
 static int gtabs;
 
-static void display_node_tree_level(struct node_entry *parent_node)
+static void display_node_tree_level(struct node_entry *dir_node)
 {
 	struct node_entry *node;
 	
-	LIST_FOREACH(node, &(parent_node->children), entries)
+	LIST_FOREACH(node, &(dir_node->children), entries)
 	{
 		++gtabs;
 		syslog(LOG_ERR, "%*s%s: %ld %s, node ino %ld, attr ino %ld", gtabs*3, "", node->name, (unsigned long)node, node->node_type == WEBDAV_DIR_TYPE ? "d" : "f", node->fileid, node->attr_stat.st_ino);
@@ -251,6 +375,8 @@ void nodecache_display_file_cache(void)
 	
 	count = 0;
 	
+	lock_node_cache();
+
 	LIST_FOREACH(node, &g_file_list, file_list)
 	{
 		++count;
@@ -275,6 +401,8 @@ void nodecache_display_file_cache(void)
 		}
 	}
 	syslog(LOG_ERR, "----- %ld -----", count);
+
+	unlock_node_cache();
 }
 
 #endif
@@ -283,7 +411,8 @@ void nodecache_display_file_cache(void)
 
 static struct node_entry *g_next_file_cache_node = NULL;
 
-struct node_entry *nodecache_get_next_file_cache_node(int get_first)
+struct node_entry *nodecache_get_next_file_cache_node(
+	int get_first)					/* if true, return first file cache node; otherwise, the next one */
 {
 	struct node_entry *node;
 	
@@ -314,7 +443,85 @@ struct node_entry *nodecache_get_next_file_cache_node(int get_first)
 
 /*****************************************************************************/
 
-static void remove_file_cache_internal(struct node_entry *node)
+static int internal_add_file_cache(
+	struct node_entry *node,		/* the node_entry to add a file_cache_entry to */
+	int fd)							/* the file descriptor of the cache file */
+{
+	int error;
+	
+	error = 0;
+	
+	/* only add it if it's not already cached */
+	require_quiet(!NODE_FILE_IS_CACHED(node), already_cached);
+	
+	while ( open_cache_files >= WEBDAV_MAX_OPEN_FILES )
+	{
+		struct node_entry *file_node;
+		struct node_entry *victim_node;
+		
+		/* find oldest victim node */
+		victim_node = NULL;
+		LIST_FOREACH(file_node, &g_file_list, file_list)
+		{
+			if ( !NODE_FILE_IS_OPEN(file_node) )
+			{
+				victim_node = file_node;
+			}
+		}
+		
+		require_action(victim_node != NULL, too_many_files_open, error = ENFILE);
+
+		internal_remove_file_cache(victim_node);
+	}
+	
+	++open_cache_files;
+	node->flags |= nodeInFileListMask;
+	node->file_fd = fd;
+	node->file_status = WEBDAV_DOWNLOAD_NEVER;
+	node->file_validated_time = 0;
+	node->file_inactive_time = 0;
+	node->file_last_modified = -1;
+	if ( node->file_entity_tag != NULL )
+	{
+		free(node->file_entity_tag);
+		node->file_entity_tag = NULL;
+	}
+	node->file_locktoken_uid = 0;
+	if ( node->file_locktoken != NULL )
+	{
+		free(node->file_locktoken);
+		node->file_locktoken = NULL;
+	}
+	
+	/* add it to the head of the g_file_active_list */
+	LIST_INSERT_HEAD(&g_file_list, node, file_list);
+	
+too_many_files_open:
+already_cached:
+	
+	return ( error );
+}
+
+/*****************************************************************************/
+
+int nodecache_add_file_cache(
+	struct node_entry *node,		/* the node_entry to add a file_cache_entry to */
+	int fd)							/* the file descriptor of the cache file */
+{
+	int error;
+
+	lock_node_cache();
+
+	error = internal_add_file_cache(node, fd);
+
+	unlock_node_cache();
+
+	return ( error );
+}
+
+/*****************************************************************************/
+
+static void internal_remove_file_cache(struct node_entry *node)
 {
 	if ( NODE_FILE_IS_CACHED(node) )
 	{
@@ -324,7 +531,7 @@ static void remove_file_cache_internal(struct node_entry *node)
 		}
 		else
 		{
-			debug_string("remove_file_cache_internal: open_cache_files was zero");
+			debug_string("internal_remove_file_cache: open_cache_files was zero");
 		}
 		node->flags &= ~nodeInFileListMask;
 		close(node->file_fd);
@@ -357,76 +564,11 @@ static void remove_file_cache_internal(struct node_entry *node)
 
 /*****************************************************************************/
 
-int nodecache_add_file_cache(
-	struct node_entry *node,		/* the node_entry to add a file_cache_entry to */
-	int fd)							/* the file descriptor of the cache file */
-{
-	int error;
-	
-	error = 0;
-	
-	lock_node_cache();
-	
-	/* only add it if it's not already cached */
-	require_quiet(!NODE_FILE_IS_CACHED(node), already_cached);
-	
-	while ( open_cache_files >= WEBDAV_MAX_OPEN_FILES )
-	{
-		struct node_entry *file_node;
-		struct node_entry *victim_node;
-		
-		/* find oldest victim node */
-		victim_node = NULL;
-		LIST_FOREACH(file_node, &g_file_list, file_list)
-		{
-			if ( !NODE_FILE_IS_OPEN(file_node) )
-			{
-				victim_node = file_node;
-			}
-		}
-		
-		require_action(victim_node != NULL, too_many_files_open, error = ENFILE);
-
-		remove_file_cache_internal(victim_node);
-	}
-	
-	++open_cache_files;
-	node->flags |= nodeInFileListMask;
-	node->file_fd = fd;
-	node->file_status = WEBDAV_DOWNLOAD_NEVER;
-	node->file_validated_time = 0;
-	node->file_inactive_time = 0;
-	node->file_last_modified = -1;
-	if ( node->file_entity_tag != NULL )
-	{
-		free(node->file_entity_tag);
-		node->file_entity_tag = NULL;
-	}
-	node->file_locktoken_uid = 0;
-	if ( node->file_locktoken != NULL )
-	{
-		free(node->file_locktoken);
-		node->file_locktoken = NULL;
-	}
-	
-	/* add it to the head of the g_file_active_list */
-	LIST_INSERT_HEAD(&g_file_list, node, file_list);
-	
-too_many_files_open:
-already_cached:
-	
-	unlock_node_cache();
-	
-	return ( error );
-}
-
-/*****************************************************************************/
-
 void nodecache_remove_file_cache(struct node_entry *node)
 {
 	lock_node_cache();
 	
-	remove_file_cache_internal(node);
+	internal_remove_file_cache(node);
 	
 	unlock_node_cache();
 }
@@ -459,8 +601,13 @@ int nodecache_init(
 	g_root_node->name_length = name_length;
 	memcpy(g_root_node->name, name, name_length);
 	g_root_node->name[name_length] = '\0';
+	g_root_node->name_ref = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, g_root_node->name, kCFStringEncodingUTF8, kCFAllocatorNull);
 	g_root_node->fileid = g_next_fileid++;
 	g_root_node->node_type = WEBDAV_DIR_TYPE;
+	g_root_node->node_time = time(NULL);
+	error = AssignOpaqueID(g_root_node, &g_root_node->nodeid);
+	require_noerr(error, AssignOpaqueID);
+
 	/* attribute fields are already zeroed */
 	/* file cache fields are already zeroed - set file_fd to indicate there is no cache file */
 	g_root_node->file_fd = -1;
@@ -477,6 +624,7 @@ int nodecache_init(
 	LIST_INIT(&g_deleted_root_node->children);
 	g_deleted_root_node->name_length = 0;
 	g_deleted_root_node->name[0] = '\0';
+	g_deleted_root_node->name_ref = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, g_deleted_root_node->name, kCFStringEncodingUTF8, kCFAllocatorNull);
 	/* attribute fields are already zeroed */
 	/* file cache fields are already zeroed - set file_fd to indicate there is no cache file */
 	g_deleted_root_node->file_fd = -1;
@@ -489,6 +637,7 @@ int nodecache_init(
 malloc_g_deleted_root_node_name:
 calloc_g_deleted_root_node:
 malloc_name:
+AssignOpaqueID:
 calloc_g_root_node:
 	
 	return ( error );
@@ -497,32 +646,44 @@ calloc_g_root_node:
 /*****************************************************************************/
 
 /*
- * nodecache_get_node finds a node by name in the parent node's children. If the node is
- * not found and make_entry is TRUE, then nodecache_get_node creates a new node.
+ * Finds a node by name in the parent node's children. If the node is
+ * not found and make_entry is TRUE, then internal_get_node creates a new node.
  */
-int nodecache_get_node(
+static int internal_get_node(
 	struct node_entry *parent,		/* the parent node_entry */
 	size_t name_length,				/* length of name */
 	const char *name,				/* the utf8 name of the node */
-	int make_entry,					/* TRUE if a new node_entry should be created if needed*/
+	int make_entry,					/* TRUE if a new node_entry should be created if needed */
+	int client_created,				/* TRUE if this client created the node (used in conjunction with make_entry */
 	webdav_filetype_t node_type,	/* if make_entry is TRUE, the type of node to create */
 	struct node_entry **node)		/* the found (or new) node_entry */
 {
 	struct node_entry *node_ptr;
 	int error;
 	
-	lock_node_cache();
-	
 	node_ptr = NULL;
 	error = 0;
-		
-	/* search for an existing node_entry */
-	LIST_FOREACH(node_ptr, &(parent->children), entries)
+	
+	if ( name_length != 0 && name != NULL )
 	{
-		if ( (node_ptr->name_length == name_length) && !memcmp(node_ptr->name, name, name_length) )
+		CFStringRef name_string;
+		
+		name_string = CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)name, name_length, kCFStringEncodingUTF8, false);
+
+		/* search for an existing node_entry */
+		LIST_FOREACH(node_ptr, &(parent->children), entries)
 		{
-			break;
+			if ( CFStringCompare(name_string, node_ptr->name_ref, kCFCompareNonliteral) == kCFCompareEqualTo )
+			{
+				break;
+			}
 		}
+		
+		CFRelease(name_string);
+	}
+	else
+	{
+		node_ptr = parent;
 	}
 	
 	/* if we didn't find it and we're supposed to create it... */
@@ -536,7 +697,7 @@ int nodecache_get_node(
 			
 			/* allocate space for its name */
 			node_ptr->name = malloc(name_length + 1);
-			require_action(node_ptr != NULL, malloc_name, node_ptr = NULL; error = ENOMEM; webdav_kill(-1));
+			require_action(node_ptr->name != NULL, malloc_name, node_ptr = NULL; error = ENOMEM; webdav_kill(-1));
 			
 			/* initialize the node_entry */
 			node_ptr->parent = parent;
@@ -544,8 +705,16 @@ int nodecache_get_node(
 			node_ptr->name_length = name_length;
 			memcpy(node_ptr->name, name, name_length);
 			node_ptr->name[name_length] = '\0';
+			node_ptr->name_ref = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, node_ptr->name, kCFStringEncodingUTF8, kCFAllocatorNull);
 			node_ptr->fileid = g_next_fileid++;
 			node_ptr->node_type = node_type;
+			node_ptr->node_time = time(NULL);
+			if ( client_created )
+			{
+				node_ptr->flags |= nodeRecentMask;
+			}
+			error = AssignOpaqueID(node_ptr, &node_ptr->nodeid);
+			require_noerr_action(error, AssignOpaqueID, node_ptr = NULL; webdav_kill(-1));
 			
 			/* attribute fields are already zeroed */
 			/* file cache fields are already zeroed - set file_fd to indicate there is no cache file */
@@ -559,13 +728,58 @@ int nodecache_get_node(
 			error = ENOENT;
 		}
 	}
+	else
+	{
+		/* update node_time of existing node */
+		if ( make_entry )
+		{
+			node_ptr->node_time = time(NULL);
+		}
+		/* set or clear the recent flag */
+		if ( client_created )
+		{
+			node_ptr->flags |= nodeRecentMask;
+		}
+		else
+		{
+			node_ptr->flags &= ~nodeRecentMask;
+		}
+	}
 	
+AssignOpaqueID:
 malloc_name:
 calloc_node_ptr:
 
 	/* return node_entry */
-	*node = node_ptr;
+	if ( error == 0 )
+	{
+		*node = node_ptr;
+	}
+	else
+	{
+		*node = NULL;
+	}
 	
+	return ( error );
+}
+
+/*****************************************************************************/
+
+int nodecache_get_node(
+	struct node_entry *parent,		/* the parent node_entry */
+	size_t name_length,				/* length of name */
+	const char *name,				/* the utf8 name of the node */
+	int make_entry,					/* TRUE if a new node_entry should be created if needed*/
+	int client_created,				/* TRUE if this client created the node (used in conjunction with make_entry */
+	webdav_filetype_t node_type,	/* if make_entry is TRUE, the type of node to create */
+	struct node_entry **node)		/* the found (or new) node */
+{
+	int error;
+
+	lock_node_cache();
+	
+	error = internal_get_node(parent, name_length, name, make_entry, client_created, node_type, node);
+
 	unlock_node_cache();
 
 	return ( error );
@@ -574,14 +788,13 @@ calloc_node_ptr:
 /*****************************************************************************/
 
 /*
- * nodecache_free_nodes
+ * internal_free_nodes
  * This function frees uncached nodes on the deleted list.
  */
-void nodecache_free_nodes(void)
+static void internal_free_nodes(void)
 {
 	struct node_entry *node;
 
-	lock_node_cache();
 	node = g_deleted_root_node->children.lh_first;
 	while ( node != NULL )
 	{
@@ -593,19 +806,36 @@ void nodecache_free_nodes(void)
 		{
 			/* remove the node_entry from the list it is in */
 			LIST_REMOVE(node, entries);
+			
+			/* invalidate the nodeid */
+			(void) DeleteOpaqueID(node->nodeid);
+			node->nodeid = kInvalidOpaqueID;
+			
 			/* free memory used by the node */
 			free(node->name);
-			(void) nodecache_remove_attributes(node);
+			CFRelease(node->name_ref);
+			(void) internal_remove_attributes(node, TRUE);
+
 			free(node);
 		}
 		node = next_node;
 	}
+}
+
+/*****************************************************************************/
+
+void nodecache_free_nodes(void)
+{
+	lock_node_cache();
+
+	internal_free_nodes();
+
 	unlock_node_cache();
 }
 
 /*****************************************************************************/
 
-int nodecache_move_node(
+static int internal_move_node(
 	struct node_entry *node,		/* the node_entry to move */
 	struct node_entry *new_parent,  /* the new parent node_entry */
 	size_t new_name_length,			/* length of new_name or 0 if not renaming */
@@ -613,14 +843,20 @@ int nodecache_move_node(
 {
 	int error;
 	
-	lock_node_cache();
-	
 	error = 0;
 	
 	/* new name? */
 	if ( (new_name_length != 0) && (new_name != NULL) )
 	{
-		if ( (new_name_length != node->name_length) || (memcmp(new_name, node->name, new_name_length) != 0) )
+		CFStringRef name_string;
+		CFComparisonResult compare_result;
+			
+		name_string = CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)new_name, new_name_length, kCFStringEncodingUTF8, false);
+		compare_result = CFStringCompare(name_string, node->name_ref, kCFCompareNonliteral);
+		CFRelease(name_string);
+		
+		/* did the name change? */
+		if ( compare_result != kCFCompareEqualTo )
 		{
 			char *name;
 			
@@ -629,9 +865,11 @@ int nodecache_move_node(
 			require_action(name != NULL, malloc_name, error = errno; webdav_kill(-1));
 			
 			free(node->name);
+			CFRelease(node->name_ref);
 			node->name = name;
 			memcpy(node->name, new_name, new_name_length);
 			node->name[new_name_length] = '\0';
+			node->name_ref = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, node->name, kCFStringEncodingUTF8, kCFAllocatorNull);
 			node->name_length = new_name_length;
 		}
 	}
@@ -647,32 +885,173 @@ int nodecache_move_node(
 
 malloc_name:
 
+	return ( error );
+}
+
+/*****************************************************************************/
+
+int nodecache_move_node(
+	struct node_entry *node,		/* the node_entry to move */
+	struct node_entry *new_parent,  /* the new parent node_entry */
+	size_t new_name_length,			/* length of new_name or 0 if not renaming */
+	char *new_name)					/* the utf8 new name of the node or NULL */
+{
+	int error;
+
+	lock_node_cache();
+
+	error = internal_move_node(node, new_parent, new_name_length, new_name);
+
 	unlock_node_cache();
+
+	return ( error );
+}
+
+/*****************************************************************************/
+
+/* delete dir_node's descendents and then delete dir_node */
+static int delete_node_tree(
+	struct node_entry *node,		/* the node_entry to delete */
+	int recursive)					/* delete recursively if node is a directory */
+{
+	int error;
 	
+	error = 0;
+		
+	if ( recursive )
+	{
+		struct node_entry *child_node;
+		
+		child_node = (node->children).lh_first;
+		while ( child_node != NULL )
+		{
+			struct node_entry *next_node;
+			
+			next_node = child_node->entries.le_next;
+			error = delete_node_tree(child_node, TRUE);
+			require_noerr(error, delete_child_node);
+			
+			child_node = next_node;
+		}
+	}
+	else
+	{
+		require_action((node->children).lh_first == NULL, has_children, error = EBUSY);
+	}
+	
+	/* move node over to the deleted list and mark it as deleted  */
+	error = internal_move_node(node, g_deleted_root_node, 0, NULL);
+	require_noerr(error, internal_move_node);
+	
+	node->flags |= nodeDeletedMask;
+	node->attr_time = 0;
+	
+internal_move_node:
+has_children:
+delete_child_node:
+
 	return ( error );
 }
 
 /*****************************************************************************/
 
 int nodecache_delete_node(
-		struct node_entry *node)
+	struct node_entry *node,		/* the node_entry to delete */
+	int recursive)					/* delete recursively if node is a directory */
 {
 	int error;
+
+	lock_node_cache();
+
+	error = delete_node_tree(node, recursive);
+
+	unlock_node_cache();
+
+	return ( error );
+}
+
+/*****************************************************************************/
+
+/* invalidate dir_node's children's node_times */
+static int internal_invalidate_directory_node_time(struct node_entry *dir_node)
+{
+	int error;
+	struct node_entry *node;
+
+	error = 0;
+
+	require_action(dir_node->node_type == WEBDAV_DIR_TYPE, not_directory, error = ENOTDIR);
+
+	LIST_FOREACH(node, &(dir_node->children), entries)
+	{
+		node->node_time = 0;
+	}
+
+not_directory:
+
+	return ( error );
+}
+
+/*****************************************************************************/
+
+int nodecache_invalidate_directory_node_time(
+	struct node_entry *dir_node)		/* parent directory node */
+{
+	int error;
+
+	lock_node_cache();
+
+	error = internal_invalidate_directory_node_time(dir_node);
+
+	unlock_node_cache();
+
+	return ( error );
+}
+
+/*****************************************************************************/
+
+/* invalidate dir_node's children's node_times */
+static int internal_delete_invalid_directory_nodes(struct node_entry *dir_node)
+{
+	int error;
+	struct node_entry *node;
 	
-	if ( node != NULL )
-	{
-		require_action((node->children).lh_first == NULL, has_children, error = EBUSY);
+	error = 0;
+	
+	require_action(dir_node->node_type == WEBDAV_DIR_TYPE, not_directory, error = ENOTDIR);
 
-		/* mark node as deleted and move it over to the deleted list */
-		node->flags |= nodeDeletedMask;
-		error = nodecache_move_node(node, g_deleted_root_node, 0, NULL);
-	}
-	else
+	node = (&(dir_node->children))->lh_first;
+	while ( node != NULL )
 	{
-		error = 0;
+		struct node_entry *next_node;
+		
+		next_node = node->entries.le_next;
+		if ( node->node_time == 0 )
+		{
+			error = delete_node_tree(node, TRUE);
+			require_noerr(error, delete_node_tree);
+		}
+		node = next_node;
 	}
 
-has_children:
+delete_node_tree:
+not_directory:
+
+	return ( error );
+}
+
+/*****************************************************************************/
+
+int nodecache_delete_invalid_directory_nodes(
+	struct node_entry *dir_node)		/* parent directory node */
+{
+	int error;
+
+	lock_node_cache();
+
+	error = internal_delete_invalid_directory_nodes(dir_node);
+
+	unlock_node_cache();
 
 	return ( error );
 }
@@ -689,7 +1068,7 @@ has_children:
  * If result is 0 (no error), then a newly allocated buffer containing the
  * path is returned and the caller is responsible for freeing it.
  */
-int nodecache_get_path_from_node(
+static int internal_get_path_from_node(
 	struct node_entry *target_node,
 	char **path)
 {
@@ -698,8 +1077,6 @@ int nodecache_get_path_from_node(
 	char *cur_ptr;
 	char *pathbuf;
 	size_t path_len;
-	
-	lock_node_cache();
 	
 	error = 0;
 	pathbuf = NULL;
@@ -767,8 +1144,23 @@ node_deleted:
 
 	*path = pathbuf;
 
+	return ( error );
+}
+
+/*****************************************************************************/
+
+int nodecache_get_path_from_node(
+	struct node_entry *node,		/* -> node */
+	char **path)					/* <- relative path to root node */
+{
+	int error;
+
+	lock_node_cache();
+
+	error = internal_get_path_from_node(node, path);
+
 	unlock_node_cache();
-	
+
 	return ( error );
 }
 

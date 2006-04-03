@@ -42,7 +42,7 @@ void usage() {
 int main(int argc, char *argv[]) {
 
     char *dev;
-    unsigned char parentDev[MNAMELEN];
+    char parentDev[MNAMELEN];
     unsigned long slice = 0;
     BLPartitionType pmapType;
     char *typestr;

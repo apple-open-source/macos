@@ -2425,6 +2425,7 @@ gdb_update_mem (ClientData clientData, Tcl_Interp *interp,
   addr = string_to_core_addr (tmp);
 
   format = *(Tcl_GetStringFromObj (objv[3], NULL));
+  /* APPLE LOCAL use xmalloc */
   mbuf = (char *) xmalloc (nbytes + 32);
   if (!mbuf)
     {
@@ -2678,7 +2679,7 @@ gdb_loadfile (ClientData clientData, Tcl_Interp *interp, int objc,
   /* array and set the array entry for each linenumber */
 
   ltable_size = LTABLE_SIZE;
-  ltable = (char *) xmalloc (LTABLE_SIZE);
+  ltable = (char *)xmalloc (LTABLE_SIZE);
   if (ltable == NULL)
     {
       fclose (fp);

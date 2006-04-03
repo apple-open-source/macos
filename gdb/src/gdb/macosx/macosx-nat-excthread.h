@@ -21,13 +21,15 @@ struct macosx_exception_thread_status
 {
   gdb_thread_t exception_thread;
 
-  int transmit_from_fd;
-  int receive_from_fd;
-  int transmit_to_fd;
-  int receive_to_fd;
+  int transmit_from_fd;  /* This pipe is used to transmit data from the */
+  int receive_from_fd;   /* exception thread to the main thread.  */
+  int transmit_to_fd;    /* This pipe is used to wake up the exception */
+  int receive_to_fd;     /* thread. 0 means continue, 1 exit.  */
+  int error_transmit_fd; /* The exception thread uses the to signal an error */
+  int error_receive_fd;  /* to the main thread.  */
 
   mach_port_t inferior_exception_port;
-
+  task_t task;
   macosx_exception_info saved_exceptions;
   macosx_exception_info saved_exceptions_step;
   int saved_exceptions_stepping;

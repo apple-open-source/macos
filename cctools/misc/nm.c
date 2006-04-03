@@ -1215,8 +1215,8 @@ char *arch_name,
 struct value_diff *value_diffs)
 {
     unsigned long i;
-    unsigned char c, *p;
-    char *ta_xfmt, *i_xfmt, *spaces;
+    unsigned char c;
+    char *ta_xfmt, *i_xfmt, *spaces, *p;
 
 	if(ofile->mh != NULL){
 	    ta_xfmt = "%08llx";
@@ -1465,6 +1465,7 @@ static const struct stabnames stabnames[] = {
     { N_ENSYM, "ENSYM" },
     { N_SSYM,  "SSYM" },
     { N_SO,    "SO" },
+    { N_OSO,   "OSO" },
     { N_LSYM,  "LSYM" },
     { N_BINCL, "BINCL" },
     { N_SOL,   "SOL" },

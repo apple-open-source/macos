@@ -38,7 +38,8 @@ Boston, MA 02111-1307, USA.  */
       cc1objplus %{save-temps|no-integrated-cpp:-fpreprocessed %{save-temps:%b.mii} %{!save-temps:%g.mii}}\
 	      %{!save-temps:%{!no-integrated-cpp:%(cpp_unique_options)}}\
 	%(cc1_options) %2 %{+e1*}\
-        -o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*}%V}}}",
+        "/* APPLE LOCAL ss2 */" \
+        -o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*} %{fsave-repository=*: \n as -o %w%* %g.s %A}%V}}}",
      CPLUSPLUS_CPP_SPEC, 0, 0},
   {"@objective-c++",
     "%{E|M|MM:cc1objplus -E %(cpp_options) %2 %(cpp_debug_options)}\

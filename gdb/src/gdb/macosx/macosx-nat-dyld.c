@@ -60,7 +60,6 @@
 #include "macosx-nat-dyld-info.h"
 #include "macosx-nat-dyld-path.h"
 #include "macosx-nat-dyld-process.h"
-#include "cached-symfile.h"
 
 #include <AvailabilityMacros.h>
 
@@ -96,8 +95,6 @@
 #if WITH_CFM
 #include "macosx-nat-cfm.h"
 #endif /* WITH_CFM */
-
-#define MAPPED_SYMFILES (USE_MMALLOC && HAVE_MMAP)
 
 #define INVALID_ADDRESS ((CORE_ADDR) (-1))
 
@@ -170,13 +167,11 @@ struct dyld_raw_info
   uint64_t modtime;             /* time_t imageFileModDate */
 };
 
-void clear_gdbarch_swap (struct gdbarch *);
-void swapout_gdbarch_swap (struct gdbarch *);
-void swapin_gdbarch_swap (struct gdbarch *);
-
 static void info_sharedlibrary_address (CORE_ADDR);
 static void set_load_state_1 (struct dyld_objfile_entry *e,
-                              const struct dyld_path_info *d, int load_state);
+                              const struct dyld_path_info *d, 
+                            int index,
+                            int load_state);
 
 static void dyld_read_raw_infos (CORE_ADDR addr, struct dyld_raw_infos *info);
 
@@ -394,6 +389,7 @@ macosx_lookup_dyld_name (bfd *abfd, const char **rname)
 {
   struct mach_o_data_struct *mdata = NULL;
   char *name = NULL;
+  char buf[PATH_MAX];
   int i;
 
   if (abfd == NULL)
@@ -430,6 +426,18 @@ macosx_lookup_dyld_name (bfd *abfd, const char **rname)
               break;
             }
         }
+    }
+
+  /* The DYLINKER is often set to a soft-link when the developer
+     is the person working on dyld -- they don't want to splat a debug
+     version of dyld into /usr/lib/dyld and hose their system.  So we'll
+     need to realpath to get to the actual name of the dyld binary for
+     consistency.  */
+
+  if (name != NULL && realpath (name, buf) != NULL)
+    {
+      xfree (name);
+      name = xstrdup (buf);
     }
 
   *rname = name;
@@ -514,14 +522,36 @@ macosx_locate_dyld_static (macosx_dyld_thread_status *s, CORE_ADDR *value)
   return 0;
 }
 
+/* A parallel function to macosx_dyld_init.  Initialize the CFM parser
+   and breakpoint, if possible; take no action if not, or if it's
+   already been initialized.  Return '1' if we end up initializing the
+   CFM code; '0' if we do not, or if it has already been
+   initialized. */
+
+int
+macosx_cfm_init (macosx_cfm_thread_status *s)
+{
+  if (s->cfm_breakpoint != NULL)
+    return 0;
+  
+  macosx_cfm_thread_create (s);
+  if (s->cfm_breakpoint == NULL)
+    return 0;
+
+  return 1;
+}
+
 /* Locates the dylinker in the executable, and updates the dyld part
    of our data structures.
 
    This function should be able to be called at any time, and should
    always do as much of the right thing as possible based on the
-   information available at the time. */
+   information available at the time.
 
-void
+   Return '1' if we end up initializing the dyld code; '0' if we do
+   not, or if it has already been initialized. */
+
+int
 macosx_dyld_init (macosx_dyld_thread_status *s, bfd *exec_bfd)
 {
   CORE_ADDR static_dyld_address = INVALID_ADDRESS;
@@ -534,7 +564,7 @@ macosx_dyld_init (macosx_dyld_thread_status *s, bfd *exec_bfd)
      be moved once the program is executing.  */
 
   if (s->dyld_slide != INVALID_ADDRESS)
-    return;
+    return 0;
 
   /* Now find dyld's name.  Get it from the exec_bfd if we have
      it, if we don't find it here, then we will look again in
@@ -562,7 +592,7 @@ macosx_dyld_init (macosx_dyld_thread_status *s, bfd *exec_bfd)
   /* If we didn't find dyld, there's no point continuing. */
 
   if (ret != 1)
-    return;
+    return 0;
   CHECK_FATAL (dyld_address != INVALID_ADDRESS);
 
   /* Now grub for dyld's name in memory if we haven't found it already. */
@@ -592,20 +622,21 @@ macosx_dyld_init (macosx_dyld_thread_status *s, bfd *exec_bfd)
   macosx_dyld_update (1);
   macosx_locate_dyld_static (s, &static_dyld_address);
 
+  if (static_dyld_address == INVALID_ADDRESS)
+    return 0;
+
   /* If we were able to find the slide, finish the dyld
      initialization, by setting up the data structures and inserting
      the dyld_gdb_state_changed breakpoint. */
 
-  if (static_dyld_address != INVALID_ADDRESS)
-    {
-      s->dyld_addr = dyld_address;
-      s->dyld_slide = dyld_address - static_dyld_address;
+  s->dyld_addr = dyld_address;
+  s->dyld_slide = dyld_address - static_dyld_address;
 
-      macosx_init_addresses (s);
-      macosx_set_start_breakpoint (s, exec_bfd);
-
-      breakpoints_changed ();
-    }
+  macosx_init_addresses (s);
+  macosx_set_start_breakpoint (s, exec_bfd);
+  
+  breakpoints_changed ();
+  return 1;
 }
 
 /* Put a breakpoint in the dyld function (in the inferior) which is
@@ -717,12 +748,15 @@ macosx_solib_add (const char *filename, int from_tty,
   struct macosx_cfm_thread_status *cfm_status = NULL;
   int libraries_changed = 0;
   int notify = 0;
+  int started_dyld = 0;
+  int started_cfm = 0;
 
   CHECK_FATAL (macosx_status != NULL);
   dyld_status = &macosx_status->dyld_status;
   cfm_status = &macosx_status->cfm_status;
 
-  macosx_dyld_init (dyld_status, exec_bfd);
+  started_dyld = macosx_dyld_init (dyld_status, exec_bfd);
+  started_cfm = macosx_cfm_init (cfm_status);
 
   /* macosx_dyld_init () can fail to set up the dyld addresses when
      we're re-setting the inferior process and this func is called
@@ -741,12 +775,29 @@ macosx_solib_add (const char *filename, int from_tty,
   if (dyld_status->dyld_addr == INVALID_ADDRESS)
     return 0;
 
-
   /* If the inferior stopped at the dyld notification function,
      some file images have been loaded or removed.  */
 
-  if (dyld_status->dyld_breakpoint != NULL
-      && dyld_status->dyld_breakpoint->loc->address == read_pc ())
+  if (started_dyld || started_cfm)
+    {
+      libraries_changed = macosx_dyld_update (0);
+      notify = libraries_changed && dyld_stop_on_shlibs_updated;
+    }
+  else if (read_pc () == 0)
+    {
+      /* initial update -- $pc == 0x0 means we're not executing */
+      libraries_changed = macosx_dyld_update (0);
+      notify = libraries_changed && dyld_stop_on_shlibs_updated;
+    }
+  else if (cfm_status->cfm_breakpoint != NULL
+           && cfm_status->cfm_breakpoint->loc->address == read_pc ())
+    {
+      /* no cfm support for incremental update yet */
+      libraries_changed = macosx_dyld_update (0);
+      notify = libraries_changed && dyld_stop_on_shlibs_updated;
+    }
+  else if (dyld_status->dyld_breakpoint != NULL
+	   && dyld_status->dyld_breakpoint->loc->address == read_pc ())
     {
       static struct dyld_raw_info *rinfo = NULL;
       static struct dyld_objfile_entry *tinfo = NULL;
@@ -797,19 +848,6 @@ macosx_solib_add (const char *filename, int from_tty,
 
       breakpoint_update ();
 
-      notify = libraries_changed && dyld_stop_on_shlibs_updated;
-    }
-  else if (cfm_status->cfm_breakpoint != NULL
-           && cfm_status->cfm_breakpoint->loc->address == read_pc ())
-    {
-      /* no cfm support for incremental update yet */
-      libraries_changed = macosx_dyld_update (0);
-      notify = libraries_changed && dyld_stop_on_shlibs_updated;
-    }
-  else if (read_pc () == 0)
-    {
-      /* initial update -- $pc == 0x0 means we're not executing */
-      libraries_changed = macosx_dyld_update (0);
       notify = libraries_changed && dyld_stop_on_shlibs_updated;
     }
   else if (dyld_status->dyld_breakpoint != NULL)
@@ -1225,15 +1263,31 @@ dyld_info_read (struct macosx_dyld_thread_status *status,
       reserved = entry - info->entries;
     }
 
+  /* FIXME: The following code only makes sense for "dyldonly" mode, i.e.
+     the very first time we're initializing the dyld structures.  Why is
+     it being run every time we macosx_dyld_update?  Is dyld_addr set to
+     INVALID_ADDRESS after we've finished initializing dyld somehow? 
+     Why aren't we leaking dyld_objfile_entry records?  We probably compact
+     them with the merge/update_shlib calls up in macosx_dyld_update.
+     jmolenda/2005-05-11 */
+
   if (status->dyld_addr != INVALID_ADDRESS)
     {
       const char *dyld_name = NULL;
       struct dyld_objfile_entry *entry = NULL;
+      char buf[PATH_MAX];
 
       entry = dyld_objfile_entry_alloc (info);
       dyld_name =
         (status->dyld_name != NULL) ? status->dyld_name : "/usr/lib/dyld";
 
+      /* normal dyld-notified libraries get their names realpath'ed over
+         in dyld_info_process_raw(), but dyld is a special case that never
+         heads over that way, so do it here.  */
+
+      if (realpath (dyld_name, buf) != NULL)
+        dyld_name = buf;
+        
       entry->dyld_name = xstrdup (dyld_name);
       entry->dyld_name_valid = 1;
       entry->prefix = dyld_symbols_prefix;
@@ -1331,6 +1385,17 @@ macosx_dyld_update (int dyldonly)
       do_cleanups (notify_cleanup);
     }
 
+  /* Try to insert the CFM shared library breakpoint, if necessary.
+     This used to be handled by dyld_symfile_loaded_hook, but that
+     hook was only called when symbol files were read, not when the
+     library image was added.  We should probably make a hook that
+     gets called on all image loads, and use that to trigger the CFM
+     breakpoint.  But this is expedient in the meantime, and
+     inexpensive (one symbol lookup per shared library event, until
+     the CFM code gets loaded). */
+
+  macosx_cfm_init (&macosx_status->cfm_status);
+
   return libraries_changed;
 }
 
@@ -1378,6 +1443,7 @@ map_shlib_numbers (char *args,
                    void (*function) (struct dyld_path_info *,
                                      struct dyld_objfile_entry *,
                                      struct objfile *,
+                                   int index,
                                      const char *param),
                    struct dyld_path_info *d, struct dyld_objfile_info *info)
 {
@@ -1431,7 +1497,7 @@ map_shlib_numbers (char *args,
       unsigned int n;
 
       DYLD_ALL_OBJFILE_INFO_ENTRIES (info, e, n)
-        (*function) (d, e, e->objfile, val);
+        (*function) (d, e, e->objfile, n + 1, val);
 
       do_cleanups (cleanups);
       return;
@@ -1463,7 +1529,7 @@ map_shlib_numbers (char *args,
           return;
         }
 
-      (*function) (d, e, o, val);
+      (*function) (d, e, o, num, val);
     }
 
   do_cleanups (cleanups);
@@ -1475,6 +1541,7 @@ dyld_generic_command_with_helper (char *args,
                                   void (*function) (struct dyld_path_info *,
                                                     struct dyld_objfile_entry *,
                                                     struct objfile *,
+                                                  int,
                                                     const char *param))
 {
   struct dyld_objfile_info original_info, modified_info;
@@ -1505,7 +1572,7 @@ dyld_generic_command_with_helper (char *args,
 
 static void
 add_helper (struct dyld_path_info *d,
-            struct dyld_objfile_entry *e, struct objfile *o, const char *arg)
+            struct dyld_objfile_entry *e, struct objfile *o, int index, const char *arg)
 {
   if (e != NULL)
     e->load_flag = OBJF_SYM_ALL;
@@ -1520,7 +1587,8 @@ dyld_add_symbol_file_command (char *args, int from_tty)
 static void
 remove_helper (struct dyld_path_info *d,
                struct dyld_objfile_entry *e,
-               struct objfile *o, const char *arg)
+               struct objfile *o, int index,
+             const char *arg)
 {
   if (e != NULL)
     e->load_flag = OBJF_SYM_NONE | dyld_minimal_load_flag (d, e);
@@ -1535,7 +1603,8 @@ dyld_remove_symbol_file_command (char *args, int from_tty)
 static void
 specify_symfile_helper (struct dyld_path_info *d,
                         struct dyld_objfile_entry *e,
-                        struct objfile *o, const char *arg)
+                        struct objfile *o, int index,
+                      const char *arg)
 {
   e->user_name = xstrdup (arg);
   e->loaded_error = 0;
@@ -1552,53 +1621,60 @@ dyld_specify_symbol_file_command (char *args, int from_tty)
    Given objfile O, this changes the load state to LOAD_STATE.  This
    will cause the current objfile to get tossed, and a new version
    read in.  If LOAD_STATE matches the objfile's current load state,
-   this is a no-op, however.  */
+   this is a no-op, however.  Returns the original load state, or
+   -1 if there was an error.  */
 
 int
 dyld_objfile_set_load_state (struct objfile *o, int load_state)
 {
   struct dyld_objfile_entry *e;
-  int i, found_it = 0;
+  int i, found_it = -1;
 
   DYLD_ALL_OBJFILE_INFO_ENTRIES (&macosx_status->dyld_status.current_info, e, i)
     if (e->objfile == o)
       {
-        set_load_state_1 (e, &macosx_status->dyld_status.path_info, load_state);
-        found_it = 1;
-        if (ui_out_is_mi_like_p (uiout))
-          {
-            struct cleanup *notify_cleanup;
-            notify_cleanup =
-              make_cleanup_ui_out_notify_begin_end (uiout,
-                                                    "shlib-state-modified");
-            dyld_print_entry_info (e, i + 1, 0);
-            do_cleanups (notify_cleanup);
-          }
+      found_it = e->load_flag;
+        set_load_state_1 (e, &macosx_status->dyld_status.path_info, i + 1, load_state);
         break;
       }
   return found_it;
 }
 
 static void
-set_to_default_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e,
-                       struct objfile *o, const char *arg)
+apply_load_rules_helper (struct dyld_path_info *d, 
+                       struct dyld_objfile_entry *e,
+                       struct objfile *o,
+                       int index,
+                       const char *arg)
 {
+  int load_state;
+
   if (e == NULL)
     return;
 
-  e->load_flag =
+  load_state =
     dyld_default_load_flag (d, e) | dyld_minimal_load_flag (d, e);
+  set_load_state_1 (e, d, index, load_state);
 }
 
 static void
 dyld_apply_load_rules_command (char *args, int from_tty)
 {
-  dyld_generic_command_with_helper (args, from_tty, set_to_default_helper);
+  map_shlib_numbers (args, apply_load_rules_helper, 
+                   &macosx_status->dyld_status.path_info,
+                     &macosx_status->dyld_status.current_info);
+
+ /* Since we've change the load state of some libraries, we should
+     see if any of our pending breakpoints will now take.  */
+  re_enable_breakpoints_in_shlibs (0);
+
 }
 
 static void
 set_load_state_1 (struct dyld_objfile_entry *e,
-                  const struct dyld_path_info *d, int load_state)
+                  const struct dyld_path_info *d, 
+                int index,
+                int load_state)
 {
   struct bfd *tmp_bfd;
   enum dyld_reload_result state_change;
@@ -1651,11 +1727,21 @@ set_load_state_1 (struct dyld_objfile_entry *e,
 
   e->abfd = tmp_bfd;
   dyld_load_symfile (e);
+  if (ui_out_is_mi_like_p (uiout))
+    {
+      struct cleanup *notify_cleanup;
+      notify_cleanup =
+      make_cleanup_ui_out_notify_begin_end (uiout,
+                                            "shlib-state-modified");
+      dyld_print_entry_info (e, index, 0);
+      do_cleanups (notify_cleanup);
+    }
+  
 }
 
 static void
 set_load_state_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e,
-                       struct objfile *o, const char *arg)
+                       struct objfile *o, int index, const char *arg)
 {
   int load_state;
 
@@ -1664,7 +1750,7 @@ set_load_state_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e,
 
   load_state = dyld_parse_load_level (arg);
   load_state |= dyld_minimal_load_flag (d, e);
-  set_load_state_1 (e, d, load_state);
+  set_load_state_1 (e, d, index, load_state);
 }
 
 static void
@@ -1681,7 +1767,7 @@ dyld_set_load_state_command (char *args, int from_tty)
 
 static void
 section_info_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e,
-                     struct objfile *o, const char *arg)
+                     struct objfile *o, int index, const char *arg)
 {
   int ret;
 
@@ -1773,14 +1859,14 @@ dyld_section_info_command (char *args, int from_tty)
    "info sharedlibrary" by itself will print some help text, followed
    by all your shared libraries.
 
-   "info sharedlibrary [all|dyld|cfm|raw-cfm]" list certain types of
+   "info sharedlibrary [all|dyld|cfm|raw-cfm|raw-dyld]" list certain types of
    shared libraries, sans the help text.
 
    "info sharedlibrary <address>" show the shared library that contains
    that address.
 
    The gdb command system will run seperate routines for the
-   "info sharedlibrary [all|dyld|cfm|raw-cfm]" case, but we need
+   "info sharedlibrary [all|dyld|cfm|raw-cfm|raw-dyld]" case, but we need
    to handle the other two here.  */
 
 static void
@@ -1807,12 +1893,8 @@ info_sharedlibrary_command (char *args, int from_tty)
     {
       CORE_ADDR address;
 
-      errno = 0;
-      address = strtoul (argv[0], NULL, 16);
-      if (errno == 0)
-        info_sharedlibrary_address (address);
-      else
-        error ("[unknown]");
+      address = parse_and_eval_address (argv[0]);
+      info_sharedlibrary_address (address);
     }
 
   do_cleanups (wipe);
@@ -1891,6 +1973,18 @@ info_sharedlibrary_raw_cfm_command (char *args, int from_tty)
   dyld_print_shlib_info (&info, dyld_reason_cfm, 1, args);
 }
 
+static void
+info_sharedlibrary_raw_dyld_command (char *args, int from_tty)
+{
+  task_t task = macosx_status->task;
+  struct dyld_objfile_info info;
+
+  dyld_objfile_info_init (&info);
+  dyld_info_read (&macosx_status->dyld_status, &info, 0);
+
+  dyld_print_shlib_info (&info, dyld_reason_dyld, 1, args);
+}
+
 int
 dyld_lookup_and_bind_function (char *name)
 {
@@ -1939,104 +2033,16 @@ dyld_lookup_and_bind_function (char *name)
     return 0;
 }
 
-#if MAPPED_SYMFILES
-
-static void
-cache_symfiles_helper (struct dyld_path_info *d,
-                       struct dyld_objfile_entry *e,
-                       struct objfile *o, const char *arg)
-{
-  struct objfile *old = NULL;
-  struct objfile *new = NULL;
-  bfd *abfd;
-
-  if (e != NULL)
-    {
-      old = e->objfile;
-      abfd = e->objfile->obfd;
-      new = cache_bfd (e->objfile->obfd, e->prefix, e->load_flag, 0, 0, arg);
-    }
-  else
-    {
-      CHECK_FATAL (o != NULL);
-      old = o;
-      abfd = o->obfd;
-      new = cache_bfd (o->obfd, o->prefix, o->symflags, 0, 0, arg);
-    }
-
-  if (new == NULL)
-    {
-      warning ("unable to move objfile");
-      return;
-    }
-
-  if (e != NULL)
-    {
-      if (e->reason & dyld_reason_executable_mask)
-        {
-          CHECK_FATAL (e->objfile == symfile_objfile);
-          symfile_objfile = new;
-        }
-      e->objfile = new;
-    }
-
-  if (old != NULL)
-    unlink_objfile (old);
-}
-
-#endif /* MAPPED_SYMFILES */
-
 static void
 dyld_cache_symfiles_command (char *args, int from_tty)
 {
-#if MAPPED_SYMFILES
-  map_shlib_numbers (args, cache_symfiles_helper,
-                     &macosx_status->dyld_status.path_info,
-                     &macosx_status->dyld_status.current_info);
-#else /* ! MAPPED_SYMFILES */
   error ("Cached symfiles are not supported on this configuration of GDB.");
-#endif /* MAPPED_SYMFILES */
 }
 
 static void
 dyld_cache_symfile_command (char *args, int from_tty)
 {
-#if MAPPED_SYMFILES
-  bfd *abfd = NULL;
-  struct objfile *objfile = NULL;
-  const char *filename = NULL;
-  const char *dest = NULL;
-  char **argv = NULL;
-  struct cleanup *cleanups;
-  const char *prefix;
-
-  if (args == NULL)
-    error_no_arg ("file to be cached and target");
-  argv = buildargv (args);
-  if (argv == NULL)
-    nomem (0);
-  cleanups = make_cleanup_freeargv (argv);
-  if (argv[0] == NULL || argv[1] == NULL
-      || (argv[2] != NULL && argv[3] != NULL))
-    error ("usage: cache-symfile <source> <target> [prefix]");
-  filename = argv[0];
-  dest = argv[1];
-  prefix = argv[2];
-
-  abfd = symfile_bfd_open (filename, 0);
-  if (abfd == NULL)
-    error ("unable to open BFD for \"%s\"", filename);
-  objfile = cache_bfd (abfd, prefix, OBJF_SYM_ALL, 0, 0, dest);
-  if ((objfile != NULL) && (objfile->obfd == NULL))
-    bfd_close (abfd);
-  if (objfile != NULL)
-    free_objfile (objfile);
-  if (abfd != NULL)
-    bfd_close (abfd);
-
-#else /* ! MAPPED_SYMFILES */
   error ("Cached symfiles are not supported on this configuration of GDB.");
-#endif /* MAPPED_SYMFILES */
 }
 
 extern struct target_ops exec_ops;
@@ -2216,6 +2222,8 @@ _initialize_macosx_nat_dyld ()
   add_cmd ("cfm", no_class, info_sharedlibrary_cfm_command,
            "Show current CFM state.", &infoshliblist);
   add_cmd ("raw-cfm", no_class, info_sharedlibrary_raw_cfm_command,
+           "Show current CFM state.", &infoshliblist);
+  add_cmd ("raw-dyld", no_class, info_sharedlibrary_raw_dyld_command,
            "Show current CFM state.", &infoshliblist);
 
   add_prefix_cmd ("sharedlibrary", no_class, not_just_help_class_command,

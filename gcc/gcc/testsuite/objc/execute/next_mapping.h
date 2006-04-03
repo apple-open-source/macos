@@ -8,10 +8,10 @@
 #include <objc/objc-class.h>
 #include <objc/Object.h>
 #include <ctype.h>
-/* APPLE LOCAL begin Objective-C++ */
+/* APPLE LOCAL begin mainline */
 #include <stdlib.h>
 #include <string.h>
-/* APPLE LOCAL end Objective-C++ */
+/* APPLE LOCAL end mainline */
 
 #define objc_get_class(C)			objc_getClass(C)
 #define objc_get_meta_class(C)			objc_getMetaClass(C)
@@ -48,7 +48,7 @@
 
 /* The following is necessary to "cover" the bf*.m test cases on NeXT.  */
 
-/* APPLE LOCAL begin Objective-C++ */
+/* APPLE LOCAL begin mainline */
 #undef  MAX
 #undef  MIN
 #undef  ROUND
@@ -68,13 +68,13 @@
   ({ typeof (V) __v = (V); typeof (A) __a = (A); \
      __a * ((__v+__a - 1)/__a); })
 #endif
-/* APPLE LOCAL end Objective-C++ */
+/* APPLE LOCAL end mainline */
 
 #define BITS_PER_UNIT __CHAR_BIT__
-/* APPLE LOCAL begin Objective-C++ */
+/* APPLE LOCAL begin mainline */
 typedef struct{ char a; } __small_struct;
 #define STRUCTURE_SIZE_BOUNDARY (BITS_PER_UNIT * sizeof (__small_struct))
-/* APPLE LOCAL end Objective-C++ */
+/* APPLE LOCAL end mainline */
 
 /* Not sure why the following are missing from NeXT objc headers... */
 
@@ -118,7 +118,7 @@ struct objc_struct_layout
   unsigned int record_align;
 };
 
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 typedef union arglist {
   char *arg_ptr;
   char arg_regs[sizeof (char*)];
@@ -132,7 +132,7 @@ void objc_layout_structure (const char *type,
 BOOL objc_layout_structure_next_member (struct objc_struct_layout *layout);
 void objc_layout_finish_structure (struct objc_struct_layout *layout,
     unsigned int *size, unsigned int *align);
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL mainline */
 int objc_aligned_size (const char *type);
 
 /*
@@ -210,7 +210,7 @@ objc_sizeof_type (const char *type)
     return sizeof (double);
     break;
 
-  /* APPLE LOCAL Objective-C++ */
+  /* APPLE LOCAL mainline */
   /* Do not compute 'sizeof (void)'.  */
 
   case _C_PTR:

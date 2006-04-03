@@ -29,6 +29,18 @@
 #define DEBUG_SYSLOG 2
 #define DEBUG_ALL (DEBUG_STDERR & DEBUG_SYSLOG)
 
+/*
+ * Minimum size of the buffer that "formattimevalue()" fills in.
+ * The string is:
+ *
+ *	         11111111112222222
+ *	12345678901234567890123456
+ *	DOW MMM DD HH:MM:SS.FFFFFF
+ *
+ * for a total of 26 characters, plus one more for a terminating '\0'.
+ */
+#define FORMATTED_TIME_LEN	(26+1)
+
 char *formattimevalue(struct nfstime *t, char *str, size_t stringlength);
 void sys_openlog(char *, int, int);
 void sys_msg(int, int, char *, ...);

@@ -694,6 +694,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 #define wfl_operator \
   java_global_trees[JTI_WFL_OPERATOR]
 
+extern GTY(()) tree soft_resolvepoolentry_node;
+
 extern const char *cyclic_inheritance_report;
 
 struct lang_identifier GTY(())
@@ -1298,12 +1300,13 @@ extern tree get_method_index (tree decl);
 extern void make_class_data (tree);
 extern void register_class (void);
 extern int alloc_name_constant (int, tree);
+extern int alloc_constant_fieldref (tree, tree);
 extern void emit_register_classes (tree *);
 extern tree emit_symbol_table (tree, tree, tree, tree, tree, int);
 extern void lang_init_source (int);
 extern void write_classfile (tree);
 extern char *print_int_node (tree);
-extern void parse_error_context (tree cl, const char *msgid, ...);
+extern void parse_error_context (tree cl, const char *gmsgid, ...);
 extern void finish_class (void);
 extern void java_layout_seen_class_methods (void);
 extern void check_for_initialization (tree, tree);

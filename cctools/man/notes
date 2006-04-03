@@ -2,6 +2,27 @@ TODO:
 - Add -v description to checksyms.
 - The 4.4bsd a.out(5) man page is wrong for Rhapsody.
 
+Changes for the 5.19 release (the cctools-590.12 release):
+- Added the description for -allow_stack_execute to the ld(1) man page and
+  updated the -segprot description.  Radar bug #4281171.
+
+Changes for the 5.19 release (the cctools-590.7 release):
+- Documented new -macosx_version_min flag for ld and libtool.
+  Radar bug #4195253
+
+Changes for the 5.19 release (the cctools-590.5 release):
+- Added the description for -Sp to the ld(1) man page and the -Sp flag to the
+  libtool(1) man page.
+
+Changes for the 5.19 release (the cctools-590.4 release):
+- Changed references in the man pages from "fat" to "universal".  Changes made
+  in ld.1, libtool.1, lipo.1, nm.1, nmedit.1, otool.1, size.1, arch.3,
+  cmpshlib.1, file.1, gprof.1, indr.1, kld.3, mkshlib.1, redo_prebinding.3 and
+  rld.3 . Radar bug #4171207.
+
+Changes for the 5.19 release (the cctools-590 release):
+- Fixed some typos in the ld(1) man page. Radar bug #4099445.
+
 Changes for the 5.18 release (the cctools-589 release):
 - Added support for the CPU_SUBTYPE_PENTIUM_4 cpusubtype.  Radar bug #4115802
   - Added an entry in table for pentium4 on the arch(3) man page.

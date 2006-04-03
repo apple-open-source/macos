@@ -1,1 +1,6 @@
-<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>   <TR VALIGN=middle>      <TD ALIGN=center> <IMG CLASS=icon SRC="#ICON#" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>      <TD ALIGN=left> #TEXT# </TD>   </TR></TABLE>
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="#ICON#" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> #TEXT# </TD>
+   </TR>
+</TABLE>

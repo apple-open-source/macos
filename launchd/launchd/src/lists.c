@@ -278,14 +278,15 @@ delete_bootstrap_services(bootstrap_info_t *bootstrap)
 	  	if (bootstrap != servicep->bootstrap)
 			continue;
 
-		if (!servicep->isActive || !servicep->server) {
-			delete_service(servicep);
-			continue;
-		}
-
 		serverp = servicep->server;
+
+		if (servicep->isActive && serverp)
+			serverp->active_services--;
+
 		delete_service(servicep);
-		serverp->active_services--;
+
+		if (!serverp)
+			continue;
 		if (!active_server(serverp))
 			delete_server(serverp);
 	}

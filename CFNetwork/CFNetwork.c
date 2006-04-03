@@ -668,6 +668,30 @@ _CFStringCreateRFC2616DateStringWithGregorianDate(CFAllocatorRef alloc, CFGregor
 }
 
 
+/* extern */ SInt32
+_DNSServiceErrorToCFNetServiceError(DNSServiceErrorType dnsError) {
+
+    SInt32 cfError;
+
+    /* We may want to add more CFNetService errors in the future to cover some of the other
+    possible DNSService errors, like NAT Traversal and Not Authorized. <rdar://problem/4277898> */
+    
+    switch (dnsError) {
+	case kDNSServiceErr_NameConflict:
+	    cfError = kCFNetServicesErrorCollision;
+	    break;                    
+	case kDNSServiceErr_BadParam:
+	    cfError = kCFNetServicesErrorBadArgument;
+	    break;    
+	default:
+	    cfError = kCFNetServicesErrorUnknown;
+	    break;
+    }
+    
+    return cfError;
+}
+
+
 #if defined(__WIN32__)
 
 extern void _CFFTPCleanup(void);			/* exported from FTPStream.c */

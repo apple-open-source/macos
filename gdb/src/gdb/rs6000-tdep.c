@@ -2987,6 +2987,7 @@ rs6000_info_powerpc_command (char *args, int from_tty)
 extern initialize_file_ftype _initialize_rs6000_tdep; /* -Wmissing-prototypes */
 
 void
+/* APPLE LOCAL avoid running rs6000 initializer */
 x_initialize_rs6000_tdep (void)
 {
   gdbarch_register (bfd_arch_rs6000, rs6000_gdbarch_init, rs6000_dump_tdep);

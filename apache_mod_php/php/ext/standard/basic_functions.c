@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.543.2.47 2005/01/18 11:01:20 sniper Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.51.2.3 2005/09/29 16:31:48 iliaa Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -42,18 +42,7 @@
 #include <time.h>
 #include <stdio.h>
 
-#ifndef NETWARE
 #include <netdb.h>
-#else
-/*#include "netware/env.h"*/    /* Temporary */
-#ifdef NEW_LIBC /* Same headers hold good for Winsock and Berkeley sockets */
-#include <netinet/in.h>
-/*#include <arpa/inet.h>*/
-#include <netdb.h>
-#else
-#include <sys/socket.h>
-#endif
-#endif
 
 #if HAVE_ARPA_INET_H
 # include <arpa/inet.h>
@@ -814,7 +803,7 @@ function_entry basic_functions[] = {
 	PHP_FE(next,					first_arg_force_ref)
 	PHP_FE(reset,					first_arg_force_ref)
 	PHP_FE(current,					first_arg_force_ref)
-	PHP_FE(key,						first_arg_force_ref)
+	PHP_FE(key,					first_arg_force_ref)
 	PHP_FE(min,																NULL)
 	PHP_FE(max,																NULL)
 	PHP_FE(in_array,														NULL)
@@ -944,6 +933,13 @@ zend_module_entry basic_functions_module = {
 static void php_putenv_destructor(putenv_entry *pe)
 {
 	if (pe->previous_value) {
+#if _MSC_VER
+		/* VS.Net has a bug in putenv() when setting a variable that
+		 * is already set; if the SetEnvironmentVariable() API call
+		 * fails, the Crt will double free() a string.
+		 * We try to avoid this by setting our own value first */
+		SetEnvironmentVariable(pe->key, "bugbug");
+#endif
 		putenv(pe->previous_value);
 	} else {
 # if HAVE_UNSETENV
@@ -1232,11 +1228,10 @@ PHP_RSHUTDOWN_FUNCTION(basic)
 	}
 	STR_FREE(BG(locale_string));
 
-	if (FG(stream_wrappers)) {
-		zend_hash_destroy(FG(stream_wrappers));
-		efree(FG(stream_wrappers));
-		FG(stream_wrappers) = NULL;
- 	}
+	/*
+	 FG(stream_wrappers) are destroyed
+	 during php_request_shutdown()
+	 */
 
 	PHP_RSHUTDOWN(fsock) (SHUTDOWN_FUNC_ARGS_PASSTHRU);
 	PHP_RSHUTDOWN(filestat) (SHUTDOWN_FUNC_ARGS_PASSTHRU);
@@ -1429,6 +1424,14 @@ PHP_FUNCTION(putenv)
 				break;
 			}
 		}
+
+#if _MSC_VER
+		/* VS.Net has a bug in putenv() when setting a variable that
+		 * is already set; if the SetEnvironmentVariable() API call
+		 * fails, the Crt will double free() a string.
+		 * We try to avoid this by setting our own value first */
+		SetEnvironmentVariable(pe.key, "bugbug");
+#endif
 
 		if (putenv(pe.putenv_string) == 0) {	/* success */
 			zend_hash_add(&BG(putenv_ht), pe.key, pe.key_len+1, (void **) &pe, sizeof(putenv_entry), NULL);
@@ -2089,17 +2092,21 @@ void user_tick_function_dtor(user_tick_function_entry *tick_function_entry)
 static int user_shutdown_function_call(php_shutdown_function_entry *shutdown_function_entry TSRMLS_DC)
 {
 	zval retval;
+	char *function_name = NULL;
 
-	if (call_user_function(	EG(function_table), NULL,
-							shutdown_function_entry->arguments[0],
-							&retval, 
-							shutdown_function_entry->arg_count - 1,
-							shutdown_function_entry->arguments + 1 
-							TSRMLS_CC ) == SUCCESS ) {
+	if (!zend_is_callable(shutdown_function_entry->arguments[0], 0, &function_name)) {
+		php_error(E_WARNING, "(Registered shutdown functions) Unable to call %s() - function does not exist", function_name);
+	} else if (call_user_function(EG(function_table), NULL,
+								shutdown_function_entry->arguments[0],
+								&retval, 
+								shutdown_function_entry->arg_count - 1,
+								shutdown_function_entry->arguments + 1 
+								TSRMLS_CC ) == SUCCESS)
+	{
 		zval_dtor(&retval);
-
-	} else {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call %s() - function does not exist", Z_STRVAL_P(shutdown_function_entry->arguments[0]));
+	} 
+	if (function_name) {
+		efree(function_name);
 	}
 	return 0;
 }
@@ -2192,6 +2199,7 @@ void php_free_shutdown_functions(TSRMLS_D)
 PHP_FUNCTION(register_shutdown_function)
 {
 	php_shutdown_function_entry shutdown_function_entry;
+	char *function_name = NULL;
 	int i;
 
 	shutdown_function_entry.arg_count = ZEND_NUM_ARGS();
@@ -2200,26 +2208,31 @@ PHP_FUNCTION(register_shutdown_function)
 		WRONG_PARAM_COUNT;
 	}
 
-	shutdown_function_entry.arguments = (pval **) safe_emalloc(sizeof(pval *), shutdown_function_entry.arg_count, 0);
+	shutdown_function_entry.arguments = (zval **) safe_emalloc(sizeof(zval *), shutdown_function_entry.arg_count, 0);
 
 	if (zend_get_parameters_array(ht, shutdown_function_entry.arg_count, shutdown_function_entry.arguments) == FAILURE) {
 		RETURN_FALSE;
 	}
 	
-	/* Prevent entering of anything but arrays/strings */
-	if (Z_TYPE_P(shutdown_function_entry.arguments[0]) != IS_ARRAY) {
-		convert_to_string(shutdown_function_entry.arguments[0]);
-	}
-	
-	if (!BG(user_shutdown_function_names)) {
-		ALLOC_HASHTABLE(BG(user_shutdown_function_names));
-		zend_hash_init(BG(user_shutdown_function_names), 0, NULL, (void (*)(void *)) user_shutdown_function_dtor, 0);
-	}
+	/* Prevent entering of anything but valid callback (syntax check only!) */
+	if (!zend_is_callable(shutdown_function_entry.arguments[0], 1, &function_name)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid shutdown callback '%s' passed", function_name);
+		efree(shutdown_function_entry.arguments);
+		RETVAL_FALSE;
+	} else {
+		if (!BG(user_shutdown_function_names)) {
+			ALLOC_HASHTABLE(BG(user_shutdown_function_names));
+			zend_hash_init(BG(user_shutdown_function_names), 0, NULL, (void (*)(void *)) user_shutdown_function_dtor, 0);
+		}
 
-	for (i = 0; i < shutdown_function_entry.arg_count; i++) {
-		shutdown_function_entry.arguments[i]->refcount++;
+		for (i = 0; i < shutdown_function_entry.arg_count; i++) {
+			shutdown_function_entry.arguments[i]->refcount++;
+		}
+		zend_hash_next_index_insert(BG(user_shutdown_function_names), &shutdown_function_entry, sizeof(php_shutdown_function_entry), NULL);
 	}
-	zend_hash_next_index_insert(BG(user_shutdown_function_names), &shutdown_function_entry, sizeof(php_shutdown_function_entry), NULL);
+	if (function_name) {
+		efree(function_name);
+	}
 }
 /* }}} */
 
@@ -3014,11 +3027,25 @@ static int copy_request_variable(void *pDest, int num_args, va_list args, zend_h
 	prefix = va_arg(args, char *);
 	prefix_len = va_arg(args, uint);
 
-	new_key_len = prefix_len + hash_key->nKeyLength;
-	new_key = (char *) emalloc(new_key_len);
+	if (!prefix_len) {
+		if (!hash_key->nKeyLength) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Numeric key detected - possible security hazard.");
+			return 0;
+		} else if (!strcmp(hash_key->arKey, "GLOBALS")) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Attempted GLOBALS variable overwrite.");
+			return 0; 
+		}
+	}
 
-	memcpy(new_key, prefix, prefix_len);
-	memcpy(new_key+prefix_len, hash_key->arKey, hash_key->nKeyLength);
+	if (hash_key->nKeyLength) {
+		new_key_len = prefix_len + hash_key->nKeyLength;
+		new_key = (char *) emalloc(new_key_len);
+
+		memcpy(new_key, prefix, prefix_len);
+		memcpy(new_key+prefix_len, hash_key->arKey, hash_key->nKeyLength);
+	} else {
+		new_key_len = spprintf(&new_key, 0, "%s%ld", prefix, hash_key->h);
+	}
 
 	zend_hash_del(&EG(symbol_table), new_key, new_key_len);
 	ZEND_SET_SYMBOL_WITH_LENGTH(&EG(symbol_table), new_key, new_key_len, *var, (*var)->refcount+1, 0);

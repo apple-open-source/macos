@@ -336,11 +336,29 @@ void zend_do_assign(znode *result, znode *variable, znode *value TSRMLS_DC)
 }
 
 
+static inline zend_bool zend_is_function_or_method_call(znode *variable)
+{
+	zend_uint type;
+	
+	if (variable->op_type != IS_VAR) {
+		return 0;
+	} else {
+		type = variable->u.EA.type;
+		return (type == ZEND_PARSED_FCALL);
+	}
+}
+
+
 void zend_do_assign_ref(znode *result, znode *lvar, znode *rvar TSRMLS_DC)
 {
 	zend_op *opline = get_next_op(CG(active_op_array) TSRMLS_CC);
 
 	opline->opcode = ZEND_ASSIGN_REF;
+	if (zend_is_function_or_method_call(rvar)) {
+		opline->extended_value = ZEND_RETURNS_FUNCTION;	
+	} else {
+		opline->extended_value = 0;
+	}
 	if (result) {
 		opline->result.op_type = IS_VAR;
 		opline->result.u.EA.type = 0;
@@ -1044,7 +1062,7 @@ static int generate_free_switch_expr(zend_switch_entry *switch_entry TSRMLS_DC)
 	zend_op *opline;
 
 	if (switch_entry->cond.op_type!=IS_VAR && switch_entry->cond.op_type!=IS_TMP_VAR) {
-		return 1;
+		return (switch_entry->cond.op_type == IS_UNUSED);
 	}
 
 	opline = get_next_op(CG(active_op_array) TSRMLS_CC);
@@ -1107,6 +1125,15 @@ void zend_do_return(znode *expr, int do_end_vparse TSRMLS_DC)
 		opline->op1.op_type = IS_CONST;
 		INIT_ZVAL(opline->op1.u.constant);
 	}
+
+	if (expr) {
+		if (zend_is_function_or_method_call(expr)) {
+			opline->extended_value = ZEND_RETURNS_FUNCTION;	
+		} else {
+			opline->extended_value = 0;
+		}
+	}
+
 	SET_UNUSED(opline->op2);
 }
 
@@ -1881,8 +1908,15 @@ void zend_do_add_static_array_element(znode *result, znode *offset, znode *expr)
 				zend_hash_update(result->u.constant.value.ht, offset->u.constant.value.str.val, offset->u.constant.value.str.len+1, &element, sizeof(zval *), NULL);
 				zval_dtor(&offset->u.constant);
 				break;
+			case IS_NULL:
+				zend_hash_update(result->u.constant.value.ht, "", 1, &element, sizeof(zval *), NULL);
+				break;
 			case IS_LONG:
+			case IS_BOOL: 
 				zend_hash_index_update(result->u.constant.value.ht, offset->u.constant.value.lval, &element, sizeof(zval *), NULL);
+				break;
+			case IS_DOUBLE:
+				zend_hash_index_update(result->u.constant.value.ht, (long)offset->u.constant.value.dval, &element, sizeof(zval *), NULL);
 				break;
 		}
 	} else {

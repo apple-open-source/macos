@@ -64,21 +64,27 @@ static struct symtabs_and_lines decode_objc (char **argptr,
 					     struct symtab *file_symtab,
 					     char ***canonical,
 					     char *saved_arg);
-
+/* APPLE LOCAL: decode_compound needs the not_found_ptr or future-break
+   won't work.  */
 static struct symtabs_and_lines decode_compound (char **argptr,
 						 int funfirstline,
 						 char ***canonical,
 						 char *saved_arg,
-						 char *p);
+						 char *p,
+						 int *not_found_ptr);
 
 static struct symbol *lookup_prefix_sym (char **argptr, char *p);
+
+/* APPLE LOCAL: find_method needs the not_found_ptr or future-break
+   won't work.  */
 
 static struct symtabs_and_lines find_method (int funfirstline,
 					     char ***canonical,
 					     char *saved_arg,
 					     char *copy,
 					     struct type *t,
-					     struct symbol *sym_class);
+					     struct symbol *sym_class, 
+					     int *not_found_ptr);
 
 static int collect_methods (char *copy, struct type *t,
 			    struct symbol **sym_arr);
@@ -127,6 +133,7 @@ static struct symtabs_and_lines decode_dollar (char *copy,
 
 static struct symtabs_and_lines decode_variable (char *copy,
 						 int funfirstline,
+						 int equivalencies,
 						 char ***canonical,
 						 struct symtab *file_symtab,
 						 int *not_found_ptr);
@@ -143,7 +150,7 @@ symtabs_and_lines symbol_found (int funfirstline,
    "equivalent" symbol as well, and thus set more than one breakpoint,
    we need to get the names right.  */
 static struct
-symtabs_and_lines minsym_found (int funfirstline,
+symtabs_and_lines minsym_found (int funfirstline, int equivalencies,
 				struct minimal_symbol *msymbol,
 				char ***canonical);
 
@@ -810,7 +817,7 @@ decode_line_1 (char **argptr, int funfirstline, struct symtab *default_symtab,
 	
       if (p[0] == '.' || p[1] == ':')
 	return decode_compound (argptr, funfirstline, canonical,
-				saved_arg, p);
+				saved_arg, p, not_found_ptr);
 
       /* No, the first part is a filename; set s to be that file's
 	 symtab.  Also, move argptr past the filename.  */
@@ -921,8 +928,8 @@ decode_line_1 (char **argptr, int funfirstline, struct symtab *default_symtab,
   /* Look up that token as a variable.
      If file specified, use that file's per-file block to start with.  */
 
-  return decode_variable (copy, funfirstline, canonical,
-			  file_symtab, not_found_ptr);
+  return decode_variable (copy, funfirstline, !is_quoted,
+			  canonical, file_symtab, not_found_ptr);
 }
 
 
@@ -1242,7 +1249,7 @@ decode_objc (char **argptr, int funfirstline, struct symtab *file_symtab,
 
 static struct symtabs_and_lines
 decode_compound (char **argptr, int funfirstline, char ***canonical,
-		 char *saved_arg, char *p)
+		 char *saved_arg, char *p, int *not_found_ptr)
 {
   struct symtabs_and_lines values;
   char *p2;
@@ -1411,7 +1418,7 @@ decode_compound (char **argptr, int funfirstline, char ***canonical,
 	 we'll lookup the whole string in the symbol tables.  */
 
       return find_method (funfirstline, canonical, saved_arg,
-			  copy, t, sym_class);
+			  copy, t, sym_class, not_found_ptr);
 
     } /* End if symbol found */
 
@@ -1435,6 +1442,10 @@ decode_compound (char **argptr, int funfirstline, char ***canonical,
 
   /* Couldn't find any interpretation as classes/namespaces, so give
      up.  The quotes are important if copy is empty.  */
+  /* APPLE LOCAL: Need to set the not_found_ptr or future-break
+     won't work.  */
+  if (not_found_ptr)
+    *not_found_ptr = 1;
   cplusplus_error (saved_arg,
 		   "Can't find member of namespace, class, struct, or union named \"%s\"\n",
 		   copy);
@@ -1481,7 +1492,8 @@ lookup_prefix_sym (char **argptr, char *p)
 
 static struct symtabs_and_lines
 find_method (int funfirstline, char ***canonical, char *saved_arg,
-	     char *copy, struct type *t, struct symbol *sym_class)
+	     char *copy, struct type *t, struct symbol *sym_class,
+	     int *not_found_ptr)
 {
   struct symtabs_and_lines values;
   struct symbol *sym = 0;
@@ -1537,6 +1549,12 @@ find_method (int funfirstline, char ***canonical, char *saved_arg,
 	}
       else
 	tmp = copy;
+
+      /* APPLE LOCAL: Need to set the not_found_ptr so future break will
+	 take another crack at this.  */
+      if (not_found_ptr)
+	*not_found_ptr = 1;
+
       if (tmp[0] == '~')
 	cplusplus_error (saved_arg,
 			 "the class `%s' does not have destructor defined\n",
@@ -1828,7 +1846,7 @@ decode_dollar (char *copy, int funfirstline, struct symtab *default_symtab,
       /* Min symbol was found --> jump to minsym processing.  */
       /* APPLE LOCAL: We have to pass in canonical as well.  */
       if (msymbol)
-	return minsym_found (funfirstline, msymbol, canonical);
+	return minsym_found (funfirstline, 0, msymbol, canonical);
 
       /* Not a user variable or function -- must be convenience variable.  */
       need_canonical = (file_symtab == 0) ? 1 : 0;
@@ -1862,8 +1880,8 @@ decode_dollar (char *copy, int funfirstline, struct symtab *default_symtab,
    and do not issue an error message.  */ 
 
 static struct symtabs_and_lines
-decode_variable (char *copy, int funfirstline, char ***canonical,
-		 struct symtab *file_symtab, int *not_found_ptr)
+decode_variable (char *copy, int funfirstline, int equivalencies,
+		 char ***canonical, struct symtab *file_symtab, int *not_found_ptr)
 {
   struct symbol *sym;
   /* The symtab that SYM was found in.  */
@@ -1886,7 +1904,7 @@ decode_variable (char *copy, int funfirstline, char ***canonical,
 
   /* APPLE LOCAL: We pass in the "canonical" argument.  */
   if (msymbol != NULL)
-    return minsym_found (funfirstline, msymbol, canonical);
+    return minsym_found (funfirstline, equivalencies, msymbol, canonical);
 
   if (!have_full_symbols () &&
       !have_partial_symbols () && !have_minimal_symbols ())
@@ -1993,24 +2011,27 @@ symbol_found (int funfirstline, char ***canonical, char *copy,
 /* APPLE LOCAL, we pass in the "canonical" argument, so we can
    get the names right for equivalent symbols. */
 static struct symtabs_and_lines
-minsym_found (int funfirstline, struct minimal_symbol *msymbol, 
-	      char ***canonical)
+minsym_found (int funfirstline, int equivalencies,
+	      struct minimal_symbol *msymbol, char ***canonical)
 {
   struct symtabs_and_lines values;
-  struct minimal_symbol **equiv_msymbols, **pointer;
+  struct minimal_symbol **equiv_msymbols = NULL;
+  struct minimal_symbol **pointer;
   int nsymbols, i;
   struct cleanup *equiv_cleanup;
 
   /* APPLE LOCAL: If there is an "equivalent symbol" we need to add
      that one as well here.  */
-  equiv_msymbols = find_equivalent_msymbol (msymbol);
+  if (equivalencies)
+    equiv_msymbols = find_equivalent_msymbol (msymbol);
 
   nsymbols = 1;
 
   if (equiv_msymbols != NULL)
     {
       for (pointer = equiv_msymbols; *pointer != NULL; 
-	   nsymbols++, pointer++) {;}
+	   nsymbols++, pointer++)
+	;
       equiv_cleanup = make_cleanup (xfree, equiv_msymbols);
     }
   else
@@ -2053,7 +2074,7 @@ minsym_found (int funfirstline, struct minimal_symbol *msymbol,
 	    msym = msymbol;
 	  else
 	    msym = equiv_msymbols[i - 1];
-	  canonical_arr[i] = xstrdup (SYMBOL_LINKAGE_NAME (msym));
+	  xasprintf (&canonical_arr[i], "'%s'", SYMBOL_LINKAGE_NAME (msym));
 	}
     }
 

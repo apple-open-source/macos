@@ -1,4 +1,4 @@
-.TH CMPSHLIB 1 "April 2, 1995 (Release 4.0)" "NeXT Computer, Inc."
+.TH CMPSHLIB 1 "July 28, 2005" "Apple Computer, Inc."
 .SH NAME
 cmpshlib \- compare two shared libraries for compatibility
 .SH SYNOPSIS
@@ -46,11 +46,12 @@ it checks for
 .I old_funcname
 matching to see if the branch table slot is compatible.
 .PP
-For ``fat'' target shared libraries, the
+For ``universal'' target shared libraries, the
 .BI \-arch " arch_type"
 option specifies the architecture of the shared library to be checked.  If the file
 .I old
-is a ``fat'' file that contains more than one architecture you must use this option.
+is a ``universal'' file that contains more than one architecture you must use
+this option.
 Only one 
 .BI \-arch " arch_type"
 can be specified and only one architecture is checked.  See

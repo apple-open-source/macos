@@ -5,7 +5,7 @@
  * argument. This allows us to specify different ways to delete different types, 
  * even different ways to delete the same type. See examples below.
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosWrappers/Headers/Kerberos/UAutoPtr.h,v 1.14 2002/03/09 01:43:31 lxs Exp $
+ * $Header$
  */
 
 #ifndef UAutoPtr_h_

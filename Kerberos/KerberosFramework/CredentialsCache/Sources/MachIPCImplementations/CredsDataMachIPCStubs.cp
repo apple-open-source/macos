@@ -1,7 +1,7 @@
 /*
  * CCICredentialsDataMachIPCStubs.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/CredsDataMachIPCStubs.cp,v 1.13 2005/05/25 20:23:01 lxs Exp $
+ * $Header$
  */
  
 #include "CredsDataMachIPCStubs.h"
@@ -69,10 +69,8 @@ CCICredentialsDataMachIPCStub::CopyV4Credentials (
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
         CCIUInt32	version;
-        //flatCredentials >> version;
         ReadUInt32 (flatCredentials, version);
         CCIAssert_ (version == cc_credentials_v4);
-        //flatCredentials >> outCredentials;
         ReadV4Credentials (flatCredentials, outCredentials);
 }
 
@@ -88,10 +86,8 @@ CCICredentialsDataMachIPCStub::CopyV5Credentials (
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
         CCIUInt32 version;
-        //flatCredentials >> version;
         ReadUInt32 (flatCredentials, version);
         CCIAssert_ (version == cc_credentials_v5);
-        //flatCredentials >> outCredentials;
         ReadV5Credentials (flatCredentials, outCredentials);
 }
 
@@ -108,10 +104,8 @@ CCICredentialsDataMachIPCStub::CompatCopyV4Credentials (
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
         CCIUInt32	version;
-        //flatCredentials >> version;
         ReadUInt32 (flatCredentials, version);
         CCIAssert_ (version == cc_credentials_v4);
-        //flatCredentials >> outCredentials;
         ReadV4CompatCredentials (flatCredentials, outCredentials);
 }
 
@@ -127,10 +121,8 @@ CCICredentialsDataMachIPCStub::CompatCopyV5Credentials (
         std::istrstream		flatCredentials (buffer.Data (), buffer.Count ());
 
         CCIUInt32	version;
-        //flatCredentials >> version;
         ReadUInt32 (flatCredentials, version);
         CCIAssert_ (version == cc_credentials_v5);
-        //flatCredentials >> outCredentials;
         ReadV5CompatCredentials (flatCredentials, outCredentials);
 }
 #endif

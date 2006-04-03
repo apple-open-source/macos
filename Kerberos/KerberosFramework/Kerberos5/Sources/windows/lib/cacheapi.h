@@ -1,5 +1,5 @@
 /*
- *  $Id: cacheapi.h,v 1.3 2001/10/06 03:14:40 raeburn Exp $
+ *  $Id: cacheapi.h 13786 2001-10-06 03:14:42Z raeburn $
  *
  * Copyright 1997 by the Regents of the University of Michigan
  *

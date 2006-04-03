@@ -26,26 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "ggc.h"
 
-/* APPLE LOCAL begin CW asm blocks */
-/* We use a small state machine to inform the lexer when to start
-   returning tokens marking the beginning of each asm line.  */
-enum cw_asm_states {
-  /* Normal code.  */
-  cw_asm_none,
-  /* '{' of asm block seen, decls may appear.  */
-  cw_asm_decls,
-  /* No more decls, in asm block proper, '}' not seen yet.  */
-  cw_asm_asm
-};
-
-extern enum cw_asm_states cw_asm_state;
-extern int cw_asm_in_decl;
-extern int inside_cw_asm_block;
-extern int cw_asm_at_bol;
-extern int cw_asm_in_operands;
-extern int cw_asm_labelno;
-/* APPLE LOCAL end CW asm blocks */
-
 /* Usage of TREE_LANG_FLAG_?:
    0: TREE_NEGATED_INT (in INTEGER_CST).
       IDENTIFIER_MARKED (used by search routines).
@@ -184,6 +164,8 @@ enum c_tree_index
     
     CTI_VOID_ZERO,
 
+    CTI_NULL,
+
     CTI_MAX
 };
 
@@ -229,6 +211,9 @@ struct c_common_identifier GTY(())
 
 /* A node for `((void) 0)'.  */
 #define void_zero_node                  c_global_trees[CTI_VOID_ZERO]
+
+/* The node for C++ `__null'.  */
+#define null_node                       c_global_trees[CTI_NULL]
 
 extern GTY(()) tree c_global_trees[CTI_MAX];
 
@@ -427,9 +412,7 @@ extern int flag_ms_extensions;
 extern int flag_no_asm;
 
 /* APPLE LOCAL begin CW asm blocks */
-/* Nonzero means that CodeWarrior-style inline assembler is to be parsed.  */
-
-extern int flag_cw_asm_blocks;
+#include "config/asm.h"
 /* APPLE LOCAL end CW asm blocks */
 
 /* Nonzero means give string constants the type `const char *', as mandated
@@ -646,6 +629,12 @@ extern int flag_threadsafe_statics;
 /* Nonzero means warn about implicit declarations.  */
 
 extern int warn_implicit;
+
+/* Warn about using __null (as NULL in C++) as sentinel.  For code compiled
+   with GCC this doesn't matter as __null is guaranteed to have the right
+   size.  */
+
+extern int warn_strict_null_sentinel;
 
 /* Maximum template instantiation depth.  This limit is rather
    arbitrary, but it exists to limit the time it takes to notice
@@ -981,7 +970,13 @@ extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 extern void c_common_write_pch (void);
 extern void c_common_no_more_pch (void);
 extern void c_common_pch_pragma (cpp_reader *pfile);
+/* APPLE LOCAL begin mainline 4.1 2005-06-17 3988498 */
+extern void c_common_print_pch_checksum (FILE *f);
 
+/* In *-checksum.c */
+extern const unsigned char executable_checksum[16];
+
+/* APPLE LOCAL end mainline 4.1 2005-06-17 3988498 */
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
@@ -995,9 +990,15 @@ extern tree objc_is_class_name (tree);
 extern tree objc_is_object_ptr (tree);
 extern void objc_check_decl (tree);
 extern int objc_is_reserved_word (tree);
-extern int objc_comptypes (tree, tree, int);
-/* APPLE LOCAL mainline */
+/* APPLE LOCAL 4154928 */
+extern tree objc_common_type (tree, tree);
+/* APPLE LOCAL begin mainline */
+/* Prototype for 'objc_comptypes' removed.  */
+extern bool objc_compare_types (tree, tree, int, tree);
+extern void objc_volatilize_decl (tree);
+extern bool objc_type_quals_match (tree, tree);
 extern tree objc_rewrite_function_call (tree, tree);
+/* APPLE LOCAL end mainline */
 extern tree objc_message_selector (void);
 extern tree objc_lookup_ivar (tree, tree);
 extern void objc_clear_super_receiver (void);
@@ -1056,20 +1057,6 @@ extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
 extern void pp_dir_change (cpp_reader *, const char *);
-
-/* APPLE LOCAL begin CW asm blocks */
-extern tree cw_asm_stmt (tree, tree, int);
-extern tree cw_asm_build_register_offset (tree, tree);
-extern tree cw_asm_label (tree, int);
-extern tree prepend_char_identifier (tree, char);
-extern void clear_cw_asm_labels (void);
-extern tree cw_asm_reg_name (tree);
-extern tree get_cw_asm_label (tree);
-extern tree cw_asm_entry (tree, tree, tree);
-extern int cw_asm_typename_or_reserved (tree);
-extern tree cw_asm_c_build_component_ref (tree, tree);
-extern tree cw_get_identifier (tree, const char *);
-/* APPLE LOCAL end CW asm blocks */
 
 /* APPLE LOCAL begin AltiVec */
 /* The following function will convert expressions into

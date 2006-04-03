@@ -110,6 +110,7 @@ blockvector_for_pc_sect (CORE_ADDR pc, struct bfd_section *section,
   while (bot >= 0)
     {
       b = BLOCKVECTOR_BLOCK (bl, bot);
+      /* APPLE LOCAL huh? */
       if (BLOCK_END (b) >= pc)
 	{
 	  if (pindex)

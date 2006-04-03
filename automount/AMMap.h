@@ -59,8 +59,10 @@ typedef enum AMMountStyle {
 - (id)init;
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir;
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds;
-- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:mnt;
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt;
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt mountedon:(String *)mnton;
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt withRootVnodeClass:(Class)rootVnodeClass;
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt mountedon:(String *)mnton withRootVnodeClass:(Class)rootVnodeClass;
 - (void)cleanup;
 - (unsigned int)didAutoMount;
 

@@ -81,21 +81,33 @@ proc test_errors {command} {
 
 test_errors file-list-statics
 
+# This is annoying, but DWARF lists the statics in the reverse order from stabs
+# so we have to test the return in either order.
+
+proc either_way {first second {third {}} {fourth {}}} {
+    if {[string equal $third ""]} {
+	return [format {\^done,statics=\[(%s,%s|%s,%s)\]} $first $second $second $first]
+    } else {
+	return [format {\^done,statics=\[(%s,%s|%s,%s)\]} $first $second $third $fourth]
+    }
+}
+
+set either_way [either_way {\{name="static_doesnt_match"\}} {\{name="static_int"\}}]
 
 # One test of the old style just to make sure we don't totally break it till we remove it:
 
 mi_gdb_test {30-file-list-statics file-statics.c file-statics --no-values} \
-    {30\^done,statics=\[\{name="static_doesnt_match"\},\{name="static_int"\}\]} \
+    "30$either_way" \
     {-file-list-statics: Old style - supply file and shlib, no values}
 
 # These are the new style:
 
 mi_gdb_test {20-file-list-statics -file file-statics.c -shlib file-statics --no-values} \
-    {20\^done,statics=\[\{name="static_doesnt_match"\},\{name="static_int"\}\]} \
+    "20$either_way" \
     {-file-list-statics: supply file and shlib, no values}
 
 mi_gdb_test {21-file-list-statics -file file-statics.c -shlib "" --no-values} \
-    {21\^done,statics=\[\{name="static_doesnt_match"\},\{name="static_int"\}\]} \
+    "21$either_way" \
     {-file-list-statics: supply file and shlib, no values}
 
 mi_gdb_test {22-file-list-statics -file file-statics.c -shlib file-statics --no-values -filter _int} \
@@ -103,19 +115,32 @@ mi_gdb_test {22-file-list-statics -file file-statics.c -shlib file-statics --no-
     {-file-list-statics: supply file and shlib, no values, with filter}
 
 mi_gdb_test {23-file-list-statics -file file-statics.c -shlib file-statics --no-values -constants 0} \
-    {23\^done,statics=\[\{name="static_doesnt_match"\},\{name="static_int"\}\]} \
+    "23$either_way" \
     {-file-list-statics: supply file and shlib, no values, no constants}
 
 mi_gdb_test {24-file-list-statics -file "" -shlib file-statics --no-values} \
     {24\^done,statics=\[]} \
     {-file-list-statics: empty file and shlib, no values}
 
+set static_doesnt_match {\{name="static_doesnt_match",type="int",value="8"\}}
+set static_int {\{name="static_int",type="int",value="7"\}}
+set either_way [either_way $static_doesnt_match $static_int]
+
 mi_gdb_test {21-file-list-statics -file file-statics.c -shlib file-statics --simple-values} \
-    {21\^done,statics=\[\{name="static_doesnt_match",type="int",value="8"\},\{name="static_int",type="int",value="7"\}\]} \
+    "21$either_way" \
     {-file-list-statics: supply file and shlib, no simple}
 
+set static_doesnt_match {varobj=\{exp="static_doesnt_match",value="8",name="var%d",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\}}
+set static_int {varobj=\{exp="static_int",value="7",name="var%d",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\}}
+set static_doesnt_match_1 [format $static_doesnt_match 1]
+set static_doesnt_match_2 [format $static_doesnt_match 2]
+set static_int_1 [format $static_int 1]
+set static_int_2 [format $static_int 2]
+
+set either_way [either_way $static_doesnt_match_1 $static_int_2 $static_int_1 $static_doesnt_match_2]
+
 mi_gdb_test {21-file-list-statics -file file-statics.c -shlib file-statics --make-varobjs} \
-    {21\^done,statics=\[varobj=\{exp="static_doesnt_match",value="8",name="var1",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\},varobj=\{exp="static_int",value="7",name="var2",numchild="0",type="int",typecode="INT",dynamic_type="",in_scope="true",block_start_addr="no block",block_end_addr="no block"\}\]} \
+    "21$either_way" \
     {-file-list-statics: supply file and shlib, make varobj}
 
 

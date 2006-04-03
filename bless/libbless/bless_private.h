@@ -28,11 +28,15 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Feb 28 2002.
  *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: bless_private.h,v 1.17 2005/02/03 00:42:23 ssen Exp $
+ *  $Id: bless_private.h,v 1.21 2005/11/15 23:59:52 ssen Exp $
  *
  */
 
+#ifndef _BLESS_PRIVATE_H_
+#define _BLESS_PRIVATE_H_
+
 #include <sys/types.h>
+#include <sys/mount.h>
 
 #include "bless.h"
 
@@ -48,16 +52,23 @@ uint32_t BLBlockChecksum(const void *buf , uint32_t length);
  * write the CFData to a file
  */
 int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
-	     const unsigned char dest[], int shouldPreallocate);
+	     const char * dest, int shouldPreallocate);
 
 
 /*
  * check if the context is null. if not, check if the log funcion is null
  */
-int contextprintf(BLContextPtr context, int loglevel, char const *fmt, ...);
-//			__attribute__ ((format (printf, 3, 4)));
+int contextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
+    __attribute__ ((format (printf, 3, 4)));
 
 /*
  * stringify the OSType into the caller-provided buffer
  */
 char * blostype2string(uint32_t type, char buf[5]);
+
+// statfs wrapper that works in single user mode,
+// where the mount table hasn't been updated with the
+// proper dev node
+int blsustatfs(const char *path, struct statfs *buf);
+
+#endif // _BLESS_PRIVATE_H_

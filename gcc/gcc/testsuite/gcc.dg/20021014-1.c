@@ -1,4 +1,8 @@
 /* { dg-do run } */
+/* APPLE LOCAL begin testsuite nested funcs */
+/* { dg-xfail-if "" { *-*-darwin* } } */
+/* { dg-error "" "nested functions" { target *-*-darwin* } 19 } */
+/* APPLE LOCAL end testsuite nested funcs */
 /* { dg-require-profiling "-p" } */
 /* { dg-options "-O2 -p" } */
 /* { dg-options "-O2 -p -static" { target hppa*-*-hpux* } } */

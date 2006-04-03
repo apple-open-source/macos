@@ -55,6 +55,7 @@ struct gdb_events breakpoint_hooks =
   breakpoint_notify,
 };
 
+
 enum bp_type
   {
     REG_BP,

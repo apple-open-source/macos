@@ -41,7 +41,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCacheUtil.h,v 1.12 2004/10/22 20:48:26 lxs Exp $ */
+/* $Header$ */
 
 #ifndef CCacheUtil_h
 #define CCacheUtil_h

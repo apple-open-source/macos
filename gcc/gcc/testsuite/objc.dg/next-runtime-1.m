@@ -1,4 +1,4 @@
-/* APPLE LOCAL file ObjC GC */
+/* APPLE LOCAL file mainline */
 /* Test that the correct version number (6) is set in the module descriptor
    when compiling for the NeXT runtime.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>  */

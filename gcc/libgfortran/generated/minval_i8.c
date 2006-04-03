@@ -41,10 +41,10 @@ export_proto(minval_i8);
 void
 minval_i8 (gfc_array_i8 *retarray, gfc_array_i8 *array, index_type *pdim)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
-  index_type dstride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type sstride[GFC_MAX_DIMENSIONS];
+  index_type dstride[GFC_MAX_DIMENSIONS];
   GFC_INTEGER_8 *base;
   GFC_INTEGER_8 *dest;
   index_type rank;
@@ -56,11 +56,11 @@ minval_i8 (gfc_array_i8 *retarray, gfc_array_i8 *array, index_type *pdim)
   /* Make dim zero based to avoid confusion.  */
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
-  assert (rank == GFC_DESCRIPTOR_RANK (retarray));
+
+  /* TODO:  It should be a front end job to correctly set the strides.  */
+
   if (array->dim[0].stride == 0)
     array->dim[0].stride = 1;
-  if (retarray->dim[0].stride == 0)
-    retarray->dim[0].stride = 1;
 
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
   delta = array->dim[dim].stride;
@@ -94,8 +94,17 @@ minval_i8 (gfc_array_i8 *retarray, gfc_array_i8 *array, index_type *pdim)
 		 		 * retarray->dim[rank-1].stride
 				 * extent[rank-1]);
       retarray->base = 0;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
     }
-          
+  else
+    {
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+
+      if (rank != GFC_DESCRIPTOR_RANK (retarray))
+	runtime_error ("rank of return array incorrect");
+    }
+
   for (n = 0; n < rank; n++)
     {
       count[n] = 0;
@@ -168,11 +177,11 @@ void
 mminval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array,
 				  index_type *pdim, gfc_array_l4 * mask)
 {
-  index_type count[GFC_MAX_DIMENSIONS - 1];
-  index_type extent[GFC_MAX_DIMENSIONS - 1];
-  index_type sstride[GFC_MAX_DIMENSIONS - 1];
-  index_type dstride[GFC_MAX_DIMENSIONS - 1];
-  index_type mstride[GFC_MAX_DIMENSIONS - 1];
+  index_type count[GFC_MAX_DIMENSIONS];
+  index_type extent[GFC_MAX_DIMENSIONS];
+  index_type sstride[GFC_MAX_DIMENSIONS];
+  index_type dstride[GFC_MAX_DIMENSIONS];
+  index_type mstride[GFC_MAX_DIMENSIONS];
   GFC_INTEGER_8 *dest;
   GFC_INTEGER_8 *base;
   GFC_LOGICAL_4 *mbase;
@@ -185,11 +194,14 @@ mminval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array,
 
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
-  assert (rank == GFC_DESCRIPTOR_RANK (retarray));
+
+  /* TODO:  It should be a front end job to correctly set the strides.  */
+
   if (array->dim[0].stride == 0)
     array->dim[0].stride = 1;
-  if (retarray->dim[0].stride == 0)
-    retarray->dim[0].stride = 1;
+
+  if (mask->dim[0].stride == 0)
+    mask->dim[0].stride = 1;
 
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
   if (len <= 0)
@@ -209,6 +221,34 @@ mminval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array,
       mstride[n] = mask->dim[n + 1].stride;
       extent[n] =
         array->dim[n + 1].ubound + 1 - array->dim[n + 1].lbound;
+    }
+
+  if (retarray->data == NULL)
+    {
+      for (n = 0; n < rank; n++)
+        {
+          retarray->dim[n].lbound = 0;
+          retarray->dim[n].ubound = extent[n]-1;
+          if (n == 0)
+            retarray->dim[n].stride = 1;
+          else
+            retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
+        }
+
+      retarray->data
+	 = internal_malloc_size (sizeof (GFC_INTEGER_8)
+		 		 * retarray->dim[rank-1].stride
+				 * extent[rank-1]);
+      retarray->base = 0;
+      retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
+    }
+  else
+    {
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+
+      if (rank != GFC_DESCRIPTOR_RANK (retarray))
+	runtime_error ("rank of return array incorrect");
     }
 
   for (n = 0; n < rank; n++)

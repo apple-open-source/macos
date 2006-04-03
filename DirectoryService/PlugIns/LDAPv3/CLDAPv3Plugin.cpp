@@ -7751,12 +7751,46 @@ sInt32 CLDAPv3Plugin::CreateRecordWithAttributes ( tDirNodeReference inNodeRef, 
 		strcat(ldapDNString,", ");
 		strcat(ldapDNString,pLDAPRecType);
 		
-		rnvals[0] = (char *)inRecName;
-		rnvals[1] = NULL;
 		rnmod = (LDAPMod *) calloc( 1, sizeof(LDAPMod *) );
-		rnmod->mod_op = LDAP_MOD_ADD;
 		rnmod->mod_type = strdup(recNameAttrType);
-		rnmod->mod_values = rnvals; //not freed below
+
+		CFArrayRef shortNames = (CFArrayRef)CFDictionaryGetValue( inDict, CFSTR( kDSNAttrRecordName ) );
+		CFIndex numShortNames = CFArrayGetCount( shortNames );
+		
+		if( numShortNames == 1 )
+		{
+			rnvals[0] = (char *)inRecName;
+			rnvals[1] = NULL;
+
+			rnmod->mod_op = LDAP_MOD_ADD;
+			rnmod->mod_values = rnvals; //not freed below
+		}
+		else
+		{
+			struct berval **newValues = (struct berval**) calloc(1, (numShortNames + 1) *sizeof(struct berval *) );
+			uInt32 valIndex = 0;
+			for( CFIndex i=0; i<numShortNames; i++ )
+			{
+				CFStringRef shortName  = (CFStringRef)CFArrayGetValueAtIndex( shortNames, i );
+
+				uInt32 callocLength = (uInt32) CFStringGetMaximumSizeForEncoding(
+					CFStringGetLength(shortName), kCFStringEncodingUTF8) + 1;
+				char* attrValue = (char *)::calloc( 1, callocLength );
+				if ( attrValue == NULL ) throw( (sInt32)eMemoryError );
+				// Convert it to a regular 'C' string 
+				bool bGotValue = CFStringGetCString( shortName, attrValue, callocLength, kCFStringEncodingUTF8 );
+				if (bGotValue == false) throw( (sInt32)eMemoryError );
+				attrLength = strlen(attrValue);
+
+				newValues[valIndex] = (struct berval*) calloc(1, sizeof(struct berval) );
+				newValues[valIndex]->bv_val = attrValue;
+				newValues[valIndex]->bv_len = attrLength;
+				valIndex++;
+			}
+
+			rnmod->mod_op = LDAP_MOD_ADD | LDAP_MOD_BVALUES;
+			rnmod->mod_bvalues = newValues;
+		}
 
 		pConfig = gpConfigFromXML->ConfigWithNodeNameLock( pContext->fNodeName );
 		if( pConfig != nil )
@@ -7993,10 +8027,10 @@ sInt32 CLDAPv3Plugin::CreateRecordWithAttributes ( tDirNodeReference inNodeRef, 
 			if ( attrTypeLDAPStr == nil ) throw( (sInt32)eDSInvalidAttributeType );  //KW would like a eDSNoMappingAvailable
 
 			valuesCFArray = (CFArrayRef)CFDictionaryGetValue( inDict, keyCFString );
-			
-			//TODO KW should we deal with multiple values for a record name?
-			if (strcasecmp(attrTypeLDAPStr, recNameAttrType) != 0) //if this is not the record name then we can carry it forward
-			{
+
+			// record name is done in mod[0] above, so don't do it here
+			if (strcasecmp(attrTypeLDAPStr, recNameAttrType) != 0)
+			{	// merge in the attribute values
 				CFStringRef aString = CFStringCreateWithCString(kCFAllocatorDefault, attrTypeLDAPStr, kCFStringEncodingUTF8);
 				CFDictionarySetValue( mergedDict, aString, valuesCFArray );
 				CFRelease(aString);
@@ -11152,7 +11186,7 @@ sInt32 CLDAPv3Plugin::TryPWSPasswordSet( tDirNodeReference inNodeRef, uInt32 inA
 		unsigned long   aaCount		= 0;
 		
 		// Let's locate the user and get the Auth Authority, then we can continue
-		siResult = GetAuthAuthority( pContext, dn[0], fLDAPSessionMgr, &aaCount, &aaArray, kDSStdRecordTypeUsers );
+		siResult = GetAuthAuthority( pContext, dn[0], 0, fLDAPSessionMgr, &aaCount, &aaArray, kDSStdRecordTypeUsers );
 		if ( siResult == eDSNoErr ) 
 		{
 			unsigned long   idx			= 0;
@@ -11444,6 +11478,7 @@ sInt32 CLDAPv3Plugin::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType 
 	sLDAPContextData			*pContext			= nil;
 	sLDAPContinueData   		*pContinueData		= NULL;
 	char*						userName			= NULL;
+	int							userNameBuffLen		= 0;
 	LDAPv3AuthAuthorityHandlerProc	handlerProc 	= NULL;
 	
 	try
@@ -11500,17 +11535,18 @@ sInt32 CLDAPv3Plugin::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType 
 			}
 			else if ( ( siResult == eDSNoErr) && ( uiAuthMethod == kAuthGetPolicy ) )
 			{
-				siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 3, &userName );
+				siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 3, &userName, &userNameBuffLen );
 				if ( siResult != eDSNoErr ) throw( siResult );
 			}
 			else
 			{
-				siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 1, &userName );
+				siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 1, &userName, &userNameBuffLen );
 				if ( siResult != eDSNoErr ) throw( siResult );
 			}
 			// get the auth authority
 			siResult = GetAuthAuthority( pContext,
 										userName,
+										userNameBuffLen,
 										fLDAPSessionMgr,
 										&aaCount,
 										&aaArray, inRecordType );
@@ -11920,6 +11956,7 @@ sInt32 CLDAPv3Plugin::DoPasswordServerAuth(
 						// lookup authauthority attribute
 						error = GetAuthAuthority( inContext,
 										userName,
+										0,
 										inLDAPSessionMgr,
 										&aaCount,
 										&aaArray,
@@ -11975,6 +12012,88 @@ sInt32 CLDAPv3Plugin::DoPasswordServerAuth(
 						if ( error != eDSNoErr ) throw( error );
 					}
 					break;
+				
+				case kAuthNTSessionKey:
+					{
+						char* aaVersion = NULL;
+						char* aaTag = NULL;
+						char* aaData = NULL;
+						unsigned int idx;
+						sInt32 lookupResult;
+						char* endPtr = NULL;
+						
+						// lookup the user that wasn't passed to us
+						error = GetUserNameFromAuthBuffer( inAuthData, 4, &userName );
+						if ( error != eDSNoErr ) throw( error );
+						
+						if ( !DSIsStringEmpty(userName) )
+						{
+							// lookup authauthority attribute
+							error = GetAuthAuthority( inContext,
+											userName,
+											0,
+											inLDAPSessionMgr,
+											&aaCount,
+											&aaArray,
+											inRecordType );
+							
+							if ( error != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+							
+							// don't break or throw to guarantee cleanup
+							lookupResult = eDSAuthFailed;
+							for ( idx = 0; idx < aaCount && lookupResult == eDSAuthFailed; idx++ )
+							{
+								//parse this value of auth authority
+								error = ParseAuthAuthority( aaArray[idx], &aaVersion, &aaTag, &aaData );
+								if ( aaArray[idx] ) {
+									free( aaArray[idx] );
+									aaArray[idx] = NULL;
+								}
+								
+								// need to check version
+								if ( error != eDSNoErr )
+									lookupResult = eParameterError;
+								
+								if ( error == eDSNoErr && strcmp(aaTag, kDSTagAuthAuthorityPasswordServer) == 0 )
+								{
+									endPtr = strchr( aaData, ':' );
+									if ( endPtr == NULL )
+									{
+										lookupResult = eParameterError;
+									}
+									else
+									{
+										*endPtr = '\0';
+										lookupResult = eDSNoErr;
+									}
+								}
+								
+								DSFreeString(aaVersion);
+								DSFreeString(aaTag);
+								if (lookupResult != eDSNoErr) {
+									DSFreeString(aaData);
+								}
+							}
+							
+							if ( lookupResult != eDSNoErr ) throw( (sInt32)eDSAuthFailed );
+							
+							// do the usual
+							error = RepackBufferForPWServer( inAuthData, uidStr, 1, &authDataBuffTemp );
+							if ( error != eDSNoErr ) throw( error );
+							
+							// put the admin user ID in slot 4
+							error = RepackBufferForPWServer( authDataBuffTemp, aaData, 4, &authDataBuff );
+							DSFreeString(aaData);
+							if ( error != eDSNoErr ) throw( error );
+						}
+						else
+						{
+							// do the usual
+							error = RepackBufferForPWServer( inAuthData, uidStr, 1, &authDataBuff );
+							if ( error != eDSNoErr ) throw( error );
+						}
+					}
+					break;
 					
 				case kAuthGetPolicy:
 					{
@@ -11998,6 +12117,7 @@ sInt32 CLDAPv3Plugin::DoPasswordServerAuth(
 						{
 							error = GetAuthAuthority( inContext,
 											userName,
+											0,
 											inLDAPSessionMgr,
 											&aaCount,
 											&aaArray,
@@ -12935,11 +13055,30 @@ sInt32 CLDAPv3Plugin::PWSetReplicaData( sLDAPContextData *inContext, const char 
 //	* GetAuthAuthority
 //------------------------------------------------------------------------------------
 
-sInt32 CLDAPv3Plugin::GetAuthAuthority ( sLDAPContextData *inContext, const char *userName, CLDAPNode& inLDAPSessionMgr, unsigned long *outAuthCount, char **outAuthAuthority[], const char *inRecordType )
+sInt32
+CLDAPv3Plugin::GetAuthAuthority( sLDAPContextData *inContext, const char *userName, int inUserNameBufferLength,
+	CLDAPNode& inLDAPSessionMgr, unsigned long *outAuthCount, char **outAuthAuthority[], const char *inRecordType )
 {
+	tDataBufferPtr		aaBuffer		= NULL;
+
+	if ( userName == NULL )
+		return eDSNullDataBuff;
+	
+	int nameLen = strlen( userName );
+	if ( inUserNameBufferLength > nameLen + (int)sizeof(kDSNameAndAATag) &&
+		 strncmp(userName + nameLen + 1, kDSNameAndAATag, sizeof(kDSNameAndAATag) - 1) == 0 )
+	{
+		aaBuffer = (tDataBufferPtr)(userName + nameLen + sizeof(kDSNameAndAATag));
+		return UnpackUserWithAABuffer( aaBuffer, outAuthCount, outAuthAuthority );
+	}
+	
 	return LookupAttribute( inContext, inRecordType, userName, kDSNAttrAuthenticationAuthority, inLDAPSessionMgr, outAuthCount, outAuthAuthority );
 }
 
+
+//------------------------------------------------------------------------------------
+//	* LookupAttribute
+//------------------------------------------------------------------------------------
 
 sInt32 CLDAPv3Plugin::LookupAttribute (	sLDAPContextData *inContext,
 										const char *inRecordType,
@@ -17207,7 +17346,7 @@ char *CLDAPv3Plugin::GetPWSIDforRecord( sLDAPContextData *pContext, char *inRecN
 	unsigned long   aaCount		= 0;
 	char			*pUserID	= NULL;
 	
-	int siResult = GetAuthAuthority( pContext, inRecName, fLDAPSessionMgr, &aaCount, &aaArray, inRecType );
+	int siResult = GetAuthAuthority( pContext, inRecName, 0, fLDAPSessionMgr, &aaCount, &aaArray, inRecType );
 	
 	if ( siResult == eDSNoErr ) 
 	{

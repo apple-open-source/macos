@@ -1407,6 +1407,11 @@ If the assembly statement is declared @code{volatile}, or if the
 statement was not an extended assembly statement, and is therefore
 implicitly volatile, then the predicate @code{ASM_VOLATILE_P} will hold
 of the @code{ASM_EXPR}.
+@c APPLE LOCAL begin CW asm blocks.
+@code{ASM_USES} and @code{ASM_LABEL} are for CW assembly syntax only, 
+providing REG_USE and label declaration information inside @code{ASM_EXPR} 
+tree.
+@c APPLE LOCAL end CW asm blocks.
 
 @item BREAK_STMT
 

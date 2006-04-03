@@ -698,8 +698,10 @@ _ServiceCreateQuery_NoLock(__CFNetService* service, ns_type rrtype, const char* 
 	}
 	
 	/* Set the domain if an error occurred */
-	if (service->_error.error)
+	if (service->_error.error) {
+		service->_error.error = _DNSServiceErrorToCFNetServiceError(service->_error.error);
 		service->_error.domain = kCFStreamErrorDomainNetServices;
+	}
 	
 	/* No error, so wrap the query for run loop integration. */
 	else {
@@ -820,7 +822,7 @@ _SocketCallBack(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, con
 		else {
 			
 			void* info = NULL;
-			CFStreamError error = {kCFStreamErrorDomainNetServices, err};
+			CFStreamError error = {kCFStreamErrorDomainNetServices, _DNSServiceErrorToCFNetServiceError(err)};
 			CFNetServiceClientCallBack cb = NULL;
 			
 			/* Lock the service */
@@ -937,14 +939,9 @@ _RegisterReply(DNSServiceRef sdRef, DNSServiceFlags flags, DNSServiceErrorType e
 		const char* values[] = {name, regtype, domain};
 		UInt32 keys[] = {_kCFNetServiceName, _kCFNetServiceType, _kCFNetServiceDomain};
 		
-		/* If there is an error, fold the registration. */
 		if (errorCode) {
-			
-			/* Save the error */
-			service->_error.error = errorCode;
-			service->_error.domain = kCFStreamErrorDomainNetServices;
-
-
+		    service->_error.error = _DNSServiceErrorToCFNetServiceError(errorCode);
+		    service->_error.domain = kCFStreamErrorDomainNetServices;
 		}
 		
 		/* Save the registered values */
@@ -1013,7 +1010,7 @@ _ResolveReply(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t interfaceInde
 		if (errorCode) {
 			
 			/* Save the error */
-			service->_error.error = errorCode;
+			service->_error.error = _DNSServiceErrorToCFNetServiceError(errorCode);
 			service->_error.domain = kCFStreamErrorDomainNetServices;
 			
 			/* Remove the registration from run loops and modes */
@@ -2150,13 +2147,14 @@ CFNetServiceRegisterWithOptions(CFNetServiceRef theService, CFOptionFlags option
 												   service);
 		
 		if (service->_error.error) {
+			service->_error.error = _DNSServiceErrorToCFNetServiceError(service->_error.error);
 			service->_error.domain = kCFStreamErrorDomainNetServices;
 			break;
 		}
 		
 		CFDictionaryApplyFunction(service->_info, _AddRecords, service);
 		if (service->_error.error) {
-			
+			service->_error.error = _DNSServiceErrorToCFNetServiceError(service->_error.error);
 			service->_error.domain = kCFStreamErrorDomainNetServices;
 			
 			/* Stop right away on failure */

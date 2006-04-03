@@ -1,4 +1,4 @@
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.debug.h,v 1.23 2004/12/10 21:31:25 lxs Exp $ */
+/* $Header$ */
 
 /* $Copyright:
  *
@@ -38,7 +38,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.debug.h,v 1.23 2004/12/10 21:31:25 lxs Exp $ */
+/* $Header$ */
 
 /*
  * CCache debugging utilities

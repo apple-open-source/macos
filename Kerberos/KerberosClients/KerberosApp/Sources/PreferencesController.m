@@ -1,7 +1,7 @@
 /*
  * PreferencesController.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/PreferencesController.m,v 1.12 2005/01/31 20:51:32 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -73,7 +73,7 @@
 {
     // Check to see if the window was closed before. ([self window] will load the window)
     if (![[self window] isVisible]) {
-        dprintf ("PreferencesController %x displaying window...", (long) self);
+        dprintf ("PreferencesController %lx displaying window...", (long) self);
         
         [self preferencesToWindow];
         [[self window] setFrameUsingName: [self windowFrameAutosaveName]];

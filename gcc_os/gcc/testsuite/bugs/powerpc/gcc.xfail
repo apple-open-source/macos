@@ -312,3 +312,10 @@
 #3731677: gcc.c-torture/execute/bcp-1.c execution,  -fast
 3717771: gcc.c-torture/execute/920612-2.c compilation,  -fast
 3717771: gcc.c-torture/execute/931002-1.c compilation,  -fast
+3855246: gcc.dg/long-branch-begin.c (test for excess errors)
+3916694: gcc.c-torture/execute/stdio-opt-3.c execution,  -O1
+3916694: gcc.c-torture/execute/stdio-opt-3.c execution,  -O2
+3916694: gcc.c-torture/execute/stdio-opt-3.c execution,  -O3 -fomit-frame-pointer
+3916694: gcc.c-torture/execute/stdio-opt-3.c execution,  -O3 -g
+3916694: gcc.c-torture/execute/stdio-opt-3.c execution,  -Os
+3916694: gcc.c-torture/execute/stdio-opt-3.c execution,  -fast

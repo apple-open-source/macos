@@ -67,6 +67,8 @@ static struct pending *free_pendings;
 
 static int have_line_numbers;
 
+/* APPLE LOCAL make compare_line_numbers extern */
+
 
 /* Initial sizes of data structures.  These are realloc'd larger if
    needed, and realloc'd down to the size actually used, when
@@ -130,8 +132,10 @@ add_symbol_to_list (struct symbol *symbol, struct pending **listhead)
   /* Check to see if we might need to look for a mention of anonymous
      namespaces.  */
   
+  /* APPLE LOCAL begin Objective-C++ */
   if (SYMBOL_LANGUAGE (symbol) == language_cplus 
       || SYMBOL_LANGUAGE (symbol) == language_objcplus)
+    /* APPLE LOCAL end Objective-C++ */
     cp_scan_for_anonymous_namespaces (symbol);
 
   /* APPLE LOCAL fix-and-continue */
@@ -305,6 +309,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 	      TYPE_NFIELDS (ftype) = nparams;
 	      TYPE_FIELDS (ftype) = (struct field *)
 		TYPE_ALLOC (ftype, nparams * sizeof (struct field));
+	      /* APPLE LOCAL ??? */
 	      memset (TYPE_FIELDS (ftype), 0, sizeof (struct field) * nparams);
 
 	      iparams = 0;
@@ -348,8 +353,10 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 	}
 
       /* If we're in the C++ case, set the block's scope.  */
+      /* APPLE LOCAL begin Objective-C++ */
       if (SYMBOL_LANGUAGE (symbol) == language_cplus
 	  || SYMBOL_LANGUAGE (symbol) == language_objcplus)
+	/* APPLE LOCAL end Objective-C++ */
 	{
 	  cp_set_block_scope (symbol, block, &objfile->objfile_obstack);
 	}
@@ -467,6 +474,7 @@ record_pending_block (struct objfile *objfile, struct block *block,
     }
 }
 
+/* APPLE LOCAL begin sort objfile blocks */
 static int
 compare_blocks (const void *v1, const void *v2)
 {
@@ -484,6 +492,7 @@ compare_blocks (const void *v1, const void *v2)
   else
     return 0;
 }
+/* APPLE LOCAL end sort objfile blocks */
 
 static struct blockvector *
 make_blockvector (struct objfile *objfile)
@@ -527,30 +536,16 @@ make_blockvector (struct objfile *objfile)
 #endif
   pending_blocks = NULL;
 
-#if 1
+  /* APPLE LOCAL begin sort objfile blocks */
   if (objfile->flags & OBJF_REORDERED)
     {
-#if 0
-      for (i = 2; i < BLOCKVECTOR_NBLOCKS (blockvector) - 2; i++)
-	{
-	  struct block *b = BLOCKVECTOR_BLOCK (blockvector, i);
-	  struct minimal_symbol *min_sym = (struct minimal_symbol *)
-	  lookup_minimal_symbol_by_pc_section_from_objfile
-	  (BLOCK_START (b), find_pc_mapped_section (BLOCK_START (b)), objfile);
-	  if (min_sym &&
-	      ((SYMBOL_VALUE_ADDRESS (min_sym) > BLOCK_END (b)) ||
-	       (SYMBOL_VALUE_ADDRESS (min_sym + 1) &&
-		(SYMBOL_VALUE_ADDRESS (min_sym + 1) < BLOCK_END (b)))))
-	    BLOCK_END (b) = SYMBOL_VALUE_ADDRESS (min_sym + 1);
-	}
-#endif
       if (BLOCKVECTOR_NBLOCKS (blockvector) > 2)
 	qsort (&blockvector->block[2],
 	       BLOCKVECTOR_NBLOCKS (blockvector) - 2,
 	       sizeof (struct block *),
 	       compare_blocks);
     }
-#endif
+  /* APPLE LOCAL end sort objfile blocks */
 
 #if 1				/* FIXME, shut this off after a while
 				   to speed up symbol reading.  */
@@ -649,9 +644,8 @@ start_subfile (char *name, char *dirname)
       struct subfile *s;
       enum language sublang = deduce_language_from_filename (subfile->name);
 
-      /* APPLE LOCAL: Include ObjC++ */
-      if (sublang == language_cplus || sublang == language_fortran
-	  || sublang == language_objcplus)
+      /* APPLE LOCAL Objective-C++ */
+      if (sublang == language_cplus || sublang == language_objcplus || sublang == language_fortran)
 	for (s = subfiles; s != NULL; s = s->next)
 	  if (s->language == language_c)
 	    s->language = sublang;
@@ -661,6 +655,7 @@ start_subfile (char *name, char *dirname)
   if (subfile->language == language_c
       && subfile->next != NULL
       && (subfile->next->language == language_cplus
+	  /* APPLE LOCAL Objective-C++ */
 	  || subfile->next->language == language_objcplus
 	  || subfile->next->language == language_fortran))
     {
@@ -789,6 +784,7 @@ record_line (struct subfile *subfile, int line, CORE_ADDR pc)
 
 /* Needed in order to sort line tables from IBM xcoff files.  Sigh!  */
 
+/* APPLE LOCAL make compare_line_numbers extern */
 int
 compare_line_numbers (const void *ln1p, const void *ln2p)
 {
@@ -895,40 +891,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	}
     }
 
-#if 0
-  /* replaced by sort in make_blockvector */
-  /* Reordered executables may have out of order pending blocks; if
-     OBJF_REORDERED is true, then sort the pending blocks.  */
-  if ((objfile->flags & OBJF_REORDERED) && pending_blocks)
-    {
-      /* FIXME!  Remove this horrid bubble sort and use merge sort!!! */
-      int swapped;
-      do
-	{
-	  struct pending_block *pb, *pbnext;
-
-	  pb = pending_blocks;
-	  pbnext = pb->next;
-	  swapped = 0;
-
-	  while (pbnext)
-	    {
-	      /* swap blocks if unordered! */
-
-	      if (BLOCK_START (pb->block) < BLOCK_START (pbnext->block))
-		{
-		  struct block *tmp = pb->block;
-		  pb->block = pbnext->block;
-		  pbnext->block = tmp;
-		  swapped = 1;
-		}
-	      pb = pbnext;
-	      pbnext = pbnext->next;
-	    }
-	}
-      while (swapped);
-    }
-#endif /* 0 */
+  /* APPLE LOCAL replaced by sort in make_blockvector */
 
   /* Cleanup any undefined types that have been left hanging around
      (this needs to be done before the finish_blocks so that
@@ -941,6 +904,12 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
      we make this cleaner?  */
 
   cleanup_undefined_types ();
+
+  /* APPLE LOCAL: Some fields may not have gotten the "packed" 
+     set right because their type was not known yet.  This cleans that up.  */
+  cleanup_undefined_fields ();
+  cleanup_undefined_arrays ();
+
   finish_global_stabs (objfile);
 
   if (pending_blocks == NULL
@@ -956,7 +925,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
   else
     {
       /* Define the STATIC_BLOCK & GLOBAL_BLOCK, and build the
-	 blockvector. */
+         blockvector.  */
       finish_block (0, &file_symbols, 0, last_source_start_addr, end_addr,
 		    objfile);
       finish_block (0, &global_symbols, 0, last_source_start_addr, end_addr,

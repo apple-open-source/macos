@@ -27,6 +27,7 @@
 #include "disasm.h"
 #include "gdbcore.h"
 #include "dis-asm.h"
+#include "gdb_assert.h"
 
 /* Disassemble functions.
    FIXME: We should get rid of all the duplicate code in gdb that does
@@ -347,12 +348,21 @@ gdb_disassemble_info (struct gdbarch *gdbarch, struct ui_file *file)
   return di;
 }
 
+/* A variant of gdb_disassemble_info that generates no output.  Used
+   by find_pc_offset to determine the lengths of instructions it is
+   skipping. */
+
+static struct disassemble_info
+gdb_disassemble_info_null (struct gdbarch *gdbarch)
+{
+  return gdb_disassemble_info (gdbarch, gdb_null);
+}
+
 void
 gdb_disassembly (struct ui_out *uiout,
-		char *file_string,
-		int line_num,
-		int mixed_source_and_assembly,
-		int how_many, CORE_ADDR low, CORE_ADDR high)
+		 CORE_ADDR low, CORE_ADDR high,
+		 int mixed_source_and_assembly,
+		 int how_many)
 {
   struct ui_stream *stb = ui_out_stream_new (uiout);
   struct cleanup *cleanups = make_cleanup_ui_out_stream_delete (stb);
@@ -382,6 +392,231 @@ gdb_disassembly (struct ui_out *uiout,
 
   do_cleanups (cleanups);
   gdb_flush (gdb_stdout);
+}
+
+/* If the architecture in GDBARCH has fixed-length instructions,
+   return that length.  Otherwise, or if we do not know the length of
+   an instruction, return -1. 
+
+   FIXME: This should really be a gdbarch method.  That's a more
+   appropriate change to make post-turmeric, though.
+*/
+
+static
+int gdbarch_instruction_length (struct gdbarch *gdbarch)
+{
+  struct bfd_arch_info *info = gdbarch_bfd_arch_info (gdbarch);
+
+  switch (info->arch)
+    {
+    case bfd_arch_powerpc:
+      return 4;
+    default:
+      return -1;
+    }
+}
+
+/*  Find the address of the instruction OFFSET instructions away from
+    START, and return it in RESULT.  START must be the address of a
+    valid instruction.  For some architectures, the only way to seek
+    backwards is to find a previous point that is known to be a valid
+    instruction, and seek forward.  In this case, PEEKLIMIT will be
+    used as an upper bound on the number of bytes we are willing to
+    search.  If FUNCLIMIT is specified, constrain the instruction to
+    remain within the current function boundaries.
+
+    If we are unable to properly parse the instruction stream, return
+    -1 and store INVALID_ADDRESS in RESULT.  if PEEKLIMIT would be
+    exceeded, or if we were unable to seek the requested number of
+    instructions due to function boundaries, return 1 and store the
+    constrained address in RESULT.  If we are able to seek the
+    requested number of instructions, return 0 and store the result in
+    RESULT.
+
+    FIXME: Currently, we only use function symbols as possible rewind
+    points from which to seek forward.  This isn't typically a
+    problem, since the only functions for which we use this are likely
+    to be system functions, which are typically small and don't have
+    debugging information anyway.  But we should still modify this
+    function to use other sources of information where available, such
+    as line table information.
+*/
+
+int
+find_pc_offset (CORE_ADDR start, CORE_ADDR *result, int offset, int funclimit, int peeklimit)
+{
+  CORE_ADDR low = INVALID_ADDRESS;
+  CORE_ADDR high = INVALID_ADDRESS;
+  CORE_ADDR cur;
+  CORE_ADDR constrained;
+
+  int length;
+
+  struct disassemble_info di = gdb_disassemble_info_null (current_gdbarch);
+  CORE_ADDR *addrs = NULL;
+  unsigned int index;
+  struct cleanup *cleanup = NULL;
+
+  *result = INVALID_ADDRESS;
+  cur = start;
+
+  /* If we are constraining the address to stay in the same function,
+     we need to be able to find its boundaries. */
+
+  if (funclimit)
+    {
+      if (find_pc_partial_function (start, NULL, &low, &high) == 0)
+	{
+	  /* We were unable to find the start of the function. */
+	  return -1;
+	}
+    }
+
+  /* If the architecture has fixed-sized instructions, just use simple
+     arithmetic. */
+  
+  length = gdbarch_instruction_length (current_gdbarch);
+  if (length > 0)
+    {
+      cur = start + length * offset;
+
+      /* Constrain to be within the function limits if appropriate. */
+      if (funclimit && (cur > high))
+	constrained = high;
+      else if (funclimit && (cur < low))
+	constrained = low;
+      else
+	constrained = cur;
+
+      /* Return 1 if we constrained the address; 0 otherwise. */
+      *result = constrained;
+      return (constrained != cur);
+    }
+  
+  /* From here, we must assume variable-sized instructions. */
+
+  if ((! funclimit) && (offset < 0))
+    {
+      /* FIXME: We don't support seeking backwards past the beginning
+	 of a function. */
+      return -1;
+    }
+
+  /* If we have a positive offset, start seeking forward until we are
+     either done, or reach the end of the function. */
+
+  cur = start;
+  while (offset > 0)
+    {
+      cur += TARGET_PRINT_INSN (cur, &di);
+      offset--;
+      
+      if (funclimit && (cur > high))
+	{
+	  /* We went past the end of the function without ever
+	     reaching the purportedly final instruction. */
+	  return -1;
+	}
+      
+      if (funclimit && (cur == high))
+	{
+	  /* We reached the end of the function.  Return 1 if we had
+	     to constrain the address; 0 otherwise. */
+	  *result = cur;
+	  return (offset > 0);
+	}
+    }
+
+  if (offset == 0)
+    {
+      *result = cur;
+      return 0;
+    }
+
+  /* From here out we can assume we are doing a negative offset. */
+
+  gdb_assert (low <= start);
+  gdb_assert (offset < 0);
+
+  /* There's no point searching for more instructions slots than there
+     are bytes.  If we were given a PEEKLIMIT of -1, or a PEEKLIMIT
+     higher than we need, set it to the number of bytes from the start
+     of the function. */
+
+  if ((peeklimit < 0) || (peeklimit > (start - low)))
+    peeklimit = start - low;
+  
+  /* If PEEKLIMIT is less than (start - low), we can still attempt the
+     search --- maybe enough of the instruction stream will be
+     multi-byte that we'll find our address regardless. */
+
+  addrs = (CORE_ADDR *) xmalloc (peeklimit * sizeof (CORE_ADDR));
+  cleanup = make_cleanup (xfree, addrs);
+
+  /* We can assume that we are constrained to the current function at
+     this point (see the comment above). */
+
+  gdb_assert (funclimit);
+
+  cur = low;
+  index = 0;
+
+  /* Seek forward until we either reach our starting point, or reach
+     PEEKLIMIT. */
+
+  for (;;)
+    {
+      if (cur >= start)
+	break;
+      if (index >= peeklimit)
+	break;
+
+      gdb_assert (index < peeklimit);
+      addrs[index++] = cur;
+      cur += TARGET_PRINT_INSN (cur, &di);
+    }
+
+  if (cur == start)
+    {
+      /* We were able to seek all the way forward to the start address. */
+
+      gdb_assert (funclimit);
+      gdb_assert (offset < 0);
+
+      if (index < -offset)
+	{
+	  /* We weren't able to go far enough back.  */
+	  *result = start;
+	  do_cleanups (cleanup);
+	  return 1;
+	} 
+      else
+	{
+	  *result = addrs[index + offset];
+	  do_cleanups (cleanup);
+	  return 0;
+	}
+    }
+
+  if (cur > start)
+    {
+      /* We seeked forward right past the start address, without ever
+	 hitting it. */
+      do_cleanups (cleanup);
+      return -1;
+    }
+
+  if (index >= peeklimit)
+    {
+      /* We went past PEEKLIMIT instructions, and hence, weren't able
+	 to complete the backwards seek.  */
+      do_cleanups (cleanup);
+      return -1;
+    }
+
+  internal_error (__FILE__, __LINE__, "should never have reached here");
+  do_cleanups (cleanup);
+  return -1;
 }
 
 /* Print the instruction at address MEMADDR in debugged memory,

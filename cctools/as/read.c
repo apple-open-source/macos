@@ -254,6 +254,7 @@ static struct attribute_name attribute_names[] = {
     { "strip_static_syms", S_ATTR_STRIP_STATIC_SYMS },
     { "no_dead_strip", S_ATTR_NO_DEAD_STRIP },
     { "live_support", S_ATTR_LIVE_SUPPORT },
+    { "self_modifying_code", S_ATTR_SELF_MODIFYING_CODE },
     { NULL, 0 }
 };
 
@@ -400,6 +401,8 @@ static void s_zerofill(int value);
 static unsigned long s_builtin_section(const struct builtin_section *s);
 static void s_subsections_via_symbols(int value);
 static void s_machine(int value);
+static void s_secure_log_unique(int value);
+static void s_secure_log_reset(int value);
 
 #ifdef PPC
 /*
@@ -444,6 +447,8 @@ static const pseudo_typeS pseudo_table[] = {
   { "lsym",	s_lsym,		0	},
   { "section",	s_section,	0	},
   { "zerofill",	s_zerofill,	0	},
+  { "secure_log_unique",s_secure_log_unique,	0	},
+  { "secure_log_reset",s_secure_log_reset,	0	},
   { "set",	s_set,		0	},
   { "short",	cons,		2	},
   { "single",	float_cons,	'f'	},
@@ -482,6 +487,11 @@ static const pseudo_typeS ppcasm_pseudo_table[] = {
   { NULL }	/* end sentinel */
 };
 #endif /* PPC */
+
+/*
+ * True if .secure_log_unique has been used without; reset by .secure_log_reset
+ */
+static enum bool s_secure_log_used = FALSE;
 
 /*
  * read_begin() initializes the assember to read assembler source input.
@@ -2647,7 +2657,7 @@ int value)
 	    frcP->frch_root->fr_address = round(frcP->frch_root->fr_address,
 					        1 << align);
 	    symbolP->sy_value = frcP->frch_root->fr_address;
-	    symbolP->sy_type  = N_SECT | (symbolP->sy_type & N_EXT);
+	    symbolP->sy_type  = N_SECT | (symbolP->sy_type & (N_EXT | N_PEXT));
 	    symbolP->sy_other = frcP->frch_nsect;
 	    symbolP->sy_frag  = frcP->frch_root;
 	    frcP->frch_root->fr_address += size;
@@ -4391,6 +4401,73 @@ int value)
 		}
 	    }
 	}
+
+	*input_line_pointer = c;
+	demand_empty_rest_of_line();
+}
+
+/*
+ * s_secure_log_reset() implements the pseudo op:
+ *	.secure_log_reset
+ * .secure_log_reset takes no parameters, and resets the "unique" counter. As
+ * it is an error if a .s_secure_log_unique directive is seen twice without
+ * and .secure_log_reset appearing between them.
+ */
+static
+void
+s_secure_log_reset(
+int value)
+{
+	s_secure_log_used = FALSE;
+	demand_empty_rest_of_line();
+}
+
+/*
+ * s_secure_log_unique() implements the pseudo op:
+ *	.s_secure_log_unique log_msg
+ * This opens the file given by the environment varable AS_SECURE_LOG_FILE, and 
+ * appends the current filename, line number, and the text given as the log_msg
+ * in the directive.  If this is present, but AS_SECURE_LOG_FILE is not set,
+ * an error message is generated.   If this appears twice without
+ * .secure_log_reset appearing between them, an error message is generated.
+ */
+static
+void
+s_secure_log_unique(
+int value)
+{
+    FILE *secure_log_fp;
+    char *log_msg, c;
+
+	if(s_secure_log_used != FALSE)
+	    as_fatal(".secure_log_unique specified multiple times");
+
+	if(secure_log_file == FALSE)
+	    as_fatal(".secure_log_unique used but AS_SECURE_LOG_FILE "
+		     "environment variable unset.");
+
+	log_msg = input_line_pointer;
+	do{
+	    c = *input_line_pointer++;
+	} while(is_end_of_line(c) == FALSE);
+	*--input_line_pointer = 0;
+
+	if((secure_log_fp = fopen(secure_log_file, "a+"))){
+	    char *file;
+	    unsigned int line;
+
+	    as_file_and_line(&file, &line);
+		fprintf(secure_log_fp, "%s:%d:%s\n",
+			(file != NULL) ? file : "unknown",
+			line, log_msg);
+
+	    fclose(secure_log_fp);
+	}
+	else
+	    as_fatal("couldn't write to secure log file: \"%s\"",
+		     secure_log_file);
+
+	s_secure_log_used = TRUE;
 
 	*input_line_pointer = c;
 	demand_empty_rest_of_line();

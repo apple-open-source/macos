@@ -122,13 +122,12 @@ if { "${asm-arch}" == "" } {
     return
 }
 
-
 # APPLE LOCAL: Skip on Darwin systems.  Our assembler doesn't support
 # all of the directives used in this directory, at the very least.
 
 if { [istarget "*-apple-darwin*"] } then {
-    gdb_suppress_entire_file "Assembly source test -- not implemented for this target."
     return
+    gdb_suppress_entire_file "Assembly source test -- not implemented for this target."
 }
   
 

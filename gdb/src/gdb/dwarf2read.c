@@ -518,6 +518,19 @@ struct dwarf2_pinfo
     /* Size of dwarf locations buffer for the objfile.  */
 
     unsigned int dwarf_loc_size;
+
+    /* APPLE LOCAL: We need to store the dwarf_*_vma sizes here
+       so we can restore them when we do psymtab_to_symtab.  */
+
+    file_ptr dwarf_info_vma;
+
+    file_ptr dwarf_abbrev_vma;
+
+    file_ptr dwarf_line_vma;
+
+    file_ptr dwarf_str_vma;
+    /* END APPLE LOCAL */
+
   };
 
 #define PST_PRIVATE(p) ((struct dwarf2_pinfo *)(p)->read_symtab_private)
@@ -535,6 +548,23 @@ struct dwarf2_pinfo
 #define DWARF_RANGES_SIZE(p)    (PST_PRIVATE(p)->dwarf_ranges_size)
 #define DWARF_LOC_BUFFER(p)     (PST_PRIVATE(p)->dwarf_loc_buffer)
 #define DWARF_LOC_SIZE(p)       (PST_PRIVATE(p)->dwarf_loc_size)
+
+/* APPLE LOCAL: Accessors for the vma data so we can adjust for absolute
+   references within the sections.  Remove this when our ld can write
+   shlib relative DWARF info.  */
+
+#define DWARF_INFO_VMA(p) (PST_PRIVATE(p)->dwarf_info_vma)
+#define DWARF_ABBREV_VMA(p) (PST_PRIVATE(p)->dwarf_abbrev_vma)
+#define DWARF_LINE_VMA(p) (PST_PRIVATE(p)->dwarf_line_vma)
+#define DWARF_STR_VMA(p) (PST_PRIVATE(p)->dwarf_str_vma)
+
+    static file_ptr dwarf_abbrev_vma;
+
+    static file_ptr dwarf_line_vma;
+
+    static file_ptr dwarf_str_vma;
+
+/* END APPLE LOCAL */
 
 /* FIXME: We might want to set this from BFD via bfd_arch_bits_per_byte,
    but this would require a corresponding change in unpack_field_as_long
@@ -1302,6 +1332,18 @@ dwarf2_build_psymtabs_hard (struct objfile *objfile, int mainline)
       DWARF_RANGES_SIZE (pst) = dwarf_ranges_size;
       DWARF_LOC_BUFFER (pst) = dwarf_loc_buffer;
       DWARF_LOC_SIZE (pst) = dwarf_loc_size;
+
+      /* APPLE LOCAL: Set the dwarf_*_vma fields in the 
+	 pst.  Remove this when our ld can write shlib relative
+	 DWARF info.  */
+
+      DWARF_INFO_VMA(pst) = dwarf_info_vma;
+      DWARF_ABBREV_VMA(pst) = dwarf_abbrev_vma;
+      DWARF_LINE_VMA(pst) = dwarf_line_vma;
+      DWARF_STR_VMA(pst) = dwarf_str_vma;
+
+      /* END APPLE LOCAL */
+
       baseaddr = ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
 
       /* Store the function that reads in the rest of the symbol table */
@@ -1877,6 +1919,16 @@ psymtab_to_symtab_1 (struct partial_symtab *pst)
   info_ptr = dwarf_info_buffer + offset;
   baseaddr = ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
 
+  /* APPLE LOCAL: Restore the dwarf_*_vma fields from the 
+     pst.  Remove this when our ld can write shlib relative
+     DWARF info.  */
+
+  dwarf_info_vma = DWARF_INFO_VMA(pst);
+  dwarf_abbrev_vma = DWARF_ABBREV_VMA(pst);
+  dwarf_line_vma = DWARF_LINE_VMA(pst);
+  dwarf_str_vma = DWARF_STR_VMA(pst);
+  /* END APPLE LOCAL */
+  
   /* We're in the global namespace.  */
   processing_current_prefix = "";
 

@@ -1,5 +1,5 @@
 /*
- "$Id: usb-darwin.c,v 1.13.2.1 2005/05/27 06:58:42 jlovell Exp $"
+ "$Id: usb-darwin.c,v 1.13.2.3 2005/12/20 21:05:06 jlovell Exp $"
 
 © Copyright 2005 Apple Computer, Inc. All rights reserved.
 
@@ -69,6 +69,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <termios.h>
 #include <unistd.h>
 #include <pthread.h>	// Used for writegReadMutex
+#include <sys/sysctl.h>
+#include <libgen.h>
 
 
 #ifndef kPMPrinterURI
@@ -250,6 +252,7 @@ typedef struct
     UInt32					location;		// unique location in USB topology
     USBPrinterAddress		address;		// topology independent bus address
     CFURLRef				reference;		// internal use
+    int				classdrivererror;	// result of trying to load class driver
 } USBPrinterInfo;
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -273,6 +276,12 @@ int			UsbSamePrinter( const USBPrinterAddress *lastTime, const USBPrinterAddress
 OSStatus	UsbGetPrinterAddress( USBPrinterInfo *thePrinter, USBPrinterAddress *address, UInt16 timeout );
 
 static void setupCFLanguage(void);
+
+#if defined(__i386__)
+static pid_t child_pid;						/* Child PID */
+static void run_ppc_backend(int argc, char *argv[], int fd);	/* Starts child backend process running as a ppc executable */
+static void sigterm_handler(int sig);				/* SIGTERM handler */
+#endif /* __i386__ */
 
 /*******************************************************************************
 	Contains:	Support IEEE-1284 DeviceID as a CFString.
@@ -406,6 +415,7 @@ static int removePercentEscapes(const char* src, unsigned char* dst, int dstMax)
 
 static volatile int done = 0;
 static int gWaitEOF = false;
+static int gBidi = true;
 static pthread_cond_t *gReadCompleteConditionPtr = NULL;
 static pthread_mutex_t *gReadMutexPtr = NULL;
 
@@ -641,7 +651,7 @@ readthread( void *reference )
 /*
 * 'print_device()' - Send a file to the specified USB port.
 */
-int print_device(const char *uri, const char *hostname, const char *resource, const char *options, int fd, int copies)
+int print_device(const char *uri, const char *hostname, const char *resource, const char *options, int fd, int copies, int argc, char *argv[])
 {
 	UInt32		wbytes,			/* Number of bytes written */
 				buffersize = 2048;
@@ -680,8 +690,8 @@ int print_device(const char *uri, const char *hostname, const char *resource, co
 	if (resource[0] == '/')
 	  resource++;
 
-	removePercentEscapes(hostname,		manufacturer_buf,	sizeof(manufacturer_buf));
-	removePercentEscapes(resource,		product_buf,		sizeof(product_buf));
+	removePercentEscapes(hostname,	(unsigned char*)manufacturer_buf,	sizeof(manufacturer_buf));
+	removePercentEscapes(resource,	(unsigned char*)product_buf,		sizeof(product_buf));
 
 	manufacturer = CFStringCreateWithCString(NULL, manufacturer_buf, kCFStringEncodingUTF8);
 	product	     = CFStringCreateWithCString(NULL, product_buf,		 kCFStringEncodingUTF8);
@@ -758,7 +768,21 @@ int print_device(const char *uri, const char *hostname, const char *resource, co
 		}
 		UsbReleaseAllPrinters( usbPrinters );
 		if ( NULL != targetPrinter )
+		{
+#if defined(__i386__)
+			/*
+			 * If we were unable to load the class drivers for this printer it's probably because they're ppc-only.
+			 * In this case try to fork & exec this backend as a ppc executable so we can use them...
+			 */
+			if (targetPrinter->classdrivererror)	// kPMInvalidIOMContext when loading ppc class drivers
+			{
+				run_ppc_backend(argc, argv, fd);
+				/* Never returns here */
+			}
+#endif /* __i386__ */
+
 			status = UsbRegistryOpen( &targetPrinter->address, &activePrinter );
+		}
 
 		if ( NULL == activePrinter )
 		{
@@ -812,19 +836,22 @@ int print_device(const char *uri, const char *hostname, const char *resource, co
 	}
 	else
 	{
-		if (pthread_cond_init(&readCompleteCondition, NULL) == 0)
+		if (gBidi)
 		{
-			gReadCompleteConditionPtr = &readCompleteCondition;
-			
-			if (pthread_mutex_init(&readMutex, NULL) == 0)
-			{
-				gReadMutexPtr = &readMutex;
-
-				if (pthread_create(&thr, NULL, readthread, classdriver ) > 0)
-					fprintf(stderr, "WARNING: Couldn't create read channel\n");
-				else
-					thread_created = 1;
-			}
+		    if (pthread_cond_init(&readCompleteCondition, NULL) == 0)
+		    {
+			    gReadCompleteConditionPtr = &readCompleteCondition;
+			    
+			    if (pthread_mutex_init(&readMutex, NULL) == 0)
+			    {
+				    gReadMutexPtr = &readMutex;
+    
+				    if (pthread_create(&thr, NULL, readthread, classdriver ) > 0)
+					    fprintf(stderr, "WARNING: Couldn't create read channel\n");
+				    else
+					    thread_created = 1;
+			    }
+		    }
 		}
 	}
 	/*
@@ -1027,6 +1054,25 @@ static void parseOptions(const char *options, char *serial, UInt32 *location)
 		else if (strcasecmp(optionName, "location") == 0 && location)
 		{
 			*location = strtol(value, NULL, 16);
+		}
+		else if (strcasecmp(optionName, "bidi") == 0)
+		{
+			if (strcasecmp(value, "on") == 0 ||
+				strcasecmp(value, "yes") == 0 ||
+				strcasecmp(value, "true") == 0)
+			{
+				gBidi = true;
+			}
+			else if (strcasecmp(value, "off") == 0 ||
+					strcasecmp(value, "no") == 0 ||
+					strcasecmp(value, "false") == 0)
+			{
+				gBidi = false;
+			}
+			else
+			{
+				fprintf(stderr, "WARNING: Boolean expected for bidi option \"%s\"\n", value);
+			}
 		}
 	}
 
@@ -1736,6 +1782,14 @@ UsbGetAllPrinters( void )
                     if ( kIOReturnSuccess == kr )
                     {
                         kr = UsbLoadClassDriver( &printer, kUSBPrinterClassInterfaceID, classDriver );
+
+			if ( kIOReturnSuccess != kr && NULL != classDriver )
+			{
+				fprintf(stderr, "DEBUG: Unable to load USB class driver (%d), using generic class driver instead\n", (int)kr);
+				printer.classdrivererror = kr;
+				kr = UsbLoadClassDriver( &printer, kUSBPrinterClassInterfaceID, NULL ); // fallback to default class driver
+			}
+
                         DEBUG_ERR(kr, "UsbGetAllPrinters UsbLoadClassDriver %x\n");
 						if ( kIOReturnSuccess == kr && printer.classdriver )
 						{
@@ -1841,6 +1895,8 @@ UsbCopyPrinter( USBPrinterInfo *aPrinter )
     if ( NULL != printerInfo && NULL != aPrinter )
     {
         printerInfo->location = aPrinter->location;
+        printerInfo->classdrivererror = aPrinter->classdrivererror;
+
         if ( NULL != (printerInfo->address.manufacturer = aPrinter->address.manufacturer) )
             CFRetain( printerInfo->address.manufacturer );
         if ( NULL != (printerInfo->address.product = aPrinter->address.product) )
@@ -1954,7 +2010,7 @@ static CFStringRef CreateEncodedCFString(CFStringRef string)
                 UInt16 bufferSizeEncoded = (3 * strlen(bufferUTF8)) + 1;
                 if ((bufferEncoded = (char*)malloc(bufferSizeEncoded)) != NULL)
                 {
-                    addPercentEscapes(bufferUTF8, bufferEncoded, bufferSizeEncoded);
+                    addPercentEscapes((unsigned char*)bufferUTF8, (char*)bufferEncoded, bufferSizeEncoded);
                     result = CFStringCreateWithCString(kCFAllocatorDefault, bufferEncoded, kCFStringEncodingUTF8);
                 }
             }
@@ -1966,5 +2022,150 @@ static CFStringRef CreateEncodedCFString(CFStringRef string)
 
 	return result;
 }
+
+
+#if defined(__i386__)
+/*!
+ * @function	run_ppc_backend
+ *
+ * @abstract	Starts child backend process running as a ppc executable.
+ *
+ * @result	Never returns; always calls exit().
+ *
+ * @discussion	
+ */
+static void run_ppc_backend(int argc, char *argv[], int fd)
+{
+	int	i;
+	int	exitstatus = 0;
+	int	childstatus;
+	pid_t	waitpid_status;
+	char	*my_argv[32];
+	char	*usb_ppc_status;
+
+	/*
+	* If we're running as i386 and couldn't load the class driver (because they'it's
+	* ppc-only) then try to re-exec ourselves in ppc mode to try again. If we don't have
+	* a ppc architecture we may be running i386 again so guard against this by setting
+	* and testing an environment variable...
+	*/
+
+	usb_ppc_status = getenv("USB_PPC_STATUS");
+
+	if (usb_ppc_status == NULL)
+	{
+		/*
+		* Catch SIGTERM if we are _not_ printing data from
+		* stdin (otherwise you can't cancel raw jobs...)
+		*/
+		
+		if (fd != 0)
+		{
+	#ifdef HAVE_SIGSET /* Use System V signals over POSIX to avoid bugs */
+			sigset(SIGTERM, sigterm_handler);
+	#elif defined(HAVE_SIGACTION)
+			struct sigaction action;	/* Actions for POSIX signals */
+			memset(&action, 0, sizeof(action));
+			sigaddset(&action.sa_mask, SIGTERM);
+			action.sa_handler = sigterm_handler;
+			sigaction(SIGTERM, &action, NULL);
+	#else
+			signal(SIGTERM, sigterm_handler);
+	#endif /* HAVE_SIGSET */
+		}
+	
+		if ((child_pid = fork()) == 0)
+		{
+			/* Child comes here. */
+
+			setenv("USB_PPC_STATUS", "1", false);
+
+			/*
+			* Tell the kernel we want the next exec call to favor the ppc architecture...
+			*/
+	
+			int mib[] = { CTL_KERN, KERN_AFFINITY, 1, 1 };
+			int namelen = 4;
+			sysctl(mib, namelen, NULL, NULL, NULL, 0);
+	
+			/*
+			* Set up the arguments and call exec...
+			*/
+	
+			for (i = 0; i < argc && i < (sizeof(my_argv)/sizeof(my_argv[0])) - 1; i++)
+				my_argv[i] = argv[i];
+	
+			my_argv[i] = NULL;
+	
+			execv("/usr/libexec/cups/backend/usb", my_argv);
+	
+			fprintf(stderr, "DEBUG: execv: %s\n", strerror(errno));
+			exitstatus = errno;
+		}
+		else if (child_pid > 0)
+		{
+			/* Parent comes here. 
+			 *
+			 * Close the fds we won't be using then wait for the child backend to exit.
+			 */
+	
+			close(fd);
+			close(1);
+	
+			fprintf(stderr, "DEBUG: Started usb(ppc) backend (PID %d)\n", (int)child_pid);
+	
+			 do {
+				waitpid_status = waitpid(child_pid, &childstatus, 0);
+			} while (waitpid_status == (pid_t)-1 && errno == EINTR);
+	
+			if (WIFSIGNALED(childstatus))
+			{
+				exitstatus = WTERMSIG(childstatus);
+				fprintf(stderr, "DEBUG: usb(ppc) backend %d crashed on signal %d!\n", child_pid, exitstatus);
+			}
+			else
+			{
+				if ((exitstatus = WEXITSTATUS(childstatus)) != 0)
+					fprintf(stderr, "DEBUG: usb(ppc) backend %d stopped with status %d!\n", child_pid, exitstatus);
+				else
+					fprintf(stderr, "DEBUG: PID %d exited with no errors\n", child_pid);
+			}
+		}
+		else
+		{
+			/* fork() error */
+			fprintf(stderr, "DEBUG: fork: %s\n", strerror(errno));
+			exitstatus = errno;
+		}
+	}
+	else
+	{
+		fprintf(stderr, "DEBUG: usb child running i386 again\n");
+		exitstatus = ENOENT;
+	}
+
+	exit(exitstatus);
+}
+
+/*!
+ * @function	sigterm_handler
+ *
+ * @abstract	Handle terminate signals.
+ *
+ */
+
+static void sigterm_handler(int sig)
+{
+	/*
+	 * If we started a child process pass the signal on to it...
+	 */
+
+	if (child_pid)
+		kill(child_pid, sig);
+
+	exit(1);
+}
+
+#endif /* __i386__ */
 
 // eof

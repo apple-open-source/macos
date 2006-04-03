@@ -1,6 +1,6 @@
-.TH LIPO 1 "February 15, 2005" "Apple Computer, Inc."
+.TH LIPO 1 "July 28, 2005" "Apple Computer, Inc."
 .SH NAME
-lipo \- create or operate on fat files
+lipo \- create or operate on universal files
 .SH SYNOPSIS
 .B lipo
 [\-info]
@@ -27,16 +27,16 @@ lipo \- create or operate on fat files
 .SH DESCRIPTION
 The
 .I lipo
-command creates or operates on ``fat'' (multi-architecture) files.
+command creates or operates on ``universal'' (multi-architecture) files.
 It only ever produces one output file, 
 and never alters the input file.  The operations that 
 .I lipo 
 performs are:
-listing the architecture types in a fat file;
-creating a single fat file from one or more input files; 
-thinning out a single fat file to one specified architecture type;
+listing the architecture types in a universal file;
+creating a single universal file from one or more input files; 
+thinning out a single universal file to one specified architecture type;
 and extracting, replacing, and/or removing architectures
-types from the input file to create a single new fat output file.
+types from the input file to create a single new universal output file.
 .PP
 Only one option can be specified, 
 with the exception of
@@ -67,12 +67,13 @@ arguments may be any of the supported architecture names listed in the man page
 .SH OPTIONS
 .TP 
 .BI \-info
-Briefly list the architecture types in the input fat file 
+Briefly list the architecture types in the input universal file 
 (just the names of each architecture).
 .TP
 .BI \-detailed_info
-Display a detailed list of the architecture types in the input fat file 
-(all the the information in the fat header, for each architecture in the file).
+Display a detailed list of the architecture types in the input universal file 
+(all the the information in the universal header, for each architecture in the
+file).
 .TP
 .BI \-arch " arch_type input_file"
 Tells
@@ -85,7 +86,7 @@ The
 specification is unnecessary if 
 .I input_file
 is an
-object file, a fat file, or some other file whose architecture(s)
+object file, a universal file, or some other file whose architecture(s)
 .I lipo
 can figure out.
 .TP
@@ -93,42 +94,42 @@ can figure out.
 Specifies its argument to be the output file.
 .TP
 .B \-create
-Take the input files (or file) and create one fat output file from them. 
+Take the input files (or file) and create one universal output file from them. 
 .TP
 .BI \-thin " arch_type"
 Take one input file and create a thin output file with the specified
 .IR arch_type .
 .TP
 .BI \-replace " arch_type file_name"
-Take one fat input file; in the output file, replace the
+Take one universal input file; in the output file, replace the
 .I arch_type
 contents of the input file with the contents of the specified
 .IR file_name .
 .TP
 .BI \-remove " arch_type"
-Take one fat input file and remove the
+Take one universal input file and remove the
 .I arch_type
-from that fat file, placing the result in the output file.
+from that universal file, placing the result in the output file.
 .TP
 .BI \-extract " arch_type"
-Take one fat input file and copy the
+Take one universal input file and copy the
 .I arch_type
-from that fat file into a fat output file containing
+from that universal file into a universal output file containing
 only that architecture.  
 .TP
 .BI \-extract_family " arch_type"
-Take one fat input file and copy all of the 
+Take one universal input file and copy all of the 
 .IR arch_type s
 for the family that
 .I arch_type
-is in from that fat file into an output file containing
+is in from that universal file into an output file containing
 only those architectures.  The file will be thin if only one architecture is
-found or fat otherwise.
+found or universal otherwise.
 .TP
 .BI \-segalign " arch_type value"
 Set the segment alignment of the specified
 .I arch_type
-when creating a fat file containing that architecture.
+when creating a universal file containing that architecture.
 .I value
 is a hexadecimal number that must be an integral power of 2.
 This is only needed when

@@ -166,6 +166,12 @@ struct mach_header_64 {
 					   external weak symbols */
 #define MH_BINDS_TO_WEAK 0x10000	/* the final linked image uses
 					   weak symbols */
+
+#define MH_ALLOW_STACK_EXECUTION 0x20000/* When this bit is set, all stacks 
+					   in the task will be given stack
+					   execution privilege.  Only used in
+					   MH_EXECUTE filetypes. */
+
 /*
  * The load commands directly follow the mach_header.  The total size of all
  * of the commands is given by the sizeofcmds field in the mach_header.  All
@@ -306,6 +312,11 @@ struct segment_command_64 { /* for 64-bit architectures */
 #define	SG_NORELOC	0x4	/* this segment has nothing that was relocated
 				   in it and nothing relocated to it, that is
 				   it maybe safely replaced without relocation*/
+#define SG_PROTECTED_VERSION_1	0x8 /* This segment is protected.  If the
+				       segment starts at file offset 0, the
+				       first page of the segment is not
+				       protected.  All other pages of the
+				       segment are protected. */
 
 /*
  * A segment is made up of zero or more sections.  Non-MH_OBJECT files have
@@ -428,6 +439,8 @@ struct section_64 { /* for 64-bit architectures */
 #define S_ATTR_NO_DEAD_STRIP	 0x10000000	/* no dead stripping */
 #define S_ATTR_LIVE_SUPPORT	 0x08000000	/* blocks are live if they
 						   reference live blocks */
+#define S_ATTR_SELF_MODIFYING_CODE 0x04000000	/* Used with i386 code stubs
+						   written on by dyld */
 #define SECTION_ATTRIBUTES_SYS	 0x00ffff00	/* system setable attributes */
 #define S_ATTR_SOME_INSTRUCTIONS 0x00000400	/* section contains some
 						   machine instructions */
@@ -492,6 +505,10 @@ struct section_64 { /* for 64-bit architectures */
 					/* FVMLIB file types only */
 
 #define SEG_UNIXSTACK	"__UNIXSTACK"	/* the unix stack segment */
+
+#define SEG_IMPORT	"__IMPORT"	/* the segment for the self (dyld) */
+					/* modifing code stubs that has read, */
+					/* write and execute permissions */
 
 /*
  * Fixed virtual memory shared libraries are identified by two things.  The

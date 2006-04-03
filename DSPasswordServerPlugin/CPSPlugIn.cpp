@@ -825,11 +825,23 @@ DEBUGLOG( "BeginServerSession, inSock = %d", inSock );
 		if ( inSock != -1 )
 		{
 			inContext->fd = inSock;
-			inContext->serverIn = fdopen(inSock, "r");
 			inContext->serverOut = fdopen(inSock, "w");
 			
-			// discard the greeting message
-			readFromServer(inSock, buf, sizeof(buf));
+			// get password server version from the greeting
+			serverResult = readFromServer(inSock, buf, sizeof(buf));
+			if ( serverResult.err == 0 &&
+				 (tptr = strstr(buf, "ApplePasswordServer")) != NULL )
+			{
+				char *cur;
+				int index = 0;
+				
+				tptr += sizeof( "ApplePasswordServer" );
+				while ( (cur = strsep(&tptr, ".")) != NULL ) {
+					sscanf( cur, "%d", &inContext->serverVers[index++] );
+					if ( index >= 4 )
+						break;
+				}
+			}
 		}
 		else
 		{
@@ -978,9 +990,6 @@ DEBUGLOG( "BeginServerSession, inSock = %d", inSock );
 
 sInt32 CPSPlugIn::EndServerSession( sPSContextData *inContext, bool inSendQuit )
 {
-
-DEBUGLOG( "CPSPlugIn::EndServerSession closing %d", inContext->fd );
-	
 	gPWSConnMutex->Wait();
 	
 	if ( inSendQuit )
@@ -997,17 +1006,13 @@ DEBUGLOG( "CPSPlugIn::EndServerSession closing %d", inContext->fd );
         }
 	}
 	
-	if ( inContext->serverIn != NULL ) {
-		fpurge( inContext->serverIn );
-		fclose( inContext->serverIn );
-		inContext->serverIn = NULL;
-	}
 	if ( inContext->serverOut != NULL ) {
 		fpurge( inContext->serverOut );
 		fclose( inContext->serverOut );
 		inContext->serverOut = NULL;
 	}
 	if ( inContext->fd > 0 ) {
+		DEBUGLOG( "CPSPlugIn::EndServerSession closing %d", inContext->fd );
 		close( inContext->fd );
 		gCloseCount++;
 	}
@@ -1019,8 +1024,8 @@ DEBUGLOG( "CPSPlugIn::EndServerSession closing %d", inContext->fd );
 	
 	gPWSConnMutex->Signal();
 	
-DEBUGLOG( "CPSPlugIn::EndServerSession opens: %l, closes %l", gOpenCount, gCloseCount );
-
+	DEBUGLOG( "CPSPlugIn::EndServerSession opens: %l, closes %l", gOpenCount, gCloseCount );
+	
 	return eDSNoErr;
 }
 
@@ -1388,6 +1393,7 @@ sInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 		if ( Convert64ToBinary( buf + 4, encryptedStr, kOneKBuffer, &encryptedStrLen ) != SASL_OK )
 		{
 			DEBUGLOG( "Convert64ToBinary() failed");
+			DEBUGLOG( "value = %s", buf + 4 );
             throw( (sInt32)eParameterError );
 		}
 		if ( encryptedStrLen < 8 )
@@ -1397,7 +1403,7 @@ sInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 		}
 		
 		// get the RSA-encrypted random
-		memcpy( &randomLength, encryptedStr, 4 );
+		randomLength = ntohl( *((unsigned long *)encryptedStr) );
 		DEBUGLOG( "length of random from SYNC SESSIONKEY is %l", randomLength );
 		if ( randomLength > 128 )
 		{
@@ -1415,7 +1421,7 @@ sInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 			throw( (sInt32)eDSNotAuthorized );
 		
 		// get the rc5-encrypted nonce
-		memcpy( &nonceLength, encryptedStr + 4 + randomLength, 4 );
+		nonceLength = ntohl( *((unsigned long *)(encryptedStr + 4 + randomLength)) );
 		if ( nonceLength > 1024 )
 			throw( (sInt32)eDSAuthServerError );
 		
@@ -2467,6 +2473,16 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 		if ( siResult != eDSNoErr )
 			throw( siResult );
 		
+		// auto-downgrade kAuthNTSessionKey to kAuthSMB_NT_Key if there is no authenticator
+		if ( uiAuthMethod == kAuthNTSessionKey )
+		{
+			if ( GetStringFromAuthBuffer(inData->fInAuthStepData, 4, &paramStr) != eDSNoErr || DSIsStringEmpty(paramStr) )
+				uiAuthMethod = kAuthSMB_NT_Key;
+			
+			if ( paramStr != NULL )
+				DSFreeString( paramStr );
+		}
+		
         if ( inData->fIOContinueData == NULL )
         {
             siResult = UnpackUsernameAndPassword( pContext,
@@ -2537,11 +2553,11 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 				throw( siResult );
 			
 			if ( ! Connected(pContext) )
-				{
-					// close out anything stale
-					EndServerSession( pContext );
-					throw( (sInt32)eDSAuthServerError );
-				}
+			{
+				// close out anything stale
+				EndServerSession( pContext );
+				throw( (sInt32)eDSAuthServerError );
+			}
 			
 			pContext->madeFirstContact = true;
 		}
@@ -2558,7 +2574,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
         // do not authenticate for auth methods that do not need SASL authentication
         if ( !bHasValidAuth && siResult == noErr && RequiresSASLAuthentication( uiAuthMethod ) )
         {
-			siResult = GetAuthMethodSASLName( uiAuthMethod, inData->fInDirNodeAuthOnlyFlag, saslMechNameStr, &bMethodCanSetPassword );
+			siResult = GetAuthMethodSASLName( pContext, uiAuthMethod, inData->fInDirNodeAuthOnlyFlag, saslMechNameStr, &bMethodCanSetPassword );
 			DEBUGLOG( "GetAuthMethodSASLName siResult=%l, mech=%s", siResult, saslMechNameStr );
 			if ( siResult != eDSNoErr )
 				throw( siResult );
@@ -2639,7 +2655,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
             }
         }
 		
-        if ( siResult == eDSNoErr || siResult == eDSAuthNewPasswordRequired )
+        if ( siResult == eDSNoErr || siResult == eDSAuthNewPasswordRequired || uiAuthMethod == kAuthNTSessionKey )
         {
             tDataBufferPtr outBuf = inData->fOutAuthStepDataResponse;
             const char *encodedStr;
@@ -3251,8 +3267,9 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 					break;
 					
 				case kAuthSMB_NTUserSessionKey:
+				case kAuthNTSessionKey:
 					#pragma mark kAuthSMB_NTUserSessionKey
-					siResult = DoAuthMethodNTUserSessionKey( inData, pContext, outBuf );
+					siResult = DoAuthMethodNTUserSessionKey( siResult, uiAuthMethod, inData, pContext, outBuf );
 					break;
 					
 				case kAuthSMBWorkstationCredentialSessionKey:
@@ -3496,7 +3513,7 @@ sInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *i
 	bool					needPolicyLater		= false;
 	bool					hasDotInName		= false;
 	NewUserParamListType	paramListType		= kNewUserParamsNone;
-	PWServerError			result;
+	PWServerError			result				= {0};
 	char					buf[kOneKBuffer];
 	char					encoded64Str[kOneKBuffer];
 	char					userNameToSet[kOneKBuffer];
@@ -3641,7 +3658,7 @@ sInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *i
 				outBuf->fBufferLength = 4;
 				
 				// copy the ID
-				encodedStrLen = strlen(buf+4);
+				encodedStrLen = strlen( buf + 4 );
 				memcpy( outBuf->fBufferData + outBuf->fBufferLength, buf+4, encodedStrLen );
 				outBuf->fBufferLength += encodedStrLen;
 				
@@ -4032,65 +4049,98 @@ sInt32 CPSPlugIn::DoAuthMethodPush( sDoDirNodeAuth *inData, sPSContextData *inCo
 //	* DoAuthMethodNTUserSessionKey
 // ---------------------------------------------------------------------------
 
-sInt32 CPSPlugIn::DoAuthMethodNTUserSessionKey( sDoDirNodeAuth *inData, sPSContextData *inContext, tDataBufferPtr outBuf )
+sInt32 CPSPlugIn::DoAuthMethodNTUserSessionKey(
+	sInt32 inAuthenticatorAuthResult,
+	uInt32 inAuthMethod,
+	sDoDirNodeAuth *inData,
+	sPSContextData *inContext,
+	tDataBufferPtr outBuf )
 {
 	sInt32				siResult			= eDSNoErr;
-	char				*userIDToSet		= NULL;
+	char				*userID				= NULL;
 	char				*paramStr			= NULL;
 	char				*stepData			= NULL;
 	int					saslResult			= SASL_OK;
 	PWServerError		result;
+    unsigned char		*challenge			= NULL;
+    unsigned char		*digest				= NULL;
+    long				len					= 0;
 	char				buf[kOneKBuffer];
+	char				password[32]		= {0};
 	
 	try
 	{
-		siResult = GetStringFromAuthBuffer( inData->fInAuthStepData, 1, &userIDToSet );
+		siResult = GetStringFromAuthBuffer( inData->fInAuthStepData, 1, &userID );
 		if ( siResult == noErr )
 		{
 			const char *decryptedStr;
 			unsigned long decodedStrLen;
 			unsigned decryptedStrLen;
 			
-			if ( userIDToSet == NULL )
+			if ( userID == NULL )
 				throw( (sInt32)eDSInvalidBuffFormat );
 			
-			StripRSAKey( userIDToSet );
+			StripRSAKey( userID );
 			
-			result = SendFlushReadWithMutex( inContext, "GETNTHASHHASH", userIDToSet, NULL, buf, sizeof(buf) );
-			if ( result.err != 0 )
-				throw( PWSErrToDirServiceError(result) );
+			if ( inAuthenticatorAuthResult == eDSNoErr )
+			{
+				result = SendFlushReadWithMutex( inContext, "GETNTHASHHASH", userID, NULL, buf, sizeof(buf) );
+				if ( result.err != 0 )
+					throw( PWSErrToDirServiceError(result) );
+				
+				decodedStrLen = strlen( buf ) - 4;
+				if ( decodedStrLen < 2 )
+					throw( (sInt32)eDSAuthServerError );
+				
+				stepData = (char *) malloc( decodedStrLen );
+				if ( stepData == NULL )
+					throw( (sInt32)eMemoryError );
+				
+				// decode
+				if ( Convert64ToBinary( buf + 4, stepData, decodedStrLen, &decodedStrLen ) != SASL_OK )
+					throw( (sInt32)eDSAuthServerError );
+				
+				// decrypt
+				gSASLMutex->Wait();
+				saslResult = sasl_decode( inContext->conn,
+											stepData,
+											decodedStrLen,
+											&decryptedStr,
+											&decryptedStrLen);
+				gSASLMutex->Signal();
+				
+				if ( saslResult != SASL_OK )
+					throw( (sInt32)eDSAuthFailed );
+				
+				if ( outBuf->fBufferSize < decryptedStrLen + 4 )
+					throw( (sInt32)eDSBufferTooSmall );
+				
+				outBuf->fBufferLength = decryptedStrLen + 4;
+				decodedStrLen = decryptedStrLen;
+				memcpy( outBuf->fBufferData, &decodedStrLen, 4 );
+				memcpy( outBuf->fBufferData + 4, decryptedStr, decryptedStrLen );
+			}
 			
-			decodedStrLen = strlen( buf ) - 4;
-			if ( decodedStrLen < 2 )
-				throw( (sInt32)eDSAuthServerError );
-			
-			stepData = (char *) malloc( decodedStrLen );
-			if ( stepData == NULL )
-				throw( (sInt32)eMemoryError );
-			
-			// decode
-			if ( Convert64ToBinary( buf + 4, stepData, decodedStrLen, &decodedStrLen ) != SASL_OK )
-				throw( (sInt32)eDSAuthServerError );
-			
-			// decrypt
-			gSASLMutex->Wait();
-			saslResult = sasl_decode( inContext->conn,
-										stepData,
-										decodedStrLen,
-										&decryptedStr,
-										&decryptedStrLen);
-			gSASLMutex->Signal();
-			
-			if ( saslResult != SASL_OK )
-				throw( (sInt32)eDSAuthFailed );
-			
-			if ( outBuf->fBufferSize < decryptedStrLen + 4 )
-				throw( (sInt32)eDSBufferTooSmall );
-			
-			outBuf->fBufferLength = decryptedStrLen + 4;
-			decodedStrLen = decryptedStrLen;
-			memcpy( outBuf->fBufferData, &decodedStrLen, 4 );
-			memcpy( outBuf->fBufferData + 4, decryptedStr, decryptedStrLen );
+			if ( inAuthMethod == kAuthNTSessionKey )
+			{
+				// now do the NT auth
+				siResult = GetDataFromAuthBuffer( inData->fInAuthStepData, 2, &challenge, &len );
+				if ( siResult != noErr || challenge == NULL || len != 8 )
+					throw( (sInt32)eDSInvalidBuffFormat );
+				
+				siResult = GetDataFromAuthBuffer( inData->fInAuthStepData, 3, &digest, &len );
+				if ( siResult != noErr || digest == NULL || len != 24 )
+					throw( (sInt32)eDSInvalidBuffFormat );
+				
+				memcpy( password, challenge, 8 );
+				memcpy( password + 8, digest, 24 );
+				
+				siResult = DoSASLAuth( inContext, userID, password, 32, NULL, "SMB-NT", inData, &stepData );
+			}
+			else
+			{
+				siResult = inAuthenticatorAuthResult;
+			}
 		}
 	}
 	catch( sInt32 error )
@@ -4101,8 +4151,8 @@ sInt32 CPSPlugIn::DoAuthMethodNTUserSessionKey( sDoDirNodeAuth *inData, sPSConte
 	{
 	}
 	
-	if ( userIDToSet != NULL )
-		free( userIDToSet );
+	if ( userID != NULL )
+		free( userID );
 	if ( paramStr != NULL )
 		free( paramStr );
 	if ( stepData != NULL )
@@ -4656,6 +4706,7 @@ sInt32 CPSPlugIn::UseCurrentAuthenticationIfPossible( sPSContextData *inContext,
 					case kAuthSetPasswdAsRoot:
 					case kAuthSetPolicyAsRoot:
 					case kAuthSMB_NTUserSessionKey:
+					case kAuthNTSessionKey:
 					case kAuthSMBWorkstationCredentialSessionKey:
 					case kAuthNTSetWorkstationPasswd:
 					case kAuthEncryptToUser:
@@ -5012,6 +5063,14 @@ CPSPlugIn::UnpackUsernameAndPassword(
                     *outPasswordLen = strlen( *outPassword );
                 break;
             
+			case kAuthNTSessionKey:
+                siResult = GetStringFromAuthBuffer( inAuthBuf, 4, outUserName );
+                if ( siResult == noErr )
+                    siResult = GetStringFromAuthBuffer( inAuthBuf, 5, outPassword );
+                if ( siResult == noErr && *outPassword != NULL )
+                    *outPasswordLen = strlen( *outPassword );
+                break;
+			
             case kAuthSetPasswdAsRoot:
 			case kAuthSetPolicyAsRoot:
             case kAuthSMB_NTUserSessionKey:
@@ -5152,9 +5211,7 @@ CPSPlugIn::GetAuthMethodConstant(
 
     prefixLen = strlen(kDSNativeAuthMethodPrefix);
     if ( ::strncmp( p, kDSNativeAuthMethodPrefix, prefixLen ) == 0 )
-    {
-        sInt32 index;
-        
+    {        
         *outAuthMethod = kAuthUnknownMethod;
 		siResult = eDSAuthMethodNotSupported;
         
@@ -5203,7 +5260,11 @@ CPSPlugIn::GetAuthMethodConstant(
             return eDSNoErr;
         }
 		
-        for ( index = inContext->mechCount - 1; index >= 0; index-- )
+		/*
+		 * we don't get the mech list up-front anymore
+		 */
+		 /*
+        for ( SInt32 index = inContext->mechCount - 1; index >= 0; index-- )
         {
             if ( strcmp( p, inContext->mech[index].method ) == 0 )
             {
@@ -5215,6 +5276,7 @@ CPSPlugIn::GetAuthMethodConstant(
                 break;
             }
         }
+		*/
     }
     else
 	{
@@ -5298,10 +5360,12 @@ bool CPSPlugIn::RequiresSASLAuthentication(	uInt32 inAuthMethodConstant )
 // ---------------------------------------------------------------------------
 
 sInt32
-CPSPlugIn::GetAuthMethodSASLName ( uInt32 inAuthMethodConstant, bool inAuthOnly, char *outMechName, bool *outMethodCanSetPassword )
+CPSPlugIn::GetAuthMethodSASLName ( sPSContextData *inContext, uInt32 inAuthMethodConstant, bool inAuthOnly, char *outMechName,
+	bool *outMethodCanSetPassword )
 {
     sInt32 result = noErr;
-    
+    bool isNewEnough = false;
+	
     if ( outMechName == NULL || outMethodCanSetPassword == NULL )
         return -1;
     *outMechName = '\0';
@@ -5336,12 +5400,11 @@ CPSPlugIn::GetAuthMethodSASLName ( uInt32 inAuthMethodConstant, bool inAuthOnly,
 		case kAuthEncryptToUser:
 		case kAuthDecrypt:
 		case kAuthSetLMHash:
-		case kAuthNTLMv2SessionKey:
 			strcpy( outMechName, kDHX_SASL_Name );
 			*outMethodCanSetPassword = true;
             break;
-            
-        case kAuthAPOP:
+		
+		case kAuthAPOP:
             strcpy( outMechName, "APOP" );
             break;
             
@@ -5415,6 +5478,20 @@ CPSPlugIn::GetAuthMethodSASLName ( uInt32 inAuthMethodConstant, bool inAuthOnly,
 			*outMethodCanSetPassword = true;
             break;
         
+		case kAuthNTSessionKey:
+		case kAuthNTLMv2SessionKey:
+			if ( inContext->serverVers[0] > 10 )
+				isNewEnough = true;
+			else
+			if ( inContext->serverVers[0] == 10 && inContext->serverVers[1] > 4 )
+				isNewEnough = true;
+			else
+			if ( inContext->serverVers[0] == 10 && inContext->serverVers[1] == 4 && inContext->serverVers[2] >= 5 )
+				isNewEnough = true;
+			
+			strcpy( outMechName, isNewEnough ? "DIGEST-MD5" : kDHX_SASL_Name );
+            break;
+		
         case kAuthUnknownMethod:
         case kAuthNativeMethod:
         default:
@@ -5423,7 +5500,7 @@ CPSPlugIn::GetAuthMethodSASLName ( uInt32 inAuthMethodConstant, bool inAuthOnly,
     
     return result;
 }
-                                                    
+
 
 //------------------------------------------------------------------------------------
 //	* GetAuthMethodFromSASLName
@@ -5645,12 +5722,6 @@ CPSPlugIn::DoSASLAuth(
 			pContinue->fSASLSecret->len = inPasswordLen;
 			memcpy( pContinue->fSASLSecret->data, password, inPasswordLen );
 			
-            /*
-            const char **gmechs = sasl_global_listmech();
-            for (r=0; gmechs[r] != NULL; r++)
-                DEBUGLOG( "gmech=%s\n", gmechs[r]);
-            */
-            
             r = DoSASLNew( inContext, pContinue );
             if ( r != SASL_OK || inContext->conn == NULL ) {
                 DEBUGLOG( "sasl_client_new failed, err=%d.", r);
@@ -6145,7 +6216,7 @@ CPSPlugIn::SendFlushReadWithMutex(
 	return serverResult;
 }
 
-														
+											
 // ---------------------------------------------------------------------------
 //	* GetServerListFromDSDiscovery
 // ---------------------------------------------------------------------------
@@ -6373,6 +6444,7 @@ sInt32 CPSPlugIn::PolicyErrToDirServiceError( int inPolicyError )
 		case kAuthMethodTooWeak:				dirServiceErr = eDSAuthMethodNotSupported;			break;
 		case kAuthPasswordNeedsMixedCase:		dirServiceErr = eDSAuthPasswordQualityCheckFailed;  break;
 		case kAuthPasswordHasGuessablePattern:  dirServiceErr = eDSAuthPasswordQualityCheckFailed;  break;
+		case kAuthPasswordCannotBeUsername:		dirServiceErr = eDSAuthPasswordQualityCheckFailed;  break;
     }
     
     return dirServiceErr;

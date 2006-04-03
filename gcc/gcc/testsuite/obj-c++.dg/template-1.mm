@@ -1,4 +1,4 @@
-// APPLE LOCAL file Objective-C++
+// APPLE LOCAL file mainline
 /* Test for using ObjC classes as C++ template parameters.  */
 /* Author:  Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do run } */

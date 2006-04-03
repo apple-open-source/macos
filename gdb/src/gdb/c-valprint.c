@@ -456,6 +456,7 @@ c_val_print (struct type *type, char *valaddr, int embedded_offset,
       break;
 
     case TYPE_CODE_ERROR:
+      /* APPLE LOCAL display error as unknown type */
       fprintf_filtered (stream, "<unknown type>");
       break;
 

@@ -41,7 +41,7 @@
  * $
  */
 
-/* $Header: /cvs/krbdev/krb5/src/lib/ccapi/include/CredentialsCache.h,v 1.1 2004/10/27 20:48:04 jaltman Exp $ */
+/* $Header$ */
 
 /*
  * Declarations for Credentials Cache API Library

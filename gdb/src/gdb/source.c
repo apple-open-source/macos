@@ -955,7 +955,10 @@ open_source_file (struct symtab *s)
 	}
     }
 
+  /* APPLE LOCAL: We added this to support "set pathname-substitutions".  
+     Note, if we get to here, s->fullname is NULL.  */
   result = open_source_file_fullpath (s);
+  /* END APPLE LOCAL */
 
   if (result < 0) 
     result = openp (path, 0, s->filename, OPEN_MODE, 0, &fullname);
@@ -968,7 +971,11 @@ open_source_file (struct symtab *s)
 	result = openp (path, 0, p, OPEN_MODE, 0, &fullname);
     }
 
-  if (result >= 0)
+  /* APPLE LOCAL: open_source_file_fullpath puts the full path it found
+     directly into s->fullname.  So if s->fullname is not NULL, then we
+     want to use it, and not fullname.  */
+
+  if (result >= 0 && s->fullname == NULL)
     {
       s->fullname = mstrsave (s->objfile->md, fullname);
       xfree (fullname);
@@ -1090,7 +1097,6 @@ find_source_lines (struct symtab *s, int desc)
     p = data;
     line_charpos[0] = 0;
     nlines = 1;
-
     while (p != end)
       {
 	char c = *p++;

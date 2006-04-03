@@ -182,6 +182,11 @@ enum verbosity_levels vect_verbosity_level = MAX_VERBOSITY_LEVEL;
    New variable, loops_num.  */
 unsigned int loops_num;
 /* APPLE LOCAL end AV data dependence. -dpatel */
+
+/* APPLE LOCAL begin AV dump */
+/* Loop location.  */
+static LOC vect_loop_location;
+/* APPLE LOCAL end AV dump */
 
 /*************************************************************************
   Simple Loop Peeling Utilities
@@ -1138,18 +1143,16 @@ vect_set_dump_settings (void)
    For vectorization debug dumps.  */
 
 bool
-vect_print_dump_info (enum verbosity_levels vl, LOC loc)
+/* APPLE LOCAL AV dump */
+vect_print_dump_info (enum verbosity_levels vl, LOC loc ATTRIBUTE_UNUSED)
 {
   if (vl > vect_verbosity_level)
     return false;
 
-  if (loc == UNKNOWN_LOC)
-    fprintf (vect_dump, "\n%s:%d: note: ",
-		 DECL_SOURCE_FILE (current_function_decl),
-		 DECL_SOURCE_LINE (current_function_decl));
-  else
-    fprintf (vect_dump, "\n%s:%d: note: ", LOC_FILE (loc), LOC_LINE (loc));
-
+  /* APPLE LOCAL begin AV dump */
+  fprintf (vect_dump, "\n%s:%d: note: ", LOC_FILE (vect_loop_location), 
+	   LOC_LINE (vect_loop_location));
+  /* APPLE LOCAL end AV dump */
 
   return true;
 }
@@ -1599,6 +1602,8 @@ vectorize_loops (struct loops *loops)
       if (!loop)
         continue;
 
+      /* APPLE LOCAL AV dump */
+      vect_loop_location = find_loop_location (loop);
       loop_vinfo = vect_analyze_loop (loop);
       loop->aux = loop_vinfo;
 

@@ -89,6 +89,10 @@ extern float logf(float);
 extern float log10f(float);
 #endif
 
+#ifndef HAVE_SCALBN
+extern double scalbn(double, int);
+#endif
+
 #ifndef HAVE_SCALBNF
 extern float scalbnf(float, int);
 #endif
@@ -111,6 +115,14 @@ extern float tanf(float);
 
 #ifndef HAVE_TANHF
 extern float tanhf(float);
+#endif
+
+#ifndef HAVE_TRUNC
+extern double trunc(double x);
+#endif
+
+#ifndef HAVE_TRUNCF
+extern float truncf(float x);
 #endif
 
 #ifndef HAVE_NEXTAFTERF

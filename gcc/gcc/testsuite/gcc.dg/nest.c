@@ -1,5 +1,7 @@
 /* PR 5967, PR 7114 */
 /* { dg-do run } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-skip-if "" { "*-*-darwin*" } { "*" } { "" } } */
 /* { dg-require-profiling "-pg" } */
 /* { dg-options "-O2 -pg" } */
 /* { dg-options "-O2 -pg -static" { target hppa*-*-hpux* } } */

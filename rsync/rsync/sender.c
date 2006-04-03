@@ -130,6 +130,9 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 	struct stats initial_stats;
 	int save_make_backups = make_backups;
 	int j;
+#if HAVE_COPYFILE
+	char fname_tmp[MAXPATHLEN];
+#endif
 
 	if (verbose > 2)
 		rprintf(FINFO, "send_files starting\n");
@@ -195,7 +198,6 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 #ifdef HAVE_COPYFILE
 		if (extended_attributes
 		    && !strncmp(file->basename, "._", 2)) {
-			    char fname_tmp[MAXPATHLEN];
 			    char fname_src[MAXPATHLEN];
 			    extern char *tmpdir;
 
@@ -217,7 +219,6 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 				&& !copyfile(fname_src, fname_tmp, NULL,
 				       COPYFILE_PACK | COPYFILE_METADATA)) {
 				    fd = do_open(fname_tmp, O_RDONLY, 0);
-				    unlink(fname_tmp);
 			    }
 			    else
 			    {
@@ -299,6 +300,12 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 			rprintf(FINFO, "sender finished %s\n",
 				safe_fname(fname));
 		}
+#if HAVE_COPYFILE
+		if (extended_attributes
+		    && !strncmp(file->basename, "._", 2)) {
+				    unlink(fname_tmp);
+		}
+#endif
 	}
 	make_backups = save_make_backups;
 

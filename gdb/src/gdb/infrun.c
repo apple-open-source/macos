@@ -537,8 +537,14 @@ static const char *scheduler_enums[] = {
 
 static struct ptid scheduler_lock_ptid;
 
+struct ptid get_scheduler_lock_ptid ()
+{
+  return scheduler_lock_ptid;
+}
+
 /* APPLE LOCAL: Record the current thread as the one you are trying
    to run.  */
+
 void 
 scheduler_run_this_ptid (struct ptid this_ptid)
 {
@@ -562,12 +568,12 @@ set_schedlock_helper (void)
   if (!target_can_lock_scheduler)
     {
       scheduler_mode = schedlock_off;
-      error ("Target '%s' cannot support this command.", target_shortname);
+      error ("Target '%s' does not support scheduler locking.", target_shortname);
     }
   if (scheduler_mode == schedlock_on)
-    scheduler_lock_ptid = inferior_ptid;
+    scheduler_run_this_ptid (inferior_ptid);
   else
-    scheduler_lock_ptid = minus_one_ptid;
+    scheduler_run_this_ptid (minus_one_ptid);
 }
 
 /* APPLE LOCAL: Set the scheduler locking mode to NEW_MODE.  Basically
@@ -586,7 +592,7 @@ set_scheduler_locking_mode (enum scheduler_locking_mode new_mode)
   else if (scheduler_mode == schedlock_step)
     old_mode = scheduler_locking_step;
   else
-    error ("Unknown scheduler mode");
+    error ("Invalid old scheduler mode: %d", scheduler_mode);
 
   switch (new_mode)
     {
@@ -600,7 +606,7 @@ set_scheduler_locking_mode (enum scheduler_locking_mode new_mode)
       scheduler_mode = schedlock_step;
       break;
     default:
-      error ("Invalid now schedlock mode: %d", new_mode);
+      error ("Invalid new scheduler mode: %d", new_mode);
     }
      
   set_schedlock_helper ();
@@ -731,7 +737,7 @@ resume (int step, enum target_signal sig)
 	     can happen, for instance of Dual Processor Machines. */
 	  if (ptid_equal (scheduler_lock_ptid, minus_one_ptid)
 	      || !in_thread_list (scheduler_lock_ptid))
-	    scheduler_lock_ptid = inferior_ptid;
+	    scheduler_run_this_ptid (inferior_ptid);
 	  
 	  resume_ptid = scheduler_lock_ptid;
 	}
@@ -1026,7 +1032,7 @@ init_wait_for_inferior (void)
   number_of_threads_in_syscalls = 0;
 
   /* APPLE LOCAL: Clear the scheduler-locking ptid. */
-  scheduler_lock_ptid = minus_one_ptid;
+  scheduler_run_this_ptid (minus_one_ptid);
 
   clear_proceed_status ();
 
@@ -1388,6 +1394,7 @@ static void
 handle_step_into_function (struct execution_control_state *ecs)
 {
   CORE_ADDR real_stop_pc;
+  int load_state;
 
   if ((step_over_calls == STEP_OVER_NONE)
       || ((step_range_end == 1)
@@ -1447,6 +1454,21 @@ handle_step_into_function (struct execution_control_state *ecs)
      function.  That's what tells us (a) whether we want to step
      into it at all, and (b) what prologue we want to run to
      the end of, if we do step into it.  */
+
+
+  /* APPLE LOCAL: We may have gotten to a new dylib - for instance by a
+     direct jump - rather than a stub.  In that case, we would have
+     set the stop_func_name and _start & _stop wrong since we didn't
+     have debug info.  So we need to up the level of the stop_pc and
+     also re-fetch the stop_func_start and the stop_func_name.  */
+
+  load_state = pc_set_load_state (stop_pc, OBJF_SYM_ALL, 0);
+  if (load_state != OBJF_SYM_ALL)
+    {
+      find_pc_partial_function (stop_pc, &ecs->stop_func_name,
+                              &ecs->stop_func_start, &ecs->stop_func_end);
+    }
+  
   real_stop_pc = skip_language_trampoline (stop_pc);
   if (real_stop_pc == 0)
     real_stop_pc = SKIP_TRAMPOLINE_CODE (stop_pc);
@@ -1462,12 +1484,18 @@ handle_step_into_function (struct execution_control_state *ecs)
   {
     struct symtab_and_line tmp_sal;
 
-    /* APPLE LOCAL: We need to up the symbol loading level
-       before looking to see if we have file & line info here.  */
+    /* APPLE LOCAL: If we are really stepping through a trampoline,
+       we need to up the symbol loading level of the target
+       before looking to see if we have file & line info here.  
+       However, don't do it if we couldn't find the target, or 
+       if we aren't really stepping through a trampoline, since
+       we already took care of that above.  */
 
-    pc_set_load_state (ecs->stop_func_start, OBJF_SYM_ALL, 0);
+    if (real_stop_pc != 0)
+      pc_set_load_state (ecs->stop_func_start, OBJF_SYM_ALL, 0);
+    
     /* END APPLE LOCAL */
-
+    
     tmp_sal = find_pc_line (ecs->stop_func_start, 0);
     if (tmp_sal.line != 0)
       {
@@ -4568,7 +4596,7 @@ step == scheduler locked during every single-step operation.\n\
   set_cmd_sfunc (c, set_schedlock_func);	/* traps on target vector */
   add_show_from_set (c, &showlist);
   /* APPLE LOCAL: Clear the scheduler-locking ptid. */
-  scheduler_lock_ptid = minus_one_ptid;
+  scheduler_run_this_ptid (minus_one_ptid);
 
   c = add_set_cmd ("step-mode", class_run,
 		   var_boolean, (char *) &step_stop_if_no_debug,

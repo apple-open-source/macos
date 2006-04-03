@@ -21,6 +21,8 @@ __RCSID("$NetBSD: e_atanhf.c,v 1.6 1999/07/02 15:37:38 simonb Exp $");
 #include "math.h"
 #include "math_private.h"
 
+#warning obsolete
+
 static const float one = 1.0, huge = 1e30;
 static const float zero = 0.0;
 

@@ -24,8 +24,8 @@ __RCSID("$NetBSD: s_ldexpf.c,v 1.5 1999/07/02 15:37:43 simonb Exp $");
 
 float ldexpf(float value, int exp)
 {
-	if(!finitef(value)||value==(float)0.0) return value;
+	if(!isfinite(value)||value==(float)0.0) return value;
 	value = scalbnf(value,exp);
-	if(!finitef(value)||value==(float)0.0) errno = ERANGE;
+	if(!isfinite(value)||value==(float)0.0) errno = ERANGE;
 	return value;
 }

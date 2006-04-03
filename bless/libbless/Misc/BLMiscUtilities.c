@@ -27,9 +27,12 @@
  *  Created by Shantonu Sen on Sat Apr 19 2003.
  *  Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLMiscUtilities.c,v 1.5 2005/02/03 00:42:27 ssen Exp $
+ *  $Id: BLMiscUtilities.c,v 1.6 2005/07/29 18:42:41 ssen Exp $
  *
  *  $Log: BLMiscUtilities.c,v $
+ *  Revision 1.6  2005/07/29 18:42:41  ssen
+ *  Give sustatfs() a better home
+ *
  *  Revision 1.5  2005/02/03 00:42:27  ssen
  *  Update copyrights to 2005
  *
@@ -50,6 +53,12 @@
 #include "bless.h"
 #include "bless_private.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mount.h>
+
 char * blostype2string(uint32_t type, char buf[5])
 {
     bzero(buf, sizeof(buf));
@@ -63,3 +72,30 @@ char * blostype2string(uint32_t type, char buf[5])
 
     return buf;    
 }
+
+int blsustatfs(const char *path, struct statfs *buf)
+{
+    int ret;
+    struct stat sb;
+    char *dev = NULL;
+    
+    ret = statfs(path, buf);    
+    if(ret)
+        return ret;
+	
+    ret = stat(path, &sb);
+    if(ret) 
+        return ret;
+    
+    // figure out the true device we live on
+    dev = devname(sb.st_dev, S_IFBLK);
+    if(dev == NULL) {
+        errno = ENOENT;
+        return -1;
+    }
+    
+    snprintf(buf->f_mntfromname, sizeof(buf->f_mntfromname), "/dev/%s", dev);
+    
+    return 0;
+}
+

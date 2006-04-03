@@ -30,7 +30,6 @@ struct bcache;
 struct htab;
 struct symtab;
 struct objfile_data;
-struct sec;
 
 /* This structure maintains information on a per-objfile basis about the
    "entry point" of the objfile, and the scope within which the entry point
@@ -492,15 +491,6 @@ struct objfile
 
 /* Defines for the objfile flag word. */
 
-/* Gdb can arrange to allocate storage for all objects related to a
-   particular objfile in a designated section of its address space,
-   managed at a low level by mmap() and using a special version of
-   malloc that handles malloc/free/realloc on top of the mmap() interface.
-   This allows the "internal gdb state" for a particular objfile to be
-   dumped to a gdb state file and subsequently reloaded at a later time. */
-
-#define OBJF_MAPPED	(1 << 0)	/* Objfile data is mmap'd */
-
 /* When using mapped/remapped predigested gdb symbol information, we need
    a flag that indicates that we have previously done an initial symbol
    table read from this particular objfile.  We can't just look for the
@@ -586,15 +576,7 @@ extern struct objfile *object_files;
 
 /* Declarations for functions defined in objfiles.c */
 
-/* APPLE LOCAL: We provide our own allocate_objfile down in
-   macosx/cached-symfile.c.  */
-
-#ifndef FSF_OBJFILES
-struct objfile *allocate_objfile (bfd *abfd, int flags, int symflags, CORE_ADDR mapaddr, const char *prefix);
-#else
-extern struct objfile *allocate_objfile (bfd *, int);
-#endif /* FSF_OBJFILES */
-
+extern struct objfile *allocate_objfile (bfd *, int, int symflags, CORE_ADDR mapaddr, const char *prefix);
 
 extern void init_entry_point_info (struct objfile *);
 
@@ -604,9 +586,9 @@ extern int build_objfile_section_table (struct objfile *);
 
 extern void terminate_minimal_symbol_table (struct objfile *objfile);
 
-extern void objfile_to_front (struct objfile *);
-
 extern void put_objfile_before (struct objfile *, struct objfile *);
+
+extern void objfile_to_front (struct objfile *);
 
 extern void link_objfile (struct objfile *);
 

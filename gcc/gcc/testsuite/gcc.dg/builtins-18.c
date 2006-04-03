@@ -7,7 +7,10 @@
 
 /* { dg-do link } */
 /* { dg-options "-O2 -ffast-math" } */
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+/* { dg-options "-O2 -ffast-math -mmacosx-version-min=10.3" { target powerpc-*-darwin* } } */
 
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 #include "builtins-config.h"
 
 extern void link_error(void);

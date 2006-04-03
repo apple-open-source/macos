@@ -1,3 +1,46 @@
+2005-09-30  Jim Ingham  <jingham@apple.com>
+
+	* mach-o.h: Add BFD_MACH_O_LC_SEGMENT_64.  
+	modify def'n of bfd_mach_o_core_fetch_environment.
+	* mach-o.c (bfd_mach_o_scan_read_command): Ignore
+	BFD_MACH_O_LC_SEGMENT_64.
+	(bfd_mach_o_lookup_section): Handle both 32 and 64 bit
+	segments.
+	(bfd_mach_o_core_parse_environment): Use bfd_size_type
+	for file sizes, since a 64 bit executable might be loaded
+	above 32 bits.
+	(bfd_mach_o_core_fetch_environment): Handle both 32 and
+	64 bit segments.  Also use bfd_size_type.
+	(bfd_mach_o_core_file_failing_command) Ditto.
+	
+2005-08-29  Eric Albert  (ejalbert@apple.com)
+
+	* mach-o.h (bfd_mach_o_i386_thread_flavour): Update values to
+	the new ones the kernel is using.
+	* mach-o.c (bfd_mach_o_i386_flavour_string): Update accordingly.
+
+2005-07-27  Jim Ingham  <jingham@apple.com>
+
+	* mach-o.c (mach_o_flatten_sections): Do this for the 64
+	bit mach-o as well as the 32 bit.
+
+2005-07-27  Jim Ingham  <jingham@apple.com>
+
+	* mach-o-target.c: Make the archive entries for the mach_o_be
+	and mach_o_le target handle ar archives.  
+	
+2005-05-11  Klee Dienes  <kdienes@apple.com>
+
+	mach-o.c (bfd_mach_o_core_parse_environment): Add prototype; make
+	static.  Add comment.  Change the behavior to return -2 if we
+	can't find the beginning, instead of doing something completely
+	useless.
+	(bfd_mach_o_core_fetch_environment): Change to return bfd_boolean.
+	Move the "resize the buffer as necessary" logic from
+	bfd_mach_o_core_parse_environment.  Also move the code to malloc the
+	result buffer.
+	mach-o.h (bfd_mach_o_core_fetch_environment): Update to return bfd_boolean.
+	
 2005-03-24  Jason Molenda  (jmolenda@apple.com)
 
 	* configure.in: Force AC_FUNC_MMAP's result to 'yes' - it

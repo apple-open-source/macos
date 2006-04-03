@@ -57,6 +57,8 @@ static void c_type_print_modifier (struct type *, struct ui_file *,
 				   int, int);
 
 
+
+
 /* LEVEL is the depth to indent lines by.  */
 
 void
@@ -179,8 +181,10 @@ cp_type_print_method_args (struct type *mtype, char *prefix, char *varstring,
     }
   else if (varargs)
     fprintf_filtered (stream, "...");
+  /* APPLE LOCAL begin Objective-C++ */
   else if (current_language->la_language == language_cplus
 	   || current_language->la_language == language_objcplus)
+    /* APPLE LOCAL end Objective-C++ */
     fprintf_filtered (stream, "void");
 
   fprintf_filtered (stream, ")");
@@ -368,12 +372,16 @@ c_type_print_args (struct type *type, struct ui_file *stream)
       if (TYPE_VARARGS (type))
 	fprintf_filtered (stream, "...");
       else if (i == 1
+	       /* APPLE LOCAL begin Objective-C++ */
 	       && (current_language->la_language == language_cplus
 		   || current_language->la_language == language_objcplus))
+	/* APPLE LOCAL end Objective-C++ */
 	fprintf_filtered (stream, "void");
     }
+  /* APPLE LOCAL begin Objective-C++ */
   else if (current_language->la_language == language_cplus
 	   || current_language->la_language == language_objcplus)
+    /* APPLE LOCAL end Objective-C++ */
     {
       fprintf_filtered (stream, "void");
     }
@@ -585,8 +593,10 @@ c_type_print_varspec_suffix (struct type *type, struct ui_file *stream,
 	  fprintf_filtered (stream, "(");
 	  if (len == 0
               && (TYPE_PROTOTYPED (type)
+		  /* APPLE LOCAL begin Objective-C++ */
                   || current_language->la_language == language_cplus
 		  || current_language->la_language == language_objcplus))
+	    /* APPLE LOCAL end Objective-C++ */
 	    {
 	      fprintf_filtered (stream, "void");
 	    }
@@ -1127,10 +1137,12 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 	      fputs_filtered (TYPE_FIELD_NAME (type, i), stream);
 	      if (lastval != TYPE_FIELD_BITPOS (type, i))
 		{
+		  /* APPLE LOCAL begin print unsigned */
 		  if (TYPE_FLAGS (type) & TYPE_FLAG_UNSIGNED)
 		    fprintf_filtered (stream, " = %u", TYPE_FIELD_BITPOS (type, i));
 		  else
 		    fprintf_filtered (stream, " = %d", TYPE_FIELD_BITPOS (type, i));
+		  /* APPLE LOCAL end print unsigned */
 		  lastval = TYPE_FIELD_BITPOS (type, i);
 		}
 	      lastval++;

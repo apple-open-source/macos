@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs.h,v 1.30.100.3 2005/08/12 23:18:35 lindak Exp $
+ * $Id: smbfs.h,v 1.30.100.6 2006/03/06 23:29:41 lindak Exp $
  */
 
 #ifndef _SMBFS_SMBFS_H_
@@ -38,7 +38,7 @@
 #define VT_SMBFS	VT_OTHER
 
 #define SMBFS_VERMAJ	1
-#define SMBFS_VERMIN	3200
+#define SMBFS_VERMIN	3600
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
 
@@ -144,6 +144,8 @@ int smbi_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t vfsctx);
 int smbi_open(vnode_t vp, int mode, vfs_context_t vfsctx);
 int smbi_close(vnode_t vp, int fflag, vfs_context_t vfsctx);
 int smbi_fsync(vnode_t vp, int waitfor, vfs_context_t vfsctx);
+
+#define SMB_IOMAX ((size_t)MAX_UPL_TRANSFER * PAGE_SIZE)
 
 #endif	/* KERNEL */
 

@@ -2084,16 +2084,6 @@ extern void set_gdbarch_skip_trampoline_code (struct gdbarch *gdbarch, gdbarch_s
 #define SKIP_TRAMPOLINE_CODE(pc) (gdbarch_skip_trampoline_code (current_gdbarch, pc))
 #endif
 
-typedef CORE_ADDR (gdbarch_dynamic_trampoline_nextpc_ftype) (CORE_ADDR pc);
-extern CORE_ADDR gdbarch_dynamic_trampoline_nextpc (struct gdbarch *gdbarch, CORE_ADDR pc);
-extern void set_gdbarch_dynamic_trampoline_nextpc (struct gdbarch *gdbarch, gdbarch_dynamic_trampoline_nextpc_ftype *dynamic_trampoline_nextpc);
-#if (GDB_MULTI_ARCH > GDB_MULTI_ARCH_PARTIAL) && defined (DYNAMIC_TRAMPOLINE_NEXTPC)
-#error "Non multi-arch definition of DYNAMIC_TRAMPOLINE_NEXTPC"
-#endif
-#if !defined (DYNAMIC_TRAMPOLINE_NEXTPC)
-#define DYNAMIC_TRAMPOLINE_NEXTPC(pc) (gdbarch_dynamic_trampoline_nextpc (current_gdbarch, pc))
-#endif
-
 /* If IN_SOLIB_DYNSYM_RESOLVE_CODE returns true, and SKIP_SOLIB_RESOLVER
    evaluates non-zero, this is the address where the debugger will place
    a step-resume breakpoint to get us past the dynamic linker. */
@@ -2580,6 +2570,8 @@ typedef void (gdbarch_swap_ftype) (void);
 extern void deprecated_register_gdbarch_swap (void *data, unsigned long size, gdbarch_swap_ftype *init);
 #define DEPRECATED_REGISTER_GDBARCH_SWAP(VAR) deprecated_register_gdbarch_swap (&(VAR), sizeof ((VAR)), NULL)
 
+
+
 /* Set the dynamic target-system-dependent parameters (architecture,
    byte-order, ...) using information found in the BFD */
 
@@ -2595,9 +2587,5 @@ extern void initialize_current_architecture (void);
 extern int gdbarch_debug;
 
 extern void gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file);
-
-extern void clear_gdbarch_swap (struct gdbarch *);
-extern void swapout_gdbarch_swap (struct gdbarch *);
-extern void swapin_gdbarch_swap (struct gdbarch *);
 
 #endif

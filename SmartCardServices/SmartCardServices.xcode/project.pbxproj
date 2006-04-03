@@ -126,7 +126,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>24946</string>
+	<string>26726</string>
 	<key>ifdCapabilities</key>
 	<string>0x00000000</string>
 	<key>ifdFriendlyName</key>
@@ -523,7 +523,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>24946</string>
+	<string>26726</string>
 </dict>
 </plist>
 ";
@@ -860,7 +860,7 @@
 				F511212A0272F895017BB957,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 24946;
+				CURRENT_PROJECT_VERSION = 26726;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -1046,7 +1046,7 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 24946;
+				CURRENT_PROJECT_VERSION = 26726;
 				FRAMEWORK_SEARCH_PATHS = "\"${BUILT_PRODUCTS_DIR}\" /usr/local/SecurityPieces/Components/Security /usr/local/SecurityPieces/Frameworks";
 				HEADER_SEARCH_PATHS = "/System/Library/Frameworks/CoreFoundation.framework/Headers /System/Library/Frameworks/IOKit.framework/Headers/usb /System/Library/Frameworks/IOKit.framework/Headers";
 				INSTALL_PATH = /usr/sbin;
@@ -1153,7 +1153,7 @@
 				F5294AD70090CAE601CD285A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 24946;
+				CURRENT_PROJECT_VERSION = 26726;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -1212,9 +1212,9 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 24946;
+				CURRENT_PROJECT_VERSION = 26726;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 24946;
+				DYLIB_CURRENT_VERSION = 26726;
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -1269,7 +1269,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>24946</string>
+	<string>26726</string>
 </dict>
 </plist>
 ";
@@ -2196,7 +2196,7 @@
 				F537A7CF0379ED7501B94948,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 24946;
+				CURRENT_PROJECT_VERSION = 26726;
 				INSTALL_PATH = /usr/libexec/SmartCardServices/pkcs11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-lcrypto";
@@ -2239,7 +2239,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>24946</string>
+	<string>26726</string>
 </dict>
 </plist>
 ";
@@ -2315,7 +2315,7 @@
 				F5448E000379EE2A01B94948,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 24946;
+				CURRENT_PROJECT_VERSION = 26726;
 				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
 				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
 				OTHER_LDFLAGS = "";
@@ -2358,7 +2358,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>24946</string>
+	<string>26726</string>
 	<key>spAtrValue</key>
 	<string>3B751300009C02020102</string>
 	<key>spDefaultApplication</key>
@@ -2418,7 +2418,7 @@
 				F5448E070379EE3601B94948,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 24946;
+				CURRENT_PROJECT_VERSION = 26726;
 				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
 				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
 				OTHER_LDFLAGS = "";
@@ -2461,7 +2461,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>24946</string>
+	<string>26726</string>
 	<key>spAtrValue</key>
 	<array>
 		<string>3B6500009C02020102</string>
@@ -2525,7 +2525,7 @@
 				F5448E0E0379EE6401B94948,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 24946;
+				CURRENT_PROJECT_VERSION = 26726;
 				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
 				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
 				OTHER_LDFLAGS = "";
@@ -2568,7 +2568,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>24946</string>
+	<string>26726</string>
 	<key>spAtrValue</key>
 	<string>3B959440FF6301010201</string>
 	<key>spDefaultApplication</key>

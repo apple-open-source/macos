@@ -305,7 +305,18 @@ int exportvars;
 #ifdef APPLE_EXTENSIONS
 	if (usePipeForShellCommands) {
 	    // Create the pipe we will use to send stdin to child
-	    pipe(pipeForStdInToShell);
+	    char tempname[] = "/tmp/tempjammit.XXXXXX";
+	    int tempfd = mkstemp(tempname);
+
+	    int toWrite = strlen(string);
+	    int written = write(tempfd, string, toWrite);
+
+	    pipeForStdInToShell[0] = tempfd;
+	    pipeForStdInToShell[1] = -1;
+
+	    lseek(tempfd, 0, SEEK_SET);
+
+	    unlink(tempname);
 	}
 #endif
 
@@ -360,16 +371,6 @@ int exportvars;
 	    // PARENT: 
 	    // Close read end of pipe in parent.
 	    close(pipeForStdInToShell[0]);
-	    // Write the script string to the write end of the pipe, then close that one too.
-	    {
-		int toWrite = strlen(string);
-		int written = write(pipeForStdInToShell[1], string, toWrite);
-		
-		if (toWrite != written) {
-		    printf("Error: only wrote %d bytes of %d bytes of command to sub-shell.", written, toWrite);
-		}
-	    }
-	    close(pipeForStdInToShell[1]);
 	}
 #endif
 

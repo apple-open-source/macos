@@ -5,7 +5,7 @@
  |            Separate place to "bread board", test, and expirement with gdb            |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -95,8 +95,38 @@ void gdb_testa(char *arg, int from_tty)
 
 /*--------------------------------------------------------------------------------------*/
 
-void gdb_testw(char *arg, int from_tty)
+//#include "ui-file.h"
+void gdb_testw(char *addr)
 {
+  struct objfile *objfile;
+  struct obj_section *p;
+  
+  #if 0
+  if (addr && *addr) {
+      p = find_pc_section((CORE_ADDR)gdb_get_address(addr));
+      if (p)
+	  gdb_printf("%s is %s\n", bfd_get_filename(p->objfile->obfd), bfd_section_name(unused, p->the_bfd_section));
+  }
+  #else
+  ALL_OBJFILES(objfile) {
+      #if 1
+      print_section_info_objfile(objfile);
+      gdb_printf("-------------------------------\n");
+      #elif 0
+      ui_out_field_string(uiout, "filename", bfd_get_filename(objfile->obfd));
+      ui_out_text (uiout, "\n");
+      gdb_printf("-------------------------------\n");
+      #elif 0
+      print_section_info_objfile(objfile);
+      for (p = objfile->sections; p < objfile->sections_end; p++) {
+      	if (find_pc_sect_section((CORE_ADDR)addr, p)) {
+      	    gdb_printf("%s\n", bfd_get_filename(objfile->obfd));
+      	    break;
+      	}
+      }
+      #endif
+  }
+  #endif
 }
 
 /*--------------------------------------------------------------------------------------*/

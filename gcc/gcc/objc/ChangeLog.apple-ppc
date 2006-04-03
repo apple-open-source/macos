@@ -1,3 +1,167 @@
+2005-10-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	radar 4292010
+	* objc-act.c (objc_generate_write_barrier): Turn off gc-specific 
+	warning till post chardonnay.
+
+2005-10-06  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4280641
+	* objc-act.c (TAG_MSGSEND_FPRET): New objc runtime call name.
+	(synth_module_prologue): Build bultin function for this runtime
+	function (x86 only).
+	(build_objc_method_call): Call this runtime for methods returning
+	floats and if not call to super receiver.
+	* objc-act.h (OCTI_UMSG_FPRET_DECL): New definition.
+	(umsg_fpret_decl): New definition.
+	
+2005-09-29  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4136489
+	* objc-act.c (objc_is_gcable_type): Remove second parameter;
+	handle __weak attribute.
+	(objc_is_strong_p): New function.
+	(objc_is_object_ptr): Check main variant of pointee.
+	(objc_is_gcable_p): Hande __weak attribute.
+	(objc_generate_write_barrier): For GC-able objects, always generate
+	a strong-cast write barrier as a last resort, unless the object's
+	type is marked __weak.
+
+2005-08-23  Stuart Hastings <stuart@apple.com>
+	    Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4209854
+	* objc-act.c (objc_decay_parm_type): New function.
+	(get_arg_type_list): Decay types for all named arguments.
+	(objc_push_parm): Rebuild the PARM_DECL if its type has
+	been decayed.
+
+2005-08-22  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4174166
+	* objc-act.c (objc_compare_types): Compare function
+	pointers; indicate success if the right-hand side has
+	a return type that is covariant, and the argument types
+	contravariant, with those of the left side.
+
+2005-08-22  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4216500
+	* objc-act.c (objc_get_protocol_qualified_type): When looking
+	at a typedef, retrieve the precise type it describes (rather
+	than merely looking up a class by name).
+
+2005-07-20  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4136935
+	* objc-act.c (pointee_is_readonly): New function.
+	(encode_pointer, encode_aggregate_within, encode_type):
+	Attempt to emulate GCC 3.3 when generating type encodings.
+
+2005-07-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4175534
+	* objc-act.c (objc_compare_types): A new silent comparison
+	mode (-4), differing from regular comparison (-3) in that
+	'false' is returned instead of issuing warnings.
+
+2005-07-08  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4168740 (via mainline)
+	* objc-act.c (objc_build_struct): Pass in an actual @interface
+	instead of its name, and annotate the struct created (and all
+	existing variants thereof) with the @interface.
+	(objc_compare_types): Treat forward-declared ObjC classes
+	as stand-alone (root) classes for purposes of type comparisons.
+	(build_private_template): Move some code to objc_build_struct().
+
+2005-07-07  Ziemowit Laski  <zlaski@apple.com>
+
+	PR objc/22274
+ 	* objc-act.c (objc_build_string_object): For GNU-style constants,
+	use the @interface type rather than the built-in type.
+
+2005-07-05 Devang Patel  <dpatel@apple.com>
+
+	Radar 4168086	
+	* lang-specs.h: While making PCH, invoke as if -fsave-repository
+	is used when -save-temps is not used.
+
+2005-07-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4153181
+	* objc-act.c (objc_build_volatilized_type): New function.
+	(objc_volatilize_decl): Call objc_build_volatilized_type()
+	instead of build_qualified_type().
+
+2005-06-30 Devang Patel  <dpatel@apple.com>
+
+	* lang-specs.h: While making PCH, invoke as if -fsave-repository
+	is used.
+
+2005-06-28  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4140824
+	* objc-act.c (objc_build_struct): Save the TYPE_OBJC_INFO
+	portion of TYPE_LANG_SPECIFIC info for all variants of
+	a class before calling finish_struct(), and restore
+	same TYPE_OBJC_INFO afterwards.
+
+2005-06-22  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4154928
+	* objc-act.c (objc_common_type): New function.
+
+2005-06-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4149909
+	* objc-act.c (objc_build_internal_const_str_type): New function.
+	(check_string_class_template): Use objc_get_class_ivars() instead
+	of TYPE_FIELDS() to retrieve ivar list.
+	(AT_LEAST_AS_LARGE_AS): Check the size of each field's type rather
+	than the field itself.
+	(objc_build_string_object): Synthesize a "__builtin_ObjCString"
+	type and use it to lay out compile-time string objects.
+	* objc-act.h (OCTI_INTERNAL_CNST_STR_TYPE, internal_const_str_type):
+	New.
+
+2005-05-19  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4035492
+	* objc-act.c (objc_build_struct, objc_derived_from_p,
+	objc_build_component_ref, objc_copy_binfo, objc_xref_basetypes,
+	objc_lookup_protocol, objc_compare_protocols, objc_volatilize_decl,
+	encode_aggregate_fields, volatilized_hash, volatilized_eq,
+	objc_compare_types, objc_type_quals_match):
+	New functions.
+	(DERIVED_FROM_P): New ObjC macro, corresponding to C++ macro
+	of same name.
+	(get_class_ivars): Add second parameter indicating if entire
+	hierarchy is desired.
+	(struct volatilized_type): New type.
+	(volatilized_htab): New hash table.
+	(objc_types_compatible_p, objc_comptypes): Remove functions.
+	(synth_module_prologue): Do not initialize 'unused_list'.
+	(objc_get_class_reference): Fix ObjC++ impedance mismatches.
+	(objc_declare_alias): Implement as a typedef.
+	(objc_substitute_decl, objc_gimplify_expr): Reformat.
+	(objc_get_class_ivars): Adjust call to get_class_ivars().
+	(next_sjlj_build_enter_and_setjmp, synth_forward_declarations,
+	build_ivar_reference, get_super_receiver): Call
+	objc_build_component_ref() instead of build_component_ref().
+	(objc_begin_catch_clause): Use DERIVED_FROM_P() instead of
+	objc_comptypes().
+	(build_private_template): Call objc_build_struct() instead of
+	start_struct() and finish_struct().
+	(hash_init): Initialize volatilized_htab.
+	(objc_is_public): Adjust calls to objc_get_ivars(); adjust
+	ObjC++ impedance mismatches.
+	(encode_aggregate_within): Streamline by calling
+	encode_aggregate_fields().
+	* objc-act.h (objc_types_compatible_p): Remove prototype.
+	(OCTI_UNUSED_LIST, unused_list): Remove slot.
+	* objc-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Remove.
+
 2005-04-19  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4056870

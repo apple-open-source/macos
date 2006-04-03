@@ -21,6 +21,11 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
+if [istarget "powerpc64-apple-darwin*"] {
+    verbose "Disable Objective-C tests on 64-bit PowerPC."
+    return
+}
+
 set testfile "objc-prog"
 set srcfile ${testfile}.m
 set binfile ${objdir}/${subdir}/${testfile}

@@ -1,7 +1,7 @@
 /*
  * UNIXReadWrite.h
  *
- * $Header: /cvs/kfm/Common/Headers/UNIXReadWrite.h,v 1.1 2004/11/02 23:31:14 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

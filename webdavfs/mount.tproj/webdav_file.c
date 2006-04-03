@@ -38,6 +38,7 @@
 
 #include "webdav_cache.h"
 #include "webdav_network.h"
+#include "OpaqueIDs.h"
 
 /*****************************************************************************/
 
@@ -239,11 +240,13 @@ int filesystem_open(struct webdav_request_open *request_open,
 	
 	locktoken = NULL;
 	
-	require_action(request_open->obj_ref != 0, bad_obj_ref, error = EIO);
+	error = RetrieveDataFromOpaqueID(request_open->obj_id, (void **)&node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
 	
-	node = (struct node_entry *)request_open->obj_ref;
+	require_action_quiet(!NODE_IS_DELETED(node), deleted_node, error = ESTALE);
 	
 	/* get a cache file */
+	theCacheFile = -1;
 	error = get_cachefile(&theCacheFile);
 	require_noerr_quiet(error, get_cachefile);
 	
@@ -275,6 +278,13 @@ int filesystem_open(struct webdav_request_open *request_open,
 			  before we copy it into the cache file from the server, 
 			  or truncate the cache file. */
 			error = network_lock(request_open->pcr.pcr_uid, FALSE, node);
+			if ( error == ENOENT )
+			{
+				/* the server says it's gone so delete it and its descendants */
+				(void) nodecache_delete_node(node, TRUE);
+				error = ESTALE;
+				goto bad_obj_id;
+			}
 		}
 		
 		if ( !error )
@@ -292,6 +302,13 @@ int filesystem_open(struct webdav_request_open *request_open,
 			else
 			{
 				error = network_open(request_open->pcr.pcr_uid, node, write_mode);
+				if ( error == ENOENT )
+				{
+					/* the server says it's gone so delete it and its descendants */
+					(void) nodecache_delete_node(node, TRUE);
+					error = ESTALE;
+					goto bad_obj_id;
+				}
 			}
 		}
 	}
@@ -342,7 +359,8 @@ ftruncate:
 
 nodecache_add_file_cache:
 get_cachefile:
-bad_obj_ref:
+deleted_node:
+bad_obj_id:
 	
 	return ( error );
 }
@@ -354,9 +372,8 @@ int filesystem_close(struct webdav_request_close *request_close)
 	int error = 0;
 	struct node_entry *node;
 	
-	require_action(request_close->obj_ref != 0, bad_obj_ref, error = EIO);
-	
-	node = (struct node_entry *)request_close->obj_ref;
+	error = RetrieveDataFromOpaqueID(request_close->obj_id, (void **)&node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
 	
 	/* Trying to close something we did not open? */
 	require_action(NODE_FILE_IS_CACHED(node), not_open, error = EBADF);
@@ -377,9 +394,20 @@ int filesystem_close(struct webdav_request_close *request_close)
 	time(&node->file_inactive_time);
 	
 	/* if the file was locked, unlock it */
-	if ( node->file_locktoken )
+	if ( node->file_locktoken  )
 	{
-		error = network_unlock(node);
+		/* if it is deleted and locked (which should not happen), leave it locked and let the lock expire */
+		if ( !NODE_IS_DELETED(node) )
+		{
+			error = network_unlock(node);
+			if ( error == ENOENT )
+			{
+				/* the server says it's gone so delete it and its descendants */
+				(void) nodecache_delete_node(node, TRUE);
+				error = ESTALE;
+				goto bad_obj_id;
+			}
+		}
 	}
 		
 	/*
@@ -392,7 +420,7 @@ int filesystem_close(struct webdav_request_close *request_close)
 	}
 
 not_open:
-bad_obj_ref:
+bad_obj_id:
 	
 	return (error);
 }
@@ -405,14 +433,34 @@ int filesystem_lookup(struct webdav_request_lookup *request_lookup, struct webda
 	struct node_entry *node;
 	struct node_entry *parent_node;
 	struct stat statbuf;
+	int lookup;
 	
-	require_action(request_lookup->dir != 0, bad_obj_ref, error = EIO);
+	node = NULL;
+
+	error = RetrieveDataFromOpaqueID(request_lookup->dir_id, (void **)&parent_node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
 	
-	parent_node = (struct node_entry *)request_lookup->dir;
+	if ( request_lookup->force_lookup )
+	{
+		lookup = TRUE;
+	}
+	else
+	{
+		/* see if we already have a node */
+		error = nodecache_get_node(parent_node, request_lookup->name_length, request_lookup->name, FALSE, FALSE, 0, &node);
+		if ( error )
+		{
+			/* no node but can we skip asking the server? */
+			lookup = !NODE_DIRECTORY_RECENTLY_READ(parent_node);
+		}
+		else
+		{
+			/* can we used the cached node? */
+			lookup = !node_attributes_valid(node, request_lookup->pcr.pcr_uid);
+		}
+	}
 	
-	/* see if we already have a node */
-	error = nodecache_get_node(parent_node, request_lookup->name_length, request_lookup->name, FALSE, 0, &node);
-	if ( error || !node_attributes_valid(node, request_lookup->pcr.pcr_uid) )
+	if ( lookup )
 	{
 		/* look it up on the server */
 		error = network_lookup(request_lookup->pcr.pcr_uid, parent_node,
@@ -420,20 +468,34 @@ int filesystem_lookup(struct webdav_request_lookup *request_lookup, struct webda
 		if ( !error )
 		{
 			/* create a new node */
-			error = nodecache_get_node(parent_node, request_lookup->name_length, request_lookup->name, TRUE,
+			error = nodecache_get_node(parent_node, request_lookup->name_length, request_lookup->name, TRUE, FALSE,
 				S_ISREG(statbuf.st_mode) ? WEBDAV_FILE_TYPE : WEBDAV_DIR_TYPE, &node);
 			if ( !error )
 			{
+				/* network_lookup gets all of the struct stat fields except for st_ino so fill it in here with the fileid of the new node */
+				statbuf.st_ino = node->fileid;
 				/* cache the attributes */
 				error = nodecache_add_attributes(node, request_lookup->pcr.pcr_uid, &statbuf, NULL);
 			}
 		}
+		else if ( (error == ENOENT) && (node != NULL) )
+		{
+			/* the server says it's gone so delete it and its descendants */
+			(void) nodecache_delete_node(node, TRUE);
+			node = NULL;
+		}
 	}
+	else if ( node == NULL )
+	{
+		/* we recently created/read the parent directory so assume the object doesn't exist */
+		error = ENOENT;
+	}
+	/* else use the cache node */
 
 	if ( !error )
 	{
 		/* we have the attributes cached */
-		reply_lookup->obj_ref = (object_ref)node;
+		reply_lookup->obj_id = node->nodeid;
 		reply_lookup->obj_fileid = node->fileid;
 		reply_lookup->obj_type = node->node_type;
 		reply_lookup->obj_atime = node->attr_stat.st_atimespec;
@@ -442,7 +504,7 @@ int filesystem_lookup(struct webdav_request_lookup *request_lookup, struct webda
 		reply_lookup->obj_filesize = node->attr_stat.st_size;
 	}
 
-bad_obj_ref:
+bad_obj_id:
 	
 	return (error);
 }
@@ -455,10 +517,11 @@ int filesystem_getattr(struct webdav_request_getattr *request_getattr, struct we
 	struct node_entry *node;
 	struct stat statbuf;
 	
-	require_action(request_getattr->obj_ref != 0, bad_obj_ref, error = EIO);
+	error = RetrieveDataFromOpaqueID(request_getattr->obj_id, (void **)&node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
 	
-	node = (struct node_entry *)request_getattr->obj_ref;
-		
+	require_action_quiet(!NODE_IS_DELETED(node), deleted_node, error = ESTALE);
+	
 	/* see if we have valid attributes */
 	if ( !node_attributes_valid(node, request_getattr->pcr.pcr_uid) )
 	{
@@ -481,7 +544,8 @@ int filesystem_getattr(struct webdav_request_getattr *request_getattr, struct we
 		bcopy(&node->attr_stat, &reply_getattr->obj_attr, sizeof(struct stat));
 	}
 	
-bad_obj_ref:
+deleted_node:
+bad_obj_id:
 	
 	return (error);
 }
@@ -494,8 +558,10 @@ int filesystem_statfs(struct webdav_request_statfs *request_statfs,
 	int error;
 	time_t thetime;
 	int call_server;
+	struct node_entry *node;
 	
-	require_action(request_statfs->root_obj_ref != 0, bad_obj_ref, error = EIO);
+	error = RetrieveDataFromOpaqueID(request_statfs->root_obj_id, (void **)&node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE); /* this should never fail since the root node never goes away */
 	
 	if ( gSuppressAllUI )
 	{
@@ -520,7 +586,7 @@ int filesystem_statfs(struct webdav_request_statfs *request_statfs,
 		if ( call_server )
 		{
 			/* update the cached statfs buffer */
-			error = network_statfs(request_statfs->pcr.pcr_uid, (struct node_entry *)request_statfs->root_obj_ref, &statfs_cache_buffer);
+			error = network_statfs(request_statfs->pcr.pcr_uid, node, &statfs_cache_buffer);
 			if ( !error )
 			{
 				/* update the time the cached statfs buffer was updated */
@@ -538,7 +604,7 @@ int filesystem_statfs(struct webdav_request_statfs *request_statfs,
 		}
 	}
 
-bad_obj_ref:
+bad_obj_id:
 	
 	return (error);
 }
@@ -567,10 +633,13 @@ int filesystem_create(struct webdav_request_create *request_create, struct webda
 	struct node_entry *node;
 	struct node_entry *parent_node;
 	time_t creation_date;
+	int theCacheFile;
 
-	require_action(request_create->dir != 0, bad_obj_ref, error = EIO);
+	error = RetrieveDataFromOpaqueID(request_create->dir_id, (void **)&parent_node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
 	
-	parent_node = (struct node_entry *)request_create->dir;
+	require_action_quiet(!NODE_IS_DELETED(parent_node), deleted_node, error = ESTALE);
+	
 	error = network_create(request_create->pcr.pcr_uid, parent_node, request_create->name, request_create->name_length, &creation_date);
 	if ( !error )
 	{
@@ -593,15 +662,65 @@ int filesystem_create(struct webdav_request_create *request_create, struct webda
 		}
 		
 		/* Create a node */
-		error = nodecache_get_node(parent_node, request_create->name_length, request_create->name, TRUE, WEBDAV_FILE_TYPE, &node);
+		error = nodecache_get_node(parent_node, request_create->name_length, request_create->name, TRUE, TRUE, WEBDAV_FILE_TYPE, &node);
 		if ( !error )
 		{
-			reply_create->obj_ref = (object_ref)node;
+			/* if we have the creation date, we can fill in the attributes because everything else is synthesized and the size is 0 */
+			if ( creation_date != -1 )
+			{
+				struct stat statbuf;
+				
+				bzero((void *)&statbuf, sizeof(struct stat));
+				
+				statbuf.st_dev = 0;
+				statbuf.st_ino = node->fileid;
+				statbuf.st_mode = S_IFREG | ACCESSPERMS;
+				/* Why 1 for st_nlink?
+				 * Getting the real link count for directories is expensive.
+				 * Setting it to 1 lets FTS(3) (and other utilities that assume
+				 * 1 means a file system doesn't support link counts) work.
+				 */
+				statbuf.st_nlink = 1;
+				statbuf.st_uid = UNKNOWNUID;
+				statbuf.st_gid = UNKNOWNUID;
+				statbuf.st_rdev = 0;
+				/* set all times to the last modified time since we cannot get the other times */
+				statbuf.st_mtimespec.tv_sec = creation_date;
+				statbuf.st_atimespec = statbuf.st_ctimespec = statbuf.st_mtimespec;
+				statbuf.st_size = 0;	/* we just created it */
+				statbuf.st_blocks = 0;	/* we just created it */
+				statbuf.st_blksize = WEBDAV_IOSIZE;
+				statbuf.st_flags = 0;
+				statbuf.st_gen = 0;
+				
+				/* cache the attributes */
+				error = nodecache_add_attributes(node, request_create->pcr.pcr_uid, &statbuf, NULL);
+			}
+			
+			/*
+			 * Since we just created the file and we can add an empty cache file
+			 * to the node and set the status to download finished. This will
+			 * save time in the next open.
+			 */
+			theCacheFile = -1;
+			error = get_cachefile(&theCacheFile);
+			if ( error == 0 )
+			{
+				/* add the empty file */
+				error = nodecache_add_file_cache(node, theCacheFile);
+				time(&node->file_validated_time);
+				node->file_status = WEBDAV_DOWNLOAD_FINISHED;
+				/* set the file_inactive_time  */
+				time(&node->file_inactive_time);
+			}
+			
+			reply_create->obj_id = node->nodeid;
 			reply_create->obj_fileid = node->fileid;
 		}
 	}
 
-bad_obj_ref:
+deleted_node:
+bad_obj_id:
 
 	return (error);
 }
@@ -615,9 +734,11 @@ int filesystem_mkdir(struct webdav_request_mkdir *request_mkdir, struct webdav_r
 	struct node_entry *parent_node;
 	time_t creation_date;
 
-	require_action(request_mkdir->dir != 0, bad_obj_ref, error = EIO);
-	
-	parent_node = (struct node_entry *)request_mkdir->dir;
+	error = RetrieveDataFromOpaqueID(request_mkdir->dir_id, (void **)&parent_node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
+
+	require_action_quiet(!NODE_IS_DELETED(parent_node), deleted_node, error = ESTALE);
+
 	error = network_mkdir(request_mkdir->pcr.pcr_uid, parent_node, request_mkdir->name, request_mkdir->name_length, &creation_date);
 	if ( !error )
 	{
@@ -640,15 +761,48 @@ int filesystem_mkdir(struct webdav_request_mkdir *request_mkdir, struct webdav_r
 		}
 		
 		/* Create a node */
-		error = nodecache_get_node(parent_node, request_mkdir->name_length, request_mkdir->name, TRUE, WEBDAV_DIR_TYPE, &node);
+		error = nodecache_get_node(parent_node, request_mkdir->name_length, request_mkdir->name, TRUE, TRUE, WEBDAV_DIR_TYPE, &node);
 		if ( !error )
 		{
-			reply_mkdir->obj_ref = (object_ref)node;
+			/* if we have the creation date, we can fill in the attributes because everything else is synthesized */
+			if ( creation_date != -1 )
+			{
+				struct stat statbuf;
+				
+				bzero((void *)&statbuf, sizeof(struct stat));
+				
+				statbuf.st_dev = 0;
+				statbuf.st_ino = node->fileid;
+				statbuf.st_mode = S_IFDIR | ACCESSPERMS;
+				/* Why 1 for st_nlink?
+				 * Getting the real link count for directories is expensive.
+				 * Setting it to 1 lets FTS(3) (and other utilities that assume
+				 * 1 means a file system doesn't support link counts) work.
+				 */
+				statbuf.st_nlink = 1;
+				statbuf.st_uid = UNKNOWNUID;
+				statbuf.st_gid = UNKNOWNUID;
+				statbuf.st_rdev = 0;
+				/* set all times to the last modified time since we cannot get the other times */
+				statbuf.st_mtimespec.tv_sec = creation_date;
+				statbuf.st_atimespec = statbuf.st_ctimespec = statbuf.st_mtimespec;
+				statbuf.st_size = WEBDAV_DIR_SIZE;	/* fake up the directory size */
+				statbuf.st_blocks = ((statbuf.st_size + S_BLKSIZE - 1) / S_BLKSIZE);
+				statbuf.st_blksize = WEBDAV_IOSIZE;
+				statbuf.st_flags = 0;
+				statbuf.st_gen = 0;
+				
+				/* cache the attributes */
+				error = nodecache_add_attributes(node, request_mkdir->pcr.pcr_uid, &statbuf, NULL);
+			}
+			
+			reply_mkdir->obj_id = node->nodeid;
 			reply_mkdir->obj_fileid = node->fileid;
 		}
 	}
 
-bad_obj_ref:
+deleted_node:
+bad_obj_id:
 
 	return (error);
 }
@@ -658,13 +812,18 @@ bad_obj_ref:
 int filesystem_read(struct webdav_request_read *request_read, char **a_byte_addr, size_t *a_size)
 {
 	int error;
+	struct node_entry *node;
 	
-	require_action(request_read->obj_ref != 0, bad_obj_ref, error = EIO);
-	
-	error = network_read(request_read->pcr.pcr_uid, (struct node_entry *)request_read->obj_ref,
+	error = RetrieveDataFromOpaqueID(request_read->obj_id, (void **)&node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
+
+	require_action_quiet(!NODE_IS_DELETED(node), deleted_node, error = ESTALE);
+
+	error = network_read(request_read->pcr.pcr_uid, node,
 		request_read->offset, request_read->count, a_byte_addr, a_size);
 
-bad_obj_ref:
+deleted_node:
+bad_obj_id:
 
 	return ( error );
 }
@@ -679,16 +838,23 @@ int filesystem_rename(struct webdav_request_rename *request_rename)
 	struct node_entry *parent_node;
 	time_t rename_date;
 
-	require_action(request_rename->from_obj_ref != 0, bad_from_obj_ref, error = EIO);
-	
-	require_action(request_rename->to_dir_ref != 0, bad_to_dir_ref, error = EIO);
+	error = RetrieveDataFromOpaqueID(request_rename->from_obj_id, (void **)&f_node);
+	require_noerr_action_quiet(error, bad_from_obj_id, error = ESTALE);
 
-	f_node = (struct node_entry *)request_rename->from_obj_ref;
-	parent_node = (struct node_entry *)request_rename->to_dir_ref;
-	if ( request_rename->to_obj_ref != 0 )
+	require_action_quiet(!NODE_IS_DELETED(f_node), deleted_node, error = ESTALE);
+	
+	error = RetrieveDataFromOpaqueID(request_rename->to_dir_id, (void **)&parent_node);
+	require_noerr_action_quiet(error, bad_to_dir_id, error = ESTALE);
+
+	require_action_quiet(!NODE_IS_DELETED(parent_node), deleted_node, error = ESTALE);
+
+	if ( request_rename->to_obj_id != kInvalidOpaqueID )
 	{
 		/* "to" exists */
-		t_node = (struct node_entry *)request_rename->to_obj_ref;
+		error = RetrieveDataFromOpaqueID(request_rename->to_obj_id, (void **)&t_node);
+		require_noerr_action_quiet(error, bad_to_obj_id, error = ESTALE);
+		
+		require_action_quiet(!NODE_IS_DELETED(t_node), deleted_node, error = ESTALE);
 		
 		/* "from" and "to" must be the same file_type */
 		if ( f_node->node_type != t_node->node_type )
@@ -750,7 +916,7 @@ int filesystem_rename(struct webdav_request_rename *request_rename)
 						
 			if ( t_node != NULL )
 			{
-				if ( nodecache_delete_node(t_node) != 0 )
+				if ( nodecache_delete_node(t_node, FALSE) != 0 )
 				{
 					debug_string("nodecache_delete_node failed");
 				}
@@ -766,8 +932,10 @@ int filesystem_rename(struct webdav_request_rename *request_rename)
 		}
 	}
 
-bad_to_dir_ref:
-bad_from_obj_ref:
+deleted_node:
+bad_to_obj_id:
+bad_to_dir_id:
+bad_from_obj_id:
 	
 	return (error);
 }
@@ -780,9 +948,10 @@ int filesystem_remove(struct webdav_request_remove *request_remove)
 	struct node_entry *node;
 	time_t remove_date;
 	
-	require_action(request_remove->obj_ref != 0, bad_obj_ref, error = EIO);
-	
-	node = (struct node_entry *)request_remove->obj_ref;
+	error = RetrieveDataFromOpaqueID(request_remove->obj_id, (void **)&node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
+
+	require_action_quiet(!NODE_IS_DELETED(node), deleted_node, error = ESTALE);
 	
 	error = network_remove(request_remove->pcr.pcr_uid, node, &remove_date);
 	if ( !error )
@@ -805,7 +974,7 @@ int filesystem_remove(struct webdav_request_remove *request_remove)
 			(void)nodecache_remove_attributes(node->parent);
 		}
 				
-		if ( nodecache_delete_node(node) != 0 )
+		if ( nodecache_delete_node(node, FALSE) != 0 )
 		{
 			debug_string("nodecache_delete_node failed");
 		}
@@ -813,7 +982,8 @@ int filesystem_remove(struct webdav_request_remove *request_remove)
 		statfs_cache_time = 0;
 	}
 
-bad_obj_ref:
+deleted_node:
+bad_obj_id:
 	
 	return (error);
 }
@@ -826,48 +996,48 @@ int filesystem_rmdir(struct webdav_request_rmdir *request_rmdir)
 	struct node_entry *node;
 	time_t remove_date;
 
-	require_action(request_rmdir->obj_ref != 0, bad_obj_ref, error = EIO);
-	
-	node = (struct node_entry *)request_rmdir->obj_ref;
-	
-	/* it must be empty in the node tree */
-	if ( (node->children).lh_first == NULL )
+	error = RetrieveDataFromOpaqueID(request_rmdir->obj_id, (void **)&node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
+
+	require_action_quiet(!NODE_IS_DELETED(node), deleted_node, error = ESTALE);
+		
+	/*
+	 * network_rmdir ensures the directory on the server is empty (which is what really matters)
+	 * before deleting the directory on the server. So, if network_rmdir is successful, then
+	 * we need to get rid of the directory node and any of its children nodes.
+	 */
+	error = network_rmdir(request_rmdir->pcr.pcr_uid, node, &remove_date);
+	if ( !error )
 	{
-		error = network_rmdir(request_rmdir->pcr.pcr_uid, node, &remove_date);
-		if ( !error )
+		/*
+		 * we just changed the parent_node so update or remove its attributes
+		 */
+		if ( (remove_date != -1) &&	/* if we know when the creation occurred */
+			 (node->parent->attr_stat.st_mtimespec.tv_sec <= remove_date) &&	/* and that time is later than what's cached */
+			 node_attributes_valid(node->parent, request_rmdir->pcr.pcr_uid) )	/* and the cache is valid */
 		{
-			/*
-			 * we just changed the parent_node so update or remove its attributes
-			 */
-			if ( (remove_date != -1) &&	/* if we know when the creation occurred */
-				 (node->parent->attr_stat.st_mtimespec.tv_sec <= remove_date) &&	/* and that time is later than what's cached */
-				 node_attributes_valid(node->parent, request_rmdir->pcr.pcr_uid) )	/* and the cache is valid */
-			{
-				/* update the times of the cached attributes */
-				node->parent->attr_stat.st_mtimespec.tv_sec = remove_date;
-				node->parent->attr_stat.st_atimespec = node->parent->attr_stat.st_ctimespec = node->parent->attr_stat.st_mtimespec;
-				node->parent->attr_time = time(NULL);
-			}
-			else
-			{
-				/* remove the attributes */
-				(void)nodecache_remove_attributes(node->parent);
-			}
-			
-			if ( nodecache_delete_node(node) != 0 )
-			{
-				debug_string("nodecache_delete_node failed");
-			}
-			
-			statfs_cache_time = 0;
+			/* update the times of the cached attributes */
+			node->parent->attr_stat.st_mtimespec.tv_sec = remove_date;
+			node->parent->attr_stat.st_atimespec = node->parent->attr_stat.st_ctimespec = node->parent->attr_stat.st_mtimespec;
+			node->parent->attr_time = time(NULL);
 		}
-	}
-	else
-	{
-		error = ENOTEMPTY;
+		else
+		{
+			/* remove the attributes */
+			(void)nodecache_remove_attributes(node->parent);
+		}
+		
+		/* delete node and any children we *thought* we knew about (some other client must have deleted them on the server) */
+		if ( nodecache_delete_node(node, TRUE) != 0 )
+		{
+			debug_string("nodecache_delete_node failed");
+		}
+		
+		statfs_cache_time = 0;
 	}
 	
-bad_obj_ref:
+deleted_node:
+bad_obj_id:
 
 	return (error);
 }
@@ -878,28 +1048,66 @@ int filesystem_fsync(struct webdav_request_fsync *request_fsync)
 {
 	int error;
 	struct node_entry *node;
+	off_t file_length;
+	time_t file_last_modified;
 	
-	require_action(request_fsync->obj_ref != 0, bad_obj_ref, error = EIO);
-	
-	node = (struct node_entry *)request_fsync->obj_ref;
-	
+	error = RetrieveDataFromOpaqueID(request_fsync->obj_id, (void **)&node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
+
+	require_action_quiet(!NODE_IS_DELETED(node), deleted_node, error = ESTALE);
+		
 	/* Trying to fsync something that's not open? */
 	require_action(NODE_FILE_IS_CACHED(node), not_open, error = EBADF);
 	
 	/* The kernel should not send us an fsync until the file is downloaded */
 	require_action((node->file_status & WEBDAV_DOWNLOAD_STATUS_MASK) == WEBDAV_DOWNLOAD_FINISHED, still_downloading, error = EIO);
 
-	error = network_fsync(request_fsync->pcr.pcr_uid, node);
+	error = network_fsync(request_fsync->pcr.pcr_uid, node, &file_length, &file_last_modified);
 	
-	/* we just changed the file so remove its attributes */
-	(void)nodecache_remove_attributes(node);
+	if ( (file_length == -1) || (file_last_modified == -1) )
+	{
+		/* if we didn't get the length or the file_last_modified date, remove its attributes */
+		(void)nodecache_remove_attributes(node);
+	}
+	else
+	{
+		/* otherwise, update its attributes */
+		struct stat statbuf;
+
+		bzero((void *)&statbuf, sizeof(struct stat));
+
+		statbuf.st_dev = 0;
+		statbuf.st_ino = node->fileid;
+		statbuf.st_mode = S_IFREG | ACCESSPERMS;
+		/* Why 1 for st_nlink?
+		* Getting the real link count for directories is expensive.
+		* Setting it to 1 lets FTS(3) (and other utilities that assume
+		* 1 means a file system doesn't support link counts) work.
+		*/
+		statbuf.st_nlink = 1;
+		statbuf.st_uid = UNKNOWNUID;
+		statbuf.st_gid = UNKNOWNUID;
+		statbuf.st_rdev = 0;
+		/* set all times to the last modified time since we cannot get the other times */
+		statbuf.st_mtimespec.tv_sec = file_last_modified;
+		statbuf.st_atimespec = statbuf.st_ctimespec = statbuf.st_mtimespec;
+		statbuf.st_size = file_length;
+		statbuf.st_blocks = ((statbuf.st_size + S_BLKSIZE - 1) / S_BLKSIZE);
+		statbuf.st_blksize = WEBDAV_IOSIZE;
+		statbuf.st_flags = 0;
+		statbuf.st_gen = 0;
+
+		/* cache the attributes */
+		error = nodecache_add_attributes(node, request_fsync->pcr.pcr_uid, &statbuf, NULL);
+	}
 	
 	/* and we changed the volume so invalidate the statfs cache */
 	statfs_cache_time = 0;
 
 still_downloading:
 not_open:
-bad_obj_ref:
+deleted_node:
+bad_obj_id:
 	
 	return ( error );
 }
@@ -909,12 +1117,17 @@ bad_obj_ref:
 int filesystem_readdir(struct webdav_request_readdir *request_readdir)
 {
 	int error;
+	struct node_entry *node;
 
-	require_action(request_readdir->obj_ref != 0, bad_obj_ref, error = EIO);
+	error = RetrieveDataFromOpaqueID(request_readdir->obj_id, (void **)&node);
+	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
 
-	error = network_readdir(request_readdir->pcr.pcr_uid, request_readdir->cache, (struct node_entry *)request_readdir->obj_ref);
+	require_action_quiet(!NODE_IS_DELETED(node), deleted_node, error = ESTALE);
+		
+	error = network_readdir(request_readdir->pcr.pcr_uid, request_readdir->cache, node);
 
-bad_obj_ref:
+deleted_node:
+bad_obj_id:
 
 	return (error);
 }

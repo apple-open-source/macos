@@ -90,9 +90,13 @@ endif
 
 Environment += TEXI2HTML="$(TEXI2HTML) -subdir ."
 
+# 4158518: gcc-4.0 no longer allows multiple archs with -M*, so projects
+# that have dependency tracking on by default, fail.  So we set
+# --disable-dependency-tracking to turn off dependency tracking.
 Configure_Flags = --prefix="$(Install_Prefix)"	\
 		  --mandir="$(Install_Man)"	\
-		 --infodir="$(Install_Info)"	\
+		  --infodir="$(Install_Info)"	\
+		  --disable-dependency-tracking \
 		  $(Extra_Configure_Flags)
 
 Install_Flags = prefix="$(RC_Install_Prefix)"	\

@@ -1,3 +1,29 @@
+2005-12-01  Ronnie Misra (rgmisra@apple.com)
+
+	* gdb.sh: Update to recognize new translate program path/command
+	line parameter.
+
+2005-11-16  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Add command line parameter when invoking Rosetta.
+
+2005-10-19  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Copy DYLD_* into GDB_DYLD_* to get past the setgid barrier.
+
+2005-09-30  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: make the gdb binaries setgid procmod.
+
+2005-05-28  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Update --help text.
+
+2005-05-18  Jason Molenda  (jmolenda@apple.com)
+
+	* cache-symfiles.sh: Remove.
+	* Makefile: Don't install cache-symfiles.sh.
+
 2005-05-03  Jason Molenda  (jmolenda@apple.com)
 
 	* gdb.sh: Add --oah750 command line option.

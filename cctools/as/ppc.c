@@ -1178,7 +1178,8 @@ enum branch_prediction prediction)
 		     * in md_number_to_imm() if the reloc is
 		     * PPC_RELOC_BR14_predicted.
 		     */
-		    insn->reloc = PPC_RELOC_BR14_predicted;
+		    if(insn->reloc == PPC_RELOC_BR14)
+			insn->reloc = PPC_RELOC_BR14_predicted;
 		    if(prediction == BRANCH_PREDICTION_LIKELY_TAKEN)
 			insn->opcode |= Y_BIT;
 		    else{ /* prediction == BRANCH_PREDICTION_LIKELY_NOT_TAKEN */

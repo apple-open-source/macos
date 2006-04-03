@@ -907,7 +907,6 @@ BASE_OBS = \
 	gdb-events.o \
 	exec.o bcache.o objfiles.o observer.o minsyms.o maint.o demangle.o \
 	dbxread.o coffread.o coff-pe-read.o elfread.o \
-	cached-symfile.o \
 	dwarfread.o dwarf2read.o mipsread.o stabsread.o corefile.o \
 	dwarf2expr.o dwarf2loc.o dwarf2-frame.o \
 	c-lang.o f-lang.o objc-lang.o \
@@ -1157,8 +1156,10 @@ gdb$(EXEEXT): gdb.o libgdb.a $(CONFIG_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
 	echo "__objcInit" > /tmp/macosx-syms-to-remove;
 	-if [ -f .libs/gdb$(EXEEXT) ]; then \
 		strip -R /tmp/macosx-syms-to-remove -X .libs/gdb$(EXEEXT); \
+		chgrp procmod .libs/gdb$(EXEEXT) && chmod g+s .libs/gdb$(EXEEXT); \
 	else \
 		strip -R /tmp/macosx-syms-to-remove -X gdb$(EXEEXT); \
+		chgrp procmod gdb$(EXEEXT) && chmod g+s gdb$(EXEEXT); \
 	fi
 	rm -f /tmp/macosx-syms-to-remove;
 
@@ -2818,23 +2819,6 @@ mi-parse.o: $(srcdir)/mi/mi-parse.c $(defs_h) $(mi_cmds_h) $(mi_parse_h) \
 mi-symbol-cmds.o: $(srcdir)/mi/mi-symbol-cmds.c $(defs_h) $(mi_cmds_h) \
 	$(symtab_h) $(ui_out_h)
 	$(CC) -c $(INTERNAL_CFLAGS) $(srcdir)/mi/mi-symbol-cmds.c
-
-#
-# nindy-share sub-directory
-#
-# Need to explicitly specify the compile rule as make will do nothing
-# or try to compile the object file into the mi directory.
-
-Onindy.o: nindy-share/Onindy.c $(gdb_wait_h) nindy-share/block_io.h \
-	nindy-share/env.h
-	$(CC) -c $(INTERNAL_CFLAGS) $(srcdir)/nindy-share/Onindy.c
-
-nindy.o: nindy-share/nindy.c $(gdb_wait_h) nindy-share/block_io.h \
-	nindy-share/env.h
-	$(CC) -c $(INTERNAL_CFLAGS) $(srcdir)/nindy-share/nindy.c
-
-ttyflush.o: nindy-share/ttyflush.c $(srcdir)/nindy-share/ttyflush.c
-	$(CC) -c $(INTERNAL_CFLAGS) $(srcdir)/nindy-share/ttyflush.c
 
 #
 # rdi-share sub-directory

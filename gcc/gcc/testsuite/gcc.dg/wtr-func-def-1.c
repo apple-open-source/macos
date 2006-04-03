@@ -2,6 +2,8 @@
    Note, gcc should omit these warnings in system header files.
    Origin: Kaveh R. Ghazi <ghazi@caip.rutgers.edu> 6/30/2002.  */
 /* { dg-do compile } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-skip-if "" { "*-*-darwin*" } { "*" } { "" } } */
 /* { dg-options "-Wtraditional" } */
 
 /* Test some simple cases.  */

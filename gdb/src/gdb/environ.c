@@ -87,6 +87,54 @@ init_environ (struct environ *e)
     }
 }
 
+/* APPLE LOCAL: gdb has to run setgid on MacOS X and
+   dyld truncates the DYLD_* environment variables on set[ug]id
+   binaries so their environment isn't mucked with by an evil user.
+
+   To work around this, the /usr/bin/gdb shell script copies DYLD_*
+   into GDB_DYLD_*, and in this function we look for DYLD_* env
+   vars that have been truncated and a matching GDB_DYLD_* env var.
+   If this exists, we copy the GDB_DYLD_* value into DYLD_* so that
+   it will take effect when the inferior process is run. */
+
+struct dyld_smuggle_pairs {
+  const char *real_name;
+  const char *smuggled_name;
+};
+
+void
+smuggle_dyld_settings (struct environ *e)
+{
+  /* The list of DYLD_* names was gleaned from dyld's src/dyld.cpp.  */
+
+  struct dyld_smuggle_pairs env_names[] = { 
+       {"DYLD_FRAMEWORK_PATH", "GDB_DYLD_FRAMEWORK_PATH"},
+       {"DYLD_FALLBACK_FRAMEWORK_PATH", "GDB_DYLD_FALLBACK_FRAMEWORK_PATH"},
+       {"DYLD_LIBRARY_PATH", "GDB_DYLD_LIBRARY_PATH"},
+       {"DYLD_FALLBACK_LIBRARY_PATH", "GDB_DYLD_FALLBACK_LIBRARY_PATH"},
+       {"DYLD_ROOT_PATH", "GDB_DYLD_ROOT_PATH"},
+       {"DYLD_PATHS_ROOT", "GDB_DYLD_PATHS_ROOT"},
+       {"DYLD_IMAGE_SUFFIX", "GDB_DYLD_IMAGE_SUFFIX"},
+       {"DYLD_INSERT_LIBRARIES", "GDB_DYLD_INSERT_LIBRARIES"},
+       { NULL, NULL } };
+  int i;
+
+  for (i = 0; env_names[i].real_name != NULL; i++)
+    {
+      const char *real_val = get_in_environ (e, env_names[i].real_name);
+      const char *smuggled_val = get_in_environ (e, env_names[i].smuggled_name);
+
+      if (real_val == NULL || smuggled_val == NULL)
+        continue;
+
+       /* Is the value of the DYLD_* env var truncated? */
+      if (real_val[0] != '\0')
+        continue;
+
+       set_in_environ (e, env_names[i].real_name, smuggled_val);
+     }
+}
+
 /* Return the vector of environment E.
    This is used to get something to pass to execve.  */
 

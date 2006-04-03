@@ -103,32 +103,67 @@ struct merged_symbol {
      * to cause the correct module to be loaded.
      */
     struct dynamic_library *referencing_library;
+
+    /*
+     * When doing dead code stripping this is set to the fine_reloc this symbol
+     * is in if any.
+     */
+    struct fine_reloc *fine_reloc;
 };
 
 /*
  * The number of merged_symbol structrures in a merged_symbol_list.
- * THE VALUE OF THIS MACRO MUST BE AN ODD NUMBER (NOT A POWER OF TWO).
  */
 #ifndef RLD
-#define NSYMBOLS 2001
+#define NSYMBOLS 20001
 #else
 #define NSYMBOLS 201
 #endif /* RLD */
 /* The number of size of the hash table in a merged_symbol_list */
 #define SYMBOL_LIST_HASH_SIZE	(NSYMBOLS * 2)
 
+/* The number of buckets for conflicts */
+#define SYMBOL_CHUNK_SIZE 10
+
+/* The collection of buckets for conflicting hash values */
+struct merged_symbol_chunk
+{
+    /* the buckets */
+    struct merged_symbol symbols[SYMBOL_CHUNK_SIZE];
+
+    /*
+     * next chunk (if this is not null, it means all of the buckets of this
+     * chunk are full)
+     */
+    struct merged_symbol_chunk *next;
+};
+
 /*
- * The structure to hold a chunk the list of merged symbol.
+ * The block that has the hash table and a pointer to symbol list.
+ */
+struct merged_symbol_root {
+    /* the hashed array of chunks */
+    struct merged_symbol_chunk chunks[SYMBOL_LIST_HASH_SIZE];
+
+    /* the list of used symbols */
+    struct merged_symbol_list *list;
+};
+
+/*
+ * The symbol list is the list of symbols that have been used. It's a compact
+ * flat array of pointers into the sparse hash table.
  */
 struct merged_symbol_list {
-    struct merged_symbol	/* the merged_symbol structures in this chunk */
-	merged_symbols[NSYMBOLS];
-    unsigned long used;		/* the number used in this chunk */
-    struct merged_symbol	/* pointer to the hash table for this chunk */
-	**hash_table;		/*  (it is a pointer so it can be free'ed) */
-    struct merged_symbol_list	/* the next chunk (NULL in no more chunks) */
-	*next;
+    /* pointers to symbols in the merged_symbol_chunk */
+    struct merged_symbol *symbols[SYMBOL_LIST_HASH_SIZE];
+
+    /* next free location in the symbols array */
+    unsigned long used;
+
+    /* next linked symbol list (NULL means no more) */
+    struct merged_symbol_list *next;
 };
+
 
 /* the blocks that store the strings; allocated as needed */
 struct string_block {
@@ -185,7 +220,7 @@ struct common_symbol {
  * count of the merged symbols.  The count of merged symbols referenced only
  * from dylibs will not be in the output file.
  */
-__private_extern__ struct merged_symbol_list *merged_symbol_lists;
+__private_extern__ struct merged_symbol_root *merged_symbol_root;
 __private_extern__ unsigned long nmerged_symbols;
 __private_extern__ unsigned long nmerged_private_symbols;
 __private_extern__ unsigned long nmerged_symbols_referenced_only_from_dylibs;
@@ -319,12 +354,14 @@ __private_extern__ void merge_symbols(
     void);
 __private_extern__ struct merged_symbol *command_line_symbol(
     char *symbol_name);
-__private_extern__ struct merged_symbol **lookup_symbol(
+__private_extern__ struct merged_symbol *lookup_symbol(
     char *symbol_name);
 __private_extern__ void command_line_indr_symbol(
     char *symbol_name,
     char *indr_symbol_name);
 #ifndef RLD
+__private_extern__ void hash_instrument(
+    void);
 __private_extern__ void merge_dylib_module_symbols(
     struct dynamic_library *dynamic_library);
 __private_extern__ void merge_bundle_loader_symbols(
@@ -345,6 +382,8 @@ __private_extern__ void define_undefined_symbols_a_way(
 __private_extern__ void mark_globals_live(
     void);
 __private_extern__ void mark_N_NO_DEAD_STRIP_local_symbols_live(
+    void);
+__private_extern__ void set_fine_relocs_for_merged_symbols(
     void);
 __private_extern__ void count_live_symbols(
     void);
@@ -396,7 +435,8 @@ __private_extern__ enum bool is_output_local_symbol(
     unsigned char n_type,
     unsigned char n_sect,
     struct object_file *obj,
-    char *symbol_name);
+    char *symbol_name,
+    unsigned long *output_strlen);
 __private_extern__ unsigned long merged_symbol_output_index(
     struct merged_symbol *merged_symbol);
 __private_extern__ void clear_read_only_reloc_flags(

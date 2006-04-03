@@ -42,7 +42,7 @@
 # $
 #
 
-# $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Projects/CCacheVector.pbexp,v 1.2 2002/02/25 05:50:45 lxs Exp $
+# $Header$
 
 ___cc_context_release_vector
 ___cc_context_get_change_time_vector

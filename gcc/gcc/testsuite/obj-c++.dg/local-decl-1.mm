@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test for ivar access inside of class methods.  It should be allowed (with a warning), but only
    if no other declarations with the same name are seen.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */

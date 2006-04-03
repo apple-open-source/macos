@@ -20,7 +20,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: snmp.c,v 1.70.2.18 2005/03/16 16:19:59 harrie Exp $ */
+/* $Id: snmp.c,v 1.70.2.22 2005/05/10 11:21:19 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -156,7 +156,7 @@ zend_module_entry snmp_module_entry = {
 	"snmp",
 	snmp_functions,
 	PHP_MINIT(snmp),
-	PHP_MSHUTDOWN(snmp),
+	NULL,
 	NULL,
 	NULL,
 	PHP_MINFO(snmp),
@@ -203,16 +203,6 @@ PHP_MINIT_FUNCTION(snmp)
 	REGISTER_LONG_CONSTANT("SNMP_UINTEGER", ASN_UINTEGER, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SNMP_INTEGER", ASN_INTEGER, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SNMP_COUNTER64", ASN_COUNTER64, CONST_CS | CONST_PERSISTENT);
-
-	return SUCCESS;
-}
-/* }}} */
-
-/* {{{ PHP_MSHUTDOWN_FUNCTION
- */
-PHP_MSHUTDOWN_FUNCTION(snmp)
-{
-	snmp_shutdown("snmpapp");
 
 	return SUCCESS;
 }
@@ -347,9 +337,9 @@ static void php_snmp_internal(INTERNAL_FUNCTION_PARAMETERS,
 	struct snmp_pdu *pdu=NULL, *response;
 	struct variable_list *vars;
 	oid name[MAX_NAME_LEN];
-	int name_length;
+	size_t name_length;
 	oid root[MAX_NAME_LEN];
-	int rootlen = 0;
+	size_t rootlen = 0;
 	int gotroot = 0;
 	int status, count;
 	char buf[2048];
@@ -442,6 +432,7 @@ retry:
 					if (st == 1) {
 						*return_value = *snmpval;
 						zval_copy_ctor(return_value);
+						zval_ptr_dtor(&snmpval);
 						snmp_close(ss);
 						return;
 					} else if (st == 2) {

@@ -56,8 +56,23 @@ extern "C" {
 *       Floating point data types                                             *
 ******************************************************************************/
 
-typedef float		float_t;
-typedef double		double_t;
+/*	Define float_t and double_t per C standard, ISO/IEC 9899:1999 7.12 2,
+	taking advantage of GCC's __FLT_EVAL_METHOD__ (which a compiler may
+	define anytime and GCC does) that shadows FLT_EVAL_METHOD (which a compiler
+	must and may define only in float.h).
+*/
+#if __FLT_EVAL_METHOD__ == 0
+	typedef float float_t;
+	typedef double double_t;
+#elif __FLT_EVAL_METHOD__ == 1
+	typedef double float_t;
+	typedef double double_t;
+#elif __FLT_EVAL_METHOD__ == 2 || __FLT_EVAL_METHOD__ == -1
+	typedef long double float_t;
+	typedef long double double_t;
+#else /* __FLT_EVAL_METHOD__ */
+	#error "Unsupported value of __FLT_EVAL_METHOD__."
+#endif /* __FLT_EVAL_METHOD__ */
 
 #define	HUGE_VAL	1e500
 #define	HUGE_VALF	1e50f
@@ -607,7 +622,9 @@ static inline float __fastmath_floorf( float f )
     float b, c, d, e, g, h, t;
 
     c = __FSELS( f, -0x1.0p+23f, 0x1.0p+23f );          b = fabsf( f ); 
-    d = (f - c) + c;                                    e = b - 0x1.0p+23f;                        
+    d = f - c;                                          e = b - 0x1.0p+23f;                        
+	__asm__("" : "+f" (d));	/* Tell compiler value of d cannot be optimized away. */
+	d = d + c;
     g = f - d;
     h = __FSELS( g, 0.0f, 1.0f );
     t = d - h;
@@ -620,7 +637,9 @@ static inline float __fastmath_ceilf( float f )
     float b, c, d, e, g, h, t;
 
     c = __FSELS( f, -0x1.0p+23f, 0x1.0p+23f );          b = fabsf( f ); 
-    d = (f - c) + c;                                    e = b - 0x1.0p+23f;                        
+    d = f - c;                                          e = b - 0x1.0p+23f;                        
+	__asm__("" : "+f" (d));	/* Tell compiler value of d cannot be optimized away. */
+	d = d + c;
     g = d - f;
     h = __FSELS( g, 0.0f, 1.0f );
     t = d + h;
@@ -633,7 +652,9 @@ static inline double __fastmath_floor( double f )
     double b, c, d, e, g, h, t;
 
     c = __FSEL( f, -0x1.0p+52, 0x1.0p+52 );             b = fabs( f );      
-    d = (f - c) + c;                                	e = b - 0x1.0p+52;                    
+    d = f - c;                                          e = b - 0x1.0p+52;                    
+	__asm__("" : "+f" (d));	/* Tell compiler value of d cannot be optimized away. */
+	d = d + c;
     g = f - d;
     h = __FSEL( g, 0.0, 1.0 );
     t = d - h;
@@ -646,7 +667,9 @@ static inline double __fastmath_ceil( double f )
     double b, c, d, e, g, h, t;
 
     c = __FSEL( f, -0x1.0p+52, 0x1.0p+52 );             b = fabs( f );      
-    d = (f - c) + c;                                	e = b - 0x1.0p+52;                    
+    d = f - c;                                          e = b - 0x1.0p+52;                    
+	__asm__("" : "+f" (d));	/* Tell compiler value of d cannot be optimized away. */
+	d = d + c;
     g = d - f;
     h = __FSEL( g, 0.0, 1.0 );
     t = d + h;

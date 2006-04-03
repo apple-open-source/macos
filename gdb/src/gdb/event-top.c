@@ -1027,9 +1027,15 @@ async_request_quit (gdb_client_data arg)
   /* If the quit_flag has gotten reset back to 0 by the time we get
      back here, that means that an exception was thrown to unwind
      the current command before we got back to the event loop.  So
-     there is no reason to call quit again here. */
+     there is no reason to call quit again here. 
+     I added the check for immediate quit, since that's what
+     prompt_for_continue uses instead of quit_flag to request the
+     quit.  Since BOTH quit_flag & immediate_quit get set to
+     zero when we do handle_exception, the check for both zero
+     has the same meaning as for just quit_flag.
+  */
 
-  if (quit_flag == 0)
+  if (quit_flag == 0 && immediate_quit == 0)
     return;
 
   quit ();
@@ -1229,7 +1235,6 @@ gdb_setup_readline (void)
 /* Disable command input through the standard CLI channels.  Used in
    the suspend proc for interpreters that use the standard gdb readline
    interface, like the cli & the mi.  */
-
 void
 gdb_disable_readline (void)
 {

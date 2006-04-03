@@ -1,0 +1,322 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1AB1DD205DDC3CE00526345 /* KerberosPreferences.h in Headers */ = {isa = PBXBuildFile; fileRef = F579A433021D6BAF01650119 /* KerberosPreferences.h */; };
+		A1AB1DD405DDC3CE00526345 /* KerberosPreferences.c in Sources */ = {isa = PBXBuildFile; fileRef = F579A437021D6C1201650119 /* KerberosPreferences.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		F579A427021D6B5B01650119 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		F579A428021D6B5B01650119 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		A1AB1DD805DDC3CE00526345 /* libKerberosPreferences.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKerberosPreferences.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F551B616022455D701650119 /* KerberosPreferences.pbexp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = KerberosPreferences.pbexp; sourceTree = SOURCE_ROOT; };
+		F579A433021D6BAF01650119 /* KerberosPreferences.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosPreferences.h; sourceTree = "<group>"; };
+		F579A437021D6C1201650119 /* KerberosPreferences.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = KerberosPreferences.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1AB1DD505DDC3CE00526345 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F579A426021D6B5B01650119 = {
+			isa = PBXGroup;
+			children = (
+				F551B616022455D701650119 /* KerberosPreferences.pbexp */,
+				F579A430021D6BAF01650119 /* Headers */,
+				F579A434021D6C1201650119 /* Sources */,
+				F579A429021D6BA101650119 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F579A429021D6BA101650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1AB1DD805DDC3CE00526345 /* libKerberosPreferences.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F579A430021D6BAF01650119 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				F579A432021D6BAF01650119 /* Kerberos */,
+			);
+			name = Headers;
+			path = ../Headers;
+			sourceTree = SOURCE_ROOT;
+		};
+		F579A432021D6BAF01650119 /* Kerberos */ = {
+			isa = PBXGroup;
+			children = (
+				F579A433021D6BAF01650119 /* KerberosPreferences.h */,
+			);
+			path = Kerberos;
+			sourceTree = "<group>";
+		};
+		F579A434021D6C1201650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F579A437021D6C1201650119 /* KerberosPreferences.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A1AB1DD105DDC3CE00526345 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1AB1DD205DDC3CE00526345 /* KerberosPreferences.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A1AB1DD005DDC3CE00526345 /* KerberosPreferences */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1518F1E086C85FF0042CBBC /* Build configuration list for PBXNativeTarget "KerberosPreferences" */;
+			buildPhases = (
+				A1AB1DD105DDC3CE00526345 /* Headers */,
+				A1AB1DD305DDC3CE00526345 /* Sources */,
+				A1AB1DD505DDC3CE00526345 /* Frameworks */,
+				A1AB1DD605DDC3CE00526345 /* Rez */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../Common/Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers/Kerberos",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include/krb5",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(SRCROOT)/../../Kerberos5/Sources/include/krb5",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosPreferences;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = KerberosPreferences;
+			productInstallPath = /usr/local/lib;
+			productName = KerberosPreferences;
+			productReference = A1AB1DD805DDC3CE00526345 /* libKerberosPreferences.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F579A425021D6B5B01650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1518F22086C85FF0042CBBC /* Build configuration list for PBXProject "KerberosPreferences" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				F579A427021D6B5B01650119 /* Development */,
+				F579A428021D6B5B01650119 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = F579A426021D6B5B01650119;
+			productRefGroup = F579A429021D6BA101650119 /* Products */;
+			projectDirPath = "";
+			targets = (
+				A1AB1DD005DDC3CE00526345 /* KerberosPreferences */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		A1AB1DD605DDC3CE00526345 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1AB1DD305DDC3CE00526345 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1AB1DD405DDC3CE00526345 /* KerberosPreferences.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1518F1F086C85FF0042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../Common/Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers/Kerberos",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include/krb5",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(SRCROOT)/../../Kerberos5/Sources/include/krb5",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosPreferences;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wall";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A1518F20086C85FF0042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../Common/Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers/Kerberos",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include/krb5",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(SRCROOT)/../../Kerberos5/Sources/include/krb5",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosPreferences;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wall";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A1518F21086C85FF0042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../Common/Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers/Kerberos",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include/krb5",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(SRCROOT)/../../Kerberos5/Sources/include/krb5",
+				);
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = KerberosPreferences;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Default;
+		};
+		A1518F23086C85FF0042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		A1518F24086C85FF0042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		A1518F25086C85FF0042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1518F1E086C85FF0042CBBC /* Build configuration list for PBXNativeTarget "KerberosPreferences" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1518F1F086C85FF0042CBBC /* Development */,
+				A1518F20086C85FF0042CBBC /* Deployment */,
+				A1518F21086C85FF0042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A1518F22086C85FF0042CBBC /* Build configuration list for PBXProject "KerberosPreferences" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1518F23086C85FF0042CBBC /* Development */,
+				A1518F24086C85FF0042CBBC /* Deployment */,
+				A1518F25086C85FF0042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F579A425021D6B5B01650119 /* Project object */;
+}

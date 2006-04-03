@@ -1,7 +1,7 @@
 /*
  * main.m
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/main.m,v 1.6 2004/09/20 20:33:20 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

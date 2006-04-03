@@ -51,6 +51,155 @@ enum NXByteOrder target_byte_sex)
 	cpu->gs = NXSwapLong(cpu->gs);
 }
 
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
+void
+swap_i386_float_state(
+struct i386_float_state *fpu,
+enum NXByteOrder target_byte_sex)
+{
+#ifndef i386_EXCEPTION_STATE_COUNT
+    /* this routine does nothing as their are currently no non-byte fields */
+#else /* !defined(i386_EXCEPTION_STATE_COUNT) */
+    struct swapped_fp_control {
+	union {
+	    struct {
+		unsigned short
+			    :3,
+		    /*inf*/ :1,
+		    rc	    :2,
+		    pc	    :2,
+			    :2,
+		    precis  :1,
+		    undfl   :1,
+		    ovrfl   :1,
+		    zdiv    :1,
+		    denorm  :1,
+		    invalid :1;
+	    } fields;
+	    unsigned short half;
+	} u;
+    } sfpc;
+
+    struct swapped_fp_status {
+	union {
+	    struct {
+		unsigned short
+		    busy    :1,
+		    c3	    :1,
+		    tos	    :3,
+		    c2	    :1,
+		    c1	    :1,
+		    c0	    :1,
+		    errsumm :1,
+		    stkflt  :1,
+		    precis  :1,
+		    undfl   :1,
+		    ovrfl   :1,
+		    zdiv    :1,
+		    denorm  :1,
+		    invalid :1;
+	    } fields;
+	    unsigned short half;
+	} u;
+    } sfps;
+
+    enum NXByteOrder host_byte_sex;
+
+	host_byte_sex = NXHostByteOrder();
+
+	fpu->fpu_reserved[0] = NXSwapLong(fpu->fpu_reserved[0]);
+	fpu->fpu_reserved[1] = NXSwapLong(fpu->fpu_reserved[1]);
+
+	if(target_byte_sex == host_byte_sex){
+	    memcpy(&sfpc, &(fpu->fpu_fcw),
+		   sizeof(struct swapped_fp_control));
+	    sfpc.u.half = NXSwapShort(sfpc.u.half);
+	    fpu->fpu_fcw.rc = sfpc.u.fields.rc;
+	    fpu->fpu_fcw.pc = sfpc.u.fields.pc;
+	    fpu->fpu_fcw.precis = sfpc.u.fields.precis;
+	    fpu->fpu_fcw.undfl = sfpc.u.fields.undfl;
+	    fpu->fpu_fcw.ovrfl = sfpc.u.fields.ovrfl;
+	    fpu->fpu_fcw.zdiv = sfpc.u.fields.zdiv;
+	    fpu->fpu_fcw.denorm = sfpc.u.fields.denorm;
+	    fpu->fpu_fcw.invalid = sfpc.u.fields.invalid;
+
+	    memcpy(&sfps, &(fpu->fpu_fsw),
+		   sizeof(struct swapped_fp_status));
+	    sfps.u.half = NXSwapShort(sfps.u.half);
+	    fpu->fpu_fsw.busy = sfps.u.fields.busy;
+	    fpu->fpu_fsw.c3 = sfps.u.fields.c3;
+	    fpu->fpu_fsw.tos = sfps.u.fields.tos;
+	    fpu->fpu_fsw.c2 = sfps.u.fields.c2;
+	    fpu->fpu_fsw.c1 = sfps.u.fields.c1;
+	    fpu->fpu_fsw.c0 = sfps.u.fields.c0;
+	    fpu->fpu_fsw.errsumm = sfps.u.fields.errsumm;
+	    fpu->fpu_fsw.stkflt = sfps.u.fields.stkflt;
+	    fpu->fpu_fsw.precis = sfps.u.fields.precis;
+	    fpu->fpu_fsw.undfl = sfps.u.fields.undfl;
+	    fpu->fpu_fsw.ovrfl = sfps.u.fields.ovrfl;
+	    fpu->fpu_fsw.zdiv = sfps.u.fields.zdiv;
+	    fpu->fpu_fsw.denorm = sfps.u.fields.denorm;
+	    fpu->fpu_fsw.invalid = sfps.u.fields.invalid;
+	}
+	else{
+	    sfpc.u.fields.rc = fpu->fpu_fcw.rc;
+	    sfpc.u.fields.pc = fpu->fpu_fcw.pc;
+	    sfpc.u.fields.precis = fpu->fpu_fcw.precis;
+	    sfpc.u.fields.undfl = fpu->fpu_fcw.undfl;
+	    sfpc.u.fields.ovrfl = fpu->fpu_fcw.ovrfl;
+	    sfpc.u.fields.zdiv = fpu->fpu_fcw.zdiv;
+	    sfpc.u.fields.denorm = fpu->fpu_fcw.denorm;
+	    sfpc.u.fields.invalid = fpu->fpu_fcw.invalid;
+	    sfpc.u.half = NXSwapShort(sfpc.u.half);
+	    memcpy(&(fpu->fpu_fcw), &sfpc,
+		   sizeof(struct swapped_fp_control));
+
+	    sfps.u.fields.busy = fpu->fpu_fsw.busy;
+	    sfps.u.fields.c3 = fpu->fpu_fsw.c3;
+	    sfps.u.fields.tos = fpu->fpu_fsw.tos;
+	    sfps.u.fields.c2 = fpu->fpu_fsw.c2;
+	    sfps.u.fields.c1 = fpu->fpu_fsw.c1;
+	    sfps.u.fields.c0 = fpu->fpu_fsw.c0;
+	    sfps.u.fields.errsumm = fpu->fpu_fsw.errsumm;
+	    sfps.u.fields.stkflt = fpu->fpu_fsw.stkflt;
+	    sfps.u.fields.precis = fpu->fpu_fsw.precis;
+	    sfps.u.fields.undfl = fpu->fpu_fsw.undfl;
+	    sfps.u.fields.ovrfl = fpu->fpu_fsw.ovrfl;
+	    sfps.u.fields.zdiv = fpu->fpu_fsw.zdiv;
+	    sfps.u.fields.denorm = fpu->fpu_fsw.denorm;
+	    sfps.u.fields.invalid = fpu->fpu_fsw.invalid;
+	    sfps.u.half = NXSwapShort(sfps.u.half);
+	    memcpy(&(fpu->fpu_fsw), &sfps,
+		   sizeof(struct swapped_fp_status));
+	}
+	fpu->fpu_fop = NXSwapShort(fpu->fpu_fop);
+	fpu->fpu_ip = NXSwapLong(fpu->fpu_ip);
+	fpu->fpu_cs = NXSwapShort(fpu->fpu_cs);
+	fpu->fpu_rsrv2 = NXSwapShort(fpu->fpu_rsrv2);
+	fpu->fpu_dp = NXSwapLong(fpu->fpu_dp);
+	fpu->fpu_ds = NXSwapShort(fpu->fpu_ds);
+	fpu->fpu_rsrv3 = NXSwapShort(fpu->fpu_rsrv3);
+	fpu->fpu_mxcsr = NXSwapLong(fpu->fpu_mxcsr);
+	fpu->fpu_mxcsrmask = NXSwapLong(fpu->fpu_mxcsrmask);
+	fpu->fpu_reserved1 = NXSwapLong(fpu->fpu_reserved1);
+
+#endif /* !defined(i386_EXCEPTION_STATE_COUNT) */
+}
+
+void
+swap_i386_exception_state(
+i386_exception_state_t *exc,
+enum NXByteOrder target_byte_order)
+{
+	exc->trapno = NXSwapLong(exc->trapno);
+	exc->err = NXSwapLong(exc->err);
+    	exc->faultvaddr = NXSwapLong(exc->faultvaddr);
+}
+#endif /* i386_THREAD_STATE == 1 */
+
+/* i386 thread states on older releases */
+#if i386_THREAD_STATE == -1
 void
 swap_i386_thread_fpstate(
 i386_thread_fpstate_t *fpu,
@@ -362,4 +511,5 @@ enum NXByteOrder target_byte_sex)
 {
 	user->self = NXSwapLong(user->self);
 }
+#endif /* i386_THREAD_STATE == -1 */
 #endif /* !defined(RLD) */

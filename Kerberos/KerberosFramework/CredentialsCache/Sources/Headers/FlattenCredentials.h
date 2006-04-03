@@ -1,7 +1,7 @@
 /*
  * CCICredentials.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/FlattenCredentials.h,v 1.4 2004/09/08 20:48:35 lxs Exp $
+ * $Header$
  */
  
 #pragma once
@@ -38,6 +38,9 @@ void WriteString (std::ostream& ioStream, const char *inString);
 
 void ReadString (std::istream& ioStream, std::string &outString);
 void WriteString (std::ostream& ioStream, const std::string inString);
+
+void ReadInt32 (std::istream& ioStream, CCIInt32& integer);
+void WriteInt32 (std::ostream& ioStream, CCIInt32 integer);
 
 void ReadUInt32 (std::istream& ioStream, CCIUInt32& integer);
 void WriteUInt32 (std::ostream& ioStream, CCIUInt32 integer);

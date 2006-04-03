@@ -57,7 +57,8 @@ enum {
     kAuthPasswordNeedsDecimal = -12,
     kAuthMethodTooWeak = -13,
 	kAuthPasswordNeedsMixedCase = -14,
-	kAuthPasswordHasGuessablePattern = -15
+	kAuthPasswordHasGuessablePattern = -15,
+	kAuthPasswordCannotBeUsername = -16
 };
 
 typedef enum SyncStatus {
@@ -166,8 +167,8 @@ class CAuthFileBase
 		virtual int						RequiredCharacterStatus(PWFileEntry *inPasswordRec, const char *inPassword);
 		virtual int						ReenableStatus(PWFileEntry *inPasswordRec, unsigned long inGlobalReenableMinutes);
 
-		virtual CAuthFileUtils*			GetUtilsObject( void ) { return &fUtils; };
-
+		virtual CAuthFileUtils*			GetUtilsObject( void );
+		
 		int								getPasswordRecFromSpillBucket(PWFileEntry *inRec, PWFileEntry *passRec);
 		int								SaveOverflowRecord( PWFileEntry *inPasswordRec, bool obfuscate = true, bool setModDate = true );
 		int								OpenOverflowFile( PWFileEntry *inPasswordRec, bool create, FILE **outFP );

@@ -441,17 +441,9 @@ ident_i3recv(iph1, msg)
 		case ISAKMP_NPTYPE_NATD_DRAFT:
 		case ISAKMP_NPTYPE_NATD_BADDRAFT:
 #ifdef IKE_NAT_T
-			{
-				natd_match_t match;
 				
-				if (pa->type != iph1->natd_payload_type) {
-					plog(LLV_ERROR, LOCATION, iph1->remote,
-						"ignore the packet, "
-						"received unexpected natd payload type %d.\n",
-						pa->type);
-					goto end;
-				}			
-				match = natd_matches(iph1, pa->ptr);
+			if (pa->type == iph1->natd_payload_type) {
+				natd_match_t match = natd_matches(iph1, pa->ptr);
 				iph1->natt_flags |= natt_natd_received;
 				if ((match & natd_match_local) != 0)
 					iph1->natt_flags |= natt_no_local_nat;
@@ -1098,17 +1090,8 @@ ident_r2recv(iph1, msg)
 		case ISAKMP_NPTYPE_NATD_DRAFT:
 		case ISAKMP_NPTYPE_NATD_BADDRAFT:
 #ifdef IKE_NAT_T
-			{
-				natd_match_t match;
-				
-				if (pa->type != iph1->natd_payload_type) {
-					plog(LLV_ERROR, LOCATION, iph1->remote,
-						"ignore the packet, "
-						"received unexpected natd payload type %d.\n",
-						pa->type);
-					goto end;
-				}			
-				match = natd_matches(iph1, pa->ptr);
+			if (pa->type == iph1->natd_payload_type) {
+				natd_match_t match = natd_matches(iph1, pa->ptr);
 				iph1->natt_flags |= natt_natd_received;
 				if ((match & natd_match_local) != 0)
 					iph1->natt_flags |= natt_no_local_nat;

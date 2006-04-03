@@ -43,6 +43,10 @@
 
 #include "launch.h"
 
+#if __GNUC__ >= 4
+OSStatus SessionCreate(SessionCreationFlags flags, SessionAttributeBits attributes) __attribute__((weak));
+#endif
+
 static int kq = 0;
 
 static void find_fds(launch_data_t o, const char *key __attribute__((unused)), void *context __attribute__((unused)))

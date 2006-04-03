@@ -1,7 +1,7 @@
 /*
  * KLConfiguration.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLConfiguration.h,v 1.5 2004/10/04 17:46:51 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

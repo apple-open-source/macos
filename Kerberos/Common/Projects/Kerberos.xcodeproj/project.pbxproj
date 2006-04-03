@@ -1,0 +1,1010 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		A14BC401066E5E710043C31C /* KerberosLibraries */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = A1519029086C8AD60042CBBC /* Build configuration list for PBXAggregateTarget "KerberosLibraries" */;
+			buildPhases = (
+				A1519247086C94780042CBBC /* ShellScript */,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KfMFramework;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				A1E2D24A08C8F25D000E7389 /* PBXTargetDependency */,
+			);
+			name = KerberosLibraries;
+			productName = KfMFramework;
+		};
+		A1C49B770676584A00E25136 /* Kerberos */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = A1519025086C8AD60042CBBC /* Build configuration list for PBXAggregateTarget "Kerberos" */;
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KfM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				A1519285086C97470042CBBC /* PBXTargetDependency */,
+				A1519287086C97470042CBBC /* PBXTargetDependency */,
+			);
+			name = Kerberos;
+			productName = KfM;
+		};
+		F5DCC3F7022AC03F012695F5 /* KerberosClients */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = A151902D086C8AD60042CBBC /* Build configuration list for PBXAggregateTarget "KerberosClients" */;
+			buildPhases = (
+				A151923F086C939D0042CBBC /* ShellScript */,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Kerberos;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+				A1E2D23A08C8F1EF000E7389 /* PBXTargetDependency */,
+				A1E2D23E08C8F21A000E7389 /* PBXTargetDependency */,
+				A1E2D24008C8F223000E7389 /* PBXTargetDependency */,
+				A1E2D24208C8F233000E7389 /* PBXTargetDependency */,
+				A1E2D25408C8F26B000E7389 /* PBXTargetDependency */,
+				A1E2D25208C8F26B000E7389 /* PBXTargetDependency */,
+				A1E2D24408C8F233000E7389 /* PBXTargetDependency */,
+				A1E2D24E08C8F26B000E7389 /* PBXTargetDependency */,
+				A1E2D25008C8F26B000E7389 /* PBXTargetDependency */,
+				A1EF1BC208F70BAF0078747F /* PBXTargetDependency */,
+			);
+			name = KerberosClients;
+			productName = Kerberos;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildStyle section */
+		F5DCC3F5022ABF73012695F5 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		F5DCC3F6022ABF73012695F5 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXContainerItemProxy section */
+		A1519284086C97470042CBBC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F5DCC3F3022ABF73012695F5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A14BC401066E5E710043C31C;
+			remoteInfo = KerberosLibraries;
+		};
+		A1519286086C97470042CBBC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F5DCC3F3022ABF73012695F5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F5DCC3F7022AC03F012695F5;
+			remoteInfo = KerberosClients;
+		};
+		A1E2D1B208C8F12C000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1AB08C8F12C000E7389 /* CredentialsCache.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A1AB1BCF05DD88C700526345;
+			remoteInfo = CredentialsCache;
+		};
+		A1E2D1B408C8F12C000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1AB08C8F12C000E7389 /* CredentialsCache.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A1AB1C7505DD892B00526345;
+			remoteInfo = CCacheServer;
+		};
+		A1E2D1D108C8F13F000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1B808C8F13E000E7389 /* KerberosFramework.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A1FBC51107AAF63900872683;
+			remoteInfo = KerberosFramework;
+		};
+		A1E2D1D808C8F152000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1D308C8F152000E7389 /* KerberosLogin.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A1032E0B05DD7C3B0070BF06;
+			remoteInfo = KerberosLogin;
+		};
+		A1E2D1DA08C8F152000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1D308C8F152000E7389 /* KerberosLogin.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A177E94D064AD4C7001D06D5;
+			remoteInfo = KerberosAgent;
+		};
+		A1E2D1E808C8F166000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1DC08C8F166000E7389 /* Kerberos5.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A1AB1E0205DDC40100526345;
+			remoteInfo = KerberosDES;
+		};
+		A1E2D1EA08C8F166000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1DC08C8F166000E7389 /* Kerberos5.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A1AB1E2205DDC43000526345;
+			remoteInfo = KerberosProfile;
+		};
+		A1E2D1EC08C8F166000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1DC08C8F166000E7389 /* Kerberos5.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A1AB1E6F05DDC45F00526345;
+			remoteInfo = Kerberos4;
+		};
+		A1E2D1EE08C8F166000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1DC08C8F166000E7389 /* Kerberos5.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A1AB1FB105DDC47800526345;
+			remoteInfo = Kerberos5;
+		};
+		A1E2D1F008C8F166000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1DC08C8F166000E7389 /* Kerberos5.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A1AB200305DDC48A00526345;
+			remoteInfo = GSS;
+		};
+		A1E2D20F08C8F1A7000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1F508C8F1A7000E7389 /* KerberosApp.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 8D1107320486CEB800E47090;
+			remoteInfo = KerberosApp;
+		};
+		A1E2D21108C8F1A7000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1F508C8F1A7000E7389 /* KerberosApp.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A13EF2D5072B70710002CCE4;
+			remoteInfo = SaveNewProfile;
+		};
+		A1E2D21608C8F1A7000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1F808C8F1A7000E7389 /* klist.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A181F28105E553A9006CE0A8;
+			remoteInfo = klist;
+		};
+		A1E2D21B08C8F1A7000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1FB08C8F1A7000E7389 /* kvno.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A181F2D105E5542D006CE0A8;
+			remoteInfo = kvno;
+		};
+		A1E2D22008C8F1A7000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1FE08C8F1A7000E7389 /* kpasswd.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A181F29C05E553E4006CE0A8;
+			remoteInfo = kpasswd;
+		};
+		A1E2D22508C8F1A7000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D20108C8F1A7000E7389 /* kinit.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A181F26505E55356006CE0A8;
+			remoteInfo = kinit;
+		};
+		A1E2D22A08C8F1A7000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D20408C8F1A7000E7389 /* kdestroy.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A181F24A05E5531E006CE0A8;
+			remoteInfo = kdestroy;
+		};
+		A1E2D22F08C8F1A7000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D20708C8F1A7000E7389 /* kswitch.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = A181F2B705E5540C006CE0A8;
+			remoteInfo = kswitch;
+		};
+		A1E2D23908C8F1EF000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1D308C8F152000E7389 /* KerberosLogin.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A177E94C064AD4C7001D06D5;
+			remoteInfo = KerberosAgent;
+		};
+		A1E2D23D08C8F21A000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1AB08C8F12C000E7389 /* CredentialsCache.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A1AB1C3605DD892B00526345;
+			remoteInfo = CCacheServer;
+		};
+		A1E2D23F08C8F223000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1F508C8F1A7000E7389 /* KerberosApp.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 8D1107260486CEB800E47090;
+			remoteInfo = KerberosApp;
+		};
+		A1E2D24108C8F233000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D20108C8F1A7000E7389 /* kinit.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A181F25C05E55356006CE0A8;
+			remoteInfo = kinit;
+		};
+		A1E2D24308C8F233000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1FE08C8F1A7000E7389 /* kpasswd.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A181F29305E553E4006CE0A8;
+			remoteInfo = kpasswd;
+		};
+		A1E2D24908C8F25D000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1B808C8F13E000E7389 /* KerberosFramework.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A1FBC4C807AAF63900872683;
+			remoteInfo = KerberosFramework;
+		};
+		A1E2D24D08C8F26B000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1FB08C8F1A7000E7389 /* kvno.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A181F2C805E5542D006CE0A8;
+			remoteInfo = kvno;
+		};
+		A1E2D24F08C8F26B000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D20708C8F1A7000E7389 /* kswitch.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A181F2AE05E5540C006CE0A8;
+			remoteInfo = kswitch;
+		};
+		A1E2D25108C8F26B000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1F808C8F1A7000E7389 /* klist.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A181F27805E553A9006CE0A8;
+			remoteInfo = klist;
+		};
+		A1E2D25308C8F26B000E7389 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D20408C8F1A7000E7389 /* kdestroy.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A181F24105E5531E006CE0A8;
+			remoteInfo = kdestroy;
+		};
+		A1EF1BC108F70BAF0078747F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1E2D1DC08C8F166000E7389 /* Kerberos5.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = A1B7077F08731E4500F0C55D /* Servers */;
+			remoteInfo = Servers;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A14BC4A0066E5F7D0043C31C /* Makefile */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.make; name = Makefile; path = ../../Makefile; sourceTree = SOURCE_ROOT; };
+		A1B87E9A065023F800608198 /* KerberosVersion.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = KerberosVersion.pl; sourceTree = "<group>"; };
+		A1C499CB0676392D00E25136 /* buildit.pl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; path = buildit.pl; sourceTree = "<group>"; };
+		A1E2D1AB08C8F12C000E7389 /* CredentialsCache.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = CredentialsCache.xcodeproj; path = ../../KerberosFramework/CredentialsCache/Projects/CredentialsCache.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D1B808C8F13E000E7389 /* KerberosFramework.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = KerberosFramework.xcodeproj; path = ../../KerberosFramework/Common/Projects/KerberosFramework.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D1D308C8F152000E7389 /* KerberosLogin.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = KerberosLogin.xcodeproj; path = ../../KerberosFramework/KerberosLogin/Projects/KerberosLogin.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D1DC08C8F166000E7389 /* Kerberos5.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = Kerberos5.xcodeproj; path = ../../KerberosFramework/Kerberos5/Projects/Kerberos5.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D1F508C8F1A7000E7389 /* KerberosApp.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = KerberosApp.xcodeproj; path = ../../KerberosClients/KerberosApp/Projects/KerberosApp.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D1F808C8F1A7000E7389 /* klist.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = klist.xcodeproj; path = ../../KerberosClients/klist/Projects/klist.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D1FB08C8F1A7000E7389 /* kvno.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = kvno.xcodeproj; path = ../../KerberosClients/kvno/Projects/kvno.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D1FE08C8F1A7000E7389 /* kpasswd.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = kpasswd.xcodeproj; path = ../../KerberosClients/kpasswd/Projects/kpasswd.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D20108C8F1A7000E7389 /* kinit.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = kinit.xcodeproj; path = ../../KerberosClients/kinit/Projects/kinit.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D20408C8F1A7000E7389 /* kdestroy.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = kdestroy.xcodeproj; path = ../../KerberosClients/kdestroy/Projects/kdestroy.xcodeproj; sourceTree = SOURCE_ROOT; };
+		A1E2D20708C8F1A7000E7389 /* kswitch.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = kswitch.xcodeproj; path = ../../KerberosClients/kswitch/Projects/kswitch.xcodeproj; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		A1E2D1AC08C8F12C000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D1B308C8F12C000E7389 /* libCredentialsCache.a */,
+				A1E2D1B508C8F12C000E7389 /* CCacheServer.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D1B908C8F13E000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D1D208C8F13F000E7389 /* Kerberos.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D1D408C8F152000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D1D908C8F152000E7389 /* libKerberosLogin.a */,
+				A1E2D1DB08C8F152000E7389 /* KerberosAgent.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D1DD08C8F166000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D1E908C8F166000E7389 /* libKerberosDES.a */,
+				A1E2D1EB08C8F166000E7389 /* libKerberosProfile.a */,
+				A1E2D1ED08C8F166000E7389 /* libKerberos4.a */,
+				A1E2D1EF08C8F166000E7389 /* libKerberos5.a */,
+				A1E2D1F108C8F166000E7389 /* libGSS.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D1F608C8F1A7000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D21008C8F1A7000E7389 /* Kerberos.app */,
+				A1E2D21208C8F1A7000E7389 /* SaveNewProfile */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D1F908C8F1A7000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D21708C8F1A7000E7389 /* klist */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D1FC08C8F1A7000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D21C08C8F1A7000E7389 /* kvno */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D1FF08C8F1A7000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D22108C8F1A7000E7389 /* kpasswd */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D20208C8F1A7000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D22608C8F1A7000E7389 /* kinit */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D20508C8F1A7000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D22B08C8F1A7000E7389 /* kdestroy */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E2D20808C8F1A7000E7389 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1E2D23008C8F1A7000E7389 /* kswitch */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F5DCC3F4022ABF73012695F5 = {
+			isa = PBXGroup;
+			children = (
+				A1E2D1B808C8F13E000E7389 /* KerberosFramework.xcodeproj */,
+				A1E2D1AB08C8F12C000E7389 /* CredentialsCache.xcodeproj */,
+				A1E2D1D308C8F152000E7389 /* KerberosLogin.xcodeproj */,
+				A1E2D1DC08C8F166000E7389 /* Kerberos5.xcodeproj */,
+				A1E2D1F808C8F1A7000E7389 /* klist.xcodeproj */,
+				A1E2D1FB08C8F1A7000E7389 /* kvno.xcodeproj */,
+				A1E2D1FE08C8F1A7000E7389 /* kpasswd.xcodeproj */,
+				A1E2D20108C8F1A7000E7389 /* kinit.xcodeproj */,
+				A1E2D20408C8F1A7000E7389 /* kdestroy.xcodeproj */,
+				A1E2D20708C8F1A7000E7389 /* kswitch.xcodeproj */,
+				A1E2D1F508C8F1A7000E7389 /* KerberosApp.xcodeproj */,
+				F5DCC3FD022AC07B012695F5 /* Scripts */,
+				A14BC4A0066E5F7D0043C31C /* Makefile */,
+			);
+			sourceTree = "<group>";
+		};
+		F5DCC3FD022AC07B012695F5 /* Scripts */ = {
+			isa = PBXGroup;
+			children = (
+				A1C499CB0676392D00E25136 /* buildit.pl */,
+				A1B87E9A065023F800608198 /* KerberosVersion.pl */,
+			);
+			name = Scripts;
+			path = ../Scripts;
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		F5DCC3F3022ABF73012695F5 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1519031086C8AD60042CBBC /* Build configuration list for PBXProject "Kerberos" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				F5DCC3F5022ABF73012695F5 /* Development */,
+				F5DCC3F6022ABF73012695F5 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = F5DCC3F4022ABF73012695F5;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = A1E2D1D408C8F152000E7389 /* Products */;
+					ProjectRef = A1E2D1D308C8F152000E7389 /* KerberosLogin.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D20508C8F1A7000E7389 /* Products */;
+					ProjectRef = A1E2D20408C8F1A7000E7389 /* kdestroy.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D20208C8F1A7000E7389 /* Products */;
+					ProjectRef = A1E2D20108C8F1A7000E7389 /* kinit.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D20808C8F1A7000E7389 /* Products */;
+					ProjectRef = A1E2D20708C8F1A7000E7389 /* kswitch.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D1B908C8F13E000E7389 /* Products */;
+					ProjectRef = A1E2D1B808C8F13E000E7389 /* KerberosFramework.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D1F908C8F1A7000E7389 /* Products */;
+					ProjectRef = A1E2D1F808C8F1A7000E7389 /* klist.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D1F608C8F1A7000E7389 /* Products */;
+					ProjectRef = A1E2D1F508C8F1A7000E7389 /* KerberosApp.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D1FF08C8F1A7000E7389 /* Products */;
+					ProjectRef = A1E2D1FE08C8F1A7000E7389 /* kpasswd.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D1AC08C8F12C000E7389 /* Products */;
+					ProjectRef = A1E2D1AB08C8F12C000E7389 /* CredentialsCache.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D1DD08C8F166000E7389 /* Products */;
+					ProjectRef = A1E2D1DC08C8F166000E7389 /* Kerberos5.xcodeproj */;
+				},
+				{
+					ProductGroup = A1E2D1FC08C8F1A7000E7389 /* Products */;
+					ProjectRef = A1E2D1FB08C8F1A7000E7389 /* kvno.xcodeproj */;
+				},
+			);
+			targets = (
+				A1C49B770676584A00E25136 /* Kerberos */,
+				A14BC401066E5E710043C31C /* KerberosLibraries */,
+				F5DCC3F7022AC03F012695F5 /* KerberosClients */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		A1E2D1B308C8F12C000E7389 /* libCredentialsCache.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libCredentialsCache.a;
+			remoteRef = A1E2D1B208C8F12C000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D1B508C8F12C000E7389 /* CCacheServer.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = CCacheServer.app;
+			remoteRef = A1E2D1B408C8F12C000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D1D208C8F13F000E7389 /* Kerberos.framework */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.framework;
+			path = Kerberos.framework;
+			remoteRef = A1E2D1D108C8F13F000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D1D908C8F152000E7389 /* libKerberosLogin.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libKerberosLogin.a;
+			remoteRef = A1E2D1D808C8F152000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D1DB08C8F152000E7389 /* KerberosAgent.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = KerberosAgent.app;
+			remoteRef = A1E2D1DA08C8F152000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D1E908C8F166000E7389 /* libKerberosDES.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libKerberosDES.a;
+			remoteRef = A1E2D1E808C8F166000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D1EB08C8F166000E7389 /* libKerberosProfile.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libKerberosProfile.a;
+			remoteRef = A1E2D1EA08C8F166000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D1ED08C8F166000E7389 /* libKerberos4.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libKerberos4.a;
+			remoteRef = A1E2D1EC08C8F166000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D1EF08C8F166000E7389 /* libKerberos5.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libKerberos5.a;
+			remoteRef = A1E2D1EE08C8F166000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D1F108C8F166000E7389 /* libGSS.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libGSS.a;
+			remoteRef = A1E2D1F008C8F166000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D21008C8F1A7000E7389 /* Kerberos.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = Kerberos.app;
+			remoteRef = A1E2D20F08C8F1A7000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D21208C8F1A7000E7389 /* SaveNewProfile */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = SaveNewProfile;
+			remoteRef = A1E2D21108C8F1A7000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D21708C8F1A7000E7389 /* klist */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = klist;
+			remoteRef = A1E2D21608C8F1A7000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D21C08C8F1A7000E7389 /* kvno */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = kvno;
+			remoteRef = A1E2D21B08C8F1A7000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D22108C8F1A7000E7389 /* kpasswd */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = kpasswd;
+			remoteRef = A1E2D22008C8F1A7000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D22608C8F1A7000E7389 /* kinit */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = kinit;
+			remoteRef = A1E2D22508C8F1A7000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D22B08C8F1A7000E7389 /* kdestroy */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = kdestroy;
+			remoteRef = A1E2D22A08C8F1A7000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1E2D23008C8F1A7000E7389 /* kswitch */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = kswitch;
+			remoteRef = A1E2D22F08C8F1A7000E7389 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A151923F086C939D0042CBBC /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/perl \"${SRCROOT}/../Scripts/KerberosVersion.pl\" \"${DSTROOT}\"\nexit 0\n";
+		};
+		A1519247086C94780042CBBC /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/perl \"${SRCROOT}/../Scripts/KerberosVersion.pl\" \"${DSTROOT}\"\nexit 0\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1519285086C97470042CBBC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A14BC401066E5E710043C31C /* KerberosLibraries */;
+			targetProxy = A1519284086C97470042CBBC /* PBXContainerItemProxy */;
+		};
+		A1519287086C97470042CBBC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F5DCC3F7022AC03F012695F5 /* KerberosClients */;
+			targetProxy = A1519286086C97470042CBBC /* PBXContainerItemProxy */;
+		};
+		A1E2D23A08C8F1EF000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KerberosAgent;
+			targetProxy = A1E2D23908C8F1EF000E7389 /* PBXContainerItemProxy */;
+		};
+		A1E2D23E08C8F21A000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = CCacheServer;
+			targetProxy = A1E2D23D08C8F21A000E7389 /* PBXContainerItemProxy */;
+		};
+		A1E2D24008C8F223000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KerberosApp;
+			targetProxy = A1E2D23F08C8F223000E7389 /* PBXContainerItemProxy */;
+		};
+		A1E2D24208C8F233000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = kinit;
+			targetProxy = A1E2D24108C8F233000E7389 /* PBXContainerItemProxy */;
+		};
+		A1E2D24408C8F233000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = kpasswd;
+			targetProxy = A1E2D24308C8F233000E7389 /* PBXContainerItemProxy */;
+		};
+		A1E2D24A08C8F25D000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KerberosFramework;
+			targetProxy = A1E2D24908C8F25D000E7389 /* PBXContainerItemProxy */;
+		};
+		A1E2D24E08C8F26B000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = kvno;
+			targetProxy = A1E2D24D08C8F26B000E7389 /* PBXContainerItemProxy */;
+		};
+		A1E2D25008C8F26B000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = kswitch;
+			targetProxy = A1E2D24F08C8F26B000E7389 /* PBXContainerItemProxy */;
+		};
+		A1E2D25208C8F26B000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = klist;
+			targetProxy = A1E2D25108C8F26B000E7389 /* PBXContainerItemProxy */;
+		};
+		A1E2D25408C8F26B000E7389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = kdestroy;
+			targetProxy = A1E2D25308C8F26B000E7389 /* PBXContainerItemProxy */;
+		};
+		A1EF1BC208F70BAF0078747F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Servers;
+			targetProxy = A1EF1BC108F70BAF0078747F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A1519026086C8AD60042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KfM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A1519027086C8AD60042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KfM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A1519028086C8AD60042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KfM;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A151902A086C8AD60042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KfMFramework;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A151902B086C8AD60042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KfMFramework;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A151902C086C8AD60042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KfMFramework;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A151902E086C8AD60042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Kerberos;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A151902F086C8AD60042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Kerberos;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A1519030086C8AD60042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Kerberos;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A1519032086C8AD60042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		A1519033086C8AD60042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		A1519034086C8AD60042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1519025086C8AD60042CBBC /* Build configuration list for PBXAggregateTarget "Kerberos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1519026086C8AD60042CBBC /* Development */,
+				A1519027086C8AD60042CBBC /* Deployment */,
+				A1519028086C8AD60042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A1519029086C8AD60042CBBC /* Build configuration list for PBXAggregateTarget "KerberosLibraries" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A151902A086C8AD60042CBBC /* Development */,
+				A151902B086C8AD60042CBBC /* Deployment */,
+				A151902C086C8AD60042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A151902D086C8AD60042CBBC /* Build configuration list for PBXAggregateTarget "KerberosClients" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A151902E086C8AD60042CBBC /* Development */,
+				A151902F086C8AD60042CBBC /* Deployment */,
+				A1519030086C8AD60042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A1519031086C8AD60042CBBC /* Build configuration list for PBXProject "Kerberos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1519032086C8AD60042CBBC /* Development */,
+				A1519033086C8AD60042CBBC /* Deployment */,
+				A1519034086C8AD60042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5DCC3F3022ABF73012695F5 /* Project object */;
+}

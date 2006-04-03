@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.84.2.15 2004/11/10 20:28:27 wez Exp $ */
+/* $Id: exec.c,v 1.84.2.15.2.2 2005/10/26 20:03:14 tony2001 Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -398,7 +398,7 @@ PHP_FUNCTION(passthru)
 
    *NOT* safe for binary strings
 */
-char *php_escape_shell_cmd(char *str) {
+PHPAPI char *php_escape_shell_cmd(char *str) {
 	register int x, y, l;
 	char *cmd;
 	char *p = NULL;
@@ -462,7 +462,7 @@ char *php_escape_shell_cmd(char *str) {
 
 /* {{{ php_escape_shell_arg
  */
-char *php_escape_shell_arg(char *str) {
+PHPAPI char *php_escape_shell_arg(char *str) {
 	int x, y, l;
 	char *cmd;
 

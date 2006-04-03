@@ -5,7 +5,7 @@
 #                       Makefile to build the gdb MacsBug plugin                       #
 #                                                                                      #
 #                                     Ira L. Ruben                                     #
-#                      Copyright Apple Computer, Inc. 2000-2002                        #
+#                      Copyright Apple Computer, Inc. 2000-2005                        #
 #                                                                                      #
 ########################################################################################
 
@@ -63,7 +63,7 @@
 
 PROJECT				=	MacsBug
 PLUGIN				=       MacsBug_plugin
-VERSION				= 	1.3
+VERSION				= 	1.5
 
 SRCROOT				=	.
 SYMROOT				=	.
@@ -78,7 +78,7 @@ DSTDIR				=	$(DSTROOT)$(IDIR)
 
 PLUGIN_SUPPORT			= 	$(API_DIR)/gdb_plugin_support
 
-BUILD_VERSION			=	10.1
+BUILD_VERSION			=	10.4
 
 ifndef BINUTILS_BUILD_ROOT
 BINUTILS_BUILD_ROOT = $(NEXT_ROOT)
@@ -121,8 +121,10 @@ HEADERS				=	$(HFILES:%=$(SRCROOT)/%) 	\
 
 INCLUDES 			= 	-I$(PLUGIN_SUPPORT) -I.
 
+OPT				=	-O2
+
 CFLAGS 				= 	-g 				\
-					-O2				\
+					$(OPT)				\
 					-c				\
 					-DVERSION=\""$(VERSION)"\"	\
 					$(INCLUDES)
@@ -211,7 +213,7 @@ $(OFILE_DIR) $(SYMROOT) $(DSTDIR):
 	mkdir -p $@
 
 gdb_plugin_support.o 		: 	force
-	cd $(PLUGIN_SUPPORT) && make SRCROOT=$(PLUGIN_SUPPORT)
+	cd $(PLUGIN_SUPPORT) && make SRCROOT=$(PLUGIN_SUPPORT) OPT=$(OPT)
 
 force				:
 

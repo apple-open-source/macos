@@ -1,7 +1,7 @@
 /*
  * CCIContextDataMachIPCStubs.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/MachIPCImplementations/ContextDataMachIPCStubs.cp,v 1.16 2005/05/25 20:21:50 lxs Exp $
+ * $Header$
  */
 
 #include "ContextDataMachIPCStubs.h"

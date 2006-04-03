@@ -608,6 +608,56 @@ _CFHTTPRequest *createZombieDouble1(CFAllocatorRef alloc, _CFHTTPRequest *orig, 
 
 extern Boolean _CFHTTPAuthenticationConnectionAuthenticated(CFHTTPAuthenticationRef auth, const void* connection);
 
+static Boolean canShutdownConnection(_CFNetConnectionRef conn, _CFHTTPRequest *req, Boolean allowOneEntry) {
+    int i, bad = 0;
+    CFHTTPAuthenticationRef auth[2];
+    Boolean isPersistent = _CFNetConnectionWillEnqueueRequests(conn);
+    int depth = _CFNetConnectionGetQueueDepth(conn);
+    Boolean empty = depth == 0 || (allowOneEntry && depth == 1);
+    Boolean hasAuth = FALSE;
+    Boolean authComplete = TRUE;
+    
+    auth[0] = connectionOrientedAuth(req, FALSE);
+    auth[1] = connectionOrientedAuth(req, TRUE);
+            
+    for (i = 0; i < (sizeof(auth) / sizeof(auth[0])); i++) {
+        
+        if (!auth[i])
+                continue;
+        
+        hasAuth = TRUE;
+        
+        if (!isPersistent || !CFHTTPAuthenticationIsValid(auth[i], NULL)) {
+                bad++;
+                _CFHTTPAuthenticationDisassociateConnection(auth[i], conn);
+        }
+        else
+                authComplete = authComplete && _CFHTTPAuthenticationConnectionAuthenticated(auth[i], conn);
+    }
+    
+    /*
+    ** There are four reasons for which to pull the connection from the cache:
+    **
+    **	1. If the connection isn't persistent, make sure it's not in the cache.
+    **
+    **	2. If there is not connection-based authentication and the queue for the
+    **		connection is empty, remove the connection from the cache.
+    **
+    **	3. If there is authentication and one has gone bad, remove the connection
+    **		from the cache.  This could actually be made slightly better if it
+    **		paid attention to the proxy authentication going bad versus the server
+    **		authentication going bad.  Something to add in the future.
+    **
+    **	4. If there is authentication and it has gone to completion, treat the
+    **		connection like there is no authentication.  This means that as soon
+    **		as the connection has gone empty, it can be removed.
+    */
+    return (!isPersistent ||
+            (!hasAuth && empty) ||
+            (hasAuth && bad) ||
+            (hasAuth && authComplete && empty));
+}
+
 static void dequeueFromConnection1(_CFHTTPRequest *req) {
     // Guard against re-entrancy; CFHTTPConnectionDequeue may end up re-entering us and we don't want to to attempt multiple dequeues from the same connection.  Hence the shuffle below with req->conn and conn.
 #if defined(LOG_REQUESTS)
@@ -622,67 +672,23 @@ static void dequeueFromConnection1(_CFHTTPRequest *req) {
             CFRelease(conn);
         } else {
             if (!_CFNetConnectionDequeue(conn, req)) {
-                _CFHTTPRequest *zombie = createZombieDouble1(CFGetAllocator(conn), req, conn);
-                if (!zombie) {
-                    // We're doomed....  We can't dequeue, and we can't replace ourselves....
-                    req->conn = conn;
-                    __CFBitSet(req->flags, IS_ZOMBIE);
-                    return;
+                if (canShutdownConnection(conn, req, TRUE)) {
+                    _CFNetConnectionSetAllowsNewRequests(conn, FALSE);
+                    removeFromConnectionCache(httpConnectionCache, conn, (_CFNetConnectionCacheKey)_CFNetConnectionGetInfoPointer(conn));
                 } else {
-                    _CFNetConnectionReplaceRequest(conn, req, zombie);
+                    _CFHTTPRequest *zombie = createZombieDouble1(CFGetAllocator(conn), req, conn);
+                    if (!zombie) {
+                        // We're doomed....  We can't dequeue, and we can't replace ourselves....
+                        req->conn = conn;
+                        __CFBitSet(req->flags, IS_ZOMBIE);
+                        return;
+                    } else {
+                        _CFNetConnectionReplaceRequest(conn, req, zombie);
+                    }
                 }
-            } else {
-				
-				int i, bad = 0;
-				CFHTTPAuthenticationRef auth[2];
-				Boolean isPersistent = _CFNetConnectionWillEnqueueRequests(conn);
-				Boolean empty = _CFNetConnectionIsEmpty(conn);
-				Boolean hasAuth = FALSE;
-				Boolean authComplete = TRUE;
-				
-				auth[0] = connectionOrientedAuth(req, FALSE);
-				auth[1] = connectionOrientedAuth(req, TRUE);
-					
-				for (i = 0; i < (sizeof(auth) / sizeof(auth[0])); i++) {
-					
-					if (!auth[i])
-						continue;
-					
-					hasAuth = TRUE;
-					
-					if (!isPersistent || !CFHTTPAuthenticationIsValid(auth[i], NULL)) {
-						bad++;
-						_CFHTTPAuthenticationDisassociateConnection(auth[i], conn);
-					}
-					else
-						authComplete = authComplete && _CFHTTPAuthenticationConnectionAuthenticated(auth[i], conn);
-				}
-				
-				/*
-				** There are four reasons for which to pull the connection from the cache:
-				**
-				**	1. If the connection isn't persistent, make sure it's not in the cache.
-				**
-				**	2. If there is not connection-based authentication and the queue for the
-				**		connection is empty, remove the connection from the cache.
-				**
-				**	3. If there is authentication and one has gone bad, remove the connection
-				**		from the cache.  This could actually be made slightly better if it
-				**		paid attention to the proxy authentication going bad versus the server
-				**		authentication going bad.  Something to add in the future.
-				**
-				**	4. If there is authentication and it has gone to completion, treat the
-				**		connection like there is no authentication.  This means that as soon
-				**		as the connection has gone empty, it can be removed.
-				*/
-				if (!isPersistent ||
-					(!hasAuth && empty) ||
-					(hasAuth && bad) ||
-					(hasAuth && authComplete && empty))
-				{
-					_CFNetConnectionSetAllowsNewRequests(conn, FALSE);
-					removeFromConnectionCache(httpConnectionCache, conn, (_CFNetConnectionCacheKey)_CFNetConnectionGetInfoPointer(conn));
-				}
+            } else if (canShutdownConnection(conn, req, FALSE)) {
+                _CFNetConnectionSetAllowsNewRequests(conn, FALSE);
+                removeFromConnectionCache(httpConnectionCache, conn, (_CFNetConnectionCacheKey)_CFNetConnectionGetInfoPointer(conn));
             }
             CFRelease(conn);
         }
@@ -1435,11 +1441,11 @@ static _CFNetConnectionRef getConnectionForRequest(_CFHTTPRequest *req, Boolean 
         } else {
             // Just advance to the next proxy
             _CFNetConnectionCacheKey key = nextConnectionCacheKeyFromProxyArray(req, req->proxyList, targetURL, req->connProps);
-			__CFSpinLock(&cacheInitLock);
-			if (httpConnectionCache == NULL) {
+            __CFSpinLock(&cacheInitLock);
+            if (httpConnectionCache == NULL) {
                 httpConnectionCache = createConnectionCache();
             }
-			__CFSpinUnlock(&cacheInitLock);
+            __CFSpinUnlock(&cacheInitLock);
             conn = findOrCreateNetConnection(httpConnectionCache, CFGetAllocator(req->responseStream), &httpConnectionCallBacks, key, key, isPersistent(req), req->connProps);
             releaseConnectionCacheKey(key);
         }

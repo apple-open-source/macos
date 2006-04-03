@@ -85,6 +85,9 @@ struct object_file {
 	*localsym_blocks;	/*  that are to be excluded from the output */
     struct section_map		/* Current map of symbols used for -sectorder */
 	*cur_section_map;	/*  that is being processed from this object */
+    char *resolved_path;	/* The full path name and length of the name */
+    unsigned long		/*  for N_OSO stabs added with the -Sp option */
+	resolved_path_len;
 #ifdef RLD
     long set_num;		/* The set number this object belongs to. */
     enum bool user_obj_addr;	/* TRUE if the user allocated the object */
@@ -209,6 +212,26 @@ struct fine_reloc {
     unsigned long output_offset;     /* offset in the output file for the item*/
     struct merged_symbol	     /* the global merged_symbol for the item */
 		  *merged_symbol;    /*  if any (else NULL) */
+    struct ref *refs;		     /* if dead code stripping list of refs */
+};
+
+/*
+ * When dead code stripping a linked list of these ref structures are created
+ * from the relocation entries for each fine_reloc.  There are fields if this
+ * is for an external reference and fields for a local references.  One set of
+ * fields are set and the other are set to NULL.
+ */
+struct ref {
+    /* if this reference came from an external symbol this is set */
+    struct merged_symbol *merged_symbol;
+
+    /* if this reference is to a local block these are set */
+    struct fine_reloc *fine_reloc;
+    struct section_map *map;
+    struct object_file *obj;
+
+    /* next reference in the list if any, else NULL */
+    struct ref *next;
 };
 
 /*

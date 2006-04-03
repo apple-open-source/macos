@@ -63,7 +63,19 @@ static BOOL gAutomountInitialized = NO;
 
 extern BOOL gUserLoggedIn;
 
-
+/*
+ * We ignore servers and neighborhoods with these names, as other parts of
+ * OS X expect network resource to be put there explicitly by automounter
+ * maps.
+ */
+static const char *ignore_names[] = {
+	"Applications",
+	"Developer",
+	"Library",
+	"Servers",
+	"Users",
+	NULL
+};
 
 void NSLVnodeNewSearchResultAlert(SearchContextPtr callContext)
 {
@@ -97,6 +109,7 @@ BOOL AutomounterInitializationComplete( void ) {
 		apparentName = NULL;
 		NSLObjectType = kNetworkObjectTypeNone;
 		fixedEntry = NO;
+		censorContents = NO;
 		havePopulated = NO;
 		
 		INIT_SEARCHRESULTLIST(&neighborhoodSearchResults, NSLObject.neighborhood);
@@ -546,6 +559,20 @@ Error_Exit:
 
 
 
+- (BOOL)censorContents
+{
+	return censorContents;
+}
+
+
+
+- (void)setCensorContents:(BOOL)newCensorContentsStatus
+{
+	censorContents = newCensorContentsStatus;
+}
+
+
+
 - (void)depopulateDescendants:(BOOL)depopulateDescendants destroyEmptyNeighborhoods:(BOOL)destroyEmptyNeighborhoods
 {
 	int target_offspring = 0;
@@ -867,6 +894,7 @@ Std_Exit: ;
 {
 	String *targetNameString = nil;
 	NSLVnode *v = nil;
+	const char **p;
 
 	if (searchType == kNetworkNeighborhood) {
 		/*
@@ -890,6 +918,27 @@ Std_Exit: ;
 		
 		CFRelease(neighborhoodNameRef);
 		
+		if ([self censorContents]) {
+			/*
+			 * This is /Network; ignore neighborhoods that have
+			 * names that are the same as /Network names reserved
+			 * for the system, such as /Network/Library and
+			 * /Network/Applications.
+			 */
+			for (p = &ignore_names[0]; *p != NULL; p++) {
+				if (strcmp(neighborhoodname, *p) == 0) {
+					/*
+					 * This is a /Network name that's
+					 * reserved for the system.
+					 */
+					sys_msg(debug, LOG_ERR,
+					    "NSLVnode.processAddResult: Ignoring neighborhood %s - that name is reserved in /Network",
+					    neighborhoodname);
+					goto Abort_Neighborhood_Entry;
+				}
+			}
+		}
+
 		targetNameString = [String uniqueString:neighborhoodname];
 		if (targetNameString == nil) {
 			sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: Failed to allocate String 'targetNameString'; aborting.");
@@ -973,6 +1022,27 @@ Next_Neighborhood_Entry:
 			goto Abort_Service_Entry;
 		};
 		
+		if ([self censorContents]) {
+			/*
+			 * This is /Network; ignore services that have
+			 * names that are the same as /Network names reserved
+			 * for the system, such as /Network/Library and
+			 * /Network/Applications.
+			 */
+			for (p = &ignore_names[0]; *p != NULL; p++) {
+				if (strcmp(servicename, *p) == 0) {
+					/*
+					 * This is a /Network name that's
+					 * reserved for the system.
+					 */
+					sys_msg(debug, LOG_ERR,
+					    "NSLVnode.processAddResult: Ignoring service %s - that name is reserved in /Network",
+					    servicename);
+					goto Abort_Neighborhood_Entry;
+				}
+			}
+		}
+
 		targetNameString = [String uniqueString:servicename];
 		if (targetNameString == nil) {
 			sys_msg(debug, LOG_ERR, "NSLVnode.processAddResult: Failed to allocate targetNameString string; aborting.");

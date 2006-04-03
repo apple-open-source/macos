@@ -199,10 +199,8 @@ linemap_line_start (struct line_maps *set, unsigned int to_line,
       int column_bits;
       if (max_column_hint > 100000 || highest > 0xC0000000)
 	{
-	  /* APPLE LOCAL begin 4058553 mainline 2005-04-21 */
 	  /* If the column number is ridiculous or we've allocated a huge
 	     number of source_locations, give up on column numbers. */
-	  /* APPLE LOCAL end 4058553 mainline 2005-04-21 */
 	  max_column_hint = 0;
 	  if (highest >0xF0000000)
 	    return 0;
@@ -215,17 +213,14 @@ linemap_line_start (struct line_maps *set, unsigned int to_line,
 	    column_bits++;
 	  max_column_hint = 1U << column_bits;
 	}
-      /* APPLE LOCAL begin 4058553 mainline 2005-04-21 */
       /* Allocate the new line_map.  However, if the current map only has a
 	 single line we can sometimes just increase its column_bits instead. */
-      /* APPLE LOCAL end 4058553 mainline 2005-04-21 */
       if (line_delta < 0
 	  || last_line != map->to_line
 	  || SOURCE_COLUMN (map, highest) >= (1U << column_bits))
 	map = (struct line_map*) linemap_add (set, LC_RENAME, map->sysp,
 				      map->to_file, to_line);
       map->column_bits = column_bits;
-      /* APPLE LOCAL 4058553 mainline 2005-04-21 */
       r = map->start_location + ((to_line - map->to_line) << column_bits);
     }
   else

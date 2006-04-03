@@ -25,7 +25,7 @@
 /*
  * KLLoginLogoutNotification.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Headers/Kerberos/KLLoginLogoutNotification.h,v 1.10 2003/04/14 15:47:58 lxs Exp $
+ * $Header$
  */
  
 #ifndef KLLoginLogoutNotification_h_

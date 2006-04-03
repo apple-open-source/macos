@@ -1,5 +1,5 @@
 /*
- * "$Id: job.c,v 1.55.2.1 2005/07/27 18:22:02 jlovell Exp $"
+ * "$Id: job.c,v 1.55.2.3 2005/12/09 23:11:51 jlovell Exp $"
  *
  *   Job management routines for the Common UNIX Printing System (CUPS).
  *
@@ -174,20 +174,6 @@ CancelJob(int id,		/* I - Job to cancel */
       current->state->values[0].integer = IPP_JOB_CANCELLED;
 
       set_time(current, "time-at-completed");
-
-      if (current->procs)
-      {
-        free(current->procs);
-        current->procs = NULL;
-      }
-
-      if (current->filters)
-      {
-        for (i = 0; current->filters[i]; i++)
-          free(current->filters[i]);
-        free(current->filters);
-        current->filters = NULL;
-      }
 
      /*
       * Remove the print file for good if we aren't preserving jobs or
@@ -1342,6 +1328,19 @@ StartJob(int       id,			/* I - Job ID */
   }
 
  /*
+  * Update the printer and job state to "processing"...
+  */
+
+  current->state->values[0].integer = IPP_JOB_PROCESSING;
+  current->status  = 0;
+  current->printer = printer;
+  printer->job     = current;
+  SetPrinterState(printer, IPP_PRINTER_PROCESSING, 0);
+
+  if (current->current_file == 0)
+    set_time(current, "time-at-processing");
+
+ /*
   * Allocate space for filter & backend process IDs...
   */
 
@@ -1370,19 +1369,6 @@ StartJob(int       id,			/* I - Job ID */
     CancelJob(id, 0);
     return;
   }
-
- /*
-  * Update the printer and job state to "processing"...
-  */
-
-  current->state->values[0].integer = IPP_JOB_PROCESSING;
-  current->status  = 0;
-  current->printer = printer;
-  printer->job     = current;
-  SetPrinterState(printer, IPP_PRINTER_PROCESSING, 0);
-
-  if (current->current_file == 0)
-    set_time(current, "time-at-processing");
 
  /*
   * Determine if we are printing a banner page or not...
@@ -2009,7 +1995,10 @@ StartJob(int       id,			/* I - Job ID */
   }
 
   if (filters != NULL)
+  {
     free(filters);
+    filters = NULL;
+  }
 
  /*
   * Finally, pipe the final output into a backend process if needed...
@@ -2055,10 +2044,6 @@ StartJob(int       id,			/* I - Job ID */
                "Unable to open \"/dev/null\" - %s.", strerror(errno));
 
       AddPrinterHistory(printer);
-
-      if (filters != NULL)
-	free(filters);
-
       CancelJob(current->id, 0);
       return;
     }
@@ -2086,9 +2071,6 @@ StartJob(int       id,			/* I - Job ID */
                "Unable to start backend \"%s\" - %s.", method, strerror(errno));
 
       AddPrinterHistory(printer);
-
-      if (filters != NULL)
-        free(filters);
 
       cupsdClosePipe(statusfds);
       cupsdClosePipe(filterfds[slot]);
@@ -2180,12 +2162,26 @@ StopJob(int id,			/* I - Job ID */
 
 	current->current_file --;
 
-        for (i = 0; current->procs[i]; i ++)
-	  if (current->procs[i] > 0)
-	  {
-	    kill(current->procs[i], force ? SIGKILL : SIGTERM);
-	    current->procs[i] = 0;
-	  }
+	if (current->procs)
+	{
+	  for (i = 0; current->procs[i]; i ++)
+	    if (current->procs[i] > 0)
+	    {
+	      kill(current->procs[i], force ? SIGKILL : SIGTERM);
+	      current->procs[i] = 0;
+	    }
+  
+	  free(current->procs);
+	  current->procs = NULL;
+	}
+
+	if (current->filters)
+	{
+	  for (i = 0; current->filters[i]; i++)
+	    free(current->filters[i]);
+	  free(current->filters);
+	  current->filters = NULL;
+	}
 
         if (current->pipe >= 0)
         {
@@ -3173,5 +3169,5 @@ remove_unused_attrs(job_t *job)			/* I - Job attributes */
 
 
 /*
- * End of "$Id: job.c,v 1.55.2.1 2005/07/27 18:22:02 jlovell Exp $".
+ * End of "$Id: job.c,v 1.55.2.3 2005/12/09 23:11:51 jlovell Exp $".
  */

@@ -23,6 +23,7 @@
 
 #include "buffer_unpackers.h"
 #include "DSUtils.h"
+#include "CLog.h"
 
 //------------------------------------------------------------------------------------
 //	* Get2FromBuffer
@@ -612,13 +613,23 @@ sInt32 RepackBufferForPWServer ( tDataBufferPtr inBuff, const char *inUserID, un
 // ---------------------------------------------------------------------------
 
 sInt32 GetUserNameFromAuthBuffer ( tDataBufferPtr inAuthData, unsigned long inUserNameIndex, 
-											  char  **outUserName )
+											  char  **outUserName, int *outUserNameBufferLength )
 {
+	tDirStatus status = eDSNoErr;
+	tDataNodePtr dataListNode = NULL;
+	
 	tDataListPtr dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
 	if (dataList != NULL)
 	{
-		*outUserName = dsDataListGetNodeStringPriv(dataList, inUserNameIndex);
-		// this allocates a copy of the string
+		status = dsDataListGetNodePriv(dataList, inUserNameIndex, &dataListNode);
+		if (status == eDSNoErr)
+		{
+			if (outUserNameBufferLength != NULL)
+				*outUserNameBufferLength = dataListNode->fBufferLength;
+			
+			*outUserName = dsDataListGetNodeStringPriv(dataList, inUserNameIndex);
+			// this allocates a copy of the string
+		}
 		
 		dsDataListDeallocatePriv(dataList);
 		free(dataList);
@@ -627,4 +638,49 @@ sInt32 GetUserNameFromAuthBuffer ( tDataBufferPtr inAuthData, unsigned long inUs
 	}
 	return eDSInvalidBuffFormat;
 }
+
+
+// ---------------------------------------------------------------------------
+//	* UnpackUserWithAABuffer
+// ---------------------------------------------------------------------------
+
+SInt32 UnpackUserWithAABuffer( tDataBufferPtr inAuthData, UInt32 *outAACount, char **outAAList[] )
+{
+	sInt32			siResult		= eDSNoErr;
+	tDataList		*dataList		= NULL;
+	unsigned int	itemIndex		= 0;
+	unsigned int	itemCount		= 0;
+	
+	if ( outAAList == NULL || outAACount == NULL )
+		return eParameterError;
+	
+	dataList = dsAuthBufferGetDataListAllocPriv(inAuthData);
+	if ( dataList == NULL )
+		return eDSInvalidBuffFormat;
+	
+	itemCount = dsDataListGetNodeCountPriv(dataList);
+	*outAACount = itemCount;
+	*outAAList = (char **)calloc(sizeof(char *), itemCount + 1);
+	if ( *outAAList != NULL )
+	{	
+		for ( itemIndex = 0; itemIndex < itemCount; itemIndex++ ) {
+			(*outAAList)[itemIndex] = dsDataListGetNodeStringPriv(dataList, itemIndex + 1);
+		}
+	}
+	else
+	{
+		siResult = eMemoryError;
+	}
+	
+	if ( dataList != NULL )
+	{
+		dsDataListDeallocatePriv(dataList);
+		free(dataList);
+		dataList = NULL;
+	}
+	
+	return siResult;
+}
+
+
 

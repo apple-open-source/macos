@@ -29,11 +29,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nbns_rq.c,v 1.9.70.2 2005/08/12 23:13:01 lindak Exp $
+ * $Id: nbns_rq.c,v 1.9.70.3 2005/09/13 03:42:51 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/mchain.h>
 
 #include <ctype.h>
 #include <netdb.h>
@@ -297,7 +298,7 @@ nbns_getnodestatus(struct sockaddr *targethost,
 					break;
 				*cp = (char)0;
 			}
-			if (nrp->nr_flags & NBNS_GROUPFLG) {
+			if (betohs(nrp->nr_beflags) & NBNS_GROUPFLG) {
 				if (!foundgroup ||
 				    (foundgroup != NBT_WKSTA+1 &&
 				     nrtype == NBT_WKSTA)) {

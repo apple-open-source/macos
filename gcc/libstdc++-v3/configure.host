@@ -180,16 +180,12 @@ case "${host_os}" in
     # treatment of coalesced symbols.
     OPT_LDFLAGS="${OPT_LDFLAGS} -Wl,-single_module -Wl,-flat_namespace"
     os_include_dir="os/bsd/darwin"
-  # APPLE LOCAL darwin native radar 3729768
-    enable_cxx_flags="-DAPPLE_KEYMGR $enable_cxx_flags"
     ;;
   darwin[89] | darwin[89].* | darwin[1-9][0-9]* )
     # On Darwin, performance is improved if libstdc++ is single-module,
     # and on 8+ compatibility is better if not -flat_namespace.
     OPT_LDFLAGS="${OPT_LDFLAGS} -Wl,-single_module"
     os_include_dir="os/bsd/darwin"
-  # APPLE LOCAL darwin native radar 3729768
-    enable_cxx_flags="-DAPPLE_KEYMGR $enable_cxx_flags"
     ;;
   *djgpp*)      # leading * picks up "msdosdjgpp"
     os_include_dir="os/djgpp"
@@ -273,6 +269,9 @@ case "${host}" in
     atomicity_dir="cpu/mips"
     abi_baseline_pair="mips-linux-gnu"
     cpu_include_dir="cpu/mips"
+    ;;
+  powerpc64-*-linux*)
+    abi_baseline_pair="powerpc64-linux-gnu"
     ;;
   s390-*-linux*)
     abi_baseline_pair="s390-linux-gnu"

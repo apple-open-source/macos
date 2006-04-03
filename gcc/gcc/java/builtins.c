@@ -163,6 +163,7 @@ initialize_builtins (void)
   tree float_ftype_float, float_ftype_float_float;
   /* APPLE LOCAL lno */
   tree void_ftype;
+  tree boolean_ftype_boolean_boolean;
   tree t;
   int i;
 
@@ -226,7 +227,14 @@ initialize_builtins (void)
   define_builtin (BUILT_IN_MAYBE_INFINITE_LOOP, "__builtin_maybe_infinite_loop",
 		  void_ftype, "__builtin_maybe_infinite_loop");
   /* APPLE LOCAL end lno */
-
+  
+  t = tree_cons (NULL_TREE, boolean_type_node, end_params_node);
+  t = tree_cons (NULL_TREE, boolean_type_node, t);
+  boolean_ftype_boolean_boolean = build_function_type (boolean_type_node, t);
+  define_builtin (BUILT_IN_EXPECT, "__builtin_expect", 
+		  boolean_ftype_boolean_boolean,
+		  "__builtin_expect");
+		  
   build_common_builtin_nodes ();
 }
 

@@ -35,8 +35,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "tree-chrec.h"
 #include "tree-pass.h"
-/* APPLE LOCAL mainline 4080945/ PR 20742 */
 #include "params.h"
+
 
 
 /* Extended folder for chrecs.  */
@@ -287,19 +287,17 @@ chrec_fold_plus_1 (enum tree_code code,
 				    build_int_cst_type (type, -1)));
 
 	default:
-/* APPLE LOCAL begin mainline 4080945/ PR 20742 */
-          {
-            int size = 0;
-            if ((tree_contains_chrecs (op0, &size)
-                 || tree_contains_chrecs (op1, &size))
-                && size < PARAM_VALUE (PARAM_SCEV_MAX_EXPR_SIZE))
-              return build2 (code, type, op0, op1);
-            else if (size < PARAM_VALUE (PARAM_SCEV_MAX_EXPR_SIZE))
-              return fold (build2 (code, type, op0, op1));
-            else
-              return chrec_dont_know;
-          }
-/* APPLE LOCAL end mainline 4080945/ PR 20742 */
+	  {
+	    int size = 0;
+	    if ((tree_contains_chrecs (op0, &size)
+		 || tree_contains_chrecs (op1, &size))
+		&& size < PARAM_VALUE (PARAM_SCEV_MAX_EXPR_SIZE))
+	      return build2 (code, type, op0, op1);
+	    else if (size < PARAM_VALUE (PARAM_SCEV_MAX_EXPR_SIZE))
+	      return fold (build2 (code, type, op0, op1));
+	    else
+	      return chrec_dont_know;
+	  }
 	}
     }
 }
@@ -383,7 +381,7 @@ chrec_fold_multiply (tree type,
 	    return op0;
 	  if (integer_zerop (op1))
 	    return build_int_cst_type (type, 0);
-	  return fold (build (MULT_EXPR, type, op0, op1));
+	  return fold (build2 (MULT_EXPR, type, op0, op1));
 	}
     }
 }
@@ -726,7 +724,6 @@ reset_evolution_in_loop (unsigned loop_num,
 {
   if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
       && CHREC_VARIABLE (chrec) > loop_num)
-/* APPLE LOCAL mainline 4080945/ PR 20742 */
     return build2
       (TREE_CODE (chrec), 
        build_int_cst (NULL_TREE, CHREC_VARIABLE (chrec)), 
@@ -872,7 +869,6 @@ chrec_contains_undetermined (tree chrec)
     }
 }
 
-/* APPLE LOCAL begin mainline 4080945/ PR 20742 */
 /* Determines whether the tree EXPR contains chrecs, and increment
    SIZE if it is not a NULL pointer by an estimation of the depth of
    the tree.  */
@@ -882,13 +878,13 @@ tree_contains_chrecs (tree expr, int *size)
 {
   if (expr == NULL_TREE)
     return false;
-  
+
   if (size)
     (*size)++;
-
+  
   if (tree_is_chrec (expr))
     return true;
-  
+
   switch (TREE_CODE_LENGTH (TREE_CODE (expr)))
     {
     case 3:
@@ -901,7 +897,6 @@ tree_contains_chrecs (tree expr, int *size)
       
     case 1:
       if (tree_contains_chrecs (TREE_OPERAND (expr, 0), size))
-/* APPLE LOCAL end mainline 4080945/ PR 20742 */
 	return true;
       
     default:

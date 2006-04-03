@@ -1,0 +1,300 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A181F24505E5531E006CE0A8 /* kdestroy.c in Sources */ = {isa = PBXBuildFile; fileRef = F5E27E1A023708C801650119 /* kdestroy.c */; };
+		A181F24705E5531E006CE0A8 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B21EC10417C72A00120114 /* Kerberos.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		F5E27E0D0237084301650119 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		F5E27E0E0237084301650119 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		A181F24A05E5531E006CE0A8 /* kdestroy */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kdestroy; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B21EC10417C72A00120114 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		F5033FBA025DF98701F62B58 /* kdestroy.M */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = kdestroy.M; sourceTree = "<group>"; };
+		F5E27E1A023708C801650119 /* kdestroy.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kdestroy.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A181F24605E5531E006CE0A8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F24705E5531E006CE0A8 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F5033FB9025DF98701F62B58 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				F5033FBA025DF98701F62B58 /* kdestroy.M */,
+			);
+			name = Documentation;
+			path = ../Documentation;
+			sourceTree = "<group>";
+		};
+		F5E27E0C0237084301650119 = {
+			isa = PBXGroup;
+			children = (
+				F5E27E19023708C801650119 /* Sources */,
+				F5033FB9025DF98701F62B58 /* Documentation */,
+				A1B21EC10417C72A00120114 /* Kerberos.framework */,
+				F5E27E1B02370B3801650119 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F5E27E19023708C801650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F5E27E1A023708C801650119 /* kdestroy.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5E27E1B02370B3801650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A181F24A05E5531E006CE0A8 /* kdestroy */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A181F24305E5531E006CE0A8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A181F24105E5531E006CE0A8 /* kdestroy */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1519110086C8DD30042CBBC /* Build configuration list for PBXNativeTarget "kdestroy" */;
+			buildPhases = (
+				A181F24305E5531E006CE0A8 /* Headers */,
+				A181F24405E5531E006CE0A8 /* Sources */,
+				A181F24605E5531E006CE0A8 /* Frameworks */,
+				A181F24805E5531E006CE0A8 /* Rez */,
+				A13166FC069495FC002D47D6 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = kdestroy;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = kdestroy;
+			productInstallPath = /usr/bin;
+			productName = kdestroy;
+			productReference = A181F24A05E5531E006CE0A8 /* kdestroy */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F5E27E0B0237084301650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1519114086C8DD30042CBBC /* Build configuration list for PBXProject "kdestroy" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				F5E27E0D0237084301650119 /* Development */,
+				F5E27E0E0237084301650119 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = F5E27E0C0237084301650119;
+			productRefGroup = F5E27E1B02370B3801650119 /* Products */;
+			projectDirPath = "";
+			targets = (
+				A181F24105E5531E006CE0A8 /* kdestroy */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		A181F24805E5531E006CE0A8 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A13166FC069495FC002D47D6 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/kdestroy.M",
+			);
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/kdestroy.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/kdestroy.M\" \"${DSTROOT}/usr/share/man/man1/kdestroy.1\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A181F24405E5531E006CE0A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F24505E5531E006CE0A8 /* kdestroy.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1519111086C8DD30042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = kdestroy;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A1519112086C8DD30042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = kdestroy;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A1519113086C8DD30042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = kdestroy;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A1519115086C8DD30042CBBC /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		A1519116086C8DD30042CBBC /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		A1519117086C8DD30042CBBC /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1519110086C8DD30042CBBC /* Build configuration list for PBXNativeTarget "kdestroy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1519111086C8DD30042CBBC /* Development */,
+				A1519112086C8DD30042CBBC /* Deployment */,
+				A1519113086C8DD30042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A1519114086C8DD30042CBBC /* Build configuration list for PBXProject "kdestroy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1519115086C8DD30042CBBC /* Development */,
+				A1519116086C8DD30042CBBC /* Deployment */,
+				A1519117086C8DD30042CBBC /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5E27E0B0237084301650119 /* Project object */;
+}

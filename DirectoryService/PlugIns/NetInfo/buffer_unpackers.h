@@ -88,6 +88,11 @@ sInt32 RepackBufferForPWServer			(	tDataBufferPtr inBuff,
 											
 sInt32 GetUserNameFromAuthBuffer		(	tDataBufferPtr inAuthData,
 											unsigned long inUserNameIndex, 
-											char **outUserName );
+											char **outUserName,
+											int *outUserNameBufferLength = NULL );
+
+sInt32 UnpackUserWithAABuffer			(	tDataBufferPtr inAuthData,
+											UInt32 *outAACount,
+											char **outAAList[] );
 
 #endif

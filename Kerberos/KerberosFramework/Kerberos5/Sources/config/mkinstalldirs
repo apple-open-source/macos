@@ -4,7 +4,7 @@
 # Created: 1993-05-16
 # Public domain
 
-# $Id: mkinstalldirs,v 5.1 1999/07/23 03:07:13 tlyu Exp $
+# $Id: mkinstalldirs 11584 1999-07-23 03:07:13Z tlyu $
 
 errstatus=0
 

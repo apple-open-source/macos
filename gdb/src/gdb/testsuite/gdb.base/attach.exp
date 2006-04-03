@@ -67,9 +67,12 @@ remote_exec build "rm -f ${binfile} ${binfile2}"
 
 proc gdb_compile_fake_fat { source dest type options } {
 
-    set ret [ remote_exec build "arch" ]
+    set ret [ gdb_compile "${source}" "${dest}" ${type} ${options} ]
+    if { ${ret} != "" } { return $ret }
+
+    set ret [ remote_exec build "file ${dest}" ]
     if { [ lindex $ret 0 ] != 0 } { return $ret }
-    regsub "\r\n$" [ lindex $ret 1 ] "" arch
+    regsub "^.* executable (.*)\r\n$" [ lindex $ret 1 ] "\\1" arch
 
     set ret [ gdb_compile "${source}" "${dest}.${arch}" ${type} ${options} ]
     if { ${ret} != "" } { return $ret }

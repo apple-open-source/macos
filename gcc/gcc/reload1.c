@@ -383,7 +383,7 @@ static int eliminate_regs_in_insn (rtx, int);
 static void update_eliminable_offsets (void);
 static void mark_not_eliminable (rtx, rtx, void *);
 static void set_initial_elim_offsets (void);
-static void verify_initial_elim_offsets (void);
+static bool verify_initial_elim_offsets (void);
 static void set_initial_label_offsets (void);
 static void set_offsets_for_label (rtx);
 static void init_elim_table (void);
@@ -620,6 +620,11 @@ int something_needs_operands_changed;
 /* Nonzero means we couldn't get enough spill regs.  */
 static int failure;
 
+/* APPLE LOCAL begin 4321079 */
+/* Make parameter of 'reload' visible to other functions.  */
+static int from_global;
+/* APPLE LOCAL end 4321079 */
+
 /* Main entry point for the reload pass.
 
    FIRST is the first insn of the function being compiled.
@@ -640,6 +645,9 @@ reload (rtx first, int global)
   rtx insn;
   struct elim_table *ep;
   basic_block bb;
+
+  /* APPLE LOCAL 4321079 */
+  from_global = global;
 
   /* Make sure even insns with volatile mem refs are recognizable.  */
   init_recog ();
@@ -822,6 +830,14 @@ reload (rtx first, int global)
   for (i = LAST_VIRTUAL_REGISTER + 1; i < max_regno; i++)
     alter_reg (i, -1);
 
+  /* APPLE LOCAL begin 4321079 */
+  if (from_global)
+    {
+      extern void remove_invalidated_death_notes (rtx);
+      remove_invalidated_death_notes (first);
+    }
+  /* APPLE LOCAL end 4321079 */
+
   /* If we have some registers we think can be eliminated, scan all insns to
      see if there is an insn that sets one of these registers to something
      other than itself plus a constant.  If so, the register cannot be
@@ -972,6 +988,13 @@ reload (rtx first, int global)
       if (starting_frame_size != get_frame_size ())
 	something_changed = 1;
 
+      /* Even if the frame size remained the same, we might still have
+	 changed elimination offsets, e.g. if find_reloads called 
+	 force_const_mem requiring the back end to allocate a constant
+	 pool base register that needs to be saved on the stack.  */
+      else if (!verify_initial_elim_offsets ())
+	something_changed = 1;
+
       {
 	HARD_REG_SET to_spill;
 	CLEAR_HARD_REG_SET (to_spill);
@@ -1063,8 +1086,7 @@ reload (rtx first, int global)
 
       gcc_assert (old_frame_size == get_frame_size ());
 
-      if (num_eliminable)
-	verify_initial_elim_offsets ();
+      gcc_assert (verify_initial_elim_offsets ());
     }
 
   /* If we were able to eliminate the frame pointer, show that it is no
@@ -1943,9 +1965,21 @@ alter_reg (int i, int from_reg)
 	 inherent space, and no less total space, then the previous slot.  */
       if (from_reg == -1)
 	{
-	  /* No known place to spill from => no slot to reuse.  */
-	  x = assign_stack_local (GET_MODE (regno_reg_rtx[i]), total_size,
-				  inherent_size == total_size ? 0 : -1);
+	  /* APPLE LOCAL begin 4321079 */
+	  extern rtx find_tied_stack_pseudo (int);
+	  /* Ask global reg allocator for a stack slot already assigned
+	     to a pseudo tied to this one.  */
+	  if (from_global)
+	    x = find_tied_stack_pseudo (i);
+	  else
+	    x = NULL;
+
+	  if (!x)
+	    /* No known place to spill from => no slot to reuse.  */
+	    x = assign_stack_local (GET_MODE (regno_reg_rtx[i]), total_size,
+				    inherent_size == total_size ? 0 : -1);
+	  /* APPLE LOCAL end 4321079 */
+
 	  if (BYTES_BIG_ENDIAN)
 	    /* Cancel the  big-endian correction done in assign_stack_local.
 	       Get the address of the beginning of the slot.
@@ -3275,23 +3309,32 @@ mark_not_eliminable (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
    where something illegal happened during reload_as_needed that could
    cause incorrect code to be generated if we did not check for it.  */
 
-static void
+static bool
 verify_initial_elim_offsets (void)
 {
   HOST_WIDE_INT t;
 
-#ifdef ELIMINABLE_REGS
-  struct elim_table *ep;
+  if (!num_eliminable)
+    return true;
 
-  for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-    {
-      INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
-      gcc_assert (t == ep->initial_offset);
-    }
+#ifdef ELIMINABLE_REGS
+  {
+   struct elim_table *ep;
+
+   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
+     {
+       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
+       if (t != ep->initial_offset)
+	 return false;
+     }
+  }
 #else
   INITIAL_FRAME_POINTER_OFFSET (t);
-  gcc_assert (t == reg_eliminate[0].initial_offset);
+  if (t != reg_eliminate[0].initial_offset)
+    return false;
 #endif
+
+  return true;
 }
 
 /* Reset all offsets on eliminable registers to their initial values.  */
@@ -3458,16 +3501,20 @@ init_elim_table (void)
 
   /* Does this function require a frame pointer?  */
 
-  frame_pointer_needed = (! flag_omit_frame_pointer
-			  /* ?? If EXIT_IGNORE_STACK is set, we will not save
-			     and restore sp for alloca.  So we can't eliminate
-			     the frame pointer in that case.  At some point,
-			     we should improve this by emitting the
-			     sp-adjusting insns for this case.  */
-			  || (current_function_calls_alloca
-			      && EXIT_IGNORE_STACK)
-			  || FRAME_POINTER_REQUIRED);
-
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cfun->cw_asm_function)
+    frame_pointer_needed = 0;
+  else
+    frame_pointer_needed = (! flag_omit_frame_pointer
+			    /* ?? If EXIT_IGNORE_STACK is set, we will not save
+			       and restore sp for alloca.  So we can't eliminate
+			       the frame pointer in that case.  At some point,
+			       we should improve this by emitting the
+			       sp-adjusting insns for this case.  */
+			    || (current_function_calls_alloca
+			        && EXIT_IGNORE_STACK)
+			    || FRAME_POINTER_REQUIRED);
+  /* APPLE LOCAL end CW asm blocks */
   num_eliminable = 0;
 
 #ifdef ELIMINABLE_REGS

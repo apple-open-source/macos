@@ -30,7 +30,7 @@
 #elif TARGET_CPU_68K
     #define SIGDIGLEN      20
 #elif TARGET_CPU_X86
-    #define SIGDIGLEN      20
+    #define SIGDIGLEN      36
 #endif
 #define      DECSTROUTLEN   80               /* max length for dec2str output */
 #define      FLOATDECIMAL   ((char)(0))

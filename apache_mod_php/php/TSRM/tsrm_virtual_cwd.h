@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.h,v 1.25.2.10 2005/02/11 03:34:04 sniper Exp $ */
+/* $Id: tsrm_virtual_cwd.h,v 1.25.2.10.2.2 2005/08/03 14:51:24 hyanantha Exp $ */
 
 #ifndef VIRTUAL_CWD_H
 #define VIRTUAL_CWD_H
@@ -74,10 +74,10 @@ typedef unsigned short mode_t;
 #define DEFAULT_SLASH '/'
 #define DEFAULT_DIR_SEPARATOR	';'
 #define IS_SLASH(c)	((c) == '/' || (c) == '\\')
-#define COPY_WHEN_ABSOLUTE(path) \
-    (strchr(path, ':') - path + 1)  /* Take the volume name which ends with a colon */
+#define IS_SLASH_P(c)	IS_SLASH(*(c))
+/* Colon indicates volume name, either first character should be forward slash or backward slash */
 #define IS_ABSOLUTE_PATH(path, len) \
-    (strchr(path, ':') != NULL) /* Colon indicates volume name */
+    ((strchr(path, ':') != NULL) || ((len >= 1) && ((path[0] == '/') || (path[0] == '\\'))))
 
 #else
 #ifdef HAVE_DIRENT_H
@@ -141,11 +141,7 @@ CWD_API FILE *virtual_fopen(const char *path, const char *mode TSRMLS_DC);
 CWD_API int virtual_open(const char *path TSRMLS_DC, int flags, ...);
 CWD_API int virtual_creat(const char *path, mode_t mode TSRMLS_DC);
 CWD_API int virtual_rename(char *oldname, char *newname TSRMLS_DC);
-#if !(defined(NETWARE) && defined(CLIB_STAT_PATCH))
 CWD_API int virtual_stat(const char *path, struct stat *buf TSRMLS_DC);
-#else
-CWD_API int virtual_stat(const char *path, struct stat_libc *buf TSRMLS_DC);
-#endif
 #if !defined(TSRM_WIN32) && !defined(NETWARE)
 CWD_API int virtual_lstat(const char *path, struct stat *buf TSRMLS_DC);
 #endif
@@ -217,7 +213,7 @@ typedef struct _virtual_cwd_globals {
 #define VCWD_REALPATH(path, real_path) virtual_realpath(path, real_path TSRMLS_CC)
 #define VCWD_RENAME(oldname, newname) virtual_rename(oldname, newname TSRMLS_CC)
 #define VCWD_STAT(path, buff) virtual_stat(path, buff TSRMLS_CC)
-#if !defined(TSRM_WIN32) && !defined(NETWARE)
+#ifndef TSRM_WIN32 
 #define VCWD_LSTAT(path, buff) virtual_lstat(path, buff TSRMLS_CC)
 #endif
 #define VCWD_UNLINK(path) virtual_unlink(path TSRMLS_CC)

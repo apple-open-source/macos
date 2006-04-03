@@ -24,7 +24,7 @@
 #include "string.h"
 
 /*
- * $Id: util_oid.c,v 1.9 1998/10/30 02:54:08 marc Exp $
+ * $Id: util_oid.c 11001 1998-10-30 02:56:35Z marc $
  */
 
 int

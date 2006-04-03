@@ -21,15 +21,12 @@
 #ifndef GDB_LOCALE_H
 #define GDB_LOCALE_H
 
-#include "ansidecl.h"
-
 #ifdef HAVE_LOCALE_H
 # include <locale.h>
 #endif
 
 #ifdef ENABLE_NLS
 # include <libintl.h>
-#undef _
 # define _(String) gettext (String)
 # ifdef gettext_noop
 #  define N_(String) gettext_noop (String)

@@ -701,8 +701,6 @@ evaluate_subexp_standard (struct type *expect_type,
     case OP_OBJC_MSGCALL:
       {				/* Objective C message (method) call.  */
 
-	extern unsigned int symbol_generation;
-
 	static CORE_ADDR responds_selector = 0;
 	static CORE_ADDR method_selector = 0;
 	static unsigned int selector_generation = 0;
@@ -746,9 +744,17 @@ evaluate_subexp_standard (struct type *expect_type,
 
 	target = evaluate_subexp (selector_type, exp, pos, sub_no_side);
 
+	/* APPLE LOCAL: If we go on from here we are goint to try to look
+	   up TARGET as an objc class.  But getting the target (OP_VAR_VALUE)
+	   when NOSIDE is EVAL_SKIP just returns "1", which is not going to 
+	   work when we start grubbing around in memory there.  */
+	if (noside == EVAL_SKIP)
+	  goto nosideret;
+
+
 	if (value_as_long (target) == 0)
  	  return value_from_longest (builtin_type_long, 0);
-	
+
 	if (! cached_values)
 	  {
 
@@ -814,8 +820,6 @@ evaluate_subexp_standard (struct type *expect_type,
 	   the verification method than the non-standard, but more
 	   often used, 'NSObject' class. Make sure we check for both. */
 
-	if (selector_generation != symbol_generation)
-	  {
 	    responds_selector = lookup_child_selector ("respondsToSelector:");
 	    if (responds_selector == 0)
 	      responds_selector = lookup_child_selector ("respondsTo:");
@@ -838,9 +842,6 @@ evaluate_subexp_standard (struct type *expect_type,
 
 	    if (method_selector == 0)
 	      error ("no 'methodFor:' or 'methodForSelector:' method");
-
-	    selector_generation = symbol_generation;
-	  }
 
 	/* Call the verification method, to make sure that the target
 	 class implements the desired method. */
@@ -889,7 +890,7 @@ evaluate_subexp_standard (struct type *expect_type,
 	if (addr)
 	  {
 	    struct symbol *sym = NULL;
-	    /* is it a high_level symbol? */
+	    /* is it a high_level symbol?  */
 
 	    sym = find_pc_function (addr);
 	    if (sym != NULL) 

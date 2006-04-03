@@ -1,6 +1,8 @@
 /* This testcase failed, because scope containing baz was deleted
    (spanned 0 basic blocks) and DWARF-2 couldn't find baz origin.  */
 /* { dg-do compile } */
+/* APPLE LOCAL testsuite nested funcs */
+/* { dg-xfail-if "" { *-*-darwin* } } */
 
 struct A { char *a, *b, *c, *d; };
 

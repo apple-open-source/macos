@@ -1,7 +1,7 @@
 /*
- * FloatingWindow.h
+ * KerberosTextView.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/KerberosTextView.m,v 1.1 2005/06/14 21:08:38 lxs Exp $
+ * $Header$
  *
  * Copyright 2005 Massachusetts Institute of Technology.
  * All Rights Reserved.

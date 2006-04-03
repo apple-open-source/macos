@@ -1,7 +1,7 @@
 /*
  * CCIContext.h
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/Context.h,v 1.15 2003/03/17 20:47:25 lxs Exp $
+ * $Header$
  */
  
 #include "Internalize.h"

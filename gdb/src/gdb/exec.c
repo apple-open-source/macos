@@ -290,26 +290,10 @@ exec_file_attach (char *filename, int from_tty)
 
       if (bfd_check_format (exec_bfd, bfd_archive))
 	{
-	  enum gdb_osabi osabi = GDB_OSABI_UNINITIALIZED;
-	  bfd *abfd = NULL;
-
-	  osabi = gdbarch_osabi (current_gdbarch);
-	  if ((osabi <= GDB_OSABI_UNKNOWN) || (osabi >= GDB_OSABI_INVALID))
-	    osabi = gdbarch_lookup_osabi (exec_bfd);
-
-	  for (;;)
-	    {
-	      abfd = bfd_openr_next_archived_file (exec_bfd, abfd);
-	      if (abfd == NULL)
-		break;
-	      if (! bfd_check_format (abfd, bfd_object))
-		continue;
-	      if (osabi == gdbarch_lookup_osabi (abfd))
-		{
-		  exec_bfd = abfd;
-		  break;
-		}
-	    }
+	  bfd *tmp_bfd;
+	  tmp_bfd = open_bfd_matching_arch (exec_bfd);
+	  if (tmp_bfd != NULL)
+	    exec_bfd = tmp_bfd;
 	}
       
       if (!bfd_check_format (exec_bfd, bfd_object))
@@ -528,7 +512,6 @@ map_vmap (bfd *abfd, bfd *arch)
   return vp;
 }
 
-
 /* Read or write the exec file.
 
    Args are address within a BFD file, address within gdb address-space,

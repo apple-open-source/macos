@@ -90,7 +90,7 @@
 	return n;
 }
 
-- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt mountedon:(String *)mnton 
 {
 	char hn[1026], *dot;
 	String *x;

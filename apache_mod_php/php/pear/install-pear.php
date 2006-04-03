@@ -1,6 +1,6 @@
 <?php
 
-/* $Id: install-pear.php,v 1.6.2.14 2004/01/26 01:26:43 pajoye Exp $ */
+/* $Id: install-pear.php,v 1.6.2.14.4.1 2005/08/20 18:32:24 cellog Exp $ */
 
 $pear_dir = dirname(__FILE__);
 ini_set('include_path', $pear_dir);
@@ -8,6 +8,19 @@ include_once 'PEAR.php';
 include_once 'PEAR/Installer.php';
 include_once 'PEAR/Registry.php';
 include_once 'PEAR/Frontend/CLI.php';
+
+$a = true;
+if (!PEAR::loadExtension('xml')) {
+    $a = false;
+    echo "[PEAR] xml extension is required\n";
+}
+if (!PEAR::loadExtension('pcre')) {
+    $a = false;
+    echo "[PEAR] pcre extension is required\n";
+}
+if (!$a) {
+    return -1;
+}
 
 $force = false;
 $install_files = array();

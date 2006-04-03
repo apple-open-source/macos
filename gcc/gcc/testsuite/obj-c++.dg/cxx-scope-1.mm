@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Handle C++ scoping ('::') operators in ObjC message receivers gracefully.  */
 /* Author: Ziemowit Laski  <zlaski@apple.com> */
 /* { dg-do run } */
@@ -51,4 +51,3 @@ int main(void) {
 
   return 0;
 }
-

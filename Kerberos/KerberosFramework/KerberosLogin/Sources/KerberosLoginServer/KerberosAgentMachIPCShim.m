@@ -1,7 +1,7 @@
 /*
  * KerberosAgentMachIPCShim.m
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLoginServer/KerberosAgentMachIPCShim.m,v 1.7 2005/01/03 20:46:03 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

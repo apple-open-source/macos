@@ -86,7 +86,8 @@ proc libstdc++_init { testfile } {
     global ld_library_path
     global target_triplet
 
-    # We set LC_ALL and LANG to C so that we get the same error messages as expected.
+    # We set LC_ALL and LANG to C so that we get the same error
+    # messages as expected.
     setenv LC_ALL C
     setenv LANG C
 
@@ -102,14 +103,7 @@ proc libstdc++_init { testfile } {
     # headers, or without assertions.
     global DEFAULT_CXXFLAGS
     if ![info exists DEFAULT_CXXFLAGS] then {
-	# Set up includes for stdc++.h.gch, the precompiled header file.
-	if { [file exists $flags_file] } {
-	    set cxxpchflags [exec sh $flags_file --cxxpchflags]
-	} else {
-	    set cxxpchflags ""
-	}
-	set DEFAULT_CXXFLAGS " ${cxxpchflags}"
-
+	set DEFAULT_CXXFLAGS ""
 	# Host specific goo here.
 	if { [string match "powerpc-*-darwin*" $target_triplet] } {
 	    append DEFAULT_CXXFLAGS " -multiply_defined suppress"
@@ -134,7 +128,6 @@ proc libstdc++_init { testfile } {
     v3track gccdir 3
 
     # Compute what needs to be added to the existing LD_LIBRARY_PATH.
-    # APPLE LOCAL begin mainline
     if {$gccdir != ""} {
 	set ld_library_path ""
 	append ld_library_path ":${gccdir}"
@@ -161,7 +154,6 @@ proc libstdc++_init { testfile } {
 	}
     } else {
 	set compiler [transform "g++"]
-	# APPLE LOCAL end mainline
     }
 
     # Do a bunch of handstands and backflips for cross compiling and
@@ -183,17 +175,39 @@ proc libstdc++_init { testfile } {
             set includes [exec sh $flags_file --build-includes]
         } else {
             set cxx [transform "g++"]
-	    # APPLE LOCAL begin libstdc++ testing
-	    # For standalone libstdc++ testing, we need to provide all
-	    # the necessary compiler flags, since we do not have a 
-	    # testsuite_flags file to fall back on.
-	    set cxxflags [concat "-g -O2 -D_GLIBCXX_ASSERT" \
-		" -ffunction-sections" \
-		" -fdata-sections -fmessage-length=0 -DAPPLE_KEYMGR" \
-		" -DLOCALEDIR=\"/usr/share/locale\""]
-	    # APPLE LOCAL end libstdc++ testing
+            set cxxflags "-g -O2 -D_GLIBCXX_ASSERT -fmessage-length=0" 
             set includes "-I${srcdir}"
+	    # Guess at the location of the installed locale files.
+	    # (It would be nice if "gcc --print-file-name" could find
+	    # message files, but it cannot.)
+	    set absolute_cxx [which $cxx]
+	    if { $absolute_cxx != "" } {
+		set localedir "[file dirname $absolute_cxx]/../share/locale"
+	    }
+	    set cxxflags "$cxxflags -DLOCALEDIR=\"$localedir\""
         }
+    }
+
+    # If a PCH file is available, use it.  We must delay performing
+    # this check until $cxx and such have been initialized because we
+    # perform a test compilation.  (Ideally, gcc --print-file-name would
+    # list PCH files, but it does not.)
+    global PCH_CXXFLAGS
+    if ![info exists PCH_CXXFLAGS] then {
+	set src "config[pid].cc"
+	set f [open $src "w"]
+	puts $f "int main () {}"
+	close $f
+
+	set lines [v3_target_compile $src "config[pid].o" object \
+		   "additional_flags=-include additional_flags=bits/stdc++.h"]
+	if {$lines == "" } {
+	    set PCH_CXXFLAGS "-include bits/stdc++.h"
+	} else {
+	    set PCH_CXXFLAGS ""
+	}
+	file delete $src
+	v3track PCH_CXXFLAGS 2
     }
 
     libstdc++_maybe_build_wrapper "${objdir}/testglue.o"
@@ -257,6 +271,18 @@ proc libstdc++-dg-test { prog do_what extra_tool_flags } {
     return [list $comp_output $output_file]
 }
 
+# True if the library supports wchar_t.
+set v3-wchar_t 0
+
+# True if the library supports threads.
+set v3-threads 0
+
+# True if the library supports symbol versioning.
+set v3-symver 0
+
+# A string naming object files to be linked into all tests.
+set v3-test_objs ""
+
 # Called from libstdc++-dg-test above.  Calls back into system's
 # target_compile to actually do the work.
 proc v3_target_compile { source dest type options } {
@@ -266,6 +292,7 @@ proc v3_target_compile { source dest type options } {
     global cxxflags
     global includes
     global blddir
+    global v3-test_objs
 
     if { [target_info needs_status_wrapper] != "" && [info exists gluefile] } {
         lappend options "libs=${gluefile}"
@@ -277,75 +304,68 @@ proc v3_target_compile { source dest type options } {
     set cxx_final [concat $cxx_final $cxxlibglossflags]
     set cxx_final [concat $cxx_final $cxxflags]
     set cxx_final [concat $cxx_final $includes]
+    # Link the support objects into executables.
+    if { $type == "executable" } {
+	set cxx_final [concat $cxx_final ${v3-test_objs}]
+    }
 
     lappend options "compiler=$cxx_final"
-
-    # Picks up the freshly-built testsuite library corresponding to the
-    # multilib under test.
-    lappend options "ldflags=-L${blddir}/testsuite"
-    lappend options "libs=-lv3test"
 
     return [target_compile $source $dest $type $options]
 }
 
 
-# Called once, from libstdc++/normal.exp.
-proc v3-list-tests { filename } {
+# XXX Fix me.
+# This is a complete hack: why do we build libv3test.a and then not use it?
+# This duplicates all the make logic. Boo: pick one way to do it, not two.
+# Build the support objects linked in with the libstdc++ tests.  In
+# addition, set v3-wchar_t, v3-threads, v3-test_objs, and v3-symver
+# appropriately.
+proc v3-build_support {} {
     global srcdir
-    global blddir
-    # APPLE LOCAL begin libstdc++ testing
-    global objdir
-    global libiconv
+    global v3-wchar_t
+    global v3-threads
+    global v3-test_objs
+    global v3-symver
 
-    # If we are not running in a build directory, we will need to generate
-    # our own testsuite_files, and build our own libv3test.a as well.
-    if { $blddir == "" } {
-	set blddir ${objdir}
-	set libiconv "-liconv"
-	set tmp [exec mkdir ${blddir}/testsuite]
-	set tmp [exec touch ${blddir}/testsuite/testsuite_thread]
-	set tmp [exec touch ${blddir}/testsuite/testsuite_wchar_t]
-	set tmp [exec sh ${srcdir}/../scripts/create_testsuite_files \
-		${srcdir} ${blddir}/testsuite]
-	# Build the support objects.
-	foreach f [list testsuite_abi.cc testsuite_allocator.cc \
-		testsuite_hooks.cc] {
-	    set object_file ${blddir}/testsuite/[file rootname $f].o
-	    # Compile with "-w" so that warnings issued by the compiler
-	    # do not prevent compilation.
-	    if { [v3_target_compile $srcdir/$f $object_file "object" \
-		    [list "incdir=$srcdir" "additional_flags=-w"]]
-		    != "" } {
-		error "could not compile $f"
-	    }
+    # Figure out whether or not the library supports certain features.
+    set v3-wchar_t 0
+    set v3-threads 0
+    set v3-symver 0
+    set v3-test_objs ""
+
+    set config_src "config.cc"
+    set f [open $config_src "w"]
+    puts $f "#include <bits/c++config.h>"
+    puts $f "#include <bits/gthr.h>"
+    close $f
+    set preprocessed [v3_target_compile $config_src "" \
+	    	       preprocess "additional_flags=-dN"]
+    if { [string first "_GLIBCXX_USE_WCHAR_T" $preprocessed] != -1 } {
+	verbose -log "wchar_t support detected"
+	set v3-wchar_t 1
+    }
+    if { [string first "_GLIBCXX_SYMVER" $preprocessed] != -1 } {
+	verbose -log "symbol versioning support detected"
+	set v3-symver 1
+    }
+    if { [string first "__GTHREADS" $preprocessed] != -1 } {
+	verbose -log "thread support detected"
+	set v3-threads 1
+    }
+
+    # Build the support objects.
+    set source_files \
+	[list testsuite_abi.cc testsuite_allocator.cc testsuite_character.cc testsuite_hooks.cc]
+    foreach f $source_files {
+	set object_file [file rootname $f].o
+	# Compile with "-w" so that warnings issued by the compiler
+	# do not prevent compilation.
+	if { [v3_target_compile $srcdir/$f $object_file "object" \
+		  [list "incdir=$srcdir" "additional_flags=-w"]]
+	     != "" } {
+	    error "could not compile $f"
 	}
-	set tmp [exec ar cru ${blddir}/testsuite/libv3test.a \
-		${blddir}/testsuite/testsuite_abi.o \
-		${blddir}/testsuite/testsuite_allocator.o \
-		${blddir}/testsuite/testsuite_hooks.o]
-	set tmp [exec ranlib -c ${blddir}/testsuite/libv3test.a]
+	append v3-test_objs "$object_file "
     }
-    # APPLE LOCAL end libstdc++ testing
-
-    set tests_file "${blddir}/testsuite/${filename}"
-    set sfiles ""
-
-    verbose -log "In v3-list-tests"
-    verbose -log "blddir = ${blddir}"
-    verbose -log "tests_file = $tests_file"
-
-    # If there is a testsuite_file, use it. 
-    if { [file exists $tests_file] } {
-        set f [open $tests_file]
-        while { ! [eof $f] } {
-            set t [gets $f]
-            if { [string length "$t"] != 0 } {
-                lappend sfiles  ${srcdir}/${t}
-            }
-        } 
-        close $f
-    } else {
-        verbose "cannot open $tests_file"
-    }
-    return $sfiles
 }

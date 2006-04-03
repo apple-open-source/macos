@@ -80,8 +80,6 @@
 #include "macosx-nat-dyld-process.h"
 #endif
 
-#define MAPPED_SYMFILES (USE_MMALLOC && HAVE_MMAP)
-
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -414,6 +412,7 @@ free_section_addr_info (struct section_addr_info *sap)
       xfree (sap->other[idx].name);
   xfree (sap);
 }
+
 
 /* Initialize OBJFILE's sect_index_* members.  */
 static void
@@ -847,11 +846,7 @@ symbol_file_add_bfd_with_addrs_or_offsets (bfd *abfd, int from_tty,
       && !query ("Load new symbol table from \"%s\"? ", abfd->filename))
     error ("Not confirmed.");
 
-#ifndef FSF_OBJFILES
   objfile = allocate_objfile (abfd, flags, symflags, mapaddr, prefix);
-#else
-  objfile = allocate_objfile (abfd, flags);
-#endif
 
   objfile->prefix = prefix;
 
@@ -865,68 +860,22 @@ symbol_file_add_bfd_with_addrs_or_offsets (bfd *abfd, int from_tty,
 	orig_addrs->other[i] = addrs->other[i];
     }
 
-  /* If the objfile uses a mapped symbol file, and we have a psymtab for
-     it, then skip reading any symbols at this time. */
-
-  if ((objfile->flags & OBJF_MAPPED) && (objfile->flags & OBJF_SYMS))
+  /* We either created a new mapped symbol table, mapped an existing
+     symbol table file which has not had initial symbol reading
+     performed, or need to read an unmapped symbol table. */
+  if (from_tty || info_verbose)
     {
-      /* We mapped in an existing symbol table file that already has had
-         initial symbol reading performed, so we can skip that part.  Notify
-         the user that instead of reading the symbols, they have been mapped.
-      */
-      if (from_tty || info_verbose)
-        {
-          printf_filtered ("Mapped symbols for %s...", abfd->filename);
-          wrap_here ("");
-          gdb_flush (gdb_stdout);
-        }
-      init_entry_point_info (objfile);
-      if (addrs != NULL)
-        {
-          struct section_offsets *new_offsets = (struct section_offsets *) xmalloc (SIZEOF_N_SECTION_OFFSETS (addrs->num_sections));
-          unsigned int i;
-          for (i = 0; i < addrs->num_sections; i++) {
-            new_offsets->offsets[i] = addrs->other[0].addr;
-          }
-#if MAPPED_SYMFILES
-          mmalloc_protect (objfile->md, PROT_READ | PROT_WRITE);
-#endif
-          objfile_relocate (objfile, new_offsets);
-#if MAPPED_SYMFILES
-          mmalloc_protect (objfile->md, PROT_READ);
-#endif
-        }
-      if (offsets != NULL)
-        {
-#if MAPPED_SYMFILES
-          mmalloc_protect (objfile->md, PROT_READ | PROT_WRITE);
-#endif
-          objfile_relocate (objfile, offsets);
-#if MAPPED_SYMFILES
-          mmalloc_protect (objfile->md, PROT_READ);
-#endif
-        }
-      find_sym_fns (objfile);
-    }
-  else
-    {
-      /* We either created a new mapped symbol table, mapped an existing
-         symbol table file which has not had initial symbol reading
-         performed, or need to read an unmapped symbol table. */
-      if (from_tty || info_verbose)
+      if (pre_add_symbol_hook)
+	pre_add_symbol_hook (abfd->filename);
+      else
 	{
-	  if (pre_add_symbol_hook)
-	    pre_add_symbol_hook (abfd->filename);
-	  else
-	    {
-	      printf_filtered ("Reading symbols from %s...", abfd->filename);
-	      wrap_here ("");
-	      gdb_flush (gdb_stdout);
-	    }
+	  printf_filtered ("Reading symbols from %s...", abfd->filename);
+	  wrap_here ("");
+	  gdb_flush (gdb_stdout);
 	}
-      syms_from_objfile (objfile, addrs, offsets, num_offsets,
-                         mainline, from_tty);
     }
+  syms_from_objfile (objfile, addrs, offsets, num_offsets,
+		     mainline, from_tty);
 
   /* We now have at least a partial symbol table.  Check to see if the
      user requested that all symbols be read on initial access via either
@@ -1328,19 +1277,16 @@ symbol_file_command (char *args, int from_tty)
       cleanups = make_cleanup_freeargv (argv);
       while (*argv != NULL)
 	{
-          if (strcmp (*argv, "-mapped") == 0)
-	    flags |= OBJF_MAPPED;
-	  else 
-	    if (strcmp (*argv, "-readnow") == 0)
-	      flags |= OBJF_READNOW;
-	    else 
-	      if (**argv == '-')
-		error ("unknown option `%s'", *argv);
-	      else
-		{
-                  name = *argv;
-		  symbol_file_add_main_1 (name, from_tty, flags);
-		}
+	  if (strcmp (*argv, "-readnow") == 0)
+	    flags |= OBJF_READNOW;
+	  else if (**argv == '-')
+	    error ("unknown option `%s'", *argv);
+	  else
+	    {
+	      name = *argv;
+
+	      symbol_file_add_main_1 (name, from_tty, flags);
+	    }
 	  argv++;
 	}
 
@@ -1475,26 +1421,10 @@ symfile_bfd_open (const char *name, int mainline)
 
   if (bfd_check_format (sym_bfd, bfd_archive))
     {
-      enum gdb_osabi osabi = GDB_OSABI_UNINITIALIZED;
-      bfd *abfd = NULL;
-
-      osabi = gdbarch_osabi (current_gdbarch);
-      if ((osabi <= GDB_OSABI_UNKNOWN) || (osabi >= GDB_OSABI_INVALID))
-	osabi = gdbarch_lookup_osabi (sym_bfd);
-
-      for (;;)
-	{
-	  abfd = bfd_openr_next_archived_file (sym_bfd, abfd);
-	  if (abfd == NULL)
-	    break;
-	  if (! bfd_check_format (abfd, bfd_object))
-	    continue;
-	  if (osabi == gdbarch_lookup_osabi (abfd))
-	    {
-	      sym_bfd = abfd;
-	      break;
-	    }
-	}
+      bfd *tmp_bfd;
+      tmp_bfd = open_bfd_matching_arch (sym_bfd);
+      if (tmp_bfd != NULL)
+	sym_bfd = tmp_bfd;
     }
 
   bfd_set_cacheable (sym_bfd, 1);
@@ -1908,8 +1838,6 @@ add_symbol_file_command (char *args, int from_tty)
  		error (usage_string, "must specify address to -prefix");
  	      prefix = xstrdup (atmp);
  	    }
- 	  else if (strcmp (arg, "-mapped") == 0)
- 	    flags |= OBJF_MAPPED;
  	  else if (strcmp (arg, "-readnow") == 0)
  	    flags |= OBJF_READNOW;
  	  else if (strcmp (arg, "-s") == 0)
@@ -2131,26 +2059,10 @@ reread_symbols (void)
 
 	      if (bfd_check_format (objfile->obfd, bfd_archive))
 		{
-		  enum gdb_osabi osabi = GDB_OSABI_UNINITIALIZED;
-		  bfd *abfd = NULL;
-
-		  osabi = gdbarch_osabi (current_gdbarch);
-		  if ((osabi <= GDB_OSABI_UNKNOWN) || (osabi >= GDB_OSABI_INVALID))
-		    error ("no osabi currently specified");
-
-		  for (;;)
-		    {
-		      abfd = bfd_openr_next_archived_file (objfile->obfd, abfd);
-		      if (abfd == NULL)
-			break;
-		      if (! bfd_check_format (abfd, bfd_object))
-			continue;
-		      if (osabi == gdbarch_lookup_osabi (abfd))
-			{
-			  objfile->obfd = abfd;
-			  break;
-			}
-		    }
+		  bfd *tmp_bfd;
+		  tmp_bfd = open_bfd_matching_arch (objfile->obfd);
+		  if (tmp_bfd != NULL)
+		    objfile->obfd = tmp_bfd;
 		}
 
 	      if (!bfd_check_format (objfile->obfd, bfd_object))
@@ -2269,14 +2181,7 @@ reread_symbols (void)
 	         objfile->global_psymbols.size is 0.  */
 	      if (objfile->symflags & ~OBJF_SYM_CONTAINER)
 		(*objfile->sf->sym_read) (objfile, 0);
-#if 0
-	      if (!have_partial_symbols () && !have_full_symbols ())
-		{
-		  wrap_here ("");
-		  printf_unfiltered ("(no debugging symbols found)\n");
-		  wrap_here ("");
-		}
-#endif
+	      /* APPLE LOCAL don't complain about lack of symbols */
 	      objfile->flags |= OBJF_SYMS;
 
 	      /* We're done reading the symbol file; finish off complaints.  */
@@ -2297,9 +2202,11 @@ reread_symbols (void)
 	      reread_one = 1;
               reread_separate_symbols (objfile);
 
+	      /* APPLE LOCAL begin breakpoints */
 	      /* Finally, remember to call breakpoint_re_set with this
 		 objfile, so it will get on the change list.  */
 	      breakpoint_re_set (objfile);
+	      /* APPLE LOCAL end breakpoints */
 	    }
 	}
     }
@@ -2429,8 +2336,7 @@ reread_separate_symbols (struct objfile *objfile)
             0, /* No addr table.  */
             objfile->section_offsets, objfile->num_sections,
             0, /* Not mainline.  See comments about this above.  */
-            objfile->flags & (OBJF_MAPPED | OBJF_REORDERED
-                              | OBJF_SHARED | OBJF_READNOW
+            objfile->flags & (OBJF_REORDERED | OBJF_SHARED | OBJF_READNOW
                               | OBJF_USERLOADED), OBJF_SYM_ALL, 0, NULL));
       objfile->separate_debug_objfile->separate_debug_objfile_backlink
         = objfile;
@@ -2439,6 +2345,7 @@ reread_separate_symbols (struct objfile *objfile)
 
 
 
+
 
 typedef struct
 {
@@ -2557,8 +2464,10 @@ init_filename_language_table (void)
       add_filename_language (".java", language_java);
       add_filename_language (".class", language_java);
       add_filename_language (".m", language_objc);
+      /* APPLE LOCAL begin Objective-C++ */
       add_filename_language (".mm", language_objcplus);
       add_filename_language (".M", language_objcplus);
+      /* APPLE LOCAL end Objective-C++ */
       add_filename_language (".f", language_fortran);
       add_filename_language (".F", language_fortran);
       add_filename_language (".s", language_asm);
@@ -2570,6 +2479,7 @@ init_filename_language_table (void)
 }
 
 enum language
+/* APPLE LOCAL const */
 deduce_language_from_filename (const char *filename)
 {
   int i;
@@ -2715,6 +2625,7 @@ clear_symtab_users (void)
   clear_value_history ();
   clear_displays ();
   clear_internalvars ();
+  /* APPLE LOCAL breakpoints (remove reset) */
   set_default_breakpoint (0, 0, 0, 0);
   clear_current_source_symtab_and_line ();
   clear_pc_function_cache ();
@@ -3054,14 +2965,17 @@ add_psymbol_with_dem_name_to_list (char *name, int namelength, char *dem_name,
     {
     case language_c:
     case language_cplus:
+      /* APPLE LOCAL Objective-C++ */
     case language_objcplus:
       SYMBOL_CPLUS_DEMANGLED_NAME (&psymbol) =
 	deprecated_bcache (buf, dem_namelength + 1, objfile->psymbol_cache);
       break;
       /* FIXME What should be done for the default case? Ignoring for now. */
+      /* APPLE LOCAL begin add default case */
     default:
       internal_error (__FILE__, __LINE__, "unhandled case");
       break;
+      /* APPLE LOCAL end add default case */
     }
 
   /* val and coreaddr are mutually exclusive, one of them *will* be zero */
@@ -3367,6 +3281,7 @@ overlay_mapped_address (CORE_ADDR pc, asection *section)
 
   return pc;
 }
+
 
 /* Function: symbol_overlayed_address 
    Return one of two addresses (relative to the VMA or to the LMA),
@@ -3988,12 +3903,41 @@ bfd *symfile_bfd_open_safe
  
   return s.result;
 }
- 
+
+/* APPLE LOCAL: This routine opens the slice of a fat file (faking as a bfd_archive)
+   that matches the current architecture.  */
+
+bfd *
+open_bfd_matching_arch (bfd *archive_bfd)
+{
+  enum gdb_osabi osabi = GDB_OSABI_UNINITIALIZED;
+  bfd *abfd = NULL;
+  
+  osabi = gdbarch_osabi (current_gdbarch);
+  if ((osabi <= GDB_OSABI_UNKNOWN) || (osabi >= GDB_OSABI_INVALID))
+    osabi = gdbarch_lookup_osabi (archive_bfd);
+  
+  for (;;)
+    {
+      abfd = bfd_openr_next_archived_file (archive_bfd, abfd);
+      if (abfd == NULL)
+	break;
+      if (! bfd_check_format (abfd, bfd_object))
+	continue;
+      if (osabi == gdbarch_lookup_osabi (abfd))
+	{
+	  break;
+	}
+    }
+  return abfd;
+}
+
 void
 _initialize_symfile (void)
 {
   struct cmd_list_element *c;
 
+  /* APPLE LOCAL begin */
 #if HAVE_MMAP
    c = add_set_cmd ("mmap-symbol-files", class_obscure, var_boolean,
  		   (char *) &mmap_symbol_files_flag,
@@ -4012,6 +3956,7 @@ _initialize_symfile (void)
  Unload the symbols from FILE.",
  	       &cmdlist);
    set_cmd_completer (c, filename_completer);
+   /* APPLE LOCAL end */
 
   c = add_cmd ("symbol-file", class_files, symbol_file_command,
 	       "Load symbol table from executable file FILE.\n\
@@ -4020,7 +3965,7 @@ to execute.", &cmdlist);
   set_cmd_completer (c, filename_completer);
 
   c = add_cmd ("add-symbol-file", class_files, add_symbol_file_command,
- 	       "Usage: add-symbol-file FILE ADDR [-s <SECT> <SECT_ADDR> -s <SECT> <SECT_ADDR> ...]\n\
+	       "Usage: add-symbol-file FILE ADDR [-s <SECT> <SECT_ADDR> -s <SECT> <SECT_ADDR> ...]\n\
 Load the symbols from FILE, assuming FILE has been dynamically loaded.\n\
 ADDR is the starting address of the file's text.\n\
 The optional arguments are section-name section-address pairs and\n\

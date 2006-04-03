@@ -932,7 +932,11 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
   struct walk_stmt_info *wi = data;
   struct nesting_info *info = wi->info;
   tree t = *tp, field, x;
+/* APPLE LOCAL begin mainline 2005-08-08 */
+  bool save_val_only;
 
+  *walk_subtrees = 0;
+/* APPLE LOCAL end mainline 2005-08-08 */
   switch (TREE_CODE (t))
     {
     case VAR_DECL:
@@ -971,29 +975,33 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case ADDR_EXPR:
-      {
-	bool save_val_only = wi->val_only;
+/* APPLE LOCAL begin mainline 2005-08-08 */
+      save_val_only = wi->val_only;
+      wi->val_only = false;
+      wi->is_lhs = false;
+      wi->changed = false;
+      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
+      wi->val_only = save_val_only;
 
-	wi->val_only = false;
-	wi->is_lhs = false;
-	wi->changed = false;
-	walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
-	wi->val_only = save_val_only;
+      /* If we converted anything ... */
+      if (wi->changed)
+        {
+          tree save_context;
 
-	/* If we converted anything ... */
-	if (wi->changed)
-	  {
-	    /* Then the frame decl is now addressable.  */
-	    TREE_ADDRESSABLE (info->frame_decl) = 1;
-	    
-	    recompute_tree_invarant_for_addr_expr (t);
+          /* Then the frame decl is now addressable.  */
+          TREE_ADDRESSABLE (info->frame_decl) = 1;
 
-	    /* If we are in a context where we only accept values, then
-	       compute the address into a temporary.  */
-	    if (save_val_only)
-	      *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
-	  }
-      }
+          save_context = current_function_decl;
+          current_function_decl = info->context;
+          recompute_tree_invarant_for_addr_expr (t);
+          current_function_decl = save_context;
+
+          /* If we are in a context where we only accept values, then
+             compute the address into a temporary.  */
+          if (save_val_only)
+            *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
+        }
+/* APPLE LOCAL end mainline 2005-08-08 */
       break;
 
     case REALPART_EXPR:
@@ -1005,6 +1013,8 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       /* Go down this entire nest and just look at the final prefix and
 	 anything that describes the references.  Otherwise, we lose track
 	 of whether a NOP_EXPR or VIEW_CONVERT_EXPR needs a simple value.  */
+      /* APPLE LOCAL mainline 2005-08-08 */
+      save_val_only = wi->val_only;
       wi->val_only = true;
       wi->is_lhs = false;
       for (; handled_component_p (t); tp = &TREE_OPERAND (t, 0), t = *tp)
@@ -1032,6 +1042,8 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	}
       wi->val_only = false;
       walk_tree (tp, convert_local_reference, wi, NULL);
+      /* APPLE LOCAL mainline 2005-08-08 */
+      wi->val_only = save_val_only;
       break;
 
     default:
@@ -1304,8 +1316,15 @@ finalize_nesting_tree_1 (struct nesting_info *root)
      out at this time.  */
   if (root->frame_type)
     {
+      /* APPLE LOCAL begin mainline 4137012 */
+      /* In some cases the frame type will trigger the -Wpadded warning.
+	 This is not helpful; suppress it. */
+      int save_warn_padded = warn_padded;
+      warn_padded = 0;
       layout_type (root->frame_type);
+      warn_padded = save_warn_padded;
       layout_decl (root->frame_decl, 0);
+      /* APPLE LOCAL end mainline 4137012 */
     }
 
   /* If any parameters were referenced non-locally, then we need to 

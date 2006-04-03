@@ -396,7 +396,7 @@ complete_line (const char *text, char *line_buffer, int point)
   rl_completer_word_break_characters =
     current_language->la_word_break_characters();
 
-       /* Decide whether to complete on a list of gdb commands or on symbols. */
+      /* Decide whether to complete on a list of gdb commands or on symbols. */
   tmp_command = (char *) alloca (point + 1);
   p = tmp_command;
 

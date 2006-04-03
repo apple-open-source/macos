@@ -123,7 +123,7 @@ enum bool redo_live)
     char *strings;
     enum bool defined, new;
 
-    struct merged_symbol *merged_symbol, **hash_pointer;
+    struct merged_symbol *merged_symbol;
     struct section_map *literal_map;
     struct merged_section *literal_ms;
     struct section *literal_s;
@@ -345,14 +345,13 @@ enum bool redo_live)
 		if((nlists[r_symbolnum].n_type & N_TYPE) == N_SECT &&
 		   (cur_obj->section_maps[nlists[r_symbolnum].
 		    n_sect-1].s->flags & SECTION_TYPE) == S_COALESCED){
-		    hash_pointer = lookup_symbol(strings +
+		    merged_symbol = lookup_symbol(strings +
 				       nlists[r_symbolnum].n_un.n_strx);
-		    if(hash_pointer == NULL){
+		    if(merged_symbol->name_len == 0){
 			fatal("internal error, in literal_pointer_merge() "
 			      "failed to lookup coalesced symbol %s",
 			      strings + nlists[r_symbolnum].n_un.n_strx);
 		    }
-		    merged_symbol = *hash_pointer;
 		    error_with_cur_obj("exteral symbol (%s) for external "
 			"relocation entry %ld in section (%.16s,%.16s) refers "
 			"a symbol not defined in a literal section",
@@ -1302,6 +1301,16 @@ struct merged_section *ms)
 			    extreloc++;
 			else
 			    reloc++;
+		    }
+		    /*
+		     * For an file with a dynamic linker load command only
+		     * external relocation entries for undefined symbols are
+		     * kept.  Which are handled above. So if this file has
+		     * a dynamic linker load command the remaining relocation
+		     * entries are local and not kept in the output.
+		     */
+		    else if(has_dynamic_linker_command){
+			continue;
 		    }
 		    /*
 		     * If the offset added to the item to be relocated is

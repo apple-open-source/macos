@@ -23,8 +23,10 @@ int main()
   MyClass *obj_cp = nil;
   MyOtherClass *obj_cp2 = nil;
 
-  obj_cp = obj_p;  /* { dg-warning "incompatible pointer type" } */
-  obj_cp2 = obj_p; /* { dg-warning "incompatible pointer type" } */
+  /* APPLE LOCAL begin mainline */
+  obj_cp = obj_p;  /* { dg-warning "distinct Objective\\-C type" } */
+  obj_cp2 = obj_p; /* { dg-warning "distinct Objective\\-C type" } */
+  /* APPLE LOCAL end mainline */
   obj_p = obj_cp;  /* Ok */
   obj_p = obj_cp2; /* Ok */
 

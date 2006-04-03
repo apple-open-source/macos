@@ -27,6 +27,8 @@
 
 #include <machine/asm.h>
 
+#warning obsolete
+
 #include "abi.h"
 #warning scp: edge case +-Inf
 ENTRY(exp2f)

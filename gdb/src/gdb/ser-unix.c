@@ -1341,13 +1341,13 @@ _initialize_ser_hardwire (void)
   memset (ops, 0, sizeof (struct serial_ops));
   ops->name = "hardwire";
   ops->next = 0;
-  ops->sopen = hardwire_open;
-  ops->sclose = hardwire_close;
+  ops->open = hardwire_open;
+  ops->close = hardwire_close;
   /* FIXME: Don't replace this with the equivalent ser_unix*() until
      the old TERMIOS/SGTTY/... timer code has been flushed. cagney
      1999-09-16. */
   ops->readchar = hardwire_readchar;
-  ops->swrite = ser_unix_write;
+  ops->write = ser_unix_write;
   ops->flush_output = hardwire_flush_output;
   ops->flush_input = hardwire_flush_input;
   ops->send_break = hardwire_send_break;

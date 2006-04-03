@@ -28,9 +28,6 @@
 #include "language.h"
 #include "gdb_string.h"
 
-#define false 0
-#define true 1
-
 const struct mem_attrib default_mem_attrib =
 {
   MEM_RW,			/* mode */

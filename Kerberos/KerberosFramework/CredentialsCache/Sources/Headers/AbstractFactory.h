@@ -9,9 +9,13 @@
 
 class CCIAbstractFactory {
 	public:
-												CCIAbstractFactory ()
-												{
-												}
+				CCIAbstractFactory ()
+				{
+				}
+
+				virtual ~CCIAbstractFactory ()
+				{
+				}
 
 				virtual	CCIContext*				CreateContext (
 					CCIInt32						inAPIVersion) = 0;

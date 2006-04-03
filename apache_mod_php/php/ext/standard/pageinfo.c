@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pageinfo.c,v 1.34.2.1 2002/12/31 16:35:32 sebastian Exp $ */
+/* $Id: pageinfo.c,v 1.34.2.1.8.2 2005/07/27 11:22:36 hyanantha Exp $ */
 
 #include "php.h"
 #include "pageinfo.h"
@@ -27,11 +27,6 @@
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
 #include "win32/pwd.h"
-#elif defined(NETWARE)
-#ifdef ZTS
-extern int basic_globals_id;
-#endif
-#include "netware/pwd.h"
 #else
 #include <pwd.h>
 #endif
@@ -64,11 +59,7 @@ extern int basic_globals_id;
  */
 PHPAPI void php_statpage(TSRMLS_D)
 {
-#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
-	struct stat_libc *pstat;
-#else
 	struct stat *pstat;
-#endif
 
 	pstat = sapi_get_stat(TSRMLS_C);
 
@@ -77,8 +68,8 @@ PHPAPI void php_statpage(TSRMLS_D)
 			BG(page_uid)   = pstat->st_uid;
 			BG(page_gid)   = pstat->st_gid;
 			BG(page_inode) = pstat->st_ino;
-#if defined(NETWARE) && defined(NEW_LIBC)
-			BG(page_mtime) = (pstat->st_mtime).tv_nsec;
+#ifdef NETWARE
+			BG(page_mtime) = (pstat->st_mtime).tv_sec;
 #else
 			BG(page_mtime) = pstat->st_mtime;
 #endif

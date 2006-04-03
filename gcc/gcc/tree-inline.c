@@ -114,6 +114,12 @@ typedef struct inline_data
      gimple form when we insert the inlined function.   It is not
      used when we are not dealing with gimple trees.  */
   tree_stmt_iterator tsi;
+
+  /* APPLE LOCAL begin radar 4152603 */
+  /* Set location of each copied statement to call_location. */
+  bool call_location_p;
+  location_t call_location;
+  /* APPLE LOCAL end radar 4152603 */
 } inline_data;
 
 /* Prototypes.  */
@@ -636,6 +642,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  recompute_tree_invarant_for_addr_expr (*tp);
 	  *walk_subtrees = 0;
 	}
+      /* APPLE LOCAL begin radar 4152603 */
+      if (id->call_location_p && EXPR_P (*tp))
+	SET_EXPR_LOCATION (*tp, id->call_location);
+      /* APPLE LOCAL end radar 4152603 */
     }
 
   /* Keep iterating.  */
@@ -971,7 +981,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined because it uses "
+	    = G_("%Jfunction %qF can never be inlined because it uses "
 		 "alloca (override using the always_inline attribute)");
 	  return node;
 	}
@@ -983,7 +993,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (setjmp_call_p (t))
 	{
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined because it uses setjmp");
+	    = G_("%Jfunction %qF can never be inlined because it uses setjmp");
 	  return node;
 	}
 
@@ -997,7 +1007,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  case BUILT_IN_NEXT_ARG:
 	  case BUILT_IN_VA_END:
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because it "
+	      = G_("%Jfunction %qF can never be inlined because it "
 		   "uses variable argument lists");
 	    return node;
 
@@ -1008,14 +1018,14 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	       function calling __builtin_longjmp to be inlined into the
 	       function calling __builtin_setjmp, Things will Go Awry.  */
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because "
+	      = G_("%Jfunction %qF can never be inlined because "
 		   "it uses setjmp-longjmp exception handling");
 	    return node;
 
 	  case BUILT_IN_NONLOCAL_GOTO:
 	    /* Similarly.  */
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because "
+	      = G_("%Jfunction %qF can never be inlined because "
 		   "it uses non-local goto");
 	    return node;
 
@@ -1026,7 +1036,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	       been inlined into.  Similarly __builtin_return would
 	       return from the function the inline has been inlined into.  */
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined because "
+	      = G_("%Jfunction %qF can never be inlined because "
 		   "it uses __builtin_return or __builtin_apply_args");
 	    return node;
 
@@ -1045,7 +1055,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (TREE_CODE (t) != LABEL_DECL)
 	{
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined "
+	    = G_("%Jfunction %qF can never be inlined "
 		 "because it contains a computed goto");
 	  return node;
 	}
@@ -1059,7 +1069,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	     because we cannot remap the destination label used in the
 	     function that is performing the non-local goto.  */
 	  inline_forbidden_reason
-	    = N_("%Jfunction %qF can never be inlined "
+	    = G_("%Jfunction %qF can never be inlined "
 		 "because it receives a non-local goto");
 	  return node;
 	}
@@ -1084,7 +1094,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	if (variably_modified_type_p (TREE_TYPE (t), NULL))
 	  {
 	    inline_forbidden_reason
-	      = N_("%Jfunction %qF can never be inlined "
+	      = G_("%Jfunction %qF can never be inlined "
 		   "because it uses variable sized variables");
 	    return node;
 	  }
@@ -1616,6 +1626,14 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   id->decl_map = splay_tree_new (splay_tree_compare_pointers,
 				 NULL, NULL);
 
+  /* APPLE LOCAL begin radar 4152603 */
+  if (lookup_attribute ("nodebug", DECL_ATTRIBUTES (fn)) != NULL)
+    {
+      id->call_location_p = true;
+      id->call_location = input_location;
+    }
+  /* APPLE LOCAL end radar 4152603 */
+
   /* Initialize the parameters.  */
   args = TREE_OPERAND (t, 1);
   return_slot_addr = NULL_TREE;
@@ -1700,7 +1718,10 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	&& !TREE_NO_WARNING (fn)
 	&& !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
 	&& return_slot_addr == NULL_TREE
-	&& block_may_fallthru (copy))
+	/* APPLE LOCAL begin mainline 4.0 2005-07-08 4121982 */
+	&& block_may_fallthru (copy)
+	&& !DECL_IN_SYSTEM_HEADER (fn))
+	/* APPLE LOCAL end mainline 4.0 2005-07-08 4121982 */
       {
 	warning ("control may reach end of non-void function %qD being inlined",
 		 fn);

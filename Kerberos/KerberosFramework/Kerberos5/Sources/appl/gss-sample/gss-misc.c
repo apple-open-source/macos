@@ -44,7 +44,7 @@
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/appl/gss-sample/gss-misc.c,v 1.26 2004/02/11 18:04:36 tlyu Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #include <stdio.h>

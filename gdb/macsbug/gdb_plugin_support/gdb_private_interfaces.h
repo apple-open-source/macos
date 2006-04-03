@@ -5,7 +5,7 @@
  |                          MacsBug Plugins Private Interfaces                          |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*/
 
@@ -82,8 +82,6 @@ typedef struct {				/* initialized by or initial value...	*/
     void (*input_handler)(char *);		/* event_top.c: gdb_setup_readline()	*/
     struct ui_file *gdb_stdout;			/* event_top.c: gdb_setup_readline()	*/
     struct ui_file *gdb_stderr;			/* event_top.c: gdb_setup_readline()	*/
-    struct ui_file *insn_stream;		/* gdbarch.c: _initialize_gdbarch()	*/
-    fprintf_ftype insn_printf;			/* gdbarch.c: _initialize_gdbarch()	*/
     struct ui_out *uiout;			/* cli_out.c: _initialize_cli_out()	*/
     void (*rl_completion_display_matches_hook)(char **, int, int); /* NULL		*/
     //int query_hook(char *format, va_list ap);	/* NULL					*/
@@ -193,12 +191,14 @@ extern void (*rl_startup_hook)();		/* called just before prompt 		*/
 extern void (*rl_completion_display_matches_hook)();/* completion display matches hook	*/
 extern void (*rl_getc_function)();		/* raw terminal char input  		*/
 
+extern void (*rl_redisplay_function)();	    	/* called to echo readline chrs & prompt*/
+extern char *rl_display_prompt;			/* readline display prompt if not NULL	*/
+extern char *rl_prompt;				/* primary readline prompt		*/ 
+
 
 /*-------------------------------------------------------------------*
  | Hooks left here as reminders - maybe they could be useful someday |
  *-------------------------------------------------------------------*/
-
-extern void (*rl_redisplay_function)();	    	/* called to display prompt 		*/
 
 extern void _rl_abort_internal();
 extern int _rl_qsort_string_compare();

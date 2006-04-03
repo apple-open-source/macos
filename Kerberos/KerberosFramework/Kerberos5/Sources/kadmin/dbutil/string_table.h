@@ -1,7 +1,7 @@
 /*
   * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved.
   * 
-  * $Header: /cvs/krbdev/krb5/src/kadmin/dbutil/string_table.h,v 1.3 2001/07/16 21:16:22 raeburn Exp $
+  * $Header$
   *
   */
  

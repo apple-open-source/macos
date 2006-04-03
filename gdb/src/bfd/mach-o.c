@@ -148,6 +148,8 @@ static int bfd_mach_o_scan_read_command
   PARAMS ((bfd *, bfd_mach_o_load_command *));
 static void bfd_mach_o_flatten_sections
   PARAMS ((bfd *));
+static int bfd_mach_o_core_parse_environment
+  PARAMS ((bfd *, unsigned char *, bfd_size_type, unsigned char **, bfd_size_type *));
 static const char * bfd_mach_o_i386_flavour_string
   PARAMS ((unsigned int));
 static const char * bfd_mach_o_ppc_flavour_string
@@ -1090,18 +1092,10 @@ bfd_mach_o_i386_flavour_string (flavour)
 {
   switch ((int) flavour)
     {
-    case BFD_MACH_O_i386_NEW_THREAD_STATE: return "i386_NEW_THREAD_STATE";
-    case BFD_MACH_O_i386_FLOAT_STATE: return "i386_FLOAT_STATE";
-    case BFD_MACH_O_i386_ISA_PORT_MAP_STATE: return "i386_ISA_PORT_MAP_STATE";
-    case BFD_MACH_O_i386_V86_ASSIST_STATE: return "i386_V86_ASSIST_STATE";
-    case BFD_MACH_O_i386_REGS_SEGS_STATE: return "i386_REGS_SEGS_STATE";
-    case BFD_MACH_O_i386_THREAD_SYSCALL_STATE: return "i386_THREAD_SYSCALL_STATE";
-    case BFD_MACH_O_i386_THREAD_STATE_NONE: return "i386_THREAD_STATE_NONE";
-    case BFD_MACH_O_i386_SAVED_STATE: return "i386_SAVED_STATE";
     case BFD_MACH_O_i386_THREAD_STATE: return "i386_THREAD_STATE";
-    case BFD_MACH_O_i386_THREAD_FPSTATE: return "i386_THREAD_FPSTATE";
-    case BFD_MACH_O_i386_THREAD_EXCEPTSTATE: return "i386_THREAD_EXCEPTSTATE";
-    case BFD_MACH_O_i386_THREAD_CTHREADSTATE: return "i386_THREAD_CTHREADSTATE";
+    case BFD_MACH_O_i386_FLOAT_STATE: return "i386_FLOAT_STATE";
+    case BFD_MACH_O_i386_EXCEPTION_STATE: return "i386_EXCEPTION_STATE";
+    case BFD_MACH_O_i386_THREAD_STATE_NONE: return "THREAD_STATE_NONE";
     default: return "UNKNOWN";
     }
 }
@@ -1879,6 +1873,7 @@ bfd_mach_o_scan_read_command (abfd, command)
     case BFD_MACH_O_LC_SUB_LIBRARY:
     case BFD_MACH_O_LC_TWOLEVEL_HINTS:
     case BFD_MACH_O_LC_PREBIND_CKSUM:
+    case BFD_MACH_O_LC_ROUTINES_64:
       break;
     default:
       fprintf (stderr, "unable to read unknown load command 0x%lx\n",
@@ -1901,7 +1896,8 @@ bfd_mach_o_flatten_sections (abfd)
 
   for (i = 0; i < mdata->header.ncmds; i++)
     {
-      if (mdata->commands[i].type == BFD_MACH_O_LC_SEGMENT)
+      if (mdata->commands[i].type == BFD_MACH_O_LC_SEGMENT
+	  || mdata->commands[i].type == BFD_MACH_O_LC_SEGMENT_64)
 	{
 	  bfd_mach_o_segment_command *seg;
 
@@ -1916,7 +1912,8 @@ bfd_mach_o_flatten_sections (abfd)
 
   for (i = 0; i < mdata->header.ncmds; i++)
     {
-      if (mdata->commands[i].type == BFD_MACH_O_LC_SEGMENT)
+      if (mdata->commands[i].type == BFD_MACH_O_LC_SEGMENT
+	  || mdata->commands[i].type == BFD_MACH_O_LC_SEGMENT_64)
 	{
 	  bfd_mach_o_segment_command *seg;
 
@@ -2354,7 +2351,8 @@ bfd_mach_o_lookup_section (abfd, section, mcommand, msection)
       struct bfd_mach_o_load_command *cmd = &md->commands[i];
       struct bfd_mach_o_segment_command *seg = NULL;
 
-      if (cmd->type != BFD_MACH_O_LC_SEGMENT)
+      if (cmd->type != BFD_MACH_O_LC_SEGMENT
+	  && cmd->type != BFD_MACH_O_LC_SEGMENT_64)
 	continue;
       seg = &cmd->command.segment;
 
@@ -2440,13 +2438,24 @@ bfd_mach_o_stack_addr (type)
     }
 }
 
-int
+/* Look for a valid environment string in the data bounded by BUF and
+   LEN.  A "valid environment string" means that it's got a NULL at
+   the end, and four NULLS at the beginning.  Store the resulting
+   string in RBUF and RLEN, without allocating any new memory.
+
+   If we can't find the end of the environment string (there are no
+   null characters), return -1.  If we found the end of the
+   environment string, but not the beginning, return -2.  Otherwise
+   return 0, and store the pointer into BUF and length in RBUF and
+   RLEN. */
+
+static int
 bfd_mach_o_core_parse_environment (abfd, buf, len, rbuf, rlen)
      bfd *abfd;
      unsigned char *buf;
-     unsigned int len;
+     bfd_size_type len;
      unsigned char **rbuf;
-     unsigned int *rlen;
+     bfd_size_type *rlen;
 {
   unsigned char *end, *start;
 
@@ -2471,21 +2480,19 @@ bfd_mach_o_core_parse_environment (abfd, buf, len, rbuf, rlen)
 	}
     }
   if (start < (buf + 4))
-    start = buf;
+    return -2;
 
   *rlen = (end - start);
-  *rbuf = bfd_malloc (*rlen);
-
-  memcpy (*rbuf, start, *rlen);
+  *rbuf = start;
 
   return 0;
 }
 
-int
+bfd_boolean
 bfd_mach_o_core_fetch_environment (abfd, rbuf, rlen)
      bfd *abfd;
      unsigned char **rbuf;
-     unsigned int *rlen;
+     bfd_size_type *rlen;
 {
   bfd_mach_o_data_struct *mdata = abfd->tdata.mach_o_data;
   unsigned long stackaddr = bfd_mach_o_stack_addr (mdata->header.cputype);
@@ -2496,22 +2503,26 @@ bfd_mach_o_core_fetch_environment (abfd, rbuf, rlen)
       bfd_mach_o_load_command *cur = &mdata->commands[i];
       bfd_mach_o_segment_command *seg = NULL;
 
-      if (cur->type != BFD_MACH_O_LC_SEGMENT)
+      if (cur->type != BFD_MACH_O_LC_SEGMENT
+	  && cur->type != BFD_MACH_O_LC_SEGMENT_64)
 	continue;
 
       seg = &cur->command.segment;
 
       if ((seg->vmaddr + seg->vmsize) == stackaddr)
 	{
-	  unsigned long start = seg->fileoff;
-	  unsigned long end = seg->fileoff + seg->filesize;
+	  bfd_size_type start = seg->fileoff;
+	  bfd_size_type end = seg->fileoff + seg->filesize;
 	  unsigned char *buf = bfd_malloc (1024 * 1);
-	  unsigned long size = 1024 * 1;
+	  bfd_size_type size = 1024 * 1;
 
 	  for (;;)
 	    {
 	      bfd_size_type nread = 0;
 	      int ret;
+
+	      unsigned char *nrbuf;
+	      bfd_size_type nrlen;
 
 	      if (size > (end - start))
 		size = (end - start);
@@ -2522,21 +2533,24 @@ bfd_mach_o_core_fetch_environment (abfd, rbuf, rlen)
 	      nread = bfd_bread (buf, size, abfd);
 
 	      if (nread != size)
-		return -1;
+		return FALSE;
 
 	      ret = bfd_mach_o_core_parse_environment
-		(abfd, buf, size, rbuf, rlen);
+		(abfd, buf, size, &nrbuf, &nrlen);
 
 	      if (ret == 0)
 		{
+		  *rbuf = bfd_malloc (nrlen);
+		  memcpy (*rbuf, nrbuf, nrlen);
+		  *rlen = nrlen;
 		  free (buf);
-		  return 0;
+		  return TRUE;
 		}
 
 	      if (size == (end - start))
 		{
 		  free (buf);
-		  return -1;
+		  return FALSE;
 		}
 	      
 	      size *= 2;
@@ -2544,8 +2558,8 @@ bfd_mach_o_core_fetch_environment (abfd, rbuf, rlen)
 	}
     }
   /* If we get here, it means we didn't find
-     the segment befor the stack */
-  return -1;
+     the segment before the stack. */
+  return FALSE;
 }
 
 char *
@@ -2553,7 +2567,7 @@ bfd_mach_o_core_file_failing_command (abfd)
      bfd *abfd;
 {
   unsigned char *buf = NULL;
-  unsigned int len = 0;
+  bfd_size_type len = 0;
   unsigned char *p;
   int ret = -1;
 
@@ -2561,17 +2575,8 @@ bfd_mach_o_core_file_failing_command (abfd)
   if (ret <= 0)
     return NULL;
 
-  p = buf + len;
-  while ((*p == '\0') && (p > buf))
-    p--;
-  if (*p == '\0')
-    return NULL;
-  
-  while ((*p != '\0') && (p > buf))
-    p--;
-  
-  p = xstrdup (p);
-  xfree (buf);
+  p = xstrdup (buf);
+  free (buf);
 
   return p;
 }

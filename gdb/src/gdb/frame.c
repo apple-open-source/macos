@@ -1959,9 +1959,22 @@ get_prev_frame (struct frame_info *this_frame)
   if (this_frame->level > 0
       && frame_id_eq (get_frame_id (this_frame),
 		      get_frame_id (this_frame->next)))
-    /* APPLE LOCAL: Issue a warning, not an error.  It'll probably be
-       OK after another frame or two.  */
-    warning ("Previous frame identical to this frame (corrupt stack?)");
+    {
+      /* APPLE LOCAL: Is this a repeat offense? */
+      if (this_frame->next
+	  && frame_id_eq (get_frame_id (this_frame),
+			  get_frame_id (this_frame->next->next)))
+	{
+	  error ("Multiple previous frames identical to this frame (corrupt stack?)");
+	}
+      else
+	{
+	  /* APPLE LOCAL: Issue a warning, not an error.  It'll probably be
+	     OK after another frame or two.  */
+	  warning ("Previous frame identical to this frame (corrupt stack?)");
+	}
+    }
+	  
 
   /* Allocate the new frame but do not wire it in to the frame chain.
      Some (bad) code in INIT_FRAME_EXTRA_INFO tries to look along

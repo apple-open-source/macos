@@ -22,7 +22,7 @@
  * or implied warranty.
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Headers/Kerberos/CredentialsCacheInternal.h,v 1.13 2005/05/25 20:23:57 lxs Exp $ */
+/* $Header$ */
  
 #ifndef __CREDENTIALSCACHEINTERNAL__
 #define __CREDENTIALSCACHEINTERNAL__
@@ -42,9 +42,6 @@ extern "C" {
 #endif /* __cplusplus */
 
 #if TARGET_OS_MAC
-#    if defined(__MWERKS__)
-#        pragma import on
-#    endif
 #    pragma options align=mac68k
 #endif
     
@@ -57,33 +54,7 @@ cc_int32 __CredentialsCacheInternalTellCCacheServerToQuit (void);
 
 cc_int32 __CredentialsCacheInternalTellCCacheServerToBecomeUser (uid_t inNewUID);
 
-#ifdef Classic_Ticket_Sharing
-cc_int32 __CredentialsCacheInternalGetDiffs (
-        cc_uint32		inServerID,
-        cc_uint32		inSeqNo,
-        Handle			outHandle);
-	
-cc_int32 __CredentialsCacheInternalGetInitialDiffs (
-        Handle			outHandle,
-        cc_uint32		inServerID);
-        
-cc_int32 __CredentialsCacheInternalCheckServerID (
-        cc_uint32		inPID,
-        cc_uint32*		outEqual);
-	
-cc_int32 __CredentialsCacheInternalInitiateSyncWithYellowCache (void);
-
-cc_int32 __CredentialsCacheInternalCompleteSyncWithYellowCache (
-	const AppleEvent*	inAppleEvent);
-
-cc_int32 __CredentialsCacheInternalSyncWithYellowCache (
-	AEIdleUPP	inIdleProc);
-#endif
-
 #if TARGET_OS_MAC
-#    if defined(__MWERKS__)
-#        pragma import reset
-#    endif
 #    pragma options align=reset
 #endif
 

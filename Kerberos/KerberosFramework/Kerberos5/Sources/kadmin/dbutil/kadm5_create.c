@@ -1,7 +1,7 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved.
  *
- * $Source: /cvs/krbdev/krb5/src/kadmin/dbutil/kadm5_create.c,v $
+ * $Source$
  */
 
 /*

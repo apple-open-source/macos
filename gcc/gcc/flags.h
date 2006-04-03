@@ -325,4 +325,9 @@ extern int disable_typechecking_for_spec_flag;
 extern int flag_disable_opts_for_faltivec;
 /* APPLE LOCAL end Altivec */
 
+/* APPLE LOCAL begin ss2 */
+extern int flag_pch_file;
+extern int flag_save_repository;
+/* APPLE LOCAL end ss2 */
+
 #endif /* ! GCC_FLAGS_H */

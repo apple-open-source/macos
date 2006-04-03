@@ -654,7 +654,7 @@ int main(int argc, char *argv[])
 	 * check for a file containing authentication in /tmp.
 	 */
 	closelog();
-	for (i = 0; i < rlp.rlim_cur; ++i)
+	for (i = 0; i < (int)rlp.rlim_cur; ++i)
 	{
 		switch (i)
 		{
@@ -703,7 +703,7 @@ int main(int argc, char *argv[])
 	bzero(pass, sizeof(pass));
 	bzero(domain, sizeof(domain));
 	
-	error = network_init(uri, strlen(uri), &store_notify_fd, mirrored_mount);
+	error = network_init((const UInt8 *)uri, strlen(uri), &store_notify_fd, mirrored_mount);
 	require_noerr_action_quiet(error, error_exit, error = EINVAL);
 	
 	error = filesystem_init(vfc.vfc_typenum);
@@ -795,7 +795,7 @@ int main(int argc, char *argv[])
 	{
 		args.pa_flags |= WEBDAV_SECURECONNECTION;
 	}
-	args.pa_root_obj_ref = (object_ref)root_node;
+	args.pa_root_id = root_node->nodeid;
 	args.pa_root_fileid = WEBDAV_ROOTFILEID;
 	args.pa_dir_size = WEBDAV_DIR_SIZE;
 	/* pathconf values: >=0 to return value; -1 if not supported */
@@ -934,7 +934,7 @@ int main(int argc, char *argv[])
 		if ( FD_ISSET(listen_socket, &readfds) )
 		{
 			struct sockaddr_un addr;
-			int addrlen;
+			socklen_t addrlen;
 			
 			addrlen = sizeof(addr);
 			accept_socket = accept(listen_socket, (struct sockaddr *)&addr, &addrlen);

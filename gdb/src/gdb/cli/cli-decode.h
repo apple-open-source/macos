@@ -162,8 +162,6 @@ struct cmd_list_element
        and we want to complete to "foobar".  If WORD is "oo", return
        "oobar"; if WORD is "baz/foo", return "baz/foobar".  */
     char **(*completer) (char *text, char *word);
-    char *completer_quote_characters;
-    char *completer_word_break_characters;
 
     /* Type of "set" or "show" command (or SET_NOT_SET if not "set"
        or "show").  */

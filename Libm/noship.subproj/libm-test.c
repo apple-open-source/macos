@@ -127,14 +127,6 @@
 #include "fenv.h"
 #endif
 
-#if 1 /* XXX scp XXX */
-#define FE_INEXACT FE_INEXACT
-#define FE_DIVBYZERO FE_DIVBYZERO
-#define FE_UNDERFLOW FE_UNDERFLOW
-#define FE_OVERFLOW FE_OVERFLOW
-#define FE_INVALID FE_INVALID
-#endif
-
 #include <limits.h>
 
 #include <errno.h>

@@ -82,7 +82,7 @@ mach_port_t			gServerMachPort = MACH_PORT_NULL;
 
 #warning VERIFY the version string before each distinct build submission
 const char* gStrDaemonAppleVersion = "2.1";
-const char* gStrDaemonBuildVersion = "352.1";
+const char* gStrDaemonBuildVersion = "353.2";
 
 enum
 {

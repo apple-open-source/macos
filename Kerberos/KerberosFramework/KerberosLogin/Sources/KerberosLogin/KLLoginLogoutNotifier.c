@@ -1,7 +1,7 @@
 /*
  * KLLoginLogoutNotifier.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLLoginLogoutNotifier.c,v 1.10 2004/12/10 21:22:29 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

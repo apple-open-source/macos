@@ -35,3 +35,6 @@ __private_extern__ void get_macosx_deployment_target(
     enum macosx_deployment_target_value *value,
     const char **name,
     cpu_type_t cputype);
+
+__private_extern__ void put_macosx_deployment_target(
+    char *target);

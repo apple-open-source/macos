@@ -1,7 +1,7 @@
 /*
  * KLLockFile.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLLockFile.h,v 1.1 2003/04/14 17:18:31 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

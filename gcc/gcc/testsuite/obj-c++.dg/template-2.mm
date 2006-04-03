@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test if ObjC classes (and pointers thereto) can participate
    in C++ overloading.  Correct handling of cv-qualifiers is 
    key here.  */

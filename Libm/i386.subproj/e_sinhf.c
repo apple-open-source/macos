@@ -23,6 +23,8 @@ __RCSID("$NetBSD: e_sinhf.c,v 1.6 1999/07/02 15:37:41 simonb Exp $");
 
 static const float one = 1.0, shuge = 1.0e37;
 
+#warning obsolete
+
 #define __ieee754_expf expf
 
 float sinhf(float x)

@@ -3,6 +3,50 @@
 !
 ! Integral cases.
 3B	    ALL		  1		  0		  OK	  0
+
+! Note that the four following "d" mode test cases generate false positives for
+! modff and modfl because the test program ignores "d" and improperly runs the
+! cases for modff and modfl.
+3B	    d		  1p9p9p9p9p9p7d1		  0		  OK	  1m1
+3B	    s		  1p23d1				  0		  OK	  1m1
+3B	    ALL		  1p9p9p9p9p9p7d2		  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p7			  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p7i1		  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p7i2		  0		  OK	  0
+
+3B	    d		  -1p9p9p9p9p9p7d1		  0		  OK	  -1m1
+3B	    s		  -1p23d1				  0		  OK	  -1m1
+3B	    ALL		  -1p9p9p9p9p9p7d2		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p7		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p7i1		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p7i2		  0		  OK	  -0
+
+3B	    d		  1p9p9p9p9p9p7d1		  0		  OK	  1m1
+3B	    s		  1p23d1				  0		  OK	  1m1
+3B	    ALL		  1p9p9p9p9p9p7d2		  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p7			  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p7i1		  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p7i2		  0		  OK	  0
+
+3B	    d		  -1p9p9p9p9p9p7d1		  0		  OK	  -1m1
+3B	    s		  -1p23d1				  0		  OK	  -1m1
+3B	    ALL		  -1p9p9p9p9p9p7d2		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p7		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p7i1		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p7i2		  0		  OK	  -0
+
+3B	    ALL		  1p9p9p9p9p9p8d1		  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p8d2		  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p8			  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p8i1		  0		  OK	  0
+3B	    ALL		  1p9p9p9p9p9p8i2		  0		  OK	  0
+
+3B	    ALL		  -1p9p9p9p9p9p8d1		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p8d2		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p8		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p8i1		  0		  OK	  -0
+3B	    ALL		  -1p9p9p9p9p9p8i2		  0		  OK	  -0
+
 3B	    ALL		  Hd1  0	   OK	   0
 3B	    ALL		  -1	  0		  OK	  -0
 3B	    ALL		  -Hd1 0	   OK	   -0

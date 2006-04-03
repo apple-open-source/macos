@@ -86,7 +86,7 @@
 *   macros defined in fenv.h:  for example, FE_OVERFLOW | FE_INEXACT.         *
 ******************************************************************************/
 
-static void _fegetexceptflag ( fexcept_t *flagp, int excepts )
+static int _fegetexceptflag ( fexcept_t *flagp, int excepts )
 {
    hexdouble temp;
    fenv_t excstate;
@@ -103,9 +103,11 @@ static void _fegetexceptflag ( fexcept_t *flagp, int excepts )
       mask |= FE_NO_EXCEPT;
       *flagp = excstate & mask;
    }
+   
+   return 0;
 }
 
-static void _fesetexceptflag ( const fexcept_t *flagp, int excepts )
+static int _fesetexceptflag ( const fexcept_t *flagp, int excepts )
 {
    hexdouble ifpscr;
    uint32_t mask;
@@ -122,6 +124,8 @@ static void _fesetexceptflag ( const fexcept_t *flagp, int excepts )
          ifpscr.i.lo &= FE_CLR_FX;
       FESETENVD_GRP( ifpscr.d );
    }
+
+	return 0;
 }
 
 #if defined(BUILDING_FOR_CARBONCORE_LEGACY)
@@ -175,7 +179,7 @@ int feraiseexcept ( int excepts )
        ifpscr.i.lo |= mask;
    
    FESETENVD_GRP( ifpscr.d );
-   return 0;
+	return 0;
 }
 
 /****************************************************************************
@@ -246,7 +250,7 @@ int fegetenv ( fenv_t *envp )
    
    FEGETENVD_GRP( temp.d );
    *envp = temp.i.lo;
-   return 0;
+	return 0;
 }
 
 
@@ -283,7 +287,8 @@ int fesetenv ( const fenv_t *envp )
    
    temp.i.lo = *envp;
    FESETENVD_GRP( temp.d );
-   return 0;
+
+	return 0;
 }
 
 
@@ -306,7 +311,7 @@ int feupdateenv ( const fenv_t *envp )
    temp.i.lo = *envp;
    FESETENVD_GRP( temp.d );
    feraiseexcept(newexc);
-   return 0;
+	return 0;
 }
 
 /* Legacy entry point */
@@ -330,8 +335,7 @@ void fesetexcept ( fexcept_t *flagp, int excepts )
 
 int fegetexceptflag ( fexcept_t *flagp, int excepts )
 {
-    _fegetexceptflag (flagp, excepts );
-    return 0;
+   return _fegetexceptflag (flagp, excepts );
 }
       
 
@@ -344,8 +348,7 @@ int fegetexceptflag ( fexcept_t *flagp, int excepts )
 
 int fesetexceptflag ( const fexcept_t *flagp, int excepts )
 {
-    _fesetexceptflag ( flagp, excepts );
-    return 0;
+   return _fesetexceptflag ( flagp, excepts );
 }
 
 /****************************************************************************

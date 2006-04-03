@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test that Objective-C++ is able to chew through a simple C++ class hierarchy.
    This was broken in earlier ObjC++ incarnations.  */
 

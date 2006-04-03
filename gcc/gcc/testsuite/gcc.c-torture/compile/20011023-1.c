@@ -1,3 +1,5 @@
+/* APPLE LOCAL  nested functions */
+/* { dg-xfail-if "" { "*-*-darwin*" } { "*" } { "" } } */
 /* Test whether tree inlining works with prototyped nested functions.  */
 
 extern void foo (char *x);

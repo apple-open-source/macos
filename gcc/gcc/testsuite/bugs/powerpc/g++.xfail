@@ -22,6 +22,18 @@
 3843157: g++.dg/pascal-strings-2.C  (test for warnings, line 25)
 3843157: g++.dg/pascal-strings-2.C (test for excess errors)
 4096269: g++.dg/eh/uncaught1.C execution test
+4178461: g++.old-deja/g++.other/string2.C execution test
+4194030: g++.dg/lookup/hidden-class1.C  (test for errors, line 7)
+4194030: g++.dg/lookup/hidden-class5.C  (test for errors, line 9)
+4194030: g++.dg/lookup/hidden-class7.C  (test for errors, line 13)
+4194030: g++.dg/lookup/hidden-class8.C  (test for errors, line 11)
+4194030: g++.dg/lookup/hidden-class9.C  (test for errors, line 11)
+4194030: g++.dg/lookup/hidden-temp-class1.C  (test for errors, line 7)
+4194030: g++.dg/lookup/hidden-temp-class10.C  (test for errors, line 11)
+4194030: g++.dg/lookup/hidden-temp-class11.C  (test for errors, line 11)
+4194030: g++.dg/lookup/hidden-temp-class4.C  (test for errors, line 9)
+4194030: g++.dg/lookup/hidden-temp-class6.C (test for excess errors)
+4194030: g++.dg/lookup/hidden-temp-class7.C  (test for errors, line 13)
 #
 # The following tests fail only when the c++ suite is run through Obj-C++.
 3904139: g++.dg/ext/fnname3.C execution test
@@ -49,6 +61,10 @@
 4079018: g++.dg/template/spec19.C (test for excess errors)
 4084977: g++.old-deja/g++.oliva/expr2.C execution test
 4084991: g++.dg/expr/lval2.C (test for excess errors)
+4229905: g++.old-deja/g++.mike/warn5.C (test for excess errors)
+4270237: g++.dg/pch/debug-1.C -g assembly comparison
+4270237: g++.dg/pch/debug-1.C -O2 -g assembly comparison
+4270237: g++.dg/pch/debug-1.C -O2 assembly comparison
 #
 # The following tests fail only when the c++ suite is run with -mcpu=G5
 3719311: g++.dg/template/warn1.C  (test for warnings, line 12)
@@ -101,8 +117,15 @@
 3941491: g++.dg/debug/trivial.C -gdwarf-23 -fastcp (test for excess errors)
 3967626: g++.dg/eh/forced1.C execution test
 3967626: g++.old-deja/g++.eh/terminate2.C execution test
-4097506: g++.dg/ext/opt-pragma-2.C scan-assembler-times bl "L_printf 4
-4097506: g++.dg/ext/opt-pragma-3.C scan-assembler-times b "L_printf 4
-4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times b "L_printf 2
-4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times bl "L_printf 2
-4099260: g++.old-deja/g++.brendan/new3.C execution test
+#4097506: g++.dg/ext/opt-pragma-2.C scan-assembler-times bl "L_printf 4
+#4097506: g++.dg/ext/opt-pragma-3.C scan-assembler-times b "L_printf 4
+#4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times b "L_printf 2
+#4097506: g++.dg/ext/opt-pragma-4.C scan-assembler-times bl "L_printf 2
+#4099260: g++.old-deja/g++.brendan/new3.C execution test
+4157563: ./debug-1.H -g (test for excess errors)
+4157563: ./debug-1.H -O2 -g (test for excess errors)
+4157563: ./debug-1.H -O2 (test for excess errors)
+4157563: ./debug-1.H -fastcp (test for excess errors)
+#
+# The following tests fail only when the c++ suite is run on x86
+4241732: g++.dg/asm-block-11.C (test for excess errors)

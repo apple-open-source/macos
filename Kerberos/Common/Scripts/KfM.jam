@@ -1,9 +1,0 @@
-include "$(PWD)/Common/Scripts/BuildPBX.jam" ;
-
-KERBEROS_PBPROJ = "$(SRCROOT)/Common/Projects/Kerberos.pbproj" ;
-OTHER_CFLAGS = "-DNDEBUG=1" ;
-OTHER_CPLUSPLUSFLAGS = "-DNDEBUG=1" ;
-
-PBXBuild clean : "$(KERBEROS_PBPROJ)" "$(RC_ProjectName)" clean ;
-PBXBuild install : "$(KERBEROS_PBPROJ)" "$(RC_ProjectName)" install ;
-PBXBuild installhdrs : "$(KERBEROS_PBPROJ)" "$(RC_ProjectName)" installhdrs ;

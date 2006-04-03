@@ -208,35 +208,11 @@ convert_to_real (tree type, tree expr)
 	  break;
 	}
     }
-  if (optimize
-      && (((fcode == BUILT_IN_FLOORL
-	   || fcode == BUILT_IN_CEILL
-	   || fcode == BUILT_IN_ROUNDL
-	   || fcode == BUILT_IN_RINTL
-	   || fcode == BUILT_IN_TRUNCL
-	   || fcode == BUILT_IN_NEARBYINTL)
-	  && (TYPE_MODE (type) == TYPE_MODE (double_type_node)
-	      || TYPE_MODE (type) == TYPE_MODE (float_type_node)))
-	  || ((fcode == BUILT_IN_FLOOR
-	       || fcode == BUILT_IN_CEIL
-	       || fcode == BUILT_IN_ROUND
-	       || fcode == BUILT_IN_RINT
-	       || fcode == BUILT_IN_TRUNC
-	       || fcode == BUILT_IN_NEARBYINT)
-	      && (TYPE_MODE (type) == TYPE_MODE (float_type_node)))))
-    {
-      tree fn = mathfn_built_in (type, fcode);
-
-      if (fn)
-	{
-	  tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr,
-									1)));
-	  tree arglist = build_tree_list (NULL_TREE,
-					  fold (convert_to_real (type, arg0)));
-
-	  return build_function_call_expr (fn, arglist);
-	}
-    }
+  /* APPLE LOCAL begin 4221664 FSF candidate */
+  /* This code used to transform (float)floor(double d) into
+     floorf((float)d).  This is incorrect, because (float)d is
+     done as round-to-nearest and can round up to the next integer.  */
+  /* APPLE LOCAL end 4221664 FSF candidate */
 
   /* Propagate the cast into the operation.  */
   if (itype != type && FLOAT_TYPE_P (type))
@@ -664,7 +640,8 @@ convert_to_integer (tree type, tree expr)
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
 	}
-      return build1 (NOP_EXPR, type, expr);
+      /* APPLE LOCAL mainline 4.0.2 4043818 */
+      return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:
       error ("aggregate value used where an integer was expected");

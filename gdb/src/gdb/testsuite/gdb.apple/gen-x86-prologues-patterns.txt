@@ -261,3 +261,144 @@ LM3:
   pop %ebp
   ret
 
+
+# SOURCE: Karma8B1014 QuartzCore.framework sample_rect_nearest_black_INTENSITY_F
+# PROLOGUE
+  push %ebp
+  xorps %xmm4, %xmm4 # [ 0x0f 0x57 0xe4 ]
+  mov %esp, %ebp
+  sub $0x28, %esp
+# EPILOGUE
+  add $0x28, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 libc.so.6 _nl_remove_locale
+# PROLOGUE
+  push %ebp
+  mov 0x18(%edx), %eax # [ 0x8b 0x42 0x18 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 libc.so.6 __mpn_construct_float
+# PROLOGUE
+  push %ebp
+  and $0x7fffffff,%edx # [ 0x81 0xe2 0xff 0xff 0xff 0x7f ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 libc.so.6 free_state
+# PROLOGUE
+  push %ebp
+  mov  $_main, %eax
+  lea  0x4(%eax), %ecx # [ 0x8d 0x48 0x04 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 libxml.so htmlDefaultSAXHandlerInit
+# PROLOGUE
+  add  $0x628df, %ecx # [ 0x81 0xc1 0xdf 0x28 0x06 0x00 ]
+  push %ebp
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-org-apache-xerces.so _ZN3org6apache6xerces3dom10AttrNSImpl18__U3c_clinit__U3e_Ev
+# PROLOGUE
+
+  push %ebp
+  mov  $_main, %ecx
+  mov  0x100(%ecx), %edx # [ 0x8b 0x91 0x00 0x01 0x00 0x00 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-org-apache-tools-bzip2.so _ZN3org6apache5tools5bzip23CRC18__U3c_clinit__U3e_Ev
+# PROLOGUE
+  push %ebp
+  mov  $_main, %ecx
+  lea  0x100(%ecx), %edx # [ 0x8d 0x91 0x00 0x01 0x00 0x00 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-org-apache-tools-ant.so _ZN3org6apache5tools3ant8taskdefs7Javadoc11addDoctitleEPNS3_12Javadoc$HtmlE
+# PROLOGUE
+  push %ebp
+  mov  $_main, %eax
+  cmpb $0x0, (%eax) # [ 0x80 0x38 0x00 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-javax-mail-20031006.so _ZN3gnu4mail4util13QOutputStream18__U3c_clinit__U3e_Ev
+# PROLOGUE
+  push %ebp
+  mov  $_word_of_writable_memory, %eax
+  mov %edx, (%eax) # [ 0x89 0x10 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-org-apache-tools-ant.so
+# PROLOGUE
+  push %ebp
+  mov  $_word_of_writable_memory, %edx
+  mov %eax, (%edx) # [ 0x89 0x02 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 liboctinterp.so _ZNK12octave_value5resetEv
+# PROLOGUE
+  push %ebp
+  mov  $_word_of_writable_memory, %eax
+  movb $0x1, (%eax) # [ 0xc6 0x00 0x01 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 /lib/ld-2.3.3.so _dl_reloc_bad_type
+# PROLOGUE
+  push %ebp
+  shl $0x5, %ecx # [ 0xc1 0xe1 0x05 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+

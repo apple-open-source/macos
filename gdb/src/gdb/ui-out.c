@@ -419,7 +419,6 @@ ui_out_end (struct ui_out *uiout,
 	    enum ui_out_type type)
 {
   int old_level = pop_level (uiout, type);
-
   uo_end (uiout, type, old_level);
 }
 

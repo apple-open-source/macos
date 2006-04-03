@@ -1,7 +1,7 @@
 /*
  * KLTicketManagement.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLTicketManagement.h,v 1.3 2004/07/15 20:06:39 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

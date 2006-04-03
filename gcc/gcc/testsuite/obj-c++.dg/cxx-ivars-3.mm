@@ -1,4 +1,4 @@
-// APPLE LOCAL file Objective-C++
+// APPLE LOCAL file mainline
 // Check if ObjC classes with non-POD C++ ivars are specially marked in the metadata.
 // { dg-do run { target *-*-darwin* } }
 // { dg-options "-fobjc-call-cxx-cdtors -fnext-runtime" }

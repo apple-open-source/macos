@@ -420,7 +420,11 @@ agg_i2recv(iph1, msg)
 	natt_select_type(iph1);
 	
 	/* payload existency check */
-	/* XXX to be checked each authentication method. */
+	if (iph1->dhpub_p == NULL || iph1->nonce_p == NULL) {
+		plog(LLV_ERROR, LOCATION, iph1->remote,
+			"required payloads missing from isakmp message.\n");
+		goto end;
+	}
 
 	/* verify identifier */
 	if (ipsecdoi_checkid1(iph1) != 0) {
@@ -453,18 +457,7 @@ agg_i2recv(iph1, msg)
 	     pa->type != ISAKMP_NPTYPE_NONE;
 	     pa++)
 	{
-		if (pa->type == ISAKMP_NPTYPE_NATD_RFC ||
-			pa->type == ISAKMP_NPTYPE_NATD_DRAFT ||
-			pa->type == ISAKMP_NPTYPE_NATD_BADDRAFT)
-		{
-			if (pa->type != iph1->natd_payload_type) {
-				plog(LLV_ERROR, LOCATION, iph1->remote,
-					"ignore the packet, "
-					"received unexpected natd payload type %d.\n",
-					pa->type);
-				goto end;
-			}			
-			
+		if (pa->type == iph1->natd_payload_type) {
 			natd_match_t match = natd_matches(iph1, pa->ptr);
 			iph1->natt_flags |= natt_natd_received;
 			if ((match & natd_match_local) != 0)
@@ -854,7 +847,11 @@ agg_r1recv(iph1, msg)
 	}
 
 	/* payload existency check */
-	/* XXX to be checked each authentication method. */
+	if (iph1->dhpub_p == NULL || iph1->nonce_p == NULL) {
+		plog(LLV_ERROR, LOCATION, iph1->remote,
+			"required payloads missing from isakmp message.\n");
+		goto end;
+	}
 
 	/* verify identifier */
 	if (ipsecdoi_checkid1(iph1) != 0) {
@@ -1380,15 +1377,7 @@ agg_r2recv(iph1, msg0)
 		case ISAKMP_NPTYPE_NATD_DRAFT:
 		case ISAKMP_NPTYPE_NATD_BADDRAFT:
 #ifdef IKE_NAT_T
-			if (pa->type != iph1->natd_payload_type) {
-				plog(LLV_ERROR, LOCATION, iph1->remote,
-					"ignore the packet, "
-					"received unexpected natd payload type %d.\n",
-					pa->type);
-				goto end;
-			}
-				
-			{
+			if (pa->type == iph1->natd_payload_type) {
 				natd_match_t match = natd_matches(iph1, pa->ptr);
 				iph1->natt_flags |= natt_natd_received;
 				if ((match & natd_match_local) != 0)

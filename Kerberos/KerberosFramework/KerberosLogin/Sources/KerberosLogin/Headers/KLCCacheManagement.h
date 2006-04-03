@@ -1,7 +1,7 @@
 /*
  * KLCCacheManagement.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLCCacheManagement.h,v 1.3 2004/12/17 05:12:34 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

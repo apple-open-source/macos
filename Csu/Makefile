@@ -13,7 +13,7 @@ USRLIBDIR = /usr/lib
 LOCLIBDIR = /usr/local/lib
 DSTDIRS = $(DSTROOT)$(USRLIBDIR) $(DSTROOT)$(LOCLIBDIR)
 DYLD = $(NEXT_ROOT)/usr/lib/dyld
-CC = /usr/bin/gcc-3.5
+#CC = /usr/bin/gcc-x.x
 ifneq "$(wildcard /bin/pax)" ""
 PAX = /bin/pax -rw
 else

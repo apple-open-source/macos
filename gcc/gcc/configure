@@ -7269,7 +7269,7 @@ test -z "$INSTALL_PROGRAM" && INSTALL_PROGRAM='${INSTALL}'
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 
 
-# APPLE LOCAL Mach time
+# APPLE LOCAL begin Mach time
 
 for ac_header in mach/mach_time.h
 do
@@ -7420,6 +7420,7 @@ fi
 
 done
 
+# APPLE LOCAL end Mach time
 
 # See if cmp has --ignore-initial.
 echo "$as_me:$LINENO: checking for cmp's capabilities" >&5
@@ -7541,7 +7542,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:7392: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:7545: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -9153,11 +9154,22 @@ fi
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 for ac_func in times clock dup2 kill getrlimit setrlimit atoll atoq \
-	sysconf strsignal putc_unlocked fputc_unlocked fputs_unlocked \
-	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo \
-        scandir alphasort gettimeofday mbstowcs wcswidth mmap mincore \
-        setlocale
+	sysconf strsignal getrusage nl_langinfo scandir alphasort \
+	gettimeofday mbstowcs wcswidth mmap mincore setlocale \
+	clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -11300,10 +11312,23 @@ CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
 
 
 
-for ac_func in getenv atol sbrk abort atof getcwd getwd \
-	strsignal putc_unlocked fputs_unlocked fwrite_unlocked \
-        fprintf_unlocked strstr errno snprintf vasprintf \
-	malloc realloc calloc free basename getopt clock getpagesize
+
+
+
+
+
+
+
+
+
+
+
+
+
+for ac_func in getenv atol sbrk abort atof getcwd getwd strsignal \
+	strverscmp \
+	strstr errno snprintf vasprintf malloc realloc calloc free \
+	basename getopt clock getpagesize clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked
 do
   ac_tr_decl=`echo "HAVE_DECL_$ac_func" | $as_tr_cpp`
 echo "$as_me:$LINENO: checking whether $ac_func is declared" >&5
@@ -12854,7 +12879,7 @@ then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
-	if  "x$STMP_FIXPROTO" != x  ; then
+	if test "x$STMP_FIXPROTO" != x; then
 	  STMP_FIXPROTO=stmp-install-fixproto
 	fi
     fi
@@ -14223,6 +14248,45 @@ if test $gcc_cv_as_alpha_explicit_relocs = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_AS_EXPLICIT_RELOCS 1
+_ACEOF
+
+fi
+    echo "$as_me:$LINENO: checking assembler for jsrdirect relocation support" >&5
+echo $ECHO_N "checking assembler for jsrdirect relocation support... $ECHO_C" >&6
+if test "${gcc_cv_as_alpha_jsrdirect_relocs+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_alpha_jsrdirect_relocs=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 16 \) \* 1000 + 90`
+  then gcc_cv_as_alpha_jsrdirect_relocs=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo '	.set nomacro
+	.text
+	ldq	$27, a($29)	!literal!1
+	jsr	$26, ($27), a	!lituse_jsrdirect!1' > conftest.s
+    if { ac_try='$gcc_cv_as  -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_alpha_jsrdirect_relocs=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_alpha_jsrdirect_relocs" >&5
+echo "${ECHO_T}$gcc_cv_as_alpha_jsrdirect_relocs" >&6
+if test $gcc_cv_as_alpha_jsrdirect_relocs = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_AS_JSRDIRECT_RELOCS 1
 _ACEOF
 
 fi

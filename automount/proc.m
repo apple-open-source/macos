@@ -28,13 +28,13 @@
 #import <unistd.h>
 #import <stdlib.h>
 #import <string.h>
+#import "AMString.h"
 #import "automount.h"
 #import "NFSHeaders.h"
 #import "Controller.h"
 #import "AMMap.h"
 #import "log.h"
 #import "AMVnode.h"
-#import "AMString.h"
 #import "Server.h"
 
 extern char *gNoLookupTarget;
@@ -120,7 +120,7 @@ nfsproc_getattr_2_svc(nfs_fh *fh, struct svc_req *req)
 	static attrstat astat;
 	struct file_handle *ifh;
 	Vnode *n;
-	char mtimestring[26];
+	char mtimestring[FORMATTED_TIME_LEN];
 
 	ifh = (struct file_handle *)fh;
 
@@ -165,7 +165,7 @@ nfsproc_lookup_2_svc(diropargs *args, struct svc_req *req)
 	struct file_handle *ifh;
 	Vnode *n;
 	String *s;
-	char mtimestring[26];
+	char mtimestring[FORMATTED_TIME_LEN];
 
 	ifh = (struct file_handle *)&(args->dir);
 
@@ -625,7 +625,7 @@ nfsproc_symlink_2_svc(symlinkargs *args, struct svc_req *req)
 	struct file_handle *ifh;
 	Vnode *n;
 	uid_t uid = -2;	/* default = nobody */
-	char timestring[26];
+	char timestring[FORMATTED_TIME_LEN];
 
 	sys_msg(debug_proc, LOG_DEBUG, "-> symlink");
 

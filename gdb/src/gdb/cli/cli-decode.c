@@ -811,6 +811,7 @@ print_doc_line (struct ui_file *stream, char *str)
   line_buffer[p - str] = '\0';
   if (islower (line_buffer[0]))
     line_buffer[0] = toupper (line_buffer[0]);
+  /* APPLE LOCAL ? */
   fputs_unfiltered (line_buffer, stream);
 }
 

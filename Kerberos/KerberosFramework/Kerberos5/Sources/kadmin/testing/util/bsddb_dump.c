@@ -1,5 +1,5 @@
 /*
- * $Id: bsddb_dump.c,v 1.4 1996/07/22 20:30:22 marc Exp $
+ * $Id: bsddb_dump.c 8774 1996-07-22 20:49:46Z marc $
  */
 
 #include <sys/file.h>

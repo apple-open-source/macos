@@ -226,7 +226,6 @@
 
 #define MORECORE_CONTIGUOUS 0
 #define MORECORE_CANNOT_TRIM 1
-#define MALLOC_FAILURE_ACTION abort()
 
 
 namespace khtml {

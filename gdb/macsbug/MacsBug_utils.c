@@ -5,7 +5,7 @@
  |                            MacsBug Utility Plugin Commands                           |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -38,9 +38,9 @@ char *default_help = "For internal use only -- do not use.";
 void __asciidump(char *arg, int from_tty)
 {
     int  	  argc, i, k, n, offset, repeated, repcnt;
-    unsigned long addr;
-    char 	  *argv[5], tmpCmdLine[1024];
-    unsigned char *c, x, data[65], prev[64], addrexp[1024];
+    GDB_ADDRESS   addr;
+    char 	  *argv[5], tmpCmdLine[1024], addrexp[1024];
+    unsigned char *c, x, data[65], prev[64];
     
     gdb_setup_argv(safe_strcpy(tmpCmdLine, arg), "__asciidump", &argc, argv, 4);
     if (argc != 3)
@@ -63,10 +63,10 @@ void __asciidump(char *arg, int from_tty)
 
     	if (repeated) {
     	    if (repcnt++ == 0)
-    	    	gdb_printf(" %.8X: ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''\n", addr);
+    	    	gdb_printf(" %.8llX: ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''\n", (long long)addr);
     	} else {
     	    repcnt = 0;
-    	    gdb_printf(" %.8lX: ", addr);
+    	    gdb_printf(" %.8llX: ", (long long)addr);
     	                
             for (k = i = 0; i < 64; ++i) {
             	if (offset + k < n) {
@@ -85,27 +85,27 @@ void __asciidump(char *arg, int from_tty)
 "__ASCIIDUMP addr n -- Dump n bytes starting at addr in ASCII."
 
 
-/*-----------------------------------------------------------------*
- | __binary value n - display right-most n bits of value in binary |
- *-----------------------------------------------------------------*/ 
+/*-------------------------------------------------------------------*
+ | __binary value n - display right-most n bits of a value in binary |
+ *-------------------------------------------------------------------*/
  
 void __binary(char *arg, int from_tty)
 {
-    int  	  argc, n, i;
-    unsigned long value;
-    char 	  *argv[5], tmpCmdLine[1024];
+    int  	       argc, n, i;
+    unsigned long long value;
+    char 	       *argv[5], tmpCmdLine[1024];
     
     gdb_setup_argv(safe_strcpy(tmpCmdLine, arg), "__binary", &argc, argv, 4);
     
     if (argc != 3)
     	gdb_error("__binary called with wrong number of arguments");
     	
-    value = gdb_get_int(argv[1]);
+    value = gdb_get_long_long(argv[1]);
     n     = gdb_get_int(argv[2]);
     
     i = 0;
     while (i++ < n)
-    	gdb_printf("%1d", (value >> (n-i)) & 1);
+    	gdb_printf("%1d", (int)((value >> (n-i)) & 1));
 }
 
 #define __BINARY_HELP \
@@ -166,7 +166,12 @@ static void __command_exists(char *arg, int from_tty)
 
 static int branch_taken(unsigned long instruction)
 {
-    int pri, ext, cond_ok;
+    int 	  pri, ext, cond_ok;
+    GDB_ADDRESS   ctr;
+    union {					/* gdb_get_register() could return a	*/
+    	unsigned long long cr_err;		/* error code as a long long.		*/
+    	unsigned long cr;			/* but the cr is always only 32-bits	*/
+    } cr;
         
     pri = (instruction >> 26);			/* get primary opcode			*/
     if (pri == 19) {				/* bclr[l] or bcctr[l] ?		*/
@@ -186,8 +191,8 @@ static int branch_taken(unsigned long instruction)
 
     cond_ok = (instruction & 0x02000000); 	/* BO[0]				*/
     if (!cond_ok) {				/* !BO[0], try CR[BI] == BO[1]		*/
-    	unsigned long cr = gdb_get_int("$cr");
-	cond_ok = (((cr >> (31-((instruction>>16) & 0x1F))) & 1) == (((instruction & 0x01000000) >> 24) & 1));
+    	gdb_get_register("$cr", &cr.cr);
+	cond_ok = (((cr.cr >> (31-((instruction>>16) & 0x1F))) & 1) == (((instruction & 0x01000000) >> 24) & 1));
     }
     
     /* bc[l][a] and bclr[l] also need to check to ctr...				*/
@@ -195,7 +200,7 @@ static int branch_taken(unsigned long instruction)
     if (cond_ok && ext != 528) {		/* cond_ok = BO[2] || (CTR-1!=0)^BO[3]	*/
     	cond_ok = (instruction & 0x00800000);	/* BO[2]				*/
     	if (!cond_ok) {				/* !BO[2], try (CTR-1 != 0) ^ BO[3]	*/
-    	    unsigned long ctr = gdb_get_int("$ctr");
+    	    gdb_get_register("$ctr", &ctr);
     	    cond_ok = (ctr-1 != 0) ^ ((instruction & 0x00400000) >> 22);
     	}
     }
@@ -222,9 +227,10 @@ char *format_disasm_line(FILE *f, char *src, void *data)
 {
     DisasmData    *disasm_info = (DisasmData *)data;
     char 	  c, c2, *p1, *p2, *src0 = src;
-    int	 	  n, n_addr, n_offset, n_opcode, n_operand, brack, paren, angle, len, wrap;
+    int	 	  n, n_addr, n_offset, n_opcode, n_operand, brack, paren, angle, len,
+    		  wrap, addr_width;
     unsigned long instruction;
-    char 	  address[11], function[1024], offset[8], opcode[12], operand[1025],
+    char 	  address[20], function[1024], offset[8], opcode[12], operand[1025],
     		  verify[20];
     
     static char   formatted[3000];
@@ -239,23 +245,25 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     
     /* Where 0xaaaa is the address and dddd is the offset in the specified function. 	*/
     /* There offset is suppressed if +dddd is zero.					*/
+    
     /* If SET print symbol-filename is on the the "in" or "at" info is present showing	*/
     /* file and line.									*/
+    
     /* The function name could be a Objective C message and thus enclosed in brackets 	*/
     /* which may contain embedded spaces (e.g., "[msg p1]").				*/
     /* The function may also be an unmangled C++ name, possibly a template instance 	*/
     /* which means we have to be careful about nested parens and angle brackets.	*/
     
-    /* Extract the address...								*/
+    /* Extract the address (note this will include the leading "0x")...			*/
     
     n_addr = 0;
-    while (*src && !isspace(*src) && *src != ':' && n_addr < 10)
+    while (*src && !isspace(*src) && *src != ':' && n_addr < 18)
 	address[n_addr++] = *src++;
     address[n_addr] = '\0';
     
     /* As an additional check verify that the address is the one we are expecting...	*/
     
-    sprintf(verify, "0x%lx", disasm_info->addr);
+    sprintf(verify, "0x%llx", (unsigned long long)disasm_info->addr);
     if (strcmp(verify, address) != 0) {
     	gdb_fprintf(disasm_info->stream, COLOR_RED "### Reformat error extracting address (raw source line follows)...\n"
     	                                "%s" COLOR_OFF "\n", src0);
@@ -398,11 +406,15 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     
     /*            1         2         3         4         5				*/
     /*  012345678901234567890123456789012345678901234567890				*/
-    /*    *       *         *         **          *					*/
+    /*    ^       ^         ^        ^^^          ^					*/
     /*   function									*/
     /*    +dddddd aaaaaaaa  xxxxxxxx   opcode     operand...				*/
+    /*    ^       ^         ^        .*^          ^					*/
     
-    /* where, +dddddd is offset, aaaaaaaa is adddress, xxxxxxxx is instruction.		*/
+    /* where, +dddddd is offset, aaaaaaaa is address, xxxxxxxx is instruction.	The 	*/
+    /* address is always shown as a minimum of 8 digits but it could be larger in 64-	*/
+    /* bit mode, in which case, the inststruct, opcode, and operand are all shifted	*/
+    /* proportionality.									*/
     
     memset(formatted, ' ', 50);
     if (disasm_info->flags & WRAP_TO_SIDEBAR)
@@ -420,20 +432,21 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     
     memcpy(formatted + 2 + (7-n_offset), offset, n_offset);	/* +dddddd		*/
     
-    p1 = formatted + 10;					/* aaaaaaaa		*/
-    memset(p1, '0', 8);
-    memcpy(p1 + 10 - n_addr, address+2, n_addr - 2);
+    p1 = formatted + 10;					/* aaaaaaaa[...]	*/
+    addr_width = (n_addr < 10) ? 8 : n_addr - 2;
+    memset(p1, '0', addr_width);
+    memcpy(p1 + addr_width + 2 - n_addr, address + 2, n_addr - 2);
     
-    p1 = formatted + 20;					/* xxxxxxxx		*/
+    p1 = formatted + 12 + addr_width;				/* xxxxxxxx		*/
     n = sprintf(p1, "%.8lx", instruction);
     *(p1 + n) = ' ';
     
-    p1 = formatted + 31;					/* opcode		*/
+    p1 = formatted + 23 + addr_width;				/* opcode		*/
     memcpy(p1, opcode, n_opcode);
 
     if (n_operand) {						/* operand		*/
-    	strcpy(formatted + 42, operand);
-    	if (disasm_info->max_width > 0 && 42+n_operand > disasm_info->max_width) {
+    	strcpy(formatted + 34 + addr_width, operand);
+    	if (disasm_info->max_width > 0 && 34+addr_width+n_operand > disasm_info->max_width) {
 	    if (disasm_info->flags & NO_NEWLINE)
 		formatted[disasm_info->max_width] = '\0';
 	    else {
@@ -446,16 +459,29 @@ char *format_disasm_line(FILE *f, char *src, void *data)
     
     if (disasm_info->addr == disasm_info->pc) {			/* flag the pc...	*/
 	if (disasm_info->flags & FLAG_PC)		 	/* ...if requested	*/
-	    formatted[30] = '*';
+	    formatted[22 + addr_width] = '*';
 	n = branch_taken(instruction);				/* cvt branch info	*/
 	if (n == 1)
 	    disasm_info->flags |= BRANCH_TAKEN;
 	else if (n == -1)
 	    disasm_info->flags |= BRANCH_NOT_TAKEN;
+	
+	#if 0
+	/* PLACEHOLDER FOR A POSSIBLE FUTURE ENHANCEMENT HERE:
+	
+	if (disasm_info->flags & ANNOTATE_PC_INSTR) {		/* annotate $pc instr.	*/
+	    if instruction at the $pc is lwz rt,d(ra) then look at what $rt points at
+	    to see if it is a printable (possibly pascal) string.  If it is then add
+	    a comment to the instruction showing (some of) the string.  For example,
+	    for a lwz r4,d(ra) for a method call we could show what message name is
+	    about to be called.m  We can only do this for the instruction at $pc
+	    since it is the only instruction we can "trust".
+	}
+	#endif
     }
     
-    if (find_breakpoint(disasm_info->addr) >= 0)		/* flag breakpoints	*/
-	formatted[29] = '.';
+    if (find_breakpt(disasm_info->addr) >= 0)			/* flag breakpoints	*/
+	formatted[21 + addr_width] = '.';
     
     /* Writing to the macsbug screen takes care of line wrapping for us.  But if we are	*/
     /* not writing to the macsbug screen and we are going to display the sidebar we 	*/
@@ -500,11 +526,11 @@ char *format_disasm_line(FILE *f, char *src, void *data)
  
 void __disasm(char *arg, int from_tty)
 {
-    int  	  argc, n, nopc = 0, show_sidebar;
-    unsigned long addr, limit;
-    DisasmData	  disasm_info;
-    GDB_FILE	  *redirect_stdout, *prev_stdout;
-    char 	  *argv[6], tmpCmdLine[1024];
+    int  	argc, n, nopc = 0, show_sidebar;
+    GDB_ADDRESS addr, limit;
+    DisasmData	disasm_info;
+    GDB_FILE	*redirect_stdout, *prev_stdout;
+    char 	*argv[6], tmpCmdLine[1024];
     
     gdb_setup_argv(safe_strcpy(tmpCmdLine, arg), "__disasm", &argc, argv, 5);
     
@@ -525,8 +551,8 @@ void __disasm(char *arg, int from_tty)
     
     gdb_execute_command("x/0i 0");
     
-    addr  = gdb_get_int(argv[1]);
-    limit = addr + 4 * gdb_get_int(argv[2]);
+    addr  = gdb_get_address(argv[1]);
+    limit = addr + 4 * gdb_get_long(argv[2]);
    
     /* All disassembly output is filtered through format_disasm_line() so that we may	*/
     /* reformat the lines the way we want them...					*/
@@ -544,7 +570,7 @@ void __disasm(char *arg, int from_tty)
     disasm_info.stream    = prev_stdout;
     
     disasm_info.addr = addr;
-    gdb_execute_command("x/%di 0x%lX", (limit-addr)/4, addr);
+    gdb_execute_command("x/%ldi 0x%llx", (long)(limit-addr)/4, (long long)addr);
     
     gdb_close_output(redirect_stdout);
     
@@ -608,9 +634,9 @@ static void __error(char *arg, int from_tty)
 
 static void __getenv(char *arg, int from_tty)
 {
-    int  numeric;
-    long lvalue;
-    char *p, *value, name[1024];
+    int       numeric;
+    long long lvalue;
+    char      *p, *value, name[1024];
     
     if (!arg || !*arg)
     	gdb_error("__getenv expects a environemnt variable name");
@@ -622,7 +648,7 @@ static void __getenv(char *arg, int from_tty)
     
     numeric = (value && *value);
     if (numeric) {
-    	lvalue = strtol(value, &p, 0);
+    	lvalue = strtoll(value, &p, 0);
 	numeric = (p > value);
 	if (numeric) {
 	    while (*p && *p == ' ' || *p == '\t')
@@ -632,7 +658,7 @@ static void __getenv(char *arg, int from_tty)
     }
     
     if (numeric)
-    	gdb_set_int(name, lvalue);
+    	gdb_set_long_long(name, lvalue);
     else if (!gdb_target_running())
     	gdb_set_int(name, (value != NULL));
     else
@@ -658,9 +684,9 @@ static void __getenv(char *arg, int from_tty)
 "doesn't exist.  $__undefenv__ is still set accordingly."
 
 
-/*-----------------------------------------------------------------*
- | __hexdump [addr [n]] dump n bytes starting at addr (default pc) |
- *-----------------------------------------------------------------*
+/*-------------------------------------------------------------------*
+ | __hexdump [addr [n]] - dump n bytes starting at addr (default pc) |
+ *-------------------------------------------------------------------*
  
  The bytes are shown as hexdump_width bytes per line in groups of hexdump_width.
 */
@@ -668,9 +694,9 @@ static void __getenv(char *arg, int from_tty)
 void __hexdump(char *arg, int from_tty)
 {
     int  	  argc, i, j, k, n, offset, repeated, repcnt, extra_space_ok, show_line, width;
-    unsigned long addr;
-    char 	  *start, *argv[5], tmpCmdLine[1024];
-    unsigned char *c, x, data[1024], prev[1024], charline[1024], addrexp[1024];
+    GDB_ADDRESS   addr;
+    char 	  *start, *argv[5], tmpCmdLine[1024], addrexp[1024];
+    unsigned char *c, x, data[1024], prev[1024], charline[1024];
     
     gdb_setup_argv(safe_strcpy(tmpCmdLine, arg), "__hexdump", &argc, argv, 4);
     
@@ -712,7 +738,7 @@ void __hexdump(char *arg, int from_tty)
     	}
     	
     	if (show_line) {
-    	    gdb_printf(" %.8lX: ", addr);
+    	    gdb_printf(" %.8llX: ", (long long)addr);
     	    
 	    for (i = j = 0, c = charline; i < width; ++i) {
 		if (i > 0) {
@@ -849,7 +875,8 @@ static void __lower_case(char *arg, int from_tty)
 
 static void __memcpy(char *arg, int from_tty)
 {
-    int  argc, n, v;
+    int  argc, n;
+    long v;
     char *argv[6], *src, str[1024], tmpCmdLine[1024];
     
     gdb_setup_argv(safe_strcpy(tmpCmdLine, arg), "__memcpy", &argc, argv, 5);
@@ -864,11 +891,11 @@ static void __memcpy(char *arg, int from_tty)
     else {
     	if (n != 1 && n != 2 && n != 4)
     	    gdb_error("__memcpy of a int value with size not 1, 2, or 4.");
-    	v = gdb_get_int(argv[2]);
+    	v = gdb_get_long(argv[2]);
     	src = (char *)&v + (4 - n);
     }
         
-    gdb_write_memory(argv[1], src, gdb_get_int(argv[3]));
+    gdb_write_memory(argv[1], src, n);
 }
 
 #define __MEMCPY_HELP \
@@ -951,7 +978,8 @@ char *filter_char(int c, int isString, char *buffer)
 	case '\'': return (isString ? "'" : "\\'");
 	case '"' : return (isString ? "\\\"" : "\"");
 	default  : if (c < 0x20 || c >= 0x7F)
-			sprintf(buffer, COLOR_BOLD "\\%03o" COLOR_OFF, c);
+			//sprintf(buffer, COLOR_BOLD "\\%03o" COLOR_OFF, c);
+			sprintf(buffer, "\\%03o", c);
 		   else {
 		   	buffer[0] = c;
 		   	buffer[1] = 0;
@@ -1037,7 +1065,7 @@ void __print_2(char *arg, int from_tty)
 void __print_4(char *arg, int from_tty)
 {
    char buf1[20], buf2[20], buf3[20], buf4[20];
-   unsigned long x4 = gdb_get_int(arg);
+   unsigned long x4 = gdb_get_long(arg);
    
    gdb_printf("'%s%s%s%s'", filter_char(x4 >> 24, 0, buf1),
  			    filter_char(x4 >> 16, 0, buf2),
@@ -1050,9 +1078,33 @@ void __print_4(char *arg, int from_tty)
 "Special characters are shown escaped or bold octal."
 
 
-/*---------------------------------------------------------------------------*
- | __reset_current_function - reset the currently function for disassemblies |
- *---------------------------------------------------------------------------*/
+/*-------------------------------------------------*
+ | __print_8 - print eight characters ('abcdwxyz') |
+ *-------------------------------------------------*/
+
+void __print_8(char *arg, int from_tty)
+{
+   char buf1[20], buf2[20], buf3[20], buf4[20],  buf5[20], buf6[20], buf7[20], buf8[20];
+   unsigned long long x8 = gdb_get_long_long(arg);
+   
+   gdb_printf("'%s%s%s%s%s%s%s%s'", filter_char(x8 >> 56, 0, buf1),
+   				    filter_char(x8 >> 48, 0, buf2),
+   				    filter_char(x8 >> 40, 0, buf3),
+   				    filter_char(x8 >> 32, 0, buf4),
+   				    filter_char(x8 >> 24, 0, buf5),
+				    filter_char(x8 >> 16, 0, buf6),
+				    filter_char(x8 >>  8, 0, buf7),
+				    filter_char(x8      , 0, buf8));
+}
+
+#define __PRINT_8_HELP \
+"__PRINT_8 abcdwxyz -- Print 48 characters surrounded with single quotes ('abcdwxyz').\n"		\
+"Special characters are shown escaped or bold octal."
+
+
+/*-------------------------------------------------------------------------*
+ | __reset_current_function - reset the current function for disassemblies |
+ *-------------------------------------------------------------------------*/
  
 void __reset_current_function(char *arg, int from_tty)
 {
@@ -1239,6 +1291,7 @@ void init_macsbug_utils(void)
     MACSBUG_USEFUL_COMMAND(__print_1,		     __PRINT_1_HELP);
     MACSBUG_USEFUL_COMMAND(__print_2,		     __PRINT_2_HELP);
     MACSBUG_USEFUL_COMMAND(__print_4,		     __PRINT_4_HELP);
+    MACSBUG_USEFUL_COMMAND(__print_8,		     __PRINT_8_HELP);
     MACSBUG_USEFUL_COMMAND(__reset_current_function, __RESET_CURRENT_FUNCTION_HELP);
     MACSBUG_USEFUL_COMMAND(__setenv, 	     	     __SETENV_HELP);
     MACSBUG_USEFUL_COMMAND(__strcmp, 	     	     __STRCMP_HELP);

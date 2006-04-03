@@ -27,9 +27,19 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Jan 24 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetDeviceForOpenFirmwarePath.c,v 1.18 2005/02/07 21:22:38 ssen Exp $
+ *  $Id: BLGetDeviceForOpenFirmwarePath.c,v 1.21 2005/08/22 20:49:25 ssen Exp $
  *
  *  $Log: BLGetDeviceForOpenFirmwarePath.c,v $
+ *  Revision 1.21  2005/08/22 20:49:25  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.19  2005/06/24 16:39:51  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.18  2005/02/07 21:22:38  ssen
  *  Refact lookupServiceForName and code for BLDeviceNeedsBooter
  *
@@ -116,23 +126,23 @@
 #include "bless_private.h"
 
 extern int getPNameAndPType(BLContextPtr context,
-			    unsigned char target[],
-			    unsigned char pname[],
-			    unsigned char ptype[]);
+			    char * target,
+			    char * pname,
+			    char * ptype);
 
-static int findRAIDForMember(BLContextPtr context, mach_port_t iokitPort, unsigned char mntfrm[]);
+static int findRAIDForMember(BLContextPtr context, mach_port_t iokitPort, char * mntfrm);
 static int isRAIDPath(BLContextPtr context, mach_port_t iokitPort, io_service_t member,
 					  CFDictionaryRef raidEntry);
 
-int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char ofstring[], unsigned char mntfrm[]) {
+int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char * ofstring, char * mntfrm) {
 	
     kern_return_t           kret;
     mach_port_t             ourIOKitPort;
     char newof[1024];
-    unsigned char targetPName[MAXPATHLEN];
-    unsigned char targetPType[MAXPATHLEN];
-    unsigned char parentDev[MNAMELEN];
-    unsigned long slice = 0;
+    char targetPName[MAXPATHLEN];
+    char targetPType[MAXPATHLEN];
+    char parentDev[MNAMELEN];
+    uint32_t slice = 0;
     int ret;
     
     BLPartitionType partitionType = 0;
@@ -194,7 +204,7 @@ int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char ofstring[], 
         }
         
         slice += 1; // n+1 for "real" root partition
-        sprintf(mntfrm, "%ss%lu", parentDev, slice);
+        sprintf(mntfrm, "%ss%u", parentDev, slice);
 
         contextprintf(context, kBLLogLevelVerbose,  "Now looking at %s\n", mntfrm);
     }
@@ -231,7 +241,7 @@ int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char ofstring[], 
 	
 }
 
-static int findRAIDForMember(BLContextPtr context, mach_port_t iokitPort, unsigned char mntfrm[])
+static int findRAIDForMember(BLContextPtr context, mach_port_t iokitPort, char * mntfrm)
 {
 	kern_return_t           kret;
 	io_service_t			member;

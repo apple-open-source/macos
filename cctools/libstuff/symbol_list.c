@@ -138,6 +138,12 @@ unsigned long *size)
 			(*list)[i + j].name = (*list)[i + j + 1].name;
 		    }
 		    *size = *size - 1;
+		    /*
+		     * Since there may be more than two of the same name
+		     * check this one again against the next one in the
+		     * list before moving on.
+		     */
+                    i--; 
 		}
 	    }
 	}

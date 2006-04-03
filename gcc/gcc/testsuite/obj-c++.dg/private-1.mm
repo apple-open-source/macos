@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test errors for accessing @private and @protected variables.  */
 /* Based on work by: Nicola Pero <nicola@brainstorm.co.uk>.  */
 /* { dg-do compile } */

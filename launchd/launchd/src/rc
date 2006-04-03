@@ -67,10 +67,6 @@ if [ -f /var/account/acct ]; then
 	accton /var/account/acct
 fi
 
-if [ -f /etc/rc.installer_cleanup ]; then
-	/etc/rc.installer_cleanup multiuser
-fi
-
 echo "Resetting files and devices"
 
 RMRF_ITEMS="/mach.sym /var/tmp/folders.*"
@@ -231,6 +227,10 @@ else
 	kextd
 fi
 
+if [ -f /etc/rc.installer_cleanup ]; then
+	/etc/rc.installer_cleanup multiuser
+fi
+
 if [  "${SafeBoot}" != "-x" -a -x "${BootCacheControl}" ]; then
 	${BootCacheControl} tag
 fi
@@ -252,11 +252,10 @@ if [ -f /Library/Preferences/com.apple.sharing.firewall.plist ]; then
 fi
 
 # Load [ideally on demand] daemons
-/usr/libexec/register_mach_bootstrap_servers /etc/mach_init.d
 if [ "${SafeBoot}" = "-x" ]; then
-	launchctl load /System/Library/LaunchDaemons
+	launchctl load /System/Library/LaunchDaemons /etc/mach_init.d
 else
-	launchctl load /Library/LaunchDaemons /System/Library/LaunchDaemons
+	launchctl load /Library/LaunchDaemons /System/Library/LaunchDaemons /etc/mach_init.d
 	SystemStarter ${VerboseFlag}
 fi
 

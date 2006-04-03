@@ -1,9 +1,9 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/adb_free.c,v 1.3 2000/06/01 02:02:03 tritan Exp $
+ * $Header$
  * 
- * $Log: adb_free.c,v $
+ * $Log$
  * Revision 1.3  2000/06/01 02:02:03  tritan
  * Check for existance of <memory.h>.
  * (from Nathan Neulinger <nneul@umr.edu>)
@@ -52,7 +52,7 @@
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/adb_free.c,v 1.3 2000/06/01 02:02:03 tritan Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #include	"adb.h"

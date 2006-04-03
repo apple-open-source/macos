@@ -1,6 +1,6 @@
 /* APPLE LOCAL file AltiVec */
 /* { dg-do compile { target powerpc*-*-* } } */
-/* { dg-options "-O3 -finline-limit=9999 -faltivec -Wa,-force_cpusubtype_ALL -fdump-ipa-cgraph -S" } */
+/* { dg-options "-mcpu=G3 -O3 -finline-limit=9999 -faltivec -Wa,-force_cpusubtype_ALL -fdump-ipa-cgraph -S" } */
 /* Inliner should not inline AltiVec(tm) functions when -faltivec is on.  */
 /* <rdar://problem/3837835> Selective inlining of functions that use Altivec */
 #include	<Carbon/Carbon.h>

@@ -1,0 +1,6 @@
+c380004
+cdd2a03
+templat
+# Tests must be sorted in alphabetical order
+# c380004: should be front-end compile time error, PR ada/18817
+# cdd2a03: new Ada ruling not supported yet, PR ada/19323

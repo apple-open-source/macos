@@ -303,10 +303,11 @@ enum bool *seen_archive)
     struct fat_arch *fat_arch;
     struct dysymtab_command dyst;
     struct twolevel_hints_command hints_cmd;
-    struct load_command *lc;
-    struct dylib_command *dl;
+    struct load_command lc, *lcp;
+    struct dylib_command dl, *dlp;
     long toc_time, timestamp, index;
     uint32_t ncmds;
+    enum bool swapped;
 
 	/* 
 	 * If filename is NULL, we use a dummy file name.
@@ -618,38 +619,49 @@ enum bool *seen_archive)
 			   archs[index].object->mh_filetype == MH_DYLIB &&
 			   archs[index].object->mh_cputype ==
 				archs[i].object->mh_cputype){
-			    lc = archs[index].object->load_commands;
 			    if(archs[index].object->mh != NULL)
 				ncmds = archs[index].object->mh->ncmds;
 			    else
 				ncmds = archs[index].object->mh64->ncmds;
+			    lcp = archs[index].object->load_commands;
+			    swapped = archs[index].object->object_byte_sex !=
+			              host_byte_sex;
+			    if(swapped)
+				ncmds = SWAP_LONG(ncmds);
 			    for(j = 0; j < ncmds; j++){
-				if(lc->cmd == LC_ID_DYLIB){
-				    dl = (struct dylib_command *)lc;
-				    timestamp = dl->dylib.timestamp - 1;
+				lc = *lcp;
+				if(swapped)
+				    swap_load_command(&lc, host_byte_sex);
+				if(lc.cmd == LC_ID_DYLIB){
+				    dlp = (struct dylib_command *)lcp;
+				    dl = *dlp;
+				    if(swapped)
+					swap_dylib_command(&dl, host_byte_sex);
+				    timestamp = dl.dylib.timestamp - 1;
 				    break;
 				}
-				lc = (struct load_command *)
-				     ((char *)lc + lc->cmdsize);
+				lcp = (struct load_command *)
+				      ((char *)lcp + lc.cmdsize);
 			    }
 			}
 		    }
 		    if(timestamp == 0)
 			timestamp = toc_time;
-		    lc = archs[i].object->load_commands;
+		    lcp = archs[i].object->load_commands;
 		    if(archs[i].object->mh != NULL)
 			ncmds = archs[i].object->mh->ncmds;
 		    else
 			ncmds = archs[i].object->mh64->ncmds;
 		    for(j = 0; j < ncmds; j++){
-			if(lc->cmd == LC_ID_DYLIB){
-			    dl = (struct dylib_command *)lc;
+			if(lcp->cmd == LC_ID_DYLIB){
+			    dlp = (struct dylib_command *)lcp;
 			    if(archs[i].dont_update_LC_ID_DYLIB_timestamp ==
 			       FALSE)
-				dl->dylib.timestamp = timestamp;
+				dlp->dylib.timestamp = timestamp;
 			    break;
 			}
-			lc = (struct load_command *)((char *)lc + lc->cmdsize);
+			lcp = (struct load_command *)((char *)lcp +
+						      lcp->cmdsize);
 		    }
 		}
 		if(archs[i].object->object_byte_sex != host_byte_sex){

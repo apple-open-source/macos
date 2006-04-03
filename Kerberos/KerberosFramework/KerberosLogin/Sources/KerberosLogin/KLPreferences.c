@@ -1,7 +1,7 @@
 /*
  * KLPreferences.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/KLPreferences.c,v 1.20 2005/05/25 20:31:32 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -505,7 +505,7 @@ KLBoolean __KLPreferencesGetLibDefaultBoolean (const char *inLibDefaultName, KLB
 static KLLifetime __KLPreferencesGetLibDefaultTime (const char *inLibDefaultName, KLLifetime inDefaultTime)
 {
     KLStatus     err = klNoErr;
-    KLLifetime   libDefaultTime = inDefaultTime;
+    krb5_deltat  libDefaultTime = inDefaultTime;
     krb5_context context = NULL;
     profile_t    profile = NULL;
     const char  *names[3] = {"libdefaults", inLibDefaultName, NULL};

@@ -23,7 +23,7 @@
 #include "gssapiP_krb5.h"
 
 /*
- * $Id: get_tkt_flags.c,v 1.10 2001/10/04 00:39:27 raeburn Exp $
+ * $Id: get_tkt_flags.c 13775 2001-10-04 00:39:57Z raeburn $
  */
 
 OM_uint32 KRB5_CALLCONV 

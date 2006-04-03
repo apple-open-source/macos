@@ -40,7 +40,7 @@ static char *msg_str = NULL;
 #define LOGSTAMP_LOGMSG 1
 
 char *formattimevalue(struct nfstime *t, char *str, size_t stringlength) {
-	if (stringlength < 26) return "";
+	if (stringlength < FORMATTED_TIME_LEN) return "";
 	
 	ctime_r((time_t *)&t->seconds, str);
 	sprintf(&str[19], ".%06d", t->useconds);

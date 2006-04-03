@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: util_set.c,v 1.3 2004/03/14 05:31:43 raeburn Exp $
+ * $Id: util_set.c 16165 2004-03-14 05:31:43Z raeburn $
  */
 
 #include "gssapiP_generic.h"

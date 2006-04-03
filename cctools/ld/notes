@@ -23,6 +23,359 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.20 release (the cctools-590.23.1 release):
+- Fixed a bug that caused a crash in remove_merged_symbols() in symbols.c when
+  looping through the merged_symbol_list.  The fix was really likely with the
+  missing memset() needed in lookup_symbol() in symbols.c after the allocate()
+  of the merged_symbol_list struct.  The loop in remove_merged_symbols() that
+  caused the crash was also changed to be more robust by looping backwards over
+  only the used elements in the array and adding additional checks to avoid
+  indirection through possible bad pointers.  Radar bug #4371058
+
+Changes for the 5.20 release (the cctools-590.22 release):
+- Fixed a bug in literal_pointer_output() in literal_pointers.c where it was
+  creating local relocation entries in the output file's memory buffer when it
+  shouldn't.  In doing so it can run off the end of the memory buffer and cause
+  a crash.  If it doesn't crash we get lucky as this just happens to be done
+  early and later the correct stuff gets placed over this area in the memory
+  buffer.  Radar bug #4348548.
+
+Changes for the 5.20 release (the cctools-590.21 release):
+- Fixed a bug in remove_merged_symbols() in symbols.c that was using
+  merged_symbol_root->list where merged_symbol_root could be NULL.  Radar bug
+  #4346485.
+
+Changes for the 5.20 release (the cctools-590.20 release):
+- Removed the warnings when building. Radar bug #4340147.
+  - Added -fno-builtin-round and -fno-builtin-trunc to the Makefile.
+  - Changed the cast of argument 3 of the call to bootstrap_look_up() to
+    (unsigned int *) in check_for_ProjectBuilder() in ld.c .
+  - Set the fields of the local struct r to NULL in setup_reference() in
+    sections.c .
+  - Added a cast of (unsigned long *) to argument 5 of is_output_local_symbol()
+    in remove_dead_N_GSYM_stabs_for_cur_obj() and output_local_symbols() in
+    symbols.c . 
+  - Added two #undef's, one for THREAD_STATE_NONE and one for
+    VALID_THREAD_STATE_FLAVOR in layout.c .
+- Changed the definition of kld_basefile_name in internal_kld_load() in kld.c
+  to include const so it matches the header file:
+  /System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa/stdlib.h
+  if it exists on the system.  Radar bug #4342523.
+- Fixed a bug when both -s and -dead_strip were used and there were dead private
+  extern symbols.  This caused an internal error in
+  assign_output_symbol_indexes() in symbols.c with inconsistent local symbol
+  counts.  The first problem was that nstripped_merged_private_symbols was being
+  reset to zero causing the problem with local symbol counts.  The second
+  problem was the count of merged symbols was wrong because
+  nstripped_merged_symbols was reset to zero not to
+  nstripped_merged_private_symbols before adding in the live symbols to be
+  stripped.  Radar bug #4286691.
+- Fixed a bug where the -w flag to suppress warnings was not suppressing the
+  list of multiply defined symbols.  The fix was in merge_dylib_module_symbols()
+  in symbols.c where after it calls warning() to print the header a test of
+  nowarnings == TRUE was added and if so a continue is done to skip tracing of
+  symbols.  Radar bug #4334705.
+
+Changes for the 5.20 release (the cctools-590.17 release):
+- Changed symbol lookup to make it faster.  Radar bug #4299546.
+  - The structures and global variable for storing the merged symbol hash table
+    and list of merged symbols in symbols.[ch] were changed.  The pointer to get
+    to the merged symbol table is a new global variable merged_symbol_root
+    replacing the old merged_symbol_lists pointer.
+    - The contents of merged_symbol_list struct was completely changed and is
+      now only a list of merged symbols implemented as array of pointers, a
+      count of the used pointers and a next pointer in a linked list of
+      merged_symbol_list structs.  There is no global variable to get to the
+      start of the list and instead it is hung off the new merged_symbol_root
+      struct. As such all code that has loops that to loop over the list of
+      merged symbols are changed and then after the loop a change is made to
+      indirect through the pointer in the symbols[] array.
+      These changes were made in:
+	in pass1.c
+	  search_dynamic_libs()
+	  prebinding_check_for_dylib_override_symbols()
+	  twolevel_namespace_check_for_unused_dylib_symbols()
+	in symbols.c
+	  define_common_symbols() (2 loops)
+	  define_undefined_symbols_a_way()
+	  mark_globals_live()
+	  set_fine_relocs_for_merged_symbols()
+	  count_live_symbols()
+	  define_link_editor_dylib_symbols()
+	  reduce_indr_symbols()
+	  layout_merged_symbols()
+	  output_merged_symbols() (2 loops)
+	  output_rld_symfile_merged_symbols()
+	  process_undefineds() (4 loops)
+	  reset_prebound_undefines()
+	  assign_output_symbol_indexes() (3 loops)
+	  output_dylib_tables() (2 loops)
+	  clear_read_only_reloc_flags()
+	  flag_read_only_reloc()
+    - A new merged_symbol_root struct now stores the hash table and has a
+      pointer to the merged_symbol_list struct.  There is a new global variable
+      merged_symbol_root which is a pointer to this struct.  This is made up of
+      an array of new merged_symbol_chunk structs.
+    - The new merged_symbol_chunk structs has an array of merged_symbol structs
+      of SYMBOL_CHUNK_SIZE and a pointer to the next merged_symbol_chunk struct.
+  - The routine lookup_symbol() was changed to return a pointer to a
+    merged_symbol struct instead of a pointer to a pointer.  So to see if the
+    symbol is defined the callers now need to look to see if the name_len field
+    of the merged_symbol pointer returned is != 0.
+    These changes were made in:
+	coalesced_section_merge() in coalesced_sections.c
+	generic_reloc() in generic_reloc.c
+	hppa_reloc() in hppa_reloc.c
+	i860_reloc() in i860_reloc.c
+	indirect_section_merge() in indirect_sections.c
+	layout_segments() in layout.c
+	literal_pointer_merge() in literal_pointers.c
+	m88k_reloc() in m88k_reloc.c
+	pass1_archive() in pass1.c
+	ppc_reloc() in ppc_reloc.c
+	sparc_reloc() in sparc_reloc.c
+	in rld.c
+	  kld_lookup()/rld_lookup()
+	  kld_forget_symbol()/rld_forget_symbol()
+	in sections.c
+	  layout_ordered_section()
+	  count_relocs()
+	  scatter_copy() (2 places)
+	  live_marking() (2 places)
+	in symbols.c
+	  merge_symbols()
+	  command_line_symbol()
+	  command_line_indr_symbol()
+	  merge_dylib_module_symbols()
+	  merge_bundle_loader_symbols()
+	  enter_indr_symbol()
+	  define_link_editor_execute_symbols()
+	  setup_link_editor_symbols()
+	  define_link_editor_dylib_symbols()
+	  define_link_editor_preload_symbols() (2 places)
+	  define_link_editor_symbol()
+	  remove_dead_N_GSYM_stabs_for_cur_obj()
+    Since lookup_symbol() now returns a pointer to a merged_symbol struct
+    to be used by enter_symbol().  So the static variable
+    merged_symbol_list_for_enter_symbol pointing to the merged_symbol_list has
+    been removed.
+  - The new static routine add_to_symbol_list() in symbols.c was added which is
+    passed merged_symbol and adds it to the merged_symbol_list linked list.
+  - The routine enter_symbol() was changed so the hash_pointer parameter is now
+    just a pointer to a merged_symbol struct not a pointer to a pointer.  The
+    code that used the removed merged_symbol_list_for_enter_symbol was removed.
+    And a call to the new add_to_symbol_list() routine was added.
+  - The routine enter_indr_symbol() was changed so the hash_pointer variable
+    is now a pointer to a merged_symbol struct returned from lookup_symbol().
+    The code that used the removed merged_symbol_list_for_enter_symbol was
+    removed.  And a call to the the new add_to_symbol_list() routine was added.
+  - Changed free_pass1_symbol_data() in symbols.c and just removed the code that
+    has been #ifdef notdef'ed out instead of updating the loop that deallocated
+    the hash table.
+  - The routines remove_merged_symbols() and print_symbol_list() in symbols.c
+    were updated to deal with the new merged symbol table data structures.
+  - Added the routine hash_instrument() in symbols.[ch] to print out info about
+    the contents of the hash table.  The new flag -hash_instrument in main() in
+    ld.c causes this to be called.
+
+Changes for the 5.18 release (the cctools-590.16 release):
+- Changed is_output_local_symbol() in symbols.c for the STRIP_MIN_DEBUG (-Sp)
+  case so we never keep types.  Radar bug #4312007.
+
+Changes for the 5.18 release (the cctools-590.13 release):
+- Fixed a bug when -dead_strip was used that caused it to remove local symbols
+  for coalesced sections.  The fix was at the end of coalesced_section_merge()
+  in coalesced_sections.c to only call discard_local_symbols_for_section()
+  when dead_strip is FALSE.  As this will be called when dead_strip is TRUE as
+  part of count_live_symbols() calling removed_dead_local_symbols_in_section().
+  Radar bug #4293942.
+
+Changes for the 5.18 release (the cctools-590.12 release):
+- Made the changes control stack execution.  Radar bug #4281171.
+  - Added the boolean allow_stack_execute to ld.[ch] which defaults to FALSE and
+    gets set to TRUE when the new flag -allow_stack_execute is seen in main().
+  - Added a check in main() in ld.c to cause an error if -allow_stack_execute is
+    used and the filetype is not MH_EXECUTE.
+  - Changed layout_segments() in layout.c :
+    - To use the new routine get_segprot_from_flag() when setting the default
+      segment protections of segments (3 places).
+    - Since the default protection may not include VM_PROT_EXECUTE, if this is
+      added because there is a section with the S_ATTR_SOME_INSTRUCTIONS
+      attribute, a test of the initprot of VM_PROT_EXECUTE is done and if set
+      it is added to maxprot.
+    - If the protections of the stack are specified to include VM_PROT_EXECUTE
+      then allow_stack_execute is set to TRUE.
+    - If allow_stack_execute is set to TRUE then MH_ALLOW_STACK_EXECUTION is set
+      in the mach_header flags in the output.
+
+Changes for the 5.18 release (the cctools-590.10 release):
+- Added support for new i386 self (dyld) modifiying code stubs.  Radar bug
+  #4202415.
+  - In scatter_copy() in sections.c the section is checked for and if found and
+    we are prebinding the entries are turned into JMP instruction.
+  - In layout() in layout.c if the SEG_IMPORT is present to set it's initial
+    protection to rwx.
+- Changed find_stab_name_end() in symbols.c correctly step over C++ scoped type
+  stab strings with blah::blah in them.  Radar bug #4233860.
+- Fixed a problem with ld -r and S_ATTR_STRIP_STATIC_SYMS in
+  is_output_local_symbol() in symbols.c so it now does not strip these when
+  save_reloc is TRUE.  The problem is that the first symbol in a coalesced
+  section could get stripped leaving it "malformed".
+
+Changes for the 5.18 release (the cctools-590.9 release):
+- Changed is_output_local_symbol() in symbols.c to not always call strlen() at
+  the top of the routine.  But to call it just before we return TRUE and the
+  whole string is to be in the output.  This speeds things up a bit.  Radar bug
+  #4157062.
+- Changed merged_symbols() in symbols.c so that when merging a weak symbol
+  it will discard a weak symbol in the merged symbol if it comes from a
+  dylib for a weak symbol in a .o file. Radar bug #4231836.
+
+Changes for the 5.18 release (the cctools-590.7 release):
+- Worked around a problem not having groups for exception frame information and
+  dead code stripping.  The compiler generates a first block for the exception
+  frame info that is referenced by all other exception blocks.  So if this block
+  becomes live it will cause all the other exception frame blocks to become
+  live when the dead code stripping phase of seaching live support blocks
+  touching something that is live.  The work around that was added was to not
+  cause a live support block to become live if it references another live
+  support that is live.  This change is in ref_operation() in sections.c to test
+  (ref->map->s->flags & S_ATTR_LIVE_SUPPORT) .  Radar bug #4213358.
+- Changed dead code stripping to make it faster.  Radar bug #4228195.
+  - Added a new routine build_references() in section.c called first in
+    live_marking() to set up the linked list of refs off the fine_relocs struct
+    and cause new fine_reloc pointer off the merged_symbol struct to be set.
+  - Added the new field fine_reloc to the merged_symbol struct in symbols.h to
+    be a pointer to the fine_reloc for the symbol if any.
+  - Added a the new struct ref to objects.h which contains two groups of fields.
+    For external references it has:
+	a pointer to a merged_symbol
+    For local refereces it has:
+	a pointer to a fine_reloc
+	a pointer to the section map
+	a pointer to the object
+    and a next pointer for the linked list.
+  - Added the new field refs to the fine_reloc struct in objects.h for dead code
+    stripping for the new ref structures for each fine_reloc block.
+  - The new routine build_references() in sections.c calls down through the
+    following new routines to get the references for each section from the
+    relocation entires for the fine_relocs:
+	setup_references_in_section() in sections.c
+	setup_references() in sections.c
+	setup_reference() in sections.c
+    To make things faster for ld -r object that have many relocation entries the
+    code was changed to walk the relocation entries and putting them into the
+    fine_reloc blocks as a linked list.
+  - Added an assignment to the new pointer to a fine_reloc struct off of the
+    merged symbol in layout_ordered_section() in sections.c .
+  - Added the new routine, set_fine_relocs_for_merged_symbols() in symbols.[ch]
+    called from build_references() to set the new pointer to a fine_reloc for
+    merged symbols.
+  - Changed:
+      live_marking() in sections.c
+      mark_globals_live() in symbols.c
+      count_live_symbols() in symbols.c
+    in places where it used to call get_fine_reloc_for_merged_symbol() to now
+    use the fine_reloc pointer off the merged_symbol.
+  - Removed the checks of errors != 0 in code in sections.c after calls to:
+	walk_references_in_section()
+	walk_references()
+    in the routines:
+	live_marking()
+	walk_references_in_section()
+    since the build_references() code is now the one calling the *_reloc()
+    routines where errors can occur.
+  - Changed walk_references() in sections.c to now use the new refs field of the
+    fine_reloc to walk the references and removed all the code to deal with
+    relocation entries.
+  - Changed indirect_live_ref() in indirect_sections.c so it now takes and sets
+    then new ref struct.  It now returns a boolean to indicate if there is a
+    reference.
+  - Changed ref_operation() so the second argument is now a pointer to the new
+    refs structure.  Which now has all the info needed for ref_operation() to
+    process the reference without having to calculate the map or the file_reloc
+    the live_ref struct was refering to.  The routine was change to use the
+    refs struct and the fields with the values to process the reference.
+  - Added a new static boolean variable local_NO_DEAD_STRIP_symbols to symbols.c
+    which starts out as FALSE and set to TRUE in merged_symbols if any local
+    local section symbol is seen with the N_NO_DEAD_STRIP bit set.  Then the
+    code in mark_N_NO_DEAD_STRIP_local_symbols_live() first checks this to see
+    if FALSE and then just returns.  It saves time as it is expensive to look
+    through all the local symbols and generally this bit never set on a local
+    symbol.
+  - Added a new __private_extern__ boolean variable dead_strip_times to ld.[ch]
+    which is set with the flag -dead_strip_times in main() in ld.c.  Changed
+    live_marking() in sections.c to check this flag and to record the start and
+    end times of the various phases of dead code stripping and print them out.
+    Also added the new static routine calculate_time_used() in sections.c which
+    is used to print out the times.
+- Added the -macosx_version_min flag.  Radar bug #4195253.
+
+Changes for the 5.18 release (the cctools-590.6 release):
+- Changed which local symbols get deleted for a block that is coalesced out or
+  dead code stripped.  Previouly all local symbols in the group of local
+  symbols in a N_BNSYM/N_ENSYM pair were deleted when the block is removed.
+  Now any type stabs in that block must not be deleted.  Radar bug #4205997.
+  - Added the new static function is_type_stab() to symbols.c to return TRUE if
+    the symbol passed to it is a type stab.
+  - Changed discard_local_symbols_for_section() in symbols.c when it was going
+    to remove a block of N_BNSYM/N_ENSYM symbols to add a new loop and check
+    to see if the symbol is a type stab.  If it is the current localsym_block
+    is closed and the stab is stepped over.  If not it is added to the the
+    localsym_block creating a new local symbol block if the current block is
+    closed.
+- Fixed problems with the change below with the -Sp option where the code was
+  not correctly #ifdef'ed out from the RLD version.  The added code in symbols.c
+  for STRIP_MIN_DEBUG was #ifndef RLD.  Radar bug #4220100.
+
+Changes for the 5.18 release (the cctools-590.5 release):
+- Added the -Sp striping option to strip some stabs and modify other stab
+  strings and add N_OSO stabs to allow the debugger to use debug info from .o
+  files.  Radar bug 4202462.
+  - Added STRIP_MIN_DEBUG to the strip_levels enum in ld.h .
+  - Added code to main() in ld.c to parse -Sp and check to see it is not used
+    with -r.
+  - Changed is_output_local_symbol() in symbols.[ch] to return indirectly the
+    size of the output string through an new parameter output_strlen.  And added
+    code for the STRIP_MIN_DEBUG case to see if the stab is to be output and its
+    string size.
+  - Changed all callers of is_output_local_symbol() to pass the extra parameter
+    and use the returned string size in their code(). 
+  - Added the new static routines find_stab_name_end() and find_stab_type_end()
+    to symbols.c to parse out stab strings.
+  - Added the new fields resolved_path and resolved_path_len to the struct
+    object_file in objects.h.
+  - Added code to merge_symbols() in symbols.c where it deals local symbols to
+    account for the N_OSO stabs and the string that are added with -Sp.
+  - Added code to output_local_symbols() in symbols.c to deal with putting out
+    the new N_OSO stabs in the correct places in the output.
+
+- Fixed a bug when an archive containing only the magic string was used which
+  incorrectly generated an error that the archive was malformed.  The fix was in
+  check_archive_arch() in pass1.c to see of the filesize was the offset after
+  the magic string then issue a warning and return.  Radar bug #4201492.
+
+Changes for the 5.18 release (the cctools-590.4 release):
+- Fixed a bug when -weak_framework was used that caused an incorrect error
+  message about mismatching weak references. The fix was in process_undefineds()
+  in symbols.c to add an extra condtional to the check for merged_symbols that
+  had the weak_reference_mismatch field TRUE.  The extra check was to see if the
+  where defined in a dylib and that dylib was being forced weak.  Radar bug
+  #4180599.
+- Changed the warning message about NEXT_ROOT being ignored if -syslibroot is
+  specified to only be printed if the two are set to different strings.  This
+  is in main() in ld.c.  Radar bug #3593340.
+- Changed a warning message that printed out a dynamic library that could not be
+  found to include the dynamic library that made a reference to it.  This was in
+  in open_dylib() in pass1.c .  Radar bug #4106804.
+
+Changes for the 5.19 release (the cctools-590.2 release):
+- Changed ld(1) so every EXCL uses a string allocated for a BINCL. This reduces
+  the size of final linked images built with -gfull. Modified
+  output_local_symbols() in symbols.c to call a new static functions
+  record_bincl() when processing a BINCL and find_bincl() when processing a
+  EXCL. Radar bug #4151821.
+
 Changes for the 5.18 release (the cctools-590 release):
 - Changed ld(1) to prepend the value of -syslibroot to all absolute paths of the
   they exist in main.c in ld.c.  Radar bug #4127020.

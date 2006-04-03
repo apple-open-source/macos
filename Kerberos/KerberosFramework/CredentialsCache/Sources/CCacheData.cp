@@ -1,7 +1,7 @@
 /*
  * CCICCacheData.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/CCacheData.cp,v 1.21 2004/09/08 20:42:19 lxs Exp $
+ * $Header$
  */
 
 #include "CCacheData.h"
@@ -230,7 +230,7 @@ CCICCacheData::SetPrincipal (
 	// Based on eliminate_duplicates() on p.534 of The C++ Programming Language, 3rd ed:
  	SharedCredentialsVector::iterator	newEnd = 
 		std::remove_if (mCredentials.begin (), mCredentials.end (),
-			std::bind2nd(std::equal_to<CCICredentialsData*>(), NULL));
+			std::bind2nd(std::equal_to<CCICredentialsData*>(), 0));
 	mCredentials.erase(newEnd, mCredentials.end());
  	
 	Changed ();
@@ -321,7 +321,7 @@ CCICCacheData::Move (
 // Lock the ccache
 CCILockID 
 CCICCacheData::Lock () const {
-#pragma message (CCIMessage_Warning_ "CCICCacheData::Lock unimplemented")
+#warning CCICCacheData::Lock unimplemented
 	return 0;
 }
 
@@ -329,7 +329,7 @@ CCICCacheData::Lock () const {
 void
 CCICCacheData::Unlock (
 	CCILockID			/* inLock */) {
-#pragma message (CCIMessage_Warning_ "CCICCacheData::Unlock unimplemented")
+#warning CCICCacheData::Unlock unimplemented
 }
 
 // Compare for identity with another ccache

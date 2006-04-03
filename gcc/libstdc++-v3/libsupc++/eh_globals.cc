@@ -41,15 +41,41 @@ using namespace __cxxabiv1;
 static __cxa_eh_globals globals_static;
 
 #if __GTHREADS
-/* APPLE LOCAL begin radar 3373515 */
+static __gthread_key_t globals_key;
 static int use_thread_key = -1;
+
+static void
+get_globals_dtor (void *ptr)
+{
+  if (ptr)
+    {
+      __cxa_exception *exn, *next;
+      exn = ((__cxa_eh_globals *) ptr)->caughtExceptions;
+      while (exn)
+	{
+	  next = exn->nextException;
+	  _Unwind_DeleteException (&exn->unwindHeader);
+	  exn = next;
+	}
+      std::free (ptr);
+    }
+}
+
+static void
+get_globals_init ()
+{
+  use_thread_key =
+    (__gthread_key_create (&globals_key, get_globals_dtor) == 0);
+}
 
 static void
 get_globals_init_once ()
 {
-  use_thread_key = 1;
+  static __gthread_once_t once = __GTHREAD_ONCE_INIT;
+  if (__gthread_once (&once, get_globals_init) != 0
+      || use_thread_key < 0)
+    use_thread_key = 0;
 }
-/* APPLE LOCAL end radar 3373515 */
 #endif
 
 extern "C" __cxa_eh_globals *
@@ -57,9 +83,7 @@ __cxxabiv1::__cxa_get_globals_fast () throw()
 {
 #if __GTHREADS
   if (use_thread_key)
-    /* APPLE LOCAL begin radar 3373515 */
-    return (__cxa_eh_globals *) _keymgr_get_per_thread_data (KEYMGR_EH_GLOBALS_KEY);
-    /* APPLE LOCAL end radar 3373515 */
+    return (__cxa_eh_globals *) __gthread_getspecific (globals_key);
   else
     return &globals_static;
 #else
@@ -85,16 +109,12 @@ __cxxabiv1::__cxa_get_globals () throw()
 	return &globals_static;
     }
 
-  /* APPLE LOCAL begin radar 3373515 */
-  g = (__cxa_eh_globals *) _keymgr_get_per_thread_data (KEYMGR_EH_GLOBALS_KEY);
-  /* APPLE LOCAL end radar 3373515 */
+  g = (__cxa_eh_globals *) __gthread_getspecific (globals_key);
   if (! g)
     {
       if ((g = (__cxa_eh_globals *)
 	   std::malloc (sizeof (__cxa_eh_globals))) == 0
-	  /* APPLE LOCAL begin radar 3373515 */
-	  || KEYMGR_SET_PER_THREAD_DATA (KEYMGR_EH_GLOBALS_KEY, (void *) g) != 0)
-	  /* APPLE LOCAL end radar 3373515 */
+	  || __gthread_setspecific (globals_key, (void *) g) != 0)
         std::terminate ();
       g->caughtExceptions = 0;
       g->uncaughtExceptions = 0;

@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Author:  Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-do run } */
 

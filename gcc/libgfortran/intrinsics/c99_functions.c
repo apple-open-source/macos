@@ -154,6 +154,14 @@ log10f(float x)
 }
 #endif
 
+#ifndef HAVE_SCALBN
+double
+scalbn(double x, int y)
+{
+  return x * pow(FLT_RADIX, y);
+}
+#endif
+
 #ifndef HAVE_SCALBNF
 float
 scalbnf(float x, int y)
@@ -199,6 +207,28 @@ float
 tanhf(float x)
 {
   return (float) tanh(x);
+}
+#endif
+
+#ifndef HAVE_TRUNC
+double
+trunc(double x)
+{
+  if (!isfinite (x))
+    return x;
+
+  if (x < 0.0)
+    return - floor (-x);
+  else
+    return floor (x);
+}
+#endif
+
+#ifndef HAVE_TRUNCF
+float
+truncf(float x)
+{
+  return (float) trunc (x);
 }
 #endif
 

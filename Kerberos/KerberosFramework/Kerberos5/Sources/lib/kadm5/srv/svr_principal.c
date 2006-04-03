@@ -1,11 +1,11 @@
 /*
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  *
- * $Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/svr_principal.c,v 1.30.8.1 2004/12/20 21:16:20 tlyu Exp $
+ * $Header$
  */
 
 #if !defined(lint) && !defined(__CODECENTER__)
-static char *rcsid = "$Header: /cvs/krbdev/krb5/src/lib/kadm5/srv/svr_principal.c,v 1.30.8.1 2004/12/20 21:16:20 tlyu Exp $";
+static char *rcsid = "$Header$";
 #endif
 
 #include	<sys/types.h>

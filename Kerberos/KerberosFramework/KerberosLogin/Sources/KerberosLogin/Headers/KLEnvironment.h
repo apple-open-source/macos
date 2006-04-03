@@ -1,7 +1,7 @@
 /*
  * KLEnvironment.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosLogin/Sources/KerberosLogin/Headers/KLEnvironment.h,v 1.9 2004/06/17 22:26:14 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

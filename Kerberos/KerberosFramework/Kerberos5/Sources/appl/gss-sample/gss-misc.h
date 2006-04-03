@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: gss-misc.h,v 1.4 2001/10/10 03:17:36 raeburn Exp $
+ * $Id: gss-misc.h 13792 2001-10-10 03:18:22Z raeburn $
  */
 
 #ifndef _GSSMISC_H_

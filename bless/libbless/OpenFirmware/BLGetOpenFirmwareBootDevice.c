@@ -27,9 +27,23 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetOpenFirmwareBootDevice.c,v 1.26 2005/02/08 00:18:47 ssen Exp $
+ *  $Id: BLGetOpenFirmwareBootDevice.c,v 1.29 2005/11/15 23:59:53 ssen Exp $
  *
  *  $Log: BLGetOpenFirmwareBootDevice.c,v $
+ *  Revision 1.29  2005/11/15 23:59:53  ssen
+ *  Export new API, Add __attribute__((format)) for better compile-time
+ *  checking
+ *
+ *  Revision 1.28  2005/08/22 20:49:25  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.27  2005/06/24 16:39:51  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.26  2005/02/08 00:18:47  ssen
  *  Implement support for offline updating of BootX and OF labels
  *  in Apple_Boot partitions, and also for RAIDs. Only works
@@ -156,9 +170,9 @@
 #include "bless_private.h"
 
 int getPNameAndPType(BLContextPtr context,
-                            unsigned char target[],
-			    unsigned char pname[],
-			    unsigned char ptype[]);
+                            char * target,
+			    char * pname,
+			    char * ptype);
 
 int getExternalBooter(BLContextPtr context,
                       mach_port_t iokitPort,
@@ -173,7 +187,7 @@ int getExternalBooter(BLContextPtr context,
  * For new world, add a tbxi
  */
 
-int BLGetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm[], char ofstring[]) {
+int BLGetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm, char * ofstring) {
 
     int err;
 
@@ -185,7 +199,7 @@ int BLGetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm
 	int32_t					isBooter	= 0;
 		
     io_string_t				ofpath;
-    unsigned char			device[MAXPATHLEN];
+    char			device[MAXPATHLEN];
 	char *split = ofpath;
 	char tbxi[5];
     
@@ -230,14 +244,14 @@ int BLGetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm
         if(bootpath == NULL || CFGetTypeID(bootpath) != CFStringGetTypeID()) {
             CFRelease(primary);
             CFRelease(bootData);
-            contextprintf(context, kBLLogLevelError,  "Could not find boot path entry for %s\n" , name);
+            contextprintf(context, kBLLogLevelError,  "Could not find boot path entry for %s\n" , mntfrm);
             return 4;            
         }
         
         if(!CFStringGetCString(bootpath,iostring,sizeof(iostring),kCFStringEncodingUTF8)) {
             CFRelease(primary);
             CFRelease(bootData);
-            contextprintf(context, kBLLogLevelError,  "Invalid UTF8 for path entry for %s\n" , name);
+            contextprintf(context, kBLLogLevelError,  "Invalid UTF8 for path entry for %s\n" , mntfrm);
             return 4;                        
         }
 
@@ -287,7 +301,7 @@ int BLGetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm
 	}
 	
 	if(!needsBooter && !isBooter) {
-		err = BLGetIOServiceForDeviceName(context, (unsigned char *)device + 5, &service);
+		err = BLGetIOServiceForDeviceName(context, (char *)device + 5, &service);
 		if(err) {
 			contextprintf(context, kBLLogLevelError,  "Can't find IOService for %s\n", device + 5 );
 			return 10;		
@@ -322,9 +336,9 @@ int BLGetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm
 
 
 int getPNameAndPType(BLContextPtr context,
-                     unsigned char target[],
-		     unsigned char pname[],
-		     unsigned char ptype[]) {
+                     char * target,
+		     char * pname,
+		     char * ptype) {
 
   kern_return_t       status;
   mach_port_t         ourIOKitPort;

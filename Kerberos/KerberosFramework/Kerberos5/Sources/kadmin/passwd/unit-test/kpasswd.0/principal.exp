@@ -1,5 +1,5 @@
 #
-# $Id: principal.exp,v 1.9 1996/09/26 21:51:54 bjaspan Exp $
+# $Id: principal.exp 9123 1996-09-26 21:51:54Z bjaspan $
 #
 
 set timeout 15

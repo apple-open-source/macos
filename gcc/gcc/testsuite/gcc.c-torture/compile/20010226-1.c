@@ -1,3 +1,5 @@
+/* APPLE LOCAL  nested functions */
+/* { dg-xfail-if "" { "*-*-darwin*" } { "*" } { "" } } */
 void f1 (void *);
 void f3 (void *, void (*)(void *));
 void f2 (void *);

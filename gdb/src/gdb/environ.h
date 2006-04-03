@@ -40,6 +40,9 @@ extern void free_environ (struct environ *);
 
 extern void init_environ (struct environ *);
 
+/* APPLE LOCAL */
+void smuggle_dyld_settings (struct environ *e);
+
 extern char *get_in_environ (const struct environ *, const char *);
 
 extern void set_in_environ (struct environ *, const char *, const char *);

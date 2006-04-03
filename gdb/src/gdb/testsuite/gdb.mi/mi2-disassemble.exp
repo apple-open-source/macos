@@ -75,7 +75,7 @@ proc test_disassembly_lines_limit {} {
     # -data-disassembly -f basics.c -l 32 -n 50 -- 0
 
     mi_gdb_test "print/x \$pc" "" ""
-    mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -n 20 -- 0" \
+    mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -p 1000 -n 20 -- 0" \
 	    "222\\^done,asm_insns=\\\[\{address=\"$hex\",func-name=\"main\",offset=\"0\",inst=\".*\"\},.*,\{address=\"$hex\",func-name=\"main\",offset=\"$decimal\",inst=\".*\"\}\\\]" \
               "data-disassemble file, line, number assembly only"
 
@@ -83,7 +83,7 @@ proc test_disassembly_lines_limit {} {
 	    "222\\^done,asm_insns=\\\[\\\]" \
               "data-disassemble file, line, number (zero lines) assembly only"
 
-    mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -n 50 -- 0" \
+    mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -p 1000 -n 50 -- 0" \
 	    "222\\^done,asm_insns=\\\[\{address=\"$hex\",func-name=\"main\",offset=\"0\",inst=\".*\"\},.*,\{address=\"$hex\",func-name=\"main\",offset=\"$decimal\",inst=\".*\"\}\\\]" \
               "data-disassemble file, line, number (more than main lines) assembly only"
 }
@@ -125,15 +125,19 @@ proc test_disassembly_mixed_lines_limit {} {
     # -data-disassembly -f basics.c -l 32 -n 50 -- 1
 
     mi_gdb_test "print/x \$pc" "" ""
-    mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -n 20 -- 1" \
+    mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -n 20 -p 1000 -- 1" \
 	    "222\\^done,asm_insns=\\\[src_and_asm_line=\{line=\"$decimal\",file=\".*basics.c\",line_asm_insn=\\\[\{address=\"$hex\",func-name=\"main\",offset=\"0\",inst=\".*\"\},.*,\{address=\"$hex\",func-name=\"main\",offset=\"$decimal\",inst=\".*\"\}\\\]\}\]" \
               "data-disassemble file, line, number assembly mixed"
 
     mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -n 0 -- 1" \
-	    "222\\^done,asm_insns=\\\[src_and_asm_line=\{line=\"31\",file=\".*basics.c\",line_asm_insn=\\\[\\\]\}\\\]" \
+	    "222\\^done,asm_insns=\\\[src_and_asm_line=\{line=\"32\",file=\".*basics.c\",line_asm_insn=\\\[\\\]\}\\\]" \
               "data-disassemble file, line, number (zero lines) assembly mixed"
 
-    mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -n 50 -- 1" \
+    mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -n 0 -p 1000 -- 1" \
+	    "222\\^done,asm_insns=\\\[src_and_asm_line=\{line=\"31\",file=\".*basics.c\",line_asm_insn=\\\[\\\]\}\\\]" \
+              "data-disassemble file, line, number (zero lines) assembly mixed from start"
+
+    mi_gdb_test "222-data-disassemble  -f basics.c -l 32 -n 50 -p 1000 -- 1" \
 	    "222\\^done,asm_insns=\\\[src_and_asm_line=\{line=\"$decimal\",file=\".*basics.c\",line_asm_insn=\\\[\{address=\"$hex\",func-name=\"main\",offset=\"0\",inst=\".*\"\}.*,\{address=\"$hex\",func-name=\"main\",offset=\"$decimal\",inst=\".*\"\}\\\]\}\]" \
               "data-disassemble file, line, number (more than main lines) assembly mixed"
 }
@@ -149,22 +153,55 @@ proc test_disassembly_bogus_args {} {
     # -data-disassembly -s $pc -f basics.c -- 0
     # -data-disassembly -f basics.c -l 32 -- 9
 
-    mi_gdb_test "123-data-disassemble -f foo -l abc -n 0 -- 0" \
-             ".*123\\^error,msg=\"mi_cmd_disassemble: Invalid filename.\"" \
-             "data-disassemble bogus filename"
+    set usage_string "Usage: .*"
+
+    mi_gdb_test "123-data-disassemble --" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: Must specify mixed mode argument.  $usage_string\"" \
+	"data-disassemble missing mixed-mode arugment"
+
+    mi_gdb_test "123-data-disassemble -- 1 1" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: Extra arguments present.  $usage_string\"" \
+	"data-disassemble extra arguments"
+
+    mi_gdb_test "123-data-disassemble -- a" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: Mixed mode argument must be 0 or 1.  $usage_string\"" \
+	"data-disassemble bad mixed mode argument"
+
+    mi_gdb_test "123-data-disassemble -f test -- 1" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: File and line number must be specified together.  $usage_string\"" \
+	"data-disassemble file without line"
+
+    mi_gdb_test "123-data-disassemble -l 100 -- 1" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: File and line number must be specified together.  $usage_string\"" \
+	"data-disassemble line without file"
+
+    mi_gdb_test "123-data-disassemble -f basics.c -l 100 -s 0x0 -- 1" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: May not specify both a line number and a start address.  $usage_string\"" \
+	"data-disassemble file and start address"
+
+    mi_gdb_test "123-data-disassemble -f foo -l 1 -- 1" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: Invalid filename.\"" \
+	"data-disassemble invalid filename"
+
+    mi_gdb_test "123-data-disassemble -f basics.c -l 9000 -- 1" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: Invalid line number.\"" \
+	"data-disassemble invalid filename"
 
     mi_gdb_test "321-data-disassemble -s foo -e bar -- 0" \
-             "321\\^error,msg=\"No symbol \\\\\"foo\\\\\" in current context.\"" \
-             "data-disassemble bogus address"
+        "321\\^error,msg=\"No symbol \\\\\"foo\\\\\" in current context.\"" \
+        "data-disassemble bogus start address"
 
-    mi_gdb_test "456-data-disassemble -s \$pc -f basics.c -- 0" \
-             "456\\^error,msg=\"mi_cmd_disassemble: Usage: \\( .-f filename -l linenum .-n howmany.. | .-s startaddr -e endaddr. | .-s startaddr .-n howmany..\\) .--. mixed_mode.\"" \
-             "data-disassemble mix different args"
+    mi_gdb_test "321-data-disassemble -s 0x0 -e bar -- 0" \
+        "321\\^error,msg=\"No symbol \\\\\"bar\\\\\" in current context.\"" \
+        "data-disassemble bogus end address"
 
-    mi_gdb_test "789-data-disassemble -f basics.c -l 32 -- 9" \
-             "789\\^error,msg=\"mi_cmd_disassemble: Mixed_mode argument must be 0 or 1.\"" \
-             "data-disassemble wrong mode arg"
+    mi_gdb_test "123-data-disassemble -e 0x0 -- 1" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: No starting point specified.  $usage_string\"" \
+	"data-disassemble no start"
 
+    mi_gdb_test "123-data-disassemble -s 0x0 -e 0x0 -n 10 -- 1" \
+	".*123\\^error,msg=\"mi_cmd_disassemble: May not specify both an ending address and -n or -p.  $usage_string\"" \
+	"data-disassemble end and numlines"
 }
 
 mi_run_to_main

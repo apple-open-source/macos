@@ -1,11 +1,16 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CControllerPPC.cpp,v 1.11 2006/02/02 22:30:01 hpanther Exp $
+ *	File: $Id: IOI2CControllerPPC.cpp,v 1.12 2006/02/17 22:17:40 hpanther Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2CControllerPPC.cpp,v $
+ *		Revision 1.12  2006/02/17 22:17:40  hpanther
+ *		Fix
+ *		
+ *		4436981	IOI2CControllerPPC.kext: Replace semaphore with timeout semaphore block	CPU Software	IOI2C	(2) Analyze	McKenna, Mike	leopard	2	2	Crash or Data Loss	Today 8:00 AM
+ *		
  *		Revision 1.11  2006/02/02 22:30:01  hpanther
  *		Repair additional race condition.
  *		
@@ -570,16 +575,9 @@ IOI2CControllerPPC::i2cTransaction(
 		}
 		else
 		{
-//            if ( i2c_xfer)
-//            {
-				semaphore_wait(i2c_sema);
-				DLOG("[%p] woke from semaphore, i2c_state = %x\n", this, i2c_state);
-/*            }
-            else
-            {
-                DLOG("[%p] xfer already complete - not waiting on semaphore, i2c_state = %x\n", this, i2c_state);
-            }
-*/
+            mach_timespec_t timeout = { 5, 0 };    // 5 secs
+            rval = semaphore_timedwait(i2c_sema, timeout);
+            DLOG("[%p] woke from semaphore, i2c_state = %x\n", this, i2c_state);
 		}
 
 		// Clear transfer in progress flag to try preventing the interupt context from calling IOLockWake after a timeout.
@@ -625,7 +623,7 @@ IOI2CControllerPPC::i2cTransaction(
 		if (i2c_status == kIOReturnSuccess)
 		{
 				// If transaction successful and didn't timeout?
-				if (rval == THREAD_TIMED_OUT)
+				if (rval == KERN_OPERATION_TIMED_OUT)
 				{
 						ERRLOG("IOI2CControllerPPC::i2c%c timed-out B:0x%02x A:0x%02x %d/%d i2c_state:0x%08x\n", 
 							i2c_readDirection?'R':'W', cmd->bus, address, i2c_index, i2c_count, i2c_state);

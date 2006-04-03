@@ -2,7 +2,8 @@
 /* Contributed by Ziemowit Laski <zlaski@apple.com>  */
 
 /* { dg-options "-fnext-runtime" } */
-/* { dg-do compile { target *-*-darwin* } } */
+/* APPLE LOCAL constant cfstrings */
+/* { dg-do compile { target powerpc-*-darwin* } } */
 
 #include <objc/Object.h>
 

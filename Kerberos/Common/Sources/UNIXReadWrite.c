@@ -1,7 +1,7 @@
 /*
  * UNIXReadWrite.h
  *
- * $Header: /cvs/kfm/Common/Sources/UNIXReadWrite.c,v 1.2 2004/12/13 21:51:15 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.
@@ -45,7 +45,7 @@ static int __UNIXReadWriteError (int err, const char *function, const char *file
 static int __UNIXReadWriteError (int err, const char *function, const char *file, int line)
 {
     if (err && (ddebuglevel () > 0)) {
-        dprintf ("%s() error %ld ('%s') at %s: %d", function, err, strerror (err), file, line);
+        dprintf ("%s() error %d ('%s') at %s: %d", function, err, strerror (err), file, line);
     }
     return err;
 }

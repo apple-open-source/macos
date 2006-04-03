@@ -6,21 +6,13 @@ use Encode;
 Encode::perlio_ok ("utf16") or die ("can't read utf16");
 
 my $kfm = "KfM";
-my $buildVersion;
-my $marketingVersion;
-my $copyright = "Copyright 2004 Massachusetts Institute of Technology";
-my $shortCopyright = "Copyright 2004 MIT";
-my $root;
+my $buildVersion = "5.5.23";
+my $marketingVersion = "5.5.3";
+my $copyright = "Copyright 2006 Massachusetts Institute of Technology";
+my $shortCopyright = "Copyright 2006 MIT";
 
-my $usage = "Usage: KerberosVersion --build buildVersion --version versionString <root>\n";
-while ($_ = shift @ARGV) {
-    if    (/^--build/)   { $buildVersion = shift @ARGV; }
-    elsif (/^--version/) { $marketingVersion = shift @ARGV; }
-    else                 { $root = $_; }
-}
-
-$buildVersion or die $usage;
-$marketingVersion or die $usage;
+my $root = shift @ARGV;
+$root or die "Usage: KerberosVersion <root directory>\n";
 
 find (\&fixplists, $root); 
 
@@ -39,7 +31,7 @@ sub fixplists {
         }
         close $input;
         
-# replace version strings
+        # replace version strings
         
         $plist =~ s@(<key>CFBundleVersion</key>\s*<string>)[^<]*(</string>)@${1}${buildVersion}${2}@xg;
 # FIXME: CFBundleShortVersionString should be marketingVersion for next major release:

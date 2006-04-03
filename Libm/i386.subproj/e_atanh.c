@@ -1,61 +1,103 @@
-/* @(#)e_atanh.c 5.1 93/09/24 */
-/*
- * ====================================================
- * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
- *
- * Developed at SunPro, a Sun Microsystems, Inc. business.
- * Permission to use, copy, modify, and distribute this
- * software is freely granted, provided that this notice
- * is preserved.
- * ====================================================
- */
 
-#include <sys/cdefs.h>
-#if defined(LIBM_SCCS) && !defined(lint)
-__RCSID("$NetBSD: e_atanh.c,v 1.10 1999/07/02 15:37:38 simonb Exp $");
-#endif
+//
+//	atanh
+//
+//		by Ian Ollmann
+//
+//	based on MathLib v3
+//
+//	Copyright © 2005, Apple Computer, Inc.  All Rights Reserved.
+//
 
-/* __ieee754_atanh(x)
- * Method :
- *    1.Reduced x to positive by atanh(-x) = -atanh(x)
- *    2.For x>=0.5
- *                  1              2x                          x
- *	atanh(x) = --- * log(1 + -------) = 0.5 * log1p(2 * --------)
- *                  2             1 - x                      1 - x
- *
- * 	For x<0.5
- *	atanh(x) = 0.5*log1p(2x+2x*x/(1-x))
- *
- * Special cases:
- *	atanh(x) is NaN if |x| > 1 with signal;
- *	atanh(NaN) is that NaN with no signal;
- *	atanh(+-1) is +-INF with signal.
- *
- */
+#include <math.h>
 
-#include "math.h"
-#include "math_private.h"
-
-static const double one = 1.0, huge = 1e300;
-static const double zero = 0.0;
-
-double atanh(double x)
+float atanhf( float x )
 {
-	double t;
-	int32_t hx,ix;
-	u_int32_t lx;
-	EXTRACT_WORDS(hx,lx,x);
-	ix = hx&0x7fffffff;
-	if ((ix|((lx|(-lx))>>31))>0x3ff00000) /* |x|>1 */
-	    return (x-x)/(x-x);
-	if(ix==0x3ff00000)
-	    return x/zero;
-	if(ix<0x3e300000&&(huge+x)>zero) return x;	/* x<2**-28 */
-	SET_HIGH_WORD(x,ix);
-	if(ix<0x3fe00000) {		/* x < 0.5 */
-	    t = x+x;
-	    t = 0.5*log1p(t+t*x/(one-x));
-	} else
-	    t = 0.5*log1p((x+x)/(one-x));
-	if(hx>=0) return t; else return -t;
+	if( x != x )	return x + x;
+	
+	float fabsx = __builtin_fabsf( x );
+
+	if( fabsx > 1.0L)
+		return sqrtf( -fabsx );
+	
+	if( fabsx >= 0x1.0p-12 )		//sqrt( negative epsilon )
+	{
+		fabsx = 0.5f * log1pf( (fabsx + fabsx) / (1.0f - fabsx) );
+		
+	}
+	else
+	{
+		if( x == 0.0f )
+			return x;
+	
+		fabsx *= 0x1.0p25;
+		fabsx += 0x1.0p-126f;
+		fabsx *= 0x1.0p-25;
+	}
+
+	if( x < 0 )
+		fabsx = -fabsx;
+
+	return fabsx;
 }
+
+double atanh( double x )
+{
+	if( x != x )	return x + x;
+	
+	double fabsx = __builtin_fabs( x );
+
+	if( fabsx > 1.0)
+		return sqrt( -fabsx );
+	
+	if( fabsx >= 0x1.0p-27 )		//sqrt( negative epsilon )
+	{
+		fabsx = 0.5 * log1p( (fabsx + fabsx) / (1.0 - fabsx) );
+		
+	}
+	else
+	{
+		if( x == 0.0 )
+			return x;
+	
+		fabsx *= 0x1.0p55;
+		fabsx += 0x1.0p-1022;
+		fabsx *= 0x1.0p-55;
+	}
+
+	if( x < 0 )
+		fabsx = -fabsx;
+
+	return fabsx;
+}
+
+long double atanhl( long double x )
+{
+	if( x != x )	return x + x;
+	
+	long double fabsx = __builtin_fabsl( x );
+
+	if( fabsx > 1.0L)
+		return sqrtl( -fabsx );
+	
+	if( fabsx >= 0x1.0p-32 )		//sqrt( negative epsilon )
+	{
+		fabsx = 0.5 * log1pl( (fabsx + fabsx) / (1.0L - fabsx) );
+		
+	}
+	else
+	{
+		if( x == 0.0 )
+			return x;
+	
+		fabsx *= 0x1.0p65;
+		fabsx += 0x1.0p-16382L;
+		fabsx *= 0x1.0p-65;
+	}
+
+	if( x < 0 )
+		fabsx = -fabsx;
+
+	return fabsx;
+}
+

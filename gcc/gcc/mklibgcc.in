@@ -811,10 +811,14 @@ for ml in $MULTILIBS; do
     if [ "$os_multilib_dir" != . ]; then
       shlib_slibdir_qual="/$os_multilib_dir"
     fi
+  # APPLE LOCAL libcc_kext
+  if [ "$dir" != "static" -a "$dir" != "kext" ]; then
     echo "	$SHLIB_INSTALL" \
       | sed -e "s%@multilib_dir@%$dir%g" \
 	    -e "s%@shlib_base_name@%libgcc_s%g" \
 	    -e "s%@shlib_slibdir_qual@%$shlib_slibdir_qual%g"
+  # APPLE LOCAL libcc_kext
+  fi
     if [ "$LIBUNWIND" ]; then
       echo "	$SHLIBUNWIND_INSTALL" \
 	| sed -e "s%@multilib_dir@%$dir%g" \

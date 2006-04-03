@@ -1,5 +1,6 @@
 /* Prototypes.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   APPLE LOCAL mainline 2005-09-01 3449986
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -35,6 +36,8 @@ extern void machopic_symbol_stub_section (void);
 extern void machopic_symbol_stub1_section (void);
 /* APPLE LOCAL deep branch prediction */
 extern void machopic_symbol_stub2_section (void);
+/* APPLE LOCAL AT&T-style stub 4164563 */
+extern void machopic_picsymbol_stub3_section (void);
 extern void machopic_lazy_symbol_ptr_section (void);
 /* APPLE LOCAL begin -mdynamic-no-pic */
 extern void machopic_lazy_symbol_ptr2_section (void);
@@ -167,14 +170,15 @@ extern void machopic_nl_symbol_ptr_section (void);
 extern void machopic_symbol_stub_section (void);
 extern void machopic_picsymbol_stub_section (void);
 extern void machopic_output_stub (FILE *, const char *, const char *);
-/* APPLE LOCAL deep branch prediction.  */
-extern void darwin_textcoal_nt_section (void);
 extern void darwin_exception_section (void);
 extern void darwin_eh_frame_section (void);
 extern void darwin_globalize_label (FILE *, const char *);
 extern void darwin_assemble_visibility (tree, int);
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 					   const char *);
+/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+extern void darwin_cpp_builtins (struct cpp_reader *);
+/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 /* APPLE LOCAL optimization pragmas 3124235/3420242 */
 extern void reset_optimization_options (int, int);
 /* APPLE LOCAL C++ EH */

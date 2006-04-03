@@ -1,8 +1,8 @@
 ========================================================================
 KerberosDebug Bug List
 ========================================================================
-Current version: 1.6fc5
-Date:            January 23, 2005
+Current version: 1.6.1fc1
+Date:            October 6, 2005
 Author:          meeroh@mit.edu, lxs@mit.edu
 ========================================================================
 
@@ -13,9 +13,11 @@ Known bugs in 1.6:
 [BZ 157]	Sporadic crash in dprintcrawl or ValidAddress in Eudora
 
 ========================================================================
-Bug #        Bug description										Fixed in
+Bug #     Bug description										Fixed in
 ========================================================================
 
+[RT 3197] memory smash in dprintmem                                1.6.1fc1
+[RT 3198] dprintf should get gcc printf warnings                   1.6.1fc1
 [RT 2898] Remove noisy debugging syslogs from debugging library    1.6fc5
 [RT 2843] asl_log and asl_add_log_file changed prototypes          1.6fc4
 [RT 2831] Debug log should not be world writable                   1.6fc3

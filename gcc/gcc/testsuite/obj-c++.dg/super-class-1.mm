@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C++ */
+/* APPLE LOCAL file mainline */
 /* Test calling super from within a category method.  */
 /* { dg-do compile } */
 #include <objc/objc.h>

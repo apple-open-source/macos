@@ -1,8 +1,43 @@
+2005-10-13  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmds.c (mi_cmds): New command, 
+	file-sharedlibrary-apply-load-rules-all, mapped to the
+	"sharedlibrary apply-load-rules all" console.
+
+2005-09-12  Klee Dienes  <kdienes@apple.com>
+
+	* mi-cmd-disas.c (mi_cmd_disassemble): Update usage strings.  Add
+	support for -n and -p arguments when specifying a file and line
+	number.  Update to new interface to find_pc_offset.
+
+2005-09-01  Klee Dienes  <kdienes@apple.com>
+
+	* mi-cmd-disas.c (mi_cmd_disassemble_usage): New function.
+	(mi_cmd_disassemble): Add new options "-p" and "-P".  Update
+	command parser; use mi_cmd_disassemble_usage.  Use the new syntax
+	to gdb_disassembly.  Implement the "-p" (show instructions before
+	the address) feature.
+
+2005-06-21  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-file.c (mi_cmd_file_core_file): New function.
+	* mi-main.c (mi_cmd_target_attach): New function.
+	* mi-cmds.{c,h}: Add these two commands.
+	
+2005-06-14  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-var.c (mi_cmd_var_list_children): Add the
+	--show-protection flag.  When this is on, we don't show the
+	fake children.  Even when it's not we don't show the fake
+	children if there is ONLY a public child.
+	(_initialize_mi_cmd_var): Add a "set" variable to control
+	the default for showing protections.
+	
 2005-05-16  Jason Molenda  (jmolenda@apple.com)
 
-	* mi/mi-main.c (mi_cmd_thread_set_pc): Lift old_fun initialization
-	out of a conditional block -- it is used later in the function
-	when deciding whether to reset the picbase.
+	* mi-main.c (mi_cmd_thread_set_pc): Lift old_fun initialization
+	out of conditionalized block; we need to use it later on in this
+	function.
 
 2005-04-26  Jim Ingham  <jingham@apple.com>
 

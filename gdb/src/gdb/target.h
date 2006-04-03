@@ -383,9 +383,9 @@ struct target_ops
     char *(*to_extra_thread_info) (struct thread_info *);
     void (*to_stop) (void);
     void (*to_rcmd) (char *command, struct ui_file *output);
-    struct symtab_and_line *(*to_enable_exception_callback) (enum exception_event_kind, int);
+    int (*to_enable_exception_callback) (enum exception_event_kind, int);
     struct symtabs_and_lines *
-    (*to_find_exception_catchpoints) (enum exception_event_kind);
+    (*to_find_exception_catchpoints) (enum exception_event_kind, struct objfile *);
     struct exception_event_record *(*to_get_current_exception_event) (void);
     char *(*to_pid_to_exec_file) (int pid);
     enum strata to_stratum;
@@ -436,6 +436,10 @@ struct target_ops
        safe to call 0 if unsafe, and -1 if there was an error
        checking.  */
     int (*to_check_safe_call) ();
+
+    /* APPLE LOCAL: Allocate SIZE bytes in the target. */
+    CORE_ADDR (*to_allocate_memory) (int size);
+
     /* APPLE LOCAL: Check whether the objfile has been loaded into
        the inferior's process (so it is safe to set breakpoints
        from that objfile.)  */
@@ -865,8 +869,8 @@ extern void target_load (char *arg, int from_tty);
    in order to stop at a given exception type.  If you pass in
    OBJFILE, the search will be limited to that objfile. */
 
-#define target_find_exception_catchpoints(kind) \
-     (*current_target.to_find_exception_catchpoints) (kind)
+#define target_find_exception_catchpoints(kind, objfile) \
+     (*current_target.to_find_exception_catchpoints) (kind, objfile)
 
 /* Get the current exception event kind -- throw or catch, etc.  */
 
@@ -1052,6 +1056,13 @@ extern void (*target_new_objfile_hook) (struct objfile *);
     (current_target.to_check_safe_call)
 
 /*
+ * APPLE LOCAL: Allocate memory in the target.
+ */
+
+#define target_allocate_memory \
+    (current_target.to_allocate_memory)
+
+/*
  * APPLE LOCAL: Check whether OBJFILE has been loaded or
  * not.
  */
@@ -1120,6 +1131,7 @@ extern void (*target_new_objfile_hook) (struct objfile *);
 #define TARGET_REGION_SIZE_OK_FOR_HW_WATCHPOINT(byte_count) \
     (*current_target.to_region_size_ok_for_hw_watchpoint) (byte_count)
 #endif
+
 
 /* Set/clear a hardware watchpoint starting at ADDR, for LEN bytes.  TYPE is 0
    for write, 1 for read, and 2 for read/write accesses.  Returns 0 for

@@ -58,8 +58,6 @@
 #define kMaxTrialTime		1250000
 #define kMaxIPAddrs			32
 
-#define kSASLPluginDisabledPath		"/usr/lib/sasl2/disabled"
-
 #if 1
 static bool gDSDebuggingON = false;
 #define DEBUGLOG(A,args...)		if (gDSDebuggingON) syslog( LOG_ALERT, (A), ##args )
@@ -421,7 +419,9 @@ long ConnectToServer( sPSContextData *inContext )
     long siResult = 0;
 	PWServerError pwsError;
     char buf[1024];
-    
+	char *cur, *tptr;
+	int index = 0;
+	
 	DEBUGLOG( "ConnectToServer trying %s:%s", inContext->psName, inContext->psPort);
 	
     // connect to remote server
@@ -429,7 +429,7 @@ long ConnectToServer( sPSContextData *inContext )
     if ( siResult != 0 )
         return( siResult );
     	
-    // discard the greeting message
+    // get password server greeting
     pwsError = readFromServer(inContext->fd, buf, sizeof(buf));
     if ( pwsError.err < 0 && pwsError.type == kConnectionError )
 	{
@@ -440,8 +440,18 @@ long ConnectToServer( sPSContextData *inContext )
 	else
 	{
 		gOpenCount++;
-		inContext->serverIn = fdopen(inContext->fd, "r");
 		inContext->serverOut = fdopen(inContext->fd, "w");
+		
+		// get password server version from the greeting
+		if ( (tptr = strstr(buf, "ApplePasswordServer")) != NULL )
+		{
+			tptr += sizeof( "ApplePasswordServer" );
+			while ( (cur = strsep(&tptr, ".")) != NULL ) {
+				sscanf( cur, "%d", &inContext->serverVers[index++] );
+				if ( index >= 4 )
+					break;
+			}
+		}
     }
 	
     return siResult;
@@ -2105,56 +2115,4 @@ bool pwsf_GetSASLMechInfo( const char *inMechName, char **outPluginPath, bool *o
 	
 	return found;
 }
-
-
-// ----------------------------------------------------------------------------------------
-//  pwsf_SetSASLPluginState
-//
-//	Returns: TRUE if the plugin list changed
-// ----------------------------------------------------------------------------------------
-
-bool pwsf_SetSASLPluginState( const char *inMechName, bool enabled )
-{
-	char *pluginFileNamePtr = NULL;
-	bool changeMade = false;
-	struct stat sb;
-	char fromPath[256];
-	char toPath[256];
-	
-	// make sure the directory is there
-    int err = mkdir( kSASLPluginDisabledPath, S_IRWXU );
-    if ( err != 0 && errno != EEXIST )
-        return false;
-    
-	if ( pwsf_GetSASLMechInfo( inMechName, &pluginFileNamePtr, NULL ) )
-	{
-		fromPath[0] = '\0';
-		if ( enabled )
-		{
-			sprintf( fromPath, "%s/%s", kSASLPluginDisabledPath, pluginFileNamePtr );
-			sprintf( toPath, "/usr/lib/sasl2/%s", pluginFileNamePtr );
-		}
-		else
-		{
-			sprintf( fromPath, "/usr/lib/sasl2/%s", pluginFileNamePtr );
-			sprintf( toPath, "%s/%s", kSASLPluginDisabledPath, pluginFileNamePtr );
-		}
-		
-		if ( fromPath[0] != '\0' )
-		{
-			err = stat( fromPath, &sb );
-			if ( err == 0 )
-			{
-				rename( fromPath, toPath );
-				changeMade = true;
-			}
-		}
-		
-		if ( pluginFileNamePtr != NULL )
-			free( pluginFileNamePtr );
-	}
-	
-	return changeMade;
-}
-
 

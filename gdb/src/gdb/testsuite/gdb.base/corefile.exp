@@ -68,7 +68,7 @@ file mkdir $coredir
 remote_exec build "rm -f ${corefile}"
 
 # APPLE LOCAL: Our peculiar way of getting a core file..
-catch "system \"(ulimit -c unlimited; cd ${coredir}; pid=`${binfile}`; mv -f /cores/core.\\\$pid /cores/core.dejagnu; true)\""
+catch "system \"(ulimit -c unlimited; cd ${coredir}; pid=`${binfile}`; mv -f /cores/core.\\\$pid /cores/core.dejagnu >& /dev/null; true)\""
 
 foreach i "${coredir}/core ${coredir}/core.coremaker.c ${binfile}.core /cores/core.dejagnu" {
     if [remote_file build exists $i] {
@@ -252,4 +252,4 @@ gdb_test "up" "#\[0-9\]* *\[0-9xa-fH'\]* in .* \\(\\).*" "up in corefile.exp (re
 gdb_test "core" "No core file now."
 
 # Try to clean up after ourselves. 
-# remote_exec build "rm -f $corefile"
+remote_exec build "rm -f $corefile"

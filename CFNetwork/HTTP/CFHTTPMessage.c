@@ -238,6 +238,7 @@ _HTTPMessageRegisterClass(void) {
 		__CFHTTPMessageCopyDescription
 	};
 	
+
 	// On Windows CFSTR is a function call, not compiler supported, so we init this table ourselves
 #if defined(__WIN32__)
 	// **FIXME** Broken with changes for shrinking DATA section

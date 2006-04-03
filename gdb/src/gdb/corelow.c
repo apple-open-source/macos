@@ -217,8 +217,10 @@ core_close (int quitting)
       core_bfd = NULL;
       if (core_ops.to_sections)
 	{
+	  /* APPLE LOCAL begin resize instead of freeing */
 	  target_resize_to_sections
 	    (&core_ops, core_ops.to_sections_end - core_ops.to_sections);
+	  /* APPLE LOCAL end resize instead of freeing */
 	}
     }
   core_vec = NULL;
@@ -239,6 +241,7 @@ static int
 solib_add_stub (void *from_ttyp)
 {
   SOLIB_ADD (NULL, *(int *) from_ttyp, &current_target, auto_solib_add);
+  /* APPLE LOCAL control silencing of breakpoint re-enable */
   re_enable_breakpoints_in_shlibs (0);
   return 0;
 }

@@ -9,15 +9,20 @@
 ### file and make sure the Radar bug is closed.
 ### 
 ###------------------------------------------------------------------
-3370400: 17_intro/headers_c++.cc (test for excess errors)
-3370400: 17_intro/headers_c.cc (test for excess errors)
+#3370400: 17_intro/headers_c++.cc (test for excess errors)
+#3370400: 17_intro/headers_c.cc (test for excess errors)
 3378287: 26_numerics/c99_classification_macros_c.cc (test for excess errors)
-3375265: 27_io/filebuf_members.cc execution test
-3357567: ext/concept_checks.cc (test for excess errors)
-3656565: 20_util/auto_ptr_neg.cc (test for excess errors)
-3370400: 17_intro/headers_c++.cc (test for excess errors) #1
-3370400: 17_intro/headers_c.cc (test for excess errors) #1
+#3375265: 27_io/filebuf_members.cc execution test
+#3357567: ext/concept_checks.cc (test for excess errors)
+#3656565: 20_util/auto_ptr_neg.cc (test for excess errors)
+#3370400: 17_intro/headers_c++.cc (test for excess errors) #1
+#3370400: 17_intro/headers_c.cc (test for excess errors) #1
 3378287: 26_numerics/c99_classification_macros_c.cc (test for excess errors) #1
-3375265: 27_io/filebuf_members.cc execution test #1
-3357567: ext/concept_checks.cc (test for excess errors) #1
-3656565: 20_util/auto_ptr_neg.cc (test for excess errors) #1
+#3375265: 27_io/filebuf_members.cc execution test #1
+#3357567: ext/concept_checks.cc (test for excess errors) #1
+#3656565: 20_util/auto_ptr_neg.cc (test for excess errors) #1
+3884894: 23_containers/vector_resize.cc execution test
+3884894: 27_io/ios_base_storage.cc execution test
+3884894: 23_containers/vector_resize.cc execution test #1
+3884894: 27_io/ios_base_storage.cc execution test #1
+

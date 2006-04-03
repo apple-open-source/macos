@@ -54,13 +54,11 @@ void _initialize_blockframe (void);
 int
 deprecated_inside_entry_file (CORE_ADDR addr)
 {
-#if 0
-  /* APPLE LOCAL: Don't treat a PC of zero as the bottom of the stack.  If
-     you do, then you won't give a backtrace if somebody calls a NULL 
-     function pointer.  */
-  if (addr == 0)
-    return 1;
-#endif
+  /* APPLE LOCAL begin zero PC */
+  /* Removed test that treated a PC of zero as the bottom of the
+     stack.  If you do, then you won't give a backtrace if somebody
+     calls a NULL function pointer.  */
+  /* APPLE LOCAL end zero PC */
 
   if (symfile_objfile == 0)
     return 0;
@@ -88,19 +86,23 @@ inside_main_func (CORE_ADDR pc)
   if (symfile_objfile == 0)
     return 0;
 
-  /* APPLE LOCAL:  If we've already found the start/end addrs of main,
-     don't recompute them.  This will probably be fixed in the FSF sources
-     soon too, in which case this change can be dropped.  jmolenda/2004-04-28 */
+  /* APPLE LOCAL begin don't recompute start/end of main */
+  /* If we've already found the start/end addrs of main, don't
+     recompute them.  This will probably be fixed in the FSF sources
+     soon too, in which case this change can be dropped.
+     jmolenda/2004-04-28 */
   if (symfile_objfile->ei.main_func_lowpc != INVALID_ENTRY_LOWPC
       && symfile_objfile->ei.main_func_highpc != INVALID_ENTRY_LOWPC)
     return (symfile_objfile->ei.main_func_lowpc <= pc
             && symfile_objfile->ei.main_func_highpc > pc);
+  /* APPLE LOCAL end don't recompute start/end of main */
 
-  /* APPLE LOCAL: Don't restrict lookup_minimal_symbol's object file to
-     symfile_objfile -- this will fail for ZeroLink apps where symfile_objfile
-     is just the ZL launcher stub.  */
-
+  /* APPLE LOCAL begin don't restrict lookup_minimal_symbol's object file */
+  /* Don't restrict lookup_minimal_symbol's object file to
+     symfile_objfile -- this will fail for ZeroLink apps where
+     symfile_objfile is just the ZL launcher stub.  */
   msymbol = lookup_minimal_symbol (main_name (), NULL, NULL);
+  /* APPLE LOCAL end don't restrict lookup_minimal_symbol's object file */
 
   /* If the address range hasn't been set up at symbol reading time,
      set it up now.  */

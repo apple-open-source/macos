@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_net.c,v 1.8.372.1 2005/08/12 23:13:01 lindak Exp $
+ * $Id: nb_net.c,v 1.8.372.2 2005/11/15 01:45:31 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -51,16 +51,18 @@
 #include <netsmb/nb_lib.h>
 
 int
-nb_getlocalname(char *name)
+nb_getlocalname(char *name, size_t maxsize)
 {
-	char buf[1024], *cp;
+	char buf[_POSIX_HOST_NAME_MAX+1], *cp;
 
 	if (gethostname(buf, sizeof(buf)) != 0)
 		return errno;
 	cp = strchr(buf, '.');
 	if (cp)
 		*cp = 0;
-	strcpy(name, buf);
+	/* Use strlcpy to make sure we do not overrun the buffer */
+	if (strlcpy(name, buf, maxsize) >= maxsize)
+		return ENAMETOOLONG;
 	return 0;
 }
 

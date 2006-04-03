@@ -218,8 +218,9 @@ make_oldtarget_hashtable(
 char *old_target)
 {
     struct nlist *symbols, *text_symbols, *np;
-    long nsyms, strsize, textaddr, textsize, i, ntext_symbols,
+    unsigned long nsyms, strsize, textaddr, textsize, i,
 	target_addr, hash_key, text_nsect, data_nsect;
+    long ntext_symbols;
     char *text, *strings;
     struct ext *extp;
 
@@ -330,12 +331,12 @@ check_newtarget(
 char *new_target)
 {
     struct nlist *symbols, *text_symbols, *global_symbols, *np;
-    long nsyms, strsize, textaddr, textsize, ntext_symbols, i, j, target_addr,
-	first_new_data, printed_first_new_data, nglobal_symbols, old_name_error,
+    unsigned long nsyms, strsize, textaddr, textsize, i, j, target_addr,
+	first_new_data, printed_first_new_data, old_name_error,
 	text_nsect, data_nsect;
     char *strings, *text;
     struct ext *extp;
-    long hash_key;
+    long hash_key, ntext_symbols, nglobal_symbols;
     struct oddball *obp;
     struct branch *bp;
     long slot_number;

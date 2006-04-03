@@ -1,3 +1,24 @@
+2005-08-22  Mike Stump  <mrs@apple.com>
+
+	Radar 4211954
+	* expr.c (interpret_int_suffix): Add support for the h suffix to
+	identify hex integers.	
+	(cpp_classify_number): Likewise.
+	(cpp_interpret_integer): Likewise.
+	* include/cpplib.h (struct cpp_options): Likewise.
+	
+2005-06-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* lex.c (warn_about_normalization): Add cast to 'sz'.
+	* macro.c (cpp_get_token): Use cast on 'result' rather than making
+	it non-const.
+	* pch.c (cpp_read_state): Don't mix declarations and code.
+
+2005-06-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 4133801
+	* include/cpplib.h (CPP_BINCL, CPP_EINCL):  New.
+
 2005-04-21  Devang Patel  <dpatel@apple.com>
 
 	Radar 4058553

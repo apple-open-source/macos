@@ -51,7 +51,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: xmlrpc-epi-php.c,v 1.24.2.4 2003/08/28 20:01:32 iliaa Exp $ */
+/* $Id: xmlrpc-epi-php.c,v 1.24.2.4.4.2 2005/10/05 16:41:18 rrichards Exp $ */
 
 /**********************************************************************
 * BUGS:                                                               *
@@ -482,7 +482,7 @@ static XMLRPC_VECTOR_TYPE determine_vector_type (HashTable *ht)
 }
 
 /* recursively convert php values into xmlrpc values */
-static XMLRPC_VALUE PHP_to_XMLRPC_worker (const char* key, zval* in_val, int depth)
+static XMLRPC_VALUE PHP_to_XMLRPC_worker (const char* key, zval* in_val, int depth TSRMLS_DC)
 {
    XMLRPC_VALUE xReturn = NULL;
    if(in_val) {
@@ -524,28 +524,41 @@ static XMLRPC_VALUE PHP_to_XMLRPC_worker (const char* key, zval* in_val, int dep
                   unsigned long num_index;
                   zval** pIter;
                   char* my_key;
+                  HashTable *ht = NULL;
 
+                  ht = HASH_OF(val);
+                  if (ht && ht->nApplyCount > 1) {
+                      php_error_docref(NULL TSRMLS_CC, E_ERROR, "XML-RPC doesn't support circular references");
+                      return NULL;
+                  }
+                  
                   convert_to_array(val);
-
                   xReturn = XMLRPC_CreateVector(key, determine_vector_type(Z_ARRVAL_P(val)));
 
                   zend_hash_internal_pointer_reset(Z_ARRVAL_P(val));
-                  while(1) {
+                  while(zend_hash_get_current_data(Z_ARRVAL_P(val), (void**)&pIter) == SUCCESS) {
                      int res = my_zend_hash_get_current_key(Z_ARRVAL_P(val), &my_key, &num_index);
-                     if(res == HASH_KEY_IS_LONG) {
-                        if(zend_hash_get_current_data(Z_ARRVAL_P(val), (void**)&pIter) == SUCCESS) {
-                           XMLRPC_AddValueToVector(xReturn, PHP_to_XMLRPC_worker(0, *pIter, depth++));
-                        }
+                    
+                     switch (res) {
+                         case HASH_KEY_NON_EXISTANT:
+                             break;
+                         case HASH_KEY_IS_STRING:
+                         case HASH_KEY_IS_LONG:
+                              ht = HASH_OF(*pIter);
+                             if (ht) {
+                                 ht->nApplyCount++;
+                             }
+                             if (res == HASH_KEY_IS_LONG) {
+                                 XMLRPC_AddValueToVector(xReturn, PHP_to_XMLRPC_worker(0, *pIter, depth++ TSRMLS_CC));
+                             }
+                             else {
+                                 XMLRPC_AddValueToVector(xReturn, PHP_to_XMLRPC_worker(my_key, *pIter, depth++ TSRMLS_CC));
+                             }
+                             if (ht) {
+                                 ht->nApplyCount--;
+                             }
+                             break;
                      }
-                     else if(res == HASH_KEY_NON_EXISTANT) {
-                        break;
-                     }
-                     else if(res == HASH_KEY_IS_STRING) {
-                        if(zend_hash_get_current_data(Z_ARRVAL_P(val), (void**)&pIter) == SUCCESS) {
-                           XMLRPC_AddValueToVector(xReturn, PHP_to_XMLRPC_worker(my_key, *pIter, depth++));
-                        }
-                     }
-
                      zend_hash_move_forward(Z_ARRVAL_P(val));
                   }
                }
@@ -558,9 +571,9 @@ static XMLRPC_VALUE PHP_to_XMLRPC_worker (const char* key, zval* in_val, int dep
    return xReturn;
 }
 
-static XMLRPC_VALUE PHP_to_XMLRPC(zval* root_val)
+static XMLRPC_VALUE PHP_to_XMLRPC(zval* root_val TSRMLS_DC)
 {
-   return PHP_to_XMLRPC_worker(NULL, root_val, 0);
+   return PHP_to_XMLRPC_worker(NULL, root_val, 0 TSRMLS_CC);
 }
 
 /* recursively convert xmlrpc values into php values */
@@ -662,7 +675,7 @@ PHP_FUNCTION(xmlrpc_encode_request)
             XMLRPC_RequestSetRequestType(xRequest, xmlrpc_request_call);
          }
          if(Z_TYPE_P(vals) != IS_NULL) {
-             XMLRPC_RequestSetData(xRequest, PHP_to_XMLRPC(vals));
+             XMLRPC_RequestSetData(xRequest, PHP_to_XMLRPC(vals TSRMLS_CC));
          }
 
          outBuf = XMLRPC_REQUEST_ToXML(xRequest, 0);
@@ -691,7 +704,7 @@ PHP_FUNCTION(xmlrpc_encode)
 
    if( return_value_used ) {
       /* convert native php type to xmlrpc type */
-      xOut = PHP_to_XMLRPC(arg1);
+      xOut = PHP_to_XMLRPC(arg1 TSRMLS_CC);
 
       /* generate raw xml from xmlrpc data */
       outBuf = XMLRPC_VALUE_ToXML(xOut, 0);
@@ -1110,7 +1123,7 @@ PHP_FUNCTION(xmlrpc_server_call_method)
            }
            else if(data.php_executed) {
                if(!out.b_php_out) {
-                   xAnswer = PHP_to_XMLRPC(data.return_data);
+                   xAnswer = PHP_to_XMLRPC(data.return_data TSRMLS_CC);
                }
            }
 
@@ -1182,7 +1195,7 @@ PHP_FUNCTION(xmlrpc_server_add_introspection_data)
    server = zend_list_find(Z_LVAL_P(handle), &type);
 
    if (type == le_xmlrpc_server) {
-      XMLRPC_VALUE xDesc = PHP_to_XMLRPC(desc);
+      XMLRPC_VALUE xDesc = PHP_to_XMLRPC(desc TSRMLS_CC);
       if (xDesc) {
          int retval = XMLRPC_ServerAddIntrospectionData(server->server_ptr, xDesc);
          XMLRPC_CleanupValue(xDesc);

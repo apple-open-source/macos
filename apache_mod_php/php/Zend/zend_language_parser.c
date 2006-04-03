@@ -2548,7 +2548,7 @@ case 157:
 { zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC); zend_do_assign_ref(&yyval, &yyvsp[-3], &yyvsp[0] TSRMLS_CC); }
     break;
 case 158:
-{ zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC); zend_do_assign_ref(&yyval, &yyvsp[-3], &yyvsp[0] TSRMLS_CC); }
+{ zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC); yyvsp[0].u.EA.type = ZEND_PARSED_FCALL; zend_do_assign_ref(&yyval, &yyvsp[-3], &yyvsp[0] TSRMLS_CC); }
     break;
 case 159:
 { zend_do_extended_fcall_begin(TSRMLS_C); zend_do_begin_new_object(&yyvsp[-1], &yyvsp[0] TSRMLS_CC); }
@@ -2716,7 +2716,7 @@ case 213:
 { zend_do_qm_false(&yyval, &yyvsp[0], &yyvsp[-5], &yyvsp[-2] TSRMLS_CC); }
     break;
 case 214:
-{ yyval = yyvsp[0]; }
+{ yyval = yyvsp[0]; yyval.u.EA.type = ZEND_PARSED_FCALL; }
     break;
 case 215:
 { yyval = yyvsp[0]; }

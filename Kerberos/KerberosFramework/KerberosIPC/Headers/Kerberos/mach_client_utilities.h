@@ -1,7 +1,7 @@
 /*
  * mach_client_utilities.h
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosIPC/Headers/Kerberos/mach_client_utilities.h,v 1.11 2005/05/25 20:17:17 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

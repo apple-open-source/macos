@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: util_canonhost.c,v 1.12 1996/08/28 21:50:35 tytso Exp $
+ * $Id: util_canonhost.c 8999 1996-08-28 21:50:38Z tytso $
  */
 
 /* This file could be OS specific */

@@ -1,9 +1,0 @@
-include "$(SRCROOT)/../../../Common/Scripts/man.jam" ;
-
-Man install : "1" "$(SRCROOT)/../Documentation/kdestroy.M" ;
-
-NOCARE all ;
-NOTFILE all ;
-
-NOCARE installhdrs ;
-NOTFILE installhdrs ;

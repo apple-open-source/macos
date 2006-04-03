@@ -1,3 +1,61 @@
+2005-09-28  Geoffrey Keating  <geoffk@apple.com>
+
+	* Makefile.tpl (BASE_TARGET_EXPORTS): Add LIPO, STRIP.
+	(LIPO_FOR_TARGET): New.
+	(CONFIGURED_LIPO_FOR_TARGET): New.
+	(USUAL_LIPO_FOR_TARGET): New.
+	(STRIP_FOR_TARGET): New.
+	(CONFIGURED_STRIP_FOR_TARGET): New.
+	(USUAL_STRIP_FOR_TARGET): New.
+	* Makefile.def (flags_to_pass): Add LIPO_FOR_TARGET and
+	STRIP_FOR_TARGET.
+	* configure.in: Set LIPO_FOR_TARGET, STRIP_FOR_TARGET,
+	CONFIGURED_LIPO_FOR_TARGET, CONFIGURED_STRIP_FOR_TARGET.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	
+2005-07-07  Release Manager
+
+	* GCC 4.0.1 released.
+
+2005-06-22  Eric Christopher  <echristo@redhat.com>
+
+	PR bootstrap/17383
+	* configure.in: Reject building in the source directory.
+	* configure: Regenerate.
+
+2005-06-06  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* configure.in: Don't add another '/mpfr' to the directory given
+	in --with-mpfr-dir.
+	* configure: Regenerate.
+
+2005-05-13  David Edelsohn  <edelsohn@gnu.org>
+
+	Backport from mainline:
+	* ltconfig: Define file_list_spec.  Pass file_list_spec and
+	with_gnu_ld to libtool.
+	* ltcf-c.sh (aix[45]): Define file_list_spec.
+	* ltcf-cxx.sh (aix[45]): Same.
+	* ltcf-gcj.sh (aix[45]): Same.
+	* ltmain.sh: If command exceeds max_cmd_len and file_list_spec
+	exists, write list of input files to temporary file.
+
+2005-05-08  Matt Kraai  <kraai@ftbfs.org>
+
+	* README.SCO: Update the URL.
+
+2005-05-06  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	PR target/21325
+	* configure.in (powerpc-*-darwin*): Remove ${libgcj} from noconfigdirs.
+	* configure: Regenerated.
+
+2005-04-25  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* MAINTAINERS: Add self as Blackfin maintainer
+	* config.sub: Import from master version.
+
 2005-04-20  Release Manager
 
 	* GCC 4.0.0 released.

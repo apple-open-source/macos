@@ -377,7 +377,8 @@ enum {
     kFlagBitLogInOnly,		// Used by csmount to "test" connect
     kFlagBitGotError,		// Used to protect when dequeueing as a result of an
                        		// error and trying to requeue orphaned items.
-    
+	kFlagBitCompleteDeferred,	// During RETR, set by first code executed (no data on the datastream or getting a complete response)
+	
     // _CFFTPNetConnection flags
     kFlagBitMultiline	= 0,	// In the process of a multiline response
     kFlagBitReturnToIdle,	// Return back to the idle state before proceeding to next request
@@ -1074,6 +1075,16 @@ _FTPStreamRead(CFReadStreamRef stream, UInt8* buffer, CFIndex bufferLength, CFSt
         }
 
         if (result <= 0) {
+
+	    // has the RETR command completed yet?
+	    if (__CFBitIsSet(ctxt->_flags, kFlagBitCompleteDeferred)) {
+		// yes, so the response is complete
+		_CFNetConnectionResponseIsComplete(ctxt->_connection, ctxt);
+		__CFBitClear(ctxt->_flags, kFlagBitCompleteDeferred);
+	    }
+	    else {
+		__CFBitSet(ctxt->_flags, kFlagBitCompleteDeferred);
+	    }
 
             // **FIXME** This is not 100% correct.  If the data stream has zero bytes,
             // the result should actually be read from the control stream and any error
@@ -2597,6 +2608,7 @@ _ReportError(_CFFTPStreamContext* ctxt, CFStreamError* error) {
 /* static */ void
 _ConnectionComplete(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt) {
 
+    _CFFTPStreamState old_state = ctxt->_state;
     CFArrayRef a = ftpCtxt->_runloops;
     int i, count = CFArrayGetCount(a);
     for (i = 0; i < count; i += 2) {
@@ -2609,7 +2621,24 @@ _ConnectionComplete(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCt
     ctxt->_state = kFTPStateIdle;
     
     _CFNetConnectionRequestIsComplete(ftpCtxt->_connection, ftpCtxt);
+
+       // was this a RETR command?
+       if (old_state == kFTPStateRETR) {
+               // has the _dataStream completed yet?
+               if (__CFBitIsSet(ftpCtxt->_flags, kFlagBitCompleteDeferred)) {
+                       // yes, so the response is complete
     _CFNetConnectionResponseIsComplete(ftpCtxt->_connection, ftpCtxt);
+                       __CFBitClear(ftpCtxt->_flags, kFlagBitCompleteDeferred);
+               }
+               else {
+                       // no, so set the flag and wait for the _dataStream to complete
+                       __CFBitSet(ftpCtxt->_flags, kFlagBitCompleteDeferred);
+               }
+       }
+       else {
+               _CFNetConnectionResponseIsComplete(ftpCtxt->_connection, ftpCtxt);
+               __CFBitClear(ftpCtxt->_flags, kFlagBitCompleteDeferred);
+       }
 
     // 3266164 Let the end event come from the data stream at this point.  It's
     // now properly unwound from the connection, so let things progress naturally.
@@ -2841,6 +2870,7 @@ _StartTransfer(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt) {
                 if (!ftpCtxt->_offset) {
                     cmd = CFStringCreateWithFormat(alloc, NULL, kCFFTPRETRCommandString, target);
                     ctxt->_state = kFTPStateRETR;
+                                       __CFBitClear(ftpCtxt->_flags, kFlagBitCompleteDeferred);
 
                     if (ftpCtxt->_dataStream)
                         CFReadStreamOpen((CFReadStreamRef)ftpCtxt->_dataStream);
@@ -4072,6 +4102,7 @@ _HandleStat(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt, cons
 
 			cmd = CFStringCreateWithFormat(alloc, NULL, kCFFTPRETRCommandString, path);
 			ctxt->_state = kFTPStateRETR;
+			__CFBitClear(ftpCtxt->_flags, kFlagBitCompleteDeferred);
 			CFRelease(path);
 
 			if (ftpCtxt->_dataStream)
@@ -4154,6 +4185,7 @@ _HandleSize(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt, cons
 
 			cmd = CFStringCreateWithFormat(alloc, NULL, kCFFTPRETRCommandString, path);
 			ctxt->_state = kFTPStateRETR;
+			__CFBitClear(ftpCtxt->_flags, kFlagBitCompleteDeferred);
 			CFRelease(path);
 
 			if (ftpCtxt->_dataStream)
@@ -4189,6 +4221,7 @@ _HandleRestart(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt) {
         CFRelease(path);
         
         ctxt->_state = kFTPStateRETR;
+               __CFBitClear(ftpCtxt->_flags, kFlagBitCompleteDeferred);
                 
         if (ftpCtxt->_dataStream)
             CFReadStreamOpen((CFReadStreamRef)ftpCtxt->_dataStream);
@@ -4479,12 +4512,15 @@ _StartProcess(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt) {
 #pragma mark Extern Function Definitions (API)
 #endif
 
+
+
 /* CF_EXPORT */ CFWriteStreamRef
 CFWriteStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
     
     CFWriteStreamRef result = NULL;
     CFStringRef temp;
     _CFFTPStreamContext* ctxt;
+
 
     if (!ftpURL || !(ftpURL = _ConvertToCFFTPHappyURL(ftpURL)))
         return result;
@@ -4589,13 +4625,13 @@ CFWriteStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
     return result;
 }
 
-
 /* CF_EXPORT */ CFReadStreamRef
 CFReadStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
 
     CFReadStreamRef result = NULL;
     CFStringRef temp;
     _CFFTPStreamContext* ctxt;
+
 
     if (!ftpURL || !(ftpURL = _ConvertToCFFTPHappyURL(ftpURL)))
         return result;

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: exif.c,v 1.118.2.37 2005/03/22 22:07:03 edink Exp $ */
+/* $Id: exif.c,v 1.118.2.37.2.3 2005/10/10 06:07:16 helly Exp $ */
 
 /*  ToDos
  *
@@ -107,7 +107,7 @@ function_entry exif_functions[] = {
 };
 /* }}} */
 
-#define EXIF_VERSION "1.4 $Id: exif.c,v 1.118.2.37 2005/03/22 22:07:03 edink Exp $"
+#define EXIF_VERSION "1.4 $Id: exif.c,v 1.118.2.37.2.3 2005/10/10 06:07:16 helly Exp $"
 
 /* {{{ PHP_MINFO_FUNCTION
  */
@@ -3014,6 +3014,12 @@ static int exif_process_IFD_in_JPEG(image_info_type *ImageInfo, char *dir_start,
 		}
 	}
 	/*
+	 * Ignore IFD2 if it purportedly exists
+	 */
+	if (section_index == SECTION_THUMBNAIL) {
+		return TRUE;
+	}
+	/*
 	 * Hack to make it process IDF1 I hope
 	 * There are 2 IDFs, the second one holds the keys (0x0201 and 0x0202) to the thumbnail
 	 */
@@ -3722,7 +3728,11 @@ static int exif_read_file(image_info_type *ImageInfo, char *FileName, int read_t
 	if (php_stream_is(ImageInfo->infile, PHP_STREAM_IS_STDIO)) {
 		if (VCWD_STAT(FileName, &st) >= 0) {
 			/* Store file date/time. */
+#ifdef NETWARE
+			ImageInfo->FileDateTime = st.st_mtime.tv_sec;
+#else
 			ImageInfo->FileDateTime = st.st_mtime;
+#endif
 			ImageInfo->FileSize = st.st_size;
 			/*exif_error_docref(NULL TSRMLS_CC, ImageInfo, E_NOTICE, "open stream is file: %d", ImageInfo->FileSize);*/
 		}

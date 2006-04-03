@@ -1,6 +1,10 @@
 TODO:
 - Test dlopen() with Apache, perl, and tcl.
 
+Changes for the 5.20 release (the cctools-590.20 release):
+- Removed the warnings when building. Radar bug #4340147.
+  - Added -fno-builtin-round to the Makefile.
+
 Changes for the 5.18 release (the cctools-583 release):
 - Changed the Makefile so that when RC_XBS is set to YES then the compiler
   options -MD and -dependency-file as well as the md(1) program are not used.

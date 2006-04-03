@@ -5,7 +5,7 @@
  |                     MacsBug screen area display control routines                     |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2001                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -36,6 +36,8 @@
 
 /*--------------------------------------------------------------------------------------*/
 
+int target_arch    = 4;				/* target architecture (4/8 for 32/64)	*/
+
 int macsbug_screen = 0;				/* !=0 ==> MacsBug screen is active	*/
 
 GDB_FILE *macsbug_screen_stdout = NULL;		/* macsbug screen's stdout		*/
@@ -59,7 +61,7 @@ char *log_filename = NULL;			/* log filename (NULL if file closed)	*/
 
 Special_Refresh_States immediate_flush;		/* Special_Refresh_States state switch	*/
 
-int current_pc_lines = 0;			/* nbr of lines in pc area (may be 1 	*/
+static int current_pc_lines = 0;		/* nbr of lines in pc area (may be 1 	*/
 						/* bigger than pc_area_lines if no sym	*/
 						/* for pc area				*/
 
@@ -70,9 +72,9 @@ int current_pc_lines = 0;			/* nbr of lines in pc area (may be 1 	*/
 static char prompt[300];			/* modified prompt with cursor position	*/
 static int prompt_start = 0;			/* where in prompt original starts	*/
 
-static unsigned long previous_pc = 0;		/* previous pc displayed in pc area	*/
-static int first_sidebar = 1;
-static int prev_running  = 1;
+static GDB_ADDRESS previous_pc = 0;		/* previous pc displayed in pc area	*/
+static int first_sidebar       = 1;
+static int prev_running        = 1;
 
 typedef struct History {			/* history line data:			*/
     struct History *next, *prev;		/*    kept as a doubly linked list	*/
@@ -119,18 +121,25 @@ static short pc_bottom_divider;			/* row of pc area bottom divider	*/
 
 static GDB_HOOK *hook_stop = NULL;		/* hook-stop hander			*/
 
-static unsigned long long prev_pc;				/* reg values since last time displayed	*/
-static unsigned long long prev_lr;
-static unsigned long long prev_ctr;
-static unsigned long long prev_msr;
-static unsigned long long prev_cr;
-static unsigned long long prev_xer;
-static unsigned long long prev_mq;
-static unsigned long long prev_gpr[32];
+static GDB_ADDRESS   prev_pc;			/* reg values since last time displayed	*/
+static GDB_ADDRESS   prev_lr;
+static GDB_ADDRESS   prev_ctr;
+static GDB_ADDRESS   prev_xer;
+static GDB_ADDRESS   prev_mq;			/* ??					*/
+static GDB_ADDRESS   prev_msr;
+static GDB_ADDRESS   prev_gpr[32];
+
+union {						/* gdb_get_register() could return a	*/
+    unsigned long long cr_err;			/* error code as a long long.		*/
+    unsigned long cr;				/* but the cr is always only 32-bits	*/
+} prev_cr;
 
 static unsigned long *prev_stack       = NULL;	/* stk values since last time displayed	*/
 static char	     *prev_stack_color = NULL;	/* color state for prev_stack value	*/
 static int           prev_stack_cnt    = 0;	/* nbr of entries in prev_stack[] array	*/
+
+static char *curApName_title = "CurApName";	/* "CurApName" or "PID"			*/
+static char side_bar_blanks[21];		/* blank entry for a side bar line	*/
 
 #define BUFFER_OUTPUT 	1			/* controlls whether to buffer screen	*/
 
@@ -144,6 +153,8 @@ static int  buf_row = 0;			/* nbr of lines buffer represents	*/
 #define END_OF_LINE				/* nop if not buffering			*/
 #define FLUSH_BUFFER screen_fflush(stdout, HISTORY_AREA)
 #endif
+
+static void sd(char *arg, int from_tty);	/* sd and su reference each other	*/
 
 /*--------------------------------------------------------------------------------------*/
 
@@ -201,7 +212,7 @@ static void word_completion_query(GDB_FILE *stream, char *query, ...)
     /* Because this prompt is now in this special place we have to make sure to clear 	*/
     /* it in word_completion_cursor_control() above.   This is a reminder because if I	*/
     /* ever revisit this code to figure out what happend (fat chance) I have to remove	*/
-    /* that line clear (ok, I really don't, but what's the point of keeping it in).	*/
+    /* that line clear (ok, I really don't, but what's the point of keeping it in?).	*/
     
     #if 0
     va_start(ap, query);
@@ -237,29 +248,6 @@ void get_screen_size(int *max_rows, int *max_cols)
     else {
     	*max_rows = size.ws_row;
     	*max_cols = size.ws_col;
-    }
-}
-
-
-/*--------------------------------------------------------------------*
- | position_cursor_for_shell_input - set cursor to accept shell input |
- *--------------------------------------------------------------------*
- 
- This is called whenever we know we are going back to the shell (e.g., when exiting gdb).
- We position the cursor to the bottom of the screen so that the shell lines will cause
- the screen to scroll up.  This is needed in enough places to warrant its own routine.
-*/
-
-static void flush_buffer(void);
-
-void position_cursor_for_shell_input(void)
-{
-    struct winsize size;
-    
-    if (macsbug_screen) {
-    	flush_buffer();
-    	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, (char *)&size) >= 0)
-    	    screen_fprintf(stderr, NO_AREA, GOTO "\n", size.ws_row, size.ws_col);
     }
 }
 
@@ -303,6 +291,27 @@ static void flush_buffer(void)
     buf_row = 0;
 }
 #endif
+
+
+/*--------------------------------------------------------------------*
+ | position_cursor_for_shell_input - set cursor to accept shell input |
+ *--------------------------------------------------------------------*
+ 
+ This is called whenever we know we are going back to the shell (e.g., when exiting gdb).
+ We position the cursor to the bottom of the screen so that the shell lines will cause
+ the screen to scroll up.  This is needed in enough places to warrant its own routine.
+*/
+
+void position_cursor_for_shell_input(void)
+{
+    struct winsize size;
+    
+    if (macsbug_screen) {
+    	flush_buffer();
+    	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, (char *)&size) >= 0)
+    	    screen_fprintf(stderr, NO_AREA, GOTO "\n", size.ws_row, size.ws_col);
+    }
+}
 
 
 /*-----------------------------------------------*
@@ -389,8 +398,6 @@ static int write_line(char *fmt, ...)
  | su [n] - scroll the history up n (default 1) line |
  *---------------------------------------------------*/
 
-static void sd(char *arg, int from_tty);
-    
 static void su(char *arg, int from_tty)
 {
     int     i, n;
@@ -556,7 +563,7 @@ static void pgu(char *arg, int from_tty)
 {
     char lines[25];
     
-    sprintf(lines, "%ld", ((arg && *arg) ? gdb_get_int(arg) : 1) * history_lines);
+    sprintf(lines, "%ld", ((arg && *arg) ? gdb_get_long(arg) : 1) * history_lines);
 
     su(lines, from_tty);			/* scroll up n * history_lines lines	*/
 }
@@ -574,7 +581,7 @@ static void pgd(char *arg, int from_tty)
 {
     char lines[25];
     
-    sprintf(lines, "%ld", ((arg && *arg) ? gdb_get_int(arg) : 1) * history_lines);
+    sprintf(lines, "%ld", ((arg && *arg) ? gdb_get_long(arg) : 1) * history_lines);
 
     sd(lines, from_tty);			/* scroll down n * history_lines lines	*/
 }
@@ -631,7 +638,7 @@ static void which_log(char *arg, int from_tty)
  | LOG [-h] [filename | ?] - open/close a log file |
  *-------------------------------------------------*/
 
-static void log(char *arg, int from_tty)
+static void log_(char *arg, int from_tty)
 {
     int     hopt, argc;
     History *h;
@@ -970,7 +977,12 @@ static char *write_to_history_area(FILE *f, char *line, void *data)
     /* The QUERY_REFRESH1 and QUERY_REFRESH2 states are set for queries and reset when 	*/
     /* the queries are completed.							*/
     
-    if (immediate_flush != NORMAL_REFRESH) {
+    /* I am now overriding all the flush controls and always flushing.  This produces	*/
+    /* a more accurate simulation of gdb's output. Problems arose where we couldn't see	*/
+    /* some progress (e.g., library loads) and breakpoint displays as they happened	*/
+    /* because all the stuff we being buffered up until the next prompt.		*/
+    
+    if (1||immediate_flush != NORMAL_REFRESH) {
 	FLUSH_BUFFER;
 	screen_refresh(0);
     	//if (immediate_flush == QUERY_REFRESH1 || immediate_flush == QUERY_REFRESH2)
@@ -1004,13 +1016,13 @@ void rewrite_bottom_line(char *line, int err)
 }
 
 
-/*------------------------------------------------------------------------------*
- | disasm_pc - format_disasm_line() output stream filter for display_pc_area()  |
- *------------------------------------------------------------------------------*
+/*-------------------------------------------------------------------*
+ | disasm_pc_area_output - format_disasm_line() output stream filter |
+ *-------------------------------------------------------------------*
  
  format_disasm_line() writes to a stream created by display_pc_area() whose output
- redirection filter is disasm_pc().  Here we take each formatted disassembly line and
- write it to the pc area at the coordinates defined by the data channel that 
+ redirection filter is this function.  Here we take each formatted disassembly line
+ and write it to the pc area at the coordinates defined by the data channel that 
  display_pc_area() defined.  The data channel points to data with the following layout.
  											*/
  typedef struct {			
@@ -1066,12 +1078,12 @@ static char *disasm_pc_area_output(FILE *f, char *line, void *data)
 
 void display_pc_area(void)
 {
-    int  	   row;
-    unsigned long  addr, limit;
+    int  	    row;
+    //unsigned long limit;
     DisasmData	   disasm_info;
     Disasm_pc_data pc_data;
     GDB_FILE	   *redirect_stdout;
-    unsigned long long      current_pc;
+    GDB_ADDRESS	   addr, current_pc;
     char 	   line[1024];
     
     get_screen_size(&max_rows, &max_cols);
@@ -1097,7 +1109,7 @@ void display_pc_area(void)
     	for (row = pc_top; row <= pc_bottom; ++row) {
 	    screen_fprintf(stdout, PC_AREA, GOTO, row, pc_left);
 	    if (row == pc_top)
-	    	screen_fprintf(stdout, PC_AREA, COLOR_RED "Not Running " COLOR_OFF CLEAR_LINE);
+	    	screen_fprintf(stdout, PC_AREA, COLOR_RED "Not Running" COLOR_OFF CLEAR_LINE);
 	    else
 	    	screen_fprintf(stdout, PC_AREA, CLEAR_LINE);
 	}
@@ -1108,7 +1120,9 @@ void display_pc_area(void)
     
     /* No sense redrawing if the pc hasn't moved...					*/
     
-    gdb_get_register("$pc", &current_pc);
+    if (!gdb_get_register("$pc", &current_pc))
+    	current_pc = -1LL;
+    
     if (previous_pc == current_pc)
     	return;
     previous_pc = current_pc;
@@ -1138,7 +1152,7 @@ void display_pc_area(void)
     //limit = addr + 4 * pc_lines;		/* disassemble pc_lines lines		*/
     
     disasm_info.addr = addr;
-    gdb_execute_command("x/%di 0x%lX", pc_lines, addr);
+    gdb_execute_command("x/%di 0x%llx", pc_lines, (long long)addr);
     
     /* If we didn't show a function name because it wasn't available then we have room	*/
     /* to add one more line of disassembly into the pc area.  Set current_pc_lines to   */
@@ -1147,7 +1161,7 @@ void display_pc_area(void)
     /* currently displayed in there.  We must not change pc_lines.			*/
     
     if (pc_data.add1line) {
-    	 gdb_execute_command("x/i 0x%lX", disasm_info.addr);
+    	 gdb_execute_command("x/i 0x%llx", (long long)disasm_info.addr);
     	 current_pc_lines = pc_lines + 1;
     } else
     	current_pc_lines = pc_lines;
@@ -1231,31 +1245,54 @@ static char *get_CurApName(char *curApName)
 {
     GDB_FILE *redirect_stdout, *redirect_stderr;
     
-    if (gdb_target_running()) {				/* safety check			*/
-	#if NSArgv_Use_Redirect
-	redirect_stdout = gdb_open_output(stdout, check_for_NSArgv, curApName);
-	redirect_stderr = gdb_open_output(stderr, check_for_NSArgv, curApName);
-	gdb_redirect_output(redirect_stdout);
-	gdb_redirect_output(redirect_stderr);
-	
-	gdb_execute_command("printf \"%%s\", ((char **)NXArgv)[0]");
-	
-	gdb_close_output(redirect_stderr);
-	gdb_close_output(redirect_stdout);
-	#else
-	
-	/* Attempt a "set $__CurApName__=((char **)NXArgv)[0]".  If it succeeds, use	*/
-	/* $__CurApName__ to set curApName...						*/
-	
-	if (!gdb_eval_silent("$__CurApName__=((char **)NXArgv)[0]")) {
-	    char *p, *q, pathname[MAXPATHLEN+1];
-	    p = strrchr(q = gdb_get_string("$__CurApName__", pathname, MAXPATHLEN), '/');
-	    strcpy(curApName, p ? p + 1 : q);
+    #if NSArgv_Use_Redirect
+    
+    redirect_stdout = gdb_open_output(stdout, check_for_NSArgv, curApName);
+    redirect_stderr = gdb_open_output(stderr, check_for_NSArgv, curApName);
+    gdb_redirect_output(redirect_stdout);
+    gdb_redirect_output(redirect_stderr);
+    
+    gdb_execute_command("printf \"%%s\", ((char **)NXArgv)[0]");
+    
+    gdb_close_output(redirect_stderr);
+    gdb_close_output(redirect_stdout);
+    
+    #else
+    
+    /* Attempt a "set $__CurApName__=((char **)NXArgv)[0]".  If it succeeds, use	*/
+    /* $__CurApName__ to set curApName...						*/
+    
+    /* Historical note:									*/
+    
+    /* The following code used to fail (sometimes) in gdb unless we did the command set	*/
+    /* use-cached-symfiles 0.  It seemed the access to NXArgv is accessing incorrectly	*/
+    /* mapped memory (a gdb bug).  We needed to do the set use-cached-symfiles 0 prior	*/
+    /* to any FILE of ATTACH command.  So we did it during initialization. The .gdbinit	*/
+    /* would equally be an ok place.							*/
+    
+    /* Time passes...									*/
+    
+    /* It looks like the problem has been fixed in gdb so the set command was removed	*/
+    /* (actually commented out to keep it as a placeholder).				*/
+    
+    if (!gdb_eval_silent("$__CurApName__=((char**)NXArgv)[0]")) {
+	char *p, *q, pathname[MAXPATHLEN+1];
+	p = strrchr(q = gdb_get_string("$__CurApName__", pathname, MAXPATHLEN), '/');
+	strcpy(curApName, p ? p + 1 : q);
+	curApName_title = (target_arch == 4) ? " CurApName  " : "     CurApName      ";
+    } else {
+	int pid = gdb_target_pid();
+	if (pid <= 0) {
+	    *curApName = '\0';
+	    curApName_title = (target_arch == 4) ? "            " : "                    ";
+	} else {
+	    sprintf(curApName, "%d", pid);
+	    curApName_title = (target_arch == 4) ? "    PID     " : "        PID         ";
 	}
-	#endif
-    } else
-        *curApName = '\0';
-        
+    }
+    
+    #endif
+
     return (curApName);
 }
 
@@ -1271,6 +1308,7 @@ static char *get_CurApName(char *curApName)
  Note, it is called usually by save_all_regs().  But it will also be called when the
  window size changes since that operation affects the number of screen rows.
 */
+
 void save_stack(int max_rows)
 {
     int i;
@@ -1290,7 +1328,7 @@ void save_stack(int max_rows)
     	prev_stack = (unsigned long *)gdb_realloc(prev_stack, i);
     
     if (prev_stack)
-    	gdb_read_memory(prev_stack, (char *)gdb_get_sp(), -i);
+    	gdb_read_memory_from_addr(prev_stack, gdb_get_sp(), i);
 }
 
 
@@ -1303,18 +1341,19 @@ void save_stack(int max_rows)
  the sidebar (could be 0) so the when the general registers are shown r31 will always
  end up on the last screen row.
 */
+
 static void save_all_regs(void)
 {
     int  i;
-    char r[6], v[50];
+    char r[6];
     
     gdb_get_register("$pc",  &prev_pc);		/* save current register values		*/
     gdb_get_register("$lr",  &prev_lr);
     gdb_get_register("$ctr", &prev_ctr);
-    gdb_get_register("$ps",  &prev_msr);
-    gdb_get_register("$cr",  &prev_cr);
     gdb_get_register("$xer", &prev_xer);
-    gdb_get_register("$mq",  &prev_mq);
+    gdb_get_register("$cr",  &prev_cr.cr);
+    //gdb_get_register("$mq",  &prev_mq);
+    gdb_get_register("$ps",  &prev_msr);
     
     for (i = 0; i < 32; ++i) {
 	sprintf(r, "$r%d", i);
@@ -1342,15 +1381,13 @@ static void save_all_regs(void)
  xxx 12345678|                                                            |xxx 12345678
  xxx 12345678|                                                            |xxx 12345678
 	     |                                                            |
-  CurApName  |                                                            |  CurApName
+  CurApName  |                                                            | CurApName
  12345678901É|                                                            |12345678901É
 	     |                                                            |
  LR  12345678|                                                            |LR  12345678
  CR  12345678|                                                            |CR  12345678
 	     |                                                            |
  CTR 12345678|                                                            |CTR 12345678
- MSR 12345678|                                                            |MSR 12345678
- MQ  12345678|                                                            |MQ  12345678
  XER 12345678|                                                            |XER 12345678
 	     |                                                            |
  R0  12345678|                                                            |R0  12345678
@@ -1359,25 +1396,55 @@ static void save_all_regs(void)
      ...     |                                                            |    ...
  R31 12345678|                                                            |R31 12345678
  
- Of course only one of these is generated depending on the argument. The number of top of
- stack entries is enough so that with "SP" at the top of the screen, "R31" is at the
- bottom.  Only the 3 low-order hex digits of the stack address are shown with the stack
- entries. Lines of the stack display are sacrificed or added as needed to accommodate the
- screen row size so that R31 is always at the bottom of the screen.  At a minimum there
- may be no stack entries shown at all (but the "SP" title and it's value are always
- shown).
+ Or for the 64-bit architecture:
+ 
+          SP         |                                            |         SP
+   1234567812345678  |                                            |  1234567812345678
+    xxx 12345678     |                                            |    xxx 12345678
+    xxx 12345678     |                                            |    xxx 12345678
+    xxx 12345678     |                                            |    xxx 12345678
+    xxx 12345678     |                                            |    xxx 12345678
+	             |                                            |
+      CurApName      |                                            |     CurApName
+ 1234567890123456789É|                                            |1234567890123456789É
+	             |                                            |
+ LR  1234567812345678|                                            |LR  1234567812345678
+ CR  12345678        |                                            |CR  12345678
+	             |                                            |
+ CTR 1234567812345678|                                            |CTR 1234567812345678
+ XER 1234567812345678|                                            |XER 1234567812345678
+	             |                                            |
+ R0  1234567812345678|                                            |R0  1234567812345678
+ SP  1234567812345678|                                            |SP  1234567812345678
+ R2  1234567812345678|                                            |R2  1234567812345678
+     ...             |                                            |    ...
+ R31 1234567812345678|                                            |R31 1234567812345678
+ 
+ Of course only the left or right sidebar is generated depending on the argument and the
+ 32/64 format depends on the global target_arch (4 or 8).  The number of top of stack
+ entries is enough so that with "SP" at the top of the screen, "R31" is at the bottom.
+ Only the 3 low-order hex digits of the stack address are shown with the stack entries.
+ Lines of the stack display are sacrificed or added as needed to accommodate the screen
+ row size so that R31 is always at the bottom of the screen.  At a minimum there may be
+ no stack entries shown at all (but the "SP" title and it's value are always shown).
  
  Note, this is in the form of a gdb plugin command because it can be called by the
  __disasm command.  So it's exposed to the gdb command language as a "internal" command
  (hence the double underbar prefix just like __disasm).
 */
+
 void __display_side_bar(char *arg, int from_tty)
 {
     int           i, row, col, reg, saved_regs, lastcmd, left_col, bottom,
     		  cur_app_name, force_all_updates, changed, stack_rows;
-    unsigned long long long_pc, long_lr, long_ctr, long_msr, long_cr, long_xer, long_mq, long_gpr[32];
-    unsigned long pc, lr, ctr, msr, cr, xer, mq, gpr[32], *stack;
-    char          *bar_left, *bar_right, r[6], centered_name[13], v[50];
+    GDB_ADDRESS   pc, lr, ctr, msr, xer, mq, gpr[32];
+    unsigned long *stack, xer32;
+    char          *bar_left, *bar_right, r[6], centered_name[21], *blanks;
+    
+    union {					/* gdb_get_register() could return a	*/
+    	unsigned long long cr_err;		/* error code as a long long.		*/
+    	unsigned long cr;			/* but the cr is always only 32-bits	*/
+    } cr;
     
     static char prev_sp_color, prev_pc_color, prev_lr_color, prev_ctr_color,
     		prev_msr_color, prev_cr_color, prev_xer_color, prev_mq_color,
@@ -1399,7 +1466,7 @@ void __display_side_bar(char *arg, int from_tty)
     screen_fprintf(stdout, SIDE_BAR, SAVE_CURSOR);/* remember current cursor postion	*/
     
     if (need_CurApName) {			/* if 1st side bar after run command...	*/
-    	need_CurApName= 0;			/* ...reset switch			*/
+    	need_CurApName = !gdb_target_running();	/* ...reset switch if target is running	*/
 	get_CurApName(curApName);		/* ...and get the (new?) app name	*/
     }
     
@@ -1415,11 +1482,13 @@ void __display_side_bar(char *arg, int from_tty)
     	left_col  = side_bar_left;
 	bar_left  = "";
 	bar_right = BAR;
+	blanks    = side_bar_blanks;
     } else if (gdb_strcmpl(arg, "right")) {
     	force_all_updates = 1;
-	left_col  = max_cols - 12;
+	left_col  = max_cols - side_bar_right;
 	bar_left  = BAR;
 	bar_right = "";
+	blanks    = CLEAR_LINE;
     } else
 	gdb_error("__display_side_bar [left | right] expected, got \"%s\"", arg);
     
@@ -1433,9 +1502,10 @@ void __display_side_bar(char *arg, int from_tty)
             for (row = 1; row <= bottom; ++row) {
     	    	screen_fprintf(stdout, SIDE_BAR, GOTO, row, left_col);
     	        if (row == 1)
-    		    screen_fprintf(stdout, SIDE_BAR, "%s" COLOR_RED "Not Running " "%s", bar_left, bar_right);
+    		    screen_fprintf(stdout, SIDE_BAR, "%s" COLOR_RED "%s" "%s", bar_left, 
+    		    		    (target_arch == 4) ? "Not Running " : "    Not Running     ", bar_right);
     	    	else
-    		    screen_fprintf(stdout, SIDE_BAR, "%s"      "            " "%s", bar_left, bar_right);
+    		    screen_fprintf(stdout, SIDE_BAR, "%s" "%s" "%s", bar_left, blanks, bar_right);
     	    }
     	}
 	screen_fprintf(stdout, SIDE_BAR, RESTORE_CURSOR);
@@ -1454,29 +1524,17 @@ void __display_side_bar(char *arg, int from_tty)
     if (force_all_updates)
     	first_sidebar = force_all_updates;
     
-    /* This is a bit of a hack, but for PPC starting with Tiger, all the registers
-       are treated as 64 bit values.  But I don't want to muck around with resizing
-       the register area for this.  So for now, I will just truncate all the values
-       to longs.  JCI */
-    gdb_get_register("$pc",  &long_pc); 	/* get current register values...		*/
-    pc = (unsigned long) long_pc;
-    gdb_get_register("$lr",  &long_lr);
-    lr = (unsigned long) long_lr;
-    gdb_get_register("$ctr", &long_ctr);
-    ctr = (unsigned long) long_ctr;
-    gdb_get_register("$ps",  &long_msr);
-    msr = (unsigned long) long_msr;
-    gdb_get_register("$cr",  &long_cr);
-    cr = (unsigned long) long_cr;
-    gdb_get_register("$xer", &long_xer);
-    xer = (unsigned long) long_xer;
-    gdb_get_register("$mq",  &long_mq);
-    mq = (unsigned long) long_mq;
+    gdb_get_register("$pc",  &pc); 	/* get current register values...		*/
+    gdb_get_register("$lr",  &lr);
+    gdb_get_register("$ctr", &ctr);
+    gdb_get_register("$xer", &xer);
+    gdb_get_register("$cr",  &cr.cr);	/* note, cr is always a 32-bit value		*/
+    //gdb_get_register("$mq",  &mq);
+    gdb_get_register("$ps",  &msr);
     
     for (i = 0; i < 32; ++i) {
 	sprintf(r, "$r%d", i);
-	gdb_get_register(r, &long_gpr[i]);
-	gpr[i] = (unsigned long) long_gpr[i];
+	gdb_get_register(r, &gpr[i]);
     }
      
     row = 1;
@@ -1489,7 +1547,7 @@ void __display_side_bar(char *arg, int from_tty)
     	gdb_internal_error("Window size inconsistency dealing with number of stack entries");
     if (stack_rows > 0) {		
     	stack = (unsigned long *)gdb_malloc(stack_rows * sizeof(unsigned long));
-    	gdb_read_memory(stack, (char *)gdb_get_sp(), -(stack_rows * sizeof(unsigned long)));
+    	gdb_read_memory_from_addr(stack, gdb_get_sp(), (stack_rows * sizeof(unsigned long)));
 	if (first_sidebar) {
 	    prev_stack_color = (char *)gdb_malloc(stack_rows);
 	    memset(prev_stack_color, 0, stack_rows);
@@ -1502,32 +1560,61 @@ void __display_side_bar(char *arg, int from_tty)
 	}
     }
     
-    if (first_sidebar)
-	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "     SP     " "%s", row, left_col, bar_left, bar_right);
-    ++row;
-    
-    changed = (prev_gpr[1] != long_gpr[1]);
-    if (first_sidebar || changed || changed != prev_sp_color)
-    	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "  " "%s" "%.8lX" "  " "%s", row, left_col,
-			       bar_left, COLOR_CHANGE(prev_sp_color = changed), 
-			       gpr[1], bar_right);
-    ++row;
-    
-    for (i = 0; i < stack_rows; ++i) {
-    	changed = (prev_stack[i] != stack[i]);
-    	if (first_sidebar || changed || changed != prev_stack_color[i])
-	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%.3lX %s%.8lX" "%s", row, left_col,
-	    			bar_left, (gpr[1] + 4*i) & 0xFFF, 
-				COLOR_CHANGE(prev_stack_color[i] = changed), stack[i],
-				bar_right);
-    	++row;
+    if (target_arch == 4) {
+	if (first_sidebar)
+	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "     SP     " "%s", row, left_col,
+	    		   	bar_left, bar_right);
+	++row;
+	
+	changed = (prev_gpr[1] != gpr[1]);
+	if (first_sidebar || changed || changed != prev_sp_color)
+	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "  " "%s" "%.8lX" "  " "%s", row, left_col,
+				   bar_left, COLOR_CHANGE(prev_sp_color = changed), 
+				   (unsigned long)gpr[1], bar_right);
+	++row;
+	
+	for (i = 0; i < stack_rows; ++i) {
+	    changed = (prev_stack[i] != stack[i]);
+	    if (first_sidebar || changed || changed != prev_stack_color[i])
+		screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%.3lX %s%.8lX" "%s", row, left_col,
+				    bar_left, ((unsigned long)gpr[1] + 4*i) & 0xFFF, 
+				    COLOR_CHANGE(prev_stack_color[i] = changed), stack[i],
+				    bar_right);
+	    ++row;
+	}
+    } else {
+	if (first_sidebar)
+	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "         SP         " "%s", row, left_col,
+	    			bar_left, bar_right);
+	++row;
+	
+	changed = (prev_gpr[1] != gpr[1]);
+	if (first_sidebar || changed || changed != prev_sp_color) {
+	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "  " "%s" "%.16llX" "  " "%s", row, left_col,
+				   bar_left, COLOR_CHANGE(prev_sp_color = changed), 
+				   (unsigned long long)gpr[1], bar_right);
+	   if (!*bar_right)
+	       screen_fprintf(stdout, SIDE_BAR, CLEAR_LINE);
+	}
+	++row;
+	
+	for (i = 0; i < stack_rows; ++i) {
+	    changed = (prev_stack[i] != stack[i]);
+	    if (first_sidebar || changed || changed != prev_stack_color[i])
+		screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "    %.3llX %s%.8lX%s" "%s", row, left_col,
+				    bar_left, ((unsigned long long)gpr[1] + 4*i) & 0xFFF, 
+				    COLOR_CHANGE(prev_stack_color[i] = changed), stack[i],
+				    *bar_right ? "    " : CLEAR_LINE, bar_right);
+	    ++row;
+	}
     }
     
     if (stack)
     	gdb_free(stack);
     
     if (first_sidebar)
-    	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "            " "%s", row, left_col, bar_left, bar_right);
+    	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row, left_col,
+    				bar_left, blanks, bar_right);
     ++row;
 
     /* Print the CurApName if we have it...						*/
@@ -1535,68 +1622,94 @@ void __display_side_bar(char *arg, int from_tty)
     if (first_sidebar || (*curApName && strcmp(curApName, prev_curApName) != 0)) {
     	strcpy(prev_curApName, curApName);
 	if (*curApName) {
-	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" " CurApName  " "%s", row++, left_col, bar_left, bar_right);
-	    if ((i = strlen(curApName)) > 12) {
-		char c1 = curApName[11];
-		char c2 = curApName[12];
-		curApName[11] = 'É';
-		curApName[12] = '\0';
-		screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col, bar_left, curApName, bar_right);
-		curApName[11] = c1;
-		curApName[12] = c2;
-	    } else if (i == 12)
-		screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col, bar_left, curApName, bar_right);
+	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col,
+	    			bar_left, curApName_title, bar_right);
+	    if ((i = strlen(curApName)) > side_bar_right) {
+		char c1 = curApName[side_bar_right - 1];
+		char c2 = curApName[side_bar_right];
+		curApName[side_bar_right - 1] = 'É';
+		curApName[side_bar_right] = '\0';
+		screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col,
+					bar_left, curApName, bar_right);
+		curApName[side_bar_right - 1] = c1;
+		curApName[side_bar_right] = c2;
+	    } else if (i == side_bar_right)
+		screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col,
+					bar_left, curApName, bar_right);
 	    else {
-		memset(centered_name, ' ', 12);
-		centered_name[12] = '\0';
-		memcpy(&centered_name[(12 - i)/2], curApName, i);
-		screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col, bar_left, centered_name, bar_right);
+		memset(centered_name, ' ', side_bar_right);
+		centered_name[side_bar_right] = '\0';
+		memcpy(&centered_name[(side_bar_right - i)/2], curApName, i);
+		screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col,
+					bar_left, centered_name, bar_right);
+	    	if (!*bar_right)
+	    	    screen_fprintf(stdout, SIDE_BAR, CLEAR_LINE);
 	    }
     	} else {				/* no curApName, blank title and name	*/
-    	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "            " "%s", row++, left_col, bar_left, bar_right);
-    	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "            " "%s", row++, left_col, bar_left, bar_right);
+    	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col,
+    	    				bar_left, blanks, bar_right);
+    	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col,
+    	    				bar_left, blanks, bar_right);
 	}
-	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "            " "%s", row++, left_col, bar_left, bar_right);
+	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row++, left_col,
+				bar_left, blanks, bar_right);
     } else
     	row += 3;
     
     /* Print the special registers, in red if they different from previous...		*/
     
-    changed = (prev_lr != long_lr);
+    changed = (prev_lr != lr);
     if (first_sidebar || changed || changed != prev_lr_color)
-    	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "LR  " "%s" "%.8X" "%s", row, left_col,
-    			 bar_left, COLOR_CHANGE(prev_lr_color = changed), lr, bar_right);
+    	if (target_arch == 4)
+	  screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "LR  " "%s" "%.8lX" "%s", row, left_col,
+			   bar_left, COLOR_CHANGE(prev_lr_color = changed), (unsigned long)lr, bar_right);
+	else
+	  screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "LR  " "%s" "%.16llX" "%s", row, left_col,
+			   bar_left, COLOR_CHANGE(prev_lr_color = changed), (unsigned long long)lr, bar_right);
     ++row;
     
-    changed = (prev_cr != long_cr);
+    changed = (prev_cr.cr != cr.cr);
     if (first_sidebar || changed || changed != prev_cr_color) {
     	prev_cr_color = changed;
     	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "CR  ", row, left_col, bar_left);
     	for (i = 28; i >= 0; i -= 4)
-    	    screen_fprintf(stdout, SIDE_BAR, "%s" "%.1X", COLOR_CHANGE((prev_cr>>i&15) != (long_cr>>i&15)), (cr>>i&15));
-    	if (*bar_right)
+    	    screen_fprintf(stdout, SIDE_BAR, "%s" "%.1X", COLOR_CHANGE((prev_cr.cr>>i&15) != (cr.cr>>i&15)), (cr.cr>>i&15));
+    	if (*bar_right) {
+	    if (target_arch != 4)
+		screen_fprintf(stdout, SIDE_BAR, "        ");
     	    screen_fprintf(stdout, SIDE_BAR, "%s", bar_right);
+    	} else
+    	    screen_fprintf(stdout, SIDE_BAR, CLEAR_LINE);
     }
     ++row;
     
     if (first_sidebar)
-    	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "            " "%s", row, left_col, bar_left, bar_right);
+    	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row, left_col,
+    				bar_left, blanks, bar_right);
     ++row;
-    
-    changed = (prev_ctr != long_ctr);
-    if (first_sidebar || changed || changed != prev_ctr_color)
-    	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "CTR " "%s" "%.8X" "%s", row, left_col, bar_left,
-			COLOR_CHANGE(prev_ctr_color = changed), ctr, bar_right);
-    ++row;
+
+    if (target_arch == 4) {
+	changed = (prev_ctr != ctr);
+	if (first_sidebar || changed || changed != prev_ctr_color)
+	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "CTR " "%s" "%.8lX" "%s", row, left_col, bar_left,
+			    COLOR_CHANGE(prev_ctr_color = changed), (unsigned long)ctr, bar_right);
+	++row;
+    } else {
+	changed = (prev_ctr != ctr);
+	if (first_sidebar || changed || changed != prev_ctr_color)
+	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "CTR " "%s" "%.16llX" "%s", row, left_col, bar_left,
+			    COLOR_CHANGE(prev_ctr_color = changed), (unsigned long long)ctr, bar_right);
+	++row;
+    }
     
     #if 0
-    changed = (prev_msr != long_msr);
+    changed = (prev_msr != msr);
     if (first_sidebar || changed || changed != prev_msr_color)
     	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "MSR " "%s" "%.8X" "%s", row, left_col, bar_left,
     			COLOR_CHANGE(prev_msr_color = changed), msr, bar_right);
     ++row;
     
-    changed = (prev_mq != long_mq);
+    changed = (prev_mq != mq);
     if (first_sidebar || changed || changed != prev_mq_color)
     	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "MQ  " "%s" "%.8X" "%s", row, left_col, bar_left,
     			COLOR_CHANGE(prev_mq_color = changed), mq , bar_right);
@@ -1606,33 +1719,42 @@ void __display_side_bar(char *arg, int from_tty)
     changed = (prev_xer != xer);
     if (first_sidebar || changed || changed != prev_xer_color) {
     	prev_xer_color = changed;
+    	xer32 = (unsigned long)xer;
     	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "XER ", row, left_col, bar_left);
-    	screen_fprintf(stdout, SIDE_BAR, "%s" "%.1X" COLOR_OFF, COLOR_CHANGE((prev_xer>>28&0xF) != (long_xer>>28&0xF)), xer>>28&0xF);
-    	screen_fprintf(stdout, SIDE_BAR, "%.3X", (xer>>16&0xFFF));
-    	screen_fprintf(stdout, SIDE_BAR, "%s" "%.2X", COLOR_CHANGE((prev_xer>>8&0xFF) != (long_xer>>8&0xFF)), xer>>8&0xFF);
-    	screen_fprintf(stdout, SIDE_BAR, "%s" "%.2X", COLOR_CHANGE((prev_xer&0xFF) != (long_xer&0xFF)), xer&0xFF);
+    	if (target_arch != 4)
+    	    screen_fprintf(stdout, SIDE_BAR, "%.8lX", (unsigned long)((xer >> 32) & 0xFFFFFFFF));
+    	screen_fprintf(stdout, SIDE_BAR, "%s" "%.1X" COLOR_OFF, COLOR_CHANGE((prev_xer>>28&0xF) != (xer32>>28&0xF)), xer32>>28&0xF);
+    	screen_fprintf(stdout, SIDE_BAR, "%.3X", (xer32>>16&0xFFF));
+    	screen_fprintf(stdout, SIDE_BAR, "%s" "%.2X", COLOR_CHANGE((prev_xer>>8&0xFF) != (xer32>>8&0xFF)), xer32>>8&0xFF);
+    	screen_fprintf(stdout, SIDE_BAR, "%s" "%.2X", COLOR_CHANGE((prev_xer&0xFF) != (xer32&0xFF)), xer32&0xFF);
    	if (*bar_right)
 	    screen_fputs(bar_right, stdout, SIDE_BAR);
     }
     ++row;
-  
+    
     if (first_sidebar)
-    	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "            " "%s", row, left_col, bar_left, bar_right);
+    	screen_fprintf(stdout, SIDE_BAR, GOTO "%s" "%s" "%s", row, left_col,
+    				bar_left, blanks, bar_right);
     ++row;
     
     /* Print the general regs at the bottom...						*/
     
     for (reg = 0; reg < 32; ++reg) {
-    	changed = (prev_gpr[reg] != long_gpr[reg]);
+    	changed = (prev_gpr[reg] != gpr[reg]);
     	if (first_sidebar || changed || changed != prev_gpr_color[reg]) {
        	    screen_fprintf(stdout, SIDE_BAR, GOTO "%s", row, left_col, bar_left);
        	    if (reg == 1)
        	    	screen_fprintf(stdout, SIDE_BAR, "SP  ");
        	    else
        	    	screen_fprintf(stdout, SIDE_BAR, "R%-2d ", reg);
-       	    screen_fprintf(stdout, SIDE_BAR, "%s" "%.8X" "%s", 
-       	    	     	   COLOR_CHANGE(prev_gpr_color[reg] = changed),
-       	  	           gpr[reg], bar_right);
+       	    if (target_arch == 4)
+		screen_fprintf(stdout, SIDE_BAR, "%s" "%.8lX" "%s", 
+			       COLOR_CHANGE(prev_gpr_color[reg] = changed),
+			       (unsigned long)gpr[reg], bar_right);
+    	    else
+		screen_fprintf(stdout, SIDE_BAR, "%s" "%.16llX" "%s", 
+			       COLOR_CHANGE(prev_gpr_color[reg] = changed),
+			       (unsigned long long)gpr[reg], bar_right);
     	}
     	++row;
     }
@@ -1666,7 +1788,7 @@ void __display_side_bar(char *arg, int from_tty)
 "the MacsBug scren is on.\n"								\
 " \n"											\
 "Note, for each call to __DISPLAY_SIDE_BAR, the registers that changed since\n"		\
-"the last call will be shown in red.  Also displayed is the targer program name\n"	\
+"the last call will be shown in red.  Also displayed is the target program name\n"	\
 "being debugged (if available) and the top few entries of the stack."
 
 
@@ -1764,14 +1886,14 @@ void init_sidebar_and_pc_areas(void)
  of the history area.
 */
  
-static void define_macsbug_screen_positions(short pc_area_lines, short cmd_area_lines)
+void define_macsbug_screen_positions(short pc_area_lines, short cmd_area_lines)
 {
     get_screen_size(&max_rows, &max_cols);
     
     side_bar_top      = 1;			/* side bar first 12 characters	of the	*/
     side_bar_bottom   = max_rows;		/* entire screen			*/
     side_bar_left     = 1;
-    side_bar_right    = 12;
+    side_bar_right    = (target_arch == 4) ? 12 : 20;
     
     cmd_top	      = max_rows-cmd_area_lines;/* cmd area is cmd_area_lines lines long*/
     cmd_bottom        = max_rows;		/* 2 lines for "long" commands and 1 	*/
@@ -1779,7 +1901,7 @@ static void define_macsbug_screen_positions(short pc_area_lines, short cmd_area_
     cmd_right         = max_cols;
     
     pc_bottom	      = cmd_top - 2;		/* pc area is 2 lines up from cmd area	*/
-    pc_top	      = pc_bottom-pc_area_lines;	/* pc area is pc_lines+1 to allow for 	*/
+    pc_top	      = pc_bottom-pc_area_lines;/* pc area is pc_lines+1 to allow for 	*/
     pc_left	      = side_bar_right + 2;	/* the function name + pc_lines lines	*/
     pc_right	      = max_cols;
     
@@ -1870,6 +1992,8 @@ void refresh(char *arg, int from_tty)
     }
     
     define_macsbug_screen_positions(pc_lines, cmd_lines);
+    
+    sprintf(side_bar_blanks, "%*c", side_bar_right, ' ');
 
     screen_fprintf(stderr, NO_AREA, RESET);
     screen_init(history_top, history_left, history_bottom, history_right);
@@ -1880,6 +2004,8 @@ void refresh(char *arg, int from_tty)
     bp = output_buffer;
     buf_row = 0;
     #endif
+    
+    need_CurApName = 1;
     
     __display_side_bar(NULL, 0);
     display_pc_area();
@@ -1940,6 +2066,28 @@ void refresh(char *arg, int from_tty)
 "REFRESH -- Refresh MascBug screen."
 
 
+/*----------------------------------------------------------------------------------*
+ | restore_current_prompt - reset the gdb prompt to the most recent setting we know |
+ *----------------------------------------------------------------------------------*
+ 
+ This is called when gdb is given back control from a signal handler.  For some reason
+ the gdb prompt we are using for the macsbug screen gets clobbered by the sequence of
+ events that occur at this time.  So this is called to force it back to the last know
+ (and valid) value we are using for the prompt.
+*/
+
+void restore_current_prompt(void)
+{
+    char set_prompt_cmd[1024];
+    
+    if (macsbug_screen) {
+	sprintf(set_prompt_cmd, "set prompt %s", prompt);
+	doing_set_prompt = 1;
+	gdb_execute_command(set_prompt_cmd);
+	doing_set_prompt = 0;
+    }
+}
+
 /*-------------------------------------------------------------------------------------*
  | force_pc_area_update - force the pc area to redisplay even if the pc hasn't changed |
  *-------------------------------------------------------------------------------------*
@@ -1953,6 +2101,35 @@ void force_pc_area_update(void)
 {
     previous_pc = 0;
     //display_pc_area();
+}
+
+
+/*------------------------------------------------------------------------------------*
+ | fix_pc_area_if_necessary - update MacsBug screen pc area if anything changes there |
+ *------------------------------------------------------------------------------------*
+ 
+ This checks the address to see if it's in the range of the addresses currently in the
+ pc area (if it currently being display) and forces the pc area to be redisplayed if
+ it is.  This will show the changing status of, for example, breakpoints at the address.
+ 
+ Note that we don't use the current pc_area_lines setting since it could be one line
+ smaller than what's actually displayed there.  This can happen if there is no symbol
+ to display.  We use that line normally reserved for the symbol for an extra disassembly
+ line instead (why waste it with a blank line?).  The global current_pc_lines reflects
+ the actual number of lines displayed (it's pc_area_lines or pc_area_lines+1).
+*/
+
+void fix_pc_area_if_necessary(GDB_ADDRESS address)
+{
+    GDB_ADDRESS pc;
+    int         sz;
+    
+    if (macsbug_screen && gdb_target_running()) {
+    	/* note, get_selected_frame() done as part of gdb_get_register() */
+    	gdb_get_register("$pc", &pc);
+	if (address >= pc && address < pc + (4*current_pc_lines))
+	    force_pc_area_update();
+    }
 }
 
 
@@ -1979,6 +2156,54 @@ void update_macsbug_prompt(void)
 	gdb_execute_command(set_prompt_cmd);
 	doing_set_prompt = 0;
     }
+}
+
+
+/*------------------------------------------------------------------------------*
+ | position_history_prompt - position history search prompt on the command line |
+ *------------------------------------------------------------------------------*
+ 
+ When the Macsbug screen is displayed and the user types CTLR-R then gdb displays the
+ prompt "(reverse-i-search)" preceded by a '\r'.  This will effectively clobber that
+ part of our side-bar if we don't modify the prompt to properly position it to the
+ command line area.  So that's what we do here.
+ 
+ This is a Gdb_History_Prompt special event which is called while in the gdb history
+ search mode.  The gdb prompt (for example, "(reverse-i-search)") is prefixed with 
+ the appropriate prompt cursor positioning so that even if gdb prefixes it with a
+ '\r' the prompt will still end up where we want it.
+ 
+ Remember, this routine is called just before echoing EACH character while in the
+ history search mode.  So don't get too carried away with what we need to do in here!
+*/
+
+static char *position_history_prompt(char *history_prompt)
+{
+    int len;
+    
+    /* We do the prompt editing in our own private buffer which we return.  According	*/
+    /* to "the rules" we don't want to directly edit the input buffer.			*/
+    
+    /* Note that gdb never does cursor positioning.  So just for safety, if by some 	*/
+    /* weird case one of our positioning controls gets through to here (it shouldn't 	*/
+    /* since this function is not called for the standard gdb prompt) we just return.	*/
+    /* We do a simple test to detect this, i.e., just look for an escape (0x1b) as the	*/
+    /* first prompt character.								*/
+    
+    static char *modified_prompt = NULL;
+    static int  max_len          = 0;
+    
+    if (*history_prompt == 0x1b)
+    	return (history_prompt);
+    	
+    len = strlen(history_prompt) + 128/*safety+padding+GOTO*/;
+    	
+    if (len > max_len)
+    	modified_prompt = gdb_realloc(modified_prompt, max_len = len);
+    
+    sprintf(modified_prompt, GOTO "%s", cmd_top, cmd_left, history_prompt);
+    
+    return (modified_prompt);
 }
 
 
@@ -2021,6 +2246,7 @@ static void stop_hook(char *arg, int from_tty)
 }
 
 
+#if 0
 static int line_prefix_cp = 0;
 static int xseen = 0;
 /*-------------------------------------------------------------------------------------*
@@ -2055,6 +2281,7 @@ static int filter_keyboard_characters(int c)
     
     return (c);
 }
+#endif
 
 
 /*-----------------------------------------------------------*
@@ -2068,15 +2295,15 @@ static int filter_keyboard_characters(int c)
  Thus the only prompt positioning we're interested in here is the one gdb uses for raw
  line input.
  
- Raw line input is initiated when the user types a DEFINE, DOCUMENT, WHILE, or IF at the
- "outer" level.  Nested WHILE's and IF's are themselves read as raw lines.  It is the
- prompts on all these lines we need to control.
+ Raw line input is initiated when the user types a COMMANDS, DEFINE, DOCUMENT, WHILE,
+ or IF at the "outer" level.  Nested WHILE's and IF's are themselves read as raw lines.
+ It is the prompts on all these lines we need to control.
  
- When the outer-most DEFINE, DOCUMENT, WHILE, or IF are entered they are treated as
- normal commands which we intercept to echo that command to the history area (gdb doesn't
- echo since it things you're entering the stuff at a scrolling terminal).  It's also
- sets control_level to the initial indenting level and reading_raw to 1 to tell us here
- to position the prompt.
+ When the outer-most COMMANDS, DEFINE, DOCUMENT, WHILE, or IF are entered they are
+ treated as normal commands which we intercept to echo that command to the history area
+ (gdb doesn't echo since it things you're entering the stuff at a scrolling terminal).
+ It's also sets control_level to the initial indenting level and reading_raw to 1 to
+ tell us here to position the prompt.
  
  Note, the continued parameter is the count of the number of continued lines preceding
  the upcoming line that's about to be prompted for.  We use it here to use the lines
@@ -2122,14 +2349,42 @@ void my_prompt_position_function(int continued)
 }
 
 
+/*---------------------------------------------------------------------------------*
+ | my_raw_input_prompt_setter - modify the raw input prompt in the Macsbug screen  |
+ *---------------------------------------------------------------------------------*
+ 
+ While the macsbug screen is active all raw prompts for COMMANDS, DEFINE, DOCUMENT,
+ WHILE, or IF that gdb does come here before going to our my_prompt_position_function()
+ above.  This allows us to modify the raw input prompt used for those commands as
+ the body of commands for them is being input.  Initially the prompt would be in the
+ correct place due to what my_prompt_position_function() does.  But if the user starts
+ using the arrows to scroll through the gdb command history then newlines in the
+ commands would cause the prompt to shift left into the side bar.  So we "sneak" into
+ the command line handling (this is a hook routine) and modify gdb's prompt "behind
+ it's back" (i.e., we are actually changing the prompt buffer which is owned by gdb).
+ It's dirty, but there doesn't seem to be any alternative.
+*/
+
+void my_raw_input_prompt_setter(char *prompt)
+{
+    char orig_prompt[256];
+    
+    if (strstr(prompt, GOTO CLEAR_LINE) == NULL) {
+	strcpy(orig_prompt, prompt);
+	sprintf(prompt, GOTO CLEAR_LINE "%s", cmd_top, cmd_left, orig_prompt);
+    }
+}
+
+
 /*-----------------------------------------------------------------*
  | my_raw_input_handler - echo raw input lines to the history area |
  *-----------------------------------------------------------------*
  
- This is called after a raw input line has been read (i.e., DEFINE, DOCUMENT, WHILE, or
- IF).  From here we echo the line to the history area (indented as necessary to show
- nesting level).  We also need to check for nested IF and WHILE since those are also
- read as raw lines.  Similarly END indicates that the nesting level is to be decremented.
+ This is called after a raw input line has been read (i.e., COMMANDS, DEFINE, DOCUMENT,
+ WHILE, or IF).  From here we echo the line to the history area (indented as necessary
+ to show nesting level).  We also need to check for nested IF and WHILE since those
+ are also read as raw lines.  Similarly END indicates that the nesting level is to be
+ decremented.
 
  The control_level indicates the nesting depth.  If it's -1 we have DEFINE or DOCUMENT
  indicating no indenting is wanted.  The thing doubles as a switch for 
@@ -2156,6 +2411,7 @@ void my_raw_input_handler(char *theRawLine)
 	    if (control_level <= 0) {
 		gdb_define_raw_input_handler(NULL);
 		gdb_control_prompt_position(my_prompt_position_function);
+		gdb_set_raw_input_prompt_handler(NULL);
 		reading_raw = 0;
 	    }
 	}
@@ -2239,6 +2495,7 @@ void macsbug_on(int resume)
     gdb_special_events(Gdb_Word_Completion_Query,  (Gdb_Callback)word_completion_query);
     gdb_special_events(Gdb_Before_Query,           (Gdb_Callback)doing_query);
     gdb_special_events(Gdb_After_Query,            (Gdb_Callback)end_of_query);
+    gdb_special_events(Gdb_History_Prompt,         (Gdb_Callback)position_history_prompt);
     
     gdb_redirect_output(macsbug_screen_stderr);
     gdb_redirect_output(macsbug_screen_stdout);
@@ -2282,6 +2539,7 @@ void macsbug_off(int suspend)
     gdb_special_events(Gdb_Word_Completion_Query,  NULL);
     gdb_special_events(Gdb_Before_Query,           NULL);
     gdb_special_events(Gdb_After_Query,            NULL);
+    gdb_special_events(Gdb_History_Prompt,         NULL);
 
     gdb_define_raw_input_handler(NULL);
     gdb_control_prompt_position(NULL);
@@ -2355,7 +2613,6 @@ static void mb(char *arg, int from_tty)
 
 void init_macsbug_display(void)
 {
-    
     MACSBUG_SCREEN_COMMAND(mb, 	    MB_HELP);
     MACSBUG_SCREEN_COMMAND(refresh, REFRESH_HELP);
     MACSBUG_SCREEN_COMMAND(scroll,  SCROLL_HELP);
@@ -2364,7 +2621,7 @@ void init_macsbug_display(void)
     MACSBUG_SCREEN_COMMAND(page,    PAGE_HELP);
     MACSBUG_SCREEN_COMMAND(pgu,     PGU_HELP);
     MACSBUG_SCREEN_COMMAND(pgd,     PGD_HELP);
-    MACSBUG_SCREEN_COMMAND(log,     LOG_HELP);
+    MACSBUG_SCREEN_COMMAND(log_,    LOG_HELP);
     
     MACSBUG_USEFUL_COMMAND(__display_side_bar, __DISPLAY_SIDE_BAR_HELP);
     gdb_define_cmd("log?", which_log, macsbug_internal_class, "");
@@ -2372,4 +2629,8 @@ void init_macsbug_display(void)
     COMMAND_ALIAS(page, pg);
     COMMAND_ALIAS(su, scu);
     COMMAND_ALIAS(sd, scd);
+        
+    define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);
+
+    //gdb_execute_command("set use-cached-symfiles 0");/* remove someday if gdb is fixed*/
 }

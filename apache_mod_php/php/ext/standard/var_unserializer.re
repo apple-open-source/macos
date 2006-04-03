@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: var_unserializer.re,v 1.11.4.16 2005/03/10 02:00:17 helly Exp $ */
+/* $Id: var_unserializer.re,v 1.11.4.16.2.3 2005/09/05 16:25:43 sniper Exp $ */
 
 #include "php.h"
 #include "ext/standard/php_var.h"
@@ -150,7 +150,7 @@ uiv = [+]? [0-9]+;
 iv = [+-]? [0-9]+;
 nv = [+-]? ([0-9]* "." [0-9]+|[0-9]+ "." [0-9]*);
 nvexp = (iv | nv) [eE] [+-]? iv;
-any = [\000-\277];
+any = [\000-\377];
 */
 
 
@@ -382,7 +382,7 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 	}
 	*rval = *rval_ref;
 	(*rval)->refcount++;
-	(*rval)->is_ref = 1;
+	(*rval)->is_ref = 0;
 	
 	return 1;
 }
@@ -528,7 +528,7 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 	class_name = str_tolower_copy((char *)emalloc(len+1), class_name, len);
 	class_name[len] = '\0';
 	
-	len3 = strspn(class_name, "0123456789_abcdefghijklmnopqrstuvwxyz");
+	len3 = strspn(class_name, "0123456789_abcdefghijklmnopqrstuvwxyz\177\200\201\202\203\204\205\206\207\210\211\212\213\214\215\216\217\220\221\222\223\224\225\226\227\230\231\232\233\234\235\236\237\240\241\242\243\244\245\246\247\250\251\252\253\254\255\256\257\260\261\262\263\264\265\266\267\270\271\272\273\274\275\276\277\300\301\302\303\304\305\306\307\310\311\312\313\314\315\316\317\320\321\322\323\324\325\326\327\330\331\332\333\334\335\336\337\340\341\342\343\344\345\346\347\350\351\352\353\354\355\356\357\360\361\362\363\364\365\366\367\370\371\372\373\374\375\376\377");
 	if (len3 != len)
 	{
 		*p = YYCURSOR + len3 - len;

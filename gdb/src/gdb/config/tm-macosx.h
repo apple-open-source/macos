@@ -26,8 +26,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define BLOCK_ADDRESS_ABSOLUTE 1
 #define BELIEVE_PCC_PROMOTION 1
 
-#define INTERNALIZE_SYMBOL(intern, extern, abfd) \
-macosx_internalize_symbol (&intern, extern, abfd)
+#define INTERNALIZE_SYMBOL(intern, sect_p, extern, abfd) \
+macosx_internalize_symbol (&intern, &sect_p, extern, abfd)
 
 #define SOFUN_ADDRESS_MAYBE_MISSING
 #define TEXT_SEGMENT_NAME "LC_SEGMENT.__TEXT"

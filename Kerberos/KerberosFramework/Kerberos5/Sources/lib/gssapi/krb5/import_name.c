@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: import_name.c,v 1.19 2004/07/07 00:29:31 raeburn Exp $
+ * $Id: import_name.c 16548 2004-07-07 00:29:31Z raeburn $
  */
 
 #include "gssapiP_krb5.h"

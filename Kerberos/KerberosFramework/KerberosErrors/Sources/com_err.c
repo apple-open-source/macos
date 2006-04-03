@@ -1,7 +1,7 @@
 /*
  * com_err.c
  *
- * $Header: /cvs/kfm/KerberosFramework/KerberosErrors/Sources/com_err.c,v 1.5 2004/10/04 17:48:24 lxs Exp $
+ * $Header$
  *
  * Copyright 2003 Massachusetts Institute of Technology.
  * All Rights Reserved.

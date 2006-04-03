@@ -173,7 +173,6 @@ print_insn_powerpc (bfd_vma memaddr,
       int need_paren;
 
       table_op = PPC_OP (opcode->opcode);
-
       if (op < table_op)
 	break;
       if (op > table_op)

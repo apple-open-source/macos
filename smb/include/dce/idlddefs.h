@@ -209,18 +209,23 @@ void rpc_ss_ndr_clean_up
 
 /* Interpreter header access */
 
-#define IDL_INTERP_ENCODE_MAJOR     8
-#define IDL_INTERP_ENCODE_MINOR    10
+#define IDL_INTERP_ENCODE_MAJOR     8 
+#define IDL_INTERP_ENCODE_MINOR    10 
 
 /* type vector offsets */
 #define TVEC_INT_REP_OFFSET 4
+
+#define IDL_SWAPBYTES16(x) \
+       (((*(u_int16_t *)(x) & 0xff00) >> 8) | \
+       ((*(u_int16_t *)(x) & 0x00ff) << 8))
+
 #define IDL_VERSION_NUMBER(versno_offset)\
     (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] != NDR_LOCAL_INT_REP) ? \
-       (((*(idl_byte *)(IDL_msp->IDL_type_vec+versno_offset+1)) << 8) | \
-       *(idl_byte *)(IDL_msp->IDL_type_vec+versno_offset)) : \
-       (*(idl_short_int *)(IDL_msp->IDL_type_vec+versno_offset)) 
+       IDL_SWAPBYTES16((IDL_msp->IDL_type_vec+versno_offset)): \
+       (*(u_int16_t *)(IDL_msp->IDL_type_vec+versno_offset))
 
 /* Interpreter machinery - values of type byte */
+
 
 #define IDL_DT_NULL                   0
 #define IDL_DT_BOOLEAN                1

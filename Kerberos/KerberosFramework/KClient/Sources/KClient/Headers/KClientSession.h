@@ -3,7 +3,7 @@
  *
  * Abstraction for a KClient session
  *
- * $Header: /cvs/kfm/KerberosFramework/KClient/Sources/KClient/Headers/KClientSession.h,v 1.21 2004/10/22 20:53:06 lxs Exp $
+ * $Header$
  */
  
 #pragma once

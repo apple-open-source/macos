@@ -273,7 +273,7 @@ SWIG_UnpackData(char *c, void *ptr, int sz) {
 #endif
 
 /*
- * $Header: /cvs/krbdev/krb5/src/util/profile/profile_tcl.c,v 1.4 2004/10/27 00:07:20 raeburn Exp $
+ * $Header: /cvsroot/SWIG/Lib/tcl/swigtcl8.swg,v 1.19 2003/12/09 12:44:49 beazley Exp $
  * 
  * swigtcl8.swg
  */

@@ -41,7 +41,7 @@
  * $
  */
 
-/* $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Headers/CCache.internal.h,v 1.19 2004/10/22 20:48:25 lxs Exp $ */
+/* $Header$ */
 
 /*
  * Internal cache manipulation functions for CCache library

@@ -1,3 +1,39 @@
+Changes for the 5.20 release (the cctools-590.20 release):
+- Removed the wanrnings when building. Radar bug #4340147.
+  - Removed the const from put_macosx_deployment_target() in
+    "stuff/macosx_deployment_target.h" .
+  - Added #undef VALID_THREAD_STATE_FLAVOR and #undef THREAD_STATE_NONE to
+    "stuff/bytesex.h"
+
+Changes for the 5.18 release (the cctools-590.15 release):
+- Added the SG_PROTECTED_VERSION_1 constant to <mach-o/loader.h> for encrypted
+  segment contents. Radar bug #4298526.
+
+Changes for the 5.18 release (the cctools-590.12 release):
+- Added the MH_ALLOW_STACK_EXECUTION constant to <mach-o/loader.h> to control
+  stack execution.  Radar bug #4281171.
+- Added the new routine get_segprot_from_flag() to "stuff/arch.h".  Radar bug
+  #4281171.
+
+Changes for the 5.18 release (the cctools-590.10 release):
+- Added the SEG_IMPORT and S_ATTR_SELF_MODIFYING_CODE constants to
+  <mach-o/loader.h> to support the new i386 code stubs that dyld will write on.
+  Radar bug #4202415.
+
+Changes for the 5.19 release (the cctools-590.8 release):
+- Changed <mach-o/i386/swap.h> and "stuff/bytesex.h" to be #if'ed for the new
+  and old routines that swap the i386 thread states.  Radar bug #4200908.
+
+Changes for the 5.19 release (the cctools-590.7 release):
+- Added the new routine put_macosx_deployment_target() to
+  "stuff/macosx_deployment_target.h" to allow the value of
+  MACOSX_DEPLOYMENT_TARGET to be set on the argument to the compiler command
+  line flag -macosx_version_min.  Radar bug #4195253.
+
+Changes for the 5.18 release (the cctools-590.5 release):
+- Added the N_OSO stab to <mach-o/stab.h> for object file name to be created
+  by ld(1) new -Sp option.  Radar bug #4202462.
+
 Changes for the 5.18 release (the cctools-589 release):
 - Added the CPU_SUBTYPE_PENTIUM_4 subtype to <mach/machine.h>
   Radar bug #4115802.

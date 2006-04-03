@@ -62,13 +62,15 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_default_real = 0;
   gfc_option.flag_dollar_ok = 0;
   gfc_option.flag_underscoring = 1;
-  gfc_option.flag_second_underscore = 1;
+  gfc_option.flag_f2c = 0;
+  gfc_option.flag_second_underscore = -1;
   gfc_option.flag_implicit_none = 0;
   gfc_option.flag_max_stack_var_size = 32768;
   gfc_option.flag_module_access_private = 0;
   gfc_option.flag_no_backend = 0;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
+  gfc_option.flag_backslash = 1;
 
   gfc_option.q_kind = gfc_default_double_kind;
 
@@ -112,6 +114,12 @@ gfc_post_options (const char **pfilename)
   /* If -pedantic, warn about the use of GNU extensions.  */
   if (pedantic && (gfc_option.allow_std & GFC_STD_GNU) != 0)
     gfc_option.warn_std |= GFC_STD_GNU;
+
+  /* If the user didn't explicitly specify -f(no)-second-underscore we
+     use it if we're trying to be compatible with f2c, and not
+     otherwise.  */
+  if (gfc_option.flag_second_underscore == -1)
+    gfc_option.flag_second_underscore = gfc_option.flag_f2c;
 
   return false;
 }
@@ -214,8 +222,16 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.warn_unused_labels = value;
       break;
 
+    case OPT_ff2c:
+      gfc_option.flag_f2c = value;
+      break;
+
     case OPT_fdollar_ok:
       gfc_option.flag_dollar_ok = value;
+      break;
+
+    case OPT_fbackslash:
+      gfc_option.flag_backslash = value;
       break;
 
     case OPT_fdump_parse_tree:

@@ -820,9 +820,29 @@ ppc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   tdep = XMALLOC (struct gdbarch_tdep);
   gdbarch = gdbarch_alloc (&info, tdep);
 
+  tdep->wordsize = -1;
+  tdep->regoff = 0;
+  tdep->regs = 0;
+  tdep->ppc_gp0_regnum = -1;
+  tdep->ppc_gplast_regnum = -1;
+  tdep->ppc_toc_regnum = -1;
+  tdep->ppc_ps_regnum = -1;
+  tdep->ppc_cr_regnum = -1;
+  tdep->ppc_lr_regnum = -1;
+  tdep->ppc_ctr_regnum = -1;
+  tdep->ppc_xer_regnum = -1;
+  tdep->ppc_fpscr_regnum = -1;
+  tdep->ppc_mq_regnum = -1;
+  tdep->ppc_vr0_regnum = -1;
+  tdep->ppc_vrsave_regnum = -1;
+  tdep->ppc_ev0_regnum = -1;
+  tdep->ppc_ev31_regnum = -1;
+  tdep->lr_frame_offset = -1;
+
   tdep->wordsize = 4;
   tdep->ppc_lr_regnum = PPC_MACOSX_LR_REGNUM;
   tdep->ppc_gp0_regnum = PPC_MACOSX_FIRST_GP_REGNUM;
+  tdep->ppc_vr0_regnum = PPC_MACOSX_FIRST_VP_REGNUM;
 
   set_gdbarch_num_regs (gdbarch, PPC_MACOSX_NUM_REGS);
   set_gdbarch_sp_regnum (gdbarch, PPC_MACOSX_SP_REGNUM);
@@ -885,8 +905,6 @@ ppc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_frame_args_skip (gdbarch, 0);
 
   set_gdbarch_skip_trampoline_code (gdbarch, macosx_skip_trampoline_code);
-  set_gdbarch_dynamic_trampoline_nextpc (gdbarch,
-                                         macosx_dynamic_trampoline_nextpc);
 
   set_gdbarch_in_solib_call_trampoline (gdbarch,
                                         macosx_in_solib_call_trampoline);

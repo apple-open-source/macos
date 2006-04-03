@@ -38,12 +38,9 @@
 extern "C" {
 #endif
 
-#ifndef NDEBUG
-#define PKI_DEBUG   1
-#else
+#ifndef PKI_DEBUG
 #define PKI_DEBUG   0
 #endif
-
 #if PKI_DEBUG
 
 #include <stdio.h>

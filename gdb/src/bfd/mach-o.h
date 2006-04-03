@@ -45,18 +45,10 @@ bfd_mach_o_ppc_thread_flavour;
 
 typedef enum bfd_mach_o_i386_thread_flavour
   {
-    BFD_MACH_O_i386_NEW_THREAD_STATE = 1,
+    BFD_MACH_O_i386_THREAD_STATE = 1,
     BFD_MACH_O_i386_FLOAT_STATE = 2,
-    BFD_MACH_O_i386_ISA_PORT_MAP_STATE = 3,
-    BFD_MACH_O_i386_V86_ASSIST_STATE = 4,
-    BFD_MACH_O_i386_REGS_SEGS_STATE = 5,
-    BFD_MACH_O_i386_THREAD_SYSCALL_STATE = 6,
-    BFD_MACH_O_i386_THREAD_STATE_NONE = 7,
-    BFD_MACH_O_i386_SAVED_STATE = 8,
-    BFD_MACH_O_i386_THREAD_STATE = -1,
-    BFD_MACH_O_i386_THREAD_FPSTATE = -2,
-    BFD_MACH_O_i386_THREAD_EXCEPTSTATE = -3,
-    BFD_MACH_O_i386_THREAD_CTHREADSTATE = -4,
+    BFD_MACH_O_i386_EXCEPTION_STATE = 3,
+    BFD_MACH_O_i386_THREAD_STATE_NONE = 4,
   }
 bfd_mach_o_i386_thread_flavour;
 
@@ -90,7 +82,8 @@ typedef enum bfd_mach_o_load_command_type
     /* Load a dynamically linked shared library that is allowed to be
        missing (weak).  */
     BFD_MACH_O_LC_LOAD_WEAK_DYLIB = 0x18,
-    BFD_MACH_O_LC_SEGMENT_64 = 0x19	/* 64-bit segment of this file to be mapped. */
+    BFD_MACH_O_LC_SEGMENT_64 = 0x19,	/* 64-bit segment of this file to be mapped. */
+    BFD_MACH_O_LC_ROUTINES_64 = 0x1a    /* Address of the dyld init routine in a dylib.  */
   }
 bfd_mach_o_load_command_type;
 
@@ -525,8 +518,8 @@ int bfd_mach_o_lookup_command
   PARAMS ((bfd *, bfd_mach_o_load_command_type, bfd_mach_o_load_command **));
 unsigned long bfd_mach_o_stack_addr
   PARAMS ((enum bfd_mach_o_cpu_type));
-int bfd_mach_o_core_fetch_environment
-  PARAMS ((bfd *, unsigned char **, unsigned int *));
+bfd_boolean bfd_mach_o_core_fetch_environment
+  PARAMS ((bfd *, unsigned char **, bfd_size_type *));
 char * bfd_mach_o_core_file_failing_command
   PARAMS ((bfd *));
 int bfd_mach_o_core_file_failing_signal

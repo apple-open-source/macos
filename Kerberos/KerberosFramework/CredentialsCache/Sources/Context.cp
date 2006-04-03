@@ -1,7 +1,7 @@
 /*
  * CCIContext.c
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/Context.cp,v 1.16 2004/10/04 17:41:26 lxs Exp $
+ * $Header$
  */
 
 #include "AbstractFactory.h"
@@ -373,14 +373,14 @@ cc_int32 CCEContext::Lock (
 	cc_context_t		/* inContext */,
 	cc_uint32			/* inLockType */,
 	cc_uint32			/* inLock */) {
-#pragma message (CCIMessage_Warning_ "CCEContext::Lock not implemented")
+#warning CCEContext::Lock not implemented
 	return ccNoError;
 }
 
 // Unlock a context
 cc_int32 CCEContext::Unlock (
 	cc_context_t		/* inContext */) {
-#pragma message (CCIMessage_Warning_ "CCEContext::Unlock not implemented")
+#warning CCEContext::Unlock not implemented
 	return ccNoError;
 }
 

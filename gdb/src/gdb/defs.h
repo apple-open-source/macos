@@ -59,11 +59,6 @@
 #define SEEK_CUR 1
 #endif
 
-/* First include ansidecl.h so we can use the various macro definitions
-   here and in all subsequent file inclusions.  */
-
-#include "ansidecl.h"
-
 #include <stdarg.h>		/* For va_list.  */
 
 #include "libiberty.h"
@@ -843,6 +838,7 @@ enum scheduler_locking_mode
   set_scheduler_locking_mode (enum scheduler_locking_mode new_mode);
 void scheduler_run_this_ptid (struct ptid this_ptid);
 int scheduler_lock_on_p ();
+struct ptid get_scheduler_lock_ptid ();
 struct cleanup * 
   make_cleanup_set_restore_scheduler_locking_mode (enum scheduler_locking_mode new_mode);
 
@@ -1405,14 +1401,6 @@ extern int use_windows;
 #define MERGEPID(PID, TID) ptid_build (PID, TID, 0)
 #endif
 
-/* If under Cygwin, provide backwards compatibility with older
-   Cygwin compilers that don't define the current cpp define. */
-#ifdef __CYGWIN32__
-#ifndef __CYGWIN__
-#define __CYGWIN__
-#endif
-#endif
-
 /* Define well known filenos if the system does not define them.  */
 #ifndef STDIN_FILENO
 #define STDIN_FILENO   0
@@ -1462,15 +1450,7 @@ extern int use_windows;
 extern ULONGEST align_up (ULONGEST v, int n);
 extern ULONGEST align_down (ULONGEST v, int n);
 
-#if defined(NeXT_PDO)
-#undef environ
-#endif /* NeXT_PDO */
-
-#if (!defined __GNUC__ || __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < (defined __cplusplus ? 6 : 4)))
-#define __CHECK_FUNCTION ((__const char *) 0)
-#else
 #define __CHECK_FUNCTION __PRETTY_FUNCTION__
-#endif
 
 #define CHECK(expression) \
   ((void) ((expression) ? 0 : gdb_check (#expression, __FILE__, __LINE__, __CHECK_FUNCTION)))

@@ -37,29 +37,8 @@
 #include <sys/time.h>
 #include <sys/select.h>
 
-static FILE *sigthread_stderr = NULL;
 static FILE *sigthread_stderr_re = NULL;
 static int sigthread_debugflag = 0;
-
-#if 0
-static int
-sigthread_debug (const char *fmt, ...)
-{
-  va_list ap;
-  if (sigthread_debugflag)
-    {
-      va_start (ap, fmt);
-      fprintf (sigthread_stderr, "[%d sigthread]: ", getpid ());
-      vfprintf (sigthread_stderr, fmt, ap);
-      va_end (ap);
-      return 0;
-    }
-  else
-    {
-      return 0;
-    }
-}
-#endif
 
 /* A re-entrant version for use by the signal handling thread */
 
@@ -152,7 +131,7 @@ macosx_signal_thread_debug_status (FILE *f, WAITSTATUS status)
     }
   else
     {
-      fprintf (f, "macosx_debug_status: unknown status value %d\n", status);
+      fprintf (f, "unknown status value %d\n", status);
     }
 }
 
@@ -172,17 +151,19 @@ macosx_signal_thread (void *arg)
       pthread_testcancel ();
 
       sigthread_debug_re
-        ("macosx_signal_thread: waiting for signals for pid %d\n",
+        ("macosx_signal_thread: waiting for events for pid %d\n",
          s->inferior_pid);
+
       pid = waitpid (s->inferior_pid, &status, 0);
+
       sigthread_debug_re
-        ("macosx_signal_thread: done waiting for signals for pid %d\n",
+        ("macosx_signal_thread: received event for pid %d\n",
          s->inferior_pid);
 
       if ((pid < 0) && (errno == ECHILD))
         {
           sigthread_debug_re
-            ("macosx_signal_thread: no children present: waiting for parent\n");
+            ("macosx_signal_thread: no children present; waiting for parent\n");
           for (;;)
             {
               pthread_testcancel ();
@@ -207,18 +188,15 @@ macosx_signal_thread (void *arg)
 
       if (sigthread_debugflag)
         {
-          sigthread_debug_re
-            ("macosx_signal_thread: got status %d for pid %d (expected inferior is %d)\n",
-             status, pid, s->inferior_pid);
-          sigthread_debug_re ("macosx_signal_thread: got signal ");
+          sigthread_debug_re ("macosx_signal_thread: received event for pid %d: ", pid);
           macosx_signal_thread_debug_status (sigthread_stderr_re, status);
         }
 
       if (pid != s->inferior_pid)
         {
           fprintf (sigthread_stderr_re,
-                   "macosx_signal_thread: got status value %d for unexpected pid %d\n",
-                   status, pid);
+                   "macosx_signal_thread: event was for unexpected pid (got %d, was expecting %d)\n",
+                   pid, s->inferior_pid);
           abort ();
         }
 
@@ -233,7 +211,6 @@ _initialize_macosx_nat_sigthread ()
 {
   struct cmd_list_element *cmd = NULL;
 
-  sigthread_stderr = fdopen (fileno (stderr), "w+");
   sigthread_stderr_re = fdopen (fileno (stderr), "w+");
 
   cmd = add_set_cmd ("signals", no_class, var_boolean,

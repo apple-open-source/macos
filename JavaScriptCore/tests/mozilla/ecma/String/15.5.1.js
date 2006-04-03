@@ -25,7 +25,8 @@
 			15.5.1.1 String(value)
 			15.5.1.2 String()
 
-    Description:	When String is called as a function rather than as
+    Description:
+	When String is called as a function rather than as
 			a constructor, it performs a type conversion.
 			- String(value) returns a string value (not a String
 			object) computed by ToString(value)

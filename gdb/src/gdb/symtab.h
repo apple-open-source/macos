@@ -186,7 +186,6 @@ extern CORE_ADDR symbol_overlayed_address (CORE_ADDR, asection *);
 
 /* Initializes the language dependent portion of a symbol
    depending upon the language for the symbol. */
-
 #define SYMBOL_INIT_LANGUAGE_SPECIFIC(symbol,language) \
   (symbol_init_language_specific (&(symbol)->ginfo, (language)))
 extern void symbol_init_language_specific (struct general_symbol_info *symbol,
@@ -967,6 +966,14 @@ struct partial_symtab
   /* If this partial_symtab is 'obsolete', i.e. there exists a psymtab which
      has more up-to-date information.  */
   unsigned char obsolete;
+
+  /* APPLE LOCAL: Debug info in .o files */
+  /* I need to know what the language of the PST is, because I need to look
+     up names from the .o file in the pst, but if the language is C++ I 
+     need to mangle the names before using lookup_partial_symtab.  
+     FIXME: If we do this in DWARF, we'll need to set this in the DWARF
+     reader at that point.  */
+  enum language language;
 };
 
 /* APPLE LOCAL fix-and-continue */
@@ -1419,7 +1426,8 @@ extern /*const */ char *main_name (void);
    in libSystem.  */
 
 void equivalence_table_delete (struct objfile *);
-void equivalence_table_add (struct objfile *, char *, char *, struct minimal_symbol *);
+void equivalence_table_add (struct objfile *, const char *, const char *, struct minimal_symbol *);
+void equivalence_table_build (struct objfile *);
 struct minimal_symbol **find_equivalent_msymbol (struct minimal_symbol *msymbol);
 /* END APPLE LOCAL */
 

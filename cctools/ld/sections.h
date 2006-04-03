@@ -196,6 +196,9 @@ __private_extern__ void live_marking(
 __private_extern__ struct fine_reloc *get_fine_reloc_for_merged_symbol(
     struct merged_symbol *merged_symbol,
     struct section_map **local_map);
+__private_extern__ unsigned long r_symbolnum_from_r_value(
+    unsigned long r_value,
+    struct object_file *obj);
 __private_extern__ struct merged_section *create_merged_section(
     struct section *s);
 __private_extern__ struct merged_segment *lookup_merged_segment(

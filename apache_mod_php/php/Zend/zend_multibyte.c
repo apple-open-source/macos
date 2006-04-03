@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/*	$Id: zend_multibyte.c,v 1.4.2.1 2002/12/31 16:23:04 sebastian Exp $ */
+/*	$Id: zend_multibyte.c,v 1.4.2.1.8.1 2005/08/04 10:30:14 fujimoto Exp $ */
 
 #include "zend.h"
 #include "zend_compile.h"
@@ -53,6 +53,25 @@ zend_encoding encoding_sjis = {
 	0
 };
 
+const char *eucjp_win_aliases[] = {"eucJP-open", NULL};
+zend_encoding encoding_eucjp_win = {
+	NULL,
+	NULL,
+	"eucJP-win",
+	(const char *(*)[])&eucjp_win_aliases,
+	1
+};
+
+const char *sjis_win_aliases[] = {"SJIS-open", "MS_Kanji", "Windows-31J", "CP932", NULL};
+zend_encoding encoding_sjis_win = {
+	/* sjis-filters does not care about diffs of Shift_JIS and CP932 */
+	sjis_input_filter,
+	sjis_output_filter,
+	"SJIS-win",
+	(const char *(*)[])&sjis_win_aliases,
+	0
+};
+
 const char *ascii_aliases[] = {"us-ascii", NULL};
 zend_encoding encoding_ascii = {
 	NULL,
@@ -67,6 +86,8 @@ zend_encoding *zend_encoding_table[] = {
 	&encoding_ascii,
 	&encoding_euc_jp,
 	&encoding_sjis,
+	&encoding_eucjp_win,
+	&encoding_sjis_win,
 	NULL
 };
 

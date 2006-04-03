@@ -11,7 +11,7 @@
  *
  */
 #ifndef lint
-static const char rcsid[] = "$Id: fcgiapp.c,v 1.1.4.2 2003/09/21 22:08:16 sas Exp $";
+static const char rcsid[] = "$Id: fcgiapp.c,v 1.1.4.3 2005/04/22 09:21:48 tony2001 Exp $";
 #endif /* not lint */
 
 #include <assert.h>
@@ -1972,7 +1972,7 @@ int FCGX_IsCGI(void)
         int rc = FCGX_Init();
         if (rc) {
             /* exit() isn't great, but hey */
-            //exit((rc < 0) ? rc : -rc);
+            /* exit((rc < 0) ? rc : -rc); */
 			return 0;
         }
     }

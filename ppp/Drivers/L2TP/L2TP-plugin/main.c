@@ -149,6 +149,8 @@ static int	opt_hello_timeout = 0;			/* default - only send for network change ev
 static int     	opt_recv_timeout = L2TP_DEFAULT_RECV_TIMEOUT;
 static char	opt_ipsecsharedsecret[MAXSECRETLEN];	/* IPSec Shared Secret */
 static char     *opt_ipsecsharedsecrettype = "use";	 /* use, key, keychain */
+static char	opt_ipseclocalidentifier[MAXNAMELEN];	/* IPSec Local Identifier */
+static char     *opt_ipseclocalidentifiertype = "keyid";	 /* keyid, fqdn, user_fqdn, asn1dn, address */
 static int	opt_wait_if_timeout = L2TP_DEFAULT_WAIT_IF_TIMEOUT;
 
 struct	l2tp_parameters our_params;
@@ -195,6 +197,11 @@ option_t l2tp_options[] = {
       OPT_PRIO | OPT_STATIC | OPT_HIDE, NULL, MAXSECRETLEN },
     { "l2tpipsecsharedsecrettype", o_string, &opt_ipsecsharedsecrettype,
       "IPSec Shared Secret Type [use, key, keychain]" },
+    { "l2tpipseclocalidentifier", o_string, opt_ipseclocalidentifier,
+      "IPSec Local Identifier", 
+      OPT_PRIO | OPT_STATIC, NULL, MAXNAMELEN },
+    { "l2tpipseclocalidentifiertype", o_string, &opt_ipseclocalidentifiertype,
+      "IPSec Local Identifier Type [keyid, fqdn, user_fqdn, asn1dn, address]" },
     { "l2tpudpport", o_int, &opt_udpport,
       "UDP port for connect"},
     { "l2tpmode", o_string, &opt_mode,
@@ -734,6 +741,8 @@ int l2tp_connect(int *errorcode)
         if (!opt_noipsec) {
 
 			CFStringRef				secret_string = NULL;
+			CFStringRef				localidentifier_string = NULL;
+			CFStringRef				localidentifiertype_string = NULL;
 			CFStringRef				auth_method = NULL;
 			CFDataRef				certificate = NULL;
 			CFDictionaryRef			useripsec_dict = NULL;
@@ -770,6 +779,19 @@ int l2tp_connect(int *errorcode)
 						error("L2TP: incorrect authentication method.\n");
 						goto fail;
 					}
+
+					localidentifier_string = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecLocalIdentifier);
+					if (localidentifier_string && !isString(localidentifier_string)) {
+						error("L2TP: incorrect local identifier found.\n");
+						goto fail;
+					}
+
+					localidentifiertype_string = CFDictionaryGetValue(useripsec_dict, CFSTR("LocalIdentifierType"));
+					if (localidentifiertype_string && !isString(localidentifiertype_string)) {
+						error("L2TP: incorrect local identifier type found.\n");
+						goto fail;
+					}
+
 				}
 			}
 
@@ -803,6 +825,34 @@ int l2tp_connect(int *errorcode)
 				else if (!strcmp(opt_ipsecsharedsecrettype, "keychain")) 
 					CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption, kRASValIPSecSharedSecretEncryptionKeychain);
 				CFRelease(secret_string);
+			}
+
+			if (localidentifier_string) {
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecLocalIdentifier, localidentifier_string);
+			}
+			else if (opt_ipseclocalidentifier) {
+				/* set the local identifier information */
+				localidentifier_string = CFStringCreateWithCString(0, opt_ipseclocalidentifier, kCFStringEncodingUTF8);
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecLocalIdentifier, localidentifier_string);
+				CFRelease(localidentifier_string);
+				localidentifier_string = NULL;
+			}
+
+			if (localidentifiertype_string) {
+				CFDictionarySetValue(ipsec_dict, CFSTR("LocalIdentifierType"), localidentifiertype_string);
+			}
+			else if (opt_ipseclocalidentifiertype) {
+				/* set the local identifier type information */
+				if (!strcmp(opt_ipseclocalidentifiertype, "keyid")) 
+					CFDictionarySetValue(ipsec_dict, CFSTR("LocalIdentifierType"), CFSTR("KeyID"));
+				else if (!strcmp(opt_ipseclocalidentifiertype, "fqdn")) 
+					CFDictionarySetValue(ipsec_dict, CFSTR("LocalIdentifierType"), CFSTR("FQDN"));
+				else if (!strcmp(opt_ipseclocalidentifiertype, "user_fqdn")) 
+					CFDictionarySetValue(ipsec_dict, CFSTR("LocalIdentifierType"), CFSTR("UserFQDN"));
+				else if (!strcmp(opt_ipseclocalidentifiertype, "asn1dn")) 
+					CFDictionarySetValue(ipsec_dict, CFSTR("LocalIdentifierType"), CFSTR("ASN1DN"));
+				else if (!strcmp(opt_ipseclocalidentifiertype, "address")) 
+					CFDictionarySetValue(ipsec_dict, CFSTR("LocalIdentifierType"), CFSTR("Address"));
 			}
 
 

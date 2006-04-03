@@ -1,26 +1,7 @@
 #!/bin/sh
 
-# gcc_select [-n] [-force] [2 | 3 | 3.x | 4.x ] [-h | --help] [-v | --version]
-#            [-l | --list] [-root]
-#            
-#
-# Switch the default gcc to any of 2.x, 3.x, or 4.x.
-#
-#  2             Select gcc 2.95.2 as the default compiler.
-#  3             Select gcc 3.1 as the default compiler.
-#  3.x           Select gcc 3.x as the default compiler.
-#  4.x           Select gcc 4.x as the default compiler.
-#  -force        Ensure the links are correct for the specified version.
-#                even if the one specified is the current version.
-#  -h            Display this help info.
-#  --help        Same as -h.
-#  -n            Show commands to do selection but do not execute them.
-#  -root         Skip 'root' check and assume you have root access.
-#  -v            Display gcc_select version number.
-#  --version     Same as -v.
-#  -l		 Display available compiler versions.
-#  --list	 Same as -l.
-#           
+# See the manpage for the documented options.
+# 
 # This script will switch the current compiler installation around
 # among 2.x, 3.x, and 4.x (or echo the commands to do it if -n is used).
 # The current version is displayed if no arguments are specified.
@@ -48,7 +29,7 @@
 
 #######################################################################
 
-GCC_SELECT_VERSION="2.14"
+GCC_SELECT_VERSION="2.15"
 
 #######################################################################
 
@@ -85,7 +66,7 @@ switch_it()
 {
     local f who status argc=$# cwd="`/bin/pwd`"
     local n="\n`echo "usage: ${0##*/}" | sed -e 's/./ /g'`"
-    local usage="${0##*/} [-n] [-force] [2 | 3 | 3.x | 4.x ] [-h | --help] [-v | --version]$n [-l | --list] [-root]"
+    local usage="${0##*/} [-n] [-force] [2 | 3 | 3.<number> | 4.<number> ] [-h | --help] [-v | --version]$n [-l | --list] [-root]"
     
     #
     # Collect the arguments...
@@ -305,6 +286,20 @@ WRAP_HELP
                         }
 
                         if [ -f "$driver.real" ]; then
+                            # What if the driver were a symlink?
+                            # Some trains have 3.5 as a link to 4.0.
+                            # In this case, the symlink will now be pointing
+                            # to foo.real instead of foo.  We do this
+                            # before moving the driver.real to driver so that
+                            # -n is a more accurate simulation.
+                            if [ -L "$driver.real" ] && expr "$(readlink "$driver.real")" : ".*\\.real\$" > /dev/null; then
+                                newdest=$(readlink "$driver.real" | sed "s/\\.real\$//")
+                                $dashn ln -sf "$newdest" "$driver.real" || {
+                                    echo "Couldn't relink $driver.real to $newdest"
+                                    if [ -z "$forced" ]; then exit 1 ; fi
+                                }
+                            fi
+
                             $dashn mv "$driver.real" "$driver" || {
                                 echo "Couldn't move $driver.real to $driver"
                                 if [ -z "$forced" ]; then exit 1 ; fi
@@ -389,16 +384,18 @@ WRAP_HELP
             list="$list /usr/include/$header"
           fi
 	done
-        for lib in $symlink_libs; do
-          if [ -e /usr/lib/$lib -a ! -L /usr/lib/$lib ]; then
-            list="$list /usr/lib/$lib"
-          fi
-	done
-        for lib in $symlink_local_libs; do
-          if [ -e /usr/local/lib/$lib -a ! -L /usr/local/lib/$lib ]; then
-            list="$list /usr/local/lib/$lib"
-          fi
-	done
+	if [ $os_version -lt 100400 ]; then
+	  for lib in $symlink_libs; do
+	    if [ -e /usr/lib/$lib -a ! -L /usr/lib/$lib ]; then
+	      list="$list /usr/lib/$lib"
+	    fi
+	  done
+	  for lib in $symlink_local_libs; do
+	    if [ -e /usr/local/lib/$lib -a ! -L /usr/local/lib/$lib ]; then
+	      list="$list /usr/local/lib/$lib"
+	    fi
+	  done
+	fi
 	if [ "$list" != "" ]; then
 	    show_list "The following file(s) exist on your system but are NOT symlinks." \
 			"Delete them before using gcc_select." $list
@@ -520,31 +517,39 @@ WRAP_HELP
     done
 
     # Set up the library symlinks...
-    $dashn mkdir -p $usr/lib
-    for lib in $symlink_libs; do
-      $dashn rm -f $usr/lib/$lib
-      if [ -e /usr/lib/gcc/darwin/default/$lib ]; then
-        $dashn ln -sf gcc/darwin/default/$lib $usr/lib/$lib
+    if [ $os_version -ge 100400 ]; then
+      for lib in $symlink_libs libcc_dynamic.a ; do
+	[ -L $usr/lib/$lib ] && $dashn rm -f $usr/lib/$lib
+      done
+      for lib in $symlink_local_libs ; do
+	[ -L $usr/local/lib/$lib ] && $dashn rm -f $usr/local/lib/$lib
+      done
+    else
+      $dashn mkdir -p $usr/lib
+      for lib in $symlink_libs; do
+	$dashn rm -f $usr/lib/$lib
+	if [ -e /usr/lib/gcc/darwin/default/$lib ]; then
+	  $dashn ln -sf gcc/darwin/default/$lib $usr/lib/$lib
+	fi
+      done
+      $dashn mkdir -p $usr/local/lib
+      for lib in $symlink_local_libs; do            
+	$dashn rm -f $usr/local/lib/$lib
+	if [ -e /usr/lib/gcc/darwin/default/$lib ]; then            
+	  $dashn ln -sf ../gcc/darwin/default/$lib $usr/local/lib/$lib
+	fi
+      done
+      # The functionality in what used to be libcc_dynamic.a in 2.95.2 now
+      # resides in libgcc.a.
+      if [ ! -e $usr/lib/libcc_dynamic.a ]; then
+        $dashn ln -sf gcc/darwin/default/libgcc.a $usr/lib/libcc_dynamic.a
       fi
-    done
-    $dashn mkdir -p $usr/local/lib
-    for lib in $symlink_local_libs; do            
-      $dashn rm -f $usr/local/lib/$lib
-      if [ -e /usr/lib/gcc/darwin/default/$lib ]; then            
-        $dashn ln -sf ../gcc/darwin/default/$lib $usr/local/lib/$lib                                   
-      fi
-    done
-    # The functionality in what used to be libcc_dynamic.a in 2.95.2 now
-    # resides in libgcc.a.
-    if [ ! -e $usr/lib/libcc_dynamic.a ]; then
-      $dashn ln -sf gcc/darwin/default/libgcc.a $usr/lib/libcc_dynamic.a
     fi
 
     # For gcc 3.5 and above, some of the symlinks we just set up point to nowhere.
     # Get rid of them.
     if [ $switchto_cc \> 3.3 ]; then
       $dashn rm -f $usr/lib/gcc/darwin/default
-      $dashn rm -f $usr/lib/libcc_dynamic.a
     fi
 
     # Set up header symlinks...

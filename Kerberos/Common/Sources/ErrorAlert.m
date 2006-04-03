@@ -1,7 +1,7 @@
 /*
  * ErrorAlert.m
  *
- * $Header: /cvs/kfm/Common/Sources/ErrorAlert.m,v 1.3 2004/12/06 20:43:02 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

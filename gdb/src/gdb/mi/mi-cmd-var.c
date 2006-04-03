@@ -22,6 +22,7 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "gdbcmd.h"
 #include "mi-cmds.h"
 #include "ui-out.h"
 #include "mi-out.h"
@@ -43,6 +44,8 @@ static char *typecode_as_string (struct varobj* var);
 static struct ui_out *tmp_miout = NULL;
 
 static void prepare_tmp_mi_out (void);
+
+static int mi_show_protections = 1;
 
 /* VAROBJ operations */
 
@@ -333,8 +336,7 @@ mi_cmd_var_delete (char *command, char **argv, int argc)
   if (argc == 1)
     {
       if (strcmp (name, "-c") == 0)
-	error ("mi_cmd_var_delete: Missing required argument after %s", 
-	       "'-c': variable object name");
+	error ("mi_cmd_var_delete: Missing required argument after '-c': variable object name");
       if (*name == '-')
 	error ("mi_cmd_var_delete: Illegal variable object name");
     }
@@ -462,12 +464,35 @@ mi_cmd_var_list_children (char *command, char **argv, int argc)
   struct varobj *var = NULL; /* APPLE LOCAL: init to NULL for err detection */ 
   struct varobj **childlist;
   struct varobj **cc;
+  struct cleanup *cleanup_children;
   int numchild;
   enum print_values print_values = PRINT_NO_VALUES;
-  struct cleanup *cleanup_children = NULL;
   int argv0_is_flag = 0;
   int argv1_is_flag = 0;
-  const char *usage = "mi_cmd_var_list_children: Usage: [--no-values|--all-values] NAME [PRINT_VALUE]";
+  int mi_show_fake_children = mi_show_protections;
+  int saw_fake_child, saw_public, saw_other;
+  int num_fake_childs_children;
+
+  const char *usage = "mi_cmd_var_list_children: Usage: [--suppress-protection|--show-protection] "
+    "[--no-values|--all-values] NAME [PRINT_VALUE]";
+
+  /* APPLE LOCAL: We added the protection control flags.  */
+
+  if (argc == 0)
+    error ("%s", usage);
+
+  if (strcmp (argv[0], "--suppress-protection") == 0)
+    {
+      mi_show_fake_children = 0;
+      argv++;
+      argc--;
+    }
+  else if (strcmp (argv[0], "--show-protection") == 0)
+    {
+      mi_show_fake_children = 1;
+      argv++;
+      argc--;
+    }
 
   /* APPLE LOCAL: In our impl, arguments are reversed.  We use
      'varobj-handle show-value', at the FSF they use 
@@ -528,10 +553,59 @@ mi_cmd_var_list_children (char *command, char **argv, int argc)
     error ("Variable object not found");
 
   numchild = varobj_list_children (var, &childlist);
-  ui_out_field_int (uiout, "numchild", numchild);
 
   if (numchild <= 0)
-    return MI_CMD_DONE;
+    {
+      ui_out_field_int (uiout, "numchild", numchild);
+      return MI_CMD_DONE;
+    }
+
+  cc = childlist;
+
+  /* Let's do a first pass through the children to see if
+     there are any fake children, and if so, how many... */
+
+  saw_public = 0;
+  saw_fake_child = 0;
+  saw_other = 0;
+
+  /* I couldn't think of a better name for this.  It's really the
+     number of children added by the fake children IF you suppress
+     printing all the fake children, and go directly to THEIR children.  */
+  num_fake_childs_children = 0;
+
+  /* This is a slight hack, but we can't tell a struct from a class, and
+     so we end up showing "public" for structs, which is bogus.  So we
+     use the heuristic that if the varobj has only a "public" fake
+     child, then it's a struct, and we should not show the protection.  */
+
+  while (*cc != NULL)
+    {
+      if (varobj_is_fake_child (*cc))
+	{
+	  if (strcmp (varobj_get_expression (*cc), "public") == 0)
+	    {
+	      saw_public = 1;
+	    }
+	  else
+	    {
+	      saw_other = 1;
+	    }
+	  num_fake_childs_children += varobj_get_num_children (*cc) - 1;
+	  saw_fake_child = 1;
+	} 
+      cc++;
+    }
+
+  if (saw_fake_child && saw_public && !saw_other)
+    mi_show_fake_children = 0;
+
+  if (!mi_show_fake_children)
+    ui_out_field_int (uiout, "numchild", numchild + num_fake_childs_children);
+  else 
+    ui_out_field_int (uiout, "numchild", numchild);
+
+  cc = childlist;
 
   /* APPLE LOCAL: CHILDREN is a list, not a tuple. */
   cleanup_children = make_cleanup_ui_out_list_begin_end (uiout, "children");
@@ -543,21 +617,48 @@ mi_cmd_var_list_children (char *command, char **argv, int argc)
     cleanup_children = make_cleanup_ui_out_list_begin_end (uiout, "children");
 #endif
 
-  cc = childlist;
   while (*cc != NULL)
     {
       struct cleanup *cleanup_child;
-      cleanup_child = make_cleanup_ui_out_tuple_begin_end (uiout, "child");
 
-      mi_report_var_creation (uiout, *cc, 0);
+      if (varobj_is_fake_child (*cc) && !mi_show_fake_children) 
+	{
+	  struct varobj **fake_childlist, **cc2;
+	  int num_fake;
+	  num_fake = varobj_list_children (*cc, &fake_childlist);
 
-      if (print_values)
-	ui_out_field_string (uiout, "value", varobj_get_value (*cc));
-      do_cleanups (cleanup_child);
+	  if (num_fake > 0)
+	    {
+	      cc2 = fake_childlist;
+	      while (*cc2 != NULL) 
+		{
+		  cleanup_child = make_cleanup_ui_out_tuple_begin_end (uiout, "child");
+		  
+		  mi_report_var_creation (uiout, *cc2, 0);
+		  
+		  if (print_values)
+		    ui_out_field_string (uiout, "value", varobj_get_value (*cc2));
+		  do_cleanups (cleanup_child);
+		  cc2++;
+		}
+	      xfree (fake_childlist);
+	    }
+	} 
+      else
+	{
+	  cleanup_child = make_cleanup_ui_out_tuple_begin_end (uiout, "child");
+	  
+	  mi_report_var_creation (uiout, *cc, 0);
+	  
+	  if (print_values)
+	    ui_out_field_string (uiout, "value", varobj_get_value (*cc));
+	  do_cleanups (cleanup_child);
+	}
       cc++;
     }
   do_cleanups (cleanup_children);
   xfree (childlist);
+
   return MI_CMD_DONE;
 }
 
@@ -838,7 +939,7 @@ static int
 varobj_update_one (struct varobj *var)
 {
   struct varobj_changelist *changelist;
-  struct cleanup *cleanup;
+  struct cleanup *cleanup = NULL;
   int nc;
 
   cleanup = make_cleanup_restore_uiout (uiout);
@@ -927,4 +1028,18 @@ varobj_update_one (struct varobj *var)
       return 1;
     }
   return 1;
+}
+
+/* APPLE LOCAL: Add a set variable for suppress or show protections.  */
+void
+_initialize_mi_cmd_var (void)
+{
+  struct cmd_list_element *cmd;
+
+  cmd = add_set_cmd ("mi-show_protections", class_obscure, var_boolean, 
+		     (char *) &mi_show_protections,
+		     "Set whether to show \"public\", \"protected\" and \"private\" nodes in variable objects.",
+		     &setlist);
+  add_show_from_set (cmd, &showlist);
+
 }

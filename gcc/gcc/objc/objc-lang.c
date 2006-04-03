@@ -45,13 +45,11 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_INIT objc_init
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
 #define LANG_HOOKS_DECL_PRINTABLE_NAME objc_printable_name
-#undef LANG_HOOKS_TYPES_COMPATIBLE_P
-#define LANG_HOOKS_TYPES_COMPATIBLE_P objc_types_compatible_p
+/* APPLE LOCAL mainline */
+/* The 'objc_types_compatible_p' routine has been removed.  */
 /* APPLE LOCAL begin mainline */
 #undef LANG_HOOKS_GIMPLIFY_EXPR 
 #define LANG_HOOKS_GIMPLIFY_EXPR objc_gimplify_expr
-/* APPLE LOCAL end mainline */
-/* APPLE LOCAL begin mainline */
 #undef LANG_HOOKS_GET_CALLEE_FNDECL
 #define LANG_HOOKS_GET_CALLEE_FNDECL	objc_get_callee_fndecl
 /* APPLE LOCAL end mainline */

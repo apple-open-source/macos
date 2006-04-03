@@ -47,7 +47,8 @@ static tree convert_for_assignment (tree, tree, const char *, tree, int);
 static tree cp_pointer_int_sum (enum tree_code, tree, tree);
 static tree rationalize_conditional_expr (enum tree_code, tree);
 static int comp_ptr_ttypes_real (tree, tree, int);
-static int comp_ptr_ttypes_const (tree, tree);
+/* APPLE LOCAL mainline 4.0.2 */
+/* Remove static int comp_ptr_ttypes_const (tree, tree); */
 static bool comp_except_types (tree, tree, bool);
 static bool comp_array_types (tree, tree, bool);
 static tree common_base_type (tree, tree);
@@ -519,6 +520,16 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       return build_type_attribute_variant (result_type, attributes);
     }
 
+    /* APPLE LOCAL begin mainline */
+    if (c_dialect_objc () && TREE_CODE (t1) == POINTER_TYPE
+	&& TREE_CODE (t2) == POINTER_TYPE)
+      {
+	if (objc_compare_types (t1, t2, -3, NULL_TREE))
+	  /* APPLE LOCAL 4154928 */
+	  return objc_common_type (t1, t2);
+      }
+
+  /* APPLE LOCAL end mainline */
   /* [expr.eq] permits the application of a pointer conversion to
      bring the pointers to a common type.  */
   if (TREE_CODE (t1) == POINTER_TYPE && TREE_CODE (t2) == POINTER_TYPE
@@ -530,16 +541,10 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       class1 = TREE_TYPE (t1);
       class2 = TREE_TYPE (t2);
 
-      /* APPLE LOCAL begin mainline */
-      if (DERIVED_FROM_P (class1, class2) || 
-	  (c_dialect_objc () && objc_comptypes (class1, class2, 0) == 1))
-      /* APPLE LOCAL end mainline */
+      if (DERIVED_FROM_P (class1, class2))
 	t2 = (build_pointer_type 
 	      (cp_build_qualified_type (class1, TYPE_QUALS (class2))));
-      /* APPLE LOCAL begin mainline */
-      else if (DERIVED_FROM_P (class2, class1) ||
-	       (c_dialect_objc () && objc_comptypes (class2, class1, 0) == 1))
-      /* APPLE LOCAL end mainline */
+      else if (DERIVED_FROM_P (class2, class1))
 	t1 = (build_pointer_type 
 	      (cp_build_qualified_type (class2, TYPE_QUALS (class1))));
       else
@@ -927,6 +932,9 @@ comp_array_types (tree t1, tree t2, bool allow_redeclaration)
 bool
 comptypes (tree t1, tree t2, int strict)
 {
+  /* APPLE LOCAL begin mainline */
+  /* Variable 'retval' removed.  */
+  /* APPLE LOCAL end mainline */
   if (t1 == t2)
     return true;
 
@@ -1019,12 +1027,8 @@ comptypes (tree t1, tree t2, int strict)
 	break;
       else if ((strict & COMPARE_DERIVED) && DERIVED_FROM_P (t2, t1))
 	break;
-      
-      /* We may be dealing with Objective-C instances.  */
-      if (TREE_CODE (t1) == RECORD_TYPE
-	  && objc_comptypes (t1, t2, 0) > 0)
-	break;
-
+      /* APPLE LOCAL mainline */
+      /* Call to 'objc_comptypes' has been removed.  */
       return false;
 
     case OFFSET_TYPE:
@@ -2395,14 +2399,25 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	}
       /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
-      /* Convert down to the right base before using the instance.  First
-         use the type...  */
+      /* APPLE LOCAL begin mainline */
+      /* Convert down to the right base before using the instance.  A
+	 special case is that in a pointer to member of class C, C may
+	 be incomplete.  In that case, the function will of course be
+	 a member of C, and no conversion is required.  In fact,
+	 lookup_base will fail in that case, because incomplete
+	 classes do not have BINFOs.  */ 
       basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (fntype));
-      basetype = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)),
-			      basetype, ba_check, NULL);
-      instance_ptr = build_base_path (PLUS_EXPR, instance_ptr, basetype, 1);
-      if (instance_ptr == error_mark_node)
-	return error_mark_node;
+      if (!same_type_ignoring_top_level_qualifiers_p 
+	  (basetype, TREE_TYPE (TREE_TYPE (instance_ptr))))
+	{
+	  basetype = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)),
+				  basetype, ba_check, NULL);
+	  instance_ptr = build_base_path (PLUS_EXPR, instance_ptr, basetype, 
+					  1);
+	  if (instance_ptr == error_mark_node)
+	    return error_mark_node;
+	}
+      /* APPLE LOCAL end mainline */
 
       /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
       if (flag_apple_kext)
@@ -2736,10 +2751,15 @@ build_x_binary_op (enum tree_code code, tree arg1, tree arg2,
   tree expr;
 
   /* APPLE LOCAL begin CW asm blocks */
-  if (inside_cw_asm_block
-      && (TREE_CODE (arg1) == IDENTIFIER_NODE
-          || TREE_CODE (arg2) == IDENTIFIER_NODE))
-    return error_mark_node;
+  /* I think this is dead now.  */
+  if (inside_cw_asm_block)
+    if (TREE_CODE (arg1) == IDENTIFIER_NODE
+	|| TREE_CODE (arg2) == IDENTIFIER_NODE
+	|| TREE_TYPE (arg1) == NULL_TREE
+	|| TREE_TYPE (arg2) == NULL_TREE)
+      {
+	return build2 (code, NULL_TREE, arg1, arg2);
+      }
   /* APPLE LOCAL end CW asm blocks */
 
   orig_arg1 = arg1;
@@ -5681,7 +5701,9 @@ get_delta_difference (tree from, tree to,
     error ("   in pointer to member function conversion");
   else if (!binfo)
     {
-      if (!allow_inverse_p)
+      if (!binfo && same_type_ignoring_top_level_qualifiers_p (from, to))
+	/* Pointer to member of incomplete class is permitted*/;
+      else if (!allow_inverse_p)
 	{
 	  error_not_base_type (from, to);
 	  error ("   in pointer to member conversion");
@@ -5894,7 +5916,8 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p)
       tree n;
 
       if (!force 
-	  && !can_convert_arg (to_type, TREE_TYPE (pfn), pfn))
+	  /* APPLE LOCAL radar 4187916 */
+	  && !can_convert_arg (to_type, TREE_TYPE (pfn), pfn, LOOKUP_NORMAL))
 	error ("invalid conversion to type %qT from type %qT", 
                to_type, pfn_type);
 
@@ -6104,6 +6127,34 @@ convert_for_assignment (tree type, tree rhs,
   if (TREE_CODE (rhs) == CONST_DECL)
     rhs = DECL_INITIAL (rhs);
   
+  /* APPLE LOCAL begin mainline */
+  if (c_dialect_objc ())
+    {
+      int parmno;
+      tree rname = fndecl;
+
+      if (!strcmp (errtype, "assignment"))
+	parmno = -1;
+      else if (!strcmp (errtype, "initialization"))
+	parmno = -2;
+      else
+	{
+	  tree selector = objc_message_selector ();
+
+	  parmno = parmnum;
+
+	  if (selector && parmno > 1)
+	    {
+	      rname = selector;
+	      parmno -= 1;
+	    }
+	}
+
+      if (objc_compare_types (type, rhstype, parmno, rname))
+	return convert (type, rhs);
+    }
+
+  /* APPLE LOCAL end mainline */
   /* [expr.ass]
 
      The expression is implicitly converted (clause _conv_) to the
@@ -6528,10 +6579,18 @@ comp_ptr_ttypes_real (tree to, tree from, int constp)
 	 so the usual checks are not appropriate.  */
       if (TREE_CODE (to) != FUNCTION_TYPE && TREE_CODE (to) != METHOD_TYPE)
 	{
-	  if (!at_least_as_qualified_p (to, from))
+	  /* APPLE LOCAL begin mainline */
+	  /* In Objective-C++, some types may have been 'volatilized' by
+	     the compiler; when comparing them here, the volatile
+	     qualification must be ignored.  */
+	  bool objc_quals_match = objc_type_quals_match (to, from);
+
+	  if (!at_least_as_qualified_p (to, from) && !objc_quals_match)
+	  /* APPLE LOCAL end mainline */
 	    return 0;
 
-	  if (!at_least_as_qualified_p (from, to))
+	  /* APPLE LOCAL mainline */
+	  if (!at_least_as_qualified_p (from, to) && !objc_quals_match)
 	    {
 	      if (constp == 0)
 		return 0;
@@ -6598,15 +6657,20 @@ ptr_reasonably_similar (tree to, tree from)
     }
 }
 
-/* Like comp_ptr_ttypes, for const_cast.  */
+/* APPLE LOCAL begin mainline 4.0.2 */
+/* Return true if TO and FROM (both of which are POINTER_TYPEs or
+   pointer-to-member types) are the same, ignoring cv-qualification at
+   all levels.  */
 
-static int
+bool
+/* APPLE LOCAL end mainline 4.0.2 */
 comp_ptr_ttypes_const (tree to, tree from)
 {
   for (; ; to = TREE_TYPE (to), from = TREE_TYPE (from))
     {
       if (TREE_CODE (to) != TREE_CODE (from))
-	return 0;
+	/* APPLE LOCAL mainline 4.0.2 */
+	return false;
 
       if (TREE_CODE (from) == OFFSET_TYPE
 	  && same_type_p (TYPE_OFFSET_BASETYPE (from),
@@ -6697,11 +6761,6 @@ casts_away_constness_r (tree *t1, tree *t2)
      and pointers to members (conv.qual), the "member" aspect of a
      pointer to member level is ignored when determining if a const
      cv-qualifier has been cast away.  */
-  if (TYPE_PTRMEM_P (*t1))
-    *t1 = build_pointer_type (TYPE_PTRMEM_POINTED_TO_TYPE (*t1));
-  if (TYPE_PTRMEM_P (*t2))
-    *t2 = build_pointer_type (TYPE_PTRMEM_POINTED_TO_TYPE (*t2));
-
   /* [expr.const.cast]
 
      For  two  pointer types:
@@ -6719,9 +6778,8 @@ casts_away_constness_r (tree *t1, tree *t2)
      to
 
             Tcv2,(M-K+1) * cv2,(M-K+2) * ... cv2,M *.  */
-
-  if (TREE_CODE (*t1) != POINTER_TYPE
-      || TREE_CODE (*t2) != POINTER_TYPE)
+  if ((!TYPE_PTR_P (*t1) && !TYPE_PTRMEM_P (*t1))
+      || (!TYPE_PTR_P (*t2) && !TYPE_PTRMEM_P (*t2)))
     {
       *t1 = cp_build_qualified_type (void_type_node,
 				     cp_type_quals (*t1));
@@ -6732,8 +6790,16 @@ casts_away_constness_r (tree *t1, tree *t2)
   
   quals1 = cp_type_quals (*t1);
   quals2 = cp_type_quals (*t2);
-  *t1 = TREE_TYPE (*t1);
-  *t2 = TREE_TYPE (*t2);
+
+  if (TYPE_PTRMEM_P (*t1))
+    *t1 = TYPE_PTRMEM_POINTED_TO_TYPE (*t1);
+  else
+    *t1 = TREE_TYPE (*t1);
+  if (TYPE_PTRMEM_P (*t2))
+    *t2 = TYPE_PTRMEM_POINTED_TO_TYPE (*t2);
+  else
+    *t2 = TREE_TYPE (*t2);
+
   casts_away_constness_r (t1, t2);
   *t1 = build_pointer_type (*t1);
   *t2 = build_pointer_type (*t2);

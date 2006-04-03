@@ -141,3 +141,14 @@ int blocky (void) {
   }
   return 0;
 }
+
+/* This is here just to make sure that in -gused mode we
+   still have the def'n of NSArray, since we use it in the po tests.  */
+unsigned int 
+define_NS_Types ()
+{
+  NSProcessInfo *pInfo = [NSProcessInfo processInfo];
+  NSArray *fakeArray = [NSArray arrayWithObject: [pInfo processName]];
+  NSMutableDictionary *fakeDict = [NSMutableDictionary dictionaryWithObject:@"55" forKey:@"CANREADTHIS"];
+  return [fakeArray count] * [fakeDict count];
+}

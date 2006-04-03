@@ -5,7 +5,7 @@
 Project                = ruby
 Extra_CC_Flags         = -fno-common
 GnuAfterInstall        = post-install install-plist
-Extra_Configure_Flags  = --enable-pthread
+Extra_Configure_Flags  = --enable-pthread --enable-shared
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -15,7 +15,6 @@ Install_Flags          = DESTDIR=$(DSTROOT)
 
 MAJOR     = 1
 MINOR     = 8
-TEENY     = 2
 VERSION   = $(MAJOR).$(MINOR)
 SYSSTRING = `uname -p`-darwin`uname -r | cut -d. -f1-2`
 
@@ -23,15 +22,9 @@ post-install:
 	$(STRIP) -x $(DSTROOT)/usr/bin/ruby
 	$(STRIP) -x $(DSTROOT)/usr/lib/ruby/$(VERSION)/$(SYSSTRING)/*.bundle
 	$(STRIP) -x $(DSTROOT)/usr/lib/ruby/$(VERSION)/$(SYSSTRING)/*/*.bundle
-	$(CC) $(CFLAGS) -dynamiclib \
-		-install_name /usr/lib/libruby.$(MAJOR).dylib \
-		-compatibility_version $(MAJOR).$(MINOR) \
-		-current_version $(MAJOR).$(MINOR).$(TEENY) \
-		-all_load -o $(DSTROOT)/usr/lib/libruby.$(MAJOR).dylib \
-		$(OBJROOT)/libruby-static.a
 	$(RM) $(DSTROOT)/usr/lib/libruby-static.a
 	$(STRIP) -x $(DSTROOT)/usr/lib/libruby.$(MAJOR).dylib
-	$(LN) -s libruby.$(MAJOR).dylib $(DSTROOT)/usr/lib/libruby.dylib
+	ed - $(DSTROOT)/usr/lib/ruby/$(VERSION)/$(SYSSTRING)/rbconfig.rb < $(SRCROOT)/patches/fix_rbconfig.ed
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
@@ -60,7 +53,8 @@ AEP_Patches    = patch-configure \
                  patch-ext__socket__extconf.rb \
                  patch-ext__socket__socket.c \
                  patch-ext__zlib__extconf.rb \
-                 patch-lib__mkmf.rb
+                 patch-lib__mkmf.rb \
+                 PR3917782.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

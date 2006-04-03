@@ -1,7 +1,7 @@
 #
 # Profile library Macintosh export file
 #
-# $Header: /cvs/krbdev/krb5/src/util/profile/profile.pbexp,v 1.2 2003/01/13 22:16:21 raeburn Exp $
+# $Header$
 
 _profile_init
 _profile_init_path

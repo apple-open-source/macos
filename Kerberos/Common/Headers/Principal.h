@@ -1,7 +1,7 @@
 /*
  * Principal.h
  *
- * $Header: /cvs/kfm/Common/Headers/Principal.h,v 1.2 2004/10/04 17:47:34 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

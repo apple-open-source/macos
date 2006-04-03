@@ -382,6 +382,7 @@ extern void frame_register_unwind (struct frame_info *frame, int regnum,
 				   int *optimizedp, enum lval_type *lvalp,
 				   CORE_ADDR *addrp, int *realnump,
 				   void *valuep);
+
 /* Fetch a register from this, or unwind a register from the next
    frame.  Note that the get_frame methods are wrappers to
    frame->next->unwind.  They all [potentially] throw an error if the
@@ -400,6 +401,7 @@ extern ULONGEST frame_unwind_register_unsigned (struct frame_info *frame,
 					       int regnum);
 extern ULONGEST get_frame_register_unsigned (struct frame_info *frame,
 					     int regnum);
+
 
 /* Use frame_unwind_register_signed.  */
 extern void frame_unwind_signed_register (struct frame_info *frame,

@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 	struct stat sb;
 	struct statfs sf;
 	uint32_t fileID = 0;
-	unsigned char newpath[MAXPATHLEN];
+	char newpath[MAXPATHLEN];
 
 	require_noerr(lstat(path, &sb), cantStat);
 	if(S_ISLNK(sb.st_mode)) {
@@ -93,7 +93,7 @@ notHFS:
 	int isHFS = 0;
 	struct statfs sf;
 	uint32_t fileID = 0;
-	unsigned char newpath[MAXPATHLEN];
+	char newpath[MAXPATHLEN];
 
 	fileID = strtoul(argv[2], NULL, 0);
 	require(fileID > 0, error2);

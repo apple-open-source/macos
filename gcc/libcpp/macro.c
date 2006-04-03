@@ -1081,8 +1081,7 @@ _cpp_pop_context (cpp_reader *pfile)
 const cpp_token *
 cpp_get_token (cpp_reader *pfile)
 {
-  /* APPLE LOCAL CW asm blocks */
-  cpp_token *result;  /* not 'const' */
+  const cpp_token *result;
 
   for (;;)
     {
@@ -1104,7 +1103,7 @@ cpp_get_token (cpp_reader *pfile)
 	     only the first.  */
 	  if (context->bol_p)
 	    {
-	      result->flags |= BOL;
+	      ((cpp_token *)result)->flags |= BOL;
 	      context->bol_p = false;
 	    }
 	  /* APPLE LOCAL end CW asm blocks */

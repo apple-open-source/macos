@@ -210,6 +210,9 @@ extern int target_flags;
 #define MASK_LONG_BRANCH	0x00200000
 /* APPLE LOCAL end long-branch  */
 
+/* APPLE LOCAL begin radar 4161346 */
+#define MASK_PIM_ALTIVEC 0x00400000
+/* APPLE LOCAL end radar 4161346 */
 #define TARGET_POWER		(target_flags & MASK_POWER)
 #define TARGET_POWER2		(target_flags & MASK_POWER2)
 #define TARGET_POWERPC		(target_flags & MASK_POWERPC)
@@ -2605,6 +2608,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"reg_or_aligned_short_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},			   \
+  /* APPLE LOCAL radar 3869444 (also in  mainline) */			   \
+  {"scc_operand", {SUBREG, REG, CONST_INT}},			   	   \
   {"reg_or_arith_cint_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_add_cint64_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_sub_cint64_operand", {SUBREG, REG, CONST_INT}},		   \
@@ -3557,3 +3562,44 @@ enum rs6000_builtins
   TARGET_BUILTIN_MAX = RS6000_BUILTIN_MAX
   /* APPLE LOCAL end constant cfstrings */
 };
+/* APPLE LOCAL radar 4204303 */
+#define INITIAL_FRAME_ADDRESS_RTX stack_pointer_rtx
+
+/* APPLE LOCAL begin CW asm blocks */
+/* Table of instructions that need extra constraints.  */
+#undef TARGET_CW_OP_CONSTRAINT
+#define TARGET_CW_OP_CONSTRAINT \
+  { "la", 2, "m" },	\
+  { "lbz", 2, "m" },	\
+  { "lbzu", 2, "m" },	\
+  { "ld", 2, "m" },	\
+  { "ldu", 2, "m" },	\
+  { "lfd", 2, "m" },	\
+  { "lfdu", 2, "m" },	\
+  { "lfs", 2, "m" },	\
+  { "lfsu", 2, "m" },	\
+  { "lha", 2, "m" },	\
+  { "lhau", 2, "m" },	\
+  { "lhz", 2, "m" },	\
+  { "lhzu", 2, "m" },	\
+  { "lmw", 2, "m" },	\
+  { "lwa", 2, "m" },	\
+  { "lwz", 2, "m" },	\
+  { "lwzu", 2, "m" },	\
+  { "stb", 2, "m" },	\
+  { "stbu", 2, "m" },	\
+  { "std", 2, "m" },	\
+  { "stdu", 2, "m" },	\
+  { "stfd", 2, "m" },	\
+  { "stfdu", 2, "m" },	\
+  { "stfs", 2, "m" },	\
+  { "stfsu", 2, "m" },	\
+  { "sth", 2, "m" },	\
+  { "sthu", 2, "m" },	\
+  { "stmw", 2, "m" },	\
+  { "stw", 2, "m" },	\
+  { "stwu", 2, "m" },
+
+#define CW_FUNCTION_MODIFIER "z"
+
+/* APPLE LOCAL end CW asm blocks */

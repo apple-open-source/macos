@@ -56,7 +56,7 @@
 #endif
 
 /*
- * $Id: add_cred.c,v 1.11 2004/07/29 02:26:43 raeburn Exp $
+ * $Id: add_cred.c 16630 2004-07-29 02:26:43Z raeburn $
  */
 
 /* V2 interface */

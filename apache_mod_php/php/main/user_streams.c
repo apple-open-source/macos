@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: user_streams.c,v 1.29.2.4 2004/06/21 19:33:47 pollita Exp $ */
+/* $Id: user_streams.c,v 1.29.2.4.2.1 2005/07/26 13:51:34 hyanantha Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -647,9 +647,15 @@ static int statbuf_from_array(zval *array, php_stream_statbuf *ssb TSRMLS_DC)
 	STAT_PROP_ENTRY(rdev);
 #endif
 	STAT_PROP_ENTRY(size);
+#ifdef NETWARE
+	STAT_PROP_ENTRY(atime.tv_sec);
+	STAT_PROP_ENTRY(mtime.tv_sec);
+	STAT_PROP_ENTRY(ctime.tv_sec);
+#else
 	STAT_PROP_ENTRY(atime);
 	STAT_PROP_ENTRY(mtime);
 	STAT_PROP_ENTRY(ctime);
+#endif
 #ifdef HAVE_ST_BLKSIZE
 	STAT_PROP_ENTRY(blksize);
 #endif

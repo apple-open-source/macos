@@ -210,7 +210,8 @@
 		</copy>
 	</target>
 	
-	<target name="installhdrs"/>
+	<target name="installhdrs" />
+	<target name="installsrc" />
 	
     <!-- =================================================================== -->
     <!-- Compiles the source code and does not delete nor jar. For Testing   -->

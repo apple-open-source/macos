@@ -27,9 +27,19 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Tue Apr 30 2002.
  *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLLoadFile.c,v 1.12 2005/02/03 00:42:27 ssen Exp $
+ *  $Id: BLLoadFile.c,v 1.14 2005/08/22 20:49:24 ssen Exp $
  *
  *  $Log: BLLoadFile.c,v $
+ *  Revision 1.14  2005/08/22 20:49:24  ssen
+ *  Change functions to take "char *foo" instead of "char foo[]".
+ *  It should be semantically identical, and be more consistent with
+ *  other system APIs
+ *
+ *  Revision 1.13  2005/06/24 16:39:51  ssen
+ *  Don't use "unsigned char[]" for paths. If regular char*s are
+ *  good enough for the BSD system calls, they're good enough for
+ *  bless.
+ *
  *  Revision 1.12  2005/02/03 00:42:27  ssen
  *  Update copyrights to 2005
  *
@@ -80,14 +90,14 @@
 #include "bless_private.h"
 
 
-int BLLoadFile(BLContextPtr context, const unsigned char src[], int useRsrcFork,
+int BLLoadFile(BLContextPtr context, const char * src, int useRsrcFork,
     CFDataRef* data) {
 
     int err = 0;
     int isHFS = 0;
     CFDataRef                output = NULL;
     CFURLRef                 loadSrc;
-    unsigned char rsrcpath[MAXPATHLEN];
+    char rsrcpath[MAXPATHLEN];
 
 
     if(useRsrcFork) {
@@ -105,8 +115,9 @@ int BLLoadFile(BLContextPtr context, const unsigned char src[], int useRsrcFork,
 
     rsrcpath[MAXPATHLEN-1] = '\0';
 
-    loadSrc = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, rsrcpath,
-                    strlen(rsrcpath), 0);
+    loadSrc = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault,
+													  (UInt8 *)rsrcpath,
+													  strlen(rsrcpath), 0);
 
     if(loadSrc == NULL) {
         return 1;

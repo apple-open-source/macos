@@ -1,8 +1,8 @@
 ==============================================================================
 Kerberos Login Library Bug List
 ==============================================================================
-Current version: 1.8.1fc1
-Date           : June 15, 2005
+Current version: 1.8.1fc2
+Date           : November 30, 2005
 Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 ==============================================================================
 
@@ -10,6 +10,7 @@ Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 Bug #       Bug description                                           Fixed in
 ==============================================================================
 
+Temporary KLL fix so mach_msg can't smash the port under Rosetta.               1.8.1fc2
 [RT 3020] Authenticate dialog in "renew" mode has no cursor                     1.8.1fc1
 [RT 3051] KerberosAgent should disable apple menu                               1.8.1fc1
 [RT 3052] KerberosAgent should not have a services menu                         1.8.1fc1

@@ -24,6 +24,11 @@
   .align 4;							      	      \
   _##name##:								      
 
+#define	PRIVATE_ENTRY(name)							      \
+  .private_extern _##name;				      			      \
+  .align 4;							      	      \
+  _##name##:								      
+
 #undef	END
 #define END(name)	/* NOTHING */
 

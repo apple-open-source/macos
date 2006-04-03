@@ -9,18 +9,13 @@ RCSID("$NetBSD: s_ilogbf.S,v 1.5 2001/06/19 00:26:30 fvdl Exp $")
 
 ENTRY(ilogbf)
 #ifdef __i386__
-	pushl	%ebp
-	movl	%esp,%ebp
-	subl	$4,%esp
-
-	flds	8(%ebp)
+	flds	4(%esp)
 	fxtract
 	fstp	%st
 
-	fistpl	-4(%ebp)
-	movl	-4(%ebp),%eax
+	fistpl	4(%esp)
+	movl	4(%esp),%eax
 
-	leave
 #else
 	movss	%xmm0,-4(%rsp)
 	flds	-4(%rsp)

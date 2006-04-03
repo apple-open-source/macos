@@ -19,7 +19,7 @@ struct macosx_cfm_thread_status
 typedef struct macosx_cfm_thread_status macosx_cfm_thread_status;
 
 void macosx_cfm_thread_init (macosx_cfm_thread_status *s);
-void macosx_cfm_thread_create (macosx_cfm_thread_status *s, task_t task);
+void macosx_cfm_thread_create (macosx_cfm_thread_status *s);
 void macosx_cfm_thread_destroy (macosx_cfm_thread_status *s);
 
 #endif /* __GDB_MACOSX_NAT_CFMTHREAD_H__ */

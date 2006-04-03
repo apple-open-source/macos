@@ -180,6 +180,8 @@ case ${host} in
   i[34567]86-*-darwin*)
     out_host_hook_obj="${out_host_hook_obj} host-i386-darwin.o"
     host_xmake_file="${host_xmake_file} i386/x-darwin"
+    # APPLE LOCAL 4126124
+    use_long_long_for_widest_fast_int=yes
     ;;
 # APPLE LOCAL end mainline 2005-04-06 4071679
   i860-*-sysv4*)

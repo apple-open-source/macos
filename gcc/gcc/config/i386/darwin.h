@@ -36,9 +36,8 @@ Boston, MA 02111-1307, USA.  */
     {                                           \
       builtin_define ("__i386__");              \
       builtin_define ("__LITTLE_ENDIAN__");     \
-      /* APPLE LOCAL remove __MACH__ and __APPLE__, defined in gcc/config/darwin.h */\
-      /* APPLE LOCAL constant cfstrings */	\
-      SUBTARGET_OS_CPP_BUILTINS ();		\
+/* APPLE LOCAL mainline 2005-09-01 3449986 */	\
+      darwin_cpp_builtins (pfile);		\
     }                                           \
   while (0)
 
@@ -208,6 +207,8 @@ extern void darwin_x86_file_end (void);
 #define BASIC_STACK_BOUNDARY (128)
 /* APPLE LOCAL end SSE stack alignment */
 
+/* APPLE LOCAL CW asm blocks */
+extern int flag_cw_asm_blocks;
 /* APPLE LOCAL begin fix-and-continue x86 */
 #undef SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS				\
@@ -222,6 +223,22 @@ extern void darwin_x86_file_end (void);
 	  error ("invalid option %qs", base);			\
 	darwin_fix_and_continue = (base[0] != 'n');		\
       }								\
+    /* APPLE LOCAL begin AT&T-style stub 4164563 */		\
+    /* Handle -matt-stubs.  */					\
+    if (darwin_macho_att_stub_switch)				\
+      {								\
+	const char *base = darwin_macho_att_stub_switch;	\
+	while (base[-1] != 'm') base--;				\
+								\
+	if (*darwin_macho_att_stub_switch != '\0')		\
+	  error ("invalid option %qs", base);			\
+	darwin_macho_att_stub = (base[0] != 'n');		\
+      }								\
+    /* APPLE LOCAL end AT&T-style stub 4164563 */		\
+    /* APPLE LOCAL begin CW asm blocks */			\
+    if (flag_cw_asm_blocks)					\
+      flag_ms_asms = 1;						\
+    /* APPLE LOCAL end CW asm blocks */				\
   } while (0)
 
 /* True, iff we're generating fast turn around debugging code.  When
@@ -232,3 +249,7 @@ extern void darwin_x86_file_end (void);
 
 #define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)
 /* APPLE LOCAL end fix-and-continue x86 */
+
+/* APPLE LOCAL begin CW asm blocks */
+#define CW_ASM_REGISTER_NAME(STR, BUF) i386_cw_asm_register_name (STR, BUF)
+/* APPLE LOCAL end CW asm blocks */

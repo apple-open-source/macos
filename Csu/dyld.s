@@ -113,47 +113,8 @@ __dyld_func_lookup:
 #ifdef __i386__
 #ifdef CRT1
 /*
- * After the dynamic linker initialization is done the value at offset 0 in
- * the (__DATA,__dyld) section (in this case the .long at the symbol
- * dyld_lazy_symbol_binding_entry_point) is filled in.  If it was not most
- * likely this program was run under a kernel without support for mapping in
- * and jumping to the dynamic linker at start up.
+ * __dyld_init_check is not needed for i386
  */
-	.text
-	.align	2,0x90
-	.private_extern	__dyld_init_check
-__dyld_init_check:
-	cmpl	$0,dyld_lazy_symbol_binding_entry_point
-	je	1f
-	ret
-1:
-/*
- * At this point the dynamic linker initialization was not run so print a
- * message on stderr and exit non-zero.  Since we can't use any libraries the
- * raw system call interfaces must be used.
- *
- *	write(stderr, error_message, sizeof(error_message));
- */
-	pushl	$78
-	pushl	$error_message
-	pushl   $2
-	push	$0
-	movl	$4,%eax	# write() is system call number 4
-	lcall	$0x2b,$0
-	addl	$16,%esp
-/*
- *	_exit(59);
- */
-	pushl	$59
-	push	$0
-	movl	$1,%eax	# _exit() is system call number 1
-	lcall	$0x2b,$0
-	# this call to _exit() should not fall through
-
-	.cstring
-error_message:
-	.ascii	"The kernel support for the dynamic linker is not present "
-	.ascii	"to run this program.\n\0"
 
 /*
  * This is part of the code generation for the dynamic link editor's interface.

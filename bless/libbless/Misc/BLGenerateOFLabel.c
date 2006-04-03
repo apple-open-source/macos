@@ -27,70 +27,6 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Sat Feb 23 2002.
  *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGenerateOFLabel.c,v 1.20 2005/02/08 05:17:22 ssen Exp $
- *
- *  $Log: BLGenerateOFLabel.c,v $
- *  Revision 1.20  2005/02/08 05:17:22  ssen
- *  fix some open source usage
- *
- *  Revision 1.19  2005/02/03 00:42:27  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.18  2004/04/20 21:40:44  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.17  2003/10/17 00:10:39  ssen
- *  add more const
- *
- *  Revision 1.16  2003/08/04 05:24:16  ssen
- *  Add #ifndef _OPEN_SOURCE so that some stuff isn't in darwin
- *
- *  Revision 1.15  2003/07/22 15:58:34  ssen
- *  APSL 2.0
- *
- *  Revision 1.14  2003/04/19 00:11:12  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.13  2003/04/17 00:59:36  ssen
- *  truncate to 341 pixels if too wide
- *
- *  Revision 1.12  2003/04/16 23:57:33  ssen
- *  Update Copyrights
- *
- *  Revision 1.11  2003/03/26 00:33:31  ssen
- *  Use _OPEN_SOURCE_ instead of DARWIN, by Rob's request
- *
- *  Revision 1.10  2003/03/20 03:41:03  ssen
- *  Merge in from PR-3202649
- *
- *  Revision 1.9.2.1  2003/03/20 03:32:36  ssen
- *  swap height and width of OF label header
- *
- *  Revision 1.9  2003/03/19 22:57:06  ssen
- *  C99 types
- *
- *  Revision 1.7  2003/03/18 23:51:31  ssen
- *  Use CG directory
- *
- *  Revision 1.6  2002/06/11 00:50:49  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.5  2002/05/03 04:23:55  ssen
- *  Consolidate APIs, and update bless to use it
- *
- *  Revision 1.4  2002/04/27 17:55:00  ssen
- *  Rewrite output logic to format the string before sending of to logger
- *
- *  Revision 1.3  2002/03/05 01:47:53  ssen
- *  Add CG compat files and dynamic loading
- *
- *  Revision 1.2  2002/03/04 22:25:05  ssen
- *  implement CLUT for antialiasing
- *
- *  Revision 1.1  2002/02/24 11:30:52  ssen
- *  Add OF label support
- *
  */
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -100,7 +36,7 @@
 #include "bless.h"
 #include "bless_private.h"
 
-static const unsigned char clut[] =
+static const char clut[] =
   {
     0x00, /* 0x00 0x00 0x00 white */
     0xF6, /* 0x11 0x11 0x11 */
@@ -136,7 +72,7 @@ static int refitToWidth(char *bitmapData,
         uint16_t width, uint16_t height, uint16_t newwidth);
 
 int BLGenerateOFLabel(BLContextPtr context,
-                    const unsigned char label[],
+                    const char label[],
                     CFDataRef* data) {
                     
                     
@@ -146,11 +82,11 @@ int BLGenerateOFLabel(BLContextPtr context,
         int err;
         int i;
         CFDataRef bits = NULL;
-        unsigned char *bitmapData;
+        char *bitmapData;
 
         contextprintf(context, kBLLogLevelError,
 		      "CoreGraphics is not available for rendering\n");
-	return 1;
+        return 1;
 	
         bitmapData = malloc(width*height+5);
         if(!bitmapData) {
@@ -194,7 +130,7 @@ int BLGenerateOFLabel(BLContextPtr context,
         }
 
 	//	bits = CFDataCreate(kCFAllocatorDefault, bitmapData, newwidth*height+5);
-	bits = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, bitmapData, newwidth*height+5, kCFAllocatorMalloc);
+	bits = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (UInt8 *)bitmapData, newwidth*height+5, kCFAllocatorMalloc);
 	//        free(bitmapData);
         
 	if(bits == NULL) {
@@ -208,10 +144,70 @@ int BLGenerateOFLabel(BLContextPtr context,
         return 0;
 }
 
+#define USE_CG 0
+
+
+
+#if USE_CG
+#include <ApplicationServices/ApplicationServices.h>
+
+static int makeLabelOfSize(const char *label, char *bitmapData,
+        uint16_t width, uint16_t height, uint16_t *newwidth) {
+
+        int bitmapByteCount;
+        int bitmapBytesPerRow;
+        
+        CGContextRef    context = NULL;
+        CGColorSpaceRef colorSpace = NULL;
+        CGPoint pt;
+
+
+        bitmapBytesPerRow = width*1;
+        bitmapByteCount = bitmapBytesPerRow * height;
+
+       colorSpace = CGColorSpaceCreateDeviceGray();
+
+
+        context = CGBitmapContextCreate( bitmapData,
+                                        width,
+                                        height,
+                                        8,
+                                        bitmapBytesPerRow,
+                                        colorSpace,
+                                     kCGImageAlphaNone);
+
+        if(context == NULL) {
+                fprintf(stderr, "Could not init CoreGraphics context\n");
+                return 1;
+        }
+
+    CGContextSetTextDrawingMode(context, kCGTextFill);
+    CGContextSelectFont(context, "Helvetica", 10.0, kCGEncodingMacRoman);
+    CGContextSetGrayFillColor(context, 1.0, 1.0);
+    CGContextSetShouldAntialias(context, 1);
+    CGContextSetCharacterSpacing(context, 0.5);
+        
+    pt = CGContextGetTextPosition(context);
+
+    CGContextShowTextAtPoint(context, 2.0, 2.0, label, strlen(label));
+
+    pt = CGContextGetTextPosition(context);
+
+    if(newwidth) { *newwidth = (int)pt.x + 2; }
+
+    CGColorSpaceRelease(colorSpace);
+    CGContextRelease(context);
+
+    return 0;
+
+}
+
+#else
 static int makeLabelOfSize(const char *label, char *bitmapData,
 						   uint16_t width, uint16_t height, uint16_t *newwidth) {
 	return 1;
 }
+#endif // USE_CG
 
 /*
  * data is of the form:

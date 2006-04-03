@@ -30,27 +30,11 @@
 #include "abi.h"
 #warning scp: edge case +-Inf
 
-ENTRY(exp2)
-#ifdef __i386__
-	pushl	%ebp
-	movl	%esp,%ebp
-	subl	$8,%esp
+#warning obsolete
 
-	fstcw	-12(%ebp)		/* store fpu control word */
-	movw	-12(%ebp),%dx
-	orw	$0x0180,%dx
-	movw	%dx,-16(%ebp)
-	fldcw	-16(%ebp)		/* load modfied control word */
-	fldl	8(%ebp)
-#else
-	fstcw	-12(%rsp)
-	movw	-12(%rsp),%dx
-	orw	$0x0180,%dx
-	movw	%dx,-16(%rsp)
-	fldcw	-16(%rsp)
-	movsd	%xmm0,-8(%rsp)
-	fldl	-8(%rsp)
-#endif
+ENTRY(exp2l)
+    XMM_ONE_ARG_LONG_DOUBLE_PROLOGUE
+	fldt	ARG_LONG_DOUBLE_ONE
 
 	fld	%st(0)
 	frndint				/* int(x) */
@@ -62,12 +46,5 @@ ENTRY(exp2)
 	fscale				/* 2^x */
 	fstp	%st(1)
 
-#ifdef __i386__
-	fldcw	-12(%ebp)		/* restore original control word */
-	leave
-#else
-	fstpl	-8(%rsp)
-	movsd	-8(%rsp),%xmm0
-	fldcw	-12(%rsp)
-#endif
+	XMM_LONG_DOUBLE_EPILOGUE
 	ret

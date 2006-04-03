@@ -1,7 +1,7 @@
 /*
  * Credential.h
  *
- * $Header: /cvs/kfm/KerberosClients/KerberosApp/Sources/Headers/Credential.h,v 1.6 2004/09/20 20:32:27 lxs Exp $
+ * $Header$
  *
  * Copyright 2004 Massachusetts Institute of Technology.
  * All Rights Reserved.

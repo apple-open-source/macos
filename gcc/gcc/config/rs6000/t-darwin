@@ -21,6 +21,10 @@ TARGET_LIBGCC2_CFLAGS = -Wa,-force_cpusubtype_ALL -pipe
 # Export the _xlq* symbols from darwin-ldouble.c.
 SHLIB_MAPFILES += $(srcdir)/config/rs6000/libgcc-ppc64.ver
 
+ # APPLE LOCAL begin mainline 2005-10-02 4218570
+SHLIB_VERPFX = $(srcdir)/config/rs6000/darwin-libgcc
+
+ # APPLE LOCAL end mainline 2005-10-02 4218570
 LIB2ADDEH += $(srcdir)/config/rs6000/darwin-fallback.c
 
 darwin-fpsave.o:	$(srcdir)/config/rs6000/darwin-asm.h

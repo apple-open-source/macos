@@ -1920,9 +1920,15 @@ mark_decl_referenced (tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      /* Extern inline functions don't become needed when referenced.  */
-      if (!DECL_EXTERNAL (decl))
-        cgraph_mark_needed_node (cgraph_node (decl));
+      /* Extern inline functions don't become needed when referenced.
+	 If we know a method will be emitted in other TU and no new
+	 functions can be marked reachable, just use the external
+	 definition.  */
+      struct cgraph_node *node = cgraph_node (decl);
+      if (!DECL_EXTERNAL (decl)
+	  && (!node->local.vtable_method || !cgraph_global_info_ready
+	      || !node->local.finalized))
+	cgraph_mark_needed_node (node);
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     cgraph_varpool_mark_needed_node (cgraph_varpool_node (decl));
@@ -2298,6 +2304,11 @@ struct constant_descriptor_tree GTY(())
 
   /* The value of the constant.  */
   tree value;
+
+  /* Hash of value.  Computing the hash from value each time
+     hashfn is called can't work properly, as that means recursive
+     use of the hash table during hash table expansion.  */
+  hashval_t hash;
 };
 
 static GTY((param_is (struct constant_descriptor_tree)))
@@ -2311,7 +2322,7 @@ static void maybe_output_constant_def_contents (struct constant_descriptor_tree 
 static hashval_t
 const_desc_hash (const void *ptr)
 {
-  return const_hash_1 (((struct constant_descriptor_tree *)ptr)->value);
+  return ((struct constant_descriptor_tree *)ptr)->hash;
 }
 
 static hashval_t
@@ -2417,8 +2428,11 @@ const_hash_1 (const tree exp)
 static int
 const_desc_eq (const void *p1, const void *p2)
 {
-  return compare_constant (((struct constant_descriptor_tree *)p1)->value,
-			   ((struct constant_descriptor_tree *)p2)->value);
+  const struct constant_descriptor_tree *c1 = p1;
+  const struct constant_descriptor_tree *c2 = p2;
+  if (c1->hash != c2->hash)
+    return 0;
+  return compare_constant (c1->value, c2->value);
 }
 
 /* Compare t1 and t2, and return 1 only if they are known to result in
@@ -2703,12 +2717,14 @@ output_constant_def (tree exp, int defer)
   /* Look up EXP in the table of constant descriptors.  If we didn't find
      it, create a new one.  */
   key.value = exp;
-  loc = htab_find_slot (const_desc_htab, &key, INSERT);
+  key.hash = const_hash_1 (exp);
+  loc = htab_find_slot_with_hash (const_desc_htab, &key, key.hash, INSERT);
 
   desc = *loc;
   if (desc == 0)
     {
       desc = build_constant_desc (exp);
+      desc->hash = key.hash;
       *loc = desc;
     }
 
@@ -2813,7 +2829,8 @@ lookup_constant_def (tree exp)
   struct constant_descriptor_tree key;
 
   key.value = exp;
-  desc = htab_find (const_desc_htab, &key);
+  key.hash = const_hash_1 (exp);
+  desc = htab_find_with_hash (const_desc_htab, &key, key.hash);
 
   return (desc ? desc->rtl : NULL_RTX);
 }
@@ -3965,8 +3982,54 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
   if (HOST_BITS_PER_WIDE_INT < BITS_PER_UNIT)
     abort ();
 
+  /* APPLE LOCAL begin bitfield reversal 4228294 */
   if (TREE_CODE (type) == RECORD_TYPE)
-    field = TYPE_FIELDS (type);
+    {
+      if (TREE_FIELDS_REVERSED (type))
+	{
+	  /* If bitfields were reversed they will not be in ascending
+	     address order here, which confuses the code below.   Sort
+	     the constructor.  Note that the type retains the old
+	     ordering, for debug info purposes.  (The comment below that
+	     says FIELD goes through the structure fields is misleading;
+	     FIELD is set from the constructor, not the type, so uses
+	     the constructor list's ordering.)  */
+	  tree head, last, afterlast, prev = NULL;
+	  for (head = CONSTRUCTOR_ELTS (exp);
+	       head;
+	       prev = head, head = TREE_CHAIN (head))
+	    {
+	      if (TREE_PURPOSE (head))
+		{
+		  HOST_WIDE_INT pos = int_bit_position (TREE_PURPOSE (head));
+		  /* Find next field that isn't a bitfield, or is after "head"
+		     in memory. */
+		  last = head;
+		  afterlast = TREE_CHAIN (head);
+		  while (afterlast && TREE_PURPOSE (afterlast)
+			 && int_bit_position (TREE_PURPOSE (afterlast)) < pos)
+		    {
+		      last = afterlast;
+		      afterlast = TREE_CHAIN (last);
+		    }
+		  /* Reverse fields head..last inclusive.  */
+		  if (last != head)
+		    {
+		      TREE_CHAIN (last) = NULL;
+		      last = nreverse (head);
+		      if (prev)
+			TREE_CHAIN (prev) = last;
+		      else
+			CONSTRUCTOR_ELTS (exp) = last;
+		      TREE_CHAIN (head) = afterlast;
+		      /* Outer loop will continue at afterlast. */
+		    }
+		}
+	    }
+	}
+      field = TYPE_FIELDS (type);
+    }
+  /* APPLE LOCAL end bitfield reversal 4228294 */
 
   if (TREE_CODE (type) == ARRAY_TYPE
       && TYPE_DOMAIN (type) != 0)
@@ -4276,47 +4339,32 @@ mark_weak (tree decl)
     SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
 }
 
-/* APPLE LOCAL begin 4095052 */
-/* We put the NEWDECL on the weak_decls list at some point.
-   Replace it with the OLDDECL.  */
-
-void
-replace_weak (tree newdecl, tree olddecl)
-{
-  if (SUPPORTS_WEAK)
-    {
-      tree wd;
-
-      for (wd = weak_decls; wd; wd = TREE_CHAIN (wd))
-	if (TREE_VALUE (wd) == newdecl)
-	  {
-	    TREE_VALUE (wd) = olddecl;
-	    break;
-	  }
-      /* We may not find the entry on the list.  If NEWDECL is a
-	 weak alias, then we will have already called
-	 globalize_decl to remove the entry; in that case, we do
-	 not need to do anything.  */
-    }
-}
-/* APPLE LOCAL end 4095052 */
-
 /* Merge weak status between NEWDECL and OLDDECL.  */
 
 void
 merge_weak (tree newdecl, tree olddecl)
 {
-  /* APPLE LOCAL begin 4095052 */
   if (DECL_WEAK (newdecl) == DECL_WEAK (olddecl))
     {
-      /* Replace newdecl in weak_decls list.  */
-      replace_weak (newdecl, olddecl);
+      if (DECL_WEAK (newdecl) && SUPPORTS_WEAK)
+        {
+          tree *pwd;
+          /* We put the NEWDECL on the weak_decls list at some point
+             and OLDDECL as well.  Keep just OLDDECL on the list.  */
+	  for (pwd = &weak_decls; *pwd; pwd = &TREE_CHAIN (*pwd))
+	    if (TREE_VALUE (*pwd) == newdecl)
+	      {
+	        *pwd = TREE_CHAIN (*pwd);
+		break;
+	      }
+        }
       return;
     }
-/* APPLE LOCAL end 4095052 */
 
   if (DECL_WEAK (newdecl))
     {
+      tree wd;
+
       /* NEWDECL is weak, but OLDDECL is not.  */
 
       /* If we already output the OLDDECL, we're in trouble; we can't
@@ -4335,10 +4383,21 @@ merge_weak (tree newdecl, tree olddecl)
 	warning ("%Jweak declaration of %qD after first use results "
                  "in unspecified behavior", newdecl, newdecl);
 
-      /* APPLE LOCAL begin 4095052 */
-      /* Replace newdecl in weak_decls list.  */
-      replace_weak (newdecl, olddecl);
-      /* APPLE LOCAL end 4095052 */
+      if (SUPPORTS_WEAK)
+	{
+	  /* We put the NEWDECL on the weak_decls list at some point.
+	     Replace it with the OLDDECL.  */
+	  for (wd = weak_decls; wd; wd = TREE_CHAIN (wd))
+	    if (TREE_VALUE (wd) == newdecl)
+	      {
+		TREE_VALUE (wd) = olddecl;
+		break;
+	      }
+	  /* We may not find the entry on the list.  If NEWDECL is a
+	     weak alias, then we will have already called
+	     globalize_decl to remove the entry; in that case, we do
+	     not need to do anything.  */
+	}
 
       /* Make the OLDDECL weak; it's OLDDECL that we'll be keeping.  */
       mark_weak (olddecl);
@@ -4498,6 +4557,9 @@ find_decl_and_mark_needed (tree decl, tree target)
 static void
 do_assemble_alias (tree decl, tree target)
 {
+  if (TREE_ASM_WRITTEN (decl))
+    return;
+
   TREE_ASM_WRITTEN (decl) = 1;
   TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)) = 1;
 

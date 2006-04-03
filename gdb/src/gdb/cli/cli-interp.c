@@ -101,38 +101,25 @@ static int
 cli_interpreter_exec (void *data, const char *command_str)
 {
   int result;
-  /* APPLE LOCAL: We don't use this.  */
-#if 0
-  struct ui_file *old_stream;
-#endif
+  /* APPLE LOCAL: We don't use old_stream.  */
 
   /* FIXME: cagney/2003-02-01: Need to const char *propogate
      safe_execute_command.  */
   char *str = strcpy (alloca (strlen (command_str) + 1), command_str);
 
-  /* APPLE_LOCAL: We don't need this because we actually change the
+  /* APPLE_LOCAL begin cli */
+  /* We don't need old_stream because we actually change the
      interpreters when we do interpreter exec, then swap them back.
      This code assumes that the interpreter is still the one that is
      exec'ing in the cli interpreter, and we are just faking it up.  */
-#if 0
-  /* gdb_stdout could change between the time cli_uiout was initialized
-     and now. Since we're probably using a different interpreter which has
-     a new ui_file for gdb_stdout, use that one instead of the default.
-
-     It is important that it gets reset everytime, since the user could
-     set gdb to use a different interpreter. */
-  old_stream = cli_out_set_stream (cli_uiout, gdb_stdout);
-#endif
-  /* APPLE LOCAL: Also, the FSF code forces cli_uiout here, but we want 
+  /* Also, the FSF code forces cli_uiout here, but we want 
      the person who set the interpreter to get the uiout right for that
      according to their lights.  If you don't do that, then you can't share
      the cli_interpreter_exec between the console & console-quoted 
      interpreters.  */
-
   result = safe_execute_command (uiout, str, 1);
-#if 0
-  cli_out_set_stream (cli_uiout, old_stream);
-#endif
+  /* APPLE_LOCAL end cli */
+
   return result;
 }
 
@@ -145,8 +132,7 @@ do_captured_execute_command (struct ui_out *uiout, void *data)
   return GDB_RC_OK;
 }
 
-/* APPLE LOCAL: Made this non-static since the mi needs it.  Moved
-   the declaration to wrapper.h.  */
+/* APPLE LOCAL make globally visible because the MI needs it */
 enum gdb_rc
 safe_execute_command (struct ui_out *uiout, char *command, int from_tty)
 {
@@ -157,7 +143,8 @@ safe_execute_command (struct ui_out *uiout, char *command, int from_tty)
 			   NULL, RETURN_MASK_ALL);
 }
 
-/* APPLE LOCAL: This is the only new function needed for the 
+/* APPLE LOCAL begin console-quoted interpreter */
+/* This is the only new function needed for the 
    console-quoted interpreter.  This outputs console text in 
    an mi-quoted form, so an mi-parser won't be fooled by spurious
    * at beginning of line goofs...  */
@@ -185,6 +172,7 @@ cli_quoted_interpreter_resume (void *data)
 
   return 1;
 }
+/* APPLE LOCAL end console-quoted interpreter */
 
 /* standard gdb initialization hook */
 extern initialize_file_ftype _initialize_cli_interp; /* -Wmissing-prototypes */
@@ -198,10 +186,15 @@ _initialize_cli_interp (void)
     cli_interpreter_suspend,	/* suspend_proc */
     cli_interpreter_exec,	/* exec_proc */
     cli_interpreter_display_prompt_p,	/* prompt_proc_p */
+    /* APPLE LOCAL cli_command_loop */
     cli_command_loop,
+    /* APPLE LOCAL completion */
     cli_interpreter_complete
   };
-  /* APPLE LOCAL: And here we initialize the console-quoted
+  struct interp *cli_interp;
+
+  /* APPLE LOCAL begin console-quoted interpreter */
+  /* And here we initialize the console-quoted
      interpreter.  */
   static const struct interp_procs quoted_procs = {
     cli_interpreter_init,	/* init_proc */
@@ -212,32 +205,21 @@ _initialize_cli_interp (void)
     cli_command_loop,
     cli_interpreter_complete
   };
-
   struct ui_out *tmp_ui_out;
-  struct interp *tmp_interp;
   struct ui_file *raw_stdout;
+  /* APPLE LOCAL end console-quoted interpreter */
   
   /* Create a default uiout builder for the CLI. */
   cli_uiout = cli_out_new (gdb_stdout);
-  tmp_interp 
-    = interp_new (INTERP_CONSOLE,
-		  NULL,
-		  cli_uiout,
-		  &procs);
+  cli_interp = interp_new (INTERP_CONSOLE, NULL, cli_uiout, &procs);
 
-  interp_add (tmp_interp);
+  interp_add (cli_interp);
 
+  /* APPLE LOCAL begin console-quoted interpreter */
   raw_stdout = stdio_fileopen (stdout);
-  
-  /* APPLE LOCAL: Also add the cli_quoted interpreter for use
-     with commands called from the mi.  */
-
   tmp_ui_out = cli_quoted_out_new (raw_stdout);
-  tmp_interp 
-    = interp_new ("console-quoted",
-		  NULL,
-		  tmp_ui_out,
-		  &quoted_procs);
-
-  interp_add (tmp_interp);
+  cli_interp = interp_new ("console-quoted", NULL, tmp_ui_out,
+			   &quoted_procs);
+  interp_add (cli_interp); /* second call */
+  /* APPLE LOCAL end console-quoted interpreter */
 }

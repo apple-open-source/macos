@@ -1019,10 +1019,12 @@ gimplify_decl_expr (tree *stmt_p)
   if (TREE_TYPE (decl) == error_mark_node)
     return GS_ERROR;
 
-  else if (TREE_CODE (decl) == TYPE_DECL)
+  if ((TREE_CODE (decl) == TYPE_DECL
+       || TREE_CODE (decl) == VAR_DECL)
+      && !TYPE_SIZES_GIMPLIFIED (TREE_TYPE (decl)))
     gimplify_type_sizes (TREE_TYPE (decl), stmt_p);
 
-  else if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
+  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     {
       tree init = DECL_INITIAL (decl);
 
@@ -1032,12 +1034,6 @@ gimplify_decl_expr (tree *stmt_p)
 	     for deferred expansion.  Note that mudflap depends on the format
 	     of the emitted code: see mx_register_decls().  */
 	  tree t, args, addr, ptr_type;
-
-	  /* ??? We really shouldn't need to gimplify the type of the variable
-	     since it already should have been done.  But leave this here
-	     for now to avoid disrupting too many things at once.  */
-	  if (!TYPE_SIZES_GIMPLIFIED (TREE_TYPE (decl)))
-	    gimplify_type_sizes (TREE_TYPE (decl), stmt_p);
 
 	  gimplify_one_sizepos (&DECL_SIZE (decl), stmt_p);
 	  gimplify_one_sizepos (&DECL_SIZE_UNIT (decl), stmt_p);
@@ -2751,13 +2747,18 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	   parts in, then generate code for the non-constant parts.  */
 	/* TODO.  There's code in cp/typeck.c to do this.  */
 
-	num_type_elements = count_type_elements (TREE_TYPE (ctor));
+	num_type_elements = count_type_elements (type);
 
-	/* If there are "lots" of zeros, then block clear the object first.  */
-	if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
-	    && num_nonzero_elements < num_type_elements/4)
+	/* If count_type_elements could not determine number of type elements
+	   for a constant-sized object, assume clearing is needed.
+	   Don't do this for variable-sized objects, as store_constructor
+	   will ignore the clearing of variable-sized objects.  */
+	if (num_type_elements < 0 && int_size_in_bytes (type) >= 0)
 	  cleared = true;
-
+	/* If there are "lots" of zeros, then block clear the object first.  */
+	else if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
+		 && num_nonzero_elements < num_type_elements/4)
+	  cleared = true;
 	/* ??? This bit ought not be needed.  For any element not present
 	   in the initializer, we should simply set them to zero.  Except
 	   we'd need to *find* the elements that are not present, and that
@@ -3953,14 +3954,14 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 			       is_gimple_reg, fb_rvalue);
 
-	  /* APPLE LOCAL begin Objective-C */
+	  /* APPLE LOCAL begin Radar 4124724 */
 	  /* Useless type conversions may have been discarded, so ensure
 	     that the INDIRECT_REF has a type corresponding to the pointee
 	     type of its operand.  */
 	  if (TREE_CODE (*expr_p) == INDIRECT_REF)
 	    TREE_TYPE (*expr_p)
 	      = TREE_TYPE (TREE_TYPE (TREE_OPERAND (*expr_p, 0)));
-	  /* APPLE LOCAL end Objective-C */
+	  /* APPLE LOCAL end Radar 4124724 */
 
 	  recalculate_side_effects (*expr_p);
 	  break;
@@ -4291,8 +4292,11 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	{
 	  /* Historically, the compiler has treated a bare
 	     reference to a volatile lvalue as forcing a load.  */
-	  tree tmp = create_tmp_var (TREE_TYPE (*expr_p), "vol");
-	  *expr_p = build (MODIFY_EXPR, TREE_TYPE (tmp), tmp, *expr_p);
+	  /* APPLE LOCAL begin mainline 4.0.2 4098854 */
+	  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p));
+	  tree tmp = create_tmp_var (type, "vol");
+	  *expr_p = build (MODIFY_EXPR, type, tmp, *expr_p);
+	  /* APPLE LOCAL end mainline 4.0.2 4098854 */
 	}
       else
 	/* We can't do anything useful with a volatile reference to
@@ -4406,21 +4410,21 @@ gimplify_type_sizes (tree type, tree *list_p)
 {
   tree field, t;
 
-  /* Note that we do not check for TYPE_SIZES_GIMPLIFIED already set because
-     that's not supposed to happen on types where gimplification does anything.
-     We should assert that it isn't set, but we can indeed be called multiple
-     times on pointers.  Unfortunately, this includes fat pointers which we
-     can't easily test for.  We could pass TYPE down to gimplify_one_sizepos
-     and test there, but it doesn't seem worth it.  */
+  if (type == NULL)
+    return;
 
   /* We first do the main variant, then copy into any other variants. */
   type = TYPE_MAIN_VARIANT (type);
 
+  /* Avoid infinite recursion.  */
+  if (TYPE_SIZES_GIMPLIFIED (type)
+      || type == error_mark_node)
+    return;
+
+  TYPE_SIZES_GIMPLIFIED (type) = 1;
+
   switch (TREE_CODE (type))
     {
-    case ERROR_MARK:
-      return;
-
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
@@ -4433,17 +4437,13 @@ gimplify_type_sizes (tree type, tree *list_p)
 	{
 	  TYPE_MIN_VALUE (t) = TYPE_MIN_VALUE (type);
 	  TYPE_MAX_VALUE (t) = TYPE_MAX_VALUE (type);
-	  TYPE_SIZES_GIMPLIFIED (t) = 1;
 	}
       break;
 
     case ARRAY_TYPE:
       /* These types may not have declarations, so handle them here.  */
-      if (!TYPE_SIZES_GIMPLIFIED (TREE_TYPE (type)))
-	gimplify_type_sizes (TREE_TYPE (type), list_p);
-
-      if (!TYPE_SIZES_GIMPLIFIED (TYPE_DOMAIN (type)))
-	  gimplify_type_sizes (TYPE_DOMAIN (type), list_p);
+      gimplify_type_sizes (TREE_TYPE (type), list_p);
+      gimplify_type_sizes (TYPE_DOMAIN (type), list_p);
       break;
 
     case RECORD_TYPE:
@@ -4451,7 +4451,15 @@ gimplify_type_sizes (tree type, tree *list_p)
     case QUAL_UNION_TYPE:
       for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL)
-	  gimplify_one_sizepos (&DECL_FIELD_OFFSET (field), list_p);
+	  {
+	    gimplify_one_sizepos (&DECL_FIELD_OFFSET (field), list_p);
+	    gimplify_type_sizes (TREE_TYPE (field), list_p);
+	  }
+      break;
+
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+      gimplify_type_sizes (TREE_TYPE (type), list_p);
       break;
 
     default:
@@ -4467,8 +4475,6 @@ gimplify_type_sizes (tree type, tree *list_p)
       TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (type);
       TYPE_SIZES_GIMPLIFIED (t) = 1;
     }
-
-  TYPE_SIZES_GIMPLIFIED (type) = 1;
 }
 
 /* A subroutine of gimplify_type_sizes to make sure that *EXPR_P,

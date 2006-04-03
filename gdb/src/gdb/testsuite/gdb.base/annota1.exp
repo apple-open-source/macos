@@ -230,26 +230,36 @@ gdb_expect {
   timeout	            { fail "break at handle_USR1 (timeout)" }
 }
 
+# APPLE LOCAL: In gcc 4.0 on Mac OS X, setting a breakpoint on
+# 'printf' actually sets a breakpoint on several functions
+# (printf$LDBL64, printf$LDBL128).  This causes the output of "info
+# break" and the breakpoint numbers to be different than those
+# expected by this test-case.  There's really no reason this test-case
+# needs to break on printf() proper, so the easiest fix is just to
+# change the calls of printf() to sleep(), and change the two calls to
+# printf() in annota3.c to calls to sleep().  We similarly change all
+# references to "printf" here to references to "sleep."
+
 #
-# break at printf. When we are stopped at printf, we can test 
+# break at sleep. When we are stopped at sleep, we can test 
 #
-send_gdb "break printf\n"
+send_gdb "break sleep\n"
 gdb_expect {
   -re  "\r\n\032\032post-prompt\r\n\r\n\032\032breakpoints-invalid\r\nBreakpoint.*at $hex.*$gdb_prompt$" \
-	    { pass "breakpoint printf" }
-  -re ".*$gdb_prompt$"     { fail "break printf" }
-  timeout	            { fail "break printf (timeout)" }
+	    { pass "breakpoint sleep" }
+  -re ".*$gdb_prompt$"     { fail "break sleep" }
+  timeout	            { fail "break sleep (timeout)" }
 }
 
 #
-# get to printf
+# get to sleep
 #
 send_gdb "continue\n"
 gdb_expect {
-  -re "\r\n\032\032post-prompt\r\nContinuing.\r\n\r\n\032\032starting\r\n\r\n\032\032(frames-invalid\r\n\r\n\032\032)+breakpoint .\r\n\r\nBreakpoint ., \r\n\032\032frame-begin 0 $hex\r\n\r\n(\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n)*\032\032frame-function-name\r\nprintf\r\n\032\032frame-args\r\n.*\032\032frame-end\r\n\r\n\032\032stopped\r\n$gdb_prompt$" \
-	  { pass "continue to printf" }
-  -re ".*$gdb_prompt$"     { fail "continue to printf" }
-  timeout	            { fail "continue to printf (timeout)" }
+  -re "\r\n\032\032post-prompt\r\nContinuing.\r\n\r\n\032\032starting\r\n\r\n\032\032(frames-invalid\r\n\r\n\032\032)+breakpoint .\r\n\r\nBreakpoint ., \r\n\032\032frame-begin 0 $hex\r\n\r\n(\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n)*\032\032frame-function-name\r\nsleep\r\n\032\032frame-args\r\n.*\032\032frame-end\r\n\r\n\032\032stopped\r\n$gdb_prompt$" \
+	  { pass "continue to sleep" }
+  -re ".*$gdb_prompt$"     { fail "continue to sleep" }
+  timeout	            { fail "continue to sleep (timeout)" }
 }
 
 #
@@ -260,9 +270,9 @@ gdb_expect {
 #
 send_gdb "backtrace\n"
 gdb_expect {
-    -re "\r\n\032\032post-prompt\r\n\r\n\032\032frame-begin 0 $hex\r\n.0  \r\n(\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n)*\032\032frame-function-name\r\nprintf\r\n\032\032frame-args\r\n \\(.*frame-end\r\n\r\n\032\032frame-begin 1 $hex\r\n.1  \r\n\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n\032\032frame-function-name\r\nmain\r\n\032\032frame-args\r\n \\(\\)\r\n\032\032frame-source-begin\r\n at \r\n\032\032frame-source-file\r\n${escapedsrcfile}\r\n\032\032frame-source-file-end\r\n:\r\n\032\032frame-source-line\r\n.*\r\n\032\032frame-source-end\r\n\r\n\r\n\032\032frame-end\r\n(\r\n\032\032frame-begin .*\r\n\r\n\032\032frame-end\r\n)*$gdb_prompt$" \
+    -re "\r\n\032\032post-prompt\r\n\r\n\032\032frame-begin 0 $hex\r\n.0  \r\n(\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n)*\032\032frame-function-name\r\nsleep\r\n\032\032frame-args\r\n \\(.*frame-end\r\n\r\n\032\032frame-begin 1 $hex\r\n.1  \r\n\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n\032\032frame-function-name\r\nmain\r\n\032\032frame-args\r\n \\(\\)\r\n\032\032frame-source-begin\r\n at \r\n\032\032frame-source-file\r\n${escapedsrcfile}\r\n\032\032frame-source-file-end\r\n:\r\n\032\032frame-source-line\r\n.*\r\n\032\032frame-source-end\r\n\r\n\r\n\032\032frame-end\r\n(\r\n\032\032frame-begin .*\r\n\r\n\032\032frame-end\r\n)*$gdb_prompt$" \
 	  { pass "backtrace from shlibrary" }
-    -re "\r\n\032\032post-prompt\r\n\r\n\032\032frame-begin 0 $hex\r\n.0  \r\n(\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n)*\032\032frame-function-name\r\nprintf\r\n\032\032frame-args\r\n \\(.*frame-end\r\n\r\n\032\032frame-begin 1 $hex\r\n.1  \r\n\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n\032\032frame-function-name\r\nmain\r\n\032\032frame-args\r\n \\(\\)\r\n\032\032frame-source-begin\r\n at \r\n\032\032frame-source-file\r\n.*${srcfile}\r\n\032\032frame-source-file-end\r\n:\r\n\032\032frame-source-line\r\n.*\r\n\032\032frame-source-end\r\n\r\n\r\n\032\032frame-end\r\n(\r\n\032\032frame-begin .*\r\n\r\n\032\032frame-end\r\n)*$gdb_prompt$" \
+    -re "\r\n\032\032post-prompt\r\n\r\n\032\032frame-begin 0 $hex\r\n.0  \r\n(\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n)*\032\032frame-function-name\r\nsleep\r\n\032\032frame-args\r\n \\(.*frame-end\r\n\r\n\032\032frame-begin 1 $hex\r\n.1  \r\n\032\032frame-address\r\n$hex\r\n\032\032frame-address-end\r\n in \r\n\032\032frame-function-name\r\nmain\r\n\032\032frame-args\r\n \\(\\)\r\n\032\032frame-source-begin\r\n at \r\n\032\032frame-source-file\r\n.*${srcfile}\r\n\032\032frame-source-file-end\r\n:\r\n\032\032frame-source-line\r\n.*\r\n\032\032frame-source-end\r\n\r\n\r\n\032\032frame-end\r\n(\r\n\032\032frame-begin .*\r\n\r\n\032\032frame-end\r\n)*$gdb_prompt$" \
 	  { setup_xfail "*-*-*" 1270
             fail "backtrace from shlibrary" }
   -re ".*$gdb_prompt$"     { fail "backtrace from shlibrary" }

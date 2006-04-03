@@ -28,7 +28,9 @@ char testEz[sizeof( ((E *)0)->z )];
 
 typedef struct A typedef_A;
 struct F {
-  typedef_A;			/* { dg-error "does not declare anything" } */
+  /* APPLE LOCAL 4168392 */
+  typedef_A;  /* This Microsoft extension should still work.  */
   char f;
 };
-char testF[sizeof(F) == sizeof(A) ? 1 : -1];
+/* APPLE LOCAL 4168392 */
+char testF[sizeof(F) > sizeof(A) ? 1 : -1];

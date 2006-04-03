@@ -1,21 +1,21 @@
 <HTML>
-<!--This file created 5/23/05 6:35 PM by Claris Home Page version 3.0-->
+<!--This file created 12/12/05 11:18 AM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Private Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=120 BOTTOM=1009 LEFT=175 RIGHT=922>
+   <X-CLARIS-WINDOW TOP=104 BOTTOM=993 LEFT=95 RIGHT=842>
    <X-CLARIS-TAGVIEW MODE=minimal>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<P><FONT SIZE="-1">Mac OS X Xcode 2.1 Developer Release Copyright
+<P><FONT SIZE="-1">Mac OS X Xcode 2.2.1 Developer Release Copyright
 2005 by Apple Computer, Inc. All Rights Reserved.</FONT></P>
 
-<H2>Private Mac OS X Xcode 2.1 Developer Release:<BR>
-Compiler Tools (cctools-590)</H2>
+<H2>Private Mac OS X Xcode 2.2.1 Developer Release:<BR>
+Compiler Tools (cctools-590.23.2)</H2>
 
-<P>This file contains release notes for the 5.18 release of the
-Compiler Tools for the Mac OS X Xcode 2.0 Developer Release. This
+<P>This file contains release notes for the 5.20 release of the
+Compiler Tools for the Mac OS X Xcode 2.2.1 Developer Release. This
 file contains information about the following topics:</P>
 
 <UL>
@@ -27,6 +27,332 @@ file contains information about the following topics:</P>
    on)&nbsp;</LI>
 </UL>
 
+<H2>Notes Specific to Release 5.20 (Mac OS X Xcode 2.2.1 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.23.1
+for the 5.20 Mac OS X Xcode 2.2.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that caused the ld(1) and libkld to not be built
+   with optimization. Radar bug #4367423.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.23
+for the 5.20 Mac OS X Xcode 2.2.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that caused the code in libkld to crash. Radar bug
+   #4367423.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.22
+for the 5.20 Mac OS X Xcode 2.2.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed the routines that byteswap the i386 floating point
+   thread state. Radar bug #4350771.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.21
+for the 5.20 Mac OS X Xcode 2.2.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in ld(1) code that caused it to crash when linking
+   Objective-C code. Radar bug #4348548.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.20
+for the 5.20 Mac OS X Xcode 2.2.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the libkld code that caused it to crash using
+   the kld_forget_symbol() api. Radar bug #4346485.</LI>
+   
+   <LI>Fixed a bug in strip(1) that caused it to crash when stripping
+   a dynamic library with multiple cpusubtypes on a host machine with
+   different byte sex, Radar bug #4265381.</LI>
+   
+   <LI>Fixed a bug otool(1) when a -arch flag was specified on a thin
+   binary which caused an incorrect error about the architecture not
+   being present. Radar bug #4337271.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.19
+for the 5.20 Mac OS X Xcode 2.2.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the redo_prebinding code for the new self
+   (dyld) modifying Intel stubs that was not correctly setting the
+   jmp instruction target for symbols defined in a shared library.
+   Radar bug #4335281.</LI>
+   
+   <LI>Fixed a bug in ld(1) that was causing an internal error if
+   both -s and -dead_strip were used and there were dead private
+   extern symbols. Radar bug #4286691.</LI>
+   
+   <LI>Fixed a bug in ld(1) when -w was used that did not suppress
+   printing the list of multiply defined symbols from dylibs. Radar
+   bug #4334705.</LI>
+   
+   <LI>Cleaned up the cctools source code so it will build cleanly
+   without warnings. Radar bug #4340147.</LI>
+   
+   <LI>Fixed a problem in the cctools source that would not allow it
+   to build on Leopard9A68. Radar bug #4342523.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.18
+for the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Made changes to improve the performance of the static link
+   editor. Radar bug 4299546.</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.19 (Mac OS X Xcode 2.2 Developer
+Release)</H2>
+
+<H3><FONT SIZE="+1">New Features</FONT></H3>
+
+<P>The static link editor now supports the new option -Sp to strip,
+edit and add debugging symbols so the debugger can used most of the
+debugging symbols from the object files.</P>
+
+<P>The ar(1) tool has the new -S option to suppress building the
+table of contents.</P>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.17
+for the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in nmedit(1) which caused it to produced a bad
+   relocation entry when there was one for a global coalesced symbol
+   defined in the file being changed into a static. Radar bug
+   4318688.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.16
+for the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in strip(1) which caused it to produced a bad
+   indirect symbol table entry when there was more than one non-lazy
+   pointer section with the same indirect symbol defined in the file
+   being stripped. Radar bug 4316021.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.15
+for the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed ld(1) so that the -Sp option discards all type stabs.
+   Radar bug 4312007.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.14
+for the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed ld(1) so that the -Sp option discards unnamed type
+   stabs. Radar bug 4305465.</LI>
+   
+   <LI>Added support for encrypted binaries. Radar bug #4298526.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.13
+for the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Made changes to the cctools source to allow it to build on the
+   current Mac OS X version for Intel. Radar bug 4303606.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.12
+for the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in ld(1) when using -dead_strip that incorrectly
+   removed local symbols for coalesced sections. This caused
+   debugging C++ templements not to work. Radar bug #4293942.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.11
+for the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Made changes to support non executable stacks. Radar bug
+   4281171.</LI>
+   
+   <LI>Added the assembler directives.secure_log_unique and
+   .secure_log_reset . Radar bug #4255881.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.10
+for the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Made changes to the cctools source to allow it to build on the
+   what will ship for Mac OS X 10.5. Radar bug 4282026.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.9 for
+the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added support for the new self (dyld) modifying Intel stubs.
+   Radar bug #4202415.</LI>
+   
+   <LI>Fixed the PowerPC assembler so it will correctly assembly
+   conditional branch instructions that use the count register or
+   link register that have prediction. Radar bug #4274713.</LI>
+   
+   <LI>Fixed ld(1) so that the -Sp option correctly keeps C++ scoped
+   type stabs. Radar bug #4233860.</LI>
+   
+   <LI>Added the i386 pushfd/popfd mnemonics as synonyms for
+   pushf/popf. Radar bug #4272274.</LI>
+   
+   <LI>Made changes to the cctools source to allow it to build on the
+   current Mac OS X 10.5 9A40. Radar bug 4279472.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.8 for
+the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Improved ld(1')'s implementaion of -Sp to be faster. Radar bug
+   #4157062.</LI>
+   
+   <LI>Changed ld(1) to cause it to not use a weak symbol from a
+   shared library but rather on in a .o file being linked even if it
+   is linked in afterwards. Radar bug #4231836.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.7 for
+the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the tools to understand the new non-general register
+   thread states for i386. Radar bug #4200908.</LI>
+   
+   <LI>Changed the tools to understand both the new and old general
+   register thread state for i386. Radar bug #4240450 .</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.6 for
+the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed ld(1')'s implementaion of -dead_strip to be faster
+   especially with large .o file created with ld -r. Radar bug
+   #4228195.</LI>
+   
+   <LI>Changed ld(1) so that dead code C++ with exeception
+   information will be stripped with -dead_strip. Radar bug
+   #4213358</LI>
+   
+   <LI>Added the -macosx_version_min command line option to ld(1) to
+   override the MACOSX_DEPLOYMENT_TARGET environment variable. Radar
+   bug #4195253.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.5 for
+the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed ld(1) to not delete type stabs in groups of stabs
+   paired by N_BNSYM/N_ENSYM stabs that are for deleted coalesced
+   symbols or dead code stripped symbols. Radar bug #4205997.</LI>
+   
+   <LI>Fixed a problem when the -Sp below was added that caused
+   libkld to have incorrect undefined references. Radar bug
+   #4220100.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.4 for
+the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The static link editor now supports the new option -Sp to
+   strip, edit and add debugging symbols so the debugger can used
+   most of the debugging symbols from the object files. Radar bug
+   #4202462.</LI>
+   
+   <LI>The static link editor now does not cause an error on an empty
+   archive thinking it is malformed. Radar bug #4201492.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.3 for
+the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>The static link editor was change to not issue a warning
+   message about both NEXT_ROOT being set and -syslibroot being
+   specified unless the two values are different. Radar bug
+   #3593340.</LI>
+   
+   <LI>The warning message the static link editor issues about a
+   missing indirectly referenced dynamic library now includes the
+   name of the library that made the reference. Radar bug
+   #4106804.</LI>
+   
+   <LI>Fixed a bug in the i386 assembler that did not assembler the
+   outw and inw instructions correctly. Radar bug #4110183.</LI>
+   
+   <LI>Added the -S option to ar(1) to suppress creating the table of
+   contents. Radar bug #4130034.</LI>
+   
+   <LI>The man pages have been updated to not use the term fat files
+   but changed to use the term universal files. Radar bug
+   #4171207.</LI>
+   
+   <LI>Fixed a bug in the static link editor that could incorrectly
+   issue a mismatching weak reference error message when a
+   -weak_framework flag was used. Radar bug #4180599.</LI>
+   
+   <LI>Fixed a bug in the i386 assembler that did not assemble the
+   "fsubrp %st(i)" instruction correctly. Radar bug #4182849.</LI>
+   
+   <LI>Fixed the i386 assembler so that the -n option would work and
+   not cause a crash. Radar bug #4192255.</LI>
+   
+   <LI>Changed the PowerPC assembler to allow the dcbzl instruction
+   without the -force_cpusubtype_ALL or -arch ppc64. Radar bug
+   #4181833.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.2 for
+the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed as(1) now sets the n_value field of BINCL stabs to be
+   the BINCL/EINCL checksum. Radar bug #4181871.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.1 for
+the 5.19 Mac OS X Xcode 2.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed ld(1) to now unique the BINCL/EXCL strings, which
+   reduces the size of final linked images built with -gfull. Radar
+   bug #4151821.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590 for
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in processing ld(1) symbols lists for flags such
+   as -unexported_symbols where if more than two duplicates are on
+   the list only one of the duplicates are removed. Radar bug
+   #4139106.</LI>
+   
+   <LI>Fixed the assembler so that when a .private_extern appears
+   before a .zerofill for a symbol it correctly gets created as a
+   private extern symbol. Radar bug #4156921.</LI>
+</UL>
+
 <H2>Notes Specific to Release 5.18 (Mac OS X Xcode 2.1 Developer
 Release)</H2>
 
@@ -36,7 +362,7 @@ Release)</H2>
 instructions.</P>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-589 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Changed the static linker to prepend the value of -syslibroot
@@ -55,7 +381,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-588 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Added support for the CPU_SUBTYPE_PENTIUM_4 cpusubtype and the
@@ -68,7 +394,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-587 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Added code to libredo_prebinding to provide fix-ups to work
@@ -78,7 +404,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-586 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Added code to libredo_prebinding to provide fix-ups to work
@@ -92,7 +418,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-585 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed a problem with the libsyminfo.a build that was
@@ -100,7 +426,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-584 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed a problem with the libkld.a build that had an undefined
@@ -108,7 +434,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-583 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in assembling the i386 movd instructions with MMX
@@ -117,7 +443,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-582 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Added the value 10.5 to be one of the known values allowed for
@@ -131,7 +457,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-581 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in the ppc64 assembler that incorrectly caused an
@@ -140,7 +466,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-580 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in assembling the i386 movq instructions with
@@ -154,7 +480,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-579 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in the static linker that would incorrectly
@@ -193,7 +519,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-578 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Changed the cctools project to build with RC_RELEASE being
@@ -202,7 +528,7 @@ the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-577 for
-the 5.18 Mac OS X Xcode 2.0 Developer release)</FONT></H5>
+the 5.18 Mac OS X Xcode 2.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Added support to the x86 assembler and disassembler for the

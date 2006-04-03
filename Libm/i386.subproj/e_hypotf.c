@@ -13,6 +13,8 @@
  * ====================================================
  */
 
+#warning obsolete
+
 #include <sys/cdefs.h>
 #if defined(LIBM_SCCS) && !defined(lint)
 __RCSID("$NetBSD: e_hypotf.c,v 1.7 1999/07/02 15:37:39 simonb Exp $");

@@ -1,8 +1,8 @@
 /*
  * CCICCacheData.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/CredentialsData.cp,v 1.18 2004/09/08 20:48:32 lxs Exp $
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/CredentialsData.cp,v 1.18 2004/09/08 20:48:32 lxs Exp $
+ * $Header$
+ * $Header$
  */
 
 #include "CredentialsData.h"
@@ -183,7 +183,7 @@ CCICredentialsData::CCICredentialsV4Data::CCICredentialsV4Data (const cc_credent
     mCredentials.address = inCredentials -> address;
     mCredentials.ticket_size = inCredentials -> ticket_sz;
     CCIAssert_ (inCredentials -> ticket_sz <= static_cast <CCIInt32> (sizeof(mCredentials.ticket)));
-#pragma message (CCIMessage_Warning_ "CCICredentialsData::CCICredentialsV4Data::CCICredentialsV4Data This should be a bad param error instead of an assertion")
+#warning CCICredentialsData::CCICredentialsV4Data::CCICredentialsV4Data This should be a bad param error instead of an assertion
     memcpy (mCredentials.ticket, inCredentials -> ticket, static_cast <cc_uint32> (inCredentials -> ticket_sz));
 }
 #endif
@@ -293,7 +293,6 @@ void
 CCICredentialsData::CCICredentialsV5Data::WriteCredentials (std::ostream& ioStream) const
 {
     //dprintf ("Entering %s():", __FUNCTION__);
-    
     WriteString    (ioStream, mClient);
     WriteString    (ioStream, mServer);
     WriteData      (ioStream, mKeyblock);

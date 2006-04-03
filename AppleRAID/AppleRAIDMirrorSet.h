@@ -54,9 +54,13 @@ class AppleRAIDMirrorSet : public AppleRAIDSet
     virtual void getRecoverQueue(queue_head_t *oldRequestQueue, queue_head_t *newRequestQueue);
     virtual bool recover(void);
 
+    virtual void startSetCompleteTimer();
+    virtual void setCompleteTimeout(void);
+
 public:
     static AppleRAIDSet * createRAIDSet(AppleRAIDMember * firstMember);
     virtual bool addMember(AppleRAIDMember * member);
+    virtual bool removeMember(AppleRAIDMember * member, IOOptionBits options);
 
     virtual bool resizeSet(UInt32 newMemberCount);
     virtual bool startSet(void);
@@ -65,8 +69,6 @@ public:
     virtual bool isSetComplete(void);
     virtual bool bumpOnError(void);
     virtual UInt32 nextSetState(void);
-
-    virtual void setCompleteTimeout(void);
 
     virtual void completeRAIDRequest(AppleRAIDStorageRequest *storageRequest);
     

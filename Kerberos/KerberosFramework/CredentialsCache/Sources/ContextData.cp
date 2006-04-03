@@ -1,7 +1,7 @@
 /*
  * CCIContextData.cp
  *
- * $Header: /cvs/kfm/KerberosFramework/CredentialsCache/Sources/ContextData.cp,v 1.24 2004/09/08 20:42:21 lxs Exp $
+ * $Header$
  */
 
 #include "ContextData.h"
@@ -160,7 +160,7 @@ CCIContextData::GetCCacheIDs (
 // Lock the context
 CCILockID
 CCIContextData::Lock () const {
-#pragma message (CCIMessage_Warning_ "CCIContextData::Lock unimplemented")
+#warning CCIContextData::Lock unimplemented
 	return 0;
 }
 
@@ -168,7 +168,7 @@ CCIContextData::Lock () const {
 void
 CCIContextData::Unlock (
 	const CCILockID&		/* inLock */) {
-#pragma message (CCIMessage_Warning_ "CCIContextData::Unlock unimplemented")
+#warning CCIContextData::Unlock unimplemented
 }
 
 // Compare for identity with another context

@@ -1,35 +1,62 @@
 /*
- * Written by J.T. Conklin <jtc@netbsd.org>.
- * Public domain.
+ * Written by Ian Ollmann
+ *
+ * Copyright © 2005, Apple Computer Inc. All Rights Reserved.
  */
 
 #include <machine/asm.h>
-
 #include "abi.h"
 
-RCSID("$NetBSD: e_acos.S,v 1.7 2001/06/19 00:26:29 fvdl Exp $")
+#if defined( __LP64__ )
+	#error not 64-bit ready
+#endif
 
-/* acos = atan (sqrt(1 - x^2) / x) */
-ENTRY(acos)
-	XMM_ONE_ARG_DOUBLE_PROLOGUE
-	fldl	ARG_DOUBLE_ONE		/* x */
-	fld	%st(0)
-	fmul	%st(0)			/* x^2 */
-	fld1
-	fsubp				/* 1 - x^2 */
-	fsqrt				/* sqrt (1 - x^2) */
-	fxch	%st(1)
-	fpatan
-	XMM_DOUBLE_EPILOGUE
+
+ENTRY(acosl)
+	pushl		$0x00800000			//  0x1.0p-126f
+	fldt		8(%esp)				//	{x}
+	fabs							//	{|x| }
+
+	//clip tiny values to 2**-126 to prevent underflow
+	flds		(%esp)				//	{2**-126, |x| }
+	fucomi		%st(1), %st(0)		//
+	fcmovb		%st(1), %st(0)		//	{ 2**-126 or |x|, |x| }
+	fstp		%st(1)				//	{ 2**-126 or |x| }
+
+	//handle overflow / NaN input
+	fld1							//	{1, 2**-126 or |x| }
+	fucomi		%st(1), %st(0)
+	jb			acosl_nan
+
+	fstp		%st(1)				//	{ 1 }
+	fldt		8(%esp)				//	{ x, 1 }
+	je			acosl_one
+
+	// asin(x) = atan( x / sqrt( 1 - x*x ) )
+	fld			%st(0)				//	{ x, x, 1 }
+	fsubr		%st(2), %st(0)		//	{ 1-x, x, 1 }
+	fsqrt							//	{ sqrt( 1 - x ), x, 1 }
+	fxch		%st(2)				//	{ 1, x, sqrt( 1 - x ) }
+	faddp							//	{ 1 + x, sqrt( 1 - x ) }
+	fsqrt							//	{ sqrt(1 + x), sqrt( 1 - x ) }
+	fpatan							//	{ result / 2 }
+	fadd		%st(0), %st(0)		//	{ result }
+	addl		$4, %esp
 	ret
 
-ENTRY(acosf)
-	flds	ARG_FLOAT_ONE		/* x */
-	fld	%st(0)
-	fmul	%st(0)			/* x^2 */
-	fld1
-	fsubp				/* 1 - x^2 */
-	fsqrt				/* sqrt (1 - x^2) */
-	fxch	%st(1)
-	fpatan
+acosl_one:							//	{ x, 1 }
+	fucomip		%st(1), %st(0)		//	{ 1 }
+	fsub		%st(0), %st(0)		//	{ 0 }
+	fldpi							//	{ pi, 0 }
+	fcmove		%st(1), %st(0)		//	{ pi or 0, 0 }
+	fstp		%st(1)				//	{ pi or 0 }
+	addl		$4, %esp
 	ret
+
+acosl_nan:							//{ 1, |x| }
+	fstp		%st(0)				//{ |x| }
+	fchs							//{-|x| }
+	fsqrt							//{nan}	set invalid flag
+	addl		$4, %esp
+	ret
+

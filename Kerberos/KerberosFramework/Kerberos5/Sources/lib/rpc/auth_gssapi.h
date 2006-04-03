@@ -3,7 +3,7 @@
  * 
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved.
  *
- * $Id: auth_gssapi.h,v 1.29 2004/06/16 03:11:53 tlyu Exp $
+ * $Id: auth_gssapi.h 16467 2004-06-16 03:11:54Z tlyu $
  *
  */
 

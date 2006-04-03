@@ -136,8 +136,8 @@ require_memory_page_dictionary (void)
 static int
 write_protect_page (int pid, CORE_ADDR page_start)
 {
-  vm_address_t r_start;
-  vm_size_t r_size;
+  mach_vm_address_t r_start;
+  mach_vm_size_t r_size;
   port_t r_object_name;
 
   vm_region_basic_info_data_t r_data;
@@ -146,10 +146,11 @@ write_protect_page (int pid, CORE_ADDR page_start)
   kern_return_t kret;
 
   r_start = page_start;
-  r_info_size = VM_REGION_BASIC_INFO_COUNT;
-  kret = vm_region (macosx_status->task, &r_start, &r_size,
-                    VM_REGION_BASIC_INFO, (vm_region_info_t) & r_data,
-                    &r_info_size, &r_object_name);
+  r_info_size = VM_REGION_BASIC_INFO_COUNT_64;
+  kret = mach_vm_region (macosx_status->task, &r_start, &r_size,
+			 VM_REGION_BASIC_INFO_64,
+			 (vm_region_info_t) & r_data, &r_info_size,
+			 &r_object_name);
   if (kret != KERN_SUCCESS)
     return -1;
   if (r_start != page_start)
@@ -160,7 +161,7 @@ write_protect_page (int pid, CORE_ADDR page_start)
 
       kret =
         mach_vm_protect (macosx_status->task, r_start, 4096, 0,
-                    r_data.protection & ~VM_PROT_WRITE);
+			 r_data.protection & ~VM_PROT_WRITE);
       if (kret != KERN_SUCCESS)
         return -1;
     }
@@ -407,7 +408,7 @@ macosx_region_ok_for_hw_watchpoint (CORE_ADDR start, LONGEST len)
 static int
 get_dictionary_bucket_of_page (CORE_ADDR page_start)
 {
-  int hash;
+  CORE_ADDR hash;
 
   hash = (page_start / memory_page_dictionary.page_size);
   hash = hash % MEMORY_PAGE_DICTIONARY_BUCKET_COUNT;

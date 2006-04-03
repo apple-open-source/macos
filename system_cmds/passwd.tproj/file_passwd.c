@@ -29,7 +29,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sysexits.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include "stringops.h"
 
 #define TEMP_FILE_TEMPLATE "/var/run/.pwtmpXXXXXX"
@@ -242,9 +245,9 @@ rewrite_file(char *pwname, FILE *fp, struct passwd *newpw, char *locn)
 	rewind(tfp);
 
 	if (locn != NULL) {
-		if (setuid(getuid()) != 0) {
+		if (seteuid(getuid()) != 0) {
 			fprintf(stderr, "Unable to set privileges.");
-			perror("setuid");
+			perror("seteuid");
 			exit(1);
 		}
 	}
@@ -275,13 +278,33 @@ _file_passwd_main(char *uname, char *locn)
 	char *fname;
 	struct passwd *pw;
 	struct passwd newpw;
+	struct stat sb;
 	int uid;
-
+	uid_t euid;
+	
 	fname = _PASSWD_FILE;
 	if (locn != NULL) fname = locn;
 	
 	umask((S_IRWXG | S_IRWXO));
+        
+	if ( lstat(fname, &sb) != 0 )
+	{
+		fprintf(stderr, "The file does not exist.\n");
+		exit(1);
+	}
+	
+	euid = geteuid();
+	if (locn != NULL) {
+	if (seteuid(getuid()) != 0) {
+		fprintf(stderr, "Permission denied.\n");
+		exit(1);
+	}
+	}
 	fp = fopen(fname, "a+");
+	if (locn != NULL) {
+	seteuid(euid);
+	}
+	
 	if (fp == NULL)
 	{
 		fprintf(stderr, "can't write to file \"%s\": ", fname);
@@ -365,6 +388,16 @@ file_passwd(char *uname, char *locn)
 	struct stat sb;
 	FILE *lockFile;
 	struct sigaction action = {0};
+	struct rlimit rlim;
+	
+	/* unlimit the resource limits */
+	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
+	(void)setrlimit(RLIMIT_CPU, &rlim);
+	(void)setrlimit(RLIMIT_FSIZE, &rlim);
+	(void)setrlimit(RLIMIT_STACK, &rlim);
+	(void)setrlimit(RLIMIT_DATA, &rlim);
+	(void)setrlimit(RLIMIT_RSS, &rlim);
+	(void)setrlimit(RLIMIT_NOFILE, &rlim);
 	
 	/* trap signals */
 	sigfillset( &action.sa_mask );

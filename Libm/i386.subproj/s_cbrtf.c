@@ -21,6 +21,8 @@ __RCSID("$NetBSD: s_cbrtf.c,v 1.6 1999/07/02 15:37:42 simonb Exp $");
 #include "math.h"
 #include "math_private.h"
 
+#warning obsolete
+
 /* cbrtf(x)
  * Return cube root of x
  */

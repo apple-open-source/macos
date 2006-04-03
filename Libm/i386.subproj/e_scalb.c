@@ -22,7 +22,7 @@ __RCSID("$NetBSD: e_scalb.c,v 1.8 1999/07/02 15:37:41 simonb Exp $");
  */
 
 extern double scalbn ( double, int );
-double scalb(double x, int fn)
+double scalb(double x, double fn)
 {
 	return scalbn(x,fn);
 }

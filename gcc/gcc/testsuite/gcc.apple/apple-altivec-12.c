@@ -167,9 +167,9 @@ specific_operations( signed int *p)
     vbc1 = vec_vspltb (vbc1, 9);
     vp2 = vec_vsplth (vp1, 7);
     vf1 = vec_vspltw (vf2, 31);
-    vsc2 = vec_vspltisb (30);
-    vss1 = vec_vspltish (29);
-    vsi1 = vec_vspltisw (28);
+    vsc2 = vec_vspltisb (15);
+    vss1 = vec_vspltish (14);
+    vsi1 = vec_vspltisw (13);
 
     vuc1 = vec_vsrb (vuc1, vuc2);
     vss1 = vec_vsrh (vss2, vss1);

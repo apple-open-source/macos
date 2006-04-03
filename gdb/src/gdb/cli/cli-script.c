@@ -679,7 +679,7 @@ insert_args (char *line)
 	}
       line = p + 5;
     }
- 
+
   /* Don't forget the tail.  */
   len += strlen (line);
 
@@ -1081,7 +1081,7 @@ read_command_lines_1 (char * (*read_next_line_func) ())
 	do_cleanups (old_chain);
     }
 
-  return head;
+  return (head);
 }
 
 /* Free a chain of struct command_line's.  */
@@ -1186,8 +1186,9 @@ define_command (char *comname, int from_tty)
       CMD_POST_HOOK
     };
   struct command_line *cmds;
-  struct cmd_list_element *c, *newc, *hookc = 0;
+  struct cmd_list_element *c, *newc, *oldc, *hookc = 0;
   char *tem = comname;
+  char *tem2; 
   char tmpbuf[MAX_TMPBUF];
   int  hook_type      = CMD_NO_HOOK;
   int  hook_name_size = 0;

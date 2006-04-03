@@ -55,8 +55,6 @@ bool AppleRAIDMirrorSet::init()
 
     if (super::init() == false) return false;
 
-    retain();  // for timeout
-
     arRebuildThreadCall = 0;
     arSetCompleteThreadCall = 0;
     arExpectingLiveAdd = 0;
@@ -75,20 +73,7 @@ bool AppleRAIDMirrorSet::initWithHeader(OSDictionary * header, bool firstTime)
     if (super::initWithHeader(header, firstTime) == false) return false;
 
     // schedule a timeout to start up degraded sets
-    if (firstTime) {
-	// once the set is live, arSetCompleteTimeout must stay zero
-	OSNumber * number = OSDynamicCast(OSNumber, header->getObject(kAppleRAIDSetTimeoutKey));
-	if (number) arSetCompleteTimeout = number->unsigned32BitValue();
-	if (!arSetCompleteTimeout) arSetCompleteTimeout = kARSetCompleteTimeoutDefault;
-
-	AbsoluteTime deadline;
-	clock_interval_to_deadline(arSetCompleteTimeout, kSecondScale, &deadline);
-	if (!arSetCompleteThreadCall) {
-	    thread_call_func_t setCompleteMethod = OSMemberFunctionCast(thread_call_func_t, this, &AppleRAIDMirrorSet::setCompleteTimeout);
-	    arSetCompleteThreadCall = thread_call_allocate(setCompleteMethod, (thread_call_param_t)this);
-	}
-	(void)thread_call_enter_delayed(arSetCompleteThreadCall, deadline);
-    }
+    if (firstTime) startSetCompleteTimer();
 
     return true;
 }
@@ -125,6 +110,21 @@ bool AppleRAIDMirrorSet::addMember(AppleRAIDMember * member)
     arSetBlockCount = number->unsigned64BitValue();
     arSetMediaSize = arSetBlockCount * arSetBlockSize;
     
+    if (arOpenLevel == kIOStorageAccessNone) startSetCompleteTimer();
+    
+    return true;
+}
+
+bool AppleRAIDMirrorSet::removeMember(AppleRAIDMember * member, IOOptionBits options)
+{
+    if (!super::removeMember(member, options)) return false;
+
+    // if the set is not currently in use act like we are still gathering members
+    if (arOpenLevel == kIOStorageAccessNone) {
+	startSetCompleteTimer();
+	arController->restartSet(this, false);
+    }
+    
     return true;
 }
 
@@ -158,9 +158,7 @@ bool AppleRAIDMirrorSet::startSet(void)
 
     if (getSetState() == kAppleRAIDSetStateDegraded) {
 
-	if (!arSetIsPaused && arSpareCount) {
-	    rebuildStart();
-	}
+	if (getSpareCount()) rebuildStart();
 
     } else {
 	// clear the timeout once the set is complete
@@ -188,7 +186,7 @@ bool AppleRAIDMirrorSet::isSetComplete(void)
     if (arSetCompleteTimeout) return false;
 
     // set specific checks
-    return arActiveCount >= 1;
+    return arActiveCount != 0;
 }
 
 bool AppleRAIDMirrorSet::bumpOnError(void)
@@ -409,9 +407,36 @@ bool AppleRAIDMirrorSet::recover()
 //8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 //8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
+void AppleRAIDMirrorSet::startSetCompleteTimer()
+{
+    IOLog1("AppleRAIDMirrorSet::startSetCompleteTimer(%p) - timer %s running.\n",
+	   this, arSetCompleteTimeout ? "is already" : "was not");
+
+    // prevent timer from firing with no backing object
+    retain();  
+
+    // once the set is live, arSetCompleteTimeout must stay zero
+    OSNumber * number = OSDynamicCast(OSNumber, getProperty(kAppleRAIDSetTimeoutKey));
+    if (number) arSetCompleteTimeout = number->unsigned32BitValue();
+    if (!arSetCompleteTimeout) arSetCompleteTimeout = kARSetCompleteTimeoutDefault;
+
+    // set up the timer (first time only)
+    if (!arSetCompleteThreadCall) {
+	thread_call_func_t setCompleteMethod = OSMemberFunctionCast(thread_call_func_t, this, &AppleRAIDMirrorSet::setCompleteTimeout);
+	arSetCompleteThreadCall = thread_call_allocate(setCompleteMethod, (thread_call_param_t)this);
+    }
+
+    // start timer
+    AbsoluteTime deadline;
+    clock_interval_to_deadline(arSetCompleteTimeout, kSecondScale, &deadline);
+    // an overlapping timer request will cancel the earlier request
+    bool overlap = thread_call_enter_delayed(arSetCompleteThreadCall, deadline);
+    if (overlap) release();
+}
+
 void AppleRAIDMirrorSet::setCompleteTimeout(void)
 {
-    IOLog1("AppleRAIDMirrorSet::setCompleteTimeout(%p) - timeout was for %d seconds.\n", this, (int)arSetCompleteTimeout);
+    IOLog1("AppleRAIDMirrorSet::setCompleteTimeout(%p) - the timeout is %sactive.\n", this, arSetCompleteTimeout ? "":"in");
 
     // this code is outside the global lock and the workloop
     // to simplify handling race conditions with cancelling the timeout
@@ -431,8 +456,8 @@ void AppleRAIDMirrorSet::rebuildStart(void)
     if (arRebuildingMember) return;
 
     // sanity checks
-    if (!arSpareCount) return;
-    if (!arActiveCount) return;
+    if (getSpareCount() == 0) return;
+    if (arActiveCount == 0) return;
 
     // find a missing member that can be replaced
     UInt32 memberIndex;
@@ -445,57 +470,53 @@ void AppleRAIDMirrorSet::rebuildStart(void)
     
     // find a spare that is usable
     AppleRAIDMember * target = 0;
-    UInt32 spareIndex;
     bool autoRebuild = OSDynamicCast(OSBoolean, getProperty(kAppleRAIDSetAutoRebuildKey)) == kOSBooleanTrue;
-    for (spareIndex = 0; spareIndex < arSpareCount; spareIndex++) {
+    OSCollectionIterator * iter = OSCollectionIterator::withCollection(arSpareMembers);
+    if (!iter) return;
 
-	AppleRAIDMember * candidate = arSpareMembers[spareIndex];
-	if (candidate) {
+    while (AppleRAIDMember * candidate = (AppleRAIDMember *)iter->getNextObject()) {
 
-	    if (candidate->isBroken()) {
-		IOLog1("AppleRAIDMirrorSet::rebuildStart(%p) - skipping candidate %p, it is broken.\n", this, candidate);
-		continue;
-	    }
+	if (candidate->isBroken()) {
+	    IOLog1("AppleRAIDMirrorSet::rebuildStart(%p) - skipping candidate %p, it is broken.\n", this, candidate);
+	    continue;
+	}
 
-	    // live adds have priority over regular spares
-	    if (arExpectingLiveAdd) {
+	// live adds have priority over regular spares
+	if (arExpectingLiveAdd) {
 
-		OSNumber * number = OSDynamicCast(OSNumber, candidate->getHeaderProperty(kAppleRAIDMemberIndexKey));
-		if (!number) continue;
-		UInt32 candidateIndex = number->unsigned32BitValue();
-		if (arMembers[candidateIndex]) continue;
-		memberIndex = candidateIndex;
-		candidate->changeMemberState(kAppleRAIDMemberStateSpare);
-		arExpectingLiveAdd--;
+	    OSNumber * number = OSDynamicCast(OSNumber, candidate->getHeaderProperty(kAppleRAIDMemberIndexKey));
+	    if (!number) continue;
+	    UInt32 candidateIndex = number->unsigned32BitValue();
+	    if (arMembers[candidateIndex]) continue;
+	    memberIndex = candidateIndex;
+	    candidate->changeMemberState(kAppleRAIDMemberStateSpare);
+	    arExpectingLiveAdd--;
 
-	    } else {
+	} else {
 
-		// if autorebuild is not on, only use current spares
-		if (!autoRebuild) {
-		    if (candidate->isSpare()) {
-			OSNumber * number = OSDynamicCast(OSNumber, candidate->getHeaderProperty(kAppleRAIDSequenceNumberKey));
-			if (!number) continue;
-			UInt32 sequenceNumber = number->unsigned32BitValue();
-			if (sequenceNumber != getSequenceNumber()) {
-			    IOLog1("AppleRAIDMirrorSet::rebuildStart(%p) - skipping candidate %p, expired seq num %d.\n",
-				   this, candidate, (int)sequenceNumber);
-			    continue;
-			}
-		    } else {
-			IOLog1("AppleRAIDMirrorSet::rebuildStart(%p) - skipping candidate %p, autorebuild is off.\n", this, candidate);
+	    // if autorebuild is not on, only use current spares
+	    if (!autoRebuild) {
+		if (candidate->isSpare()) {
+		    OSNumber * number = OSDynamicCast(OSNumber, candidate->getHeaderProperty(kAppleRAIDSequenceNumberKey));
+		    if (!number) continue;
+		    UInt32 sequenceNumber = number->unsigned32BitValue();
+		    if (sequenceNumber != getSequenceNumber()) {
+			IOLog1("AppleRAIDMirrorSet::rebuildStart(%p) - skipping candidate %p, expired seq num %d.\n",
+			       this, candidate, (int)sequenceNumber);
 			continue;
 		    }
+		} else {
+		    IOLog1("AppleRAIDMirrorSet::rebuildStart(%p) - skipping candidate %p, autorebuild is off.\n", this, candidate);
+		    continue;
 		}
 	    }
-
-	    arSpareCount--;
-	    // fill the hole
-	    arSpareMembers[spareIndex] = arSpareMembers[arSpareCount];
-	    arSpareMembers[arSpareCount] = 0;
-	    target = candidate;
-	    break;
 	}
+
+	arSpareMembers->removeObject(candidate);  // must break, this breaks iter
+	target = candidate;
+	break;
     }
+    iter->release();
     if (!target) return;
 
     // pull the spare uuid out of the spare uuid list, only for v2 headers
@@ -703,7 +724,7 @@ void AppleRAIDMirrorSet::rebuild()
 	arSetCommandGate->runAction(rebuildCompleteMethod, (void *)success);
     }
 
-    if (arSpareCount) {
+    if (getSpareCount()) {
 	gAppleRAIDGlobals.lock();
 	rebuildStart();
 	gAppleRAIDGlobals.unlock();

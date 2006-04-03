@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: caudium.c,v 1.28.2.4 2003/05/31 01:37:44 sniper Exp $ */
+/* $Id: caudium.c,v 1.28.2.5 2005/04/22 09:21:49 tony2001 Exp $ */
 
 #include "php.h"
 #ifdef HAVE_CAUDIUM
@@ -287,7 +287,7 @@ php_caudium_set_header(char *header_name, char *value, char *p)
   struct svalue *s_headermap, *soldval;
   int vallen;
   GET_THIS();
-  //  hval = make_shared_string(value);
+  /*  hval = make_shared_string(value); */
   ind = make_shared_string(" _headers");
   hind = make_shared_binary_string(header_name,
 				   (int)(p - header_name));
@@ -444,7 +444,7 @@ static void php_info_caudium(ZEND_MODULE_INFO_FUNC_ARGS)
 {
   /*  char buf[512]; */
   php_info_print_table_start();
-  php_info_print_table_row(2, "SAPI module version", "$Id: caudium.c,v 1.28.2.4 2003/05/31 01:37:44 sniper Exp $");
+  php_info_print_table_row(2, "SAPI module version", "$Id: caudium.c,v 1.28.2.5 2005/04/22 09:21:49 tony2001 Exp $");
   /*  php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
       php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
       php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());
@@ -598,7 +598,7 @@ static void php_caudium_module_main(php_caudium_request *ureq)
   Pike_interpreter.recoveries = NULL;
   call_c_initializers(Pike_interpreter.thread_id);
   state->id=th_self();
-  //  SWAP_OUT_THREAD(OBJ2THREAD(Pike_interpreter.thread_id));
+  /*  SWAP_OUT_THREAD(OBJ2THREAD(Pike_interpreter.thread_id)); */
   num_threads++;
   thread_table_insert(Pike_interpreter.thread_id);
   state->status=THREAD_RUNNING;

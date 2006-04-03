@@ -72,8 +72,7 @@ protected:
     UInt32			arLastAllocCount;
     AppleRAIDMember		**arMembers;
 
-    UInt32			arSpareCount;
-    AppleRAIDMember		**arSpareMembers;
+    OSSet			*arSpareMembers;
 
     UInt32			*arLogicalMemberIndexes;
 
@@ -136,7 +135,7 @@ protected:
 
     inline  UInt32 getActiveCount(void) const	{ return arActiveCount; };
     inline  UInt32 getMemberCount(void)	const	{ return arMemberCount; };
-    inline  UInt32 getSpareCount(void) const	{ return arSpareCount; };
+    inline  UInt32 getSpareCount(void) const	{ return arSpareMembers->getCount(); };
     inline  UInt32 getSetState(void) const	{ return arSetState; };
 
     virtual bool addBootDeviceInfo(OSArray * bootArray);

@@ -25,7 +25,7 @@
 /* 
  * Kerberos Framework Header File
  *
- * $Header: /cvs/kfm/KerberosFramework/Common/Headers/Kerberos/Kerberos.h,v 1.11 2003/05/30 20:57:37 lxs Exp $
+ * $Header$
  */
 
 #ifndef __KERBEROS__

@@ -42,6 +42,25 @@ static const struct macosx_deployment_target_pair
     { NULL, 0 }
 };
 
+/* last value passed to put_macosx_deployment_target() */
+static char *command_line_macosx_deployment_target = NULL;
+
+/*
+ * put_macosx_deployment_target() is called with the command line argument to
+ * -macosx_version_min which the compiler uses to allow the user to asked for
+ * a particular macosx deployment target on the command-line to override the
+ * environment variable. This simpley saves away the value requested.  The
+ * string passed is not copied. If NULL is passed, it removes any previous
+ * setting.
+ */
+__private_extern__
+void
+put_macosx_deployment_target(
+char *target)
+{
+	command_line_macosx_deployment_target = target;
+}
+
 /*
  * get_macosx_deployment_target() indirectly sets the value and the name with
  * the specified MACOSX_DEPLOYMENT_TARGET environment variable or the current
@@ -70,7 +89,10 @@ cpu_type_t cputype)
 	/*
 	 * Pick up the Mac OS X deployment target environment variable.
 	 */
-	p = getenv("MACOSX_DEPLOYMENT_TARGET");
+	if(command_line_macosx_deployment_target != NULL)
+	    p = command_line_macosx_deployment_target;
+	else
+	    p = getenv("MACOSX_DEPLOYMENT_TARGET");
 	if(p != NULL){
 	    for(i = 0; macosx_deployment_target_pairs[i].name != NULL; i++){
 		if(strcmp(macosx_deployment_target_pairs[i].name, p) == 0){
@@ -80,8 +102,12 @@ cpu_type_t cputype)
 		}
 	    }
 	    if(macosx_deployment_target_pairs[i].name == NULL){
-		warning("unknown MACOSX_DEPLOYMENT_TARGET environment variable "
-			"value: %s ignored (using %s)", p, *name);
+	        if(command_line_macosx_deployment_target != NULL)
+		    warning("unknown -macosx_version_min parameter value: "
+			    "%s ignored (using %s)", p, *name);
+		else
+		    warning("unknown MACOSX_DEPLOYMENT_TARGET environment "
+			    "variable value: %s ignored (using %s)", p, *name);
 	    }
 	}
 }

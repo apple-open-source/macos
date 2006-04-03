@@ -97,60 +97,17 @@ i386_macosx_store_gp_registers (gdb_i386_thread_state_t *sp_regs)
   collect_unsigned_int (15, &sp_regs->gs);
 }
 
-/* When we get the FPU registers from the inferior we will either get
-   valid register contents or we will get a block of 0's if the FPU has
-   no register state.  In the latter case we don't want to push that 
-   block of 0's into the FPU as valid state, so remember whether we got
-   anything.  */
-
-static int fpu_initialized_p = 0;
-
 /* Fetching the the registers from the inferior into our reg cache.
    FP_REGS is a structure that mirrors the Mach structure
-   struct i386_float_state.  The "hw_state" buffer inside that
+   struct i386_float_state.  The "hw_fu_state" buffer inside that
    structure mirrors the Mach struct i386_fx_save, which is identical
    to the FXSAVE/FXRSTOR instructions' format.  */
 
 void
 i386_macosx_fetch_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 {
-  /* If fp_regs->initialized is 0, the kernel has returned a big bucket of
-     0's and we wouldn't want to push those back into the FPU when we
-     restore them.  */
-  if (fp_regs->initialized)
-    fpu_initialized_p = 1;
-  else
-    {
-      fpu_initialized_p = 0;
-      /* There are some cases were gdb gets tricky and pushes the all-0's
-         fpu reg state into the inferior despite our best efforts.  If the
-         FPU control word aka FCW (IA32) aka fx_control (Mach) aka 
-         I387_FCTRL_REGNUM (gdb) gets pushed to the inferior process with all
-         0's, the exception mask is set so that all exceptions are thrown.
-         Most notably, the Inexact-Result (Precision) Exception (#P), cf
-         Volume 1 of the Intel docs, sec 8.5.6.  The Precision exception is
-         very likely to be hit the next time you do any FP operation. 
-
-         To prevent this problem, instead of saving a 0 value as the FCW's
-         contents, save 0x37f which is the documented initial value when
-         FINIT/FNINIT or FSAVE/FNSAVE instruction is executed to initialize
-         the FPU (cf Intel docs Volume 1, 8.1.4, "x87 FPU Control Word")  */
-      fp_regs->hw_state[1] = 0x03;
-      fp_regs->hw_state[0] = 0x3f;
-
-      /* Yeah, and the same thing in the MXCSR.  All the exception masks
-         should be enabled.  */
-      fp_regs->hw_state[25] = 0x1f;
-      fp_regs->hw_state[24] = 0x80;
-    }
-
-  /* Either way, store the buffer (either valid registers or 0's) into the
-     local register cache.  In the 0's case, we don't want to accidentally
-     display old data--better off displaying all 0's so the user can figure
-     out what's up. */
-
-  i387_swap_fxsave (current_regcache, &fp_regs->hw_state);
-  i387_supply_fxsave (current_regcache, -1, &fp_regs->hw_state);
+  i387_swap_fxsave (current_regcache, &fp_regs->hw_fu_state);
+  i387_supply_fxsave (current_regcache, -1, &fp_regs->hw_fu_state);
 }
 
 /* Get the floating point registers from our local register cache
@@ -163,15 +120,12 @@ i386_macosx_fetch_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 int
 i386_macosx_store_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 {
-  if (fpu_initialized_p == 0)
-    return 0;
-    
   memset (fp_regs, 0, sizeof (gdb_i386_thread_fpstate_t));
   fp_regs->fpkind = GDB_i386_FP_SSE2; /* Corresponds to Mach's FP_FXSR */
   fp_regs->initialized = 1;
   fp_regs->exc_status = 0;
-  i387_fill_fxsave ((unsigned char *) &fp_regs->hw_state, -1);
-  i387_swap_fxsave (current_regcache, &fp_regs->hw_state);
+  i387_fill_fxsave ((unsigned char *) &fp_regs->hw_fu_state, -1);
+  i387_swap_fxsave (current_regcache, &fp_regs->hw_fu_state);
 
   return 1;
 }
@@ -191,7 +145,10 @@ i386_macosx_sigcontext_addr (struct frame_info *frame)
   int offset = 0;
   CORE_ADDR push_ebp_addr = 0;
   CORE_ADDR mov_esp_ebp_addr = 0;
-  CORE_ADDR pointer_to_ucontext, esp, ebp, pc, ucontext, uc_mcontext;
+  CORE_ADDR esp, ebp, pc;
+  CORE_ADDR address_of_pointer_to_struct_ucontext;
+  CORE_ADDR address_of_struct_ucontext;
+  CORE_ADDR address_of_struct_sigcontext;
   char buf[4];
   int limit;
 
@@ -244,31 +201,32 @@ i386_macosx_sigcontext_addr (struct frame_info *frame)
   frame_unwind_register (frame, I386_EBP_REGNUM, buf);
   ebp = extract_unsigned_integer (buf, 4);
 
+  /* I'm not sure how to make the nomenclature clear here.
+     address_of_pointer_to_struct_ucontext is like a "struct ucontext **";
+     address_of_struct ucontext is like a "struct ucontext *";
+     address_of_struct_sigcontext is like a "struct sigcontext *".  */
+
   if (pc <= push_ebp_addr)
-    pointer_to_ucontext = esp + 20;
+    address_of_pointer_to_struct_ucontext = esp + 20;
 
   if (pc > push_ebp_addr && pc <= mov_esp_ebp_addr)
-    pointer_to_ucontext = esp + 24;
+    address_of_pointer_to_struct_ucontext = esp + 24;
 
   if (pc > mov_esp_ebp_addr)
-    pointer_to_ucontext = ebp + 24;
+    address_of_pointer_to_struct_ucontext = ebp + 24;
 
-  ucontext = read_memory_unsigned_integer (pointer_to_ucontext, 4);
-  /* 'uc_mcontext' is 28 bytes into the 'struct ucontext' */
-  uc_mcontext = read_memory_unsigned_integer (ucontext + 28, 4); 
-  return uc_mcontext; /* uc_mcontext is a pointer to the struct sigcontext */
+  address_of_struct_ucontext = read_memory_unsigned_integer 
+                                (address_of_pointer_to_struct_ucontext, 4);
+
+  /* the element 'uc_mcontext' -- the pointer to the struct sigcontext -- 
+     is 28 bytes into the 'struct ucontext' */
+  address_of_struct_sigcontext = read_memory_unsigned_integer 
+                                (address_of_struct_ucontext + 28, 4); 
+
+  return address_of_struct_sigcontext;
 }
 
-static CORE_ADDR
-i386_integer_to_address (struct type *type, void *buf)
-{
-  char *tmp = alloca (TYPE_LENGTH (builtin_type_void_data_ptr));
-  LONGEST val = unpack_long (type, buf);
-  store_unsigned_integer (tmp, TYPE_LENGTH (builtin_type_void_data_ptr), val);
-  return extract_unsigned_integer (tmp,
-                                   TYPE_LENGTH (builtin_type_void_data_ptr));
-}
-
+/* Offsets into the struct sigcontext where we'll find the saved regs.  */
 /* From /usr/include/i386/signal.h and i386-tdep.h */
 static int i386_macosx_sc_reg_offset[] =
 {
@@ -290,6 +248,16 @@ static int i386_macosx_sc_reg_offset[] =
   17 * 4    /* GS */
 };
 
+static CORE_ADDR
+i386_integer_to_address (struct type *type, void *buf)
+{
+  char *tmp = alloca (TYPE_LENGTH (builtin_type_void_data_ptr));
+  LONGEST val = unpack_long (type, buf);
+  store_unsigned_integer (tmp, TYPE_LENGTH (builtin_type_void_data_ptr), val);
+  return extract_unsigned_integer (tmp,
+                                   TYPE_LENGTH (builtin_type_void_data_ptr));
+}
+
 static void
 i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -300,8 +268,6 @@ i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   set_gdbarch_num_regs (gdbarch, I386_SSE_NUM_REGS);
 
   set_gdbarch_skip_trampoline_code (gdbarch, macosx_skip_trampoline_code);
-  set_gdbarch_dynamic_trampoline_nextpc (gdbarch,
-                                         macosx_dynamic_trampoline_nextpc);
 
   set_gdbarch_in_solib_call_trampoline (gdbarch,
                                         macosx_in_solib_call_trampoline);

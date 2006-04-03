@@ -14,7 +14,7 @@
 ./"    | Author: Marcus Boerger <helly@php.net>                               |
 ./"    +----------------------------------------------------------------------+
 ./" 
-./" $Id: php.1.in,v 1.1.2.3 2005/03/02 21:46:45 sniper Exp $
+./" $Id: php.1.in,v 1.1.2.4 2005/04/30 04:12:24 sniper Exp $
 ./" 
 .TH PHP 1 "Feb 2003" "The PHP Group" "Scripting Language"
 .SH NAME
@@ -176,7 +176,7 @@ For a more or less complete description of PHP look here:
 .B http://www.php.net/manual/
 .PD 1
 .P
-A nice introduction to PHP by Stig Sæther Bakken can be found here:
+A nice introduction to PHP by Stig Bakken can be found here:
 .PD 0
 .P
 .B http://www.zend.com/zend/art/intro.php

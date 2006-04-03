@@ -315,6 +315,8 @@ extern tree lookup_name_real (tree, int, int, bool, int, int);
 extern tree lookup_type_scope (tree, tag_scope);
 extern tree namespace_binding (tree, tree);
 extern void set_namespace_binding (tree, tree, tree);
+/* APPLE LOCAL 4184203 */
+/* Remove hidden_name_p */
 extern tree lookup_namespace_name (tree, tree);
 extern tree lookup_qualified_name (tree, tree, bool, bool);
 extern tree lookup_name_nonclass (tree);

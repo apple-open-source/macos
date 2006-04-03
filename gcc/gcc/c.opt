@@ -452,6 +452,10 @@ Wsign-promo
 C++ ObjC++ Var(warn_sign_promo)
 Warn when overload promotes from unsigned to signed
 
+Wstrict-null-sentinel
+C++ ObjC++
+Warn about uncasted NULL used as sentinel
+
 Wstrict-prototypes
 C ObjC Var(warn_strict_prototypes)
 Warn about unprototyped function declarations
@@ -545,6 +549,10 @@ Recognize the \"asm\" keyword
 fasm-blocks
 C ObjC C++ ObjC++
 Handle CW-style assembly blocks
+
+fms-asms
+C ObjC C++ ObjC++ Var(flag_ms_asms)
+When handling assembly blocks, use MW-style assembly blocks
 ; APPLE LOCAL end CW asm blocks
 
 ; APPLE LOCAL begin -fast or -fastf or -fastcp
@@ -775,6 +783,11 @@ frtti
 C++ ObjC++
 Generate run time type descriptor information
 
+; APPLE LOCAL begin ss2
+fsave-repository=
+C ObjC C++ ObjC++ Joined Separate
+; APPLE LOCAL end ss2
+
 fshort-double
 C ObjC C++ ObjC++
 Use the same size for double as for float
@@ -835,11 +848,9 @@ fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
 
-; APPLE LOCAL begin mainline 4.0 2005-03-25
 fvisibility-inlines-hidden
 C++ ObjC++
 Marks all inlined methods as having hidden visibility
-; APPLE LOCAL end mainline 4.0 2005-03-25
 
 fvtable-gc
 C++ ObjC++
@@ -939,6 +950,12 @@ print-objc-runtime-info
 ObjC ObjC++
 Generate C header of platform-specific features
 
+; APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+print-pch-checksum
+C ObjC C++ ObjC++
+Print a checksum of the executable for PCH validity checking, and stop.
+
+; APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 remap
 C ObjC C++ ObjC++
 Remap file names when including files

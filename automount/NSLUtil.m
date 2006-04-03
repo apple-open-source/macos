@@ -9,6 +9,7 @@
 
 #import "log.h"
 #include "NSLUtil.h"
+#import "AMString.h"
 #import "automount.h"
 
 #define TRACE_NSL 0

@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: pi3web_sapi.c,v 1.46.2.7 2004/12/05 09:48:48 holger Exp $ */
+/* $Id: pi3web_sapi.c,v 1.46.2.7.2.1 2005/06/26 09:17:40 holger Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -57,7 +57,7 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 	PUTS("<table border=0 cellpadding=3 cellspacing=1 width=600 align=center>\n");
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">Pi3Web Server Information</th></tr>\n");
 	php_info_print_table_header(2, "Information Field", "Value");
-	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.46.2.7 2004/12/05 09:48:48 holger Exp $");
+	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.46.2.7.2.1 2005/06/26 09:17:40 holger Exp $");
 	php_info_print_table_row(2, "Server Name Stamp", HTTPCore_getServerStamp());
 	snprintf(variable_buf, 511, "%d", HTTPCore_debugEnabled());
 	php_info_print_table_row(2, "Debug Enabled", variable_buf);
@@ -82,7 +82,7 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 	/* --- loop over all registered server variables --- */
 	for(; pIter && PIDBIterator_atValidElement( pIter ); PIDBIterator_next( pIter ) )
 	{	
-		PCHAR pKey;
+		CHAR *pKey;
 		PIDBIterator_current( pIter, &pKey );
 		if ( !pKey ) { /* sanity */ continue; };										
 
@@ -289,7 +289,7 @@ static void sapi_pi3web_register_variables(zval *track_vars_array TSRMLS_DC)
 	/* --- loop over all registered server variables --- */				
 	for(; pIter && PIDBIterator_atValidElement( pIter ); PIDBIterator_next( pIter ) )
 	{	
-		PCHAR pKey;
+		CHAR *pKey;
 		PIDBIterator_current( pIter, &pKey );
 		if ( !pKey ) { /* sanity */ continue; };										
 

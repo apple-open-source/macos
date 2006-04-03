@@ -10,6 +10,8 @@
  * ====================================================
  */
 
+#warning obsolete
+
 #include <sys/cdefs.h>
 #if defined(LIBM_SCCS) && !defined(lint)
 __RCSID("$NetBSD: e_lgamma_r.c,v 1.9 1999/07/02 15:37:40 simonb Exp $");

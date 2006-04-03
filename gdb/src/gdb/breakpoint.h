@@ -138,13 +138,15 @@ enum bptype
     /* These are catchpoints to implement "catch catch" and "catch throw"
        commands for C++ exception handling. */
     bp_catch_catch,
-    bp_catch_throw,
+    bp_catch_throw
 
-    /* APPLE LOCAL: These are gnu_v3_catch & throw catchpoints.  We would like
-       to print that these are catchpoints, not ordinary breakpoints, but gdb
-       has to manage them like ordinary breakpoints.  */
-    bp_gnu_v3_catch_catch,
-    bp_gnu_v3_catch_throw,
+    /* APPLE LOCAL begin gnu_v3 */
+    /* These are gnu_v3_catch & throw catchpoints.  We would like to
+       print that these are catchpoints, not ordinary breakpoints, but
+       gdb has to manage them like ordinary breakpoints.  */
+    , bp_gnu_v3_catch_catch
+    , bp_gnu_v3_catch_throw
+    /* APPLE LOCAL end gnu_v3 */
   };
 
 /* States of enablement of breakpoint. */
@@ -409,7 +411,7 @@ struct breakpoint
 
     /* Methods associated with this breakpoint.  */
     struct breakpoint_ops *ops;
-    
+
     /* Was breakpoint issued from a tty?  Saved for the use of pending breakpoints.  */
     int from_tty;
 
@@ -421,6 +423,7 @@ struct breakpoint
     /* Is breakpoint pending on shlib loads?  */
     int pending;
 
+    /* APPLE LOCAL begin breakpoints */
     /* Record the shared library name that this breakpoint is
        to be set for.  If NULL, then don't bother with this.
        N.B. this is not the sharedlibrary it is actually set in,
@@ -440,6 +443,7 @@ struct breakpoint
 
     /* Has this breakpoint been successfully set yet? */
     enum bp_set_state bp_set_state;
+    /* APPLE LOCAL end breakpoints */
   };
 
 /* The following stuff is an abstract data type "bpstat" ("breakpoint
@@ -656,6 +660,7 @@ enum breakpoint_here
 
 /* Prototypes for breakpoint-related functions.  */
 
+/* APPLE LOCAL declare set_breakpoint_count */
 extern void set_breakpoint_count (int);
 
 extern enum breakpoint_here breakpoint_here_p (CORE_ADDR);
@@ -664,9 +669,11 @@ extern int breakpoint_inserted_here_p (CORE_ADDR);
 
 extern int software_breakpoint_inserted_here_p (CORE_ADDR);
 
+/* APPLE LOCAL begin breakpoint MI */
 extern struct breakpoint *find_breakpoint (int);
 extern void breakpoint_print_commands (struct ui_out *, struct breakpoint *);
 extern void breakpoint_add_commands (struct breakpoint *, struct command_line *);
+/* APPLE LOCAL end breakpoint MI */
 
 /* FIXME: cagney/2002-11-10: The current [generic] dummy-frame code
    implements a functional superset of this function.  The only reason
@@ -863,4 +870,3 @@ int handle_gnu_v3_exceptions (enum exception_event_kind ex_event);
 
 void tell_breakpoints_objfile_changed (struct objfile *objfile);
 #endif /* !defined (BREAKPOINT_H) */
-

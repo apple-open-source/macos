@@ -152,6 +152,7 @@ const char* kFFRecordTypeBootParams		= "bootparams";
 const char* kNISRecordTypeUsers			= "passwd.byname";
 const char* kNISRecordTypeUsersByUID	= "passwd.byuid";
 const char* kNISRecordTypeGroups		= "group.byname";
+const char* kNISRecordTypeGroupByUser	= "group.byusr";
 const char* kNISRecordTypeGroupsByGID	= "group.bygid";
 const char* kNISRecordTypeBootParams	= "bootparams.byname";
 const char* kNISRecordTypeAlias			= "mail.aliases";
@@ -249,6 +250,10 @@ BSDPlugin::BSDPlugin( void )
 	mNISServersRef = NULL;
 	mNISOK = true;
 	mNISAgentIsConfigured = false;
+
+	mRecordTypeUsersByUIDMapNotAvailable = false;
+	mRecordTypeGroupByUserMapNotAvailable = false;
+	mRecordTypeGroupsByGIDMapNotAvailable = false;
 } // BSDPlugin
 
 
@@ -1695,6 +1700,11 @@ sInt32 BSDPlugin::SetNISServers( CFStringRef nisServersRef, char* oldDomainStr )
 
 		}
 	}
+
+	// reset the map state since different servers may have different maps available
+	mRecordTypeUsersByUIDMapNotAvailable = false;
+	mRecordTypeGroupByUserMapNotAvailable = false;
+	mRecordTypeGroupsByGIDMapNotAvailable = false;
 
 	return siResult;
 }
@@ -3167,14 +3177,14 @@ sInt32 BSDPlugin::GetRecordList ( sGetRecordList *inData )
 									if ( (error = cpRecNameList->GetAttribute( i, &pRecName )) == eDSNoErr && pRecName )
 									{
 										if ( strcmp( pRecName, "dsRecordsAll" ) == 0 ) 
-											DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pNSLRecType );	// look them all up
+											DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pRecType, pNSLRecType );	// look them all up
 										else
-											DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pNSLRecType, pRecName );
+											DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pRecType, pNSLRecType, pRecName );
 									}
 								}
 							}
 							else
-								DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pNSLRecType );
+								DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pRecType, pNSLRecType );
 						}
 						else
 							DBGLOG( "BSDPlugin::GetRecordList, we don't have a mapping for type: %s, skipping\n", pRecType );
@@ -3277,7 +3287,7 @@ sInt32 BSDPlugin::OpenRecord ( sOpenRecord *inData )
 	
 	if ( pNSLRecType )
 	{
-		CFMutableDictionaryRef	recordResults = CopyRecordLookup( nodeDirRep->IsFFNode(), pNSLRecType, (char*)inData->fInRecName->fBufferData );
+		CFMutableDictionaryRef	recordResults = CopyRecordLookup( nodeDirRep->IsFFNode(), (const char*)inData->fInRecType->fBufferData, pNSLRecType, (char*)inData->fInRecName->fBufferData );
 	
 		if ( recordResults )
             AddRecordRecRef( inData->fOutRecRef, recordResults );
@@ -3727,7 +3737,7 @@ sInt32 BSDPlugin::DoAttributeValueSearch( sDoAttrValueSearch* inData )
 						{
 							DBGLOG( "BSDPlugin::DoAttributeValueSearch, looking up records of pNSLRecType: %s, matchType: 0x%x and pattern: \"%s\"\n", pNSLRecType, inData->fInPattMatchType, (inData->fInPatt2Match)?inData->fInPatt2Match->fBufferData:"NULL" );
 							
-							DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pNSLRecType, NULL, inData->fInPattMatchType, inData->fInPatt2Match, inData->fInAttrType->fBufferData );
+							DoRecordsLookup( (CFMutableArrayRef)pContinue->fResultArrayRef, nodeDirRep->IsFFNode(), pRecType, pNSLRecType, NULL, inData->fInPattMatchType, inData->fInPatt2Match, inData->fInAttrType->fBufferData );
 						}
 						else
 							DBGLOG( "BSDPlugin::DoAttributeValueSearch, we don't have a mapping for type: %s, skipping\n", pNSLRecType );
@@ -3905,6 +3915,9 @@ sInt32 BSDPlugin::HandleNetworkTransition( sHeader *inData )
 	mNISOK = true;									// reset these
 	mLastTimeOfNetworkTransition = CFAbsoluteTimeGetCurrent();		// in case outstanding searches timeout, they can see that a network transition occurred
 	mLastTimeCheckedServerAvailabilityViaRPC = 0;
+	mRecordTypeUsersByUIDMapNotAvailable = false;
+	mRecordTypeGroupByUserMapNotAvailable = false;
+	mRecordTypeGroupsByGIDMapNotAvailable = false;
 	
 	if ( mLocalNodeString )
 	{
@@ -4633,17 +4646,17 @@ void BSDPlugin::StartNodeLookup( void )
 		AddNode( mLocalNodeString );	// all is well, publish our node
 }
 
-CFMutableDictionaryRef BSDPlugin::CopyRecordLookup( Boolean isFFRecord, const char* recordTypeName, char* recordName )
+CFMutableDictionaryRef BSDPlugin::CopyRecordLookup( Boolean isFFRecord, const char* recordTypeName, const char* mapName, char* recordName )
 {
 	CFMutableDictionaryRef	resultRecordRef = NULL;
 	
-    DBGLOG( "BSDPlugin::CopyRecordLookup called, recordTypeName: %s, recordName: %s\n", recordTypeName, recordName );
+    DBGLOG( "BSDPlugin::CopyRecordLookup called, recordTypeName: %s, mapName: %s, recordName: %s\n", recordTypeName, mapName, recordName );
 
 	CFMutableArrayRef	tempArrayRef = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
 
 	if ( tempArrayRef )
 	{
-		DoRecordsLookup( tempArrayRef, isFFRecord, recordTypeName, recordName );
+		DoRecordsLookup( tempArrayRef, isFFRecord, recordTypeName, mapName, recordName );
 		
 		if ( CFArrayGetCount(tempArrayRef) > 0 )
 		{
@@ -4890,7 +4903,7 @@ CFMutableDictionaryRef BSDPlugin::CopyResultOfFFLookup( const char* recordTypeNa
 							}
 						}
 						
-						AddResultToDictionaries( resultDictionaryRef, alternateDictionaryRef, resultRef );
+						AddResultToDictionaries( CFSTR(kDSNAttrRecordName), resultDictionaryRef, alternateDictionaryRef, resultRef );
 						
 						CFRelease( resultRef );
 					}
@@ -4936,33 +4949,33 @@ CFMutableDictionaryRef BSDPlugin::CopyResultOfFFLookup( const char* recordTypeNa
 }
 #endif
 
-void BSDPlugin::AddResultToDictionaries( CFMutableDictionaryRef primaryDictRef, CFMutableDictionaryRef alternateDictRef, CFDictionaryRef resultRef )
+void BSDPlugin::AddResultToDictionaries( CFStringRef primaryKeyTypeRef, CFMutableDictionaryRef primaryDictRef, CFMutableDictionaryRef alternateDictRef, CFDictionaryRef resultRef )
 {
-	CFStringRef		recordName;
+	CFStringRef		recordPrimaryKey;
 	CFStringRef		recordRealName;
 	
-	recordName = (CFStringRef)CFDictionaryGetValue(resultRef, CFSTR(kDSNAttrRecordName));
+	recordPrimaryKey = (CFStringRef)CFDictionaryGetValue(resultRef, primaryKeyTypeRef);
 	
-	if ( recordName && CFGetTypeID(recordName) == CFArrayGetTypeID() )
+	if ( recordPrimaryKey && CFGetTypeID(recordPrimaryKey) == CFArrayGetTypeID() )
 	{
-		CFArrayRef	recordNameList = (CFArrayRef)recordName;
-		CFIndex		numRecordNames = CFArrayGetCount(recordNameList);
+		CFArrayRef	recordPrimaryKeyList = (CFArrayRef)recordPrimaryKey;
+		CFIndex		numRecordPrimaryKeys = CFArrayGetCount(recordPrimaryKeyList);
 		
-		for ( CFIndex i=0; i<numRecordNames; i++ )
+		for ( CFIndex i=0; i<numRecordPrimaryKeys; i++ )
 		{
-			recordName = (CFStringRef)CFArrayGetValueAtIndex( recordNameList, i );
+			recordPrimaryKey = (CFStringRef)CFArrayGetValueAtIndex( recordPrimaryKeyList, i );
 			
-			if ( recordName && CFGetTypeID(recordName) == CFStringGetTypeID() )
+			if ( recordPrimaryKey && CFGetTypeID(recordPrimaryKey) == CFStringGetTypeID() )
 			{
 				if ( i==0 )
-					CFDictionaryAddValue( primaryDictRef, recordName, resultRef );				// add primary name to primary Dict
+					CFDictionaryAddValue( primaryDictRef, recordPrimaryKey, resultRef );				// add primary name to primary Dict
 				else
-					CFDictionaryAddValue( alternateDictRef, recordName, resultRef );			// add others to alternate
+					CFDictionaryAddValue( alternateDictRef, recordPrimaryKey, resultRef );			// add others to alternate
 			}
 		}
 	}
-	else if ( recordName && CFGetTypeID(recordName) == CFStringGetTypeID())
-		CFDictionaryAddValue( primaryDictRef, recordName, resultRef );
+	else if ( recordPrimaryKey && CFGetTypeID(recordPrimaryKey) == CFStringGetTypeID())
+		CFDictionaryAddValue( primaryDictRef, recordPrimaryKey, resultRef );
 	
 	recordRealName = (CFStringRef)CFDictionaryGetValue(resultRef, CFSTR(kDS1AttrDistinguishedName));	// add entries for the real names as well
 	
@@ -5005,6 +5018,7 @@ char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTy
 				DBGLOG( "BSDPlugin::CopyResultOfNISLookup calling kNISypcat, returning NULL since %s exists\n", kSkipYPCatOnRecordNamesFilePath );
 				return NULL;
 			}
+			//syslog( LOG_ALERT, "BSDPlugin::CopyResultOfNISLookup is doing a ypcat on map: %s", recordTypeName );
 			
 			argv[0] = kNISypcatPath;
 			argv[1] = "-k";
@@ -5090,20 +5104,24 @@ char* BSDPlugin::CopyResultOfNISLookup( NISLookupType type, const char* recordTy
 			DBGLOG( "BSDPlugin::CopyResultOfNISLookup, ypbind failed to locate NIS Server, ignoring because a NetworkTransition occurred.\n" );
 	}
 
-	DBGLOG( "BSDPlugin::CopyResultOfNISLookup finished type: %d, recordTypeName: %s, keys: %s\n", type, (recordTypeName)?recordTypeName:"NULL", (keys)?keys:"NULL" );
+	DBGLOG( "BSDPlugin::CopyResultOfNISLookup finished type: %d, recordTypeName: %s, keys: %s\n%s%s", type, (recordTypeName)?recordTypeName:"NULL", (keys)?keys:"NULL", (resultPtr)?"resultPtr: \"":"",(resultPtr)?resultPtr:"");
+	
 	return resultPtr;
 }
 
 void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 									Boolean				isFFRecord, 
-									const char*			recordTypeName,
+									const char*			inRecordTypeName,
+									const char*			inMapName,
 									char*				recordName,
 									tDirPatternMatch	inAttributePatternMatch,
 									tDataNodePtr		inAttributePatt2Match,
 									char*				attributeKeyToMatch )
 {
 	CFDictionaryRef		cachedResult = NULL;
-
+	Boolean				doYPCatForResults = true;
+	const char*			mapName = inMapName;
+	
 	if ( !resultArrayRef )
 	{
 		DBGLOG( "BSDPlugin::DoRecordsLookup resultArrayRef passed in is NULL!\n" );
@@ -5113,13 +5131,11 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 	if ( isFFRecord )
 		DBGLOG( "BSDPlugin::DoRecordsLookup param %s lookup\n", (isFFRecord)?"/BSD/local":"NIS" );
 		
-	if ( recordTypeName )
-		DBGLOG( "BSDPlugin::DoRecordsLookup param recordTypeName: %s\n", recordTypeName );
+	if ( mapName )
+		DBGLOG( "BSDPlugin::DoRecordsLookup param mapName: %s\n", mapName );
 		
 	if ( recordName )
 		DBGLOG( "BSDPlugin::DoRecordsLookup param recordName: %s\n", recordName );
-		
-	DBGLOG( "BSDPlugin::DoRecordsLookup param inAttributePatternMatch: 0x%x\n", inAttributePatternMatch );
 		
 	if ( inAttributePatt2Match && inAttributePatt2Match->fBufferData )
 		DBGLOG( "BSDPlugin::DoRecordsLookup param inAttributePatt2Match: %s\n", inAttributePatt2Match->fBufferData );
@@ -5143,7 +5159,7 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 	
 	if ( recordName )
 	{
-		cachedResult = CopyRecordResult( isFFRecord, recordTypeName, recordName );
+		cachedResult = CopyRecordResult( isFFRecord, inRecordTypeName, mapName, recordName );
 		
 		if ( cachedResult )
 		{
@@ -5156,33 +5172,98 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 		}
 		else
 			DBGLOG( "BSDPlugin::DoRecordsLookup couldn't find a matching result\n" );
+	
+		doYPCatForResults = false;
 	}
-	// if we are not FlatFiles and we are looking for User UniqueID or Group PrimaryGroupID we can match instead of ypcat
-	else if( isFFRecord == false && (inAttributePatternMatch == eDSiExact || inAttributePatternMatch == eDSExact) &&
-			 ((strcmp(recordTypeName, kNISRecordTypeUsers) == 0 && strcmp(attributeKeyToMatch, kDS1AttrUniqueID) == 0) || 
-			  (strcmp(recordTypeName, kNISRecordTypeGroups) == 0 && strcmp(attributeKeyToMatch, kDS1AttrPrimaryGroupID) == 0)) ) 
+	// prune out memberd requests we know we'll never match
+	else if ( isFFRecord == false && attributeKeyToMatch && (inAttributePatternMatch == eDSiExact || inAttributePatternMatch == eDSExact) &&
+		 ( (strcmp(attributeKeyToMatch, kDSNAttrNestedGroups) == 0) || (strcmp(attributeKeyToMatch,kDSNAttrGroupMembers) == 0) ) )
+	{
+		DBGLOG("BSDPlugin::DoRecordsLookup skipping a lookup (%s) we know is not supported\n", attributeKeyToMatch );
+		doYPCatForResults = false;
+	}	
+	// if we are not FlatFiles and we are looking for supported lookup keys we can match instead of ypcat
+	else if	( isFFRecord == false && (inAttributePatternMatch == eDSiExact || inAttributePatternMatch == eDSExact) &&
+				 (	( strcmp(mapName, kNISRecordTypeUsers) == 0 &&
+						( strcmp(attributeKeyToMatch, kDS1AttrDistinguishedName) == 0 || 
+						  strcmp(attributeKeyToMatch, kDS1AttrUniqueID) == 0
+						)
+					) ||
+					( strcmp(mapName, kNISRecordTypeGroups) == 0 && 
+						( strcmp(attributeKeyToMatch, kDSNAttrGroupMembership) == 0 ||
+						  strcmp(attributeKeyToMatch, kDSNAttrMember) == 0 ||
+						  strcmp(attributeKeyToMatch, kDS1AttrDistinguishedName) == 0 ||
+						  strcmp(attributeKeyToMatch, kDS1AttrPrimaryGroupID) == 0 
+						)
+					)	
+				)
+			)
 	{
 		char*			resultPtr = NULL;
 
+		doYPCatForResults = false;	// don't cat the results unless we find that the mapping is not defined on the server
+
 		DBGLOG( "BSDPlugin::DoRecordsLookup we are not FlatFiles and we are looking for User UniqueID or Group PrimaryGroupID we can match instead of ypcat\n" );
 		// re-assign the type name to the byuid / bygid maps instead
-		if (strcmp(recordTypeName, kNISRecordTypeUsers) == 0)
-			recordTypeName = kNISRecordTypeUsersByUID;
+		if ( strcmp(mapName, kNISRecordTypeUsers) == 0)
+		{
+			if ( strcmp(attributeKeyToMatch, kDS1AttrDistinguishedName) == 0 )
+			{
+				mapName = kNISRecordTypeUsers;
+			}
+			else
+			if ( strcmp(attributeKeyToMatch, kDS1AttrUniqueID) == 0 )
+			{
+				if ( mRecordTypeUsersByUIDMapNotAvailable )
+					doYPCatForResults = true;					// this map wasn't available, just ypcat
+				else
+					mapName = kNISRecordTypeUsersByUID;
+			}
+		}
 		else
-			recordTypeName = kNISRecordTypeGroupsByGID;
+		if ( strcmp(mapName, kNISRecordTypeGroups) == 0)
+		{
+			if ( strcmp(attributeKeyToMatch, kDSNAttrGroupMembership) == 0)
+			{
+				if ( mRecordTypeGroupByUserMapNotAvailable )
+					doYPCatForResults = true;					// this map wasn't available, just ypcat
+				else
+					mapName = kNISRecordTypeGroupByUser;
+			}
+			else
+			if ( strcmp(attributeKeyToMatch, kDSNAttrMember) == 0)
+			{
+				if ( mRecordTypeGroupByUserMapNotAvailable )
+					doYPCatForResults = true;					// this map wasn't available, just ypcat
+				else
+					mapName = kNISRecordTypeGroupByUser;
+			}
+			else
+			if ( strcmp(attributeKeyToMatch, kDS1AttrPrimaryGroupID) == 0)
+			{
+				if ( mRecordTypeGroupsByGIDMapNotAvailable )
+					doYPCatForResults = true;					// this map wasn't available, just ypcat
+				else
+					mapName = kNISRecordTypeGroupsByGID;
+			}
+		}
 		
-		resultPtr = CopyResultOfNISLookup( kNISypmatch, recordTypeName, inAttributePatt2Match->fBufferData );
+		if ( mapName )
+			resultPtr = CopyResultOfNISLookup( kNISypmatch, mapName, inAttributePatt2Match->fBufferData );
+		else
+			DBGLOG( "BSDPlugin::DoRecordsLookup had no mapName so no YPMatch lookup was tried" );
+			
 		if ( resultPtr )
 		{
 			if ( strstr( resultPtr, kBindErrorString ) && !mWeLaunchedYPBind )
 			{
 				// it looks like ypbind may not be running, lets take a look and run it ourselves if need be.
-				DBGLOG( "BSDPlugin::CopyRecordResult got an error, implying that ypbind may not be running\n%s", resultPtr );
+				DBGLOG( "BSDPlugin::DoRecordsLookup CopyResultOfNISLookup got an error, implying that ypbind may not be running\n%s", resultPtr );
 				
 				free( resultPtr );
 				resultPtr = NULL;
 				
-				DBGLOG( "BSDPlugin::CopyRecordResult attempting to launch ypbind\n" );
+				DBGLOG( "BSDPlugin::DoRecordsLookup attempting to launch ypbind\n" );
 #ifdef ONLY_TRY_LAUNCHING_YPBIND_ONCE
 				mWeLaunchedYPBind = true;
 #endif
@@ -5195,7 +5276,7 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 				}
 				
 				// now try again.
-				resultPtr = CopyResultOfNISLookup( kNISypmatch, recordTypeName, inAttributePatt2Match->fBufferData );
+				resultPtr = CopyResultOfNISLookup( kNISypmatch, mapName, inAttributePatt2Match->fBufferData );
 			}
 		}
 		
@@ -5237,36 +5318,99 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 				
 				if ( key && value )
 				{
-					DBGLOG( "BSDPlugin::CopyMapResults key is: %s, value is: %s\n", key, value );
-					CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, recordTypeName );
+					DBGLOG( "BSDPlugin::DoRecordsLookup key is: %s, value is: %s for mapName: %s\n", key, value, mapName );
+					CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, mapName, key );
 					
 					if ( resultRef )
 					{
 						CFArrayAppendValue( resultArrayRef, resultRef );
+
+						//if ( strcmp("niskev", key) == 0 )
+//						{
+//							CFArrayRef	groups = (CFArrayRef)CFDictionaryGetValue( resultRef, CFSTR(kDSNAttrMember) );
+//							CFIndex		groupCount = (groups)?CFArrayGetCount(groups):0;
+//							DBGLOG("BSDPlugin::DoRecordsLookup userResultsCount: %d, numberOfGroups: %d", CFArrayGetCount( resultArrayRef ), groupCount );
+//						}
+						
 						CFRelease( resultRef );
 					}
 					else
-						DBGLOG( "BSDPlugin::CopyMapResults no result\n" );
+						DBGLOG( "BSDPlugin::DoRecordsLookup no result\n" );
 				}
+			}
+
+			if ( strcmp(mapName, kNISRecordTypeGroupByUser) == 0 && CFArrayGetCount(resultArrayRef) > 0 )
+			{
+				// instead of the result we currently have (a record with a list of groups) we need to replace that with
+				// the group records of each group this usr/group belongs to
+				CFDictionaryRef		nisUserResult = (CFDictionaryRef)CFArrayGetValueAtIndex( resultArrayRef, 0 );		// there will only be one result for group.byusr lookups
+					
+				CFRetain(nisUserResult);
+				CFArrayRemoveAllValues( resultArrayRef );
+				
+				CFArrayRef			groupResultsRef = (CFArrayRef)CFDictionaryGetValue( nisUserResult, CFSTR(kDSNAttrMember) );
+				CFIndex				numResults = CFArrayGetCount(groupResultsRef);
+				CFIndex				curResult = 0;
+				
+				for ( ; curResult < numResults; curResult++ )
+				{
+					char	curGroupName[32];		// SUN docs say max size of 8 chars, make it larger just in case?
+					if ( CFStringGetCString( (CFStringRef)CFArrayGetValueAtIndex(groupResultsRef, curResult), curGroupName, sizeof(curGroupName), kCFStringEncodingASCII ) )
+						DoRecordsLookup( resultArrayRef, isFFRecord, attributeKeyToMatch, kNISRecordTypeGroupsByGID, curGroupName );
+				}
+				
+				CFRelease(nisUserResult);
 			}
 		}
 		else
+		if ( resultPtr && strstr( resultPtr, "No such map" ) )
 		{
-			DBGLOG("BSDPlugin::CopyMapResults got an error: %s\n", resultPtr );
+			syslog( LOG_ALERT, "BSDPlugin::DoRecordsLookup found a map that is not supported, trying ypcat" );
+			DBGLOG("BSDPlugin::DoRecordsLookup found a map that is not supported, trying ypcat" );
+			doYPCatForResults = true;	// the mapping is not defined on the server, ypcat the data
+
+			if (strcmp(mapName, kNISRecordTypeUsers) == 0)
+			{
+				mRecordTypeUsersByUIDMapNotAvailable = true;
+			}
+			else
+			if (strcmp(attributeKeyToMatch, kDSNAttrGroupMembership) == 0)
+			{
+				mRecordTypeGroupByUserMapNotAvailable = true;
+			}
+			else
+			if (strcmp(attributeKeyToMatch, kDSNAttrMember) == 0)
+			{
+				mRecordTypeGroupByUserMapNotAvailable = true;
+			}
+			else
+			if (strcmp(attributeKeyToMatch, kDS1AttrPrimaryGroupID) == 0)
+			{
+				mRecordTypeGroupsByGIDMapNotAvailable = true;
+			}
+
+			mapName = inMapName;			// reset
+		}
+		else
+		{
+			DBGLOG("BSDPlugin::DoRecordsLookup got an error: %s\n", resultPtr );
 		}
 			
-		free( resultPtr );
+		if ( resultPtr )
+			free( resultPtr );
 		resultPtr = NULL;
 	}
 	else
 	if (	gDisableDisplayNameLookups && attributeKeyToMatch && ( (strcmp(attributeKeyToMatch, kDS1AttrDistinguishedName) == 0)
-		||	(strcmp(recordTypeName, kNISRecordTypeGroups) == 0 && strcmp(attributeKeyToMatch, kDSNAttrNestedGroups) == 0 ) )	)
+		||	(strcmp(mapName, kNISRecordTypeGroups) == 0 && strcmp(attributeKeyToMatch, kDSNAttrNestedGroups) == 0 ) )	)
 	{
-		DBGLOG("BSDPlugin::CopyMapResults skipping a lookup we know is not supported\n" );
+		DBGLOG("BSDPlugin::DoRecordsLookup skipping a lookup we know is not supported\n" );
+		doYPCatForResults = false;
 	}
-	else
+	
+	if ( doYPCatForResults )
 	{
-		cachedResult = CopyMapResults( isFFRecord, recordTypeName );
+		cachedResult = CopyMapResults( isFFRecord, mapName );
 		
 		if ( cachedResult && ( (inAttributePatt2Match && inAttributePatt2Match->fBufferData) || inAttributePatternMatch == eDSAnyMatch ) )
 		{
@@ -5303,22 +5447,22 @@ void BSDPlugin::DoRecordsLookup(	CFMutableArrayRef	resultArrayRef,
 	}
 }
 
-CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recordTypeName )
+CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* mapName )
 {
-	if ( !recordTypeName )
+	if ( !mapName )
 		return NULL;
 	
-	DBGLOG("BSDPlugin::CopyMapResults on %s for %s\n", (isFFRecord)?"/BSD/local":"NIS", recordTypeName);
+	DBGLOG("BSDPlugin::CopyMapResults on %s for %s\n", (isFFRecord)?"/BSD/local":"NIS", mapName);
 		
 	CFDictionaryRef			results = NULL;
 	CFMutableDictionaryRef	newResult = NULL;
 	CFMutableDictionaryRef	alternateDictionaryRef = NULL;
-	CFStringRef				recordTypeRef = CFStringCreateWithCString( NULL, recordTypeName, kCFStringEncodingUTF8 );
+	CFStringRef				mapNameRef = CFStringCreateWithCString( NULL, mapName, kCFStringEncodingUTF8 );
 	CFMutableStringRef		alternateRecordTypeRef = NULL;
 	
-	if ( recordTypeRef )
+	if ( mapNameRef )
 	{
-		alternateRecordTypeRef = CFStringCreateMutableCopy( NULL, 0, recordTypeRef );	
+		alternateRecordTypeRef = CFStringCreateMutableCopy( NULL, 0, mapNameRef );	
 		CFStringAppend( alternateRecordTypeRef, CFSTR(kAlternateTag) );
 	
 #ifdef BUILDING_COMBO_PLUGIN
@@ -5326,7 +5470,7 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 		{
 			LockFFCache();
 
-			results = CopyResultOfFFLookup( recordTypeName, recordTypeRef );
+			results = CopyResultOfFFLookup( mapName, mapNameRef );
 			
 			UnlockFFCache();
 		}
@@ -5336,7 +5480,7 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 			#ifdef USE_CACHE
 			LockMapCache();
 	
-			results = (CFDictionaryRef)CFDictionaryGetValue( mCachedMapsRef, recordTypeRef );
+			results = (CFDictionaryRef)CFDictionaryGetValue( mCachedMapsRef, mapNameRef );
 	
 			if ( results )
 			{
@@ -5350,18 +5494,18 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 		}
 	}
 	else
-		DBGLOG("BSDPlugin::CopyMapResults couldn't make a CFStringRef out of recordTypeName: %s\n", recordTypeName );
+		DBGLOG("BSDPlugin::CopyMapResults couldn't make a CFStringRef out of mapName: %s\n", mapName );
 	
 	if ( !results )
 	{
-		DBGLOG("BSDPlugin::CopyMapResults no cached entry for map: %s, doing a lookup...\n", recordTypeName );
+		DBGLOG("BSDPlugin::CopyMapResults no cached entry for map: %s, doing a lookup...\n", mapName );
 		char*					resultPtr = NULL;
 
 		newResult = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 		alternateDictionaryRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 		
 		if ( !isFFRecord )
-			resultPtr = CopyResultOfNISLookup( kNISypcat, recordTypeName );
+			resultPtr = CopyResultOfNISLookup( kNISypcat, mapName );
 		
 		if ( resultPtr )
 		{
@@ -5386,7 +5530,7 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 				}
 			
 				// now try again.
-				resultPtr = CopyResultOfNISLookup( kNISypcat, recordTypeName );
+				resultPtr = CopyResultOfNISLookup( kNISypcat, mapName );
 			}
 
 			if ( resultPtr != NULL && (strncmp( resultPtr, "No such map", strlen("No such map") ) == 0 || strncmp( resultPtr, "Can't match key", strlen("Can't match key") ) == 0) )
@@ -5395,8 +5539,8 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 				free( resultPtr );
 				resultPtr = NULL;
 
-				if ( recordTypeRef )
-					CFRelease( recordTypeRef );
+				if ( mapNameRef )
+					CFRelease( mapNameRef );
 				
 				if ( alternateRecordTypeRef )
 					CFRelease( alternateRecordTypeRef );
@@ -5448,17 +5592,19 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 				{
 					DBGLOG( "BSDPlugin::CopyMapResults key is: %s, value is: %s\n", key, value );
 
-					CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, recordTypeName );
+					CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, mapName, key );
 		
 					if ( resultRef )
 					{
-						AddResultToDictionaries( newResult, alternateDictionaryRef, resultRef );
+						AddResultToDictionaries( CFSTR(kDSNAttrRecordName), newResult, alternateDictionaryRef, resultRef );
 					
 						CFRelease( resultRef );
 					}
 					else
 						DBGLOG( "BSDPlugin::CopyMapResults no result\n" );
 				}
+				else
+					DBGLOG( "BSDPlugin::CopyMapResults key <0x%x> or value <0x%x> is NULL\n", key, value );
 			}
 
 			free( resultPtr );
@@ -5467,14 +5613,14 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 		
 		results = newResult;
 
-		if ( recordTypeRef )
+		if ( mapNameRef )
 		{
 #ifdef BUILDING_COMBO_PLUGIN
 			if ( isFFRecord )
 			{
 				LockFFCache();
 	
-				CFDictionarySetValue( mCachedFFRef, recordTypeRef, results ); // only set this if we did a full lookup
+				CFDictionarySetValue( mCachedFFRef, mapNameRef, results ); // only set this if we did a full lookup
 				CFDictionarySetValue( mCachedFFRef, alternateRecordTypeRef, alternateDictionaryRef );
 
 				UnlockFFCache();
@@ -5485,7 +5631,7 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 				#ifdef USE_CACHE
 				LockMapCache();
 	
-				CFDictionarySetValue( mCachedMapsRef, recordTypeRef, results ); // only set this if we did a full cat lookup
+				CFDictionarySetValue( mCachedMapsRef, mapNameRef, results ); // only set this if we did a full cat lookup
 				CFDictionarySetValue( mCachedMapsRef, alternateRecordTypeRef, alternateDictionaryRef );
 	
 				UnlockMapCache();
@@ -5493,16 +5639,16 @@ CFDictionaryRef BSDPlugin::CopyMapResults( Boolean isFFRecord, const char* recor
 			}
 		}
 		else
-			DBGLOG( "BSDPlugin::CopyMapResults couldn't set the latest cached map in mCachedMapsRef since we couldn't make a recordTypeRef!\n" ); 
+			DBGLOG( "BSDPlugin::CopyMapResults couldn't set the latest cached map in mCachedMapsRef since we couldn't make a mapNameRef!\n" ); 
 
 		if ( alternateDictionaryRef )
 			CFRelease( alternateDictionaryRef );
 		alternateDictionaryRef = NULL;
 	}
 	
-	if ( recordTypeRef )
-		CFRelease( recordTypeRef );
-	recordTypeRef = NULL;
+	if ( mapNameRef )
+		CFRelease( mapNameRef );
+	mapNameRef = NULL;
 	
 	if ( alternateRecordTypeRef )
 		CFRelease( alternateRecordTypeRef );
@@ -5555,24 +5701,28 @@ Boolean BSDPlugin::RecordIsAMatch(	CFDictionaryRef		recordRef,
 	return isAMatch;
 }
 
-CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* recordTypeName, char* recordName )
+CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* recordType, const char* mapName, char* recordName )
 {	
-	if ( !recordTypeName || !recordName )
+	if ( !mapName || !recordName )
 	{
-		DBGLOG( "BSDPlugin::CopyRecordResult null parameter! recordTypeName: 0x%x, recordName: 0x%x\n", (int)recordTypeName, (int)recordName );
+		DBGLOG( "BSDPlugin::CopyRecordResult null parameter! mapName: 0x%x, recordName: 0x%x\n", (int)mapName, (int)recordName );
 		return NULL;
 	}
 	
-	CFStringRef				recordTypeRef = CFStringCreateWithCString( NULL, recordTypeName, kCFStringEncodingUTF8 );
+	CFStringRef				recordTypeRef = CFStringCreateWithCString( NULL, recordType, kCFStringEncodingUTF8 );
+	CFStringRef				mapNameRef = CFStringCreateWithCString( NULL, mapName, kCFStringEncodingUTF8 );
 	CFStringRef				recordNameRef = CFStringCreateWithCString( NULL, recordName, kCFStringEncodingUTF8 );
 	CFDictionaryRef			returnRecordRef = NULL;
 	
-	if ( !recordNameRef || !recordTypeRef )
+	if ( !recordNameRef || !mapNameRef || !recordTypeRef )
 	{
-		DBGLOG( "BSDPlugin::CopyRecordResult couldn't convert to CFStringRef! recordNameRef: 0x%x, recordTypeRef: 0x%x\n", (int)recordNameRef, (int)recordTypeRef );
+		DBGLOG( "BSDPlugin::CopyRecordResult couldn't convert to CFStringRef! recordNameRef: 0x%x, mapNameRef: 0x%x, recordTypeRef: 0x%x\n", (int)recordNameRef, (int)mapNameRef, (int)recordTypeRef );
 
 		if ( recordTypeRef )
 			CFRelease( recordTypeRef );
+		
+		if ( mapNameRef )
+			CFRelease( mapNameRef );
 		
 		if ( recordNameRef )
 			CFRelease( recordNameRef );
@@ -5580,7 +5730,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 		return NULL;
 	}
 	
-	CFMutableStringRef		alternateRecordTypeRef = CFStringCreateMutableCopy( NULL, 0, recordTypeRef );
+	CFMutableStringRef		alternateRecordTypeRef = CFStringCreateMutableCopy( NULL, 0, mapNameRef );
 
 	CFStringAppend( alternateRecordTypeRef, CFSTR(kAlternateTag) );
 
@@ -5589,7 +5739,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 	{
 		LockFFCache();
 	
-		CFDictionaryRef			cachedFFRef = CopyResultOfFFLookup( recordTypeName, recordTypeRef );
+		CFDictionaryRef			cachedFFRef = CopyResultOfFFLookup( mapName, mapNameRef );
 			
 		if ( cachedFFRef )
 		{
@@ -5627,7 +5777,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 		#ifdef USE_CACHE
 		LockMapCache();
 	
-		CFDictionaryRef		cachedMapRef = (CFDictionaryRef)CFDictionaryGetValue( mCachedMapsRef, recordTypeRef );
+		CFDictionaryRef		cachedMapRef = (CFDictionaryRef)CFDictionaryGetValue( mCachedMapsRef, mapNameRef );
 		
 		if ( cachedMapRef )
 		{
@@ -5658,7 +5808,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 		char*		resultPtr = NULL;
 		
 		if ( !isFFRecord )
-			resultPtr = CopyResultOfNISLookup( (recordName)?kNISypmatch:kNISypcat, recordTypeName, recordName );
+			resultPtr = CopyResultOfNISLookup( (recordName)?kNISypmatch:kNISypcat, mapName, recordName );
 		
 		if ( resultPtr )
 		{
@@ -5683,26 +5833,33 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 				}
 			
 				// now try again.
-				resultPtr = CopyResultOfNISLookup( (recordName)?kNISypmatch:kNISypcat, recordTypeName, recordName );
+				resultPtr = CopyResultOfNISLookup( (recordName)?kNISypmatch:kNISypcat, mapName, recordName );
 			}
 			
 			// check to see if we got an error looking up a user name, if it failed a match, try ypcat for full name lookup
-			if ( !isFFRecord && resultPtr && recordName && strncmp( recordTypeName, kNISRecordTypeUsers, sizeof(kNISRecordTypeUsers) ) == 0 && strstr( resultPtr, "No such key in map" ) != NULL )
+			if ( !isFFRecord && resultPtr && recordName && strncmp( mapName, kNISRecordTypeUsers, sizeof(kNISRecordTypeUsers) ) == 0 && strstr( resultPtr, "No such key in map" ) != NULL )
 			{
 				DBGLOG( "BSDPlugin::CopyRecordResult unable to find user record, try a ypcat call to try long name\n" );
 				free( resultPtr);
 				
-				resultPtr = CopyResultOfNISLookup( kNISypcat, recordTypeName );
+				resultPtr = CopyResultOfNISLookup( kNISypcat, mapName );
 			}
 			
-			if ( isFFRecord || ( strncmp( resultPtr, "No such map", strlen("No such map") ) != 0 && strncmp( resultPtr, "Can't match key", strlen("Can't match key") ) != 0 ) )
+			if ( isFFRecord || ( resultPtr && strncmp( resultPtr, "No such map", strlen("No such map") ) != 0 && strncmp( resultPtr, "Can't match key", strlen("Can't match key") ) != 0 ) )
 			{
 				char*					curPtr = resultPtr;
 				char*					eoln = NULL;
 				char*					value = NULL;
 				CFMutableDictionaryRef	resultDictionaryRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 				CFMutableDictionaryRef	alternateDictionaryRef = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+				CFStringRef				resultPrimaryKeyType = CFSTR(kDSNAttrRecordName);
 				
+				if ( strcmp( mapName, kNISRecordTypeGroupsByGID ) == 0 )
+					resultPrimaryKeyType = CFSTR(kDS1AttrPrimaryGroupID);
+				else
+				if ( strcmp( mapName, kNISRecordTypeUsersByUID ) == 0 )
+					resultPrimaryKeyType = CFSTR(kDS1AttrUniqueID);
+					
 				while ( curPtr && curPtr[0] != '\0' )
 				{
 					eoln = strstr( curPtr, "\n" );
@@ -5730,7 +5887,7 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 						curPtr++;
 					}
 					
-					DBGLOG( "BSDPlugin::CopyRecordResult value is: %s\n", value );
+					//DBGLOG( "BSDPlugin::CopyRecordResult value is: %s\n", value );
 					if ( value )
 					{
 // if we bail out here, then we are going to commit ourselves to looking through the data O(n/2) each time with a total expense of O(n*n/2)
@@ -5741,11 +5898,11 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 							continue;
 						}
 */							
-						CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, recordTypeName );
+						CFMutableDictionaryRef		resultRef = CreateNISParseResult( value, mapName );
 		
 						if ( resultRef )
 						{
-							AddResultToDictionaries( resultDictionaryRef, alternateDictionaryRef, resultRef );
+							AddResultToDictionaries( resultPrimaryKeyType, resultDictionaryRef, alternateDictionaryRef, resultRef );
 						
 							CFRelease( resultRef );
 						}
@@ -5766,13 +5923,15 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 				returnRecordRef = (CFDictionaryRef)CFDictionaryGetValue( resultDictionaryRef, recordNameRef );
 				
 				if ( !returnRecordRef )
+				{
 					returnRecordRef= (CFDictionaryRef)CFDictionaryGetValue( alternateDictionaryRef, recordNameRef );
+				}
 				
 				if ( returnRecordRef )
 				{
 					CFRetain( returnRecordRef );
 				}
-				
+
 				if ( resultDictionaryRef )
 					CFRelease( resultDictionaryRef );
 				resultDictionaryRef = NULL;
@@ -5789,12 +5948,18 @@ CFDictionaryRef BSDPlugin::CopyRecordResult( Boolean isFFRecord, const char* rec
 			free( resultPtr );
 			resultPtr = NULL;
 		}
-		
+		else
+			DBGLOG( "BSDPlugin::CopyRecordResult resultPtr is NULL\n" );
+
 		if ( returnRecordRef )
 			DBGLOG( "BSDPlugin::CopyRecordResult returnRecordRef has %ld members\n", CFDictionaryGetCount(returnRecordRef) );
 		else
 			DBGLOG( "BSDPlugin::CopyRecordResult no returnRecordRef\n" );
 	}
+	
+	if ( mapNameRef )
+		CFRelease( mapNameRef );
+	mapNameRef = NULL;
 	
 	if ( recordTypeRef )
 		CFRelease( recordTypeRef );
@@ -5857,7 +6022,7 @@ CFMutableDictionaryRef BSDPlugin::CreateFFParseResult(char *data, const char* re
 }
 #endif
 
-CFMutableDictionaryRef BSDPlugin::CreateNISParseResult(char *data, const char* recordTypeName)
+CFMutableDictionaryRef BSDPlugin::CreateNISParseResult(char *data, const char* recordTypeName, const char* key)
 {
 	if (data == NULL) return NULL;
 	if (data[0] == '#') return NULL;
@@ -5868,6 +6033,8 @@ CFMutableDictionaryRef BSDPlugin::CreateNISParseResult(char *data, const char* r
 		returnResult = ff_parse_user(data);
 	else if ( strcmp( recordTypeName, kNISRecordTypeGroups ) == 0 || strcmp( recordTypeName, kNISRecordTypeGroupsByGID ) == 0 )
 		returnResult = ff_parse_group(data);
+	else if ( strcmp( recordTypeName, kNISRecordTypeGroupByUser ) == 0 )
+		returnResult = ff_parse_group_by_usr(data, key);
 	else if ( strcmp( recordTypeName, kNISRecordTypeHosts ) == 0 )
 		returnResult = ff_parse_host(data);
 	else if ( strcmp( recordTypeName, kNISRecordTypeNetworks ) == 0 )
@@ -5977,7 +6144,7 @@ sInt32 BSDPlugin::DoAuthentication ( sDoDirNodeAuth *inData )
 #endif
 					mapName = GetNISTypeFromRecType( kDSStdRecordTypeUsers );
 				
-				CFMutableDictionaryRef	recordResult = CopyRecordLookup( nodeDirRep->IsFFNode(), mapName, userName );
+				CFMutableDictionaryRef	recordResult = CopyRecordLookup( nodeDirRep->IsFFNode(), kDSStdRecordTypeUsers, mapName, userName );
 				
 				if ( recordResult )
 				{
@@ -6158,7 +6325,7 @@ sInt32 BSDPlugin::DoUnixCryptAuth ( BSDDirNodeRep *nodeDirRep, tDataBuffer *inAu
 #endif
 			mapName = GetNISTypeFromRecType( kDSStdRecordTypeUsers );
 	
-		recordResult = CopyRecordLookup( nodeDirRep->IsFFNode(), mapName, name );
+		recordResult = CopyRecordLookup( nodeDirRep->IsFFNode(), kDSStdRecordTypeUsers, mapName, name );
 		
 		if ( !recordResult )
 		{

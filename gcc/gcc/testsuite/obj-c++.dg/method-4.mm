@@ -1,4 +1,4 @@
-/* APPLE LOCAL file Objective-C */
+/* APPLE LOCAL file mainline */
 /* Warn about "slightly" mismatched method signatures if 
    -Wstrict-selector-match is on.  */
 /* { dg-do compile } */

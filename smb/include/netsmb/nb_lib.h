@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_lib.h,v 1.4.180.1 2005/08/12 23:13:01 lindak Exp $
+ * $Id: nb_lib.h,v 1.4.180.3 2005/11/15 01:45:30 lindak Exp $
  */
 #ifndef _NETSMB_NB_LIB_H_
 #define	_NETSMB_NB_LIB_H_
@@ -82,7 +82,7 @@ struct nbns_rr {
  */
 struct nbns_nr {
 	char		nr_name[NB_NAMELEN];
-	u_int16_t	nr_flags;
+	u_int16_t	nr_beflags; /* Big endian, from network */
 };
 
 #define NBRQF_BROADCAST		0x0001
@@ -115,7 +115,7 @@ struct nbns_rq {
 	struct mbdata	nr_rq;
 	struct mbdata	nr_rp;
 	struct nb_ifdesc *nr_if;
-	int		nr_flags;
+	int		nr_flags; /* endian-ness depends on host */
 	int		nr_fd;
 };
 
@@ -144,7 +144,7 @@ int  nb_resolvehost_in(const char *, struct sockaddr **);
 int  nbns_resolvename(const char *, struct nb_ctx *, struct smb_ctx *, struct sockaddr **);
 int  nbns_getnodestatus(struct sockaddr *targethost,
 	struct nb_ctx *ctx, char *system, char *workgroup);
-int  nb_getlocalname(char *name);
+int  nb_getlocalname(char *name, size_t);
 int  nb_enum_if(struct nb_ifdesc **, int);
 
 const char *nb_strerror(int error);

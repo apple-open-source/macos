@@ -4719,7 +4719,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
 		if (GET_CODE (op0) == VEC_CONCAT)
 		  {
 		    HOST_WIDE_INT op0_size = GET_MODE_SIZE (GET_MODE (XEXP (op0, 0)));
-		    if (op0_size < offset)
+		    if (offset < op0_size)
 		      op0 = XEXP (op0, 0);
 		    else
 		      {
@@ -5252,6 +5252,13 @@ simplify_set (rtx x)
 	  SUBST (SET_SRC (x), gen_rtx_COMPARE (compare_mode, op0, op1));
 	  src = SET_SRC (x);
 	}
+      /* APPLE LOCAL begin radar 4149154 */
+      else if (GET_MODE (op0) == compare_mode && op1 == const0_rtx)
+	{
+	  SUBST(SET_SRC (x), op0);
+	  src = SET_SRC (x);
+        }
+      /* APPLE LOCAL end radar 4149154 */
       else
 	{
 	  /* Otherwise, update the COMPARE if needed.  */
@@ -6190,7 +6197,8 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 
 		  /* Avoid creating invalid subregs, for example when
 		     simplifying (x>>32)&255.  */
-		  if (final_word >= GET_MODE_SIZE (inner_mode))
+		  /* APPLE LOCAL mainline 2005-09-23 */
+		  if (!validate_subreg (tmode, inner_mode, inner, final_word))
 		    return NULL_RTX;
 
 		  new = gen_rtx_SUBREG (tmode, inner, final_word);
@@ -6360,12 +6368,16 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 	  && GET_MODE_SIZE (inner_mode) < GET_MODE_SIZE (is_mode))
 	offset -= GET_MODE_SIZE (is_mode) - GET_MODE_SIZE (inner_mode);
 
-      /* If this is a constant position, we can move to the desired byte.  */
+      /* APPLE LOCAL begin 4229621 mainline */
+      /* If this is a constant position, we can move to the desired byte.
+	 Be careful not to go beyond the original object. */
       if (pos_rtx == 0)
 	{
-	  offset += pos / BITS_PER_UNIT;
-	  pos %= GET_MODE_BITSIZE (wanted_inner_mode);
+	  enum machine_mode bfmode = smallest_mode_for_size (len, MODE_INT);
+	  offset += pos / GET_MODE_BITSIZE (bfmode);
+	  pos %= GET_MODE_BITSIZE (bfmode);
 	}
+      /* APPLE LOCAL end 4229621 mainline */
 
       if (BYTES_BIG_ENDIAN != BITS_BIG_ENDIAN
 	  && ! spans_byte

@@ -5,7 +5,7 @@
  |                                MacsBug Plugins Command                               |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2002                       |
+ |                       Copyright Apple Computer, Inc. 2000-2005                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -152,49 +152,51 @@ static void brp(char *arg, int from_tty)
  command aborted BEFORE we get a chance to back up the cursor.
 */
 
-static void back_up_over_prompt(unsigned long addr, int branchTaken, int from_tty)
+static void back_up_over_prompt(GDB_ADDRESS addr, int branchTaken, int from_tty)
 {
     if (!macsbug_screen && isatty(STDOUT_FILENO)) {	/* skip if macsbug screen is up	*/
-	gdb_eval("$__accessible__=*(char*)0x%lX", addr);
+	gdb_eval("$__accessible__=*(char*)0x%llx", (long long)addr);
 	if (from_tty)
 	    gdb_printf(CURSOR_UP CLEAR_LINE, 2 + (branchTaken != 0));
     }
 }
 
 
-/*---------------------------------------------------------*
- | db_dw_and_dl [addr] - common routine for DB, DW, and DL |
- *---------------------------------------------------------*
+/*----------------------------------------------------------*
+ | db_dw_dl_dll [addr] - common routine for DB, DW, DL, DLL |
+ *----------------------------------------------------------*
  
- The arg is the DB, DW, and DL arg.  The size is 1 (DB), 2(DW), or 4 (DL).  The cmdNbr
- is the command's $__lastcmd__ number.
+ The arg is the DB, DW, DL, and DLL, arg.  The size is 1 (DB), 2(DW), 4 (DL), or 
+ 8 (DLL).  The cmdNbr is the command's $__lastcmd__ number.
 */
 
-static void db_dw_and_dl(char *arg, int from_tty, int size, int cmdNbr)
+static void db_dw_dl_dll(char *arg, int from_tty, int size, int cmdNbr)
 {
-    unsigned char  b;
-    unsigned short w;
-    unsigned long  addr, l;
-    char 	   line[20], addrStr[20];
+    unsigned char      b;
+    unsigned short     w;
+    unsigned long      l;
+    unsigned long long ll;
+    GDB_ADDRESS        addr;
+    char 	       line[20], addrStr[20];
     
     __is_running("The program is not running.", 0);
     
     if (arg && *arg) {
-    	addr = gdb_get_int(arg);
-	gdb_set_int("$dot", addr);
+    	addr = gdb_get_address(arg);
+	gdb_set_address("$dot", addr);
     } else if (gdb_get_int("$__lastcmd__") == cmdNbr) {
-    	addr = gdb_get_int("$dot") + size;
+    	addr = gdb_get_address("$dot") + size;
 	back_up_over_prompt(addr, 0, from_tty);
- 	gdb_set_int("$dot", addr);
+ 	gdb_set_address("$dot", addr);
    } else
-    	addr = gdb_get_int("$dot");
+    	addr = gdb_get_address("$dot");
     
-    sprintf(addrStr, "0x%lX", addr);
+    sprintf(addrStr, "0x%llX", (long long)addr);
     
     switch (size) {
     	case 1:
 	    gdb_read_memory(&b, addrStr, 1);
-	    gdb_printf("Byte at %.8lX = 0x%.2X   %u    %d    ", addr, b, b, b);
+	    gdb_printf("Byte at %.8llX = 0x%.2X   %uu  %d  ", (long long)addr, b, b, (char)b);
 	    sprintf(line, "0x%X", b);
 	    __print_1(line, from_tty);
 	    gdb_puts("\n");
@@ -202,7 +204,7 @@ static void db_dw_and_dl(char *arg, int from_tty, int size, int cmdNbr)
 	
 	case 2:
 	    gdb_read_memory(&w, addrStr, 2);
-	    gdb_printf("Two bytes at %.8lX = 0x%.4X   %u    %d    ", addr, w, w, w);
+	    gdb_printf("Two bytes at %.8llX = 0x%.4X  %uu  %d  ", (long long)addr, w, w, (short)w);
 	    sprintf(line, "0x%X", w);
 	    __print_2(line, from_tty);
 	    gdb_puts("\n");
@@ -210,9 +212,18 @@ static void db_dw_and_dl(char *arg, int from_tty, int size, int cmdNbr)
 	
 	case 4:
 	    gdb_read_memory(&l, addrStr, 4);
-	    gdb_printf("Four bytes at %.8X = 0x%.8lX   %u    %d    ", addr, l, l, l);
+	    gdb_printf("Four bytes at %.8llX = 0x%.8lX  %uul  %dl  ", (long long)addr, l, l, (long)l);
 	    sprintf(line, "0x%lX", l);
 	    __print_4(line, from_tty);
+	    gdb_puts("\n");
+	    break;
+	
+	case 8:
+	    gdb_read_memory(&ll, addrStr, 8);
+	    gdb_printf("Eight bytes at %.8llX = 0x%.16llX  %lluull  %lldll  ", (long long)addr, ll, ll,
+	    		(long long)ll);
+	    sprintf(line, "0x%llX", ll);
+	    __print_8(line, from_tty);
 	    gdb_puts("\n");
 	    break;
     }
@@ -227,7 +238,7 @@ static void db_dw_and_dl(char *arg, int from_tty, int size, int cmdNbr)
 
 static void db(char *arg, int from_tty)
 {
-    db_dw_and_dl(arg, from_tty, 1, 3);
+    db_dw_dl_dll(arg, from_tty, 1, 3);
 }
 
 #define DB_HELP "DB addr -- Display in hex the byte at addr (or $dot)."
@@ -239,10 +250,22 @@ static void db(char *arg, int from_tty)
 
 static void dl(char *arg, int from_tty)
 {
-    db_dw_and_dl(arg, from_tty, 4, 4);
+    db_dw_dl_dll(arg, from_tty, 4, 4);
 }
 
 #define DL_HELP "DL [addr] -- Display in hex the 4 bytes at addr (or $dot)."
+
+
+/*------------------------------------------------------------*
+ | DLL [addr] -- Display in hex the 8 bytes at addr (or $dot) |
+ *------------------------------------------------------------*/
+
+static void dll(char *arg, int from_tty)
+{
+    db_dw_dl_dll(arg, from_tty, 8, 49);
+}
+
+#define DLL_HELP "DLL [addr] -- Display in hex the 8 bytes at addr (or $dot)."
 
 
 /*-------------------------------------------------------------------------------------*
@@ -251,11 +274,13 @@ static void dl(char *arg, int from_tty)
 
 static void dm(char *arg, int from_tty)
 {
-    int  	   argc, n, i;
-    unsigned char  b;
-    unsigned short w;
-    unsigned long  l, addr;
-    char 	   *basicType, *argv[5], addrStr[20], buf[20], line[1024], tmpCmdLine[1024];
+    int  	       argc, n, i;
+    unsigned char      b;
+    unsigned short     w;
+    unsigned long      l;
+    unsigned long long ll;
+    GDB_ADDRESS        addr;
+    char 	       *basicType, *argv[5], addrStr[20], buf[20], line[1024], tmpCmdLine[1024];
     
     struct {
         short top;
@@ -265,12 +290,12 @@ static void dm(char *arg, int from_tty)
     } rect;
     
     static char *basic_types[] = {
-    	"Byte", "Word", "Long",
-	"SignedByte", "SignedWord", "SignedLong",
-	"UnsignedByte", "UnsignedWord", "UnsignedLong",
+    	"Byte", "Word", "Long", "LongLong",
+	"SignedByte", "SignedWord", "SignedLong",  "SignedLongLong",
+	"UnsignedByte", "UnsignedWord", "UnsignedLong", "UnsignedLongLong",
 	"PString", "CString",
 	"Boolean", 
-	"Binary8", "Binary16", "Binary32",
+	"Binary8", "Binary16", "Binary32", "Binary64",
 	"OSType", "Rect", 
 	"Text", "Pointer", "Handle",
 	"IORefNum", "VRefNum", "Seconds", "ATrapWord",
@@ -288,10 +313,11 @@ static void dm(char *arg, int from_tty)
     
     if (argc == 1) {
     	if (gdb_get_int("$__lastcmd__") == 5) {
-	    gdb_eval("$dot=(unsigned char *)$dot+$__prev_dm_n__");
-	    back_up_over_prompt(gdb_get_int("$dot"), 0, from_tty);
+	    addr = gdb_get_address("$dot") + gdb_get_int("$__prev_dm_n__");
+	    back_up_over_prompt(addr, 0, from_tty);
+	    gdb_set_address("$dot", addr);
 	} else {
-	    gdb_printf("Displaying memory from %.8lX\n", gdb_get_int("$dot"));
+	    gdb_printf("Displaying memory from %.8llX\n", (long long)gdb_get_address("$dot"));
 	    gdb_set_int("$__prev_dm_n__", hexdump_width);
 	}
 	
@@ -303,13 +329,13 @@ static void dm(char *arg, int from_tty)
     
     /* Handle the DM addr case...							*/
     
-    addr = gdb_get_int(argv[1]);
+    addr = gdb_get_address(argv[1]);
    
     if (argc == 2) {
-	gdb_set_int("$dot", addr);		/* $dot=addr				*/
+	gdb_set_address("$dot", addr);		/* $dot=addr				*/
 	gdb_set_int("$__prev_dm_n__", hexdump_width);
 	
-	gdb_printf("Displaying memory from %.8lX\n", addr);
+	gdb_printf("Displaying memory from %.8llX\n", (long long)addr);
 	__hexdump("$dot", from_tty);
 	
 	gdb_set_int("$__lastcmd__", 5);
@@ -323,10 +349,10 @@ static void dm(char *arg, int from_tty)
     
     if (isdigit(argv[2][0]) || argv[2][0] == '(' || argv[2][0] =='\'') { /* DM addr n	*/
     	n = gdb_get_int(argv[2]);
-	gdb_set_int("$dot", addr);
+	gdb_set_address("$dot", addr);
 	gdb_set_int("$__prev_dm_n__", n);
 	
-    	gdb_printf("Displaying memory from %.8lX\n", addr);
+    	gdb_printf("Displaying memory from %.8llX\n", (long long)addr);
 	__hexdump("$dot $__prev_dm_n__", from_tty);
 	
 	gdb_set_int("$__lastcmd__", 5);
@@ -336,96 +362,114 @@ static void dm(char *arg, int from_tty)
     /* From here on we want to display the addr as a function of a basicType keyword	*/
     
     gdb_set_int("$__lastcmd__", -5);
-    sprintf(addrStr, "0x%lX", addr);
+    sprintf(addrStr, "0x%llX", (long long)addr);
     basicType = (argv[2][0] != '"') ? argv[2] : gdb_get_string(argv[2], line, 30);
     
     switch (n = gdb_keyword(basicType, basic_types)) {
     	case  0: /* Byte */
 	    gdb_read_memory(&b, addrStr, 1);
 	    gdb_printf("Displaying Byte\n"
-	               " %.8lX: %.2X\n", addr, (unsigned char)b);
+	               " %.8llX: %.2X\n", (long long)addr, (unsigned char)b);
     	    break;
 	    
     	case  1: /* Word */
 	    gdb_read_memory(&w, addrStr, 2);
 	    gdb_printf("Displaying Word\n"
-	               " %.8lX: %.4X\n", addr, (unsigned short)w);
+	               " %.8llX: %.4X\n", (long long)addr, (unsigned short)w);
     	    break;
 	    
     	case  2: /* Long */
 	    gdb_read_memory(&l, addrStr, 4);
 	    gdb_printf("Displaying Long\n"
-	               " %.8lX: %.8lX\n", addr, (unsigned long)l);
+	               " %.8llX: %.8lX\n", (long long)addr, (unsigned long)l);
+    	    break;
+    	    
+    	case  3: /* LongLong */
+	    gdb_read_memory(&ll, addrStr, 8);
+	    gdb_printf("Displaying Long Long\n"
+	               " %.8llX: %.16llX\n", (long long)addr, (unsigned long long)ll);
     	    break;
 	    
-    	case  3: /* SignedByte */
+    	case  4: /* SignedByte */
  	    gdb_read_memory(&b, addrStr, 1);
 	    gdb_printf("Displaying SignedByte\n"
-	               " %.8lX: %d\n", addr, (char)b);
+	               " %.8llX: %d\n", (long long)addr, (char)b);
    	    break;
 	    
-    	case  4: /* SignedWord */
+    	case  5: /* SignedWord */
  	    gdb_read_memory(&w, addrStr, 2);
 	    gdb_printf("Displaying SignedWord\n"
-	               " %.8lX: %d\n", addr, (short)w);
+	               " %s%s: %d\n", (long long)addr, (short)w);
     	    break;
 	    
-    	case  5: /* SignedLong */
+    	case  6: /* SignedLong */
  	    gdb_read_memory(&l, addrStr, 4);
 	    gdb_printf("Displaying SignedLong\n"
-	               " %.8lX: %ld\n", addr, (long)l);
+	               " %.8llX: %ld\n", (long long)addr, (long)l);
+    	    break;
+    	    
+    	case  7: /* SignedLongLong */
+ 	    gdb_read_memory(&ll, addrStr, 8);
+	    gdb_printf("Displaying SignedLongLong\n"
+	               " %.8llX: %lld\n", (long long)addr, (long long)ll);
     	    break;
 	    
-    	case  6: /* UnsignedByte */
+    	case  8: /* UnsignedByte */
 	    gdb_read_memory(&b, addrStr, 1);
 	    gdb_printf("Displaying UnsignedByte\n"
-	               " %.8lX: %u\n", addr, (unsigned char)b);
+	               " %.8llX: %u\n", (long long)addr, (unsigned char)b);
     	    break;
 	    
-    	case  7: /* UnsignedWord */
+    	case  9: /* UnsignedWord */
 	    gdb_read_memory(&w, addrStr, 2);
 	    gdb_printf("Displaying UnsignedWord\n"
-	               " %.8lX: %u\n", addr, (unsigned short)w);
+	               " %.8llX: %u\n", (long long)addr, (unsigned short)w);
      	    break;
 	    
-   	case  8: /* UnsignedLong */
+   	case 10: /* UnsignedLong */
 	    gdb_read_memory(&l, addrStr, 4);
 	    gdb_printf("Displaying UnsignedLong\n"
-	               " %.8lX: %lu\n", addr, (unsigned long)l);
+	               " %.8llX: %lu\n", (long long)addr, (unsigned long)l);
     	    break;
-	    
-    	case  9: /* PString */
+	
+   	case 11: /* UnsignedLongLong */
+	    gdb_read_memory(&ll, addrStr, 8);
+	    gdb_printf("Displaying UnsignedLongLong\n"
+	               " %.8llX: %llu\n", (long long)addr, (unsigned long long)ll);
+    	    break;
+	
+    	case 12: /* PString */
 	    gdb_read_memory(&b, addrStr, 1);
 	    gdb_read_memory(line, addrStr, b + 1);
 	    gdb_printf("Displaying PString\n"
-	               " %.8lX: (%d) \"", addr, b);
+	               " %.8llX: (%d) \"", (long long)addr, b);
 	    for (i = 1; i <= b; ++i)
 	    	gdb_printf("%s", filter_char(line[i], 1, buf));
 	    gdb_puts("\"\n");
      	    break;
 	    
-   	case 10: /* CString */
+   	case 13: /* CString */
 	    gdb_printf("Displaying CString\n"
-	               " %.8lX: \"", addr);
+	               " %.8llX: \"", (long long)addr);
             gdb_read_memory(&b, addrStr, 1);
 	    while (b) {
 	    	gdb_printf("%s", filter_char(b, 1, buf));
-    		sprintf(addrStr, "0x%lX", ++addr);
+    		sprintf(addrStr, "0x%llX", ++addr);
 		gdb_read_memory(&b, addrStr, 1);
 	    }
 	    gdb_puts("\"\n");
      	    break;
 	    
-   	case 11: /* Boolean */
+   	case 14: /* Boolean */
 	    gdb_read_memory(&b, addrStr, 1);
 	    gdb_printf("Displaying Boolean\n"
-	               " %.8lX: %s\n", addr, b ? "true" : "false");
+	               " %.8llX: %s\n", (long long)addr, b ? "true" : "false");
     	    break;
 	    
-    	case 12: /* Binary8 */
+    	case 15: /* Binary8 */
 	    gdb_read_memory(&b, addrStr, 1);
 	    gdb_printf("Displaying Binary8\n"
-	               " %.8lX: %.2X = ", addr, (unsigned char)b);
+	               " %.8llX: %.2X = ", (long long)addr, (unsigned char)b);
 	    sprintf(line, "0x%X 4", (b >> 4) & 0x0F);
 	    __binary(line, from_tty);
 	    gdb_puts(" ");
@@ -434,10 +478,10 @@ static void dm(char *arg, int from_tty)
 	    gdb_puts("\n");
     	    break;
 	    
-    	case 13: /* Binary16 */
+    	case 16: /* Binary16 */
 	    gdb_read_memory(&w, addrStr, 2);
 	    gdb_printf("Displaying Binary16\n"
-	               " %.8lX: %.4X = ", addr, (unsigned short)w);
+	               " %.8llX: %.4X = ", (long long)addr, (unsigned short)w);
 	    sprintf(line, "0x%X 4", (w >> 12) & 0x0F);
 	    __binary(line, from_tty);
 	    gdb_puts(" ");
@@ -452,10 +496,11 @@ static void dm(char *arg, int from_tty)
 	    gdb_puts("\n");
     	    break;
 	    
-    	case 14: /* Binary32 */
+    	case 17: /* Binary32 */
 	    gdb_read_memory(&l, addrStr, 4);
 	    gdb_printf("Displaying Binary32\n"
-	               " %.8lX: %.8lX = ", addr, (unsigned long)l);
+	               " %.8llX: %.8lX = ", (long long)addr, (unsigned long)l);
+	Binary32:
 	    sprintf(line, "0x%X 4", (l >> 28) & 0x0F);
 	    __binary(line, from_tty);
 	    gdb_puts(" ");
@@ -482,20 +527,52 @@ static void dm(char *arg, int from_tty)
 	    gdb_puts("\n");
     	    break;
 	    
-    	case 15: /* OSType */
+    	case 18: /* Binary64 */
+	    gdb_read_memory(&ll, addrStr, 8);
+	    gdb_printf("Displaying Binary64\n"
+	               " %.8llX: %.16llX = ", (long long)addr, ll);
+	    sprintf(line, "0x%llX 4", (ll >> 60) & 0x0F);
+	    __binary(line, from_tty);
+	    gdb_puts(" ");
+	    sprintf(line, "0x%llX 4", (ll >> 56) & 0x0F);
+	    __binary(line, from_tty);
+	    gdb_puts(" ");
+	    sprintf(line, "0x%llX 4", (ll >> 52) & 0x0F);
+	    __binary(line, from_tty);
+	    gdb_puts(" ");
+	    sprintf(line, "0x%llX 4", (ll >> 48) & 0x0F);
+	    __binary(line, from_tty);
+	    gdb_puts(" ");
+	    sprintf(line, "0x%llX 4", (ll >> 44) & 0x0F);
+	    __binary(line, from_tty);
+	    gdb_puts(" ");
+	    sprintf(line, "0x%llX 4", (ll >> 40) & 0x0F);
+	    __binary(line, from_tty);
+	    gdb_puts(" ");
+	    sprintf(line, "0x%llX 4", (ll >> 36) & 0x0F);
+	    __binary(line, from_tty);
+	    gdb_puts(" ");
+	    sprintf(line, "0x%llX 4", (ll >> 32) & 0x0F);
+	    __binary(line, from_tty);
+	    gdb_puts(" ");
+	    l = (unsigned long)ll;
+	    goto Binary32;
+    	    break;
+	    
+    	case 19: /* OSType */
 	    gdb_read_memory(&l, addrStr, 4);
 	    gdb_printf("Displaying OSType\n"
-	               " %.8lX: %.8X = ", addr, l);
+	               " %.8llX: %.8X = ", (long long)addr, l);
 	    sprintf(line, "0x%.lX", l);
 	    __print_4(line, from_tty);
 	    gdb_puts("\n");
     	    break;
 	    
-    	case 16: /* Rect */
+    	case 20: /* Rect */
 	    gdb_read_memory(&rect, addrStr, sizeof(rect));
 	    gdb_printf("Displaying Rect\n"
-	               " %.8lX: %d %d %d %d (t,l,b,r) %d %d (w,h)\n",
-		       addr, rect.top, rect.left, rect.bottom, rect.right,
+	               " %.8llX: %d %d %d %d (t,l,b,r) %d %d (w,h)\n",
+		       (long long)addr, rect.top, rect.left, rect.bottom, rect.right,
 		       rect.right - rect.left, rect.bottom - rect.top);
     	    break;
 	    
@@ -513,11 +590,13 @@ static void dm(char *arg, int from_tty)
 
 #define DM_HELP \
 "DM [addr [n | basicType]] -- Display memory from addr for n bytes or as a basic type.\n" \
-"The basic types are Byte, Word, Long, SignedByte, SignedWord, SignedLong,\n"		\
-"UnsignedByte, UnsignedWord, UnsignedLong, PString, CString, Boolean,\n"		\
-"Binary8, Binary16, Binary32, OSType, and Rect.\n"					\
+"The basic types are Byte, Word, Long, LongLong,\n"					\
+"SignedByte, SignedWord, SignedLong, SignedLongLong,\n"					\
+"UnsignedByte, UnsignedWord, UnsignedLong, UnsignedLongLong,\n"				\
+"PString, CString, Boolean, Binary8, Binary16, Binary32, Binary64,\n"			\
+"OSType, and Rect.\n"									\
 "\n"											\
-"Also see SET for [mb-]ditto mode (HELP set mb-ditto).\n"							\
+"Also see SET for [mb-]ditto mode (HELP set mb-ditto).\n"				\
 "\n"											\
 "Macsbug features not supported: templates and the following basic types.\n"		\
 "                                Pointer, Handle, RGBColor, Text, IORefNum,\n"		\
@@ -533,9 +612,9 @@ static void dm(char *arg, int from_tty)
 
 static void dma(char *arg, int from_tty)
 {
-    int  	  argc, n;
-    unsigned long addr;
-    char 	  *argv[5], tmpCmdLine[1024];
+    int		argc, n;
+    GDB_ADDRESS addr;
+    char	*argv[5], tmpCmdLine[1024];
     
     __is_running("The program is not running.", 0);
     
@@ -545,10 +624,11 @@ static void dma(char *arg, int from_tty)
     
     if (argc == 1) {
     	if (gdb_get_int("$__lastcmd__") == 37) {
-	    gdb_eval("$dot=(unsigned char *)$dot+$__prev_dma_n__");
-	    back_up_over_prompt(gdb_get_int("$dot"), 0, from_tty);
+	    addr = gdb_get_address("$dot") + gdb_get_int("$__prev_dma_n__");
+	    back_up_over_prompt(gdb_get_address("$dot"), 0, from_tty);
+	    gdb_set_address("$dot", addr);
 	} else {
-	    gdb_printf("Displaying memory from %.8lX\n", gdb_get_int("$dot"));
+	    gdb_printf("Displaying memory from %.8llX\n", (long long)gdb_get_address("$dot"));
 	    gdb_set_int("$__prev_dma_n__", 512);
 	}
  	
@@ -560,13 +640,13 @@ static void dma(char *arg, int from_tty)
     
     /* Handle the DMA addr case...							*/
     
-    addr = gdb_get_int(argv[1]);
+    addr = gdb_get_address(argv[1]);
    
     if (argc == 2) {
-	gdb_set_int("$dot", addr);		/* $dot=addr				*/
+	gdb_set_address("$dot", addr);		/* $dot=addr				*/
 	gdb_set_int("$__prev_dma_n__", 512);
 	
-	gdb_printf("Displaying memory from %.8lX\n", addr);
+	gdb_printf("Displaying memory from %.8llX\n", (long long)addr);
 	__asciidump("$dot 512", from_tty);
 	
 	gdb_set_int("$__lastcmd__", 37);
@@ -579,10 +659,10 @@ static void dma(char *arg, int from_tty)
     	gdb_error("usage: DMA [addr [n]] (wrong number of arguments)");
     
     n = gdb_get_int(argv[2]);
-    gdb_set_int("$dot", addr);
+    gdb_set_address("$dot", addr);
     gdb_set_int("$__prev_dma_n__", n);
     
-    gdb_printf("Displaying memory from %.8lX\n", addr);
+    gdb_printf("Displaying memory from %.8llX\n", (long long)addr);
     __asciidump("$dot $__prev_dma_n__", from_tty);
     
     gdb_set_int("$__lastcmd__", 37);
@@ -599,21 +679,21 @@ static void dma(char *arg, int from_tty)
 
 static void dp(char *arg, int from_tty)
 {
-    unsigned long addr;
+    GDB_ADDRESS addr;
     
     __is_running("The program is not running.", 0);
     
     if (arg && *arg) {
-    	addr = gdb_get_int(arg);
-	gdb_set_int("$dot", addr);
-	gdb_printf("Displaying memory from %.8X\n", addr);
+    	addr = gdb_get_address(arg);
+	gdb_set_address("$dot", addr);
+	gdb_printf("Displaying memory from %.8llX\n", (long long)addr);
     } else if (gdb_get_int("$__lastcmd__") == 6) {
-    	addr = gdb_get_int("$dot") + 128;
+    	addr = gdb_get_address("$dot") + 128;
 	back_up_over_prompt(addr, 0, from_tty);
- 	gdb_set_int("$dot", addr);
+ 	gdb_set_address("$dot", addr);
     } else {
-    	addr = gdb_get_int("$dot");
-	gdb_printf("Displaying memory from %.8X\n", addr);
+    	addr = gdb_get_address("$dot");
+	gdb_printf("Displaying memory from %.8llX\n", (long long)addr);
     }
     
     __hexdump("$dot 128", from_tty);
@@ -634,7 +714,10 @@ static void dv(char *arg, int from_tty)
     struct tm *ts;
     long      year;
     
-    gdb_printf("\nGdb/Macsbug " VERSION ", Copyright Apple Computer, Inc. 2000-2002");
+    /* Note, this is the initial part of the message.  The end date is appended to the	*/
+    /* end of this using the current year.						*/
+    
+    gdb_printf("\nGdb/Macsbug " VERSION ", Copyright Apple Computer, Inc. 2000");
     
     time(&t);
     ts = localtime(&t);
@@ -665,32 +748,10 @@ static void dv(char *arg, int from_tty)
 
 static void dw(char *arg, int from_tty)
 {
-    db_dw_and_dl(arg, from_tty, 2, 7);
+    db_dw_dl_dll(arg, from_tty, 2, 7);
 }
 
 #define DW_HELP "DW [addr] -- Display in hex the two bytes at addr (or $dot)."
-
-
-/*---------------------------------------------------------------------*
- | FB addr n expr|"string" - search from addr to addr+n-1 for the byte |
- *---------------------------------------------------------------------*/
-
-static void find(char *arg, int from_tty);
-
-static void fb(char *arg, int from_tty)
-{
-    
-    find_size = 1;
-    findName  = "FB";
-    find(arg, from_tty);
-}
-
-#define FB_HELP  \
-"FB addr n expr|\"string\" -- Search from addr to addr+n-1 for the byte.\n"		\
-"\n"											\
-"Note, FB is also an alias for gdb's FUTURE-BREAK command.  The syntax of\n"		\
-"the FB parameters determines whether FB is treated as a MacsBug FB or a\n"		\
-"gdb FUTURE-BREAK alias."
 
 
 /*--------------------------------------------------------------------------*
@@ -699,10 +760,12 @@ static void fb(char *arg, int from_tty)
 
 static void fill(char *arg, int from_tty)
 {
-   int 		  argc, n, len, i;
-   unsigned short w;
-   unsigned long  addr, addr0, value;
-   char 	  b, *argv[6], addrStr[20], str[1025], tmpCmdLine[1024];
+   int 		      argc, n, len, i;
+   unsigned short     w;
+   unsigned long      l;
+   GDB_ADDRESS        addr, addr0;
+   unsigned long long value;
+   char 	      b, *argv[6], addrStr[20], str[1025], tmpCmdLine[1024];
       
     __is_running("The program is not running.", 0);
     
@@ -711,10 +774,10 @@ static void fill(char *arg, int from_tty)
     if (argc != 4)
     	gdb_error("usage: FILL addr n expr|\"string\" (wrong number of arguments)");
     
-    addr  = addr0 = gdb_get_int(argv[1]);
-    n     = gdb_get_int(argv[2]);
+    addr = addr0 = gdb_get_address(argv[1]);
+    n    = gdb_get_int(argv[2]);
     
-    gdb_set_int("$dot", addr);
+    gdb_set_address("$dot", addr);
     
     if (gdb_is_string(argv[3])) {			/* FILL addr n "string"		*/
     	gdb_get_string(argv[3], str, 1024);
@@ -722,38 +785,46 @@ static void fill(char *arg, int from_tty)
     	i = 0;
 	
 	while (n--) {
-	    sprintf(addrStr, "0x%lX", addr++);
+	    sprintf(addrStr, "0x%llX", (long long)(addr++));
 	    gdb_write_memory(addrStr, &str[i], 1);
 	    if (++i >= len)
 	    	i = 0;
 	}
     } else {						/* FILL addr n value		*/
-    	value = gdb_get_int(argv[3]);
-	if ((long)value >= -128 && (long)value <= 255) {
+    	value = gdb_get_long_long(argv[3]);
+	if ((long long)value >= -128 && (long long)value <= 255) {
 	    b = value;
 	    while (n--) {
-	    	sprintf(addrStr, "0x%lX", addr++);
+	    	sprintf(addrStr, "0x%llX",  (long long)(addr++));
 	    	gdb_write_memory(addrStr, &b, 1);
 	    }
-	} else if ((long)value >= -32768 && (long)value <= 65535) {
+	} else if ((long long)value >= -32768 && (long long)value <= 65535) {
 	    w = value;
 	    i = 0;
 	    while (n--) {
-	    	sprintf(addrStr, "0x%lX", addr++);
+	    	sprintf(addrStr, "0x%llX",  (long long)(addr++));
 		b = (value >> (8 - (i++%2)*8)) & 0xFF;
+		gdb_write_memory(addrStr, &b, 1);
+	    }
+	} else if ((long long)value >= -2147483648LL && (long long)value <= 4294967296LL) {
+	    l = value;
+	    i = 0;
+	    while (n--) {
+	    	sprintf(addrStr, "0x%llX",  (long long)(addr++));
+		b = (value >> (24 - (i++%4)*8)) & 0xFF;
 		gdb_write_memory(addrStr, &b, 1);
 	    }
 	} else {
 	    i = 0;
 	    while (n--) {
-	    	sprintf(addrStr, "0x%lX", addr++);
-		b = (value >> (24 - (i++%4)*8)) & 0xFF;
+	    	sprintf(addrStr, "0x%llX",  (long long)(addr++));
+		b = (value >> (56 - (i++%8)*8)) & 0xFF;
 		gdb_write_memory(addrStr, &b, 1);
 	    }
 	}
     }
     
-    sprintf(addrStr, "0x%lX", addr0);
+    sprintf(addrStr, "0x%llX", (long long)addr0);
     gdb_printf("Memory set starting at %s\n", addrStr);
     __hexdump(addrStr, from_tty);
     
@@ -772,17 +843,20 @@ static void fill(char *arg, int from_tty)
 
 static void find(char *arg, int from_tty)
 {
-   int 		  argc, size, found, len, i;
-   unsigned short w;
-   unsigned long  addr, limit, value, l;
-   char 	  b, *buf, s[20], *argv[7], str[1025], addrStr[20], tmpCmdLine[1024];
+   int 		      argc, size, found, len, i;
+   unsigned short     w;
+   GDB_ADDRESS        addr, limit;
+   unsigned long      l;
+   unsigned long long value, ll;
+   unsigned char      b;
+   char 	      *buf, s[20], *argv[7], str[1025], addrStr[20], tmpCmdLine[1024];
     
-    /* Since FIND is itself a command, but also used for FB, FW, and FL, we need to 	*/
-    /* pass their information through globals.  Specifically find_size is 1, 2, or 4	*/
-    /* for FB, FW, and FL respectively and findName is the command name.  		*/
+    /* Since FIND is itself a command, but also used for FB, FW, FL, and FLL we need to */
+    /* pass their information through globals.  Specifically find_size is 1, 2, 4, or 8	*/
+    /* for FB, FW, FL, FLL respectively and findName is the command name.  		*/
     
-    size = find_size;				/* 0, 1, 2, or 4			*/
-    find_size = 0;				/* reset to FIND unless FB/FW/FL used	*/
+    size = find_size;				/* 0, 1, 2, 4, or 8			*/
+    find_size = 0;				/* reset to FIND if not FB/FW/FL/FLL 	*/
     if (size == 0)
     	findName = "FIND";
     
@@ -796,8 +870,12 @@ static void find(char *arg, int from_tty)
     
     if (argc != 4 || 
         (argc >= 4 && (strcmp(argv[2], "if") == 0 || strcmp(argv[2], "thread") == 0))) {
-    	if (size == 1) {
-	    gdb_execute_command("fu %s", arg);
+    	if (size == 1 /*FB*/) {
+	    gdb_execute_command("future %s", arg ? arg : "");
+	    return;
+	}
+	if (size == 0/*F*/ && argc <= 2) {
+	    gdb_execute_command("frame %s", arg ? arg : "");
 	    return;
 	}
     	gdb_error("usage: %s addr n expr|\"string\" (wrong number or invalid of arguments)", findName);
@@ -808,23 +886,23 @@ static void find(char *arg, int from_tty)
     /* Set up to search from addr to add+n-1.  The limit will actually be limit+n minus	*/
     /* the size of the pattern we're looking for (string lenght, 1, 2, or 4).		*/
     
-    addr  = gdb_get_int(argv[1]);
+    addr  = gdb_get_address(argv[1]);
     limit = addr + gdb_get_int(argv[2]);
     found = 0;
     
-    if (gdb_is_string(argv[3])) {		/* FIND/FB/FW/FL addr n "string"	*/
+    if (gdb_is_string(argv[3])) {		/* FIND/FB/FW/FL/FLL addr n "string"	*/
     	gdb_get_string(argv[3], str, 1024);
     	len = strlen(str);
     	
 	gdb_printf("Searching for \"");
 	for (i = 0; i < len; ++i)
 	    gdb_printf("%s", filter_char(str[i], 1, s));
-	gdb_printf("\" from %.8lX to %.8lX\n", addr, limit-1);
+	gdb_printf("\" from %.8llX to %.8llX\n", (long long)addr, (unsigned long long)limit-1ul);
 	
     	buf = gdb_malloc(len);
 	limit -= len;
 	while (addr < limit) {
-	    sprintf(addrStr, "0x%lX", addr++);
+	    sprintf(addrStr, "0x%llX", (long long)(addr++));
 	    gdb_read_memory(buf, addrStr, len);
 	    if (memcmp(buf, str, len) == 0) {
 	    	found = 1;
@@ -832,24 +910,27 @@ static void find(char *arg, int from_tty)
 	    }
 	}
 	gdb_free(buf);
-    } else {					/* FIND/FB/FW/FL addr n value		*/
-    	value = gdb_get_int(argv[3]);
+    } else {					/* FIND/FB/FW/FL/FLL addr n value	*/
+    	value = gdb_get_long_long(argv[3]);
 	switch (size) {
 	    case 0:				/* FIND					*/
-	       if ((long)value >= -128 && (long)value <= 255)
+	       if ((long long)value >= -128 && (long long)value <= 255)
 		   goto FB;
-	       else if ((long)value >= -32768 && (long)value <= 65535)
+	       else if ((long long)value >= -32768 && (long long)value <= 65535)
 		   goto FW;
-	       else
+	       else  if ((long long)value >= -2147483648LL && (long long)value <= 4294967296LL)
 		   goto FL;
+	       else
+		   goto FLL;
 	   
 	    case 1:				/* FB					*/
-	    FB: value = value & 0xFF;
-	    	gdb_printf("Searching for 0x%.2X from 0x%.8lX to 0x%.8lX\n", value, addr, limit-1);
+	    FB: value = (unsigned char)(value & 0xFF);
+	    	gdb_printf("Searching for 0x%.2X from 0x%.8llX to 0x%.8llX\n", (unsigned char)value,
+	    				(long long)addr, (unsigned long long)limit-1ul);
 	   	while (addr < limit) {
-		    sprintf(addrStr, "0x%lX", addr++);
+		    sprintf(addrStr, "0x%llX", (long long)(addr++));
 		    gdb_read_memory(&b, addrStr, 1);
-		    if (b == value) {
+		    if (b == (unsigned char)value) {
 		    	found = 1;
 			break;
 		    }
@@ -857,13 +938,14 @@ static void find(char *arg, int from_tty)
 	        break;
 		
 	    case 2:				/* FW					*/
-	    FW: value = value & 0xFFFF;
-	    	gdb_printf("Searching for 0x%.4X from 0x%.8lX to 0x%.8lX\n", value, addr, limit-1);
+	    FW: value = (unsigned short)(value & 0xFFFF);
+	    	gdb_printf("Searching for 0x%.4X from 0x%.8llX to 0x%.8llX\n", (unsigned short)value,
+	    				(long long)addr, (unsigned long long)limit-1ul);
 	    	limit -= 2;
-	   	while (addr < limit) {
-		    sprintf(addrStr, "0x%lX", addr++);
+	   	while (addr <= limit) {
+		    sprintf(addrStr, "0x%llX", (long long)(addr++));
 		    gdb_read_memory(&w, addrStr, 2);
-		    if (w == value) {
+		    if (w == (unsigned short)value) {
 		    	found = 1;
 			break;
 		    }
@@ -871,12 +953,28 @@ static void find(char *arg, int from_tty)
 	        break;
 	   
 	    case 4:				/* FL					*/
-	    FL: gdb_printf("Searching for 0x%.8lX from 0x%.8lX to 0x%.8lX\n", value, addr, limit-1);
+	    FL: value = (unsigned long)(value & 0xFFFFFFFF);
+		gdb_printf("Searching for 0x%.8lX from 0x%.8llX to 0x%.8llX\n", (unsigned long)value,
+	    				(long long)addr, (unsigned long long)limit-1ul);
 	    	limit -= 4;
-	        while (addr < limit) {
-		    sprintf(addrStr, "0x%lX", addr++);
+	        while (addr <= limit) {
+		    sprintf(addrStr, "0x%llX", (long long)(addr++));
 		    gdb_read_memory(&l, addrStr, 4);
-		    if (l == value) {
+		    if (l == (unsigned long)value) {
+		    	found = 1;
+			break;
+		    }
+		}
+	        break;
+	        
+	    case 8:				/* FLL					*/
+	    FLL:gdb_printf("Searching for 0x%.16llX from 0x%.8llX to 0x%.8llX\n", value,
+	    				(long long)addr, (unsigned long long)limit-1ul);
+	    	limit -= 8;
+	        while (addr <= limit) {
+		    sprintf(addrStr, "0x%llX", (long long)(addr++));
+		    gdb_read_memory(&ll, addrStr, 16);
+		    if (ll == value) {
 		    	found = 1;
 			break;
 		    }
@@ -889,7 +987,7 @@ static void find(char *arg, int from_tty)
     }
     
     if (found) {
-    	gdb_set_int("$dot", addr);
+    	gdb_set_address("$dot", addr);
 	__hexdump(addrStr, from_tty);
     } else if (macsbug_screen)
 	gdb_fprintf(gdb_current_stderr, " Not found\n");
@@ -900,18 +998,66 @@ static void find(char *arg, int from_tty)
 }
 
 #define FIND_HELP \
-"FIND addr n expr -- Search from addr to addr+n-1 for the pattern.\n"			\
-"If pattern is an expr then the width of the pattern is the smallest\n"			\
-"unit (byte, word or long) that contains its value.\n"					\
+"FIND addr n expr or FRAME -- Search from addr to addr+n-1 for pattern.\n"		\
+"Abbreviated as F [arg] means this is a FRAME command (do HELP FRAME).\n"		\
+"Abbreviated as F addr n expr means this is the Macsbug FIND command.\n"		\
+"\n"											\
+"If pattern is an expr then the width of the pattern is the smallest unit\n"		\
+"(byte, word, long, or long long) that contains its value.\n"				\
 "\n"											\
 "Restriction: The expr value may not have any embedded blanks.  For example\n"		\
 "             a value like (unsigned char *)&a is invalid.\n"				\
 "\n"											\
-"Macsbug features not supported: MacsBug F must be FIND here since F conflicts\n"	\
-"                                with the gdb FRAME command abbreviation.\n"		\
+"Macsbug features not supported: Double quoted \"string\" instead of single\n"		\
+"                                quoted 'string'."
+
+
+/*----------------------------------*
+ | F addr n expr|"string" ==> FIND  |
+ | F [arg]                ==> FRAME |
+ *----------------------------------*
+ 
+ This is just a stub used to override GDB's F abbreviation for the FRAME
+ command.  When the F abbreviation is used we pass the arguments to our
+ macsbug FIND command where it will disambiguate whether the user is
+ trying to use F to mean FIND or to mean FRAME.  We can tell the difference
+ based on the number of arguments.  FIND takes 3 and FRAME takes 0 or 1.
+ 
+ The only downside of this scheme is if the user does HELP F s/he will see
+ the help for FIND.  Thus we try to make it clear about this situation
+ in the FIND help info.  Of course if the user does HELP FRAME  there is
+ no problems.
+ 
+ This scheme seems better than forcing the user to always type FIND for
+ the Macsbug command and also makes it more compatible with the original
+ Classic Macsbug.
+*/
+
+static void f(char *arg, int from_tty)
+{
+    find_size = 0;
+    findName  = "F";
+    find(arg, from_tty);
+}
+
+
+/*---------------------------------------------------------------------*
+ | FB addr n expr|"string" - search from addr to addr+n-1 for the byte |
+ *---------------------------------------------------------------------*/
+
+static void fb(char *arg, int from_tty)
+{
+    find_size = 1;
+    findName  = "FB";
+    find(arg, from_tty);
+}
+
+#define FB_HELP  \
+"FB addr n expr|\"string\" -- Search from addr to addr+n-1 for the byte.\n"		\
 "\n"											\
-"                                Double quoted \"string\" instead of single quoted\n"	\
-"                                'string'."
+"Note, FB is also an alias for gdb's FUTURE-BREAK command.  The syntax of\n"		\
+"the FB parameters determines whether FB is treated as a MacsBug FB or a\n"		\
+"gdb FUTURE-BREAK alias."
 
 
 /*----------------------------------------------------------------------------*
@@ -927,6 +1073,36 @@ static void fl(char *arg, int from_tty)
 
 #define FL_HELP  \
 "FL addr n expr|\"string\" -- Search from addr to addr+n-1 for the 4-byte long."
+
+
+/*----------------------------------------------------------------------------------*
+ | FLL addr n expr|"string" - search from addr to addr+n-1 for the 8-byte long long |
+ *----------------------------------------------------------------------------------*/
+
+static void fll(char *arg, int from_tty)
+{
+    find_size = 8;
+    findName  = "FLL";
+    find(arg, from_tty);
+}
+
+#define FLL_HELP  \
+"FLL addr n expr|\"string\" -- Search from addr to addr+n-1 for the 8-byte long long."
+
+
+/*----------------------------------------------------------------------------*
+ | FW addr n expr|"string" - search from addr to addr+n-1 for the 2-byte word |
+ *----------------------------------------------------------------------------*/
+
+static void fw(char *arg, int from_tty)
+{
+    find_size = 2;
+    findName  = "FW";
+    find(arg, from_tty);
+}
+
+#define FW_HELP  \
+"FW addr n expr|\"string\" -- Search from addr to addr+n-1 for the 2-byte word."
 
 
 /*-----------------------------------------*
@@ -972,21 +1148,6 @@ static void g(char *arg, int from_tty)
 "program is not currently running."
 
 
-/*----------------------------------------------------------------------------*
- | FW addr n expr|"string" - search from addr to addr+n-1 for the 2-byte word |
- *----------------------------------------------------------------------------*/
-
-static void fw(char *arg, int from_tty)
-{
-    find_size = 2;
-    findName  = "FW";
-    find(arg, from_tty);
-}
-
-#define FW_HELP  \
-"FW addr n expr|\"string\" -- Search from addr to addr+n-1 for the 2-byte word."
-
-
 /*-----------------------------------------------------------*
  | GT gdb-spec - go (continue) until the gdb-spec is reached |
  *-----------------------------------------------------------*/
@@ -1018,29 +1179,33 @@ static void gt(char *arg, int from_tty)
 
 
 /*---------------------------------------------------------*
- | ID [addr] - disassemble 1 line starting ar addr (or pc) |
+ | ID [addr] - disassemble 1 line starting at addr (or pc) |
  *---------------------------------------------------------*/
 
 static void id(char *arg, int from_tty)
 {
-    unsigned long addr;
-    char 	  line[1024];
+    GDB_ADDRESS addr;
+    char 	line[1024];
     
     __is_running("The program is not running.", 0);
     
     if (arg && *arg) {
     	__reset_current_function(NULL, 0);
-    	addr = gdb_get_int(arg);
+    	addr = gdb_get_address(arg);
+	if (macsbug_screen && isatty(STDOUT_FILENO))
+	    gdb_printf("\n");
     } else if (gdb_get_int("$__lastcmd__") == 9) {
-	addr = gdb_get_int("$dot") + 4;
+	addr = gdb_get_address("$dot") + 4;
 	back_up_over_prompt(addr, branchTaken, from_tty);
     } else {
     	__reset_current_function(NULL, 0);
-	addr = gdb_get_int("$pc");
+	gdb_get_register("$pc", &addr);
+	if (macsbug_screen && isatty(STDOUT_FILENO))
+	    gdb_printf("\n");
     }
 
-    gdb_set_int("$dot", addr);
-    sprintf(line, "0x%lX 1 %d", addr, macsbug_screen);
+    gdb_set_address("$dot", addr);
+    sprintf(line, "0x%llx 1 %d", (long long)addr, macsbug_screen);
     __disasm(line, from_tty);
     
     gdb_set_int("$__lastcmd__", 9);
@@ -1058,9 +1223,9 @@ static void id(char *arg, int from_tty)
 
 static void il(char *arg, int from_tty)
 {
-    int  	  argc, n;
-    unsigned long addr;
-    char 	  *argv[5], tmpCmdLine[1024];
+    int  	argc, n;
+    GDB_ADDRESS addr;
+    char 	*argv[5], tmpCmdLine[1024];
     
     __is_running("The program is not running.", 0);
     
@@ -1068,28 +1233,32 @@ static void il(char *arg, int from_tty)
     
     if (argc == 1) {
 	if (gdb_get_int("$__lastcmd__") == 11) {
-	    addr = gdb_get_int("$dot") + 4*20;
+	    addr = gdb_get_address("$dot") + 4*20;
 	    back_up_over_prompt(addr, branchTaken, from_tty);
 	} else {
 	    __reset_current_function(NULL, 0);
-	    addr = gdb_get_int("$pc");
+	    gdb_get_register("$pc", &addr);
+	    if (macsbug_screen && isatty(STDOUT_FILENO))
+		gdb_printf("\n");
 	}
 	n = 20;
     } else {
 	__reset_current_function(NULL, 0);
 	if (argc == 2) {
-	    addr = gdb_get_int(argv[1]);
+	    addr = gdb_get_address(argv[1]);
 	    n    = 20;
 	} else if (argc == 3) {
-	    addr = gdb_get_int(argv[1]);
+	    addr = gdb_get_address(argv[1]);
 	    n    = gdb_get_int(argv[2]);
 	} else
 	    gdb_error("usage: IL [addr [n]] (wrong number of arguments)");
+	if (macsbug_screen && isatty(STDOUT_FILENO))
+	    gdb_printf("\n");
     }
     
-    gdb_set_int("$dot", addr);
+    gdb_set_address("$dot", addr);
     
-    sprintf(tmpCmdLine, "0x%lX %ld", addr, n);
+    sprintf(tmpCmdLine, "0x%llx %ld", (long long)addr, n);
     __disasm(tmpCmdLine, from_tty);
     
     gdb_set_int("$__lastcmd__", 11);
@@ -1107,9 +1276,9 @@ static void il(char *arg, int from_tty)
 
 static void ip(char *arg, int from_tty)
 {
-    int  	  argc;
-    unsigned long addr;
-    char 	  *argv[4], tmpCmdLine[1024];
+    int  	argc;
+    GDB_ADDRESS addr;
+    char 	*argv[4], tmpCmdLine[1024];
     
     __is_running("The program is not running.", 0);
     
@@ -1117,22 +1286,26 @@ static void ip(char *arg, int from_tty)
     
     if (argc == 1) {
 	if (gdb_get_int("$__lastcmd__") == 13) {
-	    addr = gdb_get_int("$dot") + 4*21;
+	    addr = gdb_get_address("$dot") + 4*21;
 	    back_up_over_prompt(addr - 40, branchTaken, from_tty);
 	} else {
 	    __reset_current_function(NULL, 0);
-	    addr = gdb_get_int("$pc");
+	    gdb_get_register("$pc", &addr);
+	    if (macsbug_screen && isatty(STDOUT_FILENO))
+		gdb_printf("\n");
 	}
     } else {
 	__reset_current_function(NULL, 0);
 	if (argc != 2)
 	    gdb_error("usage: IP [addr] (wrong number of arguments)");
-	addr = gdb_get_int(argv[1]);
+	addr = gdb_get_address(argv[1]);
+	if (macsbug_screen && isatty(STDOUT_FILENO))
+	    gdb_printf("\n");
     }
     
-    gdb_set_int("$dot", addr);
+    gdb_set_address("$dot", addr);
     
-    sprintf(tmpCmdLine, "0x%lX 21", addr-40);
+    sprintf(tmpCmdLine, "0x%llx 21", (unsigned long long)addr-40ul);
     __disasm(tmpCmdLine, from_tty);
     
     gdb_set_int("$__lastcmd__", 13);
@@ -1164,15 +1337,62 @@ static void mr(char *arg, int from_tty)
 "Macsbug features not supported: offset and addr arguments."
 
 
+/*-----------------------------------------*
+ | rn - display the value of Rn, SP, or PC |
+ *-----------------------------------------*
+ 
+ Common routine called by the individual commands R0-R31, PC, and SP.  The register
+ number is passed.  For SP, 1 is passed since that is R1.  For PC -1 is passed.  -2
+ for SP.  SP is really R1 but we want to show it as SP.
+*/
+
+static void _rn(int r, int from_tty)
+{
+    int		  i;
+    unsigned long l;
+    GDB_ADDRESS   value;
+    char          regName[10], uc_regName[10];
+    
+    /* Following causes an appropriate error message if regs are unavailable...		*/
+    
+    (void)gdb_get_address("$pc");
+    
+    if (r >= 0) {
+    	sprintf(regName, "$r%d", r);
+    	gdb_get_register(regName, &value);
+    } else if (r == -1) {
+    	gdb_get_register("$pc", &value);
+    	strcpy(regName, "$pc");
+    } else {
+    	gdb_get_register("$r1", &value);
+    	strcpy(regName, "$sp");
+    }
+    
+    i = strlen(strcpy(uc_regName, regName));
+    while (--i >= 1)
+    	uc_regName[i] = toupper(uc_regName[i]);
+    
+    
+    if (target_arch == 4) {
+    	l = (unsigned long) value;
+    	gdb_printf("%s = 0x%.8lX  %luul  %ldl  ", &uc_regName[1], l, l, l);
+    	__print_4(regName, from_tty);
+    } else {
+    	gdb_printf("%s = 0x%.16llX  %lluull  %lldll  ", &uc_regName[1], value, value, value);
+    	__print_8(regName, from_tty);
+    }
+    gdb_printf("\n");
+    
+    gdb_set_int("$__lastcmd__", 41);
+}
+
+
 /*------------------------------*
  | PC - display the value of PC |
  *------------------------------*/
 
-static void _rn(int r, int from_tty);
-
 static void pc(char *arg, int from_tty)
 {
-    
     _rn(-1, from_tty);				/* -1 means use $pc in rn()		*/
 }
 
@@ -1248,45 +1468,6 @@ static void ra(char *arg, int from_tty)
 "See gdb RUN documentation for further details."
 
 
-/*-----------------------------------------*
- | rn - display the value of Rn, SP, or PC |
- *-----------------------------------------*
- 
- Common routine called by the individual commands R0-R31, PC, and SP.  The register
- number is passed.  For SP, 1 is passed since that is R1.  For PC -1 is passed.  -2
- for SP.  SP is really R1 but we want to show it as SP.
-*/
-
-static void _rn(int r, int from_tty)
-{
-    int		  i;
-    unsigned long value;
-    char          regName[10], uc_regName[10];
-    
-    /* Following causes an appropriate error message if regs are unavailable...		*/
-    
-    (void)gdb_get_int("$pc");
-    
-    if (r >= 0) {
-    	sprintf(regName, "$r%d", r);
-    	value = gdb_get_int(regName);
-    } else if (r == -1)
-    	value = gdb_get_int(strcpy(regName, "$pc"));
-    else
-    	value = gdb_get_int(strcpy(regName, "$sp"));
-    
-    i = strlen(strcpy(uc_regName, regName));
-    while (--i >= 1)
-    	uc_regName[i] = toupper(uc_regName[i]);
-    
-    gdb_printf("%s = 0x%.8lX   %lu    %ld    ", &uc_regName[1], value, value, value);
-    __print_4(regName, from_tty);
-    gdb_printf("\n");
-    
-    gdb_set_int("$__lastcmd__", 41);
-}
-
-
 /*--------------------------------------*
  | R0-R31 - display the value of R0-R31 |
  *--------------------------------------*
@@ -1314,21 +1495,24 @@ Rn(20); Rn(21); Rn(22); Rn(23); Rn(24); Rn(25); Rn(26); Rn(27); Rn(28); Rn(29);
 Rn(30); Rn(31);
 
 
-/*----------------------------------------------------------------------------------*
- | sb_sw_sl_and_sm addr value1 [... valueN] - common routine for SB, SW, SL, and SM |
- *----------------------------------------------------------------------------------*
+/*-----------------------------------------------------------------------------------*
+ | sb_sw_sl_sll_sm addr value1 [... valueN] - common routine for SB, SW, SL, SLL, SM |
+ *-----------------------------------------------------------------------------------*
  
- The arg is the SB, SW, SL, and SM arg.  The size is 1 (SB), 2(SW), 4 (SL), or 0 (SM).
- The cmdName is "SB", "SW", "SL", or "SM" for error messages.
+ The arg is the SB, SW, SL, SLL, and SM arg.  The size is 1 (SB), 2(SW), 4 (SL),
+ 8 (SLL)or 0 (SM).  The cmdName is "SB", "SW", "SL", "SLL", or "SM" for error
+ messages.
 */
 
-static void sb_sw_sl_and_sm(char *arg, int from_tty, int size, int cmdNbr, char *cmdName)
+static void sb_sw_sl_sll_sm(char *arg, int from_tty, int size, int cmdNbr, char *cmdName)
 {
-    int            i, argc, isstr, len;
-    unsigned char  b;
-    unsigned short w;
-    unsigned long  addr, start, value;
-    char 	   *argv[41], addrStr[20], str[1024], tmpCmdLine[1024];
+    int                i, argc, isstr, len;
+    unsigned char      b;
+    unsigned short     w;
+    unsigned long      l;
+    unsigned long long value;
+    GDB_ADDRESS        addr, start;
+    char 	       *argv[41], addrStr[20], str[1024], tmpCmdLine[1024];
     
     __is_running("The program is not running.", 0);
     
@@ -1337,7 +1521,7 @@ static void sb_sw_sl_and_sm(char *arg, int from_tty, int size, int cmdNbr, char 
     if (argc < 3)
     	gdb_error("usage: %s addr value1 [... valueN]", cmdName);
     
-    addr = start = gdb_get_int(argv[1]);	/* start with this address		*/
+    addr = start = gdb_get_address(argv[1]);	/* start with this address		*/
     
     /* For each value write the target's memory according to type...			*/
     
@@ -1345,42 +1529,47 @@ static void sb_sw_sl_and_sm(char *arg, int from_tty, int size, int cmdNbr, char 
     	isstr = gdb_is_string(argv[i]);
 	
 	if (i == 2)				/* 1st time around display the title	*/
-	    gdb_set_int("$dot", addr);		/* set $dot to initial address		*/
+	    gdb_set_address("$dot", addr);	/* set $dot to initial address		*/
 	
 	if (isstr) {				/* always write entire strings		*/
 	    gdb_get_string(argv[i], str, 1023);
 	    len = strlen(str);
-	    sprintf(addrStr, "0x%lX", addr);
+	    sprintf(addrStr, "0x%llx", (long long)addr);
 	    gdb_write_memory(addrStr, str, len);
 	    addr += len;
 	} else {				/* values written according to type	*/
-	    sprintf(addrStr,  "0x%lX", addr);	/* need address as a string		*/
-	    b = w = value = gdb_get_int(argv[i]);/* use 1, 2, or all 4 bytes of value	*/
+	    sprintf(addrStr,  "0x%llx", (long long)addr); /* need address as a string	*/
+	    b = w = l = value = gdb_get_long_long(argv[i]);/* use 1, 2, 4, 8 value bytes*/
 	    
 	    switch (size) {
 	    	case 0:				/* SM					*/
-		    if ((long)value >= -128 && (long)value <= 255)
+		    if ((long long)value >= -128 && (long long)value <= 255)
 		    	goto SB;
-		    else if ((long)value >= -32768 && (long)value <= 65535)
+		    else if ((long long)value >= -32768 && (long long)value <= 65535)
 		    	goto SW;
-		    else
+		    else if ((long long)value >= -2147483648LL && (long long)value <= 4294967296LL)
 		    	goto SL;
+		    else
+		    	goto SLL;
 		    
 		case 1:				/* SB					*/
-		SB: sprintf(addrStr,  "0x%lX", addr);
-		    gdb_write_memory(addrStr, &b, 1);
+		SB: gdb_write_memory(addrStr, &b, 1);
 		    ++addr;
 		    break;
 		    
 		case 2:				/* SW					*/
-	    	SW: sprintf(addrStr,  "0x%lX", addr);
-		    gdb_write_memory(addrStr, &w, 2);
+	    	SW: gdb_write_memory(addrStr, &w, 2);
 		    addr += 2;
 		    break;
 		    
 		case 4:				/* SL					*/
-	    	SL: gdb_write_memory(addrStr, &value, 4);
+	    	SL: gdb_write_memory(addrStr, &l, 4);
 		    addr += 4;
+		    break;
+		    
+		case 8:				/* SLL					*/
+	    	SLL:gdb_write_memory(addrStr, &value, 8);
+		    addr += 8;
 		    break;
 		    
 		default:
@@ -1391,10 +1580,12 @@ static void sb_sw_sl_and_sm(char *arg, int from_tty, int size, int cmdNbr, char 
     
     /* Hexdump the results...								*/
     
-    gdb_printf("Memory set starting at %.8lX\n", start);
-    sprintf(str, "0x%lX %ld", start, 
+    gdb_printf("Memory set starting at %.8llX\n", (long long)start);
+    sprintf(str, "0x%llX %lld", (long long)start, 
     	      ((addr - start + hexdump_width - 1)/hexdump_width)*hexdump_width);
     __hexdump(str, from_tty);			/* __hexdump start N			*/
+    
+    fix_pc_area_if_necessary(start);		/* in case something changed pc area	*/
     
     gdb_set_int("$__lastcmd__", cmdNbr);
 }
@@ -1406,7 +1597,7 @@ static void sb_sw_sl_and_sm(char *arg, int from_tty, int size, int cmdNbr, char 
 
 static void sb(char *arg, int from_tty)
 {
-    sb_sw_sl_and_sm(arg, from_tty, 1, 17, "SB");
+    sb_sw_sl_sll_sm(arg, from_tty, 1, 17, "SB");
 }
 
 #define SB_HELP \
@@ -1419,10 +1610,21 @@ static void sb(char *arg, int from_tty)
 
 /*-----------------------------------------------------------*
  | SC [n] - stack crawl (only the n most inner/outer frames) |
- *-----------------------------------------------------------*/
+ *-----------------------------------------------------------*
+ 
+ Note this command is not "repeatable", i.e., a null command does not imply repeat
+ the command without arguments (e.g., IL).  But if two SC's are done back-to-back
+ we really want to insert a blank line between them on the macsbug screen so we
+ can see where one ends and the next begins.  Thus we look at $__prevcmd__ which
+ always has the previous command number as opposed to $__lastcmd__ which only has
+ the previous command number for repeatable commands.
+*/
 
 static void sc(char *arg, int from_tty)
 {
+    if (macsbug_screen && isatty(STDOUT_FILENO) && gdb_get_int("$__prevcmd__") == 18)
+    	gdb_printf("\n");
+    
     if (arg && *arg)
 	gdb_execute_command("bt %s", arg);
     else
@@ -1474,10 +1676,10 @@ static char *so_si_filter(FILE *f, char *line, void *data)
 
 static void so_and_si(char *arg, int from_tty, int cmdNbr, char *cmdName, char *gdbCmd)
 {
-    GDB_FILE 	  *redirect_stdout, *prev_stdout;
-    int      	  argc, step, n;
-    unsigned long pc;
-    char     	  *argv[5], line[1024], tmpCmdLine[1024];
+    GDB_FILE	*redirect_stdout, *prev_stdout;
+    int		argc, step, n;
+    GDB_ADDRESS pc;
+    char	*argv[5], line[1024], tmpCmdLine[1024];
     
     if (!gdb_target_running())
     	gdb_error("The program is not running.");
@@ -1514,7 +1716,8 @@ static void so_and_si(char *arg, int from_tty, int cmdNbr, char *cmdName, char *
     
     gdb_close_output(redirect_stdout);
     
-    gdb_set_int("$dot", gdb_get_int("$pc"));
+    gdb_get_register("$pc", &pc);
+    gdb_set_address("$dot", pc);
     
     if (!macsbug_screen) {
     	sprintf(line, "$pc %ld", n);
@@ -1560,15 +1763,29 @@ static void si(char *arg, int from_tty)
 
 static void sl(char *arg, int from_tty)
 {
-    sb_sw_sl_and_sm(arg, from_tty, 4, 21, "SL");
+    sb_sw_sl_sll_sm(arg, from_tty, 4, 21, "SL");
 }
 
 #define SL_HELP \
-"SL addr values -- Assign values to (4-byte) longs starting at addr.\n"				\
+"SL addr values -- Assign values to (4-byte) longs starting at addr.\n"			\
 "String values are fully assigned at the next assignable byte.\n"			\
 "\n"											\
 "Macsbug features not supported: Double quoted \"string\" instead of single quoted\n"	\
 "                                'string'."
+
+
+/*---------------------------------------------------------------*
+ | SLL addr value - assign values to long longs starting at addr |
+ *---------------------------------------------------------------*/
+
+static void sll(char *arg, int from_tty)
+{
+    sb_sw_sl_sll_sm(arg, from_tty, 8, 50, "SLL");
+}
+
+#define SLL_HELP \
+"SLL addr values -- Assign values to (8-byte) long longs starting at addr.\n"		\
+"String values are fully assigned at the next assignable byte.\n"
 
 
 /*----------------------------------------------------------*
@@ -1577,7 +1794,7 @@ static void sl(char *arg, int from_tty)
 
 static void sm(char *arg, int from_tty)
 {
-    sb_sw_sl_and_sm(arg, from_tty, 0, 22, "SM");
+    sb_sw_sl_sll_sm(arg, from_tty, 0, 22, "SM");
 }
 
 #define SM_HELP \
@@ -1627,11 +1844,11 @@ static void sp(char *arg, int from_tty)
 
 static void sw(char *arg, int from_tty)
 {
-    sb_sw_sl_and_sm(arg, from_tty, 2, 24, "SW");
+    sb_sw_sl_sll_sm(arg, from_tty, 2, 24, "SW");
 }
 
 #define SW_HELP \
-"SW addr values -- Assign values to (2-byte) words starting at addr.\n"				\
+"SW addr values -- Assign values to (2-byte) words starting at addr.\n"			\
 "String values are fully assigned at the next assignable byte.\n"			\
 "\n"											\
 "Macsbug features not supported: Double quoted \"string\" instead of single quoted\n"	\
@@ -1661,27 +1878,49 @@ static void t(char *arg, int from_tty)
  Example of output format:
  
  PowerPC Registers
-                         CR0  CR1  CR2  CR3  CR4  CR5  CR6  CR7
-  PC  = 05AB2950     CR  0100 0010 0000 0000 0000 1000 0100 1000
-  LR  = 05AB29A4         <>=O XEVO
-  CTR = FFD6A848
-  MSR = 00000000         SOC Compare Count
-                     XER 000   00     00                     MQ  = 00000000
+				  CR0  CR1  CR2  CR3  CR4  CR5  CR6  CR7
+  PC  = 00000000[00000000]    CR  0100 0010 0000 0000 0000 0000 0010 0010
+  LR  = 00000000[00000000]        <>=O XEVO
+  CTR = 00000000[00000000]
+  MSR = 00000000[00000000]        SOC Compare Count
+			      XER 000   00    00
  
-  R0  = 00000000     R8  = 00000000      R16 = 05B0FD25      R24 = 05B0FC90
-  SP  = 05BCDF00     R9  = 05B150A0      R17 = 05B0FCAC      R25 = 0032822A
-  R2  = 05B0AB4B     R10 = 00000000      R18 = 05B0FC8C      R26 = 00000003
-  R3  = 0053866F     R11 = 00538E7A      R19 = 05B10668      R27 = 00000000
-  R4  = 00000000     R12 = 0002CEA4      R20 = 05B0FCA9      R28 = 05BCE206
-  R5  = 05BCDEF8     R13 = 00000000      R21 = 05B0FCAF      R29 = 05B32AD0
-  R6  = 05ABAEC4     R14 = 00000000      R22 = 0000001E      R30 = 00538670
-  R7  = 05B32AD0     R15 = 00000000      R23 = 00000000      R31 = 05B0FE6C
+  R0  = 00000000     R8  = 00000000     R16 = 00000000     R24 = 00000000
+  SP  = 00000000     R9  = 00000000     R17 = 00000000     R25 = 00000000
+  R2  = 00000000     R10 = 00000000     R18 = 00000000     R26 = 00000000
+  R3  = 00000000     R11 = 00000000     R19 = 00000000     R27 = 00000000
+  R4  = 00000000     R12 = 00000000     R20 = 00000000     R28 = 00000000
+  R5  = 00000000     R13 = 00000000     R21 = 00000000     R29 = 00000000
+  R6  = 00000000     R14 = 00000000     R22 = 00000000     R30 = 00000000
+  R7  = 00000000     R15 = 00000000     R23 = 00000000     R31 = 00000000
+ 
+  The [00000000] indicates that those registers are displayed as 64-bit values
+  when using 64-bit architecture mode.  Similarly the display for 64-bit
+  general registers has this format:
+  
+  R0  = 0000000000000000     R16 = 0000000000000000
+  SP  = 0000000000000000     R17 = 0000000000000000
+  R2  = 0000000000000000     R18 = 0000000000000000
+  R3  = 0000000000000000     R19 = 0000000000000000
+  R4  = 0000000000000000     R20 = 0000000000000000
+  R5  = 0000000000000000     R21 = 0000000000000000
+  R6  = 0000000000000000     R22 = 0000000000000000
+  R7  = 0000000000000000     R23 = 0000000000000000
+  R8  = 0000000000000000     R24 = 0000000000000000
+  R9  = 0000000000000000     R25 = 0000000000000000
+  R10 = 0000000000000000     R26 = 0000000000000000
+  R11 = 0000000000000000     R27 = 0000000000000000
+  R12 = 0000000000000000     R28 = 0000000000000000
+  R13 = 0000000000000000     R29 = 0000000000000000
+  R14 = 0000000000000000     R30 = 0000000000000000
+  R15 = 0000000000000000     R31 = 0000000000000000
 */
 
 static void td(char *arg, int from_tty)
 {
     int		  i, j, reg;
-    unsigned long cr, xer;
+    unsigned long cr, xer32;
+    GDB_ADDRESS   rn, pc, lr, ctr, msr, xer;
     char	  regName[20], tmpCmdLine[100];
     
     /* Following causes an appropriate error message if regs are unavailable...		*/
@@ -1689,44 +1928,81 @@ static void td(char *arg, int from_tty)
     (void)gdb_get_int("$pc");
     
     gdb_printf("PowerPC Registers\n");
-    gdb_printf("                        CR0  CR1  CR2  CR3  CR4  CR5  CR6  CR7\n");
-    gdb_printf(" PC  = %.8lX     CR ", gdb_get_int("$pc"));
+    gdb_printf("                                 CR0  CR1  CR2  CR3  CR4  CR5  CR6  CR7\n");
+    gdb_get_register("$pc", &pc);
+    if (target_arch == 4)
+    	gdb_printf(" PC  = %.8lX              CR ", (unsigned long)pc);
+    else
+    	gdb_printf(" PC  = %.16llX      CR ", (unsigned long long)pc);
     
-    cr = gdb_get_int("$cr");
+    gdb_get_register("$cr", &cr);	/* cr is always 4 bytes				*/
     for (i = 28; i >= 0; i -= 4) {
     	sprintf(tmpCmdLine, "0x%X 4", (cr >> i) & 0x0F);
 	gdb_printf(" ");
 	__binary(tmpCmdLine, from_tty);
     }
     gdb_printf("\n");
-       
-    gdb_printf(" LR  = %.8lX         <>=O XEVO\n", gdb_get_int("$lr"));
-    gdb_printf(" CTR = %.8lX\n", gdb_get_int("$ctr"));
-    gdb_printf(" MSR = %.8lX         SOC Compare Count\n", gdb_get_int("$ps"));
-    gdb_printf("                    XER ");
-    xer = gdb_get_int("$xer");
-    sprintf(tmpCmdLine, "0x%X 3", (xer>> 29) & 7);
+    
+    gdb_get_register("$lr",  &lr);
+    gdb_get_register("$ctr", &ctr);
+    gdb_get_register("$ps",  &msr);
+    
+    if (target_arch == 4) {
+    	gdb_printf(" LR  = %.8lX                  <>=O XEVO\n", (unsigned long)lr);
+    	gdb_printf(" CTR = %.8lX\n", (unsigned long)ctr);
+    	gdb_printf(" MSR = %.8lX                  SOC Compare Count\n", (unsigned long)msr);
+    } else {
+    	gdb_printf(" LR  = %.16llX          <>=O XEVO\n", (unsigned long long)lr);
+    	gdb_printf(" CTR = %.16llX\n", (unsigned long long)ctr);
+    	gdb_printf(" MSR = %.16llX          SOC Compare Count\n", (unsigned long long)msr);
+    }
+    
+    gdb_printf("                             XER ");
+    gdb_get_register("$xer", &xer);
+    xer32 = (unsigned long)xer;
+    sprintf(tmpCmdLine, "0x%lX 3", (xer32>>29) & 7);
     __binary(tmpCmdLine, from_tty);
-    gdb_printf("   %.2X    %.2X                     MQ  = %.8lX\n",
-              (xer>>8) & 0xFF, (xer & 0x7F), gdb_get_int("$mq"));
-   
+    #if 1
+    gdb_printf("   %.2lX    %.2lX\n", (xer32>>8) & 0xFF, (xer32 & 0x7F));
+    #else
+    gdb_printf("   %.2lX    %.2lX                     MQ  = %.8lX\n",
+              (xer32>>8) & 0xFF, (xer32 & 0x7F), gdb_get_int("$mq"));
+    #endif
+    
     gdb_printf("\n");
     
-    for (i = 0; i < 8; ++i) {
-    	for (j = 0; j < 4; ++j) {
-	    reg = i + j*8;
-	    sprintf(regName, "$r%ld", reg);
-	    if (reg <= 7)
-	    	if (reg != 1)
-		    gdb_printf(" R%-2d = %.8lX", reg, gdb_get_int(regName));
+    if (target_arch == 4) {
+	for (i = 0; i < 8; ++i) {
+	    for (j = 0; j < 4; ++j) {
+		reg = i + j*8;
+		sprintf(regName, "$r%d", reg);
+		gdb_get_register(regName, &rn);
+		if (reg <= 7)
+		    if (reg != 1)
+			gdb_printf(" R%-2d = %.8lX", reg, (unsigned long)rn);
+		    else
+			gdb_printf(" SP  = %.8lX", (unsigned long)rn);
 		else
-		    gdb_printf(" SP  = %.8lX", gdb_get_int(regName));
-	    else if (reg == i+8)
-		gdb_printf("     R%-2d = %.8lX", reg, gdb_get_int(regName));
-	    else
-		gdb_printf("      R%-2d = %.8lX", reg, gdb_get_int(regName));
-    	}
-	gdb_puts("\n");
+		    gdb_printf("     R%-2d = %.8lX", reg, (unsigned long)rn);
+	    }
+	    gdb_puts("\n");
+	}
+    } else {
+	for (i = 0; i < 16; ++i) {
+	    for (j = 0; j < 2; ++j) {
+		reg = i + j*16;
+		sprintf(regName, "$r%d", reg);
+		gdb_get_register(regName, &rn);
+		if (reg <= 15)
+		    if (reg != 1)
+			gdb_printf(" R%-2d = %.16llX", reg, rn);
+		    else
+			gdb_printf(" SP  = %.16llX", rn);
+		else
+		    gdb_printf("     R%-2d = %.16llX", reg, rn);
+	    }
+	    gdb_puts("\n");
+	}
     }
     
     gdb_set_int("$__lastcmd__", 26);
@@ -1757,9 +2033,13 @@ static void td(char *arg, int from_tty)
 
 static void tf(char *arg, int from_tty)
 {
-    int		  i;
-    unsigned long fpscr;
-    char	  f[4];
+    int  i;
+    char f[4];
+    
+    union {					/* gdb_get_register() could return a	*/
+    	unsigned long long fpscr_err;		/* error code as a long long.		*/
+    	unsigned long fpscr;			/* but the fpscr is always only 32-bits	*/
+    } fpscr;
     
     union {
 	char          msg[50];
@@ -1772,7 +2052,7 @@ static void tf(char *arg, int from_tty)
 		
     /* Following causes an appropriate error message if regs are unavailable...		*/
     
-    fpscr = gdb_get_int("$fpscr");
+    gdb_get_register("$fpscr", &fpscr.fpscr);
 		
     gdb_printf("FPU Registers\n");
     gdb_printf("                                                  S S\n");
@@ -1782,12 +2062,12 @@ static void tf(char *arg, int from_tty)
     
     gdb_printf("        ");
     for (i = 31; i >= 2; --i)
-    	gdb_printf("%d ", (fpscr >> i) & 1);
-    gdb_printf("%d%d\n\n", (fpscr >> 1) & 1, fpscr & 1);
+    	gdb_printf("%d ", (fpscr.fpscr >> i) & 1);
+    gdb_printf("%d%d\n\n", (fpscr.fpscr >> 1) & 1, fpscr.fpscr & 1);
     
     for (i = 0; i < 32; ++i) {
     	sprintf(f, "$f%d", i);
-	gdb_printf("FPR%-2d = ", i);
+	gdb_printf(" FPR%-2d = ", i);
 	
 	v = gdb_get_register(f, &value);
 	
@@ -1840,7 +2120,7 @@ static void tv(char *arg, int from_tty)
     
     /* Following causes an appropriate error message if regs are unavailable...		*/
     
-    vrsave = gdb_get_int("$vrsave");
+    gdb_get_register("$vrsave", &vrsave);
     
     gdb_printf("Vector Registers\n");
     gdb_printf("                                                                      S\n");
@@ -1848,7 +2128,9 @@ static void tv(char *arg, int from_tty)
     gdb_printf("                    N                               A\n");
     gdb_printf("                                      J                               T\n");
     
-    vscr = 0;//gdb_get_int("$vscr");	// gdb need to fix the type of vscr
+    vscr = 0;
+    //gdb_get_int("$vscr");	// gdb need to fix the type of vscr (??)
+    gdb_get_register("$vscr", &vscr);
     gdb_printf(" VSCR = ");
     for (i = 31; i >= 0; --i)
 	gdb_printf("%d ", (vscr >> i) & 1);
@@ -1857,7 +2139,7 @@ static void tv(char *arg, int from_tty)
     
     for (i = 0; i < 32; ++i) {
     	sprintf(vn, "$v%d", i);
-	gdb_printf("V%-2d = ", i);
+	gdb_printf(" V%-2d = ", i);
 	
 	v = gdb_get_register(vn, &value);
 	
@@ -1913,7 +2195,7 @@ static void wh(char *arg, int from_tty)
     else
     	addr = argv[1];
     
-    gdb_print_address(addr, 1);
+    gdb_print_address(addr);
     prev_arg = addr;
 
     gdb_set_int("$__lastcmd__", 42);
@@ -1927,6 +2209,9 @@ static void wh(char *arg, int from_tty)
 "Note that, if possible, the source line is listed exactly like it\n"			\
 "was done using the gdb LIST command.  Thus the amount of context\n"			\
 "lines is controlled by the SET listsize command.\n"					\
+"\n"											\
+"If source lines cannot be displayed then, if possible, the pathname\n"			\
+"of the file containing the specified address is displayed.\n"				\
 "\n" 							  				\
 "Macsbug features not supported: Traps.\n"						\
 "                                Numeric addresses and gdb convenience\n"		\
@@ -1964,6 +2249,7 @@ void init_from_gdb(void)
     MACSBUG_COMMAND(brp,  BRP_HELP);
     MACSBUG_COMMAND(db,   DB_HELP);
     MACSBUG_COMMAND(dl,   DL_HELP);
+    MACSBUG_COMMAND(dll,  DLL_HELP);
     MACSBUG_COMMAND(dm,   DM_HELP);
     MACSBUG_COMMAND(dma,  DMA_HELP);
     MACSBUG_COMMAND(dv,   DV_HELP);
@@ -1972,7 +2258,9 @@ void init_from_gdb(void)
     MACSBUG_COMMAND(fb,   FB_HELP);
     MACSBUG_COMMAND(fill, FILL_HELP);
     MACSBUG_COMMAND(find, FIND_HELP);
+    MACSBUG_COMMAND(f, 	  FIND_HELP); /* override FRAME to handle it from FIND */
     MACSBUG_COMMAND(fl,   FL_HELP);
+    MACSBUG_COMMAND(fll,  FLL_HELP);
     MACSBUG_COMMAND(fw,   FW_HELP);
     MACSBUG_COMMAND(g,    G_HELP);
     MACSBUG_COMMAND(gt,   GT_HELP);
@@ -1984,6 +2272,7 @@ void init_from_gdb(void)
     MACSBUG_COMMAND(sc,   SC_HELP);
     MACSBUG_COMMAND(si,   SI_HELP);
     MACSBUG_COMMAND(sl,   SL_HELP);
+    MACSBUG_COMMAND(sll,  SLL_HELP);
     MACSBUG_COMMAND(sm,   SM_HELP);
     MACSBUG_COMMAND(so,   SO_HELP);
     MACSBUG_COMMAND(sw,   SW_HELP);

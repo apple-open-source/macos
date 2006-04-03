@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: compare_name.c,v 1.10 2004/03/19 09:33:57 raeburn Exp $
+ * $Id: compare_name.c 16187 2004-03-19 09:33:57Z raeburn $
  */
 
 #include "gssapiP_krb5.h"

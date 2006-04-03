@@ -243,7 +243,6 @@ struct gdbarch
   gdbarch_software_single_step_ftype *software_single_step;
   gdbarch_print_insn_ftype *print_insn;
   gdbarch_skip_trampoline_code_ftype *skip_trampoline_code;
-  gdbarch_dynamic_trampoline_nextpc_ftype *dynamic_trampoline_nextpc;
   gdbarch_skip_solib_resolver_ftype *skip_solib_resolver;
   gdbarch_in_solib_call_trampoline_ftype *in_solib_call_trampoline;
   gdbarch_in_solib_return_trampoline_ftype *in_solib_return_trampoline;
@@ -412,7 +411,6 @@ struct gdbarch startup_gdbarch =
   0,  /* software_single_step */
   0,  /* print_insn */
   0,  /* skip_trampoline_code */
-  0,  /* dynamic_trampoline_nextpc */
   generic_skip_solib_resolver,  /* skip_solib_resolver */
   0,  /* in_solib_call_trampoline */
   0,  /* in_solib_return_trampoline */
@@ -524,7 +522,6 @@ gdbarch_alloc (const struct gdbarch_info *info,
   current_gdbarch->addr_bits_remove = core_addr_identity;
   current_gdbarch->smash_text_address = core_addr_identity;
   current_gdbarch->skip_trampoline_code = generic_skip_trampoline_code;
-  current_gdbarch->dynamic_trampoline_nextpc = generic_dynamic_trampoline_nextpc;
   current_gdbarch->skip_solib_resolver = generic_skip_solib_resolver;
   current_gdbarch->in_solib_call_trampoline = generic_in_solib_call_trampoline;
   current_gdbarch->in_solib_return_trampoline = generic_in_solib_return_trampoline;
@@ -724,7 +721,6 @@ verify_gdbarch (struct gdbarch *current_gdbarch)
       && (current_gdbarch->print_insn == 0))
     fprintf_unfiltered (log, "\n\tprint_insn");
   /* Skip verify of skip_trampoline_code, invalid_p == 0 */
-  /* Skip verify of dynamic_trampoline_nextpc, invalid_p == 0 */
   /* Skip verify of skip_solib_resolver, invalid_p == 0 */
   /* Skip verify of in_solib_call_trampoline, invalid_p == 0 */
   /* Skip verify of in_solib_return_trampoline, invalid_p == 0 */
@@ -1724,16 +1720,6 @@ gdbarch_dump (struct gdbarch *current_gdbarch, struct ui_file *file)
                       "gdbarch_dump: DWARF_REG_TO_REGNUM = <0x%08lx>\n",
                       (long) current_gdbarch->dwarf_reg_to_regnum
                       /*DWARF_REG_TO_REGNUM ()*/);
-#endif
-#ifdef DYNAMIC_TRAMPOLINE_NEXTPC
-  fprintf_unfiltered (file,
-                      "gdbarch_dump: %s # %s\n",
-                      "DYNAMIC_TRAMPOLINE_NEXTPC(pc)",
-                      XSTRING (DYNAMIC_TRAMPOLINE_NEXTPC (pc)));
-  fprintf_unfiltered (file,
-                      "gdbarch_dump: DYNAMIC_TRAMPOLINE_NEXTPC = <0x%08lx>\n",
-                      (long) current_gdbarch->dynamic_trampoline_nextpc
-                      /*DYNAMIC_TRAMPOLINE_NEXTPC ()*/);
 #endif
 #ifdef ECOFF_REG_TO_REGNUM
   fprintf_unfiltered (file,
@@ -5048,23 +5034,6 @@ set_gdbarch_skip_trampoline_code (struct gdbarch *gdbarch,
 }
 
 CORE_ADDR
-gdbarch_dynamic_trampoline_nextpc (struct gdbarch *gdbarch, CORE_ADDR pc)
-{
-  gdb_assert (gdbarch != NULL);
-  gdb_assert (gdbarch->dynamic_trampoline_nextpc != NULL);
-  if (gdbarch_debug >= 2)
-    fprintf_unfiltered (gdb_stdlog, "gdbarch_dynamic_trampoline_nextpc called\n");
-  return gdbarch->dynamic_trampoline_nextpc (pc);
-}
-
-void
-set_gdbarch_dynamic_trampoline_nextpc (struct gdbarch *gdbarch,
-                                       gdbarch_dynamic_trampoline_nextpc_ftype dynamic_trampoline_nextpc)
-{
-  gdbarch->dynamic_trampoline_nextpc = dynamic_trampoline_nextpc;
-}
-
-CORE_ADDR
 gdbarch_skip_solib_resolver (struct gdbarch *gdbarch, CORE_ADDR pc)
 {
   gdb_assert (gdbarch != NULL);
@@ -5573,18 +5542,6 @@ deprecated_register_gdbarch_swap (void *data,
   (*rego)->init = init;
   (*rego)->data = data;
   (*rego)->sizeof_data = sizeof_data;
-}
-
-void
-clear_gdbarch_swap (struct gdbarch *gdbarch)
-{
-  struct gdbarch_swap *curr;
-  for (curr = gdbarch->swap;
-       curr != NULL;
-       curr = curr->next)
-    {
-      memset (curr->source->data, 0, curr->source->sizeof_data);
-    }
 }
 
 static void

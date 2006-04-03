@@ -34,12 +34,13 @@
 #include "gdbcore.h"
 #include "dis-asm.h"
 #include "gdb_stat.h"
-#include "symfile.h"
-#include "objfiles.h"
 #include "completer.h"
-#include "objc-lang.h"  /* APPLE LOCAL: For objfile_changed function. */
-
-extern bfd *exec_bfd;
+/* APPLE LOCAL symfile.h */
+#include "symfile.h"
+/* APPLE LOCAL objfiles.h */
+#include "objfiles.h"
+/* APPLE LOCAL: For objfile_changed function. */
+#include "objc-lang.h"
 
 /* Local function declarations.  */
 
@@ -254,12 +255,6 @@ memory_error (int status, CORE_ADDR memaddr)
   struct ui_file *tmp_stream = mem_fileopen ();
   make_cleanup_ui_file_delete (tmp_stream);
 
-  if (error_hook)
-    {
-      (*error_hook) ();
-      return;
-    }
-  
   if (status == EIO)
     {
       /* Actually, address between memaddr and memaddr + len

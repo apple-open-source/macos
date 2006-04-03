@@ -11,7 +11,9 @@
 .Nm bless
 .Fl -folder Ar directory
 .Op Fl -folder9 Ar directory
+.Op Fl -file Ar file
 .Op Fl -bootinfo Op Ar file
+.Op Fl -bootefi Op Ar file
 .Op Fl -bootBlockFile Ar file
 .Op Fl -save9
 .Op Fl -saveX
@@ -19,11 +21,16 @@
 .Op Fl -label Ar name | Fl -labelfile Ar file
 .Op Fl -setBoot
 .Op Fl -openfolder Ar directory
+.Op Fl -nextonly
+.Op Fl -options Ar string
 .Op Fl -quiet | -verbose
 .Pp
 .Nm bless
 .Fl -mount Ar directory
+.Op Fl -file Ar file
 .Op Fl -setBoot
+.Op Fl -nextonly
+.Op Fl -options Ar string
 .Op Fl -quiet | -verbose
 .Pp
 .Nm bless
@@ -31,6 +38,15 @@
 .Op Fl -label Ar name | Fl -labelfile Ar file
 .Op Fl -startupfile Ar file
 .Op Fl -setBoot
+.Op Fl -nextonly
+.Op Fl -options Ar string
+.Op Fl -quiet | -verbose
+.Pp
+.Nm bless
+.Fl -netboot
+.Fl -server Ar url
+.Op Fl -nextonly
+.Op Fl -options Ar string
 .Op Fl -quiet | -verbose
 .Pp
 .Nm bless
@@ -44,21 +60,47 @@
 is used to modify the volume bootability characteristics of filesystems, as well
 as select the active boot volume.
 .Nm bless
-has 4 modes of execution: Folder Mode, Mount Mode, Device Mode, and Info Mode.
-Folder Mode allows you to select a directory on a mounted volume to act as the
+has 5 modes of execution: Folder Mode, Mount Mode, Device Mode, NetBoot Mode,
+and Info Mode.
+.Pp
+Folder Mode allows you to select a directory on a mounted
+volume to act as the
 .Do blessed Dc
-directory, which causes OpenFirmware to look in that directory for boot code.
-Both Folder Mode and Mount Mode can modify Open Firmware to boot from a
-specified volume, assuming it has been properly blessed.
-Device Mode allows you to point Open Firmware at an unmounted volume, as well
-as perform certain offlin modifications to the filesystem. Info Mode will print
+directory, which causes the system firmware to look in that directory
+for boot code. EFI-based systems also support a
+.Do blessed Dc
+system file, which is the primary mechanism of specifying the booter for
+a volume for those systems. In Folder Mode, if you are operating on an HFS+
+volume, the HFS+ Volume Header is updated to reflect these files/directories
+given.
+.Pp 
+Mount Mode does not make permament modifications to the filesystem, but rather
+set the system firmware to boot from the
+specified volume, assuming it has been properly blessed. This is a subset of
+the functionality of Folder Mode with the
+.Fl -setBoot
+option, but is convenient when you don't want to change or interrogate
+the filesystem for its blessed status.
+.Pp
+Device Mode is similar to Mount Mode, but allows selection of unmounted
+filesystems, for instance while in single user mode. It can also perform
+certain offline modifications to the filesystem, but is not generally recommended.
+.Pp
+NetBoot Mode sets the system firmware to boot from the network, using a
+URL syntax to specify the protocol and server.
+.Nm
+only sets the local system to go into NetBoot mode, and does not communicate
+to the server what image should be used, if there are multiple images. Some
+other mechanism, such as using Startup Disk, should be used to select that.
+.Pp
+Info Mode will print
 out the currently\-blessed directory of a volume, or if no mountpoint is
-specified, the active boot volume that OF is set to boot from.
+specified, the active boot volume that the firmware is set to boot from.
 .Pp
 Additionally,
 .Fl -help
 can be used to display the command-line usage summary.
-.Ss FOLDER MODE
+.Ss FILE/FOLDER MODE
 Folder Mode has the following options:
 .Bl -tag -width "xxopenfolderxdirectory" -compact
 .It Fl -folder Ar directory
@@ -78,6 +120,10 @@ flag. By default, Mac OS X will be the default OS if both
 and
 .Fl -folder9
 are provided.
+.It Fl -file Ar file
+Set this file to be the Mac OS X/Darwin blessed boot file, containing a booter
+for EFI-based systems. If this option is not provided, a default boot file
+is used based on the blessed directory.
 .It Fl -bootinfo Op Ar file
 Create a
 .Pa BootX
@@ -89,6 +135,19 @@ is not provided, a default is used (see FILES), using a path relative
 to the mountpoint you are blessing. This attempts to ensure that a
 .Pa BootX
 is used that is compatible with the OS on the target volume.
+.It Fl -bootefi Op Ar file
+Create a
+.Pa boot.efi
+file in the Mac OS X/Darwin system folder using
+.Ar file
+as a source. If
+.Ar file
+is not provided, a default is used (see FILES), using a path relative
+to the mountpoint you are blessing. This attempts to ensure that a
+.Pa boot.efi
+is used that is compatible with the OS on the target volume. If
+.Fl -file
+is also provided, the new file will be created at that path instead.
 .It Fl -bootBlockFile Ar file
 Set the boot blocks on the volume using the contents of
 .Ar file
@@ -110,18 +169,29 @@ and
 .Fl -folder9
 were given, but Mac OS 9 should be the default for the volume.
 .It Fl -label Ar name
-Render a text label used in the OpenFirmware-based OS picker
+Render a text label used in the firmware-based OS picker
 .It Fl -labelfile Ar file
-Use a pre-rendered label used for the OpenFirmware-based OS picker
+Use a pre-rendered label used for the firmware-based OS picker
 .It Fl -openfolder Ar directory
 Specify a folder to be opened in the Finder when the volume is mounted by
 the system.
 .It Fl -setBoot
 Set the system to boot off the specified partition. This is implemented in
-a platform-specific manner. On Darwin PPC, the Open Firmware
+a platform-specific manner. On Open Firmware-based systems, the
 .Em boot-device
-variable is modified. On Darwin x86, the MBR partition map is
-adjusted to mark the specified partition as active
+variable is modified. On EFI-based systems, the 
+.Em efi-boot-device
+variable is changed.
+.It Fl -nextonly
+Only change the boot device selection for the next boot. This is only supported
+on EFI-based systems.
+.It Fl -options
+Set load options associated with the new boot option. This is only supported
+on EFI-based systems, and in general should be avoided. Instead, use
+.Xr nvram 8
+to set
+.Qo boot-args Qc
+, which will work with both Open Firmware- and EFI-based systems.
 .It Fl -quiet
 Do not print any output
 .It Fl -verbose
@@ -136,8 +206,17 @@ Use the volume mounted at
 to change the active boot volume, in conjunction with
 .Fl -setBoot
 \&. The volume must already be properly blessed.
+.It Fl -file Ar file
+Instead of allowing the firmware to discover the booter based on the blessed
+directory or file, pass an explicit path to the firmware to boot from. This
+can be used to run EFI applications or EFI booters for alternate OSes, but
+should not be normally used. This is only supported on EFI-based systems.
 .It Fl -setBoot
-Same as Folder Mode
+Same as for Folder Mode.
+.It Fl -nextonly
+Same as for Folder Mode.
+.It Fl -options
+Same as for Folder Mode.
 .It Fl -quiet
 Do not print any output
 .It Fl -verbose
@@ -153,11 +232,11 @@ to change the active boot volume. No volumes should be mounted from
 .Ar device
 \&, and the filesystem should already be properly blessed.
 .It Fl -label Ar name
-Set the OpenFirmware-based OS picker label for the unmounted filesystem, using
+Set the firmware-based OS picker label for the unmounted filesystem, using
 .Ar name
 \&, which should be in UTF-8 encoding.
 .It Fl -labelfile Ar file
-Use a pre-rendered label used with the OpenFirmware-based OS picker.
+Use a pre-rendered label used with the firmware-based OS picker.
 .It Fl -setBoot
 Set the system to boot off the specified partition, as with Folder and Mount
 Modes.
@@ -166,6 +245,36 @@ Add the
 .Ar file
 as the HFS+ StartupFile, and update other information on disk as appropriate
 for the startup file type.
+.It Fl -nextonly
+Same as for Folder Mode.
+.It Fl -options
+Same as for Folder Mode.
+.It Fl -quiet
+Do not print any output
+.It Fl -verbose
+Print verbose output
+.El
+.Ss NETBOOT MODE
+NetBoot Mode has the following options:
+.Bl -tag -width "xxopenfolderxdirectory" -compact
+.It Fl -netboot
+Instead of setting the active boot selection to a disk-based volume, set the system
+to NetBoot.
+.It Fl -server Ar protocol://[interface@]server
+A URL specification of how to boot the system. Currently, the only
+.Em protocol
+supported is BSDP ("bsdp"), Apple's Boot Service Discovery Protocol. The
+.Em interface
+is optional, and the
+.Em server
+is the IPv4 address of the server in dotted-quad notation. If there is not
+a specific server you'd like to use, pass "255.255.255.255" to have the
+firmware broadcast for the first available server. Examples of this notation
+would be "bsdp://255.255.255.255" and "bsdp://en1@17.203.12.203".
+.It Fl -nextonly
+Same as for Folder Mode.
+.It Fl -options
+Same as for Folder Mode.
 .It Fl -quiet
 Do not print any output
 .It Fl -verbose
@@ -187,9 +296,12 @@ is not specified, print information for the currently selected boot volume
 \&.
 .It Fl -getBoot
 Print out the logical boot volume, based on what is currently selected. This
-option will take into account the fact that Open Firmware may be pointing to an
+option will take into account the fact that the firmware may be pointing to an
 auxiliary booter partition, and will print out the corresponding root partition
-for those cases.
+for those cases. If the system is configured to NetBoot, a URL matching the
+format of the
+.Fl -server
+specification for NetBoot mode will be printed.
 .It Fl -plist
 Output all information in Property List (.plist) format, suitable
 for parsing by CoreFoundation. This is most useful when
@@ -205,13 +317,17 @@ Print bless version and exit immediately
 .Sh FILES
 .Bl -tag -width /usr/standalone/ppc/bootx.bootinfo -compact
 .It Pa /usr/standalone/ppc/bootx.bootinfo
-Secondary loader with XML headers, used with
+Secondary loader with XML headers, used with the
 .Fl -bootinfo
 flag. Used for booting New World PPC-based Macintoshes. If the argument to
 .Fl -bootinfo
 is ommitted, this file will be used as the default input.
-.It Pa /usr/share/misc/bootblockdata
-Boot blocks compatible with Mac OS 9.
+.It Pa /usr/standalone/i386/boot.efi
+Booter for EFI-based systems, used with the
+.Fl -bootefi
+flag. If the argument to
+.Fl -bootefi
+is ommitted, this file will be used as the default input.
 .It Pa /System/Library/CoreServices
 Typical blessed folder for Mac OS X and Darwin
 .El
@@ -226,13 +342,14 @@ To bless a volume with only Mac OS 9:
 .Qo /usr/share/misc/bootblockdata Qc
 .Ed
 .Pp
-To bless a volume with only Mac OS X or Darwin, and create the BootX file:
+To bless a volume with only Mac OS X or Darwin, and create the BootX and
+boot.efi files as needed:
 .Bd -ragged -offset indent
 .Nm bless
 .Fl -folder
 .Qo /Volumes/Mac OS X/System/Library/CoreServices Qc
 .Fl -bootinfo
-.Qo /Volumes/Mac OS X/usr/standalone/ppc/bootx.bootinfo Qc
+.Fl -bootefi
 .Ed
 .Ss MOUNT MODE
 To set a volume containing either Mac OS 9 and Mac OS X to be
@@ -243,9 +360,17 @@ the active volume:
 .Qo /Volumes/Mac OS Qc
 .Fl -setBoot
 .Ed
+.Ss NETBOOT MODE
+To set the system to NetBoot and broadcast for an available server:
+.Bd -ragged -offset indent
+.Nm bless
+.Fl -netboot
+.Fl -server
+.Ar bsdp://255.255.255.255
+.Ed
 .Ss INFO MODE
 To gather information about the currently selected volume (as
-determined by Open Firmware), suitable for piping to a program capable
+determined by the firmware), suitable for piping to a program capable
 of parsing Property Lists:
 .Bd -ragged -offset indent
 .Nm bless

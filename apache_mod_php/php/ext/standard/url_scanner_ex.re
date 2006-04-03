@@ -16,6 +16,8 @@
   +----------------------------------------------------------------------+
 */
 
+/* $Id: url_scanner_ex.re,v 1.63.2.11 2005/04/08 20:17:41 sniper Exp $ */
+
 #include "php.h"
 
 #ifdef HAVE_UNISTD_H
@@ -488,7 +490,7 @@ int php_url_scanner_reset_vars(TSRMLS_D)
 	BG(url_adapt_state_ex).form_app.len = 0;
 	BG(url_adapt_state_ex).url_app.len = 0;
 
-	return FAILURE;
+	return SUCCESS;
 }
 
 PHP_MINIT_FUNCTION(url_scanner)

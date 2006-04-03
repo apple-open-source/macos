@@ -2,6 +2,8 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -524,8 +526,11 @@ AppleUSBHubPort::ReEnumeratePort(UInt32 options)
     // talking to the device (Bluetooth workaround)
     if ( (options & kUSBAddExtraResetTimeMask) )
     {
-        USBLog(5,"AppleUSBHubPort[%p]::ReEnumeratePort -- reenumerating port %d, options 0x%x",this, _portNum, options);
         _extraResetDelay = true;
+    }
+    else
+    {
+        _extraResetDelay = false;
     }
     
     // First, since we are going to reenumerate, we need to remove the device
@@ -776,6 +781,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
     {
         USBLog(5, "***** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - delaying 100ms workaround", this);
         IOSleep(100);
+        _extraResetDelay = false;
     }
     
     do
@@ -1120,6 +1126,7 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
     {
         USBLog(5, "***** AppleUSBHubPort[%p]::HandleResetPortHandler - delaying 100ms workaround", this);
         IOSleep(100);
+        _extraResetDelay = false;
     }
 
     do

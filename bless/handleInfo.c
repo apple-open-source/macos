@@ -27,7 +27,7 @@
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Dec 6 2001.
  *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: handleInfo.c,v 1.29 2005/02/03 00:42:22 ssen Exp $
+ *  $Id: handleInfo.c,v 1.40 2006/01/02 22:27:27 ssen Exp $
  *
  *
  */
@@ -41,15 +41,25 @@
 #include <sys/mount.h>
 #include <sys/param.h>
 
+#include <sys/socket.h>
+#include <net/if.h>
+#include <arpa/nameser.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include "enums.h"
 #include "structs.h"
 
 #include "bless.h"
+#include "bless_private.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 
-extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...);
+extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
+    __attribute__ ((format (printf, 3, 4)));
 
+static int interpretEFIString(BLContextPtr context, CFStringRef efiString, 
+                              char *bootdevice);
 
 /* 8 words of "finder info" in volume
  * 0 & 1 often set to blessed system folder
@@ -74,7 +84,7 @@ extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fm
 static const char *messages[7][2] = {
 
        { "No Blessed System Folder", "Blessed System Folder is " },    /* 0 */
-       { "No Startup App folder (ignored anyway)", "Startup App folder is " },
+       { "No Blessed System File", "Blessed System File is " },
        { "Open-folder linked list empty", "1st dir in open-folder list is " },
        { "No OS 9 + X blessed 9 folder", "OS 9 blessed folder is " },  /* 3 */
        { "Unused field unset", "Thought-to-be-unused field points to " },
@@ -84,16 +94,22 @@ static const char *messages[7][2] = {
 };
 
 int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
-    int err;
-    CFDictionaryRef dict;
+    int                 err;
+    CFDictionaryRef     dict;
+    int                 isNetboot = 0;
 
     if(!actargs[kinfo].hasArg ||  actargs[kgetboot].present) {
             char currentString[1024];
-            char currentDev[MNAMELEN];
+            char currentDev[1024]; // may contain URLs like bsdp://foo
             struct statfs *mnts;
             int vols;
+			BLPreBootEnvType	preboot;
+			
+			err = BLGetPreBootEnvironmentType(context, &preboot);
+			if(err)
+				return 1;
 
-            if(BLIsOpenFirmwarePresent(context)) {
+            if(preboot == kBLPreBootEnvType_OpenFirmware) {
 
                 FILE *pop;
     
@@ -112,49 +128,52 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
     
                 blesscontextprintf(context, kBLLogLevelVerbose,  "Current OF: %s\n", currentString );
 
-                err = BLGetDeviceForOpenFirmwarePath(context, currentString,
-                                                    currentDev);
-                if(err) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Can't get device for %s: %d\n", currentString, err );
+                // XXX temporarily trap enet:bootp. Doesn't work with enet1:bootp
+                if(strncmp(currentString, "enet:", strlen("enet:")) == 0) {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Synthesizing BSDP boot device\n" );
+                    strcpy(currentDev, "bsdp://en0@255.255.255.255");
+                    isNetboot = 1;
+                } else {
+                    err = BLGetDeviceForOpenFirmwarePath(context, currentString,
+                                                        currentDev);
+                    if(err) {
+                        blesscontextprintf(context, kBLLogLevelError,  "Can't get device for %s: %d\n", currentString, err );
+                        return 1;
+        
+                    }
+                }
+            } else if(preboot == kBLPreBootEnvType_EFI) {
+				// fill this in later
+				//struct statfs sb;
+                CFStringRef     efibootdev = NULL;
+                char currentString[1024];
+
+                err = BLCopyEFINVRAMVariableAsString(context,
+                                                     CFSTR("efi-boot-device"),
+                                                     &efibootdev);
+                    
+                if(err || efibootdev == NULL) {
+                    blesscontextprintf(context, kBLLogLevelError,
+                                       "Can't access \"efi-boot-device\" NVRAM variable\n");
                     return 1;
-    
                 }
-            } else {
-                // machine does not use OF. assume BIOS
-                struct statfs sb;
-                unsigned char parent[MNAMELEN];
-                unsigned long pnum = 0;
-                BLPartitionType ptype = 0;
                 
-                if(0 != statfs("/", &sb)) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Can't statfs /\n");
-                    return 1;                
+                if(CFStringGetCString(efibootdev, currentString, sizeof(currentString), kCFStringEncodingUTF8)) {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Current EFI boot device string is: '%s'\n",
+                                       currentString);                    
                 }
-
-                err = BLGetParentDeviceAndPartitionType(context,
-		     sb.f_mntfromname, parent, &pnum, &ptype);
-
+                
+                err = interpretEFIString(context, efibootdev, currentDev);
                 if(err) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Can't determine parent partition for %s\n", sb.f_mntfromname);
-                    return 2;                                
+                    blesscontextprintf(context, kBLLogLevelError,
+                                       "Can't interpet EFI boot device\n");
+                    return 2;                    
                 }
-
-                if(ptype != kBLPartitionType_MBR) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Incorrect partition map type\n");
-                    return 3;                                                    
-                }
-
-                blesscontextprintf(context, kBLLogLevelVerbose,  "Whole device is %s\n", parent);
-
-		err = BLGetActiveBIOSPartitionForDevice(context, parent, currentDev);
-                if(err) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Can't determine active partition for %s\n", parent);
-                    return 2;                                
-		}
-
-		blesscontextprintf(context, kBLLogLevelVerbose,  "Active partition is %s\n", currentDev);
-
-            }
+                				
+			} else {
+				blesscontextprintf(context, kBLLogLevelError,  "Unknown preboot environment\n");
+				return 1;
+			}
 
 	    if( actargs[kgetboot].present) {
                 if(actargs[kplist].present) {
@@ -190,7 +209,14 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             }
 
             while(--vols >= 0) {
-                if(strncmp(mnts[vols].f_mntfromname, currentDev, strlen(currentDev)+1) == 0) {
+                struct statfs sb;
+                
+                // somewhat redundant, but blsustatfs will canonicalize the mount device
+                if(0 != blsustatfs(mnts[vols].f_mntonname, &sb)) {
+                    continue;
+                }
+                
+                if(strncmp(sb.f_mntfromname, currentDev, strlen(currentDev)+1) == 0) {
                     blesscontextprintf(context, kBLLogLevelVerbose,  "mount: %s\n", mnts[vols].f_mntonname );
                     strcpy(actargs[kinfo].argument, mnts[vols].f_mntonname);
                     actargs[kinfo].hasArg = 1;
@@ -241,7 +267,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             CFNumberRef dirID = CFDictionaryGetValue(word, CFSTR("Directory ID"));
             CFStringRef path = CFDictionaryGetValue(word, CFSTR("Path"));
             uint32_t dirint;
-            unsigned char cpath[MAXPATHLEN];
+            char cpath[MAXPATHLEN];
             
             if(!CFNumberGetValue(dirID, kCFNumberLongType, &dirint)) {
                 continue;
@@ -256,7 +282,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             }
 
             blesscontextprintf(context, kBLLogLevelNormal,
-                        "finderinfo[%i]: %6lu => %s%s\n", j, dirint,
+                        "finderinfo[%i]: %6u => %s%s\n", j, dirint,
                         messages[j][dirint > 0], cpath);
 
         }
@@ -274,4 +300,46 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
     
     CFRelease(dict);
     return 0;
+}
+
+static int interpretEFIString(BLContextPtr context, CFStringRef efiString, 
+                              char *bootdevice)
+{
+    char                interface[IF_NAMESIZE];
+    char                host[NS_MAXDNAME];
+    char                path[1024];
+    int                 ret;
+    
+    ret = BLInterpretEFIXMLRepresentationAsDevice(context,
+                                                  efiString,
+                                                  path);
+    if(ret == 0) {
+        blesscontextprintf(context, kBLLogLevelVerbose,  "Disk boot device detected\n" );
+        
+        sprintf(bootdevice, "/dev/%s", path);
+        
+        return 0;
+    } else {
+        ret = BLInterpretEFIXMLRepresentationAsNetworkPath(context,
+                                                           efiString,
+                                                           interface,
+                                                           host,
+                                                           path);
+        
+        if(ret == 0) {
+            blesscontextprintf(context, kBLLogLevelVerbose,  "Network boot device detected\n" );
+            
+            if(strlen(path) > 0) {
+                sprintf(bootdevice, "tftp://%s@%s/%s", interface, host, path);
+            } else {
+                sprintf(bootdevice, "bsdp://%s@%s", interface, host);            
+            }
+            
+            return 0;
+        }            
+    }
+
+    blesscontextprintf(context, kBLLogLevelError,  "Could not interpret boot device as either network or disk\n" );
+    
+    return 1;
 }
